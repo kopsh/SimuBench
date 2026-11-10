@@ -1,0 +1,212 @@
+# Keysight M8194A 的手册用例：Keysight M8194A 120 GSa/s Arbitrary Waveform Generator User Guide
+# （M8194-91020）第 4 章 Remote Programming。手册没有列出 *RST 的各项数值，*RST 用例检查的是模型值
+# （覆盖表 *RST 一行）。测试台 examples/benches/keysight-m8194a.bench.yaml：通道 1、2 接 UXR0334B。
+model: keysight-m8194a
+bench: ../../../examples/benches/keysight-m8194a.bench.yaml
+instrument: awg
+cases:
+  - name: "*IDN?、*OPT?、*TST?、*OPC?"
+    manual: "Common Commands > *IDN?, *OPT?, *TST?, *OPC?"
+    steps:
+      - query: "*IDN?"
+        expect: "Keysight Technologies,M8194A,MY12345678,0.1.23.0-1"
+      - query: "*OPT?"
+        expect: "004"
+      - query: "*TST?"
+        expect: "0"
+      - query: "*OPC?"
+        expect: "1"
+
+  - name: "*RST 回到模型的默认状态，错误队列不清"
+    manual: "Common Commands > *RST; :SYSTem:ERRor[:NEXT]?"
+    steps:
+      - send: ":VOLT 0.7;:VOLT:OFFS 0.2;:OUTP1 ON;:INST:DACM DUAL"
+      - send: "*RST"
+      - query: ":VOLT?"
+        expect: "5.000000000000000E-01"
+      - query: ":VOLT:OFFS?"
+        expect: "0.000000000000000E+00"
+      - query: ":OUTP1?"
+        expect: "0"
+      - query: ":INST:DACM?"
+        expect: "FOUR"
+
+  - name: ":SYSTem:ERRor[:NEXT]? 与 :COUNt?：先进先出，空时 0,\"No error\"；*CLS 清队列"
+    manual: ":SYSTem Commands > :SYSTem:ERRor[:NEXT]?, :SYSTem:ERRor:COUNT?"
+    steps:
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+      - send: ":FOO"
+      - send: ":VOLT 5"
+      - query: ":SYST:ERR:COUN?"
+        expect: "2"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":FOO"
+      - send: "*CLS"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+
+  - name: ":VOLTage、:OFFSet、:HIGH、:LOW：电平关系与范围"
+    manual: "[:SOURce] Commands > :VOLTage[:LEVel][:IMMediate][:AMPLitude], :HIGH, :LOW, :OFFSet"
+    steps:
+      - send: ":VOLT 0.6"
+      - query: ":VOLT?"
+        expect: "6.000000000000000E-01"
+      - send: ":VOLT:OFFS 0.02"
+      - query: ":VOLT:OFFS?"
+        expect: "2.000000000000000E-02"
+      - send: ":VOLT2 0.5;:VOLT2:OFFS 0.25"
+      - query: ":VOLT2:HIGH?"
+        expect: "5.000000000000000E-01"
+      - query: ":VOLT2:LOW?"
+        expect: "0.000000000000000E+00"
+      - send: ":VOLT3:HIGH 0.25;:VOLT3:LOW -0.25"
+      - query: ":VOLT3?"
+        expect: "5.000000000000000E-01"
+      - query: ":VOLT3:OFFS?"
+        expect: "0.000000000000000E+00"
+      - query: ":VOLT1?"
+        expect: "6.000000000000000E-01"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+
+  - name: "电平超出数据手册范围报 -222，值不变"
+    manual: "[:SOURce] Commands > :VOLTage (范围见数据手册 5992-3361 Out 1, 2, 3, 4)"
+    steps:
+      - send: ":VOLT 0.9"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":VOLT 0.05"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":VOLT:OFFS 3"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - query: ":VOLT?"
+        expect: "5.000000000000000E-01"
+
+  - name: ":VOLTage:TERMination 与 :OUTPut:DIOFfset"
+    manual: "[:SOURce] Commands > :VOLTage:TERMination; :OUTPut Commands > :OUTPut:DIOFfset"
+    steps:
+      - send: ":VOLT:TERM -0.3"
+      - query: ":VOLT:TERM?"
+        expect: "-3.000000000000000E-01"
+      - send: ":VOLT:TERM 4"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":OUTP:DIOF 0.01"
+      - query: ":OUTP:DIOF?"
+        expect: "1.000000000000000E-02"
+
+  - name: ":OUTPut[1|2|3|4][:STATe]：每个通道各自开关"
+    manual: ":OUTPut Commands > :OUTPut[1|2|3|4][:STATe]"
+    steps:
+      - send: ":OUTP1 ON"
+      - query: ":OUTP1?"
+        expect: "1"
+      - query: ":OUTP2?"
+        expect: "0"
+      - send: ":OUTP4 1"
+      - query: ":OUTP4?"
+        expect: "1"
+      - send: ":OUTP1 OFF"
+      - query: ":OUTP1?"
+        expect: "0"
+
+  - name: ":INSTrument:DACMode"
+    manual: ":INSTrument Commands > :INSTrument:DACMode"
+    steps:
+      - send: ":INST:DACM DUAL"
+      - query: ":INST:DACM?"
+        expect: "DUAL"
+      - send: ":INST:DACM MARK"
+      - query: ":INST:DACM?"
+        expect: "MARK"
+      - send: ":INST:DACM DCM"
+      - query: ":INST:DACM?"
+        expect: "DCM"
+
+  - name: ":INSTrument:HWRevision?、:SLOT?、:IDENtify、:IDENtify:STOP"
+    manual: ":INSTrument Commands > :INSTrument:HWRevision?, :IDENtify, :IDENtify:STOP, :SLOT[:NUMBer]?"
+    steps:
+      - query: ":INST:HWR?"
+        expect: '"1"'
+      - query: ":INST:SLOT?"
+        expect: '"2"'
+      - send: ":INST:IDEN"
+      - send: ":INST:IDEN:STOP"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+
+  - name: ":FREQuency:RASTer 与 :RANGe：采样频率 95.6–120.2 GSa/s"
+    manual: "[:SOURce] Commands > :FREQuency:RASTer, :FREQuency:RANGe"
+    steps:
+      - send: ":FREQ:RANG HIGH"
+      - query: ":FREQ:RANG?"
+        expect: "HIGH"
+      - send: ":FREQ:RAST 1.15e11"
+      - query: ":FREQ:RAST?"
+        expect: "1.150000000000000E+11"
+      - send: ":FREQ:RAST MAX"
+      - query: ":FREQ:RAST?"
+        expect: "1.202000000000000E+11"
+      - send: ":FREQ:RAST 1e9"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":FREQ:RANG LOW"
+      - query: ":FREQ:RANG?"
+        expect: "LOW"
+
+  - name: ":ROSCillator：参考时钟源、频率、覆盖与校准值；:OUTPut:ROSCillator"
+    manual: "[:SOURce] Commands > :ROSCillator:SOURce, :EXTernal:FREQuency, :INTernal:FREQuency, :OVERride, :CALibration; :OUTPut:ROSCillator"
+    steps:
+      - query: ":ROSC:SOUR?"
+        expect: "INT"
+      - send: ":ROSC:SOUR EXT"
+      - query: ":ROSC:SOUR?"
+        expect: "EXT"
+      - send: ":ROSC:EXT:FREQ 2.9e8"
+      - query: ":ROSC:EXT:FREQ?"
+        expect: "2.900000000000000E+08"
+      - send: ":ROSC:EXT:FREQ 1e8"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":ROSC:INT:FREQ 2.86e8;:ROSC:INT:FREQ:OVER 1"
+      - query: ":ROSC:INT:FREQ?"
+        expect: "2.860000000000000E+08"
+      - query: ":ROSC:INT:FREQ:OVER?"
+        expect: "1"
+      - query: ":ROSC:CAL?"
+        expect: "2.85000000000000E+08"
+      - send: ":OUTP:ROSC 1"
+      - query: ":OUTP:ROSC?"
+        expect: "1"
+
+  - name: ":ABORt、:INITiate:IMMediate、:INITiate:ASYNc 被接受，*OPC? 回 1"
+    manual: ":ABOrt Commands; :INITiate Commands > :INITiate:IMMediate, :INITiate:ASYNc"
+    steps:
+      - send: ":OUTP1 ON"
+      - send: ":INIT:IMM"
+      - send: ":INIT:ASYN1"
+      - query: "*OPC?"
+        expect: "1"
+      - send: ":ABOR"
+      - send: ":ABOR1"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+
+  - name: ":SYSTem:VERSion?"
+    manual: ":SYSTem Commands > :SYSTem:VERSion?"
+    steps:
+      - query: ":SYST:VERS?"
+        expect: '"1999.0"'
+
+  - name: "TRACe 命令未建模：-113"
+    manual: ":TRACe Commands > :TRACe[1|2|3|4][:DATA], :DEFine, :CATalog?"
+    steps:
+      - send: ":TRAC1:DEF 1,128,0"
+      - query: ":SYST:ERR?"
+        expect: '-113,"Undefined header;not implemented in this definition"'

@@ -1,0 +1,333 @@
+schema: simubench.coverage/1
+model: keysight-m8194a
+sections:
+- section: Common Commands
+  commands:
+  - header: '*OPT'
+    level: implemented
+    note: 回已安装选件；按四通道（选件 004）建模，回 004。
+  - header: '*LRN'
+    level: not_modeled
+    note: 设置的二进制学习串未建模。
+- section: Status Model
+  commands:
+  - header: :STATus:PRESet
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable[:EVENt]
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:CONDition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:ENABle
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:NTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:PTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation[:EVENt]
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:CONDition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:ENABle
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:NTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:PTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:VOLTage[:EVENt]
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:VOLTage:CONDition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:VOLTage:ENABle
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:VOLTage:NTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:VOLTage:PTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:FREQuency[:EVENt]
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:FREQuency:CONDition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:FREQuency:ENABle
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:FREQuency:NTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:FREQuency:PTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:CONNection[:EVENt]
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:CONNection:CONDition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:CONNection:ENABle
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:CONNection:NTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:QUEStionable:CONNection:PTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:RUN[:EVENt]
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:RUN:CONDition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:RUN:ENABle
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:RUN:NTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+  - header: :STATus:OPERation:RUN:PTRansition
+    level: not_modeled
+    note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+- section: :ABOrt Commands
+  commands:
+  - header: :ABORt<ch>
+    level: implemented
+    note: 停止信号产生；后缀 1–4 都停止所有通道（手册）。运行状态只保存，不门控输出（输出由 :OUTPut 控制）。查询形式 :ABORt<ch>? 未建模。
+- section: :INITiate Commands
+  commands:
+  - header: :INITiate:IMMediate<ch>
+    level: implemented
+    note: 开始信号产生（所有通道）；运行状态只保存，不门控输出。
+  - header: :INITiate:ASYNc<ch>
+    level: implemented
+    note: 同 IMMediate；手册说它是重叠命令，模型即刻完成，*OPC? 立即回 1。
+- section: :INSTrument Commands
+  commands:
+  - header: :INSTrument:DACMode
+    level: implemented
+    note: SINGle|DUAL|FOUR|MARKer|DCMarker，保存并回读；手册未给 *RST 值，取 FOUR。模式不改变通道可用性，标记输出未建模。
+  - header: :INSTrument:HWRevision
+    level: implemented
+    note: 硬件版本，回带引号的 "1"（手册示例）。
+  - header: :INSTrument:IDENtify
+    level: implemented
+    note: 前面板 Access 灯闪烁；模型只置标志；可选的秒数参数接受并忽略（不计时，没有 LED）。
+  - header: :INSTrument:IDENtify:STOP
+    level: implemented
+    note: 停止闪烁，清标志。
+  - header: :INSTrument:SLOT[:NUMBer]
+    level: implemented
+    note: AXIe 槽号，回带引号的数字（手册示例 "2"）。
+- section: :MMEMory Commands
+  commands:
+  - header: :MMEMory:CATalog
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:CDIRectory
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:COPY
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:DATA
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:DATA:APPend
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:DELete
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:LOAD:CSTate
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:MDIRectory
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:MOVE
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:RDIRectory
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+  - header: :MMEMory:STORe:CSTate
+    level: not_modeled
+    note: 未建模：文件系统（MMEMory）不在仿真范围。
+- section: :OUTPut Commands
+  commands:
+  - header: :OUTPut<ch>:DIOFfset
+    level: implemented
+    note: 差分偏置：手册只说范围取决于校准结果，不给数值，模型不限制范围；MIN/MAX 未建模。
+  - header: :OUTPut<ch>[:STATe]
+    level: implemented
+    note: 通道输出放大器开关，OFF|ON|0|1，查询回 0/1，开机关。
+  - header: :OUTPut:ROSCillator[:STATe]
+    level: implemented
+    note: Sync Out B 输出开关；“只能在使用内部参考时打开”未检查。
+- section: '[:SOURce] Commands'
+  commands:
+  - header: '[:SOURce]:CHARacteris<ch>[:VALue]'
+    level: not_modeled
+    note: 逐通道频率与相位响应数据（校准数据）未建模。手册把头写成 CHARacteris（缺末尾字符），此处照抄。
+  - header: '[:SOURce]:FREQuency:RASTer'
+    level: implemented
+    note: 采样频率 95.6–120.2 GSa/s（数据手册：三档范围之间的空隙不检查）；MIN/MAX 取整体范围的端点，不随 :FREQuency:RANGe 变化。
+  - header: '[:SOURce]:FREQuency:RANGe'
+    level: implemented
+    note: LOW|MEDium|HIGH，保存并回读；与 :FREQuency:RASTer 互不联动（三档对应 95.6–100.2、107.2–112.2、115.2–120.2 GSa/s）。
+  - header: '[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate][:AMPLitude]'
+    level: implemented
+    note: 单端 Vpp，75 mV–0.8 V（数据手册 Out 1–4），范围外 -222；负载按 50 Ω 定义。手册示例 :VOLT 0.685。
+  - header: '[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:HIGH'
+    level: implemented
+    note: 高电平 = 偏置 + 幅度/2；改它同时改幅度与偏置，受 -1.0…+2.5 V 电压窗与幅度范围限制。
+  - header: '[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:LOW'
+    level: implemented
+    note: 低电平 = 偏置 - 幅度/2；规则同 HIGH。
+  - header: '[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:OFFSet'
+    level: implemented
+    note: 偏置 -1.0…+2.5 V（数据手册电压窗）。
+  - header: '[:SOURce]:VOLTage<ch>[:LEVel][:IMMediate]:TERMination'
+    level: implemented
+    note: 终端电压 -1.5…+3.5 V（数据手册）；只保存并回读，不影响输出电平。
+  - header: '[:SOURce]:ROSCillator:SOURce'
+    level: implemented
+    note: INTernal|EXTernal，保存并回读；“只能在停止（:ABORt）时切换”未检查，外部参考不影响输出。
+  - header: '[:SOURce]:ROSCillator:SOURce:CHECk'
+    level: not_modeled
+    note: 外部参考是否可用的检查未建模（没有外部信号模型）。
+  - header: '[:SOURce]:ROSCillator:EXTernal:FREQuency'
+    level: implemented
+    note: 外部参考频率 200–300 MHz（手册）；只保存并回读。
+  - header: '[:SOURce]:ROSCillator:INTernal:FREQuency'
+    level: implemented
+    note: 覆盖时假定的内部参考频率，保存并回读；不改变振荡器。
+  - header: '[:SOURce]:ROSCillator:INTernal:FREQuency:OVERride'
+    level: implemented
+    note: 0|1，保存并回读。手册说明查询在选中 Override 复选框时回 0，与命令相反，模型按命令一致（回 1 表示覆盖）。
+  - header: '[:SOURce]:ROSCillator:CALibration[:FREQuency]'
+    level: implemented
+    note: 回 2.85000000000000E+08（手册示例）。
+- section: :SYSTem Commands
+  commands:
+  - header: :SYSTem:COMMunicate:HISLip[:NUMBer]
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:COMMunicate:INSTr[:NUMBer]
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:COMMunicate:SOCKet[:PORT]
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:COMMunicate:TCPip:CONTrol
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:COMMunicate:TELNet[:PORT]
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:HELP:HEADers
+    level: not_modeled
+    note: 命令列表块未建模。
+  - header: :SYSTem:LICense:EXTended:LIST
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:LICense:LIST
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:LICense:SUBScription:DATE
+    level: not_modeled
+    note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+  - header: :SYSTem:SET
+    level: not_modeled
+    note: 设置学习串未建模（同 *LRN?）。
+  - header: :SYSTem:VERSion
+    level: implemented
+    note: SCPI 版本，回 "1999.0"（手册示例）。
+- section: :TEST Commands
+  commands:
+  - header: :TEST:PON
+    level: not_modeled
+    note: 上电自检结果未建模，手册未给回复格式。
+  - header: :TEST:TST
+    level: not_modeled
+    note: 自检消息未建模，手册未给回复格式；*TST? 回 0。
+- section: :TRACe Commands
+  commands:
+  - header: :TRACe<ch>:CATalog
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:COMMent
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>[:DATA]
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:DEFine
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:DEFine:NEW
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:DEFine:WONLy
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:DEFine:WONLy:NEW
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:DELete
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:DELete:ALL
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:IMPort
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:MARKer[:STATe]
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+  - header: :TRACe<ch>:NAME
+    level: not_modeled
+    note: 未建模：波形存储（TRACe 段）没有可用的通用能力，核心 issue
+- section: Multi-Module Configuration Commands
+  commands:
+  - header: :INSTrument:MDIScover
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+  - header: :INSTrument:MMODule:IDENtify
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+  - header: :INSTrument:MMODule:MODE
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+  - header: :INSTrument:MMODule:CONFig
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+  - header: :INSTrument:SLAVe:LIST
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+  - header: :INSTrument:SLAVe:ADD
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+  - header: :INSTrument:SLAVe:DELete
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+  - header: :INSTrument:SLAVe:DELete:ALL
+    level: not_modeled
+    note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
