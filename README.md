@@ -37,7 +37,7 @@ simubench doctor                                 # 检查安装
 simubench serve --workspace 我的测试台目录 --open
 ```
 
-版本号由 git 提交历史算出（D58）：`YYYY.M.D.N`，日期是最新提交的日期，N 是当天第几个提交，不打 tag；构建需要完整的 git 历史，或 GitHub zip / `git archive` 导出的源码。改了什么（只列产品变更，一个版本一节）：构建时写在 wheel 旁边的 `dist/CHANGELOG.md`，安装后 `simubench changelog`；发布说明（只含上一个已发布版本之后的新增）：`scripts/build-wheel.sh <上一版>` 写出 `dist/RELEASE_NOTES.md`，或 `python scripts/changelog.py --since <版本>`。
+版本号由 git 提交历史算出（D58）：`YYYY.M.D.N`，日期是最新提交的日期，N 是当天第几个提交，不打 tag；构建需要完整的 git 历史，或 GitHub zip / `git archive` 导出的源码。改了什么（只列产品变更，一次打包一节）：构建时写在 wheel 旁边的 `dist/CHANGELOG.md`，安装后 `simubench changelog`；发布说明（只含上一个已发布版本之后的新增）：`scripts/build-wheel.sh <上一版>` 写出 `dist/RELEASE_NOTES.md`，或 `python scripts/changelog.py --since <版本>`。
 
 ### 从脚本连接
 
