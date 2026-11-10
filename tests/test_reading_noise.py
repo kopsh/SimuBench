@@ -288,7 +288,8 @@ def test_an_eload_meter_reads_with_noise_per_reading_and_per_frame(tmp_path):
         return s
 
     with open_bench(BenchDefinition.model_validate(spec)) as s:
-        assert len({meas(s) for _ in range(3)}) == 1  # default: noiseless
+        s.instruments["el"].components["load"].overrides["noise"] = None  # the definition's own noise off
+        assert len({meas(s) for _ in range(3)}) == 1  # without a noise parameter: noiseless
     s = opened()
     try:
         meter = s.instruments["el"].components["load"]

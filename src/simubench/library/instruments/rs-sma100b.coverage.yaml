@@ -1,6 +1,8 @@
 # R&S SMA100B 的覆盖表：命令按 User Manual 1178.3834.02 v14 的 List of Commands 逐条列出（<ch> 记作 <n>：
 # 本平台的 <ch> 指仪表通道）；程度与说明手写。只实现输出、频率、电平、参考、AM/FM/PM（LF1）、调制总开关、
 # 频率/电平扫描、触发、状态与公共命令；其余逐条标未实现。
+# 噪声（#744/#861）：射频源没有测量读数，读数噪声不适用；相位噪声与宽带噪声底（频谱纯度）未建模，
+# 超出读数噪声机制的范围；NOISe 调制源同样未建模（见 specs.noise_status）。
 schema: simubench.coverage/1
 model: rs-sma100b
 sections:

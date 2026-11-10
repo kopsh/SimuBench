@@ -74,10 +74,10 @@ sections:
   commands:
   - header: :FETCh:VOLTage[:DC]
     level: implemented
-    note: 返回输入电压的当前工作点。读数为 7 位尾数的 nr3（+1.0000000E+00）；每次读数另计 200 ms 积分时间。
+    note: 返回输入电压的当前工作点。读数为 7 位尾数的 nr3（+1.0000000E+00）；每次读数另计 200 ms 积分时间。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :MEASure:VOLTage[:DC]
     level: implemented
-    note: 同 :FETCh:VOLTage[:DC]；理想模型里 FETCh 与 MEASure 都取当前解（没有读数缓冲）。
+    note: 同 :FETCh:VOLTage[:DC]；理想模型里 FETCh 与 MEASure 都取当前解（没有读数缓冲）。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :FETCh:VOLTage:MAX
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
@@ -92,10 +92,10 @@ sections:
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
   - header: :FETCh:CURRent[:DC]
     level: implemented
-    note: 返回灌入电流的当前工作点；格式与积分时间同电压读数。
+    note: 返回灌入电流的当前工作点；格式与积分时间同电压读数。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :MEASure:CURRent[:DC]
     level: implemented
-    note: 同 :FETCh:CURRent[:DC]（理想模型没有读数缓冲）。
+    note: 同 :FETCh:CURRent[:DC]（理想模型没有读数缓冲）。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :FETCh:CURRent:MAX
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
@@ -116,10 +116,10 @@ sections:
     note: 电阻读数（V/I）未建模；只做 V/I/P 回读。
   - header: :FETCh:POWer[:DC]
     level: implemented
-    note: 返回 V×I；格式与积分时间同电压读数。
+    note: 返回 V×I；格式与积分时间同电压读数。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :MEASure:POWer[:DC]
     level: implemented
-    note: 同 :FETCh:POWer[:DC]。
+    note: 同 :FETCh:POWer[:DC]。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
   - header: :FETCh:CAPability
     level: not_modeled
     note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。

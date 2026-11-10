@@ -1,4 +1,7 @@
 # Generated from the command index of the InfiniiVision 2000 X-Series Programmer's Guide 02.66.0000; levels and notes by hand.
+# 噪声与抖动（#744/#745/#859）：每档通道噪声取 specs.noise_per_division（估计，数据手册 5990-6618EN 无 rms 噪声指标）；
+# 触发抖动取 specs.trigger_jitter_s_rms = 50 ps（估计，手册只给 TIE 测量的 500 ps，取采样间隔 0.5 ns 的 0.1），
+# 两者在每条记录里逐次独立抽样、同种子逐位复现；统计测试见 tests/test_keysight_dsox.py。
 schema: simubench.coverage/1
 model: keysight-dsox2024a
 sections:

@@ -70,16 +70,20 @@ def test_the_definition_noise_distributes_and_replays():
         {"r": {"type": "load_resistor", "params": {"r": 1.0e6}}}, [{"from": "cal.OUT", "to": "r.A"}]
     )
     try:
-        q("OUT 1 V;OPER")
-        q("*OPC?")
         inst = s.instruments["cal"]
         out = inst.components["out"]
+        q("OUT 1 V")  # still in standby: the panel's readback is exactly 0 on every frame (#863)
+        assert [out.readings()["values"]["voltage"] for _ in range(20)] == [0.0] * 20
+        q("OPER")
+        q("*OPC?")
         true_v = inst.session.port_signal(out, "out").mean()  # the driven output, noiseless
         frames = [out.readings()["values"]["voltage"] for _ in range(200)]
         assert len(set(frames)) > 100  # every frame draws
         assert statistics.mean(frames) == pytest.approx(true_v, abs=4 * READBACK_SIGMA / math.sqrt(200))
         assert statistics.stdev(frames) == pytest.approx(READBACK_SIGMA, rel=0.2)
         first20 = frames[:20]
+        q("STBY")  # back to standby: exactly 0 again
+        assert [out.readings()["values"]["voltage"] for _ in range(20)] == [0.0] * 20
     finally:
         s.close()
     s, q = session(

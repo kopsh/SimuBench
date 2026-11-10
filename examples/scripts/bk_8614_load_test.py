@@ -61,7 +61,9 @@ def main() -> None:
     assert not tripped, "the protection shut the input down"
     for amps, volts, current, power in points:
         assert abs(current - amps) < 0.01, (amps, current)
-        assert abs(power - volts * current) < 0.01 * max(1.0, power), (volts, current, power)
+        # The simulated 8614 reads with noise (V 0.45 mV, I 1.2 mA rms) and the power is read apart
+        # from V and I, so allow 0.4 W (4σ of the difference at 48 V) beside the 1 % margin.
+        assert abs(power - volts * current) < 0.01 * max(1.0, power) + 0.4, (volts, current, power)
     v0 = points[0][1]
     resistance = (v0 - points[-1][1]) / points[-1][2]
     print(f"source resistance: {resistance * 1e3:.1f} mOhm")

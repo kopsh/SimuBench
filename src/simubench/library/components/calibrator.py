@@ -321,9 +321,10 @@ class _Control(ProtectionLatch, Component):
         }
         if self.wired("out"):
             voltage = self.pin_signal("out").mean()
-            if isinstance(self.param("noise"), dict):
+            if self.on() and isinstance(self.param("noise"), dict):
                 # The readback's own noise (``noise``, an absolute rms — a calibrator has no
-                # measurement ranges), keyed by the panel's frame (#750, D32).
+                # measurement ranges), keyed by the panel's frame (#750, D32). Only in operate: in
+                # standby the terminal carries nothing and the readback is exactly 0 (#863).
                 voltage += self.noise_sample(
                     self.noise_rms(None, 0.0, "voltage"), "reading", "voltage", "panel", self.panel_frame()
                 )

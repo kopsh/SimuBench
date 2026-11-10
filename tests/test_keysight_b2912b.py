@@ -72,6 +72,11 @@ def test_the_definition_noise_distributes_and_replays(smu):
     assert len(set(ones)) > 4
     assert statistics.mean(ones) == pytest.approx(1e-3, abs=4 * noise_sigma(1.0e-3) / math.sqrt(200))
     assert statistics.stdev(ones) == pytest.approx(noise_sigma(1.0e-3), rel=0.2)
+    # RES is V/I of the very reading beside it (replies keep 7 digits), noise included, so it
+    # scatters too (#846)
+    rows = [[float(x) for x in smu.query(":MEAS?").split(",")] for _ in range(50)]
+    assert all(row[2] == pytest.approx(row[0] / row[1], rel=1e-5) for row in rows)
+    assert len({row[2] for row in rows}) > 4
     # The replay uses open_bench: the PyVISA ResourceManager namespaces each in-process bench
     # instance's component uids separately, so cross-instance draws differ even on the same seed.
     s = open_bench(EXAMPLE_BENCH)

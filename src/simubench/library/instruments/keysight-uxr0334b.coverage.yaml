@@ -1,4 +1,7 @@
 # Generated from the table of contents of the Infiniium UXR-Series Programmer's Guide 11.60.00000 (9018-07723); levels and notes by hand.
+# 噪声与抖动（#744/#774/#786/#859）：每档通道噪声取数据手册 3123-1313 的值（specs.noise_per_division）；触发抖动取
+# 数据手册的 25 fs 固有抖动（specs.trigger_jitter_s_rms）；逐次独立抽样、同种子逐位复现；统计测试见
+# tests/test_keysight_uxr.py。#859 复核：通道噪声表 + 触发抖动两项均已满足 #744 的约定。
 schema: simubench.coverage/1
 model: keysight-uxr0334b
 sections:

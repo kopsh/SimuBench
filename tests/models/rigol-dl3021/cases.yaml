@@ -204,11 +204,11 @@ cases:
         expect: "+1.050000E+01"
       - query: ":MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - send: ":SOUR:CURR:VON 0"
       - query: ":MEAS:CURR?"
         expect_value: 2.0
-        tolerance: 1.0e-6
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":SOUR:CURR:SLEW? MIN"
         expect: "+1.000000E-03"
       - query: ":SOUR:CURR:SLEW? MAX"
@@ -226,10 +226,10 @@ cases:
       - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 0.001;:SOUR:CURR 5;:SOUR:INP 1"
       - query: ":MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":MEAS:CURR?"
         expect_value: 5.0
-        tolerance: 1.0e-6
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - send: ":SOUR:CURR:SLEW MAX"
       - query: ":SOUR:CURR:SLEW?"
         expect: "+1.000000E+00"
@@ -242,22 +242,22 @@ cases:
       - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;:SOUR:CURR 2;:SOUR:INP 1"
       - query: ":MEAS:VOLT?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - query: ":MEAS:CURR?"
         expect_value: 2.0
-        tolerance: 1.0e-6
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":MEAS:POW?"
         expect_value: 19.6
-        tolerance: 1.0e-5
+        tolerance: 0.008  # 4σ of the readback noise (#808)
       - query: ":FETC:VOLT?"
         expect_value: 9.8
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - query: ":FETC:CURR?"
         expect_value: 2.0
-        tolerance: 1.0e-6
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":FETC:POW?"
         expect_value: 19.6
-        tolerance: 1.0e-5
+        tolerance: 0.008  # 4σ of the readback noise (#808)
 
   - name: "CV 模式：输入保持在设定电压，电流由源决定"
     manual: "Chapter 2 > [:SOURce]:VOLTage[:LEVel][:IMMediate]；:MEASure commands"
@@ -265,13 +265,13 @@ cases:
       - send: ":SOUR:FUNC VOLT;:SOUR:VOLT 9;:SOUR:INP 1"
       - query: ":MEAS:VOLT?"
         expect_value: 9.0
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - query: ":FETC:CURR?"
         expect_value: 10.0
-        tolerance: 1.0e-5
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":FETC:POW?"
         expect_value: 90.0
-        tolerance: 1.0e-4
+        tolerance: 0.0094  # 4σ of the readback noise (#808)
       - query: ":SOUR:INP?"
         expect: "1"
 
@@ -281,13 +281,13 @@ cases:
       - send: ":SOUR:FUNC RES;:SOUR:RES 5;:SOUR:INP 1"
       - query: ":MEAS:VOLT?"
         expect_value: 9.8039215686
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - query: ":MEAS:CURR?"
         expect_value: 1.9607843137
-        tolerance: 1.0e-6
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":MEAS:POW?"
         expect_value: 19.22337624
-        tolerance: 1.0e-5
+        tolerance: 0.008  # 4σ of the readback noise (#808)
 
   - name: "CP 模式：V×I 保持在设定功率（D52 的定点迭代）"
     manual: "Chapter 2 > [:SOURce]:POWer[:LEVel][:IMMediate]；:MEASure commands"
@@ -295,13 +295,13 @@ cases:
       - send: ":SOUR:FUNC POW;:SOUR:POW 20;:SOUR:INP 1"
       - query: ":MEAS:VOLT?"
         expect_value: 9.7958315233
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - query: ":MEAS:CURR?"
         expect_value: 2.0416847985
-        tolerance: 1.0e-6
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":MEAS:POW?"
         expect_value: 20.0
-        tolerance: 1.0e-5
+        tolerance: 0.008  # 4σ of the readback noise (#808)
 
   - name: "OVP：V_LIMIT 作为过压阈值，输入电压超过它时输入关断"
     manual: "Chapter 2 > [:SOURce]:CURRent:VLIMt、[:SOURce]:VOLTage:VLIMt、[:SOURce]:RESistance:VLIMt、[:SOURce]:POWer:VLIMt；用户指南 2.4 保护功能"
@@ -311,10 +311,10 @@ cases:
         expect: "+9.000000E+00"
       - query: ":MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":MEAS:VOLT?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - send: ":SOUR:VOLT:VLIM 9;:SOUR:RES:VLIM 9;:SOUR:POW:VLIM 9"
       - query: ":SOUR:CURR:VLIM?"
         expect: "+9.000000E+00"
@@ -329,10 +329,10 @@ cases:
         expect: "+1.000000E+00"
       - query: ":MEAS:VOLT?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - query: ":MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - send: ":SOUR:VOLT:ILIM 1;:SOUR:RES:ILIM 1;:SOUR:POW:ILIM 1"
       - query: ":SOUR:CURR:ILIM?"
         expect: "+1.000000E+00"
@@ -345,13 +345,13 @@ cases:
       - send: ":SOUR:FUNC CURR;:SOUR:CURR:SLEW 1;:SOUR:CURR 30;:SOUR:INP 1"
       - query: ":MEAS:VOLT?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
       - query: ":MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - query: ":MEAS:VOLT?"
         expect_value: 10.0
-        tolerance: 1.0e-6
+        tolerance: 0.0006  # 4σ of the readback noise (#808)
 
   - name: "输入开关：断开时输入高阻、不灌电流"
     manual: "Chapter 2 > [:SOURce]:INPut[:STATe]"
@@ -361,15 +361,15 @@ cases:
         expect: "0"
       - query: ":MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - send: ":SOUR:INP 1"
       - query: ":MEAS:CURR?"
         expect_value: 2.0
-        tolerance: 1.0e-6
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
       - send: ":SOUR:INP 0"
       - query: ":MEAS:CURR?"
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 0.0008  # 4σ of the readback noise (#808)
 
   - name: "触发系统、远端 Sense、LXI 与系统版本（接受类命令）"
     manual: >-

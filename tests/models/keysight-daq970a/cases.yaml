@@ -255,9 +255,11 @@ cases:
       - query: "MEAS:VOLT:DC? 10,DEF,(@102)"
         expect_match: '^\+1\.8181\d{4}E\+00$'
       - query: "MEAS:VOLT:AC? (@101)"
-        expect: "+0.00000000E+00"
+        expect_value: 0.0
+        tolerance: 1.0e-6  # an RMS reading of 0 rides the noise (#806): 4σ on the widest range ≤ 1e-6
       - query: "MEAS:CURR:AC? (@121)"
-        expect: "+0.00000000E+00"
+        expect_value: 0.0
+        tolerance: 1.0e-6  # an RMS reading of 0 rides the noise (#806): 4σ on the widest range ≤ 1e-6
 
   - name: "SENSe 的电阻、电流与电压配置按通道保存"
     manual: "SENSe Subsystem > [SENSe:]{RESistance|FRESistance}:NPLCycles/RANGe, [SENSe:]CURRent[:DC]:NPLCycles, [SENSe:]VOLTage:{AC|DC}:RANGe[:AUTO]"

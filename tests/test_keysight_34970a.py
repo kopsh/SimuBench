@@ -13,6 +13,7 @@ commands noted.
 """
 
 import math
+import statistics
 from pathlib import Path
 
 import pytest
@@ -410,3 +411,31 @@ def test_a_scan_takes_each_channels_own_reading_time():
         assert (s.now_ns - t0) / 1e9 == pytest.approx(expected, abs=1e-3)
     finally:
         s.close()
+
+
+def test_the_definition_noise_distributes_replays_and_keeps_rms_non_negative():
+    """The reading noise (specs.noise_ppm_of_range, #744/#806): MEAS readings are independent draws
+    around the solved value with σ = 0.25 ppm of the range at the reading time (the resolution
+    quantization, larger than σ here, is switched off to see it), the same seed replays bit for
+    bit, and an RMS reading of zero is never negative (#803)."""
+    sigma = 0.25e-6 * 10.0 * math.sqrt(0.02 / 0.021)  # the 10 V range at 1 PLC
+
+    def run(n: int, noisy: bool = True) -> tuple[list[float], list[float]]:
+        s = open_bench(BENCH, idle="off")
+        try:
+            s.instruments["daq"].components["meter"].overrides["resolution"] = 0.0
+            if not noisy:
+                s.instruments["daq"].components["meter"].overrides["noise"] = None
+            volts = [float(q(s, "MEAS:VOLT:DC? 10,DEF,(@101)")) for _ in range(n)]
+            ac = [float(q(s, "MEAS:VOLT:AC? (@101)")) for _ in range(n)]
+            return volts, ac
+        finally:
+            s.close()
+
+    true = run(1, noisy=False)[0][0]  # the solved value (the relay's and the source's loading)
+    volts, ac = run(200)
+    assert len(set(volts)) > 100
+    assert statistics.mean(volts) == pytest.approx(true, abs=4 * sigma / math.sqrt(200))
+    assert statistics.stdev(volts) == pytest.approx(sigma, rel=0.25)
+    assert min(ac) >= 0.0 and len(set(ac)) > 20  # |noise| on 0 V AC: spread, never negative
+    assert run(20)[0] == volts[:20]  # the same seed replays bit for bit

@@ -53,6 +53,10 @@ specs:
   slew_rate: {low: "0.001–0.25 A/µs", high: "0.01–2.5 A/µs"}
   protection_typical: {opp: "1550 W", ocp: {low: "26.4 A", high: "264 A"}, ovp: "130 V", otp: "85 °C"}
   readback_accuracy: {voltage: "±(0.05% + 0.05% FS)", current: "±(0.05% + 0.1% FS)", power: "±(0.2% + 0.2% FS)"}
+  readback_noise_rms: >-
+    电压 0.45 mV、电流 1.2 mA（估计，#744/#808）：回读准确度的满量程项按低量程取（电压 18 V 档
+    0.05% FS = 9 mV，电流 24 A 档 0.1% FS = 24 mA），噪声 σ ≤ 其 1/20，对两个量程都成立；数据表没有
+    噪声指标。输入未导通时电流回读恒为 0，不加噪。
 state:
   function.mode:
     type: enum
@@ -328,7 +332,8 @@ components:
     params: {enabled: $input.enabled, loop: loop, protection: prot}
   - name: load
     type: eload_meter
-    params: {input: inp}
+    # 回读噪声（specs.readback_noise_rms，#744/#808）：绝对 rms，设定值不加噪；功率读 V·I。
+    params: {input: inp, noise: {rms: {voltage: 4.5e-4, current: 1.2e-3}}}
   - name: prot
     type: eload_protection
     # OVP 是硬件的 130 V（数据表典型值，没有命令）；OCP 与软件 OPP 按手册的开关、电平与延时。

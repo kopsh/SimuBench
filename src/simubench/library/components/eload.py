@@ -475,7 +475,10 @@ class EloadMeter(Component):
             self._script_reads += 1
         when = ("panel", frame) if frame is not None else ("script", self._script_reads)
         v += self.noise_sample(self.noise_rms(None, 0.0, "voltage"), "reading", "VOLTage", *when)
-        i += self.noise_sample(self.noise_rms(None, 0.0, "current"), "reading", "CURRent", *when)
+        # An input that is not conducting sinks exactly nothing: its current reads 0, not noise (#863).
+        i += self.noise_sample(self.noise_rms(None, 0.0, "current"), "reading", "CURRent", *when) * (
+            1.0 if self._input().conducting() else 0.0
+        )
         return v, i
 
     @op("measure")

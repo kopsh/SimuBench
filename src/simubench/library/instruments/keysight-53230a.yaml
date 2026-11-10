@@ -133,6 +133,9 @@ components:
       statistics: stats
       timebase: tb
       single_shot_s: 2.0e-11
+      # 通道触发误差 1 ns 是模型值（手册无该指标，取与计数器核心缺省相同的值，显式写出以便
+      # 核对，#744/#861）；单次分辨率 20 ps 是 Table 5-2 的 Tss（53230A）。
+      trigger_error: 1.0e-9
       timestamp_rate: $measure.timestamp_rate
   - name: ch2.core
     type: counter_core
@@ -145,6 +148,7 @@ components:
       statistics: stats
       timebase: tb
       single_shot_s: 2.0e-11
+      trigger_error: 1.0e-9
       timestamp_rate: $measure.timestamp_rate
   - name: trig
     type: trigger_model
