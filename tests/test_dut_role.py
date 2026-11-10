@@ -61,7 +61,7 @@ async def test_the_session_view_and_files_name_the_duts(tmp_path):
     assert doc.data["schema"] == "simubench.bench/2" and doc.data["parts"]["rc"]["dut"] is True
     served = await manager.start("a.bench.yaml")
     try:
-        view = manager.describe(served)
+        view = manager.views.describe(served)
         assert view.duts == ["rc"]
         assert [p.name for p in view.parts if p.dut] == ["rc"]
         assert not any(i.dut for i in view.instruments)

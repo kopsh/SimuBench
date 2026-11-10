@@ -165,16 +165,7 @@ class Instrument:
         self.instance = instance
         self.session = session
         self.channel_count = definition.channels.count
-        #: The numbers SCPI uses for the channels (#207, D51): number -> channel index, and back.
-        #: Empty when the definition declares no numbering: the numbers are the indexes 1..count.
-        self._channels_by_number: dict[int, int] = {}
-        self._numbers_by_channel: dict[int, int] = {}
-        offset = 0
-        for block in definition.channels.numbering:
-            for i in range(block.count):
-                self._channels_by_number[block.first + i] = offset + i + 1
-                self._numbers_by_channel[offset + i + 1] = block.first + i
-            offset += block.count
+        self._init_channel_numbering(definition)
         self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
         #: A real model (D42): follows its manual's error texts and refuses what it does not model.
         self.real = definition.reference is not None
@@ -205,7 +196,30 @@ class Instrument:
         #: The instrument's own clock runs on the session calendar plus whatever :SYSTem:DATE/TIME set.
         self.clock_offset = dt.timedelta(0)
 
-        # ---- state ----
+        self._init_state(definition, instance)
+        self._init_components(definition, instance)
+        self._init_watchers()
+        self._init_wiring(definition)
+        self._init_ports(definition)
+        self._init_commands(definition)
+
+    # ---- construction helpers -------------------------------------------------------------------
+
+    def _init_channel_numbering(self, definition: InstrumentDefinition) -> None:
+        """The numbers SCPI uses for the channels (#207, D51)."""
+        #: The numbers SCPI uses for the channels (#207, D51): number -> channel index, and back.
+        #: Empty when the definition declares no numbering: the numbers are the indexes 1..count.
+        self._channels_by_number: dict[int, int] = {}
+        self._numbers_by_channel: dict[int, int] = {}
+        offset = 0
+        for block in definition.channels.numbering:
+            for i in range(block.count):
+                self._channels_by_number[block.first + i] = offset + i + 1
+                self._numbers_by_channel[offset + i + 1] = block.first + i
+            offset += block.count
+
+    def _init_state(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
+        """Settings: the definition's, per channel with the bench's overrides, then the bench file's initial values."""
         self.specs: dict[str, StateSpec] = {}
         for key, spec in definition.state.items():
             self.specs[key] = spec
@@ -220,10 +234,11 @@ class Instrument:
         self._reset_state(power_on=True)
         for path, value in instance.state.items():
             if path not in self.specs:
-                raise ValueError(f"instrument {name!r}: unknown state {path!r} in bench file")
+                raise ValueError(f"instrument {self.name!r}: unknown state {path!r} in bench file")
             self.state[path] = self._coerce_initial(path, value)
 
-        # ---- components ----
+    def _init_components(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
+        """Components, the bench's hidden state, and this unit's drawn deviations."""
         self.components: dict[str, Component] = {}
         for spec in definition.components:
             self._add_component(spec.name, spec.type, spec.params, None)
@@ -238,7 +253,7 @@ class Instrument:
             if comp_name not in self.components:
                 options = ", ".join(sorted(self.components))
                 raise ValueError(
-                    f"instrument {name!r}: hidden state for unknown component {comp_name!r} "
+                    f"instrument {self.name!r}: hidden state for unknown component {comp_name!r} "
                     f"(components: {options})"
                 )
             component = self.components[comp_name]
@@ -246,7 +261,7 @@ class Instrument:
                 if param_name not in component._params:
                     options = ", ".join(sorted(component._params))
                     raise ValueError(
-                        f"instrument {name!r}: hidden state for unknown parameter "
+                        f"instrument {self.name!r}: hidden state for unknown parameter "
                         f"{comp_name}.{param_name} (parameters: {options})"
                     )
             component.overrides.update(params)
@@ -255,6 +270,8 @@ class Instrument:
         if instance.deviation == "from_specs":
             self._draw_deviations()
 
+    def _init_watchers(self) -> None:
+        """Which components are told when a setting changes."""
         # state path -> components bound to it
         self._watchers: dict[str, list[Component]] = defaultdict(list)
         # state path -> {component: the parameter the change arrives through} for ``on_state``
@@ -279,7 +296,8 @@ class Instrument:
                     self._watchers[path].append(comp)
                     self._watch_param[path].setdefault(comp.uid, None)
 
-        # ---- signal wiring: (dst component, dst port) -> (src component, src port) ----
+    def _init_wiring(self, definition: InstrumentDefinition) -> None:
+        """Signal wiring: (dst component, dst port) -> (src component, src port)."""
         self._upstream: dict[tuple[str, str], tuple[str, str]] = {}
         for n in range(1, self.channel_count + 1):
             for src, dst in definition.wiring.channel:
@@ -291,7 +309,8 @@ class Instrument:
             else:
                 self._wire(src, dst)
 
-        # ---- external ports: name -> (component, port) ----
+    def _init_ports(self, definition: InstrumentDefinition) -> None:
+        """External ports: name -> (component, port)."""
         self.ports: dict[str, tuple[str, str]] = {}
         for n in range(1, self.channel_count + 1):
             for pname, target in definition.ports.channel.items():
@@ -301,11 +320,12 @@ class Instrument:
             comp, port = _port_target(self.name, pname, target)
             self.ports[pname] = (comp, port)
 
+    def _init_commands(self, definition: InstrumentDefinition) -> None:
+        """The compiled commands, the built-ins this model answers, and the declarations to cite for an unexecuted command."""
         self._commands = [_Compiled(Pattern.compile(c.header), c) for c in definition.commands]
         #: Built-in headers this model answers; a real model's manual may document only a few (D42).
         allowed = definition.builtins
         self._builtins = None if allowed is None else {_header_key(h) for h in allowed}
-        # ---- why a command was not executed: the declarations to cite (tui-design.md 1.1, D18) ----
         #: The definition file, as the loader received the path; origin of the definition's own words.
         self.source_file: str | None = str(definition._source_file) if definition._source_file else None
         #: The coverage table's compiled entries and its file; None when the definition has no table
@@ -318,8 +338,6 @@ class Instrument:
         #: Every header spelling the instrument answers, built once for the -113's suggestion.
         self._header_keys: dict[str, str] | None = None
         self._header_key_list: list[str] | None = None
-
-    # ---- construction helpers -------------------------------------------------------------------
 
     def _draw_deviations(self) -> None:
         """Individual deviations within the definition's ranges, from the bench seed; a value the
@@ -822,7 +840,8 @@ class Instrument:
                 try:
                     for form in _header_forms(entry.pattern):
                         keys.setdefault(_header_key(form), entry.header)
-                except Exception:
+                except Exception as exc:  # a coverage entry that does not parse only loses a suggestion
+                    log.debug("%s: header suggestion skipped for %r: %s", self.name, entry.header, exc)
                     continue
             for compiled in self._commands:
                 for form in _header_forms(compiled.pattern):

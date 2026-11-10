@@ -11,7 +11,7 @@ import pytest
 
 from simubench import plugins
 from simubench.api import open_bench
-from simubench.engine.component import _REGISTRY, component_type
+from simubench.engine.component import component_type, registry
 from simubench.engine.replay import replay
 from simubench.ops import doctor, manifest
 from simubench.server.manager import SessionManager
@@ -62,11 +62,10 @@ BOMB = "from pathlib import Path\nPath(__file__).with_suffix('.imported').write_
 @pytest.fixture
 def clean_plugins():
     """Plugin state is process-global; each test leaves the registry as it found it."""
-    before = dict(_REGISTRY)
+    before = registry.snapshot()
     plugins._reset()
     yield
-    _REGISTRY.clear()
-    _REGISTRY.update(before)
+    registry.restore(before)
     plugins._reset()
 
 
@@ -210,7 +209,7 @@ def test_replay_warns_when_a_recorded_plugin_is_not_loaded(tmp_path, monkeypatch
     rec = next(records.glob("run-*.jsonl"))
     monkeypatch.undo()
     plugins._reset()
-    _REGISTRY.pop("plugin_load", None)
+    registry.unregister("plugin_load")
     report = replay(rec)  # no plugins at all in this replay
     assert any("plugin acme" in w and "not loaded now" in w for w in report.warnings)
 

@@ -11,7 +11,7 @@ import yaml
 
 from simubench.api import open_bench
 from simubench.models.bench import Fault
-from simubench.server.manager import fault_info
+from simubench.server.views import fault_info
 
 ROOT = Path(__file__).resolve().parents[1]
 SCOPE = ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml"

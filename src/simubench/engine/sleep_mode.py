@@ -23,7 +23,12 @@ if TYPE_CHECKING:
 _real_sleep = time.sleep
 _lock = threading.Lock()
 _open: weakref.WeakSet[Session] = weakref.WeakSet()
-_patched = False
+
+
+class _Patch:
+    """Whether ``time.sleep`` is currently the fake one (guarded by ``_lock``)."""
+
+    active = False
 
 
 def _fake_sleep(seconds: float) -> None:
@@ -36,23 +41,21 @@ def _fake_sleep(seconds: float) -> None:
 
 
 def register(session: Session) -> None:
-    global _patched
     with _lock:
         _open.add(session)
-        if not _patched:
+        if not _Patch.active:
             time.sleep = _fake_sleep
-            _patched = True
+            _Patch.active = True
 
 
 def unregister(session: Session) -> None:
-    global _patched
     with _lock:
         _open.discard(session)
-        if _patched and not _open:
+        if _Patch.active and not _open:
             time.sleep = _real_sleep
-            _patched = False
+            _Patch.active = False
 
 
 def real_sleep_is_active() -> bool:
     """Whether the real ``time.sleep`` is in place (tests assert the patch is undone)."""
-    return not _patched
+    return not _Patch.active
