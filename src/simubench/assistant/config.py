@@ -217,7 +217,12 @@ def _is_this_computer(host: str) -> bool:
     if host in ("localhost", "0.0.0.0", "::", "") or host.endswith(".localhost"):
         return True
     with contextlib.suppress(ValueError):
-        return ipaddress.ip_address(host).is_loopback
+        addr = ipaddress.ip_address(host)
+        if (mapped := getattr(addr, "ipv4_mapped", None)) is not None:
+            # an IPv4-mapped IPv6 address means its IPv4 self (the loopback verdict for the mapped
+            # form is the mapped address's, whatever the running Python's own shortcuts do)
+            addr = mapped
+        return addr.is_loopback
     shorthand = _ipv4_shorthand(host)
     return shorthand is not None and ipaddress.ip_address(shorthand).is_loopback
 
