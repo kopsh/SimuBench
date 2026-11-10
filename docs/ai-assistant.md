@@ -159,7 +159,7 @@ Web 对话面板 ──HTTP/SSE──▶ /api/assistant/*  ──▶ 对话循�
 
 | 部分 | 位置 |
 | --- | --- |
-| LLM 配置（默认值：环境变量 `SIMUBENCH_LLM_PROTOCOL/BASE_URL/MODEL/API_KEY/TIMEOUT/CONTEXT_TOKENS` 胜过工作区 `.simubench/settings.json` 的 `assistant` 块；设置页的覆盖存 `.simubench/assistant.json`，0600）、地址规则 | `assistant/config.py` |
+| LLM 配置（默认值：环境变量 `SIMUBENCH_LLM_PROTOCOL/BASE_URL/MODEL/API_KEY/TIMEOUT/CONTEXT_TOKENS` 胜过工作区 `.simubench/settings.json` 的 `assistant` 块；设置页的覆盖存 `.simubench/assistant.json`，0600）、地址规则（保存与使用前都校验，默认地址同样过一遍，见 `security.md`） | `assistant/config.py` |
 | 两种协议的模型、连通性测试（一次带工具调用的流式请求） | `assistant/llm.py` |
 | 工具与服务端规则 | `assistant/tools.py` |
 | 对话循环、事件流、自修复、按轮恢复 | `assistant/service.py` |

@@ -9,7 +9,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from ...assistant.config import ConfigError
+from ...assistant.config import ConfigError, check_settings
 from ...assistant.llm import check_connection
 from ...assistant.service import AssistantService, Busy
 from ...models import api as M
@@ -69,6 +69,10 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     async def test_config() -> M.AssistantTestResult:
         """One short request to the configured LLM, with a tool call: does it answer, can it call tools."""
+        try:
+            check_settings(service.settings.current(), ctx.manager)
+        except ConfigError as exc:  # a bad default says why here, it never calls itself (#901)
+            return M.AssistantTestResult(ok=False, message=str(exc))
         return await check_connection(
             service.settings.current(), http_client=getattr(service, "http_client", None)
         )
