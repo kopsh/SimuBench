@@ -27,6 +27,12 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `hello-preview.json` (regenerate: `uv run python scripts/capture_hello_preview.py`), `Showcase.tsx`
   shows real screenshots in `assets/` (TUI: `docs/tui/hello.steps.yaml`; web: the workbench on the
   Hello World bench, dark, 1440×900, WebP). Never hand-draw an instrument picture on the home page.
+- `web/src/features/assistant/` — the AI assistant panel (#877): `model.ts` (event reducer, step
+  wording keys, SSE parser; unit-tested), `stream.ts` (follows a turn's events with fetch, token in a
+  header), `AssistantView.tsx` (presentation, stories), `AssistantPanel.tsx`, settings, restore and
+  save-as-template dialogs. Its wording (`assistant.*`, `template.*`) is registered Web-only in
+  `scripts/check_tui_i18n.py`. The e2e test `e2e/assistant.spec.ts` talks to a scripted
+  OpenAI-compatible LLM, `e2e/fake-llm.mjs`, which `e2e/serve.mjs` starts on the port after the service's.
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key

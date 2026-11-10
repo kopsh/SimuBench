@@ -1,9 +1,10 @@
-import { Blocks, Home, Monitor, MonitorPlay, Moon, Square, StepForward, Sun } from "lucide-react";
+import { Blocks, Copy, Home, Monitor, MonitorPlay, Moon, Sparkles, Square, StepForward, Sun } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 import type { SessionInfo } from "@/api/client";
-import { useAdvance, useStopSession } from "@/api/hooks";
+import { useAdvance, useCopyBench, useStartSession, useStopSession } from "@/api/hooks";
 import { CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { setLanguage } from "@/i18n";
 import { useTheme } from "@/lib/theme";
@@ -17,6 +18,17 @@ export function CommandPalette({ session }: { session: SessionInfo }) {
   const setTheme = useTheme((s) => s.setPreference);
   const advance = useAdvance(session.id);
   const stop = useStopSession();
+  const copy = useCopyBench();
+  const start = useStartSession();
+  const setAssistant = useWorkbench((st) => st.setAssistant);
+  const copyBench = (path: string) =>
+    copy.mutate(path, {
+      onSuccess: (doc) =>
+        toast.success(t("workbench.copied", { path: doc.path }), {
+          action: { label: t("workbench.openCopy"), onClick: () => start.mutate(doc.path, { onSuccess: (s) => navigate(`/s/${s.id}`) }) },
+        }),
+      onError: (e) => toast.error((e as Error).message),
+    });
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -82,6 +94,16 @@ export function CommandPalette({ session }: { session: SessionInfo }) {
           <CommandItem value="home benches" onSelect={run(() => navigate("/"))}>
             <Home /> {t("workbench.backHome")}
           </CommandItem>
+          {session.bench_path && (
+            <CommandItem value="assistant ai 助手" onSelect={run(() => setAssistant(true))}>
+              <Sparkles /> {t("assistant.open")}
+            </CommandItem>
+          )}
+          {session.bench_path && (
+            <CommandItem value="copy bench 复制" onSelect={run(() => copyBench(session.bench_path!))}>
+              <Copy /> {t("workbench.copyBench")}
+            </CommandItem>
+          )}
           <CommandItem value="stop session" onSelect={run(() => stop.mutate(session.id, { onSuccess: () => navigate("/") }))}>
             <Square /> {t("workbench.stopSession")}
           </CommandItem>

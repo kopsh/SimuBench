@@ -171,3 +171,29 @@ def test_set_identity():
     assert apply(b, ops({"op": "set_identity", "instrument": "scope"})).instruments["scope"].idn is None
     with pytest.raises(EditError, match="nope"):
         apply(b, ops({"op": "set_identity", "instrument": "nope", "idn": "x"}))
+
+
+@pytest.mark.parametrize(
+    ("taken", "wanted", "given"),
+    [
+        (["GPIB0::5::INSTR"], "GPIB0::5::INSTR", "GPIB0::6::INSTR"),
+        (["GPIB0::30::INSTR"], "gpib0::30::instr", "gpib0::1::instr"),
+        (
+            ["TCPIP0::192.168.1.20::INSTR", "TCPIP0::192.168.1.21::INSTR"],
+            "TCPIP0::192.168.1.20::INSTR",
+            "TCPIP0::192.168.1.22::INSTR",
+        ),
+        (
+            ["USB0::0x2A8D::0x1301::MY001::INSTR"],
+            "USB0::0x2A8D::0x1301::MY001::INSTR",
+            "USB0::0x2A8D::0x1301::MY002::INSTR",
+        ),
+        ([], "GPIB0::5::INSTR", "GPIB0::5::INSTR"),
+    ],
+)
+def test_an_added_instrument_gets_a_free_address_when_its_own_is_taken(taken, wanted, given):
+    b = empty()
+    for i, address in enumerate(taken):
+        b = apply(b, ops({"op": "add_instrument", "name": f"i{i}", "model": "sb-awg-2", "address": address}))
+    b = apply(b, ops({"op": "add_instrument", "name": "new", "model": "sb-awg-2", "address": wanted}))
+    assert b.instruments["new"].address == given

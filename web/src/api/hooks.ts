@@ -17,7 +17,7 @@ import type {
   ScpiResponse,
   TryOpened,
 } from "./client";
-import { type FaultSpec, api, unwrap } from "./client";
+import { type FaultSpec, type Schemas, api, unwrap } from "./client";
 
 export const keys = {
   benches: ["benches"] as const,
@@ -501,5 +501,106 @@ export function useTryScpi(sid: string | undefined) {
   return useMutation<ScpiResponse, Error, string>({
     mutationFn: (command: string) =>
       unwrap(api.POST("/api/try/{sid}/scpi", { params: { path: { sid: sid! } }, body: { command } })),
+  });
+}
+
+// ---- the AI assistant (#877, D66) -------------------------------------------------------------------
+
+export const assistantKeys = {
+  config: ["assistant-config"] as const,
+  conversation: (bench: string) => ["assistant-conversation", bench] as const,
+  rollback: (bench: string) => ["assistant-rollback", bench] as const,
+};
+
+export function useAssistantConfig() {
+  return useQuery({ queryKey: assistantKeys.config, queryFn: () => unwrap(api.GET("/api/assistant/config")) });
+}
+
+export function useSaveAssistantConfig() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Schemas["AssistantConfigUpdate"]) => unwrap(api.PUT("/api/assistant/config", { body })),
+    onSuccess: (cfg) => {
+      qc.setQueryData(assistantKeys.config, cfg);
+      void qc.invalidateQueries({ queryKey: ["assistant-conversation"] });
+    },
+  });
+}
+
+export function useTestAssistant() {
+  return useMutation({ mutationFn: () => unwrap(api.POST("/api/assistant/config/test")) });
+}
+
+export function useAssistantConversation(bench: string | null | undefined) {
+  return useQuery({
+    queryKey: assistantKeys.conversation(bench ?? ""),
+    queryFn: () => unwrap(api.GET("/api/assistant/conversation", { params: { query: { bench: bench! } } })),
+    enabled: !!bench,
+  });
+}
+
+export function useSendAssistant(bench: string) {
+  return useMutation({
+    mutationFn: (text: string) => unwrap(api.POST("/api/assistant/messages", { body: { bench, text } })),
+  });
+}
+
+export function useStopAssistant(bench: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.POST("/api/assistant/stop", { body: { bench } })),
+    onSuccess: (conv) => qc.setQueryData(assistantKeys.conversation(bench), conv),
+  });
+}
+
+export function useClearAssistant(bench: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => unwrap(api.DELETE("/api/assistant/conversation", { params: { query: { bench } } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: assistantKeys.conversation(bench) }),
+  });
+}
+
+export function useRollbackPlan(bench: string, enabled: boolean) {
+  return useQuery({
+    queryKey: assistantKeys.rollback(bench),
+    queryFn: () => unwrap(api.GET("/api/assistant/rollback", { params: { query: { bench } } })),
+    enabled,
+  });
+}
+
+export function useRollback(bench: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Omit<Schemas["RollbackRequest"], "bench">) =>
+      unwrap(api.POST("/api/assistant/rollback", { body: { bench, ...body } })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: assistantKeys.conversation(bench) });
+      void qc.invalidateQueries({ queryKey: assistantKeys.rollback(bench) });
+      void qc.invalidateQueries({ queryKey: keys.benchDoc(bench) });
+      void qc.invalidateQueries({ queryKey: keys.sessions });
+      void qc.invalidateQueries({ queryKey: keys.catalog });
+    },
+  });
+}
+
+/** Copy a whole bench into a new file (#874): instruments, wires, settings, layout. */
+export function useCopyBench() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (path: string) => unwrap(api.POST("/api/benches/copy", { body: { path } })),
+    onSuccess: () => void qc.invalidateQueries({ queryKey: keys.benches }),
+  });
+}
+
+/** "Save as my template" (#875): the instrument becomes a definition of its own. */
+export function useSaveTemplate() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Schemas["SaveTemplateRequest"]) => unwrap(api.POST("/api/definitions/templates", { body })),
+    onSuccess: (out) => {
+      void qc.invalidateQueries({ queryKey: keys.catalog });
+      qc.setQueryData(keys.benchDoc(out.bench.path), out.bench);
+    },
   });
 }

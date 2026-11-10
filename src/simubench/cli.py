@@ -27,6 +27,7 @@ def _serve(args: argparse.Namespace) -> int:
     bench = Path(args.bench).resolve() if args.bench else None
     workspace = Path(args.workspace).resolve() if args.workspace else (bench.parent if bench else Path.cwd())
     manager = build_manager(args, workspace)
+    manager.web_port = args.port  # the assistant's LLM address may not point back at it (#872)
     from .ops import setup_logging
 
     setup_logging(args.log_level, args.log_format, args.log_file)

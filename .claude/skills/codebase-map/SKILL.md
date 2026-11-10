@@ -39,6 +39,8 @@ plausible fake).
 | Read-only session DTOs (describe, internals, scope screen, readings, nets, faults) / actions (SCPI, configure, panel) | `server/views.py` (`manager.views` for the ones that need the manager), `server/drive.py` |
 | HTTP routes, one router per area (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
 | MCP tools, one module per area (bench, definitions, sessions); shared guard / errors | `mcp_server.py` (assembly), `mcp_tools/*.py` (`context.py`: `McpContext`) |
+| Web AI assistant (D66, `docs/ai-assistant.md` 11): LLM settings, PydanticAI models, tools and their server-side rules, turn runner / events / rollback, compaction, loop guard | `assistant/` (`config.py`, `llm.py`, `tools.py`, `service.py`, `compaction.py`, `guard.py`, `store.py`), routes `server/routes/assistant.py`; tests use `tests/helpers.py` `ScriptedLLM` |
+| Copy a bench, "save as my template" (snapshot, no `extends`), definition restore, bench diff ("what changed") | `server/benchfiles.py` (`copy`, `remove_created`), `server/mytemplates.py`, `server/definitionfiles.py` (`restore`, `expanded`), `server/benchchanges.py` |
 | PyVISA backend / raw socket / HiSLIP | `access/pyvisa_backend.py`, `access/scpi_server.py`, `access/hislip_server.py` |
 | In-process Python API, pytest plugin | `api.py`, `pytest_plugin.py` |
 | CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py`; the shared serving options, `build_manager` and the address-table line live in `service.py` — add a service start parameter there once, all entries get it |

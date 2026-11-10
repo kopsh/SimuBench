@@ -893,3 +893,194 @@ class AssetRegister(_Model):
 
     calendar: str = Field(..., description="Calendar time now (run.start + virtual time), ISO 8601 UTC")
     assets: list[dict[str, Any]] = Field(..., description="Register entries, each with due_in_days")
+
+
+# ---- copy a bench, my templates, definition restore (#874, #875) ---------------------------------
+
+
+class CopyBenchRequest(_Model):
+    path: str = Field(..., description="The bench to copy")
+    new_path: str | None = Field(
+        None, description="Workspace-relative file of the copy; default <stem>-copy.bench.yaml beside it"
+    )
+    name: str | None = Field(None, description="Name of the copy; default the original's with “（副本）”")
+
+
+class RestoreDefinitionRequest(_Model):
+    seq: int
+    base_sha256: str
+
+
+class SaveTemplateRequest(_Model):
+    bench_path: str
+    base_sha256: str = Field(..., description="sha256 of the bench as read")
+    instrument: str = Field(..., description="The bench instrument to save")
+    name: str = Field(
+        ..., min_length=1, max_length=80, description="The template's name; the id is made from it"
+    )
+
+
+class SaveTemplateResponse(_Model):
+    definition: DefinitionDocument = Field(..., description="The new template: a definition without extends")
+    bench: BenchDocument = Field(..., description="The bench, its instrument now pointing at the template")
+    based_on: str = Field(..., description="The model the template was expanded from")
+    not_folded: list[str] = Field(
+        default_factory=list,
+        description="Initial settings that could not become defaults (channels set differently); "
+        "they stay in the bench",
+    )
+
+
+# ---- the AI assistant (#871, D66, docs/ai-assistant.md) -------------------------------------------
+
+AssistantProtocol = Literal["openai", "anthropic"]
+
+
+class AssistantConfig(_Model):
+    """The LLM the assistant talks to, as the settings page shows it: never the key itself."""
+
+    protocol: AssistantProtocol = Field(
+        "openai", description="openai: /v1/chat/completions compatible; anthropic: /v1/messages compatible"
+    )
+    base_url: str | None = Field(None, description="The service's address, e.g. http://llm.internal:8000/v1")
+    model: str | None = None
+    timeout_s: float = Field(60.0, description="Per request, seconds")
+    context_tokens: int = Field(
+        32000, description="The model's context length; older content is compacted before it fills"
+    )
+    api_key_set: bool = Field(False, description="Whether a key is stored; the key is write-only")
+    configured: bool = Field(False, description="Address and model are set: the assistant can be used")
+    overridden: list[str] = Field(
+        default_factory=list,
+        description="Fields the settings page set, over the server's defaults (environment or settings.json)",
+    )
+
+
+class AssistantConfigUpdate(_Model):
+    """What the settings page saves; a field left out keeps its value."""
+
+    protocol: AssistantProtocol | None = None
+    base_url: str | None = None
+    model: str | None = None
+    timeout_s: float | None = Field(None, gt=0, le=600)
+    context_tokens: int | None = Field(None, ge=1000, le=10_000_000)
+    api_key: str | None = Field(None, description='A new key; "" removes the stored one; null keeps it')
+    reset: bool = Field(False, description="Drop every override: back to the server's defaults")
+
+
+class AssistantTestResult(_Model):
+    ok: bool
+    message: str = Field(..., description="What happened, in words; never contains the key")
+    latency_ms: float | None = None
+
+
+class AssistantStep(_Model):
+    """One tool call of a turn, shown as a short progress line (“正在添加示波器”), never JSON."""
+
+    action: str = Field(
+        ...,
+        description="What the step does: a tool name, or for bench edits the edit operation "
+        "(add_instrument, connect, set_state, ...)",
+    )
+    subject: str | None = Field(None, description="What it acts on: an instrument class, a name, a file")
+    ok: bool | None = Field(None, description="None while it runs")
+    error: str | None = None
+
+
+class AssistantFileChange(_Model):
+    """What a turn changed in one file, in the bench's and instrument's language (no YAML)."""
+
+    path: str
+    kind: Literal["bench", "definition"]
+    created: bool = False
+    changes: list[DefinitionChange] = Field(default_factory=list)
+
+
+class AssistantTurn(_Model):
+    id: str
+    user: str = Field(..., description="The user's message")
+    reply: str = Field("", description="The assistant's answer, as streamed")
+    steps: list[AssistantStep] = Field(default_factory=list)
+    files: list[AssistantFileChange] = Field(
+        default_factory=list, description="What changed: the summary under the answer"
+    )
+    status: Literal["running", "done", "stopped", "stuck", "error"] = "running"
+    stop_reason: str | None = Field(
+        None,
+        description="Why the turn ended early, in words (stopped by the user, going in circles, an error)",
+    )
+    compacted: bool = Field(False, description="Older content was compacted during this turn")
+    rolled_back: bool = Field(False, description="The user restored the files to before this turn")
+    started_at: str
+    finished_at: str | None = None
+
+
+class AssistantConversation(_Model):
+    bench: str
+    turns: list[AssistantTurn]
+    running: bool = False
+    configured: bool = False
+    compacted: bool = Field(
+        False, description="Some earlier content is only kept in compacted form for the LLM"
+    )
+
+
+class AssistantMessageRequest(_Model):
+    bench: str = Field(..., description="The bench the conversation belongs to")
+    text: str = Field(..., min_length=1, max_length=20000)
+
+
+class AssistantStopRequest(_Model):
+    bench: str
+
+
+class AssistantEvent(_Model):
+    """One event of the stream (``GET /api/assistant/events``, server-sent events)."""
+
+    seq: int
+    type: Literal["text", "step", "step_done", "compacted", "turn"] = Field(
+        ...,
+        description="text: a piece of the answer; step / step_done: a tool call starts / ends; "
+        "compacted: older content was compacted; turn: the turn as it stands (sent at the end)",
+    )
+    turn_id: str
+    text: str | None = None
+    step: AssistantStep | None = None
+    index: int | None = Field(None, description="The step's index in the turn")
+    turn: AssistantTurn | None = None
+
+
+class RollbackFile(_Model):
+    path: str
+    kind: Literal["bench", "definition"]
+    action: Literal["restore", "delete"] = Field(
+        ..., description="restore: back to the version before the turn; delete: the turn created it"
+    )
+    modified_since: bool = Field(False, description="Changed after the turn (e.g. by hand on the canvas)")
+    lost: list[DefinitionChange] = Field(
+        default_factory=list,
+        description="With modified_since: the changes made after the turn that would be lost",
+    )
+
+
+class RollbackPlan(_Model):
+    turn_id: str | None = Field(None, description="The last turn; None when there is nothing to restore")
+    files: list[RollbackFile] = Field(default_factory=list)
+    sessions: list[str] = Field(
+        default_factory=list, description="Running sessions that use one of the files: stopped first"
+    )
+
+
+class RollbackRequest(_Model):
+    bench: str
+    turn_id: str = Field(..., description="The last turn (the plan's turn_id)")
+    confirm_lost: bool = Field(False, description="The user agreed to lose the changes made after the turn")
+    stop_sessions: bool = Field(False, description="The user agreed to stop the sessions using the files")
+
+
+class RollbackResult(_Model):
+    done: bool
+    needs: Literal["confirm_lost", "stop_sessions"] | None = Field(
+        None, description="Not done yet: what the user has to agree to first"
+    )
+    plan: RollbackPlan

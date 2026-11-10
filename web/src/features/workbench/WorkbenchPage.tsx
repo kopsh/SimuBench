@@ -1,13 +1,15 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, ClipboardCheck, LayoutGrid, WifiOff, X } from "lucide-react";
+import { Blocks, ClipboardCheck, LayoutGrid, PowerOff, WifiOff, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useParams } from "react-router-dom";
-import type { BenchDocument, EditOp, InstrumentInfo, SessionInfo } from "@/api/client";
+import { useNavigate, useParams } from "react-router-dom";
+import { ApiError, type BenchDocument, type EditOp, type InstrumentInfo, type SessionInfo } from "@/api/client";
 import { useEventStream, useEvents, useWallClock } from "@/api/events";
 import type { Event } from "@/api/generated/events";
-import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useNetLevels, useSession } from "@/api/hooks";
+import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useNetLevels, useSession, useSessions, useStartSession } from "@/api/hooks";
 import { ErrorState } from "@/components/app/StateViews";
+import { Button } from "@/components/ui/button";
+import { AssistantPanel } from "@/features/assistant/AssistantPanel";
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable";
 import { Skeleton } from "@/components/ui/skeleton";
 import { load, save } from "@/lib/storage";
@@ -73,6 +75,13 @@ export function WorkbenchPage() {
 
   const status = useEvents((s) => s.status);
   const mode = useWorkbench((s) => s.mode);
+  const assistantOpen = useWorkbench((s) => s.assistantOpen);
+  const setAssistant = useWorkbench((s) => s.setAssistant);
+  // The bench this page shows, remembered when its session stops (the assistant may stop it to
+  // change its structure, #874): the page then waits for the bench to start again.
+  const [lastBench, setLastBench] = useState<string | null>(null);
+  const shownBench = session.data?.bench_path;
+  if (shownBench && shownBench !== lastBench) setLastBench(shownBench);
 
   // The bench file behind the session: polled, so that edits made elsewhere show up.
   const benchPath = session.data?.bench_path ?? null;
@@ -97,6 +106,10 @@ export function WorkbenchPage() {
       </div>
     );
   }
+  const gone = session.error instanceof ApiError && session.error.status === 404;
+  if (gone && lastBench) {
+    return <StoppedBench bench={lastBench} assistantOpen={assistantOpen} onAssistant={setAssistant} />;
+  }
   if (session.error || !session.data) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -117,7 +130,8 @@ export function WorkbenchPage() {
           <WifiOff className="size-3.5" /> {t("connection.reconnecting")}
         </div>
       )}
-      <ResizablePanelGroup orientation="vertical" className="min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1">
+        <ResizablePanelGroup orientation="vertical" className="min-h-0 min-w-0 flex-1">
         <ResizablePanel defaultSize="72%" minSize="30%">
           <ResizablePanelGroup orientation="horizontal">
             <ResizablePanel defaultSize="16%" minSize="10%" maxSize="30%" className="bg-sidebar">
@@ -145,9 +159,58 @@ export function WorkbenchPage() {
         <ResizablePanel defaultSize="28%" minSize="10%">
           <BottomPanel session={s} diagnostics={doc?.diagnostics} />
         </ResizablePanel>
-      </ResizablePanelGroup>
+        </ResizablePanelGroup>
+        {assistantOpen && s.bench_path && <AssistantAside bench={s.bench_path} onClose={() => setAssistant(false)} />}
+      </div>
       <CommandPalette session={s} />
       {s.bench_path && <HistoryDialog path={s.bench_path} />}
+    </div>
+  );
+}
+
+/** The assistant beside the workbench; on a narrow window it covers the page (#877). */
+function AssistantAside({ bench, onClose }: { bench: string; onClose: () => void }) {
+  return (
+    <div className="bg-sidebar fixed inset-0 z-40 border-l md:static md:z-auto md:w-[360px] md:shrink-0 xl:w-[400px]">
+      <AssistantPanel bench={bench} onClose={onClose} />
+    </div>
+  );
+}
+
+/** The bench's session stopped (by the assistant, after asking): the conversation stays, and the
+ * page follows the bench as soon as it runs again. */
+function StoppedBench({ bench, assistantOpen, onAssistant }: { bench: string; assistantOpen: boolean; onAssistant: (open: boolean) => void }) {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+  const sessions = useSessions();
+  const start = useStartSession();
+  const next = sessions.data?.find((x) => x.bench_path === bench);
+  useEffect(() => {
+    if (next) navigate(`/s/${next.id}`, { replace: true });
+  }, [next, navigate]);
+  return (
+    <div className="flex h-full">
+      <div className="flex min-w-0 flex-1 items-center justify-center p-6" data-testid="bench-stopped">
+        <div className="flex max-w-md flex-col items-center gap-3 text-center">
+          <PowerOff className="text-muted-foreground size-6" aria-hidden />
+          <p className="font-medium">{t("assistant.stoppedBench.title")}</p>
+          <p className="text-muted-foreground text-[12.5px]">{t("assistant.stoppedBench.body", { path: bench })}</p>
+          <div className="flex flex-wrap justify-center gap-2">
+            <Button size="sm" disabled={start.isPending} onClick={() => start.mutate(bench, { onSuccess: (s) => navigate(`/s/${s.id}`, { replace: true }) })}>
+              {t("assistant.stoppedBench.start")}
+            </Button>
+            {!assistantOpen && (
+              <Button size="sm" variant="outline" onClick={() => onAssistant(true)}>
+                {t("assistant.open")}
+              </Button>
+            )}
+            <Button size="sm" variant="ghost" onClick={() => navigate("/")}>
+              {t("workbench.backHome")}
+            </Button>
+          </div>
+        </div>
+      </div>
+      {assistantOpen && <AssistantAside bench={bench} onClose={() => onAssistant(false)} />}
     </div>
   );
 }

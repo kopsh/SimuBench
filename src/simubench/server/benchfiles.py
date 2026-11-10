@@ -130,6 +130,46 @@ class BenchFiles:
                 self.history.record(bench_path, raw, _sha(raw), fingerprint(_parse(path, raw)), source)
         return self.read(bench_path)
 
+    def copy(
+        self, bench_path: str, new_path: str | None = None, name: str | None = None, source: Source = "ui"
+    ) -> M.BenchDocument:
+        """Copy a whole bench — instruments, parts, wires, settings, layout — into a new file and
+        return it (#874). ``new_path`` defaults to ``<stem>-copy.bench.yaml`` beside the original
+        (``-copy-2`` … when taken), so the copy finds the same local ``instruments/`` folder;
+        ``name`` defaults to the original's name with “（副本）”. An existing file is never
+        overwritten (409)."""
+        doc = self.read(bench_path)
+        if new_path is None:
+            new_path = self.free_path(_with_stem(bench_path, "-copy"))
+        data = dict(doc.data)
+        data["name"] = name or f"{data.get('name') or Path(bench_path).name}（副本）"
+        return self.save(new_path, None, data, source)
+
+    def free_path(self, bench_path: str) -> str:
+        """``bench_path``, or the first ``-2``, ``-3`` … variant of its stem that is not taken."""
+        candidate, n = bench_path, 1
+        while self.resolve(candidate).exists():
+            n += 1
+            candidate = _with_stem(bench_path, f"-{n}")
+        return candidate
+
+    def remove_created(self, rel_path: str, expected_sha256: str) -> None:
+        """Delete a file a conversation turn created — the user's "restore to before the last
+        turn" (#876), never an agent tool. Only a bench or a workspace definition, and only while
+        it still holds the content the caller checked (``expected_sha256``), so a file changed in
+        the meantime is not lost unseen. Its saved versions stay in the history."""
+        path = self.resolve(rel_path)
+        is_definition = path.parent == self.workspace / "instruments" and path.suffix == ".yaml"
+        if not (path.name.endswith(SUFFIXES) or is_definition):
+            raise PermissionError("only bench files and workspace definitions can be removed")
+        with self._lock:
+            if not path.exists():
+                return
+            current = _sha(path.read_bytes())
+            if current != expected_sha256:
+                raise Conflict(f"{rel_path} changed since it was checked", current)
+            path.unlink()
+
     def edit(
         self, bench_path: str, base_sha256: str, ops: list[Any], source: Source = "api"
     ) -> M.BenchDocument:
@@ -246,6 +286,14 @@ def _numbers(value: Any) -> Any:
     if isinstance(value, float) and value.is_integer():
         return int(value)
     return value
+
+
+def _with_stem(bench_path: str, extra: str) -> str:
+    """``a/b.bench.yaml`` with ``extra`` after the stem: ``a/b-copy.bench.yaml``."""
+    for suffix in SUFFIXES:
+        if bench_path.endswith(suffix):
+            return bench_path[: -len(suffix)] + extra + suffix
+    return bench_path + extra
 
 
 def _sha(raw: bytes) -> str:
