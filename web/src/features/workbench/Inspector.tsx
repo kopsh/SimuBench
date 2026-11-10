@@ -3,8 +3,9 @@ import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo, SessionInfo } from "@/api/client";
-import { useScpi } from "@/api/hooks";
+import { useScpi, useSession } from "@/api/hooks";
 import { EmptyState } from "@/components/app/StateViews";
+import { SaveTemplateButton } from "@/features/assistant/SaveTemplateDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -105,6 +106,7 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
   const openScreen = useWorkbench((s) => s.openScreen);
   const openInternals = useWorkbench((s) => s.openInternals);
   const openAcceptance = useWorkbench((s) => s.openAcceptance);
+  const bench = useSession(sid).data?.bench_path;
   const globals = globalVars(inst);
   const vars = stateMap(inst);
   const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
@@ -134,6 +136,7 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
         <Button variant="outline" size="sm" onClick={() => openAcceptance(inst.name)}>
           <ClipboardCheck className="size-4" /> {t("acceptance.open")}
         </Button>
+        {bench && <SaveTemplateButton bench={bench} instrument={inst.name} label={inst.label ?? instrumentTitle(inst)} />}
       </div>
       <Section title={t("workbench.identitySection")}>
         <CopyRow label="*IDN?" value={inst.idn} />

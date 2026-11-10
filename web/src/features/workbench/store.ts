@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { load, save } from "@/lib/storage";
 
 export type Selection =
   | { kind: "instrument"; id: string }
@@ -44,6 +45,9 @@ interface WorkbenchState {
   setPalette: (open: boolean) => void;
   setHistory: (open: boolean) => void;
   setBottomTab: (tab: WorkbenchState["bottomTab"]) => void;
+  /** The AI assistant panel (#877) is shown; remembered in this browser, kept across sessions. */
+  assistantOpen: boolean;
+  setAssistant: (open: boolean) => void;
   reset: () => void;
   /** Reopen screens remembered for a bench (instruments it no longer has are dropped). */
   restore: (tabs: Tab[], active: string) => void;
@@ -73,6 +77,11 @@ function openTab(tabs: Tab[], tab: Tab & { instrument: string }) {
 export const useWorkbench = create<WorkbenchState>((set) => ({
   ...initial,
   mode: "run",
+  assistantOpen: load<boolean>("assistant-open", false),
+  setAssistant: (assistantOpen) => {
+    save("assistant-open", assistantOpen);
+    set({ assistantOpen });
+  },
   setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas" })),
   revealSetting: (instrument, path) =>
     set((s) => ({ selection: { kind: "instrument", id: instrument }, reveal: { instrument, path, n: (s.reveal?.n ?? 0) + 1 } })),

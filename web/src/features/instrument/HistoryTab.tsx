@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Skeleton } from "@/components/ui/skeleton";
 import { changeValue, savedAt } from "./model";
 
-function ChangeLine({ change }: { change: DefinitionChange }) {
+export function ChangeLine({ change }: { change: DefinitionChange }) {
   const { t } = useTranslation();
   const detail = change.detail ? t(`acceptance.field.${change.detail}`, { defaultValue: change.detail }) : null;
   return (
