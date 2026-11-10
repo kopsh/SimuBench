@@ -27,11 +27,11 @@ def app():
 
 
 def api_routes(app):
-    for r in app.routes:
-        path = getattr(r, "path", "")
-        if path.startswith("/api/") and path not in PUBLIC and getattr(r, "methods", None):
-            for method in r.methods - {"HEAD", "OPTIONS"}:
-                yield method, re.sub(r"\{[^}]+\}", "x", path)
+    # From the OpenAPI document: routers included into the app are nested in ``app.routes``.
+    for path, ops in app.openapi()["paths"].items():
+        if path.startswith("/api/") and path not in PUBLIC:
+            for method in ops:
+                yield method.upper(), re.sub(r"\{[^}]+\}", "x", path)
 
 
 def test_every_api_route_needs_the_token(app):

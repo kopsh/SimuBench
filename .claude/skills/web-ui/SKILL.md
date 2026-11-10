@@ -44,7 +44,7 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 
 ## Rules
 
-- API changed in Python (`src/simubench/models/api.py`, `server/app.py`) →
+- API changed in Python (`src/simubench/models/api.py`, `server/routes/*.py`) →
   `uv run simubench schemas --out schemas` then `cd web && pnpm gen:api`; commit `schemas/` and
   `web/src/api/generated/`. `pnpm check:api` fails on stale output.
 - New text: add the key to **both** `zh.ts` and `en.ts`. If the TUI shows the same wording, the
