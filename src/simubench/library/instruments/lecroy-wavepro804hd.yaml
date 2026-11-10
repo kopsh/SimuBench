@@ -23,7 +23,8 @@ builtins: ["*CLS", "*ESE", "*ESR", "*IDN", "*OPC", "*RST", "*SRE", "*STB", "*TRG
 dialect:
   # COMM_HEADER: SHORT echoes short headers (C1:VDIV), LONG echoes long ones (C1:VOLT_DIV).
   echo_header: $comm.header
-  multipliers: {K: 1.0e3, M: 1.0e6, MA: 1.0e6, G: 1.0e9}
+  # Unitless numbers (MSIZ 10K, 1MA): MAUI reads a bare M as milli and MA as mega (manual, MEMORY_SIZE).
+  multipliers: {K: 1.0e3, M: 1.0e-3, MA: 1.0e6, G: 1.0e9}
 format:
   number: engineering
   boolean: word

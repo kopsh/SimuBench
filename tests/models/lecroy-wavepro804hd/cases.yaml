@@ -147,6 +147,20 @@ cases:
       - send: "MSIZ 25000"
       - query: "MSIZ?"
         expect: "MSIZ 25E+3"
+      # the manual's suffixes: K is a thousand, MA a million, a bare M a milli (1.0M is 1 millisample,
+      # so the closest legal depth is the smallest, 500) (#888)
+      - send: "MSIZ 10K"
+      - query: "MSIZ?"
+        expect: "MSIZ 10E+3"
+      - send: "MSIZ 1MA"
+      - query: "MSIZ?"
+        expect: "MSIZ 1E+6"
+      - send: "MSIZ 2.5MA"
+      - query: "MSIZ?"
+        expect: "MSIZ 2.5E+6"
+      - send: "MSIZ 1M"
+      - query: "MSIZ?"
+        expect: "MSIZ 500E+0"
 
   - name: "参考时钟"
     manual: "ACQUISITION > REFERENCE_CLOCK"
