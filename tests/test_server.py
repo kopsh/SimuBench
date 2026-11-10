@@ -9,8 +9,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from simubench.server.app import _host_ok, create_app
-from simubench.server.app import fault_info as app_fault_info
 from simubench.server.manager import SessionManager
+from simubench.server.views import fault_info as app_fault_info
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "test-token"
@@ -425,7 +425,7 @@ def test_fault_endpoints_convert_inside_the_view(monkeypatch):
 
         monkeypatch.setattr(s.faults, "snapshot", snapshot)
         monkeypatch.setattr(s, "_lock", Tracked())
-        monkeypatch.setattr("simubench.server.app.fault_info", fault_info)
+        monkeypatch.setattr("simubench.server.routes.sessions.fault_info", fault_info)
 
         r = c.get(f"/api/sessions/{sid}/faults")
         assert r.status_code == 200 and len(r.json()) == 1

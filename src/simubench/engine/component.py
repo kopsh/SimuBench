@@ -146,13 +146,39 @@ class TraceSource(Protocol):
         ...
 
 
-_REGISTRY: dict[str, type[Component]] = {}
+class ComponentRegistry:
+    """The component types a session can build, by type name. One process-wide instance
+    (:data:`registry`): the built-in library and plugins register into it at import time."""
+
+    def __init__(self) -> None:
+        self._types: dict[str, type[Component]] = {}
+
+    def register(self, type_name: str, cls: type[Component]) -> None:
+        self._types[type_name] = cls
+
+    def get(self, type_name: str) -> type[Component] | None:
+        return self._types.get(type_name)
+
+    def snapshot(self) -> dict[str, type[Component]]:
+        """A copy of the table, to :meth:`restore` (a plugin that fails to load is undone) or to read."""
+        return dict(self._types)
+
+    def restore(self, snapshot: dict[str, type[Component]]) -> None:
+        self._types.clear()
+        self._types.update(snapshot)
+
+    def unregister(self, *type_names: str) -> None:
+        for name in type_names:
+            self._types.pop(name, None)
+
+
+registry = ComponentRegistry()
 
 
 def component(type_name: str) -> Callable[[type[Component]], type[Component]]:
     def deco(cls: type[Component]) -> type[Component]:
         cls.type_name = type_name
-        _REGISTRY[type_name] = cls
+        registry.register(type_name, cls)
         return cls
 
     return deco
@@ -163,10 +189,10 @@ def component_type(type_name: str) -> type[Component]:
     from ..plugins import ensure_entry_point_plugins
 
     ensure_entry_point_plugins()  # installed packages load by default (D3)
-    try:
-        return _REGISTRY[type_name]
-    except KeyError:
-        raise KeyError(f"unknown component type {type_name!r}") from None
+    cls = registry.get(type_name)
+    if cls is None:
+        raise KeyError(f"unknown component type {type_name!r}")
+    return cls
 
 
 def component_types() -> dict[str, type[Component]]:
@@ -174,7 +200,7 @@ def component_types() -> dict[str, type[Component]]:
     from ..plugins import ensure_entry_point_plugins
 
     ensure_entry_point_plugins()
-    return dict(_REGISTRY)
+    return registry.snapshot()
 
 
 def op(

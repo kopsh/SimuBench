@@ -10,7 +10,8 @@ import numpy as np
 
 from simubench.api import open_bench
 from simubench.engine.replay import replay
-from simubench.server.manager import ServedSession, SessionManager
+from simubench.server import views
+from simubench.server.manager import ServedSession
 
 ROOT = Path(__file__).resolve().parents[1]
 SIGLENT = ROOT / "examples" / "benches" / "siglent_scope_rc.bench.yaml"
@@ -26,7 +27,7 @@ def bench(path=SIGLENT, **kw):
 
 
 def screen(served):
-    return SessionManager.scope_screen(served, "scope")
+    return views.scope_screen(served, "scope")
 
 
 def query(s, cmd: str) -> bytes | None:

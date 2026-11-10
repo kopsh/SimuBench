@@ -9,7 +9,7 @@ from typing import ClassVar
 import pytest
 
 from simubench.cli import main
-from simubench.engine.component import _REGISTRY, Component, PortSpec, component
+from simubench.engine.component import Component, PortSpec, component, registry
 from simubench.engine.validate import validate_data
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.library.loader import DefinitionLibrary, layered_definition_data, load_yaml
@@ -226,8 +226,7 @@ def custom_components():
         }
 
     yield
-    _REGISTRY.pop("test_source")
-    _REGISTRY.pop("test_link")
+    registry.unregister("test_source", "test_link")
 
 
 def _bench(wires: list[dict], duts: dict | None = None, load: float = 50.0) -> dict:

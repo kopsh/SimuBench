@@ -141,142 +141,186 @@ def validate_bench(
         str, dict[str, tuple[str, str, int | None]]
     ] = {}  # owner -> port -> (medium, dir, channel)
     defs: dict[str, InstrumentDefinition] = {}
-
-    # ---- instruments ----
     for name, inst in bench.instruments.items():
-        p = ("instruments", name)
-        try:
-            d = definitions(inst.model)
-        except KeyError:
-            from ..library.loader import DefinitionLibrary
+        _check_instrument(name, inst, definitions, known_types, report, defs, port_info)
+    _check_parts(bench, known_types, port_info, report)
+    _check_wires(bench, known_types, port_info, report)
+    _check_faults(bench, report)
 
-            options = DefinitionLibrary().ids()
+    # ---- remote sense of sources (metrology-authoring.md 6) ----
+    # One union-find pass for the plain nets, shared by the sense check and the net checks
+    # (issue 641); the through-variant merges across series parts, so it is its own pass — and
+    # it only runs when the bench is otherwise clean, like _check_nets itself.
+    nets = _nets(bench)
+    _check_sense(bench, defs, report, net_of={ref: i for i, members in enumerate(nets) for ref in members})
+
+    # ---- nets: one driver per net, impedance hints ----
+    if report.ok:
+        series = frozenset(t for t, cls in component_types().items() if cls.role == "series")
+        _check_nets(bench, defs, report, nets, _nets(bench, through=series))
+    return report
+
+
+def _check_instrument(
+    name: str,
+    inst: Any,
+    definitions: Callable[[str], InstrumentDefinition],
+    known_types: dict[str, type[Component]],
+    report: Report,
+    defs: dict[str, InstrumentDefinition],
+    port_info: dict[str, dict[str, tuple[str, str, int | None]]],
+) -> None:
+    """One instrument of the bench: its definition, initial state, hidden parameters. Fills ``defs``
+    and ``port_info`` for the wire and net checks."""
+    p = ("instruments", name)
+    try:
+        d = definitions(inst.model)
+    except KeyError:
+        from ..library.loader import DefinitionLibrary
+
+        options = DefinitionLibrary().ids()
+        unknown_name(
+            report,
+            "E-MODEL-UNKNOWN",
+            _ptr(*p, "model"),
+            f"仪表定义 {inst.model!r} 不存在",
+            inst.model,
+            options,
+            name,
+            fallback=f"可用的仪表定义：{', '.join(options)}",
+        )
+        return
+    defs[name] = d
+    if inst.deviation == "from_specs" and not d.deviations:
+        report.add(
+            "warning",
+            "W-DEVIATION-NONE",
+            _ptr(*p, "deviation"),
+            f"仪表定义 {d.id} 没有写 deviations，按指标抽取不会改变任何参数",
+            "在定义中补充 deviations，或去掉 deviation: from_specs",
+            name,
+        )
+    ports: dict[str, tuple[str, str, int | None]] = {}
+    for n in range(1, d.channels.count + 1):
+        for pname in d.ports.channel:
+            ports[pname.replace("{n}", str(n))] = ("electrical", "inout", n)
+    for pname in d.ports.instrument:
+        ports[pname] = ("electrical", "inout", None)
+    port_info[name] = ports
+    specs = {**d.state}
+    for n in range(1, d.channels.count + 1):
+        for k, s in d.channel_state.items():
+            specs[f"ch{n}.{k}"] = s
+    comp_params: dict[str, set[str]] = {}
+    for spec in d.components:
+        comp_params[spec.name] = set(known_types[spec.type].defaults) | set(spec.params)
+    for n in range(1, d.channels.count + 1):
+        for spec in d.channel_components:
+            comp_params[f"ch{n}.{spec.name}"] = set(known_types[spec.type].defaults) | set(spec.params)
+    for cname, params in inst.hidden.items():
+        cp = ("instruments", name, "hidden", cname)
+        if cname not in comp_params:
             unknown_name(
                 report,
-                "E-MODEL-UNKNOWN",
-                _ptr(*p, "model"),
-                f"仪表定义 {inst.model!r} 不存在",
-                inst.model,
-                options,
+                "E-HIDDEN-COMPONENT",
+                _ptr(*cp),
+                f"隐式状态指向不存在的组件 {cname!r}",
+                cname,
+                list(comp_params),
                 name,
-                fallback=f"可用的仪表定义：{', '.join(options)}",
+                fallback=f"可用组件：{', '.join(sorted(comp_params))}",
             )
             continue
-        defs[name] = d
-        if inst.deviation == "from_specs" and not d.deviations:
+        for pname in params:
+            if pname in comp_params[cname]:
+                continue
+            unknown_name(
+                report,
+                "E-HIDDEN-PARAM",
+                _ptr(*cp, pname),
+                f"隐式状态指向组件 {cname!r} 不存在的参数 {pname!r}",
+                pname,
+                sorted(comp_params[cname]),
+                name,
+                fallback=f"可用参数：{', '.join(sorted(comp_params[cname]))}",
+            )
+    per_channel = {c.name for c in d.channel_components}
+    for spec in d.deviations:
+        names = (
+            [f"ch{n}.{spec.component}" for n in range(1, d.channels.count + 1)]
+            if spec.component in per_channel
+            else [spec.component]
+        )
+        for cname in names:
+            if cname not in comp_params or spec.parameter in comp_params[cname]:
+                continue
             report.add(
-                "warning",
-                "W-DEVIATION-NONE",
-                _ptr(*p, "deviation"),
-                f"仪表定义 {d.id} 没有写 deviations，按指标抽取不会改变任何参数",
-                "在定义中补充 deviations，或去掉 deviation: from_specs",
+                "error",
+                "E-DEVIATION-PARAM",
+                _ptr("instruments", name, "deviation", cname, spec.parameter),
+                f"个体偏差指向组件 {cname!r} 不存在的参数 {spec.parameter!r}",
+                f"可用参数：{', '.join(sorted(comp_params[cname]))}",
                 name,
             )
-        ports: dict[str, tuple[str, str, int | None]] = {}
-        for n in range(1, d.channels.count + 1):
-            for pname in d.ports.channel:
-                ports[pname.replace("{n}", str(n))] = ("electrical", "inout", n)
-        for pname in d.ports.instrument:
-            ports[pname] = ("electrical", "inout", None)
-        port_info[name] = ports
-        specs = {**d.state}
-        for n in range(1, d.channels.count + 1):
-            for k, s in d.channel_state.items():
-                specs[f"ch{n}.{k}"] = s
-        comp_params: dict[str, set[str]] = {}
-        for spec in d.components:
-            comp_params[spec.name] = set(known_types[spec.type].defaults) | set(spec.params)
-        for n in range(1, d.channels.count + 1):
-            for spec in d.channel_components:
-                comp_params[f"ch{n}.{spec.name}"] = set(known_types[spec.type].defaults) | set(spec.params)
-        for cname, params in inst.hidden.items():
-            cp = ("instruments", name, "hidden", cname)
-            if cname not in comp_params:
-                unknown_name(
-                    report,
-                    "E-HIDDEN-COMPONENT",
-                    _ptr(*cp),
-                    f"隐式状态指向不存在的组件 {cname!r}",
-                    cname,
-                    list(comp_params),
-                    name,
-                    fallback=f"可用组件：{', '.join(sorted(comp_params))}",
-                )
-                continue
-            for pname in params:
-                if pname in comp_params[cname]:
-                    continue
-                unknown_name(
-                    report,
-                    "E-HIDDEN-PARAM",
-                    _ptr(*cp, pname),
-                    f"隐式状态指向组件 {cname!r} 不存在的参数 {pname!r}",
-                    pname,
-                    sorted(comp_params[cname]),
-                    name,
-                    fallback=f"可用参数：{', '.join(sorted(comp_params[cname]))}",
-                )
-        per_channel = {c.name for c in d.channel_components}
-        for spec in d.deviations:
-            names = (
-                [f"ch{n}.{spec.component}" for n in range(1, d.channels.count + 1)]
-                if spec.component in per_channel
-                else [spec.component]
+    _check_initial_state(name, inst, d, specs, p, report)
+
+
+def _check_initial_state(
+    name: str,
+    inst: Any,
+    d: InstrumentDefinition,
+    specs: dict[str, Any],
+    p: tuple[str, str],
+    report: Report,
+) -> None:
+    """The bench's initial state of one instrument: types, ranges and options."""
+    for path, value in inst.state.items():
+        sp = ("instruments", name, "state", path)
+        spec = specs.get(path)
+        if spec is None:
+            unknown_name(
+                report,
+                "E-STATE-UNKNOWN",
+                _ptr(*sp),
+                f"{d.model} 没有状态 {path!r}",
+                path,
+                list(specs),
+                name,
             )
-            for cname in names:
-                if cname not in comp_params or spec.parameter in comp_params[cname]:
-                    continue
+            continue
+        if spec.type in ("float", "int"):
+            try:
+                v = float(value)
+            except (TypeError, ValueError):
+                report.add("error", "E-STATE-TYPE", _ptr(*sp), f"{path} 需要数值，得到 {value!r}", None, name)
+                continue
+            if V.fit_value(spec, v)[0] is not None:
                 report.add(
                     "error",
-                    "E-DEVIATION-PARAM",
-                    _ptr("instruments", name, "deviation", cname, spec.parameter),
-                    f"个体偏差指向组件 {cname!r} 不存在的参数 {spec.parameter!r}",
-                    f"可用参数：{', '.join(sorted(comp_params[cname]))}",
-                    name,
-                )
-        for path, value in inst.state.items():
-            sp = ("instruments", name, "state", path)
-            spec = specs.get(path)
-            if spec is None:
-                unknown_name(
-                    report,
-                    "E-STATE-UNKNOWN",
+                    "E-STATE-RANGE",
                     _ptr(*sp),
-                    f"{d.model} 没有状态 {path!r}",
-                    path,
-                    list(specs),
+                    f"{path} = {v:g} 超出范围 [{_bound(spec.min)}, {_bound(spec.max, '∞')}]",
+                    f"取 {_bound(spec.min)} 到 {_bound(spec.max, '∞')} 之间的值",
                     name,
                 )
-                continue
-            if spec.type in ("float", "int"):
-                try:
-                    v = float(value)
-                except (TypeError, ValueError):
-                    report.add(
-                        "error", "E-STATE-TYPE", _ptr(*sp), f"{path} 需要数值，得到 {value!r}", None, name
-                    )
-                    continue
-                if V.fit_value(spec, v)[0] is not None:
-                    report.add(
-                        "error",
-                        "E-STATE-RANGE",
-                        _ptr(*sp),
-                        f"{path} = {v:g} 超出范围 [{_bound(spec.min)}, {_bound(spec.max, '∞')}]",
-                        f"取 {_bound(spec.min)} 到 {_bound(spec.max, '∞')} 之间的值",
-                        name,
-                    )
-            elif spec.type == "enum":
-                if V.fit_value(spec, value)[0] is not None:
-                    report.add(
-                        "error",
-                        "E-STATE-OPTION",
-                        _ptr(*sp),
-                        f"{path} 不接受 {value!r}",
-                        f"可选值：{', '.join(spec.options or [])}",
-                        name,
-                    )
+        elif spec.type == "enum":
+            if V.fit_value(spec, value)[0] is not None:
+                report.add(
+                    "error",
+                    "E-STATE-OPTION",
+                    _ptr(*sp),
+                    f"{path} 不接受 {value!r}",
+                    f"可选值：{', '.join(spec.options or [])}",
+                    name,
+                )
 
-    # ---- parts ----
+
+def _check_parts(
+    bench: BenchDefinition,
+    known_types: dict[str, type[Component]],
+    port_info: dict[str, dict[str, tuple[str, str, int | None]]],
+    report: Report,
+) -> None:
     for name, part in bench.parts.items():
         p = ("parts", name)
         if name in bench.instruments:
@@ -334,7 +378,13 @@ def validate_bench(
                 )
         port_info[name] = {pn: (ps.medium, ps.direction, None) for pn, ps in cls.ports.items()}
 
-    # ---- wires ----
+
+def _check_wires(
+    bench: BenchDefinition,
+    known_types: dict[str, type[Component]],
+    port_info: dict[str, dict[str, tuple[str, str, int | None]]],
+    report: Report,
+) -> None:
     for i, w in enumerate(bench.wires):
         for end, ref in (("from", w.from_), ("to", w.to)):
             owner, port = split(ref)
@@ -376,7 +426,9 @@ def validate_bench(
                     f"wire:{i}",
                 )
 
-    # ---- preset faults ----
+
+def _check_faults(bench: BenchDefinition, report: Report) -> None:
+    """Preset faults."""
     for i, f in enumerate(bench.faults):
         fp = ("faults", i)
         if f.instrument is not None and f.instrument not in bench.instruments:
@@ -400,19 +452,6 @@ def validate_bench(
                 )
         elif f.instrument is None:
             report.add("error", "E-FAULT-TARGET", _ptr(*fp), f"{f.kind} 故障需要 instrument")
-
-    # ---- remote sense of sources (metrology-authoring.md 6) ----
-    # One union-find pass for the plain nets, shared by the sense check and the net checks
-    # (issue 641); the through-variant merges across series parts, so it is its own pass — and
-    # it only runs when the bench is otherwise clean, like _check_nets itself.
-    nets = _nets(bench)
-    _check_sense(bench, defs, report, net_of={ref: i for i, members in enumerate(nets) for ref in members})
-
-    # ---- nets: one driver per net, impedance hints ----
-    if report.ok:
-        series = frozenset(t for t, cls in component_types().items() if cls.role == "series")
-        _check_nets(bench, defs, report, nets, _nets(bench, through=series))
-    return report
 
 
 def _component_param(d: InstrumentDefinition, comp: Any, inst: Any, name: str) -> Any:

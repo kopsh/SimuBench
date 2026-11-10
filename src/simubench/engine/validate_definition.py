@@ -73,9 +73,24 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     report = report or Report()
     d = definition
     known = component_types()
-    count = d.channels.count
+    classes = _check_components(d, known, report)
+    _check_component_refs(d, known, report)
+    _check_offset_convention(d, known, report)
+    _check_deviations(d, known, report)
+    _check_wiring(d, classes, report)
+    compiled = [_check_command(d, i, cmd, classes, report) for i, cmd in enumerate(d.commands)]
+    _check_overlaps(d, compiled, report)
+    _check_dialect(d, report)
+    _check_panel(d, report)
+    return report
 
-    # ---- components: instrument level by name, channel level as ch<n>.<name> ----
+
+def _check_components(
+    d: InstrumentDefinition, known: dict[str, type[Component]], report: Report
+) -> dict[str, type[Component]]:
+    """Components: instrument level by name, channel level as ch<n>.<name>. Returns the resolved
+    name -> class table (known types only)."""
+    count = d.channels.count
     classes: dict[str, type[Component]] = {}  # resolved name -> class (known types only)
     for section, specs, channel in (
         ("components", d.components, False),
@@ -109,8 +124,11 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
             for n in range(1, count + 1) if channel else (None,):
                 classes[f"ch{n}.{spec.name}" if n else spec.name] = cls
             _check_params(d, spec, cls, p, channel, report)
+    return classes
 
-    # ---- parameters that name another component (Component.refs) ----
+
+def _check_component_refs(d: InstrumentDefinition, known: dict[str, type[Component]], report: Report) -> None:
+    """Parameters that name another component (Component.refs)."""
     declared = {
         "instrument": {c.name: known.get(c.type) for c in d.components},
         "channel": {c.name: known.get(c.type) for c in d.channel_components},
@@ -182,9 +200,9 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                         spec.name,
                     )
 
-    _check_offset_convention(d, known, report)
 
-    # ---- individual deviations: a parameter of a declared component ----
+def _check_deviations(d: InstrumentDefinition, known: dict[str, type[Component]], report: Report) -> None:
+    """Individual deviations: a parameter of a declared component."""
     specs_by_name = {c.name: c for c in (*d.components, *d.channel_components)}
     for i, dev in enumerate(d.deviations):
         p = ("deviations", i, "param")
@@ -230,7 +248,10 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
                 "去掉 unit，把 limit 写成参数本身的单位",
             )
 
-    # ---- signal wiring and exposed ports ----
+
+def _check_wiring(d: InstrumentDefinition, classes: dict[str, type[Component]], report: Report) -> None:
+    """Signal wiring and exposed ports."""
+
     def check_end(ref: str, pointer: str, in_channel: bool) -> None:
         comp, port = split(ref)
         if in_channel:  # inside a channel, components are named without the ch<n>. prefix
@@ -278,90 +299,87 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     for pname, target in d.ports.instrument.items():
         check_end(target.replace("{n}", "1"), _ptr("ports", "instrument", pname), False)
 
-    # ---- commands ----
-    compiled: list[Pattern | None] = []
-    for i, cmd in enumerate(d.commands):
-        p = ("commands", i)
-        pattern = _compile(cmd.header)
-        compiled.append(pattern)
-        if pattern is None:
-            report.add(
-                "error",
-                "E-DEF-HEADER",
-                _ptr(*p, "header"),
-                f"命令头 {cmd.header!r} 无法解析",
-                "节点写作 :WORD、[:WORD] 或 WORD<后缀名>，例如 [:SOURce<ch>]:FREQuency[:CW]",
-                cmd.header,
-            )
-            continue
-        # A channel-list parameter also runs the command per channel (#183): its settings and
-        # operations are channel state, even without a <ch> header suffix.
-        per_channel = any(n.suffix == "ch" for n in pattern.nodes) or any(
-            p.type == "channel_list" for p in cmd.params
+
+def _check_command(
+    d: InstrumentDefinition, i: int, cmd: CommandSpec, classes: dict[str, type[Component]], report: Report
+) -> Pattern | None:
+    """One command: its header, settings, operation, arguments, parameters and reply. Returns the
+    compiled header (None when it does not parse)."""
+    p = ("commands", i)
+    pattern = _compile(cmd.header)
+    if pattern is None:
+        report.add(
+            "error",
+            "E-DEF-HEADER",
+            _ptr(*p, "header"),
+            f"命令头 {cmd.header!r} 无法解析",
+            "节点写作 :WORD、[:WORD] 或 WORD<后缀名>，例如 [:SOURce<ch>]:FREQuency[:CW]",
+            cmd.header,
         )
-        if cmd.state is not None:
-            _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
-        if cmd.op is not None:
-            _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
-        for key, value in cmd.args.items():
-            if isinstance(value, str) and value.startswith("$"):  # an argument bound to a setting (#252)
-                _check_state_ref(d, value[1:], per_channel, _ptr(*p, "args", key), cmd.header, report)
-        if cmd.read is not None:
-            _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
-        indexes = _index_values(cmd)
-        for state, value in cmd.writes.items():
-            for ref in _expand(state, indexes):  # an index may pick the setting (#248: VIEW CHAN2)
-                _check_write(d, ref, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
-        for k, ps in enumerate(cmd.params):
-            if ps.state is not None:
-                for ref in _expand(ps.state, indexes):  # every setting an index can pick
-                    if not _check_state_ref(
-                        d, ref, per_channel, _ptr(*p, "params", k, "state"), cmd.header, report
-                    ):
-                        break
-            for key, ref in (ps.keys or {}).items():
-                if ref is not None:
-                    _check_state_ref(
-                        d, ref, per_channel, _ptr(*p, "params", k, "keys", key), cmd.header, report
-                    )
-            if isinstance(ps.default, str):  # an omitted list read from a setting (#423)
-                ref = ps.default.removeprefix("$")
-                found = _check_state_ref(d, ref, False, _ptr(*p, "params", k, "default"), cmd.header, report)
-                if found is not None and (ps.type != "channel_list" or found.type != "int_list"):
-                    report.add(
-                        "error",
-                        "E-DEF-PARAM",
-                        _ptr(*p, "params", k, "default"),
-                        f"{cmd.header}: 只有通道列表参数的 default 可以写成设置,且该设置须为 int_list",
-                        "写 default: $scan.list(int_list),或写成通道号列表 [1]",
-                        ps.default,
-                    )
-            if ps.type == "quantities":
-                _check_quantities(d, ps, per_channel, _ptr(*p, "params", k), cmd.header, report)
-            for state, value in (ps.sets or {}).items():
+        return None
+    # A channel-list parameter also runs the command per channel (#183): its settings and
+    # operations are channel state, even without a <ch> header suffix.
+    per_channel = any(n.suffix == "ch" for n in pattern.nodes) or any(
+        p.type == "channel_list" for p in cmd.params
+    )
+    if cmd.state is not None:
+        _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
+    if cmd.op is not None:
+        _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
+    for key, value in cmd.args.items():
+        if isinstance(value, str) and value.startswith("$"):  # an argument bound to a setting (#252)
+            _check_state_ref(d, value[1:], per_channel, _ptr(*p, "args", key), cmd.header, report)
+    if cmd.read is not None:
+        _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
+    indexes = _index_values(cmd)
+    for state, value in cmd.writes.items():
+        for ref in _expand(state, indexes):  # an index may pick the setting (#248: VIEW CHAN2)
+            _check_write(d, ref, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
+    for k, ps in enumerate(cmd.params):
+        if ps.state is not None:
+            for ref in _expand(ps.state, indexes):  # every setting an index can pick
+                if not _check_state_ref(
+                    d, ref, per_channel, _ptr(*p, "params", k, "state"), cmd.header, report
+                ):
+                    break
+        for key, ref in (ps.keys or {}).items():
+            if ref is not None:
+                _check_state_ref(d, ref, per_channel, _ptr(*p, "params", k, "keys", key), cmd.header, report)
+        if isinstance(ps.default, str):  # an omitted list read from a setting (#423)
+            ref = ps.default.removeprefix("$")
+            found = _check_state_ref(d, ref, False, _ptr(*p, "params", k, "default"), cmd.header, report)
+            if found is not None and (ps.type != "channel_list" or found.type != "int_list"):
+                report.add(
+                    "error",
+                    "E-DEF-PARAM",
+                    _ptr(*p, "params", k, "default"),
+                    f"{cmd.header}: 只有通道列表参数的 default 可以写成设置,且该设置须为 int_list",
+                    "写 default: $scan.list(int_list),或写成通道号列表 [1]",
+                    ps.default,
+                )
+        if ps.type == "quantities":
+            _check_quantities(d, ps, per_channel, _ptr(*p, "params", k), cmd.header, report)
+        for state, value in (ps.sets or {}).items():
+            for ref in _expand(state, indexes):
+                _check_write(
+                    d, ref, value, per_channel, _ptr(*p, "params", k, "sets", state), cmd.header, report
+                )
+        for word, writes in (ps.keywords or {}).items():
+            for state, value in writes.items():
                 for ref in _expand(state, indexes):
                     _check_write(
-                        d, ref, value, per_channel, _ptr(*p, "params", k, "sets", state), cmd.header, report
+                        d,
+                        ref,
+                        value,
+                        per_channel,
+                        _ptr(*p, "params", k, "keywords", word, state),
+                        cmd.header,
+                        report,
                     )
-            for word, writes in (ps.keywords or {}).items():
-                for state, value in writes.items():
-                    for ref in _expand(state, indexes):
-                        _check_write(
-                            d,
-                            ref,
-                            value,
-                            per_channel,
-                            _ptr(*p, "params", k, "keywords", word, state),
-                            cmd.header,
-                            report,
-                        )
-        if cmd.reply is not None:
-            fields = _op_fields(d, classes, cmd.op) if cmd.op else set()
-            _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)
-    _check_overlaps(d, compiled, report)
-    _check_dialect(d, report)
-    _check_panel(d, report)
-    return report
+    if cmd.reply is not None:
+        fields = _op_fields(d, classes, cmd.op) if cmd.op else set()
+        _check_reply(d, cmd, per_channel, _ptr(*p, "reply"), report, fields)
+    return pattern
 
 
 def _check_offset_convention(
