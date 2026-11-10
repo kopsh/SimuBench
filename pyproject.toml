@@ -38,10 +38,10 @@ dev = [
   "pytest-timeout>=2.3",
   "httpx>=0.27",
   "ruff>=0.6",
-  "mypy>=1.11",
   "types-PyYAML",
   "pyvisa-py>=0.8.1",
   "pytest-textual-snapshot>=1.1",
+  "ty>=0.0.100",
 ]
 
 [build-system]
@@ -106,8 +106,11 @@ markers = [
   "load_sensitive: needs an idle machine; runs on main, not in the fast checks",
 ]
 
-[tool.mypy]
-python_version = "3.11"
-packages = ["simubench"]
-mypy_path = "src"
-ignore_missing_imports = true
+[tool.ty.src]
+include = ["src"]
+
+# The optional extras (mcp, ...) are not installed in every environment: an import the current
+# environment cannot resolve is an environment fact, not a type error the baseline must track (#897).
+[tool.ty.rules]
+import-not-found = "ignore"
+import-unresolved = "ignore"

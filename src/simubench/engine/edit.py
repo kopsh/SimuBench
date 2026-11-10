@@ -298,7 +298,9 @@ def _next_address(address: str) -> str | None:
         host = int(m.group(2)) % 254 + 1
         return "::".join([parts[0], f"{m.group(1)}{host}", *parts[2:]])
     i = len(parts) - 2 if parts[-1].upper() in ("INSTR", "SOCKET") and len(parts) > 2 else len(parts) - 1
-    stem, digits = _TRAILING_DIGITS.match(parts[i]).groups()  # type: ignore[union-attr]
+    m = _TRAILING_DIGITS.match(parts[i])
+    assert m is not None  # (.*?)(\d*)$ matches anything, even the empty string
+    stem, digits = m.groups()
     width = len(digits)
     parts[i] = f"{stem}{int(digits or '1') + 1:0{width}d}"
     return "::".join(parts)

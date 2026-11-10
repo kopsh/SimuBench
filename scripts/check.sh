@@ -8,6 +8,7 @@ ignored=$(git ls-files --others --ignored --exclude-standard -- src tests accept
 if [ -n "$ignored" ]; then echo "ignored by .gitignore but part of the source:"; echo "$ignored"; exit 1; fi
 uv run ruff check src tests acceptance refcalc
 uv run ruff format --check src tests acceptance refcalc
+uv run python scripts/check_ty.py
 # -n 4: pytest-xdist, the same width the 4-core dev container's `-n auto` gives; see issue #209.
 # --dist loadscope: a module runs whole on one worker, so the TUI snapshot module's server —
 # whose fixed SCPI port the SVGs show — is set up exactly once (tui-screens.md 14).

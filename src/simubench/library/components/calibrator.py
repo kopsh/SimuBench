@@ -507,7 +507,7 @@ class CalibratorSetpoint(_Setpoint, Component):
             fn = str(self.param("function")).upper()
             family = {"DCV": "V", "ACV": "V", "DCI": "I", "ACI": "I"}.get(fn)
             target = None if family is None else ("AC" if float(new) > 0 else "DC") + family
-            path = self.bound_path("function")
+            path: str | None = self.bound_path("function")
             if target is not None and target != fn and path is not None and self.owner is not None:
                 self.setpoint_changed(key, old, new)
                 self.owner.set_state(path, target, source="scpi", internal=True)
@@ -527,9 +527,9 @@ class CalibratorSetpoint(_Setpoint, Component):
                 nominal = self._nominal_ohms(level)
                 if nominal != level and self.owner is not None:
                     # the resistance outputs are a fixed set of values: the nearest one (#550)
-                    path = self.bound_path("level")
-                    if path is not None:
-                        self.owner.set_state(path, nominal, source="scpi", internal=True)
+                    path2 = self.bound_path("level")
+                    if path2 is not None:
+                        self.owner.set_state(path2, nominal, source="scpi", internal=True)
                         return
         if key == "level":
             if self._locked is not None:

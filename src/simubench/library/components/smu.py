@@ -549,7 +549,7 @@ class SmuMeter(Component):
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        self._auto_range: dict[str, float] = {}  # each measure function's auto-chosen range
+        self._auto_range: dict[str, float | None] = {}  # each measure function's auto-chosen range
         self._saved: dict[str, dict[str, Any]] | None = None  # settings a run drove (restored on run_done)
         self._point: tuple[float, float, float, float] = (0.0, 0.0, OPEN, 0.0)  # the last reading
 

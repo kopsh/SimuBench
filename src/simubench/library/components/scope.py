@@ -1956,7 +1956,7 @@ class ScopeMeasurements(Component):
         first rising edge at their middle levels; ``PHASe?``: that delay over source 1's period, in
         degrees (#350). Without sources, :MEASure:SOURce's two (``sources``)."""
         assert self.owner is not None
-        _, channels = self._sources(source)
+        _words, channels = self._sources(source)
         if len(channels) < 2:
             pair = [channel_index(self.owner.get_state(p)) for p in (self.param("sources") or [])]
             channels = (channels + pair[len(channels) :])[:2]

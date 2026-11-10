@@ -357,12 +357,15 @@ class TriggerModel(Triggerable, Component):
     def _number(self) -> Any:
         return _number_formatter(self.owner, self.param("digits"))
 
+    def _buffer_readings(self) -> list[Any]:
+        """The readings of the configured reading buffer (``fetch_from_buffer``, #382)."""
+        buffer = self._buffer()
+        if buffer is None:
+            raise ScpiError(-300, "no reading buffer is configured")
+        return buffer.buffers[buffer._default()]
+
     def _reply(self, elements: list[str] | None = None) -> bytes:
-        if self.param("fetch_from_buffer"):
-            buffer = self._buffer()
-            readings = buffer.buffers[buffer._default()]
-        else:
-            readings = self.taken
+        readings = self._buffer_readings() if self.param("fetch_from_buffer") else self.taken
         return format_readings(readings, elements, self._number())
 
     # ---- the triggerable's increments ----------------------------------------------------------------
@@ -458,6 +461,8 @@ class TriggerModel(Triggerable, Component):
         used = self.wait_fired()
         if self.param("fetch_from_buffer"):
             buffer = self._buffer()
+            if buffer is None:  # fetch_from_buffer on but no buffer configured (#382 style guard)
+                raise ScpiError(-300, "no reading buffer is configured")
             if not buffer.buffers[buffer._default()]:
                 raise ScpiError(int(buffer.param("empty_error")), "the buffer is empty")
         elif self.phase == "measuring" or not self.taken or (self.phase == "waiting" and not self.triggers):

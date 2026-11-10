@@ -1,0 +1,232 @@
+src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method `HislipServer._descriptors` is incorrect: Expected `StreamWriter`, found `StreamWriter | SecureStream`
+src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method `HislipSession._drain` is incorrect: Expected `StreamWriter | None`, found `StreamWriter | SecureStream | None` ×3
+src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method `HislipSession._send` is incorrect: Expected `StreamWriter | None`, found `StreamWriter | SecureStream | None` ×6
+src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method `HislipSession.send_error` is incorrect: Expected `StreamWriter | None`, found `StreamWriter | SecureStream | None` ×2
+src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method `HislipSession.send_error` is incorrect: Expected `StreamWriter | None`, found `StreamWriter | SecureStream`
+src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method `SecureStream.accept` is incorrect: Expected `StreamReader`, found `StreamReader | SecureStream | None`
+src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method `SecureStream.accept` is incorrect: Expected `StreamWriter`, found `StreamWriter | SecureStream | None`
+src/simubench/access/hislip_tls.py:missing-attribute Object of type `StreamReader` has no attribute `_buffer` ×2
+src/simubench/access/links.py:invalid-argument-type Argument to bound method `Session.instrument` is incorrect: Expected `str`, found `str | None`
+src/simubench/access/pyvisa_backend.py:invalid-argument-type Argument to function `boards_of` is incorrect: Expected `Session`, found `RemoteBench | Session`
+src/simubench/access/pyvisa_backend.py:missing-attribute Object of type `ResourceName` has no attribute `board`
+src/simubench/access/pyvisa_backend.py:missing-attribute Unresolved attribute `end_pending` on type `_VisaSession`
+src/simubench/access/vxi11_server.py:invalid-type-form Function `bool` is not valid in a return type annotation
+src/simubench/access/vxi11_server.py:invalid-type-form Function `int` is not valid in a parameter annotation
+src/simubench/access/vxi11_server.py:invalid-type-form Function `int` is not valid in a return type annotation ×2
+src/simubench/assistant/compaction.py:deprecated The class `RetryPromptPart` is deprecated: `RetryPromptPart` is deprecated and will be removed in v3. Build the part the retry belongs to: `ToolReturnPart(tool_name=..., content=..., tool_call_id=..., outcome='retried')` for a retry that answers a tool call, or `RetryFeedbackPart(content=..., retry=RetryInfo(cause=...))` for one that answers none. ×3
+src/simubench/assistant/compaction.py:invalid-argument-type Argument to function `estimate_tokens` is incorrect: Expected `list[ModelRequest | ModelResponse]`, found `list[ModelRequest]`
+src/simubench/assistant/llm.py:invalid-argument-type Argument to `AnthropicModel.__init__` is incorrect: Expected `ModelProfile | ((ModelProfile, /) -> ModelProfile) | None`, found `dict[str, int]`
+src/simubench/assistant/llm.py:invalid-argument-type Argument to `AnthropicModel.__init__` is incorrect: Expected `str`, found `str | None`
+src/simubench/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatModel.__init__` is incorrect: Expected `ModelProfile | ((ModelProfile, /) -> ModelProfile) | None`, found `dict[str, int]`
+src/simubench/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatModel.__init__` is incorrect: Expected `str`, found `str | None`
+src/simubench/assistant/service.py:invalid-argument-type Argument is incorrect: Expected `Literal["bench", "definition"]`, found `str` ×2
+src/simubench/cli.py:deprecated The function `on_event` is deprecated:
+src/simubench/engine/component.py:missing-attribute Object of type `(...) -> OpResult` has no attribute `__name__`
+src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_fields__` on type `(...) -> OpResult`
+src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_name__` on type `(...) -> OpResult`
+src/simubench/engine/edit.py:incompatible-attribute-override Invalid override of attribute `op`: Type `Literal["add_dut"]` is not assignable to inherited type `Literal["add_part"]`
+src/simubench/engine/instrument.py:invalid-argument-type Argument to bound method `Instrument._resolve` is incorrect: Expected `str`, found `str | None`
+src/simubench/engine/instrument.py:invalid-argument-type Argument to bound method `list.append` is incorrect: Expected `list[str | None]`, found `list[str | None] | list[str]`
+src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `clear`
+src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `event`
+src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `latch_conditions`
+src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `summary`
+src/simubench/engine/instrument.py:no-matching-overload No overload of function `get_close_matches` matches arguments
+src/simubench/engine/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
+src/simubench/engine/session.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
+src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×3
+src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.source_dc_current` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
+src/simubench/engine/session.py:missing-attribute Unresolved attribute `signal` on type `def dc(port: str, comp: Component = ..., sol: Solution = ..., emf: dict[str, Signal] = ...) -> float`
+src/simubench/engine/silence.py:not-iterable Object of type `None` is not iterable
+src/simubench/engine/validate.py:invalid-argument-type Argument to function `ladder` is incorrect: Expected `(str, /) -> Iterable[str]`, found `Overload[(key: object, default: None = None, /) -> dict[str, tuple[str, str, int | None]] | None, (key: object, default: dict[str, tuple[str, str, int | None]], /) -> dict[str, tuple[str, str, int | None]], [_T](key: object, default: _T, /) -> dict[str, tuple[str, str, int | None]] | _T]`
+src/simubench/engine/validate.py:invalid-argument-type Method `__getitem__` of type `bound method dict[str, int].__getitem__(key: str, /) -> int` cannot be called with key of type `None` on object of type `dict[str, int]`
+src/simubench/engine/validate_definition.py:invalid-argument-type Argument to constructor `int.__new__` is incorrect: Expected `str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc`, found `float | None` ×2
+src/simubench/engine/verdicts.py:invalid-argument-type Argument to function `_cell` is incorrect: Expected `str`, found `str | Path` ×2
+src/simubench/engine/verdicts.py:invalid-argument-type Argument to function `_number` is incorrect: Expected `str`, found `str | Path`
+src/simubench/engine/verdicts.py:invalid-argument-type Argument to function `_point` is incorrect: Expected `str`, found `str | Path`
+src/simubench/library/components/arb_segments.py:invalid-argument-type Argument to bound method `ndarray.max` is incorrect: Expected `NDArray[object_]`, found `ndarray[_AnyShape, dtype[signedinteger[_32Bit]]]`
+src/simubench/library/components/arb_segments.py:invalid-argument-type Argument to bound method `ndarray.max` is incorrect: Expected `NDArray[object_]`, found `ndarray[tuple[int], dtype[signedinteger[_16Bit]]]`
+src/simubench/library/components/arb_segments.py:invalid-argument-type Argument to bound method `ndarray.min` is incorrect: Expected `NDArray[object_]`, found `ndarray[_AnyShape, dtype[signedinteger[_32Bit]]]`
+src/simubench/library/components/arb_segments.py:invalid-argument-type Argument to bound method `ndarray.min` is incorrect: Expected `NDArray[object_]`, found `ndarray[tuple[int], dtype[signedinteger[_16Bit]]]`
+src/simubench/library/components/calstore.py:missing-attribute Object of type `Component` has no attribute `active_function` ×2
+src/simubench/library/components/calstore.py:missing-attribute Object of type `Component` has no attribute `effective_range`
+src/simubench/library/components/calstore.py:missing-attribute Object of type `Component` has no attribute `raw` ×2
+src/simubench/library/components/counter.py:invalid-type-form Variable of type `type[Component]` is not allowed in a parameter annotation
+src/simubench/library/components/counter.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×3
+src/simubench/library/components/counter.py:missing-attribute Object of type `Component | None` has no attribute `error` ×2
+src/simubench/library/components/daq.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
+src/simubench/library/components/eload.py:incompatible-method-override Invalid override of method `update_mode`: Definition is incompatible with `Component.update_mode`
+src/simubench/library/components/eload.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×4
+src/simubench/library/components/lockin.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None`
+src/simubench/library/components/lockin.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×3
+src/simubench/library/components/meters.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×2
+src/simubench/library/components/meters.py:missing-attribute Object of type `Component` has no attribute `adjust_gain`
+src/simubench/library/components/meters.py:missing-attribute Object of type `Component` has no attribute `adjust_offset`
+src/simubench/library/components/meters.py:missing-attribute Object of type `Component` has no attribute `coefficients`
+src/simubench/library/components/meters.py:missing-attribute Object of type `Component` has no attribute `is_secured`
+src/simubench/library/components/meters.py:missing-attribute Object of type `Component` has no attribute `op_secure`
+src/simubench/library/components/meters.py:missing-attribute Object of type `Component` has no attribute `op_store`
+src/simubench/library/components/meters.py:missing-attribute Object of type `type[Component]` has no attribute `_kind`
+src/simubench/library/components/power.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
+src/simubench/library/components/power.py:missing-attribute Object of type `Component` has no attribute `idle`
+src/simubench/library/components/protection.py:missing-attribute Object of type `Self@_crossed` has no attribute `param`
+src/simubench/library/components/protection.py:missing-attribute Object of type `Self@_kind_reply` has no attribute `session`
+src/simubench/library/components/protection.py:missing-attribute Object of type `Self@_trip_reply` has no attribute `session`
+src/simubench/library/components/ranging.py:unsupported-operator Operator `<=` is not supported between objects of type `float | None` and `float`
+src/simubench/library/components/ranging.py:unsupported-operator Operator `<=` is not supported between objects of type `float` and `float | None`
+src/simubench/library/components/rfgen.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None` ×3
+src/simubench/library/components/rfgen.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×3
+src/simubench/library/components/rfgen.py:missing-attribute Object of type `Component` has no attribute `sweeps_level`
+src/simubench/library/components/rfgen.py:missing-attribute Object of type `Component` has no attribute `swept_level`
+src/simubench/library/components/rfgen.py:missing-attribute Object of type `type[Component]` has no attribute `phase` ×2
+src/simubench/library/components/rfgen.py:unsupported-base Unsupported class base with type `type[Component]`
+src/simubench/library/components/scope.py:incompatible-attribute-override Invalid override of attribute `ports`: instance variable cannot override class variable `Component.ports`
+src/simubench/library/components/scope.py:incompatible-method-override Invalid override of method `noise_rms`: Definition is incompatible with `Component.noise_rms`
+src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a parameter annotation
+src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×6
+src/simubench/library/components/scope.py:missing-attribute Object of type `Component` has no attribute `scale_offset`
+src/simubench/library/components/scope.py:unsupported-base Unsupported class base with type `type[Component]`
+src/simubench/library/components/siglent_sdg.py:missing-attribute Unresolved attribute `batch` on type `Component` ×2
+src/simubench/library/components/smu.py:incompatible-method-override Invalid override of method `update_mode`: Definition is incompatible with `Component.update_mode`
+src/simubench/library/components/smu.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None`
+src/simubench/library/components/smu.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
+src/simubench/library/components/smu.py:missing-attribute Object of type `Component` has no attribute `limit_cap` ×2
+src/simubench/library/components/sources.py:invalid-argument-type Argument is incorrect: Expected `Literal["in", "out", "inout"]`, found `Literal["ref"]`
+src/simubench/library/components/sources.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None` ×2
+src/simubench/library/components/sources.py:invalid-argument-type Argument to bound method `WaveformSynth._pulse_bounds` is incorrect: Expected `str`, found `str | None`
+src/simubench/library/components/sources.py:missing-attribute Object of type `Component` has no attribute `error`
+src/simubench/library/components/sources.py:missing-attribute Object of type `Component` has no attribute `function`
+src/simubench/library/components/sources.py:missing-attribute Object of type `type[Component]` has no attribute `VPP_PER_VRMS`
+src/simubench/library/components/specan.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
+src/simubench/library/components/specan.py:missing-attribute Object of type `Component | None` has no attribute `rbw`
+src/simubench/library/components/transfer.py:invalid-argument-type Argument to constructor `float.__new__` is incorrect: Expected `str | Buffer | SupportsFloat | SupportsIndex`, found `Any | None | int`
+src/simubench/library/components/transfer.py:invalid-argument-type Argument to constructor `float.__new__` is incorrect: Expected `str | Buffer | SupportsFloat | SupportsIndex`, found `Any | None`
+src/simubench/library/components/trigger.py:invalid-argument-type Argument to function `_number_formatter` is incorrect: Expected `Component`, found `Instrument | None` ×2
+src/simubench/library/components/trigger.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Component` has no attribute `format_number`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@_act` has no attribute `uid`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@_collect` has no attribute `owner` ×2
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@_collect` has no attribute `uid`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@_ignored` has no attribute `param`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@_init_trigger` has no attribute `owner` ×2
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@_init_trigger` has no attribute `uid`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@_source` has no attribute `param`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@abort` has no attribute `owner` ×2
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@abort` has no attribute `uid`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@arm` has no attribute `owner` ×3
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@arm` has no attribute `param` ×2
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@arm` has no attribute `uid`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@fire` has no attribute `owner` ×5
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@fire` has no attribute `param`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@fire` has no attribute `uid`
+src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@wait_fired` has no attribute `owner` ×3
+src/simubench/library/coverage.py:invalid-return-type Return type does not match returned value: expected `str`, found `str | None`
+src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Literal["buttons", "number", "switch", "select"]`, found `str`
+src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Literal["run", "stop", "single"] | None`, found `str`
+src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, bool]` ×2
+src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, str | Unknown]`
+src/simubench/library/panels.py:invalid-argument-type Argument to bound method `set.add` is incorrect: Expected `str`, found `str | None`
+src/simubench/library/templates/oscilloscope.py:invalid-argument-type Argument to function `max` is incorrect: Argument type `float | None` does not satisfy upper bound `SupportsDunderLT[Any] | SupportsDunderGT[Any]` of type variable `SupportsRichComparisonT`
+src/simubench/library/templates/oscilloscope.py:unsupported-operator Operator `*` is not supported between objects of type `float | None` and `float*`
+src/simubench/library/templates/signal_source.py:missing-attribute Object of type `type[Component]` has no attribute `VPP_PER_VRMS` ×2
+src/simubench/mcp_tools/definitions.py:invalid-argument-type Argument to bound method `DefinitionFiles.read` is incorrect: Expected `str`, found `str | None`
+src/simubench/ops.py:deprecated The overload of `getLevelName` is deprecated: The str -> int case is considered a mistake. ×2
+src/simubench/plugins.py:invalid-argument-type Argument to function `_warn_overrides` is incorrect: Expected `dict[str, type]`, found `dict[str, type[Component]]`
+src/simubench/pytest_plugin.py:invalid-argument-type Argument is incorrect: Expected `bool`, found `Literal["no bench: use @pytest.mark.bench(path), --simubench-bench or simubench_bench in the ini file"]`
+src/simubench/pytest_plugin.py:invalid-argument-type Argument is incorrect: Expected `bool`, found `str`
+src/simubench/pytest_plugin.py:missing-attribute Object of type `None` has no attribute `failed`
+src/simubench/pytest_plugin.py:missing-attribute Object of type `None` has no attribute `sections`
+src/simubench/pytest_plugin.py:missing-attribute Object of type `None` has no attribute `when`
+src/simubench/pytest_plugin.py:missing-attribute Object of type `VisaLibraryBase` has no attribute `bench`
+src/simubench/scpi/values.py:invalid-argument-type Argument to function `parse_float` is incorrect: Expected `str | None`, found `float | None`
+src/simubench/server/benchchanges.py:invalid-argument-type Argument is incorrect: Expected `Literal["added", "removed", "changed"]`, found `str`
+src/simubench/server/benchfiles.py:invalid-argument-type Argument is incorrect: Expected `Literal["part", "accessory", "internal"]`, found `str & ~Literal["internal"]`
+src/simubench/server/benchfiles.py:invalid-argument-type Argument to bound method `History.record` is incorrect: Expected `tuple[bytes, str, str] | None`, found `None | tuple[bytes, str | None, str]`
+src/simubench/server/catalog.py:invalid-argument-type Argument is incorrect: Expected `Literal["part", "accessory", "internal"]`, found `str`
+src/simubench/server/definitionchanges.py:invalid-argument-type Argument is incorrect: Expected `Literal["added", "removed", "changed"]`, found `str`
+src/simubench/server/definitionfiles.py:invalid-argument-type Argument to bound method `History.record` is incorrect: Expected `tuple[bytes, str, str] | None`, found `None | tuple[bytes, str | None, str]`
+src/simubench/server/internals_links.py:invalid-argument-type Argument is incorrect: Expected `Literal["self", "wire", "ref", "select"]`, found `str`
+src/simubench/server/manager.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
+src/simubench/server/routes/context.py:missing-attribute Object of type `SessionManager` has no attribute `assistant`
+src/simubench/server/routes/context.py:missing-attribute Unresolved attribute `assistant` on type `SessionManager`
+src/simubench/server/routes/events.py:invalid-argument-type Argument to `WebSocketDisconnect.__init__` is incorrect: Expected `int`, found `Any | None`
+src/simubench/server/routes/sessions.py:invalid-argument-type Argument is incorrect: Expected `Literal["command", "wall", "stepped", "scaled"]`, found `str` ×3
+src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `LaxStr | None`, found `Any | int` ×15
+src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `LaxStr`, found `Any | int`
+src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Literal["write", "read"] | None`, found `Any | int`
+src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any] | None`, found `Any | int`
+src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of type `def list(self) -> Unknown` in a parameter annotation ×2
+src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of type `def list(self) -> Unknown` in a return type annotation
+src/simubench/server/views.py:call-non-callable Object of type `object` is not callable
+src/simubench/server/views.py:invalid-argument-type Argument is incorrect: Expected `Literal["command", "wall", "stepped", "scaled"]`, found `str`
+src/simubench/server/views.py:invalid-argument-type Argument to bound method `Solution.source_contributions` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
+src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `_is` ×2
+src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `acq_count`
+src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `armed`
+src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `displayed`
+src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `records`
+src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `shows_live`
+src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `trigger_level`
+src/simubench/server/views.py:missing-attribute Object of type `Component` has no attribute `record_value`
+src/simubench/tui/app.py:call-non-callable Object of type `object` is not callable
+src/simubench/tui/app.py:invalid-argument-type Argument to bound method `ApiClient.advance` is incorrect: Expected `str`, found `str | None`
+src/simubench/tui/app.py:invalid-argument-type Argument to function `confirm_rebuild` is incorrect: Expected `(bool, /) -> None`, found `bound method Self@action_rebuild._do_rebuild(ok: bool) -> CoroutineType[Any, Any, None]`
+src/simubench/tui/app.py:invalid-argument-type Argument to function `register_screen` is incorrect: Expected `() -> Any`, found `<class 'InstrumentScreen'>`
+src/simubench/tui/app.py:invalid-argument-type Argument to function `register_screen` is incorrect: Expected `() -> Any`, found `<class 'ScopeScreen'>`
+src/simubench/tui/app.py:invalid-argument-type Argument to function `register_screen` is incorrect: Expected `() -> Any`, found `<class 'StateTreeScreen'>`
+src/simubench/tui/app.py:missing-attribute Object of type `Static` has no attribute `flash`
+src/simubench/tui/app.py:no-matching-overload No overload of bound method `App.push_screen` matches arguments
+src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `bool`, found `int | Any | str | None` ×12
+src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `float | None`, found `int | Any | str | None` ×6
+src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `int | None`, found `int | Any | str | None` ×18
+src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `int`, found `int | Any | str | None` ×12
+src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `str | None`, found `int | Any | str | None` ×46
+src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `str`, found `int | Any | str | None` ×26
+src/simubench/tui/screens/clockdialog.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×2
+src/simubench/tui/screens/dialogs.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×3
+src/simubench/tui/screens/dialogs.py:missing-attribute Object of type `Screen[object]` has no attribute `refresh_content`
+src/simubench/tui/screens/editing.py:incompatible-method-override Invalid override of method `action_toggle`: Definition is incompatible with `DOMNode.action_toggle`
+src/simubench/tui/screens/editing.py:invalid-argument-type Argument to bound method `ControlEditingScreen._run_writes` is incorrect: Expected `list[tuple[str, Any]]`, found `list[tuple[str, Any] | tuple[str | None, float]]` ×2
+src/simubench/tui/screens/editing.py:invalid-argument-type Argument to class `partial` is incorrect: Expected `str`, found `str | None`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×6
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `App[Unknown]` has no attribute `show`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Screen[object]` has no attribute `edit_key`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_configure` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_console_submit` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_readonly_guard` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_refresh_log` has no attribute `_log_box` ×3
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_refresh_log` has no attribute `_log_static` ×2
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_refresh_log` has no attribute `instrument_name` ×2
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_run_softkey` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@_take_local` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@action_console` has no attribute `_scpi`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@action_states` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@action_switch_instrument` has no attribute `instrument_name` ×2
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@go_to_field` has no attribute `instrument_name` ×2
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@info` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@readings` has no attribute `instrument_name`
+src/simubench/tui/screens/editing.py:missing-attribute Object of type `Self@take_pending_field` has no attribute `instrument_name`
+src/simubench/tui/screens/faultdialog.py:missing-attribute Object of type `App[Unknown]` has no attribute `faults`
+src/simubench/tui/screens/faultdialog.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×2
+src/simubench/tui/screens/faultdialog.py:missing-attribute Object of type `App[Unknown]` has no attribute `session_info`
+src/simubench/tui/screens/help.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang`
+src/simubench/tui/screens/instrument.py:invalid-return-type Return type does not match returned value: expected `list[dict[str, Any]]`, found `list[Mapping[str, Any]]`
+src/simubench/tui/screens/instrument.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×14
+src/simubench/tui/screens/logscreen.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×2
+src/simubench/tui/screens/logscreen.py:missing-attribute Object of type `App[Unknown]` has no attribute `lines`
+src/simubench/tui/screens/nets.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×3
+src/simubench/tui/screens/nets.py:missing-attribute Object of type `App[Unknown]` has no attribute `levels`
+src/simubench/tui/screens/nets.py:missing-attribute Object of type `App[Unknown]` has no attribute `session_info`
+src/simubench/tui/screens/nets.py:missing-attribute Object of type `App[Unknown]` has no attribute `show`
+src/simubench/tui/screens/overview.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×2
+src/simubench/tui/screens/runs.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×2
+src/simubench/tui/screens/scope.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×3
+src/simubench/tui/screens/scope.py:missing-attribute Object of type `App[Unknown]` has no attribute `store`
+src/simubench/tui/screens/shell.py:incompatible-method-override Invalid override of method `_on_resize`: Definition is incompatible with `Screen._on_resize`
+src/simubench/tui/screens/shell.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang`
+src/simubench/tui/screens/states.py:missing-attribute Object of type `App[Unknown]` has no attribute `connect`
+src/simubench/tui/screens/statetree.py:incompatible-method-override Invalid override of method `field_text`: Definition is incompatible with `ControlButton.field_text`
+src/simubench/tui/screens/statetree.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×3
+src/simubench/tui/theme.py:missing-attribute Object of type `object` has no attribute `register_theme` ×2
+src/simubench/tui/theme.py:missing-attribute Object of type `object` has no attribute `set_class`
+src/simubench/tui/theme.py:missing-attribute Unresolved attribute `theme` on type `object`

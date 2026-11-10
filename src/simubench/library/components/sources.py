@@ -715,6 +715,7 @@ class AmplitudeLevel(Component):
 
     def _switch_unit(self, old: str, new: str) -> None:
         """Convert the value to the new unit: the same wave in the new unit's terms (D48)."""
+        assert self.owner is not None  # a state change arrives through the owner's instrument
         amp_path = self.bound_path("amplitude")
         if amp_path is None:
             return
