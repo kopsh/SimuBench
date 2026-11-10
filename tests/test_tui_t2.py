@@ -9,7 +9,6 @@ contract) live in ``test_tui_e2e.py``.
 
 from __future__ import annotations
 
-import asyncio
 from pathlib import Path
 from typing import Any
 
@@ -27,50 +26,75 @@ SCOPE_BENCH = load("unit_scope_rc.json")
 
 
 async def focus_card(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0) -> None:
-    """Focus one overview card with its digit key (tui-screens.md 4.4).
+    """Focus one overview card with its digit key (tui-screens.md 4.4): the key is pressed once.
 
-    A data refresh can rebuild the grid and drop the focus, so the key is pressed again until
-    the focus is on the right card.
-    """
+    The overview must have its cards first (a connection alone does not give them), and a data
+    refresh updates them in place (#864), so it never takes the focus away; the wait after the key
+    is only for its own focus event to land. Pressing again until it sticks would hide exactly the
+    race this must catch (#834)."""
     from simubench.tui.screens.overview import Card, OverviewScreen
 
+    def cards_ready() -> bool:  # the digit acts on the cards that exist: wait for them, then press
+        return isinstance(tui.screen, OverviewScreen) and bool(tui.screen.query(Card))
+
+    await wait_for(pilot, cards_ready, timeout=timeout, message="the overview's cards")
     session = tui.session_info or {}
     names = [i["name"] for i in session.get("instruments", [])]
     names += [p["name"] for p in session.get("parts", [])]
-    digit = str(names.index(name) + 1)
-    end = asyncio.get_running_loop().time() + timeout
-    while asyncio.get_running_loop().time() < end:
-        await pilot.press(digit)
-        await pilot.pause(0.05)
+    await pilot.press(str(names.index(name) + 1))
+
+    def on_card() -> bool:
         focused = tui.screen.focused if isinstance(tui.screen, OverviewScreen) else None
-        if isinstance(focused, Card) and focused.card.name == name:
-            return
-    raise AssertionError(f"the digit never focused {name}'s card")
+        return isinstance(focused, Card) and focused.card.name == name
+
+    await wait_for(pilot, on_card, timeout=timeout, message=f"the digit's focus on {name}'s card")
 
 
 async def open_instrument(pilot, tui: SimuBenchApp, name: str, timeout: float = 20.0) -> None:
-    """Two keystrokes from the overview: the digit key, then Enter (tui-screens.md 2.3).
-
-    A data refresh between the keystrokes can rebuild the grid and drop the focus (the rebuild
-    restores it only after the next refresh), so the pair is retried until the screen is on top
-    -- the same race focus_card already retried for the digit key alone."""
+    """Two keystrokes from the overview: the digit key, then Enter (tui-screens.md 2.3) — each
+    pressed once. The screen is then waited for, never re-opened by pressing again (#834)."""
     from simubench.tui.screens.instrument import InstrumentScreen
     from simubench.tui.screens.scope import ScopeScreen
 
-    end = asyncio.get_running_loop().time() + timeout
-    while asyncio.get_running_loop().time() < end:
-        await focus_card(pilot, tui, name, timeout=max(0.5, end - asyncio.get_running_loop().time()))
-        await pilot.press("enter")
-        await pilot.pause(0.05)
+    await focus_card(pilot, tui, name, timeout=timeout)
+    await pilot.press("enter")
+
+    def on_top() -> bool:
         screen = tui.screen
-        if isinstance(screen, InstrumentScreen | ScopeScreen) and screen.instrument_name == name:
-            return
-    raise AssertionError(f"{name}'s screen never opened (on {type(tui.screen).__name__})")
+        return isinstance(screen, InstrumentScreen | ScopeScreen) and screen.instrument_name == name
+
+    await wait_for(pilot, on_top, timeout=timeout, message=f"{name}'s screen on top")
 
 
 def state_of(tui: SimuBenchApp, name: str, path: str) -> object:
     info = tui.client._fixture["instruments"][name]
     return next(sv for sv in info["state"] if sv["path"] == path)["value"]
+
+
+async def test_the_digit_and_enter_open_the_screen_once_through_data_refreshes():
+    """#834: data refreshes between the two keystrokes (and right before the first) must not eat
+    the Enter — each key is pressed exactly once and the instrument's screen comes up."""
+    from simubench.tui.screens.instrument import InstrumentScreen
+
+    tui, _fake = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        screen = tui.screen
+
+        def refresh() -> None:
+            tui.data_version += 1  # new data: the overview updates (or rebuilds) its cards
+            screen.refresh_content()
+
+        refresh()
+        await pilot.press("1")
+        refresh()  # between the keys
+        refresh()
+        await pilot.press("enter")
+        await wait_for(
+            pilot,
+            lambda: isinstance(tui.screen, InstrumentScreen) and tui.screen.instrument_name == "smu",
+            message="the smu screen",
+        )
 
 
 # ---- the instrument screen per class (tui-screens.md 5) ---------------------------------------------
