@@ -1774,4 +1774,4 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | 组件覆盖定义段、分块写入、超长 -223、`CATalog?`、删除、只写段、按采样频率播放 | ✅ `tests/models/keysight-m8194a/cases.yaml`（18 条）、`tests/test_keysight_m8194a.py` 的播放行（基频 = 采样率 / 段长、sinc 加权、删除后无信号） |
 | `keysight-m8194a` 的 `:TRACe` 行改为已实现并补用例，示例脚本装载波形 | ✅ `simubench coverage keysight-m8194a`（实现 35 / 共 102）；`tests/test_keysight_m8194a.py::test_manual_script_runs_on_the_example_bench` |
-| 不放宽 `ALLOWED` 与块覆盖例外清单 | ⚠️ 没有放宽；但块覆盖检查仍因 M8194A 没有“调制”块而红（与本 issue 无关，见上一节） |
+| 不放宽 `ALLOWED` 与块覆盖例外清单 | ✅ 没有放宽；M8194A 没有调制，记在 `NOT_APPLICABLE`（不是债务，不进 `EXEMPT`），`tests/test_block_coverage.py` 绿 |
