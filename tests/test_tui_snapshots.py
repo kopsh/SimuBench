@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from helpers import stop_manager_sessions, wait_for_free_ports
+from helpers import StableScreen, stop_manager_sessions, wait_for_free_ports
 from simubench.server import drive
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
@@ -157,29 +157,33 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
     assert snap_compare(tui, terminal_size=size, run_before=run_before)
 
 
+def _render(tui) -> str:
+    """The screen as one text, the way the capture sees it."""
+    return "\n".join("".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips())
+
+
 async def _settle(pilot, tui, deadline_s: float = SETTLE_S) -> str:
     """Wait for the connection, a quiet data version and a stable render; return the screen text."""
     import asyncio
 
     loop = asyncio.get_running_loop()
+    stable = StableScreen("")  # no needle: the caller presses keys next
     end = loop.time() + deadline_s
     while loop.time() < end:
         await pilot.pause(0.05)
         if tui.conn != "connected" or not tui.session_info:
             continue
-        version, stable = tui.data_version, 0
+        version, quiet = tui.data_version, 0
         while loop.time() < end:
             await pilot.pause(0.05)
             if tui.data_version == version:
-                stable += 1
-                if stable >= 8:
+                quiet += 1
+                if quiet >= 8:
                     break
             else:
-                stable, version = 0, tui.data_version
-        text = "\n".join(
-            "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
-        )
-        if text.strip():
+                quiet, version = 0, tui.data_version
+        text = _render(tui)
+        if text.strip() and stable.feed(text):  # two identical renders, not just any data (#896)
             return text
     raise AssertionError("the screen never settled")
 
@@ -553,44 +557,84 @@ def category_server():
         thread.join(timeout=10)
 
 
-#: (workspace, bench, instrument, text the screen shows once its readings arrived, kind).
+#: The category benches (workspace, bench, instrument) and, per kind, what the screen shows once
+#: its readings arrived: the first entry is the capture needle, the rest the ``ready`` patterns of
+#: the settle rule (#896) — shared by the snapshot test and the meaningful-readings test below.
+#: Only patterns that hold at both sizes; the 80-column settings column truncates some rfgen flags.
 CATEGORY_SCREENS = [
-    ("validation", "benches/counter.bench.yaml", "cnt", "1.000000000 kHz", "counter"),
-    ("validation", "benches/specan.bench.yaml", "sa", "Marker", "specan"),
-    ("validation", "benches/lockin_rc.bench.yaml", "lia", "θ", "lockin"),
+    ("validation", "benches/counter.bench.yaml", "cnt", "counter"),
+    ("validation", "benches/specan.bench.yaml", "sa", "specan"),
+    ("validation", "benches/lockin_rc.bench.yaml", "lia", "lockin"),
     # #355: the RF source, the load, the power supply and the DAQ.
-    ("validation", "benches/rfgen.bench.yaml", "rf", "Frequency", "rfgen"),
-    ("examples", "benches/rigol_dl3021.bench.yaml", "dut", "INPUT", "eload"),
-    ("examples", "benches/keysight_e36312a.bench.yaml", "psu", "CH1", "psu"),
-    ("examples", "benches/keysight_34970a.bench.yaml", "daq", "Scan", "daq"),
+    ("validation", "benches/rfgen.bench.yaml", "rf", "rfgen"),
+    ("examples", "benches/rigol_dl3021.bench.yaml", "dut", "eload"),
+    ("examples", "benches/keysight_e36312a.bench.yaml", "psu", "psu"),
+    ("examples", "benches/keysight_34970a.bench.yaml", "daq", "daq"),
 ]
 
+READINGS: dict[str, tuple[str, ...]] = {
+    "counter": ("1.000000000 kHz",),
+    "specan": ("Marker",),
+    "lockin": ("θ",),
+    # Frequency and level, the RF/modulation flags and integer line counts — no internal
+    # quantities of the synthesizer.
+    "rfgen": ("Frequency", "Level", "RF ON", "Lines 1", "Carrier"),
+    # Measured V, I, P as values with their units (the bench's source gives 5 V, the input
+    # is off), the input state and the mode (#374: labels alone prove nothing). The voltage
+    # rides the readback noise (#808): any draw within ±4σ (0.6 mV) of 5 V; the off input sinks
+    # exactly 0 A, so I and P stay exact.
+    "eload": (
+        "INPUT",
+        r"re:V\s+(?:4\.999[4-9][0-9]|5\.000[0-6][0-9]) V",
+        r"re:I\s+0\.00000 A",
+        r"re:P\s+0\.000 W",
+    ),
+    # Per-channel voltage and current readings with units, all outputs off (zeros) (#374).
+    # The panel reading rides the readback noise (#744) and the psu screen renders it in
+    # engineering units: any draw within ~4σ of 0 V shows as µV (below ~1 mV) or mV.
+    "psu": (
+        "CH1 voltage",
+        "CH3 current",
+        r"re:CH1 voltage\s+[+-]?(?:[0-9]{1,3}\.[0-9]{6} µV|1\.[0-9]{6} mV|0\.000000 V)",
+    ),
+    # The scan's reading with its unit; nothing scanned yet, so zero volts (#374).
+    "daq": ("Scan list", r"re:Reading\s+0\.000000 V"),
+}
 
-async def _open_instrument(pilot, tui, instrument: str, needle: str, kind: str) -> str:
+#: Patterns the 80-column settings column may truncate (tui-screens.md 6): they stay in the
+#: meaningful-readings assertions (100 columns) but do not gate the snapshot settle rule.
+NARROW_TRUNCATED = frozenset({"Lines 1", "Carrier"})
+
+
+def _snapshot_ready(kind: str) -> tuple[str, tuple[str, ...]]:
+    needle, ready = READINGS[kind][0], READINGS[kind][1:]
+    return needle, tuple(p for p in ready if p not in NARROW_TRUNCATED)
+
+
+async def _open_instrument(pilot, tui, instrument: str, needle: str, kind: str, ready=()) -> str:
     import asyncio
 
     await _settle(pilot, tui)
     tui.show("instrument", instrument)
+    stable = StableScreen(needle, tuple(ready))  # settle, not the first needle (#896)
     end = asyncio.get_running_loop().time() + SETTLE_S
     text = ""
     while asyncio.get_running_loop().time() < end:
         await pilot.pause(0.1)
-        text = "\n".join(
-            "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
-        )
-        if needle in text:
+        text = _render(tui)
+        if stable.feed(text):
             return text
-    raise AssertionError(f"the {kind} screen never showed {needle!r}:\n{text}")
+    raise AssertionError(f"the {kind} screen never settled on {needle!r}:\n{text}")
 
 
 @pytest.mark.parametrize(
-    ("workspace", "bench", "instrument", "needle", "kind"),
+    ("workspace", "bench", "instrument", "kind"),
     CATEGORY_SCREENS,
-    ids=[c[4] for c in CATEGORY_SCREENS],
+    ids=[c[3] for c in CATEGORY_SCREENS],
 )
 @pytest.mark.parametrize("size", [(100, 32), (80, 24)], ids=["100x32", "80x24"])
 def test_category_instrument_snapshot(
-    snap_compare, category_server, workspace, bench, instrument, needle, kind, size
+    snap_compare, category_server, workspace, bench, instrument, kind, size
 ):
     """Each category's screen: the counter's reading, the analyzer's trace and marker, the lock-in's
     X/Y/R/θ (#282); the RF source, the load, the power supply and the DAQ (#355)."""
@@ -599,80 +643,31 @@ def test_category_instrument_snapshot(
     url, manager = category_server[workspace]
     served = asyncio.run(manager.start(bench, seed=5, clock="command"))
     tui = SimuBenchApp(url, sid=served.id)
+    needle, ready = _snapshot_ready(kind)
 
     async def run_before(pilot) -> None:
-        await _open_instrument(pilot, tui, instrument, needle, kind)
+        await _open_instrument(pilot, tui, instrument, needle, kind, ready=ready)
 
     assert snap_compare(tui, terminal_size=size, run_before=run_before)
 
 
 @pytest.mark.parametrize(
-    ("workspace", "bench", "instrument", "shows", "kind"),
-    [
-        # Frequency and level, the RF/modulation flags and integer line counts — no internal
-        # quantities of the synthesizer.
-        (
-            "validation",
-            "benches/rfgen.bench.yaml",
-            "rf",
-            ["Frequency", "Level", "RF ON", "Lines 1", "Carrier"],
-            "rfgen",
-        ),
-        # Measured V, I, P as values with their units (the bench's source gives 5 V, the input
-        # is off), the input state and the mode (#374: labels alone prove nothing). The voltage
-        # rides the readback noise (#808): any draw within ±4σ (0.6 mV) of 5 V; the off input sinks
-        # exactly 0 A, so I and P stay exact.
-        (
-            "examples",
-            "benches/rigol_dl3021.bench.yaml",
-            "dut",
-            [
-                "INPUT",
-                r"re:V\s+(?:4\.999[4-9][0-9]|5\.000[0-6][0-9]) V",
-                r"re:I\s+0\.00000 A",
-                r"re:P\s+0\.000 W",
-            ],
-            "eload",
-        ),
-        # Per-channel voltage and current readings with units, all outputs off (zeros) (#374).
-        (
-            "examples",
-            "benches/keysight_e36312a.bench.yaml",
-            "psu",
-            # The panel reading rides the readback noise (#744): any draw within ±4σ of 0 V.
-            # The panel reading rides the readback noise (#744) and the psu screen renders it in
-            # engineering units: any draw within ~4σ of 0 V shows as µV (below ~1 mV) or mV.
-            [
-                "CH1 voltage",
-                "CH3 current",
-                r"re:CH1 voltage\s+[+-]?(?:[0-9]{1,3}\.[0-9]{6} µV|1\.[0-9]{6} mV|0\.000000 V)",
-            ],
-            "psu",
-        ),
-        # The scan's reading with its unit; nothing scanned yet, so zero volts (#374).
-        (
-            "examples",
-            "benches/keysight_34970a.bench.yaml",
-            "daq",
-            ["Scan list", r"re:Reading\s+0\.000000 V"],
-            "daq",
-        ),
-    ],
+    ("workspace", "bench", "instrument", "kind"),
+    [c for c in CATEGORY_SCREENS if c[3] in ("rfgen", "eload", "psu", "daq")],
     ids=["rfgen", "eload", "psu", "daq"],
 )
-def test_the_category_screens_show_meaningful_readings(
-    category_server, workspace, bench, instrument, shows, kind
-):
+def test_the_category_screens_show_meaningful_readings(category_server, workspace, bench, instrument, kind):
     import asyncio
     import re
 
     url, manager = category_server[workspace]
     served = asyncio.run(manager.start(bench, seed=5, clock="command"))
     tui = SimuBenchApp(url, sid=served.id)
+    shows = READINGS[kind]
 
     async def run() -> str:
         async with tui.run_test(size=(100, 32)) as pilot:
-            return await _open_instrument(pilot, tui, instrument, shows[0], kind)
+            return await _open_instrument(pilot, tui, instrument, shows[0], kind, ready=shows[1:])
 
     text = asyncio.run(run())
     for needle in shows:
@@ -690,3 +685,36 @@ def test_the_category_screens_show_meaningful_readings(
     ):
         assert internal not in text
     assert not re.search(r"[\u2e80-\u9fff]", text), "the TUI is English only (D23)"
+
+
+def test_the_eload_capture_waits_for_a_slow_readout(category_server):
+    """#896: the flake — the capture fired once the INPUT label was rendered, before the readings
+    had arrived. With a test double that serves the instrument state late, the settle rule holds
+    the capture until the values are on screen; nothing is skipped or loosened."""
+    import asyncio
+    import re
+
+    url, manager = category_server["examples"]
+    served = asyncio.run(manager.start("benches/rigol_dl3021.bench.yaml", seed=5, clock="command"))
+    tui = SimuBenchApp(url, sid=served.id)
+    original = tui.client.instrument
+    slowed: list[int] = []
+
+    async def late(sid, name):  # slower than the old needle-seen-then-capture
+        info = await original(sid, name)
+        if name == "dut":
+            slowed.append(len(slowed))
+            await asyncio.sleep(1.0 + len(slowed))  # later every time, and growing
+        return info
+
+    tui.client.instrument = late
+
+    async def run() -> str:
+        async with tui.run_test(size=(80, 24)) as pilot:
+            needle, ready = READINGS["eload"][0], READINGS["eload"][1:]
+            return await _open_instrument(pilot, tui, "dut", needle, "eload", ready=ready)
+
+    text = asyncio.run(run())
+    assert len(slowed) >= 2, "the test double never delayed the readout"
+    for pattern in READINGS["eload"]:
+        assert re.search(pattern[3:], text) if pattern.startswith("re:") else pattern in text
