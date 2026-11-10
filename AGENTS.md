@@ -62,8 +62,9 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
    review of the work; a pull request labelled `免审查` (no review) skips it: the bot puts the same
    label on the issues it closes before closing them. Open it as a draft if it is not ready yet. If CI fails, push a fix: the new commit
    runs CI again. Pull requests — and the bot's self-heal re-test of a stale branch — run the
-   fast checks and the browser end-to-end/visual tests (ubuntu); Windows, the wheel, the TUI
-   boot tier and the wall-clock budgets run on `main` after the merge, and a red one there is
+   fast checks, the browser end-to-end/visual tests and the TUI boot tier (screens, keys,
+   snapshots; the `tui` job, #858) on ubuntu; Windows, the wheel and the wall-clock budgets run on
+   `main` after the merge, and a red one there is
    fixed first, before new work. While `main`'s CI is red the merge bot holds every other pull request (label `等main变绿`; main's own CI starts their merge when it is green) and opens an issue labelled `main红了`; the pull request that fixes main carries the label `修复main` and merges at once (#810).
 6. Never push to `main` directly, and never weaken, skip or delete tests to get CI green.
 
