@@ -12,6 +12,7 @@ from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, Tool
 from tests.helpers import ScriptedLLM, last_tool_return
 
 from simubench.assistant import compaction
+from simubench.assistant.guard import LoopGuard, Stuck
 from simubench.assistant.service import AssistantService
 from simubench.assistant.tools import TOOLS
 from simubench.engine.edit import Move
@@ -194,6 +195,56 @@ async def test_a_long_loop_that_makes_progress_is_not_interrupted(manager):
     ]
     t = await turn(service_with(manager, ScriptedLLM(*steps, "完成")), "逐步调频率")
     assert t.status == "done" and len(t.steps) == 13 and all(s.ok for s in t.steps)
+
+    # reading the same unchanged bench again with other calls between is not spinning (#903):
+    # only repeats in a row count
+    checks = [[("read_bench", {})], [("list_catalog", {"query": "oscilloscope"})]] * 3
+    t2 = await turn(service_with(manager, ScriptedLLM(*checks, "核对完了")), "反复核对")
+    assert t2.status == "done", t2.stop_reason
+    assert len(t2.steps) == 6 and all(s.ok for s in t2.steps)
+
+
+_READ = ("read_file", {"p": "a"}, True, "x")
+_FAIL = ("edit", {"n": 0}, False, "没有 ghost")
+
+
+def _edit(n: int):
+    return ("edit", {"n": n}, True, "ok")
+
+
+def _fail(n: int):
+    return ("edit", {"n": n}, False, "没有 ghost")
+
+
+@pytest.mark.parametrize(
+    ("calls", "stuck"),
+    [
+        pytest.param([_READ, _edit(0), _READ, _edit(1), _READ, _edit(2)], None, id="read-between-edits"),
+        pytest.param(
+            [_READ, ("other", {}, True, "y"), _READ, _edit(0), _READ], None, id="read-between-others"
+        ),
+        pytest.param([_READ, _READ, _edit(0), _READ, _READ], None, id="a-new-call-starts-the-count-over"),
+        pytest.param(
+            [_fail(0), _fail(1), _fail(2), _edit(3), _fail(4)], None, id="a-success-ends-the-errors"
+        ),
+        pytest.param([_READ, _READ, _READ], "同一个操作（read_file）连续 3 次", id="three-in-a-row"),
+        pytest.param([_edit(0), _FAIL, _FAIL, _FAIL], "连续 3 次得到同样的结果", id="same-failing-call"),
+        pytest.param(
+            [_fail(0), _fail(1), _fail(2), _fail(3)], "连续 4 次遇到同一个错误", id="four-same-errors"
+        ),
+    ],
+)
+def test_the_loop_guard_stops_only_repeats_in_a_row(calls, stuck):
+    guard = LoopGuard()
+    if stuck is None:
+        for call in calls:
+            guard.record(*call)
+        return
+    for call in calls[:-1]:
+        guard.record(*call)
+    with pytest.raises(Stuck, match=stuck) as caught:
+        guard.record(*calls[-1])
+    assert "没有进展" in str(caught.value)
 
 
 async def test_stop_ends_a_running_turn_and_keeps_what_it_wrote(manager):
