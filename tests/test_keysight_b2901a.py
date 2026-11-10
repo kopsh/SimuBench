@@ -142,6 +142,11 @@ def test_the_definition_noise_distributes_and_falls_with_nplc():
         assert len(set(ones)) > 4
         assert statistics.mean(ones) == pytest.approx(1.0, abs=4 * sigma / math.sqrt(200))
         assert statistics.stdev(ones) == pytest.approx(sigma, rel=0.2)
+        # RES is V/I of the very reading beside it (replies keep 7 digits), noise included, so it
+        # scatters too (#846)
+        rows = [[float(x) for x in q(s, ":MEAS?").split(",")] for _ in range(50)]
+        assert all(row[2] == pytest.approx(row[0] / row[1], rel=1e-5) for row in rows)
+        assert len({row[2] for row in rows}) > 4
         setup(s, "10")
         tens = [float(q(s, ":MEAS:VOLT?")) for _ in range(200)]
         assert statistics.stdev(tens) == pytest.approx(noise_sigma(2.0, NPLC10_TIME), rel=0.3)

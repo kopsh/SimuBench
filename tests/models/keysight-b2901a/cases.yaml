@@ -300,7 +300,7 @@ cases:
         tolerance: 1.0e-7  # 4σ(1 mA 档)
       - query: ":MEAS:RES?"
         expect_value: 1000.0
-        tolerance: 0.01
+        tolerance: 0.1  # V/I of the noisy readings (#846): rel 4σ = 6.7e-5 → 0.067 Ω
       - query: ":READ:ARR:VOLT?"
         expect_value: 1.0
         tolerance: 1.0e-4  # 4σ(2 V 档)
@@ -309,7 +309,7 @@ cases:
         tolerance: 1.0e-7  # 4σ(1 mA 档)
       - query: ":READ:ARR:RES?"
         expect_value: 1000.0
-        tolerance: 0.01
+        tolerance: 0.1  # V/I of the noisy readings (#846): rel 4σ = 6.7e-5 → 0.067 Ω
       - query: ":READ:ARR:TIME?"
         expect: "+8.405000E-03"
       - query: ":READ:ARR:STAT?"
@@ -332,7 +332,7 @@ cases:
         tolerance: 1.0e-7  # 4σ(1 mA 档)
       - query: ":FETC:ARR:RES?"
         expect_value: 1000.0
-        tolerance: 0.01
+        tolerance: 0.1  # V/I of the noisy readings (#846): rel 4σ = 6.7e-5 → 0.067 Ω
       - query: ":FETC:ARR:TIME?"
         expect: "+8.405000E-03"
       - query: ":FETC:ARR:STAT?"
