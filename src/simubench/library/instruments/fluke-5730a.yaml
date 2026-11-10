@@ -56,6 +56,11 @@ specs:
   load_regulation: "<(0.2 ppm 输出 + 0.1 ppm 量程)，满载到空载 → z_out 取 0.1 mΩ"
   ac_voltage: "1100 V，10 Hz 到 1.2 MHz（Wideband 选件到 30 MHz，未实现）"
   standby: "≥22 V 的输出在前一输出 <22 V 时被选中、或改变输出功能时，自动回待机（第 4 章 Operate and Standby Modes）"
+  readback_noise_rms: >-
+    25 nV（电压读回，估计，#744/#809）：手册第 1 章 DC Voltage Secondary Performance Specifications
+    的 Noise 列（220 mV 档 10 Hz–10 kHz 5 µV rms）是输出端子的宽带噪声，不是读回的波动，且超过
+    1 年准确度本身的下限（220 mV 档 0.5 µV）；按 #809 的上限（1 年指标/20）取估计值 = 直流 220 mV
+    档 1 年下限 0.5 µV 的 1/20，对全部功能与量程成立（交流的手册表未录入 specs，下限只会更大）。
 state:
   out.function:
     type: enum
@@ -182,6 +187,9 @@ components:
       # 2 V，未按电平分档）；AC Current Secondary Performance Specifications 的 Compliance Limits 列：
       # 220 µA–220 mA 量程 7 V rms，2.2 A 量程 1.4 V rms（注 4：1 A 以上 1.5 V，未按电平分档）（#570）。
       compliance: {"*": 10.0, DC2_2A: 3.0, AC220UA: 7.0, AC2_2MA: 7.0, AC22MA: 7.0, AC220MA: 7.0, AC2_2A: 1.4}
+      # 读回噪声（specs.readback_noise_rms，#744/#809）：面板/组件对端子电压的读回按绝对 rms 抽样
+      # （校准源没有测量量程，#750），逐帧独立、同种子逐位复现；端子上被校表读到的输出不加噪。
+      noise: {rms: 2.5e-8}
   - name: sys
     type: system
 wiring:

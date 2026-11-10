@@ -45,14 +45,18 @@ python examples/demo/calibrate_34465a.py \
 ```
 34465A MY57440001: calibration due in 16 days (bench calendar)
 phase       nominal         reading         error       limit  verdict
-as-found          0          0.0003     3.000e-04   5.000e-06  FAIL
-as-found          1         1.00055     5.500e-04   4.000e-05  FAIL
+as-found          0      0.00030003     3.000e-04   5.000e-06  FAIL
+as-found          1       1.0005502     5.502e-04   4.000e-05  FAIL
 ...
-as-found        100        100.0023     2.300e-03   4.000e-03  PASS
-as-left          10              10     0.000e+00   4.000e-04  PASS
-as-left         100             100     0.000e+00   4.000e-03  PASS
+as-found        100       100.00229     2.290e-03   4.000e-03  PASS
+as-left           0          -1e-08    -1.000e-08   5.000e-06  PASS
+as-left           1       1.0000001     1.000e-07   4.000e-05  PASS
+as-left         100        99.99997    -3.000e-05   4.000e-03  PASS
 as-found failures: 5; as-left failures: 0; report: /tmp/report-dc.csv
 ```
+
+读数的末几位随 34465A 的读数噪声波动（种子固定时逐位复现；校准源的读回噪声只在其
+面板读数上，不进入本报告）。
 
 流程：读 `*IDN?` 校验型号与台账；as-found 在 0、±1、±10、100 V 各点测量并按 1 年指标
 判定（保护带：w 取限值的 20 %，误差在 |误差| ≤ 限值 − w 时合格，超出限值 + w 时不合格，两者之间不作符合性声明；实际定标中 w 应由扩展不确定度 U 得出）；按手册解锁、逐量程
