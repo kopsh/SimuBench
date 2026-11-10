@@ -1775,3 +1775,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 组件覆盖定义段、分块写入、超长 -223、`CATalog?`、删除、只写段、按采样频率播放 | ✅ `tests/models/keysight-m8194a/cases.yaml`（18 条）、`tests/test_keysight_m8194a.py` 的播放行（基频 = 采样率 / 段长、sinc 加权、删除后无信号） |
 | `keysight-m8194a` 的 `:TRACe` 行改为已实现并补用例，示例脚本装载波形 | ✅ `simubench coverage keysight-m8194a`（实现 35 / 共 102）；`tests/test_keysight_m8194a.py::test_manual_script_runs_on_the_example_bench` |
 | 不放宽 `ALLOWED` 与块覆盖例外清单 | ✅ 没有放宽；M8194A 没有调制，记在 `NOT_APPLICABLE`（不是债务，不进 `EXEMPT`），`tests/test_block_coverage.py` 绿 |
+
+## arb_segments 的组件级测试与样点格式的出处（Issues 881、882）
+
+- **#882**：新增 `tests/test_arb_segments.py`，直接对组件断言：段号范围与按序分配、`max_samples` 与段号用尽的 -225、重定义保留名字与注释、只写段回读 -221、名字与注释超长 -224、块与数值列表写入的偏移与码值范围、块长度不符 -160、16 位字宽分支（-161 与小端回读）、`play` 选段与无段时无信号。“偏移须递增”：手册（p.157 NOTE）没有给乱序的错误，模型不检查，覆盖表该行写明原因。
+- **#881**：查手册：`:INSTrument:DACMode`（p.133）写明 SINGle/DUAL/FOUR 模式下数据是 1 字节样点，而 `:TRACe[:DATA]`（p.157）写 16 位整数含标记，软面板 BIN 格式（p.93）是 int16 的高位 8 位。两处说法矛盾且 `:TRACe[:DATA]` 的“data format described above”在手册里没有出处，模型取 DACMode 的明确说法（1 字节），把矛盾与出处页码写进覆盖表，16 位格式与位对齐未实现，issue 留开请产品负责人决定。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| #882 组件级测试覆盖各分支 | ✅ `tests/test_arb_segments.py` |
+| #882 偏移递增：实现或标注不检查及原因 | ✅ 覆盖表 `:TRACe[:DATA]` 行；测试断言乱序写入按所给偏移生效 |
+| #881 在覆盖表写明样点位布局出处 | ✅ 页码与矛盾已写；位布局本身手册无出处 |
+| #881 支持手册的 16 位样点与位对齐 | ⚠️ 未实现：手册自相矛盾，需决定后再做 |
