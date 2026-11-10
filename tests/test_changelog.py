@@ -28,13 +28,18 @@ def _history():
     return m, commits
 
 
-def test_lists_only_product_changes_one_section_per_version_newest_first():
+def test_lists_only_product_changes_one_section_per_build_newest_first():
     m, commits = _history()
-    assert m.render(commits) == (
+    assert m.render(commits) == (  # no earlier build: everything is in the current one
         "# SimuBench 变更记录\n\n"
-        "## 2026.11.5.2（2026-11-05）\n\n- 依赖:numpy 升级\n\n"
-        "## 2026.11.4.3（2026-11-04）\n\n- 界面:新按钮\n\n"
-        "## 2026.11.4.1（2026-11-04）\n\n- 型号 A\n"
+        "## 2026.11.5.2（2026-11-05）\n\n"
+        "- 依赖:numpy 升级（2026.11.5.2）\n- 界面:新按钮（2026.11.4.3）\n- 型号 A（2026.11.4.1）\n"
+    )
+    text = m.render(commits, builds=["2026.11.4.2", "2026.11.5.2"])  # two builds, one of them mid-day
+    assert text == (
+        "# SimuBench 变更记录\n\n"
+        "## 2026.11.5.2（2026-11-05）\n\n- 依赖:numpy 升级（2026.11.5.2）\n- 界面:新按钮（2026.11.4.3）\n\n"
+        "## 2026.11.4.2（2026-11-04）\n\n- 型号 A（2026.11.4.1）\n"
     )
 
 
@@ -42,8 +47,9 @@ def test_since_keeps_only_the_commits_after_that_version():
     m, commits = _history()
     text = m.render(commits, since="v2026.11.4.1")
     assert "型号 A" not in text and "界面:新按钮" in text and "依赖:numpy 升级" in text
-    assert "## 2026.11.4.3" in text and "## 2026.11.4.1" not in text
+    assert "## 2026.11.5.2" in text and "## 2026.11.4" not in text  # one build, named by its version
     assert text.startswith("# SimuBench 变更记录（自 2026.11.4.1 起）")
+    assert "界面:新按钮（2026.11.4.3）" in text
 
 
 def test_since_the_last_version_is_empty():
