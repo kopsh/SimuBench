@@ -137,3 +137,31 @@ async def stop_manager_sessions(manager) -> None:
     (issue 686, two TUI modules in one process). Sync callers wrap it in ``asyncio.run``."""
     for sid in list(manager.sessions):
         await manager.stop(sid)
+
+
+def wait_for_free_ports(ports, timeout: float = 60.0, host: str = "127.0.0.1") -> None:
+    """Block until every port in ``ports`` can be bound, polling, instead of letting the server
+    that wants it fail with ``address already in use``. The snapshot fixtures need fixed ports (the
+    identity box shows the addresses), and the module before them — or another xdist worker's —
+    may still be letting go of them (#857). Binding with SO_REUSEADDR, like the servers do, so a
+    socket in TIME_WAIT does not count as taken. Raises after ``timeout`` s, naming the ports."""
+    import socket
+    import time
+
+    def free(port: int) -> bool:
+        with socket.socket() as probe:
+            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            try:
+                probe.bind((host, port))
+            except OSError:
+                return False
+            return True
+
+    end = time.monotonic() + timeout
+    while True:
+        busy = [p for p in ports if not free(p)]
+        if not busy:
+            return
+        if time.monotonic() >= end:
+            raise RuntimeError(f"ports still in use after {timeout:g} s: {busy}")
+        time.sleep(0.02)
