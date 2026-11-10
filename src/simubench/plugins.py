@@ -25,9 +25,11 @@ import logging
 import sys
 import threading
 import types
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from .engine.component import registry
 
 PLUGIN_API = 1
 ENTRY_POINT_GROUP = "simubench.components"
@@ -47,18 +49,26 @@ class PluginInfo:
     error: str | None = None  # set when it could not load, or targets another plugin_api
 
 
-_LOCK = threading.Lock()
-_ENTRY_POINTS: dict[str, PluginInfo] = {}  # by entry point value
-# Installed packages are scanned once per process: component_type() asks for every component a bench
-# creates, and scanning every distribution's metadata each time made opening a bench 50 times slower.
-_scanned = False
-_WORKSPACE: dict[str, PluginInfo] = {}  # by resolved file path
+@dataclass
+class _State:
+    """What has been loaded in this process (plugins live in the process-wide component registry)."""
+
+    lock: threading.Lock = field(default_factory=threading.Lock)
+    entry_points: dict[str, PluginInfo] = field(default_factory=dict)  # by entry point value
+    # Installed packages are scanned once per process: component_type() asks for every component a
+    # bench creates, and scanning every distribution's metadata each time made opening a bench 50
+    # times slower.
+    scanned: bool = False
+    workspace: dict[str, PluginInfo] = field(default_factory=dict)  # by resolved file path
+
+    def reset(self) -> None:
+        with self.lock:
+            self.scanned = False
+            self.entry_points.clear()
+            self.workspace.clear()
 
 
-def _registry() -> dict[str, type]:
-    from .engine.component import _REGISTRY
-
-    return _REGISTRY
+_state = _State()
 
 
 def _discover() -> list[Any]:
@@ -86,7 +96,7 @@ def _load_code(load: Any, name: str) -> tuple[types.ModuleType | None, str | Non
     A module that targets another API is not kept: its component registrations are undone, so a
     plugin written for a future SimuBench cannot half-work here.
     """
-    before = dict(_registry())
+    before = registry.snapshot()
     try:
         module = load()
         if not isinstance(module, types.ModuleType):
@@ -94,20 +104,18 @@ def _load_code(load: Any, name: str) -> tuple[types.ModuleType | None, str | Non
         if module is None:
             raise ValueError("the entry point does not point at a module")
     except Exception as exc:
-        _registry().clear()
-        _registry().update(before)
+        registry.restore(before)
         return None, _first_line(exc)
     declared = getattr(module, "plugin_api", PLUGIN_API)
     if declared != PLUGIN_API:
-        _registry().clear()
-        _registry().update(before)
+        registry.restore(before)
         return module, f"targets plugin_api {declared!r}, this SimuBench supports {PLUGIN_API}"
     _warn_overrides(before, name)
     return module, None
 
 
 def _warn_overrides(before: dict[str, type], name: str) -> None:
-    after = _registry()
+    after = registry.snapshot()
     for key, cls in after.items():
         if key in before and before[key] is not cls:
             logger.warning("plugin %s overrides component type %r", name, key)
@@ -115,15 +123,14 @@ def _warn_overrides(before: dict[str, type], name: str) -> None:
 
 def ensure_entry_point_plugins() -> list[PluginInfo]:
     """Import every installed package's components, once per process; the results stay listed."""
-    global _scanned
-    if _scanned:
+    if _state.scanned:
         return []
-    with _LOCK:
-        if _scanned:
+    with _state.lock:
+        if _state.scanned:
             return []
         infos: list[PluginInfo] = []
         for ep in _discover():
-            if ep.value in _ENTRY_POINTS:
+            if ep.value in _state.entry_points:
                 continue  # loaded once per process, whatever the outcome
             if getattr(ep, "dist", None):
                 origin = f"{ep.dist.metadata['Name']} {ep.dist.version}"
@@ -137,11 +144,11 @@ def ensure_entry_point_plugins() -> list[PluginInfo]:
                 sha256=_file_hash(module),
                 error=error,
             )
-            _ENTRY_POINTS[ep.value] = info
+            _state.entry_points[ep.value] = info
             infos.append(info)
             if error:
                 logger.warning("plugin %s did not load: %s", ep.name, error)
-        _scanned = True
+        _state.scanned = True
         return infos
 
 
@@ -151,12 +158,12 @@ def load_workspace_plugins(directory: Path) -> list[PluginInfo]:
     A file is imported once per content: run it again after it changed and the new classes replace
     the old ones in the registry.
     """
-    with _LOCK:
+    with _state.lock:
         infos: list[PluginInfo] = []
         for path in sorted(Path(directory).glob("*.py")):
             resolved = path.resolve()
             sha = hashlib.sha256(path.read_bytes()).hexdigest()
-            done = _WORKSPACE.get(str(resolved))
+            done = _state.workspace.get(str(resolved))
             if done and done.error is None and done.sha256 == sha:
                 infos.append(done)
                 continue
@@ -165,7 +172,7 @@ def load_workspace_plugins(directory: Path) -> list[PluginInfo]:
                 path.name,
             )
             info = PluginInfo(path.name, "workspace", str(resolved), sha256=sha, error=error)
-            _WORKSPACE[str(resolved)] = info
+            _state.workspace[str(resolved)] = info
             infos.append(info)
             if error:
                 logger.warning("workspace plugin %s did not load: %s", path.name, error)
@@ -183,8 +190,8 @@ def _exec_file(path: Path, module_name: str) -> types.ModuleType:
 
 def loaded() -> list[PluginInfo]:
     """Every plugin this process has loaded, entry points first."""
-    with _LOCK:
-        return [*_ENTRY_POINTS.values(), *_WORKSPACE.values()]
+    with _state.lock:
+        return [*_state.entry_points.values(), *_state.workspace.values()]
 
 
 def report() -> dict[str, dict[str, str | None]]:
@@ -221,8 +228,4 @@ def status_line(workspace: Path | None, allow: bool) -> str:
 
 def _reset() -> None:
     """Test seam: forget what was loaded (the component registry itself is the caller's to clear)."""
-    global _scanned
-    with _LOCK:
-        _scanned = False
-        _ENTRY_POINTS.clear()
-        _WORKSPACE.clear()
+    _state.reset()

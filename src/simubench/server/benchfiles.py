@@ -11,6 +11,7 @@ import contextlib
 import hashlib
 import inspect
 import json
+import logging
 import os
 import threading
 from pathlib import Path
@@ -28,6 +29,8 @@ from ..models.bench import BenchDefinition
 from .history import History, Source
 
 SUFFIXES = (".bench.yaml", ".bench.json")
+
+log = logging.getLogger(__name__)
 
 
 def scan(workspace: Path) -> list[Path]:
@@ -182,7 +185,12 @@ class BenchFiles:
         for def_id in lib.ids():
             try:
                 d = lib.get(def_id)
-            except Exception:  # a broken definition shows up in validation, not here
+            except Exception as exc:  # a broken definition shows up in validation, not here
+                log.warning(
+                    "catalog: definition %r skipped: %s",
+                    def_id,
+                    str(exc).splitlines()[0] if str(exc) else type(exc).__name__,
+                )
                 continue
             ports = [
                 p.replace("{n}", str(n)) for n in range(1, d.channels.count + 1) for p in d.ports.channel

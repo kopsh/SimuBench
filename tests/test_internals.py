@@ -12,6 +12,7 @@ from fastapi.testclient import TestClient
 from simubench.api import open_bench
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
+from simubench.server import views
 from simubench.server.app import create_app
 from simubench.server.manager import ServedSession, SessionManager
 
@@ -22,7 +23,7 @@ LIBRARY = DefinitionLibrary()
 def internals(bench: dict, name: str):
     session = open_bench(BenchDefinition.model_validate({"name": "t", **bench}))
     try:
-        return SessionManager.internals(ServedSession("t", session, None), name)
+        return views.internals(ServedSession("t", session, None), name)
     finally:
         session.close()
 
@@ -143,7 +144,7 @@ def test_every_ref_set_on_a_component_of_the_instrument_is_in_the_view(def_id):
     )
     try:
         inst = session.instrument("x")
-        view = SessionManager.internals(ServedSession("t", session, None), "x")
+        view = views.internals(ServedSession("t", session, None), "x")
         expected = set()
         for name, comp in inst.components.items():
             for key in comp.refs:

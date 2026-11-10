@@ -215,7 +215,7 @@ def test_the_session_view_hides_drawn_values_unless_revealed(tmp_path):
         b.run.reveal_true_values = reveal
         session = open_bench(b)
         try:
-            view = manager.describe(ServedSession("s1", session, None))
+            view = manager.views.describe(ServedSession("s1", session, None))
         finally:
             session.close()
         dmm = next(i for i in view.instruments if i.name == "dmm")

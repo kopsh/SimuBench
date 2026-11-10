@@ -15,6 +15,7 @@ from pathlib import Path
 import pytest
 
 from helpers import stop_manager_sessions, wait_for_free_ports
+from simubench.server import drive
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.tui.app import SimuBenchApp
@@ -88,7 +89,7 @@ def demo_server():
     session.exchange("dmm", b":MEAS:VOLT:DC?", client="mcp", reads=1)
     # A running scope redraws its live frame with fresh noise on every poll (D32), so the SVGs
     # could never match; stopped, it shows its last acquisition, which is deterministic.
-    manager.panel(served, "scope", "stop", client="ui")
+    drive.panel(served, "scope", "stop", client="ui")
     yield f"http://127.0.0.1:{port}", served.id
     asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
     server.should_exit = True
@@ -312,7 +313,7 @@ def scope_server():
         time.sleep(0.02)
     served = asyncio.run(manager.start("siglent_scope_rc.bench.yaml", seed=7, clock="command"))
     served.session.exchange("awg", b"C1:OUTP ON", client="ui", reads=1)
-    manager.panel(served, "scope", "stop", client="ui")  # a stopped scope shows its last acquisition
+    drive.panel(served, "scope", "stop", client="ui")  # a stopped scope shows its last acquisition
     yield f"http://127.0.0.1:{port}", served.id
     asyncio.run(stop_manager_sessions(manager))  # the sessions hold the HiSLIP port, not uvicorn (issue 686)
     server.should_exit = True
