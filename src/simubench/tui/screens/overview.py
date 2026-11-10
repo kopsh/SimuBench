@@ -124,6 +124,7 @@ class OverviewScreen(ShellScreen):
         super().__init__()
         self._last_version: int = -1
         self._pending_focus: str | None = None  # a rebuild's focus not yet put back (#827)
+        self._layout: tuple[int, tuple[str, ...]] | None = None  # columns + card names on screen
         self._log_rows = DRAWER_ROWS
         self._log_open = False  # the log is a drawer: shut, it shows the newest few rows
         self._seen_started = False
@@ -178,6 +179,13 @@ class OverviewScreen(ShellScreen):
         app: Any = self.app
         session = app.session_info
         grid = self._grid
+        if session:
+            cards = build_cards(
+                session, app.readings, app.levels, app.screen_data, app.catalog, app.lang, app.faults
+            )
+            layout = (self._columns(), tuple(c.name for c in cards))
+            if layout == self._layout and self._update_cards_in_place(cards):
+                return
         focused = None
         if grid.children:
             # Only a focus that exists, or that a rebuild a moment ago has yet to put back: a focus
@@ -185,6 +193,7 @@ class OverviewScreen(ShellScreen):
             card = self.focused
             focused = card.card.name if isinstance(card, Card) else self._pending_focus
         grid.remove_children()
+        self._layout = None
         if not session:
             note = i18n.t("connect.screen", app.lang)
             if app.conn == "disconnected" or app.conn_attempts > 1:
@@ -193,20 +202,40 @@ class OverviewScreen(ShellScreen):
                 )
             grid.mount(Static(note, id="connecting-note"))
             return
-        cards = build_cards(
-            session, app.readings, app.levels, app.screen_data, app.catalog, app.lang, app.faults
-        )
+        self._pad_rows(cards)
         self._alerting = [c for c in cards if c.alerts]
         self._refresh_strip(len(session.get("instruments", [])))
+        columns = layout[0]
+        for row_start in range(0, len(cards), columns):
+            grid.mount(Horizontal(*[Card(c) for c in cards[row_start : row_start + columns]]))
+        self._layout = layout
+        self._pending_focus = focused
+        grid.call_after_refresh(self._restore_focus, focused)
+
+    def _pad_rows(self, cards: list[CardData]) -> None:
         columns = self._columns()
         for row_start in range(0, len(cards), columns):
             row = cards[row_start : row_start + columns]
             height = max(len(c.lines) for c in row)
             for c in row:
                 c.lines += [[]] * (height - len(c.lines))
-            grid.mount(Horizontal(*[Card(c) for c in row]))
-        self._pending_focus = focused
-        grid.call_after_refresh(self._restore_focus, focused)
+
+    def _update_cards_in_place(self, cards: list[CardData]) -> bool:
+        """New data for the same cards in the same places: change the cards, do not rebuild them.
+        The focus never leaves a card that stays, so there is nothing to put back — the rebuild's
+        window, in which a late callback revived a focus the user had cleared (#827, #849) or
+        dropped the one they had (#852), does not exist (#864)."""
+        on_screen = list(self._grid.query(Card))
+        if len(on_screen) != len(cards):
+            return False
+        self._pad_rows(cards)
+        self._alerting = [c for c in cards if c.alerts]
+        app: Any = self.app
+        self._refresh_strip(len((app.session_info or {}).get("instruments", [])))
+        for widget, data in zip(on_screen, cards, strict=True):
+            widget.card = data
+            widget.render_card()
+        return True
 
     def _cards_with_alerts(self) -> list[Card]:
         return [c for c in self._grid.query(Card) if c.card.alerts]
@@ -283,7 +312,7 @@ class OverviewScreen(ShellScreen):
     def _restore_focus(self, name: str | None) -> None:
         if name == self._pending_focus:
             self._pending_focus = None
-        if name:
+        if name and self.focused is None:  # never take a focus someone has set since (#852)
             for card in self._grid.query(Card):
                 if card.card.name == name:
                     card.focus()
