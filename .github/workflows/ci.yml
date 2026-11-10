@@ -155,6 +155,13 @@ jobs:
       - run: uv sync --locked --all-extras
       - name: Screens, keys, snapshots and real-server scenarios
         run: uv run pytest -n 4 --dist loadscope -q -m "tui_boot and not load_sensitive"
+      - name: The snapshot differences report of a failed capture
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-report-${{ github.run_id }}
+          path: snapshot_report.html
+          if-no-files-found: ignore
 
   slow:
     name: Slow tests (Textual boot, load-sensitive)
