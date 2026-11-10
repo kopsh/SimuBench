@@ -204,7 +204,7 @@ components:
       compliance: {DC330UA_A: 10.0, DC3_3MA_A: 10.0, DC33MA_A: 7.0, DC330MA_A: 7.0, DC1_1A_A: 6.0, DC3A_A: 6.0, DC11A: 4.0, DC20A: 4.0, AC330UA_A: 7.0, AC3_3MA_A: 7.0, AC33MA_A: 5.0, AC330MA_A: 5.0, AC1_1A_A: 4.0, AC3A_A: 4.0, AC11A: 3.0, AC20A: 3.0}
       compliance_error: 1500
       # 读回噪声（specs.readback_noise_rms，#744/#809）：面板/组件对端子电压的读回按绝对 rms 抽样
-      # （校准源没有测量量程，#750），逐帧独立、同种子逐位复现；端子上被校表读到的输出不加噪。
+      # （校准源没有测量量程，#750），逐帧独立、同种子逐位复现；端子上被校表读到的输出不加噪；待机时读回恒为 0（输出端无电压，#863）。
       noise: {rms: 5.0e-8}
   - name: sys
     type: system
