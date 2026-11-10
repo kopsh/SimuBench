@@ -212,6 +212,40 @@ async def test_a_data_refresh_keeps_the_focus_on_the_same_card():
         assert screen.query(Card) and screen.focused is None
 
 
+async def test_a_rebuild_puts_the_focus_back_on_the_same_named_card():
+    """#852: when the cards must be rebuilt (a different layout), the focus is on the new card of
+    the same name, and a cleared focus still stays cleared (#849)."""
+    tui, _ = unit_app(fresh(SMU_BENCH))
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        from simubench.tui.screens.overview import Card
+
+        screen = tui.screen
+
+        async def rebuild(old: list) -> None:
+            screen._layout = None  # a changed layout: the in-place update does not apply
+            tui.data_version += 1
+            screen.refresh_content()
+            await wait_for(
+                pilot,
+                lambda: bool(screen.query(Card)) and not any(c in screen.query(Card) for c in old),
+                message="the cards are rebuilt",
+            )
+            await pilot.pause()
+            await pilot.pause()
+
+        old = next(iter(screen.query(Card)))
+        screen.set_focus(old)
+        await pilot.pause()
+        await rebuild([old])
+        focused = screen.focused
+        assert isinstance(focused, Card) and focused is not old
+        assert focused in screen.query(Card) and focused.card.name == old.card.name
+        screen.set_focus(None)
+        await rebuild(list(screen.query(Card)))
+        assert screen.focused is None
+
+
 async def test_fault_dialog_injects_an_error_with_count():
     """error + count (issue 697): the code and the times reach the spec the TUI POSTs."""
     tui, fake = unit_app(fresh(SMU_BENCH))
