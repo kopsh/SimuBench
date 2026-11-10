@@ -277,7 +277,7 @@ sections:
     note: 段的注释，至多 256 个字符（超长 -224，手册未写错误号）；段号必须已定义，否则 -222。
   - header: :TRACe<ch>[:DATA]
     level: implemented
-    note: <segment_id>,<offset>,<块|数值列表>：按偏移写入 8 位有符号 DAC 码（-128…127，IEEE 块或逗号数值）；超出段长 -223（手册）；查询 <segment_id>,<offset>,<length> 回 int8 定长块；只写段回读 -221（手册只说不能回读，错误号为模型选择）。“按偏移递增写入”的顺序要求不检查。
+    note: <segment_id>,<offset>,<块|数值列表>：按偏移写入 DAC 码。样点格式：手册 :INSTrument:DACMode（p.133）写明 SINGle、DUAL、FOUR 模式下数据是“1-byte waveform samples only”，模型据此按 8 位有符号码（-128…127）解码：IEEE 块每字节一个样点，数值列表逐个整数；回读 :DATA? <segment_id>,<offset>,<length> 回 int8 定长块。同一手册的 :TRACe[:DATA] 条目（p.157）写“each element is a 16-bit integer value representing DAC samples and marker data”，软面板 BIN 文件格式（p.93）写 int16 小端、“MSBs DB13 to DB6 are used as 8-bit sample values”、标记位 SYNM/SMPM 被忽略，BIN8 是 int8；:TRACe[:DATA] 条目所说的“data format described above”在手册里没有出处，两处说法相互矛盾（该条目与 M8190A 手册的措辞相同，M8194A 没有标记）。模型取 DACMode 的明确说法（1 字节），16 位格式与位对齐未能核实，未实现（#881）；MARKer/DCMarker 模式的交错字节未建模。超出段长 -223（手册）；只写段回读 -221（错误号为模型选择）。手册（p.157 NOTE）要求按偏移递增写入、改内容须整段重写，但没有给出乱序时的错误，模型不检查，按所给偏移写入（#882）。
   - header: :TRACe<ch>:DEFine
     level: implemented
     note: <segment_id>,<length>[,<init>]：段号只能是 1（无序列选件，手册）；长度须为 128 的倍数、最短 128 点（数据手册 5992-3361），否则 -222；每通道总量 512 kSa，超出 -225（错误号为模型选择）；重定义保留名字与注释。查询形式未建模（手册没有给回复）。只写与插值（I/Q）模式未建模：手册里的 DWID 命令不属于 M8194A 命令表。
