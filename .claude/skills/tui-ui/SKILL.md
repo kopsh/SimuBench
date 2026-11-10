@@ -92,7 +92,10 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - `export_screenshot()` titles the SVG with `App.title` — keep `TITLE = "SimuBench"`.
 - The README screenshots (`docs/tui/*.svg`) and the snapshots must be regenerated together with a
   visible change: `tests/test_tui_t4.py` compares the docs, `tests/test_tui_snapshots.py` the rest.
-  Both start servers on fixed ports — run them one after the other, not in parallel with each other.
+  Both start servers on fixed ports (the identity box shows the addresses). The snapshot fixtures
+  wait for their ports to be free (`wait_for_free_ports` in `tests/helpers.py`, #857) instead of
+  failing with `address already in use`, so a module that follows another, or another xdist
+  worker, no longer races; still don't give a new TUI module a port these use.
 - Steps files (`script.py`, `--script`): `key` `scpi` `advance` `wait` `caption` `highlight`
   `screenshot`, plus the direct-navigation fields `open:` (open an instrument's screen),
   `reveal:` (focus and highlight a field, `go_to_field(…, edit=False)`), `home: true`
@@ -116,6 +119,8 @@ Prefer a unit test on the pure function over a snapshot. A snapshot changes only
 is meant to change: review the SVG diff, then refresh with
 `uv run pytest tests/test_tui_snapshots.py --snapshot-update` and commit the baselines.
 Snapshots use fixed SCPI ports and `NO_COLOR` is cleared by the test — don't reintroduce either.
+Every wait for a screen to come up ends on its readiness signal and is bounded by `SETTLE_S` (90 s,
+below the 120 s test timeout) — a cold start under load needs it; don't shorten it, don't add sleeps.
 
 ## Commands
 
