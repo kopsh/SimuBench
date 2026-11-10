@@ -264,5 +264,13 @@ def test_routes_settings_conversation_and_event_stream(client, manager):
     assert client.get("/api/assistant/rollback", params={"bench": BENCH}).json()["turn_id"] is None
     assert client.post("/api/assistant/stop", json={"bench": BENCH}).status_code == 200
     assert client.get("/api/assistant/conversation", params={"bench": "../x.bench.yaml"}).status_code == 403
+    # the diagnostics bundle carries no key either (logs, manifest, benches)
+    import io
+    import zipfile
+
+    from simubench.ops import bundle
+
+    with zipfile.ZipFile(io.BytesIO(bundle(manager, manager.workspace))) as z:
+        assert all(KEY.encode() not in z.read(n) for n in z.namelist())
     assert client.delete("/api/assistant/conversation", params={"bench": BENCH}).status_code == 204
     assert client.get("/api/assistant/conversation", params={"bench": BENCH}).json()["turns"] == []
