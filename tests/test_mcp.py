@@ -703,7 +703,7 @@ async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
     and the last field read."""
     import threading
 
-    import simubench.mcp_server
+    import simubench.mcp_tools.sessions
 
     manager, server = make(ws, allow_control=True)
     async with Client(server) as c:
@@ -736,7 +736,7 @@ async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
             seen["snapshot"] = True
             return real_snapshot()
 
-        real_fault = simubench.mcp_server._fault
+        real_fault = simubench.mcp_tools.sessions._fault
 
         def _fault(x):
             out = real_fault(x)
@@ -745,7 +745,7 @@ async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
 
         monkeypatch.setattr(s.faults, "snapshot", snapshot)
         monkeypatch.setattr(s, "_lock", Tracked())
-        monkeypatch.setattr(simubench.mcp_server, "_fault", _fault)
+        monkeypatch.setattr(simubench.mcp_tools.sessions, "_fault", _fault)
 
         out = await call(c, "list_faults")
         assert len(out) == 1

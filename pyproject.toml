@@ -84,7 +84,7 @@ ignore = ["RUF001", "RUF002", "RUF003", "E501"]
 # Component types declare ports and defaults as class attributes typed ClassVar on the base class.
 "src/simubench/library/components/*.py" = ["RUF012"]
 # MCP tool parameters declare their schema with pydantic Field defaults, like FastAPI's Query.
-"src/simubench/mcp_server.py" = ["B008"]
+"src/simubench/mcp_tools/*.py" = ["B008"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests", "acceptance"]

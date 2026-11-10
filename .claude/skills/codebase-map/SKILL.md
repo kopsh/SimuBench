@@ -35,8 +35,9 @@ plausible fake).
 | The packaged Hello World bench, copied into a workspace by `POST /api/benches/hello` (D65) | `library/examples/hello.bench.yaml`, `server/benchfiles.py` (`create_hello`) |
 | File models (pydantic) → JSON Schema | `models/bench.py` (`simubench.bench/2`), `models/definition.py` (`simubench.instrument/1`) |
 | HTTP/WS message models → OpenAPI | `models/api.py` |
-| FastAPI app / sessions served / component catalog | `server/app.py`, `server/manager.py`, `server/catalog.py` |
-| MCP tools | `mcp_server.py` |
+| FastAPI app (assembly, middleware, SPA) / sessions served / component catalog | `server/app.py`, `server/manager.py`, `server/catalog.py` |
+| HTTP routes, one router per area (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
+| MCP tools, one module per area (bench, definitions, sessions); shared guard / errors | `mcp_server.py` (assembly), `mcp_tools/*.py` (`context.py`: `McpContext`) |
 | PyVISA backend / raw socket / HiSLIP | `access/pyvisa_backend.py`, `access/scpi_server.py`, `access/hislip_server.py` |
 | In-process Python API, pytest plugin | `api.py`, `pytest_plugin.py` |
 | CLI subcommands (serve, tui, mcp, validate, migrate, coverage, cases, schemas, replay, doctor…) | `cli.py`; the shared serving options, `build_manager` and the address-table line live in `service.py` — add a service start parameter there once, all entries get it |
