@@ -1,0 +1,262 @@
+# Manual cases for the Teledyne LeCroy WavePro 804HD: MAUI Oscilloscopes Remote Control and
+# Automation Manual (February 2026). Replies echo the command header (COMM_HEADER SHORT), numbers
+# are engineering format, booleans are ON/OFF and enumerations the manual's short forms.
+model: lecroy-wavepro804hd
+bench: bench.yaml
+instrument: scope
+cases:
+  - name: "*IDN? 返回厂商、型号、序列号与固件"
+    manual: "MISCELLANEOUS > *IDN?"
+    steps:
+      - query: "*IDN?"
+        expect: "LECROY,WAVEPRO804HD,WP804HD0001,10.3.0.0"
+
+  - name: "*RST 恢复默认设置"
+    manual: "SAVE/RECALL SETUP > *RST"
+    steps:
+      - send: "C1:VDIV 200MV"
+      - send: "TDIV 2MS"
+      - send: "C1:ATTN 10"
+      - send: "*RST"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 50E-3 V"
+      - query: "C1:ATTN?"
+        expect: "C1:ATTN 1"
+      - query: "C1:TRA?"
+        expect: "C1:TRA ON"
+      - query: "C1:CPL?"
+        expect: "C1:CPL D1M"
+      - query: "TDIV?"
+        expect: "TDIV 1E-3 S"
+      - query: "MSIZ?"
+        expect: "MSIZ 10E+3"
+      - query: "TRMD?"
+        expect: "AUTO"
+
+  - name: "状态寄存器命令 *CLS、*ESE、*ESR、*SRE、*STB、*OPC、*WAI"
+    manual: "STATUS > Common (*) Commands"
+    steps:
+      - send: "*CLS"
+      - send: "*ESE 0"
+      - query: "*ESR?"
+        expect: "0"
+      - send: "*SRE 0"
+      - query: "*STB?"
+        expect: "0"
+      - query: "*OPC?"
+        expect: "1"
+      - send: "*WAI"
+
+  - name: "*TRG 触发一次采集"
+    manual: "ACQUISITION > *TRG"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - send: "*TRG"
+      - query: "C1:PAVA? PKPK"
+        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+
+  - name: "命令头 SHORT 与 LONG"
+    manual: "COMM > COMM_HEADER"
+    steps:
+      - send: "CHDR LONG"
+      - query: "C1:VDIV?"
+        expect: "C1:VOLT_DIV 50E-3 V"
+      - query: "C1:ATTN?"
+        expect: "C1:ATTENUATION 1"
+      - send: "CHDR SHORT"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 50E-3 V"
+
+  - name: "通道显示开关"
+    manual: "DISPLAY > TRACE"
+    steps:
+      - send: "C1:TRA OFF"
+      - query: "C1:TRA?"
+        expect: "C1:TRA OFF"
+      - send: "C1:TRA ON"
+      - query: "C1:TRA?"
+        expect: "C1:TRA ON"
+
+  - name: "垂直档位与偏置"
+    manual: "ACQUISITION > VOLT_DIV、OFFSET"
+    steps:
+      - send: "C1:VDIV 200MV"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 200E-3 V"
+      - send: "C1:OFST -1.5"
+      - query: "C1:OFST?"
+        expect: "C1:OFST -1.5E+0 V"
+
+  - name: "50 Ω 耦合的档位与偏置按数据手册截到最接近的合法值"
+    manual: "ACQUISITION > COUPLING、VOLT_DIV、OFFSET"
+    steps:
+      - send: "C1:CPL D50"
+      - query: "C1:CPL?"
+        expect: "C1:CPL D50"
+      - send: "C1:VDIV 5"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 1E+0 V"
+      - send: "C1:OFST 100"
+      - query: "C1:OFST?"
+        expect: "C1:OFST 5E+0 V"
+
+  - name: "1 MΩ 耦合与交流耦合"
+    manual: "ACQUISITION > COUPLING"
+    steps:
+      - send: "C1:CPL A1M"
+      - query: "C1:CPL?"
+        expect: "C1:CPL A1M"
+      - send: "C1:VDIV 10"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 10E+0 V"
+
+  - name: "探头衰减改档时档位与偏置同比缩放"
+    manual: "ACQUISITION > ATTENUATION"
+    steps:
+      - send: "C1:CPL D1M"
+      - send: "C1:VDIV 200MV"
+      - send: "C1:ATTN 10"
+      - query: "C1:ATTN?"
+        expect: "C1:ATTN 10"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 2E+0 V"
+      - send: "C1:ATTN 1"
+      - query: "C1:VDIV?"
+        expect: "C1:VDIV 200E-3 V"
+
+  - name: "时基 20 ps/div 到 1 ks/div"
+    manual: "ACQUISITION > TIME_DIV"
+    steps:
+      - send: "TDIV 20PS"
+      - query: "TDIV?"
+        expect: "TDIV 20E-12 S"
+      - send: "TDIV 1KS"
+      - query: "TDIV?"
+        expect: "TDIV 1E+3 S"
+      - send: "TDIV 1E-6"
+      - query: "TDIV?"
+        expect: "TDIV 1E-6 S"
+
+  - name: "存储深度取最接近的合法档"
+    manual: "ACQUISITION > MEMORY_SIZE"
+    steps:
+      - send: "MSIZ 500"
+      - query: "MSIZ?"
+        expect: "MSIZ 500E+0"
+      - send: "MSIZ 25000"
+      - query: "MSIZ?"
+        expect: "MSIZ 25E+3"
+
+  - name: "参考时钟"
+    manual: "ACQUISITION > REFERENCE_CLOCK"
+    steps:
+      - send: "RCLK EXTERNAL"
+      - query: "RCLK?"
+        expect: "RCLK EXTERNAL"
+      - send: "RCLK INTERNAL"
+      - query: "RCLK?"
+        expect: "RCLK INTERNAL"
+
+  - name: "触发源、电平、沿与时间释抑"
+    manual: "ACQUISITION > TRIG_SELECT、TRIG_LEVEL、TRIG_SLOPE"
+    steps:
+      - send: "TRSE EDGE,SR,C2,HT,TI,HV,1E-6"
+      - query: "TRSE?"
+        expect: "TRSE EDGE,SR,C2,HT,TI,HV,1E-6"
+      - send: "C2:TRLV 250MV"
+      - query: "C2:TRLV?"
+        expect: "C2:TRLV 250E-3 V"
+      - send: "C2:TRSL NEG"
+      - query: "C2:TRSL?"
+        expect: "C2:TRSL NEG"
+
+  - name: "触发方式 AUTO、NORM、SINGLE、STOP"
+    manual: "ACQUISITION > TRIG_MODE"
+    steps:
+      - send: "TRMD NORM"
+      - query: "TRMD?"
+        expect: "NORM"
+      - send: "TRMD SINGLE"
+      - query: "TRMD?"
+        expect: "SINGLE"
+      - send: "TRMD AUTO"
+      - query: "TRMD?"
+        expect: "AUTO"
+
+  - name: "单次采集与停止"
+    manual: "ACQUISITION > ARM_ACQUISITION、STOP"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - send: "ARM"
+      - send: "STOP"
+      - query: "C1:PAVA? PKPK"
+        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+
+  - name: "强制触发"
+    manual: "ACQUISITION > FORCE_TRIGGER"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - send: "FRTR"
+      - query: "C1:PAVA? PKPK"
+        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+
+  - name: "WAIT 等待采集完成"
+    manual: "ACQUISITION > WAIT"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - send: "WAIT"
+      - query: "C1:PAVA? PKPK"
+        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+
+  - name: "自动测量绑定 P1–P8"
+    manual: "CURSOR > PARAMETER_CUSTOM、PARAMETER_VALUE?"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - send: "PACU 1,PKPK,C1"
+      - query: "PACU? 1"
+        expect: "PACU 1,PKPK,C1"
+      - send: "PACU 2,FREQ,C1"
+      - query: "PACU? 2"
+        expect: "PACU 2,FREQ,C1"
+      - query: "C1:PAVA? PKPK"
+        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+      - query: "C1:PAVA? FREQ"
+        expect_match: "C1:PAVA FREQ,99[0-9]\\.[0-9]+E\\+0 HZ,OK"
+
+  - name: "波形设置 SP、NP、FP、SN"
+    manual: "WAVEFORM TRANSFER > WAVEFORM_SETUP"
+    steps:
+      - send: "WFSU SP,1,NP,3,FP,0,SN,0"
+      - query: "WFSU?"
+        expect: "WFSU SP,1,NP,3,FP,0,SN,0"
+
+  - name: "WAVEDESC 描述变量"
+    manual: "WAVEFORM TRANSFER > INSPECT?"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - query: 'C1:INSP? "WAVEDESC"'
+        expect_match: 'C1:INSP " WAVE_ARRAY_COUNT: 10000 FIRST_POINT: 0 SPARSING_FACTOR: 1 HORIZ_INTERVAL: 5\.000000000e-07 HORIZ_OFFSET: -2\.500000000e-03 VERTICAL_OFFSET: 0\.000000e\+00 .*VOLT_PER_DIV: 5\.000000e-01 ACQ_COUNT: [0-9]+ "'
+
+  - name: "DATA_ARRAY_1 文本回读"
+    manual: "WAVEFORM TRANSFER > INSPECT?"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - send: "WFSU SP,0,NP,3,FP,0,SN,0"
+      - query: 'C1:INSP? "DATA_ARRAY_1",FLOAT'
+        expect_match: 'C1:INSP " -?[0-9.]+e[-+][0-9]+ -?[0-9.]+e[-+][0-9]+ -?[0-9.]+e[-+][0-9]+ "'
+
+  - name: "SIMPLE 回读与选点"
+    manual: "WAVEFORM TRANSFER > INSPECT?"
+    steps:
+      - send: "C1:VDIV 500MV"
+      - send: "TDIV 500US"
+      - send: "WFSU SP,0,NP,2,FP,10,SN,0"
+      - query: 'C1:INSP? "SIMPLE",FLOAT'
+        expect_match: 'C1:INSP " -?[0-9.]+e[-+][0-9]+ -?[0-9.]+e[-+][0-9]+ "'
