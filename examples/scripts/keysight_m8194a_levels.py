@@ -4,8 +4,9 @@ a Keysight Infiniium UXR0334B.
 The guide (M8194-91020, Remote Programming) says to start from ``*RST``, set the modes and parameters,
 enable the outputs and send ``:INIT:IMM`` last. Channel 1 gets an amplitude and an offset
 (``:VOLTage1``, ``:VOLTage1:OFFSet``), channel 2 high and low levels (``:VOLTage2:HIGH``, ``:LOW``);
-a UXR's 50 ohm inputs read the DC level each channel puts out. No waveform is loaded: the M8194A's
-segment memory (``:TRACe``) is not modeled yet, so the outputs are the DC levels only.
+a UXR's 50 ohm inputs read the DC level each channel puts out. Then channel 1 gets a waveform: a
+segment of 8-bit DAC codes is defined (``:TRACe:DEFine``), filled with a binary block (``:TRACe:DATA``),
+read back and listed (``:TRACe:CATalog?``) as the guide's segment flow does.
 
 The same script runs against the real instruments or a SimuBench bench:
 
@@ -52,6 +53,13 @@ def main() -> None:
         awg.write(":VOLTage2:LOW 0.1")
         for ch in (1, 2):
             awg.write(f":OUTPut{ch} ON")
+        # A waveform segment on channel 1: 128 samples, a half-scale square (segment 1, the only one
+        # without the sequencing option), written as an IEEE 488.2 block of signed 8-bit codes.
+        awg.write(":TRACe1:DEFine 1,128,0")
+        codes = bytes([64] * 64 + [(-64) & 0xFF] * 64)
+        awg.write_binary_values(":TRACe1:DATA 1,0,", list(codes), datatype="B")
+        print("catalog: " + awg.query(":TRACe1:CATalog?").strip())
+        readback = awg.query_binary_values(":TRACe1:DATA? 1,0,128", datatype="b")
         awg.write(":INITiate:IMMediate")  # the guide: start data generation as the last command
         assert awg.query("*OPC?").strip() == "1"
         print("ch1: " + ",".join(awg.query(q).strip() for q in (":VOLTage1?", ":VOLTage1:OFFSet?")))
@@ -66,8 +74,9 @@ def main() -> None:
         scope.close()
         rm.close()
 
-    assert math.isclose(level1, 0.3, abs_tol=0.02), level1  # the offset is the mean of a zero table
+    assert math.isclose(level1, 0.3, abs_tol=0.02), level1  # the offset is the mean of a zero-mean wave
     assert math.isclose(level2, 0.3, abs_tol=0.02), level2  # (high + low) / 2
+    assert bytes(c & 0xFF for c in readback) == codes, readback
     assert error.startswith("0,"), error
 
 

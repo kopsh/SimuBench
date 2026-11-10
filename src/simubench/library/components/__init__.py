@@ -1,6 +1,7 @@
 """Built-in component types; importing this package registers them."""
 
 from . import (  # noqa: F401
+    arb_segments,
     calibrator,
     calstore,
     counter,

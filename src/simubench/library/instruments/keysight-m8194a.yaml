@@ -8,8 +8,8 @@ description: >-
   Keysight M8194A 120 GSa/s 任意波形发生器模块（AXIe，8 位 DAC，1/2/4 个差分通道，每通道 512 kSa）。
   真实型号（D42）：命令、参数与回复按 Keysight M8194A 120 GSa/s Arbitrary Waveform Generator User Guide
   （M8194-91020）第 4 章核对，规格按数据手册（5992-3361）。已建模：每通道的幅度、偏置、高/低电平、终端电压、
-  差分偏置与输出使能，DAC 模式、采样时钟范围与频率、参考时钟，开始与停止信号产生。波形存储（TRACe 段的
-  定义、按偏移装载二进制块、导入文件）是缺失的通用能力（#879），未建模（见覆盖表）。
+  差分偏置与输出使能，DAC 模式、采样时钟范围与频率、参考时钟，开始与停止信号产生。波形存储（:TRACe 段的
+  定义、按偏移装载二进制块或数值列表、查询、命名与注释，#879）按 8 位 DAC 码建模；从文件导入（:TRACe:IMPort）与标记未建模。
 reference:
   title: Keysight M8194A 120 GSa/s Arbitrary Waveform Generator User Guide
   document: M8194-91020
@@ -56,7 +56,9 @@ errors:
   -200: "Execution error"
   -221: "Settings conflict"
   -222: "Data out of range"
+  -160: "Block data error"
   -223: "Too much data"
+  -225: "Out of memory"
   -224: "Illegal parameter value"
   -240: "Hardware error"
   -300: "Device-specific error"
@@ -178,7 +180,8 @@ components:
     type: reference_clock
     params: {source: INTernal}
 channel_components:
-  # 波形存储（TRACe）没有可用的通用能力：输出按 arb_table 的默认表播放（零表，只有偏置），采样率取 :FREQuency:RASTer。
+  # 波形存储（:TRACe 段，#879）：8 位 DAC 码按段定义、按偏移装载，通道循环播放段 1，经零阶保持 DAC（sin(x)/x 滚降）；
+  # 没有定义段时只有偏置。采样率取 :FREQuency:RASTer。
   - name: synth
     type: waveform_synth
     params:
@@ -188,12 +191,17 @@ channel_components:
       arb: arb
       clock: clock
   - name: arb
-    type: arb_table
+    type: arb_segments
     params:
       rate: $freq.raster
       scale: 0.5
-      min_points: 128
-      max_points: 524288
+      dac_bits: 8
+      # 数据手册 5992-3361：段长是 128 的倍数、最短 128 点，每通道 512 kSa；没有序列选件时段号只能是 1（手册 :TRACe:DEFine）。
+      granularity: 128
+      min_length: 128
+      max_samples: 524288
+      max_id: 1
+      max_lines: 8192
   - name: level
     type: amplitude_level
     params:
@@ -255,6 +263,42 @@ commands:
     state: system.slot
     set: false
     reply: '"{value}"'
+  # ---- :TRACe（波形存储段，#879）--------------------------------------------------------------
+  - header: ":TRACe<ch>:CATalog"
+    op: ch.arb.catalog
+    set: false
+  - header: ":TRACe<ch>:COMMent"
+    op: ch.arb.comment
+    params: [{name: segment_id, type: int}, {name: text, type: string, optional: true}]
+  - header: ":TRACe<ch>[:DATA]"
+    op: ch.arb.data
+    params: [{name: segment_id, type: int}, {name: offset, type: int}, {name: data, type: raw}]
+  - header: ":TRACe<ch>:DEFine"
+    op: ch.arb.define
+    query: false
+    params: [{name: segment_id, type: int}, {name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DEFine:NEW"
+    op: ch.arb.define_new
+    set: false
+    params: [{name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DEFine:WONLy"
+    op: ch.arb.define_wonly
+    query: false
+    params: [{name: segment_id, type: int}, {name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DEFine:WONLy:NEW"
+    op: ch.arb.define_wonly_new
+    set: false
+    params: [{name: length, type: int}, {name: init, type: int, optional: true}]
+  - header: ":TRACe<ch>:DELete"
+    op: ch.arb.delete
+    query: false
+    params: [{name: segment_id, type: int}]
+  - header: ":TRACe<ch>:DELete:ALL"
+    op: ch.arb.delete_all
+    query: false
+  - header: ":TRACe<ch>:NAME"
+    op: ch.arb.name
+    params: [{name: segment_id, type: int}, {name: text, type: string, optional: true}]
   # ---- :OUTPut ------------------------------------------------------------------------------
   - header: ":OUTPut<ch>:DIOFfset"
     state: ch.dioffset

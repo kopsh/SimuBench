@@ -41,7 +41,7 @@
 | synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现(按波形的最高频率 `max_frequency`:FREQ? MAX 随波形、超限置为上限;脉冲的线性边沿 `lead_time`/`trail_time` 与 `pulse_width`/`pulse_period`/`pulse_edges` 操作,#437) | 按幅度分档的频率上限未建模 |
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
-| arb_memory | `arb_table` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430) | siglent-sdg2042x 无(例外清单) |
+| arb_memory | `arb_table`、`arb_segments` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430。`arb_segments`（#879）：分段波形存储，8 位 DAC 码按段 `define`/`define_new`（及只写变体）、按偏移 `data`（块或数值列表，回读为块）、`catalog`、`name`/`comment`、`delete`/`delete_all`，段长粒度与总量限制，零阶保持 DAC 的 sinc 谱；`waveform_synth` 的 `arb` 引用经 `ArbSource` 协议播放两者，M8194A 用它；序列、标记与 I/Q 插值模式未建模) | siglent-sdg2042x 无(例外清单) |
 | modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。谱线超出 `line_budget`(默认 2000)时:FM/PM 拒绝(-222,展开前按 Carson 规则计数,#357);PWM 保留预算内的低次谐波、截掉其余并附 `truncated` 保真度提示(写明保留次数;预算内谐波全保留、不附提示,#440),常规基频(如 1 kHz 方波,300 MHz 带宽)照常输出(#388)。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
 
 内置 siglent-sdg2042x 由专用组件 `siglent_sdg` 承担(test_model_components.py 已记账),缺口在例外清单;拆分在第二波。

@@ -204,9 +204,90 @@ cases:
       - query: ":SYST:VERS?"
         expect: '"1999.0"'
 
-  - name: "TRACe 命令未建模：-113"
-    manual: ":TRACe Commands > :TRACe[1|2|3|4][:DATA], :DEFine, :CATalog?"
+  - name: ":TRACe:DEFine、:CATalog?、:DATA 与回读、:DELete"
+    manual: ":TRACe Commands > :TRACe:CATalog?, :TRACe:DEFine, :TRACe[:DATA], :TRACe:DELete, :TRACe:DELete:ALL"
+    steps:
+      - query: ":TRAC1:CAT?"
+        expect: "0, 0"
+      - send: ":TRAC1:DEF 1,256,0"
+      - query: ":TRAC1:CAT?"
+        expect: "1,256"
+      - send: ":TRAC1:DATA 1,0,20,30,40,-100,127"
+      - query: ":TRAC1:DATA? 1,0,5"
+        binary: true
+        expect: "#15\x14\x1e\x28\x9c\x7f\n"
+      - send: ":TRAC1:DATA 1,254,1,2"
+      - query: ":TRAC1:DATA? 1,254,2"
+        binary: true
+        expect: "#12\x01\x02\n"
+      - send: ":TRAC1:DEL 1"
+      - query: ":TRAC1:CAT?"
+        expect: "0, 0"
+      - send: ":TRAC2:DEF 1,128"
+      - send: ":TRAC2:DEL:ALL"
+      - query: ":TRAC2:CAT?"
+        expect: "0, 0"
+      - query: ":SYST:ERR?"
+        expect: '0,"No error"'
+
+  - name: ":TRACe 的错误：超出段长 -223、段未定义与长度或码值超限 -222"
+    manual: ":TRACe Commands > :TRACe[:DATA] (length exceeded: -223), :TRACe:DEFine (数据手册 5992-3361 Sample memory)"
     steps:
       - send: ":TRAC1:DEF 1,128,0"
+      - send: ":TRAC1:DATA 1,127,1,2"
+      - query: ":SYST:ERR?"
+        expect: '-223,"Too much data"'
+      - send: ":TRAC1:DATA 1,0,200"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":TRAC1:DEF 1,100"
+        # 段长是 128 的倍数
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":TRAC1:DEF 1,1048576"
+      - query: ":SYST:ERR?"
+        expect: '-225,"Out of memory"'
+      - send: ":TRAC1:DEF 1,128,300"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+      - send: ":TRAC1:DEL 1"
+      - send: ":TRAC1:DATA 1,0,1"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
+
+  - name: ":TRACe:DEFine:NEW? 回新段号；:DEFine:WONLy 的段不能回读"
+    manual: ":TRACe Commands > :TRACe:DEFine:NEW?, :TRACe:DEFine:WONLy, :TRACe:DEFine:WONLy:NEW?"
+    steps:
+      - query: ":TRAC1:DEF:NEW? 256,0"
+        expect: "1"
+      - send: ":TRAC1:DEF:WONL 1,128,5"
+      - send: ":TRAC1:DATA? 1,0,2"
+      - query: ":SYST:ERR?"
+        expect: '-221,"Settings conflict"'
+      - send: ":TRAC1:DEL:ALL"
+      - query: ":TRAC1:DEF:WONL:NEW? 128"
+        expect: "1"
+      - send: ":TRAC1:DEF:NEW? 128"
+      - query: ":SYST:ERR?"
+        expect: '-225,"Out of memory"'
+
+  - name: ":TRACe:NAME 与 :COMMent"
+    manual: ":TRACe Commands > :TRACe:NAME, :TRACe:COMMent"
+    steps:
+      - send: ":TRAC1:DEF 1,128"
+      - send: ':TRAC1:NAME 1,"ADY"'
+      - query: ":TRAC1:NAME? 1"
+        expect: '"ADY"'
+      - send: ':TRAC1:COMM 1,"Comment"'
+      - query: ":TRAC1:COMM? 1"
+        expect: '"Comment"'
+      - send: ':TRAC1:NAME 1,"0123456789012345678901234567890123"'
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+
+  - name: ":TRACe:IMPort 与 :MARKer 未建模：-113"
+    manual: ":TRACe Commands > :TRACe:IMPort, :TRACe:MARKer[:STATe]"
+    steps:
+      - send: ':TRAC1:IMP 1,"x.bin",BIN,IONLY,OFF,ALEN'
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'

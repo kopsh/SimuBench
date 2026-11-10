@@ -1765,3 +1765,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 每条实现的命令有手册用例 | ✅ `simubench cases tests/models/keysight-m8194a/cases.yaml`（14/14） |
 | 示例测试台与脚本在测试里跑通 | ✅ `tests/test_keysight_m8194a.py` |
 | 缺失的波形存储能力立项，不在型号内绕过 | ✅ #879（`核心`） |
+
+## 任意波形的分段存储 `arb_segments`；M8194A 装载波形（Issue 879）
+
+新增通用组件 `arb_segments`（`library/components/arb_segments.py`，类别 function_generator 的 `arb_memory` 块）：8 位 DAC 码按段定义（`define`、`define_new`、只写变体）、按偏移装载（`data`：IEEE 块或数值列表，查询回块）、`catalog`、`name`/`comment`、`delete`/`delete_all`，段长粒度与最短长度、总量限制（-225）、超出段长 -223、只写段不能回读（-221，错误号为模型选择）；播放循环经零阶保持 DAC（谱按 sinc 加权）。`waveform_synth` 的 `arb` 引用改为 `ArbSource` 协议（`points()`），`arb_table` 与 `arb_segments` 都实现它。`keysight-m8194a` 用它：覆盖表 `:TRACe` 的 10 行改为已实现（`:IMPort` 与 `:MARKer` 仍未建模），新增 4 条手册用例，示例脚本装载一段方波并回读。序列、标记、I/Q 插值模式与“程序模式才能删除”的检查未建模。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 组件覆盖定义段、分块写入、超长 -223、`CATalog?`、删除、只写段、按采样频率播放 | ✅ `tests/models/keysight-m8194a/cases.yaml`（18 条）、`tests/test_keysight_m8194a.py` 的播放行（基频 = 采样率 / 段长、sinc 加权、删除后无信号） |
+| `keysight-m8194a` 的 `:TRACe` 行改为已实现并补用例，示例脚本装载波形 | ✅ `simubench coverage keysight-m8194a`（实现 35 / 共 102）；`tests/test_keysight_m8194a.py::test_manual_script_runs_on_the_example_bench` |
+| 不放宽 `ALLOWED` 与块覆盖例外清单 | ⚠️ 没有放宽；但块覆盖检查仍因 M8194A 没有“调制”块而红（与本 issue 无关，见上一节） |
