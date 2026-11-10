@@ -26,9 +26,13 @@ async function openBench(page: Page): Promise<string> {
   return path;
 }
 
+/** Send a message once the previous turn has ended (the composer offers 发送 again, not 停止). */
 async function say(page: Page, text: string) {
-  const box = page.getByRole("textbox", { name: /说说要搭什么测试台/ });
+  const panel = page.getByTestId("assistant-panel");
+  await expect(panel.getByRole("button", { name: "停止" })).toHaveCount(0, { timeout: 15_000 });
+  const box = panel.getByRole("textbox", { name: /说说要搭什么测试台/ });
   await box.fill(text);
+  await expect(panel.getByRole("button", { name: "发送" })).toBeEnabled();
   await box.press("Enter");
 }
 

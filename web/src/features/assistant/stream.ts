@@ -1,7 +1,7 @@
 // Following a turn's server-sent events (GET /api/assistant/events, #873). fetch, not EventSource:
 // the access token (D43) goes in a header, never in the URL.
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "@/api/client";
 import { assistantKeys, keys } from "@/api/hooks";
 import { getToken } from "@/api/token";
@@ -33,45 +33,41 @@ export async function followTurn(
 /**
  * The live turn of a bench's conversation: while the last turn runs, its events are followed and
  * applied; when it ends, the conversation and everything the turn may have changed are refetched.
+ * The server's conversation is the truth: it is polled while the turn runs, a live view of a turn
+ * it no longer reports as running is dropped, and a stream that ends without the turn's final
+ * event is followed again.
  */
 export function useLiveTurn(bench: string, conversation: AssistantConversation | undefined) {
   const qc = useQueryClient();
   const [live, setLive] = useState<AssistantTurn | null>(null);
-  const following = useRef<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
   const last = conversation?.turns.at(-1);
   const runningId = last?.status === "running" ? last.id : null;
 
   useEffect(() => {
-    if (!runningId || following.current === runningId || !last) return;
-    following.current = runningId;
+    if (!runningId) return;
     const abort = new AbortController();
-    let current: AssistantTurn = { ...last, reply: "", steps: [] };
-    setLive(current);
-    const finish = () => {
-      following.current = null;
-      setLive(null);
-      void qc.invalidateQueries({
-        queryKey: assistantKeys.conversation(bench),
-      });
+    const base = qc.getQueryData<AssistantConversation>(assistantKeys.conversation(bench))?.turns.find((t) => t.id === runningId);
+    if (!base) return;
+    let current: AssistantTurn = { ...base, reply: "", steps: [] };
+    let ended = false;
+    const refresh = () => {
+      void qc.invalidateQueries({ queryKey: assistantKeys.conversation(bench) });
       void qc.invalidateQueries({ queryKey: assistantKeys.rollback(bench) });
       void qc.invalidateQueries({ queryKey: keys.benchDoc(bench) });
       void qc.invalidateQueries({ queryKey: keys.sessions });
       void qc.invalidateQueries({ queryKey: keys.catalog });
     };
+    const poll = window.setInterval(() => void qc.invalidateQueries({ queryKey: assistantKeys.conversation(bench) }), 3000);
     followTurn(
       bench,
       runningId,
       (ev) => {
         current = applyEvent(current, ev);
         if (ev.type === "turn" && ev.turn) {
+          ended = true;
           qc.setQueryData<AssistantConversation>(assistantKeys.conversation(bench), (c) =>
-            c
-              ? {
-                  ...c,
-                  running: false,
-                  turns: c.turns.map((t) => (t.id === ev.turn!.id ? ev.turn! : t)),
-                }
-              : c,
+            c ? { ...c, running: false, turns: c.turns.map((t) => (t.id === ev.turn!.id ? ev.turn! : t)) } : c,
           );
         } else {
           setLive(current);
@@ -81,17 +77,19 @@ export function useLiveTurn(bench: string, conversation: AssistantConversation |
       },
       abort.signal,
     )
-      .catch(() => undefined) // a dropped stream: the refetch below picks the turn up again
+      .catch(() => undefined)
       .finally(() => {
-        if (!abort.signal.aborted) finish();
+        if (abort.signal.aborted) return;
+        refresh();
+        // Dropped before the end: follow it again (the refetch ends it if the turn is over).
+        if (!ended) window.setTimeout(() => setAttempt((a) => a + 1), 1000);
       });
     return () => {
       abort.abort();
-      following.current = null;
+      window.clearInterval(poll);
     };
-    // `last` is read once per running turn id
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bench, runningId, qc]);
+  }, [bench, runningId, attempt, qc]);
 
-  return live;
+  // Only the turn the server still reports as running is shown live.
+  return live && live.id === runningId ? live : null;
 }

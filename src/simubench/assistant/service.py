@@ -327,11 +327,15 @@ class AssistantService:
                     ),
                 ]
             conv.messages = messages
-            self._summarize(turn, record)
-            turn.finished_at = _now()
-            self.store.save(conv)
-            emit(M.AssistantEvent(seq=0, type="turn", turn_id=turn.id, turn=turn))
-            loop.call_soon_threadsafe(events.close)
+            try:
+                self._summarize(turn, record)
+                turn.finished_at = _now()
+                self.store.save(conv)
+            except Exception:  # the panel still learns that the turn ended
+                log.exception("assistant: could not record the end of turn %s", turn.id)
+            finally:
+                emit(M.AssistantEvent(seq=0, type="turn", turn_id=turn.id, turn=turn))
+                loop.call_soon_threadsafe(events.close)
 
     def _summarize(self, turn: M.AssistantTurn, record: TurnFiles) -> None:
         """The turn's "what changed", from the files themselves (not from the model's words)."""
