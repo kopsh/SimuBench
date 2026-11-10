@@ -67,7 +67,7 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
 - Unit tests (default): no Textual import, no server, no network; ≤100 ms per test with the
   `unit` marker (×3 when `CI=true` — a shared runner's load spikes are noise, #482). One
   behaviour per test (unit tier only).
-- `tui_boot` marker: boots Textual or a real server; runs on `main` only.
+- `tui_boot` marker: boots Textual or a real server; runs on every pull request (the `tui` job, #858) and on `main`.
 - `tests/test_*e2e*.py`: ≥5 `assert`s per test; runs on `main` only.
 - Engine/model tests that open a real bench: flow tests are the norm (D49, #704) — one test
   walks a manual flow with step-named asserts; merge adjacent small tests of the same flow
@@ -82,7 +82,7 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
   nearest existing module. A new test *file* is for a new model (the `real-model` template) or
   a behaviour with no existing home. Never add a case into a flow whose state it breaks —
   state-incompatible coverage gets its own test.
-- Windows, wheel, `tui_boot`, `load_sensitive` run after merge; e2e/visual also gate pull requests (#848). Red on `main` is
+- Windows, wheel, `load_sensitive` run after merge; `tui_boot` (the `tui` job, #858) and e2e/visual gate pull requests. Red on `main` is
   fixed before new work.
 
 ## Keep the skills current

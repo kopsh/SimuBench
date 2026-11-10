@@ -143,14 +143,20 @@ def wait_for_free_ports(ports, timeout: float = 60.0, host: str = "127.0.0.1") -
     """Block until every port in ``ports`` can be bound, polling, instead of letting the server
     that wants it fail with ``address already in use``. The snapshot fixtures need fixed ports (the
     identity box shows the addresses), and the module before them — or another xdist worker's —
-    may still be letting go of them (#857). Binding with SO_REUSEADDR, like the servers do, so a
-    socket in TIME_WAIT does not count as taken. Raises after ``timeout`` s, naming the ports."""
+    may still be letting go of them (#857). Binding with SO_REUSEADDR (POSIX), like the servers do, so a
+    socket in TIME_WAIT does not count as taken; SO_EXCLUSIVEADDRUSE on Windows. Raises after ``timeout`` s, naming the ports."""
     import socket
+    import sys
     import time
 
     def free(port: int) -> bool:
         with socket.socket() as probe:
-            probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            if sys.platform == "win32":
+                # Windows' SO_REUSEADDR lets a second socket bind a port that is in use: the
+                # probe would call it free. Exclusive use is the strict test there.
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
+            else:
+                probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
                 probe.bind((host, port))
             except OSError:
