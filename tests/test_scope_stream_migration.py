@@ -9,6 +9,12 @@ resolution), triggered and untriggered (auto, forced), one and several channels,
 screen. ``tests/data/scope_stream_gold.json`` holds, per step, the SHA-256 of the reply's bytes and
 the virtual time the command consumed — hashes, not text: a waveform block is megabytes.
 
+The sequence is walked once per case for the whole module (the bench opens in a module fixture,
+#965); each test then compares one group of the recorded steps — the processing modes, the
+trigger scenarios, the several channels — and reports every differing step of its group at once,
+not just the first. The group ranges are ``GROUPS``; the screen frame (the last row) has its own
+test.
+
 Record again (only when a change to the replies is intended and reviewed):
 ``uv run python tests/test_scope_stream_migration.py``.
 """
@@ -253,6 +259,40 @@ CASES: dict[str, tuple] = {
     "lecroy-wavepro804hd": (lambda: _example("lecroy-wavepro804hd.bench.yaml"), None, _LECROY),
 }
 
+#: The steps of one case split into groups (D49: one behaviour per test, #965): group name ->
+#: inclusive (first step, last step) indexes into the command sequence, contiguous and covering
+#: (``test_the_groups_partition_every_sequence`` guards that). The groups are ranges of one
+#: recorded walk, not independent scenarios — a group's steps may rely on state an earlier group
+#: left behind, and one group may carry another's setup (the SDS2104X's clock advances, the
+#: WavePro's trigger mode). The live screen frame (the last row) has its own test.
+#: ``sb-dso-4`` and ``sb-dso-2x`` share one sequence.
+_SB_GROUPS = {
+    "processing": (0, 7),  # one acquisition read in the three transfer formats
+    "channels": (8, 14),  # both channels in one acquisition, CH2's read, a measurement per channel
+    "trigger": (15, 26),  # timebase, level and slope, a level never crossed (auto sweep), errors
+}
+GROUPS: dict[str, dict[str, tuple[int, int]]] = {
+    "sb-dso-4": _SB_GROUPS,
+    "sb-dso-2x": _SB_GROUPS,
+    "keysight-dsox2024a": {
+        "processing": (0, 30),  # normal, the acquisition number's noise, WORD/unsigned/points, average, peak, high resolution
+        "channels": (31, 40),  # CH2 opens, both channels acquired, its read and the measurements
+        "trigger": (41, 51),  # a level never crossed (auto sweep), running reads, stop
+    },
+    "siglent-sds2104xplus": {
+        "processing": (0, 29),  # single, running, average, peak, enhanced resolution
+        "resolution": (30, 44),  # normal, 10 and 8 bits, word and byte widths (read under single mode)
+        "trigger": (45, 53),  # a level never crossed, a forced frame, stop
+    },
+    "keysight-uxr0334b": {
+        "processing": (0, 28),  # word/byte, points, average, bandwidth, both responses; no trigger or multi-channel steps
+    },
+    "lecroy-wavepro804hd": {
+        "processing": (0, 11),  # single and running acquisitions, the wave descriptor, a measurement, the timebase
+        "trigger": (12, 18),  # a level never crossed, arm and force, stop
+    },
+}
+
 
 def _digest(data: bytes | None) -> str | None:
     return None if data is None else hashlib.sha256(data).hexdigest()
@@ -306,14 +346,67 @@ def test_the_screen_frame_digest_does_not_care_about_zero_sign():
     assert _round_frame([-1e-12]) == _round_frame([0.0])
 
 
+@pytest.fixture(scope="module")
+def recorded() -> dict[str, list[list]]:
+    """Every case's recorded rows: each bench opens and its sequence walks once for the whole
+    module (D49's environment reuse, #965); the tests below only compare their group of steps,
+    so each call is a comparison and the walks' seconds stay in setup."""
+    for case in CASES:
+        assert GOLD.get(case), f"no gold standard for {case}: record it (see the module docstring)"
+    return {case: walk(case) for case in CASES}
+
+
+def _cases_with(group: str) -> list[str]:
+    return [case for case in CASES if group in GROUPS[case]]
+
+
+def _compare_group(rows: list[list], case: str, group: str) -> None:
+    """Every differing step of the group at once, not just the first (#965)."""
+    lo, hi = GROUPS[case][group]
+    got, expected = rows[lo : hi + 1], GOLD[case][lo : hi + 1]
+    differing = [
+        f"step {lo + i}: got  {g}\n          want {w}"
+        for i, (g, w) in enumerate(zip(got, expected))
+        if g != w
+    ]
+    if len(got) != len(expected):
+        differing.append(f"the group has {len(got)} steps, the gold standard {len(expected)}")
+    assert not differing, f"{case} [{group}]: {len(differing)} differ\n" + "\n".join(differing)
+
+
+def test_the_groups_partition_every_sequence():
+    """The ranges cover each sequence exactly once, in order: they cannot drift when a sequence
+    is edited (#965)."""
+    for case, (_, _, steps) in CASES.items():
+        covered = sorted(i for bounds in GROUPS[case].values() for i in range(bounds[0], bounds[1] + 1))
+        assert covered == list(range(len(steps))), case
+
+
+@pytest.mark.parametrize("case", _cases_with("processing"))
+def test_the_processing_steps_are_reproduced(recorded, case):
+    _compare_group(recorded[case], case, "processing")
+
+
+@pytest.mark.parametrize("case", _cases_with("channels"))
+def test_the_multi_channel_steps_are_reproduced(recorded, case):
+    _compare_group(recorded[case], case, "channels")
+
+
+@pytest.mark.parametrize("case", _cases_with("resolution"))
+def test_the_resolution_steps_are_reproduced(recorded, case):
+    _compare_group(recorded[case], case, "resolution")
+
+
+@pytest.mark.parametrize("case", _cases_with("trigger"))
+def test_the_trigger_steps_are_reproduced(recorded, case):
+    _compare_group(recorded[case], case, "trigger")
+
+
 @pytest.mark.parametrize("case", list(CASES))
-def test_the_acquisition_gold_standard_is_reproduced(case):
-    got = walk(case)
-    expected = GOLD.get(case)
-    assert expected, f"no gold standard for {case}: record it (see the module docstring)"
-    assert [row[0] for row in got] == [row[0] for row in expected]  # the same sequence was recorded
-    for step, (row, want) in enumerate(zip(got, expected, strict=True)):
-        assert row == want, f"{case} step {step}: {row[0]}"
+def test_the_screen_frame_is_reproduced(recorded, case):
+    """The live screen's one frame: its noise has its own key, its volts are rounded (#970)."""
+    got, expected = recorded[case][-1], GOLD[case][-1]
+    assert got == expected, f"{case} screen frame:\n  got  {got}\n  want {expected}"
 
 
 if __name__ == "__main__":
