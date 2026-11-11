@@ -151,7 +151,7 @@ def _route(inst: Instrument, message: str) -> tuple[list[tuple[str, str | None]]
             raise _Routed
         return None
 
-    inst._run = run_recorder
+    inst.runner._run = run_recorder  # the command layer lives in CommandRunner (#895)
     inst._common = record("_common")
     inst.opc_query = record("opc_query")
     inst.wait_pending = record("wait_pending")
