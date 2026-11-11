@@ -1886,7 +1886,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 
 内部重构，回复不变。`specan_input`、`specan_mixer`、`specan_if` 各有 `in` / `out` 并覆盖 `output("out")`：衰减（× 前置放大，默认 0 dB）；在调谐点下搬到中频（`f_if = f_rf − f_lo`，扣变频损耗，本振以下的镜像侧完全抑制）；× 以 `if_hz` 为中心的高斯 RBW 通带 × 中频增益。新组件 `specan_lo`：`tuned()`（读取中的调谐点，否则中心频率）、`frequency()`、参考误差与锁定（自 `specan_mixer` 移来）、`lo_rate` / `sweep_overhead`（自 `specan_trace` 移来）。调谐上下文按 issue 评论的接口：`Session.tuned(f)`（可重入、退出时恢复）、`Session.tune_hz`、`cached_output` 的键加调谐点；读调谐点的端口由 `Component.tuned_ports` 声明，定义校验拒绝把它们映射为仪表端口（`E-DEF-PORT-TUNED`）。三块实现 `RfStage`；`specan_trace` 沿连线从 `specan_if` 向上游取链首谱线与各级指标，噪声系数取衰减器之后各级的级联。三份定义（`sb-sa-1`、N9320B、N9042B）改为写出 `lo` 与前端连线；旧写法由宏展开（`specan_lo` 与连线加在表末尾，`mixer_limit` → `max_mixer_level`、`maxhold_limit` → `max_hold_sweeps`，`<mixer>.status` → `<lo>.status`）。
 
-没有做的：通用 ADC 的 `frames` 在 `session.tuned(request.tune_hz)` 内取输入——通用 ADC 属于 #950 / #955，本分支的 `main` 上还没有；内部探针（#951）未合并，探针读这三个端口的测试留给 #951 / #959，本 issue 用 `Session.cached_output` 直接读同一批端口。
+没有做的：通用 ADC 的 `frames` 在 `session.tuned(request.tune_hz)` 内取输入——通用 ADC 属于 #950 / #955，本分支的 `main` 上还没有；内部探针（#951）在合并 `main` 后接上：`probe(..., tune_hz)` 对声明了 `tuned_ports` 的仪表在 `Session.tuned` 内读，其余仪表忽略它。
 
 | 完成条件 | 自检 |
 | --- | --- |
@@ -1897,6 +1897,6 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 只声明整机 `noise_figure` 时级联结果恒等于它 | ✅ `test_the_trace_reads_the_chain_by_its_wiring`（衰减器之后恰为 24.0，折算到输入恰为 24.0 + 衰减） |
 | 定义校验拒绝把读调谐上下文的端口映射为仪表端口 | ✅ `test_a_port_that_depends_on_the_tuning_cannot_leave_the_instrument`（`mixer.out`、`if_filter.out`） |
 | 旧写法经宏展开与显式写出相同；补出的组件与连线在表末尾 | ✅ `test_a_definition_written_the_earlier_way_is_the_same_definition`（三份定义） |
-| 内部探针能读到 `input.out`、`mixer.out`、`if_filter.out`，`tune_hz` 生效 | ⚠️ #951 未合并：端口与调谐上下文已就绪，探针侧的测试随 #951 |
+| 内部探针能读到 `input.out`、`mixer.out`、`if_filter.out`，`tune_hz` 生效 | ✅ `tests/test_internal_probe.py::test_a_receivers_internal_ports_read_at_the_tuning_asked_for`（调谐偏 1 MHz，中频线移动 1 MHz；`input.out` 不随调谐；同一调谐点两次相同）、`test_an_instrument_without_a_tuning_context_ignores_tune_hz` |
 | `tests/test_block_coverage.py`、`test_model_components.py` 通过，例外清单不增加 | ✅ `docs/blocks/spectrum_analyzer.yaml` 增加 `local_oscillator`；清单未动 |
 | `scripts/check.sh` 通过 | ✅ |
