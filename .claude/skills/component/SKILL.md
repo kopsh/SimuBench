@@ -48,7 +48,9 @@ class CounterGate(Component):
   contribution; `piecewise = True` for mode-dependent devices (D34 mode iteration, D52);
   `dynamic = True` for time state.
 - A port after an ADC is a **sample stream** (`PortSpec("out", "samples")`, D67): override
-  `frames(port, request)` and `sample_interval(port)`; read the upstream with
+  `frames(port, request)` and `sample_interval(port)` (a block that reads a stream also gives
+  `input_interval(port)`, the rate it asks for — the internal probe uses it for a converter with
+  no rate of its own); read the upstream with
   `self.input_frames(port, request.upstream(factor, warmup))`. A frame is a pure function of the
   request — keep nothing between calls, ask for warm-up samples instead; noise is keyed by
   `request.key` / `request.indexes()`. Put the algorithm in a module-level pure function and let

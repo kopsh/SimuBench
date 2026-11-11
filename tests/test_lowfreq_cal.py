@@ -409,9 +409,14 @@ def test_noise_does_not_depend_on_idle_time(tmp_path):
         for cmd in ("C1:TRACE ON", "C1:CPL D50", "C1:VDIV 200 mV", "MSIZ 10000", "TDIV 1E-3"):
             session.write("scope", cmd.encode() + b"\n")
         acq = session.instruments["scope"].components["acq"]
-        first = acq._noise(1, session.now_ns, 1e-6, 1000)
+
+        def stream():  # the random stream the next acquisition's input noise is drawn from
+            request = acq._request(1, session.now_ns, 0, 1e-6, 1000, session.now_ns, 1, None)
+            return request.key, request.index0
+
+        first = stream()
         session.advance(1.234567)
-        assert np.array_equal(first, acq._noise(1, session.now_ns, 1e-6, 1000))  # keyed by acquisition
+        assert first == stream()  # keyed by acquisition
     finally:
         session.close()
 

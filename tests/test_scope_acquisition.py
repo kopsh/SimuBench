@@ -151,9 +151,9 @@ def test_the_noise_and_processing_flow():
     assert acq.vertical_of(1).input_noise_rms() == pytest.approx(0.075)
     query(":CHANnel1:PROBe VALue,10;:CHANnel1:SCALe 5")  # 0.5 V/div at the input, x10 on screen
     assert acq.vertical_of(1).input_noise_rms() == pytest.approx(7.5e-3)  # input-referred
-    noise = acq._noise(1, session.now_ns, acq._timing()[1], 10)
-    lo, hi = sigma_interval(0.075, 10)  # display volts: the input rms times the probe ratio
-    assert lo <= float(np.std(noise)) <= hi
+    records, _, _ = acq.compute([1])
+    lo, hi = sigma_interval(quantized_sigma(0.075, 5 / 30), records[1].volts.size)
+    assert lo <= float(np.std(records[1].volts)) <= hi  # display volts: the input rms times the probe ratio
     # -- the average of codes resolves below the ADC grid (was test_the_average_of_codes_resolves_below_the_adc_grid)
     query(":CHANnel1:PROBe VALue,1")  # bridge: back to 1x, the display range the act assumes
     query(":CHANnel1:SCALe 0.5;:ACQuire:TYPE AVERage,64")

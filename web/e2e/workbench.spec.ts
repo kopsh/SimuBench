@@ -331,13 +331,15 @@ test("instrument internals: the scope's components, wiring and panel ports, read
     await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(3);
   await expect(graph.getByTestId("internal-port")).toHaveCount(4);
-  // wires: CH1's chain (3) and its panel port, the groups to the acquisition (3) and their ports (3);
-  // dependencies (#729): the time base, trigger and ADC group feed the acquisition, which feeds the
-  // measurements and the transfer.
-  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 3 + 3 + 5);
+  // wires: CH1's chain to the ADC (3) and its panel port, the groups to the ADC (3) and their ports
+  // (3), then the sample stream (D67): ADC -> decimator -> acquisition, one wire per channel (4 + 4);
+  // dependencies (#729): the time base, trigger, ADC group and decimator feed the acquisition, the
+  // time base and ADC group feed the decimator, and the acquisition feeds the measurements and the
+  // transfer (8).
+  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 3 + 3 + 8 + 8);
   await expect(
     graph.locator('.react-flow__edge-path[style*="stroke-dasharray"]'),
-  ).toHaveCount(5);
+  ).toHaveCount(8);
   for (const param of ["horizontal", "trigger", "adc", "record"])
     await expect(
       graph.locator(".react-flow__edge-text", { hasText: param }).first(),
@@ -351,10 +353,10 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   await expect(details).toContainText("200 MHz");
   // Expanding everything shows every channel's chain.
   await page.getByRole("button", { name: "全部展开" }).click();
-  // 4 channels × (input port, vertical, probe), the acquisition, its timebase, trigger and ADC group,
-  // the measurements and the waveform transfer (the last five joined by dependencies, not signal wires).
-  await expect(graph.getByTestId("internal-component")).toHaveCount(18);
-  for (const name of ["timebase", "trigger", "adc", "meas"])
+  // 4 channels × (input port, vertical, probe), the ADC group, the decimator, the acquisition, its
+  // timebase and trigger, the measurements and the waveform transfer.
+  await expect(graph.getByTestId("internal-component")).toHaveCount(19);
+  for (const name of ["timebase", "trigger", "adc", "dec", "meas"])
     await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.locator('[data-name="xfer"]')).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(0);
@@ -373,10 +375,12 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   const readings = page.getByTestId("internal-readings");
   await expect(readings).toContainText(":WAVeform:DATA?");
   await expect(readings).toContainText("采集");
-  // The graph lights its chain: the acquisition it feeds and the transfer after it; a channel is not on it.
+  // The graph lights its chain: the channels that feed it (the signal runs through the ADC, D67),
+  // the acquisition it feeds and the transfer after it; the trigger is not on it.
   await expect(graph.locator('[data-name="acq"]')).toHaveAttribute("data-lit", "");
   await expect(graph.locator('[data-name="xfer"]')).toHaveAttribute("data-lit", "");
-  await expect(graph.locator('[data-name="ch2.front"]')).not.toHaveAttribute(
+  await expect(graph.locator('[data-name="ch2.front"]')).toHaveAttribute("data-lit", "");
+  await expect(graph.locator('[data-name="trigger"]')).not.toHaveAttribute(
     "data-lit",
   );
   // A component on the route selects it: the transfer, whose format setting and command drive it.

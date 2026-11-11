@@ -58,6 +58,7 @@ def scope_acquisition(data: Data, spec: Data) -> None:
     _expand_preamble(data, spec)
     params = dict(spec.get("params") or {})
     if any(key in params for key in MACRO_MODULES):
+        _expand_stream(data, spec)
         return  # the modules are written out
     acq = str(spec["name"])
     comps = data.setdefault("components", [])
@@ -95,6 +96,66 @@ def scope_acquisition(data: Data, spec: Data) -> None:
     chans.insert(after, {"name": "probe", "type": "scope_probe", "params": {}})
     chan_wires.append([f"{vertical}.out", "probe.in"])
     inst_wires[index] = ["ch{n}.probe.out", f"{acq}.in{{n}}"]
+    _expand_stream(data, spec)
+
+
+#: The acquisition-mode parameters an acquisition written without a decimator gives it.
+STREAM_PARAMS = ("processing", "averages", "eres_bits", "peak_max_oversample")
+#: The name the expansion gives the decimator.
+DECIMATOR_NAME = "dec"
+
+
+def _expand_stream(data: Data, spec: Data) -> None:
+    """Put the sample stream between the channels and an acquisition written without one (D67,
+    signal-chain.md 4.2): the wire ``<signal> -> <acq>.in{n}`` becomes ``<signal> -> <adc>.in{n}``,
+    ``<adc>.out{n} -> dec.in{n}``, ``dec.out{n} -> <acq>.in{n}`` with a ``scope_decimator`` named
+    ``dec`` that takes the acquisition-mode parameters; the ADC is told which per-channel modules
+    it converts for. Does nothing when the acquisition names its decimator."""
+    params = spec.setdefault("params", {})
+    if not isinstance(params, dict) or "decimator" in params or not isinstance(params.get("adc"), str):
+        return
+    acq = str(spec["name"])
+    comps = data.setdefault("components", [])
+    chans = data.setdefault("channel_components", [])
+    inst_wires = data.setdefault("wiring", {}).setdefault("instrument", [])
+    adcs = [c for c in comps if isinstance(c, dict) and c.get("type") == "scope_adc"]
+    # The ADC the acquisition names; when the name is wrong (the checks report that, once), the
+    # scope's only ADC, so the wrong name is not followed by complaints about the wiring.
+    adc_spec = next((c for c in adcs if c.get("name") == params["adc"]), adcs[0] if len(adcs) == 1 else None)
+    if adc_spec is None:
+        return
+    adc = str(adc_spec.get("name"))
+    if any(isinstance(c, dict) and c.get("name") == DECIMATOR_NAME for c in comps):
+        raise ValueError(
+            f"{acq}: cannot add the decimator (the name {DECIMATOR_NAME!r} is taken); "
+            "write the scope_decimator out and name it in the acquisition's decimator parameter"
+        )
+
+    def named(key: str, among: list[Any], type_name: str) -> str:
+        """The acquisition's reference ``key`` when it names a component of the type, else nothing:
+        a wrong name is reported once, on the acquisition, not again on the modules it is copied to."""
+        value = params.get(key)
+        fits = (isinstance(c, dict) and c.get("name") == value and c.get("type") == type_name for c in among)
+        return value if any(fits) else ""
+
+    moved = {key: params.pop(key) for key in STREAM_PARAMS if key in params}
+    dec = {
+        "name": DECIMATOR_NAME,
+        "type": "scope_decimator",
+        "params": {"adc": adc, "horizontal": named("horizontal", comps, "scope_timebase"), **moved},
+    }
+    adc_params = adc_spec.setdefault("params", {})
+    for key in ("vertical", "probe"):
+        if named(key, chans, f"scope_{key}"):
+            adc_params.setdefault(key, params[key])
+    params["decimator"] = DECIMATOR_NAME
+    # Added at the end, so the positions of what the author wrote (which the checks point at) stay.
+    comps.append(dec)
+    feed = next((i for i, (_, dst) in enumerate(inst_wires) if dst == f"{acq}.in{{n}}"), None)
+    if feed is not None:
+        inst_wires[feed] = [inst_wires[feed][0], f"{adc}.in{{n}}"]
+        inst_wires.append([f"{adc}.out{{n}}", f"{DECIMATOR_NAME}.in{{n}}"])
+        inst_wires.append([f"{DECIMATOR_NAME}.out{{n}}", f"{acq}.in{{n}}"])
 
 
 #: Parameters an acquisition written the earlier way (one component) gives each module, and the

@@ -11,7 +11,7 @@ from ...models.bench import Fault
 from .. import drive, views
 from ..manager import ClientsConnected, InstrumentRemote
 from ..services import clock as clock_service
-from ..services import faults
+from ..services import faults, internal_probe
 from ..services import sessions as sessions_service
 from .context import IN_USE, ApiContext
 
@@ -279,6 +279,21 @@ def _net_and_clock_routes(ctx: ApiContext, router: APIRouter) -> None:
             return await asyncio.to_thread(views.probe, s, net)
         except KeyError as exc:
             raise not_found(exc) from None
+
+    @router.get(
+        "/api/sessions/{sid}/instruments/{name}/internals/probe",
+        response_model=M.InternalProbe,
+        operation_id="probeInternal",
+        dependencies=[Depends(auth)],
+    )
+    async def probe_internal(sid: str, name: str, port: str, tune_hz: float | None = None) -> M.InternalProbe:
+        """The signal at an output port inside an instrument (signal-chain.md 6). 403 while the
+        bench hides true values (validation mode)."""
+        s = served(sid)
+        try:
+            return await asyncio.to_thread(internal_probe.probe, s, name, port, tune_hz)
+        except (KeyError, ValueError, PermissionError) as exc:
+            raise ctx.http_error(exc) from None
 
     @router.get(
         "/api/sessions/{sid}/assets",

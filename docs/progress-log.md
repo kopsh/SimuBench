@@ -1827,6 +1827,36 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 记录哈希不记原文；不用正则；不改 `src/` | ✅ |
 | 全量测试仍在 60 s 内 | ✅ 本文件约 4 s（6 个测试台各开一次） |
 
+## 示波器采集经采样流实现：`scope_adc.frames`、`scope_decimator`（Issue 950）
+
+示波器内部从“采集组件一手包办”改为真实的信号链：`探头 → scope_adc（采样流）→ scope_decimator（采集方式）→ scope_acquisition（定时、触发、存储）`。定义文件不改，宏 `_expand_stream` 在加载时补上抽取块与三段连线。`FrameRequest` 增加 `first`（网格上的起始序号）；帧缓存增加按采样数的限额；`Component.spec_of` 让同一个端口模式下的输入、输出有不同的介质；`MAX_FRAME`、`MAX_REQUEST_FANOUT` 改为 2²⁶、2²⁸（深存储的峰值检测一帧就超过原来的 2²²）。
+
+行为变化两处：`_boxcar`（高分辨率）原来少返回一个点，已修正（金标准中 DSO-X 的 HRES 与 SDS 的 ERES 各两行重录：在只含这一处修正的 `main` 上重录，确认其余行不变，再以它为准做重构）；屏幕帧在平均方式下各次子采集不再共用同一份噪声。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 金标准不改预期通过（除上述两行） | ✅ `tests/test_scope_stream_migration.py` 六个定义逐位相同 |
+| 现有 `tests/test_scope_*.py`、各型号用例、验收不改预期 | ✅ 全量通过；改动的测试只有三类：内部结构图的连线与引用（结构变了）、两处调用已删除的私有方法 `_noise`（改为等价的公开路径） |
+| 宏展开不移动作者所写组件与连线的位置，引用写错只报一次 | ✅ `tests/test_scope_modules.py`、`tests/test_validate_definition.py` 原有期望不变 |
+| 性能预算不放宽 | ✅ 全量测试时间与改动前相同（约 54 s） |
+| blocks / component-map / 文档同步 | ✅ `docs/blocks/oscilloscope.yaml` 增加 `decimator`；`signal-chain.md` 3.1、3.3、4.2 写明实现后的修正 |
+
+## 内部探针：服务、HTTP、MCP 与验证模式下的保密（Issue 951）
+
+仪表内部任一输出端口的信号可以读出来：`server/services/internal_probe.py`（路由与 MCP 共用），`GET /api/sessions/{sid}/instruments/{name}/internals/probe?port=`，MCP `probe_internal`（不需要 `--allow-control`）。模拟端口给直流 / 有效值 / 峰值、谱线、波形；采样流端口给一帧 4096 个采样点、FFT 幅度谱（量化的流用 dBFS，否则 dBV）、采样率、格式、满量程占用、是否削波；读数为 0 时沿仪表内部连线回溯到面板输入，再用 `engine/silence.py` 说明原因。`InstrumentInternals` 的连线带 `medium`、`sample_rate_hz`、`format`。
+
+与 issue 原文的两处不同（已写回 `signal-chain.md` 6.2）：保密条件收窄为“测试台不公开真实值**且该仪表带有隐藏的个体值**”——`reveal_true_values` 默认关闭，原写法下所有自带测试台都用不了探针；噪声序号按时刻计而不是面板帧计数，这样“同一时刻两次探针结果相同”与“被动”才同时成立。新钩子 `Component.input_interval(port)`：没有自身速率的转换器（`sb-dso-4` 的理想 ADC）按读它的块所要的速率取。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 模拟端口与采样流端口各一条 | ✅ `tests/test_internal_probe.py`：`sb-dso-4` 的 `ch1.front.out`；DSO-X 2024A 的 `adc.out1`（8 位、2 GSa/s、半满量程 −6 dBFS、采样点落在码值台阶上） |
+| 被动；同一时刻两次结果相同 | ✅ 探针前后虚拟时间、事件数不变，脚本下一次回复与没人探过的测试台相同 |
+| 验证模式下 HTTP 403、MCP 拒绝；结构图照常 | ✅ 带 `hidden` 的仪表被拒绝，同一测试台上标称的仪表照常 |
+| 端口不存在返回 404 并列出可用端口 | ✅ |
+| 新路由要求令牌 | ✅ `tests/test_security.py` 的遍历测试通过 |
+| 一次探针 ≤ 50 ms | ✅ `tests/test_performance.py`（4 通道 DSO-X，三个端口） |
+| schemas 与 API 类型重新生成 | ✅ `schemas/openapi.json`、`web/src/api/generated/openapi.ts` |
+
 ## 频谱仪的金标准补全：N9320B、N9042B（Issue 948）
 
 只加测试，不改 `src/`，在未改动的 `main` 上录制（本分支的第一个提交）。`tests/test_specan_migration.py` 增加两台真实型号：各在自己的示例测试台上走示例脚本的全部命令，再走检波器（型号支持的全部）× 迹线模式、RBW/VBW 与衰减的自动 / 手动、标记的各种搜索与差值、频率计数、单次扫描与过载；`tests/data/specan_models_gold.json` 记录每步回复的 SHA-256、消耗的虚拟时间与屏幕读数。重录：`uv run python tests/test_specan_migration.py`。
