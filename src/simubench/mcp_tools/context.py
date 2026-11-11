@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
@@ -49,6 +50,27 @@ class RateLimiter:
             self.tokens -= 1
 
 
+def _conflict_text(exc: Exception) -> str:
+    assert isinstance(exc, Conflict)
+    again = "read_definition" if "instruments/" in str(exc) else "read_bench"
+    return f"{exc}；当前 sha256 = {exc.current_sha256}，请先 {again} 再编辑"
+
+
+def _invalid_text(exc: Exception) -> str:
+    assert isinstance(exc, BenchInvalid)
+    lines = [f"{d.code} {d.pointer}: {d.message}" for d in exc.diagnostics if d.severity == "error"]
+    return "测试台未通过校验，无法启动：\n" + "\n".join(lines)
+
+
+#: Domain error -> what the agent reads (the HTTP twin is ``ApiContext.error_row``).
+_ERROR_ROWS: tuple[tuple[type[Exception], Callable[[Exception], str]], ...] = (
+    (Conflict, _conflict_text),
+    (BenchInvalid, _invalid_text),
+    (FileNotFoundError, lambda exc: "文件不存在"),
+    (KeyError, lambda exc: str(exc).strip("'\"")),
+)
+
+
 @dataclass
 class McpContext:
     manager: SessionManager
@@ -68,16 +90,11 @@ class McpContext:
         self.limiter.take()
 
     def fail(self, exc: Exception) -> ToolError:
-        if isinstance(exc, Conflict):
-            again = "read_definition" if "instruments/" in str(exc) else "read_bench"
-            return ToolError(f"{exc}；当前 sha256 = {exc.current_sha256}，请先 {again} 再编辑")
-        if isinstance(exc, BenchInvalid):
-            lines = [f"{d.code} {d.pointer}: {d.message}" for d in exc.diagnostics if d.severity == "error"]
-            return ToolError("测试台未通过校验，无法启动：\n" + "\n".join(lines))
-        if isinstance(exc, FileNotFoundError):
-            return ToolError("文件不存在")
-        if isinstance(exc, KeyError):
-            return ToolError(str(exc).strip("'\""))
+        """The tool error of a domain error, one table (#936): each row is a type and the text the
+        agent reads. The first row that matches wins, so a subclass sits above its parent."""
+        for kind, text in _ERROR_ROWS:
+            if isinstance(exc, kind):
+                return ToolError(text(exc))
         return ToolError(str(exc).splitlines()[0] if str(exc) else type(exc).__name__)
 
     def force_needed(self, exc: ClientsConnected) -> ToolError:

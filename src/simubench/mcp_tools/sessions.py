@@ -13,8 +13,10 @@ from ..engine.commands import classify
 from ..engine.events import project
 from ..engine.record import jsonable
 from ..models.bench import Fault
+from ..server.errors import FILE_ERRORS
 from ..server.manager import ClientsConnected
 from ..server.services import clock, faults
+from ..server.services import sessions as sessions_service
 from .context import McpContext, scpi_payload
 
 
@@ -49,7 +51,9 @@ def _session_lifecycle_tools(mcp: MCPServer, ctx: McpContext) -> None:
         Refused while scripts are connected to the ports, unless force=true."""
         guard()
         try:
-            s = await manager.start(path, clock=clock, seed=seed, force=force, time_scale=time_scale)
+            s = await sessions_service.start(
+                manager, path, clock=clock, seed=seed, force=force, time_scale=time_scale
+            )
         except ClientsConnected as exc:
             raise force_needed(exc) from None
         except Exception as exc:
@@ -69,7 +73,7 @@ def _session_lifecycle_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         s = served(session_id)
         try:
-            await manager.stop(s.id, force=force)
+            await sessions_service.stop(manager, s.id, force=force)
         except ClientsConnected as exc:
             raise force_needed(exc) from None
         return f"stopped {s.id}"
@@ -330,7 +334,7 @@ def _verdict_tools(mcp: MCPServer, ctx: McpContext) -> None:
             return check(files.resolve(record), files.resolve(report), files.resolve(map)).as_dict()
         except VerdictError as exc:
             raise ToolError(str(exc)) from None
-        except FileNotFoundError as exc:
+        except FILE_ERRORS as exc:
             raise fail(exc) from None
 
 

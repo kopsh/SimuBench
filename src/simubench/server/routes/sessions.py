@@ -12,6 +12,7 @@ from .. import drive, views
 from ..manager import ClientsConnected, InstrumentRemote
 from ..services import clock as clock_service
 from ..services import faults
+from ..services import sessions as sessions_service
 from .context import IN_USE, ApiContext
 
 
@@ -39,7 +40,6 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
     manager = ctx.manager
     auth = ctx.auth
     served = ctx.served
-    in_use = ctx.in_use
 
     @router.get(
         "/api/sessions",
@@ -59,16 +59,16 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
     )
     async def start(req: M.StartSessionRequest) -> M.SessionInfo:
         try:
-            # The clients guard lives in manager.start: starting a bench stops the running one,
-            # whatever facade asked for it (#121, issue 624).
-            s = await manager.start(
-                req.bench_path, clock=req.clock, seed=req.seed, force=req.force, time_scale=req.time_scale
+            s = await sessions_service.start(
+                manager,
+                req.bench_path,
+                clock=req.clock,
+                seed=req.seed,
+                force=req.force,
+                time_scale=req.time_scale,
             )
         except Exception as exc:
-            err = ctx.lifecycle_error(exc)
-            if err is None:
-                raise
-            raise err from None
+            raise ctx.http_error(exc, key="unprocessable") from None
         return manager.views.describe(s)
 
     @router.get(
@@ -88,11 +88,10 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
         responses={409: {"description": "Scripts are connected; repeat with force=true to drop them"}},
     )
     async def stop(sid: str, force: bool = Query(False)) -> None:
-        served(sid)  # 404 for an unknown session; manager.stop returns silently for one
         try:
-            await manager.stop(sid, force=force)
-        except ClientsConnected as exc:
-            raise in_use(exc) from None
+            await sessions_service.stop(manager, sid, force=force)
+        except (ClientsConnected, KeyError) as exc:
+            raise ctx.http_error(exc) from None
 
     @router.post(
         "/api/sessions/{sid}/reset",
@@ -104,12 +103,9 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
     async def reset(sid: str, req: M.ResetSessionRequest) -> M.SessionInfo:
         """Power-cycle the bench: fresh instruments, a new record, the same session id."""
         try:
-            s = await manager.reset(sid, clock=req.clock, seed=req.seed, force=req.force)
+            s = await sessions_service.reset(manager, sid, clock=req.clock, seed=req.seed, force=req.force)
         except Exception as exc:
-            err = ctx.lifecycle_error(exc, files=False)
-            if err is None:
-                raise
-            raise err from None
+            raise ctx.http_error(exc, key="unprocessable", files=False) from None
         return manager.views.describe(s)
 
 

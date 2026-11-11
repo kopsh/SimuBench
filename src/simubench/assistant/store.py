@@ -17,6 +17,7 @@ from typing import Any
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
 from ..models import api as M
+from ..server.errors import Forbidden
 
 
 @dataclass
@@ -66,7 +67,7 @@ class ConversationStore:
     def _path(self, bench: str) -> Path:
         p = (self.root / f"{bench}.json").resolve()
         if self.root.resolve() not in p.parents:
-            raise PermissionError("bench path outside the workspace")
+            raise Forbidden("bench path outside the workspace")
         return p
 
     def load(self, bench: str) -> Conversation:
