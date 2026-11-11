@@ -26,12 +26,10 @@ src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_f
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_name__` on type `(...) -> OpResult`
 src/simubench/engine/edit.py:incompatible-attribute-override Invalid override of attribute `op`: Type `Literal["add_dut"]` is not assignable to inherited type `Literal["add_part"]`
 src/simubench/engine/instrument.py:invalid-argument-type Argument to bound method `Instrument._resolve` is incorrect: Expected `str`, found `str | None`
-src/simubench/engine/instrument.py:invalid-argument-type Argument to bound method `list.append` is incorrect: Expected `list[str | None]`, found `list[str | None] | list[str]`
 src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `clear`
 src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `event`
 src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `latch_conditions`
 src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `summary`
-src/simubench/engine/instrument.py:no-matching-overload No overload of function `get_close_matches` matches arguments
 src/simubench/engine/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
 src/simubench/engine/session.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
 src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×3
