@@ -1799,3 +1799,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | #882 偏移递增：实现或标注不检查及原因 | ✅ 覆盖表 `:TRACe[:DATA]` 行；测试断言乱序写入按所给偏移生效 |
 | #881 在覆盖表写明样点位布局出处 | ✅ 页码与矛盾已写；位布局本身手册无出处 |
 | #881 支持手册的 16 位样点与位对齐 | ⚠️ 未实现：手册自相矛盾，需决定后再做 |
+
+## 采样流基础：`samples` 介质、`SampleFrame`、`frames` 钩子与上限（Issue 946）
+
+信号链（D67、signal-chain.md）的第一步，只加能力，不改任何内置组件的行为。新文件 `engine/stream.py`：`SampleFormat`（`volts | codes | iq | bins`）、`FrameRequest`（可哈希；`upstream(factor, warmup)` 给出速率变换块向上游的请求）、`SampleFrame`（数据只读）、`ModelLimit`、`MAX_FRAME = 2²²`、`MAX_REQUEST_FANOUT = 2²⁶`。端口介质增加 `samples`；`Component.frames` / `input_frames` / `sample_interval`；`Session.cached_frames`（键为信号版本、组件、端口、请求，64 帧 LRU，沿链请求量计数——缓存命中的帧按生成它时的请求量计入）。定义校验新增 `E-DEF-WIRE-MEDIUM`、`E-DEF-SAMPLES-OPEN`。比 issue 多做一条：`samples` 端口不能映射为仪表端口（测试台的连线不承载采样流）。`ModelLimit` 是 `ScpiError` 的子类，默认 -221；组件要报仪表自己的错误码时捕获后改写。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 同一请求两次得到相同的帧；不同 `key` 得到不同的噪声 | ✅ `tests/test_stream.py`（另有：新会话相同、不同种子不同、同一采样网格上重叠的请求在重叠处一致） |
+| 速率变换的块向上游请求 `count × M + warmup` | ✅ `test_a_rate_changing_block_asks_upstream_for_count_times_factor_plus_warmup` 等 3 条 |
+| 超出 `MAX_FRAME` / `MAX_REQUEST_FANOUT` 报模型上限，不返回截断的数据 | ✅ 拒绝发生在计算任何采样之前；缓存命中不改变是否拒绝 |
+| 信号版本变化后缓存失效 | ✅ `test_a_changed_setting_drops_the_cached_frames` |
+| 定义校验三条规则各有拒绝与通过用例 | ✅ `tests/test_stream.py` 末尾 6 条（含通道组件、仪表端口映射） |
+| 带 `samples` 输出的组件类必须覆盖 `frames` 与 `sample_interval`；新钩子在签名契约内 | ✅ `tests/test_component_catalog.py`（规则自检一条；钩子契约按 `Component` 的公开方法自动包含） |
+| 现有测试不改预期；schemas 与 API 类型无差异 | ✅ 见 PR 的检查结果 |

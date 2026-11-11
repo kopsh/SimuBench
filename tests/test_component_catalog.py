@@ -236,3 +236,34 @@ def test_the_operation_rule_catches_the_old_triggerable_clash():
     assert callable(vars(Triggerable).get("abort"))
     assert hasattr(vars(Clash)["abort"], "__op_name__")
     assert not hasattr(vars(Triggerable)["abort"], "__op_name__")
+
+
+# ---- sample streams (D67, #946) ----------------------------------------------------------------
+
+
+def _samples_gaps(cls: type) -> list[str]:
+    """The sample-stream hooks a class with a samples output port leaves at the base's refusal."""
+    from simubench.engine.component import Component
+
+    specs = [*cls.ports.values(), *([cls.pattern_port] if cls.port_pattern else [])]
+    if not any(s.medium == "samples" and s.direction != "in" for s in specs):
+        return []
+    return [h for h in ("frames", "sample_interval") if getattr(cls, h) is getattr(Component, h)]
+
+
+def test_a_type_with_a_samples_output_implements_the_stream_hooks():
+    """A samples output with no ``frames`` would fail at the first read; find it here instead."""
+    gaps = {tname: g for tname, cls in component_types().items() if (g := _samples_gaps(cls))}
+    assert not gaps, gaps
+
+
+def test_the_samples_rule_catches_a_missing_hook():
+    from simubench.engine.component import Component, PortSpec
+
+    class Half(Component):
+        ports = {"out": PortSpec("out", "samples")}  # noqa: RUF012
+
+        def frames(self, port, request):
+            raise AssertionError
+
+    assert _samples_gaps(Half) == ["sample_interval"]

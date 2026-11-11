@@ -10,7 +10,7 @@ Only for `核心` capability issues. A real-model issue never adds components (s
 ## Before code
 
 1. Read the class section of `docs/component-map.md` and `docs/blocks/<class>.yaml`: the block,
-   its component type name, its **solve level** (circuit: `stamp`/`emf`; signal: `output`;
+   its component type name, its **solve level** (circuit: `stamp`/`emf`; signal: `output`; sample stream: `frames`;
    setting/data: ops only). Decide the solve level first — no decorative blocks (D50).
 2. Names and parameters in the instrument engineer's language (NPLC, CV/CC, RBW, scan list), not
    software terms. `grep -n '^## D5[0-2]' docs/decisions.md` for D50–D52.
@@ -47,6 +47,13 @@ class CounterGate(Component):
 - Override `output(port)` for signal outputs, `stamp(circuit, node)` / `emf()` for circuit
   contribution; `piecewise = True` for mode-dependent devices (D34 mode iteration, D52);
   `dynamic = True` for time state.
+- A port after an ADC is a **sample stream** (`PortSpec("out", "samples")`, D67): override
+  `frames(port, request)` and `sample_interval(port)`; read the upstream with
+  `self.input_frames(port, request.upstream(factor, warmup))`. A frame is a pure function of the
+  request — keep nothing between calls, ask for warm-up samples instead; noise is keyed by
+  `request.key` / `request.indexes()`. Put the algorithm in a module-level pure function and let
+  the block wrap it. Types and limits: `src/simubench/engine/stream.py`; example blocks:
+  `tests/test_stream.py`.
 - `on_state(self, key, path, old, new)` hands you the parameter the change arrived through (None
   for a `watches` path); which setting a parameter binds, to write it back, is
   `self.bound_path(key)` (D61). Boolean-ish settings parse with `V.flag` (1 is True) — no private

@@ -255,6 +255,9 @@ def _check_deviations(d: InstrumentDefinition, known: dict[str, type[Component]]
             )
 
 
+_MEDIUM_NAMES = {"signal": "模拟信号", "electrical": "电气端口", "reference": "参考信号"}
+
+
 def _check_wiring(d: InstrumentDefinition, classes: dict[str, type[Component]], report: Report) -> None:
     """Signal wiring and exposed ports."""
 
@@ -294,16 +297,73 @@ def _check_wiring(d: InstrumentDefinition, classes: dict[str, type[Component]], 
                 f"改为 {comp}.{port_hint}" if port_hint else f"可用端口：{', '.join(cls.ports) or '无'}",
             )
 
+    def medium_of(ref: str, in_channel: bool) -> str | None:
+        """What the port at a wiring end carries; None when the end does not resolve (reported above)."""
+        comp, port = split(ref)
+        cls = classes.get(f"ch1.{comp}" if in_channel else comp)
+        if cls is None or not _has_port(cls, port):
+            return None
+        return cls.ports.get(port, cls.pattern_port).medium
+
+    fed: set[str] = set()  # samples inputs a wire feeds, as ch1.<component>.<port> / <component>.<port>
+
+    def check_media(src: str, dst: str, pointer: str, in_channel: bool) -> None:
+        a, b = medium_of(src, in_channel), medium_of(dst, in_channel)
+        if b == "samples":
+            fed.add(f"ch1.{dst}" if in_channel else dst)
+        if a is None or b is None or (a == "samples") == (b == "samples"):
+            return
+        if a == "samples":
+            message = f"{src!r} 输出采样流，{dst!r} 接收的是{_MEDIUM_NAMES[b]}：采样流只能接到采样流输入"
+            hint = "接到一个采样流（samples）输入端口；数字域没有回到模拟域的块"
+        else:
+            message = f"{src!r} 输出的是{_MEDIUM_NAMES[a]}，{dst!r} 是采样流输入：两者之间必须有 ADC"
+            hint = "在两者之间接一个 ADC 块（输入 signal，输出 samples）"
+        report.add("error", "E-DEF-WIRE-MEDIUM", pointer, message, hint)
+
+    def check_exposed(target: str, pointer: str, in_channel: bool) -> None:
+        if medium_of(target, in_channel) == "samples":
+            report.add(
+                "error",
+                "E-DEF-WIRE-MEDIUM",
+                pointer,
+                f"{target!r} 是采样流端口：采样流只在仪表内部传递，不能映射为仪表的端口",
+                "映射一个 electrical、signal 或 reference 端口",
+            )
+
     for i, (src, dst) in enumerate(d.wiring.channel):
         for k, ref in enumerate((src, dst)):
             check_end(ref, _ptr("wiring", "channel", i, k), True)
+        check_media(src, dst, _ptr("wiring", "channel", i), True)
     for i, (src, dst) in enumerate(d.wiring.instrument):
         for k, ref in enumerate((src, dst)):
             check_end(ref.replace("{n}", "1"), _ptr("wiring", "instrument", i, k), False)
+        check_media(src.replace("{n}", "1"), dst.replace("{n}", "1"), _ptr("wiring", "instrument", i), False)
     for pname, target in d.ports.channel.items():
         check_end(target, _ptr("ports", "channel", pname), True)
+        check_exposed(target, _ptr("ports", "channel", pname), True)
     for pname, target in d.ports.instrument.items():
         check_end(target.replace("{n}", "1"), _ptr("ports", "instrument", pname), False)
+        check_exposed(target.replace("{n}", "1"), _ptr("ports", "instrument", pname), False)
+    for section, specs, prefix in (
+        ("components", d.components, ""),
+        ("channel_components", d.channel_components, "ch1."),
+    ):
+        for i, spec in enumerate(specs):
+            cls = classes.get(prefix + spec.name)
+            for port, ps in (cls.ports if cls else {}).items():
+                if (
+                    ps.medium == "samples"
+                    and ps.direction == "in"
+                    and f"{prefix}{spec.name}.{port}" not in fed
+                ):
+                    report.add(
+                        "error",
+                        "E-DEF-SAMPLES-OPEN",
+                        _ptr(section, i),
+                        f"{spec.name}.{port} 是采样流输入，没有连线接到它：采样流输入不能悬空",
+                        f"在 wiring 中加一条连线，把上游块的采样流输出接到 {spec.name}.{port}",
+                    )
 
 
 def _check_command(

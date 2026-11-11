@@ -27,6 +27,12 @@
 | 真实值 | True value | 隐藏状态等仿真已知的真值（D9） |
 | 虚拟探针 | Virtual probe | 不影响电路的信号观察（D16） |
 | 虚拟时间 | Virtual time | 仿真中的时间（D12） |
+| 信号链 | Signal chain | 仪表内部从输入端口到结果的功能块序列（signal-chain.md） |
+| 采样流 | Sample stream | ADC 之后功能块之间传递的采样数据：按帧拉取，带采样间隔与格式（端口介质 `samples`，D67、architecture.md 2.6） |
+| 帧 | Frame | 采样流的一次请求得到的一段采样（`SampleFrame`）；只取决于请求、参数、上游信号与种子 |
+| 内部探针 | Internal probe | 观察仪表内部某个端口的信号；不影响仿真 |
+| 模拟 / 数字 | Analog / Digital | 连线上的信号是解析描述（`electrical`、`signal`）还是采样流（`samples`） |
+| 求值方式 | Evaluation | 解析（谱线）或采样；频谱仪定义可选 |
 | 被动视图 | Passive view | 对运行中测试台的一次一致读：持会话锁、跟随墙钟、可结算到期的等待操作；不推进虚拟时间、不进通信记录（D32、D47）。会话的 `view()` 是唯一入口 |
 | 命令驱动时钟 / 墙钟 / 步进时钟 / 按倍率时钟 | Command-driven / Wall / Stepped / Scaled clock | 四种时钟模式（D12、D44；按倍率时钟的虚拟时间 = 真实时间 × 倍率） |
 | 注入故障 | Inject fault | 人为制造通信或仪表故障 |

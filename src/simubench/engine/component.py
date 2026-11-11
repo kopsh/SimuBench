@@ -5,6 +5,7 @@ to instrument state (``$ch.frequency``); bench-level hidden state overrides para
 expressed by overriding:
 
 * :meth:`Component.output` - signal transformation for a signal output port (pulled lazily);
+* :meth:`Component.frames` - the sample frames leaving a samples output port (pulled lazily, D67);
 * :meth:`Component.stamp` / :meth:`Component.emf` - electrical contribution to the bench circuit;
 * operations registered with :func:`op` - actions and queries used by commands.
 """
@@ -28,9 +29,12 @@ if TYPE_CHECKING:
     from .circuit import Circuit
     from .instrument import Instrument
     from .session import Session
+    from .stream import FrameRequest, SampleFrame
 
 Direction = Literal["in", "out", "inout"]
-Medium = Literal["signal", "electrical", "reference"]
+#: What a port carries. "signal" and "electrical" are analytic (:class:`Signal`); "samples" is a
+#: sample stream after an ADC (:mod:`.stream`, D67): frames pulled with :meth:`Component.frames`.
+Medium = Literal["signal", "electrical", "reference", "samples"]
 #: What a component is to the bench circuit, for checks that read a bench without solving it:
 #: "driver" holds the nets on its electrical outputs to a voltage (an output stage, a supply, a
 #: buffer's output), "series" is a short in series for load matching (a cable).
@@ -581,6 +585,36 @@ class Component:
     def output(self, port: str) -> Signal:
         """Signal leaving a signal output port. Override in components with signal outputs."""
         raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
+
+    # ---- sample streams (D67, signal-chain.md 3) ----------------------------------------------
+
+    def frames(self, port: str, request: FrameRequest) -> SampleFrame:
+        """The frame leaving a samples output port. Override in components with samples outputs.
+
+        The frame is a pure function of the request, the parameters, the upstream signal or frames
+        and the bench seed: keep nothing between calls. A block that needs history asks for it
+        (``request.upstream(factor, warmup)``) and drops the matching outputs.
+
+        Noise: where the analog chain's noise becomes samples (an ADC), draw it from
+        ``stream_key(self.session.seed, *request.key)`` at the indexes ``request.indexes()``. A noise
+        source the block adds itself appends ``(self.uid, <stream name>)`` to that key. The block
+        that starts a request chooses ``key`` and ``index0``, so a script's acquisition, the screen
+        and an internal probe draw from separate streams."""
+        raise NotImplementedError(f"{self.type_name} has no samples output {port!r}")
+
+    def input_frames(self, port: str, request: FrameRequest) -> SampleFrame:
+        """The frame arriving at a samples input port: the upstream block's :meth:`frames`, through
+        the session's frame cache. A samples input is always wired (definition validation)."""
+        src = None if self.owner is None else self.owner.wiring.source(self.name, port)
+        if src is None or self.owner is None:
+            raise ValueError(f"{self.uid}: samples input {port!r} is not wired")
+        return self.session.cached_frames(self.owner.components[src[0]], src[1], request)
+
+    def sample_interval(self, port: str) -> float:
+        """The sample interval a samples output port runs at with the current settings, s — what a
+        reader that has no rate of its own (an internal probe) asks with. Override in components
+        with samples outputs."""
+        raise NotImplementedError(f"{self.type_name} has no samples output {port!r}")
 
     def pin_signal(self, port: str) -> Signal:
         """Voltage on the net an electrical port is connected to."""
