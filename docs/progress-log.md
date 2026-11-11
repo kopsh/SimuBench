@@ -1827,6 +1827,8 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 记录哈希不记原文；不用正则；不改 `src/` | ✅ |
 | 全量测试仍在 60 s 内 | ✅ 本文件约 4 s（6 个测试台各开一次） |
 
+补充（#965）：示例脚本（`examples/scripts/`）的回复覆盖**未做** —— 本文件的金标准直接发命令、不经过脚本，脚本路径由各型号自己的测试文件覆盖；重构采集实现时不要指望本文件保护脚本。
+
 ## 示波器采集经采样流实现：`scope_adc.frames`、`scope_decimator`（Issue 950）
 
 示波器内部从“采集组件一手包办”改为真实的信号链：`探头 → scope_adc（采样流）→ scope_decimator（采集方式）→ scope_acquisition（定时、触发、存储）`。定义文件不改，宏 `_expand_stream` 在加载时补上抽取块与三段连线。`FrameRequest` 增加 `first`（网格上的起始序号）；帧缓存增加按采样数的限额；`Component.spec_of` 让同一个端口模式下的输入、输出有不同的介质；`MAX_FRAME`、`MAX_REQUEST_FANOUT` 改为 2²⁶、2²⁸（深存储的峰值检测一帧就超过原来的 2²²）。
