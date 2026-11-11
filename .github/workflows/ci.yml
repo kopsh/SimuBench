@@ -180,9 +180,10 @@ jobs:
   e2e:
     # Gates pull requests too (#848): the browser scenarios and the Storybook visual baselines
     # are verified before the merge, so a stale baseline cannot turn main red (#618, #645, #841).
+    # Starts with the other jobs, not after them: it builds what it needs itself, so it need not wait
+    # for the Python and Web jobs (the PR run takes the longest job's time, not the sum).
     name: End-to-end (Chromium)
     if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
-    needs: [python, web]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -217,15 +218,41 @@ jobs:
           name: playwright-report-${{ github.run_id }}
           path: web/playwright-report/
           if-no-files-found: ignore
-      - name: Component library builds and matches its screenshots (Storybook, visual regression)
-        run: pnpm build-storybook && pnpm visual
-        working-directory: web
       - uses: actions/upload-artifact@v4
         if: failure()
         with:
           name: playwright-report
           path: |
             web/playwright-report
+            web/test-results
+
+  visual:
+    # Split from e2e so the two run side by side. Needs no Python: Storybook and its baselines are web only.
+    name: Component library visual regression (Storybook)
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: web/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm exec playwright install --with-deps chromium
+      - name: Component library builds and matches its screenshots (Storybook, visual regression)
+        run: pnpm build-storybook && pnpm visual
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: visual-report
+          path: |
             web/visual-report
             web/test-results
 
@@ -248,7 +275,7 @@ jobs:
     # re-run of a failed job runs this job again.
     name: Main status
     if: always() && github.ref == 'refs/heads/main'
-    needs: [python, python311, web, package, slow, e2e, rehearsal]
+    needs: [python, python311, web, package, slow, e2e, visual, rehearsal]
     runs-on: ubuntu-latest
     permissions:
       actions: write
