@@ -425,7 +425,7 @@ def test_fault_endpoints_convert_inside_the_view(monkeypatch):
 
         monkeypatch.setattr(s.faults, "snapshot", snapshot)
         monkeypatch.setattr(s, "_lock", Tracked())
-        monkeypatch.setattr("simubench.server.routes.sessions.fault_info", fault_info)
+        monkeypatch.setattr("simubench.server.services.faults.fault_info", fault_info)
 
         r = c.get(f"/api/sessions/{sid}/faults")
         assert r.status_code == 200 and len(r.json()) == 1
