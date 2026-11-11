@@ -1900,3 +1900,20 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 内部探针能读到 `input.out`、`mixer.out`、`if_filter.out`，`tune_hz` 生效 | ✅ `tests/test_internal_probe.py::test_a_receivers_internal_ports_read_at_the_tuning_asked_for`（调谐偏 1 MHz，中频线移动 1 MHz；`input.out` 不随调谐；同一调谐点两次相同）、`test_an_instrument_without_a_tuning_context_ignores_tune_hz` |
 | `tests/test_block_coverage.py`、`test_model_components.py` 通过，例外清单不增加 | ✅ `docs/blocks/spectrum_analyzer.yaml` 增加 `local_oscillator`；清单未动 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## Web：内部结构图按信号流排布，端口可点开内部探针（Issue 953）
+
+内部结构页（`web/src/features/workbench/internals/`）按 signal-chain.md 1.2、1.3、6.3 改造，示波器部分（频谱仪的“调谐于”与 `bins`/`iq` 谱图属于 #959）。排布：列只由信号连线决定（`layout.ts`），引用不再推动信号线上的组件，只放置不在信号线上的块（被使用的在第一个使用者前一列，只使用别人的在最后一个被用者后一列）——频谱仪的本振与中频滤波之间的引用环不再打乱列；整机共享块与通道行的列不重叠时放在通道行的垂直中间。连线：模拟为细线、采样流为空心双线，并写明“模拟”或“数字 · 采样率 · 格式”（`probe.ts` 的 `flowTag`，来自 #951 给连线补的字段），标注放在离开源端口的水平段，同对组件间相同的并行连线只标一次；列距加宽到容得下一条标注。页首固定说明与“依据”：`InstrumentInternals` 新增 `reference`（定义的依据，schemas 与 `pnpm gen:api` 已重新生成）。内部探针：信号与采样流输出端口是按钮（键盘可达），面板 `ProbeView.tsx` 按事件版本刷新（`useInternalProbe`，不轮询，换端口不沿用旧值，403 不重试），采样流画台阶不插值、显示采样率与位数、满量程占用、削波、该帧 FFT 与最强频点，模拟端口画解析波形与谱线；为 0 的原因、保真度注记；加载中、验证模式（403）、接口错误（服务给的原因）、与引擎断开（保留旧信号并注明）各有画法。交互细则写进 ui-design.md 的“内部结构图”。`internals.fixture.json` 原是 D67 之前手存的（没有 ADC → 抽取的采样流连线），改由 `scripts/capture_internals_fixture.py` 从引擎生成（含三个端口的真实探针回复）；`trace.test.ts` 中 ADC 作用链的预期随之改为 D67 之后的结构（e2e 早已按此断言）。e2e 的 `quantity()` 认得界面打印的“−”。
+
+没有做的：signal-chain.md 1.5 第 5 步的“窄脉冲被保留”——DSO-X 2024A 示例测试台经 RC 低通（τ = 100 µs），窄脉冲到不了示波器；e2e 改为断言峰值检测下抽取输出的跨度变宽（每个记录间隔保留 ADC 原生速率下的极值）。“依据”只显示定义的 `reference`，component-map.md 的类别来源是文档，不在界面中链接（signal-chain.md 1.2 已改正）。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| Storybook：示波器内部结构的故事，含探针面板各状态 | ✅ `Internals.stories.tsx`：`Oscilloscope`、`ProbeAdc`、`ProbeAnalog`、`ProbeSilent`、`ProbePanelStates`（加载中、验证模式、接口错误、断开），数据为引擎生成的夹具 |
+| 组件测试：排布函数对固定夹具给出稳定的列顺序；连线标注的文案 | ✅ `layout.test.ts`“buildGraph on a real model”（列顺序、两次调用相同、共享块在通道行之间、连线的介质/速率/格式、可探测端口）；`probe.test.ts`（中英文标注、`IQ`/频点/未量化、满量程文案、台阶不插值、谱图不丢峰、403 判定） |
+| e2e：示波器测试台打开内部结构，点 ADC 输出看到采样点与位数；切到峰值检测，点“抽取”输出 | ✅ `web/e2e/workbench.spec.ts`“internal probe: …”：依据与说明、连线标注、键盘打开 ADC 输出（2 GSa/s · 8 位、4096 个采样、满量程占用、时域与频谱图），抽取输出 50 MSa/s，`:ACQuire:TYPE PEAK` 后不点击即刷新且跨度变宽，关闭探针；窄脉冲见上 |
+| 视觉回归：示波器内部结构一张基准图 | ✅ 内部结构 10 个故事 × 明暗 = 20 张基准（6 张旧的随新排布更新）；本机对未改动故事的基准像素一致（52/56，另 4 张在干净的 `main` 上同样不一致，与本改动无关） |
+| 可访问性：全键盘可达，对比度 AA | ✅ 探针端口是按钮（`Tab`/回车，`aria-pressed`），e2e 用键盘打开；颜色全用令牌，状态带文字或图标（削波、验证模式、断开） |
+| 刷新随事件版本、不轮询；验证模式下面板说明原因、结构图照常 | ✅ `useInternalProbe` 以版本为键；`ProbePanelStates` 故事；后端 403 由 `tests/test_internal_probe.py` 覆盖 |
+| `InstrumentInternals.reference` | ✅ `tests/test_internal_probe.py::test_the_internals_view_says_what_flows_on_each_wire`（真实型号有依据，`sb-dso-4` 为空） |
+| `scripts/check.sh` 通过 | ✅ |

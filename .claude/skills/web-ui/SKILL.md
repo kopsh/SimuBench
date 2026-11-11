@@ -33,6 +33,11 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   save-as-template dialogs. Its wording (`assistant.*`, `template.*`) is registered Web-only in
   `scripts/check_tui_i18n.py`. The e2e test `e2e/assistant.spec.ts` talks to a scripted
   OpenAI-compatible LLM, `e2e/fake-llm.mjs`, which `e2e/serve.mjs` starts on the port after the service's.
+- `web/src/features/workbench/internals/` — the internals view (#20, #739) and the internal probe
+  (#953, signal-chain.md 1.2–1.3): `layout.ts` (columns from the signal wires; refs only place
+  off-path blocks), `trace.ts` (lit chains), `probe.ts` (wire labels, probe pictures; unit-tested),
+  `ProbeView.tsx` (the panel and its states), `InternalsView.tsx`. Their fixture is captured from the
+  engine — regenerate after a model or API change: `uv run python scripts/capture_internals_fixture.py`.
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key

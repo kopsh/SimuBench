@@ -17,7 +17,7 @@ import type {
   ScpiResponse,
   TryOpened,
 } from "./client";
-import { type FaultSpec, type Schemas, api, unwrap } from "./client";
+import { ApiError, type FaultSpec, type Schemas, api, unwrap } from "./client";
 
 export const keys = {
   benches: ["benches"] as const,
@@ -309,6 +309,26 @@ export function useInternals(sid: string, name: string, version: number) {
       unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/internals", { params: { path: { sid, name } } })),
     placeholderData: (prev) => prev,
     staleTime: Infinity,
+  });
+}
+
+/**
+ * The signal at an output port inside an instrument (signal-chain.md 6, #953): re-keyed on the event
+ * version (D64), no polling. The previous answer stays on screen while a new version loads, but only
+ * for the same port. A 403 (validation mode withholds it) is an answer, not a failure to retry.
+ */
+export function useInternalProbe(sid: string, name: string, port: string | null, version: number) {
+  return useQuery({
+    queryKey: [...keys.internals(sid, name), "probe", port ?? "", version],
+    queryFn: () =>
+      unwrap(
+        api.GET("/api/sessions/{sid}/instruments/{name}/internals/probe", {
+          params: { path: { sid, name }, query: { port: port! } },
+        }),
+      ),
+    enabled: !!port,
+    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[4] === port ? prev : undefined),
+    retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
   });
 }
 

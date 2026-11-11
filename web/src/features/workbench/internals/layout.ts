@@ -1,15 +1,20 @@
-import type { InstrumentInternals, InternalComponent } from "@/api/client";
+import type { InstrumentInternals, InternalComponent, InternalWire } from "@/api/client";
+import { probeable } from "./probe";
 
 /**
- * The component graph of an instrument (issue 20), laid out in columns along the signal flow:
- * panel ports on the edges, each component one column right of everything that feeds it. What a
- * component uses (its ``refs``, #729) feeds it too: the converter, the time base and the trigger
- * stand before the acquisition, the measurements and the transfer after it. Components nothing
- * connects, only commands and settings drive (the system, the status registers), wait in a band of
- * their own. Collapsed channels become one group node; their wiring is drawn to the group.
+ * The component graph of an instrument (issue 20), laid out in columns along the signal flow
+ * (signal-chain.md 1.2): panel ports on the edges, each component one column right of every
+ * component whose signal it takes. Only the signal wires decide where a wired component stands; a
+ * dependency (its ``refs``, #729) never pushes it. A component reached by dependencies alone stands
+ * beside what it connects to: one that others use one column before its first user (the time base,
+ * the trigger, a local oscillator), one that only uses others one column after the last of them (the
+ * measurements, the transfer). Components nothing connects, only commands and settings drive (the
+ * system, the status registers), wait in a band of their own. Collapsed channels become one group
+ * node; their wiring is drawn to the group.
  */
 
-export type PortRow = { name: string; side: "left" | "right" };
+/** A port's row on its component; ``probe``: an output the internal probe reads (signal-chain.md 1.3). */
+export type PortRow = { name: string; side: "left" | "right"; probe: boolean };
 
 export type GraphNode =
   | { id: string; kind: "component"; comp: InternalComponent; rows: PortRow[]; x: number; y: number; height: number }
@@ -22,14 +27,26 @@ export type GraphNode =
  * parameter). ``links`` are the component-level ``a>b`` it draws (a panel port is ``p:<name>``) — several
  * when a collapsed channel draws them to its group — so a trace (#739) can light it.
  */
-export type GraphEdge = { id: string; source: string; sourceHandle: string; target: string; targetHandle: string; kind: "wire" | "ref"; links: string[]; label?: string };
+export type GraphEdge = {
+  id: string;
+  source: string;
+  sourceHandle: string;
+  target: string;
+  targetHandle: string;
+  kind: "wire" | "ref";
+  links: string[];
+  label?: string;
+  /** A signal wire inside the instrument: what flows on it (analog, or a sample stream with its rate and format). */
+  flow?: Pick<InternalWire, "medium" | "sample_rate_hz" | "format">;
+};
 
 export const NODE_WIDTH = { component: 196, group: 196, port: 72, label: 196 } as const;
 export const HEADER = 40;
 /** Handles for a dependency: on the header, apart from the ports' rows. */
 export const REF_HANDLE_TOP = HEADER / 2;
 export const ROW = 18;
-const COLUMN = 250;
+/** Room between columns for a wire's label (`数字 · 2 GSa/s · 8 位`, signal-chain.md 1.2). */
+const COLUMN = 330;
 const GAP = 14;
 const BAND_GAP = 28;
 
@@ -56,7 +73,7 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     const right: PortRow[] = [];
     for (const p of c.ports) {
       const out = p.direction === "out" || (p.direction === "inout" && towardPanelOut.has(`${c.name}.${p.name}`));
-      (out ? right : left).push({ name: p.name, side: out ? "right" : "left" });
+      (out ? right : left).push({ name: p.name, side: out ? "right" : "left", probe: probeable(p) });
     }
     const rows = [...left, ...right];
     const height = HEADER + 12 + Math.max(left.length, right.length, 1) * ROW;
@@ -69,12 +86,31 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     nodes.push({ id: `p:${p.name}`, kind: "port", name: p.name, direction: p.direction, medium: p.medium, channel: p.channel ?? null, x: 0, y: 0, height: 28 });
 
   const edges = new Map<string, GraphEdge>();
-  const add = (source: string, sourceHandle: string, target: string, targetHandle: string, link: string, ref?: string) => {
+  const add = (
+    source: string,
+    sourceHandle: string,
+    target: string,
+    targetHandle: string,
+    link: string,
+    extra: { ref?: string; flow?: GraphEdge["flow"] } = {},
+  ) => {
     if (source === target) return;
+    const { ref, flow } = extra;
     const id = `${source}/${sourceHandle}->${target}/${targetHandle}${ref ? `:${ref}` : ""}`;
     const seen = edges.get(id);
     if (seen) seen.links.push(link);
-    else edges.set(id, { id, source, sourceHandle, target, targetHandle, kind: ref ? "ref" : "wire", links: [link], ...(ref ? { label: ref } : {}) });
+    else
+      edges.set(id, {
+        id,
+        source,
+        sourceHandle,
+        target,
+        targetHandle,
+        kind: ref ? "ref" : "wire",
+        links: [link],
+        ...(ref ? { label: ref } : {}),
+        ...(flow ? { flow } : {}),
+      });
   };
   const handle = (node: string, port: string, side: "in" | "out") => (node.startsWith("g:") ? side : port);
   for (const w of view.wires) {
@@ -82,7 +118,8 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     const [tc, tp] = split(w.to);
     const s = nodeOf(fc);
     const t = nodeOf(tc);
-    add(s, handle(s, fp, "out"), t, handle(t, tp, "in"), `${fc}>${tc}`);
+    const flow = { medium: w.medium ?? "signal", sample_rate_hz: w.sample_rate_hz ?? null, format: w.format ?? null };
+    add(s, handle(s, fp, "out"), t, handle(t, tp, "in"), `${fc}>${tc}`, { flow });
   }
   for (const p of view.ports) {
     const [c, port] = split(p.target);
@@ -95,7 +132,7 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   for (const r of view.refs ?? []) {
     const used = nodeOf(r.from);
     const user = nodeOf(r.to);
-    add(used, refHandle(used, "out"), user, refHandle(user, "in"), `${r.from}>${r.to}`, r.param);
+    add(used, refHandle(used, "out"), user, refHandle(user, "in"), `${r.from}>${r.to}`, { ref: r.param });
   }
 
   // Components nothing connects and no panel port leads to are driven by commands and settings alone:
@@ -108,14 +145,36 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   const commandSide = nodes.filter((n) => n.kind === "component" && !touched.has(n.id));
   const COMMAND_BAND = 1000;
 
-  // Longest path from the sources; the cap keeps a feedback loop from running forever.
+  // The signal sets the columns: the longest path along the wires (and panel ports) alone; the
+  // cap keeps a feedback loop from running forever.
+  const all = [...edges.values()];
+  const wires = all.filter((e) => e.kind === "wire");
+  const refs = all.filter((e) => e.kind === "ref");
   const depth = new Map(nodes.map((n) => [n.id, 0]));
   for (let pass = 0; pass < nodes.length; pass++) {
     let changed = false;
-    for (const e of edges.values()) {
+    for (const e of wires) {
       const d = depth.get(e.source)! + 1;
       if (d > depth.get(e.target)!) {
         depth.set(e.target, d);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  // Off the signal path: a block others use stands one column before its first user, one that only
+  // uses others one column after the last of them. Settled in a few passes (a chain of them).
+  const onWire = new Set(wires.flatMap((e) => [e.source, e.target]));
+  const offPath = nodes.filter((n) => !onWire.has(n.id) && refs.some((e) => e.source === n.id || e.target === n.id));
+  offPath.sort((a, b) => a.id.localeCompare(b.id));
+  for (let pass = 0; pass < nodes.length; pass++) {
+    let changed = false;
+    for (const n of offPath) {
+      const users = refs.filter((e) => e.source === n.id).map((e) => depth.get(e.target)!);
+      const used = refs.filter((e) => e.target === n.id).map((e) => depth.get(e.source)!);
+      const d = users.length ? Math.max(0, Math.min(...users) - 1) : Math.max(...used) + 1;
+      if (d !== depth.get(n.id)) {
+        depth.set(n.id, d);
         changed = true;
       }
     }
@@ -146,10 +205,9 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     bands.set(channelOf(n), band);
   }
   const heightOf = (col: GraphNode[]) => col.reduce((h, n) => h + n.height + GAP, -GAP);
-  let top = 0;
-  for (const channel of [...bands.keys()].sort((a, b) => a - b)) {
-    const band = bands.get(channel)!;
-    const tallest = Math.max(...[...band.values()].map(heightOf));
+  const tallestOf = (band: Map<number, GraphNode[]>) => Math.max(...[...band.values()].map(heightOf));
+  const place = (band: Map<number, GraphNode[]>, top: number) => {
+    const tallest = tallestOf(band);
     for (const [d, col] of band) {
       col.sort((a, b) => a.id.localeCompare(b.id));
       let y = top + (tallest - heightOf(col)) / 2;
@@ -159,7 +217,26 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
         y += n.height + GAP;
       }
     }
-    top += tallest + BAND_GAP;
+    return tallest;
+  };
+  // The channel rows first, one under the other.
+  const channelBands = [...bands.keys()].filter((c) => c !== 0 && c !== COMMAND_BAND).sort((a, b) => a - b);
+  const shared = bands.get(0);
+  const columnsOf = (keys: number[]) => new Set(keys.flatMap((c) => [...bands.get(c)!.keys()]));
+  const rowColumns = columnsOf(channelBands);
+  // The whole-instrument blocks stand where the channel rows meet (signal-chain.md 1.2) — centred on
+  // the rows — when no column holds both; otherwise they take a band of their own above the rows.
+  const meet = !!shared && channelBands.length > 0 && ![...shared.keys()].some((d) => rowColumns.has(d));
+  let top = shared && !meet ? place(shared, 0) + BAND_GAP : 0;
+  const rowsTop = top;
+  for (const c of channelBands) top += place(bands.get(c)!, top) + BAND_GAP;
+  if (shared && meet) {
+    const rows = top - BAND_GAP - rowsTop;
+    const tallest = tallestOf(shared);
+    place(shared, rowsTop + Math.max(0, (rows - tallest) / 2));
+    top = Math.max(top, rowsTop + tallest + BAND_GAP);
   }
+  const command = bands.get(COMMAND_BAND);
+  if (command) place(command, top);
   return { nodes, edges: [...edges.values()] };
 }

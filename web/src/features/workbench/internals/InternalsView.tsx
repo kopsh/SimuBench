@@ -1,18 +1,22 @@
 import {
   Background,
   BackgroundVariant,
+  BaseEdge,
   ConnectionMode,
   Controls,
   type Edge,
+  type EdgeProps,
+  EdgeText,
   Handle,
   type Node,
   type NodeProps,
   Position,
   ReactFlow,
   ReactFlowProvider,
+  getSmoothStepPath,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { ArrowRight, Crosshair, Info, Pin, Search } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Crosshair, Info, Pin, Search } from "lucide-react";
 import { type ReactNode, memo, useDeferredValue, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkbench } from "../store";
@@ -36,7 +40,10 @@ import { displayUnit, formatEng } from "@/lib/format";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { formatValue, labelOf, numeric, stateMap } from "../model";
+import { InternalProbePanel } from "./ProbeView";
+import { flowTag } from "./probe";
 import {
+  type GraphEdge,
   type GraphNode,
   NODE_WIDTH,
   type PortRow,
@@ -64,6 +71,10 @@ type ComponentData = {
   /** On the lit chain (#739); dim: something else is lit. */
   lit: boolean;
   dim: boolean;
+  /** Open the internal probe on one of its outputs (#953); absent where there is no session to read. */
+  onProbe?: (port: string) => void;
+  /** The port the probe shows now, '<component>.<port>'. */
+  probing: string | null;
 };
 type GroupData = { node: Extract<GraphNode, { kind: "group" }>; dim: boolean };
 type PortData = { node: Extract<GraphNode, { kind: "port" }>; dim: boolean };
@@ -90,9 +101,23 @@ export function InternalsView({
       view={query.data}
       inst={inst}
       onLocate={(path) => revealSetting(inst.name, path)}
+      renderProbe={(probe) => (
+        <InternalProbePanel
+          key={probe.port}
+          sid={session.id}
+          instrument={inst.name}
+          port={probe.port}
+          heading={probe.heading}
+          tag={probe.tag}
+          onClose={probe.close}
+        />
+      )}
     />
   );
 }
+
+/** What the panel hands the probe it shows: the port, its title and its wire's label, and how to close it. */
+export type ProbeSlot = { port: string; heading: string; tag: string; close: () => void };
 
 /** What lights up on the graph: a hovered or pinned row, else the selection's chain, else search hits. */
 type Focus = { key: string; trace: Trace } | null;
@@ -103,19 +128,27 @@ export function InternalsPanel({
   inst,
   initial,
   onLocate,
+  renderProbe,
 }: {
   view: InstrumentInternals;
   inst: InstrumentInfo;
-  /** Where the view starts (stories): a selected component or a search. */
-  initial?: { selected?: string; query?: string };
+  /** Where the view starts (stories): a selected component, a search, or an open probe. */
+  initial?: { selected?: string; query?: string; probe?: string };
   /** Show a setting in the workbench inspector (#800). The acceptance page has no inspector and leaves it out. */
   onLocate?: (setting: string) => void;
+  /** The internal probe on an output port (#953). Without it (the acceptance page: no session) ports are not probed. */
+  renderProbe?: (probe: ProbeSlot) => ReactNode;
 }) {
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set([1]));
   const [selected, setSelected] = useState<string | null>(
-    initial?.selected ?? null,
+    initial?.selected ?? (initial?.probe ? componentOf(initial.probe) : null),
   );
+  // CH1 open, and the channel of a component the view starts on.
+  const [expanded, setExpanded] = useState<Set<number>>(() => {
+    const ch = view.components.find((c) => c.name === selected)?.channel;
+    return new Set(ch != null ? [1, ch] : [1]);
+  });
+  const [probe, setProbe] = useState<string | null>(initial?.probe ?? null);
   const [query, setQuery] = useState(initial?.query ?? "");
   const [pinned, setPinned] = useState<Focus>(null);
   const [hover, setHover] = useState<Focus>(null);
@@ -154,9 +187,17 @@ export function InternalsPanel({
     setSelected(name);
     setPinned(null);
     setHover(null);
+    if (name !== selected) setProbe(null);
     const ch = view.components.find((c) => c.name === name)?.channel;
     if (ch != null && !expanded.has(ch)) toggle(ch);
   };
+  /** Open the probe on an output: its component is selected too, so its details follow below. */
+  const openProbe = (port: string) => {
+    select(componentOf(port));
+    setProbe(port);
+  };
+  const probeSlot: ProbeSlot | null =
+    probe && renderProbe ? { port: probe, ...probeTitle(t, view, probe), close: () => setProbe(null) } : null;
   const focus: FocusHandlers = {
     pinned: pinned?.key ?? null,
     onHover: setHover,
@@ -168,9 +209,12 @@ export function InternalsPanel({
     <div className="flex h-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-3 border-b px-3 py-2">
-          <div className="text-muted-foreground flex min-w-0 flex-1 basis-80 items-start gap-1.5 text-xs">
-            <Info className="mt-0.5 size-3.5 shrink-0" />
-            <span>{t("internals.hint")}</span>
+          <div className="text-muted-foreground min-w-0 flex-1 basis-80 space-y-1 text-xs">
+            <div className="flex items-start gap-1.5">
+              <Info className="mt-0.5 size-3.5 shrink-0" />
+              <span>{t("internals.hint")}</span>
+            </div>
+            <Basis view={view} />
           </div>
           <div className="relative w-60">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
@@ -240,6 +284,8 @@ export function InternalsPanel({
               lit={lit}
               onSelect={select}
               onExpand={toggle}
+              onProbe={renderProbe ? openProbe : undefined}
+              probing={probe}
             />
           </ReactFlowProvider>
         </div>
@@ -249,6 +295,7 @@ export function InternalsPanel({
         aria-label={t("workbench.inspector")}
       >
         <ScrollArea className="h-full">
+          {probeSlot && renderProbe?.(probeSlot)}
           {comp ? (
             <ComponentDetails comp={comp} inst={inst} view={view} focus={focus} onLocate={onLocate} />
           ) : query.trim() ? (
@@ -260,6 +307,49 @@ export function InternalsPanel({
           )}
         </ScrollArea>
       </aside>
+    </div>
+  );
+}
+
+/** The component of a '<component>.<port>' reference (a component name may itself hold dots: 'ch1.front'). */
+function componentOf(port: string): string {
+  return port.slice(0, port.lastIndexOf("."));
+}
+
+/** A probe's title — the block in the engineer's words and the port (`ADC 组 · out1`) — and its wire's label. */
+function probeTitle(t: T, view: InstrumentInternals, port: string): { heading: string; tag: string } {
+  const name = componentOf(port);
+  const c = view.components.find((x) => x.name === name);
+  const channel = c?.channel != null ? ` CH${c.channel}` : "";
+  const heading = `${c ? typeLabel(t, c.type) : name}${channel} · ${port.slice(name.length + 1)}`;
+  const wire = view.wires.find((w) => w.from === port);
+  const medium = c?.ports.find((p) => p.name === port.slice(name.length + 1))?.medium;
+  const tag = flowTag(t, wire ?? { medium: medium === "samples" ? "samples" : "signal", sample_rate_hz: null, format: null });
+  return { heading, tag };
+}
+
+/**
+ * The page's fixed statement (signal-chain.md 1.2): a block diagram drawn from public documents,
+ * not the model's circuit; and the basis it was drawn from — the definition's ``reference`` (D42).
+ */
+function Basis({ view }: { view: InstrumentInternals }) {
+  const { t } = useTranslation();
+  const ref = view.reference;
+  const basis = ref ? [ref.title, ref.document, ref.version].filter(Boolean).join(" · ") : null;
+  return (
+    <div className="flex items-start gap-1.5" data-testid="internals-basis">
+      <BookOpen className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+      <span>
+        {t("internals.basis")}{" "}
+        {basis ? (
+          <>
+            <span className="text-foreground font-medium">{t("internals.basisLabel")}</span>{" "}
+            <span className="text-foreground">{basis}</span>
+          </>
+        ) : (
+          t("internals.basisNone")
+        )}
+      </span>
     </div>
   );
 }
@@ -341,6 +431,40 @@ const nodeTypes = {
   label: memo(LabelNode),
 };
 
+/**
+ * A signal wire inside the instrument (signal-chain.md 1.2): thin when analog, a hollow double line
+ * when it carries a sample stream — the way a block diagram draws a data bus — so the two are told
+ * apart by shape and by their label, not by colour alone. The label sits on the run leaving the
+ * source, between the columns, where no vertical step or dependency label crowds it.
+ */
+function FlowEdge({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  label,
+  labelStyle,
+  labelBgStyle,
+  data,
+}: EdgeProps) {
+  const [path, labelX] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const digital = (data as { medium?: string } | undefined)?.medium === "samples";
+  return (
+    <>
+      <BaseEdge path={path} style={digital ? { ...style, strokeWidth: 4.5 } : style} />
+      {digital && <path d={path} fill="none" stroke="var(--background)" strokeWidth={1.75} pointerEvents="none" data-digital="" />}
+      {label && (
+        <EdgeText x={labelX} y={sourceY} label={label} labelStyle={labelStyle} labelShowBg labelBgStyle={labelBgStyle} />
+      )}
+    </>
+  );
+}
+
+const edgeTypes = { flow: FlowEdge };
+
 const HEADING =
   "text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase";
 
@@ -352,6 +476,8 @@ function Graph({
   lit,
   onSelect,
   onExpand,
+  onProbe,
+  probing,
 }: {
   view: InstrumentInternals;
   vars: Map<string, StateVarInfo>;
@@ -360,6 +486,8 @@ function Graph({
   lit: Trace | null;
   onSelect: (name: string | null) => void;
   onExpand: (channel: number) => void;
+  onProbe?: (port: string) => void;
+  probing: string | null;
 }) {
   const { t } = useTranslation();
   const theme = useTheme((s) => s.resolved);
@@ -386,7 +514,7 @@ function Graph({
       position: { x: n.x, y: n.y },
       data:
         n.kind === "component"
-          ? { node: n, selected: n.comp.name === selected, lit: !dim && !!lit, dim }
+          ? { node: n, selected: n.comp.name === selected, lit: !dim && !!lit, dim, onProbe, probing }
           : { node: n, dim },
       draggable: false,
       connectable: false,
@@ -394,7 +522,17 @@ function Graph({
     };
   });
   const base = { stroke: "var(--muted-foreground)", strokeWidth: 1.25 };
-  const edges: Edge[] = graph.edges.map(({ kind, label, links, ...e }) => {
+  // Parallel wires between the same two blocks that carry the same thing (a converter's four
+  // channels) are labelled once, on the first.
+  const labelled = new Set<string>();
+  const wireLabel = (source: string, target: string, flow: NonNullable<GraphEdge["flow"]>) => {
+    const tag = flowTag(t, flow);
+    const key = `${source}>${target}>${tag}`;
+    if (labelled.has(key)) return undefined;
+    labelled.add(key);
+    return tag;
+  };
+  const edges: Edge[] = graph.edges.map(({ kind, label, links, flow, ...e }) => {
     const on = !!lit && links.some((l) => lit.links.has(l));
     const style = {
       ...base,
@@ -407,22 +545,19 @@ function Graph({
             ? { opacity: 0.8 }
             : {}),
     };
+    const text = { labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" }, labelBgStyle: { fill: "var(--background)" } };
     return {
       ...e,
-      type: "smoothstep",
+      // A signal wire is solid — thin when analog, a double line when it carries a sample stream —
+      // and says which in words (signal-chain.md 1.2); what a component uses is dashed and named by
+      // its parameter (#729).
+      type: flow ? "flow" : "smoothstep",
       focusable: false,
       selectable: false,
       zIndex: on ? 1 : 0,
-      // A signal wire is solid; what a component uses is dashed and named by its parameter (#729).
-      ...(kind === "ref"
-        ? {
-            label,
-            labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" },
-            labelBgStyle: { fill: "var(--background)" },
-          }
-        : {}),
+      ...(kind === "ref" ? { label, ...text } : flow ? { label: wireLabel(e.source, e.target, flow), ...text } : {}),
       style,
-      data: { kind, lit: on },
+      data: { kind, lit: on, medium: flow?.medium },
     };
   });
   // A channel picked by a setting (a trigger source) has no wire or ref to draw: while the chain
@@ -477,6 +612,7 @@ function Graph({
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
+      edgeTypes={edgeTypes}
       onNodeClick={(_, n) => {
         if (n.type === "component")
           onSelect((n.data as ComponentData).node.comp.name);
@@ -515,7 +651,7 @@ function typeLabel(t: T, type: string): string {
 
 function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
   const { t } = useTranslation();
-  const { node, selected, lit, dim } = data;
+  const { node, selected, lit, dim, onProbe, probing } = data;
   const c = node.comp;
   const index = (row: PortRow) =>
     node.rows.filter((r) => r.side === row.side).indexOf(row);
@@ -597,16 +733,43 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
                 background: "var(--card)",
               }}
             />
-            <span
-              className="num text-muted-foreground pointer-events-none absolute text-[10px] leading-none"
-              style={{
-                top,
-                transform: "translateY(-50%)",
-                ...(left ? { left: 10 } : { right: 10 }),
-              }}
-            >
-              {row.name}
-            </span>
+            {row.probe && onProbe ? (
+              // An output the internal probe reads (signal-chain.md 1.3): a button, so the keyboard
+              // reaches it (Tab, then Enter) as well as the pointer.
+              <button
+                type="button"
+                className={cn(
+                  "nodrag nopan num focus-visible:ring-ring absolute flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] leading-none outline-none focus-visible:ring-2",
+                  probing === `${c.name}.${row.name}`
+                    ? "bg-primary text-primary-foreground"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground",
+                )}
+                style={{ top, right: 6, transform: "translateY(-50%)" }}
+                aria-label={t("internals.probe.open", { port: `${typeLabel(t, c.type)} · ${row.name}` })}
+                aria-pressed={probing === `${c.name}.${row.name}`}
+                title={t("internals.probe.open", { port: `${c.name}.${row.name}` })}
+                data-testid="internal-probe-port"
+                data-port={`${c.name}.${row.name}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onProbe(`${c.name}.${row.name}`);
+                }}
+              >
+                {row.name}
+                <Activity className="size-2.5" aria-hidden />
+              </button>
+            ) : (
+              <span
+                className="num text-muted-foreground pointer-events-none absolute text-[10px] leading-none"
+                style={{
+                  top,
+                  transform: "translateY(-50%)",
+                  ...(left ? { left: 10 } : { right: 10 }),
+                }}
+              >
+                {row.name}
+              </span>
+            )}
           </div>
         );
       })}

@@ -2950,6 +2950,8 @@ export interface components {
             instrument: string;
             /** Ports */
             ports: components["schemas"]["InternalPort"][];
+            /** @description The basis the definition follows (D42): the block split is drawn from it, not from the model's actual circuit design; none for a definition without one */
+            reference: components["schemas"]["Reference"] | null;
             /**
              * Refs
              * @description Dependencies between components (a component names another in a refs parameter), from the one used to the one that uses it; not signal wiring

@@ -428,6 +428,71 @@ test("instrument internals: what only commands drive waits under its own label (
   );
 });
 
+test("internal probe: the ADC's samples and resolution, then peak detect at the decimator (signal-chain.md 1.5 step 5, #953)", async ({
+  page,
+}) => {
+  const headers = { "x-simubench-token": TOKEN };
+  const start = await page.request.post("/api/sessions", {
+    headers,
+    data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true },
+  });
+  const sid = ((await start.json()) as { id: string }).id;
+  const scpi = (name: string, command: string) =>
+    page.request.post(`/api/sessions/${sid}/instruments/${name}/scpi`, { headers, data: { command } });
+  // The generator's output is off at power-on (as on the real one): turn it on, so CH1 carries the RC's output.
+  expect((await scpi("awg", "C1:OUTPut ON")).ok()).toBe(true);
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  const graph = page.getByTestId("internals-graph");
+
+  // The page says what the diagram is, and what it is drawn from (the definition's reference).
+  await expect(page.getByTestId("internals-basis")).toContainText("功能框图级的模型");
+  await expect(page.getByTestId("internals-basis")).toContainText("2000 X-Series");
+  // Wires say what they carry, in words: the ADC's stream is digital, at its rate and resolution.
+  await expect(graph.locator(".react-flow__edge-text", { hasText: "数字 · 2 GSa/s · 8 位" })).toHaveCount(1);
+  await expect(graph.locator(".react-flow__edge-text", { hasText: "模拟" }).first()).toBeVisible();
+
+  // The ADC's output, opened from the keyboard: the samples, its rate and resolution.
+  const adcOut = graph.locator('[data-port="adc.out1"]');
+  await adcOut.focus();
+  await page.keyboard.press("Enter");
+  const probe = page.getByTestId("internal-probe");
+  await expect(probe).toHaveAttribute("data-state", "ready");
+  await expect(page.getByTestId("internal-probe-heading")).toHaveText("ADC 组 · out1");
+  await expect(page.getByTestId("internal-probe-tag")).toHaveText("数字 · 2 GSa/s · 8 位");
+  await expect(page.getByTestId("internal-probe-format")).toHaveText("8 位");
+  await expect(probe).toContainText("4096 个采样");
+  await expect(page.getByTestId("internal-probe-fullscale")).toContainText("用到满量程的");
+  await expect(page.getByTestId("internal-probe-wave")).toBeVisible();
+  await expect(page.getByTestId("internal-probe-spectrum")).toBeVisible();
+  await expect(adcOut).toHaveAttribute("aria-pressed", "true");
+
+  // The decimator's output in normal mode, then with peak detect: it keeps each interval's
+  // extremes at the ADC's rate, so the frame spans more.
+  await graph.locator('[data-port="dec.out1"]').click();
+  await expect(page.getByTestId("internal-probe-heading")).toHaveText("抽取与采集方式 · out1");
+  await expect(page.getByTestId("internal-probe-tag")).toContainText("数字 · 50 MSa/s · 8 位");
+  const span = async () => {
+    const lo = quantity((await page.getByTestId("internal-probe-lo").textContent()) ?? "", "V");
+    const hi = quantity((await page.getByTestId("internal-probe-hi").textContent()) ?? "", "V");
+    expect(lo).not.toBeNull();
+    expect(hi).not.toBeNull();
+    return hi! - lo!;
+  };
+  const normal = await span();
+  expect(normal).toBeGreaterThan(0);
+  expect((await scpi("scope", ":ACQuire:TYPE PEAK")).ok()).toBe(true);
+  // The probe follows the event version (D64): the new mode shows without a click.
+  await expect.poll(span).toBeGreaterThan(normal);
+  await expect(page.getByTestId("internal-probe-heading")).toHaveText("抽取与采集方式 · out1");
+
+  // Closing the probe leaves the component's details.
+  await probe.getByRole("button", { name: "关闭内部探针" }).click();
+  await expect(page.getByTestId("internal-probe")).toHaveCount(0);
+  await expect(page.getByTestId("internal-details")).toContainText("scope_decimator");
+});
+
 test("internals: a setting row locates its field in the inspector, in the right channel and group (#800)", async ({
   page,
 }) => {

@@ -20,7 +20,7 @@ from ..engine.signal import SpectralLine
 from ..engine.silence import SilenceReason as SilenceReason  # re-export (D57, issue 626)
 from ..engine.validate import Diagnostic as Diagnostic  # re-export (D57, issue 626)
 from .bench import Fault, LayoutItem
-from .definition import Panel, StateSpec
+from .definition import Panel, Reference, StateSpec
 
 
 class _Model(BaseModel):
@@ -512,6 +512,11 @@ class InstrumentInternals(_Model):
 
     instrument: str
     definition_id: str
+    reference: Reference | None = Field(
+        None,
+        description="The basis the definition follows (D42): the block split is drawn from it, not "
+        "from the model's actual circuit design; none for a definition without one",
+    )
     channels: int
     components: list[InternalComponent]
     wires: list[InternalWire]
