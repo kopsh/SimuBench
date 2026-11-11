@@ -8,6 +8,7 @@ the section 4 communication log executed before the TUI connects (they come with
 from __future__ import annotations
 
 import asyncio
+import re
 import threading
 import time
 from pathlib import Path
@@ -591,11 +592,12 @@ READINGS: dict[str, tuple[str, ...]] = {
     ),
     # Per-channel voltage and current readings with units, all outputs off (zeros) (#374).
     # The panel reading rides the readback noise (#744) and the psu screen renders it in
-    # engineering units: any draw within ~4σ of 0 V shows as µV (below ~1 mV) or mV.
+    # engineering units at 7 significant digits (#924), so a draw within ~4σ of 0 V shows as
+    # nV/µV/mV with 4–6 decimals depending on its magnitude.
     "psu": (
         "CH1 voltage",
         "CH3 current",
-        r"re:CH1 voltage\s+[+-]?(?:[0-9]{1,3}\.[0-9]{6} µV|1\.[0-9]{6} mV|0\.000000 V)",
+        r"re:CH1 voltage\s+[+-]?(?:[1-9][0-9]{0,2}\.[0-9]{4,6} (?:n|µ|m)V|0\.000000 V)",
     ),
     # The scan's reading with its unit; nothing scanned yet, so zero volts (#374).
     "daq": ("Scan list", r"re:Reading\s+0\.000000 V"),
@@ -609,6 +611,18 @@ NARROW_TRUNCATED = frozenset({"Lines 1", "Carrier"})
 def _snapshot_ready(kind: str) -> tuple[str, tuple[str, ...]]:
     needle, ready = READINGS[kind][0], READINGS[kind][1:]
     return needle, tuple(p for p in ready if p not in NARROW_TRUNCATED)
+
+
+def test_the_psu_ready_pattern_matches_the_engineering_format():
+    """#924: a reading shows 7 significant digits, so a µV draw gets 6 decimals below 10 µV, 5
+    below 100 µV and 4 above; the pattern demanded 6 and a draw of -24.18046 µV never settled."""
+    from simubench.tui.fmt import fmt
+
+    pattern = next(p for p in READINGS["psu"] if p.startswith("re:"))[len("re:") :]
+    for volts in (-0.0, -1e-9, -9.876543e-6, -24.18046e-6, -500e-6, -1e-3, -9.999999e-3):
+        line = f"CH1 voltage    {fmt(volts, 'V', digits=7)}"
+        assert re.search(pattern, line), line
+    assert not re.search(pattern, "CH1 voltage    5.000000 V")  # a wrong reading still fails
 
 
 async def _open_instrument(pilot, tui, instrument: str, needle: str, kind: str, ready=()) -> str:
