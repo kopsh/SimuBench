@@ -28,6 +28,7 @@ from .error_reporter import ErrorReporter, _Ignored
 from .pending import PendingOps
 from .portref import split
 from .settings import SettingStore, validate_value
+from .status_registers import Register, StatusRegisters
 from .wiring import SignalWiring
 
 if TYPE_CHECKING:
@@ -51,6 +52,11 @@ def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
 class Instrument:
     """A running instrument inside a session."""
 
+    #: The event status registers live in ``self.status`` (#939); these stay readable and writable here.
+    esr = Register()
+    ese = Register()
+    sre = Register()
+
     def __init__(
         self,
         name: str,
@@ -70,11 +76,9 @@ class Instrument:
         self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
         #: A real model (D42): follows its manual's error texts and refuses what it does not model.
         self.real = definition.reference is not None
-        self.esr = 0
-        self.ese = 0
+        self.status = StatusRegisters(lambda: self.components.values())
         #: Operations that finish at a later virtual instant, and the *OPC bookkeeping (#895).
         self.ops = PendingOps()
-        self._status_register_cache: list[Component] | None = None  # see _status_registers()
         #: Components' status flags while a status register computes its condition: the outermost
         #: register fills it, the registers it asks reuse it (#602: without it every register
         #: recomputed every other one's flags, n! scans of a scope's trigger per command).
@@ -82,7 +86,6 @@ class Instrument:
         #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
         self.on_panel = False
         self._elapsed_ns = 0  # virtual time the program message being executed has used so far
-        self.sre = 0
         self._output: list[bytes] = []
         self.serial = instance.serial or definition.identity.serial
         self.firmware = instance.firmware or definition.identity.firmware
@@ -331,23 +334,13 @@ class Instrument:
             comp.retry_pending()
         self.ops.finish_due(self.now_ns())
         if self.ops.opc_due():
-            self.esr |= 1
-
-    def _status_registers(self) -> list[Component]:
-        """The instrument's status registers, in component order. The filter runs once; the
-        component set is fixed after the instrument is built."""
-        if self._status_register_cache is None:
-            self._status_register_cache = [
-                comp for comp in self.components.values() if comp.type_name == "status_register"
-            ]
-        return self._status_register_cache
+            self.status.set_opc()
 
     def sample_status(self) -> None:
         """Let every status register latch the condition transitions since its last look (#575):
         each command dispatch samples, so a condition that comes and goes between two reads of
         the event register is still latched (through PTR/NTR)."""
-        for comp in self._status_registers():
-            comp.latch_conditions()  # type: ignore[attr-defined]
+        self.status.sample()
 
     def wait_until(self, done_ns: int) -> int:
         """Wait for virtual time ``done_ns``: on the command clock, the time the caller's message
@@ -377,7 +370,7 @@ class Instrument:
     def arm_opc(self) -> None:
         """``*OPC``: ESR bit 0 now, or once the pending operations are done."""
         if self.ops.arm_opc():
-            self.esr |= 1
+            self.status.set_opc()
 
     def reset(self) -> None:
         self.ops.clear()

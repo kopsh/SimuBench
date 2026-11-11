@@ -35,17 +35,14 @@ class BuiltinCommands:
             return None
         if word == "CLS" and not q:
             self.inst.errors.clear()
-            self.inst.esr = 0
-            for comp in self.inst._status_registers():
-                comp.clear()  # type: ignore[attr-defined]
+            self.inst.status.clear()
             self.inst.ops.opc_armed = False
             return None
         if word == "OPC" and not q:
             self.inst.arm_opc()
             return None
         if word == "ESR" and q:
-            v, self.inst.esr = self.inst.esr, 0
-            return str(v).encode()
+            return str(self.inst.status.read_esr()).encode()
         if word == "ESE":
             if q:
                 return str(self.inst.ese).encode()
@@ -161,23 +158,11 @@ class BuiltinCommands:
         """The status byte. ``commit=False`` only looks: the condition transitions the status
         registers have not latched yet stay unlatched, so an observer cannot change what a later
         ``*ESR?`` says."""
-        stb = 0
-        for comp in self.inst._status_registers():  # status registers' summary bits (#248, #273)
-            bit = comp.param("summary_bit")
-            if bit is not None and comp.summary(commit):  # type: ignore[attr-defined]
-                stb |= 1 << int(bit)
-        if len(self.inst.errors):
-            stb |= 1 << 2
-        if self.inst._output:
-            stb |= 1 << 4
-        if self.inst.esr & self.inst.ese:
-            stb |= 1 << 5
-        if stb & self.inst.sre & ~(1 << 6):
-            stb |= 1 << 6
-        return stb
+        return self.inst.status.stb(
+            errors=len(self.inst.errors), output=bool(self.inst._output), commit=commit
+        )
 
     def status_event(self, name: str) -> None:
         """A momentary event (a trigger, a range change) for the instrument's status registers:
         every ``status_register`` with a bit of that name latches it (#248, #273)."""
-        for comp in self.inst._status_registers():
-            comp.event(name)  # type: ignore[attr-defined]
+        self.inst.status.event(name)
