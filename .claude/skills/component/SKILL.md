@@ -57,6 +57,13 @@ class CounterGate(Component):
   D60): judge own state (regulating, tripped, conducting) after `self.session.solve()`;
   refresh-once-per-version work in `sync()` guards with `self.session.signal_changed(self)`;
   bring dynamic state to the current instant before a reading with `self.session.sync()`.
+- Hook signatures are one per name (#898, guard: `tests/test_component_catalog.py`): an override of a
+  `Component` hook (`update_mode`, `sync`, `retry_pending`, `noise_rms`, `describe`, …) keeps the base's
+  leading parameters and adds only optional ones. A helper that needs other arguments gets another name
+  (`settle_mode(v, i)`, `input_noise_rms()`), and an SCPI operation named like a hook is
+  `def op_<name>` with the SCPI name in `@op("<name>")`, never the bare hook name. A hook override
+  that the engine must call on every command sets its flag (`has_retry_pending = True`). A mixin
+  that reads the host (`ProtectionLatch`) declares what it needs under `if TYPE_CHECKING:`.
 - Out of the model's range → raise `ScpiError` with the right code; never return a guess.
 - Numeric replies: `self.reply_number(value, digits)`, never a hand-formatted string — a
   definition with `format.readings: format` answers in its own format (D54, #366).

@@ -256,7 +256,7 @@ class SiglentSdg(Component):
         return OpResult()
 
     @op("sync")
-    def sync(self, query: bool = False, channel: int | None = None, params: list[bytes] | None = None,
+    def op_sync(self, query: bool = False, channel: int | None = None, params: list[bytes] | None = None,
              **_: Any) -> OpResult:  # fmt: skip
         assert channel is not None and self.owner is not None
         if query:
