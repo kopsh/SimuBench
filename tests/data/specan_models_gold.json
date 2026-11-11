@@ -1,0 +1,1336 @@
+{
+ "keysight-n9320b": [
+  [
+   "*RST",
+   null,
+   0
+  ],
+  [
+   ":FREQ:CENT 10000000.0",
+   null,
+   0
+  ],
+  [
+   ":FREQ:SPAN 2000000.0",
+   null,
+   0
+  ],
+  [
+   ":BAND:RES:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":BAND:VID:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":SWE:TIME:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":DISP:WIND:TRAC:Y:RLEV 0",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK:PEAK:THR -30",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK:PEAK:EXC 6",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK:X?",
+   "1001fdeda736e03a8690d6e01767967df1349a6eb3262f94adad4204b923384b",
+   0
+  ],
+  [
+   ":CALC:MARK:Y?",
+   "cf075bc5b58a8e5e949b891ec194cd056ad368742832beeef8570be5624e2a01",
+   0
+  ],
+  [
+   ":CALC:MARK:FCO ON",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK:FCO:X?",
+   "1001fdeda736e03a8690d6e01767967df1349a6eb3262f94adad4204b923384b",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "b28a4faa46c6cf3b889ed2a4de57ca683e81761288c574d1fdcacea2691c281c",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   ":BAND?",
+   "e11fd4626bd1c2ede89f9d5e19ea35482cfe2db20ab83fecb0867d93726cbde1",
+   0
+  ],
+  [
+   ":BAND:VID?",
+   "e11fd4626bd1c2ede89f9d5e19ea35482cfe2db20ab83fecb0867d93726cbde1",
+   0
+  ],
+  [
+   ":SWE:TIME?",
+   "b6bea72eb1683267ffc2ba7dbeee3277e35353328eed23e4f5f503a24006c287",
+   0
+  ],
+  [
+   ":POW:ATT?",
+   "228804d302a6841bbbf1e61a5daf52130a48fec0b5a9c3bb6c504923a68e5cb3",
+   0
+  ],
+  [
+   ":DET POS",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:MODE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "557a9fe017518f49c3649f87b5a98ae634e1362a2f7a48fdbc2aeb1cc525960a",
+   0
+  ],
+  [
+   ":TRAC1:MODE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "557a9fe017518f49c3649f87b5a98ae634e1362a2f7a48fdbc2aeb1cc525960a",
+   0
+  ],
+  [
+   ":TRAC1:MODE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "5bfb8fe958896e7f3ef4dc966fe7c26480b0501e4544ba1d3172015f3511d4ff",
+   0
+  ],
+  [
+   ":DET SAMP",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:MODE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "bce04e78556dc0523b3012003efceb7730d0fa0961beffd3c8e4eb75bb8f6ea3",
+   0
+  ],
+  [
+   ":TRAC1:MODE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "bce04e78556dc0523b3012003efceb7730d0fa0961beffd3c8e4eb75bb8f6ea3",
+   0
+  ],
+  [
+   ":TRAC1:MODE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "24bc543058c4d1499fdfe0927c3e5387ccbea0eee2880e899b5084c4666c010f",
+   0
+  ],
+  [
+   ":DET AVER",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:MODE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "b322c1261e34314554053f2fecd911146b90a2f3d077271fee540bd24e8cfda1",
+   0
+  ],
+  [
+   ":TRAC1:MODE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "b322c1261e34314554053f2fecd911146b90a2f3d077271fee540bd24e8cfda1",
+   0
+  ],
+  [
+   ":TRAC1:MODE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "dce7b3be9693849431699804baf87da7b41fba00bf06a4b5f80afbd668b2a20f",
+   0
+  ],
+  [
+   ":DET RMS",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:MODE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "378e53fc398308bbc33933316fb199a4d00aa78e94e882d69bd55d405d8f03a5",
+   0
+  ],
+  [
+   ":TRAC1:MODE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "378e53fc398308bbc33933316fb199a4d00aa78e94e882d69bd55d405d8f03a5",
+   0
+  ],
+  [
+   ":TRAC1:MODE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "fef471454574f48991b01cc08634504f0097f18ff8e5fc795780a2047a656ab1",
+   0
+  ],
+  [
+   ":TRAC1:MODE WRIT",
+   null,
+   0
+  ],
+  [
+   ":DET POS",
+   null,
+   0
+  ],
+  [
+   ":BAND 10000",
+   null,
+   0
+  ],
+  [
+   ":BAND:VID 1000",
+   null,
+   0
+  ],
+  [
+   ":SWE:TIME?",
+   "5ca8d6781e571ef46748d78d4bbcf9aa160af909ad0e033f24560eb317f7be07",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "1001fdeda736e03a8690d6e01767967df1349a6eb3262f94adad4204b923384b",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "7c15dd33f3e4105d5fd9de7f2b0dd5bc0fab1c7e8aff74f5924974cea181fa10",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "1f4b1a02ed29c5176c3af62e3a02de2782f03551cfd94468d382d8a7c539d071",
+   0
+  ],
+  [
+   ":BAND:RES:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":BAND:VID:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT 30",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT?",
+   "976660d2c6477851c099bf23a957dc995b947e8686a09e97b984f8487b9457b1",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "1001fdeda736e03a8690d6e01767967df1349a6eb3262f94adad4204b923384b",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "216e6a1de985842f286cb36251ee41fcaee6231f9844f62e19d3a7b5b1c0b97c",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "36d6964a3286fe695cbdbbd6dd9cdd7a0c5a1fbfcd030a6787a84a66675b6b5d",
+   0
+  ],
+  [
+   ":POW:ATT:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":DISP:WIND:TRAC:Y:RLEV 10",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT?",
+   "976660d2c6477851c099bf23a957dc995b947e8686a09e97b984f8487b9457b1",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "1001fdeda736e03a8690d6e01767967df1349a6eb3262f94adad4204b923384b",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "216e6a1de985842f286cb36251ee41fcaee6231f9844f62e19d3a7b5b1c0b97c",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "36d6964a3286fe695cbdbbd6dd9cdd7a0c5a1fbfcd030a6787a84a66675b6b5d",
+   0
+  ],
+  [
+   "awg> C1:BSWV WVTP,SQUARE",
+   null,
+   0
+  ],
+  [
+   ":FREQ:STAR 5000000.0",
+   null,
+   0
+  ],
+  [
+   ":FREQ:STOP 75000000.0",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "8c63ba0e669a52179035f140f84514a49a047e4effd00f517cc240ea28feb666",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX:NEXT",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "085c3af1503ee0279b5f24e11cd1107d1b91b67a28bddb74492040e0abc7fa9a",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "17296323208507522d987b6ed7f90246929c072bfe9d894babea7e5d8ba0c993",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX:RIGH",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "95402e6f626b72278c1fc8deba591dfb11f4db5558dd0fa489b24511b951ff26",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX:LEFT",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "085c3af1503ee0279b5f24e11cd1107d1b91b67a28bddb74492040e0abc7fa9a",
+   0
+  ],
+  [
+   ":CALC:MARK1:FCO:X?",
+   "4a4e030f5f2afdc77f6833696b605004109c68ce11ed538736efb7673d098ecb",
+   0
+  ],
+  [
+   ":CALC:MARK1:MODE DELT",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX:NEXT",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X:DELT?",
+   "bc28d20963ca6778a39a9b20c79df0be344be441a9e35346e0939e11bcbebc0e",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "abb4a6e4d5e8bc8afe30c6e79d7540a57fddad9d65cd570e0cb7bb69896f5158",
+   0
+  ],
+  [
+   ":CALC:MARK1:MODE POS",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:MIN",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "49f041e1776065a8a11c35d0dd29282516f3c5c891a045c5f82eb8ac35b14a5d",
+   0
+  ],
+  [
+   ":CALC:MARK:AOFF",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   null,
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "53354e5ac9cc9e377e3afac7eb32ef102728ff05e64704d5c47ea2c69c3c69cf",
+   0
+  ],
+  [
+   ":TRAC1:MODE AVER",
+   null,
+   0
+  ],
+  [
+   ":AVER:COUN 4",
+   null,
+   0
+  ],
+  [
+   ":INIT:CONT OFF",
+   null,
+   0
+  ],
+  [
+   ":INIT",
+   null,
+   10133333
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "2547e6081406945cc7dc6751198361a0fde2f86c5a050e0c486127e97c0b35f6",
+   0
+  ],
+  [
+   ":INIT:CONT ON",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:MODE WRIT",
+   null,
+   0
+  ],
+  [
+   "awg> C1:BSWV AMP,20",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT 0",
+   null,
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "8da70c4ccf39cb6ffc0e9f0c226257a6fe7a6f220fd8bc784ffb98e68c65f065",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   "<screen values>",
+   "{\"attenuation\": 0.0, \"marker_x\": 64570000.0, \"marker_y\": -94.03659633008343, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.0025333333333333336, \"uncal\": false, \"vbw\": 1000000.0}",
+   0
+  ],
+  [
+   "<screen trace>",
+   "a642829305ee2dab3c4fd51966b57671eebaad00d36af248658b1155213a150e",
+   0
+  ]
+ ],
+ "keysight-n9042b": [
+  [
+   "*RST",
+   null,
+   0
+  ],
+  [
+   ":INIT:CONT OFF",
+   null,
+   0
+  ],
+  [
+   ":FREQ:CENT 5800000000.0",
+   null,
+   0
+  ],
+  [
+   ":FREQ:SPAN 1000000.0",
+   null,
+   0
+  ],
+  [
+   ":BAND:AUTO ON;:BAND:VID:AUTO ON;:SWE:TIME:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":DISP:WIND:TRAC:Y:RLEV 0 dBm",
+   null,
+   0
+  ],
+  [
+   ":DET:TRAC1 POS",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   ":FORM:DATA ASC",
+   null,
+   0
+  ],
+  [
+   ":BAND?",
+   "226a93fab0fbe0c410732c7516342bb85269fe07c1a18021968491c049062906",
+   0
+  ],
+  [
+   ":SWE:TIME?",
+   "d2e9ad6d5f7ae2cfde6d0d73b9e1dbb4f6384ffeae4a1264e561ce2817ca94a2",
+   0
+  ],
+  [
+   ":INIT:IMM",
+   null,
+   30189591
+  ],
+  [
+   "*OPC?",
+   "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+   0
+  ],
+  [
+   ":CALC:MARK1:MODE POS",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "71bc7dc507eaf84971b8b78b4d0ced82bc37e20d92ac9388816bbda6cfb93b92",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "1fdf4521003216bf9d710829be216362b5e63d7c0deea56186d2fbf507399628",
+   0
+  ],
+  [
+   ":CALC:MARK1:FCO ON",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:FCO:X?",
+   "71bc7dc507eaf84971b8b78b4d0ced82bc37e20d92ac9388816bbda6cfb93b92",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "4e54ff8db703582e5b45d9047958bf5fcd9c306f3a47b9fb5091ee311b4b5b34",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   ":BAND:VID?",
+   "226a93fab0fbe0c410732c7516342bb85269fe07c1a18021968491c049062906",
+   0
+  ],
+  [
+   ":POW:ATT?",
+   "c2bca420d879e31ad16356dad4394b365ec77a25803705ce57867553b7d57583",
+   0
+  ],
+  [
+   ":INIT:CONT ON",
+   null,
+   0
+  ],
+  [
+   ":DET:TRAC1 NORM",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "99fb8c7a81095eaa896cd28ff8f111e25a128c7dc0ad816aec312d3e756667bf",
+   0
+  ],
+  [
+   ":TRAC1:TYPE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "6ce7909cb17ffad0d49c0635571f20da518e816504c20392692c6e1a3b3699d5",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "d7772aa190d467def221af593583a7131eeea7fc65b49d9a5eb17bcce528841e",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MINH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "2215baf2ac96924b8998f0ab1dce83dd724b1a9f4fa6068663d8e9f5091c6294",
+   0
+  ],
+  [
+   ":DET:TRAC1 POS",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "6429db6ae8c3c6ce3c86d4640cc2e61c452755d0ca8fb2ae6421a0216b2a0897",
+   0
+  ],
+  [
+   ":TRAC1:TYPE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "96f6ee58418657695630e90382cb46858400a1ec4b0d0da60dcfadbef7d7af70",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "7ce1bd4b2aa233b9e1b331170607b4104d4b69506afbaf9020dbd50d29a2e35b",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MINH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "cdc2c53864cf4247d924f586a6367622b87b7cf0dc5a0adf4b34d30e87fc54fc",
+   0
+  ],
+  [
+   ":DET:TRAC1 SAMP",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "52af11dacabacf4131a86999f249c5a92de77f85ac1b5a6bc693ed9d577888e3",
+   0
+  ],
+  [
+   ":TRAC1:TYPE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "2c58c04ff4fdc4354565e80a87a03422f5afe9a9da13f5292b92a453bf77b79a",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "fa48bd47b6f7f33786845b462e508e7263a04b02bb2943452bb3fa62324b054a",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MINH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "88b2666b26627568f8716f4ecea068fd42bbb4000e6d3781d337952eea18d400",
+   0
+  ],
+  [
+   ":DET:TRAC1 NEG",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "489a01ed6f37ec29d4e22709e45e9d3e685dc5a3e99151d754dea562d2d49acb",
+   0
+  ],
+  [
+   ":TRAC1:TYPE AVER",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "c2f1a6bb4c655ba418244df80307913c19c5d6e48dce0119df7bcd7391bb7f88",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MAXH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "e583f5f033af360f68adec7933c9213eebc446a886308a61eb928a7d058307da",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MINH",
+   null,
+   0
+  ],
+  [
+   "advance> 0.25",
+   null,
+   250000000
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "cc7801e4a9190aee1130f13690b19a376acb8f6cf30a0c57b997fd197232210a",
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   ":DET:TRAC1:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":DET:TRAC1?",
+   "96c6e76b2793016f6a039156ee5a57e20bfbd33d2e0b1294761d56a01a341095",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MAXH",
+   null,
+   0
+  ],
+  [
+   ":DET:TRAC1?",
+   "9e91ceec6f14aeca3691da162a07c8fd8a56c3e4142d2c7336c5c9a59f36488f",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MINH",
+   null,
+   0
+  ],
+  [
+   ":DET:TRAC1?",
+   "449bf7ce51eb014524a4190b2a456a74af8820e38d3594b2137cdc616e77c189",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "fe2869db04c93988684501a5f01865053cb61d559397f782680238a2581d6e34",
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   ":DET:TRAC1 POS",
+   null,
+   0
+  ],
+  [
+   ":BAND 4300",
+   null,
+   0
+  ],
+  [
+   ":BAND?",
+   "86231c52ed85b7f68010c33f068fb791c19a1e29f173f750514e7421e9271cbb",
+   0
+  ],
+  [
+   ":BAND:VID 510",
+   null,
+   0
+  ],
+  [
+   ":BAND:VID?",
+   "bea924929acaa40eef2e3a935c72b23cba0ef9589a6d5c424e47a81b96fe9649",
+   0
+  ],
+  [
+   ":SWE:TIME?",
+   "4c4897e3f136567a588aaed8cdc59fb6690fd767dacabbefafd46683da8a9a2b",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "71bc7dc507eaf84971b8b78b4d0ced82bc37e20d92ac9388816bbda6cfb93b92",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "e55e5320f7239014cb9196319d1dffd122b180218adc32554c178160550a3496",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "c08067cbc8d826064bf87828182a1299e03ed8470e6036ba5a1c413181a0b2fb",
+   0
+  ],
+  [
+   ":BAND:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":BAND:VID:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT 30",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT?",
+   "0a51f4bf22d5319c14bb609bb1a67a619e92bdf2b055ecd245d0b9313e57f2d7",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "71bc7dc507eaf84971b8b78b4d0ced82bc37e20d92ac9388816bbda6cfb93b92",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "14a9f3d8d793c4c8eeeb3dde3452a1786e59f974bb3e01b03722b3341c7427e3",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "16f1845230f71fe110d3db8d3392eef06c07ddc4d7802fedd2892172bfcca45b",
+   0
+  ],
+  [
+   ":POW:ATT:AUTO ON",
+   null,
+   0
+  ],
+  [
+   ":DISP:WIND:TRAC:Y:RLEV 10 dBm",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT?",
+   "9cc49218b0993a6885e97ecec13ce4a0e90a75034d5dc307accb5bb19c7346a5",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "71bc7dc507eaf84971b8b78b4d0ced82bc37e20d92ac9388816bbda6cfb93b92",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "107ef7dcd60dd49e311f0f14a2ea343e915019f3cdeee6919a4f20e8979f0252",
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "04d7641a048f80181e1ffc69a92513f70b88ee53cc433ada29c71875c07c7fc3",
+   0
+  ],
+  [
+   ":SWE:POIN 2001",
+   null,
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "86656cc8c1a83953b2b3e90fcb3f5db644bae3125f8ba2d223f337536c8a2f43",
+   0
+  ],
+  [
+   ":SWE:POIN 1001",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:FCO:X?",
+   "71bc7dc507eaf84971b8b78b4d0ced82bc37e20d92ac9388816bbda6cfb93b92",
+   0
+  ],
+  [
+   ":CALC:MARK1:MODE DELT",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X 200000",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:X?",
+   "b53139e2847f40873e2b63b129caf7351a4db55d6d3e9d4ead0bef9a01659670",
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "b603dcd7d9fbb248d9520377cd600ad40d98ddd6644cc9a251d22f9dba5089b8",
+   0
+  ],
+  [
+   ":CALC:MARK1:MODE POS",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:MIN",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "3dece2142f737cf1e5a1bd2472eb281b5736901768b2ba00d2994fa84b359645",
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX:NEXT",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:MAX:LEFT",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK:AOFF",
+   null,
+   0
+  ],
+  [
+   ":CALC:MARK1:Y?",
+   "10918d549e155ed34d5ae4ac449f2738a0439fda8b22c3ec3a5bbf250931456d",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "a08c9e06ee0c1c6227bda4ab35c2c17b767d1d0f6d85feba94cb0e77fd4bcbd1",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   ":TRAC1:TYPE MAXH",
+   null,
+   0
+  ],
+  [
+   ":AVER:COUN 4",
+   null,
+   0
+  ],
+  [
+   ":INIT:CONT OFF",
+   null,
+   0
+  ],
+  [
+   ":INIT:IMM",
+   null,
+   120758363
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "d4083b0502f0033cea0114abeac04539ad31141e27eb8518d73d24d0edeb5bcb",
+   0
+  ],
+  [
+   ":INIT:REST",
+   null,
+   120758363
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "f86c88027e4ba57a74928192f146fe694ad3fbead5a6aa345044a81020ba004c",
+   0
+  ],
+  [
+   ":TRAC:CLE:ALL",
+   null,
+   0
+  ],
+  [
+   ":INIT:CONT ON",
+   null,
+   0
+  ],
+  [
+   ":TRAC1:TYPE WRIT",
+   null,
+   0
+  ],
+  [
+   "sg> :POW 18",
+   null,
+   0
+  ],
+  [
+   ":POW:ATT 0",
+   null,
+   0
+  ],
+  [
+   ":TRAC:DATA? TRACE1",
+   "f8fd48c073f73fc36217050d027eaacc5ecc3c9a2fc00c966ca7cb04ac87650d",
+   0
+  ],
+  [
+   ":SYST:ERR?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   "<screen values>",
+   "{\"attenuation\": 0.0, \"marker_x\": 5800000000.0, \"marker_y\": 18.000000698443802, \"overload\": true, \"rbw\": 9100.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5799500000.0, \"stop\": 5800500000.0, \"sweep\": 0, \"sweep_time\": 0.03018959062915107, \"uncal\": false, \"vbw\": 9100.0}",
+   0
+  ],
+  [
+   "<screen trace>",
+   "e30e78dea12757ac8de32986972cf7226d4a1eaba562e760b752ed4c09ac9209",
+   0
+  ]
+ ]
+}
