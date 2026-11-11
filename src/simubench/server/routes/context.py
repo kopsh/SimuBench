@@ -16,6 +16,7 @@ from ...engine.edit import EditError
 from ...library.loader import DefinitionLibrary
 from ..benchfiles import BenchFiles, Conflict
 from ..definitionfiles import DefinitionFiles
+from ..errors import FILE_ERRORS
 from ..manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession, SessionManager
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
@@ -44,6 +45,10 @@ def host_ok(value: str | None) -> bool:
     else:
         host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
     return host in LOOPBACK_HOSTS
+
+
+def _first_line(exc: Exception) -> str:
+    return (str(exc).splitlines() or [""])[0]
 
 
 @dataclass
@@ -92,23 +97,48 @@ class ApiContext:
     def not_found(self, exc: KeyError) -> HTTPException:
         return HTTPException(404, str(exc).strip("'\""))
 
-    def lifecycle_error(self, exc: Exception, *, files: bool = True) -> HTTPException | None:
-        """The HTTP error for what starting or resetting a session raises, one table for both
-        (#894): scripts connected 409, a file the bench names 403/404 (``files``: only a start
-        reads one), an invalid bench or a bad value 422. None for anything else — the caller lets
-        it surface as the 500 it is."""
-        if isinstance(exc, ClientsConnected):
+    def http_error(self, exc: Exception, **options: Any) -> HTTPException:
+        """The HTTP error for a domain error (see :meth:`error_row`); anything else is re-raised as
+        it is, so a bug stays the 500 it is. Call it inside the ``except`` that caught ``exc``."""
+        err = self.error_row(exc, **options)
+        if err is None:
+            raise exc
+        return err
+
+    def error_row(
+        self,
+        exc: Exception,
+        *,
+        missing: str | None = None,
+        key: str = "not_found",
+        full_detail: bool = False,
+        files: bool = True,
+    ) -> HTTPException | None:
+        """The one table, for every route (#936): the HTTP error of a domain error, None for
+        anything that is not one.
+
+        ``missing``: the text of a 404 for a file that is not there (default: the error's own).
+        ``key``: where a ``KeyError`` goes, ``"not_found"`` (404) or ``"unprocessable"`` (422).
+        ``full_detail``: a 422 carries the whole message, not its first line.
+        ``files``: False when the operation reads no file, so a file error is not its to map."""
+        if isinstance(exc, (ClientsConnected, InstrumentRemote)):
             return self.in_use(exc)
         if files and isinstance(exc, PermissionError):
             return HTTPException(403, str(exc))
         if files and isinstance(exc, FileNotFoundError):
-            return HTTPException(404, str(exc))
+            return HTTPException(404, missing or str(exc))
+        if isinstance(exc, Conflict):
+            return HTTPException(409, {"message": str(exc), "current_sha256": exc.current_sha256})
         if isinstance(exc, BenchInvalid):
             return HTTPException(
                 422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
             )
-        if isinstance(exc, (ValueError, KeyError)):
-            return HTTPException(422, str(exc).splitlines()[0])
+        if isinstance(exc, EditError):
+            return HTTPException(422, str(exc))
+        if isinstance(exc, KeyError):
+            return self.not_found(exc) if key == "not_found" else HTTPException(422, _first_line(exc))
+        if isinstance(exc, (ValueError, UnicodeDecodeError)):
+            return HTTPException(422, str(exc) if full_detail else _first_line(exc))
         return None
 
     def in_use(self, exc: InstrumentRemote | ClientsConnected) -> HTTPException:
@@ -121,17 +151,8 @@ class ApiContext:
         return HTTPException(409, detail)
 
     def file_errors(self, fn: Any) -> Any:
+        """Run ``fn``; a domain error becomes the HTTP error of :meth:`http_error`."""
         try:
             return fn()
-        except PermissionError as exc:
-            raise HTTPException(403, str(exc)) from None
-        except FileNotFoundError:
-            raise HTTPException(404, "no such bench file") from None
-        except KeyError as exc:
-            raise self.not_found(exc) from None
-        except Conflict as exc:
-            raise HTTPException(409, {"message": str(exc), "current_sha256": exc.current_sha256}) from None
-        except EditError as exc:
-            raise HTTPException(422, str(exc)) from None
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise HTTPException(422, str(exc).splitlines()[0]) from None
+        except (*FILE_ERRORS, KeyError, Conflict, EditError, ValueError) as exc:
+            raise self.http_error(exc, missing="no such bench file") from None

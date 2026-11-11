@@ -538,6 +538,21 @@ def _serve(workspace: Path, scpi_base_port: int, hislip_port: int):
     return f"http://127.0.0.1:{port}", manager, server, thread
 
 
+#: The frame the stored category snapshots were taken at: a screen's first poll takes frame 1 and the
+#: settled screen shows frame 2 (the readings of the instrument screen). Reading noise is a pure
+#: function of (seed, component, frame) and the frame counts every ``readings()`` call, so a slower
+#: machine that polls once more would capture other noise digits (#937). Pinned, a poll count no
+#: longer changes the picture — the snapshots stay compared character by character.
+SNAPSHOT_PANEL_FRAME = 2
+
+
+@pytest.fixture(autouse=True)
+def pinned_panel_frame(monkeypatch):
+    from simubench.engine.component import Component
+
+    monkeypatch.setattr(Component, "panel_frame", lambda self: SNAPSHOT_PANEL_FRAME)
+
+
 @pytest.fixture(scope="module")
 def category_server():
     """The validation benches and the example benches (real models: the load, the power supply and
@@ -743,6 +758,30 @@ def test_the_eload_capture_waits_for_a_slow_readout(category_server):
     assert len(slowed) >= 2, "the test double never delayed the readout"
     for check in READINGS["eload"]:
         assert shows(text, check), check
+
+
+@pytest.mark.parametrize("kind", ["psu", "eload"])
+def test_extra_polls_do_not_change_a_noisy_screen(category_server, kind):
+    """#937: reading noise rides the panel frame, which counts every ``readings()`` call. With the
+    frame pinned, a slower machine that polls once more captures the same digits."""
+    workspace, bench, instrument, _ = next(c for c in CATEGORY_SCREENS if c[3] == kind)
+    url, manager = category_server[workspace]
+    served = asyncio.run(manager.start(bench, seed=5, clock="command"))
+    tui = SimuBenchApp(url, sid=served.id)
+    needle, ready = _snapshot_ready(kind)
+
+    async def run() -> tuple[str, str]:
+        async with tui.run_test(size=(100, 32)) as pilot:
+            before = await _open_instrument(pilot, tui, instrument, needle, kind, ready=ready)
+            for _ in range(3):  # the polls a slower machine would have taken on top
+                await tui.client.readings(tui.sid, instrument)
+                tui.readings[instrument] = await tui.client.readings(tui.sid, instrument)
+            tui.bump()
+            await pilot.pause(0.3)
+            return before, _render(tui)
+
+    before, after = asyncio.run(run())
+    assert after == before
 
 
 def test_the_scope_columns_follow_a_layout_that_settles_after_the_last_data_change(demo_server):

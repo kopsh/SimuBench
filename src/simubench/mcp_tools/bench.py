@@ -13,6 +13,7 @@ from ..engine.edit import EditError, EditOp
 from ..engine.record import jsonable
 from ..server.benchfiles import Conflict
 from ..server.catalog import components as component_catalog
+from ..server.errors import FILE_ERRORS
 from .context import McpContext, scpi_payload
 
 
@@ -185,7 +186,7 @@ def _bench_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         try:
             return files.edit(path, base_sha256, ops, "agent").model_dump(mode="json")
-        except (Conflict, EditError, PermissionError, FileNotFoundError, ValueError) as exc:
+        except (Conflict, EditError, *FILE_ERRORS, ValueError) as exc:
             raise fail(exc) from None
 
     @mcp.tool()
