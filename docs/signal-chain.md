@@ -141,7 +141,7 @@ ADC 之后是采样流，每个功能块的输出都有真实的中间信号、�
 
 | 现有 | 关系 |
 | --- | --- |
-| `Component.output(port) -> Signal`、`Instrument.upstream_signal` | 不变。新增平行的一对 `frames` / `upstream_frames` |
+| `Component.output(port) -> Signal`、`Component.input`（经 `owner.wiring.source` 与 `session.cached_output`，#895） | 不变。新增平行的一对 `frames` / `input_frames` |
 | `refs`（按名字引用兄弟组件） | 保留给“设置依赖”（时基、触发读取谁）。**信号一律走连线**：本文把现在靠 `refs` 取数据的地方改成连线 |
 | 宏展开（`library/macros.py`） | 旧写法的定义在加载时展开成新结构，定义文件不必改；展开结果与显式写出的指纹相同（instrument-authoring.md 8.1） |
 | 个体偏差（测试台的 `hidden`，组件参数覆盖） | 不变；新块的参数自动可覆盖，演示脚本第 4 步靠它 |
@@ -200,10 +200,12 @@ class Component:
 
     def input_frames(self, port: str, request: FrameRequest) -> SampleFrame:
         """The frame arriving at a samples input port (the upstream block's frames)."""
-        return self.owner.upstream_frames(self, port, request)
+        src = self.owner.wiring.source(self.name, port)   # engine/wiring.py (SignalWiring, #895)
+        return self.session.cached_frames(self.owner.components[src[0]], src[1], request)
 ```
 
-- `Instrument.upstream_frames(comp, port, request)`：按内部连线找到上游端口，调用 `session.cached_frames(...)`。
+- 上游的解析与 `Component.input` 相同：`SignalWiring.source` 给出上游端口；采样流输入不允许悬空，校验期拒绝。
+- 新钩子（`frames`、`input_frames`、`sample_interval`）纳入 `tests/test_component_catalog.py` 的钩子签名契约（#898、#929）。
 - `Session.cached_frames(comp, port, request)`：缓存键 `(信号版本, comp.uid, port, request)`，容量小（64 帧，LRU），
   只为一次读取内的重复请求与探针服务；信号版本变化即失效。
 - **定义校验**（`engine/validate_definition.py`）新增：
@@ -451,7 +453,7 @@ class InternalProbe(_Model):
 
 | 编号 | 内容 | 依赖 | 完成条件 |
 | --- | --- | --- | --- |
-| S1 | 采样流基础：`engine/stream.py`、`samples` 介质、`frames`/`input_frames`/`upstream_frames`/`cached_frames`、定义校验、上限；architecture.md 第 2 节与 glossary.md 更新；`component` 技能补“求解层级：采样流” | — | 3.1、3.2；`tests/test_stream.py`（用测试内的小组件）；schemas 重新生成 |
+| S1 | 采样流基础：`engine/stream.py`、`samples` 介质、`frames`/`input_frames`/`cached_frames`、定义校验、上限；architecture.md 第 2 节与 glossary.md 更新；`component` 技能补“求解层级：采样流” | — | 3.1、3.2；`tests/test_stream.py`（用测试内的小组件）；schemas 重新生成 |
 | S2 | 示波器金标准：`tests/test_scope_stream_migration.py` | — | 4.3 第 1 条；只加测试，不改实现 |
 | S3 | `SamplingAdc` 基类与 `scope_adc.frames`；`scope_decimator`；采集组件改经采样流；宏展开；blocks/component-map 更新 | S1、S2 | 4.3 第 2–4 条 |
 | S4 | 内部探针：服务、HTTP、MCP、`InternalProbe` 模型、`InstrumentInternals` 的介质标注、验证模式下拒绝 | S1 | 6.1、6.2；`tests/test_internal_probe.py`：模拟端口与采样流端口各一、被动（时间与记录不变）、验证模式 403、预算 |
