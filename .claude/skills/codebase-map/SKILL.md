@@ -71,9 +71,10 @@ plausible fake).
 
 | Question | Doc (read by section) |
 | --- | --- |
-| Was this already decided? | `decisions.md` (D1–D52; `grep -n '^## D'`) |
+| Was this already decided? | `decisions.md` (D1–D67; `grep -n '^## D'`) |
 | Is it done already? | `progress.md` (milestones); details: grep `progress-log.md` |
 | What is the product for, what is weak, what comes next? | `positioning-review.md` (internal tool; shortage + own-instrument scenarios; draft) |
+| Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the issue split (D67) | `signal-chain.md` (design, to be implemented) |
 | Definition YAML format, declarative commands, replies, mappings | `instrument-authoring.md` 2–5 |
 | Real-model rules | `real-models.md`; meters/calibrators/SMUs: `metrology-authoring.md` |
 | Functional blocks per instrument class (D50) | `component-map.md`, `docs/blocks/<class>.yaml` |
