@@ -638,6 +638,10 @@ class Component:
     def sync(self) -> None:
         """Dynamic components: note what changed at the current instant (see :attr:`dynamic`)."""
 
+    #: True for a component that overrides :meth:`retry_pending`; the instrument then calls it on
+    #: every command (an explicit flag, not a comparison of the method with the base's, #898).
+    has_retry_pending: ClassVar[bool] = False
+
     def retry_pending(self) -> None:
         """An operation waiting for an event (a scope armed for a trigger) looks for it again: called
         whenever a command arrives, before what is due is finished (``Instrument.settle_pending``)."""

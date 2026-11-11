@@ -208,8 +208,8 @@ def _warm_component_registry():
     for model in sorted(LIB.ids()):
         inst, definition = _instrument(model)
         # A first miss loads the coverage table and builds the suggestion index (D18); warm both.
-        inst._coverage_entries()
-        inst._closest_header(type("U", (), {"raw_header": ":NOSUCH"})())
+        inst.coverage.entries()
+        inst.coverage.closest(type("U", (), {"raw_header": ":NOSUCH"})())
         # Rendering the corpus compiles every command's pattern; pay it in setup too.
         _CORPUS[model] = _corpus(definition, str(inst.channel_number(1)))
     # The built environment is permanent: keep it out of every later GC scan, so a generation-2
