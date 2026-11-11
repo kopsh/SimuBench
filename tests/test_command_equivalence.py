@@ -151,13 +151,13 @@ def _route(inst: Instrument, message: str) -> tuple[list[tuple[str, str | None]]
             raise _Routed
         return None
 
-    inst._run = run_recorder
-    inst._common = record("_common")
+    inst.runner._run = run_recorder  # the command layer lives in CommandRunner (#895)
+    inst.common._common = record("_common")
     inst.opc_query = record("opc_query")
     inst.wait_pending = record("wait_pending")
     inst.arm_opc = record("arm_opc")
-    inst._bus_trigger = record("_bus_trigger")
-    inst._builtin = builtin_recorder
+    inst.common._bus_trigger = record("_bus_trigger")
+    inst.common._builtin = builtin_recorder
     # The dispatch prelude settles waits and samples status registers (#575) — real instrument
     # behaviour, not routing; a component's register condition may read the circuit, which this
     # harness does not build. Routing equivalence is about the command, not the sampling.
@@ -211,7 +211,7 @@ def _warm_component_registry():
         inst.coverage.entries()
         inst.coverage.closest(type("U", (), {"raw_header": ":NOSUCH"})())
         # Rendering the corpus compiles every command's pattern; pay it in setup too.
-        _CORPUS[model] = _corpus(definition, str(inst.channel_number(1)))
+        _CORPUS[model] = _corpus(definition, str(inst.channel_map.number(1)))
     # The built environment is permanent: keep it out of every later GC scan, so a generation-2
     # pass mid-test cannot cost a 100 ms pause — the unit budget's whole margin.
     gc.collect()

@@ -121,6 +121,12 @@ is a function of (seed, component, frame) and the frame counts every `readings()
 pin a machine that polls once more captures other digits. A new snapshot of such a screen needs no
 extra step (the fixture is autouse); regenerate baselines with the pin in place.
 
+A screen that renders text at the width of a box (`box_text(app, rows, box.size.width)`) must put that
+width in the version it compares before redrawing (`ScopeScreen.refresh_content`, #938): the first
+layout settles after the last data change, and a redraw keyed on data alone leaves the text at the
+old width ("unwir…"). A snapshot test waits for the last row whole (`StableScreen` ready patterns),
+not for the first needle.
+
 Prefer a unit test on the pure function over a snapshot. A snapshot changes only when the screen
 is meant to change: review the SVG diff, then refresh with
 `uv run pytest tests/test_tui_snapshots.py --snapshot-update` and commit the baselines.
