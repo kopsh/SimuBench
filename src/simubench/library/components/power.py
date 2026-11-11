@@ -676,12 +676,12 @@ class SupplyTracking(Component):
             for path, value in (("ch2.v_max", v_max), ("ch2.i_max", i_max), ("ch2.p_max", p_max)):
                 owner.set_state(path, value, internal=True)
             voltage, current = owner.specs["ch2.voltage"], owner.specs["ch2.current"]
-            owner.set_bounds("ch2.voltage", maximum=float(voltage.max or 0.0) * factor_v)
-            owner.set_bounds("ch2.current", maximum=float(current.max or 0.0) * factor_i)
+            owner.settings.set_bounds("ch2.voltage", maximum=float(voltage.max or 0.0) * factor_v)
+            owner.settings.set_bounds("ch2.current", maximum=float(current.max or 0.0) * factor_i)
             ovp = owner.specs.get("ch2.ovp")
             if ovp is not None and ovp.max is not None and factor_v != 1.0:
                 at_top = float(owner.get_state("ch2.ovp")) >= float(ovp.max) * (1 - 1e-12)
-                owner.set_bounds("ch2.ovp", maximum=float(ovp.max) * factor_v)
+                owner.settings.set_bounds("ch2.ovp", maximum=float(ovp.max) * factor_v)
                 if at_top:  # an OVP left at its maximum follows the pair's maximum
                     owner.set_state("ch2.ovp", float(ovp.max) * factor_v, internal=True)
         self._widened = combination
@@ -693,7 +693,7 @@ class SupplyTracking(Component):
             return
         self._widened = ""
         for path in ("ch2.voltage", "ch2.current", "ch2.ovp"):
-            owner.restore_bounds(path)
+            owner.settings.restore_bounds(path)
         for path in ("ch2.voltage", "ch2.current", "ch2.ovp"):
             if path not in owner.specs:
                 continue
@@ -710,7 +710,7 @@ class SupplyTracking(Component):
         if self._widened:
             self._widened = ""
             for path in ("ch2.voltage", "ch2.current", "ch2.ovp"):
-                owner.restore_bounds(path)
+                owner.settings.restore_bounds(path)
 
     def _push(self, channel: int, value: float) -> None:
         assert self.owner is not None

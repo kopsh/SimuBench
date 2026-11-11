@@ -1515,7 +1515,7 @@ class ScopeAcquisition(Component):
         """The run mode as the definition formats its settings."""
         assert self.owner is not None
         path = self.resolve_path(binding_of(self._params.get("mode")) or "")
-        return self.owner.format_setting(path)
+        return self.owner.runner.format_setting(path)
 
     @op("run_mode")
     def run_mode(self, query: bool = False, mode: str | None = None, **_: Any) -> OpResult:
