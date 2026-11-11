@@ -244,6 +244,22 @@ def test_the_service_is_never_reachable_under_an_alias_of_itself(url, port, tmp_
         check_base_url(url, manager)
 
 
+@pytest.mark.parametrize(
+    ("url", "port"),
+    [
+        pytest.param("http://²:8765", 8765, id="superscript-host"),
+        pytest.param("http://1²:8765", 8765, id="mixed-superscript"),
+        pytest.param("http://²:5025", 5025, id="superscript-scpi-port"),
+    ],
+)
+def test_a_hostname_with_unicode_digits_is_treated_as_a_name(url, port, tmp_path):
+    """``²`` passes isdigit() but int() rejects it: the shorthand parser must say None and the
+    address stays an ordinary host name, not an unhandled ValueError (#914)."""
+    manager = SessionManager(tmp_path, scpi_base_port=5025, hislip_port=4880, link_port=4881)
+    manager.web_port = port
+    check_base_url(url, manager)  # no ConfigError, and no ValueError either
+
+
 async def test_a_default_address_is_checked_before_a_turn_uses_it(manager):
     """A default from the environment pointing at the service itself refuses the turn in words
     (#901) — it is not only the settings page that checks."""
