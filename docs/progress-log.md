@@ -1813,3 +1813,16 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 定义校验三条规则各有拒绝与通过用例 | ✅ `tests/test_stream.py` 末尾 6 条（含通道组件、仪表端口映射） |
 | 带 `samples` 输出的组件类必须覆盖 `frames` 与 `sample_interval`；新钩子在签名契约内 | ✅ `tests/test_component_catalog.py`（规则自检一条；钩子契约按 `Component` 的公开方法自动包含） |
 | 现有测试不改预期；schemas 与 API 类型无差异 | ✅ 见 PR 的检查结果 |
+
+## 示波器采集的金标准：重构前录下回复（Issue 947）
+
+只加测试，不改 `src/`。`tests/test_scope_stream_migration.py` 对六个定义（`sb-dso-4`、`sb-dso-2x`、DSO-X 2024A、SDS2104X Plus、UXR0334B、WavePro 804HD）各走一段固定的命令序列，`tests/data/scope_stream_gold.json` 记录每一步回复的 SHA-256 与消耗的虚拟时间，末尾再记一帧屏幕显示（`acq.compute(..., frame=1)`）。#950 把采集改为经采样流实现后，这份表必须一条不改地通过。重新录制：`uv run python tests/test_scope_stream_migration.py`。
+
+录制时看到的三点模型现状（原样记录，不在本 issue 处理）：SDS2104X Plus 的命令不消耗虚拟时间、噪声按采样时刻取值，所以序列里用推进时钟的步骤让各次采集不同；它的示例测试台信号源输出默认关闭，序列里先打开；WavePro 804HD 在 SINGLE 完成后再发 `TRIG_MODE SINGLE` / `ARM_ACQUISITION` 不产生新的采集，序列改用 AUTO 下的读取覆盖多次采集。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 六个定义各有金标准 | ✅ 参数化 6 条，全部通过 |
+| 处理方式 × 触发 / 未触发 × 单 / 多通道 × 两种噪声键 × 屏幕帧 | ✅ DSO-X：普通、平均、峰值、高分辨率、双通道、自动未触发、运行中读取；SDS：四种处理、10 位、强制触发（噪声键 `time`）；UXR：平均、带宽滤波两种响应；WavePro：单次、运行、未触发、强制；sb-*：三种传输格式、双通道、未触发 |
+| 记录哈希不记原文；不用正则；不改 `src/` | ✅ |
+| 全量测试仍在 60 s 内 | ✅ 本文件约 4 s（6 个测试台各开一次） |
