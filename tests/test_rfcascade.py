@@ -43,6 +43,33 @@ def test_one_stage_is_itself():
     assert cascade([stage]) == stage
 
 
+def test_two_equal_stages_cascade_iip2_in_amplitude_form():
+    """Second-order intercepts cascade as the reciprocal *voltages* add: two equal stages lose
+    6.02 dB (twice the voltage), not 3.01 dB (#974)."""
+    stage = RfStageSpec(gain_db=0.0, iip2_dbm=30.0)
+    assert cascade([stage, stage]).iip2_dbm == pytest.approx(30.0 - 20.0 * math.log10(2.0), abs=0.01)
+
+
+def test_three_stages_cascade_iip2_against_a_hand_calculation():
+    """1/A = 1/A₁ + α₁/A₂ + α₁α₂/A₃ in voltage terms, αₖ the voltage gain ahead of stage k:
+    10^((0−40)/20) + 10^((20−30)/20) + 10^((14−26)/20) = 0.5774 → +4.769 dBm (#974)."""
+    total = cascade(
+        [
+            RfStageSpec(gain_db=20.0, iip2_dbm=40.0),
+            RfStageSpec(gain_db=-6.0, iip2_dbm=30.0),
+            RfStageSpec(gain_db=6.0, iip2_dbm=26.0),
+        ]
+    )
+    assert total.iip2_dbm == pytest.approx(4.769, abs=0.01)
+
+
+def test_iip3_keeps_the_power_form_cascade():
+    """The third-order intercept cascades by the reciprocal powers (mW): two equal stages lose
+    3.01 dB — locking the choice the IIP2 tests above do not exercise (#974)."""
+    stage = RfStageSpec(gain_db=0.0, iip3_dbm=10.0)
+    assert cascade([stage, stage]).iip3_dbm == pytest.approx(10.0 - 10.0 * math.log10(2.0), abs=0.01)
+
+
 def test_one_declared_noise_figure_behind_an_attenuator_adds_the_attenuation_exactly():
     """The spectrum analyzer's earlier way: only a whole-receiver noise figure is declared."""
     receiver = RfStageSpec(noise_figure_db=24.3)
