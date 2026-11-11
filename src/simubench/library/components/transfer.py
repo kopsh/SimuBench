@@ -203,7 +203,7 @@ class WaveformTransfer(Component):
         return OpResult(self.encode(rec), used)
 
     @op("describe")
-    def describe(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:
+    def op_describe(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:
         """A text descriptor of the record a transfer reads (LeCroy's ``C1:INSPECT? "WAVEDESC"``):
         one ``descriptor_item`` per ``descriptor`` entry, figures of the record, this transfer's
         selection and the acquisition (``count``: acquisitions so far)."""

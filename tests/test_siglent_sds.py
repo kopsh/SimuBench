@@ -63,7 +63,7 @@ def test_guide_procedure_reconstructs_the_bench_signal(scope, resolution):
     # through the front end (a few microvolts at 1 kHz) plus the division's noise, quantized. At
     # 0.5 V/div that noise is the estimated 7.5 mV rms (noise_table, D46) - a real scope's record
     # wanders a few codes around the signal, which the bound takes into account.
-    sigma = session.instruments["scope"].components["acq"].vertical_of(1).noise_rms()
+    sigma = session.instruments["scope"].components["acq"].vertical_of(1).input_noise_rms()
     assert sigma == pytest.approx(7.5e-3)
     assert np.max(np.abs(np.array(volts) - rec.volts)) < 1e-9
     assert np.max(np.abs(rec.volts - _truth(session, rec))) <= lsb / 2 + 6 * sigma + 5e-5
@@ -109,7 +109,7 @@ def test_the_waveform_transfer_and_measurement_flow(scope):
     assert pkpk == pytest.approx(v.max() - v.min(), abs=0.02)  # 3 digits, codes of 16.7 mV
     # The extremes carry the division's noise (7.5 mV rms, D46): a real scope's PKPK of one
     # acquisition sits a few codes above the signal's own 2 V.
-    sigma = session.instruments["scope"].components["acq"].vertical_of(1).noise_rms()
+    sigma = session.instruments["scope"].components["acq"].vertical_of(1).input_noise_rms()
     assert pkpk == pytest.approx(2.0, abs=8 * sigma + 0.5 / 30)
     assert freq == pytest.approx(1000.0, rel=5e-3)
     assert rms == pytest.approx(math.sqrt((1.0 / np.sqrt(2)) ** 2 + sigma**2), rel=5e-3)
@@ -123,7 +123,7 @@ def test_the_waveform_transfer_and_measurement_flow(scope):
     # PKPK rides the record's noise excursions, AMPL (top - base) does not: one acquisition's
     # two extremes differ by a few sigma (7.5 mV rms at 0.5 V/div, D46) plus a code. The error
     # this measurement exists to catch, the halves' medians, is 0.707 — far beyond either.
-    sigma = session.instruments["scope"].components["acq"].vertical_of(1).noise_rms()
+    sigma = session.instruments["scope"].components["acq"].vertical_of(1).input_noise_rms()
     assert ampl == pytest.approx(pkpk, abs=8 * sigma + 0.5 / 30)
     assert ampl == pytest.approx(2.0, abs=0.04)
     # -- AMPLitude of a square is the level it rests on (was

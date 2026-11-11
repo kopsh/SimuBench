@@ -53,7 +53,6 @@ src/simubench/library/components/counter.py:invalid-type-form Variable of type `
 src/simubench/library/components/counter.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×3
 src/simubench/library/components/counter.py:missing-attribute Object of type `Component | None` has no attribute `error` ×2
 src/simubench/library/components/daq.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
-src/simubench/library/components/eload.py:incompatible-method-override Invalid override of method `update_mode`: Definition is incompatible with `Component.update_mode`
 src/simubench/library/components/eload.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×4
 src/simubench/library/components/lockin.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None`
 src/simubench/library/components/lockin.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×3
@@ -67,9 +66,6 @@ src/simubench/library/components/meters.py:missing-attribute Object of type `Com
 src/simubench/library/components/meters.py:missing-attribute Object of type `type[Component]` has no attribute `_kind`
 src/simubench/library/components/power.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
 src/simubench/library/components/power.py:missing-attribute Object of type `Component` has no attribute `idle`
-src/simubench/library/components/protection.py:missing-attribute Object of type `Self@_crossed` has no attribute `param`
-src/simubench/library/components/protection.py:missing-attribute Object of type `Self@_kind_reply` has no attribute `session`
-src/simubench/library/components/protection.py:missing-attribute Object of type `Self@_trip_reply` has no attribute `session`
 src/simubench/library/components/ranging.py:unsupported-operator Operator `<=` is not supported between objects of type `float | None` and `float`
 src/simubench/library/components/ranging.py:unsupported-operator Operator `<=` is not supported between objects of type `float` and `float | None`
 src/simubench/library/components/rfgen.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None` ×3
@@ -79,13 +75,11 @@ src/simubench/library/components/rfgen.py:missing-attribute Object of type `Comp
 src/simubench/library/components/rfgen.py:missing-attribute Object of type `type[Component]` has no attribute `phase` ×2
 src/simubench/library/components/rfgen.py:unsupported-base Unsupported class base with type `type[Component]`
 src/simubench/library/components/scope.py:incompatible-attribute-override Invalid override of attribute `ports`: instance variable cannot override class variable `Component.ports`
-src/simubench/library/components/scope.py:incompatible-method-override Invalid override of method `noise_rms`: Definition is incompatible with `Component.noise_rms`
 src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a parameter annotation
 src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×6
 src/simubench/library/components/scope.py:missing-attribute Object of type `Component` has no attribute `scale_offset`
 src/simubench/library/components/scope.py:unsupported-base Unsupported class base with type `type[Component]`
 src/simubench/library/components/siglent_sdg.py:missing-attribute Unresolved attribute `batch` on type `Component` ×2
-src/simubench/library/components/smu.py:incompatible-method-override Invalid override of method `update_mode`: Definition is incompatible with `Component.update_mode`
 src/simubench/library/components/smu.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None`
 src/simubench/library/components/smu.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
 src/simubench/library/components/smu.py:missing-attribute Object of type `Component` has no attribute `limit_cap` ×2

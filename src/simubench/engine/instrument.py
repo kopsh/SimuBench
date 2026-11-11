@@ -220,9 +220,7 @@ class Instrument:
             for spec in definition.channel_components:
                 self._add_component(f"ch{n}.{spec.name}", spec.type, spec.params, n)
         #: Components that look again for the event they wait for whenever a command arrives.
-        self._retrying = [
-            c for c in self.components.values() if type(c).retry_pending is not Component.retry_pending
-        ]
+        self._retrying = [c for c in self.components.values() if c.has_retry_pending]
         for comp_name, params in instance.hidden.items():
             if comp_name not in self.components:
                 options = ", ".join(sorted(self.components))
