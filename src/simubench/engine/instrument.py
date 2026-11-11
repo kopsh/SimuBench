@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 import datetime as dt
-import difflib
-import itertools
 import logging
 import math
 import re
@@ -30,6 +28,7 @@ from .commands import (
     when_matches,
 )
 from .component import Component, OpResult, component_type, map_setting, noise_problems
+from .coverage_advice import CoverageAdvisor
 from .portref import split
 from .signal import Signal
 
@@ -72,22 +71,6 @@ def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
 BAD_PARAMETER_CODES = frozenset({-104, -222, -224})
 
 
-def _header_forms(pattern: Pattern) -> list[str]:
-    """Every spelling the header pattern accepts, long and short, for closest-match comparison."""
-    choices: list[list[str | None]] = []
-    for node in pattern.nodes:
-        words = [node.long] if node.short == node.long else [node.long, node.short]
-        if node.suffix:
-            words = [w + "1" for w in words]
-        choices.append([None, *words] if node.optional else words)
-    out = []
-    for combo in itertools.islice(itertools.product(*choices), 512):
-        parts = [p for p in combo if p is not None]
-        if parts:
-            out.append(":".join(parts))
-    return out
-
-
 def _declared_range(spec: StateSpec | ParamSpec | None) -> str | None:
     """The range or options a definition declares, compactly: '-210 … 210 V' or 'SINusoid, SQUARE'."""
     if spec is None:
@@ -102,15 +85,6 @@ def _declared_range(spec: StateSpec | ParamSpec | None) -> str | None:
     low = "-∞" if lo is None else f"{lo:g}"
     high = "∞" if hi is None else f"{hi:g}"
     return f"{low} … {high}{f' {unit}' if unit else ''}"
-
-
-@dataclass
-class _Covered:
-    """One entry of the definition's coverage table, ready for runtime lookups (D18)."""
-
-    pattern: Pattern
-    header: str
-    level: str
 
 
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
@@ -326,16 +300,14 @@ class Instrument:
         self._builtins = None if allowed is None else {_header_key(h) for h in allowed}
         #: The definition file, as the loader received the path; origin of the definition's own words.
         self.source_file: str | None = str(definition._source_file) if definition._source_file else None
-        #: The coverage table's compiled entries and its file; None when the definition has no table
-        #: (a broken or missing table falls back to the definition alone). The table itself is read
-        #: by the library loader with the definition (cached with it); only the cheap pattern
-        #: compilation waits for first use, so no file I/O lands on the session's wall clock (D47).
-        self._coverage: list[_Covered] | None = None
-        self._coverage_file: str | None = None
-        self._coverage_tried = False
-        #: Every header spelling the instrument answers, built once for the -113's suggestion.
-        self._header_keys: dict[str, str] | None = None
-        self._header_key_list: list[str] | None = None
+        #: The coverage table and the -113 classification built on it (#895).
+        self.coverage = CoverageAdvisor(
+            definition,
+            name=self.name,
+            real=self.real,
+            source_file=self.source_file,
+            commands=lambda: ((c.pattern, c.spec.header) for c in self._commands),
+        )
 
     def _draw_deviations(self) -> None:
         """Individual deviations within the definition's ranges, from the bench seed; a value the
@@ -772,7 +744,7 @@ class Instrument:
                 reason="builtin_excluded",
                 origin=self.source_file,
             )
-        reason, origin, closest = self._classify_header(unit, tokens)
+        reason, origin, closest = self.coverage.classify(unit, tokens)
         return ScpiError(
             -113, header, text=self._undefined_text(header), reason=reason, origin=origin, closest=closest
         )
@@ -783,71 +755,6 @@ class Instrument:
             return None
         base = self.definition.errors.get(-113, ScpiError(-113).standard_text)
         return f"{base};{NOT_MODELED}"
-
-    def _coverage_entries(self) -> list[_Covered] | None:
-        """The definition's coverage table, compiled for runtime lookups on first use (D18)."""
-        if not self._coverage_tried:
-            self._coverage_tried = True
-            self._load_coverage()
-        return self._coverage
-
-    def _load_coverage(self) -> None:
-        """Compile the coverage table the loader read with the definition (D18); an absent or
-        unreadable table leaves the instrument running on the definition alone."""
-        cov = self.definition._coverage
-        if cov is None:
-            return
-        entries: list[_Covered] = []
-        for _, entry in cov.entries():
-            try:
-                entries.append(_Covered(Pattern.compile(entry.header), entry.header, entry.level))
-            except ValueError:
-                continue  # a header the pattern language cannot read: no runtime match for it
-        self._coverage = entries
-        self._coverage_file = str(self.definition._coverage_file)
-
-    def _classify_header(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[str, str | None, str | None]:
-        """(reason, origin, closest) for a header the definition does not execute."""
-        coverage = self._coverage_entries()
-        if coverage is not None:
-            covered = next((e for e in coverage if self._covered(e, unit, tokens)), None)
-            if covered is not None:
-                # A command the author listed (or one of theirs used in a form the model lacks).
-                return "not_modeled", self._coverage_file, None
-            return "not_in_model", self._coverage_file, self._closest_header(unit)
-        if not self.real:
-            return "not_in_definition", self.source_file, self._closest_header(unit)
-        return "not_modeled", self.source_file, None  # no coverage table: the old classification
-
-    @staticmethod
-    def _covered(entry: _Covered, unit: Unit, tokens: tuple[Token, ...]) -> bool:
-        """Whether the message unit uses the coverage entry's command (the coverage checker's match rule)."""
-        if entry.pattern.common:
-            return unit.common and unit.tokens[0].keyword == entry.pattern.nodes[0].long
-        return not unit.common and entry.pattern.match(tokens) is not None
-
-    def _closest_header(self, unit: Unit) -> str | None:
-        """The author's command closest to the one the client sent (its own long and short
-        spellings), or None when none is reasonably close."""
-        sent = _header_key(unit.raw_header)
-        if not sent:
-            return None
-        if self._header_keys is None:
-            keys: dict[str, str] = {}
-            for entry in self._coverage_entries() or ():
-                try:
-                    for form in _header_forms(entry.pattern):
-                        keys.setdefault(_header_key(form), entry.header)
-                except Exception as exc:  # a coverage entry that does not parse only loses a suggestion
-                    log.debug("%s: header suggestion skipped for %r: %s", self.name, entry.header, exc)
-                    continue
-            for compiled in self._commands:
-                for form in _header_forms(compiled.pattern):
-                    keys.setdefault(_header_key(form), compiled.spec.header)
-            self._header_keys = keys
-            self._header_key_list = list(keys)
-        hit = difflib.get_close_matches(sent, self._header_key_list, n=1, cutoff=0.6)
-        return self._header_keys[hit[0]] if hit else None
 
     def push_error(self, code: int, detail: str = "") -> None:
         """Queue a device error from a component (e.g. an overload)."""
