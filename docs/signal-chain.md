@@ -317,6 +317,11 @@ rf_in(input_port) ─▶ specan_input ─▶ specan_mixer ─▶ specan_if ─�
 
 - **调谐上下文**：混频器及其下游的输出取决于本振频率。`output` 读取 `self.session` 提供的当前调谐点（`specan_lo.tuned()`，
   由迹线引擎在求值每个分段前设置，探针按面板的“调谐于”设置）。调谐点属于求值的输入，进入 `cached_output` 的键。
+- **已实现（#952）**：`with session.tuned(f): …`，可重入；块内读 `self.session.tune_hz`（`None` 表示不在上下文里，此时
+  `specan_lo.tuned()` 取中心频率）。调谐点指“接收机调到的频率”（显示频率轴上），本振频率是
+  `specan_lo.frequency() = (调谐点 − if_hz) × (1 + 参考误差)`，`if_hz` 在 `specan_if` 上。读调谐点的端口由组件类的 `tuned_ports`
+  声明，定义校验拒绝把它们映射为仪表端口（`E-DEF-PORT-TUNED`）。解析求值不把谱线在中频来回搬一遍（浮点往返不是恒等）：
+  迹线沿连线从 `specan_if` 向上游取**链首的谱线**与各级的 `stage(f)`，显示按输入校准；未声明非理想时回复逐位不变。
 - **非线性产物在谱线级生成**：由级联的二阶、三阶截点，对输入的谱线两两（三阶再加自身）组合，生成 `2f₁`、`f₁±f₂`、`2f₁−f₂` 等频率上的新谱线，
   幅度按截点公式；只取最强的 `MAX_PRODUCT_LINES = 64` 条输入线参与组合，被略去的在 `notes` 中标注“近似”。增益压缩按 P1dB 的标准三阶模型作用于各线。
 - **相位噪声**不是谱线：`specan_lo` 声明 `phase_noise: [[偏移 Hz, dBc/Hz], …]`（对数-对数插值）。解析求值时，迹线引擎对每个输出点加上

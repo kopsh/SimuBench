@@ -377,6 +377,11 @@ class Component:
     port_pattern: ClassVar[str | None] = None
     #: What a port matching ``port_pattern`` is (the multiplexer's relay terminals are electrical).
     pattern_port: ClassVar[PortSpec] = PortSpec("inout", "electrical")
+    #: Signal output ports whose signal depends on the tuning point of the read in progress
+    #: (``Session.tuned``): a mixer's output and what follows it. Outside a tuning context they
+    #: read at the instrument's own tuning. There is no tuning point outside the instrument, so
+    #: definition validation refuses to map one as an instrument port (E-DEF-PORT-TUNED).
+    tuned_ports: ClassVar[frozenset[str]] = frozenset()
     #: Circuit role (see :data:`Role`); input impedance comes from ``impedance_of(params)``.
     role: ClassVar[Role | None] = None
     #: Ports that carry a source's remote-sense feedback, and the parameter that enables it: the

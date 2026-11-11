@@ -1826,3 +1826,47 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 处理方式 × 触发 / 未触发 × 单 / 多通道 × 两种噪声键 × 屏幕帧 | ✅ DSO-X：普通、平均、峰值、高分辨率、双通道、自动未触发、运行中读取；SDS：四种处理、10 位、强制触发（噪声键 `time`）；UXR：平均、带宽滤波两种响应；WavePro：单次、运行、未触发、强制；sb-*：三种传输格式、双通道、未触发 |
 | 记录哈希不记原文；不用正则；不改 `src/` | ✅ |
 | 全量测试仍在 60 s 内 | ✅ 本文件约 4 s（6 个测试台各开一次） |
+
+## 频谱仪的金标准补全：N9320B、N9042B（Issue 948）
+
+只加测试，不改 `src/`，在未改动的 `main` 上录制（本分支的第一个提交）。`tests/test_specan_migration.py` 增加两台真实型号：各在自己的示例测试台上走示例脚本的全部命令，再走检波器（型号支持的全部）× 迹线模式、RBW/VBW 与衰减的自动 / 手动、标记的各种搜索与差值、频率计数、单次扫描与过载；`tests/data/specan_models_gold.json` 记录每步回复的 SHA-256、消耗的虚拟时间与屏幕读数。重录：`uv run python tests/test_specan_migration.py`。
+
+录制时看到的两点现状（原样记录）：两台型号都没有参考振荡器命令（`clock` 固定为内部），外参考切换只在 `sb-sa-1` 的金标准里；两台都不经 SCPI 报告过载，记录的是屏幕读数里的 `overload`。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 示例脚本的全部回复；检波器 × 迹线模式 × RBW 自动/手动 × 衰减自动/手动；标记峰值搜索与频率计数；过载 | ✅ N9320B 116 步、N9042B 142 步（含屏幕两行）；参数化 2 条 |
+| 外参考切换 | ⚠️ 两台型号的定义没有该命令，由 `sb-sa-1` 的金标准覆盖 |
+| 记录哈希；不用正则；不改 `src/` | ✅ |
+| 每条 ≤ 100 ms | ⚠️ 每条约 0.2 s（开一个示例测试台并读 30 余条 1001 点迹线）；与同文件的 `sb-sa-1` 金标准（0.25 s）同级，不带 `unit` 标记 |
+
+## 射频级联指标：`RfStage` 与 `engine/rfcascade.py`（Issue 949）
+
+`engine/component.py` 增加协议 `RfStage`（`stage(f_hz) -> RfStageSpec`）与数据类 `RfStageSpec`（增益、噪声系数、输入二阶 / 三阶截点、输入 1 dB 压缩点；没有的为 `None` 或无穷大）。`engine/rfcascade.py` 是纯函数：`cascade`（增益相加；噪声系数按弗里斯公式；截点与压缩点折算到输入后倒数相加）、`noise_floor_dbm`、`products`（二次 / 三次谐波、`f₁±f₂`、`2f₁−f₂`、`2f₂−f₁`，只取最强的 64 条输入线，返回是否有略去）、`compress`（三阶模型，P1dB 处增益恰降 1 dB）。没有声明噪声系数且没有增益的级按 T0 下的匹配损耗处理，在 dB 域并入下一级，所以“衰减器 + 一个声明了噪声系数的级”的结果恰为该噪声系数加衰减量，没有线性单位往返的舍入。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 三级教科书例子的级联噪声系数与输入三阶截点对照手算，误差 < 0.01 dB | ✅ `tests/test_rfcascade.py`（5.42 dB、+0.37 dBm） |
+| 只有一级时等于该级 | ✅ `test_one_stage_is_itself`（逐字段相等） |
+| 两个 −10 dBm 单音：IIP3 +10 dBm 时 `2f₁−f₂` 为 −50 dBm；IIP2 +30 dBm 时 `f₁+f₂` 为 −50 dBm | ✅ 各一条 |
+| 输入等于 P1dB 时增益下降 1 dB；超过 64 条输入线时返回“有略去” | ✅ 各一条 |
+| 不接入任何组件 | ⚠️ 与 #952 同一个 PR：接入在 #952 的提交里 |
+
+## 频谱仪模拟前端在功能块之间传递信号：`specan_lo`、调谐上下文（Issue 952）
+
+内部重构，回复不变。`specan_input`、`specan_mixer`、`specan_if` 各有 `in` / `out` 并覆盖 `output("out")`：衰减（× 前置放大，默认 0 dB）；在调谐点下搬到中频（`f_if = f_rf − f_lo`，扣变频损耗，本振以下的镜像侧完全抑制）；× 以 `if_hz` 为中心的高斯 RBW 通带 × 中频增益。新组件 `specan_lo`：`tuned()`（读取中的调谐点，否则中心频率）、`frequency()`、参考误差与锁定（自 `specan_mixer` 移来）、`lo_rate` / `sweep_overhead`（自 `specan_trace` 移来）。调谐上下文按 issue 评论的接口：`Session.tuned(f)`（可重入、退出时恢复）、`Session.tune_hz`、`cached_output` 的键加调谐点；读调谐点的端口由 `Component.tuned_ports` 声明，定义校验拒绝把它们映射为仪表端口（`E-DEF-PORT-TUNED`）。三块实现 `RfStage`；`specan_trace` 沿连线从 `specan_if` 向上游取链首谱线与各级指标，噪声系数取衰减器之后各级的级联。三份定义（`sb-sa-1`、N9320B、N9042B）改为写出 `lo` 与前端连线；旧写法由宏展开（`specan_lo` 与连线加在表末尾，`mixer_limit` → `max_mixer_level`、`maxhold_limit` → `max_hold_sweeps`，`<mixer>.status` → `<lo>.status`）。
+
+没有做的：通用 ADC 的 `frames` 在 `session.tuned(request.tune_hz)` 内取输入——通用 ADC 属于 #950 / #955，本分支的 `main` 上还没有；内部探针（#951）未合并，探针读这三个端口的测试留给 #951 / #959，本 issue 用 `Session.cached_output` 直接读同一批端口。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `tests/test_specan_migration.py`（含两台真实型号）不改一个预期值通过 | ✅ 金标准先在未改动的 `src/` 上提交；改组件（定义不动，经宏）后通过，定义改为显式写出后再次通过 |
+| `tests/test_specan_model_limits.py`、各型号 `cases.yaml`、`acceptance/` 的频谱仪场景同样 | ✅ 全量测试不改预期通过 |
+| 单音 1 GHz、调谐于 1 GHz：`mixer.out` 的谱线在中频，幅度 = 输入 − 衰减 − 变频损耗；改衰减 10 dB，`input.out` 变 10 dB；两个调谐点的 `output` 不互相污染缓存 | ✅ `tests/test_specan_frontend.py::test_the_front_end_passes_the_tone_from_block_to_block`（另有：偏半个 RBW 时中频输出低 3.01 dB、上下文可重入、不在上下文里按中心频率、镜像侧被抑制、显示按输入校准） |
+| 被动读取不改变仿真；同一调谐点两次读取相同 | ✅ `test_a_tuned_read_is_passive`（虚拟时间、事件数、下一次迹线回复不变） |
+| 只声明整机 `noise_figure` 时级联结果恒等于它 | ✅ `test_the_trace_reads_the_chain_by_its_wiring`（衰减器之后恰为 24.0，折算到输入恰为 24.0 + 衰减） |
+| 定义校验拒绝把读调谐上下文的端口映射为仪表端口 | ✅ `test_a_port_that_depends_on_the_tuning_cannot_leave_the_instrument`（`mixer.out`、`if_filter.out`） |
+| 旧写法经宏展开与显式写出相同；补出的组件与连线在表末尾 | ✅ `test_a_definition_written_the_earlier_way_is_the_same_definition`（三份定义） |
+| 内部探针能读到 `input.out`、`mixer.out`、`if_filter.out`，`tune_hz` 生效 | ⚠️ #951 未合并：端口与调谐上下文已就绪，探针侧的测试随 #951 |
+| `tests/test_block_coverage.py`、`test_model_components.py` 通过，例外清单不增加 | ✅ `docs/blocks/spectrum_analyzer.yaml` 增加 `local_oscillator`；清单未动 |
+| `scripts/check.sh` 通过 | ✅ |

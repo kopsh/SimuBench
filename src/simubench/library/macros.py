@@ -201,3 +201,64 @@ def _expand_measurements(data: Data, spec: Data) -> None:
     data["components"].append({"name": name, "type": "scope_measurements", "params": meas})
     for c in commands:
         c["op"] = f"{name}.{ops[c['op']]}"
+
+
+@macro("specan_input")
+def specan_input(data: Data, spec: Data) -> None:
+    """``mixer_limit`` is ``max_mixer_level`` (the D50 naming audit, #952)."""
+    _rename(spec, "mixer_limit", "max_mixer_level")
+
+
+@macro("specan_trace")
+def specan_trace(data: Data, spec: Data) -> None:
+    """Expand an analyzer written before its front end passed signals (#952, no ``lo`` named).
+
+    A ``specan_lo`` is added: it takes the reference (``clock``, ``source``) from the mixer and the
+    sweep rate (``lo_rate``, ``sweep_overhead``) from the trace, and tunes to ``freq.center``; the
+    commands' ``<mixer>.status`` become its ``status``. The front end is wired
+    ``<input>.out → <mixer>.in`` and ``<mixer>.out → <if_filter>.in``. ``maxhold_limit`` is
+    ``max_hold_sweeps``. The component and the wires go to the end of their tables, so the
+    pointers of validation findings keep pointing at what the author wrote. Raises ValueError
+    when the definition is not shaped so (write the oscillator out instead)."""
+    _rename(spec, "maxhold_limit", "max_hold_sweeps")
+    params = spec.setdefault("params", {})
+    if not isinstance(params, dict) or "lo" in params:
+        return  # the oscillator is written out
+    trace = str(spec["name"])
+    comps = data["components"]
+    by_name = {str(c.get("name")): c for c in comps if isinstance(c, dict)}
+    mixer = by_name.get(str(params.get("mixer")))
+    blocks = {key: by_name.get(str(params.get(key))) for key in ("input", "if_filter")}
+    missing = [key for key, block in (("mixer", mixer), *blocks.items()) if block is None]
+    if mixer is None or missing:
+        raise ValueError(
+            f"{trace}: cannot add the local oscillator ({', '.join(missing)} not named); "
+            "write a specan_lo out and name it in lo"
+        )
+    name = next(n for n in ("lo", *(f"lo{i}" for i in range(2, 100))) if n not in by_name)
+    mixer_params = mixer.setdefault("params", {})
+    lo: Data = {key: mixer_params.pop(key) for key in ("clock", "source") if key in mixer_params}
+    lo.update({key: params.pop(key) for key in ("lo_rate", "sweep_overhead") if key in params})
+    lo["if_filter"] = params["if_filter"]
+    if "freq.center" in (data.get("state") or {}):
+        lo["center"] = "$freq.center"
+    mixer_name = params.pop("mixer")
+    mixer_params["lo"] = params["lo"] = name
+    comps.append({"name": name, "type": "specan_lo", "params": lo})
+    wires = data.setdefault("wiring", {}).setdefault("instrument", [])
+    for wire in (
+        [f"{params['input']}.out", f"{mixer_name}.in"],
+        [f"{mixer_name}.out", f"{params['if_filter']}.in"],
+    ):
+        if wire not in wires:
+            wires.append(wire)
+    for command in data.get("commands") or []:
+        if isinstance(command, dict) and command.get("op") == f"{mixer_name}.status":
+            command["op"] = f"{name}.status"
+
+
+def _rename(spec: Data, old: str, new: str) -> None:
+    """A parameter's earlier name becomes its present one (the present one wins when both are written)."""
+    params = spec.get("params")
+    if isinstance(params, dict) and old in params:
+        params.setdefault(new, params.pop(old))
