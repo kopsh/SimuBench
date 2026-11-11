@@ -704,7 +704,7 @@ async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
     and the last field read."""
     import threading
 
-    import simubench.mcp_tools.sessions
+    import simubench.server.services.faults as fault_service
 
     manager, server = make(ws, allow_control=True)
     async with Client(server) as c:
@@ -737,16 +737,16 @@ async def test_mcp_fault_list_converts_inside_the_view(ws, monkeypatch):
             seen["snapshot"] = True
             return real_snapshot()
 
-        real_fault = simubench.mcp_tools.sessions._fault
+        real_fault = fault_service.fault_info  # the DTO assembly: the last read of live state
 
-        def _fault(x):
+        def fault_info(x):
             out = real_fault(x)
             seen["read"] = True
             return out
 
         monkeypatch.setattr(s.faults, "snapshot", snapshot)
         monkeypatch.setattr(s, "_lock", Tracked())
-        monkeypatch.setattr(simubench.mcp_tools.sessions, "_fault", _fault)
+        monkeypatch.setattr(fault_service, "fault_info", fault_info)
 
         out = await call(c, "list_faults")
         assert len(out) == 1

@@ -479,7 +479,7 @@ class TriggerModel(Triggerable, Component):
         return self.fetch(elements=elements)
 
     @op("abort")
-    def abort(self, **_: Any) -> OpResult:
+    def op_abort(self, **_: Any) -> OpResult:
         """``ABORt``: stop the run; readings already taken stay."""
         Triggerable.abort(self)
         return OpResult()

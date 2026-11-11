@@ -271,7 +271,7 @@ class PowerOutput(Component):
         if self._p_current is not None:
             return self._update_power(v)
         current = self.session.source_current(self.uid) if loop.mode == "V" else 0.0
-        changed = loop.update_mode(v, current)
+        changed = loop.settle_mode(v, current)
         if changed:
             # The operating point just solved belongs to the old mode (e.g. CC at a raised limit
             # would read the load's full I·R): protection judges only a settled point (#271).

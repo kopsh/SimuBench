@@ -97,3 +97,58 @@ def test_the_components_endpoint():
         "channel": None,
     } in by_type["output_stage"]["ports"]
     assert by_type["waveform_transfer"]["operations"][0]["name"] == "data"
+
+
+# ---- the hook contract (#898) ------------------------------------------------------------------
+
+
+def _hooks() -> dict[str, Any]:
+    from simubench.engine.component import Component
+
+    return {n: f for n, f in vars(Component).items() if callable(f) and not n.startswith("_")}
+
+
+def test_overridden_hooks_accept_the_base_signature():
+    """A subclass that overrides a ``Component`` hook takes the same leading parameters (by name
+    and position) and adds only optional ones, so a caller holding a ``Component`` never needs to
+    know the concrete class."""
+    import inspect
+
+    broken = []
+    for tname, cls in component_types().items():
+        for name, base in _hooks().items():
+            fn = getattr(cls, name, None)
+            if fn is None or fn is base:
+                continue
+            want = list(inspect.signature(base).parameters.values())[1:]
+            got = list(inspect.signature(fn).parameters.values())[1:]
+            kinds = (inspect.Parameter.VAR_POSITIONAL, inspect.Parameter.VAR_KEYWORD)
+            leading_ok = all(
+                w.kind in kinds or (i < len(got) and got[i].name == w.name) for i, w in enumerate(want)
+            )
+            required_extra = [p for p in got[len(want) :] if p.default is p.empty and p.kind not in kinds]
+            if not leading_ok or required_extra:
+                broken.append(
+                    f"{tname}.{name}{inspect.signature(fn)} vs Component.{name}{inspect.signature(base)}"
+                )
+    assert not broken, "\n".join(broken)
+
+
+def test_no_operation_shadows_a_component_hook():
+    """An ``@op`` method named like a hook (``describe``, ``sync``, ``abort``) answers the hook's
+    callers with an ``OpResult``: name the method ``op_<name>`` and keep the SCPI name in ``@op``."""
+    clashes = [
+        f"{tname}.{name}"
+        for tname, cls in component_types().items()
+        for name in _hooks()
+        if hasattr(getattr(cls, name, None), "__op_name__")
+    ]
+    assert not clashes, clashes
+
+
+def test_retry_pending_flag_matches_the_override():
+    from simubench.engine.component import Component
+
+    for tname, cls in component_types().items():
+        overrides = cls.retry_pending is not Component.retry_pending
+        assert cls.has_retry_pending == overrides, tname

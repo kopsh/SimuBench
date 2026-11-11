@@ -16,7 +16,7 @@ virtual time) is likewise its own increment — the latch knows no clocks.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from ...scpi import values as V
 
@@ -39,6 +39,10 @@ class TripThreshold:
     flag: str = ""
 
 
+if TYPE_CHECKING:
+    from ...engine.session import Session
+
+
 class ProtectionLatch:
     """The trip latch of an over-limit protection: declared thresholds, the latch and its kind,
     the clear semantics and the tripped/kind replies. The carrier is a component (or a component
@@ -54,6 +58,13 @@ class ProtectionLatch:
     #: The thresholds this protection judges, in trip priority order; () for a carrier that only
     #: uses the latch (its judging is its own, e.g. the calibrator's overload).
     thresholds: ClassVar[tuple[TripThreshold, ...]] = ()
+
+    if TYPE_CHECKING:
+        # What the carrier component provides (#898): declared here, not assumed. Not defined at
+        # run time — ``Component`` supplies them.
+        session: Session
+
+        def param(self, key: str) -> Any: ...
 
     def _init_latch(self) -> None:
         self._latched = ""  # the threshold crossed ("OVP" | ... | "PROT"); '' when clear

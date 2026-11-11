@@ -492,13 +492,13 @@ def test_the_default_noise_scales_with_the_division(tmp_path):
     s = open_bench(_bench(tmp_path, _expand(inputs, "tpl-noisy")))
     try:
         front = s.instrument("scope").components["ch1.front"]
-        assert front.noise_rms() == pytest.approx(0.02 * front.input_scale())
+        assert front.input_noise_rms() == pytest.approx(0.02 * front.input_scale())
         s.write("scope", b":CHANnel1:SCALe 0.1\n")
-        assert front.noise_rms() == pytest.approx(0.02 * 0.1)
+        assert front.input_noise_rms() == pytest.approx(0.02 * 0.1)
     finally:
         s.close()
     s = open_bench(_bench(tmp_path, _expand(copy.deepcopy(DSO4_INPUTS), "tpl-quiet")))
     try:
-        assert s.instrument("scope").components["ch1.front"].noise_rms() == 0.0
+        assert s.instrument("scope").components["ch1.front"].input_noise_rms() == 0.0
     finally:
         s.close()
