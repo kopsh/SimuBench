@@ -14,6 +14,7 @@ from ...assistant.llm import check_connection
 from ...assistant.service import Busy
 from ...models import api as M
 from ..benchfiles import Conflict
+from ..errors import FILE_ERRORS
 from ..manager import ClientsConnected
 from .context import ApiContext
 
@@ -21,20 +22,19 @@ _BUSY: dict[int | str, dict[str, Any]] = {409: {"description": "A turn of this c
 
 
 def http_error(ctx: ApiContext, exc: Exception) -> HTTPException:
-    if isinstance(exc, PermissionError):
-        return HTTPException(403, str(exc))
+    """The assistant's own errors (a turn already running, a settings problem); the rest is the
+    shared table of ``ApiContext.http_error``."""
     if isinstance(exc, Busy):
         return HTTPException(409, str(exc))
     if isinstance(exc, ConfigError):
         return HTTPException(422, str(exc))
-    assert isinstance(exc, KeyError)
-    return ctx.not_found(exc)
+    return ctx.http_error(exc)
 
 
 def bench_errors(ctx: ApiContext, fn: Any) -> Any:
     try:
         return fn()
-    except (PermissionError, Busy, ConfigError, KeyError) as exc:
+    except (*FILE_ERRORS, Busy, ConfigError, KeyError) as exc:
         raise http_error(ctx, exc) from None
 
 
@@ -110,7 +110,7 @@ def _assistant_chat_routes(ctx: ApiContext, router: APIRouter) -> None:
         """Start a turn; follow it with GET /api/assistant/events."""
         try:
             return await service.send(req.bench, req.text)
-        except (PermissionError, Busy, ConfigError, KeyError) as exc:
+        except (*FILE_ERRORS, Busy, ConfigError, KeyError) as exc:
             raise http_error(ctx, exc) from None
 
 
@@ -186,8 +186,8 @@ def _assistant_run_routes(ctx: ApiContext, router: APIRouter) -> None:
             raise HTTPException(409, str(exc)) from None
         except ClientsConnected as exc:
             raise ctx.in_use(exc) from None
-        except PermissionError as exc:
-            raise HTTPException(403, str(exc)) from None
+        except FILE_ERRORS as exc:
+            raise ctx.http_error(exc) from None
 
 
 def build_router(ctx: ApiContext) -> APIRouter:

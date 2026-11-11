@@ -64,6 +64,13 @@ class CounterGate(Component):
   `def op_<name>` with the SCPI name in `@op("<name>")`, never the bare hook name. A hook override
   that the engine must call on every command sets its flag (`has_retry_pending = True`). A mixin
   that reads the host (`ProtectionLatch`) declares what it needs under `if TYPE_CHECKING:`.
+- The contract is checked by tests, not by scanning at load time: `tests/test_component_catalog.py`
+  walks `component_types()` for overridden `Component` hooks, for `@op` methods that take the name of
+  any inherited method (`Triggerable.abort`), and for the signatures of every class that fills a
+  `Protocol` ref (`Acquisition`, `TraceSource`, …; #929). `_protocol_gaps` at load time stays, built on
+  `get_protocol_members` — `issubclass` against a `runtime_checkable` Protocol raises `TypeError` for
+  these Protocols' data members. The `dir(cls)` scans (`operation`, `_op_fields`, the catalog) find
+  operations by their `__op_name__` marker; they discover, they do not check a contract.
 - Out of the model's range → raise `ScpiError` with the right code; never return a guess.
 - Numeric replies: `self.reply_number(value, digits)`, never a hand-formatted string — a
   definition with `format.readings: format` answers in its own format (D54, #366).

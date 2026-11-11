@@ -34,6 +34,7 @@ from ..engine.record import jsonable
 from ..models import api as M
 from ..server import drive
 from ..server.benchfiles import Conflict
+from ..server.errors import Forbidden
 from ..server.manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession
 from ..server.mytemplates import save_as_template
 from .guard import LoopGuard, Stuck
@@ -407,7 +408,7 @@ def edit_bench(
     def run() -> dict[str, Any]:
         structural = sorted({op.op for op in parsed} & STRUCTURAL)
         if structural and running_session(t, bench) is not None:
-            raise PermissionError(
+            raise Forbidden(
                 f"测试台正在运行，不能改结构（{', '.join(structural)}）：运行中只能调参数。"
                 "先向用户说明为什么要停止，用 ask_to_stop_session 征得同意，等用户回答后再停止"
             )
@@ -494,7 +495,7 @@ async def stop_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
     async def run() -> dict[str, Any]:
         asked = t.conv.stop_requested_in
         if asked is None or asked >= t.index:
-            raise PermissionError(
+            raise Forbidden(
                 "停止运行中的测试台要先征得用户同意：用 ask_to_stop_session 说明原因，结束本轮，等用户回答"
             )
         served = running_session(t, t.conv.bench)
@@ -604,7 +605,7 @@ def save_template(
 
     def run() -> dict[str, Any]:
         if running_session(t, t.conv.bench) is not None:
-            raise PermissionError("测试台正在运行：保存为模板会换掉这台仪表的型号，先征得同意停止测试台")
+            raise Forbidden("测试台正在运行：保存为模板会换掉这台仪表的型号，先征得同意停止测试台")
         touch(t, t.conv.bench, "bench")
         out = save_as_template(t.service.definitions, t.conv.bench, base_sha256, instrument, name, "agent")
         assert out.definition.path is not None
@@ -643,7 +644,7 @@ def edit_definition(
         ops = _PATCH.validate_python(patch)
         touches_scpi = any(op.path.startswith(_SCPI_SECTIONS) for op in ops)
         if touches_scpi and not _quotes_user(t, user_example):
-            raise PermissionError(
+            raise Forbidden(
                 "改命令、回包或错误码前，需要用户给出命令格式和回包示例（user_example 要引用用户的原话）："
                 "先问用户，不要猜"
             )

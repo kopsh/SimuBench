@@ -26,6 +26,7 @@ from ..library.loader import SKIP_DIRS, DefinitionLibrary, load_yaml
 from ..library.migrate import FormatError, upgrade
 from ..models import api as M
 from ..models.bench import BenchDefinition
+from .errors import Forbidden, NotFound
 from .history import History, Source
 
 SUFFIXES = (".bench.yaml", ".bench.json")
@@ -66,7 +67,7 @@ class BenchFiles:
     def resolve(self, bench_path: str) -> Path:
         p = (self.workspace / bench_path).resolve()
         if self.workspace not in p.parents:
-            raise PermissionError("bench path outside the workspace")
+            raise Forbidden("bench path outside the workspace")
         return p
 
     def library(self, path: Path | None) -> DefinitionLibrary:
@@ -161,7 +162,7 @@ class BenchFiles:
         path = self.resolve(rel_path)
         is_definition = path.parent == self.workspace / "instruments" and path.suffix == ".yaml"
         if not (path.name.endswith(SUFFIXES) or is_definition):
-            raise PermissionError("only bench files and workspace definitions can be removed")
+            raise Forbidden("only bench files and workspace definitions can be removed")
         with self._lock:
             if not path.exists():
                 return
@@ -193,7 +194,7 @@ class BenchFiles:
         path = self.resolve(bench_path)
         entry = next((v for v in self.history.versions(bench_path) if v.seq == seq), None)
         if entry is None:
-            raise FileNotFoundError(f"{bench_path} has no version {seq}")
+            raise NotFound(f"{bench_path} has no version {seq}")
         data = _parse(path, self.history.content(bench_path, seq))
         return M.BenchVersionDocument(path=bench_path, version=entry, data=data)
 

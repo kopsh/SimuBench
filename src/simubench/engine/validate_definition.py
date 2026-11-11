@@ -14,6 +14,7 @@ import re
 from typing import Any
 
 from pydantic import ValidationError
+from typing_extensions import get_protocol_members
 
 from ..library.macros import expand_macros
 from ..library.migrate import FormatError, upgrade
@@ -32,15 +33,18 @@ _NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
 def _protocol_gaps(cls: type, protocol: type) -> list[str]:
     """The methods of a Protocol (a refs target, see ``Component.refs``) a component class does
     not have. The check sees the class, not an instance, so an attribute member such as
-    ``Acquisition.acq_count`` is left to the run-time isinstance in the component's accessor."""
-    names: set[str] = set()
-    for k in protocol.__mro__:
-        if k is object or k.__module__ == "typing":  # Protocol and Generic carry no members
-            continue
-        for name, value in vars(k).items():
-            if not name.startswith("_") and callable(value):
-                names.add(name)
-    return sorted(n for n in names if not callable(getattr(cls, n, None)))
+    ``Acquisition.acq_count`` is left to the run-time isinstance in the component's accessor.
+
+    ``issubclass`` against a ``runtime_checkable`` Protocol is not an option here: it raises
+    ``TypeError`` for a Protocol with data members, which these have. The members come from
+    ``get_protocol_members`` (the typing module's own definition of them), not a walk of
+    ``__mro__`` (#929)."""
+    methods = [
+        n
+        for n in get_protocol_members(protocol)
+        if not n.startswith("_") and callable(getattr(protocol, n, None))
+    ]
+    return sorted(n for n in methods if not callable(getattr(cls, n, None)))
 
 
 def validate_definition_data(data: Any) -> tuple[InstrumentDefinition | None, Report]:
