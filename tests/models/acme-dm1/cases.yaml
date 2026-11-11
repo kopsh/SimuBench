@@ -48,7 +48,7 @@
       expect: "BUS"
     - send: "TRIG:SOUR EXT"
     - query: ":TRIGger:SOURce?"
-      expect_match: "^EXTERNAL$"
+      expect: "EXTERNAL"
 - name: "没有建模的命令回复 -113 并说明"
   manual: "Command Reference > SENSe:CURRent:DC:NPLC"
   steps:

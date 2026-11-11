@@ -13,6 +13,7 @@ import os
 import pytest
 import yaml
 
+from helpers import raises_with
 from simubench.library.class_defaults import CLASS_ERRORS, deep_merge, default_block
 from simubench.library.loader import DefinitionLibrary
 
@@ -105,19 +106,19 @@ def test_a_chain_goes_several_steps(tmp_path, lib):
 def test_a_cycle_is_refused(tmp_path, lib):
     write(tmp_path, "a", extends="b")
     write(tmp_path, "b", extends="a")
-    with pytest.raises(ValueError, match="成环"):
+    with raises_with(ValueError, "成环"):
         lib.get("a")
 
 
 def test_extending_itself_is_refused(tmp_path, lib):
     write(tmp_path, "a", extends="a")
-    with pytest.raises(ValueError, match="成环"):
+    with raises_with(ValueError, "成环"):
         lib.get("a")
 
 
 def test_an_unknown_parent_is_refused(tmp_path, lib):
     write(tmp_path, "a", extends="no-such-model")
-    with pytest.raises(ValueError, match="no definition"):
+    with raises_with(ValueError, "no definition"):
         lib.get("a")
 
 

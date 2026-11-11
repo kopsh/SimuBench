@@ -8,13 +8,12 @@ buffer, which needs TRACe:FEED:CONTrol NEXT on a real instrument).
 """
 
 import math
-import re
 import statistics
 from pathlib import Path
 
 import pytest
 
-from helpers import load_script, run_manual_script, session_query
+from helpers import load_script, printed_quantities, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -45,10 +44,10 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert out[0].startswith("Agilent Technologies,B2901A,")
     # The spot reading rides the reading noise (specs.noise_ppm_of_range): 0 V on the auto-ranged
     # 0.2 V range, ~0 A on the 100 nA range.
-    spot = re.fullmatch(r"spot: (\S+) V, (\S+) A", out[1])
-    assert spot
-    assert float(spot[1]) == pytest.approx(0.0, abs=4 * noise_sigma(0.2))
-    assert float(spot[2]) == pytest.approx(0.0, abs=4 * noise_sigma(1.0e-7))
+    (spot_v, v_unit), (spot_i, i_unit) = printed_quantities(out[1], "spot")
+    assert (v_unit, i_unit) == ("V", "A")
+    assert spot_v == pytest.approx(0.0, abs=4 * noise_sigma(0.2))
+    assert spot_i == pytest.approx(0.0, abs=4 * noise_sigma(1.0e-7))
     assert out[2] == "5 points"
     points = [[float(x) for x in line.split(",")] for line in out[3:8]]
     # every point sits on the 2 V measure range; currents up to 2 mA on the 10 mA one

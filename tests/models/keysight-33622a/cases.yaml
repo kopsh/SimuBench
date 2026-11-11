@@ -70,7 +70,7 @@ cases:
         expect: "+2.500000000000000E+06"
       - send: "FUNC NOIS"
       - query: "SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "VOLTage、OFFSet、HIGH、LOW：设一个电平保持另一个"
     manual: "VOLTage Subsystem > VOLTage, VOLTage:OFFSet, VOLTage:HIGH, VOLTage:LOW"
@@ -90,7 +90,7 @@ cases:
         expect: "+3.000000000000000E+00"
       - send: "VOLT 21"  # 测试台的负载设定为高阻：上限 20 Vpp
       - query: "SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
 
   - name: "VOLTage:UNIT 换算幅度，输出不变"
     manual: "VOLTage Subsystem > VOLTage:UNIT"
@@ -98,12 +98,13 @@ cases:
       - send: "VOLT 2"
       - send: "VOLT:UNIT VRMS"
       - query: "VOLT?"
-        expect_match: '^\+7\.0710678118\d{5}E-01$'
+        expect_fields: [{value: 0.707106781185, tolerance: 5.1e-12, format: "+d.dddddddddddddddE-dd"}]
       - send: "VOLT:UNIT DBM"
       - query: "VOLT:UNIT?"
         expect: "DBM"
       - query: "VOLT?"
-        expect_match: '^\+(1\.0000000000\d{5}E\+01|9\.9999999999\d{5}E\+00)$'  # 2 Vpp 进 50 Ω = 10 dBm
+        expect_fields:  # 2 Vpp 进 50 Ω = 10 dBm
+          - {value: 10.0, tolerance: 1.0e-10, format: "+d.dddddddddddddddE+dd"}
 
   - name: "方波占空比、斜波对称度与脉冲占空比"
     manual: "FUNCtion Subsystem > FUNCtion:SQUare:DCYCle, FUNCtion:RAMP:SYMMetry, FUNCtion:PULSe:DCYCle"
@@ -154,24 +155,24 @@ cases:
       - send: "FUNC PULS;:FREQ 1E3"
       - send: "FUNC:PULS:PER 0"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - send: "FUNC:PULS:PER -1"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - query: "FREQ?"
         expect: "+1.000000000000000E+03"
       - query: "FUNC:PULS:WIDT?"
         expect: "+1.000000000000000E-04"
       - send: "FUNC:PULS:WIDT 0"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - query: "FUNC:PULS:WIDT?"
         expect: "+1.000000000000000E-04"
       - query: "FUNC:PULS:TRAN?"
         expect: "+1.000000000000000E-08"
       - send: "FUNC:PULS:TRAN 0"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - query: "FUNC:PULS:TRAN?"
         expect: "+1.000000000000000E-08"
 
@@ -181,10 +182,10 @@ cases:
       - send: "FUNC PULS"
       - send: "FUNC:PULS:WIDT 2"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - send: "FUNC:PULS:WIDT abc"
       - query: ":SYST:ERR?"
-        expect_match: '^-104,.*'
+        expect_prefix: "-104,"
 
   - name: "PRBS 序列与比特率"
     manual: "FUNCtion Subsystem > FUNCtion:PRBS:DATA, FUNCtion:PRBS:BRATe"
@@ -197,7 +198,7 @@ cases:
         expect: "+2.000000000000000E+06"
       - send: "FUNC:PRBS:DATA PN23"
       - query: "SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "任意波：DATA:ARBitrary 装载、FUNCtion:ARBitrary 选择、采样率与点数"
     manual: "DATA Subsystem > DATA:ARBitrary, DATA:VOLatile:CATalog?; FUNCtion:ARBitrary, FUNCtion:ARBitrary:SRATe, FUNCtion:ARBitrary:POINts?"
@@ -228,13 +229,13 @@ cases:
         expect: '"steps"'
       - send: "DATA:ARB short,0,1,0"
       - query: "SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - send: "DATA:VOL:CLE"
       - query: "DATA:VOL:CAT?"
         expect: '""'
       - send: "FUNC:ARB steps"
       - query: "SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "OUTPut、负载与极性"
     manual: "OUTPut Subsystem > OUTPut, OUTPut:LOAD, OUTPut:POLarity"

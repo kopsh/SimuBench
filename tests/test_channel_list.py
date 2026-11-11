@@ -16,6 +16,7 @@ from collections.abc import Callable
 import pytest
 from pydantic import ValidationError
 
+from helpers import raises_with
 from simubench.engine.session import Session
 from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
@@ -317,7 +318,7 @@ def test_the_declared_numbering_flow():
 
 def test_numbering_must_cover_every_channel():
     data = dict(DAQ, channels={"count": 4, "numbering": [{"first": 101, "count": 2}]})
-    with pytest.raises(ValidationError, match=r"covers 2 channels but channels\.count is 4"):
+    with raises_with(ValidationError, "covers 2 channels but channels.count is 4"):
         InstrumentDefinition.model_validate(data)
 
 
@@ -326,7 +327,7 @@ def test_numbering_must_not_repeat_a_channel_number():
         DAQ,
         channels={"count": 4, "numbering": [{"first": 101, "count": 2}, {"first": 102, "count": 2}]},
     )
-    with pytest.raises(ValidationError, match="repeats channel numbers"):
+    with raises_with(ValidationError, "repeats channel numbers"):
         InstrumentDefinition.model_validate(data)
 
 

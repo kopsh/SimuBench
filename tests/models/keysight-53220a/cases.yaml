@@ -88,9 +88,9 @@ cases:
     manual: "Preparation for Use > Utility Functions > Reference settings / User interaction；Chapter 3 Setting the Measurement Time Out"
     steps:
       - query: ":SYSTem:DATE?"
-        expect_match: '^\d{4},\d{2},\d{2}$'
+        expect_format: "dddd,dd,dd"
       - query: ":SYSTem:TIME?"
-        expect_match: '^\d{2},\d{2},\d{2}\.\d{3}$'
+        expect_format: "dd,dd,dd.ddd"
       - send: ":SYST:TIMeout 2"
       - query: ":SYST:TIMeout?"
         expect: "+2.00000000000000E+000"
@@ -283,7 +283,7 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: ":FETC?"
-        expect_match: '^\+\S+(,\+\S+){5}$'
+        expect_fields: [{prefix: "+", format: "nr3", count: 6}]
       - send: ":TRIG:SOUR IMM;:TRIG:COUN 1;:SAMP:COUN 1"
 
   - name: "总线触发：TRIGger:SOURce BUS 下 *TRG 取一次读数"

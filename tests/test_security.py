@@ -1,6 +1,5 @@
 """Security self-check of the local service (docs/security.md): every guard, tested systematically."""
 
-import re
 from pathlib import Path
 
 import pytest
@@ -31,7 +30,13 @@ def api_routes(app):
     for path, ops in app.openapi()["paths"].items():
         if path.startswith("/api/") and path not in PUBLIC:
             for method in ops:
-                yield method.upper(), re.sub(r"\{[^}]+\}", "x", path)
+                yield (
+                    method.upper(),
+                    "/".join(
+                        "x" if part.startswith("{") and part.endswith("}") else part
+                        for part in path.split("/")
+                    ),
+                )
 
 
 def test_every_api_route_needs_the_token(app):

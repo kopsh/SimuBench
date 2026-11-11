@@ -24,7 +24,7 @@ import pytest
 import pyvisa
 import yaml
 
-from helpers import load_script
+from helpers import load_script, raises_with
 from simubench.api import open_bench
 from simubench.engine.commands import classify
 from simubench.library.loader import DefinitionLibrary, load_yaml
@@ -243,7 +243,7 @@ def test_memory_size_suffixes(rig, text, points):
 def test_ignore_is_refused_on_real_models():
     data = load_yaml((ROOT / "src/simubench/library/instruments/siglent-sdg2042x.yaml").read_text("utf-8"))
     data["unknown_commands"] = "ignore"
-    with pytest.raises(ValueError, match="unknown_commands"):
+    with raises_with(ValueError, "unknown_commands"):
         InstrumentDefinition.model_validate(data)
 
 

@@ -148,7 +148,7 @@ cases:
         expect: "+4.000000E+00"
       - send: ":SOUR:CURR 45"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "CV/CR/CP 设定值与量程的 MIN/MAX/DEF"
     manual: >-
@@ -401,7 +401,7 @@ cases:
     steps:
       - send: ":SOUR:LIST:MODE CC"
       - query: ":SYST:ERR?"
-        expect_match: '^-113,"Undefined header;not implemented in this definition".*'
+        expect_prefix: "-113,\"Undefined header;not implemented in this definition\""
       - send: ":SOUR:FUNC:MODE LIST"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"

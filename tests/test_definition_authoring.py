@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from helpers import raises_with
 from simubench.engine.jsonpatch import PatchError, PatchOp, apply
 from simubench.engine.scriptscan import _guess, draft_definition
 from simubench.engine.validate_definition import validate_definition_data
@@ -44,7 +45,7 @@ def test_json_patch_operations():
     ],
 )
 def test_json_patch_errors_change_nothing(op, message):
-    with pytest.raises(PatchError, match=message):
+    with raises_with(PatchError, message):
         apply({"a": [1]}, ops({"op": "add", "path": "/b", "value": 1}, op))
 
 
@@ -89,6 +90,6 @@ def test_a_draft_extends_a_base_definition_with_what_it_lacks():
 
 def test_a_script_with_several_instruments_needs_a_receiver():
     two = SCRIPT + 'dmm = rm.open_resource("GPIB0::22::INSTR")\ndmm.write("RANGE 10")\n'
-    with pytest.raises(ValueError, match="receiver"):
+    with raises_with(ValueError, "receiver"):
         draft_definition(two, "x")
     assert draft_definition(two, "x", receiver="dmm")["drafted"][0]["header"] == ":RANGE"

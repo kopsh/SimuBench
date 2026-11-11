@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import pytest
 
+from helpers import raises_with
 from simubench.library.components import ranging
 
 pytestmark = pytest.mark.unit
@@ -17,7 +18,7 @@ def test_a_function_the_dict_does_not_name_depends_on_the_policy():
     message unchanged)."""
     spec = {"VOLT": [0.1, 1.0]}
     assert ranging.ranges_of(spec, "CURR") == []
-    with pytest.raises(ValueError, match="dmm/acq: ranges have no entry for the CURR function"):
+    with raises_with(ValueError, "dmm/acq: ranges have no entry for the CURR function"):
         ranging.ranges_of(spec, "CURR", missing="error", owner="dmm/acq")
     assert ranging.ranges_of(None, "VOLT") == []
     assert ranging.ranges_of([1.0, 0.1], "VOLT") == [0.1, 1.0]

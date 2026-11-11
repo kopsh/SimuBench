@@ -279,7 +279,7 @@ cases:
     manual: ": (Root Level) Commands > :ATER?; :ADER?; :TERegister? (the autotrigger does not set this register); :ASTate?"
     steps:
       - query: ":MEASure:VPP? CHANnel1"
-        expect_match: '^\+\d\.\d{5}E-0\d$'
+        expect_format: "+d.dddddE-0d"
       - query: ":ASTate?"
         expect: "ATRIG"
       - query: ":ATER?"
@@ -327,18 +327,18 @@ cases:
         expect: "1"
       - send: ":CHANnel1:SCALe 0.1;:DIGitize CHANnel1"
       - query: "*STB?"
-        expect_match: "^(129|128|193|192|161|160|225|224)$"
+        expect_fields: [{one_of: ["129", "128", "193", "192", "161", "160", "225", "224"]}]
       - query: ":OPERegister?"
         expect: "3"
       - query: ":OPERegister?"
         expect: "0"
       - send: ":CHANnel1:SCALe 1;:RUN"
       - query: ":MEASure:VPP? CHANnel1"
-        expect_match: '^\+\d\.\d{5}E-0\d$'
+        expect_format: "+d.dddddE-0d"
       # 位 11 AUTO TRIG（位 5 WAIT TRIG 视触发而定）；ACQ DONE 与 PROC DONE 随 :ADER?、:PDER? 未读而保持，
       # 不再上升，不再置位
       - query: ":OPERegister?"
-        expect_match: "^(2048|2080)$"
+        expect_fields: [{one_of: ["2048", "2080"]}]
   - name: "波形传输设置：信源、格式（默认 ASCii）、字节序、流式传输"
     manual: ":WAVeform Commands > :WAVeform:SOURce; :WAVeform:FORMat; :WAVeform:BYTeorder; :WAVeform:STReaming"
     steps:
@@ -363,7 +363,31 @@ cases:
     steps:
       - send: ":CHANnel1:SCALe 0.1;:ACQuire:POINts 1000;:WAVeform:FORMat WORD;:DIGitize CHANnel1"
       - query: ":WAVeform:PREamble?"
-        expect_match: '^2,1,1000,1,1\.000000E-09,-(5\.000000|4\.99[0-9]{4})E-07,0,1\.220703E-05,0\.000000E\+00,0,2,1\.000000E-06,-(5\.000000|4\.99[0-9]{4})E-07,8\.000000E-01,0\.000000E\+00,"01 JAN 2024","00:00:00:00","UXR0334B:MY64280101",0,100,2,1,3\.300000E\+10,0\.000000E\+00$'
+        expect_fields:
+          - "2"
+          - "1"
+          - "1000"
+          - "1"
+          - "1.000000E-09"
+          - {value: -4.995e-07, tolerance: 5.0e-10, format: "-d.ddddddE-dd"}
+          - "0"
+          - "1.220703E-05"
+          - "0.000000E+00"
+          - "0"
+          - "2"
+          - "1.000000E-06"
+          - {value: -4.995e-07, tolerance: 5.0e-10, format: "-d.ddddddE-dd"}
+          - "8.000000E-01"
+          - "0.000000E+00"
+          - "\"01 JAN 2024\""
+          - "\"00:00:00:00\""
+          - "\"UXR0334B:MY64280101\""
+          - "0"
+          - "100"
+          - "2"
+          - "1"
+          - "3.300000E+10"
+          - "0.000000E+00"
   - name: "前导的单项查询"
     manual: ":WAVeform Commands > :WAVeform:POINts?; :XINCrement?; :XORigin?; :XREFerence?; :YINCrement?; :YORigin?; :YREFerence?"
     steps:
@@ -390,20 +414,20 @@ cases:
       - send: ":CHANnel1:SCALe 0.1;:ACQuire:POINts 1000;:WAVeform:FORMat BYTE;:DIGitize CHANnel1"
       - query: ":WAVeform:DATA?"
         binary: true
-        expect_match: '^#41000[\s\S]{1000}\n?$'
+        expect_block: {header: "#41000", bytes: 1000}
   - name: ":WAVeform:DATA? 流式传输为 #0 不定长块"
     manual: ":WAVeform Commands > :WAVeform:DATA? (Streaming On); :WAVeform:STReaming"
     steps:
       - send: ":CHANnel1:SCALe 0.1;:ACQuire:POINts 1000;:WAVeform:FORMat WORD;:WAVeform:STReaming ON;:DIGitize CHANnel1"
       - query: ":WAVeform:DATA?"
         binary: true
-        expect_match: '^#0[\s\S]{2000}\n?$'
+        expect_block: {indefinite: true, bytes: 2000}
   - name: ":WAVeform:DATA? 的 ASCii 数据不带块头"
     manual: ":WAVeform Commands > :WAVeform:DATA?; :WAVeform:FORMat (ASCii)"
     steps:
       - send: ":CHANnel1:SCALe 0.1;:ACQuire:POINts 1000;:WAVeform:FORMat ASCii;:DIGitize CHANnel1"
       - query: ":WAVeform:DATA?"
-        expect_match: '^-?\d\.\d{4}E[+-]\d\d(,-?\d\.\d{4}E[+-]\d\d){999}$'
+        expect_fields: [{format: "~d.ddddE±dd"}, {format: "~d.ddddE±dd", count: 999}]
   - name: "自动测量：峰峰值、最大最小、幅度、顶底（10 MHz、400 mVpp 正弦）"
     manual: ":MEASure Commands > :MEASure:VPP; :VMAX; :VMIN; :VAMPlitude; :VTOP; :VBASe"
     steps:
@@ -521,13 +545,13 @@ cases:
         expect_value: 50.0
         tolerance: 2.0
       - query: ":MEASure:RISetime? CHANnel2"
-        expect_match: '^\+\d\.\d{5}E-(08|09|10)$'
+        expect_fields: [{value: 5.0e-08, tolerance: 5.0e-08, format: "+d.dddddE-dd"}]
       - query: ":MEASure:FALLtime? CHANnel2"
-        expect_match: '^\+\d\.\d{5}E-(08|09|10)$'
+        expect_fields: [{value: 5.0e-08, tolerance: 5.0e-08, format: "+d.dddddE-dd"}]
       - query: ":MEASure:OVERshoot? CHANnel2"
-        expect_match: '^[+-]\d\.\d{5}E[+-]\d\d$'
+        expect_format: "±d.dddddE±dd"
       - query: ":MEASure:PREShoot? CHANnel2"
-        expect_match: '^[+-]\d\.\d{5}E[+-]\d\d$'
+        expect_format: "±d.dddddE±dd"
   - name: "测量信源：默认信源与两个信源"
     manual: ":MEASure Commands > :MEASure:SOURce"
     steps:
@@ -614,7 +638,7 @@ cases:
       - query: "*TST?"
         expect: "0"
       - query: "*STB?"
-        expect_match: "^\\d+$"
+        expect_format: "unsigned"
   - name: "未实现的命令回 -113"
     manual: "Error Messages > -113 Undefined header"
     steps:

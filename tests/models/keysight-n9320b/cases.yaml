@@ -51,9 +51,9 @@ cases:
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'
       - query: ":SYST:DATE?"
-        expect_match: '^\d{4},\d{2},\d{2}$'
+        expect_format: "dddd,dd,dd"
       - query: ":SYST:TIME?"
-        expect_match: '^\d{2},\d{2},\d{2}\.\d{3}$'
+        expect_format: "dd,dd,dd.ddd"
 
   - name: "频率：中心/跨度/起止，窗口滑动；跨度 0 报 -222"
     manual: "SENSe Subsystem > [:SENSe]:FREQuency:CENTer / SPAN / STARt / STOP"
@@ -271,7 +271,7 @@ cases:
         expect: '-224,"Illegal parameter value"'
       - send: "*CLS"
       - query: ":TRAC:DATA? TRACE1"
-        expect_match: '^(?:[+-]\d\.\d{16}E[+-]\d{3},){1000}[+-]\d\.\d{16}E[+-]\d{3}$'
+        expect_fields: [{format: "±d.ddddddddddddddddE±ddd", count: 1000}, {format: "±d.ddddddddddddddddE±ddd"}]
 
   - name: "标记：峰值搜索、频率与电平、频率计数器、门限与偏移、下一个峰"
     manual: "CALCulate Subsystem > CALCulate:MARKer > MAXimum / MAXimum:NEXT / X / Y / FCOunt:X / PEAK:THReshold / PEAK:EXCursion"
@@ -443,17 +443,17 @@ cases:
         expect_value: 1.0e6
         tolerance: 1.0e4
       - query: ":CALC:MARK:Y?"
-        expect_match: '^-[0-9]\.[0-9]{16}E\+00[12]$'
+        expect_fields: [{format: "-d.ddddddddddddddddE+ddd", min: -1000.0, max: -10.0}]
       - send: ":CALC:MARK:MAX:LEFT"
       - query: ":CALC:MARK:X:DELT?"
         expect_value: 0.0
         tolerance: 1.0e4
       - send: ":CALC:MARK:MAX:RIGH"
       - query: ":SYST:ERR?"
-        expect_match: '^-200,.*'
+        expect_prefix: "-200,"
       - send: ":CALC:MARK:MIN"
       - query: ":CALC:MARK:Y?"
-        expect_match: '^-[0-9]\.[0-9]{16}E\+00[12]$'
+        expect_fields: [{format: "-d.ddddddddddddddddE+ddd", min: -1000.0, max: -10.0}]
       - send: ":CALC:MARK:PEAK:SEAR:MODE MAX"
       - query: ":CALC:MARK:PEAK:SEAR:MODE?"
         expect: "MAX"

@@ -90,9 +90,9 @@ cases:
     manual: "Preparation for Use > Utility Functions > Reference settings / User interaction；Chapter 3 Setting the Measurement Time Out"
     steps:
       - query: ":SYSTem:DATE?"
-        expect_match: '^\d{4},\d{2},\d{2}$'
+        expect_format: "dddd,dd,dd"
       - query: ":SYSTem:TIME?"
-        expect_match: '^\d{2},\d{2},\d{2}\.\d{3}$'
+        expect_format: "dd,dd,dd.ddd"
       - send: ":SYST:TIMeout 2"
       - query: ":SYST:TIMeout?"
         expect: "+2.00000000000000E+000"
@@ -285,7 +285,7 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: ":FETC?"
-        expect_match: '^\+\S+(,\+\S+){5}$'
+        expect_fields: [{prefix: "+", format: "nr3", count: 6}]
       - send: ":TRIG:SOUR IMM;:TRIG:COUN 1;:SAMP:COUN 1"
 
   - name: "总线触发：TRIGger:SOURce BUS 下 *TRG 取一次读数"
@@ -471,12 +471,16 @@ cases:
       - send: ":INIT"
       - query: ":FETC?"
         # 五个读数都在 1 kHz 的 1 ppm 内（20 ps 单次分辨率、10 ms 门）：+1.00000…E+003 或 +9.99999…E+002
-        expect_match: '^((\+1\.0{5}\d{9}E\+003|\+9\.9{5}\d{9}E\+002),){4}(\+1\.0{5}\d{9}E\+003|\+9\.9{5}\d{9}E\+002)$'
+        expect_fields:
+          - {value: 1000.0, tolerance: 1.0e-3, format: "+d.ddddddddddddddE+ddd", count: 4}
+          - {value: 1000.0, tolerance: 1.0e-3, format: "+d.ddddddddddddddE+ddd"}
       - send: ":CONF:PER 1E-3,1E-12,(@1)"
       - send: ":SAMP:COUN 2"
       - send: ":SENS:FREQ:GATE:TIME 0.01"
       - query: ":READ?"
-        expect_match: '^\+(1\.0{3}|9\.9{3})\d{11}E-00[34],\+(1\.0{3}|9\.9{3})\d{11}E-00[34]$'
+        expect_values: [1.0e-3, 1.0e-3]
+        tolerance: 1.0e-6
+        format: "+d.ddddddddddddddE-ddd"
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'
 
@@ -488,8 +492,8 @@ cases:
         expect: "+1.00000000000000E+006"
       # 1 kHz 低于 1 MHz 速率：比例因子 1，四个间隔都是 1 ms（20 ps 单次分辨率内）
       - query: ":READ?"
-        expect_match: '^\+1\.0{14}E\+000(,\+(1\.0{6}|9\.9{6})\d{8}E-00[34]){4}$'
+        expect_fields: ["+1.00000000000000E+000", {value: 1.0e-3, tolerance: 1.0e-9, format: "+d.ddddddddddddddE-ddd", count: 4}]
       - query: ":MEAS:ARR:TST? (2),(@2)"
-        expect_match: '^\+1\.0{14}E\+000(,\+(1\.0{6}|9\.9{6})\d{8}E-00[34]){2}$'
+        expect_fields: ["+1.00000000000000E+000", {value: 1.0e-3, tolerance: 1.0e-9, format: "+d.ddddddddddddddE-ddd", count: 2}]
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'

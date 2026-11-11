@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
+from helpers import raises_with
 from simubench.engine.session import Session
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.models.bench import BenchDefinition
@@ -192,7 +193,7 @@ def test_a_ratio_is_read_as_written():
 def test_the_retired_ratio_flag_is_refused_with_a_way_out():
     data = copy.deepcopy(DEMO)
     data["channel_state"]["duty"]["ratio"] = True
-    with pytest.raises(ValidationError, match="duty_unit"):
+    with raises_with(ValidationError, "duty_unit"):
         InstrumentDefinition.model_validate(data)
 
 
@@ -265,15 +266,15 @@ def test_amplitude_units_of_the_function_generator():
 
 
 def test_a_command_is_a_setting_an_operation_or_bound_parameters():
-    with pytest.raises(ValidationError, match="give one of state, op"):
+    with raises_with(ValidationError, "give one of state, op"):
         InstrumentDefinition.model_validate({**DEMO, "commands": [{"header": "X"}]})
     mixed = {
         "header": "X",
         "params": [{"name": "a", "type": "int", "state": "memory.size"}, {"name": "b", "type": "int"}],
     }
-    with pytest.raises(ValidationError, match="every parameter"):
+    with raises_with(ValidationError, "every parameter"):
         InstrumentDefinition.model_validate({**DEMO, "commands": [mixed]})
-    with pytest.raises(ValidationError, match="keys go with type pairs"):
+    with raises_with(ValidationError, "keys go with type pairs"):
         InstrumentDefinition.model_validate(
             {**DEMO, "commands": [{"header": "X", "params": [{"name": "a", "type": "pairs"}]}]}
         )
@@ -437,7 +438,7 @@ def test_static_checks_of_index_states_when_and_reply_fields():
             ("E-DEF-REPLY", f"/commands/{len(bad['commands']) - 1}/reply"),
         ]
     )
-    with pytest.raises(ValidationError, match="when names"):
+    with raises_with(ValidationError, "when names"):
         InstrumentDefinition.model_validate(
             {**DEMO, "commands": [{"header": "X", "op": "a.b", "when": {"y": "1"}}]}
         )
@@ -514,7 +515,7 @@ def test_an_enum_answers_its_reply_word():
     write("C2:WAV SIN")
     assert query("C2:WAV?") == "C2:WAV SIN"  # an option not listed answers as usual
     data["channel_state"]["wave"]["replies"] = {"NOPE": "N"}
-    with pytest.raises(ValidationError, match="replies"):
+    with raises_with(ValidationError, "replies"):
         InstrumentDefinition.model_validate(data)
 
 
@@ -534,7 +535,7 @@ def test_an_enum_list_keeps_the_options_order():
     write("FORM:ELEM CURR,POWer")
     assert error(query).startswith("-224")
     assert query("FORM:ELEM?") == "FORM:ELEM VOLT,TIME"
-    with pytest.raises(ValidationError, match="options"):
+    with raises_with(ValidationError, "options"):
         InstrumentDefinition.model_validate(
             {**data, "state": {**data["state"], "bad": {"type": "enum_list", "default": []}}}
         )
@@ -566,5 +567,5 @@ def test_a_keyword_constant_must_fit_its_setting():
 def test_writes_needs_parameters_that_write_settings():
     data = copy.deepcopy(DEMO)
     data["commands"].append({"header": "NOPE", "state": "timebase.scale", "writes": {"comm.header": "OFF"}})
-    with pytest.raises(ValidationError, match="writes"):
+    with raises_with(ValidationError, "writes"):
         InstrumentDefinition.model_validate(data)

@@ -351,9 +351,13 @@ cases:
         expect: "1"
       - send: "*TRG"
       - query: ":FETCh?"
-        expect_match: '^\+2\.0000[0-1]\d{4}E\+00,\+2\.0000[0-1]\d{4}E\+00$'  # ±2e-5 ≈ 6σ 前端噪声（#744）
+        expect_fields:  # ±2e-5 ≈ 6σ 前端噪声（#744）
+          - {value: 2.00001, tolerance: 1.0e-05, format: "+d.dddddddddE+dd"}
+          - {value: 2.00001, tolerance: 1.0e-05, format: "+d.dddddddddE+dd"}
       - query: ":FETC? 1"
-        expect_match: '^\+2\.0000[0-1]\d{4}E\+00,\+2\.0000[0-1]\d{4}E\+00$'  # ±2e-5 ≈ 6σ 前端噪声（#744）
+        expect_fields:  # ±2e-5 ≈ 6σ 前端噪声（#744）
+          - {value: 2.00001, tolerance: 1.0e-05, format: "+d.dddddddddE+dd"}
+          - {value: 2.00001, tolerance: 1.0e-05, format: "+d.dddddddddE+dd"}
       - send: ":FETC? 2"
       - query: ":SYST:ERR?"
         expect: '-222,"Data out of range"'

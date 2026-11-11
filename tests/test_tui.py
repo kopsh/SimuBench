@@ -12,7 +12,6 @@ Windows-safe: sockets and threads only, no signals or fork.
 from __future__ import annotations
 
 import asyncio
-import re
 import socket
 import threading
 import time
@@ -257,7 +256,8 @@ async def test_socket_client_updates_cards_and_log_with_script_source(served):
         else:
             raise AssertionError("the script's command never appeared in the log")
         line = next(ln for ln in tui.lines if ":CHAN1:SCAL" in ln.command)
-        assert re.fullmatch(r"Script :\d+", line.source), line.source
+        port = line.source.removeprefix("Script :")
+        assert line.source == f"Script :{port}" and port.isdigit(), line.source
         assert line.result_text().startswith("→")
         # The card reflects the new scale (the startup setting was 50.0 mV/div, now 200 mV/div).
         from simubench.tui.screens.overview import Card

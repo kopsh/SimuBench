@@ -5,6 +5,7 @@ Real time is injected (``time.monotonic_ns`` is replaced), so no test waits."""
 import pytest
 import yaml
 
+from helpers import raises_with
 from simubench.api import open_bench
 
 BENCH = {
@@ -76,20 +77,20 @@ def test_the_wall_clock_is_a_scale_of_one(tmp_path, wall):
 
 def test_a_scaled_clock_cannot_be_advanced_by_hand(tmp_path, wall):
     s = session(tmp_path, wall, clock="scaled", time_scale=2)
-    with pytest.raises(RuntimeError, match="scaled clock"):
+    with raises_with(RuntimeError, "scaled clock"):
         s.advance(1.0)
 
 
 def test_only_a_scaled_clock_takes_a_new_scale(tmp_path, wall):
     s = session(tmp_path, wall, clock="stepped")
-    with pytest.raises(RuntimeError, match="scaled"):
+    with raises_with(RuntimeError, "scaled"):
         s.set_time_scale(5)
 
 
 @pytest.mark.parametrize("bad", [0, -1, float("nan"), 2e6])
 def test_a_scale_outside_the_range_is_refused(tmp_path, wall, bad):
     s = session(tmp_path, wall, clock="scaled", time_scale=2)
-    with pytest.raises(ValueError, match="time scale"):
+    with raises_with(ValueError, "time scale"):
         s.set_time_scale(bad)
 
 

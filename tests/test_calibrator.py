@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from helpers import session_query
+from helpers import raises_with, session_query
 from simubench.api import open_bench
 from simubench.engine.component import component_types
 from simubench.engine.validate_definition import validate_definition_data
@@ -544,15 +544,15 @@ def test_read_and_set_value_go_with_their_command_kinds():
     data = load_def()
     local = next(c for c in data["commands"] if c["header"] == "LOCAL")
     local["read"] = "interface"
-    with pytest.raises(ValueError, match="read"):
+    with raises_with(ValueError, "read"):
         InstrumentDefinition.model_validate(data)
     data = load_def()
     oper = next(c for c in data["commands"] if c["header"] == "OPER")
     oper["set_value"] = "x"
-    with pytest.raises(ValueError, match="set_value"):
+    with raises_with(ValueError, "set_value"):
         InstrumentDefinition.model_validate(data)
     data = load_def()
     out = next(c for c in data["commands"] if c["header"] == "OUT")
     out["set_value"] = "V"
-    with pytest.raises(ValueError, match="set_value"):
+    with raises_with(ValueError, "set_value"):
         InstrumentDefinition.model_validate(data)

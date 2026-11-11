@@ -79,6 +79,13 @@ Full pytest must stay < 60 s; if it is over, fix it in the same task (`pytest --
   walks a manual flow with step-named asserts; merge adjacent small tests of the same flow
   instead of re-opening the bench per test. Assertions are never dropped in a merge.
 - Server fixtures must be `module`/`session` scoped (function scope is rejected by the script).
+- No regular expressions in tests (D49, #926; `check_test_rules.py` and the web lint reject them):
+  parse a value and compare it with the expected value ± a tolerance taken from the model (k·σ
+  of its noise, read from the definition), compare text by substring or equality. Python:
+  `helpers.reading_of` / `Near` (a screen reading), `printed_quantities` (a script's printed
+  line), `raises_with(Error, "part")` instead of `pytest.raises(match=)`, `ast` for source scans.
+  Web e2e: `web/e2e/judge.ts` (`expectNear`, `quantity`, `openButton`, `isSession`, …);
+  Playwright's string `name` / `getByText` already match a substring.
 - Shared test skeletons — example-script loading, example-bench script runs, session queries,
   golden-table runners, the MCP tool-result unwrap — live in `tests/helpers.py` (TUI mocks and
   pilot helpers: `tests/tui_mock.py`); don't copy them into new test files (#698, #699, #700).

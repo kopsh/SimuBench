@@ -18,22 +18,26 @@ cases:
       - send: "FORMat REAL,32"
       - query: "CHANnel1:DATA?"
         binary: true
-        expect_match: '#520000.{20000}\n'
+        expect_block: {header: "#520000", bytes: 20000, end: "\n"}
   - name: "点数模式：10000 点的记录取 1000 点，前导给出起止时间与点数"
     steps:
       - send: "CHANnel1:DATA:POINts 1000"
       # 起止时间带触发落在两个采样之间的小数（G5），在 ±0.5 ms 之后一个采样（0.1 µs）以内。
       - query: "CHANnel1:DATA:HEADer?"
-        expect_match: '-(5\.000000e-04|4\.99\d{4}e-04),(5\.000000e-04|5\.00\d{4}e-04),1000,1'
+        expect_fields:
+          - {value: -0.0004995, tolerance: 5.0e-07, format: "-d.dddddde-dd"}
+          - {value: 0.0005005, tolerance: 5.0e-07, format: "d.dddddde-dd"}
+          - "1000"
+          - "1"
       - send: "FORMat REAL,32"
       - query: "CHANnel1:DATA?"
         binary: true
-        expect_match: '#44000.{4000}\n'
+        expect_block: {header: "#44000", bytes: 4000, end: "\n"}
   - name: "ASCII 列表：逗号分隔的伏特数"
     steps:
       - send: "CHANnel1:DATA:POINts 10"
       - query: "CHANnel1:DATA?"
-        expect_match: '^([+-]\d\.\d{6}E[+-]\d\d,){9}[+-]\d\.\d{6}E[+-]\d\d$'
+        expect_fields: [{format: "±d.ddddddE±dd", count: 9}, {format: "±d.ddddddE±dd"}]
   - name: "幅度按直方图的顶值与底值"
     steps:
       - send: "TIMebase:SCALe 1E-3"

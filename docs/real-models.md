@@ -49,10 +49,22 @@
   steps:
     - send: ":SENS:VOLT:DC:NPLC 1000"
     - query: ":SYST:ERR?"
-      expect_match: '^-222,"Data out of range'
+      expect_prefix: '-222,"Data out of range'
 ```
 
-一个通用的测试读取所有用例文件，逐条运行（与 `simubench cases` 同一个运行器，`library/coverage.py`）。预期可以是精确字符串（`expect`）、正则（`expect_match`）、数值与容差（`expect_value` + `tolerance`），或多值数值与容差（`expect_values` + `tolerance`，回复按逗号切分逐元素比较——带噪读数列表用这个，不再手写按位数的正则包络，#836）。用例应覆盖覆盖表中每条“实现”和“接受”的命令；带 `reference` 的定义每条用例都要写 `manual`（覆盖检查报告缺少的）。
+一个通用的测试读取所有用例文件，逐条运行（与 `simubench cases` 同一个运行器，`library/coverage.py`）。预期写它的含义，不写正则（D49、#926；`library/expectations.py`），每个查询步骤只给一个：
+
+| 键 | 判断 |
+|---|---|
+| `expect` | 回复与它完全相同 |
+| `expect_prefix` | 回复以它开头：错误码与消息的开头（`'-222,"Data out of range'`） |
+| `expect_value` + `tolerance` | 回复是一个数，在期望值 ± 容差内 |
+| `expect_values` + `tolerance` | 回复按逗号切分，逐个数比较（#836）；`tolerance` 可以是一个数，也可以每个值一个（各点在各自量程的 4σ 内） |
+| `expect_fields` | 回复切成字段（默认按逗号；`{separator, prefix, suffix, fields}` 写别的分隔与首尾），每个字段：字符串 = 原样相同，数 = 期望值 ± 步骤的 `tolerance`，映射 = `value`/`tolerance`、`min`/`max`、`unit`（数后的单位 `2.05E+0 V`）、`prefix`/`suffix`（数前后的文字，`"VOLT +1.0E+01`）、`format`、`one_of`、`contains`、`length`、`nonempty`，`count: N` 表示连续 N 个同样的字段 |
+| `expect_format` | 整个回复的写法 |
+| `expect_block` | IEEE 488.2 块：`header`（`#800001000`）、`bytes`、`indefinite`（`#0` 块）、`starts`/`contains`、`fields`（块内是 ASCII 数时）、`end`（块后的结束符，默认 `""` 或 `"\n"`） |
+
+**写法**（`format`、`expect_format`）只在手册规定了写法时才写：命名格式 `unsigned`（只有数字）、`integer`/`nr1`（可带符号）、`nr2`、`nr3`、`number`，或图样——`d` 一位数字，`±` 必须有的符号，`~` 可有可无的符号，其他字符照原样（`±d.ddddddddE±dd`、`dddd,dd,dd`）。`expect_value(s)` 加 `format` 时值与写法都要对。带噪读数写期望值 ± 容差，容差取型号的噪声 σ（`specs` 里的值，几倍 σ 写在注释里），不按显示位数写包络：位数随量级变化，包络会放过错误的量级、拦住正确的读数（#924、#926）。旧的 `expect_match`（正则）不再接受，载入时报错并指出该用哪一种。用例应覆盖覆盖表中每条“实现”和“接受”的命令；带 `reference` 的定义每条用例都要写 `manual`（覆盖检查报告缺少的）。
 
 同一种文件也用来写**契约用例**：按既有测试程序的接口契约而不是厂商手册编写，`manual` 写契约条目（例如 `examples/lowfreq-cal/cases.yaml`）。步骤可以用 `instrument` 发给测试台中的另一台仪器。运行：
 
@@ -133,7 +145,7 @@ cases:
     steps: [...]
 ```
 
-回复是二进制块（如波形数据）的查询写 `binary: true`：按块头给出的长度读取，`expect` / `expect_match` 作用于按 Latin-1 解码的字节（包括块后的换行）。
+回复是二进制块（如波形数据）的查询写 `binary: true`：按块头给出的长度读取，预期作用于按 Latin-1 解码、不去掉首尾空白的字节（包括块后的换行），通常写 `expect_block`。
 
 每条用例在一个刚上电的测试台上运行，测试报告中单独列出，名称带手册章节。
 

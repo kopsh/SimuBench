@@ -316,9 +316,12 @@ cases:
       # X/Y 承载前端的读数噪声（6 nV/√Hz，#744），逐位钉死按构造脆弱：
       # 包络 ±1e-7 ≈ 15σ（σ = e_n·√ENBW ≈ 6.7e-9），噪声值本身由 SR830 的 XNOISE 用例钉住。
       - query: "TRCA? 1,0,2"
-        expect_match: "\\+6\\.966[0-9]{5}E-01,\\+6\\.966[0-9]{5}E-01,"
+        expect_fields:
+          - {value: 0.69665, tolerance: 5.0e-05, format: "+d.ddddddddE-dd"}
+          - {value: 0.69665, tolerance: 5.0e-05, format: "+d.ddddddddE-dd"}
+          - ""
       - query: "TRCA? 2,2,1"
-        expect_match: "-4\\.595[0-9]{5}E-01,"
+        expect_fields: [{value: -0.45955, tolerance: 5.0e-05, format: "-d.ddddddddE-dd"}, ""]
       - send: "PAUS;TRIG"
       - query: "SPTS?"
         expect: "3"

@@ -30,7 +30,7 @@ async function openBench(page: Page): Promise<string> {
 async function say(page: Page, text: string) {
   const panel = page.getByTestId("assistant-panel");
   await expect(panel.getByRole("button", { name: "停止" })).toHaveCount(0, { timeout: 15_000 });
-  const box = panel.getByRole("textbox", { name: /说说要搭什么测试台/ });
+  const box = panel.getByRole("textbox", { name: "说说要搭什么测试台" });
   await box.fill(text);
   await expect(panel.getByRole("button", { name: "发送" })).toBeEnabled();
   await box.press("Enter");
@@ -71,7 +71,7 @@ test("configure, build with consent to stop, restore, stop, clear, narrow", asyn
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
 
   // restore to before the last turn: the running bench uses the file, so it stops first
-  await panel.getByRole("button", { name: /恢复到上一轮之前/ }).click();
+  await panel.getByRole("button", { name: "恢复到上一轮之前" }).click();
   const plan = page.getByTestId("rollback-plan");
   await expect(plan).toContainText(path);
   await expect(plan).toContainText("需要先停止");
@@ -80,13 +80,13 @@ test("configure, build with consent to stop, restore, stop, clear, narrow", asyn
   await expect(page.getByTestId("bench-stopped")).toBeVisible({ timeout: 15_000 });
   await page.getByRole("button", { name: "启动测试台" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(2);
-  await expect(panel.getByRole("button", { name: /恢复到上一轮之前/ })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "恢复到上一轮之前" })).toHaveCount(0);
 
   // a streaming answer can be stopped
   await say(page, "慢慢讲");
   await expect(panel.getByText("第2句。", { exact: false })).toBeVisible();
   await panel.getByRole("button", { name: "停止" }).click();
-  await expect(panel.getByText(/已停止/)).toBeVisible();
+  await expect(panel.getByText("已停止")).toBeVisible();
 
   // clear the conversation
   await panel.getByRole("button", { name: "清除对话" }).click();
@@ -135,7 +135,7 @@ test("a hand-edited file is listed as lost; cancel sends nothing; confirm restor
 
   // a turn that writes the file
   await say(page, "把函数发生器的标签改成 AI 改的");
-  await expect(panel.getByText(/已把信号源的标签/)).toBeVisible({ timeout: 20_000 });
+  await expect(panel.getByText("已把信号源的标签")).toBeVisible({ timeout: 20_000 });
 
   // the user edits the file by hand afterwards: restoring would lose that
   const sid = page.url().split("/s/")[1]!.split("?")[0]!;
@@ -148,7 +148,7 @@ test("a hand-edited file is listed as lost; cancel sends nothing; confirm restor
   ).toBeTruthy();
 
   // the dialog lists the file and the change that would be lost
-  await panel.getByRole("button", { name: /恢复到上一轮之前/ }).click();
+  await panel.getByRole("button", { name: "恢复到上一轮之前" }).click();
   const plan = page.getByTestId("rollback-plan");
   await expect(plan).toContainText(path);
   await expect(plan).toContainText("在那之后又被改过");
@@ -165,7 +165,7 @@ test("a hand-edited file is listed as lost; cancel sends nothing; confirm restor
   expect(posts).toEqual([]);
 
   // confirm: the consent is in the request body, and the file is as it was before the turn
-  await panel.getByRole("button", { name: /恢复到上一轮之前/ }).click();
+  await panel.getByRole("button", { name: "恢复到上一轮之前" }).click();
   await expect(page.getByTestId("rollback-plan")).toContainText("手改的");
   await page.getByRole("dialog").getByRole("button", { name: "恢复", exact: true }).click();
   await expect(page.getByText("已恢复到上一轮之前").first()).toBeVisible();
@@ -178,7 +178,7 @@ test("a hand-edited file is listed as lost; cancel sends nothing; confirm restor
   const after = (await (await page.request.get(`/api/benches/file?path=${path}`, { headers })).json()) as Doc;
   expect(after.data.instruments.awg.label).toBeUndefined();
   expect(after.data.instruments.awg.model).toBe("sb-awg-2");
-  await expect(panel.getByRole("button", { name: /恢复到上一轮之前/ })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "恢复到上一轮之前" })).toHaveCount(0);
 });
 
 test("going in circles stops the turn in words, and compaction leaves a note", async ({ page }) => {
@@ -190,23 +190,23 @@ test("going in circles stops the turn in words, and compaction leaves a note", a
 
   // the same failing edit again and again: the server stops the turn, the reason is in words
   await say(page, "把 ghost 删掉");
-  const note = panel.getByText(/助手停下了/);
+  const note = panel.getByText("助手停下了");
   await expect(note).toBeVisible({ timeout: 20_000 });
   const reason = (await note.textContent()) ?? "";
   expect(reason).toContain("没有进展");
   expect(reason).not.toContain("{"); // said in words, not a JSON dump
-  await expect(panel.getByRole("button", { name: /恢复到上一轮之前/ })).toHaveCount(0);
+  await expect(panel.getByRole("button", { name: "恢复到上一轮之前" })).toHaveCount(0);
   await say(page, "你好"); // the conversation goes on after a stopped turn
-  await expect(panel.getByText(/我是 SimuBench 助手/)).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText("我是 SimuBench 助手")).toBeVisible({ timeout: 15_000 });
 
   // big tool results over a small configured window: the older ones are compacted, the panel notes it
   await configureLLM(page, { context_tokens: 1000 });
   await openBench(page);
   await openPanel(page);
   await say(page, "看看目录里的仪表");
-  await expect(panel.getByText(/更早的内容已压缩/)).toBeVisible({ timeout: 30_000 });
-  await expect(panel.getByText(/看完了/)).toBeVisible({ timeout: 20_000 });
+  await expect(panel.getByText("更早的内容已压缩")).toBeVisible({ timeout: 30_000 });
+  await expect(panel.getByText("看完了")).toBeVisible({ timeout: 20_000 });
   await say(page, "谢谢"); // the conversation still works on the compacted history
-  await expect(panel.getByText(/你好，/)).toBeVisible({ timeout: 15_000 });
+  await expect(panel.getByText("你好，")).toBeVisible({ timeout: 15_000 });
 });
 

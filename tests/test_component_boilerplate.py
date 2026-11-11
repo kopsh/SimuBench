@@ -18,7 +18,8 @@ The scan below is the guard; the last tests keep it live.
 
 from __future__ import annotations
 
-import re
+import ast
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
 import pytest
@@ -27,69 +28,188 @@ pytestmark = pytest.mark.unit
 
 COMPONENTS = Path(__file__).resolve().parent.parent / "src" / "simubench" / "library" / "components"
 
-#: ``f"ch{self.channel}.`` — building a sibling's registry name by hand instead of ``peer``.
-CHANNEL_NAME = re.compile(r'f"ch\{self\.channel\}')
-#: ``components[str(self.param("x"))]`` and its ``.get`` twin — the KeyError / None accessor pair.
-BRACKET_ACCESSOR = re.compile(r"components\[(?:str\(|self\.param)|components\.get\((?:str\(|self\.param)")
-#: The old three-argument ``on_state`` hook (the engine passes the parameter name first).
-OLD_ON_STATE = re.compile(r"def on_state\(self, path")
-#: ``hasattr(comp, "...")`` — probing a peer's duck interface instead of a declared Protocol
-#: (engine.component: Sampler, Acquisition, TraceSource; issue 630).
-DUCK_PROBE = re.compile(r"\bhasattr\(")
+#: A guard: from the AST nodes of one source, those that pay the tax by hand. The scans read the
+#: syntax tree, so a comment or a string that only mentions a spelling is never an offender.
+Guard = Callable[[list[ast.AST]], Iterator[ast.AST]]
 
 
-def _offenders(pattern: re.Pattern[str]) -> list[str]:
+def _is_self_attr(node: ast.AST, prefix: str) -> bool:
+    return (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "self"
+        and node.attr.startswith(prefix)
+    )
+
+
+def channel_name(nodes: list[ast.AST]) -> Iterator[ast.AST]:
+    """``f"ch{self.channel}.…"`` — building a sibling's registry name by hand instead of ``peer``."""
+    for node in nodes:
+        if (
+            isinstance(node, ast.JoinedStr)
+            and len(node.values) >= 2
+            and isinstance(node.values[0], ast.Constant)
+            and node.values[0].value == "ch"
+            and isinstance(node.values[1], ast.FormattedValue)
+            and _is_self_attr(node.values[1].value, "channel")
+        ):
+            yield node
+
+
+def _by_number(key: ast.AST) -> bool:
+    """``str(...)``, ``self.param(...)`` or ``self.params[...]`` — a registry key computed from a
+    parameter."""
+    if isinstance(key, ast.Subscript):
+        return _is_self_attr(key.value, "param")
+    if not isinstance(key, ast.Call):
+        return False
+    func = key.func
+    return (isinstance(func, ast.Name) and func.id == "str") or _is_self_attr(func, "param")
+
+
+def _is_components(node: ast.AST) -> bool:
+    return (isinstance(node, ast.Attribute) and node.attr == "components") or (
+        isinstance(node, ast.Name) and node.id == "components"
+    )
+
+
+def bracket_accessor(nodes: list[ast.AST]) -> Iterator[ast.AST]:
+    """``components[str(self.param("x"))]`` and its ``.get`` twin — the KeyError / None pair."""
+    for node in nodes:
+        if isinstance(node, ast.Subscript) and _is_components(node.value) and _by_number(node.slice):
+            yield node
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and _is_components(node.func.value)
+            and node.args
+            and _by_number(node.args[0])
+        ):
+            yield node
+
+
+def old_on_state(nodes: list[ast.AST]) -> Iterator[ast.AST]:
+    """The old three-argument ``on_state`` hook (the engine passes the parameter name first)."""
+    for node in nodes:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == "on_state":
+            names = [a.arg for a in node.args.args]
+            if names[:2] == ["self", "path"]:
+                yield node
+
+
+def private_flag(nodes: list[ast.AST]) -> Iterator[ast.AST]:
+    """A private ``_flag`` parser instead of ``V.flag``."""
+    for node in nodes:
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef) and node.name == "_flag":
+            yield node
+
+
+def duck_probe(nodes: list[ast.AST]) -> Iterator[ast.AST]:
+    """``hasattr(comp, "...")`` — probing a peer's duck interface instead of a declared Protocol
+    (engine.component: Sampler, Acquisition, TraceSource; issue 630)."""
+    for node in nodes:
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "hasattr":
+            yield node
+
+
+def _lines_of(guard: Guard, nodes: list[ast.AST]) -> list[int]:
+    return sorted({getattr(node, "lineno", 0) for node in guard(nodes)})
+
+
+def found_in(guard: Guard, source: str) -> list[int]:
+    """The line numbers of ``source`` where ``guard`` finds the tax paid by hand."""
+    return _lines_of(guard, list(ast.walk(ast.parse(source))))
+
+
+#: Every component module's name, lines and syntax-tree nodes, parsed and walked once at
+#: collection (not in the 100 ms call phase, D49): the six scans then only filter lists in memory.
+SOURCES = [
+    (p.name, text.splitlines(), list(ast.walk(ast.parse(text))))
+    for p in sorted(COMPONENTS.glob("*.py"))
+    for text in [p.read_text(encoding="utf-8")]
+]
+
+
+def _offenders(guard: Guard) -> list[str]:
     return [
-        f"{p.name}:{n}: {line.strip()}"
-        for p in sorted(COMPONENTS.glob("*.py"))
-        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
-        if pattern.search(line)
+        f"{name}:{n}: {lines[n - 1].strip()}"
+        for name, lines, nodes in SOURCES
+        for n in _lines_of(guard, nodes)
     ]
+
+
+def bound_paths_lookup(line: str) -> bool:
+    """A ``bound_paths()`` call that is not the override feeding watcher registration."""
+    return "bound_paths()" in line and "def bound_paths" not in line and "super().bound_paths()" not in line
 
 
 def test_no_bound_paths_lookups_in_components():
     offenders = [
-        f"{p.name}:{n}: {line.strip()}"
-        for p in sorted(COMPONENTS.glob("*.py"))
-        for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
-        if "bound_paths()" in line and "def bound_paths" not in line and "super().bound_paths()" not in line
+        f"{name}:{n}: {line.strip()}"
+        for name, lines, _ in SOURCES
+        for n, line in enumerate(lines, 1)
+        if bound_paths_lookup(line)
     ]
     assert offenders == []
 
 
 def test_no_handbuilt_channel_sibling_names():
-    assert _offenders(CHANNEL_NAME) == []
+    assert _offenders(channel_name) == []
 
 
 def test_no_bracket_sibling_accessors():
-    assert _offenders(BRACKET_ACCESSOR) == []
+    assert _offenders(bracket_accessor) == []
 
 
 def test_no_private_flag_parsers():
-    assert _offenders(re.compile(r"def _flag\b")) == []
+    assert _offenders(private_flag) == []
 
 
 def test_on_state_hooks_take_the_parameter_name():
-    assert _offenders(OLD_ON_STATE) == []
+    assert _offenders(old_on_state) == []
 
 
 def test_no_duck_probing_of_peers():
-    assert _offenders(DUCK_PROBE) == []
+    assert _offenders(duck_probe) == []
 
 
 @pytest.mark.parametrize(
-    ("pattern", "planted"),
+    ("guard", "planted"),
     [
-        ("bound_paths()", "key = {v: k for k, v in self.bound_paths().items()}"),
-        ("bound_paths()", "path = comp.bound_paths().get('enable')"),
-        (CHANNEL_NAME.pattern, 'full = f"ch{self.channel}.{name}"'),
-        (BRACKET_ACCESSOR.pattern, 'stage = self.owner.components[str(self.param("stage"))]'),
-        (r"def _flag\b", "def _flag(value):\n    return bool(value)"),
-        (OLD_ON_STATE.pattern, "def on_state(self, path, old, new):\n    return None"),
-        (DUCK_PROBE.pattern, 'if hasattr(comp, "trace_value"):\n    return comp'),
+        (channel_name, 'full = f"ch{self.channel}.{name}"'),
+        (bracket_accessor, 'stage = self.owner.components[str(self.param("stage"))]'),
+        (bracket_accessor, 'stage = self.owner.components.get(self.param("stage"))'),
+        (bracket_accessor, 'stage = components[self.params["stage"]]'),
+        (private_flag, "def _flag(value):\n    return bool(value)"),
+        (old_on_state, "def on_state(self, path, old, new):\n    return None"),
+        (duck_probe, 'if hasattr(comp, "trace_value"):\n    x = comp'),
     ],
 )
-def test_the_guard_sees_the_boilerplate(pattern: str, planted: str):
+def test_the_guard_sees_the_boilerplate(guard: Guard, planted: str):
     """The scans are live: each planted line is caught and named."""
-    found = [line for line in planted.splitlines() if re.search(pattern, line)]
-    assert len(found) == 1
+    assert found_in(guard, planted) == [1]
+
+
+@pytest.mark.parametrize(
+    "planted",
+    [
+        "key = {v: k for k, v in self.bound_paths().items()}",
+        "path = comp.bound_paths().get('enable')",
+    ],
+)
+def test_the_bound_paths_guard_sees_a_lookup(planted: str):
+    assert bound_paths_lookup(planted)
+    assert not bound_paths_lookup("paths = super().bound_paths()")  # the override's own call
+
+
+@pytest.mark.parametrize(
+    ("guard", "harmless"),
+    [
+        (channel_name, "note = 'peer() replaces f\"ch{self.channel}\"'  # a string mentions it"),
+        (duck_probe, "# hasattr(comp, 'x') is not called here"),
+        (old_on_state, "def on_state(self, key, path, old, new):\n    return None"),
+    ],
+)
+def test_the_guard_ignores_what_only_mentions_a_spelling(guard: Guard, harmless: str):
+    assert found_in(guard, harmless) == []
