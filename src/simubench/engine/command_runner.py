@@ -20,6 +20,7 @@ from .commands import (
     when_matches,
 )
 from .component import OpResult, map_setting
+from .settings import validate_value
 
 if TYPE_CHECKING:
     from .instrument import Instrument
@@ -103,7 +104,7 @@ class CommandRunner:
                 continue
             channel = caps.get("ch")
             if "ch" in caps and channel is not None:
-                channel = self.inst.channel_index(channel)
+                channel = self.inst.channel_map.index(channel)
             elif "ch" in caps:
                 channel = 1  # no suffix written: the first channel
             suffixes = {k: (1 if v is None else v) for k, v in caps.items()}
@@ -111,7 +112,7 @@ class CommandRunner:
                 if suffixes.get(name, 1) not in allowed:
                     raise ScpiError(-114, f"{unit.raw_header}: suffix {suffixes.get(name)} is not {allowed}")
             if "ch" in caps and caps["ch"] is None:
-                suffixes["ch"] = self.inst.channel_number(1)  # the default channel's own number
+                suffixes["ch"] = self.inst.channel_map.number(1)  # the default channel's own number
             return self._run(compiled, unit, channel, suffixes)
         if refused is not None:
             raise ScpiError(-224, f"{unit.raw_header}: parameter not implemented in this definition")
@@ -258,7 +259,7 @@ class CommandRunner:
         checked: dict[str, Any] = {}
         for path, v in writes:
             try:
-                checked[path] = self.inst._validate(self.inst.specs[path], v)
+                checked[path] = validate_value(self.inst.specs[path], v)
             except ScpiError as e:
                 raise self.inst.errs._bad_parameter(e, path, self.inst.specs[path]) from e
         return checked
@@ -430,17 +431,17 @@ class CommandRunner:
             if ps.type == "channel_list":
                 if raw:
                     numbers = V.parse_channel_list(
-                        raw.pop(0), self.inst.channel_exists, **self._list_rules(each=True)
+                        raw.pop(0), self.inst.channel_map.exists, **self._list_rules(each=True)
                     )
                 elif ps.optional and unit.query and form is not None:
                     # NPLC? MAX: a limit asked without a list is answered once (#423); the
                     # limits are the same declaration for every channel
-                    numbers = [self.inst.channel_number(1)]
+                    numbers = [self.inst.channel_map.number(1)]
                 elif ps.optional:
                     numbers = self._omitted_list(ps)
                 else:
                     raise ScpiError(-109, f"missing {ps.name}")
-                channels = [self.inst.channel_index(n) for n in numbers]
+                channels = [self.inst.channel_map.index(n) for n in numbers]
                 if ps.state is not None and not unit.query:
                     whole = (ps.state, list(numbers))  # written whole with the rest (#300)
             elif unit.query:
@@ -624,7 +625,7 @@ class CommandRunner:
             if not numbers:
                 raise ScpiError(-221, f"no channel list given and {ps.default[1:]} is empty")
             return numbers
-        return ps.default or [self.inst.channel_number(1)]
+        return ps.default or [self.inst.channel_map.number(1)]
 
     def _list_rules(self, each: bool = False) -> dict[str, bool]:
         """The definition's channel list rules (#260, #418): descending ranges, repeated channels,
@@ -710,7 +711,9 @@ class CommandRunner:
             # A declared channel numbering is the list's domain too (#207); without one the
             # state's own min/max check the numbers, as before.
             return V.parse_channel_list(
-                raw, self.inst.channel_exists if self.inst._channels_by_number else None, **self._list_rules()
+                raw,
+                self.inst.channel_map.exists if self.inst.channel_map.by_number else None,
+                **self._list_rules(),
             )
         return V.parse_string(raw)
 
@@ -762,7 +765,7 @@ class CommandRunner:
         # A channel list written whole into a setting (the scan list) names the channels the
         # command's channel settings apply to (#365).
         listed = [
-            self.inst.channel_index(n)
+            self.inst.channel_map.index(n)
             for ps in spec.params
             if ps.type == "channel_list" and ps.state is not None
             for n in self.inst.state[ps.state]
@@ -870,7 +873,7 @@ class CommandRunner:
             if ps.type == "channel_list":
                 if i < len(raw):
                     numbers = V.parse_channel_list(
-                        raw[i], self.inst.channel_exists, **self._list_rules(each=True)
+                        raw[i], self.inst.channel_map.exists, **self._list_rules(each=True)
                     )
                     i += 1
                 elif ps.optional:
@@ -884,7 +887,7 @@ class CommandRunner:
                     continue
                 # Operations run once per channel with the channel index (as a <n> suffix does);
                 # the list's numbers are the instrument's own (#207).
-                out[ps.name] = [self.inst.channel_index(n) for n in numbers]
+                out[ps.name] = [self.inst.channel_map.index(n) for n in numbers]
                 continue
             if ps.type == "float_list":
                 out[ps.name] = V.parse_float_list(raw[i:], ps.unit) if i < len(raw) else []

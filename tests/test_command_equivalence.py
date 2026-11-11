@@ -211,7 +211,7 @@ def _warm_component_registry():
         inst.coverage.entries()
         inst.coverage.closest(type("U", (), {"raw_header": ":NOSUCH"})())
         # Rendering the corpus compiles every command's pattern; pay it in setup too.
-        _CORPUS[model] = _corpus(definition, str(inst.channel_number(1)))
+        _CORPUS[model] = _corpus(definition, str(inst.channel_map.number(1)))
     # The built environment is permanent: keep it out of every later GC scan, so a generation-2
     # pass mid-test cannot cost a 100 ms pause — the unit budget's whole margin.
     gc.collect()

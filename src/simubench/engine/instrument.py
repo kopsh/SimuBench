@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime as dt
 import logging
-import math
 import time
 from collections import defaultdict
 from collections.abc import Callable
@@ -12,10 +11,10 @@ from typing import TYPE_CHECKING, Any
 
 from ..models.bench import LIVE_CLOCKS
 from ..models.definition import InstrumentDefinition, StateSpec
-from ..scpi import values as V
 from ..scpi.errors import ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
 from .builtin_commands import BuiltinCommands
+from .channels import ChannelMap
 from .command_runner import (
     CommandRunner,
     _Compiled,
@@ -27,14 +26,12 @@ from .component import Component, component_type, noise_problems
 from .coverage_advice import CoverageAdvisor
 from .error_reporter import ErrorReporter, _Ignored
 from .portref import split
-from .settings import SettingStore
-from .signal import Signal
+from .settings import SettingStore, validate_value
+from .wiring import SignalWiring
 
 if TYPE_CHECKING:
     from ..models.bench import InstrumentInstance
     from .session import Session
-
-_LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0), "1-10": (1.0,)}
 
 log = logging.getLogger(__name__)
 #: Appended to -113 when a real model gets a command its definition does not have (D42).
@@ -48,25 +45,6 @@ def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
             f"instrument {instrument!r}: port {pname!r} target {target!r} is not <component>.<port>"
         )
     return comp, port
-
-
-def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
-    """Snap ``value`` to the nearest rung on a log scale."""
-    if value <= 0:
-        return lo if lo is not None else value
-    if isinstance(ladder, list):
-        rungs = sorted(ladder)
-    else:
-        mant = _LADDERS[ladder]
-        k0 = math.floor(math.log10(value))
-        rungs = [m * 10.0**k for k in range(k0 - 1, k0 + 2) for m in mant]
-    if lo is not None:
-        rungs = [r for r in rungs if r >= lo * (1 - 1e-12)]
-    if hi is not None:
-        rungs = [r for r in rungs if r <= hi * (1 + 1e-12)]
-    if not rungs:
-        return value
-    return min(rungs, key=lambda r: abs(math.log10(r) - math.log10(value)))
 
 
 class Instrument:
@@ -87,7 +65,7 @@ class Instrument:
         self.errs = ErrorReporter(self)
         self.common = BuiltinCommands(self)
         self.channel_count = definition.channels.count
-        self._init_channel_numbering(definition)
+        self.channel_map = ChannelMap(definition)
         self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
         #: A real model (D42): follows its manual's error texts and refuses what it does not model.
         self.real = definition.reference is not None
@@ -121,29 +99,16 @@ class Instrument:
         self._init_state(definition, instance)
         self._init_components(definition, instance)
         self._init_watchers()
-        self._init_wiring(definition)
+        self.wiring = SignalWiring(definition, self.channel_count, self.components, self.name)
         self._init_ports(definition)
         self._init_commands(definition)
 
     # ---- construction helpers -------------------------------------------------------------------
 
-    def _init_channel_numbering(self, definition: InstrumentDefinition) -> None:
-        """The numbers SCPI uses for the channels (#207, D51)."""
-        #: The numbers SCPI uses for the channels (#207, D51): number -> channel index, and back.
-        #: Empty when the definition declares no numbering: the numbers are the indexes 1..count.
-        self._channels_by_number: dict[int, int] = {}
-        self._numbers_by_channel: dict[int, int] = {}
-        offset = 0
-        for block in definition.channels.numbering:
-            for i in range(block.count):
-                self._channels_by_number[block.first + i] = offset + i + 1
-                self._numbers_by_channel[offset + i + 1] = block.first + i
-            offset += block.count
-
     def _init_state(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
         """Settings: the definition's, per channel with the bench's overrides, then the bench file's initial values."""
         self.settings = SettingStore(definition, self.channel_count, self.name)
-        self._reset_state(power_on=True)
+        self.settings.reset(power_on=True)
         for path, value in instance.state.items():
             if path not in self.specs:
                 raise ValueError(f"instrument {self.name!r}: unknown state {path!r} in bench file")
@@ -206,19 +171,6 @@ class Instrument:
                     self._watchers[path].append(comp)
                     self._watch_param[path].setdefault(comp.uid, None)
 
-    def _init_wiring(self, definition: InstrumentDefinition) -> None:
-        """Signal wiring: (dst component, dst port) -> (src component, src port)."""
-        self._upstream: dict[tuple[str, str], tuple[str, str]] = {}
-        for n in range(1, self.channel_count + 1):
-            for src, dst in definition.wiring.channel:
-                self._wire(f"ch{n}.{src}", f"ch{n}.{dst}")
-        for src, dst in definition.wiring.instrument:
-            if "{n}" in src or "{n}" in dst:
-                for n in range(1, self.channel_count + 1):
-                    self._wire(src.replace("{n}", str(n)), dst.replace("{n}", str(n)))
-            else:
-                self._wire(src, dst)
-
     def _init_ports(self, definition: InstrumentDefinition) -> None:
         """External ports: name -> (component, port)."""
         self.ports: dict[str, tuple[str, str]] = {}
@@ -277,23 +229,6 @@ class Instrument:
             )
         self.components[name] = cls(name, params, self, self.session, channel)
 
-    def internal_wires(self) -> list[tuple[str, str]]:
-        """Signal wiring inside the instrument as ``('<comp>.<port>', '<comp>.<port>')`` (from, to)."""
-        return [(f"{sc}.{sp}", f"{dc}.{dp}") for (dc, dp), (sc, sp) in self._upstream.items()]
-
-    def _wire(self, src: str, dst: str) -> None:
-        sc, sp = split(src)
-        dc, dp = split(dst)
-        for whole, c in ((src, sc), (dst, dc)):
-            if not c:  # a dotless reference splits into an empty owner; echo the whole reference
-                raise ValueError(f"instrument {self.name!r}: wiring end {whole!r} is not <component>.<port>")
-            if c not in self.components:
-                raise ValueError(f"instrument {self.name!r}: wiring refers to unknown component {c!r}")
-        self._upstream[(dc, dp)] = (sc, sp)
-
-    def _reset_state(self, power_on: bool = False) -> None:
-        self.settings.reset(power_on)
-
     @property
     def specs(self) -> dict[str, StateSpec]:
         return self.settings.specs
@@ -308,25 +243,7 @@ class Instrument:
 
     # ---- signal flow ------------------------------------------------------------------------------
 
-    def has_upstream(self, comp: Component, port: str) -> bool:
-        """Whether a signal wire inside the instrument feeds this component's port."""
-        return (comp.name, port) in self._upstream
-
-    def upstream_signal(self, comp: Component, port: str) -> Signal:
-        src = self._upstream.get((comp.name, port))
-        if src is None:
-            return Signal.zero()
-        return self.session.cached_output(self.components[src[0]], src[1])
-
     # ---- state --------------------------------------------------------------------------------------
-
-    def set_bounds(self, path: str, *, minimum: float | None = None, maximum: float | None = None) -> None:
-        """Move a numeric setting's limits at run time (see :meth:`SettingStore.set_bounds`)."""
-        self.settings.set_bounds(path, minimum=minimum, maximum=maximum)
-
-    def restore_bounds(self, path: str) -> None:
-        """The definition's limits again (see :meth:`set_bounds`)."""
-        self.settings.restore_bounds(path)
 
     def get_state(self, path: str) -> Any:
         return self.settings.get(path)
@@ -341,7 +258,7 @@ class Instrument:
         spec = self.specs.get(path)
         if spec is None:
             raise ScpiError(-113, f"no state {path!r}")
-        value = self._validate(spec.model_copy(update={"readonly": False}) if internal else spec, value)
+        value = validate_value(spec.model_copy(update={"readonly": False}) if internal else spec, value)
         old = self.state.get(path)
         if old == value:
             return
@@ -353,7 +270,7 @@ class Instrument:
                 # (it returns that value) instead of refusing it.
                 adjusted = comp.on_state(self._watch_param.get(path, {}).get(comp.uid), path, old, value)
                 if adjusted is not None and adjusted != value:
-                    value = self._validate(spec.model_copy(update={"readonly": False}), adjusted)
+                    value = validate_value(spec.model_copy(update={"readonly": False}), adjusted)
                     self.state[path] = value
         except ScpiError:
             self.state.update(before)
@@ -362,66 +279,9 @@ class Instrument:
             return
         self.session.state_changed(self, path, old, value, electrical=spec.electrical, source=source)
 
-    def _validate(self, spec: StateSpec, value: Any) -> Any:
-        if spec.readonly:
-            raise ScpiError(-221, "read-only setting")
-        if spec.type in ("float", "int"):
-            v = float(value)
-            special_values = set((spec.special or {}).values())
-            if v in special_values:
-                return v
-            if spec.ladder is not None:
-                v = snap_ladder(v, spec.ladder, spec.min, spec.max)
-            # The relative tolerance widens the range on both signs (#407: a minimum of -5 V must
-            # accept -5; min * (1 - 1e-12) would move a negative bound inwards).
-            if math.isnan(v) or (spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300):
-                raise ScpiError(-222)
-            if spec.max is not None and v > spec.max + abs(spec.max) * 1e-12 + 1e-300:
-                raise ScpiError(-222)
-            return round(v) if spec.type == "int" else v
-        if spec.type == "enum":
-            if value not in (spec.options or []):
-                # A value written outside the parse layer (a definition's `writes`/`sets` constant,
-                # the UI's configure) may name the option in any SCPI word form, as a word
-                # arriving over SCPI does (#625): the option itself is stored.
-                canonical = V.fit_enum(value, spec.options or [])
-                if canonical is None:
-                    raise ScpiError(-224)
-                value = canonical
-            return value
-        if spec.type == "bool":
-            return bool(value)
-        if spec.type == "enum_list":
-            # A set of options kept in the options' order, whatever order it was written in
-            # (#252: :FORM:ELEM:SENS answers voltage, current, … however the list was given).
-            chosen = set(value)
-            if not chosen or not chosen <= set(spec.options or []):
-                raise ScpiError(-224)
-            return [o for o in spec.options or [] if o in chosen]
-        if spec.type == "int_list":
-            out = [int(v) for v in value]
-            for v in out:
-                if spec.min is not None and v < spec.min:
-                    raise ScpiError(-222)
-                if spec.max is not None and v > spec.max:
-                    raise ScpiError(-222)
-            return out
-        return str(value)
-
     # ---- operations that finish later --------------------------------------------------------------
 
     # ---- command execution lives in :class:`CommandRunner` (#895) -------------------------------------
-
-    def _dispatch(self, *args: Any, **kwargs: Any) -> Any:
-        return self.runner._dispatch(*args, **kwargs)
-
-    def parse_setting(self, path: str, raw: bytes) -> Any:
-        """A parameter as the setting at ``path`` reads it (units, special words, enum forms)."""
-        return self.runner.parse_setting(path, raw)
-
-    def format_setting(self, path: str) -> bytes:
-        """The setting at ``path`` as the definition formats replies."""
-        return self.runner.format_setting(path)
 
     def format_number(self, value: float) -> bytes:
         """A number in the definition's response format (a reading, a measured value)."""
@@ -549,7 +409,7 @@ class Instrument:
         self.unwaited.clear()
         self.blockers.clear()
         self._opc_armed = False
-        self._reset_state()
+        self.settings.reset()
         for comp in self.components.values():
             comp.reset()
         self.session.state_changed(self, "*RST", None, None, electrical=True, source="scpi")
@@ -649,7 +509,7 @@ class Instrument:
 
     def _execute(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         try:
-            return self._dispatch(unit, tokens)
+            return self.runner._dispatch(unit, tokens)
         except _Ignored:
             pass
         # unknown_commands: ignore — swallowed without an error or a reply, but never silently (D16).
@@ -676,27 +536,6 @@ class Instrument:
             if narrowed[1] is not None:
                 hi = narrowed[1] if hi is None else min(hi, narrowed[1])
         return lo, hi
-
-    def channel_number(self, channel: int) -> int:
-        """The channel's number on the bus: 101 for a DAQ's first channel, else its index."""
-        return self._numbers_by_channel.get(channel, channel)
-
-    def channel_exists(self, number: int) -> bool:
-        """Whether a SCPI channel number names a channel of this instrument."""
-        if self._channels_by_number:
-            return number in self._channels_by_number
-        return 1 <= number <= self.channel_count
-
-    def channel_index(self, number: int) -> int:
-        """The channel index (``ch<n>`` in the definition) that a SCPI channel number names."""
-        if self._channels_by_number:
-            index = self._channels_by_number.get(number)
-            if index is None:
-                raise ScpiError(-114, f"channel {number} does not exist")
-            return index
-        if not 1 <= number <= self.channel_count:
-            raise ScpiError(-114, f"channel {number} does not exist")
-        return number
 
     # ---- replies: the dialect's header echo and the command's template ------------------------------
 

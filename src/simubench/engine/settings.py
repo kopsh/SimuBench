@@ -9,10 +9,82 @@ rollback) stays with the instrument.
 
 from __future__ import annotations
 
+import math
 from typing import Any
 
 from ..models.definition import InstrumentDefinition, StateSpec
 from ..scpi import values as V
+from ..scpi.errors import ScpiError
+
+_LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0), "1-10": (1.0,)}
+
+
+def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
+    """Snap ``value`` to the nearest rung on a log scale."""
+    if value <= 0:
+        return lo if lo is not None else value
+    if isinstance(ladder, list):
+        rungs = sorted(ladder)
+    else:
+        mant = _LADDERS[ladder]
+        k0 = math.floor(math.log10(value))
+        rungs = [m * 10.0**k for k in range(k0 - 1, k0 + 2) for m in mant]
+    if lo is not None:
+        rungs = [r for r in rungs if r >= lo * (1 - 1e-12)]
+    if hi is not None:
+        rungs = [r for r in rungs if r <= hi * (1 + 1e-12)]
+    if not rungs:
+        return value
+    return min(rungs, key=lambda r: abs(math.log10(r) - math.log10(value)))
+
+
+def validate_value(spec: StateSpec, value: Any) -> Any:
+    """``value`` checked against the setting's spec and returned in its stored form (raises the
+    SCPI error the instrument answers with: read-only -221, out of range -222, bad option -224)."""
+    if spec.readonly:
+        raise ScpiError(-221, "read-only setting")
+    if spec.type in ("float", "int"):
+        v = float(value)
+        special_values = set((spec.special or {}).values())
+        if v in special_values:
+            return v
+        if spec.ladder is not None:
+            v = snap_ladder(v, spec.ladder, spec.min, spec.max)
+        # The relative tolerance widens the range on both signs (#407: a minimum of -5 V must
+        # accept -5; min * (1 - 1e-12) would move a negative bound inwards).
+        if math.isnan(v) or (spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300):
+            raise ScpiError(-222)
+        if spec.max is not None and v > spec.max + abs(spec.max) * 1e-12 + 1e-300:
+            raise ScpiError(-222)
+        return round(v) if spec.type == "int" else v
+    if spec.type == "enum":
+        if value not in (spec.options or []):
+            # A value written outside the parse layer (a definition's `writes`/`sets` constant,
+            # the UI's configure) may name the option in any SCPI word form, as a word
+            # arriving over SCPI does (#625): the option itself is stored.
+            canonical = V.fit_enum(value, spec.options or [])
+            if canonical is None:
+                raise ScpiError(-224)
+            value = canonical
+        return value
+    if spec.type == "bool":
+        return bool(value)
+    if spec.type == "enum_list":
+        # A set of options kept in the options' order, whatever order it was written in
+        # (#252: :FORM:ELEM:SENS answers voltage, current, … however the list was given).
+        chosen = set(value)
+        if not chosen or not chosen <= set(spec.options or []):
+            raise ScpiError(-224)
+        return [o for o in spec.options or [] if o in chosen]
+    if spec.type == "int_list":
+        out = [int(v) for v in value]
+        for v in out:
+            if spec.min is not None and v < spec.min:
+                raise ScpiError(-222)
+            if spec.max is not None and v > spec.max:
+                raise ScpiError(-222)
+        return out
+    return str(value)
 
 
 class SettingStore:
