@@ -573,7 +573,10 @@ class Component:
         """Signal arriving at a signal input port (zero when nothing is wired)."""
         if self.owner is None:
             return Signal.zero()
-        return self.owner.upstream_signal(self, port)
+        src = self.owner.wiring.source(self.name, port)
+        if src is None:
+            return Signal.zero()
+        return self.session.cached_output(self.owner.components[src[0]], src[1])
 
     def output(self, port: str) -> Signal:
         """Signal leaving a signal output port. Override in components with signal outputs."""

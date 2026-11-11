@@ -18,6 +18,7 @@ from typing import Any
 import pytest
 
 from simubench.engine.instrument import Instrument
+from simubench.engine.settings import validate_value
 from simubench.engine.validate import validate_data
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.models.bench import BenchDefinition, InstrumentInstance
@@ -258,7 +259,7 @@ _INSTRUMENT = Instrument("x", _DEFINITION, InstrumentInstance(model="SB-FIT"), _
 def _runtime_verdict(st: StateSpec, value: Any) -> int | None:
     """The error code the engine raises for the value, or None when it accepts it."""
     try:
-        _INSTRUMENT._validate(st, value)
+        validate_value(st, value)
     except ScpiError as e:
         return e.code
     return None
@@ -267,18 +268,18 @@ def _runtime_verdict(st: StateSpec, value: Any) -> int | None:
 def test_the_engine_accepts_the_same_words_the_static_side_does():
     # a value written outside the parse layer (a definition's constants, the UI's configure)
     # names the option in any word form, and the option itself is stored
-    assert _INSTRUMENT._validate(ENUM, "VOLT") == "VOLTage"
-    assert _INSTRUMENT._validate(ENUM, "volt:ac") == "VOLTage:AC"
-    assert _INSTRUMENT._validate(ENUM, "VOLTage:AC") == "VOLTage:AC"
+    assert validate_value(ENUM, "VOLT") == "VOLTage"
+    assert validate_value(ENUM, "volt:ac") == "VOLTage:AC"
+    assert validate_value(ENUM, "VOLTage:AC") == "VOLTage:AC"
     with pytest.raises(ScpiError) as e:
-        _INSTRUMENT._validate(ENUM, "POWer")
+        validate_value(ENUM, "POWer")
     assert e.value.code == -224 and e.value.message == "Illegal parameter value"
 
 
 def test_the_engine_keeps_the_range_and_special_semantics():
-    assert _INSTRUMENT._validate(NUMBER, 9.9e37) == 9.9e37  # a special value skips the range
+    assert validate_value(NUMBER, 9.9e37) == 9.9e37  # a special value skips the range
     with pytest.raises(ScpiError) as e:
-        _INSTRUMENT._validate(NUMBER, 11.0)
+        validate_value(NUMBER, 11.0)
     assert e.value.code == -222
 
 
