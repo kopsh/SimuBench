@@ -114,8 +114,14 @@ async function configureLLM(page: Page, extra: Record<string, unknown> = {}) {
 /** Open the panel unless it is already open (the open state survives a page change). */
 async function openPanel(page: Page) {
   const panel = page.getByTestId("assistant-panel");
+  const toggle = page.getByRole("button", { name: "AI 助手", exact: true });
   if ((await panel.count()) === 0) {
-    await page.getByRole("button", { name: "AI 助手", exact: true }).click();
+    // a click right after a page change can land before the app is hydrated: keep trying until
+    // the panel is up — the count guard keeps a retry from toggling an open panel closed
+    await expect(async () => {
+      if ((await panel.count()) === 0) await toggle.click();
+      await expect(panel).toBeVisible();
+    }).toPass({ timeout: 15_000 });
   }
   await expect(panel).toBeVisible();
 }

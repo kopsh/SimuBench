@@ -210,6 +210,13 @@ jobs:
         working-directory: web
       - run: pnpm e2e
         working-directory: web
+      - name: The traces of a failed e2e run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: web/playwright-report/
+          if-no-files-found: ignore
       - name: Component library builds and matches its screenshots (Storybook, visual regression)
         run: pnpm build-storybook && pnpm visual
         working-directory: web
