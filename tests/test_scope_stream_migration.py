@@ -281,7 +281,12 @@ def walk(case: str, show: bool = False) -> list[list]:
         acq = s.instruments["scope"].components["acq"]
         with s.view():
             shown, _, triggered = acq.compute(acq.displayed(), frame=1)
-        volts = b"".join(np.asarray(shown[n].volts, dtype="<f8").tobytes() for n in sorted(shown))
+        # Rounded to 1 nV: an ideal converter (sb-dso-4) passes the analytic waveform on unquantized,
+        # and the last bits of a sine differ between platforms' math libraries (Windows CI, #964).
+        volts = b"".join(
+            np.round(np.asarray(shown[n].volts, dtype="<f8"), 9).astype("<f8").tobytes()
+            for n in sorted(shown)
+        )
         rows.append(["<screen frame 1>", _digest(volts), int(triggered)])
         if show:
             print(f"  screen: channels {sorted(shown)}, {len(volts) // 8} samples, triggered {triggered}")
