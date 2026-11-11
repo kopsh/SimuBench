@@ -23,14 +23,12 @@ def _fault(f: Any) -> dict[str, Any]:
     return f.model_dump(mode="json")
 
 
-def register(mcp: MCPServer, ctx: McpContext) -> None:
+def _session_lifecycle_tools(mcp: MCPServer, ctx: McpContext) -> None:
     manager = ctx.manager
-    files = ctx.files
     guard = ctx.guard
     fail = ctx.fail
     force_needed = ctx.force_needed
     served = ctx.served
-    control = ctx.control
     session_summary = ctx.session_summary
 
     @mcp.tool()
@@ -82,6 +80,14 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         return [session_summary(s) for s in manager.sessions.values()]
 
+
+def _instrument_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    manager = ctx.manager
+    guard = ctx.guard
+    fail = ctx.fail
+    served = ctx.served
+    session_summary = ctx.session_summary
+
     @mcp.tool()
     def describe_session(session_id: str | None = None) -> dict[str, Any]:
         """Topology of a running session: instruments, parts, which of them are DUTs, wires and the nets
@@ -108,8 +114,6 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             ],
             "nets": [n.model_dump() for n in info.nets],
         }
-
-    # ---- instruments ------------------------------------------------------------------------------
 
     @mcp.tool()
     async def send_scpi(
@@ -149,7 +153,13 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         snap["state"] = {k: jsonable(v) for k, v in snap["state"].items()}
         return snap
 
-    # ---- observe ----------------------------------------------------------------------------------
+
+def _log_clock_and_fault_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    guard = ctx.guard
+    fail = ctx.fail
+    force_needed = ctx.force_needed
+    served = ctx.served
+    control = ctx.control
 
     @mcp.tool()
     def read_log(
@@ -178,8 +188,6 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
                 break
         last = events[-1]["seq"] if events else after
         return {"events": events, "next": last, "latest": s.session.event_id}
-
-    # ---- simulation control (off by default) ------------------------------------------------------
 
     @mcp.tool()
     def advance_clock(
@@ -219,6 +227,13 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         """Faults of a session: pending, active and ended."""
         guard()
         return [_fault(f) for f in faults.list_faults(served(session_id))]
+
+
+def _fault_clear_and_truth_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    guard = ctx.guard
+    fail = ctx.fail
+    served = ctx.served
+    control = ctx.control
 
     @mcp.tool()
     def clear_fault(fault_id: str, session_id: str | None = None) -> dict[str, Any]:
@@ -280,6 +295,13 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             deviations = {k: jsonable(v) for k, v in session.deviations().items()}
         return {"parts": parts, "instrument_hidden": hidden, "deviations": deviations, "nets": nets}
 
+
+def _verdict_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    files = ctx.files
+    guard = ctx.guard
+    fail = ctx.fail
+    control = ctx.control
+
     @mcp.tool()
     def check_verdicts(
         record: str = Field(..., description="Run record (run-*.jsonl) in the workspace"),
@@ -310,3 +332,11 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             raise ToolError(str(exc)) from None
         except FileNotFoundError as exc:
             raise fail(exc) from None
+
+
+def register(mcp: MCPServer, ctx: McpContext) -> None:
+    _session_lifecycle_tools(mcp, ctx)
+    _instrument_tools(mcp, ctx)
+    _log_clock_and_fault_tools(mcp, ctx)
+    _fault_clear_and_truth_tools(mcp, ctx)
+    _verdict_tools(mcp, ctx)

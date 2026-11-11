@@ -37,7 +37,7 @@ plausible fake).
 | HTTP/WS message models → OpenAPI | `models/api.py` |
 | FastAPI app (assembly, middleware, SPA) / session lifecycle / component catalog | `server/app.py`, `server/manager.py` (`SessionManager`: start, reset, stop, try sessions), `server/catalog.py` |
 | Read-only session DTOs (describe, internals, scope screen, readings, nets, faults) / actions (SCPI, configure, panel) | `server/views.py` (`manager.views` for the ones that need the manager), `server/drive.py` |
-| HTTP routes, one router per area (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
+| HTTP routes, one router per area (each `build_router` only calls module-level `_<group>_routes(ctx, router)` functions of ≤ 80 lines) (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
 | Shared application services: logic both the routes and the MCP tools call; raises domain exceptions, never `HTTPException`/`ToolError` (#894: faults, clock so far) | `server/services/*.py` (tests: `tests/test_services.py`) |
 | MCP tools, one module per area (bench, definitions, sessions); shared guard / errors | `mcp_server.py` (assembly), `mcp_tools/*.py` (`context.py`: `McpContext`) |
 | Web AI assistant (D66, `docs/ai-assistant.md` 11): LLM settings, PydanticAI models, tools and their server-side rules, turn runner / events / rollback, compaction, loop guard | `assistant/` (`config.py`, `llm.py`, `tools.py`, `service.py`, `compaction.py`, `guard.py`, `store.py`), routes `server/routes/assistant.py`; tests use `tests/helpers.py` `ScriptedLLM` |

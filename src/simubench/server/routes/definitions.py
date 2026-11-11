@@ -12,13 +12,12 @@ from ..mytemplates import save_as_template
 from .context import ApiContext
 
 
-def build_router(ctx: ApiContext) -> APIRouter:
+def _definition_routes(ctx: ApiContext, router: APIRouter) -> None:
     library = ctx.library
     files = ctx.files
     definition_files = ctx.definition_files
     auth = ctx.auth
     not_found = ctx.not_found
-    router = APIRouter()
 
     @router.get(
         "/api/catalog",
@@ -90,6 +89,13 @@ def build_router(ctx: ApiContext) -> APIRouter:
             )
         )
 
+
+def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
+    library = ctx.library
+    definition_files = ctx.definition_files
+    auth = ctx.auth
+    not_found = ctx.not_found
+
     @router.post(
         "/api/definitions/{def_id}/restore",
         response_model=M.DefinitionDocument,
@@ -159,6 +165,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
 
+
+def _definition_change_routes(ctx: ApiContext, router: APIRouter) -> None:
+    definition_files = ctx.definition_files
+    auth = ctx.auth
+
     @router.get(
         "/api/definitions/{def_id}/history/changes",
         response_model=M.DefinitionChangeList,
@@ -176,4 +187,10 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
 
+
+def build_router(ctx: ApiContext) -> APIRouter:
+    router = APIRouter()
+    _definition_routes(ctx, router)
+    _definition_history_routes(ctx, router)
+    _definition_change_routes(ctx, router)
     return router
