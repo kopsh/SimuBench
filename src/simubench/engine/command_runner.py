@@ -55,6 +55,13 @@ def parse_duration(d: str | float | None) -> int:
     return round(parse_number(d, "S") * 1e9)
 
 
+def _at(index: dict[str, int], ref: str) -> str:
+    """``ref`` with each ``{name}`` replaced by that index parameter's value."""
+    for name, value in index.items():
+        ref = ref.replace("{" + name + "}", str(value))
+    return ref
+
+
 class CommandRunner:
     """Parses and executes the program messages of one instrument (#895): the dispatch of a unit to a
     command, the setting / channel-list / quantities / operation commands, and the parsing and
@@ -277,9 +284,29 @@ class CommandRunner:
         """A command whose parameters each write a setting (``TRSE EDGE,SR,C1``); all are checked
         before any is set. The query answers the settings in the same order and form."""
         raw = list(unit.params)
+        index = self._pick_indexes(spec, unit, raw, channel)
+        if unit.query:
+            if raw:
+                raise ScpiError(-108)
+            return self._settings_reply(spec, index, channel)
+        new = self._parse_settings(spec, unit, raw, index, channel)
+        if raw:
+            raise ScpiError(-108)
+        # The command's constants first: the function it selects applies to the parameters after it.
+        staged: list[tuple[str, Any]] = [
+            (self._resolve(_at(index, ref), channel), value) for ref, value in spec.writes.items()
+        ]
+        staged += list(new.items())
+        self._commit(self._check_all(staged))
+        return None
+
+    def _pick_indexes(
+        self, spec: CommandSpec, unit: Unit, raw: list[bytes], channel: int | None
+    ) -> dict[str, int]:
+        """The values of the index parameters, taken out of ``raw``. They pick the settings: a query
+        carries them alone, in order; a set carries each at its own position (VIEW CHAN2;
+        TRIG:LEV 0.5,CHAN2; PACU 1,AMPL,C1)."""
         index: dict[str, int] = {}
-        # Index parameters pick the settings. A query carries them alone, in order; a set carries
-        # each at its own position (VIEW CHAN2; TRIG:LEV 0.5,CHAN2; PACU 1,AMPL,C1).
         index_params = [(k, ps) for k, ps in enumerate(spec.params) if ps.index]
         tokens: dict[str, bytes | None] = {}
         if unit.query:
@@ -301,27 +328,27 @@ class CommandRunner:
                     ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps
                 )
             index[ps.name] = value
+        return index
 
-        def at(ref: str) -> str:
-            for name, value in index.items():
-                ref = ref.replace("{" + name + "}", str(value))
-            return ref
+    def _settings_reply(self, spec: CommandSpec, index: dict[str, int], channel: int | None) -> bytes:
+        """The query answer: each parameter's setting, in the command's order and form."""
+        parts: list[str] = []
+        for ps in spec.params:
+            if ps.index and ps.echo:
+                parts.append(self._index_text(ps, index[ps.name]))
+            if ps.state is not None:
+                parts.append(self._format_path(_at(index, ps.state), channel, spec))
+            for key, ref in (ps.keys or {}).items():
+                if ref is not None:
+                    parts += [key, self._format_path(_at(index, ref), channel, spec)]
+        while parts and parts[-1] in ("", '""'):  # an optional value not set: left out
+            parts.pop()
+        return ",".join(parts).encode()
 
-        if unit.query:
-            if raw:
-                raise ScpiError(-108)
-            parts: list[str] = []
-            for ps in spec.params:
-                if ps.index and ps.echo:
-                    parts.append(self._index_text(ps, index[ps.name]))
-                if ps.state is not None:
-                    parts.append(self._format_path(at(ps.state), channel, spec))
-                for key, ref in (ps.keys or {}).items():
-                    if ref is not None:
-                        parts += [key, self._format_path(at(ref), channel, spec)]
-            while parts and parts[-1] in ("", '""'):  # an optional value not set: left out
-                parts.pop()
-            return ",".join(parts).encode()
+    def _parse_settings(
+        self, spec: CommandSpec, unit: Unit, raw: list[bytes], index: dict[str, int], channel: int | None
+    ) -> dict[str, Any]:
+        """The settings a set writes, parsed from ``raw`` (consumed); nothing is written here."""
         new: dict[str, Any] = {}
         for ps in spec.params:
             if ps.index:
@@ -331,13 +358,13 @@ class CommandRunner:
                     if ps.optional:
                         continue
                     raise ScpiError(-109, f"missing {ps.name}")
-                path = self._resolve(at(ps.state), channel)
+                path = self._resolve(_at(index, ps.state), channel)
                 token = raw.pop(0)
                 instead = self._keyword_writes(ps, token)
                 if instead is not None:
                     # A keyword with its own settings (#344: resolution MIN picks the finest NPLC).
                     for ref, constant in instead.items():
-                        new[self._resolve(at(ref), channel)] = constant
+                        new[self._resolve(_at(index, ref), channel)] = constant
                     continue
                 try:
                     value = self._parse_state(self.inst.specs[path], token, path)
@@ -348,10 +375,11 @@ class CommandRunner:
                 # CONF:VOLT:DC AUTO leaves autorange on).
                 if not self._keyword_argument(self.inst.specs[path], token):
                     for ref, constant in (ps.sets or {}).items():
-                        new[self._resolve(at(ref), channel)] = constant
+                        new[self._resolve(_at(index, ref), channel)] = constant
                 new[path] = value
                 continue
-            items, raw = raw, []
+            items = raw[:]
+            raw.clear()  # the name,value pairs take every parameter that is left
             if not items and not ps.optional:
                 raise ScpiError(-109, f"missing {ps.name}")
             if len(items) % 2:
@@ -365,17 +393,9 @@ class CommandRunner:
                     )
                 ref = keys[name]
                 if ref is not None:
-                    path = self._resolve(at(ref), channel)
+                    path = self._resolve(_at(index, ref), channel)
                     new[path] = self._parse_state(self.inst.specs[path], value_raw, path)
-        if raw:
-            raise ScpiError(-108)
-        # The command's constants first: the function it selects applies to the parameters after it.
-        staged: list[tuple[str, Any]] = [
-            (self._resolve(at(ref), channel), value) for ref, value in spec.writes.items()
-        ]
-        staged += list(new.items())
-        self._commit(self._check_all(staged))
-        return None
+        return new
 
     def _format_path(self, ref: str, channel: int | None, spec: CommandSpec) -> str:
         path = self._resolve(ref, channel)
@@ -389,6 +409,19 @@ class CommandRunner:
         state query. The command's parameters carry the value(s); the list itself writes no
         setting."""
         raw = list(unit.params)
+        form, channels, values, whole = self._channel_list_args(spec, unit, raw)
+        if raw:
+            raise ScpiError(-108)
+        if unit.query:
+            return self._channel_list_reply(spec, channels, form)
+        self._commit(self._check_all(self._channel_list_writes(spec, channels, values, whole)))
+        return None
+
+    def _channel_list_args(
+        self, spec: CommandSpec, unit: Unit, raw: list[bytes]
+    ) -> tuple[str | None, list[int], list[tuple[ParamSpec, bytes]], tuple[str, list[int]] | None]:
+        """The MIN/MAX/DEF form word, the channel indexes, the (parameter, value) pairs and the
+        channel list a set writes whole; ``raw`` is consumed."""
         form: str | None = None
         channels: list[int] = []
         values: list[tuple[ParamSpec, bytes]] = []
@@ -423,28 +456,33 @@ class CommandRunner:
                 raise ScpiError(-109, f"missing {ps.name}")
             else:
                 values.append((ps, raw.pop(0)))
-        if raw:
-            raise ScpiError(-108)
-        if unit.query:
-            parts = []
-            for n in channels:
-                for ps in spec.params:
-                    if ps.type == "channel_list" or ps.state is None:
-                        continue
-                    path = self._resolve(ps.state, n)
-                    st = self.inst.specs[path]
-                    if form is not None and st.type in ("float", "int"):
-                        v = (
-                            st.min
-                            if form.startswith("MIN")
-                            else st.max
-                            if form.startswith("MAX")
-                            else st.default
-                        )
-                        parts.append(self._format(st, v, spec.format).decode())
-                    else:
-                        parts.append(self._format(st, self.inst.state[path], spec.format).decode())
-            return ",".join(parts).encode()
+        return form, channels, values, whole
+
+    def _channel_list_reply(self, spec: CommandSpec, channels: list[int], form: str | None) -> bytes:
+        """The query answer: each channel's setting (or, with a form word, its limit or default), in
+        list order, comma-joined."""
+        parts = []
+        for n in channels:
+            for ps in spec.params:
+                if ps.type == "channel_list" or ps.state is None:
+                    continue
+                path = self._resolve(ps.state, n)
+                st = self.inst.specs[path]
+                if form is not None and st.type in ("float", "int"):
+                    v = st.min if form.startswith("MIN") else st.max if form.startswith("MAX") else st.default
+                    parts.append(self._format(st, v, spec.format).decode())
+                else:
+                    parts.append(self._format(st, self.inst.state[path], spec.format).decode())
+        return ",".join(parts).encode()
+
+    def _channel_list_writes(
+        self,
+        spec: CommandSpec,
+        channels: list[int],
+        values: list[tuple[ParamSpec, bytes]],
+        whole: tuple[str, list[int]] | None,
+    ) -> list[tuple[str, Any]]:
+        """The settings a set writes, per channel."""
         staged: list[tuple[str, Any]] = []
         # The command's own constants first (#300: CONF:VOLT:AC 10,(@101) selects the function),
         # per channel when they name a channel setting; then each parameter's `sets` beside its
@@ -468,8 +506,7 @@ class CommandRunner:
                         staged.append((self._resolve(ref, n), value))
         if whole is not None:
             staged.append((whole[0], whole[1]))
-        self._commit(self._check_all(staged))
-        return None
+        return staged
 
     def _quantities_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
         """A command whose parameters are 'value unit' pairs (``OUT 1 V, 1 kHz``), each written into
