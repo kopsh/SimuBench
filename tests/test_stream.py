@@ -163,15 +163,12 @@ def test_another_seed_draws_other_noise(blocks):
 
 
 def test_overlapping_requests_agree_where_they_overlap(blocks):
-    """Two requests on one sample grid (``index0`` is the position on it) see the same samples at
-    the same instants — there is no history a block could have kept between them."""
+    """Two requests on one sample grid (``first`` and ``index0`` are the position on it) see the
+    same samples at the same instants — there is no history a block could have kept between them."""
     session, comps = open_chain()
     whole = session.cached_frames(comps["dec"], "out", ask(count=100))
-    step_ns = round(4 * DT * 1e9)
     tail = session.cached_frames(
-        comps["dec"],
-        "out",
-        FrameRequest(t0_ns=40 * step_ns, count=60, dt_s=4 * DT, key=("acq", 0), index0=40),
+        comps["dec"], "out", FrameRequest(t0_ns=0, count=60, dt_s=4 * DT, key=("acq", 0), index0=40, first=40)
     )
     assert np.allclose(whole.data[40:], tail.data, rtol=0, atol=1e-12)
 
@@ -196,7 +193,7 @@ def test_a_rate_changing_block_asks_upstream_for_count_times_factor_plus_warmup(
 def test_the_warmup_samples_come_before_the_requested_instant(blocks):
     session, comps = open_chain()
     session.cached_frames(comps["dec"], "out", ask())
-    assert comps["dec"].asked.t0_ns == -WARMUP * 1000
+    assert (comps["dec"].asked.t0_ns, comps["dec"].asked.first) == (0, -WARMUP)
 
 
 def test_the_decimated_frame_is_the_fine_grid_at_the_requested_instants(blocks):
@@ -257,7 +254,9 @@ def test_a_cached_upstream_frame_still_counts_toward_the_fan_out(blocks, monkeyp
     session, comps = open_chain()
     session.cached_frames(comps["dec"], "out", ask(count=100))  # the upstream frame (410) is now cached
     monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 450)
-    session._frame_cache.pop(next(k for k in session._frame_cache if k[1] == "x/dec"))
+    session._frame_cached -= session._frame_cache.pop(
+        next(k for k in session._frame_cache if k[1] == "x/dec")
+    )[0].count
     with pytest.raises(ModelLimit):
         session.cached_frames(comps["dec"], "out", ask(count=100))  # 100 + 410 > 450
 
@@ -360,3 +359,13 @@ def test_channel_blocks_follow_the_same_rules(blocks):
     assert codes(data) == []
     data["wiring"]["channel"] = []
     assert codes(data) == [("E-DEF-SAMPLES-OPEN", "/channel_components/1")]
+
+
+def test_the_cache_holds_a_bounded_number_of_samples(blocks, monkeypatch):
+    """Deep records must not pile up: the cache counts samples, and skips a frame over its budget."""
+    monkeypatch.setattr(session_module, "FRAME_CACHE_SAMPLES", 1000)
+    session, comps = open_chain()
+    for k in range(5):
+        session.cached_frames(comps["adc"], "out", FrameRequest(0, 400, DT, ("acq", k)))
+    session.cached_frames(comps["adc"], "out", FrameRequest(0, 2000, DT, ("acq", 9)))
+    assert (len(session._frame_cache), session._frame_cached) == (2, 800)

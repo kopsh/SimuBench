@@ -937,6 +937,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/instruments/{name}/internals/probe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Probe Internal
+         * @description The signal at an output port inside an instrument (signal-chain.md 6). 403 while the
+         *     bench hides true values (validation mode).
+         */
+        get: operations["probeInternal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/instruments/{name}/local": {
         parameters: {
             query?: never;
@@ -3069,6 +3090,68 @@ export interface components {
             target: string;
         };
         /**
+         * InternalProbe
+         * @description The signal at one output port inside an instrument (signal-chain.md 6.1). Reading it changes
+         *     nothing: not the clock, not the run record, not what a script reads next.
+         */
+        InternalProbe: {
+            /**
+             * Clipped
+             * @default false
+             */
+            clipped: boolean;
+            /** Dc */
+            dc: number;
+            format: components["schemas"]["ProbeFormat"] | null;
+            /**
+             * Full Scale Used
+             * @description Quantized samples: the frame's peak-to-peak span as a fraction of full scale
+             */
+            full_scale_used: number | null;
+            /**
+             * Lines
+             * @description signal only: strongest lines
+             */
+            lines: components["schemas"]["SpectralLine"][];
+            /**
+             * Medium
+             * @enum {string}
+             */
+            medium: "signal" | "samples";
+            /**
+             * Notes
+             * @description Why the signal is not exact, if it is not
+             */
+            notes: string[];
+            /** Peak */
+            peak: number;
+            /**
+             * Port
+             * @description '<component>.<port>', e.g. 'adc.out1'
+             */
+            port: string;
+            /** Rms */
+            rms: number;
+            /** Sample Rate Hz */
+            sample_rate_hz: number | null;
+            /**
+             * Silence
+             * @description Why it reads 0, traced upstream; empty when it does not
+             */
+            silence: components["schemas"]["SilenceReason"][];
+            /** @description samples only */
+            spectrum: components["schemas"]["ProbeSpectrum"] | null;
+            /** T Ns */
+            t_ns: number;
+            /**
+             * Tune Hz
+             * @description The local-oscillator tuning the probe was read at; none where it does not apply
+             */
+            tune_hz: number | null;
+            /** @description signal: the analytic waveform; samples: the frame's samples, one value each */
+            waveform: components["schemas"]["NetWaveform"];
+        };
+        /**
          * InternalReading
          * @description A query command whose answer the component influences (#739): the command reads a component
          *     at or downstream of it.
@@ -3144,11 +3227,25 @@ export interface components {
         };
         /** InternalWire */
         InternalWire: {
+            /** @description samples: the stream's format */
+            format: components["schemas"]["ProbeFormat"] | null;
             /**
              * From
              * @description '<component>.<port>'
              */
             from: string;
+            /**
+             * Medium
+             * @description 'signal': analog (analytic); 'samples': a sample stream (digital)
+             * @default signal
+             * @enum {string}
+             */
+            medium: "signal" | "samples";
+            /**
+             * Sample Rate Hz
+             * @description samples: the rate the stream runs at with the current settings; none when unknown
+             */
+            sample_rate_hz: number | null;
             /** To */
             to: string;
         };
@@ -3668,6 +3765,38 @@ export interface components {
             media?: {
                 [key: string]: "signal" | "electrical" | "reference";
             };
+        };
+        /**
+         * ProbeFormat
+         * @description How a sample stream's numbers read (signal-chain.md 3.1).
+         */
+        ProbeFormat: {
+            /**
+             * Bits
+             * @description The converter's resolution; 0 when the samples are not quantized
+             * @default 0
+             */
+            bits: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "volts" | "codes" | "iq" | "bins";
+        };
+        /**
+         * ProbeSpectrum
+         * @description The amplitude spectrum of one frame of samples (a windowed FFT), from 0 Hz to half the rate.
+         */
+        ProbeSpectrum: {
+            /** Freq Hz */
+            freq_hz: number[];
+            /** Level */
+            level: number[];
+            /**
+             * Unit
+             * @enum {string}
+             */
+            unit: "dBFS" | "dBV" | "dBm";
         };
         /**
          * QuantityUnit
@@ -6743,6 +6872,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["InstrumentInternals"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    probeInternal: {
+        parameters: {
+            query: {
+                port: string;
+                tune_hz?: number | null;
+            };
+            header?: never;
+            path: {
+                name: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InternalProbe"];
                 };
             };
             /** @description Validation Error */

@@ -245,7 +245,8 @@ def _samples_gaps(cls: type) -> list[str]:
     """The sample-stream hooks a class with a samples output port leaves at the base's refusal."""
     from simubench.engine.component import Component
 
-    specs = [*cls.ports.values(), *([cls.pattern_port] if cls.port_pattern else [])]
+    made = [s for p in ("in1", "out1") if (s := cls.spec_of(p))] if cls.port_pattern else []
+    specs = [*cls.ports.values(), *made]
     if not any(s.medium == "samples" and s.direction != "in" for s in specs):
         return []
     return [h for h in ("frames", "sample_interval") if getattr(cls, h) is getattr(Component, h)]

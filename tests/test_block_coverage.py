@@ -113,6 +113,7 @@ def test_a_new_definition_must_cover_every_block():
     missing = {p.split("'")[1] for p in found}
     assert missing == {
         "input_port",
+        "decimator",
         "vertical",
         "probe",
         "adc",

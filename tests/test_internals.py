@@ -56,10 +56,13 @@ def test_scope_chain_and_bindings():
     )
     comps = {c.name: c for c in view.components}
     assert comps["acq"].channel is None and comps["ch2.front"].channel == 2
-    assert {"from": "ch2.inp.out", "to": "ch2.front.in"} in [w.model_dump(by_alias=True) for w in view.wires]
-    wires = [w.model_dump(by_alias=True) for w in view.wires]
-    assert {"from": "ch2.front.out", "to": "ch2.probe.in"} in wires  # vertical -> probe -> acquisition
-    assert {"from": "ch2.probe.out", "to": "acq.in2"} in wires
+    wires = [(w.from_, w.to, w.medium) for w in view.wires]
+    assert ("ch2.inp.out", "ch2.front.in", "signal") in wires
+    assert ("ch2.front.out", "ch2.probe.in", "signal") in wires  # vertical -> probe -> acquisition
+    # ... through the sample stream (D67): the ADC, then the decimator's acquisition mode
+    assert ("ch2.probe.out", "adc.in2", "signal") in wires
+    assert ("adc.out2", "dec.in2", "samples") in wires
+    assert ("dec.out2", "acq.in2", "samples") in wires
     assert ("CH2", "ch2.inp.pin") in [(p.name, p.target) for p in view.ports]
     coupling = next(p for p in comps["ch2.front"].params if p.name == "coupling")
     assert (coupling.binding, coupling.value) == ("ch2.coupling", "AC")
@@ -93,7 +96,9 @@ def test_http_endpoint():
         r = c.get(f"/api/sessions/{sid}/instruments/scope/internals")
         assert r.status_code == 200
         body = r.json()
-        assert {"from": "ch1.probe.out", "to": "acq.in1"} in body["wires"]
+        wires = [(w["from"], w["to"], w["medium"]) for w in body["wires"]]
+        assert ("ch1.probe.out", "adc.in1", "signal") in wires
+        assert ("dec.out1", "acq.in1", "samples") in wires
         assert c.get(f"/api/sessions/{sid}/instruments/nope/internals").status_code == 404
 
 
@@ -112,6 +117,9 @@ def test_a_scope_s_acquisition_is_fed_by_its_time_base_trigger_and_adc_and_feeds
         ("timebase", "acq", "horizontal"),
         ("trigger", "acq", "trigger"),
         ("adc", "acq", "adc"),
+        ("dec", "acq", "decimator"),
+        ("adc", "dec", "adc"),
+        ("timebase", "dec", "horizontal"),
         ("acq", "meas", "record"),
         ("acq", "xfer", "record"),
     }
@@ -246,7 +254,7 @@ def test_a_channel_component_names_its_own_channel():
     assert all("<ch>" not in c.header for c in front.commands)
     assert ":CHANnel2:PROBe" in {r.header for r in front.readings if r.provider == "ch2.probe"}
     data = next(r for r in front.readings if r.header == ":WAVeform:DATA")
-    assert (data.via, data.path) == ("ref", ["ch2.front", "ch2.probe", "acq", "xfer"])
+    assert (data.via, data.path) == ("ref", ["ch2.front", "ch2.probe", "adc", "acq", "xfer"])
     assert data.selected_by == "waveform.source"
     assert next(r for r in front.readings if r.provider == "acq").selected_by is None
     adc = next(c for c in view.components if c.name == "adc")

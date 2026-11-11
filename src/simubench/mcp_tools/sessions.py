@@ -15,7 +15,7 @@ from ..engine.record import jsonable
 from ..models.bench import Fault
 from ..server.errors import FILE_ERRORS
 from ..server.manager import ClientsConnected
-from ..server.services import clock, faults
+from ..server.services import clock, faults, internal_probe
 from ..server.services import sessions as sessions_service
 from .context import McpContext, scpi_payload
 
@@ -247,6 +247,26 @@ def _fault_clear_and_truth_tools(mcp: MCPServer, ctx: McpContext) -> None:
         try:
             return _fault(faults.clear(served(session_id), fault_id))
         except KeyError as exc:
+            raise fail(exc) from None
+
+    @mcp.tool()
+    def probe_internal(
+        instrument: str,
+        port: str = Field(
+            ..., description="'<component>.<port>' of an output inside the instrument, e.g. 'adc.out1'"
+        ),
+        tune_hz: float | None = None,
+        session_id: str | None = None,
+    ) -> dict[str, Any]:
+        """The signal at an output port inside an instrument: an analog port's level, lines and
+        waveform, or one frame of a sample stream with its spectrum, rate, format and clipping.
+        Read-only, changes nothing. Refused while the bench hides true values (validation runs)."""
+        guard()
+        try:
+            return internal_probe.probe(served(session_id), instrument, port, tune_hz).model_dump(mode="json")
+        except internal_probe.ProbeWithheld:
+            raise ToolError("该测试台未开启 run.reveal_true_values；验证模式下不提供内部探针") from None
+        except (KeyError, ValueError) as exc:
             raise fail(exc) from None
 
     @mcp.tool()

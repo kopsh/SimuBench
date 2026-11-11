@@ -21,8 +21,9 @@
 | input_port | `input_port` | 电路(阻抗到地) | 已实现 | — |
 | probe | `scope_probe` | 设置/数据(比例换算) | 已实现 | — |
 | vertical | `scope_vertical`(旧名 `scope_frontend`,仅为加载保留) | 信号(滤波与档位;带宽滤波形状 `response`:一阶、砖墙、高斯、4 阶 Bessel、4 阶 Butterworth,#607、#609;一个通道可串两级,如 UXR 的前端与通道带宽限制) | 已实现 | — |
-| adc | `scope_adc` | 数据(量化与噪声) | 已实现 | — |
-| acquisition | `scope_acquisition` | 数据 | 已实现 | — |
+| adc | `scope_adc` | 采样流(模拟到数字的边界:按请求的时刻求值、加输入噪声、量化;`in<n>` 模拟信号、`out<n>` 采样流,D67、#950) | 已实现 | 有效位数随频率下降、交织失配未建模 |
+| decimator | `scope_decimator` | 采样流(从 ADC 的速率到记录的速率:普通、平均、峰值检测、高分辨率,#950) | 已实现 | — |
+| acquisition | `scope_acquisition` | 数据(定时、触发搜索、向采样流请求一帧并存成记录、运行控制) | 已实现 | — |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
 | trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248) | 已实现 | — |
 | measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 分段存储未建模;测量窗口只用主记录(没有缩放记录) |

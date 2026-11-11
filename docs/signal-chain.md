@@ -171,6 +171,8 @@ class FrameRequest:
     key: tuple[object, ...]    # 随机数流的键：由发起请求的块给出（自己的 uid、流名、采集序号、子序号、显示帧号……）
     index0: int = 0            # 第 0 个采样在该随机数流中的序号（平均的第 k 次、绝对采样网格上的位置）
     tune_hz: float | None = None   # 频谱仪：本次请求的本振调谐点；其他仪表为 None
+    first: int = 0             # 第 0 个采样在以 t0_ns 为锚点的网格上的序号：采样 k 的时刻是 t0_ns + (first + k) * dt_s。
+                               # 触发落在两个采样之间时，整数纳秒放不准记录的起点，整数序号乘浮点间隔可以（#950）
 
 @dataclass(frozen=True)
 class SampleFrame:
@@ -186,7 +188,8 @@ class SampleFrame:
 
 - 码值以浮点数组保存整数值：与现有 `scope_adc.quantize`（“the codes, as volts”）一致，避免在第一版引入定点类型。
   定点数据类型属于被推后的能力，届时扩展 `SampleFormat`，不改帧的结构。
-- **上限**：`MAX_FRAME = 1 << 22` 点（单帧）、`MAX_REQUEST_FANOUT = 1 << 26`（一次读取沿链展开的总采样数）。
+- **上限**：`MAX_FRAME = 1 << 26` 点（单帧）、`MAX_REQUEST_FANOUT = 1 << 28`（一次读取沿链展开的总采样数）。
+  起初定为 2²²、2²⁶，实现示波器时改大：10 万点记录的峰值检测一帧就是 640 万个原生采样，现有行为不能被上限拒绝（#950）。
   超出时抛 `ModelLimit`（沿用现有“超出模型能力”事件与定义的错误码）。这两个数是可调常量，写在 `stream.py` 顶部并在 architecture.md 2.3 的上限表中登记。
 
 ### 3.2 组件接口（`engine/component.py`）
@@ -222,6 +225,12 @@ class Component:
   示波器的采集沿用现在的键，重构前后逐位相同（4.2）。
 
 ### 3.3 通用 ADC（`library/components/adc.py`，现有量化内核所在的文件）
+
+> **实现后的修正（#950）**：`scope_adc.frames` 已实现，与下文有三处不同，频谱仪的 `adc`（#955）照此办理。
+> （1）请求里的 `dt_s` 是**实际**采样间隔，由发起请求的块（它持有时钟）除过时钟误差；ADC 不再除一次——
+> 两处各除一次与一处除完再分，浮点结果差一个末位，金标准不过。（2）帧里是“量化后换回电压的码值”
+> （`SampleFormat("volts", bits, lsb)`），不是原始码值：现有的平均、峰值检测都在这个量上做，先平均再换算不逐位相同。
+> （3）没有建 `SamplingAdc` 基类：两种 ADC 共用的只有模块级的量化内核 `adc.codes`，等 #955 写第二个 ADC 时再看是否值得抽基类。
 
 新增基类 `SamplingAdc(Component)`，两个组件类型继承它：
 
@@ -271,11 +280,17 @@ class Component:
 
 要点：
 
+- **噪声序号按 ADC 的原生网格计**（实现后的修正）：采集组件向抽取块请求时，`index0` 已经是原生网格上的序号
+  （`time` 键：`floor(t_start / native_dt)`），平均的第 k 次由抽取块加 `k × 原生点数`；不使用通用的 `upstream()` 换算。
+  采集组件为此向抽取块询问过采样倍数（`oversample()`，一个设置量）。
 - **噪声键不变**：采集组件把现在传给 `stream_key` 的全部参数原样放进 `request.key`（采集组件自己的 uid、`"noise"` 或 `"frame"`、通道号，
   以及采集序号，或 `time` 模式下的 `dt` 与 `noise_stream`，或显示帧号），把现在的样本序号起点放进 `request.index0`
   （`sub * count`，或 `floor(t_start / dt) + sub * count`）。`scope_adc` 按 3.2 的规则取数，每个采样的噪声值与重构前逐位相同。这是金标准不变的前提。
 - **平均**：`scope_decimator` 对子序号 0..N−1 各请求一帧量化后的采样再取均值（与现状同序）。
 - **峰值检测**：请求 `points × m` 个原生速率采样，按现有规则在每个间隔取极值。
+- **触发**取 ADC 输入端的模拟信号（`scope_adc.analog(n)`），与原来读探头输出是同一个信号。
+- **行为变化两处**（PR #950 列出）：高分辨率（ERES/HRES）的平滑原来少返回一个点（N 点得 N−1 点，窗口偏一个采样），已修正，
+  金标准中 DSO-X 与 SDS 的这两行随之重录；屏幕帧在平均方式下，原来各次子采集用同一份噪声，现在各用各的。
 - **宏**：`macros.py` 的 `scope_acquisition` 宏扩展——定义没有显式写 `scope_decimator` 时生成一个（名字 `dec`），
   把 `processing` 等参数从采集移到它，并补上三段连线 `probe.out → adc.in<n> → dec.in<n> → acq.in<n>`。内置与验证定义**不改文件**。
 - `docs/blocks/oscilloscope.yaml` 增加一块 `decimator`（抽取与采集方式），component-map.md 的示波器表同步。
@@ -408,10 +423,15 @@ class InternalProbe(_Model):
 
 ### 6.2 规则
 
-- 采样流端口：发出 `FrameRequest(t0_ns=now, count=4096, dt_s=该端口的当前采样间隔, key=("probe", panel_frame))`。
-  端口的当前采样间隔由块给出（新钩子 `Component.sample_interval(port) -> float | None`，带 `samples` 输出的块必须实现）。
-- **保密**：探针显示的是信号，信号由个体偏差决定。`run.reveal_true_values` 关闭时（验证模式，security.md），内部探针接口返回 403，
+- 采样流端口：发出 `FrameRequest(t0_ns=now, count=4096, dt_s=该端口的当前采样间隔, key=("probe",), index0=该时刻在采样网格上的序号)`。
+  噪声序号按时刻计（不用面板帧计数）：同一时刻两次探针给出同一帧，探针不推进任何计数器。
+  端口的当前采样间隔由块给出（钩子 `Component.sample_interval(port)`，带 `samples` 输出的块必须实现）。
+  没有自身速率的转换器（“问多快就采多快”，如 `sb-dso-4` 的理想 ADC）按读它的块所要的间隔取：钩子 `Component.input_interval(port)`（`scope_decimator` 已实现）。
+- **保密**：探针显示的是信号，信号由个体偏差决定。测试台不公开真实值（`run.reveal_true_values` 关闭，验证模式，security.md）
+  且**该仪表带有隐藏的个体值**（抽取的个体偏差、测试台的 `hidden`、参数类故障——都落在组件的 `overrides` 里）时，内部探针接口返回 403，
   界面显示“验证模式下不提供内部探针”——否则定标脚本的作者可以从 ADC 码值反推被隐藏的增益误差。内部结构图（标称参数）照常可看。
+  仪表全部为标称值时没有可泄露的内容，探针照常提供（实现 #951 时的修正：`reveal_true_values` 默认关闭，按原先“关闭即拒绝”的写法，
+  所有自带示例测试台上都用不了内部探针）。
 - `InstrumentInternals`（现有）给每个端口补 `medium`，给连线补 `medium` 与采样流的 `sample_rate_hz`、`format`，供 1.2 的标注使用。
 - 性能预算：一次探针请求 ≤ 50 ms（4 通道示波器、频谱仪全链）。
 

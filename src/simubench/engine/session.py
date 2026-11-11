@@ -31,6 +31,7 @@ from .portref import split
 from .record import Recorder
 from .signal import Signal
 from .stream import (
+    FRAME_CACHE_SAMPLES,
     FRAME_CACHE_SIZE,
     MAX_REQUEST_FANOUT,
     FrameRequest,
@@ -143,6 +144,7 @@ class Session:
         )
         #: One entry per :meth:`cached_frames` call in progress: the samples it has asked for so far.
         self._frame_asks: list[int] = []
+        self._frame_cached = 0  # samples the frame cache holds
         self._wall_start = time.monotonic_ns()
         self._scaled_ref_ns = self._wall_start
         self._scaled_base_ns = 0
@@ -412,9 +414,12 @@ class Session:
             hit = (frame, cost)
             if self._frame_cache and next(iter(self._frame_cache))[0] != self._signal_version:
                 self._frame_cache.clear()
-            self._frame_cache[key] = hit
-            if len(self._frame_cache) > FRAME_CACHE_SIZE:
-                self._frame_cache.popitem(last=False)
+                self._frame_cached = 0
+            if frame.count <= FRAME_CACHE_SAMPLES:
+                self._frame_cache[key] = hit
+                self._frame_cached += frame.count
+            while len(self._frame_cache) > FRAME_CACHE_SIZE or self._frame_cached > FRAME_CACHE_SAMPLES:
+                self._frame_cached -= self._frame_cache.popitem(last=False)[1][0].count
         else:
             self._charge(asked + hit[1], comp, port)
             self._frame_cache.move_to_end(key)
