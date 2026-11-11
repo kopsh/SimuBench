@@ -29,13 +29,15 @@ from ..scpi.errors import ScpiError
 from .signal import FidelityNote
 
 #: Most samples in one frame.
-MAX_FRAME = 1 << 22
+MAX_FRAME = 1 << 26
 #: Most samples one read may ask for along a whole chain (every block's request, added up): a
 #: decimate-by-1000 block in front of a 1 M-point frame asks its upstream for 1 G samples.
-MAX_REQUEST_FANOUT = 1 << 26
+MAX_REQUEST_FANOUT = 1 << 28
 #: Frames a session keeps (newest first to stay): enough for one read's repeated requests and the
 #: internal probe, not a store.
 FRAME_CACHE_SIZE = 64
+#: Samples those frames hold together at most; a frame longer than this is not kept at all.
+FRAME_CACHE_SAMPLES = 1 << 21
 
 #: What the numbers in a frame are: real volts, ADC codes (integer values, kept as floats), complex
 #: baseband samples, or the complex amplitude at each frequency point of a transform.
@@ -73,7 +75,7 @@ BINS = SampleFormat("bins")
 class FrameRequest:
     """What a block asks its upstream for. Hashable: it is part of the frame cache's key."""
 
-    #: Virtual time of sample 0.
+    #: Virtual time the sample grid is anchored at: sample k is at ``t0_ns + (first + k) * dt_s``.
     t0_ns: int
     #: Number of samples.
     count: int
@@ -87,6 +89,10 @@ class FrameRequest:
     index0: int = 0
     #: A spectrum analyzer's local-oscillator tuning for this request, Hz; None elsewhere.
     tune_hz: float | None = None
+    #: Index of sample 0 on the grid anchored at ``t0_ns`` (may be negative). Whole nanoseconds
+    #: cannot place a record around a trigger found between two samples of a fast clock; an
+    #: integer position on a float-interval grid can.
+    first: int = 0
 
     def __post_init__(self) -> None:
         if self.count < 1:
@@ -97,22 +103,21 @@ class FrameRequest:
     def upstream(self, factor: int = 1, warmup: int = 0) -> FrameRequest:
         """The request a rate-changing block passes up: ``factor`` input samples per output sample,
         and ``warmup`` extra input samples before the first (the block's history, dropped from its
-        output). Sample ``warmup`` of the answer falls on this request's ``t0_ns``; the random
+        output). Sample ``warmup`` of the answer falls on this request's sample 0; the random
         stream's index follows the finer grid, so the same instant draws the same noise."""
         if factor < 1 or warmup < 0:
             raise ValueError(f"upstream(factor={factor}, warmup={warmup}): factor >= 1, warmup >= 0")
-        dt = self.dt_s / factor
         return replace(
             self,
-            t0_ns=self.t0_ns - round(warmup * dt * 1e9),
             count=self.count * factor + warmup,
-            dt_s=dt,
+            dt_s=self.dt_s / factor,
             index0=self.index0 * factor - warmup,
+            first=self.first * factor - warmup,
         )
 
     def offsets_s(self) -> np.ndarray:
         """Each sample's time after ``t0_ns``, s."""
-        return np.arange(self.count, dtype=np.float64) * self.dt_s
+        return (self.first + np.arange(self.count, dtype=np.float64)) * self.dt_s
 
     def indexes(self) -> np.ndarray:
         """Each sample's index in the random stream (``index0 + k``)."""

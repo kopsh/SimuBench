@@ -2,6 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { InstrumentInternals } from "@/api/client";
 import { buildGraph } from "./layout";
 
+/** What a wire carries when it is analog (the API fills these in). */
+const ANALOG = { medium: "signal" as const, sample_rate_hz: null, format: null };
+
 const port = (
   name: string,
   direction: string,
@@ -55,8 +58,8 @@ const scope: InstrumentInternals = {
     ]),
   ],
   wires: [1, 2].flatMap((n) => [
-    { from: `ch${n}.inp.out`, to: `ch${n}.front.in` },
-    { from: `ch${n}.front.out`, to: `acq.in${n}` },
+    { from: `ch${n}.inp.out`, to: `ch${n}.front.in`, ...ANALOG },
+    { from: `ch${n}.front.out`, to: `acq.in${n}`, ...ANALOG },
   ]),
   refs: [],
   selects: [],

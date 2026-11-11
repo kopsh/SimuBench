@@ -3973,6 +3973,149 @@
         "title": "InternalPort",
         "type": "object"
       },
+      "InternalProbe": {
+        "description": "The signal at one output port inside an instrument (signal-chain.md 6.1). Reading it changes\nnothing: not the clock, not the run record, not what a script reads next.",
+        "properties": {
+          "clipped": {
+            "default": false,
+            "title": "Clipped",
+            "type": "boolean"
+          },
+          "dc": {
+            "title": "Dc",
+            "type": "number"
+          },
+          "format": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeFormat"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "full_scale_used": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Quantized samples: the frame's peak-to-peak span as a fraction of full scale",
+            "title": "Full Scale Used"
+          },
+          "lines": {
+            "description": "signal only: strongest lines",
+            "items": {
+              "$ref": "#/components/schemas/SpectralLine"
+            },
+            "title": "Lines",
+            "type": "array"
+          },
+          "medium": {
+            "enum": [
+              "signal",
+              "samples"
+            ],
+            "title": "Medium",
+            "type": "string"
+          },
+          "notes": {
+            "description": "Why the signal is not exact, if it is not",
+            "items": {
+              "type": "string"
+            },
+            "title": "Notes",
+            "type": "array"
+          },
+          "peak": {
+            "title": "Peak",
+            "type": "number"
+          },
+          "port": {
+            "description": "'<component>.<port>', e.g. 'adc.out1'",
+            "title": "Port",
+            "type": "string"
+          },
+          "rms": {
+            "title": "Rms",
+            "type": "number"
+          },
+          "sample_rate_hz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sample Rate Hz"
+          },
+          "silence": {
+            "description": "Why it reads 0, traced upstream; empty when it does not",
+            "items": {
+              "$ref": "#/components/schemas/SilenceReason"
+            },
+            "title": "Silence",
+            "type": "array"
+          },
+          "spectrum": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeSpectrum"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "samples only"
+          },
+          "t_ns": {
+            "title": "T Ns",
+            "type": "integer"
+          },
+          "tune_hz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The local-oscillator tuning the probe was read at; none where it does not apply",
+            "title": "Tune Hz"
+          },
+          "waveform": {
+            "$ref": "#/components/schemas/NetWaveform",
+            "description": "signal: the analytic waveform; samples: the frame's samples, one value each"
+          }
+        },
+        "required": [
+          "port",
+          "medium",
+          "t_ns",
+          "dc",
+          "rms",
+          "peak",
+          "waveform",
+          "lines",
+          "spectrum",
+          "sample_rate_hz",
+          "format",
+          "full_scale_used",
+          "clipped",
+          "tune_hz",
+          "notes",
+          "silence"
+        ],
+        "title": "InternalProbe",
+        "type": "object"
+      },
       "InternalReading": {
         "description": "A query command whose answer the component influences (#739): the command reads a component\nat or downstream of it.",
         "properties": {
@@ -4084,10 +4227,43 @@
       },
       "InternalWire": {
         "properties": {
+          "format": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProbeFormat"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "samples: the stream's format"
+          },
           "from": {
             "description": "'<component>.<port>'",
             "title": "From",
             "type": "string"
+          },
+          "medium": {
+            "default": "signal",
+            "description": "'signal': analog (analytic); 'samples': a sample stream (digital)",
+            "enum": [
+              "signal",
+              "samples"
+            ],
+            "title": "Medium",
+            "type": "string"
+          },
+          "sample_rate_hz": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "samples: the rate the stream runs at with the current settings; none when unknown",
+            "title": "Sample Rate Hz"
           },
           "to": {
             "title": "To",
@@ -4096,7 +4272,10 @@
         },
         "required": [
           "from",
-          "to"
+          "to",
+          "medium",
+          "sample_rate_hz",
+          "format"
         ],
         "title": "InternalWire",
         "type": "object"
@@ -5253,6 +5432,68 @@
           }
         },
         "title": "Ports",
+        "type": "object"
+      },
+      "ProbeFormat": {
+        "description": "How a sample stream's numbers read (signal-chain.md 3.1).",
+        "properties": {
+          "bits": {
+            "default": 0,
+            "description": "The converter's resolution; 0 when the samples are not quantized",
+            "title": "Bits",
+            "type": "integer"
+          },
+          "kind": {
+            "enum": [
+              "volts",
+              "codes",
+              "iq",
+              "bins"
+            ],
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "bits"
+        ],
+        "title": "ProbeFormat",
+        "type": "object"
+      },
+      "ProbeSpectrum": {
+        "description": "The amplitude spectrum of one frame of samples (a windowed FFT), from 0 Hz to half the rate.",
+        "properties": {
+          "freq_hz": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Freq Hz",
+            "type": "array"
+          },
+          "level": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Level",
+            "type": "array"
+          },
+          "unit": {
+            "enum": [
+              "dBFS",
+              "dBV",
+              "dBm"
+            ],
+            "title": "Unit",
+            "type": "string"
+          }
+        },
+        "required": [
+          "freq_hz",
+          "level",
+          "unit"
+        ],
+        "title": "ProbeSpectrum",
         "type": "object"
       },
       "QuantityUnit": {
@@ -10506,6 +10747,80 @@
           }
         },
         "summary": "Internals"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}/internals/probe": {
+      "get": {
+        "description": "The signal at an output port inside an instrument (signal-chain.md 6). 403 while the\nbench hides true values (validation mode).",
+        "operationId": "probeInternal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "port",
+            "required": true,
+            "schema": {
+              "title": "Port",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "tune_hz",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tune Hz"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InternalProbe"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Probe Internal"
       }
     },
     "/api/sessions/{sid}/instruments/{name}/local": {

@@ -301,9 +301,8 @@ def _check_wiring(d: InstrumentDefinition, classes: dict[str, type[Component]], 
         """What the port at a wiring end carries; None when the end does not resolve (reported above)."""
         comp, port = split(ref)
         cls = classes.get(f"ch1.{comp}" if in_channel else comp)
-        if cls is None or not _has_port(cls, port):
-            return None
-        return cls.ports.get(port, cls.pattern_port).medium
+        spec = cls.spec_of(port) if cls is not None else None
+        return spec.medium if spec is not None else None
 
     fed: set[str] = set()  # samples inputs a wire feeds, as ch1.<component>.<port> / <component>.<port>
 

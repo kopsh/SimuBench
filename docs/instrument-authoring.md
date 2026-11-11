@@ -581,6 +581,8 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 
 **宏**：`scope_acquisition` 照旧接受现在的全部参数。没有引用独立模块时，加载定义时按这些参数展开为上述模块；展开后与显式写出的定义指纹相同。
 
+**采样流（D67、#950）**：`scope_acquisition` 的 `in<n>` 接的是采样流。完整的连线是 `ch{n}.probe.out → adc.in{n}`、`adc.out{n} → dec.in{n}`、`dec.out{n} → acq.in{n}`，其中 `dec` 是 `scope_decimator`（参数 `processing`、`averages`、`eres_bits`、`peak_max_oversample`，引用 `adc` 与 `horizontal`），`scope_adc` 用 `vertical`、`probe` 引用每通道的模块，采集用 `decimator` 引用它。定义只写了 `…probe.out → acq.in{n}`、没有写 `decimator` 时，宏在加载时补上这一段：生成名为 `dec` 的抽取块（加在组件表末尾，不改变已写组件的位置），把采集上的这四个参数移给它，把 ADC 的两个引用按采集的填好。
+
 **暂不做**：数学通道与 FFT（放在测量之后，作为测量与传输的虚拟数据源）、数字通道、协议解码、参考波形、模板测试、分段存储（留接口）。
 
 **能否覆盖其他厂商**：按上表，Keysight 的 `:DIGitize` 阻塞与点数模式、R&S 的 `SING;*OPC?` 与 `FORM REAL,32`、Tek 的 `ACQ:STATE` 与 `WFMOutpre?` 的换算字段、Rigol 的分批读取上限与 `:TRIG:STAT?` 的取值，都可以用声明表达。这些厂商行为来自经验，未在仓库中核实，写进型号定义前要对照手册。

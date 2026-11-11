@@ -268,7 +268,12 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
                     for p, spec in comp.ports.items()
                 ]
                 + [
-                    M.PortInfo(name=p, direction=d, medium="signal", channel=comp.channel)
+                    M.PortInfo(
+                        name=p,
+                        direction=d,
+                        medium=spec.medium if (spec := comp.spec_of(p)) else "signal",
+                        channel=comp.channel,
+                    )
                     for p, d in wired.get(name, {}).items()
                     if p not in comp.ports
                 ]
@@ -301,7 +306,7 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
         definition_id=inst.definition.id,
         channels=inst.channel_count,
         components=components,
-        wires=[M.InternalWire(**{"from": a}, to=b) for a, b in wires],
+        wires=_internal_wires(s, inst, wires),
         refs=[
             M.InternalRef(**{"from": used}, to=name, param=key)
             for name, comp in inst.components.items()
@@ -310,6 +315,31 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
         selects=selections(inst),
         ports=ports,
     )
+
+
+def _internal_wires(s: Session, inst: Instrument, wires: list[tuple[str, str]]) -> list[M.InternalWire]:
+    """The instrument's wires with what flows on each: a sample stream's wire carries its rate and
+    format with the current settings (none while the block has no rate to give)."""
+    from .services.internal_probe import out_ports, stream_format, stream_request
+
+    streams = {
+        ref: (comp, port) for ref, (comp, port, medium) in out_ports(inst).items() if medium == "samples"
+    }
+    out: list[M.InternalWire] = []
+    with s.view():
+        for a, b in wires:
+            if a not in streams:
+                out.append(M.InternalWire(**{"from": a}, to=b))
+                continue
+            comp, port = streams[a]
+            rate, fmt = None, None
+            try:  # one sample is enough to learn the format
+                frame = s.cached_frames(comp, port, stream_request(s, comp, port, count=1))
+                rate, fmt = frame.rate_hz, stream_format(frame)
+            except (ScpiError, NotImplementedError, ValueError):
+                pass
+            out.append(M.InternalWire(**{"from": a}, to=b, medium="samples", sample_rate_hz=rate, format=fmt))
+    return out
 
 
 # ---- actions ------------------------------------------------------------------------------------
