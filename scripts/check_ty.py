@@ -58,6 +58,8 @@ def current() -> Counter[str]:
         raise TyBroken(f"ty exited {proc.returncode}:\n{proc.stderr.strip() or proc.stdout.strip()}")
     keys: Counter[str] = Counter()
     for line in proc.stdout.splitlines():
+        # Windows prints the path with backslashes: the keys are POSIX-shaped on every platform
+        line = line.replace("\\", "/")
         if m := LINE.match(line):
             path, rule, message = m.groups()
             keys[f"{path}:{rule} {message.strip()}"] += 1
