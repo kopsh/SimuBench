@@ -138,16 +138,16 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | input_port | `input_port` | 电路(50 Ω 到地) | 已实现 | — |
-| input_attenuator | `specan_input` | 信号(`out` = 输入 × 衰减 × 前置放大;另有输入阻抗、过载判断) | 已实现(#952:`out`、`preamp_gain`,`RfStage`) | — |
-| mixer | `specan_mixer` | 信号(`out` = 输入谱线搬到中频 `f_rf − f_lo`,扣变频损耗;取决于调谐点) | 已实现(#952:`out`、`conversion_loss`,`RfStage`;`noise_figure` 是整机噪声系数的旧写法) | — |
-| local_oscillator | `specan_lo` | 数据(调谐点、参考误差与显示频率轴、扫速) | 已实现(#952:`tuned()`、`frequency()`;`lo_rate`/`sweep_overhead` 自 `specan_trace` 移来,参考误差自 `specan_mixer` 移来;相位噪声未建模,#954) | — |
-| if_filter | `specan_if` | 信号(`out` = 混频器输出 × 以 `if_hz` 为中心的高斯 RBW 通带 × 中频增益;另有 RBW 档位、噪声底) | 已实现(#952:`out`、`if_hz`、`gain`,`RfStage`;型号声明档位与范围 #616:`steps` 1-3-10 或 X 系列的约 10% 步进、`rbw_min`/`rbw_max`、自动的 `auto_ratio`/`auto_max`) | — |
+| input_attenuator | `specan_input` | 信号(`out` = 输入 × 衰减 × 平坦度 × 前置放大;另有输入阻抗、过载判断) | 已实现(#952:`out`、`preamp_gain`,`RfStage`;#954:`flatness`、`preamp_noise_figure` 与前放的 `iip2`/`iip3`/`p1db`) | — |
+| mixer | `specan_mixer` | 信号(`out` = 输入谱线搬到中频 `f_rf − f_lo`,扣变频损耗;另加镜像折叠、本振馈通、杂散与本机截点的失真产物;取决于调谐点) | 已实现(#952:`out`、`conversion_loss`,`RfStage`;`noise_figure` 是整机噪声系数的旧写法;#954:`iip2`/`iip3`/`p1db`、`image_rejection`、`lo_feedthrough`、`spurs`、`residuals`) | — |
+| local_oscillator | `specan_lo` | 数据(调谐点、参考误差与显示频率轴、扫速、相位噪声表) | 已实现(#952:`tuned()`、`frequency()`;`lo_rate`/`sweep_overhead` 自 `specan_trace` 移来,参考误差自 `specan_mixer` 移来;#954:`phase_noise`,迹线上按载波功率 × L(偏移) × 噪声带宽进检波器) | — |
+| if_filter | `specan_if` | 信号(`out` = 混频器输出 × 以 `if_hz` 为中心的高斯 RBW 通带 × 中频增益;另有 RBW 档位、噪声底) | 已实现(#952:`out`、`if_hz`、`gain`,`RfStage`;型号声明档位与范围 #616:`steps` 1-3-10 或 X 系列的约 10% 步进、`rbw_min`/`rbw_max`、自动的 `auto_ratio`/`auto_max`;#954:中频放大器的 `iip2`/`iip3`/`p1db`) | — |
 | log_detector | `specan_detector` | 数据(检波与对数) | 已实现(#616:负峰值、Normal/Rosenfell;`auto` 按迹线类型自动选择检波器,`select` 操作查询回使用中的检波器) | — |
 | vbw_filter | `specan_vbw` | 数据(VBW) | 已实现(#616:`steps`、`vbw_min`/`vbw_max`,高于档位表的上限为全开档) | — |
-| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;沿连线从中频滤波向上游取链首谱线与各级的级联指标) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记;#616:频率上限 `f_max`、`span_min`、扫描时间 `sweep_min`/`sweep_max`,最小保持,`hold_count`(单次扫描在保持模式下取平均/保持次数),`marker.mode` 可含 OFF、`marker_off_reply`(关闭的标记回 9.91E+37)与 `delta_x`(差值标记的 X 为偏移)) | — |
+| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;沿连线从中频滤波向上游取链首谱线与各级的级联指标;#954:失真产物、压缩、镜像/杂散/残余/馈通与相位噪声裙边) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记;#616:频率上限 `f_max`、`span_min`、扫描时间 `sweep_min`/`sweep_max`,最小保持,`hold_count`(单次扫描在保持模式下取平均/保持次数),`marker.mode` 可含 OFF、`marker_off_reply`(关闭的标记回 9.91E+37)与 `delta_x`(差值标记的 X 为偏移)) | — |
 | reference | `reference_clock` | 数据(10 MHz 参考与偏差) | 已实现 | — |
 
-D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层。#952 起模拟前端在块之间传递信号:`rf_in → input → mixer → if_filter`,每块有 `out`(内部探针可读);混频器与中频的输出取决于调谐点(`Session.tuned`,只由发起读取的迹线或探针设置;不在其中时按中心频率),这两个端口不能映射为仪表端口(`E-DEF-PORT-TUNED`)。迹线仍是解析求值:取链首的谱线经 RBW 响应画到每个点,噪声取衰减器之后各级的级联噪声系数(`engine/rfcascade.py`)加衰减量——显示按输入校准,理想链的增益相消,所以回复与拆分前逐位相同(`tests/test_specan_migration.py`)。旧写法(没有 `specan_lo`、前端未连线、旧参数名)在加载时由宏展开。检波、视频滤波、迹线仍是数据层。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(默认 `span/100` 取 1-3-10 梯级;X 系列 `span/106` 取约 10% 步进,最多 3 MHz,#616);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_lo` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
+D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层。#952 起模拟前端在块之间传递信号:`rf_in → input → mixer → if_filter`,每块有 `out`(内部探针可读);混频器与中频的输出取决于调谐点(`Session.tuned`,只由发起读取的迹线或探针设置;不在其中时按中心频率),这两个端口不能映射为仪表端口(`E-DEF-PORT-TUNED`)。迹线仍是解析求值:取链首的谱线经 RBW 响应画到每个点,噪声取衰减器之后各级的级联噪声系数(`engine/rfcascade.py`)加衰减量——显示按输入校准,理想链的增益相消,所以回复与拆分前逐位相同(`tests/test_specan_migration.py`)。旧写法(没有 `specan_lo`、前端未连线、旧参数名)在加载时由宏展开。检波、视频滤波、迹线仍是数据层。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(默认 `span/100` 取 1-3-10 梯级;X 系列 `span/106` 取约 10% 步进,最多 3 MHz,#616);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_lo` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;前端的非理想(#954)在迹线层实现:级联截点的失真产物与压缩、镜像折叠、杂散/残余/本振馈通作为显示谱线、平坦度按频率缩放显示电平、相位噪声作为噪声进检波器——全部默认关闭,未声明参数时回复逐位相同;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
 
 ## rf_generator
 

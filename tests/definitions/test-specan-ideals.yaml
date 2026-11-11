@@ -1,0 +1,255 @@
+# 测试专用频谱仪（#954）：声明前端的非理想参数，验证迹线上的失真产物、相位噪声裙边、
+# 平坦度、镜像、压缩、残余与本振馈通。衰减固定 0，混频器的截点就是链的截点。
+schema: simubench.instrument/1
+id: test-specan-ideals
+manufacturer: SimuBench
+model: TEST-SPECAN-IDEALS
+class: spectrum_analyzer
+version: 1
+description: 声明非理想参数的验证频谱仪：混频器 IIP3 +10 dBm、P1dB +10 dBm、镜像抑制 60 dB、
+  本振馈通 −40 dBm、2·f_rf−f_lo 杂散 −40 dBc、1.5 GHz 残余 −80 dBm；本振相位噪声 −80/−100/−130 dBc/Hz @ 100/10k/1M Hz；响应平坦度在 1.2 GHz 为 −1 dB。
+identity:
+  serial: SBIDEALS00001
+  firmware: "1.0.0"
+state:
+  freq.center:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 7.5e9
+    default: 1.0e9
+    label: 中心频率
+    label_en: Center
+  freq.span:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 7.5e9
+    default: 4.0e6
+    label: 跨度
+    label_en: Span
+  bw.res:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 3.0e6
+    default: 3.0e6
+    label: 分辨率带宽 (手动)
+    label_en: RBW (manual)
+  bw.res_auto:
+    type: bool
+    default: true
+    label: RBW 自动
+    label_en: RBW auto
+  sweep.points:
+    type: int
+    min: 101
+    max: 40001
+    default: 1001
+    label: 迹线点数
+    label_en: Points
+  sweep.time:
+    type: float
+    unit: S
+    min: 1.0e-3
+    max: 10.0e3
+    default: 1.0e-3
+    label: 扫描时间 (手动)
+    label_en: Sweep time (manual)
+  sweep.time_auto:
+    type: bool
+    default: true
+    label: 扫描时间自动
+    label_en: Sweep time auto
+  power.att:
+    type: float
+    min: 0.0
+    max: 70.0
+    default: 0.0
+    display_unit: dB
+    label: 衰减 (手动)
+    label_en: Attenuation (manual)
+  power.att_auto:
+    type: bool
+    default: false
+    label: 衰减自动
+    label_en: Attenuation auto
+  display.ref_level:
+    type: float
+    min: -150.0
+    max: 30.0
+    default: 10.0
+    display_unit: dBm
+    label: 参考电平
+    label_en: Reference level
+  detector:
+    type: enum
+    options: [POSitive, SAMPle, AVERage, RMS]
+    default: POSitive
+    label: 检波器
+    label_en: Detector
+    option_labels: {POSitive: 正峰值, SAMPle: 采样, AVERage: 平均, RMS: 均方根}
+  trace.type:
+    type: enum
+    options: [WRITe, AVERage, MAXHold]
+    default: WRITe
+    label: 迹线模式
+    label_en: Trace mode
+    option_labels: {WRITe: 刷新, AVERage: 平均, MAXHold: 最大保持}
+  aver.count:
+    type: int
+    min: 1
+    max: 10000
+    default: 10
+    label: 平均次数
+    label_en: Average count
+  marker.x:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 7.5e9
+    default: 1.0e9
+    label: 标记频率
+    label_en: Marker
+  marker.threshold:
+    type: float
+    min: -200.0
+    max: 30.0
+    default: -160.0
+    display_unit: dBm
+    label: 峰值门限
+    label_en: Peak threshold
+  marker.excursion:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 6.0
+    display_unit: dB
+    label: 峰值起伏
+    label_en: Peak excursion
+  rosc.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 参考源
+    label_en: Reference source
+    option_labels: {INTernal: 内部, EXTernal: 外部}
+  init.continuous:
+    type: bool
+    default: true
+    label: 连续扫描
+    label_en: Continuous
+components:
+  - name: rf_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: clock
+    type: reference_clock
+    params: {source: $rosc.source, nominal_hz: 10e6}
+  - name: input
+    type: specan_input
+    params:
+      z_in: 50.0
+      max_mixer_level: 10.0  # 不因过载挡住压缩与失真的验证
+      att: $power.att
+      att_auto: $power.att_auto
+      ref_level: $display.ref_level
+      flatness: [[1.0e9, 0.0], [1.2e9, -1.0], [1.5e9, 0.0]]  # 响应偏差，分段线性
+  - name: mixer
+    type: specan_mixer
+    params:
+      noise_figure: 24.0
+      lo: lo
+      iip3_dbm: 10.0  # 衰减为 0：链的 IIP3 就是它
+      p1db_dbm: 10.0
+      image_rejection: 60.0
+      lo_feedthrough: -40.0
+      spurs: [[2, 1, -40.0]]
+      residuals: [[1.5e9, -80.0]]
+  - name: lo
+    type: specan_lo
+    params:
+      clock: clock
+      source: $rosc.source
+      if_filter: if_filter
+      center: $freq.center
+      phase_noise: [[100.0, -80.0], [1.0e4, -100.0], [1.0e6, -130.0]]
+  - name: if_filter
+    type: specan_if
+    params: {rbw: $bw.res, rbw_auto: $bw.res_auto, span: $freq.span}
+  - name: detector
+    type: specan_detector
+    params: {detector: $detector}
+  - name: vbw
+    type: specan_vbw
+    params: {vid_auto: true, if_filter: if_filter}
+  - name: sa
+    type: specan_trace
+    params:
+      input: input
+      lo: lo
+      if_filter: if_filter
+      detector: detector
+      vbw: vbw
+wiring:
+  instrument:
+    - [rf_in.out, input.in]
+    - [input.out, mixer.in]
+    - [mixer.out, if_filter.in]
+    - [ref_in.out, clock.ref]
+ports:
+  instrument:
+    RF_IN: rf_in.pin
+    REF_IN: ref_in.pin
+  media: {REF_IN: reference}
+display:
+  template: spectrum_analyzer
+  summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
+capabilities: [spectrum_analyzer]
+commands:
+  - header: "[:SENSe]:FREQuency:CENTer"
+    op: sa.frequency
+    args: {what: center}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:SPAN"
+    op: sa.frequency
+    args: {what: span}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BANDwidth[:RESolution]:AUTO"
+    state: bw.res_auto
+  - header: "[:SENSe]:BANDwidth[:RESolution]"
+    op: if_filter.coupled_rbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:SWEep:POINts"
+    state: sweep.points
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation:AUTO"
+    state: power.att_auto
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation"
+    op: input.coupled_att
+    params: [{name: value, type: float, optional: true}]
+  - header: "[:SENSe]:DETector[:FUNCtion]"
+    state: detector
+  - header: ":TRACe<t>:TYPE"
+    state: trace.type
+  - header: ":TRACe[:DATA]"
+    op: sa.trace_data
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: "[:SENSe]:AVERage:COUNt"
+    state: aver.count
+  - header: ":CALCulate:MARKer<m>:X"
+    op: sa.marker
+    args: {what: x}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: ":CALCulate:MARKer<m>:Y"
+    op: sa.marker
+    set: false
+    args: {what: y}
+  - header: ":INITiate:CONTinuous"
+    state: init.continuous
+  - header: ":INITiate[:IMMediate]"
+    op: sa.initiate
+    query: false

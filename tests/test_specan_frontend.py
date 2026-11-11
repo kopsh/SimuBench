@@ -218,3 +218,159 @@ def test_tuned_restores_the_outer_point_when_the_read_fails(bench):
         raise RuntimeError
     assert bench.tune_hz is None
     assert np.isfinite(bench.instruments["sa"].components["lo"].tuned())
+
+
+# ---- the front end's non-ideals (#954): a definition that declares them, one flow per figure ----
+
+IDEALS = ROOT / "tests" / "definitions" / "test-specan-ideals.yaml"
+CARRIER = 1.0e9
+#: Two 50 Ω sources share the 50 Ω input: each tone delivers its level minus 3.52 dB, so this
+#: drive puts both at −10 dBm on the analyzer's input.
+TWO_TONE_LEVEL = -10.0 + 10 * math.log10(9 / 4)
+IMAGE = CARRIER - 2 * IF_HZ  # the image of the tuned point: one IF below the oscillator's side
+
+
+@pytest.fixture(scope="module")
+def ideals(tmp_path_factory):
+    """Two generators on an analyzer that declares the non-ideals: the mixer's intercepts (+10 dBm
+    IIP3, +5 dBm P1dB), a 60 dB image rejection, a −40 dBm oscillator feedthrough, a −40 dBc
+    2·f_rf−f_lo spur, a −80 dBm residual at 1.5 GHz, −100 dBc/Hz phase noise at 10 kHz and a
+    −1 dB flatness point at 1.2 GHz. No attenuation: the mixer's figures are the chain's."""
+    where = tmp_path_factory.mktemp("ideals")
+    (where / IDEALS.name).write_text(yaml.safe_dump(_data(IDEALS), allow_unicode=True), "utf-8")
+    bench = BenchDefinition.model_validate(
+        {
+            "schema": "simubench.bench/2",
+            "name": "specan-ideals",
+            "instruments": {
+                "sg1": {"model": "sb-sg-1", "state": {"freq.cw": CARRIER, "power.level": TWO_TONE_LEVEL, "output.enabled": True}},
+                "sg2": {"model": "sb-sg-1", "state": {"freq.cw": CARRIER + 1.0e6, "power.level": TWO_TONE_LEVEL, "output.enabled": True}},
+                "sa": {"model": "test-specan-ideals", "state": {"freq.center": CARRIER, "freq.span": 4.0e6, "sweep.points": 301}},
+            },
+            "wires": [
+                {"from": "sg1.RF_OUT", "to": "sa.RF_IN"},
+                {"from": "sg2.RF_OUT", "to": "sa.RF_IN"},
+            ],
+            "run": {"seed": 3, "clock": "command", "idle": "off"},
+        }
+    )
+    s = open_bench(bench, definition_dirs=[where, DEFS])
+    yield s
+    s.close()
+
+
+def _marker_at(s, f_hz: float) -> float:
+    session_query(s, "sa", f":CALC:MARK:X {f_hz:.6E}")
+    return float(session_query(s, "sa", ":CALC:MARK:Y?"))
+
+
+def test_two_tones_show_the_third_order_products_at_the_intercept(ideals):
+    """Two −10 dBm tones into a +10 dBm IIP3: the 2f₁−f₂ product reads −50 dBm, and 10 dB less
+    drive drops it 30 dB (#954)."""
+    s = ideals
+    assert float(session_query(s, "sa", ":POW:ATT?")) == 0.0
+    # a narrow RBW keeps the receiver's own noise 50 dB under the products: the |v|² cross term
+    # with it would sway the reading
+    session_query(s, "sa", ":BAND:AUTO OFF")
+    session_query(s, "sa", ":BAND 1E2")
+    assert _marker_at(s, 2 * CARRIER - (CARRIER + 1.0e6)) == pytest.approx(-50.0, abs=0.1)
+    session_query(s, "sg1", f":POW:LEV {TWO_TONE_LEVEL - 10:.4f}")
+    session_query(s, "sg2", f":POW:LEV {TWO_TONE_LEVEL - 10:.4f}")
+    assert _marker_at(s, 2 * CARRIER - (CARRIER + 1.0e6)) == pytest.approx(-80.0, abs=0.1)
+    session_query(s, "sg1", f":POW:LEV {TWO_TONE_LEVEL:.4f}")
+    session_query(s, "sg2", f":POW:LEV {TWO_TONE_LEVEL:.4f}")
+    session_query(s, "sa", ":BAND:AUTO ON")
+
+
+def test_the_phase_noise_is_a_skirt_around_the_carrier(ideals):
+    """−100 dBc/Hz at 10 kHz: the average trace 10 kHz beside a −10 dBm carrier reads carrier −70
+    dB, and a 10× narrower RBW lowers the skirt point 10 dB (#954). The bucket is a 50th of the
+    RBW, so the CW carrier reads undiluted and the difference is the density over the RBW's noise
+    bandwidth."""
+    s = ideals
+    session_query(s, "sg2", ":OUTP OFF")
+    session_query(s, "sa", ":FREQ:SPAN 2E4")
+    session_query(s, "sa", ":SWE:POINts 1001")  # the bucket is a 50th of the RBW: the carrier reads undiluted
+    session_query(s, "sa", ":BAND:AUTO OFF")
+    session_query(s, "sa", ":BAND 1E3")
+    session_query(s, "sa", ":DET AVER")
+    session_query(s, "sa", ":TRAC:TYPE AVER")
+    session_query(s, "sa", ":AVER:COUNt 100")
+    session_query(s, "sa", ":INIT:CONT OFF")
+    session_query(s, "sa", ":INIT")
+    carrier = _marker_at(s, CARRIER)
+    skirt = _marker_at(s, CARRIER + 1.0e4)
+    # The trace average averages the detected dB values (the X-Series LOG type): the skirt point
+    # is noise, its dB mean sits 10·γ/ln10 = 2.51 dB under the power mean — the difference to the
+    # (line-dominated, undiluted) carrier reads −69.73 − 2.51.
+    assert skirt - carrier == pytest.approx(
+        10 * math.log10(1.0645e3) - 100.0 - 10 * float(np.euler_gamma) / math.log(10), abs=0.8
+    )
+    session_query(s, "sa", ":BAND 1E2")
+    session_query(s, "sa", ":INIT")
+    assert _marker_at(s, CARRIER + 1.0e4) - skirt == pytest.approx(-10.0, abs=1.0)
+    session_query(s, "sa", ":INIT:CONT ON")
+    session_query(s, "sa", ":TRAC:TYPE WRIT")
+    session_query(s, "sa", ":DET POS")
+    session_query(s, "sa", ":BAND:AUTO ON")
+    session_query(s, "sa", ":FREQ:SPAN 4E6")
+    session_query(s, "sa", ":SWE:POINts 301")
+    session_query(s, "sg2", ":OUTP ON")
+
+
+def test_the_flatness_table_scales_the_display(ideals):
+    """The table holds −1 dB at 1.2 GHz: a tone there reads 1 dB low, one outside the point reads
+    its true level (#954)."""
+    s = ideals
+    session_query(s, "sg2", ":OUTP OFF")
+    session_query(s, "sg1", f":FREQ:CW 1.2E9")
+    session_query(s, "sa", f":FREQ:CENT 1.2E9")
+    assert _marker_at(s, 1.2e9) == pytest.approx(-11.0, abs=0.05)
+    session_query(s, "sg1", f":FREQ:CW {CARRIER:.6E}")
+    session_query(s, "sa", f":FREQ:CENT {CARRIER:.6E}")
+    assert _marker_at(s, CARRIER) == pytest.approx(-10.0, abs=0.05)
+    session_query(s, "sg1", ":OUTP ON")
+    session_query(s, "sg2", ":OUTP ON")
+
+
+def test_the_image_comes_through_at_the_rejection_ratio(ideals):
+    """A tone one IF below the oscillator's side folds onto the tuned point, 60 dB down (#954)."""
+    s = ideals
+    session_query(s, "sg2", ":OUTP OFF")  # one source: the node is at the drive level, no divider
+    session_query(s, "sg1", f":FREQ:CW {IMAGE:.6E}")
+    assert _marker_at(s, CARRIER) == pytest.approx(-70.0, abs=0.1)
+    session_query(s, "sg1", f":FREQ:CW {CARRIER:.6E}")
+    session_query(s, "sg1", f":POW:LEV {TWO_TONE_LEVEL:.4f}")
+    session_query(s, "sg2", ":OUTP ON")
+
+
+def test_a_tone_at_the_compression_point_reads_one_db_low(ideals):
+    """The chain's P1dB is +10 dBm (the mixer's, at no attenuation): a tone there reads 1 dB down
+    (#954)."""
+    s = ideals
+    session_query(s, "sg2", ":OUTP OFF")
+    session_query(s, "sg1", f":POW:LEV {10.0 + 10 * math.log10(9 / 4):.4f}")  # the divider: node at +10
+    assert _marker_at(s, CARRIER) == pytest.approx(9.0, abs=0.05)
+    session_query(s, "sg1", f":POW:LEV {TWO_TONE_LEVEL:.4f}")
+    assert _marker_at(s, CARRIER) == pytest.approx(-10.0, abs=0.05)
+    session_query(s, "sg2", ":OUTP ON")
+
+
+def test_residuals_and_the_feedthrough_show_without_input(ideals):
+    """Generators off: the declared residual at 1.5 GHz and the oscillator's −40 dBm feedthrough
+    at 0 Hz are on the trace anyway (#954)."""
+    s = ideals
+    session_query(s, "sg1", ":OUTP OFF")
+    session_query(s, "sa", ":FREQ:CENT 1.5E9")
+    session_query(s, "sa", ":FREQ:SPAN 1E6")
+    session_query(s, "sa", ":BAND:AUTO OFF")
+    session_query(s, "sa", ":BAND 1E2")  # the floor well below the residual
+    assert _marker_at(s, 1.5e9) == pytest.approx(-80.0, abs=0.05)
+    session_query(s, "sa", ":FREQ:SPAN 1E5")  # the span first: the center then slides to hold 0 Hz
+    session_query(s, "sa", ":FREQ:CENT 5E4")
+    assert _marker_at(s, 0.0) == pytest.approx(-40.0, abs=0.05)
+    session_query(s, "sa", ":BAND:AUTO ON")
+    session_query(s, "sa", ":FREQ:CENT 1.5E9")
+    session_query(s, "sa", ":FREQ:SPAN 4E6")
+    session_query(s, "sg1", ":OUTP ON")
+    session_query(s, "sg2", ":OUTP ON")

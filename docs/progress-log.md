@@ -1902,3 +1902,19 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 内部探针能读到 `input.out`、`mixer.out`、`if_filter.out`，`tune_hz` 生效 | ✅ `tests/test_internal_probe.py::test_a_receivers_internal_ports_read_at_the_tuning_asked_for`（调谐偏 1 MHz，中频线移动 1 MHz；`input.out` 不随调谐；同一调谐点两次相同）、`test_an_instrument_without_a_tuning_context_ignores_tune_hz` |
 | `tests/test_block_coverage.py`、`test_model_components.py` 通过，例外清单不增加 | ✅ `docs/blocks/spectrum_analyzer.yaml` 增加 `local_oscillator`；清单未动 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 频谱仪前端的非理想：平坦度、镜像与杂散、截点与压缩、相位噪声（Issue 954）
+
+全部是功能块的声明参数，默认值使行为与现状相同：`specan_input` 的平坦度与前放指标（块内按衰减折算到输入参考）、`specan_mixer` 的截点/镜像抑制/本振馈通/杂散/残余、`specan_if` 的中频放大器截点、`specan_lo` 的相位噪声表。迹线层：级联截点经 `engine/rfcascade.products` 生成失真谱线（最强的 64 条参与，略去的标「近似」，三阶用 #974 修正后的功率形式、二阶用幅度形式），P1dB 三阶模型压缩各输入线，镜像折叠、杂散/残余/馈通作为显示谱线，相位噪声按载波功率 × L(偏移) × 1.0645·RBW 进检波器的噪声（新流名 `phase`，热噪声取值不变；载波自身 ±RBW/2 内不叠加——那部分就是载波功率本身）。解析求值全部覆盖；采样式求值（#955）只含已在模拟谱线里的平坦度/镜像/杂散。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 两个 −10 dBm 单音、IIP3 +10：2f₁−f₂ 读 −50 dBm；降 10 dB 产物降 30 dB | ✅ `tests/test_specan_frontend.py`（RBW 100 Hz：接收机噪声须比产物低 ~50 dB，|v|² 交叉项才不 sway 读数） |
+| 相位噪声 −100 dBc/Hz@10 kHz、RBW 1 kHz：载波旁 10 kHz 为载波 −70 dB；RBW 100 Hz 降 10 dB | ✅ 载波不稀释（bucket ≤ RBW/50）；迹线平均是 dB 域（X 系列 LOG 型），噪声裙边的对数均值比功率均值低 10γ/ln10 = 2.51 dB，断言计入 |
+| 平坦度 −1 dB：该频率读数低 1 dB，表外不变 | ✅ 平坦度点取 1.2 GHz（与交调测试的 1 GHz 频点错开） |
+| 镜像抑制 60 dB：镜像单音在调谐点 −60 dBc | ✅ 镜像折叠为 f + 2·if_hz 的等效显示线 |
+| 输入等于 P1dB：读数低 1 dB | ✅ |
+| 残余响应：无输入读到声明的电平 | ✅ 残余 1.5 GHz 与本振馈通（0 Hz）各一条 |
+| #948 金标准与现有频谱仪测试不改预期 | ✅ 全量 3647 passed；specan_models_gold.json 逐位相同 |
+| 同种子逐字节相同；同刻两次读取相同 | ✅ 相位噪声走独立的计数器流（键加流名 `phase`），热噪声取值不变 |
+| scripts/check.sh 通过；progress-log 追加自检 | ✅ 本节；测试台定义 `tests/definitions/test-specan-ideals.yaml` |

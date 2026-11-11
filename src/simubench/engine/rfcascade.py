@@ -177,12 +177,22 @@ def compress(p_in_dbm: float, spec: RfStageSpec) -> float:
     return spec.gain_db + 20.0 * math.log10(factor)
 
 
+def compress_ratio(over_db: float | np.ndarray) -> float | np.ndarray:
+    """The gain factor (linear) the P1dB model leaves at ``over_db`` dB past the compression
+    point: exactly 1 dB down at 0, the same model :func:`compress` applies, over an array."""
+    r = 10.0 ** (np.asarray(over_db, dtype=float) / 10.0)
+    peak = 1.0 / (3.0 * _C1DB)
+    factor = np.where(r <= peak, 1.0 - _C1DB * r, (2.0 / 3.0) * np.sqrt(peak / np.maximum(r, 1e-300)))
+    return factor[()] if factor.ndim == 0 else factor
+
+
 __all__ = [
     "KT0_DBM_HZ",
     "MAX_PRODUCT_LINES",
     "Products",
     "cascade",
     "compress",
+    "compress_ratio",
     "noise_floor_dbm",
     "products",
 ]
