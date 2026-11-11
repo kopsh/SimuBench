@@ -205,3 +205,50 @@ async def test_mcp_tool(workspace):
         assert "验证模式" in r["error"]
     for sid in list(manager.sessions):
         await manager.stop(sid)
+
+
+def test_a_receivers_internal_ports_read_at_the_tuning_asked_for(tmp_path):
+    """The spectrum analyzer's front end (#952): ``input.out`` does not depend on the tuning;
+    ``mixer.out`` and ``if_filter.out`` do, and ``tune_hz`` moves the tone through the IF."""
+    tone, if_hz = 1.0e9, 21.4e6
+    bench = BenchDefinition.model_validate(
+        {
+            "name": "t",
+            "instruments": {
+                "sg": {
+                    "model": "sb-sg-1",
+                    "state": {"freq.cw": tone, "power.level": -20.0, "output.enabled": True},
+                },
+                "sa": {"model": "sb-sa-1", "state": {"freq.center": tone, "freq.span": 1e6}},
+            },
+            "wires": [{"from": "sg.RF_OUT", "to": "sa.RF_IN"}],
+            "run": {"seed": 3, "clock": "command"},
+        }
+    )
+    session = open_bench(bench)
+    try:
+        sv = ServedSession("t", session, None)
+        ports = internal_probe.out_ports(session.instrument("sa"))
+        assert {"input.out", "mixer.out", "if_filter.out"} <= set(ports)
+        level = internal_probe.probe(sv, "sa", "input.out")
+        assert level.lines[0].freq_hz == pytest.approx(tone)
+        assert internal_probe.probe(sv, "sa", "input.out", tune_hz=tone + 5e6).lines[
+            0
+        ].freq_hz == pytest.approx(tone)
+        at_center = internal_probe.probe(sv, "sa", "mixer.out")  # no tune_hz: the center frequency
+        assert at_center.lines[0].freq_hz == pytest.approx(if_hz)
+        assert at_center.peak == pytest.approx(level.peak, rel=1e-9)  # no conversion loss declared
+        off = internal_probe.probe(sv, "sa", "mixer.out", tune_hz=tone + 1e6)
+        assert off.lines[0].freq_hz == pytest.approx(if_hz - 1e6)
+        filtered = internal_probe.probe(sv, "sa", "if_filter.out", tune_hz=tone + 1e6)
+        assert filtered.peak < off.peak  # a megahertz off the passband's center, the RBW filter attenuates
+        again = internal_probe.probe(sv, "sa", "mixer.out", tune_hz=tone + 1e6)
+        assert again.lines == off.lines and again.t_ns == off.t_ns  # passive and repeatable
+    finally:
+        session.close()
+
+
+def test_an_instrument_without_a_tuning_context_ignores_tune_hz(served):
+    plain = internal_probe.probe(served, "scope", "ch1.front.out")
+    tuned = internal_probe.probe(served, "scope", "ch1.front.out", tune_hz=123e6)
+    assert tuned.lines == plain.lines and tuned.peak == plain.peak

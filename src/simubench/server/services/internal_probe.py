@@ -114,8 +114,10 @@ def probe(sv: ServedSession, instrument: str, port: str, tune_hz: float | None =
     if port not in ports:
         raise KeyError(f"no output port {port!r} inside {instrument}; ports: {', '.join(sorted(ports))}")
     comp, cport, medium = ports[port]
-    # tune_hz applies to instruments that declare a tuning context (#952); none does yet.
-    with s.view():
+    # tune_hz applies to instruments that declare a tuning context (#952): a receiver reads at the
+    # tuning asked for; any other instrument ignores it. Without it the receiver's own tuning.
+    tuned = tune_hz if any(c.tuned_ports for c in inst.components.values()) else None
+    with s.view(), s.tuned(tuned):
         try:
             if medium == "samples":
                 return _samples(s, inst, comp, cport, port)

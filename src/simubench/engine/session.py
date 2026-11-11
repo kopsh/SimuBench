@@ -13,7 +13,7 @@ import logging
 import threading
 import time
 from collections import OrderedDict, deque
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -136,7 +136,9 @@ class Session:
         self._electrical_version = 0
         self._circuit: tuple[int, Circuit] | None = None
         self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
-        self._output_cache: dict[tuple[int, str, str], Signal] = {}
+        self._output_cache: dict[tuple[int, str, str, float | None], Signal] = {}
+        #: The tuning point of the read in progress (:meth:`tuned`); None outside one.
+        self.tune_hz: float | None = None
         #: Frames of the sample streams (D67), newest last: (signal version, uid, port, request) ->
         #: (frame, samples asked for along the chain to make it).
         self._frame_cache: OrderedDict[tuple[int, str, str, FrameRequest], tuple[SampleFrame, int]] = (
@@ -380,8 +382,27 @@ class Session:
     def port_signal(self, comp: Component, port: str) -> Signal:
         return self.node_signal(self.node_of(comp, port))
 
+    @contextlib.contextmanager
+    def tuned(self, tune_hz: float | None) -> Generator[None]:
+        """Evaluate signals with a receiver tuned to ``tune_hz`` (signal-chain.md 5.2): inside the
+        block ``tune_hz`` is that frequency, and the outputs of a mixer and of what follows it
+        (``Component.tuned_ports``) are the ones at that tuning. Re-entrant: leaving restores the
+        outer value.
+
+        The tuning point is an input of the evaluation, nothing more: it is part of
+        :meth:`cached_output`'s key, it does not enter the run record, bump the signal version or
+        emit an event — a read stays passive. Only the block that starts a read sets it (a
+        spectrum analyzer's trace, an internal probe); the front end's blocks read it. Used under
+        the session lock (commands and ``view()`` hold it), so it needs no thread-local."""
+        outer = self.tune_hz
+        self.tune_hz = None if tune_hz is None else float(tune_hz)
+        try:
+            yield
+        finally:
+            self.tune_hz = outer
+
     def cached_output(self, comp: Component, port: str) -> Signal:
-        key = (self._signal_version, comp.uid, port)
+        key = (self._signal_version, comp.uid, port, self.tune_hz)
         hit = self._output_cache.get(key)
         if hit is None:
             if len(self._output_cache) > 4096:

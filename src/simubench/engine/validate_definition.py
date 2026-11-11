@@ -330,6 +330,17 @@ def _check_wiring(d: InstrumentDefinition, classes: dict[str, type[Component]], 
                 "映射一个 electrical、signal 或 reference 端口",
             )
 
+        comp, port = split(target)
+        cls = classes.get(f"ch1.{comp}" if in_channel else comp)
+        if cls is not None and port in cls.tuned_ports:
+            report.add(
+                "error",
+                "E-DEF-PORT-TUNED",
+                pointer,
+                f"{target!r} 的信号取决于调谐点（本振调到哪里）：仪表之外没有调谐点，不能映射为仪表的端口",
+                "映射混频器之前的端口，或输入端口的电气引脚",
+            )
+
     for i, (src, dst) in enumerate(d.wiring.channel):
         for k, ref in enumerate((src, dst)):
             check_end(ref, _ptr("wiring", "channel", i, k), True)

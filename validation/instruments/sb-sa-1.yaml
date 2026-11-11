@@ -163,13 +163,16 @@ components:
     type: specan_input
     params:
       z_in: 50.0
-      mixer_limit: -10.0
+      max_mixer_level: -10.0
       att: $power.att
       att_auto: $power.att_auto
       ref_level: $display.ref_level
   - name: mixer
     type: specan_mixer
-    params: {noise_figure: 24.0, clock: clock, source: $rosc.source}
+    params: {noise_figure: 24.0, lo: lo}
+  - name: lo
+    type: specan_lo
+    params: {clock: clock, source: $rosc.source, if_filter: if_filter, center: $freq.center}
   - name: if_filter
     type: specan_if
     params: {rbw: $bw.res, rbw_auto: $bw.res_auto, span: $freq.span}
@@ -183,14 +186,16 @@ components:
     type: specan_trace
     params:
       input: input
-      mixer: mixer
+      lo: lo
       if_filter: if_filter
       detector: detector
       vbw: vbw
-      maxhold_limit: 999
+      max_hold_sweeps: 999
 wiring:
   instrument:
     - [rf_in.out, input.in]
+    - [input.out, mixer.in]
+    - [mixer.out, if_filter.in]
     - [ref_in.out, clock.ref]
 ports:
   instrument:
@@ -289,11 +294,11 @@ commands:
   - header: "[:SENSe]:ROSCillator:SOURce"
     state: rosc.source
   - header: "[:SENSe]:ROSCillator:LOCKed"
-    op: mixer.status
+    op: lo.status
     set: false
     args: {what: locked}
   - header: "[:SENSe]:ROSCillator:ACTive"
-    op: mixer.status
+    op: lo.status
     set: false
     args: {what: active}
   - header: ":INITiate:CONTinuous"

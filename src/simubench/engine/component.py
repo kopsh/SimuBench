@@ -335,6 +335,34 @@ def noise_problems(value: Any) -> list[tuple[str, str]]:
     return out
 
 
+@dataclass(frozen=True)
+class RfStageSpec:
+    """One RF stage's figures at a frequency (signal-chain.md 5.2); a figure the stage does not
+    have is None (noise) or infinite (the intercepts and the compression point)."""
+
+    gain_db: float = 0.0
+    #: None: not declared. A stage without gain is then a matched loss at T0, a stage with gain
+    #: noiseless (``engine.rfcascade``).
+    noise_figure_db: float | None = None
+    #: Input-referred second- and third-order intercepts and 1 dB compression point, dBm.
+    iip2_dbm: float = math.inf
+    iip3_dbm: float = math.inf
+    p1db_dbm: float = math.inf
+
+
+@runtime_checkable
+class RfStage(Protocol):
+    """A block of an analog RF chain with gain, noise and linearity figures: an attenuator, a
+    mixer, an IF amplifier. Whoever needs the chain's figures (a spectrum analyzer's trace, its
+    ADC) walks the wiring upstream, collects the stages and combines them once, with
+    ``engine.rfcascade.cascade``."""
+
+    def stage(self, f_hz: float) -> RfStageSpec:
+        """The stage's figures for a signal at ``f_hz`` (at the stage's input) with the current
+        settings."""
+        ...
+
+
 class Component:
     """Base class for every component type."""
 
@@ -349,6 +377,11 @@ class Component:
     port_pattern: ClassVar[str | None] = None
     #: What a port matching ``port_pattern`` is (the multiplexer's relay terminals are electrical).
     pattern_port: ClassVar[PortSpec] = PortSpec("inout", "electrical")
+    #: Signal output ports whose signal depends on the tuning point of the read in progress
+    #: (``Session.tuned``): a mixer's output and what follows it. Outside a tuning context they
+    #: read at the instrument's own tuning. There is no tuning point outside the instrument, so
+    #: definition validation refuses to map one as an instrument port (E-DEF-PORT-TUNED).
+    tuned_ports: ClassVar[frozenset[str]] = frozenset()
     #: Circuit role (see :data:`Role`); input impedance comes from ``impedance_of(params)``.
     role: ClassVar[Role | None] = None
     #: Ports that carry a source's remote-sense feedback, and the parameter that enables it: the

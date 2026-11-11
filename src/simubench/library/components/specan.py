@@ -1,12 +1,20 @@
 """Swept spectrum analyzer as its real blocks (D50, D1 #187).
 
-The receiver chain is data-level except the input port: ``specan_input`` (the step attenuator and
-the mixer-overload check), ``specan_mixer`` (the ±10 ppm 10 MHz reference and the display-frequency
-scale), ``specan_if`` (the Gaussian RBW filter and the receiver noise floor), ``specan_detector``
-(positive peak / sample / average / RMS and the log conversion), ``specan_vbw`` (the video filter's
-bandwidth) and ``specan_trace`` (sweep timing, the RF history, the trace modes in virtual time,
-markers and the settings couplings the scan owns). The 50 Ω termination is the generic
-``input_port``; ``reference_clock`` is the 10 MHz reference block.
+The analog front end passes signals from block to block (signal-chain.md 5.2, #952): the generic
+``input_port`` (the 50 Ω termination, the analyzer's only circuit-layer part) feeds ``specan_input``
+(the step attenuator and the mixer-overload check), ``specan_mixer`` (the conversion to the IF,
+against ``specan_lo``) and ``specan_if`` (the Gaussian RBW filter, the IF gain); each has an ``out``
+an internal probe can read. ``specan_lo`` is the local oscillator: where the receiver is tuned, the
+±10 ppm 10 MHz reference (``reference_clock``) its frequency scale runs off, and how fast it sweeps.
+The mixer's output and what follows it depend on that tuning: they read ``Session.tune_hz``, set
+by whoever starts the read (the trace, a probe), and are the center frequency's outside one.
+
+The blocks behind are data-level: ``specan_detector`` (positive peak / sample / average / RMS and
+the log conversion), ``specan_vbw`` (the video filter's bandwidth) and ``specan_trace`` (sweep
+timing, the RF history, the trace modes in virtual time, markers and the settings couplings the
+scan owns). The trace is evaluated analytically: the lines at the head of the front end's chain,
+drawn through the RBW response at every point, plus the noise of the chain's cascaded stages
+(``engine.rfcascade``) — the display is calibrated to the input, so an ideal chain's gains cancel.
 
 Lines are exact: every spectral line on RF_IN is drawn through the RBW filter at its power V²/2R.
 Noise is the receiver's kT0·F·NBW plus the attenuation, drawn per resolution cell from a
@@ -25,7 +33,8 @@ from typing import Any
 import numpy as np
 from scipy.special import erf
 
-from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine import rfcascade
+from ...engine.component import Component, OpResult, PortSpec, RfStage, RfStageSpec, component, op
 from ...engine.noise import gaussian, stream_key
 from ...engine.signal import Signal
 from ...scpi import values as V
@@ -142,24 +151,37 @@ class SpecanInput(Component):
     """The input attenuator and overload check (D1 #187): the RF input port is the generic
     ``input_port`` (50 Ω to ground, the only circuit-layer part of the analyzer). The step
     attenuator is automatic (reference level kept at the mixer limit, 2 dB steps) or manual; the
-    receiver overloads when the total input power minus the attenuation passes the mixer limit."""
+    receiver overloads when the total input power minus the attenuation passes the maximum mixer
+    level. ``out`` is the input attenuated (and amplified by the preamplifier, 0 dB unless
+    declared)."""
 
-    ports = {"in": PortSpec("in", "signal")}
+    ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     defaults = {
         "z_in": 50.0,  # input impedance, ohm
-        "mixer_limit": -10.0,  # dBm at the mixer: total input minus attenuation above it overloads
+        "max_mixer_level": -10.0,  # dBm at the mixer: total input minus attenuation above it overloads
         "att": 10.0,  # dB, manual attenuation (a setting such as $power.att)
         "att_auto": True,  # the attenuation is automatic (a setting)
         "ref_level": 0.0,  # dBm, the reference level the automatic attenuation holds (a setting)
+        "preamp_gain": 0.0,  # dB, the preamplifier's gain (0: none, or off)
     }
+    units = {"max_mixer_level": "dBm", "preamp_gain": "dB"}
 
     def signal(self) -> Signal:
         return self.input("in")
 
+    def gain_db(self) -> float:
+        return float(self.param("preamp_gain")) - self.attenuation()
+
+    def output(self, port: str) -> Signal:
+        return self.signal().scale(10 ** (self.gain_db() / 20))
+
+    def stage(self, f_hz: float) -> RfStageSpec:
+        return RfStageSpec(gain_db=self.gain_db())
+
     def attenuation(self) -> float:
         if bool(self.param("att_auto")):
             # Keep the reference level at the mixer limit, in 2 dB steps.
-            need = float(self.param("ref_level")) - float(self.param("mixer_limit"))
+            need = float(self.param("ref_level")) - float(self.param("max_mixer_level"))
             return float(min(70.0, max(0.0, 2 * math.ceil(need / 2 - 1e-9))))
         return float(self.param("att"))
 
@@ -169,7 +191,7 @@ class SpecanInput(Component):
         total_mw += sig.dc**2 / float(self.param("z_in")) * 1e3
         if total_mw <= 0:
             return False
-        return 10 * math.log10(total_mw) - self.attenuation() > float(self.param("mixer_limit"))
+        return 10 * math.log10(total_mw) - self.attenuation() > float(self.param("max_mixer_level"))
 
     @op("coupled_att")
     def op_coupled_att(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
@@ -189,35 +211,54 @@ class SpecanInput(Component):
         return OpResult(V.format_bool(self.overload()))
 
 
-@component("specan_mixer")
-class SpecanMixer(Component):
-    """The mixer's local oscillator and the reference block (D1 #187).
+@component("specan_lo")
+class SpecanLo(Component):
+    """The local oscillator (signal-chain.md 5.1): where the receiver is tuned, the reference its
+    frequency runs off, and how fast it sweeps.
 
-    The 10 MHz reference is a ``reference_clock``: its fractional error scales the display
-    frequency axis (a true f displays at f / (1 + ε)) and the ``:ROSCillator`` status says whether
+    The tuning point is the frequency whose signal the mixer puts on the IF: the one of the read
+    in progress (``Session.tuned``, set by the trace or an internal probe), else the center
+    frequency. The 10 MHz reference is a ``reference_clock``: its fractional error ε scales the
+    oscillator, so a true f displays at f / (1 + ε), and the ``:ROSCillator`` status says whether
     the external reference is in use. Switching to EXTernal without a usable 10 MHz sine keeps the
-    internal oscillator and reports -221, as the old monolith did. The receiver noise figure lives
-    here too.
-    """
+    internal oscillator and reports -221. Phase noise is not modeled."""
 
-    refs = {"clock": ("reference_clock", "instrument")}
+    refs = {"clock": ("reference_clock", "instrument"), "if_filter": ("specan_if", "instrument")}
     defaults = {
-        "noise_figure": 24.0,  # receiver noise figure over kT0, dB
         "clock": "",  # the reference_clock on REF_IN
         "source": "INTernal",  # watched: $rosc.source (INTernal | EXTernal)
+        "if_filter": "",  # the specan_if whose intermediate frequency the oscillator tunes to
+        "center": 0.0,  # Hz, where the receiver is tuned outside a sweep (a setting such as $freq.center)
+        "lo_rate": 0.0,  # Hz/s, the fastest sweep (0: no limit); sets a floor on the auto sweep time
+        "sweep_overhead": 0.0,  # s added to the sweep-rate floor (retrace and settling)
     }
+    units = {"center": "Hz", "lo_rate": "Hz/s", "sweep_overhead": "S"}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self._error = 0.0  # fractional frequency error of the reference in use
         self._locked = False
 
-    def _clock(self) -> Any:
-        return self.ref("clock")
+    def tuned(self) -> float:
+        """The frequency the receiver is tuned to, on its own frequency scale, Hz."""
+        tune = self.session.tune_hz
+        return float(self.param("center")) if tune is None else tune
+
+    def frequency(self) -> float:
+        """The oscillator's true frequency at the tuning point: the intermediate frequency below
+        the tuned frequency, scaled by the reference's error."""
+        if_filter: Any = self.ref("if_filter")
+        if_hz = float(if_filter.param("if_hz"))
+        return (self.tuned() - if_hz) * (1 + self._error)
+
+    def sweep_floor(self, span: float) -> float:
+        """The shortest time the oscillator sweeps ``span`` in, s (0 when it has no rate limit)."""
+        rate = float(self.param("lo_rate"))
+        return span / rate + float(self.param("sweep_overhead")) if rate > 0 else 0.0
 
     def refresh(self) -> None:
         """Read the reference's error and lock state (called when the receiver syncs)."""
-        clock = self._clock()
+        clock: Any = self.ref("clock")
         self._error = float(clock.error())
         self._locked = bool(clock.locked())
 
@@ -253,14 +294,55 @@ class SpecanMixer(Component):
         return OpResult(self.in_use().encode())
 
 
+@component("specan_mixer")
+class SpecanMixer(Component):
+    """The mixer (signal-chain.md 5.2): ``out`` is the input converted to the IF against the local
+    oscillator, f_if = f_rf − f_lo, less the conversion loss. What lies below the oscillator (the
+    image side) is rejected completely. The output depends on where the oscillator is tuned.
+
+    ``noise_figure`` is the whole receiver's (the earlier way to declare it): with no other stage
+    declaring one, the chain's cascaded figure is exactly this."""
+
+    ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
+    tuned_ports = frozenset({"out"})
+    refs = {"lo": ("specan_lo", "instrument")}
+    defaults = {
+        "noise_figure": 24.0,  # receiver noise figure over kT0, dB
+        "lo": "",  # the specan_lo it converts against
+        "conversion_loss": 0.0,  # dB lost from the RF line to its IF line
+    }
+    units = {"noise_figure": "dB", "conversion_loss": "dB"}
+
+    def output(self, port: str) -> Signal:
+        sig = self.input("in").merged()
+        lo: Any = self.ref("lo")
+        f_lo = float(lo.frequency())
+        k = 10 ** (-float(self.param("conversion_loss")) / 20)
+        f_if = sig.freq - f_lo
+        keep = f_if > 0
+        freq, amp = f_if[keep], sig.amp[keep] * k
+        if sig.dc and f_lo < 0:
+            freq, amp = np.concatenate([[-f_lo], freq]), np.concatenate([[sig.dc * k], amp])
+        return Signal(freq, amp, np.zeros(freq.shape, dtype=np.int64), 0.0, sig.notes)
+
+    def stage(self, f_hz: float) -> RfStageSpec:
+        return RfStageSpec(
+            gain_db=-float(self.param("conversion_loss")),
+            noise_figure_db=float(self.param("noise_figure")),
+        )
+
+
 @component("specan_if")
 class SpecanIf(Component):
     """The IF filter (D1 #187): the resolution bandwidth (auto: span / ``auto_ratio``, snapped to
     the model's filter steps and held at or below ``auto_max``; manual otherwise), the Gaussian
     passband lines are drawn through, and the receiver noise floor kT0·F·NBW at the RBW in use.
     The steps and limits are the model's (#616): the 1-3-10 ladder to 3 MHz by default, the
-    X-Series "10%" steps to 8 MHz."""
+    X-Series "10%" steps to 8 MHz. ``out`` is the mixer's output through that passband, centered
+    on the intermediate frequency, times the IF gain."""
 
+    ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
+    tuned_ports = frozenset({"out"})
     defaults = {
         "rbw": 3.0e6,  # Hz, manual RBW (a setting such as $bw.res)
         "rbw_auto": True,  # the RBW follows the span (a setting)
@@ -270,8 +352,10 @@ class SpecanIf(Component):
         "rbw_max": 3.0e6,  # Hz, the widest RBW a manual entry reaches
         "auto_ratio": 100.0,  # span / RBW the automatic coupling aims at (X-Series: 106)
         "auto_max": 3.0e6,  # Hz, the widest RBW the automatic coupling picks
+        "if_hz": 21.4e6,  # Hz, the intermediate frequency the filter is centered on
+        "gain": 0.0,  # dB, the IF amplifier's gain
     }
-    units = {"rbw_min": "Hz", "rbw_max": "Hz", "auto_max": "Hz"}
+    units = {"rbw_min": "Hz", "rbw_max": "Hz", "auto_max": "Hz", "if_hz": "Hz", "gain": "dB"}
     choices = {"steps": STEPS}
 
     def _steps(self) -> str:
@@ -293,6 +377,14 @@ class SpecanIf(Component):
 
     def noise_floor_mw(self, att: float, nf: float) -> float:
         return 10 ** ((KT0_DBM_HZ + nf + att + 10 * math.log10(NBW_FACTOR * self.rbw())) / 10)
+
+    def output(self, port: str) -> Signal:
+        k = 2 * math.log(2) / self.rbw() ** 2  # the Gaussian's voltage response: half the power exponent
+        if_hz, gain = float(self.param("if_hz")), 10 ** (float(self.param("gain")) / 20)
+        return self.input("in").transfer(lambda f: gain * np.exp(-k * (f - if_hz) ** 2))
+
+    def stage(self, f_hz: float) -> RfStageSpec:
+        return RfStageSpec(gain_db=float(self.param("gain")))
 
     @op("coupled_rbw")
     def op_coupled_rbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
@@ -415,28 +507,27 @@ class SpecanVbw(Component):
 class SpecanTrace(Component):
     """The trace and scan engine (D1 #187): the analysis window and its settings couplings, the
     sweep timing in virtual time, the RF history, the trace modes (write / average / max / min hold), the
-    markers, and the SCPI operations of the display. It sequences the blocks above; all of them are
-    data-level, so the analyzer touches the circuit only at its input port."""
+    markers, and the SCPI operations of the display. It reads the analog front end by its wiring:
+    from the IF filter upstream to the input, the lines at the head of that chain and the stages'
+    cascaded noise figure (the analytic evaluation of signal-chain.md 5.4)."""
 
     refs = {
         "input": ("specan_input", "instrument"),
-        "mixer": ("specan_mixer", "instrument"),
+        "lo": ("specan_lo", "instrument"),
         "if_filter": ("specan_if", "instrument"),
         "detector": ("specan_detector", "instrument"),
         "vbw": ("specan_vbw", "instrument"),
     }
     defaults = {
         "input": "",  # the specan_input (attenuation, overload)
-        "mixer": "",  # the specan_mixer (reference error, noise figure)
-        "if_filter": "",  # the specan_if (RBW)
+        "lo": "",  # the specan_lo (tuning, reference error, sweep rate)
+        "if_filter": "",  # the specan_if (RBW): the end of the analog front end's chain
         "detector": "",  # the specan_detector
         "vbw": "",  # the specan_vbw
-        "maxhold_limit": 999,  # sweeps max or min hold keeps (older ones are dropped, with a warning)
+        "max_hold_sweeps": 999,  # sweeps max or min hold keeps (older ones are dropped, with a warning)
         # A center the window cannot hold at the present span (#292): "slide" keeps the span and
         # moves the center inside the band; "span" keeps the center and narrows the span to fit.
         "center_fit": "slide",
-        "lo_rate": 0.0,  # Hz/s, the fastest LO sweep (0: no limit); sets a floor on the auto sweep time
-        "sweep_overhead": 0.0,  # s added to the LO-rate floor (retrace and settling)
         "hold_count": False,  # a single sweep in max/min hold takes the average/hold count of sweeps (X-Series), not one
         "marker_off_reply": "error",  # a read of an off marker: error (-221) | nan (9.91E+37, the X-Series)
         "delta_x": "absolute",  # X of a delta marker: absolute | offset (from the reference marker, the X-Series)
@@ -446,8 +537,6 @@ class SpecanTrace(Component):
         "sweep_max": 10.0e3,  # s, the longest swept sweep time (X-Series: 4000 s)
     }
     units = {
-        "lo_rate": "Hz/s",
-        "sweep_overhead": "S",
         "f_max": "Hz",
         "span_min": "Hz",
         "sweep_min": "S",
@@ -475,8 +564,8 @@ class SpecanTrace(Component):
     def _input(self) -> SpecanInput:
         return self._block("input")
 
-    def _mixer(self) -> SpecanMixer:
-        return self._block("mixer")
+    def _lo(self) -> SpecanLo:
+        return self._block("lo")
 
     def _if(self) -> SpecanIf:
         return self._block("if_filter")
@@ -513,9 +602,7 @@ class SpecanTrace(Component):
         rbw = self.rbw()
         span = float(self._st("freq.span"))
         settle = 2.5 * span / (rbw * min(rbw, self.vbw()))
-        rate = float(self.param("lo_rate"))
-        lo = span / rate + float(self.param("sweep_overhead")) if rate > 0 else 0.0
-        return max(float(self.param("sweep_min")), settle, lo)
+        return max(float(self.param("sweep_min")), settle, self._lo().sweep_floor(span))
 
     def sweep_time(self) -> float:
         return self.auto_sweep() if self._st("sweep.time_auto") else float(self._st("sweep.time"))
@@ -527,6 +614,33 @@ class SpecanTrace(Component):
         c, s = float(self._st("freq.center")), float(self._st("freq.span"))
         return c - s / 2, c + s / 2
 
+    def chain(self) -> list[Any]:
+        """The analog front end's stages, input first: the IF filter and every ``RfStage`` found
+        walking the wiring upstream from it."""
+        assert self.owner is not None
+        blocks: list[Any] = []
+        block: Any = self._if()
+        while isinstance(block, RfStage) and block not in blocks:
+            blocks.append(block)
+            src = self.owner.wiring.source(block.name, "in")
+            if src is None:
+                break
+            block = self.owner.components[src[0]]
+        return blocks[::-1]
+
+    def noise_figure(self) -> float:
+        """The receiver's noise figure at the attenuator's output, dB: the cascade of the stages
+        behind the input block, at the center frequency. The attenuation is added where the floor
+        is computed — the display is referred to the input."""
+        center = float(self._st("freq.center"))
+        head = self._input()
+        with self.session.tuned(center):
+            stages = [block.stage(center) for block in self.chain() if block is not head]
+        nf = rfcascade.cascade(stages).noise_figure_db if stages else None
+        if nf is None:
+            raise ScpiError(-300, "no stage of the analyzer's front end declares a noise figure")
+        return nf
+
     def settings(self) -> _Settings:
         start, stop = self.window()
         return _Settings(
@@ -537,7 +651,7 @@ class SpecanTrace(Component):
             self.sweep_time(),
             self.attenuation(),
             self._detector().in_use(),
-            float(self._mixer().param("noise_figure")),
+            self.noise_figure(),
         )
 
     # ---- restarts and signal history ------------------------------------------------------------
@@ -547,7 +661,7 @@ class SpecanTrace(Component):
             *self.settings().key(),
             self._st("trace.type"),
             int(self._st("aver.count")),
-            self._mixer().error(),
+            self._lo().error(),
         )
 
     def restart(self) -> None:
@@ -566,7 +680,7 @@ class SpecanTrace(Component):
     def sync(self) -> None:
         if not self.session.signal_changed(self):
             return
-        self._mixer().refresh()
+        self._lo().refresh()
         key = self._trace_key()
         if key != self._key:
             self._key = key
@@ -609,7 +723,7 @@ class SpecanTrace(Component):
             f = np.concatenate([[0.0], f])
             p_mw = np.concatenate([[dc * dc / r * 1e3], p_mw])
         # The analyzer's frequency axis runs off its reference: a true f displays at f / (1 + ε).
-        f_disp = self._mixer().display(f)
+        f_disp = self._lo().display(f)
         margin = 6 * st.rbw
         sel = (f_disp >= st.start - margin) & (f_disp <= st.stop + margin)
         f_disp, p_mw = f_disp[sel], p_mw[sel]
@@ -624,7 +738,7 @@ class SpecanTrace(Component):
         notes = [n for n in sig.notes if n.kind == "truncated"]
         if notes and sig.freq.size > 1:
             f = np.sort(sig.freq)
-            f_next = self._mixer().display(f[-1] + (f[-1] - f[-2]))
+            f_next = self._lo().display(f[-1] + (f[-1] - f[-2]))
             if f_next <= st.stop + 3 * st.rbw:
                 return f"too many lines for one trace: the weakest were dropped (lines above {f[-1]:.6g} Hz are not modeled)"
         _, _, dropped = self._lines_in_window(sig, st)
@@ -690,7 +804,7 @@ class SpecanTrace(Component):
             return np.mean([self._sweep(s, st) for s in sweeps], axis=0)
         if mode in ("MAXHold", "MINHold"):
             pick = np.maximum if mode == "MAXHold" else np.minimum
-            limit = int(self.param("maxhold_limit"))
+            limit = int(self.param("max_hold_sweeps"))
             first = max(0, s_now - limit + 1)
             if first > 0 and not self._warned_hold:
                 self._warned_hold = True
@@ -733,7 +847,7 @@ class SpecanTrace(Component):
                 "ref_level": float(self._st("display.ref_level")),
                 "marker_x": float(x[i]),
                 "marker_y": float(y[i]),
-                "reference": self._mixer().in_use(),
+                "reference": self._lo().in_use(),
                 "sweep": self.current_sweep(st),
             },
             "traces": [
@@ -1015,6 +1129,7 @@ __all__ = [
     "SpecanDetector",
     "SpecanIf",
     "SpecanInput",
+    "SpecanLo",
     "SpecanMixer",
     "SpecanTrace",
     "SpecanVbw",
