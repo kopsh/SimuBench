@@ -30,6 +30,7 @@ from .commands import (
 from .component import Component, OpResult, component_type, map_setting, noise_problems
 from .coverage_advice import CoverageAdvisor
 from .portref import split
+from .settings import SettingStore
 from .signal import Signal
 
 if TYPE_CHECKING:
@@ -194,22 +195,12 @@ class Instrument:
 
     def _init_state(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
         """Settings: the definition's, per channel with the bench's overrides, then the bench file's initial values."""
-        self.specs: dict[str, StateSpec] = {}
-        for key, spec in definition.state.items():
-            self.specs[key] = spec
-        for n in range(1, self.channel_count + 1):
-            over = definition.channels.overrides.get(n, {})
-            for key, spec in definition.channel_state.items():
-                patch = over.get(key)
-                self.specs[f"ch{n}.{key}"] = spec.model_copy(update=patch) if patch else spec
-        #: The definition's spec of a setting whose bounds a component moved at run time.
-        self._spec_origin: dict[str, StateSpec] = {}
-        self.state: dict[str, Any] = {}
+        self.settings = SettingStore(definition, self.channel_count, self.name)
         self._reset_state(power_on=True)
         for path, value in instance.state.items():
             if path not in self.specs:
                 raise ValueError(f"instrument {self.name!r}: unknown state {path!r} in bench file")
-            self.state[path] = self._coerce_initial(path, value)
+            self.state[path] = self.settings.coerce(path, value)
 
     def _init_components(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
         """Components, the bench's hidden state, and this unit's drawn deviations."""
@@ -353,29 +344,20 @@ class Instrument:
                 raise ValueError(f"instrument {self.name!r}: wiring refers to unknown component {c!r}")
         self._upstream[(dc, dp)] = (sc, sp)
 
-    def _coerce_initial(self, path: str, value: Any) -> Any:
-        spec = self.specs[path]
-        if spec.type == "enum":  # "" is an enum not set yet (an optional value a query leaves out)
-            return "" if value == "" else V.parse_enum(str(value).encode(), spec.options or [])
-        if spec.type == "float":
-            return float(value)
-        if spec.type == "int":
-            return int(value)
-        if spec.type == "bool":
-            return bool(value)
-        return value
-
     def _reset_state(self, power_on: bool = False) -> None:
-        """Every setting to its ``*RST`` value, or at power-on to its ``default`` (the power-on
-        value, which differs from ``rst`` when the manual says so: the X-Series powers on sweeping
-        continuously, *RST stops it, #616)."""
-        for path, spec in self.specs.items():
-            value = spec.default if power_on or spec.rst is None else spec.rst
-            if value is None:
-                value = {"float": 0.0, "int": 0, "bool": False, "string": ""}.get(spec.type)
-                if spec.type == "enum":
-                    value = (spec.options or [""])[0]
-            self.state[path] = self._coerce_initial(path, value) if value is not None else value
+        self.settings.reset(power_on)
+
+    @property
+    def specs(self) -> dict[str, StateSpec]:
+        return self.settings.specs
+
+    @property
+    def state(self) -> dict[str, Any]:
+        return self.settings.values
+
+    @state.setter
+    def state(self, values: dict[str, Any]) -> None:
+        self.settings.values = values
 
     # ---- signal flow ------------------------------------------------------------------------------
 
@@ -392,27 +374,15 @@ class Instrument:
     # ---- state --------------------------------------------------------------------------------------
 
     def set_bounds(self, path: str, *, minimum: float | None = None, maximum: float | None = None) -> None:
-        """Move a numeric setting's limits at run time, relative to the definition's: a combination
-        that widens a channel's range (#259: the E36312A's series pair programs output 2 to 50 V).
-        Validation, MIN/MAX and the state view follow; ``None`` keeps the definition's limit."""
-        origin = self._spec_origin.setdefault(path, self.specs[path])
-        update = {
-            "min": origin.min if minimum is None else minimum,
-            "max": origin.max if maximum is None else maximum,
-        }
-        self.specs[path] = origin.model_copy(update=update)
+        """Move a numeric setting's limits at run time (see :meth:`SettingStore.set_bounds`)."""
+        self.settings.set_bounds(path, minimum=minimum, maximum=maximum)
 
     def restore_bounds(self, path: str) -> None:
         """The definition's limits again (see :meth:`set_bounds`)."""
-        origin = self._spec_origin.pop(path, None)
-        if origin is not None:
-            self.specs[path] = origin
+        self.settings.restore_bounds(path)
 
     def get_state(self, path: str) -> Any:
-        try:
-            return self.state[path]
-        except KeyError:
-            raise KeyError(f"instrument {self.name!r} has no state {path!r}") from None
+        return self.settings.get(path)
 
     def set_state(self, path: str, value: Any, *, source: str = "scpi", internal: bool = False) -> None:
         """Set a state variable after validation; notify bound components; refuse on conflict.
