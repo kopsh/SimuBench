@@ -383,7 +383,8 @@ def walk(model: str, show: bool = False) -> list[list]:
         with s.view():
             screen = s.instruments["sa"].components["sa"].readings()
         values = json.dumps(screen["values"], sort_keys=True)
-        trace = ",".join(repr(v) for v in screen["traces"][0]["values"]).encode()
+        # fixed width, like a reply: the length of ``repr`` follows the last bit of a float
+        trace = ",".join(f"{v:+.12E}" for v in screen["traces"][0]["values"]).encode()
         rows.append(["<screen values>", values, 0])
         rows.append(["<screen trace>", _digest(trace), 0])
         if show:
