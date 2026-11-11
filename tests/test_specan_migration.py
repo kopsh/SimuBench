@@ -14,7 +14,7 @@ The two real models (#948, signal-chain.md 5.5): ``keysight-n9320b`` and ``keysi
 their example benches walk the example script's commands, then every detector the model offers ×
 the trace modes, RBW and attenuation automatic and manual, the marker searches and the counter, a
 single sweep, and an overloaded input. ``tests/data/specan_models_gold.json`` holds, per step, the
-SHA-256 of the reply's bytes and the virtual time the command consumed, then the screen's
+SHA-256 of the reply (numbers rounded, see ``_digest``) and the virtual time the command consumed, then the screen's
 readings — recorded before the front end's blocks pass signals between them (#952), which must not
 change one byte. Neither model has a reference-oscillator command; the reference switch is in the
 ``sb-sa-1`` recording above. Neither reports an overload over SCPI: the screen's flag is recorded.
@@ -348,7 +348,16 @@ MODELS: dict[str, tuple[str, list[str]]] = {
 
 
 def _digest(data: bytes | None) -> str | None:
-    return None if data is None else hashlib.sha256(data).hexdigest()
+    """A reply's SHA-256. A reply of numbers is hashed as its length and its values rounded to
+    5 decimals: the last digits of a 17-digit trace differ between machines (numpy / libm builds),
+    which a refactor cannot be blamed for (the earlier ``sb-sa-1`` table compares with rtol 1e-9)."""
+    if data is None:
+        return None
+    try:
+        values = [round(float(x), 5) for x in data.decode().split(",")]
+    except ValueError:
+        return hashlib.sha256(data).hexdigest()
+    return hashlib.sha256(f"{len(data)}:{values}".encode()).hexdigest()
 
 
 def walk(model: str, show: bool = False) -> list[list]:
@@ -374,7 +383,7 @@ def walk(model: str, show: bool = False) -> list[list]:
         with s.view():
             screen = s.instruments["sa"].components["sa"].readings()
         values = json.dumps(screen["values"], sort_keys=True)
-        trace = np.asarray(screen["traces"][0]["values"], dtype="<f8").tobytes()
+        trace = ",".join(repr(v) for v in screen["traces"][0]["values"]).encode()
         rows.append(["<screen values>", values, 0])
         rows.append(["<screen trace>", _digest(trace), 0])
         if show:
