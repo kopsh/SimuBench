@@ -8,12 +8,11 @@ from ...models import api as M
 from .context import ApiContext
 
 
-def build_router(ctx: ApiContext) -> APIRouter:
+def _bench_file_routes(ctx: ApiContext, router: APIRouter) -> None:
     manager = ctx.manager
     files = ctx.files
     auth = ctx.auth
     file_errors = ctx.file_errors
-    router = APIRouter()
 
     @router.get(
         "/api/benches",
@@ -83,6 +82,12 @@ def build_router(ctx: ApiContext) -> APIRouter:
     def edit_bench(req: M.EditBenchRequest) -> M.BenchDocument:
         return file_errors(lambda: files.edit(req.path, req.base_sha256, req.ops, req.source))  # type: ignore[no-any-return]
 
+
+def _bench_history_routes(ctx: ApiContext, router: APIRouter) -> None:
+    files = ctx.files
+    auth = ctx.auth
+    file_errors = ctx.file_errors
+
     @router.get(
         "/api/benches/history",
         response_model=list[M.BenchVersion],
@@ -123,4 +128,9 @@ def build_router(ctx: ApiContext) -> APIRouter:
         report = file_errors(lambda: files.validate(req.data, req.path))
         return M.ValidateResponse(ok=report.ok, diagnostics=list(report.diagnostics))
 
+
+def build_router(ctx: ApiContext) -> APIRouter:
+    router = APIRouter()
+    _bench_file_routes(ctx, router)
+    _bench_history_routes(ctx, router)
     return router

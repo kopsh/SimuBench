@@ -68,8 +68,7 @@ def _refuse_lost_edits(definitions: DefinitionFiles, t: Any, definition_id: str,
         )
 
 
-def register(mcp: MCPServer, ctx: McpContext) -> None:
-    files = ctx.files
+def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
     definitions = ctx.definitions
     guard = ctx.guard
     fail = ctx.fail
@@ -136,6 +135,14 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         report = definitions.validate(content)
         return {"ok": report.ok, "diagnostics": [d.model_dump() for d in report.diagnostics]}
 
+
+def _definition_draft_and_template_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    files = ctx.files
+    definitions = ctx.definitions
+    guard = ctx.guard
+    fail = ctx.fail
+    definition_out = ctx.definition_out
+
     @mcp.tool()
     def draft_definition_from_script(
         script_path: str = Field(..., description="Workspace-relative path of a Python + PyVISA script"),
@@ -191,6 +198,13 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             raise ToolError(str(exc.args[0])) from None
         return {**t.summary(), "schema": t.schema(), "example": t.example()}
 
+
+def _from_template_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    definitions = ctx.definitions
+    guard = ctx.guard
+    fail = ctx.fail
+    definition_out = ctx.definition_out
+
     @mcp.tool()
     def create_definition_from_template(
         template_id: str,
@@ -232,6 +246,12 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             raise fail(exc) from None
         return {"saved": True, **definition_out(doc)}
 
+
+def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    files = ctx.files
+    guard = ctx.guard
+    fail = ctx.fail
+
     @mcp.tool()
     def draft_bench_from_script(
         script_path: str = Field(..., description="Workspace-relative path of a Python + PyVISA script"),
@@ -267,3 +287,10 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             except Exception as exc:
                 raise fail(exc) from None
         return result
+
+
+def register(mcp: MCPServer, ctx: McpContext) -> None:
+    _definition_file_tools(mcp, ctx)
+    _definition_draft_and_template_tools(mcp, ctx)
+    _from_template_tools(mcp, ctx)
+    _bench_draft_tools(mcp, ctx)

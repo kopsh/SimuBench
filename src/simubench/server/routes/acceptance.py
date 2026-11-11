@@ -13,29 +13,26 @@ from .. import drive, views
 from .context import ApiContext
 
 
-def build_router(ctx: ApiContext) -> APIRouter:
+def try_entry(ctx: ApiContext, sid: str) -> Any:
+    try:
+        return ctx.manager.tries.get(sid)
+    except KeyError:
+        raise HTTPException(404, f"no try session {sid!r}") from None
+
+
+def while_idle(e: Any, fn: Any, *args: Any) -> Any:
+    """Run ``fn`` on the try session held exclusively: a batch of try_definition or a retirement
+    (MAX, replace) waits for it, and one that closed the session meanwhile is a 404."""
+    with e.busy:
+        if e.closed:
+            raise HTTPException(404, "the try session was closed")
+        return fn(*args)
+
+
+def _try_session_routes(ctx: ApiContext, router: APIRouter) -> None:
     manager = ctx.manager
-    library = ctx.library
-    files = ctx.files
     auth = ctx.auth
     not_found = ctx.not_found
-    router = APIRouter()
-
-    # ---- try a definition without a bench (7.2, T2) ---------------------------------------------------
-
-    def try_entry(sid: str) -> Any:
-        try:
-            return manager.tries.get(sid)
-        except KeyError:
-            raise HTTPException(404, f"no try session {sid!r}") from None
-
-    def while_idle(e: Any, fn: Any, *args: Any) -> Any:
-        """Run ``fn`` on the try session held exclusively: a batch of try_definition or a retirement
-        (MAX, replace) waits for it, and one that closed the session meanwhile is a 404."""
-        with e.busy:
-            if e.closed:
-                raise HTTPException(404, "the try session was closed")
-            return fn(*args)
 
     @router.get(
         "/api/try",
@@ -96,8 +93,14 @@ def build_router(ctx: ApiContext) -> APIRouter:
     async def try_scpi(sid: str, req: M.ScpiRequest) -> M.ScpiResponse:
         """Send one program message to the try session's instrument (the same reply format as a
         bench session's scpi interface)."""
-        e = try_entry(sid)
+        e = try_entry(ctx, sid)
         return await asyncio.to_thread(while_idle, e, drive.scpi, e.served, e.definition, req.command)
+
+
+def _try_panel_routes(ctx: ApiContext, router: APIRouter) -> None:
+    manager = ctx.manager
+    auth = ctx.auth
+    not_found = ctx.not_found
 
     @router.post(
         "/api/try/{sid}/configure",
@@ -107,7 +110,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     async def try_configure(sid: str, req: M.ConfigureRequest) -> M.ConfigureResponse:
         """Set one of the try session's settings (the same interface as a bench session's)."""
-        e = try_entry(sid)
+        e = try_entry(ctx, sid)
         return await asyncio.to_thread(
             while_idle, e, drive.configure, e.served, e.definition, req.path, req.value
         )
@@ -120,7 +123,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     async def try_panel(sid: str, req: M.PanelRequest) -> M.PanelResponse:
         """A front-panel button on the try session's instrument (D32)."""
-        e = try_entry(sid)
+        e = try_entry(ctx, sid)
         return await asyncio.to_thread(while_idle, e, drive.panel, e.served, e.definition, req.action)
 
     @router.get(
@@ -132,7 +135,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     def try_instrument(sid: str) -> M.InstrumentInfo:
         """The try session's instrument: identity, ports, settings, front panel and deviations (the
         acceptance page's overview and settings tables)."""
-        e = try_entry(sid)
+        e = try_entry(ctx, sid)
         name = e.definition
         try:
             inst = e.served.session.instrument(name)
@@ -151,11 +154,24 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     def try_internals(sid: str) -> M.InstrumentInternals:
         """The try session's read-only component graph (issue 20), as the acceptance page shows it."""
-        e = try_entry(sid)
+        e = try_entry(ctx, sid)
         try:
             return views.internals(e.served, e.definition)
         except KeyError as exc:
             raise not_found(exc) from None
+
+
+def _try_routes(ctx: ApiContext, router: APIRouter) -> None:
+    _try_session_routes(ctx, router)
+    _try_panel_routes(ctx, router)
+
+
+def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
+    manager = ctx.manager
+    library = ctx.library
+    files = ctx.files
+    auth = ctx.auth
+    not_found = ctx.not_found
 
     @router.get(
         "/api/definitions/{def_id}/cases",
@@ -218,4 +234,9 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except (ValueError, UnicodeDecodeError) as exc:
             raise HTTPException(422, str(exc).splitlines()[0]) from None
 
+
+def build_router(ctx: ApiContext) -> APIRouter:
+    router = APIRouter()
+    _try_routes(ctx, router)
+    _definition_case_routes(ctx, router)
     return router
