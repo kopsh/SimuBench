@@ -58,6 +58,23 @@ def test_diagnostics_without_parseable_lines_fail_the_gate(gate, capsys):
 
 
 @pytest.mark.unit
+def test_windows_backslash_paths_parse_to_the_same_keys(gate, capsys):
+    """ty prints `src\\...` on Windows: the baseline keys are POSIX-shaped everywhere (#921)."""
+    script.BASELINE.write_text(
+        "src/simubench/access/hislip_server.py:invalid-argument-type Argument to bound method"
+        " `HislipSession._send` is incorrect: Expected `StreamWriter | None`, found"
+        " `StreamWriter | SecureStream | None`\n"
+    )
+    win_line = (
+        "src\\simubench\\access\\hislip_server.py:172:24: error[invalid-argument-type]"
+        " Argument to bound method `HislipSession._send` is incorrect: Expected"
+        " `StreamWriter | None`, found `StreamWriter | SecureStream | None`\n"
+    )
+    rc, out = gate(1, stdout=win_line, capsys=capsys)
+    assert rc == 0 and "none new" in out
+
+
+@pytest.mark.unit
 def test_a_diagnostic_outside_the_baseline_is_reported(gate, capsys):
     script.BASELINE.write_text(
         "src/simubench/engine/edit.py:unsupported-operator Operator `+` is not supported\n"
