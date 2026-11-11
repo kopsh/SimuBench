@@ -8,6 +8,7 @@ from typing import Any
 
 from ..engine.replay import read_record, replay
 from ..models import api as M
+from .errors import NotFound
 
 RUN_ID = re.compile(r"^[0-9A-Za-z-]{1,64}$")
 MAX_EVENTS = 20_000
@@ -20,10 +21,10 @@ class Runs:
 
     def _path(self, run_id: str) -> Path:
         if self.directory is None or not RUN_ID.match(run_id):
-            raise FileNotFoundError(run_id)
+            raise NotFound(run_id)
         path = self.directory / f"run-{run_id}.jsonl"
         if not path.is_file():
-            raise FileNotFoundError(run_id)
+            raise NotFound(run_id)
         return path
 
     def list(self) -> list[M.RunSummary]:

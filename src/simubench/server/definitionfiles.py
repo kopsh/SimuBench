@@ -21,6 +21,7 @@ from ..library.migrate import upgrade
 from ..models import api as M
 from .benchfiles import BenchFiles, Conflict, _sha
 from .definitionchanges import definition_changes
+from .errors import Forbidden
 from .history import Source
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -75,9 +76,7 @@ class DefinitionFiles:
     ) -> M.DefinitionDocument:
         doc = self.read(def_id)
         if not doc.editable:
-            raise PermissionError(
-                f"{def_id} is not in the workspace; create a copy under a new id to change it"
-            )
+            raise Forbidden(f"{def_id} is not in the workspace; create a copy under a new id to change it")
         if doc.sha256 != base_sha256:
             raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
         return self.save(def_id, base_sha256, jsonpatch.apply(doc.data, ops), source)
