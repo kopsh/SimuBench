@@ -5,10 +5,11 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Response
+from fastapi import APIRouter, Depends, Response
 
 from ... import __version__
 from ...models import api as M
+from ..errors import FILE_ERRORS
 from .context import ApiContext
 
 
@@ -111,8 +112,8 @@ def _diagnostic_and_run_routes(ctx: ApiContext, router: APIRouter) -> None:
     def read_run(run_id: str) -> M.RunDetail:
         try:
             return manager.runs.detail(run_id)
-        except FileNotFoundError:
-            raise HTTPException(404, "no such run record") from None
+        except FILE_ERRORS as exc:
+            raise ctx.http_error(exc, missing="no such run record") from None
 
     @router.post(
         "/api/runs/{run_id}/replay",
@@ -124,10 +125,8 @@ def _diagnostic_and_run_routes(ctx: ApiContext, router: APIRouter) -> None:
         """Replay the record and compare every reply (D36)."""
         try:
             return manager.runs.replay(run_id)
-        except FileNotFoundError:
-            raise HTTPException(404, "no such run record") from None
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from None
+        except (*FILE_ERRORS, ValueError) as exc:
+            raise ctx.http_error(exc, missing="no such run record", full_detail=True) from None
 
 
 def build_router(ctx: ApiContext) -> APIRouter:
