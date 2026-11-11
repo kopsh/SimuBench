@@ -5,13 +5,15 @@ from __future__ import annotations
 import hashlib
 import itertools
 import math
-from dataclasses import dataclass
+import re
+from dataclasses import dataclass, replace
 from typing import Any
 
 import numpy as np
 
 from ...engine.component import Component, OpResult, PortSpec, binding_of, component, op
 from ...engine.noise import gaussian, stream_key, uniform
+from ...engine.stream import FrameRequest, SampleFormat, SampleFrame
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
@@ -413,15 +415,46 @@ def _upper(values: Any) -> set[str]:
     return {str(v).upper() for v in values or ()}
 
 
+_ANALOG_IN = PortSpec("in", "signal")
+_SAMPLES_IN = PortSpec("in", "samples")
+_SAMPLES_OUT = PortSpec("out", "samples")
+
+
+def _channel_of(port: str) -> int:
+    """The channel of a per-channel port (``in3``, ``out3``)."""
+    return int(port.lstrip("inout"))
+
+
+def _displayed(comp: Component) -> list[int]:
+    """The channels that are on (``ch<n>.display``): the ones an acquisition samples."""
+    assert comp.owner is not None
+    return [n for n in range(1, comp.owner.channel_count + 1) if comp.owner.get_state(f"ch{n}.display")]
+
+
 @component("scope_adc")
 class ScopeAdc(Component):
-    """The ADC group shared by a scope's channels: resolution, top sample rates and interleaving.
+    """The ADC group shared by a scope's channels: where each channel's analog signal becomes
+    samples (D67), its resolution, top sample rates and interleaving.
+
+    ``in<n>`` takes channel n's signal in display volts (the probe module's output); ``out<n>``
+    gives its sample stream. A frame is made in this order: the signal is evaluated at the
+    request's instants, less the channel's skew (a digital delay; ``probe``); the input noise of
+    the channel's vertical division (``vertical``, D46) is added, drawn from the request's random
+    stream; the sum is quantized. The samples are the codes, kept in volts (D46) — the format says
+    how many bits and what one code step is worth.
 
     ``bits`` (0: records are not quantized) and ``codes_per_div`` (0: ``2**bits / divs``) set the
     quantization; ``offset_sign`` says whether the offset setting is added to or subtracted from the
     volts. ``max_rate`` is the top sample rate (0: no limit); channels of a ``rate_pairs`` pair share
     a converter, so with both on the top rate is ``max_rate_paired``."""
 
+    port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
+    refs = {
+        "vertical": ("scope_vertical", "channel"),
+        "probe": ("scope_probe", "channel"),
+        "clock": ("scope_timebase", "instrument"),
+    }
+    optional_refs = frozenset({"vertical", "probe", "clock"})
     defaults = {
         "bits": 0,  # 0: records are not quantized
         "codes_per_div": 0.0,  # 0: 2**bits / divs
@@ -430,8 +463,17 @@ class ScopeAdc(Component):
         "max_rate": 0.0,  # top sample rate, Sa/s (0: no limit)
         "max_rate_paired": 0.0,  # the top rate when both channels of a rate pair are on
         "rate_pairs": [],  # channels sharing a converter, e.g. [[1, 2], [3, 4]]
+        "vertical": "",  # the per-channel scope_vertical component: the scale, offset and input noise
+        "probe": "",  # the per-channel scope_probe component: its ratio (noise) and skew
+        "clock": "",  # the scope_timebase component: the rate an ADC without a top rate runs at
     }
     units = {"max_rate": "Sa/s", "max_rate_paired": "Sa/s"}
+
+    @classmethod
+    def spec_of(cls, port: str) -> PortSpec | None:
+        if cls.port_pattern and re.fullmatch(cls.port_pattern, port):
+            return _ANALOG_IN if port.startswith("in") else _SAMPLES_OUT
+        return None
 
     def codes_per_div(self) -> float:
         bits = int(self.param("bits"))
@@ -455,6 +497,145 @@ class ScopeAdc(Component):
         off = offset if str(self.param("offset_sign")).lower() == "add" else -offset
         codes = adc.codes(volts, scale, off, per_div, bits)
         return codes / per_div * scale - off
+
+    # ---- the sample stream ------------------------------------------------------------------------
+
+    def _vertical(self, n: int) -> ScopeVertical:
+        comp = self.peer(f"ch{n}.{self.param('vertical')}", required=True)
+        assert comp is not None
+        return comp  # type: ignore[return-value]
+
+    def _probe(self, n: int) -> ScopeProbe | None:
+        if not self.param("probe"):
+            return None
+        return self.peer(f"ch{n}.{self.param('probe')}", required=True)  # type: ignore[return-value]
+
+    def analog(self, n: int) -> Signal:
+        """Channel n's signal at the converter's input, in display volts: what the trigger
+        comparator taps."""
+        return self.input(f"in{n}")
+
+    def frames(self, port: str, request: FrameRequest) -> SampleFrame:
+        n = _channel_of(port)
+        vertical, probe = self._vertical(n), self._probe(n)
+        scale, offset = float(vertical.param("scale")), float(vertical.param("offset"))
+        skew = probe.delay() if probe is not None else 0.0
+        volts = self.analog(n).sample_rel(request.t0_ns, request.offsets_s() - skew)
+        sigma = vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0)
+        if sigma > 0:
+            volts = volts + sigma * gaussian(stream_key(self.session.seed, *request.key), request.indexes())
+        bits = int(self.param("bits"))
+        kept = self.quantize(volts, scale, offset)
+        clipped = False
+        if bits > 0:
+            top, bottom = self.quantize(np.array([1e30, -1e30]), scale, offset)
+            clipped = bool(kept.max() >= top or kept.min() <= bottom)
+        fmt = SampleFormat("volts", bits=bits, lsb=scale / self.codes_per_div() if bits > 0 else 0.0)
+        return SampleFrame(kept, request.t0_ns, request.dt_s, fmt, clipped=clipped)
+
+    def sample_interval(self, port: str) -> float:
+        """The converter's own interval: its top rate with the channels that are on; one without a
+        top rate runs at the record's rate (``clock``)."""
+        top = self.top_rate(set(_displayed(self)))
+        if math.isfinite(top):
+            return 1.0 / top
+        clock = self.peer(str(self.param("clock")), required=True)
+        assert clock is not None
+        return float(clock.timing(top)[1])  # type: ignore[attr-defined]
+
+
+@component("scope_decimator")
+class ScopeDecimator(Component):
+    """From the ADC's rate to the record's: the acquisition modes (F4, D46, D67).
+
+    ``in<n>`` takes channel n's samples at the converter's rate, ``out<n>`` gives them at the
+    record's rate, after ``processing``:
+
+    * ``normal`` keeps them;
+    * ``average`` (``averages``) is the mean of that many acquisitions, each of them noisy and
+      quantized, so the noise falls by √N and the resolution gains (it takes N acquisitions' time);
+    * ``peak`` examines each record interval at the ADC's native rate (at most
+      ``peak_max_oversample`` samples per record sample) and keeps, of the interval's smallest and
+      largest code, the one that departs farther from its ends — a pulse the record rate would step
+      over shows up;
+    * ``eres`` smooths ``4**eres_bits`` codes (a boxcar), so the noise falls by ``2**eres_bits`` —
+      that many more effective bits, at the boxcar's bandwidth.
+
+    A request's ``index0`` is counted on the converter's grid (:meth:`oversample` samples per record
+    sample): the k-th acquisition of an average continues the random stream after the previous
+    one's samples there.
+    """
+
+    port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
+    refs = {"adc": ("scope_adc", "instrument"), "horizontal": ("scope_timebase", "instrument")}
+    defaults = {
+        "adc": "",  # the scope_adc component: its top rate
+        "horizontal": "",  # the scope_timebase component: the record's rate
+        "processing": "normal",  # normal | average | peak | eres: what the quantized codes go through
+        "averages": 1,  # acquisitions an average is the mean of (processing: average)
+        "eres_bits": 0.0,  # effective bits a high-resolution acquisition gains (boxcar of 4^b codes)
+        "peak_max_oversample": 64,  # native samples a peak-detect interval examines at most
+    }
+
+    @classmethod
+    def spec_of(cls, port: str) -> PortSpec | None:
+        if cls.port_pattern and re.fullmatch(cls.port_pattern, port):
+            return _SAMPLES_IN if port.startswith("in") else _SAMPLES_OUT
+        return None
+
+    def averages(self) -> int:
+        """Acquisitions one record takes (1 unless averaging)."""
+        return max(1, int(self.param("averages"))) if str(self.param("processing")) == "average" else 1
+
+    def oversample(self) -> int:
+        """Converter samples per record sample. Peak detect samples the ADC's native rate (F4),
+        capped so a deep record at a slow timebase stays feasible — the real detector is hardware
+        too; every other mode takes the record's rate."""
+        if str(self.param("processing")) != "peak":
+            return 1
+        adc_unit = self.peer(str(self.param("adc")), required=True)
+        horizontal = self.peer(str(self.param("horizontal")), required=True)
+        assert adc_unit is not None and horizontal is not None
+        top = adc_unit.top_rate(set(_displayed(self)))  # type: ignore[attr-defined]
+        rate = horizontal.sample_rate(top)  # type: ignore[attr-defined]
+        if rate > 0 and top > rate:
+            return max(1, min(int(self.param("peak_max_oversample")), round(top / rate)))
+        return 1
+
+    def frames(self, port: str, request: FrameRequest) -> SampleFrame:
+        source = f"in{_channel_of(port)}"
+        proc = str(self.param("processing"))
+        m = self.oversample()
+        native = replace(request, first=request.first * m, count=request.count * m, dt_s=request.dt_s / m)
+        frame = self.input_frames(source, native)
+        volts, clipped = frame.data, frame.clipped
+        if m > 1:
+            volts = peak_detect(volts, m)
+        elif proc == "average":
+            count = self.averages()
+            for k in range(1, count):
+                more = self.input_frames(source, replace(native, index0=native.index0 + k * native.count))
+                volts, clipped = volts + more.data, clipped or more.clipped
+            volts = volts / count
+        elif proc == "eres":
+            volts = _boxcar(volts, round(4.0 ** float(self.param("eres_bits"))))
+        return SampleFrame(volts, request.t0_ns, request.dt_s, frame.fmt, clipped=clipped)
+
+    def sample_interval(self, port: str) -> float:
+        """The record's sample interval with the current settings."""
+        adc_unit = self.peer(str(self.param("adc")), required=True)
+        horizontal = self.peer(str(self.param("horizontal")), required=True)
+        assert adc_unit is not None and horizontal is not None
+        return float(horizontal.timing(adc_unit.top_rate(set(_displayed(self))))[1])  # type: ignore[attr-defined]
+
+
+def peak_detect(samples: np.typing.NDArray[np.float64], m: int) -> np.typing.NDArray[np.float64]:
+    """Peak detect over intervals of ``m`` samples: of each interval's smallest and largest value,
+    the one that departs farther from the interval's ends."""
+    grid = samples.reshape(-1, m)
+    ends = (grid[:, 0] + grid[:, -1]) / 2
+    lo, hi = grid.min(axis=1), grid.max(axis=1)
+    return np.where(np.abs(hi - ends) >= np.abs(lo - ends), hi, lo)
 
 
 @component("scope_timebase")
@@ -1014,11 +1195,12 @@ class ScopeAcquisition(Component):
 
     ports: dict[str, PortSpec] = {}
     port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
-    pattern_port = PortSpec("in", "signal")
+    pattern_port = _SAMPLES_IN  # each channel's samples at the record's rate (the decimator's output)
     refs = {
         "horizontal": ("scope_timebase", "instrument"),
         "trigger": ("scope_trigger", "instrument"),
         "adc": ("scope_adc", "instrument"),
+        "decimator": ("scope_decimator", "instrument"),
         "vertical": ("scope_vertical", "channel"),
         "probe": ("scope_probe", "channel"),
     }
@@ -1026,6 +1208,7 @@ class ScopeAcquisition(Component):
         "horizontal": "",  # the scope_timebase component
         "trigger": "",  # the scope_trigger component
         "adc": "",  # the scope_adc component
+        "decimator": "",  # the scope_decimator component: the acquisition mode and what it costs in time
         "vertical": "",  # the per-channel scope_vertical component (its name without ch<n>.)
         "probe": "",  # the per-channel scope_probe component (its name without ch<n>.)
         "overhead_s": 1e-3,  # virtual time an acquisition takes besides its record, s
@@ -1043,10 +1226,6 @@ class ScopeAcquisition(Component):
         "noise_key": "acquisition",  # acquisition | time
         "noise_stream": "",  # a setting that selects another noise stream (time key)
         "trigger_jitter_s": 0.0,  # rms offset of each record around the trigger, s
-        "processing": "normal",  # normal | average | peak | eres: what the quantized codes go through
-        "averages": 1,  # acquisitions an average is the mean of (processing: average)
-        "eres_bits": 0.0,  # effective bits a high-resolution acquisition gains (boxcar of 4^b codes)
-        "peak_max_oversample": 64,  # native samples a peak-detect interval examines at most
         # op status: the trigger status as the model words it (stopped, waiting for a trigger,
         # triggered, running untriggered in an auto mode)
         "status_text": {"stopped": "STOP", "waiting": "READY", "triggered": "TRIG'D", "auto": "AUTO"},
@@ -1094,6 +1273,9 @@ class ScopeAcquisition(Component):
     def adc_unit(self) -> ScopeAdc:
         return self._module("adc")  # type: ignore[no-any-return]
 
+    def decimator_unit(self) -> ScopeDecimator:
+        return self._module("decimator")  # type: ignore[no-any-return]
+
     def vertical_of(self, n: int) -> ScopeVertical:
         return self._module("vertical", f"ch{n}.{self.param('vertical')}")  # type: ignore[no-any-return]
 
@@ -1133,8 +1315,8 @@ class ScopeAcquisition(Component):
         self.owner.set_state(self.resolve_path(path), value)
 
     def _display_signal(self, n: int) -> Signal:
-        """Signal of channel n in display volts: the probe module's output."""
-        return self.input(f"in{n}")
+        """Signal of channel n in display volts, before the converter: what the trigger compares."""
+        return self.adc_unit().analog(n)
 
     def trigger_level(self) -> float:
         """The trigger level in display volts (the scope screen draws it)."""
@@ -1144,7 +1326,7 @@ class ScopeAcquisition(Component):
         return float(self.horizontal().param("scale"))
 
     def displayed(self) -> list[int]:
-        return [n for n in range(1, self._channels() + 1) if self._st(f"ch{n}.display")]
+        return _displayed(self)
 
     # ---- record length ------------------------------------------------------------------------------
 
@@ -1161,7 +1343,7 @@ class ScopeAcquisition(Component):
     # ---- sampling, noise and the ADC ----------------------------------------------------------------
 
     def _averages(self) -> int:
-        return max(1, int(self.param("averages"))) if str(self.param("processing")) == "average" else 1
+        return self.decimator_unit().averages()
 
     def _jitter(self, t_start_ns: int, frame: int | None = None) -> float:
         jitter = float(self.param("trigger_jitter_s"))
@@ -1177,27 +1359,22 @@ class ScopeAcquisition(Component):
         key = stream_key(self.session.seed, self.uid, "jitter", self.acq_count)
         return jitter * float(gaussian(key, np.zeros(1))[0])
 
-    def _noise(
-        self, n: int, t_start_ns: int, dt: float, count: int, frame: int | None = None, sub: int = 0
-    ) -> np.typing.NDArray[np.float64] | None:
-        """Input noise in display volts, a pure function of the seed, the channel and the key.
-
-        The rms comes from the channel's vertical division (D46); ``count`` samples at ``dt``
-        (the native grid when peak detect oversamples), ``sub`` the sub-acquisition of an average,
-        whose stream continues after the previous one's samples."""
-        sigma = self.vertical_of(n).input_noise_rms() * self.probe_ratio(n)
-        if sigma <= 0:
-            return None
-        if frame is not None:  # a displayed frame: noise of its own, no acquisition's stream used
-            return sigma * gaussian(
-                stream_key(self.session.seed, self.uid, "frame", n, frame), np.arange(count)
-            )
+    def _request(
+        self, n: int, t0: int, start: int, dt: float, points: int, t_start_ns: int, m: int, frame: int | None
+    ) -> FrameRequest:
+        """What the acquisition asks channel n's chain for: ``points`` samples ``dt`` apart from
+        sample ``start`` of the grid at ``t0``, and the random stream of its input noise — a pure
+        function of the seed, the channel and the key. A displayed frame has a stream of its own;
+        an acquisition's is keyed by the absolute sample instants (``noise_key: time``, D46) or by
+        the acquisition count. The index counts on the converter's grid (``m`` samples per record
+        sample when peak detect oversamples)."""
+        if frame is not None:
+            return FrameRequest(t0, points, dt, (self.uid, "frame", n, frame), first=start)
         if self.param("noise_key") == "time":
-            first = math.floor(t_start_ns * 1e-9 / dt) + sub * count  # on the absolute sample grid
-            key = stream_key(self.session.seed, self.uid, "noise", n, dt, str(self.param("noise_stream")))
-            return sigma * gaussian(key, first + np.arange(count))
-        key = stream_key(self.session.seed, self.uid, "noise", n, self.acq_count)
-        return sigma * gaussian(key, sub * count + np.arange(count))
+            native_dt = dt / m
+            key = (self.uid, "noise", n, native_dt, str(self.param("noise_stream")))
+            return FrameRequest(t0, points, dt, key, math.floor(t_start_ns * 1e-9 / native_dt), first=start)
+        return FrameRequest(t0, points, dt, (self.uid, "noise", n, self.acq_count), first=start)
 
     def adc_codes_per_div(self) -> float:
         return self.adc_unit().codes_per_div()
@@ -1239,52 +1416,19 @@ class ScopeAcquisition(Component):
             )
             t0 += round(phase * points * dt * 1e9)
         t_start_ns = t0 + round(start * dt * 1e9)
-        # Peak detect samples the ADC's native rate (F4): m native codes per record sample, capped
-        # so a deep record at a slow timebase stays feasible - the real detector is hardware too.
-        proc = str(self.param("processing"))
-        m = 1
-        if proc == "peak":
-            rate = self.sample_rate()
-            top = self._top_rate()
-            if rate > 0 and top > rate:
-                m = max(1, min(int(self.param("peak_max_oversample")), round(top / rate)))
-        count = points * m
-        native_dt = dt / m
-        offsets = (start * m + np.arange(count)) * native_dt
+        m = self.decimator_unit().oversample()  # converter samples per record sample (peak detect)
         # The record samples on the clock's grid; where the trigger fell between two samples, and
         # the trigger's jitter, are in the record's time origin (the scope's xorigin), not in the
         # samples.
         jitter = self._jitter(t_start_ns, frame)
         x_origin = (start * dt - hit.t_s - jitter) if hit is not None else -pre * dt
         trigger_ns = t0 + round(hit.t_s * 1e9) if hit is not None else None
-        adc = self.adc_unit()
         records: dict[int, Record] = {}
         for n in channels:
             scale, offset = self.scale_offset(n)
-            # A channel's skew (setting + this unit's error) is a digital delay: sample its trace
-            # that much earlier, the trigger path (analog) stays on the unshifted signal.
-            skew = self.probe_skew(n)
-            volts = self._display_signal(n).sample_rel(t0, offsets - skew)
-            noise = self._noise(n, t_start_ns, native_dt, count, frame)
-            if noise is not None:
-                volts = volts + noise
-            volts = adc.quantize(volts, scale, offset)  # the codes, as volts (D46: they are kept)
-            if m > 1:  # peak detect: of each interval's smallest and largest code, the one that
-                grid = volts.reshape(points, m)  # departs farther from the interval's ends
-                ends = (grid[:, 0] + grid[:, -1]) / 2
-                lo, hi = grid.min(axis=1), grid.max(axis=1)
-                volts = np.where(np.abs(hi - ends) >= np.abs(lo - ends), hi, lo)
-            elif proc == "average":
-                total = volts
-                for sub in range(1, self._averages()):
-                    noise = self._noise(n, t_start_ns, native_dt, count, frame, sub)
-                    extra = self._display_signal(n).sample_rel(t0, offsets - skew)
-                    if noise is not None:
-                        extra = extra + noise
-                    total = total + adc.quantize(extra, scale, offset)
-                volts = total / self._averages()
-            elif proc == "eres":
-                volts = _boxcar(volts, round(4.0 ** float(self.param("eres_bits"))))
+            # The channel's chain (ADC, then the decimator's acquisition mode) gives the record's
+            # samples: the codes, as volts (D46: they are kept).
+            volts = self.input_frames(f"in{n}", self._request(n, t0, start, dt, points, t_start_ns, m, frame)).data
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,

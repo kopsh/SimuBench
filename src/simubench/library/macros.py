@@ -58,6 +58,7 @@ def scope_acquisition(data: Data, spec: Data) -> None:
     _expand_preamble(data, spec)
     params = dict(spec.get("params") or {})
     if any(key in params for key in MACRO_MODULES):
+        _expand_stream(data, spec)
         return  # the modules are written out
     acq = str(spec["name"])
     comps = data.setdefault("components", [])
@@ -95,6 +96,54 @@ def scope_acquisition(data: Data, spec: Data) -> None:
     chans.insert(after, {"name": "probe", "type": "scope_probe", "params": {}})
     chan_wires.append([f"{vertical}.out", "probe.in"])
     inst_wires[index] = ["ch{n}.probe.out", f"{acq}.in{{n}}"]
+    _expand_stream(data, spec)
+
+
+#: The acquisition-mode parameters an acquisition written without a decimator gives it.
+STREAM_PARAMS = ("processing", "averages", "eres_bits", "peak_max_oversample")
+#: The name the expansion gives the decimator.
+DECIMATOR_NAME = "dec"
+
+
+def _expand_stream(data: Data, spec: Data) -> None:
+    """Put the sample stream between the channels and an acquisition written without one (D67,
+    signal-chain.md 4.2): the wire ``<signal> -> <acq>.in{n}`` becomes ``<signal> -> <adc>.in{n}``,
+    ``<adc>.out{n} -> dec.in{n}``, ``dec.out{n} -> <acq>.in{n}`` with a ``scope_decimator`` named
+    ``dec`` that takes the acquisition-mode parameters; the ADC is told which per-channel modules
+    it converts for. Does nothing when the acquisition names its decimator."""
+    params = spec.setdefault("params", {})
+    if not isinstance(params, dict) or "decimator" in params or not isinstance(params.get("adc"), str):
+        return
+    acq, adc = str(spec["name"]), params["adc"]
+    comps = data.setdefault("components", [])
+    inst_wires = data.setdefault("wiring", {}).setdefault("instrument", [])
+    feed = next((i for i, (_, dst) in enumerate(inst_wires) if dst == f"{acq}.in{{n}}"), None)
+    adc_spec = next((c for c in comps if isinstance(c, dict) and c.get("name") == adc), None)
+    if feed is None or adc_spec is None:
+        return  # not shaped like a scope the checks accept: they report it
+    if any(isinstance(c, dict) and c.get("name") == DECIMATOR_NAME for c in comps):
+        raise ValueError(
+            f"{acq}: cannot add the decimator (the name {DECIMATOR_NAME!r} is taken); "
+            "write the scope_decimator out and name it in the acquisition's decimator parameter"
+        )
+    moved = {key: params.pop(key) for key in STREAM_PARAMS if key in params}
+    dec = {
+        "name": DECIMATOR_NAME,
+        "type": "scope_decimator",
+        "params": {"adc": adc, "horizontal": params.get("horizontal", ""), **moved},
+    }
+    adc_params = adc_spec.setdefault("params", {})
+    for key, source in (("vertical", "vertical"), ("probe", "probe"), ("clock", "horizontal")):
+        if params.get(source):
+            adc_params.setdefault(key, params[source])
+    params["decimator"] = DECIMATOR_NAME
+    comps.insert(next(i for i, c in enumerate(comps) if c is adc_spec) + 1, dec)
+    source = inst_wires[feed][0]
+    inst_wires[feed : feed + 1] = [
+        [source, f"{adc}.in{{n}}"],
+        [f"{adc}.out{{n}}", f"{DECIMATOR_NAME}.in{{n}}"],
+        [f"{DECIMATOR_NAME}.out{{n}}", f"{acq}.in{{n}}"],
+    ]
 
 
 #: Parameters an acquisition written the earlier way (one component) gives each module, and the

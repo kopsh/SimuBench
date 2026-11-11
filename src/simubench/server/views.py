@@ -268,7 +268,12 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
                     for p, spec in comp.ports.items()
                 ]
                 + [
-                    M.PortInfo(name=p, direction=d, medium="signal", channel=comp.channel)
+                    M.PortInfo(
+                        name=p,
+                        direction=d,
+                        medium=spec.medium if (spec := comp.spec_of(p)) else "signal",
+                        channel=comp.channel,
+                    )
                     for p, d in wired.get(name, {}).items()
                     if p not in comp.ports
                 ]

@@ -419,14 +419,22 @@ class Component:
 
         return V.parse_enum(str(value).encode(), self.choices[key])
 
+    @classmethod
+    def spec_of(cls, port: str) -> PortSpec | None:
+        """A declared port, or one the instrument creates through ``port_pattern``; None when the
+        type has no such port. A type whose pattern ports differ (an ADC's analog inputs and
+        samples outputs) overrides this."""
+        spec = cls.ports.get(port)
+        if spec is None and cls.port_pattern and re.fullmatch(cls.port_pattern, port):
+            spec = cls.pattern_port
+        return spec
+
     def port_spec(self, port: str) -> PortSpec:
-        """A declared port, or one the instrument creates through ``port_pattern``."""
-        spec = self.ports.get(port)
-        if spec is not None:
-            return spec
-        if self.port_pattern and re.fullmatch(self.port_pattern, port):
-            return self.pattern_port
-        raise KeyError(port)
+        """:meth:`spec_of`, for a port that must exist."""
+        spec = self.spec_of(port)
+        if spec is None:
+            raise KeyError(port)
+        return spec
 
     def reply_number(self, value: float, digits: int = 6) -> bytes:
         """A number this component answers: ``digits`` after the point (the component's own
