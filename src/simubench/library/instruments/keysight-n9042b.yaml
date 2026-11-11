@@ -367,13 +367,16 @@ components:
     params:
       z_in: 50.0
       # Auto attenuation: the reference's preset is 0 dBm with 10 dB, i.e. a -10 dBm mixer level.
-      mixer_limit: -10.0
+      max_mixer_level: -10.0
       att: $power.att
       att_auto: $power.att_auto
       ref_level: $display.ref_level
   - name: mixer
     type: specan_mixer
-    params: {noise_figure: 15.0, clock: clock, source: INTernal}
+    params: {noise_figure: 15.0, lo: lo}
+  - name: lo
+    type: specan_lo
+    params: {clock: clock, source: INTernal, if_filter: if_filter, center: $freq.center}
   - name: if_filter
     type: specan_if
     params:
@@ -395,11 +398,11 @@ components:
     type: specan_trace
     params:
       input: input
-      mixer: mixer
+      lo: lo
       if_filter: if_filter
       detector: detector
       vbw: vbw
-      maxhold_limit: 10000
+      max_hold_sweeps: 10000
       hold_count: true
       center_fit: span
       f_max: 27.0e9
@@ -413,6 +416,8 @@ components:
 wiring:
   instrument:
     - [rf_in.out, input.in]
+    - [input.out, mixer.in]
+    - [mixer.out, if_filter.in]
     - [ref_in.out, clock.ref]
 ports:
   instrument:

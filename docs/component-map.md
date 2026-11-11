@@ -9,7 +9,7 @@
 - 一块可接受多个组件类型(如合成块收 `waveform_synth` 与 `function_generator_core`);块清单可写**尚不存在的组件类型**(未来的拆分),测试只对内置定义生效。
 - 组件类型名是设计默认;拆分 PR 落地时可随块清单一次提交调整,同时在本文登记。
 - **求解层级**:进电路求解(stamp/emf,参与网络求解)还是设置/数据层(只参与设置与数据计算)。**拆分前必须先定**,否则要么块是装饰,要么要改求解器。
-- **已有债务**:5522A 与 SDG2042X 的拆分(第二波,缺口清单);偏软件命名的已有组件——`specan` 的 `mixer_limit`、`maxhold_limit`(命名审计,拆分时更名)。
+- **已有债务**:5522A 与 SDG2042X 的拆分(第二波,缺口清单);偏软件命名的已有组件——~~`specan` 的 `mixer_limit`、`maxhold_limit`~~(#952 更名为 `max_mixer_level`、`max_hold_sweeps`,旧名经宏兼容)。
 
 ## oscilloscope
 
@@ -138,15 +138,16 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | input_port | `input_port` | 电路(50 Ω 到地) | 已实现 | — |
-| input_attenuator | `specan_input` | 数据(衰减、输入阻抗、过载判断) | 已实现 | — |
-| mixer | `specan_mixer` | 数据(本振/参考误差、显示频率轴) | 已实现 | 命名审计:`mixer_limit`(缺口清单) |
-| if_filter | `specan_if` | 数据(RBW、高斯响应、噪声底) | 已实现(型号声明档位与范围 #616:`steps` 1-3-10 或 X 系列的约 10% 步进、`rbw_min`/`rbw_max`、自动的 `auto_ratio`/`auto_max`) | — |
+| input_attenuator | `specan_input` | 信号(`out` = 输入 × 衰减 × 前置放大;另有输入阻抗、过载判断) | 已实现(#952:`out`、`preamp_gain`,`RfStage`) | — |
+| mixer | `specan_mixer` | 信号(`out` = 输入谱线搬到中频 `f_rf − f_lo`,扣变频损耗;取决于调谐点) | 已实现(#952:`out`、`conversion_loss`,`RfStage`;`noise_figure` 是整机噪声系数的旧写法) | — |
+| local_oscillator | `specan_lo` | 数据(调谐点、参考误差与显示频率轴、扫速) | 已实现(#952:`tuned()`、`frequency()`;`lo_rate`/`sweep_overhead` 自 `specan_trace` 移来,参考误差自 `specan_mixer` 移来;相位噪声未建模,#954) | — |
+| if_filter | `specan_if` | 信号(`out` = 混频器输出 × 以 `if_hz` 为中心的高斯 RBW 通带 × 中频增益;另有 RBW 档位、噪声底) | 已实现(#952:`out`、`if_hz`、`gain`,`RfStage`;型号声明档位与范围 #616:`steps` 1-3-10 或 X 系列的约 10% 步进、`rbw_min`/`rbw_max`、自动的 `auto_ratio`/`auto_max`) | — |
 | log_detector | `specan_detector` | 数据(检波与对数) | 已实现(#616:负峰值、Normal/Rosenfell;`auto` 按迹线类型自动选择检波器,`select` 操作查询回使用中的检波器) | — |
 | vbw_filter | `specan_vbw` | 数据(VBW) | 已实现(#616:`steps`、`vbw_min`/`vbw_max`,高于档位表的上限为全开档) | — |
-| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;按序调用前级) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记;#616:频率上限 `f_max`、`span_min`、扫描时间 `sweep_min`/`sweep_max`,最小保持,`hold_count`(单次扫描在保持模式下取平均/保持次数),`marker.mode` 可含 OFF、`marker_off_reply`(关闭的标记回 9.91E+37)与 `delta_x`(差值标记的 X 为偏移)) | 命名审计:`maxhold_limit`(缺口清单) |
+| trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;沿连线从中频滤波向上游取链首谱线与各级的级联指标) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记;#616:频率上限 `f_max`、`span_min`、扫描时间 `sweep_min`/`sweep_max`,最小保持,`hold_count`(单次扫描在保持模式下取平均/保持次数),`marker.mode` 可含 OFF、`marker_off_reply`(关闭的标记回 9.91E+37)与 `delta_x`(差值标记的 X 为偏移)) | — |
 | reference | `reference_clock` | 数据(10 MHz 参考与偏差) | 已实现 | — |
 
-D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层,其余都是数据层(频谱是确定性的数据计算,不经过信号连线)。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(默认 `span/100` 取 1-3-10 梯级;X 系列 `span/106` 取约 10% 步进,最多 3 MHz,#616);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_mixer` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
+D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层。#952 起模拟前端在块之间传递信号:`rf_in → input → mixer → if_filter`,每块有 `out`(内部探针可读);混频器与中频的输出取决于调谐点(`Session.tuned`,只由发起读取的迹线或探针设置;不在其中时按中心频率),这两个端口不能映射为仪表端口(`E-DEF-PORT-TUNED`)。迹线仍是解析求值:取链首的谱线经 RBW 响应画到每个点,噪声取衰减器之后各级的级联噪声系数(`engine/rfcascade.py`)加衰减量——显示按输入校准,理想链的增益相消,所以回复与拆分前逐位相同(`tests/test_specan_migration.py`)。旧写法(没有 `specan_lo`、前端未连线、旧参数名)在加载时由宏展开。检波、视频滤波、迹线仍是数据层。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(默认 `span/100` 取 1-3-10 梯级;X 系列 `span/106` 取约 10% 步进,最多 3 MHz,#616);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_lo` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
 
 ## rf_generator
 
@@ -270,7 +271,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 13. **示波器**:更多自动测量与运行/触发状态寄存器(#248)、Web 屏幕的光标与自动测量(#280);协议解码/串行触发、mask 测试(MTESt)、search、history、分段存储、数字通道(MSO)、内置波形发生器、FFT 暂不排期。
 14. **电源**:列表/动态扫描与数据记录(DLOG)暂不排期。
 15. **电子负载**:动态/列表(C2);CP 未收敛时的确定行为已按 D52 落定(#258);MAX/MIN 读数、电阻读数、电池测试暂不排期。
-16. **频谱仪**:多个独立标记(目前只有标记 1;标记组由 #274、N9320B 复位默认值与设置顺序由 #292 补上(`specan_trace` 的 `center_fit`/`lo_rate`));组件产生的数值应答(标记/迹线/计数器)写死 7 位有效数字、不随定义声明的应答格式(#366);测量应用(ACP/CHP/OBW/TOI/SEMask)、跟踪源、AM/FM 解调暂不排期。
+16. **频谱仪**:多个独立标记(目前只有标记 1;标记组由 #274、N9320B 复位默认值与设置顺序由 #292 补上(`specan_trace` 的 `center_fit`、`specan_lo` 的 `lo_rate`));组件产生的数值应答(标记/迹线/计数器)写死 7 位有效数字、不随定义声明的应答格式(#366);测量应用(ACP/CHP/OBW/TOI/SEMask)、跟踪源、AM/FM 解调暂不排期。
 17. **射频源**:带电平与驻留的列表扫描行(DSG800 的 `:SWE:LIST:*`;电平扫描、驻留与连续/单次已由 #291 补上,调制总开关由 #290);平坦度校准表、脉冲/任意波调制暂不排期。
 18. **锁相放大器**:SYNC 同步滤波与 FAST 流式传输暂不排期(#273 的曲线缓冲、输入前端与储备表已补上)。SR865A(#333)落地:读数参数表、%g 应答、弧度、序号/词的枚举由 #383、#400、#402、#403 补上,正弦直流电平(SOFF/REFM)由 #407 补上;SR86x 的双参考与斩波器、同步滤波、自动偏置/量程/定标(OAUT/ARNG/ASCL)、比值(CRAT)、相位回绕(手册 ±360000° 回绕到 ±180°,模型只接受 ±180°)、信号强度(ILVL?)、扫描、数据流、FFT 与截屏、硬件触发的捕获(TRIG IN)暂不排期;数据捕获(立即开始的单次/连续)由 `curve_buffer` 的捕获视图(#404、#405)承担。
 19. **DAQ**:温度测量、数字 I/O 与总加器(34907A/DAQM907A)、外部扫描推进、监视通道、报警系统暂不排期。DAQ970A(#332)沿用 34970A 的组件链（DAQM901A 槽 1），扫描表查询的定长块（#415）与空表 `(@)`（#418）已补；`ROUT:CLOS:EXCL`、`ROUT:SCAN:SIZE?`、`DATA:LAST?`、FORMat:READing 字段与 DMM 数字化模式暂不排期。
@@ -285,5 +286,5 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 - **文档(可认领)**:#269、#293、#310。
 - **验收债务**:#313、#314、#315、#316(昨日 #312 合并后遗留的快照与 e2e 口径)。
 - **模型边界(暂不排期,类别节已注记)**:Von 阈值附近无滞回(DC 模型);计数器非谐波多音按最强谱线;`trigger_model` 单层(ARM 缺)。
-- **命名审计(暂不排期,拆分/重构时一并)**:`specan_mixer` 的 `mixer_limit`、`specan_trace` 的 `maxhold_limit`。
+- ~~**命名审计**:`specan_mixer` 的 `mixer_limit`、`specan_trace` 的 `maxhold_limit`~~(#952 已更名:`specan_input.max_mixer_level`、`specan_trace.max_hold_sweeps`)。
 - **架构目标**:#86(D3 第 2 层:计量类仪表型号只写 YAML);5522A、SDG2042X 的拆分评估随第二波进行。

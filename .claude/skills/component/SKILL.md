@@ -56,6 +56,13 @@ class CounterGate(Component):
   `request.key` / `request.indexes()`. Put the algorithm in a module-level pure function and let
   the block wrap it. Types and limits: `src/simubench/engine/stream.py`; example blocks:
   `tests/test_stream.py`.
+- An analog RF block with gain, noise or linearity figures implements `RfStage`
+  (`stage(f_hz) -> RfStageSpec`); the chain's figures are computed once, by
+  `src/simubench/engine/rfcascade.py`, from the stages found walking the wiring upstream — never
+  a second copy of Friis in a component. A signal output that depends on where a receiver is
+  tuned (a mixer's and what follows it) is listed in `tuned_ports` and reads
+  `self.session.tune_hz` (None outside a read: fall back to the instrument's own tuning). Only the
+  block that starts a read enters `with self.session.tuned(f):` (signal-chain.md 5.2, #952).
 - `on_state(self, key, path, old, new)` hands you the parameter the change arrived through (None
   for a `watches` path); which setting a parameter binds, to write it back, is
   `self.bound_path(key)` (D61). Boolean-ish settings parse with `V.flag` (1 is True) — no private

@@ -22,6 +22,7 @@ plausible fake).
 | Component base class, `@component`, `@op` | `engine/component.py` |
 | Circuit (MNA per frequency) / signals / noise | `engine/circuit.py`, `engine/signal.py`, `engine/noise.py` |
 | Sample streams after an ADC: `FrameRequest`, `SampleFrame`, limits; the frame cache is `Session.cached_frames` (D67) | `engine/stream.py` |
+| Cascaded RF figures (Friis, intercepts, distortion products, compression) of the `RfStage` blocks; the tuning context is `Session.tuned` | `engine/rfcascade.py` |
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
 | Bench edits (canvas + MCP share them) | `engine/edit.py` |
 | Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `engine/replay.py` |
