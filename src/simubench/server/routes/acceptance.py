@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ...library.coverage import cases_for_model, run_cases
 from ...models import api as M
 from .. import drive, views
+from ..errors import FILE_ERRORS
 from .context import ApiContext
 
 
@@ -227,12 +228,8 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
 
         try:
             return await asyncio.to_thread(run)
-        except PermissionError as exc:
-            raise HTTPException(403, str(exc)) from None
-        except FileNotFoundError:
-            raise HTTPException(404, "no such cases file") from None
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise HTTPException(422, str(exc).splitlines()[0]) from None
+        except (*FILE_ERRORS, ValueError) as exc:
+            raise ctx.http_error(exc, missing="no such cases file") from None
 
 
 def build_router(ctx: ApiContext) -> APIRouter:

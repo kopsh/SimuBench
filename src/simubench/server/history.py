@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Literal
 
 from ..models import api as M
+from .errors import NotFound
 
 Source = Literal["ui", "agent", "api", "external", "restore"]
 KEEP = 200
@@ -64,7 +65,7 @@ class History:
     def content(self, bench_path: str, seq: int) -> bytes:
         entry = next((e for e in self._index(bench_path) if e["seq"] == seq), None)
         if entry is None:
-            raise FileNotFoundError(f"{bench_path} has no version {seq}")
+            raise NotFound(f"{bench_path} has no version {seq}")
         return (self._dir(bench_path) / entry["file"]).read_bytes()
 
     def record(
