@@ -5,6 +5,7 @@
 - 产品与决策：[docs/decisions.md](docs/decisions.md)
 - 架构：[docs/architecture.md](docs/architecture.md)
 - 开发计划与进度：[docs/roadmap.md](docs/roadmap.md)、[docs/progress.md](docs/progress.md)
+- 定位复盘与后续规划（草案）：[docs/positioning-review.md](docs/positioning-review.md)
 
 ## 开发
 
