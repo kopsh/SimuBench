@@ -1,8 +1,8 @@
 """File format versions: old files load, newer ones are refused clearly (M5)."""
 
-import pytest
 import yaml
 
+from helpers import raises_with
 from simubench.cli import main
 from simubench.engine.validate import validate_data
 from simubench.library.loader import DefinitionLibrary, load_bench
@@ -21,9 +21,9 @@ def test_unversioned_bench_is_upgraded_in_memory(tmp_path):
 
 
 def test_newer_files_are_refused_with_a_reason():
-    with pytest.raises(FormatError, match="format version 3; this SimuBench reads up to 2"):
+    with raises_with(FormatError, "format version 3; this SimuBench reads up to 2"):
         upgrade({"schema": "simubench.bench/3", "name": "x"}, "bench")
-    with pytest.raises(FormatError, match="not a SimuBench bench file"):
+    with raises_with(FormatError, "not a SimuBench bench file"):
         upgrade({"schema": "something/1"}, "bench")
     _, report = validate_data({"schema": "simubench.bench/9", "name": "x"}, DefinitionLibrary([]))
     assert [d.code for d in report.diagnostics] == ["E-FORMAT"]

@@ -2,6 +2,7 @@ import copy
 
 import pytest
 
+from helpers import raises_with
 from simubench.engine.validate import validate_data
 from simubench.library.loader import DefinitionLibrary
 
@@ -128,7 +129,7 @@ def test_open_bench_refuses_an_unknown_hidden_parameter():
 
     data = copy.deepcopy(BASE)
     data["instruments"]["awg"]["hidden"] = {"ch1.out": {"z_outt": 50.0}}
-    with pytest.raises(ValueError, match=r"unknown parameter ch1\.out\.z_outt"):
+    with raises_with(ValueError, "unknown parameter ch1.out.z_outt"):
         open_bench(BenchDefinition.model_validate(data))
 
 

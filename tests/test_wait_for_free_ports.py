@@ -9,7 +9,7 @@ import time
 
 import pytest
 
-from helpers import wait_for_free_ports
+from helpers import raises_with, wait_for_free_ports
 
 
 def _free_port() -> int:
@@ -49,7 +49,7 @@ def test_a_port_that_stays_held_raises_naming_it():
     port = _free_port()
     held = _hold(port)
     try:
-        with pytest.raises(RuntimeError, match=str(port)):
+        with raises_with(RuntimeError, str(port)):
             wait_for_free_ports([port], timeout=0.05)
     finally:
         held.close()

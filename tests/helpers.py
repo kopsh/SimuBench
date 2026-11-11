@@ -7,7 +7,10 @@
 - ``send_timed`` / ``record_rows`` / ``require_gold`` are the golden-table machinery of the
   ``*_migration.py`` tests; ``run_gold_step`` is the per-step runner of the JSON gold recordings;
 - ``warm_up`` bills a definition's lazy loading to the wall clock before a recorded sequence
-  (D47).
+  (D47);
+- ``reading_of`` / ``Near`` / ``StableScreen`` read a value back off a rendered screen and judge it
+  against an expected value ± a tolerance (#926); ``raises_with`` checks an exception's message by
+  plain substrings. Tests judge values and text with these, never with regular expressions.
 
 Model-specific assertions (hand calculations, expectation tables) stay in the per-model files;
 only the shared skeletons live here — don't copy them into new files.
@@ -15,24 +18,140 @@ only the shared skeletons live here — don't copy them into new files.
 
 from __future__ import annotations
 
+import contextlib
 import importlib.util
-import re
+import math
 import shutil
 import sys
+from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from pathlib import Path
 
 import pytest
 import pyvisa
+import yaml
+
+from simubench.units import ENG_PREFIX
+
+#: The box-drawing and panel-title glyphs around a TUI value; a reading is read between them.
+_FRAME = {chr(c) for c in range(0x2500, 0x2580)} | {"▌", "▐"}
+
+#: Engineering prefix -> factor, the inverse of the TUI's ``fmt`` ladder (``µ`` stays ``µ``).
+_PREFIX_SCALE = {prefix: factor for factor, prefix in ENG_PREFIX}
+
+
+def _words(line: str) -> list[str]:
+    return "".join(" " if c in _FRAME else c for c in line).split()
+
+
+def reading_of(text: str, label: str, unit: str) -> float | None:
+    """The value a rendered screen shows after ``label`` in ``unit``, in base units, or None.
+
+    The screen writes ``<label> <number> <prefix><unit>`` (``CH1 voltage  -24.18046 µV``,
+    ``V  5.00002 V``). The label matches whole words, so ``V`` is not found inside ``Voltage``; the
+    first place where a number and a unit with a known prefix follow it is the reading. A dash, an
+    unknown unit or no label at all is no reading.
+    """
+    want = label.split()
+    for line in text.splitlines():
+        words = _words(line)
+        for i in range(len(words) - len(want) - 1):
+            if words[i : i + len(want)] != want:
+                continue
+            number, suffix = words[i + len(want)], words[i + len(want) + 1]
+            if not suffix.endswith(unit) or suffix[: -len(unit)] not in _PREFIX_SCALE:
+                continue
+            try:
+                value = float(number)
+            except ValueError:
+                continue
+            if math.isfinite(value):
+                return value * _PREFIX_SCALE[suffix[: -len(unit)]]
+    return None
+
+
+def printed_quantities(line: str, label: str) -> list[tuple[float, str]]:
+    """The ``(value, unit)`` pairs a script printed as ``<label>: <n> <unit>, <n> <unit>, …``
+    (``channel 1: 5.000012 V, 0.0500001 A, 0.25 W``), in order. Any float spelling the script's
+    format gives (``5``, ``-2.4e-05``) reads back; a line with another label fails the test."""
+    head, colon, rest = line.partition(": ")
+    assert colon and head == label, f"{line!r} is not a {label!r} line"
+    pairs = []
+    for part in rest.split(", "):
+        number, _, unit = part.partition(" ")
+        pairs.append((float(number), unit))
+    return pairs
+
+
+@dataclass(frozen=True)
+class Near:
+    """A screen check: the reading after ``label`` is ``center`` ± ``tol`` (base units, #926).
+
+    The tolerance comes from the model (k·σ of its readback noise, see ``noise_rms``); ``tol=0``
+    asks for the exact value. Called with a render, it answers whether the reading is there and
+    within the band — the number is judged, not the way it is printed.
+    """
+
+    label: str
+    unit: str
+    center: float
+    tol: float = 0.0
+
+    def __call__(self, text: str) -> bool:
+        value = reading_of(text, self.label, self.unit)
+        return value is not None and abs(value - self.center) <= self.tol
+
+
+#: A thing a settled screen must show: a plain substring, or a check called with the render.
+Shows = str | Callable[[str], bool]
+
+
+def shows(text: str, check: Shows) -> bool:
+    """Whether ``text`` shows ``check`` (a substring, or a callable such as :class:`Near`)."""
+    return check in text if isinstance(check, str) else check(text)
+
+
+def noise_rms(definition: Path, component: str, quantity: str) -> float:
+    """The readback noise σ a definition gives ``component`` for ``quantity``
+    (``noise: {rms: {voltage: 1.0e-4}}``, #744): tolerances follow the model, not a copy of it."""
+
+    def walk(node):
+        if isinstance(node, dict):
+            params = node.get("params")
+            noise = params.get("noise") if isinstance(params, dict) else None
+            rms = noise.get("rms") if isinstance(noise, dict) else None
+            if node.get("name") == component and isinstance(rms, dict) and quantity in rms:
+                yield float(rms[quantity])
+            for value in node.values():
+                yield from walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                yield from walk(value)
+
+    found = list(walk(yaml.safe_load(definition.read_text(encoding="utf-8"))))
+    assert found, f"{definition.name}: no {quantity} noise on {component}"
+    return found[0]
+
+
+@contextlib.contextmanager
+def raises_with(kind: type[BaseException], *parts: str) -> Iterator[pytest.ExceptionInfo]:
+    """``pytest.raises(kind)`` whose message must contain every one of ``parts`` as written —
+    plain substrings, no regular expression to escape or to match by accident."""
+    with pytest.raises(kind) as caught:
+        yield caught
+    message = str(caught.value)
+    for part in parts:
+        assert part in message, f"{part!r} not in {message!r}"
 
 
 class StableScreen:
     """Decides from successive renders whether a screen has settled (#896): the last two renders
-    are identical and non-empty, show the ``needle`` and match every ``ready`` pattern — a
-    needle alone once captured a screen whose readings had not arrived yet. A pattern is a plain
-    substring, or a regular expression with a ``re:`` prefix. Pure text logic; the unit test is
+    are identical and non-empty, show the ``needle`` and pass every ``ready`` check — a needle
+    alone once captured a screen whose readings had not arrived yet. A check is a plain substring
+    or a callable on the render (a :class:`Near` reading, #926). Pure text logic; the unit test is
     ``tests/test_tui_settle.py``, the snapshot tests feed it their renders."""
 
-    def __init__(self, needle: str, ready: tuple[str, ...] = (), hold: int = 2) -> None:
+    def __init__(self, needle: str, ready: tuple[Shows, ...] = (), hold: int = 2) -> None:
         self.needle = needle
         self.ready = ready
         self.hold = hold
@@ -50,10 +169,7 @@ class StableScreen:
             return False
         if self.needle and self.needle not in text:
             return False
-        return all(
-            re.search(pattern[3:], text) if pattern.startswith("re:") else pattern in text
-            for pattern in self.ready
-        )
+        return all(shows(text, check) for check in self.ready)
 
 
 def load_script(path: Path):

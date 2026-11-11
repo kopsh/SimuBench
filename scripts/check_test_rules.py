@@ -5,6 +5,11 @@
   the expensive part of an e2e run, so one setup must pay for enough verification.
 - environment reuse (D49): a fixture that starts a server (``Served(``/``uvicorn.``) must be
   module- or session-scoped; function-scoped server fixtures are rejected.
+- no regular expressions (D49, #926): a test judges a value by parsing it and comparing it with
+  the expected value ± a tolerance, and text by plain substrings or equality — never by a pattern
+  of how it is printed. ``tests/`` and ``acceptance/`` import no ``re`` and pass no ``match=`` to
+  ``pytest.raises`` / ``pytest.warns`` (``helpers.raises_with`` checks a message by substrings,
+  ``helpers.Near`` a reading against its band).
 
 Exit code 1 with one line per violation. Purely syntactic (ast), no imports of the package.
 """
@@ -60,8 +65,31 @@ def starts_server(fn: Func) -> bool:
     )
 
 
+def regex_uses(tree: ast.Module) -> list[tuple[int, str]]:
+    """``(line, what)`` for each use of regular expressions: an import of ``re`` or a ``match=``
+    pattern given to ``raises`` / ``warns``."""
+    found = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            found += [(node.lineno, "import re") for a in node.names if a.name.split(".")[0] == "re"]
+        elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "re" and not node.level:
+            found.append((node.lineno, "from re import"))
+        elif isinstance(node, ast.Call):
+            name = getattr(node.func, "attr", "") or getattr(node.func, "id", "")
+            if name in ("raises", "warns") and any(kw.arg == "match" for kw in node.keywords):
+                found.append((node.lineno, f"{name}(match=...)"))
+    return found
+
+
 def main() -> int:
     failures: list[str] = []
+    for path in sorted([*(ROOT / "tests").rglob("*.py"), *(ROOT / "acceptance").rglob("*.py")]):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for line, what in regex_uses(tree):
+            failures.append(
+                f"{path.relative_to(ROOT).as_posix()}:{line} {what}: a test judges values and text"
+                " without regular expressions — parse and compare (helpers.Near, helpers.raises_with; D49)"
+            )
     for path in sorted((ROOT / "tests").glob("test_*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for fn in functions(tree):

@@ -9,6 +9,7 @@ import yaml
 from tests.helpers import ScriptedLLM, last_tool_return
 from tests.test_assistant import BENCH, edit, manager, service_with, sha, turn
 
+from helpers import raises_with
 from simubench.assistant.service import ROLLED_BACK_NOTE
 from simubench.engine.edit import SetLabel
 from simubench.library.loader import load_yaml
@@ -126,7 +127,7 @@ async def test_a_created_file_changed_while_the_plan_runs_is_not_deleted_unseen(
 
     manager.stop = stop_and_tamper  # type: ignore[method-assign]
     try:
-        with pytest.raises(Conflict, match="hello-copy"):
+        with raises_with(Conflict, "hello-copy"):
             await service.rollback(
                 M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True, confirm_lost=True)
             )
@@ -173,7 +174,7 @@ async def test_a_delete_tampered_during_the_stop_does_not_leave_the_restores_beh
 
     manager.stop = stop_and_tamper  # type: ignore[method-assign]
     try:
-        with pytest.raises(Conflict, match="hello-copy"):
+        with raises_with(Conflict, "hello-copy"):
             await service.rollback(
                 M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True, confirm_lost=True)
             )
@@ -240,7 +241,7 @@ async def test_a_version_no_longer_in_history_aborts_before_any_file_is_touched(
     real_before = record.before[rel]
     record.before[rel] = "0" * 64  # as if the history had aged that version out
     service.store.save(conv)
-    with pytest.raises(Conflict, match="my-scope-a"):
+    with raises_with(Conflict, "my-scope-a"):
         await service.rollback(M.RollbackRequest(bench=BENCH, turn_id=t2.id))
     assert label(manager) == "AI 改的"  # the bench was not restored: no half state
     stored = yaml.safe_load((manager.workspace / rel).read_text(encoding="utf-8"))

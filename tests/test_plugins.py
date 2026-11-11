@@ -9,6 +9,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from helpers import raises_with
 from simubench import plugins
 from simubench.api import open_bench
 from simubench.engine.component import component_type, registry
@@ -128,7 +129,7 @@ def test_record_header_names_the_plugins(tmp_path, monkeypatch, clean_plugins):
 
 def test_workspace_plugins_are_not_loaded_unless_allowed(tmp_path, clean_plugins):
     ws = workspace_with(tmp_path, "bomb.py")
-    with pytest.raises(KeyError, match="plugin_load"):
+    with raises_with(KeyError, "plugin_load"):
         open_bench(ws / "plugin.bench.yaml")
     assert not (ws / "components" / "bomb.imported").exists()  # never imported, so never run
     session = open_bench(ws / "plugin.bench.yaml", workspace_plugins=ws / "components")
@@ -174,7 +175,7 @@ def test_a_plugin_targeting_another_api_is_refused(tmp_path, clean_plugins):
     )
     infos = plugins.load_workspace_plugins(tmp_path / "components")
     assert infos[0].name == "future.py" and "plugin_api 2" in (infos[0].error or "")
-    with pytest.raises(KeyError, match="plugin_load"):
+    with raises_with(KeyError, "plugin_load"):
         component_type("plugin_load")  # its registrations were undone
     assert plugins.report() == {}  # refused plugins stay out of the record header
 

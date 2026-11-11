@@ -132,7 +132,7 @@ def test_the_register_check_refuses_an_expired_or_out_of_service_reference(tmp_p
     path = tmp_path / "expired.json"
     path.write_text(json.dumps(data), encoding="utf-8")
     monkeypatch.setenv("SIMUBENCH_RECORD_DIR", str(tmp_path / "runs"))
-    with pytest.raises(RuntimeError, match="expired"):
+    with pytest.raises(RuntimeError) as caught:
         script.main(
             [
                 "--bench",
@@ -145,3 +145,4 @@ def test_the_register_check_refuses_an_expired_or_out_of_service_reference(tmp_p
                 str(tmp_path / "x.csv"),
             ]
         )
+    assert "expired" in str(caught.value)

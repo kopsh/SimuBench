@@ -12,14 +12,13 @@ commands noted.
 """
 
 import math
-import re
 import statistics
 from pathlib import Path
 
 import pytest
 import yaml
 
-from helpers import load_script, run_manual_script, session_query
+from helpers import load_script, printed_quantities, run_manual_script, session_query
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -80,10 +79,11 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     assert out[7] == "recovered output=1"
     assert out[8] == '+0,"No error"'
 
-    values = [re.findall(r"-?\d+\.\d+", line) for line in out[1:4]]
-    voltages = [float(v[0]) for v in values]
-    currents = [float(v[1]) for v in values]
-    powers = [float(v[2]) for v in values]
+    values = [printed_quantities(line, f"channel {n}") for n, line in enumerate(out[1:4], 1)]
+    assert all([unit for _, unit in v] == ["V", "A", "W"] for v in values)
+    voltages = [v[0][0] for v in values]
+    currents = [v[1][0] for v in values]
+    powers = [v[2][0] for v in values]
     assert voltages == pytest.approx([CH1_INT, 3.3 * 100 / 100.002, 12.0 * 100 / 100.002], abs=4 * SIGMA_V)
     assert currents == pytest.approx([CH1_CURRENT, 3.3 / 100.002, 12.0 / 100.002], abs=4 * SIGMA_I)
     # the printed grid is 1e-4 (the script prints 4 decimals); the widest channel V·I noise dominates

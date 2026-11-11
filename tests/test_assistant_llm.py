@@ -16,6 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 from tests.helpers import ScriptedLLM
 
+from helpers import raises_with
 from simubench.assistant.config import AssistantSettings, ConfigError, check_base_url
 from simubench.assistant.llm import build_model, check_connection
 from simubench.assistant.service import AssistantService
@@ -211,8 +212,9 @@ def test_the_address_is_http_and_never_simubench_itself(tmp_path):
     manager = SessionManager(tmp_path, scpi_base_port=5025, hislip_port=4880, link_port=4881)
     manager.web_port = 8765
     for bad in ("ftp://llm/v1", "llm.internal/v1", "http://u:p@llm/v1"):
-        with pytest.raises(ConfigError, match=r"http|用户名"):
+        with pytest.raises(ConfigError) as caught:
             check_base_url(bad, manager)
+        assert "http" in str(caught.value) or "用户名" in str(caught.value), caught.value
     for fine in ("http://127.0.0.1:11434/v1", "https://10.1.2.3/v1", "http://llm.corp.internal:8000/v1"):
         check_base_url(fine, manager)
     with pytest.raises(ConfigError):
@@ -240,7 +242,7 @@ def test_the_address_is_http_and_never_simubench_itself(tmp_path):
 def test_the_service_is_never_reachable_under_an_alias_of_itself(url, port, tmp_path):
     manager = SessionManager(tmp_path, scpi_base_port=5025, hislip_port=4880, link_port=4881)
     manager.web_port = port
-    with pytest.raises(ConfigError, match="自己的端口"):
+    with raises_with(ConfigError, "自己的端口"):
         check_base_url(url, manager)
 
 
@@ -268,10 +270,10 @@ async def test_a_default_address_is_checked_before_a_turn_uses_it(manager):
         manager,
         env={"SIMUBENCH_LLM_BASE_URL": "http://2130706433:8765/v1", "SIMUBENCH_LLM_MODEL": "m"},
     )
-    with pytest.raises(ConfigError, match="自己的端口"):
+    with raises_with(ConfigError, "自己的端口"):
         await service.send(BENCH, "你好")
     assert service.conversation(BENCH).turns == []
-    with pytest.raises(ConfigError, match="自己的端口"):
+    with raises_with(ConfigError, "自己的端口"):
         service.settings.update(M.AssistantConfigUpdate(base_url="http://127.1:8765"), manager)
 
 

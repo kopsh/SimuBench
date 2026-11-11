@@ -8,7 +8,6 @@ There is no allow-list: use an example that names no model (``awg · MODEL-A``).
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -22,9 +21,18 @@ DEFINITION_DIRS = [
 MIN_LENGTH = 4  # shorter names ("sb", "b") would match ordinary words
 
 
-#: ``id:`` and ``model:`` at the top level of a definition (column 0). A regex over the lines,
-#: not a YAML parse: the definitions are large and this test must stay under 100 ms (D49).
-TOP_LEVEL = re.compile(r"^(?:id|model):\s*[\"']?([^\"'#\n]+?)[\"']?\s*(?:#.*)?$", re.MULTILINE)
+def top_level_names(head: str) -> list[str]:
+    """The values of ``id:`` and ``model:`` at the top level of a definition (column 0), without
+    quotes or a trailing comment. Read line by line, not as a YAML parse: the definitions are large
+    and this test must stay under 100 ms (D49)."""
+    names = []
+    for line in head.splitlines():
+        key, colon, value = line.partition(":")
+        if colon and key in ("id", "model"):
+            value = value.partition("#")[0].strip().strip("\"'").strip()
+            if value:
+                names.append(value)
+    return names
 
 
 def model_names() -> set[str]:
@@ -34,7 +42,7 @@ def model_names() -> set[str]:
             if path.name.endswith(".coverage.yaml"):
                 continue
             head = path.read_text(encoding="utf-8")[:4000]  # the identity block opens the file
-            names.update(m for m in TOP_LEVEL.findall(head) if len(m) >= MIN_LENGTH)
+            names.update(m for m in top_level_names(head) if len(m) >= MIN_LENGTH)
     return names
 
 

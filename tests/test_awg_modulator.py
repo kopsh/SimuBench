@@ -4,7 +4,6 @@ against the closed forms — time samples of the modulated wave, rebuilt from th
 from __future__ import annotations
 
 import math
-import re
 import time
 
 import numpy as np
@@ -149,7 +148,9 @@ def test_pwm_over_the_line_budget_cuts_harmonics_instead_of_refusing():
     assert abs(m.amp[np.argmin(np.abs(m.freq - 1000))]) > 0.1  # the fundamental is kept
     assert m.freq.max() < 300e6  # the high harmonics are cut
     (note,) = [n for n in out.notes if n.kind == "truncated"]
-    assert re.fullmatch(r"PWM pulse: \d+ of 300000 harmonics kept within the line budget", note.detail)
+    kept = note.detail.removeprefix("PWM pulse: ").partition(" ")[0]
+    assert kept.isdigit() and 0 < int(kept) <= 2000, note.detail
+    assert note.detail == f"PWM pulse: {kept} of 300000 harmonics kept within the line budget"
 
 
 def test_pwm_within_the_line_budget_carries_no_truncated_note():

@@ -117,7 +117,7 @@ describe("inspector settings of real definitions (#728)", () => {
         const placed = [...main, ...groups.flatMap((g) => g.vars)].map((x) => x.path);
         expect([...placed].sort()).toEqual(tier.vars.map((x) => x.path).sort());
         const summary = new Set(tier.summary);
-        for (const x of main) expect(hasLabel(x) || summary.has(x.path.replace(/^ch\d+\./, ""))).toBe(true);
+        for (const x of main) expect(hasLabel(x) || summary.has(withoutChannel(x.path))).toBe(true);
         if (tier.vars.length) expect(main.length > 0 || groups.length > 0).toBe(true);
       });
     }
@@ -194,3 +194,11 @@ describe("stepping a number (#738)", () => {
     expect(stepNumber(spec("float"), 0.7, 1)).toBe(0.71);
   });
 });
+
+/** `ch2.scale` → `scale`: the path below its channel prefix (`ch<digits>.`); others unchanged. */
+function withoutChannel(path: string): string {
+  const [head, ...rest] = path.split(".");
+  const digits = head.slice(2);
+  const isChannel = head.startsWith("ch") && digits.length > 0 && [...digits].every((c) => c >= "0" && c <= "9");
+  return isChannel && rest.length ? rest.join(".") : path;
+}

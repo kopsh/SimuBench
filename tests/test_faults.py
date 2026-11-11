@@ -5,6 +5,7 @@ import pyvisa
 import yaml
 from pyvisa import constants, errors
 
+from helpers import raises_with
 from simubench.engine.validate import validate_data
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import Fault
@@ -111,7 +112,7 @@ def test_the_error_and_trip_flow(tmp_path):
     assert reads[3].startswith("0,")  # used up: the queue is empty again
     # -- an unknown code is refused unless it has a message
     # (was test_error_with_an_unknown_code_is_refused_unless_it_has_a_message)
-    with pytest.raises(ValueError, match="neither"):
+    with raises_with(ValueError, "neither"):
         s.faults.inject(Fault(kind="error", instrument="awg", code=-9999))
     s.faults.inject(Fault(kind="error", instrument="awg", code=-9999, message="my own"))
     assert "my own" in awg.query(":SYSTem:ERRor?")
@@ -179,7 +180,7 @@ def test_fault_targets_are_checked(tmp_path):
     rm, _awg, s = open_bench(tmp_path)
     with pytest.raises(KeyError):
         s.faults.inject(Fault(kind="timeout", instrument="nope"))
-    with pytest.raises(ValueError, match="no parameter"):
+    with raises_with(ValueError, "no parameter"):
         s.faults.inject(Fault(kind="hidden", component="rc", param="zz", value=1))
     rm.close()
     _, report = validate_data(
@@ -214,7 +215,7 @@ def test_error_leaves_the_instrument_state_alone(tmp_path):
 
 def test_error_with_an_unknown_code_is_refused_unless_it_has_a_message(tmp_path):
     rm, awg, s = open_bench(tmp_path)
-    with pytest.raises(ValueError, match="neither"):
+    with raises_with(ValueError, "neither"):
         s.faults.inject(Fault(kind="error", instrument="awg", code=-9999))
     s.faults.inject(Fault(kind="error", instrument="awg", code=-9999, message="my own"))
     assert "my own" in awg.query(":SYSTem:ERRor?")

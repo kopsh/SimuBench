@@ -8,6 +8,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from helpers import raises_with
 from simubench.api import open_bench
 from simubench.engine import sleep_mode
 from simubench.engine.replay import read_record, replay
@@ -134,7 +135,7 @@ def test_idle_needs_the_command_clock(tmp_path):
 
 
 def test_unknown_idle_mode_is_rejected(tmp_path):
-    with pytest.raises(ValueError, match="idle"):
+    with raises_with(ValueError, "idle"):
         open_idle(tmp_path, "faster")
 
 

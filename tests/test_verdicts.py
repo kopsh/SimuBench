@@ -11,6 +11,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import raises_with
 from simubench.api import open_bench
 from simubench.cli import main
 from simubench.engine.verdicts import VerdictError, check_verdicts
@@ -144,7 +145,7 @@ def test_a_row_that_fits_no_reply_is_reported_not_guessed(tmp_path, capsys):
     wrong.write_text(
         lines[0] + "\n" + f"{name[0]},{reading + 1e-3}," + ",".join(rest) + "\n", encoding="utf-8"
     )
-    with pytest.raises(VerdictError, match=r"row 1.*does not match dmm's next numeric reply"):
+    with raises_with(VerdictError, "row 1", "does not match dmm's next numeric reply"):
         check_verdicts(record, wrong, tmp_path / "verdict-map.yaml")
     assert main(["verdicts", str(record), str(wrong), "--map", str(tmp_path / "verdict-map.yaml")]) == 2
     assert "does not match" in capsys.readouterr().err
@@ -155,7 +156,7 @@ def test_rows_are_matched_in_order_not_by_value(tmp_path):
     lines = report.read_text().splitlines()
     swapped = tmp_path / "swapped.csv"
     swapped.write_text("\n".join([lines[0], lines[2], lines[1], lines[3]]) + "\n", encoding="utf-8")
-    with pytest.raises(VerdictError, match="row 1"):
+    with raises_with(VerdictError, "row 1"):
         check_verdicts(record, swapped, write_map(tmp_path))
 
 
@@ -206,13 +207,13 @@ def test_report_and_map_errors_name_the_row(tmp_path, report_text, match):
     record, _ = run_script(tmp_path)
     bad = tmp_path / "bad.csv"
     bad.write_text(report_text, encoding="utf-8")
-    with pytest.raises(VerdictError, match=match):
+    with raises_with(VerdictError, match):
         check_verdicts(record, bad, write_map(tmp_path))
 
 
 def test_the_map_needs_a_known_instrument(tmp_path):
     record, report = run_script(tmp_path)
-    with pytest.raises(VerdictError, match="neither a column"):
+    with raises_with(VerdictError, "neither a column"):
         check_verdicts(
             record, report, write_map(tmp_path, MAP.replace("instrument: dmm", "instrument: dmm2"))
         )
@@ -223,7 +224,7 @@ def test_not_a_record(tmp_path):
     junk.write_text("{}\n", encoding="utf-8")
     report = tmp_path / "report.csv"
     report.write_text("nominal,reading,limit_low,limit_high,verdict\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="not a SimuBench run record"):
+    with raises_with(ValueError, "not a SimuBench run record"):
         check_verdicts(junk, report, write_map(tmp_path))
 
 
