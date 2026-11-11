@@ -426,6 +426,14 @@ class AssistantService:
         }
         for sid in plan.sessions:
             await self.manager.stop(sid)
+        # The delete targets are re-read once the sessions have stopped (#908): a change during
+        # the stop window aborts here — before a single restore has landed — instead of hitting
+        # the delete's own sha check with the restores already on disk.
+        for f in plan.files:
+            if f.action == "delete":
+                now = self.sha_of(self.files.resolve(f.path))
+                if now != deletes[f.path]:
+                    raise Conflict(f"{f.path} 在停止测试台期间又被改动，恢复中止，没有文件被改动", now)
         # Benches first (they stop pointing at templates of this turn), then definitions, then the
         # files the turn created.
         for f in [f for f in plan.files if f.action == "restore"]:
@@ -433,7 +441,7 @@ class AssistantService:
         for f in [f for f in plan.files if f.action == "delete"]:
             sha = deletes[f.path]
             if sha is not None:
-                # the sha from the plan: a file that changed in the meantime is not lost unseen
+                # the sha re-checked after the stop: a change in between is not lost unseen
                 self.files.remove_created(f.path, sha)
             if f.kind == "definition":
                 self.retire_tries(Path(f.path).stem)
