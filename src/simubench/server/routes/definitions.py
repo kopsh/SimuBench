@@ -8,6 +8,7 @@ from ...library.coverage import coverage_path, load_coverage
 from ...models import api as M
 from ...models.definition import InstrumentDefinition
 from ..catalog import components as component_catalog
+from ..errors import FILE_ERRORS
 from ..mytemplates import save_as_template
 from .context import ApiContext
 
@@ -182,10 +183,8 @@ def _definition_change_routes(ctx: ApiContext, router: APIRouter) -> None:
         """The changes between any two versions (base 0 compares against nothing: the creation)."""
         try:
             return definition_files.changes_between(def_id, base, target)
-        except FileNotFoundError:
-            raise HTTPException(404, "no such version") from None
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from None
+        except (*FILE_ERRORS, ValueError) as exc:
+            raise ctx.http_error(exc, missing="no such version", full_detail=True) from None
 
 
 def build_router(ctx: ApiContext) -> APIRouter:
