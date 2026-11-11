@@ -9,6 +9,7 @@ dependencies = [
   "numpy>=2.0",
   "scipy>=1.13",
   "pydantic>=2.7",
+  "typing-extensions>=4.12",
   "pyyaml>=6.0",
   "pyvisa>=1.14",
   "fastapi>=0.115",
