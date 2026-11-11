@@ -268,27 +268,27 @@ CASES: dict[str, tuple] = {
 #: ``sb-dso-4`` and ``sb-dso-2x`` share one sequence.
 _SB_GROUPS = {
     "processing": (0, 7),  # one acquisition read in the three transfer formats
-    "channels": (8, 14),  # both channels in one acquisition, CH2's read, a measurement per channel
-    "trigger": (15, 26),  # timebase, level and slope, a level never crossed (auto sweep), errors
+    "channels": (8, 14),  # both channels acquired, CH2's read, measurements
+    "trigger": (15, 26),  # timebase, level/slope, never crossed (auto), errors
 }
 GROUPS: dict[str, dict[str, tuple[int, int]]] = {
     "sb-dso-4": _SB_GROUPS,
     "sb-dso-2x": _SB_GROUPS,
     "keysight-dsox2024a": {
-        "processing": (0, 30),  # normal, the acquisition number's noise, WORD/unsigned/points, average, peak, high resolution
-        "channels": (31, 40),  # CH2 opens, both channels acquired, its read and the measurements
-        "trigger": (41, 51),  # a level never crossed (auto sweep), running reads, stop
+        "processing": (0, 30),  # normal, average, peak, high res, transfer formats
+        "channels": (31, 40),  # CH2 opens, both acquired, reads, measurements
+        "trigger": (41, 51),  # never crossed (auto sweep), running reads, stop
     },
     "siglent-sds2104xplus": {
-        "processing": (0, 29),  # single, running, average, peak, enhanced resolution
-        "resolution": (30, 44),  # normal, 10 and 8 bits, word and byte widths (read under single mode)
+        "processing": (0, 29),  # single, running, average, peak, enhanced res
+        "resolution": (30, 44),  # normal, 10/8 bits, word/byte, read under single
         "trigger": (45, 53),  # a level never crossed, a forced frame, stop
     },
     "keysight-uxr0334b": {
-        "processing": (0, 28),  # word/byte, points, average, bandwidth, both responses; no trigger or multi-channel steps
+        "processing": (0, 28),  # word/byte, points, average, bandwidth; no trigger
     },
     "lecroy-wavepro804hd": {
-        "processing": (0, 11),  # single and running acquisitions, the wave descriptor, a measurement, the timebase
+        "processing": (0, 11),  # single and running reads, descriptor, measurements
         "trigger": (12, 18),  # a level never crossed, arm and force, stop
     },
 }
@@ -366,7 +366,7 @@ def _compare_group(rows: list[list], case: str, group: str) -> None:
     got, expected = rows[lo : hi + 1], GOLD[case][lo : hi + 1]
     differing = [
         f"step {lo + i}: got  {g}\n          want {w}"
-        for i, (g, w) in enumerate(zip(got, expected))
+        for i, (g, w) in enumerate(zip(got, expected, strict=False))  # lengths compared below
         if g != w
     ]
     if len(got) != len(expected):
