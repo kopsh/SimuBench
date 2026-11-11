@@ -238,7 +238,7 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
     """The instrument's components, internal wiring and panel ports (issue 20), read-only."""
     s = served.session
     inst = s.instrument(instrument)
-    wires = inst.internal_wires()
+    wires = inst.wiring.wires()
     # Ports a component takes per channel (an acquisition's in1..in4) exist only in the wiring.
     wired: dict[str, dict[str, str]] = {}
     for a, b in wires:

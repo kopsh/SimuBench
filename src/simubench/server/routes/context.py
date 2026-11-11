@@ -16,7 +16,7 @@ from ...engine.edit import EditError
 from ...library.loader import DefinitionLibrary
 from ..benchfiles import BenchFiles, Conflict
 from ..definitionfiles import DefinitionFiles
-from ..manager import ClientsConnected, InstrumentRemote, ServedSession, SessionManager
+from ..manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession, SessionManager
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
 
@@ -91,6 +91,25 @@ class ApiContext:
 
     def not_found(self, exc: KeyError) -> HTTPException:
         return HTTPException(404, str(exc).strip("'\""))
+
+    def lifecycle_error(self, exc: Exception, *, files: bool = True) -> HTTPException | None:
+        """The HTTP error for what starting or resetting a session raises, one table for both
+        (#894): scripts connected 409, a file the bench names 403/404 (``files``: only a start
+        reads one), an invalid bench or a bad value 422. None for anything else — the caller lets
+        it surface as the 500 it is."""
+        if isinstance(exc, ClientsConnected):
+            return self.in_use(exc)
+        if files and isinstance(exc, PermissionError):
+            return HTTPException(403, str(exc))
+        if files and isinstance(exc, FileNotFoundError):
+            return HTTPException(404, str(exc))
+        if isinstance(exc, BenchInvalid):
+            return HTTPException(
+                422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
+            )
+        if isinstance(exc, (ValueError, KeyError)):
+            return HTTPException(422, str(exc).splitlines()[0])
+        return None
 
     def in_use(self, exc: InstrumentRemote | ClientsConnected) -> HTTPException:
         """409 for an operation the connected scripts stand in the way of (#121)."""

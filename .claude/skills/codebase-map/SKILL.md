@@ -18,7 +18,7 @@ plausible fake).
 | Change | File |
 | --- | --- |
 | Session, action queue, virtual clock | `engine/session.py`; idle modes (D47) `engine/sleep_mode.py` |
-| Instrument runtime, SCPI command layer | `engine/instrument.py`; static lookup `engine/commands.py`; why a header is not executed and the closest one (coverage table) `engine/coverage_advice.py` |
+| Instrument runtime, SCPI command layer | `engine/instrument.py`; static lookup `engine/commands.py`; why a header is not executed and the closest one (coverage table) `engine/coverage_advice.py`; operations pending until a later instant, `*OPC`/`*WAI` bookkeeping `engine/pending.py`; the settings' specs, values, coercion, `*RST` reset and run-time bounds `engine/settings.py` (also `validate_value`, `snap_ladder`); channel numbers `engine/channels.py`; internal signal wires `engine/wiring.py`; parsing and executing a program message (dispatch, settings / channel-list / operation commands, value parse and format) `engine/command_runner.py`; `*IDN?`/`*STB?`/`*TRG`/clock built-ins `engine/builtin_commands.py`; device errors, -113/-104 classification `engine/error_reporter.py` |
 | Component base class, `@component`, `@op` | `engine/component.py` |
 | Circuit (MNA per frequency) / signals / noise | `engine/circuit.py`, `engine/signal.py`, `engine/noise.py` |
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
@@ -37,7 +37,7 @@ plausible fake).
 | HTTP/WS message models → OpenAPI | `models/api.py` |
 | FastAPI app (assembly, middleware, SPA) / session lifecycle / component catalog | `server/app.py`, `server/manager.py` (`SessionManager`: start, reset, stop, try sessions), `server/catalog.py` |
 | Read-only session DTOs (describe, internals, scope screen, readings, nets, faults) / actions (SCPI, configure, panel) | `server/views.py` (`manager.views` for the ones that need the manager), `server/drive.py` |
-| HTTP routes, one router per area (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
+| HTTP routes, one router per area (each `build_router` only calls module-level `_<group>_routes(ctx, router)` functions of ≤ 80 lines) (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
 | Shared application services: logic both the routes and the MCP tools call; raises domain exceptions, never `HTTPException`/`ToolError` (#894: faults, clock so far) | `server/services/*.py` (tests: `tests/test_services.py`) |
 | MCP tools, one module per area (bench, definitions, sessions); shared guard / errors | `mcp_server.py` (assembly), `mcp_tools/*.py` (`context.py`: `McpContext`) |
 | Web AI assistant (D66, `docs/ai-assistant.md` 11): LLM settings, PydanticAI models, tools and their server-side rules, turn runner / events / rollback, compaction, loop guard | `assistant/` (`config.py`, `llm.py`, `tools.py`, `service.py`, `compaction.py`, `guard.py`, `store.py`), routes `server/routes/assistant.py`; tests use `tests/helpers.py` `ScriptedLLM` |

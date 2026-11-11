@@ -16,11 +16,9 @@ from ..server.catalog import components as component_catalog
 from .context import McpContext, scpi_payload
 
 
-def register(mcp: MCPServer, ctx: McpContext) -> None:
-    manager = ctx.manager
+def _catalog_tools(mcp: MCPServer, ctx: McpContext) -> None:
     files = ctx.files
     guard = ctx.guard
-    fail = ctx.fail
 
     @mcp.tool()
     def list_catalog() -> dict[str, Any]:
@@ -69,6 +67,13 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
                     f"没有组件类型 {', '.join(unknown)}；不带 types 调用 list_components 查看全部"
                 )
         return out
+
+
+def _definition_and_bench_list_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    manager = ctx.manager
+    files = ctx.files
+    guard = ctx.guard
+    fail = ctx.fail
 
     @mcp.tool()
     def get_definition(
@@ -137,6 +142,12 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         return [b.model_dump(mode="json") for b in manager.bench_files()]
 
+
+def _bench_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    files = ctx.files
+    guard = ctx.guard
+    fail = ctx.fail
+
     @mcp.tool()
     def read_bench(path: str) -> dict[str, Any]:
         """A bench file's content, its sha256 (needed to edit it) and its diagnostics."""
@@ -194,6 +205,12 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         except Exception as exc:
             raise fail(exc) from None
 
+
+def _validation_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    files = ctx.files
+    guard = ctx.guard
+    fail = ctx.fail
+
     @mcp.tool()
     def validate_bench(
         path: str | None = Field(None, description="Bench file to check"),
@@ -238,6 +255,12 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
             "cases": [r.as_dict() | {"summary": r.describe()} for r in results],
         }
 
+
+def _try_tools(mcp: MCPServer, ctx: McpContext) -> None:
+    manager = ctx.manager
+    guard = ctx.guard
+    fail = ctx.fail
+
     @mcp.tool()
     async def try_definition(
         definition_id: str = Field(..., description="The definition to try (list_catalog has the ids)"),
@@ -272,3 +295,11 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         except Exception as exc:
             raise fail(exc) from None
         return {"definition": definition_id, "instrument": definition_id, "results": results}
+
+
+def register(mcp: MCPServer, ctx: McpContext) -> None:
+    _catalog_tools(mcp, ctx)
+    _definition_and_bench_list_tools(mcp, ctx)
+    _bench_file_tools(mcp, ctx)
+    _validation_tools(mcp, ctx)
+    _try_tools(mcp, ctx)
