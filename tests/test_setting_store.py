@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
+from helpers import raises_with
 from simubench.engine.settings import SettingStore
 from simubench.library.loader import DefinitionLibrary
 
@@ -66,5 +65,5 @@ def test_bounds_move_and_restore_against_the_definitions_own():
 
 
 def test_an_unknown_setting_names_the_instrument():
-    with pytest.raises(KeyError, match="instrument 't' has no state 'nope'"):
+    with raises_with(KeyError, "instrument 't' has no state 'nope'"):
         _store().get("nope")

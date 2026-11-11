@@ -25,6 +25,7 @@ from .commands import (
 from .component import Component, component_type, noise_problems
 from .coverage_advice import CoverageAdvisor
 from .error_reporter import ErrorReporter, _Ignored
+from .pending import PendingOps
 from .portref import split
 from .settings import SettingStore, validate_value
 from .wiring import SignalWiring
@@ -71,15 +72,8 @@ class Instrument:
         self.real = definition.reference is not None
         self.esr = 0
         self.ese = 0
-        #: Operations that finish at a later virtual instant: key -> (done at, called when done).
-        #: *OPC? and *WAI wait for them; *OPC sets ESR bit 0 once they are all done.
-        self.pending: dict[str, tuple[int, Callable[[], None] | None]] = {}
-        #: Pending operations *OPC, *OPC? and *WAI do not wait for (the model says so, e.g. a scope
-        #: whose *OPC? answers at once while an acquisition runs).
-        self.unwaited: set[str] = set()
-        #: Operations waiting for an event that may never come (a scope armed for a trigger that does
-        #: not occur): while any is waiting, *OPC? does not answer, as on hardware the reply never comes.
-        self.blockers: set[str] = set()
+        #: Operations that finish at a later virtual instant, and the *OPC bookkeeping (#895).
+        self.ops = PendingOps()
         self._status_register_cache: list[Component] | None = None  # see _status_registers()
         #: Components' status flags while a status register computes its condition: the outermost
         #: register fills it, the registers it asks reuse it (#602: without it every register
@@ -87,7 +81,6 @@ class Instrument:
         self.status_flag_cache: dict[str, dict[str, bool]] | None = None
         #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
         self.on_panel = False
-        self._opc_armed = False
         self._elapsed_ns = 0  # virtual time the program message being executed has used so far
         self.sre = 0
         self._output: list[bytes] = []
@@ -310,31 +303,24 @@ class Instrument:
         """The instrument's present: the session's time plus what the current message has used."""
         return self.session.now_ns + self._elapsed_ns
 
+    @property
+    def pending(self) -> dict[str, tuple[int, Callable[[], None] | None]]:
+        return self.ops.pending
+
     def register_pending(
         self, key: str, done_ns: int, on_done: Callable[[], None] | None = None, *, waited: bool = True
     ) -> None:
         """An operation that finishes at virtual time ``done_ns``; ``on_done`` runs once it has.
 
         ``waited``: *OPC, *OPC? and *WAI wait for it (False: they answer regardless)."""
-        self.pending[key] = (int(done_ns), on_done)
-        if waited:
-            self.unwaited.discard(key)
-        else:
-            self.unwaited.add(key)
+        self.ops.register(key, done_ns, on_done, waited=waited)
 
     def cancel_pending(self, key: str) -> None:
-        self.pending.pop(key, None)
-        self.unwaited.discard(key)
+        self.ops.cancel(key)
 
     def block(self, key: str, waiting: bool) -> None:
         """Mark (or clear) an operation that waits for an event that may never come."""
-        if waiting:
-            self.blockers.add(key)
-        else:
-            self.blockers.discard(key)
-
-    def _waited(self) -> list[int]:
-        return [done for key, (done, _) in self.pending.items() if key not in self.unwaited]
+        self.ops.block(key, waiting)
 
     def settle_pending(self) -> None:
         """Engine-internal: let waiting operations look for their event, then finish what is due
@@ -343,15 +329,8 @@ class Instrument:
         calling this from outside the engine."""
         for comp in self._retrying:
             comp.retry_pending()
-        now = self.now_ns()
-        for key, (done, on_done) in sorted(self.pending.items(), key=lambda kv: kv[1][0]):
-            if done <= now:
-                del self.pending[key]
-                self.unwaited.discard(key)
-                if on_done is not None:
-                    on_done()
-        if self._opc_armed and not self._waited() and not self.blockers:
-            self._opc_armed = False
+        self.ops.finish_due(self.now_ns())
+        if self.ops.opc_due():
             self.esr |= 1
 
     def _status_registers(self) -> list[Component]:
@@ -386,29 +365,22 @@ class Instrument:
 
     def wait_pending(self) -> int:
         """Wait until every pending operation is done (``*OPC?``, ``*WAI``), see :meth:`wait_until`."""
-        waited = self._waited()
-        if not waited:
-            return 0
-        return self.wait_until(max(waited))
+        target = self.ops.wait_target()
+        return 0 if target is None else self.wait_until(target)
 
     def opc_query(self) -> tuple[bytes | None, int]:
         """``*OPC?``: ``1`` once what it waits for is done; no reply while an operation waits for an
         event that does not come (the client's read times out, as on hardware)."""
         used = self.wait_pending()
-        return (None if self.blockers else b"1"), used
+        return (None if self.ops.blockers else b"1"), used
 
     def arm_opc(self) -> None:
         """``*OPC``: ESR bit 0 now, or once the pending operations are done."""
-        if self._waited() or self.blockers:
-            self._opc_armed = True
-        else:
+        if self.ops.arm_opc():
             self.esr |= 1
 
     def reset(self) -> None:
-        self.pending.clear()
-        self.unwaited.clear()
-        self.blockers.clear()
-        self._opc_armed = False
+        self.ops.clear()
         self.settings.reset()
         for comp in self.components.values():
             comp.reset()

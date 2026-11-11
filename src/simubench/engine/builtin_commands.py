@@ -38,7 +38,7 @@ class BuiltinCommands:
             self.inst.esr = 0
             for comp in self.inst._status_registers():
                 comp.clear()  # type: ignore[attr-defined]
-            self.inst._opc_armed = False
+            self.inst.ops.opc_armed = False
             return None
         if word == "OPC" and not q:
             self.inst.arm_opc()
