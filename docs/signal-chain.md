@@ -1,6 +1,6 @@
 # 信号链：产品设计与技术方案（第一版）
 
-状态：设计稿，待实现。背景与策略见 [positioning-review.md](positioning-review.md) 第 7、8 节；结构性选择记录为 D67。
+状态：设计稿，按第 9 节分步实现；采样流基础（第 3.1、3.2 节）已实现（#946）。背景与策略见 [positioning-review.md](positioning-review.md) 第 7、8 节；结构性选择记录为 D67。
 本文供实现的 agent 使用：第 1 节是产品设计，第 2–8 节是技术方案，第 9 节是 issue 拆分与验收。
 
 ## 0. 一句话
@@ -158,7 +158,7 @@ ADC 之后是采样流，每个功能块的输出都有真实的中间信号、�
 ```python
 @dataclass(frozen=True)
 class SampleFormat:
-    kind: Literal["volts", "codes", "iq"]   # 实数电压 / ADC 码值 / 复基带
+    kind: Literal["volts", "codes", "iq", "bins"]   # 实数电压 / ADC 码值 / 复基带 / 频点上的复幅度（5.3）
     bits: int = 0                           # codes：位数；0 表示未量化
     lsb: float = 0.0                        # codes：一个码对应的输入电压，V
     signed: bool = True
@@ -179,6 +179,7 @@ class SampleFrame:
     dt_s: float
     fmt: SampleFormat
     center_hz: float = 0.0     # iq：这帧的 0 Hz 对应的射频/中频频率
+    df_hz: float = 0.0         # bins：频点间隔
     clipped: bool = False      # 本帧是否有采样触到满量程
     notes: tuple[FidelityNote, ...] = ()
 ```
@@ -210,8 +211,10 @@ class Component:
   只为一次读取内的重复请求与探针服务；信号版本变化即失效。
 - **定义校验**（`engine/validate_definition.py`）新增：
   - `E-DEF-WIRE-MEDIUM`（已有同类检查则扩展）：`samples` 输出只能接 `samples` 输入；`signal` 输出不能接 `samples` 输入——中间必须有 ADC；
+  - `E-DEF-SAMPLES-OPEN`：`samples` 输入没有连线；`samples` 端口也不能映射为仪表端口（测试台的连线不承载采样流）；
   - 带 `samples` 输出端口的组件类必须覆盖 `frames`（在 `tests/test_component_catalog.py` 的类元数据检查中加，不在运行时发现）。
-- **速率变换**：块用类属性声明 `rate = Fraction(1, M)`（或在 `frames` 中自行换算）；向上游请求 `count * M + warmup`、`dt / M`。
+- **速率变换**：块在 `frames` 中用 `request.upstream(M, warmup)` 得到向上游的请求：`count * M + warmup` 点、间隔 `dt / M`、
+  起始时刻提前 `warmup` 个采样、随机数流的序号换到细网格上（同一时刻取同一个噪声值）。
   请求沿链向上展开的总量由 `Session` 计数并对照 `MAX_REQUEST_FANOUT`。
 - **噪声键**：上游模拟链的噪声在 ADC 处实现时用 `stream_key(seed, *request.key)`，样本序号为 `request.index0 + k`；
   块自身新增的噪声源（如 ADC 的 `noise_lsb_rms`）在其后追加 `(self.uid, <流名>)`。发起请求的块决定 `request.key` 与 `index0`，

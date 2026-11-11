@@ -12,7 +12,7 @@ import datetime as dt
 import logging
 import threading
 import time
-from collections import deque
+from collections import OrderedDict, deque
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -30,6 +30,14 @@ from .instrument import Instrument
 from .portref import split
 from .record import Recorder
 from .signal import Signal
+from .stream import (
+    FRAME_CACHE_SIZE,
+    MAX_REQUEST_FANOUT,
+    FrameRequest,
+    SampleFrame,
+    beyond_model,
+    check_request,
+)
 
 Listener = Callable[[dict[str, Any]], None]
 MAX_MODE_ITERATIONS = 40
@@ -128,6 +136,13 @@ class Session:
         self._circuit: tuple[int, Circuit] | None = None
         self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
         self._output_cache: dict[tuple[int, str, str], Signal] = {}
+        #: Frames of the sample streams (D67), newest last: (signal version, uid, port, request) ->
+        #: (frame, samples asked for along the chain to make it).
+        self._frame_cache: OrderedDict[tuple[int, str, str, FrameRequest], tuple[SampleFrame, int]] = (
+            OrderedDict()
+        )
+        #: One entry per :meth:`cached_frames` call in progress: the samples it has asked for so far.
+        self._frame_asks: list[int] = []
         self._wall_start = time.monotonic_ns()
         self._scaled_ref_ns = self._wall_start
         self._scaled_base_ns = 0
@@ -372,6 +387,48 @@ class Session:
             hit = comp.output(port)
             self._output_cache[key] = hit
         return hit
+
+    def cached_frames(self, comp: Component, port: str, request: FrameRequest) -> SampleFrame:
+        """A samples output port's frame for one request (signal-chain.md 3.2). The cache is small
+        and only serves repeated requests within a read and the internal probe; a new signal
+        version drops it. Every sample asked for along the chain counts toward
+        ``MAX_REQUEST_FANOUT`` — a cached frame counts what it cost to make, so whether a read is
+        refused never depends on what was read before."""
+        check_request(request)
+        key = (self._signal_version, comp.uid, port, request)
+        hit = self._frame_cache.get(key)
+        asked = sum(self._frame_asks)
+        if hit is None:
+            self._charge(asked + request.count, comp, port)
+            self._frame_asks.append(request.count)
+            try:
+                frame = comp.frames(port, request)
+            finally:
+                cost = self._frame_asks.pop()
+            if frame.count != request.count:
+                raise ValueError(
+                    f"{comp.uid}.{port}: a frame of {frame.count} samples answers a request for {request.count}"
+                )
+            hit = (frame, cost)
+            if self._frame_cache and next(iter(self._frame_cache))[0] != self._signal_version:
+                self._frame_cache.clear()
+            self._frame_cache[key] = hit
+            if len(self._frame_cache) > FRAME_CACHE_SIZE:
+                self._frame_cache.popitem(last=False)
+        else:
+            self._charge(asked + hit[1], comp, port)
+            self._frame_cache.move_to_end(key)
+        if self._frame_asks:
+            self._frame_asks[-1] += hit[1]
+        return hit[0]
+
+    @staticmethod
+    def _charge(total: int, comp: Component, port: str) -> None:
+        if total > MAX_REQUEST_FANOUT:
+            raise beyond_model(
+                f"{comp.uid}.{port}: this read asks for {total} samples along the chain "
+                f"(at most {MAX_REQUEST_FANOUT})"
+            )
 
     def state_changed(
         self, inst: Instrument, path: str, old: Any, new: Any, *, electrical: bool, source: str

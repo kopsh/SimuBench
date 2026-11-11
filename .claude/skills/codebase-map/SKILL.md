@@ -21,6 +21,7 @@ plausible fake).
 | Instrument runtime, SCPI command layer | `engine/instrument.py`; static lookup `engine/commands.py`; why a header is not executed and the closest one (coverage table) `engine/coverage_advice.py`; operations pending until a later instant, `*OPC`/`*WAI` bookkeeping `engine/pending.py`; the settings' specs, values, coercion, `*RST` reset and run-time bounds `engine/settings.py` (also `validate_value`, `snap_ladder`); channel numbers `engine/channels.py`; internal signal wires `engine/wiring.py`; parsing and executing a program message (dispatch, settings / channel-list / operation commands, value parse and format) `engine/command_runner.py`; `*IDN?`/`*STB?`/`*TRG`/clock built-ins `engine/builtin_commands.py`; device errors, -113/-104 classification `engine/error_reporter.py` |
 | Component base class, `@component`, `@op` | `engine/component.py` |
 | Circuit (MNA per frequency) / signals / noise | `engine/circuit.py`, `engine/signal.py`, `engine/noise.py` |
+| Sample streams after an ADC: `FrameRequest`, `SampleFrame`, limits; the frame cache is `Session.cached_frames` (D67) | `engine/stream.py` |
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
 | Bench edits (canvas + MCP share them) | `engine/edit.py` |
 | Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `engine/replay.py` |
@@ -74,7 +75,7 @@ plausible fake).
 | Was this already decided? | `decisions.md` (D1–D67; `grep -n '^## D'`) |
 | Is it done already? | `progress.md` (milestones); details: grep `progress-log.md` |
 | What is the product for, what is weak, what comes next? | `positioning-review.md` (internal tool; shortage + own-instrument scenarios; draft) |
-| Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the issue split (D67) | `signal-chain.md` (design, to be implemented) |
+| Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the issue split (D67) | `signal-chain.md` (design; the sample-stream base is in, #946; the rest follows under #945) |
 | Definition YAML format, declarative commands, replies, mappings | `instrument-authoring.md` 2–5 |
 | Real-model rules | `real-models.md`; meters/calibrators/SMUs: `metrology-authoring.md` |
 | Functional blocks per instrument class (D50) | `component-map.md`, `docs/blocks/<class>.yaml` |
