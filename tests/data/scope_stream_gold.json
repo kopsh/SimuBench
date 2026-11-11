@@ -1,0 +1,1084 @@
+{
+ "sb-dso-4": [
+  [
+   ":DIGitize CHANnel1",
+   null,
+   4002000
+  ],
+  [
+   ":WAVeform:SOURce CHANnel1",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "cbc6d631fb6d3b40727348ccc27795890648c546a0cc68b2d6da6cc735a6e8f2",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "039181271a887115d47735eb5c70b45da5caa89d983444bffb1e5e7ec907d5e9",
+   0
+  ],
+  [
+   ":WAVeform:FORMat WORD",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "039181271a887115d47735eb5c70b45da5caa89d983444bffb1e5e7ec907d5e9",
+   0
+  ],
+  [
+   ":WAVeform:FORMat ASCii",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "12ffb62cd8ed56a81626876d97e0077227cbaa838b8a7466a0b2ad1b3bf65aca",
+   0
+  ],
+  [
+   ":DIGitize CHANnel1,CHANnel2",
+   null,
+   4000000
+  ],
+  [
+   ":WAVeform:SOURce CHANnel2",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:FORMat BYTE",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "f2601c98dcb4d215be0527b31edb2ac10051dd719b9e678455874ec35a157831",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "8b1b8113da9653dbe00f356ff2b42052b42d1b730b5b243445c84c8416f3b6d9",
+   0
+  ],
+  [
+   ":MEASure:VPP? CHANnel1",
+   "61ade926caa85571e8a11ca1c14f76cdaa479bba74b183a694311cc5d1960114",
+   0
+  ],
+  [
+   ":MEASure:FREQuency? CHANnel2",
+   "861b09c894d4bd7633b7d3680bd5c9828cb960c1752e0e0606df80f5c3199fbe",
+   0
+  ],
+  [
+   ":TIMebase:SCALe 1E-3",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:LEVel 0.4",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:SLOPe NEGative",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   11470000
+  ],
+  [
+   ":WAVeform:SOURce CHANnel1",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "c50a4584763ad1ab438a1b2a73af500ce2338f12c3198809b0829e4e66a6e579",
+   0
+  ],
+  [
+   ":TRIGger:LEVel 5",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:SWEep AUTO",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   41000000
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "2c327994f7916156a01688b5213881936f2785dec9e5457c09401e2060ff026f",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "c50a4584763ad1ab438a1b2a73af500ce2338f12c3198809b0829e4e66a6e579",
+   0
+  ],
+  [
+   ":SYSTem:ERRor?",
+   "8dd184e0ddefb897a2e3bfd2aefb2233332e666510464c13f0547dc9cad34a73",
+   0
+  ],
+  [
+   "<screen frame 1>",
+   "636559c202bdc06825ea70ee9b59b194dee82f5566cf776a3c12c3608ac9fb13",
+   0
+  ]
+ ],
+ "sb-dso-2x": [
+  [
+   ":DIGitize CHANnel1",
+   null,
+   4002000
+  ],
+  [
+   ":WAVeform:SOURce CHANnel1",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "982bd90a9e3af8c2d4258dc4bb39604ccda325c5cc98cde8bc1c12aa8702f72a",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "2d6b0242a161f3b2fd1286201e2086924f52c6422ea2da55238a1dd745876b77",
+   0
+  ],
+  [
+   ":WAVeform:FORMat WORD",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "96fd0ff2b98d66434302c855dcd6bcb01ea50e56b8f2fee2622ff71a60621b01",
+   0
+  ],
+  [
+   ":WAVeform:FORMat ASCii",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "43db7fd65cfa832b46fa4f993e63fbf314e356da0a5860fd4b8bd1a7a94482ff",
+   0
+  ],
+  [
+   ":DIGitize CHANnel1,CHANnel2",
+   null,
+   4000000
+  ],
+  [
+   ":WAVeform:SOURce CHANnel2",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:FORMat BYTE",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "982bd90a9e3af8c2d4258dc4bb39604ccda325c5cc98cde8bc1c12aa8702f72a",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "a5eeb060de42dbf696f0fcaca864d3d38fe3d3c1b2374c2026c78e8403c1283f",
+   0
+  ],
+  [
+   ":MEASure:VPP? CHANnel1",
+   "61ade926caa85571e8a11ca1c14f76cdaa479bba74b183a694311cc5d1960114",
+   0
+  ],
+  [
+   ":MEASure:FREQuency? CHANnel2",
+   "861b09c894d4bd7633b7d3680bd5c9828cb960c1752e0e0606df80f5c3199fbe",
+   0
+  ],
+  [
+   ":TIMebase:SCALe 1E-3",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:LEVel 0.4",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:SLOPe NEGative",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   11470000
+  ],
+  [
+   ":WAVeform:SOURce CHANnel1",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "c14bdaee923f2a629edcd0aeaf993d8fccfe0918e666edd30729463fda8b4822",
+   0
+  ],
+  [
+   ":TRIGger:LEVel 5",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:SWEep AUTO",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   41000000
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "8c87a3c754710b303ebc155bf375450fd1c8d0f370beecb62eaa1920704c9864",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "c14bdaee923f2a629edcd0aeaf993d8fccfe0918e666edd30729463fda8b4822",
+   0
+  ],
+  [
+   ":SYSTem:ERRor?",
+   "8dd184e0ddefb897a2e3bfd2aefb2233332e666510464c13f0547dc9cad34a73",
+   0
+  ],
+  [
+   "<screen frame 1>",
+   "853239cd7d429fe21c28e77af2af9379d3d36fde23c597cbd526474f579eff69",
+   0
+  ]
+ ],
+ "keysight-dsox2024a": [
+  [
+   ":WAVeform:SOURce CHANnel1",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:FORMat BYTE",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   3092760
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "f0281ea4fe9b81c94483bc0dda767872505750bebc17c584dfe9fe5a829c9be7",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "c8812099ac92e8216aa9c3fc41aac31519e2f1136709a16e67a3fd40b40169bb",
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   4000000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "48e2f0baf699722b54bb8e6b9aead3fc72902ace824b6a0f467d56d39f69ea42",
+   0
+  ],
+  [
+   ":WAVeform:FORMat WORD",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:UNSigned 1",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:BYTeorder MSBFirst",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:POINts:MODE MAXimum",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:POINts 8000",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   4000000
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "0a8601d811e2432765b71e60dbe04d0dd89bdd649eb60367c134073dd5b02dc8",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "ea593131b6e0b02343e7ac59ec9dcbc75d5b56f6172a714ff2e8b5950b07c2f9",
+   0
+  ],
+  [
+   ":WAVeform:POINts:MODE NORMal",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:POINts 1000",
+   null,
+   0
+  ],
+  [
+   ":ACQuire:TYPE AVERage",
+   null,
+   0
+  ],
+  [
+   ":ACQuire:COUNt 8",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   25000000
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "be4efe3e3062cf01ffa912c320ad3ba880d0e75f309634f807336a78c0438098",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "f27ab6c2b1e2ef355739c4cf98adc591da5c4198a9c76a6b3686667fb39862f8",
+   0
+  ],
+  [
+   ":ACQuire:TYPE PEAK",
+   null,
+   0
+  ],
+  [
+   ":TIMebase:SCALe 5E-3",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   52000000
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "2459b98a2ad5aeb5b4458799d9c2664d6b95c3dfb23bd602ebac71b6bf82bc36",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "f87679c3a43dfdf4830f7ecb69d8af0412d13580b35554ddfb314ec4fa2fd1d8",
+   0
+  ],
+  [
+   ":ACQuire:TYPE HRESolution",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   52000000
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "d53719b79ede310b5d693d284bf92712efb95f7be43943df8c0c97f981894892",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "fc81c8cab2552b7a757ea74c71f6b76bc3963c6bbad40b5e5bcafcb1e959e1f0",
+   0
+  ],
+  [
+   ":ACQuire:TYPE NORMal",
+   null,
+   0
+  ],
+  [
+   ":TIMebase:SCALe 2E-4",
+   null,
+   0
+  ],
+  [
+   ":CHANnel2:DISPlay 1",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1,CHANnel2",
+   null,
+   4000000
+  ],
+  [
+   ":WAVeform:SOURce CHANnel2",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "8fb1ab9564f0387afb417902e0bd935082d2c095318d0d5071512a513ef765ad",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "803e7e3f930b36c363046b2bbd8ae3973b7b7379a3134af977549c14039bfd44",
+   0
+  ],
+  [
+   ":WAVeform:SOURce CHANnel1",
+   null,
+   0
+  ],
+  [
+   ":MEASure:VPP? CHANnel1",
+   "ca4e36c9e35ecc53f2f4d5144f7531ac5b53f2eb10180fc111dc1ac3ffee2139",
+   0
+  ],
+  [
+   ":MEASure:VRMS? CHANnel1",
+   "f2d8f2d3f01a07ed3b6e2736f5eb9b01eacf7f0a5c02e3b69ee60b524849bc69",
+   0
+  ],
+  [
+   ":TRIGger:EDGE:LEVel 3",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:SWEep AUTO",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   3000000
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "41f5eaeab533901832734ea6e913715a30e49367e6e983dcc0f10f9aeb4ecd38",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "87d5c44893d40246d9272ef1dfed9a92fc39a7e1097cedb68d5460d0dc8419b7",
+   0
+  ],
+  [
+   ":TRIGger:EDGE:LEVel 0",
+   null,
+   0
+  ],
+  [
+   ":RUN",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "effa82ac4d00c3e6aa20655155fcc97d25d34062ffaf0cfdd08d9db08e441090",
+   4000000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "c7260b0eeb36ece6b6af694db873a2234e17778601dd7aeefcf2d1492d8aa2c9",
+   4000000
+  ],
+  [
+   ":STOP",
+   null,
+   0
+  ],
+  [
+   ":SYSTem:ERRor?",
+   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   0
+  ],
+  [
+   "<screen frame 1>",
+   "a592c9d21916a612bcdadb46b4e8eb3d24130114291446d5cc56bf7134e85e4a",
+   1
+  ]
+ ],
+ "siglent-sds2104xplus": [
+  [
+   "awg> C1:OUTP ON",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:MODE SINGle",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "b10ac602714a5c12eeeb835ceeafabca3a4e959b2519148548435fc5482118a5",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "b1910237ae625071943bbe9b347e99e2148709cdc178a1714b4b38e94b7b8828",
+   0
+  ],
+  [
+   ":CHANnel1:SCALe 0.5",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:SOURce C1",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:MODE AUTO",
+   null,
+   0
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   11409000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "78aaf21d21c207ab6aecbf791494447cc02d0c76d7f53e2bbd8da5cbf414d809",
+   12000000
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "e6859ced31d68a90f791e6a242cac5771ba10b514354e8a791391293d5b342cd",
+   11300000
+  ],
+  [
+   ":ACQuire:TYPE AVERage,16",
+   null,
+   0
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   165800000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "cd52516bdcdf1b9e8398c317dce00414ee007bee0c21c12309db58a2a5c40835",
+   169000000
+  ],
+  [
+   ":ACQuire:TYPE PEAK",
+   null,
+   0
+  ],
+  [
+   ":TIMebase:SCALe 1E-2",
+   null,
+   0
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "d70003e7e600f6d196027e93c38d8a82e88a89134446410bff8e262ba09df900",
+   101800000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "3f14e3274e683aa53551dec6bd2e30d637061f5c9c3488c25134ea31b820b65d",
+   102000000
+  ],
+  [
+   ":ACQuire:TYPE ERES,2.0",
+   null,
+   0
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "05dfd9a3262e2ea38bb53e4d8c268a51a253d7ffab2f20fe1d4300991eb513cb",
+   101300000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "70ed5578d760099e6c1b6c9909601f51e158babb2cbf644014f5cbc9f3ee1a81",
+   102000000
+  ],
+  [
+   ":ACQuire:TYPE NORMal",
+   null,
+   0
+  ],
+  [
+   ":TIMebase:SCALe 1E-3",
+   null,
+   0
+  ],
+  [
+   ":ACQuire:RESolution 10Bits",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:WIDTh WORD",
+   null,
+   0
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "c79ee427a9a943c6074b6dfd855f989402612696ee300350c201c37d1f50791f",
+   11300000
+  ],
+  [
+   ":WAVeform:DATA?",
+   "907684fd6b9f095043da33911beeaf739a02260ae6663dbef90f67e400c48725",
+   12000000
+  ],
+  [
+   ":ACQuire:RESolution 8Bits",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:WIDTh BYTE",
+   null,
+   0
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":TRIGger:MODE SINGle",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "be15f066dcc07ecfb886b288cb9966f1af30924a3141677bc83000505ea97361",
+   0
+  ],
+  [
+   ":TRIGger:EDGE:LEVel 3",
+   null,
+   0
+  ],
+  [
+   "advance> 0.0137",
+   null,
+   13700000
+  ],
+  [
+   ":TRIGger:MODE FTRIG",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:STARt 0",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "be15f066dcc07ecfb886b288cb9966f1af30924a3141677bc83000505ea97361",
+   0
+  ],
+  [
+   ":TRIGger:EDGE:LEVel 0",
+   null,
+   0
+  ],
+  [
+   ":TRIGger:STOP",
+   null,
+   0
+  ],
+  [
+   ":SYSTem:ERRor?",
+   null,
+   0
+  ],
+  [
+   "<screen frame 1>",
+   "0c00cf38aa30c39b4ac8707b01a8aa2fcad7b8f03ca935fa83f871f94c1c6a91",
+   1
+  ]
+ ],
+ "keysight-uxr0334b": [
+  [
+   ":SYSTem:HEADer OFF",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:SOURce CHANnel1",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:FORMat WORD",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:BYTeorder LSBFirst",
+   null,
+   0
+  ],
+  [
+   ":WAVeform:STReaming ON",
+   null,
+   0
+  ],
+  [
+   ":ACQuire:POINts 4000",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   1001100
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "9c69ab14f82c27d6b1a92004256a463098c163c1f0bdafaf9a369276b22385e1",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "f167d81b112fafddb7fd013dfaf14d8b4a9e39526545ff76d25e867bc6d5acd7",
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   1001100
+  ],
+  [
+   ":WAVeform:DATA?",
+   "5deb26775e0dcdaf88b0d9e8637c3acc8994f422d60c5e18ae898fc001b8e864",
+   0
+  ],
+  [
+   ":ACQuire:AVERage ON",
+   null,
+   0
+  ],
+  [
+   ":ACQuire:COUNt 4",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   1004400
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "1fab17df247d5fb9f1531bd66ba915273e9cf96f44114401dc80848bddf8e880",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "75928e5dccc415b64c0d0f037517b078b16c8d0b6ebeda4aa4ff753b36157345",
+   0
+  ],
+  [
+   ":ACQuire:AVERage OFF",
+   null,
+   0
+  ],
+  [
+   ":ACQuire:BANDwidth 1E9",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   1001100
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "4ef96f076e3c500c748fcb0882b6c1ba86b243d4c2f577cfbac15df0fbccab95",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "4658f461be13ad02ef219591cd15da4233049b904d651ca7e4136ea48ec047aa",
+   0
+  ],
+  [
+   ":ACQuire:RESPonse GAUSsianmag",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   1001100
+  ],
+  [
+   ":WAVeform:DATA?",
+   "88b84687809e85a404f4fd993dd856c7f00233f6c0e2de6e9dc4159694a73fe0",
+   0
+  ],
+  [
+   ":WAVeform:FORMat BYTE",
+   null,
+   0
+  ],
+  [
+   ":DIGitize CHANnel1",
+   null,
+   1001100
+  ],
+  [
+   ":WAVeform:PREamble?",
+   "aa7648a872e75db44ebe1f4dd2dfb47b33fb35455c04a8a802dc503f632f696b",
+   0
+  ],
+  [
+   ":WAVeform:DATA?",
+   "9ad4b7bc1bf9200d48c540562ea9d09c67e74eb7fea59242815813ebb866ff6d",
+   0
+  ],
+  [
+   ":SYSTem:ERRor?",
+   "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   0
+  ],
+  [
+   "<screen frame 1>",
+   "5d029aa0b3e1668899c37e28a944cdc32654883e76bd5e5a1bd8f09f5b07e8f0",
+   1
+  ]
+ ],
+ "lecroy-wavepro804hd": [
+  [
+   "TRIG_MODE SINGLE",
+   null,
+   6000000
+  ],
+  [
+   "WAIT",
+   null,
+   6000000
+  ],
+  [
+   "C1:INSPECT? \"WAVEDESC\"",
+   "cd32728addfe332ec5e4e5d48bd2f08cb020f249ef8703d3b7bdc6df1f9143bf",
+   12000000
+  ],
+  [
+   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "8b392c41b99520624e5db444f0680e960cff7f47bb0f3a818be6d3b801abf499",
+   6000000
+  ],
+  [
+   "TRIG_MODE AUTO",
+   null,
+   0
+  ],
+  [
+   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "72ca7506f8b35f96461a43f0fe0af9e786c056d475dd3a938b0c8ef4aa4a6bff",
+   6000000
+  ],
+  [
+   "advance> 0.01",
+   null,
+   10000000
+  ],
+  [
+   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "41a2d7216287e32e4e9677bf392587d26004bdbe1f7f10c259934700855132e6",
+   6000000
+  ],
+  [
+   "C1:PARAMETER_VALUE? PKPK",
+   "1b57dd54c01f0693739e6f8f1a263054b625df17fc12a541c20f1723be5fdb37",
+   6000000
+  ],
+  [
+   "TIME_DIV 1E-3",
+   null,
+   0
+  ],
+  [
+   "C1:INSPECT? \"WAVEDESC\"",
+   "47e8afbd2a6ef018baa696124571d498eb1b4a20bb6564456f4107d9de540026",
+   0
+  ],
+  [
+   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "6ee495426f1dabfef46eb0ddb7141d88833e8391e7cbdf3bf9d96210852d2008",
+   10999999
+  ],
+  [
+   "C1:TRIG_LEVEL 3",
+   null,
+   0
+  ],
+  [
+   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "8142d807f0199bcd29460ff9c5a10e7b59d6a4492d96f3d0c87899cb96e9adc7",
+   10999999
+  ],
+  [
+   "ARM_ACQUISITION",
+   null,
+   10999999
+  ],
+  [
+   "FORCE_TRIGGER",
+   null,
+   10999999
+  ],
+  [
+   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "f32fd6154a56ab78caefee65ed3832cea87fd6c458997ec4485d8f07c801ce6c",
+   0
+  ],
+  [
+   "C1:TRIG_LEVEL 0",
+   null,
+   0
+  ],
+  [
+   "TRIG_MODE STOP",
+   null,
+   0
+  ],
+  [
+   "<screen frame 1>",
+   "35e41a1867026dc5b740c5ed428eef6a5772012768f59e539a2807026b3dfb8a",
+   0
+  ]
+ ]
+}
