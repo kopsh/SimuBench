@@ -143,14 +143,14 @@ def test_the_noise_and_processing_flow():
     # -- the noise comes from the division table (was test_noise_comes_from_the_division_table)
     for scale, sigma in ((0.5, 7.5e-3), (5e-3, 75e-6)):
         query(f":CHANnel1:SCALe {scale}")
-        assert acq.vertical_of(1).noise_rms() == pytest.approx(sigma)
+        assert acq.vertical_of(1).input_noise_rms() == pytest.approx(sigma)
         records, _, _ = acq.compute([1])
         lo, hi = sigma_interval(quantized_sigma(sigma, scale / 30), records[1].volts.size)
         assert lo <= float(np.std(records[1].volts)) <= hi
     query(":CHANnel1:SCALe 7")  # not listed: the row of the largest division not above it
-    assert acq.vertical_of(1).noise_rms() == pytest.approx(0.075)
+    assert acq.vertical_of(1).input_noise_rms() == pytest.approx(0.075)
     query(":CHANnel1:PROBe VALue,10;:CHANnel1:SCALe 5")  # 0.5 V/div at the input, x10 on screen
-    assert acq.vertical_of(1).noise_rms() == pytest.approx(7.5e-3)  # input-referred
+    assert acq.vertical_of(1).input_noise_rms() == pytest.approx(7.5e-3)  # input-referred
     noise = acq._noise(1, session.now_ns, acq._timing()[1], 10)
     lo, hi = sigma_interval(0.075, 10)  # display volts: the input rms times the probe ratio
     assert lo <= float(np.std(noise)) <= hi
