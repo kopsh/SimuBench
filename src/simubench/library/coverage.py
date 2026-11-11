@@ -21,7 +21,7 @@ import time
 from collections import Counter
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 from xml.sax.saxutils import escape, quoteattr
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -30,6 +30,7 @@ from ..engine.commands import BUILTIN_HEADERS
 from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, parse_unit, split_units
+from .expectations import Block, Field_, Fields, as_fields, matches_format
 from .loader import COVERAGE_SUFFIX, _read_yaml, load_yaml
 
 if TYPE_CHECKING:
@@ -79,57 +80,95 @@ class Coverage(_Model):
         return {level: counts.get(level, 0) for level in ("implemented", "accepted", "not_modeled")}
 
 
+#: The expectation keys of a query step: exactly one is given (D49, #926: none is a regex).
+EXPECT_KEYS = (
+    "expect",
+    "expect_prefix",
+    "expect_format",
+    "expect_value",
+    "expect_values",
+    "expect_fields",
+    "expect_block",
+)
+
+
 class Step(_Model):
-    """One command of a case: ``send`` writes, ``query`` writes and reads the reply."""
+    """One command of a case: ``send`` writes, ``query`` writes and reads the reply.
+
+    A query says what its reply must be with exactly one ``expect*`` key (library/expectations.py):
+    the exact text, its start, its written format, a number or a list of numbers within a tolerance,
+    fields judged one by one, or an IEEE 488.2 block. None of them is a regular expression."""
 
     send: str | None = None
     query: str | None = None
     instrument: str | None = Field(None, description="Instrument of this step; default: the file's")
     expect: str | None = Field(None, description="The exact reply")
-    expect_match: str | None = Field(None, description="A regular expression the whole reply matches")
+    expect_prefix: str | None = Field(
+        None,
+        description="The reply starts with this text (an error and its message: '-222,\"Data out of range')",
+    )
+    expect_format: str | None = Field(
+        None,
+        description="How the whole reply is written: integer, nr1, nr2, nr3, number, or a picture "
+        "(d a digit, ± a sign, ~ an optional sign, anything else itself: dddd,dd,dd)",
+    )
     expect_value: float | None = Field(None, description="The reply as a number")
     expect_values: list[float] | None = Field(
         None, description="The comma-separated reply as numbers, compared elementwise (#836)"
     )
-    tolerance: float | None = Field(None, description="Absolute tolerance for expect_value/expect_values")
+    expect_fields: list[Field_] | Fields | None = Field(
+        None,
+        description="The reply cut into fields (by ',' unless separator says otherwise), each judged by "
+        "its spec: exact text, a number within tolerance, min/max, a format, one_of, …",
+    )
+    expect_block: Block | None = Field(None, description="The reply is an IEEE 488.2 block")
+    tolerance: float | list[float] | None = Field(
+        None,
+        description="Absolute tolerance for expect_value / expect_values (one per value, or one for all) "
+        "and the bare numbers of expect_fields",
+    )
+    format: str | None = Field(
+        None, description="How each number of expect_value / expect_values is written (see expect_format)"
+    )
     binary: bool = Field(
         False,
-        description="The reply is binary (a block): expect / expect_match apply to its bytes read as Latin-1",
+        description="The reply is binary (a block): the expectation applies to its bytes read as Latin-1, unstripped",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def _no_regex(cls, data: Any) -> Any:
+        if isinstance(data, dict) and "expect_match" in data:
+            raise ValueError(
+                "expect_match (a regular expression) is no longer accepted (D49, #926): judge the reply "
+                "by meaning — expect_prefix for an error and its message, expect_value(s) with tolerance "
+                "for readings, expect_fields for a list of fields, expect_format for how it is written, "
+                "expect_block for a block"
+            )
+        return data
 
     @model_validator(mode="after")
     def _check(self) -> Step:
         if (self.send is None) == (self.query is None):
             raise ValueError("a step has exactly one of send or query")
-        if self.send is not None and (
-            self.expect,
-            self.expect_match,
-            self.expect_value,
-            self.expect_values,
-        ) != (
-            None,
-            None,
-            None,
-            None,
-        ):
+        given = [k for k in EXPECT_KEYS if getattr(self, k) is not None]
+        if self.send is not None and given:
             raise ValueError(f"{self.send!r}: only a query has an expected reply")
-        if (
-            self.query is not None
-            and [
-                self.expect,
-                self.expect_match,
-                self.expect_value,
-                self.expect_values,
-            ].count(None)
-            != 3
+        if self.query is not None and len(given) != 1:
+            raise ValueError(f"{self.query!r}: give one of {', '.join(EXPECT_KEYS)}")
+        numeric = ("expect_value", "expect_values", "expect_fields", "expect_block")
+        if self.tolerance is not None and (not given or given[0] not in numeric):
+            raise ValueError("tolerance goes with expect_value, expect_values, expect_fields or expect_block")
+        if isinstance(self.tolerance, list) and (
+            self.expect_values is None or len(self.tolerance) != len(self.expect_values)
         ):
-            raise ValueError(
-                f"{self.query!r}: give one of expect, expect_match, expect_value or expect_values"
-            )
-        if self.tolerance is not None and self.expect_value is None and self.expect_values is None:
-            raise ValueError("tolerance goes with expect_value or expect_values")
+            raise ValueError("a list of tolerances goes with expect_values, one per value")
+        if self.format is not None and self.expect_value is None and self.expect_values is None:
+            raise ValueError("format goes with expect_value or expect_values")
         if self.expect_values is not None and not self.expect_values:
             raise ValueError("expect_values is empty")
+        if self.expect_fields is not None:
+            as_fields(self.expect_fields)  # an empty list fails here, with the rule
         return self
 
     @property
@@ -414,28 +453,49 @@ def _check(step: Step, reply: str | None) -> tuple[str, bool]:
     """(what was expected, whether the reply meets it)."""
     if step.expect is not None:
         return repr(step.expect), reply == step.expect
-    if step.expect_match is not None:
-        return f"a match of {step.expect_match!r}", reply is not None and bool(
-            re.fullmatch(step.expect_match, reply, re.DOTALL)
+    if step.expect_prefix is not None:
+        return f"a reply starting {step.expect_prefix!r}", reply is not None and reply.startswith(
+            step.expect_prefix
         )
-    tol = step.tolerance or 0.0
+    if step.expect_format is not None:
+        return f"a reply written {step.expect_format}", reply is not None and matches_format(
+            reply, step.expect_format
+        )
+    single = step.tolerance if isinstance(step.tolerance, int | float) else 0.0
+    if step.expect_fields is not None:
+        fields = as_fields(step.expect_fields)
+        return fields.describe(), reply is not None and fields.judge(reply, single)
+    if step.expect_block is not None:
+        return step.expect_block.describe(), reply is not None and step.expect_block.judge(reply, single)
+    written = f", written {step.format}" if step.format else ""
     if step.expect_values is not None:
         # A reading list rides noise (#744): compare elementwise in engineering units instead of a
-        # hand-written per-digit regex envelope.
-        expected = f"{', '.join(repr(v) for v in step.expect_values)} ± {tol!r} (each)"
+        # hand-written per-digit envelope.
+        tols = step.tolerance if isinstance(step.tolerance, list) else [single] * len(step.expect_values)
+        if isinstance(step.tolerance, list):
+            expected = ", ".join(f"{v!r} ± {t!r}" for v, t in zip(step.expect_values, tols, strict=True))
+        else:
+            expected = f"{', '.join(repr(v) for v in step.expect_values)} ± {single!r} (each)"
+        expected += written
         if reply is None:
             return expected, False
         parts = reply.split(",")
         if len(parts) != len(step.expect_values):
             return expected, False
+        if step.format and not all(matches_format(p, step.format) for p in parts):
+            return expected, False
         try:
             got = [float(p) for p in parts]
         except ValueError:
             return expected, False
-        return expected, all(abs(g - float(e)) <= tol for g, e in zip(got, step.expect_values, strict=True))
-    expected = f"{step.expect_value!r} ± {tol!r}"
+        return expected, all(
+            abs(g - float(e)) <= t for g, e, t in zip(got, step.expect_values, tols, strict=True)
+        )
+    expected = f"{step.expect_value!r} ± {single!r}{written}"
+    if reply is None or (step.format and not matches_format(reply, step.format)):
+        return expected, False
     try:
-        return expected, reply is not None and abs(float(reply) - float(step.expect_value or 0.0)) <= tol
+        return expected, abs(float(reply) - float(step.expect_value or 0.0)) <= single
     except ValueError:
         return expected, False
 

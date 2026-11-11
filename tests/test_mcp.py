@@ -399,7 +399,7 @@ async def test_components_are_listed_for_definition_authors(ws):
 async def test_run_cases(ws):
     (ws / "awg.cases.yaml").write_text(
         f"bench: {BENCH}\ninstrument: awg\ncases:\n"
-        "  - {name: identity, steps: [{query: '*IDN?', expect_match: '.*SB-AWG-2.*'}]}\n"
+        "  - {name: identity, steps: [{query: '*IDN?', expect_fields: ['SIMUBENCH', 'SB-AWG-2', {nonempty: true}, {nonempty: true}]}]}\n"
         "  - {name: wrong, steps: [{query: 'FREQ?', expect_value: 5.0}]}\n",
         encoding="utf-8",
     )
@@ -441,7 +441,7 @@ async def test_an_agent_builds_a_definition_from_a_script(ws):
         "      - {query: 'C2:LEVEL?', expect_value: 0.25}\n      - {query: 'C1:LEVEL?', expect_value: 0.5}\n"
         "  - name: range in volts\n    steps:\n      - {send: 'RANGE 100 mV'}\n"
         "      - {query: 'RANGE?', expect_value: 0.1, tolerance: 1.0e-12}\n"
-        "  - name: identity\n    steps:\n      - {query: '*IDN?', expect_match: 'AGENT LABS,DMM-1,.*'}\n",
+        "  - name: identity\n    steps:\n      - {query: '*IDN?', expect_prefix: 'AGENT LABS,DMM-1,'}\n",
         encoding="utf-8",
     )
     _, server = make(ws)

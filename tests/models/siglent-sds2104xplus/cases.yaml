@@ -9,7 +9,7 @@ cases:
     manual: "Common (*) Commands > *IDN"
     steps:
       - query: "*IDN?"
-        expect_match: '^Siglent Technologies,SDS2104X Plus,[A-Z0-9]{14},\S+$'
+        expect_fields: ["Siglent Technologies", "SDS2104X Plus", {length: 14}, {nonempty: true}]
   - name: "*OPC? 返回 1"
     manual: "Common (*) Commands > *OPC"
     steps:
@@ -236,14 +236,14 @@ cases:
       - send: "TIM:SCAL 1E-3;:TRIG:MODE SINGle;:WAV:SOUR C1"
       - query: ":WAVeform:PREamble?"
         binary: true
-        expect_match: '^#9000000346WAVEDESC.{8}WAVEACE.*Siglent SDS.*\n\n$'
+        expect_block: {header: "#9000000346", bytes: 346, starts: "WAVEDESC", contains: ["WAVEACE", "Siglent SDS"], end: "\n\n"}
   - name: "波形数据：块头按实际长度给出位数，并以 0A 0A 结束"
     manual: "WAVeform Commands > :WAVeform:DATA"
     steps:
       - send: "TIM:SCAL 1E-3;:TRIG:MODE SINGle;:WAV:SOUR C1;:WAV:WIDT BYTE"
       - query: ":WAVeform:DATA?"
         binary: true
-        expect_match: '^#510000.{10000}\n\n$'
+        expect_block: {header: "#510000", bytes: 10000, end: "\n\n"}
   - name: "简单测量：峰峰值与频率"
     manual: "MEASure Commands > :MEASure, :MEASure:MODE, :MEASure:SIMPle:SOURce, :MEASure:SIMPle:VALue"
     steps:
@@ -257,7 +257,7 @@ cases:
       - send: "TIM:SCAL 1E-3;:CHAN1:SCAL 0.5"
       - query: "MEAS:SIMP:VAL? PKPK"
         # 2 Vpp 信号加上 0.5 V/div 档位的估计噪声（D46）在极值上的几个码，读数在 2.00-2.09 V 之间。
-        expect_match: "2\\.0[0-9]E\\+00"
+        expect_fields: [{value: 2.045, tolerance: 0.045, format: "d.ddE+dd"}]
       - query: "MEAS:SIMP:VAL? FREQ"
         expect: "1.00E+03"
   - name: "没有建模的命令回复 -113（自动设置）"

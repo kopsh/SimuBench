@@ -211,11 +211,15 @@ cases:
         expect: "5"
       - query: ":FETC:ARR:VOLT?"
         # 读数带噪（specs.noise_ppm_of_range，#744）：各点按其自动量程的 4σ 包络
-        expect_match: '^[+-][0-9]\.[0-9]{6}E-(?:0[6-9]|1[0-9]),[+-](?:4\.999[0-9]{3}E-01|5\.000[0-9]{3}E-01),[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:1\.499[0-9]{3}E\+00|1\.500[0-1][0-9]{2}E\+00),[+-](?:1\.999[0-9]{3}E\+00|2\.000[0-1][0-9]{2}E\+00)$'
+        expect_values: [0.0, 0.5, 1.0, 1.5, 2.0]  # 0 V within 1e-5, then each point's 4σ band on its range
+        tolerance: [1.0e-5, 1.0e-4, 1.0e-4, 2.0e-4, 2.0e-4]
+        format: "±d.ddddddE±dd"
       - query: ":FETC:ARR:CURR?"
-        expect_match: '^[+-][0-9]\.[0-9]{6}E-1[2-9],[+-](?:4\.999[5-9][0-9]{2}E-04|5\.000[0-4][0-9]{2}E-04),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-](?:1\.499[5-9][0-9]{2}E-03|1\.500[0-4][0-9]{2}E-03),[+-](?:1\.999[5-9][0-9]{2}E-03|2\.000[0-4][0-9]{2}E-03)$'
+        expect_values: [0.0, 5.0e-4, 1.0e-3, 1.5e-3, 2.0e-3]  # 0 A within 1e-11, then each point's 4σ band
+        tolerance: [1.0e-11, 5.0e-8, 5.0e-8, 5.0e-7, 5.0e-7]
+        format: "±d.ddddddE±dd"
       - query: ":TRAC:DATA?"
-        expect_match: '^[+-][0-9]\.[0-9]{6}E[+-][0-9]{2}(,[+-][0-9]\.[0-9]{6}E[+-][0-9]{2}){29}$'
+        expect_fields: [{format: "±d.ddddddE±dd"}, {format: "±d.ddddddE±dd", count: 29}]
       - send: ":TRAC:CLE"
       - query: ":TRAC:POIN:ACT?"
         expect: "0"
@@ -236,7 +240,10 @@ cases:
       - query: ":SYST:DATA:QUAN?"
         expect: "3"
       - query: ":FETC:ARR:VOLT?"
-        expect_match: '^[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00)$'
+        expect_fields:
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
       - send: ":TRAC:CLE"
       - query: ":TRAC:POIN:ACT?"
         expect: "0"
@@ -292,7 +299,13 @@ cases:
     steps:
       - send: ":SOUR:FUNC:MODE VOLT;:SOUR:VOLT 1;:SENS:CURR:PROT 0.01;:OUTP ON"
       - query: ":MEAS?"
-        expect_match: '^[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00,\+1\.000000E\+00$'
+        expect_fields:
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {format: "±d.ddddddE±dd"}
+          - "+8.405000E-03"
+          - "+0.000000E+00"
+          - "+1.000000E+00"
       - query: ":MEAS:VOLT?"
         expect_value: 1.0
         tolerance: 1.0e-4  # 4σ(2 V 档,#744)
@@ -316,7 +329,13 @@ cases:
       - query: ":READ:ARR:STAT?"
         expect: "+0.000000E+00"
       - query: ":READ:ARR?"
-        expect_match: '^[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00,\+1\.000000E\+00$'
+        expect_fields:
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {format: "±d.ddddddE±dd"}
+          - "+8.405000E-03"
+          - "+0.000000E+00"
+          - "+1.000000E+00"
 
   - name: "FETCh 取本次运行的数据（数组与单元素）"
     manual: "FETCh Subsystem > :FETCh:ARRay? / :FETCh:ARRay:<CURRent|RESistance|STATus|TIME|VOLTage>?"
@@ -339,7 +358,13 @@ cases:
       - query: ":FETC:ARR:STAT?"
         expect: "+0.000000E+00"
       - query: ":FETC:ARR?"
-        expect_match: '^[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-][0-9]\.[0-9]{6}E[+-][0-9]{2},\+8\.405000E-03,\+0\.000000E\+00,\+1\.000000E\+00$'
+        expect_fields:
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {format: "±d.ddddddE±dd"}
+          - "+8.405000E-03"
+          - "+0.000000E+00"
+          - "+1.000000E+00"
 
   - name: "读数元素：*RST 为六个（含 SOUR）；FORM:ELEM:SENS 选择元素，顺序固定（#252）"
     manual: "FORMat Subsystem > :FORMat:ELEMents:SENSe（p.2-41）；FETCh Subsystem > :FETCh:ARRay?"
@@ -351,7 +376,9 @@ cases:
         expect: "VOLT,CURR"
       - send: ":SOUR:FUNC:MODE VOLT;:SOUR:VOLT 1;:SENS:CURR:PROT 0.01;:OUTP ON"
       - query: ":MEAS?"
-        expect_match: '^[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03)$'
+        expect_fields:
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
       - send: ":FORM:ELEM:SENS SOUR"
       - query: ":READ:ARR?"
         expect: "+1.000000E+00"
@@ -490,9 +517,9 @@ cases:
       - query: ":SYST:ERR:ALL?"
         expect: '-222,"Data out of range"'
       - query: ":SYST:DATE?"
-        expect_match: '^[0-9]{4},[0-9]{2},[0-9]{2}$'
+        expect_format: "dddd,dd,dd"
       - query: ":SYST:TIME?"
-        expect_match: '^[0-9]{2},[0-9]{2},[0-9]{2}\.[0-9]{3}$'
+        expect_format: "dd,dd,dd.ddd"
 
   - name: "双通道：两路各自源/测，通道列表按书写顺序回复"
     manual: "Programming Basics > Numeric Suffix / Channel List Parameter；MEASure Subsystem > :MEASure:<CURRent|RESistance|VOLTage>?"
@@ -501,11 +528,17 @@ cases:
       - send: ":SOUR2:FUNC:MODE VOLT;:SOUR2:VOLT 2;:SENS2:CURR:PROT 0.01"
       - send: ":OUTP1 ON;:OUTP2 ON"
       - query: ":MEAS:CURR? (@1,2)"
-        expect_match: '^[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-](?:1\.999[5-9][0-9]{2}E-04|2\.000[0-4][0-9]{2}E-04)$'  # 读数带噪（#744），按各自量程的 4σ 包络
+        expect_fields:  # 读数带噪（#744），按各自量程的 4σ 包络
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {value: 0.0002, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
       - query: ":MEAS:CURR? (@2,1)"
-        expect_match: '^[+-](?:1\.999[5-9][0-9]{2}E-04|2\.000[0-4][0-9]{2}E-04),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03)$'
+        expect_fields:
+          - {value: 0.0002, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
       - query: ":MEAS:CURR? (@1:2)"
-        expect_match: '^[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-](?:1\.999[5-9][0-9]{2}E-04|2\.000[0-4][0-9]{2}E-04)$'
+        expect_fields:
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {value: 0.0002, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
       - query: ":MEAS:VOLT? (@2)"
         expect_value: 2.0
         tolerance: 1.0e-4  # 4σ(2 V 档)
@@ -517,7 +550,9 @@ cases:
         tolerance: 2.0  # V/I of the noisy readings (#846): rel 4σ ≈ 1.5e-4 → 1.5 Ω
       - send: ":OUTP1 OFF"
       - query: ":MEAS:CURR? (@1,2)"
-        expect_match: '^[+-][0-9]\.[0-9]{6}E-1[2-9],[+-](?:1\.999[5-9][0-9]{2}E-04|2\.000[0-4][0-9]{2}E-04)$'
+        expect_values: [0.0, 2.0e-4]  # the off channel reads 0 A within 1e-11; channel 2 its 4σ band
+        tolerance: [1.0e-11, 5.0e-8]
+        format: "±d.ddddddE±dd"
       - query: ":OUTP1?;:OUTP2?"
         expect: "0;1"
       - send: ":MEAS:CURR? (@3)"
@@ -577,7 +612,9 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: ":FETC:ARR:CURR? (@1,2)"
-        expect_match: '^[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-](?:1\.999[5-9][0-9]{2}E-04|2\.000[0-4][0-9]{2}E-04)$'  # 4σ 包络（#744）
+        expect_fields:  # 4σ 包络（#744）
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {value: 0.0002, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
       - query: ":SYST:DATA:QUAN? (@1,2)"
         expect: "1,1"
       - query: ":SYST:ERR?"
@@ -634,7 +671,7 @@ cases:
     steps:
       - send: ":SENS1:FUNC \"POW\""
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "对数扫描与方向、双向：1 kΩ 上 0.01→1 V 三点，DOWN 与 DOUBle（#398）"
     manual: "SOURce Subsystem > [:SOURce]:SWEep:SPACing / :DIRection / :STAir（B2910-90130 p.271–274）；[:SOURce]:VOLTage:MODE / :STARt / :STOP"
@@ -648,10 +685,19 @@ cases:
       - send: ":SOUR1:SWE:SPAC LOG;:SOUR1:VOLT:MODE SWE;:SOUR1:VOLT:STAR 0.01;:SOUR1:VOLT:STOP 1;:SOUR1:SWE:POIN 3"
       - send: ":SENS1:CURR:PROT 0.1;:OUTP1 ON;:INIT (@1)"
       - query: ":FETC:ARR:CURR? (@1)"
-        expect_match: '^[+-](?:9\.999[5-9][0-9]{2}E-06|1\.0000[0-4][0-9]E-05),[+-](?:9\.999[5-9][0-9]{2}E-05|1\.0000[0-4][0-9]E-04),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03)$'  # 4σ 包络（#744）
+        expect_fields:  # 4σ 包络（#744）
+          - {value: 1.0e-05, tolerance: 5.0e-10, format: "±d.ddddddE-dd"}
+          - {value: 0.0001, tolerance: 5.0e-09, format: "±d.ddddddE-dd"}
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
       - send: ":SOUR1:SWE:DIR DOWN;:SOUR1:SWE:STA DOUB;:INIT (@1)"
       - query: ":FETC:ARR:CURR? (@1)"
-        expect_match: '^[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-](?:9\.999[5-9][0-9]{2}E-05|1\.0000[0-4][0-9]E-04),[+-](?:9\.999[5-9][0-9]{2}E-06|1\.0000[0-4][0-9]E-05),[+-](?:9\.999[5-9][0-9]{2}E-06|1\.0000[0-4][0-9]E-05),[+-](?:9\.999[5-9][0-9]{2}E-05|1\.0000[0-4][0-9]E-04),[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03)$'
+        expect_fields:
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {value: 0.0001, tolerance: 5.0e-09, format: "±d.ddddddE-dd"}
+          - {value: 1.0e-05, tolerance: 5.0e-10, format: "±d.ddddddE-dd"}
+          - {value: 1.0e-05, tolerance: 5.0e-10, format: "±d.ddddddE-dd"}
+          - {value: 0.0001, tolerance: 5.0e-09, format: "±d.ddddddE-dd"}
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
       - send: ":SOUR1:SWE:RANG FIX"
       - query: ":SOUR1:SWE:RANG?"
         expect: "FIX"
@@ -662,12 +708,16 @@ cases:
       - send: ":SOUR1:SWE:SPAC LIN;:SOUR1:SWE:DIR UP;:SOUR1:SWE:STA SING;:SOUR1:VOLT:MODE SWE;:SOUR1:VOLT:STAR 0;:SOUR1:VOLT:STOP 1;:SOUR1:SWE:POIN 3"
       - send: ":SENS1:CURR:PROT 0.1;:OUTP1 ON;:INIT (@1)"
       - query: ":FETC:ARR:VOLT? (@1)"
-        expect_match: '^[+-][0-9]\.[0-9]{6}E-(?:0[6-9]|1[0-9]),[+-](?:4\.999[0-9]{3}E-01|5\.000[0-9]{3}E-01),[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00)$'
+        expect_values: [0.0, 0.5, 1.0]  # 0 V within 1e-5, then each point's 4σ band on its range
+        tolerance: [1.0e-5, 1.0e-4, 1.0e-4]
+        format: "±d.ddddddE±dd"
       - send: ":SOUR1:SWE:SPAC LOG;:INIT (@1)"
       - query: ":SYST:ERR?"
-        expect_match: '^-221,.*'
+        expect_prefix: "-221,"
       - query: ":FETC:ARR:VOLT? (@1)"
-        expect_match: '^[+-][0-9]\.[0-9]{6}E-(?:0[6-9]|1[0-9]),[+-](?:4\.999[0-9]{3}E-01|5\.000[0-9]{3}E-01),[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00)$'
+        expect_values: [0.0, 0.5, 1.0]  # 0 V within 1e-5, then each point's 4σ band on its range
+        tolerance: [1.0e-5, 1.0e-4, 1.0e-4]
+        format: "±d.ddddddE±dd"
 
   - name: "电压列表扫描：LIST:VOLT、APPend、POINts?、STARt（#398）"
     manual: "SOURce Subsystem > [:SOURce]:LIST:<CURRent|VOLTage> / :APPend / :POINts? / :STARt（p.268–270）；[:SOURce]:VOLTage:MODE LIST"
@@ -685,7 +735,10 @@ cases:
         expect: "2"
       - send: ":SOUR1:VOLT:MODE LIST;:SENS1:CURR:PROT 0.1;:OUTP1 ON;:INIT (@1)"
       - query: ":FETC:ARR:CURR? (@1)"
-        expect_match: '^[+-](?:9\.999[5-9][0-9]{2}E-04|1\.0000[0-4][0-9]E-03),[+-](?:1\.999[5-9][0-9]{2}E-03|2\.000[0-4][0-9]{2}E-03),[+-](?:2\.999[5-9][0-9]{2}E-03|3\.000[0-4][0-9]{2}E-03)$'  # 4σ 包络（#744）
+        expect_fields:  # 4σ 包络（#744）
+          - {value: 0.001, tolerance: 5.0e-08, format: "±d.ddddddE-dd"}
+          - {value: 0.002, tolerance: 5.0e-07, format: "±d.ddddddE-dd"}
+          - {value: 0.003, tolerance: 5.0e-07, format: "±d.ddddddE-dd"}
 
   - name: "电流扫描：FUNC:MODE CURR 后 CURR:MODE SWE / LIST，10 kΩ 上读电压（#398）"
     manual: "SOURce Subsystem > [:SOURce]:CURRent:MODE / :STARt / :STOP / :POINts（p.256–260）；[:SOURce]:LIST:CURRent 及 :APPend / :POINts? / :STARt"
@@ -696,13 +749,18 @@ cases:
         expect: "3"
       - send: ":INIT (@2)"
       - query: ":FETC:ARR:VOLT? (@2)"
-        expect_match: '^[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:1\.999[0-9]{3}E\+00|2\.000[0-1][0-9]{2}E\+00),[+-](?:2\.999[0-9]{3}E\+00|3\.000[0-9]{3}E\+00)$'  # 4σ 包络（#744）
+        expect_fields:  # 4σ 包络（#744）
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 2.0, tolerance: 2.0e-4, format: "±d.ddddddE+dd"}
+          - {value: 3.0, tolerance: 0.001, format: "±d.ddddddE+dd"}
       - send: ":SOUR2:LIST:CURR 5e-4;:SOUR2:LIST:CURR:APP 1e-4,2e-4"
       - query: ":SOUR2:LIST:CURR:POIN?"
         expect: "3"
       - send: ":SOUR2:LIST:CURR:STAR 2;:SOUR2:CURR:MODE LIST;:INIT (@2)"
       - query: ":FETC:ARR:VOLT? (@2)"
-        expect_match: '^[+-](?:9\.999[0-9]{3}E-01|1\.0000[0-9]{2}E\+00),[+-](?:1\.999[0-9]{3}E\+00|2\.000[0-1][0-9]{2}E\+00)$'  # 4σ 包络（#744）
+        expect_fields:  # 4σ 包络（#744）
+          - {value: 1.0, tolerance: 0.0001, format: "±d.ddddddE±dd"}
+          - {value: 2.0, tolerance: 2.0e-4, format: "±d.ddddddE+dd"}
       - query: ":SOUR2:LIST:CURR:STAR?"
         expect: "2"
 

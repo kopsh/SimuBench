@@ -114,10 +114,10 @@ cases:
     steps:
       - send: ":FREQ 2GHz"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
       - send: ":FREQ 8kHz"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "电平默认 -110 dBm，写入 2dBm 后回读 2.00，超范围报 -222"
     manual: "Command System > [:SOURce]:LEVel"
@@ -129,7 +129,7 @@ cases:
         expect: "2.00"
       - send: ":LEV 30"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "电平步进默认 10 dB，写入 20dB 后回读 20.00"
     manual: "Command System > [:SOURce]:LEVel:STEP"
@@ -153,10 +153,10 @@ cases:
         expect: "60.00"
       - send: ":AM:DEPT 101"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
       - send: ":AM:DEPT 101%"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "AM 深度步进默认 10%，写入 0.2 回读 0.20"
     manual: "Command System > [:SOURce]:AM[:DEPTh]:STEP[:INCRement]"
@@ -177,7 +177,7 @@ cases:
         expect: "20.00000kHz"
       - send: ":AM:FREQ 5"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "AM 频率步进默认 1 kHz，写入 3.55kHz 后回读"
     manual: "Command System > [:SOURce]:AM:FREQuency:STEP[:INCRement]"
@@ -196,7 +196,7 @@ cases:
       - send: ":AM:SOUR INT"
       - send: ":AM:SOUR EXT"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"
 
   - name: "AM 波形默认 SINE，只建模正弦（SQUA 报 -224）"
     manual: "Command System > [:SOURce]:AM:WAVEform"
@@ -206,7 +206,7 @@ cases:
       - send: ":AM:WAVE SINE"
       - send: ":AM:WAVE SQUA"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"
 
   - name: "AM 外部调制耦合与阻抗的默认值与回读"
     manual: "Command System > [:SOURce]:AM:EXT:COUP、[:SOURce]:AM:EXT:IMP"
@@ -256,7 +256,7 @@ cases:
         expect: "20.00000kHz"
       - send: ":FM:DEV 2MHz"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "FM 频偏步进默认 1 kHz，写入 5kHz 后回读"
     manual: "Command System > [:SOURce]:FM[:DEViation]:STEP[:INCRement]"
@@ -277,7 +277,7 @@ cases:
         expect: "20.00000kHz"
       - send: ":FM:FREQ 2"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "FM 频率步进默认 1 kHz，写入 5kHz 后回读"
     manual: "Command System > [:SOURce]:FM:FREQuency:STEP[:INCRement]"
@@ -297,10 +297,10 @@ cases:
         expect: "SINE"
       - send: ":FM:SOUR EXT"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"
       - send: ":FM:WAVE SQUA"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"
 
   - name: "FM 外部调制耦合与阻抗的默认值与回读"
     manual: "Command System > [:SOURce]:FM:EXT:COUP、[:SOURce]:FM:EXT:IMP"
@@ -324,7 +324,7 @@ cases:
         expect: "1"
       - send: ":PM:STAT ON"
       - query: ":SYST:ERR?"
-        expect_match: '^-221,"Settings conflict.*'
+        expect_prefix: "-221,\"Settings conflict"
       - query: ":FM:STAT?"
         expect: "0"
       - query: ":PM:STAT?"
@@ -340,7 +340,7 @@ cases:
         expect: "2.000000"
       - send: ":PM:DEV 6"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "ΦM 相偏步进默认 1 rad，写入 1rad 后回读 1.000000"
     manual: "Command System > [:SOURce]:PM[:DEViation]:STEP[:INCRement]"
@@ -378,10 +378,10 @@ cases:
         expect: "SINE"
       - send: ":PM:SOUR EXT"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"
       - send: ":PM:WAVE SQUA"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"
 
   - name: "ΦM 外部调制耦合与阻抗的默认值与回读"
     manual: "Command System > [:SOURce]:PM:EXT:COUP、[:SOURce]:PM:EXT:IMP"
@@ -450,7 +450,7 @@ cases:
         expect: "LOG"
       - send: ":SWE:STEP:POIN 70000"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "扫描状态：频率、电平或两者（回读 LEV,FREQ），重复词合并（#353），OFF 不能与其他同用（#291）"
     manual: "Command System > [:SOURce]:SWEep:STATe"
@@ -477,7 +477,7 @@ cases:
         expect: '0,"No error"'
       - send: ":SWE:STAT OFF,FREQ"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,"Illegal parameter value.*'
+        expect_prefix: "-224,\"Illegal parameter value"
       - query: ":SWE:STAT?"
         expect: "LEV,FREQ"
 
@@ -495,7 +495,7 @@ cases:
         expect: "500.000ms"
       - send: ":SWE:STEP:DWEL 10ms"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
       - send: ":SWE:MODE SING"
       - query: ":SWE:MODE?"
         expect: "SING"
@@ -541,7 +541,7 @@ cases:
         expect: "3"
       - send: ":SYST:BRIG 9"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,"Data out of range.*'
+        expect_prefix: "-222,\"Data out of range"
 
   - name: "界面语言默认 ENGLISH，写 CHIN 后回读 CHINESE"
     manual: "Command System > :SYSTem:LANGuage"
