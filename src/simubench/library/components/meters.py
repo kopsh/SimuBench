@@ -112,7 +112,7 @@ class DmmInputTerminal(Component):
         V/shunt (A) — the quantity, as the conditioning block ranges it (#301)."""
         mode = self._mode()
         wired = self.session.port_ref(self, "pin") is not None
-        fed = self.owner is not None and self.owner.has_upstream(self, "pin")
+        fed = self.owner is not None and self.owner.wiring.feeds(self.name, "pin")
         if mode in ("RESistance", "FRESistance") and not self.wired("pin") and not fed:
             return Signal.constant(math.inf)  # an open input: the source runs to its compliance
         if mode in ("RESistance", "FRESistance") and wired:
@@ -126,7 +126,7 @@ class DmmInputTerminal(Component):
         if mode in ("RESistance", "FRESistance"):
             # Fed as a signal by a block that stamps the test current itself (a multiplexer's
             # analog bus, #301): the bus voltage (FRES: the sense bus) over the test current.
-            sensed = self.owner is not None and self.owner.has_upstream(self, "sense")
+            sensed = self.owner is not None and self.owner.wiring.feeds(self.name, "sense")
             port = "sense" if mode == "FRESistance" and sensed else "pin"
             v = self.input(port).mean()
             if abs(v) > float(self.param("compliance")):

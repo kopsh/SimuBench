@@ -132,7 +132,7 @@ class MuxCard(Component):
         """Close one channel's relay (break-before-make: the previous closure stays, the limit
         refuses a second when ``close_limit`` is reached)."""
         assert self.owner is not None
-        number = self.owner.channel_number(index)
+        number = self.owner.channel_map.number(index)
         self._backplane().check_channel(number)
         if self.closed(index):
             return
@@ -205,7 +205,7 @@ class MuxCard(Component):
         relay = max(float(self.param("relay_r")), 1e-9)
         mode = self._bus_mode()
         for index in self.closed_channels():
-            number = self.owner.channel_number(index)
+            number = self.owner.channel_map.number(index)
             circuit.resistor(node(f"ch{number}H"), node("bus_h"), relay)
             circuit.resistor(node(f"ch{number}L"), node("bus_l"), relay)
             pair = self.sense_pair(number) if mode == "FRESistance" else None
@@ -262,7 +262,7 @@ class MuxCard(Component):
 
     def readings(self) -> dict[str, Any]:
         assert self.owner is not None
-        numbers = [self.owner.channel_number(n) for n in self.closed_channels()]
+        numbers = [self.owner.channel_map.number(n) for n in self.closed_channels()]
         return {"values": {"closed": ", ".join(str(n) for n in numbers) or "—"}}
 
 
@@ -336,9 +336,9 @@ class ScanTable(Component):
         for number in numbers:
             self._backplane().check_channel(number)
         for number in numbers:  # every channel exists: now whether it can take its function
-            self.configure_for(self.owner.channel_index(number))
+            self.configure_for(self.owner.channel_map.index(number))
             self._mux().check_function(number)
-        return [self.owner.channel_index(number) for number in numbers]
+        return [self.owner.channel_map.index(number) for number in numbers]
 
     # ---- a Sampler for trigger_model -------------------------------------------------------------
 
@@ -385,7 +385,7 @@ class ScanTable(Component):
         self.configure_for(index_channel)
         self._mux().close_channel(index_channel)
         assert self.owner is not None
-        self._channel = self.owner.channel_number(index_channel)
+        self._channel = self.owner.channel_map.number(index_channel)
         value = float(self._dmm().measure())
         self._reading = value
         return value
@@ -410,7 +410,7 @@ class ScanTable(Component):
         assert self.owner is not None
         listed = [int(n) for n in self.param("list") or []]
         text = V.format_channel_list(listed).decode() if listed else "—"
-        closed = [self.owner.channel_number(n) for n in self._mux().closed_channels()]
+        closed = [self.owner.channel_map.number(n) for n in self._mux().closed_channels()]
         return {
             "values": {
                 "channel": self._channel,
