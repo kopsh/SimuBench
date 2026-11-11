@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from ...models import api as M
 from ...models.bench import Fault
 from .. import drive, views
-from ..manager import BenchInvalid, ClientsConnected, InstrumentRemote
+from ..manager import ClientsConnected, InstrumentRemote
 from ..services import clock as clock_service
 from ..services import faults
 from .context import IN_USE, ApiContext
@@ -47,18 +47,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
             s = await manager.start(
                 req.bench_path, clock=req.clock, seed=req.seed, force=req.force, time_scale=req.time_scale
             )
-        except ClientsConnected as exc:
-            raise in_use(exc) from None
-        except PermissionError as exc:
-            raise HTTPException(403, str(exc)) from None
-        except FileNotFoundError as exc:
-            raise HTTPException(404, str(exc)) from None
-        except BenchInvalid as exc:
-            raise HTTPException(
-                422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
-            ) from None
-        except (ValueError, KeyError) as exc:
-            raise HTTPException(422, str(exc).splitlines()[0]) from None
+        except Exception as exc:
+            err = ctx.lifecycle_error(exc)
+            if err is None:
+                raise
+            raise err from None
         return manager.views.describe(s)
 
     @router.get(
@@ -95,14 +88,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
         """Power-cycle the bench: fresh instruments, a new record, the same session id."""
         try:
             s = await manager.reset(sid, clock=req.clock, seed=req.seed, force=req.force)
-        except ClientsConnected as exc:
-            raise in_use(exc) from None
-        except BenchInvalid as exc:
-            raise HTTPException(
-                422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
-            ) from None
-        except (ValueError, KeyError) as exc:
-            raise HTTPException(422, str(exc).splitlines()[0]) from None
+        except Exception as exc:
+            err = ctx.lifecycle_error(exc, files=False)
+            if err is None:
+                raise
+            raise err from None
         return manager.views.describe(s)
 
     @router.get(
