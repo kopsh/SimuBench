@@ -1097,8 +1097,8 @@ class ScopeAcquisition(Component):
     def vertical_of(self, n: int) -> ScopeVertical:
         return self._module("vertical", f"ch{n}.{self.param('vertical')}")  # type: ignore[no-any-return]
 
-    def probe_ratio(self, n: int) -> float:
-        return float(self._module("probe", f"ch{n}.{self.param('probe')}").param("ratio"))
+    def probe_ratio(self, channel: int) -> float:
+        return float(self._module("probe", f"ch{channel}.{self.param('probe')}").param("ratio"))
 
     def probe_skew(self, n: int) -> float:
         """Channel n's skew (the setting and the unit's own), seconds; 0 without a probe module."""
