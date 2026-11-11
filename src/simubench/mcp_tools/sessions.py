@@ -14,13 +14,13 @@ from ..engine.events import project
 from ..engine.record import jsonable
 from ..models.bench import Fault
 from ..server.manager import ClientsConnected
-from ..server.views import fault_info
+from ..server.services import clock, faults
 from .context import McpContext, scpi_payload
 
 
 def _fault(f: Any) -> dict[str, Any]:
-    """The same fault shape the web API returns (fault_info in server.manager): one DTO, two seams."""
-    return fault_info(f).model_dump(mode="json")
+    """The same fault shape the web API returns (``FaultInfo``): one DTO, two seams."""
+    return f.model_dump(mode="json")
 
 
 def register(mcp: MCPServer, ctx: McpContext) -> None:
@@ -196,12 +196,10 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         force=true."""
         guard()
         control()
-        s = served(session_id)
         try:
-            s.session.advance(seconds, force=force)
+            return {"now_ns": clock.advance(served(session_id), seconds, force=force).now_ns}
         except ClientsConnected as exc:
             raise force_needed(exc) from None
-        return {"now_ns": s.session.now_ns}
 
     @mcp.tool()
     def inject_fault(fault: Fault, session_id: str | None = None) -> dict[str, Any]:
@@ -211,10 +209,8 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         (drift_per_s), hidden (set a parameter). at_s / duration_s / count limit it."""
         guard()
         control()
-        s = served(session_id)
         try:
-            with s.session.view():  # the injection and its report are one hold (#480)
-                return _fault(s.session.faults.inject(fault, source="mcp"))
+            return _fault(faults.inject(served(session_id), fault, source="mcp"))
         except (KeyError, ValueError) as exc:
             raise fail(exc) from None
 
@@ -222,21 +218,15 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
     def list_faults(session_id: str | None = None) -> list[dict[str, Any]]:
         """Faults of a session: pending, active and ended."""
         guard()
-        s = served(session_id)
-        # _fault reads the live states: convert inside the view, so a tick racing the read
-        # cannot tear it (#480).
-        with s.session.view():
-            return [_fault(f) for f in s.session.faults.snapshot()]
+        return [_fault(f) for f in faults.list_faults(served(session_id))]
 
     @mcp.tool()
     def clear_fault(fault_id: str, session_id: str | None = None) -> dict[str, Any]:
         """End a fault (simulation control; needs --allow-control)."""
         guard()
         control()
-        s = served(session_id)
         try:
-            with s.session.view():  # the report under the same hold as the clearing (#480)
-                return _fault(s.session.faults.clear(fault_id))
+            return _fault(faults.clear(served(session_id), fault_id))
         except KeyError as exc:
             raise fail(exc) from None
 

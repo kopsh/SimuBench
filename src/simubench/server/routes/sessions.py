@@ -10,7 +10,8 @@ from ...models import api as M
 from ...models.bench import Fault
 from .. import drive, views
 from ..manager import BenchInvalid, ClientsConnected, InstrumentRemote
-from ..views import fault_info
+from ..services import clock as clock_service
+from ..services import faults
 from .context import IN_USE, ApiContext
 
 
@@ -292,8 +293,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def clock(sid: str) -> M.ClockInfo:
-        s = served(sid).session
-        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
+        return clock_service.info(served(sid))
 
     @router.post(
         "/api/sessions/{sid}/clock/advance",
@@ -303,17 +303,12 @@ def build_router(ctx: ApiContext) -> APIRouter:
         responses=IN_USE,
     )
     def advance(sid: str, req: M.AdvanceRequest) -> M.ClockInfo:
-        sv = served(sid)
-        s = sv.session
         try:
-            # The clients guard rides inside advance (ServedSession wires it): check and clock
-            # move are one action, and no facade can forget the guard (#121, issue 624).
-            s.advance(req.seconds, force=req.force)
+            return clock_service.advance(served(sid), req.seconds, force=req.force)
         except ClientsConnected as exc:  # a RuntimeError: map before the plain 409 below
             raise in_use(exc) from None
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from None
-        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
 
     @router.post(
         "/api/sessions/{sid}/clock/scale",
@@ -323,12 +318,10 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     def clock_scale(sid: str, req: M.TimeScaleRequest) -> M.ClockInfo:
         """Change a scaled clock's rate while it runs; time already passed stays passed."""
-        s = served(sid).session
         try:
-            s.set_time_scale(req.scale)
+            return clock_service.set_scale(served(sid), req.scale)
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from None
-        return M.ClockInfo(mode=s.clock_mode, now_ns=s.now_ns, scale=s.time_scale)  # type: ignore[arg-type]
 
     @router.get(
         "/api/sessions/{sid}/instruments/{name}/readings",
@@ -349,11 +342,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def list_faults(sid: str) -> list[M.FaultInfo]:
-        s = served(sid)
-        # fault_info reads the live states: convert inside the view, so a tick racing the read
-        # cannot tear it (#480).
-        with s.session.view():
-            return [fault_info(f) for f in s.session.faults.snapshot()]
+        return faults.list_faults(served(sid))
 
     @router.post(
         "/api/sessions/{sid}/faults",
@@ -362,11 +351,8 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def inject_fault(sid: str, spec: Fault, client: str = Depends(client_of)) -> M.FaultInfo:
-        s = served(sid)
         try:
-            # The injection and the report of its state are one hold (#480, as list_faults).
-            with s.session.view():
-                return fault_info(s.session.faults.inject(spec, source=client))
+            return faults.inject(served(sid), spec, source=client)
         except KeyError as exc:
             raise not_found(exc) from None
         except ValueError as exc:
@@ -379,10 +365,8 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def clear_fault(sid: str, fault_id: str) -> M.FaultInfo:
-        s = served(sid)
         try:
-            with s.session.view():  # the report under the same hold as the clearing (#480)
-                return fault_info(s.session.faults.clear(fault_id))
+            return faults.clear(served(sid), fault_id)
         except KeyError as exc:
             raise not_found(exc) from None
 
