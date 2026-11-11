@@ -258,6 +258,15 @@ def _digest(data: bytes | None) -> str | None:
     return None if data is None else hashlib.sha256(data).hexdigest()
 
 
+def _round_frame(volts) -> bytes:
+    """One screen frame's volts as bytes, rounded to 1 nV: an ideal converter (sb-dso-4) passes
+    the analytic waveform on unquantized, and the last bits of a sine differ between platforms'
+    math libraries (Windows CI, #964). ``+ 0.0`` turns a value that rounded to ``-0.0`` (its sign
+    bit survives ``np.round``) into ``+0.0``, so a sample landing on a zero crossing hashes the
+    same on every platform (#970)."""
+    return (np.round(np.asarray(volts, dtype="<f8"), 9) + 0.0).astype("<f8").tobytes()
+
+
 def walk(case: str, show: bool = False) -> list[list]:
     """[command, reply digest, ns consumed] for every step, then the live screen's frame."""
     bench, dirs, steps = CASES[case]
@@ -281,18 +290,20 @@ def walk(case: str, show: bool = False) -> list[list]:
         acq = s.instruments["scope"].components["acq"]
         with s.view():
             shown, _, triggered = acq.compute(acq.displayed(), frame=1)
-        # Rounded to 1 nV: an ideal converter (sb-dso-4) passes the analytic waveform on unquantized,
-        # and the last bits of a sine differ between platforms' math libraries (Windows CI, #964).
-        volts = b"".join(
-            np.round(np.asarray(shown[n].volts, dtype="<f8"), 9).astype("<f8").tobytes()
-            for n in sorted(shown)
-        )
+        volts = b"".join(_round_frame(shown[n].volts) for n in sorted(shown))
         rows.append(["<screen frame 1>", _digest(volts), int(triggered)])
         if show:
             print(f"  screen: channels {sorted(shown)}, {len(volts) // 8} samples, triggered {triggered}")
         return rows
     finally:
         s.close()
+
+
+def test_the_screen_frame_digest_does_not_care_about_zero_sign():
+    """A sample on a zero crossing rounds to -0.0 or 0.0 depending on the platform's last bit; the
+    digest must be identical either way (#970)."""
+    assert _round_frame([-1e-12]) == _round_frame([1e-12])
+    assert _round_frame([-1e-12]) == _round_frame([0.0])
 
 
 @pytest.mark.parametrize("case", list(CASES))
