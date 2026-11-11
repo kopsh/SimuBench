@@ -14,6 +14,7 @@ from refcalc.noise import averaged_codes_sigma, quantized_sigma, sigma_interval
 
 from simubench.api import open_bench
 from simubench.engine.session import Session
+from simubench.engine.stream import FrameRequest
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.library.components.measurements import measure, top_base
 from simubench.library.loader import DefinitionLibrary, load_yaml
@@ -136,7 +137,8 @@ def test_the_noise_and_processing_flow():
     resolution, where averaging analog values and quantizing once would not; ERES,b is a boxcar
     of 4^b codes (at 2.0 bits the noise falls by four, the bandwidth with the window); peak
     detect keeps, of each interval's native codes, the exceptional one, and at the ADC's top rate
-    there is nothing to oversample so the record is the plain one."""
+    there is nothing to oversample so the record is the plain one; the screen frame averages the
+    same independent sub-acquisitions as the record (#971)."""
     session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
     query = _noise_query(session)
     acq = session.instruments["scope"].components["acq"]
@@ -164,6 +166,10 @@ def test_the_noise_and_processing_flow():
     lo, hi = sigma_interval(sigma, records[1].volts.size)
     assert lo <= float(np.std(records[1].volts)) <= hi
     assert float(np.std(records[1].volts)) < 0.25 * lsb  # the noise fell well below one code
+    # -- the screen frame averages the same independent sub-acquisitions (#967 fixed shared noise)
+    shown, _, _ = acq.compute(acq.displayed(), frame=1)
+    lo, hi = sigma_interval(sigma, shown[1].volts.size)
+    assert lo <= float(np.std(shown[1].volts)) <= hi
     # -- high resolution smooths codes and gains effective bits (was test_high_resolution_smooths_codes_and_gains_effective_bits)
     query(":ACQuire:TYPE NORMal")  # bridge: the previous act left AVERage,64; plain is unprocessed
     query(":CHANnel1:SCALe 0.5")
@@ -189,6 +195,34 @@ def test_the_noise_and_processing_flow():
     # Nothing to oversample: the peak record has the plain record's noise band (the type keeps
     # its own noise stream, so the realizations differ, the width does not).
     assert float(np.std(peaks[1].volts)) == pytest.approx(float(np.std(plain[1].volts)), rel=0.05)
+    session.close()
+
+
+def test_the_stream_blocks_carry_the_definition():
+    """The expanded chain speaks the definition (signal-chain.md 4.2, #971): the ADC's frames are
+    the codes kept in volts (D46) at the definition's bits and top rate, each sample on its code
+    grid; peak detect examines at the ADC's native rate — the record interval is oversampled,
+    capped by peak_max_oversample — and the other modes take the record's rate."""
+    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
+    scope = session.instruments["scope"]
+    adc, dec = scope.components["adc"], scope.components["dec"]
+    rate = adc.top_rate({1})  # CH1 alone: not a rate pair, so the definition's top rate
+    frame = adc.frames("out1", FrameRequest(0, 64, 1.0 / rate, key=("blocks",)))
+    assert (frame.fmt.kind, frame.fmt.bits) == ("volts", int(adc.param("bits")))
+    lsb = float(scope.get_state("ch1.scale")) / adc.codes_per_div()
+    assert frame.fmt.lsb == pytest.approx(lsb)  # what one code step is worth, from the definition
+    assert frame.dt_s == pytest.approx(1.0 / float(adc.param("max_rate")))
+    assert np.allclose(frame.data / lsb, np.round(frame.data / lsb))  # the codes, on their grid
+    session.write("scope", b":ACQuire:TYPE PEAK\n")
+    session.write("scope", b":TIMebase:SCALe 1E-2\n")  # the record's 10 µs at 2 GSa/s: 20000 native samples
+    assert (
+        dec.oversample() == 64
+    )  # capped by peak_max_oversample: the interval is examined at the native rate
+    assert dec.input_interval("out1") == pytest.approx(dec.sample_interval("out1") / 64)
+    session.write("scope", b":ACQuire:TYPE NORMal\n")
+    assert (
+        dec.oversample() == 1
+    )  # no oversampling off peak mode: the record's rate is what is asked of the ADC
     session.close()
 
 
