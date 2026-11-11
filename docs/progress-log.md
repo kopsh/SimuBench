@@ -1826,3 +1826,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 处理方式 × 触发 / 未触发 × 单 / 多通道 × 两种噪声键 × 屏幕帧 | ✅ DSO-X：普通、平均、峰值、高分辨率、双通道、自动未触发、运行中读取；SDS：四种处理、10 位、强制触发（噪声键 `time`）；UXR：平均、带宽滤波两种响应；WavePro：单次、运行、未触发、强制；sb-*：三种传输格式、双通道、未触发 |
 | 记录哈希不记原文；不用正则；不改 `src/` | ✅ |
 | 全量测试仍在 60 s 内 | ✅ 本文件约 4 s（6 个测试台各开一次） |
+
+## 示波器采集经采样流实现：`scope_adc.frames`、`scope_decimator`（Issue 950）
+
+示波器内部从“采集组件一手包办”改为真实的信号链：`探头 → scope_adc（采样流）→ scope_decimator（采集方式）→ scope_acquisition（定时、触发、存储）`。定义文件不改，宏 `_expand_stream` 在加载时补上抽取块与三段连线。`FrameRequest` 增加 `first`（网格上的起始序号）；帧缓存增加按采样数的限额；`Component.spec_of` 让同一个端口模式下的输入、输出有不同的介质；`MAX_FRAME`、`MAX_REQUEST_FANOUT` 改为 2²⁶、2²⁸（深存储的峰值检测一帧就超过原来的 2²²）。
+
+行为变化两处：`_boxcar`（高分辨率）原来少返回一个点，已修正（金标准中 DSO-X 的 HRES 与 SDS 的 ERES 各两行重录：在只含这一处修正的 `main` 上重录，确认其余行不变，再以它为准做重构）；屏幕帧在平均方式下各次子采集不再共用同一份噪声。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 金标准不改预期通过（除上述两行） | ✅ `tests/test_scope_stream_migration.py` 六个定义逐位相同 |
+| 现有 `tests/test_scope_*.py`、各型号用例、验收不改预期 | ✅ 全量通过；改动的测试只有三类：内部结构图的连线与引用（结构变了）、两处调用已删除的私有方法 `_noise`（改为等价的公开路径） |
+| 宏展开不移动作者所写组件与连线的位置，引用写错只报一次 | ✅ `tests/test_scope_modules.py`、`tests/test_validate_definition.py` 原有期望不变 |
+| 性能预算不放宽 | ✅ 全量测试时间与改动前相同（约 54 s） |
+| blocks / component-map / 文档同步 | ✅ `docs/blocks/oscilloscope.yaml` 增加 `decimator`；`signal-chain.md` 3.1、3.3、4.2 写明实现后的修正 |

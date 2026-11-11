@@ -114,36 +114,48 @@ def _expand_stream(data: Data, spec: Data) -> None:
     params = spec.setdefault("params", {})
     if not isinstance(params, dict) or "decimator" in params or not isinstance(params.get("adc"), str):
         return
-    acq, adc = str(spec["name"]), params["adc"]
+    acq = str(spec["name"])
     comps = data.setdefault("components", [])
+    chans = data.setdefault("channel_components", [])
     inst_wires = data.setdefault("wiring", {}).setdefault("instrument", [])
-    feed = next((i for i, (_, dst) in enumerate(inst_wires) if dst == f"{acq}.in{{n}}"), None)
-    adc_spec = next((c for c in comps if isinstance(c, dict) and c.get("name") == adc), None)
-    if feed is None or adc_spec is None:
-        return  # not shaped like a scope the checks accept: they report it
+    adcs = [c for c in comps if isinstance(c, dict) and c.get("type") == "scope_adc"]
+    # The ADC the acquisition names; when the name is wrong (the checks report that, once), the
+    # scope's only ADC, so the wrong name is not followed by complaints about the wiring.
+    adc_spec = next((c for c in adcs if c.get("name") == params["adc"]), adcs[0] if len(adcs) == 1 else None)
+    if adc_spec is None:
+        return
+    adc = str(adc_spec.get("name"))
     if any(isinstance(c, dict) and c.get("name") == DECIMATOR_NAME for c in comps):
         raise ValueError(
             f"{acq}: cannot add the decimator (the name {DECIMATOR_NAME!r} is taken); "
             "write the scope_decimator out and name it in the acquisition's decimator parameter"
         )
+
+    def named(key: str, among: list[Any], type_name: str) -> str:
+        """The acquisition's reference ``key`` when it names a component of the type, else nothing:
+        a wrong name is reported once, on the acquisition, not again on the modules it is copied to."""
+        value = params.get(key)
+        fits = (isinstance(c, dict) and c.get("name") == value and c.get("type") == type_name for c in among)
+        return value if any(fits) else ""
+
     moved = {key: params.pop(key) for key in STREAM_PARAMS if key in params}
     dec = {
         "name": DECIMATOR_NAME,
         "type": "scope_decimator",
-        "params": {"adc": adc, "horizontal": params.get("horizontal", ""), **moved},
+        "params": {"adc": adc, "horizontal": named("horizontal", comps, "scope_timebase"), **moved},
     }
     adc_params = adc_spec.setdefault("params", {})
-    for key, source in (("vertical", "vertical"), ("probe", "probe"), ("clock", "horizontal")):
-        if params.get(source):
-            adc_params.setdefault(key, params[source])
+    for key in ("vertical", "probe"):
+        if named(key, chans, f"scope_{key}"):
+            adc_params.setdefault(key, params[key])
     params["decimator"] = DECIMATOR_NAME
-    comps.insert(next(i for i, c in enumerate(comps) if c is adc_spec) + 1, dec)
-    source = inst_wires[feed][0]
-    inst_wires[feed : feed + 1] = [
-        [source, f"{adc}.in{{n}}"],
-        [f"{adc}.out{{n}}", f"{DECIMATOR_NAME}.in{{n}}"],
-        [f"{DECIMATOR_NAME}.out{{n}}", f"{acq}.in{{n}}"],
-    ]
+    # Added at the end, so the positions of what the author wrote (which the checks point at) stay.
+    comps.append(dec)
+    feed = next((i for i, (_, dst) in enumerate(inst_wires) if dst == f"{acq}.in{{n}}"), None)
+    if feed is not None:
+        inst_wires[feed] = [inst_wires[feed][0], f"{adc}.in{{n}}"]
+        inst_wires.append([f"{adc}.out{{n}}", f"{DECIMATOR_NAME}.in{{n}}"])
+        inst_wires.append([f"{DECIMATOR_NAME}.out{{n}}", f"{acq}.in{{n}}"])
 
 
 #: Parameters an acquisition written the earlier way (one component) gives each module, and the

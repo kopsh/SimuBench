@@ -13,8 +13,8 @@ import numpy as np
 
 from ...engine.component import Component, OpResult, PortSpec, binding_of, component, op
 from ...engine.noise import gaussian, stream_key, uniform
-from ...engine.stream import FrameRequest, SampleFormat, SampleFrame
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
+from ...engine.stream import FrameRequest, SampleFormat, SampleFrame
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
@@ -386,8 +386,8 @@ def _boxcar(v: np.typing.NDArray[np.float64], w: int) -> np.typing.NDArray[np.fl
     (high resolution, F4/D46: white noise falls by sqrt(w), the bandwidth by the window)."""
     if w <= 1:
         return v
-    c = np.cumsum(np.pad(v, (w // 2, w - 1 - w // 2), mode="edge"))
-    return (c[w:] - c[:-w]) / w
+    c = np.concatenate(([0.0], np.cumsum(np.pad(v, (w // 2, w - 1 - w // 2), mode="edge"))))
+    return (c[w:] - c[:-w]) / w  # as many samples as it was given, each the mean of its own window
 
 
 @dataclass
@@ -449,12 +449,10 @@ class ScopeAdc(Component):
     a converter, so with both on the top rate is ``max_rate_paired``."""
 
     port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
-    refs = {
-        "vertical": ("scope_vertical", "channel"),
-        "probe": ("scope_probe", "channel"),
-        "clock": ("scope_timebase", "instrument"),
-    }
-    optional_refs = frozenset({"vertical", "probe", "clock"})
+    refs = {"vertical": ("scope_vertical", "channel"), "probe": ("scope_probe", "channel")}
+    # The acquisition macro fills these from the acquisition's own (library/macros.py); a frame
+    # asks for the vertical module when it is made.
+    optional_refs = frozenset({"vertical", "probe"})
     defaults = {
         "bits": 0,  # 0: records are not quantized
         "codes_per_div": 0.0,  # 0: 2**bits / divs
@@ -465,7 +463,6 @@ class ScopeAdc(Component):
         "rate_pairs": [],  # channels sharing a converter, e.g. [[1, 2], [3, 4]]
         "vertical": "",  # the per-channel scope_vertical component: the scale, offset and input noise
         "probe": "",  # the per-channel scope_probe component: its ratio (noise) and skew
-        "clock": "",  # the scope_timebase component: the rate an ADC without a top rate runs at
     }
     units = {"max_rate": "Sa/s", "max_rate_paired": "Sa/s"}
 
@@ -500,15 +497,15 @@ class ScopeAdc(Component):
 
     # ---- the sample stream ------------------------------------------------------------------------
 
-    def _vertical(self, n: int) -> ScopeVertical:
-        comp = self.peer(f"ch{n}.{self.param('vertical')}", required=True)
-        assert comp is not None
-        return comp  # type: ignore[return-value]
+    def _vertical(self, n: int) -> Any:
+        """Channel n's scope_vertical module."""
+        return self.peer(f"ch{n}.{self.param('vertical')}", required=True)
 
-    def _probe(self, n: int) -> ScopeProbe | None:
+    def _probe(self, n: int) -> Any:
+        """Channel n's scope_probe module, None when the scope has none."""
         if not self.param("probe"):
             return None
-        return self.peer(f"ch{n}.{self.param('probe')}", required=True)  # type: ignore[return-value]
+        return self.peer(f"ch{n}.{self.param('probe')}", required=True)
 
     def analog(self, n: int) -> Signal:
         """Channel n's signal at the converter's input, in display volts: what the trigger
@@ -529,19 +526,20 @@ class ScopeAdc(Component):
         clipped = False
         if bits > 0:
             top, bottom = self.quantize(np.array([1e30, -1e30]), scale, offset)
-            clipped = bool(kept.max() >= top or kept.min() <= bottom)
+            clipped = bool(np.max(kept) >= top or np.min(kept) <= bottom)
         fmt = SampleFormat("volts", bits=bits, lsb=scale / self.codes_per_div() if bits > 0 else 0.0)
         return SampleFrame(kept, request.t0_ns, request.dt_s, fmt, clipped=clipped)
 
     def sample_interval(self, port: str) -> float:
-        """The converter's own interval: its top rate with the channels that are on; one without a
-        top rate runs at the record's rate (``clock``)."""
+        """The converter's own interval: its top rate with the channels that are on. One without a
+        top rate has no rate of its own — it samples whenever it is asked (read the decimator's
+        output, at the record's rate)."""
         top = self.top_rate(set(_displayed(self)))
-        if math.isfinite(top):
-            return 1.0 / top
-        clock = self.peer(str(self.param("clock")), required=True)
-        assert clock is not None
-        return float(clock.timing(top)[1])  # type: ignore[attr-defined]
+        if not math.isfinite(top):
+            raise ScpiError(
+                -221, f"{self.uid}: no top sample rate (max_rate is 0); it runs at the rate asked of it"
+            )
+        return 1.0 / top
 
 
 @component("scope_decimator")
@@ -568,6 +566,7 @@ class ScopeDecimator(Component):
 
     port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
     refs = {"adc": ("scope_adc", "instrument"), "horizontal": ("scope_timebase", "instrument")}
+    optional_refs = frozenset({"adc", "horizontal"})  # filled by the acquisition macro; asked for at a frame
     defaults = {
         "adc": "",  # the scope_adc component: its top rate
         "horizontal": "",  # the scope_timebase component: the record's rate
@@ -583,6 +582,13 @@ class ScopeDecimator(Component):
             return _SAMPLES_IN if port.startswith("in") else _SAMPLES_OUT
         return None
 
+    def _modules(self) -> tuple[Any, Any]:
+        """The scope_adc and the scope_timebase this block reads its rates from."""
+        return (
+            self.peer(str(self.param("adc")), required=True),
+            self.peer(str(self.param("horizontal")), required=True),
+        )
+
     def averages(self) -> int:
         """Acquisitions one record takes (1 unless averaging)."""
         return max(1, int(self.param("averages"))) if str(self.param("processing")) == "average" else 1
@@ -593,11 +599,9 @@ class ScopeDecimator(Component):
         too; every other mode takes the record's rate."""
         if str(self.param("processing")) != "peak":
             return 1
-        adc_unit = self.peer(str(self.param("adc")), required=True)
-        horizontal = self.peer(str(self.param("horizontal")), required=True)
-        assert adc_unit is not None and horizontal is not None
-        top = adc_unit.top_rate(set(_displayed(self)))  # type: ignore[attr-defined]
-        rate = horizontal.sample_rate(top)  # type: ignore[attr-defined]
+        adc_unit, horizontal = self._modules()
+        top = adc_unit.top_rate(set(_displayed(self)))
+        rate = horizontal.sample_rate(top)
         if rate > 0 and top > rate:
             return max(1, min(int(self.param("peak_max_oversample")), round(top / rate)))
         return 1
@@ -623,10 +627,8 @@ class ScopeDecimator(Component):
 
     def sample_interval(self, port: str) -> float:
         """The record's sample interval with the current settings."""
-        adc_unit = self.peer(str(self.param("adc")), required=True)
-        horizontal = self.peer(str(self.param("horizontal")), required=True)
-        assert adc_unit is not None and horizontal is not None
-        return float(horizontal.timing(adc_unit.top_rate(set(_displayed(self))))[1])  # type: ignore[attr-defined]
+        adc_unit, horizontal = self._modules()
+        return float(horizontal.timing(adc_unit.top_rate(set(_displayed(self))))[1])
 
 
 def peak_detect(samples: np.typing.NDArray[np.float64], m: int) -> np.typing.NDArray[np.float64]:
@@ -1204,6 +1206,7 @@ class ScopeAcquisition(Component):
         "vertical": ("scope_vertical", "channel"),
         "probe": ("scope_probe", "channel"),
     }
+    optional_refs = frozenset({"decimator"})  # filled by the acquisition macro; asked for at an acquisition
     defaults = {
         "horizontal": "",  # the scope_timebase component
         "trigger": "",  # the scope_trigger component
@@ -1273,8 +1276,9 @@ class ScopeAcquisition(Component):
     def adc_unit(self) -> ScopeAdc:
         return self._module("adc")  # type: ignore[no-any-return]
 
-    def decimator_unit(self) -> ScopeDecimator:
-        return self._module("decimator")  # type: ignore[no-any-return]
+    def decimator_unit(self) -> Any:
+        """The scope_decimator module."""
+        return self._module("decimator")
 
     def vertical_of(self, n: int) -> ScopeVertical:
         return self._module("vertical", f"ch{n}.{self.param('vertical')}")  # type: ignore[no-any-return]
@@ -1428,7 +1432,9 @@ class ScopeAcquisition(Component):
             scale, offset = self.scale_offset(n)
             # The channel's chain (ADC, then the decimator's acquisition mode) gives the record's
             # samples: the codes, as volts (D46: they are kept).
-            volts = self.input_frames(f"in{n}", self._request(n, t0, start, dt, points, t_start_ns, m, frame)).data
+            volts = self.input_frames(
+                f"in{n}", self._request(n, t0, start, dt, points, t_start_ns, m, frame)
+            ).data
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,

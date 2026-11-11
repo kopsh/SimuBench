@@ -29,10 +29,10 @@ from ..scpi.errors import ScpiError
 from .signal import FidelityNote
 
 #: Most samples in one frame.
-MAX_FRAME = 1 << 22
+MAX_FRAME = 1 << 26
 #: Most samples one read may ask for along a whole chain (every block's request, added up): a
 #: decimate-by-1000 block in front of a 1 M-point frame asks its upstream for 1 G samples.
-MAX_REQUEST_FANOUT = 1 << 26
+MAX_REQUEST_FANOUT = 1 << 28
 #: Frames a session keeps (newest first to stay): enough for one read's repeated requests and the
 #: internal probe, not a store.
 FRAME_CACHE_SIZE = 64
