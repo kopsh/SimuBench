@@ -72,18 +72,18 @@ class CommandRunner:
                 if compiled.pattern.common and compiled.pattern.match(tokens) is not None:
                     return self._run(compiled, unit, None, {})
             word = unit.tokens[0].keyword
-            if not self.inst._builtin_allowed(f"*{word}"):
-                raise self.inst._undefined(unit, tokens, builtin=f"*{word}" in COMMON_BUILTINS)
+            if not self.inst.common._builtin_allowed(f"*{word}"):
+                raise self.inst.errs._undefined(unit, tokens, builtin=f"*{word}" in COMMON_BUILTINS)
             q_ok, s_ok = COMMON_DIRECTIONS.get(word, (True, True))
             if (unit.query and not q_ok) or (not unit.query and not s_ok):
-                raise self.inst._undefined(unit, tokens)
+                raise self.inst.errs._undefined(unit, tokens)
             if word == "OPC" and unit.query:
                 return self.inst.opc_query()
             if word == "WAI":
                 return None, self.inst.wait_pending()
             if word == "TRG" and not unit.query:
-                return self.inst._bus_trigger(unit)
-            return self.inst._common(unit), 0
+                return self.inst.common._bus_trigger(unit)
+            return self.inst.common._common(unit), 0
         refused: CommandSpec | None = None  # a header that matched, with other parameter values
         for compiled in self.inst._commands:
             if compiled.pattern.common:
@@ -109,16 +109,20 @@ class CommandRunner:
         if refused is not None:
             raise ScpiError(-224, f"{unit.raw_header}: parameter not implemented in this definition")
         named = named_builtin(tokens)
-        if named is not None and not self.inst._builtin_allowed(named):
-            raise self.inst._undefined(unit, tokens, builtin=True)  # the definition's builtins leave it out
+        if named is not None and not self.inst.common._builtin_allowed(named):
+            raise self.inst.errs._undefined(
+                unit, tokens, builtin=True
+            )  # the definition's builtins leave it out
         builtin = (
-            self.inst._builtin(unit, tokens) if self.inst._builtins is None or named is not None else None
+            self.inst.common._builtin(unit, tokens)
+            if self.inst._builtins is None or named is not None
+            else None
         )
         if builtin is _HANDLED:
             return None, 0
         if builtin is not None:
             return builtin, 0
-        raise self.inst._undefined(unit, tokens)
+        raise self.inst.errs._undefined(unit, tokens)
 
     def _run(
         self, compiled: _Compiled, unit: Unit, channel: int | None, suffixes: dict[str, int]
@@ -162,7 +166,7 @@ class CommandRunner:
         fields: dict[str, str] | None = None,
     ) -> bytes:
         template = compiled.spec.reply
-        mode = self.inst.echo_mode()
+        mode = self.inst.common.echo_mode()
         if template is None and mode == "off":
             return body
         template = template or "{header} {value}"
@@ -220,7 +224,7 @@ class CommandRunner:
             try:
                 self.inst.set_state(path, [V.parse_enum(p, st.options or []) for p in unit.params])
             except ScpiError as e:
-                raise self.inst._bad_parameter(e, path, st) from e
+                raise self.inst.errs._bad_parameter(e, path, st) from e
             return None
         if len(unit.params) > 1 and st.type != "string":
             raise ScpiError(-108)
@@ -237,7 +241,7 @@ class CommandRunner:
                 value = self._parse_state(st, unit.params[0], path)
             self.inst.set_state(path, value)
         except ScpiError as e:
-            raise self.inst._bad_parameter(e, path, st) from e
+            raise self.inst.errs._bad_parameter(e, path, st) from e
         return None
 
     def _check_all(self, writes: Iterable[tuple[str, Any]]) -> dict[str, Any]:
@@ -249,7 +253,7 @@ class CommandRunner:
             try:
                 checked[path] = self.inst._validate(self.inst.specs[path], v)
             except ScpiError as e:
-                raise self.inst._bad_parameter(e, path, self.inst.specs[path]) from e
+                raise self.inst.errs._bad_parameter(e, path, self.inst.specs[path]) from e
         return checked
 
     def _commit(self, checked: dict[str, Any]) -> None:
@@ -293,7 +297,7 @@ class CommandRunner:
             else:
                 value = self._index_value(ps, token, channel)
             if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
-                raise self.inst._bad_parameter(
+                raise self.inst.errs._bad_parameter(
                     ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps
                 )
             index[ps.name] = value
@@ -338,7 +342,7 @@ class CommandRunner:
                 try:
                     value = self._parse_state(self.inst.specs[path], token, path)
                 except ScpiError as e:
-                    raise self.inst._bad_parameter(e, path, self.inst.specs[path]) from e
+                    raise self.inst.errs._bad_parameter(e, path, self.inst.specs[path]) from e
                 # `sets` goes with an explicit value (a number, MIN, MAX): a special word of the
                 # setting (AUTO) or DEF keeps what the command's `writes` chose (#325:
                 # CONF:VOLT:DC AUTO leaves autorange on).
@@ -481,7 +485,7 @@ class CommandRunner:
         try:
             writes = self._parse_quantities(ps, unit.params, channel)
         except ScpiError as e:
-            raise self.inst._bad_parameter(e, ps.name, ps) from e
+            raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
         self._commit(self._check_all(writes.items()))
         return None
 
@@ -698,10 +702,10 @@ class CommandRunner:
         if st.type == "enum":
             if st.replies and value in st.replies:
                 return st.replies[value].encode()  # the instrument's own query word (#268)
-            long = f.enum == "long" or self.inst.long_form()
+            long = f.enum == "long" or self.inst.common.long_form()
             return V.format_enum(value, long=long, as_defined=f.enum == "as_defined")
         if st.type == "enum_list":
-            long = f.enum == "long" or self.inst.long_form()
+            long = f.enum == "long" or self.inst.common.long_form()
             return b",".join(V.format_enum(v, long=long, as_defined=f.enum == "as_defined") for v in value)
         if st.type == "int_list":
             return V.format_channel_list(value)
@@ -895,7 +899,7 @@ class CommandRunner:
                 else:
                     out[ps.name] = V.parse_string(r)
             except ScpiError as e:
-                raise self.inst._bad_parameter(e, ps.name, ps) from e
+                raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
         if i < len(raw):
             raise ScpiError(-108)
         return out

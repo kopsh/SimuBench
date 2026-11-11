@@ -152,12 +152,12 @@ def _route(inst: Instrument, message: str) -> tuple[list[tuple[str, str | None]]
         return None
 
     inst.runner._run = run_recorder  # the command layer lives in CommandRunner (#895)
-    inst._common = record("_common")
+    inst.common._common = record("_common")
     inst.opc_query = record("opc_query")
     inst.wait_pending = record("wait_pending")
     inst.arm_opc = record("arm_opc")
-    inst._bus_trigger = record("_bus_trigger")
-    inst._builtin = builtin_recorder
+    inst.common._bus_trigger = record("_bus_trigger")
+    inst.common._builtin = builtin_recorder
     # The dispatch prelude settles waits and samples status registers (#575) — real instrument
     # behaviour, not routing; a component's register condition may read the circuit, which this
     # harness does not build. Routing equivalence is about the command, not the sampling.

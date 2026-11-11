@@ -8,27 +8,24 @@ import math
 import time
 from collections import defaultdict
 from collections.abc import Callable
-from dataclasses import replace
 from typing import TYPE_CHECKING, Any
 
 from ..models.bench import LIVE_CLOCKS
-from ..models.definition import InstrumentDefinition, ParamSpec, StateSpec
+from ..models.definition import InstrumentDefinition, StateSpec
 from ..scpi import values as V
-from ..scpi.errors import ESR_BITS, ErrorQueue, ScpiError
+from ..scpi.errors import ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
+from .builtin_commands import BuiltinCommands
 from .command_runner import (
-    _HANDLED,
-    NOT_MODELED,
     CommandRunner,
     _Compiled,
 )
 from .commands import (
-    SYST_BUILTINS,
     _header_key,
-    builtin_allowed,
 )
 from .component import Component, component_type, noise_problems
 from .coverage_advice import CoverageAdvisor
+from .error_reporter import ErrorReporter, _Ignored
 from .portref import split
 from .settings import SettingStore
 from .signal import Signal
@@ -53,28 +50,6 @@ def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
     return comp, port
 
 
-#: Parameter errors a definition's declaration explains (tui-design.md 1.1): out of range (-222),
-#: wrong type (-104), a value outside the declared options (-224). -224 with the "not modeled by
-#: SimuBench" marker is a declared modeling gap instead, not a bad parameter.
-BAD_PARAMETER_CODES = frozenset({-104, -222, -224})
-
-
-def _declared_range(spec: StateSpec | ParamSpec | None) -> str | None:
-    """The range or options a definition declares, compactly: '-210 … 210 V' or 'SINusoid, SQUARE'."""
-    if spec is None:
-        return None
-    options = getattr(spec, "options", None)
-    if options:
-        return ", ".join(options)
-    lo, hi = getattr(spec, "min", None), getattr(spec, "max", None)
-    if lo is None and hi is None:
-        return None
-    unit = getattr(spec, "unit", None) or ""
-    low = "-∞" if lo is None else f"{lo:g}"
-    high = "∞" if hi is None else f"{hi:g}"
-    return f"{low} … {high}{f' {unit}' if unit else ''}"
-
-
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
     """Snap ``value`` to the nearest rung on a log scale."""
     if value <= 0:
@@ -94,10 +69,6 @@ def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: f
     return min(rungs, key=lambda r: abs(math.log10(r) - math.log10(value)))
 
 
-class _Ignored(Exception):
-    """An unknown header on an instrument whose definition ignores unknown commands."""
-
-
 class Instrument:
     """A running instrument inside a session."""
 
@@ -113,6 +84,8 @@ class Instrument:
         self.instance = instance
         self.session = session
         self.runner = CommandRunner(self)
+        self.errs = ErrorReporter(self)
+        self.common = BuiltinCommands(self)
         self.channel_count = definition.channels.count
         self._init_channel_numbering(definition)
         self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
@@ -454,6 +427,25 @@ class Instrument:
         """A number in the definition's response format (a reading, a measured value)."""
         return self.runner.format_number(value)
 
+    # ---- BuiltinCommands (#895) ----------------------------------------
+
+    @property
+    def idn(self) -> str:
+        return self.common.idn
+
+    def stb(self, commit: bool = True) -> int:
+        """The status byte (see :meth:`BuiltinCommands.stb`)."""
+        return self.common.stb(commit=commit)
+
+    def status_event(self, name: str) -> None:
+        """Latch a momentary event into the status registers (see :meth:`BuiltinCommands.status_event`)."""
+        self.common.status_event(name)
+
+    # ---- ErrorReporter (#895) ----------------------------------------
+
+    def push_error(self, *args: Any, **kwargs: Any) -> Any:
+        return self.errs.push_error(*args, **kwargs)
+
     def now_ns(self) -> int:
         """The instrument's present: the session's time plus what the current message has used."""
         return self.session.now_ns + self._elapsed_ns
@@ -568,7 +560,7 @@ class Instrument:
         """Execute a program message; queue responses. Returns the virtual time consumed (ns)."""
         if self._output:
             self._output.clear()
-            self._push(ScpiError(-410))
+            self.errs._push(ScpiError(-410))
         responses: list[bytes] = []
         duration = 0
         self._elapsed_ns = 0
@@ -576,13 +568,13 @@ class Instrument:
         try:
             units = split_units(message)
         except ScpiError as e:
-            self._push(e)
+            self.errs._push(e)
             return 0
         for raw in units:
             try:
                 unit = parse_unit(raw)
             except ScpiError as e:
-                self._push(e)
+                self.errs._push(e)
                 continue
             tokens = resolve_tokens(unit, path)
             if not unit.common:
@@ -594,10 +586,10 @@ class Instrument:
                 if resp is not None:
                     responses.append(resp)
             except ScpiError as e:
-                self._push(self._parameter_error(e))
+                self.errs._push(self.errs._parameter_error(e))
             except Exception as e:  # a model defect must not take the client's script down
                 log.exception("%s: internal error executing %r", self.name, unit.raw_header)
-                self._push(
+                self.errs._push(
                     ScpiError(-300, f"internal simulator error in {unit.raw_header}: {type(e).__name__}")
                 )
         if responses:
@@ -653,97 +645,7 @@ class Instrument:
     def has_output(self) -> bool:
         return bool(self._output)
 
-    def _push(self, err: ScpiError) -> None:
-        detail = err.detail
-        if err.text is None:
-            table = self.definition.errors.get(err.code)
-            if table is not None or self.real:
-                # A real model answers with its manual's text only; the detail stays in the event.
-                err = replace(err, text=table if table is not None else err.standard_text)
-        self.errors.push(err)
-        self.esr |= 1 << ESR_BITS[err.esr_class]
-        data: dict[str, Any] = {"code": err.code, "message": err.message}
-        if err.text is not None and detail and detail not in err.message:
-            data["message"] = f"{err.message} ({detail})"
-        reason = err.reason
-        if reason is None and (
-            (err.text is not None and err.text.endswith(NOT_MODELED)) or NOT_MODELED in detail
-        ):
-            reason = "not_modeled"  # a command, or a parameter value, this definition does not implement
-        if reason is not None:
-            data["reason"] = reason
-        for key in ("origin", "closest", "param", "range"):
-            value = getattr(err, key)
-            if value is not None:
-                data[key] = value
-        self.session.instrument_event(self, "error", data)
-
-    def _error_reply(self, err: ScpiError) -> bytes:
-        """An error queue entry as :SYSTem:ERRor? writes it, in the manual's form for a real model."""
-        if err.code == 0 and 0 in self.definition.errors:
-            err = ScpiError(0, text=self.definition.errors[0])
-        sign = "+" if self.definition.format.error_code == "signed" and err.code >= 0 else ""
-        return f'{sign}{err.code},"{err.message}"'.encode()
-
-    def _undefined(self, unit: Unit, tokens: tuple[Token, ...], *, builtin: bool = False) -> ScpiError:
-        """-113 for a header the definition does not have, classified by where its declaration
-        lives (tui-design.md 1.1): the coverage table, the definition, or the model's ``builtins``.
-        The reply says the header is not implemented *in this definition*: the basis (a vendor
-        manual, a design specification or a contract) belongs to the definition's author (#172).
-
-        ``builtin``: a built-in header the definition's ``builtins`` leaves out. Raises
-        :class:`_Ignored` instead when the definition ignores unknown commands.
-        """
-        header = unit.raw_header
-        if self.definition.unknown_commands == "ignore":
-            raise _Ignored(header)
-        if builtin:
-            return ScpiError(
-                -113,
-                header,
-                text=self._undefined_text(header),
-                reason="builtin_excluded",
-                origin=self.source_file,
-            )
-        reason, origin, closest = self.coverage.classify(unit, tokens)
-        return ScpiError(
-            -113, header, text=self._undefined_text(header), reason=reason, origin=origin, closest=closest
-        )
-
-    def _undefined_text(self, header: str) -> str | None:
-        """The -113 reply: a definition with a reference says the header is not implemented in it."""
-        if not self.real:
-            return None
-        base = self.definition.errors.get(-113, ScpiError(-113).standard_text)
-        return f"{base};{NOT_MODELED}"
-
-    def push_error(self, code: int, detail: str = "") -> None:
-        """Queue a device error from a component (e.g. an overload)."""
-        self._push(ScpiError(code, detail))
-
-    def _parameter_error(self, err: ScpiError) -> ScpiError:
-        """A parameter error a command raised without naming its parameter (a component's check):
-        still classified, with the declared range left out (tui-design.md 1.1). Device errors never
-        come through here — they are queued with :meth:`push_error` instead."""
-        if err.reason is None and err.code in BAD_PARAMETER_CODES and NOT_MODELED not in err.detail:
-            return replace(err, reason="bad_parameter")
-        return err
-
-    def _bad_parameter(
-        self, err: ScpiError, param: str | None, spec: StateSpec | ParamSpec | None
-    ) -> ScpiError:
-        """A parameter error raised where the definition's declaration is known: name the parameter
-        and its declared range. The "not implemented in this definition" refusals keep their own category."""
-        if err.reason is not None or err.code not in BAD_PARAMETER_CODES or NOT_MODELED in err.detail:
-            return err
-        return replace(
-            err, reason="bad_parameter", origin=self.source_file, param=param, range=_declared_range(spec)
-        )
-
     # ---- command execution --------------------------------------------------------------------------
-
-    def _builtin_allowed(self, header: str) -> bool:
-        return builtin_allowed(self.definition, header)
 
     def _execute(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         try:
@@ -798,163 +700,12 @@ class Instrument:
 
     # ---- replies: the dialect's header echo and the command's template ------------------------------
 
-    def echo_mode(self) -> str:
-        """off, short or long: whether and how replies repeat the command header (dialect.echo_header)."""
-        mode = self.definition.dialect.echo_header
-        if mode.startswith("$"):
-            value = self.state.get(mode[1:], "off")
-            if isinstance(value, bool):  # a header switch (Infiniium :SYSTem:HEADer, #602)
-                value = "short" if value else "off"
-            mode = str(value)
-        mode = mode.lower()
-        if mode == "short" and self.long_form():
-            return "long"
-        return mode
-
-    def long_form(self) -> bool:
-        """Whether replies are long: long headers and spelled-out enumerations (dialect.long_form)."""
-        path = self.definition.dialect.long_form
-        return bool(path) and bool(self.state.get(path[1:], False))
-
     # ---- settings --------------------------------------------------------------------------------------
 
     # ---- IEEE 488.2 common commands and SYSTem ------------------------------------------------------
 
-    @property
-    def idn(self) -> str:
-        d = self.definition
-        return (self.instance.idn or d.identity.idn).format(
-            manufacturer=d.manufacturer.upper(), model=d.model, serial=self.serial, firmware=self.firmware
-        )
-
-    def status_event(self, name: str) -> None:
-        """A momentary event (a trigger, a range change) for the instrument's status registers:
-        every ``status_register`` with a bit of that name latches it (#248, #273)."""
-        for comp in self._status_registers():
-            comp.event(name)  # type: ignore[attr-defined]
-
-    def stb(self, commit: bool = True) -> int:
-        """The status byte. ``commit=False`` only looks: the condition transitions the status
-        registers have not latched yet stay unlatched, so an observer cannot change what a later
-        ``*ESR?`` says."""
-        stb = 0
-        for comp in self._status_registers():  # status registers' summary bits (#248, #273)
-            bit = comp.param("summary_bit")
-            if bit is not None and comp.summary(commit):  # type: ignore[attr-defined]
-                stb |= 1 << int(bit)
-        if len(self.errors):
-            stb |= 1 << 2
-        if self._output:
-            stb |= 1 << 4
-        if self.esr & self.ese:
-            stb |= 1 << 5
-        if stb & self.sre & ~(1 << 6):
-            stb |= 1 << 6
-        return stb
-
-    def _common(self, unit: Unit) -> bytes | None:
-        word = unit.tokens[0].keyword
-        q = unit.query
-        if word == "IDN" and q:
-            return self.idn.encode()
-        if word == "RST" and not q:
-            self.reset()
-            return None
-        if word == "CLS" and not q:
-            self.errors.clear()
-            self.esr = 0
-            for comp in self._status_registers():
-                comp.clear()  # type: ignore[attr-defined]
-            self._opc_armed = False
-            return None
-        if word == "OPC" and not q:
-            self.arm_opc()
-            return None
-        if word == "ESR" and q:
-            v, self.esr = self.esr, 0
-            return str(v).encode()
-        if word == "ESE":
-            if q:
-                return str(self.ese).encode()
-            self.ese = V.parse_int(unit.params[0]) & 0xFF if unit.params else 0
-            return None
-        if word == "SRE":
-            if q:
-                return str(self.sre).encode()
-            self.sre = V.parse_int(unit.params[0]) & 0xFF if unit.params else 0
-            return None
-        if word == "STB" and q:
-            return str(self.stb()).encode()
-        if word == "TST" and q:
-            return b"0"
-        raise self._undefined(unit, unit.tokens)
-
-    def _bus_trigger(self, unit: Unit) -> tuple[bytes | None, int]:
-        """``*TRG``: the bus trigger of every component with a ``bus_trigger`` operation (each
-        channel's trigger model of a multi-channel SMU, #382). A component that refuses it (not
-        waiting for a trigger) is left out while another one takes it; when none takes it, the
-        first one's error stands — a single trigger model answers exactly as before."""
-        fns = [fn for comp in self.components.values() if (fn := comp.operation("bus_trigger"))]
-        if not fns:
-            raise self._undefined(unit, unit.tokens)
-        response: bytes | None = None
-        duration = 0
-        first_error: ScpiError | None = None
-        taken = False
-        for fn in fns:
-            try:
-                result = fn()
-            except ScpiError as e:
-                first_error = first_error or e
-                continue
-            taken = True
-            response = response if response is not None else result.response
-            duration = max(duration, result.duration_ns)
-        if not taken and first_error is not None:
-            raise first_error
-        return response, duration
-
     def clock(self) -> dt.datetime:
         return self.session.calendar() + self.clock_offset
-
-    def _builtin(self, unit: Unit, tokens: tuple[Token, ...]) -> bytes | None:
-        """A built-in command's reply; ``_HANDLED`` for one without a reply, None when not built in."""
-        err, count, all_, date, time_ = (p for _h, p, _q, _s in SYST_BUILTINS)
-        if unit.query and err.match(tokens) is not None:
-            return self._error_reply(self.errors.pop())
-        if unit.query and count.match(tokens) is not None:
-            return str(len(self.errors)).encode()
-        if unit.query and all_.match(tokens) is not None:
-            items = []
-            while len(self.errors):
-                items.append(self._error_reply(self.errors.pop()))
-            return b",".join(items or [self._error_reply(ScpiError(0))])
-        if date.match(tokens) is not None or time_.match(tokens) is not None:
-            return self._clock_command(unit, date=date.match(tokens) is not None)
-        return None
-
-    def _clock_command(self, unit: Unit, *, date: bool) -> bytes:
-        """:SYSTem:DATE yyyy,mm,dd and :SYSTem:TIME hh,mm,ss (IEEE 488.2 style), on the session calendar."""
-        now = self.clock()
-        if unit.query:
-            if date:
-                return f"{now.year:04d},{now.month:02d},{now.day:02d}".encode()
-            return f"{now.hour:02d},{now.minute:02d},{now.second + now.microsecond / 1e6:06.3f}".encode()
-        if len(unit.params) != 3:
-            raise ScpiError(-109 if len(unit.params) < 3 else -108)
-        try:
-            a, b, c = (float(V.parse_float(p)) for p in unit.params)
-            if date:
-                target = now.replace(year=int(a), month=int(b), day=int(c))
-            else:
-                sec = int(c)
-                target = now.replace(
-                    hour=int(a), minute=int(b), second=sec, microsecond=round((c - sec) * 1e6)
-                )
-        except ValueError:
-            raise ScpiError(-222) from None
-        self.clock_offset += target - now
-        return _HANDLED
 
     # ---- observability ------------------------------------------------------------------------------
 

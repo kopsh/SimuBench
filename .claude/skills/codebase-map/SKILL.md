@@ -18,7 +18,7 @@ plausible fake).
 | Change | File |
 | --- | --- |
 | Session, action queue, virtual clock | `engine/session.py`; idle modes (D47) `engine/sleep_mode.py` |
-| Instrument runtime, SCPI command layer | `engine/instrument.py`; static lookup `engine/commands.py`; why a header is not executed and the closest one (coverage table) `engine/coverage_advice.py`; the settings' specs, values, coercion, `*RST` reset and run-time bounds `engine/settings.py`; parsing and executing a program message (dispatch, settings / channel-list / operation commands, value parse and format) `engine/command_runner.py` |
+| Instrument runtime, SCPI command layer | `engine/instrument.py`; static lookup `engine/commands.py`; why a header is not executed and the closest one (coverage table) `engine/coverage_advice.py`; the settings' specs, values, coercion, `*RST` reset and run-time bounds `engine/settings.py`; parsing and executing a program message (dispatch, settings / channel-list / operation commands, value parse and format) `engine/command_runner.py`; `*IDN?`/`*STB?`/`*TRG`/clock built-ins `engine/builtin_commands.py`; device errors, -113/-104 classification `engine/error_reporter.py` |
 | Component base class, `@component`, `@op` | `engine/component.py` |
 | Circuit (MNA per frequency) / signals / noise | `engine/circuit.py`, `engine/signal.py`, `engine/noise.py` |
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
