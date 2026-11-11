@@ -56,7 +56,7 @@ class ErrorReporter:
                 # A real model answers with its manual's text only; the detail stays in the event.
                 err = replace(err, text=table if table is not None else err.standard_text)
         self.inst.errors.push(err)
-        self.inst.esr |= 1 << ESR_BITS[err.esr_class]
+        self.inst.status.set_bit(ESR_BITS[err.esr_class])
         data: dict[str, Any] = {"code": err.code, "message": err.message}
         if err.text is not None and detail and detail not in err.message:
             data["message"] = f"{err.message} ({detail})"
