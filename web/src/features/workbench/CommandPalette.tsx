@@ -104,7 +104,15 @@ export function CommandPalette({ session }: { session: SessionInfo }) {
               <Copy /> {t("workbench.copyBench")}
             </CommandItem>
           )}
-          <CommandItem value="stop session" onSelect={run(() => stop.mutate(session.id, { onSuccess: () => navigate("/") }))}>
+          <CommandItem
+            value="stop session"
+            onSelect={run(() =>
+              void stop
+                .mutateAsync(session.id)
+                .then(() => navigate("/"))
+                .catch(() => {}) // the confirm was cancelled or the stop failed: stay here
+            )}
+          >
             <Square /> {t("workbench.stopSession")}
           </CommandItem>
         </CommandGroup>

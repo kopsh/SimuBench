@@ -198,7 +198,12 @@ export function TopBar({ session }: { session: SessionInfo }) {
             size="icon"
             className="size-8"
             aria-label={t("workbench.stopSession")}
-            onClick={() => stop.mutate(session.id, { onSuccess: () => navigate("/") })}
+            onClick={() =>
+              void stop
+                .mutateAsync(session.id)
+                .then(() => navigate("/"))
+                .catch(() => {}) // the confirm was cancelled or the stop failed: stay here
+            }
           >
             <Power className="size-3.5" />
           </Button>
