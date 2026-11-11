@@ -630,6 +630,10 @@ class ScopeDecimator(Component):
         adc_unit, horizontal = self._modules()
         return float(horizontal.timing(adc_unit.top_rate(set(_displayed(self))))[1])
 
+    def input_interval(self, port: str) -> float:
+        """The converter's interval behind one record sample: the record's, over the oversampling."""
+        return self.sample_interval(port) / self.oversample()
+
 
 def peak_detect(samples: np.typing.NDArray[np.float64], m: int) -> np.typing.NDArray[np.float64]:
     """Peak detect over intervals of ``m`` samples: of each interval's smallest and largest value,

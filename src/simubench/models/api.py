@@ -467,9 +467,23 @@ class InternalComponent(_Model):
     )
 
 
+class ProbeFormat(_Model):
+    """How a sample stream's numbers read (signal-chain.md 3.1)."""
+
+    kind: Literal["volts", "codes", "iq", "bins"]
+    bits: int = Field(0, description="The converter's resolution; 0 when the samples are not quantized")
+
+
 class InternalWire(_Model):
     from_: str = Field(..., alias="from", description="'<component>.<port>'")
     to: str
+    medium: Literal["signal", "samples"] = Field(
+        "signal", description="'signal': analog (analytic); 'samples': a sample stream (digital)"
+    )
+    sample_rate_hz: float | None = Field(
+        None, description="samples: the rate the stream runs at with the current settings; none when unknown"
+    )
+    format: ProbeFormat | None = Field(None, description="samples: the stream's format")
 
 
 class InternalRef(_Model):
@@ -759,6 +773,44 @@ class NetWaveform(_Model):
 # SpectralLine, SourceLine and SourceContribution are the engine's own pydantic models (D57):
 # defined next to the decomposition math (engine.circuit, engine.signal) and re-exported here, so
 # the interface keeps one source and the probe assembles no field-by-field copies.
+
+
+class ProbeSpectrum(_Model):
+    """The amplitude spectrum of one frame of samples (a windowed FFT), from 0 Hz to half the rate."""
+
+    freq_hz: list[float]
+    level: list[float]
+    unit: Literal["dBFS", "dBV", "dBm"]
+
+
+class InternalProbe(_Model):
+    """The signal at one output port inside an instrument (signal-chain.md 6.1). Reading it changes
+    nothing: not the clock, not the run record, not what a script reads next."""
+
+    port: str = Field(..., description="'<component>.<port>', e.g. 'adc.out1'")
+    medium: Literal["signal", "samples"]
+    t_ns: int
+    dc: float
+    rms: float
+    peak: float
+    waveform: NetWaveform = Field(
+        ..., description="signal: the analytic waveform; samples: the frame's samples, one value each"
+    )
+    lines: list[SpectralLine] = Field(default_factory=list, description="signal only: strongest lines")
+    spectrum: ProbeSpectrum | None = Field(None, description="samples only")
+    sample_rate_hz: float | None = None
+    format: ProbeFormat | None = None
+    full_scale_used: float | None = Field(
+        None, description="Quantized samples: the frame's peak-to-peak span as a fraction of full scale"
+    )
+    clipped: bool = False
+    tune_hz: float | None = Field(
+        None, description="The local-oscillator tuning the probe was read at; none where it does not apply"
+    )
+    notes: list[str] = Field(default_factory=list, description="Why the signal is not exact, if it is not")
+    silence: list[SilenceReason] = Field(
+        default_factory=list, description="Why it reads 0, traced upstream; empty when it does not"
+    )
 
 
 class NetProbe(_Model):

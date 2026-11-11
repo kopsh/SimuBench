@@ -1840,3 +1840,19 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 宏展开不移动作者所写组件与连线的位置，引用写错只报一次 | ✅ `tests/test_scope_modules.py`、`tests/test_validate_definition.py` 原有期望不变 |
 | 性能预算不放宽 | ✅ 全量测试时间与改动前相同（约 54 s） |
 | blocks / component-map / 文档同步 | ✅ `docs/blocks/oscilloscope.yaml` 增加 `decimator`；`signal-chain.md` 3.1、3.3、4.2 写明实现后的修正 |
+
+## 内部探针：服务、HTTP、MCP 与验证模式下的保密（Issue 951）
+
+仪表内部任一输出端口的信号可以读出来：`server/services/internal_probe.py`（路由与 MCP 共用），`GET /api/sessions/{sid}/instruments/{name}/internals/probe?port=`，MCP `probe_internal`（不需要 `--allow-control`）。模拟端口给直流 / 有效值 / 峰值、谱线、波形；采样流端口给一帧 4096 个采样点、FFT 幅度谱（量化的流用 dBFS，否则 dBV）、采样率、格式、满量程占用、是否削波；读数为 0 时沿仪表内部连线回溯到面板输入，再用 `engine/silence.py` 说明原因。`InstrumentInternals` 的连线带 `medium`、`sample_rate_hz`、`format`。
+
+与 issue 原文的两处不同（已写回 `signal-chain.md` 6.2）：保密条件收窄为“测试台不公开真实值**且该仪表带有隐藏的个体值**”——`reveal_true_values` 默认关闭，原写法下所有自带测试台都用不了探针；噪声序号按时刻计而不是面板帧计数，这样“同一时刻两次探针结果相同”与“被动”才同时成立。新钩子 `Component.input_interval(port)`：没有自身速率的转换器（`sb-dso-4` 的理想 ADC）按读它的块所要的速率取。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 模拟端口与采样流端口各一条 | ✅ `tests/test_internal_probe.py`：`sb-dso-4` 的 `ch1.front.out`；DSO-X 2024A 的 `adc.out1`（8 位、2 GSa/s、半满量程 −6 dBFS、采样点落在码值台阶上） |
+| 被动；同一时刻两次结果相同 | ✅ 探针前后虚拟时间、事件数不变，脚本下一次回复与没人探过的测试台相同 |
+| 验证模式下 HTTP 403、MCP 拒绝；结构图照常 | ✅ 带 `hidden` 的仪表被拒绝，同一测试台上标称的仪表照常 |
+| 端口不存在返回 404 并列出可用端口 | ✅ |
+| 新路由要求令牌 | ✅ `tests/test_security.py` 的遍历测试通过 |
+| 一次探针 ≤ 50 ms | ✅ `tests/test_performance.py`（4 通道 DSO-X，三个端口） |
+| schemas 与 API 类型重新生成 | ✅ `schemas/openapi.json`、`web/src/api/generated/openapi.ts` |

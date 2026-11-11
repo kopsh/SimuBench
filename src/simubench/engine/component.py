@@ -624,6 +624,12 @@ class Component:
         with samples outputs."""
         raise NotImplementedError(f"{self.type_name} has no samples output {port!r}")
 
+    def input_interval(self, port: str) -> float:
+        """The sample interval this block asks a samples input port for with the current settings, s:
+        what an upstream block without a rate of its own (a converter that samples whenever it is
+        asked) runs at. Override in components with samples inputs."""
+        raise NotImplementedError(f"{self.type_name} has no samples input {port!r}")
+
     def pin_signal(self, port: str) -> Signal:
         """Voltage on the net an electrical port is connected to."""
         return self.session.port_signal(self, port)

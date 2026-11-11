@@ -56,13 +56,13 @@ def test_scope_chain_and_bindings():
     )
     comps = {c.name: c for c in view.components}
     assert comps["acq"].channel is None and comps["ch2.front"].channel == 2
-    assert {"from": "ch2.inp.out", "to": "ch2.front.in"} in [w.model_dump(by_alias=True) for w in view.wires]
-    wires = [w.model_dump(by_alias=True) for w in view.wires]
-    assert {"from": "ch2.front.out", "to": "ch2.probe.in"} in wires  # vertical -> probe -> acquisition
+    wires = [(w.from_, w.to, w.medium) for w in view.wires]
+    assert ("ch2.inp.out", "ch2.front.in", "signal") in wires
+    assert ("ch2.front.out", "ch2.probe.in", "signal") in wires  # vertical -> probe -> acquisition
     # ... through the sample stream (D67): the ADC, then the decimator's acquisition mode
-    assert {"from": "ch2.probe.out", "to": "adc.in2"} in wires
-    assert {"from": "adc.out2", "to": "dec.in2"} in wires
-    assert {"from": "dec.out2", "to": "acq.in2"} in wires
+    assert ("ch2.probe.out", "adc.in2", "signal") in wires
+    assert ("adc.out2", "dec.in2", "samples") in wires
+    assert ("dec.out2", "acq.in2", "samples") in wires
     assert ("CH2", "ch2.inp.pin") in [(p.name, p.target) for p in view.ports]
     coupling = next(p for p in comps["ch2.front"].params if p.name == "coupling")
     assert (coupling.binding, coupling.value) == ("ch2.coupling", "AC")
@@ -96,8 +96,9 @@ def test_http_endpoint():
         r = c.get(f"/api/sessions/{sid}/instruments/scope/internals")
         assert r.status_code == 200
         body = r.json()
-        assert {"from": "ch1.probe.out", "to": "adc.in1"} in body["wires"]
-        assert {"from": "dec.out1", "to": "acq.in1"} in body["wires"]
+        wires = [(w["from"], w["to"], w["medium"]) for w in body["wires"]]
+        assert ("ch1.probe.out", "adc.in1", "signal") in wires
+        assert ("dec.out1", "acq.in1", "samples") in wires
         assert c.get(f"/api/sessions/{sid}/instruments/nope/internals").status_code == 404
 
 

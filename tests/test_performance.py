@@ -73,3 +73,35 @@ def test_an_hour_of_virtual_time_on_a_dynamic_instrument():
     assert time.perf_counter() - started < 30.0  # ~2 s measured
     assert s.now_ns == 3600 * 10**9
     s.close()
+
+
+def test_an_internal_probe_answers_within_its_budget():
+    """signal-chain.md 6.2: one probe request ≤ 50 ms (a 4-channel scope, the whole chain)."""
+    from simubench.server.manager import ServedSession
+    from simubench.server.services import internal_probe
+
+    bench = BenchDefinition.model_validate(
+        {
+            "name": "t",
+            "instruments": {
+                "awg": {"model": "sb-awg-2", "state": {"ch1.output": True}},
+                "scope": {
+                    "model": "keysight-dsox2024a",
+                    "state": {f"ch{n}.display": True for n in range(1, 5)},
+                },
+            },
+            "wires": [{"from": "awg.OUT1", "to": f"scope.CH{n}"} for n in range(1, 5)],
+            "run": {"clock": "command"},
+        }
+    )
+    s = open_bench(bench)
+    try:
+        served = ServedSession("t", s, None)
+        internal_probe.probe(served, "scope", "dec.out1")  # lazy loading is not the probe's
+        for port in ("ch1.front.out", "adc.out4", "dec.out4"):
+            s.advance(1e-3)  # a new instant: nothing cached
+            started = time.perf_counter()
+            internal_probe.probe(served, "scope", port)
+            assert time.perf_counter() - started < 0.05, port
+    finally:
+        s.close()

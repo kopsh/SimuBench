@@ -423,10 +423,15 @@ class InternalProbe(_Model):
 
 ### 6.2 规则
 
-- 采样流端口：发出 `FrameRequest(t0_ns=now, count=4096, dt_s=该端口的当前采样间隔, key=("probe", panel_frame))`。
-  端口的当前采样间隔由块给出（新钩子 `Component.sample_interval(port) -> float | None`，带 `samples` 输出的块必须实现）。
-- **保密**：探针显示的是信号，信号由个体偏差决定。`run.reveal_true_values` 关闭时（验证模式，security.md），内部探针接口返回 403，
+- 采样流端口：发出 `FrameRequest(t0_ns=now, count=4096, dt_s=该端口的当前采样间隔, key=("probe",), index0=该时刻在采样网格上的序号)`。
+  噪声序号按时刻计（不用面板帧计数）：同一时刻两次探针给出同一帧，探针不推进任何计数器。
+  端口的当前采样间隔由块给出（钩子 `Component.sample_interval(port)`，带 `samples` 输出的块必须实现）。
+  没有自身速率的转换器（“问多快就采多快”，如 `sb-dso-4` 的理想 ADC）按读它的块所要的间隔取：钩子 `Component.input_interval(port)`（`scope_decimator` 已实现）。
+- **保密**：探针显示的是信号，信号由个体偏差决定。测试台不公开真实值（`run.reveal_true_values` 关闭，验证模式，security.md）
+  且**该仪表带有隐藏的个体值**（抽取的个体偏差、测试台的 `hidden`、参数类故障——都落在组件的 `overrides` 里）时，内部探针接口返回 403，
   界面显示“验证模式下不提供内部探针”——否则定标脚本的作者可以从 ADC 码值反推被隐藏的增益误差。内部结构图（标称参数）照常可看。
+  仪表全部为标称值时没有可泄露的内容，探针照常提供（实现 #951 时的修正：`reveal_true_values` 默认关闭，按原先“关闭即拒绝”的写法，
+  所有自带示例测试台上都用不了内部探针）。
 - `InstrumentInternals`（现有）给每个端口补 `medium`，给连线补 `medium` 与采样流的 `sample_rate_hz`、`format`，供 1.2 的标注使用。
 - 性能预算：一次探针请求 ≤ 50 ms（4 通道示波器、频谱仪全链）。
 
