@@ -12,10 +12,9 @@ from ...models import api as M
 from .context import ApiContext
 
 
-def build_router(ctx: ApiContext) -> APIRouter:
+def _status_routes(ctx: ApiContext, router: APIRouter) -> None:
     manager = ctx.manager
     auth = ctx.auth
-    router = APIRouter()
 
     @router.get(
         "/api/metrics",
@@ -75,6 +74,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
 
         return [asdict(c) for c in doctor(manager.files.workspace)]
 
+
+def _diagnostic_and_run_routes(ctx: ApiContext, router: APIRouter) -> None:
+    manager = ctx.manager
+    auth = ctx.auth
+
     @router.get(
         "/api/diagnostics",
         operation_id="getDiagnostics",
@@ -125,4 +129,9 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except ValueError as exc:
             raise HTTPException(422, str(exc)) from None
 
+
+def build_router(ctx: ApiContext) -> APIRouter:
+    router = APIRouter()
+    _status_routes(ctx, router)
+    _diagnostic_and_run_routes(ctx, router)
     return router

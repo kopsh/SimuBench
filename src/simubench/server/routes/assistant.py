@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 
 from ...assistant.config import ConfigError, check_settings
 from ...assistant.llm import check_connection
-from ...assistant.service import AssistantService, Busy
+from ...assistant.service import Busy
 from ...models import api as M
 from ..benchfiles import Conflict
 from ..manager import ClientsConnected
@@ -20,26 +20,27 @@ from .context import ApiContext
 _BUSY: dict[int | str, dict[str, Any]] = {409: {"description": "A turn of this conversation is running"}}
 
 
-def build_router(ctx: ApiContext) -> APIRouter:
+def http_error(ctx: ApiContext, exc: Exception) -> HTTPException:
+    if isinstance(exc, PermissionError):
+        return HTTPException(403, str(exc))
+    if isinstance(exc, Busy):
+        return HTTPException(409, str(exc))
+    if isinstance(exc, ConfigError):
+        return HTTPException(422, str(exc))
+    assert isinstance(exc, KeyError)
+    return ctx.not_found(exc)
+
+
+def bench_errors(ctx: ApiContext, fn: Any) -> Any:
+    try:
+        return fn()
+    except (PermissionError, Busy, ConfigError, KeyError) as exc:
+        raise http_error(ctx, exc) from None
+
+
+def _assistant_chat_routes(ctx: ApiContext, router: APIRouter) -> None:
     auth = ctx.auth
-    service: AssistantService = ctx.assistant
-    router = APIRouter()
-
-    def http_error(exc: Exception) -> HTTPException:
-        if isinstance(exc, PermissionError):
-            return HTTPException(403, str(exc))
-        if isinstance(exc, Busy):
-            return HTTPException(409, str(exc))
-        if isinstance(exc, ConfigError):
-            return HTTPException(422, str(exc))
-        assert isinstance(exc, KeyError)
-        return ctx.not_found(exc)
-
-    def bench_errors(fn: Any) -> Any:
-        try:
-            return fn()
-        except (PermissionError, Busy, ConfigError, KeyError) as exc:
-            raise http_error(exc) from None
+    service = ctx.assistant
 
     @router.get(
         "/api/assistant/config",
@@ -59,7 +60,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     def save_config(req: M.AssistantConfigUpdate) -> M.AssistantConfig:
         """Override the server's defaults (saved in the workspace's .simubench/, owner-only)."""
-        return bench_errors(lambda: service.settings.update(req, ctx.manager))  # type: ignore[no-any-return]
+        return bench_errors(ctx, lambda: service.settings.update(req, ctx.manager))  # type: ignore[no-any-return]
 
     @router.post(
         "/api/assistant/config/test",
@@ -84,7 +85,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def conversation(bench: str = Query(...)) -> M.AssistantConversation:
-        return bench_errors(lambda: service.conversation(bench))  # type: ignore[no-any-return]
+        return bench_errors(ctx, lambda: service.conversation(bench))  # type: ignore[no-any-return]
 
     @router.delete(
         "/api/assistant/conversation",
@@ -95,7 +96,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     def clear(bench: str = Query(...)) -> None:
         """Clear the conversation (the files it changed stay as they are)."""
-        bench_errors(lambda: service.clear(bench))
+        bench_errors(ctx, lambda: service.clear(bench))
 
     @router.post(
         "/api/assistant/messages",
@@ -110,7 +111,12 @@ def build_router(ctx: ApiContext) -> APIRouter:
         try:
             return await service.send(req.bench, req.text)
         except (PermissionError, Busy, ConfigError, KeyError) as exc:
-            raise http_error(exc) from None
+            raise http_error(ctx, exc) from None
+
+
+def _assistant_run_routes(ctx: ApiContext, router: APIRouter) -> None:
+    auth = ctx.auth
+    service = ctx.assistant
 
     @router.get(
         "/api/assistant/events",
@@ -123,7 +129,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         bench: str = Query(...), turn: str = Query(...), after: int = Query(0, ge=0)
     ) -> StreamingResponse:
         """Server-sent events of a turn (each `data:` line one AssistantEvent), after `after`."""
-        bench_errors(lambda: service.files.resolve(bench))
+        bench_errors(ctx, lambda: service.files.resolve(bench))
         stream = service.events(bench, turn, after)
         try:
             first = await anext(stream)
@@ -150,9 +156,9 @@ def build_router(ctx: ApiContext) -> APIRouter:
     )
     async def stop(req: M.AssistantStopRequest) -> M.AssistantConversation:
         """Stop the running turn; what it already wrote can be restored."""
-        bench_errors(lambda: service.files.resolve(req.bench))
+        bench_errors(ctx, lambda: service.files.resolve(req.bench))
         await service.stop(req.bench)
-        return bench_errors(lambda: service.conversation(req.bench))  # type: ignore[no-any-return]
+        return bench_errors(ctx, lambda: service.conversation(req.bench))  # type: ignore[no-any-return]
 
     @router.get(
         "/api/assistant/rollback",
@@ -163,7 +169,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
     def rollback_plan(bench: str = Query(...)) -> M.RollbackPlan:
         """What "restore to before the last turn" would do: files restored or deleted, changes made
         since that would be lost, sessions to stop."""
-        return bench_errors(lambda: service.rollback_plan(bench))  # type: ignore[no-any-return]
+        return bench_errors(ctx, lambda: service.rollback_plan(bench))  # type: ignore[no-any-return]
 
     @router.post(
         "/api/assistant/rollback",
@@ -183,4 +189,9 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except PermissionError as exc:
             raise HTTPException(403, str(exc)) from None
 
+
+def build_router(ctx: ApiContext) -> APIRouter:
+    router = APIRouter()
+    _assistant_chat_routes(ctx, router)
+    _assistant_run_routes(ctx, router)
     return router
