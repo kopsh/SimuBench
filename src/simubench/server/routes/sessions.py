@@ -15,14 +15,31 @@ from ..services import faults
 from .context import IN_USE, ApiContext
 
 
-def build_router(ctx: ApiContext) -> APIRouter:
+def instrument_info(ctx: ApiContext, sid: str, name: str) -> M.InstrumentInfo:
+    s = ctx.served(sid)
+    try:
+        inst = s.session.instrument(name)
+    except KeyError as exc:
+        raise ctx.not_found(exc) from None
+    index = list(s.session.instruments).index(name)
+    port = next((lst.port for lst in (s.scpi.listeners if s.scpi else []) if lst.instrument == name), None)
+    info = ctx.manager.views.describe_instrument(
+        s.session,
+        inst,
+        index,
+        port,
+        s.hislip.addresses().get(name) if s.hislip else None,
+        s.vxi11.addresses().get(name) if s.vxi11 else None,
+    )
+    info.remote, info.local = s.remote_clients(name), name in s.local
+    return info
+
+
+def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
     manager = ctx.manager
     auth = ctx.auth
-    client_of = ctx.client_of
     served = ctx.served
-    not_found = ctx.not_found
     in_use = ctx.in_use
-    router = APIRouter()
 
     @router.get(
         "/api/sessions",
@@ -95,6 +112,14 @@ def build_router(ctx: ApiContext) -> APIRouter:
             raise err from None
         return manager.views.describe(s)
 
+
+def _instrument_routes(ctx: ApiContext, router: APIRouter) -> None:
+    auth = ctx.auth
+    client_of = ctx.client_of
+    served = ctx.served
+    not_found = ctx.not_found
+    in_use = ctx.in_use
+
     @router.get(
         "/api/sessions/{sid}/instruments/{name}",
         response_model=M.InstrumentInfo,
@@ -102,25 +127,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
         dependencies=[Depends(auth)],
     )
     def instrument(sid: str, name: str) -> M.InstrumentInfo:
-        s = served(sid)
-        try:
-            inst = s.session.instrument(name)
-        except KeyError as exc:
-            raise not_found(exc) from None
-        index = list(s.session.instruments).index(name)
-        port = next(
-            (lst.port for lst in (s.scpi.listeners if s.scpi else []) if lst.instrument == name), None
-        )
-        info = manager.views.describe_instrument(
-            s.session,
-            inst,
-            index,
-            port,
-            s.hislip.addresses().get(name) if s.hislip else None,
-            s.vxi11.addresses().get(name) if s.vxi11 else None,
-        )
-        info.remote, info.local = s.remote_clients(name), name in s.local
-        return info
+        return instrument_info(ctx, sid, name)
 
     @router.get(
         "/api/sessions/{sid}/instruments/{name}/internals",
@@ -173,6 +180,14 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except InstrumentRemote as exc:
             raise in_use(exc) from None
 
+
+def _panel_routes(ctx: ApiContext, router: APIRouter) -> None:
+    auth = ctx.auth
+    client_of = ctx.client_of
+    served = ctx.served
+    not_found = ctx.not_found
+    in_use = ctx.in_use
+
     @router.get(
         "/api/sessions/{sid}/instruments/{name}/screen",
         response_model=M.ScopeScreen,
@@ -221,7 +236,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
             s.go_local(name, client)
         except KeyError as exc:
             raise not_found(exc) from None
-        return instrument(sid, name)
+        return instrument_info(ctx, sid, name)
 
     @router.get(
         "/api/sessions/{sid}/levels",
@@ -232,6 +247,13 @@ def build_router(ctx: ApiContext) -> APIRouter:
     async def net_levels(sid: str) -> M.NetLevels:
         """Every net's level and a thumbnail, for the canvas (D44)."""
         return await asyncio.to_thread(views.net_levels, served(sid))
+
+
+def _net_and_clock_routes(ctx: ApiContext, router: APIRouter) -> None:
+    auth = ctx.auth
+    served = ctx.served
+    not_found = ctx.not_found
+    in_use = ctx.in_use
 
     @router.get(
         "/api/sessions/{sid}/nets/{net}/waveform",
@@ -300,6 +322,13 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from None
 
+
+def _reading_and_fault_routes(ctx: ApiContext, router: APIRouter) -> None:
+    auth = ctx.auth
+    client_of = ctx.client_of
+    served = ctx.served
+    not_found = ctx.not_found
+
     @router.post(
         "/api/sessions/{sid}/clock/scale",
         response_model=M.ClockInfo,
@@ -360,4 +389,12 @@ def build_router(ctx: ApiContext) -> APIRouter:
         except KeyError as exc:
             raise not_found(exc) from None
 
+
+def build_router(ctx: ApiContext) -> APIRouter:
+    router = APIRouter()
+    _lifecycle_routes(ctx, router)
+    _instrument_routes(ctx, router)
+    _panel_routes(ctx, router)
+    _net_and_clock_routes(ctx, router)
+    _reading_and_fault_routes(ctx, router)
     return router
