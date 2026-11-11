@@ -108,7 +108,7 @@ export function WorkbenchPage() {
   }
   const gone = session.error instanceof ApiError && session.error.status === 404;
   if (gone && lastBench) {
-    return <StoppedBench bench={lastBench} assistantOpen={assistantOpen} onAssistant={setAssistant} />;
+    return <StoppedBench sid={sid} bench={lastBench} assistantOpen={assistantOpen} onAssistant={setAssistant} />;
   }
   if (session.error || !session.data) {
     return (
@@ -179,15 +179,17 @@ function AssistantAside({ bench, onClose }: { bench: string; onClose: () => void
 
 /** The bench's session stopped (by the assistant, after asking): the conversation stays, and the
  * page follows the bench as soon as it runs again. */
-function StoppedBench({ bench, assistantOpen, onAssistant }: { bench: string; assistantOpen: boolean; onAssistant: (open: boolean) => void }) {
+function StoppedBench({ sid, bench, assistantOpen, onAssistant }: { sid: string; bench: string; assistantOpen: boolean; onAssistant: (open: boolean) => void }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const sessions = useSessions();
   const start = useStartSession();
   const next = sessions.data?.find((x) => x.bench_path === bench);
   useEffect(() => {
-    if (next) navigate(`/s/${next.id}`, { replace: true });
-  }, [next, navigate]);
+    // follow a *new* session of the same bench: while the stale cache still lists the session
+    // that just stopped, re-navigating to it would race the "back home" of a manual close (#913)
+    if (next && next.id !== sid) navigate(`/s/${next.id}`, { replace: true });
+  }, [next, sid, navigate]);
   return (
     <div className="flex h-full">
       <div className="flex min-w-0 flex-1 items-center justify-center p-6" data-testid="bench-stopped">
