@@ -55,7 +55,7 @@ def test_a_failure_names_the_step_the_command_and_both_replies(tmp_path, capsys)
     path = _cases(
         tmp_path,
         [
-            {"name": "good", "steps": [{"query": "*IDN?", "expect_match": "ACME Instruments,DM1,.*"}]},
+            {"name": "good", "steps": [{"query": "*IDN?", "expect_prefix": "ACME Instruments,DM1,"}]},
             {
                 "name": "bad",
                 "manual": "Common Commands > *IDN?",
@@ -157,7 +157,7 @@ def test_steps_are_collected_only_when_asked(tmp_path):
         [
             {
                 "name": "good",
-                "steps": [{"send": "*RST"}, {"query": "*IDN?", "expect_match": "ACME Instruments,DM1,.*"}],
+                "steps": [{"send": "*RST"}, {"query": "*IDN?", "expect_prefix": "ACME Instruments,DM1,"}],
             },
             {
                 "name": "bad",
@@ -170,9 +170,8 @@ def test_steps_are_collected_only_when_asked(tmp_path):
     assert good.passed
     assert [(s.index, s.action, s.ok) for s in good.steps] == [(1, "send", True), (2, "query", True)]
     assert good.steps[0].actual is None and good.steps[0].expected is None
-    assert good.steps[1].expected.startswith("a match") and good.steps[1].actual.startswith(
-        "ACME Instruments,DM1,"
-    )
+    assert good.steps[1].expected == "a reply starting 'ACME Instruments,DM1,'"
+    assert good.steps[1].actual.startswith("ACME Instruments,DM1,")
     assert not bad.passed and bad.step == 2 and bad.command == "*IDN?"
     [entry] = bad.steps[1:]
     assert entry.index == 2 and entry.ok is False

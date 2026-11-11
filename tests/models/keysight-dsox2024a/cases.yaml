@@ -187,10 +187,20 @@ cases:
     steps:
       - send: "*RST;:CHANnel1:PROBe 1;:CHANnel1:SCALe 0.5;:TIMebase:SCALe 1E-3;:DIGitize CHANnel1"
       - query: ":WAVeform:PREamble?"
-        expect_match: '0,0,1000,1,\+1\.00000000000E-05,-4\.99\d{9}E-03,0,\+1\.56250E-02,\+0\.00000E\+00,128'
+        expect_fields:
+          - "0"
+          - "0"
+          - "1000"
+          - "1"
+          - "+1.00000000000E-05"
+          - {value: -0.004995, tolerance: 5.0e-06, format: "-d.dddddddddddE-dd"}
+          - "0"
+          - "+1.56250E-02"
+          - "+0.00000E+00"
+          - "128"
       - query: ":WAVeform:DATA?"
         binary: true
-        expect_match: '#800001000.{1000}\n'
+        expect_block: {header: "#800001000", bytes: 1000, end: "\n"}
   - name: "波形格式、字节序、有无符号、点数方式与单项查询"
     manual: ":WAVeform Commands > :FORMat, :BYTeorder, :UNSigned, :POINts:MODE, :SOURce, :TYPE, :XINCrement, :XORigin, :XREFerence, :YINCrement, :YORigin, :YREFerence"
     steps:
@@ -211,7 +221,7 @@ cases:
       - query: ":WAVeform:XINCrement?"
         expect: "+1.00000000000E-07"
       - query: ":WAVeform:XORigin?"
-        expect_match: '-4\.99\d{9}E-03'
+        expect_fields: [{value: -0.004995, tolerance: 5.0e-06, format: "-d.dddddddddddE-dd"}]
       - query: ":WAVeform:XREFerence?"
         expect: "0"
       - query: ":WAVeform:YINCrement?"
@@ -267,7 +277,7 @@ cases:
     steps:
       - send: "*CLS;:AUToscale"
       - query: ":SYSTem:ERRor?"
-        expect_match: '-113,"Undefined header.*"'
+        expect: "-113,\"Undefined header;not implemented in this definition\""
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
   - name: "状态寄存器：*ESE、*ESR、*SRE、*STB、*OPC、*WAI、*TST"
@@ -281,7 +291,7 @@ cases:
       - query: "*ESR?"
         expect: "1"
       - query: "*STB?"
-        expect_match: '\d+'
+        expect_format: "unsigned"
       - query: "*TST?"
         expect: "0"
   - name: "*TRG 与不带参数的 :DIGitize 相同（停止时也采一帧）"
@@ -291,7 +301,7 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: ":WAVeform:PREamble?"
-        expect_match: '^0,0,1000,1,.*$'
+        expect_prefix: "0,0,1000,1,"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
   - name: ":TRIGger:FORCe 在没有触发时也采一帧"
@@ -301,7 +311,7 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: ":WAVeform:PREamble?"
-        expect_match: '^0,0,1000,1,.*$'
+        expect_prefix: "0,0,1000,1,"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
   - name: ":SYSTem:PRESet 与 *RST 的重置条件相同"
@@ -550,18 +560,18 @@ cases:
         tolerance: 20.0
       # 第一个最大值在 −0.75 ms 附近（8 位量化的平顶取第一个样点），最小值在 −0.25 ms 附近。
       - query: ":MEASure:XMAX? CHANnel1"
-        expect_match: '^-7\.[5-9]\d+E-04$'
+        expect_fields: [{value: -0.000775, tolerance: 2.5e-05}]
       - query: ":MEASure:XMIN? CHANnel1"
-        expect_match: '^-2\.[5-9]\d+E-04$'
+        expect_fields: [{value: -0.000275, tolerance: 2.5e-05}]
       # 出界取边界样本:现在带上该档的噪声(#745)
       - query: ":MEASure:VTIMe? 2.5E-4,CHANnel1"
         expect_value: 10.0
         tolerance: 0.5
       # 第一个上升沿就是触发点；第一个下降过零在 −0.5 ms。
       - query: ":MEASure:TEDGe? +1,CHANnel1"
-        expect_match: '^\+\d\.\d+E-0[67]$'
+        expect_fields: [{prefix: "+", format: "nr3", min: 0.0, max: 1.0e-5}]
       - query: ":MEASure:TVALue? 0,-1,CHANnel1"
-        expect_match: '^-4\.9\d+E-04$'
+        expect_fields: [{value: -0.000495, tolerance: 5.0e-06}]
       - query: ":MEASure:TEDGe? +2,CHANnel1"
         expect: "+9.9E+37"
       - query: ":MEASure:DELay? CHANnel1,CHANnel1"
@@ -593,12 +603,37 @@ cases:
       - send: ":MEASure:VPP CHANnel1"
       # 行结构与量级:频率 ~1.00xE3、VPP ~2.0xE1(含噪声,#745),统计仍同值、计数 1
       - query: ":MEASure:RESults?"
-        expect_match: '^FREQuency\(1\),\+1\.0\d{4}E\+03,(\+1\.0\d{4}E\+03,){3}\+0\.00000E\+00,1,VPP\(1\),\+2\.0\d{4}E\+01,(\+2\.0\d{4}E\+01,){3}\+0\.00000E\+00,1$'
+        expect_fields:
+          - "FREQuency(1)"
+          - {value: 1050.0, tolerance: 50.0, format: "+d.dddddE+dd"}
+          - {value: 1050.0, tolerance: 50.0, format: "+d.dddddE+dd", count: 3}
+          - "+0.00000E+00"
+          - "1"
+          - "VPP(1)"
+          - {value: 20.5, tolerance: 0.5, format: "+d.dddddE+dd"}
+          - {value: 20.5, tolerance: 0.5, format: "+d.dddddE+dd", count: 3}
+          - "+0.00000E+00"
+          - "1"
       - send: ":MEASure:VMAX CHANnel1;:MEASure:VMIN CHANnel1;:MEASure:VRMS CHANnel1"
       - query: ":MEASure:RESults?"
-        expect_match: '^VPP\(1\),.*,VMAX\(1\),.*,VMIN\(1\),.*,VRMS\(1\),.*$'
+        expect_fields:  # each measurement: its name, current/min/max/mean/σ as NR3, then the count
+          - "VPP(1)"
+          - {format: "nr3", count: 5}
+          - {format: "unsigned"}
+          - "VMAX(1)"
+          - {format: "nr3", count: 5}
+          - {format: "unsigned"}
+          - "VMIN(1)"
+          - {format: "nr3", count: 5}
+          - {format: "unsigned"}
+          - "VRMS(1)"
+          - {format: "nr3", count: 5}
+          - {format: "unsigned"}
       - query: ":MEASure:ALL? CHANnel1"
-        expect_match: '^\+2\.0\d{4}E\+01,(?:[+-]\d\.\d{5}E[+-]\d{2},){17}\+(?:2\.0\d{4}|1\.99\d{3})E\+03$'
+        expect_fields:
+          - {value: 20.5, tolerance: 0.5, format: "+d.dddddE+dd"}
+          - {format: "±d.dddddE±dd", count: 17}
+          - {value: 2040.0, tolerance: 60.0, format: "+d.dddddE+dd"}
       - send: ":MEASure:CLEar"
       - query: ":MEASure:RESults?"
         expect: ""

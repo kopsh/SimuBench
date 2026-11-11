@@ -1,6 +1,7 @@
 import pytest
 from pydantic import TypeAdapter
 
+from helpers import raises_with
 from simubench.engine.edit import EditError, EditOp, apply, to_yaml_data
 from simubench.engine.validate import validate_data
 from simubench.library.loader import DefinitionLibrary
@@ -42,7 +43,7 @@ def test_built_bench_validates_clean():
 
 def test_apply_is_all_or_nothing():
     b = build()
-    with pytest.raises(EditError, match="第 2 个操作"):
+    with raises_with(EditError, "第 2 个操作"):
         apply(b, ops({"op": "move", "name": "rc", "x": 1, "y": 2}, {"op": "remove", "name": "nope"}))
     assert b.layout["rc"].x != 1
 
@@ -84,9 +85,9 @@ def test_replace_instrument_keeps_name_place_and_what_the_new_model_shares():
     assert scope.serial is None
     _, report = validate_data(to_yaml_data(swapped), LIB)
     assert report.ok, report.diagnostics
-    with pytest.raises(EditError, match="仪表库"):
+    with raises_with(EditError, "仪表库"):
         apply(b, ops({"op": "replace_instrument", "name": "scope", "model": "keysight-dsox2024a"}))
-    with pytest.raises(EditError, match="没有仪表定义"):
+    with raises_with(EditError, "没有仪表定义"):
         apply(b, ops({"op": "replace_instrument", "name": "scope", "model": "nope"}), LIB)
 
 
@@ -108,7 +109,7 @@ def test_remove_drops_wires():
     ],
 )
 def test_errors_explain(op, message):
-    with pytest.raises(EditError, match=message):
+    with raises_with(EditError, message):
         apply(build(), ops(op))
 
 
@@ -169,7 +170,7 @@ def test_set_identity():
     inst = b.instruments["scope"]
     assert (inst.idn, inst.serial, inst.firmware) == (idn, "X1", None)
     assert apply(b, ops({"op": "set_identity", "instrument": "scope"})).instruments["scope"].idn is None
-    with pytest.raises(EditError, match="nope"):
+    with raises_with(EditError, "nope"):
         apply(b, ops({"op": "set_identity", "instrument": "nope", "idn": "x"}))
 
 

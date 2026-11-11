@@ -57,11 +57,17 @@ cases:
     steps:
       - send: "CONF:VOLT:DC 10,DEF,(@101:103)"
       - query: "READ?"
-        expect_match: '^\+9\.0909\d{4}E-01,\+1\.8181\d{4}E\+00,\+3\.6363\d{4}E\+00$'
+        expect_fields:
+          - {value: 0.909095, tolerance: 5.0e-06, format: "+d.ddddddddE-dd"}
+          - {value: 1.81815, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}
+          - {value: 3.63635, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}
       - query: "DATA:POIN?"
         expect: "3"
       - query: "FETC?"
-        expect_match: '^\+9\.0909\d{4}E-01,\+1\.8181\d{4}E\+00,\+3\.6363\d{4}E\+00$'
+        expect_fields:
+          - {value: 0.909095, tolerance: 5.0e-06, format: "+d.ddddddddE-dd"}
+          - {value: 1.81815, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}
+          - {value: 3.63635, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
@@ -89,9 +95,9 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: "R? 2"
-        expect_match: '^#231\+9\.0909\d{4}E-01,\+1\.8181\d{4}E\+00$'
+        expect_block: {header: "#231", end: "", fields: [{value: 0.909095, tolerance: 5.0e-6, format: "+d.ddddddddE-dd"}, {value: 1.81815, tolerance: 5.0e-5, format: "+d.ddddddddE+dd"}]}
       - query: "DATA:REM? 1"
-        expect_match: '^\+3\.6363\d{4}E\+00$'
+        expect_fields: [{value: 3.63635, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}]
       - query: "DATA:POIN?"
         expect: "0"
       - query: "R?"
@@ -101,15 +107,15 @@ cases:
     manual: "MEASure Subsystem > MEASure:{RESistance|FRESistance}?"
     steps:
       - query: "MEAS:RES? (@104)"
-        expect_match: '^\+1\.00\d{6}E\+03$'
+        expect_fields: [{value: 1005.0, tolerance: 5.0, format: "+d.ddddddddE+dd"}]
       - query: "MEAS:FRES? (@104)"
-        expect_match: '^\+(1\.0000\d{4}E\+03|9\.9999\d{4}E\+02)$'
+        expect_fields: [{value: 1000.0, tolerance: 0.1, format: "+d.ddddddddE+dd"}]
 
   - name: "MEASure:CURRent:DC? 在电流通道 121 上测 5 V 经 1 kΩ 的源"
     manual: "MEASure Subsystem > MEASure:CURRent:{AC|DC}?（DAQM901A 通道 21、22）"
     steps:
       - query: "MEAS:CURR:DC? 0.01,(@121)"
-        expect_match: '^\+4\.9\d{7}E-03$'
+        expect_fields: [{value: 0.00495, tolerance: 5.0e-05, format: "+d.ddddddddE-dd"}]
 
   - name: "按通道的 NPLC 与 CONFigure? 回功能、量程与分辨率"
     manual: "SENSe Subsystem > [SENSe:]VOLTage[:DC]:NPLCycles; CONFigure Subsystem > CONFigure?"
@@ -119,7 +125,7 @@ cases:
       - query: "SENS:VOLT:DC:NPLC? (@101)"
         expect: "+1.00000000E+01"
       - query: "CONF? (@101)"
-        expect_match: '^"VOLT \+1\.00000000E\+01,\+\d\.\d{8}E-0\d"$'
+        expect_fields: ['"VOLT +1.00000000E+01', {format: "+d.ddddddddE-0d", suffix: '"'}]
 
   - name: "BUS 触发且 TRIG:COUN 2：每条 *TRG 扫描一遍，第三条 -211（#422）"
     manual: "TRIGger Subsystem > TRIGger:COUNt（For the BUS source, the trigger count sets the number of *TRG commands that will be accepted before returning to the idle trigger state）"
@@ -197,7 +203,7 @@ cases:
       - send: "CONF:VOLT:DC 10,DEF,(@101)"
       - send: "VOLT:DC:IMP:AUTO ON,(@101)"
       - query: "READ?"
-        expect_match: '^\+(9\.99\d{6}E-01|1\.00\d{6}E\+00)$'
+        expect_fields: [{value: 1.0, tolerance: 1.0e-3, format: "+d.ddddddddE±dd"}]
 
   - name: "BUS 触发：READ? 报触发死锁，INIT 后 *TRG 才扫描"
     manual: "READ Subsystem > READ?（not valid with *TRG）; TRIGger:SOURce"
@@ -210,14 +216,14 @@ cases:
       - send: "INIT"
       - send: "*TRG"
       - query: "FETC?"
-        expect_match: '^\+9\.0909\d{4}E-01$'
+        expect_fields: [{value: 0.909095, tolerance: 5.0e-06, format: "+d.ddddddddE-dd"}]
 
   - name: "连续扫描 INFinity 未建模，回 -224"
     manual: "TRIGger Subsystem > TRIGger:COUNt（INFinity）"
     steps:
       - send: "TRIG:COUN INF"
       - query: "SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "未实现的命令回 -113"
     manual: "CALCulate Subsystem > CALCulate:SCALe:GAIN"
@@ -245,7 +251,15 @@ cases:
       - send: "CONF:CURR:DC 0.01,(@121)"
       - send: "CONF:CURR:AC 1,(@122)"
       - query: "CONF? (@101,104,121,122)"
-        expect_match: '^"VOLT:AC \+1\.0+E\+01,[^"]+","RES \+1\.0+E\+04,[^"]+","CURR \+1\.0+E-02,[^"]+","CURR:AC \+1\.0+E\+00,[^"]+"$'
+        expect_fields:  # function and range per channel; the resolution is any
+          - {prefix: '"VOLT:AC ', value: 10.0, format: "nr3"}
+          - {suffix: '"', nonempty: true}
+          - {prefix: '"RES ', value: 1.0e4, format: "nr3"}
+          - {suffix: '"', nonempty: true}
+          - {prefix: '"CURR ', value: 1.0e-2, format: "nr3"}
+          - {suffix: '"', nonempty: true}
+          - {prefix: '"CURR:AC ', value: 1.0, format: "nr3"}
+          - {suffix: '"', nonempty: true}
       - query: "ROUT:SCAN?"
         expect: "#16(@122)"
 
@@ -253,7 +267,7 @@ cases:
     manual: "MEASure Subsystem > MEASure[:VOLTage]:{AC|DC}?, MEASure:CURRent:{AC|DC}?"
     steps:
       - query: "MEAS:VOLT:DC? 10,DEF,(@102)"
-        expect_match: '^\+1\.8181\d{4}E\+00$'
+        expect_fields: [{value: 1.81815, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}]
       - query: "MEAS:VOLT:AC? (@101)"
         expect_value: 0.0
         tolerance: 1.0e-6  # an RMS reading of 0 rides the noise (#806): 4σ on the widest range ≤ 1e-6

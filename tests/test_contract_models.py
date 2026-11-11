@@ -8,8 +8,7 @@ instead of a hand-copied mirror — so a new field is one edit on the engine sid
 
 from __future__ import annotations
 
-import pytest
-
+from helpers import raises_with
 from simubench.engine.replay import ReplayMismatch, ReplayReport
 from simubench.engine.silence import SilenceReason
 from simubench.engine.validate import Diagnostic, Report
@@ -43,7 +42,7 @@ def test_a_report_carries_the_contract_diagnostics():
 def test_the_contracts_are_frozen():
     """The contract objects are immutable interface values (D57), not mutable engine records."""
     d = Diagnostic(severity="error", code="E-X", pointer="/a", message="m")
-    with pytest.raises(Exception, match="frozen"):
+    with raises_with(Exception, "frozen"):
         d.severity = "warning"
     assert hash(d)  # frozen models are hashable
 

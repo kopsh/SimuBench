@@ -2,9 +2,9 @@
 runtime, the ``engine.deviation`` primitives underneath it — so the priority hidden > drawn
 deviation > ``$state`` binding is one place's business, and it is tested directly here."""
 
-import pytest
 import yaml
 
+from helpers import raises_with
 from simubench.api import open_bench
 from simubench.engine.component import component_type
 from simubench.engine.deviation import draw_overrides, set_override
@@ -52,7 +52,7 @@ def test_a_drawn_value_beats_the_state_binding():
 
 def test_an_override_short_circuits_even_an_unreadable_binding():
     comp = component_type("rc_lowpass")("rc", {"r": {"from": "$nowhere"}}, None, None)
-    with pytest.raises(ValueError, match="outside an instrument"):
+    with raises_with(ValueError, "outside an instrument"):
         comp.param("r")  # the binding alone cannot be resolved
     set_override(comp, "r", 1234.0, invalidate=False)  # no session: nothing to invalidate
     assert comp.param("r") == 1234.0
@@ -88,16 +88,16 @@ def test_set_parameter_can_occupy_a_drawn_parameter(tmp_path):
 def test_set_parameter_validates(tmp_path):
     s = open_protocol(tmp_path)
     try:
-        with pytest.raises(ValueError, match="no parameter"):
+        with raises_with(ValueError, "no parameter"):
             s.set_parameter("rc", "", "nope", 1.0)
-        with pytest.raises(KeyError, match="no part"):
+        with raises_with(KeyError, "no part"):
             s.set_parameter("nope", "", "r", 1.0)
-        with pytest.raises(KeyError, match="is a part"):
+        with raises_with(KeyError, "is a part"):
             s.set_parameter("rc", "nope", "r", 1.0)
         # #495: the value must fit the parameter's declared type, with the parameter and the
         # received value in the message; a finite number passes.
         for bad in ("abc", None, float("nan"), float("inf"), True):
-            with pytest.raises(ValueError, match=r"rc\.r expects a finite number, got"):
+            with raises_with(ValueError, "rc.r expects a finite number, got"):
                 s.set_parameter("rc", "", "r", bad)
         s.set_parameter("rc", "", "r", 1234.0)
         assert s.components["rc"].param("r") == 1234.0
@@ -109,7 +109,7 @@ def test_set_parameter_validates(tmp_path):
         # A numeric parameter also takes a per-cell table (every leaf a finite number)…
         s.set_parameter("rc", "", "r", {"fast": 900.0, "slow": {"1": 1100.0}})
         # …and a bad leaf is named down to its cell.
-        with pytest.raises(ValueError, match=r"rc\.r\['slow'\]\['2'\] expects a finite number, got 'x'"):
+        with raises_with(ValueError, "rc.r['slow']['2'] expects a finite number, got 'x'"):
             s.set_parameter("rc", "", "r", {"fast": 900.0, "slow": {"2": "x"}})
     finally:
         s.close()
@@ -120,7 +120,7 @@ def test_a_hidden_fault_value_is_checked_at_inject(tmp_path):
     far from the caller."""
     s = open_protocol(tmp_path)
     try:
-        with pytest.raises(ValueError, match="expects a finite number"):
+        with raises_with(ValueError, "expects a finite number"):
             s.faults.inject(Fault(kind="hidden", component="rc", param="r", value="abc"), source="t")
         assert s.faults.snapshot() == []  # nothing was scheduled
     finally:

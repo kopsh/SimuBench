@@ -250,11 +250,18 @@ cases:
         expect_value: -33.3909
         tolerance: 1.0e-3
       - query: "SNAP? 0,1"
-        expect_match: '^0\.348\d+,-0\.229\d+$'
+        expect_fields: [{value: 0.3485, tolerance: 0.0005}, {value: -0.2295, tolerance: 0.0005}]
       - query: "SNAP? X, Y, R"
-        expect_match: '^0\.348\d+,-0\.229\d+,0\.416\d+$'
+        expect_fields:
+          - {value: 0.3485, tolerance: 0.0005}
+          - {value: -0.2295, tolerance: 0.0005}
+          - {value: 0.4165, tolerance: 0.0005}
       - query: "SNAPD?"
-        expect_match: '^0\.348\d+,-0\.229\d+,0\.416\d+,-33\.39\d+$'
+        expect_fields:
+          - {value: 0.3485, tolerance: 0.0005}
+          - {value: -0.2295, tolerance: 0.0005}
+          - {value: 0.4165, tolerance: 0.0005}
+          - {value: -33.395, tolerance: 0.005}
       - query: "OUTR? DAT3"
         expect_value: 0.416988
         tolerance: 2.0e-6
@@ -288,7 +295,7 @@ cases:
       - query: "CDSP? DAT4"
         expect: "15"
       - query: "SNAPD?"
-        expect_match: '^0\.5,-0\.229\d+,0\.416\d+,1000$'
+        expect_fields: ["0.5", {value: -0.2295, tolerance: 0.0005}, {value: 0.4165, tolerance: 0.0005}, "1000"]
       - query: "OUTR? DAT1"
         expect: "0.5"
       - send: "CDSP DAT1, X"
@@ -457,7 +464,7 @@ cases:
       - query: "CAPTUREBYTES?"
         expect: "8"
       - query: "CAPTUREVAL? 0"
-        expect_match: '^0\.348\d+,-0\.229\d+$'
+        expect_fields: [{value: 0.3485, tolerance: 0.0005}, {value: -0.2295, tolerance: 0.0005}]
       - query: "CAPTUREVAL? 255"
         expect: "0,0"
       - send: "CAPTURESTOP"
@@ -467,7 +474,7 @@ cases:
         expect: "2"
       - query: "CAPTUREGET? 0,1"
         binary: true
-        expect_match: '^#41024[\s\S]{1024}\n$'
+        expect_block: {header: "#41024", bytes: 1024, end: "\n"}
       - send: "CAPTURESTART CONT, TRIG"
       - query: "*ESR? 4"
         expect: "1"
@@ -522,11 +529,15 @@ cases:
         expect_value: -33.3909
         tolerance: 1.0e-3
       - query: "SNAPD?"
-        expect_match: '^0\.348\d+,-0\.229\d+,-33\.39\d+,-33\.39\d+$'
+        expect_fields:
+          - {value: 0.3485, tolerance: 0.0005}
+          - {value: -0.2295, tolerance: 0.0005}
+          - {value: -33.395, tolerance: 0.005}
+          - {value: -33.395, tolerance: 0.005}
       - query: "SNAP? 0,THeta"
-        expect_match: '^0\.348\d+,-33\.39\d+$'
+        expect_fields: [{value: 0.3485, tolerance: 0.0005}, {value: -33.395, tolerance: 0.005}]
       - query: "SNAP? X,2"
-        expect_match: '^0\.348\d+,0\.416\d+$'
+        expect_fields: [{value: 0.3485, tolerance: 0.0005}, {value: 0.4165, tolerance: 0.0005}]
       - send: "*CLS"
       - send: "OUTR? 5"
       - query: "*ESR? 4"

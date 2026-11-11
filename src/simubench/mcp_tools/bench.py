@@ -219,7 +219,8 @@ def register(mcp: MCPServer, ctx: McpContext) -> None:
         path: str = Field(..., description="Workspace-relative cases file (commands and expected replies)"),
     ) -> dict[str, Any]:
         """Run a cases file: each case on a freshly powered bench, every step's reply checked against
-        its expect / expect_match / expect_value. A failure names the step, the command, what was
+        its expect / expect_prefix / expect_value(s) / expect_fields / expect_format / expect_block
+        (no regular expressions, D49). A failure names the step, the command, what was
         expected and the actual reply. The same files as `simubench cases` and the manual cases of
         real models."""
         guard()

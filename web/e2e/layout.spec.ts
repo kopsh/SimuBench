@@ -1,5 +1,7 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { expectValue, hasDigit, quantity } from "./judge";
+
 // Layout at the widths people work at (#276, #277, #315): nothing in the inspector runs out of its
 // column, the number fields show their values, the *IDN? string ends in an ellipsis with the full
 // text on hover, the top bar stays on one line, and the canvas opens at a readable zoom.
@@ -36,7 +38,7 @@ for (const [width, height] of [
     });
     expect(overflow).toBe(0);
     // A number field shows its value with the unit (the timebase is never blank).
-    await expect(page.getByRole("textbox", { name: "时基" }).first()).toHaveValue(/\d/);
+    await expectValue(page.getByRole("textbox", { name: "时基" }).first(), hasDigit, "a number");
 
     // The top bar is one row: the clock is no taller than the bar.
     const clock = page.getByTitle("虚拟时间", { exact: true });
@@ -115,12 +117,12 @@ for (const [width, height] of WIDTHS) {
       await page.locator(".react-flow__node").filter({ hasText: inst.node }).first().click();
       await expect(page.getByText("身份与地址")).toBeVisible();
       for (const name of inst.fields) {
-        await expect(page.getByRole("textbox", { name, exact: true }).first()).toHaveValue(/\S/);
+        await expectValue(page.getByRole("textbox", { name, exact: true }).first(), (v) => v.trim() !== "", `${name} is not blank`);
       }
       if (inst.node === "精密源表") {
         // The units stay beside the numbers and the source autorange switch is inside the column.
-        await expect(page.getByRole("textbox", { name: "电压设定", exact: true })).toHaveValue(/V$/);
-        await expect(page.getByRole("textbox", { name: "电流设定", exact: true })).toHaveValue(/A$/);
+        await expectValue(page.getByRole("textbox", { name: "电压设定", exact: true }), (v) => quantity(v, "V") !== null, "a voltage with its unit");
+        await expectValue(page.getByRole("textbox", { name: "电流设定", exact: true }), (v) => quantity(v, "A") !== null, "a current with its unit");
         await expect(page.getByRole("switch", { name: "电压源自动量程" })).toBeVisible();
       }
       expect(await inspectorOverflow(page)).toBe(0);

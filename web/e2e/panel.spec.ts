@@ -1,5 +1,7 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
+import { expectNear, expectNotNear } from "./judge";
+
 // Front panels drawn from the definition (issue 128, instrument-authoring.md 7.3): the class
 // defaults of a multimeter and a calibrator, a declared panel, and build mode's initial settings.
 const TOKEN = "e2e-token";
@@ -33,7 +35,7 @@ test("34465A default panel: function and range keys change the reading", async (
   await expect(page.getByTestId("panel-source")).toHaveAccessibleName("类别默认布局"); // a hint, not display text (#281)
   const display = panel(page).getByTestId("panel-readout-meter.DC");
   // 1 V into 900 kΩ / (100 kΩ ∥ 10 MΩ): 99.103 mV on the 100 mV range the bench sets.
-  await expect(display).toHaveText(/^99\.103/);
+  await expectNear(display, 99.1035, 5e-4); // as shown, in mV
   const range = panel(page).getByRole("group", { name: "量程设定" });
   await expect(range.getByRole("button", { name: "100 mV" })).toHaveAttribute("aria-pressed", "true");
 
@@ -44,7 +46,7 @@ test("34465A default panel: function and range keys change the reading", async (
   await expect
     .poll(async () => Math.abs(Number.parseFloat((await display.textContent()) ?? "") - 99.103))
     .toBeLessThanOrEqual(4 * 0.71);
-  await expect(display).not.toHaveText(/^99\.103/);
+  await expectNotNear(display, 99.1035, 5e-4); // no longer to 1 µV
   await range.getByRole("button", { name: "AUTO" }).click();
   await expect(range.getByRole("button", { name: "AUTO" })).toHaveAttribute("aria-pressed", "true");
   await expect(panel(page).getByRole("switch", { name: "自动量程" })).toHaveCount(0); // the AUTO key is the autorange
@@ -83,10 +85,10 @@ test("5522A default panel: set the output, operate and standby", async ({ page }
   // After the 5 s settling time the meter on the output reads it (within the hidden deviation).
   await page.getByRole("combobox", { name: "推进" }).click();
   await page.getByRole("option", { name: "1 s" }).click();
-  for (let i = 0; i < 6; i++) await page.getByRole("button", { name: /推进/ }).click();
+  for (let i = 0; i < 6; i++) await page.getByRole("button", { name: "推进" }).click();
   await page.getByRole("tab", { name: "画布" }).click();
   await page.locator(".react-flow__node").filter({ hasText: "SB-DMM-1" }).dblclick();
-  await expect(panel(page).getByTestId("panel-readout-meter.DC")).toHaveText(/^2\.4999|^2\.5000/);
+  await expectNear(panel(page).getByTestId("panel-readout-meter.DC"), 2.5, 1e-4);
 
   await page.getByRole("tab", { name: "cal" }).click();
   await keys.getByRole("button", { name: "STBY" }).click();
@@ -102,7 +104,7 @@ test("a declared panel: its groups, controls and softkeys", async ({ page }) => 
   await open(page, "benches/panel.bench.yaml", "面板万用表", 2);
   await expect(page.getByTestId("panel-source")).toHaveAccessibleName("定义的面板"); // a hint, not display text (#281)
   for (const name of ["功能", "量程", "高级"]) await expect(panel(page).getByRole("region", { name })).toBeVisible();
-  await expect(panel(page).getByTestId("panel-readout-meter.DC")).toHaveText(/^4\.99|^5\.00/);
+  await expectNear(panel(page).getByTestId("panel-readout-meter.DC"), 5.0, 0.01);
 
   // Buttons, a number with step keys, a drop-down and a switch, as declared.
   await panel(page).getByRole("group", { name: "量程" }).getByRole("button", { name: "1 V" }).click();
@@ -130,7 +132,7 @@ test("in build mode the panel sets the bench file's initial settings", async ({ 
   const sid = await open(page, path, "面板万用表", 2);
 
   await page.getByRole("radio", { name: "搭建" }).click();
-  await page.getByRole("tab", { name: /面板万用表/ }).click(); // build mode opens on the canvas
+  await page.getByRole("tab", { name: "面板万用表" }).click(); // build mode opens on the canvas
   await expect(page.getByText("面板设置的是初始设置")).toBeVisible();
   const range = panel(page).getByRole("group", { name: "量程" });
   await range.getByRole("button", { name: "10 V" }).click();
@@ -147,7 +149,7 @@ test("in build mode the panel sets the bench file's initial settings", async ({ 
     (i) => i.name === "dmm",
   );
   expect(dmm?.state.find((v) => v.path === "sense.range_auto")?.value).toBe(true);
-  await expect(page.getByText(/量程：0 V（初始：10 V）|自动量程：开（初始：关）/).first()).toBeVisible();
+  await expect(page.getByText("量程：0 V（初始：10 V）").or(page.getByText("自动量程：开（初始：关）")).first()).toBeVisible();
 });
 
 test("the stepper is unavailable while covered, read-only, or disconnected (#742)", async ({ page }) => {

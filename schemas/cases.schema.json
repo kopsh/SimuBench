@@ -1,5 +1,123 @@
 {
   "$defs": {
+    "Block": {
+      "additionalProperties": false,
+      "description": "An IEEE 488.2 block reply: ``#<n><length><data>`` (definite) or ``#0<data>`` (indefinite),\nthen one of the terminators in ``end``.",
+      "properties": {
+        "bytes": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The number of data bytes",
+          "title": "Bytes"
+        },
+        "contains": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The data contains each of these texts",
+          "title": "Contains"
+        },
+        "end": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            }
+          ],
+          "default": [
+            "",
+            "\n"
+          ],
+          "description": "What follows the data: the terminator, or a list of accepted ones",
+          "title": "End"
+        },
+        "fields": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/FieldSpec"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "$ref": "#/$defs/Fields"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The data (ASCII) judged as fields",
+          "title": "Fields"
+        },
+        "header": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The exact block header (#800001000; #0 for an indefinite block)",
+          "title": "Header"
+        },
+        "indefinite": {
+          "default": false,
+          "description": "An indefinite-length block (#0), ended by the terminator",
+          "title": "Indefinite",
+          "type": "boolean"
+        },
+        "starts": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The data starts with this text",
+          "title": "Starts"
+        }
+      },
+      "title": "Block",
+      "type": "object"
+    },
     "Case": {
       "additionalProperties": false,
       "properties": {
@@ -35,13 +153,227 @@
       "title": "Case",
       "type": "object"
     },
+    "FieldSpec": {
+      "additionalProperties": false,
+      "description": "One field of a reply. Every key given must hold; a bare string is the exact field, a bare\nnumber the field as a number within the step's ``tolerance``.",
+      "properties": {
+        "contains": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field contains each of these texts",
+          "title": "Contains"
+        },
+        "count": {
+          "default": 1,
+          "description": "This spec stands for this many consecutive fields",
+          "minimum": 1,
+          "title": "Count",
+          "type": "integer"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How the field is written: a named format or a picture",
+          "title": "Format"
+        },
+        "length": {
+          "anyOf": [
+            {
+              "minimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field has exactly this many characters",
+          "title": "Length"
+        },
+        "max": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field as a number is at most this",
+          "title": "Max"
+        },
+        "min": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field as a number is at least this",
+          "title": "Min"
+        },
+        "nonempty": {
+          "default": false,
+          "description": "The field is not empty (any value)",
+          "title": "Nonempty",
+          "type": "boolean"
+        },
+        "one_of": {
+          "anyOf": [
+            {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field is exactly one of these",
+          "title": "One Of"
+        },
+        "prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field starts with this text; a number is read after it (\"VOLT +1.0E+01)",
+          "title": "Prefix"
+        },
+        "suffix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field ends with this text; a number is read before it",
+          "title": "Suffix"
+        },
+        "tolerance": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Absolute tolerance of value (default: the step's, else 0)",
+          "title": "Tolerance"
+        },
+        "unit": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The number is followed by a space and this unit (2.05E+0 V)",
+          "title": "Unit"
+        },
+        "value": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The field as a number, within tolerance",
+          "title": "Value"
+        }
+      },
+      "title": "FieldSpec",
+      "type": "object"
+    },
+    "Fields": {
+      "additionalProperties": false,
+      "description": "A reply cut into fields: ``prefix`` and ``suffix`` (exact) around them, ``separator``\nbetween them; there are exactly as many fields as the specs stand for.",
+      "properties": {
+        "fields": {
+          "items": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "number"
+              },
+              {
+                "$ref": "#/$defs/FieldSpec"
+              }
+            ]
+          },
+          "title": "Fields",
+          "type": "array"
+        },
+        "prefix": {
+          "default": "",
+          "title": "Prefix",
+          "type": "string"
+        },
+        "separator": {
+          "default": ",",
+          "title": "Separator",
+          "type": "string"
+        },
+        "suffix": {
+          "default": "",
+          "title": "Suffix",
+          "type": "string"
+        }
+      },
+      "required": [
+        "fields"
+      ],
+      "title": "Fields",
+      "type": "object"
+    },
     "Step": {
       "additionalProperties": false,
-      "description": "One command of a case: ``send`` writes, ``query`` writes and reads the reply.",
+      "description": "One command of a case: ``send`` writes, ``query`` writes and reads the reply.\n\nA query says what its reply must be with exactly one ``expect*`` key (library/expectations.py):\nthe exact text, its start, its written format, a number or a list of numbers within a tolerance,\nfields judged one by one, or an IEEE 488.2 block. None of them is a regular expression.",
       "properties": {
         "binary": {
           "default": false,
-          "description": "The reply is binary (a block): expect / expect_match apply to its bytes read as Latin-1",
+          "description": "The reply is binary (a block): the expectation applies to its bytes read as Latin-1, unstripped",
           "title": "Binary",
           "type": "boolean"
         },
@@ -58,7 +390,48 @@
           "description": "The exact reply",
           "title": "Expect"
         },
-        "expect_match": {
+        "expect_block": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/Block"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The reply is an IEEE 488.2 block"
+        },
+        "expect_fields": {
+          "anyOf": [
+            {
+              "items": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "$ref": "#/$defs/FieldSpec"
+                  }
+                ]
+              },
+              "type": "array"
+            },
+            {
+              "$ref": "#/$defs/Fields"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The reply cut into fields (by ',' unless separator says otherwise), each judged by its spec: exact text, a number within tolerance, min/max, a format, one_of, …",
+          "title": "Expect Fields"
+        },
+        "expect_format": {
           "anyOf": [
             {
               "type": "string"
@@ -68,8 +441,21 @@
             }
           ],
           "default": null,
-          "description": "A regular expression the whole reply matches",
-          "title": "Expect Match"
+          "description": "How the whole reply is written: integer, nr1, nr2, nr3, number, or a picture (d a digit, ± a sign, ~ an optional sign, anything else itself: dddd,dd,dd)",
+          "title": "Expect Format"
+        },
+        "expect_prefix": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The reply starts with this text (an error and its message: '-222,\"Data out of range')",
+          "title": "Expect Prefix"
         },
         "expect_value": {
           "anyOf": [
@@ -99,6 +485,19 @@
           "default": null,
           "description": "The comma-separated reply as numbers, compared elementwise (#836)",
           "title": "Expect Values"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "How each number of expect_value / expect_values is written (see expect_format)",
+          "title": "Format"
         },
         "instrument": {
           "anyOf": [
@@ -143,11 +542,17 @@
               "type": "number"
             },
             {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            {
               "type": "null"
             }
           ],
           "default": null,
-          "description": "Absolute tolerance for expect_value/expect_values",
+          "description": "Absolute tolerance for expect_value / expect_values (one per value, or one for all) and the bare numbers of expect_fields",
           "title": "Tolerance"
         }
       },

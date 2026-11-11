@@ -1,5 +1,7 @@
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 
+import { isSession } from "./judge";
+
 const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
 
@@ -89,7 +91,7 @@ test("connect ports by dragging, delete a wire, restart to apply", async ({ page
 
 test("diagnostics guide the fix: impedance hint cleared from the inspector", async ({ page }) => {
   await openEditor(page);
-  await page.getByRole("tab", { name: /问题/ }).click();
+  await page.getByRole("tab", { name: "问题" }).click();
   await expect(page.getByText("W-IMPEDANCE-MISMATCH")).toBeVisible();
   await page.getByText("W-IMPEDANCE-MISMATCH").click();
   // The diagnostic selects the generator; its initial load setting becomes high impedance.
@@ -118,7 +120,7 @@ test("create a bench from the home page and build it", async ({ page }) => {
   await page.getByLabel("测试台名称").fill(name);
   await expect(page.getByLabel("文件路径")).toHaveValue(`${name}.bench.yaml`);
   await page.getByRole("button", { name: "创建并打开" }).click();
-  await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
+  await expect(page).toHaveURL(isSession);
   await expect(page.getByRole("tab", { name: "元件库" })).toBeVisible();
 
   // Drag a scope from the library onto the canvas.
@@ -141,7 +143,7 @@ test("review an agent's change in the version history and restore the version be
   expect(r.ok()).toBeTruthy();
 
   await page.getByRole("button", { name: "查看差异" }).click();
-  const dialog = page.getByRole("dialog", { name: /版本历史/ });
+  const dialog = page.getByRole("dialog", { name: "版本历史" });
   const versions = dialog.getByRole("list", { name: "版本" });
   await expect(versions.getByRole("button")).toHaveCount(2);
   await expect(versions.getByRole("button").first()).toContainText("Agent");

@@ -5,9 +5,9 @@ from __future__ import annotations
 import shutil
 from pathlib import Path
 
-import pytest
 from pydantic import TypeAdapter
 
+from helpers import raises_with
 from simubench.engine.edit import EditError, EditOp, apply
 from simubench.models.bench import BenchDefinition
 from simubench.server.manager import SessionManager
@@ -35,7 +35,7 @@ def test_an_instrument_can_be_the_dut():
     assert b.duts() == ["dmm"] and b.instruments["dmm"].dut and not b.parts["r1"].dut
     b = apply(b, ops({"op": "set_dut", "name": "r1"}, {"op": "set_dut", "name": "dmm", "dut": False}))
     assert b.duts() == ["r1"]
-    with pytest.raises(EditError, match="仪表或元件"):
+    with raises_with(EditError, "仪表或元件"):
         apply(b, ops({"op": "set_dut", "name": "nope"}))
 
 

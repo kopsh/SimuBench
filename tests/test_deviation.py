@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from helpers import raises_with
 from simubench.api import open_bench
 from simubench.engine.deviation import draw
 from simubench.engine.edit import SetDeviation, apply
@@ -140,7 +141,7 @@ def test_tables_draw_one_value_per_cell():
     rel = DeviationRange(limit=1.0, unit="%", by={"range": [1, 10]})
     scaled = draw(rel, {1: 100.0, 10: 1000.0}, 1, "x")
     assert 99.0 <= scaled[1] <= 101.0 and 990.0 <= scaled[10] <= 1010.0
-    with pytest.raises(ValueError, match="no limit"):
+    with raises_with(ValueError, "no limit"):
         DeviationRange(limit={0.1: 30}, by={"range": [0.1, 1]})
 
 

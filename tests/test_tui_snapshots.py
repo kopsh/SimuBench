@@ -8,14 +8,13 @@ the section 4 communication log executed before the TUI connects (they come with
 from __future__ import annotations
 
 import asyncio
-import re
 import threading
 import time
 from pathlib import Path
 
 import pytest
 
-from helpers import StableScreen, stop_manager_sessions, wait_for_free_ports
+from helpers import Near, Shows, StableScreen, noise_rms, shows, stop_manager_sessions, wait_for_free_ports
 from simubench.server import drive
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
@@ -573,7 +572,17 @@ CATEGORY_SCREENS = [
     ("examples", "benches/keysight_34970a.bench.yaml", "daq", "daq"),
 ]
 
-READINGS: dict[str, tuple[str, ...]] = {
+INSTRUMENTS = ROOT / "src" / "simubench" / "library" / "instruments"
+
+#: How many σ of readback noise a reading may stray and still count as right. The seed is fixed, so
+#: a draw is the same every run; 4σ (a 6e-5 chance per reading) keeps the band honest.
+K_SIGMA = 4.0
+
+#: The readback noise σ of the two noisy screens, read from their definitions (#744, #808).
+PSU_SIGMA_V = noise_rms(INSTRUMENTS / "keysight-e36312a.yaml", "read", "voltage")
+ELOAD_SIGMA_V = noise_rms(INSTRUMENTS / "rigol-dl3021.yaml", "load", "voltage")
+
+READINGS: dict[str, tuple[Shows, ...]] = {
     "counter": ("1.000000000 kHz",),
     "specan": ("Marker",),
     "lockin": ("θ",),
@@ -582,25 +591,24 @@ READINGS: dict[str, tuple[str, ...]] = {
     "rfgen": ("Frequency", "Level", "RF ON", "Lines 1", "Carrier"),
     # Measured V, I, P as values with their units (the bench's source gives 5 V, the input
     # is off), the input state and the mode (#374: labels alone prove nothing). The voltage
-    # rides the readback noise (#808): any draw within ±4σ (0.6 mV) of 5 V; the off input sinks
-    # exactly 0 A, so I and P stay exact.
+    # rides the readback noise (#808): 5 V ± 4σ; the off input sinks exactly 0 A, so I and P
+    # are exact.
     "eload": (
         "INPUT",
-        r"re:V\s+(?:4\.999[4-9][0-9]|5\.000[0-6][0-9]) V",
-        r"re:I\s+0\.00000 A",
-        r"re:P\s+0\.000 W",
+        Near("V", "V", 5.0, K_SIGMA * ELOAD_SIGMA_V),
+        Near("I", "A", 0.0),
+        Near("P", "W", 0.0),
     ),
-    # Per-channel voltage and current readings with units, all outputs off (zeros) (#374).
-    # The panel reading rides the readback noise (#744) and the psu screen renders it in
-    # engineering units at 7 significant digits (#924), so a draw within ~4σ of 0 V shows as
-    # nV/µV/mV with 4–6 decimals depending on its magnitude.
+    # Per-channel voltage and current readings with units, all outputs off (#374). The panel
+    # reading rides the readback noise (#744): 0 V ± 4σ, whatever engineering prefix and number of
+    # decimals the 7-digit display gives it (#924, #926).
     "psu": (
         "CH1 voltage",
         "CH3 current",
-        r"re:CH1 voltage\s+[+-]?(?:[1-9][0-9]{0,2}\.[0-9]{4,6} (?:n|µ|m)V|0\.000000 V)",
+        Near("CH1 voltage", "V", 0.0, K_SIGMA * PSU_SIGMA_V),
     ),
     # The scan's reading with its unit; nothing scanned yet, so zero volts (#374).
-    "daq": ("Scan list", r"re:Reading\s+0\.000000 V"),
+    "daq": ("Scan list", Near("Reading", "V", 0.0)),
 }
 
 #: Patterns the 80-column settings column may truncate (tui-screens.md 6): they stay in the
@@ -608,21 +616,28 @@ READINGS: dict[str, tuple[str, ...]] = {
 NARROW_TRUNCATED = frozenset({"Lines 1", "Carrier"})
 
 
-def _snapshot_ready(kind: str) -> tuple[str, tuple[str, ...]]:
+def _snapshot_ready(kind: str) -> tuple[str, tuple[Shows, ...]]:
     needle, ready = READINGS[kind][0], READINGS[kind][1:]
+    assert isinstance(needle, str)
     return needle, tuple(p for p in ready if p not in NARROW_TRUNCATED)
 
 
-def test_the_psu_ready_pattern_matches_the_engineering_format():
-    """#924: a reading shows 7 significant digits, so a µV draw gets 6 decimals below 10 µV, 5
-    below 100 µV and 4 above; the pattern demanded 6 and a draw of -24.18046 µV never settled."""
+def test_the_psu_reading_is_judged_by_value_not_by_format():
+    """#924/#926: a reading shows 7 significant digits, so its decimals and prefix follow its
+    magnitude; the check parses the number back, so every noise draw passes and a reading outside
+    0 V ± 4σ — 500 mV, 5 V — fails however it is printed."""
     from simubench.tui.fmt import fmt
 
-    pattern = next(p for p in READINGS["psu"] if p.startswith("re:"))[len("re:") :]
-    for volts in (-0.0, -1e-9, -9.876543e-6, -24.18046e-6, -500e-6, -1e-3, -9.999999e-3):
-        line = f"CH1 voltage    {fmt(volts, 'V', digits=7)}"
-        assert re.search(pattern, line), line
-    assert not re.search(pattern, "CH1 voltage    5.000000 V")  # a wrong reading still fails
+    near_zero = READINGS["psu"][-1]
+    assert isinstance(near_zero, Near)
+    inside = (-0.0, -1e-9, -9.876543e-6, -24.18046e-6, 6.637394e-6, -105.8257e-6, 3.9e-4, -3.9e-4)
+    for volts in inside:
+        line = f"│CH1 voltage    {fmt(volts, 'V', digits=7)}│"
+        assert near_zero(line), line
+    for volts in (4.1e-4, -1e-3, 500e-3, 5.0):
+        line = f"│CH1 voltage    {fmt(volts, 'V', digits=7)}│"
+        assert not near_zero(line), line  # a wrong reading still fails
+    assert not near_zero("│CH1 voltage    —│")  # no reading yet
 
 
 async def _open_instrument(pilot, tui, instrument: str, needle: str, kind: str, ready=()) -> str:
@@ -672,23 +687,21 @@ def test_category_instrument_snapshot(
 )
 def test_the_category_screens_show_meaningful_readings(category_server, workspace, bench, instrument, kind):
     import asyncio
-    import re
 
     url, manager = category_server[workspace]
     served = asyncio.run(manager.start(bench, seed=5, clock="command"))
     tui = SimuBenchApp(url, sid=served.id)
-    shows = READINGS[kind]
+    expected = READINGS[kind]
+    needle = expected[0]
+    assert isinstance(needle, str)
 
     async def run() -> str:
         async with tui.run_test(size=(100, 32)) as pilot:
-            return await _open_instrument(pilot, tui, instrument, shows[0], kind, ready=shows[1:])
+            return await _open_instrument(pilot, tui, instrument, needle, kind, ready=expected[1:])
 
     text = asyncio.run(run())
-    for needle in shows:
-        if needle.startswith("re:"):
-            assert re.search(needle[3:], text), needle
-        else:
-            assert needle in text, needle
+    for check in expected:
+        assert shows(text, check), check
     for internal in (
         "synth.point",
         "synth.points",
@@ -698,7 +711,7 @@ def test_the_category_screens_show_meaningful_readings(category_server, workspac
         "load.regulating",
     ):
         assert internal not in text
-    assert not re.search(r"[\u2e80-\u9fff]", text), "the TUI is English only (D23)"
+    assert not any("\u2e80" <= c <= "\u9fff" for c in text), "the TUI is English only (D23)"
 
 
 def test_the_eload_capture_waits_for_a_slow_readout(category_server):
@@ -706,7 +719,6 @@ def test_the_eload_capture_waits_for_a_slow_readout(category_server):
     had arrived. With a test double that serves the instrument state late, the settle rule holds
     the capture until the values are on screen; nothing is skipped or loosened."""
     import asyncio
-    import re
 
     url, manager = category_server["examples"]
     served = asyncio.run(manager.start("benches/rigol_dl3021.bench.yaml", seed=5, clock="command"))
@@ -725,10 +737,10 @@ def test_the_eload_capture_waits_for_a_slow_readout(category_server):
 
     async def run() -> str:
         async with tui.run_test(size=(80, 24)) as pilot:
-            needle, ready = READINGS["eload"][0], READINGS["eload"][1:]
+            needle, ready = _snapshot_ready("eload")
             return await _open_instrument(pilot, tui, "dut", needle, "eload", ready=ready)
 
     text = asyncio.run(run())
     assert len(slowed) >= 2, "the test double never delayed the readout"
-    for pattern in READINGS["eload"]:
-        assert re.search(pattern[3:], text) if pattern.startswith("re:") else pattern in text
+    for check in READINGS["eload"]:
+        assert shows(text, check), check

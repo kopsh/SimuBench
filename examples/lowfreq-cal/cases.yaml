@@ -9,10 +9,10 @@ cases:
     manual: "FR-1 型号识别"
     steps:
       - query: "*IDN?"
-        expect_match: '^LECROY,LFCAL-REFSCOPE,[^,]+,[^,]+$'
+        expect_fields: ["LECROY", "LFCAL-REFSCOPE", {nonempty: true}, {nonempty: true}]
       - instrument: calibrator
         query: "*IDN?"
-        expect_match: '^SIMUBENCH,LFCAL-CALIBRATOR,[^,]+,[^,]+$'
+        expect_fields: ["SIMUBENCH", "LFCAL-CALIBRATOR", {nonempty: true}, {nonempty: true}]
   - name: "公共命令按契约回复，不带命令头"
     manual: "§4 *OPC? / *CLS? / SYST:ERR?"
     steps:
@@ -42,7 +42,7 @@ cases:
         expect: '0,"No error"'
       - send: "C1:CPL D75"
       - query: "SYST:ERR?"
-        expect_match: '^-2\d\d,.*'
+        expect_prefix: "-224,"  # an illegal value of a known command
   - name: "重复设置同一个值不报错"
     manual: "FR-3 重复设置"
     steps:
@@ -77,7 +77,7 @@ cases:
       - send: "TDIV 1E-3"
       - send: "WAVEFORM_SETUP SP,0,NP,10,FP,0,SN,0"
       - query: 'C1:INSPECT? "DATA_ARRAY_1",FLOAT'
-        expect_match: '^C1:INSP " ([-+]?\d\.\d{6}e[-+]\d\d ){10}"$'
+        expect_fields: {prefix: 'C1:INSP " ', suffix: ' "', separator: " ", fields: [{format: "~d.dddddde±dd", count: 10}]}
       - send: "WAVEFORM_SETUP FP,20000"
       - query: 'C1:INSPECT? "DATA_ARRAY_1",FLOAT'
         expect: 'C1:INSP " "'
@@ -103,7 +103,7 @@ cases:
       - query: "PACU? 1"
         expect: "PACU 1,AMPL,C1"
       - query: "C1:PAVA? AMPL"
-        expect_match: '^C1:PAVA AMPL,(99\d(\.\d+)?E-3|1(\.0+)?E\+0) V,OK$'
+        expect_fields: ["C1:PAVA AMPL", {value: 0.995, tolerance: 0.005, unit: "V"}, "OK"]
   - name: "校准仪的波形、占空比与负载设定可查询"
     manual: "§7 示波器校准仪"
     steps:

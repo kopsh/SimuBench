@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import pytest
 
+from helpers import raises_with
 from simubench.tui import controls as C
 
 VOLTS = {"unit": "V", "min": -210, "max": 210}
@@ -62,13 +63,13 @@ def test_a_typed_number_is_converted_to_the_settings_unit(text, value):
 
 @pytest.mark.unit
 def test_out_of_range_is_told_from_not_a_number():
-    with pytest.raises(ValueError, match="range"):
+    with raises_with(ValueError, "range"):
         C.parse_input("999", VOLTS)
-    with pytest.raises(ValueError, match="range"):
+    with raises_with(ValueError, "range"):
         C.parse_input("-211", VOLTS)
-    with pytest.raises(ValueError, match="number"):
+    with raises_with(ValueError, "number"):
         C.parse_input("abc", VOLTS)
-    with pytest.raises(ValueError, match="number"):
+    with raises_with(ValueError, "number"):
         C.parse_input("5 A", VOLTS)  # a wrong unit
 
 
@@ -102,7 +103,7 @@ def test_parse_input_number_itself():
     assert C.parse_input_number("5") == 5.0  # bare: the state's unit
     assert C.parse_input_number("5000 mV", "V") == pytest.approx(5.0)
     assert C.parse_input_number(" 7.5V ", "V") == pytest.approx(7.5)  # plain unit, whitespace
-    with pytest.raises(ValueError, match="not a number"):
+    with raises_with(ValueError, "not a number"):
         C.parse_input_number("abc", "V")
-    with pytest.raises(ValueError, match="no unit"):
+    with raises_with(ValueError, "no unit"):
         C.parse_input_number("5 mV", None)  # a suffix needs the state's unit to convert into

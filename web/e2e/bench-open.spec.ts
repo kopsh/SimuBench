@@ -1,5 +1,7 @@
 // Issue 31: no "run" step — a bench opens ready to use; close, reset and switch replace it.
 import { expect, type Page, test } from "@playwright/test";
+
+import { isHome } from "./judge";
 import { createConnection } from "node:net";
 
 const TOKEN = "e2e-token";
@@ -23,7 +25,7 @@ test("a bench opens ready to use, and closing it frees the workspace", async ({ 
   expect(((await scpi.json()) as { response: string }).response).toContain("SB-DSO-4");
 
   await page.getByRole("button", { name: "关闭测试台" }).click();
-  await expect(page).toHaveURL(/\/$/); // back home
+  await expect(page).toHaveURL(isHome); // back home
   await expect(page.getByTestId("script-access")).toHaveCount(0); // the ports are free again
 });
 
@@ -46,7 +48,7 @@ test("reset brings instruments back to power-on defaults", async ({ page }) => {
     .state.find((s) => s.path === "ch1.scale")!;
   expect(scale.value).not.toBe(0.5);
   await page.getByRole("button", { name: "关闭测试台" }).click(); // leave the workspace free
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(isHome);
 });
 
 test("switching benches asks first while a script is connected", async ({ page }) => {
@@ -68,7 +70,7 @@ test("switching benches asks first while a script is connected", async ({ page }
   await expect(page.getByTestId("script-access")).toBeVisible(); // the open bench says so
   await page.getByRole("listitem").filter({ hasText: "lockin_rc" }).getByRole("button", { name: "打开测试台" }).click();
   await expect(page.getByText("切换测试台？")).toBeVisible();
-  await expect(page.getByText(/socket:127\.0\.0\.1:/)).toBeVisible(); // the script is named
+  await expect(page.getByText("socket:127.0.0.1:")).toBeVisible(); // the script is named
   await page.getByRole("button", { name: "取消" }).click(); // keep the connected bench
   await expect(page.getByTestId("script-access").first()).toBeVisible();
 
@@ -125,12 +127,12 @@ test("only opening a bench writes no record", async ({ page }) => {
 
 test("Start with Hello World copies the example into the workspace and opens it", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("button", { name: /Hello World/ }).first().click();
+  await page.getByRole("button", { name: "Hello World" }).first().click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3); // generator, scope, analyzer
   const sid = page.url().split("/s/")[1]?.split("?")[0];
   const info = (await (await page.request.get(`/api/sessions/${sid}`, { headers })).json()) as { bench_path: string };
   expect(info.bench_path).toBe("hello.bench.yaml");
   await page.getByRole("button", { name: "关闭测试台" }).click(); // leave the workspace free
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(isHome);
   await expect(page.getByRole("button", { name: "打开 Hello World" })).toBeVisible(); // kept, opened next time
 });

@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 from pyvisa import constants
 
+from helpers import raises_with
 from simubench.access.bus import bus_of
 from simubench.access.gpib_bus import (
     CONTROLLER,
@@ -67,7 +68,7 @@ def test_two_devices_cannot_share_an_address(tmp_path):
     twin.write_text(text, encoding="utf-8")
     session = open_bench(twin)
     try:
-        with pytest.raises(ValueError, match="cannot share a GPIB address"):
+        with raises_with(ValueError, "cannot share a GPIB address"):
             gpib_board(session, 0)
     finally:
         session.close()

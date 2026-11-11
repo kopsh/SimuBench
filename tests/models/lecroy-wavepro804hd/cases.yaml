@@ -54,7 +54,7 @@ cases:
       - send: "TDIV 500US"
       - send: "*TRG"
       - query: "C1:PAVA? PKPK"
-        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+        expect_fields: ["C1:PAVA PKPK", {value: 2.05, tolerance: 0.05, unit: "V"}, "OK"]
 
   - name: "命令头 SHORT 与 LONG"
     manual: "COMM > COMM_HEADER"
@@ -213,7 +213,7 @@ cases:
       - send: "ARM"
       - send: "STOP"
       - query: "C1:PAVA? PKPK"
-        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+        expect_fields: ["C1:PAVA PKPK", {value: 2.05, tolerance: 0.05, unit: "V"}, "OK"]
 
   - name: "强制触发"
     manual: "ACQUISITION > FORCE_TRIGGER"
@@ -222,7 +222,7 @@ cases:
       - send: "TDIV 500US"
       - send: "FRTR"
       - query: "C1:PAVA? PKPK"
-        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+        expect_fields: ["C1:PAVA PKPK", {value: 2.05, tolerance: 0.05, unit: "V"}, "OK"]
 
   - name: "WAIT 等待采集完成"
     manual: "ACQUISITION > WAIT"
@@ -231,7 +231,7 @@ cases:
       - send: "TDIV 500US"
       - send: "WAIT"
       - query: "C1:PAVA? PKPK"
-        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+        expect_fields: ["C1:PAVA PKPK", {value: 2.05, tolerance: 0.05, unit: "V"}, "OK"]
 
   - name: "自动测量绑定 P1–P8"
     manual: "CURSOR > PARAMETER_CUSTOM、PARAMETER_VALUE?"
@@ -245,9 +245,9 @@ cases:
       - query: "PACU? 2"
         expect: "PACU 2,FREQ,C1"
       - query: "C1:PAVA? PKPK"
-        expect_match: "C1:PAVA PKPK,2\\.0[0-9]+E\\+0 V,OK"
+        expect_fields: ["C1:PAVA PKPK", {value: 2.05, tolerance: 0.05, unit: "V"}, "OK"]
       - query: "C1:PAVA? FREQ"
-        expect_match: "C1:PAVA FREQ,99[0-9]\\.[0-9]+E\\+0 HZ,OK"
+        expect_fields: ["C1:PAVA FREQ", {value: 995.0, tolerance: 5.0, unit: "HZ"}, "OK"]
 
   - name: "波形设置 SP、NP、FP、SN"
     manual: "WAVEFORM TRANSFER > WAVEFORM_SETUP"
@@ -262,7 +262,11 @@ cases:
       - send: "C1:VDIV 500MV"
       - send: "TDIV 500US"
       - query: 'C1:INSP? "WAVEDESC"'
-        expect_match: 'C1:INSP " WAVE_ARRAY_COUNT: 10000 FIRST_POINT: 0 SPARSING_FACTOR: 1 HORIZ_INTERVAL: 5\.000000000e-07 HORIZ_OFFSET: -2\.500000000e-03 VERTICAL_OFFSET: 0\.000000e\+00 .*VOLT_PER_DIV: 5\.000000e-01 ACQ_COUNT: [0-9]+ "'
+        expect_fields:  # the descriptor's leading entries as written, the vertical scale, any acquisition count
+          separator: " ACQ_COUNT: "
+          fields:
+            - {prefix: 'C1:INSP " WAVE_ARRAY_COUNT: 10000 FIRST_POINT: 0 SPARSING_FACTOR: 1 HORIZ_INTERVAL: 5.000000000e-07 HORIZ_OFFSET: -2.500000000e-03 VERTICAL_OFFSET: 0.000000e+00 ', suffix: "VOLT_PER_DIV: 5.000000e-01"}
+            - {suffix: ' "', format: "unsigned"}
 
   - name: "DATA_ARRAY_1 文本回读"
     manual: "WAVEFORM TRANSFER > INSPECT?"
@@ -271,7 +275,7 @@ cases:
       - send: "TDIV 500US"
       - send: "WFSU SP,0,NP,3,FP,0,SN,0"
       - query: 'C1:INSP? "DATA_ARRAY_1",FLOAT'
-        expect_match: 'C1:INSP " -?[0-9.]+e[-+][0-9]+ -?[0-9.]+e[-+][0-9]+ -?[0-9.]+e[-+][0-9]+ "'
+        expect_fields: {prefix: 'C1:INSP " ', suffix: ' "', separator: " ", fields: [{format: "nr3", count: 3}]}
 
   - name: "SIMPLE 回读与选点"
     manual: "WAVEFORM TRANSFER > INSPECT?"
@@ -280,4 +284,4 @@ cases:
       - send: "TDIV 500US"
       - send: "WFSU SP,0,NP,2,FP,10,SN,0"
       - query: 'C1:INSP? "SIMPLE",FLOAT'
-        expect_match: 'C1:INSP " -?[0-9.]+e[-+][0-9]+ -?[0-9.]+e[-+][0-9]+ "'
+        expect_fields: {prefix: 'C1:INSP " ', suffix: ' "', separator: " ", fields: [{format: "nr3", count: 2}]}

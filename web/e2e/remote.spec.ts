@@ -60,7 +60,7 @@ test("a script makes the instrument remote; LOCAL takes it back until the script
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
   const banner = page.getByTestId("remote-banner").first();
   await expect(banner).toContainText("远程控制中");
-  await expect(banner).toContainText(/socket:127\.0\.0\.1:/);
+  await expect(banner).toContainText("socket:127.0.0.1:");
 
   // The console is refused while remote, and says how to take the instrument back.
   await page.getByLabel("发送 SCPI 命令").fill(":CHAN1:SCAL 0.5");
@@ -96,7 +96,7 @@ test("with a script connected, Operate asks before rebuilding and can rebuild la
 
   await page.getByRole("radio", { name: "操作" }).click();
   await expect(page.getByText("按新的定义重建？")).toBeVisible();
-  await expect(page.getByRole("list", { name: "已连接的脚本" })).toContainText(/socket:127\.0\.0\.1:/);
+  await expect(page.getByRole("list", { name: "已连接的脚本" })).toContainText("socket:127.0.0.1:");
   await page.getByRole("button", { name: "稍后重建" }).click();
 
   // Operate on the running bench: the script keeps its connection, the top bar offers the rebuild.

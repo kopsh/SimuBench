@@ -179,7 +179,7 @@ cases:
         expect: "5001"
       - send: ":SWE:POIN 40002"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
 
   - name: "幅度：参考电平与自动衰减（参考电平 +10 dBm → 20 dB）、手动 2 dB 步进、单位只有 dBm"
     manual: "8 Swept SA Measurement > AMPTD Y Scale > Ref Level (p.547) / Attenuation (p.550) / Y Axis Unit (p.567)"
@@ -201,7 +201,7 @@ cases:
         expect: "DBM"
       - send: ":UNIT:POW V"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "检波器：手动选择关闭自动；自动按迹线类型（最大保持 → 正峰、最小保持 → 负峰）；平均检波器未建模"
     manual: "8 Swept SA Measurement > Trace/Detector > Detector (p.912–913) / Auto (p.916) / Normal (p.916)"
@@ -228,10 +228,10 @@ cases:
         expect: "1"
       - send: ":DET:TRAC AVER"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
       - send: ":DET:TRAC2 SAMP"
       - query: ":SYST:ERR?"
-        expect_match: '^-114,.*'
+        expect_prefix: "-114,"
 
   - name: "迹线类型与平均：WRITe/AVERage/MAXHold/MINHold、平均次数 1–10000、平均类型只有 LOG"
     manual: "8 Swept SA Measurement > Trace/Detector > Trace Type (p.901); Meas Setup > Average/Hold Number (p.676) / Average Type (p.677)"
@@ -251,7 +251,7 @@ cases:
         expect: "0"
       - send: ":AVER:TYPE RMS"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
       - send: ":AVER:CLE"
       - send: ":TRAC:CLE:ALL"
       - send: ":TRAC:TYPE MINH"
@@ -259,7 +259,7 @@ cases:
         expect: "MINH"
       - send: ":AVER:COUN 10001"
       - query: ":SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
 
   - name: "单次扫描与迹线读取：INIT:CONT OFF、INIT:IMM 后 *OPC? 同步、:TRAC:DATA? TRACE1 为 1001 个 ASCII 值、峰值 -10 dBm"
     manual: "8 Swept SA Measurement > Sweep/Control > Single (p.760) / Restart; Trace/Detector > Trace data (p.939); FORMat (p.674)"
@@ -271,14 +271,14 @@ cases:
       - query: "*OPC?"
         expect: "1"
       - query: ":TRAC:DATA? TRACE1"
-        expect_match: '^([-+]\d\.\d{8}E[-+]\d{3},){1000}[-+]\d\.\d{8}E[-+]\d{3}$'
+        expect_fields: [{format: "±d.ddddddddE±ddd", count: 1000}, {format: "±d.ddddddddE±ddd"}]
       - send: ":INIT:REST"
       - send: ":ABOR"
       - query: ":FORM?"
         expect: "ASC"
       - send: ":FORM REAL"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
       - send: ":FORM:BORD SWAP"
       - query: ":FORM:BORD?"
         expect: "SWAP"
@@ -293,10 +293,10 @@ cases:
         expect: "IMM"
       - send: ":TRIG:SOUR VID"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
       - send: ":TRIG:RF:SOUR EXT1"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "标记：预置 OFF 时 X?/Y? 回 9.91E+37；峰值搜索打开标记并找到 5.8 GHz、-10 dBm 的载波"
     manual: "8 Swept SA Measurement > Marker > Marker Control Mode (p.612–613) / Setting/Querying the Marker X/Y Axis Value (p.613–615); Peak Search (p.726)"
@@ -328,7 +328,7 @@ cases:
         expect: "OFF"
       - send: ":CALC:MARK2:MAX"
       - query: ":SYST:ERR?"
-        expect_match: '^-114,.*'
+        expect_prefix: "-114,"
 
   - name: "标记模式：从 OFF 打开时在屏幕中心；差值标记的 X 是相对参考标记的偏移、Y 是 dB 差"
     manual: "8 Swept SA Measurement > Marker > Marker Control Mode (p.613: Delta — X Axis offset from a reference marker; the query returns the offset)"
@@ -352,7 +352,7 @@ cases:
         tolerance: 20.0
       - send: ":CALC:MARK:MODE FIX"
       - query: ":SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "峰值搜索：门限与偏移、下一峰/左右峰找不到时报 -200、搜索方式 MAXimum/PARameter"
     manual: "8 Swept SA Measurement > Peak Search > Next Peak / Next Pk Right / Next Pk Left / Minimum (p.726–731) / Peak Threshold (p.732) / Peak Excursion / Peak Search Mode"
@@ -376,13 +376,13 @@ cases:
         tolerance: 1000.0
       - send: ":CALC:MARK:MAX:NEXT"
       - query: ":SYST:ERR?"
-        expect_match: '^-200,.*'
+        expect_prefix: "-200,"
       - send: ":CALC:MARK:MAX:LEFT"
       - query: ":SYST:ERR?"
-        expect_match: '^-200,.*'
+        expect_prefix: "-200,"
       - send: ":CALC:MARK:MAX:RIGH"
       - query: ":SYST:ERR?"
-        expect_match: '^-200,.*'
+        expect_prefix: "-200,"
 
   - name: "标记计数器：关闭时回 0，打开后读出载波频率"
     manual: "8 Swept SA Measurement > Marker Function > Marker Count (p.629)"
@@ -425,10 +425,10 @@ cases:
     steps:
       - send: ":POW:GAIN ON"
       - query: ":SYST:ERR?"
-        expect_match: '^-113,"Undefined header;not implemented in this definition"'
+        expect: "-113,\"Undefined header;not implemented in this definition\""
       - send: ":CONF:ACP"
       - query: ":SYST:ERR?"
-        expect_match: '^-113,.*'
+        expect_prefix: "-113,"
       - send: ":CALC:MARK:STAT ON"
       - query: ":SYST:ERR?"
-        expect_match: '^-113,.*'
+        expect_prefix: "-113,"

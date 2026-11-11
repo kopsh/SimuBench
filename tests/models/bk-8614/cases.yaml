@@ -145,7 +145,7 @@ cases:
         tolerance: 0.23  # 4σ of the readback noise (#808)
       - send: "FUNC:MODE LIST"
       - query: "SYST:ERR?"
-        expect_match: '^-224,.*'
+        expect_prefix: "-224,"
 
   - name: "量程：取能容纳设定的最小档；切换量程时超出新档的设定值收到边界"
     manual: "Source Commands > [SOURce:]CURRent:RANGe / [SOURce:]VOLTage:RANGe / [SOURce:]RESistance:RANGe / [SOURce:]POWer:RANGe"
@@ -192,7 +192,7 @@ cases:
         expect: "1.000000E-02"
       - send: "CURR:SLEW:POS 0.001"
       - query: "SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - send: "CURR:RANG 24"
       - send: "CURR:SLEW MIN"
       - query: "CURR:SLEW:NEG?"
@@ -202,14 +202,14 @@ cases:
         expect: "2.500000E-01"
       - send: "CURR:SLEW:POS 0.5"
       - query: "SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
       - send: "CURR:RANG 240"
       - send: "CURR:SLEW:POS MAX"
       - query: "CURR:SLEW:POS?"
         expect: "2.500000E+00"
       - send: "CURR:SLEW 3"
       - query: "SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
 
   - name: "斜率随量程：切换量程把已存的斜率钳进新范围（双向，与写入校验同一谓词）；DEF 在两个量程都可用"
     manual: "Source Commands > [SOURce:]CURRent:SLEW:POSitive / :SLEW:NEGative、CURRent:RANGe。手册未写切换量程后已存斜率与 DEF 的行为，按数据表的分档斜率界钳制建模（真机行为未核实，覆盖表已注明）"
@@ -315,7 +315,7 @@ cases:
         tolerance: 0.0048  # 4σ of the readback noise (#808)
       - send: "CURR:PROT:DEL 61"
       - query: "SYST:ERR?"
-        expect_match: '^-222,.*'
+        expect_prefix: "-222,"
 
   - name: "OPP：电平与延时；功率超过电平时 OP 位立即置位，延时内输入保持"
     manual: "Source Commands > [SOURce:]POWer:PROTection[:LEVel] / :PROTection:DELay; 1.4 Programming the Status Registers > Questionable Status Group"
@@ -432,10 +432,10 @@ cases:
         expect: '-113,"Undefined header;not implemented in this definition"'
       - send: "LIST:STEP 5"
       - query: "SYST:ERR?"
-        expect_match: '^-113,.*'
+        expect_prefix: "-113,"
       - send: "INP:SHOR ON"
       - query: "SYST:ERR?"
-        expect_match: '^-113,.*'
+        expect_prefix: "-113,"
       - send: "*SAV 1"
       - query: "SYST:ERR?"
-        expect_match: '^-113,.*'
+        expect_prefix: "-113,"

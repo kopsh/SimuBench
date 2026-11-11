@@ -1,34 +1,37 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, test } from "@playwright/test";
+
+import { benchRow, expectAttributeContains, expectNear, expectText, isDigits, isHome, openButton, quantity } from "./judge";
 
 const TOKEN = "e2e-token";
 
 test("lock-in screen: readouts follow the circuit and settle after a change", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: "lockin_rc" }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+  await openButton(benchRow(page, "lockin_rc")).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await page.locator(".react-flow__node").filter({ hasText: "锁相放大器" }).dblclick();
   await expect(page.getByText("已锁定")).toBeVisible();
-  // 0.5 Vrms at the physics-correct corner 1515.76 Hz: R = 353.51 mV, θ = −44.99°
-  await expect(page.getByTestId("readout-R")).toHaveText(/^353\.5/);
-  await expect(page.getByTestId("readout-θ")).toHaveText(/^-44\.99/);
+  // 0.5 Vrms at the physics-correct corner 1515.76 Hz: R = 353.51 mV, θ = −44.99° (the readouts
+  // as shown, in mV and degrees; the band is the display's last digits).
+  await expectNear(page.getByTestId("readout-R"), 353.51, 0.05);
+  await expectNear(page.getByTestId("readout-θ"), -44.99, 0.01);
 
   const freq = page.getByRole("textbox", { name: "参考频率" }).first();
   await freq.fill("100");
   await freq.press("Enter");
   // Right after the change the output is still near the old value; after advancing it settles.
-  await expect(page.getByTestId("readout-R")).toHaveText(/^353\.5/);
+  await expectNear(page.getByTestId("readout-R"), 353.51, 0.05);
   for (let i = 0; i < 4; i++) {
-    await page.getByRole("button", { name: /推进/ }).click();
+    await page.getByRole("button", { name: "推进" }).click();
   }
   await page.getByRole("combobox", { name: "推进" }).click();
   await page.getByRole("option", { name: "1 s" }).click();
-  await page.getByRole("button", { name: /推进/ }).click();
-  await expect(page.getByTestId("readout-R")).toHaveText(/^498\.8/);
+  await page.getByRole("button", { name: "推进" }).click();
+  await expectNear(page.getByTestId("readout-R"), 498.85, 0.05);
 });
 
 test("spectrum analyzer screen: peak search walks the harmonics", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: /^specan/ }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+  await openButton(benchRow(page, "specan")).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await page.locator(".react-flow__node").filter({ hasText: "频谱仪" }).dblclick();
   const threshold = page.getByRole("textbox", { name: "峰值门限" }).first();
@@ -37,9 +40,9 @@ test("spectrum analyzer screen: peak search walks the harmonics", async ({ page 
   await page.getByRole("button", { name: "峰值搜索" }).click();
   // 1 Vpp square into 50 Ω: 0.5 V peak, fundamental 4·0.5/π V → +6.0778 dBm (D13); the sweep's
   // noise sample moves the reading by about ±0.0002 dB, across the display's rounding edge.
-  await expect(page.getByTestId("marker-readout")).toHaveText(/100 kHz · 6\.07[78] dBm/);
+  await expectMarker(page.getByTestId("marker-readout"), "100 kHz", 6.0778, 0.001);
   await page.getByRole("button", { name: "下一峰值" }).click();
-  await expect(page.getByTestId("marker-readout")).toHaveText(/300 kHz · -3\.46\d dBm/);
+  await expectMarker(page.getByTestId("marker-readout"), "300 kHz", -3.465, 0.005);
   await page.getByRole("textbox", { name: "跨度" }).first().fill("10M");
   await page.getByRole("textbox", { name: "跨度" }).first().press("Enter");
   await expect(page.getByText("RBW 100 kHz")).toBeVisible(); // the analyzer's coupling, not the UI's
@@ -47,13 +50,13 @@ test("spectrum analyzer screen: peak search walks the harmonics", async ({ page 
 
 test("spectrum analyzer: power-on shows no UNCAL and no stale manual RBW; a short sweep time does", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  const specan = page.getByRole("listitem").filter({ hasText: /^specan/ });
-  await specan.getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+  const specan = benchRow(page, "specan");
+  await openButton(specan).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   // A new session at power-on (#345): the service is shared by the tests, and the peak-search
   // test left a 10 MHz span on this bench, so close it and open the bench again.
   await page.getByRole("button", { name: "关闭测试台" }).click();
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(isHome);
   await specan.getByRole("button", { name: "打开测试台" }).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   const sid = page.url().split("/s/")[1]?.split("?")[0];
@@ -82,23 +85,24 @@ test("spectrum analyzer: power-on shows no UNCAL and no stale manual RBW; a shor
   await sweep.fill("1m");
   await sweep.press("Enter");
   await expect(page.getByTestId("uncal")).toBeVisible();
-  await expect(page.getByTestId("uncal")).toHaveAttribute("title", /扫描时间短于/);
+  await expectAttributeContains(page.getByTestId("uncal"), "title", "扫描时间短于");
 });
 
 test("SMU screen: the limit takes over, a sweep fills the I–V curve and the buffer", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page.getByRole("listitem").filter({ hasText: /^smu/ }).getByRole("button", { name: /^(打开测试台|进入)$/ }).click();
+  await openButton(benchRow(page, "smu")).click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await page.locator(".react-flow__node").filter({ hasText: "源测量单元" }).dblclick();
   // 5 V into 1 kΩ ∥ 10 MΩ = 999.9 Ω
   await expect(page.getByTestId("smu-regulation")).toHaveText("CV");
-  await expect(page.getByTestId("readout-I")).toHaveText(/^\+5\.0005/); // signed, as the SMU display shows it
+  await expectNear(page.getByTestId("readout-I"), 5.0005, 1e-4); // 5.0005 mA, signed as the SMU display shows it
+  await expectText(page.getByTestId("readout-I"), (t) => t.startsWith("+"), "a signed reading");
 
   const limit = page.getByRole("textbox", { name: "电流限值" }).first();
   await limit.fill("4m");
   await limit.press("Enter");
   await expect(page.getByTestId("smu-regulation")).toHaveText("CC");
-  await expect(page.getByTestId("readout-V")).toHaveText(/^\+3\.9996/);
+  await expectNear(page.getByTestId("readout-V"), 3.9996, 1e-4); // 4 mA · 999.9 Ω
 
   const console = page.getByRole("textbox", { name: "发送 SCPI 命令" });
   await console.fill(":READ?");
@@ -139,18 +143,18 @@ test("wall clock: time runs by itself and the lock-in settles without advancing"
   const sid = ((await (await page.request.post("/api/sessions", { headers, data: { bench_path: path } })).json()) as { id: string }).id;
   await page.goto(`/s/${sid}?token=${TOKEN}`);
   await expect(page.getByText("墙钟", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /推进/ })).toHaveCount(0); // nothing to advance
+  await expect(page.getByRole("button", { name: "推进" })).toHaveCount(0); // nothing to advance
   const clock = page.getByTitle("虚拟时间", { exact: true });
   const first = await clock.textContent();
   await expect(clock).not.toHaveText(first ?? "");
 
   await page.locator(".react-flow__node").filter({ hasText: "锁相放大器" }).dblclick();
-  await expect(page.getByTestId("readout-R")).toHaveText(/^353\.5/);
+  await expectNear(page.getByTestId("readout-R"), 353.51, 0.05);
   const freq = page.getByRole("textbox", { name: "参考频率" }).first();
   await freq.fill("100");
   await freq.press("Enter");
   // Real time passes; a 30 ms, 24 dB/oct filter settles well within a few seconds.
-  await expect(page.getByTestId("readout-R")).toHaveText(/^498\.8/, { timeout: 10_000 });
+  await expectNear(page.getByTestId("readout-R"), 498.85, 0.05, "", { timeout: 10_000 });
 });
 
 test("fidelity: a wire whose signal is truncated is marked ≈ with the reason", async ({ page }) => {
@@ -170,7 +174,10 @@ test("fidelity: a wire whose signal is truncated is marked ≈ with the reason",
   await page.goto(`/s/${sid}?token=${TOKEN}`);
   const mark = page.getByTestId("wire-approx");
   await expect(mark).toHaveText("≈");
-  await expect(mark).toHaveAttribute("title", /square wave: \d+ harmonics/);
+  await expectAttributeContains(mark, "title", "square wave: ");
+  const title = (await mark.getAttribute("title")) ?? "";
+  const count = title.split("square wave: ")[1]?.split(" ");
+  expect(count && isDigits(count[0]) && count[1] === "harmonics", title).toBeTruthy();
 });
 
 test("scope screen: the measurement table matches :MEASure? on the record shown, and cursors read Δt/ΔV", async ({ page }) => {
@@ -197,9 +204,7 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
   await expect(page.getByTestId("scope-source")).toContainText("采集次数"); // a record, not live frames
   const cellValue = async (id: string) => {
     const text = (await page.getByTestId(id).textContent()) ?? "";
-    const m = text.match(/(-?[\d.]+)\s*([munµkM]?)/);
-    const scale: Record<string, number> = { m: 1e-3, u: 1e-6, µ: 1e-6, n: 1e-9, k: 1e3, M: 1e6, "": 1 };
-    return m ? Number(m[1]) * scale[m[2]] : NaN;
+    return quantity(text, id.endsWith("vpp") ? "V" : "Hz") ?? NaN;
   };
   await expect(page.getByTestId("meas-ch1-vpp")).not.toHaveText("—");
   // The table shows four significant digits: a relative error of at most half a unit in the
@@ -210,8 +215,8 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
   // Cursors: 6 divisions apart at 200 µs/div is 1.2 ms; 4 divisions at 500 mV/div is 2 V.
   await page.getByRole("button", { name: "光标" }).click();
   await expect(page.getByTestId("scope-cursors")).toBeVisible();
-  await expect(page.getByTestId("cursor-dt")).toHaveText(/1\.2\d* ms/);
-  await expect(page.getByTestId("cursor-dv")).toHaveText(/2(\.0+)? V/);
+  await expectNear(page.getByTestId("cursor-dt"), 1.2e-3, 1e-7, "s");
+  await expectNear(page.getByTestId("cursor-dv"), 2, 1e-4, "V");
   await expect(page.getByTestId("cursor-readout")).toContainText("1.2");
 
   // Drag X2 on the screen to the middle (5 div): 3 divisions from X1 at 200 µs/div is 600 µs (#356).
@@ -221,6 +226,19 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
   await page.mouse.down();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2, { steps: 5 });
   await page.mouse.up();
-  await expect(page.getByTestId("cursor-dt")).toHaveText(/600(\.0+)? µs/);
+  await expectNear(page.getByTestId("cursor-dt"), 600e-6, 1e-8, "s");
   await expect(page.getByTestId("cursor-readout")).toContainText("600");
 });
+
+/** A marker readout `MKR <frequency> · <level> dBm`: the frequency as written, the level in its band. */
+async function expectMarker(readout: Locator, frequency: string, dbm: number, tol: number) {
+  await expectText(
+    readout,
+    (text) => {
+      const [f, level] = text.split(" · ");
+      const v = quantity(level ?? "", "dBm");
+      return (f ?? "").trim().split(" ").slice(-2).join(" ") === frequency && v !== null && Math.abs(v - dbm) <= tol;
+    },
+    `${frequency} · ${dbm} ± ${tol} dBm`,
+  );
+}

@@ -2,13 +2,24 @@
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 from simubench.library.loader import BUILTIN_DIR, COVERAGE_SUFFIX, DEFINITIONS_ENV, DefinitionLibrary
 
 ROOT = Path(__file__).resolve().parents[1]
-SB_ID = re.compile(r"\bsb-[a-z0-9]")
+
+
+def names_sb_id(line: str) -> bool:
+    """Whether the line names an ``sb-*`` validation definition: ``sb-`` at the start of a word,
+    then a lower-case letter or digit (``sb-dso-4``; ``usb-c`` and ``sb-`` alone are not)."""
+    start = line.find("sb-")
+    while start >= 0:
+        before = line[start - 1] if start else " "
+        after = line[start + 3 : start + 4]
+        if not (before.isalnum() or before == "_") and after and (after.isdigit() or "a" <= after <= "z"):
+            return True
+        start = line.find("sb-", start + 1)
+    return False
 
 
 def test_builtin_definitions_are_real_models():
@@ -34,7 +45,7 @@ def test_examples_use_real_models_only():
         for p in sorted((ROOT / "examples").rglob("*"))
         if p.is_file() and p.suffix in {".yaml", ".yml", ".json", ".py", ".md"}
         for n, line in enumerate(p.read_text(encoding="utf-8").splitlines(), 1)
-        if SB_ID.search(line)
+        if names_sb_id(line)
     ]
     assert not hits, f"examples/ refers to sb-* validation definitions: {hits}"
 
@@ -61,3 +72,8 @@ def test_validation_workspace_serves_sb_benches_without_the_search_path(monkeypa
         [run] = c.get("/api/runs").json()
         r = c.post(f"/api/runs/{run['run_id']}/replay")
         assert r.status_code == 200 and r.json()["ok"], r.text
+
+
+def test_the_sb_id_check_sees_a_validation_id_only():
+    assert names_sb_id("definition: sb-dso-4") and names_sb_id("sb-9")
+    assert not names_sb_id("usb-c cable") and not names_sb_id("sb- alone") and not names_sb_id("sb-Upper")

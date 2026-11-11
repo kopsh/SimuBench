@@ -331,7 +331,7 @@ cases:
         expect: "1"
       # 读一次清空事件寄存器（其值取决于此前读过与否，这里不比对）
       - query: "STAT:OPER? (@3)"
-        expect_match: "^[0-9]+$"
+        expect_format: "unsigned"
       - send: "CURR 0.5,(@3)"
       - query: "*OPC?"
         expect: "1"

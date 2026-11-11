@@ -1,22 +1,21 @@
 import { expect, type Page, test } from "@playwright/test";
 
+import { benchRow, expectText, expectValue, isClockTime, isSession, isVersion, near, openButton, quantity, sessionIdOf } from "./judge";
+
 const TOKEN = "e2e-token";
 
 async function startBench(page: Page) {
   await page.goto(`/?token=${TOKEN}`);
-  await expect(page.getByRole("heading", { name: /我的测试台/, level: 2 })).toBeVisible();
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: "awg_rc_scope" })
-    .getByRole("button", { name: /^(打开测试台|进入)$/ })
+  await expect(page.getByRole("heading", { name: "我的测试台", level: 2 })).toBeVisible();
+  await openButton(page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }))
     .click();
-  await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
+  await expect(page).toHaveURL(isSession);
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
 }
 
 test("the token is removed from the address bar", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await expect(page.getByRole("heading", { name: /我的测试台/, level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "我的测试台", level: 2 })).toBeVisible();
   expect(page.url()).not.toContain("token");
 });
 
@@ -49,7 +48,7 @@ test("start a bench, inspect and edit an instrument", async ({ page }) => {
   // Out of range: the change is refused and the field explains why.
   await freq.fill("1G");
   await freq.press("Enter");
-  await expect(page.getByLabel(/-222/)).toBeVisible();
+  await expect(page.getByLabel("-222")).toBeVisible();
 });
 
 test("SCPI console, communication log and problems", async ({ page }) => {
@@ -58,21 +57,19 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
   await input.fill("*IDN?");
   await input.press("Enter");
-  await expect(page.getByText(/SIMUBENCH,SB-DSO-4/).first()).toBeVisible();
+  await expect(page.getByText("SIMUBENCH,SB-DSO-4").first()).toBeVisible();
   await input.fill(":CHANnel9:SCALe 1");
   await input.press("Enter");
-  await expect(page.getByRole("tab", { name: /问题/ })).toContainText("1");
-  await page.getByRole("tab", { name: /问题/ }).click();
+  await expect(page.getByRole("tab", { name: "问题" })).toContainText("1");
+  await page.getByRole("tab", { name: "问题" }).click();
   await expect(
-    page.getByRole("button", { name: /-114.*Header suffix out of range/ }),
+    page.getByRole("button", { name: "-114" }).and(page.getByRole("button", { name: "Header suffix out of range" })),
   ).toBeVisible();
   await page.getByRole("tab", { name: "通信" }).click();
   const row = page.getByText(":CHANnel9:SCALe 1").locator("..");
   await expect(row).toBeVisible();
   await expect(row).toContainText("界面"); // who sent it
-  await expect(row.getByTestId("wall-time")).toHaveText(
-    /^\d\d:\d\d:\d\d\.\d{3}$/,
-  ); // real time beside virtual time
+  await expectText(row.getByTestId("wall-time"), isClockTime, "HH:MM:SS.mmm"); // real time beside virtual time
 });
 
 test("open the scope screen by double-clicking its node", async ({ page }) => {
@@ -81,7 +78,7 @@ test("open the scope screen by double-clicking its node", async ({ page }) => {
     .locator(".react-flow__node")
     .filter({ hasText: "示波器" })
     .dblclick();
-  await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "示波器" })).toBeVisible();
   await expect(page.getByRole("img", { name: "waveform" })).toBeVisible();
   await expect(page.getByText("运行中", { exact: true })).toBeVisible(); // a scope runs from power-on
 });
@@ -105,15 +102,15 @@ test("the scope's run, stop and single are front-panel buttons, not SCPI", async
   await expect(page.getByText("还没有采集")).toBeVisible(); // stopped: the screen holds the last acquisition
   await controls.getByRole("button", { name: "单次" }).click();
   await expect(page.getByText("还没有采集")).toBeHidden();
-  await expect(page.getByText(/采集次数\s*1/)).toBeVisible();
+  await expect(page.getByTestId("scope-source")).toHaveText("采集次数 1");
   await controls.getByRole("button", { name: "运行" }).click();
   await expect(page.getByText("运行中", { exact: true })).toBeVisible();
   await page.waitForTimeout(1000); // the screen redraws while running: frames, not acquisitions
   await expect(page.getByTestId("scope-source")).toHaveText("实时画面"); // said so, not a count (#280)
   await expect(page.getByText(":SINGle")).toHaveCount(0); // nothing in the communication log
   await page.getByRole("tab", { name: "事件" }).click();
-  await expect(page.getByText(/scope 面板: 单次/)).toBeVisible();
-  await expect(page.getByText(/scope 面板: 运行/)).toBeVisible();
+  await expect(page.getByText("scope 面板: 单次")).toBeVisible();
+  await expect(page.getByText("scope 面板: 运行")).toBeVisible();
 });
 
 test("an unwired channel says so; clicking the source selects it", async ({
@@ -163,10 +160,7 @@ test("real model: the Siglent scope's single is its own, inside the instrument",
   page,
 }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: "siglent_scope_rc" })
-    .getByRole("button", { name: /^(打开测试台|进入)$/ })
+  await openButton(page.getByRole("listitem").filter({ hasText: "siglent_scope_rc" }))
     .click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   await expect(
@@ -189,10 +183,10 @@ test("real model: the Siglent scope's single is its own, inside the instrument",
   await expect(page.getByText("已停止", { exact: true })).toBeVisible(); // its single mode: one acquisition, then Stop
   // Run left it armed in its single mode: that acquisition triggered once the generator came on
   // (issue 134), and Single took one more.
-  await expect(page.getByText(/采集次数\s*2/)).toBeVisible();
+  await expect(page.getByTestId("scope-source")).toHaveText("采集次数 2");
   await expect(page.getByText(":TRIGger:MODE SINGle")).toHaveCount(0); // run inside the scope, not over SCPI
-  await page.getByRole("tab", { name: /问题/ }).click();
-  await expect(page.getByText(/-113/)).toHaveCount(0); // the bench's probe warning is the only problem
+  await page.getByRole("tab", { name: "问题" }).click();
+  await expect(page.getByText("-113")).toHaveCount(0); // the bench's probe warning is the only problem
 });
 
 test("open screens are remembered for the bench and reopen on the next start", async ({
@@ -203,16 +197,13 @@ test("open screens are remembered for the bench and reopen on the next start", a
     .locator(".react-flow__node")
     .filter({ hasText: "示波器" })
     .dblclick();
-  await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "示波器" })).toBeVisible();
   await page.getByRole("button", { name: "返回测试台列表" }).click();
   // Start again: the scope screen comes back as the active tab, not the canvas.
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: "awg_rc_scope" })
-    .getByRole("button", { name: /^(打开测试台|进入)$/ })
+  await openButton(page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }))
     .click();
-  await expect(page).toHaveURL(/\/s\/[0-9a-f]+$/);
-  await expect(page.getByRole("tab", { name: /示波器/ })).toBeVisible();
+  await expect(page).toHaveURL(isSession);
+  await expect(page.getByRole("tab", { name: "示波器" })).toBeVisible();
   await expect(page.getByRole("group", { name: "采集控制" })).toBeVisible();
 });
 
@@ -225,17 +216,14 @@ test("switch to English and dark theme", async ({ page }) => {
   ).toBeVisible();
   await page.getByRole("button", { name: "Settings" }).click();
   await page.getByRole("menuitemradio", { name: "Dark" }).click();
-  await expect(page.locator("html")).toHaveClass(/dark/);
+  await expect(page.locator("html")).toContainClass("dark");
 });
 
 test("run record: open it from the home page, see the timeline, replay identically", async ({
   page,
 }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: "awg_rc_scope" })
-    .getByRole("button", { name: /^(打开测试台|进入)$/ })
+  await openButton(page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }))
     .click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
   const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
@@ -255,11 +243,9 @@ test("run record: open it from the home page, see the timeline, replay identical
   ).json()) as {
     record_path: string;
   };
-  const runId = info.record_path
-    .split(/[\\/]/)
-    .pop()!
-    .replace(/^run-/, "")
-    .replace(/\.jsonl$/, "");
+  const file = info.record_path.slice(Math.max(info.record_path.lastIndexOf("/"), info.record_path.lastIndexOf("\\")) + 1);
+  expect(file.startsWith("run-") && file.endsWith(".jsonl"), file).toBe(true);
+  const runId = file.slice("run-".length, file.length - ".jsonl".length);
   await page.getByRole("button", { name: "返回测试台列表" }).click();
   const runs = page.getByRole("region", { name: "记录", exact: true });
   await runs.locator(`a[href="/runs/${runId}"]`).click();
@@ -277,13 +263,10 @@ test("virtual probe: select a net and see why it reads what it reads", async ({
   page,
 }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: "awg_rc_scope" })
-    .getByRole("button", { name: /^(打开测试台|进入)$/ })
+  await openButton(page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }))
     .click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
-  await page.getByRole("button", { name: /^net-1/ }).click();
+  await page.getByRole("button", { name: "net-1" }).click();
   const probe = page.getByTestId("probe");
   await expect(probe).toContainText("没有信号源连到这个网络"); // the generator's output is off
   const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
@@ -293,7 +276,7 @@ test("virtual probe: select a net and see why it reads what it reads", async ({
     .click();
   await input.fill(":OUTPut1:STATe ON");
   await input.press("Enter");
-  await page.getByRole("button", { name: /^net-1/ }).click();
+  await page.getByRole("button", { name: "net-1" }).click();
   await expect(page.getByTestId("probe-sources")).toContainText(
     "awg · ch1.out",
   );
@@ -306,15 +289,14 @@ test("about and diagnostics: manifest, health checks, bundle download", async ({
   await page.goto(`/?token=${TOKEN}`);
   await page.getByRole("button", { name: "设置" }).click();
   await page.getByRole("menuitem", { name: "关于与诊断" }).click();
-  await expect(page.getByTestId("about-version")).toHaveText(/^\d+\.\d+\.\d+/);
+  await expectText(page.getByTestId("about-version"), isVersion, "a version x.y.z");
   await expect(page.getByTestId("about-doctor")).toContainText(
     "pyvisa backend",
   );
   const download = page.waitForEvent("download");
   await page.getByRole("button", { name: "导出诊断包" }).click();
-  expect((await download).suggestedFilename()).toMatch(
-    /^simubench-diagnostics-.*\.zip$/,
-  );
+  const name = (await download).suggestedFilename();
+  expect(name.startsWith("simubench-diagnostics-") && name.endsWith(".zip"), name).toBe(true);
 });
 
 test("home: the product page shows the same bench in the web, the terminal and a script", async ({ page }) => {
@@ -322,28 +304,25 @@ test("home: the product page shows the same bench in the web, the terminal and a
   await expect(page.getByRole("heading", { level: 1 })).toContainText("搭一个虚拟测试台");
   await expect(page.getByLabel("Hello World 测试台的实时预览")).toContainText("引擎实测数据");
   const show = page.getByTestId("showcase");
-  await show.getByRole("tab", { name: /终端控制台/ }).click();
+  await show.getByRole("tab", { name: "终端控制台" }).click();
   await expect(show.getByRole("tabpanel").getByRole("img", { name: "总览：每台仪表一张状态卡片" })).toBeVisible();
-  await show.getByRole("tab", { name: /脚本与 Agent/ }).click();
+  await show.getByRole("tab", { name: "脚本与 Agent" }).click();
   // Reduced motion (playwright.config.ts): the session is shown whole, not typed out.
   await expect(show.getByRole("tabpanel")).toContainText("@simubench");
   await expect(show.getByRole("tabpanel")).toContainText("N9320B");
-  await expect(page.getByTestId("instrument-list").getByRole("button", { name: /示波器/ })).toBeVisible();
+  await expect(page.getByTestId("instrument-list").getByRole("button", { name: "示波器" })).toBeVisible();
 });
 
 test("instrument internals: the scope's components, wiring and panel ports, read-only (issue 20)", async ({
   page,
 }) => {
   await page.goto(`/?token=${TOKEN}`);
-  await page
-    .getByRole("listitem")
-    .filter({ hasText: "awg_rc_scope" })
-    .getByRole("button", { name: /^(打开测试台|进入)$/ })
+  await openButton(page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }))
     .click();
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
   await page.getByRole("button", { name: "查看内部结构" }).click();
   await expect(
-    page.getByRole("tab", { name: /示波器 · 内部结构/ }),
+    page.getByRole("tab", { name: "示波器 · 内部结构" }),
   ).toBeVisible();
   const graph = page.getByTestId("internals-graph");
   // CH1 is open: input port -> vertical channel -> probe setting -> acquisition; the other channels
@@ -473,7 +452,7 @@ test("internals: a setting row locates its field in the inspector, in the right 
   await expect(page.getByTestId("channel-settings")).toBeVisible();
   await page.waitForTimeout(500);
   await expect(page.locator('[data-setting="timebase.scale"] input')).not.toBeFocused();
-  await page.getByRole("tab", { name: /示波器 · 内部结构/ }).click();
+  await page.getByRole("tab", { name: "示波器 · 内部结构" }).click();
 
   // A channel's setting: the inspector switches to that channel first (CH1 is the one it shows).
   await expect(page.getByTestId("channel-settings").getByRole("tab", { selected: true })).toContainText("1");
@@ -495,11 +474,7 @@ test("the settings groups span the screen, not a nested grid's first column", as
     ["rfgen", "射频信号源"],
   ] as const) {
     await page.goto(`/?token=${TOKEN}`);
-    await page
-      .getByRole("listitem")
-      .filter({ has: page.getByText(bench, { exact: true }) })
-      .getByRole("button", { name: /^(打开测试台|进入)$/ })
-      .click();
+    await openButton(benchRow(page, bench)).click();
     await page
       .locator(".react-flow__node")
       .filter({ hasText: node })
@@ -592,9 +567,7 @@ test("the CH selector shows the picked channel's settings and always a valid cha
   });
   await tabs.nth(2).click();
   await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("textbox", { name: "垂直档位" })).toHaveValue(
-    /200 m/,
-  );
+  await expectValue(page.getByRole("textbox", { name: "垂直档位" }), (v) => near(quantity(v, "V"), 0.2, 1e-9), "200 mV");
   // Selecting the two-channel generator and coming back: the picker is valid on both — the
   // generator's own CH1/CH2, and the scope back on CH1 with its own 500 mV.
   await page
@@ -617,16 +590,14 @@ test("the CH selector shows the picked channel's settings and always a valid cha
   // Back on the scope the picked CH3 is valid again and its settings are the ones shown — the
   // picker never sits on a channel the instrument does not have (#733).
   await expect(tabs.nth(2)).toHaveAttribute("aria-selected", "true");
-  await expect(page.getByRole("textbox", { name: "垂直档位" })).toHaveValue(
-    /200 m/,
-  );
+  await expectValue(page.getByRole("textbox", { name: "垂直档位" }), (v) => near(quantity(v, "V"), 0.2, 1e-9), "200 mV");
 });
 
 test("the fault panel queues an error code the given number of times (#697, #766)", async ({
   page,
 }) => {
   await startBench(page);
-  const sid = page.url().match(/\/s\/([0-9a-f]+)/)![1];
+  const sid = sessionIdOf(page.url())!;
   await page
     .locator(".react-flow__node")
     .filter({ hasText: "函数发生器" })
@@ -637,7 +608,7 @@ test("the fault panel queues an error code the given number of times (#697, #766
     .first();
   await faults.getByRole("button").first().click(); // open the folded section
   await faults.getByLabel("故障类型").click();
-  await page.getByRole("option", { name: /错误码/ }).click();
+  await page.getByRole("option", { name: "错误码" }).click();
   const code = faults.getByPlaceholder("-300");
   await expect(code).toBeVisible();
   // #697: error gets a count field, and the queue answers the code that many times
@@ -646,7 +617,7 @@ test("the fault panel queues an error code the given number of times (#697, #766
   await code.fill("-313");
   await count.fill("3");
   await faults.getByRole("button", { name: "注入", exact: true }).click();
-  await expect(faults.getByText(/错误码/).first()).toBeVisible(); // the fault lists as in effect
+  await expect(faults.getByText("错误码").first()).toBeVisible(); // the fault lists as in effect
   const scpi = async () =>
     (
       await page.request.post(`/api/sessions/${sid}/instruments/awg/scpi`, {

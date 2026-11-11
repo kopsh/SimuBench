@@ -11,6 +11,7 @@ import yaml
 from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
 from tests.helpers import ScriptedLLM, last_tool_return
 
+from helpers import raises_with
 from simubench.assistant import compaction
 from simubench.assistant.guard import LoopGuard, Stuck
 from simubench.assistant.service import AssistantService
@@ -242,7 +243,7 @@ def test_the_loop_guard_stops_only_repeats_in_a_row(calls, stuck):
         return
     for call in calls[:-1]:
         guard.record(*call)
-    with pytest.raises(Stuck, match=stuck) as caught:
+    with raises_with(Stuck, stuck) as caught:
         guard.record(*calls[-1])
     assert "没有进展" in str(caught.value)
 

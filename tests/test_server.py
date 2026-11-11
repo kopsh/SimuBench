@@ -277,7 +277,7 @@ def test_definition_cases_are_listed_and_run_with_steps(tmp_path):
             {
                 "model": "sb-dmm-1",
                 "cases": [
-                    {"name": "idn", "steps": [{"query": "*IDN?", "expect_match": "SIMUBENCH,SB-DMM-1.*"}]},
+                    {"name": "idn", "steps": [{"query": "*IDN?", "expect_prefix": "SIMUBENCH,SB-DMM-1"}]},
                     {
                         "name": "bad",
                         "manual": "Common Commands > *IDN?",

@@ -15,6 +15,7 @@ from types import SimpleNamespace
 import pytest
 from tests.test_hislip import BENCH, VENDOR, recv_msg, send_msg
 
+from helpers import raises_with
 from simubench.access import hislip_server as h
 from simubench.access.hislip_tls import SecureConfig, SecureStream, read_users
 from simubench.api import open_bench
@@ -584,7 +585,7 @@ def test_users_file_reads_name_and_password_lines(tmp_path):
     f.write_text("# who may log in\nalice:s3cret\n\nbob:pass:with:colons\n", encoding="utf-8")
     assert read_users(f) == {"alice": "s3cret", "bob": "pass:with:colons"}
     f.write_text("nonsense\n", encoding="utf-8")
-    with pytest.raises(ValueError, match="name:password"):
+    with raises_with(ValueError, "name:password"):
         read_users(f)
 
 
