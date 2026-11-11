@@ -193,7 +193,7 @@ class ScopeVertical(Component):
         assert store is not None
         return store  # type: ignore[no-any-return]
 
-    def correct(self, volts: np.ndarray) -> np.ndarray:
+    def correct(self, volts: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]:
         """The record as the calibration constants correct it: (raw − offset) × gain, keyed by
         the displayed V/div (the setting the store names)."""
         store = self._store()
@@ -379,7 +379,7 @@ def ladder_down(value: float) -> float:
     return 10.0 ** (k - 1) * 5.0
 
 
-def _boxcar(v: np.ndarray, w: int) -> np.ndarray:
+def _boxcar(v: np.typing.NDArray[np.float64], w: int) -> np.typing.NDArray[np.float64]:
     """The centered boxcar average of ``w`` samples, the edges holding their nearest full window
     (high resolution, F4/D46: white noise falls by sqrt(w), the bandwidth by the window)."""
     if w <= 1:
@@ -394,7 +394,7 @@ class Record:
     t_start_ns: int  # instant of sample 0
     dt_s: float
     trigger_index: int
-    volts: np.ndarray  # display volts (probe ratio applied)
+    volts: np.typing.NDArray[np.float64]  # display volts (probe ratio applied)
     scale: float
     offset: float
     triggered: bool
@@ -444,7 +444,9 @@ class ScopeAdc(Component):
             top = float(self.param("max_rate_paired")) or top
         return top
 
-    def quantize(self, volts: np.ndarray, scale: float, offset: float) -> np.ndarray:
+    def quantize(
+        self, volts: np.typing.NDArray[np.float64], scale: float, offset: float
+    ) -> np.typing.NDArray[np.float64]:
         """What the ADC keeps: the codes of ``bits``, back in volts."""
         bits = int(self.param("bits"))
         if bits <= 0:
@@ -742,7 +744,9 @@ class ScopeTrigger(_ChannelBound):
         divs = float(self.param("reject_hysteresis_divs" if on else "hysteresis_divs"))
         return divs * scale
 
-    def _noisy(self, v: np.ndarray, t0: int, offsets: np.ndarray) -> np.ndarray:
+    def _noisy(
+        self, v: np.typing.NDArray[np.float64], t0: int, offsets: np.typing.NDArray[np.float64]
+    ) -> np.typing.NDArray[np.float64]:
         sigma = float(self.param("noise_rms"))
         if sigma <= 0 or self.session is None:
             return v
@@ -847,7 +851,7 @@ class ScopeTrigger(_ChannelBound):
         while a <= stop_s:
             count = min(chunk, max(2, math.ceil((stop_s - a) / step) + 1))
             chunk = min(chunk * 2, 1 << 18)
-            offsets = a + step * np.arange(count)
+            offsets = a + step * np.arange(count, dtype=np.float64)
             v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
             best: float | None = None
             for d in directions:
@@ -1175,7 +1179,7 @@ class ScopeAcquisition(Component):
 
     def _noise(
         self, n: int, t_start_ns: int, dt: float, count: int, frame: int | None = None, sub: int = 0
-    ) -> np.ndarray | None:
+    ) -> np.typing.NDArray[np.float64] | None:
         """Input noise in display volts, a pure function of the seed, the channel and the key.
 
         The rms comes from the channel's vertical division (D46); ``count`` samples at ``dt``
@@ -1881,7 +1885,7 @@ class ScopeMeasurements(Component):
         """The crossing band's absolute floor: divisions of the record's scale (#745)."""
         return float(self.param("hysteresis_floor_divs")) * rec.scale
 
-    def _time_value(self, what: str, v: np.ndarray, rec: Any) -> float:
+    def _time_value(self, what: str, v: np.typing.NDArray[np.float64], rec: Any) -> float:
         """XMAX/XMIN: the time of the first maximum / minimum, from the trigger; BRATe: the bit rate,
         1 / the narrowest pulse (positive or negative) at the middle level (#350)."""
         if v.size == 0:
