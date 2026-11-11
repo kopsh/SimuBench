@@ -176,7 +176,7 @@ class ScopeScreen(ControlEditingScreen):
     def __init__(self, name: str) -> None:
         super().__init__()
         self.instrument_name = name
-        self._last_version: tuple[int, int] = (-1, -1)
+        self._last_version: tuple[int, ...] = (-1, -1, -1, -1)
         self._built = False
         self._last_cols = 0
         self._last_rows = 0
@@ -277,7 +277,14 @@ class ScopeScreen(ControlEditingScreen):
             self._build_buttons()
             self._built = True
             self.call_after_refresh(self._refresh_buttons)
-        version = (app.data_version, app.scope_version)
+        # The columns are drawn at the width their boxes have: a layout that settles after the last
+        # data change (the first layout, a resize) redraws too (#938).
+        version = (
+            app.data_version,
+            app.scope_version,
+            self._wave_box.size.width,
+            self._settings_box.size.width,
+        )
         if version == self._last_version:
             return
         self._last_version = version

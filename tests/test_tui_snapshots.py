@@ -276,14 +276,13 @@ def test_scope_snapshot(snap_compare, demo_server, lang, size, name):
         await pilot.press("2")
         await pilot.pause(0.2)
         await pilot.press("enter")
+        # The settings column (ch1's scale) of the §6 mock, and its last row whole: a column drawn
+        # at a width the layout has not reached yet cuts "unwired" (#938).
+        stable = StableScreen("50.0 mV", ("CH2 off · unwired",))
         end = asyncio.get_running_loop().time() + SETTLE_S
         while asyncio.get_running_loop().time() < end:
             await pilot.pause(0.1)
-            text = "\n".join(
-                "".join(seg.text for seg in strip) for strip in tui.screen._compositor.render_strips()
-            )
-            # The settings column (ch1's scale) of the §6 mock.
-            if "50.0 mV" in text:
+            if stable.feed(_render(tui)):
                 return
         raise AssertionError("the scope screen never settled")
 
@@ -744,3 +743,50 @@ def test_the_eload_capture_waits_for_a_slow_readout(category_server):
     assert len(slowed) >= 2, "the test double never delayed the readout"
     for check in READINGS["eload"]:
         assert shows(text, check), check
+
+
+def test_the_scope_columns_follow_a_layout_that_settles_after_the_last_data_change(demo_server):
+    """#938: the settings column is drawn at the width its box has when it is refreshed. A refresh
+    that lands while the layout is still moving (the box narrower than its final width) must not
+    stay on screen once the box reaches its width: the screen redraws when a width changes, not
+    only when data does."""
+    url, sid = demo_server
+    tui = SimuBenchApp(url, sid=sid)
+
+    async def run() -> tuple[str, str]:
+        async with tui.run_test(size=(80, 24)) as pilot:
+            await _settle(pilot, tui)
+            await pilot.press("2")
+            await pilot.pause(0.2)
+            await pilot.press("enter")
+            stable = StableScreen("50.0 mV", ("CH2 off · unwired",))
+            end = asyncio.get_running_loop().time() + SETTLE_S
+            settled = ""
+            while asyncio.get_running_loop().time() < end:
+                await pilot.pause(0.1)
+                settled = _render(tui)
+                if stable.feed(settled):
+                    break
+            else:
+                raise AssertionError(f"the scope screen never settled:\n{settled}")
+            screen = tui.screen
+            box = screen._settings_box
+
+            async def no_frame(*_a: object, **_k: object) -> None:
+                return None
+
+            # The scope's own frame poll would bump the version and redraw by itself; freeze it so
+            # only the width can tell the screen to redraw.
+            tui.refresh_scope_frame = no_frame  # type: ignore[method-assign]
+            box.styles.width = 20  # the layout mid-move
+            await pilot.pause(0.3)
+            screen._refresh_settings()  # a refresh that lands then, data unchanged
+            box.styles.width = 26
+            await pilot.pause(0.05)  # laid out again, before any data change redraws the screen
+            screen.refresh_content()  # what the screen's own 0.15 s poll does
+            await pilot.pause(0.1)
+            return settled, _render(tui)
+
+    settled, after = asyncio.run(run())
+    assert "CH2 off · unwired" in after
+    assert after == settled
