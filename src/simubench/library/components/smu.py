@@ -342,7 +342,7 @@ class OutputControlLoop(Component):
     def reset(self) -> None:
         self.mode, self.limit_sign = "V", 1.0
 
-    def update_mode(self, metered_v: float, current: float) -> bool:
+    def settle_mode(self, metered_v: float, current: float) -> bool:
         """Choose the mode the DC operating point calls for; the output stage supplies the values:
         the metered terminal voltage and the current out of the force HI terminal."""
         if not self.on():
@@ -491,7 +491,7 @@ class SmuOutput(Component):
         loop = self._loop()
         metered = self.metered_voltage(dc_voltage)
         current = self.session.source_current(self.uid + "/v") if loop.mode == "V" else 0.0
-        return loop.update_mode(metered, current)
+        return loop.settle_mode(metered, current)
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if key in ("remote_sense", "floating"):

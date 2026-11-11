@@ -292,7 +292,7 @@ class EloadModeLoop(Component):
             return "r", stage.knee()  # below the knee: the minimum resistance holds the sink
         return "i", i
 
-    def update_mode(self, v: float, current: float) -> bool:
+    def settle_mode(self, v: float, current: float) -> bool:
         """Pick the stamped element for the solved input voltage; True when it changed."""
         mode, value = self._decide(v, current)
         changed = mode != self.mode or abs(value - self.value) > CP_TOLERANCE * max(1.0, abs(value))
@@ -373,7 +373,7 @@ class EloadInput(Component):
         # absorbs the source's current (positive "out of its node").
         raw = self.session.source_current(self.uid) if mode in ("i", "v") else 0.0
         current = -raw  # a negative EMF current sink and an absorbing clamp both read negative
-        changed = loop.update_mode(v, current)
+        changed = loop.settle_mode(v, current)
         mode, value = loop.mode_value()
         sink = self._sink_current(v, current, mode, value)
         if self._protection().judge(v, sink):

@@ -160,7 +160,7 @@ class ScopeVertical(Component):
             return parse_number(limit.upper().removesuffix("HZ").replace("M", "e6").replace("K", "e3"))
         return float(self.param("bw_limit_hz")) if limit else math.inf
 
-    def noise_rms(self) -> float:
+    def input_noise_rms(self) -> float:
         """The input-referred noise (V rms) of the current division: its ``noise_table`` row, or
         the row of the largest listed division not above it (a table that starts at a floor holds
         the sensitive divisions first, D46). No table: ``noise_divs`` of the division, else none."""
@@ -1185,7 +1185,7 @@ class ScopeAcquisition(Component):
         The rms comes from the channel's vertical division (D46); ``count`` samples at ``dt``
         (the native grid when peak detect oversamples), ``sub`` the sub-acquisition of an average,
         whose stream continues after the previous one's samples."""
-        sigma = self.vertical_of(n).noise_rms() * self.probe_ratio(n)
+        sigma = self.vertical_of(n).input_noise_rms() * self.probe_ratio(n)
         if sigma <= 0:
             return None
         if frame is not None:  # a displayed frame: noise of its own, no acquisition's stream used
@@ -1460,6 +1460,8 @@ class ScopeAcquisition(Component):
     def waiting(self) -> bool:
         """A single acquisition (or a digitize) not done yet."""
         return self.pending.waiting()
+
+    has_retry_pending = True
 
     def retry_pending(self) -> None:
         """Armed for a trigger that had not come: look again now (the signal may have changed)."""
