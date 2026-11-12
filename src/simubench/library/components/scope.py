@@ -877,8 +877,12 @@ class ScopeTrigger(_ChannelBound):
     than ``width_high``) and ``range`` (between the two) trigger at the edge that ends the pulse,
     ``greater`` at the instant the pulse has lasted ``width_low`` (it need not have ended). The
     whole pulse lies after the trigger is armed: one that began within the pre-trigger time or the
-    holdoff does not count. ``slope`` plays no part. Far ahead (a waiting acquisition) the search
-    is as coarse as for an edge, sixteen samples a period of the signal's highest line.
+    holdoff does not count. ``slope`` plays no part. The search takes the record grid for as many
+    samples as ``max_search_points`` allows (fewer for a signal of many lines), then a grid an
+    eighth of the narrowest width bound the qualifier uses for as many again, the instants there
+    bisected on the signal (without trigger noise); a pulse narrower than that grid can be missed
+    there, and an acquisition that finds nothing within that reach waits, looking again at the
+    next command (#1000).
     """
 
     ports = {"ext": PortSpec("in", "signal", "external trigger input")}
@@ -928,9 +932,29 @@ class ScopeTrigger(_ChannelBound):
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.last_ns: int | None = None  # the instant of the latest trigger (holdoff)
+        # The latest search and its result: a search is a pure function of its inputs, and the
+        # status registers ask the same one again after every command of a line (#1000).
+        self._memo: tuple[str, TriggerHit | None] | None = None
 
     def reset(self) -> None:
         self.last_ns = None
+        self._memo = None
+
+    def _search_key(self, sig: Signal, args: tuple[Any, ...], n: int | None) -> str:
+        """Everything a search's result depends on: its arguments, the signal's lines, the
+        holdoff's anchor and every parameter as it resolves now (the level and slope included)."""
+        lines = hashlib.blake2b(digest_size=16)
+        for a in (sig.freq, sig.amp, sig.t0_ns):
+            lines.update(np.ascontiguousarray(a).tobytes())
+        level = self.channel_param("level", n) if n is not None else self.level()
+        slope = self.channel_param("slope", n) if n is not None else self.param("slope")
+        params = []
+        for k in sorted(self.defaults):
+            try:
+                params.append(self.param(k))
+            except KeyError:  # bound per channel ({n}): the level and slope above resolve it
+                params.append(None)
+        return repr((args, sig.dc, lines.hexdigest(), self.last_ns, level, slope, params))
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         """Refuse a level off the source channel's screen by more than ``level_range_divs``
@@ -1021,6 +1045,26 @@ class ScopeTrigger(_ChannelBound):
         """The first qualifying edge at least ``pre`` samples after ``t0`` (enough history before
         the trigger), past the holdoff and not before ``earliest_s``, within ``search_windows``
         records or, with ``horizon_s``, that much virtual time. None: no edge."""
+        key = self._search_key(sig, (t0, dt, pre, points, n, scale, horizon_s, earliest_s), n)
+        if self._memo is not None and self._memo[0] == key:
+            return self._memo[1]
+        hit = self._search(sig, t0, dt, pre, points, n, scale, horizon_s, earliest_s)
+        self._memo = (key, hit)
+        return hit
+
+    def _search(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        pre: int,
+        points: int,
+        n: int | None,
+        scale: float,
+        horizon_s: float | None,
+        earliest_s: float,
+    ) -> TriggerHit | None:
+        """:meth:`search` itself."""
         kind = self.source_kind()
         start_s = max(pre * dt, earliest_s)
         if self.last_ns is not None and self.param("holdoff_on") in (True, 1, "1", "ON", "on"):
@@ -1097,9 +1141,19 @@ class ScopeTrigger(_ChannelBound):
         period = _period(sig) if self.param("noise_rms") in (0, 0.0, None) else None
         if period is not None:
             horizon = min(horizon, max(start_s, 0.0) + 2.0 * period + 2.0 * dt)
-        stretches = [(min(span, horizon), dt)]
-        if horizon > span:
-            stretches.append((horizon, self._far_step(sig, dt, span, horizon)))
+        # The work is samples times lines, as for an edge's far search: the record grid for as
+        # many samples as max_search_points allows (fewer for a signal of many lines), then a grid
+        # an eighth of the narrowest width bound the qualifier uses for as many again. A grid
+        # coarser than the widths judged would see pulses with a narrow gap between them as one
+        # wide pulse (#1000); what lies beyond is looked at again at the next command.
+        budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
+        fine = min(span, horizon, start_s + budget * dt)
+        stretches = [(fine, dt)]
+        if horizon > fine:
+            used = {"less": (high,), "greater": (low,)}.get(qualifier, (low, high))
+            bounds = [w for w in used if 0 < w < math.inf]
+            step = max(dt, min(bounds) / 8) if bounds else self._far_step(sig, dt, fine, horizon)
+            stretches.append((min(horizon, fine + step * budget), step))
 
         def instant(c: _Crossing) -> float:
             if not c.final:  # found on the coarse grid: to a thousandth of a record sample
