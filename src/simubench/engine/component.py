@@ -663,6 +663,17 @@ class Component:
             raise ValueError(f"{self.uid}: samples input {port!r} is not wired")
         return self.session.cached_frames(self.owner.components[src[0]], src[1], request)
 
+    def tuning(self) -> tuple[float, float | None, float | None] | None:
+        """Where this block tunes a receiver outside a read: (the tuning, the lowest and the
+        highest it can be asked for; None where there is no limit), Hz. None: the block is not what
+        sets a tuning. An internal probe offers these (signal-chain.md 1.3, "tuned to")."""
+        return None
+
+    def tune_marks(self) -> list[tuple[Literal["marker", "reference"], float]]:
+        """Frequencies an internal probe offers to tune to besides the block's own tuning — the
+        markers that are on, as ('marker' | 'reference', Hz). Empty: none."""
+        return []
+
     def sample_interval(self, port: str) -> float:
         """The sample interval a samples output port runs at with the current settings, s — what a
         reader that has no rate of its own (an internal probe) asks with. Override in components

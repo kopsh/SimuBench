@@ -28,7 +28,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import numpy as np
 
@@ -270,6 +270,15 @@ class SpecanLo(Component):
         """The frequency the receiver is tuned to, on its own frequency scale, Hz."""
         tune = self.session.tune_hz
         return float(self.param("center")) if tune is None else tune
+
+    def tuning(self) -> tuple[float, float | None, float | None] | None:
+        """The center frequency, and the range of the setting it follows (the analyzer's
+        frequency range) — where an internal probe can be tuned."""
+        path = self.bound_path("center")
+        spec = self.owner.specs.get(path) if path and self.owner else None
+        lo = None if spec is None or spec.min is None else float(spec.min)
+        hi = None if spec is None or spec.max is None else float(spec.max)
+        return float(self.param("center")), lo, hi
 
     def frequency(self) -> float:
         """The oscillator's true frequency at the tuning point: the intermediate frequency below
@@ -1401,6 +1410,15 @@ class SpecanTrace(Component):
 
     def _delta(self) -> bool:
         return self._marker_on() and self._mode().startswith("DELT")
+
+    def tune_marks(self) -> list[tuple[Literal["marker", "reference"], float]]:
+        """The marker while it is on, and the fixed reference a delta marker reads against."""
+        if not self._marker_on():
+            return []
+        marks: list[tuple[Literal["marker", "reference"], float]] = [("marker", float(self._st("marker.x")))]
+        if self._delta():
+            marks.append(("reference", float(self._st("marker.ref_x"))))
+        return marks
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         if (

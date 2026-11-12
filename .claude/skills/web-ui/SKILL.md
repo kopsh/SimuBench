@@ -39,8 +39,14 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `miniOf`; unit-tested), `ProbeView.tsx` (the panel and its states), `InternalsView.tsx` (opens at
   a readable zoom, not fitted: off-screen blocks are reached by the overview map, the fit-view
   control, or focus — an e2e test clicks `.react-flow__controls-fitview` before clicking across the
-  graph; thumbnails come from `useInternalProbes`, one probe per output on screen). Their fixture is captured from the
-  engine — regenerate after a model or API change: `uv run python scripts/capture_internals_fixture.py`.
+  graph; thumbnails come from `useInternalProbes`, one probe per output on screen). A receiver's "tuned to" (#959):
+  the context comes with the internals (`InstrumentInternals.tuning`), the choice (`Tune` in `probe.ts`) is state of
+  `InternalsPanel` so it stays while the probe moves from port to port, and `ProbeView.tsx` draws it (`TuneBar`) and the
+  spectra one can read with a cursor and click to retune. Their fixtures are captured from the engine
+  (`internals.fixture.json`: the oscilloscope; `specan.fixture.json`: the analyzer of
+  `web/e2e/fixtures/benches/sa-two-tone.bench.yaml`) — regenerate after a model or API change:
+  `uv run python scripts/capture_internals_fixture.py [specan.fixture.json]` (name one to leave the other's
+  instant, and its baselines, alone).
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key

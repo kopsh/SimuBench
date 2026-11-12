@@ -237,6 +237,8 @@ def served_addresses(served: ServedSession) -> dict[str, list[str]]:
 
 def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
     """The instrument's components, internal wiring and panel ports (issue 20), read-only."""
+    from .services.internal_probe import tuning_of
+
     s = served.session
     inst = s.instrument(instrument)
     wires = inst.wiring.wires()
@@ -289,6 +291,7 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
             )
             for name, comp in inst.components.items()
         ]
+        tuning = tuning_of(inst)
     ports = []
     for pname, (cname, cport) in inst.ports.items():
         comp = inst.components[cname]
@@ -316,6 +319,7 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
         ],
         selects=selections(inst),
         ports=ports,
+        tuning=tuning,
     )
 
 

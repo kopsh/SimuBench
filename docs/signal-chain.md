@@ -73,6 +73,13 @@ ADC 之后是采样流，每个功能块的输出都有真实的中间信号、�
 | 为 0 的原因 | 沿用 `engine/silence.py`（上游无信号、输出关闭……） | 同左 |
 
 - **频谱仪的调谐**：混频器之后的信号取决于本振频率。探针面板有“调谐于”一项，默认是中心频率，可改为任一标记的频率。
+  实现（#959）：仪表声明了调谐上下文（`InstrumentInternals.tuning`）、且所看的端口在混频器之后时才显示；一个输入框始终显示当前调谐点，可直接输入（带单位，范围为仪表的频率范围，超出时就地说明、调谐点不变）；
+  旁边是“中心频率”（跟随设置）与每个已开启的标记（跟随标记）。调谐点在探针换端口时保留，可沿着链一路看同一个频率。
+  IQ 流与频点的谱图横轴是射频频率：点谱图上的一点（或最强峰列表里的按钮、键盘 Enter）即把调谐点移到那里。
+- **谱图的读法**（#959）：`bins` 帧直接画幅度谱，不再做 FFT，也不画时域；`iq` 帧时域画 I、Q 两条（同一刻度，线型与文字区分），频域画双边谱。
+  谱图上有读数光标（指针或左右键，读所在柱内最强的频点）与噪声底（各频点电平的中位数）。
+  模拟端口的谱线在远离 0 Hz 处扎堆时（1 GHz 处相距 1 MHz 的两个单音；混频器 25 MHz 中频上的产物与 2 GHz 的和频产物并存），
+  谱线图取最强谱线所在的一组为横轴，注明图外还有几条，可切回“从 0 Hz 起看全部”；谱线表给出相对最强谱线的电平（dBc）。
 - **刷新**：随事件版本刷新（D64），不轮询；会话在运行时看到的是当前时刻的信号。
 - **不提供**：在探针里修改参数、导出数据、把块替换成别的实现。这些属于被推后的能力。
 
@@ -438,14 +445,15 @@ class InternalProbe(_Model):
     medium: Literal["signal", "samples"]
     t_ns: int
     dc: float; rms: float; peak: float
-    waveform: NetWaveform           # 复用网络探针的波形模型；采样流为采样点
+    waveform: NetWaveform           # 复用网络探针的波形模型；采样流为采样点（iq 为同相分量）
+    quadrature: list[float] | None  # 仅 iq：正交分量（#959）
     lines: list[SpectralLine] = []  # 仅 signal
     spectrum: ProbeSpectrum | None  # 仅 samples：freq_hz[]、level[]、unit('dBFS'|'dBm'|'dBV')
     sample_rate_hz: float | None
     format: ProbeFormat | None      # kind、bits
     full_scale_used: float | None   # 码值：峰值占满量程的比例
     clipped: bool = False
-    tune_hz: float | None
+    tune_hz: float | None           # 读取时的调谐点（未指定时为中心频率）；端口不随调谐变化时为空
     notes: list[str] = []
     silence: list[SilenceReason] = []
 ```
@@ -461,6 +469,9 @@ class InternalProbe(_Model):
   界面显示“验证模式下不提供内部探针”——否则定标脚本的作者可以从 ADC 码值反推被隐藏的增益误差。内部结构图（标称参数）照常可看。
   仪表全部为标称值时没有可泄露的内容，探针照常提供（实现 #951 时的修正：`reveal_true_values` 默认关闭，按原先“关闭即拒绝”的写法，
   所有自带示例测试台上都用不了内部探针）。
+- **调谐上下文**（#959）：`InstrumentInternals.tuning`（`InternalTuning`：`center_hz`、`min_hz`/`max_hz`、`marks`（已开启的标记及增量标记的参考）、`ports`（随调谐变化的输出端口：声明了 `tuned_ports` 的块的输出及其下游全部输出））。
+  由块的两个钩子给出：`Component.tuning()`（`specan_lo`：中心频率及其所绑定设置的范围）、`Component.tune_marks()`（`specan_trace`）。没有块读调谐点的仪表为空。
+  探针对声明了调谐上下文的仪表总按一个明确的调谐点读（未指定时为中心频率），因此 `iq`、`bins` 帧的频率轴总是调谐点附近的射频频率；`tune_hz` 超出范围时返回 400。
 - `InstrumentInternals`（现有）给每个端口补 `medium`，给连线补 `medium` 与采样流的 `sample_rate_hz`、`format`，供 1.2 的标注使用。
 - 性能预算：一次探针请求 ≤ 50 ms（4 通道示波器、频谱仪全链）。
 
@@ -468,6 +479,9 @@ class InternalProbe(_Model):
 
 `InternalsView.tsx`：排布改为按信号流（1.2）；端口可点击、可键盘聚焦；探针面板复用网络探针的波形与谱线组件，新增采样流的谱图。
 文案进 i18n（中文为主、英文为辅）。Storybook 增加两个故事（示波器、频谱仪），e2e 增加 1.5 的演示脚本，视觉回归增加两张基准图。
+频谱仪的排布（#959，`layout.ts`）：没有通道行的仪表，最长的信号路径排成一行，其余在其下方；只被末端块使用的各级（检波、视频滤波）按末端块列出它们的顺序接在信号行之后；
+被使用的块若自己又由更靠左的块供给（本振之于参考时钟），站在使用者（混频器）的正下方，依赖线竖直向上；列间距按最宽的连线标注取。
+频谱仪演示用的测试台是 `web/e2e/fixtures/benches/sa-two-tone.bench.yaml`（两台信号源经电阻式功分器合路；混频器的三阶截点、噪声系数与 ADC 位数是该个体的 `hidden`）。
 按 `web-ui` 技能的规则执行。
 
 ---

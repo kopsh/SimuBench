@@ -44,8 +44,8 @@ import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { formatValue, labelOf, numeric, stateMap } from "../model";
 import { useInternalProbes } from "@/api/hooks";
-import { InternalProbePanel } from "./ProbeView";
-import { type MiniSignal, flowTag, miniOf, miniPath, probeable } from "./probe";
+import { InternalProbePanel, type Tuned } from "./ProbeView";
+import { type MiniSignal, type Tune, CENTER, flowTag, miniOf, miniPath, probeable } from "./probe";
 import {
   type GraphEdge,
   type GraphNode,
@@ -152,6 +152,7 @@ function LiveInternals({
           port={probe.port}
           heading={probe.heading}
           tag={probe.tag}
+          tuned={probe.tuned}
           onClose={probe.close}
         />
       )}
@@ -160,7 +161,14 @@ function LiveInternals({
 }
 
 /** What the panel hands the probe it shows: the port, its title and its wire's label, and how to close it. */
-export type ProbeSlot = { port: string; heading: string; tag: string; close: () => void };
+export type ProbeSlot = {
+  port: string;
+  heading: string;
+  tag: string;
+  /** A receiver's tuning context and where the probe is tuned (#959); absent for other instruments. */
+  tuned?: Tuned;
+  close: () => void;
+};
 
 /** What lights up on the graph: a hovered or pinned row, else the selection's chain, else search hits. */
 type Focus = { key: string; trace: Trace } | null;
@@ -182,7 +190,7 @@ export function InternalsPanel({
   /** Told which output ports are on screen (the expanded channels' and the whole instrument's), so their signals can be read. */
   onPorts?: (ports: string[]) => void;
   /** Where the view starts (stories): a selected component, a search, or an open probe. */
-  initial?: { selected?: string; query?: string; probe?: string };
+  initial?: { selected?: string; query?: string; probe?: string; tune?: Tune };
   /** Show a setting in the workbench inspector (#800). The acceptance page has no inspector and leaves it out. */
   onLocate?: (setting: string) => void;
   /** The internal probe on an output port (#953). Without it (the acceptance page: no session) ports are not probed. */
@@ -198,6 +206,9 @@ export function InternalsPanel({
     return new Set(ch != null ? [1, ch] : [1]);
   });
   const [probe, setProbe] = useState<string | null>(initial?.probe ?? null);
+  // Where the probe is tuned (a receiver, #959). Kept while the probe moves from port to port: tune
+  // once, then follow that frequency down the chain — mixer, IF, ADC, down-converter, transform.
+  const [tune, setTune] = useState<Tune>(initial?.tune ?? CENTER);
   const [query, setQuery] = useState(initial?.query ?? "");
   const [pinned, setPinned] = useState<Focus>(null);
   const [hover, setHover] = useState<Focus>(null);
@@ -259,7 +270,14 @@ export function InternalsPanel({
     setProbe(port);
   };
   const probeSlot: ProbeSlot | null =
-    probe && renderProbe ? { port: probe, ...probeTitle(t, view, probe), close: () => setProbe(null) } : null;
+    probe && renderProbe
+      ? {
+          port: probe,
+          ...probeTitle(t, view, probe),
+          tuned: view.tuning ? { tuning: view.tuning, tune, onTune: setTune } : undefined,
+          close: () => setProbe(null),
+        }
+      : null;
   const focus: FocusHandlers = {
     pinned: pinned?.key ?? null,
     onHover: setHover,
@@ -378,7 +396,9 @@ function probeTitle(t: T, view: InstrumentInternals, port: string): { heading: s
   const name = componentOf(port);
   const c = view.components.find((x) => x.name === name);
   const channel = c?.channel != null ? ` CH${c.channel}` : "";
-  const heading = `${c ? typeLabel(t, c.type) : name}${channel} · ${port.slice(name.length + 1)}`;
+  const pin = port.slice(name.length + 1);
+  // A port the engineer has a name for (`混频器 · 中频输出`); else the port as the model names it.
+  const heading = `${c ? typeLabel(t, c.type) : name}${channel} · ${c ? t(`internals.portNames.${c.type}.${pin}`, { defaultValue: pin }) : pin}`;
   const wire = view.wires.find((w) => w.from === port);
   const medium = c?.ports.find((p) => p.name === port.slice(name.length + 1))?.medium;
   const tag = flowTag(t, wire ?? { medium: medium === "samples" ? "samples" : "signal", sample_rate_hz: null, format: null });
@@ -595,13 +615,15 @@ function FlowEdge({
  */
 function RefEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, label, labelStyle, labelBgStyle }: EdgeProps) {
   const [path] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  // Straight up within a column: the name sits on the line, half-way.
+  const upright = sourcePosition === Position.Top;
   return (
     <>
       <BaseEdge path={path} style={style} />
       {typeof label === "string" && (
         <EdgeText
-          x={targetX - 10 - textWidth(label) / 2}
-          y={targetY}
+          x={upright ? targetX : targetX - 10 - textWidth(label) / 2}
+          y={upright ? (sourceY + targetY) / 2 : targetY}
           label={label}
           labelStyle={labelStyle}
           labelShowBg
@@ -652,7 +674,7 @@ function Graph({
 }) {
   const { t } = useTranslation();
   const theme = useTheme((s) => s.resolved);
-  const graph = useMemo(() => buildGraph(view, expanded), [view, expanded]);
+  const graph = useMemo(() => buildGraph(view, expanded, (flow) => textWidth(flowTag(t, flow))), [view, expanded, t]);
   const rf = useReactFlow();
   const wrap = useRef<HTMLDivElement>(null);
   const [overflows, setOverflows] = useState(false);
@@ -996,6 +1018,9 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
           background: "var(--card)",
         }}
       />
+      {/* A dependency inside one column (#959): out of the used block's top, into its user's foot. */}
+      <Handle id="ref-up" type="source" position={Position.Top} isConnectable={false} style={{ width: 6, height: 6, borderWidth: 1, borderStyle: "dashed", borderColor: "var(--muted-foreground)", background: "var(--card)", opacity: 0 }} />
+      <Handle id="ref-foot" type="target" position={Position.Bottom} isConnectable={false} style={{ width: 6, height: 6, borderWidth: 1, borderStyle: "dashed", borderColor: "var(--muted-foreground)", background: "var(--card)", opacity: 0 }} />
       {node.rows.map((row) => {
         const top = row.top;
         const left = row.side === "left";

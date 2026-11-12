@@ -1981,3 +1981,26 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | `scripts/check.sh` 通过 | ✅ |
 
 写明的限制（`docs/validation-specan.md` 的“采样式求值”一节、signal-chain.md 5.4 的实现说明）：采样式求值在 RF_IN 变化时让迹线重新开始（没有可回放的历史）；没有相位噪声与逐点非线性；只有高斯窗与凯泽窗 sinc 一种滤波器；`adc` 没有孔径抖动与时钟引用。
+
+## Web：频谱仪的内部探针（调谐于、谱图）与演示脚本（Issue 959）
+
+探针面板对频谱仪可用：混频器之后的端口显示“调谐于”，`bins` 帧直接画幅度谱，`iq` 帧画 I、Q 与双边谱，谱图可读数、可点选调谐点；内部结构图把信号链排成一行。接口补了调谐上下文（`InstrumentInternals.tuning`）、`InternalProbe.quadrature`，探针回报读取时的 `tune_hz`。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 仪表声明了调谐上下文时显示“调谐于”：默认中心频率，可选已开启标记的频率或手动输入（带单位，范围为仪表的频率范围），值作为 `tune_hz` 传给接口 | ✅ 后端 `tests/test_internal_probe.py::test_a_receivers_tuning_context_and_its_streams_on_radio_frequencies`（中心、范围、标记、随调谐变化的端口；默认按中心频率读）、`::test_a_receivers_internal_ports_read_at_the_tuning_asked_for`（回报 `tune_hz`，超出范围被拒绝）；前端 `probe.test.ts` 的“tuned to”一组（`tuneHz`、`tuneParam`、`parseTune`）；e2e 中选标记、输入 `8 GHz`（就地拒绝，调谐点不变）与 `1001 MHz`，混频器输出的谱线随之移动；混频器之前的端口不显示 |
+| `bins` 帧直接画幅度谱（横轴射频频率），不再做 FFT；`iq` 帧时域画 I、Q 两条，频域画双边谱 | ✅ `probe.test.ts` 的“a frame's spectrum”一组（`spectrumAxis`、`onRadioAxis`、`binAt`、`iqStairs`、`noiseFloor`）；e2e 中 `ddc.out`（两条迹线、`data-axis="radio"`）与 `rbw.out`（无波形图、“不再做变换”） |
+| 频谱仪内部结构的排布：射频输入 → 输入衰减器 → 混频器 → 中频滤波 → ADC → 数字下变频 → RBW 滤波/FFT → 检波 → 视频滤波 → 迹线；本振与参考在混频器下方 | ✅ `layout.test.ts` 的“buildGraph on a spectrum analyzer”一组（一行、顺序、本振在混频器正下方、依赖线竖直、块不重叠）；示波器夹具的排布逐节点未变（改前改后的坐标对比一致，原有基准图未动） |
+| 文案进 i18n（中文为主、英文为辅） | ✅ `web/src/i18n/{zh,en}.ts`（`internals.probe.tune*` 等、`internals.portNames`、频谱仪各块的名称）；`scripts/check_tui_i18n.py` 通过 |
+| Storybook：频谱仪内部结构的故事（含“调谐于”、`bins` 与 `iq` 的谱图） | ✅ `Internals.stories.tsx`：`SpectrumAnalyzer`（混频器中频输出）、`SpectrumAnalyzerIq`（调谐到标记）、`SpectrumAnalyzerBins`；数据由 `scripts/capture_internals_fixture.py` 从引擎录得（`specan.fixture.json`） |
+| e2e：signal-chain.md 1.5 的第 1–4 步 | ✅ `web/e2e/workbench.spec.ts`“internal probe on the spectrum analyzer …”：排布顺序；混频器中频输出上两个单音与三阶交调产物（−60 dBc ± 1）；`ADC · 输出` 标题为“数字 · 100 MSa/s · 16 位”；把测试台 `hidden` 的 ADC 位数改为 12 后，ADC 输出的噪声底抬高 > 4 dB、`sb-sa-fft-1` 迹线的中位电平抬高 > 8 dB（实测约 6.7 dB、13.9 dB）。全部 e2e 80 条通过 |
+| 视觉回归：频谱仪内部结构一张基准图 | ✅ 三个故事明暗各一张；探针面板四态的两张因面板新增噪声底与读数行而更新 |
+| `scripts/check.sh` 通过 | ✅ |
+
+与验收文字的出入与限制：
+- 演示测试台里这台频谱仪的混频器噪声系数取 4 dB（个体值；型号为 24 dB）。按型号的噪声系数，模拟前端的噪声盖过 16 位与 12 位的量化噪声，改位数时噪声底只变 1.6 dB，看不出第 4 步要演示的现象。
+- 两个单音经电阻式功分器（三只 16.67 Ω）合路：测试台校验不允许两个输出直接驱动同一个网络。
+- 检波、视频滤波、迹线之间在模型里是“使用”关系而不是信号连线，图上它们按迹线列出的顺序接在信号行之后，之间仍是虚线。
+- 型号只有一个标记，“调谐于”因此最多列出标记 1 与增量标记的参考；始终开启的标记停在 0 Hz 时也会列出。
+- 图上各输出的缩略图仍按中心频率读，不随“调谐于”变化。
+- 本机的视觉回归中 `Assistant/Panel / Stuck` 与 `Workbench/Live canvas / Counter` 在未改动的 main 上同样不过（本机与 CI 的渲染差异），与本改动无关。

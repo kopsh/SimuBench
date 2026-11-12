@@ -504,6 +504,32 @@ class InternalPort(_Model):
     channel: int | None = None
 
 
+class TuneMark(_Model):
+    """A frequency an internal probe can be tuned to besides the center: a marker that is on."""
+
+    kind: Literal["marker", "reference"] = Field(
+        ..., description="'marker': the marker; 'reference': the fixed reference of a delta marker"
+    )
+    index: int = Field(1, description="The marker's number, from 1")
+    freq_hz: float
+
+
+class InternalTuning(_Model):
+    """The tuning context of a receiver (signal-chain.md 1.3, "tuned to"): the signal after its
+    mixer depends on where the local oscillator is tuned, so an internal probe there is read at a
+    tuning — the center frequency unless another is asked for."""
+
+    center_hz: float = Field(..., description="Where the receiver is tuned outside a read: the default")
+    min_hz: float | None = Field(None, description="Lowest tuning a probe can ask for; none: no limit")
+    max_hz: float | None = Field(None, description="Highest tuning a probe can ask for; none: no limit")
+    marks: list[TuneMark] = Field(default_factory=list, description="The markers that are on")
+    ports: list[str] = Field(
+        default_factory=list,
+        description="Output ports ('<component>.<port>') whose signal depends on the tuning: the "
+        "mixer's output and everything after it",
+    )
+
+
 class InstrumentInternals(_Model):
     """How an instrument is built from components (issue 20): read-only, the model's nominal values.
 
@@ -530,6 +556,9 @@ class InstrumentInternals(_Model):
         description="Components that pick their input channel with a setting (#739); not wiring, not refs",
     )
     ports: list[InternalPort]
+    tuning: InternalTuning | None = Field(
+        None, description="A receiver's tuning context with the current settings; none for other instruments"
+    )
 
 
 class WireInfo(_Model):
@@ -781,7 +810,10 @@ class NetWaveform(_Model):
 
 
 class ProbeSpectrum(_Model):
-    """The amplitude spectrum of one frame of samples (a windowed FFT), from 0 Hz to half the rate."""
+    """The amplitude spectrum of one frame. Real samples: a windowed FFT from 0 Hz to half the
+    rate. Complex baseband samples (IQ): the two-sided windowed FFT, on the radio frequencies
+    around the tuning. A transform's frequency points (bins): their levels as they are, on the
+    radio frequencies they stand for — no second transform."""
 
     freq_hz: list[float]
     level: list[float]
@@ -801,6 +833,10 @@ class InternalProbe(_Model):
     waveform: NetWaveform = Field(
         ..., description="signal: the analytic waveform; samples: the frame's samples, one value each"
     )
+    quadrature: list[float] | None = Field(
+        None,
+        description="IQ samples only: the quadrature part of each sample (the waveform holds the in-phase part)",
+    )
     lines: list[SpectralLine] = Field(default_factory=list, description="signal only: strongest lines")
     spectrum: ProbeSpectrum | None = Field(None, description="samples only")
     sample_rate_hz: float | None = None
@@ -810,7 +846,9 @@ class InternalProbe(_Model):
     )
     clipped: bool = False
     tune_hz: float | None = Field(
-        None, description="The local-oscillator tuning the probe was read at; none where it does not apply"
+        None,
+        description="The local-oscillator tuning the port was read at (the one asked for, else the "
+        "center frequency); none where the port's signal does not depend on a tuning",
     )
     notes: list[str] = Field(default_factory=list, description="Why the signal is not exact, if it is not")
     silence: list[SilenceReason] = Field(
