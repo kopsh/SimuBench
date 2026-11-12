@@ -560,9 +560,12 @@ components:
       processing: {from: $acquire.type, map: {AVERage: average, PEAK: peak, HRESolution: eres}, default: normal}
       # 分段存储（#957）：:ACQuire:MODE SEGMented 时，一次 :SINGle / :DIGitize 连续取 COUNt 次触发各存
       # 一段，全部采满才完成；:ACQuire:SEGMented:INDex 选的段供波形传输与测量使用。
-      # 重新布防时间 19 µs 与存储上限都是估计：数据手册没有入库，19 µs 凭记忆取自 2000 X 数据手册
-      # 分段存储一项；每段仍是整条 100 kpts 记录（真机每段的点数随段数减少，未建模），上限取
-      # 25 段 × 100 kpts，段数的 2–25 由设置的范围限定。
+      # 重新布防时间 19 µs 取自 2000 X 数据手册（5990-6618EN 第 18 页，Performance characteristics >
+      # Acquisition modes > Segmented：“Re-arm time = 19 µs (minimum time between trigger events)”，#1005）。
+      # 每段仍是整条 100 kpts 记录（真机每段的点数随段数减少，未建模）；存储上限取 25 段 × 100 kpts，
+      # 与段数上限 25（手册 :ACQuire:SEGMented:COUNt：100K 存储至多 25 段）一致，所以本型号上
+      # “超出存储”的 -221 不会出现，段数越界是 -222。
+      # 手册 :ACQuire:TYPE（第 215 页）：分段模式下 AVERage 不可用；模型目前仍接受该组合（#1013）。
       segmented: {from: $acquire.mode, map: {SEGMented: true}, default: false}
       segments: $acquire.segmented_count
       segment_index: $acquire.segmented_index

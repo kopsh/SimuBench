@@ -75,7 +75,6 @@ src/simubench/library/components/rfgen.py:missing-attribute Object of type `Comp
 src/simubench/library/components/rfgen.py:missing-attribute Object of type `type[Component]` has no attribute `phase` ×2
 src/simubench/library/components/rfgen.py:unsupported-base Unsupported class base with type `type[Component]`
 src/simubench/library/components/scope.py:incompatible-attribute-override Invalid override of attribute `ports`: instance variable cannot override class variable `Component.ports`
-src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a parameter annotation
 src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×6
 src/simubench/library/components/scope.py:missing-attribute Object of type `Component` has no attribute `scale_offset`
 src/simubench/library/components/scope.py:unsupported-base Unsupported class base with type `type[Component]`
