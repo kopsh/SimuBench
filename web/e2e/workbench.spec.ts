@@ -514,6 +514,193 @@ test("internal probe: the ADC's samples and resolution, then peak detect at the 
   await expect(page.getByTestId("internal-details")).toContainText("scope_decimator");
 });
 
+test("internal probe on the spectrum analyzer: the chain, the mixer's products, tuned to, the ADC and its resolution (signal-chain.md 1.5 steps 1-4, #959)", async ({
+  page,
+}) => {
+  const headers = { "x-simubench-token": TOKEN };
+  const BENCH = "benches/sa-two-tone.bench.yaml";
+  // Two generators at 1000 and 1001 MHz on the digital-IF analyzer (fixtures/benches/sa-two-tone),
+  // on a clock idle real time does not move: every probe below reads one instant.
+  const open = async () => {
+    const start = await page.request.post("/api/sessions", { headers, data: { bench_path: BENCH, force: true } });
+    expect(start.ok()).toBe(true);
+    const sid = ((await start.json()) as { id: string }).id;
+    await page.goto(`/s/${sid}?token=${TOKEN}`);
+    await page.locator(".react-flow__node").filter({ hasText: "频谱仪" }).first().click();
+    await page.getByRole("button", { name: "查看内部结构" }).click();
+    await expect(page.getByTestId("internals-graph").getByTestId("internal-component").first()).toBeVisible();
+    return sid;
+  };
+  let sid = await open();
+  const graph = page.getByTestId("internals-graph");
+  const probe = page.getByTestId("internal-probe");
+  const heading = page.getByTestId("internal-probe-heading");
+  const tune = page.getByTestId("internal-probe-tune");
+  const lineTable = page.getByTestId("internal-probe-line-table");
+  const block = (name: string) => graph.locator(`[data-testid="internal-component"][data-name="${name}"]`);
+  const box = async (name: string) => (await block(name).boundingBox())!;
+
+  // Step 1 — the diagram follows the signal, left to right, in one line: RF input → attenuator →
+  // mixer → IF filter → ADC → down-converter → RBW filter / FFT → detector → video filter → trace.
+  await graph.locator(".react-flow__controls-fitview").click();
+  const chain: [string, string][] = [
+    ["rf_in", "输入端口"],
+    ["input", "输入衰减器"],
+    ["mixer", "混频器"],
+    ["if_filter", "中频滤波"],
+    ["adc", "ADC"],
+    ["ddc", "数字下变频"],
+    ["rbw", "RBW 滤波 / FFT"],
+    ["detector", "检波"],
+    ["vbw", "视频滤波"],
+    ["sa", "迹线"],
+  ];
+  for (const [name, label] of chain) await expect(block(name)).toContainText(label);
+  await expect
+    .poll(async () => {
+      const boxes = await Promise.all(chain.map(([name]) => box(name)));
+      const inOrder = boxes.every((b, i) => i === 0 || b.x > boxes[i - 1].x + boxes[i - 1].width);
+      const oneLine = boxes.every((b) => Math.abs(b.y + b.height / 2 - (boxes[0].y + boxes[0].height / 2)) < 2);
+      return inOrder && oneLine;
+    })
+    .toBe(true);
+  // The oscillator stands under the mixer, its reference to the left of it, both under the line.
+  await expect(block("lo")).toContainText("本振");
+  await expect(block("clock")).toContainText("参考时钟");
+  const [mixer, lo, clock, attenuator] = await Promise.all(["mixer", "lo", "clock", "input"].map(box));
+  expect(Math.abs(lo.x - mixer.x)).toBeLessThan(2);
+  expect(lo.y).toBeGreaterThan(mixer.y + mixer.height);
+  expect(clock.x + clock.width).toBeLessThan(lo.x);
+  expect(clock.y).toBeGreaterThan(attenuator.y + attenuator.height);
+  // The wires say what they carry: analog up to the converter, then sample streams.
+  await expect(graph.locator(".react-flow__edge-text", { hasText: "数字 · 100 MSa/s · 16 位" })).toHaveCount(1);
+  await expect(graph.locator(".react-flow__edge-text", { hasText: "IQ" })).toHaveCount(1);
+
+  // Step 2 — the mixer's IF output, read at the center frequency (1000.5 MHz): the two tones on
+  // the 25 MHz IF, 1 MHz apart, and their third-order products 1 MHz outside them, 60 dB down.
+  await graph.locator('[data-port="mixer.out"]').click();
+  await expect(probe).toHaveAttribute("data-state", "ready");
+  await expect(heading).toHaveText("混频器 · 中频输出");
+  await expect(page.getByTestId("internal-probe-tag")).toHaveText("模拟");
+  await expect(tune).toContainText("调谐于");
+  await expect(tune).toHaveAttribute("data-tune", "center");
+  await expect(tune).toHaveAttribute("data-hz", "1000500000");
+  await expect(page.getByTestId("internal-probe-tune-center")).toHaveAttribute("aria-checked", "true");
+  for (const f of ["24.5 MHz", "25.5 MHz", "23.5 MHz", "26.5 MHz"]) await expect(lineTable).toContainText(f);
+  const product = lineTable.getByRole("row").filter({ hasText: "23.5 MHz" });
+  const dbc = quantity(((await product.getByRole("cell").last().textContent()) ?? "").trim());
+  expect(near(dbc, -60, 1)).toBe(true); // −20 dBm at the mixer, a +10 dBm intercept
+  // The picture is the IF group, not 0 Hz to the 2 GHz sum products: the four lines stand apart.
+  await expect(page.getByTestId("internal-probe-lines")).toHaveAttribute("data-zoomed", "");
+  await expect(page.getByTestId("internal-probe-lines-outside")).toBeVisible();
+  await page.getByTestId("internal-probe-lines-whole").click();
+  await expect(page.getByTestId("internal-probe-lines-outside")).toHaveCount(0);
+  await page.getByTestId("internal-probe-lines-whole").click();
+  // The cursor reads a line: frequency, amplitude, level under the strongest.
+  await page.getByTestId("internal-probe-lines").focus();
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("internal-probe-cursor")).toContainText("dBc");
+
+  // Tuned to the marker (1000 MHz): the tones move 0.5 MHz up the IF — the probe follows the tuning.
+  await page.getByTestId("internal-probe-tune-marker-1").click();
+  await expect(tune).toHaveAttribute("data-tune", "mark");
+  for (const f of ["25 MHz", "26 MHz", "24 MHz", "27 MHz"]) await expect(lineTable).toContainText(f);
+  // A typed tuning, with its unit; one the analyzer cannot tune to is refused where it was typed.
+  const field = tune.getByRole("textbox", { name: "调谐频率" });
+  await field.fill("8 GHz");
+  await field.press("Enter");
+  await expect(tune.getByRole("alert")).toContainText("超出这台仪表的频率范围");
+  await expect(tune).toHaveAttribute("data-tune", "mark");
+  await field.fill("1001 MHz");
+  await field.press("Enter");
+  await expect(tune).toHaveAttribute("data-tune", "manual");
+  await expect(tune).toHaveAttribute("data-hz", "1001000000");
+  await expect(tune.getByRole("alert")).toHaveCount(0);
+  for (const f of ["24 MHz", "25 MHz", "23 MHz", "26 MHz"]) await expect(lineTable).toContainText(f);
+  // Before the mixer nothing depends on the tuning: the attenuator's output has no "tuned to".
+  await graph.locator('[data-port="input.out"]').click();
+  await expect(heading).toHaveText("输入衰减器 · 输出");
+  await expect(tune).toHaveCount(0);
+  await expect(lineTable).toContainText("1.001 GHz");
+
+  // The tuning stays as the probe moves down the chain. The down-converter's IQ stream: I and Q,
+  // and its two-sided spectrum on radio frequencies — the tuned tone (1001 MHz) in the middle.
+  await graph.locator('[data-port="ddc.out"]').click();
+  await expect(heading).toHaveText("数字下变频 · IQ 输出");
+  await expect(tune).toHaveAttribute("data-hz", "1001000000");
+  await expect(page.getByTestId("internal-probe-format")).toHaveText("IQ");
+  await expect(page.getByTestId("internal-probe-iq").locator("path[data-trace]")).toHaveCount(2);
+  const spectrum = page.getByTestId("internal-probe-spectrum");
+  await expect(spectrum).toHaveAttribute("data-axis", "radio");
+  await expect(page.getByTestId("internal-probe-tuned-at")).toBeVisible();
+  // A click on the spectrum tunes there: the other tone, a quarter of the picture to the left.
+  await expect(page.getByTestId("internal-probe-peaks")).toContainText("1 GHz");
+  await page.getByRole("button", { name: "调谐到 1 GHz" }).click();
+  await expect.poll(async () => near(Number(await tune.getAttribute("data-hz")), 1.0e9, 2e3)).toBe(true);
+  await expect(tune).toHaveAttribute("data-tune", "manual");
+  const picture = (await spectrum.boundingBox())!;
+  await spectrum.click({ position: { x: picture.width * 0.9, y: picture.height / 2 } });
+  await expect.poll(async () => Number(await tune.getAttribute("data-hz"))).toBeGreaterThan(1.001e9);
+  await page.getByTestId("internal-probe-tune-center").click();
+  await expect(tune).toHaveAttribute("data-hz", "1000500000");
+
+  // The transform's output: frequency bins, drawn as they are — a spectrum, no waveform.
+  await graph.locator('[data-port="rbw.out"]').click();
+  await expect(heading).toHaveText("RBW 滤波 / FFT · 频点输出");
+  await expect(probe).toContainText("幅度谱（变换输出的频点）");
+  await expect(probe).toContainText("不再做变换");
+  await expect(spectrum).toHaveAttribute("data-axis", "radio");
+  await expect(page.getByTestId("internal-probe-wave")).toHaveCount(0);
+  await expect(page.getByTestId("internal-probe-peaks")).toContainText("1.001 GHz");
+
+  // Step 3 — the ADC's output: the title states its rate and resolution; samples and their FFT.
+  const adcOut = graph.locator('[data-port="adc.out"]');
+  await adcOut.click();
+  await expect(heading).toHaveText("ADC · 输出");
+  await expect(page.getByTestId("internal-probe-tag")).toHaveText("数字 · 100 MSa/s · 16 位");
+  await expect(probe).toContainText("4096 个采样");
+  await expect(page.getByTestId("internal-probe-wave")).toBeVisible();
+  await expect(spectrum).toHaveAttribute("data-axis", "baseband");
+  await expect(tune).toBeVisible(); // after the mixer: still read at a tuning
+
+  // Step 4 — the converter's resolution, a per-unit value of the bench (`hidden`), from 16 to 12
+  // bits: the noise floor rises at the ADC's output and, on this analyzer whose trace is made from
+  // the samples, on the trace.
+  const floorText = page.getByTestId("internal-probe-floor");
+  const adcFloor = async () => quantity((await floorText.textContent()) ?? "", "dBFS");
+  const traceFloor = async () => {
+    const r = await page.request.post(`/api/sessions/${sid}/instruments/sa/scpi`, { headers, data: { command: ":TRACe:DATA?" } });
+    expect(r.ok()).toBe(true);
+    const levels = ((await r.json()) as { response: string }).response.split(",").map(Number).sort((a, b) => a - b);
+    expect(levels.length).toBeGreaterThan(100);
+    return levels[levels.length >> 1];
+  };
+  await expect(floorText).toContainText("dBFS");
+  const adc16 = (await adcFloor())!;
+  const trace16 = await traceFloor();
+  const file = await page.request.get("/api/benches/file", { headers, params: { path: BENCH } });
+  const original = (await file.json()) as { sha256: string; data: { instruments: { sa: { hidden: Record<string, unknown> } } } };
+  const edited = structuredClone(original.data);
+  edited.instruments.sa.hidden.adc = { bits: 12 };
+  const saved = await page.request.put("/api/benches/file", { headers, data: { path: BENCH, base_sha256: original.sha256, data: edited } });
+  expect(saved.ok()).toBe(true);
+  try {
+    sid = await open();
+    await graph.locator(".react-flow__controls-fitview").click();
+    await adcOut.click();
+    await expect(page.getByTestId("internal-probe-tag")).toHaveText("数字 · 100 MSa/s · 12 位");
+    await expect(floorText).toContainText("dBFS");
+    const adc12 = (await adcFloor())!;
+    const trace12 = await traceFloor();
+    expect(adc12 - adc16).toBeGreaterThan(4);
+    expect(trace12 - trace16).toBeGreaterThan(8);
+  } finally {
+    // The bench as it was: a retry, or another test, starts from 16 bits.
+    const now = (await (await page.request.get("/api/benches/file", { headers, params: { path: BENCH } })).json()) as { sha256: string };
+    await page.request.put("/api/benches/file", { headers, data: { path: BENCH, base_sha256: now.sha256, data: original.data } });
+  }
+});
+
 test("internals: a setting row locates its field in the inspector, in the right channel and group (#800)", async ({
   page,
 }) => {

@@ -8,7 +8,11 @@ import { probeable } from "./probe";
  * dependency (its ``refs``, #729) never pushes it. A component reached by dependencies alone stands
  * beside what it connects to: one that others use one column before its first user (the time base,
  * the trigger, a local oscillator), one that only uses others one column after the last of them (the
- * measurements, the transfer). Components nothing connects, only commands and settings drive (the
+ * measurements, the transfer). A block fed by one that stands before its user (an oscillator on its
+ * reference) stands under that user, the dependency drawn straight up into it. Stages that only one
+ * end block uses (a detector and a video filter before the trace) continue the signal's line, in
+ * the order that block names them. An instrument without channel rows keeps its longest signal
+ * path on one line and everything else under it (#959). Components nothing connects, only commands and settings drive (the
  * system, the status registers), wait in a band of their own. Collapsed channels become one group
  * node; their wiring is drawn to the group.
  */
@@ -52,12 +56,25 @@ export const ROW = 18;
 /** A probed output's row: room for the thumbnail of the signal there. */
 export const ROW_PROBE = 30;
 /** Room between columns for a wire's label (`数字 · 2 GSa/s · 8 位`, signal-chain.md 1.2). */
-const COLUMN = NODE_WIDTH.component + 124;
+const WIRE_ROOM = 124;
+/** What a wire's label needs beyond its text: where it starts after the port, and a breath before the next block. */
+const LABEL_MARGIN = 8;
 const GAP = 14;
 const BAND_GAP = 28;
+/** Room under the signal's line for a dependency that runs straight up into it, and its name. */
+const LINE_GAP = 40;
 
 
-export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<number>): { nodes: GraphNode[]; edges: GraphEdge[] } {
+/**
+ * ``labelWidth``: how wide a wire's label is drawn (the view knows the words and the font). The
+ * columns stand far enough apart for the widest — a receiver's `数字 · 3.846 MSa/s · IQ` needs more
+ * than an oscilloscope's `数字 · 2 GSa/s · 8 位` (#959); without it, the usual room.
+ */
+export function buildGraph(
+  view: InstrumentInternals,
+  expanded: ReadonlySet<number>,
+  labelWidth?: (flow: NonNullable<GraphEdge["flow"]>) => number,
+): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const comps = new Map(view.components.map((c) => [c.name, c]));
   const visible = (c: InternalComponent) => c.channel == null || expanded.has(c.channel);
   const nodeOf = (comp: string) => {
@@ -158,6 +175,9 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   const commandSide = nodes.filter((n) => n.kind === "component" && !touched.has(n.id));
   const COMMAND_BAND = 1000;
 
+  const widest = labelWidth ? Math.max(0, ...[...edges.values()].map((e) => (e.flow ? labelWidth(e.flow) : 0))) : 0;
+  const COLUMN = NODE_WIDTH.component + Math.max(WIRE_ROOM, Math.ceil(widest) + LABEL_MARGIN);
+
   // The signal sets the columns: the longest path along the wires (and panel ports) alone; the
   // cap keeps a feedback loop from running forever.
   const all = [...edges.values()];
@@ -185,13 +205,42 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     for (const n of offPath) {
       const users = refs.filter((e) => e.source === n.id).map((e) => depth.get(e.target)!);
       const used = refs.filter((e) => e.target === n.id).map((e) => depth.get(e.source)!);
-      const d = users.length ? Math.max(0, Math.min(...users) - 1) : Math.max(...used) + 1;
+      // What it uses that stands before its first user feeds it from the left: it cannot share
+      // their column, so it moves under the user (an oscillator between its reference and the mixer).
+      const first = Math.min(...users);
+      const before = used.filter((u) => u < first);
+      const d = users.length ? Math.max(0, first - 1, ...before.map((u) => u + 1)) : Math.max(...used) + 1;
       if (d !== depth.get(n.id)) {
         depth.set(n.id, d);
         changed = true;
       }
     }
     if (!changed) break;
+  }
+  // Stages only an end block uses carry the signal on to it (signal-chain.md 5.1: RBW → detector →
+  // video filter → trace): one column each after the last wired block they read, in the order the
+  // end block names them, and the end block after them. They continue the signal's line.
+  const tail = new Set<string>();
+  const usersOf = (id: string) => refs.filter((e) => e.source === id).map((e) => e.target);
+  for (const sink of offPath.filter((n) => !usersOf(n.id).length)) {
+    const stages = [...new Set(refs.filter((e) => e.target === sink.id).map((e) => e.source))].filter(
+      (id) => !onWire.has(id) && usersOf(id).every((u) => u === sink.id),
+    );
+    if (!stages.length) continue;
+    const chain = new Set([sink.id, ...stages]);
+    const read = refs.filter((e) => chain.has(e.target) && onWire.has(e.source)).map((e) => depth.get(e.source)!);
+    const base = Math.max(-1, ...read);
+    stages.forEach((id, k) => depth.set(id, base + 1 + k));
+    depth.set(sink.id, base + 1 + stages.length);
+    for (const id of chain) tail.add(id);
+  }
+  // A dependency between two blocks of one column runs straight up: out of the used block's top
+  // into its user's foot (the user is on the signal's line, the used block under it).
+  for (const e of refs) {
+    if (e.source.startsWith("c:") && e.target.startsWith("c:") && depth.get(e.source) === depth.get(e.target)) {
+      e.sourceHandle = "ref-up";
+      e.targetHandle = "ref-foot";
+    }
   }
   // Panel outputs sit in the last column, inputs in the first.
   const last = Math.max(0, ...depth.values());
@@ -219,6 +268,38 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   }
   const heightOf = (col: GraphNode[]) => col.reduce((h, n) => h + n.height + GAP, -GAP);
   const tallestOf = (band: Map<number, GraphNode[]>) => Math.max(...[...band.values()].map(heightOf));
+  // The signal's line (an instrument without channel rows): its longest path along the wires —
+  // from the deepest wired block back to a panel input — and the stages that continue it.
+  const line = new Set<string>(tail);
+  if (![...bands.keys()].some((c) => c !== 0 && c !== COMMAND_BAND)) {
+    const wired = nodes.filter((n) => onWire.has(n.id) && !isCommandSide.has(n.id));
+    let at = wired.reduce<GraphNode | undefined>((a, n) => (!a || depth.get(n.id)! > depth.get(a.id)! ? n : a), undefined)?.id;
+    while (at) {
+      line.add(at);
+      const here = depth.get(at)!;
+      at = wires.find((e) => e.target === at && depth.get(e.source) === here - 1)?.source;
+    }
+  }
+  /** Columns around one line: the block on the signal's line centred on it, the rest stacked under it. */
+  const placeOnLine = (band: Map<number, GraphNode[]>, top: number) => {
+    const onLine = [...band.values()].flat().filter((n) => line.has(n.id));
+    const half = Math.max(...onLine.map((n) => n.height / 2));
+    let bottom = top;
+    for (const [d, col] of band) {
+      col.sort((a, b) => Number(line.has(b.id)) - Number(line.has(a.id)) || Number(onWire.has(b.id)) - Number(onWire.has(a.id)) || a.id.localeCompare(b.id));
+      let y = top + 2 * half + LINE_GAP;
+      for (const n of col) {
+        n.x = d * COLUMN + (n.kind === "port" && n.direction !== "out" ? NODE_WIDTH.component - NODE_WIDTH.port : 0);
+        if (line.has(n.id)) n.y = top + half - n.height / 2;
+        else {
+          n.y = y;
+          y += n.height + GAP;
+        }
+        bottom = Math.max(bottom, n.y + n.height);
+      }
+    }
+    return bottom - top;
+  };
   const place = (band: Map<number, GraphNode[]>, top: number) => {
     const tallest = tallestOf(band);
     for (const [d, col] of band) {
@@ -243,7 +324,9 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   for (const [d, col] of bands.get(0) ?? []) (channelBands.length && rowColumns.has(d) ? aside : meet).set(d, col);
   let top = 0;
   for (const c of channelBands) top += place(bands.get(c)!, top) + BAND_GAP;
-  if (meet.size) {
+  if (meet.size && !channelBands.length && [...meet.values()].flat().some((n) => line.has(n.id))) {
+    top = placeOnLine(meet, 0) + BAND_GAP;
+  } else if (meet.size) {
     const rows = Math.max(0, top - BAND_GAP);
     const tallest = tallestOf(meet);
     place(meet, Math.max(0, (rows - tallest) / 2));

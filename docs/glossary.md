@@ -31,6 +31,7 @@
 | 采样流 | Sample stream | ADC 之后功能块之间传递的采样数据：按帧拉取，带采样间隔与格式（端口介质 `samples`，D67、architecture.md 2.6） |
 | 帧 | Frame | 采样流的一次请求得到的一段采样（`SampleFrame`）；只取决于请求、参数、上游信号与种子 |
 | 内部探针 | Internal probe | 观察仪表内部某个端口的信号；不影响仿真 |
+| 调谐于 | Tuned to | 内部探针读接收机（频谱仪）混频器之后的端口时本振所调谐的频率；默认中心频率，可选已开启的标记或手动输入 |
 | 模拟 / 数字 | Analog / Digital | 连线上的信号是解析描述（`electrical`、`signal`）还是采样流（`samples`） |
 | 调谐点 | Tuning point | 频谱仪接收机此刻调到的频率；混频器及其下游的输出取决于它。由发起读取的块设置（`Session.tuned`），不在其中时是中心频率 |
 | 求值方式 | Evaluation | 解析（谱线）或采样；频谱仪定义可选 |

@@ -15,6 +15,7 @@ maps them.
 
 from __future__ import annotations
 
+import math
 import re
 
 import numpy as np
@@ -73,6 +74,47 @@ def out_ports(inst: Instrument) -> dict[str, tuple[Component, str, str]]:
     return found
 
 
+def tuning_of(inst: Instrument) -> M.InternalTuning | None:
+    """The instrument's tuning context (signal-chain.md 1.3): where its receiver is tuned outside a
+    read, the range a probe can ask for, the markers that are on, and the output ports whose signal
+    depends on the tuning. None: no block of the instrument reads a tuning."""
+    if not any(c.tuned_ports for c in inst.components.values()):
+        return None
+    tuned = next((t for c in inst.components.values() if (t := c.tuning()) is not None), None)
+    if tuned is None:
+        return None
+    center, lo, hi = tuned
+    marks = [
+        M.TuneMark(kind=kind, freq_hz=f)
+        for c in inst.components.values()
+        for kind, f in c.tune_marks()
+        if (lo is None or f >= lo) and (hi is None or f <= hi)
+    ]
+    return M.InternalTuning(
+        center_hz=center, min_hz=lo, max_hz=hi, marks=marks, ports=sorted(tuned_outputs(inst))
+    )
+
+
+def tuned_outputs(inst: Instrument) -> set[str]:
+    """The output ports whose signal depends on the tuning: the ports their blocks declare
+    (``Component.tuned_ports``, a mixer's output), and every output of a block downstream of one."""
+    outputs = out_ports(inst)
+    found = {f"{name}.{p}" for name, c in inst.components.items() for p in c.tuned_ports} & set(outputs)
+    wires = inst.wiring.wires()
+    grew = True
+    while grew:
+        grew = False
+        for src, dst in wires:
+            if src not in found:
+                continue
+            reader = split(dst)[0]
+            for port in outputs:
+                if split(port)[0] == reader and port not in found:
+                    found.add(port)
+                    grew = True
+    return found
+
+
 def stream_request(s: Session, comp: Component, port: str, count: int = PROBE_FRAME) -> FrameRequest:
     """The request a probe sends up a sample stream: ``count`` samples from now at the port's own
     rate. The noise index is the sample's place on the grid counted from time zero, so the frame
@@ -121,15 +163,31 @@ def probe(sv: ServedSession, instrument: str, port: str, tune_hz: float | None =
     comp, cport, medium = ports[port]
     # tune_hz applies to instruments that declare a tuning context (#952): a receiver reads at the
     # tuning asked for; any other instrument ignores it. Without it the receiver's own tuning.
-    tuned = tune_hz if any(c.tuned_ports for c in inst.components.values()) else None
-    with s.view(), s.tuned(tuned):
-        try:
-            if medium == "samples":
-                return _samples(s, inst, comp, cport, port)
-            return _analog(s, inst, comp, cport, port)
-        except (ScpiError, NotImplementedError) as exc:
-            detail = exc.detail if isinstance(exc, ScpiError) else str(exc)
-            raise ValueError(f"{port} has no signal to show with the current settings: {detail}") from None
+    # Without it the receiver's own tuning, the center frequency — named, so that a stream's
+    # frequency axis is the radio frequencies around it whether or not it was asked for.
+    with s.view():
+        context = tuning_of(inst)
+        tuned = None
+        if context is not None:
+            tuned = context.center_hz if tune_hz is None else float(tune_hz)
+            lo, hi = context.min_hz, context.max_hz
+            if not math.isfinite(tuned) or (lo is not None and tuned < lo) or (hi is not None and tuned > hi):
+                raise ValueError(
+                    f"tune_hz {tuned:g} Hz is outside {instrument}'s frequency range "
+                    f"({0.0 if lo is None else lo:g} Hz to {math.inf if hi is None else hi:g} Hz)"
+                )
+        with s.tuned(tuned):
+            try:
+                read = _samples if medium == "samples" else _analog
+                found = read(s, inst, comp, cport, port)
+                if context is not None and port in context.ports:
+                    found.tune_hz = tuned
+                return found
+            except (ScpiError, NotImplementedError) as exc:
+                detail = exc.detail if isinstance(exc, ScpiError) else str(exc)
+                raise ValueError(
+                    f"{port} has no signal to show with the current settings: {detail}"
+                ) from None
 
 
 def _analog(s: Session, inst: Instrument, comp: Component, cport: str, port: str) -> M.InternalProbe:
@@ -191,6 +249,7 @@ def _samples(s: Session, inst: Instrument, comp: Component, cport: str, port: st
             exact=not notes,
             notes=notes,
         ),
+        quadrature=[float(v) for v in np.imag(frame.data)] if kind == "iq" else None,
         spectrum=_frame_spectrum(frame, full_scale / 2 if quantized else 0.0),
         sample_rate_hz=frame.rate_hz,
         format=stream_format(frame),

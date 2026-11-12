@@ -37,7 +37,11 @@ interface Props<T> {
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  id?: string;
+  title?: string;
   "aria-label"?: string;
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
   onKeyDown?: (
     e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => void;

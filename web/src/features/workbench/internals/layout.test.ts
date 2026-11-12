@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import type { InstrumentInternals } from "@/api/client";
 import fixture from "./internals.fixture.json";
-import { ROW_PROBE, buildGraph } from "./layout";
+import specan from "./specan.fixture.json";
+import { NODE_WIDTH, ROW_PROBE, buildGraph } from "./layout";
 
 /** What a wire carries when it is analog (the API fills these in). */
 const ANALOG = { medium: "signal" as const, sample_rate_hz: null, format: null };
@@ -65,6 +66,7 @@ const scope: InstrumentInternals = {
   ]),
   refs: [],
   selects: [],
+  tuning: null,
   ports: [1, 2].map((n) => ({
     name: `CH${n}`,
     target: `ch${n}.inp.pin`,
@@ -317,5 +319,48 @@ describe("buildGraph on a real model (#953)", () => {
     expect(rows("c:adc").filter((r) => r.probe).map((r) => r.name)).toEqual(["out1", "out2", "out3", "out4"]);
     expect(rows("c:adc").filter((r) => r.side === "left").every((r) => !r.probe)).toBe(true);
     expect(rows("c:ch1.front").find((r) => r.name === "out")!.probe).toBe(true);
+  });
+});
+
+describe("buildGraph on a spectrum analyzer (signal-chain.md 1.5, #959)", () => {
+  // The digital-IF analyzer of web/e2e/fixtures/benches/sa-two-tone, captured from the engine.
+  const view = specan.internals as unknown as InstrumentInternals;
+  const { nodes, edges } = buildGraph(view, new Set([1]));
+  const at = (name: string) => nodes.find((n) => n.id === `c:${name}`)!;
+  const column = (name: string) => Math.round(at(name).x / (at("input").x - at("rf_in").x));
+  const middle = (name: string) => at(name).y + at(name).height / 2;
+
+  it("lays the signal out in one line: input, attenuator, mixer, IF, ADC, down-converter, RBW/FFT, detector, video filter, trace", () => {
+    const chain = ["rf_in", "input", "mixer", "if_filter", "adc", "ddc", "rbw", "detector", "vbw", "sa"];
+    expect(chain.map(column)).toEqual(chain.map((_, i) => column("rf_in") + i));
+    for (const name of chain) expect(middle(name)).toBeCloseTo(middle("mixer"), 6);
+    const rfIn = nodes.find((n) => n.id === "p:RF_IN")!;
+    expect(rfIn.x).toBeLessThan(at("rf_in").x);
+    expect(rfIn.y + rfIn.height / 2).toBeCloseTo(middle("mixer"), 6);
+  });
+
+  it("stands the oscillator under the mixer and its reference to the left of it, under the line", () => {
+    expect(at("lo").x).toBe(at("mixer").x);
+    expect(at("lo").y).toBeGreaterThan(at("mixer").y + at("mixer").height);
+    expect(at("clock").x).toBeLessThan(at("lo").x);
+    expect(at("clock").y).toBeGreaterThan(at("input").y + at("input").height);
+    expect(at("ref_in").x).toBeLessThan(at("clock").x);
+    expect(middle("ref_in")).toBeGreaterThan(middle("rf_in"));
+  });
+
+  it("draws the oscillator's dependency straight up into the mixer", () => {
+    const lo = edges.find((e) => e.kind === "ref" && e.source === "c:lo" && e.target === "c:mixer")!;
+    expect([lo.sourceHandle, lo.targetHandle]).toEqual(["ref-up", "ref-foot"]);
+    // between columns a dependency still leaves a block's side
+    const clock = edges.find((e) => e.kind === "ref" && e.source === "c:clock" && e.target === "c:lo")!;
+    expect([clock.sourceHandle, clock.targetHandle]).toEqual(["ref-out", "ref-in"]);
+  });
+
+  it("overlaps no two blocks", () => {
+    const boxes = nodes.filter((n) => n.kind === "component");
+    for (const a of boxes)
+      for (const b of boxes)
+        if (a.id < b.id) expect(a.x === b.x && a.y < b.y + b.height && b.y < a.y + a.height, `${a.id} on ${b.id}`).toBe(false);
+    expect(NODE_WIDTH.component).toBeLessThan(at("input").x - at("rf_in").x);
   });
 });

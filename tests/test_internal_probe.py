@@ -248,6 +248,73 @@ def test_a_receivers_internal_ports_read_at_the_tuning_asked_for(tmp_path):
         assert filtered.peak < off.peak  # a megahertz off the passband's center, the RBW filter attenuates
         again = internal_probe.probe(sv, "sa", "mixer.out", tune_hz=tone + 1e6)
         assert again.lines == off.lines and again.t_ns == off.t_ns  # passive and repeatable
+        # the answer names the tuning it was read at where the port depends on one (#959)
+        assert (level.tune_hz, at_center.tune_hz, off.tune_hz) == (None, tone, tone + 1e6)
+        with raises_with(ValueError, "outside sa's frequency range"):
+            internal_probe.probe(sv, "sa", "mixer.out", tune_hz=8.0e9)
+    finally:
+        session.close()
+
+
+def test_a_receivers_tuning_context_and_its_streams_on_radio_frequencies():
+    """The digital-IF analyzer (#959): the internals view names the tuning context — the center,
+    the frequency range, the marker that is on, the ports after the mixer — and the probe reads
+    the down-converter's IQ stream and the transform's bins on the radio frequencies around the
+    tuning: the center unless another is asked for."""
+    tone = 1.0e9
+    bench = BenchDefinition.model_validate(
+        {
+            "name": "t",
+            "instruments": {
+                "sg": {
+                    "model": "sb-sg-1",
+                    "state": {"freq.cw": tone, "power.level": -20.0, "output.enabled": True},
+                },
+                "sa": {
+                    "model": "sb-sa-fft-1",
+                    "state": {"freq.center": tone + 0.5e6, "freq.span": 5e6, "marker.x": tone},
+                },
+            },
+            "wires": [{"from": "sg.RF_OUT", "to": "sa.RF_IN"}],
+            "run": {"seed": 3, "clock": "command"},
+        }
+    )
+    session = open_bench(bench)
+    try:
+        sv = ServedSession("t", session, None)
+        tuning = views.internals(sv, "sa").tuning
+        assert tuning is not None
+        assert (tuning.center_hz, tuning.min_hz, tuning.max_hz) == (tone + 0.5e6, 0.0, 7.5e9)
+        assert tuning.marks == [M.TuneMark(kind="marker", index=1, freq_hz=tone)]
+        assert tuning.ports == ["adc.out", "ddc.out", "if_filter.out", "mixer.out", "rbw.out"]
+
+        iq = internal_probe.probe(sv, "sa", "ddc.out")
+        assert iq.format is not None and iq.format.kind == "iq"
+        assert iq.tune_hz == tone + 0.5e6
+        assert iq.quadrature is not None and len(iq.quadrature) == len(iq.waveform.volts)
+        assert iq.spectrum is not None
+        strongest = iq.spectrum.freq_hz[int(np.argmax(iq.spectrum.level))]
+        df = iq.spectrum.freq_hz[1] - iq.spectrum.freq_hz[0]
+        assert strongest == pytest.approx(tone, abs=df)  # the axis is radio frequency
+        assert iq.spectrum.freq_hz[len(iq.spectrum.freq_hz) // 2] == pytest.approx(tone + 0.5e6)
+
+        # tuned to the marker, the tone stands on 0 Hz: a constant, the tuning in the middle
+        at_marker = internal_probe.probe(sv, "sa", "ddc.out", tune_hz=tone)
+        assert at_marker.tune_hz == tone and at_marker.spectrum is not None
+        mid = len(at_marker.spectrum.freq_hz) // 2
+        assert at_marker.spectrum.freq_hz[mid] == pytest.approx(tone)
+        assert int(np.argmax(at_marker.spectrum.level)) == mid
+
+        bins = internal_probe.probe(sv, "sa", "rbw.out")
+        assert bins.format is not None and bins.format.kind == "bins"
+        assert bins.quadrature is None and bins.spectrum is not None
+        strongest = bins.spectrum.freq_hz[int(np.argmax(bins.spectrum.level))]
+        assert strongest == pytest.approx(tone, abs=bins.spectrum.freq_hz[1] - bins.spectrum.freq_hz[0])
+        assert internal_probe.probe(sv, "sa", "adc.out").quadrature is None  # real samples
+
+        # the offered mark follows the marker
+        session.instrument("sa").set_state("marker.x", 0.0)
+        assert [m.freq_hz for m in views.internals(sv, "sa").tuning.marks] == [0.0]
     finally:
         session.close()
 
@@ -256,3 +323,4 @@ def test_an_instrument_without_a_tuning_context_ignores_tune_hz(served):
     plain = internal_probe.probe(served, "scope", "ch1.front.out")
     tuned = internal_probe.probe(served, "scope", "ch1.front.out", tune_hz=123e6)
     assert tuned.lines == plain.lines and tuned.peak == plain.peak
+    assert tuned.tune_hz is None and views.internals(served, "scope").tuning is None

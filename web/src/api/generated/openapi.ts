@@ -2962,6 +2962,8 @@ export interface components {
              * @description Components that pick their input channel with a setting (#739); not wiring, not refs
              */
             selects: components["schemas"]["InternalSelect"][];
+            /** @description A receiver's tuning context with the current settings; none for other instruments */
+            tuning: components["schemas"]["InternalTuning"] | null;
             /** Wires */
             wires: components["schemas"]["InternalWire"][];
         };
@@ -3132,6 +3134,11 @@ export interface components {
              * @description '<component>.<port>', e.g. 'adc.out1'
              */
             port: string;
+            /**
+             * Quadrature
+             * @description IQ samples only: the quadrature part of each sample (the waveform holds the in-phase part)
+             */
+            quadrature: number[] | null;
             /** Rms */
             rms: number;
             /** Sample Rate Hz */
@@ -3147,7 +3154,7 @@ export interface components {
             t_ns: number;
             /**
              * Tune Hz
-             * @description The local-oscillator tuning the probe was read at; none where it does not apply
+             * @description The local-oscillator tuning the port was read at (the one asked for, else the center frequency); none where the port's signal does not depend on a tuning
              */
             tune_hz: number | null;
             /** @description signal: the analytic waveform; samples: the frame's samples, one value each */
@@ -3226,6 +3233,39 @@ export interface components {
              * @description The setting that names the channel, e.g. 'waveform.source'
              */
             setting: string;
+        };
+        /**
+         * InternalTuning
+         * @description The tuning context of a receiver (signal-chain.md 1.3, "tuned to"): the signal after its
+         *     mixer depends on where the local oscillator is tuned, so an internal probe there is read at a
+         *     tuning — the center frequency unless another is asked for.
+         */
+        InternalTuning: {
+            /**
+             * Center Hz
+             * @description Where the receiver is tuned outside a read: the default
+             */
+            center_hz: number;
+            /**
+             * Marks
+             * @description The markers that are on
+             */
+            marks: components["schemas"]["TuneMark"][];
+            /**
+             * Max Hz
+             * @description Highest tuning a probe can ask for; none: no limit
+             */
+            max_hz: number | null;
+            /**
+             * Min Hz
+             * @description Lowest tuning a probe can ask for; none: no limit
+             */
+            min_hz: number | null;
+            /**
+             * Ports
+             * @description Output ports ('<component>.<port>') whose signal depends on the tuning: the mixer's output and everything after it
+             */
+            ports: string[];
         };
         /** InternalWire */
         InternalWire: {
@@ -3787,7 +3827,10 @@ export interface components {
         };
         /**
          * ProbeSpectrum
-         * @description The amplitude spectrum of one frame of samples (a windowed FFT), from 0 Hz to half the rate.
+         * @description The amplitude spectrum of one frame. Real samples: a windowed FFT from 0 Hz to half the
+         *     rate. Complex baseband samples (IQ): the two-sided windowed FFT, on the radio frequencies
+         *     around the tuning. A transform's frequency points (bins): their levels as they are, on the
+         *     radio frequencies they stand for — no second transform.
          */
         ProbeSpectrum: {
             /** Freq Hz */
@@ -5078,6 +5121,26 @@ export interface components {
             now_ns: number;
             /** Session Id */
             session_id: string;
+        };
+        /**
+         * TuneMark
+         * @description A frequency an internal probe can be tuned to besides the center: a marker that is on.
+         */
+        TuneMark: {
+            /** Freq Hz */
+            freq_hz: number;
+            /**
+             * Index
+             * @description The marker's number, from 1
+             * @default 1
+             */
+            index: number;
+            /**
+             * Kind
+             * @description 'marker': the marker; 'reference': the fixed reference of a delta marker
+             * @enum {string}
+             */
+            kind: "marker" | "reference";
         };
         /** ValidateRequest */
         ValidateRequest: {

@@ -316,19 +316,22 @@ export function useInternals(sid: string, name: string, version: number) {
  * The signal at an output port inside an instrument (signal-chain.md 6, #953): re-keyed on the event
  * version (D64), no polling. The previous answer stays on screen while a new version loads, but only
  * for the same port. A 403 (validation mode withholds it) is an answer, not a failure to retry.
+ * `tuneHz`: where a receiver is tuned for this read (#959); left out, its center frequency. The
+ * previous tuning's answer stays on screen while the next one loads, so retuning does not flicker.
  */
-export function useInternalProbe(sid: string, name: string, port: string | null, version: number) {
-  return useQuery({ ...internalProbeQuery(sid, name, port ?? "", version), enabled: !!port });
+export function useInternalProbe(sid: string, name: string, port: string | null, version: number, tuneHz?: number) {
+  return useQuery({ ...internalProbeQuery(sid, name, port ?? "", version, tuneHz), enabled: !!port });
 }
 
 /** One port's probe as a query: the panel and the diagram's thumbnails share it, so opening a port already on screen is instant. */
-function internalProbeQuery(sid: string, name: string, port: string, version: number) {
+function internalProbeQuery(sid: string, name: string, port: string, version: number, tuneHz?: number) {
   return {
-    queryKey: [...keys.internals(sid, name), "probe", port, version] as const,
+    // The center frequency's read has no tuning in its key: it is the thumbnails' read too.
+    queryKey: [...keys.internals(sid, name), "probe", port, version, ...(tuneHz == null ? [] : [tuneHz])] as const,
     queryFn: () =>
       unwrap(
         api.GET("/api/sessions/{sid}/instruments/{name}/internals/probe", {
-          params: { path: { sid, name }, query: { port } },
+          params: { path: { sid, name }, query: tuneHz == null ? { port } : { port, tune_hz: tuneHz } },
         }),
       ),
     placeholderData: (prev: Schemas["InternalProbe"] | undefined, prevQuery: { queryKey: readonly unknown[] } | undefined) =>

@@ -1,0 +1,50 @@
+# The spectrum analyzer's demo of signal-chain.md 1.5 (steps 1-4, #959): two tones 1 MHz apart on
+# the digital-IF analyzer, combined by a resistive 6 dB power divider (three 16.67 Ω resistors in a
+# star: every port sees 50 Ω, each tone arrives at −10 dBm). This unit's per-unit values (`hidden`):
+# its mixer has a +10 dBm third-order intercept, so the tones' third-order products show at its IF
+# output; and a 4 dB noise figure (the model's is 24 dB), so that the IF converter's resolution,
+# not the front end's noise, sets the noise floor — the demo's step 4 lowers it from 16 to 12 bits
+# (`hidden: {adc: {bits: 12}}`) and the floor rises at the converter's output and on the trace.
+# True values are revealed, so the internal probe is available although the unit carries hidden
+# values (signal-chain.md 6.2). The clock moves by commands only and idle real time does not move
+# it (D47): the probe's frames are those of one instant, whatever the machine's speed.
+schema: simubench.bench/2
+name: sa_two_tone
+description: 两台射频信号源的 1000 MHz 与 1001 MHz 单音经电阻式功分器（三只 16.67 Ω，6 dB）合路，各以 −10 dBm 到达数字中频（FFT）频谱仪的 RF_IN；这台频谱仪的混频器三阶截点为 +10 dBm、噪声系数 4 dB（个体值），内部探针可在混频器的中频输出上看到三阶交调产物；把中频 ADC 的位数从 16 改为 12（hidden），噪声底抬高。
+instruments:
+  sg1:
+    model: sb-sg-1
+    label: 信号源 1
+    state: {freq.cw: 1.0e9, power.level: -4.0, output.enabled: true}
+  sg2:
+    model: sb-sg-1
+    label: 信号源 2
+    state: {freq.cw: 1.001e9, power.level: -4.0, output.enabled: true}
+  sa:
+    model: sb-sa-fft-1
+    label: 频谱仪
+    state: {freq.center: 1.0005e9, freq.span: 5.0e6, marker.x: 1.0e9}
+    hidden:
+      mixer: {iip3_dbm: 10.0, noise_figure: 4.0}
+parts:
+  r1: {type: resistor, label: 合路臂 1, params: {r: 16.6667}}
+  r2: {type: resistor, label: 合路臂 2, params: {r: 16.6667}}
+  r3: {type: resistor, label: 公共臂, params: {r: 16.6667}}
+wires:
+  - {from: sg1.RF_OUT, to: r1.A}
+  - {from: sg2.RF_OUT, to: r2.A}
+  - {from: r1.B, to: r3.A}
+  - {from: r2.B, to: r3.A}
+  - {from: r3.B, to: sa.RF_IN}
+run:
+  seed: 5
+  clock: command
+  idle: sleep
+  reveal_true_values: true
+layout:
+  sg1: {x: 0, y: 0}
+  sg2: {x: 0, y: 300}
+  r1: {x: 360, y: 60}
+  r2: {x: 360, y: 300}
+  r3: {x: 560, y: 180}
+  sa: {x: 780, y: 100}
