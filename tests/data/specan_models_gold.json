@@ -57,7 +57,7 @@
   ],
   [
    ":CALC:MARK:Y?",
-   "243d315a0a20a2907b3e6231d77cb611e44eb0bab5a0c3d39f84a64de3100f00",
+   "345b1ad9ba546e77d9ca187bd7b308ecbd7a8070cdc706d0eb05e19c739d8b96",
    0
   ],
   [
@@ -72,7 +72,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "de299c044c8b6c24b5db2fc3921b0561854d1be6b01d5109afb275b1450341be",
+   "bd3487e73e8094c6f62579a181a4f4a5244c7b64d3f43a03a451faff471460dc",
    0
   ],
   [
@@ -117,7 +117,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "3a927624ab745337091a22674ba80fe57a19a64a592e7f60e62549ce346070e9",
+   "b799653d056f5db21ab6d3cc763d8a4641e345ed4b21c871e252313c5a7c9aee",
    0
   ],
   [
@@ -132,7 +132,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "3a927624ab745337091a22674ba80fe57a19a64a592e7f60e62549ce346070e9",
+   "b799653d056f5db21ab6d3cc763d8a4641e345ed4b21c871e252313c5a7c9aee",
    0
   ],
   [
@@ -147,7 +147,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "da77697cecd518bbfb9e3ee4dec5b70fc1f77875fe1c8c6dd55fa80f6ea2977f",
+   "e9822523c55e6d3bd2f4207d3203848d682fee76a0d392b6fe1382030b22dd72",
    0
   ],
   [
@@ -167,7 +167,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "cb0b0700ccb3c3014fc5bb8ddf5dd406f2854a1f456095d7955654f0dfc8b8ab",
+   "4233e7c625cc20953d9a3c86a8600c633bd091edac90e50020d22c7572f5b765",
    0
   ],
   [
@@ -182,7 +182,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "cb0b0700ccb3c3014fc5bb8ddf5dd406f2854a1f456095d7955654f0dfc8b8ab",
+   "4233e7c625cc20953d9a3c86a8600c633bd091edac90e50020d22c7572f5b765",
    0
   ],
   [
@@ -197,7 +197,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "1fba05cf38c342b969e3040d13e43213910692b3abf65a5d5c9813caa230bdfa",
+   "4323377981168caf801b3f81f7c9fa91615fe976ef158fe74b798c751376b877",
    0
   ],
   [
@@ -217,7 +217,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "ed5298996b3dff4c854f2a14171132000f568ad0befb7fd96067feee78e83fa5",
+   "77b74cb8daa6a1e1e103515195c73a3998370199145b8eb0864e52c3b000823e",
    0
   ],
   [
@@ -232,7 +232,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "ed5298996b3dff4c854f2a14171132000f568ad0befb7fd96067feee78e83fa5",
+   "77b74cb8daa6a1e1e103515195c73a3998370199145b8eb0864e52c3b000823e",
    0
   ],
   [
@@ -247,7 +247,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "f7d638c377f9ed729b9db0beae8380ac234def8d029f9eab737503d720a64b62",
+   "9879e80a53a4cc07c39467d18ee5e711949fd261caf105f6afd1b27771f274ee",
    0
   ],
   [
@@ -267,7 +267,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "88501dda1018134f6e68a0218bb222e661478295304c64bcdd08f17c1868bf49",
+   "a3bfab4cc5f1812057a245d8435f935afe64e287435b2041cbd95f4b907e5305",
    0
   ],
   [
@@ -282,7 +282,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "88501dda1018134f6e68a0218bb222e661478295304c64bcdd08f17c1868bf49",
+   "a3bfab4cc5f1812057a245d8435f935afe64e287435b2041cbd95f4b907e5305",
    0
   ],
   [
@@ -297,7 +297,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "65690db0e2246aa6cbc1093f7eb259d155a291c52972930e04cb1b46244850d9",
+   "83625fd360c111e1d01b5555fae2c6923ddc77bfd87a00fbbf29c4dfc2951015",
    0
   ],
   [
@@ -337,12 +337,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "594194c58a58bc61f0cdcfea166345a4b6a60fa91685ed3e74d9f205b3f94064",
+   "64c8071c0a4d7918a882b9e4d018938e2fc4a2ebab3521f77ff5873ce4f8afd9",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "0664de4c2d49fe81a5a31f041d822e7b1eadbd3e9af499615371c057ca326f61",
+   "da8845532d8eee58c821e472869ffc0ed29147f453ec82ec35cb77b8f711363d",
    0
   ],
   [
@@ -377,12 +377,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "93b782b9e6c26de97099ba557a8558c0e744cec9f0e8fca17a4ba462c694d7f6",
+   "88affbb6a51a00a2c768fba1187e1ee6e4eff7d6166454d5153f0b86230868a9",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "8130351ca15d7b68509a8ee33d72bb46e800c3bbfb1b6af48f2460dbfe8da08f",
+   "e351b2c2a727313de764942c1c7554ac29ffc265c8c47333f037f01379657064",
    0
   ],
   [
@@ -412,12 +412,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "93b782b9e6c26de97099ba557a8558c0e744cec9f0e8fca17a4ba462c694d7f6",
+   "88affbb6a51a00a2c768fba1187e1ee6e4eff7d6166454d5153f0b86230868a9",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "8130351ca15d7b68509a8ee33d72bb46e800c3bbfb1b6af48f2460dbfe8da08f",
+   "e351b2c2a727313de764942c1c7554ac29ffc265c8c47333f037f01379657064",
    0
   ],
   [
@@ -457,7 +457,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "9472e636398563e34acbaf79f9645bd51bdf902117fe0fb17df7aeed24dc2081",
+   "4d52c909573b380885a8ea0c49197260442f09b4c072b0396c69e21d96906869",
    0
   ],
   [
@@ -502,7 +502,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "2a668221a0cf37350b1aaef8e7d3ec0232c7cea7459d2412f61812e1f05defb4",
+   "134040f158c2dfe8798e8e16097d24719f22b0b0cf72660e933e91388ed245d1",
    0
   ],
   [
@@ -517,7 +517,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "5ad789443356bb12981d058d217c0816e7d309e0961a1ec2d127246d2725db77",
+   "876e31fe83ed1fa2f0e2f53017104db9437273f98c7932022b59c6b490fed59d",
    0
   ],
   [
@@ -557,7 +557,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "93d40fe3128b0efe06b6d4efffc711855a59edca6181edce571b1888a70e75e6",
+   "b409667f0748b9c3d2a6f10d77bf1f13411fc66f8a3429bdeb3ee4e42c3e0a81",
    0
   ],
   [
@@ -582,7 +582,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "bc8f93625308b5d41c66e89510a162637fe007991ddcd5c2620cbb1af6bf139e",
+   "1f716771a82745a731e4bdaf1a5690b83e4585999757b8fac1e5cb699a83cda9",
    0
   ],
   [
@@ -597,12 +597,12 @@
   ],
   [
    "<screen values>",
-   "{\"attenuation\": 0.0, \"marker_x\": 64570000.0, \"marker_y\": -94.03659633008343, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.0025333333333333336, \"uncal\": false, \"vbw\": 1000000.0}",
+   "{\"attenuation\": 0.0, \"marker_x\": 72970000.0, \"marker_y\": -23.856508258738714, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.0025333333333333336, \"uncal\": false, \"vbw\": 1000000.0}",
    0
   ],
   [
    "<screen trace>",
-   "ce360d895091ef538725080323f6cc157266917b5c7cc9a96b2e12c7fc3498ba",
+   "f37bd5f2081326876282be3d306a8335d4ee1947296f77affbde6abf6977d007",
    0
   ]
  ],
@@ -689,7 +689,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "3db3d3687219a84cb04a8248e4645408c6a9a4257875114ab3cd48df4ffdb025",
+   "22f423c3e2d84e310ab1f32015e94b8ae8345ea0643afa743f884c9674f66762",
    0
   ],
   [
@@ -704,7 +704,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "73f82be2f1427a7cf7754d55ec34659ad0efd0bad79e6d49c6e0043e6bd091d2",
+   "9773f69336c5366923e8318253eda1e7f8670dd45ed77828b6e23d26442f7279",
    0
   ],
   [
@@ -744,7 +744,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "74764863cedb6a1d027c680a11a99d7f43236d535497db12f35c6fc294b3cb3d",
+   "a89631e4f279fd6789efc606d51e725e41f07884186fa4300db0268370ba9823",
    0
   ],
   [
@@ -759,7 +759,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "01d7411aac0c4bc1aadba58f451146f93befd9596a11a773c41f6e71f9cf063c",
+   "b2d81c533e290e33ea16aa06bbd875b015cef2d0036c9b2a9f09226c69947cd5",
    0
   ],
   [
@@ -774,7 +774,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "8c8e1ed7a68b7728fe517cf2a0774a4300a6a65720f6fc4196a2802c287cc210",
+   "0e4a53dd22e1dc332514a2efc6d933680a2dc0ee2ae50ce4c7dee33cd53f5c96",
    0
   ],
   [
@@ -789,7 +789,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "a48882d22ca0196e8da8209c4e2208267f31a5eab975be41b813421bb5fb5401",
+   "7d18629fdee31216fbc7eac8b618cb383f1873a805dabaed121544f70e9fee2c",
    0
   ],
   [
@@ -809,7 +809,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "71c556943c11bff31a4957bf5852b4edcca61d870eadb831459990f1525258ed",
+   "5bc1b6bc9cb8285ef647adf30818dc61add242adcdc38e872d9ceb3803171a34",
    0
   ],
   [
@@ -824,7 +824,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "b4ffb73b46128d7d251797d245bf6294a33c6f7fec16d4e602132eac27287186",
+   "d4d96feff6033a9bb510b2791fcc807572917cecb7dd83c820b52e390c085327",
    0
   ],
   [
@@ -839,7 +839,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "02121247dfcc877e8eceec735ab3afb0f1879183bcd4fdc08fda24e42809afe5",
+   "f86d367cc422c41db0cf12f61e7e12e98385d4ee02d33e3645c6b69f2888278e",
    0
   ],
   [
@@ -854,7 +854,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "e7033875cfca699665169b4415c97a48bc71d96c7545758f3c249592df0ab103",
+   "a895c799829d91c310d45d77062b0fd5358360b27c395a1fd2215de3c72c8577",
    0
   ],
   [
@@ -874,7 +874,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "2a5e214e2c2448e7f25350f123f476d5fc5b78cfa4e7f7e0adb472be842981f5",
+   "1b628824c01d1b2899f70ac21477d930054f430898550f2dc454f0f1661953f7",
    0
   ],
   [
@@ -889,7 +889,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "3c865922d336544c9b7487c4d43bed14d747f4b831d4008626059852088eaee2",
+   "e07675c6a35a1d368e947c7792a759366894cf321fe13cc2bd769a6bcb0b4e50",
    0
   ],
   [
@@ -904,7 +904,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "7ea4822724b012f094340ae36103975507786854c5e7a0355381a52d6f1da8e9",
+   "83444b968ff28fca042bb1f9802a723b39febb8309a43a192df22e3b0f4c34e1",
    0
   ],
   [
@@ -919,7 +919,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "2cf44e856857224c8b65a7cf929391041542718cdb70d065e064825bf61ddc52",
+   "c1b0752b74bd6e087eaf94395ba6482cf7dd8a7a19af5f3df008c967a41570e0",
    0
   ],
   [
@@ -939,7 +939,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "c00cb7f29aaa51f7674b36b1879e81e32b3137831086a5d48924703e84690592",
+   "b9064a54d96a8842d5b91b6243d15367294d742ae10b1efc6dcb351d6fa603a4",
    0
   ],
   [
@@ -954,7 +954,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "402957a6ea06ad6bee93197249c5c312abd7ba8327ebdade96144e90478f2d51",
+   "baef52601f20bc6929039e5f3b867c5cf5165da27d96cc8956c70574371ab17b",
    0
   ],
   [
@@ -969,7 +969,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "3bf10993a4e324e12edb1847fce2eef90b7d34b2f3dea6036d13dd549f43b2d2",
+   "3368b5c81a3d40b83b73346e107f983cd316295fdca7cab0d290d2ca8df3a747",
    0
   ],
   [
@@ -984,7 +984,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "015f41685ce67bac15d6b4c47870a446b3698bf5ba6e924da6c65fbffeaf9d22",
+   "f6d20dfaa4f68f52ca3e0231a5ed5169a68e8d2e9a2944d360de4891d674f712",
    0
   ],
   [
@@ -1024,7 +1024,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "0a9c0ace2e51c7ba820dfe7b75cad24969e68ce5732a843f7e05414e8ccebdcf",
+   "353f9a66cacede14d2a89dd2435a7116f541944a0d3ae581853b2e375f7156d3",
    0
   ],
   [
@@ -1074,12 +1074,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "2b5138e423a86c070ec3f9fb5855d5ff5a1a98b8ec4f4d98e0d05f535e9549b4",
+   "4a1c71cce65e6b20d90433ab0c98e53cb346e740876a6825efac51ab7f0d3453",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "bc27ca018ec634536ff693f8feb51d9767adfd4c64b09d3b6b6ed4bba60c15bf",
+   "aac470886a629a858597a6a916a29543ba26273a37c59b7b92972ce96b9eabfc",
    0
   ],
   [
@@ -1114,12 +1114,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "c19d8b0812f4be755975c982a7b81004804e197a00c1ccae06d6ef1805e204ae",
+   "0a922faa3299e1a9ec247f9222bfd16e76229c86b935e1387f3d9654dc028456",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "d57c38d84d5c688c0bd0bd3a3f0a4a0f69761a5651431891eb9de783e5b6fae2",
+   "5dffd21524df57e9125a7d49cccdd336f0296d3c065d5ed6eda1c7f2aeecfa75",
    0
   ],
   [
@@ -1149,12 +1149,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "68dc872be0caf882bccbabd3fa36c1208283c9fe058e8e5f53dc61a0690f475b",
+   "b0b2bcfa940347ad827a366cd53a940aa724285c47423470ec1ec21a6862992a",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "96693ca1df89ab402817e1305674c32e0fc6cb69fa65cfbb8ca0990db1d29612",
+   "582bed952704251c1c94b4195c27831dc3ce7f0f1c4319cdc6e3f6776576771c",
    0
   ],
   [
@@ -1164,7 +1164,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "8ac64514115e490ed8b878412f59ba28bcf058ab6eb2fededbef80b578f92c78",
+   "b4cde944173f0075bae34cd649358abd93b8c2d3509b3f82a006db37161ec6d2",
    0
   ],
   [
@@ -1199,7 +1199,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "37fb81095aa6a427737467719a1862304459150ee11a704fe32092e83b4f2b5c",
+   "6afc1b55b7c1c444d1ca51dff96293a19f271dc4084efbaa1c489df2cab17901",
    0
   ],
   [
@@ -1214,7 +1214,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "e3ecb9e653cafed0db156dc563e444e67e6831e4a2f198d7e64b43ec82536d4e",
+   "1c2f17f4128502dd708ed9e422de5ac98d362be1fdd111a46a3ced9b3342c2a6",
    0
   ],
   [
@@ -1274,7 +1274,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "a482e775217bb114ebc65acb01c2be9db93b5bc65274f5f2397eee991d6f2301",
+   "3e49942188c0da8ddd53a1118c58cd03fcc8c302f8c0d28cf8f1cfbb335cb22c",
    0
   ],
   [
@@ -1284,7 +1284,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "f90713c2b061c1652dfa7abc01951c8a43d61704cc48be73c0cb831dad6bd2cb",
+   "ea6d41fcad4e0c80c1d2d7ddaecda9f502db125dd29b9e01164935903a414418",
    0
   ],
   [
@@ -1314,7 +1314,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "4c7eef3d0570837f572ce8cca51261e3cec203b9c40571bfaf238e209c6d00ff",
+   "cd15bbcbfa3adcfa464ccfcd7de0daae50f5ba35345bc6a5fa49c43586da4978",
    0
   ],
   [
@@ -1324,12 +1324,12 @@
   ],
   [
    "<screen values>",
-   "{\"attenuation\": 0.0, \"marker_x\": 5800000000.0, \"marker_y\": 18.000000698443802, \"overload\": true, \"rbw\": 9100.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5799500000.0, \"stop\": 5800500000.0, \"sweep\": 0, \"sweep_time\": 0.03018959062915107, \"uncal\": false, \"vbw\": 9100.0}",
+   "{\"attenuation\": 0.0, \"marker_x\": 5800048000.0, \"marker_y\": -89.64551273109635, \"overload\": true, \"rbw\": 9100.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5799500000.0, \"stop\": 5800500000.0, \"sweep\": 0, \"sweep_time\": 0.03018959062915107, \"uncal\": false, \"vbw\": 9100.0}",
    0
   ],
   [
    "<screen trace>",
-   "bc0c539fdb20121c439d1d687c22b559eb898a024b7695b4e68caba261ab1b25",
+   "d7e99120b8f261e88b06644c7776374aab38984adccacca3b9ce4cddf16dd336",
    0
   ]
  ]

@@ -36,7 +36,7 @@ sections:
     note: Marker 1 only; snapped to the nearest trace point.
   - header: :CALCulate:MARKer<m>:Y
     level: implemented
-    note: Marker 1 only.
+    note: 'Marker 1 only. Reads the trace, so the front end of :TRACe[:DATA] (phase noise, distortion products, compression, the banded noise floor) is in the level.'
   - header: :CALCulate:MARKer<m>:FCOunt:X
     level: implemented
     note: Marker 1 only; the ideal counter reads the strongest line near the marker.
@@ -536,6 +536,7 @@ sections:
     level: not_modeled
   - header: '[:SENSe]:POWer[:RF]:GAIN[:STATe]'
     level: not_modeled
+    note: 'The preamplifier (option, 1 MHz to 3 GHz, 18 dB nominal) is not modeled: an instance cannot declare options yet (#1004).'
   - header: '[:SENSe]:SWEep:TYPE'
     level: not_modeled
   - header: '[:SENSe]:ACPower:OFFSet:LIST:BANDwidth[:INTegration]'
@@ -642,7 +643,7 @@ sections:
     note: 'One trace: TRACe1..4 all select trace 1. AVERage, MAXHold and WRITe only; MINHold/VIEW/BLANK are not modeled.'
   - header: :TRACe[:DATA]
     level: implemented
-    note: Trace 1 only; 1001 points in dBm, seven decimals.
+    note: 'Trace 1 only; 1001 points in dBm, seven decimals. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (5990-8119EN p.4-5, #960): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the 1 GHz table around every line. Not modeled: frequency-response flatness as a per-unit deviation and the preamplifier option (#1004); input-related spurious and residual responses (the data sheet gives no frequencies or mixing orders).'
   - header: :TRACe:MATH:OFF
     level: not_modeled
   - header: :TRACe:MATH:ADD|SUBTract

@@ -2038,3 +2038,33 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | `scripts/check.sh` 通过 | ✅ |
 
 限制：记录网格段只取预算内的采样，之后的粗网格上比网格窄的脉冲可能漏掉；有触发噪声时粗网格上的时刻不二分（噪声使二分没有意义），误差不超过一格。
+
+## N9320B、N9042B 按数据手册填前端指标（Issue 960，部分；平坦度偏差与前放选件待 #1004）
+
+数据手册入库：`manuals/5990-8119/`（N9320B Data Sheet，July 29, 2020）、`manuals/3121-1037/`（N9042B Data Sheet，July 1, 2024），定义的 `specs` 逐项记手册原文与页码。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 噪声系数（由 typical DANL 换算）、二阶/三阶截点、1 dB 压缩点按中心频率所在频段取值；手册没有给的频段为 `null`，不外推 | ✅ 两个定义的 `mixer` 参数用 `{from: $freq.center, table: …}`，换算写在参数旁；`simubench validate` 无诊断 |
+| 相位噪声表（N9320B 第 5 页、N9042B 第 29 页的 typical 列） | ✅ `lo.phase_noise`；用例“载波旁的相位噪声” |
+| 每个型号 3 条前端用例：噪声底随 RBW 与频段、载波旁的相位噪声、双音三阶交调 | ✅ `tests/models/keysight-n9320b/cases.yaml` #15–17、`keysight-n9042b/cases.yaml` #19–21（`simubench cases` 17/17、21/21）；用例测试台加了输出关闭的 SMA100B（`tests/models/<id>/bench.yaml`，关闭的输出不接入节点，原有用例不变） |
+| 覆盖表：迹线数据与标记读数的说明写明解析求值包含的前端与未建模项 | ✅ 两份覆盖表的 `:TRACe[:DATA]`、`:CALCulate:MARKer<m>:Y`、前放命令；`test_coverage_table_agrees_with_definition_and_cases` 通过 |
+| `src/simubench/library/components/` 无改动 | ✅ `tests/test_model_components.py` 通过 |
+| 示例脚本照常运行，变化逐条说明 | ✅ N9320B 标记 3.979 → 3.980 dBm、N9042B −10.000 → −10.001 dBm（噪声系数抬高后峰值检波读到的包络起伏）；N9320B 差值标记在 11 MHz 由噪声底变为相位噪声裙边（−66.5 dB）；金标准 `tests/data/specan_models_gold.json` 重录：只有 `:TRAC:DATA?` 与标记 `Y?` 的回复变化，设置、耦合与虚拟时间逐行不变 |
+| `deviation: from_specs` 的平坦度 | ⛔ 被 #1004 阻塞（`flatness` 是列表，定义校验拒绝对它写 `deviations`） |
+| `scripts/check.sh` 通过 | ✅ |
+
+限制：频段按中心频率取，谐波或交调产物落在别的频段时仍用中心频率所在频段的值；N9042B 的镜像在调谐点之上（f+45/645 MHz），模型的镜像在 f − 2·IF，未声明；两型号的残余与杂散手册没有给频率或混频阶数，未声明。
+
+## 文档：定义里怎样写信号链（Issue 961）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `instrument-authoring.md` 2.11：模拟/数字块、`samples` 端口、ADC 边界、连线与诊断代码、最小例子、示波器与频谱仪的宏展开、插件的 `frames` | ✅ 新节；2.10 补上按频段的 `table` 写法 |
+| 最小例子在 `tests/definitions/` 并被加载运行；拒绝的连线各有一条 | ✅ `tests/definitions/doc-digitizer.yaml`；`tests/test_docs_examples.py::test_the_signal_chain_example_is_the_file_it_names_and_runs`（文档中的 YAML 与文件逐字节相同；−20 dBm + 20 dB → `ddc.out` 0.316 V；`E-DEF-WIRE-MEDIUM` ×3、`E-DEF-SAMPLES-OPEN`） |
+| 插件 `frames` 的例子可运行 | ✅ `::test_the_plugin_frames_example_runs_between_the_adc_and_the_ddc`（执行文档中的代码段，接在 `adc` 与 `ddc` 之间，`factor: 2` 时幅度加倍） |
+| `real-models.md` 第 6 节：频谱仪覆盖表“求值方式”的写法 | ✅ |
+| `architecture.md` 2.6、`glossary.md` 与实现一致 | ✅ 补 `tune_hz`、`df_hz`；“求值方式”写明参数与差别 |
+| 技能：codebase-map 的内部探针一行、`signal-chain.md` 状态；real-model 的频谱仪参数出处 | ✅ `scripts/check_skills.py` 通过 |
+| `signal-chain.md` 状态改为已实现（第一版） | ✅ |
+| `scripts/check.sh` 通过 | ✅ |

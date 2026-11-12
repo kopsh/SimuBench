@@ -2,8 +2,11 @@
 # （N9320-90029, Edition 5, December 2020）。测试台 examples/benches/keysight_n9320b.bench.yaml：
 # Siglent SDG2042X 的 10 MHz、2 Vpp 正弦（HiZ 负载设定）接到 RF_IN，50 Ω 上约 +3.98 dBm。
 # 每个用例在一个刚上电的测试台上运行；数值查询用容差，格式与枚举用精确回复。
+# 测试台是示例测试台加两台输出关闭的 R&S SMA100B（tests/models/keysight-n9320b/bench.yaml），供末尾的
+# 前端用例（#960，N9320B Data Sheet 5990-8119EN）使用。噪声读数的容差：采样检波、对数平均 100 次的
+# 一个迹线点，σ = 5.57 dB / √100 = 0.56 dB，取 4σ = 2.2 dB。
 model: keysight-n9320b
-bench: ../../../examples/benches/keysight_n9320b.bench.yaml
+bench: bench.yaml
 instrument: sa
 cases:
   - name: "身份、复位与状态系统：*IDN? 四字段、*RST 默认值、事件/状态寄存器"
@@ -476,7 +479,106 @@ cases:
       - query: ":CALC:MARK:X:DELT?"
         expect: "+0.0000000000000000E+000"
       - send: ":CALC:MARK:X 11 MHz"
+      # 1 MHz 外读到的是载波的相位噪声裙边（#960：-112 dBc/Hz × 1.0645 × 30 kHz ≈ -67 dBc），回复逐字节固定（#349）。
       - query: ":CALC:MARK:Y?"
-        expect: "-1.0261377887001903E+002"
+        expect: "-6.6512944546191491E+001"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
+
+  # ---- 前端指标（#960）：数据手册的 DANL、相位噪声、三阶截点 ------------------------------------------
+  - name: "噪声底随 RBW 与频段变化：100 MHz 处 RBW 1 kHz → 10 kHz 抬高 10 dB，2.7 GHz 处高 5 dB（DANL）"
+    manual: "Data Sheet 5990-8119EN p.4 > Displayed average noise level (DANL), preamp off, typical: 10 to 500 MHz -132 dBm, 2.5 to 3 GHz -125 dBm（RBW 10 Hz）"
+    # 输入无信号、0 dB 衰减、采样检波、对数平均 100 次。噪声底 = DANL + 10·lg(RBW / 10 Hz)：
+    # 100 MHz、RBW 1 kHz 为 -132 + 20 = -112 dBm，RBW 10 kHz 为 -102 dBm；2.7 GHz、RBW 1 kHz 为 -105 dBm。
+    steps:
+      - {instrument: awg, send: "C1:OUTP OFF"}
+      - send: ":FREQ:CENT 100 MHz"
+      - send: ":FREQ:SPAN 100 kHz"
+      - send: ":POW:ATT 0"
+      - send: ":BAND 1 kHz"
+      - send: ":DET SAMP"
+      - send: ":AVER:COUN 100"
+      - send: ":TRAC:MODE AVER"
+      - send: ":INIT:CONT OFF"
+      - send: ":INIT:IMM;*WAI"
+      - send: ":CALC:MARK:X 100 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -112.0
+        tolerance: 2.2
+      - send: ":BAND 10 kHz"
+      - send: ":INIT:IMM;*WAI"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -102.0
+        tolerance: 2.2
+      - send: ":FREQ:CENT 2.7 GHz"
+      - send: ":BAND 1 kHz"
+      - send: ":INIT:IMM;*WAI"
+      - send: ":CALC:MARK:X 2.7 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -105.0
+        tolerance: 2.2
+
+  - name: "载波旁的相位噪声：1 GHz、-10 dBm 载波旁 10 kHz 与 100 kHz 处的噪声裙边"
+    manual: "Data Sheet 5990-8119EN p.5 > Phase noise, Fc = 1 GHz, typical: 10 kHz -90 dBc/Hz, 100 kHz -102 dBc/Hz"
+    # 自动衰减 20 dB、RBW 1 kHz（噪声带宽 1.0645 kHz，+30.27 dB）、采样检波、对数平均 100 次（比功率低
+    # 2.51 dB）。10 kHz 处：-10 - 90 + 30.27 = -69.73 dBm，加上接收机噪声（NF 36.24 dB + 衰减：-87.49 dBm）
+    # 为 -69.66 dBm，显示 -72.2 dBm；100 kHz 处：-81.73 dBm 加噪声为 -80.71 dBm，显示 -83.2 dBm。
+    steps:
+      - {instrument: awg, send: "C1:OUTP OFF"}
+      - {instrument: sg1, send: ":OUTP ON"}
+      - send: ":FREQ:CENT 1.00005 GHz"
+      - send: ":FREQ:SPAN 150 kHz"
+      - send: ":BAND 1 kHz"
+      - send: ":DET SAMP"
+      - send: ":AVER:COUN 100"
+      - send: ":TRAC:MODE AVER"
+      - send: ":INIT:CONT OFF"
+      - send: ":INIT:IMM;*WAI"
+      - query: ":POW:ATT?"
+        expect_value: 20.0
+        tolerance: 1.0e-9
+      - send: ":CALC:MARK:X 1 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -10.03
+        tolerance: 0.05
+      - send: ":CALC:MARK:X 1.00001 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -72.2
+        tolerance: 2.2
+      - send: ":CALC:MARK:X 1.0001 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -83.2
+        tolerance: 2.2
+
+  - name: "双音三阶交调：1000/1001 MHz 各 -20 dBm 在混频器处，999 与 1002 MHz 的产物为 3P - 2·TOI"
+    manual: "Data Sheet 5990-8119EN p.4 > Third-order intermodulation (TOI), preamp off, 0 dB RF attenuation: 300 MHz to 3 GHz +13 dBm nominal"
+    # 两台信号源各设 -16.48 dBm，共用 RF_IN 的节点后各 -20.0 dBm；0 dB 衰减，混频器处同样 -20 dBm。
+    # 三阶产物 3·(-20) - 2·13 = -86.0 dBm。压缩（P1dB 0 dBm，第 4 页）使每个音低 0.03 dB。RBW 100 Hz 使
+    # 接收机噪声（-117.5 dBm）在产物下 31 dB；采样检波、平均 100 次，噪声对线读数的影响 < 0.1 dB。
+    steps:
+      - {instrument: awg, send: "C1:OUTP OFF"}
+      - {instrument: sg1, send: ":POW -16.48"}
+      - {instrument: sg2, send: ":POW -16.48"}
+      - {instrument: sg1, send: ":OUTP ON"}
+      - {instrument: sg2, send: ":OUTP ON"}
+      - send: ":FREQ:CENT 1000.5 MHz"
+      - send: ":FREQ:SPAN 5 MHz"
+      - send: ":POW:ATT 0"
+      - send: ":BAND 100"
+      - send: ":DET SAMP"
+      - send: ":AVER:COUN 100"
+      - send: ":TRAC:MODE AVER"
+      - send: ":INIT:CONT OFF"
+      - send: ":INIT:IMM;*WAI"
+      - send: ":CALC:MARK:X 1000 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -20.03
+        tolerance: 0.05
+      - send: ":CALC:MARK:X 999 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -86.0
+        tolerance: 0.2
+      - send: ":CALC:MARK:X 1002 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -86.0
+        tolerance: 0.2

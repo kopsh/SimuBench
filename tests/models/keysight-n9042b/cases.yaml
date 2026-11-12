@@ -2,8 +2,11 @@
 # Mode User's & Programmer's Reference*（N9060-90027, August 2014；页码以 PDF 为准），频率选件 526。
 # 测试台 examples/benches/keysight-n9042b.bench.yaml：R&S SMA100B 的 5.8 GHz、-10 dBm 连续波接到
 # RF_IN。每个用例在一个刚上电的测试台上运行；数值查询用容差，格式与枚举用精确回复。
+# 测试台是示例测试台加一台输出关闭的 SMA100B（tests/models/keysight-n9042b/bench.yaml），供末尾的前端
+# 用例（#960，N9042B Data Sheet 3121-1037.EN，标准路径 1a）使用。噪声读数的容差：采样检波、对数平均
+# 100 次的一个迹线点，σ = 5.57 dB / √100 = 0.56 dB，取 4σ = 2.2 dB。
 model: keysight-n9042b
-bench: ../../../examples/benches/keysight-n9042b.bench.yaml
+bench: bench.yaml
 instrument: sa
 cases:
   - name: "身份与公共命令：*IDN? 四字段、*OPT?、*TST?、状态寄存器、错误队列"
@@ -432,3 +435,99 @@ cases:
       - send: ":CALC:MARK:STAT ON"
       - query: ":SYST:ERR?"
         expect_prefix: "-113,"
+
+  # ---- 前端指标（#960）：数据手册的 DANL、相位噪声、三阶截点 ------------------------------------------
+  - name: "噪声底随 RBW 与频段变化：100 MHz 处 RBW 1 kHz → 10 kHz 抬高 10 dB，5 GHz 处高 5 dB（DANL）"
+    manual: "Data Sheet 3121-1037.EN p.21 > DANL 1a. Standard path, typical: >10 MHz to 1.2 GHz -155 dBm, >3.6 to 6.6 GHz -150 dBm（RBW 1 Hz）"
+    # 输入无信号、0 dB 衰减、采样检波、对数平均 100 次。噪声底 = DANL + 10·lg(RBW / 1 Hz)：
+    # 100 MHz、RBW 1 kHz 为 -155 + 30 = -125 dBm，RBW 10 kHz 为 -115 dBm；5 GHz、RBW 1 kHz 为 -120 dBm。
+    steps:
+      - {instrument: sg, send: ":OUTP OFF"}
+      - send: ":FREQ:CENT 100 MHz"
+      - send: ":FREQ:SPAN 100 kHz"
+      - send: ":POW:ATT 0"
+      - send: ":BAND 1 kHz"
+      - send: ":DET:TRAC SAMP"
+      - send: ":AVER:COUN 100"
+      - send: ":TRAC:TYPE AVER"
+      - send: ":INIT:CONT OFF"
+      - send: ":INIT:IMM;*WAI"
+      - send: ":CALC:MARK:X 100 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -125.0
+        tolerance: 2.2
+      - send: ":BAND 10 kHz"
+      - send: ":INIT:IMM;*WAI"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -115.0
+        tolerance: 2.2
+      - send: ":FREQ:CENT 5 GHz"
+      - send: ":BAND 1 kHz"
+      - send: ":INIT:IMM;*WAI"
+      - send: ":CALC:MARK:X 5 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -120.0
+        tolerance: 2.2
+
+  - name: "载波旁的相位噪声：1 GHz、-10 dBm 载波旁 100 Hz 与 1 kHz 处的噪声裙边"
+    manual: "Data Sheet 3121-1037.EN p.29 > Phase Noise (SSB), CF = 1 GHz, typical: 100 Hz -112 dBc/Hz, 1 kHz -127 dBc/Hz"
+    # 自动衰减 10 dB、RBW 10 Hz（噪声带宽 10.645 Hz，+10.27 dB）、采样检波、对数平均 100 次（比功率低
+    # 2.51 dB）。100 Hz 处：-10 - 112 + 10.27 = -111.73 dBm，加上接收机噪声（NF 21.24 dB + 衰减：-132.49 dBm）
+    # 为 -111.69 dBm，显示 -114.2 dBm；1 kHz 处：-126.73 dBm 加噪声为 -125.70 dBm，显示 -128.2 dBm。
+    steps:
+      - {instrument: sg, send: ":FREQ 1 GHz"}
+      - send: ":FREQ:CENT 1.0000015 GHz"
+      - send: ":FREQ:SPAN 3 kHz"
+      - send: ":BAND 10 Hz"
+      - send: ":DET:TRAC SAMP"
+      - send: ":AVER:COUN 100"
+      - send: ":TRAC:TYPE AVER"
+      - send: ":INIT:CONT OFF"
+      - send: ":INIT:IMM;*WAI"
+      - query: ":POW:ATT?"
+        expect_value: 10.0
+        tolerance: 1.0e-9
+      - send: ":CALC:MARK:X 1 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -10.0
+        tolerance: 0.05
+      - send: ":CALC:MARK:X 1.0000001 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -114.2
+        tolerance: 2.2
+      - send: ":CALC:MARK:X 1.000001 GHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -128.2
+        tolerance: 2.2
+
+  - name: "双音三阶交调：1000/1001 MHz 各 -20 dBm 在混频器处，999 与 1002 MHz 的产物为 3P - 2·TOI"
+    manual: "Data Sheet 3121-1037.EN p.27 > Third-Order Intercept (TOI) 1a. Standard path, typical: >350 MHz to 1.1 GHz +19 dBm"
+    # 两台信号源各设 -16.48 dBm，共用 RF_IN 的节点后各 -20.0 dBm；0 dB 衰减，混频器处同样 -20 dBm。
+    # 三阶产物 3·(-20) - 2·19 = -98.0 dBm。压缩（P1dB +5 dBm，第 19 页）使每个音低 0.01 dB。RBW 100 Hz 使
+    # 接收机噪声（-132.5 dBm）在产物下 34 dB；采样检波、平均 100 次，噪声对线读数的影响 < 0.1 dB。
+    steps:
+      - {instrument: sg, send: ":FREQ 1 GHz"}
+      - {instrument: sg, send: ":POW -16.48"}
+      - {instrument: sg2, send: ":POW -16.48"}
+      - {instrument: sg2, send: ":OUTP ON"}
+      - send: ":FREQ:CENT 1000.5 MHz"
+      - send: ":FREQ:SPAN 5 MHz"
+      - send: ":POW:ATT 0"
+      - send: ":BAND 100"
+      - send: ":DET:TRAC SAMP"
+      - send: ":AVER:COUN 100"
+      - send: ":TRAC:TYPE AVER"
+      - send: ":INIT:CONT OFF"
+      - send: ":INIT:IMM;*WAI"
+      - send: ":CALC:MARK:X 1000 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -20.01
+        tolerance: 0.05
+      - send: ":CALC:MARK:X 999 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -98.0
+        tolerance: 0.2
+      - send: ":CALC:MARK:X 1002 MHz"
+      - query: ":CALC:MARK:Y?"
+        expect_value: -98.0
+        tolerance: 0.2

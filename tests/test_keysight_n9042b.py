@@ -40,9 +40,9 @@ def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     out = run_manual_script(script, ["sa"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Keysight Technologies,N9042B,MY00000001,A.25.05"
     assert out[1] == "rbw: 9100 Hz, sweep: 30.190 ms"
-    assert out[2] == "marker: 5800000000 Hz, -10.000 dBm"
+    assert out[2] == "marker: 5800000000 Hz, -10.001 dBm"
     assert out[3] == "counter: 5800000000 Hz"
-    assert out[4] == f"trace: {POINTS} points, peak -10.000 dBm"
+    assert out[4] == f"trace: {POINTS} points, peak -10.001 dBm"
     assert out[5] == '+0,"No error"'
 
 
