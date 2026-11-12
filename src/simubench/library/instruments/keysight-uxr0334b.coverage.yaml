@@ -152,7 +152,9 @@ sections:
   - header: :ACQuire[:AVERage]:COUNt
     level: implemented
     note: 2 to 1 048 575 (the data sheet; the guide's 10,486,575 is a misprint); 16 after a default setup
-      is a SimuBench value
+      is a SimuBench value. A SimuBench model limit, not the guide's (#986) - an acquisition whose count x
+      record points is beyond 2^28 (more than 2096 averages of the default 128 kpts record) is refused
+      before it starts with -221 and leaves no record
   - header: :ACQuire:BANDwidth
     level: implemented
     note: 'MAX or 100 MHz to 33 GHz: the -3 dB frequency of the acquisition''s DSP filter, shaped by :ACQuire:RESPonse
