@@ -6,6 +6,7 @@ import hashlib
 import itertools
 import math
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -811,9 +812,46 @@ class TriggerHit:
     index: int
 
 
+@dataclass
+class _Crossing:
+    """A crossing of the trigger level found on a search grid: between the samples at ``before``
+    and ``at`` (s), ``estimate`` linear between them (``final``: that is the instant; otherwise
+    the grid was coarse and the instant is still to be bisected). ``direction`` None: no crossing,
+    only how far the search has looked."""
+
+    direction: str | None
+    before: float
+    at: float
+    estimate: float
+    final: bool
+
+
+def _between(t_p: float, v_p: float, t_k: float, v_k: float, level: float) -> float:
+    """Where the line from (t_p, v_p) to (t_k, v_k) meets ``level``, kept within the two instants."""
+    frac = (level - v_p) / (v_k - v_p) if v_k != v_p else 1.0
+    return t_p + min(max(frac, 0.0), 1.0) * (t_k - t_p)
+
+
+def _period(sig: Signal) -> float | None:
+    """The time after which the signal repeats (its lines are harmonics of one frequency), None
+    when it has no line."""
+    f = np.unique(sig.freq[(sig.freq > 0) & (np.abs(sig.amp) > 0)])
+    if not f.size:
+        return None
+    g = float(f[0])
+    for x in f[1:]:
+        a, b = float(x), g
+        while b > 1e-9 * float(x):  # Euclid, a remainder within rounding of a multiple is none
+            r = a - b * round(a / b)
+            a, b = b, (0.0 if abs(r) < 1e-9 * a else a % b)
+        g = a
+    return 1.0 / g
+
+
 @component("scope_trigger")
 class ScopeTrigger(_ChannelBound):
-    """Edge trigger on its own analog path (instrument-authoring.md 8.4, G5).
+    """Edge and pulse-width (glitch) trigger on its own analog path (instrument-authoring.md 8.4,
+    G5).
 
     The trigger looks at the signal before the ADC, through its own ``coupling`` filter (a table
     ``filters`` of high-pass and low-pass corners per coupling value: AC, low- and high-frequency
@@ -831,6 +869,16 @@ class ScopeTrigger(_ChannelBound):
     (``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``
     records ahead (its auto timeout); a normal or single acquisition waits up to
     ``search_horizon_s`` of virtual time for its edge.
+
+    ``mode`` ``glitch`` triggers on a pulse by its width instead (signal-chain.md 7, #956): a pulse
+    of ``polarity`` runs from one crossing of the level to the next opposite one — the same
+    interpolated crossings, hysteresis, coupling, noise and holdoff as the edge trigger — and
+    ``qualifier`` compares that time with ``width_low`` and ``width_high``: ``less`` (narrower
+    than ``width_high``) and ``range`` (between the two) trigger at the edge that ends the pulse,
+    ``greater`` at the instant the pulse has lasted ``width_low`` (it need not have ended). The
+    whole pulse lies after the trigger is armed: one that began within the pre-trigger time or the
+    holdoff does not count. ``slope`` plays no part. Far ahead (a waiting acquisition) the search
+    is as coarse as for an edge, sixteen samples a period of the signal's highest line.
     """
 
     ports = {"ext": PortSpec("in", "signal", "external trigger input")}
@@ -861,8 +909,21 @@ class ScopeTrigger(_ChannelBound):
         "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
         "line": ["LINE"],  # sources that trigger on the mains
         "line_hz": 50.0,  # mains frequency
+        "mode": "edge",  # the trigger type: edge, or glitch (a pulse by its width)
+        "polarity": "positive",  # glitch: the pulse above the level (positive) or below it (negative)
+        "qualifier": "less",  # glitch: narrower than width_high (less), wider than width_low (greater), between (range)
+        "width_low": 20e-9,  # glitch: the width a greater or range pulse exceeds, s
+        "width_high": 30e-9,  # glitch: the width a less or range pulse stays under, s
     }
-    units = {"level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V"}
+    units = {
+        "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V",
+        "width_low": "s", "width_high": "s",
+    }  # fmt: skip
+    choices = {
+        "mode": ("edge", "glitch"),
+        "polarity": ("positive", "negative"),
+        "qualifier": ("less", "greater", "range"),
+    }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -965,6 +1026,9 @@ class ScopeTrigger(_ChannelBound):
             start_s = max(start_s, (self.last_ns - t0) * 1e-9 + float(self.param("holdoff")))
         span = max(points * int(self.param("search_windows")), pre + 2 * points) * dt
         horizon = max(span, float(horizon_s or 0.0))
+        glitch = self.choice("mode") == "glitch"
+        if glitch and kind not in ("channel", "external"):
+            return None  # the mains has no pulse to time
         if kind == "line":
             period = 1.0 / float(self.param("line_hz"))
             phase = (t0 * 1e-9) % period
@@ -982,25 +1046,170 @@ class ScopeTrigger(_ChannelBound):
         # included) is not searched for: a waiting acquisition looks again at every command.
         swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
         top, bottom = sig.dc + swing, sig.dc - swing
-        if not (
-            (rising and bottom < level - hyst and top >= level)
-            or (falling and top > level + hyst and bottom <= level)
-        ):
+        can_rise = bottom < level - hyst and top >= level
+        can_fall = top > level + hyst and bottom <= level
+        if glitch:  # a pulse needs both of its edges
+            if not (can_rise and can_fall):
+                return None
+            return self._glitch(sig, t0, dt, start_s, span, horizon, level, hyst)
+        if not ((rising and can_rise) or (falling and can_fall)):
             return None
         # The first stretch on the record grid; further on, a grid as coarse as the signal allows
         # (sixteen samples a period of its highest line) and no finer than the record's.
         hit = self._scan(sig, t0, dt, start_s, span, level, hyst, rising, falling, dt)
         if hit is not None or horizon <= span:
             return hit
+        step = self._far_step(sig, dt, span, horizon)
+        return self._scan(
+            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
+        )
+
+    def _far_step(self, sig: Signal, dt: float, span: float, horizon: float) -> float:
+        """The grid beyond the first stretch of a search: as coarse as the signal allows (sixteen
+        samples a period of its highest line), no finer than the record's."""
         lines = sig.freq[np.abs(sig.amp) > 1e-6 * max(1e-300, float(np.abs(sig.amp).max(initial=0.0)))]
         f_top = float(lines.max()) if lines.size else 0.0
         step = dt if f_top <= 0 else max(dt, 1.0 / (16.0 * f_top))
         # The work is samples times lines: a signal of many lines is searched on fewer samples.
         budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
-        step = max(step, (horizon - span) / budget)
-        return self._scan(
-            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
-        )
+        return max(step, (horizon - span) / budget)
+
+    def _glitch(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        span: float,
+        horizon: float,
+        level: float,
+        hyst: float,
+    ) -> TriggerHit | None:
+        """The first pulse of ``polarity`` whose width meets ``qualifier``, among the crossings from
+        ``start_s`` on: the instant its closing edge crosses the level (less, range) or the instant
+        it has lasted ``width_low`` (greater)."""
+        opens, closes = ("rise", "fall") if self.choice("polarity") == "positive" else ("fall", "rise")
+        qualifier = self.choice("qualifier")
+        low, high = float(self.param("width_low")), float(self.param("width_high"))
+        # A signal that repeats shows every pulse it has within two periods: none there, none ever
+        # (a waiting acquisition searches again at every command).
+        period = _period(sig) if self.param("noise_rms") in (0, 0.0, None) else None
+        if period is not None:
+            horizon = min(horizon, max(start_s, 0.0) + 2.0 * period + 2.0 * dt)
+        stretches = [(min(span, horizon), dt)]
+        if horizon > span:
+            stretches.append((horizon, self._far_step(sig, dt, span, horizon)))
+
+        def instant(c: _Crossing) -> float:
+            if not c.final:  # found on the coarse grid: to a thousandth of a record sample
+                c.estimate = self._bisect(sig, t0, c.before, c.at, level, c.direction == "rise", dt)
+                c.final = True
+            return c.estimate
+
+        def hit(t: float) -> TriggerHit:
+            return TriggerHit(t, math.ceil(t / dt - 1e-9))
+
+        opened: _Crossing | None = None  # the opening edge of the pulse under way
+        for c in self._edges(sig, t0, dt, start_s, stretches, level, hyst):
+            if opened is not None and qualifier == "greater" and c.at - opened.before > low:
+                # Nothing closed the pulse before it had lasted width_low: ``c`` is the next
+                # crossing, or how far the search has looked.
+                begun = instant(opened)
+                if (c.at if c.direction is None else instant(c)) - begun > low:
+                    return hit(begun + low)
+            if c.direction == opens:
+                opened = c
+            elif c.direction == closes:
+                # The grid already bounds the width; the instants are refined only for a pulse
+                # that may qualify.
+                if opened is not None and (
+                    (qualifier == "less" and c.before - opened.at < high)
+                    or (qualifier == "range" and c.before - opened.at < high and c.at - opened.before > low)
+                ):
+                    width = instant(c) - instant(opened)
+                    if width < high and (qualifier == "less" or width > low):
+                        return hit(instant(c))
+                opened = None
+        return None
+
+    def _edges(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        level: float,
+        hyst: float,
+    ) -> Iterator[_Crossing]:
+        """The crossings of the level from ``start_s`` on, in time order, each found by the edge
+        trigger's own rule (:meth:`_scan`: armed beyond the hysteresis band on the far side, taken
+        at the first sample on the level's other side). ``stretches`` are (stop, step) grids
+        searched one after the other, the first from one step before ``start_s`` (a sample that
+        may arm but not cross). After every chunk of samples a crossing of no direction says how
+        far the search has come."""
+        armed = {"rise": False, "fall": False}
+        prev: tuple[float, float] | None = None
+        noiseless = self.param("noise_rms") in (0, 0.0, None)
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            final = not (step > dt * (1 + 1e-9) and noiseless)
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                live = offsets >= start_s - 1e-15
+                far = {"rise": np.nonzero(v < level - hyst)[0], "fall": np.nonzero(v > level + hyst)[0]}
+                cross = {
+                    "rise": np.nonzero((v >= level) & live)[0],
+                    "fall": np.nonzero((v <= level) & live)[0],
+                }
+                at = {"rise": 0, "fall": 0}  # where each direction looks on from
+                while True:
+                    found: tuple[int, str] | None = None
+                    for d in ("rise", "fall"):
+                        if not armed[d]:
+                            i = int(np.searchsorted(far[d], at[d]))
+                            if i == far[d].size:
+                                continue
+                            armed[d], at[d] = True, int(far[d][i]) + 1
+                        j = int(np.searchsorted(cross[d], at[d]))
+                        if j < cross[d].size and (found is None or int(cross[d][j]) < found[0]):
+                            found = (int(cross[d][j]), d)
+                    if found is None:
+                        break
+                    k, d = found
+                    armed[d], at[d] = False, k + 1
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
+                    yield _Crossing(d, t_p, t_k, _between(t_p, v_p, t_k, v_k, level), final)
+                prev = (float(offsets[-1]), float(v[-1]))
+                yield _Crossing(None, prev[0], prev[0], prev[0], True)
+                a = prev[0] + step
+
+    def _instant(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        step: float,
+        offsets: np.typing.NDArray[np.float64],
+        v: np.typing.NDArray[np.float64],
+        k: int,
+        prev: tuple[float, float] | None,
+        level: float,
+        rising: bool,
+    ) -> float:
+        """The instant of the crossing taken at sample ``k``: between it and the sample before
+        (``prev``: the last one of the chunk before), linear on the record's grid, bisected on a
+        coarser one that carries no noise."""
+        t_k, v_k = float(offsets[k]), float(v[k])
+        t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
+        if step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None):
+            return self._bisect(sig, t0, t_p, t_k, level, rising, dt)
+        return _between(t_p, v_p, t_k, v_k, level)
 
     @staticmethod
     def _bisect(sig: Signal, t0: int, lo: float, hi: float, level: float, rising: bool, dt: float) -> float:
@@ -1060,13 +1269,7 @@ class ScopeTrigger(_ChannelBound):
                 if not hits.size:
                     continue
                 k = after + int(hits[0])
-                t_k, v_k = float(offsets[k]), float(v[k])
-                t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
-                if step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None):
-                    t = self._bisect(sig, t0, t_p, t_k, level, d == "rise", dt)
-                else:
-                    frac = (level - v_p) / (v_k - v_p) if v_k != v_p else 1.0
-                    t = t_p + min(max(frac, 0.0), 1.0) * (t_k - t_p)
+                t = self._instant(sig, t0, dt, step, offsets, v, k, prev, level, d == "rise")
                 best = t if best is None else min(best, t)
             if best is not None:
                 return TriggerHit(best, math.ceil(best / dt - 1e-9))

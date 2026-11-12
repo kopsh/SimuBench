@@ -10,10 +10,11 @@ import numpy as np
 import pytest
 
 from simubench.api import open_bench
-from simubench.engine.signal import Signal, sine
+from simubench.engine.signal import Signal, pulse_train, sine
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "tests" / "models" / "contract-float-scope" / "bench.yaml"
+DSOX = ROOT / "tests" / "models" / "keysight-dsox2024a" / "bench.yaml"
 SDS = ROOT / "tests" / "models" / "siglent-sds2104xplus" / "bench.yaml"
 VALIDATION = [ROOT / "validation" / "instruments"]
 
@@ -151,5 +152,102 @@ def test_the_trigger_source_flow():
         s.set_parameter("scope", "trigger", "holdoff", 2.5e-3)
         second = trig.search(sig, 0, 1e-6, 10, 1000, 1, 0.5, 1.0)
         assert second.t_s == pytest.approx(4e-3, abs=1e-8)  # 2 and 3 ms are within the holdoff
+    finally:
+        s.close()
+
+
+def pulses_with_a_glitch() -> Signal:
+    """A 1 kHz, 50 % pulse train of +-1 V in which, every 10 ms, one gap carries a 50 us pulse
+    (0.70 to 0.75 ms) and another is filled (5.4 to 6.1 ms: one pulse of 1.5 ms, 5.0 to 6.5 ms)."""
+    f_max = 40e3
+    narrow = pulse_train(100.0, 1.0, 0.005, f_max, phase_rad=-2 * np.pi * 0.07)
+    wide = pulse_train(100.0, 1.0, 0.07, f_max, phase_rad=-2 * np.pi * 0.54)
+    return pulse_train(1000.0, 1.0, 0.5, f_max) + narrow + wide + Signal.constant(2.0)
+
+
+def crossing(sig: Signal, near_s: float, rising: bool) -> float:
+    """The signal's own crossing of 0 V next to ``near_s`` (within 20 us), by bisection."""
+    lo, hi = near_s - 20e-6, near_s + 20e-6
+    for _ in range(60):
+        mid = (lo + hi) / 2
+        if (float(sig.sample_rel(0, np.array([mid]))[0]) >= 0.0) == rising:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
+def test_the_glitch_trigger_flow():
+    """Pulse-width trigger (#956): among the pulses of a train only the one whose width meets the
+    qualifier triggers — less and range at the edge that ends it, greater once it has lasted the
+    time — and the other polarity's pulses do not."""
+    s = open_bench(CONTRACT, idle="off")
+    try:
+        trig = s.instruments["scope"].components["trigger"]
+        sig, dt = pulses_with_a_glitch(), 1e-6
+        for key, value in (("mode", "glitch"), ("source", "C1"), ("level", 0.0), ("polarity", "positive")):
+            s.set_parameter("scope", "trigger", key, value)
+
+        def search(qualifier: str, low: float, high: float, horizon: float | None = None):
+            s.set_parameter("scope", "trigger", "qualifier", qualifier)
+            s.set_parameter("scope", "trigger", "width_low", low)
+            s.set_parameter("scope", "trigger", "width_high", high)
+            return trig.search(sig, 0, dt, 10, 1000, 1, 0.5, horizon)
+
+        end = crossing(sig, 0.75e-3, rising=False)  # the edge that ends the 50 us pulse
+        # -- narrower than 100 us: the 50 us pulse alone (the 500 us pulse before it does not)
+        less = search("less", 20e-9, 100e-6)
+        assert abs(less.t_s - end) < dt / 10
+        assert less.index == int(np.ceil(end / dt))
+        # -- 40 to 60 us: the same pulse; 60 to 400 us: no pulse of the train
+        within = search("range", 40e-6, 60e-6)
+        assert abs(within.t_s - end) < dt / 10
+        assert search("range", 60e-6, 400e-6, 0.03) is None
+        # -- wider than 600 us: the 1.5 ms pulse, at the instant it has lasted 600 us
+        begin = crossing(sig, 5.0e-3, rising=True)
+        greater = search("greater", 600e-6, 30e-9, 0.03)
+        assert abs(greater.t_s - (begin + 600e-6)) < dt / 10
+        # -- the holdoff is the edge trigger's: after a trigger, the next period's 50 us pulse
+        trig.last_ns = round(less.t_s * 1e9)
+        s.set_parameter("scope", "trigger", "holdoff", 1e-3)
+        again = search("less", 20e-9, 100e-6, 0.03)
+        assert abs(again.t_s - (end + 10e-3)) < dt / 10
+        trig.last_ns = None
+        # -- the other polarity: the gaps are 200, 250 and 500 us wide, none under 100 us or 40-60 us
+        s.set_parameter("scope", "trigger", "polarity", "negative")
+        assert search("less", 20e-9, 100e-6, 0.03) is None
+        assert search("range", 40e-6, 60e-6, 0.03) is None
+        gap = search("range", 180e-6, 220e-6, 0.03)  # the 200 us gap before the 50 us pulse
+        assert abs(gap.t_s - crossing(sig, 0.70e-3, rising=True)) < dt / 10
+    finally:
+        s.close()
+
+
+def test_a_glitch_condition_never_met_waits_in_normal_and_times_out_in_auto():
+    """DSO-X 2024A on a 1 kHz sine (500 us pulses), pulse width under 100 us: a NORMal single
+    acquisition stays pending, an AUTO one gives its record untriggered after the auto timeout."""
+    s = open_bench(DSOX, idle="off")
+    try:
+        acq = s.instruments["scope"].components["acq"]
+        s.write("scope", b":TIMebase:SCALe 200E-6;:TRIGger:MODE GLITch;:TRIGger:GLITch:LESSthan 100E-6\n")
+        s.write("scope", b":TRIGger:SWEep NORMal;:SINGle\n")
+        s.advance(1.0)
+        assert acq.pending.waiting()  # a second on, still no pulse under 100 us
+        assert 1 not in acq.records
+        s.write("scope", b":TRIGger:GLITch:LESSthan 600E-6\n")  # now the sine's 500 us pulses qualify
+        s.write("scope", b"*OPC?\n")
+        assert s.read("scope").strip() == b"1"
+        s.write("scope", b":TER?\n")
+        assert s.read("scope").strip() == b"1"  # it triggered
+        rec = acq.records[1]
+        assert rec.triggered
+        # At the falling zero crossing (the 10:1 probe setting shows the sine as +-10 V).
+        assert abs(float(rec.volts[rec.trigger_index])) < 0.5
+        assert rec.volts[rec.trigger_index - 5000] > 5  # 100 us before
+        assert rec.volts[rec.trigger_index + 5000] < -5  # 100 us after
+        s.write("scope", b":TRIGger:GLITch:LESSthan 100E-6;:TRIGger:SWEep AUTO;:DIGitize CHANnel1\n")
+        s.write("scope", b"*OPC?\n")
+        assert s.read("scope").strip() == b"1"
+        assert not acq.records[1].triggered  # the auto timeout's record
     finally:
         s.close()

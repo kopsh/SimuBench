@@ -2004,3 +2004,24 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 - 型号只有一个标记，“调谐于”因此最多列出标记 1 与增量标记的参考；始终开启的标记停在 0 Hz 时也会列出。
 - 图上各输出的缩略图仍按中心频率读，不随“调谐于”变化。
 - 本机的视觉回归中 `Assistant/Panel / Stuck` 与 `Workbench/Live canvas / Counter` 在未改动的 main 上同样不过（本机与 CI 的渲染差异），与本改动无关。
+
+## 示波器脉宽触发：`scope_trigger` 的 `glitch` 类型，DSO-X 2024A 的 `:TRIGger:GLITch`（Issue 956）
+
+`scope_trigger` 增加触发类型 `mode`（`edge` | `glitch`）与 `polarity`、`qualifier`（`less` | `greater` | `range`）、`width_low`、`width_high`。判定在模拟触发通路的过电平时刻序列上做（边沿触发的布防、迟滞、插值规则，耦合、噪声、释抑共用），没有新通路。DSO-X 2024A 接上 `:TRIGger:MODE GLITch` 与 `:TRIGger:GLITch:{SOURce,LEVel,POLarity,QUALifier,LESSthan,GREaterthan,RANGe}`。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 1 ms 周期、占空比 50 % 的脉冲串中一个 50 µs 的窄脉冲：`< 100 µs` 只触发在它上，触发时刻与它的结束沿之差 < 采样间隔的 1/10 | ✅ `tests/test_scope_trigger.py::test_the_glitch_trigger_flow`（结束沿取信号自己的过零，二分求得；采样间隔 1 µs） |
+| `> 600 µs`、范围 `40–60 µs` 各一条；极性取反时不触发 | ✅ 同一测试：`> 600 µs` 在 1.5 ms 宽的脉冲开始后 600 µs 触发；范围 40–60 µs 触发在窄脉冲的结束沿；负极性下“小于 100 µs”“40–60 µs”都没有触发，范围 180–220 µs 触发在 200 µs 的间隙上；释抑 1 ms 后触发在下一个周期的窄脉冲 |
+| 条件不满足：NORMal 等待（待完成操作不结束）、AUTO 在自动超时后给出未触发的记录 | ✅ `::test_a_glitch_condition_never_met_waits_in_normal_and_times_out_in_auto`（DSO-X 2024A、1 kHz 正弦：NORMal 的 `:SINGle` 过 1 s 仍在等，把时间改到 600 µs 后完成且触发在下降过零；AUTO 的 `:DIGitize` 完成，记录未触发） |
+| 现有边沿触发的全部测试不改预期通过 | ✅ `tests/test_scope_trigger.py` 原有 4 项与各示波器型号的用例未改；`_scan` 只把插值抽成了 `_instant` / `_between` |
+| DSO-X 2024A 的用例与覆盖表一致性检查通过 | ✅ `tests/models/keysight-dsox2024a/cases.yaml` 新增“脉宽触发”一例（`uv run simubench cases` 36/36）；覆盖表 7 条 `:TRIGger:GLITch:*` 改为实现，`:TRIGger:MODE` 的说明更新 |
+| `docs/component-map.md` 示波器表更新 | ✅ 另有 `instrument-authoring.md` 8.4 的触发说明 |
+| `scripts/check.sh` 通过 | ✅ |
+
+写明的限制与假设：
+- 仓库的 `manuals/` 里没有 2000 X 系列的编程手册，本次没有逐条对照原文。“小于”“范围”在结束沿触发、“大于”在超过宽度的时刻触发，按 issue 的做法；`*RST` 后的条件（LESSthan）、两个时间（30 ns、20 ns）与范围（10 ns–10 s）是假设值，覆盖表逐条注明。
+- 信源与电平和边沿触发是同一组设置（每个信源各自的电平）；`:TRIGger:GLITch:RANGe` 的两个值就是 `:LESSthan` 与 `:GREaterthan`，不交换顺序。
+- 脉冲必须整个落在触发布防之后（预触发时间或释抑之内开始的脉冲不算）。
+- 没有噪声的周期信号只查两个周期：之内没有合格的脉冲就不再往后找，等待中的采集在每条命令上重查的代价因此与信号周期有关，而不是与搜索时限有关。非周期或带触发噪声的信号查满时限；很远处的网格与边沿触发一样粗（最高谱线每周期 16 点），比它窄的脉冲可能看不到。
+- Web 的示波器屏幕仍只显示触发沿，不显示触发类型（界面改动不在本 issue）。
