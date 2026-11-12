@@ -16,6 +16,8 @@ export type WireEdgeData = {
   notes?: string[];
   /** The net's live level (D44): grey at 0 V, flowing in the channel color while it carries a signal. */
   level?: NetLevel;
+  /** This wire carries its net's readout (a net with several wires shows it once). */
+  readout?: boolean;
   /** The wire was drawn from its load to its source: flow the other way. */
   reverse?: boolean;
 };
@@ -119,6 +121,12 @@ function WireEdgeImpl({
         }}
       />
       {level && <LevelHover path={path} level={level} />}
+      {live && level && data?.readout && (
+        <EdgeLabelRenderer>
+          {/* Beside the wire, not on it: above its middle, or under its accessory label when it has one. */}
+          <Readout level={level} color={color} x={labelX} y={labelY + (label ? 22 : -14)} />
+        </EdgeLabelRenderer>
+      )}
       {label && (
         <EdgeLabelRenderer>
           <div
@@ -149,6 +157,88 @@ function LevelHover({ path, level }: { path: string; level: NetLevel }) {
     <path d={path} fill="none" stroke="transparent" strokeWidth={14} className="react-flow__edge-interaction" data-testid="wire-level">
       <title>{text}</title>
     </path>
+  );
+}
+
+/** A net's alternating part: its RMS with the DC taken out. */
+export function acRms(level: Pick<NetLevel, "dc" | "rms">): number {
+  return Math.sqrt(Math.max(0, level.rms * level.rms - level.dc * level.dc));
+}
+
+/** What a net's readout says in one figure: a steady level as DC, anything that moves as RMS. */
+export function readoutOf(level: Pick<NetLevel, "dc" | "rms">): { kind: "dc" | "ac"; value: number } {
+  const ac = acRms(level);
+  return ac <= Math.abs(level.dc) * 1e-3 ? { kind: "dc", value: level.dc } : { kind: "ac", value: level.rms };
+}
+
+/** A waveform thumbnail's points in a `width`×`height` box, scaled to its own range (a flat one runs through the middle). */
+export function sparkline(wave: readonly number[], width: number, height: number, pad = 1.5): string {
+  if (!wave.length) return "";
+  const lo = Math.min(...wave);
+  const hi = Math.max(...wave);
+  const span = hi - lo;
+  const last = Math.max(1, wave.length - 1);
+  return wave
+    .map((v, i) => `${((i / last) * width).toFixed(1)},${(span ? height - pad - ((v - lo) / span) * (height - 2 * pad) : height / 2).toFixed(1)}`)
+    .join(" ");
+}
+
+/**
+ * What a live wire carries, on the wire: the signal's shape and one figure. Pointing at it (or
+ * focusing it) opens the rest — a larger picture over its window, DC, RMS and peak — where the
+ * pointer already is, instead of a native tooltip after a wait.
+ */
+function Readout({ level, color, x, y }: { level: NetLevel; color: string; x: number; y: number }) {
+  const { t } = useTranslation();
+  const one = readoutOf(level);
+  return (
+    <div
+      className="nodrag nopan group/readout pointer-events-auto absolute z-10"
+      style={{ transform: `translate(-50%, -50%) translate(${x}px, ${y}px)` }}
+      data-testid="wire-readout"
+      data-net={level.net}
+    >
+      <div
+        tabIndex={0}
+        className="bg-card/95 num focus-visible:ring-ring flex cursor-default items-center gap-1.5 rounded-full border py-0.5 pr-2 pl-1 text-[10px] leading-none shadow-sm outline-none focus-visible:ring-2"
+        aria-label={`${level.net} · DC ${formatEng(level.dc, "V", 3)} · RMS ${formatEng(level.rms, "V", 3)} · ${t("workbench.peak")} ${formatEng(level.peak, "V", 3)}`}
+      >
+        {one.kind === "ac" && (
+          <svg width={34} height={12} viewBox="0 0 34 12" className="bg-background rounded-full" aria-hidden>
+            <polyline points={sparkline(level.wave, 34, 12)} fill="none" stroke={color} strokeWidth={1.25} strokeLinejoin="round" />
+          </svg>
+        )}
+        <span className="text-foreground">{formatEng(one.value, "V", 3)}</span>
+        <span className="text-muted-foreground">{one.kind === "dc" ? "DC" : "RMS"}</span>
+      </div>
+      <div
+        className="bg-popover text-popover-foreground invisible absolute top-full left-1/2 mt-1.5 w-52 -translate-x-1/2 rounded-md border p-2 opacity-0 shadow-md transition-opacity group-focus-within/readout:visible group-focus-within/readout:opacity-100 group-hover/readout:visible group-hover/readout:opacity-100 motion-reduce:transition-none"
+        role="tooltip"
+      >
+        <div className="num text-muted-foreground mb-1 flex justify-between text-[10px]">
+          <span>{level.net}</span>
+          <span>{formatEng(level.window_s, "s", 3)}</span>
+        </div>
+        <svg viewBox="0 0 192 48" className="bg-background h-12 w-full rounded border" aria-hidden>
+          <path d="M0,24H192" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="1 3" />
+          <polyline points={sparkline(level.wave, 192, 48, 4)} fill="none" stroke={color} strokeWidth={1.5} strokeLinejoin="round" />
+        </svg>
+        <dl className="num mt-1.5 grid grid-cols-3 gap-1 text-[10px]">
+          {(
+            [
+              ["DC", level.dc],
+              ["RMS", level.rms],
+              [t("workbench.peak"), level.peak],
+            ] as const
+          ).map(([name, value]) => (
+            <div key={name}>
+              <dt className="text-muted-foreground">{name}</dt>
+              <dd className="text-foreground">{formatEng(value, "V", 3)}</dd>
+            </div>
+          ))}
+        </dl>
+      </div>
+    </div>
   );
 }
 

@@ -1808,7 +1808,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | 同一请求两次得到相同的帧；不同 `key` 得到不同的噪声 | ✅ `tests/test_stream.py`（另有：新会话相同、不同种子不同、同一采样网格上重叠的请求在重叠处一致） |
 | 速率变换的块向上游请求 `count × M + warmup` | ✅ `test_a_rate_changing_block_asks_upstream_for_count_times_factor_plus_warmup` 等 3 条 |
-| 超出 `MAX_FRAME` / `MAX_REQUEST_FANOUT` 报模型上限，不返回截断的数据 | ✅ 拒绝发生在计算任何采样之前；缓存命中不改变是否拒绝 |
+| 超出 `MAX_FRAME` / `MAX_REQUEST_FANOUT` 报模型上限，不返回截断的数据 | ✅ 单帧超过 `MAX_FRAME`、以及一次请求展开后超过 `MAX_REQUEST_FANOUT` 时，拒绝发生在计算任何采样之前；缓存命中不改变是否拒绝。更正（#986）：一个块在一次读取里多次向上游请求（#950 的示波器平均）时，原实现要累加到上限才拒绝，此前的子采集已经算完——#986 起这类块先用 `Session.reserve_frames` 判断，同样在第一帧之前拒绝 |
 | 信号版本变化后缓存失效 | ✅ `test_a_changed_setting_drops_the_cached_frames` |
 | 定义校验三条规则各有拒绝与通过用例 | ✅ `tests/test_stream.py` 末尾 6 条（含通道组件、仪表端口映射） |
 | 带 `samples` 输出的组件类必须覆盖 `frames` 与 `sample_interval`；新钩子在签名契约内 | ✅ `tests/test_component_catalog.py`（规则自检一条；钩子契约按 `Component` 的公开方法自动包含） |
@@ -1915,6 +1915,48 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 镜像抑制 60 dB：镜像单音在调谐点 −60 dBc | ✅ 镜像折叠为 f + 2·if_hz 的等效显示线 |
 | 输入等于 P1dB：读数低 1 dB | ✅ |
 | 残余响应：无输入读到声明的电平 | ✅ 残余 1.5 GHz 与本振馈通（0 Hz）各一条 |
-| #948 金标准与现有频谱仪测试不改预期 | ✅ 全量 3647 passed；specan_models_gold.json 逐位相同 |
+| #948 金标准与现有频谱仪测试不改预期 | ✅ 全量 3656 passed；specan_models_gold.json 逐位相同 |
 | 同种子逐字节相同；同刻两次读取相同 | ✅ 相位噪声走独立的计数器流（键加流名 `phase`），热噪声取值不变 |
 | scripts/check.sh 通过；progress-log 追加自检 | ✅ 本节；测试台定义 `tests/definitions/test-specan-ideals.yaml` |
+
+## Web：内部结构图按信号流排布，端口可点开内部探针（Issue 953）
+
+内部结构页（`web/src/features/workbench/internals/`）按 signal-chain.md 1.2、1.3、6.3 改造，示波器部分（频谱仪的“调谐于”与 `bins`/`iq` 谱图属于 #959）。排布：列只由信号连线决定（`layout.ts`），引用不再推动信号线上的组件，只放置不在信号线上的块（被使用的在第一个使用者前一列，只使用别人的在最后一个被用者后一列）——频谱仪的本振与中频滤波之间的引用环不再打乱列；整机共享块与通道行的列不重叠时放在通道行的垂直中间。连线：模拟为细线、采样流为空心双线，并写明“模拟”或“数字 · 采样率 · 格式”（`probe.ts` 的 `flowTag`，来自 #951 给连线补的字段），标注放在离开源端口的水平段，同对组件间相同的并行连线只标一次；列距加宽到容得下一条标注。页首固定说明与“依据”：`InstrumentInternals` 新增 `reference`（定义的依据，schemas 与 `pnpm gen:api` 已重新生成）。内部探针：信号与采样流输出端口是按钮（键盘可达），面板 `ProbeView.tsx` 按事件版本刷新（`useInternalProbe`，不轮询，换端口不沿用旧值，403 不重试），采样流画台阶不插值、显示采样率与位数、满量程占用、削波、该帧 FFT 与最强频点，模拟端口画解析波形与谱线；为 0 的原因、保真度注记；加载中、验证模式（403）、接口错误（服务给的原因）、与引擎断开（保留旧信号并注明）各有画法。交互细则写进 ui-design.md 的“内部结构图”。`internals.fixture.json` 原是 D67 之前手存的（没有 ADC → 抽取的采样流连线），改由 `scripts/capture_internals_fixture.py` 从引擎生成（含三个端口的真实探针回复）；`trace.test.ts` 中 ADC 作用链的预期随之改为 D67 之后的结构（e2e 早已按此断言）。e2e 的 `quantity()` 认得界面打印的“−”。
+
+没有做的：signal-chain.md 1.5 第 5 步的“窄脉冲被保留”——DSO-X 2024A 示例测试台经 RC 低通（τ = 100 µs），窄脉冲到不了示波器；e2e 改为断言峰值检测下抽取输出的跨度变宽（每个记录间隔保留 ADC 原生速率下的极值）。“依据”只显示定义的 `reference`，component-map.md 的类别来源是文档，不在界面中链接（signal-chain.md 1.2 已改正）。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| Storybook：示波器内部结构的故事，含探针面板各状态 | ✅ `Internals.stories.tsx`：`Oscilloscope`、`ProbeAdc`、`ProbeAnalog`、`ProbeSilent`、`ProbePanelStates`（加载中、验证模式、接口错误、断开），数据为引擎生成的夹具 |
+| 组件测试：排布函数对固定夹具给出稳定的列顺序；连线标注的文案 | ✅ `layout.test.ts`“buildGraph on a real model”（列顺序、两次调用相同、共享块在通道行之间、连线的介质/速率/格式、可探测端口）；`probe.test.ts`（中英文标注、`IQ`/频点/未量化、满量程文案、台阶不插值、谱图不丢峰、403 判定） |
+| e2e：示波器测试台打开内部结构，点 ADC 输出看到采样点与位数；切到峰值检测，点“抽取”输出 | ✅ `web/e2e/workbench.spec.ts`“internal probe: …”：依据与说明、连线标注、键盘打开 ADC 输出（2 GSa/s · 8 位、4096 个采样、满量程占用、时域与频谱图），抽取输出 50 MSa/s，`:ACQuire:TYPE PEAK` 后不点击即刷新且跨度变宽，关闭探针；窄脉冲见上 |
+| 视觉回归：示波器内部结构一张基准图 | ✅ 内部结构 10 个故事 × 明暗 = 20 张基准（6 张旧的随新排布更新）；本机对未改动故事的基准像素一致（52/56，另 4 张在干净的 `main` 上同样不一致，与本改动无关） |
+| 可访问性：全键盘可达，对比度 AA | ✅ 探针端口是按钮（`Tab`/回车，`aria-pressed`），e2e 用键盘打开；颜色全用令牌，状态带文字或图标（削波、验证模式、断开） |
+| 刷新随事件版本、不轮询；验证模式下面板说明原因、结构图照常 | ✅ `useInternalProbe` 以版本为键；`ProbePanelStates` 故事；后端 403 由 `tests/test_internal_probe.py` 覆盖 |
+| `InstrumentInternals.reference` | ✅ `tests/test_internal_probe.py::test_the_internals_view_says_what_flows_on_each_wire`（真实型号有依据，`sb-dso-4` 为空） |
+| `scripts/check.sh` 通过 | ✅ |
+
+## Web：内部结构图评审后的改进——打开即可读、端口上的实时信号（PR 976 的后续）
+
+评审 #976 时在真实测试台（1440×900，DSO-X 2024A）里打开内部结构页：图被 `fitView` 缩到约 0.2 倍，组件名与连线标注都读不出；EXT 输入与触发占了通道行的列，“共享块在交汇处”的规则整体失效，ADC 组被挤到通道行上方；4096 个采样画成 280 px 宽的台阶是一片色块，“不插值”无从看起；“最强的频点”列的是同一个峰的相邻频点。改动都在 `web/src/features/workbench/internals/`，交互细则写进 ui-design.md 的“内部结构图”。
+
+| 改动 | 自检 |
+| --- | --- |
+| 打开时可读：缩放不低于 0.72，放不下从信号入口起，溢出时显示概览小地图；右栏有内容才出现 | ✅ e2e“what only commands drive…”（小地图出现，“适应视图”后消失）；故事基准图 |
+| 视口外的组件 / 端口：选中、`Tab` 聚焦时平移露出；画布被滚动时换成平移 | ✅ e2e 全部 79 项通过（键盘打开 ADC 输出、点抽取输出、查找后定位都经过视口外的节点） |
+| 排布：与通道行同列的整机块（EXT、触发）自成一行，ADC 组仍在交汇处；第 n 个输入与第 n 个输出同行 | ✅ `layout.test.ts`“keeps an external input…”、“lines the n-th input up…” |
+| 每个输出端口上的信号缩略图（模拟曲线 / 采样台阶 / 读 0 的点线），与探针面板共用缓存，事件停下 200 ms 后读，403 后不再请求 | ✅ e2e“internal probe: …”（`ch1.inp.out` 为 analog、`adc.out1` 为 samples、`extin.out` 为 silent）；`probe.test.ts`“miniOf …”（含与夹具缩略图一致） |
+| 探针面板：整帧包络 + 前 64 个采样的特写与码值线、1 LSB；量程条；频谱圈出最强峰，表只列局部极大 | ✅ `probe.test.ts`“envelope”“lsbOf and codeLines”“lists a windowed tone once…”；e2e 断言特写与“1 LSB = ” |
+| 连线：标注放在源端一侧、引用名放在使用者一侧（不再叠在一起）；亮起的链路上有沿信号方向移动的标记，`prefers-reduced-motion` 下静止 | ✅ 故事基准图（`AdcTraced`、`ChannelTraced`） |
+| 页首：说明改为画出来的图例，依据一行 | ✅ e2e 仍断言依据与固定说明的文字 |
+| `scripts/check.sh` 通过，视觉基准更新 | ✅ |
+
+没有做的：缩略图按端口各发一次探针请求（每个约 6 ms，但每次回复带完整的 4096 点帧与频谱）；仪表很大或事件很密时应由服务端提供一次返回所有端口缩略数据的接口——属于接口能力，另开 `核心` issue。
+
+## Web：测试台画布的两项交互改进（连线读数牌、记录面板按需出现）
+
+| 改动 | 自检 |
+| --- | --- |
+| 带信号的连线挂读数牌（波形缩略图 + DC 或 RMS），指向 / 聚焦展开卡片；数据取自已有的网络电平，不另发请求 | ✅ `WireEdge.test.ts`“a live wire's readout”（DC / RMS 的取法、缩略图的坐标）；布局截图基准（示波器测试台） |
+| 底部记录面板打开时收成标签栏，第一次有内容时自动展开，可手动收起 / 展开 | ✅ e2e 全部通过（发命令后查通信记录的各项测试依赖自动展开）；`layout-visual` 12 张基准更新 |
+| `scripts/check.sh` 通过 | ✅ |

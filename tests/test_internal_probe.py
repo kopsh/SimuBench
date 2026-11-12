@@ -116,8 +116,12 @@ def test_the_internals_view_says_what_flows_on_each_wire(served):
     assert stream.medium == "samples" and stream.format == M.ProbeFormat(kind="volts", bits=0)
     dec = served.session.instrument("scope").components["dec"]
     assert stream.sample_rate_hz == pytest.approx(1.0 / dec.sample_interval("out1"))
-    real = {w.from_: w for w in views.internals(served, "dsox").wires}["adc.out1"]
+    dsox = views.internals(served, "dsox")
+    real = {w.from_: w for w in dsox.wires}["adc.out1"]
     assert real.sample_rate_hz == pytest.approx(2e9) and real.format == M.ProbeFormat(kind="volts", bits=8)
+    # What the block split is drawn from (signal-chain.md 1.2): a real model's basis; none for sb-*.
+    assert dsox.reference is not None and "2000 X-Series" in dsox.reference.title
+    assert views.internals(served, "scope").reference is None
 
 
 def hidden(reveal: bool) -> dict:

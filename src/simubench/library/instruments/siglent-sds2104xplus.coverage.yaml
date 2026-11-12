@@ -69,7 +69,10 @@ sections:
       rate would step over shows; ERES,b is a boxcar of 4^b codes - noise 2^-b, b more effective
       bits, at the boxcar's bandwidth (D46). The per-division noise is estimated, the data sheet
       gives none: max(35.8 uV, 0.015 x v_div) at the input (specs.noise_per_division, the
-      scope_vertical noise_table).
+      scope_vertical noise_table). A SimuBench model limit, not the manual's (#986): an average
+      whose N x record samples is beyond 2^28 (4096 or 8192 averages of a 100k record; every
+      count works up to a 20k record) is refused before it starts and leaves no record - the command gets
+      no reply and the event log says why.
 - section: CHANnel Commands (EN11F)
   commands:
   - header: :CHANnel:REFerence

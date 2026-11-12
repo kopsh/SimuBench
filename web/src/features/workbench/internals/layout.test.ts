@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { InstrumentInternals } from "@/api/client";
-import { buildGraph } from "./layout";
+import fixture from "./internals.fixture.json";
+import { ROW_PROBE, buildGraph } from "./layout";
 
 /** What a wire carries when it is analog (the API fills these in). */
 const ANALOG = { medium: "signal" as const, sample_rate_hz: null, format: null };
@@ -16,6 +17,7 @@ const port = (
 const scope: InstrumentInternals = {
   instrument: "scope",
   definition_id: "sb-dso-2x",
+  reference: null,
   channels: 2,
   components: [
     {
@@ -227,5 +229,93 @@ describe("buildGraph dependencies (#729)", () => {
     };
     const { edges } = buildGraph(withChannelRef, new Set([1]));
     expect(edges.map((e) => e.id)).toContain("g:2/out->c:acq/ref-in:vertical");
+  });
+});
+
+// The SDS2104X Plus of examples/benches/siglent_scope_rc, captured from the engine
+// (scripts/capture_internals_fixture.py): the signal-flow layout of a real model (#953).
+const sds = fixture.internals as unknown as InstrumentInternals;
+const columns = (expanded: ReadonlySet<number>) => {
+  const { nodes } = buildGraph(sds, expanded);
+  const byX = new Map<number, string[]>();
+  for (const n of nodes) if (n.kind !== "label" && !n.id.endsWith(".cal")) byX.set(n.x, [...(byX.get(n.x) ?? []), n.id]);
+  return [...byX].sort((a, b) => a[0] - b[0]).map(([, ids]) => ids.sort());
+};
+
+describe("buildGraph on a real model (#953)", () => {
+  it("orders the columns by the signal: panel input, channel chain, ADC, decimator, acquisition, readers", () => {
+    expect(columns(new Set([1, 2, 3, 4]))).toEqual([
+      ["p:CH1", "p:CH2", "p:CH3", "p:CH4"],
+      ["c:ch1.inp", "c:ch2.inp", "c:ch3.inp", "c:ch4.inp"],
+      ["c:ch1.front", "c:ch2.front", "c:ch3.front", "c:ch4.front"],
+      ["c:ch1.probe", "c:ch2.probe", "c:ch3.probe", "c:ch4.probe"],
+      // what a block uses stands one column before it: the time base before the decimator
+      ["c:adc", "c:timebase"],
+      ["c:dec", "c:trigger"],
+      ["c:acq"],
+      ["c:meas", "c:xfer"],
+    ]);
+  });
+
+  it("gives the same columns on every call (the layout is a pure function of the view)", () => {
+    expect(columns(new Set([1]))).toEqual(columns(new Set([1])));
+    expect(columns(new Set([1]))[1]).toEqual(["c:ch1.inp", "g:2", "g:3", "g:4"]);
+  });
+
+  it("puts the shared blocks where the channel rows meet, not above them", () => {
+    const { nodes } = buildGraph(sds, new Set([1, 2, 3, 4]));
+    const y = (id: string) => nodes.find((n) => n.id === id)!;
+    const rows = ["c:ch1.probe", "c:ch4.probe"].map(y);
+    const adc = y("c:adc");
+    expect(adc.y).toBeGreaterThan(rows[0].y);
+    expect(adc.y + adc.height).toBeLessThan(rows[1].y + rows[1].height);
+  });
+
+  it("keeps an external input and what it feeds in a row of their own under the channels, so the ADC still stands where the rows meet", () => {
+    // A scope with an EXT trigger input (the DSO-X 2024A): its chain shares the channel rows' columns.
+    const ext: InstrumentInternals = {
+      ...sds,
+      components: [
+        ...sds.components,
+        { ...sds.components.find((c) => c.name === "ch1.inp")!, name: "extin", channel: null },
+      ],
+      ports: [...sds.ports, { name: "EXT", target: "extin.pin", direction: "in", medium: "electrical", channel: null }],
+      wires: [...sds.wires, { from: "extin.out", to: "trigger.ext", medium: "signal", sample_rate_hz: null, format: null }],
+    };
+    const { nodes } = buildGraph(ext, new Set([1, 2, 3, 4]));
+    const at = (id: string) => nodes.find((n) => n.id === id)!;
+    const adc = at("c:adc");
+    expect(adc.y).toBeGreaterThan(at("c:ch1.probe").y);
+    expect(adc.y + adc.height).toBeLessThan(at("c:ch4.probe").y + at("c:ch4.probe").height);
+    expect(at("c:extin").y).toBeGreaterThan(at("c:ch4.inp").y + at("c:ch4.inp").height);
+    expect(at("c:extin").x).toBe(at("c:ch1.inp").x);
+  });
+
+  it("lines the n-th input up with the n-th output, and gives a probed output room for its thumbnail", () => {
+    const { nodes } = buildGraph(sds, new Set([1]));
+    const rows = (nodes.find((n) => n.id === "c:adc") as Extract<(typeof nodes)[number], { kind: "component" }>).rows;
+    const top = (name: string) => rows.find((r) => r.name === name)!.top;
+    expect(top("in1")).toBe(top("out1"));
+    expect(top("in4")).toBe(top("out4"));
+    expect(top("out2") - top("out1")).toBe(ROW_PROBE);
+  });
+
+  it("keeps what a wire carries on its edge: analog, or a sample stream with rate and format", () => {
+    const { edges } = buildGraph(sds, new Set([1, 2, 3, 4]));
+    const flow = (id: string) => edges.find((e) => e.id === id)!.flow;
+    expect(flow("c:ch1.front/out->c:ch1.probe/in")).toEqual({ medium: "signal", sample_rate_hz: null, format: null });
+    const adc = flow("c:adc/out1->c:dec/in1")!;
+    expect(adc).toMatchObject({ medium: "samples", format: { kind: "volts", bits: 8 } });
+    expect(adc.sample_rate_hz! / 2e9).toBeCloseTo(1, 12);
+    expect(flow("c:dec/out1->c:acq/in1")!.sample_rate_hz! / 1e6).toBeCloseTo(1, 12);
+    expect(edges.filter((e) => e.kind === "ref").every((e) => e.flow === undefined)).toBe(true);
+  });
+
+  it("marks the outputs a probe opens on: signal and sample-stream outputs, not inputs", () => {
+    const { nodes } = buildGraph(sds, new Set([1]));
+    const rows = (id: string) => (nodes.find((n) => n.id === id) as Extract<(typeof nodes)[number], { kind: "component" }>).rows;
+    expect(rows("c:adc").filter((r) => r.probe).map((r) => r.name)).toEqual(["out1", "out2", "out3", "out4"]);
+    expect(rows("c:adc").filter((r) => r.side === "left").every((r) => !r.probe)).toBe(true);
+    expect(rows("c:ch1.front").find((r) => r.name === "out")!.probe).toBe(true);
   });
 });
