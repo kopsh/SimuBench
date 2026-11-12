@@ -70,9 +70,13 @@ sections:
       bits, at the boxcar's bandwidth (D46). The per-division noise is estimated, the data sheet
       gives none: max(35.8 uV, 0.015 x v_div) at the input (specs.noise_per_division, the
       scope_vertical noise_table). A SimuBench model limit, not the manual's (#986): an average
-      whose N x record samples is beyond 2^28 (4096 or 8192 averages of a 100k record; every
-      count works up to a 20k record) is refused before it starts and leaves no record - the command gets
-      no reply and the event log says why.
+      whose N x record samples is beyond 2^28 (the record's own request counts too, so at most
+      2^28 // points - 1 averages; every count works up to a 20k record, more than 2683 are refused at
+      100k, 1341 at 200k, 267 at 1M, 133 at 2M, 25 at 10M, 12 at 20M; #990) is refused before it starts
+      and leaves no record - the command gets no reply and the event log says why. Peak detect stays
+      within the model at every depth up to 20M (at most 20M converter samples a frame). A record
+      beyond 2^26 points (100M or 200M depth at 5 ms/div and slower) is beyond the model in every
+      acquisition type.
 - section: CHANnel Commands (EN11F)
   commands:
   - header: :CHANnel:REFerence

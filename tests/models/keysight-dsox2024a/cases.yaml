@@ -694,6 +694,25 @@ cases:
         expect: "1"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
+      # 两个时间的范围按手册（:TRIGger:GLITch:RANGe，#1001）：“小于”15 ns–10 s，“大于”10 ns–9.99 s；
+      # 越界的值被拒绝，设置不变。
+      - send: ":TRIGger:GLITch:LESSthan 12E-9"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-222"
+      - query: ":TRIGger:GLITch:LESSthan?"
+        expect: "+600.000E-06"
+      - send: ":TRIGger:GLITch:GREaterthan 9.995"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-222"
+      - query: ":TRIGger:GLITch:GREaterthan?"
+        expect: "+250.000E-06"
+      - send: ":TRIGger:GLITch:LESSthan 15E-9;:TRIGger:GLITch:GREaterthan 10E-9"
+      - query: ":TRIGger:GLITch:LESSthan?"
+        expect: "+15.0000E-09"
+      - query: ":TRIGger:GLITch:GREaterthan?"
+        expect: "+10.0000E-09"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'
       # 其余触发类型没有建模。
       - send: ":TRIGger:MODE RUNT"
       - query: ":SYSTem:ERRor?"

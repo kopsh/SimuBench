@@ -125,14 +125,14 @@ def test_without_ranges_any_scale_is_taken():
 def test_the_boxcar_keeps_the_sample_count_and_is_centered():
     """High resolution's smoother (F4/D46): the mean of ``w`` samples at every sample — the length
     does not shrink (#971), the window is centered (a ramp's w-point mean sits on its window's
-    center), the edges hold their nearest full window."""
+    center), at the edges the edge sample is repeated to fill the window."""
     ramp = np.arange(10.0)
     for w in (2, 3, 4, 7):
         assert len(_boxcar(ramp, w)) == len(ramp)
     assert _boxcar(ramp, 1) is ramp  # no smoothing, nothing to compute
     assert _boxcar(ramp, 3)[1:-1] == pytest.approx(ramp[1:-1])  # odd window: centered on the sample
     assert _boxcar(ramp, 4)[2:-2] == pytest.approx(ramp[2:-2] - 0.5)  # even window: half a step left
-    assert _boxcar(ramp, 3)[0] == pytest.approx((0.0 + 0.0 + 1.0) / 3)  # the edge's nearest full window
+    assert _boxcar(ramp, 3)[0] == pytest.approx((0.0 + 0.0 + 1.0) / 3)  # the edge sample repeated
     spike = np.zeros(9)
     spike[4] = 1.0
     out = _boxcar(spike, 3)

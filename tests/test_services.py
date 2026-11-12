@@ -129,6 +129,7 @@ def test_http_error_lets_a_bug_surface_as_it_is(tmp_path):
 
 
 def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
+    pytest.importorskip("mcp")  # the optional extra (#987); the rest of the file does not need it
     from simubench.mcp_tools.context import McpContext, RateLimiter
     from simubench.server.benchfiles import Conflict
     from simubench.server.manager import SessionManager

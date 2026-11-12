@@ -46,8 +46,9 @@ class DeviationRange(BaseModel):
         description="For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a "
         "response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in "
         "ascending order. The unit's curve stays within ±limit of the nominal curve in each band "
-        "(`limit` is one number, or a list with one limit per band); between bands and beyond them "
-        "the deviation is 0",
+        "(`limit` is one number, or a list with one limit per band); between two bands it goes in a "
+        "straight line from one band's edge value to the next, beyond the outer bands it is 0 (a "
+        "step at their edges)",
     )
     reference: float | None = Field(
         None,

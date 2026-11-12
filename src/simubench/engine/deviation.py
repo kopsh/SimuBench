@@ -69,8 +69,10 @@ def draw_curve(rng: DeviationRange, nominal: Any, seed: int, *who: object) -> li
     spaced in log frequency), each drawn within the band's ±limit; an edge two bands share is one
     node, within the tighter of the two limits. Straight lines between the nodes of one band are
     convex combinations, so the whole band stays inside its limit. The reference frequency is a
-    node at 0. The nominal curve (0 where it has no table) is added node by node, its own nodes
-    included."""
+    node at 0. Between two bands the deviation goes straight from one band's edge value to the
+    next (#1010); beyond the outer bands it is 0, a step at their edges (the data sheet limits
+    only the bands). The nominal curve (0 where it has no table) is added node by node, its own
+    nodes included."""
     bands = rng.bands or []
     limits = [limit_for(rng, i if isinstance(rng.limit, list) else None) or 0.0 for i in range(len(bands))]
     nodes: dict[float, float] = {}
@@ -89,9 +91,7 @@ def draw_curve(rng: DeviationRange, nominal: Any, seed: int, *who: object) -> li
     rows = [(float(r[0]), float(r[1])) for r in nominal or ()]
     nx, nv = np.array([r[0] for r in rows]), np.array([r[1] for r in rows])
     freqs = np.union1d(xs, nx)
-    inside = np.zeros(freqs.shape, dtype=bool)
-    for lo, hi in bands:
-        inside |= (freqs >= lo) & (freqs <= hi)
+    inside = (freqs >= bands[0][0]) & (freqs <= bands[-1][1])
     values = np.where(inside, np.interp(freqs, xs, ds), 0.0)
     if rows:
         values = values + np.interp(freqs, nx, nv, left=0.0, right=0.0)

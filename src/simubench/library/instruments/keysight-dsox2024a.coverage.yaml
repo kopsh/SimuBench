@@ -110,7 +110,7 @@ sections:
     note: '100 only, as the guide says'
   - header: :ACQuire:COUNt
     level: implemented
-    note: '2 to 65536; averaging divides the noise by the square root of the count. A SimuBench model limit, not the guide''s (#986): an acquisition whose count x record samples is beyond 2^28 (more than 2683 averages of the 100 000-point record) is refused before it starts with -221, Settings conflict, and leaves no record; measurements and reads are refused the same way until the count or the record is smaller'
+    note: '2 to 65536; averaging divides the noise by the square root of the count. A SimuBench model limit, not the guide''s (#986): an acquisition whose count x record samples is beyond 2^28 (the record''s own request counts too: at most 2^28 // points - 1, so more than 2683 averages of the 100 000-point record, the deepest; #990) is refused before it starts with -221, Settings conflict, and leaves no record; measurements and reads are refused the same way until the count or the record is smaller'
   - header: :ACQuire:MODE
     level: implemented
     note: 'RTIMe, or SEGMented: one :SINGle or :DIGitize takes :ACQuire:SEGMented:COUNt records, each on its own trigger (#957). ETIMe is not on this model'
@@ -123,7 +123,7 @@ sections:
     affects_data: false
   - header: :ACQuire:SEGMented:COUNt
     level: implemented
-    note: '2 to 25 (2 after *RST, the guide''s :ACQuire? sample). With :ACQuire:MODE SEGMented a :SINGle or :DIGitize is done when the last segment''s record is full; the trigger is armed for the next segment 19 us after a record is full (an estimate: the data sheet is not in the repository). Every segment is a whole 100 kpts record (on the instrument the points per segment fall with the count: not modeled). A segment whose trigger does not come keeps the acquisition waiting (AUTO sweep: taken untriggered after the auto timeout)'
+    note: '2 to 25 (2 after *RST, the guide''s :ACQuire? sample). With :ACQuire:MODE SEGMented a :SINGle or :DIGitize is done when the last segment''s record is full; the trigger is armed for the next segment 19 us after a record is full (data sheet 5990-6618EN p. 18: re-arm time 19 us, the minimum time between trigger events; #1005). Every segment is a whole 100 kpts record (on the instrument the points per segment fall with the count: not modeled); the model''s memory is 25 x 100 kpts, so the count range (2 to 25, beyond it -222) is the only limit and the memory-full -221 does not occur on this model. The guide''s :ACQuire:TYPE says AVERage is not available in segmented mode; the model still averages each segment (#1013). A segment whose trigger does not come keeps the acquisition waiting (AUTO sweep: taken untriggered after the auto timeout)'
   - header: :ACQuire:SEGMented:INDex
     level: implemented
     note: 'selects the segment that :WAVeform and :MEASure read, 1 to the segment count (beyond it: -222); with :ACQuire:MODE RTIMe only 1'
@@ -132,7 +132,7 @@ sections:
     note: 'min(2 GSa/s, 1 GSa/s with both channels of a pair on, 100 kpts / 10 div) on a 1-2-5 ladder (data sheet); reply digits are a SimuBench choice (the guide shows none)'
   - header: :ACQuire:TYPE
     level: implemented
-    note: 'NORMal; AVERage,count is the mean of count quantized acquisitions; PEAK examines each record interval at up to 64 samples (64 x the record rate when the ADC is faster, capped there) and keeps the extreme that departs farther from the interval ends, so a signal the record rate steps over shows; HRESolution is a boxcar of 8 codes (4^1.5, a SimuBench value: the guide only says slower sweeps average more)'
+    note: 'NORMal; AVERage,count is the mean of count quantized acquisitions; PEAK examines each record interval at up to 64 samples (64 x the record rate when the ADC is faster, capped there) and keeps the extreme that departs farther from the interval ends, so a signal the record rate steps over shows (a pulse narrower than the record interval / 64 is not guaranteed to be kept when the cap applies); HRESolution is a boxcar of 8 codes (4^1.5, a SimuBench value: the guide only says slower sweeps average more). The guide says AVERage is not available in segmented mode; the model accepts it there (#1013)'
   - header: :ACQuire
     level: implemented
     note: 'the setup query of the chapter''s Reporting the Setup: the guide''s *RST sample ":ACQ:MODE RTIM;TYPE NORM;COMP 100;COUNT 8;SEGM:COUN 2"; SEGM:COUN is :ACQuire:SEGMented:COUNt'
@@ -982,10 +982,10 @@ sections:
     note: 'CHANnel1 to 4, EXTernal (the EXT input), LINE (50 Hz); WGEN never triggers (no generator); NONE when all channels are off is not modeled'
   - header: :TRIGger:GLITch:GREaterthan
     level: implemented
-    note: 'the time a GREaterthan pulse must exceed, and the lower bound of RANGe; 10 ns to 10 s and 20 ns after *RST are SimuBench assumptions (not checked against the guide)'
+    note: 'the time a GREaterthan pulse must exceed, and the lower bound of RANGe; 10 ns to 9.99 s as in the guide (:TRIGger:GLITch:RANGe, p. 690; #1001); 20 ns after *RST is a SimuBench assumption (not checked against the guide)'
   - header: :TRIGger:GLITch:LESSthan
     level: implemented
-    note: 'the time a LESSthan pulse stays under, and the upper bound of RANGe; 10 ns to 10 s and 30 ns after *RST are SimuBench assumptions (not checked against the guide)'
+    note: 'the time a LESSthan pulse stays under, and the upper bound of RANGe; 15 ns to 10 s as in the guide (:TRIGger:GLITch:RANGe, p. 690; #1001), outside answers -222; 30 ns after *RST is a SimuBench assumption (not checked against the guide)'
   - header: :TRIGger:GLITch:LEVel
     level: implemented
     note: 'the same per-source level as :TRIGger[:EDGE]:LEVel, with its optional <source>'

@@ -59,9 +59,10 @@ class SampleFormat:
     """How to read a frame's numbers."""
 
     kind: SampleKind = "volts"
-    #: codes: the converter's resolution; 0 means not quantized.
+    #: The converter's resolution; 0 means not quantized. Also kept on a "volts" frame of quantized
+    #: values (both ADCs return codes converted back to volts, signal-chain.md 3.3).
     bits: int = 0
-    #: codes: the input voltage one code step stands for, V.
+    #: The input voltage one code step stands for, V (with ``bits``).
     lsb: float = 0.0
     signed: bool = True
 
