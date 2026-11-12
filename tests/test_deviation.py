@@ -232,6 +232,17 @@ def test_a_curve_drawn_by_bands_adds_to_the_nominal_curve():
         assert all(abs(v - 1.0) <= 0.2 for f, v in curve.items() if 1e7 <= f <= 1e8)
 
 
+def test_a_curve_drawn_by_bands_joins_a_gap_between_bands_with_a_straight_line():
+    """Between two bands the deviation goes in a straight line from the lower band's top edge to
+    the upper band's bottom edge, at a nominal node there as anywhere else; beyond the outer
+    bands it is 0, a step at their edges (#1010)."""
+    rng = DeviationRange(limit=[0.5, 0.7], bands=[(2e5, 2e9), (3e9, 4e9)], points=1)
+    nominal = [[1e5, 0.0], [2.5e9, 0.0], [5e9, 0.0]]
+    curve = dict(map(tuple, draw(rng, nominal, 1, "sa", "input", "flatness")))
+    assert curve[2.5e9] == pytest.approx((curve[2e9] + curve[3e9]) / 2)
+    assert curve[1e5] == 0.0 and curve[5e9] == 0.0
+
+
 def test_edit_sets_the_mode_and_a_dut_range():
     b = bench(1, deviation="nominal")
     b = apply(
