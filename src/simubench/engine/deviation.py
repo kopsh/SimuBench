@@ -26,10 +26,12 @@ if TYPE_CHECKING:
 _TRIES = 64
 
 
-def draw_offset(rng: DeviationRange, seed: int, *who: object) -> float:
-    """One deviation d within ±limit, in the limit's own terms (see :func:`apply`)."""
-    cell = who[-1] if who else None
-    limit = limit_for(rng, cell) if rng.by else limit_for(rng, None)
+def draw_offset(rng: DeviationRange, seed: int, *who: object, limit: float | None = None) -> float:
+    """One deviation d within ±limit, in the limit's own terms (see :func:`apply`). ``limit``
+    given: that limit, not the range's own (a band edge takes the tighter of its two bands)."""
+    if limit is None:
+        cell = who[-1] if who else None
+        limit = limit_for(rng, cell) if rng.by else limit_for(rng, None)
     assert limit is not None  # checked by the model
     key = stream_key("deviation", seed, *who)
     if rng.distribution == "uniform":
@@ -60,8 +62,47 @@ def _cell_nominal(nominal: Any, path: tuple[Any, ...]) -> float:
     return float(value) if isinstance(value, (int, float)) and not isinstance(value, bool) else 0.0
 
 
+def draw_curve(rng: DeviationRange, nominal: Any, seed: int, *who: object) -> list[list[float]]:
+    """A curve parameter's value for this unit (``rng.bands``): [[frequency Hz, value], …].
+
+    Each band gets a value at both edges and at ``rng.points`` frequencies between them (evenly
+    spaced in log frequency), each drawn within the band's ±limit; an edge two bands share is one
+    node, within the tighter of the two limits. Straight lines between the nodes of one band are
+    convex combinations, so the whole band stays inside its limit. The reference frequency is a
+    node at 0. The nominal curve (0 where it has no table) is added node by node, its own nodes
+    included."""
+    bands = rng.bands or []
+    limits = [limit_for(rng, i if isinstance(rng.limit, list) else None) or 0.0 for i in range(len(bands))]
+    nodes: dict[float, float] = {}
+    for i, (lo, hi) in enumerate(bands):
+        if not (i > 0 and bands[i - 1][1] == lo):  # a shared edge was drawn with the band below
+            nodes[lo] = draw_offset(rng, seed, *who, "band", i, "lo", limit=limits[i])
+        for j, f in enumerate(np.geomspace(lo, hi, rng.points + 2)[1:-1]):
+            nodes[float(f)] = draw_offset(rng, seed, *who, "band", i, j, limit=limits[i])
+        joins = i + 1 < len(bands) and bands[i + 1][0] == hi
+        edge = min(limits[i], limits[i + 1]) if joins else limits[i]
+        nodes[hi] = draw_offset(rng, seed, *who, "band", i, "hi", limit=edge)
+    if rng.reference is not None and any(lo <= rng.reference <= hi for lo, hi in bands):
+        nodes[rng.reference] = 0.0
+    xs = np.array(sorted(nodes))
+    ds = np.array([nodes[x] for x in xs])
+    rows = [(float(r[0]), float(r[1])) for r in nominal or ()]
+    nx, nv = np.array([r[0] for r in rows]), np.array([r[1] for r in rows])
+    freqs = np.union1d(xs, nx)
+    inside = np.zeros(freqs.shape, dtype=bool)
+    for lo, hi in bands:
+        inside |= (freqs >= lo) & (freqs <= hi)
+    values = np.where(inside, np.interp(freqs, xs, ds), 0.0)
+    if rows:
+        values = values + np.interp(freqs, nx, nv, left=0.0, right=0.0)
+    return [[float(f), float(v)] for f, v in zip(freqs, values, strict=True)]
+
+
 def draw(rng: DeviationRange, nominal: Any, seed: int, *who: object) -> Any:
-    """A parameter's value for this unit: a number, or the nested table ``rng.by`` describes."""
+    """A parameter's value for this unit: a number, the nested table ``rng.by`` describes, or
+    the curve ``rng.bands`` describes."""
+    if rng.bands:
+        return draw_curve(rng, nominal, seed, *who)
     if not rng.by:
         return apply(rng, _cell_nominal(nominal, ()), draw_offset(rng, seed, *who))
     keys = list(rng.by)

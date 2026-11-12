@@ -1999,6 +1999,11 @@ export interface components {
              * @description Component operation, e.g. 'acq.digitize'
              */
             op?: string | null;
+            /**
+             * Option
+             * @description The command belongs to this option (an `options` id): a unit without it skips the command — a later command on the same header without `option` answers instead (what the manual says a unit without the option replies), otherwise -241 Hardware missing
+             */
+            option?: string | null;
             /** Params */
             params?: components["schemas"]["ParamSpec"][];
             /**
@@ -2399,6 +2404,11 @@ export interface components {
          * @description One parameter's individual deviation (个体偏差): its range, and this unit's value when shown.
          */
         DeviationInfo: {
+            /**
+             * Bands
+             * @description A curve parameter's frequency bands [[f_lo, f_hi], …] (Hz), each with its own limit
+             */
+            bands: number[][] | null;
             /** By */
             by: {
                 [key: string]: unknown[];
@@ -2413,7 +2423,7 @@ export interface components {
             drawn: boolean;
             /**
              * Limit
-             * @description ±limit: a number, or a table keyed by the last `by` value
+             * @description ±limit: a number, a table keyed by the last `by` value, or a list with one limit per band
              */
             limit: unknown;
             /**
@@ -2435,6 +2445,14 @@ export interface components {
          */
         DeviationRange: {
             /**
+             * Bands
+             * @description For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in ascending order. The unit's curve stays within ±limit of the nominal curve in each band (`limit` is one number, or a list with one limit per band); between bands and beyond them the deviation is 0
+             */
+            bands?: [
+                number,
+                number
+            ][] | null;
+            /**
              * By
              * @description Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}
              */
@@ -2456,11 +2474,22 @@ export interface components {
             distribution: "uniform" | "normal";
             /**
              * Limit
-             * @description ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)
+             * @description ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range), or with `bands` a list, one limit per band
              */
             limit: number | {
                 [key: string]: number;
-            };
+            } | number[];
+            /**
+             * Points
+             * @description With `bands`: how many values are drawn inside each band, besides one at each band edge (spaced evenly in log frequency, joined by straight lines)
+             * @default 3
+             */
+            points: number;
+            /**
+             * Reference
+             * @description With `bands`: the frequency (Hz) the response is calibrated at; the deviation is 0 there (e.g. 50e6)
+             */
+            reference?: number | null;
             /**
              * Unit
              * @description '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
@@ -2473,6 +2502,14 @@ export interface components {
          */
         DeviationSpec: {
             /**
+             * Bands
+             * @description For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in ascending order. The unit's curve stays within ±limit of the nominal curve in each band (`limit` is one number, or a list with one limit per band); between bands and beyond them the deviation is 0
+             */
+            bands?: [
+                number,
+                number
+            ][] | null;
+            /**
              * By
              * @description Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}
              */
@@ -2494,16 +2531,27 @@ export interface components {
             distribution: "uniform" | "normal";
             /**
              * Limit
-             * @description ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)
+             * @description ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range), or with `bands` a list, one limit per band
              */
             limit: number | {
                 [key: string]: number;
-            };
+            } | number[];
             /**
              * Param
              * @description '<component>.<parameter>', e.g. 'meter.gain_error_ppm'; a channel component's name (e.g. 'out.z_out') draws one value per channel
              */
             param: string;
+            /**
+             * Points
+             * @description With `bands`: how many values are drawn inside each band, besides one at each band edge (spaced evenly in log frequency, joined by straight lines)
+             * @default 3
+             */
+            points: number;
+            /**
+             * Reference
+             * @description With `bands`: the frequency (Hz) the response is calibrated at; the deviation is 0 there (e.g. 50e6)
+             */
+            reference?: number | null;
             /**
              * Unit
              * @description '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
@@ -2836,6 +2884,11 @@ export interface components {
             manufacturer: string;
             /** Model */
             model: string;
+            /**
+             * Options
+             * @description Hardware options (选件): `components` and `commands` describe the unit without any; each option gives the component parameters of a unit that has it, and commands may name the option they belong to. A bench instance lists the installed ones
+             */
+            options?: components["schemas"]["OptionSpec"][];
             ports?: components["schemas"]["Ports"];
             /** @description The manual this definition follows; a definition with a reference is a real model: unknown commands answer -113 'not implemented in this definition', error texts follow `errors` */
             reference?: components["schemas"]["Reference"] | null;
@@ -3462,6 +3515,32 @@ export interface components {
              * @description The Python annotation, e.g. 'float | None'
              */
             type: string | null;
+        };
+        /**
+         * OptionSpec
+         * @description A hardware option of the model (选件), e.g. a preamplifier: what a unit that has it adds to
+         *     the definition. A bench instance lists the options its unit has (`options: [P03]`).
+         */
+        OptionSpec: {
+            /**
+             * Id
+             * @description The option's name as the manufacturer writes it, e.g. 'P03'
+             */
+            id: string;
+            /**
+             * Label
+             * @description What the option is, e.g. 'Preamplifier, 1 MHz to 3 GHz'
+             */
+            label?: string | null;
+            /**
+             * Params
+             * @description Component parameters of a unit with the option, by component name, e.g. {input: {preamp_gain: {from: $power.gain, map: {'True': 18, 'False': 0}}, preamp_noise_figure: 6}}: each replaces the parameter the definition's `components` give (the unit without the option)
+             */
+            params?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
         };
         /**
          * Panel

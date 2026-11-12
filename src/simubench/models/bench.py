@@ -45,6 +45,11 @@ class InstrumentInstance(_Model):
         default_factory=dict,
         description="Hidden state: component parameter overrides, e.g. {'ch1.out': {'z_out': 50.4}}",
     )
+    options: list[str] = Field(
+        default_factory=list,
+        description="Hardware options this unit has (选件), by the ids of the definition's `options`, "
+        "e.g. ['P03']: the unit takes each option's component parameters and answers its commands",
+    )
     dut: bool = Field(False, description="This instrument is a DUT: the object under test or calibration")
     deviation: Literal["nominal", "from_specs"] = Field(
         "nominal",

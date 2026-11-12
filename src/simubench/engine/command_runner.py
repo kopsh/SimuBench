@@ -93,15 +93,21 @@ class CommandRunner:
                 return self.inst.common._bus_trigger(unit)
             return self.inst.common._common(unit), 0
         refused: CommandSpec | None = None  # a header that matched, with other parameter values
+        missing: str | None = None  # a header that matched, of an option this unit does not have
         for compiled in self.inst._commands:
             if compiled.pattern.common:
                 continue
             caps = compiled.pattern.match(tokens)
             if caps is None:
                 continue
+            if compiled.spec.option and compiled.spec.option not in self.inst.options:
+                missing = compiled.spec.option  # a later command on the header may answer instead
+                continue
             if compiled.spec.when and not when_matches(compiled.spec, unit):
                 refused = compiled.spec
                 continue
+            if missing is not None and not (compiled.spec.query if unit.query else compiled.spec.set):
+                continue  # the fallback answers the other direction only: the option's is missing
             channel = caps.get("ch")
             if "ch" in caps and channel is not None:
                 channel = self.inst.channel_map.index(channel)
@@ -116,6 +122,8 @@ class CommandRunner:
             return self._run(compiled, unit, channel, suffixes)
         if refused is not None:
             raise ScpiError(-224, f"{unit.raw_header}: parameter not implemented in this definition")
+        if missing is not None:
+            raise ScpiError(-241, f"{unit.raw_header}: option {missing} is not installed")
         named = named_builtin(tokens)
         if named is not None and not self.inst.common._builtin_allowed(named):
             raise self.inst.errs._undefined(

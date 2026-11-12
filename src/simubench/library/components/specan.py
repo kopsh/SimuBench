@@ -151,6 +151,7 @@ class SpecanInput(Component):
         "iip3_dbm": "dBm",
         "p1db_dbm": "dBm",
     }
+    curves = frozenset({"flatness"})
 
     def signal(self) -> Signal:
         return self.input("in")

@@ -111,6 +111,22 @@ class ParamMapping(_Model):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
 
+class OptionSpec(_Model):
+    """A hardware option of the model (选件), e.g. a preamplifier: what a unit that has it adds to
+    the definition. A bench instance lists the options its unit has (`options: [P03]`)."""
+
+    id: str = Field(
+        ..., pattern=r"^\S+$", description="The option's name as the manufacturer writes it, e.g. 'P03'"
+    )
+    label: str | None = Field(None, description="What the option is, e.g. 'Preamplifier, 1 MHz to 3 GHz'")
+    params: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="Component parameters of a unit with the option, by component name, e.g. "
+        "{input: {preamp_gain: {from: $power.gain, map: {'True': 18, 'False': 0}}, preamp_noise_figure: 6}}: "
+        "each replaces the parameter the definition's `components` give (the unit without the option)",
+    )
+
+
 class ComponentSpec(_Model):
     name: str
     type: str
@@ -389,6 +405,12 @@ class CommandSpec(_Model):
         description="Allowed values of named header suffixes other than <ch> (#335), e.g. {hw: [1], n: [1]} "
         "for the SMA100B's [:SOURce<hw>]:AM<n>:STATe (one RF path, the first modulation channel); an "
         "omitted suffix counts as 1, any other value is -114",
+    )
+    option: str | None = Field(
+        None,
+        description="The command belongs to this option (an `options` id): a unit without it skips "
+        "the command — a later command on the same header without `option` answers instead (what "
+        "the manual says a unit without the option replies), otherwise -241 Hardware missing",
     )
     dangerous: bool = False
     doc: str | None = None
@@ -770,6 +792,12 @@ class InstrumentDefinition(_Model):
     channel_state: dict[str, StateSpec] = Field(default_factory=dict)
     components: list[ComponentSpec] = Field(default_factory=list)
     channel_components: list[ComponentSpec] = Field(default_factory=list)
+    options: list[OptionSpec] = Field(
+        default_factory=list,
+        description="Hardware options (选件): `components` and `commands` describe the unit without any; "
+        "each option gives the component parameters of a unit that has it, and commands may name the "
+        "option they belong to. A bench instance lists the installed ones",
+    )
     wiring: Wiring = Field(default_factory=Wiring)
     ports: Ports = Field(default_factory=Ports)
     commands: list[CommandSpec] = Field(default_factory=list)

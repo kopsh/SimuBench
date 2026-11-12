@@ -2062,3 +2062,20 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 - `:SINGle` 在 DSO-X 2024A 上是 digitize，命令时钟下它在全部段采满后才返回；“信号中途停止”的测试因此用布防后不阻塞的 SDS2104X Plus。
 - 分段只作用于单次采集、digitize 与立即完成的采集；运行中屏幕上的帧、强制读一个没有记录的通道仍是一条记录（后者之后段数读 0）。
 - `:ACQuire:SEGMented:ANALyze` 只接受：跨段的测量统计与余辉未建模。平均与分段同时打开时每段各自平均（真机不允许这样组合，未检查）。
+
+## 频谱仪前端：平坦度按频段的个体偏差与硬件选件（Issue 1004）
+
+| 完成条件 | 自检 |
+|---|---|
+| 按频段的平坦度偏差：`from_specs` 的测试台上各频段读数偏差在 ± 限值内，同种子逐字节相同、不同种子不同，`nominal` 时回复不变 | ✅ `tests/test_specan_frontend.py::test_a_flatness_deviation_by_bands_stays_inside_each_bands_limit`（测试专用定义 `test-specan-ideals` 加 `deviations` 的 `bands`：两段共用端点，参考频率处为 0，读数 = 电平 + 抽出的曲线；与不声明偏差的定义逐条回复相同）；抽取本身 `tests/test_deviation.py::test_a_curve_drawn_by_bands_adds_to_the_nominal_curve` |
+| 定义校验放开，形状不符报诊断码 | ✅ `E-DEF-DEVIATION-BANDS`（曲线参数不按频段写、`bands` 用在非曲线参数上）、测试台元件的 `E-DEVIATION-PARAM`，模型拒绝频段不升序或限值个数不符：`tests/test_deviation.py::test_a_deviation_by_bands_is_for_a_curve_parameter_only` |
+| 选件：同一定义两个实例（有/无），有选件时前放的增益与噪声系数进入级联，无选件时回复与现状相同 | ✅ `tests/test_specan_frontend.py::test_an_option_fits_its_parameters_and_commands_to_the_units_that_have_it`（无选件与不声明选件的定义回复相同、增益查询读 0、写入回 -241；有选件时开关命令切换 18 dB，底噪下降、单音电平不变）；校验 `test_validation_names_wrong_options`（`E-DEF-OPTION`、`E-OPTION-UNKNOWN`） |
+| `sb-sa-1` 与全部现有频谱仪测试不改预期通过 | ✅ 现有测试未改 |
+| 文档 | ✅ `metrology-authoring.md` 7.1/7.3、`instrument-authoring.md` 2.10 与诊断表、`real-models.md` 字段表（`deviations`、`options`）、`decisions.md` D68、`component-map.md` 缺口 8、`glossary.md`；`component` 与 `real-model` 两个 skill |
+| `scripts/check.sh` 通过 | ✅ |
+
+写明的限制与假设：
+- 频段内的曲线是分段线性的随机节点（两端加每段 `points` 个，按对数频率等距），不是真机频响的形状；保证的只是每段都在限值内、参考频率处为 0。频段之外偏差为 0。
+- 定义同时写了标称平坦度表与按频段的偏差时两者相加；标称表的范围超出频段时，表外端点处的跳变按节点间直线近似。
+- 选件只替换已有组件的参数、限定命令归属；不能增减组件、端口、状态量与连线。未装选件且没有后备命令时回 -241（SCPI 的 Hardware missing）；真机的回复以各型号手册为准，由定义用后备命令写出。
+- Web 与 MCP 的编辑操作还不能改实例的 `options`（改测试台文件）；`*OPT?` 不自动列出已装选件。Web 概览页按频段显示限值，检查器显示限值范围。

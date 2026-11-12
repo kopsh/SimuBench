@@ -29,6 +29,7 @@ STANDARD_MESSAGES: dict[int, str] = {
     -224: "Illegal parameter value",
     -230: "Data corrupt or stale",
     -240: "Hardware error",
+    -241: "Hardware missing",
     -300: "Device-specific error",
     -310: "System error",
     -311: "Memory error",
