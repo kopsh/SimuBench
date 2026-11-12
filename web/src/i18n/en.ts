@@ -1058,6 +1058,7 @@ export const en: Widen<Messages> = {
     compacted: "Earlier content was compacted; the assistant keeps the gist",
     changed: "What changed",
     created: "New",
+    liveChanges: "Running instruments (this session)",
     noChanges: "No files changed in this turn",
     stopped: "Stopped: {{reason}}",
     stuck: "The assistant stopped: {{reason}}",

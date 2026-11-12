@@ -1047,6 +1047,7 @@ export const zh = {
     compacted: "更早的内容已压缩，助手只记得要点",
     changed: "改了什么",
     created: "新建",
+    liveChanges: "运行中的仪表（当前会话）",
     noChanges: "这一轮没有改文件",
     stopped: "已停止：{{reason}}",
     stuck: "助手停下了：{{reason}}",

@@ -128,6 +128,12 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     assert results["set_live_setting"].ok is True
     served = next(iter(manager.sessions.values()))
     assert served.session.instrument("awg").state["ch1.frequency"] == pytest.approx(2e6)
+    # the file edit says it only changed the initial value; the live change is listed separately
+    edited = last_tool_return(llm.seen[-1], "edit_bench")
+    assert any("只改了文件里的初值" in note for note in edited["notes"])
+    (live,) = t.live
+    assert (live.kind, live.target) == ("state", "awg.ch1.frequency")
+    assert live.old == pytest.approx(1e6) and live.new == pytest.approx(2e6)
     # stopping in the same turn as asking: refused (the user has not answered)
     assert results["stop_session"].ok is False and "征得用户同意" in results["stop_session"].error
     assert manager.sessions
@@ -198,14 +204,16 @@ async def test_a_long_loop_that_makes_progress_is_not_interrupted(manager):
     assert t.status == "done" and len(t.steps) == 13 and all(s.ok for s in t.steps)
 
     # reading the same unchanged bench again with other calls between is not spinning (#903):
-    # only repeats in a row count
+    # look-ups are not progress, but neither are they a repeated change
     checks = [[("read_bench", {})], [("list_catalog", {"query": "oscilloscope"})]] * 3
     t2 = await turn(service_with(manager, ScriptedLLM(*checks, "核对完了")), "反复核对")
     assert t2.status == "done", t2.stop_reason
     assert len(t2.steps) == 6 and all(s.ok for s in t2.steps)
 
 
-_READ = ("read_file", {"p": "a"}, True, "x")
+_READ = ("read_bench", {"p": "a"}, True, "x")
+_MUT = ("set_live_setting", {"i": "awg", "p": "ch1.output", "v": False}, True, {"ok": True, "value": False})
+_MUT2 = ("set_live_setting", {"i": "awg", "p": "ch1.output", "v": True}, True, {"ok": True, "value": True})
 _FAIL = ("edit", {"n": 0}, False, "没有 ghost")
 
 
@@ -228,14 +236,22 @@ def _fail(n: int):
         pytest.param(
             [_fail(0), _fail(1), _fail(2), _edit(3), _fail(4)], None, id="a-success-ends-the-errors"
         ),
-        pytest.param([_READ, _READ, _READ], "同一个操作（read_file）连续 3 次", id="three-in-a-row"),
+        pytest.param([_READ, _READ, _READ], "同一个操作（read_bench）连续 3 次", id="three-in-a-row"),
         pytest.param([_edit(0), _FAIL, _FAIL, _FAIL], "连续 3 次得到同样的结果", id="same-failing-call"),
         pytest.param(
             [_fail(0), _fail(1), _fail(2), _fail(3)], "连续 4 次遇到同一个错误", id="four-same-errors"
         ),
+        pytest.param(
+            [_MUT, _READ, _MUT, _READ, _MUT], "在一轮里重复 3 次", id="lookups-between-the-same-change"
+        ),
+        pytest.param(
+            [_MUT, _MUT2, _READ, _MUT, _MUT2, _READ, _MUT],
+            "在一轮里重复 3 次",
+            id="a-b-a-b-between-lookups",
+        ),
     ],
 )
-def test_the_loop_guard_stops_only_repeats_in_a_row(calls, stuck):
+def test_the_loop_guard_stops_repeats_that_hide_behind_lookups(calls, stuck):
     guard = LoopGuard()
     if stuck is None:
         for call in calls:
