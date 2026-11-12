@@ -1,0 +1,24 @@
+schema: simubench.bench/2
+name: keysight_n9320b_cases
+description: >-
+  N9320B 手册用例的测试台：示例测试台（SDG2042X 的 10 MHz、2 Vpp 正弦接 RF_IN）再加两台 R&S SMA100B，
+  输出关闭（关闭的输出不接入 RF_IN 的节点，原有用例的电平不变）。前端用例（#960）关掉 SDG、打开信号源：
+  两台同时打开时共用 RF_IN 的节点，各自的音在节点上比设定低 3.52 dB。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    state: {ch1.frequency: 10.0e6, ch1.amplitude: 2.0, ch1.load: .inf, ch1.output: true}
+  sg1:
+    model: rs-sma100b
+    state: {freq.cw: 1.0e9, power.level: -10.0, output.enabled: false}
+  sg2:
+    model: rs-sma100b
+    state: {freq.cw: 1.001e9, power.level: -10.0, output.enabled: false}
+  sa:
+    model: keysight-n9320b
+    state: {freq.center: 10.0e6, freq.span: 2.0e6, display.ref_level: 0.0}
+wires:
+  - {from: awg.CH1, to: sa.RF_IN}
+  - {from: sg1.RF_OUT, to: sa.RF_IN}
+  - {from: sg2.RF_OUT, to: sa.RF_IN}
+run: {seed: 7, clock: command}

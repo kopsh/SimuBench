@@ -1,0 +1,46 @@
+# instrument-authoring.md 2.11 的例子（#961）：一台简化的数字化仪，全部是现有的通用组件。
+# 输入端口 → 放大（specan_input 的前放，带噪声系数）→ adc → 数字下变频（specan_ddc）；
+# 读数由内部探针读 ddc.out（采样流端口不能映射为仪表端口）。tests/test_docs_examples.py 加载运行。
+schema: simubench.instrument/1
+id: doc-digitizer
+manufacturer: SimuBench
+model: DOC-DIG-1
+class: digitizer
+description: 文档例子：输入 → 放大 → ADC → 数字下变频，采样流的块与连线。
+state:
+  dig.gain:
+    type: float
+    unit: DB
+    min: 0.0
+    max: 40.0
+    default: 20.0
+  dig.nco:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 50.0e6
+    default: 10.0e6
+components:
+  - name: rf_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: amp                  # 模拟块：signal 进、signal 出，是一级 RfStage（增益与噪声系数）
+    type: specan_input
+    params: {att: 0.0, att_auto: false, preamp_gain: $dig.gain, preamp_noise_figure: 6.0}
+  - name: adc                  # 边界：signal 进、samples 出
+    type: adc
+    params: {bits: 14, full_scale: 1.0, rate: 100.0e6}
+  - name: ddc                  # 数字块：samples 进、samples 出
+    type: specan_ddc
+    params: {nco_hz: $dig.nco, decimation: 100}
+wiring:
+  instrument:
+    - [rf_in.out, amp.in]
+    - [amp.out, adc.in]
+    - [adc.out, ddc.in]
+ports:
+  instrument:
+    IN: rf_in.pin
+commands:
+  - {header: ":DIGitizer:GAIN", state: dig.gain}
+  - {header: ":DIGitizer:NCO", state: dig.nco}

@@ -81,6 +81,14 @@ When the platform cannot express something the manual requires:
    (`docs/progress.md` says how).
 9. **Pull request** with `Closes #<n>`; it merges itself when CI is green.
 
+**Spectrum analyzers**: the front-end figures (noise figure from the DANL, intercepts, 1 dB
+compression, phase noise, flatness, images and spurs) come from the model's **data sheet**, put in
+`manuals/` like a manual; `specs` quotes each figure with its table and page, and each parameter
+says beside it how it was converted (DANL → noise figure, SHI → `iip2_dbm`). Figures the data sheet
+does not give are not declared and not estimated; banded figures use a `table` on `$freq.center`
+(`instrument-authoring.md` 2.10). The coverage note of the trace and marker commands names the
+evaluation and what it includes (`real-models.md` 6).
+
 ## What tends to go wrong
 
 - A coverage `header` must be written as the definition writes it (case, `[optional]` nodes,

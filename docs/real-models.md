@@ -86,6 +86,10 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 - `simubench coverage <id>` 打印覆盖表与统计，用于演示时说明做到了什么程度。
 - `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄依据中的命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。
 - 内置的真实型号只使用通用组件（`generic`），例外清单在 `tests/test_model_components.py`，只能缩短（[metrology-authoring.md](metrology-authoring.md) 第 9 节）。
+- **频谱仪的“求值方式”**（[signal-chain.md](signal-chain.md) 5.4，#961）：迹线数据与标记读数的命令（`:TRACe[:DATA]`、`:CALCulate:MARKer:Y` 一类）在说明中写明定义的 `specan_trace.evaluation`，以及它包含的前端非理想——
+  - `analytic`（解析求值，默认，全部内置真实型号）：平坦度、失真产物（二阶/三阶截点）、增益压缩、镜像与杂散、残余与本振馈通、**相位噪声**都在迹线里，写出定义实际声明了哪几项及其数据手册出处，没有声明的写“未建模”与原因；
+  - `sampled`（采样式求值）：平坦度、镜像、杂散与残余在（它们已在模拟谱线里），**相位噪声与失真产物、压缩没有**，说明中必须写明这一点；另写超出 `MAX_REQUEST_FANOUT` 的设置报错（“超出模型能力”）。
+  例句（N9320B 的 `:TRACe[:DATA]`）：“Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (…): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise …. Not modeled: …”。
 
 ## 7. 版权与商标
 

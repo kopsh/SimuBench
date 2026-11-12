@@ -13,11 +13,44 @@ description: >-
   write/average/max-hold trace modes are modeled; the coverage table names every remaining gap.
   Delta/fixed-reference markers, marker on/off, minimum and left/right peak search and the marker
   counter state need the capability issue #274 and are not modeled.
+  The front end follows the Data Sheet (5990-8119EN, #960): noise figure, second- and third-order
+  intercepts and 1 dB compression for the band of the center frequency, and the 1 GHz phase-noise
+  table; flatness as a unit deviation and the preamplifier option wait for #1004.
 reference:
   title: Keysight N9320B RF Spectrum Analyzer Programmer's Guide
   document: N9320-90029
   version: Edition 5, December 2020
   firmware: "A.01.01, as covered by the guide"
+# 前端指标的出处（#960）：N9320B RF Spectrum Analyzer Data Sheet（5990-8119EN，July 29, 2020，
+# manuals/5990-8119）。手册原文记在 specs；组件参数由它换算，换算写在各参数旁。
+specs:
+  datasheet: "Keysight N9320B RF Spectrum Analyzer Data Sheet, 5990-8119EN, July 29, 2020"
+  frequency_response: >-
+    p.3 Frequency response (10 dB input attenuation, reference 50 MHz): preamp off 200 kHz to
+    2.0 GHz ±0.5 dB, 2.0 to 3.0 GHz ±0.7 dB; preamp on 1 MHz to 2.0 GHz ±0.6 dB, 2.0 to 3.0 GHz
+    ±0.8 dB (not declared: a deviation of the flatness table needs #1004)
+  preamplifier: "p.3 Preamplifier: 1 MHz to 3.0 GHz, gain 18 dB nominal (option; not declared, #1004)"
+  gain_compression: >-
+    p.4 1 dB gain compression, 50 MHz to 3.0 GHz: preamp off > 0 dBm typical (total power at the
+    input mixer); preamp on > -20 dBm typical (total power at the preamp)
+  danl: >-
+    p.4 DANL, input terminated, 0 dB RF attenuation, RBW 10 Hz, VBW 1 Hz, sample detector, preamp
+    off, typical: 9 to 100 kHz -90 dBm nominal; 100 to 500 kHz -106 dBm; 500 kHz to 1 MHz -126 dBm;
+    1 to 10 MHz -130 dBm (spec -124 dBm); 10 to 500 MHz -132 dBm; 500 MHz to 1.5 GHz -130 dBm (spec
+    -130 dBm + 3 x (f/1 GHz) dB); 1.5 to 2.5 GHz -128 dBm; 2.5 to 3 GHz -125 dBm
+  second_harmonic: >-
+    p.4 Second harmonic distortion (preamp off, signal input -30 dBm, 0 dB RF attenuation):
+    10 to 200 MHz +30 dBm; 200 to 500 MHz +35 dBm; 500 MHz to 3 GHz +43 dBm
+  toi: >-
+    p.4 Third-order intermodulation (preamp off, signal input -20 dBm, 0 dB RF attenuation):
+    300 MHz to 3 GHz +10 dBm; +13 dBm nominal
+  spurious: >-
+    p.5 Input related spurious < -60 dBc (-30 dBm at the input mixer); residual response
+    (inherent) < -83 dBm (input terminated, 0 dB RF attenuation, preamp off). Neither gives the
+    response's frequency or mixing order, so neither is declared.
+  phase_noise: >-
+    p.5 Phase noise, Fc = 1 GHz, RBW 1 kHz, VBW 10 Hz, sample detector, log average > 40:
+    10 kHz < -88 dBc/Hz (typical < -90); 100 kHz < -100 (typical < -102); 1 MHz < -110 (typical < -112)
 identity:
   # The telnet greeting of the guide: Keysight Technologies,N9320B,<serial>,<software>.
   idn: "Keysight Technologies,N9320B,{serial},{firmware}"
@@ -354,7 +387,30 @@ components:
       ref_level: $display.ref_level
   - name: mixer
     type: specan_mixer
-    params: {noise_figure: 24.0, lo: lo}
+    params:
+      lo: lo
+      # 整机噪声系数，按中心频率所在频段（数据手册第 4 页 DANL 的 typical 列，前放关）。DANL 的条件
+      # 是 0 dB 衰减、RBW 10 Hz、VBW 1 Hz、采样检波（视频滤波即对数平均，比功率低 2.51 dB），
+      # 本模型的噪声底 = −174 dBm/Hz + NF + 10·lg(1.0645 × 10 Hz) − 2.51，故 NF = DANL + 166.24 dB。
+      # 9–100 kHz 取 nominal 值；频段下沿取不大于中心频率的最大表项（2.3 的 table）。
+      noise_figure:
+        from: $freq.center
+        table: {0: 76.24, 100.0e3: 60.24, 500.0e3: 40.24, 1.0e6: 36.24, 10.0e6: 34.24, 500.0e6: 36.24, 1.5e9: 38.24, 2.5e9: 41.24}
+      # 二次谐波截点（第 4 页 Second harmonic distortion，−30 dBm、0 dB 衰减，即混频器处）：本模型的二次
+      # 谐波 = 2P − IIP2 − 6.02 dB，SHI = IIP2 + 6.02，故 IIP2 = SHI − 6.02。10 MHz 以下手册没有给，不声明（理想）。
+      iip2_dbm:
+        from: $freq.center
+        table: {0: null, 10.0e6: 23.98, 200.0e6: 28.98, 500.0e6: 36.98}
+      # 三阶截点（第 4 页 TOI，−20 dBm、0 dB 衰减，即混频器处）：300 MHz–3 GHz +13 dBm nominal（指标 +10 dBm）；
+      # 300 MHz 以下手册没有给，不声明。
+      iip3_dbm:
+        from: $freq.center
+        table: {0: null, 300.0e6: 13.0}
+      # 1 dB 压缩点（第 4 页，混频器处的总功率，前放关）：50 MHz–3 GHz > 0 dBm typical，取 0 dBm；
+      # 50 MHz 以下手册没有给，不声明。
+      p1db_dbm:
+        from: $freq.center
+        table: {0: null, 50.0e6: 0.0}
   - name: lo
     type: specan_lo
     params:
@@ -366,6 +422,8 @@ components:
       # 手册没有单独给出）。
       lo_rate: 3.0e10
       sweep_overhead: 2.0e-4
+      # 单边带相位噪声（第 5 页，Fc = 1 GHz，typical 列）；表外按端点延伸。手册只给 1 GHz 一个载波频率。
+      phase_noise: [[1.0e4, -90.0], [1.0e5, -102.0], [1.0e6, -112.0]]
   - name: if_filter
     type: specan_if
     params: {rbw: $bw.res, rbw_auto: $bw.res_auto, span: $freq.span}

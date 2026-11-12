@@ -1,0 +1,368 @@
+                                        DATA SHEE T
+
+
+
+
+N9320B
+RF Spectrum Analyzer 9 kHz to 3.0 GHz
+Definitions and Conditions
+“Specifications” describe the performance of parameters covered by the product
+                                                                                                                    The spectrum analyzer will
+warranty and apply to the full temperature range of 5 to 45 °C, unless otherwise noted.
+                                                                                                                    meet its specifications when:
+“Typical” values describe additional product performance information that is not covered                            It is within its calibration cycle It
+by the product warranty. It is performance beyond specifications that 80 percent of the                             has been turned on at least 30
+units exhibit with a 95 percent confidence level over the temperature range 20 to 30 °C.                            minutes. It has been stored at an
+                                                                                                                    ambient temperature within the
+Typical performance does not include measurement uncertainty.                                                       allowed operating range for at least
+                                                                                                                    two hours before being turned on;
+“Nominal” values indicate expected performance, or describe product performance that                                if it has been stored previously at
+is useful in the application of the product, but are not covered by the product warranty.                           a temperature range inside the
+                                                                                                                    allowed storage range, but outside
+                                                                                                                    the allowed operating range.
+Frequency and Time Specification
+                                                                                                               Supplemental Information
+ Frequency
+ Range                                                   9 kHz to 3 GHz                                        AC coupled
+                                                         100 kHz to 3 GHz                                      Preamp on
+ Resolution                                              1 Hz
+ Internal 10 MHz frequency reference
+ Aging rate                                       ± 1 ppm/year
+ Temperature stability                            ± 1 ppm                                                5 to +45 °C, reference 25 °C
+ Supply voltage stability                         ± 0.3 ppm
+ Residual FM                                      ≤ 100 Hz p-p in 100 ms nominal                         RBW = 1 kHz, VBW = 1 kHz
+ Frequency readout accuracy (start, stop, center, marker)
+ Marker resolution                                (freq span)/(number of sweep point -1)
+ Uncertainty                                       ± (freq indication x freq reference uncertainty 1 + 1% x span + 20% x resolution bandwidth + marker
+                                                  resolution)
+ Sweep point                                      461, fixed
+ Marker frequency counter
+ Resolution                                       1 Hz, 10 Hz, 100 Hz, 1 kHz                             Selectable
+ Accuracy                                         ± [(marker freq x freq reference uncertainty 1) + (counter resolution)]
+ Frequency span (FFT and swept mode)
+ Range                                            0 Hz (zero span), 100 Hz to 3.0 GHz
+ Resolution                                       1 Hz
+ Accuracy                                         ± span/(swept points -1)
+ Sweep time and triggering
+ Span range                                       10 ms to 1000 s                                        Span > 0 Hz
+                                                  6 μs to 200 s                                          Span = 0 Hz (minimum resolution = 6 μs)
+ Mode                                             Continuous, single
+ Trigger                                          Free run, video, external
+ Trigger slope                                    Positive or negative edge                              Selectable
+ Trigger delay                                    0 to 80 sweep time
+ Resolution bandwidth (RBW)
+ Range (—3 dB bandwidth)                          10 Hz to 1 MHz, in 1-3-10 sequence
+ Accuracy                                         ± 5% nominal
+ Resolution filter shape factor                   < 5:1 nominal
+ Range (—6 dB bandwidth)                          200 Hz, 9 kHz, 120 kHz, 1 MHz                          EMI bandwidth (CISPR 16-1-1 complaint),
+                                                                                                         requires Option EMF
+ Accuracy                                         ± 10% nominal
+ Resolution filter shape factor                   < 5:1 nominal                                          —60 dB/—6 dB bandwidth ratio
+ Video bandwidth (VBW)
+ Range                                            1 Hz to 1 MHz in 1-3-10 sequence                       —3 dB bandwidth
+1.    Frequency reference uncertainty = Aging rate x period since adjustment + supply voltage stability + temperature stability.
+
+
+
+
+     Find us at www.keysight.com                                                                                                                       Page 2
+Amplitude Specifications
+
+                                                                                                      Supplemental Information
+Amplitude range
+Measurement range                               10 MHz to 3 GHz: Displayed average noise level
+                                                (DANL) to +30 dBm
+(PA OFF)                                        1 to 10 MHz: DANL up to 23 dBm
+                                                100 kHz to 1 MHz: DANL up to 20 dBm
+Input attenuator range                          0 to 70 dB, in 1 dB steps
+Maximum damage level
+Average continuous power                        ≤ +37 dBm                                             Input attenuator setting ≥ 10 dB, 3 minutes
+                                                                                                      maximum
+Peak pulse power                                ≤ +50 dBm (100 W)                                     For < 10 μs pulse width, < 1% duty cycle, and
+                                                                                                      input attenuation ≥ 40 dB
+DC voltage                                      50 VDC maximum
+Level display range
+Log scale units                                 dBm, dBmV, dBμV, dBμA
+Linear scale units                              μV, mV, V, μA, mA, A, μW, mW, W
+Marker level readout                            0.01 dB                                               Log scale
+Resolution                                      0.01% of reference level                              Linear scale
+Number of traces                                4
+Detectors                                       Positive-peak, negative-peak, sample, normal, RMS
+Trace function                                  Clear/write, maximum hold, average,
+                                                minimum hold, view
+Frequency response
+10 dB input attenuation, reference: 50 MHz, 20 to —30 °C
+200 kHz to 2.0 GHz                                ± 0.5 dB                                             Preamp off
+2.0 to 3.0 GHz                                    ± 0.7 dB                                             Preamp off
+1 MHz to 2.0 GHz                                  ± 0.6 dB                                             Preamp on
+2.0 to 3.0 GHz                                    ± 0.8 dB                                             Preamp on
+Input attenuation switching uncertainty at 50 MHz
+Attenuation > 2 dB, preamp off
+0 to 60 dB attenuation                            ± 0.4 dB                                             Relative to 10 dB (reference setting)
+Absolute amplitude accuracy
+Center frequency 50 MHz, RBW 1 kHz, VBW 1 kHz, amplitude scale log, span 100 kHz, sweep time coupled, peak detector, signal at reference level
+Preamp off                                        ± 0.3 dB                                             Reference level —10 dB, input attenuation 10 dB
+Preamp on                                         ± 0.4 dB                                             Reference level —30 dB, input attenuation 10 dB
+Level measurement uncertainty
+20 to 30 °C; frequency > 1 MHz; signal input 0 to —40 dBm; reference level 0 to —40 dBm; input attenuation 20 dB; RBW 1 kHz, VBW 1 kHz; after
+calibration; preamp off
+Overall amplitude accuracy                        ± 1 dB, ± 0.5 dB , typical                           1 MHz to 2 GHz
+                                                  ± 1.3 dB, ± 1 dB, typical                            2 to 3 GHz
+Level display range
+Log scale units                                   dBm, dBmV, dBμV, dBμA
+Linear scale and units                            W, mW, μW, A, mA, μA, V, mV, μV
+Marker level readout                              0.01 dB
+Resolution                                        0.01% of reference level                             Log scale
+Number of traces                                  4                                                    Linear scale
+Detectors                                         Positive-peak, negative-peak, sample, normal, RMS
+Trace functions                                   Clear/write, maximum hold, average,
+                                                  minimum hold, view
+Preamplifier
+Frequency range                                   1 MHz to 3.0 GHz
+Gain                                              18 dB nominal
+
+
+
+
+Find us at www.keysight.com                                                                                                                       Page 3
+Dynamic Range Specifications
+
+                                                                                                    Supplemental Information
+1 dB gain compression
+Preamp off                                  50 MHz to 3.0 GHz                                       > 0 dBm, typical; total power at input mixer
+Preamp on                                   50 MHz to 3.0 GHz                                       > —20 dBm, typical; total power at the preamp
+                                                                                                    Total power at the preamp = total power at the
+                                                                                                    input (dBm) - input attenuation (dB)
+Displayed average noise level (DANL)
+Input terminated, 0 dB RF attenuation, RBW = 10 Hz, VBW = 1 Hz, sample detector
+Preamp off                                                          Specification                   Typical
+                                             9 to 100 kHz                                           -90 dBm nominal
+                                                                    -90 dBm – 3 x (f/100 kHz) dB
+                                             100 to 500 kHz                                         -106 dBm
+                                             500 kHz to 1 MHz                                       -126 dBm
+                                             1 to 10 MHz            -124 dBm                        -130 dBm
+                                             10 to 500 MHz                                          -132 dBm
+                                             500 MHz to 1.5 GHz                                     -130 dBm
+                                                                    -130 dBm +3 x (f/1GHz)dB
+                                             1.5 to 2.5 GHz                                         -128 dBm
+                                             2.5 to 3 GHz                                           -125 dBm
+
+Preamp on                                   100 to 500 kHz                                          -124 dBm
+                                                                    -108 dBm – 3 × (f/100 kHz) dB
+                                            500 kHz to 1 MHz                                        -145 dBm
+                                            1 to 10 MHz             -142 dBm                        -149 dBm
+                                            10 to 500 MHz                                           -150 dBm
+                                            500 MHz to 1.5 GHz                                      -148 dBm
+                                                                    -148 dBm + 3 x (f/1 GHz) dB
+                                            1.5 to 2.5 GHz                                          -146 dBm
+                                            2.5 to 3 GHz                                            -141 dBm
+Spurious response
+Preamp off, signal input —30 dBm, 0 dB RF attenuation
+Second harmonic distortion                    10 to 200 MHz                                         +30 dBm
+                                              200 to 500 MHz                                        +35 dBm
+                                              500 MHz to 3 GHz                                      +43 dBm
+Preamp off, signal input -20 dBm, 0 dB RF attenuation
+Third-order intermodulation (TOI)             300 MHz to 3 GHz                                      +10 dBm; +13 dBm nominal
+
+
+
+
+Find us at www.keysight.com                                                                                                                     Page 4
+Dynamic Range Specifications (Continued)
+
+                                                                                        Supplemental Information
+ Spurious response (Continued)
+ Input related spurious                               < —60 dBc                         —30 dBm signal at input mixer, 20 to 30 °C
+ Residual response (inherent)                         < —83 dBm                         Input terminated and 0 dB RF attenuation, preamp off
+ System sidebands, offset from CW signal 1
+                                                      < 300 Hz                          ≤ -57 dBc, nominal
+                                                      300 Hz to 30 kHz                  < -53 dBc, nominal
+                                                      30 kHz to 300 MHz                 ≤ -60 dBc, nominal
+ Phase noise                                                                            Specification                     Typical
+ Offset from CW signal                                10 kHz                            < —88 dBc/Hz                      < —90 dBc/Hz
+ Fc = 1 GHz, RBW = 1 kHz, VBW = 10 Hz, and            100 kHz                           < —100 dBc/Hz                     < —102 dBc/Hz
+ sample detector, log average, average times          1 MHz                             < —110 dBc/Hz                     < —112 dBc/Hz
+ > 40
+ Residual FM                                          ≤ 100 Hz peak-to-peak in 100 ms   1 kHz RBW, 1 kHz VBW
+
+1.    Exception: F= 9.3 MHz + n*20 MHz (n=0, 1,2…).
+
+
+
+
+Tracking Generator Specifications (Option TG3 required)
+
+                                                                                        Supplemental Information
+ Output frequency
+ Range                                                  100 kHz to 3 GHz                Settable to 9 kHz
+ Resolution                                             1 Hz
+ Output power level
+ Range                                                  -30 to 0 dBm
+ Resolution                                             0.1 dB
+ Absolute accuracy                                      ± 0.75 dB                       20 to 30 °C, at 50 MHz with coupled source attenuator, referenced
+                                                                                        to —20 dBm
+ Output flatness                                        ± 3 dB                          100 kHz to 10 MHz
+                                                        ± 2 dB                          10 MHz to 3 GHz
+ VSWR                                                   < 1.5:1                         300 kHz to 3 GHz, input attenuator ≥ 12 dB
+ Connector and impedance                                N-type female, 50 Ω
+ Maximum safe reverse level
+ Average total power                                    30 dBm (1 W)
+ AC coupled                                             0 VDC MAX
+
+
+
+
+     Find us at www.keysight.com                                                                                                                      Page 5
+Modulation Analysis Specifications
+
+                                                                             Supplemental Information
+Demodulation
+Frequency range                            10 MHz to 3 GHz
+Carrier power accuracy                     ± 2 dB                            ± 1 dB typical
+Input power                                —30 to +20 dBm                    Auto attenuation
+Carrier power displayed resolution         0.01 dBm
+AM measurement (included in Option AMA)
+Modulation rate                            20 Hz to 100 kHz
+Accuracy                                   1 Hz, nominal                     Modulation rate < 1 kHz
+                                           < 0.1% modulation rate, nominal   Modulation rate ≥ 1 kHz
+Depth                                      5 to 95%
+Accuracy                                   ± 4% nominal
+FM measurement (included in Option AMA)
+Modulation rate                            20 Hz to 200 kHz
+Accuracy                                   1 Hz, nominal                     Modulation rate < 1 kHz
+                                           < 0.1% modulation rate, nominal   Modulation rate ≥ 1 kHz
+Deviation                                  20 Hz to 400 kHz
+Accuracy                                   ± 4% nominal
+ASK measurement (included in Option DMA)
+Symbol rate range                          200 Hz to 100 kHz
+Modulation depth/index range               10 to 90%
+Accuracy                                   ± 4% of reading, nominal
+Displayed resolution                       0.1%
+FSK measurement (included in Option DMA)
+Symbol rate range                          1 to 100 kH
+FSK deviation range                        1 to 400 kHz
+Accuracy                                   ± 4% nominal                      b ≥1 and b ≤ 4, b is the ratio of frequency
+                                                                             deviation to symbol rate
+Displayed resolution                       0.01 Hz
+
+
+
+
+Find us at www.keysight.com                                                                                                Page 6
+Inputs and Outputs
+
+                                                              Supplemental Information
+Front panel
+RF input connector            N-type female, 50 Ω
+VSWR                          < 1.5:1                         300 kHz to 3 GHz, input attenuator ≥ 10 dB
+Calibration output            Amplitude                       —10 dBm ± 0.3 dB
+                              Frequency                       50 MHz
+                              Accuracy                        Same as the frequency reference
+                              Connector and impedance         BNC-type female, 50 Ω
+Probe power                   Voltage/current                 +15 V, 150 mA maximum
+                                                              —12.6 V, 150 mA maximum
+RF output connector           N-type female, 50 Ω             Option TG3 installed
+USB interface (host)          A plug, version 1.1
+Rear panel
+10 MHz reference output       Output amplitude                > 0 dBm
+                              Connector and impedance         BNC-type female, 50 Ω
+10 MHz reference input        Input amplitude                 —5 to +10 dBm
+                              Frequency lock range            ± 5 ppm of specified external reference input
+                                                              frequency
+                              Connector and impedance         BNC-type female, 50 Ω
+External trigger input        Input amplitude                 5 V TTL level
+                              Connector and impedance         BNC-type female, 10 kΩ
+VGA output                    VGA analog RGB                  31.5 kHz horizontal, 60 Hz vertical sync rates,
+                                                              non-interlaced
+                              D-sub 15-pin female connector   VGA compatible
+                              640 x 480 screen resolution
+LAN TCP/IP interface          10Base, RJ-45 connector
+USB interface (device)        B plug, version 1.1
+GPIB interface                IEEE-488 bus connector          Optional G01 installed
+
+
+
+
+Find us at www.keysight.com                                                                              Page 7
+General
+
+                                                                                                               Supplemental Information
+Temperature range
+Operating                                            +5 to +45 °C
+Storage                                              —20 to +70 °C
+EMC
+Standard                                             Limit
+IEC 61326-1:2012 / EN 61326-1:2013
+Reference standards
+CISPR 11:2009+A1:2010 / EN                           Class A Group 1
+55011:2009+A1:2010
+IEC 61000-4-2:2008 / EN 61000-4-2:2009               4 kV/8 kV contact/air
+IEC 61000-4-3:2006+A1:2007+A2:2010 / EN              3 V/m, 80 to 2000 MHz, 1 V/m, 2 to 2.7 GHz
+61000-4-3:2006+A1:2008+A2:2010
+IEC 61000-4-4:2004+A1:2010 / EN                      0.5 kV signal lines, 1 kV power lines
+61000-4-4:2004+A1:2010
+IEC 61000-4-5:2005 / EN 61000-4-5:2006               0.5 kV line-line, 1 kV line-ground, 1 kV signal lines
+IEC 61000-4-6:2008 / EN 61000-4-6:2009               3 V, 0.15 to 80 MHz
+IEC 61000-4-8:2009 / EN 61000-4-8:2010               3 A/m, 50 Hz, 60 Hz
+IEC 61000-4-11:2004 / EN 61000-4-11:2004             0% for 1/0.5 (0°, 180°) cycle, 0% for 250/300 cycles,
+                                                     70% for 25/30 cycles
+Safety
+IEC 61010-1:2010 / EN 61010-1:2010
+Canada: CAN/CSA-C22.2 No. 61010-1-12
+USA: ANSI/UL 61010-1:2012
+Audio noise
+Acoustic noise emission
+LpA < 70 dB
+Operator position
+Normal position
+Per ISO 7779
+Environmental stress
+Samples of this product have been type tested in accordance with the Keysight Technologies, Inc. Environmental Test Maunal and verified to be robust
+against the environmental stresses of storage, transportation, and end-use; those stresses include, but are not limited to, temperature, humidity, shock,
+vibration, altitude, and power line conditions. Test methods are aligned with IEC 60068-2 and levels are similar to MILPRF-28800F Class 3
+Power requirements
+Voltage and frequency (nominal)                        100 to 240 VAC, 50 to 60 Hz                              Auto ranging
+Power consumption                                      < 65 W
+Display
+Resolution                                             640 x 480
+Size                                                   165.1 mm (6.5 in) diagonal (nominal)
+
+
+
+
+Find us at www.keysight.com                                                                                                                          Page 8
+General (Continued)
+
+Data storage
+Internal                                           16 MB nominal
+External                                           Supports USB 2.0 compatible memory devices
+Weight (without options)
+Net                                                8.4 kg (18 lbs) nominal
+Shipping                                           14.5 kg (32 lbs) nominal
+Dimensions
+Height                                             132.5 mm (5.2 in)                                     3U rack height
+Width                                              320 mm (12.6 in)
+Length                                             400 mm (15.7 in)
+Calibration cycle
+The recommended calibration cycle is one year. Calibration services are available through Keysight Service Centers
+
+
+
+
+Related Literature
+
+ –– Keysight N9320B RF Spectrum Analyzer, Brochure, literature number 5990-8118EN
+ –– Keysight N9320B RF Spectrum Analyzer, Configuration Guide, literature number 5990-8120EN
+
+
+
+
+Learn more at: www.keysight.com
+For more information on Keysight Technologies’ products, applications or services,
+please contact your local Keysight office. The complete list is available at:
+www.keysight.com/find/contactus
+
+
+Find us at www.keysight.com                                                                                                                  Page 9
+ This information is subject to change without notice. © Keysight Technologies, 2017 - 2020, Published in USA , July 29, 2020, 5990-8119EN
+

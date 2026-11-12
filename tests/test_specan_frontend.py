@@ -224,6 +224,11 @@ def _earlier(data: dict) -> dict:
 @pytest.mark.parametrize("path", ANALYZERS, ids=lambda p: p.stem)
 def test_a_definition_written_the_earlier_way_is_the_same_definition(path):
     data = _data(path)
+    # The oscillator's phase noise (#954, declared by the real models since #960) came after the
+    # earlier way and has no spelling in it: the comparison is of what the earlier way can say.
+    for block in data["components"]:
+        if block["name"] == "lo":
+            block["params"].pop("phase_noise", None)
     earlier = _earlier(data)
     assert earlier != data
     assert _codes(earlier) == []

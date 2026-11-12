@@ -42,9 +42,9 @@ def q(s, command: str) -> str | None:
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     out = run_manual_script(script, ["sa"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Keysight Technologies,N9320B,A.01.01.CIDKMNEW,0B.03.03"
-    assert out[1] == "marker: 10000000 Hz, 3.979 dBm"
+    assert out[1] == "marker: 10000000 Hz, 3.980 dBm"
     assert out[2] == "counter: 10000000 Hz"
-    assert out[3] == f"trace: {POINTS} points, peak 3.979 dBm"
+    assert out[3] == f"trace: {POINTS} points, peak 3.980 dBm"
     assert out[4] == '+0,"No error"'
 
 
@@ -137,4 +137,7 @@ def test_delta_marker_starts_at_zero_when_the_marker_was_off():
     assert first == second  # deterministic across sessions
     assert first[0] is None and first[3] is None  # the writes answer nothing
     assert first[1] == first[2] == "+0.0000000000000000E+000"
-    assert float(first[4]) < -100  # off the 10 MHz reference, at the 11 MHz noise floor
+    # 1 MHz off the 10 MHz reference the marker reads the analyzer's phase-noise skirt (#960):
+    # L(1 MHz) = -112 dBc/Hz (data sheet, typical) over the 1.0645 x 30 kHz noise bandwidth is
+    # -67.0 dBc; the positive detector reads noise a little above its mean.
+    assert -70 < float(first[4]) < -60
