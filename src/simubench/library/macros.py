@@ -283,8 +283,15 @@ def specan_trace(data: Data, spec: Data) -> None:
     when the definition is not shaped so (write the oscillator out instead)."""
     _rename(spec, "maxhold_limit", "max_hold_sweeps")
     params = spec.setdefault("params", {})
-    if not isinstance(params, dict) or "lo" in params:
-        return  # the oscillator is written out
+    if not isinstance(params, dict):
+        return
+    if "lo" not in params:  # else the oscillator is written out
+        _specan_oscillator(data, spec, params)
+    if "rbw" not in params:  # else the digital back end is written out
+        _specan_backend(data, spec, params)
+
+
+def _specan_oscillator(data: Data, spec: Data, params: Data) -> None:
     trace = str(spec["name"])
     comps = data["components"]
     by_name = {str(c.get("name")): c for c in comps if isinstance(c, dict)}
@@ -316,6 +323,60 @@ def specan_trace(data: Data, spec: Data) -> None:
     for command in data.get("commands") or []:
         if isinstance(command, dict) and command.get("op") == f"{mixer_name}.status":
             command["op"] = f"{name}.status"
+
+
+#: What the resolution filter took over from the IF filter (#955).
+_RBW_PARAMS = ("rbw", "rbw_auto", "span", "steps", "rbw_min", "rbw_max", "auto_ratio", "auto_max")
+
+
+def _specan_backend(data: Data, spec: Data, params: Data) -> None:
+    """Expand an analyzer written before its digital back end existed (#955, no ``rbw`` named).
+
+    The resolution bandwidth leaves the IF filter: a ``specan_rbw`` takes its RBW parameters
+    (the setting, the coupling, the steps and limits), the video filter reads the RBW from it
+    (its ``if_filter`` becomes ``rbw``), and the commands' ``<if_filter>.coupled_rbw`` become its
+    ``coupled_rbw``. An ``adc`` and a ``specan_ddc`` are added at their category defaults — 16
+    bits over ±1 V at 100 MSa/s, the oscillator on the IF filter's ``if_hz`` — and the chain is
+    wired ``<if_filter>.out → adc.in``, ``adc.out → ddc.in``, ``ddc.out → rbw.in``: the
+    definition's trace stays analytic, and an internal probe can look at the digital side too.
+    Raises ValueError when the IF filter is not named."""
+    trace = str(spec["name"])
+    comps = data["components"]
+    by_name = {str(c.get("name")): c for c in comps if isinstance(c, dict)}
+    if_name = str(params.get("if_filter"))
+    if_filter = by_name.get(if_name)
+    if if_filter is None:
+        raise ValueError(
+            f"{trace}: cannot add the digital back end (if_filter not named); "
+            "write a specan_rbw out and name it in rbw"
+        )
+
+    def fresh(base: str) -> str:
+        name = next(n for n in (base, *(f"{base}{i}" for i in range(2, 100))) if n not in by_name)
+        by_name[name] = {}
+        return name
+
+    adc, ddc, rbw = fresh("adc"), fresh("ddc"), fresh("rbw")
+    if_params = if_filter.setdefault("params", {})
+    moved: Data = {key: if_params.pop(key) for key in _RBW_PARAMS if key in if_params}
+    nco: Data = {"nco_hz": if_params["if_hz"]} if "if_hz" in if_params else {}
+    comps.append({"name": adc, "type": "adc", "params": {}})
+    comps.append({"name": ddc, "type": "specan_ddc", "params": nco})
+    comps.append({"name": rbw, "type": "specan_rbw", "params": moved})
+    params["rbw"] = rbw
+    for comp in comps:
+        if isinstance(comp, dict) and comp.get("type") == "specan_vbw":
+            vbw = comp.get("params")
+            if isinstance(vbw, dict) and vbw.get("if_filter") == if_name and "rbw" not in vbw:
+                del vbw["if_filter"]
+                vbw["rbw"] = rbw
+    wires = data.setdefault("wiring", {}).setdefault("instrument", [])
+    for wire in ([f"{if_name}.out", f"{adc}.in"], [f"{adc}.out", f"{ddc}.in"], [f"{ddc}.out", f"{rbw}.in"]):
+        if wire not in wires:
+            wires.append(wire)
+    for command in data.get("commands") or []:
+        if isinstance(command, dict) and command.get("op") == f"{if_name}.coupled_rbw":
+            command["op"] = f"{rbw}.coupled_rbw"
 
 
 def _rename(spec: Data, old: str, new: str) -> None:

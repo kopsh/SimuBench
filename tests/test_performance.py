@@ -105,3 +105,31 @@ def test_an_internal_probe_answers_within_its_budget():
             assert time.perf_counter() - started < 0.05, port
     finally:
         s.close()
+
+
+def test_a_sampled_sweep_and_its_probes_stay_within_budget():
+    """signal-chain.md 5.5: one sweep of ``sb-sa-fft-1`` at its default settings ≤ 100 ms — its
+    trace comes from the chain's samples (ADC, down-converter, windowed FFT at every tuning) —
+    and a probe on each port of the digital side ≤ 50 ms (6.2)."""
+    from simubench.server.manager import ServedSession
+    from simubench.server.services import internal_probe
+
+    s = open_bench(ROOT / "validation" / "benches" / "specan_fft.bench.yaml", clock="command")
+    try:
+        s.write("sa", b"*RST\n")
+        s.write("sa", b":TRAC? TRACE1\n")  # lazy loading and the filter design are not the sweep's
+        assert len((s.read("sa") or b"").split(b",")) == 1001
+        s.write("sa", b":TRAC:CLE\n")  # a new trace: nothing cached
+        started = time.perf_counter()
+        s.write("sa", b":TRAC? TRACE1\n")
+        reply = s.read("sa") or b""
+        assert time.perf_counter() - started < 0.1  # ~5 ms measured
+        assert len(reply.split(b",")) == 1001
+        served = ServedSession("t", s, None)
+        for port in ("adc.out", "ddc.out", "rbw.out"):
+            s.advance(1e-3)  # a new instant: nothing cached
+            started = time.perf_counter()
+            internal_probe.probe(served, "sa", port)
+            assert time.perf_counter() - started < 0.05, port
+    finally:
+        s.close()

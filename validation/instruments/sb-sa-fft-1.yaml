@@ -1,0 +1,326 @@
+schema: simubench.instrument/1
+id: sb-sa-fft-1
+manufacturer: SimuBench
+model: SB-SA-FFT-1
+class: spectrum_analyzer
+version: 1
+description: 数字中频（FFT）频谱分析仪，0–7.5 GHz；迹线由采样流产生（中频 ADC → 数字下变频 → 加窗 FFT）；高斯 RBW 滤波器 10 Hz–3 MHz（1-3-10 梯级）；四种检波器、三种迹线模式；RF_IN 50 Ω，REF_IN 10 MHz 参考输入。命令集与 SB-SA-1 相同。
+identity:
+  serial: SBSF0000001
+  firmware: "1.0.0"
+state:
+  freq.center:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 7.5e9
+    default: 1.0e9
+    label: 中心频率
+    label_en: Center
+  freq.span:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 7.5e9
+    default: 1.0e8
+    label: 跨度
+    label_en: Span
+  bw.res:
+    type: float
+    unit: HZ
+    min: 10.0
+    max: 3.0e6
+    default: 3.0e6
+    label: 分辨率带宽 (手动)
+    label_en: RBW (manual)
+  bw.res_auto:
+    type: bool
+    default: true
+    label: RBW 自动
+    label_en: RBW auto
+  bw.vid:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 3.0e6
+    default: 3.0e6
+    label: 视频带宽 (手动)
+    label_en: VBW (manual)
+  bw.vid_auto:
+    type: bool
+    default: true
+    label: VBW 自动
+    label_en: VBW auto
+  sweep.time:
+    type: float
+    unit: S
+    min: 1.0e-3
+    max: 10.0e3
+    default: 1.0e-3
+    label: 扫描时间 (手动)
+    label_en: Sweep time (manual)
+  sweep.time_auto:
+    type: bool
+    default: true
+    label: 扫描时间自动
+    label_en: Sweep time auto
+  sweep.points:
+    type: int
+    min: 101
+    max: 40001
+    default: 1001
+    label: 迹线点数
+    label_en: Points
+  power.att:
+    type: float
+    min: 0.0
+    max: 70.0
+    default: 10.0
+    display_unit: dB
+    label: 衰减 (手动)
+    label_en: Attenuation (manual)
+  power.att_auto:
+    type: bool
+    default: true
+    label: 衰减自动
+    label_en: Attenuation auto
+  display.ref_level:
+    type: float
+    min: -150.0
+    max: 30.0
+    default: 0.0
+    display_unit: dBm
+    label: 参考电平
+    label_en: Reference level
+  detector:
+    type: enum
+    options: [POSitive, SAMPle, AVERage, RMS]
+    default: POSitive
+    label: 检波器
+    label_en: Detector
+    option_labels: {POSitive: 正峰值, SAMPle: 采样, AVERage: 平均, RMS: 均方根}
+  trace.type:
+    type: enum
+    options: [WRITe, AVERage, MAXHold]
+    default: WRITe
+    label: 迹线模式
+    label_en: Trace mode
+    option_labels: {WRITe: 刷新, AVERage: 平均, MAXHold: 最大保持}
+  aver.count:
+    type: int
+    min: 1
+    max: 10000
+    default: 10
+    label: 平均次数
+    label_en: Average count
+  marker.x:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 7.5e9
+    default: 0.0
+    label: 标记频率
+    label_en: Marker
+  marker.threshold:
+    type: float
+    min: -200.0
+    max: 30.0
+    default: -130.0
+    display_unit: dBm
+    label: 峰值门限
+    label_en: Peak threshold
+  marker.excursion:
+    type: float
+    min: 0.0
+    max: 100.0
+    default: 6.0
+    display_unit: dB
+    label: 峰值偏移
+    label_en: Peak excursion
+  rosc.source:
+    type: enum
+    options: [INTernal, EXTernal]
+    default: INTernal
+    label: 参考时钟
+    label_en: Reference
+    option_labels: {INTernal: 内部, EXTernal: 外部 10 MHz}
+  init.continuous:
+    type: bool
+    default: true
+    label: 连续扫描
+    label_en: Continuous
+components:
+  - name: rf_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: ref_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: clock
+    type: reference_clock
+    params: {source: $rosc.source, nominal_hz: 10e6}
+  - name: input
+    type: specan_input
+    params:
+      z_in: 50.0
+      max_mixer_level: -10.0
+      att: $power.att
+      att_auto: $power.att_auto
+      ref_level: $display.ref_level
+  - name: mixer
+    type: specan_mixer
+    params: {noise_figure: 24.0, lo: lo}
+  - name: lo
+    type: specan_lo
+    params: {clock: clock, source: $rosc.source, if_filter: if_filter, center: $freq.center}
+  # 模拟中频：25 MHz（ADC 采样率的四分之一），抗混叠通带 20 MHz，中频增益 10 dB
+  - name: if_filter
+    type: specan_if
+    params: {if_hz: 25.0e6, bandwidth: 20.0e6, gain: 10.0}
+  # 中频 ADC：16 位，满量程 ±1 V（50 Ω 上 +10 dBm），100 MSa/s
+  - name: adc
+    type: adc
+    params: {bits: 16, full_scale: 1.0, rate: 100.0e6}
+  # 数字下变频：本振在中频上，抽取比随 RBW 自动
+  - name: ddc
+    type: specan_ddc
+    params: {nco_hz: 25.0e6}
+  # RBW 滤波：加窗 FFT（高斯窗）
+  - name: rbw
+    type: specan_rbw
+    params: {rbw: $bw.res, rbw_auto: $bw.res_auto, span: $freq.span, rbw_min: 10.0}
+  - name: detector
+    type: specan_detector
+    params: {detector: $detector}
+  - name: vbw
+    type: specan_vbw
+    params: {vid: $bw.vid, vid_auto: $bw.vid_auto, rbw: rbw}
+  - name: sa
+    type: specan_trace
+    params:
+      input: input
+      lo: lo
+      if_filter: if_filter
+      rbw: rbw
+      evaluation: sampled
+      detector: detector
+      vbw: vbw
+      max_hold_sweeps: 999
+wiring:
+  instrument:
+    - [rf_in.out, input.in]
+    - [input.out, mixer.in]
+    - [mixer.out, if_filter.in]
+    - [if_filter.out, adc.in]
+    - [adc.out, ddc.in]
+    - [ddc.out, rbw.in]
+    - [ref_in.out, clock.ref]
+ports:
+  instrument:
+    RF_IN: rf_in.pin
+    REF_IN: ref_in.pin
+  media: {REF_IN: reference}
+display:
+  template: spectrum_analyzer
+  summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
+capabilities: [spectrum_analyzer]
+commands:
+  - header: "[:SENSe]:FREQuency:CENTer"
+    op: sa.frequency
+    args: {what: center}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:SPAN"
+    op: sa.frequency
+    args: {what: span}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STARt"
+    op: sa.frequency
+    args: {what: start}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:FREQuency:STOP"
+    op: sa.frequency
+    args: {what: stop}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BANDwidth[:RESolution]:AUTO"
+    state: bw.res_auto
+  - header: "[:SENSe]:BANDwidth[:RESolution]"
+    op: rbw.coupled_rbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:BANDwidth:VIDeo:AUTO"
+    state: bw.vid_auto
+  - header: "[:SENSe]:BANDwidth:VIDeo"
+    op: vbw.coupled_vbw
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: "[:SENSe]:SWEep:TIME:AUTO"
+    state: sweep.time_auto
+  - header: "[:SENSe]:SWEep:TIME:UNCal"
+    op: sa.status
+    set: false
+    args: {what: uncal}
+  - header: "[:SENSe]:SWEep:TIME"
+    op: sa.coupled_sweep
+    params: [{name: value, type: float, unit: S, optional: true}]
+  - header: "[:SENSe]:SWEep:POINts"
+    state: sweep.points
+  - header: ":DISPlay:WINDow[:TRACe]:Y[:SCALe]:RLEVel"
+    state: display.ref_level
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation:AUTO"
+    state: power.att_auto
+  - header: "[:SENSe]:POWer[:RF]:ATTenuation"
+    op: input.coupled_att
+    params: [{name: value, type: float, optional: true}]
+  - header: "[:SENSe]:POWer[:RF]:OVERload"
+    op: input.overload
+    set: false
+  - header: "[:SENSe]:DETector[:FUNCtion]"
+    state: detector
+  - header: ":TRACe<t>:TYPE"  # one trace: TRAC:TYPE and TRAC1:TYPE
+    state: trace.type
+  - header: ":TRACe<t>:CLEar"
+    op: sa.trace_clear
+    query: false
+  - header: ":TRACe[:DATA]"
+    op: sa.trace_data
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: "[:SENSe]:AVERage:COUNt"
+    state: aver.count
+  - header: ":CALCulate:MARKer<m>:MAXimum[:PEAK]"
+    op: sa.marker
+    query: false
+    args: {what: max}
+  - header: ":CALCulate:MARKer<m>:MAXimum:NEXT"
+    op: sa.marker
+    query: false
+    args: {what: next}
+  - header: ":CALCulate:MARKer<m>:X"
+    op: sa.marker
+    args: {what: x}
+    params: [{name: value, type: float, unit: HZ, optional: true}]
+  - header: ":CALCulate:MARKer<m>:Y"
+    op: sa.marker
+    set: false
+    args: {what: y}
+  - header: ":CALCulate:MARKer<m>:FCOunt:X"
+    op: sa.marker
+    set: false
+    args: {what: count}
+  - header: ":CALCulate:MARKer<m>:PEAK:THReshold"
+    state: marker.threshold
+  - header: ":CALCulate:MARKer<m>:PEAK:EXCursion"
+    state: marker.excursion
+  - header: "[:SENSe]:ROSCillator:SOURce"
+    state: rosc.source
+  - header: "[:SENSe]:ROSCillator:LOCKed"
+    op: lo.status
+    set: false
+    args: {what: locked}
+  - header: "[:SENSe]:ROSCillator:ACTive"
+    op: lo.status
+    set: false
+    args: {what: active}
+  - header: ":INITiate:CONTinuous"
+    state: init.continuous
+  - header: ":INITiate[:IMMediate]"
+    op: sa.initiate
+    query: false

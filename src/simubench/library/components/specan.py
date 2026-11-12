@@ -31,104 +31,53 @@ from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
-from scipy.special import erf
 
 from ...engine import rfcascade
-from ...engine.component import Component, OpResult, PortSpec, RfStage, RfStageSpec, component, op
+from ...engine.component import (
+    Component,
+    OpResult,
+    PortSpec,
+    RfStageSpec,
+    StreamStage,
+    component,
+    op,
+)
 from ...engine.noise import gaussian, stream_key
 from ...engine.signal import Signal
+from ...engine.stream import MAX_REQUEST_FANOUT, FrameRequest, ModelLimit, beyond_model
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .adc import analog_chain
+from .specan_backend import (
+    STEPS,
+    line_response,
+    snap_filter,
+    snap_rbw,
+)
 
 F_MAX = 7.5e9
-RBW_LADDER = [m * 10.0**k for k in range(0, 7) for m in (1.0, 3.0)]  # 1 Hz ... 3 MHz
-RBW_LADDER = [r for r in RBW_LADDER if r <= 3e6]
-# The "10%" filter steps of analyzers with a digital IF (Keysight X-Series, #616): the E24 values
-# from 1 Hz to 3 MHz, then 4, 5, 6 and 8 MHz.
-_E24 = (
-    1.0,
-    1.1,
-    1.2,
-    1.3,
-    1.5,
-    1.6,
-    1.8,
-    2.0,
-    2.2,
-    2.4,
-    2.7,
-    3.0,
-    3.3,
-    3.6,
-    3.9,
-    4.3,
-    4.7,
-    5.1,
-    5.6,
-    6.2,
-    6.8,
-    7.5,
-    8.2,
-    9.1,
-)
-TEN_PCT_LADDER = [round(m * 10.0**k, 6) for k in range(0, 7) for m in _E24 if m * 10.0**k <= 3e6 + 1] + [
-    4e6,
-    5e6,
-    6e6,
-    8e6,
-]
-STEPS = ("1-3-10", "10%")
-NBW_FACTOR = math.sqrt(math.pi / (4 * math.log(2)))  # noise bandwidth of the Gaussian filter: 1.0645 RBW
-KT0_DBM_HZ = -174.0
 MAX_CELLS = 64
 MAX_LINES_IN_WINDOW = 65_536
+#: Most frequency points one sampled sweep may be put together from (signal-chain.md 5.4).
+MAX_SWEEP_BINS = 1 << 22
+#: Lowest level a sampled trace point reads, dBm (exact zero has no logarithm).
+BINS_FLOOR_DBM = -300.0
 
 
-def line_response(d: np.ndarray, rbw: float, bucket: float, detector: str) -> np.ndarray:
-    """Power a trace point shows of a unit line ``d`` Hz from the point, per detector.
+@dataclass(frozen=True)
+class _Plan:
+    """How a sampled sweep is taken (signal-chain.md 5.4): the span cut into ``segments``
+    tunings, each a transform of ``points`` frequency points ``df`` apart of which the middle
+    ``per`` are kept, laid side by side from ``origin`` upward."""
 
-    The Gaussian RBW filter swept across the point's bucket: the sample detector sees the filter
-    at the point; the positive-peak detector the highest response within the bucket; average and
-    rms detectors the mean over the bucket. When the bucket is narrower than the RBW all agree.
-    """
-    k = 4 * math.log(2) / rbw**2
-    if detector == "SAMPle" or bucket <= rbw / 50:
-        return np.exp(-k * d * d)
-    if detector in ("POSitive", "NORMal"):
-        e = np.maximum(np.abs(d) - bucket / 2, 0.0)
-        return np.exp(-k * e * e)
-    if detector == "NEGative":
-        e = np.abs(d) + bucket / 2
-        return np.exp(-k * e * e)
-    rk = math.sqrt(k)
-    return (math.sqrt(math.pi) / (2 * rk * bucket)) * (
-        erf(rk * (d + bucket / 2)) - erf(rk * (d - bucket / 2))
-    )
-
-
-def snap_rbw(value: float) -> float:
-    """The nearest 1-3-10 RBW setting."""
-    return min(RBW_LADDER, key=lambda r: abs(math.log10(r) - math.log10(max(value, 1e-12))))
-
-
-def filter_ladder(steps: str, lo: float, hi: float) -> list[float]:
-    """The bandwidths a filter offers between ``lo`` and ``hi``: the 1-3-10 ladder, or the "10%"
-    steps (E24 to 3 MHz, then 4/5/6/8 MHz). A ``hi`` above the ladder's top is one more setting,
-    the wide-open position of a video filter (the X-Series 50 MHz VBW, #616)."""
-    base = TEN_PCT_LADDER if steps == "10%" else RBW_LADDER
-    out = [b for b in base if lo - 1e-9 <= b <= hi + 1e-9]
-    if hi > base[-1] * (1 + 1e-9):
-        out.append(hi)
-    return out
-
-
-def snap_filter(value: float, steps: str, lo: float, hi: float) -> float:
-    """The setting a bandwidth entry selects: the nearest on a log scale for the 1-3-10 ladder;
-    for the "10%" steps the nearest on a linear scale, a tie rounding up (the X-Series rule)."""
-    ladder = filter_ladder(steps, lo, hi)
-    if steps != "10%":
-        return min(ladder, key=lambda r: abs(math.log10(r) - math.log10(max(value, 1e-12))))
-    return min(ladder, key=lambda r: (abs(r - value), -r))
+    dt: float  # s, the interval the transform's samples are at (nominal)
+    points: int
+    df: float  # Hz
+    per: int
+    segments: int
+    origin: float  # Hz, the frequency of the first point kept
+    cost: int  # samples one tuning asks for along the whole chain
+    acquisition: float  # s of signal one tuning takes at the ADC
 
 
 @dataclass
@@ -332,71 +281,50 @@ class SpecanMixer(Component):
         )
 
 
+#: Order of the IF filter's maximally flat (Butterworth) passband.
+IF_ORDER = 5
+#: The part of the IF bandwidth a sampled evaluation uses: the response is within 0.03 dB there.
+IF_FLAT = 0.6
+
+
 @component("specan_if")
 class SpecanIf(Component):
-    """The IF filter (D1 #187): the resolution bandwidth (auto: span / ``auto_ratio``, snapped to
-    the model's filter steps and held at or below ``auto_max``; manual otherwise), the Gaussian
-    passband lines are drawn through, and the receiver noise floor kT0·F·NBW at the RBW in use.
-    The steps and limits are the model's (#616): the 1-3-10 ladder to 3 MHz by default, the
-    X-Series "10%" steps to 8 MHz. ``out`` is the mixer's output through that passband, centered
-    on the intermediate frequency, times the IF gain."""
+    """The IF filter and amplifier (signal-chain.md 5.1): the analog passband ahead of the ADC —
+    what keeps the converter from aliasing — centered on the intermediate frequency ``if_hz``,
+    ``bandwidth`` wide at -3 dB, and the IF gain. ``out`` is the mixer's output through it.
+
+    The passband is maximally flat (a Butterworth magnitude of order 5, no phase): within 0.03 dB
+    over the middle 60 % of the bandwidth, 30 dB down at twice the bandwidth. The resolution
+    bandwidth is not here: it is the digital filter behind the ADC (``specan_rbw``)."""
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     tuned_ports = frozenset({"out"})
     defaults = {
-        "rbw": 3.0e6,  # Hz, manual RBW (a setting such as $bw.res)
-        "rbw_auto": True,  # the RBW follows the span (a setting)
-        "span": 7.5e9,  # Hz, the span the automatic RBW uses (a setting)
-        "steps": "1-3-10",  # the filter steps: 1-3-10 (nearest on a log scale) | 10% (E24 to 3 MHz, then 4/5/6/8 MHz)
-        "rbw_min": 1.0,  # Hz, the narrowest RBW
-        "rbw_max": 3.0e6,  # Hz, the widest RBW a manual entry reaches
-        "auto_ratio": 100.0,  # span / RBW the automatic coupling aims at (X-Series: 106)
-        "auto_max": 3.0e6,  # Hz, the widest RBW the automatic coupling picks
         "if_hz": 21.4e6,  # Hz, the intermediate frequency the filter is centered on
+        "bandwidth": 10.0e6,  # Hz, the passband's width at -3 dB (the anti-alias filter)
         "gain": 0.0,  # dB, the IF amplifier's gain
     }
-    units = {"rbw_min": "Hz", "rbw_max": "Hz", "auto_max": "Hz", "if_hz": "Hz", "gain": "dB"}
-    choices = {"steps": STEPS}
+    units = {"if_hz": "Hz", "bandwidth": "Hz", "gain": "dB"}
 
-    def _steps(self) -> str:
-        return self.choice("steps") or "1-3-10"
+    def passband(self, f_if: np.ndarray | float) -> np.ndarray:
+        """The filter's voltage response at the IF frequency ``f_if`` (1 at its center)."""
+        x = (
+            2.0
+            * (np.asarray(f_if, dtype=float) - float(self.param("if_hz")))
+            / float(self.param("bandwidth"))
+        )
+        return 1.0 / np.sqrt(1.0 + x ** (2 * IF_ORDER))
 
-    def snap(self, value: float, hi: float | None = None) -> float:
-        top = float(self.param("rbw_max")) if hi is None else hi
-        return snap_filter(value, self._steps(), float(self.param("rbw_min")), top)
-
-    def rbw(self) -> float:
-        if bool(self.param("rbw_auto")):
-            ratio = float(self.param("auto_ratio"))
-            top = min(float(self.param("auto_max")), float(self.param("rbw_max")))
-            return self.snap(min(float(self.param("span")) / ratio, top), top)
-        return float(self.param("rbw"))
-
-    def response(self, d: np.ndarray, rbw: float, bucket: float, detector: str) -> np.ndarray:
-        return line_response(d, rbw, bucket, detector)
-
-    def noise_floor_mw(self, att: float, nf: float) -> float:
-        return 10 ** ((KT0_DBM_HZ + nf + att + 10 * math.log10(NBW_FACTOR * self.rbw())) / 10)
+    def flat_width(self) -> float:
+        """The width around the IF a sampled evaluation takes from one tuning, Hz."""
+        return IF_FLAT * float(self.param("bandwidth"))
 
     def output(self, port: str) -> Signal:
-        k = 2 * math.log(2) / self.rbw() ** 2  # the Gaussian's voltage response: half the power exponent
-        if_hz, gain = float(self.param("if_hz")), 10 ** (float(self.param("gain")) / 20)
-        return self.input("in").transfer(lambda f: gain * np.exp(-k * (f - if_hz) ** 2))
+        gain = 10 ** (float(self.param("gain")) / 20)
+        return self.input("in").transfer(lambda f: gain * self.passband(f))
 
     def stage(self, f_hz: float) -> RfStageSpec:
         return RfStageSpec(gain_db=float(self.param("gain")))
-
-    @op("coupled_rbw")
-    def op_coupled_rbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
-        if query:
-            return OpResult(self.reply_number(self.rbw(), 10))
-        assert value is not None
-        if not float(self.param("rbw_min")) <= value <= float(self.param("rbw_max")):
-            raise ScpiError(-222)
-        assert self.owner is not None
-        self.owner.set_state("bw.res", self.snap(value))
-        self.owner.set_state("bw.res_auto", False)
-        return OpResult()
 
 
 @component("specan_detector")
@@ -449,6 +377,31 @@ class SpecanDetector(Component):
             out = power[:, 0]
         return 10 * np.log10(out)
 
+    def detect_bins(
+        self,
+        bins: np.ndarray,
+        origin: float,
+        df: float,
+        x: np.ndarray,
+        bucket: float,
+        mode: str | None = None,
+    ) -> np.ndarray:
+        """The display points ``x`` from a row of frequency points (signal-chain.md 5.3): ``bins``
+        holds the complex amplitude, in √mW, every ``df`` Hz from ``origin``. Each display point
+        takes the frequency points its bucket holds — the nearest one first, then outward on both
+        sides — and combines them as :meth:`detect` combines the resolution cells of a swept
+        point; the sample detector takes the nearest alone."""
+        mode = mode or self.in_use()
+        # an odd number, so the bucket is covered evenly on both sides of the point
+        cells = 1 if mode == "SAMPle" else 2 * round(bucket / (2 * df)) + 1
+        j = np.arange(cells)
+        outward = ((j + 1) // 2) * np.where(j % 2 == 1, 1, -1)  # 0, +1, -1, +2, -2, ...
+        nearest = np.rint((x - origin) / df).astype(np.int64)
+        v = bins[np.clip(nearest[:, None] + outward[None, :], 0, bins.size - 1)]
+        with np.errstate(divide="ignore"):  # a converter with nothing to convert gives all-zero codes
+            level = self.detect(v, np.abs(v) ** 2, mode)
+        return np.maximum(level, BINS_FLOOR_DBM)
+
     @op("select")
     def op_select(self, query: bool = False, value: str | None = None, **_: Any) -> OpResult:
         """The detector of the trace: the query answers the one in use (also when automatic); a
@@ -470,14 +423,14 @@ class SpecanDetector(Component):
 class SpecanVbw(Component):
     """The video filter's bandwidth (D1 #187): auto follows the RBW; the manual value stretches the
     sweep the same way the old monolith did (its auto sweep time uses min(RBW, VBW)). Steps and
-    limits as the IF filter's (#616); a ``vbw_max`` above the ladder is the wide-open setting."""
+    limits as the resolution filter's (#616); a ``vbw_max`` above the ladder is the wide-open setting."""
 
-    refs = {"if_filter": ("specan_if", "instrument")}
+    refs = {"rbw": ("specan_rbw", "instrument")}
     defaults = {
         "vid": 3.0e6,  # Hz, manual VBW (a setting such as $bw.vid)
         "vid_auto": True,  # the VBW follows the RBW (a setting)
-        "if_filter": "",  # the specan_if it reads the RBW from
-        "steps": "1-3-10",  # the filter steps: 1-3-10 | 10% (as the specan_if steps)
+        "rbw": "",  # the specan_rbw it reads the RBW from
+        "steps": "1-3-10",  # the filter steps: 1-3-10 | 10% (as the specan_rbw steps)
         "vbw_min": 1.0,  # Hz, the narrowest VBW
         "vbw_max": 3.0e6,  # Hz, the widest VBW (above 8 MHz: one more, wide-open setting, X-Series 50 MHz)
     }
@@ -486,7 +439,7 @@ class SpecanVbw(Component):
 
     def vbw(self) -> float:
         if bool(self.param("vid_auto")):
-            return float(self.ref("if_filter").rbw())  # type: ignore[union-attr]
+            return float(self.ref("rbw").rbw())  # type: ignore[union-attr]
         return float(self.param("vid"))
 
     @op("coupled_vbw")
@@ -515,13 +468,19 @@ class SpecanTrace(Component):
         "input": ("specan_input", "instrument"),
         "lo": ("specan_lo", "instrument"),
         "if_filter": ("specan_if", "instrument"),
+        "rbw": ("specan_rbw", "instrument"),
         "detector": ("specan_detector", "instrument"),
         "vbw": ("specan_vbw", "instrument"),
     }
     defaults = {
         "input": "",  # the specan_input (attenuation, overload)
         "lo": "",  # the specan_lo (tuning, reference error, sweep rate)
-        "if_filter": "",  # the specan_if (RBW): the end of the analog front end's chain
+        "if_filter": "",  # the specan_if: the end of the analog front end's chain
+        "rbw": "",  # the specan_rbw: the resolution bandwidth and its filter, the end of the digital chain
+        # How a trace is made (signal-chain.md 5.4): "analytic" draws every spectral line through
+        # the resolution filter's response and adds the receiver's noise per resolution cell;
+        # "sampled" tunes across the span and transforms the ADC's samples at each tuning.
+        "evaluation": "analytic",
         "detector": "",  # the specan_detector
         "vbw": "",  # the specan_vbw
         "max_hold_sweeps": 999,  # sweeps max or min hold keeps (older ones are dropped, with a warning)
@@ -542,7 +501,11 @@ class SpecanTrace(Component):
         "sweep_min": "S",
         "sweep_max": "S",
     }
-    choices = {"marker_off_reply": ("error", "nan"), "delta_x": ("absolute", "offset")}
+    choices = {
+        "marker_off_reply": ("error", "nan"),
+        "delta_x": ("absolute", "offset"),
+        "evaluation": ("analytic", "sampled"),
+    }
     dynamic = True
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -570,6 +533,12 @@ class SpecanTrace(Component):
     def _if(self) -> SpecanIf:
         return self._block("if_filter")
 
+    def _rbw(self) -> Any:  # the SpecanRbw
+        return self._block("rbw")
+
+    def sampled(self) -> bool:
+        return self.choice("evaluation") == "sampled"
+
     def _detector(self) -> SpecanDetector:
         return self._block("detector")
 
@@ -591,7 +560,7 @@ class SpecanTrace(Component):
         return self.owner.get_state(path) if path in self.owner.specs else default
 
     def rbw(self) -> float:
-        return self._if().rbw()
+        return self._rbw().rbw()
 
     def vbw(self) -> float:
         return self._vbw().vbw()
@@ -601,7 +570,12 @@ class SpecanTrace(Component):
         than the LO can sweep it (``lo_rate``, #292)."""
         rbw = self.rbw()
         span = float(self._st("freq.span"))
-        settle = 2.5 * span / (rbw * min(rbw, self.vbw()))
+        if self.sampled():
+            # every tuning takes the signal its transform (and the filters ahead of it) needs
+            plan = self._plan(*self.window(), int(self._st("sweep.points")))
+            settle = plan.segments * plan.acquisition
+        else:
+            settle = 2.5 * span / (rbw * min(rbw, self.vbw()))
         return max(float(self.param("sweep_min")), settle, self._lo().sweep_floor(span))
 
     def sweep_time(self) -> float:
@@ -617,16 +591,7 @@ class SpecanTrace(Component):
     def chain(self) -> list[Any]:
         """The analog front end's stages, input first: the IF filter and every ``RfStage`` found
         walking the wiring upstream from it."""
-        assert self.owner is not None
-        blocks: list[Any] = []
-        block: Any = self._if()
-        while isinstance(block, RfStage) and block not in blocks:
-            blocks.append(block)
-            src = self.owner.wiring.source(block.name, "in")
-            if src is None:
-                break
-            block = self.owner.components[src[0]]
-        return blocks[::-1]
+        return analog_chain(self._if())
 
     def noise_figure(self) -> float:
         """The receiver's noise figure at the attenuator's output, dB: the cascade of the stages
@@ -691,6 +656,11 @@ class SpecanTrace(Component):
         last = self._history[-1][1] if self._history else None
         if last is None or not _same(last, sig):
             self._history.append((self.session.now_ns, sig))
+            if self.sampled():
+                # The chain samples what RF_IN carries; it has no earlier signal to go back to.
+                # A change of the input therefore starts the trace again: hold and average do
+                # not span it (a limit of the sampled evaluation).
+                self.restart()
 
     # ---- traces ---------------------------------------------------------------------------------
 
@@ -741,6 +711,8 @@ class SpecanTrace(Component):
             f_next = self._lo().display(f[-1] + (f[-1] - f[-2]))
             if f_next <= st.stop + 3 * st.rbw:
                 return f"too many lines for one trace: the weakest were dropped (lines above {f[-1]:.6g} Hz are not modeled)"
+        if self.sampled():
+            return None  # every line RF_IN carries is in the samples
         _, _, dropped = self._lines_in_window(sig, st)
         if dropped:
             return "too many lines for one trace: the weakest were dropped"
@@ -755,6 +727,12 @@ class SpecanTrace(Component):
         hit = self._cache.get((s, version))
         if hit is not None:
             return hit
+        if self.sampled():
+            trace = self._sweep_sampled(s, st)
+            if len(self._cache) > 4096:
+                self._cache.clear()
+            self._cache[(s, version)] = trace
+            return trace
         sig = self._history[version][1] if self._history else Signal.zero()
         x = np.linspace(st.start, st.stop, st.points)
         f, p, _ = self._lines_in_window(sig, st)
@@ -763,10 +741,10 @@ class SpecanTrace(Component):
         if f.size:
             for i in range(0, f.size, 512):
                 d = x[:, None] - f[None, i : i + 512]
-                line_mw += (p[None, i : i + 512] * self._if().response(d, st.rbw, bucket, st.detector)).sum(
+                line_mw += (p[None, i : i + 512] * self._rbw().response(d, st.rbw, bucket, st.detector)).sum(
                     axis=1
                 )
-        floor_mw = self._if().noise_floor_mw(st.att, st.nf)
+        floor_mw = self._rbw().noise_floor_mw(st.att, st.nf)
         cells = int(min(MAX_CELLS, max(1, round(bucket / st.rbw))))
         if st.detector == "SAMPle":
             cells = 1
@@ -783,6 +761,77 @@ class SpecanTrace(Component):
             self._cache.clear()
         self._cache[(s, version)] = trace
         return trace
+
+    # ---- the sampled evaluation (signal-chain.md 5.4) --------------------------------------------
+
+    def _plan(self, start: float, stop: float, points: int) -> _Plan:
+        """How the window is cut into tunings with the current settings."""
+        assert self.owner is not None
+        rbw = self._rbw()
+        dt = rbw.interval()
+        n = rbw.points(dt)
+        df = 1.0 / (n * dt)
+        # one tuning gives the usable half of the transform's rate, and no more than the flat
+        # part of the analog IF
+        per = max(2, 2 * int(min(0.5 / dt, self._if().flat_width()) / df / 2))
+        bucket = (stop - start) / max(points - 1, 1)
+        origin = start - bucket / 2 - df
+        segments = max(1, math.ceil((stop + bucket / 2 + df - origin) / (per * df)))
+        request = FrameRequest(0, n, dt)
+        cost, port = n, "out"
+        block: Any = rbw
+        while isinstance(block, StreamStage):
+            request = block.upstream_request(port, request)
+            cost += request.count
+            src = self.owner.wiring.source(block.name, "in")
+            if src is None:
+                break
+            block, port = self.owner.components[src[0]], src[1]
+        return _Plan(dt, n, df, per, segments, origin, cost, request.count * request.dt_s)
+
+    def _sweep_sampled(self, s: int, st: _Settings) -> np.ndarray:
+        """Sweep ``s`` from the chain's samples: tune to each segment of the span in turn, take
+        the resolution filter's transform there, keep its middle, lay the segments side by side
+        and detect. Levels are referred to the input: the chain's gain and the IF passband's
+        response are taken out, as the instrument's calibration does."""
+        assert self.owner is not None
+        plan = self._plan(st.start, st.stop, st.points)
+        if plan.segments * plan.cost > MAX_REQUEST_FANOUT or plan.segments * plan.per > MAX_SWEEP_BINS:
+            raise beyond_model(
+                f"{self.uid}: this sweep takes {plan.segments} tunings of {plan.cost} samples "
+                f"({plan.segments * plan.per} frequency points); at most {MAX_REQUEST_FANOUT} samples "
+                f"and {MAX_SWEEP_BINS} points — widen the RBW or narrow the span"
+            )
+        rbw, lo, if_filter = self._rbw(), self._lo(), self._if()
+        center = float(self._st("freq.center"))
+        with self.session.tuned(center):
+            gain_db = rfcascade.cascade(block.stage(center) for block in self.chain()).gain_db
+        half = plan.per // 2
+        offsets = np.arange(-half, half) * plan.df
+        # √mW at the input from volts at the ADC: the passband's response and the chain's gain out
+        scale = math.sqrt(1e3 / (2 * float(self._input().param("z_in"))) * 10 ** (-gain_db / 10))
+        calibration = scale / if_filter.passband(float(if_filter.param("if_hz")) + offsets)
+        dt_real = plan.dt / (1.0 + lo.error())  # the ADC's clock runs off the reference
+        t_sweep = self._restart_ns + round(s * st.sweep * 1e9)
+        dwell = st.sweep / plan.segments
+        key = (self.owner.name, "specan", "sampled", st.key(), s)
+        lead = max(plan.points, 64)  # ahead of every filter's warm-up: the indexes stay positive
+        middle = plan.points // 2
+        bins = np.empty(plan.segments * plan.per, dtype=np.complex128)
+        for i in range(plan.segments):
+            request = FrameRequest(
+                t0_ns=t_sweep + round(i * dwell * 1e9),
+                count=plan.points,
+                dt_s=dt_real,
+                key=(*key, i),
+                index0=lead,
+                tune_hz=plan.origin + (i * plan.per + half) * plan.df,
+            )
+            frame = self.session.cached_frames(rbw, "out", request)
+            bins[i * plan.per : (i + 1) * plan.per] = frame.data[middle - half : middle + half] * calibration
+        x = np.linspace(st.start, st.stop, st.points)
+        bucket = (st.stop - st.start) / max(st.points - 1, 1)
+        return self._detector().detect_bins(bins, plan.origin, plan.df, x, bucket, st.detector)
 
     def current_sweep(self, st: _Settings) -> int:
         return max(0, int((self.session.now_ns - self._restart_ns) * 1e-9 / st.sweep + 1e-9))
@@ -830,8 +879,14 @@ class SpecanTrace(Component):
     # ---- readings (UI) --------------------------------------------------------------------------
 
     def readings(self) -> dict[str, Any]:
-        x, y = self.trace()
         st = self.settings()
+        try:
+            x, y = self.trace()
+        except ModelLimit as limit:
+            # the panel says why there is no trace; a command reads the same refusal as an error
+            return {
+                "values": {"start": st.start, "stop": st.stop, "rbw": st.rbw, "beyond_model": limit.detail}
+            }
         mx = float(self._st("marker.x"))
         i = int(np.argmin(np.abs(x - mx)))
         return {

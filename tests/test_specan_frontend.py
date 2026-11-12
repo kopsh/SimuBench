@@ -95,14 +95,24 @@ def test_the_front_end_passes_the_tone_from_block_to_block(bench):
     assert filtered.freq.tolist() == pytest.approx([IF_HZ])
     assert _dbm(filtered.amp[0]) == pytest.approx(_dbm(mixed.amp[0]) + IF_GAIN, abs=1e-9)
 
-    # tuned half an RBW away the line is off the IF by as much, 3.01 dB down the Gaussian
+    # tuned half an RBW away the line is off the IF by as much. The IF filter is the anti-alias
+    # passband ahead of the ADC (#955), flat there; the 3.01 dB of the Gaussian resolution filter
+    # is the RBW block's, behind the ADC
     rbw = float(session_query(s, "sa", ":BAND?"))
     with s.tuned(TONE_HZ + rbw / 2):
         off = out["mixer"]()
         off_filtered = out["if_filter"]()
     assert off.freq.tolist() == pytest.approx([IF_HZ - rbw / 2])
     assert _dbm(off.amp[0]) == pytest.approx(_dbm(mixed.amp[0]), abs=1e-9)
-    assert _dbm(off_filtered.amp[0]) == pytest.approx(_dbm(filtered.amp[0]) - 3.0103, abs=1e-3)
+    assert _dbm(off_filtered.amp[0]) == pytest.approx(_dbm(filtered.amp[0]), abs=1e-3)
+    half_power = blocks["rbw"].response(np.array([rbw / 2]), rbw, 0.0, "SAMPle")[0]
+    assert 10 * math.log10(half_power) == pytest.approx(-3.0103, abs=1e-3)
+    # half the IF bandwidth off its center the passband is 3.01 dB down, twice the bandwidth 30 dB
+    bandwidth = float(blocks["if_filter"].param("bandwidth"))
+    for away, down in ((bandwidth / 2, 3.0103), (bandwidth, 30.1), (2 * bandwidth, 60.2)):
+        with s.tuned(TONE_HZ + away):
+            edge = out["if_filter"]()
+        assert _dbm(edge.amp[0]) == pytest.approx(_dbm(filtered.amp[0]) - down, abs=0.05)
 
     # one tuning point's output does not answer for another's: each has its own cache entry
     with s.tuned(TONE_HZ):
@@ -206,9 +216,16 @@ def test_a_definition_written_the_earlier_way_is_the_same_definition(path):
     assert _codes(earlier) == []
     old, new = InstrumentDefinition.model_validate(earlier), InstrumentDefinition.model_validate(data)
     assert {c.name: c for c in old.components} == {c.name: c for c in new.components}
-    # what the macro adds goes to the end of its table: the author's entries keep their places
-    assert [c.name for c in old.components][-1] == "lo"
-    assert old.wiring.instrument[-2:] == [("input.out", "mixer.in"), ("mixer.out", "if_filter.in")]
+    # what the macros add goes to the end of its table: the author's entries keep their places
+    # (the oscillator of #952, then the digital back end of #955)
+    assert [c.name for c in old.components][-4:] == ["lo", "adc", "ddc", "rbw"]
+    assert old.wiring.instrument[-5:] == [
+        ("input.out", "mixer.in"),
+        ("mixer.out", "if_filter.in"),
+        ("if_filter.out", "adc.in"),
+        ("adc.out", "ddc.in"),
+        ("ddc.out", "rbw.in"),
+    ]
     assert sorted(old.wiring.instrument) == sorted(new.wiring.instrument)
     assert old.commands == new.commands
 

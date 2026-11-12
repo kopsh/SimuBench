@@ -363,6 +363,18 @@ class RfStage(Protocol):
         ...
 
 
+@runtime_checkable
+class StreamStage(Protocol):
+    """A block that makes its frames from an upstream sample stream — a down-converter, a
+    filter, a transform — and can say beforehand what a request costs. Whoever starts a read of
+    many frames (a spectrum analyzer's sampled sweep) walks the wiring upstream, adds the
+    requests up and refuses a read beyond the model before any sample is computed."""
+
+    def upstream_request(self, port: str, request: FrameRequest) -> FrameRequest:
+        """The request this block sends upstream to answer ``request`` on its output ``port``."""
+        ...
+
+
 class Component:
     """Base class for every component type."""
 
