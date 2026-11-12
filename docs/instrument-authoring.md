@@ -186,6 +186,17 @@ params:
 
 **子定义里写 `键: null` 丢弃继承来的该键**：dict 键（一条状态、一个端口组、`specs` 的一项）、`errors` 的单个 code、整个列表（如 `components: null`）都适用；null 在全部层合并完才生效，下层与类别默认都带不回来，父定义没有该键时等于没写。内置库的 keysight-53230a（`extends: keysight-53220a`）、keysight-daq970a（`extends: keysight-34970a`）与 keysight-b2912b（`extends: keysight-b2901a`，丢弃单通道的仪器级状态、端口与组件）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
 
+### 2.10 频谱仪前端的非理想参数（#954）
+
+频谱仪前端的非理想全部是功能块的声明参数，**不声明时回复与理想接收机逐字节相同**（`sb-sa-1` 不声明）。参数取自数据手册，`specs` 里逐项注明手册的表与页；手册没有的项不声明、不估计。块的划分与公式见 `signal-chain.md` 5.2，能力清单见 `component-map.md` 的频谱仪节：
+
+- `specan_input`：`flatness`（`[[频率 Hz, dB], …]`，分段线性、表外为 0 dB，作用于显示电平）、`preamp_gain`（已有）、`preamp_noise_figure`/`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（前置放大器自己的指标，块内按衰减折算到输入参考）。声明 `preamp_noise_figure` 即前放在链中：`preamp_gain: 0` 只把增益设 0，噪声系数仍在链上；无前放就不声明这些键。
+- `specan_mixer`：`conversion_loss`（已有）、`iip2_dbm`/`iip3_dbm`/`p1db_dbm`、`image_rejection`（dB，缺省无穷大）、`lo_feedthrough`（dBm，调谐于 0 Hz 附近出现的线）、`spurs`（`[[m, n, dBc], …]`，m·f_rf ± n·f_lo 的响应）、`residuals`（`[[频率 Hz, dBm], …]`，无输入也有的线）。
+- `specan_if`：`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（中频放大器）。
+- `specan_lo`：`phase_noise`（`[[偏移 Hz, dBc/Hz], …]`，对数-对数插值、端点按表延伸）。
+
+迹线上的效果：失真产物由链的级联截点生成（`engine/rfcascade.py`，最强的 64 条输入线参与，略去的在保真度标注里记「近似」）；增益压缩按 P1dB 的三阶模型作用于各输入线；镜像与杂散按抑制比/dBc 折算成显示谱线；相位噪声按载波功率 × L(偏移) × 噪声带宽进检波器的噪声统计。解析求值覆盖以上全部；采样式求值（`evaluation: sampled`）只含平坦度、镜像与杂散（它们已在模拟谱线里），覆盖说明中写明。
+
 ## 3. 通用波形传输与采集（G2、G3）
 
 ### 3.1 `waveform_transfer`
