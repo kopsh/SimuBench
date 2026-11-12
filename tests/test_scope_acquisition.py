@@ -132,7 +132,8 @@ def test_an_average_beyond_the_model_is_refused_before_its_first_acquisition(mon
     query = _noise_query(session)
     scope = session.instruments["scope"].components
     points = scope["acq"]._timing()[0]
-    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 4 * points)  # the record and 3 acquisitions
+    # The record's own request and 3 acquisitions: at most cap // points - 1 averages (#990).
+    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 4 * points)
     adc, calls = scope["adc"], []
     frames = adc.frames
     monkeypatch.setattr(adc, "frames", lambda port, request: calls.append(port) or frames(port, request))

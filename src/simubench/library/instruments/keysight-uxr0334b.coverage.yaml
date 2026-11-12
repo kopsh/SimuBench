@@ -153,8 +153,9 @@ sections:
     level: implemented
     note: 2 to 1 048 575 (the data sheet; the guide's 10,486,575 is a misprint); 16 after a default setup
       is a SimuBench value. A SimuBench model limit, not the guide's (#986) - an acquisition whose count x
-      record points is beyond 2^28 (more than 2096 averages of the default 128 kpts record) is refused
-      before it starts with -221 and leaves no record
+      record points is beyond 2^28 (the record's own request counts too, so at most 2^28 // points - 1 averages,
+      2096 of the default 128 kpts record, 25 of the deepest 10 Mpts one (#990)) is refused before it
+      starts with -221 and leaves no record. No peak detect is mapped
   - header: :ACQuire:BANDwidth
     level: implemented
     note: 'MAX or 100 MHz to 33 GHz: the -3 dB frequency of the acquisition''s DSP filter, shaped by :ACQuire:RESPonse
