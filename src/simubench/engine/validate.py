@@ -191,6 +191,21 @@ def _check_instrument(
         )
         return
     defs[name] = d
+    declared = [o.id for o in d.options]
+    for i, option in enumerate(inst.options):
+        if option not in declared:
+            unknown_name(
+                report,
+                "E-OPTION-UNKNOWN",
+                _ptr(*p, "options", i),
+                f"仪表定义 {d.id} 没有选件 {option!r}",
+                option,
+                declared,
+                name,
+                fallback=f"可用的选件：{', '.join(declared)}"
+                if declared
+                else f"{d.id} 没有声明选件，去掉这一项",
+            )
     if inst.deviation == "from_specs" and not d.deviations:
         report.add(
             "warning",
@@ -365,6 +380,17 @@ def _check_parts(
                     f"{part.type} 没有参数 {k!r}，无法给它个体偏差",
                     k,
                     list(cls.defaults),
+                    name,
+                )
+            elif (rng.bands is not None) != (k in cls.curves):
+                report.add(
+                    "error",
+                    "E-DEVIATION-PARAM",
+                    _ptr(*p, "deviation", k),
+                    f"{k} 是随频率变化的曲线，个体偏差要按频段写（bands）"
+                    if k in cls.curves
+                    else f"{k} 不是随频率变化的曲线，不能按频段（bands）给个体偏差",
+                    None,
                     name,
                 )
             elif rng.unit and not part.params.get(k, cls.defaults[k]):

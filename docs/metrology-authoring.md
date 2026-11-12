@@ -252,6 +252,18 @@ deviations:
 ```
 
 - `unit` 为 `%` 或 `ppm` 时偏差相对标称值（值 = 标称 × (1 + d)）；不写时 limit 用参数本身的单位，值 = 标称 + d（参数本身就是误差或偏移时这样写）。静态校验检查 `param` 指向已声明的组件与参数、参数是数值，相对偏差用在标称值为 0 的参数上时给出警告。
+- 参数是随频率变化的曲线（`[[频率 Hz, 值], …]`，目前是 `specan_input.flatness`）时按频段写（#1004），不用 `by` 与 `unit`：
+
+  ```yaml
+  deviations:
+    - param: input.flatness
+      bands: [[200e3, 2e9], [2e9, 3e9]]   # 数据手册给限值的频段，升序、不重叠
+      limit: [0.5, 0.7]                   # 每段的 ±limit（dB）；一个数则各段相同
+      reference: 50e6                     # 可选：校准参考频率，此处偏差为 0
+      points: 3                           # 可选：每段内部抽几个值（默认 3，按对数频率等距）
+  ```
+
+  每段在两端与内部各点抽一个值，点间直线相连，所以整段都在该段的 ±limit 内；两段共用的端点只抽一次，按较紧的限值。频段之外偏差为 0。抽出的值就是参数的形状（`[[Hz, dB], …]`），定义里写了标称曲线时逐点相加。曲线参数不按频段写、或把 `bands` 用在别的参数上，报 `E-DEF-DEVIATION-BANDS`。
 - 一项的 `limit` 来自手册时，在 `specs` 中引用出处即可，不要求两者自动对应（手册的指标常是“读数的 x ppm + 量程的 y ppm”，换成参数需要领域判断，由写型号的人完成）。
 
 ### 7.2 测试台
@@ -282,7 +294,7 @@ parts:
 - 编辑操作 `set_deviation`（仪表的 `mode`，或 DUT 一个参数的 `range`），画布与 MCP 共用（D9）；
 - 会话接口：仪表的 `deviation`（模式）与 `deviations`，DUT 的 `deviations`；每项给出范围、是否抽取、值（只在 `reveal_true_values` 打开时）；隐藏时 DUT 的 `params` 显示标称值。检查器中的“个体偏差”一节显示范围与值，仪表有“按指标抽取”开关；原来 DUT 的“隐藏参数”（`tol_*`）并入这一节；
 - 运行记录头部的 `deviations`；回放按记录的种子重新抽取，不一致时警告（例如定义中的范围改过）；
-- 诊断：`E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO`（定义），`E-DEVIATION-PARAM`、`W-DEVIATION-ZERO`、`W-DEVIATION-NONE`（测试台）；
+- 诊断：`E-DEF-DEVIATION`、`E-DEF-DEVIATION-BANDS`、`W-DEF-DEVIATION-ZERO`（定义），`E-DEVIATION-PARAM`、`W-DEVIATION-ZERO`、`W-DEVIATION-NONE`（测试台）；
 - `sb-dmm-1`（增益误差、零点）与 `sb-awg-2`（每通道的输出阻抗）写了 `deviations`，供测试与演示。
 
 ## 8. 定标判定的真值核对（C7，#92）

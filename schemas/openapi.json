@@ -1480,6 +1480,18 @@
             "description": "Component operation, e.g. 'acq.digitize'",
             "title": "Op"
           },
+          "option": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The command belongs to this option (an `options` id): a unit without it skips the command — a later command on the same header without `option` answers instead (what the manual says a unit without the option replies), otherwise -241 Hardware missing",
+            "title": "Option"
+          },
           "params": {
             "items": {
               "$ref": "#/components/schemas/ParamSpec"
@@ -2340,6 +2352,24 @@
       "DeviationInfo": {
         "description": "One parameter's individual deviation (个体偏差): its range, and this unit's value when shown.",
         "properties": {
+          "bands": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "type": "number"
+                  },
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A curve parameter's frequency bands [[f_lo, f_hi], …] (Hz), each with its own limit",
+            "title": "Bands"
+          },
           "by": {
             "anyOf": [
               {
@@ -2366,7 +2396,7 @@
             "type": "boolean"
           },
           "limit": {
-            "description": "±limit: a number, or a table keyed by the last `by` value",
+            "description": "±limit: a number, a table keyed by the last `by` value, or a list with one limit per band",
             "title": "Limit"
           },
           "param": {
@@ -2396,6 +2426,7 @@
           "unit",
           "distribution",
           "by",
+          "bands",
           "value",
           "drawn"
         ],
@@ -2406,6 +2437,31 @@
         "additionalProperties": false,
         "description": "The range one parameter's deviation falls in.",
         "properties": {
+          "bands": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in ascending order. The unit's curve stays within ±limit of the nominal curve in each band (`limit` is one number, or a list with one limit per band); between bands and beyond them the deviation is 0",
+            "title": "Bands"
+          },
           "by": {
             "anyOf": [
               {
@@ -2449,10 +2505,37 @@
                   "type": "number"
                 },
                 "type": "object"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
               }
             ],
-            "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)",
+            "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range), or with `bands` a list, one limit per band",
             "title": "Limit"
+          },
+          "points": {
+            "default": 3,
+            "description": "With `bands`: how many values are drawn inside each band, besides one at each band edge (spaced evenly in log frequency, joined by straight lines)",
+            "maximum": 32.0,
+            "minimum": 0.0,
+            "title": "Points",
+            "type": "integer"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `bands`: the frequency (Hz) the response is calibrated at; the deviation is 0 there (e.g. 50e6)",
+            "title": "Reference"
           },
           "unit": {
             "anyOf": [
@@ -2481,6 +2564,31 @@
         "additionalProperties": false,
         "description": "A definition's deviation: which component parameter, and its range.",
         "properties": {
+          "bands": {
+            "anyOf": [
+              {
+                "items": {
+                  "maxItems": 2,
+                  "minItems": 2,
+                  "prefixItems": [
+                    {
+                      "type": "number"
+                    },
+                    {
+                      "type": "number"
+                    }
+                  ],
+                  "type": "array"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in ascending order. The unit's curve stays within ±limit of the nominal curve in each band (`limit` is one number, or a list with one limit per band); between bands and beyond them the deviation is 0",
+            "title": "Bands"
+          },
           "by": {
             "anyOf": [
               {
@@ -2524,9 +2632,15 @@
                   "type": "number"
                 },
                 "type": "object"
+              },
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
               }
             ],
-            "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)",
+            "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range), or with `bands` a list, one limit per band",
             "title": "Limit"
           },
           "param": {
@@ -2534,6 +2648,27 @@
             "pattern": "^[^.]+(\\.[^.]+)*\\.[^.]+$",
             "title": "Param",
             "type": "string"
+          },
+          "points": {
+            "default": 3,
+            "description": "With `bands`: how many values are drawn inside each band, besides one at each band edge (spaced evenly in log frequency, joined by straight lines)",
+            "maximum": 32.0,
+            "minimum": 0.0,
+            "title": "Points",
+            "type": "integer"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With `bands`: the frequency (Hz) the response is calibrated at; the deviation is 0 there (e.g. 50e6)",
+            "title": "Reference"
           },
           "unit": {
             "anyOf": [
@@ -3378,6 +3513,14 @@
           "model": {
             "title": "Model",
             "type": "string"
+          },
+          "options": {
+            "description": "Hardware options (选件): `components` and `commands` describe the unit without any; each option gives the component parameters of a unit that has it, and commands may name the option they belong to. A bench instance lists the installed ones",
+            "items": {
+              "$ref": "#/components/schemas/OptionSpec"
+            },
+            "title": "Options",
+            "type": "array"
           },
           "ports": {
             "$ref": "#/components/schemas/Ports"
@@ -4758,6 +4901,44 @@
           "required"
         ],
         "title": "OperationParam",
+        "type": "object"
+      },
+      "OptionSpec": {
+        "additionalProperties": false,
+        "description": "A hardware option of the model (选件), e.g. a preamplifier: what a unit that has it adds to\nthe definition. A bench instance lists the options its unit has (`options: [P03]`).",
+        "properties": {
+          "id": {
+            "description": "The option's name as the manufacturer writes it, e.g. 'P03'",
+            "pattern": "^\\S+$",
+            "title": "Id",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What the option is, e.g. 'Preamplifier, 1 MHz to 3 GHz'",
+            "title": "Label"
+          },
+          "params": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Component parameters of a unit with the option, by component name, e.g. {input: {preamp_gain: {from: $power.gain, map: {'True': 18, 'False': 0}}, preamp_noise_figure: 6}}: each replaces the parameter the definition's `components` give (the unit without the option)",
+            "title": "Params",
+            "type": "object"
+          }
+        },
+        "required": [
+          "id"
+        ],
+        "title": "OptionSpec",
         "type": "object"
       },
       "Panel": {

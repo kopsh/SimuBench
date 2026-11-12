@@ -34,6 +34,7 @@ class CounterGate(Component):
     }
     units = {"time": "s"}
     choices = {"mode": ("TIMe", "COUNt")}  # word params: validation refuses other words; read with self.choice("mode")
+    curves = frozenset({"flatness"})   # params that are [[Hz, value], …]: a deviation draws them by `bands` (#1004)
     refs = {"clock": ("reference_clock", "instrument")}   # links to sibling components
     # the accessor a ref yields is one line: self.ref("clock") — a channel component finds
     # ch<n>.<name> first, then instrument level (#382); an optional ref (optional_refs) is None

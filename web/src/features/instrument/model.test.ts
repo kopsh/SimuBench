@@ -67,6 +67,12 @@ describe("command list", () => {
     );
     expect(deviationLimit(2e-5, "V")).toBe("±20 µV");
     expect(deviationLimit({ DC: 1e-5, AC: 2e-4 }, "V")).toBe("DC: ±10 µV；AC: ±200 µV");
+    expect(
+      deviationLimit([0.5, 0.7], null, [
+        [2e5, 2e9],
+        [2e9, 3e9],
+      ]),
+    ).toBe("200 kHz–2 GHz: ±0.5；2 GHz–3 GHz: ±0.7");
   });
 
   it("flattens specifications one level", () => {

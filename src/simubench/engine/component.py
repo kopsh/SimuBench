@@ -411,6 +411,10 @@ class Component:
     #: or a bound setting that can take another word (E-DEF-PARAM-VALUE, #308); :meth:`choice`
     #: reads the parameter as its canonical word.
     choices: ClassVar[dict[str, tuple[str, ...]]] = {}
+    #: Parameters that are a curve over frequency, [[Hz, value], …] (the analyzer input's
+    #: ``flatness``): the ones an individual deviation by frequency bands (``bands``) may draw
+    #: (#1004).
+    curves: ClassVar[frozenset[str]] = frozenset()
     #: Instrument settings a component reads by path rather than through a bound parameter, whose
     #: changes it still hears in :meth:`on_state` (the analyzer's marker group, #274). Paths the
     #: definition does not declare are ignored.

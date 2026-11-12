@@ -254,8 +254,17 @@ function specValue(value: unknown): string {
   return String(value);
 }
 
-/** One deviation's limit, as the definition declares it (a number or a table by ranges). */
-export function deviationLimit(limit: unknown, unit?: string | null): string {
+/** One deviation's limit, as the definition declares it (a number, a table by ranges, or one
+ * limit per frequency band). */
+export function deviationLimit(limit: unknown, unit?: string | null, bands?: number[][] | null): string {
+  if (bands?.length) {
+    return bands
+      .map(([lo, hi], i) => {
+        const value = Array.isArray(limit) ? limit[i] : limit;
+        return `${eng(lo, "Hz", 3)}–${eng(hi, "Hz", 3)}: ±${typeof value === "number" && unit ? eng(value, unit, 3) : String(value)}`;
+      })
+      .join("；");
+  }
   if (typeof limit === "number") return `±${eng(limit, unit, 3)}`;
   if (limit && typeof limit === "object") {
     return Object.entries(limit as Record<string, unknown>)
