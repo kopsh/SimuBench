@@ -535,6 +535,8 @@ export const zh = {
     events: "事件",
     problems: "问题",
     filter: "筛选",
+    filterSource: "按来源过滤",
+    sourceAll: "全部来源",
     autoscroll: "自动滚动",
     clear: "清空显示",
     time: "时间",

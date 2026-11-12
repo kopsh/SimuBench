@@ -538,6 +538,8 @@ export const en: Widen<Messages> = {
     events: "Events",
     problems: "Problems",
     filter: "Filter",
+    filterSource: "Filter by source",
+    sourceAll: "All sources",
     autoscroll: "Auto-scroll",
     clear: "Clear view",
     time: "Time",
