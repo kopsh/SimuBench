@@ -23,6 +23,7 @@ plausible fake).
 | Circuit (MNA per frequency) / signals / noise | `engine/circuit.py`, `engine/signal.py`, `engine/noise.py` |
 | Sample streams after an ADC: `FrameRequest`, `SampleFrame`, limits; the frame cache is `Session.cached_frames` (D67) | `engine/stream.py` |
 | Cascaded RF figures (Friis, intercepts, distortion products, compression) of the `RfStage` blocks; the tuning context is `Session.tuned` | `engine/rfcascade.py` |
+| Internal probe: what a port inside an instrument carries (analog lines, a samples frame and its spectrum, the "tuned to" of a receiver), shared by HTTP and MCP; hidden in validation mode | `server/services/internal_probe.py` |
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
 | Bench edits (canvas + MCP share them) | `engine/edit.py` |
 | Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `engine/replay.py` |
@@ -77,7 +78,7 @@ plausible fake).
 | Is it done already? | `progress.md` (milestones); details: grep `progress-log.md` |
 | What is the product for, what is weak, what comes next? | `positioning-review.md` (internal tool; shortage + own-instrument scenarios; draft) |
 | In what order is the remaining work done, who does each step, what counts as done? | `product-plan.md` (draft: what only the owner can do, what agents can do now, issue-ready rows) |
-| Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the issue split (D67) | `signal-chain.md` (design; the sample-stream base is in, #946; the rest follows under #945) |
+| Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the two evaluations, the issue split (D67) | `signal-chain.md` (implemented, first version); how to write one in a definition: `instrument-authoring.md` 2.11 |
 | Definition YAML format, declarative commands, replies, mappings | `instrument-authoring.md` 2–5 |
 | Real-model rules | `real-models.md`; meters/calibrators/SMUs: `metrology-authoring.md` |
 | Functional blocks per instrument class (D50) | `component-map.md`, `docs/blocks/<class>.yaml` |

@@ -168,6 +168,32 @@
       "additionalProperties": false,
       "description": "The range one parameter's deviation falls in.",
       "properties": {
+        "bands": {
+          "anyOf": [
+            {
+              "items": {
+                "maxItems": 2,
+                "minItems": 2,
+                "prefixItems": [
+                  {
+                    "type": "number"
+                  },
+                  {
+                    "type": "number"
+                  }
+                ],
+                "type": "array"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in ascending order. The unit's curve stays within ±limit of the nominal curve in each band (`limit` is one number, or a list with one limit per band); between bands and beyond them the deviation is 0",
+          "title": "Bands"
+        },
         "by": {
           "anyOf": [
             {
@@ -212,10 +238,38 @@
                 "type": "number"
               },
               "type": "object"
+            },
+            {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
             }
           ],
-          "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)",
+          "description": "±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range), or with `bands` a list, one limit per band",
           "title": "Limit"
+        },
+        "points": {
+          "default": 3,
+          "description": "With `bands`: how many values are drawn inside each band, besides one at each band edge (spaced evenly in log frequency, joined by straight lines)",
+          "maximum": 32,
+          "minimum": 0,
+          "title": "Points",
+          "type": "integer"
+        },
+        "reference": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "With `bands`: the frequency (Hz) the response is calibrated at; the deviation is 0 there (e.g. 50e6)",
+          "title": "Reference"
         },
         "unit": {
           "anyOf": [
@@ -515,6 +569,14 @@
           "description": "Instrument definition id, e.g. 'siglent-sds2104xplus'",
           "title": "Model",
           "type": "string"
+        },
+        "options": {
+          "description": "Hardware options this unit has (选件), by the ids of the definition's `options`, e.g. ['P03']: the unit takes each option's component parameters and answers its commands",
+          "items": {
+            "type": "string"
+          },
+          "title": "Options",
+          "type": "array"
         },
         "serial": {
           "anyOf": [

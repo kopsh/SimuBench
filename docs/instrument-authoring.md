@@ -190,12 +190,153 @@ params:
 
 频谱仪前端的非理想全部是功能块的声明参数，**不声明时回复与理想接收机逐字节相同**（`sb-sa-1` 不声明）。参数取自数据手册，`specs` 里逐项注明手册的表与页；手册没有的项不声明、不估计。块的划分与公式见 `signal-chain.md` 5.2，能力清单见 `component-map.md` 的频谱仪节：
 
-- `specan_input`：`flatness`（`[[频率 Hz, dB], …]`，分段线性、表外为 0 dB，作用于显示电平）、`preamp_gain`（已有）、`preamp_noise_figure`/`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（前置放大器自己的指标，块内按衰减折算到输入参考）。声明 `preamp_noise_figure` 即前放在链中：`preamp_gain: 0` 只把增益设 0，噪声系数仍在链上；无前放就不声明这些键。
+- `specan_input`：`flatness`（`[[频率 Hz, dB], …]`，分段线性、表外为 0 dB，作用于显示电平）、`preamp_gain`（已有）、`preamp_noise_figure`/`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（前置放大器自己的指标，块内按衰减折算到输入参考）。声明 `preamp_noise_figure` 即前放在链中：`preamp_gain: 0` 只把增益设 0，噪声系数仍在链上；无前放就不声明这些键。前放是选件时（N9320B 的 P03），前放的参数写在定义的 `options` 里而不是 `components` 里，测试台实例用 `options: [P03]` 声明装了它；前放开关命令写 `option: P03`，后面跟一条同命令头、只读的命令给出未装选件时的回复（#1004，字段见 `real-models.md`）。`flatness` 的个体偏差按频段写（`deviations` 的 `bands`，`metrology-authoring.md` 7.1）：数据手册的平坦度是各频段的 ± 限值，标称为 0，参考频率处为 0。
 - `specan_mixer`：`conversion_loss`（已有）、`iip2_dbm`/`iip3_dbm`/`p1db_dbm`、`image_rejection`（dB，缺省无穷大）、`lo_feedthrough`（dBm，调谐于 0 Hz 附近出现的线）、`spurs`（`[[m, n, dBc], …]`，m·f_rf ± n·f_lo 的响应）、`residuals`（`[[频率 Hz, dBm], …]`，无输入也有的线）。
 - `specan_if`：`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（中频放大器）。
 - `specan_lo`：`phase_noise`（`[[偏移 Hz, dBc/Hz], …]`，对数-对数插值、端点按表延伸）。
 
 迹线上的效果：失真产物由链的级联截点生成（`engine/rfcascade.py`，最强的 64 条输入线参与，略去的在保真度标注里记「近似」）；增益压缩按 P1dB 的三阶模型作用于各输入线；镜像与杂散按抑制比/dBc 折算成显示谱线；相位噪声按载波功率 × L(偏移) × 噪声带宽进检波器的噪声统计。解析求值覆盖以上全部；采样式求值（`evaluation: sampled`）只含平坦度、镜像与杂散（它们已在模拟谱线里），覆盖说明中写明。
+
+数据手册的指标按频段给出时（噪声系数、截点、压缩点），参数用 2.3 的 `table` 映射按中心频率取值：表项是频段的下沿，取不大于中心频率的最大表项；手册没有给的频段写 `null`（理想），不外推。迹线的级联指标本来就在中心频率处求一次，所以这与求值的方式一致（谐波、交调产物在别的频段时用的仍是中心频率所在频段的值）。例（N9320B，#960）：
+
+```yaml
+iip3_dbm:
+  from: $freq.center
+  table: {0: null, 300.0e6: 13.0}     # 300 MHz–3 GHz +13 dBm nominal；300 MHz 以下手册没有给
+```
+
+### 2.11 信号链：采样流的块与连线（#961）
+
+仪表内部的功能块之间有两种连接（D67，设计见 `signal-chain.md` 第 2–5 节）：
+
+- **模拟块**：端口介质 `signal`，覆盖 `output(port)`，传递解析信号（直流 + 谱线）。频谱仪前端的 `specan_input`、`specan_mixer`、`specan_if` 还是 `RfStage`：给出各自的增益、噪声系数与截点，级联在 `engine/rfcascade.py` 里算。
+- **数字块**：端口介质 `samples`，覆盖 `frames(port, request)` 与 `sample_interval(port)`，按帧拉取采样（`engine/stream.py` 的 `FrameRequest` → `SampleFrame`；`kind` 为 `volts | codes | iq | bins`）。现有的通用数字块：`specan_ddc`（数字下变频，输出 `iq`）、`specan_rbw`（加窗 FFT，输出 `bins`）；示波器的 `scope_decimator`。
+- **ADC 是两域的边界**：`adc`（通用，固定满量程）输入 `signal`、输出 `samples`；示波器用 `scope_adc`（满量程跟随垂直设置）。数字域没有回到模拟域的块。
+
+连线照常写在 `wiring`（`[源.端口, 目标.端口]`），定义校验按介质检查：
+
+| 写法 | 诊断代码 | 原因 |
+| --- | --- | --- |
+| `samples` 输出接到 `signal`/`electrical` 输入 | `E-DEF-WIRE-MEDIUM` | 采样流只能接采样流输入 |
+| `signal` 输出直接接到 `samples` 输入 | `E-DEF-WIRE-MEDIUM` | 两者之间必须有 ADC |
+| `ports` 把采样流端口映射为仪表端口 | `E-DEF-WIRE-MEDIUM` | 采样流只在仪表内部传递 |
+| `samples` 输入没有连线 | `E-DEF-SAMPLES-OPEN` | 采样流输入不能悬空 |
+| 依赖调谐的端口（`mixer.out`、`if_filter.out`）映射为仪表端口 | `E-DEF-PORT-TUNED` | 它的输出取决于本振调在哪里 |
+
+**最小的完整例子**：一台简化的数字化仪，输入端口 → 放大 → `adc` → 数字下变频，全部是现有的通用组件。文件在 `tests/definitions/doc-digitizer.yaml`，`tests/test_docs_examples.py` 检查下面这段与文件相同，并加载运行（−20 dBm 的 10 MHz 单音放大 20 dB 后，`ddc.out` 的复幅度为 0.316 V；上面每一条拒绝都各有一条用例）：
+
+```yaml
+# instrument-authoring.md 2.11 的例子（#961）：一台简化的数字化仪，全部是现有的通用组件。
+# 输入端口 → 放大（specan_input 的前放，带噪声系数）→ adc → 数字下变频（specan_ddc）；
+# 读数由内部探针读 ddc.out（采样流端口不能映射为仪表端口）。tests/test_docs_examples.py 加载运行。
+schema: simubench.instrument/1
+id: doc-digitizer
+manufacturer: SimuBench
+model: DOC-DIG-1
+class: digitizer
+description: 文档例子：输入 → 放大 → ADC → 数字下变频，采样流的块与连线。
+state:
+  dig.gain:
+    type: float
+    unit: DB
+    min: 0.0
+    max: 40.0
+    default: 20.0
+  dig.nco:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 50.0e6
+    default: 10.0e6
+components:
+  - name: rf_in
+    type: input_port
+    params: {z_in: 50.0}
+  - name: amp                  # 模拟块：signal 进、signal 出，是一级 RfStage（增益与噪声系数）
+    type: specan_input
+    params: {att: 0.0, att_auto: false, preamp_gain: $dig.gain, preamp_noise_figure: 6.0}
+  - name: adc                  # 边界：signal 进、samples 出
+    type: adc
+    params: {bits: 14, full_scale: 1.0, rate: 100.0e6}
+  - name: ddc                  # 数字块：samples 进、samples 出
+    type: specan_ddc
+    params: {nco_hz: $dig.nco, decimation: 100}
+wiring:
+  instrument:
+    - [rf_in.out, amp.in]
+    - [amp.out, adc.in]
+    - [adc.out, ddc.in]
+ports:
+  instrument:
+    IN: rf_in.pin
+commands:
+  - {header: ":DIGitizer:GAIN", state: dig.gain}
+  - {header: ":DIGitizer:NCO", state: dig.nco}
+```
+
+采样流端口不能映射为仪表端口，所以这台仪表没有 SCPI 读数：`ddc.out` 由内部探针读取（signal-chain.md 1.3、第 6 节；Web 的内部结构图点开端口，或 MCP / HTTP 的 internal probe）。要给出 SCPI 读数，需要一个把采样流合成为读数的块——频谱仪里是 `specan_detector` / `specan_trace`；没有现成的块时写插件（下文）。
+
+**宏展开后的样子**：现有定义不必改写。加载时宏把采样流补上（`library/macros.py`；Web 的“展开后的定义”与 `DefinitionFiles.expanded` 显示的就是它），作者写的条目位置不变，新增的排在表尾：
+
+- 示波器（`scope_acquisition` 没有写 `decimator` 时，`sb-dso-4` 为例）——增加 `scope_decimator` 块 `dec`，原来的一条连线 `[ch{n}.probe.out, acq.in{n}]` 拆成三条：
+
+  ```yaml
+  components:
+    # … 作者写的 acq、timebase、trigger、adc（scope_adc）、meas、xfer 不变；acq 增加 decimator: dec
+    - {name: dec, type: scope_decimator, params: {adc: adc, horizontal: timebase}}   # 新增
+  wiring:
+    instrument:
+      - [ch{n}.probe.out, adc.in{n}]     # 原来接 acq.in{n}
+      - [adc.out{n}, dec.in{n}]          # 新增
+      - [dec.out{n}, acq.in{n}]          # 新增
+  ```
+
+- 频谱仪（`specan_trace` 没有写 `rbw` 时，`sb-sa-1` 为例）——增加 `adc`（16 位、±1 V、100 MSa/s，类别默认）、`specan_ddc`（`nco_hz` 取 `if_filter` 的 `if_hz`）、`specan_rbw`（RBW 的设置与耦合从 `specan_if` 移来），视频滤波与迹线改为读 `rbw`：
+
+  ```yaml
+  components:
+    # … rf_in、ref_in、clock、input、mixer、lo、if_filter、detector、vbw、sa 不变；vbw 与 sa 增加 rbw: rbw
+    - {name: adc, type: adc, params: {}}                                          # 新增
+    - {name: ddc, type: specan_ddc, params: {}}                                   # 新增（if_hz 写出时 nco_hz 取它）
+    - {name: rbw, type: specan_rbw, params: {rbw: $bw.res, rbw_auto: $bw.res_auto}}  # 新增，参数从 if_filter 移来
+  wiring:
+    instrument:
+      - [rf_in.out, input.in]
+      - [input.out, mixer.in]
+      - [mixer.out, if_filter.in]
+      - [ref_in.out, clock.ref]
+      - [if_filter.out, adc.in]          # 新增
+      - [adc.out, ddc.in]                # 新增
+      - [ddc.out, rbw.in]                # 新增
+  ```
+
+**两种求值方式**（频谱仪，`specan_trace.evaluation`，signal-chain.md 5.4）：`analytic`（默认）由谱线与级联指标解析地画迹线，2.10 的全部非理想都在；`sampled` 让迹线真的由 `adc → ddc → rbw` 的采样流产生，平坦度、镜像、杂散在（它们已在模拟谱线里），相位噪声与失真产物、压缩没有，窄 RBW × 宽跨度超出 `MAX_REQUEST_FANOUT` 时报错而不退回解析求值。两种方式共用同一批块与参数；解析求值的仪表的采样流同样可以用内部探针看。覆盖表里怎样写见 `real-models.md` 第 6 节。
+
+**插件组件的 `frames`**（第 4 节的插件出口）：带 `samples` 输出端口的组件类覆盖两个钩子——`frames(port, request) -> SampleFrame` 与 `sample_interval(port) -> float`（读者不带速率时，例如探针，按它请求）；有 `samples` 输入的块用 `self.input_frames("in", request)` 取上游的帧（经会话的帧缓存，沿链计入 `MAX_REQUEST_FANOUT`）。帧必须是请求、参数、上游与种子的纯函数，不在调用之间保存状态；要历史的块向上游多要（`request.upstream(倍数, 预热)`）并丢掉对应的输出；自己加噪声时随机数键取 `stream_key(self.session.seed, *request.key, self.uid, "<流名>")`（`Component.frames` 的说明）。一个数字增益块：
+
+```python
+from dataclasses import replace
+
+from simubench.engine.component import Component, PortSpec, component
+
+
+@component("sample_scale")
+class SampleScale(Component):
+    """A digital gain: every sample of the stream times ``factor``."""
+
+    ports = {"in": PortSpec("in", "samples"), "out": PortSpec("out", "samples")}
+    defaults = {"factor": 1.0}
+
+    def frames(self, port, request):
+        up = self.input_frames("in", request)
+        return replace(up, data=up.data * float(self.param("factor")))
+
+    def sample_interval(self, port):  # the same rate as its input
+        src = self.owner.wiring.source(self.name, "in")
+        return self.owner.components[src[0]].sample_interval(src[1])
+```
+
+`tests/test_docs_examples.py` 运行这一段：把它接在上面例子的 `adc` 与 `ddc` 之间（`factor: 2`），`ddc.out` 的复幅度加倍。
 
 ## 3. 通用波形传输与采集（G2、G3）
 
@@ -287,6 +428,8 @@ params:
 | `E-DEF-WIRE-MEDIUM`、`E-DEF-SAMPLES-OPEN` | 采样流（`samples` 端口，D67）的连线：采样流输出接到了不是采样流的输入；模拟信号输出直接接到采样流输入（中间必须有 ADC）；把采样流端口映射成仪表端口。采样流输入没有连线接到它（不能悬空，#946） |
 | `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举或布尔设置、`long_form` 绑定的不是布尔设置；参数映射的表中有设置取不到的值（#42） |
 | `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
+| `E-DEF-DEVIATION-BANDS` | 随频率变化的曲线参数（`specan_input.flatness`）的个体偏差没有按频段写（`bands`），或 `bands` 用在不是曲线的参数上（#1004） |
+| `E-DEF-OPTION` | 选件重复、选件的 `params` 指向不存在的组件、命令的 `option` 没有在 `options` 中声明（#1004；选件参数本身按组件参数的规则检查） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
 | `E-DEF-PANEL-STATE`、`E-DEF-PANEL-CONTROL`、`E-DEF-PANEL-VALUE` | 面板（`display.panel`，7.3）引用的设置不存在；控件与设置的类型不相容（`switch` 用于布尔、`select` 用于枚举、`number` 用于数值，数值或字符串的 `buttons` 要写出 `keys`）或设置只读；按键、软键、`sets` 与 `when` 的取值不是可选项、超出范围或类型不符（#128） |
 | `E-DEF-WRITE` | 命令 `writes` 的常量不是该设置的选项、类型不符或超出范围（#117） |

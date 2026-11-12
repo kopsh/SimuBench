@@ -316,10 +316,17 @@ class DeviationInfo(_Model):
     """One parameter's individual deviation (个体偏差): its range, and this unit's value when shown."""
 
     param: str = Field(..., description="'<component>.<parameter>' (instrument) or '<parameter>' (DUT)")
-    limit: Any = Field(..., description="±limit: a number, or a table keyed by the last `by` value")
+    limit: Any = Field(
+        ...,
+        description="±limit: a number, a table keyed by the last `by` value, or a list with one limit per band",
+    )
     unit: str | None = None
     distribution: str
     by: dict[str, list[Any]] | None = None
+    bands: list[list[float]] | None = Field(
+        None,
+        description="A curve parameter's frequency bands [[f_lo, f_hi], …] (Hz), each with its own limit",
+    )
     value: Any = Field(
         None,
         description="This unit's value; null while hidden (run.reveal_true_values off) or not drawn",

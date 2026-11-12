@@ -50,7 +50,10 @@ When the platform cannot express something the manual requires:
    (or the MCP tool `list_components`, then `list_components(types=[...])` for the full fields).
    Parameters bind to settings with `$path` and map with `{from, map, scale, offset, default}`.
 5. **Definition** `src/simubench/library/instruments/<id>.yaml`: `reference`, `identity`,
-   `errors`, `format`, state, components, commands. Validate as you go:
+   `errors`, `format`, state, components, commands. A hardware option the data sheet lists (a
+   preamplifier) goes in `options` — the parameters of a unit that has it, and `option: <id>` on
+   its commands (D68; fields in `docs/real-models.md`); the bench instance lists `options: [P03]`.
+   Validate as you go:
    ```bash
    uv run simubench validate src/simubench/library/instruments/<id>.yaml
    ```
@@ -77,6 +80,14 @@ When the platform cannot express something the manual requires:
 8. **Check and record**: `scripts/check.sh`; append a self-check section to the end of `docs/progress-log.md`
    (`docs/progress.md` says how).
 9. **Pull request** with `Closes #<n>`; it merges itself when CI is green.
+
+**Spectrum analyzers**: the front-end figures (noise figure from the DANL, intercepts, 1 dB
+compression, phase noise, flatness, images and spurs) come from the model's **data sheet**, put in
+`manuals/` like a manual; `specs` quotes each figure with its table and page, and each parameter
+says beside it how it was converted (DANL → noise figure, SHI → `iip2_dbm`). Figures the data sheet
+does not give are not declared and not estimated; banded figures use a `table` on `$freq.center`
+(`instrument-authoring.md` 2.10). The coverage note of the trace and marker commands names the
+evaluation and what it includes (`real-models.md` 6).
 
 ## What tends to go wrong
 

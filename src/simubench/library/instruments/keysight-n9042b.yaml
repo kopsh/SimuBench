@@ -15,6 +15,10 @@ description: >-
   max/min hold. Only trace 1 and marker 1 exist; the measurement applications (ACP, CHP, OBW,
   TOI, SEM, ...), other modes, zero span, the preamplifier, triggers other than free run and the
   tracking source are not modeled; the coverage table names every remaining gap.
+  tracking source are not modeled; the coverage table names every remaining gap. The front end
+  follows the Data Sheet (3121-1037.EN, standard path, #960): noise figure, SHI, TOI and 1 dB
+  compression for the band of the center frequency, and the CF = 1 GHz phase-noise table;
+  flatness as a unit deviation and the LNA/PA options wait for #1004.
 reference:
   title: Keysight X-Series Signal Analyzer Spectrum Analyzer Mode User's & Programmer's Reference
   document: N9060-90027
@@ -48,6 +52,42 @@ specs:
   sweep_time: "swept spans 1 ms to 4000 s"
   attenuation: "0 to 70 dB in 2 dB steps (mechanical attenuator)"
   sweep_points: "1 to 40001, preset 1001"
+  # 前端指标（#960）：N9042B UXA X-Series Signal Analyzer, Multi-touch Data Sheet（3121-1037.EN，
+  # July 1, 2024，manuals/3121-1037）。只用标准路径（1a：swept、preselector on、LNA off、PA off）。
+  datasheet: "Keysight N9042B UXA X-Series Signal Analyzer, Multi-touch Data Sheet, 3121-1037.EN, July 1, 2024"
+  frequency_response: >-
+    p.10 1a. Standard path frequency response (10 dB input attenuation, relative to 50 MHz), full
+    range: 9 kHz to 20 MHz ±0.54 dB; >20 to 50 MHz ±0.44 dB; >50 MHz to 3.6 GHz ±0.58 dB; >3.6 to
+    5.2 GHz ±2.70 dB; >5.2 to 8.4 GHz ±2.50 dB; >8.4 to 13.6 GHz ±2.00 dB; >13.6 to 17.1 GHz
+    ±2.00 dB; >17.1 to 26.5 GHz ±2.32 dB (not declared: a deviation of the flatness table needs #1004)
+  preamplifiers: >-
+    p.18 LNA (options P44/P4L/P50/P5L) and PA, 40 dB together nominal (options; not declared, #1004)
+  gain_compression: >-
+    p.19 1 dB gain compression, 1a. PA off (nominal, mixer power): 20 to 40 MHz +2 dBm; >40 MHz to
+    3.6 GHz +5 dBm; >3.6 to 13.5 GHz +8 dBm; >13.5 to 26.5 GHz +3 dBm; >26.5 to 50 GHz +6 dBm
+  danl: >-
+    p.21 DANL 1a. Standard path (input terminated, sample or average detector, log averaging, IF
+    gain high, 1 Hz RBW, 0 dB attenuation), typical: 2 to 10 Hz -90 dBm (nominal); >10 to 100 Hz
+    -115 (nominal); >100 Hz to 1 kHz -128 (nominal); >1 to 9 kHz -138 (nominal); >9 to 100 kHz -146;
+    >100 kHz to 1 MHz -155; >1 to 10 MHz -156; >10 MHz to 1.2 GHz -155; >1.2 to 2.1 GHz -154; >2.1
+    to 3.6 GHz -152; >3.6 to 6.6 GHz -150; >6.6 to 8.4 GHz -151; >8.4 to 13.6 GHz -149; >13.6 to
+    17.1 GHz -149; >17.1 to 22.5 GHz -146; >22.5 to 26.5 GHz -143; >26.5 to 30 GHz -140 dBm (full
+    range at 10 MHz to 1.2 GHz: -150 dBm)
+  residuals_images: >-
+    p.25 Residual responses (input terminated, 0 dB attenuation) 200 kHz to 8.4 GHz -100 dBm, no
+    frequencies given (not declared). Image responses (mixer level -10 dBm) at f+45 MHz, f+645 MHz
+    and f+10,245 MHz, -80 dBc (-70 dBc at f+645 MHz above 22 GHz): above the tuned frequency, where
+    the model's single image (f - 2·IF, below it) is not — not declared
+  shi: >-
+    p.26 SHI 1a. Standard path (mixer level -15 dBm): 10 MHz to 1.8 GHz +46 dBm; >1.8 to 3 GHz
+    +52 dBm; >3 to 5.2 GHz +55 dBm; >5.2 to 13.25 GHz +64 dBm; >13.25 to 25.0 GHz +53 dBm
+  toi: >-
+    p.27 TOI 1a. Standard path (two -16 dBm tones at the mixer), typical: 10 to 350 MHz +18 dBm;
+    >350 MHz to 1.1 GHz +19; >1.1 to 3.0 GHz +21; >3.0 to 3.6 GHz +22; >3.6 to 13.6 GHz +19; >13.6
+    to 21 GHz +16; >21 to 26.5 GHz +18; >26.5 to 34.5 GHz +19 dBm
+  phase_noise: >-
+    p.29 Phase noise (SSB), CF = 1 GHz, typical: 10 Hz -93 dBc/Hz (wide reference loop); 100 Hz
+    -112; 1 kHz -127; 10 kHz -135; 100 kHz -141; 1 MHz -146; 10 MHz -157 dBc/Hz
 state:
   freq.center:
     type: float
@@ -373,10 +413,37 @@ components:
       ref_level: $display.ref_level
   - name: mixer
     type: specan_mixer
-    params: {noise_figure: 15.0, lo: lo}
+    params:
+      lo: lo
+      # 整机噪声系数，按中心频率所在频段（数据手册第 21 页 DANL 1a 的 typical 列）。DANL 的条件是
+      # 0 dB 衰减、RBW 1 Hz、对数平均（比功率低 2.51 dB），本模型的噪声底 = −174 dBm/Hz + NF +
+      # 10·lg(1.0645 × 1 Hz) − 2.51，故 NF = DANL + 176.24 dB。100 Hz–9 kHz 各段取 nominal 值；
+      # 频段的写法“> a 到 b”取下沿 a 为表项（2.3 的 table：取不大于中心频率的最大表项）。
+      noise_figure:
+        from: $freq.center
+        table: {0: 86.24, 10.0: 61.24, 100.0: 48.24, 1.0e3: 38.24, 9.0e3: 30.24, 100.0e3: 21.24, 1.0e6: 20.24, 10.0e6: 21.24, 1.2e9: 22.24, 2.1e9: 24.24, 3.6e9: 26.24, 6.6e9: 25.24, 8.4e9: 27.24, 17.1e9: 30.24, 22.5e9: 33.24, 26.5e9: 36.24}
+      # 二次谐波截点（第 26 页 SHI 1a，混频器电平 −15 dBm）：本模型的二次谐波 = 2P − IIP2 − 6.02 dB，
+      # SHI = IIP2 + 6.02，故 IIP2 = SHI − 6.02。10 MHz 以下、25 GHz 以上手册没有给，不声明（理想）。
+      iip2_dbm:
+        from: $freq.center
+        table: {0: null, 10.0e6: 39.98, 1.8e9: 45.98, 3.0e9: 48.98, 5.2e9: 57.98, 13.25e9: 46.98, 25.0e9: null}
+      # 三阶截点（第 27 页 TOI 1a，两个 −16 dBm 的音在混频器处，typical 列）；10 MHz 以下不声明。
+      iip3_dbm:
+        from: $freq.center
+        table: {0: null, 10.0e6: 18.0, 350.0e6: 19.0, 1.1e9: 21.0, 3.0e9: 22.0, 3.6e9: 19.0, 13.6e9: 16.0, 21.0e9: 18.0, 26.5e9: 19.0}
+      # 1 dB 压缩点（第 19 页 1a PA off，混频器功率，nominal）；20 MHz 以下不声明。
+      p1db_dbm:
+        from: $freq.center
+        table: {0: null, 20.0e6: 2.0, 40.0e6: 5.0, 3.6e9: 8.0, 13.5e9: 3.0, 26.5e9: 6.0}
   - name: lo
     type: specan_lo
-    params: {clock: clock, source: INTernal, if_filter: if_filter, center: $freq.center}
+    params:
+      clock: clock
+      source: INTernal
+      if_filter: if_filter
+      center: $freq.center
+      # 单边带相位噪声（第 29 页，CF = 1 GHz，typical 列；10 Hz 取宽参考环路）；表外按端点延伸。
+      phase_noise: [[10.0, -93.0], [100.0, -112.0], [1.0e3, -127.0], [1.0e4, -135.0], [1.0e5, -141.0], [1.0e6, -146.0], [1.0e7, -157.0]]
   - name: if_filter
     type: specan_if
     params:

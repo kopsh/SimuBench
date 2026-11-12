@@ -86,6 +86,10 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 - `simubench coverage <id>` 打印覆盖表与统计，用于演示时说明做到了什么程度。
 - `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄依据中的命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。
 - 内置的真实型号只使用通用组件（`generic`），例外清单在 `tests/test_model_components.py`，只能缩短（[metrology-authoring.md](metrology-authoring.md) 第 9 节）。
+- **频谱仪的“求值方式”**（[signal-chain.md](signal-chain.md) 5.4，#961）：迹线数据与标记读数的命令（`:TRACe[:DATA]`、`:CALCulate:MARKer:Y` 一类）在说明中写明定义的 `specan_trace.evaluation`，以及它包含的前端非理想——
+  - `analytic`（解析求值，默认，全部内置真实型号）：平坦度、失真产物（二阶/三阶截点）、增益压缩、镜像与杂散、残余与本振馈通、**相位噪声**都在迹线里，写出定义实际声明了哪几项及其数据手册出处，没有声明的写“未建模”与原因；
+  - `sampled`（采样式求值）：平坦度、镜像、杂散与残余在（它们已在模拟谱线里），**相位噪声与失真产物、压缩没有**，说明中必须写明这一点；另写超出 `MAX_REQUEST_FANOUT` 的设置报错（“超出模型能力”）。
+  例句（N9320B 的 `:TRACe[:DATA]`）：“Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (…): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise …. Not modeled: …”。
 
 ## 7. 版权与商标
 
@@ -108,7 +112,9 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 | `builtins` | 定义 | 这个型号回答的内置命令（如 `["*IDN", "*OPC", "*RST"]`）。不写时全部回答；写了以后，其余内置命令（`*CLS`、`:SYSTem:ERRor?` 等）按“未建模”处理（D45）。`*TRG` 也是内置命令：调用定义中带 `bus_trigger` 操作的组件（如 `trigger_model`），没有时按“未建模”回复。 |
 | `display.actions` | 定义 | 面板按钮（`run`、`stop`、`single`）等价的型号命令，如 `{single: ":TRIGger:MODE SINGle"}`，在仪表内部执行、不经过 SCPI（D32）；不写时用采集组件的 `run`、`stop`、`single`（没有单次模式的型号为 `digitize`）。 |
 | `specs` | 定义 | 手册中的精度指标，任意结构；只记录，不参与计算。参与计算的个体偏差范围写在 `deviations` 中（#34，[metrology-authoring.md](metrology-authoring.md) 第 7 节）。 |
-| `deviations` | 定义 | 个体偏差的范围：`param`（`组件.参数`，通道组件每通道一个值）、`limit`、`unit`（`%`/`ppm` 为相对标称值；不写为参数本身的单位，值 = 标称 + 偏差）、`distribution`（`uniform`，或 `normal` 与 `coverage`，截断在 ±limit）、`by`（按表抽取）。测试台实例写 `deviation: from_specs` 时由种子抽取（[metrology-authoring.md](metrology-authoring.md) 第 7 节） |
+| `deviations` | 定义 | 个体偏差的范围：`param`（`组件.参数`，通道组件每通道一个值）、`limit`、`unit`（`%`/`ppm` 为相对标称值；不写为参数本身的单位，值 = 标称 + 偏差）、`distribution`（`uniform`，或 `normal` 与 `coverage`，截断在 ±limit）、`by`（按表抽取），或对频率曲线参数写 `bands`（按频段，`limit` 每段一个，可选 `reference`、`points`；#1004）。测试台实例写 `deviation: from_specs` 时由种子抽取（[metrology-authoring.md](metrology-authoring.md) 第 7 节） |
+| `options` | 定义 | 硬件选件（D68，#1004）：`components` 与 `commands` 描述不带任何选件的整机；每个选件写 `id`（厂商的写法，如 `P03`）、`label` 与 `params`（`{组件: {参数: 值}}`，装了这个选件的整机用它替换定义里的同名参数，可以是 `$设置` 绑定或映射）。命令写 `option: P03` 表示它属于该选件：没装的整机跳过这条命令，由同一命令头上后面一条不带 `option` 的命令回答（手册写明的“未装选件时的回复”），没有这样的命令时回 `-241`。只写手册列出且改变已建模行为的选件。 |
+| `options` | 测试台实例 | 这台仪表装了哪些选件，如 `options: [P03]`；定义里没有的选件报 `E-OPTION-UNKNOWN`。不写即不带选件。 |
 | `unknown_commands` | 定义 | `error`（默认）：未定义的命令回复 `-113`；`ignore`：不报错、不回复，事件历史记为 `ignored`。只用于按接口契约编写、没有 `reference` 的定义（D42），真实型号不允许。 |
 | `commands[].header` 为 `*XXX` | 命令 | 定义可以给公共命令自己的行为（如方言中的 `*CLS?`），优先于内置的公共命令。 |
 | `idn` | 测试台实例 | 覆盖定义的 `*IDN?` 回复，字段同 `identity.idn`；用于主机程序校验的型号串。 |

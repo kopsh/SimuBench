@@ -146,7 +146,10 @@ def told_apart(a: CommandSpec, b: CommandSpec) -> bool:
     """Whether the later command ``b`` on a header the earlier ``a`` also matches still runs: ``a``
     has a ``when`` and ``b`` has none (``b`` is the fallback for the other values and for a
     parameter left out, #602: ``:SYSTem:ERRor? [STRing]``), or both have one and some parameter
-    value differs."""
+    value differs. A command of an option is told apart from a later one that is not of that
+    option: the later one answers on a unit without it."""
+    if a.option and a.option != b.option:
+        return True  # b answers on the units without a's option (#1004)
     if not a.when:
         return False
     if not b.when:

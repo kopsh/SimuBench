@@ -113,11 +113,26 @@ class Instrument:
     def _init_components(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
         """Components, the bench's hidden state, and this unit's drawn deviations."""
         self.components: dict[str, Component] = {}
+        #: The options this unit has (选件, #1004): their parameters replace the definition's, in
+        #: the definition's order; a command that names an option runs only when it is here.
+        self.options = frozenset(instance.options)
+        declared = [o.id for o in definition.options]
+        if unknown := sorted(self.options - set(declared)):
+            raise ValueError(
+                f"instrument {self.name!r}: {definition.id} has no option {', '.join(unknown)}"
+                f" (options: {', '.join(declared) or 'none'})"
+            )
+        fitted: dict[str, dict[str, Any]] = {}
+        for option in definition.options:
+            if option.id in self.options:
+                for comp_name, params in option.params.items():
+                    fitted.setdefault(comp_name, {}).update(params)
         for spec in definition.components:
-            self._add_component(spec.name, spec.type, spec.params, None)
+            self._add_component(spec.name, spec.type, {**spec.params, **fitted.get(spec.name, {})}, None)
         for n in range(1, self.channel_count + 1):
             for spec in definition.channel_components:
-                self._add_component(f"ch{n}.{spec.name}", spec.type, spec.params, n)
+                params = {**spec.params, **fitted.get(spec.name, {})}
+                self._add_component(f"ch{n}.{spec.name}", spec.type, params, n)
         #: Components that look again for the event they wait for whenever a command arrives.
         self._retrying = [c for c in self.components.values() if c.has_retry_pending]
         for comp_name, params in instance.hidden.items():

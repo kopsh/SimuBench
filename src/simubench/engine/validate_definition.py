@@ -81,6 +81,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     _check_component_refs(d, known, report)
     _check_offset_convention(d, known, report)
     _check_deviations(d, known, report)
+    _check_options(d, known, report)
     _check_wiring(d, classes, report)
     compiled = [_check_command(d, i, cmd, classes, report) for i, cmd in enumerate(d.commands)]
     _check_overlaps(d, compiled, report)
@@ -238,7 +239,22 @@ def _check_deviations(d: InstrumentDefinition, known: dict[str, type[Component]]
             )
             continue
         nominal = spec.params.get(dev.parameter, cls.defaults[dev.parameter])
-        if isinstance(nominal, bool) or not isinstance(nominal, (int, float, dict, str)):
+        if (dev.bands is not None) != (dev.parameter in cls.curves):
+            curve = dev.parameter in cls.curves
+            report.add(
+                "error",
+                "E-DEF-DEVIATION-BANDS",
+                _ptr("deviations", i, "bands" if dev.bands is not None else "param"),
+                f"{dev.param} 是随频率变化的曲线，个体偏差要按频段写"
+                if curve
+                else f"{dev.param} 不是随频率变化的曲线，不能按频段给个体偏差",
+                "写 bands: [[f_lo, f_hi], …]，limit 为一个数或每段一个"
+                if curve
+                else "去掉 bands；按表抽取用 by",
+            )
+        elif dev.bands is not None:
+            continue
+        elif isinstance(nominal, bool) or not isinstance(nominal, (int, float, dict, str)):
             report.add(
                 "error",
                 "E-DEF-DEVIATION",
@@ -252,6 +268,52 @@ def _check_deviations(d: InstrumentDefinition, known: dict[str, type[Component]]
                 _ptr("deviations", i, "unit"),
                 f"{dev.param} 的标称值为 0，按 {dev.unit} 的相对偏差不起作用",
                 "去掉 unit，把 limit 写成参数本身的单位",
+            )
+
+
+def _check_options(d: InstrumentDefinition, known: dict[str, type[Component]], report: Report) -> None:
+    """Options (选件, #1004): ids once each, parameters of declared components (checked like the
+    components' own), and commands that name a declared option."""
+    specs = {c.name: (c, False) for c in d.components} | {c.name: (c, True) for c in d.channel_components}
+    ids = [o.id for o in d.options]
+    for i, option in enumerate(d.options):
+        if option.id in ids[:i]:
+            report.add(
+                "error",
+                "E-DEF-OPTION",
+                _ptr("options", i, "id"),
+                f"选件 {option.id!r} 重复",
+                "为其中一个换一个名称，或合并两项",
+                option.id,
+            )
+        for cname, params in option.params.items():
+            if cname not in specs:
+                unknown_name(
+                    report,
+                    "E-DEF-OPTION",
+                    _ptr("options", i, "params", cname),
+                    f"选件 {option.id} 指向不存在的组件 {cname!r}",
+                    cname,
+                    list(specs),
+                    option.id,
+                )
+                continue
+            spec, channel = specs[cname]
+            cls = known.get(spec.type)
+            if cls is not None:  # an unknown type is reported with the component
+                fitted = spec.model_copy(update={"params": params})
+                _check_params(d, fitted, cls, ("options", i, "params", cname), channel, report, at=())
+    for i, cmd in enumerate(d.commands):
+        if cmd.option is not None and cmd.option not in ids:
+            unknown_name(
+                report,
+                "E-DEF-OPTION",
+                _ptr("commands", i, "option"),
+                f"命令 {cmd.header!r} 所属的选件 {cmd.option!r} 没有在 options 中声明",
+                cmd.option,
+                ids,
+                cmd.header,
+                fallback="在 options 中声明这个选件" if not ids else None,
             )
 
 
@@ -767,9 +829,11 @@ def _check_params(
     p: tuple[Any, ...],
     channel: bool,
     report: Report,
+    at: tuple[str, ...] = ("params",),
 ) -> None:
+    """``at``: where the parameters sit under ``p`` (an option's are directly there)."""
     for key, value in spec.params.items():
-        pp = _ptr(*p, "params", key)
+        pp = _ptr(*p, *at, key)
         if key not in cls.defaults:
             unknown_name(
                 report,
@@ -791,7 +855,7 @@ def _check_params(
         if ref is None:
             continue
         st = _check_state_ref(
-            d, ref, channel, _ptr(*p, "params", key, "from") if mapping else pp, spec.name, report
+            d, ref, channel, _ptr(*p, *at, key, "from") if mapping else pp, spec.name, report
         )
         if st is not None and words:
             # Every value the setting can take must be a word the parameter knows (#308).
@@ -819,7 +883,7 @@ def _check_params(
             else:
                 _check_enum_words(d, st, mapping, words, channel, pp, f"{spec.type}.{key}", spec.name, report)
         if st is not None and mapping and mapping.get("map"):
-            _check_map_keys(st, mapping["map"], (*p, "params", key, "map"), spec.name, report)
+            _check_map_keys(st, mapping["map"], (*p, *at, key, "map"), spec.name, report)
             continue  # the table decides the parameter's type
         default = cls.defaults.get(key)
         if st is not None and default is not None and not _compatible(default, st):
