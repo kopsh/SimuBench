@@ -611,12 +611,16 @@ class ScopeDecimator(Component):
         proc = str(self.param("processing"))
         m = self.oversample()
         native = replace(request, first=request.first * m, count=request.count * m, dt_s=request.dt_s / m)
+        count = self.averages() if m == 1 else 1
+        if count > 1:
+            # Every acquisition of the average is one more request of the same read: one that would
+            # go beyond the model is refused here, before any of them is computed (#986).
+            self.session.reserve_frames(self, source, count * native.count)
         frame = self.input_frames(source, native)
         volts, clipped = frame.data, frame.clipped
         if m > 1:
             volts = peak_detect(volts, m)
         elif proc == "average":
-            count = self.averages()
             for k in range(1, count):
                 more = self.input_frames(source, replace(native, index0=native.index0 + k * native.count))
                 volts, clipped = volts + more.data, clipped or more.clipped
