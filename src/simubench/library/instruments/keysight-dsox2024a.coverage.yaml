@@ -113,19 +113,20 @@ sections:
     note: '2 to 65536; averaging divides the noise by the square root of the count. A SimuBench model limit, not the guide''s (#986): an acquisition whose count x record samples is beyond 2^28 (more than 2683 averages of the 100 000-point record) is refused before it starts with -221, Settings conflict, and leaves no record; measurements and reads are refused the same way until the count or the record is smaller'
   - header: :ACQuire:MODE
     level: implemented
-    note: 'stored; SEGMented acquisition is not modeled'
+    note: 'RTIMe, or SEGMented: one :SINGle or :DIGitize takes :ACQuire:SEGMented:COUNt records, each on its own trigger (#957). ETIMe is not on this model'
   - header: :ACQuire:POINts
     level: implemented
     note: 'the record length: 100 kpts (standard memory, data sheet)'
   - header: :ACQuire:SEGMented:ANALyze
-    level: not_modeled
-    note: 'segmented memory (SGM option) is not modeled; :ACQuire:MODE SEGMented is stored but acquires one real-time record'
+    level: accepted
+    note: 'accepted; measurement statistics and infinite persistence over all segments are not modeled: a measurement reads the segment :ACQuire:SEGMented:INDex selects'
+    affects_data: false
   - header: :ACQuire:SEGMented:COUNt
-    level: not_modeled
-    note: 'as :ACQuire:SEGMented:ANALyze; the count is not stored, :ACQuire? reports the guide''s reset value 2'
+    level: implemented
+    note: '2 to 25 (2 after *RST, the guide''s :ACQuire? sample). With :ACQuire:MODE SEGMented a :SINGle or :DIGitize is done when the last segment''s record is full; the trigger is armed for the next segment 19 us after a record is full (an estimate: the data sheet is not in the repository). Every segment is a whole 100 kpts record (on the instrument the points per segment fall with the count: not modeled). A segment whose trigger does not come keeps the acquisition waiting (AUTO sweep: taken untriggered after the auto timeout)'
   - header: :ACQuire:SEGMented:INDex
-    level: not_modeled
-    note: 'as :ACQuire:SEGMented:ANALyze'
+    level: implemented
+    note: 'selects the segment that :WAVeform and :MEASure read, 1 to the segment count (beyond it: -222); with :ACQuire:MODE RTIMe only 1'
   - header: :ACQuire:SRATe
     level: implemented
     note: 'min(2 GSa/s, 1 GSa/s with both channels of a pair on, 100 kpts / 10 div) on a 1-2-5 ladder (data sheet); reply digits are a SimuBench choice (the guide shows none)'
@@ -134,7 +135,7 @@ sections:
     note: 'NORMal; AVERage,count is the mean of count quantized acquisitions; PEAK examines each record interval at up to 64 samples (64 x the record rate when the ADC is faster, capped there) and keeps the extreme that departs farther from the interval ends, so a signal the record rate steps over shows; HRESolution is a boxcar of 8 codes (4^1.5, a SimuBench value: the guide only says slower sweeps average more)'
   - header: :ACQuire
     level: implemented
-    note: 'the setup query of the chapter''s Reporting the Setup: the guide''s *RST sample ":ACQ:MODE RTIM;TYPE NORM;COMP 100;COUNT 8;SEGM:COUN 2"; SEGM:COUN is the reset value (segmented memory is not modeled, see :ACQuire:SEGMented:COUNt)'
+    note: 'the setup query of the chapter''s Reporting the Setup: the guide''s *RST sample ":ACQ:MODE RTIM;TYPE NORM;COMP 100;COUNT 8;SEGM:COUN 2"; SEGM:COUN is :ACQuire:SEGMented:COUNt'
 - section: :BUS<n> Commands (Programmer's Guide 02.66, ch. 8)
   commands:
   - header: :BUS<n>:BIT<m>
@@ -938,7 +939,7 @@ sections:
     affects_data: false
   - header: :TRIGger:MODE
     level: implemented
-    note: 'EDGE only; the other trigger types answer -224'
+    note: 'EDGE and GLITch (pulse width, #956); the other trigger types answer -224'
   - header: :TRIGger:NREJect
     level: implemented
     note: 'widens the trigger hysteresis from 0.3 div (half the data sheet''s 0.6 div sensitivity) to 1 div (an assumed width)'
@@ -980,19 +981,26 @@ sections:
     level: implemented
     note: 'CHANnel1 to 4, EXTernal (the EXT input), LINE (50 Hz); WGEN never triggers (no generator); NONE when all channels are off is not modeled'
   - header: :TRIGger:GLITch:GREaterthan
-    level: not_modeled
+    level: implemented
+    note: 'the time a GREaterthan pulse must exceed, and the lower bound of RANGe; 10 ns to 10 s and 20 ns after *RST are SimuBench assumptions (not checked against the guide)'
   - header: :TRIGger:GLITch:LESSthan
-    level: not_modeled
+    level: implemented
+    note: 'the time a LESSthan pulse stays under, and the upper bound of RANGe; 10 ns to 10 s and 30 ns after *RST are SimuBench assumptions (not checked against the guide)'
   - header: :TRIGger:GLITch:LEVel
-    level: not_modeled
+    level: implemented
+    note: 'the same per-source level as :TRIGger[:EDGE]:LEVel, with its optional <source>'
   - header: :TRIGger:GLITch:POLarity
-    level: not_modeled
+    level: implemented
+    note: 'POSitive: the pulse above the level; NEGative: below it'
   - header: :TRIGger:GLITch:QUALifier
-    level: not_modeled
+    level: implemented
+    note: 'LESSthan and RANGe trigger at the edge that ends the pulse, GREaterthan at the instant the pulse has lasted the time (it need not have ended); a pulse that began before the trigger was armed (pre-trigger time, holdoff) does not count. LESSthan after *RST is a SimuBench assumption'
   - header: :TRIGger:GLITch:RANGe
-    level: not_modeled
+    level: implemented
+    note: '<less_than_time>,<greater_than_time>: the two values are the :LESSthan and :GREaterthan settings; the order is not swapped when the first is the smaller (no pulse then qualifies)'
   - header: :TRIGger:GLITch:SOURce
-    level: not_modeled
+    level: implemented
+    note: 'the same setting as :TRIGger[:EDGE]:SOURce; LINE and WGEN never give a pulse-width trigger; digital channels are not modeled'
   - header: :TRIGger:OR
     level: not_modeled
   - header: :TRIGger:PATTern
@@ -1066,9 +1074,11 @@ sections:
     level: implemented
     note: 'the ten fields of the guide; xorigin carries where the trigger fell between two samples; the float digits are a SimuBench choice (the guide shows none); type 3 for HRESolution is not in the guide'
   - header: :WAVeform:SEGMented:COUNt
-    level: not_modeled
+    level: implemented
+    note: 'the segments the latest acquisition has; 0 when it was not a segmented one'
   - header: :WAVeform:SEGMented:TTAG
-    level: not_modeled
+    level: implemented
+    note: 'the selected segment''s trigger, seconds after the first segment''s (to the nanosecond); the reply format is a SimuBench choice (the guide shows none)'
   - header: :WAVeform:SOURce
     level: implemented
     note: 'CHANnel1 to 4 (FUNCtion, MATH, WMEMory, SBUS1 not modeled)'

@@ -4,6 +4,7 @@ trigger, run control, noise and the ADC are parameters of the definition, not co
 from __future__ import annotations
 
 import copy
+import itertools
 import math
 from pathlib import Path
 from typing import Any
@@ -462,3 +463,133 @@ def test_skew_and_clock_deviations_are_drawn():
         assert front._error("offset_error") == drawn[f"ch{n}.front.offset_error"]
         assert probe.delay() == drawn[f"ch{n}.probe.skew_error"]
     session.close()
+
+
+def _segmented_single(seed: int = 1):
+    """DSO-X 2024A on a 1 kHz sine, NORMal sweep, four segments armed by ``:SINGle``: the session,
+    its scope's acquisition and a query function."""
+    session = open_bench(DSOX, clock="command", seed=seed, idle="off")
+
+    def query(cmd: str) -> str:
+        session.write("scope", cmd.encode() + b"\n")
+        out = session.read("scope") if "?" in cmd else None
+        return out.decode(errors="replace").strip() if out is not None else ""
+
+    query(":TRIGger:SWEep NORMal;:ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 4")
+    query(":SINGle")
+    return session, session.instruments["scope"].components["acq"], query
+
+
+def _segment_volts(seed: int) -> list[np.ndarray]:
+    session, acq, query = _segmented_single(seed)
+    try:
+        assert query("*OPC?") == "1"
+        assert query(":WAVeform:SEGMented:COUNt?") == "4"
+        return [seg[1].volts.copy() for seg in acq.segment_records]
+    finally:
+        session.close()
+
+
+def test_the_segmented_acquisition_flow():
+    """Segmented memory (#957): one single acquisition takes four records, each on its own
+    trigger, the trigger armed again a re-arm time after a record is full; a segment is read by
+    its index, with its time tag; the segments carry independent noise; more segments than the
+    memory holds are refused."""
+    session, acq, query = _segmented_single()
+    try:
+        period_ns, rearm_ns = 1_000_000, 19_000  # the 1 kHz signal; the definition's rearm_s
+        # -- :SINGle (a digitize on this model) returned once the last of the four records was full
+        plan = acq.pending._due[0]
+        assert len(plan) == 4
+        assert acq.pending.due_ns == plan[-1].end_ns + 1_000_000  # and the overhead (1 ms)
+        assert session.now_ns == acq.pending.due_ns
+        assert query("*OPC?") == "1"
+        assert query(":WAVeform:SEGMented:COUNt?") == "4"
+        assert query(":RSTate?") == "STOP"
+        assert session.now_ns >= plan[-1].end_ns
+        # -- the triggers: whole signal periods apart, and no closer than a record and the re-arm time
+        records = [seg[1] for seg in acq.segment_records]
+        triggers = [rec.trigger_ns for rec in records]
+        record_ns = round(records[0].volts.size * records[0].dt_s * 1e9)
+        assert record_ns == 2_000_000  # 200 us/div
+        for earlier, later in itertools.pairwise(triggers):
+            gap = later - earlier
+            assert abs(gap - round(gap / period_ns) * period_ns) <= 2  # ns
+            assert gap >= record_ns + rearm_ns
+            assert gap == pytest.approx(3 * period_ns, abs=2)  # the first period after 2.019 ms
+        # -- reading segment k gives the k-th record, and its time tag
+        for k in range(1, 5):
+            query(f":ACQuire:SEGMented:INDex {k}")
+            assert acq.records[1] is acq.segment_records[k - 1][1]
+            tag = float(query(":WAVeform:SEGMented:TTAG?"))
+            assert tag == pytest.approx((triggers[k - 1] - triggers[0]) * 1e-9, abs=1e-12)
+            assert float(query(":WAVeform:XORigin?")) == pytest.approx(records[k - 1].origin, abs=1e-12)
+        query(":ACQuire:SEGMented:INDex 5")
+        assert query(":SYSTem:ERRor?").startswith("-222")
+        assert query(":ACQuire:SEGMented:INDex?") == "+4"
+        # -- the segments see the same signal (the triggers are whole periods apart) through
+        # independent noise: they differ, by a few codes (20 mV each at 0.5 V/div)
+        first, second = records[0].volts, records[1].volts
+        assert not np.array_equal(first, second)
+        assert np.abs(first - second).max() < 0.2
+        assert 0.001 < np.std(first - second) < 0.05
+        # -- more segments than the memory holds at this record length: -221, the count stays
+        session.set_parameter("scope", "acq", "memory_points", 300_000)
+        query(":ACQuire:SEGMented:COUNt 3")
+        assert query(":SYSTem:ERRor?").startswith("+0")
+        query(":ACQuire:SEGMented:COUNt 4")  # 4 x 100 000 points
+        assert query(":SYSTem:ERRor?").startswith("-221")
+        assert query(":ACQuire:SEGMented:COUNt?") == "+3"
+    finally:
+        session.close()
+
+
+def test_segments_repeat_with_the_seed():
+    one, again, other = _segment_volts(1), _segment_volts(1), _segment_volts(2)
+    assert all(np.array_equal(a, b) for a, b in zip(one, again, strict=True))
+    assert not np.array_equal(one[0], other[0])
+
+
+def test_a_segmented_single_waits_when_the_signal_stops_after_the_second_segment():
+    """The signal goes away after two of four segments have triggered (SDS2104X Plus, whose single
+    mode arms without waiting): those two are kept, the single acquisition is not done and
+    ``*OPC?`` does not answer (``no_trigger: wait``); once the signal is back the remaining
+    segments trigger and it completes."""
+    session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
+
+    def query(cmd: str) -> str:
+        session.write("scope", cmd.encode() + b"\n")
+        out = session.read("scope") if "?" in cmd else None
+        return out.decode(errors="replace").strip() if out is not None else ""
+
+    try:
+        acq = session.instruments["scope"].components["acq"]
+        session.write("awg", b"C1:OUTP ON\n")
+        session.set_parameter("scope", "acq", "segments", 4)
+        session.set_parameter("scope", "acq", "rearm_s", 19e-6)
+        query(":TRIGger:MODE SINGle")
+        planned = [seg.trigger_ns for seg in acq.pending._due[0]]  # on the record's grid
+        exact = [seg.records[1].trigger_ns for seg in acq.pending._due[0]]  # interpolated
+        assert len(planned) == 4
+        assert session.now_ns < planned[0]
+        session.advance((planned[1] - session.now_ns) * 1e-9 + 1e-5)  # 10 us past the second trigger
+        assert session.now_ns < planned[2]
+        session.write("awg", b"C1:OUTP OFF\n")
+        assert query("*OPC?") == ""  # no reply: waiting for the third segment's trigger
+        assert acq.waiting()
+        assert acq.pending.due_ns is None
+        assert [seg.trigger_ns for seg in acq.pending._found] == planned[:2]
+        assert acq.segment_records == []  # nothing stored yet
+        assert query(":TRIGger:STATus?") == "Ready"
+        session.advance(0.05)
+        back_ns = session.now_ns
+        session.write("awg", b"C1:OUTP ON\n")
+        assert query("*OPC?") == "1"
+        assert query(":TRIGger:STATus?") == "Stop"
+        triggers = [seg[1].trigger_ns for seg in acq.segment_records]
+        assert len(triggers) == 4
+        assert triggers[:2] == exact[:2]  # the two that had triggered are the ones kept
+        assert triggers[2] >= back_ns  # not before the signal came back
+        assert triggers[3] > triggers[2]
+    finally:
+        session.close()

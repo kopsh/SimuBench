@@ -121,7 +121,7 @@ state:
     label_en: Zoom position
   trigger.mode:
     type: enum
-    options: [EDGE]
+    options: [EDGE, GLITch]
     default: EDGE
     label: 触发类型
     label_en: Trigger type
@@ -250,6 +250,37 @@ state:
     default: POSitive
     label: 触发沿
     label_en: Trigger slope
+  # 脉宽（毛刺）触发 :TRIGger:GLITch（#956）：极性、条件与两个时间。时间的范围取 10 ns 到 10 s，
+  # *RST 后为“小于 30 ns”、大于的时间 20 ns——这几个值没有对照手册的重置表，是 SimuBench 的假设
+  # （覆盖表注明）。
+  trigger.glitch_polarity:
+    type: enum
+    options: [NEGative, POSitive]
+    default: POSitive
+    label: 脉宽触发极性
+    label_en: Pulse-width polarity
+  trigger.glitch_qualifier:
+    type: enum
+    options: [GREaterthan, LESSthan, RANGe]
+    default: LESSthan
+    label: 脉宽触发条件
+    label_en: Pulse-width qualifier
+  trigger.glitch_less:
+    type: float
+    unit: S
+    min: 1.0e-8
+    max: 10.0
+    default: 3.0e-8
+    label: 脉宽小于
+    label_en: Pulse width less than
+  trigger.glitch_greater:
+    type: float
+    unit: S
+    min: 1.0e-8
+    max: 10.0
+    default: 2.0e-8
+    label: 脉宽大于
+    label_en: Pulse width greater than
   trigger.coupling:
     type: enum
     options: [AC, DC, LFReject]
@@ -299,6 +330,21 @@ state:
     label_en: Acquire mode
     options: [RTIMe, SEGMented]
     default: RTIMe
+  # 分段存储（:ACQuire:MODE SEGMented，#957）：段数 2–25（*RST 后为 2，手册 :ACQuire? 的示例）、所选的段。
+  acquire.segmented_count:
+    type: int
+    min: 2
+    max: 25
+    default: 2
+    label: 分段数
+    label_en: Segments
+  acquire.segmented_index:
+    type: int
+    min: 1
+    max: 25
+    default: 1
+    label: 当前段
+    label_en: Segment index
   acquire.complete:
     type: int
     label: 采集完成判据
@@ -511,6 +557,16 @@ components:
       # 8 个码（4^1.5）的 boxcar。手册只说高分辨率“扫速越慢平均的样点越多”，没有给系数：1.5 位是
       # SimuBench 的默认值（覆盖表注明）。
       processing: {from: $acquire.type, map: {AVERage: average, PEAK: peak, HRESolution: eres}, default: normal}
+      # 分段存储（#957）：:ACQuire:MODE SEGMented 时，一次 :SINGle / :DIGitize 连续取 COUNt 次触发各存
+      # 一段，全部采满才完成；:ACQuire:SEGMented:INDex 选的段供波形传输与测量使用。
+      # 重新布防时间 19 µs 与存储上限都是估计：数据手册没有入库，19 µs 凭记忆取自 2000 X 数据手册
+      # 分段存储一项；每段仍是整条 100 kpts 记录（真机每段的点数随段数减少，未建模），上限取
+      # 25 段 × 100 kpts，段数的 2–25 由设置的范围限定。
+      segmented: {from: $acquire.mode, map: {SEGMented: true}, default: false}
+      segments: $acquire.segmented_count
+      segment_index: $acquire.segmented_index
+      rearm_s: 1.9e-5
+      memory_points: 2500000
       averages: $acquire.count
       eres_bits: 1.5
   # 时基：存储深度 100 kpts，采样率 = min(最高采样率, 存储深度 / 10 格)，取 1-2-5 档；参考位置 LEFT /
@@ -526,9 +582,16 @@ components:
   # 边沿触发：AC 耦合为 10 Hz 高通，LFReject 耦合与 LFReject 抑制为 50 kHz 高通，HFReject 抑制与
   # :TRIGger:HFReject 为 50 kHz 低通（手册）；电平在信源屏幕中心 ±0.75 满量程（±6 格）内；释抑
   # 40 ns 到 10 s。迟滞取数据手册的触发灵敏度 0.6 格的一半；噪声抑制的迟滞加宽到 1 格（假设值）。
+  # 脉宽触发（:TRIGger:MODE GLITch，#956）与边沿触发共用信源、每个信源的电平、耦合、抑制与释抑；
+  # “小于”“范围”在脉冲的结束沿触发，“大于”在脉冲持续到该时间的时刻触发。
   - name: trigger
     type: scope_trigger
     params:
+      mode: {from: $trigger.mode, map: {GLITch: glitch}, default: edge}
+      polarity: {from: $trigger.glitch_polarity, map: {POSitive: positive, NEGative: negative}}
+      qualifier: {from: $trigger.glitch_qualifier, map: {LESSthan: less, GREaterthan: greater, RANGe: range}}
+      width_low: $trigger.glitch_greater
+      width_high: $trigger.glitch_less
       source: $trigger.source
       level: $trigger.level1
       level_by_source:
@@ -703,11 +766,14 @@ commands:
   - {header: ":ACQuire:COMPlete", state: acquire.complete}
   - {header: ":ACQuire:POINts", op: acq.figure, args: {what: points, integer: true}, set: false}
   - {header: ":ACQuire:SRATe", op: acq.figure, args: {what: sample_rate, significant: 3}, set: false}
-  # 手册“Reporting the Setup”的 *RST 示例回复（分段存储器未建模，SEGM:COUN 取复位值 2）。
+  - {header: ":ACQuire:SEGMented:COUNt", state: acquire.segmented_count, format: {integer: signed}}
+  - {header: ":ACQuire:SEGMented:INDex", state: acquire.segmented_index, format: {integer: signed}}
+  - {header: ":ACQuire:SEGMented:ANALyze", op: acq.analyze_segments, query: false}
+  # 手册“Reporting the Setup”的 *RST 示例回复。
   - header: ":ACQuire"
     state: acquire.mode
     set: false
-    reply: ":ACQ:MODE {acquire.mode};TYPE {acquire.type};COMP {acquire.complete};COUNT {acquire.count};SEGM:COUN 2"
+    reply: ":ACQ:MODE {acquire.mode};TYPE {acquire.type};COMP {acquire.complete};COUNT {acquire.count};SEGM:COUN {acquire.segmented_count}"
   # ---- CHANnel<n> ----
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale, format: {number: engineering, significant: 3}}
   - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0, format: {number: engineering, significant: 3}}
@@ -852,6 +918,30 @@ commands:
   - {header: ":TRIGger[:EDGE]:SLOPe", state: trigger.slope}
   - {header: ":TRIGger[:EDGE]:COUPling", state: trigger.coupling}
   - {header: ":TRIGger[:EDGE]:REJect", state: trigger.reject}
+  # 脉宽触发（#956）。信源与电平和边沿触发是同一组设置。
+  - {header: ":TRIGger:GLITch:SOURce", state: trigger.source}
+  - header: ":TRIGger:GLITch:LEVel"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: level, type: float, unit: V, state: "trigger.level{source}"}
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, EXTernal]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, EXTernal: 5}
+        index_default: $trigger.source
+        echo: false
+        optional: true
+  - {header: ":TRIGger:GLITch:POLarity", state: trigger.glitch_polarity}
+  - {header: ":TRIGger:GLITch:QUALifier", state: trigger.glitch_qualifier}
+  - {header: ":TRIGger:GLITch:LESSthan", state: trigger.glitch_less, format: {number: engineering, significant: 6}}
+  - {header: ":TRIGger:GLITch:GREaterthan", state: trigger.glitch_greater, format: {number: engineering, significant: 6}}
+  - header: ":TRIGger:GLITch:RANGe"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: less_than, type: float, unit: S, state: trigger.glitch_less}
+      - {name: greater_than, type: float, unit: S, state: trigger.glitch_greater}
+    doc: 先“小于”的时间（上限），后“大于”的时间（下限）；两个值就是 :LESSthan 与 :GREaterthan 的设置。
   # ---- WAVeform ----
   - {header: ":WAVeform:SOURce", state: waveform.source}
   - {header: ":WAVeform:FORMat", state: waveform.format}
@@ -862,6 +952,9 @@ commands:
   - {header: ":WAVeform:PREamble", op: xfer.header, set: false}
   - {header: ":WAVeform:DATA", op: xfer.data, set: false}
   - {header: ":WAVeform:TYPE", state: acquire.type, set: false}
+  # 分段存储（#957）：采到的段数、所选的段相对第 1 段的触发时刻。
+  - {header: ":WAVeform:SEGMented:COUNt", op: acq.figure, args: {what: segments}, set: false}
+  - {header: ":WAVeform:SEGMented:TTAG", op: acq.figure, args: {what: time_tag, format: "%+.11E"}, set: false}
   - {header: ":WAVeform:XINCrement", op: xfer.figure, set: false, args: {what: x_increment, format: "%+.11E"}}
   - {header: ":WAVeform:XORigin", op: xfer.figure, set: false, args: {what: x_start, format: "%+.11E"}}
   - {header: ":WAVeform:XREFerence", op: xfer.figure, set: false, args: {what: x_reference}}

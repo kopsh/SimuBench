@@ -2004,3 +2004,61 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 - 型号只有一个标记，“调谐于”因此最多列出标记 1 与增量标记的参考；始终开启的标记停在 0 Hz 时也会列出。
 - 图上各输出的缩略图仍按中心频率读，不随“调谐于”变化。
 - 本机的视觉回归中 `Assistant/Panel / Stuck` 与 `Workbench/Live canvas / Counter` 在未改动的 main 上同样不过（本机与 CI 的渲染差异），与本改动无关。
+
+## 示波器脉宽触发：`scope_trigger` 的 `glitch` 类型，DSO-X 2024A 的 `:TRIGger:GLITch`（Issue 956）
+
+`scope_trigger` 增加触发类型 `mode`（`edge` | `glitch`）与 `polarity`、`qualifier`（`less` | `greater` | `range`）、`width_low`、`width_high`。判定在模拟触发通路的过电平时刻序列上做（边沿触发的布防、迟滞、插值规则，耦合、噪声、释抑共用），没有新通路。DSO-X 2024A 接上 `:TRIGger:MODE GLITch` 与 `:TRIGger:GLITch:{SOURce,LEVel,POLarity,QUALifier,LESSthan,GREaterthan,RANGe}`。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 1 ms 周期、占空比 50 % 的脉冲串中一个 50 µs 的窄脉冲：`< 100 µs` 只触发在它上，触发时刻与它的结束沿之差 < 采样间隔的 1/10 | ✅ `tests/test_scope_trigger.py::test_the_glitch_trigger_flow`（结束沿取信号自己的过零，二分求得；采样间隔 1 µs） |
+| `> 600 µs`、范围 `40–60 µs` 各一条；极性取反时不触发 | ✅ 同一测试：`> 600 µs` 在 1.5 ms 宽的脉冲开始后 600 µs 触发；范围 40–60 µs 触发在窄脉冲的结束沿；负极性下“小于 100 µs”“40–60 µs”都没有触发，范围 180–220 µs 触发在 200 µs 的间隙上；释抑 1 ms 后触发在下一个周期的窄脉冲 |
+| 条件不满足：NORMal 等待（待完成操作不结束）、AUTO 在自动超时后给出未触发的记录 | ✅ `::test_a_glitch_condition_never_met_waits_in_normal_and_times_out_in_auto`（DSO-X 2024A、1 kHz 正弦：NORMal 的 `:SINGle` 过 1 s 仍在等，把时间改到 600 µs 后完成且触发在下降过零；AUTO 的 `:DIGitize` 完成，记录未触发） |
+| 现有边沿触发的全部测试不改预期通过 | ✅ `tests/test_scope_trigger.py` 原有 4 项与各示波器型号的用例未改；`_scan` 只把插值抽成了 `_instant` / `_between` |
+| DSO-X 2024A 的用例与覆盖表一致性检查通过 | ✅ `tests/models/keysight-dsox2024a/cases.yaml` 新增“脉宽触发”一例（`uv run simubench cases` 36/36）；覆盖表 7 条 `:TRIGger:GLITch:*` 改为实现，`:TRIGger:MODE` 的说明更新 |
+| `docs/component-map.md` 示波器表更新 | ✅ 另有 `instrument-authoring.md` 8.4 的触发说明 |
+| `scripts/check.sh` 通过 | ✅ |
+
+写明的限制与假设：
+- 仓库的 `manuals/` 里没有 2000 X 系列的编程手册，本次没有逐条对照原文。“小于”“范围”在结束沿触发、“大于”在超过宽度的时刻触发，按 issue 的做法；`*RST` 后的条件（LESSthan）、两个时间（30 ns、20 ns）与范围（10 ns–10 s）是假设值，覆盖表逐条注明。
+- 信源与电平和边沿触发是同一组设置（每个信源各自的电平）；`:TRIGger:GLITch:RANGe` 的两个值就是 `:LESSthan` 与 `:GREaterthan`，不交换顺序。
+- 脉冲必须整个落在触发布防之后（预触发时间或释抑之内开始的脉冲不算）。
+- 没有噪声的周期信号只查两个周期：之内没有合格的脉冲就不再往后找，等待中的采集在每条命令上重查的代价因此与信号周期有关，而不是与搜索时限有关。非周期或带触发噪声的信号查满时限；很远处的网格与边沿触发一样粗（最高谱线每周期 16 点），比它窄的脉冲可能看不到。
+- Web 的示波器屏幕仍只显示触发沿，不显示触发类型（界面改动不在本 issue）。
+
+## 脉宽触发的粗网格与重复搜索（Issue 1000）
+
+#999 的脉宽搜索在触发通路有噪声（或信号不是周期的）时把远段放在边沿的粗网格上，预算折算后可粗到 640 µs，1 kHz 的脉冲串被混叠成宽脉冲，“大于 600 µs”误触发；等不到的条件在每条命令（及状态寄存器采样）上都在记录网格上重找两个周期，谱线多时每条命令约 0.17 s。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 有噪声时 1 kHz、50 % 脉冲串的 500 µs 脉冲不被判为宽于 600 µs；宽于 400 µs 的仍在持续 400 µs 的时刻触发 | ✅ `tests/test_scope_trigger.py::test_a_noisy_trigger_path_judges_widths_on_a_grid_finer_than_them`（改前误触发在 1.48 ms；远段网格为界限的 1/8，有噪声时时刻误差不超过一格） |
+| 等待中的采集：同一时刻同样的输入不再重算；改设置后照常重找并完成 | ✅ `::test_a_waiting_glitch_search_is_not_repeated_for_the_same_inputs`（DSO-X 2024A、5 % 方波、约 3900 条谐波：四条 `:TER?` 不调用搜索；改极性后 `*OPC?` 完成、记录已触发）；本机这一行设置由约 3.3 s 降到约 0.7 s |
+| 现有边沿与脉宽的测试、用例不改预期 | ✅ `tests/test_scope_trigger.py` 原有 6 项、各示波器型号的用例与金标准未改；全量测试通过 |
+| `scripts/check.sh` 通过 | ✅ |
+
+限制：记录网格段只取预算内的采样，之后的粗网格上比网格窄的脉冲可能漏掉；有触发噪声时粗网格上的时刻不二分（噪声使二分没有意义），误差不超过一格。
+
+## 示波器分段存储：`scope_acquisition` 的 `segments`，DSO-X 2024A 的 `:ACQuire:SEGMented` 与 `:WAVeform:SEGMented`（Issue 957）
+
+`scope_acquisition` 增加 `segments`、`segmented`、`rearm_s`、`segment_index`、`memory_points`：一次单次采集或 digitize 连续取 N 次触发各存一条记录，仍是一个待完成操作（`PendingAcquisitions`），最后一段采满才完成。DSO-X 2024A 接上 `:ACQuire:MODE SEGMented`、`:ACQuire:SEGMented:{COUNt,INDex,ANALyze}`、`:WAVeform:SEGMented:{COUNt?,TTAG?}`。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 1 kHz 信号、4 段：各段的触发时刻差为信号周期的整数倍，且不小于记录时长 + `rearm_s` | ✅ `tests/test_scope_acquisition.py::test_the_segmented_acquisition_flow`（DSO-X 2024A，200 µs/div：记录 2 ms、重新布防 19 µs，相邻触发相差 3 ms，偏差 ≤ 2 ns） |
+| 读第 k 段得到第 k 条记录，TTAG 等于触发时刻差 | ✅ 同一测试：`:ACQuire:SEGMented:INDex k` 后 `acq.records` 就是第 k 段，`:WAVeform:SEGMented:TTAG?` 与触发时刻差一致（1 ps 内），`:WAVeform:XORigin?` 是该段的；超出段数的 INDex 报 -222 |
+| 段间噪声不同、同种子复现 | ✅ 同一测试（两段的信号相同、样本不同，差的标准差在码值量级）与 `::test_segments_repeat_with_the_seed`（同种子逐点相同，换种子不同） |
+| 信号在第 2 段之后停止：SINGle 不完成，`*OPC?` 按型号声明的规则等待 | ✅ `::test_a_segmented_single_waits_when_the_signal_stops_after_the_second_segment`（SDS2104X Plus：它的单次方式布防后不阻塞；信号停后 `*OPC?` 不回复、已触发的两段保留、没有记录入库；信号恢复后完成，前两段的触发时刻不变，第 3 段不早于信号恢复） |
+| 段数 × 点数超出存储深度时报错 | ✅ 流程测试末尾：`memory_points` 300 000 时 COUNt 3 接受、COUNt 4 报 -221 且保留 3 |
+| #947 的金标准不改预期通过 | ✅ `tests/test_scope_stream_migration.py` 未改；`segments = 1` 时噪声键、抖动键、完成时刻的算式与原来相同 |
+| DSO-X 2024A 的用例与覆盖表一致性检查通过 | ✅ `cases.yaml` 新增“分段存储”一例（`uv run simubench cases` 37/37）；覆盖表 `:ACQuire:MODE`、`:ACQuire:SEGMented:*`、`:WAVeform:SEGMented:*` 更新 |
+| `docs/component-map.md` 示波器表的缺口划掉 | ✅ 另有 `instrument-authoring.md` 8.4 一段 |
+| `scripts/check.sh` 通过 | ✅ |
+
+写明的限制与假设：
+- 超出存储深度的错误码取 -221（设置冲突，与 #988 平均次数超限的做法一致）；2000 X 的编程手册与数据手册都不在 `manuals/` 里，没有对照原文。
+- DSO-X 2024A 的 `rearm_s` 19 µs 与 `memory_points` 2 500 000 是估计：每段仍是整条 100 kpts 记录（真机每段的点数随段数减少，未建模），所以这台型号上实际起作用的上限是段数的 2–25。
+- 触发在布防时按当时的信号一次找齐（与单段的待完成采集一样是预先算出的）；信号在完成之前变了，已经触发的段保留、其余重新找。已触发但记录未满的那一段仍用变化之前的信号。
+- `:SINGle` 在 DSO-X 2024A 上是 digitize，命令时钟下它在全部段采满后才返回；“信号中途停止”的测试因此用布防后不阻塞的 SDS2104X Plus。
+- 分段只作用于单次采集、digitize 与立即完成的采集；运行中屏幕上的帧、强制读一个没有记录的通道仍是一条记录（后者之后段数读 0）。
+- `:ACQuire:SEGMented:ANALyze` 只接受：跨段的测量统计与余辉未建模。平均与分段同时打开时每段各自平均（真机不允许这样组合，未检查）。

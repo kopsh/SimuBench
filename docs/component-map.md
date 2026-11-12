@@ -23,10 +23,10 @@
 | vertical | `scope_vertical`(旧名 `scope_frontend`,仅为加载保留) | 信号(滤波与档位;带宽滤波形状 `response`:一阶、砖墙、高斯、4 阶 Bessel、4 阶 Butterworth,#607、#609;一个通道可串两级,如 UXR 的前端与通道带宽限制) | 已实现 | — |
 | adc | `scope_adc` | 采样流(模拟到数字的边界:按请求的时刻求值、加输入噪声、量化;`in<n>` 模拟信号、`out<n>` 采样流,D67、#950) | 已实现 | 有效位数随频率下降、交织失配未建模 |
 | decimator | `scope_decimator` | 采样流(从 ADC 的速率到记录的速率:普通、平均、峰值检测、高分辨率,#950) | 已实现 | — |
-| acquisition | `scope_acquisition` | 数据(定时、触发搜索、向采样流请求一帧并存成记录、运行控制) | 已实现 | — |
+| acquisition | `scope_acquisition` | 数据(定时、触发搜索、向采样流请求一帧并存成记录、运行控制;分段存储 `segments`、`rearm_s`、`segment_index`、`memory_points`:一次采集连续取 N 次触发各存一段,全部采满才完成,#957) | 已实现 | 分段存储每段的点数不随段数减少;跨段的测量统计与余辉未建模 |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
-| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248) | 已实现 | — |
-| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 分段存储未建模;测量窗口只用主记录(没有缩放记录) |
+| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248;触发类型 `mode`:边沿 `edge`、脉宽 `glitch`(`polarity`、`qualifier` 小于/大于/范围、`width_low`、`width_high`),与边沿触发共用模拟通路上的过零时刻、迟滞、耦合、噪声与释抑,#956) | 已实现(边沿、脉宽;码型、欠幅、串行、视频触发未做) | — |
+| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 测量作用于所选的段(分段存储,#957),跨段的统计未建模;测量窗口只用主记录(没有缩放记录) |
 | waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
 
 内置型号(keysight-dsox2024a、keysight-uxr0334b、siglent-sds2104xplus、lecroy-wavepro804hd)全覆盖,无豁免。
@@ -273,7 +273,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 类别内的功能缺口:
 
 12. **DMM**:温度、频率/周期、电容、通断、二极管、比值测量暂不排期(电阻/电流与 34901A 的四线配对已由 #301 实现)。
-13. **示波器**:更多自动测量与运行/触发状态寄存器(#248)、Web 屏幕的光标与自动测量(#280);协议解码/串行触发、mask 测试(MTESt)、search、history、分段存储、数字通道(MSO)、内置波形发生器、FFT 暂不排期。
+13. **示波器**:更多自动测量与运行/触发状态寄存器(#248)、Web 屏幕的光标与自动测量(#280);协议解码/串行触发、mask 测试(MTESt)、search、history、数字通道(MSO)、内置波形发生器、FFT 暂不排期。
 14. **电源**:列表/动态扫描与数据记录(DLOG)暂不排期。
 15. **电子负载**:动态/列表(C2);CP 未收敛时的确定行为已按 D52 落定(#258);MAX/MIN 读数、电阻读数、电池测试暂不排期。
 16. **频谱仪**:多个独立标记(目前只有标记 1;标记组由 #274、N9320B 复位默认值与设置顺序由 #292 补上(`specan_trace` 的 `center_fit`、`specan_lo` 的 `lo_rate`));组件产生的数值应答(标记/迹线/计数器)写死 7 位有效数字、不随定义声明的应答格式(#366);测量应用(ACP/CHP/OBW/TOI/SEMask)、跟踪源、AM/FM 解调暂不排期。

@@ -17,9 +17,15 @@ INSTRUCTIONS = """\
 4. 启动：用户要求或需要时 start_session，把每台仪表的地址告诉用户。
 要重复使用一组仪表和接线时，用 copy_bench 复制整个测试台（连线、设置都在），在副本上继续改。
 
-运行中的规则：测试台运行时只能调参数（edit_bench 的 set_state / set_params，或 set_live_setting 直接改面板设置）。
-增删仪表、连线、换型号要先停止：先说明原因并调用 ask_to_stop_session，然后结束本轮，等用户同意；
-用户同意后的下一轮才能 stop_session。
+运行中的规则：
+- 改正在运行的仪表参数用 set_live_setting：立即生效，只作用于当前运行的会话。成功后用它返回的值
+  （必要时再用 get_instrument_state 回读一次）用一句话告诉用户当前值，同一项不要反复写。
+- edit_bench 的 set_state / set_params 改的是测试台文件里的初始值，只在下一次启动时生效，不会改变
+  正在运行的会话。用户要求“现在生效”就只用 set_live_setting；只有用户明确说“下次启动也保留”时，
+  才对同一项用 edit_bench 的 set_state 写文件，两处用同一个值。
+- 只改用户明确要求的那一项，不要顺手改别的设置。
+- 增删仪表、连线、换型号要先停止：先说明原因并调用 ask_to_stop_session，然后结束本轮，等用户同意；
+  用户同意后的下一轮才能 stop_session。
 
 可以删仪表和连线；不能删测试台文件和定义文件（没有这样的工具）。
 

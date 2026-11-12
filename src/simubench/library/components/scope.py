@@ -6,6 +6,7 @@ import hashlib
 import itertools
 import math
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, replace
 from typing import Any
 
@@ -811,9 +812,46 @@ class TriggerHit:
     index: int
 
 
+@dataclass
+class _Crossing:
+    """A crossing of the trigger level found on a search grid: between the samples at ``before``
+    and ``at`` (s), ``estimate`` linear between them (``final``: that is the instant; otherwise
+    the grid was coarse and the instant is still to be bisected). ``direction`` None: no crossing,
+    only how far the search has looked."""
+
+    direction: str | None
+    before: float
+    at: float
+    estimate: float
+    final: bool
+
+
+def _between(t_p: float, v_p: float, t_k: float, v_k: float, level: float) -> float:
+    """Where the line from (t_p, v_p) to (t_k, v_k) meets ``level``, kept within the two instants."""
+    frac = (level - v_p) / (v_k - v_p) if v_k != v_p else 1.0
+    return t_p + min(max(frac, 0.0), 1.0) * (t_k - t_p)
+
+
+def _period(sig: Signal) -> float | None:
+    """The time after which the signal repeats (its lines are harmonics of one frequency), None
+    when it has no line."""
+    f = np.unique(sig.freq[(sig.freq > 0) & (np.abs(sig.amp) > 0)])
+    if not f.size:
+        return None
+    g = float(f[0])
+    for x in f[1:]:
+        a, b = float(x), g
+        while b > 1e-9 * float(x):  # Euclid, a remainder within rounding of a multiple is none
+            r = a - b * round(a / b)
+            a, b = b, (0.0 if abs(r) < 1e-9 * a else a % b)
+        g = a
+    return 1.0 / g
+
+
 @component("scope_trigger")
 class ScopeTrigger(_ChannelBound):
-    """Edge trigger on its own analog path (instrument-authoring.md 8.4, G5).
+    """Edge and pulse-width (glitch) trigger on its own analog path (instrument-authoring.md 8.4,
+    G5).
 
     The trigger looks at the signal before the ADC, through its own ``coupling`` filter (a table
     ``filters`` of high-pass and low-pass corners per coupling value: AC, low- and high-frequency
@@ -831,6 +869,20 @@ class ScopeTrigger(_ChannelBound):
     (``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``
     records ahead (its auto timeout); a normal or single acquisition waits up to
     ``search_horizon_s`` of virtual time for its edge.
+
+    ``mode`` ``glitch`` triggers on a pulse by its width instead (signal-chain.md 7, #956): a pulse
+    of ``polarity`` runs from one crossing of the level to the next opposite one — the same
+    interpolated crossings, hysteresis, coupling, noise and holdoff as the edge trigger — and
+    ``qualifier`` compares that time with ``width_low`` and ``width_high``: ``less`` (narrower
+    than ``width_high``) and ``range`` (between the two) trigger at the edge that ends the pulse,
+    ``greater`` at the instant the pulse has lasted ``width_low`` (it need not have ended). The
+    whole pulse lies after the trigger is armed: one that began within the pre-trigger time or the
+    holdoff does not count. ``slope`` plays no part. The search takes the record grid for as many
+    samples as ``max_search_points`` allows (fewer for a signal of many lines), then a grid an
+    eighth of the narrowest width bound the qualifier uses for as many again, the instants there
+    bisected on the signal (without trigger noise); a pulse narrower than that grid can be missed
+    there, and an acquisition that finds nothing within that reach waits, looking again at the
+    next command (#1000).
     """
 
     ports = {"ext": PortSpec("in", "signal", "external trigger input")}
@@ -861,15 +913,48 @@ class ScopeTrigger(_ChannelBound):
         "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
         "line": ["LINE"],  # sources that trigger on the mains
         "line_hz": 50.0,  # mains frequency
+        "mode": "edge",  # the trigger type: edge, or glitch (a pulse by its width)
+        "polarity": "positive",  # glitch: the pulse above the level (positive) or below it (negative)
+        "qualifier": "less",  # glitch: narrower than width_high (less), wider than width_low (greater), between (range)
+        "width_low": 20e-9,  # glitch: the width a greater or range pulse exceeds, s
+        "width_high": 30e-9,  # glitch: the width a less or range pulse stays under, s
     }
-    units = {"level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V"}
+    units = {
+        "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V",
+        "width_low": "s", "width_high": "s",
+    }  # fmt: skip
+    choices = {
+        "mode": ("edge", "glitch"),
+        "polarity": ("positive", "negative"),
+        "qualifier": ("less", "greater", "range"),
+    }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.last_ns: int | None = None  # the instant of the latest trigger (holdoff)
+        # The latest search and its result: a search is a pure function of its inputs, and the
+        # status registers ask the same one again after every command of a line (#1000).
+        self._memo: tuple[str, TriggerHit | None] | None = None
 
     def reset(self) -> None:
         self.last_ns = None
+        self._memo = None
+
+    def _search_key(self, sig: Signal, args: tuple[Any, ...], n: int | None) -> str:
+        """Everything a search's result depends on: its arguments, the signal's lines, the
+        holdoff's anchor and every parameter as it resolves now (the level and slope included)."""
+        lines = hashlib.blake2b(digest_size=16)
+        for a in (sig.freq, sig.amp, sig.t0_ns):
+            lines.update(np.ascontiguousarray(a).tobytes())
+        level = self.channel_param("level", n) if n is not None else self.level()
+        slope = self.channel_param("slope", n) if n is not None else self.param("slope")
+        params = []
+        for k in sorted(self.defaults):
+            try:
+                params.append(self.param(k))
+            except KeyError:  # bound per channel ({n}): the level and slope above resolve it
+                params.append(None)
+        return repr((args, sig.dc, lines.hexdigest(), self.last_ns, level, slope, params))
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         """Refuse a level off the source channel's screen by more than ``level_range_divs``
@@ -955,16 +1040,40 @@ class ScopeTrigger(_ChannelBound):
         n: int | None,
         scale: float,
         horizon_s: float | None = None,
+        earliest_s: float = 0.0,
     ) -> TriggerHit | None:
         """The first qualifying edge at least ``pre`` samples after ``t0`` (enough history before
-        the trigger) and past the holdoff, within ``search_windows`` records or, with
-        ``horizon_s``, that much virtual time. None: no edge."""
+        the trigger), past the holdoff and not before ``earliest_s``, within ``search_windows``
+        records or, with ``horizon_s``, that much virtual time. None: no edge."""
+        key = self._search_key(sig, (t0, dt, pre, points, n, scale, horizon_s, earliest_s), n)
+        if self._memo is not None and self._memo[0] == key:
+            return self._memo[1]
+        hit = self._search(sig, t0, dt, pre, points, n, scale, horizon_s, earliest_s)
+        self._memo = (key, hit)
+        return hit
+
+    def _search(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        pre: int,
+        points: int,
+        n: int | None,
+        scale: float,
+        horizon_s: float | None,
+        earliest_s: float,
+    ) -> TriggerHit | None:
+        """:meth:`search` itself."""
         kind = self.source_kind()
-        start_s = pre * dt
+        start_s = max(pre * dt, earliest_s)
         if self.last_ns is not None and self.param("holdoff_on") in (True, 1, "1", "ON", "on"):
             start_s = max(start_s, (self.last_ns - t0) * 1e-9 + float(self.param("holdoff")))
         span = max(points * int(self.param("search_windows")), pre + 2 * points) * dt
         horizon = max(span, float(horizon_s or 0.0))
+        glitch = self.choice("mode") == "glitch"
+        if glitch and kind not in ("channel", "external"):
+            return None  # the mains has no pulse to time
         if kind == "line":
             period = 1.0 / float(self.param("line_hz"))
             phase = (t0 * 1e-9) % period
@@ -982,25 +1091,180 @@ class ScopeTrigger(_ChannelBound):
         # included) is not searched for: a waiting acquisition looks again at every command.
         swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
         top, bottom = sig.dc + swing, sig.dc - swing
-        if not (
-            (rising and bottom < level - hyst and top >= level)
-            or (falling and top > level + hyst and bottom <= level)
-        ):
+        can_rise = bottom < level - hyst and top >= level
+        can_fall = top > level + hyst and bottom <= level
+        if glitch:  # a pulse needs both of its edges
+            if not (can_rise and can_fall):
+                return None
+            return self._glitch(sig, t0, dt, start_s, span, horizon, level, hyst)
+        if not ((rising and can_rise) or (falling and can_fall)):
             return None
         # The first stretch on the record grid; further on, a grid as coarse as the signal allows
         # (sixteen samples a period of its highest line) and no finer than the record's.
         hit = self._scan(sig, t0, dt, start_s, span, level, hyst, rising, falling, dt)
         if hit is not None or horizon <= span:
             return hit
+        step = self._far_step(sig, dt, span, horizon)
+        return self._scan(
+            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
+        )
+
+    def _far_step(self, sig: Signal, dt: float, span: float, horizon: float) -> float:
+        """The grid beyond the first stretch of a search: as coarse as the signal allows (sixteen
+        samples a period of its highest line), no finer than the record's."""
         lines = sig.freq[np.abs(sig.amp) > 1e-6 * max(1e-300, float(np.abs(sig.amp).max(initial=0.0)))]
         f_top = float(lines.max()) if lines.size else 0.0
         step = dt if f_top <= 0 else max(dt, 1.0 / (16.0 * f_top))
         # The work is samples times lines: a signal of many lines is searched on fewer samples.
         budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
-        step = max(step, (horizon - span) / budget)
-        return self._scan(
-            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
-        )
+        return max(step, (horizon - span) / budget)
+
+    def _glitch(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        span: float,
+        horizon: float,
+        level: float,
+        hyst: float,
+    ) -> TriggerHit | None:
+        """The first pulse of ``polarity`` whose width meets ``qualifier``, among the crossings from
+        ``start_s`` on: the instant its closing edge crosses the level (less, range) or the instant
+        it has lasted ``width_low`` (greater)."""
+        opens, closes = ("rise", "fall") if self.choice("polarity") == "positive" else ("fall", "rise")
+        qualifier = self.choice("qualifier")
+        low, high = float(self.param("width_low")), float(self.param("width_high"))
+        # A signal that repeats shows every pulse it has within two periods: none there, none ever
+        # (a waiting acquisition searches again at every command).
+        period = _period(sig) if self.param("noise_rms") in (0, 0.0, None) else None
+        if period is not None:
+            horizon = min(horizon, max(start_s, 0.0) + 2.0 * period + 2.0 * dt)
+        # The work is samples times lines, as for an edge's far search: the record grid for as
+        # many samples as max_search_points allows (fewer for a signal of many lines), then a grid
+        # an eighth of the narrowest width bound the qualifier uses for as many again. A grid
+        # coarser than the widths judged would see pulses with a narrow gap between them as one
+        # wide pulse (#1000); what lies beyond is looked at again at the next command.
+        budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
+        fine = min(span, horizon, start_s + budget * dt)
+        stretches = [(fine, dt)]
+        if horizon > fine:
+            used = {"less": (high,), "greater": (low,)}.get(qualifier, (low, high))
+            bounds = [w for w in used if 0 < w < math.inf]
+            step = max(dt, min(bounds) / 8) if bounds else self._far_step(sig, dt, fine, horizon)
+            stretches.append((min(horizon, fine + step * budget), step))
+
+        def instant(c: _Crossing) -> float:
+            if not c.final:  # found on the coarse grid: to a thousandth of a record sample
+                c.estimate = self._bisect(sig, t0, c.before, c.at, level, c.direction == "rise", dt)
+                c.final = True
+            return c.estimate
+
+        def hit(t: float) -> TriggerHit:
+            return TriggerHit(t, math.ceil(t / dt - 1e-9))
+
+        opened: _Crossing | None = None  # the opening edge of the pulse under way
+        for c in self._edges(sig, t0, dt, start_s, stretches, level, hyst):
+            if opened is not None and qualifier == "greater" and c.at - opened.before > low:
+                # Nothing closed the pulse before it had lasted width_low: ``c`` is the next
+                # crossing, or how far the search has looked.
+                begun = instant(opened)
+                if (c.at if c.direction is None else instant(c)) - begun > low:
+                    return hit(begun + low)
+            if c.direction == opens:
+                opened = c
+            elif c.direction == closes:
+                # The grid already bounds the width; the instants are refined only for a pulse
+                # that may qualify.
+                if opened is not None and (
+                    (qualifier == "less" and c.before - opened.at < high)
+                    or (qualifier == "range" and c.before - opened.at < high and c.at - opened.before > low)
+                ):
+                    width = instant(c) - instant(opened)
+                    if width < high and (qualifier == "less" or width > low):
+                        return hit(instant(c))
+                opened = None
+        return None
+
+    def _edges(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        level: float,
+        hyst: float,
+    ) -> Iterator[_Crossing]:
+        """The crossings of the level from ``start_s`` on, in time order, each found by the edge
+        trigger's own rule (:meth:`_scan`: armed beyond the hysteresis band on the far side, taken
+        at the first sample on the level's other side). ``stretches`` are (stop, step) grids
+        searched one after the other, the first from one step before ``start_s`` (a sample that
+        may arm but not cross). After every chunk of samples a crossing of no direction says how
+        far the search has come."""
+        armed = {"rise": False, "fall": False}
+        prev: tuple[float, float] | None = None
+        noiseless = self.param("noise_rms") in (0, 0.0, None)
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            final = not (step > dt * (1 + 1e-9) and noiseless)
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                live = offsets >= start_s - 1e-15
+                far = {"rise": np.nonzero(v < level - hyst)[0], "fall": np.nonzero(v > level + hyst)[0]}
+                cross = {
+                    "rise": np.nonzero((v >= level) & live)[0],
+                    "fall": np.nonzero((v <= level) & live)[0],
+                }
+                at = {"rise": 0, "fall": 0}  # where each direction looks on from
+                while True:
+                    found: tuple[int, str] | None = None
+                    for d in ("rise", "fall"):
+                        if not armed[d]:
+                            i = int(np.searchsorted(far[d], at[d]))
+                            if i == far[d].size:
+                                continue
+                            armed[d], at[d] = True, int(far[d][i]) + 1
+                        j = int(np.searchsorted(cross[d], at[d]))
+                        if j < cross[d].size and (found is None or int(cross[d][j]) < found[0]):
+                            found = (int(cross[d][j]), d)
+                    if found is None:
+                        break
+                    k, d = found
+                    armed[d], at[d] = False, k + 1
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
+                    yield _Crossing(d, t_p, t_k, _between(t_p, v_p, t_k, v_k, level), final)
+                prev = (float(offsets[-1]), float(v[-1]))
+                yield _Crossing(None, prev[0], prev[0], prev[0], True)
+                a = prev[0] + step
+
+    def _instant(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        step: float,
+        offsets: np.typing.NDArray[np.float64],
+        v: np.typing.NDArray[np.float64],
+        k: int,
+        prev: tuple[float, float] | None,
+        level: float,
+        rising: bool,
+    ) -> float:
+        """The instant of the crossing taken at sample ``k``: between it and the sample before
+        (``prev``: the last one of the chunk before), linear on the record's grid, bisected on a
+        coarser one that carries no noise."""
+        t_k, v_k = float(offsets[k]), float(v[k])
+        t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
+        if step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None):
+            return self._bisect(sig, t0, t_p, t_k, level, rising, dt)
+        return _between(t_p, v_p, t_k, v_k, level)
 
     @staticmethod
     def _bisect(sig: Signal, t0: int, lo: float, hi: float, level: float, rising: bool, dt: float) -> float:
@@ -1060,13 +1324,7 @@ class ScopeTrigger(_ChannelBound):
                 if not hits.size:
                     continue
                 k = after + int(hits[0])
-                t_k, v_k = float(offsets[k]), float(v[k])
-                t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
-                if step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None):
-                    t = self._bisect(sig, t0, t_p, t_k, level, d == "rise", dt)
-                else:
-                    frac = (level - v_p) / (v_k - v_p) if v_k != v_p else 1.0
-                    t = t_p + min(max(frac, 0.0), 1.0) * (t_k - t_p)
+                t = self._instant(sig, t0, dt, step, offsets, v, k, prev, level, d == "rise")
                 best = t if best is None else min(best, t)
             if best is not None:
                 return TriggerHit(best, math.ceil(best / dt - 1e-9))
@@ -1075,12 +1333,29 @@ class ScopeTrigger(_ChannelBound):
         return None
 
 
+@dataclass
+class _Segment:
+    """One record per channel of an acquisition, taken on one trigger (a segmented acquisition takes
+    several): whether it triggered, the instant of its trigger on the record's grid (of the
+    record's trigger point when it did not) and the instant its record is full."""
+
+    records: dict[int, Record]
+    triggered: bool
+    trigger_ns: int
+    end_ns: int
+
+
 class PendingAcquisitions:
     """The scope's pending acquisitions (``completion: pending``, #134): a single acquisition, a
     forced frame or a digitize is an operation that finishes in virtual time, when the record after
     the trigger is full; armed for a trigger that has not come, it waits for one, looking again
     whenever a command arrives. The run control (ScopeAcquisition) starts and reads these; the
-    scheduling and its state are this class's."""
+    scheduling and its state are this class's.
+
+    A segmented acquisition (``segments``) is one such operation: it is done when its last
+    segment's record is full. Its triggers are found when it is armed, from the signals as they
+    are then; when the signals change before it is done, the segments already triggered are kept
+    and the rest are looked for again (#957)."""
 
     def __init__(self, acq: ScopeAcquisition) -> None:
         self.acq = acq
@@ -1088,12 +1363,15 @@ class PendingAcquisitions:
 
     def clear(self) -> None:
         """No acquisition scheduled."""
-        #: The scheduled acquisition: when it is done, when it triggered, and what it keeps.
+        #: The scheduled acquisition: when it is done, when it (its last segment) triggered, and
+        #: what it keeps: the segments, the time it takes, and how it was asked for.
         self.due_ns: int | None = None
         self.trigger_ns: int | None = None
-        self._due: tuple[dict[int, Record], int] | None = None
+        self._due: tuple[list[_Segment], int, list[int] | None, bool] | None = None
         #: Armed, the trigger not come yet: the channels to acquire once it does (None: those shown).
         self._awaiting: tuple[list[int] | None] | None = None
+        #: The segments found so far of an acquisition still waiting for the trigger of a later one.
+        self._found: list[_Segment] = []
 
     def waiting(self) -> bool:
         """A single acquisition (or a digitize) not done yet."""
@@ -1102,30 +1380,39 @@ class PendingAcquisitions:
 
     def schedule(self, channels: list[int] | None, force: bool) -> None:
         """Arm an acquisition that finishes in virtual time: when the record after the trigger is
-        full, or, without a trigger, once one comes (``retry``)."""
-        acq = self.acq
-        assert acq.owner is not None
+        full (the last segment's), or, without a trigger, once one comes (``retry``)."""
         if self.due_ns is not None:
             return  # already on its way
-        records, used, triggered, trigger_ns = acq._acquire(acq.displayed() if channels is None else channels)
-        acq.last_triggered = triggered
-        if not (force or triggered or acq._is("auto")):
+        self._plan(channels, force, [])
+
+    def _plan(self, channels: list[int] | None, force: bool, taken: list[_Segment]) -> None:
+        """Find the triggers of the segments after ``taken`` in the signals as they are now."""
+        acq = self.acq
+        assert acq.owner is not None
+        acq.session.signal_changed(acq)  # this plan has seen the signals as they are now
+        segments, complete = acq.acquire_segments(
+            acq.displayed() if channels is None else channels, taken, force
+        )
+        acq.last_triggered = complete and all(seg.triggered for seg in segments)
+        if not complete:
+            self._found = segments
             self._awaiting = (channels,)
             acq.owner.block(acq.uid, str(acq.param("no_trigger")) == "wait")
             return
-        self._awaiting = None
-        now = acq.owner.now_ns()
-        self.due_ns, self.trigger_ns, self._due = now + used, trigger_ns, (records, used)
+        self._awaiting, self._found = None, []
+        used = segments[-1].end_ns + round(float(acq.param("overhead_s")) * 1e9) - acq.session.now_ns
+        self.due_ns, self.trigger_ns = acq.owner.now_ns() + used, segments[-1].trigger_ns
+        self._due = (segments, used, channels, force)
         acq.owner.block(acq.uid, False)
         acq.owner.register_pending(acq.uid, self.due_ns, self.complete, waited=bool(acq.param("opc_waits")))
 
     def complete(self) -> None:
         """The scheduled acquisition is done: keep its records; a single acquisition then stops."""
         assert self._due is not None
-        records, used = self._due
+        segments, used, _, _ = self._due
         self.clear()
         acq = self.acq
-        acq.store(records, used)
+        acq.store_segments(segments, used)
         if acq._is("single"):
             acq._finish_single()
         else:
@@ -1139,15 +1426,30 @@ class PendingAcquisitions:
             acq.owner.block(acq.uid, False)
         self.clear()
 
+    def _triggered_by(self, segments: list[_Segment], now_ns: int) -> list[_Segment]:
+        return [seg for seg in segments if seg.trigger_ns <= now_ns]
+
     def retry(self) -> None:
-        """Armed for a trigger that had not come: look again now (the signal may have changed)."""
+        """Armed for a trigger that had not come: look again now (the signal may have changed). A
+        segmented acquisition on its way whose signals changed looks again for the segments that
+        have not triggered yet."""
         acq = self.acq
-        if not acq.pending_mode() or self.due_ns is not None:
+        if not acq.pending_mode() or acq.owner is None:
             return
-        if self._awaiting is not None:
-            self.schedule(self._awaiting[0], force=False)
+        now = acq.owner.now_ns()
+        if self.due_ns is not None:
+            if self._due is None or len(self._due[0]) < 2 or not acq.session.signal_changed(acq):
+                return
+            segments, _, channels, force = self._due
+            taken = self._triggered_by(segments, now)
+            if len(taken) < len(segments):
+                acq.owner.cancel_pending(acq.uid)
+                self.due_ns, self.trigger_ns, self._due = None, None, None
+                self._plan(channels, force, taken)
+        elif self._awaiting is not None:
+            self._plan(self._awaiting[0], False, self._triggered_by(self._found, now))
         elif acq.armed and acq._is("single"):  # armed from the panel, waiting for its trigger
-            self.schedule(None, force=False)
+            self._plan(None, False, [])
 
 
 @component("scope_acquisition")
@@ -1191,6 +1493,16 @@ class ScopeAcquisition(Component):
       wait for it unless ``opc_waits`` is false, and a digitize waits for it. Without a trigger it
       waits for one, looking again whenever a command arrives; ``no_trigger: wait`` leaves ``*OPC?``
       unanswered meanwhile (the client times out), ``return`` answers it at once.
+
+    * **segmented memory** (#957): with ``segments`` above one (while ``segmented``), a single
+      acquisition or a digitize takes that many records, each on its own trigger; the trigger is
+      armed for the next ``rearm_s`` after a record is full, and the acquisition is done with its
+      last segment (in an auto mode a segment whose trigger does not come within the auto timeout
+      is taken untriggered; otherwise the acquisition waits). ``segment_index`` (from 1) selects
+      the segment that reads, transfers and measurements use; op ``figure`` gives the number of
+      segments acquired and the selected segment's time tag. ``memory_points`` limits segments
+      times record length (-221). The first segment's noise is an unsegmented acquisition's; each
+      later one has its own.
 
     Status events (for ``status_register`` bits of these names): ``TRG`` when a stored acquisition met
     its trigger, ``DONE`` for every stored acquisition, ``AUTO`` for one an auto mode took without
@@ -1249,11 +1561,18 @@ class ScopeAcquisition(Component):
         "opc_waits": True,  # *OPC?, *OPC and *WAI wait for a pending acquisition
         "while_waiting": "previous",  # previous | error: a read while an acquisition is pending
         "no_trigger": "wait",  # wait | return: *OPC? while armed for a trigger that has not come
+        "segments": 1,  # records one acquisition takes, each on its own trigger (segmented memory); 1: one
+        "segmented": True,  # whether segments applies (e.g. an acquisition mode that is SEGMented)
+        "rearm_s": 0.0,  # s from a segment's full record until the trigger is armed for the next
+        "segment_index": 1,  # the segment that reads and measurements use, from 1
+        "memory_points": None,  # points the segments of one acquisition may take together (None: no limit)
     }
+    units = {"rearm_s": "s", "overhead_s": "s", "trigger_jitter_s": "s"}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.records: dict[int, Record] = {}
+        self.segment_records: list[dict[int, Record]] = []  # the latest acquisition's segments, if segmented
         self.acq_count = 0
         self.running = True
         self.armed = False
@@ -1262,11 +1581,23 @@ class ScopeAcquisition(Component):
 
     def reset(self) -> None:
         self.records = {}
+        self.segment_records = []
         self.acq_count = 0
         self.running = True
         self.armed = False
         self.last_triggered = False
         self.pending.clear()
+
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        """A segment index beyond the segment count is refused (-222); more segments than the
+        memory holds at the present record length are refused (-221); the old value is kept."""
+        if key == "segment_index":
+            if not 1 <= int(new) <= self.segment_count():
+                raise ScpiError(-222, f"segment index outside 1 to {self.segment_count()}")
+            self._select_segment(int(new))
+            self.session.invalidate()
+        elif key in ("segments", "segmented"):
+            self._check_memory()
 
     # ---- the modules ------------------------------------------------------------------------------
 
@@ -1357,7 +1688,7 @@ class ScopeAcquisition(Component):
     def _averages(self) -> int:
         return self.decimator_unit().averages()
 
-    def _jitter(self, t_start_ns: int, frame: int | None = None) -> float:
+    def _jitter(self, t_start_ns: int, frame: int | None = None, segment: int = 0) -> float:
         jitter = float(self.param("trigger_jitter_s"))
         if not jitter:
             return 0.0
@@ -1368,25 +1699,39 @@ class ScopeAcquisition(Component):
         if self.param("noise_key") == "time":
             key = stream_key(self.session.seed, self.uid, "jitter")
             return jitter * float(gaussian(key, np.array([t_start_ns]))[0])
-        key = stream_key(self.session.seed, self.uid, "jitter", self.acq_count)
+        # A later segment of the same acquisition has a stream of its own; the first keeps the key
+        # an unsegmented acquisition has.
+        tail = ("segment", segment) if segment else ()
+        key = stream_key(self.session.seed, self.uid, "jitter", self.acq_count, *tail)
         return jitter * float(gaussian(key, np.zeros(1))[0])
 
     def _request(
-        self, n: int, t0: int, start: int, dt: float, points: int, t_start_ns: int, m: int, frame: int | None
+        self,
+        n: int,
+        t0: int,
+        start: int,
+        dt: float,
+        points: int,
+        t_start_ns: int,
+        m: int,
+        frame: int | None,
+        segment: int = 0,
     ) -> FrameRequest:
         """What the acquisition asks channel n's chain for: ``points`` samples ``dt`` apart from
         sample ``start`` of the grid at ``t0``, and the random stream of its input noise — a pure
         function of the seed, the channel and the key. A displayed frame has a stream of its own;
         an acquisition's is keyed by the absolute sample instants (``noise_key: time``, D46) or by
-        the acquisition count. The index counts on the converter's grid (``m`` samples per record
-        sample when peak detect oversamples)."""
+        the acquisition count (and, after the first, the segment's number: the segments of one
+        acquisition carry independent noise). The index counts on the converter's grid (``m``
+        samples per record sample when peak detect oversamples)."""
         if frame is not None:
             return FrameRequest(t0, points, dt, (self.uid, "frame", n, frame), first=start)
         if self.param("noise_key") == "time":
             native_dt = dt / m
             key = (self.uid, "noise", n, native_dt, str(self.param("noise_stream")))
             return FrameRequest(t0, points, dt, key, math.floor(t_start_ns * 1e-9 / native_dt), first=start)
-        return FrameRequest(t0, points, dt, (self.uid, "noise", n, self.acq_count), first=start)
+        tail = ("segment", segment) if segment else ()
+        return FrameRequest(t0, points, dt, (self.uid, "noise", n, self.acq_count, *tail), first=start)
 
     def adc_codes_per_div(self) -> float:
         return self.adc_unit().codes_per_div()
@@ -1403,18 +1748,29 @@ class ScopeAcquisition(Component):
         return records, used, triggered
 
     def _acquire(
-        self, channels: list[int], frame: int | None = None
+        self,
+        channels: list[int],
+        frame: int | None = None,
+        t0: int | None = None,
+        segment: int = 0,
+        earliest_ns: int | None = None,
     ) -> tuple[dict[int, Record], int, bool, int]:
-        """:meth:`compute`, and the instant of the trigger (or of the record's middle) in ns."""
+        """:meth:`compute`, and the instant of the trigger (or of the record's trigger point) in ns.
+
+        A later ``segment`` of a segmented acquisition is armed at ``t0`` (not now) and takes no
+        trigger before ``earliest_ns``."""
         points, nominal_dt, pre, post = self._timing()
         # A fast clock (positive clock_ppm) samples closer together than the nominal interval; the
         # record keeps the nominal dt the scope reports and reconstructs with, so time measurements
         # read low by that fraction (the spectrum analyzer's reference convention, G3).
         dt = nominal_dt / (1.0 + self.horizontal().clock_error())
-        t0 = self.session.now_ns
+        t0 = self.session.now_ns if t0 is None else t0
+        earliest_s = 0.0 if earliest_ns is None else max(0.0, (earliest_ns - t0) * 1e-9)
         # An auto mode gives up after its auto timeout; a normal or single acquisition waits for
         # its edge, the virtual time it takes included (G5).
-        hit = self._trigger_hit(t0, dt, pre, points, waits=not self._is("auto") and frame is None)
+        hit = self._trigger_hit(
+            t0, dt, pre, points, waits=not self._is("auto") and frame is None, earliest_s=earliest_s
+        )
         triggered = hit is not None
         k = hit.index if hit is not None else pre
         start = k - pre
@@ -1432,7 +1788,7 @@ class ScopeAcquisition(Component):
         # The record samples on the clock's grid; where the trigger fell between two samples, and
         # the trigger's jitter, are in the record's time origin (the scope's xorigin), not in the
         # samples.
-        jitter = self._jitter(t_start_ns, frame)
+        jitter = self._jitter(t_start_ns, frame, segment)
         x_origin = (start * dt - hit.t_s - jitter) if hit is not None else -pre * dt
         trigger_ns = t0 + round(hit.t_s * 1e9) if hit is not None else None
         records: dict[int, Record] = {}
@@ -1441,7 +1797,7 @@ class ScopeAcquisition(Component):
             # The channel's chain (ADC, then the decimator's acquisition mode) gives the record's
             # samples: the codes, as volts (D46: they are kept).
             volts = self.input_frames(
-                f"in{n}", self._request(n, t0, start, dt, points, t_start_ns, m, frame)
+                f"in{n}", self._request(n, t0, start, dt, points, t_start_ns, m, frame, segment)
             ).data
             records[n] = Record(
                 channel=n,
@@ -1462,9 +1818,11 @@ class ScopeAcquisition(Component):
         used = used * self._averages() + float(self.param("overhead_s"))
         return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
 
-    def _trigger_hit(self, t0: int, dt: float, pre: int, points: int, waits: bool) -> TriggerHit | None:
+    def _trigger_hit(
+        self, t0: int, dt: float, pre: int, points: int, waits: bool, earliest_s: float = 0.0
+    ) -> TriggerHit | None:
         """The trigger the acquisition starting at ``t0`` finds (``waits``: as far as the trigger's
-        search horizon), or None."""
+        search horizon; none before ``earliest_s``), or None."""
         trig = self.trigger_unit()
         n_trig = trig.source_channel()
         kind = trig.source_kind()
@@ -1477,7 +1835,94 @@ class ScopeAcquisition(Component):
         return trig.search(
             sig, t0, dt, pre, points, n_trig, scale_t,
             float(trig.param("search_horizon_s")) if waits else None,
+            earliest_s,
         )  # fmt: skip
+
+    # ---- segments (segmented memory, #957) ------------------------------------------------------------
+
+    def segment_count(self) -> int:
+        """Records one acquisition takes: ``segments`` while ``segmented``, else one."""
+        return max(1, int(self.param("segments"))) if V.flag(self.param("segmented")) else 1
+
+    def _check_memory(self) -> None:
+        """The segments of one acquisition fit the memory (``memory_points``), or -221."""
+        count, limit = self.segment_count(), self.param("memory_points")
+        if count > 1 and limit is not None and count * self._timing()[0] > float(limit):
+            raise ScpiError(
+                -221,
+                f"{count} segments of {self._timing()[0]} points exceed the memory ({int(limit)} points)",
+            )
+
+    def acquire_segments(
+        self, channels: list[int], taken: list[_Segment] | tuple[()] = (), force: bool = False
+    ) -> tuple[list[_Segment], bool]:
+        """The segments of one acquisition starting now, after those already ``taken``, without
+        changing any state: each on its own trigger, the trigger armed for the next ``rearm_s``
+        after a record is full (so with the pre-trigger time to fill first), the holdoff counted
+        from the segment before. Returns the segments and whether all of them are there: a segment
+        whose trigger does not come ends the list, unless the acquisition is forced or the mode is
+        an auto mode (the segment is then taken untriggered)."""
+        count = self.segment_count()
+        self._check_memory()
+        trig = self.trigger_unit()
+        now = self.session.now_ns
+        _, nominal_dt, pre, _ = self._timing()
+        fill_ns = round(pre * nominal_dt * 1e9)
+        overhead, rearm = (round(float(self.param(k)) * 1e9) for k in ("overhead_s", "rearm_s"))
+        segments = list(taken)
+        held = trig.last_ns
+        try:
+            while len(segments) < count:
+                if segments:
+                    # Armed since the record before was full and the re-arm time passed; when that
+                    # is long ago the pre-trigger memory is full already, and the search starts now.
+                    t0, earliest = max(segments[-1].end_ns + rearm, now - fill_ns), now
+                    if segments[-1].triggered:
+                        trig.last_ns = segments[-1].trigger_ns
+                else:
+                    t0, earliest = now, None
+                records, used, triggered, trigger_ns = self._acquire(
+                    channels, t0=t0, segment=len(segments), earliest_ns=earliest
+                )
+                if not (triggered or force or self._is("auto")):
+                    return segments, False
+                segments.append(_Segment(records, triggered, trigger_ns, t0 + used - overhead))
+        finally:
+            trig.last_ns = held
+        return segments, True
+
+    def store_segments(self, segments: list[_Segment], used: int) -> int:
+        """Keep the segments of one acquisition (:meth:`store` for each); reads and measurements
+        then use the one ``segment_index`` selects. Returns ``used``."""
+        if len(segments) == 1:
+            return self.store(segments[0].records, used)
+        for k, seg in enumerate(segments):
+            self.store(seg.records, used, segment=k, of=len(segments))
+        self.segment_records = [dict(seg.records) for seg in segments]
+        self._select_segment(int(self.param("segment_index")))
+        return used
+
+    def _selected(self, index: int | None = None) -> int:
+        """The selected segment, from 0, among those the latest acquisition has."""
+        i = int(self.param("segment_index")) if index is None else index
+        return min(max(i, 1), max(len(self.segment_records), 1)) - 1
+
+    def _select_segment(self, index: int) -> None:
+        if self.segment_records:
+            self.records = dict(self.segment_records[self._selected(index)])
+
+    def segment_time_tag(self) -> float:
+        """The selected segment's trigger, seconds after the first segment's (0 without segments)."""
+        if not self.segment_records:
+            return 0.0
+
+        def instant(records: dict[int, Record]) -> int:
+            rec = next(iter(records.values()))
+            if rec.trigger_ns is not None:
+                return rec.trigger_ns
+            return rec.t_start_ns + round(rec.trigger_index * rec.dt_s * 1e9)
+
+        return (instant(self.segment_records[self._selected()]) - instant(self.segment_records[0])) * 1e-9
 
     def triggers_now(self) -> bool:
         """Whether an acquisition starting now finds its trigger within its search windows (a
@@ -1486,10 +1931,21 @@ class ScopeAcquisition(Component):
         dt = nominal_dt / (1.0 + self.horizontal().clock_error())
         return self._trigger_hit(self.session.now_ns, dt, pre, points, waits=False) is not None
 
-    def store(self, records: dict[int, Record], used: int, forced: bool = False) -> int:
+    def store(
+        self,
+        records: dict[int, Record],
+        used: int,
+        forced: bool = False,
+        segment: int | None = None,
+        of: int = 1,
+    ) -> int:
         """Keep ``records`` as the latest acquisition and log its recipe (D36). Returns ``used``.
 
-        ``forced``: read from a channel that had no record, whatever the run mode."""
+        ``forced``: read from a channel that had no record, whatever the run mode. ``segment``
+        (from 0) ``of`` that many: one segment of a segmented acquisition (:meth:`store_segments`);
+        the acquisition counts once, with its last segment."""
+        if segment is None:
+            self.segment_records = []  # the latest acquisition is not a segmented one
         self.records.update(records)
         instants = [r.trigger_ns for r in records.values() if r.triggered and r.trigger_ns is not None]
         if instants:
@@ -1502,7 +1958,9 @@ class ScopeAcquisition(Component):
             self.owner.status_event("DONE")
             if not instants and not forced and self._is("auto"):
                 self.owner.status_event("AUTO")
-        self.acq_count += 1
+        count = self.acq_count + 1
+        if segment is None or segment == of - 1:
+            self.acq_count = count
         self.session.invalidate()
         if self.owner is not None:
             # The acquisition's recipe: everything needed to regenerate it from the bench (D36).
@@ -1510,7 +1968,8 @@ class ScopeAcquisition(Component):
                 self.owner,
                 "acquisition",
                 {
-                    "count": self.acq_count,
+                    "count": count,
+                    **({} if segment is None else {"segment": segment + 1, "segments": of}),
                     "forced": forced,
                     "channels": {
                         str(ch): {
@@ -1598,7 +2057,18 @@ class ScopeAcquisition(Component):
         if self.pending_mode() and (force or stopped_too or self._is("single")):
             self.pending.schedule(channels, force)  # continuous runs (auto, normal) refresh at once
             return 0
-        records, used, triggered = self.compute(self.displayed() if channels is None else channels)
+        chans = self.displayed() if channels is None else channels
+        if self.segment_count() > 1:
+            segments, complete = self.acquire_segments(chans, force=force)
+            self.last_triggered = complete and all(seg.triggered for seg in segments)
+            if not complete:
+                return 0  # waiting for a segment's trigger: the previous records stay
+            used = segments[-1].end_ns + round(float(self.param("overhead_s")) * 1e9) - self.session.now_ns
+            self.store_segments(segments, used)
+            if self._is("single"):
+                self._finish_single()
+            return used
+        records, used, triggered = self.compute(chans)
         self.last_triggered = triggered
         if force or triggered or self._is("auto"):
             self.store(records, used)
@@ -1809,25 +2279,41 @@ class ScopeAcquisition(Component):
         return OpResult()
 
     @op("figure")
-    def figure(self, what: str = "points", integer: bool = False, significant: int = 0, **_: Any) -> OpResult:
-        """A read-only figure of the acquisition: ``points`` (record length), ``sample_rate`` or
-        ``count`` (acquisitions so far, an integer). Numbers come in the definition's number
-        format, as an integer with ``integer``, or in engineering notation with ``significant``
-        digits."""
+    def figure(
+        self, what: str = "points", integer: bool = False, significant: int = 0, format: str = "", **_: Any
+    ) -> OpResult:
+        """A read-only figure of the acquisition: ``points`` (record length), ``sample_rate``,
+        ``count`` (acquisitions so far, an integer), ``segments`` (the segments the latest
+        acquisition has, an integer) or ``time_tag`` (the selected segment's trigger, seconds after
+        the first segment's). Numbers come in the definition's number
+        format, as an integer with ``integer``, in engineering notation with ``significant``
+        digits, or in a printf ``format``."""
         assert self.owner is not None
         if what == "count":
             return OpResult(str(self.acq_count).encode())
+        if what == "segments":  # the segments the latest acquisition has (0: it was not segmented)
+            return OpResult(str(len(self.segment_records)).encode())
         if integer and what == "points":
             return OpResult(str(int(self._timing()[0])).encode())
         if what == "points":
             value = float(self._timing()[0])
         elif what == "sample_rate":
             value = self.sample_rate()
+        elif what == "time_tag":
+            value = self.segment_time_tag()
         else:
             raise ScpiError(-300, f"{self.uid}: no figure {what!r}")
         if significant:
             return OpResult(V.format_engineering_digits(value, int(significant)))
+        if format:
+            return OpResult((format % value).encode())
         return OpResult(self.owner.format_number(value))
+
+    @op("analyze_segments")
+    def analyze_segments(self, **_: Any) -> OpResult:
+        """``:ACQuire:SEGMented:ANALyze``: accepted. Measurement statistics and persistence over
+        all the segments are not modeled; a measurement reads the selected segment."""
+        return OpResult()
 
     @op("digitize")
     def digitize(self, sources: list[bytes] | None = None, **_: Any) -> OpResult:
