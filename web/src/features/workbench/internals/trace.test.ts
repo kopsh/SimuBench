@@ -20,10 +20,25 @@ const comp = (name: string) => view.components.find((c) => c.name === name)!;
 
 describe("traceOf", () => {
   it("lights what feeds the ADC and what it reaches, down to the readers", () => {
+    // Since the sample stream (D67) every channel's signal runs through the ADC, then the
+    // decimator, to the acquisition; the ADC is also a dependency of the acquisition.
     const t = traceOf(view, "adc");
-    expect([...t.nodes].sort()).toEqual(["acq", "adc", "meas", "xfer"]);
+    const chain = [1, 2, 3, 4].flatMap((n) => [`ch${n}.inp`, `ch${n}.front`, `ch${n}.probe`, `p:CH${n}`]);
+    expect([...t.nodes].sort()).toEqual(["acq", "adc", "dec", "meas", "xfer", ...chain].sort());
     expect(t.links).toEqual(
-      new Set([link("adc", "acq"), link("acq", "meas"), link("acq", "xfer")]),
+      new Set([
+        link("adc", "dec"),
+        link("dec", "acq"),
+        link("adc", "acq"),
+        link("acq", "meas"),
+        link("acq", "xfer"),
+        ...[1, 2, 3, 4].flatMap((n) => [
+          link(`p:CH${n}`, `ch${n}.inp`),
+          link(`ch${n}.inp`, `ch${n}.front`),
+          link(`ch${n}.front`, `ch${n}.probe`),
+          link(`ch${n}.probe`, "adc"),
+        ]),
+      ]),
     );
   });
 

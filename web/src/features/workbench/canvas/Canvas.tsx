@@ -148,8 +148,12 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
   }
 
   const edges = useMemo<WireEdgeType[]>(
-    () =>
-      view.wires.map((w) => {
+    () => {
+      // A net wired to several loads says what it carries once, on its first wire.
+      const read = new Set<string>();
+      return view.wires.map((w) => {
+        const first = !!w.net && !read.has(w.net);
+        if (w.net) read.add(w.net);
         const [src, sh] = split(w.from);
         const [dst, th] = split(w.to);
         const ch = channelOfRef(view, w.to) ?? channelOfRef(view, w.from);
@@ -169,10 +173,12 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
             highlighted: !!selectedNet && w.net === selectedNet,
             issue: issues?.get(`wire:${w.index}`),
             level: w.net ? levels?.get(w.net) : undefined,
+            readout: first,
             reverse: directionOf(view, w.from) === "in" && directionOf(view, w.to) !== "in",
           },
         };
-      }),
+      });
+    },
     [view, selection, selectedNet, issues, levels],
   );
 
