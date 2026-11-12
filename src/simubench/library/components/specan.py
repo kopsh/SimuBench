@@ -36,7 +36,7 @@ from scipy.special import erf
 from ...engine import rfcascade
 from ...engine.component import Component, OpResult, PortSpec, RfStage, RfStageSpec, component, op
 from ...engine.noise import gaussian, stream_key
-from ...engine.signal import Signal
+from ...engine.signal import FidelityNote, Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 
@@ -141,9 +141,28 @@ class _Settings:
     att: float
     detector: str
     nf: float
+    #: The attenuation the noise floor adds on top of the figure: the real one in the earlier way
+    #: (the figure is behind the attenuator), 0 when the input block's own figure is the whole
+    #: receiver's (#954).
+    floor_att: float = 0.0
+    #: The chain's cascaded figures at the center frequency, when any stage declares intercepts:
+    #: the distortion products and the compression the display draws (#954). None: an ideal chain.
+    cascade: RfStageSpec | None = None
 
     def key(self) -> tuple[Any, ...]:
-        return (self.start, self.stop, self.points, self.rbw, self.sweep, self.att, self.detector, self.nf)
+        cascade = self.cascade
+        figures = (cascade.gain_db, cascade.iip2_dbm, cascade.iip3_dbm, cascade.p1db_dbm) if cascade else ()
+        return (
+            self.start,
+            self.stop,
+            self.points,
+            self.rbw,
+            self.sweep,
+            self.att,
+            self.detector,
+            self.nf,
+            *figures,
+        )
 
 
 @component("specan_input")
@@ -163,8 +182,25 @@ class SpecanInput(Component):
         "att_auto": True,  # the attenuation is automatic (a setting)
         "ref_level": 0.0,  # dBm, the reference level the automatic attenuation holds (a setting)
         "preamp_gain": 0.0,  # dB, the preamplifier's gain (0: none, or off)
+        # The preamplifier's own figures at its input, from the data sheet (signal-chain.md 5.2,
+        # #954); None: ideal. The block's stage refers them to the analyzer's input through the
+        # attenuator ahead of the preamplifier.
+        "preamp_noise_figure": None,  # dB
+        "iip2_dbm": None,  # dBm
+        "iip3_dbm": None,  # dBm
+        "p1db_dbm": None,  # dBm
+        # The frequency response's deviation from its calibration, dB (signal-chain.md 5.2,
+        # #954): piecewise linear over [[frequency Hz, dB], ...], 0 beyond the table; empty: flat.
+        "flatness": [],
     }
-    units = {"max_mixer_level": "dBm", "preamp_gain": "dB"}
+    units = {
+        "max_mixer_level": "dBm",
+        "preamp_gain": "dB",
+        "preamp_noise_figure": "dB",
+        "iip2_dbm": "dBm",
+        "iip3_dbm": "dBm",
+        "p1db_dbm": "dBm",
+    }
 
     def signal(self) -> Signal:
         return self.input("in")
@@ -172,11 +208,36 @@ class SpecanInput(Component):
     def gain_db(self) -> float:
         return float(self.param("preamp_gain")) - self.attenuation()
 
+    def flatness_db(self, f_hz: float | np.ndarray) -> float | np.ndarray:
+        """The response's deviation at ``f_hz``, dB: piecewise linear over the flatness table, 0
+        beyond it (#954: the table is a patch on the calibration, not an extrapolation); 0.0
+        without a table."""
+        table = self.param("flatness") or ()
+        if not table:
+            return 0.0
+        edges = np.array([float(row[0]) for row in table])
+        deviations = np.array([float(row[1]) for row in table])
+        return np.interp(f_hz, edges, deviations, left=0.0, right=0.0)
+
     def output(self, port: str) -> Signal:
-        return self.signal().scale(10 ** (self.gain_db() / 20))
+        sig = self.signal().scale(10 ** (self.gain_db() / 20))
+        if self.param("flatness"):
+            sig = sig.transfer(lambda f: 10 ** (np.asarray(self.flatness_db(f)) / 20))
+        return sig
 
     def stage(self, f_hz: float) -> RfStageSpec:
-        return RfStageSpec(gain_db=self.gain_db())
+        """The block as one stage: the attenuator folded into the figures (referred ahead of it,
+        its loss adds the same dB to the noise figure and to every intercept)."""
+        att = self.attenuation()
+        nf = self.param("preamp_noise_figure")
+        ip2, ip3, p1 = (self.param(k) for k in ("iip2_dbm", "iip3_dbm", "p1db_dbm"))
+        return RfStageSpec(
+            gain_db=self.gain_db(),
+            noise_figure_db=None if nf is None else float(nf) + att,
+            iip2_dbm=math.inf if ip2 is None else float(ip2) + att,
+            iip3_dbm=math.inf if ip3 is None else float(ip3) + att,
+            p1db_dbm=math.inf if p1 is None else float(p1) + att,
+        )
 
     def attenuation(self) -> float:
         if bool(self.param("att_auto")):
@@ -221,7 +282,9 @@ class SpecanLo(Component):
     frequency. The 10 MHz reference is a ``reference_clock``: its fractional error ε scales the
     oscillator, so a true f displays at f / (1 + ε), and the ``:ROSCillator`` status says whether
     the external reference is in use. Switching to EXTernal without a usable 10 MHz sine keeps the
-    internal oscillator and reports -221. Phase noise is not modeled."""
+    internal oscillator and reports -221. Its SSB phase noise (``phase_noise``) rides the display
+    as noise around every line the mixer converts (the trace, #954); without the table there is
+    none."""
 
     refs = {"clock": ("reference_clock", "instrument"), "if_filter": ("specan_if", "instrument")}
     defaults = {
@@ -231,8 +294,22 @@ class SpecanLo(Component):
         "center": 0.0,  # Hz, where the receiver is tuned outside a sweep (a setting such as $freq.center)
         "lo_rate": 0.0,  # Hz/s, the fastest sweep (0: no limit); sets a floor on the auto sweep time
         "sweep_overhead": 0.0,  # s added to the sweep-rate floor (retrace and settling)
+        # SSB phase noise, dBc/Hz (signal-chain.md 5.2, #954): [[offset Hz, dBc/Hz], ...],
+        # log-log interpolation, the end offsets held beyond the table; empty: not modeled.
+        "phase_noise": [],
     }
     units = {"center": "Hz", "lo_rate": "Hz/s", "sweep_overhead": "S"}
+
+    def phase_noise_density(self, offset_hz: float | np.ndarray) -> np.ndarray | None:
+        """The SSB phase noise at ``offset_hz`` from the carrier, linear (1/Hz): log-log
+        interpolation over the table, the end offsets held beyond it. None: not modeled."""
+        table = self.param("phase_noise") or ()
+        if not table:
+            return None
+        offsets = np.log10([float(row[0]) for row in table])
+        levels = np.array([float(row[1]) for row in table])
+        asked = np.log10(np.maximum(np.abs(offset_hz), 10 ** offsets[0]))  # below the table, the first holds
+        return 10 ** (np.interp(asked, offsets, levels) / 10)
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -298,7 +375,11 @@ class SpecanLo(Component):
 class SpecanMixer(Component):
     """The mixer (signal-chain.md 5.2): ``out`` is the input converted to the IF against the local
     oscillator, f_if = f_rf − f_lo, less the conversion loss. What lies below the oscillator (the
-    image side) is rejected completely. The output depends on where the oscillator is tuned.
+    image side) is rejected by ``image_rejection`` — completely without it, as before; the
+    oscillator's leak (``lo_feedthrough``) sits at DC in the IF frame; the declared ``spurs``
+    (m·f_rf ± n·f_lo responses) and the distortion products of the mixer's own intercepts appear
+    as further lines; the ``residuals`` are there with no input at all. The output depends on
+    where the oscillator is tuned.
 
     ``noise_figure`` is the whole receiver's (the earlier way to declare it): with no other stage
     declaring one, the chain's cascaded figure is exactly this."""
@@ -310,25 +391,118 @@ class SpecanMixer(Component):
         "noise_figure": 24.0,  # receiver noise figure over kT0, dB
         "lo": "",  # the specan_lo it converts against
         "conversion_loss": 0.0,  # dB lost from the RF line to its IF line
+        # The mixer's own figures at its input, from the data sheet (signal-chain.md 5.2, #954).
+        "iip2_dbm": None,  # dBm (None: ideal)
+        "iip3_dbm": None,  # dBm
+        "p1db_dbm": None,  # dBm
+        "image_rejection": None,  # dB, the image side's rejection (None: complete)
+        "lo_feedthrough": None,  # dBm, the oscillator's leak reaching the IF (None: none)
+        "spurs": [],  # [[m, n, dBc], ...]: the m·f_rf − n·f_lo and m·f_rf + n·f_lo responses
+        "residuals": [],  # [[frequency Hz, dBm], ...]: responses with no input
     }
-    units = {"noise_figure": "dB", "conversion_loss": "dB"}
+    units = {
+        "noise_figure": "dB",
+        "conversion_loss": "dB",
+        "iip2_dbm": "dBm",
+        "iip3_dbm": "dBm",
+        "p1db_dbm": "dBm",
+        "image_rejection": "dB",
+        "lo_feedthrough": "dBm",
+    }
+
+    def _z_in_ohm(self) -> float:
+        """The impedance the input node ahead of the mixer runs on: the ``z_in`` of the input block
+        upstream of it, 50 Ω bare. The power ↔ voltage conversions of the derived lines run on it,
+        the same impedance the display calibrates against."""
+        assert self.owner is not None
+        block: Any = self
+        seen: set[str] = set()
+        while block is not None and block.name not in seen:
+            seen.add(block.name)
+            z = block.param("z_in")
+            if z is not None:
+                return float(z)
+            src = self.owner.wiring.source(block.name, "in")
+            block = self.owner.components[src[0]] if src is not None else None
+        return 50.0
 
     def output(self, port: str) -> Signal:
         sig = self.input("in").merged()
         lo: Any = self.ref("lo")
         f_lo = float(lo.frequency())
         k = 10 ** (-float(self.param("conversion_loss")) / 20)
-        f_if = sig.freq - f_lo
+        # DC is a line at 0 Hz, so the image fold treats it like every other one.
+        freq = np.concatenate([[0.0], sig.freq]) if sig.dc else sig.freq
+        amp = np.concatenate([[sig.dc], sig.amp]) if sig.dc else sig.amp
+        notes = sig.notes
+        spec = self.stage(float(lo.tuned()))
+        z = self._z_in_ohm()
+        f_rf, power_mw = freq, np.abs(amp) ** 2 / (2 * z) * 1e3
+        if math.isfinite(spec.p1db_dbm) and freq.size:
+            # Gain compression at the mixer's own P1dB (#954): the third-order model's multi-tone
+            # drive — each line's gain from every line's power, every other line counted twice.
+            # The drive arrives flatness-scaled, like the display's.
+            total = float(power_mw.sum())
+            over = 10 * np.log10(np.maximum(2.0 * total - power_mw, 1e-300)) - spec.p1db_dbm
+            amp = amp * np.asarray(rfcascade.compress_ratio(over))
+        f_if = freq - f_lo
         keep = f_if > 0
-        freq, amp = f_if[keep], sig.amp[keep] * k
-        if sig.dc and f_lo < 0:
-            freq, amp = np.concatenate([[-f_lo], freq]), np.concatenate([[sig.dc * k], amp])
-        return Signal(freq, amp, np.zeros(freq.shape, dtype=np.int64), 0.0, sig.notes)
+        out_f, out_a = [f_if[keep]], [amp[keep] * k]
+        rejection = self.param("image_rejection")
+        if rejection is not None:
+            # The image side folds to its mirror about the oscillator, by the rejection ratio.
+            folded = ~keep
+            out_f.insert(0, -f_if[folded])
+            out_a.insert(0, amp[folded] * k * 10 ** (-float(rejection) / 20))
+        if freq.size:
+            # The declared spur responses: m·f_rf ± n·f_lo, dBc of the line. The difference
+            # product lands at its absolute value — a product below the oscillator lands at its
+            # mirror, like the image fold — which is what makes |m·f_rf − n·f_lo| = f_if have two
+            # solutions on the display (#954); the sum product never reaches the IF.
+            for row in self.param("spurs") or ():
+                m_, n_, dbc = float(row[0]), float(row[1]), float(row[2])
+                ks = k * 10 ** (dbc / 20)
+                for f_spur in (np.abs(m_ * f_rf - n_ * f_lo), m_ * f_rf + n_ * f_lo):
+                    out_f.append(f_spur)
+                    out_a.append(amp * ks)
+            # The distortion products the mixer's own intercepts make of the input lines
+            # (#954): equivalent lines at the mixer's input, times the mixer's gain at its output.
+            # A product below the oscillator has no response to ride (the receiver shows it only
+            # at its own frequency), so it drops; like every line, a product rides the mixer's
+            # compressed gain at its parents' drive.
+            if math.isfinite(spec.iip2_dbm) or math.isfinite(spec.iip3_dbm):
+                products = rfcascade.products(f_rf, 10 * np.log10(np.maximum(power_mw, 1e-300)), spec)
+                if products.freq_hz.size:
+                    amp_prod = np.sqrt(2 * z * 10 ** (products.power_dbm / 10) * 1e-3)
+                    if math.isfinite(spec.p1db_dbm):
+                        over = 10 * np.log10(np.maximum(products.drive_mw, 1e-300)) - spec.p1db_dbm
+                        amp_prod = amp_prod * np.asarray(rfcascade.compress_ratio(over))
+                    keep_p = products.freq_hz - f_lo > 0
+                    out_f.append(products.freq_hz[keep_p] - f_lo)
+                    out_a.append(amp_prod[keep_p].astype(complex) * k)
+                if products.dropped:
+                    notes = (
+                        *notes,
+                        FidelityNote(
+                            "approximate",
+                            "only the strongest 64 lines take part in the mixer's distortion products",
+                        ),
+                    )
+        feedthrough = self.param("lo_feedthrough")
+        dc = 0.0
+        if feedthrough is not None:
+            dc = math.sqrt(10 ** (float(feedthrough) / 10) * 1e-3 * z)  # DC power is V²/R
+        freq_out = np.concatenate(out_f)
+        return Signal(freq_out, np.concatenate(out_a), np.zeros(freq_out.shape, dtype=np.int64), dc, notes)
 
     def stage(self, f_hz: float) -> RfStageSpec:
+        ip2, ip3, p1 = (self.param(k) for k in ("iip2_dbm", "iip3_dbm", "p1db_dbm"))
         return RfStageSpec(
             gain_db=-float(self.param("conversion_loss")),
             noise_figure_db=float(self.param("noise_figure")),
+            iip2_dbm=math.inf if ip2 is None else float(ip2),
+            iip3_dbm=math.inf if ip3 is None else float(ip3),
+            p1db_dbm=math.inf if p1 is None else float(p1),
         )
 
 
@@ -354,8 +528,21 @@ class SpecanIf(Component):
         "auto_max": 3.0e6,  # Hz, the widest RBW the automatic coupling picks
         "if_hz": 21.4e6,  # Hz, the intermediate frequency the filter is centered on
         "gain": 0.0,  # dB, the IF amplifier's gain
+        # The IF amplifier's own figures at its input, from the data sheet (#954); None: ideal.
+        "iip2_dbm": None,  # dBm
+        "iip3_dbm": None,  # dBm
+        "p1db_dbm": None,  # dBm
     }
-    units = {"rbw_min": "Hz", "rbw_max": "Hz", "auto_max": "Hz", "if_hz": "Hz", "gain": "dB"}
+    units = {
+        "rbw_min": "Hz",
+        "rbw_max": "Hz",
+        "auto_max": "Hz",
+        "if_hz": "Hz",
+        "gain": "dB",
+        "iip2_dbm": "dBm",
+        "iip3_dbm": "dBm",
+        "p1db_dbm": "dBm",
+    }
     choices = {"steps": STEPS}
 
     def _steps(self) -> str:
@@ -384,7 +571,13 @@ class SpecanIf(Component):
         return self.input("in").transfer(lambda f: gain * np.exp(-k * (f - if_hz) ** 2))
 
     def stage(self, f_hz: float) -> RfStageSpec:
-        return RfStageSpec(gain_db=float(self.param("gain")))
+        ip2, ip3, p1 = (self.param(k) for k in ("iip2_dbm", "iip3_dbm", "p1db_dbm"))
+        return RfStageSpec(
+            gain_db=float(self.param("gain")),
+            iip2_dbm=math.inf if ip2 is None else float(ip2),
+            iip3_dbm=math.inf if ip3 is None else float(ip3),
+            p1db_dbm=math.inf if p1 is None else float(p1),
+        )
 
     @op("coupled_rbw")
     def op_coupled_rbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
@@ -551,6 +744,12 @@ class SpecanTrace(Component):
         self._key: tuple[Any, ...] | None = None
         self._history: list[tuple[int, Signal]] = []  # RF_IN since the restart: (from, signal)
         self._cache: dict[tuple[int, int], np.ndarray] = {}
+        # The front end's lines for the signal and settings one trace read is sweeping over: the
+        # sweeps of an average (or a trace cache refill) reuse them instead of re-deriving the
+        # chain for every sweep. Identity-keyed: a new read builds a new settings object.
+        self._lines_sig: Signal | None = None
+        self._lines_st: _Settings | None = None
+        self._lines: tuple[np.ndarray, np.ndarray, str | None] | None = None
         self._held: np.ndarray | None = None
         self._held_upto = -1
         self._frozen: np.ndarray | None = None
@@ -629,29 +828,55 @@ class SpecanTrace(Component):
         return blocks[::-1]
 
     def noise_figure(self) -> float:
-        """The receiver's noise figure at the attenuator's output, dB: the cascade of the stages
-        behind the input block, at the center frequency. The attenuation is added where the floor
-        is computed — the display is referred to the input."""
+        """The receiver's noise figure the display's floor runs on, dB. The earlier way: the
+        cascade of the stages behind the input block, at the center frequency, and the attenuation
+        is added where the floor is computed — the display is referred to the input. When the
+        input block declares its preamplifier's own figure (#954), its stage already carries the
+        attenuator, and the whole chain's cascade is the input-referred figure."""
         center = float(self._st("freq.center"))
-        head = self._input()
         with self.session.tuned(center):
-            stages = [block.stage(center) for block in self.chain() if block is not head]
-        nf = rfcascade.cascade(stages).noise_figure_db if stages else None
+            stages = [block.stage(center) for block in self.chain()]
+        if stages and stages[0].noise_figure_db is not None:
+            nf = rfcascade.cascade(stages).noise_figure_db
+        else:
+            behind = stages[1:]
+            nf = rfcascade.cascade(behind).noise_figure_db if behind else None
         if nf is None:
             raise ScpiError(-300, "no stage of the analyzer's front end declares a noise figure")
         return nf
 
+    def _cascade(self) -> RfStageSpec | None:
+        """The chain's cascaded figures at the center frequency, or None when no stage declares an
+        intercept — then the display draws no distortion products and no compression (#954)."""
+        center = float(self._st("freq.center"))
+        with self.session.tuned(center):
+            stages = [block.stage(center) for block in self.chain()]
+        spec = rfcascade.cascade(stages)
+        return (
+            spec
+            if (math.isfinite(spec.iip2_dbm) or math.isfinite(spec.iip3_dbm) or math.isfinite(spec.p1db_dbm))
+            else None
+        )
+
     def settings(self) -> _Settings:
         start, stop = self.window()
+        att = self.attenuation()
+        # The floor's attenuation: 0 when the input block's stage is the whole receiver's figure
+        # (it already carries the attenuator), the real one in the earlier way.
+        center = float(self._st("freq.center"))
+        head_nf = self._input().stage(center).noise_figure_db
+        floor_att = 0.0 if head_nf is not None else att
         return _Settings(
             start,
             stop,
             int(self._st("sweep.points")),
             self.rbw(),
             self.sweep_time(),
-            self.attenuation(),
+            att,
             self._detector().in_use(),
             self.noise_figure(),
+            floor_att,
+            self._cascade(),
         )
 
     # ---- restarts and signal history ------------------------------------------------------------
@@ -712,7 +937,102 @@ class SpecanTrace(Component):
                 break
         return sig
 
-    def _lines_in_window(self, sig: Signal, st: _Settings) -> tuple[np.ndarray, np.ndarray, bool]:
+    def _front_end_lines(
+        self, f: np.ndarray, p_mw: np.ndarray, st: _Settings
+    ) -> tuple[np.ndarray, np.ndarray, str | None]:
+        """The lines the display draws, from the ones RF_IN carries (signal-chain.md 5.2, #954):
+        the input lines scaled by the response's flatness and the chain's compression, the
+        distortion products the chain's intercepts make of them, the image and spur responses,
+        the residuals and the oscillator's feedthrough. Every derived line is display-referred —
+        they are computed from the levels the mixer sees, so the flatness rides inside them —
+        and the compression applies to every line the chain's own nonlinearity outputs: the
+        input lines at the third-order model's multi-tone drive, the products at their parents'
+        drive. Without any declared figure the input is returned unchanged."""
+        input_block = self._input()
+        mixer = self._mixer_block()
+        flat = bool(input_block.param("flatness"))
+        declared = flat or st.cascade is not None or mixer is not None
+        if not declared:
+            return f, p_mw, None
+        approx: str | None = None
+        # The response's flatness scales every input line; the derived responses are computed
+        # from the scaled levels, so it rides inside them.
+        p_drive = p_mw
+        if flat:
+            p_drive = p_mw * 10 ** (np.asarray(input_block.flatness_db(f)) / 10)
+        out_f, out_p = [f], [p_drive]
+
+        # The distortion products of the chain's intercepts: equivalent input lines (#954). Like
+        # every line the chain outputs, a product rides the chain's compressed gain at the drive
+        # of the lines it comes from.
+        if st.cascade is not None and (
+            math.isfinite(st.cascade.iip2_dbm) or math.isfinite(st.cascade.iip3_dbm)
+        ):
+            products = rfcascade.products(f, 10 * np.log10(np.maximum(p_drive, 1e-300)), st.cascade)
+            if products.freq_hz.size:
+                product_mw = 10 ** (products.power_dbm / 10)
+                if math.isfinite(st.cascade.p1db_dbm):
+                    over = 10 * np.log10(np.maximum(products.drive_mw, 1e-300)) - st.cascade.p1db_dbm
+                    product_mw = product_mw * np.asarray(rfcascade.compress_ratio(over)) ** 2
+                out_f.append(products.freq_hz)
+                out_p.append(product_mw)
+            if products.dropped:
+                approx = "too many lines for one trace: the distortion products are approximate, only the strongest 64 lines take part"
+
+        # Compression: the P1dB model's multi-tone drive — each line's gain from every line's
+        # power, every other line counted twice (a third-order model's own contribution counts
+        # once, the cross terms with every other line twice) — over the flatness-scaled drive.
+        if st.cascade is not None and math.isfinite(st.cascade.p1db_dbm):
+            total = float(p_drive.sum())
+            over = 10 * np.log10(np.maximum(2.0 * total - p_drive, 1e-300)) - st.cascade.p1db_dbm
+            out_p[0] = out_p[0] * np.asarray(rfcascade.compress_ratio(over)) ** 2
+
+        if mixer is not None:
+            if_hz = float(self._if().param("if_hz"))
+            margin = 6 * st.rbw
+            start, stop = st.start - margin, st.stop + margin
+            # The image side: an input line below the oscillator folds to its mirror about the
+            # oscillator, which is one intermediate frequency below the tuned point — a line at
+            # f shows there, by the rejection ratio, when the receiver tunes to f + 2·if.
+            rejection = mixer.param("image_rejection")
+            if rejection is not None:
+                image_f = f + 2 * if_hz
+                lands = (image_f >= start) & (image_f <= stop)
+                if lands.any():
+                    out_f.append(image_f[lands])
+                    out_p.append(p_drive[lands] * 10 ** (-float(rejection) / 10))
+            # The declared spur responses: |m·f_rf − n·f_lo| = f_if has the two solutions
+            # (m·f_rf + (n−1)·if)/n and (m·f_rf + (n+1)·if)/n — the difference product lands on
+            # the IF from either side — so the receiver shows the line at both (#954).
+            for row in mixer.param("spurs") or ():
+                m_, n_ = float(row[0]), float(row[1])
+                for f_spur in (m_ * f + (n_ - 1.0) * if_hz, m_ * f + (n_ + 1.0) * if_hz):
+                    lands = (f_spur > 0) & (f_spur / n_ >= start) & (f_spur / n_ <= stop)
+                    if lands.any():
+                        out_f.append(f_spur[lands] / n_)
+                        out_p.append(p_drive[lands] * 10 ** (float(row[2]) / 10))
+            # The residuals and the oscillator's feedthrough: lines with no input at all.
+            for row in mixer.param("residuals") or ():
+                shown = float(self._lo().display(np.array([float(row[0])]))[0])
+                if start <= shown <= stop:
+                    out_f.append(np.array([float(row[0])]))
+                    out_p.append(np.array([10 ** (float(row[1]) / 10)]))
+            feedthrough = mixer.param("lo_feedthrough")
+            if feedthrough is not None and start <= 0.0 <= stop:
+                out_f.append(np.array([0.0]))
+                out_p.append(np.array([10 ** (float(feedthrough) / 10)]))
+        return np.concatenate(out_f), np.concatenate(out_p), approx
+
+    def _mixer_block(self) -> Any:
+        """The specan_mixer on the wiring between the input block and the IF filter, if any."""
+        for block in self.chain():
+            if isinstance(block, SpecanMixer):
+                return block
+        return None
+
+    def _lines_in_window(self, sig: Signal, st: _Settings) -> tuple[np.ndarray, np.ndarray, str | None]:
+        if self._lines is not None and self._lines_sig is sig and self._lines_st is st:
+            return self._lines
         m = sig.merged()
         r = float(self._input().param("z_in"))
         pos = m.freq > 0
@@ -722,16 +1042,19 @@ class SpecanTrace(Component):
         if dc:
             f = np.concatenate([[0.0], f])
             p_mw = np.concatenate([[dc * dc / r * 1e3], p_mw])
+        f, p_mw, approx = self._front_end_lines(f, p_mw, st)
         # The analyzer's frequency axis runs off its reference: a true f displays at f / (1 + ε).
         f_disp = self._lo().display(f)
         margin = 6 * st.rbw
         sel = (f_disp >= st.start - margin) & (f_disp <= st.stop + margin)
         f_disp, p_mw = f_disp[sel], p_mw[sel]
-        dropped = False
         if f_disp.size > MAX_LINES_IN_WINDOW:
             keep = np.argsort(p_mw)[-MAX_LINES_IN_WINDOW:]
-            f_disp, p_mw, dropped = f_disp[keep], p_mw[keep], True
-        return f_disp, p_mw, dropped
+            f_disp, p_mw = f_disp[keep], p_mw[keep]
+            reason = "too many lines for one trace: the weakest were dropped"
+            approx = reason if approx is None else f"{approx}; {reason}"
+        self._lines_sig, self._lines_st, self._lines = sig, st, (f_disp, p_mw, approx)
+        return f_disp, p_mw, approx
 
     def truncation(self, sig: Signal, st: _Settings) -> str | None:
         """Why the trace cannot be drawn completely, or None."""
@@ -741,10 +1064,8 @@ class SpecanTrace(Component):
             f_next = self._lo().display(f[-1] + (f[-1] - f[-2]))
             if f_next <= st.stop + 3 * st.rbw:
                 return f"too many lines for one trace: the weakest were dropped (lines above {f[-1]:.6g} Hz are not modeled)"
-        _, _, dropped = self._lines_in_window(sig, st)
-        if dropped:
-            return "too many lines for one trace: the weakest were dropped"
-        return None
+        _, _, why = self._lines_in_window(sig, st)
+        return why
 
     def _sweep(self, s: int, st: _Settings) -> np.ndarray:
         """Trace of sweep ``s``. Finished sweeps used the signal at their start; the sweep in
@@ -766,7 +1087,20 @@ class SpecanTrace(Component):
                 line_mw += (p[None, i : i + 512] * self._if().response(d, st.rbw, bucket, st.detector)).sum(
                     axis=1
                 )
-        floor_mw = self._if().noise_floor_mw(st.att, st.nf)
+        # The oscillator's phase noise skirts every converted line: at each point the line's
+        # power times L(|f_point − f_line|) over the RBW's noise bandwidth, as noise (#954).
+        # Within half the RBW of its line the sideband power is the line's own power — it does
+        # not add again.
+        skirt_mw = None
+        if self._lo().param("phase_noise") and f.size:
+            skirt_mw = np.zeros(st.points)
+            for i in range(0, f.size, 512):
+                d = np.abs(x[:, None] - f[None, i : i + 512])
+                density = self._lo().phase_noise_density(d)
+                density = np.where(d > st.rbw / 2, density, 0.0)
+                skirt_mw += (p[None, i : i + 512] * density).sum(axis=1)
+            skirt_mw *= NBW_FACTOR * st.rbw
+        floor_mw = self._if().noise_floor_mw(st.floor_att, st.nf)
         cells = int(min(MAX_CELLS, max(1, round(bucket / st.rbw))))
         if st.detector == "SAMPle":
             cells = 1
@@ -777,6 +1111,15 @@ class SpecanTrace(Component):
         ) + np.arange(cells, dtype=np.int64)[None, :]
         n = (gaussian(key, idx) + 1j * gaussian(key ^ 0x2545F491, idx)) * math.sqrt(floor_mw / 2)
         v = np.sqrt(line_mw)[:, None] + n
+        if skirt_mw is not None:
+            # The same per-resolution-cell draws, on their own stream: the thermal noise's values
+            # do not move (#954).
+            pkey = stream_key(self.session.seed, self.owner.name, "specan", "phase", st.key())
+            v = (
+                v
+                + (gaussian(pkey, idx) + 1j * gaussian(pkey ^ 0x2545F491, idx))
+                * np.sqrt(skirt_mw / 2)[:, None]
+            )
         power = np.abs(v) ** 2
         trace = self._detector().detect(v, power, st.detector)
         if len(self._cache) > 4096:
