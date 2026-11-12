@@ -1,5 +1,5 @@
 import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, CircleCheck, Eraser, Search } from "lucide-react";
-import { panelActionLabel } from "@/lib/enums";
+import { type ClientGroup, clientGroup, panelActionLabel } from "@/lib/enums";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { T } from "@/i18n";
@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/app/StateViews";
 import { VirtualList } from "@/components/app/VirtualList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
 import { formatClock, formatEng } from "@/lib/format";
@@ -39,6 +40,7 @@ export function BottomPanel({
   const events = useEvents((s) => s.events);
   const clear = useEvents((s) => s.clear);
   const [filter, setFilter] = useState("");
+  const [source, setSource] = useState<ClientGroup | "">("");
   const [follow, setFollow] = useState(true);
 
   const activeFaults = (useFaults(session.id).data ?? []).filter((f) => f.status === "active");
@@ -50,9 +52,12 @@ export function BottomPanel({
   const comms = useMemo(
     () =>
       events.filter(
-        (e) => e.kind === "scpi" && (!q || (e.text ?? "").toLowerCase().includes(q) || (e.instrument ?? "").toLowerCase().includes(q)),
+        (e) =>
+          e.kind === "scpi" &&
+          (!source || clientGroup(e.client) === source) &&
+          (!q || (e.text ?? "").toLowerCase().includes(q) || (e.instrument ?? "").toLowerCase().includes(q)),
       ),
-    [events, q],
+    [events, q, source],
   );
   const others = useMemo(
     () =>
@@ -105,6 +110,20 @@ export function BottomPanel({
         <div className="ml-auto flex items-center gap-2">
           {open && (
             <>
+              {bottomTab === "comms" && (
+                <Select value={source || "all"} onValueChange={(v) => setSource(v === "all" ? "" : (v as ClientGroup))}>
+                  <SelectTrigger className="h-7 w-28 text-xs" aria-label={t("panel.filterSource")}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">{t("panel.sourceAll")}</SelectItem>
+                    <SelectItem value="script">{t("panel.client.script")}</SelectItem>
+                    <SelectItem value="agent">{t("panel.client.mcp")}</SelectItem>
+                    <SelectItem value="ui">{t("panel.client.ui")}</SelectItem>
+                    <SelectItem value="replay">{t("panel.client.replay")}</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
               <div className="relative w-56">
                 <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
                 <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("panel.filter")} className="h-7 pl-7 text-xs" aria-label={t("panel.filter")} />

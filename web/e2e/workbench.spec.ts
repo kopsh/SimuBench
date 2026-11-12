@@ -70,6 +70,14 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   await expect(row).toBeVisible();
   await expect(row).toContainText("界面"); // who sent it
   await expectText(row.getByTestId("wall-time"), isClockTime, "HH:MM:SS.mmm"); // real time beside virtual time
+  // The source filter narrows the log to scripts, agents, the UI or replays.
+  const source = page.getByRole("combobox", { name: "按来源过滤" });
+  await source.click();
+  await page.getByRole("option", { name: "脚本" }).click();
+  await expect(page.getByText(":CHANnel9:SCALe 1")).toHaveCount(0);
+  await source.click();
+  await page.getByRole("option", { name: "界面" }).click();
+  await expect(page.getByText(":CHANnel9:SCALe 1")).toBeVisible();
 });
 
 test("open the scope screen by double-clicking its node", async ({ page }) => {

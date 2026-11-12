@@ -78,7 +78,7 @@ plausible fake).
 | Is it done already? | `progress.md` (milestones); details: grep `progress-log.md` |
 | What is the product for, what is weak, what comes next? | `positioning-review.md` (internal tool; shortage + own-instrument scenarios; draft) |
 | In what order is the remaining work done, who does each step, what counts as done? | `product-plan.md` (draft: what only the owner can do, what agents can do now, issue-ready rows) |
-| Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the two evaluations, the issue split (D67) | `signal-chain.md` (implemented, first version; S14 segmented memory is still open under #945); how to write one in a definition: `instrument-authoring.md` 2.11 |
+| Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the two evaluations, the issue split (D67) | `signal-chain.md` (implemented, first version); how to write one in a definition: `instrument-authoring.md` 2.11 |
 | Definition YAML format, declarative commands, replies, mappings | `instrument-authoring.md` 2–5 |
 | Real-model rules | `real-models.md`; meters/calibrators/SMUs: `metrology-authoring.md` |
 | Functional blocks per instrument class (D50) | `component-map.md`, `docs/blocks/<class>.yaml` |

@@ -18,6 +18,27 @@ export type ClockMode = (typeof CLOCK_MODES)[number];
 /** The scope's front-panel actions (``scope.*`` labels). */
 export const PANEL_ACTIONS = ["run", "stop", "single"] as const;
 
+/** Who a communication line came from (``panel.client.*`` labels), as the log filters by. */
+export const CLIENT_GROUPS = ["script", "agent", "ui", "replay"] as const;
+export type ClientGroup = (typeof CLIENT_GROUPS)[number];
+
+/** The group a communication client belongs to; null for a client the log does not know yet. */
+export function clientGroup(client: string | null | undefined): ClientGroup | null {
+  if (!client) return null;
+  if (client === "pyvisa" || client === "sdk") return "script";
+  if (client === "mcp") return "agent";
+  if (client === "ui" || client === "replay") return client;
+  if (
+    client.startsWith("socket:") ||
+    client.startsWith("hislip:") ||
+    client.startsWith("vxi11:") ||
+    client.startsWith("bench:")
+  ) {
+    return "script";
+  }
+  return null;
+}
+
 /** A clock mode in the interface language; an unknown value shows as it is. */
 export function clockLabel(v: string, t: T): string {
   const m = oneOf(CLOCK_MODES, v);
