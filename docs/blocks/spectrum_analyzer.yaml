@@ -1,5 +1,6 @@
 # 频谱分析仪的真实功能块(D50,依据见 docs/component-map.md 的 spectrum_analyzer 节)。
-# 组件由 D1(#187)落地;模拟前端(衰减、混频、中频)在块之间传递信号,本振单列(#952,signal-chain.md 5.1)。
+# 组件由 D1(#187)落地;模拟前端(衰减、混频、中频)在块之间传递信号,本振单列(#952,signal-chain.md 5.1);
+# 中频之后是数字后端(ADC、数字下变频、RBW 滤波),在块之间传递采样流(#955,signal-chain.md 5.3)。
 schema: simubench.blocks/1
 class: spectrum_analyzer
 blocks:
@@ -11,8 +12,14 @@ blocks:
     components: [specan_mixer]
   - block: local_oscillator    # 本振(调谐、参考误差、扫速)
     components: [specan_lo]
-  - block: if_filter           # 中频滤波(RBW)
+  - block: if_filter           # 中频滤波(ADC 之前的抗混叠通带)与中频增益
     components: [specan_if]
+  - block: adc                 # 中频 ADC
+    components: [adc]
+  - block: ddc                 # 数字下变频(NCO、抽取滤波)
+    components: [specan_ddc]
+  - block: rbw_filter          # RBW 滤波(加窗 FFT)
+    components: [specan_rbw]
   - block: log_detector        # 对数检波
     components: [specan_detector]
   - block: vbw_filter          # 视频滤波(VBW)

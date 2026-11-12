@@ -8,10 +8,10 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from simubench.library.components.specan import (
+from simubench.library.components.specan import SpecanDetector
+from simubench.library.components.specan_backend import (
     RBW_LADDER,
-    SpecanDetector,
-    SpecanIf,
+    SpecanRbw,
     filter_ladder,
     line_response,
     snap_filter,
@@ -19,8 +19,9 @@ from simubench.library.components.specan import (
 )
 
 
-def _if(**params) -> SpecanIf:
-    return SpecanIf("if_filter", params, None, None)  # type: ignore[arg-type]
+def _rbw(**params) -> SpecanRbw:
+    """The resolution filter: the RBW steps and limits are its own since #955."""
+    return SpecanRbw("rbw", params, None, None)  # type: ignore[arg-type]
 
 
 def _det(**params) -> SpecanDetector:
@@ -53,15 +54,15 @@ def test_wide_open_setting_above_the_ladder():
 
 
 def test_auto_rbw_uses_the_ratio_and_stays_below_auto_max():
-    x = _if(steps="10%", rbw_max=8e6, auto_ratio=106.0, auto_max=3e6, span=26.5e9)
+    x = _rbw(steps="10%", rbw_max=8e6, auto_ratio=106.0, auto_max=3e6, span=26.5e9)
     assert x.rbw() == 3e6  # full span: capped at 3 MHz (the X-Series preset)
-    x = _if(steps="10%", rbw_max=8e6, auto_ratio=106.0, auto_max=3e6, span=1e6)
+    x = _rbw(steps="10%", rbw_max=8e6, auto_ratio=106.0, auto_max=3e6, span=1e6)
     assert x.rbw() == pytest.approx(9.1e3)  # 1 MHz / 106 = 9.43 kHz -> nearest step 9.1 kHz
 
 
 def test_default_auto_rbw_unchanged():
-    assert _if(span=2e6).rbw() == 3e4
-    assert _if(span=7.5e9).rbw() == 3e6
+    assert _rbw(span=2e6).rbw() == 3e4
+    assert _rbw(span=7.5e9).rbw() == 3e6
 
 
 def test_negative_peak_detector_takes_the_cell_minimum():

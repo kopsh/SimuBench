@@ -1,0 +1,18 @@
+schema: simubench.bench/2
+name: specan_fft
+description: 射频信号源的 1 GHz、−20 dBm 单音接数字中频（FFT）频谱仪 RF_IN；迹线由采样流产生（中频 ADC → 数字下变频 → 加窗 FFT）。打开内部结构可用内部探针看 adc.out、ddc.out、rbw.out。
+instruments:
+  sg:
+    model: sb-sg-1
+    label: 信号源
+    state: {freq.cw: 1.0e9, power.level: -20.0, output.enabled: true}
+  sa:
+    model: sb-sa-fft-1
+    label: 频谱仪
+    state: {freq.center: 1.0e9, freq.span: 1.0e7}
+wires:
+  - {from: sg.RF_OUT, to: sa.RF_IN}
+run: {seed: 5}
+layout:
+  sg: {x: 0, y: 120}
+  sa: {x: 420, y: 120}
