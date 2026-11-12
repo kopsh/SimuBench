@@ -1960,3 +1960,24 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 带信号的连线挂读数牌（波形缩略图 + DC 或 RMS），指向 / 聚焦展开卡片；数据取自已有的网络电平，不另发请求 | ✅ `WireEdge.test.ts`“a live wire's readout”（DC / RMS 的取法、缩略图的坐标）；布局截图基准（示波器测试台） |
 | 底部记录面板打开时收成标签栏，第一次有内容时自动展开，可手动收起 / 展开 | ✅ e2e 全部通过（发命令后查通信记录的各项测试依赖自动展开）；`layout-visual` 12 张基准更新 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 频谱仪数字后端与采样式求值：`adc`、`specan_ddc`、`specan_rbw`、`sb-sa-fft-1`（Issue 955）
+
+中频之后有了真实的数字链：通用 `adc`（`library/components/adc.py`）→ `specan_ddc`（NCO、抽取滤波）→ `specan_rbw`（高斯窗 FFT），在块之间传递采样流；算法是模块级纯函数（`specan_backend.py` 的 `decimation_taps`、`ddc`、`gaussian_window`、`windowed_fft`）。`specan_if` 改为 ADC 之前的抗混叠通带，RBW 的设置、档位与响应函数移到 `specan_rbw`——同一个窗给解析求值响应函数、给采样式求值窗系数。`specan_trace.evaluation: analytic | sampled`；`sampled` 把跨度切成分段、逐段调谐取帧、校准后拼接、按桶检波。没有写 `rbw` 的定义由宏展开出三块与连线，定义文件不改。新协议 `StreamStage`（一个块为一次请求向上游要多少）让扫描在计算之前判断上限。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| #948 的金标准与全部现有频谱仪测试不改预期通过 | ✅ `tests/test_specan_migration.py`（三台分析仪的回复哈希）一个预期值未动。改了三处测试代码，都因被测对象移了位置，数值断言保留：`test_specan_model_limits.py` 的辅助函数由 `SpecanIf` 换成 `SpecanRbw`；`test_specan_frontend.py` 里“偏半个 RBW 低 3.01 dB”由 `if_filter.out` 移到 `rbw.response`，并新增抗混叠通带的三个点；“旧写法”测试的末尾组件与连线加上宏新增的三块 |
+| 单音：峰值幅度差 ≤ 0.05 dB，频率差 ≤ 一个显示点 | ✅ `tests/test_specan_sampled.py::test_a_tone_reads_the_same_sampled_and_analytic`（实测差 0.001 dB，同一个点；1.5 RBW 处的裙边与高斯公式一致，容差取频点间距对应的斜率） |
+| 平均 100 次的噪声底差 ≤ 0.3 dB；RBW 改变 10 倍变化 10 dB ± 0.3 dB | ✅ `::test_the_noise_floor_is_the_analytic_one_and_follows_the_rbw`（0.3 dB ≥ 两个均值之差的 3σ，σ 由点数与平均次数算出；同时对照 kT₀·F·NBW 的公式值） |
+| ADC 16 → 12 位（测试台 `hidden`），噪声底按量化噪声公式抬高（±0.5 dB） | ✅ `::test_fewer_bits_raise_the_floor_by_the_quantization_noise`（公式值 2.5 dB，由块的参数算出） |
+| 超出上限的设置报错，不返回迹线 | ✅ `::test_a_sweep_beyond_the_model_is_refused_before_it_is_computed`（跨度 1 GHz × RBW 1 kHz：-221“beyond the model”，ADC 的 `frames` 一次未被调用；面板读数给出原因；恢复设置后照常读） |
+| 纯函数单测：NCO 搬移后单音在 0 Hz；抽取滤波的通带纹波与阻带抑制；窗的等效噪声带宽 | ✅ `::test_the_oscillator_brings_a_tone_to_zero_hertz`、`::test_the_decimation_filter_meets_its_figures`（纹波 < 0.01 dB、阻带 ≤ −80 dB，抽取比 2/5/64）、`::test_the_window_is_the_gaussian_resolution_filter`。与验收文字的出入：RBW 按 −3 dB 宽度定义（与现有解析响应一致），所以噪声带宽断言为 1.0645 × RBW，不是 RBW |
+| 内部探针能读 `adc.out`、`ddc.out`、`rbw.out` | ✅ `::test_the_probe_reads_the_adc_the_down_converter_and_the_transform`（格式、采样率、电平、`tune_hz` 使单音离开中间）；探针的请求带上调谐点（原先不在帧缓存的键里） |
+| 宏：现有定义展开出三块与连线 | ✅ `::test_an_analyzer_written_before_the_back_end_gets_one`；`test_specan_frontend.py` 的“旧写法”测试覆盖三台分析仪 |
+| 性能：`sb-sa-fft-1` 默认设置下一次扫描 ≤ 100 ms | ✅ `tests/test_performance.py::test_a_sampled_sweep_and_its_probes_stay_within_budget`（实测约 5 ms；三个数字端口的探针各 ≤ 50 ms）。默认设置取中心 1 GHz、跨度 100 MHz：全跨度 7.5 GHz 要 1250 次调谐，约 0.35 s |
+| 同种子逐字节相同；同一时刻两次读取相同 | ✅ `::test_the_same_seed_gives_the_same_bytes`、单音测试末尾的两次读取 |
+| `test_block_coverage.py`、`test_model_components.py` 通过，例外清单不增加 | ✅ `docs/blocks/spectrum_analyzer.yaml` 增加 `adc`、`ddc`、`rbw_filter`；清单未动 |
+| `scripts/check.sh` 通过 | ✅ |
+
+写明的限制（`docs/validation-specan.md` 的“采样式求值”一节、signal-chain.md 5.4 的实现说明）：采样式求值在 RF_IN 变化时让迹线重新开始（没有可回放的历史）；没有相位噪声与逐点非线性；只有高斯窗与凯泽窗 sinc 一种滤波器；`adc` 没有孔径抖动与时钟引用。

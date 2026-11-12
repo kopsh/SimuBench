@@ -14,8 +14,8 @@ from pathlib import Path
 import numpy as np
 import pytest
 import yaml
-from helpers import session_query
 
+from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.stream import MAX_REQUEST_FANOUT
 from simubench.library.components.specan_backend import (
