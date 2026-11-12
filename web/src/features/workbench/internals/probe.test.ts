@@ -3,14 +3,21 @@ import { ApiError } from "@/api/client";
 import i18n, { type T } from "@/i18n";
 import fixture from "./internals.fixture.json";
 import {
+  CLOSE_UP,
   type InternalProbe,
+  type MiniSignal,
+  codeLines,
+  envelope,
   flowTag,
   fullScaleText,
   lineStems,
+  lsbOf,
+  miniOf,
+  miniPath,
   probeable,
   spectrumBars,
   stairs,
-  strongestBins,
+  strongestPeaks,
   withheldError,
 } from "./probe";
 
@@ -90,12 +97,89 @@ describe("spectrumBars and strongestBins", () => {
     expect(d).toContain("M50.5,50.0V0.0"); // the column holding bin 503 reaches the top
   });
 
-  it("finds the frame's strongest bins, DC left out", () => {
+  it("finds the frame's strongest peaks, DC left out", () => {
     const spectrum = probes["adc.out1"].spectrum!;
-    const top = strongestBins(spectrum, 3);
+    const top = strongestPeaks(spectrum, 3);
     expect(top).toHaveLength(3);
     expect(top[0].level).toBe(Math.max(...spectrum.level.slice(1)));
     expect(top.map((b) => b.freq)).not.toContain(0);
+  });
+
+  it("lists a windowed tone once, not once per bin it leaks into, so the next component shows", () => {
+    // Two tones, each spread over its neighbours by the window; the second is 30 dB down.
+    const level = Array.from({ length: 64 }, () => -90);
+    for (const [bin, top] of [[10, -6], [40, -36]] as const) {
+      level[bin] = top;
+      level[bin - 1] = level[bin + 1] = top - 6;
+    }
+    const peaks = strongestPeaks({ freq_hz: level.map((_, i) => i * 1000), level, unit: "dBFS" }, 2);
+    expect(peaks.map((p) => p.freq)).toEqual([10_000, 40_000]);
+  });
+});
+
+describe("envelope", () => {
+  it("keeps every extreme of a frame longer than the picture is wide", () => {
+    const values = Array.from({ length: 4096 }, () => 0);
+    values[1234] = 1; // one sample, between pixel columns' centres
+    values[3000] = -1;
+    const plot = envelope(values, 280, 88);
+    expect([plot.lo, plot.hi]).toEqual([-1, 1]);
+    // The single high sample reaches the top of the picture, the low one the bottom.
+    const strokes = plot.d.split("M").slice(1).map((s) => s.split(/* x,bottom V top */ "V").map((p) => Number(p.split(",").pop())));
+    expect(strokes).toHaveLength(280);
+    expect(Math.min(...strokes.map(([, top]) => top))).toBe(4);
+    expect(Math.max(...strokes.map(([bottom]) => bottom))).toBe(84);
+  });
+});
+
+describe("lsbOf and codeLines", () => {
+  it("derives one code from the frame's span and the share of full scale it uses", () => {
+    const adc = probes["adc.out1"];
+    const lsb = lsbOf(adc)!;
+    const volts = adc.waveform.volts;
+    const codes = (Math.max(...volts) - Math.min(...volts)) / lsb;
+    // The frame spans a whole number of codes, and full scale is 2^bits of them.
+    expect(codes).toBeCloseTo(Math.round(codes), 6);
+    expect(codes / 2 ** adc.format!.bits).toBeCloseTo(adc.full_scale_used!, 9);
+  });
+
+  it("has no code size for an analog port or a flat frame", () => {
+    expect(lsbOf(probes["ch1.front.out"])).toBeNull();
+    expect(lsbOf({ format: { kind: "volts", bits: 8 }, full_scale_used: 0, waveform: { volts: [0, 0, 0] } })).toBeNull();
+  });
+
+  it("draws a line per code when they are few, none when they would be a grey field", () => {
+    expect(codeLines(0, 0.05, 0.01, 88)).toHaveLength(6);
+    expect(codeLines(0, 0.05, 0.01, 88)[0]).toBe(84);
+    expect(codeLines(0, 1, 0.001, 88)).toEqual([]);
+    expect(codeLines(0, 1, null, 88)).toEqual([]);
+  });
+});
+
+describe("miniOf (the thumbnail on a block's output)", () => {
+  const thumbs = fixture.signals as unknown as Record<string, MiniSignal>;
+
+  it("thins an analytic waveform and keeps a stream's first samples as they are", () => {
+    const analog = miniOf(probes["ch1.front.out"]);
+    expect(analog.kind).toBe("analog");
+    expect(analog.values.length).toBeLessThanOrEqual(100);
+    const stream = miniOf(probes["adc.out1"]);
+    expect(stream).toMatchObject({ kind: "samples", silent: false });
+    expect(stream.values).toEqual(probes["adc.out1"].waveform.volts.slice(0, stream.values.length));
+    expect(stream.values.length).toBeLessThan(CLOSE_UP);
+  });
+
+  it("matches the thumbnails the fixture was captured with (scripts/capture_internals_fixture.py)", () => {
+    for (const port of Object.keys(probes)) expect(miniOf(probes[port]), port).toEqual(thumbs[port]);
+  });
+
+  it("draws steps for samples, a line for an analog signal, and nothing for a port that reads 0", () => {
+    const stream = miniPath(thumbs["adc.out1"], 110, 22);
+    expect(stream.includes("H") && stream.includes("V") && !stream.includes("L")).toBe(true);
+    const analog = miniPath(thumbs["ch1.front.out"], 110, 22);
+    expect(analog.includes("L") && !analog.includes("H")).toBe(true);
+    expect(thumbs["ch2.front.out"].silent).toBe(true);
+    expect(miniPath(thumbs["ch2.front.out"], 110, 22)).toBe("");
   });
 });
 

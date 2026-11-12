@@ -13,8 +13,12 @@ import { probeable } from "./probe";
  * node; their wiring is drawn to the group.
  */
 
-/** A port's row on its component; ``probe``: an output the internal probe reads (signal-chain.md 1.3). */
-export type PortRow = { name: string; side: "left" | "right"; probe: boolean };
+/**
+ * A port's row on its component; ``probe``: an output the internal probe reads (signal-chain.md 1.3),
+ * whose row is taller — it holds the signal's thumbnail. ``top`` is the row's centre from the card's
+ * top; the n-th input and the n-th output share a line.
+ */
+export type PortRow = { name: string; side: "left" | "right"; probe: boolean; top: number; height: number };
 
 export type GraphNode =
   | { id: string; kind: "component"; comp: InternalComponent; rows: PortRow[]; x: number; y: number; height: number }
@@ -40,17 +44,18 @@ export type GraphEdge = {
   flow?: Pick<InternalWire, "medium" | "sample_rate_hz" | "format">;
 };
 
-export const NODE_WIDTH = { component: 196, group: 196, port: 72, label: 196 } as const;
+export const NODE_WIDTH = { component: 204, group: 204, port: 72, label: 204 } as const;
 export const HEADER = 40;
 /** Handles for a dependency: on the header, apart from the ports' rows. */
 export const REF_HANDLE_TOP = HEADER / 2;
 export const ROW = 18;
+/** A probed output's row: room for the thumbnail of the signal there. */
+export const ROW_PROBE = 30;
 /** Room between columns for a wire's label (`数字 · 2 GSa/s · 8 位`, signal-chain.md 1.2). */
-const COLUMN = 330;
+const COLUMN = NODE_WIDTH.component + 124;
 const GAP = 14;
 const BAND_GAP = 28;
 
-export const handleTop = (index: number) => HEADER + 6 + index * ROW + ROW / 2;
 
 export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<number>): { nodes: GraphNode[]; edges: GraphEdge[] } {
   const comps = new Map(view.components.map((c) => [c.name, c]));
@@ -73,10 +78,18 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
     const right: PortRow[] = [];
     for (const p of c.ports) {
       const out = p.direction === "out" || (p.direction === "inout" && towardPanelOut.has(`${c.name}.${p.name}`));
-      (out ? right : left).push({ name: p.name, side: out ? "right" : "left", probe: probeable(p) });
+      (out ? right : left).push({ name: p.name, side: out ? "right" : "left", probe: probeable(p), top: 0, height: ROW });
+    }
+    // The n-th input and the n-th output share a line, as tall as the taller of the two.
+    let y = HEADER + 6;
+    const lines = Math.max(left.length, right.length);
+    for (let i = 0; i < lines; i++) {
+      const h = left[i]?.probe || right[i]?.probe ? ROW_PROBE : ROW;
+      for (const row of [left[i], right[i]]) if (row) Object.assign(row, { top: y + h / 2, height: h });
+      y += h;
     }
     const rows = [...left, ...right];
-    const height = HEADER + 12 + Math.max(left.length, right.length, 1) * ROW;
+    const height = (lines ? y : HEADER + 6 + ROW) + 6;
     nodes.push({ id: `c:${c.name}`, kind: "component", comp: c, rows, x: 0, y: 0, height });
   }
   const groups = new Map<number, number>();
@@ -209,7 +222,7 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   const place = (band: Map<number, GraphNode[]>, top: number) => {
     const tallest = tallestOf(band);
     for (const [d, col] of band) {
-      col.sort((a, b) => a.id.localeCompare(b.id));
+      col.sort((a, b) => Number(onWire.has(b.id)) - Number(onWire.has(a.id)) || a.id.localeCompare(b.id));
       let y = top + (tallest - heightOf(col)) / 2;
       for (const n of col) {
         n.x = d * COLUMN + (n.kind === "port" && n.direction !== "out" ? NODE_WIDTH.component - NODE_WIDTH.port : 0);
@@ -221,21 +234,22 @@ export function buildGraph(view: InstrumentInternals, expanded: ReadonlySet<numb
   };
   // The channel rows first, one under the other.
   const channelBands = [...bands.keys()].filter((c) => c !== 0 && c !== COMMAND_BAND).sort((a, b) => a - b);
-  const shared = bands.get(0);
-  const columnsOf = (keys: number[]) => new Set(keys.flatMap((c) => [...bands.get(c)!.keys()]));
-  const rowColumns = columnsOf(channelBands);
-  // The whole-instrument blocks stand where the channel rows meet (signal-chain.md 1.2) — centred on
-  // the rows — when no column holds both; otherwise they take a band of their own above the rows.
-  const meet = !!shared && channelBands.length > 0 && ![...shared.keys()].some((d) => rowColumns.has(d));
-  let top = shared && !meet ? place(shared, 0) + BAND_GAP : 0;
-  const rowsTop = top;
+  const rowColumns = new Set(channelBands.flatMap((c) => [...bands.get(c)!.keys()]));
+  // The whole-instrument blocks stand where the channel rows meet (signal-chain.md 1.2): centred on
+  // the rows, in the columns the rows leave free. Those in a column the rows hold (an external
+  // trigger input and what it feeds) take a row of their own under the channels, like one more input.
+  const meet = new Map<number, GraphNode[]>();
+  const aside = new Map<number, GraphNode[]>();
+  for (const [d, col] of bands.get(0) ?? []) (channelBands.length && rowColumns.has(d) ? aside : meet).set(d, col);
+  let top = 0;
   for (const c of channelBands) top += place(bands.get(c)!, top) + BAND_GAP;
-  if (shared && meet) {
-    const rows = top - BAND_GAP - rowsTop;
-    const tallest = tallestOf(shared);
-    place(shared, rowsTop + Math.max(0, (rows - tallest) / 2));
-    top = Math.max(top, rowsTop + tallest + BAND_GAP);
+  if (meet.size) {
+    const rows = Math.max(0, top - BAND_GAP);
+    const tallest = tallestOf(meet);
+    place(meet, Math.max(0, (rows - tallest) / 2));
+    top = Math.max(top, tallest + BAND_GAP);
   }
+  if (aside.size) top += place(aside, top) + BAND_GAP;
   const command = bands.get(COMMAND_BAND);
   if (command) place(command, top);
   return { nodes, edges: [...edges.values()] };

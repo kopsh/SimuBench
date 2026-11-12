@@ -11,15 +11,19 @@ import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import {
   type InternalProbe,
+  CLOSE_UP,
   SPECTRUM_RANGE_DB,
+  codeLines,
+  envelope,
   flowTag,
   formatFormat,
   formatRate,
   fullScaleText,
   lineStems,
+  lsbOf,
   spectrumBars,
   stairs,
-  strongestBins,
+  strongestPeaks,
   trace,
   withheldError,
 } from "./probe";
@@ -32,7 +36,22 @@ export type ProbeState =
   | { kind: "ready"; probe: InternalProbe; stale?: boolean };
 
 const W = 280;
-const H = 72;
+const H = 88;
+const PLOT = "bg-background h-[88px] w-full rounded border";
+
+/** A plot's graticule: quarter divisions, like an instrument screen; quiet enough to sit behind the trace. */
+function Graticule({ rows = 4, columns = 8 }: { rows?: number; columns?: number }) {
+  const lines: string[] = [];
+  for (let i = 1; i < rows; i++) lines.push(`M0,${((i * H) / rows).toFixed(1)}H${W}`);
+  for (let i = 1; i < columns; i++) lines.push(`M${((i * W) / columns).toFixed(1)},0V${H}`);
+  return <path d={lines.join("")} fill="none" stroke="var(--border)" strokeWidth="0.5" strokeDasharray="1 3" />;
+}
+
+/** Where 0 lies in a plot of `lo`..`hi` (none when 0 is outside it). */
+function zeroY(lo: number, hi: number, pad = 4): number | null {
+  if (!(lo < 0 && hi > 0)) return null;
+  return H - pad - ((0 - lo) / (hi - lo)) * (H - 2 * pad);
+}
 const HEADING = "text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase";
 
 /** The internal probe of a session: the signal at one output port, re-read on every event version (D64). */
@@ -130,7 +149,7 @@ export function InternalProbeView({
       </div>
       {state.kind === "loading" && (
         <div className="space-y-2" aria-busy="true" aria-label={t("common.loading")}>
-          <Skeleton className="h-[72px] w-full" />
+          <Skeleton className="h-[88px] w-full" />
           <Skeleton className="h-16 w-full" />
         </div>
       )}
@@ -174,9 +193,17 @@ function ProbeBody({ probe, stale }: { probe: InternalProbe; stale: boolean }) {
   const samples = probe.medium === "samples";
   const unit = !samples || probe.format?.kind === "volts" ? "V" : "";
   const volts = probe.waveform.volts;
-  const plot = samples ? stairs(volts, W, H) : trace(volts, W, H);
+  // A frame longer than the picture is wide is drawn as its envelope (every extreme kept); the
+  // steps themselves are shown in the close-up of its first samples below.
+  const long = samples && volts.length > W;
+  const plot = samples ? (long ? envelope(volts, W, H) : stairs(volts, W, H)) : trace(volts, W, H);
   const span = probe.waveform.dt_s * volts.length;
   const fullScale = fullScaleText(t, probe.full_scale_used);
+  const zero = zeroY(plot.lo, plot.hi);
+  const lsb = samples ? lsbOf(probe) : null;
+  const first = volts.slice(0, CLOSE_UP);
+  const close = long ? stairs(first, W, H) : null;
+  const codes = close ? codeLines(close.lo, close.hi, lsb, H) : !long && samples ? codeLines(plot.lo, plot.hi, lsb, H) : [];
   return (
     <>
       {stale && (
@@ -185,19 +212,20 @@ function ProbeBody({ probe, stale }: { probe: InternalProbe; stale: boolean }) {
           {t("internals.probe.stale")}
         </p>
       )}
-      <p className="text-muted-foreground text-[11px] leading-relaxed">
-        {t("internals.probe.passive")} {t("internals.probe.at", { t: formatEng(probe.t_ns * 1e-9, "s", 6) })}
-      </p>
       <div>
-        <h4 className={HEADING}>{samples ? t("internals.probe.samples") : t("internals.probe.waveform")}</h4>
+        <h4 className={HEADING}>{samples ? (long ? t("internals.probe.frame") : t("internals.probe.samples")) : t("internals.probe.waveform")}</h4>
         <svg
           viewBox={`0 0 ${W} ${H}`}
-          className="bg-background h-[72px] w-full rounded border"
+          preserveAspectRatio="none"
+          className={PLOT}
           role="img"
-          aria-label={samples ? t("internals.probe.samples") : t("internals.probe.waveform")}
+          aria-label={samples ? t("internals.probe.frame") : t("internals.probe.waveform")}
           data-testid="internal-probe-wave"
         >
-          <path d={plot.d} fill="none" stroke="var(--primary)" strokeWidth="1.25" strokeLinejoin="miter" />
+          <Graticule />
+          {!long && codes.length > 0 && <path d={codes.map((y) => `M0,${y.toFixed(1)}H${W}`).join("")} fill="none" stroke="var(--sim)" strokeOpacity="0.35" strokeWidth="0.5" />}
+          {zero != null && <path d={`M0,${zero.toFixed(1)}H${W}`} fill="none" stroke="var(--muted-foreground)" strokeOpacity="0.6" strokeWidth="0.75" />}
+          <path d={plot.d} fill="none" stroke="var(--primary)" strokeWidth={long ? 1 : 1.5} strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
         </svg>
         <div className="num text-muted-foreground mt-0.5 flex justify-between text-[10px]">
           <span>
@@ -211,6 +239,34 @@ function ProbeBody({ probe, stale }: { probe: InternalProbe; stale: boolean }) {
           </span>
         </div>
       </div>
+      {close && (
+        <div>
+          <h4 className={HEADING}>{t("internals.probe.closeUp", { count: first.length })}</h4>
+          <svg
+            viewBox={`0 0 ${W} ${H}`}
+            preserveAspectRatio="none"
+            className={PLOT}
+            role="img"
+            aria-label={t("internals.probe.closeUp", { count: first.length })}
+            data-testid="internal-probe-closeup"
+          >
+            {codes.length > 0 ? (
+              <path d={codes.map((y) => `M0,${y.toFixed(1)}H${W}`).join("")} fill="none" stroke="var(--sim)" strokeOpacity="0.4" strokeWidth="0.5" />
+            ) : (
+              <Graticule />
+            )}
+            <path d={close.d} fill="none" stroke="var(--primary)" strokeWidth="1.5" strokeLinejoin="miter" vectorEffect="non-scaling-stroke" />
+          </svg>
+          <div className="num text-muted-foreground mt-0.5 flex justify-between text-[10px]">
+            <span>{formatEng(probe.waveform.dt_s * first.length, "s", 4)}</span>
+            <span data-testid="internal-probe-lsb">
+              {codes.length > 0 && lsb
+                ? t("internals.probe.codes", { count: codes.length, lsb: formatEng(lsb, unit, 4) })
+                : `${formatEng(close.lo, unit, 4)} ${t("internals.probe.to")} ${formatEng(close.hi, unit, 4)}`}
+            </span>
+          </div>
+        </div>
+      )}
       <dl className="num grid grid-cols-2 gap-x-3 gap-y-1 text-xs" data-testid="internal-probe-values">
         <dt className="text-muted-foreground">DC</dt>
         <dd className="text-right">{formatEng(probe.dc, unit, 5)}</dd>
@@ -234,13 +290,32 @@ function ProbeBody({ probe, stale }: { probe: InternalProbe; stale: boolean }) {
         )}
       </dl>
       {samples && (fullScale || probe.format?.bits) ? (
-        <ul className="space-y-0.5 text-xs">
-          {fullScale && <li data-testid="internal-probe-fullscale">{fullScale}</li>}
-          <li className={cn("flex items-center gap-1", probe.clipped ? "text-destructive font-medium" : "text-muted-foreground")}>
-            {probe.clipped && <AlertTriangle className="size-3 shrink-0" aria-hidden />}
-            {probe.clipped ? t("internals.probe.clipped") : t("internals.probe.notClipped")}
-          </li>
-        </ul>
+        <div className="space-y-1 text-xs">
+          {fullScale && (
+            <>
+              <div className="flex items-baseline justify-between gap-2">
+                <span data-testid="internal-probe-fullscale">{fullScale}</span>
+                <span className={cn("flex items-center gap-1", probe.clipped ? "text-destructive font-medium" : "text-muted-foreground")}>
+                  {probe.clipped && <AlertTriangle className="size-3 shrink-0" aria-hidden />}
+                  {probe.clipped ? t("internals.probe.clipped") : t("internals.probe.notClipped")}
+                </span>
+              </div>
+              {/* The converter's range as a bar, the share this frame spans filled in (never thinner than a hairline). */}
+              <div className="bg-muted h-1.5 overflow-hidden rounded-full" aria-hidden>
+                <div
+                  className={cn("h-full rounded-full", probe.clipped ? "bg-destructive" : "bg-primary")}
+                  style={{ width: `${Math.min(100, Math.max(1.5, (probe.full_scale_used ?? 0) * 100))}%` }}
+                />
+              </div>
+            </>
+          )}
+          {!fullScale && (
+            <div className={cn("flex items-center gap-1", probe.clipped ? "text-destructive font-medium" : "text-muted-foreground")}>
+              {probe.clipped && <AlertTriangle className="size-3 shrink-0" aria-hidden />}
+              {probe.clipped ? t("internals.probe.clipped") : t("internals.probe.notClipped")}
+            </div>
+          )}
+        </div>
       ) : null}
       {samples ? <FrameSpectrum probe={probe} /> : <LineSpectrum probe={probe} />}
       {probe.silence.length > 0 && (
@@ -266,6 +341,9 @@ function ProbeBody({ probe, stale }: { probe: InternalProbe; stale: boolean }) {
           </ul>
         </div>
       )}
+      <p className="text-muted-foreground text-[10px] leading-relaxed">
+        {t("internals.probe.at", { t: formatEng(probe.t_ns * 1e-9, "s", 6) })} · {t("internals.probe.passive")}
+      </p>
     </>
   );
 }
@@ -277,17 +355,24 @@ function FrameSpectrum({ probe }: { probe: InternalProbe }) {
   if (!spectrum) return null;
   const plot = spectrumBars(spectrum.level, W, H);
   const nyquist = spectrum.freq_hz[spectrum.freq_hz.length - 1] ?? 0;
+  const peaks = strongestPeaks(spectrum);
+  const top = peaks[0];
+  // The strongest peak, marked on the picture: where it is, and that the table's first row is this one.
+  const mark = top && nyquist > 0 ? { x: (top.freq / nyquist) * W, y: H - 4 - ((Math.max(top.level, plot.lo) - plot.lo) / SPECTRUM_RANGE_DB) * (H - 8) } : null;
   return (
     <div>
       <h4 className={HEADING}>{t("internals.probe.spectrum")}</h4>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="bg-background h-[72px] w-full rounded border"
+        preserveAspectRatio="none"
+        className={PLOT}
         role="img"
         aria-label={t("internals.probe.spectrum")}
         data-testid="internal-probe-spectrum"
       >
-        <path d={plot.d} fill="none" stroke="var(--primary)" strokeWidth="1" />
+        <Graticule rows={5} />
+        <path d={plot.d} fill="none" stroke="var(--primary)" strokeOpacity="0.85" strokeWidth="1" vectorEffect="non-scaling-stroke" />
+        {mark && <circle cx={mark.x} cy={mark.y} r="2.5" fill="var(--background)" stroke="var(--primary)" strokeWidth="1.25" />}
       </svg>
       <div className="num text-muted-foreground mt-0.5 flex justify-between text-[10px]">
         <span>0 Hz</span>
@@ -304,7 +389,7 @@ function FrameSpectrum({ probe }: { probe: InternalProbe }) {
           </tr>
         </thead>
         <tbody>
-          {strongestBins(spectrum).map((b) => (
+          {peaks.map((b) => (
             <tr key={b.freq} className="border-t">
               <td className="py-0.5">{formatEng(b.freq, "Hz", 6)}</td>
               <td className="py-0.5 text-right">
@@ -328,12 +413,14 @@ function LineSpectrum({ probe }: { probe: InternalProbe }) {
       <h4 className={HEADING}>{t("internals.probe.lines")}</h4>
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        className="bg-background h-[72px] w-full rounded border"
+        preserveAspectRatio="none"
+        className={PLOT}
         role="img"
         aria-label={t("internals.probe.lines")}
         data-testid="internal-probe-lines"
       >
-        <path d={plot.d} fill="none" stroke="var(--primary)" strokeWidth="2" />
+        <Graticule rows={5} />
+        <path d={plot.d} fill="none" stroke="var(--primary)" strokeWidth="2" vectorEffect="non-scaling-stroke" />
       </svg>
       <div className="num text-muted-foreground mt-0.5 flex justify-between text-[10px]">
         <span>0 Hz</span>

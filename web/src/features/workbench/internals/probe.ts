@@ -132,11 +132,108 @@ export function spectrumBars(level: readonly number[], width: number, height: nu
   return { d: parts.join(""), lo, hi };
 }
 
-/** The strongest bins of a frame's spectrum, DC left out, for the table under the picture. */
-export function strongestBins(spectrum: NonNullable<InternalProbe["spectrum"]>, count = 4): { freq: number; level: number }[] {
-  const bins = spectrum.freq_hz.map((freq, i) => ({ freq, level: spectrum.level[i] })).slice(1);
-  bins.sort((a, b) => b.level - a.level || a.freq - b.freq);
-  return bins.slice(0, count);
+/**
+ * The strongest peaks of a frame's spectrum, DC left out, for the table under the picture: local
+ * maxima only, and no two closer than `apart` bins — a windowed tone spreads over neighbouring
+ * bins, and listing those would hide the next real component.
+ */
+export function strongestPeaks(spectrum: NonNullable<InternalProbe["spectrum"]>, count = 4, apart = 3): { freq: number; level: number; bin: number }[] {
+  const { level, freq_hz } = spectrum;
+  const peaks: { freq: number; level: number; bin: number }[] = [];
+  for (let i = 1; i < level.length; i++) {
+    if (level[i] >= (level[i - 1] ?? -Infinity) && level[i] >= (level[i + 1] ?? -Infinity)) peaks.push({ freq: freq_hz[i], level: level[i], bin: i });
+  }
+  peaks.sort((x, y) => y.level - x.level || x.bin - y.bin);
+  const kept: typeof peaks = [];
+  for (const p of peaks) {
+    if (kept.length === count) break;
+    if (kept.every((k) => Math.abs(k.bin - p.bin) >= apart)) kept.push(p);
+  }
+  return kept;
+}
+
+/**
+ * A long frame at a glance: per pixel column, a vertical stroke from the column's lowest sample to
+ * its highest. With more samples than pixels a staircase would be a smear that shows neither the
+ * steps nor the extremes; the envelope keeps every extreme (a single clipped sample still shows).
+ */
+export function envelope(values: readonly number[], width: number, height: number, pad = 4): Plot {
+  if (!values.length) return { d: "", lo: 0, hi: 0 };
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (const v of values) {
+    if (v < lo) lo = v;
+    if (v > hi) hi = v;
+  }
+  const span = hi - lo;
+  const y = (v: number) => (span ? height - pad - ((v - lo) / span) * (height - 2 * pad) : height / 2);
+  const columns = Math.min(values.length, Math.floor(width));
+  const parts: string[] = [];
+  for (let c = 0; c < columns; c++) {
+    const from = Math.floor((c * values.length) / columns);
+    const to = Math.max(from + 1, Math.floor(((c + 1) * values.length) / columns));
+    let a = Infinity;
+    let b = -Infinity;
+    for (let i = from; i < to; i++) {
+      if (values[i] < a) a = values[i];
+      if (values[i] > b) b = values[i];
+    }
+    const x = (((c + 0.5) * width) / columns).toFixed(1);
+    // A column whose samples agree still gets a visible mark.
+    const top = y(b);
+    const bottom = Math.max(y(a), top + 1);
+    parts.push(`M${x},${bottom.toFixed(1)}V${top.toFixed(1)}`);
+  }
+  return { d: parts.join(""), lo, hi };
+}
+
+/** How many samples the close-up shows: few enough that each step is several pixels wide. */
+export const CLOSE_UP = 64;
+
+/**
+ * One code of the converter, in the stream's unit: the frame's span over the share of full scale it
+ * uses gives full scale, and the resolution divides it. None when the stream is not quantized, or
+ * the frame is flat (no span to measure with).
+ */
+export function lsbOf(probe: Pick<InternalProbe, "format" | "full_scale_used"> & { waveform: { volts: readonly number[] } }): number | null {
+  const bits = probe.format?.bits ?? 0;
+  const used = probe.full_scale_used ?? 0;
+  if (bits <= 0 || used <= 0) return null;
+  const { lo, hi } = envelope(probe.waveform.volts, 1, 1);
+  return hi > lo ? (hi - lo) / used / 2 ** bits : null;
+}
+
+/** The code levels between `lo` and `hi` (their y in a plot of that range), when few enough to draw. */
+export function codeLines(lo: number, hi: number, lsb: number | null, height: number, pad = 4, most = 32): number[] {
+  if (!lsb || hi <= lo) return [];
+  const codes = Math.round((hi - lo) / lsb);
+  if (codes < 1 || codes > most) return [];
+  return Array.from({ length: codes + 1 }, (_, i) => height - pad - (i / codes) * (height - 2 * pad));
+}
+
+/** The signal at a port, small enough to draw on its block: what the diagram shows without a click. */
+export type MiniSignal = { kind: "analog" | "samples"; values: number[]; silent: boolean };
+
+/** How many points a thumbnail draws: an analytic waveform thinned, or a stream's first samples. */
+const MINI_ANALOG = 96;
+const MINI_SAMPLES = 40;
+
+/**
+ * A probe's answer as a thumbnail: an analog port's waveform (thinned — it is analytic, so every
+ * kept point is exact), or a stream's first samples (drawn as steps). `silent` when it reads 0.
+ */
+export function miniOf(probe: InternalProbe): MiniSignal {
+  const volts = probe.waveform.volts;
+  const flat = volts.every((v) => v === 0);
+  if (probe.medium === "samples") return { kind: "samples", values: volts.slice(0, MINI_SAMPLES), silent: flat };
+  const step = Math.max(1, Math.ceil(volts.length / MINI_ANALOG));
+  return { kind: "analog", values: volts.filter((_, i) => i % step === 0), silent: flat };
+}
+
+/** A thumbnail's path: steps for samples, a line for an analog signal; a silent port has none. */
+export function miniPath(mini: MiniSignal, width: number, height: number): string {
+  if (mini.silent) return "";
+  return (mini.kind === "samples" ? stairs(mini.values, width, height, 2) : trace(mini.values, width, height, 2)).d;
 }
 
 /** The probe can only say no in one way that is not a fault: validation mode keeps the signal back. */

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { InstrumentInternals } from "@/api/client";
 import fixture from "./internals.fixture.json";
-import { buildGraph } from "./layout";
+import { ROW_PROBE, buildGraph } from "./layout";
 
 /** What a wire carries when it is analog (the API fills these in). */
 const ANALOG = { medium: "signal" as const, sample_rate_hz: null, format: null };
@@ -269,6 +269,35 @@ describe("buildGraph on a real model (#953)", () => {
     const adc = y("c:adc");
     expect(adc.y).toBeGreaterThan(rows[0].y);
     expect(adc.y + adc.height).toBeLessThan(rows[1].y + rows[1].height);
+  });
+
+  it("keeps an external input and what it feeds in a row of their own under the channels, so the ADC still stands where the rows meet", () => {
+    // A scope with an EXT trigger input (the DSO-X 2024A): its chain shares the channel rows' columns.
+    const ext: InstrumentInternals = {
+      ...sds,
+      components: [
+        ...sds.components,
+        { ...sds.components.find((c) => c.name === "ch1.inp")!, name: "extin", channel: null },
+      ],
+      ports: [...sds.ports, { name: "EXT", target: "extin.pin", direction: "in", medium: "electrical", channel: null }],
+      wires: [...sds.wires, { from: "extin.out", to: "trigger.ext", medium: "signal", sample_rate_hz: null, format: null }],
+    };
+    const { nodes } = buildGraph(ext, new Set([1, 2, 3, 4]));
+    const at = (id: string) => nodes.find((n) => n.id === id)!;
+    const adc = at("c:adc");
+    expect(adc.y).toBeGreaterThan(at("c:ch1.probe").y);
+    expect(adc.y + adc.height).toBeLessThan(at("c:ch4.probe").y + at("c:ch4.probe").height);
+    expect(at("c:extin").y).toBeGreaterThan(at("c:ch4.inp").y + at("c:ch4.inp").height);
+    expect(at("c:extin").x).toBe(at("c:ch1.inp").x);
+  });
+
+  it("lines the n-th input up with the n-th output, and gives a probed output room for its thumbnail", () => {
+    const { nodes } = buildGraph(sds, new Set([1]));
+    const rows = (nodes.find((n) => n.id === "c:adc") as Extract<(typeof nodes)[number], { kind: "component" }>).rows;
+    const top = (name: string) => rows.find((r) => r.name === name)!.top;
+    expect(top("in1")).toBe(top("out1"));
+    expect(top("in4")).toBe(top("out4"));
+    expect(top("out2") - top("out1")).toBe(ROW_PROBE);
   });
 
   it("keeps what a wire carries on its edge: analog, or a sample stream with rate and format", () => {

@@ -360,6 +360,8 @@ test("instrument internals: the scope's components, wiring and panel ports, read
     await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.locator('[data-name="xfer"]')).toBeVisible();
   await expect(graph.getByTestId("internal-group")).toHaveCount(0);
+  // Four open channels do not fit at a readable size: bring the whole graph in before clicking across it.
+  await graph.locator(".react-flow__controls-fitview").click();
   // What the acquisition uses and who uses it (#729).
   await graph.locator('[data-name="acq"]').click();
   const refs = page.getByTestId("internal-refs");
@@ -416,6 +418,11 @@ test("instrument internals: what only commands drive waits under its own label (
   const graph = page.getByTestId("internals-graph");
   await expect(graph.getByTestId("internal-command-side")).toBeVisible();
   // The system block and the status registers are not on the signal flow; the acquisition's stages are.
+  // The view opens at a readable size from the signal's start, so part of the graph is off screen
+  // (the overview map says where): the "fit view" control brings all of it in, and the map goes.
+  await expect(graph.locator(".react-flow__minimap")).toBeVisible();
+  await graph.locator(".react-flow__controls-fitview").click();
+  await expect(graph.locator(".react-flow__minimap")).toHaveCount(0);
   await graph.locator('[data-name="sys"]').click();
   await expect(page.getByTestId("internal-refs")).toContainText("不在信号流上");
   // Commands are its reason to exist (#739): it lists the ones that operate it.
@@ -453,6 +460,13 @@ test("internal probe: the ADC's samples and resolution, then peak detect at the 
   await expect(graph.locator(".react-flow__edge-text", { hasText: "数字 · 2 GSa/s · 8 位" })).toHaveCount(1);
   await expect(graph.locator(".react-flow__edge-text", { hasText: "模拟" }).first()).toBeVisible();
 
+  // Every output on screen carries the signal there, without a click: CH1's analog chain as a line,
+  // the ADC's stream as steps, the unconnected EXT input as a dotted rule (it reads 0).
+  const mini = (port: string) => graph.locator(`[data-port="${port}"]`).getByTestId("internal-mini");
+  await expect(mini("ch1.inp.out")).toHaveAttribute("data-kind", "analog");
+  await expect(mini("adc.out1")).toHaveAttribute("data-kind", "samples");
+  await expect(mini("extin.out")).toHaveAttribute("data-kind", "silent");
+
   // The ADC's output, opened from the keyboard: the samples, its rate and resolution.
   const adcOut = graph.locator('[data-port="adc.out1"]');
   await adcOut.focus();
@@ -465,6 +479,9 @@ test("internal probe: the ADC's samples and resolution, then peak detect at the 
   await expect(probe).toContainText("4096 个采样");
   await expect(page.getByTestId("internal-probe-fullscale")).toContainText("用到满量程的");
   await expect(page.getByTestId("internal-probe-wave")).toBeVisible();
+  // The frame is longer than the picture is wide: its first samples are shown close up, on the converter's codes.
+  await expect(page.getByTestId("internal-probe-closeup")).toBeVisible();
+  await expect(page.getByTestId("internal-probe-lsb")).toContainText("1 LSB = ");
   await expect(page.getByTestId("internal-probe-spectrum")).toBeVisible();
   await expect(adcOut).toHaveAttribute("aria-pressed", "true");
 

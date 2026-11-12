@@ -1919,3 +1919,20 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 刷新随事件版本、不轮询；验证模式下面板说明原因、结构图照常 | ✅ `useInternalProbe` 以版本为键；`ProbePanelStates` 故事；后端 403 由 `tests/test_internal_probe.py` 覆盖 |
 | `InstrumentInternals.reference` | ✅ `tests/test_internal_probe.py::test_the_internals_view_says_what_flows_on_each_wire`（真实型号有依据，`sb-dso-4` 为空） |
 | `scripts/check.sh` 通过 | ✅ |
+
+## Web：内部结构图评审后的改进——打开即可读、端口上的实时信号（PR 976 的后续）
+
+评审 #976 时在真实测试台（1440×900，DSO-X 2024A）里打开内部结构页：图被 `fitView` 缩到约 0.2 倍，组件名与连线标注都读不出；EXT 输入与触发占了通道行的列，“共享块在交汇处”的规则整体失效，ADC 组被挤到通道行上方；4096 个采样画成 280 px 宽的台阶是一片色块，“不插值”无从看起；“最强的频点”列的是同一个峰的相邻频点。改动都在 `web/src/features/workbench/internals/`，交互细则写进 ui-design.md 的“内部结构图”。
+
+| 改动 | 自检 |
+| --- | --- |
+| 打开时可读：缩放不低于 0.72，放不下从信号入口起，溢出时显示概览小地图；右栏有内容才出现 | ✅ e2e“what only commands drive…”（小地图出现，“适应视图”后消失）；故事基准图 |
+| 视口外的组件 / 端口：选中、`Tab` 聚焦时平移露出；画布被滚动时换成平移 | ✅ e2e 全部 79 项通过（键盘打开 ADC 输出、点抽取输出、查找后定位都经过视口外的节点） |
+| 排布：与通道行同列的整机块（EXT、触发）自成一行，ADC 组仍在交汇处；第 n 个输入与第 n 个输出同行 | ✅ `layout.test.ts`“keeps an external input…”、“lines the n-th input up…” |
+| 每个输出端口上的信号缩略图（模拟曲线 / 采样台阶 / 读 0 的点线），与探针面板共用缓存，事件停下 200 ms 后读，403 后不再请求 | ✅ e2e“internal probe: …”（`ch1.inp.out` 为 analog、`adc.out1` 为 samples、`extin.out` 为 silent）；`probe.test.ts`“miniOf …”（含与夹具缩略图一致） |
+| 探针面板：整帧包络 + 前 64 个采样的特写与码值线、1 LSB；量程条；频谱圈出最强峰，表只列局部极大 | ✅ `probe.test.ts`“envelope”“lsbOf and codeLines”“lists a windowed tone once…”；e2e 断言特写与“1 LSB = ” |
+| 连线：标注放在源端一侧、引用名放在使用者一侧（不再叠在一起）；亮起的链路上有沿信号方向移动的标记，`prefers-reduced-motion` 下静止 | ✅ 故事基准图（`AdcTraced`、`ChannelTraced`） |
+| 页首：说明改为画出来的图例，依据一行 | ✅ e2e 仍断言依据与固定说明的文字 |
+| `scripts/check.sh` 通过，视觉基准更新 | ✅ |
+
+没有做的：缩略图按端口各发一次探针请求（每个约 6 ms，但每次回复带完整的 4096 点帧与频谱）；仪表很大或事件很密时应由服务端提供一次返回所有端口缩略数据的接口——属于接口能力，另开 `核心` issue。

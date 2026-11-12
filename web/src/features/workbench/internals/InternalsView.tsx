@@ -8,16 +8,18 @@ import {
   type EdgeProps,
   EdgeText,
   Handle,
+  MiniMap,
   type Node,
   type NodeProps,
   Position,
   ReactFlow,
   ReactFlowProvider,
   getSmoothStepPath,
+  useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { Activity, ArrowRight, BookOpen, Crosshair, Info, Pin, Search } from "lucide-react";
-import { type ReactNode, memo, useDeferredValue, useMemo, useState } from "react";
+import { Activity, ArrowRight, BookOpen, Crosshair, Pin, Search } from "lucide-react";
+import { type ReactNode, memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkbench } from "../store";
 import type { T } from "@/i18n";
@@ -37,19 +39,19 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
+import { prefersReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import { formatValue, labelOf, numeric, stateMap } from "../model";
+import { useInternalProbes } from "@/api/hooks";
 import { InternalProbePanel } from "./ProbeView";
-import { flowTag } from "./probe";
+import { type MiniSignal, flowTag, miniOf, miniPath, probeable } from "./probe";
 import {
   type GraphEdge,
   type GraphNode,
   NODE_WIDTH,
-  type PortRow,
   REF_HANDLE_TOP,
   buildGraph,
-  handleTop,
 } from "./layout";
 import {
   type ReadingGroup,
@@ -75,6 +77,8 @@ type ComponentData = {
   onProbe?: (port: string) => void;
   /** The port the probe shows now, '<component>.<port>'. */
   probing: string | null;
+  /** The signal at each of its outputs, drawn on the port's row; absent while unknown. */
+  signals?: ReadonlyMap<string, MiniSignal>;
 };
 type GroupData = { node: Extract<GraphNode, { kind: "group" }>; dim: boolean };
 type PortData = { node: Extract<GraphNode, { kind: "port" }>; dim: boolean };
@@ -96,11 +100,50 @@ export function InternalsView({
       <ErrorState error={query.error} onRetry={() => void query.refetch()} />
     );
   if (!query.data) return <Skeleton className="m-3 h-[calc(100%-1.5rem)]" />;
+  return <LiveInternals session={session} inst={inst} view={query.data} onLocate={(path) => revealSetting(inst.name, path)} />;
+}
+
+/** A value once it has stopped changing for `ms`: a burst of events asks for the thumbnails once. */
+function useSettled<V>(value: V, ms: number): V {
+  const [settled, setSettled] = useState(value);
+  useEffect(() => {
+    const id = window.setTimeout(() => setSettled(value), ms);
+    return () => window.clearTimeout(id);
+  }, [value, ms]);
+  return settled;
+}
+
+/**
+ * The internals of a running session: the diagram, the signal at every output on screen (the
+ * thumbnails), and the probe panel. The thumbnails follow the event version (D64) once a burst of
+ * events has settled; when the service withholds internal signals (validation mode) they are not
+ * asked for again and the diagram shows its structure alone.
+ */
+function LiveInternals({
+  session,
+  inst,
+  view,
+  onLocate,
+}: {
+  session: SessionInfo;
+  inst: InstrumentInfo;
+  view: InstrumentInternals;
+  onLocate: (setting: string) => void;
+}) {
+  const version = useSettled(useEvents((s) => s.version), 200);
+  const [ports, setPorts] = useState<string[]>([]);
+  const [withheld, setWithheld] = useState(false);
+  const read = useInternalProbes(session.id, inst.name, ports, version, !withheld);
+  // Refused once is refused for the session's mode: remembered, so the next version does not ask again.
+  if (read.withheld && !withheld) setWithheld(true);
+  const signals = useMemo(() => new Map([...read.probes].map(([port, probe]) => [port, miniOf(probe)])), [read.probes]);
   return (
     <InternalsPanel
-      view={query.data}
+      view={view}
       inst={inst}
-      onLocate={(path) => revealSetting(inst.name, path)}
+      onLocate={onLocate}
+      signals={signals}
+      onPorts={setPorts}
       renderProbe={(probe) => (
         <InternalProbePanel
           key={probe.port}
@@ -129,9 +172,15 @@ export function InternalsPanel({
   initial,
   onLocate,
   renderProbe,
+  signals,
+  onPorts,
 }: {
   view: InstrumentInternals;
   inst: InstrumentInfo;
+  /** The signal at each output port on screen, drawn on its block. Without it the blocks show their ports alone. */
+  signals?: ReadonlyMap<string, MiniSignal>;
+  /** Told which output ports are on screen (the expanded channels' and the whole instrument's), so their signals can be read. */
+  onPorts?: (ports: string[]) => void;
   /** Where the view starts (stories): a selected component, a search, or an open probe. */
   initial?: { selected?: string; query?: string; probe?: string };
   /** Show a setting in the workbench inspector (#800). The acceptance page has no inspector and leaves it out. */
@@ -191,6 +240,19 @@ export function InternalsPanel({
     const ch = view.components.find((c) => c.name === name)?.channel;
     if (ch != null && !expanded.has(ch)) toggle(ch);
   };
+  // The outputs on screen: every probed output of a block that is drawn (not inside a collapsed channel).
+  const shownPorts = useMemo(
+    () =>
+      view.components
+        .filter((c) => c.channel == null || expanded.has(c.channel))
+        .flatMap((c) => c.ports.filter(probeable).map((p) => `${c.name}.${p.name}`)),
+    [view, expanded],
+  );
+  const shownKey = shownPorts.join("|");
+  useEffect(() => {
+    onPorts?.(shownKey ? shownKey.split("|") : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the port list, by value
+  }, [shownKey]);
   /** Open the probe on an output: its component is selected too, so its details follow below. */
   const openProbe = (port: string) => {
     select(componentOf(port));
@@ -208,15 +270,9 @@ export function InternalsPanel({
   return (
     <div className="flex h-full min-h-0">
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="flex flex-wrap items-center gap-3 border-b px-3 py-2">
-          <div className="text-muted-foreground min-w-0 flex-1 basis-80 space-y-1 text-xs">
-            <div className="flex items-start gap-1.5">
-              <Info className="mt-0.5 size-3.5 shrink-0" />
-              <span>{t("internals.hint")}</span>
-            </div>
-            <Basis view={view} />
-          </div>
-          <div className="relative w-60">
+        <div className="space-y-1.5 border-b px-3 py-2">
+         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+          <div className="relative w-56">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
             <Input
               type="search"
@@ -273,6 +329,9 @@ export function InternalsPanel({
               </Button>
             </div>
           )}
+          <Legend probes={!!renderProbe} />
+         </div>
+         <Basis view={view} />
         </div>
         <div className="min-h-0 flex-1" data-testid="internals-graph">
           <ReactFlowProvider>
@@ -286,27 +345,25 @@ export function InternalsPanel({
               onExpand={toggle}
               onProbe={renderProbe ? openProbe : undefined}
               probing={probe}
+              signals={signals}
             />
           </ReactFlowProvider>
         </div>
       </div>
-      <aside
-        className="bg-sidebar w-80 shrink-0 border-l"
-        aria-label={t("workbench.inspector")}
-      >
-        <ScrollArea className="h-full">
-          {probeSlot && renderProbe?.(probeSlot)}
-          {comp ? (
-            <ComponentDetails comp={comp} inst={inst} view={view} focus={focus} onLocate={onLocate} />
-          ) : query.trim() ? (
-            <SearchResults view={view} query={query} hits={hits} onSelect={select} />
-          ) : (
-            <p className="text-muted-foreground p-4 text-xs">
-              {t("internals.select")}
-            </p>
-          )}
-        </ScrollArea>
-      </aside>
+      {/* The side column is there when it has something to say (a block, a probe, search results):
+          until then the diagram has the whole width, and the legend says what a click does. */}
+      {(comp || probeSlot || query.trim()) && (
+        <aside className="bg-sidebar w-80 shrink-0 border-l" aria-label={t("workbench.inspector")}>
+          <ScrollArea className="h-full">
+            {probeSlot && renderProbe?.(probeSlot)}
+            {comp ? (
+              <ComponentDetails comp={comp} inst={inst} view={view} focus={focus} onLocate={onLocate} />
+            ) : (
+              <SearchResults view={view} query={query} hits={hits} onSelect={select} />
+            )}
+          </ScrollArea>
+        </aside>
+      )}
     </div>
   );
 }
@@ -336,10 +393,11 @@ function Basis({ view }: { view: InstrumentInternals }) {
   const { t } = useTranslation();
   const ref = view.reference;
   const basis = ref ? [ref.title, ref.document, ref.version].filter(Boolean).join(" · ") : null;
+  const whole = `${t("internals.basis")} ${basis ? `${t("internals.basisLabel")} ${basis}` : t("internals.basisNone")}`;
   return (
-    <div className="flex items-start gap-1.5" data-testid="internals-basis">
-      <BookOpen className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-      <span>
+    <p className="text-muted-foreground flex items-center gap-1.5 text-[11px]" data-testid="internals-basis" title={whole}>
+      <BookOpen className="size-3.5 shrink-0" aria-hidden />
+      <span className="truncate">
         {t("internals.basis")}{" "}
         {basis ? (
           <>
@@ -350,7 +408,51 @@ function Basis({ view }: { view: InstrumentInternals }) {
           t("internals.basisNone")
         )}
       </span>
-    </div>
+    </p>
+  );
+}
+
+/**
+ * How to read the diagram, drawn rather than described: each kind of line as it appears on the
+ * graph next to its name (signal-chain.md 1.2 — shape and words, not colour). The full sentence
+ * stays as the legend's description.
+ */
+function Legend({ probes }: { probes: boolean }) {
+  const { t } = useTranslation();
+  const line = "var(--muted-foreground)";
+  return (
+    <ul
+      className="text-muted-foreground ml-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px]"
+      title={t("internals.hint")}
+      aria-label={t("internals.hint")}
+      data-testid="internals-legend"
+    >
+      <li className="flex items-center gap-1.5">
+        <svg width="22" height="8" aria-hidden>
+          <path d="M0,4H22" stroke={line} strokeWidth="1.25" />
+        </svg>
+        {t("internals.flow.analog")}
+      </li>
+      <li className="flex items-center gap-1.5">
+        <svg width="22" height="8" aria-hidden>
+          <path d="M0,4H22" stroke={line} strokeWidth="4.5" />
+          <path d="M0,4H22" stroke="var(--background)" strokeWidth="1.75" />
+        </svg>
+        {t("internals.legend.digital")}
+      </li>
+      <li className="flex items-center gap-1.5">
+        <svg width="22" height="8" aria-hidden>
+          <path d="M0,4H22" stroke={line} strokeWidth="1.25" strokeDasharray="4 3" />
+        </svg>
+        {t("internals.legend.uses")}
+      </li>
+      {probes && (
+        <li className="flex items-center gap-1">
+          <Activity className="size-3" aria-hidden />
+          {t("internals.legend.probe")}
+        </li>
+      )}
+    </ul>
   );
 }
 
@@ -450,20 +552,77 @@ function FlowEdge({
   labelBgStyle,
   data,
 }: EdgeProps) {
-  const [path, labelX] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
-  const digital = (data as { medium?: string } | undefined)?.medium === "samples";
+  const [path] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const { medium, lit } = (data ?? {}) as { medium?: string; lit?: boolean };
+  const digital = medium === "samples";
   return (
     <>
       <BaseEdge path={path} style={digital ? { ...style, strokeWidth: 4.5 } : style} />
       {digital && <path d={path} fill="none" stroke="var(--background)" strokeWidth={1.75} pointerEvents="none" data-digital="" />}
-      {label && (
-        <EdgeText x={labelX} y={sourceY} label={label} labelStyle={labelStyle} labelShowBg labelBgStyle={labelBgStyle} />
+      {/* On the lit chain the signal is seen to move, source to target: beads on an analog wire,
+          words travelling inside a sample stream's double line. Still under reduced motion. */}
+      {lit && (
+        <path
+          d={path}
+          className="internals-flow"
+          fill="none"
+          stroke={digital ? "var(--primary)" : "var(--foreground)"}
+          strokeWidth={digital ? 1.75 : 2}
+          strokeLinecap={digital ? "butt" : "round"}
+          strokeDasharray={digital ? "5 11" : "0.1 15.9"}
+          pointerEvents="none"
+        />
+      )}
+      {typeof label === "string" && (
+        <EdgeText
+          x={sourceX + 10 + textWidth(label) / 2}
+          y={sourceY}
+          label={label}
+          labelStyle={labelStyle}
+          labelShowBg
+          labelBgStyle={labelBgStyle}
+          labelBgPadding={[3, 2]}
+          labelBgBorderRadius={3}
+        />
       )}
     </>
   );
 }
 
-const edgeTypes = { flow: FlowEdge };
+/**
+ * What a component uses (#729): dashed, named by the parameter. The name sits at the user's end —
+ * a wire's label sits at its source's end, so the two never share a place between two columns.
+ */
+function RefEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, label, labelStyle, labelBgStyle }: EdgeProps) {
+  const [path] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  return (
+    <>
+      <BaseEdge path={path} style={style} />
+      {typeof label === "string" && (
+        <EdgeText
+          x={targetX - 10 - textWidth(label) / 2}
+          y={targetY}
+          label={label}
+          labelStyle={labelStyle}
+          labelShowBg
+          labelBgStyle={labelBgStyle}
+          labelBgPadding={[3, 2]}
+          labelBgBorderRadius={3}
+        />
+      )}
+    </>
+  );
+}
+
+/** A label's width at the edge labels' size, near enough to place it: full-width characters count double. */
+function textWidth(text: string): number {
+  let w = 0;
+  for (const ch of text) w += ch.charCodeAt(0) > 0x2e80 ? 10.5 : 5.6;
+  return w;
+}
+
+const edgeTypes = { flow: FlowEdge, ref: RefEdge };
+
 
 const HEADING =
   "text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase";
@@ -478,7 +637,9 @@ function Graph({
   onExpand,
   onProbe,
   probing,
+  signals,
 }: {
+  signals?: ReadonlyMap<string, MiniSignal>;
   view: InstrumentInternals;
   vars: Map<string, StateVarInfo>;
   expanded: Set<number>;
@@ -492,6 +653,70 @@ function Graph({
   const { t } = useTranslation();
   const theme = useTheme((s) => s.resolved);
   const graph = useMemo(() => buildGraph(view, expanded), [view, expanded]);
+  const rf = useReactFlow();
+  const wrap = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+  // The view opens readable, not merely complete: the whole graph when it fits at a size its text
+  // can be read at, otherwise at that size from the left — where the signal comes in — and the
+  // overview map says where the rest is.
+  const home = () => {
+    const box = wrap.current?.getBoundingClientRect();
+    if (!box?.width || !box.height) return null;
+    const b = boundsOf(graph.nodes);
+    const fit = Math.min((box.width - 2 * VIEW_PAD) / b.width, (box.height - 2 * VIEW_PAD) / b.height);
+    const zoom = Math.min(MAX_OPEN_ZOOM, Math.max(fit, READABLE_ZOOM));
+    const along = (size: number, from: number, extent: number) =>
+      extent * zoom <= size - 2 * VIEW_PAD ? (size - extent * zoom) / 2 - from * zoom : VIEW_PAD - from * zoom;
+    return { x: along(box.width, b.x, b.width), y: along(box.height, b.y, b.height), zoom };
+  };
+  /** Whether part of the graph lies outside the view as it stands: only then is the overview map worth its corner. */
+  const outside = (v: { x: number; y: number; zoom: number }) => {
+    const box = wrap.current?.getBoundingClientRect();
+    if (!box?.width) return false;
+    const b = boundsOf(graph.nodes);
+    return b.x * v.zoom + v.x < 0 || b.y * v.zoom + v.y < 0 || (b.x + b.width) * v.zoom + v.x > box.width || (b.y + b.height) * v.zoom + v.y > box.height;
+  };
+  /** Bring a block into view if it is not (found by search, or chosen in the details): the least move that shows it whole. */
+  const reveal = (name: string, animate: boolean) => {
+    const box = wrap.current?.getBoundingClientRect();
+    const c = view.components.find((x) => x.name === name);
+    const n = graph.nodes.find((x) => x.id === `c:${name}`) ?? graph.nodes.find((x) => x.id === `g:${c?.channel}`);
+    if (!box?.width || !n || !rf.viewportInitialized) return;
+    const v = rf.getViewport();
+    const shift = (pos: number, extent: number, size: number, at: number) => {
+      const lo = pos * v.zoom + at;
+      const hi = lo + extent * v.zoom;
+      if (lo < VIEW_PAD) return at + VIEW_PAD - lo;
+      if (hi > size - VIEW_PAD) return at - (hi - (size - VIEW_PAD));
+      return at;
+    };
+    const x = shift(n.x, NODE_WIDTH.component, box.width, v.x);
+    const y = shift(n.y, n.height, box.height, v.y);
+    if (x !== v.x || y !== v.y) void rf.setViewport({ x, y, zoom: v.zoom }, { duration: animate && !prefersReducedMotion() ? 260 : 0 });
+  };
+  useEffect(() => {
+    if (selected) reveal(selected, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the selection changes
+  }, [selected]);
+  // Part of the graph may lie outside the view, and a browser brings an element into view by
+  // scrolling its clipped ancestors: a port reached with Tab, a find-in-page hit, a script's
+  // scrollIntoView. Scrolling the pane would shift the graph under its own overlays, so the scroll
+  // is turned into the pan it stands for.
+  useEffect(() => {
+    const el = wrap.current;
+    if (!el) return;
+    const onScroll = (e: Event) => {
+      const pane = e.target as HTMLElement;
+      const { scrollLeft: dx, scrollTop: dy } = pane;
+      if (!dx && !dy) return;
+      pane.scrollTo(0, 0);
+      if (!rf.viewportInitialized) return;
+      const v = rf.getViewport();
+      void rf.setViewport({ x: v.x - dx, y: v.y - dy, zoom: v.zoom });
+    };
+    el.addEventListener("scroll", onScroll, true);
+    return () => el.removeEventListener("scroll", onScroll, true);
+  }, [rf]);
   const comps = useMemo(
     () => new Map(view.components.map((c) => [c.name, c])),
     [view],
@@ -512,9 +737,12 @@ function Graph({
       id: n.id,
       type: n.kind,
       position: { x: n.x, y: n.y },
+      // The layout knows every node's size: the overview map draws from it without waiting for a measurement.
+      initialWidth: NODE_WIDTH[n.kind],
+      initialHeight: n.height,
       data:
         n.kind === "component"
-          ? { node: n, selected: n.comp.name === selected, lit: !dim && !!lit, dim, onProbe, probing }
+          ? { node: n, selected: n.comp.name === selected, lit: !dim && !!lit, dim, onProbe, probing, signals }
           : { node: n, dim },
       draggable: false,
       connectable: false,
@@ -545,13 +773,13 @@ function Graph({
             ? { opacity: 0.8 }
             : {}),
     };
-    const text = { labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" }, labelBgStyle: { fill: "var(--background)" } };
+    const text = { labelStyle: { fontSize: 10.5, fill: "var(--muted-foreground)" }, labelBgStyle: { fill: "var(--background)" } };
     return {
       ...e,
       // A signal wire is solid — thin when analog, a double line when it carries a sample stream —
       // and says which in words (signal-chain.md 1.2); what a component uses is dashed and named by
       // its parameter (#729).
-      type: flow ? "flow" : "smoothstep",
+      type: flow ? "flow" : kind === "ref" ? "ref" : "smoothstep",
       focusable: false,
       selectable: false,
       zIndex: on ? 1 : 0,
@@ -606,9 +834,26 @@ function Graph({
     });
   }
   return (
+    <div
+      ref={wrap}
+      className="h-full w-full"
+      // A block or port reached with Tab may lie left of or above the view, where no scroll reaches: pan to it.
+      onFocusCapture={(e) => {
+        const name = (e.target as HTMLElement).closest<HTMLElement>("[data-name]")?.dataset.name;
+        if (name) reveal(name, true);
+      }}
+    >
     <ReactFlow
       // A new layout (a channel expanded) fits the view again.
       key={[...expanded].sort().join(",")}
+      onInit={(flow) => {
+        const opened = home();
+        if (!opened) return;
+        void flow.setViewport(opened);
+        setOverflows(outside(opened));
+        if (selected) reveal(selected, false);
+      }}
+      onMoveEnd={(_, v) => setOverflows(outside(v))}
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
@@ -626,8 +871,7 @@ function Graph({
       edgesFocusable={false}
       deleteKeyCode={null}
       zoomOnDoubleClick={false}
-      fitView
-      fitViewOptions={{ padding: 0.15, maxZoom: 1.2 }}
+      fitViewOptions={{ padding: 0.1, maxZoom: MAX_OPEN_ZOOM }}
       colorMode={theme}
       minZoom={0.2}
       maxZoom={2}
@@ -641,9 +885,49 @@ function Graph({
         color="var(--border)"
       />
       <Controls showInteractive={false} position="bottom-left" />
+      {overflows && (
+        <MiniMap
+          pannable
+          zoomable
+          position="bottom-right"
+          ariaLabel={t("internals.overview")}
+          style={{ width: 168, height: 92 }}
+          bgColor="var(--card)"
+          maskColor="color-mix(in oklab, var(--foreground) 9%, transparent)"
+          nodeStrokeWidth={0}
+          nodeColor={(n) =>
+            n.type === "label"
+              ? "transparent"
+              : (n.data as { dim?: boolean }).dim
+                ? "var(--border)"
+                : lit || n.id === `c:${selected}`
+                  ? "var(--primary)"
+                  : "color-mix(in oklab, var(--muted-foreground) 65%, transparent)"
+          }
+          nodeBorderRadius={6}
+        />
+      )}
     </ReactFlow>
+    </div>
   );
 }
+
+/** The smallest size the view opens at: below it the blocks' names and port labels cannot be read. */
+const READABLE_ZOOM = 0.72;
+const MAX_OPEN_ZOOM = 1.15;
+const VIEW_PAD = 24;
+
+/** The box around every node of the graph. */
+function boundsOf(nodes: readonly GraphNode[]): { x: number; y: number; width: number; height: number } {
+  const x = Math.min(...nodes.map((n) => n.x));
+  const y = Math.min(...nodes.map((n) => n.y));
+  const right = Math.max(...nodes.map((n) => n.x + NODE_WIDTH[n.kind]));
+  const bottom = Math.max(...nodes.map((n) => n.y + n.height));
+  return { x, y, width: Math.max(1, right - x), height: Math.max(1, bottom - y) };
+}
+
+/** Where a port row's thumbnail starts, and what it leaves for the port's name at the right. */
+const MINI = { left: 44, right: 58, height: 22 } as const;
 
 function typeLabel(t: T, type: string): string {
   return t(`internals.types.${type}`, { defaultValue: type });
@@ -653,8 +937,6 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
   const { t } = useTranslation();
   const { node, selected, lit, dim, onProbe, probing } = data;
   const c = node.comp;
-  const index = (row: PortRow) =>
-    node.rows.filter((r) => r.side === row.side).indexOf(row);
   return (
     <div
       className={cn(
@@ -715,8 +997,11 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
         }}
       />
       {node.rows.map((row) => {
-        const top = handleTop(index(row));
+        const top = row.top;
         const left = row.side === "left";
+        const port = `${c.name}.${row.name}`;
+        const mini = row.probe ? data.signals?.get(port) : undefined;
+        const miniWidth = NODE_WIDTH.component - MINI.left - MINI.right;
         return (
           <div key={`${row.side}:${row.name}`}>
             <Handle
@@ -739,24 +1024,51 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
               <button
                 type="button"
                 className={cn(
-                  "nodrag nopan num focus-visible:ring-ring absolute flex items-center gap-0.5 rounded px-1 py-0.5 text-[10px] leading-none outline-none focus-visible:ring-2",
-                  probing === `${c.name}.${row.name}`
+                  "nodrag nopan num focus-visible:ring-ring group/port absolute flex items-center justify-end gap-1.5 rounded-md py-0.5 pr-1 pl-0.5 text-[10px] leading-none outline-none focus-visible:ring-2",
+                  probing === port
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
-                style={{ top, right: 6, transform: "translateY(-50%)" }}
+                style={{ top, left: MINI.left - 2, right: 6, transform: "translateY(-50%)" }}
                 aria-label={t("internals.probe.open", { port: `${typeLabel(t, c.type)} · ${row.name}` })}
-                aria-pressed={probing === `${c.name}.${row.name}`}
-                title={t("internals.probe.open", { port: `${c.name}.${row.name}` })}
+                aria-pressed={probing === port}
+                title={t("internals.probe.open", { port })}
                 data-testid="internal-probe-port"
-                data-port={`${c.name}.${row.name}`}
+                data-port={port}
                 onClick={(e) => {
                   e.stopPropagation();
-                  onProbe(`${c.name}.${row.name}`);
+                  onProbe(port);
                 }}
               >
-                {row.name}
-                <Activity className="size-2.5" aria-hidden />
+                {/* The signal at this output, as it is now: a line when analog, steps when sampled,
+                    a dotted rule when it reads 0. The diagram shows the chain at work without a click. */}
+                {mini && (
+                  <svg
+                    width={miniWidth}
+                    height={MINI.height}
+                    viewBox={`0 0 ${miniWidth} ${MINI.height}`}
+                    className="bg-background shrink-0 rounded-[3px] border"
+                    aria-hidden
+                    data-testid="internal-mini"
+                    data-kind={mini.silent ? "silent" : mini.kind}
+                  >
+                    {mini.silent ? (
+                      <path d={`M3,${MINI.height / 2}H${miniWidth - 3}`} stroke="var(--muted-foreground)" strokeWidth="1" strokeDasharray="1 3" />
+                    ) : (
+                      <path
+                        d={miniPath(mini, miniWidth, MINI.height)}
+                        fill="none"
+                        stroke={c.channel != null ? channelColor(c.channel) : "var(--primary)"}
+                        strokeWidth="1.25"
+                        strokeLinejoin={mini.kind === "samples" ? "miter" : "round"}
+                      />
+                    )}
+                  </svg>
+                )}
+                <span className="flex items-center gap-0.5">
+                  {row.name}
+                  <Activity className="size-2.5" aria-hidden />
+                </span>
               </button>
             ) : (
               <span

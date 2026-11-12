@@ -35,8 +35,11 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   OpenAI-compatible LLM, `e2e/fake-llm.mjs`, which `e2e/serve.mjs` starts on the port after the service's.
 - `web/src/features/workbench/internals/` — the internals view (#20, #739) and the internal probe
   (#953, signal-chain.md 1.2–1.3): `layout.ts` (columns from the signal wires; refs only place
-  off-path blocks), `trace.ts` (lit chains), `probe.ts` (wire labels, probe pictures; unit-tested),
-  `ProbeView.tsx` (the panel and its states), `InternalsView.tsx`. Their fixture is captured from the
+  off-path blocks), `trace.ts` (lit chains), `probe.ts` (wire labels, probe pictures, the per-port thumbnails
+  `miniOf`; unit-tested), `ProbeView.tsx` (the panel and its states), `InternalsView.tsx` (opens at
+  a readable zoom, not fitted: off-screen blocks are reached by the overview map, the fit-view
+  control, or focus — an e2e test clicks `.react-flow__controls-fitview` before clicking across the
+  graph; thumbnails come from `useInternalProbes`, one probe per output on screen). Their fixture is captured from the
   engine — regenerate after a model or API change: `uv run python scripts/capture_internals_fixture.py`.
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.

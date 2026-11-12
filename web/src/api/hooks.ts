@@ -1,4 +1,4 @@
-import { type QueryClient, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { type QueryClient, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useDeferredValue, useMemo } from "react";
 import { useEvents } from "./events";
 import i18n from "@/i18n";
@@ -318,18 +318,42 @@ export function useInternals(sid: string, name: string, version: number) {
  * for the same port. A 403 (validation mode withholds it) is an answer, not a failure to retry.
  */
 export function useInternalProbe(sid: string, name: string, port: string | null, version: number) {
-  return useQuery({
-    queryKey: [...keys.internals(sid, name), "probe", port ?? "", version],
+  return useQuery({ ...internalProbeQuery(sid, name, port ?? "", version), enabled: !!port });
+}
+
+/** One port's probe as a query: the panel and the diagram's thumbnails share it, so opening a port already on screen is instant. */
+function internalProbeQuery(sid: string, name: string, port: string, version: number) {
+  return {
+    queryKey: [...keys.internals(sid, name), "probe", port, version] as const,
     queryFn: () =>
       unwrap(
         api.GET("/api/sessions/{sid}/instruments/{name}/internals/probe", {
-          params: { path: { sid, name }, query: { port: port! } },
+          params: { path: { sid, name }, query: { port } },
         }),
       ),
-    enabled: !!port,
-    placeholderData: (prev, prevQuery) => (prevQuery?.queryKey[4] === port ? prev : undefined),
-    retry: (count, error) => !(error instanceof ApiError && error.status < 500) && count < 2,
-  });
+    placeholderData: (prev: Schemas["InternalProbe"] | undefined, prevQuery: { queryKey: readonly unknown[] } | undefined) =>
+      prevQuery?.queryKey[4] === port ? prev : undefined,
+    retry: (count: number, error: unknown) => !(error instanceof ApiError && error.status < 500) && count < 2,
+  };
+}
+
+/**
+ * The signal at every listed output port (the thumbnails on the internals diagram, #953): one probe
+ * per port, re-keyed on the event version like the panel's. `withheld` when the service refuses
+ * (validation mode, 403) — the caller then stops asking.
+ */
+export function useInternalProbes(sid: string, name: string, ports: readonly string[], version: number, enabled = true) {
+  const results = useQueries({ queries: ports.map((port) => ({ ...internalProbeQuery(sid, name, port, version), enabled })) });
+  // A new map only when an answer changed: every block on the diagram renders from it.
+  const stamp = results.map((r, i) => `${ports[i]}:${r.dataUpdatedAt}:${r.errorUpdatedAt}`).join("|");
+  return useMemo(() => {
+    const probes = new Map<string, Schemas["InternalProbe"]>();
+    results.forEach((r, i) => {
+      if (r.data) probes.set(ports[i], r.data);
+    });
+    return { probes, withheld: results.some((r) => r.error instanceof ApiError && r.error.status === 403) };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- the answers, by when they arrived
+  }, [stamp]);
 }
 
 /** A screen's readings wiring in one hook (issue 638): the event version subscription, the query,

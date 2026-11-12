@@ -4,7 +4,8 @@ Opens examples/benches/siglent_scope_rc (an SDS2104X Plus on an RC low-pass) thr
 and writes, for web/src/features/workbench/internals/internals.fixture.json: the instrument as the
 workbench describes it, its internals (components, wiring with each wire's medium, rate and format,
 the definition's reference), and the internal probe (signal-chain.md 6) at three ports — an analog
-port with a signal, a sample stream (the ADC), and a channel with nothing connected (why it reads 0).
+port with a signal, a sample stream (the ADC), and a channel with nothing connected (why it reads 0);
+and, for every signal or sample-stream output, the thumbnail the diagram draws on its block.
 The stories, the layout tests and the probe panel's tests read it. Re-run after a change to the
 model, the bench or the API:
 
@@ -49,6 +50,18 @@ def _round(value: Any) -> Any:
     return value
 
 
+def _thumbnail(probe: dict[str, Any]) -> dict[str, Any]:
+    """A probe's answer as the diagram's thumbnail: the same thinning as ``miniOf`` in the view's
+    probe.ts (probe.test.ts holds the two together) — 96 points of an analytic waveform, or a
+    stream's first 40 samples."""
+    volts = probe["waveform"]["volts"]
+    silent = all(v == 0 for v in volts)
+    if probe["medium"] == "samples":
+        return {"kind": "samples", "values": volts[:40], "silent": silent}
+    step = max(1, -(-len(volts) // 96))
+    return {"kind": "analog", "values": volts[::step], "silent": silent}
+
+
 def main() -> int:
     with tempfile.TemporaryDirectory() as tmp:
         workspace = Path(tmp)
@@ -68,12 +81,22 @@ def main() -> int:
             base = f"/api/sessions/{sid}/instruments/{INSTRUMENT}/internals"
             internals = c.get(base).json()
             probes = {}
-            for port in PROBES:
+            signals = {}
+            outputs = [
+                f"{comp['name']}.{p['name']}"
+                for comp in internals["components"]
+                for p in comp["ports"]
+                if p["direction"] == "out" and p["medium"] in ("signal", "samples")
+            ]
+            for port in outputs:
                 r = c.get(f"{base}/probe", params={"port": port})
                 r.raise_for_status()
-                probes[port] = r.json()
+                signals[port] = _thumbnail(_round(r.json()))
+                if port in PROBES:
+                    probes[port] = r.json()
             c.delete(f"/api/sessions/{sid}")
-    data = {"instrument": instrument, "internals": internals, "probes": _round(probes)}
+    assert set(probes) == set(PROBES), "a probed port is not an output of the model"
+    data = {"instrument": instrument, "internals": internals, "probes": _round(probes), "signals": signals}
     text = json.dumps(data, ensure_ascii=False, indent=2)
     text = _NUMBERS.sub(lambda m: "[" + ", ".join(v.strip() for v in m.group(1).split(",")) + "]", text)
     OUT.write_text(text + "\n", encoding="utf-8")

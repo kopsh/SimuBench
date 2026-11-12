@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ApiError, type InstrumentInfo, type InstrumentInternals } from "@/api/client";
 import { ComponentDetails, InternalsPanel } from "./InternalsView";
 import { InternalProbeView, type ProbeState } from "./ProbeView";
-import type { InternalProbe } from "./probe";
+import type { InternalProbe, MiniSignal } from "./probe";
 import fixture from "./internals.fixture.json";
 
 /**
@@ -13,6 +13,8 @@ import fixture from "./internals.fixture.json";
 const view = fixture.internals as unknown as InstrumentInternals;
 const inst = fixture.instrument as unknown as InstrumentInfo;
 const probes = fixture.probes as unknown as Record<string, InternalProbe>;
+/** The thumbnail on every output (the generator feeds CH1; the other channels read 0). */
+const signals = new Map(Object.entries(fixture.signals as unknown as Record<string, MiniSignal>));
 
 /** A probe's state for a story: the captured answer, or one of the states without a signal. */
 type Shown = "ready" | "stale" | "loading" | "withheld" | "error";
@@ -32,6 +34,7 @@ function Internals({ selected, query, probe, shown = "ready" }: { selected?: str
         view={view}
         inst={inst}
         initial={{ selected, query, probe }}
+        signals={signals}
         renderProbe={(slot) => (
           <InternalProbeView
             port={slot.port}
