@@ -744,6 +744,12 @@ class SpecanTrace(Component):
         self._key: tuple[Any, ...] | None = None
         self._history: list[tuple[int, Signal]] = []  # RF_IN since the restart: (from, signal)
         self._cache: dict[tuple[int, int], np.ndarray] = {}
+        # The front end's lines for the signal and settings one trace read is sweeping over: the
+        # sweeps of an average (or a trace cache refill) reuse them instead of re-deriving the
+        # chain for every sweep. Identity-keyed: a new read builds a new settings object.
+        self._lines_sig: Signal | None = None
+        self._lines_st: _Settings | None = None
+        self._lines: tuple[np.ndarray, np.ndarray, str | None] | None = None
         self._held: np.ndarray | None = None
         self._held_upto = -1
         self._frozen: np.ndarray | None = None
@@ -1025,6 +1031,8 @@ class SpecanTrace(Component):
         return None
 
     def _lines_in_window(self, sig: Signal, st: _Settings) -> tuple[np.ndarray, np.ndarray, str | None]:
+        if self._lines is not None and self._lines_sig is sig and self._lines_st is st:
+            return self._lines
         m = sig.merged()
         r = float(self._input().param("z_in"))
         pos = m.freq > 0
@@ -1045,6 +1053,7 @@ class SpecanTrace(Component):
             f_disp, p_mw = f_disp[keep], p_mw[keep]
             reason = "too many lines for one trace: the weakest were dropped"
             approx = reason if approx is None else f"{approx}; {reason}"
+        self._lines_sig, self._lines_st, self._lines = sig, st, (f_disp, p_mw, approx)
         return f_disp, p_mw, approx
 
     def truncation(self, sig: Signal, st: _Settings) -> str | None:

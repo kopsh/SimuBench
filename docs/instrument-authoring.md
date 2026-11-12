@@ -190,7 +190,7 @@ params:
 
 频谱仪前端的非理想全部是功能块的声明参数，**不声明时回复与理想接收机逐字节相同**（`sb-sa-1` 不声明）。参数取自数据手册，`specs` 里逐项注明手册的表与页；手册没有的项不声明、不估计。块的划分与公式见 `signal-chain.md` 5.2，能力清单见 `component-map.md` 的频谱仪节：
 
-- `specan_input`：`flatness`（`[[频率 Hz, dB], …]`，分段线性、端点保持，作用于显示电平）、`preamp_gain`（已有）、`preamp_noise_figure`/`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（前置放大器自己的指标，块内按衰减折算到输入参考）。
+- `specan_input`：`flatness`（`[[频率 Hz, dB], …]`，分段线性、表外为 0 dB，作用于显示电平）、`preamp_gain`（已有）、`preamp_noise_figure`/`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（前置放大器自己的指标，块内按衰减折算到输入参考）。声明 `preamp_noise_figure` 即前放在链中：`preamp_gain: 0` 只把增益设 0，噪声系数仍在链上；无前放就不声明这些键。
 - `specan_mixer`：`conversion_loss`（已有）、`iip2_dbm`/`iip3_dbm`/`p1db_dbm`、`image_rejection`（dB，缺省无穷大）、`lo_feedthrough`（dBm，调谐于 0 Hz 附近出现的线）、`spurs`（`[[m, n, dBc], …]`，m·f_rf ± n·f_lo 的响应）、`residuals`（`[[频率 Hz, dBm], …]`，无输入也有的线）。
 - `specan_if`：`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（中频放大器）。
 - `specan_lo`：`phase_noise`（`[[偏移 Hz, dBc/Hz], …]`，对数-对数插值、端点按表延伸）。
