@@ -13,6 +13,7 @@ const base: AssistantTurn = {
   reply: "",
   steps: [],
   files: [],
+  live: [],
   status: "done",
   stop_reason: null,
   compacted: false,

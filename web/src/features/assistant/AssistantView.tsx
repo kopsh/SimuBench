@@ -207,7 +207,7 @@ function Notice({ tone, text }: { tone: "muted" | "warn" | "error"; text: string
 
 function Summary({ turn }: { turn: AssistantTurn }) {
   const { t } = useTranslation();
-  if (turn.files.length === 0) return null;
+  if (turn.files.length === 0 && turn.live.length === 0) return null;
   return (
     <section className="bg-background rounded-md border px-2.5 py-1.5" aria-label={t("assistant.changed")} data-testid="assistant-summary">
       <h3 className="mb-1 text-[11px] font-medium">{t("assistant.changed")}</h3>
@@ -224,6 +224,16 @@ function Summary({ turn }: { turn: AssistantTurn }) {
           </ul>
         </div>
       ))}
+      {turn.live.length > 0 && (
+        <div className="mb-1 last:mb-0">
+          <div className="text-muted-foreground text-[11px]">{t("assistant.liveChanges")}</div>
+          <ul className="space-y-0.5 pl-2">
+            {turn.live.slice(0, 12).map((c, i) => (
+              <ChangeLine key={i} change={c} />
+            ))}
+          </ul>
+        </div>
+      )}
     </section>
   );
 }

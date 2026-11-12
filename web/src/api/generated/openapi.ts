@@ -1631,6 +1631,11 @@ export interface components {
             /** Id */
             id: string;
             /**
+             * Live
+             * @description Settings changed on the running bench (set_live_setting), which the files do not show; listed in the summary under the answer
+             */
+            live: components["schemas"]["DefinitionChange"][];
+            /**
              * Reply
              * @description The assistant's answer, as streamed
              * @default

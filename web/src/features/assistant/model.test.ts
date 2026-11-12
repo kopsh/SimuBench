@@ -9,6 +9,7 @@ const turn = (over: Partial<AssistantTurn> = {}): AssistantTurn => ({
   reply: "",
   steps: [],
   files: [],
+  live: [],
   status: "running",
   stop_reason: null,
   compacted: false,

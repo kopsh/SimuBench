@@ -389,7 +389,9 @@ def edit_bench(
     """Change a bench: add and remove instruments and parts, connect and disconnect ports, set initial
     settings and part parameters. An address already used by another instrument is replaced by a
     free one (the result says which). While the bench runs only settings may change; structure needs
-    it stopped. Returns the new sha256, the diagnostics and what changed."""
+    it stopped. set_state / set_params always write the file's initial values: a running session
+    keeps its own (use set_live_setting to change what runs now). Returns the new sha256, the
+    diagnostics and what changed."""
     t = ctx.deps
     bench = _bench(t, path)
     try:
@@ -407,7 +409,8 @@ def edit_bench(
 
     def run() -> dict[str, Any]:
         structural = sorted({op.op for op in parsed} & STRUCTURAL)
-        if structural and running_session(t, bench) is not None:
+        running = running_session(t, bench) is not None
+        if structural and running:
             raise Forbidden(
                 f"测试台正在运行，不能改结构（{', '.join(structural)}）：运行中只能调参数。"
                 "先向用户说明为什么要停止，用 ask_to_stop_session 征得同意，等用户回答后再停止"
@@ -416,6 +419,10 @@ def edit_bench(
         touch(t, bench, "bench")
         doc = t.service.files.edit(bench, base_sha256, parsed, "agent")
         notes = []
+        if running and any(op.op in ("set_state", "set_params") for op in parsed):
+            notes.append(
+                "这里只改了文件里的初值，正在运行的会话不受影响；要现在生效，请对同一项用 set_live_setting"
+            )
         for op in parsed:
             if isinstance(op, AddInstrument) and op.address:
                 given = ((doc.data.get("instruments") or {}).get(op.name) or {}).get("address")
@@ -549,19 +556,32 @@ def get_instrument_state(ctx: RunContext[TurnContext], instrument: str) -> dict[
 
 
 def set_live_setting(ctx: RunContext[TurnContext], instrument: str, path: str, value: Any) -> dict[str, Any]:
-    """Change one setting of an instrument of the running bench, as on its front panel (a
-    parameter: allowed while it runs). To keep it for the next start, also set_state in the file."""
+    """Change one setting of an instrument of the running bench, as on its front panel: it takes
+    effect now and does not touch the bench file. When the user also wants the value kept for the
+    next start, use edit_bench set_state with the same value (that writes the file's initial
+    value; on its own it does not change the running session)."""
     t = ctx.deps
 
     def run() -> dict[str, Any]:
         served = running_session(t, t.conv.bench)
         if served is None:
-            raise ValueError("测试台没有在运行；改文件用 edit_bench 的 set_state")
+            raise ValueError("测试台没有在运行，没有可改的会话；改文件初值用 edit_bench 的 set_state")
         served.require_local(instrument)
+        old = jsonable(served.session.instrument(instrument).state.get(path))
         out = drive.configure(served, instrument, path, value, client="agent")
         if not out.ok:
             raise ValueError(
                 f"{out.error.code if out.error else ''} {out.error.message if out.error else ''}".strip()
+            )
+        if old != out.value:
+            t.turn.live.append(
+                M.DefinitionChange(
+                    kind="state",
+                    action="changed",
+                    target=f"{instrument}.{path}",
+                    old=old,
+                    new=out.value,
+                )
             )
         return {"ok": True, "value": out.value}
 
