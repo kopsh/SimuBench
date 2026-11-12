@@ -1099,6 +1099,11 @@ class AssistantTurn(_Model):
     files: list[AssistantFileChange] = Field(
         default_factory=list, description="What changed: the summary under the answer"
     )
+    live: list[DefinitionChange] = Field(
+        default_factory=list,
+        description="Settings changed on the running bench (set_live_setting), which the files do "
+        "not show; listed in the summary under the answer",
+    )
     status: Literal["running", "done", "stopped", "stuck", "error"] = "running"
     stop_reason: str | None = Field(
         None,

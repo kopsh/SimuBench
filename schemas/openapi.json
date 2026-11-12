@@ -749,6 +749,14 @@
             "title": "Id",
             "type": "string"
           },
+          "live": {
+            "description": "Settings changed on the running bench (set_live_setting), which the files do not show; listed in the summary under the answer",
+            "items": {
+              "$ref": "#/components/schemas/DefinitionChange"
+            },
+            "title": "Live",
+            "type": "array"
+          },
           "reply": {
             "default": "",
             "description": "The assistant's answer, as streamed",
@@ -808,6 +816,7 @@
           "reply",
           "steps",
           "files",
+          "live",
           "status",
           "stop_reason",
           "compacted",
