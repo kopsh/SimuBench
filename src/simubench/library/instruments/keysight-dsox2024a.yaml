@@ -250,8 +250,9 @@ state:
     default: POSitive
     label: 触发沿
     label_en: Trigger slope
-  # 脉宽（毛刺）触发 :TRIGger:GLITch（#956）：极性、条件与两个时间。时间的范围取 10 ns 到 10 s，
-  # *RST 后为“小于 30 ns”、大于的时间 20 ns——这几个值没有对照手册的重置表，是 SimuBench 的假设
+  # 脉宽（毛刺）触发 :TRIGger:GLITch（#956）：极性、条件与两个时间。时间的范围按手册
+  # :TRIGger:GLITch:RANGe（Programmer's Guide 第 690 页，#1001）：“小于”15 ns 到 10 s，“大于”10 ns 到
+  # 9.99 s。*RST 后为“小于 30 ns”、大于的时间 20 ns——没有对照手册的重置表，是 SimuBench 的假设
   # （覆盖表注明）。
   trigger.glitch_polarity:
     type: enum
@@ -268,7 +269,7 @@ state:
   trigger.glitch_less:
     type: float
     unit: S
-    min: 1.0e-8
+    min: 1.5e-8
     max: 10.0
     default: 3.0e-8
     label: 脉宽小于
@@ -277,7 +278,7 @@ state:
     type: float
     unit: S
     min: 1.0e-8
-    max: 10.0
+    max: 9.99
     default: 2.0e-8
     label: 脉宽大于
     label_en: Pulse width greater than

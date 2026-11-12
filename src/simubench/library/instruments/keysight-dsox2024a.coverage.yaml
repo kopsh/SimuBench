@@ -982,10 +982,10 @@ sections:
     note: 'CHANnel1 to 4, EXTernal (the EXT input), LINE (50 Hz); WGEN never triggers (no generator); NONE when all channels are off is not modeled'
   - header: :TRIGger:GLITch:GREaterthan
     level: implemented
-    note: 'the time a GREaterthan pulse must exceed, and the lower bound of RANGe; 10 ns to 10 s and 20 ns after *RST are SimuBench assumptions (not checked against the guide)'
+    note: 'the time a GREaterthan pulse must exceed, and the lower bound of RANGe; 10 ns to 9.99 s as in the guide (:TRIGger:GLITch:RANGe, p. 690; #1001); 20 ns after *RST is a SimuBench assumption (not checked against the guide)'
   - header: :TRIGger:GLITch:LESSthan
     level: implemented
-    note: 'the time a LESSthan pulse stays under, and the upper bound of RANGe; 10 ns to 10 s and 30 ns after *RST are SimuBench assumptions (not checked against the guide)'
+    note: 'the time a LESSthan pulse stays under, and the upper bound of RANGe; 15 ns to 10 s as in the guide (:TRIGger:GLITch:RANGe, p. 690; #1001), outside answers -222; 30 ns after *RST is a SimuBench assumption (not checked against the guide)'
   - header: :TRIGger:GLITch:LEVel
     level: implemented
     note: 'the same per-source level as :TRIGger[:EDGE]:LEVel, with its optional <source>'
