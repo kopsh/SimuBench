@@ -132,7 +132,7 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 
 ## spectrum_analyzer
 
-框图:RF 输入(50 Ω)→ 输入衰减器 → 混频器(本振)→ 中频滤波(RBW)→ 对数检波 → 视频滤波(VBW)→ 检波器 → 迹线/标记;参考输入 10 MHz。
+框图:RF 输入(50 Ω)→ 输入衰减器 → 混频器(本振)→ 中频滤波(抗混叠)→ ADC → 数字下变频 → RBW 滤波(加窗 FFT)→ 对数检波 → 视频滤波(VBW)→ 检波器 → 迹线/标记;参考输入 10 MHz。
 依据:频谱仪类别公认架构;N9320B 编程指南(N9320-90029,Edition 5,December 2020)的 `:INPut`、`:SENSe`(频率、带宽、扫描)、`:CALCulate`(标记)、`:TRACe`、`:TRIGger` 命令组与第 2 章 Programming Fundamentals。手册没有公开框图,按类别架构并注明。型号 #196。
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
@@ -141,13 +141,18 @@ C1(#186)已拆分:`sb-el-1` 由五个组件组成(测量组件仍名 `load`,面�
 | input_attenuator | `specan_input` | 信号(`out` = 输入 × 衰减 × 前置放大;另有输入阻抗、过载判断) | 已实现(#952:`out`、`preamp_gain`,`RfStage`) | — |
 | mixer | `specan_mixer` | 信号(`out` = 输入谱线搬到中频 `f_rf − f_lo`,扣变频损耗;取决于调谐点) | 已实现(#952:`out`、`conversion_loss`,`RfStage`;`noise_figure` 是整机噪声系数的旧写法) | — |
 | local_oscillator | `specan_lo` | 数据(调谐点、参考误差与显示频率轴、扫速) | 已实现(#952:`tuned()`、`frequency()`;`lo_rate`/`sweep_overhead` 自 `specan_trace` 移来,参考误差自 `specan_mixer` 移来;相位噪声未建模,#954) | — |
-| if_filter | `specan_if` | 信号(`out` = 混频器输出 × 以 `if_hz` 为中心的高斯 RBW 通带 × 中频增益;另有 RBW 档位、噪声底) | 已实现(#952:`out`、`if_hz`、`gain`,`RfStage`;型号声明档位与范围 #616:`steps` 1-3-10 或 X 系列的约 10% 步进、`rbw_min`/`rbw_max`、自动的 `auto_ratio`/`auto_max`) | — |
+| if_filter | `specan_if` | 信号(`out` = 混频器输出 × 以 `if_hz` 为中心、宽 `bandwidth` 的抗混叠通带 × 中频增益) | 已实现(#952:`out`、`if_hz`、`gain`,`RfStage`;#955:通带改为 ADC 之前的抗混叠滤波——5 阶最平坦幅度,中间 60 % 内 0.03 dB,RBW 移到 `specan_rbw`) | — |
+| adc | `adc` | 采样流(`out` = 中频信号按请求的时刻采样 + 模拟链的级联噪声 + 量化;通用单路 ADC,固定满量程) | 已实现(#955:`bits`、`full_scale`、`rate`、`noise_lsb_rms`、`impedance`;噪声取连线上游 `RfStage` 级联在奈奎斯特带宽内的有效值;帧是保持为电压的码值,同示波器) | — |
+| ddc | `specan_ddc` | 采样流(`out` = ADC 采样 × NCO → 抽取滤波 → 复基带 `iq`,`center_hz` 为调谐频率) | 已实现(#955:`nco_hz`、`decimation`(0 为自动,按被请求的速率)、`stopband`;凯泽窗 sinc,输出速率的中间一半可用,预热为滤波器长度减一个 ADC 采样;纯函数 `ddc`、`decimation_taps`) | — |
+| rbw_filter | `specan_rbw` | 采样流(`out` = 加高斯窗的 FFT,`bins` 帧;同一个窗给出解析求值的响应函数)。另有 RBW 档位与自动耦合 | 已实现(#955:RBW 设置、档位与范围自 `specan_if` 移来——`steps` 1-3-10 或 X 系列的约 10% 步进、`rbw_min`/`rbw_max`、自动的 `auto_ratio`/`auto_max`(#616);`window`(高斯)、`fft_width`;纯函数 `gaussian_window`、`windowed_fft`、`line_response`) | — |
 | log_detector | `specan_detector` | 数据(检波与对数) | 已实现(#616:负峰值、Normal/Rosenfell;`auto` 按迹线类型自动选择检波器,`select` 操作查询回使用中的检波器) | — |
 | vbw_filter | `specan_vbw` | 数据(VBW) | 已实现(#616:`steps`、`vbw_min`/`vbw_max`,高于档位表的上限为全开档) | — |
 | trace | `specan_trace` | 数据(扫描时间、RF 历史、迹线模式与标记;沿连线从中频滤波向上游取链首谱线与各级的级联指标) | 已实现(标记组 #274:开关、普通/差值与固定参考、最小与左右峰值、搜索方式、计数器开关,读定义可选的 `marker.*` 设置,不声明时仍是一个常开的普通标记;#616:频率上限 `f_max`、`span_min`、扫描时间 `sweep_min`/`sweep_max`,最小保持,`hold_count`(单次扫描在保持模式下取平均/保持次数),`marker.mode` 可含 OFF、`marker_off_reply`(关闭的标记回 9.91E+37)与 `delta_x`(差值标记的 X 为偏移)) | — |
 | reference | `reference_clock` | 数据(10 MHz 参考与偏差) | 已实现 | — |
 
-D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层。#952 起模拟前端在块之间传递信号:`rf_in → input → mixer → if_filter`,每块有 `out`(内部探针可读);混频器与中频的输出取决于调谐点(`Session.tuned`,只由发起读取的迹线或探针设置;不在其中时按中心频率),这两个端口不能映射为仪表端口(`E-DEF-PORT-TUNED`)。迹线仍是解析求值:取链首的谱线经 RBW 响应画到每个点,噪声取衰减器之后各级的级联噪声系数(`engine/rfcascade.py`)加衰减量——显示按输入校准,理想链的增益相消,所以回复与拆分前逐位相同(`tests/test_specan_migration.py`)。旧写法(没有 `specan_lo`、前端未连线、旧参数名)在加载时由宏展开。检波、视频滤波、迹线仍是数据层。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_if`(默认 `span/100` 取 1-3-10 梯级;X 系列 `span/106` 取约 10% 步进,最多 3 MHz,#616);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_lo` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
+D1(#187)已拆分,`sb-sa-1` 迁移到这些组件;只有 `input_port` 在电路层。#952 起模拟前端在块之间传递信号:`rf_in → input → mixer → if_filter`,每块有 `out`(内部探针可读);混频器与中频的输出取决于调谐点(`Session.tuned`,只由发起读取的迹线或探针设置;不在其中时按中心频率),这两个端口不能映射为仪表端口(`E-DEF-PORT-TUNED`)。迹线仍是解析求值:取链首的谱线经 RBW 响应画到每个点,噪声取衰减器之后各级的级联噪声系数(`engine/rfcascade.py`)加衰减量——显示按输入校准,理想链的增益相消,所以回复与拆分前逐位相同(`tests/test_specan_migration.py`)。旧写法(没有 `specan_lo`、前端未连线、旧参数名)在加载时由宏展开。检波、视频滤波、迹线仍是数据层。**设置耦合的归属**:自动衰减在 `specan_input`(参考电平保持在混频器限值,2 dB 步进);自动 RBW 在 `specan_rbw`(#955 起;默认 `span/100` 取 1-3-10 梯级;X 系列 `span/106` 取约 10% 步进,最多 3 MHz,#616);自动 VBW 在 `specan_vbw`(跟随 RBW);自动扫描时间在 `specan_trace`(用 RBW 与 VBW);外部参考误差/锁定在 `specan_lo` 与 `reference_clock`;过载判断在 `specan_input`。金标准与 validation-specan.md 的验收场景不改通过;`SpectrumScreen` 与 TUI 仪表屏幕的读数/迹线键不变。
+
+#955 起中频之后是数字后端,在块之间传递采样流:`if_filter → adc → ddc → rbw`。迹线有两种求值方式(`specan_trace.evaluation`,signal-chain.md 5.4),**共用同一批块与同一份参数**:`analytic`(默认,全部内置型号与 `sb-sa-1`,回复不变)取链首谱线经 `specan_rbw.response` 画出;`sampled`(验证仪表 `sb-sa-fft-1`)把跨度切成分段,逐段调谐、向 `rbw.out` 请求一帧、去掉链增益与中频通带响应后拼接,再由 `specan_detector.detect_bins` 按桶检波。采样式求值的扫描时间是分段数 × 每段的采集长度;一次扫描所需采样数或频点数超出上限(`MAX_REQUEST_FANOUT`、`MAX_SWEEP_BINS`)时在计算之前报 -221“超出模型能力”,不退回解析求值;RF_IN 的信号变化使迹线重新开始(保持与平均不跨越输入的变化——采样链只能读当前的信号)。没有写 `rbw` 的定义在加载时由宏展开出 `adc`、`ddc`、`rbw` 与连线(类别默认:16 位、±1 V、100 MSa/s),所以解析求值的仪表也能用内部探针看数字域。`trace` 的求解层级相应为“数据 + 采样式求值时读采样流”。
 
 ## rf_generator
 

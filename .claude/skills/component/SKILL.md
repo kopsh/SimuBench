@@ -54,8 +54,11 @@ class CounterGate(Component):
   `self.input_frames(port, request.upstream(factor, warmup))`. A frame is a pure function of the
   request — keep nothing between calls, ask for warm-up samples instead; noise is keyed by
   `request.key` / `request.indexes()`. Put the algorithm in a module-level pure function and let
-  the block wrap it. Types and limits: `src/simubench/engine/stream.py`; example blocks:
-  `tests/test_stream.py`.
+  the block wrap it. A block that reads an upstream stream also says what a request costs —
+  `upstream_request(port, request)`, the `StreamStage` protocol — so whoever starts a read of many
+  frames can refuse it before any sample is computed (`specan_trace`'s sampled sweep). Types and
+  limits: `src/simubench/engine/stream.py`; example blocks: `tests/test_stream.py`, the analyzer's
+  digital back end in `src/simubench/library/components/specan_backend.py`.
 - An analog RF block with gain, noise or linearity figures implements `RfStage`
   (`stage(f_hz) -> RfStageSpec`); the chain's figures are computed once, by
   `src/simubench/engine/rfcascade.py`, from the stages found walking the wiring upstream — never
