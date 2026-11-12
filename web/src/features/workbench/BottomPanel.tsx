@@ -1,4 +1,4 @@
-import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, CircleCheck, Eraser, Search } from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, CircleCheck, Eraser, Search } from "lucide-react";
 import { panelActionLabel } from "@/lib/enums";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -22,7 +22,18 @@ import { useWorkbench } from "./store";
 const ROW = 24;
 
 /** ``diagnostics`` are the bench file's; instrument error queues come from the session. */
-export function BottomPanel({ session, diagnostics = [] }: { session: SessionInfo; diagnostics?: Diagnostic[] }) {
+export function BottomPanel({
+  session,
+  diagnostics = [],
+  open = true,
+  onToggle,
+}: {
+  session: SessionInfo;
+  diagnostics?: Diagnostic[];
+  /** Collapsed to its tab bar when false: choosing a tab opens it. */
+  open?: boolean;
+  onToggle?: () => void;
+}) {
   const { t } = useTranslation();
   const { bottomTab, setBottomTab } = useWorkbench();
   const events = useEvents((s) => s.events);
@@ -54,12 +65,19 @@ export function BottomPanel({ session, diagnostics = [] }: { session: SessionInf
   return (
     <div className="bg-panel flex h-full flex-col">
       <div className="flex h-9 shrink-0 items-center gap-2 border-b px-2">
-        <Tabs value={bottomTab} onValueChange={(v) => setBottomTab(v as typeof bottomTab)}>
+        <Tabs
+          value={bottomTab}
+          onValueChange={(v) => setBottomTab(v as typeof bottomTab)}
+          // Collapsed, a tab is the way in — the one already chosen included.
+          onClickCapture={() => {
+            if (!open) onToggle?.();
+          }}
+        >
           <TabsList className="h-7">
             <TabsTrigger value="comms" className="h-6 px-2.5 text-xs">
               {t("panel.comms")}
             </TabsTrigger>
-            <TabsTrigger value="events" className="h-6 px-2.5 text-xs">
+            <TabsTrigger value="events" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.events")}
             </TabsTrigger>
             <TabsTrigger value="problems" className="h-6 gap-1.5 px-2.5 text-xs">
@@ -79,16 +97,41 @@ export function BottomPanel({ session, diagnostics = [] }: { session: SessionInf
             </TabsTrigger>
           </TabsList>
         </Tabs>
-        <div className="relative ml-auto w-56">
-          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
-          <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("panel.filter")} className="h-7 pl-7 text-xs" aria-label={t("panel.filter")} />
+        {!open && comms.length > 0 && (
+          <span className="num text-muted-foreground truncate text-[11px]" data-testid="panel-last">
+            {comms[comms.length - 1].instrument} · {comms[comms.length - 1].text}
+          </span>
+        )}
+        <div className="ml-auto flex items-center gap-2">
+          {open && (
+            <>
+              <div className="relative w-56">
+                <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("panel.filter")} className="h-7 pl-7 text-xs" aria-label={t("panel.filter")} />
+              </div>
+              <Toggle size="sm" pressed={follow} onPressedChange={setFollow} className="h-7" aria-label={t("panel.autoscroll")} title={t("panel.autoscroll")}>
+                <ArrowDownToLine className="size-3.5" />
+              </Toggle>
+              <Button variant="ghost" size="sm" className="h-7" onClick={clear} title={t("panel.clear")} aria-label={t("panel.clear")}>
+                <Eraser className="size-3.5" />
+              </Button>
+            </>
+          )}
+          {onToggle && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7"
+              onClick={onToggle}
+              aria-expanded={open}
+              title={open ? t("panel.collapse") : t("panel.expand")}
+              aria-label={open ? t("panel.collapse") : t("panel.expand")}
+              data-testid="panel-toggle"
+            >
+              {open ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
+            </Button>
+          )}
         </div>
-        <Toggle size="sm" pressed={follow} onPressedChange={setFollow} className="h-7" aria-label={t("panel.autoscroll")} title={t("panel.autoscroll")}>
-          <ArrowDownToLine className="size-3.5" />
-        </Toggle>
-        <Button variant="ghost" size="sm" className="h-7" onClick={clear} title={t("panel.clear")} aria-label={t("panel.clear")}>
-          <Eraser className="size-3.5" />
-        </Button>
       </div>
       {bottomTab === "comms" && (
         <>

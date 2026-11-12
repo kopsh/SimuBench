@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Blocks, ClipboardCheck, LayoutGrid, PowerOff, WifiOff, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { usePanelRef } from "react-resizable-panels";
 import { useNavigate, useParams } from "react-router-dom";
 import { ApiError, type BenchDocument, type EditOp, type InstrumentInfo, type SessionInfo } from "@/api/client";
 import { useEventStream, useEvents, useWallClock } from "@/api/events";
@@ -35,6 +36,10 @@ import { PanelScreen } from "./screens/PanelScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
 import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
+
+/** The log's tab bar alone (its collapsed height, px), and the share of the height it opens to. */
+const BOTTOM_BAR = 37;
+const BOTTOM_OPEN = "28%";
 
 export function WorkbenchPage() {
   const { sid = "" } = useParams();
@@ -94,6 +99,19 @@ export function WorkbenchPage() {
   const doc = editorDoc && editorDoc.path === benchPath ? editorDoc : null;
   const preview = useBenchPreview(benchPath, mode === "edit" ? doc?.sha256 : undefined);
 
+  // The log under the bench: collapsed to its tab bar until there is something to read.
+  const bottom = usePanelRef();
+  const [bottomOpen, setBottomOpen] = useState(false);
+  const hasLog = useEvents((st) => st.events.length > 0);
+  const hasProblems = (doc?.diagnostics.length ?? 0) > 0 || (session.data?.instruments.some((i) => i.errors.length > 0) ?? false);
+  const openedOnce = useRef(false);
+  const ready = !!session.data;
+  useEffect(() => {
+    if (!ready || openedOnce.current || !(hasLog || hasProblems) || !bottom.current) return;
+    openedOnce.current = true;
+    if (bottom.current.isCollapsed()) bottom.current.resize(BOTTOM_OPEN);
+  }, [ready, hasLog, hasProblems, bottom]);
+
   if (session.isLoading) {
     return (
       <div className="flex h-full flex-col">
@@ -132,7 +150,7 @@ export function WorkbenchPage() {
       )}
       <div className="flex min-h-0 flex-1">
         <ResizablePanelGroup orientation="vertical" className="min-h-0 min-w-0 flex-1">
-        <ResizablePanel defaultSize="72%" minSize="30%">
+        <ResizablePanel minSize="30%">
           <ResizablePanelGroup orientation="horizontal">
             <ResizablePanel defaultSize="16%" minSize="10%" maxSize="30%" className="bg-sidebar">
               <LeftPanel session={view ?? s} mode={editing ? "edit" : "run"} />
@@ -156,8 +174,23 @@ export function WorkbenchPage() {
           </ResizablePanelGroup>
         </ResizablePanel>
         <ResizableHandle />
-        <ResizablePanel defaultSize="28%" minSize="10%">
-          <BottomPanel session={s} diagnostics={doc?.diagnostics} />
+        {/* The log starts as its tab bar: an empty table would take a quarter of the height from the
+            bench. It opens by itself the first time there is something to read (a command, an
+            event, a problem), and from then on its size is the user's. */}
+        <ResizablePanel
+          panelRef={bottom}
+          collapsible
+          collapsedSize={BOTTOM_BAR}
+          defaultSize={BOTTOM_BAR}
+          minSize="12%"
+          onResize={(size) => setBottomOpen(size.inPixels > BOTTOM_BAR + 4)}
+        >
+          <BottomPanel
+            session={s}
+            diagnostics={doc?.diagnostics}
+            open={bottomOpen}
+            onToggle={() => (bottomOpen ? bottom.current?.collapse() : bottom.current?.resize(BOTTOM_OPEN))}
+          />
         </ResizablePanel>
         </ResizablePanelGroup>
         {assistantOpen && s.bench_path && <AssistantAside bench={s.bench_path} onClose={() => setAssistant(false)} />}

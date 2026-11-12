@@ -531,6 +531,8 @@ export const en: Widen<Messages> = {
     bundleFailed: "Could not export the diagnostics bundle",
   },
   panel: {
+    collapse: "Collapse the log",
+    expand: "Open the log",
     comms: "Communication",
     frontPanel: "front panel",
     events: "Events",

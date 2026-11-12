@@ -528,6 +528,8 @@ export const zh = {
     bundleFailed: "导出诊断包失败",
   },
   panel: {
+    collapse: "收起记录",
+    expand: "展开记录",
     comms: "通信",
     frontPanel: "面板",
     events: "事件",
