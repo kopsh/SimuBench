@@ -55,6 +55,7 @@ uv run python scripts/check_tui_i18n.py                   # TUI wording == web i
 uv run python scripts/check_test_rules.py                 # D49 rules
 uv run python scripts/check_skills.py                     # skills name only existing paths
 uv run python scripts/check_progress_log.py               # progress-log sections only grow (#380)
+uv run python scripts/check_tracked.py                    # no tracked .pnpm-store/ or node_modules/ (#991)
 uv run simubench schemas --out schemas                    # then commit schemas/ if changed
 cd web && pnpm -s gen:api && pnpm -s typecheck && pnpm -s lint && pnpm -s test
 ```

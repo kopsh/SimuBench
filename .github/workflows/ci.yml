@@ -50,6 +50,8 @@ jobs:
         run: uv run python scripts/check_test_rules.py
       - name: progress-log keeps its appended history (issue #380)
         run: uv run python scripts/check_progress_log.py
+      - name: No tracked package-manager cache or node_modules (issue #991)
+        run: uv run python scripts/check_tracked.py
       - name: Unit, service and acceptance tests
         # tui_boot (Textual boot; runs on main) and load_sensitive (the wall-clock budgets, red
         # on a busy machine by design) stay out of the fast tier.
