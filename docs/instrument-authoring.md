@@ -595,7 +595,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 
 **采样流（D67、#950）**：`scope_acquisition` 的 `in<n>` 接的是采样流。完整的连线是 `ch{n}.probe.out → adc.in{n}`、`adc.out{n} → dec.in{n}`、`dec.out{n} → acq.in{n}`，其中 `dec` 是 `scope_decimator`（参数 `processing`、`averages`、`eres_bits`、`peak_max_oversample`，引用 `adc` 与 `horizontal`），`scope_adc` 用 `vertical`、`probe` 引用每通道的模块，采集用 `decimator` 引用它。定义只写了 `…probe.out → acq.in{n}`、没有写 `decimator` 时，宏在加载时补上这一段：生成名为 `dec` 的抽取块（加在组件表末尾，不改变已写组件的位置），把采集上的这四个参数移给它，把 ADC 的两个引用按采集的填好。
 
-**暂不做**：数学通道与 FFT（放在测量之后，作为测量与传输的虚拟数据源）、数字通道、协议解码、参考波形、模板测试、分段存储（留接口）。
+**暂不做**：数学通道与 FFT（放在测量之后，作为测量与传输的虚拟数据源）、数字通道、协议解码、参考波形、模板测试。分段存储见下（#957）。
 
 **能否覆盖其他厂商**：按上表，Keysight 的 `:DIGitize` 阻塞与点数模式、R&S 的 `SING;*OPC?` 与 `FORM REAL,32`、Tek 的 `ACQ:STATE` 与 `WFMOutpre?` 的换算字段、Rigol 的分批读取上限与 `:TRIG:STAT?` 的取值，都可以用声明表达。这些厂商行为来自经验，未在仓库中核实，写进型号定义前要对照手册。
 
@@ -642,6 +642,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 
 **G5 的实现（#137）**：
 
+- 分段存储（#957）：`scope_acquisition` 的 `segments` 大于 1（且 `segmented` 为真，可绑定到“采集模式是分段”的设置）时，一次单次采集或 digitize 连续取这么多次触发，每次一条记录；一条记录采满后过 `rearm_s` 触发才重新布防（下一段还要先填满预触发时间），释抑从上一段的触发算起。它仍是一个待完成操作：最后一段采满才完成；触发在布防时按当时的信号找出，信号在完成之前变了，已经触发的段保留，其余的重新找；某一段的触发不来，采集就一直等（自动模式下该段按未触发取）。`segment_index`（从 1 起）选出读取、波形传输与测量使用的段；op `figure` 的 `segments` 是采到的段数，`time_tag` 是所选段相对第 1 段的触发时刻。`memory_points` 限定 段数 × 每段点数（超出 -221）。第 1 段的噪声键与不分段时相同，其后各段带段号，互相独立。
 - `scope_trigger` 在 ADC 之前的模拟信号上检测，有自己的耦合滤波（`coupling` 与 `filters`：每种耦合一组高通、低通转折频率）和噪声（`noise_rms`）。先越过电平另一侧的迟滞带（`hysteresis_divs`，`noise_reject` 开启时为 `reject_hysteresis_divs`）才布防，然后在第一个越过电平的采样上触发，触发时刻在它与前一个采样之间线性插值。脉宽触发（`mode: glitch`，#956）用同一套过零时刻：一个 `polarity` 极性的脉冲从一次过电平到下一次反向过电平，这段时间与 `width_low`、`width_high` 按 `qualifier` 比较——`less`（小于 `width_high`）与 `range`（两者之间）在脉冲的结束沿触发，`greater`（大于 `width_low`）在脉冲持续到 `width_low` 的时刻触发（脉冲不必已经结束）；脉冲必须整个落在触发布防之后（预触发时间与释抑之内开始的脉冲不算），`slope` 不起作用。
 - 记录仍在采样时钟的网格上（数值与改动前相同）；触发落在两个采样之间的小数和触发抖动都进入记录的时间原点 `Record.origin`（xorigin），不再移动采样点。前导与描述中的 xorigin（sb-dso 的 `:WAVeform:PREamble?`、低频校准示例的 `HORIZ_OFFSET`、传输的 `x_offset` / `x_start` / `x_stop`）与示波器屏幕都用它。Siglent 的 WAVEDESC 照手册的时间轴公式只写延迟设置，不变。
 - 自动模式只在 `search_windows` 个记录内找边沿（它的自动超时）；普通与单次采集在 `search_horizon_s`（默认 10 s）的虚拟时间内等边沿，所用时间计入采集：1 Hz 信号的单次采集在下一个边沿触发，记录填满后完成。超出首段的搜索按信号最高谱线的 1/16 周期取粗网格，跨越处在连续信号上二分到千分之一采样；总计算量按谱线数限制（`max_search_points`），电平超出信号可能的摆幅时不搜索。

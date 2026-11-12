@@ -700,3 +700,43 @@ cases:
         expect_prefix: "-224"
       - query: ":TRIGger:MODE?"
         expect: "GLIT"
+
+  - name: "分段存储（#957）：SEGMented 模式一次采集取 COUNt 段，按 INDex 读段，TTAG 为相对第 1 段的触发时刻"
+    manual: ":ACQuire Commands > :ACQuire:MODE / :ACQuire:SEGMented:COUNt / :INDex / :ANALyze；:WAVeform Commands > :WAVeform:SEGMented:COUNt? / :TTAG?（Programmer's Guide 02.66, ch. 6、ch. 31）"
+    steps:
+      - query: ":ACQuire:SEGMented:COUNt?"
+        expect: "+2"
+      - query: ":WAVeform:SEGMented:COUNt?"
+        expect: "0"
+      # RTIMe 模式只有第 1 段。
+      - send: ":ACQuire:SEGMented:INDex 2"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-222"
+      - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 3"
+      - query: ":ACQuire?"
+        expect: ":ACQ:MODE SEGM;TYPE NORM;COMP 100;COUNT 8;SEGM:COUN 3"
+      # 1 kHz 正弦，200 µs/div：记录 2 ms，重新布防 19 µs（估计），下一段在 3 ms 后的上升过零触发。
+      - send: ":TIMebase:SCALe 2E-4"
+      - send: ":DIGitize CHANnel1"
+      - query: ":WAVeform:SEGMented:COUNt?"
+        expect: "3"
+      - query: ":WAVeform:SEGMented:TTAG?"
+        expect_value: 0.0
+        tolerance: 1.0e-12
+      - send: ":ACQuire:SEGMented:INDex 3"
+      - query: ":WAVeform:SEGMented:TTAG?"
+        expect_value: 6.0e-3
+        tolerance: 1.0e-8
+      # 所选的段供测量使用：触发点后 250 µs 是正峰（探头 10:1，显示为 10 V）。
+      - query: ":MEASure:VTIMe? 2.5E-4,CHANnel1"
+        expect_value: 10.0
+        tolerance: 0.5
+      - send: ":ACQuire:SEGMented:ANALyze"
+      - send: ":ACQuire:SEGMented:INDex 4"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-222"
+      - send: ":ACQuire:SEGMented:COUNt 26"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-222"
+      - query: ":ACQuire:SEGMented:COUNt?"
+        expect: "+3"

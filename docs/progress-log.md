@@ -2025,3 +2025,27 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 - 脉冲必须整个落在触发布防之后（预触发时间或释抑之内开始的脉冲不算）。
 - 没有噪声的周期信号只查两个周期：之内没有合格的脉冲就不再往后找，等待中的采集在每条命令上重查的代价因此与信号周期有关，而不是与搜索时限有关。非周期或带触发噪声的信号查满时限；很远处的网格与边沿触发一样粗（最高谱线每周期 16 点），比它窄的脉冲可能看不到。
 - Web 的示波器屏幕仍只显示触发沿，不显示触发类型（界面改动不在本 issue）。
+
+## 示波器分段存储：`scope_acquisition` 的 `segments`，DSO-X 2024A 的 `:ACQuire:SEGMented` 与 `:WAVeform:SEGMented`（Issue 957）
+
+`scope_acquisition` 增加 `segments`、`segmented`、`rearm_s`、`segment_index`、`memory_points`：一次单次采集或 digitize 连续取 N 次触发各存一条记录，仍是一个待完成操作（`PendingAcquisitions`），最后一段采满才完成。DSO-X 2024A 接上 `:ACQuire:MODE SEGMented`、`:ACQuire:SEGMented:{COUNt,INDex,ANALyze}`、`:WAVeform:SEGMented:{COUNt?,TTAG?}`。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 1 kHz 信号、4 段：各段的触发时刻差为信号周期的整数倍，且不小于记录时长 + `rearm_s` | ✅ `tests/test_scope_acquisition.py::test_the_segmented_acquisition_flow`（DSO-X 2024A，200 µs/div：记录 2 ms、重新布防 19 µs，相邻触发相差 3 ms，偏差 ≤ 2 ns） |
+| 读第 k 段得到第 k 条记录，TTAG 等于触发时刻差 | ✅ 同一测试：`:ACQuire:SEGMented:INDex k` 后 `acq.records` 就是第 k 段，`:WAVeform:SEGMented:TTAG?` 与触发时刻差一致（1 ps 内），`:WAVeform:XORigin?` 是该段的；超出段数的 INDex 报 -222 |
+| 段间噪声不同、同种子复现 | ✅ 同一测试（两段的信号相同、样本不同，差的标准差在码值量级）与 `::test_segments_repeat_with_the_seed`（同种子逐点相同，换种子不同） |
+| 信号在第 2 段之后停止：SINGle 不完成，`*OPC?` 按型号声明的规则等待 | ✅ `::test_a_segmented_single_waits_when_the_signal_stops_after_the_second_segment`（SDS2104X Plus：它的单次方式布防后不阻塞；信号停后 `*OPC?` 不回复、已触发的两段保留、没有记录入库；信号恢复后完成，前两段的触发时刻不变，第 3 段不早于信号恢复） |
+| 段数 × 点数超出存储深度时报错 | ✅ 流程测试末尾：`memory_points` 300 000 时 COUNt 3 接受、COUNt 4 报 -221 且保留 3 |
+| #947 的金标准不改预期通过 | ✅ `tests/test_scope_stream_migration.py` 未改；`segments = 1` 时噪声键、抖动键、完成时刻的算式与原来相同 |
+| DSO-X 2024A 的用例与覆盖表一致性检查通过 | ✅ `cases.yaml` 新增“分段存储”一例（`uv run simubench cases` 37/37）；覆盖表 `:ACQuire:MODE`、`:ACQuire:SEGMented:*`、`:WAVeform:SEGMented:*` 更新 |
+| `docs/component-map.md` 示波器表的缺口划掉 | ✅ 另有 `instrument-authoring.md` 8.4 一段 |
+| `scripts/check.sh` 通过 | ✅ |
+
+写明的限制与假设：
+- 超出存储深度的错误码取 -221（设置冲突，与 #988 平均次数超限的做法一致）；2000 X 的编程手册与数据手册都不在 `manuals/` 里，没有对照原文。
+- DSO-X 2024A 的 `rearm_s` 19 µs 与 `memory_points` 2 500 000 是估计：每段仍是整条 100 kpts 记录（真机每段的点数随段数减少，未建模），所以这台型号上实际起作用的上限是段数的 2–25。
+- 触发在布防时按当时的信号一次找齐（与单段的待完成采集一样是预先算出的）；信号在完成之前变了，已经触发的段保留、其余重新找。已触发但记录未满的那一段仍用变化之前的信号。
+- `:SINGle` 在 DSO-X 2024A 上是 digitize，命令时钟下它在全部段采满后才返回；“信号中途停止”的测试因此用布防后不阻塞的 SDS2104X Plus。
+- 分段只作用于单次采集、digitize 与立即完成的采集；运行中屏幕上的帧、强制读一个没有记录的通道仍是一条记录（后者之后段数读 0）。
+- `:ACQuire:SEGMented:ANALyze` 只接受：跨段的测量统计与余辉未建模。平均与分段同时打开时每段各自平均（真机不允许这样组合，未检查）。
