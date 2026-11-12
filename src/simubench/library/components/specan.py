@@ -189,8 +189,8 @@ class SpecanInput(Component):
         "iip2_dbm": None,  # dBm
         "iip3_dbm": None,  # dBm
         "p1db_dbm": None,  # dBm
-        # The frequency response's deviation from its calibration, dB (signal-chain.md 5.2, #954):
-        # piecewise linear over [[frequency Hz, dB], ...], the end points held; empty: flat.
+        # The frequency response's deviation from its calibration, dB (signal-chain.md 5.2,
+        # #954): piecewise linear over [[frequency Hz, dB], ...], 0 beyond the table; empty: flat.
         "flatness": [],
     }
     units = {
@@ -209,14 +209,15 @@ class SpecanInput(Component):
         return float(self.param("preamp_gain")) - self.attenuation()
 
     def flatness_db(self, f_hz: float | np.ndarray) -> float | np.ndarray:
-        """The response's deviation at ``f_hz``, dB: piecewise linear over the flatness table, the
-        end points held beyond it; 0.0 without a table."""
+        """The response's deviation at ``f_hz``, dB: piecewise linear over the flatness table, 0
+        beyond it (#954: the table is a patch on the calibration, not an extrapolation); 0.0
+        without a table."""
         table = self.param("flatness") or ()
         if not table:
             return 0.0
         edges = np.array([float(row[0]) for row in table])
         deviations = np.array([float(row[1]) for row in table])
-        return np.interp(f_hz, edges, deviations)
+        return np.interp(f_hz, edges, deviations, left=0.0, right=0.0)
 
     def output(self, port: str) -> Signal:
         sig = self.signal().scale(10 ** (self.gain_db() / 20))
@@ -409,6 +410,22 @@ class SpecanMixer(Component):
         "lo_feedthrough": "dBm",
     }
 
+    def _z_in_ohm(self) -> float:
+        """The impedance the input node ahead of the mixer runs on: the ``z_in`` of the input block
+        upstream of it, 50 Ω bare. The power ↔ voltage conversions of the derived lines run on it,
+        the same impedance the display calibrates against."""
+        assert self.owner is not None
+        block: Any = self
+        seen: set[str] = set()
+        while block is not None and block.name not in seen:
+            seen.add(block.name)
+            z = block.param("z_in")
+            if z is not None:
+                return float(z)
+            src = self.owner.wiring.source(block.name, "in")
+            block = self.owner.components[src[0]] if src is not None else None
+        return 50.0
+
     def output(self, port: str) -> Signal:
         sig = self.input("in").merged()
         lo: Any = self.ref("lo")
@@ -417,7 +434,17 @@ class SpecanMixer(Component):
         # DC is a line at 0 Hz, so the image fold treats it like every other one.
         freq = np.concatenate([[0.0], sig.freq]) if sig.dc else sig.freq
         amp = np.concatenate([[sig.dc], sig.amp]) if sig.dc else sig.amp
-        notes = list(sig.notes)
+        notes = sig.notes
+        spec = self.stage(float(lo.tuned()))
+        z = self._z_in_ohm()
+        f_rf, power_mw = freq, np.abs(amp) ** 2 / (2 * z) * 1e3
+        if math.isfinite(spec.p1db_dbm) and freq.size:
+            # Gain compression at the mixer's own P1dB (#954): the third-order model's multi-tone
+            # drive — each line's gain from every line's power, every other line counted twice.
+            # The drive arrives flatness-scaled, like the display's.
+            total = float(power_mw.sum())
+            over = 10 * np.log10(np.maximum(2.0 * total - power_mw, 1e-300)) - spec.p1db_dbm
+            amp = amp * np.asarray(rfcascade.compress_ratio(over))
         f_if = freq - f_lo
         keep = f_if > 0
         out_f, out_a = [f_if[keep]], [amp[keep] * k]
@@ -428,27 +455,31 @@ class SpecanMixer(Component):
             out_f.insert(0, -f_if[folded])
             out_a.insert(0, amp[folded] * k * 10 ** (-float(rejection) / 20))
         if freq.size:
-            f_rf, power_mw = freq, np.abs(amp) ** 2 / (2 * 50.0) * 1e3
-            # The declared spur responses: m·f_rf − n·f_lo and m·f_rf + n·f_lo, dBc of the line.
+            # The declared spur responses: m·f_rf ± n·f_lo, dBc of the line. The difference
+            # product lands at its absolute value — a product below the oscillator lands at its
+            # mirror, like the image fold — which is what makes |m·f_rf − n·f_lo| = f_if have two
+            # solutions on the display (#954); the sum product never reaches the IF.
             for row in self.param("spurs") or ():
                 m_, n_, dbc = float(row[0]), float(row[1]), float(row[2])
                 ks = k * 10 ** (dbc / 20)
-                for sign in (-1.0, 1.0):
-                    f_spur = m_ * f_rf + sign * n_ * f_lo
-                    ok = f_spur > 0
-                    out_f.append(f_spur[ok])
-                    out_a.append(amp[ok] * ks)
+                for f_spur in (np.abs(m_ * f_rf - n_ * f_lo), m_ * f_rf + n_ * f_lo):
+                    out_f.append(f_spur)
+                    out_a.append(amp * ks)
             # The distortion products the mixer's own intercepts make of the input lines
             # (#954): equivalent lines at the mixer's input, times the mixer's gain at its output.
-            spec = self.stage(float(lo.tuned()))
+            # A product below the oscillator has no response to ride (the receiver shows it only
+            # at its own frequency), so it drops; like every line, a product rides the mixer's
+            # compressed gain at its parents' drive.
             if math.isfinite(spec.iip2_dbm) or math.isfinite(spec.iip3_dbm):
                 products = rfcascade.products(f_rf, 10 * np.log10(np.maximum(power_mw, 1e-300)), spec)
                 if products.freq_hz.size:
-                    amp_prod = np.sqrt(
-                        2 * 50.0 * 10 ** (products.power_dbm / 10) * 1e-3 * 10 ** (spec.gain_db / 10)
-                    )
-                    out_f.append(products.freq_hz - f_lo)
-                    out_a.append(amp_prod.astype(complex))
+                    amp_prod = np.sqrt(2 * z * 10 ** (products.power_dbm / 10) * 1e-3)
+                    if math.isfinite(spec.p1db_dbm):
+                        over = 10 * np.log10(np.maximum(products.drive_mw, 1e-300)) - spec.p1db_dbm
+                        amp_prod = amp_prod * np.asarray(rfcascade.compress_ratio(over))
+                    keep_p = products.freq_hz - f_lo > 0
+                    out_f.append(products.freq_hz[keep_p] - f_lo)
+                    out_a.append(amp_prod[keep_p].astype(complex) * k)
                 if products.dropped:
                     notes = (
                         *notes,
@@ -460,7 +491,7 @@ class SpecanMixer(Component):
         feedthrough = self.param("lo_feedthrough")
         dc = 0.0
         if feedthrough is not None:
-            dc = math.sqrt(10 ** (float(feedthrough) / 10) * 1e-3 * 50.0)  # DC power is V²/R
+            dc = math.sqrt(10 ** (float(feedthrough) / 10) * 1e-3 * z)  # DC power is V²/R
         freq_out = np.concatenate(out_f)
         return Signal(freq_out, np.concatenate(out_a), np.zeros(freq_out.shape, dtype=np.int64), dc, notes)
 
@@ -908,8 +939,9 @@ class SpecanTrace(Component):
         distortion products the chain's intercepts make of them, the image and spur responses,
         the residuals and the oscillator's feedthrough. Every derived line is display-referred —
         they are computed from the levels the mixer sees, so the flatness rides inside them —
-        and the compression applies to the input lines' drive. Without any declared figure the
-        input is returned unchanged."""
+        and the compression applies to every line the chain's own nonlinearity outputs: the
+        input lines at the third-order model's multi-tone drive, the products at their parents'
+        drive. Without any declared figure the input is returned unchanged."""
         input_block = self._input()
         mixer = self._mixer_block()
         flat = bool(input_block.param("flatness"))
@@ -924,20 +956,29 @@ class SpecanTrace(Component):
             p_drive = p_mw * 10 ** (np.asarray(input_block.flatness_db(f)) / 10)
         out_f, out_p = [f], [p_drive]
 
-        # The distortion products of the chain's intercepts: equivalent input lines (#954).
+        # The distortion products of the chain's intercepts: equivalent input lines (#954). Like
+        # every line the chain outputs, a product rides the chain's compressed gain at the drive
+        # of the lines it comes from.
         if st.cascade is not None and (
             math.isfinite(st.cascade.iip2_dbm) or math.isfinite(st.cascade.iip3_dbm)
         ):
             products = rfcascade.products(f, 10 * np.log10(np.maximum(p_drive, 1e-300)), st.cascade)
             if products.freq_hz.size:
+                product_mw = 10 ** (products.power_dbm / 10)
+                if math.isfinite(st.cascade.p1db_dbm):
+                    over = 10 * np.log10(np.maximum(products.drive_mw, 1e-300)) - st.cascade.p1db_dbm
+                    product_mw = product_mw * np.asarray(rfcascade.compress_ratio(over)) ** 2
                 out_f.append(products.freq_hz)
-                out_p.append(10 ** (products.power_dbm / 10))
+                out_p.append(product_mw)
             if products.dropped:
                 approx = "too many lines for one trace: the distortion products are approximate, only the strongest 64 lines take part"
 
-        # Compression: the chain's gain is down by the P1dB model at each line's drive level.
+        # Compression: the P1dB model's multi-tone drive — each line's gain from every line's
+        # power, every other line counted twice (a third-order model's own contribution counts
+        # once, the cross terms with every other line twice) — over the flatness-scaled drive.
         if st.cascade is not None and math.isfinite(st.cascade.p1db_dbm):
-            over = 10 * np.log10(np.maximum(p_mw, 1e-300)) - st.cascade.p1db_dbm
+            total = float(p_drive.sum())
+            over = 10 * np.log10(np.maximum(2.0 * total - p_drive, 1e-300)) - st.cascade.p1db_dbm
             out_p[0] = out_p[0] * np.asarray(rfcascade.compress_ratio(over)) ** 2
 
         if mixer is not None:
@@ -954,11 +995,12 @@ class SpecanTrace(Component):
                 if lands.any():
                     out_f.append(image_f[lands])
                     out_p.append(p_drive[lands] * 10 ** (-float(rejection) / 10))
-            # The declared spur responses: m·f_rf − n·f_lo and m·f_rf + n·f_lo land on the IF
-            # when the receiver tunes to (m·f_rf + (n−1)·if)/n and ((n+1)·if − m·f_rf)/n.
+            # The declared spur responses: |m·f_rf − n·f_lo| = f_if has the two solutions
+            # (m·f_rf + (n−1)·if)/n and (m·f_rf + (n+1)·if)/n — the difference product lands on
+            # the IF from either side — so the receiver shows the line at both (#954).
             for row in mixer.param("spurs") or ():
                 m_, n_ = float(row[0]), float(row[1])
-                for f_spur in (m_ * f + (n_ - 1.0) * if_hz, (n_ + 1.0) * if_hz - m_ * f):
+                for f_spur in (m_ * f + (n_ - 1.0) * if_hz, m_ * f + (n_ + 1.0) * if_hz):
                     lands = (f_spur > 0) & (f_spur / n_ >= start) & (f_spur / n_ <= stop)
                     if lands.any():
                         out_f.append(f_spur[lands] / n_)
@@ -998,10 +1040,11 @@ class SpecanTrace(Component):
         margin = 6 * st.rbw
         sel = (f_disp >= st.start - margin) & (f_disp <= st.stop + margin)
         f_disp, p_mw = f_disp[sel], p_mw[sel]
-        if approx is None and f_disp.size > MAX_LINES_IN_WINDOW:
+        if f_disp.size > MAX_LINES_IN_WINDOW:
             keep = np.argsort(p_mw)[-MAX_LINES_IN_WINDOW:]
             f_disp, p_mw = f_disp[keep], p_mw[keep]
-            approx = "too many lines for one trace: the weakest were dropped"
+            reason = "too many lines for one trace: the weakest were dropped"
+            approx = reason if approx is None else f"{approx}; {reason}"
         return f_disp, p_mw, approx
 
     def truncation(self, sig: Signal, st: _Settings) -> str | None:

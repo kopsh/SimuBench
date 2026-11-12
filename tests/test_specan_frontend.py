@@ -243,9 +243,22 @@ def ideals(tmp_path_factory):
             "schema": "simubench.bench/2",
             "name": "specan-ideals",
             "instruments": {
-                "sg1": {"model": "sb-sg-1", "state": {"freq.cw": CARRIER, "power.level": TWO_TONE_LEVEL, "output.enabled": True}},
-                "sg2": {"model": "sb-sg-1", "state": {"freq.cw": CARRIER + 1.0e6, "power.level": TWO_TONE_LEVEL, "output.enabled": True}},
-                "sa": {"model": "test-specan-ideals", "state": {"freq.center": CARRIER, "freq.span": 4.0e6, "sweep.points": 301}},
+                "sg1": {
+                    "model": "sb-sg-1",
+                    "state": {"freq.cw": CARRIER, "power.level": TWO_TONE_LEVEL, "output.enabled": True},
+                },
+                "sg2": {
+                    "model": "sb-sg-1",
+                    "state": {
+                        "freq.cw": CARRIER + 1.0e6,
+                        "power.level": TWO_TONE_LEVEL,
+                        "output.enabled": True,
+                    },
+                },
+                "sa": {
+                    "model": "test-specan-ideals",
+                    "state": {"freq.center": CARRIER, "freq.span": 4.0e6, "sweep.points": 301},
+                },
             },
             "wires": [
                 {"from": "sg1.RF_OUT", "to": "sa.RF_IN"},
@@ -323,8 +336,8 @@ def test_the_flatness_table_scales_the_display(ideals):
     its true level (#954)."""
     s = ideals
     session_query(s, "sg2", ":OUTP OFF")
-    session_query(s, "sg1", f":FREQ:CW 1.2E9")
-    session_query(s, "sa", f":FREQ:CENT 1.2E9")
+    session_query(s, "sg1", ":FREQ:CW 1.2E9")
+    session_query(s, "sa", ":FREQ:CENT 1.2E9")
     assert _marker_at(s, 1.2e9) == pytest.approx(-11.0, abs=0.05)
     session_query(s, "sg1", f":FREQ:CW {CARRIER:.6E}")
     session_query(s, "sa", f":FREQ:CENT {CARRIER:.6E}")

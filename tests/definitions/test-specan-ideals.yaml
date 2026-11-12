@@ -6,8 +6,8 @@ manufacturer: SimuBench
 model: TEST-SPECAN-IDEALS
 class: spectrum_analyzer
 version: 1
-description: 声明非理想参数的验证频谱仪：混频器 IIP3 +10 dBm、P1dB +10 dBm、镜像抑制 60 dB、
-  本振馈通 −40 dBm、2·f_rf−f_lo 杂散 −40 dBc、1.5 GHz 残余 −80 dBm；本振相位噪声 −80/−100/−130 dBc/Hz @ 100/10k/1M Hz；响应平坦度在 1.2 GHz 为 −1 dB。
+description: 声明非理想参数的验证频谱仪：混频器 IIP2 +20 dBm、IIP3 +10 dBm、P1dB +10 dBm、镜像抑制 60 dB、
+  本振馈通 −40 dBm、f_rf−2·f_lo 杂散 −40 dBc、1.5 GHz 残余 −80 dBm；本振相位噪声 −80/−100/−130 dBc/Hz @ 100/10k/1M Hz；响应平坦度表 1.1–1.3 GHz、1.2 GHz 处 −1 dB，表外为 0。
 identity:
   serial: SBIDEALS00001
   firmware: "1.0.0"
@@ -157,17 +157,18 @@ components:
       att: $power.att
       att_auto: $power.att_auto
       ref_level: $display.ref_level
-      flatness: [[1.0e9, 0.0], [1.2e9, -1.0], [1.5e9, 0.0]]  # 响应偏差，分段线性
+      flatness: [[1.1e9, -0.5], [1.2e9, -1.0], [1.3e9, -0.5]]  # 响应偏差，分段线性，表外为 0
   - name: mixer
     type: specan_mixer
     params:
       noise_figure: 24.0
       lo: lo
-      iip3_dbm: 10.0  # 衰减为 0：链的 IIP3 就是它
+      iip2_dbm: 20.0  # 衰减为 0：链的截点就是它的
+      iip3_dbm: 10.0
       p1db_dbm: 10.0
       image_rejection: 60.0
       lo_feedthrough: -40.0
-      spurs: [[2, 1, -40.0]]
+      spurs: [[1, 2, -40.0]]  # |f_rf − 2·f_lo| = f_if：两个解都落在屏上
       residuals: [[1.5e9, -80.0]]
   - name: lo
     type: specan_lo

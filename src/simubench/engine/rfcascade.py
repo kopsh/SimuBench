@@ -130,6 +130,9 @@ class Products:
 
     freq_hz: np.ndarray
     power_dbm: np.ndarray
+    #: The total power of the input lines each product comes from, mW: the compression a P1dB
+    #: model applies to the product (#954).
+    drive_mw: np.ndarray
     #: Input lines beyond the strongest ``MAX_PRODUCT_LINES`` were left out: an approximation.
     dropped: bool = False
 
@@ -147,10 +150,14 @@ def products(freq_hz: np.ndarray, power_dbm: np.ndarray, spec: RfStageSpec) -> P
         f, p = f[keep], p[keep]
     out_f: list[np.ndarray] = []
     out_p: list[np.ndarray] = []
+    out_d: list[np.ndarray] = []
     i, j = np.triu_indices(f.size, k=1)
+    p_mw = 10 ** (p / 10)
+    pair_drive = p_mw[i] + p_mw[j]  # the parents of a pair product, mW
     if math.isfinite(spec.iip2_dbm):
         out_f += [2 * f, f[i] + f[j], np.abs(f[i] - f[j])]
         out_p += [2 * p - spec.iip2_dbm - _db(4.0), *[p[i] + p[j] - spec.iip2_dbm] * 2]
+        out_d += [p_mw, pair_drive, pair_drive]
     if math.isfinite(spec.iip3_dbm):
         out_f += [3 * f, np.abs(2 * f[i] - f[j]), np.abs(2 * f[j] - f[i])]
         out_p += [
@@ -158,11 +165,12 @@ def products(freq_hz: np.ndarray, power_dbm: np.ndarray, spec: RfStageSpec) -> P
             2 * p[i] + p[j] - 2 * spec.iip3_dbm,
             2 * p[j] + p[i] - 2 * spec.iip3_dbm,
         ]
+        out_d += [p_mw, pair_drive, pair_drive]
     if not out_f:
-        return Products(np.zeros(0), np.zeros(0), dropped)
+        return Products(np.zeros(0), np.zeros(0), np.zeros(0), dropped)
     freqs, powers = np.concatenate(out_f), np.concatenate(out_p)
     real = freqs > 0.0
-    return Products(freqs[real], powers[real], dropped)
+    return Products(freqs[real], powers[real], np.concatenate(out_d)[real], dropped)
 
 
 def compress(p_in_dbm: float, spec: RfStageSpec) -> float:
