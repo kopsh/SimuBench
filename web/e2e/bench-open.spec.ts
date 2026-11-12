@@ -8,7 +8,9 @@ const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
 
 async function openBench(page: Page, name: string) {
-  await page.getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: "打开测试台" }).click();
+  // the whole name: "specan" must not also match "specan_fft"
+  const item = page.getByRole("listitem").filter({ has: page.getByText(name, { exact: true }) });
+  await item.getByRole("button", { name: "打开测试台" }).click();
   await expect(page.locator(".react-flow__node").first()).toBeVisible();
 }
 

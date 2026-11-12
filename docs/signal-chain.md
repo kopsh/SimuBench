@@ -392,6 +392,22 @@ class RfStage(Protocol):
 
 无论哪种求值方式，内部探针对采样流端口都走 `frames`（一帧 4096 点的小请求），所以解析求值的仪表同样能点开 ADC 与下变频的输出。
 
+> **已实现（#955）**，与上文不同或补充之处：
+> （1）**RBW 的定义**：`specan_rbw` 的窗是高斯窗，RBW 是它的 −3 dB 宽度（与现有解析响应一致），所以等效噪声带宽是 1.0645 × RBW，
+> 不是 RBW 本身。只实现了 `gaussian` 一种窗（第 8 节第 5 条：flattop、kaiser 没有仪表用到，不预留）。
+> （2）**速率由请求决定**：`specan_ddc` 的抽取比默认自动——它按被请求的速率运行（ADC 采样率的整数分之一）；`specan_rbw` 请求的速率是
+> “一次变换覆盖 `fft_width`（64）个 RBW”。`decimation`、滤波器类型不在迹线里另算一遍。滤波器只有凯泽窗 sinc 一种，
+> 阶数由 `stopband`（默认 80 dB）决定：11 个输出间隔长，预热为长度减一个 ADC 采样。
+> （3）**调谐点随请求走**：`FrameRequest.tune_hz` 由发起读取的迹线或探针填写，`adc` 在求值输入信号时进入 `Session.tuned`；
+> 它是帧缓存键的一部分（此前探针的请求不带它，两个调谐点会读到同一帧）。
+> （4）**时钟误差**：请求的 `dt_s` 是实际间隔（标称 ÷ (1 + ε)），NCO 按“每个 ADC 采样多少周”计，所以数字中频的频率轴与扫频式一样只带一次参考误差。
+> （5）**分段与上限**：每段取变换中间的 `min(输出速率的一半, 中频通带的 60 %)`；分段数 × 每段沿链的采样数由 `StreamStage.upstream_request`
+> 逐块求出，超出 `MAX_REQUEST_FANOUT` 或 `MAX_SWEEP_BINS`（2²² 个频点）时**在计算之前**拒绝。每次扫描单独计数。
+> （6）**历史**：采样链只能读 RF_IN 当前的信号，所以采样式求值在输入变化时让迹线重新开始（保持与平均不跨越变化）；解析求值仍按历史逐次扫描求值。
+> （7）**`specan_if`**：通带是 5 阶最平坦幅度（`bandwidth` 为 −3 dB 宽度），不再是 RBW 的高斯通带；`if_filter.out` 的探针读数随之改变（SCPI 回复不变）。
+> （8）**`adc`**：参数为 `bits`、`full_scale`、`rate`、`noise_lsb_rms`、`impedance`；没有 `aperture_jitter_s` 与 `clock`（时钟误差随请求来，孔径抖动没有仪表用到）；
+> 没有抽 `SamplingAdc` 基类——与 `scope_adc` 共用的仍只有量化内核 `adc.codes`。
+
 ### 5.5 验收
 
 1. 金标准：`tests/test_specan_migration.py` 已有；补上 N9320B、N9042B 示例脚本的回复哈希。拆分与改连线后全部不变。

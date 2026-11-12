@@ -79,7 +79,12 @@ def stream_request(s: Session, comp: Component, port: str, count: int = PROBE_FR
     is a function of the instant alone."""
     dt = stream_interval(comp, port)
     return FrameRequest(
-        t0_ns=s.now_ns, count=count, dt_s=dt, key=("probe",), index0=int(s.now_ns * 1e-9 / dt)
+        t0_ns=s.now_ns,
+        count=count,
+        dt_s=dt,
+        key=("probe",),
+        index0=int(s.now_ns * 1e-9 / dt),
+        tune_hz=s.tune_hz,  # a receiver's frames differ by tuning: part of the request, so of the cache's key
     )
 
 
@@ -159,9 +164,14 @@ def _analog(s: Session, inst: Instrument, comp: Component, cport: str, port: str
 
 def _samples(s: Session, inst: Instrument, comp: Component, cport: str, port: str) -> M.InternalProbe:
     frame = s.cached_frames(comp, cport, stream_request(s, comp, cport))
-    data = np.real(frame.data) if np.iscomplexobj(frame.data) else frame.data
+    # What the waveform shows: the samples; of complex baseband samples the in-phase part; of a
+    # transform's frequency points their magnitudes.
+    kind = frame.fmt.kind
+    data = np.abs(frame.data) if kind == "bins" else np.real(frame.data)
     dc = float(np.mean(data))
-    peak = float(np.max(np.abs(data)))
+    # a complex sample's size is its magnitude: a tone on 0 Hz is a constant of any phase
+    size = np.abs(frame.data)
+    peak = float(np.max(size))
     fmt = frame.fmt
     quantized = fmt.bits > 0 and fmt.lsb > 0
     full_scale = fmt.lsb * (1 << fmt.bits) if quantized else 0.0
@@ -171,7 +181,7 @@ def _samples(s: Session, inst: Instrument, comp: Component, cport: str, port: st
         medium="samples",
         t_ns=s.now_ns,
         dc=dc,
-        rms=float(np.sqrt(np.mean(data * data))),
+        rms=float(np.sqrt(np.mean(size * size))),
         peak=peak,
         waveform=M.NetWaveform(
             net=port,
@@ -181,7 +191,7 @@ def _samples(s: Session, inst: Instrument, comp: Component, cport: str, port: st
             exact=not notes,
             notes=notes,
         ),
-        spectrum=_spectrum(data, frame.dt_s, full_scale / 2 if quantized else 0.0),
+        spectrum=_frame_spectrum(frame, full_scale / 2 if quantized else 0.0),
         sample_rate_hz=frame.rate_hz,
         format=stream_format(frame),
         full_scale_used=float(np.max(data) - np.min(data)) / full_scale if quantized else None,
@@ -203,6 +213,35 @@ def _spectrum(data: np.ndarray, dt_s: float, full_scale_amp: float) -> M.ProbeSp
         level = np.maximum(20.0 * np.log10(amp / ref), FLOOR_DB)
     return M.ProbeSpectrum(
         freq_hz=[float(f) for f in np.fft.rfftfreq(n, dt_s)],
+        level=[float(v) for v in level],
+        unit="dBFS" if full_scale_amp > 0 else "dBV",
+    )
+
+
+def _frame_spectrum(frame: SampleFrame, full_scale_amp: float) -> M.ProbeSpectrum:
+    """The spectrum a frame shows. Real samples: their windowed FFT, 0 Hz to half the rate.
+    Complex baseband samples: the two-sided windowed FFT around the frequency their 0 Hz stands
+    for. A transform's frequency points are a spectrum already: their levels as they are."""
+    kind = frame.fmt.kind
+    if kind == "bins":
+        n = frame.count
+        freq = frame.center_hz + (np.arange(n) - n // 2) * frame.df_hz
+        return _levels(freq, np.abs(frame.data), 0.0)
+    if kind == "iq":
+        n = frame.count
+        window = np.hanning(n)
+        amp = np.abs(np.fft.fftshift(np.fft.fft(frame.data * window))) / float(np.sum(window))
+        freq = frame.center_hz + np.fft.fftshift(np.fft.fftfreq(n, frame.dt_s))
+        return _levels(freq, amp, 0.0)
+    return _spectrum(frame.data, frame.dt_s, full_scale_amp)
+
+
+def _levels(freq: np.ndarray, amp: np.ndarray, full_scale_amp: float) -> M.ProbeSpectrum:
+    ref = full_scale_amp if full_scale_amp > 0 else float(np.sqrt(2.0))
+    with np.errstate(divide="ignore"):
+        level = np.maximum(20.0 * np.log10(amp / ref), FLOOR_DB)
+    return M.ProbeSpectrum(
+        freq_hz=[float(f) for f in freq],
         level=[float(v) for v in level],
         unit="dBFS" if full_scale_amp > 0 else "dBV",
     )

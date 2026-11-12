@@ -1,6 +1,7 @@
 """Built-in component types; importing this package registers them."""
 
 from . import (  # noqa: F401
+    adc,
     arb_segments,
     calibrator,
     calstore,
@@ -18,6 +19,7 @@ from . import (  # noqa: F401
     smu,
     sources,
     specan,
+    specan_backend,
     status,
     system,
     transfer,
