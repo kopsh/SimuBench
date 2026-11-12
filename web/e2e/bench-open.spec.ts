@@ -7,7 +7,7 @@ import { createConnection } from "node:net";
 const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
 
-async function openBench(page: Page, name: string) {
+async function openBench(page: Page, name: string | RegExp) {
   await page.getByRole("listitem").filter({ hasText: name }).getByRole("button", { name: "打开测试台" }).click();
   await expect(page.locator(".react-flow__node").first()).toBeVisible();
 }
@@ -110,7 +110,7 @@ test("an invalid definition cannot switch back to Operate", async ({ page }) => 
 test("only opening a bench writes no record", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
   const before = (await (await page.request.get("/api/runs", { headers })).json()).length;
-  await openBench(page, "specan");
+  await openBench(page, /specan(?!_)/); // not specan_fft
   const sid = page.url().split("/s/")[1]?.split("?")[0];
   const opened = (await (
     await page.request.get(`/api/sessions/${sid}`, { headers })
