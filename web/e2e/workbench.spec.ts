@@ -439,15 +439,19 @@ test("internal probe: the ADC's samples and resolution, then peak detect at the 
   page,
 }) => {
   const headers = { "x-simubench-token": TOKEN };
+  // The example bench on a clock idle real time does not move (fixtures/benches/dso-probe):
+  // normal and peak detect are compared at one instant, not wherever the machine's speed puts
+  // them — at a few instants (1.84 s) the two frames happen to span the same.
   const start = await page.request.post("/api/sessions", {
     headers,
-    data: { bench_path: "benches/keysight-dsox2024a.bench.yaml", force: true },
+    data: { bench_path: "benches/dso-probe.bench.yaml", force: true },
   });
   const sid = ((await start.json()) as { id: string }).id;
   const scpi = (name: string, command: string) =>
     page.request.post(`/api/sessions/${sid}/instruments/${name}/scpi`, { headers, data: { command } });
   // The generator's output is off at power-on (as on the real one): turn it on, so CH1 carries the RC's output.
   expect((await scpi("awg", "C1:OUTPut ON")).ok()).toBe(true);
+  expect((await page.request.post(`/api/sessions/${sid}/clock/advance`, { headers, data: { seconds: 0.026 } })).ok()).toBe(true);
   await page.goto(`/s/${sid}?token=${TOKEN}`);
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
   await page.getByRole("button", { name: "查看内部结构" }).click();
