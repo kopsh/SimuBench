@@ -45,10 +45,11 @@ function isNumber(text: string): boolean {
  * The quantity `text` shows, in base units: `"1.25 ms"` → 0.00125 (with `unit` "s"),
  * `"600 µs"` → 6e-4, `"+5.0005 A"` → 5.0005, `"353.55"` → 353.55 (no unit given: the number as
  * shown). The number and the unit may be split by spaces or not (`"200mV"`); null when the text
- * holds no such quantity.
+ * holds no such quantity. The typographic minus the app prints (`"−48.33 mV"`, `formatEng`) reads
+ * as a minus.
  */
 export function quantity(text: string, unit = ""): number | null {
-  const s = text.trim();
+  const s = text.trim().replaceAll("\u2212", "-");
   let end = s.length;
   while (end > 0 && !isNumber(s.slice(0, end))) end--;
   if (end === 0) return null;

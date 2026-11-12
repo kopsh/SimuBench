@@ -304,6 +304,7 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
     return M.InstrumentInternals(
         instrument=inst.name,
         definition_id=inst.definition.id,
+        reference=inst.definition.reference,
         channels=inst.channel_count,
         components=components,
         wires=_internal_wires(s, inst, wires),
