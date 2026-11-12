@@ -132,7 +132,7 @@ sections:
     note: 'min(2 GSa/s, 1 GSa/s with both channels of a pair on, 100 kpts / 10 div) on a 1-2-5 ladder (data sheet); reply digits are a SimuBench choice (the guide shows none)'
   - header: :ACQuire:TYPE
     level: implemented
-    note: 'NORMal; AVERage,count is the mean of count quantized acquisitions; PEAK examines each record interval at up to 64 samples (64 x the record rate when the ADC is faster, capped there) and keeps the extreme that departs farther from the interval ends, so a signal the record rate steps over shows; HRESolution is a boxcar of 8 codes (4^1.5, a SimuBench value: the guide only says slower sweeps average more)'
+    note: 'NORMal; AVERage,count is the mean of count quantized acquisitions; PEAK examines each record interval at up to 64 samples (64 x the record rate when the ADC is faster, capped there) and keeps the extreme that departs farther from the interval ends, so a signal the record rate steps over shows (a pulse narrower than the record interval / 64 is not guaranteed to be kept when the cap applies); HRESolution is a boxcar of 8 codes (4^1.5, a SimuBench value: the guide only says slower sweeps average more)'
   - header: :ACQuire
     level: implemented
     note: 'the setup query of the chapter''s Reporting the Setup: the guide''s *RST sample ":ACQ:MODE RTIM;TYPE NORM;COMP 100;COUNT 8;SEGM:COUN 2"; SEGM:COUN is :ACQuire:SEGMented:COUNt'

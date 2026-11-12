@@ -226,8 +226,10 @@ def test_the_noise_and_processing_flow():
 def test_the_stream_blocks_carry_the_definition():
     """The expanded chain speaks the definition (signal-chain.md 4.2, #971): the ADC's frames are
     the codes kept in volts (D46) at the definition's bits and top rate, each sample on its code
-    grid; peak detect examines at the ADC's native rate — the record interval is oversampled,
-    capped by peak_max_oversample — and the other modes take the record's rate."""
+    grid; peak detect oversamples the record interval toward the ADC's native rate, capped by
+    peak_max_oversample so a deep record at a slow timebase stays feasible — a pulse narrower than
+    the record interval / 64 is then not guaranteed to be kept — and the other modes take the
+    record's rate."""
     session = open_bench(SIGLENT, clock="command", seed=1, idle="off")
     scope = session.instruments["scope"]
     adc, dec = scope.components["adc"], scope.components["dec"]
@@ -242,7 +244,7 @@ def test_the_stream_blocks_carry_the_definition():
     session.write("scope", b":TIMebase:SCALe 1E-2\n")  # the record's 10 µs at 2 GSa/s: 20000 native samples
     assert (
         dec.oversample() == 64
-    )  # capped by peak_max_oversample: the interval is examined at the native rate
+    )  # capped by peak_max_oversample: 64 of the 20000 native samples, not the native rate
     assert dec.input_interval("out1") == pytest.approx(dec.sample_interval("out1") / 64)
     session.write("scope", b":ACQuire:TYPE NORMal\n")
     assert (

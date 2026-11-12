@@ -383,8 +383,9 @@ def ladder_down(value: float) -> float:
 
 
 def _boxcar(v: np.typing.NDArray[np.float64], w: int) -> np.typing.NDArray[np.float64]:
-    """The centered boxcar average of ``w`` samples, the edges holding their nearest full window
-    (high resolution, F4/D46: white noise falls by sqrt(w), the bandwidth by the window)."""
+    """The centered boxcar average of ``w`` samples; at the edges the window runs past the record
+    and the edge sample is repeated to fill it (high resolution, F4/D46: white noise falls by
+    sqrt(w), the bandwidth by the window)."""
     if w <= 1:
         return v
     c = np.concatenate(([0.0], np.cumsum(np.pad(v, (w // 2, w - 1 - w // 2), mode="edge"))))

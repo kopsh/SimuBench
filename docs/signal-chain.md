@@ -167,8 +167,8 @@ ADC 之后是采样流，每个功能块的输出都有真实的中间信号、�
 @dataclass(frozen=True)
 class SampleFormat:
     kind: Literal["volts", "codes", "iq", "bins"]   # 实数电压 / ADC 码值 / 复基带 / 频点上的复幅度（5.3）
-    bits: int = 0                           # codes：位数；0 表示未量化
-    lsb: float = 0.0                        # codes：一个码对应的输入电压，V
+    bits: int = 0                           # 量化的位数；0 表示未量化。两种 ADC 的帧是 volts（量化后换回电压，3.3），也记录它
+    lsb: float = 0.0                        # 一个码对应的输入电压，V（同上）
     signed: bool = True
 
 @dataclass(frozen=True)
@@ -184,7 +184,7 @@ class FrameRequest:
 
 @dataclass(frozen=True)
 class SampleFrame:
-    data: np.ndarray           # float64（volts/codes，codes 以整数值的浮点保存）或 complex128（iq）
+    data: np.ndarray           # float64（volts/codes，codes 以整数值的浮点保存）或 complex128（iq/bins）
     t0_ns: int
     dt_s: float
     fmt: SampleFormat
@@ -242,7 +242,7 @@ class Component:
 > （`SampleFormat("volts", bits, lsb)`），不是原始码值：现有的平均、峰值检测都在这个量上做，先平均再换算不逐位相同。
 > （3）没有建 `SamplingAdc` 基类：两种 ADC 共用的只有模块级的量化内核 `adc.codes`，等 #955 写第二个 ADC 时再看是否值得抽基类。
 
-新增基类 `SamplingAdc(Component)`，两个组件类型继承它：
+两个组件类型（各自继承 `Component`，共用量化内核 `adc.codes`）：
 
 | 类型 | 用途 | 满量程的来源 |
 | --- | --- | --- |
@@ -259,7 +259,7 @@ class Component:
 3. **模拟噪声的实现**：上游模拟链的噪声在这里变成采样。`scope_adc` 取所属通道垂直块的 `input_noise_rms()`（现有，D46）；
    `adc` 取连线上游的级联噪声（5.2 的 `RfStage`）在奈奎斯特带宽内的有效值。
 4. **ADC 自身**：`noise_lsb_rms`（默认 0）；量化与削波用文件里已有的内核，位数为 0 时不量化。
-5. 返回 `SampleFrame(fmt=codes, bits, lsb, clipped=...)`。
+5. 返回 `SampleFrame(fmt=SampleFormat("volts", bits, lsb), clipped=...)`：数据是量化后换回电压的码值（见上方修正第 2 条）。
 
 参数（每个带目录说明的注释）：`bits`、`full_scale`（仅 `adc`）、`max_rate`、`aperture_jitter_s`、`noise_lsb_rms`、`clock`（引用）。
 有效位数随频率下降、交织失配属于后续（7.2 的缺口表保留这两项）。
