@@ -1808,7 +1808,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | 同一请求两次得到相同的帧；不同 `key` 得到不同的噪声 | ✅ `tests/test_stream.py`（另有：新会话相同、不同种子不同、同一采样网格上重叠的请求在重叠处一致） |
 | 速率变换的块向上游请求 `count × M + warmup` | ✅ `test_a_rate_changing_block_asks_upstream_for_count_times_factor_plus_warmup` 等 3 条 |
-| 超出 `MAX_FRAME` / `MAX_REQUEST_FANOUT` 报模型上限，不返回截断的数据 | ✅ 拒绝发生在计算任何采样之前；缓存命中不改变是否拒绝 |
+| 超出 `MAX_FRAME` / `MAX_REQUEST_FANOUT` 报模型上限，不返回截断的数据 | ✅ 单帧超过 `MAX_FRAME`、以及一次请求展开后超过 `MAX_REQUEST_FANOUT` 时，拒绝发生在计算任何采样之前；缓存命中不改变是否拒绝。更正（#986）：一个块在一次读取里多次向上游请求（#950 的示波器平均）时，原实现要累加到上限才拒绝，此前的子采集已经算完——#986 起这类块先用 `Session.reserve_frames` 判断，同样在第一帧之前拒绝 |
 | 信号版本变化后缓存失效 | ✅ `test_a_changed_setting_drops_the_cached_frames` |
 | 定义校验三条规则各有拒绝与通过用例 | ✅ `tests/test_stream.py` 末尾 6 条（含通道组件、仪表端口映射） |
 | 带 `samples` 输出的组件类必须覆盖 `frames` 与 `sample_interval`；新钩子在签名契约内 | ✅ `tests/test_component_catalog.py`（规则自检一条；钩子契约按 `Component` 的公开方法自动包含） |

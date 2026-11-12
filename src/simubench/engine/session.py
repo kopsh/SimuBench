@@ -448,6 +448,13 @@ class Session:
             self._frame_asks[-1] += hit[1]
         return hit[0]
 
+    def reserve_frames(self, comp: Component, port: str, samples: int) -> None:
+        """Refuse now a read that is about to ask ``comp``'s upstream for ``samples`` samples in
+        several requests (an average of many acquisitions), when they would take it beyond
+        ``MAX_REQUEST_FANOUT``: before the first of them is computed, not when the running count
+        gets there (#986). Nothing is reserved — the requests are counted as they come."""
+        self._charge(sum(self._frame_asks) + samples, comp, port)
+
     @staticmethod
     def _charge(total: int, comp: Component, port: str) -> None:
         if total > MAX_REQUEST_FANOUT:

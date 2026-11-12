@@ -17,6 +17,7 @@ from ..engine.portref import split
 from ..engine.record import jsonable
 from ..engine.session import Session
 from ..engine.silence import why_silent
+from ..engine.stream import ModelLimit
 from ..library.components.scope import channel_index
 from ..library.panels import effective_panel
 from ..models import api as M
@@ -363,9 +364,15 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
             # A running scope redraws the signal now; a frame is not an acquisition (no record,
             # no virtual time), and its noise is its own. Untriggered in a normal mode, it holds.
             frame = served.frames[instrument] = served.frames.get(instrument, 0) + 1
-            shown, _, triggered = acq.compute(acq.displayed(), frame=frame)  # type: ignore[attr-defined]
-            if triggered or acq._is("auto") or not records:  # type: ignore[attr-defined]
-                records = shown
+            try:
+                shown, _, triggered = acq.compute(acq.displayed(), frame=frame)  # type: ignore[attr-defined]
+            except ModelLimit:
+                # Settings whose acquisition is beyond the model (an average of too many samples,
+                # #986): the screen holds what it has, as the acquisition itself is refused.
+                live = False
+            else:
+                if triggered or acq._is("auto") or not records:  # type: ignore[attr-defined]
+                    records = shown
         traces = []
         for n, r in sorted(records.items()):
             volts = np.asarray(r.volts, dtype=float)
