@@ -13,6 +13,7 @@ import pytest
 from refcalc.noise import averaged_codes_sigma, quantized_sigma, sigma_interval
 
 from simubench.api import open_bench
+from simubench.engine import session as session_module
 from simubench.engine.session import Session
 from simubench.engine.stream import FrameRequest
 from simubench.engine.validate_definition import validate_definition_data
@@ -26,6 +27,7 @@ LFCAL = ROOT / "examples" / "lowfreq-cal"
 LECROY = load_yaml((LFCAL / "instruments" / "lfcal-reference-scope.yaml").read_text(encoding="utf-8"))
 CALIBRATOR = load_yaml((LFCAL / "instruments" / "lfcal-scope-calibrator.yaml").read_text(encoding="utf-8"))
 SIGLENT = ROOT / "examples" / "benches" / "siglent_scope_rc.bench.yaml"
+DSOX = ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml"
 
 
 def _lfcal(scope: dict):
@@ -118,6 +120,28 @@ def test_averaging_takes_the_time_of_its_acquisitions():
     _, sixteen, _ = acq.compute([1])
     overhead = round(float(acq.param("overhead_s")) * 1e9)
     assert sixteen - overhead == pytest.approx(16 * (one - overhead), rel=1e-6)
+    session.close()
+
+
+def test_an_average_beyond_the_model_is_refused_before_its_first_acquisition(monkeypatch):
+    """#986: count x record samples beyond ``MAX_REQUEST_FANOUT`` is refused when the acquisition
+    starts, not once the running count gets there — the ADC is not asked for a single frame, by
+    the acquisition or by a measurement after it; a count within the limit still acquires."""
+    session = open_bench(DSOX, clock="command", seed=1, idle="off")
+    query = _noise_query(session)
+    scope = session.instruments["scope"].components
+    points = scope["acq"]._timing()[0]
+    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 4 * points)  # the record and 3 acquisitions
+    adc, calls = scope["adc"], []
+    frames = adc.frames
+    monkeypatch.setattr(adc, "frames", lambda port, request: calls.append(port) or frames(port, request))
+    query(":ACQuire:TYPE AVERage;:ACQuire:COUNt 4;:DIGitize CHANnel1")
+    assert (len(calls), query(":SYSTem:ERRor?")) == (0, '-221,"Settings conflict"')
+    assert scope["acq"].records == {}  # nothing was acquired
+    assert query(":MEASure:VPP? CHANnel1") == ""  # the measurement's own acquisition: refused as fast
+    assert (len(calls), query(":SYSTem:ERRor?")) == (0, '-221,"Settings conflict"')
+    query(":ACQuire:COUNt 3;:DIGitize CHANnel1")
+    assert (len(calls), query(":SYSTem:ERRor?")) == (3, '+0,"No error"')
     session.close()
 
 

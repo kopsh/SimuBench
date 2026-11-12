@@ -111,6 +111,18 @@ def test_a_running_screen_measures_its_live_frame(client):
     assert row["vpp"] > 0
 
 
+def test_a_running_screen_holds_its_record_when_the_average_is_beyond_the_model(client):
+    """#986: 8192 averages of the 100 000-point record are refused; the screen is not an error."""
+    b = Bench(client, "benches/keysight-dsox2024a.bench.yaml")
+    b.scpi(":DIGitize CHANnel1")
+    b.scpi(":RUN")
+    b.scpi(":ACQuire:TYPE AVERage")
+    b.scpi(":ACQuire:COUNt 8192")
+    screen = b.screen()
+    assert screen["source"] == "record" and not screen["running"]
+    assert screen["traces"] and screen["traces"] == b.screen()["traces"]  # held, not a new frame each time
+
+
 def test_a_stopped_scope_without_a_record_has_no_table(client):
     b = Bench(client, "benches/keysight-dsox2024a.bench.yaml")
     b.scpi(":STOP")
