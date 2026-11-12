@@ -207,7 +207,15 @@ jobs:
         working-directory: web
       - run: pnpm build
         working-directory: web
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Playwright chromium and its system deps, with an apt mirror fallback
+        run: |
+          if ! pnpm exec playwright install --with-deps chromium; then
+            # The runner's apt mirror (azure.archive.ubuntu.com) can lose DNS for hours (#981);
+            # switch the apt sources to the public archive and try once more. A second failure
+            # stays red: a real breakage is not hidden.
+            sudo grep -rl azure.archive.ubuntu.com /etc/apt 2>/dev/null | sudo xargs -r sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g'
+            pnpm exec playwright install --with-deps chromium
+          fi
         working-directory: web
       - run: pnpm e2e
         working-directory: web
@@ -245,7 +253,15 @@ jobs:
           cache: pnpm
           cache-dependency-path: web/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
-      - run: pnpm exec playwright install --with-deps chromium
+      - name: Playwright chromium and its system deps, with an apt mirror fallback
+        run: |
+          if ! pnpm exec playwright install --with-deps chromium; then
+            # The runner's apt mirror (azure.archive.ubuntu.com) can lose DNS for hours (#981);
+            # switch the apt sources to the public archive and try once more. A second failure
+            # stays red: a real breakage is not hidden.
+            sudo grep -rl azure.archive.ubuntu.com /etc/apt 2>/dev/null | sudo xargs -r sed -i 's/azure\.archive\.ubuntu\.com/archive.ubuntu.com/g'
+            pnpm exec playwright install --with-deps chromium
+          fi
       - name: Component library builds and matches its screenshots (Storybook, visual regression)
         run: pnpm build-storybook && pnpm visual
       - uses: actions/upload-artifact@v4

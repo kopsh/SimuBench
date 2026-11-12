@@ -78,10 +78,27 @@ def _input_referred(points: list[tuple[float, float]]) -> float:
     return -_db(sum(_lin(g - p) for p, g in finite))
 
 
+def _input_referred_amplitude(points: list[tuple[float, float]]) -> float:
+    """Second-order intercepts combined in amplitude form (Razavi, the cascade of nonlinear
+    stages): a stage's second-order product referred to the chain's input carries the voltage
+    gain ahead of it to the first power (the product itself scales with the square), so the
+    reciprocals of the *voltages* add — 1/A = Σ αₖ/Aₖ — where a third-order product referred
+    the same way carries the square of the gain, which is the power form ``_input_referred``
+    implements. The gain ahead is a power gain in dB, which over a continuous impedance is the
+    voltage gain in dB too (20·log₁₀); the reference impedance's constant cancels in the ratio."""
+    finite = [(p, g) for p, g in points if math.isfinite(p)]
+    if not finite:
+        return math.inf
+    if len(finite) == 1 and finite[0][1] == 0.0:
+        return finite[0][0]
+    return -20.0 * math.log10(sum(10.0 ** ((g - p) / 20.0) for p, g in finite))
+
+
 def cascade(stages: Iterable[RfStageSpec]) -> RfStageSpec:
-    """The chain's figures at its input: gains add; the noise figure follows Friis; each
-    intercept and the compression point is the reciprocal sum of the stages' points referred to
-    the input. A chain of one stage is that stage."""
+    """The chain's figures at its input: gains add; the noise figure follows Friis; the
+    third-order intercept and the compression point are the reciprocal sum of the stages' points
+    referred to the input (in mW), the second-order intercept the same sum in voltage form
+    (``_input_referred_amplitude``). A chain of one stage is that stage."""
     chain = list(stages)
     gain = 0.0
     ip2: list[tuple[float, float]] = []
@@ -95,7 +112,7 @@ def cascade(stages: Iterable[RfStageSpec]) -> RfStageSpec:
     return RfStageSpec(
         gain_db=chain[0].gain_db if len(chain) == 1 else gain,
         noise_figure_db=_noise_figure(chain),
-        iip2_dbm=_input_referred(ip2),
+        iip2_dbm=_input_referred_amplitude(ip2),
         iip3_dbm=_input_referred(ip3),
         p1db_dbm=_input_referred(p1),
     )
