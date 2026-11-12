@@ -251,3 +251,60 @@ def test_a_glitch_condition_never_met_waits_in_normal_and_times_out_in_auto():
         assert not acq.records[1].triggered  # the auto timeout's record
     finally:
         s.close()
+
+
+def test_a_noisy_trigger_path_judges_widths_on_a_grid_finer_than_them():
+    """#1000: with trigger-path noise a signal is not taken as periodic and the search runs to its
+    horizon; beyond the record grid's budget its grid is an eighth of the width bound, so a 1 kHz
+    train's 500 us pulses never read as wider than 600 us (a 640 us grid aliased them into one)."""
+    s = open_bench(CONTRACT, idle="off")
+    try:
+        trig = s.instruments["scope"].components["trigger"]
+        settings = {"mode": "glitch", "source": "C1", "level": 0.0, "polarity": "positive"}
+        settings |= {"qualifier": "greater", "width_high": 1.0, "noise_rms": 1e-3}
+        for key, value in settings.items():
+            s.set_parameter("scope", "trigger", key, value)
+        train = pulse_train(1e3, 1.0, 0.5, 5e6)
+        s.set_parameter("scope", "trigger", "width_low", 600e-6)
+        assert trig.search(train, 0, 1e-7, 100, 1000, 1, 0.5, 10.0) is None
+        # Wider than 400 us: the pulse that rises at 1 ms, once it has lasted 400 us; the far grid
+        # (50 us) interpolates the noisy edge to within a step.
+        s.set_parameter("scope", "trigger", "width_low", 400e-6)
+        hit = trig.search(train, 0, 1e-7, 100, 1000, 1, 0.5, 10.0)
+        assert hit is not None and abs(hit.t_s - 1.4e-3) < 400e-6 / 8
+    finally:
+        s.close()
+
+
+def test_a_waiting_glitch_search_is_not_repeated_for_the_same_inputs(monkeypatch):
+    """#1000: a single acquisition waiting for a pulse that never comes (DSO-X 2024A, a 1 kHz
+    square at 5 % duty — some 3900 harmonics — and a negative pulse under 100 us): queries at the
+    same instant ask the trigger nothing new, the status registers' search is remembered."""
+    s = open_bench(DSOX, idle="off")
+    try:
+        s.write("awg", b"C1:BSWV WVTP,SQUARE,FRQ,1000,DUTY,5\n")
+        s.write(
+            "scope",
+            b":CHANnel1:PROBe 1;:TIMebase:SCALe 2E-4;:TRIGger:MODE GLITch;:TRIGger:GLITch:QUALifier LESSthan;"
+            b":TRIGger:GLITch:LESSthan 1E-4;:TRIGger:GLITch:POLarity NEGative;:TRIGger:SWEep NORMal;:SINGle\n",
+        )
+        acq = s.instruments["scope"].components["acq"]
+        assert acq.pending.waiting()
+        searches = []
+        trig = s.instruments["scope"].components["trigger"]
+        inner = trig._search
+        monkeypatch.setattr(trig, "_search", lambda *a, **k: searches.append(a) or inner(*a, **k))
+        start = s.now_ns
+        s.write("scope", b":TER?;:TER?;:TER?;:TER?\n")
+        assert s.read("scope").strip() == b"0;0;0;0"
+        assert s.now_ns == start and searches == []  # the same instant, the same answer
+        # A new setting is a new search: the positive pulses (50 us) qualify, and the waiting
+        # acquisition (looking again at the next command) completes.
+        s.write("scope", b":TRIGger:GLITch:POLarity POSitive\n")
+        s.write("scope", b"*OPC?\n")
+        assert s.read("scope").strip() == b"1"
+        s.write("scope", b":TER?\n")
+        assert s.read("scope").strip() == b"1"
+        assert searches and acq.records[1].triggered
+    finally:
+        s.close()
