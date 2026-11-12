@@ -6,7 +6,7 @@ import hashlib
 import itertools
 import math
 import re
-from dataclasses import dataclass, replace
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 import numpy as np
@@ -803,6 +803,16 @@ class ScopeTimebase(Component):
 
 
 @dataclass
+class _PulseState:
+    """A pulse-width search's state from one stretch to the next: each direction's arming, the
+    open pulse (its leading edge's instant and the samples around it) and the last sample."""
+
+    armed: dict[str, bool] = field(default_factory=lambda: {"rise": False, "fall": False})
+    lead: tuple[float, float, float] | None = None
+    prev: tuple[float, float] | None = None
+
+
+@dataclass
 class TriggerHit:
     """Where a trigger search found its edge: the instant (seconds after the search's base
     instant, interpolated between samples) and the first record-grid sample at or after it."""
@@ -831,6 +841,21 @@ class ScopeTrigger(_ChannelBound):
     (``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``
     records ahead (its auto timeout); a normal or single acquisition waits up to
     ``search_horizon_s`` of virtual time for its edge.
+
+    ``mode`` ``glitch`` is the pulse-width trigger (#956): on the same path, with the same level,
+    band, holdoff, coupling and noise, the edges in both directions make a sequence of crossings;
+    a pulse of ``polarity`` ``positive`` is a rising crossing followed by a falling one
+    (``negative``: falling then rising), its width the time between them. It qualifies by
+    ``qualifier``: ``less`` (width < ``width_high``), ``greater`` (width > ``width_low``) or
+    ``range`` (both). The trigger is at the pulse's trailing edge, for every qualifier (Keysight
+    InfiniiVision: a pulse-width trigger fires on the trailing edge; a timeout is the pattern
+    trigger's). Both edges must come after the search's start (the pre-trigger history and the
+    holdoff): a pulse that began before the trigger was armed does not count. The search takes
+    the record grid for as many samples as ``max_search_points`` allows (fewer for a signal of
+    many lines), then a grid an eighth of the narrowest width bound for as many again: there a
+    width near a bound and the trigger's instant are found again on the signal itself (without
+    trigger noise), a pulse narrower than the grid can be missed, and an acquisition that finds
+    nothing within that reach waits, looking again at the next command.
     """
 
     ports = {"ext": PortSpec("in", "signal", "external trigger input")}
@@ -861,15 +886,43 @@ class ScopeTrigger(_ChannelBound):
         "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
         "line": ["LINE"],  # sources that trigger on the mains
         "line_hz": 50.0,  # mains frequency
+        "mode": "edge",  # edge | glitch (the pulse-width trigger)
+        "polarity": "positive",  # glitch: positive (rise, then fall) | negative (fall, then rise)
+        "qualifier": "greater",  # glitch: less (< width_high) | greater (> width_low) | range (both)
+        "width_low": 0.0,  # glitch: the lower width bound, s
+        "width_high": 10.0,  # glitch: the upper width bound, s
     }
-    units = {"level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V"}
+    units = {
+        "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V",
+        "width_low": "s", "width_high": "s",
+    }  # fmt: skip
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.last_ns: int | None = None  # the instant of the latest trigger (holdoff)
+        # The latest search and its result: a search is a pure function of its inputs, and the
+        # status registers ask the same one again after every command of a line (#956).
+        self._memo: tuple[str, TriggerHit | None] | None = None
 
     def reset(self) -> None:
         self.last_ns = None
+        self._memo = None
+
+    def _search_key(self, sig: Signal, args: tuple[Any, ...], n: int | None) -> str:
+        """Everything a search's result depends on: its arguments, the signal's lines, the
+        holdoff's anchor and every parameter as it resolves now (the level and slope included)."""
+        lines = hashlib.blake2b(digest_size=16)
+        for a in (sig.freq, sig.amp, sig.t0_ns):
+            lines.update(np.ascontiguousarray(a).tobytes())
+        level = self.channel_param("level", n) if n is not None else self.level()
+        slope = self.channel_param("slope", n) if n is not None else self.param("slope")
+        params = []
+        for k in sorted(self.defaults):
+            try:
+                params.append(self.param(k))
+            except KeyError:  # bound per channel ({n}): the level and slope above resolve it
+                params.append(None)
+        return repr((args, sig.dc, lines.hexdigest(), self.last_ns, level, slope, params))
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
         """Refuse a level off the source channel's screen by more than ``level_range_divs``
@@ -959,6 +1012,25 @@ class ScopeTrigger(_ChannelBound):
         """The first qualifying edge at least ``pre`` samples after ``t0`` (enough history before
         the trigger) and past the holdoff, within ``search_windows`` records or, with
         ``horizon_s``, that much virtual time. None: no edge."""
+        key = self._search_key(sig, (t0, dt, pre, points, n, scale, horizon_s), n)
+        if self._memo is not None and self._memo[0] == key:
+            return self._memo[1]
+        hit = self._search(sig, t0, dt, pre, points, n, scale, horizon_s)
+        self._memo = (key, hit)
+        return hit
+
+    def _search(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        pre: int,
+        points: int,
+        n: int | None,
+        scale: float,
+        horizon_s: float | None,
+    ) -> TriggerHit | None:
+        """:meth:`search` itself."""
         kind = self.source_kind()
         start_s = pre * dt
         if self.last_ns is not None and self.param("holdoff_on") in (True, 1, "1", "ON", "on"):
@@ -973,6 +1045,8 @@ class ScopeTrigger(_ChannelBound):
         if kind == "none":
             return None
         level = float(self.channel_param("level", n) if n is not None else self.level())
+        if str(self.param("mode")).lower() == "glitch":
+            return self._search_pulses(sig, t0, dt, start_s, span, horizon, level, self._hysteresis(scale))
         slope = str(self.channel_param("slope", n) if n is not None else self.param("slope")).upper()
         rising = slope in _upper(self.param("rising"))
         falling = slope in _upper(self.param("falling"))
@@ -992,15 +1066,136 @@ class ScopeTrigger(_ChannelBound):
         hit = self._scan(sig, t0, dt, start_s, span, level, hyst, rising, falling, dt)
         if hit is not None or horizon <= span:
             return hit
+        step = self._coarse_step(sig, dt, horizon, span)
+        return self._scan(
+            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
+        )
+
+    def _coarse_step(self, sig: Signal, dt: float, horizon: float, span: float) -> float:
+        """The grid beyond the first stretch: sixteen samples a period of the signal's highest
+        line, no finer than the record's, and as coarse as the search budget needs."""
         lines = sig.freq[np.abs(sig.amp) > 1e-6 * max(1e-300, float(np.abs(sig.amp).max(initial=0.0)))]
         f_top = float(lines.max()) if lines.size else 0.0
         step = dt if f_top <= 0 else max(dt, 1.0 / (16.0 * f_top))
         # The work is samples times lines: a signal of many lines is searched on fewer samples.
         budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
-        step = max(step, (horizon - span) / budget)
-        return self._scan(
-            sig, t0, dt, max(start_s, span), horizon, level, hyst, rising, falling, step, lead=False
-        )
+        return max(step, (horizon - span) / budget)
+
+    def _search_pulses(
+        self, sig: Signal, t0: int, dt: float, start_s: float, span: float, horizon: float,
+        level: float, hyst: float,
+    ) -> TriggerHit | None:  # fmt: skip
+        """The glitch mode's :meth:`search`: the trailing edge of the first qualifying pulse."""
+        sig = self.path_signal(sig)
+        swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
+        if not (sig.dc - swing < level - hyst and sig.dc + swing > level + hyst):
+            return None  # a pulse needs both edges
+        # The work is samples times lines, as an edge's coarse search: the record grid for as many
+        # samples as max_search_points allows, then a grid an eighth of the narrowest width bound
+        # (a coarser one would see two pulses with a narrow one between them as one wide pulse)
+        # for as many again, never past the search's reach.
+        budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
+        reach = max(span, horizon)
+        fine = min(reach, start_s + budget * dt)
+        state = _PulseState()
+        hit = self._scan_pulses(sig, t0, dt, start_s, fine, level, hyst, dt, state)
+        if hit is not None or fine >= reach:
+            return hit
+        q = str(self.param("qualifier")).lower()
+        used = {"less": ("width_high",), "greater": ("width_low",)}.get(q, ("width_low", "width_high"))
+        bounds = [w for w in (float(self.param(k)) for k in used) if 0 < w < math.inf]
+        step = max(dt, min(bounds) / 8) if bounds else self._coarse_step(sig, dt, reach, fine)
+        stop = min(reach, fine + step * budget)
+        return self._scan_pulses(sig, t0, dt, fine, stop, level, hyst, step, state, lead=False)
+
+    def qualifies(self, width: float) -> bool:
+        """Whether a pulse of ``width`` seconds meets the glitch qualifier."""
+        q = str(self.param("qualifier")).lower()
+        low, high = float(self.param("width_low")), float(self.param("width_high"))
+        if q == "less":
+            return width < high
+        if q == "greater":
+            return width > low
+        return low < width < high  # range
+
+    def _scan_pulses(
+        self, sig: Signal, t0: int, dt: float, start_s: float, stop_s: float, level: float,
+        hyst: float, step: float, state: _PulseState, lead: bool = True,
+    ) -> TriggerHit | None:  # fmt: skip
+        """Search [start_s, stop_s] on a grid of ``step`` for a qualifying pulse (``state`` carries
+        the arming and the open pulse from one stretch to the next). Each direction arms and fires
+        as an edge does (:meth:`_scan`); the crossings of both, in time order, pair into pulses."""
+        lead_dir = "fall" if str(self.param("polarity")).lower() == "negative" else "rise"
+        exact = step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None)
+        chunk = 1 << 12
+        a = start_s - step if lead else start_s
+        while a <= stop_s:
+            count = min(chunk, max(2, math.ceil((stop_s - a) / step) + 1))
+            chunk = min(chunk * 2, 1 << 18)
+            offsets = a + step * np.arange(count, dtype=np.float64)
+            v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+            late = offsets >= start_s - 1e-15
+            events: list[tuple[int, str]] = []
+            for d in ("rise", "fall"):
+                far = np.flatnonzero(v < level - hyst if d == "rise" else v > level + hyst)
+                cross = np.flatnonzero((v >= level if d == "rise" else v <= level) & late)
+                pos, armed = 0, state.armed[d]
+                while True:
+                    if not armed:
+                        j = int(np.searchsorted(far, pos))
+                        if j == far.size:
+                            break
+                        pos, armed = int(far[j]) + 1, True
+                    j = int(np.searchsorted(cross, pos))
+                    if j == cross.size:
+                        break
+                    events.append((int(cross[j]), d))
+                    pos, armed = int(cross[j]) + 1, False
+                state.armed[d] = armed
+            for k, d in sorted(events):
+                t_k, v_k = float(offsets[k]), float(v[k])
+                t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (state.prev or (t_k, v_k))
+                frac = (level - v_p) / (v_k - v_p) if v_k != v_p else 1.0
+                t = t_p + min(max(frac, 0.0), 1.0) * (t_k - t_p)
+                if d == lead_dir:
+                    state.lead = (t, t_p, t_k)
+                    continue
+                if state.lead is None:
+                    continue  # a trailing edge with no pulse open
+                t_lead, lead_p, lead_k = state.lead
+                state.lead = None
+                width = t - t_lead
+                if exact:  # on the coarse grid each edge is known to its bracket of samples
+                    width = self._width(sig, t0, (lead_p, lead_k), (t_p, t_k), level, lead_dir == "rise", dt)
+                if self.qualifies(width):
+                    if exact:  # the trailing edge's instant to a thousandth of a record sample
+                        t = self._bisect(sig, t0, t_p, t_k, level, d == "rise", dt)
+                    return TriggerHit(t, math.ceil(t / dt - 1e-9))
+            state.prev = (float(offsets[-1]), float(v[-1]))
+            a = float(offsets[-1]) + step
+        return None
+
+    def _width(
+        self, sig: Signal, t0: int, lead: tuple[float, float], trail: tuple[float, float], level: float,
+        lead_rising: bool, dt: float,
+    ) -> float:  # fmt: skip
+        """A pulse's width from its edges' brackets of samples, each narrowed on the signal itself
+        (halving the wider) only until no width bound the qualifier uses lies within the widths
+        the brackets allow."""
+        q = str(self.param("qualifier")).lower()
+        used = {"less": ("width_high",), "greater": ("width_low",)}.get(q, ("width_low", "width_high"))
+        bounds = [float(self.param(k)) for k in used]
+        brackets = [list(lead), list(trail)]
+        while True:
+            w_min, w_max = brackets[1][0] - brackets[0][1], brackets[1][1] - brackets[0][0]
+            if not any(w_min <= b <= w_max for b in bounds) or w_max - w_min <= dt * 1e-3:
+                return (w_min + w_max) / 2
+            i = 0 if brackets[0][1] - brackets[0][0] >= brackets[1][1] - brackets[1][0] else 1
+            lo, hi = brackets[i]
+            mid = (lo + hi) / 2
+            v = float(sig.sample_rel(t0, np.array([mid]))[0])
+            rising = lead_rising if i == 0 else not lead_rising
+            brackets[i] = [lo, mid] if (v >= level) == rising else [mid, hi]
 
     @staticmethod
     def _bisect(sig: Signal, t0: int, lo: float, hi: float, level: float, rising: bool, dt: float) -> float:

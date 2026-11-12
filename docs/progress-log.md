@@ -2004,3 +2004,22 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 - 型号只有一个标记，“调谐于”因此最多列出标记 1 与增量标记的参考；始终开启的标记停在 0 Hz 时也会列出。
 - 图上各输出的缩略图仍按中心频率读，不随“调谐于”变化。
 - 本机的视觉回归中 `Assistant/Panel / Stuck` 与 `Workbench/Live canvas / Counter` 在未改动的 main 上同样不过（本机与 CI 的渲染差异），与本改动无关。
+
+## 示波器脉宽触发（DSO-X 2024A）（Issue 956）
+
+`scope_trigger` 增加 `mode: glitch`：在边沿触发的同一条模拟通路上把两个方向的越过电平排成序列，相邻的一对相反沿之间是脉宽，按小于/大于/范围与极性判定，触发在合格脉冲的结束沿（InfiniiVision 的脉宽触发在结束沿触发，三种条件相同）。DSO-X 2024A 映射 `:TRIGger:MODE GLITch` 与 `:TRIGger:GLITch:{SOURce,LEVel,POLarity,QUALifier,LESSthan,GREaterthan,RANGe}`。
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 1 ms 周期、占空比 50 % 的脉冲串中有一个 50 µs 的窄脉冲：`< 100 µs` 只触发在它上，触发时刻与它的结束沿之差 < 采样间隔的 1/10 | ✅ `tests/test_scope_trigger.py::test_the_pulse_width_trigger_flow`（结束沿取连续信号上二分得到的过零；实测差约 2 ns，采样间隔 100 ns） |
+| `> 600 µs`、范围 `40–60 µs` 各一条；极性取反时不触发 | ✅ 同一流程测试：范围取同一窄脉冲；`> 600 µs` 在 70 % 占空比的脉冲串上触发在 700 µs 高电平的结束沿；四种取反（及 50 % 脉冲串上的 `> 600 µs`）都不触发 |
+| 条件不满足：NORMal 等待（待完成操作不结束）、AUTO 在自动超时后给出未触发的记录 | ✅ `::test_an_unmet_pulse_width_waits_in_normal_and_times_out_in_auto`（DSO-X 2024A，5 % 方波上的负脉冲 < 100 µs：`:SINGle` 后仍在等、`*OPC?` 不回；AUTO 的 `:DIGitize` 记录未触发；正脉冲触发后起始沿在 −50 µs） |
+| 现有边沿触发的全部测试不改预期通过 | ✅ `tests/test_scope_trigger.py` 原有 4 条未改；边沿搜索只把粗网格步长的计算提成 `_coarse_step`，数值不变；全量测试通过 |
+| DSO-X 2024A 的用例与覆盖表一致 | ✅ `tests/models/keysight-dsox2024a/cases.yaml` 两条新用例（设置回读、RANGe 与 LESSthan/GREaterthan 同一对设置、信源只取模拟通道与 -224；5 % 方波上三种条件的触发点与 `:TER?`）；覆盖表 7 个 `:TRIGger:GLITch` 命令改为实现；`tests/test_real_models.py` 通过 |
+| `docs/component-map.md` 示波器表更新 | ✅ trigger 一行 |
+| `scripts/check.sh` 通过，全量测试 < 60 s | ✅ |
+
+实现中的取舍：
+- 命令参数绑定状态量时，参数自己写的 `options` 现在是命令的取值范围（`engine/command_runner.py`，`instrument-authoring.md` 2.2）：`:TRIGger:GLITch:SOURce` 与边沿共用 `trigger.source`，只取 CHANnel1–4。其余定义里写了 `options` 的参数，全量测试的回复未变。
+- 计算量：一个等不到的脉宽条件在每条命令（及状态寄存器采样）都会重找，按边沿粗网格的同一预算限制：记录网格上取 `max_search_points` 按谱线数折算的采样，再在脉宽界限 1/8 的网格上取同样多；粗网格上脉宽只在区间含界限时二分。比网格窄的脉冲在粗网格段可能漏掉，预算内找不到时普通采集继续等待。
+- 脉宽的范围 2 ns–10 s 与 `*RST` 值（GREaterthan、2 ns、LESSthan 10 ns）手册的复位表没有给，是 SimuBench 的取值，覆盖表注明；信源与边沿触发共用也是 SimuBench 的选择。

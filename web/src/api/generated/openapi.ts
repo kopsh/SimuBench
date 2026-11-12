@@ -3739,7 +3739,10 @@ export interface components {
              * @default false
              */
             optional: boolean;
-            /** Options */
+            /**
+             * Options
+             * @description An enum's words; with `state`, the command accepts only these (-224 otherwise), then parses the word as the setting does: a command sharing a setting with a narrower range
+             */
             options?: string[] | null;
             /**
              * Sets

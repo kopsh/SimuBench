@@ -121,7 +121,7 @@ state:
     label_en: Zoom position
   trigger.mode:
     type: enum
-    options: [EDGE]
+    options: [EDGE, GLITch]
     default: EDGE
     label: 触发类型
     label_en: Trigger type
@@ -250,6 +250,36 @@ state:
     default: POSitive
     label: 触发沿
     label_en: Trigger slope
+  # 脉宽触发（:TRIGger:GLITch，#956）。信源与电平和边沿触发共用（每个信源各自的电平）；脉宽的
+  # 范围 2 ns–10 s 与 *RST 值（GREaterthan、2 ns、LESSthan 10 ns）手册的复位表没有给，为 SimuBench 的取值。
+  trigger.glitch.polarity:
+    type: enum
+    options: [POSitive, NEGative]
+    default: POSitive
+    label: 脉宽触发极性
+    label_en: Pulse width polarity
+  trigger.glitch.qualifier:
+    type: enum
+    options: [GREaterthan, LESSthan, RANGe]
+    default: GREaterthan
+    label: 脉宽条件
+    label_en: Pulse width qualifier
+  trigger.glitch.greaterthan:
+    type: float
+    unit: S
+    min: 2.0e-9
+    max: 10.0
+    default: 2.0e-9
+    label: 脉宽下限
+    label_en: Pulse width greater than
+  trigger.glitch.lessthan:
+    type: float
+    unit: S
+    min: 2.0e-9
+    max: 10.0
+    default: 1.0e-8
+    label: 脉宽上限
+    label_en: Pulse width less than
   trigger.coupling:
     type: enum
     options: [AC, DC, LFReject]
@@ -555,6 +585,12 @@ components:
       holdoff: $trigger.holdoff
       external: [EXTernal]
       line: [LINE]
+      # 脉宽触发（#956）：在边沿触发的同一通路上判定，触发在脉冲的结束沿。
+      mode: {from: $trigger.mode, map: {EDGE: edge, GLITch: glitch}}
+      polarity: {from: $trigger.glitch.polarity, map: {POSitive: positive, NEGative: negative}}
+      qualifier: {from: $trigger.glitch.qualifier, map: {GREaterthan: greater, LESSthan: less, RANGe: range}}
+      width_low: $trigger.glitch.greaterthan
+      width_high: $trigger.glitch.lessthan
   # ADC：8 位；BYTE 数据的 256 个码值对应屏幕的 8 格（手册：码值 1 与 255 表示削到屏幕底部与顶部），
   # 偏置为屏幕中心的电压。CH1/CH2 或 CH3/CH4 同开时不交织，最高 1 GSa/s。
   - name: adc
@@ -849,6 +885,33 @@ commands:
         echo: false
       - {name: shown, type: bool, state: "ch{source}.display"}
     doc: 参数指定的通道是否显示（#248）。
+  # ---- TRIGger:GLITch（脉宽触发，#956） ----
+  - header: ":TRIGger:GLITch:SOURce"
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: trigger.source}
+    doc: 与边沿触发共用一个触发源；脉宽触发只能取模拟通道。
+  - header: ":TRIGger:GLITch:LEVel"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: level, type: float, unit: V, state: "trigger.level{source}"}
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+        index_default: $trigger.source
+        echo: false
+        optional: true
+    doc: 与 :TRIGger[:EDGE]:LEVel 是同一组按信源的电平。
+  - {header: ":TRIGger:GLITch:POLarity", state: trigger.glitch.polarity}
+  - {header: ":TRIGger:GLITch:QUALifier", state: trigger.glitch.qualifier}
+  - {header: ":TRIGger:GLITch:GREaterthan", state: trigger.glitch.greaterthan}
+  - {header: ":TRIGger:GLITch:LESSthan", state: trigger.glitch.lessthan}
+  - header: ":TRIGger:GLITch:RANGe"
+    params:
+      - {name: less_than, type: float, unit: S, state: trigger.glitch.lessthan}
+      - {name: greater_than, type: float, unit: S, state: trigger.glitch.greaterthan}
+    doc: <less_than_time>,<greater_than_time>：与 LESSthan、GREaterthan 是同一对设置。
   - {header: ":TRIGger[:EDGE]:SLOPe", state: trigger.slope}
   - {header: ":TRIGger[:EDGE]:COUPling", state: trigger.coupling}
   - {header: ":TRIGger[:EDGE]:REJect", state: trigger.reject}

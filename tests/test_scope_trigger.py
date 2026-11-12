@@ -10,7 +10,7 @@ import numpy as np
 import pytest
 
 from simubench.api import open_bench
-from simubench.engine.signal import Signal, sine
+from simubench.engine.signal import Signal, pulse_train, sine
 
 ROOT = Path(__file__).resolve().parents[1]
 CONTRACT = ROOT / "tests" / "models" / "contract-float-scope" / "bench.yaml"
@@ -151,5 +151,111 @@ def test_the_trigger_source_flow():
         s.set_parameter("scope", "trigger", "holdoff", 2.5e-3)
         second = trig.search(sig, 0, 1e-6, 10, 1000, 1, 0.5, 1.0)
         assert second.t_s == pytest.approx(4e-3, abs=1e-8)  # 2 and 3 ms are within the holdoff
+    finally:
+        s.close()
+
+
+# -- the pulse-width (glitch) trigger (#956) ------------------------------------------------------
+
+EDGE_S = 1e-6  # 10-90 % edges of the test pulses: ten record samples at 100 ns
+GLITCH_AT, GLITCH_W = 8.7e-3, 50e-6  # one narrow pulse every 10 ms, in a low half of the 1 kHz train
+
+
+def glitchy_train() -> Signal:
+    """A 1 kHz, 50 % pulse train (±1 V) with one 50 us pulse every 10 ms, in the low half that
+    runs from 8.5 to 9 ms (its lows: 200 us before it, 250 us after it)."""
+    base = pulse_train(1e3, 1.0, 0.5, 5e6, lead_s=EDGE_S, trail_s=EDGE_S)
+    period = 10e-3
+    glitch = pulse_train(
+        100.0, 1.0, GLITCH_W / period, 2e6, phase_rad=-2 * np.pi * GLITCH_AT / period,
+        lead_s=EDGE_S, trail_s=EDGE_S,
+    ) + Signal.constant(1.0)  # fmt: skip
+    return base + glitch
+
+
+def crossing(sig: Signal, lo: float, hi: float, rising: bool) -> float:
+    """The signal's own level-0 crossing in (lo, hi], bisected on the continuous signal."""
+    while hi - lo > 1e-13:
+        mid = (lo + hi) / 2
+        if (float(sig.sample_rel(0, np.array([mid]))[0]) >= 0.0) == rising:
+            hi = mid
+        else:
+            lo = mid
+    return hi
+
+
+def test_the_pulse_width_trigger_flow():
+    """The glitch mode on the trigger path: the pulse qualifies by its width between the rising and
+    the falling crossing, the trigger is at the trailing edge, and the polarity picks which way
+    round a pulse is."""
+    s = open_bench(CONTRACT)
+    try:
+        trig = s.instruments["scope"].components["trigger"]
+        for key, value in {"source": "C1", "level": 0.0, "mode": "glitch", "polarity": "positive"}.items():
+            s.set_parameter("scope", "trigger", key, value)
+        sig, dt = glitchy_train(), 1e-7
+
+        def hit(qualifier: str, low: float = 0.0, high: float = 10.0, on: Signal = sig):
+            s.set_parameter("scope", "trigger", "qualifier", qualifier)
+            s.set_parameter("scope", "trigger", "width_low", low)
+            s.set_parameter("scope", "trigger", "width_high", high)
+            return trig.search(on, 0, dt, 100, 100_000, 1, 0.5)
+
+        # -- less than 100 us: only the narrow pulse, at its trailing edge to a tenth of a sample
+        less = hit("less", high=100e-6)
+        end = crossing(
+            sig, GLITCH_AT + GLITCH_W - 2 * EDGE_S, GLITCH_AT + GLITCH_W + 2 * EDGE_S, rising=False
+        )
+        assert less is not None and abs(less.t_s - end) < dt / 10
+        assert less.index == int(np.ceil(less.t_s / dt - 1e-9))  # the record grid's sample at or after it
+        # -- a range of 40-60 us takes the same pulse; the 500 us pulses before it are outside it
+        ranged = hit("range", low=40e-6, high=60e-6)
+        assert ranged is not None and abs(ranged.t_s - end) < dt / 10
+        # -- reversed polarity: no low stretch is narrower than 100 us (200 us, 250 us, 500 us)
+        s.set_parameter("scope", "trigger", "polarity", "negative")
+        assert hit("less", high=100e-6) is None
+        assert hit("range", low=40e-6, high=60e-6) is None
+        # -- greater than 600 us: a 70 % train's 700 us highs qualify, at their trailing edge
+        # (the first full pulse after the pre-trigger: it rose at 1 ms, it falls at 1.7 ms)
+        wide = pulse_train(1e3, 1.0, 0.7, 5e6, lead_s=EDGE_S, trail_s=EDGE_S)
+        s.set_parameter("scope", "trigger", "polarity", "positive")
+        greater = hit("greater", low=600e-6, on=wide)
+        assert (
+            greater is not None
+            and abs(greater.t_s - crossing(wide, 1.69e-3, 1.71e-3, rising=False)) < dt / 10
+        )
+        # its 300 us lows do not, nor do the 50 % train's 500 us pulses
+        s.set_parameter("scope", "trigger", "polarity", "negative")
+        assert hit("greater", low=600e-6, on=wide) is None
+        assert hit("greater", low=600e-6) is None
+    finally:
+        s.close()
+
+
+def test_an_unmet_pulse_width_waits_in_normal_and_times_out_in_auto():
+    """DSO-X 2024A, a 1 kHz square at 5 % duty (50 us high, 950 us low) and a negative pulse
+    narrower than 100 us, which never comes: a single acquisition stays armed and *OPC? does not
+    answer; the auto sweep gives up after its auto timeout with an untriggered record. The
+    positive pulse of the same width triggers at its trailing edge."""
+    s = open_bench(ROOT / "tests" / "models" / "keysight-dsox2024a" / "bench.yaml")
+    try:
+        s.write("awg", b"C1:BSWV WVTP,SQUARE,FRQ,1000,DUTY,5\n")
+        acq = s.instruments["scope"].components["acq"]
+        s.write(
+            "scope",
+            b":CHANnel1:PROBe 1;:TIMebase:SCALe 2E-4;:TRIGger:MODE GLITch;:TRIGger:GLITch:QUALifier LESSthan;"
+            b":TRIGger:GLITch:LESSthan 1E-4;:TRIGger:GLITch:POLarity NEGative;:TRIGger:SWEep NORMal;:SINGle\n",
+        )
+        assert acq.pending.waiting() and acq.pending.trigger_ns is None
+        s.write("scope", b"*OPC?\n")
+        assert s.read("scope") is None  # still waiting for its pulse
+        s.write("scope", b":STOP;:TRIGger:SWEep AUTO;:DIGitize CHANnel1\n")
+        s.write("scope", b"*OPC?\n")
+        assert s.read("scope").strip() == b"1"
+        assert not acq.records[1].triggered
+        s.write("scope", b":TRIGger:GLITch:POLarity POSitive;:DIGitize CHANnel1\n")
+        s.write("scope", b":MEASure:TEDGe? +1,CHANnel1\n")
+        rise = float(s.read("scope"))
+        assert acq.records[1].triggered and rise == pytest.approx(-50e-6, abs=1e-6)
     finally:
         s.close()

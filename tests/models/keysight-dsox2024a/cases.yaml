@@ -644,3 +644,85 @@ cases:
         expect: "ZOOM"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
+
+  - name: "脉宽触发（#956）：*RST 值、各设置回读、RANGe 与 LESSthan/GREaterthan 是同一对设置、只取模拟通道"
+    manual: ":TRIGger Commands > :TRIGger:MODE；:TRIGger:GLITch Commands > :SOURce / :LEVel / :POLarity / :QUALifier / :GREaterthan / :LESSthan / :RANGe"
+    steps:
+      - send: "*RST;:TRIGger:MODE GLITch"
+      - query: ":TRIGger:MODE?"
+        expect: "GLIT"
+      - query: ":TRIGger:GLITch:SOURce?"
+        expect: "CHAN1"
+      - query: ":TRIGger:GLITch:POLarity?"
+        expect: "POS"
+      - query: ":TRIGger:GLITch:QUALifier?"
+        expect: "GRE"
+      - query: ":TRIGger:GLITch:GREaterthan?"
+        expect: "+2.00000E-09"
+      - query: ":TRIGger:GLITch:LESSthan?"
+        expect: "+1.00000E-08"
+      - send: ":TRIGger:GLITch:RANGe 6E-5,4E-5"
+      - query: ":TRIGger:GLITch:LESSthan?"
+        expect: "+6.00000E-05"
+      - query: ":TRIGger:GLITch:GREaterthan?"
+        expect: "+4.00000E-05"
+      - query: ":TRIGger:GLITch:RANGe?"
+        expect: "+6.00000E-05,+4.00000E-05"
+      # 电平与边沿触发是同一组按信源的电平。
+      - send: ":TRIGger:GLITch:LEVel 0.3,CHANnel2;:TRIGger:GLITch:SOURce CHANnel2"
+      - query: ":TRIGger:EDGE:LEVel? CHANnel2"
+        expect: "+300.000E-03"
+      - query: ":TRIGger:GLITch:LEVel?"
+        expect: "+300.000E-03"
+      - query: ":TRIGger:EDGE:SOURce?"
+        expect: "CHAN2"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'
+      - send: ":TRIGger:GLITch:SOURce EXTernal"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-224,"
+      - query: ":TRIGger:GLITch:SOURce?"
+        expect: "CHAN2"
+      - send: ":TRIGger:MODE RUNT"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-224,"
+
+  - name: "脉宽触发（#956）：1 kHz、占空比 5 % 的方波（高 50 µs、低 950 µs），触发在脉冲的结束沿"
+    manual: ":TRIGger:GLITch Commands；:MEASure Commands > :TEDGe"
+    steps:
+      - instrument: awg
+        send: "C1:BSWV WVTP,SQUARE,FRQ,1000,DUTY,5"
+      - send: "*RST;:CHANnel1:PROBe 1;:TIMebase:SCALe 2E-4;:TRIGger:MODE GLITch;:TRIGger:SWEep NORMal"
+      # 正脉冲 < 100 µs：结束沿（下降）就是触发点，起始沿在它之前 50 µs。
+      - send: ":TRIGger:GLITch:QUALifier LESSthan;:TRIGger:GLITch:LESSthan 1E-4;:DIGitize CHANnel1"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":MEASure:TEDGe? -1,CHANnel1"
+        expect_fields: [{value: 0.0, tolerance: 1.0e-7}]
+      - query: ":MEASure:TEDGe? +1,CHANnel1"
+        expect_fields: [{value: -5.0e-05, tolerance: 1.0e-6}]
+      # 负脉冲 > 600 µs：950 µs 的低电平合格，结束沿（上升）是触发点。
+      - send: ":TRIGger:GLITch:POLarity NEGative;:TRIGger:GLITch:QUALifier GREaterthan;:TRIGger:GLITch:GREaterthan 6E-4;:DIGitize CHANnel1"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":MEASure:TEDGe? +1,CHANnel1"
+        expect_fields: [{value: 0.0, tolerance: 1.0e-7}]
+      - query: ":MEASure:TEDGe? -1,CHANnel1"
+        expect_fields: [{value: -9.5e-04, tolerance: 1.0e-6}]
+      # 范围 40–60 µs 的正脉冲：同一个 50 µs 的高电平。
+      - send: ":TRIGger:GLITch:POLarity POSitive;:TRIGger:GLITch:RANGe 6E-5,4E-5;:TRIGger:GLITch:QUALifier RANGe;:DIGitize CHANnel1"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":MEASure:TEDGe? -1,CHANnel1"
+        expect_fields: [{value: 0.0, tolerance: 1.0e-7}]
+      # 极性取反：没有 40–60 µs 的低电平，单次采集一直等待触发（:TER? 为 0）；AUTO 超时后给未触发的记录。
+      - send: "*CLS;:TRIGger:GLITch:POLarity NEGative;:SINGle"
+      - query: ":TER?"
+        expect: "0"
+      - send: ":STOP;:TRIGger:SWEep AUTO;:DIGitize CHANnel1"
+      - query: "*OPC?"
+        expect: "1"
+      - query: ":TER?"
+        expect: "0"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'

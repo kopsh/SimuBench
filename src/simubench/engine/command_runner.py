@@ -368,6 +368,10 @@ class CommandRunner:
                         new[self._resolve(_at(index, ref), channel)] = constant
                     continue
                 try:
+                    if ps.type == "enum" and ps.options:
+                        # The parameter's own options narrow the setting's (#956: a glitch trigger's
+                        # source is a channel, though the shared trigger source takes EXTernal too).
+                        V.parse_enum(token, ps.options)
                     value = self._parse_state(self.inst.specs[path], token, path)
                 except ScpiError as e:
                     raise self.inst.errs._bad_parameter(e, path, self.inst.specs[path]) from e

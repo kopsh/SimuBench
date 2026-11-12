@@ -157,7 +157,11 @@ class ParamSpec(_Model):
         "channel_list",
     ]
     unit: str | None = None
-    options: list[str] | None = None
+    options: list[str] | None = Field(
+        None,
+        description="An enum's words; with `state`, the command accepts only these (-224 otherwise), "
+        "then parses the word as the setting does: a command sharing a setting with a narrower range",
+    )
     optional: bool = False
     min: float | None = None
     max: float | None = None
