@@ -587,6 +587,7 @@ def _deviation_info(param: str, rng: Any, value: Any, drawn: bool, reveal: bool)
         unit=rng.unit,
         distribution=rng.distribution,
         by=jsonable(rng.by),
+        bands=[list(b) for b in rng.bands] if rng.bands else None,
         value=jsonable(value) if drawn and reveal else None,
         drawn=drawn,
     )

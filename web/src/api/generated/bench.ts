@@ -94,6 +94,10 @@ export type Label1 = string | null;
  */
 export type Model1 = string;
 /**
+ * Hardware options this unit has (选件), by the ids of the definition's `options`, e.g. ['P03']: the unit takes each option's component parameters and answers its commands
+ */
+export type Options = string[];
+/**
  * Overrides the definition's serial number
  */
 export type Serial1 = string | null;
@@ -102,6 +106,10 @@ export type W = number | null;
 export type X = number;
 export type Y = number;
 export type Name = string;
+/**
+ * For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in ascending order. The unit's curve stays within ±limit of the nominal curve in each band (`limit` is one number, or a list with one limit per band); between bands and beyond them the deviation is 0
+ */
+export type Bands = [unknown, unknown][] | null;
 /**
  * Draw one value per cell of a table, e.g. {function: [DC], range: [0.1, 1, 10]}: the parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}
  */
@@ -117,13 +125,22 @@ export type Coverage = number;
  */
 export type Distribution = "uniform" | "normal";
 /**
- * ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range)
+ * ±limit. A number, or with `by` a table keyed by the values of the last `by` key (e.g. {0.1: 30, 1: 20} per range), or with `bands` a list, one limit per band
  */
 export type Limit =
   | number
   | {
       [k: string]: number;
-    };
+    }
+  | number[];
+/**
+ * With `bands`: how many values are drawn inside each band, besides one at each band edge (spaced evenly in log frequency, joined by straight lines)
+ */
+export type Points = number;
+/**
+ * With `bands`: the frequency (Hz) the response is calibrated at; the deviation is 0 there (e.g. 50e6)
+ */
+export type Reference = number | null;
 /**
  * '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
  */
@@ -239,6 +256,7 @@ export interface InstrumentInstance {
   idn?: Idn;
   label?: Label1;
   model: Model1;
+  options?: Options;
   serial?: Serial1;
   state?: State;
 }
@@ -295,10 +313,13 @@ export interface Deviation1 {
  * The range one parameter's deviation falls in.
  */
 export interface DeviationRange {
+  bands?: Bands;
   by?: By;
   coverage?: Coverage;
   distribution?: Distribution;
   limit: Limit;
+  points?: Points;
+  reference?: Reference;
   unit?: Unit;
 }
 export interface Hidden1 {

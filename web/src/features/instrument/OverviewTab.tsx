@@ -174,7 +174,7 @@ export function OverviewTab({ definition, inst }: { definition: DefinitionData; 
             {deviations.map((d) => (
               <div key={d.param} className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                 <span className="num">{d.param}</span>
-                <span className="num">{deviationLimit(d.limit, d.unit)}</span>
+                <span className="num">{deviationLimit(d.limit, d.unit, d.bands)}</span>
                 <span className="text-muted-foreground">{d.distribution}</span>
                 {d.value != null && (
                   <span className="text-muted-foreground">{t("acceptance.thisUnit", { value: String(d.value) })}</span>

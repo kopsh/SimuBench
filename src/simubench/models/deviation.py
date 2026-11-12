@@ -18,10 +18,10 @@ class DeviationRange(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    limit: float | dict[Any, float] = Field(
+    limit: float | dict[Any, float] | list[float] = Field(
         ...,
         description="±limit. A number, or with `by` a table keyed by the values of the last `by` key "
-        "(e.g. {0.1: 30, 1: 20} per range)",
+        "(e.g. {0.1: 30, 1: 20} per range), or with `bands` a list, one limit per band",
     )
     unit: Literal["%", "ppm"] | None = Field(
         None,
@@ -41,8 +41,52 @@ class DeviationRange(BaseModel):
         "parameter becomes the nested table {DC: {0.1: …, 1: …, 10: …}}",
     )
 
+    bands: list[tuple[float, float]] | None = Field(
+        None,
+        description="For a parameter that is a curve over frequency ([[Hz, value], …], e.g. a "
+        "response's flatness): the frequency bands [[f_lo, f_hi], …] the data sheet limits, in "
+        "ascending order. The unit's curve stays within ±limit of the nominal curve in each band "
+        "(`limit` is one number, or a list with one limit per band); between bands and beyond them "
+        "the deviation is 0",
+    )
+    reference: float | None = Field(
+        None,
+        gt=0,
+        description="With `bands`: the frequency (Hz) the response is calibrated at; the deviation "
+        "is 0 there (e.g. 50e6)",
+    )
+    points: int = Field(
+        3,
+        ge=0,
+        le=32,
+        description="With `bands`: how many values are drawn inside each band, besides one at each "
+        "band edge (spaced evenly in log frequency, joined by straight lines)",
+    )
+
     @model_validator(mode="after")
     def _check(self) -> DeviationRange:
+        if isinstance(self.limit, list) and self.bands is None:
+            raise ValueError("a list of limits needs `bands`")
+        if self.bands is not None:
+            if not self.bands:
+                raise ValueError("`bands` lists at least one band")
+            if self.by is not None or self.unit is not None:
+                raise ValueError("`bands` cannot be combined with `by` or `unit`")
+            if isinstance(self.limit, dict):
+                raise ValueError("with `bands`, `limit` is a number or a list with one limit per band")
+            if isinstance(self.limit, list) and len(self.limit) != len(self.bands):
+                raise ValueError(
+                    f"{len(self.bands)} bands need {len(self.bands)} limits, got {len(self.limit)}"
+                )
+            last = 0.0
+            for lo, hi in self.bands:
+                if not (0 < lo < hi) or lo < last:
+                    raise ValueError(
+                        "each band is [f_lo, f_hi] with 0 < f_lo < f_hi; bands ascend and do not overlap"
+                    )
+                last = hi
+        elif self.reference is not None:
+            raise ValueError("`reference` needs `bands`")
         if isinstance(self.limit, dict):
             if not self.by:
                 raise ValueError("a table of limits needs `by`")
@@ -76,6 +120,8 @@ class DeviationSpec(DeviationRange):
 
 def limit_for(rng: DeviationRange, cell: Any) -> float | None:
     """The ±limit of one table cell (keyed by the last `by` value), or the single limit."""
+    if isinstance(rng.limit, list):  # one limit per band, by the band's index
+        return float(rng.limit[cell]) if isinstance(cell, int) and 0 <= cell < len(rng.limit) else None
     if not isinstance(rng.limit, dict):
         return float(rng.limit)
     for key, value in rng.limit.items():

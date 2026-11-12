@@ -187,6 +187,51 @@ def test_validation_names_wrong_deviations():
     assert ("E-DEVIATION-PARAM", "/parts/r1/deviation/rr") in found
 
 
+def test_a_deviation_by_bands_is_for_a_curve_parameter_only():
+    """`bands` draws a curve over frequency (#1004): on a number it is refused, a curve refuses
+    the other forms, and the range itself refuses bands that are not ascending or whose limits
+    do not match."""
+    lib = DefinitionLibrary()
+    dmm = lib.get("sb-dmm-1").model_dump(by_alias=True)
+    dmm["deviations"] = [{"param": "path.offset", "limit": 1e-6, "bands": [[1e3, 1e6]]}]
+    report = validate_definition(InstrumentDefinition.model_validate(dmm))
+    assert [(d.code, d.pointer) for d in report.diagnostics] == [
+        ("E-DEF-DEVIATION-BANDS", "/deviations/0/bands")
+    ]
+    sa = lib.get("sb-sa-1").model_dump(by_alias=True)
+    sa["deviations"] = [{"param": "input.flatness", "limit": 0.5}]
+    report = validate_definition(InstrumentDefinition.model_validate(sa))
+    assert [(d.code, d.pointer) for d in report.diagnostics] == [
+        ("E-DEF-DEVIATION-BANDS", "/deviations/0/param")
+    ]
+    sa["deviations"] = [{"param": "input.flatness", "limit": [0.5, 0.7], "bands": [[2e5, 2e9], [2e9, 3e9]]}]
+    assert not validate_definition(InstrumentDefinition.model_validate(sa)).diagnostics
+    with raises_with(ValueError, "2 bands need 2 limits"):
+        DeviationRange(limit=[0.5], bands=[(2e5, 2e9), (2e9, 3e9)])
+    with raises_with(ValueError, "bands ascend"):
+        DeviationRange(limit=0.5, bands=[(2e9, 3e9), (2e5, 2.5e9)])
+    with raises_with(ValueError, "needs `bands`"):
+        DeviationRange(limit=[0.5])
+    b = bench(1)
+    b.parts["r1"].deviation["r"] = DeviationRange(limit=1, bands=[(1e3, 1e6)])
+    found = {(d.code, d.pointer) for d in validate_bench(b, lib.get).diagnostics}
+    assert ("E-DEVIATION-PARAM", "/parts/r1/deviation/r") in found
+
+
+def test_a_curve_drawn_by_bands_adds_to_the_nominal_curve():
+    """The drawn curve is the nominal one plus a deviation within each band's limit; the nominal
+    table's own nodes stay, and an edge two bands share takes the tighter limit (#1004)."""
+    rng = DeviationRange(limit=[0.2, 2.0], bands=[(1e6, 1e8), (1e8, 1e9)], reference=5e7, points=2)
+    nominal = [[1e7, 1.0], [3e8, 1.0]]
+    for seed in range(20):
+        curve = dict(map(tuple, draw(rng, nominal, seed, "sa", "input", "flatness")))
+        assert len(curve) == 2 * 2 + 3 + 1 + 2  # per-band points, edges, reference, nominal nodes
+        assert curve[5e7] == pytest.approx(1.0)  # the reference: no deviation from the nominal
+        assert abs(curve[1e8] - 1.0) <= 0.2  # the shared edge
+        assert abs(curve[1e6]) <= 0.2 and abs(curve[1e9]) <= 2.0  # the nominal table is 0 out there
+        assert all(abs(v - 1.0) <= 0.2 for f, v in curve.items() if 1e7 <= f <= 1e8)
+
+
 def test_edit_sets_the_mode_and_a_dut_range():
     b = bench(1, deviation="nominal")
     b = apply(

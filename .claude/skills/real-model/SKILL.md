@@ -50,7 +50,10 @@ When the platform cannot express something the manual requires:
    (or the MCP tool `list_components`, then `list_components(types=[...])` for the full fields).
    Parameters bind to settings with `$path` and map with `{from, map, scale, offset, default}`.
 5. **Definition** `src/simubench/library/instruments/<id>.yaml`: `reference`, `identity`,
-   `errors`, `format`, state, components, commands. Validate as you go:
+   `errors`, `format`, state, components, commands. A hardware option the data sheet lists (a
+   preamplifier) goes in `options` — the parameters of a unit that has it, and `option: <id>` on
+   its commands (D68; fields in `docs/real-models.md`); the bench instance lists `options: [P03]`.
+   Validate as you go:
    ```bash
    uv run simubench validate src/simubench/library/instruments/<id>.yaml
    ```

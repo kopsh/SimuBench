@@ -16,7 +16,9 @@ import yaml
 from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.rfcascade import cascade
+from simubench.engine.validate import validate_bench
 from simubench.engine.validate_definition import validate_definition_data
+from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
 
@@ -337,6 +339,86 @@ def _marker_at(s, f_hz: float) -> float:
     return float(session_query(s, "sa", ":CALC:MARK:Y?"))
 
 
+#: The flatness limits of the deviation flow (#1004): two bands that share an edge, the tighter
+#: one holding the reference frequency.
+FLATNESS_BANDS = [[0.5e9, 1.1e9], [1.1e9, 1.5e9]]
+FLATNESS_LIMITS = [0.3, 0.8]
+
+
+def _flatness_unit(where: Path, seed: int, deviation: str, *, declared: bool = True):
+    """The ideals analyzer with a flat nominal response and, when ``declared``, a flatness
+    deviation by frequency bands; one generator's tone moved across the bands."""
+    d = _data(IDEALS)
+    {c["name"]: c for c in d["components"]}["input"]["params"]["flatness"] = []
+    if declared:
+        d["deviations"] = [
+            {
+                "param": "input.flatness",
+                "bands": FLATNESS_BANDS,
+                "limit": FLATNESS_LIMITS,
+                "reference": CARRIER,
+            }
+        ]
+    where.mkdir(exist_ok=True)
+    (where / IDEALS.name).write_text(yaml.safe_dump(d, allow_unicode=True), "utf-8")
+    b = _ideals_bench(seed)
+    b.instruments["sa"] = b.instruments["sa"].model_copy(update={"deviation": deviation})
+    s = open_bench(b, definition_dirs=[where, DEFS])
+    session_query(s, "sg2", ":OUTP OFF")
+    return s
+
+
+def _tone_readings(s, freqs) -> list[str]:
+    """The marker's reply on a tone moved to each frequency, as the instrument wrote it."""
+    replies = []
+    for f in freqs:
+        session_query(s, "sg1", f":FREQ:CW {f:.6E}")
+        session_query(s, "sa", f":FREQ:CENT {f:.6E}")
+        session_query(s, "sa", f":CALC:MARK:X {f:.6E}")
+        replies.append(session_query(s, "sa", ":CALC:MARK:Y?"))
+    return replies
+
+
+def test_a_flatness_deviation_by_bands_stays_inside_each_bands_limit(tmp_path):
+    """A unit drawn from the definition's flatness bands (#1004): a −10 dBm tone reads within
+    each band's ±limit, exactly its level at the reference frequency and outside the bands, and
+    by the unit's own curve everywhere; the same seed gives the same replies, another seed
+    another unit, and a nominal unit answers as a definition without the deviation does."""
+    freqs = [0.6e9, 0.8e9, CARRIER, 1.1e9, 1.2e9, 1.4e9, 1.6e9]
+    limits = [0.3, 0.3, 0.0, 0.3, 0.8, 0.8, 0.0]
+    s = _flatness_unit(tmp_path / "a", 3, "from_specs")
+    curve = s.deviations()["sa/input.flatness"]
+    replies = _tone_readings(s, freqs)
+    s.close()
+    # the drawn curve: nodes inside the bands, the shared edge within the tighter limit
+    xs, ds = [row[0] for row in curve], [row[1] for row in curve]
+    assert xs[0] == 0.5e9 and xs[-1] == 1.5e9 and CARRIER in xs and 1.1e9 in xs
+    for f, d in zip(xs, ds, strict=True):
+        assert abs(d) <= (FLATNESS_LIMITS[0] if f <= 1.1e9 else FLATNESS_LIMITS[1])
+    assert max(abs(d) for d in ds) > 0.05  # a unit, not the nominal
+    # the readings: the tone's level plus the curve at its frequency
+    for f, limit, reply in zip(freqs, limits, replies, strict=True):
+        inside = FLATNESS_BANDS[0][0] <= f <= FLATNESS_BANDS[1][1]
+        expected = -10.0 + (float(np.interp(f, xs, ds)) if inside else 0.0)
+        assert float(reply) == pytest.approx(expected, abs=0.05), f
+        assert abs(float(reply) + 10.0) <= limit + 0.05, f
+    # reproducible from the seed, and another seed is another unit
+    again = _flatness_unit(tmp_path / "b", 3, "from_specs")
+    assert again.deviations()["sa/input.flatness"] == curve
+    assert _tone_readings(again, freqs) == replies
+    again.close()
+    other = _flatness_unit(tmp_path / "c", 4, "from_specs")
+    assert other.deviations()["sa/input.flatness"] != curve
+    other.close()
+    # nominal: the declaration changes no reply
+    nominal = _flatness_unit(tmp_path / "d", 3, "nominal")
+    plain = _flatness_unit(tmp_path / "e", 3, "nominal", declared=False)
+    assert not nominal.deviations()
+    assert _tone_readings(nominal, freqs) == _tone_readings(plain, freqs)
+    nominal.close()
+    plain.close()
+
+
 def test_two_tones_show_the_third_order_products_at_the_intercept(ideals):
     """Two −10 dBm tones into a +10 dBm IIP3: the 2f₁−f₂ product reads −50 dBm, and 10 dB less
     drive drops it 30 dB (#954)."""
@@ -622,3 +704,111 @@ def test_the_phase_noise_stream_is_deterministic_noise(tmp_path):
 
     assert np.array_equal(trace(3), trace(3))
     assert not np.array_equal(trace(3), trace(4))
+
+
+# ---- options (选件, #1004): one definition, a unit with the preamplifier and one without ----
+
+
+def _with_preamp_option(d: dict) -> dict:
+    """The ideals analyzer with its preamplifier as option P03: 18 dB and a 6 dB figure on the
+    units that have it, switched by a setting; the gain command is the option's, and a unit
+    without it answers 0 to the query."""
+    d["options"] = [
+        {
+            "id": "P03",
+            "label": "Preamplifier",
+            "params": {
+                "input": {
+                    "preamp_gain": {"from": "$power.gain", "map": {"True": 18.0, "False": 0.0}},
+                    "preamp_noise_figure": 6.0,
+                }
+            },
+        }
+    ]
+    d["state"]["power.gain"] = {"type": "bool", "default": False}
+    d["commands"] += [
+        {"header": "[:SENSe]:POWer[:RF]:GAIN[:STATe]", "state": "power.gain", "option": "P03"},
+        {"header": "[:SENSe]:POWer[:RF]:GAIN[:STATe]", "state": "power.gain", "set": False},
+    ]
+    return d
+
+
+def test_an_option_fits_its_parameters_and_commands_to_the_units_that_have_it(tmp_path):
+    """Two units of one definition (#1004). Without P03 the analyzer answers as the definition
+    without the option does, the gain query reads 0 and the set is refused (-241); with P03 the
+    gain command switches the preamplifier, whose 18 dB and 6 dB figure enter the chain: the
+    displayed noise floor drops while a tone still reads its level."""
+    plain_dir, option_dir = tmp_path / "plain", tmp_path / "option"
+    for where, d in ((plain_dir, _data(IDEALS)), (option_dir, _with_preamp_option(_data(IDEALS)))):
+        where.mkdir()
+        (where / IDEALS.name).write_text(yaml.safe_dump(d, allow_unicode=True), "utf-8")
+    assert not validate_definition_data(_with_preamp_option(_data(IDEALS)))[1].diagnostics
+
+    def unit(where: Path, options: list[str]):
+        b = _ideals_bench()
+        b.instruments["sa"] = b.instruments["sa"].model_copy(update={"options": options})
+        s = open_bench(b, definition_dirs=[where, DEFS])
+        session_query(s, "sg2", ":OUTP OFF")
+        # −40 dBm on the input: 18 dB of gain keeps it far under the mixer's compression point
+        session_query(s, "sg1", f":POW:LEV {TWO_TONE_LEVEL - 30:.4f}")
+        session_query(s, "sa", ":DET POS")
+        return s
+
+    def floor_and_tone(s) -> tuple[str, str]:
+        session_query(s, "sa", f":CALC:MARK:X {CARRIER + 1.5e6:.6E}")
+        floor = session_query(s, "sa", ":CALC:MARK:Y?")
+        session_query(s, "sa", f":CALC:MARK:X {CARRIER:.6E}")
+        return floor, session_query(s, "sa", ":CALC:MARK:Y?")
+
+    # without the option: the definition's own unit
+    reference = unit(plain_dir, [])
+    without = unit(option_dir, [])
+    assert floor_and_tone(without) == floor_and_tone(reference)
+    assert session_query(without, "sa", ":POW:GAIN?") == "0"
+    without.write("sa", b":POW:GAIN ON\n")
+    assert session_query(without, "sa", ":SYST:ERR?").startswith("-241")
+    assert without.instruments["sa"].components["input"].param("preamp_noise_figure") is None
+    floor_without, tone_without = (float(v) for v in floor_and_tone(without))
+    # with it: off, the preamplifier's figure is in the chain; on, its gain as well
+    fitted = unit(option_dir, ["P03"])
+    stage = fitted.instruments["sa"].components["input"]
+    assert stage.param("preamp_noise_figure") == 6.0 and stage.gain_db() == 0.0
+    session_query(fitted, "sa", ":POW:GAIN ON")
+    assert session_query(fitted, "sa", ":POW:GAIN?") == "1"
+    assert stage.gain_db() == 18.0
+    floor_with, tone_with = (float(v) for v in floor_and_tone(fitted))
+    assert tone_with == pytest.approx(tone_without, abs=0.1)  # the display is input-referred
+    assert floor_with < floor_without - 5.0  # the preamplifier's figure replaces the mixer's
+    for s in (reference, without, fitted):
+        s.close()
+    # an option the definition does not have
+    with pytest.raises(ValueError) as refused:
+        unit(option_dir, ["P07"])
+    assert "no option P07" in str(refused.value)
+
+
+def test_validation_names_wrong_options(tmp_path):
+    """An option twice, a component or parameter it cannot fit, a command of an undeclared
+    option, and a bench that lists an option the definition lacks (#1004)."""
+    d = _with_preamp_option(_data(IDEALS))
+    d["options"] += [
+        {"id": "P03"},
+        {"id": "P07", "params": {"inptu": {"preamp_gain": 20.0}, "input": {"preamp_gian": 20.0}}},
+    ]
+    d["commands"][-2]["option"] = "P30"
+    _, report = validate_definition_data(d)
+    found = {(x.code, x.pointer) for x in report.diagnostics}
+    assert found == {
+        ("E-DEF-OPTION", "/options/1/id"),
+        ("E-DEF-OPTION", "/options/2/params/inptu"),
+        ("W-DEF-PARAM-UNKNOWN", "/options/2/params/input/preamp_gian"),
+        ("E-DEF-OPTION", f"/commands/{len(d['commands']) - 2}/option"),
+    }
+    (tmp_path / IDEALS.name).write_text(
+        yaml.safe_dump(_with_preamp_option(_data(IDEALS)), allow_unicode=True), "utf-8"
+    )
+    b = _ideals_bench()
+    b.instruments["sa"] = b.instruments["sa"].model_copy(update={"options": ["P03", "P04"]})
+    lib = DefinitionLibrary([tmp_path, DEFS])
+    found = {(x.code, x.pointer) for x in validate_bench(b, lib.get).diagnostics}
+    assert found == {("E-OPTION-UNKNOWN", "/instruments/sa/options/1")}
