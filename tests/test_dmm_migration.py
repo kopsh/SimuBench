@@ -186,7 +186,10 @@ def run_sequence(session, sequence: list[tuple[str, str]]) -> list[tuple[str, st
 
 
 def _open(bench: BenchDefinition):
-    session = open_bench(bench, definition_dirs=[DEFS])
+    # idle: sleep is the documented deterministic tier for tests (D47): wall would bill the runner's
+    # scheduling jitter into the virtual clock and the recorded 0 ns rows would flip on slow
+    # machines (issue 994: 16 ms on Windows CI, as issue 621 for the load).
+    session = open_bench(bench, definition_dirs=[DEFS], idle="sleep")
     # Warm up: the first command of a freshly loaded definition bills its lazy loading to the
     # wall clock, which would make the recorded times depend on the machine (D47).
     warm_up(session, "dut", "src", "awg")
