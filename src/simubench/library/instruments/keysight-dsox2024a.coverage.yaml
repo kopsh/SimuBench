@@ -938,7 +938,7 @@ sections:
     affects_data: false
   - header: :TRIGger:MODE
     level: implemented
-    note: 'EDGE only; the other trigger types answer -224'
+    note: 'EDGE and GLITch (pulse width, #956); the other trigger types answer -224'
   - header: :TRIGger:NREJect
     level: implemented
     note: 'widens the trigger hysteresis from 0.3 div (half the data sheet''s 0.6 div sensitivity) to 1 div (an assumed width)'
@@ -980,19 +980,26 @@ sections:
     level: implemented
     note: 'CHANnel1 to 4, EXTernal (the EXT input), LINE (50 Hz); WGEN never triggers (no generator); NONE when all channels are off is not modeled'
   - header: :TRIGger:GLITch:GREaterthan
-    level: not_modeled
+    level: implemented
+    note: 'the time a GREaterthan pulse must exceed, and the lower bound of RANGe; 10 ns to 10 s and 20 ns after *RST are SimuBench assumptions (not checked against the guide)'
   - header: :TRIGger:GLITch:LESSthan
-    level: not_modeled
+    level: implemented
+    note: 'the time a LESSthan pulse stays under, and the upper bound of RANGe; 10 ns to 10 s and 30 ns after *RST are SimuBench assumptions (not checked against the guide)'
   - header: :TRIGger:GLITch:LEVel
-    level: not_modeled
+    level: implemented
+    note: 'the same per-source level as :TRIGger[:EDGE]:LEVel, with its optional <source>'
   - header: :TRIGger:GLITch:POLarity
-    level: not_modeled
+    level: implemented
+    note: 'POSitive: the pulse above the level; NEGative: below it'
   - header: :TRIGger:GLITch:QUALifier
-    level: not_modeled
+    level: implemented
+    note: 'LESSthan and RANGe trigger at the edge that ends the pulse, GREaterthan at the instant the pulse has lasted the time (it need not have ended); a pulse that began before the trigger was armed (pre-trigger time, holdoff) does not count. LESSthan after *RST is a SimuBench assumption'
   - header: :TRIGger:GLITch:RANGe
-    level: not_modeled
+    level: implemented
+    note: '<less_than_time>,<greater_than_time>: the two values are the :LESSthan and :GREaterthan settings; the order is not swapped when the first is the smaller (no pulse then qualifies)'
   - header: :TRIGger:GLITch:SOURce
-    level: not_modeled
+    level: implemented
+    note: 'the same setting as :TRIGger[:EDGE]:SOURce; LINE and WGEN never give a pulse-width trigger; digital channels are not modeled'
   - header: :TRIGger:OR
     level: not_modeled
   - header: :TRIGger:PATTern

@@ -121,7 +121,7 @@ state:
     label_en: Zoom position
   trigger.mode:
     type: enum
-    options: [EDGE]
+    options: [EDGE, GLITch]
     default: EDGE
     label: 触发类型
     label_en: Trigger type
@@ -250,6 +250,37 @@ state:
     default: POSitive
     label: 触发沿
     label_en: Trigger slope
+  # 脉宽（毛刺）触发 :TRIGger:GLITch（#956）：极性、条件与两个时间。时间的范围取 10 ns 到 10 s，
+  # *RST 后为“小于 30 ns”、大于的时间 20 ns——这几个值没有对照手册的重置表，是 SimuBench 的假设
+  # （覆盖表注明）。
+  trigger.glitch_polarity:
+    type: enum
+    options: [NEGative, POSitive]
+    default: POSitive
+    label: 脉宽触发极性
+    label_en: Pulse-width polarity
+  trigger.glitch_qualifier:
+    type: enum
+    options: [GREaterthan, LESSthan, RANGe]
+    default: LESSthan
+    label: 脉宽触发条件
+    label_en: Pulse-width qualifier
+  trigger.glitch_less:
+    type: float
+    unit: S
+    min: 1.0e-8
+    max: 10.0
+    default: 3.0e-8
+    label: 脉宽小于
+    label_en: Pulse width less than
+  trigger.glitch_greater:
+    type: float
+    unit: S
+    min: 1.0e-8
+    max: 10.0
+    default: 2.0e-8
+    label: 脉宽大于
+    label_en: Pulse width greater than
   trigger.coupling:
     type: enum
     options: [AC, DC, LFReject]
@@ -526,9 +557,16 @@ components:
   # 边沿触发：AC 耦合为 10 Hz 高通，LFReject 耦合与 LFReject 抑制为 50 kHz 高通，HFReject 抑制与
   # :TRIGger:HFReject 为 50 kHz 低通（手册）；电平在信源屏幕中心 ±0.75 满量程（±6 格）内；释抑
   # 40 ns 到 10 s。迟滞取数据手册的触发灵敏度 0.6 格的一半；噪声抑制的迟滞加宽到 1 格（假设值）。
+  # 脉宽触发（:TRIGger:MODE GLITch，#956）与边沿触发共用信源、每个信源的电平、耦合、抑制与释抑；
+  # “小于”“范围”在脉冲的结束沿触发，“大于”在脉冲持续到该时间的时刻触发。
   - name: trigger
     type: scope_trigger
     params:
+      mode: {from: $trigger.mode, map: {GLITch: glitch}, default: edge}
+      polarity: {from: $trigger.glitch_polarity, map: {POSitive: positive, NEGative: negative}}
+      qualifier: {from: $trigger.glitch_qualifier, map: {LESSthan: less, GREaterthan: greater, RANGe: range}}
+      width_low: $trigger.glitch_greater
+      width_high: $trigger.glitch_less
       source: $trigger.source
       level: $trigger.level1
       level_by_source:
@@ -852,6 +890,30 @@ commands:
   - {header: ":TRIGger[:EDGE]:SLOPe", state: trigger.slope}
   - {header: ":TRIGger[:EDGE]:COUPling", state: trigger.coupling}
   - {header: ":TRIGger[:EDGE]:REJect", state: trigger.reject}
+  # 脉宽触发（#956）。信源与电平和边沿触发是同一组设置。
+  - {header: ":TRIGger:GLITch:SOURce", state: trigger.source}
+  - header: ":TRIGger:GLITch:LEVel"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: level, type: float, unit: V, state: "trigger.level{source}"}
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, EXTernal]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, EXTernal: 5}
+        index_default: $trigger.source
+        echo: false
+        optional: true
+  - {header: ":TRIGger:GLITch:POLarity", state: trigger.glitch_polarity}
+  - {header: ":TRIGger:GLITch:QUALifier", state: trigger.glitch_qualifier}
+  - {header: ":TRIGger:GLITch:LESSthan", state: trigger.glitch_less, format: {number: engineering, significant: 6}}
+  - {header: ":TRIGger:GLITch:GREaterthan", state: trigger.glitch_greater, format: {number: engineering, significant: 6}}
+  - header: ":TRIGger:GLITch:RANGe"
+    format: {number: engineering, significant: 6}
+    params:
+      - {name: less_than, type: float, unit: S, state: trigger.glitch_less}
+      - {name: greater_than, type: float, unit: S, state: trigger.glitch_greater}
+    doc: 先“小于”的时间（上限），后“大于”的时间（下限）；两个值就是 :LESSthan 与 :GREaterthan 的设置。
   # ---- WAVeform ----
   - {header: ":WAVeform:SOURce", state: waveform.source}
   - {header: ":WAVeform:FORMat", state: waveform.format}

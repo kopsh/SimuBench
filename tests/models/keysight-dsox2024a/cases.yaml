@@ -644,3 +644,59 @@ cases:
         expect: "ZOOM"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
+
+  - name: "脉宽触发（#956）：类型、信源与电平、极性、条件与时间；触发点在脉冲结束沿或持续到该时间的时刻"
+    manual: ":TRIGger Commands > :TRIGger:MODE；:TRIGger:GLITch Commands > :GREaterthan / :LESSthan / :LEVel / :POLarity / :QUALifier / :RANGe / :SOURce（Programmer's Guide 02.66, ch. 29）"
+    steps:
+      # *RST 后的条件与时间是 SimuBench 的假设（覆盖表注明）。
+      - query: ":TRIGger:GLITch:QUALifier?"
+        expect: "LESS"
+      - query: ":TRIGger:GLITch:POLarity?"
+        expect: "POS"
+      - send: ":TRIGger:MODE GLITch;:TRIGger:GLITch:SOURce CHANnel1;:TRIGger:GLITch:LEVel 0.5"
+      - query: ":TRIGger:MODE?"
+        expect: "GLIT"
+      - query: ":TRIGger:EDGE:LEVel? CHANnel1"
+        expect: "+500.000E-03"
+      - send: ":TRIGger:GLITch:LEVel 0"
+      - send: ":TRIGger:GLITch:RANGe 600E-6,400E-6"
+      - query: ":TRIGger:GLITch:RANGe?"
+        expect: "+600.000E-06,+400.000E-06"
+      - query: ":TRIGger:GLITch:LESSthan?"
+        expect: "+600.000E-06"
+      - query: ":TRIGger:GLITch:GREaterthan?"
+        expect: "+400.000E-06"
+      # 1 kHz 正弦（探头 10:1，峰值显示为 10 V）过 0 V 的正脉冲宽 500 µs，200 µs/div。
+      # 范围 400–600 µs：在脉冲的结束沿（下降过零）触发，其前 250 µs 是正峰、其后 250 µs 是负峰。
+      - send: ":TIMebase:SCALe 2E-4;:TRIGger:GLITch:QUALifier RANGe"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VTIMe? -2.5E-4,CHANnel1"
+        expect_value: 10.0
+        tolerance: 0.5
+      - query: ":MEASure:VTIMe? 2.5E-4,CHANnel1"
+        expect_value: -10.0
+        tolerance: 0.5
+      # 大于 250 µs：脉冲持续到 250 µs 的时刻触发，正好是正峰（脉冲还没有结束）。
+      - send: ":TRIGger:GLITch:QUALifier GREaterthan;:TRIGger:GLITch:GREaterthan 250E-6"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VTIMe? 0,CHANnel1"
+        expect_value: 10.0
+        tolerance: 0.5
+      # 负极性、小于 600 µs：负脉冲在上升过零处结束，其后 250 µs 是正峰。
+      - send: ":TRIGger:GLITch:POLarity NEGative;:TRIGger:GLITch:QUALifier LESSthan"
+      - query: ":TRIGger:GLITch:QUALifier?"
+        expect: "LESS"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VTIMe? 2.5E-4,CHANnel1"
+        expect_value: 10.0
+        tolerance: 0.5
+      - query: ":TER?"
+        expect: "1"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'
+      # 其余触发类型没有建模。
+      - send: ":TRIGger:MODE RUNT"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: "-224"
+      - query: ":TRIGger:MODE?"
+        expect: "GLIT"
