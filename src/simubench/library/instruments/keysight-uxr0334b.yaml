@@ -205,12 +205,12 @@ state:
     default: 90
     label: 采集完成判据
     label_en: Acquire complete
-  # 存储深度：AUTO 由示波器选择（SimuBench 取 128 kpts，默认时基下正好 128 GSa/s）；手动值到 10 Mpts
-  # （仿真上限，真机标配 500 Mpts，覆盖表注明）。
+  # 存储深度：AUTO 由示波器选择（SimuBench 取 128 kpts，默认时基下正好 128 GSa/s）；手动值到 500 Mpts
+  # （真机标配 500 Mpts）。超过 2^22 点的记录读的时候才算（#1012，real-models.md“深存储是怎样仿真的”）。
   acquire.points:
     type: int
     min: 16
-    max: 10000000
+    max: 500000000
     default: 128000
     special: {AUTO: 128000}
     label: 存储深度
@@ -466,7 +466,7 @@ components:
       averages: $acquire.count
       trigger_jitter_s: 2.5e-14  # specs.trigger_jitter_s_rms: the data sheet's 25 fs intrinsic jitter (#745)
   # 时基：采样率为 128 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
-  # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 10 Mpts）。参考位置 LEFT / CENTer / RIGHt
+  # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 500 Mpts）。参考位置 LEFT / CENTer / RIGHt
   # 取屏幕 10% / 50% / 90%。
   - name: timebase
     type: scope_timebase
@@ -477,7 +477,7 @@ components:
       record_length: rate_pow2
       points: $acquire.points
       sample_rate: $acquire.srate
-      max_points: 10000000
+      max_points: 500000000
   # 边沿触发：电平在信源屏幕中心 ±4 格内（数据手册）；灵敏度 1 格峰峰，迟滞取其一半。
   - name: trigger
     type: scope_trigger
@@ -829,7 +829,8 @@ commands:
   - {header: ":WAVeform:STReaming", state: waveform.streaming}
   - {header: ":WAVeform:POINts", op: xfer.figure, set: false, args: {what: points}}
   - {header: ":WAVeform:PREamble", op: xfer.header, set: false}
-  - {header: ":WAVeform:DATA", op: xfer.data, set: false}
+  # :WAVeform:DATA? [<start>[,<size>]]（手册）：从第 start 点起读 size 点，size 超出时截到记录末尾；深记录按段读回（#1012）。
+  - {header: ":WAVeform:DATA", op: xfer.data, set: false, params: [{name: start, type: int, min: 0, optional: true}, {name: size, type: int, min: 1, optional: true}]}
   - {header: ":WAVeform:XINCrement", op: xfer.figure, set: false, args: {what: x_increment}}
   - {header: ":WAVeform:XORigin", op: xfer.figure, set: false, args: {what: x_start}}
   - {header: ":WAVeform:XREFerence", op: xfer.figure, set: false, args: {what: x_reference}}

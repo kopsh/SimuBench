@@ -376,6 +376,7 @@ function paramVar(key: string, value: unknown, unit: string | undefined): StateV
     dangerous: false,
     value,
     channel: null,
+    fidelity: null,
   };
 }
 

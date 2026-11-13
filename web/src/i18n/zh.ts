@@ -208,6 +208,7 @@ export const zh = {
     state: "状态",
     refused: "设置被拒绝",
     autoInactive: "自动时不生效",
+    computedOnRead: "深记录读的时候才算：读到哪段算哪段，读回与测量的耗时随点数增长",
     auto: "自动",
     sendCommand: "发送 SCPI 命令",
     commandPlaceholder: "例如 :CHANnel1:SCALe 0.05 或 *IDN?",
