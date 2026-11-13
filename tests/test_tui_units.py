@@ -941,3 +941,20 @@ def test_parse_size_and_the_cli_override():
     assert parse_size("100x34") == (100, 34)
     assert parse_size(" 80X24 ") == (80, 24)
     assert parse_size("big") is None and parse_size("100") is None
+
+
+def test_a_file_event_is_a_log_line_with_the_path_and_size():
+    """An instrument's file write (#1069) shows in the full-screen log."""
+    from simubench.tui.log import build_lines
+
+    ev = {
+        "seq": 3,
+        "t_ns": 0,
+        "kind": "file",
+        "instrument": "awg",
+        "action": "write",
+        "path": "INT:\\a.csv",
+        "size": 5,
+    }
+    (line,) = build_lines([ev], "en")
+    assert line.command == "File written: INT:\\a.csv" and line.result == "5 B" and line.kind == "file"

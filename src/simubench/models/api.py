@@ -854,6 +854,24 @@ class ProbeSpectrum(_Model):
     unit: Literal["dBFS", "dBV", "dBm"]
 
 
+class InstrumentFile(_Model):
+    """One file of an instrument's mass storage (#1069)."""
+
+    path: str = Field(
+        ..., description="Path in the instrument's folder, '/'-separated, drive first (INT/States/a.sta)"
+    )
+    size: int
+    sha256: str
+    modified: float = Field(..., description="Last change, seconds since the epoch")
+
+
+class InstrumentFiles(_Model):
+    """The files a running instrument keeps (MMEMory, :DISK), kept across runs of a saved bench."""
+
+    instrument: str
+    files: list[InstrumentFile]
+
+
 class InternalProbe(_Model):
     """The signal at one output port inside an instrument (signal-chain.md 6.1). Reading it changes
     nothing: not the clock, not the run record, not what a script reads next."""

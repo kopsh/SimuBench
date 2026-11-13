@@ -645,3 +645,34 @@ cases:
       - send: ":FUNCtion1:FFT:FREQuency 1E9"
       - query: ":SYSTem:ERRor?"
         expect: "-113"
+  - name: ":DISK 目录：PWD 在 CDIRectory 之前为空，建目录、换当前目录、列目录"
+    manual: ":DISK Commands > :DISK:PWD?, :DISK:MDIRectory, :DISK:CDIRectory, :DISK:DIRectory?"
+    steps:
+      - query: ":DISK:PWD?"
+        expect: '""'
+      - send: ':DISK:MDIRectory "C:\Users\Public\Documents\Infiniium\CPROGRAMS"'
+      - query: ':DISK:DIRectory? "C:\Users\Public\Documents\Infiniium"'
+        expect: "1\nCPROGRAMS\\"
+      - send: ':DISK:CDIRectory "C:\Users\Public\Documents\Infiniium\CPROGRAMS"'
+      - query: ":DISK:PWD?"
+        expect: '"C:\Users\Public\Documents\Infiniium\CPROGRAMS"'
+      - query: ":DISK:DIRectory?"
+        expect: "0"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+  - name: ":DISK:PUTFILE 写入、GETFILE? 读回（文件名不区分大小写），COPY 与 DELete"
+    manual: ":DISK Commands > :DISK:PUTFILE, :DISK:GETFILE?, :DISK:COPY, :DISK:DELete"
+    steps:
+      - send: ':DISK:PUTFILE "C:\Users\Public\Documents\Infiniium\FILE1.SET",#15Hello'
+      - query: ':DISK:GETFILE? "C:\Users\Public\Documents\Infiniium\file1.set"'
+        expect: "#15Hello"
+      - send: ':DISK:COPY "C:\Users\Public\Documents\Infiniium\FILE1.SET","C:\Users\Public\Documents\Infiniium\FILE1b.SET"'
+      - send: ':DISK:DELete "FILE1.SET"'
+      - query: ":DISK:DIRectory?"
+        expect: "1\nFILE1b.SET"
+      - send: ':DISK:DELete "FILE1.SET"'
+      - query: ":SYSTem:ERRor?"
+        expect: "-256"
+      - send: ':DISK:CDIRectory "C:\Users\Public\..\..\Windows"'
+      - query: ":SYSTem:ERRor?"
+        expect: "-257"

@@ -920,6 +920,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/instruments/{name}/files": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Files
+         * @description The files an instrument holds in its mass storage (#1069).
+         */
+        get: operations["listInstrumentFiles"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/sessions/{sid}/instruments/{name}/files/content": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download File
+         * @description One file's bytes (``path`` as the listing gives it); never outside the instrument's folder.
+         */
+        get: operations["downloadInstrumentFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/instruments/{name}/internals": {
         parameters: {
             query?: never;
@@ -3040,6 +3080,36 @@ export interface components {
             version: number;
             wiring?: components["schemas"]["Wiring"];
         };
+        /**
+         * InstrumentFile
+         * @description One file of an instrument's mass storage (#1069).
+         */
+        InstrumentFile: {
+            /**
+             * Modified
+             * @description Last change, seconds since the epoch
+             */
+            modified: number;
+            /**
+             * Path
+             * @description Path in the instrument's folder, '/'-separated, drive first (INT/States/a.sta)
+             */
+            path: string;
+            /** Sha256 */
+            sha256: string;
+            /** Size */
+            size: number;
+        };
+        /**
+         * InstrumentFiles
+         * @description The files a running instrument keeps (MMEMory, :DISK), kept across runs of a saved bench.
+         */
+        InstrumentFiles: {
+            /** Files */
+            files: components["schemas"]["InstrumentFile"][];
+            /** Instrument */
+            instrument: string;
+        };
         /** InstrumentInfo */
         InstrumentInfo: {
             /** Address Hislip */
@@ -4484,7 +4554,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver
+             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file
              */
             kind: string;
             /** Message */
@@ -7185,6 +7255,72 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    listInstrumentFiles: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                name: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentFiles"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    downloadInstrumentFile: {
+        parameters: {
+            query: {
+                path: string;
+            };
+            header?: never;
+            path: {
+                name: string;
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": unknown;
+                };
             };
             /** @description Validation Error */
             422: {

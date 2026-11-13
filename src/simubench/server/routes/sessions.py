@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
 
 from ...models import api as M
 from ...models.bench import Fault
 from .. import drive, views
 from ..manager import ClientsConnected, InstrumentRemote
 from ..services import clock as clock_service
-from ..services import faults, internal_probe
+from ..services import faults, instrument_files, internal_probe
 from ..services import sessions as sessions_service
 from .context import IN_USE, ApiContext
 
@@ -294,6 +295,41 @@ def _net_and_clock_routes(ctx: ApiContext, router: APIRouter) -> None:
             return await asyncio.to_thread(internal_probe.probe, s, name, port, tune_hz)
         except (KeyError, ValueError, PermissionError) as exc:
             raise ctx.http_error(exc) from None
+
+    @router.get(
+        "/api/sessions/{sid}/instruments/{name}/files",
+        response_model=M.InstrumentFiles,
+        operation_id="listInstrumentFiles",
+        dependencies=[Depends(auth)],
+    )
+    def list_files(sid: str, name: str) -> M.InstrumentFiles:
+        """The files an instrument holds in its mass storage (#1069)."""
+        try:
+            return instrument_files.listing(served(sid).session, name)
+        except KeyError as exc:
+            raise not_found(exc) from None
+
+    @router.get(
+        "/api/sessions/{sid}/instruments/{name}/files/content",
+        operation_id="downloadInstrumentFile",
+        dependencies=[Depends(auth)],
+        response_class=Response,
+        responses={200: {"content": {"application/octet-stream": {}}}},
+    )
+    def download_file(sid: str, name: str, path: str) -> Response:
+        """One file's bytes (``path`` as the listing gives it); never outside the instrument's folder."""
+        try:
+            data = instrument_files.read(served(sid).session, name, path)
+        except KeyError as exc:
+            raise not_found(exc) from None
+        except PermissionError as exc:
+            raise HTTPException(403, str(exc)) from None
+        filename = path.rsplit("/", 1)[-1]
+        return Response(
+            data,
+            media_type="application/octet-stream",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @router.get(
         "/api/sessions/{sid}/assets",

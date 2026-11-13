@@ -20,12 +20,15 @@ def open_bench(
     record_raw: bool = False,
     definition_dirs: list[str | Path] | None = None,
     workspace_plugins: Path | None = None,
+    files_dir: str | Path | None = None,
 ) -> Session:
     """Load a bench file (YAML or JSON) and start a session.
 
     Instrument definitions are looked up in ``<bench folder>/instruments`` and in ``definition_dirs``
     before the built-in library. ``workspace_plugins`` names the ``components`` folder to run as
     plugins; workspace code is the engineer's explicit consent (D3), so it is off unless passed.
+    ``files_dir`` keeps the instruments' virtual file systems across runs (#1069,
+    :func:`bench_files_dir`); without it they live in a temporary folder removed at close.
     """
     if workspace_plugins is not None:
         from .plugins import load_workspace_plugins
@@ -51,4 +54,12 @@ def open_bench(
         seed=seed,
         idle=idle,
         time_scale=time_scale,
+        files_dir=Path(files_dir) if files_dir is not None else None,
     )
+
+
+def bench_files_dir(workspace: Path, bench: Path) -> Path:
+    """Where a bench's instruments keep their files between runs (#1069):
+    ``<workspace>/.simubench/files/<bench path without suffix>/``."""
+    rel = bench.resolve().relative_to(workspace.resolve()).with_suffix("")
+    return workspace / ".simubench" / "files" / rel

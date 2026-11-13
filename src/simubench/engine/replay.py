@@ -155,6 +155,12 @@ def open_record(
             )
     for name in have.keys() - recorded.keys():
         warnings.append(f"plugin {name} is loaded now but the record was made without it")
+    # The instruments' files are not in the record (#1069): the replay starts with none.
+    for name, files in sorted((header.get("files") or {}).items()):
+        warnings.append(
+            f"{name} held {len(files)} file(s) when the run began; the replay starts without them, "
+            "so differences may come from them"
+        )
     # Individual deviations are drawn again from the recorded seed: equal unless their ranges changed.
     if "deviations" in header:
         drawn = json.loads(json.dumps(session.deviations()))
@@ -221,11 +227,25 @@ def replay(
     )
     report = ReplayReport(record=str(path), bench=session.bench.name, warnings=warnings)
     last_command: dict[str, str] = {}
+    # The files the replay writes, in order: each recorded write is checked against the replay's
+    # write of the same rank on that instrument (#1069). A file event is recorded ahead of the
+    # command that caused it, so the two lists are compared after the replay.
+    recorded_files: dict[str, list[dict[str, Any]]] = {}
+    written: dict[str, list[dict[str, Any]]] = {}
+    unsubscribe = session.subscribe(
+        lambda e: (
+            written.setdefault(str(e.get("instrument")), []).append(e)
+            if e.get("kind") == "file" and e.get("action") == "write"
+            else None
+        )
+    )
     try:
         for ev, got in resend(session, events, last_command):
             kind = ev.get("kind")
             t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))
-            if kind == "scpi" and ev.get("dir") == "write":
+            if kind == "file" and ev.get("action") == "write":
+                recorded_files.setdefault(str(ev.get("instrument")), []).append(ev)
+            elif kind == "scpi" and ev.get("dir") == "write":
                 report.actions += 1
             elif kind == "scpi" and ev.get("dir") == "read":
                 report.replies += 1
@@ -256,6 +276,35 @@ def replay(
                 or (kind == "fault" and ev.get("reason") == "injected" and ev.get("spec"))
             ):
                 report.actions += 1
+        _check_files(report, recorded_files, written)
     finally:
+        unsubscribe()
         session.close()
     return report
+
+
+def _file(ev: dict[str, Any] | None) -> str:
+    if ev is None:
+        return "no file written"
+    return f"file {ev.get('path')} ({ev.get('size')} bytes, sha256 {str(ev.get('sha256'))[:16]}…)"
+
+
+def _check_files(
+    report: ReplayReport, recorded: dict[str, list[dict[str, Any]]], written: dict[str, list[dict[str, Any]]]
+) -> None:
+    """A mismatch for every recorded file write the replay did not repeat byte for byte (#1069)."""
+    for name, want in recorded.items():
+        got = written.get(name, [])
+        for i, ev in enumerate(want):
+            now = got[i] if i < len(got) else None
+            if now is None or (now.get("path"), now.get("sha256")) != (ev.get("path"), ev.get("sha256")):
+                report.mismatches.append(
+                    ReplayMismatch(
+                        seq=int(ev.get("seq", ev.get("eid", 0))),
+                        instrument=name,
+                        t_ns=int(ev.get("t_ns", 0)),
+                        expected=_file(ev),
+                        actual=_file(now),
+                        command=None,
+                    )
+                )

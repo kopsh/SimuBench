@@ -41,7 +41,7 @@ class LogLine:
     wall: float | None = None  # real time of the write
     instrument: str = ""
     source: str = ""  # display label per tui-screens.md 1.5
-    kind: str = "scpi"  # scpi | state | panel | fault | acquisition | advance | remote
+    kind: str = "scpi"  # scpi | state | panel | fault | acquisition | file | advance | remote
     command: str = ""
     result: str = ""  # reply text (without the → prefix) or the error text
     result_kind: str = "none"  # none (·) | ok (→) | error (✗) | binary
@@ -326,6 +326,21 @@ def build_lines(
             )
         elif kind == "acquisition":
             lines.append(LogLine(command=t("log.acquisition", lang), **base))
+        elif kind == "file":
+            action = ev.get("action") or "write"
+            size = ev.get("size")
+            lines.append(
+                LogLine(
+                    command=t(f"log.file.{action}", lang, path=ev.get("path") or ""),
+                    result=f"{size} B" if size is not None else "",
+                    result_kind="ok",
+                    seq=int(ev.get("seq", 0)),
+                    t_ns=t_ns,
+                    instrument=inst,
+                    source=source,
+                    kind=kind,
+                )
+            )
         elif kind == "advance":
             dt = int(ev.get("dt_ns", 0)) / 1e9
             lines.append(LogLine(command=t("log.advance", lang, dt=fmt_seconds(dt)), **base))

@@ -90,6 +90,10 @@ errors:
   -430: "Query DEADLOCKED"
   -440: "Query UNTERMINATED after indefinite response"
   786: "Specified arb waveform already exists"
+  -250: "Mass storage error"
+  -254: "Media full"
+  -256: "File or folder name not found"
+  -257: "File name error"
 specs:
   source: 第 1 章 Models and Options（最高频率表）、APPLy 子系统（幅度/偏置/采样率范围）、Factory Reset State
   frequency_hz: "正弦 1 µHz–120 MHz（10 Vpp 以下到 60 MHz、4 Vpp 以下到 120 MHz，按幅度的上限未建模）；方波/脉冲到 100 MHz；三角/斜波 800 kHz（按波形限制，#437）"
@@ -163,6 +167,14 @@ components:
   - name: clock
     type: reference_clock
     params: {source: INTernal}
+  # 大容量存储（MMEMory，#1069）：内部闪存 INT:\ 与前面板 USB:\，各为本机一个文件夹；*RST 后当前文件夹回到 INT:\。
+  - name: storage
+    type: file_system
+    params:
+      drives: [INTernal, USB]
+      home: "INT:\\"
+      capacity: 1.0e9
+      file_types: {.sta: STAT, .csv: ASC}
 channel_components:
   # 合成（1 Vpp）→ 调制 → 幅度与偏置（按负载设定，D13）→ 输出级（50 Ω，极性）。任意波与 PRBS 由合成按函数播放（#426）。
   - name: synth
@@ -435,3 +447,53 @@ commands:
     state: system.version
     set: false
     reply: "1994.0"
+  # ---- 大容量存储（MMEMory，#1069）：目录、复制移动删除、上传下载 -----------------------------------
+  - header: "MMEMory:CATalog[:ALL]"
+    op: storage.catalog
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: "MMEMory:CATalog:DATA:ARBitrary"
+    op: storage.catalog
+    set: false
+    args: {extensions: [.arb, .barb, .seq], types: {.arb: ARB, .barb: ARB, .seq: SEQUENCE}}
+    params: [{name: name, type: string, optional: true}]
+  - header: "MMEMory:CATalog:STATe"
+    op: storage.catalog
+    set: false
+    args: {extensions: [.sta], folders: false}
+    params: [{name: name, type: string, optional: true}]
+  - header: "MMEMory:CDIRectory"
+    op: storage.folder
+    params: [{name: name, type: string, optional: true}]
+  - header: "MMEMory:MDIRectory"
+    op: storage.make_folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:RDIRectory"
+    op: storage.remove_folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:DELete"
+    op: storage.delete
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:COPY"
+    op: storage.copy
+    query: false
+    params: [{name: source, type: string}, {name: target, type: string}]
+  - header: "MMEMory:MOVE"
+    op: storage.move
+    query: false
+    params: [{name: source, type: string}, {name: target, type: string}]
+  - header: "MMEMory:DOWNload:FNAMe"
+    op: storage.download_name
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:DOWNload:DATA"
+    op: storage.download
+    query: false
+    params: [{name: data, type: block}]
+  - header: "MMEMory:UPLoad"
+    op: storage.read
+    set: false
+    params: [{name: name, type: string}]

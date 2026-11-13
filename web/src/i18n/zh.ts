@@ -508,7 +508,8 @@ export const zh = {
     content: "内容",
     fromAcquisition: "由采集 #{{seq}} 重新生成",
     autoTrigger: "自动触发",
-    kinds: { state: "设置", error: "错误", fault: "故障", acquisition: "采集", session: "会话" },
+    kinds: { state: "设置", error: "错误", fault: "故障", acquisition: "采集", session: "会话", file: "文件" },
+    fileActions: { write: "写入", delete: "删除", make_folder: "建文件夹", remove_folder: "删文件夹" },
   },
   probe: {
     title: "虚拟探针",

@@ -150,7 +150,7 @@ def test_builtin_siblings_inherit_and_class_tables_supply_the_errors():
 def test_single_file_classes_keep_their_own_tables():
     lib = DefinitionLibrary()
     d = lib.get("keysight-33622a")  # the only function_generator: no class default may leak in
-    assert len(d.errors) == 61 and d.errors[786] == "Specified arb waveform already exists"
+    assert len(d.errors) == 65 and d.errors[786] == "Specified arb waveform already exists"
     d = lib.get("fluke-8588a")  # its own wording beats the class default
     assert d.errors[-200] == "Execution Error"
     assert lib.get("keysight-34465a").errors[-350] == "Queue overflow"  # agrees with the table
