@@ -67,7 +67,7 @@ class ErrorReporter:
             reason = "not_modeled"  # a command, or a parameter value, this definition does not implement
         if reason is not None:
             data["reason"] = reason
-        for key in ("origin", "closest", "param", "range"):
+        for key in ("origin", "closest", "param", "range", "gap", "blocked_by", "note"):
             value = getattr(err, key)
             if value is not None:
                 data[key] = value
@@ -101,8 +101,18 @@ class ErrorReporter:
                 origin=self.inst.source_file,
             )
         reason, origin, closest = self.inst.coverage.classify(unit, tokens)
+        # A command the coverage table lists as not modeled carries the table's why (#1037).
+        listed = self.inst.coverage.listed(unit, tokens) if reason == "not_modeled" else None
         return ScpiError(
-            -113, header, text=self._undefined_text(header), reason=reason, origin=origin, closest=closest
+            -113,
+            header,
+            text=self._undefined_text(header),
+            reason=reason,
+            origin=origin,
+            closest=closest,
+            gap=listed.gap if listed else None,
+            blocked_by=listed.blocked_by if listed else None,
+            note=listed.note if listed else None,
         )
 
     def _undefined_text(self, header: str) -> str | None:

@@ -18,6 +18,19 @@ here. D42 fixes the principle: an unimplemented command errors, it is never sile
 | `accepted` | yes, not as implemented | parsed, validated, stored; must not change any data and must carry `affects_data: false` |
 | `not_modeled` | no | replies `-113 … not implemented in this definition`; do it later or declare it out of scope |
 
+## Why a command is not modeled (`gap`, #1037)
+
+Every `not_modeled` entry should carry `gap` (real-models.md section 6):
+
+| `gap` | Meaning | Also |
+| --- | --- | --- |
+| `out_of_scope` | never simulated: file system, printing, network services, calibration service, GUI, the application layer of product-plan.md section 6 | — |
+| `blocked` | waits for a platform capability | `blocked_by`: a product-plan.md 4.2 id (`C5`) or a short name of a capability 4.2 does not list yet (`mask-test`) |
+| `model_work` | the platform can already do it; only the definition is missing | — |
+
+An entry without `gap` is untriaged. The `-113` event of a command with a `gap` carries `gap`,
+`blocked_by` and `note`, so users see why in the TUI log and the Web event history.
+
 Report two numbers: `implemented` alone and `implemented + accepted`. Never move a data-affecting
 command to `accepted` to raise the percentage — the consistency check rejects it, and D42 exists so
 that a script passing on the virtual model also passes on the real one.
@@ -39,6 +52,9 @@ for f in src/simubench/library/instruments/*.coverage.yaml; do
 done
 ```
 
+One model's split of the not-modeled commands is the last line of `simubench coverage <id>`
+(`未实现：不做 N · 等能力 N · 可做 N · 未分拣 N`).
+
 Standard report in one pass (totals, per-model ranking, untriaged audit):
 
 ```bash
@@ -53,8 +69,7 @@ for f in glob.glob("src/simubench/library/instruments/*.coverage.yaml"):
     cov = load_coverage(Path(f))
     c = collections.Counter(e.level for s in cov.sections for e in s.commands)
     tot.update(c)
-    blank = sum(1 for s in cov.sections for e in s.commands
-                if e.level == "not_modeled" and not (e.note or "").strip())
+    blank = cov.gap_stats()["untriaged"]
     rows.append((cov.model, c, blank))
 
 n = sum(tot.values())
@@ -65,7 +80,7 @@ print("coverage", f"{100 * (tot['implemented'] + tot['accepted']) / n:.1f}%",
 for model, c, blank in sorted(rows, key=lambda r: -(r[1]["implemented"] + r[1]["accepted"]) / sum(r[1].values())):
     t = sum(c.values())
     print(f"{model:24s} {c['implemented']:4d} {c['accepted']:3d} {c['not_modeled']:5d} "
-          f"{100 * (c['implemented'] + c['accepted']) / t:5.1f}%  blank={blank}")
+          f"{100 * (c['implemented'] + c['accepted']) / t:5.1f}%  untriaged={blank}")
 EOF
 ```
 
@@ -78,11 +93,11 @@ Say, in this order:
 
 1. **Totals** — models, commands, implemented, accepted, not_modeled, both percentages.
 2. **Per model** — sorted by coverage, with the implemented/accepted/not_modeled split. Flag tables
-   whose `not_modeled` notes are mostly blank: those are drafts, and their percentage means nothing
-   yet.
-3. **Gap buckets** — group `not_modeled` by note keywords or section. Separate permanent out of
-   scope (interface/LAN/LXI/licence, file system, display, self-test, calibration service) from
-   capability gaps (status registers, math/statistics, DMM functions, options, markers).
+   whose `not_modeled` entries are mostly untriaged (no `gap`): those are drafts, and their
+   percentage means nothing yet.
+3. **Gap buckets** — group `not_modeled` by `gap` and `blocked_by` (untriaged tables: by note
+   keywords or section). `out_of_scope` is permanent; `blocked` groups by capability; `model_work`
+   is the backlog that needs no new capability.
 4. **Next work** — by capability, not by model: one capability unlocks commands across many models.
 
 The denominator is the whole reference command index, so percentages are not comparable between a
@@ -92,8 +107,9 @@ small DMM and a flagship analyser. Say that before comparing models.
 
 Order of work:
 
-1. **Triage drafts** (no behaviour change): for each untriaged `not_modeled` entry write the note —
-   permanent out of scope, blocked by a named capability, or model work. This produces the real
+1. **Triage drafts** (no behaviour change): for each untriaged `not_modeled` entry write `gap`
+   (and `blocked_by`) and the note — permanent out of scope, blocked by a named capability, or
+   model work. This produces the real
    backlog and makes the metric honest. Coverage-table work is `可认领`.
 2. **Build the shared capability** that unblocks a cluster (`核心`, lead agent): status-register
    groups, math/statistics, DMM measurement functions, option handling, multi-marker. See the

@@ -16,6 +16,37 @@
           "description": "accepted commands must say false: parsing, storing and returning the value changes no acquisition, measurement, transfer or reply. A command that does change one is implemented or not modeled instead (real-models.md 2)",
           "title": "Affects Data"
         },
+        "blocked_by": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "gap: blocked only: the capability it waits for — a product-plan.md 4.2 id (e.g. C5) or a short name of a capability the plan does not list yet",
+          "title": "Blocked By"
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "enum": [
+                "out_of_scope",
+                "blocked",
+                "model_work"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "not_modeled only: why — out_of_scope (never simulated), blocked (waits for the capability in blocked_by) or model_work (the platform can already do it)",
+          "title": "Gap"
+        },
         "header": {
           "description": "Header as the definition writes it, e.g. '[:SENSe]:VOLTage[:DC]:NPLC'",
           "title": "Header",

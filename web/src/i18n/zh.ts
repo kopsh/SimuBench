@@ -1165,6 +1165,11 @@ export const zh = {
     network: "无法连接到 SimuBench 服务。请确认 simubench serve 正在运行。",
     notFound: "找不到该会话，可能已关闭。",
     // 命令没被执行的原因（tui-design.md 1.1，D18）：只转述定义作者声明的内容。
+    gaps: {
+      out_of_scope: "不在仿真范围内",
+      blocked: "等待平台能力",
+      model_work: "尚未实现：平台已能实现",
+    },
     reasons: {
       not_modeled: "未建模：覆盖表中标为未实现",
       not_in_model: "覆盖表中没有这条命令",

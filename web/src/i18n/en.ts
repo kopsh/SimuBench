@@ -1176,6 +1176,11 @@ export const en: Widen<Messages> = {
     network: "Cannot reach the SimuBench service. Make sure simubench serve is running.",
     notFound: "This session no longer exists; it may be closed.",
     // Why a command was not executed (tui-design.md 1.1, D18): the definition author's own words.
+    gaps: {
+      out_of_scope: "out of scope: not simulated",
+      blocked: "waits for a platform capability",
+      model_work: "not implemented yet: the platform can do it",
+    },
     reasons: {
       not_modeled: "Not modeled: listed as not modeled in the coverage table",
       not_in_model: "Not in the coverage table",

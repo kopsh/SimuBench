@@ -5,6 +5,10 @@
  */
 export type Action = string | null;
 /**
+ * For gap blocked: the platform capability the command waits for (e.g. C5)
+ */
+export type BlockedBy = string | null;
+/**
  * Acquisition recipe, per channel (t_start_ns, dt_s, points, sha256, …)
  */
 export type Channels = {
@@ -32,6 +36,10 @@ export type Fault = string | null;
  */
 export type Forced = boolean | null;
 /**
+ * For not_modeled: why the coverage table does not model the command — out_of_scope | blocked (see blocked_by) | model_work; absent when the table does not say
+ */
+export type Gap = ("out_of_scope" | "blocked" | "model_work") | null;
+/**
  * The header that was ignored, for ignored events
  */
 export type Header = string | null;
@@ -41,6 +49,10 @@ export type Instrument = string | null;
  */
 export type Kind = string;
 export type Message = string | null;
+/**
+ * For not_modeled: the coverage table's note on the command
+ */
+export type Note = string | null;
 /**
  * The file the classification's declaration comes from (the definition or its coverage table), as the loader received the path
  */
@@ -80,6 +92,7 @@ export type Wall = number | null;
  */
 export interface Event {
   action?: Action;
+  blocked_by?: BlockedBy;
   channels?: Channels;
   client?: Client;
   closest?: Closest;
@@ -90,11 +103,13 @@ export interface Event {
   duration_ns?: DurationNs;
   fault?: Fault;
   forced?: Forced;
+  gap?: Gap;
   header?: Header;
   instrument?: Instrument;
   kind: Kind;
   message?: Message;
   new?: New;
+  note?: Note;
   old?: Old;
   origin?: Origin;
   param?: Param;
