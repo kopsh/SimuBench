@@ -20,6 +20,7 @@ sections:
   - section: "Command Reference > TRIGger Subsystem"
     commands:
       - {header: ":TRIGger:SOURce", level: implemented}
+      - {header: ":TRIGger:COUPling", level: not_modeled}
   - section: "Command Reference > SYSTem Subsystem"
     commands:
       - {header: ":SYSTem:ERRor[:NEXT]", level: implemented}

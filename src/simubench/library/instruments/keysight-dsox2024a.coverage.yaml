@@ -18,18 +18,29 @@ sections:
     note: 'AGILENT TECHNOLOGIES,DSO-X 2024A,<serial>,<software revision> as the guide writes it; serial MY58260001 and revision 02.66.0000 are SimuBench values'
   - header: '*LRN'
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): setup registers and the learn string (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*OPC'
     level: implemented
     note: '*OPC? waits for a :DIGitize or :SINGle in progress; without a trigger it does not answer (the guide: use device clear to halt a :DIGitize)'
   - header: '*OPT'
     level: not_modeled
+    note: 'Model work: option handling exists (#1007); declare the installed options.'
+    gap: model_work
   - header: '*RCL'
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): setup registers and the learn string (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RST'
     level: implemented
     note: 'the guide''s reset conditions (CH1 on at 5 V/div with the 10:1 probe, offset 0, DC, 100 us/div, centre reference, edge trigger on CH1 at 0 V rising, AUTO, holdoff 40 ns, NORMal acquisition with 8 averages, BYTE unsigned MSBFirst 1000 points). The guide''s :TRIGger? sample after *RST shows HOLD 60 ns; the reset table''s 40 ns is used'
   - header: '*SAV'
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): setup registers and the learn string (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*SRE'
     level: implemented
   - header: '*STB'
@@ -45,17 +56,32 @@ sections:
   commands:
   - header: :ACTivity
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): edge activity and logic levels of the digital channels.'
+    gap: blocked
+    blocked_by: C16
   - header: :AER
     level: implemented
     note: 'Arm Event Register (status_register, #248): 1 once the trigger system was armed (:RUN, a single acquisition) since the last read; reading clears it'
   - header: :AUToscale
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
+    gap: blocked
+    blocked_by: autoscale
   - header: :AUToscale:AMODE
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
+    gap: blocked
+    blocked_by: autoscale
   - header: :AUToscale:CHANnels
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
+    gap: blocked
+    blocked_by: autoscale
   - header: :AUToscale:FDEBug
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
+    gap: blocked
+    blocked_by: autoscale
   - header: :BLANk
     level: implemented
     note: 'turns off the channel the parameter names (an index word picks the setting, #248)'
@@ -64,8 +90,14 @@ sections:
     note: 'acquires the displayed channels (or the ones named) and stops; returns once the record is full (virtual time), and waits while there is no trigger. FUNCtion, MATH, SBUS1 and digital sources are not modeled'
   - header: :MTEenable
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTERegister[:EVENt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :OPEE
     level: implemented
     note: 'Operation Status Enable mask (#248); the enabled events summarize into *STB bit 7 (OPER)'
@@ -77,10 +109,17 @@ sections:
     note: 'the latched RUN/WAIT TRIG bits since the last read; reading clears (#248)'
   - header: :OVLenable
     level: not_modeled
+    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
+    gap: model_work
   - header: :OVLRegister
     level: not_modeled
+    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
+    gap: model_work
   - header: :PRINt
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :RSTate
     level: implemented
     note: 'RUN, STOP or SING (a single acquisition armed and not yet done), #248'
@@ -140,38 +179,74 @@ sections:
   commands:
   - header: :BUS<n>:BIT<m>
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): the parallel bus display needs the digital channels.'
+    gap: blocked
+    blocked_by: C16
   - header: :BUS<n>:BITS
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): the parallel bus display needs the digital channels.'
+    gap: blocked
+    blocked_by: C16
   - header: :BUS<n>:CLEar
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): the parallel bus display needs the digital channels.'
+    gap: blocked
+    blocked_by: C16
   - header: :BUS<n>:DISPlay
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): the parallel bus display needs the digital channels.'
+    gap: blocked
+    blocked_by: C16
   - header: :BUS<n>:LABel
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): the parallel bus display needs the digital channels.'
+    gap: blocked
+    blocked_by: C16
   - header: :BUS<n>:MASK
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): the parallel bus display needs the digital channels.'
+    gap: blocked
+    blocked_by: C16
 - section: :CALibrate Commands (Programmer's Guide 02.66, ch. 9)
   commands:
   - header: :CALibrate:DATE
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibrate:LABel
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibrate:OUTPut
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibrate:PROTected
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibrate:STARt
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibrate:STATus
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibrate:TEMPerature
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibrate:TIME
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
 - section: :CHANnel<n> Commands (Programmer's Guide 02.66, ch. 10)
   commands:
   - header: :CHANnel<ch>:BANDwidth
     level: not_modeled
+    note: 'Model work: the 25 MHz low-pass exists (scope_vertical bw_limit, :BWLimit is implemented); :BANDwidth sets it in Hz — any limit selects 25 MHz, the query returns 25E6 or the full bandwidth.'
+    gap: model_work
   - header: :CHANnel<ch>:BWLimit
     level: implemented
     note: 'about 20 MHz (data sheet; the guide says approximately 25 MHz)'
@@ -185,8 +260,12 @@ sections:
     note: 'ONEMeg only (the guide); 1 MΩ ∥ 11 pF (data sheet)'
   - header: :CHANnel<ch>:INVert
     level: not_modeled
+    note: 'Model work: negate the channel samples in the signal chain.'
+    gap: model_work
   - header: :CHANnel<ch>:LABel
     level: not_modeled
+    note: 'Model work: display-only channel label; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :CHANnel<ch>:OFFSet
     level: implemented
     note: '±2 V up to 200 mV/div, ±50 V above (data sheet, at the input); out of range it takes the nearest legal value (the guide)'
@@ -195,14 +274,28 @@ sections:
     note: '0.001 to 10000 and X1, X10, X20, X100; scale and offset follow the ratio (the guide)'
   - header: :CHANnel<ch>:PROBe:HEAD[:TYPE]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
+    gap: blocked
+    blocked_by: probe
   - header: :CHANnel<ch>:PROBe:ID
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
+    gap: blocked
+    blocked_by: probe
   - header: :CHANnel<ch>:PROBe:SKEW
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
+    gap: blocked
+    blocked_by: probe
   - header: :CHANnel<ch>:PROBe:STYPe
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
+    gap: blocked
+    blocked_by: probe
   - header: :CHANnel<ch>:PROTection
     level: not_modeled
+    note: 'Model work: the manual says it does nothing on 1 MOhm-only models and the query always returns NORM; a no-op is enough.'
+    gap: model_work
   - header: :CHANnel<ch>:RANGe
     level: implemented
     note: 'eight divisions of :SCALe; 8 mV to 40 V at 1:1'
@@ -211,200 +304,437 @@ sections:
     note: '1 mV/div to 5 V/div at the input (data sheet); out of range it takes the nearest legal value (as the offset; the guide does not say); reply digits like :RANGe''s sample. Records carry the range''s input noise (specs.noise_per_division: estimated, the data sheet gives no rms-noise figure, D46/#745; the trace is never a dead line)'
   - header: :CHANnel<ch>:UNITs
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :CHANnel<ch>:VERNier
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
 - section: :DEMO Commands (Programmer's Guide 02.66, ch. 11)
   commands:
   - header: :DEMO:FUNCtion
     level: not_modeled
+    note: 'Out of scope: demo signals from the front-panel demo outputs (needs the demo hardware).'
+    gap: out_of_scope
   - header: :DEMO:FUNCtion:PHASe:PHASe
     level: not_modeled
+    note: 'Out of scope: demo signals from the front-panel demo outputs (needs the demo hardware).'
+    gap: out_of_scope
   - header: :DEMO:OUTPut
     level: not_modeled
+    note: 'Out of scope: demo signals from the front-panel demo outputs (needs the demo hardware).'
+    gap: out_of_scope
 - section: :DIGital<d> Commands (Programmer's Guide 02.66, ch. 12)
   commands:
   - header: :DIGital<d>:DISPlay
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
   - header: :DIGital<d>:LABel
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
   - header: :DIGital<d>:POSition
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
   - header: :DIGital<d>:SIZE
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
   - header: :DIGital<d>:THReshold
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
 - section: :DISPlay Commands (Programmer's Guide 02.66, ch. 13)
   commands:
   - header: :DISPlay:ANNotation
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:ANNotation:BACKground
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:ANNotation:COLor
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:ANNotation:TEXT
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:CLEar
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:DATA
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :DISPlay:INTensity:WAVeform
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:LABel
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:LABList
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:PERSistence
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:PERSistence:CLEar
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :DISPlay:VECTors
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
 - section: :DVM Commands (Programmer's Guide 02.66, ch. 14)
   commands:
   - header: :DVM:ARANge
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in DVM (channel voltage meter independent of the scope acquisition).'
+    gap: blocked
+    blocked_by: dvm
   - header: :DVM:CURRent
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in DVM (channel voltage meter independent of the scope acquisition).'
+    gap: blocked
+    blocked_by: dvm
   - header: :DVM:ENABle
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in DVM (channel voltage meter independent of the scope acquisition).'
+    gap: blocked
+    blocked_by: dvm
   - header: :DVM:FREQuency
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in DVM (channel voltage meter independent of the scope acquisition).'
+    gap: blocked
+    blocked_by: dvm
   - header: :DVM:MODE
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in DVM (channel voltage meter independent of the scope acquisition).'
+    gap: blocked
+    blocked_by: dvm
   - header: :DVM:SOURce
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in DVM (channel voltage meter independent of the scope acquisition).'
+    gap: blocked
+    blocked_by: dvm
 - section: :EXTernal Trigger Commands (Programmer's Guide 02.66, ch. 15)
   commands:
   - header: :EXTernal:BWLimit
     level: not_modeled
+    note: 'Model work: product-compatibility no-op (only OFF is legal, the query always returns 0); candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :EXTernal:PROBe
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
+    gap: blocked
+    blocked_by: probe
   - header: :EXTernal:RANGe
     level: not_modeled
+    note: 'Model work: the external trigger input is modeled (trigger level EXT); RANGE sets its input scaling (0.4 V / 5 V).'
+    gap: model_work
   - header: :EXTernal:UNITs
     level: not_modeled
+    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    gap: model_work
 - section: :FUNCtion Commands (Programmer's Guide 02.66, ch. 16)
   commands:
   - header: :FUNCtion:BUS:CLOCk
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:BUS:SLOPe
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:BUS:YINCrement
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:BUS:YORigin
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:BUS:YUNits
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:DISPlay
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion[:FFT]:CENTer
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion[:FFT]:SPAN
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion[:FFT]:VTYPe
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion[:FFT]:WINDow
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:FREQuency:HIGHpass
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:FREQuency:LOWPass
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:GOFT:OPERation
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:GOFT:SOURce1
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:GOFT:SOURce2
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:INTegrate:IOFFset
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:LINear:GAIN
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:LINear:OFFSet
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:OFFSet
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:OPERation
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:RANGe
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:REFerence
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:SCALe
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:SOURce1
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:SOURce2
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
   - header: :FUNCtion:TRENd:MEASurement
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    gap: blocked
+    blocked_by: C5
 - section: :HARDcopy Commands (Programmer's Guide 02.66, ch. 17)
   commands:
   - header: :HARDcopy:AREA
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:APRinter
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:FACTors
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:FFEed
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:INKSaver
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:LAYout
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:NETWork:ADDRess
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:NETWork:APPLy
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:NETWork:DOMain
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:NETWork:PASSword
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:NETWork:SLOT
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:NETWork:USERname
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:PALette
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:PRINter:LIST
     level: not_modeled
+    note: 'Model work: printer and network printer configuration; candidate for accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:STARt
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
 - section: :LISTer Commands (Programmer's Guide 02.66, ch. 18)
   commands:
   - header: :LISTer:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): the listing shows decoded serial-bus frames; decode is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :LISTer:DISPlay
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): the listing shows decoded serial-bus frames; decode is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :LISTer:REFerence
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): the listing shows decoded serial-bus frames; decode is not rewritten in the platform.'
+    gap: out_of_scope
 - section: :MARKer Commands (Programmer's Guide 02.66, ch. 19)
   commands:
   - header: :MARKer:MODE
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:X1Position
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:X1Y1source
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:X2Position
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:X2Y2source
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:XDELta
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:XUNits
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:XUNits:USE
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:Y1Position
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:Y2Position
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:YDELta
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:YUNits
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MARKer:YUNits:USE
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
+    gap: blocked
+    blocked_by: C5
 - section: :MEASure Commands (Programmer's Guide 02.66, ch. 20)
   commands:
   - header: :MEASure:ALL
@@ -418,6 +748,8 @@ sections:
     note: 'empties the screen list and its statistics (#373)'
   - header: :MEASure:DEFine
     level: not_modeled
+    note: 'Model work: the measurement values exist; DEFINE adds a named expression over them.'
+    gap: model_work
   - header: :MEASure:DELay
     level: implemented
     note: 'first rising edge of source 1 to the first rising edge of source 2 at their middle levels; without sources the two of :MEASure:SOURce. :MEASure:DEFine DELay edges are not modeled (#350)'
@@ -523,313 +855,665 @@ sections:
   commands:
   - header: :MTESt:ALL
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:AMASk:CREate
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:AMASk:SOURce
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:AMASk:UNITs
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:AMASk:XDELta
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:AMASk:YDELta
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:COUNt:FWAVeforms
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:COUNt:RESet
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:COUNt:TIME
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:COUNt:WAVeforms
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:DATA
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:DELete
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:ENABle
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:LOCK
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe:FACTion:MEASure
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe:FACTion:PRINt
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe:FACTion:SAVE
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe:FACTion:STOP
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe:SIGMa
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe:TIME
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:RMODe:WAVeforms
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:SCALe:BIND
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:SCALe:X1
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:SCALe:XDELta
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:SCALe:Y1
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:SCALe:Y2
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:SOURce
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :MTESt:TITLe
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
 - section: :POD Commands (Programmer's Guide 02.66, ch. 22)
   commands:
   - header: :POD<n>:DISPlay
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
   - header: :POD<n>:SIZE
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
   - header: :POD<n>:THReshold
     level: not_modeled
+    note: 'Blocked by C16 (product-plan.md 4.2): digital channels (logic signals).'
+    gap: blocked
+    blocked_by: C16
 - section: :RECall Commands (Programmer's Guide 02.66, ch. 23)
   commands:
   - header: :RECall:FILename
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069); not wired in this model.'
+    gap: blocked
+    blocked_by: file-system
   - header: :RECall:MASK[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :RECall:PWD
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069); not wired in this model.'
+    gap: blocked
+    blocked_by: file-system
   - header: :RECall:SETup[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall to a file (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :RECall:WMEMory<r>[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
 - section: :SAVE Commands (Programmer's Guide 02.66, ch. 24)
   commands:
   - header: :SAVE:FILename
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069); not wired in this model.'
+    gap: blocked
+    blocked_by: file-system
   - header: :SAVE:IMAGe[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :SAVE:IMAGe:FACTors
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :SAVE:IMAGe:FORMat
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :SAVE:IMAGe:INKSaver
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :SAVE:IMAGe:PALette
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :SAVE:LISTer[:STARt]
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): saves the decoded serial-bus listing.'
+    gap: out_of_scope
   - header: :SAVE:MASK[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
+    gap: blocked
+    blocked_by: mask-test
   - header: :SAVE:MULTi[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
   - header: :SAVE:PWD
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069); not wired in this model.'
+    gap: blocked
+    blocked_by: file-system
   - header: :SAVE:SETup[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall to a file (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :SAVE:WAVeform[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
   - header: :SAVE:WAVeform:FORMat
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
   - header: :SAVE:WAVeform:LENGth
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
   - header: :SAVE:WAVeform:LENGth:MAX
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
   - header: :SAVE:WAVeform:SEGMented
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
   - header: :SAVE:WMEMory:SOURce
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :SAVE:WMEMory[:STARt]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
 - section: :SBUS<n> Commands (Programmer's Guide 02.66, ch. 25)
   commands:
   - header: :SBUS<n>:DISPlay
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:COUNt:ERRor
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:COUNt:OVERload
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:COUNt:RESet
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:COUNt:TOTal
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:COUNt:UTILization
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:SAMPlepoint
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:SIGNal:BAUDrate
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:SIGNal:DEFinition
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:SOURce
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:TRIGger
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:TRIGger:PATTern:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:TRIGger:PATTern:DATA:LENGth
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:TRIGger:PATTern:ID
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:CAN:TRIGger:PATTern:ID:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC:ASIZe
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC[:SOURce]:CLOCk
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC[:SOURce]:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC:TRIGger:PATTern:ADDRess
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC:TRIGger:PATTern:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC:TRIGger:PATTern:DATa2
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC:TRIGger:QUALifier
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:IIC:TRIGger[:TYPE]
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:PARity
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:SAMPlepoint
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:SIGNal:BAUDrate
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:SOURce
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:STANdard
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:SYNCbreak
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:TRIGger
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:TRIGger:ID
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:TRIGger:PATTern:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:TRIGger:PATTern:DATA:LENGth
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:LIN:TRIGger:PATTern:FORMat
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:BITorder
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:CLOCk:SLOPe
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:CLOCk:TIMeout
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:FRAMing
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:SOURce:CLOCk
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:SOURce:FRAMe
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:SOURce:MISO
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:SOURce:MOSI
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:TRIGger:PATTern:MISO:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:TRIGger:PATTern:MISO:WIDTh
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:TRIGger:PATTern:MOSI:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:TRIGger:PATTern:MOSI:WIDTh
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:TRIGger:TYPE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:SPI:WIDTh
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:BASE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:BAUDrate
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:BITorder
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:COUNt:ERRor
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:COUNt:RESet
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:COUNt:RXFRames
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:COUNt:TXFRames
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:FRAMing
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:PARity
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:POLarity
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:SOURce:RX
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:SOURce:TX
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:TRIGger:BASE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:TRIGger:BURSt
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:TRIGger:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:TRIGger:IDLE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:TRIGger:QUALifier
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:TRIGger:TYPE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
   - header: :SBUS<n>:UART:WIDTh
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): serial-bus decode and triggers on it are not rewritten in the platform; it also needs the digital channels (C16).'
+    gap: out_of_scope
 - section: :SEARch Commands (Programmer's Guide 02.66, ch. 26)
   commands:
   - header: :SEARch:COUNt
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): waveform search needs the acquisition history to search in.'
+    gap: blocked
+    blocked_by: C8
   - header: :SEARch:MODE
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): waveform search needs the acquisition history to search in.'
+    gap: blocked
+    blocked_by: C8
   - header: :SEARch:STATe
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): waveform search needs the acquisition history to search in.'
+    gap: blocked
+    blocked_by: C8
   - header: :SEARch:SERial:CAN:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:CAN:PATTern:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:CAN:PATTern:DATA:LENGth
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:CAN:PATTern:ID
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:CAN:PATTern:ID:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:IIC:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:IIC:PATTern:ADDRess
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:IIC:PATTern:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:IIC:PATTern:DATA2
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:IIC:QUALifier
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:LIN:ID
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:LIN:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:LIN:PATTern:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:LIN:PATTern:DATA:LENGth
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:LIN:PATTern:FORMat
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:SPI:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:SPI:PATTern:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:SPI:PATTern:WIDTh
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:UART:DATA
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:UART:MODE
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
   - header: :SEARch:SERial:UART:QUALifier
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): searching for serial-bus patterns rides on the decode.'
+    gap: out_of_scope
 - section: :SYSTem Commands (Programmer's Guide 02.66, ch. 27)
   commands:
   - header: :SYSTem:DATE
     level: not_modeled
     note: 'the scope''s real-time clock is not simulated (only virtual time); the date is not stored'
+    gap: out_of_scope
   - header: :SYSTem:DIDentifier
     level: implemented
     note: 'the quoted host ID; the guide''s example is "<model>,<serial>,<host id>" and calls the content product-specific: "DSO-X 2024A,MY58260001,SIMUBENCH2024A" is a SimuBench value'
@@ -858,30 +1542,47 @@ sections:
   - header: :SYSTem:RLOGger
     level: not_modeled
     note: 'remote command logging needs a log file or the screen; not modeled, and its settings (the :RLOGger sub-commands below) are not stored'
+    gap: blocked
+    blocked_by: file-system
   - header: :SYSTem:RLOGger:DESTination
     level: not_modeled
     note: 'as :SYSTem:RLOGger'
+    gap: blocked
+    blocked_by: file-system
   - header: :SYSTem:RLOGger:DISPlay
     level: not_modeled
     note: 'as :SYSTem:RLOGger'
+    gap: blocked
+    blocked_by: file-system
   - header: :SYSTem:RLOGger:FNAMe
     level: not_modeled
     note: 'as :SYSTem:RLOGger'
+    gap: blocked
+    blocked_by: file-system
   - header: :SYSTem:RLOGger:STATe
     level: not_modeled
     note: 'as :SYSTem:RLOGger'
+    gap: blocked
+    blocked_by: file-system
   - header: :SYSTem:RLOGger:TRANsparent
     level: not_modeled
     note: 'as :SYSTem:RLOGger'
+    gap: blocked
+    blocked_by: file-system
   - header: :SYSTem:RLOGger:WMODe
     level: not_modeled
     note: 'as :SYSTem:RLOGger'
+    gap: blocked
+    blocked_by: file-system
   - header: :SYSTem:SETup
     level: not_modeled
-    note: 'the setup (learn) block needs a whole-instrument serialization; not modeled (the same for *LRN)'
+    note: 'Capability gap (not in product-plan.md 4.2): the setup (learn) block; setup_memory component (#1070), not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :SYSTem:TIME
     level: not_modeled
     note: 'as :SYSTem:DATE: no real-time clock is simulated'
+    gap: out_of_scope
 - section: :TIMebase Commands (Programmer's Guide 02.66, ch. 28)
   commands:
   - header: :TIMebase:MODE
@@ -947,24 +1648,54 @@ sections:
     level: implemented
   - header: :TRIGger:DELay:ARM:SLOPe
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): the delayed (arm + trigger) trigger sequence is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:DELay:ARM:SOURce
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): the delayed (arm + trigger) trigger sequence is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:DELay:TDELay:TIME
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): the delayed (arm + trigger) trigger sequence is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:DELay:TRIGger:COUNt
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): the delayed (arm + trigger) trigger sequence is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:DELay:TRIGger:SLOPe
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): the delayed (arm + trigger) trigger sequence is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:DELay:TRIGger:SOURce
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): the delayed (arm + trigger) trigger sequence is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:EBURst:COUNt
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:EBURst:IDLE
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:EBURst:SLOPe
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:EBURst:SOURce
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger[:EDGE]:COUPling
     level: implemented
     note: 'AC: 10 Hz high-pass; LFReject: 50 kHz high-pass (the guide). The coupling with :REJect is not modeled: each keeps its own value'
@@ -1003,62 +1734,138 @@ sections:
     note: 'the same setting as :TRIGger[:EDGE]:SOURce; LINE and WGEN never give a pulse-width trigger; digital channels are not modeled'
   - header: :TRIGger:OR
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): the OR''ed edge trigger over several channels is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:PATTern
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): pattern trigger (also needs the digital channels, C16).'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:PATTern:FORMat
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): pattern trigger (also needs the digital channels, C16).'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:PATTern:QUALifier
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): pattern trigger (also needs the digital channels, C16).'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:RUNT:POLarity
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:RUNT:QUALifier
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:RUNT:SOURce
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:RUNT:TIME
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:SHOLd:SLOPe
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): setup/hold trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:SHOLd:SOURce:CLOCk
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): setup/hold trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:SHOLd:SOURce:DATA
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): setup/hold trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:SHOLd:TIME:HOLD
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): setup/hold trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:SHOLd:TIME:SETup
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): setup/hold trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TRANsition:QUALifier
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): transition (rise/fall time) trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TRANsition:SLOPe
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): transition (rise/fall time) trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TRANsition:SOURce
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): transition (rise/fall time) trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TRANsition:TIME
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): transition (rise/fall time) trigger is part of the wider trigger family.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TV:LINE
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): TV trigger — the signal chain has no video waveform to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TV:MODE
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): TV trigger — the signal chain has no video waveform to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TV:POLarity
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): TV trigger — the signal chain has no video waveform to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TV:SOURce
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): TV trigger — the signal chain has no video waveform to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:TV:STANdard
     level: not_modeled
+    note: 'Blocked by C8 (product-plan.md 4.2): TV trigger — the signal chain has no video waveform to trigger on.'
+    gap: blocked
+    blocked_by: C8
   - header: :TRIGger:USB:SOURce:DMINus
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): the USB packet trigger rides on the serial decode.'
+    gap: out_of_scope
   - header: :TRIGger:USB:SOURce:DPLus
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): the USB packet trigger rides on the serial decode.'
+    gap: out_of_scope
   - header: :TRIGger:USB:SPEed
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): the USB packet trigger rides on the serial decode.'
+    gap: out_of_scope
   - header: :TRIGger:USB:TRIGger
     level: not_modeled
+    note: 'Out of scope: protocol decode (C17, product-plan.md section 6): the USB packet trigger rides on the serial decode.'
+    gap: out_of_scope
 - section: :WAVeform Commands (Programmer's Guide 02.66, ch. 30)
   commands:
   - header: :WAVeform:BYTeorder
     level: implemented
   - header: :WAVeform:COUNt
     level: not_modeled
+    note: 'Model work: the average count of the selected waveform source; average acquisition exists.'
+    gap: model_work
   - header: :WAVeform:DATA
     level: implemented
     note: '#8 block; BYTE codes over the eight screen divisions (32 per division) with 0 for a hole and 1 and 255 for clipped at the bottom and the top (the guide); WORD codes left-shifted to 16 bits; ASCii values with 6 decimals (a SimuBench choice)'
@@ -1084,12 +1891,17 @@ sections:
     note: 'CHANnel1 to 4 (FUNCtion, MATH, WMEMory, SBUS1 not modeled)'
   - header: :WAVeform:SOURce:SUBSource
     level: not_modeled
+    note: 'Blocked by C5 (product-plan.md 4.2): selects the math function (or histogram, waveform memory) as waveform source.'
+    gap: blocked
+    blocked_by: C5
   - header: :WAVeform:TYPE
     level: implemented
   - header: :WAVeform:UNSigned
     level: implemented
   - header: :WAVeform:VIEW
     level: not_modeled
+    note: 'Model work: only MAIN is legal; store and return it (candidate for accepted, affects_data: false).'
+    gap: model_work
   - header: :WAVeform:XINCrement
     level: implemented
   - header: :WAVeform:XORigin
@@ -1106,67 +1918,163 @@ sections:
   commands:
   - header: :WGEN:FREQuency
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:FUNCtion
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:FUNCtion:PULSe:WIDTh
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:FUNCtion:RAMP:SYMMetry
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:FUNCtion:SQUare:DCYCle
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:AM:DEPTh
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:AM:FREQuency
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:FM:DEViation
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:FM:FREQuency
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:FSKey:FREQuency
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:FSKey:RATE
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:FUNCtion
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:FUNCtion:RAMP:SYMMetry
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:NOISe
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:STATe
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:MODulation:TYPE
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:OUTPut
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:OUTPut:LOAD
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:PERiod
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:RST
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:VOLTage
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:VOLTage:HIGH
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:VOLTage:LOW
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
   - header: :WGEN:VOLTage:OFFSet
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the built-in WaveGen output (a function generator inside the scope).'
+    gap: blocked
+    blocked_by: wavegen
 - section: :WMEMory<r> Commands (Programmer's Guide 02.66, ch. 32)
   commands:
   - header: :WMEMory<r>:CLEar
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :WMEMory<r>:DISPlay
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :WMEMory<r>:LABel
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :WMEMory<r>:SAVE
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :WMEMory<r>:SKEW
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :WMEMory<r>:YOFFset
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :WMEMory<r>:YRANge
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory
   - header: :WMEMory<r>:YSCale
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
+    gap: blocked
+    blocked_by: waveform-memory

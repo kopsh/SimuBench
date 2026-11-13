@@ -103,6 +103,7 @@ describe("panel view", () => {
     ladder: null,
     special: null,
     not_modeled: null,
+    words: null,
     replies: null,
     readonly: false,
     electrical: false,
