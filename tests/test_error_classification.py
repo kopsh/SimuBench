@@ -54,7 +54,7 @@ def test_a_not_modeled_command_says_why(tmp_path):
         assert e["reason"] == "not_modeled"
         assert (e["gap"], e["blocked_by"]) == ("blocked", "C5")
         assert "math functions" in e["note"]
-        s.write("dut", b":DISK:PWD?\n")
+        s.write("dut", b":SYSTem:CLOud:DISConnect\n")  # cloud service: out of scope (#1073)
         e = _last(s)
         assert e["gap"] == "out_of_scope" and "blocked_by" not in e
     finally:
