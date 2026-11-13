@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import logging
 import math
+from collections.abc import Iterable
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -220,7 +221,23 @@ class SessionViews:
                 for spec in d.deviations
                 for key in _deviation_keys(inst, spec.component, spec.parameter)
             ],
+            options=option_infos(d, inst.options),
         )
+
+
+def option_infos(d: InstrumentDefinition, installed: Iterable[str]) -> list[M.OptionInfo]:
+    """The model's options (D68): what each changes, and whether this unit has it."""
+    have = set(installed)
+    return [
+        M.OptionInfo(
+            id=o.id,
+            label=o.label,
+            params=[f"{comp}.{param}" for comp, params in o.params.items() for param in params],
+            commands=[c.header for c in d.commands if c.option == o.id],
+            installed=o.id in have,
+        )
+        for o in d.options
+    ]
 
 
 def served_addresses(served: ServedSession) -> dict[str, list[str]]:

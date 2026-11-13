@@ -46,6 +46,15 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
   await expect(page.getByText("失败 1")).toBeHidden();
 });
 
+test("acceptance overview lists the model's options and what each changes (#1007)", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByTestId("instrument-list").getByRole("link", { name: "N9320B Keysight Technologies" }).click();
+  const options = page.getByTestId("overview-options");
+  await expect(options).toContainText("P03");
+  await expect(options).toContainText("input.preamp_gain, input.preamp_noise_figure");
+  await expect(options).toContainText("[:SENSe]:POWer[:RF]:GAIN[:STATe]");
+});
+
 test("acceptance page reloads a changed definition and shows the change in the instrument's language", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
   await page.getByTestId("instrument-list").getByRole("link", { name: "34465A Keysight Technologies" }).click();

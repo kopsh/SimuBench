@@ -24,6 +24,7 @@ from ..cards import ARROWS, opposite_ends
 from ..fmt import cell_len, fmt, pad
 from ..log import source_label
 from ..reasons import ReasonReport, active_faults, explain_instrument
+from ..rows import options_text
 from ..widgets import box_text, box_title, decorate_title, render_segments
 from .dialogs import ScpiConsole
 from .editing import ButtonGrid, ControlButton, ControlEditingScreen
@@ -225,7 +226,10 @@ class InstrumentScreen(ControlEditingScreen):
         width = max(40, app.size.width - 4)
         # Label columns as wide as their longest label, one space after it.
         lw = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.id", "instrument.address"))
-        rw = 1 + max(cell_len(i18n.t(k, lang)) for k in ("instrument.definition", "instrument.real"))
+        rw = 1 + max(
+            cell_len(i18n.t(k, lang))
+            for k in ("instrument.definition", "instrument.real", "instrument.options")
+        )
         rows: list[list[tuple[str, str]]] = [
             [
                 (pad(i18n.t("instrument.id", lang), lw), "muted"),
@@ -262,6 +266,8 @@ class InstrumentScreen(ControlEditingScreen):
             right.append([(i18n.t("instrument.errors", lang) + "  ", "muted"), ("0", "")])
         if info.get("address_real"):
             right.append([(pad(i18n.t("instrument.real", lang), rw), "muted"), (info["address_real"], "")])
+        if (options := options_text(info, lang)) is not None:
+            right.append([(pad(i18n.t("instrument.options", lang), rw), "muted"), (options, "")])
         for fault in self._active_faults():
             right.append([(i18n.t("log.faultActive", lang, id=fault.get("id", "")), "bad")])
         half = width // 2

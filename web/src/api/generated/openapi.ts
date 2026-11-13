@@ -2735,7 +2735,7 @@ export interface components {
             /** Base Sha256 */
             base_sha256: string;
             /** Ops */
-            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddPart"] | components["schemas"]["AddDut"] | components["schemas"]["SetDut"] | components["schemas"]["Remove"] | components["schemas"]["ReplaceInstrument"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["SetDeviation"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
+            ops: (components["schemas"]["AddInstrument"] | components["schemas"]["AddPart"] | components["schemas"]["AddDut"] | components["schemas"]["SetDut"] | components["schemas"]["Remove"] | components["schemas"]["ReplaceInstrument"] | components["schemas"]["Rename"] | components["schemas"]["Connect"] | components["schemas"]["Disconnect"] | components["schemas"]["SetState"] | components["schemas"]["SetParams"] | components["schemas"]["SetAccessories"] | components["schemas"]["SetLabel"] | components["schemas"]["SetAddress"] | components["schemas"]["SetIdentity"] | components["schemas"]["SetDeviation"] | components["schemas"]["SetOptions"] | components["schemas"]["Move"] | components["schemas"]["SetMeta"] | components["schemas"]["SetRun"])[];
             /** Path */
             path: string;
             /**
@@ -2884,6 +2884,23 @@ export interface components {
              * @default {manufacturer},{model},{serial},{firmware}
              */
             idn: string;
+            /**
+             * Options None
+             * @description The whole reply when the unit has no option (IEEE 488.2 10.20: an ASCII 0)
+             * @default 0
+             */
+            options_none: string;
+            /**
+             * Options Reply
+             * @description The built-in *OPT? answers with the options the unit has (the bench instance's `options`, in the definition's order): this text with {options} replaced by them, e.g. '{options}'. Unset: *OPT? is the definition's own command, if any (D68)
+             */
+            options_reply?: string | null;
+            /**
+             * Options Separator
+             * @description Between two options in {options}
+             * @default ,
+             */
+            options_separator: string;
             /**
              * Serial
              * @default SB000001
@@ -3048,6 +3065,11 @@ export interface components {
             model: string;
             /** Name */
             name: string;
+            /**
+             * Options
+             * @description The hardware options the model declares, in its order, each marked installed or not (empty: the model declares none)
+             */
+            options: components["schemas"]["OptionInfo"][];
             /** Ports */
             ports: components["schemas"]["PortInfo"][];
             /**
@@ -3586,6 +3608,35 @@ export interface components {
             type: string | null;
         };
         /**
+         * OptionInfo
+         * @description A hardware option the model declares (选件, D68), and whether this unit has it.
+         */
+        OptionInfo: {
+            /**
+             * Commands
+             * @description Headers of the commands that belong to it
+             */
+            commands: string[];
+            /**
+             * Id
+             * @description The option's name as the manufacturer writes it, e.g. 'P03'
+             */
+            id: string;
+            /**
+             * Installed
+             * @description This unit has it (the bench instance's `options`)
+             * @default false
+             */
+            installed: boolean;
+            /** Label */
+            label: string | null;
+            /**
+             * Params
+             * @description The component parameters it changes, '<component>.<parameter>'
+             */
+            params: string[];
+        };
+        /**
          * OptionSpec
          * @description A hardware option of the model (选件), e.g. a preamplifier: what a unit that has it adds to
          *     the definition. A bench instance lists the options its unit has (`options: [P03]`).
@@ -4097,7 +4148,8 @@ export interface components {
          * ReplaceInstrument
          * @description Swap an instrument's model for another, keeping its name, label, address and place: wires
          *     on ports the new model also has stay, the others are removed; settings the new model also has
-         *     stay, the rest (and the identity overrides of the old unit) are dropped.
+         *     stay, the rest (and the identity overrides of the old unit) are dropped; so are options the new
+         *     model does not declare.
          */
         ReplaceInstrument: {
             /** Model */
@@ -4833,6 +4885,25 @@ export interface components {
              * @enum {string}
              */
             op: "set_meta";
+        };
+        /**
+         * SetOptions
+         * @description The hardware options (选件) an instrument's unit has, replacing the list (D68): ids of the
+         *     definition's ``options``. They take effect when the bench is opened, like any structural edit.
+         */
+        SetOptions: {
+            /** Instrument */
+            instrument: string;
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            op: "set_options";
+            /**
+             * Options
+             * @description Option ids, e.g. ['P03']; [] for none
+             */
+            options?: string[];
         };
         /** SetParams */
         SetParams: {

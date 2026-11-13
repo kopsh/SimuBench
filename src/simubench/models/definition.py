@@ -592,6 +592,16 @@ class Identity(_Model):
     idn: str = "{manufacturer},{model},{serial},{firmware}"
     serial: str = "SB000001"
     firmware: str = "1.0.0"
+    options_reply: str | None = Field(
+        None,
+        description="The built-in *OPT? answers with the options the unit has (the bench instance's "
+        "`options`, in the definition's order): this text with {options} replaced by them, e.g. "
+        "'{options}'. Unset: *OPT? is the definition's own command, if any (D68)",
+    )
+    options_separator: str = Field(",", description="Between two options in {options}")
+    options_none: str = Field(
+        "0", description="The whole reply when the unit has no option (IEEE 488.2 10.20: an ASCII 0)"
+    )
 
 
 class ChannelNumbering(_Model):

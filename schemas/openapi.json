@@ -3075,6 +3075,7 @@
                   "set_identity": "#/components/schemas/SetIdentity",
                   "set_label": "#/components/schemas/SetLabel",
                   "set_meta": "#/components/schemas/SetMeta",
+                  "set_options": "#/components/schemas/SetOptions",
                   "set_params": "#/components/schemas/SetParams",
                   "set_run": "#/components/schemas/SetRun",
                   "set_state": "#/components/schemas/SetState"
@@ -3129,6 +3130,9 @@
                 },
                 {
                   "$ref": "#/components/schemas/SetDeviation"
+                },
+                {
+                  "$ref": "#/components/schemas/SetOptions"
                 },
                 {
                   "$ref": "#/components/schemas/Move"
@@ -3484,6 +3488,30 @@
           "idn": {
             "default": "{manufacturer},{model},{serial},{firmware}",
             "title": "Idn",
+            "type": "string"
+          },
+          "options_none": {
+            "default": "0",
+            "description": "The whole reply when the unit has no option (IEEE 488.2 10.20: an ASCII 0)",
+            "title": "Options None",
+            "type": "string"
+          },
+          "options_reply": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The built-in *OPT? answers with the options the unit has (the bench instance's `options`, in the definition's order): this text with {options} replaced by them, e.g. '{options}'. Unset: *OPT? is the definition's own command, if any (D68)",
+            "title": "Options Reply"
+          },
+          "options_separator": {
+            "default": ",",
+            "description": "Between two options in {options}",
+            "title": "Options Separator",
             "type": "string"
           },
           "serial": {
@@ -3849,6 +3877,14 @@
             "title": "Name",
             "type": "string"
           },
+          "options": {
+            "description": "The hardware options the model declares, in its order, each marked installed or not (empty: the model declares none)",
+            "items": {
+              "$ref": "#/components/schemas/OptionInfo"
+            },
+            "title": "Options",
+            "type": "array"
+          },
           "ports": {
             "items": {
               "$ref": "#/components/schemas/PortInfo"
@@ -3905,6 +3941,7 @@
           "dut",
           "deviation",
           "deviations",
+          "options",
           "remote",
           "local"
         ],
@@ -5030,6 +5067,58 @@
         "title": "OperationParam",
         "type": "object"
       },
+      "OptionInfo": {
+        "description": "A hardware option the model declares (选件, D68), and whether this unit has it.",
+        "properties": {
+          "commands": {
+            "description": "Headers of the commands that belong to it",
+            "items": {
+              "type": "string"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "id": {
+            "description": "The option's name as the manufacturer writes it, e.g. 'P03'",
+            "title": "Id",
+            "type": "string"
+          },
+          "installed": {
+            "default": false,
+            "description": "This unit has it (the bench instance's `options`)",
+            "title": "Installed",
+            "type": "boolean"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "params": {
+            "description": "The component parameters it changes, '<component>.<parameter>'",
+            "items": {
+              "type": "string"
+            },
+            "title": "Params",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "label",
+          "params",
+          "commands",
+          "installed"
+        ],
+        "title": "OptionInfo",
+        "type": "object"
+      },
       "OptionSpec": {
         "additionalProperties": false,
         "description": "A hardware option of the model (选件), e.g. a preamplifier: what a unit that has it adds to\nthe definition. A bench instance lists the options its unit has (`options: [P03]`).",
@@ -6086,7 +6175,7 @@
       },
       "ReplaceInstrument": {
         "additionalProperties": false,
-        "description": "Swap an instrument's model for another, keeping its name, label, address and place: wires\non ports the new model also has stay, the others are removed; settings the new model also has\nstay, the rest (and the identity overrides of the old unit) are dropped.",
+        "description": "Swap an instrument's model for another, keeping its name, label, address and place: wires\non ports the new model also has stay, the others are removed; settings the new model also has\nstay, the rest (and the identity overrides of the old unit) are dropped; so are options the new\nmodel does not declare.",
         "properties": {
           "model": {
             "title": "Model",
@@ -7844,6 +7933,35 @@
           }
         },
         "title": "SetMeta",
+        "type": "object"
+      },
+      "SetOptions": {
+        "additionalProperties": false,
+        "description": "The hardware options (选件) an instrument's unit has, replacing the list (D68): ids of the\ndefinition's ``options``. They take effect when the bench is opened, like any structural edit.",
+        "properties": {
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          },
+          "op": {
+            "const": "set_options",
+            "default": "set_options",
+            "title": "Op",
+            "type": "string"
+          },
+          "options": {
+            "description": "Option ids, e.g. ['P03']; [] for none",
+            "items": {
+              "type": "string"
+            },
+            "title": "Options",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instrument"
+        ],
+        "title": "SetOptions",
         "type": "object"
       },
       "SetParams": {

@@ -81,6 +81,10 @@ class CommandRunner:
                 if compiled.pattern.common and compiled.pattern.match(tokens) is not None:
                     return self._run(compiled, unit, None, {})
             word = unit.tokens[0].keyword
+            if word == "OPT" and self.inst.definition.identity.options_reply is not None:
+                if not unit.query:
+                    raise self.inst.errs._undefined(unit, tokens)
+                return self.inst.common._common(unit), 0
             if not self.inst.common._builtin_allowed(f"*{word}"):
                 raise self.inst.errs._undefined(unit, tokens, builtin=f"*{word}" in COMMON_BUILTINS)
             q_ok, s_ok = COMMON_DIRECTIONS.get(word, (True, True))

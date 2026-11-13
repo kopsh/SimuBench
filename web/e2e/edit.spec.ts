@@ -29,14 +29,15 @@ async function readDoc(request: APIRequestContext, path: string) {
 }
 
 /** A fresh bench file and a session on it, opened in Edit mode. */
-async function openEditor(page: Page): Promise<string> {
+async function openEditor(page: Page, bench: Record<string, unknown> = BENCH): Promise<string> {
   const path = `e2e/edit-${Date.now()}-${counter++}.bench.yaml`;
-  const put = await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data: BENCH } });
+  const put = await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data: bench } });
   expect(put.ok()).toBeTruthy();
   const start = await page.request.post("/api/sessions", { headers, data: { bench_path: path } });
   const sid = ((await start.json()) as { id: string }).id;
   await page.goto(`/s/${sid}?token=${TOKEN}`);
-  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  const nodes = Object.keys(bench.instruments as object).length + Object.keys((bench.parts as object | undefined) ?? {}).length;
+  await expect(page.locator(".react-flow__node")).toHaveCount(nodes);
   await page.getByRole("radio", { name: "搭建" }).click();
   await expect(page.getByRole("tab", { name: "元件库" })).toBeVisible();
   return path;
@@ -176,6 +177,25 @@ test("individual deviations: an instrument draws from its specs, the drawn value
   await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
   await page.getByRole("button", { name: "个体偏差" }).click();
   await expect(page.getByText("已隐藏")).toHaveCount(2);
+});
+
+test("options: install the preamplifier from the inspector, the bench file lists it (#1007)", async ({ page }) => {
+  const path = await openEditor(page, {
+    schema: "simubench.bench/2",
+    name: "options-e2e",
+    instruments: { sa: { model: "keysight-n9320b", label: "频谱仪" }, scope: { model: "sb-dso-4", label: "示波器" } },
+  });
+  // A model without options shows no options section.
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
+  await expect(page.getByRole("switch", { name: "装上选件 P03" })).toHaveCount(0);
+  await page.locator(".react-flow__node").filter({ hasText: "频谱仪" }).click();
+  const p03 = page.getByRole("switch", { name: "装上选件 P03" });
+  await expect(p03).not.toBeChecked();
+  await p03.click();
+  await expect.poll(async () => (await readDoc(page.request, path)).data.instruments).toMatchObject({ sa: { options: ["P03"] } });
+  await expect(p03).toBeChecked();
+  await p03.click();
+  await expect.poll(async () => ((await readDoc(page.request, path)).data.instruments as { sa: { options?: string[] } }).sa.options ?? []).toEqual([]);
 });
 
 test("DUT is a role: mark the meter under calibration, not only a part", async ({ page }) => {

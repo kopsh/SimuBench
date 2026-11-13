@@ -256,6 +256,28 @@ function specValue(value: unknown): string {
 
 /** One deviation's limit, as the definition declares it (a number, a table by ranges, or one
  * limit per frequency band). */
+export interface OptionRow {
+  id: string;
+  label: string | null;
+  params: string[];
+  commands: string[];
+}
+
+/** The model's hardware options (D68) as the overview lists them: what each changes. From the
+ * definition, so the overview reads without a session; the same rows the session's
+ * `InstrumentInfo.options` gives. */
+export function optionRows(definition: {
+  options?: { id: string; label?: string | null; params?: Record<string, Record<string, unknown>> }[];
+  commands?: { header: string; option?: string | null }[];
+}): OptionRow[] {
+  return (definition.options ?? []).map((o) => ({
+    id: o.id,
+    label: o.label ?? null,
+    params: Object.entries(o.params ?? {}).flatMap(([comp, params]) => Object.keys(params).map((p) => `${comp}.${p}`)),
+    commands: (definition.commands ?? []).filter((c) => c.option === o.id).map((c) => c.header),
+  }));
+}
+
 export function deviationLimit(limit: unknown, unit?: string | null, bands?: number[][] | null): string {
   if (bands?.length) {
     return bands

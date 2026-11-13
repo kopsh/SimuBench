@@ -27,6 +27,16 @@ def row(
     ]
 
 
+def options_text(info: dict[str, Any], lang: str) -> str | None:
+    """The hardware options the unit has (D68), as the identity box shows them: 'P03, B25', or
+    'none' when the model declares options and this unit has none; None for a model with none."""
+    declared = info.get("options") or []
+    if not declared:
+        return None
+    installed = [o["id"] for o in declared if o.get("installed")]
+    return ", ".join(installed) if installed else i18n.t("instrument.noOptions", lang)
+
+
 def flag(label: str, on: bool, tokens: str = "ok") -> list[tuple[str, str]]:
     return [(label, tokens if on else "muted"), ("  ", "")]
 

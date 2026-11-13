@@ -92,3 +92,12 @@ def test_read_away_finds_the_fault_origin_in_the_full_stream():
     out = rows.read_away(LANG, stream, [], [], "psu")
     assert len(out) == 1
     assert "Fault f1" in out[0][2]
+
+
+def test_the_identity_box_names_the_options_the_unit_has():
+    """D68, #1007: the installed options; 'none' when the model has some and this unit none; a
+    model without options shows no line."""
+    declared = [{"id": "P03", "installed": True}, {"id": "B25", "installed": False}]
+    assert rows.options_text({"options": declared}, LANG) == "P03"
+    assert rows.options_text({"options": [{**o, "installed": False} for o in declared]}, LANG) == "none"
+    assert rows.options_text({"options": []}, LANG) is None and rows.options_text({}, LANG) is None

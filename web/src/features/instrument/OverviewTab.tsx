@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { InstrumentInfo } from "@/api/client";
 import type { DefinitionData } from "@/api/hooks";
 import { cn } from "@/lib/utils";
-import { deviationLimit, panelView, specRows } from "./model";
+import { deviationLimit, optionRows, panelView, specRows } from "./model";
 
 function Card({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
   return (
@@ -35,6 +35,8 @@ export function OverviewTab({ definition, inst }: { definition: DefinitionData; 
   const specs = specRows(definition.specs);
   const deviations = inst?.deviations ?? [];
   const reference = definition.reference;
+  const options = optionRows(definition);
+  const installed = new Set((inst?.options ?? []).filter((o) => o.installed).map((o) => o.id));
   return (
     <div className="grid auto-rows-min gap-3 p-4 xl:grid-cols-2">
       <Card title={t("acceptance.identity")}>
@@ -155,6 +157,34 @@ export function OverviewTab({ definition, inst }: { definition: DefinitionData; 
           <p className="text-muted-foreground mt-3 border-t pt-2 text-[11px]">
             {t(`acceptance.panelSource.${inst.display.panel_source}`)}
           </p>
+        )}
+      </Card>
+
+      <Card title={t("option.title")}>
+        {options.length === 0 ? (
+          <p className="text-muted-foreground text-xs">{t("option.none")}</p>
+        ) : (
+          <div className="space-y-3 text-xs" data-testid="overview-options">
+            {options.map((o) => (
+              <div key={o.id} className="space-y-1">
+                <div className="flex flex-wrap items-baseline gap-x-2">
+                  <span className="num font-medium">{o.id}</span>
+                  {o.label && <span>{o.label}</span>}
+                  {installed.has(o.id) && <span className="text-muted-foreground">{t("option.installed")}</span>}
+                </div>
+                {o.params.length > 0 && (
+                  <div className="text-muted-foreground text-[11px]">
+                    {t("option.params")}: <span className="num">{o.params.join(", ")}</span>
+                  </div>
+                )}
+                {o.commands.length > 0 && (
+                  <div className="text-muted-foreground text-[11px]">
+                    {t("option.commands")}: <span className="num">{o.commands.join(", ")}</span>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         )}
       </Card>
 
