@@ -32,7 +32,10 @@ def noise_sigma(range_: float, integration_s: float = READING_TIME) -> float:
 
 
 def session():
-    return open_bench(BENCH)
+    # idle: sleep is the documented deterministic tier for tests (D47): wall would bill the runner's
+    # scheduling jitter into the virtual clock (issue 1015: 16 ms on Windows CI broke the exact
+    # reading-time assertions).
+    return open_bench(BENCH, idle="sleep")
 
 
 def q(s, command: str) -> str | None:
