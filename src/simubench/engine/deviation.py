@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import itertools
 import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from numbers import Real
 from typing import TYPE_CHECKING, Any
 
@@ -220,10 +220,51 @@ def has_unit_values(comp: Component) -> bool:
     return bool(comp.unit_values)
 
 
-def deviation_keys(inst: Instrument, component: str, parameter: str) -> list[str]:
+def case_label(when: Mapping[str, Any] | None) -> str:
+    """How a deviation's settings read in its record key (D70): ``power.gain=ON``, several values
+    joined by ``|`` and several settings by ``,``, in the order the definition writes them."""
+
+    def word(value: Any) -> str:
+        if isinstance(value, bool):
+            return "ON" if value else "OFF"
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        return str(value)
+
+    return ",".join(
+        f"{path}={'|'.join(word(v) for v in (wanted if isinstance(wanted, list) else [wanted]))}"
+        for path, wanted in (when or {}).items()
+    )
+
+
+def deviation_keys(
+    inst: Instrument, component: str, parameter: str, when: Mapping[str, Any] | None = None
+) -> list[str]:
     """The deviation-record keys of one spec: ``'<component>.<parameter>'``, or one
-    ``'ch<n>.<component>.<parameter>'`` per channel when the component is a channel component.
-    The one place the ``ch<n>`` rule lives (#462)."""
+    ``'ch<n>.<component>.<parameter>'`` per channel when the component is a channel component;
+    a deviation for some settings (D70) adds them: ``'input.flatness[power.gain=ON]'``. The one
+    place the ``ch<n>`` rule lives (#462)."""
+    suffix = f"[{case_label(when)}]" if when else ""
     if component in {c.name for c in inst.definition.channel_components}:
-        return [f"ch{n}.{component}.{parameter}" for n in range(1, inst.channel_count + 1)]
-    return [f"{component}.{parameter}"]
+        return [f"ch{n}.{component}.{parameter}{suffix}" for n in range(1, inst.channel_count + 1)]
+    return [f"{component}.{parameter}{suffix}"]
+
+
+def draw_case(
+    comp: Component,
+    rng: DeviationRange,
+    parameter: str,
+    when: dict[str, list[Any]],
+    label: str,
+    seed: int,
+    *who: object,
+) -> Any:
+    """Draw one deviation that applies under some settings (D70) and register it on the component:
+    drawn around the parameter's nominal value with those settings (the first value of each), on
+    its own stream (the settings' label joins the parameter's), the first case registered wins.
+    Construction-time, like :func:`draw_overrides`; returns the value for the caller's record."""
+    nominal = comp.param_at(parameter, {path: values[0] for path, values in when.items()})
+    value = draw(rng, nominal, seed, *who, comp.name, parameter, label)
+    comp.unit_cases.setdefault(parameter, []).append((when, value))
+    comp.unit_values.add(parameter)
+    return value

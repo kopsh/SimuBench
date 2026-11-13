@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import math
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar, Literal, Protocol, runtime_checkable
 
@@ -231,18 +231,27 @@ def binding_of(value: Any) -> str | None:
     return None
 
 
+def inner_values(mapping: dict[str, Any]) -> list[Any]:
+    """The values a mapping can give: its ``map`` and ``table`` entries and its ``default`` — each
+    may itself be ``$path`` or another mapping (#383, D70: several settings decide one parameter)."""
+    return [
+        *dict(mapping.get("map") or {}).values(),
+        *dict(mapping.get("table") or {}).values(),
+        mapping.get("default"),
+    ]
+
+
 def nested_bindings(value: Any) -> list[str]:
     """Every state path a parameter value reads: its own binding and those inside a nested mapping
-    (a mapped value or default that is itself ``$path`` or another mapping, #383), so a change of
-    any of them reaches the component."""
+    (a mapped value, table entry or default that is itself ``$path`` or another mapping, #383,
+    D70), so a change of any of them reaches the component."""
     found: list[str] = []
     if isinstance(value, str) and value.startswith("$"):
         found.append(value[1:])
     elif isinstance(value, dict) and "from" in value:
         found.extend(nested_bindings(value["from"]))
-        for inner in dict(value.get("map") or {}).values():
+        for inner in inner_values(value):
             found.extend(nested_bindings(inner))
-        found.extend(nested_bindings(value.get("default")))
     return found
 
 
@@ -453,6 +462,9 @@ class Component:
         #: them). The run-time overrides a block writes for itself (a sweep's level, a calibrator's
         #: operate) are not: what the internal probe keeps back is decided from this (#972).
         self.unit_values: set[str] = set()
+        #: Deviations drawn for a set of settings (D70): parameter -> [(when, value)], the ``when``
+        #: as {state path: [canonical values]}; the first that holds gives the parameter.
+        self.unit_cases: dict[str, list[tuple[dict[str, list[Any]], Any]]] = {}
 
     # ---- identity ----------------------------------------------------------------------------
 
@@ -503,18 +515,32 @@ class Component:
     def param(self, key: str) -> Any:
         if key in self.overrides:
             return self.overrides[key]
+        cases = self.unit_cases.get(key)
+        if cases and self.owner is not None:
+            state = self.owner.state
+            for when, value in cases:
+                if all(state.get(path) in values for path, values in when.items()):
+                    return value
         return self._resolve(key, self._params.get(key))
 
-    def _resolve(self, key: str, value: Any) -> Any:
+    def param_at(self, key: str, state: Mapping[str, Any]) -> Any:
+        """The parameter as the model defines it with the settings in ``state`` (the rest as they
+        are): the nominal value a deviation for those settings is drawn around (D70)."""
+        return self._resolve(key, self._params.get(key), state)
+
+    def _resolve(self, key: str, value: Any, state: Mapping[str, Any] | None = None) -> Any:
         if isinstance(value, dict) and "from" in value:  # a mapping of a setting (ParamMapping)
             # A mapped value may itself be $path, another setting (#383: the SR86x output offset
-            # is COFP's percentage while COFA is on, else 0).
-            return self._resolve(key, map_setting(value, self._resolve(key, value["from"])))
+            # is COFP's percentage while COFA is on, else 0), or another mapping (D70).
+            return self._resolve(key, map_setting(value, self._resolve(key, value["from"], state)), state)
         if isinstance(value, str):
             if value.startswith("$"):
                 if self.owner is None:
                     raise ValueError(f"{self.uid}: binding {value!r} outside an instrument")
-                return self.owner.get_state(self.resolve_path(value[1:]))
+                path = self.resolve_path(value[1:])
+                if state is not None and path in state:
+                    return state[path]
+                return self.owner.get_state(path)
             default = self.defaults.get(key)
             if isinstance(default, (int, float)) and not isinstance(default, bool):
                 # YAML 1.1 reads "25.0e6" (no exponent sign) as a string; numbers are meant here.
@@ -799,6 +825,9 @@ class Component:
                 path = self.resolve_path(ref)
                 if path not in out:
                     out.append(path)
+        for cases in self.unit_cases.values():  # the settings a drawn deviation's case reads (D70)
+            for when, _value in cases:
+                out.extend(p for p in when if p not in out)
         return out
 
     def nominal(self) -> list[tuple[str, Any, str | None]]:

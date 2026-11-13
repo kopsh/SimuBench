@@ -214,11 +214,18 @@ class Instrument:
     def _draw_deviations(self) -> None:
         """Individual deviations within the definition's ranges, from the bench seed; a value the
         bench writes in ``hidden`` stays (metrology-authoring.md 7)."""
-        from .deviation import deviation_keys, draw_overrides
+        from .constraints import when_values
+        from .deviation import case_label, deviation_keys, draw, draw_case, draw_overrides
 
-        for spec in self.definition.deviations:
-            for key in deviation_keys(self, spec.component, spec.parameter):
-                cname = key.removesuffix(f".{spec.parameter}")
+        # A parameter with deviations for some settings (D70) keeps its deviation for the rest as
+        # the last case, not as an override: an override would win over every case.
+        mine = [s for s in self.definition.deviations if s.option is None or s.option in self.options]
+        cased = {s.param for s in mine if s.when}
+        rest: list[tuple[Component, str, Any]] = []
+        for spec in mine:
+            for key in deviation_keys(self, spec.component, spec.parameter, spec.when):
+                cname = key.removesuffix(f"[{case_label(spec.when)}]" if spec.when else "")
+                cname = cname.removesuffix(f".{spec.parameter}")
                 comp = self.components.get(cname)
                 if comp is None:
                     raise ValueError(f"instrument {self.name!r}: deviation of unknown component {cname!r}")
@@ -226,11 +233,38 @@ class Instrument:
                     raise ValueError(
                         f"instrument {self.name!r}: deviation of unknown parameter {cname}.{spec.parameter!r}"
                     )
+                if spec.when:
+                    # A deviation for some settings (D70): hidden beats it as it beats a draw.
+                    if spec.parameter in comp.overrides:
+                        continue
+                    when = {p: when_values(self.specs.get(p), v) for p, v in spec.when.items()}
+                    label = case_label(spec.when)
+                    value = draw_case(comp, spec, spec.parameter, when, label, self.session.seed, self.name)
+                    self.deviations[key] = value
+                    continue
+                if spec.param in cased:
+                    if spec.parameter in comp.overrides:
+                        continue
+                    # the stream of an unconditional draw, as draw_overrides keys it
+                    value = draw(
+                        spec,
+                        comp.param_at(spec.parameter, {}),
+                        self.session.seed,
+                        self.name,
+                        comp.name,
+                        spec.parameter,
+                    )
+                    rest.append((comp, spec.parameter, value))
+                    self.deviations[key] = value
+                    continue
                 # draw_overrides appends (comp.name, parameter) itself: the stream stays
                 # (instrument, component, parameter), exactly as the draws have always been keyed.
                 drawn = draw_overrides(comp, [(spec.parameter, spec)], self.session.seed, self.name)
                 for param, value in drawn.items():
                     self.deviations[f"{cname}.{param}"] = value
+        for comp, parameter, value in rest:
+            comp.unit_cases.setdefault(parameter, []).append(({}, value))
+            comp.unit_values.add(parameter)
 
     def _add_component(self, name: str, type_name: str, params: dict[str, Any], channel: int | None) -> None:
         cls = component_type(type_name)

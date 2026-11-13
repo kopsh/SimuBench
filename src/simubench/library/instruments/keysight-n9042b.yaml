@@ -13,13 +13,14 @@ description: >-
   about 10% steps (span:RBW 106 when coupled), VBW to 8 MHz plus the 50 MHz wide-open setting,
   sweep time 1 ms to 4000 s, Normal (Rosenfell) detection with the automatic detector, and
   max/min hold. Only trace 1 and marker 1 exist; the measurement applications (ACP, CHP, OBW,
-  TOI, SEM, ...), other modes, zero span, the preamplifier, triggers other than free run and the
-  tracking source are not modeled; the coverage table names every remaining gap.
-  tracking source are not modeled; the coverage table names every remaining gap. The front end
+  TOI, SEM, ...), other modes, zero span, triggers other than free run and the tracking source
+  are not modeled; the coverage table names every remaining gap. The front end
   follows the Data Sheet (3121-1037.EN, standard path, #960): noise figure, SHI, TOI and 1 dB
   compression for the band of the center frequency, and the CF = 1 GHz phase-noise table;
-  the standard-path frequency response as a per-unit deviation by band (#960). The LNA and PA
-  preamplifiers (options P26/P44/P4L/P50/P5L, with their own paths) are not modeled.
+  the standard-path frequency response as a per-unit deviation by band (#960). The internal
+  preamp of the reference (POW:GAIN, GAIN:BAND) is the data sheet's PA, option P26 (#1020): path
+  1c's figures and response while it amplifies. The LNA (no command in the reference) and the
+  microwave paths of POW:MW:PATH (LNP, MPB, full bypass) are not modeled.
 reference:
   title: Keysight X-Series Signal Analyzer Spectrum Analyzer Mode User's & Programmer's Reference
   document: N9060-90027
@@ -33,6 +34,10 @@ identity:
   idn: "Keysight Technologies,N9042B,{serial},{firmware}"
   serial: "MY00000001"
   firmware: "A.25.05"
+  # *OPT?（参考手册第 222 页）：已装选件的逗号分隔列表，如 "503,P03,PFR"。频率选件 526 总在列，
+  # 装了前放（P26）的整机接着列出它（D68，#1007）。手册写明回复带引号，本模型沿用不带引号的写法。
+  options_reply: "526,{options}"
+  options_none: "526"
 builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST", ":SYSTem:ERRor[:NEXT]"]
 error_queue: 20
 # The reference writes numeric values as +1.92000000E+009 (its preset tables): eight decimals,
@@ -62,8 +67,10 @@ specs:
     5.2 GHz ±2.70 dB; >5.2 to 8.4 GHz ±2.50 dB; >8.4 to 13.6 GHz ±2.00 dB; >13.6 to 17.1 GHz
     ±2.00 dB; >17.1 to 26.5 GHz ±2.32 dB (declared in deviations)
   preamplifiers: >-
-    p.18 LNA (options P44/P4L/P50/P5L) and PA, 40 dB together nominal (options; not declared: two
-    preamplifiers on several signal paths, each with its own commands and responses)
+    p.18 LNA (options P44/P4L/P50/P5L) and PA, 40 dB together nominal; PA: 9 kHz up, gain 30 dB,
+    noise figure 10 dB (nominal). Declared: the PA as option P26 (the reference's internal preamp)
+    with path 1c — p.22 DANL 1c, p.26 SHI 1c, p.27 TOI 1c, p.19 compression 1c, p.10 frequency
+    response 1c (#1020). The LNA (paths 1b, 1d) is not declared: no command in the reference
   gain_compression: >-
     p.19 1 dB gain compression, 1a. PA off (nominal, mixer power): 20 to 40 MHz +2 dBm; >40 MHz to
     3.6 GHz +5 dBm; >3.6 to 13.5 GHz +8 dBm; >13.5 to 26.5 GHz +3 dBm; >26.5 to 50 GHz +6 dBm
@@ -179,6 +186,19 @@ state:
     default: true
     label: 衰减自动
     label_en: Attenuation auto
+  # 内部前置放大器（Internal Preamp，参考手册第 578–580 页；选件 P26，#1020）：开关的预置为 OFF，
+  # 频段的预置为 LOW（只在低频段 0–3.6 GHz 放大）。
+  power.gain:
+    type: bool
+    default: false
+    label: 前置放大器
+    label_en: Internal preamp
+  power.gain_band:
+    type: enum
+    options: [LOW, FULL]
+    default: LOW
+    label: 前置放大器频段
+    label_en: Preamp band
   display.ref_level:
     type: float
     unit: DBM
@@ -356,12 +376,6 @@ state:
       DBG: amplitude units other than dBm are not modeled
     label: 电平单位
     label_en: Amplitude unit
-  system.options:
-    type: string
-    default: "526"
-    readonly: true
-    label: 选件
-    label_en: Options
   # ---- display settings (accepted: they change the screen only) ----
   display.enable:
     type: bool
@@ -413,6 +427,8 @@ components:
       att: $power.att
       att_auto: $power.att_auto
       ref_level: $display.ref_level
+      # 自动衰减按参考手册第 550 页（(Mech) Atten 的 Couplings）计入前放增益：Atten = RefLevel + PreAmpGain − MaxMixerLevel。
+      preamp_in_mixer_level: true
   - name: mixer
     type: specan_mixer
     params:
@@ -421,20 +437,20 @@ components:
       # 0 dB 衰减、RBW 1 Hz、对数平均（比功率低 2.51 dB），本模型的噪声底 = −174 dBm/Hz + NF +
       # 10·lg(1.0645 × 1 Hz) − 2.51，故 NF = DANL + 176.24 dB。100 Hz–9 kHz 各段取 nominal 值；
       # 频段的写法“> a 到 b”取下沿 a 为表项（2.3 的 table：取不大于中心频率的最大表项）。
-      noise_figure:
+      noise_figure: &nf_1a
         from: $freq.center
         table: {0: 86.24, 10.0: 61.24, 100.0: 48.24, 1.0e3: 38.24, 9.0e3: 30.24, 100.0e3: 21.24, 1.0e6: 20.24, 10.0e6: 21.24, 1.2e9: 22.24, 2.1e9: 24.24, 3.6e9: 26.24, 6.6e9: 25.24, 8.4e9: 27.24, 17.1e9: 30.24, 22.5e9: 33.24, 26.5e9: 36.24}
       # 二次谐波截点（第 26 页 SHI 1a，混频器电平 −15 dBm）：本模型的二次谐波 = 2P − IIP2 − 6.02 dB，
       # SHI = IIP2 + 6.02，故 IIP2 = SHI − 6.02。10 MHz 以下、25 GHz 以上手册没有给，不声明（理想）。
-      iip2_dbm:
+      iip2_dbm: &ip2_1a
         from: $freq.center
         table: {0: null, 10.0e6: 39.98, 1.8e9: 45.98, 3.0e9: 48.98, 5.2e9: 57.98, 13.25e9: 46.98, 25.0e9: null}
       # 三阶截点（第 27 页 TOI 1a，两个 −16 dBm 的音在混频器处，typical 列）；10 MHz 以下不声明。
-      iip3_dbm:
+      iip3_dbm: &ip3_1a
         from: $freq.center
         table: {0: null, 10.0e6: 18.0, 350.0e6: 19.0, 1.1e9: 21.0, 3.0e9: 22.0, 3.6e9: 19.0, 13.6e9: 16.0, 21.0e9: 18.0, 26.5e9: 19.0}
       # 1 dB 压缩点（第 19 页 1a PA off，混频器功率，nominal）；20 MHz 以下不声明。
-      p1db_dbm:
+      p1db_dbm: &p1_1a
         from: $freq.center
         table: {0: null, 20.0e6: 2.0, 40.0e6: 5.0, 3.6e9: 8.0, 13.5e9: 3.0, 26.5e9: 6.0}
   - name: lo
@@ -513,13 +529,97 @@ deviations:
       - [17.1e9, 26.5e9]
     limit: [0.54, 0.44, 0.58, 2.70, 2.50, 2.00, 2.00, 2.32]
     reference: 50.0e6
+  # 前放（PA）开着时的频响（第 10 页 1c. Standard path, PA on，全温度范围；1 MHz 以下手册只给了
+  # typical，不声明），每台另抽一条（D70，只有装了 P26 的整机抽）。频段 FULL：1c 覆盖全频段。
+  - param: input.flatness
+    option: P26
+    when: {power.gain: ON, power.gain_band: FULL}
+    bands:
+      - [1.0e6, 50.0e6]
+      - [50.0e6, 3.6e9]
+      - [3.6e9, 5.2e9]
+      - [5.2e9, 8.4e9]
+      - [8.4e9, 13.6e9]
+      - [13.6e9, 17.1e9]
+      - [17.1e9, 26.5e9]
+    limit: [0.80, 0.68, 2.80, 2.60, 2.30, 2.30, 2.86]
+    reference: 50.0e6
+  # 频段 LOW：PA 只在 3.6 GHz 以下放大，以上走标准通路，限值用 1a 的。这一条是独立抽取的，所以
+  # 3.6 GHz 以上与 PA 关时的曲线不同（同样的限值，另一条个体曲线；简化，覆盖表注明）。
+  - param: input.flatness
+    option: P26
+    when: {power.gain: ON, power.gain_band: LOW}
+    bands:
+      - [1.0e6, 50.0e6]
+      - [50.0e6, 3.6e9]
+      - [3.6e9, 5.2e9]
+      - [5.2e9, 8.4e9]
+      - [8.4e9, 13.6e9]
+      - [13.6e9, 17.1e9]
+      - [17.1e9, 26.5e9]
+    limit: [0.80, 0.68, 2.70, 2.50, 2.00, 2.00, 2.32]
+    reference: 50.0e6
+options:
+  # 前置放大器（数据手册第 18 页：LNA 与 PA 两级，选件 P26/P44/P4L/P50/P5L；本型号的频率选件 526
+  # 配 P26）。参考手册（N9060-90027）的 Internal Preamp 只有开关与频段两条命令，对应数据手册的
+  # PA（1c 通路：“Allows tuning down to 100 kHz”）；LNA 在参考手册里没有命令，不建模（1b、1d）。
+  # 数据手册按通路给出整条通路的指标（DANL、SHI、TOI、1 dB 压缩、频响），所以 PA 起作用时，这些
+  # 指标全部写在输入块的前放上，混频器在这条通路上不再计入（null，D70）；PA 不起作用时（关，或
+  # 频段 LOW 而中心频率在 3.6 GHz 及以上），前放不在链上，混频器用 1a 的值，与未装选件相同。
+  # 各参数按“开关 → 频段 → 中心频率”嵌套取值（D70），在中心频率处求值（与 1a 相同的约定）。
+  - id: P26
+    label: 前置放大器 LNA 与 PA，至 26.5 GHz（Preamplifiers, LNA and PA）
+    params:
+      input:
+        # 增益 30 dB（第 18 页 PA，nominal）。
+        preamp_gain:
+          from: $power.gain
+          map:
+            "False": 0.0
+            "True": {from: $power.gain_band, map: {FULL: 30.0, LOW: {from: $freq.center, table: {0: 30.0, 3.6e9: 0.0}}}}
+        # 噪声系数（第 22 页 DANL 1c，typical 列）：NF = DANL + 176.24 dB（换算同混频器的 1a 表）；
+        # 100 kHz 以下手册没有给，沿用 > 100–200 kHz 的值（假设）。
+        preamp_noise_figure:
+          from: $power.gain
+          map:
+            "False": null
+            "True": {from: $power.gain_band, map: {FULL: &nf_1c {from: $freq.center, table: {0: 16.24, 200.0e3: 14.24, 500.0e3: 11.24, 1.0e6: 10.24, 2.1e9: 12.24, 3.6e9: 10.24, 17.1e9: 11.24, 20.0e9: 13.24, 26.5e9: 14.24}}, LOW: {from: $freq.center, table: {0: *nf_1c, 3.6e9: null}}}}
+        # 二次谐波截点（第 26 页 SHI 1c，前放电平 −45 dBm，nominal）：IIP2 = SHI − 6.02；10 MHz 以下、
+        # 13.25 GHz 以上手册没有给，不声明（理想）。
+        iip2_dbm:
+          from: $power.gain
+          map:
+            "False": null
+            "True": {from: $power.gain_band, map: {FULL: &ip2_1c {from: $freq.center, table: {0: null, 10.0e6: 21.98, 1.8e9: -1.02, 13.25e9: null}}, LOW: {from: $freq.center, table: {0: *ip2_1c, 3.6e9: null}}}}
+        # 三阶截点（第 27 页 TOI 1c，两个 −34 dBm 的音在前放输入，nominal）；10 MHz 以下不声明。
+        iip3_dbm:
+          from: $power.gain
+          map:
+            "False": null
+            "True": {from: $power.gain_band, map: {FULL: &ip3_1c {from: $freq.center, table: {0: null, 10.0e6: 0.0, 500.0e6: 2.0, 1.6e9: 3.0, 3.6e9: -12.0, 13.6e9: -14.0, 21.0e9: -8.0, 26.5e9: -10.0}}, LOW: {from: $freq.center, table: {0: *ip3_1c, 3.6e9: null}}}}
+        # 1 dB 压缩点（第 19 页 1c. PA，混频器功率，nominal）；20 MHz 以下不声明。
+        p1db_dbm:
+          from: $power.gain
+          map:
+            "False": null
+            "True": {from: $power.gain_band, map: {FULL: &p1_1c {from: $freq.center, table: {0: null, 20.0e6: -14.0, 3.6e9: -22.0, 13.5e9: -24.0, 26.5e9: -23.0}}, LOW: {from: $freq.center, table: {0: *p1_1c, 3.6e9: null}}}}
+      mixer:
+        # PA 起作用时整条通路的指标在前放上，混频器不再计入；否则为 1a。
+        noise_figure:
+          from: $power.gain
+          map: {"False": *nf_1a, "True": {from: $power.gain_band, map: {FULL: null, LOW: {from: $freq.center, table: {0: null, 3.6e9: *nf_1a}}}}}
+        iip2_dbm:
+          from: $power.gain
+          map: {"False": *ip2_1a, "True": {from: $power.gain_band, map: {FULL: null, LOW: {from: $freq.center, table: {0: null, 3.6e9: *ip2_1a}}}}}
+        iip3_dbm:
+          from: $power.gain
+          map: {"False": *ip3_1a, "True": {from: $power.gain_band, map: {FULL: null, LOW: {from: $freq.center, table: {0: null, 3.6e9: *ip3_1a}}}}}
+        p1db_dbm:
+          from: $power.gain
+          map: {"False": *p1_1a, "True": {from: $power.gain_band, map: {FULL: null, LOW: {from: $freq.center, table: {0: null, 3.6e9: *p1_1a}}}}}
 commands:
   # ---- common commands beyond the built-ins ----------------------------------------------------
-  - header: "*OPT"
-    state: system.options
-    set: false
-    reply: "526"
-    doc: 只装频率选件 526（2 Hz–26.5 GHz）；其余选件未建模。
+  # *OPT? is the built-in one (identity.options_reply): the frequency option and the installed ones.
   # ---- frequency -------------------------------------------------------------------------------
   - header: "[:SENSe]:FREQuency:CENTer"
     op: sa.frequency
@@ -577,6 +677,15 @@ commands:
   - header: "[:SENSe]:POWer[:RF]:ATTenuation"
     op: input.coupled_att
     params: [{name: value, type: float, unit: DB, optional: true}]
+  # 内部前放（参考手册第 578–580 页，选件 P26）。没装前放的整机：手册只说按键不显示；同一手册对
+  # 未装的 LNP、MPB 选件写明 SCPI 报 -241 "Hardware missing; Option not installed"，这里照此处理
+  # （设置与查询都报 -241，假设，覆盖表注明）。
+  - header: "[:SENSe]:POWer[:RF]:GAIN[:STATe]"
+    state: power.gain
+    option: P26
+  - header: "[:SENSe]:POWer[:RF]:GAIN:BAND"
+    state: power.gain_band
+    option: P26
   - header: ":DISPlay:WINDow<n>:TRACe:Y[:SCALe]:RLEVel"
     state: display.ref_level
     suffixes: {n: [1]}

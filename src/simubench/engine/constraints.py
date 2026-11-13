@@ -25,16 +25,17 @@ def _canonical(spec: StateSpec | None, value: Any) -> Any:
         return value
 
 
-def _values(spec: StateSpec | None, wanted: Any) -> list[Any]:
+def when_values(spec: StateSpec | None, wanted: Any) -> list[Any]:
+    """A ``when`` entry's values (one or a list) in the form the state stores them (D69, D70)."""
     return [_canonical(spec, v) for v in (wanted if isinstance(wanted, list) else [wanted])]
 
 
 def holds(c: ConstraintSpec, specs: Mapping[str, StateSpec], state: Mapping[str, Any]) -> bool:
     """Whether ``state`` breaks the constraint: every ``when`` setting has its value and a
     ``forbid`` setting one of the excluded values."""
-    if not all(state.get(p) in _values(specs.get(p), v) for p, v in c.when.items()):
+    if not all(state.get(p) in when_values(specs.get(p), v) for p, v in c.when.items()):
         return False
-    return any(state.get(p) in _values(specs.get(p), v) for p, v in c.forbid.items())
+    return any(state.get(p) in when_values(specs.get(p), v) for p, v in c.forbid.items())
 
 
 def broken(

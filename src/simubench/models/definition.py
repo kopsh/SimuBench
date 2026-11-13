@@ -93,8 +93,10 @@ class ParamMapping(_Model):
 
     The value of ``from`` is looked up in ``map`` (``default`` when it is not there, else it passes
     through), or through a numeric ``table`` (the largest entry not above the value), then numbers
-    become ``value * scale + offset``. There is no expression language: what a table and a straight
-    line cannot say belongs in a component.
+    become ``value * scale + offset``. A value of ``map`` or ``table`` (or the ``default``) may itself
+    be ``$path`` or another mapping, read from its own setting when it is picked: several settings
+    decide one parameter, e.g. a preamplifier's state and the frequency band (D70). There is no
+    expression language: what tables and a straight line cannot say belongs in a component.
     """
 
     from_: str = Field(..., alias="from", pattern=r"^\$", description="The setting, e.g. '$ch.wave'")
@@ -126,6 +128,13 @@ class OptionSpec(_Model):
         "each replaces the parameter the definition's `components` give (the unit without the option)",
     )
 
+    @model_validator(mode="after")
+    def _check_mappings(self) -> OptionSpec:
+        for params in self.params.values():
+            for value in params.values():
+                check_mapping(value)
+        return self
+
 
 class ComponentSpec(_Model):
     name: str
@@ -139,9 +148,19 @@ class ComponentSpec(_Model):
     @model_validator(mode="after")
     def _check_mappings(self) -> ComponentSpec:
         for value in self.params.values():
-            if isinstance(value, dict) and "from" in value:
-                ParamMapping.model_validate(value)
+            check_mapping(value)
         return self
+
+
+def check_mapping(value: Any) -> None:
+    """A parameter mapping, and every mapping nested in its ``map``, ``table`` or ``default``
+    (D70), must be a well-formed ``ParamMapping``."""
+    if not (isinstance(value, dict) and "from" in value):
+        return
+    ParamMapping.model_validate(value)
+    for inner in (*dict(value.get("map") or {}).values(), *dict(value.get("table") or {}).values()):
+        check_mapping(inner)
+    check_mapping(value.get("default"))
 
 
 class QuantityUnit(_Model):

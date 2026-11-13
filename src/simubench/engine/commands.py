@@ -88,6 +88,16 @@ def builtin_runs(named: str, query: bool) -> bool:
     return False
 
 
+def answered_builtins(definition: InstrumentDefinition) -> list[str]:
+    """The built-in headers the definition answers without a command of its own: its
+    ``builtins`` list (all of ``BUILTIN_HEADERS`` when unset), and ``*OPT`` when its identity
+    lists the installed options (``identity.options_reply``, D68)."""
+    headers = list(BUILTIN_HEADERS if definition.builtins is None else definition.builtins)
+    if definition.identity.options_reply is not None:
+        headers.append("*OPT")
+    return headers
+
+
 def named_builtin(tokens: tuple[Token, ...]) -> str | None:
     """The built-in :SYSTem: header the tokens name (the common ``*`` ones are in ``COMMON``),
     or None."""

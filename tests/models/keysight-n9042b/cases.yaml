@@ -423,12 +423,10 @@ cases:
       - query: ":DISP:ANN:TRAC?"
         expect: "0"
 
-  - name: "未实现的命令回复 -113：前置放大、零跨度以外的测量应用、标记 STATe"
-    manual: "8 Swept SA Measurement > AMPTD > Internal Preamp (p.555); 3 Programming the Analyzer > List of SCPI Commands (p.131–174)"
+  - name: "未实现的命令回复 -113：零跨度以外的测量应用、标记 STATe"
+    manual: "3 Programming the Analyzer > List of SCPI Commands (p.131–174)"
+    # 前放命令（#1020）已建模：没装选件的整机报 -241，见“内部前放”用例。
     steps:
-      - send: ":POW:GAIN ON"
-      - query: ":SYST:ERR?"
-        expect: "-113,\"Undefined header;not implemented in this definition\""
       - send: ":CONF:ACP"
       - query: ":SYST:ERR?"
         expect_prefix: "-113,"
@@ -531,3 +529,39 @@ cases:
       - query: ":CALC:MARK:Y?"
         expect_value: -98.0
         tolerance: 0.2
+
+  - name: "内部前放（选件 P26，PA）：前放开时噪声底按 1c 的 DANL；频段 LOW 时 3.6 GHz 以上不放大；没装选件的整机报 -241"
+    manual: "Data Sheet 3121-1037.EN p.21 > DANL 1a typical: >10 MHz to 1.2 GHz -155 dBm, >8.4 to 13.6 GHz -149 dBm；p.22 > DANL 1c (PA on) typical: >1 MHz to 2.1 GHz -166 dBm, >3.6 to 17.1 GHz -166 dBm；N9060-90027 p.578-580 > Internal Preamp: [:SENSe]:POWer[:RF]:GAIN[:STATe] (preset OFF), :GAIN:BAND LOW|FULL (preset LOW); p.575 > option not installed: -241"
+    # sa_p26 装了 P26、输入端接。0 dB 衰减、RBW 1 kHz、采样检波、对数平均 100 次：噪声底 = DANL（1 Hz）+ 30 dB。
+    # 1 GHz：前放关 -125 dBm，开 -136 dBm。10 GHz：频段 LOW 时前放不放大（1a，-119 dBm），FULL 时 1c（-136 dBm）。
+    # 没装选件时设置与查询都报 -241 是 SimuBench 的假设（手册对未装的 LNP、MPB 这样写，覆盖表注明）。
+    steps:
+      - send: ":POW:GAIN ON"
+      - query: ":SYST:ERR?"
+        expect_prefix: "-241"
+      - query: "*OPT?"
+        expect: "526"
+      - {instrument: sa_p26, query: "*OPT?", expect: "526,P26"}
+      - {instrument: sa_p26, query: ":POW:GAIN?", expect: "0"}
+      - {instrument: sa_p26, query: ":POW:GAIN:BAND?", expect: "LOW"}
+      - {instrument: sa_p26, send: ":POW:ATT 0"}
+      - {instrument: sa_p26, send: ":BAND 1 kHz"}
+      - {instrument: sa_p26, send: ":DET:TRAC SAMP"}
+      - {instrument: sa_p26, send: ":AVER:COUN 100"}
+      - {instrument: sa_p26, send: ":TRAC:TYPE AVER"}
+      - {instrument: sa_p26, send: ":INIT:CONT OFF"}
+      - {instrument: sa_p26, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_p26, send: ":CALC:MARK:X 1 GHz"}
+      - {instrument: sa_p26, query: ":CALC:MARK:Y?", expect_value: -125.0, tolerance: 2.2}
+      - {instrument: sa_p26, send: ":POW:GAIN ON"}
+      - {instrument: sa_p26, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_p26, query: ":CALC:MARK:Y?", expect_value: -136.0, tolerance: 2.2}
+      - {instrument: sa_p26, send: ":FREQ:CENT 10 GHz"}
+      - {instrument: sa_p26, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_p26, send: ":CALC:MARK:X 10 GHz"}
+      - {instrument: sa_p26, query: ":CALC:MARK:Y?", expect_value: -119.0, tolerance: 2.2}
+      - {instrument: sa_p26, send: ":POW:GAIN:BAND FULL"}
+      - {instrument: sa_p26, query: ":POW:GAIN:BAND?", expect: "FULL"}
+      - {instrument: sa_p26, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_p26, query: ":CALC:MARK:Y?", expect_value: -136.0, tolerance: 2.2}
+      - {instrument: sa_p26, query: ":SYST:ERR?", expect: '+0,"No error"'}

@@ -17,7 +17,7 @@ sections:
     level: implemented
   - header: '*OPT'
     level: implemented
-    note: Answers the frequency option 526 only.
+    note: 'The frequency option 526, then the installed options (526,P26 with the preamp). The reference sends the list in quotes (p.222); this model answers it without them.'
   - header: '*RCL'
     level: not_modeled
   - header: '*RST'
@@ -1808,11 +1808,11 @@ sections:
   - header: '[:SENSe]:POWer[:RF]:EATTenuation:STATe'
     level: not_modeled
   - header: '[:SENSe]:POWer[:RF]:GAIN:BAND'
-    level: not_modeled
-    note: 'The preamplifiers (LNA and PA, options P26/P44/P4L/P50/P5L) are not modeled: two amplifiers on several signal paths, each path with its own frequency response and DANL (data sheet p.10-21).'
+    level: implemented
+    note: 'Option P26 (#1020): LOW (preset) amplifies below 3.6 GHz only, FULL over the whole range; the path is judged at the center frequency, like every front-end figure. A unit without P26 answers -241 to the set and the query (SimuBench assumption: the reference says so for the missing LNP and MPB options, p.575/577, and only that the key is not shown for the preamp).'
   - header: '[:SENSe]:POWer[:RF]:GAIN[:STATe]'
-    level: not_modeled
-    note: 'The preamplifiers (LNA and PA, options P26/P44/P4L/P50/P5L) are not modeled: two amplifiers on several signal paths, each path with its own frequency response and DANL (data sheet p.10-21).'
+    level: implemented
+    note: 'The internal preamp of the reference (p.578) is the data sheet PA (path 1c): 30 dB gain and the 1c DANL, SHI, TOI, 1 dB compression and frequency response (p.10, p.18-27), on units with option P26; the automatic attenuation adds the preamp gain (p.550). The LNA (paths 1b, 1d) has no command in the reference and is not modeled. A unit without P26 answers -241 (assumption, see :GAIN:BAND). The PA-on flatness of band LOW is drawn as its own curve, also above 3.6 GHz where the standard path applies (simplification).'
   - header: '[:SENSe]:POWer[:RF]:MIXer:RANGe[:UPPer]'
     level: not_modeled
   - header: '[:SENSe]:POWer[:RF]:MMW:PADJust'

@@ -711,7 +711,8 @@ def test_a_real_models_flatness_deviation_stays_inside_its_data_sheet_bands(mode
     """The real analyzers' frequency response as a unit deviation (#960): every node of the drawn
     curve lies within the limit of the band (or the tighter of two bands) it sits in, the curve
     is 0 at the 50 MHz reference, the same seed draws the same unit and another seed another."""
-    (dev,) = DefinitionLibrary().get(model).deviations
+    # the standard path's response (the N9042B's preamplifier cases: tests/test_conditional_params.py)
+    (dev,) = [d for d in DefinitionLibrary().get(model).deviations if d.when is None]
     bands, limits = dev.bands, dev.limit if isinstance(dev.limit, list) else [dev.limit] * len(dev.bands)
 
     def curve(seed: int) -> list[list[float]]:

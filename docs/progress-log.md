@@ -2171,3 +2171,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | TUI | ✅ 仪表屏身份框右栏“Options”一行（`rows.options_text`：已装选件，型号有选件而本台没装时 `none`，型号没有选件时不显示，`tests/test_tui_rows.py`）。现有快照的测试台都没有带选件的型号，快照不变 |
 | 文档 | ✅ `real-models.md` 字段表、`instrument-authoring.md` 2.10、`decisions.md` D68 的“代价” |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 几个设置共同决定一个参数；N9042B 的内部前放（PA，选件 P26）（Issue 1020）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 平台能声明“前放开关与频段同时决定指标” | ✅ 嵌套映射成为正式写法（D70）：`map`/`table` 的取值与 `default` 可以是映射；`nested_bindings` 计入 `table` 里的嵌套（变更通知），模型校验递归检查写法（`E-SCHEMA`），静态校验在嵌套所在位置检查引用（`E-DEF-STATE-UNKNOWN`）与 `map` 的键 |
+| 每条通路一组平坦度偏差 | ✅ `deviations` 的 `when`（写法同 D69）与 `option`（D68）：每组设置各抽一条（`draw_case`，各自的随机数流），`Component.param` 取第一条成立的，不带 `when` 的一条是其余情况（随机数流不变，未装选件的整机抽到的曲线与原来相同）；`hidden` 优先；记录键 `input.flatness[power.gain=ON,power.gain_band=FULL]`；静态校验 `E-DEF-DEVIATION-WHEN`、`E-DEF-OPTION`；`schemas/` 与 web 生成类型已更新 |
+| 引擎单测 | ✅ `tests/test_conditional_params.py`：嵌套引用的校验与指针、写法校验、`table` 里的设置通知组件、分组偏差的校验、按设置切换曲线、各组在各自频段限值内、同一种子相同而另一种子不同、`hidden` 优先、会话视图列出各组且隐藏取值 |
+| N9042B 的前放 | ✅ 选件 P26，参考手册的 Internal Preamp（`:POW:GAIN`、`:GAIN:BAND LOW|FULL`，预置 OFF/LOW）即数据手册的 PA：增益 30 dB，起作用时按 1c 的 DANL、SHI、TOI、1 dB 压缩（第 19–27 页），混频器在这条通路上不计入；频段 LOW 时 3.6 GHz 以上不放大；自动衰减计入前放增益（参考手册第 550 页，`preamp_in_mixer_level`）；1c 频响为两条分组偏差（FULL、LOW）；`*OPT?` 改用 `identity.options_reply`（`526`、`526,P26`）；未装选件报 -241（假设，覆盖表注明）。LNA（参考手册无命令）与 `:POW:MW:PATH` 的通路不建模，另开 issue |
+| 用例 | ✅ `tests/models/keysight-n9042b/cases.yaml`：新增“内部前放”用例（噪声底 1 GHz 关/开 -125/-136 dBm，10 GHz LOW/FULL -119/-136 dBm，`*OPT?`，-241），22/22 通过；原“未实现 -113”用例去掉已建模的前放命令 |
+| 文档 | ✅ `instrument-authoring.md` 2.3、2.10 与诊断码表，`metrology-authoring.md` 7.1，`real-models.md` 字段表，`decisions.md` D70，`real-model` 技能 |
+| `scripts/check.sh` 通过 | ✅ |

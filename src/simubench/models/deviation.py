@@ -110,6 +110,21 @@ class DeviationSpec(DeviationRange):
         "(e.g. 'out.z_out') draws one value per channel",
     )
 
+    when: dict[str, Any] | None = Field(
+        None,
+        description="The settings this deviation applies under, as a constraint's `when` writes them "
+        "(D69): {setting: value or [values]}, all of them at once, e.g. {power.gain: ON} for the "
+        "response with the preamplifier on. Several deviations of one parameter, each drawn on its "
+        "own; the first whose `when` holds gives the parameter, a deviation without `when` (at most "
+        "one) is the rest, and without it the nominal value applies (D70)",
+    )
+
+    option: str | None = Field(
+        None,
+        description="The deviation belongs to this hardware option (an `options` id, D68): only units "
+        "that have it draw it, e.g. the response of the preamplifier path",
+    )
+
     @property
     def component(self) -> str:
         return self.param.rsplit(".", 1)[0]

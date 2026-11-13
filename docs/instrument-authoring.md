@@ -95,6 +95,18 @@ params:
 
 只支持 `map`、`table`、`scale`、`offset`、`default`，不引入表达式语言：表达式难以校验、难以让 Agent 写对，复杂换算走插件。`table`（#87）按数值查表：取不大于设置值的最大表项（NPLC 0.5 用 0.2 的值），没有更小的项时取最小项，之后同样过 `scale` / `offset`。
 
+**几个设置共同决定一个参数**（D70，#1020）：`map` 或 `table` 的取值、以及 `default`，可以是另一个映射（或 `$路径`），选中时按它自己的设置再取一次，可以嵌套多层。例（N9042B 的前放增益：开关 → 频段 → 中心频率）：
+
+```yaml
+preamp_gain:
+  from: $power.gain
+  map:
+    "False": 0.0
+    "True": {from: $power.gain_band, map: {FULL: 30.0, LOW: {from: $freq.center, table: {0: 30.0, 3.6e9: 0.0}}}}
+```
+
+嵌套里引用的每个设置都会通知组件；静态校验在嵌套映射所在的位置检查它的写法（`E-SCHEMA`）、引用的设置（`E-DEF-STATE-UNKNOWN`，指针指到那一层的 `from`）和 `map` 的键（`W-DEF-MAP-KEY`）。同一组数值要在几处用时，用 YAML 的锚点与别名（`&nf_1a` / `*nf_1a`）写一次。
+
 ### 2.4 公共命令与未知命令
 
 已实现（低频校准工作台）：定义可以给公共命令自己的行为（`*CLS?`），`unknown_commands: ignore`（D42）。保持不变。
@@ -192,6 +204,8 @@ params:
 频谱仪前端的非理想全部是功能块的声明参数，**不声明时回复与理想接收机逐字节相同**（`sb-sa-1` 不声明）。参数取自数据手册，`specs` 里逐项注明手册的表与页；手册没有的项不声明、不估计。块的划分与公式见 `signal-chain.md` 5.2，能力清单见 `component-map.md` 的频谱仪节：
 
 - `specan_input`：`flatness`（`[[频率 Hz, dB], …]`，分段线性、表外为 0 dB，作用于显示电平）、`preamp_gain`（已有）、`preamp_noise_figure`/`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（前置放大器自己的指标，块内按衰减折算到输入参考）。声明 `preamp_noise_figure` 即前放在链中：`preamp_gain: 0` 只把增益设 0，噪声系数仍在链上；无前放就不声明这些键。前放是选件时（N9320B 的 P03），前放的参数写在定义的 `options` 里而不是 `components` 里，测试台实例用 `options: [P03]` 声明装了它；前放开关命令写 `option: P03`，后面跟一条同命令头、只读的命令给出未装选件时的回复（#1004，字段见 `real-models.md`）。实例装了哪些选件可在 Web 检查器的“选件”一节或 MCP 的 `set_options` 编辑操作中修改，型号概览页列出每个选件改变的参数与命令；手册写明 `*OPT?` 的回复格式时，定义写 `identity.options_reply` 让内置 `*OPT?` 列出已装选件（#1007）。`flatness` 的个体偏差按频段写（`deviations` 的 `bands`，`metrology-authoring.md` 7.1）：数据手册的平坦度是各频段的 ± 限值，标称为 0，参考频率处为 0。
+
+  **按通路给指标的前放**（N9042B 的 PA，#1020）：数据手册按“通路”（前放关、开……）分别给出 DANL、SHI、TOI、压缩与频响，都是整条通路的数值。前放起作用时，这些数值全部写在输入块的前放参数上（`preamp_noise_figure`、`iip2_dbm`、`iip3_dbm`、`p1db_dbm`），混频器在这条通路上写 `null`（`specan_mixer.noise_figure` 可为 `null`：不计入）；前放不起作用时反过来。这样写用 2.3 的嵌套映射，按开关、频段与中心频率取值。手册写明自动衰减计入前放增益时（X 系列：`Atten = RefLevel + PreAmpGain − MaxMixerLevel`），输入块写 `preamp_in_mixer_level: true`，过载判断同样计入。每条通路的频响各写一条带 `when` 的个体偏差（`metrology-authoring.md` 7.1）。
 - `specan_mixer`：`conversion_loss`（已有）、`iip2_dbm`/`iip3_dbm`/`p1db_dbm`、`image_rejection`（dB，缺省无穷大）、`lo_feedthrough`（dBm，调谐于 0 Hz 附近出现的线）、`spurs`（`[[m, n, dBc], …]`，m·f_rf ± n·f_lo 的响应）、`residuals`（`[[频率 Hz, dBm], …]`，无输入也有的线）。
 - `specan_if`：`iip2_dbm`/`iip3_dbm`/`p1db_dbm`（中频放大器）。
 - `specan_lo`：`phase_noise`（`[[偏移 Hz, dBc/Hz], …]`，对数-对数插值、端点按表延伸）。
@@ -450,6 +464,7 @@ constraints:
 | `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举或布尔设置、`long_form` 绑定的不是布尔设置；参数映射的表中有设置取不到的值（#42） |
 | `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
 | `E-DEF-DEVIATION-BANDS` | 随频率变化的曲线参数（`specan_input.flatness`）的个体偏差没有按频段写（`bands`），或 `bands` 用在不是曲线的参数上（#1004） |
+| `E-DEF-DEVIATION-WHEN` | 按设置分组的个体偏差（`deviations` 的 `when`，D70）引用的设置不存在或是按通道的设置、取值不是该设置能取的值，或同一参数有两条同样条件（或两条都不带条件）的偏差（#1020） |
 | `E-DEF-CONSTRAINT` | 约束（`constraints`，2.12）引用的设置不存在或是按通道的设置、取值不是该设置能取的值、`coerce` 的值本身被禁止、开机或 `*RST` 后的状态违反约束（#1013） |
 | `E-DEF-OPTION` | 选件重复、选件的 `params` 指向不存在的组件、命令的 `option` 没有在 `options` 中声明（#1004；选件参数本身按组件参数的规则检查） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |

@@ -26,6 +26,7 @@ from ..scpi.parse import Pattern, Token
 from .commands import told_apart
 from .component import Component, binding_of, component_types, noise_problems
 from .constraints import broken
+from .deviation import case_label
 from .portref import ladder, split
 from .settings import validate_value
 from .validate import Report, _ptr, unknown_name
@@ -212,8 +213,63 @@ def _check_component_refs(d: InstrumentDefinition, known: dict[str, type[Compone
                     )
 
 
+def _check_deviation_cases(d: InstrumentDefinition, report: Report) -> None:
+    """Deviations for some settings (D70): instrument-wide settings that exist and values they can
+    take, and no two deviations of one parameter for the same settings (or two without any)."""
+    seen: dict[tuple[str, str], int] = {}
+    for i, dev in enumerate(d.deviations):
+        for path, wanted in (dev.when or {}).items():
+            ptr = _ptr("deviations", i, "when", path)
+            spec = d.state.get(path)
+            if spec is None:
+                unknown_name(
+                    report,
+                    "E-DEF-DEVIATION-WHEN",
+                    ptr,
+                    f"个体偏差的条件引用的设置 {path!r} 不存在（条件只用整机设置，不用按通道的设置）",
+                    path,
+                    list(d.state),
+                )
+                continue
+            for value in wanted if isinstance(wanted, list) else [wanted]:
+                try:
+                    validate_value(spec.model_copy(update={"readonly": False}), value)
+                except ScpiError:
+                    report.add(
+                        "error",
+                        "E-DEF-DEVIATION-WHEN",
+                        ptr,
+                        f"个体偏差的条件里 {path} 的取值 {value!r} 不是这个设置能取的值",
+                        "写成设置的选项之一，或在它的范围内",
+                        path,
+                    )
+        declared = [o.id for o in d.options]
+        if dev.option is not None and dev.option not in declared:
+            unknown_name(
+                report,
+                "E-DEF-OPTION",
+                _ptr("deviations", i, "option"),
+                f"个体偏差属于未声明的选件 {dev.option!r}",
+                dev.option,
+                declared,
+            )
+        key = (dev.param, case_label(dev.when))
+        if key in seen:
+            report.add(
+                "error",
+                "E-DEF-DEVIATION-WHEN",
+                _ptr("deviations", i, "when" if dev.when else "param"),
+                f"{dev.param} 已有一条{'同样条件的' if dev.when else '不带条件的'}个体偏差（第 {seen[key] + 1} 条）",
+                "每组设置只写一条；不带 when 的一条覆盖其余情况",
+                dev.param,
+            )
+        else:
+            seen[key] = i
+
+
 def _check_deviations(d: InstrumentDefinition, known: dict[str, type[Component]], report: Report) -> None:
     """Individual deviations: a parameter of a declared component."""
+    _check_deviation_cases(d, report)
     specs_by_name = {c.name: c for c in (*d.components, *d.channel_components)}
     for i, dev in enumerate(d.deviations):
         p = ("deviations", i, "param")
@@ -946,6 +1002,8 @@ def _check_params(
                 )
             else:
                 _check_enum_words(d, st, mapping, words, channel, pp, f"{spec.type}.{key}", spec.name, report)
+        if mapping:
+            _check_nested(d, mapping, channel, (*p, *at, key), spec.name, report)
         if st is not None and mapping and mapping.get("map"):
             _check_map_keys(st, mapping["map"], (*p, *at, key, "map"), spec.name, report)
             continue  # the table decides the parameter's type
@@ -1018,6 +1076,36 @@ def _check_choice(
         f"可选值：{', '.join(words)}",
         subject,
     )
+
+
+def _check_nested(
+    d: InstrumentDefinition,
+    mapping: dict[str, Any],
+    channel: bool,
+    where: tuple[Any, ...],
+    subject: str,
+    report: Report,
+) -> None:
+    """The settings read inside a mapping's values (D70: a ``map`` or ``table`` entry, or the
+    ``default``, that is ``$path`` or another mapping) must exist, and a nested ``map``'s keys must
+    be values its setting can take — the same checks the outer mapping gets, at its own place."""
+    entries = [
+        *((("map", k), v) for k, v in dict(mapping.get("map") or {}).items()),
+        *((("table", k), v) for k, v in dict(mapping.get("table") or {}).items()),
+        (("default",), mapping.get("default")),
+    ]
+    for at, inner in entries:
+        ref = binding_of(inner)
+        if ref is None:
+            continue
+        nested = inner if isinstance(inner, dict) else None
+        pointer = _ptr(*where, *at, "from") if nested else _ptr(*where, *at)
+        st = _check_state_ref(d, ref, channel, pointer, subject, report)
+        if nested is None:
+            continue
+        if st is not None and nested.get("map"):
+            _check_map_keys(st, nested["map"], (*where, *at, "map"), subject, report)
+        _check_nested(d, nested, channel, (*where, *at), subject, report)
 
 
 def _check_map_keys(
