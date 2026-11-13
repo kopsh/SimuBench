@@ -109,6 +109,7 @@ class ReadingMath(Component):
         "statistics": False,  # keep statistics of the readings (a setting)
         "clear_on_run": True,  # a new run (INITiate, READ?) clears the statistics and the window
     }
+    resolvers = frozenset({"last_reading"})
     choices = {"average_mode": ("MOVing", "REPeat"), "units": UNITS}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

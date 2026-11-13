@@ -38,7 +38,7 @@ AWG2_INPUTS = {
     "amplitude": {"min": 1.0e-3, "max": 10.0, "default": 0.1, "label": "幅度 (Vpp)"},
     "offset": {"min": -5.0, "max": 5.0, "default": 0.0},
     "phase": {"min": -360.0, "max": 360.0, "default": 0.0},
-    "load": {"min": 1.0, "max": 10000.0, "default": 50.0, "high_z_keywords": ["INF", "INFinity"]},
+    "load": {"min": 1.0, "max": 10000.0, "default": 50.0, "high_z_keywords": ["INFinity"]},
     "output": {"impedance_ohms": 50.0, "impedance_error_pct": 2.0},
 }  # fmt: skip
 

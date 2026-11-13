@@ -456,6 +456,9 @@ class Component:
     #: ``flatness``): the ones an individual deviation by frequency bands (``bands``) may draw
     #: (#1004).
     curves: ClassVar[frozenset[str]] = frozenset()
+    #: The resolver names a setting's ``words`` may name when this component binds the setting
+    #: (:meth:`resolve_word`); definition validation checks them (E-DEF-WORDS-*, #1115).
+    resolvers: ClassVar[frozenset[str]] = frozenset()
     #: Instrument settings a component reads by path rather than through a bound parameter, whose
     #: changes it still hears in :meth:`on_state` (the analyzer's marker group, #274). Paths the
     #: definition does not declare are ignored.
