@@ -106,6 +106,7 @@ describe("panel view", () => {
     replies: null,
     readonly: false,
     electrical: false,
+    keep_on_reset: false,
     dangerous: false,
     channel: null,
     value: 0,

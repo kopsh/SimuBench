@@ -373,6 +373,7 @@ function paramVar(key: string, value: unknown, unit: string | undefined): StateV
     replies: null,
     readonly: false,
     electrical: false,
+    keep_on_reset: false,
     dangerous: false,
     value,
     channel: null,
