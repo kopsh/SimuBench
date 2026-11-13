@@ -301,6 +301,8 @@ class CommandRunner:
         new = self._parse_settings(spec, unit, raw, index, channel)
         if raw:
             raise ScpiError(-108)
+        if spec.order is not None:
+            self._sort_values(spec, new, index, channel)
         # The command's constants first: the function it selects applies to the parameters after it.
         staged: list[tuple[str, Any]] = [
             (self._resolve(_at(index, ref), channel), value) for ref, value in spec.writes.items()
@@ -308,6 +310,21 @@ class CommandRunner:
         staged += list(new.items())
         self._commit(self._check_all(staged))
         return None
+
+    def _sort_values(
+        self, spec: CommandSpec, new: dict[str, Any], index: dict[str, int], channel: int | None
+    ) -> None:
+        """Rearrange the parsed values of ``spec.order``'s parameters by size (#1011): the smallest
+        goes to the first listed setting. Done before any range check, so ``RANGe 40E-6,12E-9``
+        is legal on an instrument whose larger bound may not be 12 ns."""
+        assert spec.order is not None
+        by_name = {p.name: p for p in spec.params}
+        paths = [
+            self._resolve(_at(index, by_name[name].state or ""), channel) for name in spec.order.ascending
+        ]
+        values = sorted((new[path] for path in paths), key=float)
+        for path, value in zip(paths, values, strict=True):
+            new[path] = value
 
     def _pick_indexes(
         self, spec: CommandSpec, unit: Unit, raw: list[bytes], channel: int | None

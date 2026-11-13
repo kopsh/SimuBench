@@ -347,6 +347,19 @@ class ResponseFormat(_Model):
     )
 
 
+class ParamOrder(_Model):
+    """Parameters whose values the instrument rearranges by size before writing them (#1011)."""
+
+    ascending: list[str] = Field(
+        ...,
+        min_length=2,
+        description="Parameter names, from the setting that takes the smallest value to the one that "
+        "takes the largest: the values given are sorted and written in this order, whatever order "
+        "they arrived in (:TRIGger:GLITch:RANGe: the smaller time becomes the 'greater than' bound). "
+        "Each setting's range is checked after sorting; the query answers in the parameters' order",
+    )
+
+
 class CommandSpec(_Model):
     """One SCPI command: bound to a setting (``state``), to a component operation (``op``), or, through
     its parameters' ``state``, to several settings at once."""
@@ -405,6 +418,11 @@ class CommandSpec(_Model):
         description="Allowed values of named header suffixes other than <ch> (#335), e.g. {hw: [1], n: [1]} "
         "for the SMA100B's [:SOURce<hw>]:AM<n>:STATe (one RF path, the first modulation channel); an "
         "omitted suffix counts as 1, any other value is -114",
+    )
+    order: ParamOrder | None = Field(
+        None,
+        description="Parameters bound to settings whose values are sorted by size before they are "
+        "written (#1011), e.g. {ascending: [greater_than, less_than]}",
     )
     option: str | None = Field(
         None,
@@ -488,7 +506,34 @@ class CommandSpec(_Model):
         for key in self.when or {}:
             if key not in names:
                 raise ValueError(f"command {self.header!r}: when names {key!r}, which is not a parameter")
+        if self.order is not None:
+            self._check_order(self.order)
         return self
+
+    def _check_order(self, order: ParamOrder) -> None:
+        by_name = {p.name: p for p in self.params}
+        if len(set(order.ascending)) != len(order.ascending):
+            raise ValueError(f"command {self.header!r}: order names a parameter twice")
+        if self.op is not None or self.state is not None:
+            raise ValueError(
+                f"command {self.header!r}: order sorts values written into settings; it goes with "
+                "parameters bound to settings, not with state or op"
+            )
+        for name in order.ascending:
+            ps = by_name.get(name)
+            if ps is None:
+                raise ValueError(f"command {self.header!r}: order names {name!r}, which is not a parameter")
+            if (
+                ps.type not in ("float", "int")
+                or ps.state is None
+                or ps.optional
+                or ps.keywords is not None
+                or ps.sets is not None
+            ):
+                raise ValueError(
+                    f"command {self.header!r}: order sorts required numbers that each write one "
+                    f"setting; {name!r} is not one (optional, keywords and sets are not sorted)"
+                )
 
 
 class Dialect(_Model):

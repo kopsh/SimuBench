@@ -569,3 +569,70 @@ def test_writes_needs_parameters_that_write_settings():
     data["commands"].append({"header": "NOPE", "state": "timebase.scale", "writes": {"comm.header": "OFF"}})
     with raises_with(ValidationError, "writes"):
         InstrumentDefinition.model_validate(data)
+
+
+# ---- order: values sorted by size before they are written (#1011) ----------------------------------
+
+
+def _with_range(order: dict | None = None) -> dict:
+    """A glitch range as on the DSO-X 2000 (:TRIGger:GLITch:RANGe <less>,<greater>): the larger time
+    is the upper bound (15 ns–10 s), the smaller the lower bound (10 ns–9.99 s)."""
+    data = copy.deepcopy(DEMO)
+    data["state"] |= {
+        "glitch.less": {"type": "float", "unit": "S", "min": 15e-9, "max": 10.0, "default": 30e-9},
+        "glitch.greater": {"type": "float", "unit": "S", "min": 10e-9, "max": 9.99, "default": 20e-9},
+    }
+    data["commands"].append(
+        {
+            "header": "RANGe",
+            "params": [
+                {"name": "less_than", "type": "float", "unit": "S", "state": "glitch.less"},
+                {"name": "greater_than", "type": "float", "unit": "S", "state": "glitch.greater"},
+            ],
+            "order": order if order is not None else {"ascending": ["greater_than", "less_than"]},
+        }
+    )
+    return data
+
+
+def test_ordered_parameters_are_sorted_by_size_before_the_range_check():
+    _, inst, query, write = open_demo(_with_range())
+    write("RANG 40E-6,60E-6")  # in the manual's syntax order: the smaller is the lower bound
+    assert (inst.state["glitch.less"], inst.state["glitch.greater"]) == (60e-6, 40e-6)
+    write("RANG 70E-6,50E-6")  # the other order: the same result
+    assert (inst.state["glitch.less"], inst.state["glitch.greater"]) == (70e-6, 50e-6)
+    assert query("RANG?") == "RANG 70E-6,50E-6"  # the query answers in the parameters' order
+    write("RANG 12E-9,40E-6")  # 12 ns is below the upper bound's minimum, legal once sorted
+    assert (inst.state["glitch.less"], inst.state["glitch.greater"]) == (40e-6, 12e-9)
+    assert error(query) == '0,"No error"'
+    write("RANG 5E-9,40E-6")  # below both minimums after sorting: refused, nothing written
+    assert error(query).startswith("-222")
+    assert (inst.state["glitch.less"], inst.state["glitch.greater"]) == (40e-6, 12e-9)
+
+
+def test_without_order_the_values_are_written_as_given():
+    data = _with_range()
+    del data["commands"][-1]["order"]
+    _, inst, _, write = open_demo(data)
+    write("RANG 40E-6,60E-6")
+    assert (inst.state["glitch.less"], inst.state["glitch.greater"]) == (40e-6, 60e-6)
+
+
+@pytest.mark.parametrize(
+    ("order", "part"),
+    [
+        ({"ascending": ["greater_than", "nope"]}, "not a parameter"),
+        ({"ascending": ["greater_than", "greater_than"]}, "twice"),
+        ({"ascending": ["less_than"]}, "at least 2"),
+    ],
+)
+def test_order_names_the_commands_parameters(order, part):
+    with raises_with(ValidationError, part):
+        InstrumentDefinition.model_validate(_with_range(order))
+
+
+def test_order_sorts_only_required_numbers_bound_to_settings():
+    data = _with_range()
+    data["commands"][-1]["params"][0]["optional"] = True
+    with raises_with(ValidationError, "required numbers"):
+        InstrumentDefinition.model_validate(data)

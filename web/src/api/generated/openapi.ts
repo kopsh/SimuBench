@@ -2004,6 +2004,8 @@ export interface components {
              * @description The command belongs to this option (an `options` id): a unit without it skips the command — a later command on the same header without `option` answers instead (what the manual says a unit without the option replies), otherwise -241 Hardware missing
              */
             option?: string | null;
+            /** @description Parameters bound to settings whose values are sorted by size before they are written (#1011), e.g. {ascending: [greater_than, less_than]} */
+            order?: components["schemas"]["ParamOrder"] | null;
             /** Params */
             params?: components["schemas"]["ParamSpec"][];
             /**
@@ -3721,6 +3723,17 @@ export interface components {
             name: string;
             /** Unit */
             unit: string | null;
+        };
+        /**
+         * ParamOrder
+         * @description Parameters whose values the instrument rearranges by size before writing them (#1011).
+         */
+        ParamOrder: {
+            /**
+             * Ascending
+             * @description Parameter names, from the setting that takes the smallest value to the one that takes the largest: the values given are sorted and written in this order, whatever order they arrived in (:TRIGger:GLITch:RANGe: the smaller time becomes the 'greater than' bound). Each setting's range is checked after sorting; the query answers in the parameters' order
+             */
+            ascending: string[];
         };
         /**
          * ParamSpec
