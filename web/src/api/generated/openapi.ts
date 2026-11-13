@@ -5285,6 +5285,11 @@ export interface components {
              * @default false
              */
             electrical: boolean;
+            /**
+             * Fidelity
+             * @description How the model computes what this setting sets, where users should know: computed_on_read — a scope's memory depth, whose deep records are computed where they are read (#1012, real-models.md 10)
+             */
+            fidelity: "computed_on_read" | null;
             /** Label */
             label: string | null;
             /** Label En */

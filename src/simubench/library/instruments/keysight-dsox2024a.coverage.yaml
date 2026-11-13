@@ -110,13 +110,13 @@ sections:
     note: '100 only, as the guide says'
   - header: :ACQuire:COUNt
     level: implemented
-    note: '2 to 65536; averaging divides the noise by the square root of the count. A SimuBench model limit, not the guide''s (#986): an acquisition whose count x record samples is beyond 2^28 (the record''s own request counts too: at most 2^28 // points - 1, so more than 2683 averages of the 100 000-point record, the deepest; #990) is refused before it starts with -221, Settings conflict, and leaves no record; measurements and reads are refused the same way until the count or the record is smaller'
+    note: '2 to 65536; averaging divides the noise by the square root of the count. An acquisition whose count x record samples is beyond 2^28 (more than 2683 averages of the 100 000-point record) is a deep record (#1012, real-models.md 10): it is taken, and a read may ask for at most 2^28 samples (points read x count); reading the whole record or measuring on it is then -221, Settings conflict (until #1012 the acquisition itself was refused, #986)'
   - header: :ACQuire:MODE
     level: implemented
     note: 'RTIMe, or SEGMented: one :SINGle or :DIGitize takes :ACQuire:SEGMented:COUNt records, each on its own trigger (#957). ETIMe is not on this model'
   - header: :ACQuire:POINts
     level: implemented
-    note: 'the record length: 100 kpts (standard memory, data sheet)'
+    note: 'the record length: 100 kpts (standard memory, data sheet), computed whole when acquired (real-models.md 10)'
   - header: :ACQuire:SEGMented:ANALyze
     level: accepted
     note: 'accepted; measurement statistics and infinite persistence over all segments are not modeled: a measurement reads the segment :ACQuire:SEGMented:INDex selects'

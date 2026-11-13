@@ -108,6 +108,7 @@ describe("panel view", () => {
     electrical: false,
     dangerous: false,
     channel: null,
+    fidelity: null,
     value: 0,
     ...extra,
   });
