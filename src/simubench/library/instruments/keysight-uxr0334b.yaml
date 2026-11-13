@@ -388,6 +388,15 @@ deviations:
     limit: 0.025
     distribution: uniform
 components:
+  # 磁盘（:DISK，手册第 20 章，#1069）：C:\ 为本机一个文件夹；默认路径 C:\Users\Public\Documents\Infiniium；
+  # 文件名不区分大小写；:DISK:PWD? 在 :DISK:CDIRectory 改过之前回空字符串。
+  - name: disk
+    type: file_system
+    params:
+      drives: [C]
+      home: "C:\\Users\\Public\\Documents\\Infiniium"
+      reset_home: false
+      catalog: lines
   # 状态寄存器（手册第 7 章），每个事件寄存器读后清零：触发（:TERegister?，只在满足触发条件的采集完成时
   # 置位，摘要进 *STB 位 0）、布防（:AER?）、采集完成（:ADER?，每次采集完成）、处理完成（:PDER?，仿真的
   # 测量随查询即时算出，与采集同时完成）、自动触发（:ATER?）。
@@ -807,3 +816,35 @@ commands:
   - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment}}
   - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin}}
   - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}
+  # ---- 磁盘（:DISK，手册第 20 章，#1069）：目录、复制删除、按完整路径上传下载 ---------------------------
+  - header: ":DISK:CDIRectory"
+    op: disk.folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:PWD"
+    op: disk.working_folder
+    set: false
+  - header: ":DISK:MDIRectory"
+    op: disk.make_folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:DELete"
+    op: disk.delete
+    query: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:COPY"
+    op: disk.copy
+    query: false
+    params: [{name: source, type: string}, {name: target, type: string}]
+  - header: ":DISK:DIRectory"
+    op: disk.catalog
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: ":DISK:GETFILE"
+    op: disk.read
+    set: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:PUTFILE"
+    op: disk.write
+    query: false
+    params: [{name: name, type: string}, {name: data, type: block}]

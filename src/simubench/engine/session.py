@@ -9,7 +9,10 @@ from __future__ import annotations
 
 import contextlib
 import datetime as dt
+import hashlib
 import logging
+import shutil
+import tempfile
 import threading
 import time
 from collections import OrderedDict, deque
@@ -109,9 +112,15 @@ class Session:
         idle: str | None = None,
         record_raw: bool = False,
         time_scale: float | None = None,
+        files_dir: Path | None = None,
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
+        #: Where the instruments' virtual file systems live (#1069): ``<files_dir>/<instrument>/``,
+        #: kept across runs. None: a temporary folder of this session, removed when it closes (an
+        #: in-memory bench, manual cases, a replay: they start with no files).
+        self.files_dir = files_dir
+        self._files_tmp: str | None = None
         self.seed = bench.run.seed if seed is None else seed
         self.clock_mode = clock or bench.run.clock
         #: Virtual seconds per real second on a live clock: 1 on the wall clock, settable on
@@ -867,6 +876,53 @@ class Session:
         sleep_mode.unregister(self)
         if self.recorder:
             self.recorder.close()
+        if self._files_tmp is not None:
+            shutil.rmtree(self._files_tmp, ignore_errors=True)
+            self._files_tmp = None
+
+    # ---- the instruments' files (#1069) ------------------------------------------------------------
+
+    def files_root(self) -> Path:
+        """The folder holding every instrument's virtual file system (created on first use)."""
+        if self.files_dir is not None:
+            self.files_dir.mkdir(parents=True, exist_ok=True)
+            return self.files_dir
+        if self._files_tmp is None:
+            self._files_tmp = tempfile.mkdtemp(prefix="simubench-files-")
+        return Path(self._files_tmp)
+
+    def instrument_files(self, name: str) -> Path:
+        """The folder of one instrument's virtual file system: ``<files_root>/<instrument>``."""
+        if name not in self.instruments:
+            raise KeyError(name)
+        folder = self.files_root() / name
+        folder.mkdir(exist_ok=True)
+        return folder
+
+    def files_snapshot(self) -> dict[str, dict[str, str]]:
+        """The sha256 of every file each instrument holds, by its path in the instrument's folder
+        (``/``-separated); instruments without files are left out. A run record's header keeps it
+        (D36): a replay starts with no files and warns when the run did not."""
+        out: dict[str, dict[str, str]] = {}
+        root = (
+            self.files_dir
+            if self.files_dir is not None
+            else (Path(self._files_tmp) if self._files_tmp is not None else None)
+        )
+        if root is None or not root.is_dir():
+            return out
+        for name in self.instruments:
+            folder = root / name
+            if not folder.is_dir():
+                continue
+            files = {
+                f.relative_to(folder).as_posix(): hashlib.sha256(f.read_bytes()).hexdigest()
+                for f in sorted(folder.rglob("*"))
+                if f.is_file() and not f.is_symlink()
+            }
+            if files:
+                out[name] = files
+        return out
 
     def __enter__(self) -> Session:
         return self

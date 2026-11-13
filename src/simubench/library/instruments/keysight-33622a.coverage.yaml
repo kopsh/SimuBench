@@ -213,62 +213,76 @@ sections:
     level: not_modeled
     note: 频率列表未建模。
   - header: MMEMory:CATalog[:ALL]
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：<used>,<free>{,"<名称>,<类型>,<字节>"}，数字带 +；.sta 为 STAT、.csv 为 ASC、文件夹为 FOLD、其余为空；used 只计用户文件（手册说的内部占用不建模），free 按 1 GB 容量计。'
   - header: MMEMory:CATalog:DATA:ARBitrary
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：只列 .arb/.barb（ARB）、.seq（SEQUENCE）与文件夹；内置的 BuiltIn 波形文件夹不建模。'
   - header: MMEMory:CATalog:STATe
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：只列 .sta（STAT），不列文件夹。'
   - header: MMEMory:CDIRectory
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：文件夹必须存在；*RST 后回到 INT:\；查询回带引号的路径。'
   - header: MMEMory:COPY
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：目标为文件夹时保留原名，已有文件被覆盖。'
   - header: MMEMory:COPY:SEQuence
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: '任意波与序列存为文件（.arb/.barb/.seq）未建模。'
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:DELete
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：只删文件；文件名中的 * 与 ? 为通配符。'
   - header: MMEMory:DOWNload:DATA
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：写入 DOWNload:FNAMe 指定的文件，替换原有内容；定长块（不定长块不支持）。'
   - header: MMEMory:DOWNload:FNAMe
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：文件不存在时建一个空文件。'
   - header: MMEMory:LOAD:ALL
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: '整机设置文件未建模。'
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:LOAD:DATA<ch>
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: '任意波与序列存为文件（.arb/.barb/.seq）未建模。'
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:LOAD:STATe
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: '状态文件（.sta）未建模。'
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:MDIRectory
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：上级文件夹必须存在；已存在报 -257。'
   - header: MMEMory:MOVE
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：移动或改名；目标为文件夹时保留原名。'
   - header: MMEMory:RDIRectory
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：只删空文件夹（非空报 -257 folder not empty），不能删当前文件夹。'
   - header: MMEMory:STORe:ALL
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: '整机设置文件未建模。'
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:STORe:DATA<ch>
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: '任意波与序列存为文件（.arb/.barb/.seq）未建模。'
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:STORe:STATe
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: '状态文件（.sta）未建模。'
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:UPLoad
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：文件内容作为定长块返回。'
 - section: VOLTage Subsystem
   commands:
   - header: '[:SOURce<ch>]:VOLTage'

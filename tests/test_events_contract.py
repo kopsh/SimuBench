@@ -84,6 +84,7 @@ def test_the_kind_description_is_generated_from_the_registry():
         "hislip",
         "bus_control",
         "solver",
+        "file",
     }
 
 

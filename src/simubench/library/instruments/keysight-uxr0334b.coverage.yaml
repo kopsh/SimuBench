@@ -1032,50 +1032,34 @@ sections:
 - section: :DISK Commands (Programmer's Guide 11.60, ch. 20)
   commands:
   - header: :DISK:CDIRectory
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): the directory must exist; names are not case sensitive. The present working directory is not part of the setup, so *RST leaves it.'
   - header: :DISK:COPY
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): a destination that is a directory keeps the file name; an existing file is replaced.'
   - header: :DISK:DELete
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): deletes a file (* and ? match several); a missing file is -256.'
   - header: :DISK:DIRectory
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): the number of entries, then one name per line (a directory ends with \); the guide''s fixed 63-byte entry width is not modeled.'
   - header: :DISK:GETFILE
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): the file as a definite-length block.'
   - header: :DISK:LOAD
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
     gap: blocked
     blocked_by: file-system
   - header: :DISK:MDIRectory
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): in the present working directory or at a full path; the parent must exist.'
   - header: :DISK:PUTFILE
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): writes the block to the path, replacing the file; the directory must exist.'
   - header: :DISK:PWD
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: 'file_system component (#1069): quoted; an empty string until :DISK:CDIRectory changes the default C:\Users\Public\Documents\Infiniium, as the guide says.'
   - header: :DISK:SAVE:COMPosite
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): setup save/recall to a file (#1070).'

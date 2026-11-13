@@ -424,3 +424,74 @@ cases:
       - query: "SYST:ERR?"
         expect: '-222,"Data out of range"'
 
+
+  - name: "MMEMory：建文件夹、换当前文件夹，*RST 后回到 INT:\\"
+    manual: "MMEMory Subsystem > MMEMory:CDIRectory, MDIRectory, RDIRectory; Mass Memory (MMEMory) and State Storage"
+    steps:
+      - query: "MMEM:CDIR?"
+        expect: '"INT:\"'
+      - send: 'MMEM:CDIR "USB:\"'
+      - send: 'MMEM:MDIR "States"'
+      - query: "MMEM:CAT?"
+        expect: '+0,+1000000000,"States,FOLD,0"'
+      - send: 'MMEM:CDIR "USB:\States"'
+      - query: "MMEM:CDIR?"
+        expect: '"USB:\States"'
+      - send: "*RST"
+      - query: "MMEM:CDIR?"
+        expect: '"INT:\"'
+      - send: 'MMEM:RDIR "USB:\States"'
+      - query: 'MMEM:CAT? "USB:\"'
+        expect: "+0,+1000000000"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "MMEMory：下载写入文件、上传读回，目录列出文件类型与大小"
+    manual: "MMEMory Subsystem > MMEMory:DOWNload:FNAMe, DOWNload:DATA, UPLoad?, CATalog[:ALL]?"
+    steps:
+      - send: 'MMEM:DOWN:FNAM "INT:\Myfile"'
+      - send: "MMEM:DOWN:DATA #15Hello"
+      - query: 'MMEM:UPL? "INT:\Myfile"'
+        expect: "#15Hello"
+      - send: 'MMEM:DOWN:FNAM "INT:\MyWave.csv"'
+      - send: "MMEM:DOWN:DATA #151,2,3"
+      - query: 'MMEM:CAT? "INT:\"'
+        expect: '+10,+999999990,"Myfile,,5","MyWave.csv,ASC,5"'
+      - query: 'MMEM:UPL? "int:\mywave.CSV"'
+        expect: "#151,2,3"
+
+  - name: "MMEMory：复制、移动、按通配符删除；目录按类型过滤"
+    manual: "MMEMory Subsystem > MMEMory:COPY, MOVE, DELete, CATalog:STATe?, CATalog:DATA:ARBitrary?"
+    steps:
+      - send: 'MMEM:MDIR "INT:\Backup"'
+      - send: 'MMEM:DOWN:FNAM "INT:\MySetup.sta"'
+      - send: "MMEM:DOWN:DATA #13abc"
+      - send: 'MMEM:COPY "INT:\MySetup.sta","INT:\Backup"'
+      - send: 'MMEM:MOVE "INT:\MySetup.sta","INT:\Backup\Other.sta"'
+      - query: 'MMEM:CAT:STAT? "INT:\Backup"'
+        expect: '+6,+999999994,"MySetup.sta,STAT,3","Other.sta,STAT,3"'
+      - query: 'MMEM:CAT:DATA:ARB? "INT:\"'
+        expect: '+6,+999999994,"Backup,FOLD,0"'
+      - send: 'MMEM:DEL "INT:\Backup\*.sta"'
+      - query: 'MMEM:CAT? "INT:\Backup"'
+        expect: "+0,+1000000000"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "MMEMory：非空文件夹不能删、找不到的文件、越出存储的路径都报文件错误"
+    manual: "MMEMory Subsystem > MMEMory:RDIRectory (Directory not empty); SCPI Error Messages -256, -257"
+    steps:
+      - send: 'MMEM:MDIR "INT:\Data"'
+      - send: 'MMEM:DOWN:FNAM "INT:\Data\a.csv"'
+      - send: 'MMEM:RDIR "INT:\Data"'
+      - query: "SYST:ERR?"
+        expect: '-257,"File name error"'
+      - send: 'MMEM:DEL "INT:\Data\missing.csv"'
+      - query: "SYST:ERR?"
+        expect: '-256,"File or folder name not found"'
+      - send: 'MMEM:CDIR "INT:\..\.."'
+      - query: "SYST:ERR?"
+        expect: '-257,"File name error"'
+      - send: 'MMEM:CDIR "X:\"'
+      - query: "SYST:ERR?"
+        expect: '-256,"File or folder name not found"'

@@ -3814,6 +3814,59 @@
         "title": "InstrumentDefinition",
         "type": "object"
       },
+      "InstrumentFile": {
+        "description": "One file of an instrument's mass storage (#1069).",
+        "properties": {
+          "modified": {
+            "description": "Last change, seconds since the epoch",
+            "title": "Modified",
+            "type": "number"
+          },
+          "path": {
+            "description": "Path in the instrument's folder, '/'-separated, drive first (INT/States/a.sta)",
+            "title": "Path",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "size": {
+            "title": "Size",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "path",
+          "size",
+          "sha256",
+          "modified"
+        ],
+        "title": "InstrumentFile",
+        "type": "object"
+      },
+      "InstrumentFiles": {
+        "description": "The files a running instrument keeps (MMEMory, :DISK), kept across runs of a saved bench.",
+        "properties": {
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/InstrumentFile"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "instrument": {
+            "title": "Instrument",
+            "type": "string"
+          }
+        },
+        "required": [
+          "instrument",
+          "files"
+        ],
+        "title": "InstrumentFiles",
+        "type": "object"
+      },
       "InstrumentInfo": {
         "properties": {
           "address_hislip": {
@@ -6923,7 +6976,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver",
+            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file",
             "title": "Kind",
             "type": "string"
           },
@@ -11393,6 +11446,109 @@
           }
         },
         "summary": "Configure"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}/files": {
+      "get": {
+        "description": "The files an instrument holds in its mass storage (#1069).",
+        "operationId": "listInstrumentFiles",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InstrumentFiles"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Files"
+      }
+    },
+    "/api/sessions/{sid}/instruments/{name}/files/content": {
+      "get": {
+        "description": "One file's bytes (``path`` as the listing gives it); never outside the instrument's folder.",
+        "operationId": "downloadInstrumentFile",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "name",
+            "required": true,
+            "schema": {
+              "title": "Name",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/octet-stream": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Download File"
       }
     },
     "/api/sessions/{sid}/instruments/{name}/internals": {

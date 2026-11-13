@@ -323,5 +323,10 @@ function describe(e: RunEvent, t: T): string {
     });
     return chans.join(" · ");
   }
+  if (e.kind === "file") {
+    const what = t(`runs.fileActions.${e.action}`, { defaultValue: e.action ?? "" });
+    const bytes = e.size != null && e.sha256 ? ` · ${e.size} bytes · sha256 ${e.sha256.slice(0, 12)}…` : "";
+    return `${what} ${e.path ?? ""}${bytes}`;
+  }
   return e.message ?? e.reason ?? "";
 }

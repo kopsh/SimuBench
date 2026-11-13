@@ -26,12 +26,13 @@ import os
 import random
 import re
 from collections import OrderedDict
+from pathlib import Path
 from typing import Any
 
 from pyvisa import attributes, constants, errors, highlevel, rname
 from pyvisa.util import LibraryPath
 
-from ..api import open_bench
+from ..api import bench_files_dir, open_bench
 from ..engine.faults import LinkDown
 from ..engine.session import Session
 from .bench_link import DEFAULT_PORT as LINK_PORT
@@ -236,6 +237,8 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
                 clock=option("clock"),
                 seed=int(seed) if seed else None,
                 idle=option("idle"),
+                # the instruments' files stay next to the bench between runs (#1069)
+                files_dir=bench_files_dir(Path(self._spec).resolve().parent, Path(self._spec)),
             )
         self._closed = False
         # Address table: canonical virtual address, configured real address and instance name.

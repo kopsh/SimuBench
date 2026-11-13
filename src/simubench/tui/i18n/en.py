@@ -129,6 +129,12 @@ TERMS: dict = {
         "faultActive": "Fault {id} active",
         "faultEnded": "Fault {id} ended",
         "acquisition": "Acquisition",
+        "file": {
+            "write": "File written: {path}",
+            "delete": "File deleted: {path}",
+            "make_folder": "Folder made: {path}",
+            "remove_folder": "Folder removed: {path}",
+        },
         "advance": "Advance {dt}",
         "remoteLocal": "taken to local",
         "remoteScript": "taken by the script",

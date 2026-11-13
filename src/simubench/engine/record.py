@@ -110,6 +110,8 @@ class Recorder:
             },
             # Plugin components the bench may be using; a replay warns when a hash changed (D36).
             "plugins": plugin_report(),
+            # The instruments' files when the run began (#1069): a replay starts with none.
+            "files": self.session.files_snapshot(),
             # Not the JSON dump: it writes infinity (a HiZ load setting) as null.
             "bench_data": self.session.bench.model_dump(by_alias=True),
             "seed": self.session.seed,

@@ -19,7 +19,7 @@ from ..access.hislip_server import HislipServer
 from ..access.hislip_tls import SecureConfig, read_users
 from ..access.scpi_server import ScpiServer
 from ..access.vxi11_server import Vxi11Server
-from ..api import open_bench
+from ..api import bench_files_dir, open_bench
 from ..engine.portref import split
 from ..engine.record import definition_hash
 from ..engine.session import Session
@@ -410,6 +410,7 @@ class SessionManager:
             record_dir=self.record_dir,
             record_raw=self.record_raw,
             definition_dirs=[self.workspace / "instruments"],  # as validated (BenchFiles.library)
+            files_dir=bench_files_dir(self.workspace, path),  # kept across runs (#1069)
         )
         served = ServedSession(sid or uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256
