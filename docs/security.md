@@ -14,7 +14,7 @@
 | 诊断包 | 不包含访问令牌，不自动上传 | `test_diagnostics_bundle_over_the_api` |
 | MCP 仿真控制 | 推进时钟、读取真实值默认关闭，需 `--allow-control`；读取真实值还需 Bench 中 `run.reveal_true_values`（验证模式下关闭，定标脚本读不到答案） | `tests/test_mcp.py` |
 | 个体偏差 | 按指标抽取的值（D3 第 2 层）在会话接口中只在 `run.reveal_true_values` 打开时给出：仪表与 DUT 的 `deviations[].value` 为 null，DUT 的 `params` 显示标称值；MCP `read_true_values` 同样受这个开关与 `--allow-control` 限制。内部组件图只显示型号的标称值 | `tests/test_deviation.py::test_the_session_view_hides_drawn_values_unless_revealed`、`web/e2e/edit.spec.ts` |
-| 内部探针 | 仪表内部端口的信号（`GET …/internals/probe`、MCP `probe_internal`）会显示个体值的效果：测试台不公开真实值（`run.reveal_true_values` 关闭）且该仪表带有隐藏的个体值（抽取的偏差、`hidden`、参数类故障）时返回 403 / 工具拒绝；内部结构图照常返回。全部为标称值的仪表不受限 | `tests/test_internal_probe.py::test_validation_mode_withholds_an_instrument_with_hidden_values` |
+| 内部探针 | 仪表内部端口的信号（`GET …/internals/probe`、MCP `probe_internal`）会显示个体值的效果：测试台不公开真实值（`run.reveal_true_values` 关闭）且该仪表带有隐藏的个体值（抽取的偏差、`hidden`、参数类故障、`set_parameter`；显式登记在 `Component.unit_values`，组件自身的运行时覆盖不算）时返回 403 / 工具拒绝，两边给出同一条含仪表名的原因；内部结构图照常返回。全部为标称值的仪表不受限 | `tests/test_internal_probe.py::test_validation_mode_withholds_an_instrument_with_hidden_values`、`::test_each_source_of_a_hidden_value_withholds_the_probe_unless_revealed`、`::test_a_blocks_own_run_time_overrides_hide_nothing` |
 | 真值核对（C7） | `simubench verdicts` 与 MCP `check_verdicts` 在**运行结束后离线**核对定标脚本的判定：只读运行记录与脚本自己的报告，输出逐点结论与真误差。它不碰正在运行的会话——脚本运行中 `run.reveal_true_values` 关着时它什么也给不出，运行时的保密规则不变。MCP 工具与 `read_true_values` 一样需要 `--allow-control`：把真值交给 Agent 是工程师的显式行为 | `tests/test_verdicts.py`、`tests/test_mcp.py` |
 | MCP 危险命令 | 打开输出、扫描等标记为危险的命令需要 `confirm=true`，Agent 必须先向工程师说明 | `tests/test_mcp.py` |
 | MCP 频率限制 | 每个会话的命令速率受限，防止失控的 Agent 循环 | `tests/test_mcp.py` |

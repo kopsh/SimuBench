@@ -152,6 +152,7 @@ class Instrument:
                         f"{comp_name}.{param_name} (parameters: {options})"
                     )
             component.overrides.update(params)
+            component.unit_values.update(params)
         #: This unit's drawn deviations, '<component>.<parameter>' -> value (empty when nominal).
         self.deviations: dict[str, Any] = {}
         if instance.deviation == "from_specs":
