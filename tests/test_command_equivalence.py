@@ -186,9 +186,13 @@ def _assert_consistent(
         if runs:
             assert runs[0][1] == m.spec.header, where
         else:
-            # routed, but the channel/suffix value was refused before the handler ran: the same
-            # spec matched (its -114 is a value error, not a routing refusal)
-            assert error is not None and error.code == -114, where
+            # routed, but refused before the handler ran: the same spec matched. Either the
+            # channel/suffix value was refused (-114, a value error, not a routing refusal), or the
+            # spec belongs to an option the unit does not have and no later command on the header
+            # answers instead (-241 Hardware missing, #1004 / D68)
+            assert error is not None and (
+                error.code == -114 or (error.code == -241 and m.spec.option is not None)
+            ), where
     elif m.kind == "common":
         assert calls and error is None, where
     elif m.kind == "builtin":

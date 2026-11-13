@@ -706,6 +706,39 @@ def test_the_phase_noise_stream_is_deterministic_noise(tmp_path):
     assert not np.array_equal(trace(3), trace(4))
 
 
+@pytest.mark.parametrize("model", ["keysight-n9320b", "keysight-n9042b"])
+def test_a_real_models_flatness_deviation_stays_inside_its_data_sheet_bands(model):
+    """The real analyzers' frequency response as a unit deviation (#960): every node of the drawn
+    curve lies within the limit of the band (or the tighter of two bands) it sits in, the curve
+    is 0 at the 50 MHz reference, the same seed draws the same unit and another seed another."""
+    (dev,) = DefinitionLibrary().get(model).deviations
+    bands, limits = dev.bands, dev.limit if isinstance(dev.limit, list) else [dev.limit] * len(dev.bands)
+
+    def curve(seed: int) -> list[list[float]]:
+        bench = BenchDefinition.model_validate(
+            {
+                "schema": "simubench.bench/2",
+                "name": "flatness",
+                "instruments": {"sa": {"model": model, "deviation": "from_specs"}},
+                "run": {"seed": seed},
+            }
+        )
+        s = open_bench(bench)
+        try:
+            return s.deviations()["sa/input.flatness"]
+        finally:
+            s.close()
+
+    drawn = curve(5)
+    for f, d in drawn:
+        held = [lim for (lo, hi), lim in zip(bands, limits, strict=True) if lo <= f <= hi]
+        assert held and abs(d) <= min(held) + 1e-12, (f, d)
+    assert dict((f, d) for f, d in drawn)[dev.reference] == 0.0
+    assert max(abs(d) for _, d in drawn) > 0.05  # a unit, not the nominal
+    assert curve(5) == drawn
+    assert curve(6) != drawn
+
+
 # ---- options (选件, #1004): one definition, a unit with the preamplifier and one without ----
 
 

@@ -582,3 +582,31 @@ cases:
       - query: ":CALC:MARK:Y?"
         expect_value: -86.0
         tolerance: 0.2
+
+  - name: "前置放大器（选件 P03）：前放开时噪声底降 18 dB；没装选件的整机查询回 0、设置报 -241"
+    manual: "Data Sheet 5990-8119EN p.3 > Preamplifier: 1 MHz to 3.0 GHz, gain 18 dB nominal；p.4 > DANL typical: 10 to 500 MHz preamp off -132 dBm, preamp on -150 dBm（RBW 10 Hz）；SENSe Subsystem > [:SENSe]:POWer[:RF]:GAIN[:STATe]"
+    # sa_p03 装了 P03、输入端接。条件同“噪声底随 RBW”：0 dB 衰减、RBW 1 kHz、采样检波、对数平均 100 次，
+    # 噪声底 = DANL + 20 dB：前放关 -112 dBm，前放开 -130 dBm。没装选件的回复是 SimuBench 的假设（覆盖表注明）。
+    steps:
+      - query: ":POW:GAIN?"
+        expect: "0"
+      - send: ":POW:GAIN ON"
+      - query: ":SYST:ERR?"
+        expect_prefix: "-241"
+      - {instrument: sa_p03, query: ":POW:GAIN?", expect: "0"}
+      - {instrument: sa_p03, send: ":FREQ:CENT 100 MHz"}
+      - {instrument: sa_p03, send: ":FREQ:SPAN 100 kHz"}
+      - {instrument: sa_p03, send: ":POW:ATT 0"}
+      - {instrument: sa_p03, send: ":BAND 1 kHz"}
+      - {instrument: sa_p03, send: ":DET SAMP"}
+      - {instrument: sa_p03, send: ":AVER:COUN 100"}
+      - {instrument: sa_p03, send: ":TRAC:MODE AVER"}
+      - {instrument: sa_p03, send: ":INIT:CONT OFF"}
+      - {instrument: sa_p03, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_p03, send: ":CALC:MARK:X 100 MHz"}
+      - {instrument: sa_p03, query: ":CALC:MARK:Y?", expect_value: -112.0, tolerance: 2.2}
+      - {instrument: sa_p03, send: ":POW:GAIN ON"}
+      - {instrument: sa_p03, query: ":POW:GAIN?", expect: "1"}
+      - {instrument: sa_p03, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_p03, query: ":CALC:MARK:Y?", expect_value: -130.0, tolerance: 2.2}
+      - {instrument: sa_p03, query: ":SYST:ERR?", expect: '+0,"No error"'}
