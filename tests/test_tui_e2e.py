@@ -187,7 +187,8 @@ async def test_fault_dialog_inject_closes_and_lists(served_validation):
         dlg.instrument = "smu"  # back to the real subject for the success path below
         error_radio = next(r for r in dlg.query(RadioButton) if r.name == "error")
         error_radio.value = True
-        await pilot.pause(0.3)
+        # the error kind's rows replace the timeout kind's (both have a count): wait for them
+        await wait_for(pilot, lambda: bool(dlg.query("#fd-f-code")), message="error fields")
         dlg.query_one("#fd-f-code", Input).value = "-313"
         dlg.query_one("#fd-f-count", Input).value = "3"
         dlg.query_one("#fd-inject", Button).press()
