@@ -1,0 +1,912 @@
+schema: simubench.instrument/1
+id: keysight-uxr1104b
+manufacturer: Keysight Technologies
+model: UXR1104B
+class: oscilloscope
+version: 1
+description: >-
+  Keysight Infiniium UXR1104B, 4 channels, 110 GHz, 256 GSa/s, 10-bit ADC, 1 mm 50 ohm inputs. Real
+  model (D42): the same command set as the UXR0334B (Infiniium UXR-Series Oscilloscopes Programmer's
+  Guide 11.60.00000, 9018-07723); ranges, noise and accuracies follow the 1 mm input columns of the
+  UXR-B data sheet 3123-1313 (#1092). Values neither document gives are SimuBench defaults, listed
+  in the coverage table.
+reference:
+  title: Keysight Infiniium UXR-Series Oscilloscopes Programmer's Guide
+  document: 9018-07723
+  version: "Version 11.60.00000, March 2024"
+  firmware: "Infiniium UXR-Series software 11.60"
+identity:
+  # *IDN? per the guide: Keysight Technologies,<Model #>,<USXXXXXXXX>,<Rev #>[,<Options>].
+  idn: "Keysight Technologies,UXR1104B,{serial},{firmware}"
+  serial: MY64310101
+  firmware: "11.60.00000"
+# :SYSTem:ERRor? is the model's own command (a number, or with STRing the number and the text).
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
+# The guide: the error queue is 30 errors deep.
+error_queue: 30
+# The guide's sample reply for :CHANnel1:RANGe? is +8.00000E-01: NR3, five decimals, signed.
+format:
+  number: nr3
+  digits: 5
+  sign: true
+  exponent_digits: 2
+  boolean: numeric
+  enum: short
+  # The guide's example programs test an empty queue with "0," at the start of the reply.
+  error_code: plain
+errors:
+  0: "No error"
+# 应答头与长格式（手册 :SYSTem:HEADer、:SYSTem:LONGform、:MODel? 的表 13）。
+dialect:
+  echo_header: $system.header
+  long_form: $system.longform
+specs:
+  source: Infiniium UXR-B Series Oscilloscopes Data Sheet 3123-1313 (2024-04-25), 1 mm input models
+  # p.7 "Vertical System – Performance Characteristics by Model - 1 mm Input Models", UXR1104B column.
+  bandwidth_hz: 1.13e11
+  warranted_bandwidth_hz: 1.1e11
+  rise_time_10_90_s: 4.0e-12
+  enob_typical: {"≥ 400 mVfs": 5.0, "60 mVfs": 4.2}
+  # p.2 model table and p.5 "Vertical System Specifications – 1mm & 1.85 mm Input Models".
+  sample_rate: 2.56e11
+  # "Memory depth per channel": 500 Mpts standard, up to 2 Gpts with options (UXR0000-02G).
+  memory_depth_pts: 5.0e8
+  memory_depth_options_pts: [1.0e9, 2.0e9]
+  vertical_resolution_bits: 10
+  # p.5: displayed sensitivity 1 mV/div to 500 mV/div; hardware 60 mV to 4.0 V full scale
+  # (magnification below 7.5 mV/div, where full scale counts as 60 mV).
+  input_sensitivity_v_div: [1.0e-3, 0.5]
+  input: {r_ohm: 50.0, r_tolerance: 0.03, coupling: DC, connector: 1 mm}
+  offset_range_v: {"1 mV to 59 mV/div": 0.4, "60 mV to 127 mV/div": 0.86, "128 mV to 279 mV/div": 1.85, "280 mV to 500 mV/div": 4.0}
+  dc_gain_accuracy: "±2% of full scale (typical ±1%)"
+  offset_accuracy: "±(2% of channel offset + 1% of full scale + 600 µV) (typical 1% of channel offset)"
+  # p.11: 1 ps/div for the 40 GHz to 110 GHz models; the programmer's guide gives 5 ps/div as the
+  # :TIMebase:SCALe limit, which the definition follows (coverage table).
+  timebase_s_div: [1.0e-12, 20.0]
+  timebase_delay_s: [-200.0, 200.0]
+  time_scale_accuracy: "±(25 ppb initial + 100 ppb/year aging) first year"
+  trigger_sensitivity: "1 div p-p"
+  trigger_level_range: "±4 div from center screen or ±4 V, whichever is smaller; AUX ±5 V"
+  trigger_holdoff_s: [4.0e-8, 10.0]
+  trigger_jitter_s_rms: 2.5e-14
+  noise_floor: >-
+    published per full scale: the Infiniium UXR-B Series data sheet 3123-1313's "RMS Noise Floor –
+    Performance Characteristics (Measured)" table, UXR1104B / UXR1102B column (page 8): 860 µV rms
+    at 60 mV full scale (7.5 mV/div) rising to 29 mV rms at 4.0 V full scale (500 mV/div).
+  noise_per_division: >-
+    the data sheet's table per full scale (60 mV to 4.0 V, 7.5 to 500 mV/div). Below 7.5 mV/div the
+    scope magnifies the 60 mV range, so 1 to 7.4 mV/div hold its 860 µV. Each division takes the row
+    of the largest listed division not above it (scope_vertical noise_table).
+channels:
+  count: 4
+  overrides:
+    1: {display: {default: true}}
+state:
+  # 操作状态使能（:OPEEnable）：位 0 ACQ DONE、位 1 PROC DONE、位 5 WAIT TRIG、位 11 AUTO TRIG；摘要进 *STB 位 7。
+  status.opee:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: 操作状态使能
+    label_en: Operation status enable
+  # 应答头（:SYSTem:HEADer）与长格式（:SYSTem:LONGform）两个开关（dialect，#602）；上电值是用户偏好，
+  # 手册未给，SimuBench 取 OFF。
+  system.header:
+    type: bool
+    default: false
+    label: 应答头
+    label_en: Response headers
+  system.longform:
+    type: bool
+    default: false
+    label: 长格式应答
+    label_en: Long-form responses
+  timebase.scale:
+    type: float
+    unit: S
+    min: 5.0e-12
+    max: 20.0
+    default: 1.0e-7
+    label: 时基
+    label_en: Timebase
+  timebase.position:
+    type: float
+    unit: S
+    min: -200.0
+    max: 200.0
+    default: 0.0
+    label: 水平位置
+    label_en: Position
+  timebase.reference:
+    type: enum
+    options: [LEFT, CENTer, RIGHt]
+    default: CENTer
+    label: 时间参考
+    label_en: Reference
+  trigger.mode:
+    type: enum
+    options: [EDGE]
+    default: EDGE
+    not_modeled:
+      GLITch: glitch trigger is not modeled
+      PWIDth: pulse width trigger is not modeled
+      PATTern: pattern trigger is not modeled
+      STATe: state trigger is not modeled
+      RUNT: runt trigger is not modeled
+      SHOLd: setup and hold trigger is not modeled
+      TRANsition: transition trigger is not modeled
+      DELay: delay trigger is not modeled
+      TIMeout: timeout trigger is not modeled
+      WINDow: window trigger is not modeled
+      OR: ORed edges trigger is not modeled
+      EBURst: burst trigger is not modeled
+      SEQuence: sequence trigger is not modeled
+      IFMagn: IF magnitude trigger is not modeled
+    label: 触发类型
+    label_en: Trigger type
+  trigger.sweep:
+    type: enum
+    options: [AUTO, TRIGgered]
+    default: AUTO
+    not_modeled: {SINGle: "the single sweep (the guide: do not use in new programs; use :SINGle)"}
+    label: 触发方式
+    label_en: Trigger sweep
+  trigger.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, AUXiliary]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4, AUXiliary: AUX}
+    default: CHANnel1
+    label: 触发源
+    label_en: Trigger source
+  # 每个信源一个触发电平（手册 :TRIGger:LEVel {CHANnel<N> | AUX},<level>）；默认设置为 0 V。
+  trigger.level1: {type: float, unit: V, min: -1.0e6, max: 1.0e6, default: 0.0, label: 触发电平 CH1, label_en: Trigger level CH1}
+  trigger.level2: {type: float, unit: V, min: -1.0e6, max: 1.0e6, default: 0.0, label: 触发电平 CH2, label_en: Trigger level CH2}
+  trigger.level3: {type: float, unit: V, min: -1.0e6, max: 1.0e6, default: 0.0, label: 触发电平 CH3, label_en: Trigger level CH3}
+  trigger.level4: {type: float, unit: V, min: -1.0e6, max: 1.0e6, default: 0.0, label: 触发电平 CH4, label_en: Trigger level CH4}
+  # AUX 输入 ±5 V（数据手册）。
+  trigger.level5: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.0, label: 触发电平 AUX, label_en: Trigger level AUX}
+  trigger.slope:
+    type: enum
+    options: [POSitive, NEGative, EITHer, ALTernate]
+    default: POSitive
+    label: 触发沿
+    label_en: Trigger slope
+  # 手册：释抑 100 ns 到 10 s（数据手册写 40 ns 起，按编程手册）。
+  trigger.holdoff:
+    type: float
+    unit: S
+    min: 1.0e-7
+    max: 10.0
+    default: 1.0e-7
+    label: 释抑时间
+    label_en: Holdoff
+  acquire.mode:
+    type: enum
+    options: [RTIMe]
+    default: RTIMe
+    not_modeled:
+      PDETect: real-time peak detect is not modeled
+      HRESolution: real-time high resolution is not modeled
+      SEGMented: segmented memory is not modeled
+      SEGPdetect: segmented memory is not modeled
+      SEGHres: segmented memory is not modeled
+    label: 采集模式
+    label_en: Acquire mode
+  acquire.average:
+    type: bool
+    default: false
+    label: 平均
+    label_en: Averaging
+  acquire.count:
+    type: int
+    min: 2
+    max: 1048575
+    default: 16
+    label: 平均次数
+    label_en: Averages
+  acquire.complete:
+    type: int
+    min: 0
+    max: 100
+    default: 90
+    label: 采集完成判据
+    label_en: Acquire complete
+  # 存储深度：AUTO 由示波器选择（SimuBench 取 256 kpts，默认时基下正好 256 GSa/s）；手动值到 10 Mpts
+  # （仿真上限，真机标配 500 Mpts、选件到 2 Gpts，#1012，覆盖表注明）。
+  acquire.points:
+    type: int
+    min: 16
+    max: 10000000
+    default: 256000
+    special: {AUTO: 256000}
+    label: 存储深度
+    label_en: Memory depth
+  # 采样率（:ACQuire:SRATe[:ANALog]）：AUTO（0）随存储深度；设定值取下一个更快的档（256 GSa/s 除以
+  # 2 的幂，手册与数据手册），优先于存储深度。
+  acquire.srate:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 2.56e11
+    default: 0.0
+    special: {AUTO: 0.0, MAX: 2.56e11}
+    label: 采样率设定
+    label_en: Sample rate setting
+  # 带宽滤波（:ACQuire:BANDwidth）：MAX 为硬件带宽 113 GHz（数据手册典型值，保证 110 GHz）；AUTO 未建模。
+  acquire.bandwidth:
+    type: float
+    unit: HZ
+    min: 1.0e8
+    max: 1.13e11
+    default: 1.13e11
+    special: {MAX: 1.13e11}
+    not_modeled: {AUTO: the automatic bandwidth selection is not modeled}
+    label: 带宽
+    label_en: Bandwidth
+  # 带宽滤波的幅度响应（:ACQuire:RESPonse）：FLATmag（默认，平坦幅度、线性相位，阶跃有振铃）或
+  # GAUSsianmag（高斯幅度，无振铃），-3 dB 点都在 :ACQuire:BANDwidth（#607）。
+  acquire.response:
+    type: enum
+    options: [FLATmag, GAUSsianmag]
+    default: FLATmag
+    label: 带宽滤波响应
+    label_en: Filter response
+  waveform.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
+    default: CHANnel1
+    label: 波形传输源
+    label_en: Waveform source
+  # 手册：默认格式为 ASCii。
+  waveform.format:
+    type: enum
+    options: [ASCii, BYTE, WORD]
+    default: ASCii
+    not_modeled: {BINary: the BINary format is not modeled, FLOat: color grade data is not modeled}
+    label: 波形格式
+    label_en: Waveform format
+  waveform.byteorder:
+    type: enum
+    options: [MSBFirst, LSBFirst]
+    default: MSBFirst
+    label: 波形字节序
+    label_en: Waveform byte order
+  # 流式传输：ON 时 :WAVeform:DATA? 回 #0 不定长块（手册 Streaming On）；默认 OFF 为 SimuBench 值。
+  waveform.streaming:
+    type: bool
+    default: false
+    label: 流式传输
+    label_en: Streaming
+  measure.source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 测量信源
+    label_en: Measure source
+  measure.source2:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel2
+    label: 测量信源 2
+    label_en: Measure source 2
+  # 界面与身份：前面板锁定、隐藏指示灯、屏幕文字、标签显示与网格亮度都不改变数据。
+  system.lock: {type: bool, default: false, label: 前面板锁定, label_en: Front panel lock}
+  system.hled: {type: bool, default: false, label: 隐藏指示灯, label_en: Hide LEDs}
+  system.dsp: {type: string, default: "", label: 屏幕文字, label_en: Display text}
+  display.label: {type: bool, default: false, label: 显示标签, label_en: Labels}
+  display.intensity: {type: int, min: 0, max: 100, default: 50, label: 网格亮度, label_en: Grid intensity}
+  # 只读身份：只有一个取值的枚举使 :SERial? / :MODel? 回不带引号的字符串（手册的样例）。
+  system.serial:
+    type: enum
+    options: [MY64310101]
+    default: MY64310101
+    readonly: true
+    label: 序列号
+    label_en: Serial number
+  system.model:
+    type: enum
+    options: [UXR1104B]
+    default: UXR1104B
+    readonly: true
+    label: 型号
+    label_en: Model
+channel_state:
+  display:
+    type: bool
+    default: false
+    label: 显示
+    label_en: Display
+  # 1 mV/div 到 500 mV/div（1 mm 输入型号的显示灵敏度，数据手册 p.5）；默认设置取最大档 500 mV/div
+  # （UXR0334B 的默认设置为其最大档 1 V/div，同理；SimuBench 值，覆盖表注明）。
+  scale:
+    type: float
+    unit: V
+    min: 1.0e-3
+    max: 0.5
+    default: 0.5
+    label: 垂直档位
+    label_en: Scale
+  offset:
+    type: float
+    unit: V
+    min: -4.0
+    max: 4.0
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  # 手册：UXR 的输入只有 DC50（DCFifty 为同义词）。
+  input:
+    type: enum
+    options: [DC50, DCFifty]
+    replies: {DCFifty: DC50}
+    option_labels: {DC50: "DC 50 Ω", DCFifty: "DC 50 Ω"}
+    default: DC50
+    label: 输入
+    label_en: Input
+  label:
+    type: string
+    default: ""
+    label: 通道标签
+    label_en: Label
+  # 通道的带宽限制（:CHANnel<N>:ISIM:BWLimit / :BANDwidth / :BWLimit:TYPE，#609）：在前端之后再滤一级。
+  # 截止频率 1 kHz 起（手册），上限取 256 GSa/s 的一半；上电值 OFF、10 GHz、WALL 为 SimuBench 值。
+  isim_bwlimit:
+    type: bool
+    default: false
+    label: 通道带宽限制
+    label_en: Channel BW limit
+  isim_bandwidth:
+    type: float
+    unit: HZ
+    min: 1.0e3
+    max: 1.28e11
+    default: 1.0e10
+    label: 通道带宽限制频率
+    label_en: Channel BW limit frequency
+  isim_type:
+    type: enum
+    options: [WALL, BESSEL4, BUTTerworth]
+    default: WALL
+    not_modeled:
+      BANDpass: the bandpass filter (phase noise analysis) is not modeled
+      BP5: the Frequency Extension bandpass filters are not modeled
+      BP10: the Frequency Extension bandpass filters are not modeled
+      BP20: the Frequency Extension bandpass filters are not modeled
+      BP30: the Frequency Extension bandpass filters are not modeled
+      P802P3DJ: the raised cosine reference receiver filters are not modeled
+      OIFCEI6: the raised cosine reference receiver filters are not modeled
+    label: 通道带宽限制类型
+    label_en: Channel BW limit type
+# 个体偏差（数据手册 3123-1313 p.5 的保证值，按种子抽取，metrology-authoring.md 7）：直流增益精度 ±2% 满量程；
+# 偏置精度 ±(2% 偏置设定 + 1% 满量程 + 600 µV)（满量程 = 8 格，7.5 mV/div 以下按 60 mV 计）；时基 25 ppb。
+deviations:
+  - param: front.gain_error_ppm
+    limit: 20000.0
+    distribution: uniform
+  - param: front.offset_error
+    by: {scale: [0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5]}
+    limit: {0.001: 0.0012, 0.002: 0.0012, 0.005: 0.0012, 0.01: 0.0014, 0.02: 0.0022, 0.05: 0.0046, 0.1: 0.0086, 0.2: 0.0166, 0.5: 0.0406}
+    distribution: uniform
+  - param: front.dac_error_ppm
+    limit: 20000.0
+    distribution: uniform
+  - param: timebase.clock_ppm
+    limit: 0.025
+    distribution: uniform
+components:
+  # 磁盘（:DISK，手册第 20 章，#1069）：C:\ 为本机一个文件夹；默认路径 C:\Users\Public\Documents\Infiniium；
+  # 文件名不区分大小写；:DISK:PWD? 在 :DISK:CDIRectory 改过之前回空字符串。
+  - name: disk
+    type: file_system
+    params:
+      drives: [C]
+      home: "C:\\Users\\Public\\Documents\\Infiniium"
+      reset_home: false
+      catalog: lines
+  # 设置存取（#1070）：*SAV/*RCL 与 :STORe/:RECall:SETup 共用寄存器 0–9（手册第 13、14 章）；空寄存器只在
+  # 屏幕上提示，不进错误队列。*LRN? 回 ":SYST:SET " 加定长块，原样发回即恢复；:DISK:SAVE:SETup 存 .set 文件。
+  - name: setups
+    type: setup_memory
+    params:
+      storage: disk
+      registers: 10
+      first: 0
+      extension: .set
+      empty_error: 0
+      bad_setup: -161
+      learn_prefix: ":SYST:SET "
+  # 波形存成文件（:DISK:SAVE:WAVeform，#1071）：通道的记录与 :WAVeform:DATA? 同一份；CSV/TSV/TXT 为“时间,伏特”
+  # 行（header ON 时前面加 SimuBench 的键值行），BIN 为 Keysight 示波器二进制文件；INTernal、H5、H5INt、
+  # MATlab 未建模，报 -257。
+  - name: datafile
+    type: data_file
+    params:
+      storage: disk
+      record: acq
+  # 状态寄存器（手册第 7 章），每个事件寄存器读后清零：触发（:TERegister?，只在满足触发条件的采集完成时
+  # 置位，摘要进 *STB 位 0）、布防（:AER?）、采集完成（:ADER?，每次采集完成）、处理完成（:PDER?，仿真的
+  # 测量随查询即时算出，与采集同时完成）、自动触发（:ATER?）。
+  - name: ter
+    type: status_register
+    params: {bits: {TRG: 0}, enable: 1, summary_bit: 0, width: 1}
+  - name: aer
+    type: status_register
+    params: {bits: {ARM: 0}, width: 1}
+  - name: ader
+    type: status_register
+    params: {bits: {DONE: 0}, enable: 1, width: 1}
+  - name: pder
+    type: status_register
+    params: {bits: {DONE: 0}, enable: 1, width: 1}
+  - name: ater
+    type: status_register
+    params: {bits: {AUTO: 0}, enable: 1, width: 1}
+  # 操作状态（:OPERegister?，读后清零）：位 0 ACQ DONE、位 1 PROC DONE、位 5 WAIT TRIG、位 11 AUTO TRIG。
+  - name: oper
+    type: status_register
+    params: {bits: {ADER: 0, PDER: 1, WAIT: 5, ATER: 11}, enable: $status.opee, summary_bit: 7, width: 16}
+  - name: acq
+    type: scope_acquisition
+    params:
+      digitize_stops: true  # 手册 :DIGitize：采完即停
+      horizontal: timebase
+      trigger: trigger
+      adc: adc
+      vertical: front
+      probe: probe
+      mode: $trigger.sweep
+      auto: [AUTO]
+      normal: [TRIGgered]
+      reacquire: every_read
+      missing: acquire
+      untriggered: record
+      # :DIGitize 在采完后返回；*OPC? 等待它（手册：用 device clear 中止进行中的 :DIGitize）。
+      completion: pending
+      opc_waits: true
+      while_waiting: previous
+      no_trigger: wait
+      # :ASTate? 的四种状态（手册）：ARM 布防等触发、TRIG 已触发、ATRIG 自动触发、ADONE 采集完成。
+      status_text: {stopped: ADONE, waiting: ARM, triggered: TRIG, auto: ATRIG}
+      # :ACQuire:AVERage ON：取 :ACQuire:COUNt 次量化采集的均值（D46）。
+      processing: {from: $acquire.average, map: {"True": average}, default: normal}
+      averages: $acquire.count
+      trigger_jitter_s: 2.5e-14  # specs.trigger_jitter_s_rms: the data sheet's 25 fs intrinsic jitter (#745)
+  # 时基：采样率为 256 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
+  # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 10 Mpts）。参考位置 LEFT / CENTer / RIGHt
+  # 取屏幕 10% / 50% / 90%。
+  - name: timebase
+    type: scope_timebase
+    params:
+      scale: $timebase.scale
+      delay: $timebase.position
+      reference_divs: {from: $timebase.reference, map: {LEFT: 1.0, CENTer: 5.0, RIGHt: 9.0}}
+      record_length: rate_pow2
+      points: $acquire.points
+      sample_rate: $acquire.srate
+      max_points: 10000000
+  # 边沿触发：电平在信源屏幕中心 ±4 格内（数据手册）；灵敏度 1 格峰峰，迟滞取其一半。
+  - name: trigger
+    type: scope_trigger
+    params:
+      source: $trigger.source
+      level: $trigger.level1
+      level_by_source:
+        CHANnel1: trigger.level1
+        CHANnel2: trigger.level2
+        CHANnel3: trigger.level3
+        CHANnel4: trigger.level4
+        AUXiliary: trigger.level5
+      slope: $trigger.slope
+      rising: [POSitive, EITHer, ALTernate]
+      falling: [NEGative, EITHer, ALTernate]
+      level_range_divs: 4.0
+      hysteresis_divs: 0.5
+      holdoff: $trigger.holdoff
+      external: [AUXiliary]
+  # ADC：10 位；1024 个码对应屏幕 8 格（数据手册：10 位分辨率 = 满量程的 0.1%，满量程 8 格）。
+  - name: adc
+    type: scope_adc
+    params:
+      bits: 10
+      codes_per_div: 128.0
+      divs: 8.0
+      offset_sign: subtract
+      max_rate: 2.56e11
+  # AUX 触发输入：50 Ω（数据手册）。
+  - name: auxin
+    type: input_port
+    params:
+      z_in: 50.0
+  - name: meas
+    type: scope_measurements
+    params:
+      source: $measure.source
+      # 手册：无法测量时回 9.99999E+37。
+      invalid_value: "9.99999E+37"
+      sources: [measure.source, measure.source2]
+  - name: sys
+    type: system
+  - name: xfer
+    type: waveform_transfer
+    params:
+      source: $waveform.source
+      # :WAVeform:DATA?：BYTE 为有符号 8 位、WORD 为有符号 16 位（10 位码左移 6 位），定长块；ASCii 为
+      # 逗号分隔的伏特数，不带块头（手册）。
+      encoding: {from: $waveform.format, map: {ASCii: text}, default: block}
+      values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
+      format: "%.4E"
+      separator: ","
+      codes_per_div: 128.0
+      adc_bits: 10
+      width: {from: $waveform.format, map: {BYTE: 8}, default: 16}
+      offset: subtract
+      unsigned: false
+      byteorder: $waveform.byteorder
+      indefinite: $waveform.streaming
+      # :WAVeform:PREamble?（手册表 19）：format, type, points, count, X increment, X origin,
+      # X reference, Y increment, Y origin, Y reference, coupling, X display range, X display origin,
+      # Y display range, Y display origin, date, time, frame model #, acquisition mode, completion,
+      # X units, Y units, max bandwidth limit, min bandwidth limit。日期与时间为固定值（仿真台没有日历）。
+      header:
+        encoding: text
+        separator: ","
+        fields:
+          - {setting: waveform.format, map: {ASCii: 0, BYTE: 1, WORD: 2}}
+          - {setting: acquire.average, map: {"True": 2, "False": 1}}
+          - {figure: points}
+          - {setting: acquire.count, when: {acquire.average: "True"}, else: 1}
+          - {figure: x_increment, format: "%.6E"}
+          - {figure: x_start, format: "%.6E"}
+          - {value: 0}
+          - {figure: y_increment, format: "%.6E"}
+          - {figure: y_origin, format: "%.6E"}
+          - {value: 0}
+          - {value: 2}
+          - {figure: timebase, scale: 10.0, format: "%.6E"}
+          - {figure: x_start, format: "%.6E"}
+          - {figure: scale, scale: 8.0, format: "%.6E"}
+          - {figure: offset, format: "%.6E"}
+          - {value: '"01 JAN 2024"'}
+          - {value: '"00:00:00:00"'}
+          - {value: '"UXR1104B:MY64310101"'}
+          - {value: 0}
+          - {value: 100}
+          - {value: 2}
+          - {value: 1}
+          - {setting: acquire.bandwidth, format: "%.6E"}
+          - {value: "0.000000E+00"}
+channel_components:
+  # 50 Ω 直流耦合输入（数据手册）。
+  - name: inp
+    type: input_port
+    params:
+      z_in: 50.0
+  # 带宽 113 GHz（典型，保证 110 GHz）；:ACQuire:BANDwidth 的数字滤波：平坦幅度为砖墙、高斯幅度为高斯形，零相位（#607）。偏置范围按档位
+  # （数据手册）；超出范围报 -222。
+  - name: front
+    type: scope_vertical
+    params:
+      coupling: DC
+      bandwidth: 1.13e11
+      bw_limit: true
+      bw_limit_hz: $acquire.bandwidth
+      response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
+      scale: $ch.scale
+      offset: $ch.offset
+      probe_ratio: 1.0
+      scale_range: [1.0e-3, 0.5]
+      # 数据手册 p.5 的分档表（档界 59/127/279 mV/div 与下一档之间取中点）。
+      offset_ranges: [[0.0595, 0.4], [0.1275, 0.86], [0.2795, 1.85], [0.5, 4.0]]
+      out_of_range: error
+      # 每档噪声（specs.noise_per_division）：数据手册 3123-1313 的 "RMS Noise Floor – Performance
+      # Characteristics (Measured)" 表，UXR1104B / UXR1102B 列（p.8），按满量程 60 mV–4.0 V
+      # （7.5–500 mV/div）逐档：860 µV、1.1 mV、1.5 mV、2.9 mV、6.1 mV、13 mV、29 mV。7.5 mV/div 以下为
+      # 60 mV 量程的放大，取 860 µV。
+      noise_table: [[1.0e-3, 8.6e-4], [1.25e-2, 1.1e-3], [2.0e-2, 1.5e-3], [5.0e-2, 2.9e-3],
+                    [1.0e-1, 6.1e-3], [2.0e-1, 1.3e-2], [5.0e-1, 2.9e-2]]
+  # 通道带宽限制：WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。
+  # 手册说 Bessel 与 Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，
+  # 这一组合未建模（覆盖表注明）。
+  - name: isim
+    type: scope_vertical
+    params:
+      coupling: DC
+      bandwidth: .inf
+      bw_limit: $ch.isim_bwlimit
+      bw_limit_hz: $ch.isim_bandwidth
+      response: {from: $ch.isim_type, map: {WALL: brickwall, BESSEL4: bessel4, BUTTerworth: butterworth4}}
+  - name: probe
+    type: scope_probe
+    params:
+      ratio: 1.0
+wiring:
+  channel:
+    - [inp.out, front.in]
+    - [front.out, isim.in]
+    - [isim.out, probe.in]
+  instrument:
+    - ["ch{n}.probe.out", "acq.in{n}"]
+    - [auxin.out, trigger.ext]
+ports:
+  channel:
+    "CH{n}": inp.pin
+  instrument:
+    AUX: auxin.pin
+display:
+  template: oscilloscope
+  summary: [timebase.scale, trigger.source, trigger.slope]
+  channel_summary: [display, scale, offset, input]
+capabilities: [oscilloscope]
+commands:
+  # ---- Common ----
+  # 手册 *TRG：与 :DIGitize 相同。
+  - {header: "*TRG", op: acq.digitize, query: false}
+  # ---- Root ----
+  - {header: ":TERegister", op: ter.event, set: false}
+  - {header: ":AER", op: aer.event, set: false}
+  - {header: ":ADER", op: ader.event, set: false}
+  - {header: ":PDER", op: pder.event, set: false}
+  - {header: ":ATER", op: ater.event, set: false}
+  - {header: ":ASTate", op: acq.status, set: false}
+  - {header: ":RSTate", op: acq.run_state, set: false}
+  - {header: ":OPEEnable", state: status.opee}
+  - {header: ":OPERegister", op: oper.event, set: false}
+  - {header: ":RUN", op: acq.run, query: false}
+  - {header: ":STOP", op: acq.stop, query: false}
+  # 手册 :SINGle：下一次触发采一次，不改 :TRIGger:SWEep。
+  - {header: ":SINGle", op: acq.digitize, query: false}
+  - header: ":DIGitize"
+    op: acq.digitize
+    query: false
+    params: [{name: sources, type: raw}]
+  - {header: ":SERial", state: system.serial, set: false}
+  - {header: ":MODel", state: system.model, set: false}
+  - header: ":VIEW"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+    writes: {"ch{source}.display": true}
+    query: false
+    doc: 打开参数指定的通道。
+  - header: ":BLANk"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+    writes: {"ch{source}.display": false}
+    query: false
+    doc: 关闭参数指定的通道。
+  - header: ":STATus"
+    set: false
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+        echo: false
+      - {name: shown, type: bool, state: "ch{source}.display"}
+    doc: 参数指定的通道是否显示。
+  # ---- ACQuire ----
+  - {header: ":ACQuire:MODE", state: acquire.mode}
+  - {header: ":ACQuire:AVERage", state: acquire.average}
+  - {header: ":ACQuire[:AVERage]:COUNt", state: acquire.count}
+  - {header: ":ACQuire:COMPlete", state: acquire.complete}
+  - {header: ":ACQuire:POINts[:ANALog]", state: acquire.points}
+  # 设定写 acquire.srate；查询回实际采样率。
+  - header: ":ACQuire:SRATe[:ANALog]"
+    op: acq.figure
+    args: {what: sample_rate}
+    params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
+  - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
+  - {header: ":ACQuire:RESPonse", state: acquire.response}
+  # ---- CHANnel<N> ----
+  - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
+  - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0}
+  - {header: ":CHANnel<ch>:OFFSet", state: ch.offset}
+  - {header: ":CHANnel<ch>:INPut", state: ch.input}
+  - {header: ":CHANnel<ch>:DISPlay", state: ch.display}
+  - {header: ":CHANnel<ch>:LABel", state: ch.label}
+  - {header: ":CHANnel<ch>:ISIM:BWLimit", state: ch.isim_bwlimit}
+  - {header: ":CHANnel<ch>:ISIM:BANDwidth", state: ch.isim_bandwidth}
+  - {header: ":CHANnel<ch>:ISIM:BWLimit:TYPE", state: ch.isim_type}
+  # ---- DISPlay ----
+  - {header: ":DISPlay:LABel", state: display.label}
+  - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}
+  # ---- MEASure ----
+  - header: ":MEASure:SOURce"
+    params:
+      - {name: source1, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: measure.source}
+      - {name: source2, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true, state: measure.source2}
+    reply: "{measure.source},{measure.source2}"
+  - {header: ":MEASure:VPP", op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VMAX", op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VMIN", op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VAMPlitude", op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VTOP", op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VBASe", op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  # VAVerage / VRMS：只实现整屏（DISPlay）与含直流（DC）的写法，单周期与 AC、dBm 未建模。
+  - header: ":MEASure:VAVerage"
+    op: meas.measure
+    set: false
+    args: {what: VAVerage}
+    params:
+      - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+  - header: ":MEASure:VRMS"
+    op: meas.measure
+    set: false
+    args: {what: VRMS}
+    params:
+      - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
+      - {name: coupling, type: enum, options: [DC], not_modeled: {AC: AC RMS is not modeled}}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: units, type: enum, options: [VOLT], optional: true, not_modeled: {DBM: dBm results are not modeled}}
+  # FREQuency / PERiod / DUTYcycle：从上升沿到上升沿（RISing）；FALLing 未建模。
+  - header: ":MEASure:FREQuency"
+    op: meas.measure
+    set: false
+    args: {what: FREQuency}
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
+  - header: ":MEASure:PERiod"
+    op: meas.measure
+    set: false
+    args: {what: PERiod}
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
+  - header: ":MEASure:DUTYcycle"
+    op: meas.measure
+    set: false
+    args: {what: DUTYcycle}
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
+  - {header: ":MEASure:RISetime", op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:FALLtime", op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:PWIDth", op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:NWIDth", op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  # ---- SYSTem ----
+  # :SYSTem:ERRor? [{NUMBer | STRing}]：STRing 回码与带引号的文字；不带参数或 NUMBer 只回错误码
+  # （后一条不带 when，是前一条的兜底，#602）。
+  - header: ":SYSTem:ERRor"
+    op: sys.next_error
+    set: false
+    when: {form: STRing}
+    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
+    reply: '{header} {code},"{text}"'
+  - header: ":SYSTem:ERRor"
+    op: sys.next_error
+    set: false
+    when: {form: STR}
+    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
+    reply: '{header} {code},"{text}"'
+  - header: ":SYSTem:ERRor"
+    op: sys.next_error
+    set: false
+    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
+    reply: "{header} {code}"
+  - header: ":SYSTem:PRESet"
+    op: sys.reset
+    query: false
+    params: [{name: kind, type: enum, options: [DEFault], optional: true, not_modeled: {FACTory: the factory default is not modeled}}]
+  - {header: ":SYSTem:HEADer", state: system.header}
+  - {header: ":SYSTem:LONGform", state: system.longform}
+  - {header: ":SYSTem:LOCK", state: system.lock}
+  - {header: ":SYSTem:HLED", state: system.hled}
+  - {header: ":SYSTem:DSP", state: system.dsp}
+  # ---- TIMebase ----
+  - {header: ":TIMebase:SCALe", state: timebase.scale}
+  - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0}
+  - {header: ":TIMebase:POSition", state: timebase.position}
+  - {header: ":TIMebase:REFerence", state: timebase.reference}
+  # ---- TRIGger ----
+  - {header: ":TRIGger:MODE", state: trigger.mode}
+  - {header: ":TRIGger:SWEep", state: trigger.sweep}
+  - {header: ":TRIGger:FORCe", op: acq.force_trigger, query: false}
+  - {header: ":TRIGger:HOLDoff", state: trigger.holdoff}
+  # :TRIGger:EDGE[{1 | 2}]：第二项（序列触发的 TERM2）未建模，后缀 2 报 -114。
+  - {header: ":TRIGger:EDGE<e>:SOURce", state: trigger.source, suffixes: {e: [1]}}
+  - {header: ":TRIGger:EDGE<e>:SLOPe", state: trigger.slope, suffixes: {e: [1]}}
+  # :TRIGger:LEVel {CHANnel<N> | AUX},<level>：信源写在前面，必填；查询也带信源。
+  - header: ":TRIGger:LEVel"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, AUXiliary]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, AUXiliary: 5}
+        echo: false
+      - {name: level, type: float, unit: V, state: "trigger.level{source}"}
+  # ---- WAVeform ----
+  - {header: ":WAVeform:SOURce", state: waveform.source}
+  - {header: ":WAVeform:FORMat", state: waveform.format}
+  - {header: ":WAVeform:BYTeorder", state: waveform.byteorder}
+  - {header: ":WAVeform:STReaming", state: waveform.streaming}
+  - {header: ":WAVeform:POINts", op: xfer.figure, set: false, args: {what: points}}
+  - {header: ":WAVeform:PREamble", op: xfer.header, set: false}
+  - {header: ":WAVeform:DATA", op: xfer.data, set: false}
+  - {header: ":WAVeform:XINCrement", op: xfer.figure, set: false, args: {what: x_increment}}
+  - {header: ":WAVeform:XORigin", op: xfer.figure, set: false, args: {what: x_start}}
+  - {header: ":WAVeform:XREFerence", op: xfer.figure, set: false, args: {what: x_reference}}
+  - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment}}
+  - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin}}
+  - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}
+  # ---- 磁盘（:DISK，手册第 20 章，#1069）：目录、复制删除、按完整路径上传下载 ---------------------------
+  - header: ":DISK:CDIRectory"
+    op: disk.folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:PWD"
+    op: disk.working_folder
+    set: false
+  - header: ":DISK:MDIRectory"
+    op: disk.make_folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:DELete"
+    op: disk.delete
+    query: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:COPY"
+    op: disk.copy
+    query: false
+    params: [{name: source, type: string}, {name: target, type: string}]
+  - header: ":DISK:DIRectory"
+    op: disk.catalog
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: ":DISK:GETFILE"
+    op: disk.read
+    set: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:PUTFILE"
+    op: disk.write
+    query: false
+    params: [{name: name, type: string}, {name: data, type: block}]
+  # ---- 设置存取（#1070）---------------------------------------------------------------------------------
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: ":STORe:SETup"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: ":RECall:SETup"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: "*LRN"
+    op: setups.learn
+    set: false
+  - header: ":SYSTem:SETup"
+    op: setups.setup
+    params: [{name: data, type: block, optional: true}]
+  - header: ":DISK:SAVE:SETup"
+    op: setups.store_file
+    query: false
+    params: [{name: name, type: string}]
+  - header: ":DISK:SAVE:WAVeform"
+    op: datafile.store_waveform
+    query: false
+    params:
+      - {name: source, type: string}
+      - {name: name, type: string}
+      - {name: format, type: enum, options: [BIN, CSV, INTernal, TSV, TXT, H5, H5INt, MATlab], optional: true}
+      - {name: header, type: bool, optional: true}

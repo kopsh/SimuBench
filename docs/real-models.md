@@ -174,6 +174,8 @@ cases:
 - `waveform_transfer`：`reserve_lowest`（最低码表示无数据，数据不落在它上面）、`ascii_block`（ASCII 列表放在定长块里）、头字段的 `when` / `else`、op `figure` 单独读出 x/y 增量、原点与参考；16 位字的 y 增量按移位后的码计算；
 - `scope_trigger` 的 `reject` / `hf_reject`：触发路径上的低频、高频抑制滤波。
 
+**110 GHz 的 UXR**：`keysight-uxr1104b`（#1092）。256 GSa/s，与 `keysight-uxr0334b` 同一份编程手册与命令集；量程（1 mV–500 mV/div）、偏置分档、每档噪声与精度取数据手册 3123-1313 的 1 mm 输入型号列，覆盖表的程度与 UXR0334B 相同，型号相关的说明各自写。记录与 UXR0334B 一样至多 1000 万点（真机标配 500 Mpts、选件到 2 Gpts，等 #1012）。示例台 `examples/benches/keysight-uxr1104b.bench.yaml` 跑同一个波形读取脚本（`tests/test_keysight_uxr.py`）。
+
 ## 9. 内置定义与验证定义
 
 - **内置**：`src/simubench/library/instruments/` 只放真实型号的定义与覆盖表，随 wheel 发布，是元件库、MCP `list_catalog` 与命令行默认列出的全部仪表。
