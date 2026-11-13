@@ -336,3 +336,58 @@ cases:
         expect: "0"
       - query: "SYST:VERS?"
         expect: "1994.0"
+
+  - name: "MMEMory：建文件夹、换当前文件夹、下载写入、上传读回、按通配符列出"
+    manual: "MMEMory Subsystem > MMEMory:CDIRectory, MDIRectory, DOWNload:FNAMe, DOWNload:DATA, UPLoad?, CATalog[:ALL]?"
+    steps:
+      - query: "MMEM:CDIR?"
+        expect: '"INT:\"'
+      - send: 'MMEM:MDIR "INT:\BACKUP"'
+      - send: 'MMEM:CDIR "INT:\BACKUP"'
+      - query: "MMEM:CDIR?"
+        expect: '"INT:\BACKUP"'
+      - send: 'MMEM:DOWN:FNAM "INT:\Myfile"'
+      - query: "MMEM:DOWN:FNAM?"
+        expect: '"INT:\Myfile"'
+      - send: "MMEM:DOWN:DATA #15Hello"
+      - query: 'MMEM:UPL? "INT:\Myfile"'
+        expect: "#15Hello"
+      - send: 'MMEM:COPY "INT:\Myfile","INT:\BACKUP"'
+      - send: 'MMEM:MOVE "INT:\BACKUP\Myfile","INT:\BACKUP\Copy.csv"'
+      - query: 'MMEM:CAT? "INT:\BACKUP\*.csv"'
+        expect: '+10,+999999990,"Copy.csv,ASC,5"'
+      - send: 'MMEM:DEL "INT:\BACKUP\Copy.csv"'
+      - send: 'MMEM:CDIR "INT:\"'
+      - send: 'MMEM:RDIR "INT:\BACKUP"'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "MMEMory:STORe:DATA：读数存储器按通道分列存成 .csv，取回与 FETCh? 相同；分隔符可改；.dat 未建模"
+    manual: "MMEMory Subsystem > MMEMory:STORe:DATA RDG_STORE; MMEMory:FORMat:READing:CSEParator, CHEAder"
+    steps:
+      - send: "CONF:VOLT:DC 10,(@101:103)"
+      - query: "READ?"
+        expect_fields:
+          - {value: 0.90909, tolerance: 5.0e-05, format: "+d.ddddddddE-dd"}
+          - {value: 1.81818, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}
+          - {value: 3.63635, tolerance: 5.0e-05, format: "+d.ddddddddE+dd"}
+      - send: 'MMEM:STOR:DATA RDG_STORE,"INT:\MyDAQ"'
+      - query: 'MMEM:CAT? "INT:\*.csv"'
+        expect: '+77,+999999923,"MyDAQ.csv,ASC,77"'
+      - query: 'MMEM:UPL? "INT:\MyDAQ.csv"'
+        expect_prefix: "#277Chan 101,Chan 102,Chan 103\r\n+9.0909"
+      - query: "MMEM:FORM:READ:CHEA?"
+        expect: "NUM"
+      - send: "MMEM:FORM:READ:RLIM OFF"
+      - query: "MMEM:FORM:READ:RLIM?"
+        expect: "0"
+      - send: "MMEM:FORM:READ:RLIM:COUN 1048576"
+      - query: "MMEM:FORM:READ:RLIM:COUN?"
+        expect: "1048576"
+      - send: "MMEM:FORM:READ:CSEP TAB"
+      - send: 'MMEM:STOR:DATA RDG_STORE,"INT:\Tab.csv"'
+      - query: 'MMEM:UPL? "INT:\Tab.csv"'
+        expect_prefix: "#277Chan 101\tChan 102\tChan 103\r\n"
+      - send: 'MMEM:STOR:DATA RDG_STORE,"INT:\MyDAQ.dat"'
+      - query: "SYST:ERR?"
+        expect: '-257,"File name error"'

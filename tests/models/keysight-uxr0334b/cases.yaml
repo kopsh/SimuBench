@@ -708,3 +708,21 @@ cases:
       - send: ":SYSTem:SETup #13abc"
       - query: ":SYSTem:ERRor?"
         expect: "-161"
+  - name: ":DISK:SAVE:WAVeform：通道 1 的记录存成 CSV（带表头）与 BIN，取回；H5 未建模"
+    manual: ":DISK Commands > :DISK:SAVE:WAVeform; :DISK:GETFILE?"
+    steps:
+      - send: ":TIMebase:SCALe 20E-9"
+      - send: ":DIGitize CHANnel1"
+      - send: ':DISK:SAVE:WAVeform CHANnel1,"FILE1",CSV,ON'
+      - query: ':DISK:GETFILE? "FILE1.csv"'
+        expect_prefix: "#"
+      - send: ':DISK:SAVE:WAVeform CHANnel1,"FILE2.bin"'
+      - query: ":DISK:DIRectory?"
+        expect: "2\nFILE1.csv\nFILE2.bin"
+      - query: ':DISK:GETFILE? "FILE2.bin"'
+        expect_prefix: "#"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      - send: ':DISK:SAVE:WAVeform CHANnel1,"FILE3",H5'
+      - query: ":SYSTem:ERRor?"
+        expect: "-257"

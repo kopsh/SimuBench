@@ -538,6 +538,19 @@ class ReadingBuffer(Component):
     def clear_buffer(self, name: str | None = None) -> None:
         self.buffers[self._key(name)].clear()
 
+    def stored(self, name: str | None = None) -> list[Reading]:
+        """The readings a buffer holds, oldest first (a copy): what a data file writes (#1071)."""
+        return list(self.buffers[self._key(name)])
+
+    def number_text(self, value: float) -> str:
+        """One reading written as the buffer's queries write it (FETCh?, DATA:REMove?)."""
+        assert self.owner is not None
+        return (
+            self.owner.format_number(float(value)).decode()
+            if self.param("digits") is None
+            else (V.format_float(float(value), int(self.param("digits"))).decode())
+        )
+
     # ---- operations ----------------------------------------------------------------------------------
 
     def _numbers(self, readings: list[Reading], elements: list[str] | None = None) -> bytes:

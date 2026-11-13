@@ -1090,10 +1090,8 @@ sections:
     level: implemented
     note: 'setup_memory component (#1070): saves the setup to a file (.set added when the name has none) in the present working directory or at the path given. The setup is SimuBench''s JSON (every setting a command can change), not the scope''s own byte format; what SimuBench saves it reads back.'
   - header: :DISK:SAVE:WAVeform
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
-    gap: blocked
-    blocked_by: data-file
+    level: implemented
+    note: 'data_file component (#1071): a channel''s record, the same record :WAVeform:DATA? transfers. CSV, TSV and TXT are ''time<sep>volts'' lines (comma, tab, space) with CR LF; header ON writes SimuBench''s own key,value lines first (Source, Points, XOrigin, XIncrement, XUnits, YUnits) — the guide does not give the layout. BIN is the Keysight oscilloscope binary file (AG10 file header, 140-byte waveform header, one float32 buffer). The format comes from the parameter, else the extension, else INTernal (.wfm). INTernal, H5, H5INt and MATlab are not written (-257); sources other than CHANnel<N> (ALL, FUNCtion, WMEMory ...) are -224.'
   - header: :DISK:SEGMented
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'

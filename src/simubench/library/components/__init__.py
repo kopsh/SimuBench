@@ -8,6 +8,7 @@ from . import (  # noqa: F401
     counter,
     curve,
     daq,
+    datafiles,
     electrical,
     eload,
     files,

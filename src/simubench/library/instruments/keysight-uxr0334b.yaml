@@ -409,6 +409,14 @@ components:
       empty_error: 0
       bad_setup: -161
       learn_prefix: ":SYST:SET "
+  # 波形存成文件（:DISK:SAVE:WAVeform，#1071）：通道的记录与 :WAVeform:DATA? 同一份；CSV/TSV/TXT 为“时间,伏特”
+  # 行（header ON 时前面加 SimuBench 的键值行），BIN 为 Keysight 示波器二进制文件；INTernal、H5、H5INt、
+  # MATlab 未建模，报 -257。
+  - name: datafile
+    type: data_file
+    params:
+      storage: disk
+      record: acq
   # 状态寄存器（手册第 7 章），每个事件寄存器读后清零：触发（:TERegister?，只在满足触发条件的采集完成时
   # 置位，摘要进 *STB 位 0）、布防（:AER?）、采集完成（:ADER?，每次采集完成）、处理完成（:PDER?，仿真的
   # 测量随查询即时算出，与采集同时完成）、自动触发（:ATER?）。
@@ -887,3 +895,11 @@ commands:
     op: setups.store_file
     query: false
     params: [{name: name, type: string}]
+  - header: ":DISK:SAVE:WAVeform"
+    op: datafile.store_waveform
+    query: false
+    params:
+      - {name: source, type: string}
+      - {name: name, type: string}
+      - {name: format, type: enum, options: [BIN, CSV, INTernal, TSV, TXT, H5, H5INt, MATlab], optional: true}
+      - {name: header, type: bool, optional: true}
