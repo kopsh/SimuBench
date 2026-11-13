@@ -4035,6 +4035,11 @@ export interface components {
             /** Min */
             min?: number | null;
             /**
+             * Mirror
+             * @description Further settings that take the same value as `state` (a legacy command that sets two threshold sets at once: the Infiniium's :MEASure:THResholds:PERCent writes the general and the rise/fall percentages); `{index}` placeholders as in `state`
+             */
+            mirror?: string[] | null;
+            /**
              * Missing Unit Error
              * @description Error code for a value without a unit (the text comes from `errors`)
              * @default -131

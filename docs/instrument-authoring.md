@@ -134,6 +134,7 @@ preamp_gain:
 - **身份里的设置** `identity.idn` 可写 `{$<设置路径>}`，`*IDN?` 取该设置的文字（`:SYSTem:PERSona` 改厂商与型号）。
 - **只有常量的命令** `system.none`：不做任何事的操作；命令的 `writes` 就是它的全部效果（`:DISPlay:BOOKmark:DELete:ALL`），查询回 `reply` 模板的常量（`:SYSTem:CAPability:CHANnel? COUNt` → `"4"`，按参数取值用 `when` 分开）。`when` 的取值与特殊字（`special`）都按 SCPI 词匹配长短形式（`COUN` 即 `COUNt`）；取值为 ±∞ 的特殊字是模式词，不当作上下限（余辉的 `MINimum`、`INFinite`）。
 - **倒数映射** `reciprocal: true`：参数映射在 `map`/`table` 之后、`scale` 之前取 1/值，设置给的是增益而组件要的是衰减时用（UXR1104B 外部探头缩放：`scope_vertical.probe_ratio` 取 1/增益）。`scope_probe` 另有 `invert`（绕 0 V 翻转）与 `gain`（外部缩放的增益，显示 = 输入 × ratio / gain，采集按它换算回输入端）。
+- **测量阈值与测量列表**（`scope_measurements`）：`thresholds: <前缀>` 时按设置 `<前缀>.general<n>.*`（除上升下降以外的测量）与 `<前缀>.rfall<n>.*`（上升下降时间）取每个信源的阈值——方式 PERCent / ABSolute / HYSTeresis、三个百分比、三个绝对电平、迟滞范围与电平、顶底求法 STANdard / HISTONLY / MINmax / ABSolute（字段见 `measurements.DEFAULT_THRESHOLDS`）；参数的 `mirror` 把同一个值写到另一组（Infiniium 不带 GENeral / RFALl 的老命令）。新测量：参考电平、局部过冲 / 预冲 / 下冲、面积、脉冲窗口平均、突发（`with_args`）、交叉电压与按起止沿定义的时间（`pair`）、按阈值位置的 TEDGe、自动迟滞阈值（`auto_thresholds`）。屏幕列表有名字、位置与信源（`entry`），`results_order: AORDered` 时 `:MEASure:RESults?` 不带参数先回最新加的。
 - **测试台编辑** `set_identity`：设置实例的 `idn`、`serial`、`firmware`（MCP 原来无法写出 `*IDN?` 的型号串）。
 
 ### 2.6 通道列表参数（#183）

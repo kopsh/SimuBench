@@ -604,6 +604,12 @@ def _check_command(
                     d, ref, per_channel, _ptr(*p, "params", k, "state"), cmd.header, report
                 ):
                     break
+        for j, mirrored in enumerate(ps.mirror or []):
+            for ref in _expand(mirrored, indexes):
+                if not _check_state_ref(
+                    d, ref, per_channel, _ptr(*p, "params", k, "mirror", j), cmd.header, report
+                ):
+                    break
         for key, ref in (ps.keys or {}).items():
             if ref is not None:
                 _check_state_ref(d, ref, per_channel, _ptr(*p, "params", k, "keys", key), cmd.header, report)

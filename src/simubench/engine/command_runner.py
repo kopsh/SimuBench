@@ -434,6 +434,8 @@ class CommandRunner:
                     for ref, constant in (ps.sets or {}).items():
                         new[self._resolve(_at(index, ref), channel)] = constant
                 new[path] = value
+                for ref in ps.mirror or []:  # the same value into further settings
+                    new[self._resolve(_at(index, ref), channel)] = value
                 continue
             items = raw[:]
             raw.clear()  # the name,value pairs take every parameter that is left

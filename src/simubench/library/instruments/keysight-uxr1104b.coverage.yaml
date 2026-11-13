@@ -2366,9 +2366,8 @@ sections:
 - section: :MEASure Commands (Programmer's Guide 11.60, ch. 32)
   commands:
   - header: :MEASure:AREA
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "DISPlay (default): the integral of the record over the screen, V*s; CYCLe: over the first complete cycle, rising (or FALLing) middle crossing to the next."
   - header: :MEASure:BER
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2378,17 +2377,14 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:BINTerval
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "End of the first complete burst to the start of the next."
   - header: :MEASure:BPERiod
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Start to start of the first two complete bursts (as :MEASure:BWIDth finds them)."
   - header: :MEASure:BWIDth
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The first complete burst (middle crossings closer than <idle_time>, with at least the idle time free of edges before and after it): its first to last edge."
   - header: :MEASure:CDRRate
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2438,13 +2434,11 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:CLEar
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Every measurement off the screen, its name and statistics gone."
   - header: :MEASure:CROSsing
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The voltage where the two records cross, at the crossing nearest the centre of the screen; without sources the two of :MEASure:SOURce."
   - header: :MEASure:CTCDutycycle
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2486,16 +2480,14 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:DELTatime
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "From source 1's edge to source 2's (one source: both on it) as :MEASure:DELTatime:DEFine names them: direction, number from the left, threshold position (general thresholds)."
   - header: :MEASure:DELTatime:DEFine
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Start and stop: RISing / FALLing / EITHer, 1-65534, UPPer / MIDDle / LOWer; RISing,1,MIDDle for both at power-on (a SimuBench value)."
   - header: :MEASure:DUTYcycle
     level: implemented
-    note: RISing only; FALLing is not modeled. Query only
+    note: RISing only; FALLing is not modeled; the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:EDGE
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2514,11 +2506,11 @@ sections:
     gap: out_of_scope
   - header: :MEASure:ETOedge
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASure:FALLtime
     level: implemented
-    note: 90 % to 10 % of top minus base; the PAM-4 level arguments are not modeled. Query only
+    note: upper to lower level of the source's rise/fall thresholds (:MEASure:THResholds:RFALl, 90 % to 10 % of top minus base by default); the PAM-4 level arguments are not modeled; the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:FFT:CPOWer
     level: not_modeled
     note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
@@ -2561,7 +2553,7 @@ sections:
     blocked_by: C5
   - header: :MEASure:FREQuency
     level: implemented
-    note: rising edge to rising edge (RISing); FALLing is not modeled. Query only
+    note: rising edge to rising edge (RISing); FALLing is not modeled; the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:HISTogram:FWHM
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): waveform and measurement histograms.'
@@ -2644,8 +2636,8 @@ sections:
     blocked_by: histogram
   - header: :MEASure:HOLDtime
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASure:JITTer:HISTogram
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2720,12 +2712,12 @@ sections:
     gap: out_of_scope
   - header: :MEASure:MARK
     level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    note: 'Blocked by C5 (product-plan.md 4.2): markers tracking a measurement are cursors/markers on waveforms.'
+    gap: blocked
+    blocked_by: C5
   - header: :MEASure:NAME
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "MEAS1-MEAS20 (position on the screen from the top) and a quoted name, which the results label then shows; a position without a measurement is refused (-221)."
   - header: :MEASure:NCJitter
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2772,12 +2764,11 @@ sections:
     gap: out_of_scope
   - header: :MEASure:NPERiod
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASure:NPULses
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Negative pulses on the screen: falling then rising crossings of the middle threshold."
   - header: :MEASure:NSIGma
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2796,7 +2787,7 @@ sections:
     gap: out_of_scope
   - header: :MEASure:NWIDth
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:OERatio
     level: not_modeled
@@ -2816,7 +2807,7 @@ sections:
     gap: out_of_scope
   - header: :MEASure:OVERshoot
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:PAM:ELEVel
     level: not_modeled
@@ -2943,16 +2934,14 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:PBASe
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The mean of the first negative pulse within the centred window of <pulse width percent> of its width."
   - header: :MEASure:PERiod
     level: implemented
-    note: rising edge to rising edge (RISing); FALLing is not modeled. Query only
+    note: rising edge to rising edge (RISing); FALLing is not modeled; the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:PHASe
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The delay from source 1's first rising (or FALLing) middle crossing to source 2's, over source 1's period, in degrees; without sources the two of :MEASure:SOURce."
   - header: :MEASure:PJITter
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2963,8 +2952,8 @@ sections:
     gap: out_of_scope
   - header: :MEASure:PMAX
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17): its only source is LFPR, the SNDR linear-fit pulse response.'
+    gap: out_of_scope
   - header: :MEASure:PN:CORRelations
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3022,40 +3011,40 @@ sections:
     note: 'Out of scope: optical probes and optical measurements (product-plan.md section 6).'
     gap: out_of_scope
   - header: :MEASure:PPULses
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Positive pulses on the screen: rising then falling crossings of the middle threshold."
   - header: :MEASure:PREShoot
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:PTOP
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The mean of the first positive pulse within the centred window of <pulse width percent> (0-100) of its width at the middle threshold."
   - header: :MEASure:PWIDth
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:QUALifier<M>:CONDition
     level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    note: 'Capability gap (not in product-plan.md 4.2): level qualification of timing measurements (only edges while another channel is HIGH / LOW / INSide / OUTSide its thresholds count); the measurement engine takes every edge.'
+    gap: blocked
+    blocked_by: measurement-qualifier
   - header: :MEASure:QUALifier<M>:SOURce
     level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    note: 'Capability gap (not in product-plan.md 4.2): level qualification of timing measurements (only edges while another channel is HIGH / LOW / INSide / OUTSide its thresholds count); the measurement engine takes every edge.'
+    gap: blocked
+    blocked_by: measurement-qualifier
   - header: :MEASure:QUALifier<M>:STATe
     level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    note: 'Capability gap (not in product-plan.md 4.2): level qualification of timing measurements (only edges while another channel is HIGH / LOW / INSide / OUTSide its thresholds count); the measurement engine takes every edge.'
+    gap: blocked
+    blocked_by: measurement-qualifier
   - header: :MEASure:RESults
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Each measurement on the screen as <label>,<current>,<min>,<max>,<mean>,<std dev>,<count> (statistics since it was added; :MEASure:STATistics itself is blocked); AORDered or no option: the newest first, GORDered: the screen's order after :MEASurement<N>:POSition. Label: its :MEASure:NAME, else SimuBench's <measurement>(<channel>). Up to 20."
   - header: :MEASure:RISetime
     level: implemented
-    note: 10 % to 90 % of top minus base; the PAM-4 level arguments are not modeled. Query only
+    note: lower to upper level of the source's rise/fall thresholds (:MEASure:THResholds:RFALl, 10 % to 90 % of top minus base by default); the PAM-4 level arguments are not modeled; the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:RJDJ:ALL
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3141,13 +3130,11 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:SCRatch
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The same as :MEASure:CLEar (guide)."
   - header: :MEASure:SENDvalid
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "OFF (0) only: measurement replies carry no result state; ON is not modeled (-224)."
   - header: :MEASure:SER
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3158,16 +3145,16 @@ sections:
     gap: out_of_scope
   - header: :MEASure:SETuptime
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASure:SLEVel
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:SLEWrate
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASure:SNDR
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3189,33 +3176,27 @@ sections:
     gap: blocked
     blocked_by: measurement-statistics
   - header: :MEASure:TEDGe
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "<meas_thres_txt> UPPer, MIDDle or LOWer (the general thresholds), [+|-]<occurrence>: the time of that edge from the trigger."
   - header: :MEASure:THResholds:ABSolute
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Upper, middle and lower levels in volts, the general and rise/fall sets at once (the guide: it changes the thresholds of rise/fall and of all general measurements); the query answers the general set; 0.1/0/-0.1 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:DISPlay
     level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17): it shows the PAM-4 measurement thresholds of the PAM signal type.'
+    gap: out_of_scope
   - header: :MEASure:THResholds:GENAUTO
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Sets the source's general hysteresis threshold from its record: the level halfway between top and base, the range the counter's band (10 % of top minus base, at least 0.16 div). The guide gives no rule: SimuBench's."
   - header: :MEASure:THResholds:GENeral:ABSolute
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Upper, middle and lower levels in volts, the general set (every measurement but rise and fall times); 0.1/0/-0.1 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:GENeral:HYSTeresis
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "<range>,<level>: middle = level, upper / lower = level +- range, and the range is the crossing band; the general set (every measurement but rise and fall times). 0.05 V, 0 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:GENeral:METHod
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Per source (CHANnel1-4, or ALL, which leaves the channels' own as the guide says): ABSolute, PERCent or HYSTeresis, the general set (every measurement but rise and fall times); PERCent at power-on. PAMCustom / PAMAutomatic (PAM-4) are out of scope (-224)."
   - header: :MEASure:THResholds:GENeral:PAMCustom
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3225,53 +3206,42 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:THResholds:GENeral:PERCent
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Upper, middle and lower percent of base to top (-24.8 to 125.0, -24.9 to 124.9, -25.0 to 125.8), the general set (every measurement but rise and fall times); 90/50/10 at power-on. Their order is not checked."
   - header: :MEASure:THResholds:GENeral:TOPBase:ABSolute
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Top and base in volts for TOPBase:METHod ABSolute, the general set (every measurement but rise and fall times); +-0.2 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:GENeral:TOPBase:METHod
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "How top and base are found, the general set (every measurement but rise and fall times): STANdard (histogram modes, else the extremes; default), HISTONLY (modes only: none, the measurement is invalid), MINmax (extremes), ABSolute (TOPBase:ABSolute)."
   - header: :MEASure:THResholds:HYSTeresis
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "<range>,<level>: middle = level, upper / lower = level +- range, and the range is the crossing band; the general and rise/fall sets at once (the guide: it changes the thresholds of rise/fall and of all general measurements); the query answers the general set. 0.05 V, 0 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:METHod
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Per source (CHANnel1-4, or ALL, which leaves the channels' own as the guide says): ABSolute, PERCent or HYSTeresis, the general and rise/fall sets at once (the guide: it changes the thresholds of rise/fall and of all general measurements); the query answers the general set; PERCent at power-on."
   - header: :MEASure:THResholds:PERCent
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Upper, middle and lower percent of base to top (-24.8 to 125.0, -24.9 to 124.9, -25.0 to 125.8), the general and rise/fall sets at once (the guide: it changes the thresholds of rise/fall and of all general measurements); the query answers the general set; 90/50/10 at power-on. Their order is not checked."
   - header: :MEASure:THResholds:RFALl:ABSolute
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Upper, middle and lower levels in volts, the rise/fall set (rise and fall times); 0.1/0/-0.1 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:RFALl:METHod
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Per source (CHANnel1-4, or ALL, which leaves the channels' own as the guide says): ABSolute or PERCent, the rise/fall set (rise and fall times); PERCent at power-on."
   - header: :MEASure:THResholds:RFALl:PAMAutomatic
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:THResholds:RFALl:PERCent
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Upper, middle and lower percent of base to top (-24.8 to 125.0, -24.9 to 124.9, -25.0 to 125.8), the rise/fall set (rise and fall times); 90/50/10 at power-on. Their order is not checked."
   - header: :MEASure:THResholds:RFALl:TOPBase:ABSolute
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Top and base in volts for TOPBase:METHod ABSolute, the rise/fall set (rise and fall times); +-0.2 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:RFALl:TOPBase:METHod
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "How top and base are found, the rise/fall set (rise and fall times): STANdard (histogram modes, else the extremes; default), HISTONLY (modes only: none, the measurement is invalid), MINmax (extremes), ABSolute (TOPBase:ABSolute)."
   - header: :MEASure:THResholds:SERauto
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3301,13 +3271,11 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:THResholds:TOPBase:ABSolute
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Top and base in volts for TOPBase:METHod ABSolute, the general and rise/fall sets at once (the guide: it changes the thresholds of rise/fall and of all general measurements); the query answers the general set; +-0.2 V at power-on (SimuBench values)."
   - header: :MEASure:THResholds:TOPBase:METHod
-    level: not_modeled
-    note: 'Model work: measurement thresholds on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "How top and base are found, the general and rise/fall sets at once (the guide: it changes the thresholds of rise/fall and of all general measurements); the query answers the general set: STANdard (histogram modes, else the extremes; default), HISTONLY (modes only: none, the measurement is invalid), MINmax (extremes), ABSolute (TOPBase:ABSolute)."
   - header: :MEASure:TIEClock2
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3341,92 +3309,80 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:TMAX
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The time of the first maximum sample, from the trigger."
   - header: :MEASure:TMIN
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The time of the first minimum sample, from the trigger."
   - header: :MEASure:TVOLt
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "<voltage>,[+|-]<occurrence>: the time the record crosses that voltage that way, from the trigger."
   - header: :MEASure:UITouijitter
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:UNDershoot
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "That local extreme's depth below the top (above the base) in percent of top minus base; 0 when the pulse never sags."
   - header: :MEASure:UNITinterval
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :MEASure:VAMPlitude
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:VAVerage
     level: implemented
-    note: 'DISPlay over the record; CYCLe is not modeled. Query only: the command form (adding the measurement
+    note: 'DISPlay over the record; CYCLe is not modeled; the command form adds it to the screen (:MEASure:RESults?): the command form (adding the measurement
       to the screen) is not modeled; 9.99999E+37 when it cannot be measured'
   - header: :MEASure:VBASe
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:VLOWer
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The lower level of the source's general thresholds, in volts."
   - header: :MEASure:VMAX
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:VMIDdle
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The middle level of the source's general thresholds, in volts."
   - header: :MEASure:VMIN
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:VOVershoot
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The local extreme after the first rising (FALLing: falling) middle crossing, up to the next opposite crossing: the overshoot's voltage (Measure All Edges is out of scope, so the first edge from the left)."
   - header: :MEASure:VPP
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:VPReshoot
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The local extreme before the first rising (FALLing: falling) middle crossing, back to the previous opposite crossing."
   - header: :MEASure:VRMS
     level: implemented
-    note: DISPlay,DC[,<source>[,VOLT]] over the record; CYCLe, AC and DBM are not modeled. Query only
+    note: DISPlay,DC[,<source>[,VOLT]] over the record; CYCLe, AC and DBM are not modeled; the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:VTIMe
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The voltage at <time> from the trigger, linear between samples; 9.99999E+37 off the record."
   - header: :MEASure:VTOP
     level: implemented
-    note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
+    note: 'the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37
       when it cannot be measured'
   - header: :MEASure:VUNDershoot
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Within the first positive (FALLing: negative) pulse, from where it reaches the top (base) to where the closing edge leaves the upper (lower) level: the local minimum (maximum), the guide's definition."
   - header: :MEASure:VUPPer
-    level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The upper level of the source's general thresholds (:MEASure:THResholds:GENeral), in volts."
   - header: :MEASure:WINDow
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "MAIN or ALL (the whole acquisition, equivalent per the guide), with an optional MEAS<N>; ZOOM gating and CGRade are not modeled (-224)."
   - header: :MEASure:XCORtie
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -3437,36 +3393,32 @@ sections:
     gap: out_of_scope
   - header: :MEASure:ZTMAX
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASure:ZTMIN
     level: not_modeled
-    note: 'Model work: waveform measurement on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASurement<N>:CLEar
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Takes the measurement at position N off the screen."
   - header: :MEASurement<N>:NAME
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "The same as :MEASure:NAME for position N (1-40)."
   - header: :MEASurement<N>:POSition
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Moves the measurement at position N to <new_position> (1-40); GORDered results follow."
   - header: :MEASurement<N>:SOURce
-    level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    level: implemented
+    note: "Reads or changes the channel of the measurement at position N (CHANnel1-4; two-source measurements are not on the list)."
   - header: :MEASurement<N>:ZTMAX
     level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
   - header: :MEASurement<N>:ZTMIN
     level: not_modeled
-    note: 'Model work: measurement list management on the existing measurement engine.'
-    gap: model_work
+    note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): the guide makes it a Measure All Edges (:ANALyze:AEDGes) or jitter-analysis measurement, and that analysis is not rewritten in the platform.'
+    gap: out_of_scope
 - section: :MTESt (Mask Test) Commands (Programmer's Guide 11.60, ch. 33)
   commands:
   - header: :MTESt:CPOLygons
@@ -4108,8 +4060,8 @@ sections:
       table'
   - header: :SYSTem:MENU
     level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    note: 'Out of scope: application layer (C17): it lists the GUI menu entries that launch the analysis applications.'
+    gap: out_of_scope
   - header: :SYSTem:MODE
     level: accepted
     note: "OSCilloscope only; RTSA (real-time spectral analysis) turns every channel into a spectrum analyzer channel, which is blocked by C5, so it is refused (-224)."

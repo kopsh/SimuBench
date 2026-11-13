@@ -22,12 +22,19 @@ from ...units import parse_number
 from . import adc
 from .calstore import CalibrationStore
 from .measurements import (
+    DEFAULT_THRESHOLDS,
     FREQ_HYSTERESIS,
+    LEVEL_MEASUREMENTS,
     TIME_MEASUREMENTS,
+    Levels,
+    burst_measure,
+    crossing_voltage,
     crossings,
     edge_spec,
     measure,
     mid_crossings,
+    pulse_window_mean,
+    threshold_levels,
     top_base,
 )
 from .scope_pending import Acquisition, PendingAcquisitions, _Segment
@@ -2356,22 +2363,34 @@ class ScopeMeasurements(Component):
         # past `slots` the oldest leaves. 0: no list (the query only answers).
         "slots": 0,
         "all": [],  # the measurements :MEASure:ALL? answers, in order (engine names)
+        # The model's measurement thresholds, by setting: "<prefix>.<group><n>.<field>" for channel n,
+        # groups "general" (every measurement but rise and fall) and "rfall" (rise and fall times),
+        # fields those of measurements.DEFAULT_THRESHOLDS (method, upper, middle, lower, abs_*,
+        # hyst_range, hyst_level, tb_method, tb_top, tb_base). Empty: the fixed 10/50/90 % levels.
+        "thresholds": "",
+        # :MEASure:RESults? without an order: "" oldest first (InfiniiVision), AORDered newest
+        # first (the Infiniium: "AORDered (or no option)")
+        "results_order": "",
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.history: dict[tuple[str, int], list[float]] = {}
         self.installed: list[tuple[str, int]] = []  # the screen's measurements, oldest first (#373)
+        self.names: dict[tuple[str, int], str] = {}  # a measurement's own name (:MEASure:NAME)
+        self.screen: list[tuple[str, int]] = []  # top to bottom: the newest first unless moved
 
     def reset(self) -> None:
         self.history = {}
         self.installed = []
+        self.names = {}
+        self.screen = []
 
     # ---- the screen's measurement list (#373) ------------------------------------------------------
 
     def install(self, what: str, n: int) -> None:
         """Put a measurement on the screen: a second install of the same one moves it to the end;
-        past ``slots`` the oldest leaves."""
+        past ``slots`` the oldest leaves. On screen the newest goes to the top."""
         slots = int(self.param("slots") or 0)
         if slots <= 0:
             raise ScpiError(-113, f"{what}: this model has no measurement list")
@@ -2380,22 +2399,38 @@ class ScopeMeasurements(Component):
             self.installed.remove(entry)
         self.installed.append(entry)
         del self.installed[:-slots]
+        if entry in self.screen:
+            self.screen.remove(entry)
+        self.screen.insert(0, entry)
+        self.screen = [e for e in self.screen if e in self.installed]
+
+    def _label(self, what: str, n: int) -> str:
+        return self.names.get((what, n)) or f"{what}({n})"
 
     @op("results")
-    def op_results(self, **_: Any) -> OpResult:
-        """``:MEASure:RESults?``: each installed measurement, oldest first, as
-        ``<label>,<current>,<min>,<max>,<mean>,<std dev>,<count>`` — the statistics of every value
-        taken since the list was cleared (the current one included). Label: ``<name>(<channel>)``.
+    def op_results(self, order: str = "", **_: Any) -> OpResult:
+        """``:MEASure:RESults?``: each installed measurement as ``<label>,<current>,<min>,<max>,<mean>,
+        <std dev>,<count>`` — the statistics of every value taken since the list was cleared (the
+        current one included). Label: its name, else ``<name>(<channel>)``. Oldest first; ``order``
+        AORDered: the newest first, GORDered: the screen's order (top to bottom, after any move).
         Nothing installed: an empty reply."""
         assert self.owner is not None
+        word = str(order or self.param("results_order") or "").strip().upper()
+        entries = (
+            list(reversed(self.installed))
+            if word.startswith("AORD")
+            else list(self.screen)
+            if word.startswith("GORD")
+            else list(self.installed)
+        )
         parts: list[bytes] = []
         used = 0
-        for what, n in self.installed:
+        for what, n in entries:
             value, u = self.value(what, n)
             used += u
             self._keep(what, n, value)
             values = np.array(self.history.get((what, n)) or [])
-            fields = [f"{what}({n})".encode(), self._number(value)]
+            fields = [self._label(what, n).encode(), self._number(value)]
             if values.size:
                 fields += [
                     self._number(float(f())) for f in (values.min, values.max, values.mean, values.std)
@@ -2405,6 +2440,63 @@ class ScopeMeasurements(Component):
             fields.append(str(values.size).encode())
             parts.append(b",".join(fields))
         return OpResult(b",".join(parts), used)
+
+    def _entry(self, index: Any) -> tuple[str, int]:
+        """The screen's measurement at a position from the top (1, or ``MEAS3``)."""
+        text = str(index if not isinstance(index, bytes) else V.parse_string(index)).strip().upper()
+        digits = text.removeprefix("MEASUREMENT").removeprefix("MEAS")
+        if not digits.isdigit() or int(digits) < 1:
+            raise ScpiError(-224, f"no measurement {index!r}")
+        k = int(digits)
+        if k > len(self.screen):
+            raise ScpiError(-221, f"measurement {k} is not on the screen")
+        return self.screen[k - 1]
+
+    @op("entry")
+    def op_entry(
+        self,
+        query: bool = False,
+        what: str = "",
+        index: Any = None,
+        value: Any = None,
+        suffixes: dict[str, int] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """One measurement of the screen, by its position from the top (``index`` ``MEAS<n>``, or the
+        header's ``<n>``): ``name`` (set or read its name, quoted), ``clear`` (take it off),
+        ``position`` (move it to another position), ``source`` (read or change its channel)."""
+        assert self.owner is not None
+        if index is None and suffixes:
+            index = next(iter(v for k, v in suffixes.items() if k != "ch"), None)
+        entry = self._entry(index)
+        k = self.screen.index(entry)
+        if what == "name":
+            if query:
+                return OpResult(V.format_string(self._label(*entry)))
+            self.names[entry] = V.parse_string(value) if isinstance(value, bytes) else str(value)
+            return OpResult()
+        if what == "clear":
+            self.screen.remove(entry)
+            self.installed.remove(entry)
+            return OpResult()
+        if what == "position":
+            new = int(value)
+            if not 1 <= new <= 40:
+                raise ScpiError(-222, "position 1 to 40")
+            self.screen.pop(k)
+            self.screen.insert(min(new, len(self.screen) + 1) - 1, entry)
+            return OpResult()
+        if what == "source":
+            if query:
+                return OpResult(f"CHAN{entry[1]}".encode())
+            n = self._channel(None, V.parse_string(value) if isinstance(value, bytes) else str(value))
+            moved = (entry[0], n)
+            self.screen[k] = moved
+            self.installed[self.installed.index(entry)] = moved
+            if entry in self.names:
+                self.names[moved] = self.names.pop(entry)
+            return OpResult()
+        raise ScpiError(-300, f"{self.uid}: no entry action {what!r}")
 
     def _number(self, value: float) -> bytes:
         assert self.owner is not None
@@ -2416,6 +2508,8 @@ class ScopeMeasurements(Component):
     def op_clear_list(self, **_: Any) -> OpResult:
         """``:MEASure:CLEar``: no measurements on the screen, their statistics gone."""
         self.installed = []
+        self.screen = []
+        self.names = {}
         self.history = {}
         return OpResult()
 
@@ -2501,6 +2595,18 @@ class ScopeMeasurements(Component):
                 return math.nan
         if what in TIME_MEASUREMENTS:
             return self._time_value(what, v, rec)
+        if self.param("thresholds"):
+            gen = self.levels(v, rec, "general")
+            if gen is None:
+                return math.nan  # HISTONLY on a record whose histogram shows no levels
+            return measure(
+                what,
+                v,
+                rec.dt_s,
+                min_cycles=int(self.param("min_cycles")),
+                general=gen,
+                rise_fall=self.levels(v, rec, "rfall"),
+            )
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
             m = float(self.param("mid"))
@@ -2521,6 +2627,36 @@ class ScopeMeasurements(Component):
             min_band=self._band_floor(rec),
         )
         return value
+
+    def threshold_spec(self, n: int, group: str) -> dict[str, Any]:
+        """Channel n's threshold set ``group`` (general / rfall) from the settings ``thresholds``
+        names; a field without a setting keeps the default."""
+        assert self.owner is not None
+        prefix = str(self.param("thresholds"))
+        out: dict[str, Any] = {}
+        for key in DEFAULT_THRESHOLDS:
+            path = f"{prefix}.{group}{n}.{key}"
+            if path in self.owner.specs:
+                out[key] = self.owner.get_state(path)
+        return out
+
+    def levels(self, v: Any, rec: Any, group: str = "general") -> Levels | None:
+        """The record's top, base and reference levels by its channel's threshold set (or the
+        fixed 90/50/10 % without ``thresholds``)."""
+        spec = self.threshold_spec(rec.channel, group) if self.param("thresholds") else {}
+        return threshold_levels(
+            np.asarray(v, dtype=float), spec, float(self.param("hysteresis")), self._band_floor(rec)
+        )
+
+    def _crossings_of(self, v: Any, rec: Any, position: str = "MIDDle") -> list[tuple[float, int]]:
+        """The record's crossings of a reference level: the threshold set's with ``thresholds``,
+        else the middle as before."""
+        if not self.param("thresholds"):
+            return mid_crossings(v, rec.dt_s, float(self.param("hysteresis")))
+        lv = self.levels(v, rec, "general")
+        if lv is None:
+            return []
+        return crossings(np.asarray(v, dtype=float), rec.dt_s, lv.at(position), lv.band)
 
     def _band_floor(self, rec: Any) -> float:
         """The crossing band's absolute floor: divisions of the record's scale (#745)."""
@@ -2587,8 +2723,11 @@ class ScopeMeasurements(Component):
             value = float(v[k]) if v.size == 1 else float(v[k] + (v[k + 1] - v[k]) * frac)
             return self._reply(value, used)
         if what == "TEDGe":
+            position = "MIDDle"
+            if args and args[0].strip().upper().startswith(("UPP", "MIDD", "LOW")):
+                position, args = args[0], args[1:]  # the Infiniium's <meas_thres_txt> first
             sign, occurrence = edge_spec(args[0] if args else None)
-            cross = [t for t, d in mid_crossings(v, dt, float(self.param("hysteresis"))) if d == sign]
+            cross = [t for t, d in self._crossings_of(v, rec, position) if d == sign]
         elif what == "TVALue":
             if not args:
                 raise ScpiError(-109, "TVALue? takes a value")
@@ -2604,33 +2743,110 @@ class ScopeMeasurements(Component):
         return self._reply(value, used)
 
     @op("pair")
-    def op_pair(self, what: str = "", source: list[bytes] | None = None, **_: Any) -> OpResult:
+    def op_pair(
+        self,
+        what: str = "",
+        source: list[bytes] | None = None,
+        define: list[Any] | None = None,
+        **_: Any,
+    ) -> OpResult:
         """``DELay? [<source1>][,<source2>]``: the time from source 1's first rising edge to source 2's
         first rising edge at their middle levels; ``PHASe?``: that delay over source 1's period, in
-        degrees (#350). Without sources, :MEASure:SOURce's two (``sources``)."""
+        degrees (#350), with a trailing RISing / FALLing taking that edge on both. Without sources,
+        :MEASure:SOURce's two (``sources``). ``CROSsing?``: the voltage where the two records cross
+        (nearest the centre). ``DELTatime?`` (the Infiniium's): from source 1's edge ``define`` names
+        to source 2's — ``define`` = [start direction, number, position, stop direction, number,
+        position] (RISing / FALLing / EITHer, from 1, UPPer / MIDDle / LOWer); one source: both on it."""
         assert self.owner is not None
-        _words, channels = self._sources(source)
+        words, channels = self._sources(source)
+        if what == "DELTatime" and len(channels) == 1:
+            channels = channels * 2
         if len(channels) < 2:
             pair = [channel_index(self.owner.get_state(p)) for p in (self.param("sources") or [])]
             channels = (channels + pair[len(channels) :])[:2]
         if len(channels) < 2:
             raise ScpiError(-109, f"{what}? needs two sources")
+        direction = next((w.upper() for w in words if w.upper().startswith(("RIS", "FALL"))), "RISING")
+        sign = -1 if direction.startswith("FALL") else 1
         hyst = float(self.param("hysteresis"))
-        times, used = [], 0
-        first = None
+        recs, used = [], 0
         for n in channels:
             rec, u = self._acq().measure_record(n)
             used += u
+            recs.append(rec)
+        if what == "CROSsing":
+            a, b = (np.asarray(r.volts, dtype=float) for r in recs)
+            return self._reply(crossing_voltage(a, b), used)
+        if what == "DELTatime":
+            d = list(define or ["RISing", 1, "MIDDle", "RISing", 1, "MIDDle"])
+            times = []
+            for rec, (dirn, number, position) in zip(recs, (d[0:3], d[3:6]), strict=True):
+                want = str(dirn).upper()
+                edges = [
+                    t
+                    for t, e in self._crossings_of(np.asarray(rec.volts, dtype=float), rec, str(position))
+                    if want.startswith("EITH") or e == (-1 if want.startswith("FALL") else 1)
+                ]
+                k = int(number)
+                times.append(rec.origin + edges[k - 1] if len(edges) >= k else math.nan)
+            return self._reply(times[1] - times[0], used)
+        times = []
+        for rec in recs:
             v = np.asarray(rec.volts, dtype=float)
-            first = first or (v, rec)
-            rising = [t for t, d in mid_crossings(v, rec.dt_s, hyst) if d == 1]
-            times.append(rec.origin + rising[0] if rising else math.nan)
+            edges = [t for t, e in self._crossings_of(v, rec) if e == sign]
+            times.append(rec.origin + edges[0] if edges else math.nan)
         delay = times[1] - times[0]
         if what == "DELay":
             return self._reply(delay, used)
-        assert first is not None
-        period = measure("PERiod", first[0], first[1].dt_s, hysteresis=hyst)
+        first = np.asarray(recs[0].volts, dtype=float)
+        period = measure("PERiod", first, recs[0].dt_s, hysteresis=hyst)
         return self._reply(delay / period * 360.0 if math.isfinite(period) and period > 0 else math.nan, used)
+
+    @op("auto_thresholds")
+    def op_auto_thresholds(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
+        """The Infiniium's :MEASure:THResholds:GENAUTO: the source's general hysteresis threshold set
+        from its record — the level halfway between top and base, the range the counter's band
+        (``hysteresis`` of top minus base, never below the band floor)."""
+        assert self.owner is not None
+        if not self.param("thresholds"):
+            raise ScpiError(-300, f"{self.uid}: thresholds names no settings")
+        n = self._channel(channel, source)
+        rec, used = self._acq().measure_record(n)
+        v = np.asarray(rec.volts, dtype=float)
+        lv = threshold_levels(
+            v, {"method": "PERCent"}, float(self.param("hysteresis")), self._band_floor(rec)
+        )
+        if lv is None:
+            return OpResult(duration_ns=used)
+        prefix = str(self.param("thresholds"))
+        self.owner.set_state(f"{prefix}.general{n}.hyst_level", lv.middle)
+        self.owner.set_state(f"{prefix}.general{n}.hyst_range", lv.band)
+        return OpResult(duration_ns=used)
+
+    @op("with_args")
+    def op_with_args(self, what: str = "", source: list[bytes] | None = None, **_: Any) -> OpResult:
+        """Measurements that take a number besides the source (the Infiniium's): ``PTOP? <source>,<%>``
+        / ``PBASe?`` — the mean of the first positive / negative pulse within the centred window of
+        that percent of its width; ``BWIDth? <source>,<idle>``, ``BPERiod?``, ``BINTerval?`` — the
+        first complete burst's width, the start-to-start and the end-to-start time of the first two
+        (bursts are runs of middle crossings closer than the idle time)."""
+        words, channels = self._sources(source)
+        n = channels[0] if channels else self._channel(None)
+        if not words:
+            raise ScpiError(-109, f"{what}? takes a number after the source")
+        number = V.parse_float(words[0].encode(), "S" if what.startswith("B") else None)
+        rec, used = self._acq().measure_record(n)
+        v = np.asarray(rec.volts, dtype=float)
+        lv = self.levels(v, rec, "general")
+        if lv is None or v.size == 0:
+            return self._reply(math.nan, used)
+        if what in ("PTOP", "PBASe"):
+            return self._reply(pulse_window_mean(v, rec.dt_s, lv, number, what == "PTOP"), used)
+        if what in ("BWIDth", "BPERiod", "BINTerval"):
+            if number <= 0:
+                raise ScpiError(-222, "the idle time must be positive")
+            return self._reply(burst_measure(what, v, rec.dt_s, lv, number), used)
+        raise ScpiError(-224, f"measurement {what!r} takes no number here")
 
     @op("auto_trigger_levels")
     def op_auto_trigger_levels(self, source_only: bool = False, **_: Any) -> OpResult:
@@ -2678,12 +2894,26 @@ class ScopeMeasurements(Component):
 
     @op("measure")
     def measure(
-        self, what: str = "", source: Any = None, channel: int | None = None, query: bool = True, **_: Any
+        self,
+        what: str = "",
+        source: Any = None,
+        channel: int | None = None,
+        query: bool = True,
+        interval: str | None = None,
+        direction: str | None = None,
+        **_: Any,
     ) -> OpResult:
         """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
         command) in the definition's number format; what cannot be measured is NaN's sentinel.
-        Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list (#373)."""
+        Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list (#373).
+        For the level measurements (``LEVEL_MEASUREMENTS``) an ``interval`` CYCLe and a ``direction``
+        FALLing parameter select their variants (``AREA:CYCLe``, ``VOVershoot:FALLing``)."""
         assert self.owner is not None
+        if what in LEVEL_MEASUREMENTS:
+            if interval and str(interval).upper().startswith("CYCL"):
+                what += ":CYCLe"
+            if direction and str(direction).upper().startswith("FALL"):
+                what += ":FALLing"
         n = self._channel(channel, source)
         self._follow(n, source)
         if not query:

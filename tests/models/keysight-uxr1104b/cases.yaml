@@ -1354,3 +1354,264 @@ cases:
       - send: ":CALibrate:OUTPut:AUX OFF"
       - query: ":CALibrate:OUTPut:AUX?"
         expect: "0"
+  # ---- 测量：电平与形状、带参数的测量、时间测量 ----
+  # CH2：1 MHz、±0.2 V 方波；100 mV/div 的噪声 6.1 mV rms（数据手册），顶与底为直方图的众数（平均后远小于 5 mV）。
+  - name: "参考电平 VUPPer / VMIDdle / VLOWer 与脉冲计数"
+    manual: ":MEASure Commands > :MEASure:VUPPer; :MEASure:VMIDdle; :MEASure:VLOWer; :MEASure:PPULses; :MEASure:NPULses"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      - query: ":MEASure:VUPPer? CHANnel2"
+        expect_value: 0.16
+        tolerance: 0.005
+      - query: ":MEASure:VMIDdle? CHANnel2"
+        expect_value: 0.0
+        tolerance: 0.005
+      - query: ":MEASure:VLOWer? CHANnel2"
+        expect_value: -0.16
+        tolerance: 0.005
+      # 5 µs 的屏幕上 1 MHz 方波的完整正、负脉冲各 4 个。
+      - query: ":MEASure:PPULses? CHANnel2"
+        expect_value: 4
+        tolerance: 0
+      - query: ":MEASure:NPULses? CHANnel2"
+        expect_value: 4
+        tolerance: 0
+  - name: "过冲、预冲、下冲的电压与下冲百分比；面积；脉冲窗口内的平均"
+    manual: ":MEASure Commands > :MEASure:VOVershoot; :MEASure:VPReshoot; :MEASure:VUNDershoot; :MEASure:UNDershoot; :MEASure:AREA; :MEASure:PTOP; :MEASure:PBASe"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 发生器方波边沿的振铃：过冲的局部极值在顶之上、预冲的在底之下，下冲在顶之下。
+      - query: ":MEASure:VOVershoot? CHANnel2"
+        expect_fields: [{min: 0.2, max: 0.3}]
+      - query: ":MEASure:VOVershoot? CHANnel2,FALLing"
+        expect_fields: [{min: -0.3, max: -0.2}]
+      - query: ":MEASure:VPReshoot? CHANnel2"
+        expect_fields: [{min: -0.3, max: -0.19}]
+      - query: ":MEASure:VUNDershoot? CHANnel2"
+        expect_fields: [{min: 0.1, max: 0.2}]
+      - query: ":MEASure:UNDershoot? CHANnel2"
+        expect_fields: [{min: 0.0, max: 25.0}]
+      # 对称方波整屏与一个周期的面积都为 0（0.2 V × 1 µs 的量级为 2E-7 V·s）。
+      - query: ":MEASure:AREA? DISPlay,CHANnel2"
+        expect_value: 0.0
+        tolerance: 2.0e-9
+      - query: ":MEASure:AREA? CYCLe,CHANnel2"
+        expect_value: 0.0
+        tolerance: 2.0e-9
+      - query: ":MEASure:PTOP? CHANnel2,50"
+        expect_value: 0.2
+        tolerance: 0.005
+      - query: ":MEASure:PBASe? CHANnel2,50"
+        expect_value: -0.2
+        tolerance: 0.005
+  - name: "突发：CAL OUT 的 DPULse（每 650 ns 一个 1.1 ns 脉冲）的宽度、周期与间隔"
+    manual: ":MEASure Commands > :MEASure:BWIDth; :MEASure:BPERiod; :MEASure:BINTerval"
+    steps:
+      - send: ":CALibrate:OUTPut DPULse;:CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.05;:TIMebase:SCALe 5E-7"
+      - query: ":MEASure:BWIDth? CHANnel3,1E-7"
+        expect_value: 1.1e-9
+        tolerance: 1.0e-10
+      - query: ":MEASure:BPERiod? CHANnel3,1E-7"
+        expect_value: 6.5e-7
+        tolerance: 1.0e-9
+      - query: ":MEASure:BINTerval? CHANnel3,1E-7"
+        expect_value: 6.489e-7
+        tolerance: 1.0e-9
+  - name: "相对触发点的时间测量：VTIMe?、TEDGe?（按阈值位置）、TVOLt?、TMAX? / TMIN?"
+    manual: ":MEASure Commands > :MEASure:VTIMe; :MEASure:TEDGe; :MEASure:TVOLt; :MEASure:TMAX; :MEASure:TMIN"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 触发在 CH1 的上升沿（时间 0）；CH2 的方波在 -0.5 µs 上升、0 µs 下降：-0.25 µs 为高。
+      - query: ":MEASure:VTIMe? -2.5E-7,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:TEDGe? MIDDle,+1,CHANnel2"
+        expect_value: -1.5e-6
+        tolerance: 2.0e-9
+      # 下降沿过上阈值在过中阈值之前（边沿约 4 ns）。
+      - query: ":MEASure:TEDGe? UPPer,-1,CHANnel2"
+        expect_value: -2.0e-6
+        tolerance: 5.0e-9
+      - query: ":MEASure:TVOLt? 0.1,+2,CHANnel2"
+        expect_value: -1.5e-6
+        tolerance: 5.0e-9
+      - query: ":MEASure:TMAX? CHANnel2"
+        expect_fields: [{min: -2.5e-6, max: 2.5e-6}]
+      - query: ":MEASure:TMIN? CHANnel2"
+        expect_fields: [{min: -2.5e-6, max: 2.5e-6}]
+  - name: "两个信源：交叉电压、相位（RISing / FALLing）、DELTatime 与 DEFine"
+    manual: ":MEASure Commands > :MEASure:CROSsing; :MEASure:PHASe; :MEASure:DELTatime; :MEASure:DELTatime:DEFine"
+    steps:
+      - send: ":CALibrate:OUTPut DC,0.1;:CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.1;:CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 0.1 V 的直流与方波的边沿在 0.1 V 处相交。
+      - query: ":MEASure:CROSsing? CHANnel2,CHANnel3"
+        expect_value: 0.1
+        tolerance: 0.02
+      - query: ":MEASure:PHASe? CHANnel2,CHANnel2,FALLing"
+        expect_value: 0.0
+        tolerance: 0.5
+      - query: ":MEASure:DELTatime? CHANnel2"
+        expect_value: 0.0
+        tolerance: 1.0e-10
+      - send: ":MEASure:DELTatime:DEFine RISing,1,MIDDle,FALLing,1,MIDDle"
+      - query: ":MEASure:DELTatime:DEFine?"
+        expect: "RIS,1,MIDD,FALL,1,MIDD"
+      # 第一个上升沿 -1.5 µs，第一个下降沿 -2.0 µs。
+      - query: ":MEASure:DELTatime? CHANnel2"
+        expect_value: -5.0e-7
+        tolerance: 2.0e-9
+  # ---- 阈值 ----
+  - name: "上升时间按 RFALl 阈值；不带 GENeral / RFALl 的老命令同时改两组"
+    manual: ":MEASure Commands > :MEASure:THResholds:RFALl:PERCent; :MEASure:THResholds:PERCent; :MEASure:THResholds:GENeral:PERCent"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 33622A 方波的边沿：10–90% 约 3.8 ns，20–80% 约 2.7 ns。
+      - query: ":MEASure:RISetime? CHANnel2"
+        expect_fields: [{min: 3.0e-9, max: 4.5e-9}]
+      - send: ":MEASure:THResholds:RFALl:PERCent CHANnel2,80,50,20"
+      - query: ":MEASure:THResholds:RFALl:PERCent? CHANnel2"
+        expect: "+8.00000E+01,+5.00000E+01,+2.00000E+01"
+      - query: ":MEASure:RISetime? CHANnel2"
+        expect_fields: [{min: 2.0e-9, max: 3.2e-9}]
+      - query: ":MEASure:THResholds:GENeral:PERCent? CHANnel2"
+        expect: "+9.00000E+01,+5.00000E+01,+1.00000E+01"
+      - send: ":MEASure:THResholds:PERCent CHANnel2,70,50,30"
+      - query: ":MEASure:THResholds:PERCent? CHANnel2"
+        expect: "+7.00000E+01,+5.00000E+01,+3.00000E+01"
+      - query: ":MEASure:THResholds:RFALl:PERCent? CHANnel2"
+        expect: "+7.00000E+01,+5.00000E+01,+3.00000E+01"
+      - query: ":MEASure:VUPPer? CHANnel2"
+        expect_value: 0.08
+        tolerance: 0.005
+  - name: "阈值方式：ABSolute、HYSTeresis（GENAUTO 自动设）；PAM 方式未建模"
+    manual: ":MEASure Commands > :MEASure:THResholds:GENeral:METHod; :MEASure:THResholds:GENeral:ABSolute; :MEASure:THResholds:GENeral:HYSTeresis; :MEASure:THResholds:GENAUTO; :MEASure:THResholds:METHod; :MEASure:THResholds:ABSolute; :MEASure:THResholds:HYSTeresis; :MEASure:THResholds:RFALl:METHod; :MEASure:THResholds:RFALl:ABSolute"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      - send: ":MEASure:THResholds:GENeral:METHod CHANnel2,ABSolute;:MEASure:THResholds:GENeral:ABSolute CHANnel2,0.15,0.05,-0.05"
+      - query: ":MEASure:THResholds:GENeral:METHod? CHANnel2"
+        expect: "ABS"
+      - query: ":MEASure:VMIDdle? CHANnel2"
+        expect: "+5.00000E-02"
+      - query: ":MEASure:THResholds:GENeral:ABSolute? CHANnel2"
+        expect: "+1.50000E-01,+5.00000E-02,-5.00000E-02"
+      - send: ":MEASure:THResholds:GENeral:METHod CHANnel2,HYSTeresis;:MEASure:THResholds:GENeral:HYSTeresis CHANnel2,0.05,0.1"
+      - query: ":MEASure:VUPPer? CHANnel2"
+        expect: "+1.50000E-01"
+      - query: ":MEASure:VLOWer? CHANnel2"
+        expect: "+5.00000E-02"
+      - send: ":MEASure:THResholds:GENAUTO CHANnel2"
+      # 中点 0 V，范围为顶到底 0.4 V 的 10%。
+      - query: ":MEASure:THResholds:GENeral:HYSTeresis? CHANnel2"
+        expect_values: [0.04, 0.0]
+        tolerance: 0.003
+      - send: ":MEASure:THResholds:GENeral:METHod ALL,PAMCustom"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":MEASure:THResholds:METHod CHANnel3,ABSolute;:MEASure:THResholds:ABSolute CHANnel3,0.3,0.2,0.1;:MEASure:THResholds:HYSTeresis CHANnel3,0.02,0.2"
+      - query: ":MEASure:THResholds:METHod? CHANnel3"
+        expect: "ABS"
+      - query: ":MEASure:THResholds:RFALl:METHod? CHANnel3"
+        expect: "ABS"
+      - query: ":MEASure:THResholds:RFALl:ABSolute? CHANnel3"
+        expect: "+3.00000E-01,+2.00000E-01,+1.00000E-01"
+      - query: ":MEASure:THResholds:HYSTeresis? CHANnel3"
+        expect: "+2.00000E-02,+2.00000E-01"
+      - send: ":MEASure:THResholds:RFALl:METHod CHANnel3,HYSTeresis"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: "顶与底的求法：ABSolute、MINmax（极值）"
+    manual: ":MEASure Commands > :MEASure:THResholds:GENeral:TOPBase:METHod; :MEASure:THResholds:GENeral:TOPBase:ABSolute; :MEASure:THResholds:TOPBase:METHod; :MEASure:THResholds:TOPBase:ABSolute; :MEASure:THResholds:RFALl:TOPBase:METHod; :MEASure:THResholds:RFALl:TOPBase:ABSolute"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      - send: ":MEASure:THResholds:GENeral:TOPBase:METHod CHANnel2,ABSolute;:MEASure:THResholds:GENeral:TOPBase:ABSolute CHANnel2,0.3,-0.1"
+      - query: ":MEASure:VTOP? CHANnel2"
+        expect: "+3.00000E-01"
+      - query: ":MEASure:VMIDdle? CHANnel2"
+        expect: "+1.00000E-01"
+      - query: ":MEASure:THResholds:GENeral:TOPBase:ABSolute? CHANnel2"
+        expect: "+3.00000E-01,-1.00000E-01"
+      - send: ":MEASure:THResholds:TOPBase:METHod CHANnel2,MINmax"
+      - query: ":MEASure:THResholds:RFALl:TOPBase:METHod? CHANnel2"
+        expect: "MIN"
+      - send: ":MEASure:THResholds:RFALl:TOPBase:ABSolute CHANnel2,0.25,-0.25;:MEASure:THResholds:TOPBase:ABSolute CHANnel1,0.5,-0.5"
+      - query: ":MEASure:THResholds:RFALl:TOPBase:ABSolute? CHANnel1"
+        expect: "+5.00000E-01,-5.00000E-01"
+  # ---- 屏幕上的测量列表 ----
+  - name: "测量列表：不带问号的测量命令加到屏幕上；RESults?（AORDered / GORDered）、NAME、POSition、SOURce、CLEar"
+    manual: ":MEASure Commands > :MEASure:RESults?; :MEASure:NAME; :MEASure:CLEar; :MEASure:SCRatch; :MEASurement<N> Commands > :MEASurement<N>:NAME; :MEASurement<N>:POSition; :MEASurement<N>:SOURce; :MEASurement<N>:CLEar"
+    steps:
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - send: ":MEASure:VTOP CHANnel1;:MEASure:VBASe CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect_fields: ["VBASe(1)", {nonempty: true}, {count: 4, nonempty: true}, "1", "VTOP(1)", {nonempty: true}, {count: 4, nonempty: true}, "1"]
+      - send: ':MEASure:NAME MEAS1,"base"'
+      - query: ":MEASure:NAME? MEAS1"
+        expect: '"base"'
+      - query: ":MEASurement2:NAME?"
+        expect: '"VTOP(1)"'
+      - send: ':MEASurement2:NAME "top"'
+      - send: ":MEASurement2:POSition 1"
+      - query: ":MEASure:RESults? GORDered"
+        expect_fields: ["top", {nonempty: true}, {count: 4, nonempty: true}, {nonempty: true}, "base", {nonempty: true}, {count: 4, nonempty: true}, {nonempty: true}]
+      - query: ":MEASurement1:SOURce?"
+        expect: "CHAN1"
+      - send: ":MEASurement1:SOURce CHANnel2"
+      - query: ":MEASurement1:SOURce?"
+        expect: "CHAN2"
+      - send: ":MEASurement2:CLEar;:MEASure:NAME MEAS2,\"x\""
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+      - send: ":MEASure:SCRatch"
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - send: ":MEASure:VPP CHANnel1;:MEASure:CLEar"
+      - query: ":MEASure:RESults?"
+        expect: ""
+  - name: ":MEASure:SENDvalid 只能 OFF；:MEASure:WINDow 只有 MAIN / ALL"
+    manual: ":MEASure Commands > :MEASure:SENDvalid; :MEASure:WINDow"
+    steps:
+      - query: ":MEASure:SENDvalid?"
+        expect: "0"
+      - send: ":MEASure:SENDvalid ON"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":MEASure:WINDow ALL,MEAS1"
+      - query: ":MEASure:WINDow? MEAS1"
+        expect: "ALL"
+      - send: ":MEASure:WINDow ZOOM"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  # ---- 用 :MEASure:VTIMe? 看毛刺 / 脉宽触发的触发点（触发点即时间 0）----
+  - name: "脉宽触发：范围内的 500 ns 正脉冲在结束沿（下降沿）触发；TIMeout 在脉宽达到设定值时触发"
+    manual: ":TRIGger:PWIDth (Pulse Width Trigger) Commands > :TRIGger:PWIDth:MODE; :TRIGger:PWIDth:TPOint; :MEASure Commands > :MEASure:VTIMe"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 2E-7;:TRIGger:SWEep TRIGgered"
+      - send: ":TRIGger:MODE PWIDth;:TRIGger:PWIDth:SOURce CHANnel2;:TRIGger:PWIDth:MODE RANGe;:TRIGger:PWIDth:RANGe 4E-7,6E-7"
+      - send: ":DIGitize CHANnel2"
+      # 触发前 10 ns 为高、后 10 ns 为低：下降沿。
+      - query: ":MEASure:VTIMe? -1E-8,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:VTIMe? 1E-8,CHANnel2"
+        expect_value: -0.2
+        tolerance: 0.03
+      - send: ":TRIGger:PWIDth:MODE GTHan;:TRIGger:PWIDth:WIDTh 3E-7;:TRIGger:PWIDth:TPOint TIMeout;:DIGitize CHANnel2"
+      # 正脉冲开始后 300 ns：触发点两侧都是高电平，上升沿在 -300 ns。
+      - query: ":MEASure:VTIMe? 1E-8,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:TEDGe? MIDDle,+1,CHANnel2"
+        expect_value: -3.0e-7
+        tolerance: 2.0e-9
+  - name: "毛刺触发：比 600 ns 窄的正脉冲（500 ns）在下降沿触发"
+    manual: ":TRIGger:GLITch (Glitch Trigger) Commands > :TRIGger:GLITch:WIDTh; :MEASure Commands > :MEASure:VTIMe"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 2E-7;:TRIGger:SWEep TRIGgered"
+      - send: ":TRIGger:MODE GLITch;:TRIGger:GLITch:SOURce CHANnel2;:TRIGger:GLITch:WIDTh 6E-7;:DIGitize CHANnel2"
+      - query: ":MEASure:VTIMe? -1E-8,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:VTIMe? 1E-8,CHANnel2"
+        expect_value: -0.2
+        tolerance: 0.03

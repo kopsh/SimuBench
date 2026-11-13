@@ -262,6 +262,12 @@ class ParamSpec(_Model):
         description="Whether a query's answer repeats this index first (PACU? 1 -> 1,AMPL,C1); false for "
         "instruments that answer only the settings (SR830 DDEF? 1 -> j,k, #273)",
     )
+    mirror: list[str] | None = Field(
+        None,
+        description="Further settings that take the same value as `state` (a legacy command that sets "
+        "two threshold sets at once: the Infiniium's :MEASure:THResholds:PERCent writes the general and "
+        "the rise/fall percentages); `{index}` placeholders as in `state`",
+    )
     sets: dict[str, Any] | None = Field(
         None,
         description="Settings this parameter writes along with its own when it is given, e.g. "

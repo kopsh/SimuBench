@@ -383,6 +383,45 @@ state:
   # ---- 波形传输：所有段一起传未建模（只传当前段）。 -----------------------------------------------------------
   waveform.view: {type: enum, options: [ALL, MAIN], default: ALL, label: 波形视图, label_en: Waveform view}
   waveform.segmented_all: {type: enum, options: ["OFF", "0"], replies: {"OFF": "0"}, not_modeled: {"ON": all segments in one transfer are not modeled, "1": all segments in one transfer are not modeled}, default: "OFF", label: 传所有段, label_en: All segments}
+  # ---- 测量阈值（:MEASure:THResholds，手册第 26 章）：按信源（CHANnel1–4，ALL 为第 5 组，手册：ALL 不改各通道
+  # 自己的设定）两组——general（除上升、下降时间以外的测量）与 rfall（上升、下降时间）；不带 GENeral / RFALl 的
+  # 老命令同时改两组。上电值：百分比 90/50/10、STANdard（直方图，没有电平时取极值），为 Infiniium 的默认；绝对
+  # 电平 0.1/0/-0.1 V、迟滞 0 V ± 0.05 V、绝对顶底 ±0.2 V 手册未给，为 SimuBench 值。
+  measure.thr.general{n}.method: {type: enum, options: [PERCent, ABSolute, HYSTeresis], default: PERCent, each: {n: {first: 1, last: 5}}, label: "通用阈值方式 {n}", label_en: "General threshold method {n}"}
+  measure.thr.rfall{n}.method: {type: enum, options: [PERCent, ABSolute, HYSTeresis], default: PERCent, each: {n: {first: 1, last: 5}}, label: "上升下降阈值方式 {n}", label_en: "Rise/fall threshold method {n}"}
+  measure.thr.general{n}.upper: {type: float, min: -24.8, max: 125.0, default: 90.0, each: {n: {first: 1, last: 5}}, label: "通用上阈值 % {n}", label_en: "General upper % {n}"}
+  measure.thr.general{n}.middle: {type: float, min: -24.9, max: 124.9, default: 50.0, each: {n: {first: 1, last: 5}}, label: "通用中阈值 % {n}", label_en: "General middle % {n}"}
+  measure.thr.general{n}.lower: {type: float, min: -25.0, max: 125.8, default: 10.0, each: {n: {first: 1, last: 5}}, label: "通用下阈值 % {n}", label_en: "General lower % {n}"}
+  measure.thr.general{n}.abs_upper: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.1, each: {n: {first: 1, last: 5}}, label: "通用上阈值 V {n}", label_en: "General upper V {n}"}
+  measure.thr.general{n}.abs_middle: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.0, each: {n: {first: 1, last: 5}}, label: "通用中阈值 V {n}", label_en: "General middle V {n}"}
+  measure.thr.general{n}.abs_lower: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: -0.1, each: {n: {first: 1, last: 5}}, label: "通用下阈值 V {n}", label_en: "General lower V {n}"}
+  measure.thr.general{n}.hyst_range: {type: float, unit: V, min: 0.0, max: 1000000.0, default: 0.05, each: {n: {first: 1, last: 5}}, label: "通用迟滞范围 {n}", label_en: "General hysteresis range {n}"}
+  measure.thr.general{n}.hyst_level: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.0, each: {n: {first: 1, last: 5}}, label: "通用迟滞电平 {n}", label_en: "General hysteresis level {n}"}
+  measure.thr.general{n}.tb_top: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.2, each: {n: {first: 1, last: 5}}, label: "通用绝对顶 {n}", label_en: "General absolute top {n}"}
+  measure.thr.general{n}.tb_base: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: -0.2, each: {n: {first: 1, last: 5}}, label: "通用绝对底 {n}", label_en: "General absolute base {n}"}
+  measure.thr.general{n}.tb_method: {type: enum, options: [STANdard, HISTONLY, MINmax, ABSolute], default: STANdard, each: {n: {first: 1, last: 5}}, label: "通用顶底方式 {n}", label_en: "General top-base method {n}"}
+  measure.thr.rfall{n}.upper: {type: float, min: -24.8, max: 125.0, default: 90.0, each: {n: {first: 1, last: 5}}, label: "上升下降上阈值 % {n}", label_en: "Rise/fall upper % {n}"}
+  measure.thr.rfall{n}.middle: {type: float, min: -24.9, max: 124.9, default: 50.0, each: {n: {first: 1, last: 5}}, label: "上升下降中阈值 % {n}", label_en: "Rise/fall middle % {n}"}
+  measure.thr.rfall{n}.lower: {type: float, min: -25.0, max: 125.8, default: 10.0, each: {n: {first: 1, last: 5}}, label: "上升下降下阈值 % {n}", label_en: "Rise/fall lower % {n}"}
+  measure.thr.rfall{n}.abs_upper: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.1, each: {n: {first: 1, last: 5}}, label: "上升下降上阈值 V {n}", label_en: "Rise/fall upper V {n}"}
+  measure.thr.rfall{n}.abs_middle: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.0, each: {n: {first: 1, last: 5}}, label: "上升下降中阈值 V {n}", label_en: "Rise/fall middle V {n}"}
+  measure.thr.rfall{n}.abs_lower: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: -0.1, each: {n: {first: 1, last: 5}}, label: "上升下降下阈值 V {n}", label_en: "Rise/fall lower V {n}"}
+  measure.thr.rfall{n}.hyst_range: {type: float, unit: V, min: 0.0, max: 1000000.0, default: 0.05, each: {n: {first: 1, last: 5}}, label: "上升下降迟滞范围 {n}", label_en: "Rise/fall hysteresis range {n}"}
+  measure.thr.rfall{n}.hyst_level: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.0, each: {n: {first: 1, last: 5}}, label: "上升下降迟滞电平 {n}", label_en: "Rise/fall hysteresis level {n}"}
+  measure.thr.rfall{n}.tb_top: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: 0.2, each: {n: {first: 1, last: 5}}, label: "上升下降绝对顶 {n}", label_en: "Rise/fall absolute top {n}"}
+  measure.thr.rfall{n}.tb_base: {type: float, unit: V, min: -1000000.0, max: 1000000.0, default: -0.2, each: {n: {first: 1, last: 5}}, label: "上升下降绝对底 {n}", label_en: "Rise/fall absolute base {n}"}
+  measure.thr.rfall{n}.tb_method: {type: enum, options: [STANdard, HISTONLY, MINmax, ABSolute], default: STANdard, each: {n: {first: 1, last: 5}}, label: "上升下降顶底方式 {n}", label_en: "Rise/fall top-base method {n}"}
+  # :MEASure:DELTatime:DEFine：起止两个边沿的方向、序号与位置（上电值 SimuBench 取 RISing,1,MIDDle 两端）。
+  measure.dt_start_dir: {type: enum, options: [RISing, FALLing, EITHer], default: RISing, label: 起始沿方向, label_en: Start edge direction}
+  measure.dt_start_num: {type: int, min: 1, max: 65534, default: 1, label: 起始沿序号, label_en: Start edge number}
+  measure.dt_start_pos: {type: enum, options: [UPPer, MIDDle, LOWer], default: MIDDle, label: 起始沿位置, label_en: Start edge position}
+  measure.dt_stop_dir: {type: enum, options: [RISing, FALLing, EITHer], default: RISing, label: 终止沿方向, label_en: Stop edge direction}
+  measure.dt_stop_num: {type: int, min: 1, max: 65534, default: 1, label: 终止沿序号, label_en: Stop edge number}
+  measure.dt_stop_pos: {type: enum, options: [UPPer, MIDDle, LOWer], default: MIDDle, label: 终止沿位置, label_en: Stop edge position}
+  # 测量结果附带结果状态（:MEASure:SENDvalid ON）未建模，只能 OFF。
+  measure.sendvalid: {type: enum, options: ["OFF", "0"], replies: {"OFF": "0"}, not_modeled: {"ON": result states after each measurement are not modeled, "1": result states after each measurement are not modeled}, default: "OFF", label: 结果状态, label_en: Send valid}
+  # 测量窗口：MAIN 与 ALL 都是整个采集（手册）；ZOOM（缩放窗口门控）与 CGRade 未建模。
+  measure.window: {type: enum, options: [MAIN, ALL], default: MAIN, label: 测量窗口, label_en: Measurement window}
   # ---- 界面偏好与显示（不改变数据，覆盖表为“接受”；手册 Default Setup 不改用户偏好与显示颜色，
   # 故标 keep_on_reset）。上电值手册未给的为 SimuBench 值，覆盖表注明。
   system.psc: {type: bool, default: true, label: 上电状态清除, label_en: Power-on status clear}
@@ -746,6 +785,10 @@ components:
       # 手册：无法测量时回 9.99999E+37。
       invalid_value: "9.99999E+37"
       sources: [measure.source, measure.source2]
+      # 测量阈值（:MEASure:THResholds）按信源两组，见 measure.thr.*；屏幕上的测量至多 20 个（手册 :MEASure:RESults?）。
+      thresholds: measure.thr
+      slots: 20
+      results_order: AORDered  # 手册：AORDered（或不带参数）先回最新加的
       # :TRIGger:LEVel:FIFTy：触发信源的电平设到其波形的 50%。
       trigger_levels: {1: trigger.level1, 2: trigger.level2, 3: trigger.level3, 4: trigger.level4}
   - name: sys
@@ -1031,23 +1074,21 @@ commands:
       - {name: source1, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: measure.source}
       - {name: source2, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true, state: measure.source2}
     reply: "{measure.source},{measure.source2}"
-  - {header: ":MEASure:VPP", op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VMAX", op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VMIN", op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VAMPlitude", op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VTOP", op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VBASe", op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VPP", op: meas.measure, args: {what: VPP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VMAX", op: meas.measure, args: {what: VMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VMIN", op: meas.measure, args: {what: VMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VAMPlitude", op: meas.measure, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VTOP", op: meas.measure, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VBASe", op: meas.measure, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
   # VAVerage / VRMS：只实现整屏（DISPlay）与含直流（DC）的写法，单周期与 AC、dBm 未建模。
   - header: ":MEASure:VAVerage"
     op: meas.measure
-    set: false
     args: {what: VAVerage}
     params:
       - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
       - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
   - header: ":MEASure:VRMS"
     op: meas.measure
-    set: false
     args: {what: VRMS}
     params:
       - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
@@ -1057,31 +1098,28 @@ commands:
   # FREQuency / PERiod / DUTYcycle：从上升沿到上升沿（RISing）；FALLing 未建模。
   - header: ":MEASure:FREQuency"
     op: meas.measure
-    set: false
     args: {what: FREQuency}
     params:
       - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
       - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
   - header: ":MEASure:PERiod"
     op: meas.measure
-    set: false
     args: {what: PERiod}
     params:
       - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
       - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
   - header: ":MEASure:DUTYcycle"
     op: meas.measure
-    set: false
     args: {what: DUTYcycle}
     params:
       - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
       - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
-  - {header: ":MEASure:RISetime", op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:FALLtime", op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:PWIDth", op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:NWIDth", op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:RISetime", op: meas.measure, args: {what: RISetime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:FALLtime", op: meas.measure, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:PWIDth", op: meas.measure, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:NWIDth", op: meas.measure, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:OVERshoot", op: meas.measure, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:PREShoot", op: meas.measure, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
   # ---- SYSTem ----
   # :SYSTem:ERRor? [{NUMBer | STRing}]：STRing 回码与带引号的文字；不带参数或 NUMBer 只回错误码
   # （后一条不带 when，是前一条的兜底，#602）。
@@ -1441,3 +1479,105 @@ commands:
   - {header: ":ACQuire:SRATe:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>+0.00000E+00:+2.56000E+11"}
   # 四个通道都能打开：1,<enum>0|1（手册的例子）。
   - {header: ":CHANnel<ch>:DISPlay:TESTLIMITS", op: sys.none, set: false, reply: "1,<enum>0|1"}
+  # ---- 测量（手册第 26 章）：阈值、电平与形状、带参数的测量、屏幕上的测量列表 -----------------------------
+  - {header: ":MEASure:VUPPer", op: meas.measure, args: {what: VUPPer}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VMIDdle", op: meas.measure, args: {what: VMIDdle}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VLOWer", op: meas.measure, args: {what: VLOWer}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:PPULses", op: meas.measure, args: {what: PPULses}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:NPULses", op: meas.measure, args: {what: NPULses}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  # 第一个最大 / 最小值的时间，相对触发点（手册）。
+  - {header: ":MEASure:TMAX", op: meas.measure, args: {what: XMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:TMIN", op: meas.measure, args: {what: XMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VOVershoot", op: meas.measure, args: {what: VOVershoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}, {name: direction, type: enum, options: [RISing, FALLing], optional: true}]}
+  - {header: ":MEASure:VPReshoot", op: meas.measure, args: {what: VPReshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}, {name: direction, type: enum, options: [RISing, FALLing], optional: true}]}
+  - {header: ":MEASure:VUNDershoot", op: meas.measure, args: {what: VUNDershoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}, {name: direction, type: enum, options: [RISing, FALLing], optional: true}]}
+  - {header: ":MEASure:UNDershoot", op: meas.measure, args: {what: UNDershoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}, {name: direction, type: enum, options: [RISing, FALLing], optional: true}]}
+  # :MEASure:AREA [CYCLe[,<source>[,<direction>]]] / [DISPlay[,<source>]]：整屏或第一个完整周期下的面积（V·s）。
+  - {header: ":MEASure:AREA", op: meas.measure, args: {what: AREA}, params: [{name: interval, type: enum, options: [DISPlay, CYCLe], optional: true}, {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}, {name: direction, type: enum, options: [RISing, FALLing], optional: true}]}
+  # 带数值参数的测量：脉冲窗口内的平均、突发的宽度 / 周期 / 间隔（手册）。
+  - {header: ":MEASure:PTOP", op: meas.with_args, set: false, args: {what: PTOP}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:PBASe", op: meas.with_args, set: false, args: {what: PBASe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:BWIDth", op: meas.with_args, set: false, args: {what: BWIDth}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:BPERiod", op: meas.with_args, set: false, args: {what: BPERiod}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:BINTerval", op: meas.with_args, set: false, args: {what: BINTerval}, params: [{name: source, type: raw}]}
+  # 相对触发点的时间测量（#350）：VTIMe? <时间>、TEDGe? <阈值>,[±]<次序>、TVOLt? <电压>,[±]<次序>。
+  - {header: ":MEASure:VTIMe", op: meas.at, set: false, args: {what: VTIMe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:TEDGe", op: meas.at, set: false, args: {what: TEDGe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:TVOLt", op: meas.at, set: false, args: {what: TVALue}, params: [{name: source, type: raw}]}
+  # 两个信源：相位（可选 RISing / FALLing）、交叉电压、按 DEFine 的起止沿之间的时间。
+  - {header: ":MEASure:PHASe", op: meas.pair, set: false, args: {what: PHASe}, params: [{name: source, type: raw}]}
+  - {header: ":MEASure:CROSsing", op: meas.pair, set: false, args: {what: CROSsing}, params: [{name: source, type: raw}]}
+  - header: ":MEASure:DELTatime"
+    op: meas.pair
+    set: false
+    args: {what: DELTatime, define: [$measure.dt_start_dir, $measure.dt_start_num, $measure.dt_start_pos, $measure.dt_stop_dir, $measure.dt_stop_num, $measure.dt_stop_pos]}
+    params: [{name: source, type: raw}]
+  - header: ":MEASure:DELTatime:DEFine"
+    params:
+      - {name: start_dir, type: enum, options: [RISing, FALLing, EITHer], state: measure.dt_start_dir}
+      - {name: start_num, type: int, state: measure.dt_start_num}
+      - {name: start_pos, type: enum, options: [UPPer, MIDDle, LOWer], state: measure.dt_start_pos}
+      - {name: stop_dir, type: enum, options: [RISing, FALLing, EITHer], state: measure.dt_stop_dir}
+      - {name: stop_num, type: int, state: measure.dt_stop_num}
+      - {name: stop_pos, type: enum, options: [UPPer, MIDDle, LOWer], state: measure.dt_stop_pos}
+  # ---- 屏幕上的测量列表：新加的在最上面；MEAS<N> 为从上数第 N 个 ----
+  - {header: ":MEASure:CLEar", op: meas.clear_list, query: false}
+  - {header: ":MEASure:SCRatch", op: meas.clear_list, query: false}
+  - header: ":MEASure:RESults"
+    op: meas.results
+    set: false
+    params: [{name: order, type: enum, options: [AORDered, GORDered], optional: true}]
+  - header: ":MEASure:NAME"
+    op: meas.entry
+    args: {what: name}
+    params:
+      - {name: index, type: enum, options: [MEAS1, MEAS2, MEAS3, MEAS4, MEAS5, MEAS6, MEAS7, MEAS8, MEAS9, MEAS10, MEAS11, MEAS12, MEAS13, MEAS14, MEAS15, MEAS16, MEAS17, MEAS18, MEAS19, MEAS20]}
+      - {name: value, type: string, optional: true}
+  - {header: ":MEASurement<n>:NAME", op: meas.entry, args: {what: name}, suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]}, params: [{name: value, type: string, optional: true}]}
+  - {header: ":MEASurement<n>:CLEar", op: meas.entry, args: {what: clear}, query: false, suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]}}
+  - {header: ":MEASurement<n>:POSition", op: meas.entry, args: {what: position}, query: false, suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]}, params: [{name: value, type: int}]}
+  - {header: ":MEASurement<n>:SOURce", op: meas.entry, args: {what: source}, suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]}, params: [{name: value, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}]}
+  - {header: ":MEASure:SENDvalid", state: measure.sendvalid}
+  - header: ":MEASure:WINDow"
+    params:
+      - {name: window, type: enum, options: [MAIN, ALL], state: measure.window, not_modeled: {ZOOM: measurement gating by the zoom window is not modeled, CGRade: color grade measurements are not modeled}}
+      - {name: meas, type: enum, options: [MEAS1, MEAS2, MEAS3, MEAS4, MEAS5, MEAS6, MEAS7, MEAS8, MEAS9, MEAS10, MEAS11, MEAS12, MEAS13, MEAS14, MEAS15, MEAS16, MEAS17, MEAS18, MEAS19, MEAS20, MEAS21, MEAS22, MEAS23, MEAS24, MEAS25, MEAS26, MEAS27, MEAS28, MEAS29, MEAS30, MEAS31, MEAS32, MEAS33, MEAS34, MEAS35, MEAS36, MEAS37, MEAS38, MEAS39, MEAS40], index: true, index_words: {MEAS1: 1, MEAS2: 2, MEAS3: 3, MEAS4: 4, MEAS5: 5, MEAS6: 6, MEAS7: 7, MEAS8: 8, MEAS9: 9, MEAS10: 10, MEAS11: 11, MEAS12: 12, MEAS13: 13, MEAS14: 14, MEAS15: 15, MEAS16: 16, MEAS17: 17, MEAS18: 18, MEAS19: 19, MEAS20: 20, MEAS21: 21, MEAS22: 22, MEAS23: 23, MEAS24: 24, MEAS25: 25, MEAS26: 26, MEAS27: 27, MEAS28: 28, MEAS29: 29, MEAS30: 30, MEAS31: 31, MEAS32: 32, MEAS33: 33, MEAS34: 34, MEAS35: 35, MEAS36: 36, MEAS37: 37, MEAS38: 38, MEAS39: 39, MEAS40: 40}, index_default: 1, echo: false}
+  # ---- 阈值：GENeral（通用）、RFALl（上升下降）与同时改两组的老命令 ----
+  - header: ":MEASure:THResholds:GENAUTO"
+    op: meas.auto_thresholds
+    query: false
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}]
+  - header: ":MEASure:THResholds:GENeral:METHod"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: method, type: enum, options: [ABSolute, PERCent, HYSTeresis], state: "measure.thr.general{source}.method", not_modeled: {PAMCustom: PAM-4 thresholds are out of scope, PAMAutomatic: PAM-4 thresholds are out of scope}}]
+  - header: ":MEASure:THResholds:GENeral:PERCent"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: upper, type: float, state: "measure.thr.general{source}.upper"}, {name: middle, type: float, state: "measure.thr.general{source}.middle"}, {name: lower, type: float, state: "measure.thr.general{source}.lower"}]
+  - header: ":MEASure:THResholds:GENeral:ABSolute"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: upper, type: float, unit: V, state: "measure.thr.general{source}.abs_upper"}, {name: middle, type: float, unit: V, state: "measure.thr.general{source}.abs_middle"}, {name: lower, type: float, unit: V, state: "measure.thr.general{source}.abs_lower"}]
+  - header: ":MEASure:THResholds:GENeral:HYSTeresis"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: range, type: float, unit: V, state: "measure.thr.general{source}.hyst_range"}, {name: level, type: float, unit: V, state: "measure.thr.general{source}.hyst_level"}]
+  - header: ":MEASure:THResholds:GENeral:TOPBase:METHod"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: method, type: enum, options: [ABSolute, HISTONLY, MINmax, STANdard], state: "measure.thr.general{source}.tb_method"}]
+  - header: ":MEASure:THResholds:GENeral:TOPBase:ABSolute"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: top, type: float, unit: V, state: "measure.thr.general{source}.tb_top"}, {name: base, type: float, unit: V, state: "measure.thr.general{source}.tb_base"}]
+  - header: ":MEASure:THResholds:RFALl:METHod"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: method, type: enum, options: [ABSolute, PERCent], state: "measure.thr.rfall{source}.method"}]
+  - header: ":MEASure:THResholds:RFALl:PERCent"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: upper, type: float, state: "measure.thr.rfall{source}.upper"}, {name: middle, type: float, state: "measure.thr.rfall{source}.middle"}, {name: lower, type: float, state: "measure.thr.rfall{source}.lower"}]
+  - header: ":MEASure:THResholds:RFALl:ABSolute"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: upper, type: float, unit: V, state: "measure.thr.rfall{source}.abs_upper"}, {name: middle, type: float, unit: V, state: "measure.thr.rfall{source}.abs_middle"}, {name: lower, type: float, unit: V, state: "measure.thr.rfall{source}.abs_lower"}]
+  - header: ":MEASure:THResholds:RFALl:TOPBase:METHod"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: method, type: enum, options: [ABSolute, HISTONLY, MINmax, STANdard], state: "measure.thr.rfall{source}.tb_method"}]
+  - header: ":MEASure:THResholds:RFALl:TOPBase:ABSolute"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: top, type: float, unit: V, state: "measure.thr.rfall{source}.tb_top"}, {name: base, type: float, unit: V, state: "measure.thr.rfall{source}.tb_base"}]
+  - header: ":MEASure:THResholds:METHod"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: method, type: enum, options: [ABSolute, PERCent, HYSTeresis], state: "measure.thr.general{source}.method", mirror: ["measure.thr.rfall{source}.method"]}]
+  - header: ":MEASure:THResholds:PERCent"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: upper, type: float, state: "measure.thr.general{source}.upper", mirror: ["measure.thr.rfall{source}.upper"]}, {name: middle, type: float, state: "measure.thr.general{source}.middle", mirror: ["measure.thr.rfall{source}.middle"]}, {name: lower, type: float, state: "measure.thr.general{source}.lower", mirror: ["measure.thr.rfall{source}.lower"]}]
+  - header: ":MEASure:THResholds:ABSolute"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: upper, type: float, unit: V, state: "measure.thr.general{source}.abs_upper", mirror: ["measure.thr.rfall{source}.abs_upper"]}, {name: middle, type: float, unit: V, state: "measure.thr.general{source}.abs_middle", mirror: ["measure.thr.rfall{source}.abs_middle"]}, {name: lower, type: float, unit: V, state: "measure.thr.general{source}.abs_lower", mirror: ["measure.thr.rfall{source}.abs_lower"]}]
+  - header: ":MEASure:THResholds:HYSTeresis"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: range, type: float, unit: V, state: "measure.thr.general{source}.hyst_range", mirror: ["measure.thr.rfall{source}.hyst_range"]}, {name: level, type: float, unit: V, state: "measure.thr.general{source}.hyst_level", mirror: ["measure.thr.rfall{source}.hyst_level"]}]
+  - header: ":MEASure:THResholds:TOPBase:METHod"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: method, type: enum, options: [ABSolute, HISTONLY, MINmax, STANdard], state: "measure.thr.general{source}.tb_method", mirror: ["measure.thr.rfall{source}.tb_method"]}]
+  - header: ":MEASure:THResholds:TOPBase:ABSolute"
+    params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: top, type: float, unit: V, state: "measure.thr.general{source}.tb_top", mirror: ["measure.thr.rfall{source}.tb_top"]}, {name: base, type: float, unit: V, state: "measure.thr.general{source}.tb_base", mirror: ["measure.thr.rfall{source}.tb_base"]}]
