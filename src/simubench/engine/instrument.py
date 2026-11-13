@@ -80,10 +80,6 @@ class Instrument:
         self.status = StatusRegisters(lambda: self.components.values())
         #: Operations that finish at a later virtual instant, and the *OPC bookkeeping (#895).
         self.ops = PendingOps()
-        #: Components' status flags while a status register computes its condition: the outermost
-        #: register fills it, the registers it asks reuse it (#602: without it every register
-        #: recomputed every other one's flags, n! scans of a scope's trigger per command).
-        self.status_flag_cache: dict[str, dict[str, bool]] | None = None
         #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
         self.on_panel = False
         self._elapsed_ns = 0  # virtual time the program message being executed has used so far
