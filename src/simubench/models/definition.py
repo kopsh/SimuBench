@@ -38,6 +38,13 @@ class StateSpec(_Model):
     special: dict[str, float] | None = Field(
         None, description="Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load"
     )
+    words: dict[str, str] | None = Field(
+        None,
+        description="Words a component resolves to a number when the setting is written, e.g. "
+        "{LREading: last_reading} (SCPI mixed case: the short and the long form both match); the "
+        "value names the resolver the bound component implements (``Component.resolve_word``). The "
+        "number is then judged by the range like any written value, and a query answers the number (#1096)",
+    )
     not_modeled: dict[str, str] | None = Field(
         None,
         description="Words the real instrument takes for this setting but the model does not implement, "

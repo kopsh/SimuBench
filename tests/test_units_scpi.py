@@ -2,6 +2,8 @@ import math
 
 import pytest
 
+from simubench.engine.command_runner import CommandRunner
+from simubench.models.definition import StateSpec
 from simubench.scpi import values as V
 from simubench.scpi.errors import ErrorQueue, ScpiError
 from simubench.scpi.parse import Pattern, Token, parse_unit, resolve_tokens, split_units
@@ -169,3 +171,20 @@ def test_error_family_message_for_unlisted_codes():
     assert ScpiError(-319).message == "System error"
     assert ScpiError(-229).message == "Parameter error"
     assert ScpiError(-313).message == "Calibration memory lost"
+
+
+@pytest.mark.parametrize("word", [b"LRE", b"lreading", b"LREADING", b" LREading "])
+def test_a_mixed_case_special_key_matches_in_both_forms(word):
+    st = StateSpec(type="float", special={"LREading": 1.0})
+    assert CommandRunner._special_key(st, word) == "LREading"
+
+
+def test_a_special_key_does_not_match_a_number_or_another_word():
+    st = StateSpec(type="float", special={"LREading": 1.0})
+    assert CommandRunner._special_key(st, b"NINF") is None
+
+
+@pytest.mark.parametrize("word", [b"LRE", b"LREADING"])
+def test_a_words_entry_matches_in_both_forms(word):
+    st = StateSpec(type="float", words={"LREading": "last_reading"})
+    assert CommandRunner._word_name(st, word) == "last_reading"

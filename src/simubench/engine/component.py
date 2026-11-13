@@ -812,6 +812,13 @@ class Component:
         Raise ScpiError to refuse the change, or return the value to keep instead (e.g. the nearest
         legal one). None keeps ``new``."""
 
+    def resolve_word(self, key: str | None, path: str, name: str) -> float | None:
+        """The number for a word the setting at ``path`` declares in ``words`` (#1096) — ``name``
+        is the resolver the definition names (``last_reading``); ``key`` as in :meth:`on_state`.
+        Return None when this component does not resolve it (the next bound component is asked);
+        raise ScpiError to refuse the write."""
+        return None
+
     def check_settings(self) -> None:
         """After a command that writes several settings at once (a ``quantities`` command such as
         ``OUT 1 A, 400 HZ``): raise ScpiError when the settings together are not allowed (a

@@ -255,10 +255,10 @@ class CommandRunner:
             if spec.factor != 1:
                 # The command's number is the setting times factor (:TIMebase:RANGe is ten :SCALe).
                 word = V.parse_string(unit.params[0]).strip().upper()
-                keyword = word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT") or word in (
-                    st.special or {}
+                keyword = word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT") or bool(
+                    self._special_key(st, unit.params[0]) or self._word_name(st, unit.params[0])
                 )
-                v = V.parse_float(unit.params[0], st.unit)
+                v = 0.0 if keyword else V.parse_float(unit.params[0], st.unit)
                 value = self._parse_state(st, unit.params[0], path) if keyword else v / spec.factor
             else:
                 value = self._parse_state(st, unit.params[0], path)
@@ -694,7 +694,30 @@ class CommandRunner:
     def _keyword_argument(st: StateSpec, raw: bytes) -> bool:
         """Whether a numeric argument is DEF or one of the setting's special words (AUTO)."""
         word = raw.decode(errors="replace").strip().upper()
-        return word.startswith("DEF") or bool(st.special and word in st.special)
+        return (
+            word.startswith("DEF")
+            or CommandRunner._special_key(st, raw) is not None
+            or CommandRunner._word_name(st, raw) is not None
+        )
+
+    @staticmethod
+    def _special_key(st: StateSpec, raw: bytes) -> str | None:
+        """The ``special`` key a word names, in either SCPI form (``LREading``: ``LRE`` and
+        ``LREADING``); an exact (upper-case) key wins, so a key like ``CH1`` or ``AUTO`` is unchanged."""
+        if not st.special:
+            return None
+        word = raw.decode(errors="replace").strip().upper()
+        if word in st.special:
+            return word
+        return next((k for k in st.special if V.matches_word(word, k)), None)
+
+    @staticmethod
+    def _word_name(st: StateSpec, raw: bytes) -> str | None:
+        """The resolver a ``words`` entry names for this word (either SCPI form), else None."""
+        if not st.words:
+            return None
+        word = raw.decode(errors="replace").strip()
+        return next((name for k, name in st.words.items() if V.matches_word(word, k)), None)
 
     @classmethod
     def _keyword_word(cls, ps: ParamSpec, st: StateSpec | None, raw: bytes) -> bool:
@@ -720,7 +743,14 @@ class CommandRunner:
         self._refuse_not_modeled(st.not_modeled, raw)
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
-            if st.special and word in st.special:
+            resolver = self._word_name(st, raw)
+            if resolver is not None and path is not None:
+                # A word a component resolves (#1096): the component returns its number now, and
+                # that number is judged by the range like any written value.
+                return self.inst.resolve_word(path, resolver)
+            special = self._special_key(st, raw)
+            if special is not None and st.special is not None:
+                word = special
                 value = st.special[word]
                 if word.startswith(("MIN", "MAX", "DEF")) and path is not None:
                     # MIN/MAX are the setting's legal extremes *now*, and DEF stays legal too: a

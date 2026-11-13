@@ -257,8 +257,8 @@ state:
     default: 1.0
     min: -9.9e+37
     max: 9.9e+37
-    # LREading：取上一个读数（平均后、数学运算前）为因子，写入时取定（#1043，reading_math.LAST_READING）。
-    special: &lreading {LRE: -.inf, LREADING: -.inf}
+    # LREading：取上一个读数（平均后、数学运算前）为因子，写入时取定（#1043，#1096：words 由 reading_math 解析）。
+    words: &lreading {LREading: last_reading}
     label: 乘数 m
     label_en: Math m
   calc.math.m_on:
@@ -271,7 +271,7 @@ state:
     default: 1.0
     min: -9.9e+37
     max: 9.9e+37
-    special: *lreading
+    words: *lreading
     label: 偏置 c
     label_en: Math c
   calc.math.c_on:
@@ -284,7 +284,7 @@ state:
     default: 1.0
     min: -9.9e+37
     max: 9.9e+37
-    special: *lreading
+    words: *lreading
     label: 除数 z
     label_en: Math z
   calc.math.z_on:
