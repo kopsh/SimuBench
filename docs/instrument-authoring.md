@@ -339,6 +339,26 @@ class SampleScale(Component):
 
 `tests/test_docs_examples.py` 运行这一段：把它接在上面例子的 `adc` 与 `ddc` 之间（`factor: 2`），`ddc.out` 的复幅度加倍。
 
+### 2.12 设置之间的约束（#1013，D69）
+
+手册常写“A 取某值时 B 的某些取值不可用”（DSO-X 2000 的 `:ACQuire:TYPE`：分段存储下没有平均），或“改 A 时仪表自动改 B”（coupling）。定义顶层的 `constraints` 逐条声明：
+
+```yaml
+constraints:
+  - when: {acquire.mode: SEGMented}        # 条件：设置等于某值，或属于某几个值（写成列表）；几项同时成立
+    forbid: {acquire.type: [AVERage]}      # 条件成立时不允许的取值
+    action: refuse                         # refuse（默认）：整条命令被拒绝，什么都不改
+    error: -221                            # refuse 的错误码，默认 -221 Settings conflict
+    source: "Programmer's Guide 02.66, :ACQuire:TYPE, p. 215"
+  # action: coerce 时写 coerce: {acquire.type: NORMal}：改动照常生效，被禁止的设置改成这个值
+```
+
+- **按改动后的状态判断**，与先设哪个无关：先 SEGMented 再设 AVERage、先 AVERage 再切 SEGMented，都违反同一条。一条命令同时写几个设置（参数绑定多个设置的命令、`writes`）时，按这条命令全部写完后的状态判断，中间状态不算；被拒绝时一个都不写（与 #550 的全有或全无一致）。
+- **哪些写入受约束**：SCPI 命令与界面、MCP 的设置（`configure`）。仪表自己的连带写入（组件的 `internal` 写入）、运行记录回放与故障注入不检查。
+- **只用整机设置**（`state`），不用按通道的设置（`channel_state`）；数值关系（“采样率 × 存储深度 ≤ 上限”）第一版没有，以后加在 `when` / `forbid` 里。
+- **静态校验** `E-DEF-CONSTRAINT`：引用的设置存在、取值是它的选项或在范围内；`coerce` 的值本身不是被禁止的取值；开机（`default`）与 `*RST` 后（`rst`）的状态不违反任何一条。`coerce` 只与 `action: coerce` 同用，并且为每个被禁止的设置给出一个值（模型校验）。
+- 手册没写错误码或没写另一个方向怎样时，选定的做法与错误码在覆盖表里注明为假设。
+
 ## 3. 通用波形传输与采集（G2、G3）
 
 ### 3.1 `waveform_transfer`
@@ -430,6 +450,7 @@ class SampleScale(Component):
 | `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举或布尔设置、`long_form` 绑定的不是布尔设置；参数映射的表中有设置取不到的值（#42） |
 | `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
 | `E-DEF-DEVIATION-BANDS` | 随频率变化的曲线参数（`specan_input.flatness`）的个体偏差没有按频段写（`bands`），或 `bands` 用在不是曲线的参数上（#1004） |
+| `E-DEF-CONSTRAINT` | 约束（`constraints`，2.12）引用的设置不存在或是按通道的设置、取值不是该设置能取的值、`coerce` 的值本身被禁止、开机或 `*RST` 后的状态违反约束（#1013） |
 | `E-DEF-OPTION` | 选件重复、选件的 `params` 指向不存在的组件、命令的 `option` 没有在 `options` 中声明（#1004；选件参数本身按组件参数的规则检查） |
 | `E-DEF-HEADER`、`E-DEF-HEADER-DUPLICATE` | 命令头无法解析（例如 `[1]` 不是节点）；后写的命令被先写的命令匹配了某种写法，永远不会执行 |
 | `E-DEF-PANEL-STATE`、`E-DEF-PANEL-CONTROL`、`E-DEF-PANEL-VALUE` | 面板（`display.panel`，7.3）引用的设置不存在；控件与设置的类型不相容（`switch` 用于布尔、`select` 用于枚举、`number` 用于数值，数值或字符串的 `buttons` 要写出 `keys`）或设置只读；按键、软键、`sets` 与 `when` 的取值不是可选项、超出范围或类型不符（#128） |

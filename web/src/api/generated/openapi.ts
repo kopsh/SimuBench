@@ -2211,6 +2211,53 @@ export interface components {
             /** To */
             to: string;
         };
+        /**
+         * ConstraintSpec
+         * @description Setting values the instrument does not allow together (#1013, D69): while every ``when``
+         *     setting has its value, the ``forbid`` settings may not have theirs. Checked on the state a
+         *     change leaves — which setting was set first does not matter.
+         */
+        ConstraintSpec: {
+            /**
+             * Action
+             * @description refuse: the change is refused with `error`, nothing is written; coerce: the change is made and each forbidden setting takes its `coerce` value (a manual's coupling)
+             * @default refuse
+             * @enum {string}
+             */
+            action: "refuse" | "coerce";
+            /**
+             * Coerce
+             * @description coerce: the value each `forbid` setting takes, e.g. {acquire.type: NORMal}
+             */
+            coerce?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Error
+             * @description refuse: the error code (default -221 Settings conflict)
+             * @default -221
+             */
+            error: number;
+            /**
+             * Forbid
+             * @description Settings and the values they may not take while `when` holds, e.g. {acquire.type: [AVERage]}
+             */
+            forbid: {
+                [key: string]: unknown[];
+            };
+            /**
+             * Source
+             * @description Where the manual says so (a record)
+             */
+            source?: string | null;
+            /**
+             * When
+             * @description Settings and the value (or list of values) each has for the constraint to apply; all must hold, e.g. {acquire.mode: SEGMented}
+             */
+            when: {
+                [key: string]: unknown;
+            };
+        };
         /** CopyBenchRequest */
         CopyBenchRequest: {
             /**
@@ -2865,6 +2912,11 @@ export interface components {
             commands?: components["schemas"]["CommandSpec"][];
             /** Components */
             components?: components["schemas"]["ComponentSpec"][];
+            /**
+             * Constraints
+             * @description Setting values the instrument does not allow together, and what it does instead (refuse with an error, or change the other setting): instrument-authoring.md 2.12, D69
+             */
+            constraints?: components["schemas"]["ConstraintSpec"][];
             /** Description */
             description?: string | null;
             /**

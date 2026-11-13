@@ -2008,6 +2008,76 @@
         "title": "Connect",
         "type": "object"
       },
+      "ConstraintSpec": {
+        "additionalProperties": false,
+        "description": "Setting values the instrument does not allow together (#1013, D69): while every ``when``\nsetting has its value, the ``forbid`` settings may not have theirs. Checked on the state a\nchange leaves — which setting was set first does not matter.",
+        "properties": {
+          "action": {
+            "default": "refuse",
+            "description": "refuse: the change is refused with `error`, nothing is written; coerce: the change is made and each forbidden setting takes its `coerce` value (a manual's coupling)",
+            "enum": [
+              "refuse",
+              "coerce"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "coerce": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "coerce: the value each `forbid` setting takes, e.g. {acquire.type: NORMal}",
+            "title": "Coerce"
+          },
+          "error": {
+            "default": -221,
+            "description": "refuse: the error code (default -221 Settings conflict)",
+            "title": "Error",
+            "type": "integer"
+          },
+          "forbid": {
+            "additionalProperties": {
+              "items": {},
+              "type": "array"
+            },
+            "description": "Settings and the values they may not take while `when` holds, e.g. {acquire.type: [AVERage]}",
+            "minProperties": 1,
+            "title": "Forbid",
+            "type": "object"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Where the manual says so (a record)",
+            "title": "Source"
+          },
+          "when": {
+            "additionalProperties": true,
+            "description": "Settings and the value (or list of values) each has for the constraint to apply; all must hold, e.g. {acquire.mode: SEGMented}",
+            "minProperties": 1,
+            "title": "When",
+            "type": "object"
+          }
+        },
+        "required": [
+          "when",
+          "forbid"
+        ],
+        "title": "ConstraintSpec",
+        "type": "object"
+      },
       "CopyBenchRequest": {
         "properties": {
           "name": {
@@ -3483,6 +3553,14 @@
               "$ref": "#/components/schemas/ComponentSpec"
             },
             "title": "Components",
+            "type": "array"
+          },
+          "constraints": {
+            "description": "Setting values the instrument does not allow together, and what it does instead (refuse with an error, or change the other setting): instrument-authoring.md 2.12, D69",
+            "items": {
+              "$ref": "#/components/schemas/ConstraintSpec"
+            },
+            "title": "Constraints",
             "type": "array"
           },
           "description": {

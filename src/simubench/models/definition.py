@@ -786,6 +786,43 @@ class Display(_Model):
     )
 
 
+class ConstraintSpec(_Model):
+    """Setting values the instrument does not allow together (#1013, D69): while every ``when``
+    setting has its value, the ``forbid`` settings may not have theirs. Checked on the state a
+    change leaves — which setting was set first does not matter."""
+
+    when: dict[str, Any] = Field(
+        ...,
+        min_length=1,
+        description="Settings and the value (or list of values) each has for the constraint to apply; "
+        "all must hold, e.g. {acquire.mode: SEGMented}",
+    )
+    forbid: dict[str, list[Any]] = Field(
+        ...,
+        min_length=1,
+        description="Settings and the values they may not take while `when` holds, e.g. "
+        "{acquire.type: [AVERage]}",
+    )
+    action: Literal["refuse", "coerce"] = Field(
+        "refuse",
+        description="refuse: the change is refused with `error`, nothing is written; coerce: the change "
+        "is made and each forbidden setting takes its `coerce` value (a manual's coupling)",
+    )
+    error: int = Field(-221, description="refuse: the error code (default -221 Settings conflict)")
+    coerce: dict[str, Any] | None = Field(
+        None, description="coerce: the value each `forbid` setting takes, e.g. {acquire.type: NORMal}"
+    )
+    source: str | None = Field(None, description="Where the manual says so (a record)")
+
+    @model_validator(mode="after")
+    def _check(self) -> ConstraintSpec:
+        if (self.action == "coerce") != (self.coerce is not None):
+            raise ValueError("a constraint gives coerce values exactly when its action is coerce")
+        if self.coerce is not None and set(self.coerce) != set(self.forbid):
+            raise ValueError("coerce gives a value for each forbidden setting, and only for those")
+        return self
+
+
 class InstrumentDefinition(_Model):
     schema_: Literal["simubench.instrument/1"] = Field("simubench.instrument/1", alias="schema")
 
@@ -879,6 +916,11 @@ class InstrumentDefinition(_Model):
         default_factory=dict,
         description="Accuracy and other specifications from the manual, as written there; a record, not "
         "used in calculations (the deviations a unit draws are in `deviations`)",
+    )
+    constraints: list[ConstraintSpec] = Field(
+        default_factory=list,
+        description="Setting values the instrument does not allow together, and what it does instead "
+        "(refuse with an error, or change the other setting): instrument-authoring.md 2.12, D69",
     )
     deviations: list[DeviationSpec] = Field(
         default_factory=list,
