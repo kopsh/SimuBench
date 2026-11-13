@@ -59,7 +59,7 @@
 | input_terminal | `dmm_input_terminal` | 电路(端子;是否高阻按量程与 `high_z_ranges` 决定;`mode` 电阻送按量程的测试电流、四线读 SENSE 端子,电流并分流电阻,#301) | 已实现 | — |
 | signal_conditioning | `dmm_conditioning` | 电路 + 数据(功能、量程、AC 滤波、模拟误差) | 已实现(RES/FRES/DCI/ACI 功能与各自量程 `range_res`/`range_curr`,#301) | — |
 | adc | `dmm_adc` | 数据(NPLC 读数时间、分辨率、校准、读数;sampler) | 已实现 | — |
-| math | `reading_math` | 数据(A/D 之后的读数后处理:平均 MOVing/REPeat → (m·x − c)/z → 百分比/dB/dBm → 上下限与越限标志(状态事件 `LIMIT`)→ 统计;自己也是 sampler,触发模型与测量命令经它取读数,#1041) | 已实现(Fluke 8588A 的 CALCulate 27 条) | 统计按经过它的读数计,不对读数存储器重算;因子取上一个读数(LREading)未实现;34465A、DAQ970A、53220A、N6705C 尚未接入 |
+| math | `reading_math` | 数据(A/D 之后的读数后处理:平均 MOVing/REPeat → (m·x − c)/z → 百分比/dB/dBm → 上下限与越限标志(状态事件 `LIMIT`)→ 统计;自己也是 sampler,触发模型与测量命令经它取读数,#1041) | 已实现(Fluke 8588A 的 CALCulate 27 条) | 统计按经过它的读数计,不对读数存储器重算;因子可取上一个读数(LREading,写入时取定,#1043);超量程读数按其值做上下限判定(#1044);34465A、DAQ970A、53220A、N6705C 尚未接入 |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 

@@ -168,7 +168,7 @@ sections:
     note: '1–10000。默认取 Table 6 的 16；Remote Command Examples 的 *RST 状态写“CALCulate:AVERage = 1, OFF”，两处不一致。'
   - header: CALCulate:AVERage:TCONtrol
     level: implemented
-    note: 'MOVing：每个读数是最近 N 个的平均，设置改变后窗口重新累积；REPeat：每个读数取 N 个新读数的平均，一个读数的虚拟时间为 N 倍。'
+    note: 'MOVing：每个读数是最近 N 个的平均，设置改变或新的一次测量（READ?、INITiate、MEASure?）后窗口重新累积；REPeat：每个读数取 N 个新读数的平均（噪声按 √N 下降），一个读数的虚拟时间为 N 倍。'
   - header: CALCulate:LIMit:CLEar[:IMMediate]
     level: implemented
     note: '清除越限标志。'
@@ -179,7 +179,7 @@ sections:
     level: implemented
   - header: CALCulate:LIMit:FAIL
     level: implemented
-    note: '读数在开启的上/下限之外后为 1，保持到 CLEar；越限时发出状态事件 LIMIT（本定义的状态寄存器未使用它）。'
+    note: '读数在开启的上/下限之外后为 1，保持到 CLEar；越限时发出状态事件 LIMIT（本定义的状态寄存器未使用它）。超量程读数（±9.9E+37）按其值判定：正超量程超出开启的上限、负超量程低于开启的下限（#1044；手册未写明，模型取此行为）。'
   - header: CALCulate:LIMit[:STATe]
     level: implemented
     note: '限值检查在数学运算与单位换算之后的读数上进行。'
@@ -190,12 +190,12 @@ sections:
     level: implemented
   - header: CALCulate:MATH:CFACtor
     level: implemented
-    note: '默认 1（Table 6）；LREading（取上一个读数）未实现，回 -224。'
+    note: '默认 1（Table 6）；LREading 取上一个读数（平均后、数学运算前）为因子，写入时取定，之后不随读数变化；上电或 *RST 后尚无读数时报 -230，因子不变（#1043）。'
   - header: CALCulate:MATH:CFACtor:STATe
     level: implemented
   - header: CALCulate:MATH:MFACtor
     level: implemented
-    note: '默认 1；LREading（取上一个读数）未实现，回 -224。'
+    note: '默认 1；LREading 同 CFACtor（#1043）。'
   - header: CALCulate:MATH:MFACtor:STATe
     level: implemented
   - header: CALCulate:MATH:MUNits
@@ -211,12 +211,12 @@ sections:
     note: 'm、c、z 回到默认值 1；各因子的 :STATe 不变。'
   - header: CALCulate:MATH:ZFACtor
     level: implemented
-    note: '默认 1；LREading 未实现，回 -224；z = 0 时读数报 -222。'
+    note: '默认 1；LREading 同 CFACtor（#1043）；z = 0 时读数报 -222。'
   - header: CALCulate:MATH:ZFACtor:STATe
     level: implemented
   - header: CALCulate:SSTatistics:AVERage
     level: implemented
-    note: '统计的是本次测量（READ?、INITiate、MEASure? 开始一次新的）以来经过后处理的读数，不是对读数存储器重算；超量程读数不计入。'
+    note: '统计的是本次测量（READ?、INITiate、MEASure? 开始一次新的）以来经过后处理的读数，不是对读数存储器重算；FETCh? 再取同一次运行的读数不重复计入；超量程读数不计入；STATe 由关到开时清空。'
   - header: CALCulate:SSTatistics:COUNt
     level: implemented
   - header: CALCulate:SSTatistics:MAXimum

@@ -8,7 +8,11 @@ each step switched on by its own setting:
    N, the window refilling after a change) or repeat (each reading the mean of N new readings, so
    one reading takes N times as long);
 2. **math** — ``(m·x − c) / z``, each factor on its own (Fluke 8588A ``CALC:MATH``; a null is
-   ``c``, an ``mx+b`` scaling is ``m`` with ``c = −b``);
+   ``c``, an ``mx+b`` scaling is ``m`` with ``c = −b``). A factor can be taken from the last
+   reading (8588A ``LREading``, #1043): a factor written as :data:`LAST_READING` (the
+   definition's ``special: {LRE: -.inf, LREADING: -.inf}``) becomes the last reading — the reading
+   after the average and before the math, as the block last saw it — at the moment of the write,
+   and stays that number; with no reading since power-on or ``*RST`` the write is refused (-230);
 3. **units** — percent (×100), dB (``20·log10|y|``, relative to 1) or dBm into a reference
    impedance (``10·log10(y²/R / 1 mW)``);
 4. **limits** — a lower and an upper limit, each switched on by itself: a reading outside an
@@ -17,7 +21,9 @@ each step switched on by its own setting:
    readings since the statistics were cleared (a new run clears them when ``clear_on_run``).
 
 With every step off a reading passes unchanged, bit for bit. An overload reading
-(``overload_value`` or beyond) passes unchanged and is left out of the average and the statistics.
+(``overload_value`` or beyond) passes unchanged and is left out of the average and the statistics;
+it is still limit-tested as it is (#1044): +overload is above an enabled upper limit, −overload
+below an enabled lower one, and either sets the fail flag. It becomes the last reading too.
 The steps are pure module-level functions; the block holds only the window and the statistics.
 """
 
@@ -36,6 +42,9 @@ from ...scpi.errors import ScpiError
 #: Reference impedances of the dBm units (Ω).
 DBM_UNITS = {"DB50": 50.0, "DB75": 75.0, "DB600": 600.0}
 UNITS = ("NONE", "PERCent", "DB", *DBM_UNITS)
+#: The value a factor (m, c, z) is written as to take it from the last reading (LREading, #1043).
+LAST_READING = -math.inf
+FACTORS = ("m", "c", "z")
 
 
 def apply_math(x: float, *, m: float | None, c: float | None, z: float | None) -> float:
@@ -73,8 +82,7 @@ class ReadingMath(Component):
 
     A sampler between the meter's A/D (``source``) and its trigger model; ``measure`` replaces the
     A/D's for the measurement commands. Model limits: the statistics are those of the readings that
-    passed through since they were cleared, not a recomputation over the reading memory; a factor
-    cannot be taken from the last reading (LREading).
+    passed through since they were cleared, not a recomputation over the reading memory.
     """
 
     refs = {"source": (Sampler, "instrument")}
@@ -109,17 +117,24 @@ class ReadingMath(Component):
         self.window: deque[float] = deque()
         self.samples: list[float] = []
         self.failed = False
+        self.last: float | None = None  # the last reading (after the average, before the math)
 
     def reset(self) -> None:
         self.window.clear()
         self.samples.clear()
         self.failed = False
+        self.last = None
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
         if key in ("average", "average_count", "average_mode"):
             self.window.clear()  # the filter restarts after a change, as the instrument's does
         if key == "statistics" and V.flag(new) and not V.flag(old):
             self.samples.clear()
+        if key in FACTORS and new == LAST_READING:
+            if self.last is None:
+                raise ScpiError(-230, f"{self.uid}: no last reading for the math factor {key}")
+            return self.last
+        return None
 
     # ---- the steps -------------------------------------------------------------------------------
 
@@ -151,22 +166,30 @@ class ReadingMath(Component):
     def _factor(self, key: str) -> float | None:
         return float(self.param(key)) if V.flag(self.param(f"{key}_on")) else None
 
+    def _limit_test(self, y: float) -> None:
+        """Set the fail flag (and push ``LIMIT``) when the reading is outside an enabled limit."""
+        if not V.flag(self.param("limits")):
+            return
+        lower = float(self.param("lower")) if V.flag(self.param("lower_on")) else None
+        upper = float(self.param("upper")) if V.flag(self.param("upper_on")) else None
+        if outside(y, lower=lower, upper=upper):
+            self.failed = True
+            if self.owner is not None:
+                self.owner.status_event("LIMIT")
+
     def process(self, x: float) -> float:
         """One reading through the enabled steps (the filtered value in, the reported value out)."""
         if self._overload(x):
+            self.last = x
+            self._limit_test(x)
             return x
         y = self._filter(x)
+        self.last = y
         if V.flag(self.param("math")):
             y = apply_math(y, m=self._factor("m"), c=self._factor("c"), z=self._factor("z"))
             if V.flag(self.param("units_on")):
                 y = apply_units(y, self.choice("units") or "NONE")
-        if V.flag(self.param("limits")):
-            lower = float(self.param("lower")) if V.flag(self.param("lower_on")) else None
-            upper = float(self.param("upper")) if V.flag(self.param("upper_on")) else None
-            if outside(y, lower=lower, upper=upper):
-                self.failed = True
-                if self.owner is not None:
-                    self.owner.status_event("LIMIT")
+        self._limit_test(y)
         if V.flag(self.param("statistics")) and math.isfinite(y):
             self.samples.append(y)
         return y
@@ -273,7 +296,7 @@ class ReadingMath(Component):
     def op_math_reset(self, **_: Any) -> OpResult:
         """The factors m, c and z back to the defaults of the settings they are bound to."""
         assert self.owner is not None
-        for key in ("m", "c", "z"):
+        for key in FACTORS:
             path = self.bound_path(key)
             spec = self.owner.definition.state.get(path) if path is not None else None
             if path is not None and spec is not None:

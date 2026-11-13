@@ -8,12 +8,38 @@ import numpy as np
 import pytest
 
 from helpers import raises_with
-from simubench.library.components.reading_math import ReadingMath, apply_math, apply_units, outside
+from simubench.library.components.reading_math import (
+    LAST_READING,
+    ReadingMath,
+    apply_math,
+    apply_units,
+    outside,
+)
 from simubench.scpi.errors import ScpiError
 
 
 def block(**params) -> ReadingMath:
     return ReadingMath("math", params, None, None)  # type: ignore[arg-type]
+
+
+SIGMA = 1e-3
+NOISE = np.random.default_rng(1044).normal(0.0, SIGMA, 4000)
+
+
+class Source:
+    """A seeded A/D: reading ``i`` is 1 + the i-th draw of one fixed noise stream, 1 µs each."""
+
+    def sample_time_ns(self) -> int:
+        return 1000
+
+    def sample(self, index: int) -> float:
+        return 1.0 + float(NOISE[index])
+
+
+def fed(**params) -> ReadingMath:
+    b = block(**params)
+    b._source = Source  # type: ignore[method-assign]
+    return b
 
 
 def test_every_step_off_passes_the_reading_bit_for_bit():
@@ -84,4 +110,90 @@ def test_statistics_of_the_reported_readings():
 def test_an_overload_passes_unchanged_and_stays_out_of_the_statistics():
     b = block(statistics=True, math=True, c=1.0, c_on=True, overload_value=9.9e37)
     assert b.process(9.9e37) == 9.9e37
+    assert b.statistics()["count"] == 0
+
+
+def test_an_overload_fails_the_enabled_limit_on_its_side():
+    up = block(limits=True, upper=1.0, upper_on=True)
+    up.process(9.9e37)
+    low = block(limits=True, lower=-1.0, lower_on=True)
+    low.process(-9.9e37)
+    other_side = block(limits=True, lower=-1.0, lower_on=True)
+    other_side.process(9.9e37)
+    assert (up.failed, low.failed, other_side.failed) == (True, True, False)
+
+
+@pytest.mark.parametrize("factor", ["m", "c", "z"])
+def test_a_factor_written_as_last_reading_takes_the_reading_before_the_math(factor):
+    b = block(math=True, c=3.0, c_on=True)
+    assert b.process(10.0) == 7.0  # the reading answered is after the math …
+    assert b.on_state(factor, f"calc.math.{factor}", 1.0, LAST_READING) == 10.0  # … the factor is before
+
+
+def test_the_last_reading_is_the_averaged_one():
+    b = block(average=True, average_count=2)
+    b.process(1.0)
+    b.process(2.0)
+    assert b.on_state("c", "calc.math.c", 1.0, LAST_READING) == 1.5
+
+
+def test_a_factor_from_the_last_reading_with_no_reading_yet_is_refused():
+    b = block()
+    b.process(5.0)
+    b.reset()
+    with raises_with(ScpiError, "no last reading"):
+        b.on_state("z", "calc.math.z", 1.0, LAST_READING)
+
+
+def test_a_plain_factor_value_is_kept():
+    b = block()
+    b.process(5.0)
+    assert b.on_state("m", "calc.math.m", 1.0, 2.5) is None
+
+
+def test_a_repeat_reading_is_the_mean_of_n_new_readings_in_n_times_the_time():
+    b = fed(average=True, average_count=4, average_mode="REPeat")
+    assert b.sample(3) == float(np.mean(1.0 + NOISE[12:16]))
+    assert b.sample_time_ns() == 4 * Source().sample_time_ns()
+    assert not b.window  # the repeat average keeps no rolling window
+
+
+def test_the_repeat_average_lowers_the_noise_by_root_n_and_repeats_value_for_value():
+    def run() -> list[float]:
+        b = fed(average=True, average_count=4, average_mode="REPeat")
+        return [b.sample(i) for i in range(1000)]
+
+    plain = fed()
+    single = np.std([plain.sample(i) for i in range(1000)], ddof=1)
+    first, second = run(), run()
+    assert first == second
+    assert float(np.std(first, ddof=1) / single) == pytest.approx(0.5, rel=0.1)
+
+
+def test_a_change_of_the_average_restarts_the_moving_window():
+    b = block(average=True, average_count=3)
+    b.process(1.0)
+    b.process(2.0)
+    b.on_state("average_count", "calc.average.count", 3, 3)
+    assert b.process(4.0) == 4.0
+
+
+def test_a_new_run_clears_the_window_and_the_statistics_when_clear_on_run():
+    b = fed(average=True, average_count=3, statistics=True)
+    b.process(1.0)
+    b.run_begin()
+    assert (len(b.window), len(b.samples)) == (0, 0)
+
+
+def test_a_new_run_keeps_the_window_and_the_statistics_without_clear_on_run():
+    b = fed(average=True, average_count=3, statistics=True, clear_on_run=False)
+    b.process(1.0)
+    b.run_begin()
+    assert (len(b.window), len(b.samples)) == (1, 1)
+
+
+def test_switching_the_statistics_on_starts_them_afresh():
+    b = block(statistics=True)
+    b.process(1.0)
+    b.on_state("statistics", "calc.sstatistics.state", False, True)
     assert b.statistics()["count"] == 0

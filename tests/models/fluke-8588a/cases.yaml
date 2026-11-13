@@ -570,9 +570,47 @@ cases:
         expect_value: 1.0
       - query: ":CALC:MATH:MFAC?"
         expect_value: 1.0
+  - name: "CALCulate:MATH 的 LREading：因子取上一个读数"
+    manual: "Table 6 > CALCulate:MATH:CFACtor / MFACtor / ZFACtor (<value>|LREading)"
+    steps:
+      - instrument: cal
+        send: "OUT 10 V;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      # 上电后还没有读数：LREading 无值可取，报 -230，因子不变
       - send: ":CALC:MATH:CFAC LRE"
       - query: ":SYST:ERR?"
-        expect: '-224,"Illegal parameter value"'
+        expect: '-230,"Data corrupt or stale"'
+      - query: ":CALC:MATH:CFAC?"
+        expect_value: 1.0
+      - send: ":CONF:VOLT:DC 10"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      # c = 上一个读数（写入时取定）：之后的读数是 x − 上一读数 ≈ 0
+      - send: ":CALC:MATH:CFAC LRE;CFAC:STAT ON"
+      - query: ":CALC:MATH:CFAC?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      - send: ":CALC:MATH ON"
+      - query: ":READ?"
+        expect_value: 0.0
+        tolerance: 2.4e-5
+      # 上一个读数是数学运算之前的（≈10 V），不是上面回答的 ≈0：z ≈ 10，x / z ≈ 1
+      - send: ":CALC:MATH:CFAC:STAT OFF"
+      - send: ":CALC:MATH:ZFAC LRE;ZFAC:STAT ON"
+      - query: ":CALC:MATH:ZFAC?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      - query: ":READ?"
+        expect_value: 1.0
+        tolerance: 2.4e-6
+      - send: ":CALC:MATH:ZFAC:STAT OFF"
+      - send: ":CALC:MATH:MFAC LRE;MFAC:STAT ON"
+      - query: ":READ?"
+        expect_value: 100.0
+        tolerance: 2.4e-4
   - name: "CALCulate:LIMit：越限标志、FAIL? 与 CLEar"
     manual: "Table 6 > CALCulate:LIMit (LOWer, UPPer, :STATe, FAIL? Outside limits = 1, CLEar)"
     steps:
@@ -642,5 +680,14 @@ cases:
         expect_values: [10.0, 10.0]
         tolerance: 1.2e-5
       # 新的一次测量重新开始统计：两个（各为 4 个读数的平均）
+      - query: ":CALC:SST:COUN?"
+        expect: "2"
+      # FETCh? 再取同一次运行的读数，不重复计入统计（#1044）
+      - query: ":FETC?"
+        expect_values: [10.0, 10.0]
+        tolerance: 1.2e-5
+      - query: ":FETC?"
+        expect_values: [10.0, 10.0]
+        tolerance: 1.2e-5
       - query: ":CALC:SST:COUN?"
         expect: "2"
