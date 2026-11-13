@@ -5,6 +5,7 @@ engine it shows one square wave in the time and the frequency domain without a w
 from __future__ import annotations
 
 import math
+import statistics
 
 import pyvisa
 
@@ -45,7 +46,16 @@ def test_hello_runs_clean_in_both_domains(tmp_path):
         assert abs(at(1) - 0.0) < 1.0, at(1)
         assert abs((at(1) - at(3)) - 9.54) < 1.0, at(3)
         assert abs((at(1) - at(5)) - 13.98) < 1.0, at(5)
-        assert at(2) < at(1) - 50, at(2)
+        # The even harmonics are absent: at 2 MHz there is only the analyzer's noise. The noise is
+        # judged by its median on either side (the N9320B's floor at 30 dB attenuation and 100 kHz
+        # RBW, 55-60 dB under the fundamental); peak-detected, the 7 bins around 2 MHz reach up to
+        # 11.3 dB over that median (2000 sweeps), so a line is what stands 16 dB over it. A fixed
+        # "50 dB below the fundamental" was inside the noise peaks and failed now and then.
+        noise = trace[round(1.5 / 8 * (len(trace) - 1)) : round(1.9 / 8 * (len(trace) - 1))]
+        noise += trace[round(2.1 / 8 * (len(trace) - 1)) : round(2.5 / 8 * (len(trace) - 1))]
+        floor = statistics.median(noise)
+        assert floor < at(1) - 50, floor
+        assert at(2) < floor + 16, (at(2), floor)
 
         # No warning on the first screen: the reference level leaves headroom, attenuation follows.
         assert float(sa.query(":SENS:POW:RF:ATT?")) == 30.0
