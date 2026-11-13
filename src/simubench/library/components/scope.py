@@ -7,7 +7,7 @@ import itertools
 import math
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
@@ -15,11 +15,10 @@ import numpy as np
 from ...engine.component import Component, OpResult, PortSpec, RecordSource, binding_of, component, op
 from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
-from ...engine.stream import FrameRequest, SampleFormat, SampleFrame
+from ...engine.stream import MAX_FRAME, MAX_REQUEST_FANOUT, FrameRequest, SampleFrame, beyond_model
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
-from . import adc
 from .calstore import CalibrationStore
 from .measurements import (
     FREQ_HYSTERESIS,
@@ -31,6 +30,22 @@ from .measurements import (
     top_base,
 )
 from .scope_pending import Acquisition, PendingAcquisitions, _Segment
+from .scope_record import (
+    CHUNKED_MEASUREMENTS,
+    EAGER_POINTS,
+    AdcView,
+    DecimatorView,
+    DeepRecord,
+    Record,
+    boxcar,
+    chunked_value,
+    peak_detect,
+    quantize,
+)
+
+__all__ = ["Record", "peak_detect"]
+
+_boxcar = boxcar  # the earlier name (tests)
 
 #: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
 DIVS_V = 8
@@ -200,11 +215,19 @@ class ScopeVertical(Component):
     def correct(self, volts: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]:
         """The record as the calibration constants correct it: (raw − offset) × gain, keyed by
         the displayed V/div (the setting the store names)."""
+        coefficients = self.correction()
+        if coefficients is None:
+            return volts
+        gain, offset = coefficients
+        return (volts - offset) * gain
+
+    def correction(self) -> tuple[float, float] | None:
+        """The calibration's (gain, offset) now, None without a calibration store."""
         store = self._store()
         if store is None:
-            return volts
+            return None
         gain, offset = store.coefficients()
-        return (volts - offset) * gain
+        return float(gain), float(offset)
 
     def self_calibrate(self) -> None:
         """A self-calibration's write: the coefficients that cancel this unit's gain and offset
@@ -383,37 +406,6 @@ def ladder_down(value: float) -> float:
     return 10.0 ** (k - 1) * 5.0
 
 
-def _boxcar(v: np.typing.NDArray[np.float64], w: int) -> np.typing.NDArray[np.float64]:
-    """The centered boxcar average of ``w`` samples; at the edges the window runs past the record
-    and the edge sample is repeated to fill it (high resolution, F4/D46: white noise falls by
-    sqrt(w), the bandwidth by the window)."""
-    if w <= 1:
-        return v
-    c = np.concatenate(([0.0], np.cumsum(np.pad(v, (w // 2, w - 1 - w // 2), mode="edge"))))
-    return (c[w:] - c[:-w]) / w  # as many samples as it was given, each the mean of its own window
-
-
-@dataclass
-class Record:
-    channel: int
-    t_start_ns: int  # instant of sample 0
-    dt_s: float
-    trigger_index: int
-    volts: np.typing.NDArray[np.float64]  # display volts (probe ratio applied)
-    scale: float
-    offset: float
-    triggered: bool
-    #: Time of sample 0 relative to the trigger as the scope measured it, s: -trigger_index * dt
-    #: plus the trigger's fraction of a sample and its jitter (G5). None: -trigger_index * dt.
-    x_origin_s: float | None = None
-    trigger_ns: int | None = None  # the trigger's instant (holdoff); None: untriggered
-
-    @property
-    def origin(self) -> float:
-        """Time of sample 0 relative to the trigger, s."""
-        return self.x_origin_s if self.x_origin_s is not None else -self.trigger_index * self.dt_s
-
-
 def _upper(values: Any) -> set[str]:
     return {str(v).upper() for v in values or ()}
 
@@ -490,13 +482,8 @@ class ScopeAdc(Component):
         self, volts: np.typing.NDArray[np.float64], scale: float, offset: float
     ) -> np.typing.NDArray[np.float64]:
         """What the ADC keeps: the codes of ``bits``, back in volts."""
-        bits = int(self.param("bits"))
-        if bits <= 0:
-            return volts
-        per_div = self.codes_per_div()
-        off = offset if str(self.param("offset_sign")).lower() == "add" else -offset
-        codes = adc.codes(volts, scale, off, per_div, bits)
-        return codes / per_div * scale - off
+        add = str(self.param("offset_sign")).lower() == "add"
+        return quantize(volts, scale, offset, int(self.param("bits")), self.codes_per_div(), add)
 
     # ---- the sample stream ------------------------------------------------------------------------
 
@@ -516,22 +503,22 @@ class ScopeAdc(Component):
         return self.input(f"in{n}")
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:
-        n = _channel_of(port)
+        return self.view(_channel_of(port)).frame(request)
+
+    def view(self, n: int) -> AdcView:
+        """What channel n's frames are computed from now, as values (a deep record keeps it)."""
         vertical, probe = self._vertical(n), self._probe(n)
-        scale, offset = float(vertical.param("scale")), float(vertical.param("offset"))
-        skew = probe.delay() if probe is not None else 0.0
-        volts = self.analog(n).sample_rel(request.t0_ns, request.offsets_s() - skew)
-        sigma = vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0)
-        if sigma > 0:
-            volts = volts + sigma * gaussian(stream_key(self.session.seed, *request.key), request.indexes())
-        bits = int(self.param("bits"))
-        kept = self.quantize(volts, scale, offset)
-        clipped = False
-        if bits > 0:
-            top, bottom = self.quantize(np.array([1e30, -1e30]), scale, offset)
-            clipped = bool(np.max(kept) >= top or np.min(kept) <= bottom)
-        fmt = SampleFormat("volts", bits=bits, lsb=scale / self.codes_per_div() if bits > 0 else 0.0)
-        return SampleFrame(kept, request.t0_ns, request.dt_s, fmt, clipped=clipped)
+        return AdcView(
+            signal=self.analog(n),
+            skew=probe.delay() if probe is not None else 0.0,
+            sigma=vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0),
+            seed=self.session.seed,
+            scale=float(vertical.param("scale")),
+            offset=float(vertical.param("offset")),
+            bits=int(self.param("bits")),
+            per_div=self.codes_per_div(),
+            add=str(self.param("offset_sign")).lower() == "add",
+        )
 
     def sample_interval(self, port: str) -> float:
         """The converter's own interval: its top rate with the channels that are on. One without a
@@ -611,26 +598,22 @@ class ScopeDecimator(Component):
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:
         source = f"in{_channel_of(port)}"
+        return self.view().frame(
+            request,
+            lambda r: self.input_frames(source, r),
+            lambda samples: self.session.reserve_frames(self, source, samples),
+        )
+
+    def view(self) -> DecimatorView:
+        """The acquisition mode now, as values (a deep record keeps it)."""
         proc = str(self.param("processing"))
         m = self.oversample()
-        native = replace(request, first=request.first * m, count=request.count * m, dt_s=request.dt_s / m)
-        count = self.averages() if m == 1 else 1
-        if count > 1:
-            # Every acquisition of the average is one more request of the same read: one that would
-            # go beyond the model is refused here, before any of them is computed (#986).
-            self.session.reserve_frames(self, source, count * native.count)
-        frame = self.input_frames(source, native)
-        volts, clipped = frame.data, frame.clipped
-        if m > 1:
-            volts = peak_detect(volts, m)
-        elif proc == "average":
-            for k in range(1, count):
-                more = self.input_frames(source, replace(native, index0=native.index0 + k * native.count))
-                volts, clipped = volts + more.data, clipped or more.clipped
-            volts = volts / count
-        elif proc == "eres":
-            volts = _boxcar(volts, round(4.0 ** float(self.param("eres_bits"))))
-        return SampleFrame(volts, request.t0_ns, request.dt_s, frame.fmt, clipped=clipped)
+        return DecimatorView(
+            proc=proc,
+            m=m,
+            count=self.averages() if m == 1 else 1,
+            w=round(4.0 ** float(self.param("eres_bits"))) if proc == "eres" else 1,
+        )
 
     def sample_interval(self, port: str) -> float:
         """The record's sample interval with the current settings."""
@@ -640,15 +623,6 @@ class ScopeDecimator(Component):
     def input_interval(self, port: str) -> float:
         """The converter's interval behind one record sample: the record's, over the oversampling."""
         return self.sample_interval(port) / self.oversample()
-
-
-def peak_detect(samples: np.typing.NDArray[np.float64], m: int) -> np.typing.NDArray[np.float64]:
-    """Peak detect over intervals of ``m`` samples: of each interval's smallest and largest value,
-    the one that departs farther from the interval's ends."""
-    grid = samples.reshape(-1, m)
-    ends = (grid[:, 0] + grid[:, -1]) / 2
-    lo, hi = grid.min(axis=1), grid.max(axis=1)
-    return np.where(np.abs(hi - ends) >= np.abs(lo - ends), hi, lo)
 
 
 @component("scope_timebase")
@@ -1678,17 +1652,21 @@ class ScopeAcquisition(Component):
         records: dict[int, Record] = {}
         for n in channels:
             scale, offset = self.scale_offset(n)
-            # The channel's chain (ADC, then the decimator's acquisition mode) gives the record's
-            # samples: the codes, as volts (D46: they are kept).
-            volts = self.input_frames(
-                f"in{n}", self._request(n, t0, start, dt, points, t_start_ns, m, frame, segment)
-            ).data
+            request = self._request(n, t0, start, dt, points, t_start_ns, m, frame, segment)
+            # A deep record is computed where it is read (#1012); one up to EAGER_POINTS now, whole:
+            # the channel's chain (ADC, then the decimator's acquisition mode) gives the record's
+            # samples, the codes, as volts (D46: they are kept).
+            deep = self._deep(n, request)
+            volts = None
+            if deep is None:
+                volts = self.vertical_of(n).correct(self.input_frames(f"in{n}", request).data)
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,
                 dt_s=nominal_dt,
                 trigger_index=pre,
-                volts=self.vertical_of(n).correct(volts),
+                volts=volts,
+                deep=deep,
                 scale=scale,
                 offset=offset,
                 triggered=triggered,
@@ -1701,6 +1679,27 @@ class ScopeAcquisition(Component):
             used = points * int(self.trigger_unit().param("search_windows")) * dt
         used = used * self._averages() + float(self.param("overhead_s"))
         return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
+
+    def _deep(self, n: int, request: FrameRequest) -> DeepRecord | None:
+        """Channel n's record for ``request`` as a deep record — the chain captured, nothing
+        computed — when it is deeper than ``EAGER_POINTS`` or its samples along the chain exceed the
+        model's fan-out (an average of many acquisitions). None: computed whole now. A chain other
+        than the scope's own ADC and decimator is computed whole (and refused beyond the model)."""
+        dec = self.decimator_unit()
+        view = dec.view() if isinstance(dec, ScopeDecimator) else None
+        # A high-resolution boxcar is a running sum along the whole record, whose rounding a tile
+        # cannot repeat: such a record stays whole as far as the model holds one (MAX_FRAME).
+        eager = MAX_FRAME if view is not None and view.proc == "eres" and view.w > 1 else EAGER_POINTS
+        if view is None or (request.count <= eager and request.count * view.cost <= MAX_REQUEST_FANOUT):
+            return None
+        assert self.owner is not None and dec.owner is not None
+        if self.owner.wiring.source(self.name, f"in{n}") != (dec.name, f"out{n}"):
+            return None
+        src = dec.owner.wiring.source(dec.name, f"in{n}")
+        converter = dec.owner.components.get(src[0]) if src is not None else None
+        if not isinstance(converter, ScopeAdc) or src != (converter.name, f"out{n}"):
+            return None
+        return DeepRecord(request.count, request, converter.view(n), view, self.vertical_of(n).correction())
 
     def _trigger_hit(
         self, t0: int, dt: float, pre: int, points: int, waits: bool, earliest_s: float = 0.0
@@ -1859,11 +1858,20 @@ class ScopeAcquisition(Component):
                         str(ch): {
                             "t_start_ns": rec.t_start_ns,
                             "dt_s": rec.dt_s,
-                            "points": int(rec.volts.size),
+                            "points": rec.points,
                             "trigger_index": rec.trigger_index,
                             "x_origin_s": rec.origin,
                             "triggered": rec.triggered,
-                            "sha256": hashlib.sha256(np.ascontiguousarray(rec.volts).tobytes()).hexdigest(),
+                            # a deep record is computed where it is read (#1012): no digest of it
+                            **(
+                                {"computed": "on_read"}
+                                if rec.deep is not None
+                                else {
+                                    "sha256": hashlib.sha256(
+                                        np.ascontiguousarray(rec.volts).tobytes()
+                                    ).hexdigest()
+                                }
+                            ),
                         }
                         for ch, rec in sorted(records.items())
                     },
@@ -2379,6 +2387,8 @@ class ScopeMeasurements(Component):
         and base, crossing level): what :MEASure? answers, and what the screen's measurement
         panel shows for the record on screen (#280)."""
         acq = self._acq()
+        if rec.points > MAX_FRAME:
+            return self._deep_value(what, rec)
         v = np.asarray(rec.volts, dtype=float)
         gate = self.param("gate")
         if gate:
@@ -2410,6 +2420,29 @@ class ScopeMeasurements(Component):
             min_band=self._band_floor(rec),
         )
         return value
+
+    def _deep_value(self, what: str, rec: Record) -> float:
+        """A measurement on a record too deep to hold in memory (#1012): those that reduce it chunk
+        by chunk (``CHUNKED_MEASUREMENTS``) read it in chunks; the others need every sample at once
+        and are refused as beyond the model."""
+        if what not in CHUNKED_MEASUREMENTS:
+            raise beyond_model(
+                f"{what} on a record of {rec.points} points needs the whole record in memory "
+                f"(at most {MAX_FRAME} points)"
+            )
+        lo, hi = 0, rec.points
+        gate = self.param("gate")
+        if gate:
+            lo, hi = (max(0, min(rec.points, round(float(g) / 10 * rec.points))) for g in gate)
+        acq = self._acq()
+        if str(self.param("clipped")) == "invalid" and acq.adc_unit().param("bits"):
+            rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
+            if (
+                chunked_value("VMAX", rec, lo, hi) >= rails[0]
+                or chunked_value("VMIN", rec, lo, hi) <= rails[1]
+            ):
+                return math.nan
+        return chunked_value(what, rec, lo, hi)
 
     def _band_floor(self, rec: Any) -> float:
         """The crossing band's absolute floor: divisions of the record's scale (#745)."""
@@ -2455,18 +2488,20 @@ class ScopeMeasurements(Component):
         if channels:
             self._follow(n, f"CHANnel{n}")
         rec, used = self._acq().measure_record(n)
-        v = np.asarray(rec.volts, dtype=float)
         dt, origin = rec.dt_s, rec.origin
         if what == "VTIMe":
             if not args:
                 raise ScpiError(-109, "VTIMe? takes a time")
             x = (V.parse_float(args[0].encode(), "S") - origin) / dt
-            if v.size == 0 or not 0 <= x <= v.size - 1:
+            size = rec.points
+            if size == 0 or not 0 <= x <= size - 1:
                 return self._reply(math.nan, used)
-            k = min(int(x), v.size - 2) if v.size > 1 else 0
+            k = min(int(x), size - 2) if size > 1 else 0
             frac = x - k
-            value = float(v[k]) if v.size == 1 else float(v[k] + (v[k + 1] - v[k]) * frac)
+            pair = rec.span(k, k + 2)  # the two samples around the time: a deep record computes no more
+            value = float(pair[0]) if size == 1 else float(pair[0] + (pair[1] - pair[0]) * frac)
             return self._reply(value, used)
+        v = np.asarray(rec.volts, dtype=float)
         if what == "TEDGe":
             sign, occurrence = edge_spec(args[0] if args else None)
             cross = [t for t, d in mid_crossings(v, dt, float(self.param("hysteresis"))) if d == sign]

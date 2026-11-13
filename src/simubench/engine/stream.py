@@ -15,7 +15,8 @@ and gets a :class:`SampleFrame` back. There is no background flow and no state b
   decides the key, so a script's acquisition, the screen and an internal probe never share draws.
 
 The limits below are model limits (architecture.md 2.3): a request beyond one is refused with
-:class:`ModelLimit`, never answered with a shortened frame.
+:class:`ModelLimit`, never answered with a shortened frame. A scope's record is not bound by them:
+a deep one is computed tile by tile where it is read (``library/components/scope_record.py``, #1012).
 """
 
 from __future__ import annotations

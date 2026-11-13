@@ -47,6 +47,7 @@ from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from . import adc
 from .scope import Record, channel_index
+from .scope_record import Points
 
 
 @component("waveform_transfer")
@@ -115,10 +116,11 @@ class WaveformTransfer(Component):
             raise ScpiError(-300, f"{self.uid}: {self.param('record')!r} keeps no records to transfer")
         return acq
 
-    def selection(self, size: int) -> np.ndarray:
-        """Indices of the points sent from a record of ``size`` points."""
-        first = int(self.param("first"))
-        count = int(self.param("count"))
+    def selection(self, size: int, first: int | None = None, count: int | None = None) -> Points:
+        """Indices of the points sent from a record of ``size`` points; ``first`` and ``count``
+        given: this read's own, instead of the parameters (``:WAVeform:DATA? <start>,<size>``)."""
+        first = int(self.param("first")) if first is None else first
+        count = int(self.param("count")) if count is None else count
         step = max(1, int(self.param("step")))
         most = int(self.param("max_points"))
         if count > 0 and most > 0 and count > most:
@@ -127,19 +129,23 @@ class WaveformTransfer(Component):
                 raise ScpiError(-222, f"at most {most} points per read")
             if over == "truncate":
                 count = most
-        sel = np.arange(first, size, step)
-        if count > 0 and str(self.param("count_mode")) == "spread" and sel.size > count:
-            sel = sel[:: sel.size // count]
+        sel = range(first, size, step)  # a range: a deep record's indices are never listed (#1012)
+        if count > 0 and str(self.param("count_mode")) == "spread" and len(sel) > count:
+            sel = sel[:: len(sel) // count]
         limit = count if count > 0 else most
-        return sel[:limit] if limit > 0 else sel
+        return Points(sel[:limit] if limit > 0 else sel)
 
-    def codes(self, rec: Record) -> np.ndarray:
-        """ADC codes of the whole record, aligned to the output word."""
+    def codes(self, rec: Record, volts: np.ndarray | None = None) -> np.ndarray:
+        """ADC codes of ``volts`` (default: the whole record), aligned to the output word."""
         bits = int(self.param("adc_bits"))
         width = int(self.param("width"))
         sign = 1.0 if str(self.param("offset")).lower() == "add" else -1.0
         codes = adc.codes(
-            rec.volts, rec.scale, sign * rec.offset, float(self.param("codes_per_div")), bits
+            rec.volts if volts is None else volts,
+            rec.scale,
+            sign * rec.offset,
+            float(self.param("codes_per_div")),
+            bits,
         ).astype(np.int64)
         if width > bits:
             codes = codes << (width - bits)
@@ -153,13 +159,17 @@ class WaveformTransfer(Component):
             codes = np.maximum(codes, lowest + step)
         return codes
 
-    def encode(self, rec: Record | None) -> bytes:
+    def encode(self, rec: Record | None, first: int | None = None, count: int | None = None) -> bytes:
         encoding = str(self.param("encoding")).lower()
         if rec is None:
             values = np.zeros(0)
         else:
-            sel = self.selection(rec.volts.size)
-            values = (self.codes(rec) if self.param("values") == "codes" else rec.volts)[sel]
+            if first is not None and first >= rec.points:
+                raise ScpiError(-222, f"the record has {rec.points} points; the first point sent is {first}")
+            sel = self.selection(rec.points, first, count)
+            # only the points sent are computed: a deep record computes what is read (#1012)
+            picked = rec.take(sel)
+            values = self.codes(rec, picked) if self.param("values") == "codes" else picked
         if encoding == "text":
             fmt = str(self.param("format"))
             return str(self.param("separator")).join(fmt % x for x in values.tolist()).encode()
@@ -192,15 +202,16 @@ class WaveformTransfer(Component):
             block = V.format_block(payload)
         return block + str(self.param("trailer")).encode()
 
-    def transfer(self, channel: int | None) -> OpResult:
-        """Encode the current record of the source channel (asking the acquisition for it)."""
+    def transfer(self, channel: int | None, first: int | None = None, count: int | None = None) -> OpResult:
+        """Encode the current record of the source channel (asking the acquisition for it); ``first``
+        and ``count``: this read's points, instead of the parameters'."""
         assert self.owner is not None
         acq = self._acquisition()
         n = self._source(channel)
-        rec, used = acq.transfer_record(n, int(self.param("first")))
+        rec, used = acq.transfer_record(n, int(self.param("first")) if first is None else first)
         if rec is None:
             self.owner.push_error(-230, str(self.param("no_record")))
-        return OpResult(self.encode(rec), used)
+        return OpResult(self.encode(rec, first, count), used)
 
     @op("describe")
     def op_describe(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:
@@ -229,7 +240,7 @@ class WaveformTransfer(Component):
         selection and the acquisition."""
         assert self.owner is not None
         acq = self._acquisition()
-        sel = self.selection(rec.volts.size)
+        sel = self.selection(rec.points)
         # the acquisition's input chain when it declares one (AcquisitionInput), else this
         # transfer's own parameters
         chain = acq if isinstance(acq, AcquisitionInput) else None
@@ -245,7 +256,7 @@ class WaveformTransfer(Component):
         word_per_div = float(self.param("codes_per_div")) * 2.0 ** (width - int(self.param("adc_bits")))
         return {
             "points": int(sel.size),
-            "record_points": rec.volts.size,
+            "record_points": rec.points,
             "first": first,
             "step": span,  # the spacing of the points sent (a points mode spreads them)
             "x_increment": span * rec.dt_s,
@@ -373,6 +384,22 @@ class WaveformTransfer(Component):
         return OpResult(self.owner.format_number(float(value)), used)
 
     @op("data")
-    def data(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:
-        """``:WAVeform:DATA?``, ``C1:INSPECT?``: the selected points of the source's record."""
-        return self.transfer(channel)
+    def data(
+        self,
+        query: bool = False,
+        channel: int | None = None,
+        start: int | None = None,
+        size: int | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """``:WAVeform:DATA?``, ``C1:INSPECT?``: the selected points of the source's record.
+
+        ``start``/``size`` (Infiniium ``:WAVeform:DATA? [<start>[,<size>]]``): this read's first
+        point and number of points, ``size`` cut to the end of the record; a ``start`` past the
+        record is -222. A deep record is read in parts this way, each part computed as it is read
+        (#1012)."""
+        if start is None:
+            return self.transfer(channel)
+        if start < 0 or (size is not None and size < 1):
+            raise ScpiError(-222, f"start {start}, size {size}: start is 0 or more, size 1 or more")
+        return self.transfer(channel, int(start), 0 if size is None else int(size))

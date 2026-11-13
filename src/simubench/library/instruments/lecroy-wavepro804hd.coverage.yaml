@@ -27,7 +27,7 @@ sections:
     level: not_modeled
   - header: Memory_SIZe
     level: implemented
-    note: 记录长度按存储深度与采样率取最小值；取值按手册的 500、1k、2.5k、…、100M 档取最接近的档；后缀 K = 千、MA = 兆、单独的 M = 毫（手册：1.0M 是 1 毫采样，#888）。模型上限：记录超过 2²⁶ 点（100M 档在 500 µs/div 及更慢时）超出模型、采集被拒绝（signal-chain.md 1.4）；本定义不映射平均与峰值检测，不受平均次数上限（#986、#990）影响
+    note: 记录长度按存储深度与采样率取最小值；取值按手册的 500、1k、2.5k、…、100M 档取最接近的档；后缀 K = 千、MA = 兆、单独的 M = 毫（手册：1.0M 是 1 毫采样，#888）。超过 2²² 点的记录（到 100M 档）读的时候才算，一次读取至多 2²⁶ 点，更深的用 WaveForm_SetUp 的 FP/NP 分段读（real-models.md 第 10 节，#1012）；本定义不映射平均与峰值检测
   - header: C<ch>:OFfSeT
     level: implemented
     note: 探头尖的偏置；越界按数据手册取最接近的合法值（VAB 状态位没有建模）

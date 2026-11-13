@@ -194,11 +194,11 @@ sections:
     note: 'ON: each record is the mean of :ACQuire:COUNt acquisitions, each noisy and quantized (D46)'
   - header: :ACQuire[:AVERage]:COUNt
     level: implemented
-    note: 2 to 1 048 575 (the data sheet; the guide's 10,486,575 is a misprint); 16 after a default setup
-      is a SimuBench value. A SimuBench model limit, not the guide's (#986) - an acquisition whose count x
-      record points is beyond 2^28 (the record's own request counts too, so at most 2^28 // points - 1 averages,
-      2096 of the default 128 kpts record, 25 of the deepest 10 Mpts one (#990)) is refused before it
-      starts with -221 and leaves no record. No peak detect is mapped
+    note: '2 to 1 048 575 (the data sheet; the guide''s 10,486,575 is a misprint); 16 after a default setup
+      is a SimuBench value. An acquisition whose count x record points is beyond 2^28 is a deep record
+      (#1012, real-models.md 10): it is taken, and each read may ask for at most 2^28 samples (points read x
+      count); a read or a measurement beyond that is -221 (until #1012 such an acquisition was refused, #986).
+      No peak detect is mapped'
   - header: :ACQuire:BANDwidth
     level: implemented
     note: 'MAX or 100 MHz to 33 GHz: the -3 dB frequency of the acquisition''s DSP filter, shaped by :ACQuire:RESPonse
@@ -256,8 +256,8 @@ sections:
     note: RTIMe only; PDETect, HRESolution and the segmented modes are not modeled
   - header: :ACQuire:POINts[:ANALog]
     level: implemented
-    note: 'AUTO (SimuBench: 128 kpts) or 16 to 10 Mpts; larger depths (the UXR has 500 Mpts) are refused
-      as out of range in the simulation. Without a set sample rate the rate is the fastest of 128 GSa/s
+    note: 'AUTO (SimuBench: 128 kpts) or 16 to 500 Mpts (the UXR''s standard memory). Records deeper than 2^22 points are computed where they are read (real-models.md 10, #1012): the acquisition computes
+      nothing, a read computes what it reads, at most 2^26 points at a time. Without a set sample rate the rate is the fastest of 128 GSa/s
       / 2^n not above points / 10 div'
   - header: :ACQuire:POINts:AUTO
     level: not_modeled
@@ -310,8 +310,8 @@ sections:
     level: implemented
     note: AUTO (the rate follows the memory depth), MAX or <rate> rounded to the next fastest of 128 GSa/s
       divided by a power of two (the data sheet); a set rate takes precedence over the memory depth (the
-      guide's table) and the record holds rate x 10 div points, at most 10 Mpts in the simulation (the
-      rate steps down to fit). The query answers the rate in use
+      guide's table) and the record holds rate x 10 div points, at most the memory depth (the rate
+      steps down to fit). The query answers the rate in use
   - header: :ACQuire:SRATe[:ANALog]:AUTO
     level: not_modeled
     note: 'Model work: acquisition setting on the existing signal chain.'
@@ -4663,7 +4663,9 @@ sections:
     level: implemented
     note: 'BYTE: signed 8-bit codes; WORD: signed 16-bit codes (the 10-bit ADC code shifted up 6 bits,
       8192 per division), in a definite-length block; ASCii: comma-separated volts (%.4E, two exponent
-      digits; the guide''s sample shows one). The <start>,<size> arguments are not modeled'
+      digits; the guide''s sample shows one). <start>[,<size>]: the points from <start>, <size> of them, cut
+      to the record''s end (the guide); a <start> past the record is -222. At most 2^26 points per read: a deeper
+      record is read in parts this way, each part computed as it is read (#1012, real-models.md 10)'
   - header: :WAVeform:FORMat
     level: implemented
     note: ASCii (default, the guide), BYTE, WORD; BINary and FLOat are not modeled
