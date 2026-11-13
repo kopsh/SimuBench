@@ -580,16 +580,20 @@ def _check_command(
     per_channel = any(n.suffix == "ch" for n in pattern.nodes) or any(
         p.type == "channel_list" for p in cmd.params
     )
+    indexes = _index_values(cmd)
     if cmd.state is not None:
-        _check_state_ref(d, cmd.state, per_channel, _ptr(*p, "state"), cmd.header, report)
+        for ref in _expand(cmd.state, indexes):  # a header suffix may pick the setting
+            if not _check_state_ref(d, ref, per_channel, _ptr(*p, "state"), cmd.header, report):
+                break
     if cmd.op is not None:
         _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
     for key, value in cmd.args.items():
         if isinstance(value, str) and value.startswith("$"):  # an argument bound to a setting (#252)
-            _check_state_ref(d, value[1:], per_channel, _ptr(*p, "args", key), cmd.header, report)
+            for ref in _expand(value[1:], indexes):  # a header suffix may pick it
+                if not _check_state_ref(d, ref, per_channel, _ptr(*p, "args", key), cmd.header, report):
+                    break
     if cmd.read is not None:
         _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
-    indexes = _index_values(cmd)
     for state, value in cmd.writes.items():
         for ref in _expand(state, indexes):  # an index may pick the setting (#248: VIEW CHAN2)
             _check_write(d, ref, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
@@ -745,8 +749,9 @@ def _check_quantity_write(
 
 
 def _index_values(cmd: CommandSpec) -> dict[str, list[int]]:
-    """The values each index parameter can take (at most 64 checked)."""
-    out = {}
+    """The values each index parameter and each named header suffix can take (at most 64 checked
+    per parameter; a suffix's are its ``suffixes`` list)."""
+    out = {name: list(values)[:64] for name, values in (cmd.suffixes or {}).items()}
     for ps in cmd.params:
         if ps.index and ps.index_words:
             out[ps.name] = sorted(set(ps.index_words.values()))

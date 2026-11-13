@@ -2950,6 +2950,7 @@ export interface components {
             firmware: string;
             /**
              * Idn
+             * @description The *IDN? reply: {manufacturer}, {model}, {serial}, {firmware}, and {$<setting>} for a setting's text (a persona command that changes the reported model)
              * @default {manufacturer},{model},{serial},{firmware}
              */
             idn: string;
@@ -5178,6 +5179,22 @@ export interface components {
             time_scale?: number | null;
         };
         /**
+         * StateEach
+         * @description The numbers a placeholder in a state's name runs through: ``first`` to ``last``.
+         */
+        StateEach: {
+            /**
+             * First
+             * @description The first number, e.g. 1
+             */
+            first: number;
+            /**
+             * Last
+             * @description The last number, e.g. 100
+             */
+            last: number;
+        };
+        /**
          * StateSpec
          * @description One settable state variable.
          */
@@ -5190,11 +5207,24 @@ export interface components {
              */
             display_unit?: string | null;
             /**
+             * Each
+             * @description One declaration for a family of settings: the name holds {n}, and the definition gets one setting per number, e.g. 'display.bookmark{n}.x' with each: {n: {first: 1, last: 100}} (the label's {n} too). Commands pick one by an index parameter or a header suffix of the same name (:DISPlay:BOOKmark<n>:XPOSition)
+             */
+            each?: {
+                [key: string]: components["schemas"]["StateEach"];
+            } | null;
+            /**
              * Electrical
              * @description Changing this variable changes the bench's circuit
              * @default false
              */
             electrical: boolean;
+            /**
+             * Keep On Reset
+             * @description *RST and the model's preset leave it as it is (a user preference, a display colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on still sets `default`
+             * @default false
+             */
+            keep_on_reset: boolean;
             /** Label */
             label?: string | null;
             /** Label En */
@@ -5280,11 +5310,24 @@ export interface components {
              */
             display_unit: string | null;
             /**
+             * Each
+             * @description One declaration for a family of settings: the name holds {n}, and the definition gets one setting per number, e.g. 'display.bookmark{n}.x' with each: {n: {first: 1, last: 100}} (the label's {n} too). Commands pick one by an index parameter or a header suffix of the same name (:DISPlay:BOOKmark<n>:XPOSition)
+             */
+            each: {
+                [key: string]: components["schemas"]["StateEach"];
+            } | null;
+            /**
              * Electrical
              * @description Changing this variable changes the bench's circuit
              * @default false
              */
             electrical: boolean;
+            /**
+             * Keep On Reset
+             * @description *RST and the model's preset leave it as it is (a user preference, a display colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on still sets `default`
+             * @default false
+             */
+            keep_on_reset: boolean;
             /** Label */
             label: string | null;
             /** Label En */

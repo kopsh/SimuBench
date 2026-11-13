@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import TYPE_CHECKING
 
 from ..scpi import values as V
@@ -158,7 +159,15 @@ class BuiltinCommands:
     @property
     def idn(self) -> str:
         d = self.inst.definition
-        return (self.inst.instance.idn or d.identity.idn).format(
+        template = self.inst.instance.idn or d.identity.idn
+        # {$path}: a setting's text (the Infiniium's :SYSTem:PERSona changes the manufacturer and
+        # model *IDN? answers); braces in the value cannot reach format().
+        template = re.sub(
+            r"\{\$([A-Za-z0-9_.]+)\}",
+            lambda m: str(self.inst.state.get(m.group(1), "")).replace("{", "{{").replace("}", "}}"),
+            template,
+        )
+        return template.format(
             manufacturer=d.manufacturer.upper(),
             model=d.model,
             serial=self.inst.serial,

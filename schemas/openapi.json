@@ -3552,6 +3552,7 @@
           },
           "idn": {
             "default": "{manufacturer},{model},{serial},{firmware}",
+            "description": "The *IDN? reply: {manufacturer}, {model}, {serial}, {firmware}, and {$<setting>} for a setting's text (a persona command that changes the reported model)",
             "title": "Idn",
             "type": "string"
           },
@@ -8486,6 +8487,28 @@
         "title": "StartSessionRequest",
         "type": "object"
       },
+      "StateEach": {
+        "additionalProperties": false,
+        "description": "The numbers a placeholder in a state's name runs through: ``first`` to ``last``.",
+        "properties": {
+          "first": {
+            "description": "The first number, e.g. 1",
+            "title": "First",
+            "type": "integer"
+          },
+          "last": {
+            "description": "The last number, e.g. 100",
+            "title": "Last",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ],
+        "title": "StateEach",
+        "type": "object"
+      },
       "StateSpec": {
         "additionalProperties": false,
         "description": "One settable state variable.",
@@ -8505,10 +8528,31 @@
             "description": "Unit shown in the UI when it differs from `unit`, e.g. '×'",
             "title": "Display Unit"
           },
+          "each": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/StateEach"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One declaration for a family of settings: the name holds {n}, and the definition gets one setting per number, e.g. 'display.bookmark{n}.x' with each: {n: {first: 1, last: 100}} (the label's {n} too). Commands pick one by an index parameter or a header suffix of the same name (:DISPlay:BOOKmark<n>:XPOSition)",
+            "title": "Each"
+          },
           "electrical": {
             "default": false,
             "description": "Changing this variable changes the bench's circuit",
             "title": "Electrical",
+            "type": "boolean"
+          },
+          "keep_on_reset": {
+            "default": false,
+            "description": "*RST and the model's preset leave it as it is (a user preference, a display colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on still sets `default`",
+            "title": "Keep On Reset",
             "type": "boolean"
           },
           "label": {
@@ -8724,10 +8768,31 @@
             "description": "Unit shown in the UI when it differs from `unit`, e.g. '×'",
             "title": "Display Unit"
           },
+          "each": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "$ref": "#/components/schemas/StateEach"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One declaration for a family of settings: the name holds {n}, and the definition gets one setting per number, e.g. 'display.bookmark{n}.x' with each: {n: {first: 1, last: 100}} (the label's {n} too). Commands pick one by an index parameter or a header suffix of the same name (:DISPlay:BOOKmark<n>:XPOSition)",
+            "title": "Each"
+          },
           "electrical": {
             "default": false,
             "description": "Changing this variable changes the bench's circuit",
             "title": "Electrical",
+            "type": "boolean"
+          },
+          "keep_on_reset": {
+            "default": false,
+            "description": "*RST and the model's preset leave it as it is (a user preference, a display colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on still sets `default`",
+            "title": "Keep On Reset",
             "type": "boolean"
           },
           "label": {
@@ -8916,6 +8981,7 @@
           "max",
           "default",
           "rst",
+          "keep_on_reset",
           "options",
           "ladder",
           "special",
@@ -8924,6 +8990,7 @@
           "option_labels",
           "display_unit",
           "electrical",
+          "each",
           "readonly",
           "label",
           "label_en",

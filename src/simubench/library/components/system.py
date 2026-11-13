@@ -39,6 +39,13 @@ class System(Component):
             self.owner.set_state(path, value, internal=True)
         return OpResult()
 
+    @op("none")
+    def none(self, query: bool = False, **_: Any) -> OpResult:
+        """Nothing: for a command whose constants (``writes``, written before the operation runs)
+        are all it does (:DISPlay:BOOKmark:DELete:ALL clears every bookmark's flag). A query answers
+        the command's ``reply`` template, a constant (:SYSTem:CAPability:CHANnel? COUNt → "4")."""
+        return OpResult(b"" if query else None)
+
     @op("next_error", fields=("code", "text"))
     def next_error(self, **_: Any) -> OpResult:
         """The next entry of the error queue, as the ``{code}`` and ``{text}`` fields of the

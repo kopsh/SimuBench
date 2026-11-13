@@ -17,10 +17,20 @@ reference:
   firmware: "Infiniium UXR-Series software 11.60"
 identity:
   # *IDN? per the guide: Keysight Technologies,<Model #>,<USXXXXXXXX>,<Rev #>[,<Options>].
-  idn: "Keysight Technologies,UXR1104B,{serial},{firmware}"
+  # :SYSTem:PERSona 改厂商与型号两段。
+  idn: "{$system.persona_manufacturer},{$system.persona_model},{serial},{firmware}"
+  # *OPT?：内置命令按测试台实例的选件回答（手册表 10），没有选件回 0。
+  options_reply: "{options}"
   serial: MY64310101
   firmware: "11.60.00000"
 # :SYSTem:ERRor? is the model's own command (a number, or with STRing the number and the text).
+# 选件（*OPT?，手册表 10；数据手册 3123-1313 的存储深度选件）：01G 为 1 Gpts、02G 为 2 Gpts。仿真的记录
+# 至多 10 Mpts（#1012），选件只改 *OPT? 的回答。
+options:
+  - id: 01G
+    label: 存储深度 1 Gpts（1 GPts memory）
+  - id: 02G
+    label: 存储深度 2 Gpts（2 GPts memory）
 builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
 # The guide: the error queue is 30 errors deep.
 error_queue: 30
@@ -312,6 +322,62 @@ state:
     readonly: true
     label: 型号
     label_en: Model
+  # ---- 界面偏好与显示（不改变数据，覆盖表为“接受”；手册 Default Setup 不改用户偏好与显示颜色，
+  # 故标 keep_on_reset）。上电值手册未给的为 SimuBench 值，覆盖表注明。
+  system.psc: {type: bool, default: true, label: 上电状态清除, label_en: Power-on status clear}
+  system.beep_frequency: {type: float, unit: HZ, min: 0.0, max: 1.0e6, default: 1000.0, label: 蜂鸣频率, label_en: Beep frequency}
+  system.beep_duration: {type: float, min: 0.0, max: 1.0e6, default: 500.0, label: 蜂鸣时长 ms, label_en: Beep duration ms}
+  system.debug: {type: bool, default: false, keep_on_reset: true, label: 远程命令跟踪, label_en: Debug trace}
+  system.debug_output: {type: enum, options: [FILE, SCReen, FileSCReen], default: FileSCReen, keep_on_reset: true, label: 跟踪输出, label_en: Debug output}
+  system.debug_file: {type: string, default: "C:\\Users\\Public\\Documents\\Infiniium\\debug.txt", keep_on_reset: true, label: 跟踪文件, label_en: Debug file}
+  system.debug_create: {type: enum, options: [CREate, APPend], default: CREate, keep_on_reset: true, label: 跟踪文件方式, label_en: Debug file mode}
+  system.donttabmeas: {type: bool, default: false, keep_on_reset: true, label: 测量结果不分页, label_en: Never tab measurement results}
+  system.gui: {type: enum, options: ["ON", "OFF", LOCK], default: "ON", keep_on_reset: true, label: 图形界面, label_en: GUI}
+  system.mode: {type: enum, options: [OSCilloscope], not_modeled: {RTSA: real-time spectral analysis turns every channel into a spectrum analyzer channel (C5)}, default: OSCilloscope, label: 系统模式, label_en: System mode}
+  system.touchscreen: {type: bool, default: true, keep_on_reset: true, label: 触摸屏, label_en: Touch screen}
+  system.lxi_identify: {type: bool, default: false, label: LXI 标识, label_en: LXI identify}
+  display.clipped: {type: bool, default: true, keep_on_reset: true, label: 显示 ADC 削波提示, label_en: Show ADC clipping}
+  display.connect: {type: bool, default: true, label: 点间连线, label_en: Connect dots}
+  display.graticule: {type: enum, options: [GRID, FRAMe], default: GRID, keep_on_reset: true, label: 网格类型, label_en: Graticule}
+  display.layout: {type: enum, options: [TAB, CUSTom, SVERtical, SHORizontal], replies: {CUSTom: TAB}, default: TAB, keep_on_reset: true, label: 窗口布局, label_en: Window layout}
+  display.main: {type: bool, default: true, label: 主视图, label_en: Main view}
+  # 余辉：MINimum（零余辉）、INFinite 或 0.1–200 s（手册）。
+  display.persistence: {type: float, unit: S, min: 0.1, max: 200.0, default: -.inf, special: {MINimum: -.inf, INFinite: .inf}, label: 余辉, label_en: Persistence}
+  display.results_proportion: {type: float, min: 0.0, max: 100.0, default: 30.0, keep_on_reset: true, label: 结果窗格大小, label_en: Results pane size}
+  display.results_layout: {type: enum, options: [TAB, CUSTom, SHORizontal], replies: {CUSTom: TAB}, default: TAB, keep_on_reset: true, label: 结果窗格布局, label_en: Results layout}
+  display.status_column: {type: float, min: 0.0, max: 1.0, default: 0.5, keep_on_reset: true, label: 状态标签列, label_en: Status label column}
+  display.status_row: {type: float, min: 0.0, max: 1.0, default: 0.5, keep_on_reset: true, label: 状态标签行, label_en: Status label row}
+  display.theme: {type: enum, options: [Midnight, Platinum], replies: {Midnight: '"Midnight"', Platinum: '"Platinum"'}, default: Midnight, keep_on_reset: true, label: 界面主题, label_en: Theme}
+  display.maximized: {type: enum, options: ["", AREA1, AREA2, AREA3, AREA4, AREA5, AREA6, AREA7, AREA8], default: "", label: 最大化的窗口, label_en: Maximized window}
+  # 波形区 1–8（手册 :DISPlay:GRATicule:AREA<N>、GLAYout、NUMBer、PROPortion）：区 1 总是开着。
+  display.area1.state: {type: bool, default: true, readonly: true, label: 波形区 1, label_en: Waveform area 1}
+  display.area{n}.state: {type: bool, default: false, each: {n: {first: 1, last: 8}}, label: "波形区 {n}", label_en: "Waveform area {n}"}
+  display.area{n}.hscale: {type: bool, default: true, each: {n: {first: 1, last: 8}}, label: "波形区 {n} 水平刻度", label_en: "Area {n} horizontal scale"}
+  display.area{n}.vscale: {type: enum, options: ["OFF", AUTO, MANual], default: AUTO, each: {n: {first: 1, last: 8}}, label: "波形区 {n} 垂直刻度", label_en: "Area {n} vertical scale"}
+  display.area{n}.layout: {type: enum, options: [SVERtical, SHORizontal, TVERtical, THORizontal], default: SVERtical, each: {n: {first: 1, last: 8}}, label: "波形区 {n} 网格排列", label_en: "Area {n} grid layout"}
+  display.area{n}.grids: {type: int, min: 1, max: 16, default: 1, each: {n: {first: 1, last: 8}}, label: "波形区 {n} 网格数", label_en: "Area {n} grids"}
+  display.area{n}.proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, each: {n: {first: 1, last: 8}}, label: "波形区 {n} 大小", label_en: "Area {n} size"}
+  # 显示颜色（:DISPlay:SCOLor，手册表 14 的 40 个元素，WMEMories 同 WMEMory1）：色相、饱和度、亮度 0–100。
+  # 出厂颜色手册未给，SimuBench 取色相 0、饱和度 100、亮度 50；Default Setup 不改颜色。
+  display.color{n}.hue: {type: int, min: 0, max: 100, default: 0, keep_on_reset: true, each: {n: {first: 1, last: 40}}, label: "颜色 {n} 色相", label_en: "Color {n} hue"}
+  display.color{n}.saturation: {type: int, min: 0, max: 100, default: 100, keep_on_reset: true, each: {n: {first: 1, last: 40}}, label: "颜色 {n} 饱和度", label_en: "Color {n} saturation"}
+  display.color{n}.luminosity: {type: int, min: 0, max: 100, default: 50, keep_on_reset: true, each: {n: {first: 1, last: 40}}, label: "颜色 {n} 亮度", label_en: "Color {n} luminosity"}
+  # 书签 1–100（:DISPlay:BOOKmark<N>，手册）：所在波形（NONE 为网格上的书签）、文字、颜色、悬停文字、
+  # 网格号或时间位置、标注框在网格上的位置（0–1）。Default Setup 关掉全部书签。
+  display.bookmark{n}.source: {type: enum, options: [NONE, CHANnel1, CHANnel2, CHANnel3, CHANnel4], default: NONE, each: {n: {first: 1, last: 100}}, label: "书签 {n} 波形", label_en: "Bookmark {n} source"}
+  display.bookmark{n}.defined: {type: bool, default: false, each: {n: {first: 1, last: 100}}, label: "书签 {n} 已设", label_en: "Bookmark {n} set"}
+  display.bookmark{n}.label: {type: string, default: "", each: {n: {first: 1, last: 100}}, label: "书签 {n} 文字", label_en: "Bookmark {n} label"}
+  display.bookmark{n}.color: {type: enum, options: ["", BUS, CGLevel1, CGLevel2, CGLevel3, CGLevel4, CGLevel5, CGLevel6, CGLevel7, CHANnel1, CHANnel2, CHANnel3, CHANnel4, DCHannel, DMEMory, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16, GRID, HISTogram, MARKers, MTPolygons, MMPolygons, TINPuts, WMEMories, WMEMory1, WMEMory2, WMEMory3, WMEMory4], default: "", each: {n: {first: 1, last: 100}}, label: "书签 {n} 颜色", label_en: "Bookmark {n} color"}
+  display.bookmark{n}.content: {type: string, default: "", each: {n: {first: 1, last: 100}}, label: "书签 {n} 悬停文字", label_en: "Bookmark {n} content"}
+  display.bookmark{n}.position: {type: float, min: -200.0, max: 200.0, default: 0.0, each: {n: {first: 1, last: 100}}, label: "书签 {n} 网格或时间", label_en: "Bookmark {n} grid or time"}
+  display.bookmark{n}.x: {type: float, min: 0.0, max: 1.0, default: 0.5, each: {n: {first: 1, last: 100}}, label: "书签 {n} 水平位置", label_en: "Bookmark {n} x"}
+  display.bookmark{n}.y: {type: float, min: 0.0, max: 1.0, default: 0.5, each: {n: {first: 1, last: 100}}, label: "书签 {n} 垂直位置", label_en: "Bookmark {n} y"}
+  # 打印机：仿真台没有装打印机（:HARDcopy:PRINters? 回 0，:HARDcopy:DPRinter? 只回换行）。
+  hardcopy.printers: {type: int, min: 0, max: 0, default: 0, readonly: true, label: 已装打印机, label_en: Printers installed}
+  hardcopy.default_printer: {type: string, default: "", readonly: true, label: 默认打印机, label_en: Default printer}
+  # 改 *IDN? 的厂商与型号字符串（:SYSTem:PERSona）；DEFault 恢复。
+  system.persona_manufacturer: {type: string, default: "Keysight Technologies", label: 身份厂商, label_en: Persona manufacturer}
+  system.persona_model: {type: string, default: "UXR1104B", label: 身份型号, label_en: Persona model}
 channel_state:
   display:
     type: bool
@@ -379,6 +445,10 @@ channel_state:
       OIFCEI6: the raised cosine reference receiver filters are not modeled
     label: 通道带宽限制类型
     label_en: Channel BW limit type
+  # :DISPlay:GRATicule:SETGrat：通道波形放在哪个网格、哪个波形区、主视图或色阶视图（不改变数据）。
+  grid: {type: int, min: 1, max: 16, default: 1, label: 网格, label_en: Grid}
+  grid_area: {type: int, min: 1, max: 8, default: 1, label: 波形区, label_en: Waveform area}
+  grid_view: {type: enum, options: [MAIN, CGRade], default: MAIN, label: 视图, label_en: View}
 # 个体偏差（数据手册 3123-1313 p.5 的保证值，按种子抽取，metrology-authoring.md 7）：直流增益精度 ±2% 满量程；
 # 偏置精度 ±(2% 偏置设定 + 1% 满量程 + 600 µV)（满量程 = 8 格，7.5 mV/div 以下按 60 mV 计）；时基 25 ppb。
 deviations:
@@ -910,3 +980,152 @@ commands:
       - {name: name, type: string}
       - {name: format, type: enum, options: [BIN, CSV, INTernal, TSV, TXT, H5, H5INt, MATlab], optional: true}
       - {name: header, type: bool, optional: true}
+  # ---- 界面偏好、显示与身份（不改变数据，覆盖表“接受”；手册第 13、14、21、25、37 章）-------------------
+  - {header: "*PSC", state: system.psc}
+  - header: ":BEEP"
+    query: false
+    params:
+      - {name: frequency, type: float, unit: HZ, state: system.beep_frequency}
+      - {name: duration, type: float, state: system.beep_duration}
+  # :CDISplay：清屏，测量的统计重新开始（手册）。
+  - {header: ":CDISplay", op: meas.clear_statistics, query: false}
+  - {header: ":DISPlay:CLIPped", state: display.clipped}
+  # :DISPlay:CONNect / :DISPlay:MAIN / :DISPlay:PERSistence 的 <source>：开关对全部波形一起保存（逐波形的
+  # 显示开关不改变数据，未分开保存，覆盖表注明）；PERSistence 的 <source> 手册说只为兼容旧语法，总是作用于全部。
+  - header: ":DISPlay:CONNect"
+    params:
+      - {name: "on", type: bool, state: display.connect}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
+  - header: ":DISPlay:MAIN"
+    params:
+      - {name: "on", type: bool, state: display.main}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
+  - header: ":DISPlay:PERSistence"
+    params:
+      - {name: time, type: float, unit: S, state: display.persistence}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
+  - {header: ":DISPlay:GRATicule", state: display.graticule}
+  - {header: ":DISPlay:GRATicule:AREA<n>:HSCale", state: "display.area{n}.hscale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}}
+  - {header: ":DISPlay:GRATicule:AREA<n>:VSCale", state: "display.area{n}.vscale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}}
+  # 波形区 1 总是开着，不能关（手册）：AREA1:STATe? 回 1，写它报错（只读）。
+  - {header: ":DISPlay:GRATicule:AREA<n>:STATe", state: "display.area{n}.state", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}}
+  - header: ":DISPlay:GRATicule:GLAYout"
+    params:
+      - {name: layout, type: enum, options: [SVERtical, SHORizontal, TVERtical, THORizontal], state: "display.area{area}.layout"}
+      - {name: area, type: int, min: 1, max: 8, index: true, index_numbers: true, index_default: 1, echo: false}
+  - header: ":DISPlay:GRATicule:NUMBer"
+    params:
+      - {name: grids, type: int, state: "display.area{area}.grids"}
+      - {name: area, type: int, min: 1, max: 8, index: true, index_numbers: true, index_default: 1, echo: false}
+  - header: ":DISPlay:GRATicule:SETGrat"
+    query: false
+    params:
+      - name: source
+        type: enum
+        options: [CHN1, CHN2, CHN3, CHN4]
+        index: true
+        index_words: {CHN1: 1, CHN2: 2, CHN3: 3, CHN4: 4}
+        not_modeled: {DIFF1: differential channels are not modeled, DIFF2: differential channels are not modeled, COMM3: common-mode channels are not modeled, COMM4: common-mode channels are not modeled, MEM1: waveform memories are not modeled, MEM2: waveform memories are not modeled, MEM3: waveform memories are not modeled, MEM4: waveform memories are not modeled, HIST: histograms are not modeled, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}
+      - {name: grid, type: int, state: "ch{source}.grid"}
+      - {name: area, type: int, optional: true, state: "ch{source}.grid_area"}
+      - {name: view, type: enum, options: [MAIN, CGRade], optional: true, state: "ch{source}.grid_view"}
+  - {header: ":DISPlay:LAYout", state: display.layout}
+  # :DISPlay:PROPortion：查询在 10.20 版已废弃（手册），只有设置；串行、抖动等窗格不在仿真范围内。
+  - header: ":DISPlay:PROPortion"
+    query: false
+    params:
+      - name: pane
+        type: enum
+        options: [AREA1, AREA2, AREA3, AREA4, AREA5, AREA6, AREA7, AREA8]
+        index: true
+        index_words: {AREA1: 1, AREA2: 2, AREA3: 3, AREA4: 4, AREA5: 5, AREA6: 6, AREA7: 7, AREA8: 8}
+        not_modeled: {SERial: serial decode panes are out of scope, JITTer: jitter panes are out of scope, NOISe: noise panes are out of scope, ISIM: the InfiniiSim pane is not modeled, PRECprobe: the PrecisionProbe pane is not modeled, BUS: bus panes are not modeled, P4Jitter: PAM4 jitter panes are out of scope}
+      - {name: size, type: float, state: "display.area{pane}.proportion"}
+  - {header: ":DISPlay:PROPortion:RESults", state: display.results_proportion, query: false}
+  - {header: ":DISPlay:RESults:LAYout", state: display.results_layout}
+  - header: ":DISPlay:SCOLor"
+    params:
+      - {name: element, type: enum, options: [BUS, CGLevel1, CGLevel2, CGLevel3, CGLevel4, CGLevel5, CGLevel6, CGLevel7, CHANnel1, CHANnel2, CHANnel3, CHANnel4, DCHannel, DMEMory, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16, GRID, HISTogram, MARKers, MTPolygons, MMPolygons, TINPuts, WMEMory1, WMEMory2, WMEMory3, WMEMory4, WMEMories], index: true, index_words: {BUS: 1, CGLevel1: 2, CGLevel2: 3, CGLevel3: 4, CGLevel4: 5, CGLevel5: 6, CGLevel6: 7, CGLevel7: 8, CHANnel1: 9, CHANnel2: 10, CHANnel3: 11, CHANnel4: 12, DCHannel: 13, DMEMory: 14, FUNCtion1: 15, FUNCtion2: 16, FUNCtion3: 17, FUNCtion4: 18, FUNCtion5: 19, FUNCtion6: 20, FUNCtion7: 21, FUNCtion8: 22, FUNCtion9: 23, FUNCtion10: 24, FUNCtion11: 25, FUNCtion12: 26, FUNCtion13: 27, FUNCtion14: 28, FUNCtion15: 29, FUNCtion16: 30, GRID: 31, HISTogram: 32, MARKers: 33, MTPolygons: 34, MMPolygons: 35, TINPuts: 36, WMEMory1: 37, WMEMory2: 38, WMEMory3: 39, WMEMory4: 40, WMEMories: 37}}
+      - {name: hue, type: int, state: "display.color{element}.hue"}
+      - {name: saturation, type: int, state: "display.color{element}.saturation"}
+      - {name: luminosity, type: int, state: "display.color{element}.luminosity"}
+  - {header: ":DISPlay:STATus:COLumn", state: display.status_column}
+  - {header: ":DISPlay:STATus:ROW", state: display.status_row}
+  - {header: ":DISPlay:THEMe", state: display.theme}
+  - header: ":DISPlay:WINDow:MAXimize"
+    query: false
+    params:
+      - name: window
+        type: enum
+        options: [AREA1, AREA2, AREA3, AREA4, AREA5, AREA6, AREA7, AREA8]
+        state: display.maximized
+        not_modeled: {SERial: serial decode panes are out of scope, JITTer: jitter panes are out of scope, NOISe: noise panes are out of scope, ISIM: the InfiniiSim pane is not modeled, PRECprobe: the PrecisionProbe pane is not modeled, BUS: bus panes are not modeled, P4Jitter: PAM4 jitter panes are out of scope}
+  # 书签（手册 :DISPlay:BOOKmark<N>，N 为 1–100）：SET 写下书签，DELete 删掉；VERTical? 回书签所在波形在其
+  # 时间位置的电压（与 :MEASure:VTIMe? 同一算法；网格上的书签没有波形，回 9.99999E+37）。
+  - header: ":DISPlay:BOOKmark<n>:SET"
+    query: false
+    suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}
+    writes: {"display.bookmark{n}.defined": true}
+    params:
+      - {name: source, type: enum, options: [NONE, CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: "display.bookmark{n}.source", not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
+      - {name: label, type: string, state: "display.bookmark{n}.label"}
+      - {name: color, type: enum, options: [BUS, CGLevel1, CGLevel2, CGLevel3, CGLevel4, CGLevel5, CGLevel6, CGLevel7, CHANnel1, CHANnel2, CHANnel3, CHANnel4, DCHannel, DMEMory, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16, GRID, HISTogram, MARKers, MTPolygons, MMPolygons, TINPuts, WMEMory1, WMEMory2, WMEMory3, WMEMory4, WMEMories], optional: true, state: "display.bookmark{n}.color"}
+      - {name: content, type: string, optional: true, state: "display.bookmark{n}.content"}
+      - {name: position, type: float, optional: true, state: "display.bookmark{n}.position"}
+  - header: ":DISPlay:BOOKmark<n>:DELete"
+    query: false
+    suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}
+    state: "display.bookmark{n}.defined"
+    set_value: false
+  - header: ":DISPlay:BOOKmark:DELete:ALL"
+    query: false
+    op: sys.none
+    writes: {display.bookmark1.defined: false, display.bookmark2.defined: false, display.bookmark3.defined: false, display.bookmark4.defined: false, display.bookmark5.defined: false, display.bookmark6.defined: false, display.bookmark7.defined: false, display.bookmark8.defined: false, display.bookmark9.defined: false, display.bookmark10.defined: false, display.bookmark11.defined: false, display.bookmark12.defined: false, display.bookmark13.defined: false, display.bookmark14.defined: false, display.bookmark15.defined: false, display.bookmark16.defined: false, display.bookmark17.defined: false, display.bookmark18.defined: false, display.bookmark19.defined: false, display.bookmark20.defined: false, display.bookmark21.defined: false, display.bookmark22.defined: false, display.bookmark23.defined: false, display.bookmark24.defined: false, display.bookmark25.defined: false, display.bookmark26.defined: false, display.bookmark27.defined: false, display.bookmark28.defined: false, display.bookmark29.defined: false, display.bookmark30.defined: false, display.bookmark31.defined: false, display.bookmark32.defined: false, display.bookmark33.defined: false, display.bookmark34.defined: false, display.bookmark35.defined: false, display.bookmark36.defined: false, display.bookmark37.defined: false, display.bookmark38.defined: false, display.bookmark39.defined: false, display.bookmark40.defined: false, display.bookmark41.defined: false, display.bookmark42.defined: false, display.bookmark43.defined: false, display.bookmark44.defined: false, display.bookmark45.defined: false, display.bookmark46.defined: false, display.bookmark47.defined: false, display.bookmark48.defined: false, display.bookmark49.defined: false, display.bookmark50.defined: false, display.bookmark51.defined: false, display.bookmark52.defined: false, display.bookmark53.defined: false, display.bookmark54.defined: false, display.bookmark55.defined: false, display.bookmark56.defined: false, display.bookmark57.defined: false, display.bookmark58.defined: false, display.bookmark59.defined: false, display.bookmark60.defined: false, display.bookmark61.defined: false, display.bookmark62.defined: false, display.bookmark63.defined: false, display.bookmark64.defined: false, display.bookmark65.defined: false, display.bookmark66.defined: false, display.bookmark67.defined: false, display.bookmark68.defined: false, display.bookmark69.defined: false, display.bookmark70.defined: false, display.bookmark71.defined: false, display.bookmark72.defined: false, display.bookmark73.defined: false, display.bookmark74.defined: false, display.bookmark75.defined: false, display.bookmark76.defined: false, display.bookmark77.defined: false, display.bookmark78.defined: false, display.bookmark79.defined: false, display.bookmark80.defined: false, display.bookmark81.defined: false, display.bookmark82.defined: false, display.bookmark83.defined: false, display.bookmark84.defined: false, display.bookmark85.defined: false, display.bookmark86.defined: false, display.bookmark87.defined: false, display.bookmark88.defined: false, display.bookmark89.defined: false, display.bookmark90.defined: false, display.bookmark91.defined: false, display.bookmark92.defined: false, display.bookmark93.defined: false, display.bookmark94.defined: false, display.bookmark95.defined: false, display.bookmark96.defined: false, display.bookmark97.defined: false, display.bookmark98.defined: false, display.bookmark99.defined: false, display.bookmark100.defined: false}
+  - {header: ":DISPlay:BOOKmark<n>:XPOSition", state: "display.bookmark{n}.x", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}}
+  - {header: ":DISPlay:BOOKmark<n>:YPOSition", state: "display.bookmark{n}.y", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}}
+  - header: ":DISPlay:BOOKmark<n>:VERTical"
+    set: false
+    suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}
+    op: meas.at
+    args: {what: VTIMe, source: ["$display.bookmark{n}.position", "$display.bookmark{n}.source"]}
+  # ---- 打印机（手册第 25 章）：仿真台没有装打印机 ----
+  - {header: ":HARDcopy:PRINters", state: hardcopy.printers, set: false}
+  - header: ":HARDcopy:DPRinter"
+    params: [{name: printer, type: string, state: hardcopy.default_printer}]
+  - {header: ":LXI:IDENtify[:STATe]", state: system.lxi_identify}
+  # ---- :SYSTem 的界面与身份（手册第 37 章）----
+  - header: ":SYSTem:DEBug"
+    params:
+      - {name: "on", type: bool, state: system.debug}
+      - {name: output, type: enum, options: [FILE, SCReen, FileSCReen], optional: true, state: system.debug_output}
+      - {name: file, type: string, optional: true, state: system.debug_file}
+      - {name: create, type: enum, options: [CREate, APPend], optional: true, state: system.debug_create}
+  - {header: ":SYSTem:DONTtabmeas", state: system.donttabmeas}
+  - {header: ":SYSTem:GUI", state: system.gui}
+  - {header: ":SYSTem:TOUChscreen", state: system.touchscreen}
+  - {header: ":SYSTem:MODE", state: system.mode}
+  - header: ":SYSTem:PERSona"
+    params:
+      - name: manufacturer
+        type: string
+        state: system.persona_manufacturer
+        keywords: {DEF: {system.persona_manufacturer: "Keysight Technologies", system.persona_model: "UXR1104B"}}
+      - {name: model, type: string, optional: true, state: system.persona_model}
+  # :SYSTem:CAPability:*?（手册第 37 章）：数据手册 3123-1313 的能力，带引号的字符串。UXR1104B 没有半通道模式与
+  # 数字通道；存储深度标配 500 Mpts，选件 01G / 02G 为 1 / 2 Gpts（仿真的记录至多 10 Mpts，覆盖表注明）。
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.none, set: false, when: {what: HALFchannel}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"0"'}
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.none, set: false, option: 02G, when: {what: MEMory}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"2000000000"'}
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.none, set: false, option: 01G, when: {what: MEMory}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"1000000000"'}
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.none, set: false, when: {what: MEMory}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"500000000"'}
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.none, set: false, when: {what: SRATe}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"256000000000"'}
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.none, set: false, when: {what: BANDwidth}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"110000000000"'}
+  - {header: ":SYSTem:CAPability:CHANnel", op: sys.none, set: false, when: {what: COUNt}, params: [{name: what, type: enum, options: [COUNt]}], reply: '"4"'}
+  - {header: ":SYSTem:CAPability:DIGital", op: sys.none, set: false, when: {what: MEMory}, params: [{name: what, type: enum, options: [MEMory, SRATe, CHANnels]}], reply: '"0"'}
+  - {header: ":SYSTem:CAPability:DIGital", op: sys.none, set: false, when: {what: SRATe}, params: [{name: what, type: enum, options: [MEMory, SRATe, CHANnels]}], reply: '"0"'}
+  - {header: ":SYSTem:CAPability:DIGital", op: sys.none, set: false, when: {what: CHANnels}, params: [{name: what, type: enum, options: [MEMory, SRATe, CHANnels]}], reply: '"0"'}
+  # *:TESTLIMITS?（手册）：<个数>,<<类型>><下限>:<上限>，取本定义接受的范围（与设置的 MIN/MAX 一致）。
+  - {header: ":ACQuire:BANDwidth:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>+1.00000E+08:+1.13000E+11"}
+  - {header: ":ACQuire:POINts:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>16:10000000"}
+  - {header: ":ACQuire:SRATe:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>+0.00000E+00:+2.56000E+11"}
+  # 四个通道都能打开：1,<enum>0|1（手册的例子）。
+  - {header: ":CHANnel<ch>:DISPlay:TESTLIMITS", op: sys.none, set: false, reply: "1,<enum>0|1"}

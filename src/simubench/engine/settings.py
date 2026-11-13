@@ -120,6 +120,8 @@ class SettingStore:
         value, which differs from ``rst`` when the manual says so: the X-Series powers on sweeping
         continuously, *RST stops it, #616)."""
         for path, spec in self.specs.items():
+            if spec.keep_on_reset and not power_on and path in self.values:
+                continue  # a user preference: *RST leaves it
             value = spec.default if power_on or spec.rst is None else spec.rst
             if value is None:
                 value = {"float": 0.0, "int": 0, "bool": False, "string": ""}.get(spec.type)

@@ -2428,8 +2428,14 @@ class ScopeMeasurements(Component):
         return 1.0 / min(widths) if widths else math.nan
 
     def _sources(self, raw: list[bytes] | None) -> tuple[list[str], list[int]]:
-        """Raw parameters split into the arguments and the channels named (CHANnel<n>)."""
-        words = [V.parse_string(b).strip() for b in raw or []]
+        """Raw parameters split into the arguments and the channels named (CHANnel<n>). An item may
+        also be a setting's value (a number or a word, op args ``[$bookmark.time, $bookmark.source]``)."""
+        words = [
+            (
+                V.parse_string(b) if isinstance(b, bytes) else repr(b) if isinstance(b, float) else str(b)
+            ).strip()
+            for b in raw or []
+        ]
         channels = [self._channel(None, w) for w in words if w.upper().startswith("CH")]
         return [w for w in words if not w.upper().startswith("CH")], channels
 
@@ -2451,6 +2457,8 @@ class ScopeMeasurements(Component):
           ``value`` that way.
         """
         args, channels = self._sources(source)
+        if any(a.upper() == "NONE" for a in args):  # a bookmark on no waveform has no value
+            return self._reply(math.nan, 0)
         n = channels[0] if channels else self._channel(channel)
         if channels:
             self._follow(n, f"CHANnel{n}")

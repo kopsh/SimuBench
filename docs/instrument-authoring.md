@@ -129,6 +129,10 @@ preamp_gain:
 - **按词选择的索引**（#248）：索引也可以是一个词，`index_words` 给出每个词对应的号，例如 DSO-X 的 `:VIEW CHANnel2` 写 `ch2.display`（`{name: source, type: enum, index: true, index_words: {CHANnel1: 1, …}}`，命令只有索引参数时用 `writes: {"ch{source}.display": true}` 给值）。设置时索引按它自己的位置取（`:TRIG:LEV 0.5,CHAN2` 的第二个参数），查询时只带索引参数；可省略的索引用 `index_default` 给号或 `$设置`（`:TRIG:LEV?` 不带信源时取当前触发源）。`echo: false` 让查询回复不重复索引（SR830 的 `DDEF? 1` 只回 `j,k`，#273）。
 - **操作应答的字段**：操作可以在结果中给出命名字段（`@op(fields=...)`），命令的 `reply` 模板引用它们：`'{header} {kind},{value} {unit},{status}'`（`C1:PAVA AMPL,200.1E-3 V,OK`）。组件目录与静态校验都认得这些字段。
 - **通用组件与操作**：`system`（`clear_status`：`*CLS` 及其查询的回复；`reset`：与 `*RST` 相同的预置）；`scope_acquisition.measurement`（按 `measurements` 表的命名测量，值不能测量时为 `invalid_value` 与 `status` 的第二项）；`waveform_transfer.describe`（按 `descriptor` 的格式写出记录的点数、首点、抽点、采样间隔、偏移、增益、时基与采集次数）。输入阻抗、前端耦合用 `input_port` 与 `scope_frontend` 加参数映射表达。
+- **一族设置** `each`（UXR1104B 书签、波形区、显示颜色）：状态名里写 `{n}`，`each: {n: {first: 1, last: 100}}` 展开为每个号一条设置（`label` 里的 `{n}` 同样替换；至多 1000 条）；同名写出的一条覆盖族里的那一条（区 1 只读）。命令用同名的索引参数或**命令头后缀**选择：`<ch>` 以外的命名后缀（`:DISPlay:BOOKmark<n>:XPOSition`，`suffixes` 列出取值）与索引参数一样替换状态路径、`writes` 与操作 `args` 里的 `{n}`；静态校验按 `suffixes` 的取值逐个检查。
+- **不随预置变的设置** `keep_on_reset: true`：`*RST` 与型号的预置命令不改它，上电仍取 `default`（Infiniium 的 Default Setup 不改用户偏好、显示颜色与探头延迟）。
+- **身份里的设置** `identity.idn` 可写 `{$<设置路径>}`，`*IDN?` 取该设置的文字（`:SYSTem:PERSona` 改厂商与型号）。
+- **只有常量的命令** `system.none`：不做任何事的操作；命令的 `writes` 就是它的全部效果（`:DISPlay:BOOKmark:DELete:ALL`），查询回 `reply` 模板的常量（`:SYSTem:CAPability:CHANnel? COUNt` → `"4"`，按参数取值用 `when` 分开）。`when` 的取值与特殊字（`special`）都按 SCPI 词匹配长短形式（`COUN` 即 `COUNt`）；取值为 ±∞ 的特殊字是模式词，不当作上下限（余辉的 `MINimum`、`INFinite`）。
 - **测试台编辑** `set_identity`：设置实例的 `idn`、`serial`、`firmware`（MCP 原来无法写出 `*IDN?` 的型号串）。
 
 ### 2.6 通道列表参数（#183）

@@ -22,6 +22,17 @@ class _Model(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class StateEach(_Model):
+    """The numbers a placeholder in a state's name runs through: ``first`` to ``last``."""
+
+    first: int = Field(..., description="The first number, e.g. 1")
+    last: int = Field(..., description="The last number, e.g. 100")
+
+
+#: The most states one ``each`` may expand into (a typo such as last: 1000000 fails loudly).
+EACH_LIMIT = 1000
+
+
 class StateSpec(_Model):
     """One settable state variable."""
 
@@ -31,6 +42,12 @@ class StateSpec(_Model):
     max: float | None = None
     default: Any = None
     rst: Any = Field(None, description="Value after *RST; defaults to `default`")
+    keep_on_reset: bool = Field(
+        False,
+        description="*RST and the model's preset leave it as it is (a user preference, a display "
+        "colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on "
+        "still sets `default`",
+    )
     options: list[str] | None = Field(None, description="Enum options in SCPI mixed case, e.g. SINusoid")
     ladder: str | list[float] | None = Field(
         None, description="Snap writes to a ladder: '1-2-5', '1-3' or an explicit list of values"
@@ -58,6 +75,13 @@ class StateSpec(_Model):
         None, description="Unit shown in the UI when it differs from `unit`, e.g. '×'"
     )
     electrical: bool = Field(False, description="Changing this variable changes the bench's circuit")
+    each: dict[str, StateEach] | None = Field(
+        None,
+        description="One declaration for a family of settings: the name holds {n}, and the definition "
+        "gets one setting per number, e.g. 'display.bookmark{n}.x' with each: {n: {first: 1, last: 100}} "
+        "(the label's {n} too). Commands pick one by an index parameter or a header suffix of the same "
+        "name (:DISPlay:BOOKmark<n>:XPOSition)",
+    )
     readonly: bool = False
     label: str | None = None
     label_en: str | None = None
@@ -608,7 +632,11 @@ class TemplateSource(_Model):
 
 
 class Identity(_Model):
-    idn: str = "{manufacturer},{model},{serial},{firmware}"
+    idn: str = Field(
+        "{manufacturer},{model},{serial},{firmware}",
+        description="The *IDN? reply: {manufacturer}, {model}, {serial}, {firmware}, and {$<setting>} "
+        "for a setting's text (a persona command that changes the reported model)",
+    )
     serial: str = "SB000001"
     firmware: str = "1.0.0"
     options_reply: str | None = Field(
@@ -852,6 +880,50 @@ class ConstraintSpec(_Model):
         return self
 
 
+def _expand_each(data: Any) -> Any:
+    """``state`` / ``channel_state`` entries with ``each`` become one entry per number (StateSpec.each)."""
+    if not isinstance(data, dict):
+        return data
+    for table in ("state", "channel_state"):
+        states = data.get(table)
+        if not isinstance(states, dict) or not any(
+            isinstance(v, dict) and v.get("each") for v in states.values()
+        ):
+            continue
+        out: dict[str, Any] = {}
+        for key, spec in states.items():
+            if not (isinstance(spec, dict) and spec.get("each")):
+                out.setdefault(key, spec)  # a key a family already placed keeps its place
+                continue
+            rows: list[tuple[str, dict[str, Any]]] = [(key, {k: v for k, v in spec.items() if k != "each"})]
+            for name, rng in dict(spec["each"]).items():
+                each = StateEach.model_validate(rng)
+                values = range(each.first, each.last + 1)
+                if len(values) * len(rows) > EACH_LIMIT:
+                    raise ValueError(f"state {key!r}: each expands into more than {EACH_LIMIT} settings")
+                if "{" + name + "}" not in key:
+                    raise ValueError(f"state {key!r}: each names {{{name}}}, which the name does not hold")
+                mark = "{" + name + "}"
+                rows = [
+                    (
+                        k.replace(mark, str(n)),
+                        {
+                            f: (
+                                v.replace(mark, str(n))
+                                if f in ("label", "label_en") and isinstance(v, str)
+                                else v
+                            )
+                            for f, v in body.items()
+                        },
+                    )
+                    for k, body in rows
+                    for n in values
+                ]
+            out.update((k, states.get(k, v)) for k, v in rows)  # a key written out wins
+        data = {**data, table: out}
+    return data
+
+
 class InstrumentDefinition(_Model):
     schema_: Literal["simubench.instrument/1"] = Field("simubench.instrument/1", alias="schema")
 
@@ -881,7 +953,7 @@ class InstrumentDefinition(_Model):
 
         if isinstance(data, dict):
             data = upgrade(data, "instrument")[0]
-        return expand_macros(data)
+        return _expand_each(expand_macros(data))
 
     id: str
     manufacturer: str

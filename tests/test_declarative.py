@@ -467,6 +467,8 @@ def test_a_command_without_when_after_the_when_ones_is_their_fallback():
     assert int(query("ERR?")) < 0  # the parameter left out: the fallback, the code alone
     write("C9:VDIV 1")
     assert int(query("ERR? NUMB")) < 0  # another value: the fallback too
+    write("C9:VDIV 1")
+    assert query("ERR? STR").count(",") == 1  # when matches the word in any SCPI form: the text too
     assert int(query("ERR?")) == 0
 
 
@@ -636,3 +638,100 @@ def test_order_sorts_only_required_numbers_bound_to_settings():
     data["commands"][-1]["params"][0]["optional"] = True
     with raises_with(ValidationError, "required numbers"):
         InstrumentDefinition.model_validate(data)
+
+
+# ---- families of settings (each), header suffixes that pick a setting, presets, *IDN? text ----------
+
+
+def _family() -> dict:
+    data = copy.deepcopy(DEMO)
+    data["identity"] = {"idn": "{$id.vendor},{model},{serial},{firmware}"}
+    data["state"].update(
+        {
+            "mark{n}.x": {"type": "float", "min": 0.0, "max": 1.0, "default": 0.5, "label": "Mark {n}",
+                          "each": {"n": {"first": 1, "last": 3}}},
+            "mark1.x": {"type": "float", "min": 0.0, "max": 1.0, "default": 0.25},
+            "mark{n}.src": {"type": "enum", "options": ["NONE", "C1"], "default": "NONE",
+                            "each": {"n": {"first": 1, "last": 3}}},
+            "id.vendor": {"type": "string", "default": "ACME"},
+            "pref.theme": {"type": "enum", "options": ["DARK", "LIGHT"], "default": "DARK", "keep_on_reset": True},
+            "pers.time": {"type": "float", "unit": "S", "min": 0.1, "max": 200.0, "default": 1.0,
+                          "special": {"MINimum": -math.inf, "INFinite": math.inf}},
+        }
+    )  # fmt: skip
+    data["components"] = [{"name": "sys", "type": "system"}]
+    data["commands"] += [
+        {"header": "MARK<n>:X", "state": "mark{n}.x", "suffixes": {"n": [1, 2, 3]}},
+        {"header": "MARK<n>:SET", "suffixes": {"n": [1, 2, 3]}, "query": False,
+         "params": [{"name": "src", "type": "enum", "options": ["NONE", "C1"], "state": "mark{n}.src"}]},
+        {"header": "MARK:CLEar", "op": "sys.none", "query": False,
+         "writes": {"mark1.src": "NONE", "mark2.src": "NONE", "mark3.src": "NONE"}},
+        {"header": "MARK:COUNt", "op": "sys.none", "set": False, "reply": "3"},
+        {"header": "VENDor", "state": "id.vendor"},
+        {"header": "THEMe", "state": "pref.theme"},
+        {"header": "PERSist", "state": "pers.time"},
+    ]  # fmt: skip
+    return data
+
+
+def test_each_declares_a_family_of_settings_and_a_written_key_wins():
+    d = InstrumentDefinition.model_validate(_family())
+    assert [k for k in d.state if k.startswith("mark") and k.endswith(".x")] == [
+        "mark1.x",
+        "mark2.x",
+        "mark3.x",
+    ]
+    assert d.state["mark2.x"].label == "Mark 2" and d.state["mark2.x"].each is None
+    assert d.state["mark1.x"].default == 0.25  # the key written out, not the family's
+    with raises_with(ValidationError, "does not hold"):
+        InstrumentDefinition.model_validate(
+            {**DEMO, "state": {"a.x": {"type": "bool", "each": {"n": {"first": 1, "last": 2}}}}}
+        )
+
+
+def test_a_header_suffix_picks_the_setting_a_command_writes():
+    _, inst, query, write = open_demo(_family())
+    write("MARK2:X 0.75")
+    assert query("MARK2:X?") == "MARK2:X 750E-3" and query("MARK3:X?") == "MARK3:X 500E-3"
+    write("MARK3:SET C1")
+    assert inst.get_state("mark3.src") == "C1" and inst.get_state("mark2.src") == "NONE"
+    write("MARK4:X 0.1")
+    assert error(query).startswith("-114,")
+
+
+def test_an_operation_without_effect_runs_its_constants_and_answers_its_template():
+    _, inst, query, write = open_demo(_family())
+    write("MARK2:SET C1")
+    write("MARK:CLEAR")
+    assert inst.get_state("mark2.src") == "NONE"
+    assert query("MARK:COUNT?") == "3"  # the template as written
+
+
+def test_static_checks_expand_a_header_suffix_over_its_values():
+    data = _family()
+    data["commands"][-7]["suffixes"] = {"n": [1, 2, 3, 4]}  # mark4.x does not exist
+    assert ("E-DEF-STATE-UNKNOWN", f"/commands/{len(data['commands']) - 7}/state") in codes(data)
+    assert codes(_family()) == []
+
+
+def test_a_setting_kept_on_reset_survives_rst_but_not_power_on():
+    _, inst, _, write = open_demo(_family())
+    write("THEMe LIGHT;Time_DIV 1E-6;*RST")
+    assert inst.get_state("pref.theme") == "LIGHT" and inst.get_state("timebase.scale") == 1e-3
+    inst.settings.reset(power_on=True)
+    assert inst.get_state("pref.theme") == "DARK"
+
+
+def test_the_idn_template_reads_a_setting():
+    _, _, query, write = open_demo(_family())
+    assert query("*IDN?").startswith("ACME,DEMO,")
+    write('VENDor "Other {x}"')
+    assert query("*IDN?").startswith("Other {x},DEMO,")
+
+
+def test_a_special_word_matches_in_any_form_and_an_infinite_one_is_not_an_extreme():
+    _, inst, query, write = open_demo(_family())
+    write("PERSist MIN")  # MINimum, not the 0.1 s lower limit
+    assert inst.get_state("pers.time") == -math.inf and query("PERSist?") == "PERS MINimum"
+    write("PERSist INFINITE")
+    assert inst.get_state("pers.time") == math.inf

@@ -153,8 +153,11 @@ class CommandRunner:
         if (unit.query and not spec.query) or (not unit.query and not spec.set):
             # A header the definition has, used the wrong way: an error even when unknown ones are ignored.
             raise ScpiError(-113, f"{unit.raw_header} is {'not a query' if unit.query else 'a query only'}")
+        # Named header suffixes other than <ch> pick settings too: ``{n}`` in a state path is the
+        # suffix's value (:DISPlay:BOOKmark<n>:XPOSition writes display.bookmark{n}.x).
+        named = {k: v for k, v in suffixes.items() if k != "ch"}
         if spec.state is not None:
-            body = self._state_command(spec, unit, channel)
+            body = self._state_command(spec, unit, channel, named)
         elif spec.op is not None:
             if unit.query and spec.read is not None:
                 # The same header: set calls the operation, query reads the setting it writes.
@@ -168,7 +171,7 @@ class CommandRunner:
         elif any(p.type == "quantities" for p in spec.params):
             body = self._quantities_command(spec, unit, channel)
         else:
-            body = self._settings_command(spec, unit, channel)
+            body = self._settings_command(spec, unit, channel, named)
         if body is not None:
             body = self._reply(compiled, body, channel, suffixes)
         return body, parse_duration(spec.duration)
@@ -215,9 +218,11 @@ class CommandRunner:
 
         return re.sub(r"\{([^{}]+)\}", field, template).encode()
 
-    def _state_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
+    def _state_command(
+        self, spec: CommandSpec, unit: Unit, channel: int | None, named: dict[str, int] | None = None
+    ) -> bytes | None:
         assert spec.state is not None
-        path = self._resolve(spec.state, channel)
+        path = self._resolve(_at(named or {}, spec.state), channel)
         st = self.inst.specs[path]
         if unit.query:
             if unit.params:
@@ -305,11 +310,14 @@ class CommandRunner:
         finally:
             self.inst._constraints_checked = False
 
-    def _settings_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
+    def _settings_command(
+        self, spec: CommandSpec, unit: Unit, channel: int | None, named: dict[str, int] | None = None
+    ) -> bytes | None:
         """A command whose parameters each write a setting (``TRSE EDGE,SR,C1``); all are checked
-        before any is set. The query answers the settings in the same order and form."""
+        before any is set. The query answers the settings in the same order and form. The header's
+        named suffixes act as index values (``named``)."""
         raw = list(unit.params)
-        index = self._pick_indexes(spec, unit, raw, channel)
+        index = {**(named or {}), **self._pick_indexes(spec, unit, raw, channel)}
         if unit.query:
             if raw:
                 raise ScpiError(-108)
@@ -720,9 +728,21 @@ class CommandRunner:
         self._refuse_not_modeled(st.not_modeled, raw)
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
-            if st.special and word in st.special:
-                value = st.special[word]
-                if word.startswith(("MIN", "MAX", "DEF")) and path is not None:
+            # A special word in any SCPI form (MIN for MINimum); an exact key first.
+            key = (
+                (
+                    word
+                    if word in st.special
+                    else next((k for k in st.special if V.matches_word(word, k)), None)
+                )
+                if st.special
+                else None
+            )
+            if st.special and key is not None:
+                value = st.special[key]
+                # An infinite special is a mode word, not an extreme (the Infiniium's persistence
+                # MINimum / INFinite): only a finite MIN/MAX/DEF follows the limits.
+                if word.startswith(("MIN", "MAX", "DEF")) and path is not None and math.isfinite(value):
                     # MIN/MAX are the setting's legal extremes *now*, and DEF stays legal too: a
                     # component narrowing the range (#437) narrows all three with it — the static
                     # table is only the fallback (issue 663: a load's slew follows its selected
@@ -883,22 +903,22 @@ class CommandRunner:
         fn = comp.operation(op_name)
         if fn is None:
             raise ScpiError(-300, f"operation {comp_ref}.{op_name!r} missing")
+        named = {k: v for k, v in suffixes.items() if k != "ch"}
+
+        def setting(ref: str) -> Any:  # a header suffix may pick it ({n}: the bookmark's own source)
+            return self.inst.state[self._resolve(_at(named, ref), channel)]
+
         # An argument written as $path is that setting's value (#252: the elements a FETCh? answers
         # follow :FORMat:ELEMents:SENSe); as {from: $path, map: {...}} it goes through the same
         # mapping a parameter or a wiring binding takes (#364: OUTR? reads the quantity DDEF picks).
         args = {
             k: (
-                map_setting(v, self.inst.state[self._resolve(str(v["from"])[1:], channel)])
+                map_setting(v, setting(str(v["from"])[1:]))
                 if isinstance(v, dict) and isinstance(v.get("from"), str)
-                else self.inst.state[self._resolve(v[1:], channel)]
+                else setting(v[1:])
                 if isinstance(v, str) and v.startswith("$")
                 # a list's $path items too (#383: SNAPD? reads the four data-channel assignments)
-                else [
-                    self.inst.state[self._resolve(x[1:], channel)]
-                    if isinstance(x, str) and x.startswith("$")
-                    else x
-                    for x in v
-                ]
+                else [setting(x[1:]) if isinstance(x, str) and x.startswith("$") else x for x in v]
                 if isinstance(v, list)
                 else v
             )

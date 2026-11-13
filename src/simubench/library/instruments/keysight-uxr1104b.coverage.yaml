@@ -27,13 +27,12 @@ sections:
     note: '*OPC? waits for a :DIGitize or :SINGle in progress; without a trigger it does not answer (the
       guide: abort a :DIGitize with a device clear)'
   - header: '*OPT'
-    level: not_modeled
-    note: 'Model work: option handling exists (#1007); declare the installed options.'
-    gap: model_work
+    level: implemented
+    note: "The built-in *OPT? answers the bench instance's options (01G, 02G: the data sheet's memory depth options, guide table 10), comma-separated; 0 without any. The options change only this reply: the simulated record holds at most 10 Mpts (#1012)."
   - header: '*PSC'
-    level: not_modeled
-    note: 'Model work: status register on the existing status system.'
-    gap: model_work
+    level: accepted
+    note: "Saved and read back (1 at power-on, a SimuBench value); the power-on SRQ it controls never happens on a bench."
+    affects_data: false
   - header: '*RCL'
     level: implemented
     note: 'setup_memory component (#1070): puts every setting back as saved; an empty register changes nothing and queues no error (the guide: a message on the display).'
@@ -95,16 +94,15 @@ sections:
     gap: blocked
     blocked_by: autoscale
   - header: :BEEP
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Frequency (Hz) and duration (ms) are checked and kept; the guide gives no range, SimuBench takes 0 to 1E6. No sound."
+    affects_data: false
   - header: :BLANk
     level: implemented
     note: CHANnel<N> only; ALL, functions, histograms and memories are not modeled
   - header: :CDISplay
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: implemented
+    note: "Clears the measurement statistics (the guide: resets all associated measurements). The next acquisition fills the screen again; a stopped scope keeps its record for :WAVeform:DATA? (SimuBench keeps the record, the guide erases the display only)."
   - header: :DIGitize
     level: implemented
     note: acquires the displayed channels (or the channels named) and stops. Channels named are turned
@@ -210,9 +208,8 @@ sections:
     note: 'Model work: acquisition setting on the existing signal chain.'
     gap: model_work
   - header: :ACQuire:BANDwidth:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: "1,<numeric>+1.00000E+08:+1.13000E+11: the range :ACQuire:BANDwidth accepts in this definition (the guide gives no figures)."
   - header: :ACQuire:COMPlete
     level: implemented
     note: 0 to 100, 90 after a default setup (the guide). In real-time sampling it has no effect on the
@@ -266,9 +263,8 @@ sections:
     note: 'Model work: acquisition setting on the existing signal chain.'
     gap: model_work
   - header: :ACQuire:POINts:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: "1,<numeric>16:10000000: the range :ACQuire:POINts accepts in this definition (10 Mpts is the simulation's limit, #1012)."
   - header: :ACQuire:REDGe
     level: not_modeled
     note: 'Model work: acquisition setting on the existing signal chain.'
@@ -319,9 +315,8 @@ sections:
     note: 'Model work: acquisition setting on the existing signal chain.'
     gap: model_work
   - header: :ACQuire:SRATe:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: "1,<numeric>+0.00000E+00:+2.56000E+11: the range :ACQuire:SRATe accepts in this definition (0 is AUTO; a set rate snaps to 256 GSa/s divided by a power of two)."
   - header: :ACQuire:VLSCapture:DURation
     level: not_modeled
     note: 'Blocked by C11 (product-plan.md 4.2): very long sequence capture needs block-wise computation (#1012).'
@@ -789,9 +784,8 @@ sections:
     gap: blocked
     blocked_by: differential-input
   - header: :CHANnel<N>:DISPlay:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: "1,<enum>0|1 for channels 1-4 (every channel can be turned on), as the guide's example writes it."
   - header: :CHANnel<N>:INPut
     level: implemented
     note: DC50 (DCFifty answers DC50); the UXR has no other coupling or impedance, so other words are
@@ -1006,8 +1000,9 @@ sections:
     blocked_by: C5
   - header: :CHANnel<N>:SPECtral:CFRequency:TESTLIMITS
     level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    note: 'Blocked by C5 (product-plan.md 4.2): the limits of the spectral (DDC) view, which itself waits for C5.'
+    gap: blocked
+    blocked_by: C5
   - header: :CHANnel<N>:SPECtral:SPAN
     level: not_modeled
     note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
@@ -1015,8 +1010,9 @@ sections:
     blocked_by: C5
   - header: :CHANnel<N>:SPECtral:SPAN:TESTLIMITS
     level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    note: 'Blocked by C5 (product-plan.md 4.2): the limits of the spectral (DDC) view, which itself waits for C5.'
+    gap: blocked
+    blocked_by: C5
   - header: :CHANnel<N>:UNITs
     level: not_modeled
     note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
@@ -1102,29 +1098,28 @@ sections:
 - section: :DISPlay Commands (Programmer's Guide 11.60, ch. 21)
   commands:
   - header: :DISPlay:BOOKmark:DELete:ALL
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Every bookmark (1 to 100) is deleted."
+    affects_data: false
   - header: :DISPlay:BOOKmark<N>:DELete
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "N 1 to 100 (-114 otherwise)."
+    affects_data: false
   - header: :DISPlay:BOOKmark<N>:SET
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "NONE or CHANnel1-4 as the source (differential, functions, memories and analysis waveforms are not modeled, -224), label, color name of :DISPlay:SCOLor, content, and the grid number or time position; kept per bookmark."
+    affects_data: false
   - header: :DISPlay:BOOKmark<N>:VERTical
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: implemented
+    note: "The bookmark's waveform at its time position, by the :MEASure:VTIMe? algorithm (linear between samples); a bookmark on the grid (NONE) has no waveform and answers 9.99999E+37."
   - header: :DISPlay:BOOKmark<N>:XPOSition
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "0.0 to 1.0 of the grid width; 0.5 until set (a SimuBench value)."
+    affects_data: false
   - header: :DISPlay:BOOKmark<N>:YPOSition
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "0.0 to 1.0 of the grid height; 0.5 until set (a SimuBench value)."
+    affects_data: false
   - header: :DISPlay:CGRade
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1142,50 +1137,50 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :DISPlay:CLIPped
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: accepted
+    note: "The Show ADC Clipping preference (ON at power-on, a SimuBench value; Default Setup leaves it)."
+    affects_data: false
   - header: :DISPlay:CONNect
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "One setting for all waveforms: <source> (CHANnel1-4) is accepted and the query answers the common setting; per-waveform values are not kept separately. ON at power-on (a SimuBench value)."
+    affects_data: false
   - header: :DISPlay:DATA
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
     gap: blocked
     blocked_by: screenshot
   - header: :DISPlay:GRATicule
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "GRID or FRAMe; GRID at power-on (a SimuBench value), a screen option Default Setup leaves."
+    affects_data: false
   - header: :DISPlay:GRATicule:AREA<N>:HSCale
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Areas 1-8; ON until set (a SimuBench value)."
+    affects_data: false
   - header: :DISPlay:GRATicule:AREA<N>:STATe
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Areas 1-8; area 1 is always on and refuses any write (-221, read-only); the others OFF until set."
+    affects_data: false
   - header: :DISPlay:GRATicule:AREA<N>:VSCale
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "OFF, AUTO or MANual per area; AUTO until set (a SimuBench value)."
+    affects_data: false
   - header: :DISPlay:GRATicule:GLAYout
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Per area 1-8 (area 1 when omitted); SVERtical until set (a SimuBench value). The ZOOM reply of a zoomed area is not modeled (the zoom window does not split the display areas)."
+    affects_data: false
   - header: :DISPlay:GRATicule:INTensity
     level: accepted
     affects_data: false
     note: 0 to 100; 50 after power-on is a SimuBench value
   - header: :DISPlay:GRATicule:NUMBer
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "1-16 grids per area 1-8 (area 1 when omitted); 1 until set."
+    affects_data: false
   - header: :DISPlay:GRATicule:SETGrat
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "CHN1-CHN4 to a grid 1-16, area 1-8 and MAIN or CGRade view, kept per channel; the other waveforms (DIFF, COMM, MEM, FN, HIST, SNDR, NREDuced) are not modeled (-224)."
+    affects_data: false
   - header: :DISPlay:ISIM:DGRaphs
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1223,13 +1218,13 @@ sections:
     affects_data: false
     note: 草稿：定义中已有，确认程度与说明
   - header: :DISPlay:LAYout
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "TAB (CUSTom answers TAB), SVERtical or SHORizontal; TAB until set (a SimuBench value)."
+    affects_data: false
   - header: :DISPlay:MAIN
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "One setting for all waveforms, as :DISPlay:CONNect; ON at power-on."
+    affects_data: false
   - header: :DISPlay:NOISe:LEVel
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1247,17 +1242,17 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :DISPlay:PERSistence
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "MINimum, INFinite or 0.1 to 200 s; MINimum at power-on. <source> is accepted and ignored, as the guide says (persistence applies to all waveforms)."
+    affects_data: false
   - header: :DISPlay:PROPortion
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Command only (the query is deprecated, guide 10.20): AREA1-8, 0 to 100; the serial, jitter, noise, InfiniiSim, PrecisionProbe, bus and PAM4 panes are not modeled (-224)."
+    affects_data: false
   - header: :DISPlay:PROPortion:RESults
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Command only (the query is deprecated, guide 6.50): 0 to 100."
+    affects_data: false
   - header: :DISPlay:PRECprobe:GCOunt
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1271,29 +1266,29 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :DISPlay:RESults:LAYout
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "TAB (CUSTom answers TAB) or SHORizontal; TAB until set."
+    affects_data: false
   - header: :DISPlay:SCOLor
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "The 40 elements of guide table 14 (WMEMories is WMEMory1): hue, saturation and luminosity 0-100, kept per element; the query answers the element and the three numbers. Factory colors are not in the guide: every element starts at hue 0, saturation 100, luminosity 50 (SimuBench values); Default Setup leaves colors."
+    affects_data: false
   - header: :DISPlay:STATus:COLumn
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "0 to 1; 0.5 (center) until set, a SimuBench value."
+    affects_data: false
   - header: :DISPlay:STATus:ROW
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "0 to 1; 0.5 (center) until set, a SimuBench value."
+    affects_data: false
   - header: :DISPlay:THEMe
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "\"Midnight\" or \"Platinum\", quoted; Midnight at power-on (a SimuBench value); Default Setup leaves it."
+    affects_data: false
   - header: :DISPlay:WINDow:MAXimize
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "AREA1-8 (command only); the serial, jitter, noise, InfiniiSim, PrecisionProbe, bus and PAM4 windows are not modeled (-224)."
+    affects_data: false
 - section: :FUNCtion<F> Commands (Programmer's Guide 11.60, ch. 22)
   commands:
   - header: :FUNCtion<F>
@@ -1641,9 +1636,9 @@ sections:
     gap: blocked
     blocked_by: screenshot
   - header: :HARDcopy:DPRinter
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "A bench has no printer installed: the query answers an empty line, as the guide says for no printers, and selecting one is refused (-221)."
+    affects_data: false
   - header: :HARDcopy:FACTors
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
@@ -1655,9 +1650,9 @@ sections:
     gap: blocked
     blocked_by: screenshot
   - header: :HARDcopy:PRINters
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "A bench has no printer installed: 0."
+    affects_data: false
 - section: :HISTogram Commands (Programmer's Guide 11.60, ch. 24)
   commands:
   - header: :HISTogram:AXIS
@@ -2260,9 +2255,9 @@ sections:
 - section: :LXI Commands (Programmer's Guide 11.60, ch. 30)
   commands:
   - header: :LXI:IDENtify[:STATe]
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Kept and read back; nothing flashes."
+    affects_data: false
 - section: :MARKer Commands (Programmer's Guide 11.60, ch. 31)
   commands:
   - header: :MARKer:CURSor
@@ -4060,17 +4055,14 @@ sections:
 - section: :SYSTem Commands (Programmer's Guide 11.60, ch. 37)
   commands:
   - header: :SYSTem:CAPability:ACQuire
-    level: not_modeled
-    note: 'Model work: capability query answered from the definition.'
-    gap: model_work
+    level: implemented
+    note: "Quoted strings from data sheet 3123-1313: HALFchannel \"0\" (no half-channel mode), MEMory \"500000000\" (500 Mpts standard; \"1000000000\" / \"2000000000\" with option 01G / 02G), SRATe \"256000000000\", BANDwidth \"110000000000\" (the warranted bandwidth). The simulated record holds at most 10 Mpts (#1012)."
   - header: :SYSTem:CAPability:CHANnel
-    level: not_modeled
-    note: 'Model work: capability query answered from the definition.'
-    gap: model_work
+    level: implemented
+    note: "COUNt: \"4\"."
   - header: :SYSTem:CAPability:DIGital
-    level: not_modeled
-    note: 'Model work: capability query answered from the definition.'
-    gap: model_work
+    level: implemented
+    note: "The UXR1104B has no digital channels: MEMory, SRATe and CHANnels answer \"0\"."
   - header: :SYSTem:CLOud:CONNect:USER
     level: not_modeled
     note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'
@@ -4100,13 +4092,13 @@ sections:
     note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'
     gap: out_of_scope
   - header: :SYSTem:DEBug
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "ON/OFF with output mode, file and create mode, kept (defaults FileSCReen, C:\\Users\\Public\\Documents\\Infiniium\\debug.txt, CREate, as the guide gives); no trace file is written. Deviation: OFF answers 0 followed by the kept mode, file and create mode, where the guide answers 0 alone."
+    affects_data: false
   - header: :SYSTem:DONTtabmeas
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "User preference, OFF at power-on (a SimuBench value); Default Setup leaves it."
+    affects_data: false
   - header: :SYSTem:DSP
     level: accepted
     affects_data: false
@@ -4116,9 +4108,9 @@ sections:
     note: 'without a parameter or with NUMBer: the error number alone, 0 when the queue is empty; STRing:
       the number and the quoted text, 0,"No error" (the guide)'
   - header: :SYSTem:GUI
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "ON, OFF or LOCK, read back as a word (guide 6.20); ON at power-on. Remote commands work in every state; Default Setup leaves it."
+    affects_data: false
   - header: :SYSTem:HEADer
     level: implemented
     note: 'ON: replies start with the command header (short, or long with :SYSTem:LONGform ON); common
@@ -4141,13 +4133,12 @@ sections:
     note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
     gap: model_work
   - header: :SYSTem:MODE
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "OSCilloscope only; RTSA (real-time spectral analysis) turns every channel into a spectrum analyzer channel, which is blocked by C5, so it is refused (-224)."
+    affects_data: false
   - header: :SYSTem:PERSona
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: implemented
+    note: "Sets the manufacturer and model strings *IDN? answers; DEFault restores Keysight Technologies and UXR1104B. The 31 and 10 character limits are not checked."
   - header: :SYSTem:PRESet
     level: implemented
     note: 'DEFault or no parameter: the Default Setup, as *RST. FACTory is not modeled'
@@ -4159,9 +4150,9 @@ sections:
     note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'
     gap: out_of_scope
   - header: :SYSTem:TOUChscreen
-    level: not_modeled
-    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "ON at power-on (a SimuBench value); Default Setup leaves it."
+    affects_data: false
 - section: :TIMebase Commands (Programmer's Guide 11.60, ch. 38)
   commands:
   - header: :TIMebase:POSition
