@@ -2618,6 +2618,11 @@ export interface components {
                 [key: string]: number;
             } | number[];
             /**
+             * Option
+             * @description The deviation belongs to this hardware option (an `options` id, D68): only units that have it draw it, e.g. the response of the preamplifier path
+             */
+            option?: string | null;
+            /**
              * Param
              * @description '<component>.<parameter>', e.g. 'meter.gain_error_ppm'; a channel component's name (e.g. 'out.z_out') draws one value per channel
              */
@@ -2638,6 +2643,13 @@ export interface components {
              * @description '%' or 'ppm': relative to the nominal value, value = nominal × (1 + d). Omitted: the limit is in the parameter's own unit, value = nominal + d (a parameter that is itself an error, e.g. gain_error_ppm, or an offset)
              */
             unit?: ("%" | "ppm") | null;
+            /**
+             * When
+             * @description The settings this deviation applies under, as a constraint's `when` writes them (D69): {setting: value or [values]}, all of them at once, e.g. {power.gain: ON} for the response with the preamplifier on. Several deviations of one parameter, each drawn on its own; the first whose `when` holds gives the parameter, a deviation without `when` (at most one) is the rest, and without it the nominal value applies (D70)
+             */
+            when?: {
+                [key: string]: unknown;
+            } | null;
         };
         /** Diagnostic */
         Diagnostic: {

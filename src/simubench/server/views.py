@@ -219,7 +219,8 @@ class SessionViews:
                     s.reveal_true_values,
                 )
                 for spec in d.deviations
-                for key in _deviation_keys(inst, spec.component, spec.parameter)
+                if spec.option is None or spec.option in inst.options  # an option's, on the units with it
+                for key in _deviation_keys(inst, spec.component, spec.parameter, spec.when)
             ],
             options=option_infos(d, inst.options),
         )

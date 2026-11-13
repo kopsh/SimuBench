@@ -132,6 +132,11 @@ class SpecanInput(Component):
         "att_auto": True,  # the attenuation is automatic (a setting)
         "ref_level": 0.0,  # dBm, the reference level the automatic attenuation holds (a setting)
         "preamp_gain": 0.0,  # dB, the preamplifier's gain (0: none, or off)
+        # The mixer level counts the preamplifier's gain: the automatic attenuation keeps the
+        # reference level plus the gain at the maximum mixer level, and the overload check adds
+        # it (the X-Series rule Atten = RefLevel + PreAmpGain − MaxMixerLevel, #1020). False: the
+        # gain is left out of both, as before.
+        "preamp_in_mixer_level": False,
         # The preamplifier's own figures at its input, from the data sheet (signal-chain.md 5.2,
         # #954); None: ideal. The block's stage refers them to the analyzer's input through the
         # attenuator ahead of the preamplifier.
@@ -193,7 +198,7 @@ class SpecanInput(Component):
     def attenuation(self) -> float:
         if bool(self.param("att_auto")):
             # Keep the reference level at the mixer limit, in 2 dB steps.
-            need = float(self.param("ref_level")) - float(self.param("max_mixer_level"))
+            need = float(self.param("ref_level")) + self._mixer_gain() - float(self.param("max_mixer_level"))
             return float(min(70.0, max(0.0, 2 * math.ceil(need / 2 - 1e-9))))
         return float(self.param("att"))
 
@@ -203,7 +208,12 @@ class SpecanInput(Component):
         total_mw += sig.dc**2 / float(self.param("z_in")) * 1e3
         if total_mw <= 0:
             return False
-        return 10 * math.log10(total_mw) - self.attenuation() > float(self.param("max_mixer_level"))
+        level = 10 * math.log10(total_mw) - self.attenuation() + self._mixer_gain()
+        return level > float(self.param("max_mixer_level"))
+
+    def _mixer_gain(self) -> float:
+        """The preamplifier's gain where the mixer level counts it (``preamp_in_mixer_level``), else 0."""
+        return float(self.param("preamp_gain")) if bool(self.param("preamp_in_mixer_level")) else 0.0
 
     @op("coupled_att")
     def op_coupled_att(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
@@ -348,7 +358,9 @@ class SpecanMixer(Component):
     tuned_ports = frozenset({"out"})
     refs = {"lo": ("specan_lo", "instrument")}
     defaults = {
-        "noise_figure": 24.0,  # receiver noise figure over kT0, dB
+        # receiver noise figure over kT0, dB; None: noiseless, for a path whose figures another
+        # stage carries as a whole (a preamplifier path of a data sheet, D70)
+        "noise_figure": 24.0,
         "lo": "",  # the specan_lo it converts against
         "conversion_loss": 0.0,  # dB lost from the RF line to its IF line
         # The mixer's own figures at its input, from the data sheet (signal-chain.md 5.2, #954).
@@ -457,9 +469,10 @@ class SpecanMixer(Component):
 
     def stage(self, f_hz: float) -> RfStageSpec:
         ip2, ip3, p1 = (self.param(k) for k in ("iip2_dbm", "iip3_dbm", "p1db_dbm"))
+        nf = self.param("noise_figure")
         return RfStageSpec(
             gain_db=-float(self.param("conversion_loss")),
-            noise_figure_db=float(self.param("noise_figure")),
+            noise_figure_db=None if nf is None else float(nf),
             iip2_dbm=math.inf if ip2 is None else float(ip2),
             iip3_dbm=math.inf if ip3 is None else float(ip3),
             p1db_dbm=math.inf if p1 is None else float(p1),

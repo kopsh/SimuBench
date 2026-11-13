@@ -26,7 +26,7 @@ from xml.sax.saxutils import escape, quoteattr
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from ..engine.commands import BUILTIN_HEADERS
+from ..engine.commands import answered_builtins
 from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, parse_unit, split_units
@@ -278,7 +278,7 @@ def check(definition: InstrumentDefinition, coverage: Coverage, cases: Cases | N
     if coverage.model != definition.id:
         problems.append(f"coverage table is for {coverage.model!r}, the definition is {definition.id!r}")
     defined = {_norm(c.header): c.header for c in definition.commands}
-    builtin = {_norm(h) for h in (BUILTIN_HEADERS if definition.builtins is None else definition.builtins)}
+    builtin = {_norm(h) for h in answered_builtins(definition)}
     listed: dict[str, tuple[str, CoverageEntry]] = {}
     forms: dict[str, tuple[str, CoverageEntry]] = {}
     for section, entry in coverage.entries():

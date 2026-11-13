@@ -3,7 +3,8 @@ name: keysight_n9042b_cases
 description: >-
   N9042B 手册用例的测试台：示例测试台（R&S SMA100B 的 5.8 GHz、-10 dBm 连续波接 RF_IN）再加一台
   SMA100B，输出关闭（关闭的输出不接入 RF_IN 的节点，原有用例的电平不变）。双音用例（#960）打开第二台：
-  两台同时打开时共用 RF_IN 的节点，各自的音在节点上比设定低 3.52 dB。
+  两台同时打开时共用 RF_IN 的节点，各自的音在节点上比设定低 3.52 dB。前放用例（#1020）用第二台
+  N9042B（sa_p26，装了前放选件 P26，输入不接即端接）。
 instruments:
   sg:
     model: rs-sma100b
@@ -13,6 +14,10 @@ instruments:
     state: {freq.cw: 1.001e9, power.level: -10.0, output.enabled: false}
   sa:
     model: keysight-n9042b
+  sa_p26:
+    model: keysight-n9042b
+    options: [P26]
+    state: {freq.center: 1.0e9, freq.span: 100.0e3, display.ref_level: -60.0}
 wires:
   - {from: sg.RF_OUT, to: sa.RF_IN}
   - {from: sg2.RF_OUT, to: sa.RF_IN}

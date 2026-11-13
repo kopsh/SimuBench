@@ -49,7 +49,9 @@ When the platform cannot express something the manual requires:
    uv run python -c "from simubench.server.catalog import components; [print(c.type, c.generic, c.category) for c in components()]"
    ```
    (or the MCP tool `list_components`, then `list_components(types=[...])` for the full fields).
-   Parameters bind to settings with `$path` and map with `{from, map, scale, offset, default}`.
+   Parameters bind to settings with `$path` and map with `{from, map, scale, offset, default}`;
+   a value of `map`/`table` may itself be a mapping when several settings decide one parameter
+   (preamp state × band × center frequency, D70, `docs/instrument-authoring.md` 2.3).
 5. **Definition** `src/simubench/library/instruments/<id>.yaml`: `reference`, `identity`,
    `errors`, `format`, state, components, commands. A hardware option the data sheet lists (a
    preamplifier) goes in `options` — the parameters of a unit that has it, and `option: <id>` on
@@ -57,7 +59,9 @@ When the platform cannot express something the manual requires:
    Two settings the manual does not allow together ("X is not available in Y mode"), or a
    coupling that changes one when the other is set, go in `constraints` (refuse or coerce, D69,
    `docs/instrument-authoring.md` 2.12) — not a component parameter; a code or direction the
-   manual leaves out is an assumption noted in the coverage table.
+   manual leaves out is an assumption noted in the coverage table. A data sheet that gives a
+   deviation per path or setting (the response with the preamp on) gets one `deviations` entry per
+   case with `when` (and `option`), D70 (`docs/metrology-authoring.md` 7.1).
    Validate as you go:
    ```bash
    uv run simubench validate src/simubench/library/instruments/<id>.yaml
