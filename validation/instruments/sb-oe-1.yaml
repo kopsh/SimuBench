@@ -1,0 +1,44 @@
+schema: simubench.instrument/1
+id: sb-oe-1
+manufacturer: SimuBench
+model: SB-OE-1
+class: converter
+version: 1
+description: >-
+  光电转换器（验证仪表，#1093）：光口 IN 进，光电二极管（响应度 0.8 A/W）加跨阻放大（500 V/A，即 400 V/W）、
+  4 阶 Bessel 带宽 20 GHz，电口 OUT 以 50 Ω 输出；平均光功率可查询（W 或 dBm）。等效输入光噪声 2 µW rms。
+identity:
+  serial: SBOE0000001
+  firmware: "1.0.0"
+state:
+  unit:
+    type: enum
+    options: [W, DBM]
+    default: W
+    label: 功率单位
+    label_en: Power unit
+components:
+  - name: orx
+    type: optical_receiver
+    params: {responsivity: 0.8, transimpedance: 500.0, bandwidth: 2.0e10, response: bessel4, noise_w: 2.0e-6}
+  - name: out
+    type: output_stage
+    params: {z_out: 50.0}
+wiring:
+  instrument:
+    - [orx.out, out.in]
+ports:
+  instrument:
+    IN: orx.in
+    OUT: out.pin
+display:
+  template: source
+  summary: [unit]
+capabilities: [converter]
+commands:
+  - header: ":UNIT[:POWer]"
+    state: unit
+  - header: ":FETCh[:POWer]"
+    op: orx.power
+    set: false
+    args: {unit: $unit}
