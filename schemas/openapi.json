@@ -607,6 +607,18 @@
             "title": "Bench",
             "type": "string"
           },
+          "stop_consent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The answer to the assistant's request to stop the running bench, from the panel's buttons: true agrees, false declines. Only the turn right after the request may carry it; a typed message is no answer, so the bench is never stopped on words alone (#902)",
+            "title": "Stop Consent"
+          },
           "text": {
             "maxLength": 20000,
             "minLength": 1,
@@ -792,6 +804,30 @@
             "title": "Steps",
             "type": "array"
           },
+          "stop_consent": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The user's answer to the previous turn's request to stop the bench, given with the panel's buttons: true agrees, false declines; null: no answer (a typed message)",
+            "title": "Stop Consent"
+          },
+          "stop_question": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The assistant asked in this turn to stop the running bench, for this reason; under the latest turn the panel offers to agree or decline (#902)",
+            "title": "Stop Question"
+          },
           "stop_reason": {
             "anyOf": [
               {
@@ -820,6 +856,8 @@
           "status",
           "stop_reason",
           "compacted",
+          "stop_question",
+          "stop_consent",
           "rolled_back",
           "started_at",
           "finished_at"

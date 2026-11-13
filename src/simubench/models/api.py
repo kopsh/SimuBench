@@ -1117,6 +1117,16 @@ class AssistantTurn(_Model):
         description="Why the turn ended early, in words (stopped by the user, going in circles, an error)",
     )
     compacted: bool = Field(False, description="Older content was compacted during this turn")
+    stop_question: str | None = Field(
+        None,
+        description="The assistant asked in this turn to stop the running bench, for this reason; "
+        "under the latest turn the panel offers to agree or decline (#902)",
+    )
+    stop_consent: bool | None = Field(
+        None,
+        description="The user's answer to the previous turn's request to stop the bench, given "
+        "with the panel's buttons: true agrees, false declines; null: no answer (a typed message)",
+    )
     rolled_back: bool = Field(False, description="The user restored the files to before this turn")
     started_at: str
     finished_at: str | None = None
@@ -1135,6 +1145,12 @@ class AssistantConversation(_Model):
 class AssistantMessageRequest(_Model):
     bench: str = Field(..., description="The bench the conversation belongs to")
     text: str = Field(..., min_length=1, max_length=20000)
+    stop_consent: bool | None = Field(
+        None,
+        description="The answer to the assistant's request to stop the running bench, from the "
+        "panel's buttons: true agrees, false declines. Only the turn right after the request may "
+        "carry it; a typed message is no answer, so the bench is never stopped on words alone (#902)",
+    )
 
 
 class AssistantStopRequest(_Model):

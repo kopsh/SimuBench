@@ -174,7 +174,7 @@ class AssistantService:
         self.store.clear(bench)
         self.logs.pop(bench, None)
 
-    async def send(self, bench: str, text: str) -> M.AssistantTurn:
+    async def send(self, bench: str, text: str, stop_consent: bool | None = None) -> M.AssistantTurn:
         self._check_bench(bench)
         if bench in self.tasks:
             raise Busy("上一轮还在进行：等它结束或先停止")
@@ -182,7 +182,17 @@ class AssistantService:
         check_settings(settings, self.manager)  # a bad default refuses here, in words (#901)
         model = self.model_factory(settings)  # ConfigError when not configured
         conv = self.store.load(bench)
-        turn = M.AssistantTurn(id=uuid.uuid4().hex[:12], user=text, started_at=_now())
+        # A request to stop the bench is answered by the next message only (#902): later turns
+        # carry no answer to it, and a stale one is forgotten. An answer without a request is none.
+        pending = conv.stop_requested_in is not None and conv.stop_requested_in == len(conv.turns) - 1
+        if not pending:
+            conv.stop_requested_in = None
+        turn = M.AssistantTurn(
+            id=uuid.uuid4().hex[:12],
+            user=text,
+            started_at=_now(),
+            stop_consent=stop_consent if pending else None,
+        )
         conv.turns.append(turn)
         record = TurnFiles()
         conv.files[turn.id] = record

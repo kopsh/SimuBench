@@ -97,7 +97,19 @@ class BenchFiles:
         # that work in progress is never lost.
         with contextlib.suppress(ValueError):
             data = edit.to_yaml_data(BenchDefinition.model_validate(data))
-        raw = _dump(path, data)
+        return self._write(bench_path, path, _dump(path, data), data, base_sha256, source)
+
+    def _write(
+        self,
+        bench_path: str,
+        path: Path,
+        raw: bytes,
+        data: dict[str, Any],
+        base_sha256: str | None,
+        source: Source,
+    ) -> M.BenchDocument:
+        """Write ``raw`` (whose content is ``data``) to the file, refusing to overwrite a file
+        the caller did not read (``base_sha256``), and record the version."""
         with self._lock:
             old = path.read_bytes() if path.exists() else None
             current = _sha(old) if old is not None else None
@@ -144,6 +156,17 @@ class BenchFiles:
             new_path = self.free_path(_with_stem(bench_path, "-copy"))
         data = dict(doc.data)
         data["name"] = name or f"{data.get('name') or Path(bench_path).name}（副本）"
+        # The copy is the original's text — its comments, which explain why values were chosen,
+        # included (#902) — with only the name line changed and the resource string a script
+        # connects with (`<file>@simubench`, e.g. in the description) pointing at the copy.
+        path = self.resolve(new_path)
+        source_path = self.resolve(bench_path)
+        if path.name.endswith(SUFFIXES) and ".json" not in (path.suffix, source_path.suffix):
+            raw = _renamed_text(source_path.read_bytes(), data["name"], source_path.name, path.name)
+            if raw is not None:
+                copied = _parse(path, raw)
+                if copied.get("name") == data["name"]:
+                    return self._write(new_path, path, raw, copied, None, source)
         return self.save(new_path, None, data, source)
 
     def free_path(self, bench_path: str) -> str:
@@ -295,6 +318,25 @@ def _with_stem(bench_path: str, extra: str) -> str:
         if bench_path.endswith(suffix):
             return bench_path[: -len(suffix)] + extra + suffix
     return bench_path + extra
+
+
+def _renamed_text(raw: bytes, name: str, old_file: str, new_file: str) -> bytes | None:
+    """A bench file's YAML text with its top-level ``name:`` line set to ``name`` and every
+    ``<old_file>@simubench`` (the resource string a script opens) turned into the new file's;
+    the rest — comments, order, spelling — as written. None when the file has no single
+    one-line top-level name to replace (the caller then writes the canonical form)."""
+    lines = raw.decode("utf-8").splitlines(keepends=True)
+    hits = [i for i, line in enumerate(lines) if line.startswith("name:")]
+    if len(hits) != 1:
+        return None
+    i = hits[0]
+    following = lines[i + 1] if i + 1 < len(lines) else ""
+    if following[:1] in (" ", "\t") and following.strip():  # a block scalar or a nested value
+        return None
+    ending = "\n" if lines[i].endswith("\n") else ""
+    lines[i] = f"name: {json.dumps(name, ensure_ascii=False)}{ending}"
+    text = "".join(lines).replace(f"{old_file}@simubench", f"{new_file}@simubench")
+    return text.encode("utf-8")
 
 
 def _sha(raw: bytes) -> str:

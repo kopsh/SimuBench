@@ -6,7 +6,8 @@ The rules live here, in the server, not in the prompt — whatever the model say
 * no tool deletes a bench or a definition file (an instrument or a wire in a bench, yes);
 * while a bench runs, only settings change: structure (instruments, parts, wires, models,
   addresses) needs the bench stopped, and stopping needs the user's agreement — the assistant asks
-  with ``ask_to_stop_session`` and may stop only in a later turn, after the user answered;
+  with ``ask_to_stop_session`` and may stop only in the next turn, when the user agreed with the
+  panel's button (``AssistantTurn.stop_consent``, #902) — a typed reply is no agreement;
 * no simulation control (faults, the clock, true values) and no SCPI to a running bench;
 * a definition's commands, replies and error codes change only with an example the user gave
   (``user_example`` must quote the user's own message): no guessing;
@@ -481,29 +482,41 @@ def ask_to_stop_session(
     reason: Annotated[str, Field(description="Why the bench has to stop, for the user")],
 ) -> str:
     """Ask the user to agree to stopping the running bench (needed before changing its structure).
-    End the turn after this and wait for the answer; stop_session works only after the user replied."""
+    End the turn after this: the panel offers the user to agree or decline, and stop_session works
+    only in the next turn, if the user agreed."""
     t = ctx.deps
 
     def run() -> str:
         if running_session(t, t.conv.bench) is None:
             raise ValueError("测试台没有在运行，不需要停止")
         t.conv.stop_requested_in = t.index
-        return "已记下。现在结束本轮，用一句话请用户确认是否停止；用户同意后再调用 stop_session"
+        t.turn.stop_question = reason
+        return (
+            "已记下。现在结束本轮，用一句话说明为什么要停止；面板会给用户“同意停止 / 不停止”两个按钮，"
+            "用户点了同意的下一轮才能调用 stop_session"
+        )
 
     return _call(t, "ask_to_stop_session", {"reason": reason}, run, _Step(t, "ask_to_stop_session", None))  # type: ignore[no-any-return]
 
 
 async def stop_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
-    """Stop this conversation's running bench — only after ask_to_stop_session in an earlier turn
-    and the user's agreement in their reply."""
+    """Stop this conversation's running bench — only in the turn right after ask_to_stop_session,
+    when the user agreed with the panel's button."""
     t = ctx.deps
     step = _Step(t, "stop_session", t.conv.bench)
 
     async def run() -> dict[str, Any]:
         asked = t.conv.stop_requested_in
-        if asked is None or asked >= t.index:
+        if asked is None or asked != t.index - 1:
             raise Forbidden(
                 "停止运行中的测试台要先征得用户同意：用 ask_to_stop_session 说明原因，结束本轮，等用户回答"
+            )
+        if t.turn.stop_consent is False:
+            raise Forbidden("用户点了“不停止”：不要停止测试台，告诉用户哪些改动因此没有做")
+        if t.turn.stop_consent is None:
+            raise Forbidden(
+                "用户没有用面板上的“同意停止”按钮回答，文字回复不算同意；需要停止就再用 "
+                "ask_to_stop_session 询问并结束本轮"
             )
         served = running_session(t, t.conv.bench)
         if served is None:

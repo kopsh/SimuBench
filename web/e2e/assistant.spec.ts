@@ -62,9 +62,15 @@ test("configure, build with consent to stop, restore, stop, clear, narrow", asyn
   await expect(panel.getByText("添加示波器需要先停止测试台，可以吗？")).toBeVisible();
   expect(Object.keys(((await (await page.request.get(`/api/benches/file?path=${path}`, { headers })).json()) as { data: { instruments: object } }).data.instruments)).toEqual(["awg", "scope"]);
 
-  // agreed: it stops, adds, restarts, and the page follows the bench to its new session
+  // the question comes with two buttons (#902): only the button agrees, a typed reply would not
+  const question = panel.getByTestId("assistant-stop-question");
+  await expect(question).toContainText("添加仪表要先停止测试台");
+  await expect(question.getByRole("button", { name: "不停止" })).toBeVisible();
+
+  // agreed with the button: it stops, adds, restarts, and the page follows the bench to its new session
   const before = page.url();
-  await say(page, "可以");
+  await question.getByRole("button", { name: "同意停止" }).click();
+  await expect(question).toHaveCount(0);
   await expect(panel.getByText("已添加示波器 scope2，并重新启动了测试台。")).toBeVisible({ timeout: 20_000 });
   await expect(panel.getByTestId("assistant-summary").last()).toContainText("scope2");
   await expect.poll(() => page.url()).not.toBe(before);

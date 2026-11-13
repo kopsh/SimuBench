@@ -116,3 +116,10 @@ export class SseParser {
     return out;
   }
 }
+
+/** The assistant asked, in the latest finished turn, to stop the running bench: only the user's
+ * button answers it (#902), and only in the next message — once another turn follows, it is gone. */
+export function stopAsked(turns: AssistantTurn[]): boolean {
+  const last = turns.at(-1);
+  return !!last?.stop_question && last.status === "done";
+}

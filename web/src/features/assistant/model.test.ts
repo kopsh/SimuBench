@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { en } from "@/i18n/en";
 import { zh } from "@/i18n/zh";
-import { type AssistantTurn, STEP_ACTIONS, SseParser, applyEvent, canRollBack, rollbackSummary, stepKey } from "./model";
+import { type AssistantTurn, STEP_ACTIONS, SseParser, applyEvent, canRollBack, rollbackSummary, stepKey, stopAsked } from "./model";
 
 const turn = (over: Partial<AssistantTurn> = {}): AssistantTurn => ({
   id: "t1",
@@ -12,6 +12,8 @@ const turn = (over: Partial<AssistantTurn> = {}): AssistantTurn => ({
   live: [],
   status: "running",
   stop_reason: null,
+  stop_question: null,
+  stop_consent: null,
   compacted: false,
   rolled_back: false,
   started_at: "2026-11-10T00:00:00Z",
@@ -159,5 +161,19 @@ describe("SseParser", () => {
     const first = p.feed(wire.slice(10, wire.indexOf("\n\n") + 5));
     expect(first.map((e) => e.text)).toEqual(["你"]);
     expect(p.feed(wire.slice(wire.indexOf("\n\n") + 5)).map((e) => e.text)).toEqual(["好"]);
+  });
+});
+
+describe("stopAsked (#902)", () => {
+  it("offers the buttons under a finished turn that asked to stop the bench", () => {
+    expect(stopAsked([turn({ status: "done", stop_question: "要删除频谱分析仪" })])).toBe(true);
+  });
+  it("not while the turn runs, nor once another turn follows it", () => {
+    expect(stopAsked([turn({ stop_question: "要删除频谱分析仪" })])).toBe(false);
+    expect(stopAsked([turn({ status: "done", stop_question: "要删除频谱分析仪" }), turn({ id: "t2", status: "done" })])).toBe(false);
+  });
+  it("not without a question", () => {
+    expect(stopAsked([turn({ status: "done" })])).toBe(false);
+    expect(stopAsked([])).toBe(false);
   });
 });
