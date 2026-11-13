@@ -36,12 +36,16 @@ sections:
   - header: HARMDUAL
     level: not_modeled
     note: 双参考未建模。
+    gap: blocked
+    blocked_by: dual-reference
   - header: BLADESLOTS
     level: not_modeled
     note: 斩波器（SR540）参考未建模。
+    gap: out_of_scope
   - header: BLADEPHASE
     level: not_modeled
     note: 斩波器（SR540）参考未建模。
+    gap: out_of_scope
   - header: SLVL
     level: implemented
     note: 正弦输出幅度 1 nV–2 V rms，接受 NV/UV/MV/V。Standard Settings 显示 0.00 Vrms，模型的复位值为下限 1 nV（3 位显示下同为 0.00）。
@@ -63,12 +67,15 @@ sections:
   - header: PSTF
     level: not_modeled
     note: 前面板预置频率键未建模。
+    gap: out_of_scope
   - header: PSTA
     level: not_modeled
     note: 前面板预置幅度键未建模。
+    gap: out_of_scope
   - header: PSTL
     level: not_modeled
     note: 前面板预置直流电平键未建模。
+    gap: out_of_scope
 - section: Signal Commands
   commands:
   - header: IVMD
@@ -92,12 +99,15 @@ sections:
   - header: ILVL
     level: not_modeled
     note: 信号强度指示（0–4）未建模；输入过载见 CUROVLDSTAT? 位 4。
+    gap: model_work
   - header: SCAL
     level: implemented
     note: 灵敏度 0（1 V）–27（1 nV），1-2-5 序列；电流输入时按 µA…fA 读。只决定输出过载，不缩放 X/Y/R。
   - header: DUALREFSYNC
     level: not_modeled
     note: 双参考未建模。
+    gap: blocked
+    blocked_by: dual-reference
   - header: OFLT
     level: implemented
     note: 时间常数 0（1 µs）–21（30 ks）。
@@ -131,9 +141,11 @@ sections:
   - header: OAUT
     level: not_modeled
     note: 自动偏置未建模。
+    gap: model_work
   - header: CRAT
     level: not_modeled
     note: 以 Aux In 3/4 为分母的比值未建模。
+    gap: model_work
 - section: Aux Input and Output Commands
   commands:
   - header: OAUX
@@ -147,9 +159,11 @@ sections:
   - header: ARNG
     level: not_modeled
     note: 自动量程未建模。
+    gap: model_work
   - header: ASCL
     level: not_modeled
     note: 自动定标（灵敏度）未建模。
+    gap: model_work
 - section: Display Commands
   commands:
   - header: DBLK
@@ -163,6 +177,8 @@ sections:
   - header: DCAP
     level: not_modeled
     note: 截屏到 U 盘未建模（无文件系统）。
+    gap: blocked
+    blocked_by: screenshot
   - header: CDSP
     level: implemented
     note: 数据通道 DAT1–DAT4（j = 0–3）的参数指派（0–16，词或序号），决定 SNAPD?/OUTR? 的读数。
@@ -173,138 +189,209 @@ sections:
   - header: GETSCREEN
     level: not_modeled
     note: 截屏图像未建模。
+    gap: blocked
+    blocked_by: screenshot
 - section: Strip Chart Commands
   commands:
   - header: GSPD
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: GSCL
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: GOFF
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: GAUT
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: GACT
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: GAUF
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: GLIV
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: PCUR
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: CURREL
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: CURDISP
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: CURBUG
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: FCRW
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: SCRY
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: CURDATTIM
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
   - header: CURINTERVAL
     level: not_modeled
     note: 条形图显示未建模。
+    gap: model_work
 - section: FFT Screen Commands
   commands:
   - header: FFTR
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FFTS
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FFTO
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FAUT
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FFTMAXSPAN
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FFTSPAN
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FFTA
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FFTL
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FCRX
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
   - header: FCRY
     level: not_modeled
     note: FFT 显示未建模。
+    gap: blocked
+    blocked_by: C5
 - section: Scan Commands
   commands:
   - header: SCNPAR
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNLOG
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNEND
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNSEC
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNAMPATTN
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNDCATTN
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNINRVL
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNENBL
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNRUN
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNPAUSE
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNRST
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNSTATE
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNFREQ
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNAMP
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNDC
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNAUX1
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
   - header: SCNAUX2
     level: not_modeled
     note: 扫描（参数随时间扫描）未建模。
+    gap: blocked
+    blocked_by: lockin-scan
 - section: Data Transfer Commands
   commands:
   - header: OUTR
@@ -330,6 +417,7 @@ sections:
   - header: CAPTURERATEMAX
     level: not_modeled
     note: 最大捕获率查询未建模（可由 CAPTURERATE 0 后的 CAPTURERATE? 得到）。
+    gap: model_work
   - header: CAPTURERATE
     level: implemented
     note: 写 n：速率 = 当前时间常数下的最大捕获率 / 2^n（0–20，手册的时间常数–最大速率表；100 µs 一行手册印作 325 kHz，按 1.25 MHz / 4 = 312.5 kHz）；查询回实际速率 Hz。
@@ -359,35 +447,45 @@ sections:
   - header: STREAMCH
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
   - header: STREAMRATEMAX
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
   - header: STREAMRATE
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
   - header: STREAMFMT
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
   - header: STREAMPCKT
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
   - header: STREAMPORT
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
   - header: STREAMOPTION
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
   - header: STREAM
     level: not_modeled
     note: 以太网数据流未建模。
+    gap: out_of_scope
 - section: System Commands
   commands:
   - header: TIME
     level: not_modeled
     note: 真实时钟设置未建模。
+    gap: out_of_scope
   - header: DATE
     level: not_modeled
     note: 真实日期设置未建模。
+    gap: out_of_scope
   - header: BLAZEX
     level: accepted
     note: Sync/BlazeX 输出选择保存并回读；该后面板输出不在台架上。
@@ -399,21 +497,32 @@ sections:
   - header: PRMD
     level: not_modeled
     note: 截屏方式未建模（无截屏）。
+    gap: model_work
   - header: SDFM
     level: not_modeled
     note: 数据文件格式未建模（无文件系统）。
+    gap: blocked
+    blocked_by: data-file
   - header: FBAS
     level: not_modeled
     note: 文件名前缀未建模。
+    gap: blocked
+    blocked_by: data-file
   - header: FNUM
     level: not_modeled
     note: 文件名后缀未建模。
+    gap: blocked
+    blocked_by: data-file
   - header: FNXT
     level: not_modeled
     note: 文件名查询未建模。
+    gap: blocked
+    blocked_by: data-file
   - header: SVDT
     level: not_modeled
     note: 存数据到 U 盘未建模。
+    gap: blocked
+    blocked_by: data-file
 - section: Interface Commands
   commands:
   - header: '*RST'
