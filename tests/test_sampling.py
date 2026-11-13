@@ -142,7 +142,7 @@ def test_jitter_moves_samples_along_the_slope(tmp_path):
 
 
 def test_an_acquisition_takes_its_samples_time():
-    with open_bench(BENCH) as s:
+    with open_bench(BENCH, idle="off") as s:
         before = s.now_ns
         s.write("dca", b":ACQuire:POINts 2500;:SINGle")
         took = s.now_ns - before
@@ -257,7 +257,7 @@ def test_record_matches_an_independent_analytic_waveform(tmp_path):
 
 
 def test_acquisition_time_is_proportional_to_the_points():
-    with open_bench(BENCH) as s:
+    with open_bench(BENCH, idle="off") as s:
         took = {}
         for points in (1000, 2000, 4000):
             before = s.now_ns
