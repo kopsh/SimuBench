@@ -18,6 +18,8 @@ from helpers import load_script
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "keysight-uxr0334b" / "bench.yaml"
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-uxr0334b.bench.yaml"
+# The 110 GHz UXR1104B (#1092): the same command set, its own ranges and noise table.
+EXAMPLE_BENCH_1104B = ROOT / "examples" / "benches" / "keysight-uxr1104b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_uxr_read_waveform.py"
 
 reader = load_script(SCRIPT)
@@ -68,8 +70,9 @@ def test_polling_synchronization_reports_the_acquisition_done(scope):
     assert uxr.query(":ADER?").strip() == "0"
 
 
-def test_example_bench_runs_the_script():
-    rm = pyvisa.ResourceManager(f"{EXAMPLE_BENCH}@simubench")
+@pytest.mark.parametrize("example", [EXAMPLE_BENCH, EXAMPLE_BENCH_1104B], ids=["uxr0334b", "uxr1104b"])
+def test_example_bench_runs_the_script(example):
+    rm = pyvisa.ResourceManager(f"{example}@simubench")
     try:
         uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
         uxr.write(":ACQuire:POINts 2000")
@@ -81,18 +84,30 @@ def test_example_bench_runs_the_script():
     assert volts.min() == pytest.approx(-0.2, abs=0.05)
 
 
-@pytest.mark.parametrize(("scale", "level", "sigma"), [(0.1, 0.2, 2.91e-3), (0.01, 0.02, 3.88e-4)])
-def test_the_captures_scatter_by_the_table_noise_around_the_true_level(tmp_path, scale, level, sigma):
+@pytest.mark.parametrize(
+    ("example", "scale", "level", "sigma"),
+    [
+        (EXAMPLE_BENCH, 0.1, 0.2, 2.91e-3),
+        (EXAMPLE_BENCH, 0.01, 0.02, 3.88e-4),
+        (EXAMPLE_BENCH_1104B, 0.1, 0.2, 6.1e-3),
+        (EXAMPLE_BENCH_1104B, 0.01, 0.02, 8.6e-4),
+    ],
+    ids=["uxr0334b-100mV", "uxr0334b-10mV", "uxr1104b-100mV", "uxr1104b-10mV"],
+)
+def test_the_captures_scatter_by_the_table_noise_around_the_true_level(
+    tmp_path, example, scale, level, sigma
+):
     """#745/#774/#786's statistical acceptance: the same DC captured repeatedly through the
     guide's waveform procedure — the samples scatter with the definition's noise on the range
-    (the Infiniium UXR-B data sheet's measured RMS Noise Floor table, UXR0334B column: 2.91 mV
-    rms at 100 mV/div and 388 µV rms at 10 mV/div, quantized to the 10-bit codes), the mean
-    stays at the true level, and every capture draws anew."""
+    (the Infiniium UXR-B data sheet's measured RMS Noise Floor table: UXR0334B column 2.91 mV
+    rms at 100 mV/div and 388 µV rms at 10 mV/div; UXR1104B column (#1092) 6.1 mV at 100 mV/div
+    and, below 12.5 mV/div, the 60 mV full-scale range's 860 µV; quantized to the 10-bit codes),
+    the mean stays at the true level, and every capture draws anew."""
     import math
 
     from refcalc.noise import quantized_sigma, sigma_interval
 
-    data = yaml.safe_load(EXAMPLE_BENCH.read_text("utf-8"))
+    data = yaml.safe_load(example.read_text("utf-8"))
     data["instruments"]["awg"]["state"].update({"ch1.function": "DC", "ch1.offset": level})
     bench = tmp_path / "bench.yaml"
     bench.write_text(yaml.safe_dump(data), "utf-8")

@@ -1,0 +1,38 @@
+schema: simubench.bench/2
+name: keysight_uxr1104b
+description: >-
+  Keysight 33622A 的 CH1（10 MHz 正弦）与 CH2（1 MHz 方波）接到 Keysight Infiniium UXR1104B（110 GHz、256 GSa/s，1 mm 输入）的 CH1、CH2
+  （50 Ω 输入，发生器负载设定 50 Ω；真实型号，D42）。示例脚本 examples/scripts/keysight_uxr_read_waveform.py
+  按 Infiniium 编程手册的步骤（:DIGitize、:WAVeform:PREamble?、WORD 数据）读波形，在真机和 SimuBench 上
+  都不改一行。
+instruments:
+  awg:
+    model: keysight-33622a
+    label: 函数/任意波发生器
+    address: "TCPIP0::192.168.1.50::inst0::INSTR"
+    state:
+      ch1.frequency: 1.0e7
+      ch1.amplitude: 0.4
+      ch1.output: true
+      ch2.function: SQUare
+      ch2.frequency: 1.0e6
+      ch2.amplitude: 0.4
+      ch2.output: true
+  scope:
+    model: keysight-uxr1104b
+    label: 示波器
+    address: "TCPIP0::192.168.1.61::hislip0::INSTR"
+    state:
+      ch1.scale: 0.1
+      ch2.display: true
+      ch2.scale: 0.1
+wires:
+  - {from: awg.CH1, to: scope.CH1}
+  - {from: awg.CH2, to: scope.CH2}
+run:
+  seed: 3
+  clock: command
+  idle: "off"
+layout:
+  awg: {x: 0, y: 80}
+  scope: {x: 440, y: 80}

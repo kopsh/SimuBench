@@ -2183,3 +2183,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 用例 | ✅ `tests/models/keysight-n9042b/cases.yaml`：新增“内部前放”用例（噪声底 1 GHz 关/开 -125/-136 dBm，10 GHz LOW/FULL -119/-136 dBm，`*OPT?`，-241），22/22 通过；原“未实现 -113”用例去掉已建模的前放命令 |
 | 文档 | ✅ `instrument-authoring.md` 2.3、2.10 与诊断码表，`metrology-authoring.md` 7.1，`real-models.md` 字段表，`decisions.md` D70，`real-model` 技能 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 真实型号 UXR1104B：110 GHz、256 GSa/s 的 Infiniium UXR（Issue 1092，#1091 的子项）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义与校验 | ✅ `keysight-uxr1104b.yaml`：UXR0334B 的命令集；带宽 113 GHz（典型，保证 110 GHz）、256 GSa/s、10 位、1 mm 50 Ω 输入；1 mV–500 mV/div；偏置 ±0.4/0.86/1.85/4.0 V 分档；每档噪声为数据手册 p.8 UXR1104B 列（860 µV–29 mV）；增益与偏置精度为 p.5 的保证值；`simubench validate` 通过。没改 `library/components/` |
+| 规格注明出处 | ✅ `specs` 每个数字写数据手册 3123-1313 的表与页；手册与数据手册不一致或都没给的值（`*RST` 的 500 mV/div、5 ps/div 的时基下限、AUTO 存储深度 256 kpts）在定义注释与覆盖表中写明 |
+| 覆盖表 | ✅ `keysight-uxr1104b.coverage.yaml`：程度与 UXR0334B 相同（实现 107、接受 6、未分拣 0），型号相关的说明改写；存储深度条目指向 #1012 |
+| 手册用例 | ✅ `tests/models/keysight-uxr1104b/cases.yaml` 47/47；带噪读数的期望值按 0.1 V/div 档 6.1 mV rms 写（峰峰 = 信号 + 两侧约 3.8σ），空通道测频改为 5 ps/div 下无完整周期的记录（1 mm 型号的噪声约 0.06 格 rms，会越过计数器回差） |
+| 噪声统计与示例台 | ✅ `examples/benches/keysight-uxr1104b.bench.yaml`；`tests/test_keysight_uxr.py` 的示例脚本与噪声统计参数化到两台型号（100 mV/div 6.1 mV、10 mV/div 落在 60 mV 量程的 860 µV） |
+| 文档 | ✅ `real-models.md` 第 8 节、`component-map.md`、`signal-chain.md`（平均次数上限）、`manuals/README.md`、`product-plan.md`（3.4 的例外、4.0 第 4、6 步、4.2 的 C18/C19、第 7 节） |
+| `scripts/check.sh` 通过 | ✅ |

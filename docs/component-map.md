@@ -29,7 +29,7 @@
 | measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 测量作用于所选的段(分段存储,#957),跨段的统计未建模;测量窗口只用主记录(没有缩放记录) |
 | waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
 
-内置型号(keysight-dsox2024a、keysight-uxr0334b、siglent-sds2104xplus、lecroy-wavepro804hd)全覆盖,无豁免。
+内置型号(keysight-dsox2024a、keysight-uxr0334b、keysight-uxr1104b、siglent-sds2104xplus、lecroy-wavepro804hd)全覆盖,无豁免。
 
 ## function_generator
 
@@ -244,6 +244,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | spectrum_analyzer | Keysight N9042B UXA | #336 | #274(部分)、#616 | 二.16 |
 | electronic_load | B&K Precision 8614(IT8900A、Chroma 63600 的编程手册取不到,#337 改用) | #337 | #258(CP 用例)、#661 | 二.15 |
 | oscilloscope | Keysight UXR0334B | #338 | #248(部分)、#602 | 二.13 |
+| oscilloscope | Keysight UXR1104B(110 GHz,与 UXR0334B 同一命令集,1 mm 输入的量程与噪声) | #1092 | — | 二.13 |
 | power_supply | Keysight N6705C | #339 | #271(部分) | 二.14 |
 | multimeter | Fluke 8588A | #340 | #301(电阻/电流) | 二.12 |
 | calibrator | Fluke 5730A | #341 | #329(`calibrator_output` 拆分) | 二.23、calibrator 节 |
@@ -254,9 +255,9 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | --- | --- | --- | --- |
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
 | 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;作为通道组件时只看本通道的标志(#348);跳变过滤 `ptr`/`ntr`(事件 = (~旧 & 新 & PTR) | (旧 & ~新 & NTR),STATus:PRESet 恢复 `preset_ptr` 与 0,#549);条件在每次命令分派时采样,两次读取之间的跳变也锁存(#575);一次查看内各组件的标志只算一遍,寄存器互读摘要不再逐层重算(#602);示波器采集推送 `TRG`、`ARM`、`DONE`(每次采集完成)与 `AUTO`(自动触发)事件(#602);DSO-X 的 :TER/:AER/:OPER、SR830 的四个字节(#273)、E36312A 的可疑寄存器组 QUES → QUES:INST → ISUMmary<n>(#348)已用上 | DL3021 的事件寄存器按需接上 |
-| 大容量存储 `file_system` | 跨类别（MMEMory、:DISK 的盘符、目录、文件） | 已实现（#1069）：每台仪表一个工作区内的文件夹（`.simubench/files/<测试台>/<仪表>/`），盘符为子文件夹；路径按仪表规则解析（盘符、绝对/相对、不分大小写），越界与符号链接拒绝；目录两种格式（Keysight MMEMory 的 `used,free,"名,类型,大小"`、Infiniium 的逐行）；复制、移动、通配符删除、定长块上传下载；写入事件带 sha256（D36）；API 列出与下载。33622A、UXR0334B 已接入 | 其余型号按覆盖表 `blocked_by: file-system` 接入；设置存取（#1070）、存数据（#1071）建在其上 |
-| 设置存取 `setup_memory` | 跨类别（*SAV/*RCL、:STORe/:RECall:SETup、MEMory:STATe、MMEMory:STORe/LOAD:STATe、*LRN?、:SYSTem:SETup） | 已实现（#1070）：设置 = 全部可由命令修改的设置（`Instrument.settings_snapshot`，不含只读变量、校准系数与抽取的个体值），以 SimuBench 的 JSON 保存；恢复时一次写回、通知组件，写回值不被联动改写（`restore_settings`）；寄存器跨 *RST 与跨运行保留（仪表文件夹内，或经 `file_system` 存为盘上文件，如 33622A 的 `INT:\Settings\STATE_n.STA`）；状态文件、学习串（定长块，可原样发回）。33622A、UXR0334B 已接入 | 其余型号按覆盖表 `blocked_by: setup-memory` 接入 |
-| 数据文件 `data_file` | 跨类别（MMEMory:STORe:DATA、:DISK:SAVE:WAVeform 一类） | 已实现（#1071）：文件内容即同一时刻查询的回答——读数存储器按 FETCh? 的写法、按通道分列（列标题、分隔符可设）；示波器记录与 :WAVeform:DATA? 同一份，写成“时间,伏特”文本（CSV/TSV/TXT）或 Keysight 示波器二进制文件（.bin）；手册没给的版式写明是 SimuBench 的，厂商私有容器（.wfm、HDF5、MATLAB、.dat）报错不写。DAQ970A、UXR0334B 已接入 | 频谱仪迹线、其余型号按覆盖表 `blocked_by: data-file` 接入 |
+| 大容量存储 `file_system` | 跨类别（MMEMory、:DISK 的盘符、目录、文件） | 已实现（#1069）：每台仪表一个工作区内的文件夹（`.simubench/files/<测试台>/<仪表>/`），盘符为子文件夹；路径按仪表规则解析（盘符、绝对/相对、不分大小写），越界与符号链接拒绝；目录两种格式（Keysight MMEMory 的 `used,free,"名,类型,大小"`、Infiniium 的逐行）；复制、移动、通配符删除、定长块上传下载；写入事件带 sha256（D36）；API 列出与下载。33622A、UXR0334B、UXR1104B 已接入 | 其余型号按覆盖表 `blocked_by: file-system` 接入；设置存取（#1070）、存数据（#1071）建在其上 |
+| 设置存取 `setup_memory` | 跨类别（*SAV/*RCL、:STORe/:RECall:SETup、MEMory:STATe、MMEMory:STORe/LOAD:STATe、*LRN?、:SYSTem:SETup） | 已实现（#1070）：设置 = 全部可由命令修改的设置（`Instrument.settings_snapshot`，不含只读变量、校准系数与抽取的个体值），以 SimuBench 的 JSON 保存；恢复时一次写回、通知组件，写回值不被联动改写（`restore_settings`）；寄存器跨 *RST 与跨运行保留（仪表文件夹内，或经 `file_system` 存为盘上文件，如 33622A 的 `INT:\Settings\STATE_n.STA`）；状态文件、学习串（定长块，可原样发回）。33622A、UXR0334B、UXR1104B 已接入 | 其余型号按覆盖表 `blocked_by: setup-memory` 接入 |
+| 数据文件 `data_file` | 跨类别（MMEMory:STORe:DATA、:DISK:SAVE:WAVeform 一类） | 已实现（#1071）：文件内容即同一时刻查询的回答——读数存储器按 FETCh? 的写法、按通道分列（列标题、分隔符可设）；示波器记录与 :WAVeform:DATA? 同一份，写成“时间,伏特”文本（CSV/TSV/TXT）或 Keysight 示波器二进制文件（.bin）；手册没给的版式写明是 SimuBench 的，厂商私有容器（.wfm、HDF5、MATLAB、.dat）报错不写。DAQ970A、UXR0334B、UXR1104B 已接入 | 频谱仪迹线、其余型号按覆盖表 `blocked_by: data-file` 接入 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
 
