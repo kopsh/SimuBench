@@ -997,7 +997,7 @@ sections:
     note: 'LESSthan and RANGe trigger at the edge that ends the pulse, GREaterthan at the instant the pulse has lasted the time (it need not have ended); a pulse that began before the trigger was armed (pre-trigger time, holdoff) does not count. LESSthan after *RST is a SimuBench assumption'
   - header: :TRIGger:GLITch:RANGe
     level: implemented
-    note: '<less_than_time>,<greater_than_time>: the two values are the :LESSthan and :GREaterthan settings; the order is not swapped when the first is the smaller (no pulse then qualifies)'
+    note: '<less_than_time>,<greater_than_time> in any order, as in the guide (p. 690; #1001): the larger value becomes :LESSthan, the smaller :GREaterthan; each range is checked after sorting; the query answers the less-than time first'
   - header: :TRIGger:GLITch:SOURce
     level: implemented
     note: 'the same setting as :TRIGger[:EDGE]:SOURce; LINE and WGEN never give a pulse-width trigger; digital channels are not modeled'

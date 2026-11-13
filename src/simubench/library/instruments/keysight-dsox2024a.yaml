@@ -945,7 +945,10 @@ commands:
     params:
       - {name: less_than, type: float, unit: S, state: trigger.glitch_less}
       - {name: greater_than, type: float, unit: S, state: trigger.glitch_greater}
-    doc: 先“小于”的时间（上限），后“大于”的时间（下限）；两个值就是 :LESSthan 与 :GREaterthan 的设置。
+    # 手册第 690 页：“You can enter the parameters in any order — the smaller value becomes the
+    # <greater_than_time> and the larger value becomes the <less_than_time>.”（#1001）
+    order: {ascending: [greater_than, less_than]}
+    doc: 两个时间顺序任意：较大的写到“小于”（上限），较小的写到“大于”（下限）；就是 :LESSthan 与 :GREaterthan 的设置，查询先回“小于”。
   # ---- WAVeform ----
   - {header: ":WAVeform:SOURce", state: waveform.source}
   - {header: ":WAVeform:FORMat", state: waveform.format}
