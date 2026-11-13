@@ -21,6 +21,7 @@ import re
 import numpy as np
 
 from ...engine.component import Component
+from ...engine.deviation import has_unit_values
 from ...engine.instrument import Instrument
 from ...engine.portref import split
 from ...engine.session import Session
@@ -49,9 +50,19 @@ class ProbeWithheld(Forbidden):
 
 def withheld(s: Session, inst: Instrument) -> bool:
     """Whether the instrument's internal signals are kept back: the bench hides true values, and
-    a component of the instrument carries a per-unit value (a drawn deviation, the bench's hidden
-    state, a parameter fault — all live in ``Component.overrides``)."""
-    return not s.reveal_true_values and any(c.overrides for c in inst.components.values())
+    a component of the instrument carries a hidden per-unit value (a drawn deviation, the bench's
+    ``hidden``, a parameter fault, a ``set_parameter`` write — each registered in
+    ``Component.unit_values``). A block's own run-time overrides (an SMU sweep, a calibrator's
+    operate) hide nothing (#972)."""
+    return not s.reveal_true_values and any(has_unit_values(c) for c in inst.components.values())
+
+
+def withheld_reason(instrument: str) -> str:
+    """Why the probe is refused, the same words over HTTP and MCP."""
+    return (
+        f"the internal probe is not available in validation mode: {instrument} has hidden "
+        "per-unit values and run.reveal_true_values is off"
+    )
 
 
 def out_ports(inst: Instrument) -> dict[str, tuple[Component, str, str]]:
@@ -153,10 +164,7 @@ def probe(sv: ServedSession, instrument: str, port: str, tune_hz: float | None =
     s = sv.session
     inst = s.instrument(instrument)
     if withheld(s, inst):
-        raise ProbeWithheld(
-            f"the internal probe is not available in validation mode: {instrument} has hidden "
-            "per-unit values and run.reveal_true_values is off"
-        )
+        raise ProbeWithheld(withheld_reason(instrument))
     ports = out_ports(inst)
     if port not in ports:
         raise KeyError(f"no output port {port!r} inside {instrument}; ports: {', '.join(sorted(ports))}")

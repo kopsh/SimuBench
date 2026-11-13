@@ -448,6 +448,11 @@ class Component:
         self.channel = channel
         self._params = {**self.defaults, **params}
         self.overrides: dict[str, Any] = {}
+        #: The parameters whose override is a hidden per-unit value — a drawn deviation, the bench's
+        #: ``hidden``, a parameter fault, a ``set_parameter`` write (``deviation.py`` registers
+        #: them). The run-time overrides a block writes for itself (a sweep's level, a calibrator's
+        #: operate) are not: what the internal probe keeps back is decided from this (#972).
+        self.unit_values: set[str] = set()
 
     # ---- identity ----------------------------------------------------------------------------
 

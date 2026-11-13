@@ -465,8 +465,9 @@ class InternalProbe(_Model):
   端口的当前采样间隔由块给出（钩子 `Component.sample_interval(port)`，带 `samples` 输出的块必须实现）。
   没有自身速率的转换器（“问多快就采多快”，如 `sb-dso-4` 的理想 ADC）按读它的块所要的间隔取：钩子 `Component.input_interval(port)`（`scope_decimator` 已实现）。
 - **保密**：探针显示的是信号，信号由个体偏差决定。测试台不公开真实值（`run.reveal_true_values` 关闭，验证模式，security.md）
-  且**该仪表带有隐藏的个体值**（抽取的个体偏差、测试台的 `hidden`、参数类故障——都落在组件的 `overrides` 里）时，内部探针接口返回 403，
-  界面显示“验证模式下不提供内部探针”——否则定标脚本的作者可以从 ADC 码值反推被隐藏的增益误差。内部结构图（标称参数）照常可看。
+  且**该仪表带有隐藏的个体值**（抽取的个体偏差、测试台的 `hidden`、参数类故障、`set_parameter` 写入——各自登记在组件的 `unit_values`，
+  `deviation.has_unit_values` 判断；组件为自身运行写的覆盖，如 SMU 扫描中的电平、校准器的 operate，不算，#972）时，内部探针接口返回 403，
+  HTTP 与 MCP 给出同一条原因（含仪表名：该仪表含隐藏的个体值且 `run.reveal_true_values` 关闭），界面显示“验证模式下不提供内部探针”——否则定标脚本的作者可以从 ADC 码值反推被隐藏的增益误差。内部结构图（标称参数）照常可看。
   仪表全部为标称值时没有可泄露的内容，探针照常提供（实现 #951 时的修正：`reveal_true_values` 默认关闭，按原先“关闭即拒绝”的写法，
   所有自带示例测试台上都用不了内部探针）。
 - **调谐上下文**（#959）：`InstrumentInternals.tuning`（`InternalTuning`：`center_hz`、`min_hz`/`max_hz`、`marks`（已开启的标记及增量标记的参考）、`ports`（随调谐变化的输出端口：声明了 `tuned_ports` 的块的输出及其下游全部输出））。
