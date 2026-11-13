@@ -251,8 +251,16 @@ class SetupMemory(Component):
         return OpResult()
 
     @op("load_file")
-    def op_load_file(self, name: str, **_: Any) -> OpResult:
-        """Put the settings of a state file back (MMEMory:LOAD:STATe)."""
+    def op_load_file(self, name: str, others: str = "", default_extension: str = "", **_: Any) -> OpResult:
+        """Put the settings of a state file back (MMEMory:LOAD:STATe). ``others``: the command also
+        loads other file types (the Infiniium's :DISK:LOAD: waveforms into memories), which are not
+        modeled — a name with another extension (``default_extension`` when it has none) is refused
+        with -257 and this text."""
+        if others:
+            tail = re.split(r"[\\/:]", name)[-1]
+            ext = ("." + tail.rsplit(".", 1)[-1]) if "." in tail else default_extension
+            if ext.casefold() != str(self.param("extension") or "").casefold():
+                raise ScpiError(-257, others)
         storage = self._storage()
         if storage is None:
             raise ScpiError(-300, f"{self.uid}: no storage for state files")

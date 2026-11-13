@@ -1615,3 +1615,34 @@ cases:
       - query: ":MEASure:VTIMe? 1E-8,CHANnel2"
         expect_value: -0.2
         tolerance: 0.03
+  - name: ":MEASure:STATistics 选 :MEASure:RESults? 回的统计；:DISK:SAVE:MEASurements 存成 CSV"
+    manual: ":MEASure Commands > :MEASure:STATistics; :DISK Commands > :DISK:SAVE:MEASurements"
+    steps:
+      - query: ":MEASure:STATistics?"
+        expect: "ON"
+      - send: ":MEASure:VTOP CHANnel1;:MEASure:VBASe CHANnel1;:MEASure:STATistics COUNt"
+      - query: ":MEASure:RESults?"
+        expect: "1,1"
+      - send: ":MEASure:STATistics MEAN"
+      - query: ":MEASure:STATistics?"
+        expect: "MEAN"
+      - query: ":MEASure:RESults?"
+        expect_fields: [{nonempty: true}, {nonempty: true}]
+      - send: ':MEASure:STATistics ON;:DISK:SAVE:MEASurements "M1"'
+      - query: ":DISK:DIRectory?"
+        expect: "1\nM1.csv"
+      - query: ':DISK:GETFILE? "M1.csv"'
+        binary: true
+        expect_block: {starts: "Measurement,Current,Min,Max,Mean,Std Dev,Count\r\nVBASe(1),"}
+      - send: ':DISK:SAVE:MEASurements "M2",ON'
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: ":DISK:LOAD 装回设置文件；波形文件未建模（-257）"
+    manual: ":DISK Commands > :DISK:LOAD"
+    steps:
+      - send: ':CHANnel1:SCALe 0.2;:DISK:SAVE:SETup "S1";:CHANnel1:SCALe 0.5;:DISK:LOAD "S1.set"'
+      - query: ":CHANnel1:SCALe?"
+        expect: "+2.00000E-01"
+      - send: ':DISK:LOAD "W1",WMEMory1'
+      - query: ":SYSTem:ERRor?"
+        expect: "-257"

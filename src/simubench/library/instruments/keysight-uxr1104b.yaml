@@ -421,6 +421,8 @@ state:
   # 测量结果附带结果状态（:MEASure:SENDvalid ON）未建模，只能 OFF。
   measure.sendvalid: {type: enum, options: ["OFF", "0"], replies: {"OFF": "0"}, not_modeled: {"ON": result states after each measurement are not modeled, "1": result states after each measurement are not modeled}, default: "OFF", label: 结果状态, label_en: Send valid}
   # 测量窗口：MAIN 与 ALL 都是整个采集（手册）；ZOOM（缩放窗口门控）与 CGRade 未建模。
+  # :MEASure:RESults? 回什么（:MEASure:STATistics）：ON 为标签与全部统计。上电值 ON（SimuBench 值）。
+  measure.statistics: {type: enum, options: ["ON", "1", CURRent, MAXimum, MEAN, MINimum, STDDev, COUNt], replies: {"1": "ON"}, default: "ON", label: 测量统计, label_en: Statistics}
   measure.window: {type: enum, options: [MAIN, ALL], default: MAIN, label: 测量窗口, label_en: Measurement window}
   # ---- 界面偏好与显示（不改变数据，覆盖表为“接受”；手册 Default Setup 不改用户偏好与显示颜色，
   # 故标 keep_on_reset）。上电值手册未给的为 SimuBench 值，覆盖表注明。
@@ -788,7 +790,9 @@ components:
       # 测量阈值（:MEASure:THResholds）按信源两组，见 measure.thr.*；屏幕上的测量至多 20 个（手册 :MEASure:RESults?）。
       thresholds: measure.thr
       slots: 20
-      results_order: AORDered  # 手册：AORDered（或不带参数）先回最新加的
+      results_order: AORDered
+      statistics: $measure.statistics
+      storage: disk  # 手册：AORDered（或不带参数）先回最新加的
       # :TRIGger:LEVel:FIFTy：触发信源的电平设到其波形的 50%。
       trigger_levels: {1: trigger.level1, 2: trigger.level2, 3: trigger.level3, 4: trigger.level4}
   - name: sys
@@ -1581,3 +1585,19 @@ commands:
     params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: method, type: enum, options: [ABSolute, HISTONLY, MINmax, STANdard], state: "measure.thr.general{source}.tb_method", mirror: ["measure.thr.rfall{source}.tb_method"]}]
   - header: ":MEASure:THResholds:TOPBase:ABSolute"
     params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, ALL], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, ALL: 5}, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, CLOCk: clock recovery is out of scope, MTRend: measurement trends are out of scope, MSPectrum: measurement spectra are out of scope, EQUalized: equalization is out of scope, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}, {name: top, type: float, unit: V, state: "measure.thr.general{source}.tb_top", mirror: ["measure.thr.rfall{source}.tb_top"]}, {name: base, type: float, unit: V, state: "measure.thr.general{source}.tb_base", mirror: ["measure.thr.rfall{source}.tb_base"]}]
+  - {header: ":MEASure:STATistics", state: measure.statistics}
+  # :DISK:SAVE:MEASurements：屏幕上的测量存成 CSV（版式为 SimuBench 的）；旧版格式（ON）未建模。
+  - header: ":DISK:SAVE:MEASurements"
+    op: meas.store_results
+    query: false
+    params:
+      - {name: name, type: string}
+      - {name: legacy, type: enum, options: ["OFF", "0"], optional: true, not_modeled: {"ON": the pre-5.00 file layout is not modeled, "1": the pre-5.00 file layout is not modeled}}
+  # :DISK:LOAD：只建模设置文件（.set）；波形文件装入波形存储器（WMEMory）与组合文件（.osc）未建模。
+  - header: ":DISK:LOAD"
+    op: setups.load_file
+    query: false
+    args: {others: "loading waveform and composite files is not modeled (waveform memories are not)", default_extension: .wfm}
+    params:
+      - {name: name, type: string}
+      - {name: destination, type: raw, optional: true}

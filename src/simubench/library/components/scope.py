@@ -2371,6 +2371,11 @@ class ScopeMeasurements(Component):
         # :MEASure:RESults? without an order: "" oldest first (InfiniiVision), AORDered newest
         # first (the Infiniium: "AORDered (or no option)")
         "results_order": "",
+        # what :MEASure:RESults? gives per measurement (a setting such as $measure.statistics): ON
+        # (or empty) the label and every statistic; CURRent, MINimum, MAXimum, MEAN, STDDev or
+        # COUNt that value alone
+        "statistics": "",
+        "storage": "",  # the file_system component :DISK:SAVE:MEASurements writes to (empty: none)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -2423,6 +2428,14 @@ class ScopeMeasurements(Component):
             if word.startswith("GORD")
             else list(self.installed)
         )
+        parts, used = self._result_rows(entries)
+        return OpResult(b",".join(parts), used)
+
+    def _result_rows(self, entries: list[tuple[str, int]], every: bool = False) -> tuple[list[bytes], int]:
+        """One row per measurement: label and every statistic, or the one ``statistics`` names
+        (``every``: always the full row)."""
+        assert self.owner is not None
+        stat = "" if every else str(self.param("statistics") or "").strip().upper()
         parts: list[bytes] = []
         used = 0
         for what, n in entries:
@@ -2430,6 +2443,17 @@ class ScopeMeasurements(Component):
             used += u
             self._keep(what, n, value)
             values = np.array(self.history.get((what, n)) or [])
+            if stat and not stat.startswith("ON"):
+                pick = {
+                    "CURR": value,
+                    "MIN": float(values.min()) if values.size else math.nan,
+                    "MAX": float(values.max()) if values.size else math.nan,
+                    "MEAN": float(values.mean()) if values.size else math.nan,
+                    "STDD": float(values.std()) if values.size else math.nan,
+                }
+                key = next((k for k in pick if stat.startswith(k)), None)
+                parts.append(str(values.size).encode() if key is None else self._number(pick[key]))
+                continue
             fields = [self._label(what, n).encode(), self._number(value)]
             if values.size:
                 fields += [
@@ -2439,7 +2463,25 @@ class ScopeMeasurements(Component):
                 fields += [self._number(math.nan)] * 4
             fields.append(str(values.size).encode())
             parts.append(b",".join(fields))
-        return OpResult(b",".join(parts), used)
+        return parts, used
+
+    @op("store_results")
+    def op_store_results(self, name: str = "", **_: Any) -> OpResult:
+        """``:DISK:SAVE:MEASurements "<file>"``: the screen's measurements to a CSV file on
+        ``storage`` (``.csv`` added): a header line, then one row per measurement, top to bottom —
+        label, current, min, max, mean, std dev, count (SimuBench's layout)."""
+        assert self.owner is not None
+        storage: Any = self.peer(str(self.param("storage")))
+        if storage is None:
+            raise ScpiError(-300, f"{self.uid}: no storage for measurement files")
+        tail = re.split(r"[\\/:]", name)[-1]
+        file = name if tail.lower().endswith(".csv") else name + ".csv"
+        rows, used = self._result_rows(list(self.screen), every=True)
+        text = "Measurement,Current,Min,Max,Mean,Std Dev,Count\r\n" + "".join(
+            r.decode() + "\r\n" for r in rows
+        )
+        storage.store(file, text.encode())
+        return OpResult(duration_ns=used)
 
     def _entry(self, index: Any) -> tuple[str, int]:
         """The screen's measurement at a position from the top (1, or ``MEAS3``)."""

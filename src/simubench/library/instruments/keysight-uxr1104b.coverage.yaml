@@ -149,7 +149,7 @@ sections:
     note: RUN, STOP or SING
   - header: :RUN
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "Continuous acquisitions per :TRIGger:SWEep; :RSTate? then answers RUN."
   - header: :SERial
     level: implemented
     note: 'query only: the serial number of *IDN? without quotes, as the guide''s sample. Setting the
@@ -162,7 +162,7 @@ sections:
     note: CHANnel<N> only
   - header: :STOP
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "Stops acquiring; the last record stays for transfers and measurements; :RSTate? answers STOP."
   - header: :STORe:JITTer
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -746,7 +746,7 @@ sections:
     blocked_by: differential-input
   - header: :CHANnel<N>:DISPlay
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "Channel on or off; CH1 on at power-on and after Default Setup, the others off (guide's Default Setup table)."
   - header: :CHANnel<N>:DISPlay:AUTO
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): differential and common-mode channel inputs.'
@@ -1013,10 +1013,8 @@ sections:
     level: implemented
     note: 'file_system component (#1069): the file as a definite-length block.'
   - header: :DISK:LOAD
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
-    gap: blocked
-    blocked_by: file-system
+    level: implemented
+    note: "Setup files (.set, saved with :DISK:SAVE:SETup) are loaded (setup_memory, #1070). Waveform files into waveform memories and composite files (.osc), and a name without a suffix (.wfm by default), are refused with -257: waveform memories are blocked (waveform-memory)."
   - header: :DISK:MDIRectory
     level: implemented
     note: 'file_system component (#1069): in the present working directory or at a full path; the parent must exist.'
@@ -1045,10 +1043,8 @@ sections:
     note: 'Out of scope: saves the results of an application-layer analysis (jitter, noise, PrecisionProbe, lister; product-plan.md section 6).'
     gap: out_of_scope
   - header: :DISK:SAVE:MEASurements
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
-    gap: blocked
-    blocked_by: data-file
+    level: implemented
+    note: "The screen's measurements, top to bottom, to <file>.csv on the scope's disk (file_system, #1069): a header line, then label,current,min,max,mean,std dev,count per measurement (SimuBench's layout; the guide gives none). The pre-5.00 layout (ON) is not modeled (-224)."
   - header: :DISK:SAVE:MREPort
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
@@ -1193,8 +1189,8 @@ sections:
     gap: out_of_scope
   - header: :DISPlay:LABel
     level: accepted
+    note: "Channel labels shown or hidden; saved and read back."
     affects_data: false
-    note: 草稿：定义中已有，确认程度与说明
   - header: :DISPlay:LAYout
     level: accepted
     note: "TAB (CUSTom answers TAB), SVERtical or SHORizontal; TAB until set (a SimuBench value)."
@@ -3171,10 +3167,8 @@ sections:
     level: implemented
     note: one or two channels; the second is kept for two-source measurements
   - header: :MEASure:STATistics
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): measurement statistics and limit testing.'
-    gap: blocked
-    blocked_by: measurement-statistics
+    level: implemented
+    note: "What :MEASure:RESults? gives per measurement: ON (default, a SimuBench value) the label, current, min, max, mean, std dev and count; CURRent, MINimum, MAXimum, MEAN, STDDev or COUNt that value alone. Statistics run from when a measurement is added (or the list cleared); limit testing is still blocked."
   - header: :MEASure:TEDGe
     level: implemented
     note: "<meas_thres_txt> UPPer, MIDDle or LOWer (the general thresholds), [+|-]<occurrence>: the time of that edge from the trigger."
@@ -4048,12 +4042,12 @@ sections:
       the guide does not give)'
   - header: :SYSTem:HLED
     level: accepted
+    note: "Front panel LEDs hidden or shown; saved and read back."
     affects_data: false
-    note: 草稿：定义中已有，确认程度与说明
   - header: :SYSTem:LOCK
     level: accepted
+    note: "Front panel knobs and keys locked; remote commands still work. Saved and read back."
     affects_data: false
-    note: 草稿：定义中已有，确认程度与说明
   - header: :SYSTem:LONGform
     level: implemented
     note: 'ON: headers and enumerations in the long form (CENTER, :TIMEBASE:REFERENCE); the guide''s :MODel?
@@ -4155,7 +4149,7 @@ sections:
     blocked_by: C8
   - header: :TRIGger:FORCe
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "Takes one acquisition without waiting for the trigger."
   - header: :TRIGger:HIGH
     level: accepted
     note: "Saved and read back (ON at power-on: the guide says it turns on with rising or falling edge triggers). The simulated trigger path has no bandwidth limit, so the setting changes nothing; the longer Trig Out delay is not modeled."
@@ -4544,7 +4538,7 @@ sections:
     note: "+0.00000E+00,<:ACQuire:BANDwidth>: DC coupling to the acquisition bandwidth filter; a channel's ISIM bandwidth limit is not included."
   - header: :WAVeform:BYTeorder
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "MSBFirst (default) or LSBFirst for BYTE and WORD data."
   - header: :WAVeform:CGRade:HEIGht
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -4576,7 +4570,7 @@ sections:
     gap: out_of_scope
   - header: :WAVeform:POINts
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "Query: the points :WAVeform:DATA? sends for the source's record."
   - header: :WAVeform:PREamble
     level: implemented
     note: 'the guide''s 24 fields; date and time are fixed values (the bench has no calendar), the frame
@@ -4616,10 +4610,10 @@ sections:
     note: "The time at the left edge of the screen (the preamble's X display origin)."
   - header: :WAVeform:XINCrement
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "The sample interval of the source's record, s."
   - header: :WAVeform:XORigin
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "The time of the first sample sent, from the trigger (with the trigger's sub-sample fraction and jitter)."
   - header: :WAVeform:XRANge
     level: implemented
     note: "Ten divisions of the timebase."
@@ -4634,7 +4628,7 @@ sections:
     note: "The value at center screen: the source channel's offset."
   - header: :WAVeform:YINCrement
     level: implemented
-    note: 草稿：定义中已有，确认程度与说明
+    note: "Volts per code of the data format (the scale over 128 codes per division, shifted to the word width)."
   - header: :WAVeform:YORigin
     level: implemented
     note: 'the channel offset: the voltage at code 0'
