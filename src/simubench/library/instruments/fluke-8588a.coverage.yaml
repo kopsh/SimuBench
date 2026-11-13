@@ -161,86 +161,76 @@ sections:
 - section: CALCulate subsystem
   commands:
   - header: CALCulate:AVERage[:STATe]
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '读数后处理（#1041，reading_math）的平均：作用于 READ?/FETCh?/MEASure? 的读数；在数学运算之前。'
   - header: CALCulate:AVERage:COUNt
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '1–10000。默认取 Table 6 的 16；Remote Command Examples 的 *RST 状态写“CALCulate:AVERage = 1, OFF”，两处不一致。'
   - header: CALCulate:AVERage:TCONtrol
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: 'MOVing：每个读数是最近 N 个的平均，设置改变后窗口重新累积；REPeat：每个读数取 N 个新读数的平均，一个读数的虚拟时间为 N 倍。'
   - header: CALCulate:LIMit:CLEar[:IMMediate]
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '清除越限标志。'
   - header: CALCulate:LIMit:LOWer
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '默认 -1.99999999E+15（Table 6）。'
   - header: CALCulate:LIMit:LOWer:STATe
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:LIMit:FAIL
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '读数在开启的上/下限之外后为 1，保持到 CLEar；越限时发出状态事件 LIMIT（本定义的状态寄存器未使用它）。'
   - header: CALCulate:LIMit[:STATe]
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '限值检查在数学运算与单位换算之后的读数上进行。'
   - header: CALCulate:LIMit:UPPer
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '默认 +1.999999999E+15（Table 6 原文截断为 +1.999999999e，按 LOWer 补全）；9 位尾数回复为 +2.00000000E+15。'
   - header: CALCulate:LIMit:UPPer:STATe
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:MATH:CFACtor
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '默认 1（Table 6）；LREading（取上一个读数）未实现，回 -224。'
   - header: CALCulate:MATH:CFACtor:STATe
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:MATH:MFACtor
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '默认 1；LREading（取上一个读数）未实现，回 -224。'
   - header: CALCulate:MATH:MFACtor:STATe
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:MATH:MUNits
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: 'PERCent = 100·(mx − c)/z；DB = 20·log10|(mx − c)/z|；DB50/75/600 = 10·log10(y²/R/1 mW)。Table 6 的默认值是排版错误（写成数值），取 PERCent（SimuBench 值）。'
   - header: CALCulate:MATH:MUNits:STATe
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:MATH[:STATe]
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '(m·x − c)/z，各因子由各自的 :STATe 打开。'
   - header: CALCulate:MATH:RESet
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: 'm、c、z 回到默认值 1；各因子的 :STATe 不变。'
   - header: CALCulate:MATH:ZFACtor
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '默认 1；LREading 未实现，回 -224；z = 0 时读数报 -222。'
   - header: CALCulate:MATH:ZFACtor:STATe
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:SSTatistics:AVERage
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '统计的是本次测量（READ?、INITiate、MEASure? 开始一次新的）以来经过后处理的读数，不是对读数存储器重算；超量程读数不计入。'
   - header: CALCulate:SSTatistics:COUNt
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:SSTatistics:MAXimum
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:SSTatistics:MINimum
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
   - header: CALCulate:SSTatistics:SDEViation
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '样本标准差（n − 1）；设置形式 SDEViation PPM（以 ppm 表示）未实现，只有查询。'
   - header: CALCulate:SSTatistics:SPAN
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
+    note: '最大值 − 最小值。'
   - header: CALCulate:SSTatistics:STATe
-    level: not_modeled
-    note: 平均、限值、数学运算与统计未实现。
+    level: implemented
 - section: CALibration subsystem
   commands:
   - header: CALibration:COPY:BASeline

@@ -456,7 +456,7 @@ cases:
         expect: '-224,"Illegal parameter value"'
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'
-      - send: ":CALC:AVER:STAT ON"
+      - send: ":SYST:DAT 2026,1,1"
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
 
@@ -486,3 +486,161 @@ cases:
       - send: "*WAI"
       - query: "*TST?"
         expect: "0"
+  - name: "CALCulate 的上电默认值"
+    manual: "Table 6 > CALCulate:AVERage / LIMit / MATH / SSTatistics (Default …)"
+    steps:
+      - send: "*RST"
+      - query: ":CALC:AVER?"
+        expect: "0"
+      - query: ":CALC:AVER:COUN?"
+        expect: "16"
+      - query: ":CALC:AVER:TCON?"
+        expect: "MOV"
+      - query: ":CALC:LIM?"
+        expect: "0"
+      - query: ":CALC:LIM:LOW:STAT?"
+        expect: "0"
+      - query: ":CALC:LIM:UPP:STAT?"
+        expect: "0"
+      - query: ":CALC:LIM:LOW?"
+        expect_value: -1.99999999e+15
+      - query: ":CALC:LIM:UPP?"
+        expect_value: 1.999999999e+15
+        tolerance: 1.0e+7
+      - query: ":CALC:MATH?"
+        expect: "0"
+      - query: ":CALC:MATH:MFAC?"
+        expect_value: 1.0
+      - query: ":CALC:MATH:CFAC?"
+        expect_value: 1.0
+      - query: ":CALC:MATH:ZFAC?"
+        expect_value: 1.0
+      - query: ":CALC:MATH:MFAC:STAT?"
+        expect: "0"
+      - query: ":CALC:MATH:CFAC:STAT?"
+        expect: "0"
+      - query: ":CALC:MATH:ZFAC:STAT?"
+        expect: "0"
+      - query: ":CALC:MATH:MUN:STAT?"
+        expect: "0"
+      - query: ":CALC:SST:STAT?"
+        expect: "0"
+  - name: "CALCulate:MATH：(m·x − c)/z、百分比、dB 与 dBm，RESet"
+    manual: "Table 6 > CALCulate:MATH (Math calculates (mx - c)/z; MUNits PERCent|DB50|DB75|DB600|DB; RESet)"
+    steps:
+      - instrument: cal
+        send: "OUT 10 V;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC 10"
+      - send: ":CALC:MATH:MFAC 2;MFAC:STAT ON"
+      - send: ":CALC:MATH:CFAC 10;CFAC:STAT ON"
+      - send: ":CALC:MATH ON"
+      # 2 × 10 V − 10 = 10
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 2.4e-5
+      - send: ":CALC:MATH:ZFAC 20;ZFAC:STAT ON"
+      # (2 × 10 − 10) / 20 = 0.5
+      - query: ":READ?"
+        expect_value: 0.5
+        tolerance: 1.2e-6
+      - send: ":CALC:MATH:MUN PERC;MUN:STAT ON"
+      - query: ":READ?"
+        expect_value: 50.0
+        tolerance: 1.2e-4
+      - send: ":CALC:MATH:MUN DB"
+      # 20·log10(0.5)
+      - query: ":READ?"
+        expect_value: -6.0206
+        tolerance: 1.0e-4
+      - query: ":CALC:MATH:MUN?"
+        expect: "DB"
+      - send: ":CALC:MATH:MFAC:STAT OFF"
+      - send: ":CALC:MATH:CFAC:STAT OFF"
+      - send: ":CALC:MATH:ZFAC:STAT OFF"
+      - send: ":CALC:MATH:MUN DB50"
+      # 10 V into 50 Ω: 10·log10(10² / 50 / 1 mW) = 33.0103 dBm
+      - query: ":READ?"
+        expect_value: 33.0103
+        tolerance: 1.0e-4
+      - send: ":CALC:MATH:RES"
+      - query: ":CALC:MATH:CFAC?"
+        expect_value: 1.0
+      - query: ":CALC:MATH:MFAC?"
+        expect_value: 1.0
+      - send: ":CALC:MATH:CFAC LRE"
+      - query: ":SYST:ERR?"
+        expect: '-224,"Illegal parameter value"'
+  - name: "CALCulate:LIMit：越限标志、FAIL? 与 CLEar"
+    manual: "Table 6 > CALCulate:LIMit (LOWer, UPPer, :STATe, FAIL? Outside limits = 1, CLEar)"
+    steps:
+      - instrument: cal
+        send: "OUT 10 V;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC 10"
+      - send: ":CALC:LIM:UPP 9.9;UPP:STAT ON"
+      - send: ":CALC:LIM ON"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      - query: ":CALC:LIM:FAIL?"
+        expect: "1"
+      - send: ":CALC:LIM:CLE"
+      - query: ":CALC:LIM:FAIL?"
+        expect: "0"
+      - send: ":CALC:LIM:UPP 10.1"
+      - send: ":CALC:LIM:LOW 9.9;LOW:STAT ON"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      - query: ":CALC:LIM:FAIL?"
+        expect: "0"
+      - query: ":CALC:LIM:LOW?"
+        expect_value: 9.9
+  - name: "CALCulate:SSTatistics 与 CALCulate:AVERage"
+    manual: "Table 6 > CALCulate:SSTatistics (AVERage?, COUNt?, MAXimum?, MINimum?, SDEViation?, SPAN?, STATe); CALCulate:AVERage (STATe, COUNt, TCONtrol MOVing|REPeat)"
+    steps:
+      - instrument: cal
+        send: "OUT 10 V;OPER"
+      - instrument: cal
+        query: "*OPC?"
+        expect: "1"
+      - send: ":CONF:VOLT:DC 10"
+      - send: ":CALC:SST:STAT ON"
+      - send: ":TRIG:COUN 5"
+      - query: ":READ?"
+        expect_values: [10.0, 10.0, 10.0, 10.0, 10.0]
+        tolerance: 1.2e-5
+      - query: ":CALC:SST:COUN?"
+        expect: "5"
+      - query: ":CALC:SST:AVER?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      - query: ":CALC:SST:MIN?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      - query: ":CALC:SST:MAX?"
+        expect_value: 10.0
+        tolerance: 1.2e-5
+      # 前端噪声 0.3 ppm × 10 V = 3 µV（rms）：标准差与跨度都远小于 30 µV
+      - query: ":CALC:SST:SDEV?"
+        expect_value: 1.5e-5
+        tolerance: 1.5e-5
+      - query: ":CALC:SST:SPAN?"
+        expect_value: 1.5e-5
+        tolerance: 1.5e-5
+      - send: ":CALC:AVER:COUN 4;TCON REP"
+      - send: ":CALC:AVER ON"
+      - query: ":CALC:AVER:TCON?"
+        expect: "REP"
+      - send: ":TRIG:COUN 2"
+      - query: ":READ?"
+        expect_values: [10.0, 10.0]
+        tolerance: 1.2e-5
+      # 新的一次测量重新开始统计：两个（各为 4 个读数的平均）
+      - query: ":CALC:SST:COUN?"
+        expect: "2"

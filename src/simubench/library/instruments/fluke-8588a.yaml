@@ -197,6 +197,117 @@ state:
     default: false
     label: 四线电阻低电流
     label_en: 4-wire ohms low current
+  # ---- CALCulate（读数后处理，#1041；手册 Table 6）----
+  calc.average.state:
+    type: bool
+    default: false
+    label: 平均
+    label_en: Average
+  calc.average.count:
+    type: int
+    # 手册 Table 6 写默认 16；Remote Command Examples 的 *RST 状态写 “CALCulate:AVERage = 1, OFF”。
+    # 取 Table 6 的 16（覆盖表说明）。
+    default: 16
+    min: 1
+    max: 10000
+    label: 平均点数
+    label_en: Average count
+  calc.average.mode:
+    type: enum
+    options: [MOVing, REPeat]
+    default: MOVing
+    label: 平均方式
+    label_en: Average control
+  calc.limit.state:
+    type: bool
+    default: false
+    label: 限值检查
+    label_en: Limit test
+  calc.limit.lower:
+    type: float
+    default: -1.99999999e+15
+    min: -9.9e+37
+    max: 9.9e+37
+    label: 下限
+    label_en: Lower limit
+  calc.limit.lower_on:
+    type: bool
+    default: false
+    label: 下限开
+    label_en: Lower limit on
+  calc.limit.upper:
+    type: float
+    default: 1.999999999e+15
+    min: -9.9e+37
+    max: 9.9e+37
+    label: 上限
+    label_en: Upper limit
+  calc.limit.upper_on:
+    type: bool
+    default: false
+    label: 上限开
+    label_en: Upper limit on
+  calc.math.state:
+    type: bool
+    default: false
+    label: 数学运算
+    label_en: Math
+  calc.math.m:
+    type: float
+    default: 1.0
+    min: -9.9e+37
+    max: 9.9e+37
+    not_modeled: &lreading {LREading: taking a factor from the last reading is not modeled}
+    label: 乘数 m
+    label_en: Math m
+  calc.math.m_on:
+    type: bool
+    default: false
+    label: 乘 m
+    label_en: Multiply by m
+  calc.math.c:
+    type: float
+    default: 1.0
+    min: -9.9e+37
+    max: 9.9e+37
+    not_modeled: *lreading
+    label: 偏置 c
+    label_en: Math c
+  calc.math.c_on:
+    type: bool
+    default: false
+    label: 减 c
+    label_en: Subtract c
+  calc.math.z:
+    type: float
+    default: 1.0
+    min: -9.9e+37
+    max: 9.9e+37
+    not_modeled: *lreading
+    label: 除数 z
+    label_en: Math z
+  calc.math.z_on:
+    type: bool
+    default: false
+    label: 除以 z
+    label_en: Divide by z
+  calc.math.units:
+    type: enum
+    options: [PERCent, DB50, DB75, DB600, DB]
+    # 手册 Table 6 的默认值是一处排版错误（写成数值 +1.999999999e）；取第一个选项 PERCent（SimuBench 值）。
+    default: PERCent
+    label: 数学单位
+    label_en: Math units
+  calc.math.units_on:
+    type: bool
+    default: false
+    label: 换算单位
+    label_en: Math units on
+  calc.stats.state:
+    type: bool
+    default: false
+    label: 统计
+    label_en: Statistics
   init.continuous:
     type: bool
     default: false
@@ -405,10 +516,36 @@ components:
       # 约 1/9（规格几乎全在读数项，量程项仅 0.05 ppm）；ref_time_s 取默认 1 s 孔径，随孔径
       # 时间按平方根缩放。
       noise: {ppm_of_range: 0.3, ref_time_s: 1.0}
+  # 读数后处理（#1041）：平均 → (m·x − c)/z → 单位 → 限值 → 统计，各步由 CALCulate 的设置打开。
+  # 触发模型与 MEASure 都经它取读数；全部关闭时读数逐位不变。
+  - name: math
+    type: reading_math
+    params:
+      source: meter
+      digits: 9
+      overload_value: 9.91e37
+      average: $calc.average.state
+      average_count: $calc.average.count
+      average_mode: $calc.average.mode
+      math: $calc.math.state
+      m: $calc.math.m
+      m_on: $calc.math.m_on
+      c: $calc.math.c
+      c_on: $calc.math.c_on
+      z: $calc.math.z
+      z_on: $calc.math.z_on
+      units: $calc.math.units
+      units_on: $calc.math.units_on
+      limits: $calc.limit.state
+      lower: $calc.limit.lower
+      lower_on: $calc.limit.lower_on
+      upper: $calc.limit.upper
+      upper_on: $calc.limit.upper_on
+      statistics: $calc.stats.state
   - name: trig
     type: trigger_model
     params:
-      sampler: meter
+      sampler: math
       source: {from: $trigger.source, map: {IMMediate: immediate, BUS: bus, EXTernal: external}}
       trigger_count: $trigger.count
       sample_count: 1
@@ -505,19 +642,19 @@ commands:
     doc: '"<功能短格式> <量程>,<分辨率>"，例如 "VOLT +1.00000000E+00,+1.00000000E-04"。'
   # MEASure = ABORt; CONFigure; READ?（手册 Table 5）。
   - header: ":MEASure[:SCALar]:VOLTage[:DC]"
-    op: meter.measure
+    op: math.measure
     set: false
     writes: {<<: *conf_trigger, sense.function: VOLTage}
     args: {what: DC}
     params: [*volt_range, *volt_res]
   - header: ":MEASure[:SCALar]:VOLTage:AC"
-    op: meter.measure
+    op: math.measure
     set: false
     writes: {<<: *conf_trigger, sense.function: "VOLTage:AC"}
     args: {what: AC}
     params: [*acv_range, *volt_res]
   - header: ":MEASure[:SCALar]:CURRent[:DC]"
-    op: meter.measure
+    op: math.measure
     set: false
     writes: {<<: *conf_trigger, sense.function: CURRent}
     args: {what: DCI}
@@ -525,7 +662,7 @@ commands:
       - *curr_range
       - {name: resolution, type: float, unit: A, min: 0.0, max: 30.0, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 1.0e-6}}}
   - header: ":MEASure[:SCALar]:CURRent:AC"
-    op: meter.measure
+    op: math.measure
     set: false
     writes: {<<: *conf_trigger, sense.function: "CURRent:AC"}
     args: {what: ACI}
@@ -533,13 +670,13 @@ commands:
       - *aci_range
       - {name: resolution, type: float, unit: A, min: 0.0, max: 30.0, optional: true, state: sense.resolution, keywords: {DEF: {sense.resolution: 1.0e-5}}}
   - header: ":MEASure[:SCALar]:RESistance"
-    op: meter.measure
+    op: math.measure
     set: false
     writes: {<<: *conf_trigger, sense.function: RESistance}
     args: {what: RES}
     params: [*res_range, *res_res]
   - header: ":MEASure[:SCALar]:FRESistance"
-    op: meter.measure
+    op: math.measure
     set: false
     writes: {<<: *conf_trigger, sense.function: FRESistance}
     args: {what: FRES}
@@ -553,6 +690,77 @@ commands:
     params:
       # FETCh? 1 与 FETCh? 都是主读数；次读数（2）、扫描的前/后端子（3、4）与时间戳（5）未实现。
       - {name: which, type: int, min: 1, max: 1, optional: true}
+  # ---- CALCulate（读数后处理，#1041；手册 Table 6）----
+  - header: "CALCulate:AVERage[:STATe]"
+    state: calc.average.state
+  - header: "CALCulate:AVERage:COUNt"
+    state: calc.average.count
+  - header: "CALCulate:AVERage:TCONtrol"
+    state: calc.average.mode
+    reply: "{value}"
+  - header: "CALCulate:LIMit:CLEar[:IMMediate]"
+    op: math.limit_clear
+    query: false
+  - header: "CALCulate:LIMit:LOWer"
+    state: calc.limit.lower
+  - header: "CALCulate:LIMit:LOWer:STATe"
+    state: calc.limit.lower_on
+  - header: "CALCulate:LIMit:FAIL"
+    op: math.limit_fail
+    set: false
+  - header: "CALCulate:LIMit[:STATe]"
+    state: calc.limit.state
+  - header: "CALCulate:LIMit:UPPer"
+    state: calc.limit.upper
+  - header: "CALCulate:LIMit:UPPer:STATe"
+    state: calc.limit.upper_on
+  - header: "CALCulate:MATH:CFACtor"
+    state: calc.math.c
+  - header: "CALCulate:MATH:CFACtor:STATe"
+    state: calc.math.c_on
+  - header: "CALCulate:MATH:MFACtor"
+    state: calc.math.m
+  - header: "CALCulate:MATH:MFACtor:STATe"
+    state: calc.math.m_on
+  - header: "CALCulate:MATH:MUNits"
+    state: calc.math.units
+  - header: "CALCulate:MATH:MUNits:STATe"
+    state: calc.math.units_on
+  - header: "CALCulate:MATH[:STATe]"
+    state: calc.math.state
+  - header: "CALCulate:MATH:RESet"
+    op: math.math_reset
+    query: false
+  - header: "CALCulate:MATH:ZFACtor"
+    state: calc.math.z
+  - header: "CALCulate:MATH:ZFACtor:STATe"
+    state: calc.math.z_on
+  - header: "CALCulate:SSTatistics:AVERage"
+    op: math.statistic
+    args: {name: mean}
+    set: false
+  - header: "CALCulate:SSTatistics:COUNt"
+    op: math.statistic
+    args: {name: count}
+    set: false
+  - header: "CALCulate:SSTatistics:MAXimum"
+    op: math.statistic
+    args: {name: maximum}
+    set: false
+  - header: "CALCulate:SSTatistics:MINimum"
+    op: math.statistic
+    args: {name: minimum}
+    set: false
+  - header: "CALCulate:SSTatistics:SDEViation"
+    op: math.statistic
+    args: {name: sdev}
+    set: false
+  - header: "CALCulate:SSTatistics:SPAN"
+    op: math.statistic
+    args: {name: span}
+    set: false
+  - header: "CALCulate:SSTatistics:STATe"
+    state: calc.stats.state
   # ---- SENSe：直流电压 ----
   - header: "[:SENSe]:VOLTage[:DC]:RANGe"
     state: sense.range
