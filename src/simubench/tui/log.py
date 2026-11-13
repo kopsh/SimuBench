@@ -59,6 +59,9 @@ class LogLine:
     closest: str | None = None  # the author's command closest to the one sent
     param: str | None = None  # bad_parameter: the parameter or state path
     declared_range: str | None = None  # bad_parameter: the range the definition declares
+    gap: str | None = None  # not_modeled: out_of_scope | blocked | model_work (#1037)
+    blocked_by: str | None = None  # gap blocked: the capability it waits for
+    note: str | None = None  # not_modeled: the coverage table's note
 
     @property
     def time_text(self) -> str:
@@ -97,6 +100,9 @@ def _merge_classification(line: LogLine, ev: Mapping[str, Any]) -> None:
     line.param = ev.get("param")
     declared = ev.get("range")
     line.declared_range = declared
+    line.gap = ev.get("gap")
+    line.blocked_by = ev.get("blocked_by")
+    line.note = ev.get("note")
 
 
 def hint_text(line: LogLine, lang: str) -> str | None:
@@ -112,7 +118,13 @@ def hint_text(line: LogLine, lang: str) -> str | None:
     file = Path(line.origin).name if line.origin else ""
     closest = f"{t('reason.closest', lang, command=line.closest)}" if line.closest else ""
     if reason == "not_modeled":
-        return t("reason.notModeled", lang, file=file)
+        parts = [t("reason.notModeled", lang, file=file)]
+        if line.gap:
+            gap = t(f"reason.gaps.{line.gap}", lang)
+            parts.append(f"{gap} {line.blocked_by}" if line.blocked_by else gap)
+        if line.note:
+            parts.append(line.note)
+        return " · ".join(parts)
     if reason == "not_in_model":
         return t("reason.notInModel", lang, file=file, closest=closest)
     if reason == "not_in_definition":

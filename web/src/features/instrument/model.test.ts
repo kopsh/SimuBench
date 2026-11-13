@@ -17,7 +17,8 @@ const cmd = (header: string, extra: Partial<CommandSpec> = {}): CommandSpec => (
 const coverage = (entries: [string, "implemented" | "accepted" | "not_modeled"][]): DefinitionCoverage => ({
   model: "m",
   stats: { implemented: 0, accepted: 0, not_modeled: 0 },
-  entries: entries.map(([header, level]) => ({ section: "S", header, level, note: null })),
+  gap_stats: {},
+  entries: entries.map(([header, level]) => ({ section: "S", header, level, note: null, gap: null, blocked_by: null })),
 });
 
 describe("command list", () => {

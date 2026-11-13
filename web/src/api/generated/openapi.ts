@@ -2282,6 +2282,16 @@ export interface components {
          */
         CoverageEntryInfo: {
             /**
+             * Blocked By
+             * @description gap blocked only: the capability it waits for, e.g. C5
+             */
+            blocked_by: string | null;
+            /**
+             * Gap
+             * @description not_modeled only: out_of_scope (never simulated), blocked (waits for blocked_by) or model_work (the platform can already do it); null when untriaged
+             */
+            gap: ("out_of_scope" | "blocked" | "model_work") | null;
+            /**
              * Header
              * @description Header as the definition writes it, e.g. '[:SENSe]:VOLTage:NPLC'
              */
@@ -2361,6 +2371,13 @@ export interface components {
         DefinitionCoverage: {
             /** Entries */
             entries: components["schemas"]["CoverageEntryInfo"][];
+            /**
+             * Gap Stats
+             * @description The not_modeled commands by gap: out_of_scope, blocked, model_work, untriaged
+             */
+            gap_stats: {
+                [key: string]: number;
+            };
             /** Model */
             model: string;
             /**
@@ -4412,6 +4429,11 @@ export interface components {
              */
             action: string | null;
             /**
+             * Blocked By
+             * @description For gap blocked: the platform capability the command waits for (e.g. C5)
+             */
+            blocked_by: string | null;
+            /**
              * Channels
              * @description Acquisition recipe, per channel (t_start_ns, dt_s, points, sha256, …)
              */
@@ -4449,6 +4471,11 @@ export interface components {
              */
             forced: boolean | null;
             /**
+             * Gap
+             * @description For not_modeled: why the coverage table does not model the command — out_of_scope | blocked (see blocked_by) | model_work; absent when the table does not say
+             */
+            gap: ("out_of_scope" | "blocked" | "model_work") | null;
+            /**
              * Header
              * @description The header that was ignored, for ignored events
              */
@@ -4464,6 +4491,11 @@ export interface components {
             message: string | null;
             /** New */
             new: unknown;
+            /**
+             * Note
+             * @description For not_modeled: the coverage table's note on the command
+             */
+            note: string | null;
             /** Old */
             old: unknown;
             /**

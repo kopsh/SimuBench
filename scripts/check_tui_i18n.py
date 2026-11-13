@@ -24,6 +24,9 @@ WEB_ONLY: tuple[str, ...] = (
 
 #: tui key → web key, for every term the two interfaces share.
 SHARED: dict[str, str] = {
+    "reason.gaps.out_of_scope": "errors.gaps.out_of_scope",
+    "reason.gaps.blocked": "errors.gaps.blocked",
+    "reason.gaps.model_work": "errors.gaps.model_work",
     "common.on": "common.on",
     "common.off": "common.off",
     "common.none": "common.none",

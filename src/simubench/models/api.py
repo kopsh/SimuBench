@@ -124,6 +124,12 @@ class CoverageEntryInfo(_Model):
         "not_modeled: answers -113",
     )
     note: str | None = None
+    gap: Literal["out_of_scope", "blocked", "model_work"] | None = Field(
+        None,
+        description="not_modeled only: out_of_scope (never simulated), blocked (waits for blocked_by) or "
+        "model_work (the platform can already do it); null when untriaged",
+    )
+    blocked_by: str | None = Field(None, description="gap blocked only: the capability it waits for, e.g. C5")
 
 
 class DefinitionCoverage(_Model):
@@ -132,6 +138,10 @@ class DefinitionCoverage(_Model):
 
     model: str
     stats: dict[str, int] = Field(..., description="Counts by level: implemented, accepted, not_modeled")
+    gap_stats: dict[str, int] = Field(
+        default_factory=dict,
+        description="The not_modeled commands by gap: out_of_scope, blocked, model_work, untriaged",
+    )
     entries: list[CoverageEntryInfo]
 
 
