@@ -12,6 +12,8 @@ section (`grep -n '^#' docs/<file>.md`, then `sed -n`). That saves most of the t
 - `dev-workflow`: this loop, the check commands, test rules (D49), CI traps. Read it for every task.
 - `codebase-map`: which file or doc answers what.
 - `real-model`: a real instrument model (definition YAML, coverage, cases, example bench).
+- `command-coverage`: measure and report command coverage (levels, statistics, untriaged tables,
+  gap analysis) and plan coverage improvements.
 - `component`: a new or split generic component (`核心`).
 - `web-ui`: the Web Bench (`web/`), API types, i18n.
 - `tui-ui`: the terminal console (`src/simubench/tui/`), Textual screens, colour tokens, snapshots.

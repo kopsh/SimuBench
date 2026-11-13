@@ -42,7 +42,8 @@ When the platform cannot express something the manual requires:
        --out src/simubench/library/instruments/<id>.coverage.yaml
    ```
    Every command starts as `not_modeled`; rerun after the definition grows (hand-written levels
-   and notes are kept). Then set `implemented` / `accepted` and the notes by hand.
+   and notes are kept). Then set `implemented` / `accepted` and the notes by hand. For statistics
+   across models and gap analysis, use the `command-coverage` skill.
 4. **Components**: list what exists and pick generic ones.
    ```bash
    uv run python -c "from simubench.server.catalog import components; [print(c.type, c.generic, c.category) for c in components()]"
