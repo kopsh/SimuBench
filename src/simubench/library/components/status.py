@@ -27,6 +27,7 @@ from __future__ import annotations
 from typing import Any
 
 from ...engine.component import Component, OpResult, component, op
+from ...engine.status_registers import StatusLook
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 
@@ -79,9 +80,16 @@ class StatusRegister(Component):
         channel's register is named with its channel, e.g. CH1.ISUM (#348)."""
         if self._busy or not self.name:
             return {}
-        # Asked while another register computes its condition: a look, not a sample -- committing
-        # here would store a condition seen without the asking register's own summary (#575).
-        return {self.name.upper(): self.summary(commit=False)}
+        assert self.owner is not None
+        with self.owner.status.look() as look:
+            key = self._look_key(look)
+            on = look.summaries.get(key)
+            if on is None:
+                # Asked while another register computes its condition: a look, not a sample --
+                # committing here would store a condition seen without the asking register's own
+                # summary (#575).
+                on = look.summaries[key] = self.summary(commit=False)
+        return {self.name.upper(): on}
 
     def _mirror(self) -> bool:
         return str(self.param("mirror")).lower() == "esr"
@@ -89,45 +97,83 @@ class StatusRegister(Component):
     def _bits(self) -> dict[str, int]:
         return {str(k).upper(): int(v) for k, v in dict(self.param("bits") or {}).items()}
 
+    def _look_key(self, look: StatusLook) -> tuple[str, frozenset[str]]:
+        """Where this register's condition and summary are kept in a look (#1025): what it says
+        depends on which registers are busy (they give it no summary), but only on those whose
+        summaries it reads, directly or through others -- none of them when the registers do not
+        read each other in a circle, so each register is then computed once per look."""
+        assert self.owner is not None
+        registers = self.owner.status.registers()
+        if look.reads is None:
+            for reg in registers:
+                bits = reg._bits()
+                # A register of one channel (a channel component, e.g. a supply's ISUMmary<n>)
+                # sees only that channel's flags (#348).
+                look.asks[reg.uid] = frozenset(
+                    other.uid
+                    for other in registers
+                    if other is not reg
+                    and other.name
+                    and other.name.upper() in bits
+                    and (reg.channel is None or other.channel == reg.channel)
+                )
+            look.reads = {}
+            for reg in registers:
+                seen: set[str] = set()
+                todo = list(look.asks[reg.uid])
+                while todo:
+                    uid = todo.pop()
+                    if uid not in seen:
+                        seen.add(uid)
+                        todo.extend(look.asks[uid])
+                look.reads[reg.uid] = frozenset(seen - {reg.uid})
+        reads = look.reads[self.uid]
+        return self.uid, frozenset(r.uid for r in registers if r._busy and r.uid in reads)
+
     def condition(self) -> int:
         """The condition register: every bit whose flag a component reports true now, with the
         instrument's own MAV (output waiting), ESB (enabled standard events) and IFC (idle)."""
         assert self.owner is not None
+        # Computed once per look (#1025): the registers that ask this one for its summary, and
+        # the engine's own sample and status byte, reuse it.
+        with self.owner.status.look() as look:
+            key = self._look_key(look)
+            value = look.conditions.get(key)
+            if value is None:
+                value = look.conditions[key] = self._condition(look)
+        return value
+
+    def _condition(self, look: StatusLook) -> int:
+        assert self.owner is not None
+        asks = look.asks[self.uid]
         self._busy = True
-        # The outermost look fills the cache of the other components' flags; the registers it asks
-        # for their summaries reuse it, since nothing changes while one condition is computed (#602).
-        outermost = self.owner.status_flag_cache is None
-        if outermost:
-            self.owner.status_flag_cache = {}
-        cache = self.owner.status_flag_cache
-        assert cache is not None
         try:
             flags: dict[str, bool] = {
                 "MAV": bool(self.owner._output),
                 "ESB": bool(self.owner.esr & self.owner.ese),
                 "IFC": True,
             }
-            if outermost:
+            if not look.solved:
+                look.solved = True
                 self.session.solve()
             for comp in self.owner.components.values():
-                # A register of one channel (a channel component, e.g. a supply's ISUMmary<n>)
-                # sees only that channel's flags (#348).
                 if self.channel is not None and comp.channel != self.channel:
                     continue
                 if comp is self:
                     continue
                 if comp.type_name == "status_register":
+                    if comp.uid not in asks:
+                        continue  # no bit of this register is named after that one
                     found = comp.status_flags()  # a summary: depends on which registers are busy
                 else:
-                    found = cache.get(comp.uid)
+                    # The other components' flags are read once per look (#602).
+                    found = look.flags.get(comp.uid)
                     if found is None:
-                        found = cache[comp.uid] = comp.status_flags()
+                        found = look.flags[comp.uid] = comp.status_flags()
                 for name, on in found.items():
                     flags[name.upper()] = flags.get(name.upper(), False) or bool(on)
         finally:
             self._busy = False
-            if outermost:
-                self.owner.status_flag_cache = None
         value = 0
         for name, bit in self._bits().items():
             if flags.get(name):
@@ -161,6 +207,12 @@ class StatusRegister(Component):
             events |= (now & ~self._seen & ptr) | (~now & self._seen & ntr & full)
         if commit:
             self._events, self._seen = events, now
+            look = self.owner.status.current if self.owner is not None else None
+            if look is not None and any(busy for _, busy in look.conditions):
+                # Registers that read each other in a circle: what this one says to a register it
+                # reads is taken against the condition just stored, so nothing kept still holds.
+                look.conditions.clear()
+                look.summaries.clear()
         return events
 
     def latch_conditions(self) -> None:

@@ -118,3 +118,49 @@ def test_one_look_asks_each_component_for_its_flags_once():
     assert session.read("x") is not None
     # five registers latch at the dispatch and the read looks once more: one ask per outermost look
     assert len(calls) <= 6
+
+
+def test_one_look_computes_each_registers_condition_a_small_multiple_of_once(monkeypatch):
+    """Six registers that read one another's summaries (r0 reads r1..r5, r1 reads r2..r5, ...):
+    one sample and one status byte call ``condition`` at most twice per register (#1025: before,
+    every register asked every other one, which asked the rest -- 3260 calls per command)."""
+    from simubench.library.components.status import StatusRegister
+
+    n = 6
+    data = dict(DEF)
+    data["components"] = [{"name": "sys", "type": "system"}] + [
+        {
+            "name": f"r{i}",
+            "type": "status_register",
+            "params": {
+                "bits": {"BUSY": 0} | {f"R{j}": j for j in range(i + 1, n)},
+                "enable": 255,
+                "summary_bit": i,
+                "width": 8,
+            },
+        }
+        for i in range(n)
+    ]
+    data["commands"] = []
+    definition = InstrumentDefinition.model_validate(data)
+    bench = BenchDefinition.model_validate(
+        {"schema": "simubench.bench/1", "name": "d", "instruments": {"x": {"model": definition.id}}}
+    )
+    session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
+    inst = session.instruments["x"]
+    inst.status.sample()  # the baseline: BUSY is not a transition yet
+    inst.components["sys"].status_flags = lambda: {"BUSY": True}  # type: ignore[method-assign]
+    calls = {"sample": 0, "stb": 0}
+    phase = "sample"
+    condition = StatusRegister.condition
+
+    def counted(self):
+        calls[phase] += 1
+        return condition(self)
+
+    monkeypatch.setattr(StatusRegister, "condition", counted)
+    inst.status.sample()
+    phase = "stb"
+    stb = inst.stb()
+    # BUSY rose in every register, and every summary rose in the registers that read it
+    assert (stb & 0x3F, calls["sample"] <= 2 * n, calls["stb"] <= 2 * n) == (0x3F, True, True), calls
