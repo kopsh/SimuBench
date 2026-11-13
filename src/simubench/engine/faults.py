@@ -51,6 +51,7 @@ class FaultState:
     _component: Component | None = field(default=None, repr=False)
     _had_override: bool = False
     _previous: Any = None
+    _was_unit_value: bool = False
     _base: float = 0.0
 
     def describe(self) -> str:
@@ -134,6 +135,7 @@ class FaultManager:
             state._component = comp
             state._had_override = s.param in comp.overrides
             state._previous = comp.overrides.get(s.param or "")
+            state._was_unit_value = s.param in comp.unit_values
             if s.kind == "hidden":
                 set_override(comp, s.param or "", s.value)
             else:
@@ -145,6 +147,8 @@ class FaultManager:
             comp, key = state._component, state.spec.param or ""
             if state._had_override:
                 set_override(comp, key, state._previous)
+                if not state._was_unit_value:  # the block's own run-time value, not a hidden one
+                    comp.unit_values.discard(key)
             else:
                 clear_override(comp, key)
         state.status = "ended"

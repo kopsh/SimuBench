@@ -23,6 +23,7 @@ class _Stub(AwgModulator):
     def __init__(self, carrier, ext=None, synth=None, **params):
         self._carrier, self._ext, self._synth = carrier, ext, synth
         self.overrides = {"enabled": True, **params}
+        self.unit_values: set[str] = set()
         self._params = {}
         self.owner = None
 

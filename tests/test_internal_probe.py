@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 from helpers import raises_with
 from simubench.api import open_bench
 from simubench.models import api as M
-from simubench.models.bench import BenchDefinition
+from simubench.models.bench import BenchDefinition, Fault
 from simubench.server import views
 from simubench.server.app import create_app
 from simubench.server.manager import ServedSession, SessionManager
@@ -155,6 +155,69 @@ def test_validation_mode_withholds_an_instrument_with_hidden_values():
         session.close()
 
 
+def _withheld_with(reveal: bool, **dsox) -> tuple[bool, bool]:
+    """(dsox withheld, generator withheld) on the bench with ``dsox`` merged into the scope's
+    entry; the generator carries no per-unit value."""
+    data = {
+        **BENCH,
+        "instruments": {**BENCH["instruments"], "dsox": {**BENCH["instruments"]["dsox"], **dsox}},
+        "run": {**BENCH["run"], "reveal_true_values": reveal},
+    }
+    session = open_bench(BenchDefinition.model_validate(data))
+    try:
+        return (
+            internal_probe.withheld(session, session.instrument("dsox")),
+            internal_probe.withheld(session, session.instrument("awg")),
+        )
+    finally:
+        session.close()
+
+
+@pytest.mark.parametrize("reveal", [False, True])
+def test_each_source_of_a_hidden_value_withholds_the_probe_unless_revealed(reveal):
+    """The three per-unit sources signal-chain.md 6.2 lists, each on its own (#972): the bench's
+    ``hidden``, a drawn deviation, a parameter fault. Revealed, none withholds."""
+    assert _withheld_with(reveal, hidden={"ch1.front": {"gain_error_ppm": 20000.0}}) == (not reveal, False)
+    assert _withheld_with(reveal, deviation="from_specs") == (not reveal, False)
+    assert _withheld_with(reveal) == (False, False)
+    data = {**BENCH, "run": {**BENCH["run"], "reveal_true_values": reveal}}
+    session = open_bench(BenchDefinition.model_validate(data))
+    try:
+        dsox = session.instrument("dsox")
+        fault = session.faults.inject(
+            Fault(kind="hidden", component="dsox/ch1.front", param="gain_error_ppm", value=1e4)
+        )
+        assert internal_probe.withheld(session, dsox) is not reveal
+        session.faults.clear(fault.id)
+        assert not internal_probe.withheld(session, dsox)  # the fault over, the unit is nominal again
+    finally:
+        session.close()
+
+
+def test_a_blocks_own_run_time_overrides_hide_nothing():
+    """An SMU in the middle of a sweep drives its loop through ``Component.overrides``; that is
+    the instrument's run-time state, not a per-unit value: the probe stays open (#972)."""
+    data = {
+        "name": "t",
+        "instruments": {"smu": {"model": "keysight-b2901a"}},
+        "run": {"seed": 3, "clock": "command"},
+    }
+    session = open_bench(BenchDefinition.model_validate(data))
+    try:
+        smu = session.instrument("smu")
+        core, loop = smu.components["core"], smu.components["loop"]
+        smu.set_state("sweep.mode", "SWEep", source="scpi")
+        smu.set_state("sweep.points", 3, source="scpi")
+        smu.set_state("sweep.stop", 1.0, source="scpi")
+        core.run_begin()
+        core.sample(1)
+        assert loop.overrides and not loop.unit_values
+        assert not internal_probe.withheld(session, smu)
+        core.run_done()
+    finally:
+        session.close()
+
+
 # ---- the two seams: HTTP and MCP ----------------------------------------------------------------
 
 
@@ -206,7 +269,8 @@ async def test_mcp_tool(workspace):
         assert p["medium"] == "samples" and p["format"]["bits"] == 8
         await call(c, "start_session", path="closed.bench.yaml")
         r = await call(c, "probe_internal", instrument="dsox", port="adc.out1")
-        assert "验证模式" in r["error"]
+        # the same reason HTTP gives: the instrument, its hidden values and the switch (#972)
+        assert all(w in r["error"] for w in ("验证模式", "dsox", "隐藏的个体值", "run.reveal_true_values"))
     for sid in list(manager.sessions):
         await manager.stop(sid)
 

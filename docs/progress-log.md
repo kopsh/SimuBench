@@ -2139,3 +2139,23 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | “看”不是“采样”（#575）、摘要链（#348）不变 | ✅ 一次查看的结果记在 `StatusLook`（`engine/status_registers.py`）：寄存器的条件与摘要按“它读的寄存器中哪些正在求值”存放，寄存器不成环时每个只算一遍；被问到的寄存器仍以 `commit=False` 求摘要；成环的定义在提交后清空已记的结果，与改动前逐次重算相同 |
 | 修复前后的实测数字 | ✅ 本机，进程内 PyVISA，各 50 次取平均：UXR0334B `*OPC?` 38.8 → 0.59 ms、`:TIMebase:SCALe?` 38.8 → 0.68 ms、`*STB?` 48.6 → 0.77 ms；DSO-X 2024A `*OPC?` 0.88 → 0.40 ms |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 设置之间的约束：定义里的 constraints（Issue 1013，#1005 第 3 点）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义语言能声明“两个设置的某些取值不能同时出现”，拒绝或改另一个设置 | ✅ `ConstraintSpec`（`when` / `forbid` / `action` / `error` / `coerce` / `source`）；`engine/constraints.py` 的 `settle` 按改动后的状态判断；`Instrument.set_state`（SCPI 与 `configure`）与 `CommandRunner._commit`（多设置命令按写完后的状态、全有或全无）接入；`schemas/` 与 web 生成类型已更新 |
+| 引擎单测 | ✅ `tests/test_constraints.py`：两个方向都拒绝且不改动、一条命令按结束时的状态判断、`coerce` 改另一个设置、界面 `configure` 同样受约束、静态校验 `E-DEF-CONSTRAINT`（未知设置、非法取值、coerce 值被禁止、开机状态违反）与模型校验 |
+| DSO-X 2024A 拒绝 SEGMented + AVERage | ✅ 定义的 `constraints`（Programmer's Guide 02.66 第 215 页）；`tests/models/keysight-dsox2024a/cases.yaml` 分段存储用例加两个方向各一组（-221，两个设置都不变）；覆盖表 `:ACQuire:TYPE` / `:ACQuire:SEGMented:COUNt` 的说明改为现行为，错误码与“拒绝而不是改回 NORMal”注明为假设 |
+| 文档 | ✅ `instrument-authoring.md` 2.12 与诊断码表、`real-models.md` 字段表、`decisions.md` D69、`real-model` 技能 |
+| `scripts/check.sh` 通过 | ✅ |
+
+## 内部探针的保密判定改为显式登记的个体值（Issue 972，审查自 #951）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 判定来自显式登记，不再读 `Component.overrides` 的非空 | ✅ `Component.unit_values`；`deviation.py` 的 `set_override` / `clear_override` / `draw_overrides` 与仪表 `hidden` 构造处登记，参数类故障结束时恢复原登记；`deviation.has_unit_values`；`internal_probe.withheld` 改用它。SMU 扫描、校准器 operate 等组件自身的运行时覆盖不登记 |
+| 三种来源与运行时覆盖的反例 | ✅ `tests/test_internal_probe.py`：`hidden`、抽取偏差、参数类故障在 `reveal_true_values` 关闭时保密、打开时不保密，故障结束后恢复；SMU 扫描中（`loop.overrides` 非空）不保密 |
+| MCP 与 HTTP 同一条原因、含仪表名 | ✅ `withheld_reason`；MCP：“验证模式下不提供内部探针：<仪表> 含隐藏的个体值，且该测试台未开启 run.reveal_true_values” |
+| 文档 | ✅ `signal-chain.md` 6.2、`security.md` 内部探针一行 |
+| `scripts/check.sh` 通过 | ✅ |

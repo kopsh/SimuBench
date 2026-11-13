@@ -23,6 +23,7 @@ from .commands import (
     _header_key,
 )
 from .component import Component, component_type, noise_problems
+from .constraints import settle
 from .coverage_advice import CoverageAdvisor
 from .error_reporter import ErrorReporter, _Ignored
 from .pending import PendingOps
@@ -147,6 +148,7 @@ class Instrument:
                         f"{comp_name}.{param_name} (parameters: {options})"
                     )
             component.overrides.update(params)
+            component.unit_values.update(params)
         #: This unit's drawn deviations, '<component>.<parameter>' -> value (empty when nominal).
         self.deviations: dict[str, Any] = {}
         if instance.deviation == "from_specs":
@@ -156,6 +158,9 @@ class Instrument:
         """Which components are told when a setting changes."""
         # state path -> components bound to it
         self._watchers: dict[str, list[Component]] = defaultdict(list)
+        #: Set while a multi-setting command applies writes it already checked against the
+        #: definition's constraints as a whole (CommandRunner._commit, #1013).
+        self._constraints_checked = False
         # state path -> {component: the parameter the change arrives through} for ``on_state``
         # (None: through ``watches`` or a nested mapping; the first binding wins when several of a
         # component's parameters bind the path, #436)
@@ -268,6 +273,25 @@ class Instrument:
         value = validate_value(spec.model_copy(update={"readonly": False}) if internal else spec, value)
         old = self.state.get(path)
         if old == value:
+            return
+        # Settings the instrument does not allow together (#1013): a change from outside (SCPI,
+        # the panel, MCP) is refused, or coerces the other setting, by the definition's
+        # constraints; the instrument's own writes, a replay and faults are not checked.
+        coerced: dict[str, Any] = {}
+        if not internal and source in ("scpi", "configure") and not self._constraints_checked:
+            coerced = settle(self.definition.constraints, self.specs, self.state, {path: value})
+        if coerced:
+            before_all = dict(self.state)
+            self._constraints_checked = True
+            try:
+                self.set_state(path, value, source=source)
+                for other, v in coerced.items():
+                    self.set_state(other, v, source=source)
+            except ScpiError:
+                self.state.update(before_all)
+                raise
+            finally:
+                self._constraints_checked = False
             return
         before = dict(self.state)
         self.state[path] = value

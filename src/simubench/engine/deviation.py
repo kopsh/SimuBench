@@ -180,6 +180,7 @@ def set_override(comp: Component, parameter: str, value: Any, *, invalidate: boo
         )
     check_value(comp, parameter, value)
     comp.overrides[parameter] = value
+    comp.unit_values.add(parameter)
     session = getattr(comp, "session", None)
     if invalidate and session is not None:
         session.invalidate(electrical=True)
@@ -188,6 +189,7 @@ def set_override(comp: Component, parameter: str, value: Any, *, invalidate: boo
 def clear_override(comp: Component, parameter: str) -> None:
     """Undo an override: the parameter reads its binding or default again."""
     comp.overrides.pop(parameter, None)
+    comp.unit_values.discard(parameter)
     session = getattr(comp, "session", None)
     if session is not None:
         session.invalidate(electrical=True)
@@ -207,8 +209,15 @@ def draw_overrides(
             continue
         value = draw(rng, comp.param(parameter), seed, *who, comp.name, parameter)
         comp.overrides[parameter] = value
+        comp.unit_values.add(parameter)
         drawn[parameter] = value
     return drawn
+
+
+def has_unit_values(comp: Component) -> bool:
+    """Whether the component carries a hidden per-unit value (``Component.unit_values``): the
+    question the internal probe's confidentiality asks (signal-chain.md 6.2, #972)."""
+    return bool(comp.unit_values)
 
 
 def deviation_keys(inst: Instrument, component: str, parameter: str) -> list[str]:

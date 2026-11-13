@@ -265,7 +265,9 @@ def _fault_clear_and_truth_tools(mcp: MCPServer, ctx: McpContext) -> None:
         try:
             return internal_probe.probe(served(session_id), instrument, port, tune_hz).model_dump(mode="json")
         except internal_probe.ProbeWithheld:
-            raise ToolError("该测试台未开启 run.reveal_true_values；验证模式下不提供内部探针") from None
+            raise ToolError(
+                f"验证模式下不提供内部探针：{instrument} 含隐藏的个体值，且该测试台未开启 run.reveal_true_values"
+            ) from None
         except (KeyError, ValueError) as exc:
             raise fail(exc) from None
 

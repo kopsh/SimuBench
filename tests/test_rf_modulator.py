@@ -34,6 +34,7 @@ class _Stub(RfModulator):
 
     def __init__(self, **params):
         self.overrides = {"fm_rate": RATE, "pm_rate": RATE, "am_rate": RATE, **params}
+        self.unit_values: set[str] = set()
         self._params = {}
         self.owner = object()  # on_state only reaches the owner for an FM/PM conflict
 
