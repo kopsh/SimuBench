@@ -967,28 +967,45 @@ def prbs_sequence(order: int) -> np.ndarray:
     return bits
 
 
+def pam4_symbols(bits: np.ndarray) -> np.ndarray:
+    """PAM4 levels (−1, −1/3, 1/3, 1) of a ±1 bit sequence of odd length N, taken in pairs (MSB,
+    LSB) over two periods so the symbol stream repeats every N symbols; Gray coded (00, 01, 11,
+    10 from the lowest level up), as IEEE 802.3 PAM4 patterns are built."""
+    b = (np.concatenate([bits, bits]) > 0).astype(int)
+    msb, lsb = b[0::2], b[1::2]
+    gray = {(0, 0): 0, (0, 1): 1, (1, 1): 2, (1, 0): 3}
+    level = np.array([gray[(int(m), int(n))] for m, n in zip(msb, lsb, strict=True)], dtype=float)
+    return (2.0 * level - 3.0) / 3.0
+
+
 @component("prbs_source")
 class PrbsSource(Component):
-    """A pseudo-random bit stream, NRZ at ``rate`` bits/s between ±``level``.
+    """A pseudo-random pattern at ``rate`` symbols/s between ±``level``: NRZ (one bit per symbol)
+    or PAM4 (two bits per symbol, four levels, Gray coded: :func:`pam4_symbols`).
 
-    Periodic with 2^n − 1 bits, so its spectrum is lines at k·rate/N: the DFT of the sequence times
-    the rectangular pulse's sinc. Exact, not estimated by an FFT of samples (D13); lines are kept
-    for ``lobes`` sinc lobes, within the line limit.
+    Periodic with 2^n − 1 symbols, so its spectrum is lines at k·rate/N: the DFT of the sequence
+    times the rectangular pulse's sinc. Exact, not estimated by an FFT of samples (D13); lines are
+    kept for ``lobes`` sinc lobes, within the line limit. Symbol 0 starts at time zero (the
+    pattern's start, which a sampling scope's pattern lock finds).
     """
 
     ports = {"out": PortSpec("out", "signal")}
+    choices = {"format": ("NRZ", "PAM4")}
     defaults = {
-        "order": 7,  # LFSR order n: period 2^n - 1 bits (one of 5, 6, 7, 9, 10, 11, 15)
-        "rate": 100e3,  # bit rate, bits/s
-        "level": 0.25,  # V: the bits swing between +level and -level
+        "order": 7,  # LFSR order n: period 2^n - 1 symbols (one of 5, 6, 7, 9, 10, 11, 15)
+        "rate": 100e3,  # symbol rate, symbols/s (bits/s for NRZ)
+        "level": 0.25,  # V: the symbols swing between +level and -level
         "lobes": 8,  # sinc lobes of spectrum kept
+        "format": "NRZ",  # NRZ | PAM4
     }
 
     def output(self, port: str) -> Signal:
         order = int(self.param("order"))
         if order not in PRBS_TAPS:
             raise ScpiError(-224, f"PRBS order {order} not supported; one of {sorted(PRBS_TAPS)}")
-        seq = prbs_sequence(order) * float(self.param("level"))
+        bits = prbs_sequence(order)
+        symbols = pam4_symbols(bits) if self.choice("format") == "PAM4" else bits
+        seq = symbols * float(self.param("level"))
         n = seq.size
         rate = float(self.param("rate"))
         spec = np.fft.fft(seq) / n

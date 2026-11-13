@@ -1432,7 +1432,8 @@
             "enum": [
               "signal",
               "electrical",
-              "reference"
+              "reference",
+              "optical"
             ],
             "type": "string"
           },

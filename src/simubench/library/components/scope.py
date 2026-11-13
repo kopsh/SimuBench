@@ -12,7 +12,7 @@ from typing import Any, cast
 
 import numpy as np
 
-from ...engine.component import Component, OpResult, PortSpec, binding_of, component, op
+from ...engine.component import Component, OpResult, PortSpec, RecordSource, binding_of, component, op
 from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
 from ...engine.stream import MAX_FRAME, MAX_REQUEST_FANOUT, FrameRequest, SampleFrame, beyond_model
@@ -2257,9 +2257,9 @@ class ScopeMeasurements(Component):
     Every value taken is kept for ``statistics`` (count, mean, sdev, min, max) until cleared.
     """
 
-    refs = {"record": ("scope_acquisition", "instrument")}
+    refs = {"record": (RecordSource, "instrument")}
     defaults = {
-        "record": "acq",  # the acquisition component holding the records
+        "record": "acq",  # the acquisition component holding the records (RecordSource: a real-time or sampling one)
         "source": "",  # the channel measured (a setting such as $measure.source); empty: the command's
         "names": {},  # model name -> [engine measurement, unit], e.g. {AMPL: [VAMPlitude, V]}
         "top_base": "histogram",  # histogram | extremes
@@ -2357,7 +2357,7 @@ class ScopeMeasurements(Component):
             parts.append(self._number(value))
         return OpResult(b",".join(parts), used)
 
-    def _acq(self) -> ScopeAcquisition:
+    def _acq(self) -> Any:
         assert self.owner is not None
         return self.ref("record")  # type: ignore[return-value]
 

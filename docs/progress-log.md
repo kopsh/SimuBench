@@ -2195,3 +2195,29 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 噪声统计与示例台 | ✅ `examples/benches/keysight-uxr1104b.bench.yaml`；`tests/test_keysight_uxr.py` 的示例脚本与噪声统计参数化到两台型号（100 mV/div 6.1 mV、10 mV/div 落在 60 mV 量程的 860 µV） |
 | 文档 | ✅ `real-models.md` 第 8 节、`component-map.md`、`signal-chain.md`（平均次数上限）、`manuals/README.md`、`product-plan.md`（3.4 的例外、4.0 第 4、6 步、4.2 的 C18/C19、第 7 节） |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 光信号介质与光电转换（Issue 1093，#1091 的子项）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 光介质 | ✅ 端口介质 `optical`（D71）：光功率（W）的信号描述；仪表把组件的光端口暴露为仪表端口；测试台上的光纤按网络找唯一的光输出（`Session.optical_input`），不进电路求解；`ports.media` 接受 `optical` |
+| 光电转换、光源、平均光功率 | ✅ `library/components/optical.py`：`optical_receiver`（响应度 × 跨阻、带宽与 4 阶 Bessel 等响应、等效输入光噪声 `noise_w`、平均光功率 W/dBm 读数，无光回 9.91E+37）、`optical_source`（平均功率、消光比、驱动摆幅，偏置点附近线性）、`optical_attenuator`（测试台上的光器件） |
+| 每个新块被 `sb-*` 仪表使用 | ✅ `sb-otx-1`（码型 → 光源）、`sb-oe-1`（光接收 → 50 Ω 电输出）、`sb-dca-1`（#1094）；`validation/benches/optical_link.bench.yaml` |
+| 与解析式比对 | ✅ `tests/test_optical.py`：1 mW、6 dB 经 3 dB 衰减 → 平均 0.5012 mW（−3.000 dBm）；电输出的 1/0 电平 = 400 V/W × P1/P0；关激光为无光；接收器 v = P·R·Z；噪声 σ 与带宽、噪声密度的比对见 `tests/test_sampling.py`（接收器 4 µW 与采样器噪声按方差相加） |
+| 接错被拒绝 | ✅ 光口接电口、光纤上串电缆配件 `E-WIRE-MEDIUM`；一根光纤两个光输出 `E-NET-MULTIDRIVER` |
+| 文档 | ✅ `decisions.md` D71、`architecture.md` 1.1、1.4、2.7、4.4，`glossary.md`，`product-plan.md` 4.2 的 C18 |
+| `scripts/check.sh` 通过 | ✅ |
+
+## 等效时间采样：码型锁定、时钟恢复与波形读回（Issue 1094，#1091 的子项）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 等效时间采样采集 | ✅ `library/components/sampling.py` 的 `sampling_acquisition`（D72）：码型锁定的记录按码型位置求值，采样器与接收器噪声按方差相加、时基抖动逐点抽取，平均 N 次，采集耗时记入虚拟时钟；未锁定或关闭码型锁定报 -230，点数 × 平均超过 2²⁴ 报 -221 |
+| 时钟恢复 | ✅ `clock_recovery`：由谱线求重复速率（浮点最大公约数）与码元速率（sinc 零点），锁定范围、上下限；锁定、恢复速率、码型长度三个查询 |
+| 码型信号 | ✅ `prbs_source` 加 `format: PAM4`（格雷码，两期配对，重复 2^n − 1 个码元）；超过谱线上限的码型被拒绝（原有规则） |
+| 基础测量与读回 | ✅ `scope_measurements` 经新协议 `RecordSource` 取记录，等效时间记录沿用幅度、顶底、最大最小、上升/下降、平均；`waveform_transfer` 读回；平均光功率由光接收器读；屏幕视图（`/screen`）同样显示 |
+| `sb-*` 仪表 | ✅ `sb-dca-1`（两个光通道、时钟恢复、码型锁定）；`validation/benches/optical_dca.bench.yaml` |
+| 与解析式比对 | ✅ `tests/test_sampling.py`：锁定 26.5625 GBd、码型 127；偏 0.1% 内仍锁在数据速率，半速与偏 1% 不锁；顶/底 = P1/P0、幅度 = OMA；下降时间 ≈ 0.34/45 GHz；噪声 σ = √(4 µW² + 2 µW²) 在 4σ 区间内，平均 16 次降为 σ/4；抖动残差 = 90 fs × 斜率的有效值；PAM4 码元中心落在四个电平；同一码型位置跨采集相同；采集耗时 = 点数 ÷ 25 万 + 1 ms |
+| 文档 | ✅ `decisions.md` D72、`architecture.md` 2.8、`component-map.md` 的 sampling_oscilloscope 节、`glossary.md`、`product-plan.md` 4.2 的 C19、4.0 第 6 步 |
+| 全量测试不超过 60 s | ✅ 约 35 s（新测试合计约 1.5 s） |
+| `scripts/check.sh` 通过 | ✅ |

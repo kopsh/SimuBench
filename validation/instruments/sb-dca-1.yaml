@@ -1,0 +1,281 @@
+schema: simubench.instrument/1
+id: sb-dca-1
+manufacturer: SimuBench
+model: SB-DCA-1
+class: sampling_oscilloscope
+version: 1
+description: >-
+  等效时间采样示波器（验证仪表，#1094）：两个光通道（O/E 4 阶 Bessel 45 GHz，按波长 1310/1550 nm 取响应度，
+  标定为 1 V/W，等效输入光噪声 4 µW rms），通道 1 的数据做时钟恢复（锁定范围 ±0.1%，最高 120 GBd），
+  码型锁定后按码型起点取记录；采样器每秒 25 万点，时基抖动 90 fs rms，采样器噪声 1% 格 rms。
+  只做行为级与基础测量：眼图、抖动分解、TDECQ 不做（product-plan.md 第 6 节）。
+identity:
+  serial: SBDCA000001
+  firmware: "1.0.0"
+channels:
+  count: 2
+  overrides:
+    1: {display: {default: true}}
+state:
+  timebase.scale:
+    type: float
+    unit: S
+    min: 1.0e-13
+    max: 1.0e-3
+    default: 1.0e-11
+    label: 时基
+    label_en: Timebase
+  timebase.position:
+    type: float
+    unit: S
+    min: 0.0
+    max: 1.0
+    default: 0.0
+    label: 码型内的位置
+    label_en: Position
+  acquire.points:
+    type: int
+    min: 16
+    max: 16384
+    default: 1024
+    label: 记录点数
+    label_en: Record length
+  acquire.average:
+    type: bool
+    default: false
+    label: 平均
+    label_en: Averaging
+  acquire.count:
+    type: int
+    min: 1
+    max: 4096
+    default: 16
+    label: 平均次数
+    label_en: Averages
+  trigger.plock:
+    type: bool
+    default: true
+    label: 码型锁定
+    label_en: Pattern lock
+  # 屏幕显示的触发源（只读）：时钟恢复。
+  trigger.source:
+    type: enum
+    options: [CDR]
+    default: CDR
+    readonly: true
+    label: 触发源
+    label_en: Trigger source
+  cdr.rate:
+    type: float
+    unit: HZ
+    min: 1.0e6
+    max: 1.2e11
+    default: 2.65625e10
+    label: 时钟恢复速率
+    label_en: CDR rate
+  cdr.lbw:
+    type: float
+    unit: HZ
+    min: 1.0e5
+    max: 2.0e7
+    default: 4.0e6
+    label: 环路带宽
+    label_en: Loop bandwidth
+  waveform.source:
+    type: enum
+    options: [CHANnel1, CHANnel2]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2}
+    default: CHANnel1
+    label: 波形传输源
+    label_en: Waveform source
+channel_state:
+  display:
+    type: bool
+    default: false
+    label: 显示
+    label_en: Display
+  # 光通道的档位与偏置以瓦为单位（O/E 标定为 1 V/W）。
+  scale:
+    type: float
+    unit: W
+    min: 1.0e-6
+    max: 2.0e-3
+    default: 1.0e-4
+    label: 垂直档位
+    label_en: Scale
+  offset:
+    type: float
+    unit: W
+    min: -1.0e-2
+    max: 1.0e-2
+    default: 0.0
+    label: 偏置
+    label_en: Offset
+  wavelength:
+    type: enum
+    options: [WL1310, WL1550]
+    option_labels: {WL1310: "1310 nm", WL1550: "1550 nm"}
+    default: WL1310
+    label: 波长
+    label_en: Wavelength
+components:
+  - name: cdr
+    type: clock_recovery
+    params: {rate: $cdr.rate, lock_range: 1.0e-3, loop_bandwidth: $cdr.lbw, min_rate: 1.0e6, max_rate: 1.2e11}
+  - name: acq
+    type: sampling_acquisition
+    params:
+      clock: cdr
+      vertical: front
+      noise_from: [orx]
+      scale: $timebase.scale
+      position: $timebase.position
+      points: $acquire.points
+      average: $acquire.average
+      averages: $acquire.count
+      pattern_lock: $trigger.plock
+      jitter_s: 9.0e-14
+      sample_rate: 2.5e5
+  - name: meas
+    type: scope_measurements
+    params:
+      source: $waveform.source
+  - name: xfer
+    type: waveform_transfer
+    params:
+      source: $waveform.source
+      encoding: ascii
+      values: volts
+      no_record: "no acquisition for this source; send :SINGle first"
+channel_components:
+  # 光电转换：响应度随波长（1310 nm 0.85 A/W，1550 nm 0.95 A/W），跨阻取其倒数，整体 1 V/W。
+  - name: orx
+    type: optical_receiver
+    params:
+      responsivity: {from: $ch.wavelength, map: {WL1310: 0.85, WL1550: 0.95}}
+      transimpedance: {from: $ch.wavelength, map: {WL1310: 1.1764705882352942, WL1550: 1.0526315789473684}}
+      bandwidth: 4.5e10
+      response: bessel4
+      noise_w: 4.0e-6
+      wavelength: {from: $ch.wavelength, map: {WL1310: 1.31e-6, WL1550: 1.55e-6}}
+  # 采样器：档位与偏置（W），自身噪声 1% 格 rms；带宽由 O/E 决定。
+  - name: front
+    type: scope_vertical
+    params:
+      bandwidth: .inf
+      noise_divs: 0.01
+wiring:
+  channel:
+    - [orx.out, front.in]
+  instrument:
+    - ["ch{n}.front.out", "acq.in{n}"]
+    - [ch1.orx.out, cdr.in]
+ports:
+  channel:
+    "OPT{n}": orx.in
+display:
+  template: oscilloscope
+  summary: [timebase.scale, cdr.rate, trigger.plock]
+  channel_summary: [display, scale, offset, wavelength]
+capabilities: [oscilloscope]
+commands:
+  - header: ":CHANnel<ch>:SCALe"
+    state: ch.scale
+  - header: ":CHANnel<ch>:OFFSet"
+    state: ch.offset
+  - header: ":CHANnel<ch>:DISPlay"
+    state: ch.display
+  - header: ":CHANnel<ch>:WAVelength"
+    state: ch.wavelength
+  - header: ":TIMebase:SCALe"
+    state: timebase.scale
+  - header: ":TIMebase:POSition"
+    state: timebase.position
+  - header: ":ACQuire:POINts"
+    state: acquire.points
+  - header: ":ACQuire:AVERage"
+    state: acquire.average
+  - header: ":ACQuire:COUNt"
+    state: acquire.count
+  - header: ":ACQuire:COUNt:ACQuired"
+    op: acq.count
+    set: false
+  - header: ":ACQuire:CLEar"
+    op: acq.clear
+    query: false
+  - header: ":TRIGger:PLOCk"
+    state: trigger.plock
+  - header: ":TRIGger:PLENgth"
+    op: cdr.pattern_length
+    set: false
+  - header: ":CRECovery:RATE"
+    state: cdr.rate
+  - header: ":CRECovery:LBWidth"
+    state: cdr.lbw
+  - header: ":CRECovery:LOCKed"
+    op: cdr.locked
+    set: false
+  - header: ":CRECovery:RRATe"
+    op: cdr.recovered_rate
+    set: false
+  - header: ":RUN"
+    op: acq.run
+    query: false
+  - header: ":STOP"
+    op: acq.stop
+    query: false
+  - header: ":SINGle"
+    op: acq.single
+    query: false
+    params:
+      - {name: sources, type: raw}
+  - header: ":WAVeform:SOURce"
+    state: waveform.source
+  - header: ":WAVeform:DATA"
+    op: xfer.data
+    set: false
+  # 平均光功率（O/E 的直流通路，与是否采集无关）。
+  - header: ":CHANnel<ch>:APOWer"
+    op: ch.orx.power
+    set: false
+    args: {unit: W}
+  - header: ":MEASure:VAVerage"
+    op: meas.measure
+    set: false
+    args: {what: VAVerage}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VAMPlitude"
+    op: meas.measure
+    set: false
+    args: {what: VAMPlitude}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VTOP"
+    op: meas.measure
+    set: false
+    args: {what: VTOP}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VBASe"
+    op: meas.measure
+    set: false
+    args: {what: VBASe}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VMAX"
+    op: meas.measure
+    set: false
+    args: {what: VMAX}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:VMIN"
+    op: meas.measure
+    set: false
+    args: {what: VMIN}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:RISetime"
+    op: meas.measure
+    set: false
+    args: {what: RISetime}
+    params: [{name: source, type: string, optional: true}]
+  - header: ":MEASure:FALLtime"
+    op: meas.measure
+    set: false
+    args: {what: FALLtime}
+    params: [{name: source, type: string, optional: true}]
