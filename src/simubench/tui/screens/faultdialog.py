@@ -180,10 +180,10 @@ class FaultDialog(ModalScreen[dict | None]):
             yield Button(i18n.t("fault.inject", lang), variant="primary", id="fd-inject")
             yield Button(i18n.t("common.cancel", lang), id="fd-cancel")
 
-    def on_mount(self) -> None:
+    async def on_mount(self) -> None:
         if self.net and not self.instrument:
             self.components = net_components(self.app.session_info, self.net)  # type: ignore[attr-defined]
-        self._refresh_fields()
+        await self._refresh_fields()
         self._refresh_active()
         first = self._groups()[0][0]
         radios = self.query_one(f"#fd-group-{first}", RadioSet)
@@ -201,22 +201,27 @@ class FaultDialog(ModalScreen[dict | None]):
                 return pressed.name or "timeout"
         return self._groups()[0][1][0]
 
-    def _refresh_fields(self) -> None:
+    async def _refresh_fields(self) -> None:
+        """Replace the field rows with the chosen kind's. The old rows are removed before the new
+        ones mount: both carry the same ids (``fd-f-count`` is a field of most kinds), and a value
+        typed meanwhile must not land in a row on its way out."""
         lang = self.app.lang
         box = self.query_one("#fd-fields", Static)
-        box.remove_children()
+        await box.remove_children()
+        rows = []
         for name in fields_for_kind(self._kind()):
             preset = self.components[0] if name == "component" and self.components else ""
-            box.mount(
+            rows.append(
                 Horizontal(Label(i18n.t(f"fault.{name}", lang)), Input(value=preset, id=f"fd-f-{name}"))
             )
-        box.mount(Horizontal(Label(i18n.t("fault.at", lang)), Input(id="fd-f-at_s")))
-        box.mount(Horizontal(Label(i18n.t("fault.duration", lang)), Input(id="fd-f-duration_s")))
+        rows.append(Horizontal(Label(i18n.t("fault.at", lang)), Input(id="fd-f-at_s")))
+        rows.append(Horizontal(Label(i18n.t("fault.duration", lang)), Input(id="fd-f-duration_s")))
+        await box.mount_all(rows)
         effect = i18n.t(f"fault.kindHints.{self._kind()}", lang)
         self.query_one(".fd-effect", Static).update(effect + "\n" + i18n.t("fault.durationHint", lang))
 
-    def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
-        self._refresh_fields()
+    async def on_radio_set_changed(self, event: RadioSet.Changed) -> None:
+        await self._refresh_fields()
 
     # ---- inject / revoke --------------------------------------------------------------------------------------
 

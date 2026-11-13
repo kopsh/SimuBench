@@ -17,6 +17,11 @@ instruments:
   sa:
     model: keysight-n9320b
     state: {freq.center: 10.0e6, freq.span: 2.0e6, display.ref_level: 0.0}
+  # 带前置放大器选件 P03 的第二台（#960），输入不接（端接）：只用于前放的噪声底用例。
+  sa_p03:
+    model: keysight-n9320b
+    options: [P03]
+    state: {freq.center: 100.0e6, freq.span: 1.0e6, display.ref_level: -40.0}
 wires:
   - {from: awg.CH1, to: sa.RF_IN}
   - {from: sg1.RF_OUT, to: sa.RF_IN}

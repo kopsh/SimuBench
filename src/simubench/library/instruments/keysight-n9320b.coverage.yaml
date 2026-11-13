@@ -535,8 +535,8 @@ sections:
   - header: '[:SENSe]:POWer[:RF]:ATTLimit:STATe'
     level: not_modeled
   - header: '[:SENSe]:POWer[:RF]:GAIN[:STATe]'
-    level: not_modeled
-    note: 'The preamplifier (option, 1 MHz to 3 GHz, 18 dB nominal) is not modeled: an instance cannot declare options yet (#1004).'
+    level: implemented
+    note: 'The preamplifier, option P03 (data sheet p.3: 1 MHz to 3 GHz, 18 dB nominal; #960): an instance with options: [P03] switches 18 dB of gain ahead of the mixer; its own noise figure is taken as 0 dB (the data sheet gives none; its preamp-on DANL is the preamp-off DANL minus 18 dB in five of seven bands), so the floor drops by 18 dB. A unit without P03 answers 0 to the query and -241 to a set, and OFF after *RST: both SimuBench assumptions (the guide is not in the repository).'
   - header: '[:SENSe]:SWEep:TYPE'
     level: not_modeled
   - header: '[:SENSe]:ACPower:OFFSet:LIST:BANDwidth[:INTegration]'
@@ -643,7 +643,7 @@ sections:
     note: 'One trace: TRACe1..4 all select trace 1. AVERage, MAXHold and WRITe only; MINHold/VIEW/BLANK are not modeled.'
   - header: :TRACe[:DATA]
     level: implemented
-    note: 'Trace 1 only; 1001 points in dBm, seven decimals. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (5990-8119EN p.4-5, #960): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the 1 GHz table around every line. Not modeled: frequency-response flatness as a per-unit deviation and the preamplifier option (#1004); input-related spurious and residual responses (the data sheet gives no frequencies or mixing orders).'
+    note: 'Trace 1 only; 1001 points in dBm, seven decimals. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (5990-8119EN p.4-5, #960): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the 1 GHz table around every line. The frequency response is a per-unit deviation within the band limits of the data sheet (p.3, preamp-off limits, 0 at 50 MHz; deviation: from_specs), and the preamplifier is option P03. Not modeled: input-related spurious and residual responses (the data sheet gives no frequencies or mixing orders).'
   - header: :TRACe:MATH:OFF
     level: not_modeled
   - header: :TRACe:MATH:ADD|SUBTract

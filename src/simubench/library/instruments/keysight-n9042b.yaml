@@ -18,7 +18,8 @@ description: >-
   tracking source are not modeled; the coverage table names every remaining gap. The front end
   follows the Data Sheet (3121-1037.EN, standard path, #960): noise figure, SHI, TOI and 1 dB
   compression for the band of the center frequency, and the CF = 1 GHz phase-noise table;
-  flatness as a unit deviation and the LNA/PA options wait for #1004.
+  the standard-path frequency response as a per-unit deviation by band (#960). The LNA and PA
+  preamplifiers (options P26/P44/P4L/P50/P5L, with their own paths) are not modeled.
 reference:
   title: Keysight X-Series Signal Analyzer Spectrum Analyzer Mode User's & Programmer's Reference
   document: N9060-90027
@@ -59,9 +60,10 @@ specs:
     p.10 1a. Standard path frequency response (10 dB input attenuation, relative to 50 MHz), full
     range: 9 kHz to 20 MHz ±0.54 dB; >20 to 50 MHz ±0.44 dB; >50 MHz to 3.6 GHz ±0.58 dB; >3.6 to
     5.2 GHz ±2.70 dB; >5.2 to 8.4 GHz ±2.50 dB; >8.4 to 13.6 GHz ±2.00 dB; >13.6 to 17.1 GHz
-    ±2.00 dB; >17.1 to 26.5 GHz ±2.32 dB (not declared: a deviation of the flatness table needs #1004)
+    ±2.00 dB; >17.1 to 26.5 GHz ±2.32 dB (declared in deviations)
   preamplifiers: >-
-    p.18 LNA (options P44/P4L/P50/P5L) and PA, 40 dB together nominal (options; not declared, #1004)
+    p.18 LNA (options P44/P4L/P50/P5L) and PA, 40 dB together nominal (options; not declared: two
+    preamplifiers on several signal paths, each with its own commands and responses)
   gain_compression: >-
     p.19 1 dB gain compression, 1a. PA off (nominal, mixer power): 20 to 40 MHz +2 dBm; >40 MHz to
     3.6 GHz +5 dBm; >3.6 to 13.5 GHz +8 dBm; >13.5 to 26.5 GHz +3 dBm; >26.5 to 50 GHz +6 dBm
@@ -495,6 +497,22 @@ display:
   template: spectrum_analyzer
   summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
 capabilities: [spectrum_analyzer]
+# 频响平坦度的个体偏差（数据手册第 10 页 1a. Standard path frequency response，10 dB 衰减，相对
+# 50 MHz，全温度范围）：各频段的 ± 限值，标称曲线为 0（定义不写 flatness），50 MHz 处为 0。
+# 手册的频段写作“> a 到 b”，相邻两段共用端点（按较紧的限值抽一次）。
+deviations:
+  - param: input.flatness
+    bands:
+      - [9.0e3, 20.0e6]
+      - [20.0e6, 50.0e6]
+      - [50.0e6, 3.6e9]
+      - [3.6e9, 5.2e9]
+      - [5.2e9, 8.4e9]
+      - [8.4e9, 13.6e9]
+      - [13.6e9, 17.1e9]
+      - [17.1e9, 26.5e9]
+    limit: [0.54, 0.44, 0.58, 2.70, 2.50, 2.00, 2.00, 2.32]
+    reference: 50.0e6
 commands:
   # ---- common commands beyond the built-ins ----------------------------------------------------
   - header: "*OPT"

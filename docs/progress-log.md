@@ -2109,3 +2109,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 技能：codebase-map 的内部探针一行、`signal-chain.md` 状态；real-model 的频谱仪参数出处 | ✅ `scripts/check_skills.py` 通过 |
 | `signal-chain.md` 状态改为已实现（第一版） | ✅ |
 | `scripts/check.sh` 通过 | ✅ |
+
+## N9320B、N9042B：平坦度个体偏差与 N9320B 前置放大器选件（Issue 960，收尾）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `deviation: from_specs` 的测试台上，平坦度在数据手册限值内、随种子可复现 | ✅ 两个定义的 `deviations`（`input.flatness` 按频段：N9320B 第 3 页前放关两段，N9042B 第 10 页 1a 八段，参考 50 MHz）；`tests/test_specan_frontend.py::test_a_real_models_flatness_deviation_stays_inside_its_data_sheet_bands`（每个节点在所在频段（共用端点取较紧）的限值内、50 MHz 处为 0、同种子相同、换种子不同） |
+| 前置放大器（型号有该选件时作为实例选项） | ✅ N9320B 选件 P03：18 dB 增益由 `[:SENSe]:POWer[:RF]:GAIN[:STATe]` 开关，前放噪声系数取 0 dB（手册没给；前放开的 DANL 七段中五段正好比前放关低 18 dB）；没装选件查询回 0、设置 -241（假设，覆盖表注明）；用例“前置放大器（选件 P03）”（`simubench cases` 18/18）。⚠️ N9042B 的 LNA/PA（P26/P44/P4L/P50/P5L）没有声明：两个放大器、多条信号通路，各有频响与 DANL，覆盖表写明 |
+| 覆盖表与定义、用例一致 | ✅ `test_coverage_table_agrees_with_definition_and_cases`；`test_command_equivalence.py` 认可选件命令在未装选件的整机上报 -241（#1004 的规则） |
+| `src/simubench/library/components/` 无改动 | ✅ `tests/test_model_components.py` 通过 |
+| 示例测试台与脚本照常运行 | ✅ 示例测试台不写 `deviation`、不装选件，回复不变 |
+| `scripts/check.sh` 通过 | ✅ |

@@ -15,7 +15,8 @@ description: >-
   counter state need the capability issue #274 and are not modeled.
   The front end follows the Data Sheet (5990-8119EN, #960): noise figure, second- and third-order
   intercepts and 1 dB compression for the band of the center frequency, and the 1 GHz phase-noise
-  table; flatness as a unit deviation and the preamplifier option wait for #1004.
+  table; the frequency response as a per-unit deviation by band and the preamplifier as option
+  P03 (#960).
 reference:
   title: Keysight N9320B RF Spectrum Analyzer Programmer's Guide
   document: N9320-90029
@@ -28,8 +29,9 @@ specs:
   frequency_response: >-
     p.3 Frequency response (10 dB input attenuation, reference 50 MHz): preamp off 200 kHz to
     2.0 GHz ±0.5 dB, 2.0 to 3.0 GHz ±0.7 dB; preamp on 1 MHz to 2.0 GHz ±0.6 dB, 2.0 to 3.0 GHz
-    ±0.8 dB (not declared: a deviation of the flatness table needs #1004)
-  preamplifier: "p.3 Preamplifier: 1 MHz to 3.0 GHz, gain 18 dB nominal (option; not declared, #1004)"
+    ±0.8 dB (declared in deviations with the preamp-off limits: one draw per unit, whatever the
+    preamplifier's state)
+  preamplifier: "p.3 Preamplifier: 1 MHz to 3.0 GHz, gain 18 dB nominal (option P03)"
   gain_compression: >-
     p.4 1 dB gain compression, 50 MHz to 3.0 GHz: preamp off > 0 dBm typical (total power at the
     input mixer); preamp on > -20 dBm typical (total power at the preamp)
@@ -38,6 +40,10 @@ specs:
     off, typical: 9 to 100 kHz -90 dBm nominal; 100 to 500 kHz -106 dBm; 500 kHz to 1 MHz -126 dBm;
     1 to 10 MHz -130 dBm (spec -124 dBm); 10 to 500 MHz -132 dBm; 500 MHz to 1.5 GHz -130 dBm (spec
     -130 dBm + 3 x (f/1 GHz) dB); 1.5 to 2.5 GHz -128 dBm; 2.5 to 3 GHz -125 dBm
+  danl_preamp_on: >-
+    p.4 DANL, preamp on, typical: 100 to 500 kHz -124 dBm; 500 kHz to 1 MHz -145 dBm; 1 to 10 MHz
+    -149 dBm (spec -142 dBm); 10 to 500 MHz -150 dBm; 500 MHz to 1.5 GHz -148 dBm; 1.5 to 2.5 GHz
+    -146 dBm; 2.5 to 3 GHz -141 dBm
   second_harmonic: >-
     p.4 Second harmonic distortion (preamp off, signal input -30 dBm, 0 dB RF attenuation):
     10 to 200 MHz +30 dBm; 200 to 500 MHz +35 dBm; 500 MHz to 3 GHz +43 dBm
@@ -146,6 +152,12 @@ state:
     default: true
     label: 衰减自动
     label_en: Attenuation auto
+  # 前置放大器开关（选件 P03，#960）。*RST 后关闭是 SimuBench 的假设（手册该命令的预置值不在仓库，覆盖表注明）。
+  power.gain:
+    type: bool
+    default: false
+    label: 前置放大器
+    label_en: Preamplifier
   display.ref_level:
     type: float
     unit: DBM
@@ -461,6 +473,27 @@ display:
   template: spectrum_analyzer
   summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
 capabilities: [spectrum_analyzer]
+# 频响平坦度的个体偏差（数据手册第 3 页 Frequency response，10 dB 衰减，相对 50 MHz，前放关）：
+# 200 kHz–2.0 GHz ±0.5 dB、2.0–3.0 GHz ±0.7 dB；标称曲线为 0（定义不写 flatness），50 MHz 处为 0。
+# 前放开时手册的限值略宽（±0.6 / ±0.8 dB，1 MHz 起），模型只抽一条曲线，用前放关的限值。
+deviations:
+  - param: input.flatness
+    bands: [[200.0e3, 2.0e9], [2.0e9, 3.0e9]]
+    limit: [0.5, 0.7]
+    reference: 50.0e6
+# 选件（D68）：前置放大器 P03（数据手册第 3 页：1 MHz–3.0 GHz，增益 18 dB nominal）。
+# 手册没有给前放自己的噪声系数；前放开的 DANL（第 4 页）在七个频段中有五个正好比前放关低 18 dB
+# （另两个：1–10 MHz 低 19 dB，2.5–3 GHz 低 16 dB），即前放的噪声相对后级可以忽略：取 0 dB
+# （无噪声），前放开的噪声底 = 前放关 − 18 dB。0 dB 时前放关的噪声底与不带选件的整机相同。
+# 前放开的 1 dB 压缩点（> −20 dBm，前放处）不另声明：混频器的 0 dBm 经 18 dB 增益折到前放处为
+# −18 dBm，已满足手册。增益在 1 MHz 以下同样生效（手册只给 1 MHz–3 GHz 的指标）。
+options:
+  - id: P03
+    label: 前置放大器（Preamplifier）
+    params:
+      input:
+        preamp_gain: {from: $power.gain, map: {"True": 18.0, "False": 0.0}}
+        preamp_noise_figure: 0.0
 commands:
   # ---- frequency -------------------------------------------------------------------------------
   - header: "[:SENSe]:FREQuency:CENTer"
@@ -516,6 +549,14 @@ commands:
     params: [{name: value, type: float, unit: DB, optional: true}]
   - header: ":DISPlay:WINDow[:TRACe]:Y[:SCALe]:RLEVel"
     state: display.ref_level
+  # 前置放大器（选件 P03）；没装选件的整机：查询回 0，设置报 -241（Hardware missing）。手册（不在仓库）
+  # 未说明未装选件时的回复，这是 SimuBench 的假设（覆盖表注明）。
+  - header: "[:SENSe]:POWer[:RF]:GAIN[:STATe]"
+    state: power.gain
+    option: P03
+  - header: "[:SENSe]:POWer[:RF]:GAIN[:STATe]"
+    state: power.gain
+    set: false
   # ---- detector, trace, average ----------------------------------------------------------------
   - header: "[:SENSe]:DETector[:FUNCtion]"
     state: detector
