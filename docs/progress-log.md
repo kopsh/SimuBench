@@ -2221,3 +2221,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档 | ✅ `decisions.md` D72、`architecture.md` 2.8、`component-map.md` 的 sampling_oscilloscope 节、`glossary.md`、`product-plan.md` 4.2 的 C19、4.0 第 6 步 |
 | 全量测试不超过 60 s | ✅ 约 35 s（新测试合计约 1.5 s） |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 光器件仪表类别：波长传递、可调激光源、光功率计、可变光衰减器（Issue 1103，#1107 的子项）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 波长随光传递（改 D71） | ✅ `Component.carrier` / `input_carrier`：光源给出被求值时刻的波长，光器件默认传下去，测试台光纤上按网络找唯一的光输出（`Session.optical_feed`、`optical_carrier`）；`Session.instant_ns` 与 `at_instant(t)` 让随时间变化的光可在过去时刻求值（进输出缓存的键，不发事件）；`optical_receiver` 行为不变 |
+| 可调激光源 | ✅ `tunable_laser`：波长、功率、LD 开关、光闸、绝对波长误差；连续 / 步进扫描、循环与间隔，`start`/`stop`、扫描状态、已完成循环、扫描总时长、当前波长、光频率读写（c/λ）；扫描结束回到设定波长或停在起点 / 终点（`park`）；调制、相干控制、触发输出不建模 |
+| 光功率计 | ✅ `optical_power_meter`：按设定波长校准的光谱响应（设错波长按响应度之比读偏）、增益误差、暗偏置与调零（带光调零会把光也调掉）、自动 / 手动量程与超量程、平均时间与通用 `noise` 参数、W / dBm / dB（参考可取当前读数）；是 `TraceSource`，记录用现有的 `curve_buffer`，每点在自己的时刻求值 |
+| 可变光衰减器 | ✅ `variable_optical_attenuator`：插损 + 衰减、随波长的附加损耗（按设定波长校准）、光闸、改衰减后的到位时间（阶跃）、功率模式（按目标输出功率调衰减，够不到时 UNREACH）、监测输出功率；固定的 `optical_attenuator` 配件不变 |
+| 类别模板 | ✅ `docs/blocks/` 的 `tunable_laser`、`optical_power_meter`、`optical_attenuator`；`library/panels.py` 三个类别默认面板（Web 与 TUI 都按 API 给的面板绘制）；Web 类别清单与中英文类别名 |
+| `sb-*` 仪表与测试 | ✅ `sb-tls-1`、`sb-opm-1`、`sb-voa-1`，`validation/benches/optical_sweep.bench.yaml`；`tests/test_optical_instruments.py`：静态读数 = 0 dBm − 1.2 dB − 10 dB；功率计设 1310 nm 读 1550 nm 光偏 +0.458 dB（1/0.9）；改衰减 50 ms 后到位；c/f 写入；1500 → 1600 nm、10 nm/s 扫描按 100 Hz 记 1000 点，逐点与该时刻波长下的解析值相差 < 0.001 dB；关光闸读暗偏置，调零后归零 |
+| 文档 | ✅ `decisions.md` D71（波长、过去时刻求值、代价）、`architecture.md` 2.7、`component-map.md` 三个新类别节、`glossary.md`、`product-plan.md` 3.4 的例外、4.2 的 C20、第 7 节 |
+| 全量测试不超过 60 s | ✅ 约 40 s（新测试合计约 0.5 s） |
+| `scripts/check.sh` 通过 | ✅ |

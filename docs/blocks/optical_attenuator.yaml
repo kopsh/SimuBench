@@ -1,0 +1,11 @@
+# 可变光衰减器的真实功能块(D50,依据见 docs/component-map.md 的 optical_attenuator 节,#1103)。
+# 第一台内置型号是 9951Y(#1106)。
+schema: simubench.blocks/1
+class: optical_attenuator
+blocks:
+  - block: attenuator          # 衰减元件:插损、衰减设定与到位时间、随波长的附加损耗(按设定波长校准)
+    components: [variable_optical_attenuator]
+  - block: shutter             # 光闸
+    components: [variable_optical_attenuator]
+  - block: power_control       # 功率模式:内置监测分光,按目标输出功率调衰减
+    components: [variable_optical_attenuator]

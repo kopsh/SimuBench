@@ -23,6 +23,9 @@
 | 光端口、光纤 | Optical port, fibre | 携带光功率（W）的端口（介质 `optical`，D71）；光纤把一个光输出接到若干光输入，不是电气网络，光端口不能接电端口 |
 | 光源（电光转换） | Optical source (E/O) | 电驱动调制的激光：平均光功率、消光比、驱动摆幅（`optical_source`） |
 | 光接收器（光电转换） | Optical receiver (O/E) | 光功率变成电压：响应度 × 跨阻、带宽与响应形状、等效输入光噪声，读平均光功率（`optical_receiver`） |
+| 可调激光源 | Tunable laser source | 波长可调的连续光源，可在虚拟时间里扫描波长（连续或步进，`tunable_laser`） |
+| 光功率计 | Optical power meter | 读平均光功率（W/dBm/dB），按设定波长校准探头响应，可记录（`optical_power_meter` + `curve_buffer`） |
+| 可变光衰减器 | Variable optical attenuator (VOA) | 衰减可设的光器件：插损、随波长的损耗、到位时间、按目标输出功率调节（`variable_optical_attenuator`） |
 | 消光比 | Extinction ratio | 光信号“1”与“0”电平的功率比，dB |
 | 等效时间采样 | Equivalent-time sampling | 每次触发只取少量点、按触发后的时间位置拼出重复波形的采样方式（DCA）；SimuBench 按码型位置直接求值（D72） |
 | 码型锁定 | Pattern lock | 采样示波器把记录的时间零点对到码型起点，记录随码型重复 |
