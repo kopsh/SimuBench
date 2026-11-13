@@ -78,6 +78,7 @@ plausible fake).
 | Is it done already? | `progress.md` (milestones); details: grep `progress-log.md` |
 | What is the product for, what is weak, what comes next? | `positioning-review.md` (internal tool; shortage + own-instrument scenarios; draft) |
 | In what order is the remaining work done, who does each step, what counts as done? | `product-plan.md` (draft: what only the owner can do, what agents can do now, issue-ready rows) |
+| What would it take to simulate the scopes and spectrum analyzers of the next five years? | `five-year-outlook.md` (draft: assumed target specs O1–O3 / A1–A3, capability gaps C1–C17, phases, issue-ready rows F1-1 … F1-7) |
 | Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the two evaluations, the issue split (D67) | `signal-chain.md` (implemented, first version); how to write one in a definition: `instrument-authoring.md` 2.11 |
 | Definition YAML format, declarative commands, replies, mappings | `instrument-authoring.md` 2–5 |
 | Real-model rules | `real-models.md`; meters/calibrators/SMUs: `metrology-authoring.md` |

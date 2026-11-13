@@ -7,6 +7,7 @@
 - 开发计划与进度：[docs/roadmap.md](docs/roadmap.md)、[docs/progress.md](docs/progress.md)
 - 定位复盘与后续规划（草案）：[docs/positioning-review.md](docs/positioning-review.md)
 - 产品规划：接下来的顺序、分工与完成条件（草案）：[docs/product-plan.md](docs/product-plan.md)
+- 五年设想：示波器与频谱仪的目标规格、能力缺口与阶段（草案）：[docs/five-year-outlook.md](docs/five-year-outlook.md)
 
 ## 开发
 
