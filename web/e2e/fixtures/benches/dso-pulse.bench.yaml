@@ -1,0 +1,40 @@
+# The internal probe's narrow-pulse demonstration (signal-chain.md 1.5 step 5, #984): the
+# generator drives the DSO-X 2024A's CH1 directly (no RC low-pass to smooth the pulse away). A
+# 100 kHz square wave at 0.2 % duty is a 20 ns pulse from 0 to 2 V every 10 µs; at 1 ms/div the
+# decimator keeps one sample per 100 ns, so normal acquisition misses every pulse, and peak detect
+# keeps each interval's extremes. The pulse period is exactly 100 decimation intervals: the
+# samples meet the pulses at the same phase at any instant. The clock does not move while idle
+# (run.idle: sleep), as in dso-probe.
+schema: simubench.bench/2
+name: dso_pulse
+description: >-
+  Siglent SDG2042X 输出 100 kHz、占空比 0.2 % 的方波（每 10 µs 一个 20 ns 的窄脉冲，0 到 2 V），
+  直接接到 Keysight DSO-X 2024A 的 CH1（内部探针的峰值检测演示，#984）。
+instruments:
+  awg:
+    model: siglent-sdg2042x
+    label: 函数发生器
+    state:
+      ch1.function: SQUARE
+      ch1.frequency: 100000
+      ch1.duty: 0.2
+      ch1.amplitude: 2.0
+      ch1.offset: 1.0
+      ch1.load: .inf
+      ch1.output: true
+  scope:
+    model: keysight-dsox2024a
+    label: 示波器
+    state:
+      timebase.scale: 1.0e-3
+      ch1.probe: 1.0
+      ch1.scale: 0.5
+wires:
+  - {from: awg.CH1, to: scope.CH1}
+run:
+  seed: 7
+  clock: command
+  idle: sleep
+layout:
+  awg: {x: 0, y: 80}
+  scope: {x: 420, y: 40}

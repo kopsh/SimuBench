@@ -2120,3 +2120,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | `src/simubench/library/components/` 无改动 | ✅ `tests/test_model_components.py` 通过 |
 | 示例测试台与脚本照常运行 | ✅ 示例测试台不写 `deviation`、不装选件，回复不变 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 内部结构 Web 的复核建议：窄脉冲演示、对比度、视觉基准（Issue 984）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| e2e：窄脉冲在默认采集下抽取输出看不到，`:ACQuire:TYPE PEAK` 后看得到（不经 RC 低通的测试台） | ✅ `web/e2e/fixtures/benches/dso-pulse.bench.yaml`：SDG2042X 的 100 kHz、占空比 0.2 % 方波（每 10 µs 一个 20 ns、0–2 V 的脉冲）直接接 DSO-X 2024A 的 CH1，1 ms/div（抽取后 10 MSa/s，每 100 ns 一个采样；脉冲周期正好 100 个间隔，任何时刻采样落在脉冲上的相位相同——本机在 5 个时刻核对过）。`web/e2e/workbench.spec.ts` 的“a narrow pulse the decimator drops…”：ADC 输出最高 ≥ 1.5 V（脉冲都在）；抽取输出常态最高 500 mV（< 1 V，脉冲全丢）；切 PEAK 后随事件版本刷新到 ≥ 1.5 V。signal-chain.md 1.5 第 5 步由此落地（原 #953 的跨度变宽断言保留） |
+| 内部结构页的自动化对比度检查（探针面板与连线标注） | ✅ `web/e2e/judge.ts` 的 `contrastOf` / `expectContrastAA`（WCAG 2.1，颜色经 canvas 读回 sRGB，主题的 oklch 令牌与透明度都算；SVG 连线标注按其 `edge-textbg` 底色）：探针标题、格式标签、最低/最高读数与全部连线标注，明暗两套主题。本机实测：亮色最低 5.47、暗色最低 6.49（AA 要求 4.5） |
+| 本机与 CI 视觉基准不一致的 4 张图查明原因 | ✅ 字体没有随应用打包：`--font-sans`（Inter、Noto Sans SC…）与 `--font-mono`（JetBrains Mono…）取自机器上装的字体（`web/src/styles/globals.css`）。CI 的 runner 没有 Inter 与 JetBrains Mono，回退到更宽的 DejaVu Sans Mono，基准是它的渲染；装了这些字体的机器文字更窄，画布按文字宽度重新适配，于是 Assistant/Panel Stuck 与 Workbench/Live canvas Counter（明暗各一）差约 2 % 像素。本机在干净的 `main` 上复现：82 张中 78 张一致、4 张为这两组；差异图只在文字处。记入 `web-ui` 技能：基准只认 CI 的 actual。修复（把字体打包进应用，所有基准随之重录）不在本 issue 范围 |
+| `scripts/check.sh` 通过 | ✅ |

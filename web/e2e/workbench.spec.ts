@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { benchRow, expectText, expectValue, isClockTime, isSession, isVersion, near, openButton, quantity, sessionIdOf } from "./judge";
+import { benchRow, expectContrastAA, expectText, expectValue, isClockTime, isSession, isVersion, near, openButton, quantity, sessionIdOf } from "./judge";
 
 const TOKEN = "e2e-token";
 
@@ -520,6 +520,66 @@ test("internal probe: the ADC's samples and resolution, then peak detect at the 
   await probe.getByRole("button", { name: "关闭内部探针" }).click();
   await expect(page.getByTestId("internal-probe")).toHaveCount(0);
   await expect(page.getByTestId("internal-details")).toContainText("scope_decimator");
+});
+
+test("internal probe: a narrow pulse the decimator drops in normal acquisition and keeps with peak detect, in AA contrast (signal-chain.md 1.5 step 5, #984)", async ({
+  page,
+}) => {
+  const headers = { "x-simubench-token": TOKEN };
+  // 20 ns pulses from 0 to 2 V every 10 µs straight into CH1 (fixtures/benches/dso-pulse); at
+  // 1 ms/div the decimator keeps one sample per 100 ns, at the same phase of every pulse.
+  const start = await page.request.post("/api/sessions", {
+    headers,
+    data: { bench_path: "benches/dso-pulse.bench.yaml", force: true },
+  });
+  const sid = ((await start.json()) as { id: string }).id;
+  const scpi = (name: string, command: string) =>
+    page.request.post(`/api/sessions/${sid}/instruments/${name}/scpi`, { headers, data: { command } });
+  expect((await scpi("awg", "C1:OUTPut ON")).ok()).toBe(true);
+  expect((await page.request.post(`/api/sessions/${sid}/clock/advance`, { headers, data: { seconds: 0.026 } })).ok()).toBe(true);
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  const graph = page.getByTestId("internals-graph");
+  const volts = async (id: string) => {
+    const v = quantity((await page.getByTestId(id).textContent()) ?? "", "V");
+    expect(v).not.toBeNull();
+    return v!;
+  };
+
+  // The ADC sees every pulse: its stream reaches the pulse's top.
+  // (opened from the keyboard: the view opens at a readable zoom, not every port on screen)
+  await graph.locator('[data-port="adc.out1"]').focus();
+  await page.keyboard.press("Enter");
+  await expect(page.getByTestId("internal-probe")).toHaveAttribute("data-state", "ready");
+  await expect(page.getByTestId("internal-probe-heading")).toHaveText("ADC 组 · out1");
+  expect(await volts("internal-probe-hi")).toBeGreaterThan(1.5);
+
+  // Normal acquisition: one sample per 100 ns, none of them on a 20 ns pulse — the record
+  // never rises above 1 V, the pulses are gone.
+  await graph.locator('[data-port="dec.out1"]').click();
+  await expect(page.getByTestId("internal-probe-heading")).toHaveText("抽取与采集方式 · out1");
+  await expect(page.getByTestId("internal-probe-tag")).toContainText("数字 · 10 MSa/s · 8 位");
+  expect(await volts("internal-probe-hi")).toBeLessThan(1.0);
+
+  // The probe panel and the wire labels read in AA contrast, in both themes.
+  const texts = page
+    .getByTestId("internal-probe")
+    .locator('[data-testid="internal-probe-heading"], [data-testid="internal-probe-tag"], [data-testid="internal-probe-lo"], [data-testid="internal-probe-hi"]');
+  for (const scheme of ["light", "dark"] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    await expect
+      .poll(() => page.evaluate(() => document.documentElement.classList.contains("dark")))
+      .toBe(scheme === "dark");
+    await expectContrastAA(texts);
+    await expectContrastAA(graph.locator(".react-flow__edge-text"));
+  }
+  await page.emulateMedia({ colorScheme: "light" });
+
+  // Peak detect keeps each interval's extremes: the pulses are back at their full height.
+  expect((await scpi("scope", ":ACQuire:TYPE PEAK")).ok()).toBe(true);
+  await expect.poll(() => volts("internal-probe-hi")).toBeGreaterThan(1.5);
+  await expect(page.getByTestId("internal-probe-heading")).toHaveText("抽取与采集方式 · out1");
 });
 
 test("internal probe on the spectrum analyzer: the chain, the mixer's products, tuned to, the ADC and its resolution (signal-chain.md 1.5 steps 1-4, #959)", async ({

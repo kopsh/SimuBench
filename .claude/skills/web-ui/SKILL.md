@@ -61,6 +61,16 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   specs force-load every declared `FontFace` before capture — text metrics decide how cards wrap,
   and a wrap flip shifts the whole canvas fit (#618): keep that wait when adding new screenshot
   tests. The Canvas itself refits once fonts settle (#645) — keep that refit intact too.
+- The fonts are not bundled: `--font-sans` ("Inter", "Noto Sans SC", …) and `--font-mono`
+  ("JetBrains Mono", …) come from the machine's installed fonts (`src/styles/globals.css`). The CI
+  runner has neither Inter nor JetBrains Mono and falls back (DejaVu Sans Mono is wider), and the
+  baselines are its renders. A machine that has them installed renders narrower text: on such a
+  machine `pnpm visual` fails exactly four stories whose canvas refits on text width (Assistant/Panel
+  Stuck and Workbench/Live canvas Counter, light and dark, ~2 % of pixels) — expected, not a regression
+  (#984). Judge baselines by CI's actuals only.
+- WCAG AA contrast in an e2e test: `expectContrastAA(locator)` in `e2e/judge.ts` (colors read back
+  through a canvas, so the oklch tokens and alpha count; SVG wire labels on their `edge-textbg`). The
+  internals view checks its probe panel and wire labels in both themes (#984).
 
 ## Rules
 

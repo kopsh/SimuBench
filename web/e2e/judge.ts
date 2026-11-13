@@ -141,3 +141,71 @@ export function isVersion(text: string): boolean {
   const [major, minor, patch] = text.trim().split(".");
   return isDigits(major ?? "") && isDigits(minor ?? "") && hasDigit((patch ?? "").slice(0, 1));
 }
+
+/**
+ * WCAG 2.1 contrast of a text element against what is drawn behind it (#984: the AA check of the
+ * internals view). Colors are read back through a canvas, so any CSS color form (the theme's
+ * oklch tokens, alpha) arrives as sRGB. The background is the element's ancestors' fills
+ * composited from the first opaque one; an SVG label (a wire's) sits on its sibling
+ * `.react-flow__edge-textbg` rectangle. Returns the ratio and the AA threshold for the text's
+ * size (3 for large text: ≥ 24 px, or ≥ 18.66 px bold; 4.5 otherwise).
+ */
+export async function contrastOf(loc: Locator): Promise<{ ratio: number; needed: number; text: string }> {
+  return loc.evaluate((el) => {
+    const canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 1;
+    const ctx = canvas.getContext("2d", { willReadFrequently: true })!;
+    const rgba = (css: string): [number, number, number, number] => {
+      ctx.clearRect(0, 0, 1, 1);
+      ctx.fillStyle = "rgba(0, 0, 0, 0)";
+      ctx.fillStyle = css;
+      ctx.fillRect(0, 0, 1, 1);
+      const d = ctx.getImageData(0, 0, 1, 1).data;
+      return [d[0], d[1], d[2], d[3] / 255];
+    };
+    const over = (top: number[], below: number[]) =>
+      [0, 1, 2].map((i) => top[i] * top[3] + below[i] * (1 - top[3])).concat(1);
+    const fills: number[][] = [];
+    const svg = el instanceof SVGElement;
+    if (svg) {
+      const bg = el.parentElement?.querySelector(".react-flow__edge-textbg");
+      if (bg) {
+        const s = getComputedStyle(bg);
+        const f = rgba(s.fill);
+        fills.push([f[0], f[1], f[2], f[3] * Number(s.fillOpacity || 1)]);
+      }
+    }
+    for (let n: Element | null = svg ? el.closest("svg")?.parentElement ?? null : el; n; n = n.parentElement) {
+      const f = rgba(getComputedStyle(n).backgroundColor);
+      if (f[3] > 0) fills.push(f);
+      if (f[3] >= 1) break;
+    }
+    let bg = [255, 255, 255, 1];
+    for (const f of fills.reverse()) bg = over(f, bg);
+    const style = getComputedStyle(el);
+    const fg = over(rgba(svg ? style.fill : style.color), bg);
+    const lum = (c: number[]) => {
+      const [r, g, b] = c.slice(0, 3).map((v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const [hi, lo] = [lum(fg), lum(bg)].sort((a, b) => b - a);
+    const size = parseFloat(style.fontSize);
+    const bold = Number(style.fontWeight) >= 700;
+    return { ratio: (hi + 0.05) / (lo + 0.05), needed: size >= 24 || (bold && size >= 18.66) ? 3 : 4.5, text: el.textContent ?? "" };
+  });
+}
+
+/** Every element `loc` matches meets WCAG AA contrast (`contrastOf`); the failures are named. */
+export async function expectContrastAA(loc: Locator) {
+  const count = await loc.count();
+  expect(count).toBeGreaterThan(0);
+  const failures: string[] = [];
+  for (let i = 0; i < count; i++) {
+    const { ratio, needed, text } = await contrastOf(loc.nth(i));
+    if (ratio < needed) failures.push(`"${text.trim().slice(0, 40)}" ${ratio.toFixed(2)} < ${needed}`);
+  }
+  expect(failures).toEqual([]);
+}
