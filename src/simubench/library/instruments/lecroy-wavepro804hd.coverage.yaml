@@ -10,13 +10,21 @@ sections:
     note: 单次采集：armed 后触发一次，采完停在 STOP；触发方式本身不变
   - header: AUTO_SETUP
     level: not_modeled
+    note: 等能力:自动设置(按输入信号定标,#1080)。
+    gap: blocked
+    blocked_by: autoscale
   - header: C<ch>:ATTeNuation
     level: implemented
     note: 数值是探头衰减比（1、2、5、10、…、10000）；改档时垂直档位与偏置按比例缩放，使探头尖的读数保持不变
   - header: BANDWIDTH_LIMIT
     level: not_modeled
+    note: 可做:前端带宽限制;scope_vertical 的 bw_limit 已有(named filter)。
+    gap: model_work
   - header: COMBINE_CHANNELS
     level: not_modeled
+    note: 等能力 C15(product-plan.md 4.2):通道交织合并改变前端结构。
+    gap: blocked
+    blocked_by: C15
   - header: C<ch>:CouPLing
     level: implemented
     note: D1M/A1M 为 1 MΩ，D50 为 50 Ω，GND 接地；GND 时输入仍按 1 MΩ 建模
@@ -25,6 +33,9 @@ sections:
     note: 无论触发条件是否满足，立即采一帧
   - header: INTERLEAVED
     level: not_modeled
+    note: 等能力 C15(product-plan.md 4.2):通道交织合并改变前端结构。
+    gap: blocked
+    blocked_by: C15
   - header: Memory_SIZe
     level: implemented
     note: 记录长度按存储深度与采样率取最小值；取值按手册的 500、1k、2.5k、…、100M 档取最接近的档；后缀 K = 千、MA = 兆、单独的 M = 毫（手册：1.0M 是 1 毫采样，#888）。超过 2²² 点的记录（到 100M 档）读的时候才算，一次读取至多 2²⁶ 点，更深的用 WaveForm_SetUp 的 FP/NP 分段读（real-models.md 第 10 节，#1012）；本定义不映射平均与峰值检测
@@ -37,8 +48,12 @@ sections:
     affects_data: false
   - header: SAMPLE_CLOCK
     level: not_modeled
+    note: 可做:采样时钟源;采集组件已有采样率参数。
+    gap: model_work
   - header: SEQUENCE
     level: not_modeled
+    note: 可做:分段采集平台已具备(#957);把 SEQUence 接到 scope_record。
+    gap: model_work
   - header: STOP
     level: implemented
   - header: Time_DIV
@@ -46,8 +61,12 @@ sections:
     note: 20 ps/div–1 ks/div，任意值；记录长度与采样率由存储深度决定
   - header: TRIG_COUPLING
     level: not_modeled
+    note: 可做:触发路径的耦合与延迟;scope_trigger 的滤波与释抑已有。
+    gap: model_work
   - header: TRIG_DELAY
     level: not_modeled
+    note: 可做:触发路径的耦合与延迟;scope_trigger 的滤波与释抑已有。
+    gap: model_work
   - header: '*TRG'
     level: implemented
     note: 与 ARM_acquisition 相同
@@ -59,6 +78,9 @@ sections:
     note: AUTO、NORM、SINGLE、STOP；SINGLE 采一帧后停止；查询回复带头（TRIG_MODE <mode>），随 COMM_HEADER 变化（#887）
   - header: TRIG_PATTERN
     level: not_modeled
+    note: 等能力 C8(product-plan.md 4.2):码型触发未建模,且要等 C7 才有可触发的对象。
+    gap: blocked
+    blocked_by: C8
   - header: TRig_SElect
     level: implemented
     note: 只建模 EDGE 与时间释抑（HT,TI,HV 秒）；脉宽、间隔、事件释抑报 -224
@@ -75,165 +97,306 @@ sections:
   commands:
   - header: COMM_FORMAT
     level: not_modeled
+    note: 可做:波形读回的格式与字节序;waveform_transfer 已有格式/字节序设置。
+    gap: model_work
   - header: Comm_HeaDeR
     level: implemented
     note: SHORT/LONG 改变回复的命令头；OFF 只去掉命令头，回复里固定的单位仍会出现（手册的 OFF 也抑制单位，未建模）
   - header: COMM_HELP_LOG
     level: not_modeled
+    note: '可做:内置帮助;可由命令表生成,候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: COMM_HELP
     level: not_modeled
+    note: '可做:内置帮助;可由命令表生成,候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: COMM_ORDER
     level: not_modeled
+    note: 可做:波形读回的格式与字节序;waveform_transfer 已有格式/字节序设置。
+    gap: model_work
 - section: CURSOR — Cursors and Parameters
   commands:
   - header: CURSOR_MEASURE
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):光标未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: CURSORS
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):光标未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: CURSOR_SET
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):光标未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: CURSOR_VALUE
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):光标未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: OFFSET_CONSTANT
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):光标未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: PARAMETER_CLR
     level: not_modeled
+    note: 可做:测量参数槽位;测量已在 measurements 组件,补多槽位列表。
+    gap: model_work
   - header: PArameter_CUstom
     level: implemented
     note: P1–P8 分别保存测量种类与信源；CUST1–CUST8 别名没有建模
   - header: PARAMETER_DELETE
     level: not_modeled
+    note: 可做:测量参数槽位;测量已在 measurements 组件,补多槽位列表。
+    gap: model_work
   - header: PARAMETER
     level: not_modeled
+    note: 可做:测量参数槽位;测量已在 measurements 组件,补多槽位列表。
+    gap: model_work
   - header: PARAMETER_STATISTICS
     level: not_modeled
+    note: 等能力:测量统计与直方图(#1076)。
+    gap: blocked
+    blocked_by: measurement-statistics
   - header: C<ch>:PArameter_VAlue
     level: implemented
     note: 查询 P1–P8 绑定的自动测量；无信号或无法测量时状态为 UNDEF
   - header: PER_CURSOR_SET
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):光标未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: PASS_FAIL
     level: not_modeled
+    note: 等能力:限值测试(#1076)。
+    gap: blocked
+    blocked_by: measurement-statistics
   - header: PASS_FAIL_DO
     level: not_modeled
+    note: 等能力:限值测试(#1076)。
+    gap: blocked
+    blocked_by: measurement-statistics
 - section: DISPLAY — Display Control
   commands:
   - header: DISPLAY
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: DOT_JOIN
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: GRID
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: HOR_MAGNIFY
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: HOR_POSITION
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: INTENSITY
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: MESSAGE
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: PERSIST_COLOR
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: PERSIST_LAST
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: PERSIST
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: PERSIST_SAT
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: PERSIST_SETUP
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: C<ch>:TRAce
     level: implemented
     note: 关掉的通道不参与采集，记录长度与采样率按打开的通道计算
   - header: VERT_MAGNIFY
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: VERT_POSITION
     level: not_modeled
+    note: '可做:仅显示设置;候选"接受"(affects_data: false)。'
+    gap: model_work
 - section: FUNCTION — Performing Waveform Mathematical Operations
   commands:
   - header: CLEAR_MEMORY
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):数学通道与 FFT 未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: CLEAR_SWEEPS
     level: not_modeled
+    note: 可做:相当于 Clear Sweeps;采集运行/停止机制已有。
+    gap: model_work
   - header: DEFINE
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):数学通道与 FFT 未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: FIND_CENTER_RANGE
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):数学通道与 FFT 未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
   - header: FUNCTION_RESET
     level: not_modeled
+    note: 等能力 C5(product-plan.md 4.2):数学通道与 FFT 未建模(F1-3)。
+    gap: blocked
+    blocked_by: C5
 - section: HARDCOPY — Printing the Display/Screen Capture
   commands:
   - header: HARDCOPY_SETUP
     level: not_modeled
+    note: 等能力:截图/硬拷贝(#1072)。
+    gap: blocked
+    blocked_by: screenshot
   - header: SCREEN_DUMP
     level: not_modeled
+    note: 等能力:截图/硬拷贝(#1072)。
+    gap: blocked
+    blocked_by: screenshot
 - section: MISCELLANEOUS
   commands:
   - header: AUTO_CALIBRATE
     level: not_modeled
+    note: 不做:校准/自检是需要真实硬件的服务流程。
+    gap: out_of_scope
   - header: BUZZER
     level: not_modeled
+    note: 可做:蜂鸣器走界面偏好、*OPT 走选件处理(#1007);候选"接受"。
+    gap: model_work
   - header: '*CAL'
     level: not_modeled
+    note: 不做:校准/自检是需要真实硬件的服务流程。
+    gap: out_of_scope
   - header: CAL_OUTPUT
     level: not_modeled
+    note: 不做:校准/自检是需要真实硬件的服务流程。
+    gap: out_of_scope
   - header: DATE
     level: not_modeled
+    note: 不做:真实时钟(只用虚拟时间)。
+    gap: out_of_scope
   - header: '*IDN'
     level: implemented
   - header: '*OPT'
     level: not_modeled
+    note: 可做:蜂鸣器走界面偏好、*OPT 走选件处理(#1007);候选"接受"。
+    gap: model_work
   - header: '*TST'
     level: not_modeled
+    note: 不做:校准/自检是需要真实硬件的服务流程。
+    gap: out_of_scope
 - section: PROBES — Using Probes
   commands:
   - header: PROBE_CAL
     level: not_modeled
+    note: 不做:探头校准/消磁是需要真实硬件的服务流程。
+    gap: out_of_scope
   - header: PROBE_DEGAUSS
     level: not_modeled
+    note: 不做:探头校准/消磁是需要真实硬件的服务流程。
+    gap: out_of_scope
   - header: PROBE_NAME
     level: not_modeled
+    note: 等能力:探头组件(型号、识别)(#1079)。
+    gap: blocked
+    blocked_by: probe
 - section: SAVE/RECALL SETUP — Preserving and Restoring Panel Settings
   commands:
   - header: PANEL_SETUP
     level: not_modeled
+    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RCL'
     level: not_modeled
+    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
   - header: RECALL_PANEL
     level: not_modeled
+    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RST'
     level: implemented
     note: '*RST 取值：SHORT、1 ms/div、10k、内部时钟、EDGE/C1/DC/上升沿/0 V、AUTO、OFF 释抑、1X、50 mV/div、0 V、D1M、CH1 打开'
   - header: '*SAV'
     level: not_modeled
+    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
   - header: STORE_PANEL
     level: not_modeled
+    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
 - section: STATUS — Obtaining Status Information and Setup Service Requests
   commands:
   - header: ALL_STATUS
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: '*CLS'
     level: implemented
   - header: CMR
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: DDR
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: '*ESE'
     level: implemented
   - header: '*ESR'
     level: implemented
   - header: EXR
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: INE
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: INR
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: IST
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: '*OPC'
     level: implemented
   - header: '*PRE'
     level: not_modeled
+    note: 可做:LeCroy 状态寄存器组(CMR/INR/EXR/DDR)接到现有状态系统(status_register)。
+    gap: model_work
   - header: '*SRE'
     level: implemented
   - header: '*STB'
@@ -244,8 +407,14 @@ sections:
   commands:
   - header: DELETE_FILE
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: DIRECTORY
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
 - section: WAVEFORM TRANSFER — Transferring Waveforms
   commands:
   - header: C<ch>:INSPect
@@ -253,14 +422,27 @@ sections:
     note: 支持 "WAVEDESC"、"DATA_ARRAY_1"、"SIMPLE" 与 FLOAT 格式；其他变量报 -113
   - header: STORE
     level: not_modeled
+    note: 等能力:波形存为文件(data_file,#1071),本模型未接入。
+    gap: blocked
+    blocked_by: data-file
   - header: STORE_SETUP
     level: not_modeled
+    note: 等能力:波形存为文件(data_file,#1071),本模型未接入。
+    gap: blocked
+    blocked_by: data-file
   - header: TEMPLATE
     level: not_modeled
+    note: 可做:波形传输的模板与设置;waveform_transfer 已有头字段。
+    gap: model_work
   - header: TRANSFER_FILE
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: WAVEFORM
     level: not_modeled
+    note: 可做:波形传输的模板与设置;waveform_transfer 已有头字段。
+    gap: model_work
   - header: WaveForm_SetUp
     level: implemented
     note: SP/NP/FP 决定导出起点、点数与抽点；SN 只保存（序列模式没有建模）
@@ -268,119 +450,243 @@ sections:
   commands:
   - header: DD_CTAF_3DB
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ANALOG_COMP_THRESH
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ANALYZE_REGION_DISABLE
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ANALYZE_REGION_LENGTH
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ANALYZE_REGION_START
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_BITCELL
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_CTAF_BOOST
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_BYTE_OFFSET
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_CTAF_FC
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_FIND_METHOD
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SIGNAL_INPUT
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ENCODING
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ERR_INFO
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ERR_NUM
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_FIND_BITCELL
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_FIR_ENABLE
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_FIND_ERROR
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_CTAF_GROUP_DELAY
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_FIR
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_HEADSIGNAL_CHANNEL
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_IGNORE_SAMPLES
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_NUM_ERRORS
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_OVERLAP_REF
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_PES_ANALYSIS
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_PES_DATA
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_PES_SUMMARY_DATA
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_PES_SETUP
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_RESET_AVERAGE
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_READCLOCK_CHANNEL
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_READGATE_CHANNEL
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_READ_GATE_POLARITY
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ML_RUN_LENGTH_LIMIT
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_ML_MIN_SPACING
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_START_AVERAGING
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_BYTE_OFFSET_SEGMENT
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SHOW_FILTERED
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SIGNAL_TYPE
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SHOW_LEVELS
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SHOW_ML
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SAMPLE_PHASE
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SHOW_SAMPLE_TIMES
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_SAM_THRESH
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_STORE_REFERENCE
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_TRAIN_FILTER
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_VCO_SYNCH_PATTERN
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
   - header: DD_VCOSYNCH_TO_DATA
     level: not_modeled
+    note: 不做:磁盘驱动器测量应用(C17,product-plan.md 第 6 节):专用应用不在平台内重写。
+    gap: out_of_scope
 - section: ET-PMT (Option) — Mask Tester
   commands:
   - header: CUSTOM_APPLICATION
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: CUSTOM_OPTIONS
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_FAIL_ACTION
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_OFFSET
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_OPC
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_PF_COUNTERS
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_SELECT_TEST
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_SYMBOL
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_TEST_STATE
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
   - header: MT_VERTICAL_ALIGN
     level: not_modeled
+    note: 等能力:模板测试(#1077)。
+    gap: blocked
+    blocked_by: mask-test
 - section: AUTOMATION
   commands:
   - header: VBS
     level: not_modeled
+    note: 不做:用户代码/自动化脚本(VBS,product-plan.md 第 6 节)。
+    gap: out_of_scope
