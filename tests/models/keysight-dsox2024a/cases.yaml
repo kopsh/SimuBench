@@ -713,6 +713,29 @@ cases:
         expect: "+10.0000E-09"
       - query: ":SYSTem:ERRor?"
         expect: '+0,"No error"'
+      # RANGe 的两个值顺序任意（:TRIGger:GLITch:RANGe，第 690 页，#1001）：较小的成为“大于”的时间，
+      # 较大的成为“小于”的时间。按语法顺序先写小值，结果与先大后小相同，范围触发照常。
+      - send: ":TRIGger:GLITch:RANGe 400E-6,600E-6"
+      - query: ":TRIGger:GLITch:RANGe?"
+        expect: "+600.000E-06,+400.000E-06"
+      - query: ":TRIGger:GLITch:LESSthan?"
+        expect: "+600.000E-06"
+      - query: ":TRIGger:GLITch:GREaterthan?"
+        expect: "+400.000E-06"
+      - send: ":TRIGger:GLITch:POLarity POSitive;:TRIGger:GLITch:QUALifier RANGe"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VTIMe? -2.5E-4,CHANnel1"
+        expect_value: 10.0
+        tolerance: 0.5
+      - query: ":MEASure:VTIMe? 2.5E-4,CHANnel1"
+        expect_value: -10.0
+        tolerance: 0.5
+      # 排序在范围校验之前：12 ns 低于“小于”的下限 15 ns，作为较小值写到“大于”是合法的。
+      - send: ":TRIGger:GLITch:RANGe 12E-9,40E-6"
+      - query: ":TRIGger:GLITch:RANGe?"
+        expect: "+40.0000E-06,+12.0000E-09"
+      - query: ":SYSTem:ERRor?"
+        expect: '+0,"No error"'
       # 其余触发类型没有建模。
       - send: ":TRIGger:MODE RUNT"
       - query: ":SYSTem:ERRor?"
