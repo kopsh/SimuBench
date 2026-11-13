@@ -1809,10 +1809,10 @@ sections:
     level: not_modeled
   - header: '[:SENSe]:POWer[:RF]:GAIN:BAND'
     level: not_modeled
-    note: 'The preamplifier is not modeled: it is an option, and an instance cannot declare options yet (#1004).'
+    note: 'The preamplifiers (LNA and PA, options P26/P44/P4L/P50/P5L) are not modeled: two amplifiers on several signal paths, each path with its own frequency response and DANL (data sheet p.10-21).'
   - header: '[:SENSe]:POWer[:RF]:GAIN[:STATe]'
     level: not_modeled
-    note: 'The preamplifier is not modeled: it is an option, and an instance cannot declare options yet (#1004).'
+    note: 'The preamplifiers (LNA and PA, options P26/P44/P4L/P50/P5L) are not modeled: two amplifiers on several signal paths, each path with its own frequency response and DANL (data sheet p.10-21).'
   - header: '[:SENSe]:POWer[:RF]:MIXer:RANGe[:UPPer]'
     level: not_modeled
   - header: '[:SENSe]:POWer[:RF]:MMW:PADJust'
@@ -2522,7 +2522,7 @@ sections:
     level: not_modeled
   - header: :TRACe[:DATA]
     level: implemented
-    note: 'TRACE1 only; ASCII, comma-separated. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the standard-path front end of the data sheet (3121-1037.EN p.19-29, #960): noise figure from the typical DANL, SHI, TOI and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the CF = 1 GHz table around every line. Not modeled: frequency-response flatness as a per-unit deviation and the LNA/PA options (#1004); the image responses (above the tuned frequency, f+45/645 MHz, where the model has no image) and residuals (no frequencies given); the low-noise, MPB and full-bypass paths.'
+    note: 'TRACE1 only; ASCII, comma-separated. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the standard-path front end of the data sheet (3121-1037.EN p.19-29, #960): noise figure from the typical DANL, SHI, TOI and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the CF = 1 GHz table around every line. The standard-path frequency response is a per-unit deviation within the band limits of the data sheet (p.10, 0 at 50 MHz; deviation: from_specs). Not modeled: the LNA/PA options; the image responses (above the tuned frequency, f+45/645 MHz, where the model has no image) and residuals (no frequencies given); the low-noise, MPB and full-bypass paths.'
   - header: :TRACe:DISPlay:VIEW:SPECtrogram:TIME
     level: not_modeled
   - header: :TRACe:EXCHange

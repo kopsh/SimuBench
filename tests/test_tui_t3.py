@@ -262,7 +262,8 @@ async def test_fault_dialog_injects_an_error_with_count():
         await wait_for(pilot, lambda: isinstance(tui.screen, FaultDialog), message="fault dialog")
         error_radio = next(r for r in tui.screen.query(RadioButton) if r.name == "error")
         error_radio.value = True
-        await pilot.pause(0.3)
+        # the error kind's rows replace the timeout kind's (both have a count): wait for them
+        await wait_for(pilot, lambda: bool(tui.screen.query("#fd-f-code")), message="error fields")
         tui.screen.query_one("#fd-f-code", Input).value = "-313"
         tui.screen.query_one("#fd-f-count", Input).value = "3"
         tui.screen.query_one("#fd-inject", Button).press()
