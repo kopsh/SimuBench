@@ -713,6 +713,31 @@ class Component:
         """Signal leaving a signal output port. Override in components with signal outputs."""
         raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
 
+    def carrier(self, port: str) -> float | None:
+        """The wavelength (m) of the light leaving an optical output at the instant being evaluated
+        (D71, #1103); None when there is no light or nothing says. By default an optical block
+        passes on the wavelength arriving at its first optical input (a fibre part, an
+        attenuator); a light source overrides it."""
+        spec = self.ports.get(port)
+        if spec is None or spec.medium != "optical" or spec.direction != "out":
+            return None
+        for name, other in self.ports.items():
+            if other.medium == "optical" and other.direction == "in":
+                return self.input_carrier(name)
+        return None
+
+    def input_carrier(self, port: str) -> float | None:
+        """The wavelength (m) of the light arriving at an optical input, found the way
+        :meth:`input` finds its power; None in the dark."""
+        spec = self.ports.get(port)
+        if spec is None or spec.medium != "optical":
+            return None
+        src = None if self.owner is None else self.owner.wiring.source(self.name, port)
+        if src is None:
+            return self.session.optical_carrier(self, port)
+        assert self.owner is not None
+        return self.owner.components[src[0]].carrier(src[1])
+
     # ---- sample streams (D67, signal-chain.md 3) ----------------------------------------------
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:

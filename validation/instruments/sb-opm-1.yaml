@@ -1,0 +1,153 @@
+schema: simubench.instrument/1
+id: sb-opm-1
+manufacturer: SimuBench
+model: SB-OPM-1
+class: optical_power_meter
+version: 1
+description: >-
+  光功率计（验证仪表，#1103）：InGaAs 探头，800–1700 nm 校准，+10 dBm 到 -60 dBm 八个量程（自动或手动），平均时间
+  100 µs–10 s，读数 W / dBm / dB（相对参考）；调零；记录功能按采样率存最多 100000 点，可与可调激光源的波长扫描
+  配合测插损随波长的曲线。探头响应度随波长变化，设定波长与实际波长不符时读数按响应度之比偏离。
+identity:
+  serial: SBOPM000001
+  firmware: "1.0.0"
+state:
+  wavelength:
+    type: float
+    unit: M
+    min: 8.0e-7
+    max: 1.7e-6
+    default: 1.55e-6
+    label: 校准波长
+    label_en: Wavelength
+  unit:
+    type: enum
+    options: [W, DBM, DB]
+    default: DBM
+    label: 读数单位
+    label_en: Unit
+  reference:
+    type: float
+    unit: DBM
+    min: -100.0
+    max: 30.0
+    default: 0.0
+    label: dB 参考
+    label_en: dB reference
+  range.auto:
+    type: bool
+    default: true
+    label: 自动量程
+    label_en: Auto range
+  range.top:
+    type: enum
+    options: ["10", "0", "-10", "-20", "-30", "-40", "-50", "-60"]
+    default: "10"
+    label: 量程 (dBm)
+    label_en: Range (dBm)
+  atime:
+    type: float
+    unit: S
+    min: 1.0e-4
+    max: 10.0
+    default: 0.1
+    label: 平均时间
+    label_en: Averaging time
+  log.points:
+    type: int
+    min: 1
+    max: 100000
+    default: 1000
+    label: 记录点数
+    label_en: Logging points
+  log.rate:
+    type: float
+    unit: HZ
+    min: 0.1
+    max: 10000.0
+    default: 100.0
+    label: 记录采样率
+    label_en: Logging rate
+components:
+  - name: det
+    type: optical_power_meter
+    params:
+      wavelength: $wavelength
+      # InGaAs 响应度（A/W）随波长：校准抵消设定波长处的值，只剩实际与设定之比
+      spectral_response:
+        - [8.0e-7, 0.10]
+        - [1.0e-6, 0.60]
+        - [1.31e-6, 0.90]
+        - [1.55e-6, 1.00]
+        - [1.62e-6, 1.05]
+        - [1.7e-6, 0.70]
+      averaging_time: $atime
+      range_auto: $range.auto
+      range: {from: $range.top, map: {"10": 10.0, "0": 0.0, "-10": -10.0, "-20": -20.0, "-30": -30.0, "-40": -40.0, "-50": -50.0, "-60": -60.0}}
+      reference: $reference
+      offset_w: 2.0e-11
+      noise: {ppm_of_range: 20.0, ref_time_s: 0.1}
+  - name: log
+    type: curve_buffer
+    params:
+      trace1: det.POWer
+      rate: $log.rate
+      end: SHOT
+      capacity: $log.points
+ports:
+  instrument:
+    IN: det.in
+display:
+  summary: [wavelength, unit, range.auto, atime]
+capabilities: [optical_power_meter]
+commands:
+  - header: "[:SENSe]:POWer:WAVelength"
+    state: wavelength
+  - header: "[:SENSe]:POWer:UNIT"
+    state: unit
+  - header: "[:SENSe]:POWer:REFerence"
+    state: reference
+  - header: "[:SENSe]:POWer:REFerence:SET"
+    op: det.reference_set
+    query: false
+  - header: "[:SENSe]:POWer:RANGe:AUTO"
+    state: range.auto
+  - header: "[:SENSe]:POWer:RANGe"
+    state: range.top
+  - header: "[:SENSe]:POWer:RANGe:USED"
+    op: det.range_in_use
+    set: false
+  - header: "[:SENSe]:POWer:ATIMe"
+    state: atime
+  - header: "[:SENSe]:CORRection:COLLect:ZERO"
+    op: det.zero
+    query: false
+  - header: ":FETCh[:POWer]"
+    op: det.power
+    set: false
+    args: {unit: $unit}
+  - header: ":READ[:POWer]"
+    op: det.power
+    set: false
+    args: {unit: $unit, measure: true}
+  - header: "[:SENSe]:LOGGing:POINts"
+    state: log.points
+  - header: "[:SENSe]:LOGGing:RATE"
+    state: log.rate
+  - header: "[:SENSe]:LOGGing:STARt"
+    op: log.start
+    query: false
+    args: {fresh: true}
+  - header: "[:SENSe]:LOGGing:STOP"
+    op: log.pause
+    query: false
+  - header: "[:SENSe]:LOGGing:COUNt"
+    op: log.points
+    set: false
+  - header: "[:SENSe]:LOGGing:DATA"
+    op: log.read
+    set: false
+    args: {trace: 1, encoding: ASCII}
+    params:
+      - {name: start, type: int, min: 0, max: 99999}
+      - {name: count, type: int, min: 1, max: 100000}

@@ -1,0 +1,11 @@
+# 光功率计的真实功能块(D50,依据见 docs/component-map.md 的 optical_power_meter 节,#1103)。
+# 第一台内置型号是 OPM-230(#1105)。
+schema: simubench.blocks/1
+class: optical_power_meter
+blocks:
+  - block: detector            # 探头:光谱响应,按设定波长校准;暗电流偏置与调零
+    components: [optical_power_meter]
+  - block: ranging             # 量程(自动/手动)、各量程的噪声、平均时间
+    components: [optical_power_meter]
+  - block: logging             # 记录:按采样率或每个触发存点,读回数组
+    components: [curve_buffer]

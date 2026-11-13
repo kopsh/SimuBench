@@ -1,0 +1,93 @@
+schema: simubench.instrument/1
+id: sb-voa-1
+manufacturer: SimuBench
+model: SB-VOA-1
+class: optical_attenuator
+version: 1
+description: >-
+  可变光衰减器（验证仪表，#1103）：插损 1.2 dB，衰减 0–60 dB（0.001 dB 分辨率），按设定波长校准，衰减随波长
+  略有变化；光闸；改衰减后 50 ms 到位；功率模式按目标输出功率自动调衰减（内置监测分光）。
+identity:
+  serial: SBVOA000001
+  firmware: "1.0.0"
+state:
+  att:
+    type: float
+    unit: DB
+    min: 0.0
+    max: 60.0
+    default: 0.0
+    label: 衰减
+    label_en: Attenuation
+  wavelength:
+    type: float
+    unit: M
+    min: 1.26e-6
+    max: 1.65e-6
+    default: 1.55e-6
+    label: 校准波长
+    label_en: Wavelength
+  shutter:
+    type: bool
+    default: false
+    label: 光闸关闭
+    label_en: Shutter closed
+  mode:
+    type: enum
+    options: [ATTenuation, POWer]
+    default: ATTenuation
+    label: 控制方式
+    label_en: Control mode
+  target:
+    type: float
+    unit: W
+    min: 1.0e-9
+    max: 0.1
+    default: 1.0e-4
+    label: 目标输出功率
+    label_en: Target power
+components:
+  - name: voa
+    type: variable_optical_attenuator
+    params:
+      attenuation: $att
+      attenuation_max: 60.0
+      insertion_loss: 1.2
+      wavelength: $wavelength
+      # 附加损耗随波长（dB）：设定波长处由校准抵消
+      spectral_loss:
+        - [1.26e-6, 0.30]
+        - [1.55e-6, 0.0]
+        - [1.65e-6, 0.10]
+      shutter_closed: $shutter
+      settling_time: 0.05
+      mode: $mode
+      power_target: $target
+ports:
+  instrument:
+    IN: voa.IN
+    OUT: voa.OUT
+display:
+  summary: [att, wavelength, shutter, mode]
+capabilities: [optical_attenuator]
+commands:
+  - header: ":INPut:ATTenuation"
+    state: att
+  - header: ":INPut:ATTenuation:ACTual"
+    op: voa.attenuation
+    set: false
+  - header: ":INPut:WAVelength"
+    state: wavelength
+  - header: ":OUTPut:SHUTter"
+    state: shutter
+  - header: ":CONTrol:MODE"
+    state: mode
+  - header: ":OUTPut:POWer"
+    state: target
+  - header: ":OUTPut:POWer:ACTual"
+    op: voa.output_power
+    set: false
+    args: {unit: W}
+  - header: ":STATus:SETTled"
+    op: voa.settled
+    set: false
