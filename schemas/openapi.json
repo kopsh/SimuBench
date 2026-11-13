@@ -2119,6 +2119,35 @@
       "CoverageEntryInfo": {
         "description": "One command of a real model's coverage table (D42).",
         "properties": {
+          "blocked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "gap blocked only: the capability it waits for, e.g. C5",
+            "title": "Blocked By"
+          },
+          "gap": {
+            "anyOf": [
+              {
+                "enum": [
+                  "out_of_scope",
+                  "blocked",
+                  "model_work"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "not_modeled only: out_of_scope (never simulated), blocked (waits for blocked_by) or model_work (the platform can already do it); null when untriaged",
+            "title": "Gap"
+          },
           "header": {
             "description": "Header as the definition writes it, e.g. '[:SENSe]:VOLTage:NPLC'",
             "title": "Header",
@@ -2155,7 +2184,9 @@
           "section",
           "header",
           "level",
-          "note"
+          "note",
+          "gap",
+          "blocked_by"
         ],
         "title": "CoverageEntryInfo",
         "type": "object"
@@ -2252,6 +2283,14 @@
             "title": "Entries",
             "type": "array"
           },
+          "gap_stats": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "The not_modeled commands by gap: out_of_scope, blocked, model_work, untriaged",
+            "title": "Gap Stats",
+            "type": "object"
+          },
           "model": {
             "title": "Model",
             "type": "string"
@@ -2268,6 +2307,7 @@
         "required": [
           "model",
           "stats",
+          "gap_stats",
           "entries"
         ],
         "title": "DefinitionCoverage",
@@ -6685,6 +6725,18 @@
             "description": "A front-panel button, for panel events: run | stop | single; for remote events: local (taken back from the UI) | remote (a remote client's command); for hislip and bus_control events: the acknowledged control",
             "title": "Action"
           },
+          "blocked_by": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For gap blocked: the platform capability the command waits for (e.g. C5)",
+            "title": "Blocked By"
+          },
           "channels": {
             "anyOf": [
               {
@@ -6805,6 +6857,23 @@
             "description": "Read from a channel that had no record, for acquisition events",
             "title": "Forced"
           },
+          "gap": {
+            "anyOf": [
+              {
+                "enum": [
+                  "out_of_scope",
+                  "blocked",
+                  "model_work"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For not_modeled: why the coverage table does not model the command — out_of_scope | blocked (see blocked_by) | model_work; absent when the table does not say",
+            "title": "Gap"
+          },
           "header": {
             "anyOf": [
               {
@@ -6846,6 +6915,18 @@
           },
           "new": {
             "title": "New"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For not_modeled: the coverage table's note on the command",
+            "title": "Note"
           },
           "old": {
             "title": "Old"
@@ -7026,6 +7107,9 @@
           "closest",
           "param",
           "range",
+          "gap",
+          "blocked_by",
+          "note",
           "action",
           "count",
           "forced",

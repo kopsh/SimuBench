@@ -86,6 +86,15 @@ class Event(BaseModel):
     range: str | None = Field(
         None, description="The range or options the definition declares, for bad_parameter"
     )
+    gap: Literal["out_of_scope", "blocked", "model_work"] | None = Field(
+        None,
+        description="For not_modeled: why the coverage table does not model the command — "
+        "out_of_scope | blocked (see blocked_by) | model_work; absent when the table does not say",
+    )
+    blocked_by: str | None = Field(
+        None, description="For gap blocked: the platform capability the command waits for (e.g. C5)"
+    )
+    note: str | None = Field(None, description="For not_modeled: the coverage table's note on the command")
     action: str | None = Field(
         None,
         description="A front-panel button, for panel events: run | stop | single; "

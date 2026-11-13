@@ -45,6 +45,10 @@ class Covered:
     pattern: Pattern
     header: str
     level: str
+    #: Why a not_modeled command is not modeled, and what it waits for (#1037); None when untriaged.
+    gap: str | None = None
+    blocked_by: str | None = None
+    note: str | None = None
 
 
 class CoverageAdvisor:
@@ -95,17 +99,30 @@ class CoverageAdvisor:
         entries: list[Covered] = []
         for _, entry in cov.entries():
             try:
-                entries.append(Covered(Pattern.compile(entry.header), entry.header, entry.level))
+                entries.append(
+                    Covered(
+                        Pattern.compile(entry.header),
+                        entry.header,
+                        entry.level,
+                        gap=entry.gap,
+                        blocked_by=entry.blocked_by,
+                        note=entry.note,
+                    )
+                )
             except ValueError:
                 continue  # a header the pattern language cannot read: no runtime match for it
         self._coverage = entries
         self._coverage_file = str(self.definition._coverage_file)
 
+    def listed(self, unit: Unit, tokens: tuple[Token, ...]) -> Covered | None:
+        """The coverage table's entry for the message unit's command, or None when it has none."""
+        return next((e for e in self.entries() or () if self.covered(e, unit, tokens)), None)
+
     def classify(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[str, str | None, str | None]:
         """(reason, origin, closest) for a header the definition does not execute."""
         coverage = self.entries()
         if coverage is not None:
-            covered = next((e for e in coverage if self.covered(e, unit, tokens)), None)
+            covered = self.listed(unit, tokens)
             if covered is not None:
                 # A command the author listed (or one of theirs used in a form the model lacks).
                 return "not_modeled", self._coverage_file, None

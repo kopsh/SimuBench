@@ -22,13 +22,22 @@ export function reasonText(e: Pick<Event, "reason">, t: T): string {
     : e.reason;
 }
 
-/** What the engine adds for a not-executed command: the wording, the parameter with its declared
- * range, the closest command of the author's command space, and the file the declaration is from. */
+/** Why the coverage table does not model a command (#1037), with the capability it waits for;
+ * empty when the event carries no gap. */
+export function gapText(e: Pick<Event, "gap" | "blocked_by">, t: T): string {
+  if (!e.gap) return "";
+  const text = t(`errors.gaps.${e.gap}`);
+  return e.blocked_by ? `${text} ${e.blocked_by}` : text;
+}
+
+/** What the engine adds for a not-executed command: the wording, why the coverage table leaves it
+ * out and its note, the parameter with its declared range, the closest command of the author's
+ * command space, and the file the declaration is from. */
 export function notExecutedSuffix(
-  e: Pick<Event, "reason" | "origin" | "closest" | "param" | "range">,
+  e: Pick<Event, "reason" | "origin" | "closest" | "param" | "range" | "gap" | "blocked_by" | "note">,
   t: T,
 ): string {
   const detail = e.param ? `${e.param}${e.range ? ` (${e.range})` : ""}` : "";
-  const parts = [reasonText(e, t), detail, e.closest, e.origin].filter(Boolean);
+  const parts = [reasonText(e, t), gapText(e, t), e.note, detail, e.closest, e.origin].filter(Boolean);
   return parts.length ? `  · ${parts.join(" · ")}` : "";
 }

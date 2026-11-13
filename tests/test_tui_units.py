@@ -164,6 +164,22 @@ def test_hint_not_modeled_names_the_coverage_file():
     assert text == "Not modeled · listed as not implemented in sds.coverage.yaml"
 
 
+def test_hint_not_modeled_says_why_and_what_it_waits_for():
+    text = hint_line(
+        code=-113,
+        message="Undefined header",
+        reason="not_modeled",
+        origin="/x/uxr.coverage.yaml",
+        gap="blocked",
+        blocked_by="C5",
+        note="math functions",
+    )
+    assert text == (
+        "Not modeled · listed as not implemented in uxr.coverage.yaml · "
+        "waits for a platform capability C5 · math functions"
+    )
+
+
 def test_hint_not_in_model_names_the_closest():
     text = hint_line(
         code=-113,

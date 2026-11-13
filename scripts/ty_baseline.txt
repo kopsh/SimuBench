@@ -21,15 +21,11 @@ src/simubench/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatMode
 src/simubench/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatModel.__init__` is incorrect: Expected `str`, found `str | None`
 src/simubench/assistant/service.py:invalid-argument-type Argument is incorrect: Expected `Literal["bench", "definition"]`, found `str` ×2
 src/simubench/cli.py:deprecated The function `on_event` is deprecated:
-src/simubench/engine/builtin_commands.py:missing-attribute Object of type `Component` has no attribute `clear`
-src/simubench/engine/builtin_commands.py:missing-attribute Object of type `Component` has no attribute `event`
-src/simubench/engine/builtin_commands.py:missing-attribute Object of type `Component` has no attribute `summary`
 src/simubench/engine/command_runner.py:invalid-argument-type Argument to bound method `CommandRunner._resolve` is incorrect: Expected `str`, found `str | None`
 src/simubench/engine/component.py:missing-attribute Object of type `(...) -> OpResult` has no attribute `__name__`
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_fields__` on type `(...) -> OpResult`
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_name__` on type `(...) -> OpResult`
 src/simubench/engine/edit.py:incompatible-attribute-override Invalid override of attribute `op`: Type `Literal["add_dut"]` is not assignable to inherited type `Literal["add_part"]`
-src/simubench/engine/instrument.py:missing-attribute Object of type `Component` has no attribute `latch_conditions`
 src/simubench/engine/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
 src/simubench/engine/session.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
 src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×3
@@ -141,8 +137,9 @@ src/simubench/server/manager.py:deprecated The overload of `contextmanager` is d
 src/simubench/server/routes/context.py:missing-attribute Object of type `SessionManager` has no attribute `assistant`
 src/simubench/server/routes/context.py:missing-attribute Unresolved attribute `assistant` on type `SessionManager`
 src/simubench/server/routes/events.py:invalid-argument-type Argument to `WebSocketDisconnect.__init__` is incorrect: Expected `int`, found `Any | None`
-src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `LaxStr | None`, found `Any | int` ×15
+src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `LaxStr | None`, found `Any | int` ×17
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `LaxStr`, found `Any | int`
+src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Literal["out_of_scope", "blocked", "model_work"] | None`, found `Any | int`
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Literal["write", "read"] | None`, found `Any | int`
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any] | None`, found `Any | int`
 src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of type `def list(self) -> Unknown` in a parameter annotation ×2
@@ -170,7 +167,7 @@ src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `
 src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `float | None`, found `int | Any | str | None` ×6
 src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `int | None`, found `int | Any | str | None` ×18
 src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `int`, found `int | Any | str | None` ×12
-src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `str | None`, found `int | Any | str | None` ×46
+src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `str | None`, found `int | Any | str | None` ×64
 src/simubench/tui/log.py:invalid-argument-type Argument is incorrect: Expected `str`, found `int | Any | str | None` ×26
 src/simubench/tui/screens/clockdialog.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×2
 src/simubench/tui/screens/dialogs.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×3

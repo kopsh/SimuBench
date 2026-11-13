@@ -409,7 +409,7 @@ def _cases(args: argparse.Namespace) -> int:
 
 def _coverage(args: argparse.Namespace) -> int:
     """A definition's coverage table (D42): every command of the basis and how far it is implemented."""
-    from .library.coverage import LEVEL_TEXT, coverage_path, load_coverage
+    from .library.coverage import GAP_TEXT, LEVEL_TEXT, coverage_path, load_coverage
     from .library.loader import DefinitionLibrary
 
     lib = DefinitionLibrary([Path(d) for d in args.definitions] + [Path.cwd() / "instruments"])
@@ -438,11 +438,17 @@ def _coverage(args: argparse.Namespace) -> int:
     for section in cov.sections:
         print(f"\n{section.section}")
         for c in section.commands:
+            gap = ""
+            if c.gap is not None:
+                gap = f"  [{GAP_TEXT[c.gap]}{f' {c.blocked_by}' if c.blocked_by else ''}]"
             note = f"  {c.note}" if c.note else ""
-            print(f"  {LEVEL_TEXT[c.level]:<4} {c.header}{note}")
+            print(f"  {LEVEL_TEXT[c.level]:<4} {c.header}{gap}{note}")
     st = cov.stats()
     total = sum(st.values())
     print(f"\n{' · '.join(f'{LEVEL_TEXT[k]} {v}' for k, v in st.items())} · 共 {total}")
+    if st["not_modeled"]:
+        gaps = cov.gap_stats()
+        print(f"未实现：{' · '.join(f'{GAP_TEXT[k]} {v}' for k, v in gaps.items())}")
     return 0
 
 

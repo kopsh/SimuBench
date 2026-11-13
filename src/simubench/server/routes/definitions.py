@@ -146,8 +146,16 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
         return M.DefinitionCoverage(
             model=cov.model,
             stats=cov.stats(),
+            gap_stats=cov.gap_stats(),
             entries=[
-                M.CoverageEntryInfo(section=section, header=e.header, level=e.level, note=e.note)
+                M.CoverageEntryInfo(
+                    section=section,
+                    header=e.header,
+                    level=e.level,
+                    note=e.note,
+                    gap=e.gap,
+                    blocked_by=e.blocked_by,
+                )
                 for section, e in cov.entries()
             ],
         )

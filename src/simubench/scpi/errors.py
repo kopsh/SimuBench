@@ -53,7 +53,7 @@ ESR_BITS = {"command": 5, "execution": 4, "device": 3, "query": 2}
 class ScpiError(Exception):
     """An error raised while executing a command; queued and flagged in the ESR.
 
-    The last four fields carry the classification of a command that was not executed
+    The last fields carry the classification of a command that was not executed
     (tui-design.md 1.1, D18): ordinary device errors leave them unset.
     """
 
@@ -72,6 +72,11 @@ class ScpiError(Exception):
     param: str | None = None
     #: The range (or the options) the definition declares, for a bad parameter.
     range: str | None = None
+    #: For a command the coverage table lists as not modeled (#1037): why (out_of_scope | blocked |
+    #: model_work), the capability it waits for, and the table's note.
+    gap: str | None = None
+    blocked_by: str | None = None
+    note: str | None = None
 
     @property
     def message(self) -> str:

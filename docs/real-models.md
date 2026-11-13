@@ -83,7 +83,9 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 每个型号一个 `src/simubench/library/instruments/<id>.coverage.yaml`（工作区中的定义放在定义旁边），按作者所依据的文件列出全部命令及其程度（实现、接受、未实现）与说明。
 
 - CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有用例；“接受”条目必须有 `affects_data: false`。带 `reference` 的工作区定义同样适用（`simubench coverage`、`simubench cases`、MCP `run_cases`）。
-- `simubench coverage <id>` 打印覆盖表与统计，用于演示时说明做到了什么程度。
+- **未实现的原因**（#1037）：未实现的条目可写 `gap`，说明为什么没有实现——`out_of_scope`（不在仿真范围内：文件系统、打印、网络服务、校准服务、应用层等）、`blocked`（等平台的某项能力，`blocked_by` 写能力：[product-plan.md](product-plan.md) 4.2 的编号如 `C5`，或 4.2 尚未列出的能力的短名如 `mask-test`）、`model_work`（平台已有能力，只差写进定义）；`note` 写具体内容。`gap` 与 `blocked_by` 只能写在未实现的条目上，`blocked` 必须有 `blocked_by`。没有 `gap` 的未实现条目算“未分拣”。
+- 用户看得见：脚本发出一条覆盖表写明原因的未实现命令时，`-113` 的错误事件带 `gap`、`blocked_by` 与 `note`，TUI 日志与 Web 事件历史显示出来；Web 的命令页与 `GET /api/definitions/{id}/coverage` 给出每条命令的程度与原因。
+- `simubench coverage <id>` 打印覆盖表与统计（未实现另按原因分：不做 · 等能力 · 可做 · 未分拣），用于演示时说明做到了什么程度。
 - `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄依据中的命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。
 - 内置的真实型号只使用通用组件（`generic`），例外清单在 `tests/test_model_components.py`，只能缩短（[metrology-authoring.md](metrology-authoring.md) 第 9 节）。
 - **频谱仪的“求值方式”**（[signal-chain.md](signal-chain.md) 5.4，#961）：迹线数据与标记读数的命令（`:TRACe[:DATA]`、`:CALCulate:MARKer:Y` 一类）在说明中写明定义的 `specan_trace.evaluation`，以及它包含的前端非理想——

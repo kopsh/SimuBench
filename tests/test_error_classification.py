@@ -39,6 +39,24 @@ def test_a_command_the_coverage_marks_not_modeled(tmp_path):
         assert e["reason"] == "not_modeled"
         assert e["origin"].endswith("siglent-sds2104xplus.coverage.yaml")
         assert "not implemented in this definition" in e["message"]  # the reply text stays (#172)
+        assert "gap" not in e and "note" not in e  # an untriaged entry says nothing more (#1037)
+    finally:
+        s.close()
+
+
+def test_a_not_modeled_command_says_why(tmp_path):
+    """覆盖表写明原因的未实现命令：事件带原因类别、所等的能力与说明（#1037）。"""
+    s = _open(tmp_path, "keysight-uxr0334b")
+    try:
+        s.write("dut", b":FUNCtion1:ADD CHANnel1,CHANnel2\n")
+        e = _last(s)
+        assert e["code"] == -113
+        assert e["reason"] == "not_modeled"
+        assert (e["gap"], e["blocked_by"]) == ("blocked", "C5")
+        assert "math functions" in e["note"]
+        s.write("dut", b":DISK:PWD?\n")
+        e = _last(s)
+        assert e["gap"] == "out_of_scope" and "blocked_by" not in e
     finally:
         s.close()
 

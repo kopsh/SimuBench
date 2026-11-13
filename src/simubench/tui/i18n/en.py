@@ -402,6 +402,11 @@ TERMS: dict = {
         "fromSettings": "← {time} settings write",
         "closest": "; closest: {command}",
         "notModeled": "Not modeled · listed as not implemented in {file}",
+        "gaps": {
+            "out_of_scope": "out of scope: not simulated",
+            "blocked": "waits for a platform capability",
+            "model_work": "not implemented yet: the platform can do it",
+        },
         "notInModel": "Not in the coverage table {file}{closest}",
         "notInDefinition": "Not in the definition {file}{closest}",
         "ignored": "Ignored · the definition sets unknown_commands: ignore",

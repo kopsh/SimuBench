@@ -38,6 +38,10 @@ if TYPE_CHECKING:
 
 Level = Literal["implemented", "accepted", "not_modeled"]
 LEVEL_TEXT = {"implemented": "实现", "accepted": "接受", "not_modeled": "未实现"}
+#: Why a command is not modeled (#1037): never simulated, waiting for a platform capability, or
+#: doable with what the platform has. Absent on an entry nobody has triaged yet.
+Gap = Literal["out_of_scope", "blocked", "model_work"]
+GAP_TEXT = {"out_of_scope": "不做", "blocked": "等能力", "model_work": "可做", "untriaged": "未分拣"}
 
 log = logging.getLogger(__name__)
 
@@ -58,6 +62,26 @@ class CoverageEntry(_Model):
         "implemented or not modeled instead (real-models.md 2)",
     )
     note: str | None = None
+    gap: Gap | None = Field(
+        None,
+        description="not_modeled only: why — out_of_scope (never simulated), blocked (waits for the "
+        "capability in blocked_by) or model_work (the platform can already do it)",
+    )
+    blocked_by: str | None = Field(
+        None,
+        description="gap: blocked only: the capability it waits for — a product-plan.md 4.2 id "
+        "(e.g. C5) or a short name of a capability the plan does not list yet",
+    )
+
+    @model_validator(mode="after")
+    def _gap_rules(self) -> CoverageEntry:
+        if self.level != "not_modeled" and (self.gap is not None or self.blocked_by is not None):
+            raise ValueError(f"{self.header}: gap and blocked_by are for not_modeled commands only")
+        if self.gap == "blocked" and not (self.blocked_by or "").strip():
+            raise ValueError(f"{self.header}: gap: blocked needs blocked_by (the capability it waits for)")
+        if self.gap != "blocked" and self.blocked_by is not None:
+            raise ValueError(f"{self.header}: blocked_by needs gap: blocked")
+        return self
 
 
 class CoverageSection(_Model):
@@ -78,6 +102,11 @@ class Coverage(_Model):
     def stats(self) -> dict[str, int]:
         counts = Counter(c.level for _, c in self.entries())
         return {level: counts.get(level, 0) for level in ("implemented", "accepted", "not_modeled")}
+
+    def gap_stats(self) -> dict[str, int]:
+        """The not_modeled commands by gap; ``untriaged`` counts those without one (#1037)."""
+        counts = Counter(c.gap or "untriaged" for _, c in self.entries() if c.level == "not_modeled")
+        return {gap: counts.get(gap, 0) for gap in ("out_of_scope", "blocked", "model_work", "untriaged")}
 
 
 #: The expectation keys of a query step: exactly one is given (D49, #926: none is a regex).
