@@ -456,6 +456,9 @@ class Component:
     #: ``flatness``): the ones an individual deviation by frequency bands (``bands``) may draw
     #: (#1004).
     curves: ClassVar[frozenset[str]] = frozenset()
+    #: The resolver names a setting's ``words`` may name when this component binds the setting
+    #: (:meth:`resolve_word`); definition validation checks them (E-DEF-WORDS-*, #1115).
+    resolvers: ClassVar[frozenset[str]] = frozenset()
     #: Instrument settings a component reads by path rather than through a bound parameter, whose
     #: changes it still hears in :meth:`on_state` (the analyzer's marker group, #274). Paths the
     #: definition does not declare are ignored.
@@ -811,6 +814,13 @@ class Component:
         the component through ``watches`` or a nested mapping instead. ``path`` is the state path.
         Raise ScpiError to refuse the change, or return the value to keep instead (e.g. the nearest
         legal one). None keeps ``new``."""
+
+    def resolve_word(self, key: str | None, path: str, name: str) -> float | None:
+        """The number for a word the setting at ``path`` declares in ``words`` (#1096) — ``name``
+        is the resolver the definition names (``last_reading``); ``key`` as in :meth:`on_state`.
+        Return None when this component does not resolve it (the next bound component is asked);
+        raise ScpiError to refuse the write."""
+        return None
 
     def check_settings(self) -> None:
         """After a command that writes several settings at once (a ``quantities`` command such as

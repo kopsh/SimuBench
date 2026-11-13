@@ -130,7 +130,7 @@ channel_state:
     min: 1.0
     max: 10000.0
     default: 50.0
-    special: {INF: .inf, INFinity: .inf}
+    special: {INFinity: .inf}
     label: 输出负载设定
     label_en: Output load
   polarity: {type: enum, options: [NORMal, INVerted], default: NORMal, label: 极性, label_en: Polarity}

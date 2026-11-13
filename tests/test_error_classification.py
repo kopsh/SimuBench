@@ -30,14 +30,19 @@ def _last(session, kind: str = "error") -> dict:
 
 
 def test_a_command_the_coverage_marks_not_modeled(tmp_path):
-    """覆盖表中标为未实现的命令：not_modeled，出处是覆盖表文件（内置真实型号）。"""
-    s = _open(tmp_path, "siglent-sds2104xplus")
+    """覆盖表中标为未实现的命令：not_modeled，出处是覆盖表文件（真实型号，未分拣时不带原因）。"""
+    bench = tmp_path / "bench.yaml"
+    bench.write_text(
+        yaml.safe_dump({"name": "classification", "instruments": {"dut": {"model": "acme-dm1"}}}),
+        encoding="utf-8",
+    )
+    s = open_bench(bench, clock="command", definition_dirs=[ROOT / "tests/models/acme-dm1"])
     try:
-        s.write("dut", b":AUToset\n")
+        s.write("dut", b":TRIGger:COUPling AC\n")  # in the coverage table, untriaged (no gap)
         e = _last(s)
         assert e["code"] == -113
         assert e["reason"] == "not_modeled"
-        assert e["origin"].endswith("siglent-sds2104xplus.coverage.yaml")
+        assert e["origin"].endswith("acme-dm1.coverage.yaml")
         assert "not implemented in this definition" in e["message"]  # the reply text stays (#172)
         assert "gap" not in e and "note" not in e  # an untriaged entry says nothing more (#1037)
     finally:
