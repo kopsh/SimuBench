@@ -495,3 +495,57 @@ cases:
       - send: 'MMEM:CDIR "X:\"'
       - query: "SYST:ERR?"
         expect: '-256,"File or folder name not found"'
+
+  - name: "*SAV/*RCL：存 → 改 → *RST → 调回，输出设置随之恢复；空位置报 291"
+    manual: "IEEE-488.2 Common Commands > *SAV, *RCL; Instrument State Storage"
+    steps:
+      - query: "MEM:STAT:VAL? 3"
+        expect: "0"
+      - send: "APPL:SQU 5e3,2,0.5"
+      - send: "*SAV 3"
+      - query: "MEM:STAT:VAL? 3"
+        expect: "1"
+      - send: "*RST"
+      - query: "APPL?"
+        expect: '"SIN +1.000000000000000E+03,+1.000000000000000E-01,+0.000000000000000E+00"'
+      - send: "*RCL 3"
+      - query: "APPL?"
+        expect: '"SQU +5.000000000000000E+03,+2.000000000000000E+00,+5.000000000000000E-01"'
+      - send: "*RCL 2"
+      - query: "SYST:ERR?"
+        expect: '+291,"Not able to recall state: it is empty"'
+
+  - name: "MEMory：位置数、名称、目录、删除；*SAV 的状态文件在 INT:\\Settings"
+    manual: "MEMory Subsystem > MEMory:NSTates?, STATe:NAME, STATe:CATalog?, STATe:DELete, STATe:VALid?"
+    steps:
+      - query: "MEM:NST?"
+        expect: "+5"
+      - send: "MEM:STAT:NAME 1,TEST_RACK_1"
+      - query: "MEM:STAT:NAME? 1"
+        expect: "TEST_RACK_1"
+      - query: "MEM:STAT:CAT?"
+        expect: '"AUTO_RECALL","TEST_RACK_1","STATE_2","STATE_3","STATE_4"'
+      - send: "*SAV 1"
+      - query: 'MMEM:UPL? "INT:\Settings\STATE_1.STA"'
+        expect_prefix: "#"
+      - send: "MEM:STAT:DEL 1"
+      - query: "MEM:STAT:VAL? 1"
+        expect: "0"
+      - query: "MEM:STAT:NAME? 1"
+        expect: "STATE_1"
+      - send: "MEM:STAT:REC:AUTO ON"
+      - query: "MEM:STAT:REC:AUTO?"
+        expect: "1"
+
+  - name: "MMEMory:STORe/LOAD:STATe：按名存状态文件（自动加 .sta），读回设置"
+    manual: "MMEMory Subsystem > MMEMory:STORe:STATe, MMEMory:LOAD:STATe"
+    steps:
+      - send: "FREQ 12345"
+      - send: 'MMEM:STOR:STAT "INT:\MySetup"'
+      - send: "*RST"
+      - send: 'MMEM:LOAD:STAT "INT:\MySetup.sta"'
+      - query: "FREQ?"
+        expect: "+1.234500000000000E+04"
+      - send: 'MMEM:LOAD:STAT "INT:\Missing.sta"'
+      - query: "SYST:ERR?"
+        expect: '-256,"File or folder name not found"'

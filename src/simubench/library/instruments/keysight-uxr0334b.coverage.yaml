@@ -18,10 +18,8 @@ sections:
     note: Keysight Technologies,UXR0334B,<serial>,<software version> as the guide writes it (no options
       field); serial MY64280101 and version 11.60.00000 are SimuBench values
   - header: '*LRN'
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall and the learn string.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory component (#1070): ":SYST:SET " and a definite-length block, whatever :SYSTem:HEADer is; sent back as it is, it restores the setup. The setup is SimuBench''s JSON (every setting a command can change), not the scope''s own byte format; what SimuBench saves it reads back.'
   - header: '*OPC'
     level: implemented
     note: '*OPC? waits for a :DIGitize or :SINGle in progress; without a trigger it does not answer (the
@@ -35,10 +33,8 @@ sections:
     note: 'Model work: status register on the existing status system.'
     gap: model_work
   - header: '*RCL'
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall and the learn string.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory component (#1070): puts every setting back as saved; an empty register changes nothing and queues no error (the guide: a message on the display).'
   - header: '*RST'
     level: implemented
     note: 'the guide''s Default Setup (:SYSTem:PRESet): run, CH1 on at 1 V/div and 0 offset, 100 ns/div,
@@ -47,10 +43,8 @@ sections:
       with 16 averages, memory depth AUTO (128 kpts), sample rate AUTO, bandwidth MAX, waveform source
       CHAN1, ASCii, MSBFirst, streaming off, headers and long form off'
   - header: '*SAV'
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall and the learn string.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory component (#1070): registers 0-9, shared with :STORe:SETup; kept across runs of a saved bench, untouched by *RST. The setup is SimuBench''s JSON (every setting a command can change), not the scope''s own byte format; what SimuBench saves it reads back.'
   - header: '*SRE'
     level: implemented
   - header: '*STB'
@@ -149,10 +143,8 @@ sections:
     gap: blocked
     blocked_by: screenshot
   - header: :RECall:SETup
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall and the learn string.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory component (#1070): the same registers 0-9 as *RCL; an empty one changes nothing.'
   - header: :RSTate
     level: implemented
     note: RUN, STOP or SING
@@ -177,10 +169,8 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :STORe:SETup
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall and the learn string.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory component (#1070): the same registers 0-9 as *SAV. The setup is SimuBench''s JSON (every setting a command can change), not the scope''s own byte format; what SimuBench saves it reads back.'
   - header: :STORe:WAVeform
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
@@ -1097,15 +1087,11 @@ sections:
     note: 'Out of scope: saves the results of an application-layer analysis (jitter, noise, PrecisionProbe, lister; product-plan.md section 6).'
     gap: out_of_scope
   - header: :DISK:SAVE:SETup
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall to a file (#1070).'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory component (#1070): saves the setup to a file (.set added when the name has none) in the present working directory or at the path given. The setup is SimuBench''s JSON (every setting a command can change), not the scope''s own byte format; what SimuBench saves it reads back.'
   - header: :DISK:SAVE:WAVeform
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
-    gap: blocked
-    blocked_by: data-file
+    level: implemented
+    note: 'data_file component (#1071): a channel''s record, the same record :WAVeform:DATA? transfers. CSV, TSV and TXT are ''time<sep>volts'' lines (comma, tab, space) with CR LF; header ON writes SimuBench''s own key,value lines first (Source, Points, XOrigin, XIncrement, XUnits, YUnits) — the guide does not give the layout. BIN is the Keysight oscilloscope binary file (AG10 file header, 140-byte waveform header, one float32 buffer). The format comes from the parameter, else the extension, else INTernal (.wfm). INTernal, H5, H5INt and MATlab are not written (-257); sources other than CHANnel<N> (ALL, FUNCtion, WMEMory ...) are -224.'
   - header: :DISK:SEGMented
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
@@ -4164,10 +4150,8 @@ sections:
     level: implemented
     note: 'DEFault or no parameter: the Default Setup, as *RST. FACTory is not modeled'
   - header: :SYSTem:SETup
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall and the learn string.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory component (#1070): the query answers the setup as a definite-length block; the command puts one back (a block that is not a setup of this model: -161, nothing changes). The setup is SimuBench''s JSON (every setting a command can change), not the scope''s own byte format; what SimuBench saves it reads back.'
   - header: :SYSTem:TIME
     level: not_modeled
     note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'

@@ -402,9 +402,15 @@ class FileSystem(Component):
         **_: Any,
     ) -> OpResult:
         """The files and folders of a folder (CATalog?, :DISK:DIRectory?), the current one when no
-        name is given. The command's ``args`` narrow it: ``extensions`` keeps only those files,
-        ``folders: false`` leaves the folders out, ``types`` replaces ``file_types``."""
-        place = self.resolve(name) if name else self._here()
+        name is given. A last name with ``*`` or ``?`` filters the files (``INT:\\*.sta``,
+        DAQ970A; ``*.*`` is every file). The command's ``args`` narrow it: ``extensions`` keeps only
+        those files, ``folders: false`` leaves the folders out, ``types`` replaces ``file_types``."""
+        place = self.resolve(name, wildcards=True) if name else self._here()
+        pattern = None
+        if place[1] and any(c in place[1][-1] for c in "*?"):
+            pattern = place[1][-1].casefold()
+            place = (place[0], place[1][:-1])
+            folders = folders and pattern == "*.*"
         path = self.host(place)
         if not path.is_dir():
             raise self._err("not_found", "folder not found")
@@ -417,7 +423,9 @@ class FileSystem(Component):
             if e.is_dir():
                 if folders:
                     entries.append((e.name, str(self.param("folder_type")), 0))
-            elif not wanted or e.suffix.casefold() in wanted:
+            elif (not wanted or e.suffix.casefold() in wanted) and (
+                pattern in (None, "*.*") or fnmatch.fnmatchcase(e.name.casefold(), pattern)
+            ):
                 entries.append((e.name, kinds.get(e.suffix.casefold(), ""), e.stat().st_size))
         if self.choice("catalog") == "lines":
             sep = str(self.param("separator"))
@@ -442,9 +450,11 @@ class FileSystem(Component):
         return OpResult()
 
     @op("download_name")
-    def op_download_name(self, name: str, **_: Any) -> OpResult:
+    def op_download_name(self, name: str | None = None, query: bool = False, **_: Any) -> OpResult:
         """Name the file the next download writes (MMEMory:DOWNload:FNAMe); it is created empty
-        when it does not exist."""
+        when it does not exist. The query answers the name, quoted (empty when none was named)."""
+        if query or name is None:
+            return OpResult(V.format_string("" if self.download is None else self.show(self.download)))
         place = self.resolve(name)
         path = self.host(place)
         if not path.exists():

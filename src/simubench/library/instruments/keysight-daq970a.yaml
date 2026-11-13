@@ -22,6 +22,10 @@ identity:
   firmware: "A.02.04-00.16-11.29-00.02-02-01"
 errors:
   -230: "Data corrupt or stale"
+  -250: "Mass storage error"
+  -254: "Media full"
+  -256: "File or folder name not found"
+  -257: "File name error"
   # 34970A 的器件错误码(D59 备选三):DAQ970A 不继承
   111: null
   112: null
@@ -96,6 +100,31 @@ channel_state:
     label: 积分时间（PLC）
     label_en: Integration time (PLC)
 state:
+  mmem.separator:
+    type: enum
+    options: [COMMa, SEMicolon, TAB]
+    default: COMMa
+    label: 数据文件列分隔符
+    label_en: Data file column separator
+  mmem.cheader:
+    type: enum
+    options: [NUMber, LABel]
+    default: NUMber
+    not_modeled: {LABel: channel labels (ROUTe:CHANnel:LABel) are not modeled}
+    label: 数据文件列标题
+    label_en: Data file column header
+  mmem.rlimit:
+    type: bool
+    default: true
+    label: 记录文件行数限制
+    label_en: Logging row limit
+  mmem.rlimit_count:
+    type: int
+    min: 65536
+    max: 1048576
+    default: 65536
+    label: 记录文件行数
+    label_en: Logging rows per file
   sense.res.range:
     type: float
     unit: OHM
@@ -149,6 +178,22 @@ state:
     label: 继电器动作完成
     label_en: Relay operations done
 components:
+  # 大容量存储（MMEMory，#1069）：内部闪存 INT:\ 与前面板 USB:\；*RST 后当前文件夹回到 INT:\。
+  - name: storage
+    type: file_system
+    params:
+      drives: [INTernal, USB]
+      home: "INT:\\"
+      capacity: 1.0e9
+      file_types: {.sta: STAT, .csv: ASC, .prf: PREF}
+  # 读数存成文件（MMEMory:STORe:DATA RDG_STORE，#1071）：按通道分列（列标题 Chan 101），每次扫描一行；
+  # 读数的写法同 FETCh?；.dat 二进制格式未建模，报 -257。
+  - name: datafile
+    type: data_file
+    params:
+      storage: storage
+      readings: mem
+      separator: $mmem.separator
   # 主机背板：三个槽位，槽 1 装 DAQM901A（20 通道 + 2 个电流通道）。
   - name: bp
     type: daq_backplane
@@ -449,3 +494,54 @@ commands:
     state: system.version
     set: false
     reply: "1994.0"
+  # ---- 大容量存储（MMEMory，#1069/#1071）：目录、复制移动删除、上传下载、读数存成文件 -------------------
+  - header: "MMEMory:CATalog[:ALL]"
+    op: storage.catalog
+    set: false
+    params: [{name: name, type: string, optional: true}]
+  - header: "MMEMory:CDIRectory"
+    op: storage.folder
+    params: [{name: name, type: string, optional: true}]
+  - header: "MMEMory:MDIRectory"
+    op: storage.make_folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:RDIRectory"
+    op: storage.remove_folder
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:DELete"
+    op: storage.delete
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:COPY"
+    op: storage.copy
+    query: false
+    params: [{name: source, type: string}, {name: target, type: string}]
+  - header: "MMEMory:MOVE"
+    op: storage.move
+    query: false
+    params: [{name: source, type: string}, {name: target, type: string}]
+  - header: "MMEMory:DOWNload:FNAMe"
+    op: storage.download_name
+    params: [{name: name, type: string, optional: true}]
+  - header: "MMEMory:DOWNload:DATA"
+    op: storage.download
+    query: false
+    params: [{name: data, type: block}]
+  - header: "MMEMory:UPLoad"
+    op: storage.read
+    set: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:STORe:DATA"
+    op: datafile.store_readings
+    query: false
+    params: [{name: source, type: enum, options: [RDG_STORE]}, {name: name, type: string}]
+  - header: "MMEMory:FORMat:READing:CSEParator"
+    state: mmem.separator
+  - header: "MMEMory:FORMat:READing:CHEAder"
+    state: mmem.cheader
+  - header: "MMEMory:FORMat:READing:RLIMit"
+    state: mmem.rlimit
+  - header: "MMEMory:FORMat:READing:RLIMit:COUNt"
+    state: mmem.rlimit_count

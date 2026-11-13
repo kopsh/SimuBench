@@ -692,26 +692,28 @@ sections:
 - section: Data Transfer Commands
   commands:
   - header: MMEMory:DOWNload:DATA
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：写入 DOWNload:FNAMe 指定的文件，替换原有内容；定长块（不定长块不支持）。'
   - header: MMEMory:DOWNload:FNAMe
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：文件不存在时建一个空文件；查询回带引号的文件名。'
   - header: MMEMory:FORMat:READing:CHEAder
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'data_file 组件（#1071）：NUMber：列标题为 Chan <通道号>。LABel 未建模（通道标签 ROUTe:CHANnel:LABel 未建模），回 -224。'
   - header: MMEMory:FORMat:READing:CSEParator
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'data_file 组件（#1071）：COMMa、SEMicolon、TAB 决定 MMEMory:STORe:DATA 文件的列分隔符。与手册不同：*RST 会把它复位为 COMMa（设置没有“不随 *RST 复位”的属性）。'
   - header: MMEMory:FORMat:READing:RLIMit
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: accepted
+    note: '保存并回读；只影响 USB 数据记录（MMEMory:LOG）的分文件，数据记录未建模。'
+    affects_data: false
   - header: MMEMory:FORMat:READing:RLIMit:COUNt
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: accepted
+    note: '保存并回读（65536–1048576）；只影响 USB 数据记录的分文件，数据记录未建模。'
+    affects_data: false
   - header: MMEMory:STORe:DATA
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'data_file 组件（#1071）：读数存储器的全部读数写成 .csv（没有扩展名时加 .csv）：首行列标题 Chan <通道号>，每次扫描一行，读数的写法与 FETCh? 相同，列分隔符按 CSEParator，行尾 CR LF。.dat 二进制格式未建模，报 -257。存储器满后的覆盖与只存完整扫描按读数存储器本身的行为。'
   - header: MMEMory:STORe:DATA:AUTO
     level: not_modeled
     note: 文件系统与状态存储未建模。
@@ -719,8 +721,8 @@ sections:
     level: not_modeled
     note: 文件系统与状态存储未建模。
   - header: MMEMory:UPLoad
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：文件内容作为定长块返回。'
 - section: STATe and PREFerence Management Commands
   commands:
   - header: MMEMory:LOAD:PREFerences
@@ -747,23 +749,23 @@ sections:
 - section: General Purpose File Management Commands
   commands:
   - header: MMEMory:CATalog[:ALL]
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：<used>,<free>{,"<名称>,<类型>,<字节>"}；.sta 为 STAT、.csv 为 ASC、.prf 为 PREF、文件夹为 FOLD；最后一级可带 * 与 ? 只列匹配的文件（*.* 为全部）；used 只计用户文件，free 按 1 GB 计。'
   - header: MMEMory:CDIRectory
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：文件夹必须存在；*RST 后回到 INT:\；查询回带引号的路径。'
   - header: MMEMory:MDIRectory
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：上级文件夹必须存在；已存在报 -257。'
   - header: MMEMory:RDIRectory
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：只删空文件夹（非空报 -257 folder not empty），不能删当前文件夹。'
   - header: MMEMory:COPY
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：目标为文件夹时保留原名，已有文件被覆盖。'
   - header: MMEMory:DELete
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：只删文件（* 与 ? 为通配符）。'
   - header: MMEMory:LOG[:ENABle]
     level: not_modeled
     note: 文件系统与状态存储未建模。
@@ -771,8 +773,8 @@ sections:
     level: not_modeled
     note: 文件系统与状态存储未建模。
   - header: MMEMory:MOVE
-    level: not_modeled
-    note: 文件系统与状态存储未建模。
+    level: implemented
+    note: 'file_system 组件（#1069）：移动或改名；目标为文件夹时保留原名。'
 - section: MMEMory3 Subsystem
   commands:
   - header: MMEMory3:STORe:DATA

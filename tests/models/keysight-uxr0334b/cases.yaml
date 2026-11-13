@@ -676,3 +676,53 @@ cases:
       - send: ':DISK:CDIRectory "C:\Users\Public\..\..\Windows"'
       - query: ":SYSTem:ERRor?"
         expect: "-257"
+  - name: "*SAV/*RCL 与 :STORe/:RECall:SETup：存 → 改 → 调回，时基随之恢复"
+    manual: "* (Common) Commands > *SAV, *RCL; : (Root Level) Commands > :STORe:SETup, :RECall:SETup"
+    steps:
+      - send: ":TIMebase:SCALe 2E-9"
+      - send: "*SAV 3"
+      - send: ":TIMebase:SCALe 5E-9"
+      - send: ":STORe:SETup 9"
+      - send: "*RST"
+      - query: ":TIMebase:SCALe?"
+        expect: "+1.00000E-07"
+      - send: "*RCL 3"
+      - query: ":TIMebase:SCALe?"
+        expect: "+2.00000E-09"
+      - send: ":RECall:SETup 9"
+      - query: ":TIMebase:SCALe?"
+        expect: "+5.00000E-09"
+      - send: "*RCL 5"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+  - name: "*LRN? 回 :SYST:SET 加定长块，原样发回即恢复设置；:SYSTem:SETup? 与 :DISK:SAVE:SETup"
+    manual: "* (Common) Commands > *LRN?; :SYSTem Commands > :SYSTem:SETup; :DISK Commands > :DISK:SAVE:SETup"
+    steps:
+      - query: "*LRN?"
+        expect_prefix: ":SYST:SET #"
+      - query: ":SYSTem:SETup?"
+        expect_prefix: "#"
+      - send: ':DISK:SAVE:SETup "SETUP1"'
+      - query: ":DISK:DIRectory?"
+        expect: "1\nSETUP1.set"
+      - send: ":SYSTem:SETup #13abc"
+      - query: ":SYSTem:ERRor?"
+        expect: "-161"
+  - name: ":DISK:SAVE:WAVeform：通道 1 的记录存成 CSV（带表头）与 BIN，取回；H5 未建模"
+    manual: ":DISK Commands > :DISK:SAVE:WAVeform; :DISK:GETFILE?"
+    steps:
+      - send: ":TIMebase:SCALe 20E-9"
+      - send: ":DIGitize CHANnel1"
+      - send: ':DISK:SAVE:WAVeform CHANnel1,"FILE1",CSV,ON'
+      - query: ':DISK:GETFILE? "FILE1.csv"'
+        expect_prefix: "#"
+      - send: ':DISK:SAVE:WAVeform CHANnel1,"FILE2.bin"'
+      - query: ":DISK:DIRectory?"
+        expect: "2\nFILE1.csv\nFILE2.bin"
+      - query: ':DISK:GETFILE? "FILE2.bin"'
+        expect_prefix: "#"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      - send: ':DISK:SAVE:WAVeform CHANnel1,"FILE3",H5'
+      - query: ":SYSTem:ERRor?"
+        expect: "-257"

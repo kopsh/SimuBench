@@ -446,6 +446,41 @@ class Instrument:
         if self.ops.arm_opc():
             self.status.set_opc()
 
+    def settings_snapshot(self) -> dict[str, Any]:
+        """The instrument's setup: every setting a command can change, by state path (#1070).
+        Read-only variables (calibration coefficients, measured values) are left out; a drawn
+        individual deviation is a component parameter, never a setting, so it is never in it."""
+        return {path: self.state[path] for path, spec in self.specs.items() if not spec.readonly}
+
+    def restore_settings(self, values: dict[str, Any], *, source: str = "scpi") -> None:
+        """Put a setup back (``*RCL``, a state file): the settings it names that this instrument
+        has and a command can change are written at once, then the components watching them are
+        told. A saved setup is consistent as it stands, so what a watcher writes as a side effect
+        of one change (a load change rescaling the amplitude, #436) does not survive: the setup's
+        values are written again after the watchers ran. A value the setting refuses refuses the
+        whole setup, unchanged."""
+        before = dict(self.state)
+        updates: dict[str, Any] = {}
+        for path, value in values.items():
+            spec = self.specs.get(path)
+            if spec is not None and not spec.readonly:
+                updates[path] = validate_value(spec, value)
+        self.ops.clear()
+        self.state.update(updates)
+        try:
+            for path, value in updates.items():
+                if before.get(path) == value:
+                    continue
+                for comp in self._watchers.get(path, ()):
+                    comp.on_state(
+                        self._watch_param.get(path, {}).get(comp.uid), path, before.get(path), value
+                    )
+        except ScpiError:
+            self.state.update(before)
+            raise
+        self.state.update(updates)
+        self.session.state_changed(self, "*RCL", None, None, electrical=True, source=source)
+
     def reset(self) -> None:
         self.ops.clear()
         self.settings.reset()
