@@ -735,3 +735,21 @@ def test_a_special_word_matches_in_any_form_and_an_infinite_one_is_not_an_extrem
     assert inst.get_state("pers.time") == -math.inf and query("PERSist?") == "PERS MINimum"
     write("PERSist INFINITE")
     assert inst.get_state("pers.time") == math.inf
+
+
+def test_a_reciprocal_mapping_turns_a_gain_into_an_attenuation():
+    from simubench.engine.component import map_setting
+
+    assert map_setting({"from": "$g", "reciprocal": True}, 0.1) == pytest.approx(10.0)
+    assert map_setting({"from": "$g", "reciprocal": True, "scale": 2.0}, 4.0) == pytest.approx(0.5)
+
+
+def test_a_parameter_narrows_the_words_its_setting_takes():
+    data = _family()
+    data["commands"].append(
+        {"header": "SRC", "params": [{"name": "s", "type": "enum", "options": ["NONE"], "state": "mark1.src",
+                                       "not_modeled": {"C1": "set elsewhere"}}]}
+    )  # fmt: skip
+    _, inst, query, write = open_demo(data)
+    write("SRC C1")
+    assert error(query).startswith("-224,") and inst.get_state("mark1.src") == "NONE"

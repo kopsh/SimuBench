@@ -145,3 +145,42 @@ def test_the_records_time_origin_scatters_by_the_jitter_spec(scope):
         origins.append(session.instruments["scope"].components["acq"].records[1].origin)
     lo, hi = sigma_interval(2.5e-14, len(origins))
     assert lo <= float(np.std(origins)) <= hi, (float(np.std(origins)), lo, hi)
+
+
+def test_uxr1104b_reference_input_and_memory_option(tmp_path):
+    """UXR1104B (#1092): :TIMebase:REFClock ON locks the sampling clock to a 10 MHz on REF IN within
+    the guide's +-20 ppm, and a unit with option 02G reports it in *OPT? and its memory capability."""
+    bench = tmp_path / "ref.bench.yaml"
+    bench.write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.bench/2",
+                "name": "uxr_ref",
+                "instruments": {
+                    "awg": {"model": "keysight-33622a",
+                            "state": {"ch1.frequency": 10e6 * (1 + 15e-6), "ch1.amplitude": 0.4, "ch1.output": True}},
+                    "scope": {"model": "keysight-uxr1104b", "options": ["02G"]},
+                },
+                "wires": [{"from": "awg.CH1", "to": "scope.REF IN"}],
+                "run": {"seed": 1, "clock": "command", "idle": "off"},
+            }
+        )
+    )  # fmt: skip
+    rm = pyvisa.ResourceManager(f"{bench}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+        session = rm.visalib.bench
+        timebase = session.instruments["scope"].components["timebase"]
+        internal = timebase.clock_error()
+        uxr.write(":TIMebase:REFClock ON")
+        # locked: the clock carries the reference's +15 ppm
+        assert timebase.clock_error() == pytest.approx(15e-6, abs=1e-9)
+        session.configure("awg", "ch1.frequency", 10e6 * (1 + 30e-6))  # outside +-20 ppm
+        assert timebase.clock_error() == pytest.approx(internal)
+        uxr.write(":TIMebase:REFClock OFF")
+        assert timebase.clock_error() == pytest.approx(internal)
+        assert uxr.query("*OPT?").strip() == "02G"
+        assert uxr.query(":SYSTem:CAPability:ACQuire? MEMory").strip() == '"2000000000"'
+        assert uxr.query(":SYSTem:ERRor?").strip() == "0"
+    finally:
+        rm.close()

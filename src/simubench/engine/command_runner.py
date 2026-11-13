@@ -410,6 +410,13 @@ class CommandRunner:
                     raise ScpiError(-109, f"missing {ps.name}")
                 path = self._resolve(_at(index, ps.state), channel)
                 token = raw.pop(0)
+                # The parameter may narrow the setting: its own words not modeled, its own options.
+                self._refuse_not_modeled(ps.not_modeled, token)
+                if ps.type == "enum" and ps.options:
+                    try:
+                        V.parse_enum(token, ps.options)
+                    except ScpiError as e:
+                        raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
                 instead = self._keyword_writes(ps, token)
                 if instead is not None:
                     # A keyword with its own settings (#344: resolution MIN picks the finest NPLC).
@@ -984,6 +991,16 @@ class CommandRunner:
                         if (ps.min is not None and v < ps.min) or (ps.max is not None and v > ps.max):
                             raise ScpiError(-222)
                         out[ps.name] = v
+                elif (
+                    ps.type == "int"
+                    and (ps.keywords or ps.state is not None)
+                    and self._keyword_word(
+                        ps,
+                        self.inst.specs.get(self._resolve(ps.state, 1)) if ps.state is not None else None,
+                        r,
+                    )
+                ):
+                    out[ps.name] = r  # a keyword word, as for a float (:ACQuire:POINts AUTO)
                 elif ps.type == "int":
                     n = V.parse_int(r)
                     # declared bounds hold for an operation's integer as for its float (FETCh? 2

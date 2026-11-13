@@ -291,11 +291,20 @@ class ScopeProbe(Component):
         "rescales": [],  # settings in display units that follow the ratio, e.g. [$ch.scale, $ch.offset]
         "skew": None,  # the channel's skew setting, s (unbound: the model has none)
         "skew_error": 0.0,  # this unit's own skew error, s (hidden; a deviations entry)
+        "invert": False,  # the channel's invert setting: the waveform reflected about 0 V
+        # an external scaling gain the display divides by (an attenuator in front: 0.1), as a ratio
+        "gain": 1.0,
     }
     units = {"skew": "s", "skew_error": "s"}
 
+    def effective_ratio(self) -> float:
+        """Display volts per input volt: the ratio over the external gain (the sign of an invert
+        aside)."""
+        return float(self.param("ratio")) / float(self.param("gain") or 1.0)
+
     def output(self, port: str) -> Signal:
-        return self.input("in").scale(float(self.param("ratio")))
+        k = self.effective_ratio()
+        return self.input("in").scale(-k if self.param("invert") in (True, 1, "1", "ON") else k)
 
     def delay(self) -> float:
         """How many seconds this channel's record lags the trigger timeline."""
@@ -690,6 +699,9 @@ class ScopeTimebase(Component):
         "reference_position": None,  # the trigger position setting, 0..100 percent (POSition mode)
         "clock_ppm": 0.0,  # the sampling clock's frequency error, ppm (hidden)
         "rosc": "INTernal",  # INTernal | EXTernal: the clock follows the 10 MHz on ref
+        "lock_ppm": 10.0,  # the reference's lock range around 10 MHz, ppm
+        "lock_min_v": 0.05,  # the smallest reference amplitude it locks to, V peak
+        "lock_max_v": math.inf,  # the largest, V peak (above it the internal clock takes over)
     }
     units = {"scale": "s", "delay": "s", "clock_ppm": "ppm"}
 
@@ -794,14 +806,17 @@ class ScopeTimebase(Component):
         return float(self.param("clock_ppm")) * 1e-6
 
     def _update_clock(self) -> None:
-        """The 10 MHz on ``ref``: within +-10 ppm and present, it is the clock (as the spectrum
-        analyzer accepts its reference); anything else leaves the internal clock in charge."""
+        """The 10 MHz on ``ref``: within ``lock_ppm`` and between ``lock_min_v`` and ``lock_max_v``,
+        it is the clock (as the spectrum analyzer accepts its reference); anything else leaves the
+        internal clock in charge."""
         self._ref_locked = False
         sig = self.input("ref").merged()
         if sig.freq.size:
             k = int(np.argmax(np.abs(sig.amp)))
             f = float(sig.freq[k])
-            if abs(f - 10e6) <= 10e6 * 10e-6 and abs(sig.amp[k]) > 0.05:
+            a = abs(sig.amp[k])
+            lo, hi = float(self.param("lock_min_v")), float(self.param("lock_max_v"))
+            if abs(f - 10e6) <= 10e6 * float(self.param("lock_ppm")) * 1e-6 and lo < a <= hi:
                 self._ref_error, self._ref_locked = f / 10e6 - 1, True
 
 
@@ -876,8 +891,10 @@ class ScopeTrigger(_ChannelBound):
     of ``polarity`` runs from one crossing of the level to the next opposite one — the same
     interpolated crossings, hysteresis, coupling, noise and holdoff as the edge trigger — and
     ``qualifier`` compares that time with ``width_low`` and ``width_high``: ``less`` (narrower
-    than ``width_high``) and ``range`` (between the two) trigger at the edge that ends the pulse,
-    ``greater`` at the instant the pulse has lasted ``width_low`` (it need not have ended). The
+    than ``width_high``), ``range`` (between the two) and ``outside`` (narrower than ``width_low``
+    or wider than ``width_high``) trigger at the edge that ends the pulse; ``greater`` (wider than
+    ``width_low``) triggers at the instant the pulse has lasted ``width_low`` (it need not have
+    ended), or with ``greater_at: end`` at the edge that ends it. The
     whole pulse lies after the trigger is armed: one that began within the pre-trigger time or the
     holdoff does not count. ``slope`` plays no part. The search takes the record grid for as many
     samples as ``max_search_points`` allows (fewer for a signal of many lines), then a grid an
@@ -917,7 +934,10 @@ class ScopeTrigger(_ChannelBound):
         "line_hz": 50.0,  # mains frequency
         "mode": "edge",  # the trigger type: edge, or glitch (a pulse by its width)
         "polarity": "positive",  # glitch: the pulse above the level (positive) or below it (negative)
-        "qualifier": "less",  # glitch: narrower than width_high (less), wider than width_low (greater), between (range)
+        # glitch: narrower than width_high (less), wider than width_low (greater), between (range),
+        # narrower than width_low or wider than width_high (outside)
+        "qualifier": "less",
+        "greater_at": "timeout",  # glitch greater: trigger once the pulse lasted width_low (timeout) or at its end
         "width_low": 20e-9,  # glitch: the width a greater or range pulse exceeds, s
         "width_high": 30e-9,  # glitch: the width a less or range pulse stays under, s
     }
@@ -928,7 +948,8 @@ class ScopeTrigger(_ChannelBound):
     choices = {
         "mode": ("edge", "glitch"),
         "polarity": ("positive", "negative"),
-        "qualifier": ("less", "greater", "range"),
+        "qualifier": ("less", "greater", "range", "outside"),
+        "greater_at": ("timeout", "end"),
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -1152,7 +1173,7 @@ class ScopeTrigger(_ChannelBound):
         fine = min(span, horizon, start_s + budget * dt)
         stretches = [(fine, dt)]
         if horizon > fine:
-            used = {"less": (high,), "greater": (low,)}.get(qualifier, (low, high))
+            used = {"less": (high,), "greater": (low,)}.get(qualifier, (low, high))  # range, outside
             bounds = [w for w in used if 0 < w < math.inf]
             step = max(dt, min(bounds) / 8) if bounds else self._far_step(sig, dt, fine, horizon)
             stretches.append((min(horizon, fine + step * budget), step))
@@ -1166,9 +1187,32 @@ class ScopeTrigger(_ChannelBound):
         def hit(t: float) -> TriggerHit:
             return TriggerHit(t, math.ceil(t / dt - 1e-9))
 
+        at_end = qualifier == "outside" or (qualifier == "greater" and self.choice("greater_at") == "end")
+
+        def may_qualify(c: _Crossing, o: _Crossing) -> bool:
+            """Whether the pulse from ``o`` to ``c`` can meet the qualifier, judged on the grid
+            (the shortest and longest widths the two crossings allow)."""
+            shortest, longest = c.before - o.at, c.at - o.before
+            if qualifier == "less":
+                return shortest < high
+            if qualifier == "range":
+                return shortest < high and longest > low
+            if qualifier == "greater":
+                return longest > low
+            return shortest < low or longest > high  # outside
+
+        def qualifies(width: float) -> bool:
+            if qualifier == "less":
+                return width < high
+            if qualifier == "range":
+                return low < width < high
+            if qualifier == "greater":
+                return width > low
+            return width < low or width > high  # outside
+
         opened: _Crossing | None = None  # the opening edge of the pulse under way
         for c in self._edges(sig, t0, dt, start_s, stretches, level, hyst):
-            if opened is not None and qualifier == "greater" and c.at - opened.before > low:
+            if opened is not None and qualifier == "greater" and not at_end and c.at - opened.before > low:
                 # Nothing closed the pulse before it had lasted width_low: ``c`` is the next
                 # crossing, or how far the search has looked.
                 begun = instant(opened)
@@ -1179,13 +1223,13 @@ class ScopeTrigger(_ChannelBound):
             elif c.direction == closes:
                 # The grid already bounds the width; the instants are refined only for a pulse
                 # that may qualify.
-                if opened is not None and (
-                    (qualifier == "less" and c.before - opened.at < high)
-                    or (qualifier == "range" and c.before - opened.at < high and c.at - opened.before > low)
+                if (
+                    opened is not None
+                    and (qualifier != "greater" or at_end)
+                    and may_qualify(c, opened)
+                    and qualifies(instant(c) - instant(opened))
                 ):
-                    width = instant(c) - instant(opened)
-                    if width < high and (qualifier == "less" or width > low):
-                        return hit(instant(c))
+                    return hit(instant(c))
                 opened = None
         return None
 
@@ -1507,7 +1551,7 @@ class ScopeAcquisition(Component):
         return self._module("vertical", f"ch{n}.{self.param('vertical')}")  # type: ignore[no-any-return]
 
     def probe_ratio(self, channel: int) -> float:
-        return float(self._module("probe", f"ch{channel}.{self.param('probe')}").param("ratio"))
+        return float(self._module("probe", f"ch{channel}.{self.param('probe')}").effective_ratio())
 
     def probe_skew(self, n: int) -> float:
         """Channel n's skew (the setting and the unit's own), seconds; 0 without a probe module."""
@@ -2193,6 +2237,45 @@ class ScopeAcquisition(Component):
             return OpResult((format % value).encode())
         return OpResult(self.owner.format_number(value))
 
+    @op("segment_list")
+    def segment_list(
+        self, what: str = "TTAG", source: Any = None, format: str = "%.10E", **_: Any
+    ) -> OpResult:
+        """One x figure per segment of the latest acquisition, comma-separated (the Infiniium's
+        ``:WAVeform:SEGMented:XLISt?``): ``RELXorigin`` (each segment's first sample, seconds from
+        its trigger), ``TTAG`` (its trigger, seconds after the first segment's), ``ABSXorigin`` (the
+        two added) or ``OFFSet`` (where it starts in an all-segments transfer: one 0, as only the
+        current segment is transferred). Without segments: the current record as one segment."""
+        assert self.owner is not None
+        kind = str(what).upper()
+        n = trigger_channel(source) or 1
+        segments = self.segment_records or ([dict(self.records)] if self.records else [])
+        if not segments or n not in segments[0]:
+            raise ScpiError(-230, "no acquisition for this source")
+
+        def instant(rec: Record) -> int:
+            if rec.trigger_ns is not None:
+                return rec.trigger_ns
+            return rec.t_start_ns + round(rec.trigger_index * rec.dt_s * 1e9)
+
+        first = instant(segments[0][n])
+        values: list[float] = []
+        for seg in segments:
+            rec = seg[n]
+            tag = (instant(rec) - first) * 1e-9
+            rel = float(rec.origin)
+            if kind.startswith("REL"):
+                values.append(rel)
+            elif kind.startswith("ABS"):
+                values.append(rel + tag)
+            elif kind.startswith("TTAG"):
+                values.append(tag)
+            elif kind.startswith("OFFS"):
+                return OpResult(b"0")
+            else:
+                raise ScpiError(-224, f"no segment figure {what!r}")
+        return OpResult(",".join(format % v for v in values).encode())
+
     @op("analyze_segments")
     def analyze_segments(self, **_: Any) -> OpResult:
         """``:ACQuire:SEGMented:ANALyze``: accepted. Measurement statistics and persistence over
@@ -2335,6 +2418,34 @@ class ScopeMeasurements(Component):
         self.installed = []
         self.history = {}
         return OpResult()
+
+    def clip_flags(self, n: int) -> int:
+        """Whether channel n's record reaches the ADC's limits: 1 low, 2 high, 3 both, 0 neither
+        (a channel without a record or an unquantized ADC: 0)."""
+        acq = self._acq()
+        try:
+            rec, _ = acq.measure_record(n)
+        except ScpiError:
+            return 0
+        v = np.asarray(rec.volts, dtype=float)
+        if not v.size or not acq.adc_unit().param("bits"):
+            return 0
+        high, low = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
+        return (1 if v.min() <= low else 0) | (2 if v.max() >= high else 0)
+
+    @op("clipped")
+    def op_clipped(self, channel: int | None = None, sides: bool = False, **_: Any) -> OpResult:
+        """ADC clipping of the channel's current record: 1 when it reaches either limit, else 0;
+        with ``sides`` 1 low, 2 high, 3 both (the Infiniium's :CHANnel<n>:ADC:CLIPped?)."""
+        flags = self.clip_flags(channel or 1)  # the header's channel, not the measurement source
+        return OpResult(str(flags if sides else int(bool(flags))).encode())
+
+    @op("overload")
+    def op_overload(self, **_: Any) -> OpResult:
+        """The overload register: bit n-1 set for each channel n whose record clips."""
+        acq = self._acq()
+        bits = sum(1 << (n - 1) for n in range(1, acq._channels() + 1) if self.clip_flags(n))
+        return OpResult(str(bits).encode())
 
     @op("all")
     def op_all(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
@@ -2522,16 +2633,23 @@ class ScopeMeasurements(Component):
         return self._reply(delay / period * 360.0 if math.isfinite(period) and period > 0 else math.nan, used)
 
     @op("auto_trigger_levels")
-    def op_auto_trigger_levels(self, **_: Any) -> OpResult:
+    def op_auto_trigger_levels(self, source_only: bool = False, **_: Any) -> OpResult:
         """``:TRIGger:LEVel:ASETup``: every displayed channel's trigger level to its waveform's 50 %
         (halfway between top and base; 0 V with AC coupling) — the levels of ``trigger_levels``,
-        channel -> setting (#350)."""
+        channel -> setting (#350). ``source_only`` (the Infiniium's ``:TRIGger:LEVel:FIFTy``): the
+        level of the channel the trigger takes its source from now, whatever the trigger type."""
         assert self.owner is not None
         acq = self._acq()
+        only = None
+        if source_only:
+            trig = getattr(acq, "ref", lambda _n: None)("trigger")
+            only = trigger_channel(trig.param("source")) if trig is not None else None
+            if only is None:
+                return OpResult()  # an external or line source: no waveform to take 50 % of
         for key, path in (self.param("trigger_levels") or {}).items():
             n = int(key)
-            if n not in acq.displayed():
-                continue
+            if (n != only) if only is not None else (n not in acq.displayed()):
+                continue  # FIFTy: the trigger source's level, shown on screen or not
             coupling = str(self.owner.state.get(f"ch{n}.coupling", "DC")).upper()
             if coupling.startswith("AC"):
                 level = 0.0

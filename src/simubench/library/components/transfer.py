@@ -353,6 +353,32 @@ class WaveformTransfer(Component):
             block = V.format_block(payload)
         return OpResult(block + str(h.get("trailer", "")).encode(), used)
 
+    @op("field")
+    def field(self, query: bool = False, channel: int | None = None, field: dict[str, Any] | None = None,
+              **_: Any) -> OpResult:  # fmt: skip
+        """One field written the way a declared preamble writes it (``header.fields``: a figure, a
+        setting, a value, ``when``/``else``, ``map``, ``scale``, ``format``; ``{n}`` in a setting is
+        the source channel), e.g. ``:WAVeform:XRANge?`` = ``{figure: timebase, scale: 10.0}`` or
+        ``:WAVeform:YUNits?`` = ``{setting: "ch{n}.units"}``. Without a record: -230 and no value."""
+        assert self.owner is not None
+        if not field:
+            raise ScpiError(-300, f"{self.uid}: field names nothing")
+        acq = self._acquisition()
+        n = self._source(channel)
+        rec, used = acq.read_record(n, start=False)
+        if rec is None:
+            self.owner.push_error(-230, str(self.param("no_record")))
+            return OpResult(b"", used)
+        value = self._field(field, self.figures(rec, n), n)
+        fmt = field.get("format")
+        if fmt:
+            return OpResult((str(fmt) % value).encode(), used)
+        if isinstance(value, bool) or not isinstance(value, int | float):
+            return OpResult(str(value).encode(), used)
+        if isinstance(value, int):
+            return OpResult(str(value).encode(), used)
+        return OpResult(self.owner.format_number(float(value)), used)
+
     @op("figure")
     def figure(self, query: bool = False, channel: int | None = None, what: str = "points",
                format: str = "", **_: Any) -> OpResult:  # fmt: skip

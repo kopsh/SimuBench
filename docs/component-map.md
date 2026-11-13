@@ -25,7 +25,7 @@
 | decimator | `scope_decimator` | 采样流(从 ADC 的速率到记录的速率:普通、平均、峰值检测、高分辨率,#950) | 已实现 | — |
 | acquisition | `scope_acquisition` | 数据(定时、触发搜索、向采样流请求一帧并存成记录、运行控制;分段存储 `segments`、`rearm_s`、`segment_index`、`memory_points`:一次采集连续取 N 次触发各存一段,全部采满才完成,#957) | 已实现 | 分段存储每段的点数不随段数减少;跨段的测量统计与余辉未建模 |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
-| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248;触发类型 `mode`:边沿 `edge`、脉宽 `glitch`(`polarity`、`qualifier` 小于/大于/范围、`width_low`、`width_high`),与边沿触发共用模拟通路上的过零时刻、迟滞、耦合、噪声与释抑,#956) | 已实现(边沿、脉宽;码型、欠幅、串行、视频触发未做) | — |
+| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248;触发类型 `mode`:边沿 `edge`、脉宽 `glitch`(`polarity`、`qualifier` 小于/大于/范围/范围外、`greater_at` 超时或结束沿、`width_low`、`width_high`),与边沿触发共用模拟通路上的过零时刻、迟滞、耦合、噪声与释抑,#956) | 已实现(边沿、脉宽;码型、欠幅、串行、视频触发未做) | — |
 | measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 测量作用于所选的段(分段存储,#957),跨段的统计未建模;测量窗口只用主记录(没有缩放记录) |
 | waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
 

@@ -2,7 +2,7 @@ schema: simubench.bench/2
 name: uxr1104b_cases
 description: >-
   Keysight 33622A 的 CH1（10 MHz、400 mVpp 正弦）与 CH2（1 MHz、400 mVpp 方波）接 UXR1104B 的 CH1、CH2
-  （50 Ω 输入，发生器负载设定 50 Ω），供手册用例使用。
+  （50 Ω 输入，发生器负载设定 50 Ω）；示波器自己的 CAL OUT 与 AUX OUT 接回 CH3、CH4。供手册用例使用。
 instruments:
   awg:
     model: keysight-33622a
@@ -19,4 +19,6 @@ instruments:
 wires:
   - {from: awg.CH1, to: scope.CH1}
   - {from: awg.CH2, to: scope.CH2}
+  - {from: scope.CAL OUT, to: scope.CH3}
+  - {from: scope.AUX OUT, to: scope.CH4}
 run: {seed: 1, clock: command, idle: "off"}

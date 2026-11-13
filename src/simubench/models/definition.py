@@ -131,6 +131,10 @@ class ParamMapping(_Model):
         description="Setting value -> parameter value for numbers: the largest table key not above "
         "the value wins (NPLC 0.5 uses the 0.2 entry)",
     )
+    reciprocal: bool = Field(
+        False,
+        description="Take 1 / value (after map and table, before scale): a gain where the component takes an attenuation",
+    )
     scale: float | None = None
     offset: float | None = None
     default: Any = Field(None, description="The parameter value for a setting value `map` does not list")

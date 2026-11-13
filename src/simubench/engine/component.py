@@ -289,8 +289,8 @@ def nested_bindings(value: Any) -> list[str]:
 
 def map_setting(mapping: dict[str, Any], value: Any) -> Any:
     """A setting's value through a parameter mapping: ``map`` (else ``default``, else as is), then
-    a numeric ``table`` (the largest entry not above the value), then ``value * scale + offset``
-    for numbers."""
+    a numeric ``table`` (the largest entry not above the value), then ``1 / value`` with
+    ``reciprocal``, then ``value * scale + offset`` for numbers."""
     table = mapping.get("map")
     if table is not None:
         if value in table:
@@ -315,6 +315,13 @@ def map_setting(mapping: dict[str, Any], value: Any) -> Any:
             if k <= float(value):
                 picked = k
         value = rungs[picked]
+    if (
+        mapping.get("reciprocal")
+        and isinstance(value, (int, float))
+        and not isinstance(value, bool)
+        and value
+    ):
+        value = 1.0 / float(value)  # a gain where the component takes an attenuation
     scale, offset = mapping.get("scale"), mapping.get("offset")
     if isinstance(value, (int, float)) and not isinstance(value, bool) and (scale, offset) != (None, None):
         value = value * (1.0 if scale is None else float(scale)) + (0.0 if offset is None else float(offset))

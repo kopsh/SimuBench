@@ -130,9 +130,8 @@ sections:
       become set), bit 5 WAIT TRIG, bit 11 AUTO TRIG (:ATER?). MASK (bit 9) and OVLR (bit 12) are not
       modeled'
   - header: :OVLRegister
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: "Bit n-1 set for each channel n whose current record clips the ADC (bits 4-7 zero)."
   - header: :PDER
     level: implemented
     note: measurements are computed when queried, so processing is done when the acquisition is; its own
@@ -186,9 +185,8 @@ sections:
 - section: :ACQuire Commands (Programmer's Guide 11.60, ch. 15)
   commands:
   - header: :ACQuire:ADC:CLIPped:CLEar
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: "Accepted: the clipping status is taken from each channel's current record when read, so there is nothing latched to clear."
   - header: :ACQuire:AVERage
     level: implemented
     note: 'ON: each record is the mean of :ACQuire:COUNt acquisitions, each noisy and quantized (D46)'
@@ -204,9 +202,8 @@ sections:
     note: 'MAX or 100 MHz to 113 GHz (the data sheet''s typical bandwidth; 110 GHz warranted): the -3 dB frequency of the acquisition''s DSP filter, shaped by :ACQuire:RESPonse
       (#607). AUTO is not modeled; the lower limit is a SimuBench value'
   - header: :ACQuire:BANDwidth:FRAMe
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: implemented
+    note: "+1.13000E+11: the model's maximum bandwidth (data sheet: 113 GHz typical), the same as :ACQuire:BANDwidth MAX."
   - header: :ACQuire:BANDwidth:TESTLIMITS
     level: implemented
     note: "1,<numeric>+1.00000E+08:+1.13000E+11: the range :ACQuire:BANDwidth accepts in this definition (the guide gives no figures)."
@@ -215,18 +212,18 @@ sections:
     note: 0 to 100, 90 after a default setup (the guide). In real-time sampling it has no effect on the
       record (the guide)
   - header: :ACQuire:COMPlete:STATe
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: accepted
+    note: "Wait for function averages: saved and read back (functions are not modeled, C5); ON at power-on (a SimuBench value)."
+    affects_data: false
   - header: :ACQuire:DIFFerential:PARTner
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): differential and common-mode channel inputs.'
     gap: blocked
     blocked_by: differential-input
   - header: :ACQuire:FPLot
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    note: "Fast Plot: saved and read back; simulated analysis is always synchronous with the acquisition. ON at power-on (a SimuBench value)."
+    affects_data: false
   - header: :ACQuire:HISTory:COUNt
     level: not_modeled
     note: 'Blocked by C8 (product-plan.md 4.2): acquisition history playback.'
@@ -243,32 +240,28 @@ sections:
     gap: blocked
     blocked_by: C8
   - header: :ACQuire:HRESolution
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: accepted
+    note: "AUTO, BITS11 or BITS12, saved and read back; it applies in the high resolution modes, which are not modeled."
+    affects_data: false
   - header: :ACQuire:INTerpolate
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: accepted
+    note: "ON / OFF (answered 1 / 0) or INT1-INT32: the display's sin(x)/x interpolation; :WAVeform:DATA? sends the acquired samples either way. ON at power-on (a SimuBench value)."
+    affects_data: false
   - header: :ACQuire:MODE
     level: implemented
-    note: RTIMe only; PDETect, HRESolution and the segmented modes are not modeled
+    note: "RTIMe or SEGMented (segmented memory, scope_acquisition segments #957: a :DIGitize takes :ACQuire:SEGMented:COUNt segments, each on its own trigger); PDETect, HRESolution, SEGPdetect and SEGHres are not modeled (-224)."
   - header: :ACQuire:POINts[:ANALog]
     level: implemented
-    note: 'AUTO (SimuBench: 256 kpts) or 16 to 10 Mpts; larger depths (the UXR has 500 Mpts, 1 and 2 Gpts as options) are refused
-      as out of range in the simulation. Without a set sample rate the rate is the fastest of 256 GSa/s
-      / 2^n not above points / 10 div'
+    note: "AUTO (SimuBench: 256 kpts) or 16 to 10 Mpts; a depth turns :ACQuire:POINts:AUTO off, AUTO turns it on; the query answers the depth in use. Larger depths (the UXR has 500 Mpts, 1 and 2 Gpts as options) are refused as out of range in the simulation (#1012). Without a set sample rate the rate is the fastest of 256 GSa/s divided by a power of two that fills the depth over ten divisions."
   - header: :ACQuire:POINts:AUTO
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: implemented
+    note: "ON: the scope picks the memory depth (256 kpts in SimuBench, #1012); OFF: the depth :ACQuire:POINts set. Setting a depth turns it OFF, :ACQuire:POINts AUTO turns it ON."
   - header: :ACQuire:POINts:TESTLIMITS
     level: implemented
     note: "1,<numeric>16:10000000: the range :ACQuire:POINts accepts in this definition (10 Mpts is the simulation's limit, #1012)."
   - header: :ACQuire:REDGe
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: implemented
+    note: "OFF (0) only on the UXR-Series (guide); ON is refused (-224)."
   - header: :ACQuire:RESPonse
     level: implemented
     note: 'FLATmag (default, the guide): flat magnitude, linear phase, a brick wall at :ACQuire:BANDwidth
@@ -276,29 +269,27 @@ sections:
       no ringing. The guide''s narrower Gaussian bandwidth is not given in figures: the simulation keeps
       the -3 dB point (#607)'
   - header: :ACQuire:SEGMented:AUToplay
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: accepted
+    note: "Saved and read back; playback only changes the display."
+    affects_data: false
   - header: :ACQuire:SEGMented:COUNt
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: implemented
+    note: "Segments a :DIGitize takes in :ACQuire:MODE SEGMented, each on its own trigger (scope_acquisition segments, #957); 2 at power-on (a SimuBench value). All segments together hold at most 10 Mpts (the simulation's limit, #1012)."
   - header: :ACQuire:SEGMented:INDex
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: implemented
+    note: "The segment transfers and measurements read, from 1; an index past the last acquired segment selects the last (the out-of-range error the guide mentions is not raised)."
   - header: :ACQuire:SEGMented:PLAY
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: accepted
+    note: "Playback finishes at once on a bench: the query answers 0 (not playing)."
+    affects_data: false
   - header: :ACQuire:SEGMented:PRATe
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: accepted
+    note: "0.001 to 1 s per segment (guide); playback only changes the display."
+    affects_data: false
   - header: :ACQuire:SEGMented:TTAGs
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: accepted
+    note: "Saved and read back; the time tags (:WAVeform:SEGMented:TTAG?, XLISt? TTAG) are always available."
+    affects_data: false
   - header: :ACQuire:SEGMented:VLSCapture
     level: not_modeled
     note: 'Blocked by C11 (product-plan.md 4.2): very long sequence capture needs block-wise computation (#1012).'
@@ -311,9 +302,8 @@ sections:
       guide's table) and the record holds rate x 10 div points, at most 10 Mpts in the simulation (the
       rate steps down to fit). The query answers the rate in use
   - header: :ACQuire:SRATe[:ANALog]:AUTO
-    level: not_modeled
-    note: 'Model work: acquisition setting on the existing signal chain.'
-    gap: model_work
+    level: implemented
+    note: "ON: the rate follows the memory depth and timebase; OFF: the rate :ACQuire:SRATe set (a set rate turns it OFF, :ACQuire:SRATe AUTO turns it ON)."
   - header: :ACQuire:SRATe:TESTLIMITS
     level: implemented
     note: "1,<numeric>+0.00000E+00:+2.56000E+11: the range :ACQuire:SRATe accepts in this definition (0 is AUTO; a set rate snaps to 256 GSa/s divided by a power of two)."
@@ -708,21 +698,17 @@ sections:
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
   - header: :CALibrate:OUTPut
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: "The signal on CAL OUT and AUX OUT (two 50 ohm source ports, data sheet): DC (CAL OUT only, -1.2 V to +1.2 V; AUX OUT at ZERO), ZERO, ONE, PROBecomp (750 Hz square), DPULse / NDPULse (1.1 ns pulse every 650 ns), MHZ97, MHZ7_5; levels as the guide gives them (CAL OUT -150 / +150 mV, AUX OUT -440 / -125 mV), into 50 ohm. TOUT (the trigger output pulse) is not modeled (-224). Edges: 10 GHz bandwidth (a SimuBench value, the guide gives no rise time)."
   - header: :CALibrate:OUTPut:AUX
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: "AUX OUT on or off (an off output is open); ON at power-on (a SimuBench value)."
   - header: :CALibrate:OUTPut:AUX:RTIMe
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: "FAST or SLOW edges on AUX OUT: 10 GHz and 1 GHz bandwidth (SimuBench values; the guide gives no rise times)."
   - header: :CALibrate:OUTPut:CAL
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: "CAL OUT on or off (an off output is open); ON at power-on (a SimuBench value)."
   - header: :CALibrate:SKEW
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
@@ -738,13 +724,11 @@ sections:
 - section: :CHANnel<N> Commands (Programmer's Guide 11.60, ch. 19)
   commands:
   - header: :CHANnel<N>:ADC:CLIPped
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: "Whether the channel's current record reaches the ADC limits: 0, 1 (low), 2 (high), 3 (both). Read from the record when queried (no 200 ms latch)."
   - header: :CHANnel<N>:CLIPped
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: "1 when the channel's current record reaches either ADC limit, else 0; independent of :DISPlay:CLIPped (guide)."
   - header: :CHANnel<N>:COMMonmode
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): differential and common-mode channel inputs.'
@@ -791,9 +775,8 @@ sections:
     note: DC50 (DCFifty answers DC50); the UXR has no other coupling or impedance, so other words are
       -224
   - header: :CHANnel<N>:INVert
-    level: not_modeled
-    note: 'Model work: channel setting on the existing analog front end.'
-    gap: model_work
+    level: implemented
+    note: "The waveform reflected about 0 V before the trigger and the ADC (scope_probe invert), so the trigger sees the inverted channel (guide)."
   - header: :CHANnel<N>:ISIM:APPLy
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -865,17 +848,16 @@ sections:
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:ATTenuation
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: "Valid only with a 1154A probe, which a 1 mm input never has: setting it is refused (-221 settings conflict, as the guide says); the query answers DIV1."
   - header: :CHANnel<N>:PROBe:AUTozero
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:COUPling
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    note: "DC or AC, for probes only (a 1 mm input has none): saved and read back; the channel's input stays DC50."
+    affects_data: false
   - header: :CHANnel<N>:PROBe:EADapter
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
@@ -887,25 +869,21 @@ sections:
     gap: blocked
     blocked_by: probe
   - header: :CHANnel<N>:PROBe:EXTernal
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: "ON applies the external gain: displayed = input / gain, in measurements, the transfer's scaling and the trigger level (scope_probe gain); scale and offset ranges are the input's, converted (scope_vertical probe_ratio)."
   - header: :CHANnel<N>:PROBe:EXTernal:GAIN
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: "Ratio 0.0001 to 1000 (guide), answered <gain>,RAT; DECibel units are not modeled (-224). Changing the gain does not rescale :CHANnel<N>:SCALe / OFFSet."
   - header: :CHANnel<N>:PROBe:EXTernal:OFFSet
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: "The value at center screen in the external units: the channel's offset (:CHANnel<N>:OFFSet)."
   - header: :CHANnel<N>:PROBe:EXTernal:UNITs
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    note: "The same setting as :CHANnel<N>:UNITs: the unit's name only (:WAVeform:YUNits?); values are unchanged."
+    affects_data: false
   - header: :CHANnel<N>:PROBe:GAIN
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: "Valid only with a 1154A probe: setting it is refused (-221 settings conflict, guide); the query answers X1."
   - header: :CHANnel<N>:PROBe:HEAD:ADD
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
@@ -966,13 +944,13 @@ sections:
     note: 'Out of scope: optical probes and optical measurements (product-plan.md section 6).'
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:SKEW
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: "-1 ms to +1 ms (guide): the channel's record shifted against the trigger timeline (scope_probe skew); Default Setup leaves it (guide)."
   - header: :CHANnel<N>:PROBe:SKEW:AUTO
     level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    note: 'Capability gap (not in product-plan.md 4.2): measures the skew of a differential channel, and differential channels are not modeled.'
+    gap: blocked
+    blocked_by: differential-input
   - header: :CHANnel<N>:PROBe:STYPe
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
@@ -1014,9 +992,9 @@ sections:
     gap: blocked
     blocked_by: C5
   - header: :CHANnel<N>:UNITs
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    note: "VOLT, AMPere, WATT or UNKNown: the unit's name only (:WAVeform:YUNits? answers it); values are unchanged."
+    affects_data: false
 - section: :DISK Commands (Programmer's Guide 11.60, ch. 20)
   commands:
   - header: :DISK:CDIRectory
@@ -4162,28 +4140,24 @@ sections:
     level: implemented
     note: 10 divisions of :TIMebase:SCALe
   - header: :TIMebase:REFClock
-    level: not_modeled
-    note: 'Model work: external 10 MHz reference; the timebase error follows the reference.'
-    gap: model_work
+    level: implemented
+    note: "ON: the sampling clock follows a 10 MHz on the REF IN port (50 ohm) within the guide's lock range (10 MHz +-20 ppm, -5 dBm to +15 dBm); outside it, or without a signal, the internal clock stays in charge (scope_timebase rosc)."
   - header: :TIMebase:REFerence
     level: implemented
-    note: LEFT, CENTer, RIGHt at 10 %, 50 %, 90 % of the screen (SimuBench reading of the Infiniium screen;
-      the guide gives no figures). PERCent positions are not modeled
+    note: "LEFT, CENTer, RIGHt at 10 %, 50 %, 90 % of the screen (SimuBench reading of the Infiniium screen; the guide gives no figures); the query answers PERC after :TIMebase:REFerence:PERCent. Writing PERCent here is refused (-224)."
   - header: :TIMebase:REFerence:PERCent
-    level: not_modeled
-    note: 'Model work: timebase setting; the zoom window exists on keysight-dsox2024a.'
-    gap: model_work
+    level: implemented
+    note: "0-100 % of the screen from the left; :TIMebase:REFerence? then answers PERC. LEFT, CENTer and RIGHt set it to 10, 50 and 90 (constraints); the record follows (scope_timebase reference_divs)."
   - header: :TIMebase:ROLL:ENABLE
-    level: not_modeled
-    note: 'Model work: timebase setting; the zoom window exists on keysight-dsox2024a.'
-    gap: model_work
+    level: implemented
+    note: "OFF (0) only: the UXR-Series has no roll mode (guide); ON is refused (-224)."
   - header: :TIMebase:SCALe
     level: implemented
     note: 5 ps/div to 20 s/div (the guide; the data sheet gives 1 ps/div for the 40 GHz to 110 GHz models, not modeled)
   - header: :TIMebase:VIEW
-    level: not_modeled
-    note: 'Model work: timebase setting; the zoom window exists on keysight-dsox2024a.'
-    gap: model_work
+    level: accepted
+    note: "MAIN or WINDow (zoom); the zoom changes the display only: the acquisition and the ALL / MAIN data are unchanged (the WINDow data view is not modeled)."
+    affects_data: false
   - header: :TIMebase:VLSCapture:POSTtrigger
     level: not_modeled
     note: 'Blocked by C11 (product-plan.md 4.2): very long sequence capture needs block-wise computation (#1012).'
@@ -4195,21 +4169,21 @@ sections:
     gap: blocked
     blocked_by: C11
   - header: :TIMebase:WINDow:DELay
-    level: not_modeled
-    note: 'Model work: timebase setting; the zoom window exists on keysight-dsox2024a.'
-    gap: model_work
+    level: accepted
+    note: "The same setting as :TIMebase:WINDow:POSition (the guide: kept for compatibility)."
+    affects_data: false
   - header: :TIMebase:WINDow:POSition
-    level: not_modeled
-    note: 'Model work: timebase setting; the zoom window exists on keysight-dsox2024a.'
-    gap: model_work
+    level: accepted
+    note: "Zoom position +-200 s (the main position's range; the guide's 'within the main sweep' is not checked); 0 s at power-on."
+    affects_data: false
   - header: :TIMebase:WINDow:RANGe
-    level: not_modeled
-    note: 'Model work: timebase setting; the zoom window exists on keysight-dsox2024a.'
-    gap: model_work
+    level: accepted
+    note: "Ten times :TIMebase:WINDow:SCALe; 10 ps minimum (guide), the main range at most is not checked."
+    affects_data: false
   - header: :TIMebase:WINDow:SCALe
-    level: not_modeled
-    note: 'Model work: timebase setting; the zoom window exists on keysight-dsox2024a.'
-    gap: model_work
+    level: accepted
+    note: "1 ps/div to 20 s/div; 10 ps/div at power-on (a SimuBench value)."
+    affects_data: false
 - section: :TRIGger Commands (Programmer's Guide 11.60, ch. 39)
   commands:
   - header: :TRIGger:AND:ENABle
@@ -4231,47 +4205,44 @@ sections:
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
   - header: :TRIGger:HIGH
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: accepted
+    note: "Saved and read back (ON at power-on: the guide says it turns on with rising or falling edge triggers). The simulated trigger path has no bandwidth limit, so the setting changes nothing; the longer Trig Out delay is not modeled."
+    affects_data: false
   - header: :TRIGger:HOLDoff
     level: implemented
     note: 100 ns to 10 s (the guide); fixed mode only. 100 ns after a default setup is a SimuBench value
   - header: :TRIGger:HOLDoff:MAX
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: accepted
+    note: "100 ns to 10 s (the holdoff range); used only in RANDom mode, which is not modeled."
+    affects_data: false
   - header: :TRIGger:HOLDoff:MIN
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: accepted
+    note: "100 ns to 10 s (the holdoff range); used only in RANDom mode, which is not modeled."
+    affects_data: false
   - header: :TRIGger:HOLDoff:MODE
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: implemented
+    note: "FIXed (the :TRIGger:HOLDoff time); RANDom (a random holdoff between MIN and MAX) is not modeled (-224)."
   - header: :TRIGger:HTHReshold
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: accepted
+    note: "Per source CHANnel1-4 and AUXiliary, saved and read back; the triggers that use the thresholds (runt, transition, setup and hold, ...) are not modeled."
+    affects_data: false
   - header: :TRIGger:HYSTeresis
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: implemented
+    note: "NORMal: half a division (the data sheet's 1 div p-p sensitivity); NREJect: one division (the noise reject band); HSENsitivity: a quarter division. The NREJect and HSENsitivity figures are SimuBench values, the guide gives none."
   - header: :TRIGger:LEVel
     level: implemented
     note: one level per source (CHANnel<N>, AUX); the query takes the source too. Channel levels within
       ±4 divisions of the screen centre take effect, AUX ±5 V (data sheet)
   - header: :TRIGger:LEVel:FIFTy
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: implemented
+    note: "The level of the trigger's current source (edge, glitch or pulse width) to 50 % of its waveform: halfway between top and base of the channel's record."
   - header: :TRIGger:LTHReshold
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: accepted
+    note: "Per channel 1-4, saved and read back (AUXiliary -224, as the guide gives channels only); the triggers that use the thresholds are not modeled."
+    affects_data: false
   - header: :TRIGger:MODE
     level: implemented
-    note: EDGE only; the advanced trigger modes are not modeled (-224)
+    note: "EDGE, GLITch and PWIDth (scope_trigger glitch mode, #956); the other advanced trigger modes are not modeled (-224)."
   - header: :TRIGger:SWEep
     level: implemented
     note: 'AUTO, TRIGgered; SINGle (the guide: do not use in new programs) is not modeled'
@@ -4352,18 +4323,15 @@ sections:
   - header: :TRIGger:EDGE<e>:SOURce
     level: implemented
     note: CHANnel<N> or AUXiliary (50 ohm AUX input); EDGE2 (the sequence trigger's TERM2) is -114
-  - header: :TRIGger:GLITch:POLarity
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
-  - header: :TRIGger:GLITch:SOURce
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
-  - header: :TRIGger:GLITch:WIDTh
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
+  - header: :TRIGger:GLITch<e>:POLarity
+    level: implemented
+    note: "POSitive or NEGative pulse (scope_trigger glitch mode, #956); GLITch2 (TERM2 of a sequence trigger) is not modeled (-114)."
+  - header: :TRIGger:GLITch<e>:SOURce
+    level: implemented
+    note: "CHANnel1-4; the glitch's own source (the edge trigger keeps :TRIGger:EDGE:SOURce). Level: :TRIGger:LEVel of that channel."
+  - header: :TRIGger:GLITch<e>:WIDTh
+    level: implemented
+    note: "Triggers on a pulse narrower than the width, at its closing edge (scope_trigger glitch, qualifier less). 250 ps to 10 s: the guide gives 10 s and 'the minimum detectable pulse width', taken as :TRIGger:PWIDth:WIDTh's 250 ps; 1 ns at power-on (a SimuBench value)."
   - header: :TRIGger:IFMagn:HYSTeresis
     level: not_modeled
     note: 'Blocked by C9 (product-plan.md 4.2): band-pass (carrier + complex envelope) signals.'
@@ -4424,30 +4392,24 @@ sections:
     note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
     gap: blocked
     blocked_by: C8
-  - header: :TRIGger:PWIDth:MODE
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
-  - header: :TRIGger:PWIDth:POLarity
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
-  - header: :TRIGger:PWIDth:RANGe
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
-  - header: :TRIGger:PWIDth:SOURce
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
-  - header: :TRIGger:PWIDth:TPOint
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
-  - header: :TRIGger:PWIDth:WIDTh
-    level: not_modeled
-    note: 'Model work: pulse-width trigger exists in the platform (#956).'
-    gap: model_work
+  - header: :TRIGger:PWIDth<e>:MODE
+    level: implemented
+    note: "GTHan (wider than WIDTh), LTHan (narrower), RANGe (between the two RANGe bounds) and ORANge (outside them): scope_trigger glitch qualifiers greater, less, range and outside (#956). GTHan at power-on (a SimuBench value)."
+  - header: :TRIGger:PWIDth<e>:POLarity
+    level: implemented
+    note: "NEGative or POSitive; answered in long form as the guide writes it (NEGATIVE / POSITIVE)."
+  - header: :TRIGger:PWIDth<e>:RANGe
+    level: implemented
+    note: "<gt_time>,<lt_time>, 250 ps to 10 s; the smaller value becomes the lower bound (written in either order)."
+  - header: :TRIGger:PWIDth<e>:SOURce
+    level: implemented
+    note: "CHANnel1-4; the pulse width trigger's own source."
+  - header: :TRIGger:PWIDth<e>:TPOint
+    level: implemented
+    note: "GTHan only: EPULse triggers at the edge that ends the pulse, TIMeout once the pulse has lasted WIDTh (scope_trigger greater_at end / timeout). Answered in long form (EPULSE / TIMEOUT)."
+  - header: :TRIGger:PWIDth<e>:WIDTh
+    level: implemented
+    note: "250 ps to 10 s (guide); the bound of GTHan and LTHan."
   - header: :TRIGger:RUNT:POLarity
     level: not_modeled
     note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
@@ -4626,9 +4588,8 @@ sections:
 - section: :WAVeform Commands (Programmer's Guide 11.60, ch. 40)
   commands:
   - header: :WAVeform:BANDpass
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "+0.00000E+00,<:ACQuire:BANDwidth>: DC coupling to the acquisition bandwidth filter; a channel's ISIM bandwidth limit is not included."
   - header: :WAVeform:BYTeorder
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
@@ -4641,17 +4602,14 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :WAVeform:COMPlete
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "100: every time bucket of a simulated record has data."
   - header: :WAVeform:COUNt
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "1 (no holes), or :ACQuire:COUNt while averaging is on (every bucket has had all its averages)."
   - header: :WAVeform:COUPling
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "DC, always (guide)."
   - header: :WAVeform:DATA
     level: implemented
     note: 'BYTE: signed 8-bit codes; WORD: signed 16-bit codes (the 10-bit ADC code shifted up 6 bits,
@@ -4674,25 +4632,20 @@ sections:
       setting, min 0. With ASCii data the Y increment is still the WORD code''s (the guide: the ADC''s
       full scale; known deviation)'
   - header: :WAVeform:SEGMented:ALL
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: implemented
+    note: "OFF (0) only: :WAVeform:DATA? sends the current segment; ON (all segments in one transfer) is not modeled (-224)."
   - header: :WAVeform:SEGMented:COUNt
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: implemented
+    note: "The segments the latest acquisition has; 0 when it was not segmented (guide)."
   - header: :WAVeform:SEGMented:POINts
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: implemented
+    note: "The points of the current segment (ALL is OFF)."
   - header: :WAVeform:SEGMented:TTAG
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: implemented
+    note: "The selected segment's trigger, seconds after the first segment's."
   - header: :WAVeform:SEGMented:XLISt
-    level: not_modeled
-    note: 'Model work: segmented memory exists in the platform (#957).'
-    gap: model_work
+    level: implemented
+    note: "RELXorigin, ABSXorigin and TTAG for every segment of the waveform source, comma-separated (ASCII, %.10E: SimuBench's digits); OFFSet answers 0 (ALL is OFF, guide). The BINary float64 form is not modeled."
   - header: :WAVeform:SOURce
     level: implemented
     note: CHANnel<N> only
@@ -4701,17 +4654,14 @@ sections:
     note: 'ON: :WAVeform:DATA? sends a #0 indefinite-length block (Streaming On); OFF: a definite-length
       block. OFF after power-on is a SimuBench value'
   - header: :WAVeform:TYPE
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "RAW, or AVER while averaging is on; INTerpolate, PDETect and histograms are not modeled."
   - header: :WAVeform:VIEW
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "ALL or MAIN: the same data, as the simulated record is the main timebase's screen; WINDow (zoom) and CGRade are not modeled (-224)."
   - header: :WAVeform:XDISplay
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "The time at the left edge of the screen (the preamble's X display origin)."
   - header: :WAVeform:XINCrement
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
@@ -4719,20 +4669,17 @@ sections:
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
   - header: :WAVeform:XRANge
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "Ten divisions of the timebase."
   - header: :WAVeform:XREFerence
     level: implemented
     note: always 0 (the guide)
   - header: :WAVeform:XUNits
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "SEC for channel waveforms."
   - header: :WAVeform:YDISplay
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "The value at center screen: the source channel's offset."
   - header: :WAVeform:YINCrement
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
@@ -4740,16 +4687,14 @@ sections:
     level: implemented
     note: 'the channel offset: the voltage at code 0'
   - header: :WAVeform:YRANge
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "Eight divisions of the source channel's scale."
   - header: :WAVeform:YREFerence
     level: implemented
     note: always 0 (the guide)
   - header: :WAVeform:YUNits
-    level: not_modeled
-    note: 'Model work: waveform transfer setting or preamble field.'
-    gap: model_work
+    level: implemented
+    note: "The source channel's :CHANnel<N>:UNITs: VOLT, AMP, WATT or UNKN."
 - section: :WMEMory (Waveform Memory) Commands (Programmer's Guide 11.60, ch. 41)
   commands:
   - header: :WMEMory:TIETimebase

@@ -128,19 +128,18 @@ state:
     default: 0.0
     label: 水平位置
     label_en: Position
+  # PERCent：参考位置由 :TIMebase:REFerence:PERCent 给出（手册：查询回 PERC）。
   timebase.reference:
     type: enum
-    options: [LEFT, CENTer, RIGHt]
+    options: [LEFT, CENTer, RIGHt, PERCent]
     default: CENTer
     label: 时间参考
     label_en: Reference
   trigger.mode:
     type: enum
-    options: [EDGE]
+    options: [EDGE, GLITch, PWIDth]
     default: EDGE
     not_modeled:
-      GLITch: glitch trigger is not modeled
-      PWIDth: pulse width trigger is not modeled
       PATTern: pattern trigger is not modeled
       STATe: state trigger is not modeled
       RUNT: runt trigger is not modeled
@@ -193,14 +192,13 @@ state:
     label_en: Holdoff
   acquire.mode:
     type: enum
-    options: [RTIMe]
+    options: [RTIMe, SEGMented]
     default: RTIMe
     not_modeled:
       PDETect: real-time peak detect is not modeled
       HRESolution: real-time high resolution is not modeled
-      SEGMented: segmented memory is not modeled
-      SEGPdetect: segmented memory is not modeled
-      SEGHres: segmented memory is not modeled
+      SEGPdetect: segmented memory with peak detect is not modeled
+      SEGHres: segmented memory with high resolution is not modeled
     label: 采集模式
     label_en: Acquire mode
   acquire.average:
@@ -322,6 +320,69 @@ state:
     readonly: true
     label: 型号
     label_en: Model
+  # ---- 触发：毛刺与脉宽（scope_trigger 的 glitch 模式，#956）、释抑、迟滞与门限 ------------------------------
+  # 毛刺：比宽度窄的脉冲（手册 :TRIGger:GLITch）；脉宽：大于、小于、范围内、范围外（:TRIGger:PWIDth）。宽度
+  # 250 ps 到 10 s（手册 :TRIGger:PWIDth:WIDTh；毛刺“从可检测的最小脉宽到 10 s”，取同一下限）；上电值手册未给，
+  # SimuBench 取毛刺 1 ns、脉宽 1 ns、范围 1–2 ns，正极性，GTHan，EPULse。
+  trigger.glitch_source: {type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], default: CHANnel1, label: 毛刺触发源, label_en: Glitch source}
+  trigger.glitch_polarity: {type: enum, options: [POSitive, NEGative], default: POSitive, label: 毛刺极性, label_en: Glitch polarity}
+  trigger.glitch_width: {type: float, unit: S, min: 2.5e-10, max: 10.0, default: 1.0e-9, label: 毛刺宽度, label_en: Glitch width}
+  trigger.pwidth_source: {type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], default: CHANnel1, label: 脉宽触发源, label_en: Pulse width source}
+  trigger.pwidth_polarity: {type: enum, options: [NEGative, POSitive], default: POSitive, label: 脉宽极性, label_en: Pulse width polarity}
+  trigger.pwidth_mode: {type: enum, options: [GTHan, LTHan, RANGe, ORANge], default: GTHan, label: 脉宽条件, label_en: Pulse width mode}
+  trigger.pwidth_width: {type: float, unit: S, min: 2.5e-10, max: 10.0, default: 1.0e-9, label: 脉宽, label_en: Pulse width}
+  trigger.pwidth_gt: {type: float, unit: S, min: 2.5e-10, max: 10.0, default: 1.0e-9, label: 脉宽范围下限, label_en: Pulse width greater than}
+  trigger.pwidth_lt: {type: float, unit: S, min: 2.5e-10, max: 10.0, default: 2.0e-9, label: 脉宽范围上限, label_en: Pulse width less than}
+  trigger.pwidth_tpoint: {type: enum, options: [EPULse, TIMeout], default: EPULse, label: 脉宽触发点, label_en: Pulse width trigger point}
+  # 释抑方式：FIXed；RANDom（随机释抑）未建模。随机释抑的上下限只在 RANDom 下起作用，保存与回读。
+  trigger.holdoff_mode: {type: enum, options: [FIXed], not_modeled: {RANDom: random holdoff is not modeled}, default: FIXed, label: 释抑方式, label_en: Holdoff mode}
+  trigger.holdoff_min: {type: float, unit: S, min: 1.0e-7, max: 10.0, default: 1.0e-7, label: 随机释抑下限, label_en: Random holdoff min}
+  trigger.holdoff_max: {type: float, unit: S, min: 1.0e-7, max: 10.0, default: 1.0e-6, label: 随机释抑上限, label_en: Random holdoff max}
+  # 高带宽触发（:TRIGger:HIGH）：手册说上升/下降沿触发时自动打开；仿真的触发没有带宽限制，保存与回读。
+  trigger.high: {type: bool, default: true, label: 高带宽触发, label_en: High-bandwidth trigger}
+  # 迟滞：NORMal（半格，数据手册 1 格峰峰的灵敏度）、NREJect（加大到 1 格）、HSENsitivity（减到 1/4 格）；
+  # 后两档的数值手册未给，为 SimuBench 值。
+  trigger.hysteresis: {type: enum, options: [NORMal, NREJect, HSENsitivity], default: NORMal, label: 触发迟滞, label_en: Trigger hysteresis}
+  # 高、低门限（矮脉冲、跳变、建立保持等触发用，这些触发未建模）：按信源保存与回读。
+  trigger.hth{n}: {type: float, unit: V, min: -1.0e6, max: 1.0e6, default: 0.0, each: {n: {first: 1, last: 5}}, label: "高门限 {n}", label_en: "High threshold {n}"}
+  trigger.lth{n}: {type: float, unit: V, min: -1.0e6, max: 1.0e6, default: 0.0, each: {n: {first: 1, last: 4}}, label: "低门限 {n}", label_en: "Low threshold {n}"}
+  # ---- 时基：百分比参考位置、10 MHz 参考输入、缩放窗口 ----------------------------------------------------
+  timebase.reference_percent: {type: int, min: 0, max: 100, default: 50, label: 参考位置百分比, label_en: Reference percent}
+  timebase.refclock: {type: bool, default: false, label: 10 MHz 参考输入, label_en: 10 MHz reference in}
+  # 滚动模式：UXR 没有，只能 OFF（手册）。
+  timebase.roll: {type: enum, options: ["OFF", "0"], replies: {"OFF": "0"}, not_modeled: {"ON": the UXR-Series has no roll mode, "1": the UXR-Series has no roll mode}, default: "OFF", label: 滚动模式, label_en: Roll mode}
+  # 缩放（:TIMebase:VIEW WINDow）：只改显示，采集与 :WAVeform:VIEW ALL/MAIN 的数据不变；窗口 1 ps/div（手册：
+  # 最小 10 ps 满量程）到主时基，位置 ±200 s；上电值 SimuBench 取 10 ps/div、0 s。
+  timebase.view: {type: enum, options: [MAIN, WINDow], default: MAIN, label: 缩放, label_en: Zoom}
+  timebase.window_scale: {type: float, unit: S, min: 1.0e-12, max: 20.0, default: 1.0e-11, label: 缩放时基, label_en: Zoom scale}
+  timebase.window_position: {type: float, unit: S, min: -200.0, max: 200.0, default: 0.0, label: 缩放位置, label_en: Zoom position}
+  # ---- 采集 --------------------------------------------------------------------------------------------------
+  acquire.points_auto: {type: bool, default: true, label: 自动存储深度, label_en: Auto memory depth}
+  acquire.srate_auto: {type: bool, default: true, label: 自动采样率, label_en: Auto sample rate}
+  # 以下四项不改变仿真的数据：函数平均（函数未建模）、快速绘图、高分辨率位数（高分辨率模式未建模）、显示插值。
+  acquire.complete_state: {type: bool, default: true, label: 等函数平均完成, label_en: Wait for function average}
+  acquire.fplot: {type: bool, default: true, label: 快速绘图, label_en: Fast plot}
+  acquire.hresolution: {type: enum, options: [AUTO, BITS11, BITS12], default: AUTO, label: 高分辨率位数, label_en: High resolution bits}
+  acquire.interpolate: {type: enum, options: ["ON", "OFF", "1", "0", INT1, INT2, INT4, INT8, INT16, INT32], replies: {"ON": "1", "OFF": "0"}, default: "ON", label: 插值, label_en: Interpolation}
+  # :ACQuire:REDGe：UXR 只能 OFF（手册）。
+  acquire.redge: {type: enum, options: ["OFF", "0"], replies: {"OFF": "0"}, not_modeled: {"ON": the UXR-Series has OFF only, "1": the UXR-Series has OFF only}, default: "OFF", label: REDGe, label_en: REDGe}
+  # 分段存储（:ACQuire:MODE SEGMented，#957）：段数 2 起，各段点数之和至多 10 Mpts（仿真上限，#1012）；上电
+  # 值 SimuBench 取 2 段、第 1 段。回放（AUToplay、PLAY、PRATe）只改显示：仿真里回放瞬间完成。
+  acquire.segmented_count: {type: int, min: 2, max: 65536, default: 2, label: 段数, label_en: Segments}
+  acquire.segmented_index: {type: int, min: 1, max: 65536, default: 1, label: 所选的段, label_en: Segment index}
+  acquire.segmented_autoplay: {type: bool, default: false, label: 自动回放, label_en: Autoplay}
+  acquire.segmented_playing: {type: bool, default: false, readonly: true, label: 正在回放, label_en: Playing}
+  acquire.segmented_prate: {type: float, unit: S, min: 0.001, max: 1.0, default: 0.1, label: 回放速率, label_en: Play rate}
+  acquire.segmented_ttags: {type: bool, default: true, label: 段时间标签, label_en: Time tags}
+  # ---- 前面板 AUX OUT / CAL OUT（:CALibrate:OUTPut）：同一信号，电平不同（手册）；50 Ω（数据手册）。 ----------
+  calibrate.output: {type: enum, options: [DC, PROBecomp, ZERO, ONE, DPULse, NDPULse, MHZ97, MHZ7_5], not_modeled: {TOUT: the trigger output pulse is not modeled}, default: PROBecomp, label: 校准输出信号, label_en: Cal output signal}
+  calibrate.dc: {type: float, unit: V, min: -1.2, max: 1.2, default: 0.0, label: 校准输出直流, label_en: Cal output DC}
+  calibrate.aux: {type: bool, default: true, label: AUX OUT 输出, label_en: Aux Out}
+  calibrate.cal: {type: bool, default: true, label: CAL OUT 输出, label_en: Cal Out}
+  calibrate.aux_rtime: {type: enum, options: [FAST, SLOW], default: FAST, label: AUX OUT 上升时间, label_en: Aux Out rise time}
+  # ---- 波形传输：所有段一起传未建模（只传当前段）。 -----------------------------------------------------------
+  waveform.view: {type: enum, options: [ALL, MAIN], default: ALL, label: 波形视图, label_en: Waveform view}
+  waveform.segmented_all: {type: enum, options: ["OFF", "0"], replies: {"OFF": "0"}, not_modeled: {"ON": all segments in one transfer are not modeled, "1": all segments in one transfer are not modeled}, default: "OFF", label: 传所有段, label_en: All segments}
   # ---- 界面偏好与显示（不改变数据，覆盖表为“接受”；手册 Default Setup 不改用户偏好与显示颜色，
   # 故标 keep_on_reset）。上电值手册未给的为 SimuBench 值，覆盖表注明。
   system.psc: {type: bool, default: true, label: 上电状态清除, label_en: Power-on status clear}
@@ -445,6 +506,21 @@ channel_state:
       OIFCEI6: the raised cosine reference receiver filters are not modeled
     label: 通道带宽限制类型
     label_en: Channel BW limit type
+  # 反相（:CHANnel<N>:INVert）：波形绕 0 V 翻转，触发看到的也是翻转后的波形（手册）。
+  invert: {type: bool, default: false, label: 反相, label_en: Invert}
+  # 1154A 探头的衰减与增益：没接 1154A，设置报 -221（手册：settings conflict），查询回默认。
+  probe_attenuation: {type: enum, options: [DIV1, DIV10], default: DIV1, readonly: true, label: 1154A 衰减, label_en: 1154A attenuation}
+  probe_gain: {type: enum, options: [X1, X10], default: X1, readonly: true, label: 1154A 增益, label_en: 1154A gain}
+  # 探头耦合：只对探头（1 mm 输入不接探头），保存与回读。
+  probe_coupling: {type: enum, options: [DC, AC], default: DC, label: 探头耦合, label_en: Probe coupling}
+  # 外部缩放（:CHANnel<N>:PROBe:EXTernal）：开时显示 = 输入 / 增益（比值 0.0001–1000；DECibel 未建模）。
+  probe_external: {type: bool, default: false, label: 外部探头缩放, label_en: External scaling}
+  ext_gain: {type: float, min: 1.0e-4, max: 1000.0, default: 1.0, label: 外部增益, label_en: External gain}
+  ext_gain_unit: {type: enum, options: [RATio], not_modeled: {DECibel: gains in dB are not modeled}, default: RATio, label: 外部增益单位, label_en: External gain unit}
+  # 垂直单位：只改单位的名字（:WAVeform:YUNits?），数值不变。
+  units: {type: enum, options: [VOLT, AMPere, WATT, UNKNown], default: VOLT, label: 垂直单位, label_en: Units}
+  # 通道间延迟校正（:CHANnel<N>:PROBe:SKEW）：±1 ms；Default Setup 不改它（手册）。
+  skew: {type: float, unit: S, min: -1.0e-3, max: 1.0e-3, default: 0.0, keep_on_reset: true, label: 延迟校正, label_en: Skew}
   # :DISPlay:GRATicule:SETGrat：通道波形放在哪个网格、哪个波形区、主视图或色阶视图（不改变数据）。
   grid: {type: int, min: 1, max: 16, default: 1, label: 网格, label_en: Grid}
   grid_area: {type: int, min: 1, max: 8, default: 1, label: 波形区, label_en: Waveform area}
@@ -543,6 +619,12 @@ components:
       processing: {from: $acquire.average, map: {"True": average}, default: normal}
       averages: $acquire.count
       trigger_jitter_s: 2.5e-14  # specs.trigger_jitter_s_rms: the data sheet's 25 fs intrinsic jitter (#745)
+      # 分段存储（#957）：:ACQuire:MODE SEGMented 时一次 :DIGitize 取 COUNt 段，各段点数之和至多 10 Mpts；
+      # :ACQuire:SEGMented:INDex 选的段供传输与测量使用。
+      segmented: {from: $acquire.mode, map: {SEGMented: true}, default: false}
+      segments: $acquire.segmented_count
+      segment_index: $acquire.segmented_index
+      memory_points: 10000000
   # 时基：采样率为 256 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
   # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 10 Mpts）。参考位置 LEFT / CENTer / RIGHt
   # 取屏幕 10% / 50% / 90%。
@@ -551,16 +633,49 @@ components:
     params:
       scale: $timebase.scale
       delay: $timebase.position
-      reference_divs: {from: $timebase.reference, map: {LEFT: 1.0, CENTer: 5.0, RIGHt: 9.0}}
+      # 参考位置：屏幕的百分比（LEFT / CENTer / RIGHt 为 10% / 50% / 90%，constraints 让百分比跟随）。
+      reference_divs: {from: $timebase.reference_percent, scale: 0.1}
       record_length: rate_pow2
-      points: $acquire.points
-      sample_rate: $acquire.srate
+      points: {from: $acquire.points_auto, map: {"True": 256000}, default: $acquire.points}
+      sample_rate: {from: $acquire.srate_auto, map: {"True": 0.0}, default: $acquire.srate}
       max_points: 10000000
+      # 10 MHz 参考输入（:TIMebase:REFClock ON）：锁上后采样时钟跟随它（锁定范围 ±20 ppm、最低 -5 dBm，手册）。
+      rosc: {from: $timebase.refclock, map: {"True": EXTernal}, default: INTernal}
+      lock_ppm: 20.0
+      lock_min_v: 0.0889  # -5 dBm into 50 ohm, peak
+      lock_max_v: 1.778  # +15 dBm into 50 ohm, peak
   # 边沿触发：电平在信源屏幕中心 ±4 格内（数据手册）；灵敏度 1 格峰峰，迟滞取其一半。
   - name: trigger
     type: scope_trigger
     params:
-      source: $trigger.source
+      # 边沿用 :TRIGger:EDGE:SOURce；毛刺、脉宽各有自己的信源（手册）。
+      source: {from: $trigger.mode, map: {GLITch: $trigger.glitch_source, PWIDth: $trigger.pwidth_source}, default: $trigger.source}
+      mode: {from: $trigger.mode, map: {GLITch: glitch, PWIDth: glitch}, default: edge}
+      polarity:
+        from: $trigger.mode
+        map:
+          GLITch: {from: $trigger.glitch_polarity, map: {POSitive: positive, NEGative: negative}}
+          PWIDth: {from: $trigger.pwidth_polarity, map: {POSitive: positive, NEGative: negative}}
+        default: positive
+      # 毛刺：比宽度窄；脉宽：GTHan 大于、LTHan 小于、RANGe 范围内、ORANge 范围外。
+      qualifier:
+        from: $trigger.mode
+        map:
+          PWIDth: {from: $trigger.pwidth_mode, map: {GTHan: greater, LTHan: less, RANGe: range, ORANge: outside}}
+        default: less
+      # 大于：EPULse 在脉冲结束时触发，TIMeout 在脉宽达到设定值时触发（手册 :TRIGger:PWIDth:TPOint）。
+      greater_at: {from: $trigger.pwidth_tpoint, map: {EPULse: end, TIMeout: timeout}}
+      width_low:
+        from: $trigger.mode
+        map:
+          PWIDth: {from: $trigger.pwidth_mode, map: {GTHan: $trigger.pwidth_width, RANGe: $trigger.pwidth_gt, ORANge: $trigger.pwidth_gt}, default: 0.0}
+        default: 0.0
+      width_high:
+        from: $trigger.mode
+        map:
+          GLITch: $trigger.glitch_width
+          PWIDth: {from: $trigger.pwidth_mode, map: {LTHan: $trigger.pwidth_width, RANGe: $trigger.pwidth_lt, ORANge: $trigger.pwidth_lt}, default: 10.0}
+        default: 10.0
       level: $trigger.level1
       level_by_source:
         CHANnel1: trigger.level1
@@ -572,7 +687,9 @@ components:
       rising: [POSitive, EITHer, ALTernate]
       falling: [NEGative, EITHer, ALTernate]
       level_range_divs: 4.0
-      hysteresis_divs: 0.5
+      hysteresis_divs: {from: $trigger.hysteresis, map: {HSENsitivity: 0.25}, default: 0.5}
+      noise_reject: {from: $trigger.hysteresis, map: {NREJect: true}, default: false}
+      reject_hysteresis_divs: 1.0
       holdoff: $trigger.holdoff
       external: [AUXiliary]
   # ADC：10 位；1024 个码对应屏幕 8 格（数据手册：10 位分辨率 = 满量程的 0.1%，满量程 8 格）。
@@ -584,11 +701,44 @@ components:
       divs: 8.0
       offset_sign: subtract
       max_rate: 2.56e11
+  # 后面板 10 MHz 参考输入：50 Ω（手册 :TIMebase:REFClock）。
+  - name: refin
+    type: input_port
+    params:
+      z_in: 50.0
   # AUX 触发输入：50 Ω（数据手册）。
   - name: auxin
     type: input_port
     params:
       z_in: 50.0
+  # 前面板 AUX OUT 与 CAL OUT（:CALibrate:OUTPut，手册）：同一信号，CAL OUT -150 mV 到 +150 mV、AUX OUT -440 mV
+  # 到 -125 mV；DC 只在 CAL OUT 上（-1.2 V 到 +1.2 V），AUX OUT 此时为 ZERO 电平。DPULse 为每 650 ns 一个 1.1 ns
+  # 的脉冲。两路 50 Ω（数据手册），电平按接 50 Ω 负载写。边沿速度手册未给：CAL OUT 与 AUX OUT FAST 取 10 GHz
+  # 带宽、SLOW 取 1 GHz（SimuBench 值，覆盖表注明）。
+  - name: calgen
+    type: function_generator_core
+    params:
+      function: {from: $calibrate.output, map: {DC: DC, ZERO: DC, ONE: DC}, default: SQUare}
+      frequency: {from: $calibrate.output, map: {PROBecomp: 750.0, DPULse: 1538461.5, NDPULse: 1538461.5, MHZ97: 9.7e7, MHZ7_5: 7.5e6}, default: 1000.0}
+      amplitude: 0.3
+      offset: {from: $calibrate.output, map: {DC: $calibrate.dc, ZERO: -0.15, ONE: 0.15}, default: 0.0}
+      duty: {from: $calibrate.output, map: {DPULse: 0.16923, NDPULse: 99.83077}, default: 50.0}
+      bandwidth: 1.0e10
+  - name: calout
+    type: output_stage
+    params: {z_out: 50.0, enabled: $calibrate.cal, load_setting: 50.0}
+  - name: auxgen
+    type: function_generator_core
+    params:
+      function: {from: $calibrate.output, map: {DC: DC, ZERO: DC, ONE: DC}, default: SQUare}
+      frequency: {from: $calibrate.output, map: {PROBecomp: 750.0, DPULse: 1538461.5, NDPULse: 1538461.5, MHZ97: 9.7e7, MHZ7_5: 7.5e6}, default: 1000.0}
+      amplitude: 0.315
+      offset: {from: $calibrate.output, map: {DC: -0.44, ZERO: -0.44, ONE: -0.125}, default: -0.2825}
+      duty: {from: $calibrate.output, map: {DPULse: 0.16923, NDPULse: 99.83077}, default: 50.0}
+      bandwidth: {from: $calibrate.aux_rtime, map: {FAST: 1.0e10, SLOW: 1.0e9}}
+  - name: auxout
+    type: output_stage
+    params: {z_out: 50.0, enabled: $calibrate.aux, load_setting: 50.0}
   - name: meas
     type: scope_measurements
     params:
@@ -596,6 +746,8 @@ components:
       # 手册：无法测量时回 9.99999E+37。
       invalid_value: "9.99999E+37"
       sources: [measure.source, measure.source2]
+      # :TRIGger:LEVel:FIFTy：触发信源的电平设到其波形的 50%。
+      trigger_levels: {1: trigger.level1, 2: trigger.level2, 3: trigger.level3, 4: trigger.level4}
   - name: sys
     type: system
   - name: xfer
@@ -665,7 +817,8 @@ channel_components:
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
       scale: $ch.scale
       offset: $ch.offset
-      probe_ratio: 1.0
+      # 外部缩放开时显示 = 输入 / 增益：档位与偏置的范围按输入端换算。
+      probe_ratio: {from: $ch.probe_external, map: {"True": {from: $ch.ext_gain, reciprocal: true}}, default: 1.0}
       scale_range: [1.0e-3, 0.5]
       # 数据手册 p.5 的分档表（档界 59/127/279 mV/div 与下一档之间取中点）。
       offset_ranges: [[0.0595, 0.4], [0.1275, 0.86], [0.2795, 1.85], [0.5, 4.0]]
@@ -691,6 +844,9 @@ channel_components:
     type: scope_probe
     params:
       ratio: 1.0
+      skew: $ch.skew
+      invert: $ch.invert
+      gain: {from: $ch.probe_external, map: {"True": $ch.ext_gain}, default: 1.0}
 wiring:
   channel:
     - [inp.out, front.in]
@@ -699,16 +855,40 @@ wiring:
   instrument:
     - ["ch{n}.probe.out", "acq.in{n}"]
     - [auxin.out, trigger.ext]
+    - [refin.out, timebase.ref]
+    - [calgen.out, calout.in]
+    - [auxgen.out, auxout.in]
 ports:
   channel:
     "CH{n}": inp.pin
   instrument:
     AUX: auxin.pin
+    "REF IN": refin.pin
+    "CAL OUT": calout.pin
+    "AUX OUT": auxout.pin
 display:
   template: oscilloscope
   summary: [timebase.scale, trigger.source, trigger.slope]
   channel_summary: [display, scale, offset, input]
 capabilities: [oscilloscope]
+# 参考位置的两种写法（手册 :TIMebase:REFerence、:TIMebase:REFerence:PERCent）：LEFT / CENTer / RIGHt 把百分比
+# 设为 10 / 50 / 90；:TIMebase:REFerence:PERCent 设百分比，:TIMebase:REFerence? 回 PERC。
+constraints:
+  - when: {timebase.reference: LEFT}
+    forbid: {timebase.reference_percent: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}
+    action: coerce
+    coerce: {timebase.reference_percent: 10}
+    source: "Programmer's Guide 11.60, :TIMebase:REFerence / :TIMebase:REFerence:PERCent"
+  - when: {timebase.reference: CENTer}
+    forbid: {timebase.reference_percent: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}
+    action: coerce
+    coerce: {timebase.reference_percent: 50}
+    source: "Programmer's Guide 11.60, :TIMebase:REFerence / :TIMebase:REFerence:PERCent"
+  - when: {timebase.reference: RIGHt}
+    forbid: {timebase.reference_percent: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}
+    action: coerce
+    coerce: {timebase.reference_percent: 90}
+    source: "Programmer's Guide 11.60, :TIMebase:REFerence / :TIMebase:REFerence:PERCent"
 commands:
   # ---- Common ----
   # 手册 *TRG：与 :DIGitize 相同。
@@ -769,14 +949,55 @@ commands:
   - {header: ":ACQuire:AVERage", state: acquire.average}
   - {header: ":ACQuire[:AVERage]:COUNt", state: acquire.count}
   - {header: ":ACQuire:COMPlete", state: acquire.complete}
-  - {header: ":ACQuire:POINts[:ANALog]", state: acquire.points}
+  # 存储深度：设定值写 acquire.points 并转为手动；AUTO 转回自动（256 kpts）；查询回实际的存储深度。
+  - header: ":ACQuire:POINts[:ANALog]"
+    op: acq.figure
+    args: {what: points, integer: true}
+    params:
+      - name: points
+        type: int
+        optional: true
+        state: acquire.points
+        sets: {acquire.points_auto: false}
+        keywords: {AUTO: {acquire.points_auto: true}}
+  - {header: ":ACQuire:POINts:AUTO", state: acquire.points_auto}
   # 设定写 acquire.srate；查询回实际采样率。
   - header: ":ACQuire:SRATe[:ANALog]"
     op: acq.figure
     args: {what: sample_rate}
-    params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
+    params:
+      - name: rate
+        type: float
+        unit: HZ
+        optional: true
+        state: acquire.srate
+        sets: {acquire.srate_auto: false}
+        keywords: {AUTO: {acquire.srate_auto: true}, MAX: {acquire.srate: 2.56e11, acquire.srate_auto: false}}
+  - {header: ":ACQuire:SRATe[:ANALog]:AUTO", state: acquire.srate_auto}
   - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
   - {header: ":ACQuire:RESPonse", state: acquire.response}
+  # 机型的最大带宽（手册：max. BW of oscilloscope model）：113 GHz，与 :ACQuire:BANDwidth MAX 相同。
+  - {header: ":ACQuire:BANDwidth:FRAMe", op: sys.none, set: false, reply: "+1.13000E+11"}
+  - {header: ":ACQuire:COMPlete:STATe", state: acquire.complete_state}
+  - {header: ":ACQuire:FPLot", state: acquire.fplot}
+  - {header: ":ACQuire:HRESolution", state: acquire.hresolution}
+  - {header: ":ACQuire:INTerpolate", state: acquire.interpolate}
+  - {header: ":ACQuire:REDGe", state: acquire.redge}
+  - {header: ":ACQuire:SEGMented:COUNt", state: acquire.segmented_count}
+  - {header: ":ACQuire:SEGMented:INDex", state: acquire.segmented_index}
+  - {header: ":ACQuire:SEGMented:AUToplay", state: acquire.segmented_autoplay}
+  - {header: ":ACQuire:SEGMented:PRATe", state: acquire.segmented_prate}
+  - {header: ":ACQuire:SEGMented:TTAGs", state: acquire.segmented_ttags}
+  # PLAY ON 回放各段：仿真里瞬间放完，查询回 0（不再回放）。
+  - header: ":ACQuire:SEGMented:PLAY"
+    op: sys.none
+    read: acquire.segmented_playing
+    params: [{name: "on", type: bool}]
+  # ADC 削波（手册）：按通道当前的记录判断是否碰到 ADC 的上下限。
+  - {header: ":ACQuire:ADC:CLIPped:CLEar", op: sys.none, query: false}
+  - {header: ":CHANnel<ch>:ADC:CLIPped", op: meas.clipped, args: {sides: true}, set: false}
+  - {header: ":CHANnel<ch>:CLIPped", op: meas.clipped, set: false}
+  - {header: ":OVLRegister", op: meas.overload, set: false}
   # ---- CHANnel<N> ----
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
   - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0}
@@ -787,6 +1008,20 @@ commands:
   - {header: ":CHANnel<ch>:ISIM:BWLimit", state: ch.isim_bwlimit}
   - {header: ":CHANnel<ch>:ISIM:BANDwidth", state: ch.isim_bandwidth}
   - {header: ":CHANnel<ch>:ISIM:BWLimit:TYPE", state: ch.isim_type}
+  - {header: ":CHANnel<ch>:INVert", state: ch.invert}
+  - {header: ":CHANnel<ch>:PROBe:ATTenuation", state: ch.probe_attenuation}
+  - {header: ":CHANnel<ch>:PROBe:GAIN", state: ch.probe_gain}
+  - {header: ":CHANnel<ch>:PROBe:COUPling", state: ch.probe_coupling}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal", state: ch.probe_external}
+  - header: ":CHANnel<ch>:PROBe:EXTernal:GAIN"
+    params:
+      - {name: gain, type: float, state: ch.ext_gain}
+      - {name: unit, type: enum, options: [RATio], optional: true, state: ch.ext_gain_unit, not_modeled: {DECibel: gains in dB are not modeled}}
+  # 外部偏置是外部单位下屏幕中心的值，即通道的偏置（手册）。
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:OFFSet", state: ch.offset}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:UNITs", state: ch.units}
+  - {header: ":CHANnel<ch>:UNITs", state: ch.units}
+  - {header: ":CHANnel<ch>:PROBe:SKEW", state: ch.skew}
   # ---- DISPlay ----
   - {header: ":DISPlay:LABel", state: display.label}
   - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}
@@ -880,12 +1115,54 @@ commands:
   - {header: ":TIMebase:SCALe", state: timebase.scale}
   - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0}
   - {header: ":TIMebase:POSition", state: timebase.position}
-  - {header: ":TIMebase:REFerence", state: timebase.reference}
+  - {header: ":TIMebase:REFClock", state: timebase.refclock}
+  - {header: ":TIMebase:ROLL:ENABLE", state: timebase.roll}
+  - {header: ":TIMebase:VIEW", state: timebase.view}
+  - {header: ":TIMebase:WINDow:SCALe", state: timebase.window_scale}
+  - {header: ":TIMebase:WINDow:RANGe", state: timebase.window_scale, factor: 10.0}
+  - {header: ":TIMebase:WINDow:POSition", state: timebase.window_position}
+  - {header: ":TIMebase:WINDow:DELay", state: timebase.window_position}
+  - header: ":TIMebase:REFerence"
+    params: [{name: reference, type: enum, options: [LEFT, CENTer, RIGHt], state: timebase.reference, not_modeled: {PERCent: "a percent position is set with :TIMebase:REFerence:PERCent"}}]
+  - header: ":TIMebase:REFerence:PERCent"
+    writes: {timebase.reference: PERCent}
+    params: [{name: percent, type: int, state: timebase.reference_percent}]
   # ---- TRIGger ----
   - {header: ":TRIGger:MODE", state: trigger.mode}
   - {header: ":TRIGger:SWEep", state: trigger.sweep}
   - {header: ":TRIGger:FORCe", op: acq.force_trigger, query: false}
   - {header: ":TRIGger:HOLDoff", state: trigger.holdoff}
+  - {header: ":TRIGger:HOLDoff:MODE", state: trigger.holdoff_mode}
+  - {header: ":TRIGger:HOLDoff:MIN", state: trigger.holdoff_min}
+  - {header: ":TRIGger:HOLDoff:MAX", state: trigger.holdoff_max}
+  - {header: ":TRIGger:HIGH", state: trigger.high}
+  - {header: ":TRIGger:HYSTeresis", state: trigger.hysteresis}
+  # :TRIGger:LEVel:FIFTy：当前触发信源的电平设到其波形的 50%（顶与底的中点），与前面板“按下取 50%”相同。
+  - {header: ":TRIGger:LEVel:FIFTy", op: meas.auto_trigger_levels, args: {source_only: true}, query: false}
+  - header: ":TRIGger:HTHReshold"
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, AUXiliary], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, AUXiliary: 5}, echo: false}
+      - {name: level, type: float, unit: V, state: "trigger.hth{source}"}
+  - header: ":TRIGger:LTHReshold"
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, echo: false}
+      - {name: level, type: float, unit: V, state: "trigger.lth{source}"}
+  # :TRIGger:GLITch[{1 | 2}] / :TRIGger:PWIDth[{1 | 2}]：2 为序列触发的 TERM2，未建模（-114）。
+  - {header: ":TRIGger:GLITch<e>:SOURce", state: trigger.glitch_source, suffixes: {e: [1]}}
+  - {header: ":TRIGger:GLITch<e>:POLarity", state: trigger.glitch_polarity, suffixes: {e: [1]}}
+  - {header: ":TRIGger:GLITch<e>:WIDTh", state: trigger.glitch_width, suffixes: {e: [1]}}
+  - {header: ":TRIGger:PWIDth<e>:SOURce", state: trigger.pwidth_source, suffixes: {e: [1]}}
+  - {header: ":TRIGger:PWIDth<e>:POLarity", state: trigger.pwidth_polarity, suffixes: {e: [1]}, format: {enum: long}}
+  - {header: ":TRIGger:PWIDth<e>:MODE", state: trigger.pwidth_mode, suffixes: {e: [1]}}
+  - {header: ":TRIGger:PWIDth<e>:WIDTh", state: trigger.pwidth_width, suffixes: {e: [1]}}
+  - {header: ":TRIGger:PWIDth<e>:TPOint", state: trigger.pwidth_tpoint, suffixes: {e: [1]}, format: {enum: long}}
+  # RANGe <gt>,<lt>：两个时间按大小写入下限与上限。
+  - header: ":TRIGger:PWIDth<e>:RANGe"
+    suffixes: {e: [1]}
+    order: {ascending: [gt, lt]}
+    params:
+      - {name: gt, type: float, unit: S, state: trigger.pwidth_gt}
+      - {name: lt, type: float, unit: S, state: trigger.pwidth_lt}
   # :TRIGger:EDGE[{1 | 2}]：第二项（序列触发的 TERM2）未建模，后缀 2 报 -114。
   - {header: ":TRIGger:EDGE<e>:SOURce", state: trigger.source, suffixes: {e: [1]}}
   - {header: ":TRIGger:EDGE<e>:SLOPe", state: trigger.slope, suffixes: {e: [1]}}
@@ -913,6 +1190,41 @@ commands:
   - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment}}
   - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin}}
   - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}
+  # 采集路径的带宽（手册）：直流到 :ACQuire:BANDwidth；通道的 ISIM 带宽限制不计入（覆盖表注明）。
+  - {header: ":WAVeform:BANDpass", op: sys.none, set: false, reply: "+0.00000E+00,{acquire.bandwidth}"}
+  # 仿真的记录每个时间格都有数据：100%；COUNt 为 1，平均时为平均次数。
+  - {header: ":WAVeform:COMPlete", op: sys.none, set: false, reply: "100"}
+  - {header: ":WAVeform:COUNt", op: xfer.field, set: false, args: {field: {setting: acquire.count, when: {acquire.average: "True"}, else: 1}}}
+  - {header: ":WAVeform:COUPling", op: sys.none, set: false, reply: "DC"}
+  - {header: ":WAVeform:TYPE", op: xfer.field, set: false, args: {field: {setting: acquire.average, map: {"True": AVER, "False": RAW}}}}
+  # 显示的左沿时间、横向时长、中心电压、纵向范围（与前导的 X/Y display 字段同一来源）。
+  - {header: ":WAVeform:XDISplay", op: xfer.field, set: false, args: {field: {figure: x_start}}}
+  - {header: ":WAVeform:XRANge", op: xfer.field, set: false, args: {field: {figure: timebase, scale: 10.0}}}
+  - {header: ":WAVeform:YDISplay", op: xfer.field, set: false, args: {field: {figure: offset}}}
+  - {header: ":WAVeform:YRANge", op: xfer.field, set: false, args: {field: {figure: scale, scale: 8.0}}}
+  - {header: ":WAVeform:XUNits", op: sys.none, set: false, reply: "SEC"}
+  - {header: ":WAVeform:YUNits", op: xfer.field, set: false, args: {field: {setting: "ch{n}.units", map: {VOLT: VOLT, AMPere: AMP, WATT: WATT, UNKNown: UNKN}}}}
+  # :WAVeform:VIEW：ALL 与 MAIN 同一份记录（仿真的记录正好是主时基的屏幕）；WINDow（缩放）与 CGRade 未建模。
+  - header: ":WAVeform:VIEW"
+    params: [{name: view, type: enum, options: [ALL, MAIN], state: waveform.view, not_modeled: {WINDow: the zoomed view's data is not modeled, CGRade: color grade data is not modeled}}]
+  # 分段存储的传输：只传当前段（:WAVeform:SEGMented:ALL ON 未建模）。
+  - {header: ":WAVeform:SEGMented:ALL", state: waveform.segmented_all}
+  - {header: ":WAVeform:SEGMented:COUNt", op: acq.figure, set: false, args: {what: segments}}
+  - {header: ":WAVeform:SEGMented:TTAG", op: acq.figure, set: false, args: {what: time_tag}}
+  - {header: ":WAVeform:SEGMented:POINts", op: xfer.figure, set: false, args: {what: points}}
+  - header: ":WAVeform:SEGMented:XLISt"
+    op: acq.segment_list
+    set: false
+    args: {source: $waveform.source}
+    params: [{name: what, type: enum, options: [RELXorigin, ABSXorigin, TTAG, OFFSet]}]
+  # ---- 前面板 AUX OUT / CAL OUT（手册第 18 章）----
+  - header: ":CALibrate:OUTPut"
+    params:
+      - {name: signal, type: enum, options: [DC, PROBecomp, ZERO, ONE, DPULse, NDPULse, MHZ97, MHZ7_5], state: calibrate.output, not_modeled: {TOUT: the trigger output pulse is not modeled}}
+      - {name: level, type: float, unit: V, optional: true, state: calibrate.dc}
+  - {header: ":CALibrate:OUTPut:AUX", state: calibrate.aux}
+  - {header: ":CALibrate:OUTPut:CAL", state: calibrate.cal}
+  - {header: ":CALibrate:OUTPut:AUX:RTIMe", state: calibrate.aux_rtime}
   # ---- 磁盘（:DISK，手册第 20 章，#1069）：目录、复制删除、按完整路径上传下载 ---------------------------
   - header: ":DISK:CDIRectory"
     op: disk.folder
