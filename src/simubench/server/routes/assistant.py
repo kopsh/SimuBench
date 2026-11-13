@@ -109,7 +109,7 @@ def _assistant_chat_routes(ctx: ApiContext, router: APIRouter) -> None:
     async def send(req: M.AssistantMessageRequest) -> M.AssistantTurn:
         """Start a turn; follow it with GET /api/assistant/events."""
         try:
-            return await service.send(req.bench, req.text)
+            return await service.send(req.bench, req.text, req.stop_consent)
         except (*FILE_ERRORS, Busy, ConfigError, KeyError) as exc:
             raise http_error(ctx, exc) from None
 

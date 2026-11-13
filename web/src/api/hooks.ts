@@ -586,9 +586,12 @@ export function useAssistantConversation(bench: string | null | undefined) {
   });
 }
 
+/** Send a message; `stopConsent` is the answer to the assistant's request to stop the running
+ * bench, given with the panel's buttons (#902) — a typed message carries none. */
 export function useSendAssistant(bench: string) {
   return useMutation({
-    mutationFn: (text: string) => unwrap(api.POST("/api/assistant/messages", { body: { bench, text } })),
+    mutationFn: ({ text, stopConsent }: { text: string; stopConsent?: boolean }) =>
+      unwrap(api.POST("/api/assistant/messages", { body: { bench, text, stop_consent: stopConsent ?? null } })),
   });
 }
 

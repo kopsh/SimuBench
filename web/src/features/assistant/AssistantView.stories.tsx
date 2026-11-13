@@ -16,6 +16,8 @@ const base: AssistantTurn = {
   live: [],
   status: "done",
   stop_reason: null,
+  stop_question: null,
+  stop_consent: null,
   compacted: false,
   rolled_back: false,
   started_at: "2026-11-10T08:00:00Z",

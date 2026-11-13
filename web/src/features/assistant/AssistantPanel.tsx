@@ -54,8 +54,8 @@ export function AssistantPanel({ bench, onClose }: { bench: string; onClose?: ()
         compacted={conv.data?.compacted}
         sending={send.isPending}
         rollbackDeletes={plan.data ? rollbackSummary(plan.data).deletes : []}
-        onSend={(text) =>
-          send.mutate(text, {
+        onSend={(text, stopConsent) =>
+          send.mutate({ text, stopConsent }, {
             onSuccess: (turn) =>
               qc.setQueryData<AssistantConversation>(assistantKeys.conversation(bench), (c) =>
                 c ? { ...c, running: true, turns: [...c.turns, turn] } : c,

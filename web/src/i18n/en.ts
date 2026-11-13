@@ -1066,6 +1066,14 @@ export const en: Widen<Messages> = {
     stuck: "The assistant stopped: {{reason}}",
     failed: "This turn did not finish: {{reason}}",
     rolledBack: "Restored to before this turn",
+    stopAsk: {
+      title: "The assistant needs to stop the running bench first",
+      hint: "Only “Stop the bench” stops it; a typed reply is not an agreement.",
+      agree: "Stop the bench",
+      decline: "Keep it running",
+      agreeMessage: "Yes, stop the bench",
+      declineMessage: "No, keep the bench running",
+    },
     notConfigured: {
       title: "The AI assistant is not set up yet",
       body: "The assistant talks to your own LLM service (OpenAI or Anthropic compatible). Enter its address and model in the settings to use it.",

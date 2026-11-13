@@ -34,8 +34,8 @@ def service_with(manager, llm: ScriptedLLM) -> AssistantService:
     return AssistantService(manager, model_factory=llm.factory, env=ENV)
 
 
-async def turn(service: AssistantService, text: str, bench: str = BENCH):
-    started = await service.send(bench, text)
+async def turn(service: AssistantService, text: str, bench: str = BENCH, stop_consent: bool | None = None):
+    started = await service.send(bench, text, stop_consent)
     await service.tasks[bench]
     conv = service.conversation(bench)
     assert conv.turns[-1].id == started.id
@@ -137,13 +137,51 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     # stopping in the same turn as asking: refused (the user has not answered)
     assert results["stop_session"].ok is False and "征得用户同意" in results["stop_session"].error
     assert manager.sessions
+    # the question is on the turn, for the panel's agree / decline buttons (#902)
+    assert t.stop_question == "要删除频谱分析仪"
 
     llm.script += [[("stop_session", {})], edit([{"op": "remove", "name": "sa"}]), "已停止并删除。"]
-    t2 = await turn(service, "可以，停止吧")
-    assert t2.status == "done"
+    t2 = await turn(service, "同意停止", stop_consent=True)
+    assert t2.status == "done" and t2.stop_consent is True
     assert not manager.sessions
     assert [s.ok for s in t2.steps] == [True, True]
     assert "sa" not in yaml.safe_load((manager.workspace / BENCH).read_text(encoding="utf-8"))["instruments"]
+
+
+async def test_stopping_needs_the_users_button_in_the_very_next_turn(manager):
+    """#902: the server, not the model's reading of a reply, decides. A decline, a typed reply and
+    an agreement a turn too late all leave the bench running; the agreement right after works."""
+    await manager.start(BENCH)
+    ask = [("ask_to_stop_session", {"reason": "要删除频谱分析仪"})]
+    stop = [("stop_session", {})]
+    llm = ScriptedLLM(ask, "可以停止吗？", stop, "好的，不停止。")
+    service = service_with(manager, llm)
+    await turn(service, "把频谱仪删掉")
+    # declined with the button: refused
+    declined = await turn(service, "不停止", stop_consent=False)
+    assert declined.stop_consent is False
+    assert declined.steps[0].ok is False and "不停止" in declined.steps[0].error
+    assert manager.sessions
+    # asked again, answered by typing: no agreement
+    llm.script += [ask, "可以停止吗？", stop, "需要你点同意。"]
+    await turn(service, "把频谱仪删掉")
+    typed = await turn(service, "可以，停止吧")
+    assert typed.stop_consent is None
+    assert typed.steps[0].ok is False and "文字回复不算同意" in typed.steps[0].error
+    assert manager.sessions
+    # asked, a turn in between, then the button: the request has lapsed
+    llm.script += [ask, "可以停止吗？", "频谱仪在 RF_IN 上。", stop, "还需要再问一次。"]
+    await turn(service, "把频谱仪删掉")
+    await turn(service, "频谱仪接在哪？")
+    late = await turn(service, "同意停止", stop_consent=True)
+    assert late.stop_consent is None  # no request pending: the button carries no answer
+    assert late.steps[0].ok is False and "征得用户同意" in late.steps[0].error
+    assert manager.sessions
+    # asked, then agreed with the button right after: stopped
+    llm.script += [ask, "可以停止吗？", stop, "已停止。"]
+    await turn(service, "把频谱仪删掉")
+    agreed = await turn(service, "同意停止", stop_consent=True)
+    assert agreed.steps[0].ok is True and not manager.sessions
 
 
 async def test_the_tools_cannot_delete_files_or_control_the_simulation(manager):

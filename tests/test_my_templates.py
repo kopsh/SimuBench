@@ -14,7 +14,7 @@ from simubench.engine.jsonpatch import PatchOp
 from simubench.library.loader import BUILTIN_DIR, DefinitionLibrary
 from simubench.models.definition import InstrumentDefinition
 from simubench.server.app import create_app
-from simubench.server.benchfiles import BenchFiles
+from simubench.server.benchfiles import HELLO, BenchFiles
 from simubench.server.definitionfiles import DefinitionFiles
 from simubench.server.manager import SessionManager
 from simubench.server.mytemplates import fold_state, template_id
@@ -146,6 +146,17 @@ def test_save_as_template_copy_bench_and_restore_a_definition(client, tmp_path):
         copy["path"] == "hello-copy.bench.yaml" and copy["data"]["wires"] == again["bench"]["data"]["wires"]
     )
     assert copy["data"]["name"] == "hello（副本）"
+    # the copy is the original's text (#902): its comments stay, and the resource string a script
+    # opens names the copy, not the original (the packaged Hello World, as shipped, has both)
+    original_text = HELLO.read_text(encoding="utf-8").replace("hello.bench.yaml@", "commented.bench.yaml@")
+    (tmp_path / "commented.bench.yaml").write_text(original_text, encoding="utf-8")
+    commented = client.post("/api/benches/copy", json={"path": "commented.bench.yaml"}).json()
+    copy_text = (tmp_path / commented["path"]).read_text(encoding="utf-8")
+    comments = [line.strip() for line in original_text.splitlines() if line.strip().startswith("#")]
+    assert comments and all(c in copy_text for c in comments)
+    assert commented["data"]["name"] == "hello（副本）"
+    assert "commented-copy.bench.yaml@simubench" in commented["data"]["description"]
+    assert "commented.bench.yaml@simubench" not in copy_text
     assert client.post("/api/benches/copy", json={"path": BENCH}).json()["path"] == "hello-copy-2.bench.yaml"
     taken = client.post("/api/benches/copy", json={"path": BENCH, "new_path": "hello-copy.bench.yaml"})
     assert taken.status_code == 409

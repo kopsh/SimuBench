@@ -1055,6 +1055,14 @@ export const zh = {
     stuck: "助手停下了：{{reason}}",
     failed: "这一轮没有完成：{{reason}}",
     rolledBack: "已恢复到这一轮之前",
+    stopAsk: {
+      title: "助手要先停止运行中的测试台",
+      hint: "只有点“同意停止”才会停止；打字回复不算同意。",
+      agree: "同意停止",
+      decline: "不停止",
+      agreeMessage: "同意停止测试台",
+      declineMessage: "不停止测试台",
+    },
     notConfigured: {
       title: "还没有配置 AI 助手",
       body: "助手连接你自己部署的大模型服务（OpenAI 兼容或 Anthropic 兼容）。在设置里填写地址和模型后即可使用。",

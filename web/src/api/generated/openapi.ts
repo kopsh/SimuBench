@@ -1570,6 +1570,11 @@ export interface components {
              * @description The bench the conversation belongs to
              */
             bench: string;
+            /**
+             * Stop Consent
+             * @description The answer to the assistant's request to stop the running bench, from the panel's buttons: true agrees, false declines. Only the turn right after the request may carry it; a typed message is no answer, so the bench is never stopped on words alone (#902)
+             */
+            stop_consent?: boolean | null;
             /** Text */
             text: string;
         };
@@ -1657,6 +1662,16 @@ export interface components {
             status: "running" | "done" | "stopped" | "stuck" | "error";
             /** Steps */
             steps: components["schemas"]["AssistantStep"][];
+            /**
+             * Stop Consent
+             * @description The user's answer to the previous turn's request to stop the bench, given with the panel's buttons: true agrees, false declines; null: no answer (a typed message)
+             */
+            stop_consent: boolean | null;
+            /**
+             * Stop Question
+             * @description The assistant asked in this turn to stop the running bench, for this reason; under the latest turn the panel offers to agree or decline (#902)
+             */
+            stop_question: string | null;
             /**
              * Stop Reason
              * @description Why the turn ended early, in words (stopped by the user, going in circles, an error)

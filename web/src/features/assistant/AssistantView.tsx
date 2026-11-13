@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { ChangeLine } from "@/features/instrument/HistoryTab";
 import { cn } from "@/lib/utils";
-import { type AssistantStep, type AssistantTurn, canRollBack, stepKey } from "./model";
+import { type AssistantStep, type AssistantTurn, canRollBack, stepKey, stopAsked } from "./model";
 
 export interface AssistantViewProps {
   turns: AssistantTurn[];
@@ -20,7 +20,8 @@ export interface AssistantViewProps {
   /** Some earlier content is kept only in compacted form for the LLM. */
   compacted?: boolean;
   sending?: boolean;
-  onSend: (text: string) => void;
+  /** `stopConsent`: the answer to the assistant's request to stop the bench (the buttons, #902). */
+  onSend: (text: string, stopConsent?: boolean) => void;
   onStop: () => void;
   onClear: () => void;
   onSettings: () => void;
@@ -94,6 +95,15 @@ export function AssistantView(props: AssistantViewProps) {
                   rollbackDeletes={props.rollbackDeletes}
                 />
               ))
+            )}
+            {stopAsked(shown) && (
+              <StopQuestion
+                reason={shown.at(-1)!.stop_question!}
+                disabled={!!props.sending}
+                onAnswer={(agree) =>
+                  props.onSend(t(agree ? "assistant.stopAsk.agreeMessage" : "assistant.stopAsk.declineMessage"), agree)
+                }
+              />
             )}
             <div ref={end} />
           </div>
@@ -185,6 +195,25 @@ function StepLine({ step }: { step: AssistantStep }) {
         {step.error && <span className="text-foreground/80 block break-words">{step.error}</span>}
       </span>
     </li>
+  );
+}
+
+function StopQuestion({ reason, disabled, onAnswer }: { reason: string; disabled: boolean; onAnswer: (agree: boolean) => void }) {
+  const { t } = useTranslation();
+  return (
+    <div className="border-warn/40 bg-warn/10 mb-4 space-y-2 rounded border px-2.5 py-2 text-[12.5px]" role="group" aria-label={t("assistant.stopAsk.title")} data-testid="assistant-stop-question">
+      <p className="font-medium">{t("assistant.stopAsk.title")}</p>
+      <p className="break-words">{reason}</p>
+      <p className="text-muted-foreground text-[11.5px]">{t("assistant.stopAsk.hint")}</p>
+      <div className="flex gap-2">
+        <Button size="sm" variant="destructive" className="h-7 text-xs" disabled={disabled} onClick={() => onAnswer(true)}>
+          {t("assistant.stopAsk.agree")}
+        </Button>
+        <Button size="sm" variant="outline" className="h-7 text-xs" disabled={disabled} onClick={() => onAnswer(false)}>
+          {t("assistant.stopAsk.decline")}
+        </Button>
+      </div>
+    </div>
   );
 }
 

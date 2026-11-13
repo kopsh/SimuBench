@@ -27,7 +27,7 @@ function plan(body) {
     if (since.length === 1 && latest.running) return { call: ["ask_to_stop_session", { reason: "添加仪表要先停止测试台" }] };
     return { text: ["添加示波器需要先", "停止测试台，", "可以吗？"] };
   }
-  if (userText.includes("可以")) {
+  if (userText.includes("同意停止")) {
     const step = since.length;
     if (step === 0) return { call: ["stop_session", {}] };
     if (step === 1) return { call: ["read_bench", {}] };
