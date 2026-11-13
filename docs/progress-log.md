@@ -2129,3 +2129,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 内部结构页的自动化对比度检查（探针面板与连线标注） | ✅ `web/e2e/judge.ts` 的 `contrastOf` / `expectContrastAA`（WCAG 2.1，颜色经 canvas 读回 sRGB，主题的 oklch 令牌与透明度都算；SVG 连线标注按其 `edge-textbg` 底色）：探针标题、格式标签、最低/最高读数与全部连线标注，明暗两套主题。本机实测：亮色最低 5.47、暗色最低 6.49（AA 要求 4.5） |
 | 本机与 CI 视觉基准不一致的 4 张图查明原因 | ✅ 字体没有随应用打包：`--font-sans`（Inter、Noto Sans SC…）与 `--font-mono`（JetBrains Mono…）取自机器上装的字体（`web/src/styles/globals.css`）。CI 的 runner 没有 Inter 与 JetBrains Mono，回退到更宽的 DejaVu Sans Mono，基准是它的渲染；装了这些字体的机器文字更窄，画布按文字宽度重新适配，于是 Assistant/Panel Stuck 与 Workbench/Live canvas Counter（明暗各一）差约 2 % 像素。本机在干净的 `main` 上复现：82 张中 78 张一致、4 张为这两组；差异图只在文字处。记入 `web-ui` 技能：基准只认 CI 的 actual。修复（把字体打包进应用，所有基准随之重录）不在本 issue 范围 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 状态寄存器：一次查看内每个寄存器只算一遍（Issue 1025）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 现有全部用例与金标准的回复逐字节不变 | ✅ `scripts/check.sh` 全部通过（3688 项，无用例或金标准改动）。另在本机对 150 组随机寄存器（2–6 个，互相引用含成环，随机 `enable`/`ptr`/`ntr`/`summary_bit`/`request_bit`）各发 40 条命令（`*STB?`、`*ESR?`、`*CLS`、事件与条件寄存器查询等），改动前后 6000 条回复逐字节相同 |
+| 单元测试：6 个互相引用摘要的寄存器，一次查看内 `condition` 的调用次数不超过寄存器个数的小倍数 | ✅ `tests/test_status_register.py::test_one_look_computes_each_registers_condition_a_small_multiple_of_once`（一次 `sample`、一次 `stb` 各不超过 2×6 次；数调用次数，不测墙钟） |
+| “看”不是“采样”（#575）、摘要链（#348）不变 | ✅ 一次查看的结果记在 `StatusLook`（`engine/status_registers.py`）：寄存器的条件与摘要按“它读的寄存器中哪些正在求值”存放，寄存器不成环时每个只算一遍；被问到的寄存器仍以 `commit=False` 求摘要；成环的定义在提交后清空已记的结果，与改动前逐次重算相同 |
+| 修复前后的实测数字 | ✅ 本机，进程内 PyVISA，各 50 次取平均：UXR0334B `*OPC?` 38.8 → 0.59 ms、`:TIMebase:SCALe?` 38.8 → 0.68 ms、`*STB?` 48.6 → 0.77 ms；DSO-X 2024A `*OPC?` 0.88 → 0.40 ms |
+| `scripts/check.sh` 通过 | ✅ |
