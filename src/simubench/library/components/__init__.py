@@ -17,6 +17,7 @@ from . import (  # noqa: F401
     reading_math,
     rfgen,
     scope,
+    setups,
     siglent_sdg,
     smu,
     sources,

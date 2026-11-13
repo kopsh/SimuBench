@@ -252,10 +252,8 @@ sections:
     gap: blocked
     blocked_by: data-file
   - header: MMEMory:LOAD:STATe
-    level: not_modeled
-    note: '状态文件（.sta）未建模。'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1070）：读回状态文件；不是本型号的状态文件报 +292，设置不变；找不到报 -256。'
   - header: MMEMory:MDIRectory
     level: implemented
     note: 'file_system 组件（#1069）：上级文件夹必须存在；已存在报 -257。'
@@ -276,10 +274,8 @@ sections:
     gap: blocked
     blocked_by: data-file
   - header: MMEMory:STORe:STATe
-    level: not_modeled
-    note: '状态文件（.sta）未建模。'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1070）：按名存状态文件，没有扩展名时加 .sta；文件夹须存在。状态内容为 SimuBench 的 JSON（全部可由命令修改的设置），不与仪表的私有格式逐字节一致；同一 SimuBench 存下的能读回。'
   - header: MMEMory:UPLoad
     level: implemented
     note: 'file_system 组件（#1069）：文件内容作为定长块返回。'
@@ -559,23 +555,24 @@ sections:
 - section: MEMory Subsystem
   commands:
   - header: MEMory:NSTates
-    level: not_modeled
-    note: 状态存储未建模。
+    level: implemented
+    note: 'setup_memory 组件（#1070）：回 +5（含 0 号位置）。'
   - header: MEMory:STATe:CATalog
-    level: not_modeled
-    note: 状态存储未建模。
+    level: implemented
+    note: 'setup_memory 组件（#1070）：五个位置的名称，带引号；出厂名 AUTO_RECALL、STATE_1…STATE_4。'
   - header: MEMory:STATe:DELete
-    level: not_modeled
-    note: 状态存储未建模。
+    level: implemented
+    note: 'setup_memory 组件（#1070）：删除位置的内容，名称恢复出厂名。'
   - header: MEMory:STATe:NAME
-    level: not_modeled
-    note: 状态存储未建模。
+    level: implemented
+    note: 'setup_memory 组件（#1070）：字母开头、字母数字下划线、至多 12 个字符；查询不带引号；省略名称恢复出厂名。名称只保存在本次会话（不随测试台保留）。'
   - header: MEMory:STATe:RECall:AUTO
-    level: not_modeled
-    note: 状态存储未建模。
+    level: accepted
+    note: '保存并回读；上电调回 0 号位置不建模（运行结束不写入断电状态）。'
+    affects_data: false
   - header: MEMory:STATe:VALid
-    level: not_modeled
-    note: 状态存储未建模。
+    level: implemented
+    note: 'setup_memory 组件（#1070）：位置有状态回 1，否则 0。'
 - section: DISPlay Subsystem
   commands:
   - header: DISPlay[:STATe]
@@ -824,14 +821,14 @@ sections:
     level: not_modeled
     note: 上电清状态未建模。
   - header: '*RCL'
-    level: not_modeled
-    note: 状态存储未建模。
+    level: implemented
+    note: 'setup_memory 组件（#1070）：按存下时的值写回全部设置；空位置报 +291 Not able to recall state: it is empty，设置不变。任意波数据不在状态里。'
   - header: '*RST'
     level: implemented
     note: 恢复 Factory Reset State：正弦 1 kHz、100 mVpp、0 V、VPP、50 Ω、输出关、调制关、任意波采样率 40 kSa/s。易失存储中的任意波保留。
   - header: '*SAV'
-    level: not_modeled
-    note: 状态存储未建模。
+    level: implemented
+    note: 'setup_memory 组件（#1070）：存入 0–4 号位置，即 INT:\Settings\STATE_n.STA（手册 Instrument State Storage）；原有内容被覆盖，*RST 不影响已存状态。状态内容为 SimuBench 的 JSON（全部可由命令修改的设置），不与仪表的私有格式逐字节一致；同一 SimuBench 存下的能读回。'
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器（引擎内置）。

@@ -196,7 +196,11 @@ def resend(
         elif kind == "scpi" and ev.get("dir") == "read":
             session.seek(t)
             got = session.read(ev["instrument"], client="replay")
-        elif kind == "state" and ev.get("source") not in ("scpi", None) and ev.get("path") != "*RST":
+        elif (
+            kind == "state"
+            and ev.get("source") not in ("scpi", None)
+            and ev.get("path") not in ("*RST", "*RCL")
+        ):
             session.seek(t)
             session.instrument(ev["instrument"]).set_state(ev["path"], ev["new"], source="replay")
         elif kind == "panel" and ev.get("source") != "replay":
@@ -271,7 +275,11 @@ def replay(
                     if stop_at_first:
                         break
             elif (
-                (kind == "state" and ev.get("source") not in ("scpi", None) and ev.get("path") != "*RST")
+                (
+                    kind == "state"
+                    and ev.get("source") not in ("scpi", None)
+                    and ev.get("path") not in ("*RST", "*RCL")
+                )
                 or (kind == "panel" and ev.get("source") != "replay")
                 or (kind == "fault" and ev.get("reason") == "injected" and ev.get("spec"))
             ):

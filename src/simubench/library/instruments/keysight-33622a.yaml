@@ -94,6 +94,8 @@ errors:
   -254: "Media full"
   -256: "File or folder name not found"
   -257: "File name error"
+  291: "Not able to recall state: it is empty"
+  292: "State file size error"
 specs:
   source: 第 1 章 Models and Options（最高频率表）、APPLy 子系统（幅度/偏置/采样率范围）、Factory Reset State
   frequency_hz: "正弦 1 µHz–120 MHz（10 Vpp 以下到 60 MHz、4 Vpp 以下到 120 MHz，按幅度的上限未建模）；方波/脉冲到 100 MHz；三角/斜波 800 kHz（按波形限制，#437）"
@@ -106,6 +108,7 @@ state:
   display.state: {type: bool, default: true, label: 显示, label_en: Display}
   display.text: {type: string, default: "", label: 显示文本, label_en: Display text}
   system.version: {type: string, default: "1994.0", label: SCPI 版本, label_en: SCPI version}
+  memory.recall_auto: {type: bool, default: false, label: 上电调回, label_en: Power-on recall}
 channels:
   count: 2
 channel_state:
@@ -175,6 +178,20 @@ components:
       home: "INT:\\"
       capacity: 1.0e9
       file_types: {.sta: STAT, .csv: ASC}
+  # 状态存取（#1070）：*SAV/*RCL 0–4 存为 INT:\Settings\STATE_n.STA（手册 Instrument State Storage），
+  # MMEMory:STORe/LOAD:STATe 存取任意名的 .sta；*RST 不影响已存状态。上电调回不建模（只保存设置）。
+  - name: setups
+    type: setup_memory
+    params:
+      storage: storage
+      registers: 5
+      first: 0
+      register_file: "INT:\\Settings\\STATE_{n}.STA"
+      names: [AUTO_RECALL, STATE_1, STATE_2, STATE_3, STATE_4]
+      extension: .sta
+      exclude: [memory.*]
+      empty_error: 291
+      bad_setup: 292
 channel_components:
   # 合成（1 Vpp）→ 调制 → 幅度与偏置（按负载设定，D13）→ 输出级（50 Ω，极性）。任意波与 PRBS 由合成按函数播放（#426）。
   - name: synth
@@ -497,3 +514,40 @@ commands:
     op: storage.read
     set: false
     params: [{name: name, type: string}]
+  - header: "MMEMory:STORe:STATe"
+    op: setups.store_file
+    query: false
+    params: [{name: name, type: string}]
+  - header: "MMEMory:LOAD:STATe"
+    op: setups.load_file
+    query: false
+    params: [{name: name, type: string}]
+  # ---- 状态存取（*SAV/*RCL 与 MEMory，#1070）------------------------------------------------------
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  - header: "MEMory:NSTates"
+    op: setups.count
+    set: false
+    reply: "+{value}"
+  - header: "MEMory:STATe:CATalog"
+    op: setups.catalog
+    set: false
+  - header: "MEMory:STATe:DELete"
+    op: setups.delete
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  - header: "MEMory:STATe:NAME"
+    op: setups.name
+    params: [{name: register, type: int, min: 0, max: 4}, {name: name, type: string, optional: true}]
+  - header: "MEMory:STATe:VALid"
+    op: setups.valid
+    set: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  - header: "MEMory:STATe:RECall:AUTO"
+    state: memory.recall_auto

@@ -255,6 +255,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | `rf_output` | rf_generator.output | 块清单已声明(与通用 `output_stage` 并列) | 暂不排期 |
 | 通用状态寄存器组件 | 跨类别(STATus 的条件/事件/使能与型号位定义) | `status_register`(#248):命名位、条件(组件 `status_flags()`)与事件(`status_event`)、读后清零(整组或单位)、SRS 的按位使能、摘要进 *STB;作为通道组件时只看本通道的标志(#348);跳变过滤 `ptr`/`ntr`(事件 = (~旧 & 新 & PTR) | (旧 & ~新 & NTR),STATus:PRESet 恢复 `preset_ptr` 与 0,#549);条件在每次命令分派时采样,两次读取之间的跳变也锁存(#575);一次查看内各组件的标志只算一遍,寄存器互读摘要不再逐层重算(#602);示波器采集推送 `TRG`、`ARM`、`DONE`(每次采集完成)与 `AUTO`(自动触发)事件(#602);DSO-X 的 :TER/:AER/:OPER、SR830 的四个字节(#273)、E36312A 的可疑寄存器组 QUES → QUES:INST → ISUMmary<n>(#348)已用上 | DL3021 的事件寄存器按需接上 |
 | 大容量存储 `file_system` | 跨类别（MMEMory、:DISK 的盘符、目录、文件） | 已实现（#1069）：每台仪表一个工作区内的文件夹（`.simubench/files/<测试台>/<仪表>/`），盘符为子文件夹；路径按仪表规则解析（盘符、绝对/相对、不分大小写），越界与符号链接拒绝；目录两种格式（Keysight MMEMory 的 `used,free,"名,类型,大小"`、Infiniium 的逐行）；复制、移动、通配符删除、定长块上传下载；写入事件带 sha256（D36）；API 列出与下载。33622A、UXR0334B 已接入 | 其余型号按覆盖表 `blocked_by: file-system` 接入；设置存取（#1070）、存数据（#1071）建在其上 |
+| 设置存取 `setup_memory` | 跨类别（*SAV/*RCL、:STORe/:RECall:SETup、MEMory:STATe、MMEMory:STORe/LOAD:STATe、*LRN?、:SYSTem:SETup） | 已实现（#1070）：设置 = 全部可由命令修改的设置（`Instrument.settings_snapshot`，不含只读变量、校准系数与抽取的个体值），以 SimuBench 的 JSON 保存；恢复时一次写回、通知组件，写回值不被联动改写（`restore_settings`）；寄存器跨 *RST 与跨运行保留（仪表文件夹内，或经 `file_system` 存为盘上文件，如 33622A 的 `INT:\Settings\STATE_n.STA`）；状态文件、学习串（定长块，可原样发回）。33622A、UXR0334B 已接入 | 其余型号按覆盖表 `blocked_by: setup-memory` 接入 |
 
 ### 二、not_modeled 暗示的未来能力(按主题归并)
 
