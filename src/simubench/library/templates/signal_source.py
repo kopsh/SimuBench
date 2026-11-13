@@ -103,7 +103,10 @@ class DutyIn(RangeIn):
 
 class LoadIn(RangeIn):
     high_z_keywords: list[str] = _f(
-        [], "高阻关键字", "High-Z keywords", "Words the load command takes for high-Z, e.g. INF, INFinity"
+        [],
+        "高阻关键字",
+        "High-Z keywords",
+        "Words the load command takes for high-Z, e.g. INFinity (the short and the long form both match)",
     )
     hiz_from: float | None = _f(
         None,
@@ -526,7 +529,7 @@ def _base(variant: str) -> dict[str, Any]:
         "offset": {"min": -10.0, "max": 10.0, "default": 0.0},
         "phase": {"min": -360.0, "max": 360.0, "default": 0.0},
         "duty": {"min": 1.0e-6, "max": 1.0, "default": 0.5, "unit": "ratio"},
-        "load": {"min": 1.0, "max": 1.0e9, "default": 50.0, "high_z_keywords": ["INF", "INFinity"], "hiz_from": 10000.0},
+        "load": {"min": 1.0, "max": 1.0e9, "default": 50.0, "high_z_keywords": ["INFinity"], "hiz_from": 10000.0},
         "clock": {"sources": ["INTernal", "EXTernal"]},
         "dialect": {"command_set": variant},
     }  # fmt: skip

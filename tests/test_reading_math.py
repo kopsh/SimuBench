@@ -9,7 +9,6 @@ import pytest
 
 from helpers import raises_with
 from simubench.library.components.reading_math import (
-    LAST_READING,
     ReadingMath,
     apply_math,
     apply_units,
@@ -127,14 +126,14 @@ def test_an_overload_fails_the_enabled_limit_on_its_side():
 def test_a_factor_written_as_last_reading_takes_the_reading_before_the_math(factor):
     b = block(math=True, c=3.0, c_on=True)
     assert b.process(10.0) == 7.0  # the reading answered is after the math …
-    assert b.on_state(factor, f"calc.math.{factor}", 1.0, LAST_READING) == 10.0  # … the factor is before
+    assert b.resolve_word(factor, f"calc.math.{factor}", "last_reading") == 10.0  # … the factor is before
 
 
 def test_the_last_reading_is_the_averaged_one():
     b = block(average=True, average_count=2)
     b.process(1.0)
     b.process(2.0)
-    assert b.on_state("c", "calc.math.c", 1.0, LAST_READING) == 1.5
+    assert b.resolve_word("c", "calc.math.c", "last_reading") == 1.5
 
 
 def test_a_factor_from_the_last_reading_with_no_reading_yet_is_refused():
@@ -142,7 +141,7 @@ def test_a_factor_from_the_last_reading_with_no_reading_yet_is_refused():
     b.process(5.0)
     b.reset()
     with raises_with(ScpiError, "no last reading"):
-        b.on_state("z", "calc.math.z", 1.0, LAST_READING)
+        b.resolve_word("z", "calc.math.z", "last_reading")
 
 
 def test_a_plain_factor_value_is_kept():

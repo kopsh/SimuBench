@@ -87,6 +87,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     _check_deviations(d, known, report)
     _check_options(d, known, report)
     _check_constraints(d, report)
+    _check_words(d, known, report)
     _check_wiring(d, classes, report)
     compiled = [_check_command(d, i, cmd, classes, report) for i, cmd in enumerate(d.commands)]
     _check_overlaps(d, compiled, report)
@@ -375,6 +376,66 @@ def _check_options(d: InstrumentDefinition, known: dict[str, type[Component]], r
                 cmd.header,
                 fallback="在 options 中声明这个选件" if not ids else None,
             )
+
+
+def _setting_key(ref: str) -> tuple[bool, str]:
+    """A state binding as (per channel, name): ``ch.x``, ``ch{n}.x`` and ``ch2.x`` are channel ``x``."""
+    m = re.fullmatch(r"ch(?:\d+|\{n\})?\.(.+)", ref)
+    return (True, m.group(1)) if m else (False, ref)
+
+
+def _check_words(d: InstrumentDefinition, known: dict[str, type[Component]], report: Report) -> None:
+    """``words`` (#1115): every resolver a setting names is one a component bound to that setting
+    implements (``Component.resolvers``), and ``special`` has no two keys that are one word."""
+    bound: dict[tuple[bool, str], list[type[Component]]] = {}
+    for specs in (d.components, d.channel_components):
+        for spec in specs:
+            cls = known.get(spec.type)
+            if cls is None:
+                continue
+            for value in spec.params.values():
+                ref = binding_of(value)
+                if ref is not None:
+                    bound.setdefault(_setting_key(ref), []).append(cls)
+    for table, channel in ((d.state, False), (d.channel_state, True)):
+        for path, st in table.items():
+            keys = list((st.special or {}).keys())
+            for i, a in enumerate(keys):
+                for b in keys[i + 1 :]:
+                    if V.matches_word(a, b):
+                        report.add(
+                            "error",
+                            "E-DEF-SPECIAL-DUPLICATE",
+                            _ptr("channel_state" if channel else "state", path, "special", b),
+                            f"special 的键 {a!r} 与 {b!r} 是同一个词（长短形式、大小写只算一个）",
+                            f"只留一个，写成混合大小写的 {a if len(a) >= len(b) else b!r}",
+                            path,
+                        )
+            if not st.words:
+                continue
+            classes = bound.get((channel, path), [])
+            offered = sorted({r for c in classes for r in c.resolvers})
+            for word, resolver in st.words.items():
+                ptr = _ptr("channel_state" if channel else "state", path, "words", word)
+                if not classes:
+                    report.add(
+                        "error",
+                        "E-DEF-WORDS-UNBOUND",
+                        ptr,
+                        f"设置 {path} 声明了 words，但没有组件的参数绑定它，写这个词只会报 -224",
+                        "把设置绑定到实现了该解析器的组件的参数，或去掉 words",
+                        path,
+                    )
+                elif resolver not in offered:
+                    unknown_name(
+                        report,
+                        "E-DEF-WORDS-RESOLVER",
+                        ptr,
+                        f"绑定 {path} 的组件都不实现解析器 {resolver!r}",
+                        resolver,
+                        offered,
+                        path,
+                    )
 
 
 def _check_constraints(d: InstrumentDefinition, report: Report) -> None:
