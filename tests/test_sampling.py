@@ -204,3 +204,88 @@ def test_the_scope_screen_shows_the_sampling_records():
         assert len(trace["minmax"]) == 200
         assert max(trace["minmax"]) == pytest.approx(P1, abs=5e-5)
         assert screen["measurements"][0]["vmax"] == pytest.approx(P1, abs=5e-5)
+
+
+def _analytic(seq: np.ndarray, bandwidth: float, t: np.ndarray) -> np.ndarray:
+    """Independent of the engine: the PRBS pattern as ideal NRZ symbols (levels P0/P1, one UI each,
+    repeating), through a 4th-order Bessel (scipy, -3 dB at ``bandwidth``, delay deskewed), by FFT
+    over a fine grid of one pattern, read at the instants ``t`` (periodic, linear interpolation)."""
+    from scipy import signal as sps
+
+    per = 64
+    dt = UI / per
+    wave = np.repeat(np.where(seq > 0, P1, P0), per)
+    b, a = sps.bessel(4, 2 * np.pi * bandwidth, btype="low", analog=True, norm="mag")
+    f = np.fft.fftfreq(wave.size, dt)
+    w = 2 * np.pi * f
+    _, h = sps.freqs(b, a, worN=w)
+    # remove the low-frequency group delay (a scope deskews it): the slope of the phase at DC
+    eps = 2 * np.pi * bandwidth * 1e-4
+    delay = -np.angle(sps.freqs(b, a, worN=[eps])[1][0]) / eps
+    h = h * np.exp(1j * w * delay)
+    y = np.fft.ifft(np.fft.fft(wave) * h).real
+    x = (np.asarray(t) / dt) % y.size
+    i = np.floor(x).astype(int)
+    return y[i] * (1 - (x - i)) + y[(i + 1) % y.size] * (x - i)
+
+
+def test_record_matches_an_independent_analytic_waveform(tmp_path):
+    """The record equals the known pattern through the known filter, point by point: within the
+    noise (6 σ) plus 5 % of the OMA, which is what the source's truncated line spectrum leaves
+    against the ideal-symbol analytic (a wrong bandwidth is off by more, checked below); and the
+    10-90 % fall time follows 0.34 / bandwidth at two bandwidths."""
+    seq = prbs_sequence(7)
+    scale, points = 127 * UI / 10, 1016
+    sigma = math.hypot(4e-6, 0.01 * 2e-4)
+    tol = 6 * sigma + 0.05 * (P1 - P0)
+    wrong = {}
+    for bw in (4.5e10, 2.25e10):
+        hidden = {"acq": {"jitter_s": 0.0}, "ch1.orx": {"bandwidth": bw}}
+        with open_bench(_bench(tmp_path, hidden)) as s:
+            s.write(
+                "dca",
+                f":TIMebase:SCALe {scale!r};:ACQuire:POINts {points};:CHANnel1:SCALe 2E-4;:CHANnel1:OFFSet 1E-3;:SINGle".encode(),
+            )
+            t = 10 * scale / points * np.arange(points)
+            rec = _record(s)
+            assert np.abs(rec - _analytic(seq, bw, t)).max() < tol
+            wrong[bw] = np.abs(rec - _analytic(seq, 4.5e10 if bw < 3e10 else 2.25e10, t)).max()
+            s.write("dca", b":TIMebase:SCALe 20E-12;:SINGle")
+            fall = float(s.query("dca", ":MEASure:FALLtime? CHANnel1"))
+            assert fall == pytest.approx(0.34 / bw, rel=0.08)
+    assert min(wrong.values()) > tol  # the check can tell one bandwidth from the other
+
+
+def test_acquisition_time_is_proportional_to_the_points():
+    with open_bench(BENCH) as s:
+        took = {}
+        for points in (1000, 2000, 4000):
+            before = s.now_ns
+            s.write("dca", f":ACQuire:POINts {points};:SINGle".encode())
+            took[points] = s.now_ns - before
+        per_point = (took[4000] - took[1000]) / 3000
+        assert per_point == pytest.approx(1e9 / 2.5e5, rel=0.01)
+        assert took[2000] - took[1000] == pytest.approx(1000 * per_point, rel=0.01)
+        assert took[4000] - took[2000] == pytest.approx(2000 * per_point, rel=0.01)
+
+
+def test_the_same_seed_gives_the_same_waveform_value_for_value():
+    records = []
+    for _ in range(2):
+        with open_bench(BENCH) as s:
+            s.write("dca", b":ACQuire:POINts 512;:SINGle")
+            records.append(_record(s))
+    assert np.array_equal(records[0], records[1])
+
+
+def test_clock_recovery_refuses_rates_outside_its_range(tmp_path):
+    """The data's rate (26.5625 GBd, nominal rate matching) lies above a 20 GBd ``max_rate`` and
+    below a 30 GBd ``min_rate``: not locked, an acquisition is refused with -230."""
+    for limits in ({"max_rate": 2e10}, {"min_rate": 3e10}):
+        with open_bench(_bench(tmp_path, {"cdr": limits})) as s:
+            assert s.query("dca", ":CRECovery:LOCKed?").strip() == b"0"
+            s.write("dca", b":SINGle")
+            assert s.query("dca", ":SYSTem:ERRor?").startswith(b"-230")
+    # inside the range it locks, the control
+    with open_bench(_bench(tmp_path, {"cdr": {"min_rate": 1e9, "max_rate": 1e11}})) as s:
+        assert s.query("dca", ":CRECovery:LOCKed?").strip() == b"1"
