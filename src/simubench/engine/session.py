@@ -807,7 +807,7 @@ class Session:
         with self._lock:
             self._begin_action()
             try:
-                self.instrument(name).set_state(path, value, source="configure")
+                self.instrument(name).set_state(path, value, source="configure", outside=True)
             finally:
                 self._end_action()
 

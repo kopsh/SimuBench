@@ -164,3 +164,49 @@ def test_one_look_computes_each_registers_condition_a_small_multiple_of_once(mon
     stb = inst.stb()
     # BUSY rose in every register, and every summary rose in the registers that read it
     assert (stb & 0x3F, calls["sample"] <= 2 * n, calls["stb"] <= 2 * n) == (0x3F, True, True), calls
+
+
+def test_registers_that_read_each_other_in_a_circle_answer_as_if_recomputed_each_time():
+    """Three registers that read one another's summaries in a circle (a reads b and c, b reads a
+    and c, c reads a and b): a register's condition, and so its transitions, depend on which of
+    the others are busy, so once one commits its event register the look's kept conditions and
+    summaries no longer hold and are dropped (#1025). The replies are the ones every register
+    gives when nothing is kept at all; keeping them past a commit makes c's event register 7
+    (#1033)."""
+    data = dict(DEF)
+    params = {
+        "a": {"bits": {"BUSY": 0, "B": 2, "C": 3}, "enable": 4, "summary_bit": 0, "ntr": 14, "ptr": 1},
+        "b": {"bits": {"BUSY": 0, "A": 1, "C": 3}, "enable": 14, "summary_bit": 1, "ntr": 0, "ptr": 15},
+        "c": {"bits": {"BUSY": 0, "A": 1, "B": 2}, "enable": 15, "summary_bit": 2, "ntr": 0},
+    }
+    data["components"] = [{"name": "sys", "type": "system"}] + [
+        {"name": name, "type": "status_register", "params": p | {"width": 8}} for name, p in params.items()
+    ]
+    data["commands"] = [
+        {"header": f"{name.upper()}{kind}", "op": f"{name}.{op}", "set": False}
+        for name in params
+        for kind, op in (("EV", "event"), ("CO", "condition"))
+    ]
+    definition = InstrumentDefinition.model_validate(data)
+    bench = BenchDefinition.model_validate(
+        {"schema": "simubench.bench/1", "name": "d", "instruments": {"x": {"model": definition.id}}}
+    )
+    session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
+    busy = {"BUSY": False}
+    session.instruments["x"].components["sys"].status_flags = lambda: dict(busy)  # type: ignore[method-assign]
+
+    def q(on: bool, cmd: str) -> str:
+        busy["BUSY"] = on
+        session.write("x", cmd.encode() + b"\n")
+        out = session.read("x")
+        return out.decode().strip() if out is not None else ""
+
+    replies = [
+        q(True, "*STB?"),
+        q(False, "BCO?"),
+        q(True, "*STB?"),
+        q(True, "*STB?"),
+        q(True, "BCO?"),
+        q(False, "CEV?"),
+    ]
+    assert replies == ["0", "0", "6", "6", "11", "5"]

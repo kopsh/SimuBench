@@ -1,14 +1,17 @@
 """Settings an instrument does not allow together (`constraints`, #1013, D69): refused in either
 order or coercing the other setting, judged on the state a whole command leaves, the same for the
-panel (configure) as for SCPI; and the static checks of the declaration."""
+panel (configure) as for SCPI, not for the instrument's own writes; and the static checks of the
+declaration."""
 
 from __future__ import annotations
 
 import copy
+from typing import Any, ClassVar
 
 from pydantic import ValidationError
 
 from helpers import raises_with
+from simubench.engine.component import Component, OpResult, component, op
 from simubench.engine.session import Session
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.models.bench import BenchDefinition
@@ -102,6 +105,59 @@ def test_the_panel_is_held_to_the_same_constraints():
     session.configure("x", "acquire.mode", "SEGMented")
     with raises_with(ScpiError, "not available"):
         session.configure("x", "acquire.type", "AVERage")
+    assert inst.state["acquire.type"] == "NORMal"
+
+
+@component("t_acquire_coupling")
+class AcquireCoupling(Component):
+    """A component that writes the acquisition type itself: on a command (``average``) and as the
+    coupling of another setting (a preset that averages)."""
+
+    defaults: ClassVar[dict[str, Any]] = {
+        "type": None,  # the acquisition type it writes (a setting, e.g. $acquire.type)
+        "preset": None,  # the preset whose SLOW value makes it average (a setting)
+    }
+
+    @op("average")
+    def op_average(self, **_: Any) -> OpResult:
+        assert self.owner is not None
+        self.owner.set_state(str(self.bound_path("type")), "AVERage")
+        return OpResult()
+
+    def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if key == "preset" and new == "SLOW":
+            assert self.owner is not None
+            self.owner.set_state(str(self.bound_path("type")), "AVERage")
+
+
+def test_the_instruments_own_writes_are_not_judged():
+    """A component's own write (an operation's, or the coupling of another setting) is the
+    instrument's doing, not a change from outside: the constraints do not refuse it (#1030)."""
+    data = copy.deepcopy(DEF)
+    data["state"]["acquire.preset"] = {"type": "enum", "options": ["NONE", "SLOW"], "default": "NONE"}
+    data["components"] = [
+        {"name": "sys", "type": "system"},
+        {
+            "name": "coupling",
+            "type": "t_acquire_coupling",
+            "params": {"type": "$acquire.type", "preset": "$acquire.preset"},
+        },
+    ]
+    data["commands"] += [
+        {"header": ":ACQuire:AVERage", "op": "coupling.average", "query": False},
+        {"header": ":ACQuire:PRESet", "state": "acquire.preset"},
+    ]
+    _, inst, query = open_unit(data)
+    query(":ACQ:MODE SEGM")
+    query(":ACQ:AVER")  # the operation's own write
+    assert query(":SYST:ERR?") == '0,"No error"'
+    assert (inst.state["acquire.mode"], inst.state["acquire.type"]) == ("SEGMented", "AVERage")
+    query(":ACQ:TYPE NORM")
+    query(":ACQ:PRES SLOW")  # the command's setting is free; the coupling it starts is not judged
+    assert query(":SYST:ERR?") == '0,"No error"'
+    assert (inst.state["acquire.preset"], inst.state["acquire.type"]) == ("SLOW", "AVERage")
+    query(":ACQ:TYPE NORM;:ACQ:TYPE AVER")  # the same value from outside is still refused
+    assert query(":SYST:ERR?").startswith("-221")
     assert inst.state["acquire.type"] == "NORMal"
 
 
