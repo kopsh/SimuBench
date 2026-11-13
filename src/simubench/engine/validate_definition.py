@@ -21,10 +21,13 @@ from ..library.migrate import FormatError, upgrade
 from ..library.panels import DEDICATED, template_of
 from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, PanelControl, StateSpec
 from ..scpi import values as V
+from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token
 from .commands import told_apart
 from .component import Component, binding_of, component_types, noise_problems
+from .constraints import broken
 from .portref import ladder, split
+from .settings import validate_value
 from .validate import Report, _ptr, unknown_name
 
 _NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
@@ -82,6 +85,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     _check_offset_convention(d, known, report)
     _check_deviations(d, known, report)
     _check_options(d, known, report)
+    _check_constraints(d, report)
     _check_wiring(d, classes, report)
     compiled = [_check_command(d, i, cmd, classes, report) for i, cmd in enumerate(d.commands)]
     _check_overlaps(d, compiled, report)
@@ -315,6 +319,66 @@ def _check_options(d: InstrumentDefinition, known: dict[str, type[Component]], r
                 cmd.header,
                 fallback="在 options 中声明这个选件" if not ids else None,
             )
+
+
+def _check_constraints(d: InstrumentDefinition, report: Report) -> None:
+    """Constraints (#1013): instrument-wide settings that exist, values they can hold, a coerced
+    value that is not itself forbidden, and power-on and *RST states that keep every constraint."""
+    for i, c in enumerate(d.constraints):
+        groups: list[tuple[str, dict[str, Any]]] = [("when", c.when), ("forbid", c.forbid)]
+        if c.coerce is not None:
+            groups.append(("coerce", c.coerce))
+        for field, table in groups:
+            for path, wanted in table.items():
+                ptr = _ptr("constraints", i, field, path)
+                spec = d.state.get(path)
+                if spec is None:
+                    unknown_name(
+                        report,
+                        "E-DEF-CONSTRAINT",
+                        ptr,
+                        f"约束引用的设置 {path!r} 不存在（约束只用整机设置，不用按通道的设置）",
+                        path,
+                        list(d.state),
+                    )
+                    continue
+                for value in wanted if isinstance(wanted, list) else [wanted]:
+                    try:
+                        validate_value(spec.model_copy(update={"readonly": False}), value)
+                    except ScpiError:
+                        report.add(
+                            "error",
+                            "E-DEF-CONSTRAINT",
+                            ptr,
+                            f"约束里 {path} 的取值 {value!r} 不是这个设置能取的值",
+                            "写成设置的选项之一，或在它的范围内",
+                            path,
+                        )
+        for path, value in (c.coerce or {}).items():
+            if value in c.forbid.get(path, []):
+                report.add(
+                    "error",
+                    "E-DEF-CONSTRAINT",
+                    _ptr("constraints", i, "coerce", path),
+                    f"coerce 把 {path} 改成的 {value!r} 本身是被禁止的取值",
+                    "改成允许的取值",
+                    path,
+                )
+    if d.constraints:
+        for label, state in (
+            ("开机", {p: s.default for p, s in d.state.items()}),
+            ("*RST 后", {p: (s.rst if s.rst is not None else s.default) for p, s in d.state.items()}),
+        ):
+            c = broken(d.constraints, d.state, state)
+            if c is not None:
+                report.add(
+                    "error",
+                    "E-DEF-CONSTRAINT",
+                    _ptr("constraints", d.constraints.index(c)),
+                    f"{label}的设置就违反这条约束",
+                    "调整相关设置的 default / rst，使初始状态满足约束",
+                    None,
+                )
 
 
 _MEDIUM_NAMES = {"signal": "模拟信号", "electrical": "电气端口", "reference": "参考信号"}

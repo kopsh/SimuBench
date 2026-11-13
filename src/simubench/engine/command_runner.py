@@ -20,6 +20,7 @@ from .commands import (
     when_matches,
 )
 from .component import OpResult, map_setting
+from .constraints import settle
 from .settings import validate_value
 
 if TYPE_CHECKING:
@@ -277,6 +278,13 @@ class CommandRunner:
         the settings together make no sense (#580) — takes back the ones before it. After the
         writes, the watchers of every written path may check the combination and refuse too."""
         done: list[tuple[str, Any]] = []
+        # The definition's constraints judge the state all the writes leave together (#1013): a
+        # command that sets both settings is not refused for the state between them.
+        checked = {
+            **checked,
+            **settle(self.inst.definition.constraints, self.inst.specs, self.inst.state, checked),
+        }
+        self.inst._constraints_checked = True
         try:
             for path, v in checked.items():
                 before = self.inst.state[path]
@@ -288,6 +296,8 @@ class CommandRunner:
             for path, before in reversed(done):
                 self.inst.set_state(path, before)
             raise
+        finally:
+            self.inst._constraints_checked = False
 
     def _settings_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
         """A command whose parameters each write a setting (``TRSE EDGE,SR,C1``); all are checked

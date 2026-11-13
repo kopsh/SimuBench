@@ -2129,3 +2129,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 内部结构页的自动化对比度检查（探针面板与连线标注） | ✅ `web/e2e/judge.ts` 的 `contrastOf` / `expectContrastAA`（WCAG 2.1，颜色经 canvas 读回 sRGB，主题的 oklch 令牌与透明度都算；SVG 连线标注按其 `edge-textbg` 底色）：探针标题、格式标签、最低/最高读数与全部连线标注，明暗两套主题。本机实测：亮色最低 5.47、暗色最低 6.49（AA 要求 4.5） |
 | 本机与 CI 视觉基准不一致的 4 张图查明原因 | ✅ 字体没有随应用打包：`--font-sans`（Inter、Noto Sans SC…）与 `--font-mono`（JetBrains Mono…）取自机器上装的字体（`web/src/styles/globals.css`）。CI 的 runner 没有 Inter 与 JetBrains Mono，回退到更宽的 DejaVu Sans Mono，基准是它的渲染；装了这些字体的机器文字更窄，画布按文字宽度重新适配，于是 Assistant/Panel Stuck 与 Workbench/Live canvas Counter（明暗各一）差约 2 % 像素。本机在干净的 `main` 上复现：82 张中 78 张一致、4 张为这两组；差异图只在文字处。记入 `web-ui` 技能：基准只认 CI 的 actual。修复（把字体打包进应用，所有基准随之重录）不在本 issue 范围 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 设置之间的约束：定义里的 constraints（Issue 1013，#1005 第 3 点）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义语言能声明“两个设置的某些取值不能同时出现”，拒绝或改另一个设置 | ✅ `ConstraintSpec`（`when` / `forbid` / `action` / `error` / `coerce` / `source`）；`engine/constraints.py` 的 `settle` 按改动后的状态判断；`Instrument.set_state`（SCPI 与 `configure`）与 `CommandRunner._commit`（多设置命令按写完后的状态、全有或全无）接入；`schemas/` 与 web 生成类型已更新 |
+| 引擎单测 | ✅ `tests/test_constraints.py`：两个方向都拒绝且不改动、一条命令按结束时的状态判断、`coerce` 改另一个设置、界面 `configure` 同样受约束、静态校验 `E-DEF-CONSTRAINT`（未知设置、非法取值、coerce 值被禁止、开机状态违反）与模型校验 |
+| DSO-X 2024A 拒绝 SEGMented + AVERage | ✅ 定义的 `constraints`（Programmer's Guide 02.66 第 215 页）；`tests/models/keysight-dsox2024a/cases.yaml` 分段存储用例加两个方向各一组（-221，两个设置都不变）；覆盖表 `:ACQuire:TYPE` / `:ACQuire:SEGMented:COUNt` 的说明改为现行为，错误码与“拒绝而不是改回 NORMal”注明为假设 |
+| 文档 | ✅ `instrument-authoring.md` 2.12 与诊断码表、`real-models.md` 字段表、`decisions.md` D69、`real-model` 技能 |
+| `scripts/check.sh` 通过 | ✅ |

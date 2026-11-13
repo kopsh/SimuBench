@@ -743,6 +743,15 @@ display:
   summary: [timebase.scale, trigger.source, trigger.slope]
   channel_summary: [display, scale, offset, coupling, probe]
 capabilities: [oscilloscope]
+# 设置之间的约束（#1013，D69）。Programmer's Guide 02.66 :ACQuire:TYPE（第 215 页）：“The AVERage type is
+# not available when in segmented memory mode”。手册没给错误码，也没说先 AVERage 再切到 SEGMented 时
+# 怎样：两个方向都拒绝、报 -221 Settings conflict，是 SimuBench 的假设（覆盖表注明）。
+constraints:
+  - when: {acquire.mode: SEGMented}
+    forbid: {acquire.type: [AVERage]}
+    action: refuse
+    error: -221
+    source: "Programmer's Guide 02.66, :ACQuire:TYPE, p. 215"
 commands:
   # ---- Common ----
   # 手册 *TRG：“与不带参数的 :DIGitize 相同”。
