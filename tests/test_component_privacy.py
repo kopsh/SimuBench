@@ -42,17 +42,17 @@ def accesses_in(nodes: list[ast.AST]) -> list[tuple[int, str]]:
     return sorted(found)
 
 
-#: Every component module's syntax-tree nodes, parsed and walked once at collection (not in the
-#: 100 ms call phase, D49).
+#: Every component module's syntax-tree nodes, parsed and walked once at collection — and the
+#: private accesses read out of them there too, not in the 100 ms call phase (D49).
 TREES = [
     (p.name, list(ast.walk(ast.parse(p.read_text(encoding="utf-8")))))
     for p in sorted(COMPONENTS.glob("*.py"))
 ]
+OFFENDERS = [f"{name}:{n}: {access}" for name, nodes in TREES for n, access in accesses_in(nodes)]
 
 
 def test_components_use_only_public_session():
-    offenders = [f"{name}:{n}: {access}" for name, nodes in TREES for n, access in accesses_in(nodes)]
-    assert offenders == []
+    assert OFFENDERS == []
 
 
 def test_the_guard_sees_a_private_access():

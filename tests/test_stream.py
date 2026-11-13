@@ -110,10 +110,21 @@ CHAIN = {
 }
 
 
+#: The definition validated once at collection (not in the 100 ms call phase, D49).
+CHAIN_DEFINITION = InstrumentDefinition.model_validate(CHAIN)
+CHAIN_BENCH = BenchDefinition.model_validate(
+    {"schema": "simubench.bench/1", "name": "c", "instruments": {"x": {"model": "chain"}}}
+)
+
+
 def open_chain(data: dict = CHAIN, seed: int = 1):
-    definition = InstrumentDefinition.model_validate(data)
-    bench = BenchDefinition.model_validate(
-        {"schema": "simubench.bench/1", "name": "c", "instruments": {"x": {"model": "chain"}}}
+    definition = CHAIN_DEFINITION if data is CHAIN else InstrumentDefinition.model_validate(data)
+    bench = (
+        CHAIN_BENCH
+        if data is CHAIN
+        else BenchDefinition.model_validate(
+            {"schema": "simubench.bench/1", "name": "c", "instruments": {"x": {"model": "chain"}}}
+        )
     )
     session = Session(bench, lambda _id: definition, clock="stepped", seed=seed)
     return session, session.instruments["x"].components
@@ -282,7 +293,7 @@ def test_a_changed_setting_drops_the_cached_frames(blocks):
 
 def test_the_cache_keeps_a_bounded_number_of_frames(blocks):
     session, comps = open_chain()
-    for k in range(200):
+    for k in range(70):  # past the bound of 64: the oldest must be evicted (D49 budget)
         session.cached_frames(comps["adc"], "out", FrameRequest(0, 4, DT, ("acq", k)))
     assert len(session._frame_cache) == 64
 
