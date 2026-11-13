@@ -9,6 +9,8 @@ blocks:
     components: [dmm_conditioning]
   - block: adc                 # A/D:NPLC、分辨率
     components: [dmm_adc]
+  - block: math                # 读数后处理:平均、数学、限值、统计(#1041)
+    components: [reading_math]
   - block: trigger             # 触发
     components: [trigger_model]
   - block: buffer              # 读数缓冲

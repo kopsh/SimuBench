@@ -31,6 +31,9 @@ EXEMPT: set[tuple[str, str]] = {
     ("siglent-sdg2042x", "amplitude"),
     ("siglent-sdg2042x", "arb_memory"),
     ("siglent-sdg2042x", "modulation"),
+    # keysight-34465a: 读数后处理块 reading_math(#1041)已有,34465A 的 CALCulate/NULL 尚未接入
+    # (product-plan.md P2-2 的可认领 issue)。
+    ("keysight-34465a", "math"),
 }
 
 #: (definition id, block) -> why — blocks the real instrument does not have at all, so there is

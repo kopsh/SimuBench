@@ -51,7 +51,7 @@
 
 ## multimeter
 
-框图:输入端子(前/后、耦合)→ 信号调理(量程、滤波)→ A/D(NPLC、分辨率)→ 触发 → 读数缓冲;校准存储在旁路。
+框图:输入端子(前/后、耦合)→ 信号调理(量程、滤波)→ A/D(NPLC、分辨率)→ 读数后处理(平均、数学、限值、统计)→ 触发 → 读数缓冲;校准存储在旁路。
 依据:Truevolt 手册的测量链([metrology-authoring.md](metrology-authoring.md)、D34)。
 
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
@@ -59,6 +59,7 @@
 | input_terminal | `dmm_input_terminal` | 电路(端子;是否高阻按量程与 `high_z_ranges` 决定;`mode` 电阻送按量程的测试电流、四线读 SENSE 端子,电流并分流电阻,#301) | 已实现 | — |
 | signal_conditioning | `dmm_conditioning` | 电路 + 数据(功能、量程、AC 滤波、模拟误差) | 已实现(RES/FRES/DCI/ACI 功能与各自量程 `range_res`/`range_curr`,#301) | — |
 | adc | `dmm_adc` | 数据(NPLC 读数时间、分辨率、校准、读数;sampler) | 已实现 | — |
+| math | `reading_math` | 数据(A/D 之后的读数后处理:平均 MOVing/REPeat → (m·x − c)/z → 百分比/dB/dBm → 上下限与越限标志(状态事件 `LIMIT`)→ 统计;自己也是 sampler,触发模型与测量命令经它取读数,#1041) | 已实现(Fluke 8588A 的 CALCulate 27 条) | 统计按经过它的读数计,不对读数存储器重算;因子取上一个读数(LREading)未实现;34465A、DAQ970A、53220A、N6705C 尚未接入 |
 | trigger | `trigger_model` | 数据 | 已实现 | — |
 | buffer | `reading_buffer` | 数据 | 已实现 | — |
 

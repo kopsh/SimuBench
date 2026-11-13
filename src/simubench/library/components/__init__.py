@@ -13,6 +13,7 @@ from . import (  # noqa: F401
     lockin,
     meters,
     power,
+    reading_math,
     rfgen,
     scope,
     siglent_sdg,
