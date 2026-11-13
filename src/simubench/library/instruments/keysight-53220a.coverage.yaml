@@ -45,9 +45,13 @@ sections:
   - header: '*SAV'
     level: not_modeled
     note: 仪器状态存储（位置 0–4）未建模；不写文件系统。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RCL'
     level: not_modeled
     note: 仪器状态调用未建模。
+    gap: blocked
+    blocked_by: setup-memory
 - section: Chapter 1 Preparation for Use > Utility Functions (system settings)
   commands:
   - header: :SYSTem:ERRor[:NEXT]
@@ -81,24 +85,31 @@ sections:
   - header: :SYSTem:BATTery:LEVel
     level: not_modeled
     note: Option 300 电池未建模，电量查询无意义。
+    gap: out_of_scope
   - header: :SYSTem:BATTery:STATus
     level: not_modeled
     note: AC/BATT 电源状态查询；Option 300 电池未建模。
+    gap: out_of_scope
   - header: :SYSTem:SECure:IMMediate
     level: not_modeled
     note: NISPOM 安全擦除未建模。
+    gap: out_of_scope
   - header: :SYSTem:SECurity:IMMediate
     level: not_modeled
     note: NISPOM 安全擦除未建模（手册的另一种拼写）。
+    gap: out_of_scope
   - header: :SYSTem:LOCK:REQuest
     level: not_modeled
     note: 接口锁定未建模。
+    gap: model_work
   - header: :CALibration:COUNt
     level: not_modeled
     note: 校准计数未建模。
+    gap: out_of_scope
   - header: :CALibration:SECurity:STATe
     level: not_modeled
     note: 校准安全未建模。
+    gap: out_of_scope
 - section: Chapter 3 Measurements > CONFigure and MEASure
   commands:
   - header: :CONFigure:FREQuency
@@ -116,114 +127,167 @@ sections:
   - header: :CONFigure:FREQuency:RATio
     level: not_modeled
     note: 频率比测量未建模（需要两通道同时计数）。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:FREQuency:RATio
     level: not_modeled
     note: 频率比测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:SPERiod
     level: not_modeled
     note: 单周期测量未建模（时间间隔的派生模式）。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:SPERiod
     level: not_modeled
     note: 单周期测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:FREQuency:BURSt
     level: not_modeled
     note: 突发测量是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :MEASure:FREQuency:BURSt
     level: not_modeled
     note: 突发测量是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :CONFigure:FREQuency:PRF
     level: not_modeled
     note: PRF 是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :MEASure:FREQuency:PRF
     level: not_modeled
     note: PRF 是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :CONFigure:FREQuency:PRI
     level: not_modeled
     note: PRI 是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :MEASure:FREQuency:PRI
     level: not_modeled
     note: PRI 是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :CONFigure:PWIDth:BURSt
     level: not_modeled
     note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :MEASure:PWIDth:BURSt
     level: not_modeled
     note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :CONFigure:NWIDth:BURSt
     level: not_modeled
     note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :MEASure:NWIDth:BURSt
     level: not_modeled
     note: 突发脉宽是 53230A Option 150（通道 3）独有，未建模。
+    gap: out_of_scope
   - header: :CONFigure:TINTerval
     level: implemented
     note: 选择两通道时间间隔，起/停通道参数默认 (@1),(@2)；触发置为立即。
   - header: :MEASure:TINTerval
     level: not_modeled
     note: 通道对参数未建模；时间间隔用 CONFigure:TINTerval + READ?。
+    gap: model_work
   - header: :CONFigure:RTIMe
     level: not_modeled
     note: 上升时间测量未建模（时间间隔的派生模式）。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:RTIMe
     level: not_modeled
     note: 上升时间测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:FTIMe
     level: not_modeled
     note: 下降时间测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:FTIMe
     level: not_modeled
     note: 下降时间测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:NDUTycycle
     level: not_modeled
     note: 占空比测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:NDUTycycle
     level: not_modeled
     note: 占空比测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:PDUTycycle
     level: not_modeled
     note: 占空比测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:PDUTycycle
     level: not_modeled
     note: 占空比测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:NWIDth
     level: not_modeled
     note: 脉宽测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:NWIDth
     level: not_modeled
     note: 脉宽测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:PWIDth
     level: not_modeled
     note: 脉宽测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:PWIDth
     level: not_modeled
     note: 脉宽测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:PHASe
     level: not_modeled
     note: 相位测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :MEASure:PHASe
     level: not_modeled
     note: 相位测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :CONFigure:TOTalize:CONTinuous
     level: not_modeled
     note: 连续累加未建模（首波缺口：需要 ABORt/DATA 读数路径）。
+    gap: model_work
   - header: :CONFigure:TOTalize:TIMed
     level: implemented
     note: 选择门控累加，门时间参数写门时间（100 µs–1000 s，默认 0.1 s），触发置为立即。
   - header: :MEASure:TOTalize:TIMed
     level: not_modeled
     note: 单次累加的门时间参数无法在操作命令里写设置；用 CONFigure:TOTalize:TIMed + READ?。
+    gap: model_work
   - header: :CONFigure:ARRay:TSTamp
     level: not_modeled
     note: 时间戳是 53230A 独有，未建模。
+    gap: model_work
   - header: :MEASure:ARRay:TSTamp
     level: not_modeled
     note: 时间戳是 53230A 独有，未建模。
+    gap: model_work
   - header: '[:SENSe]:TSTamp:RATE'
     level: not_modeled
     note: 时间戳速率是 53230A 独有，未建模。
+    gap: model_work
   - header: :SENSe:FREQuency:MODE
     level: not_modeled
     note: 测量模式 AUTO/RECiprocal/CONTinuous 未建模；CONTinuous 是 53230A 独有。
+    gap: model_work
 - section: Chapter 3 Measurements > Reference Oscillator Configuration
   commands:
   - header: '[:SENSe]:ROSCillator:SOURce'
@@ -239,6 +303,7 @@ sections:
   - header: '[:SENSe]:ROSCillator:EXTernal:CHECk'
     level: not_modeled
     note: 外部参考检测未建模；SOURce EXT 下 reference_clock 自行判断参考是否有效并回落。
+    gap: model_work
   - header: '[:SENSe]:ROSCillator:INTernal:POWer:STANdby'
     level: accepted
     affects_data: false
@@ -251,54 +316,82 @@ sections:
   - header: :INPut<ch>:RANGe
     level: not_modeled
     note: 输入量程（5/50/500 V）未建模；阈值按 5 V 量程校验。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:INPut<ch>]:COUPling'
     level: implemented
     note: AC/DC 耦合，默认 AC；AC 为 10 Hz 高通（手册：AC 10 Hz–350 MHz，DC 1 mHz–350 MHz）。
   - header: :INPut<ch>:FILTer[:LPASs][:STATe]
     level: not_modeled
     note: 100 kHz 低通滤波未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:INPut<ch>]:LEVel[:ABSolute]'
     level: implemented
     note: 触发电平（5 V 量程 ±5.125 V），默认 0 V；绝对电平写入后按该电平计阈值穿越。
   - header: :INPut<ch>:LEVel<lv>[:ABSolute]
     level: not_modeled
     note: LEVel1/LEVel2 双阈值（单通道时间间隔、上升/下降时间）未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:LEVel<lv>:AUTO
     level: not_modeled
     note: 自动电平未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:LEVel<lv>:RELative
     level: not_modeled
     note: 相对阈值（p-p 百分比）未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:LEVel:MINimum
     level: not_modeled
     note: 输入电平测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:LEVel:MAXimum
     level: not_modeled
     note: 输入电平测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:LEVel:PTPeak
     level: not_modeled
     note: 输入电平测量未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:NREJection
     level: not_modeled
     note: 噪声抑制（迟滞）未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:SLOPe<lv>
     level: not_modeled
     note: 触发沿未建模；计数核心只数正向穿越。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:PROTection
     level: not_modeled
     note: 输入保护继电器未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:PROTection:CLEar
     level: not_modeled
     note: 输入保护继电器未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut<ch>:PROBe
     level: not_modeled
     note: 探头比未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :INPut3:BURSt:LEVel
     level: not_modeled
     note: 通道 3（Option 106/115）未建模。
+    gap: out_of_scope
   - header: :INPut3:STRength
     level: not_modeled
     note: 通道 3（Option 106/115）未建模。
+    gap: out_of_scope
 - section: Chapter 5 Triggering and Gating
   commands:
   - header: :ABORt
@@ -319,6 +412,8 @@ sections:
   - header: :TRIGger:SLOPe
     level: not_modeled
     note: 外部触发沿未建模（Trig In 不产生触发）。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: :TRIGger:DELay
     level: implemented
     note: 触发到第一次测量的延迟 0–10000 s，默认 0；计入虚拟时间。
@@ -337,6 +432,8 @@ sections:
   - header: '[:SENSe]:FREQuency:GATE:POLarity'
     level: not_modeled
     note: 外部门控极性未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:TOTalize:GATE:SOURce'
     level: implemented
     note: 累加门控源 TIME/EXTernal；仿真中与频率门控源共用一个设置（手册中两功能各自保存）。
@@ -346,63 +443,97 @@ sections:
   - header: '[:SENSe]:TOTalize:GATE:POLarity'
     level: not_modeled
     note: 外部门控极性未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:TINTerval:GATE:SOURce'
     level: not_modeled
     note: 时间间隔门控（IMMediate/EXTernal/ADVanced）未建模；间隔按通道事件直接求。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:TINTerval:GATE:POLarity'
     level: not_modeled
     note: 时间间隔门控极性未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STARt:SOURce'
     level: not_modeled
     note: 高级门控未建模（首波只做 TIME/EXTernal 门控源与门时间）。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STARt:SLOPe'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:EXTernal:SOURce'
     level: not_modeled
     note: 高级门控与外部门控信号源未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STARt:DELay:SOURce'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STARt:DELay:EVENts'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STARt:DELay:TIME'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STOP:SOURce'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STOP:SLOPe'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STOP:HOLDoff:SOURce'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STOP:HOLDoff:EVENts'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:GATE:STOP:HOLDoff:TIME'
     level: not_modeled
     note: 高级门控未建模。
+    gap: blocked
+    blocked_by: counter-measurements
   - header: '[:SENSe]:FREQuency:BURSt:GATE:AUTO'
     level: not_modeled
     note: 突发门控是 53230A Option 150 独有，未建模。
+    gap: out_of_scope
   - header: '[:SENSe]:FREQuency:BURSt:GATE:DELay'
     level: not_modeled
     note: 突发门控是 53230A Option 150 独有，未建模。
+    gap: out_of_scope
   - header: '[:SENSe]:FREQuency:BURSt:GATE:TIME'
     level: not_modeled
     note: 突发门控是 53230A Option 150 独有，未建模。
+    gap: out_of_scope
   - header: '[:SENSe]:FREQuency:BURSt:GATE:NARRow'
     level: not_modeled
     note: 突发门控是 53230A Option 150 独有，未建模。
+    gap: out_of_scope
   - header: :OUTPut[:STATe]
     level: not_modeled
     note: Gate In/Out 输出未建模。
+    gap: out_of_scope
   - header: :OUTPut:POLarity
     level: not_modeled
     note: Gate In/Out 输出未建模。
+    gap: out_of_scope
 - section: Chapter 6 Math, Graphing, and Data Logging
   commands:
   - header: CALCulate<ch>[:STATe]
@@ -412,36 +543,47 @@ sections:
   - header: CALCulate<ch>:SMOothing[:STATe]
     level: not_modeled
     note: 平滑（移动平均）未建模。
+    gap: model_work
   - header: CALCulate<ch>:SMOothing:RESPonse
     level: not_modeled
     note: 平滑（移动平均）未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe[:STATe]
     level: not_modeled
     note: 缩放/偏移运算未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:FUNCtion
     level: not_modeled
     note: 缩放函数（NULL/PCT/PPM/PPB/SCALe）未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:REFerence:AUTO
     level: not_modeled
     note: 缩放参考未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:REFerence
     level: not_modeled
     note: 缩放参考未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:GAIN
     level: not_modeled
     note: 缩放增益未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:OFFSet
     level: not_modeled
     note: 缩放偏移未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:INVert
     level: not_modeled
     note: 读数取倒数未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:UNIT
     level: not_modeled
     note: 用户读数单位未建模。
+    gap: model_work
   - header: CALCulate<ch>:SCALe:UNIT:STATe
     level: not_modeled
     note: 用户读数单位未建模。
+    gap: model_work
   - header: CALCulate<ch>:AVERage[:STATe]
     level: accepted
     affects_data: false
@@ -458,15 +600,18 @@ sections:
   - header: CALCulate<ch>:AVERage:PTPeak
     level: not_modeled
     note: 平均峰峰值未建模（统计组件没有该读数）。
+    gap: model_work
   - header: CALCulate<ch>:AVERage:SDEViation
     level: implemented
     note: 样本标准差（n−1）；不足 2 个读数时为 0。
   - header: CALCulate<ch>:AVERage:ADEViation
     level: not_modeled
     note: 阿伦偏差未建模。
+    gap: model_work
   - header: CALCulate<ch>:AVERage:ALL
     level: not_modeled
     note: 一次返回均值/标准差/最小/最大四个值未建模；分别查询 AVERage/MINimum/MAXimum/SDEViation。
+    gap: model_work
   - header: CALCulate<ch>:AVERage:COUNt:CURRent
     level: implemented
     note: 当前统计的读数个数。
@@ -476,45 +621,69 @@ sections:
   - header: CALCulate<ch>:LIMit[:STATe]
     level: not_modeled
     note: 限值检查未建模。
+    gap: model_work
   - header: CALCulate<ch>:LIMit:LOWer[:DATA]
     level: not_modeled
     note: 限值检查未建模。
+    gap: model_work
   - header: CALCulate<ch>:LIMit:UPPer[:DATA]
     level: not_modeled
     note: 限值检查未建模。
+    gap: model_work
   - header: CALCulate<ch>:LIMit:CLEar[:IMMediate]
     level: not_modeled
     note: 限值检查未建模。
+    gap: model_work
   - header: CALCulate2:TRANsform:HISTogram[:STATe]
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:POINts
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:COUNt
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:ALL
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:DATA
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:RANGe:AUTO
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:RANGe:AUTO:COUNt
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:RANGe:LOWer
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:RANGe:UPPer
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: CALCulate2:TRANsform:HISTogram:CLEar
     level: not_modeled
     note: 直方图未建模。
+    gap: blocked
+    blocked_by: histogram
   - header: :DISPlay[:WINDow]:MODE
     level: accepted
     affects_data: false
@@ -527,104 +696,159 @@ sections:
   - header: FORMat:BORDer
     level: not_modeled
     note: 只支持 ASCII，字节序未建模。
+    gap: model_work
   - header: FORMat:PHASe
     level: not_modeled
     note: 相位测量未建模。
+    gap: model_work
   - header: DATA:LAST
     level: not_modeled
     note: 读数存储器未建模；读数由触发模型取回（FETCh?/READ?）。
+    gap: model_work
   - header: DATA:POINts:EVENt:THReshold
     level: not_modeled
     note: 读数存储阈值未建模。
+    gap: model_work
   - header: DATA:POINts
     level: not_modeled
     note: 读数存储器未建模。
+    gap: model_work
   - header: DATA:REMove
     level: not_modeled
     note: 读数存储器未建模。
+    gap: model_work
   - header: R
     level: not_modeled
     note: 定长块读数存储器未建模；批量读数用 FETCh?/READ?。
+    gap: model_work
   - header: MMEMory:CDIRectory
     level: not_modeled
     note: 文件系统（内部闪存/U 盘）未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:MDIRectory
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:RDIRectory
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:DELete
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:COPY
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:MOVE
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:CATalog
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:CATalog:DATA
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:CATalog:STATe
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:LOAD:STATe
     level: not_modeled
     note: 仪器状态文件未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:STORe:STATe
     level: not_modeled
     note: 仪器状态文件未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:LOAD:PREFerences
     level: not_modeled
     note: 用户偏好文件未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:STORe:PREFerences
     level: not_modeled
     note: 用户偏好文件未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:STORe:DATA
     level: not_modeled
     note: 读数存文件未建模。
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:DOWNload:DATA
     level: not_modeled
     note: 文件下载未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:UPload
     level: not_modeled
     note: 文件上传未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MEMory:STATe:DELete
     level: not_modeled
     note: 状态存储未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MEMory:STATe:DELete:ALL
     level: not_modeled
     note: 状态存储未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MEMory:STATe:RECall:AUTO
     level: not_modeled
     note: 上电状态自动调用未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MEMory:STATe:RECall:SELect
     level: not_modeled
     note: 状态存储未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MEMory:STATe:VALid
     level: not_modeled
     note: 状态存储未建模。
+    gap: blocked
+    blocked_by: setup-memory
 - section: Chapter 8 Instrument Status
   commands:
   - header: STATus:QUEStionable:CONDition
     level: not_modeled
     note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: STATus:QUEStionable[:EVENt]
     level: not_modeled
     note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: STATus:QUEStionable:ENABle
     level: not_modeled
     note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: STATus:OPERation:CONDition
     level: not_modeled
     note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: STATus:OPERation[:EVENt]
     level: not_modeled
     note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: STATus:OPERation:ENABle
     level: not_modeled
     note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work

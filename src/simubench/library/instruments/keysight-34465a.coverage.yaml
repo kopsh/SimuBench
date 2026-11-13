@@ -27,17 +27,22 @@ sections:
   - header: ROUTe:TERMinals?
     level: not_modeled
     note: 前面板 Front/Rear 开关不是可编程的；仿真中无此开关。
+    gap: model_work
   - header: TEST:ALL?
     level: not_modeled
     note: 整机自检；仿真中的仪表总在正常状态，回复无意义。
+    gap: out_of_scope
   - header: UNIT:TEMPerature
     level: not_modeled
     note: 温度功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: temperature
 - section: CALibration Subsystem
   commands:
   - header: CALibration:ADC?
     level: not_modeled
     note: 低电平 ADC 校准是硬件流程；仿真的 ADC 无需校准。
+    gap: out_of_scope
   - header: CALibration[:ALL]
     level: implemented
     note: 按 :CALibration:VALue 对当前（功能, 量程）调整：参考值为 0 调零点、否则调增益；+0 通过、+1 失败。
@@ -62,6 +67,7 @@ sections:
   - header: CALibration:TEMPerature?
     level: not_modeled
     note: 上次校准温度未记录。
+    gap: out_of_scope
   - header: :CALibration:TIME
     level: implemented
     note: 上次校准时间；组件按 HH:MM:SS 带引号回复（手册为 hh,mm,ss.sss）。
@@ -76,9 +82,13 @@ sections:
   - header: CONFigure:CAPacitance
     level: not_modeled
     note: 电容功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: CONFigure:CONTinuity
     level: not_modeled
     note: 通断测试未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: ':CONFigure:CURRent[:DC]'
     level: implemented
     note: 直流电流：输入并分流电阻进入电路求解，读 V/R（#301）；量程 100 µA–3 A。分流值是模型取值（数据表未给），10 A 端子未建模。
@@ -88,9 +98,13 @@ sections:
   - header: CONFigure:DIODe
     level: not_modeled
     note: 二极管测试未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: CONFigure:{FREQuency|PERiod}
     level: not_modeled
     note: 频率/周期功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: ':CONFigure:RESistance'
     level: implemented
     note: 两线电阻：按量程的测试电流（数据表：100 Ω/1 kΩ 1 mA … 10 MΩ 以上 500 nA）流过 DUT，读 V/I（#301）；开路或超量程回 +9.9E+37。偏置补偿与功率限制未建模。
@@ -100,6 +114,8 @@ sections:
   - header: CONFigure:TEMPerature
     level: not_modeled
     note: 温度功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: temperature
   - header: :CONFigure[:VOLTage]:DC
     level: implemented
     note: 命令头选择直流电压功能，并把测量与触发参数恢复为手册 CONFigure 默认值（量程自动、分辨率自动、NPLC 10、自动调零开、立即触发、触发/采样计数 1、自动触发延迟），再用量程/分辨率参数覆盖；给量程参数即关闭自动量程。AUTO 关键字接受为自动量程（0）。
@@ -109,17 +125,21 @@ sections:
   - header: CONFigure[:VOLTage][:DC]:RATio
     level: not_modeled
     note: 比值测量需要 Sense 端口，未实现（另开 issue）。
+    gap: blocked
+    blocked_by: secondary
 - section: DATA Subsystem
   commands:
   - header: DATA:LAST?
     level: not_modeled
     note: 未实现（读数存储器只按序取出）。
+    gap: model_work
   - header: DATA:POINts
     level: implemented
     note: 读数存储器中的读数个数（上限 50,000，溢出覆盖最旧的）。
   - header: DATA:POINts:EVENt:THReshold
     level: not_modeled
     note: 阈值状态位（STATus 子系统）未实现。
+    gap: model_work
   - header: DATA:REMove
     level: implemented
     note: 取出并删除最旧的 n 条读数；手册的可选 WAIT 参数未建模（带它报 -108）。
@@ -136,9 +156,11 @@ sections:
   - header: DISPlay:TEXT:CLEar
     level: not_modeled
     note: 清除动作需要组件操作，未建模。
+    gap: model_work
   - header: DISPlay:VIEW
     level: not_modeled
     note: 图形视图不影响仿真，未建模。
+    gap: model_work
 - section: FORMat Subsystem
   commands:
   - header: FORMat:BORDer
@@ -153,14 +175,19 @@ sections:
   - header: HCOPy:SDUMp:DATA
     level: not_modeled
     note: 屏幕截图不在仿真中。
+    gap: blocked
+    blocked_by: screenshot
   - header: HCOPy:SDUMp:DATA:FORMat
     level: not_modeled
     note: 屏幕截图不在仿真中。
+    gap: blocked
+    blocked_by: screenshot
 - section: IEEE 488.2 Common Commands
   commands:
   - header: '*CAL?'
     level: not_modeled
     note: 自动校准（ACAL）：仿真的仪表无漂移可补偿，回复无意义。
+    gap: out_of_scope
   - header: '*CLS'
     level: implemented
     note: 清事件寄存器与错误队列。
@@ -176,24 +203,32 @@ sections:
   - header: '*LRN?'
     level: not_modeled
     note: 学习串未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*OPC'
     level: implemented
     note: '*OPC 在操作完成时置 ESR 位 0；*OPC? 等全部待完成操作结束后回 1（等待按 NPLC 计的运行）。'
   - header: '*OPT?'
     level: not_modeled
     note: 选件串未实现。
+    gap: model_work
   - header: '*PSC'
     level: not_modeled
     note: 上电状态清零未实现。
+    gap: model_work
   - header: '*RCL'
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RST'
     level: implemented
     note: 恢复出厂默认（值见各命令的默认值；错误队列不受 *RST 影响）。
   - header: '*SAV'
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器；查询按整数回复（真机带 + 号）。
@@ -214,32 +249,43 @@ sections:
   - header: LXI:IDENtify[:STATe]
     level: not_modeled
     note: LAN 指示灯不在仿真中。
+    gap: model_work
   - header: LXI:MDNS:ENABle
     level: not_modeled
     note: LAN 配置不在仿真中。
+    gap: model_work
   - header: LXI:MDNS:HNAMe[:RESolved]?
     level: not_modeled
     note: LAN 配置不在仿真中。
+    gap: model_work
   - header: LXI:MDNS:SNAMe:DESired
     level: not_modeled
     note: LAN 配置不在仿真中。
+    gap: model_work
   - header: LXI:MDNS:SNAMe[:RESolved]?
     level: not_modeled
     note: LAN 配置不在仿真中。
+    gap: model_work
   - header: LXI:RESet
     level: not_modeled
     note: LAN 配置不在仿真中。
+    gap: model_work
   - header: LXI:RESTart
     level: not_modeled
     note: LAN 配置不在仿真中。
+    gap: model_work
 - section: MEASure Subsystem
   commands:
   - header: MEASure:CAPacitance?
     level: not_modeled
     note: 电容功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: MEASure:CONTinuity?
     level: not_modeled
     note: 通断测试未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: ':MEASure:CURRent[:DC]'
     level: implemented
     note: 先选直流电流功能，再读一次（#301）。
@@ -249,9 +295,13 @@ sections:
   - header: MEASure:DIODe?
     level: not_modeled
     note: 二极管测试未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: MEASure:{FREQuency|PERiod}?
     level: not_modeled
     note: 频率/周期功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: ':MEASure:RESistance'
     level: implemented
     note: 先选两线电阻功能，再读一次（#301）。
@@ -261,6 +311,8 @@ sections:
   - header: MEASure:TEMPerature?
     level: not_modeled
     note: 温度功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: temperature
   - header: :MEASure[:VOLTage][:DC]
     level: implemented
     note: 立即按当前设定测一次直流电压；量程与分辨率参数被接受但不改变设置（操作参数不写状态），不重置其他参数为默认值、不写读数存储器。
@@ -270,71 +322,115 @@ sections:
   - header: MEASure[:VOLTage][:DC]:RATio?
     level: not_modeled
     note: 比值测量需要 Sense 端口，未实现。
+    gap: blocked
+    blocked_by: secondary
 - section: MMEMory Subsystem
   commands:
   - header: MMEMory:CATalog[:ALL]?
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:CDIRectory
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:COPY
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:DELete
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:DOWNload:DATA
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:DOWNload:FNAMe
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:FORMat:READing:CSEParator
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:FORMat:READing:INFormation
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:FORMat:READing:RLIMit
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:LOAD:PREFerences
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:LOAD:STATe
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:MDIRectory
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:MOVE
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:RDIRectory
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:STORe:DATA
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: data-file
   - header: MMEMory:STORe:PREFerences
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:STORe:STATe
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:UPLoad?
     level: not_modeled
     note: 文件系统不在仿真中。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:STATe:RECall:AUTO
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:STATe:RECall:SELect
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: MMEMory:STATe:VALid?
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
 - section: SAMPle Subsystem
   commands:
   - header: SAMPle:COUNt
@@ -343,12 +439,16 @@ sections:
   - header: SAMPle:COUNt:PRETrigger
     level: not_modeled
     note: 预触发采样属于数字化（DIG 选项），未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: SAMPle:SOURce
     level: not_modeled
     note: TIMer 定时采样未实现；仅立即采样。
+    gap: model_work
   - header: SAMPle:TIMer
     level: not_modeled
     note: TIMer 定时采样未实现。
+    gap: model_work
 - section: SENSe Subsystem > Function
   commands:
   - header: '[:SENSe]:FUNCtion[:ON]'
@@ -363,12 +463,15 @@ sections:
   - header: '[:SENSe]:VOLTage:{AC|DC}:NULL[:STATe]'
     level: not_modeled
     note: Null/数学功能未实现（另开 issue）。
+    gap: model_work
   - header: '[:SENSe]:VOLTage:{AC|DC}:NULL:VALue'
     level: not_modeled
     note: Null/数学功能未实现。
+    gap: model_work
   - header: '[:SENSe]:VOLTage:{AC|DC}:NULL:VALue:AUTO'
     level: not_modeled
     note: Null/数学功能未实现。
+    gap: model_work
   - header: '[:SENSe]:VOLTage[:DC]:RANGe'
     level: implemented
     note: 100 mV–1000 V；量程设定查询返回设定值（自动时 0；真机返回实际量程）；AC 与 DC 共用一组设定（真机按功能独立记忆）。设定固定量程不自动关闭自动量程（须再发 RANGe:AUTO
@@ -398,41 +501,61 @@ sections:
   - header: '[:SENSe]:VOLTage[:DC]:RATio:SECondary'
     level: not_modeled
     note: 比值测量的二次测量未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: '[:SENSe]:VOLTage[:DC]:RESolution'
     level: implemented
     note: 分辨率设定保存并回读；实际分辨率由 NPLC 表给出（真机两者互相设定）。
   - header: '[:SENSe]:VOLTage[:DC]:SECondary'
     level: not_modeled
     note: 二次测量未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: '[:SENSe]:VOLTage[:DC]:ZERO:AUTO'
     level: implemented
     note: 自动调零 ON/OFF；ONCE 未建模（-224）。
   - header: '[:SENSe]:VOLTage:AC:SECondary'
     level: not_modeled
     note: 二次测量未实现。
+    gap: blocked
+    blocked_by: secondary
 - section: SENSe Subsystem > Resistance / Current / Other
   commands:
   - header: '[SENSe:]{RESistance|FRESistance}:APERture'
     level: not_modeled
     note: 电阻功能未实现（另开 issue）。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{RESistance|FRESistance}:NPLC'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{RESistance|FRESistance}:NULL[:STATe]'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{RESistance|FRESistance}:NULL:VALue'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{RESistance|FRESistance}:NULL:VALue:AUTO'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{RESistance|FRESistance}:OCOMpensated'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{RESistance|FRESistance}:POWer:LIMit[:STATe]'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[:SENSe]:RESistance:RANGe'
     level: implemented
     note: 电阻功能自己的量程设定（与电压量程分开，#301）。
@@ -442,27 +565,43 @@ sections:
   - header: '[SENSe:]{RESistance|FRESistance}:RANGe:AUTO'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{RESistance|FRESistance}:RESolution'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]RESistance:ZERO:AUTO'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{FRESistance|RESistance}:SECondary'
     level: not_modeled
     note: 电阻功能未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: '[SENSe:]CURRent:AC:BANDwidth'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent:{AC|DC}:NULL[:STATe]'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent:{AC|DC}:NULL:VALue'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent:{AC|DC}:NULL:VALue:AUTO'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[:SENSe]:CURRent[:DC]:RANGe'
     level: implemented
     note: 电流功能自己的量程设定（#301）。
@@ -472,145 +611,233 @@ sections:
   - header: '[SENSe:]CURRent:{AC|DC}:RANGe:AUTO'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent:{AC|DC}:TERMinals'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent:AC:SECondary'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: '[SENSe:]CURRent[:DC]:APERture'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent[:DC]:APERture:ENABled'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent[:DC]:NPLC'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent[:DC]:RESolution'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent[:DC]:SECondary'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: '[SENSe:]CURRent[:DC]:ZERO:AUTO'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CURRent:SWITch:MODE'
     level: not_modeled
     note: 电流功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CAPacitance:NULL[:STATe]'
     level: not_modeled
     note: 电容功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CAPacitance:NULL:VALue'
     level: not_modeled
     note: 电容功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CAPacitance:NULL:VALue:AUTO'
     level: not_modeled
     note: 电容功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CAPacitance:RANGe'
     level: not_modeled
     note: 电容功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CAPacitance:RANGe:AUTO'
     level: not_modeled
     note: 电容功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]CAPacitance:SECondary'
     level: not_modeled
     note: 电容功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]TEMPerature:APERture'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:NPLC'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:NULL[:STATe]'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:SECondary'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:TRANsducer:TYPE'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:TRANsducer:{FRTD|RTD}:OCOMpensated'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:TRANsducer:{FRTD|RTD}:RESistance[:REFerence]'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:TRANsducer:TCouple:RJUNction:TYPE'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:TRANsducer:TCouple:TYPE'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]TEMPerature:ZERO:AUTO'
     level: not_modeled
     note: 温度功能未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: '[SENSe:]{FREQuency|PERiod}:APERture'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{FREQuency|PERiod}:NULL[:STATe]'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{FREQuency|PERiod}:RANGe:LOWer'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{FREQuency|PERiod}:TIMeout:AUTO'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{FREQuency|PERiod}:VOLTage:RANGe'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]{FREQuency|PERiod}:VOLTage:RANGe:AUTO'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]FREQuency:SECondary'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]PERiod:SECondary'
     level: not_modeled
     note: 频率/周期功能未实现。
+    gap: blocked
+    blocked_by: dmm-functions
   - header: '[SENSe:]DATA2?'
     level: not_modeled
     note: 二次测量未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: '[SENSe:]DATA2:CLEar[:IMMediate]'
     level: not_modeled
     note: 二次测量未实现。
+    gap: blocked
+    blocked_by: secondary
 - section: STATus Subsystem
   commands:
   - header: STATus:OPERation:CONDition?
     level: not_modeled
     note: 状态寄存器组（操作/可疑数据）未实现；*STB?/*ESR? 已覆盖常用位。
+    gap: blocked
+    blocked_by: secondary
   - header: STATus:OPERation:ENABle
     level: not_modeled
     note: 状态寄存器组未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: STATus:OPERation[:EVENt]?
     level: not_modeled
     note: 状态寄存器组未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: STATus:PRESet
     level: not_modeled
     note: 状态寄存器组未实现。
+    gap: model_work
   - header: STATus:QUEStionable:CONDition?
     level: not_modeled
     note: 状态寄存器组未实现。
+    gap: model_work
   - header: STATus:QUEStionable:ENABle
     level: not_modeled
     note: 状态寄存器组未实现。
+    gap: model_work
   - header: STATus:QUEStionable[:EVENt]?
     level: not_modeled
     note: 状态寄存器组未实现。
+    gap: model_work
 - section: SYSTem Subsystem - General Purpose Commands
   commands:
   - header: SYSTem:ACALibration:DATE?
     level: not_modeled
     note: 自动校准未实现（*CAL?）。
+    gap: blocked
+    blocked_by: secondary
   - header: SYSTem:ACALibration:TEMPerature?
     level: not_modeled
     note: 自动校准未实现。
+    gap: blocked
+    blocked_by: temperature
   - header: SYSTem:ACALibration:TIME?
     level: not_modeled
     note: 自动校准未实现。
+    gap: blocked
+    blocked_by: secondary
   - header: SYSTem:BEEPer[:IMMediate]
     level: accepted
     affects_data: false
@@ -632,12 +859,15 @@ sections:
   - header: SYSTem:HELP?
     level: not_modeled
     note: 命令清单块未实现（覆盖表即清单）。
+    gap: model_work
   - header: SYSTem:IDENtify
     level: not_modeled
     note: '*IDN? 固定返回 34465A。'
+    gap: model_work
   - header: SYSTem:LABel
     level: not_modeled
     note: 面板标签未建模（显示文本用 DISPlay:TEXT）。
+    gap: model_work
   - header: SYSTem:LFRequency
     level: implemented
     note: 电源频率 50 Hz（读数时间按 50 Hz 的 PLC 周期）。
@@ -651,9 +881,11 @@ sections:
   - header: SYSTem:SECurity:COUNt?
     level: not_modeled
     note: 安全计数未实现。
+    gap: out_of_scope
   - header: SYSTem:SECurity:IMMediate
     level: not_modeled
     note: 内存清理（SEC 选项）未实现。
+    gap: out_of_scope
   - header: SYSTem:TEMPerature
     level: implemented
     note: 内部温度（固定 28.5 °C）。
@@ -663,68 +895,88 @@ sections:
   - header: SYSTem:UPTime?
     level: not_modeled
     note: 开机时长未实现。
+    gap: out_of_scope
   - header: SYSTem:VERSion
     level: implemented
     note: SCPI 版本 1994.0。
   - header: SYSTem:WMESsage
     level: not_modeled
     note: 开机消息未建模。
+    gap: model_work
 - section: SYSTem Subsystem - LOCK / LICense / COMMunicate
   commands:
   - header: SYSTem:LOCK:NAME?
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: SYSTem:LOCK:OWNer?
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: SYSTem:LOCK:RELease
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: SYSTem:LOCK:REQuest?
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: SYSTem:LICense:CATalog?
     level: not_modeled
     note: 选件授权未实现（本型号按无 MEM/DIG 选项建模）。
+    gap: out_of_scope
   - header: SYSTem:LICense:DELete
     level: not_modeled
     note: 选件授权未实现。
+    gap: out_of_scope
   - header: SYSTem:LICense:DELete:ALL
     level: not_modeled
     note: 选件授权未实现。
+    gap: out_of_scope
   - header: SYSTem:LICense:DESCription?
     level: not_modeled
     note: 选件授权未实现。
+    gap: out_of_scope
   - header: SYSTem:LICense:ERRor?
     level: not_modeled
     note: 选件授权未实现。
+    gap: out_of_scope
   - header: SYSTem:LICense:ERRor:COUNt?
     level: not_modeled
     note: 选件授权未实现。
+    gap: out_of_scope
   - header: SYSTem:LICense:INSTall
     level: not_modeled
     note: 选件授权未实现。
+    gap: out_of_scope
   - header: SYSTem:LICense:INSTall?
     level: not_modeled
     note: 选件授权未实现。
+    gap: out_of_scope
   - header: SYSTem:COMMunicate:ENABle
     level: not_modeled
     note: 接口配置不在仿真中。
+    gap: model_work
   - header: SYSTem:COMMunicate:GPIB:ADDRess
     level: not_modeled
     note: 接口配置不在仿真中。
+    gap: model_work
   - header: SYSTem:COMMunicate:LAN:DHCP
     level: not_modeled
     note: 接口配置不在仿真中。
+    gap: model_work
   - header: SYSTem:COMMunicate:LAN:HOSTname
     level: not_modeled
     note: 接口配置不在仿真中。
+    gap: model_work
   - header: SYSTem:COMMunicate:LAN:IPADdress
     level: not_modeled
     note: 接口配置不在仿真中。
+    gap: model_work
   - header: SYSTem:USB:HOST:ENABle
     level: not_modeled
     note: 接口配置不在仿真中。
+    gap: model_work
 - section: TRIGger Subsystem
   commands:
   - header: TRIGger:COUNt
@@ -739,6 +991,8 @@ sections:
   - header: TRIGger:LEVel
     level: not_modeled
     note: 电平触发需要 DIG 选项与内部触发源，未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:SLOPe
     level: accepted
     affects_data: false
@@ -751,24 +1005,32 @@ sections:
   - header: CALCulate:CLEar[:IMMediate]
     level: not_modeled
     note: 数学/统计功能未实现（另开 issue）。
+    gap: model_work
   - header: CALCulate:TRANsform:HISTogram[:STATe]
     level: not_modeled
     note: 数学/统计功能未实现。
+    gap: model_work
   - header: CALCulate:LIMit[:STATe]
     level: not_modeled
     note: 数学/统计功能未实现。
+    gap: model_work
   - header: CALCulate:SCALe[:STATe]
     level: not_modeled
     note: 数学/统计功能未实现。
+    gap: model_work
   - header: CALCulate:SCALe:FUNCtion
     level: not_modeled
     note: 数学/统计功能未实现。
+    gap: model_work
   - header: CALCulate:AVERage[:STATe]
     level: not_modeled
     note: 数学/统计功能未实现。
+    gap: model_work
   - header: CALCulate:SMOothing[:STATe]
     level: not_modeled
     note: 数学/统计功能未实现。
+    gap: model_work
   - header: CALCulate:TCHart[:STATe]
     level: not_modeled
     note: 数学/统计功能未实现。
+    gap: model_work
