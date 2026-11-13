@@ -76,8 +76,8 @@ plausible fake).
 | --- | --- |
 | Was this already decided? | `decisions.md` (D1–D67; `grep -n '^## D'`) |
 | Is it done already? | `progress.md` (milestones); details: grep `progress-log.md` |
-| What is the product for, what is weak, what comes next? | `positioning-review.md` (internal tool; shortage + own-instrument scenarios; draft) |
-| In what order is the remaining work done, who does each step, what counts as done? | `product-plan.md` (draft: what only the owner can do, what agents can do now, issue-ready rows) |
+| What is the product for, and how did it stand on 2026-11-11? | `positioning-review.md` (internal tool; shortage + own-instrument scenarios; no plans) |
+| What comes next, in what order, who does each step, what counts as done? | `product-plan.md` — the **only** place future work is planned (draft): owner-only items H1–H7, near-term P1/P2, the five-year scope and analyzer targets with capability gaps C1–C17 and phases, issue-ready rows. Never add a plan to another doc |
 | Signal chain inside instruments: sample streams, the ADC boundary, internal probes, the two evaluations, the issue split (D67) | `signal-chain.md` (implemented, first version); how to write one in a definition: `instrument-authoring.md` 2.11 |
 | Definition YAML format, declarative commands, replies, mappings | `instrument-authoring.md` 2–5 |
 | Real-model rules | `real-models.md`; meters/calibrators/SMUs: `metrology-authoring.md` |

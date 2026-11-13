@@ -83,6 +83,9 @@ both:
 2. **The impact reaches beyond one feature** — file formats, APIs, terminology, product scope,
    the security model, and the like.
 
+Future work is planned in one place only, `docs/product-plan.md`: a new plan, phase or backlog goes
+there (edit its rows), never into a new document or another doc.
+
 Feature-level descriptions belong in issues, pull requests and their docs (`docs/real-models.md`,
 `docs/architecture.md`, `docs/glossary.md`, …). To change an existing decision, edit its entry; do
 not add a new one.
