@@ -5207,13 +5207,6 @@ export interface components {
              */
             display_unit?: string | null;
             /**
-             * Each
-             * @description One declaration for a family of settings: the name holds {n}, and the definition gets one setting per number, e.g. 'display.bookmark{n}.x' with each: {n: {first: 1, last: 100}} (the label's {n} too). Commands pick one by an index parameter or a header suffix of the same name (:DISPlay:BOOKmark<n>:XPOSition)
-             */
-            each?: {
-                [key: string]: components["schemas"]["StateEach"];
-            } | null;
-            /**
              * Electrical
              * @description Changing this variable changes the bench's circuit
              * @default false

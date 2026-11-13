@@ -9,7 +9,6 @@ from __future__ import annotations
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic.json_schema import SkipJsonSchema
 
 from ..engine.circuit import SourceContribution  # re-export (D57)
 from ..engine.circuit import SourceLine as SourceLine
@@ -303,8 +302,6 @@ class StateVarInfo(StateSpec):
     model_config = ConfigDict(populate_by_name=True, json_schema_serialization_defaults_required=True)
 
     path: str
-    # A family declaration is expanded when the definition loads: a served setting never has one.
-    each: SkipJsonSchema[None] = Field(None, exclude=True)
     dangerous: bool = Field(
         False, description="A command bound to it is marked dangerous; confirm before changing"
     )

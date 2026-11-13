@@ -77,6 +77,7 @@ class StateSpec(_Model):
     electrical: bool = Field(False, description="Changing this variable changes the bench's circuit")
     each: dict[str, StateEach] | None = Field(
         None,
+        exclude=True,  # expanded when the definition loads: a loaded setting never has one
         description="One declaration for a family of settings: the name holds {n}, and the definition "
         "gets one setting per number, e.g. 'display.bookmark{n}.x' with each: {n: {first: 1, last: 100}} "
         "(the label's {n} too). Commands pick one by an index parameter or a header suffix of the same "
