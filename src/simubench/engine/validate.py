@@ -217,10 +217,10 @@ def _check_instrument(
         )
     ports: dict[str, tuple[str, str, int | None]] = {}
     for n in range(1, d.channels.count + 1):
-        for pname in d.ports.channel:
-            ports[pname.replace("{n}", str(n))] = ("electrical", "inout", n)
-    for pname in d.ports.instrument:
-        ports[pname] = ("electrical", "inout", None)
+        for pname, target in d.ports.channel.items():
+            ports[pname.replace("{n}", str(n))] = (*_exposed_port(d, target, known_types, channel=True), n)
+    for pname, target in d.ports.instrument.items():
+        ports[pname] = (*_exposed_port(d, target, known_types, channel=False), None)
     port_info[name] = ports
     specs = {**d.state}
     for n in range(1, d.channels.count + 1):
@@ -328,6 +328,23 @@ def _check_initial_state(
                     f"可选值：{', '.join(spec.options or [])}",
                     name,
                 )
+
+
+def _exposed_port(
+    d: InstrumentDefinition, target: str, known_types: dict[str, type[Component]], *, channel: bool
+) -> tuple[str, str]:
+    """(medium, direction) of a port an instrument exposes: an optical port is the component's
+    own (D71); every other exposed port joins the circuit as an electrical terminal."""
+    comp, _, pin = target.partition(".")
+    specs = d.channel_components if channel else d.components
+    found = next((c for c in specs if c.name == comp), None)
+    if found is None and channel:  # a channel port may name an instrument-level component
+        found = next((c for c in d.components if c.name == comp), None)
+    cls = known_types.get(found.type) if found is not None else None
+    spec = cls.ports.get(pin) if cls is not None else None
+    if spec is not None and spec.medium == "optical":
+        return "optical", spec.direction
+    return "electrical", "inout"
 
 
 def _check_parts(
@@ -440,6 +457,7 @@ def _check_wires(
             # Several wires on one port are a star join, the normal way to tie a node (a divider's
             # middle, a Kelvin pair on a DUT terminal): no warning (#316). What is really wrong on
             # a shared net — two outputs driving it — is E-NET-MULTIDRIVER.
+        _check_optical_wire(i, w, port_info, report)
         for k, acc in enumerate(w.accessories):
             if acc.type not in known_types:
                 unknown_name(
@@ -451,6 +469,49 @@ def _check_wires(
                     list(known_types),
                     f"wire:{i}",
                 )
+
+
+def _check_optical_wire(
+    i: int, w: Any, port_info: dict[str, dict[str, tuple[str, str, int | None]]], report: Report
+) -> None:
+    """A fibre joins optical ports only, end to end (D71): an optical port wired to an electrical
+    one, or a fibre through a cable accessory, is refused."""
+    media = []
+    for ref in (w.from_, w.to):
+        owner, port = split(ref)
+        info = port_info.get(owner or "", {}).get(port)
+        if info is None:
+            return  # an unknown end is reported above
+        media.append(info[0])
+    if "optical" not in media:
+        return
+    if media[0] != media[1]:
+        report.add(
+            "error",
+            "E-WIRE-MEDIUM",
+            _ptr("wires", i),
+            f"光端口不能与电端口相连：{w.from_}（{_MEDIUM_WORDS[media[0]]}）→ {w.to}（{_MEDIUM_WORDS[media[1]]}）",
+            "光端口之间用光纤相连；电信号要先经光源（电光转换）或光接收器（光电转换）",
+            f"wire:{i}",
+        )
+    elif w.accessories:
+        report.add(
+            "error",
+            "E-WIRE-MEDIUM",
+            _ptr("wires", i, "accessories"),
+            "光纤上不能串入电缆配件",
+            "去掉配件；光衰减器等光器件作为 parts 放在测试台上，用两段光纤连接",
+            f"wire:{i}",
+        )
+
+
+_MEDIUM_WORDS = {
+    "optical": "光",
+    "electrical": "电",
+    "signal": "信号",
+    "reference": "参考",
+    "samples": "采样流",
+}
 
 
 def _check_faults(bench: BenchDefinition, report: Report) -> None:
@@ -563,7 +624,11 @@ def _check_nets(
         spec = cls.ports.get(port) if cls is not None and cls.role == "driver" else None
         return spec is not None and spec.medium == "electrical" and spec.direction != "in"
 
-    def is_driver(ref: str) -> bool:
+    def lights(cls: type[Component] | None, port: str) -> bool:
+        spec = cls.ports.get(port) if cls is not None else None
+        return spec is not None and spec.medium == "optical" and spec.direction == "out"
+
+    def is_driver(ref: str, test: Callable[[type[Component] | None, str], bool] = drives) -> bool:
         owner, port = split(ref)
         if owner in defs:
             d = defs[owner]
@@ -578,12 +643,26 @@ def _check_nets(
             target = target or d.ports.instrument.get(port)
             if target:
                 comp, pin = split(target)
-                return drives(types.get(comp_types.get(comp, "")), pin)
+                return test(types.get(comp_types.get(comp, "")), pin)
             return False
         part = bench.parts.get(owner)
-        return part is not None and drives(types.get(part.type), port)
+        return part is not None and test(types.get(part.type), port)
 
     for members in nets:
+        lit = sorted(m for m in members if is_driver(m, lights))
+        if len(lit) > 1:
+            idx = next(
+                (i for i, w in enumerate(bench.wires) if w.from_ in members or w.to in members),
+                0,
+            )
+            report.add(
+                "error",
+                "E-NET-MULTIDRIVER",
+                _ptr("wires", idx),
+                f"一根光纤只能接一个光输出，这里有 {len(lit)} 个：{', '.join(lit)}",
+                "光源之间不能直接相连；合路需要光耦合器（未建模）",
+                f"wire:{idx}",
+            )
         srcs = sorted(m for m in members if is_driver(m))
         if len(srcs) > 1:
             idx = next(

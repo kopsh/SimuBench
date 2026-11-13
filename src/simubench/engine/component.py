@@ -34,7 +34,10 @@ if TYPE_CHECKING:
 Direction = Literal["in", "out", "inout"]
 #: What a port carries. "signal" and "electrical" are analytic (:class:`Signal`); "samples" is a
 #: sample stream after an ADC (:mod:`.stream`, D67): frames pulled with :meth:`Component.frames`.
-Medium = Literal["signal", "electrical", "reference", "samples"]
+#: "optical" is optical power in watts, also a :class:`Signal` (its intensity envelope, D71): a
+#: one-way link from one optical output to the optical inputs on its fibre — inside an instrument
+#: by its wiring, between instruments and parts by bench wires, never part of the circuit.
+Medium = Literal["signal", "electrical", "reference", "samples", "optical"]
 #: What a component is to the bench circuit, for checks that read a bench without solving it:
 #: "driver" holds the nets on its electrical outputs to a voltage (an output stage, a supply, a
 #: buffer's output), "series" is a short in series for load matching (a cable).
@@ -135,6 +138,35 @@ class AcquisitionInput(Protocol):
 
     def adc_codes_per_div(self) -> float:
         """ADC codes per division of the record's vertical scale."""
+        ...
+
+
+@runtime_checkable
+class RecordSource(Protocol):
+    """What a scope's measurements (``scope_measurements``) take records from: a real-time
+    acquisition (``scope_acquisition``) or an equivalent-time one (``sampling_acquisition``, #1094).
+    ``adc_unit`` is asked only by a model whose clipped records are unmeasurable."""
+
+    def measure_record(self, channel: int) -> tuple[Record, int]:
+        """The record a measurement uses, and the virtual time getting it took."""
+        ...
+
+    def displayed(self) -> list[int]:
+        """The channels that are on."""
+        ...
+
+    def adc_unit(self) -> Component:
+        """The ADC block the record was quantized by."""
+        ...
+
+
+@runtime_checkable
+class NoiseSource(Protocol):
+    """A block in front of a record taker that adds noise the analytic signal does not carry (an
+    optical receiver's input-referred noise, #1093): the taker adds it to its own in power."""
+
+    def output_noise_rms(self) -> float:
+        """The block's noise at its output, V rms."""
         ...
 
 
@@ -663,6 +695,13 @@ class Component:
 
     def input(self, port: str) -> Signal:
         """Signal arriving at a signal input port (zero when nothing is wired)."""
+        spec = self.ports.get(port)
+        if spec is not None and spec.medium == "optical":
+            src = None if self.owner is None else self.owner.wiring.source(self.name, port)
+            if src is None:  # an optical input exposed on the bench: the fibre's source (D71)
+                return self.session.optical_input(self, port)
+            assert self.owner is not None
+            return self.session.cached_output(self.owner.components[src[0]], src[1])
         if self.owner is None:
             return Signal.zero()
         src = self.owner.wiring.source(self.name, port)

@@ -1,0 +1,31 @@
+schema: simubench.bench/2
+name: optical_link
+description: >-
+  光链路（#1093）：光发射机 1 Gb/s PRBS7、平均 1 mW、消光比 6 dB，经 3 dB 光衰减器到光电转换器（400 V/W），
+  电输出接示波器 CH1（1 MΩ）。
+instruments:
+  otx:
+    model: sb-otx-1
+    label: 光发射机
+    address: "TCPIP0::192.168.1.30::5025::SOCKET"
+    state: {output: true}
+  oe:
+    model: sb-oe-1
+    label: 光电转换器
+    address: "TCPIP0::192.168.1.31::5025::SOCKET"
+  scope:
+    model: sb-dso-4
+    label: 示波器
+    address: "TCPIP0::192.168.1.32::5025::SOCKET"
+parts:
+  att:
+    type: optical_attenuator
+    label: 3 dB 光衰减器
+    params: {attenuation: 3.0}
+wires:
+  - {from: otx.OUT, to: att.IN}
+  - {from: att.OUT, to: oe.IN}
+  - {from: oe.OUT, to: scope.CH1}
+run:
+  seed: 11
+  clock: command

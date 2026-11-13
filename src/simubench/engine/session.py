@@ -252,7 +252,7 @@ class Session:
                 raise ValueError(f"wire end {ref!r}: instrument {owner!r} has no port {port!r}")
         elif owner in self.components:
             comp = self.components[owner]
-            if port not in comp.ports or comp.ports[port].medium != "electrical":
+            if port not in comp.ports or comp.ports[port].medium not in ("electrical", "optical"):
                 raise ValueError(f"wire end {ref!r}: {comp.type_name} has no electrical port {port!r}")
         else:
             raise ValueError(f"wire end {ref!r}: no instrument or DUT named {owner!r}")
@@ -265,6 +265,33 @@ class Session:
             if target == (comp.name, port):
                 return f"{comp.owner.name}.{pname}"
         return None
+
+    def component_at(self, ref: str) -> tuple[Component, str] | None:
+        """The component and port behind a bench port reference ('dca.OPT1', 'att.IN')."""
+        owner, port = split(ref)
+        if owner in self.instruments:
+            target = self.instruments[owner].ports.get(port)
+            if target is None:
+                return None
+            return self.instruments[owner].components[target[0]], target[1]
+        comp = self.components.get(owner)
+        return (comp, port) if comp is not None and port in comp.ports else None
+
+    def optical_input(self, comp: Component, port: str) -> Signal:
+        """The optical power arriving at an optical input exposed on the bench: the output of the
+        one optical output on its fibre (D71); no fibre or no source: darkness."""
+        ref = self.port_ref(comp, port)
+        net = None if ref is None else self.port_net.get(ref)
+        if net is None:
+            return Signal.zero()
+        for member in self.nets[net].members:
+            found = self.component_at(member)
+            if found is None or found[0] is comp:
+                continue
+            spec = found[0].ports.get(found[1])
+            if spec is not None and spec.medium == "optical" and spec.direction == "out":
+                return self.cached_output(*found)
+        return Signal.zero()
 
     def node_of(self, comp: Component, port: str) -> str:
         ref = self.port_ref(comp, port)

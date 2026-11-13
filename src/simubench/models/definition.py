@@ -702,7 +702,7 @@ class Wiring(_Model):
 class Ports(_Model):
     channel: dict[str, str] = Field(default_factory=dict, description="'OUT{n}': 'out.pin'")
     instrument: dict[str, str] = Field(default_factory=dict)
-    media: dict[str, Literal["signal", "electrical", "reference"]] = Field(
+    media: dict[str, Literal["signal", "electrical", "reference", "optical"]] = Field(
         default_factory=dict,
         description="What an exposed port carries when it is not plain electrical, e.g. {REF_IN: reference} "
         "for a timebase or lock-in reference; the canvas draws such wires as reference wires",

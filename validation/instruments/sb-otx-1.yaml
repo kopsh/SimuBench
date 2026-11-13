@@ -1,0 +1,77 @@
+schema: simubench.instrument/1
+id: sb-otx-1
+manufacturer: SimuBench
+model: SB-OTX-1
+class: source
+version: 1
+description: >-
+  光发射机（验证仪表，#1093）：伪随机码（7 阶 m 序列，NRZ 或 PAM4）驱动激光调制器，光口 OUT 输出；平均光功率、消光比、
+  比特率可设，激光可关。调制器在偏置点附近是线性的（optical_source），光的载波不建模（D71）。
+identity:
+  serial: SBOTX000001
+  firmware: "1.0.0"
+state:
+  rate:
+    type: float
+    unit: HZ
+    min: 1.0e6
+    max: 1.2e11
+    default: 1.0e9
+    label: 码元速率
+    label_en: Symbol rate
+  power:
+    type: float
+    unit: W
+    min: 1.0e-6
+    max: 1.0e-2
+    default: 1.0e-3
+    label: 平均光功率
+    label_en: Average power
+  er:
+    type: float
+    unit: DB
+    min: 1.0
+    max: 20.0
+    default: 6.0
+    label: 消光比
+    label_en: Extinction ratio
+  format:
+    type: enum
+    options: [NRZ, PAM4]
+    default: NRZ
+    label: 调制格式
+    label_en: Format
+  output:
+    type: bool
+    default: false
+    label: 激光输出
+    label_en: Laser on
+components:
+  # 码流在 ±0.5 V 之间，正好是调制器的 1 V 驱动摆幅：1 对应 P1，0 对应 P0。
+  - name: prbs
+    type: prbs_source
+    params: {order: 7, rate: $rate, level: 0.5, format: $format}
+  - name: laser
+    type: optical_source
+    params: {power: $power, extinction_ratio: $er, swing: 1.0, enabled: $output, wavelength: 1.31e-6}
+wiring:
+  instrument:
+    - [prbs.out, laser.in]
+ports:
+  instrument:
+    OUT: laser.out
+display:
+  template: source
+  summary: [rate, format, power, er, output]
+capabilities: [source]
+commands:
+  - header: "[:SOURce]:RATE"
+    state: rate
+  - header: "[:SOURce]:POWer"
+    state: power
+  - header: "[:SOURce]:ER"
+    state: er
+  - header: "[:SOURce]:FORMat"
+    state: format
+  - header: ":OUTPut[:STATe]"
+    state: output

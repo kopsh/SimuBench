@@ -20,6 +20,14 @@
 | 连线 | Wire | 连接两个端口 |
 | 端口引用 | Port reference | 以 `<名称>.<端口>` 指一个端口：最后一段是端口，其余是名称；定义内部引用可带 `ch<n>.` 通道前缀 |
 | 网络 | Net | 相互连通的端口集合 |
+| 光端口、光纤 | Optical port, fibre | 携带光功率（W）的端口（介质 `optical`，D71）；光纤把一个光输出接到若干光输入，不是电气网络，光端口不能接电端口 |
+| 光源（电光转换） | Optical source (E/O) | 电驱动调制的激光：平均光功率、消光比、驱动摆幅（`optical_source`） |
+| 光接收器（光电转换） | Optical receiver (O/E) | 光功率变成电压：响应度 × 跨阻、带宽与响应形状、等效输入光噪声，读平均光功率（`optical_receiver`） |
+| 消光比 | Extinction ratio | 光信号“1”与“0”电平的功率比，dB |
+| 等效时间采样 | Equivalent-time sampling | 每次触发只取少量点、按触发后的时间位置拼出重复波形的采样方式（DCA）；SimuBench 按码型位置直接求值（D72） |
+| 码型锁定 | Pattern lock | 采样示波器把记录的时间零点对到码型起点，记录随码型重复 |
+| 时钟恢复 | Clock recovery (CDR) | 从数据中恢复码元时钟作为触发；锁定范围内锁定（`clock_recovery`） |
+| PAM4 | PAM4 | 四电平脉冲幅度调制，每个码元两比特（格雷码） |
 | 配件 | Accessory | 连线上的探头、线缆、衰减器等 |
 | 通道 | Channel | 仪表内部重复的一组组件（D15） |
 | 隐藏状态 | Hidden state | 测试台可设置、命令读不到、只能通过测量发现的状态 |

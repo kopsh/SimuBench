@@ -31,6 +31,22 @@
 
 内置型号(keysight-dsox2024a、keysight-uxr0334b、keysight-uxr1104b、siglent-sds2104xplus、lecroy-wavepro804hd)全覆盖,无豁免。
 
+## sampling_oscilloscope(等效时间采样示波器,#1094)
+
+框图:光输入 → 光电转换(响应度 × 跨阻、带宽)→ 采样器(档位、偏置、噪声)→ 记录;时钟恢复从数据取触发,码型锁定把记录对到码型起点。测量与波形传输沿用示波器的块。
+依据:DCA 类仪表的公开框图(光电转换 + 采样头 + 时钟恢复 + 码型锁定);块覆盖文件随第一台内置型号(N1093A/B,#1095)加入。
+
+| 块 | 组件 | 求解层级 | 实现状态 | 债务 |
+| --- | --- | --- | --- | --- |
+| optical_input | `optical_receiver` | 信号(光功率 → 电压,带宽与响应形状;平均光功率读数;等效输入光噪声由采集计入,D71、#1093) | 已实现 | 光载波、偏振、反射不建模 |
+| vertical | `scope_vertical` | 信号(档位、偏置与采样器自身噪声) | 已实现 | — |
+| clock_recovery | `clock_recovery` | 数据(由码型谱找重复速率与码元速率,在锁定范围内锁定;码型长度) | 已实现 | 环路动态与抖动传递不建模 |
+| acquisition | `sampling_acquisition` | 数据(码型锁定的等效时间记录:按码型位置求值,采样噪声与时基抖动逐点抽取,平均,采样耗时进虚拟时钟) | 已实现 | 眼图模式、余辉、眼图测量、抖动分解、TDECQ 不做(product-plan.md 第 6 节) |
+| measurements | `scope_measurements` | 数据(经 `RecordSource` 协议取记录) | 已实现 | — |
+| waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
+
+码型源 `prbs_source` 可选 NRZ 或 PAM4(格雷码,两期 m 序列配对,重复周期仍为 2^n − 1 个码元)。光源 `optical_source` 与光衰减器 `optical_attenuator` 见 D71。
+
 ## function_generator
 
 框图:参考 → 合成(标准波相位连续;任意波走表)→ 幅度与偏置 → 输出级;调制在合成之后。

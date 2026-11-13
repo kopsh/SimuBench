@@ -1,0 +1,20 @@
+schema: simubench.bench/2
+name: optical_dca
+description: >-
+  光发射机（26.5625 GBd PRBS7，平均 1 mW，消光比 6 dB）直接接等效时间采样示波器的光通道 1（#1094）：
+  时钟恢复锁定后按码型取记录，读平均光功率、幅度与上升时间。
+instruments:
+  otx:
+    model: sb-otx-1
+    label: 光发射机
+    address: "TCPIP0::192.168.1.33::5025::SOCKET"
+    state: {output: true, rate: 2.65625e10}
+  dca:
+    model: sb-dca-1
+    label: 采样示波器
+    address: "TCPIP0::192.168.1.34::5025::SOCKET"
+wires:
+  - {from: otx.OUT, to: dca.OPT1}
+run:
+  seed: 13
+  clock: command
