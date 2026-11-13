@@ -83,7 +83,7 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 每个型号一个 `src/simubench/library/instruments/<id>.coverage.yaml`（工作区中的定义放在定义旁边），按作者所依据的文件列出全部命令及其程度（实现、接受、未实现）与说明。
 
 - CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有用例；“接受”条目必须有 `affects_data: false`。带 `reference` 的工作区定义同样适用（`simubench coverage`、`simubench cases`、MCP `run_cases`）。
-- **未实现的原因**（#1037）：未实现的条目可写 `gap`，说明为什么没有实现——`out_of_scope`（不在仿真范围内：文件系统、打印、网络服务、校准服务、应用层等）、`blocked`（等平台的某项能力，`blocked_by` 写能力：[product-plan.md](product-plan.md) 4.2 的编号如 `C5`，或 4.2 尚未列出的能力的短名如 `mask-test`）、`model_work`（平台已有能力，只差写进定义）；`note` 写具体内容。`gap` 与 `blocked_by` 只能写在未实现的条目上，`blocked` 必须有 `blocked_by`。没有 `gap` 的未实现条目算“未分拣”。
+- **未实现的原因**（#1037）：未实现的条目可写 `gap`，说明为什么没有实现——`out_of_scope`（不在仿真范围内：[product-plan.md](product-plan.md) 第 6 节的应用层（抖动、眼图、PAM、均衡、协议解码、用户代码）、云与仓库服务、真实时钟、需要真实硬件的服务流程（校准、自检、探头校准））、`blocked`（等平台的某项能力，`blocked_by` 写能力：[product-plan.md](product-plan.md) 4.2 的编号如 `C5`，或 4.2 尚未列出的能力的短名如 `mask-test`）、`model_work`（平台已有能力，只差写进定义）；`note` 写具体内容。`gap` 与 `blocked_by` 只能写在未实现的条目上，`blocked` 必须有 `blocked_by`。没有 `gap` 的未实现条目算“未分拣”。SimuBench 是本地工具，用户脚本里的文件与设置命令要能用（#1073）：文件系统写 `blocked_by: file-system`（#1069），设置存取写 `setup-memory`（#1070），波形与结果存为文件写 `data-file`（#1071），截图、硬拷贝与打印写 `screenshot`（#1072）；只改仪表自身配置、不影响数据的命令（LAN/GPIB/USB 等接口配置、LXI 标识、蜂鸣器、显示与界面偏好、打印机选择）写 `model_work`，候选“接受”（`affects_data: false`）；应用层分析结果的保存随该分析仍算 `out_of_scope`。
 - 用户看得见：脚本发出一条覆盖表写明原因的未实现命令时，`-113` 的错误事件带 `gap`、`blocked_by` 与 `note`，TUI 日志与 Web 事件历史显示出来；Web 的命令页与 `GET /api/definitions/{id}/coverage` 给出每条命令的程度与原因。
 - `simubench coverage <id>` 打印覆盖表与统计（未实现另按原因分：不做 · 等能力 · 可做 · 未分拣），用于演示时说明做到了什么程度。
 - `simubench coverage <id> --draft <命令清单.txt>` 由命令头清单（每行一个，`# 章节` 分节，只抄依据中的命令名）生成覆盖表骨架，或给已有的覆盖表补上缺少的命令；写型号的步骤见 `.claude/skills/real-model/SKILL.md`。

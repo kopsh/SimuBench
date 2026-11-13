@@ -24,9 +24,21 @@ Every `not_modeled` entry should carry `gap` (real-models.md section 6):
 
 | `gap` | Meaning | Also |
 | --- | --- | --- |
-| `out_of_scope` | never simulated: file system, printing, network services, calibration service, GUI, the application layer of product-plan.md section 6 | — |
+| `out_of_scope` | never simulated: the application layer of product-plan.md section 6 (jitter, eye, PAM, equalization, protocol decode, user code), cloud and repository services, the real-time clock, and service procedures that need real hardware (calibration, self-test, probe calibration) | — |
 | `blocked` | waits for a platform capability | `blocked_by`: a product-plan.md 4.2 id (`C5`) or a short name of a capability 4.2 does not list yet (`mask-test`) |
 | `model_work` | the platform can already do it; only the definition is missing | — |
+
+SimuBench is a local tool, so a user script's file and setup commands must work (#1073). Map them:
+
+| Commands | `gap` / `blocked_by` |
+| --- | --- |
+| file system: directories, copy, delete, catalog, load/put/get a file | `blocked` / `file-system` (#1069) |
+| setup save and recall (`*SAV`/`*RCL`, `*LRN`, `STORe:SETup`, setup files) | `blocked` / `setup-memory` (#1070) |
+| waveforms, readings and measurement results saved to a file | `blocked` / `data-file` (#1071) |
+| screen image, hardcopy, print | `blocked` / `screenshot` (#1072) |
+| interface configuration (LAN, GPIB, USB, LXI identify), beeper, display and GUI preferences, printer selection | `model_work`, candidate `accepted` with `affects_data: false` |
+
+Saving the results of an application-layer analysis stays `out_of_scope` with that analysis.
 
 An entry without `gap` is untriaged. The `-113` event of a command with a `gap` carries `gap`,
 `blocked_by` and `note`, so users see why in the TUI log and the Web event history.
@@ -108,8 +120,8 @@ small DMM and a flagship analyser. Say that before comparing models.
 Order of work:
 
 1. **Triage drafts** (no behaviour change): for each untriaged `not_modeled` entry write `gap`
-   (and `blocked_by`) and the note — permanent out of scope, blocked by a named capability, or
-   model work. This produces the real
+   (and `blocked_by`) and the note by the tables above — permanent out of scope, blocked by a named
+   capability, or model work. This produces the real
    backlog and makes the metric honest. Coverage-table work is `可认领`.
 2. **Build the shared capability** that unblocks a cluster (`核心`, lead agent): status-register
    groups, math/statistics, DMM measurement functions, option handling, multi-marker. See the

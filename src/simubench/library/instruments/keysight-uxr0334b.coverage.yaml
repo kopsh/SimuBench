@@ -145,8 +145,9 @@ sections:
       register, read and cleared by the query
   - header: :PRINt
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :RECall:SETup
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): setup save/recall and the learn string.'
@@ -1032,84 +1033,100 @@ sections:
   commands:
   - header: :DISK:CDIRectory
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:COPY
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:DELete
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:DIRectory
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:GETFILE
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:LOAD
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:MDIRectory
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:PUTFILE
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:PWD
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069).'
+    gap: blocked
+    blocked_by: file-system
   - header: :DISK:SAVE:COMPosite
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall to a file (#1070).'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :DISK:SAVE:IMAGe
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :DISK:SAVE:JITTer
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
+    note: 'Out of scope: saves the results of an application-layer analysis (jitter, noise, PrecisionProbe, lister; product-plan.md section 6).'
     gap: out_of_scope
   - header: :DISK:SAVE:LISTing
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
+    note: 'Out of scope: saves the results of an application-layer analysis (jitter, noise, PrecisionProbe, lister; product-plan.md section 6).'
     gap: out_of_scope
   - header: :DISK:SAVE:MEASurements
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
+    gap: blocked
+    blocked_by: data-file
   - header: :DISK:SAVE:MREPort
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
+    gap: blocked
+    blocked_by: data-file
   - header: :DISK:SAVE:NOISe
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
+    note: 'Out of scope: saves the results of an application-layer analysis (jitter, noise, PrecisionProbe, lister; product-plan.md section 6).'
     gap: out_of_scope
   - header: :DISK:SAVE:PRECprobe
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
+    note: 'Out of scope: saves the results of an application-layer analysis (jitter, noise, PrecisionProbe, lister; product-plan.md section 6).'
     gap: out_of_scope
   - header: :DISK:SAVE:SETup
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall to a file (#1070).'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :DISK:SAVE:WAVeform
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
+    gap: blocked
+    blocked_by: data-file
   - header: :DISK:SEGMented
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
+    gap: blocked
+    blocked_by: data-file
 - section: :DISPlay Commands (Programmer's Guide 11.60, ch. 21)
   commands:
   - header: :DISPlay:BOOKmark:DELete:ALL
@@ -1162,8 +1179,9 @@ sections:
     gap: model_work
   - header: :DISPlay:DATA
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :DISPlay:GRATicule
     level: not_modeled
     note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
@@ -1647,24 +1665,27 @@ sections:
   commands:
   - header: :HARDcopy:AREA
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:DPRinter
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
   - header: :HARDcopy:FACTors
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:IMAGe
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :HARDcopy:PRINters
     level: not_modeled
-    note: 'Out of scope: file system, printing and data export to files are not simulated.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
 - section: :HISTogram Commands (Programmer's Guide 11.60, ch. 24)
   commands:
   - header: :HISTogram:AXIS
@@ -2268,8 +2289,8 @@ sections:
   commands:
   - header: :LXI:IDENtify[:STATe]
     level: not_modeled
-    note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
 - section: :MARKer Commands (Programmer's Guide 11.60, ch. 31)
   commands:
   - header: :MARKer:CURSor
@@ -4108,12 +4129,12 @@ sections:
     gap: out_of_scope
   - header: :SYSTem:DEBug
     level: not_modeled
-    note: 'Out of scope: front-panel GUI and touchscreen behaviour.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
   - header: :SYSTem:DONTtabmeas
     level: not_modeled
-    note: 'Out of scope: front-panel GUI and touchscreen behaviour.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
   - header: :SYSTem:DSP
     level: accepted
     affects_data: false
@@ -4124,8 +4145,8 @@ sections:
       the number and the quoted text, 0,"No error" (the guide)'
   - header: :SYSTem:GUI
     level: not_modeled
-    note: 'Out of scope: front-panel GUI and touchscreen behaviour.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
   - header: :SYSTem:HEADer
     level: implemented
     note: 'ON: replies start with the command header (short, or long with :SYSTem:LONGform ON); common
@@ -4145,16 +4166,16 @@ sections:
       table'
   - header: :SYSTem:MENU
     level: not_modeled
-    note: 'Out of scope: front-panel GUI and touchscreen behaviour.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
   - header: :SYSTem:MODE
     level: not_modeled
     note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
     gap: model_work
   - header: :SYSTem:PERSona
     level: not_modeled
-    note: 'Out of scope: front-panel GUI and touchscreen behaviour.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
   - header: :SYSTem:PRESet
     level: implemented
     note: 'DEFault or no parameter: the Default Setup, as *RST. FACTory is not modeled'
@@ -4169,8 +4190,8 @@ sections:
     gap: out_of_scope
   - header: :SYSTem:TOUChscreen
     level: not_modeled
-    note: 'Out of scope: front-panel GUI and touchscreen behaviour.'
-    gap: out_of_scope
+    note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
+    gap: model_work
 - section: :TIMebase Commands (Programmer's Guide 11.60, ch. 38)
   commands:
   - header: :TIMebase:POSition
