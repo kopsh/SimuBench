@@ -203,7 +203,7 @@ def test_coverage_command_prints_the_table_and_counts(capsys):
     out = capsys.readouterr().out
     assert "ACME DM1 Programming Manual" in out
     assert "[:SENSe]:CURRent[:DC]:NPLC" in out and "未实现" in out
-    assert "实现 8 · 接受 1 · 未实现 1" in out
+    assert "实现 8 · 接受 1 · 未实现 2" in out
 
 
 # ---- IEEE 488.2 syntax and response formats ------------------------------------------------------------
