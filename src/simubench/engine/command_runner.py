@@ -239,11 +239,13 @@ class CommandRunner:
         if not unit.params:
             if spec.set_value is None:
                 raise ScpiError(-109)
-            self.inst.set_state(path, spec.set_value)
+            self.inst.set_state(path, spec.set_value, outside=True)
             return None
         if st.type == "enum_list":
             try:
-                self.inst.set_state(path, [V.parse_enum(p, st.options or []) for p in unit.params])
+                self.inst.set_state(
+                    path, [V.parse_enum(p, st.options or []) for p in unit.params], outside=True
+                )
             except ScpiError as e:
                 raise self.inst.errs._bad_parameter(e, path, st) from e
             return None
@@ -260,7 +262,7 @@ class CommandRunner:
                 value = self._parse_state(st, unit.params[0], path) if keyword else v / spec.factor
             else:
                 value = self._parse_state(st, unit.params[0], path)
-            self.inst.set_state(path, value)
+            self.inst.set_state(path, value, outside=True)
         except ScpiError as e:
             raise self.inst.errs._bad_parameter(e, path, st) from e
         return None
@@ -922,7 +924,7 @@ class CommandRunner:
                 if ps.state is not None:
                     # A list with a setting is written whole into it (an int_list, e.g. the scan
                     # list) and the operation runs once over it (#300: MEAS:VOLT:DC? (@101:110)).
-                    self.inst.set_state(ps.state, list(numbers))
+                    self.inst.set_state(ps.state, list(numbers), outside=True)
                     continue
                 # Operations run once per channel with the channel index (as a <n> suffix does);
                 # the list's numbers are the instrument's own (#207).

@@ -260,10 +260,15 @@ class Instrument:
     def get_state(self, path: str) -> Any:
         return self.settings.get(path)
 
-    def set_state(self, path: str, value: Any, *, source: str = "scpi", internal: bool = False) -> None:
+    def set_state(
+        self, path: str, value: Any, *, source: str = "scpi", internal: bool = False, outside: bool = False
+    ) -> None:
         """Set a state variable after validation; notify bound components; refuse on conflict.
 
         ``internal``: the instrument itself sets a read-only variable (e.g. calibration coefficients).
+        ``outside``: the write comes from outside the instrument -- a SCPI command's setting, the
+        panel or MCP (``configure``) -- so the definition's constraints judge it (#1013, #1030); a
+        component's own write (the default) is not judged.
         A watcher may write other settings as a side effect (a unit switch converts the value); when
         any watcher refuses, everything the watchers wrote is rolled back with the refused value.
         """
@@ -276,9 +281,9 @@ class Instrument:
             return
         # Settings the instrument does not allow together (#1013): a change from outside (SCPI,
         # the panel, MCP) is refused, or coerces the other setting, by the definition's
-        # constraints; the instrument's own writes, a replay and faults are not checked.
+        # constraints; the instrument's own writes (#1030), a replay and faults are not checked.
         coerced: dict[str, Any] = {}
-        if not internal and source in ("scpi", "configure") and not self._constraints_checked:
+        if outside and not self._constraints_checked:
             coerced = settle(self.definition.constraints, self.specs, self.state, {path: value})
         if coerced:
             before_all = dict(self.state)
