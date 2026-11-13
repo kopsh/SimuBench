@@ -122,6 +122,25 @@ async def test_build_deploy_drive_observe(ws):
     assert manager.sessions == {}
 
 
+async def test_an_agent_sets_an_instruments_options(ws):
+    """The editor's set_options through edit_bench (#1007): the same operation, the same refusal."""
+    _manager, server = make(ws)
+    async with Client(server) as c:
+        doc = await call(c, "create_bench", path="sa.bench.yaml", name="sa")
+        add = [{"op": "add_instrument", "name": "sa", "model": "keysight-n9320b"}]
+        doc = await call(c, "edit_bench", path="sa.bench.yaml", base_sha256=doc["sha256"], ops=add)
+        p03 = [{"op": "set_options", "instrument": "sa", "options": ["P03"]}]
+        doc = await call(c, "edit_bench", path="sa.bench.yaml", base_sha256=doc["sha256"], ops=p03)
+        assert doc["ok"] and doc["data"]["instruments"]["sa"]["options"] == ["P03"]
+        p07 = [{"op": "set_options", "instrument": "sa", "options": ["P07"]}]
+        refused = await call(c, "edit_bench", path="sa.bench.yaml", base_sha256=doc["sha256"], ops=p07)
+        assert "E-OPTION-UNKNOWN" in refused["error"]
+        s = await call(c, "start_session", path="sa.bench.yaml")
+        (sa,) = s["instruments"]
+        assert sa["options"] == ["P03"]
+        await call(c, "stop_session")
+
+
 async def test_start_refuses_invalid_bench(ws):
     _, server = make(ws)
     async with Client(server) as c:

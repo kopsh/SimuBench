@@ -222,6 +222,15 @@ export const en: Widen<Messages> = {
     toggle: "DUT",
     hint: "The object under test or calibration. An instrument or a part may be the DUT, e.g. the meter being calibrated.",
   },
+  option: {
+    title: "Options",
+    hint: "The hardware options this unit has. Options take effect when the bench opens: an installed option's parameters and commands come into play.",
+    none: "The model declares no options.",
+    params: "Parameters it changes",
+    commands: "Commands",
+    installed: "installed",
+    toggle: "Install option {{id}}",
+  },
   deviation: {
     title: "Individual deviations",
     hint: "How far this unit sits from the model's nominal values. Commands cannot read them; only measuring finds them. Drawn values show only while true values may be read.",

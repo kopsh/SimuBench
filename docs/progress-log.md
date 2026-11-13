@@ -2159,3 +2159,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | MCP 与 HTTP 同一条原因、含仪表名 | ✅ `withheld_reason`；MCP：“验证模式下不提供内部探针：<仪表> 含隐藏的个体值，且该测试台未开启 run.reveal_true_values” |
 | 文档 | ✅ `signal-chain.md` 6.2、`security.md` 内部探针一行 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 选件：Web 与 MCP 修改已装选件，`*OPT?` 列出已装选件（Issue 1007，#1004 的后续）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 编辑操作 `set_options` | ✅ `engine/edit.py`：整体替换实例的 `options`（去重、按定义的顺序）；有仪表库时，定义里没有的选件按 `E-OPTION-UNKNOWN` 拒绝；`replace_instrument` 去掉新型号没有的选件。`tests/test_options.py`：加上、去掉 P03 后文件变化，重新打开后前放参数随之有无；未声明的选件被拒绝。`tests/test_mcp.py::test_an_agent_sets_an_instruments_options`：MCP 走同一操作，结果与拒绝相同 |
+| 接口 | ✅ `InstrumentInfo.options`（`OptionInfo`：`id`、`label`、改变的组件参数、命令头、`installed`）；型号信息本来就带定义的 `options`，概览页从定义算出同样的行；MCP 的会话摘要列出已装选件；`schemas/` 与 `web/src/api/generated` 已重新生成 |
+| Web | ✅ 概览页“选件”卡片（`optionRows`，`model.test.ts`）；检查器（编辑态）“选件”一节，每个选件一个开关，改动走 `set_options`，没有声明选件的型号不显示（`OptionsSection.test.tsx`）；e2e：`edit.spec.ts` 装上、去掉 P03 后测试台文件随之变化，`instrument.spec.ts` 概览页列出 P03 改变的参数与命令；文案 `option.*` 进 zh/en |
+| `*OPT?` | ✅ 定义的 `identity.options_reply` / `options_separator` / `options_none`；写了它的型号由内置 `*OPT?` 按已装选件回复（`P03` / `0`），`*OPT` 设置回 -113，命令分类为公共命令；不写时行为不变：N9320B 仍回 -113，M8194A 仍回 `004`（`tests/test_options.py`） |
+| TUI | ✅ 仪表屏身份框右栏“Options”一行（`rows.options_text`：已装选件，型号有选件而本台没装时 `none`，型号没有选件时不显示，`tests/test_tui_rows.py`）。现有快照的测试台都没有带选件的型号，快照不变 |
+| 文档 | ✅ `real-models.md` 字段表、`instrument-authoring.md` 2.10、`decisions.md` D68 的“代价” |
+| `scripts/check.sh` 通过 | ✅ |

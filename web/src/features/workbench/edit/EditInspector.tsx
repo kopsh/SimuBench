@@ -285,6 +285,7 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
           <div className="space-y-1.5">{channelVars(inst, n).map(field)}</div>
         </Section>
       ))}
+      {inst.options.length > 0 && <OptionsSection inst={inst} />}
       {(inst.deviations.length > 0 || inst.deviation === "from_specs") && (
         <DeviationSection items={inst.deviations}>
           <Field label={t("deviation.mode")} hint={t("deviation.modeHint")}>
@@ -300,6 +301,37 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
       )}
       <DeleteButton onClick={() => void applyOps([{ op: "remove", name: inst.name }]).then((d) => d && select(null))} />
     </div>
+  );
+}
+
+/** The hardware options of the unit (D68): a switch per option the model declares; a change
+ * replaces the instance's list through `set_options` and takes effect as the bench reopens. */
+export function OptionsSection({ inst }: { inst: InstrumentInfo }) {
+  const { t } = useTranslation();
+  const installed = inst.options.filter((o) => o.installed).map((o) => o.id);
+  return (
+    <Section title={t("option.title")}>
+      <div className="space-y-2">
+        <p className="text-muted-foreground text-[11px]">{t("option.hint")}</p>
+        {inst.options.map((o) => (
+          <Field key={o.id} label={o.label ? `${o.id} · ${o.label}` : o.id}>
+            <Switch
+              checked={o.installed}
+              onCheckedChange={(on) =>
+                void applyOps([
+                  {
+                    op: "set_options",
+                    instrument: inst.name,
+                    options: on ? [...installed, o.id] : installed.filter((id) => id !== o.id),
+                  },
+                ])
+              }
+              aria-label={t("option.toggle", { id: o.id })}
+            />
+          </Field>
+        ))}
+      </div>
+    </Section>
   );
 }
 

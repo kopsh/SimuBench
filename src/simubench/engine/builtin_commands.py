@@ -30,6 +30,8 @@ class BuiltinCommands:
         q = unit.query
         if word == "IDN" and q:
             return self.idn.encode()
+        if word == "OPT" and q and self.inst.definition.identity.options_reply is not None:
+            return self.opt().encode()
         if word == "RST" and not q:
             self.inst.reset()
             return None
@@ -58,6 +60,15 @@ class BuiltinCommands:
         if word == "TST" and q:
             return b"0"
         raise self.inst.errs._undefined(unit, unit.tokens)
+
+    def opt(self) -> str:
+        """The *OPT? reply of a definition with ``identity.options_reply`` (D68): the options this
+        unit has, in the definition's order, or the reply for none."""
+        ident = self.inst.definition.identity
+        have = [o.id for o in self.inst.definition.options if o.id in self.inst.options]
+        if not have:
+            return ident.options_none
+        return (ident.options_reply or "{options}").replace("{options}", ident.options_separator.join(have))
 
     def _bus_trigger(self, unit: Unit) -> tuple[bytes | None, int]:
         """``*TRG``: the bus trigger of every component with a ``bus_trigger`` operation (each

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CommandSpec, DefinitionCoverage, InstrumentInfo, StateVarInfo } from "@/api/client";
-import { commandRows, deviationLimit, groupCommands, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
+import { commandRows, deviationLimit, groupCommands, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
 
 const cmd = (header: string, extra: Partial<CommandSpec> = {}): CommandSpec => ({
   header,
@@ -170,5 +170,18 @@ describe("panel view", () => {
       ["sense.nplc", "number", "0.02 … 100"],
       ["sense.range_auto", "switch", null],
     ]);
+  });
+});
+
+describe("optionRows", () => {
+  it("lists what each option changes: its component parameters and its commands (D68)", () => {
+    const rows = optionRows({
+      options: [{ id: "P03", label: "Preamplifier", params: { input: { preamp_gain: 18, preamp_noise_figure: 6 } } }],
+      commands: [{ header: ":POW:GAIN", option: "P03" }, { header: ":FREQ" }],
+    });
+    expect(rows).toEqual([
+      { id: "P03", label: "Preamplifier", params: ["input.preamp_gain", "input.preamp_noise_figure"], commands: [":POW:GAIN"] },
+    ]);
+    expect(optionRows({})).toEqual([]);
   });
 });

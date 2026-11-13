@@ -644,6 +644,31 @@
           "title": "Idn",
           "type": "string"
         },
+        "options_none": {
+          "default": "0",
+          "description": "The whole reply when the unit has no option (IEEE 488.2 10.20: an ASCII 0)",
+          "title": "Options None",
+          "type": "string"
+        },
+        "options_reply": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The built-in *OPT? answers with the options the unit has (the bench instance's `options`, in the definition's order): this text with {options} replaced by them, e.g. '{options}'. Unset: *OPT? is the definition's own command, if any (D68)",
+          "title": "Options Reply"
+        },
+        "options_separator": {
+          "default": ",",
+          "description": "Between two options in {options}",
+          "title": "Options Separator",
+          "type": "string"
+        },
         "serial": {
           "default": "SB000001",
           "title": "Serial",

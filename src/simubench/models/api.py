@@ -334,6 +334,18 @@ class DeviationInfo(_Model):
     drawn: bool = Field(False, description="Drawn from the bench seed (else the nominal or a hidden value)")
 
 
+class OptionInfo(_Model):
+    """A hardware option the model declares (选件, D68), and whether this unit has it."""
+
+    id: str = Field(..., description="The option's name as the manufacturer writes it, e.g. 'P03'")
+    label: str | None = None
+    params: list[str] = Field(
+        default_factory=list, description="The component parameters it changes, '<component>.<parameter>'"
+    )
+    commands: list[str] = Field(default_factory=list, description="Headers of the commands that belong to it")
+    installed: bool = Field(False, description="This unit has it (the bench instance's `options`)")
+
+
 class InstrumentInfo(_Model):
     name: str
     label: str | None = None
@@ -357,6 +369,11 @@ class InstrumentInfo(_Model):
     deviation: Literal["nominal", "from_specs"] = "nominal"
     deviations: list[DeviationInfo] = Field(
         default_factory=list, description="The definition's deviation ranges, with this unit's values"
+    )
+    options: list[OptionInfo] = Field(
+        default_factory=list,
+        description="The hardware options the model declares, in its order, each marked installed or not "
+        "(empty: the model declares none)",
     )
     remote: list[str] = Field(
         default_factory=list,

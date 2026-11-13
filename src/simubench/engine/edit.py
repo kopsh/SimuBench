@@ -75,7 +75,8 @@ class Remove(_Op):
 class ReplaceInstrument(_Op):
     """Swap an instrument's model for another, keeping its name, label, address and place: wires
     on ports the new model also has stay, the others are removed; settings the new model also has
-    stay, the rest (and the identity overrides of the old unit) are dropped."""
+    stay, the rest (and the identity overrides of the old unit) are dropped; so are options the new
+    model does not declare."""
 
     op: Literal["replace_instrument"] = "replace_instrument"
     name: str
@@ -161,6 +162,15 @@ class SetDeviation(_Op):
     range: DeviationRange | None = Field(None, description="The parameter's range; null removes it")
 
 
+class SetOptions(_Op):
+    """The hardware options (选件) an instrument's unit has, replacing the list (D68): ids of the
+    definition's ``options``. They take effect when the bench is opened, like any structural edit."""
+
+    op: Literal["set_options"] = "set_options"
+    instrument: str
+    options: list[str] = Field(default_factory=list, description="Option ids, e.g. ['P03']; [] for none")
+
+
 class Move(_Op):
     op: Literal["move"] = "move"
     name: str
@@ -199,6 +209,7 @@ EditOp = Annotated[
     | SetAddress
     | SetIdentity
     | SetDeviation
+    | SetOptions
     | Move
     | SetMeta
     | SetRun,
@@ -251,10 +262,33 @@ def apply(
             if isinstance(op, ReplaceInstrument):
                 _replace(b, op, library)
                 continue
+            if isinstance(op, SetOptions):
+                _set_options(b, op, library)
+                continue
             _apply_one(b, op)
         except EditError as exc:
             raise EditError(f"第 {i + 1} 个操作 {getattr(op, 'op', '?')}：{exc}") from None
     return b
+
+
+def _set_options(b: BenchDefinition, op: SetOptions, library: Callable[[str], Any] | None) -> None:
+    inst = b.instruments.get(op.instrument)
+    if inst is None:
+        raise EditError(f"没有名为 {op.instrument!r} 的仪表")
+    wanted = list(dict.fromkeys(op.options))
+    if library is not None:
+        try:
+            declared = [o.id for o in library(inst.model).options]
+        except (KeyError, FileNotFoundError, ValueError):
+            declared = None  # an unknown model is the bench's own diagnostic (E-MODEL-UNKNOWN)
+        if declared is not None:
+            if unknown := [o for o in wanted if o not in declared]:
+                hint = f"可用的选件：{', '.join(declared)}" if declared else f"{inst.model} 没有声明选件"
+                raise EditError(
+                    f"E-OPTION-UNKNOWN：仪表定义 {inst.model} 没有选件 {', '.join(unknown)}；{hint}"
+                )
+            wanted = [o for o in declared if o in wanted]  # the definition's order
+    inst.options = wanted
 
 
 def _replace(b: BenchDefinition, op: ReplaceInstrument, library: Callable[[str], Any] | None) -> None:
@@ -264,10 +298,12 @@ def _replace(b: BenchDefinition, op: ReplaceInstrument, library: Callable[[str],
     if library is None:
         raise EditError("替换仪表需要仪表库，在工作区中编辑测试台文件时可用")
     try:
-        ports, paths = model_surface(library(op.model))
+        definition = library(op.model)
+        ports, paths = model_surface(definition)
     except (KeyError, FileNotFoundError, ValueError):
         raise EditError(f"没有仪表定义 {op.model!r}") from None
     inst.model = op.model
+    inst.options = [o for o in inst.options if o in {opt.id for opt in definition.options}]
     inst.state = {k: v for k, v in inst.state.items() if k in paths}
     inst.idn = inst.serial = inst.firmware = None
     inst.hidden = {}

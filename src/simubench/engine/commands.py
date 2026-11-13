@@ -217,6 +217,13 @@ def classify(definition: InstrumentDefinition, message: str) -> list[UnitMatch]:
             continue
         if unit.common:
             word = tokens[0].keyword
+            if word == "OPT" and definition.identity.options_reply is not None:
+                # the built-in *OPT? of a definition that lists the unit's options (D68)
+                if unit.query:
+                    out.append(UnitMatch(text, "common", True))
+                else:
+                    out.append(UnitMatch(text, "unsupported", False, reason="公共命令 *OPT 不响应设置"))
+                continue
             if word in COMMON:
                 q_ok, s_ok = COMMON_DIRECTIONS.get(word, (True, True))
                 if (unit.query and not q_ok) or (not unit.query and not s_ok):

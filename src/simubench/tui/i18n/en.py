@@ -252,6 +252,8 @@ TERMS: dict = {
         "id": "ID",
         "address": "Address",
         "definition": "Definition",
+        "options": "Options",
+        "noOptions": "none",
         "errors": "Errors",
         "lastError": "Errors {count} · last {code} {message}",
         "hiSLIP": "HiSLIP",
