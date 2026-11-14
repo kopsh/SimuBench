@@ -396,6 +396,9 @@ export const en: Widen<Messages> = {
     noReading: "—",
   },
   spectrum: {
+    hintClock: "Command clock: the analyzer only sweeps when a command is sent or time is advanced, so the trace stands still.",
+    hintSingle: "Single sweep: the trace is held; turn Continuous on to sweep again.",
+    advanceSweep: "Advance one sweep time",
     overload: "Mixer overload",
     uncalReason: "The sweep time is shorter than the current RBW/VBW need; amplitudes are uncalibrated",
     reference: "Reference",
