@@ -2246,3 +2246,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 定义、覆盖表、用例与示例测试台同步 | ✅ `simubench validate`；`simubench coverage keysight-n9042b` 一致（实现 68 · 接受 8）；`simubench cases tests/models/keysight-n9042b/cases.yaml` 26/26（新增 4 个用例：命令与选件门控、2a 噪声底、3a 噪声底 + 镜像差值 ≈ 0 dB、4a 噪声底）；`tests/models/keysight-n9042b/bench.yaml` 加 sa_lnp/sa_mpb/sa_fbp 与 sg3 |
 | LNA 不做并写明 | ✅ 参考手册（2014 版）与多触摸版（9018-04666）的 SA 模式都没有独立的 LNA 命令，1b/1d/2b/3b/3d/4b 不建模，覆盖表 `:MW:PATH` 与 `:GAIN[:STATe]` 的 note 写明 |
 | `scripts/check.sh` 通过 | ✅（`test_conditional_params` 两条随定义增长的索引/选件断言同步；四处守卫/定义解析移到收集期，修并行负载下的 D49 边缘超时，断言未变） |
+
+## 示波器：数学函数、FFT 与光标（Issue 1074）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 一台 `sb-*` 示波器的 FFT 迹线，对已知单音的峰值频率与幅度和窗的解析修正一致（F1-3） | ✅ `tests/test_scope_math.py`：5 种窗（矩形/汉宁/汉明/布莱克曼-哈里斯/平顶）下 0.7 V 相干单音幅度读 0.700000、dBm = 20·log10(0.7·√2) 精确（单边折算，DC/奈奎斯特不倍频）；峰值频率 = 设置频率；ENBW = Σw²/(Σw)²/dt，分辨率查询即 ENBW；超出 `fft_max_points`/`fft_span_max` 拒绝（−221）不截断 |
+| 数学通道与逐点手算一致 | ✅ 纯函数对拍：滑动平均、微分、积分、4 阶 Bessel-Thompson 低通（双线性变换，−3 dB 点走到 |H|=1/√2）、高通、平滑、限幅包络；递归函数引用成环报 −221；网格不对齐报 −221 |
+| 验证仪表接入块图 | ✅ `sb-dso-4` 挂 `scope_math`（function1/2 设置、math/meas/xfer 组件参数）；`docs/blocks/oscilloscope.yaml` 增 math 块、`docs/component-map.md` 更新；e2e 内部结构图计数同步（节点 20、边 29、虚线 11） |
+| 真实型号接入，覆盖表改实现并有手册用例 | ✅ UXR1104B 与 UXR0334B（同一命令集）：16 个函数 × 5 条命令 + 60 个标记 × 若干 + MEASure:FFT 共 86 条实现，覆盖表实现 196 条（1148 条的 17.6%，此前 113 条 9.8%），96 条 blocked_by C5 清零；`tests/models/keysight-uxr1104b|uxr0334b/cases.yaml` 65 用例/台全过（含 FFT 相干窗下峰值频率 ±1 bin 容差、PSD/CPW/OBW/THD）。**DSO-X 2024A 未接入**（EXEMPT 债表），跟进 #1155 |
+| 光标 | ✅ `:MARKer` 屏幕光标（WAVeform 模式 Y 对轨迹、Y 模式两水平线）与编号 1–60 光标（X/Y/DELTa 关系、TRACk/MANual）；测量读数经同一 math/meas 链 |
+| `scripts/check.sh` 通过 | ✅（命令 runner 支持 `suffixes` 头替换、`MathSource` 协议、scpi 词内数字 `X1Position` 解析为平台改动） |
