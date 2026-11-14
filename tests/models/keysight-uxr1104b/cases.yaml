@@ -1626,7 +1626,7 @@ cases:
       - send: "*PSC ON"
       - query: "*PSC?"
         expect: "1"
-  - name: "校准输出（#1067）：信号选择与使能存取（输出信号本身未建模，#1170）"
+  - name: "校准输出（#1067、#1170）：信号选择、使能与越限；输出的信号由 tests/test_keysight_uxr.py 接另一台示波器测"
     manual: ":CALibrate Commands > :CALibrate:OUTPut; :CALibrate:OUTPut:AUX; :AUX:RTIMe; :CALibrate:OUTPut:CAL"
     steps:
       # 选择（p.473）：DC 带电平、其余词按手册短形式回答
@@ -1647,3 +1647,10 @@ cases:
         expect: "SLOW"
       - query: ":CALibrate:OUTPut:CAL?"
         expect: "1"
+      # 越限与未知词（p.473）：DC 电平 ±1.2 V，词只取手册所列
+      - send: ":CALibrate:OUTPut DC,2"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+      - send: ":CALibrate:OUTPut NOPE"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"

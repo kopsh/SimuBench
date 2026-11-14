@@ -56,7 +56,7 @@ export const INSTRUMENT_CLASSES = {
   },
   spectrum_analyzer: {
     icon: BarChart3,
-    screen: ({ session, inst, readonly }) => <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} />,
+    screen: ({ session, inst, readonly }) => <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} clockMode={session.clock_mode} />,
   },
   rf_generator: {
     icon: Radio,

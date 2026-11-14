@@ -430,6 +430,16 @@ state:
   system.lock: {type: bool, default: false, label: 前面板锁定, label_en: Front panel lock}
   system.hled: {type: bool, default: false, label: 隐藏指示灯, label_en: Hide LEDs}
   system.dsp: {type: string, default: "", label: 屏幕文字, label_en: Display text}
+  # 校准输出（:CALibrate:OUTPut 组，#1067）：选择与使能存取，信号由 cal_output 产生（#1170）。
+  calibrate.output_signal: {type: string, default: "ZERO", label: 校准输出信号, label_en: Cal output signal}
+  calibrate.output_aux: {type: bool, default: false, electrical: true, label: AUX 输出使能, label_en: Aux out enable}
+  calibrate.output_aux_rtime:
+    type: enum
+    options: [FAST, SLOW]
+    default: FAST
+    label: AUX 沿速
+    label_en: Aux rise time
+  calibrate.output_cal: {type: bool, default: false, electrical: true, label: CAL 输出使能, label_en: Cal out enable}
   display.label: {type: bool, default: false, label: 显示标签, label_en: Labels}
   display.intensity: {type: int, min: 0, max: 100, default: 50, label: 网格亮度, label_en: Grid intensity}
   # ---- 仅影响显示的设置（#1068，手册第 14/21/37 章）：解析并保存，查询回读，不改变任何采集、
@@ -504,16 +514,6 @@ state:
   display.bookmark_label: {type: string, default: "", label: 书签标签, label_en: Bookmark label}
   display.bookmark_x: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签横位置, label_en: Bookmark x}
   display.bookmark_y: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签纵位置, label_en: Bookmark y}
-  # 校准输出（:CALibrate:OUTPut 组，#1067）：输出选择与使能存取；输出的信号本身未建模（#1170）。
-  calibrate.output_signal: {type: string, default: "ZERO", label: 校准输出信号, label_en: Cal output signal}
-  calibrate.output_aux: {type: bool, default: false, label: AUX 输出使能, label_en: Aux out enable}
-  calibrate.output_aux_rtime:
-    type: enum
-    options: [FAST, SLOW]
-    default: FAST
-    label: AUX 沿速
-    label_en: Aux rise time
-  calibrate.output_cal: {type: bool, default: false, label: CAL 输出使能, label_en: Cal out enable}
   # 显示 ADC 削波提示（:DISPlay:CLIPped，手册 p.596）：不影响削波检测本身（手册原文），纯显示偏好。
   display.clipped: {type: bool, default: true, label: 显示削波提示, label_en: Show ADC clipping}
   # ---- 数学函数（#1074，手册第 22 章）：FUNCtion1-16 的定义存放在 function<f>.* 设置里，
@@ -1373,6 +1373,20 @@ components:
       divs: 8.0
       offset_sign: subtract
       max_rate: 2.56e11
+  # 校准输出（:CALibrate:OUTPut 组，#1067/#1170）：前面板 AUX OUT / CAL OUT 的信号源与 50 Ω 输出级；
+  # 输出阻抗与除 ZERO（-440 mV）、750 Hz 外的电平为模型值（覆盖表）。
+  - name: auxsrc
+    type: cal_output
+    params: {selection: $calibrate.output_signal, port: aux, rise: $calibrate.output_aux_rtime}
+  - name: auxout
+    type: output_stage
+    params: {z_out: 50.0, load_setting: 50.0, enabled: $calibrate.output_aux}
+  - name: calsrc
+    type: cal_output
+    params: {selection: $calibrate.output_signal, port: cal}
+  - name: calout
+    type: output_stage
+    params: {z_out: 50.0, load_setting: 50.0, enabled: $calibrate.output_cal}
   # AUX 触发输入：50 Ω（数据手册）。
   - name: auxin
     type: input_port
@@ -1521,11 +1535,15 @@ wiring:
   instrument:
     - ["ch{n}.probe.out", "acq.in{n}"]
     - [auxin.out, trigger.ext]
+    - [auxsrc.out, auxout.in]
+    - [calsrc.out, calout.in]
 ports:
   channel:
     "CH{n}": inp.pin
   instrument:
     AUX: auxin.pin
+    AUX_OUT: auxout.pin
+    CAL_OUT: calout.pin
 display:
   template: oscilloscope
   summary: [timebase.scale, trigger.source, trigger.slope]
@@ -1661,6 +1679,10 @@ commands:
   - {header: ":CHANnel<ch>:ISIM:BANDwidth", state: ch.isim_bandwidth}
   - {header: ":CHANnel<ch>:ISIM:BWLimit:TYPE", state: ch.isim_type}
   # ---- DISPlay ----
+  - {header: ":CALibrate:OUTPut", op: sys.cal_output, params: [{name: signal, type: string, optional: true}, {name: dc, type: float, unit: V, optional: true}], args: {path: calibrate.output_signal}, reply: "{calibrate.output_signal}"}
+  - {header: ":CALibrate:OUTPut:AUX", state: calibrate.output_aux}
+  - {header: ":CALibrate:OUTPut:AUX:RTIMe", state: calibrate.output_aux_rtime}
+  - {header: ":CALibrate:OUTPut:CAL", state: calibrate.output_cal}
   - {header: ":DISPlay:LABel", state: display.label}
   - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}
   # ---- 仅影响显示的设置（手册第 21 章，#1068）：解析并保存，查询回读；带可选 <source> 的写法
@@ -1782,11 +1804,6 @@ commands:
   - {header: ":SYSTem:CAPability:ACQuire", op: sys.capability, set: false, params: [{name: what, type: string}], args: {HALFchannel: "0", MEMory: "2000000000", SRATe: "256000000000", BANDwidth: "113000000000"}}
   - {header: ":SYSTem:CAPability:CHANnel", op: sys.capability, set: false, params: [{name: what, type: string}], args: {COUNt: "4"}}
   - {header: ":SYSTem:CAPability:DIGital", op: sys.capability, set: false, params: [{name: what, type: string}], args: {MEMory: "0", SRATe: "0", CHANnels: "0"}}
-  # 校准输出（手册 pp.473-477，#1067）：选择与使能存取；输出的信号本身未建模（#1170）。
-  - {header: ":CALibrate:OUTPut", op: sys.cal_output, params: [{name: signal, type: string, optional: true}, {name: dc, type: float, unit: V, optional: true}], args: {path: calibrate.output_signal}, reply: "{calibrate.output_signal}"}
-  - {header: ":CALibrate:OUTPut:AUX", state: calibrate.output_aux}
-  - {header: ":CALibrate:OUTPut:AUX:RTIMe", state: calibrate.output_aux_rtime}
-  - {header: ":CALibrate:OUTPut:CAL", state: calibrate.output_cal}
   - header: ":SYSTem:PRESet"
     op: sys.reset
     query: false

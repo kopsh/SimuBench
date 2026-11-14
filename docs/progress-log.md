@@ -2262,9 +2262,9 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 
 | 完成条件 | 自检 |
 | --- | --- |
-| 三处文件移植，组件代码不动 | ✅ `keysight-uxr1104b.yaml`：+53 state、+95 命令（`source` 全集与 UXR0334B 一致）、acquire.mode 的 SEGMented 提正、timebase（reference_percent）/xfer（seg_all、coupling、前导末段数）/acq（分段五参数、memory_points 2G）/front（invert）/probe（ratio、skew）组件参数；未改 `library/components/` |
+| 三处文件移植，组件代码不动 | ✅ `keysight-uxr1104b.yaml`：+53 state、+91 命令（校准输出 4 条由 main 的 #1172 先行做成实现级，合并时以其为准）；acquire.mode 的 SEGMented 提正；timebase（reference_percent）/xfer（seg_all、coupling、前导末段数）/acq（分段五参数、memory_points 2G）/front（invert）/probe（ratio、skew）组件参数；未改 `library/components/` |
 | 规格联动值保持 1104B 自己的 | ✅ 分段上限 20,825（数据手册 Max # of segments 高带宽触发使能列的 256 GSa/s 模型列；0334B 的 128 GSa/s 列为 25,680）、`*OPT?` 答 02G（装 2 Gpts 选件，手册表 10；0334B 无选件答 0）、`:ACQuire:BANDwidth:FRAMe?` 113 GHz、`:SYSTem:CAPability:*` 2 Gpts/256 GSa/s/113 GHz、TESTLIMITS 回 1104B 声明范围 |
-| 覆盖表对齐并全分拣 | ✅ `simubench coverage keysight-uxr1104b`：实现 253 · 接受 44（25.9%），可做余量 96（与 0334B 相同的 MARKer/TRIGger 尾巴），未分拣 0；(header, level) 集合与 0334B 逐条一致；`:DISPlay:BOOKmark<N>:VERTical` 头按手册 p.586 补 `?`（两台均仍 not_modeled） |
-| 手册用例 | ✅ `tests/models/keysight-uxr1104b/cases.yaml` 78/78（移植 12 个用例组；0334B 的 77/77 不受影响）。规格适配：前导的 Y 增量/满幅按 *RST 500 mV/div、模型串与带宽按本型号；反相 VMAX/VMIN 容差按 0.1 V/div 档 6.1 mV rms 的最坏峰放宽到 ±4.5σ；探头换算证明改小信号 + VAVerage（1 mm 型号最大 500 mV/div，装不下 0334B 的 4 Vpp 读数，且换算过的噪声 0.29 V rms 会顶满） |
+| 覆盖表对齐并全分拣 | ✅ `simubench coverage keysight-uxr1104b`：实现 257 · 接受 40（共 25.9%，与 0334B 逐条一致——#1172 把两台的校准输出都提为实现级），可做余量 96（两台相同的 MARKer/TRIGger 尾巴），未分拣 0；(header, level) 集合与 0334B 完全相等；`:DISPlay:BOOKmark<N>:VERTical` 头按手册 p.586 补 `?`（两台均仍 not_modeled） |
+| 手册用例 | ✅ `tests/models/keysight-uxr1104b/cases.yaml` 78/78（移植 12 个用例组，校准输出组与 main 的 #1170 版合并；0334B 的 77/77 不受影响）。规格适配：前导的 Y 增量/满幅按 *RST 500 mV/div、模型串与带宽按本型号；反相 VMAX/VMIN 容差按 0.1 V/div 档 6.1 mV rms 的最坏峰放宽到 ±4.5σ；探头换算证明改小信号 + VAVerage（1 mm 型号最大 500 mV/div，装不下 0334B 的 4 Vpp 读数，且换算过的噪声 0.29 V rms 会顶满） |
 | 顺带修正移植用例里的失效命令 | ✅ awg 幅度命令应为 `[:SOURce<ch>]:VOLTage`（33622A 无 `:VOLTage:AMPLitude`，原样发 -113 不生效：削波用例的 5 Vpp 与恢复步都是空操作，0.4 Vpp 在 1 mV/div 本就削波所以此前未暴露）；`tests/models/keysight-uxr0334b/cases.yaml` 的同款两处未动（不在本 issue 范围） |
 | `scripts/check.sh` 通过 | ✅ |
