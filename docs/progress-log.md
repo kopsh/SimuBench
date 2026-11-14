@@ -2235,3 +2235,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档 | ✅ `decisions.md` D71（波长、过去时刻求值、代价）、`architecture.md` 2.7、`component-map.md` 三个新类别节、`glossary.md`、`product-plan.md` 3.4 的例外、4.2 的 C20、第 7 节 |
 | 全量测试不超过 60 s | ✅ 约 40 s（新测试合计约 0.5 s） |
 | `scripts/check.sh` 通过 | ✅ |
+
+## N9042B 的 µW 通路：POW:MW:PATH 的 LNP / MPB / 全旁路与按通路的指标（Issue 1039）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| MW:PATH 与 MW:PRESelector 命令 | ✅ `:POW:MW:PATH` 四个值（STD 预置任何整机可用；LNP 需选件 LNP，MPB/FULL 需选件 MPB——FULL 同时需要 LNP 与 MPB，单选件字段按 MPB 门控，假设）；按值 `when` + `option` 分流，未装选件发对应值报 -224，手册写 -241（第 575、577 页）——按值选件门控待 #1113，覆盖表注明；`:POW:MW:PRES` ON/OFF 用 `writes` 连带写通路（ON→STD、OFF→MPB，第 577 页），MW:PATH 经单向约束带动预选器开关（D69 coerce） |
+| 通路 2a（LNP） | ✅ 选件 LNP；预选器仍在链上（数据手册 p.8）；只在 3.6 GHz 以上、前放不在用时接入（手册 p.575 的规则按中心频率判断，覆盖表注明）；DANL 2a（p.23 typical 列）、SHI 2a（p.26）、TOI 2a（p.28 nominal）、压缩 2a（p.20）、频响 2a（p.11）按 D70 嵌套映射与按设置分组的偏差；前放 FULL 开着时 LNP 不用、回落 1c（p.575），FULL 通路同理回落 3c |
+| 通路 3a/3c（MPB）与 4a（全旁路） | ✅ 选件 MPB；MPB 旁路预选器（3.6 GHz 以上），镜像与信号同幅度（`image_rejection` 按通路取 0 dB，p.577）；3a 的 DANL/压缩/频响、3c 的频响（p.11，前放按 1c 的假设注明）、4a 的 DANL/压缩/频响（p.11、p.20、p.23-24）；MPB/FBP 没有 SHI/TOI（不声明，理想） |
+| 定义、覆盖表、用例与示例测试台同步 | ✅ `simubench validate`；`simubench coverage keysight-n9042b` 一致（实现 68 · 接受 8）；`simubench cases tests/models/keysight-n9042b/cases.yaml` 26/26（新增 4 个用例：命令与选件门控、2a 噪声底、3a 噪声底 + 镜像差值 ≈ 0 dB、4a 噪声底）；`tests/models/keysight-n9042b/bench.yaml` 加 sa_lnp/sa_mpb/sa_fbp 与 sg3 |
+| LNA 不做并写明 | ✅ 参考手册（2014 版）与多触摸版（9018-04666）的 SA 模式都没有独立的 LNA 命令，1b/1d/2b/3b/3d/4b 不建模，覆盖表 `:MW:PATH` 与 `:GAIN[:STATe]` 的 note 写明 |
+| `scripts/check.sh` 通过 | ✅（`test_conditional_params` 两条随定义增长的索引/选件断言同步；四处守卫/定义解析移到收集期，修并行负载下的 D49 边缘超时，断言未变） |

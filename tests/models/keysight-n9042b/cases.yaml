@@ -565,3 +565,148 @@ cases:
       - {instrument: sa_p26, send: ":INIT:IMM;*WAI"}
       - {instrument: sa_p26, query: ":CALC:MARK:Y?", expect_value: -136.0, tolerance: 2.2}
       - {instrument: sa_p26, query: ":SYST:ERR?", expect: '+0,"No error"'}
+
+  # ---- µW 通路（#1039）：MW:PATH / MW:PRESelector 与各通路的前端指标 ------------------------------------
+  - name: "µW 通路命令：MW:PATH 四个值与按选件可用、MW:PRES 的互锁；未装选件的值报错（手册 -241，当前 -224 待 #1113）"
+    manual: "N9060-90027 8 Swept SA Measurement > AMPTD Y Scale > µW Path Control (p.573-578): [:SENSe]:POWer[:RF]:MW:PATH STD|LNPath|MPBypass|FULL (preset STD, p.573), :MW:PRESelector[:STATe] (preset ON; ON sets STD, OFF sets MPB, p.577-578); option LNP missing: -241 (p.575), option MPB missing: -241 (p.577)"
+    # 手册对未装选件的整机写明按值报 -241；SimuBench 当前只有整条命令按选件门控与按值 when 分流（-224），
+    # 按值门控是 #1113。STD 与查询任何整机可用。FULL 需要同时装 LNP 与 MPB（数据手册 4a 通路两个旁路开关），
+    # 单选件字段按 MPB 门控（假设，覆盖表注明）。
+    steps:
+      - query: ":POW:MW:PATH?"
+        expect: "STD"
+      - send: ":POW:MW:PATH LNP"
+      - query: ":SYST:ERR?"
+        expect_prefix: "-224,"
+      - send: ":POW:MW:PATH MPB"
+      - query: ":SYST:ERR?"
+        expect_prefix: "-224,"
+      - send: ":POW:MW:PATH FULL"
+      - query: ":SYST:ERR?"
+        expect_prefix: "-224,"
+      - query: ":POW:MW:PRES?"
+        expect: "1"
+      - send: ":POW:MW:PRES OFF"
+      - query: ":SYST:ERR?"
+        expect_prefix: "-224,"
+      - send: ":POW:MW:PATH STD"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+      - {instrument: sa_lnp, query: "*OPT?", expect: "526,P26,LNP"}
+      - {instrument: sa_lnp, send: ":POW:MW:PATH LNP"}
+      - {instrument: sa_lnp, query: ":POW:MW:PATH?", expect: "LNP"}
+      - {instrument: sa_lnp, send: ":POW:MW:PATH LNPATH"}
+      - {instrument: sa_lnp, query: ":POW:MW:PATH?", expect: "LNP"}
+      - {instrument: sa_lnp, query: ":POW:MW:PRES?", expect: "1"}
+      - {instrument: sa_lnp, send: ":POW:MW:PATH MPB"}
+      - {instrument: sa_lnp, query: ":SYST:ERR?", expect_prefix: "-224,"}
+      - {instrument: sa_mpb, send: ":POW:MW:PRES OFF"}
+      - {instrument: sa_mpb, query: ":POW:MW:PRES?", expect: "0"}
+      - {instrument: sa_mpb, query: ":POW:MW:PATH?", expect: "MPB"}
+      - {instrument: sa_mpb, send: ":POW:MW:PRES ON"}
+      - {instrument: sa_mpb, query: ":POW:MW:PATH?", expect: "STD"}
+      - {instrument: sa_mpb, send: ":POW:MW:PATH MPB"}
+      - {instrument: sa_mpb, query: ":POW:MW:PRES?", expect: "0"}
+      - {instrument: sa_mpb, send: ":POW:MW:PATH MPBYP"}
+      - {instrument: sa_mpb, query: ":POW:MW:PATH?", expect: "MPB"}
+      - {instrument: sa_mpb, send: ":POW:MW:PATH FULL"}
+      - {instrument: sa_mpb, query: ":POW:MW:PATH?", expect: "FULL"}
+      - {instrument: sa_mpb, send: ":POW:MW:PATH LNP"}
+      - {instrument: sa_mpb, query: ":SYST:ERR?", expect_prefix: "-224,"}
+      - {instrument: sa_fbp, query: "*OPT?", expect: "526,LNP,MPB"}
+      - {instrument: sa_fbp, send: ":POW:MW:PATH FULL"}
+      - {instrument: sa_fbp, query: ":POW:MW:PATH?", expect: "FULL"}
+      - {instrument: sa_fbp, query: ":POW:MW:PRES?", expect: "0"}
+      - {instrument: sa_fbp, query: ":SYST:ERR?", expect: '+0,"No error"'}
+
+  - name: "LNP 通路（2a）：噪声底按 DANL 2a；3.6 GHz 以下 LNP 不接入（1a）；前放 FULL 开着时 LNP 不用（回 1c）"
+    manual: "Data Sheet 3121-1037.EN p.23 > 2a. Low-noise path DANL, typical: 8.4 to 17.1 GHz -154 dBm, >17.1 to 23 GHz -152（RBW 1 Hz）；p.21 > 1a. Standard path DANL typical: >10 MHz to 1.2 GHz -155；p.22 > 1c. Standard path, PA on DANL typical: >3.6 to 17.1 GHz -166；N9060-90027 p.575 > the Low Noise Path is used only when the sweep is completely in High Band and no preamp is in use（按中心频率判断）"
+    # sa_lnp 装了 LNP 与 P26、输入端接。0 dB 衰减、RBW 1 kHz、采样检波、对数平均 100 次：噪声底 = DANL + 30 dB。
+    # 10 GHz（2a）：-124 dBm；20 GHz（2a）：-122；1 GHz（LNP 不接入，1a）：-125；前放 FULL（LNP 不用，1c）：-136。
+    steps:
+      - {instrument: sa_lnp, send: ":POW:ATT 0"}
+      - {instrument: sa_lnp, send: ":BAND 1 kHz"}
+      - {instrument: sa_lnp, send: ":DET:TRAC SAMP"}
+      - {instrument: sa_lnp, send: ":AVER:COUN 100"}
+      - {instrument: sa_lnp, send: ":TRAC:TYPE AVER"}
+      - {instrument: sa_lnp, send: ":INIT:CONT OFF"}
+      - {instrument: sa_lnp, send: ":POW:MW:PATH LNP"}
+      - {instrument: sa_lnp, send: ":FREQ:CENT 10 GHz"}
+      - {instrument: sa_lnp, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_lnp, send: ":CALC:MARK:X 10 GHz"}
+      - {instrument: sa_lnp, query: ":CALC:MARK:Y?", expect_value: -124.0, tolerance: 2.2}
+      - {instrument: sa_lnp, send: ":FREQ:CENT 20 GHz"}
+      - {instrument: sa_lnp, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_lnp, send: ":CALC:MARK:X 20 GHz"}
+      - {instrument: sa_lnp, query: ":CALC:MARK:Y?", expect_value: -122.0, tolerance: 2.2}
+      - {instrument: sa_lnp, send: ":FREQ:CENT 1 GHz"}
+      - {instrument: sa_lnp, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_lnp, send: ":CALC:MARK:X 1 GHz"}
+      - {instrument: sa_lnp, query: ":CALC:MARK:Y?", expect_value: -125.0, tolerance: 2.2}
+      - {instrument: sa_lnp, send: ":POW:GAIN ON"}
+      - {instrument: sa_lnp, send: ":POW:GAIN:BAND FULL"}
+      - {instrument: sa_lnp, send: ":FREQ:CENT 10 GHz"}
+      - {instrument: sa_lnp, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_lnp, query: ":CALC:MARK:Y?", expect_value: -136.0, tolerance: 2.2}
+      - {instrument: sa_lnp, query: ":SYST:ERR?", expect: '+0,"No error"'}
+
+  - name: "MPB 通路（3a）：噪声底按 DANL 3a；旁路预选器后镜像与信号同幅度（差值 ≈ 0 dB）；前放开（3c）噪声底按 1c"
+    manual: "Data Sheet 3121-1037.EN p.23 > 3a, 3b. Microwave preselector bypass (MPB) path DANL, nominal: >8.4 to 17.1 GHz -154 dBm（RBW 1 Hz）；p.22 > 1c. Standard path, PA on DANL typical: >3.6 to 17.1 GHz -166（3c 未给整条通路指标，前放按 1c，假设）；N9060-90027 p.577 > the image response and the real signal typically have the same amplitude（旁路后抑制 0 dB；本模型 IF 21.4 MHz，镜像在信号上方 42.8 MHz）"
+    # sa_mpb 装了 MPB 与 P26。噪声底：输入端接（sg3 关着），10 GHz、3a：-154+30 = -124 dBm。
+    # 镜像：sg3 的 10 GHz、-10 dBm 连续波，MPB 通路上 10.0428 GHz 处出现同幅度的镜像；峰值搜索把标记放在
+    # 信号上，差值模式把参考固定在那里，标记移到镜像处，差值 ≈ 0 dB（两线同段频响抵消）。
+    # 3c：前放 FULL 开着、通路保持 MPB，10 GHz 噪声底 -136 dBm（1c）。
+    steps:
+      - {instrument: sa_mpb, send: ":POW:ATT 0"}
+      - {instrument: sa_mpb, send: ":BAND 1 kHz"}
+      - {instrument: sa_mpb, send: ":DET:TRAC SAMP"}
+      - {instrument: sa_mpb, send: ":AVER:COUN 100"}
+      - {instrument: sa_mpb, send: ":TRAC:TYPE AVER"}
+      - {instrument: sa_mpb, send: ":INIT:CONT OFF"}
+      - {instrument: sa_mpb, send: ":POW:MW:PATH MPB"}
+      - {instrument: sa_mpb, send: ":FREQ:CENT 10 GHz"}
+      - {instrument: sa_mpb, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_mpb, send: ":CALC:MARK:X 10 GHz"}
+      - {instrument: sa_mpb, query: ":CALC:MARK:Y?", expect_value: -124.0, tolerance: 2.2}
+      - {instrument: sg3, send: ":OUTP ON"}
+      - {instrument: sa_mpb, send: ":TRAC:TYPE WRIT"}
+      # RBW 放宽到 1 MHz：点距 100 kHz，信号与镜像都落在最近点的滤波器平坦区内，标记读到全功率。
+      - {instrument: sa_mpb, send: ":BAND 1 MHz;:FREQ:CENT 10.02 GHz;:FREQ:SPAN 100 MHz"}
+      - {instrument: sa_mpb, send: ":INIT:IMM;*WAI"}
+      # 峰值搜索找到的是镜像（它比载波还高 0.06 dB），先把标记放在载波上再进差值模式（参考＝载波）。
+      - {instrument: sa_mpb, send: ":CALC:MARK:X 10 GHz"}
+      - {instrument: sa_mpb, send: ":CALC:MARK:MODE DELT"}
+      - {instrument: sa_mpb, send: ":CALC:MARK:X 42.8 MHz"}
+      - {instrument: sa_mpb, query: ":CALC:MARK:Y?", expect_value: 0.0, tolerance: 0.5}
+      - {instrument: sa_mpb, send: ":CALC:MARK:MODE POS"}
+      - {instrument: sg3, send: ":OUTP OFF"}
+      - {instrument: sa_mpb, send: ":BAND 1 kHz;:FREQ:CENT 10 GHz;:FREQ:SPAN 100 kHz"}
+      - {instrument: sa_mpb, send: ":POW:GAIN ON"}
+      - {instrument: sa_mpb, send: ":POW:GAIN:BAND FULL"}
+      - {instrument: sa_mpb, send: ":TRAC:TYPE AVER"}
+      - {instrument: sa_mpb, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_mpb, send: ":CALC:MARK:X 10 GHz"}
+      - {instrument: sa_mpb, query: ":CALC:MARK:Y?", expect_value: -136.0, tolerance: 2.2}
+      - {instrument: sa_mpb, query: ":POW:MW:PATH?", expect: "MPB"}
+      - {instrument: sa_mpb, query: ":SYST:ERR?", expect: '+0,"No error"'}
+
+  - name: "FULL 通路（4a）：噪声底按 DANL 4a（10 GHz -128 dBm、20 GHz -126 dBm）"
+    manual: "Data Sheet 3121-1037.EN p.23-24 > 4a. Full bypass (FBP) path DANL, typical: 3.6 to 13.6 GHz -158 dBm, >17.1 to 22 GHz -156（RBW 1 Hz；sa_fbp 装了 LNP 与 MPB，输入端接）"
+    # 0 dB 衰减、RBW 1 kHz、采样检波、对数平均 100 次：噪声底 = DANL + 30 dB。
+    steps:
+      - {instrument: sa_fbp, send: ":POW:ATT 0"}
+      - {instrument: sa_fbp, send: ":BAND 1 kHz"}
+      - {instrument: sa_fbp, send: ":DET:TRAC SAMP"}
+      - {instrument: sa_fbp, send: ":AVER:COUN 100"}
+      - {instrument: sa_fbp, send: ":TRAC:TYPE AVER"}
+      - {instrument: sa_fbp, send: ":INIT:CONT OFF"}
+      - {instrument: sa_fbp, send: ":POW:MW:PATH FULL"}
+      - {instrument: sa_fbp, send: ":FREQ:CENT 10 GHz"}
+      - {instrument: sa_fbp, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_fbp, send: ":CALC:MARK:X 10 GHz"}
+      - {instrument: sa_fbp, query: ":CALC:MARK:Y?", expect_value: -128.0, tolerance: 2.2}
+      - {instrument: sa_fbp, send: ":FREQ:CENT 20 GHz"}
+      - {instrument: sa_fbp, send: ":INIT:IMM;*WAI"}
+      - {instrument: sa_fbp, send: ":CALC:MARK:X 20 GHz"}
+      - {instrument: sa_fbp, query: ":CALC:MARK:Y?", expect_value: -126.0, tolerance: 2.2}
+      - {instrument: sa_fbp, query: ":SYST:ERR?", expect: '+0,"No error"'}

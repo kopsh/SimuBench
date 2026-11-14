@@ -82,7 +82,8 @@ def test_a_deviation_for_some_settings_must_name_settings_and_values_that_exist(
     assert ("E-DEF-DEVIATION-WHEN", "/deviations/2/when") in codes(d)
     d = data()
     d["deviations"].append(copy.deepcopy(d["deviations"][0]))
-    assert ("E-DEF-DEVIATION-WHEN", "/deviations/3/param") in codes(d)
+    at = len(d["deviations"]) - 1
+    assert ("E-DEF-DEVIATION-WHEN", f"/deviations/{at}/param") in codes(d)
     d = data()
     d["deviations"][1]["option"] = "P07"
     assert ("E-DEF-OPTION", "/deviations/1/option") in codes(d)
@@ -132,7 +133,8 @@ def test_each_settings_case_draws_its_own_curve_and_the_parameter_follows_the_se
 
 
 def test_each_case_stays_inside_its_own_data_sheet_bands():
-    drawn, s = _curves(["P26"], seed=11)
+    # LNP/MPB 的按通路偏差也要画出来（#1039）：三个选件都装。
+    drawn, s = _curves(["P26", "LNP", "MPB"], seed=11)
     s.close()
     for dev in DefinitionLibrary().get("keysight-n9042b").deviations:
         key = f"sa/input.flatness[{case_label(dev.when)}]" if dev.when else "sa/input.flatness"

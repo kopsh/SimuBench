@@ -4026,15 +4026,11 @@ sections:
     gap: blocked
     blocked_by: C2
   - header: '[:SENSe]:POWer[:RF]:MW:PATH'
-    level: not_modeled
-    note: 'Blocked by C2 (product-plan.md 4.2): the front end — the µW-path and preselector options wait for the front-end paths (#1020, µW path #1039).'
-    gap: blocked
-    blocked_by: C2
+    level: implemented
+    note: 'µW paths (#1039, N9060-90027 p.573-578): STD preset on every unit; LNP (option LNP, data sheet 2a), MPB and FULL (option MPB, 3a and 4a; FULL needs both options, gated by MPB alone — the single-option field cannot say "and", #1113). Whether a path is switched in is judged at the center frequency: LNP and FULL above 3.6 GHz, the LNP only with no preamp in use (p.575; with the PA on band FULL the LNP is not used and FULL falls back to the MPB+PA path 3c). Front-end figures per path follow the data sheet (p.10-11 response, p.20 compression, p.23-24 DANL, p.26-28 SHI/TOI where given; MPB/FBP have no SHI/TOI — not declared, ideal; 3c has only a response: the PA carries the 1c figures); below 3.6 GHz every path answers with the standard-path figures. On the MPB and FULL paths the image appears at the same level as the signal above 3.6 GHz (p.577). A unit without the option answers -224 to that value today, where the manual says -241 (p.575/577): per-value option gating is #1113. The LNA halves of the paths (1b/1d/2b/3b/3d/4b) are not modeled: no command in the reference, nor in the multi-touch one (9018-04666).'
   - header: '[:SENSe]:POWer[:RF]:MW:PRESelector[:STATe]'
-    level: not_modeled
-    note: 'Blocked by C2 (product-plan.md 4.2): the front end — the µW-path and preselector options wait for the front-end paths (#1020, µW path #1039).'
-    gap: blocked
-    blocked_by: C2
+    level: implemented
+    note: 'The preselector switch (p.577-578): ON sets the STD path, OFF the MPB path — locked to :MW:PATH by constraints (D69). The query answers 1/0 (in circuit on STD and LNP); the manual documents the coupling, not the reply form (assumption). OFF needs option MPB; without it -224 today, -241 per the manual (#1113).'
   - header: '[:SENSe]:POWer[:RF]:PADJust'
     level: not_modeled
     note: 'Blocked by C2 (product-plan.md 4.2): the front end — the µW-path and preselector options wait for the front-end paths (#1020, µW path #1039).'

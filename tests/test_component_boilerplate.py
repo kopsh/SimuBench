@@ -154,24 +154,33 @@ def test_no_bound_paths_lookups_in_components():
     assert offenders == []
 
 
+#: The scans read only SOURCES (nothing changes at call time), so they run once at collection,
+#: not in the 100 ms call phase (D49).
+HAND_BUILT = _offenders(channel_name)
+BRACKET = _offenders(bracket_accessor)
+PRIVATE_FLAGS = _offenders(private_flag)
+OLD_ON_STATE = _offenders(old_on_state)
+DUCK_PROBES = _offenders(duck_probe)
+
+
 def test_no_handbuilt_channel_sibling_names():
-    assert _offenders(channel_name) == []
+    assert HAND_BUILT == []
 
 
 def test_no_bracket_sibling_accessors():
-    assert _offenders(bracket_accessor) == []
+    assert BRACKET == []
 
 
 def test_no_private_flag_parsers():
-    assert _offenders(private_flag) == []
+    assert PRIVATE_FLAGS == []
 
 
 def test_on_state_hooks_take_the_parameter_name():
-    assert _offenders(old_on_state) == []
+    assert OLD_ON_STATE == []
 
 
 def test_no_duck_probing_of_peers():
-    assert _offenders(duck_probe) == []
+    assert DUCK_PROBES == []
 
 
 @pytest.mark.parametrize(
