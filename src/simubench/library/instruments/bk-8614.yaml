@@ -53,6 +53,15 @@ specs:
   slew_rate: {low: "0.001–0.25 A/µs", high: "0.01–2.5 A/µs"}
   protection_typical: {opp: "1550 W", ocp: {low: "26.4 A", high: "264 A"}, ovp: "130 V", otp: "85 °C"}
   readback_accuracy: {voltage: "±(0.05% + 0.05% FS)", current: "±(0.05% + 0.1% FS)", power: "±(0.2% + 0.2% FS)"}
+  noise_readback_rms: >-
+    Voltage 0.45 mV, current 1.2 mA rms (estimate, #744/D46): the data sheet has no noise spec, so
+    take the FS offset term of the readback accuracy on the lowest range (voltage 0.05% × 18 V =
+    9 mV, current 0.1% × 24 A = 24 mA) divided by 20 — the reading noise is an absolute rms (#750,
+    the load has no measurement ranges), so the #748 bound σ ≤ limit/20 then holds on both the low
+    and the high ranges (the high range's terms 60 mV / 240 mA are looser and hold a fortiori).
+    The power readback is the noised V × I (mechanism #750): its worst rms over the 1500 W envelope
+    is ≈ 0.145 W (at 120 V × 12.5 A), inside the power accuracy's own bound (0.2% × 1500 W / 20 =
+    0.15 W). Setpoints take no noise.
 state:
   function.mode:
     type: enum
@@ -328,7 +337,12 @@ components:
     params: {enabled: $input.enabled, loop: loop, protection: prot}
   - name: load
     type: eload_meter
-    params: {input: inp}
+    params:
+      input: inp
+      # Reading noise (specs.noise_readback_rms, #744): an estimate — the FS offset term of the
+      # readback accuracy on the lowest range (0.05% × 18 V, 0.1% × 24 A) divided by 20; setpoints
+      # take no noise.
+      noise: {rms: {voltage: 4.5e-4, current: 1.2e-3}}
   - name: prot
     type: eload_protection
     # OVP 是硬件的 130 V（数据表典型值，没有命令）；OCP 与软件 OPP 按手册的开关、电平与延时。
@@ -455,7 +469,7 @@ commands:
     doc: 取能容纳该值的最小量程（18 V 或 120 V）；超出新量程的电压设定设为量程最大值。
   - header: "[:SOURce]:VOLTage:RANGe:AUTO"
     state: voltage.range_auto
-    doc: 电压表的自动量程；读数无噪声与分辨率模型，保存与回读不影响读数。
+    doc: 电压表的自动量程；读数分辨率未建模，保存与回读不影响读数（噪声按 specs.noise_readback_rms 常值，不随量程）。
   - header: "[:SOURce]:VOLTage[:LEVel]:ON"
     state: voltage.von
   - header: "[:SOURce]:VOLTage[:ON]:LATCh[:STATe]"
@@ -515,4 +529,4 @@ commands:
     doc: 一次新的采集：*RST 表的 NPLC 7（60 Hz 约 117 ms，手册未给采集时间，SimuBench 取值）。
   - header: ":SENSe:AVERage:COUNt"
     state: sense.average
-    doc: 读数滤波次数；读数没有噪声模型，保存与回读不影响读数。
+    doc: 读数滤波次数；滤波对读数的平均未建模（每次读数各取一个噪声样本，specs.noise_readback_rms），保存与回读不影响读数。
