@@ -940,6 +940,11 @@ def _period(sig: Signal) -> float | None:
     return 1.0 / g
 
 
+#: The trigger families that compare against both thresholds or the signal's state (#1184): each
+#: keeps its own source setting and shares the edge search's machinery.
+_ADVANCED = ("runt", "transition", "window", "timeout", "nedge")
+
+
 @component("scope_trigger")
 class ScopeTrigger(_ChannelBound):
     """Edge and pulse-width (glitch) trigger on its own analog path (instrument-authoring.md 8.4,
@@ -975,6 +980,25 @@ class ScopeTrigger(_ChannelBound):
     bisected on the signal (without trigger noise); a pulse narrower than that grid can be missed
     there, and an acquisition that finds nothing within that reach waits, looking again at the
     next command (#1000).
+
+    The advanced families (#1184) keep the same machinery on the steady-state signal — an object
+    to trigger on without transient signals (C7): ``mode`` ``runt`` fires on a pulse that crosses
+    ``low_threshold`` but never ``high_threshold`` (a negative one the mirror below
+    ``high_threshold``), ``transition`` on an edge whose time between the two thresholds fails
+    ``transition_mode`` (``gthan``/``lthan`` against ``transition_time``, ``range``/``orange``
+    against ``transition_range_low``/``transition_range_high``), ``window`` on the signal entering or leaving the band between
+    the two thresholds (``window_condition``; ``window_tpoint`` at the boundary instant or after
+    ``window_time`` of staying put, and ``inside``/``outside`` conditions with a ``greater``/
+    ``less`` duration qualifier), ``timeout`` when the signal has stayed high, low or unchanged
+    for ``timeout_time``, and ``nedge`` on the ``nedge_count``-th edge of the family's slope.
+    Each family keeps its own ``<family>_source`` (the edge trigger's source until one is set);
+    the runt, transition and window comparisons read the per-source ``high_threshold``/
+    ``low_threshold`` (``high_by_source``/``low_by_source`` name the sources' settings, like
+    ``level_by_source``), and the hysteresis band follows ``hysteresis_setting`` — ``normal``,
+    ``nreject`` (the noise-reject band) or ``hsensitivity`` (``hsensitivity_divs``, half the
+    normal band when unset). An unset threshold leaves runt, transition and window nothing to
+    compare against: the search finds nothing and a waiting acquisition looks again at the next
+    command.
     """
 
     ports = {"ext": PortSpec("in", "signal", "external trigger input")}
@@ -1005,20 +1029,62 @@ class ScopeTrigger(_ChannelBound):
         "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
         "line": ["LINE"],  # sources that trigger on the mains
         "line_hz": 50.0,  # mains frequency
-        "mode": "edge",  # the trigger type: edge, or glitch (a pulse by its width)
+        "mode": "edge",  # the trigger type: edge, glitch (a pulse by its width), runt,
+        # transition, window, timeout or nedge (the Nth edge); each non-edge family keeps its own
+        # source (see <family>_source) while edge and glitch share the main one
         "polarity": "positive",  # glitch: the pulse above the level (positive) or below it (negative)
         "qualifier": "less",  # glitch: narrower than width_high (less), wider than width_low (greater), between (range)
         "width_low": 20e-9,  # glitch: the width a greater or range pulse exceeds, s
         "width_high": 30e-9,  # glitch: the width a less or range pulse stays under, s
+        # ---- the advanced families (#1184) ----
+        "high_threshold": None,  # display volts, runt/transition/window; per source like the level
+        "low_threshold": None,  # display volts, the pair's other half; per source like the level
+        "high_by_source": {},  # each source's own threshold setting, by source word, e.g.
+        "low_by_source": {},  # {CHANnel1: trigger.hth1, CHANnel2: trigger.hth2}; unlisted: the fallback above
+        "hysteresis_setting": "normal",  # :TRIGger:HYSTeresis: normal, nreject (the wider noise-reject
+        # band) or hsensitivity (the narrower band below); the band the edges arm and cross within
+        "hsensitivity_divs": None,  # the hsensitivity band, in divisions of the source; None: half the normal band
+        "runt_source": None,  # the runt family's source word; None: the main source
+        "runt_polarity": "positive",  # the pulse between low and high threshold (positive) or below high (negative)
+        "runt_qualified": False,  # on: the runt's width must exceed runt_time as well
+        "runt_time": 250e-12,  # the time a qualified runt exceeds, s (manual: 250 ps to 30 ns)
+        "transition_source": None,  # the transition family's source word; None: the main source
+        "transition_type": "risetime",  # rise time (rising edge) or fall time (falling edge)
+        "transition_mode": "gthan",  # the violation: gthan/lthan transition_time, or inside
+        # (range) / outside (orange) transition_range
+        "transition_time": 1e-9,  # s, the greater/less bound
+        "transition_range_low": 10e-9,  # s, the minimum of the range modes
+        "transition_range_high": 20e-9,  # s, the maximum of the range modes
+        "window_source": None,  # the window family's source word; None: the main source
+        "window_condition": "enter",  # enter, exit, inside or outside the band; inside/outside take a
+        "window_qualifier": "",  # duration qualifier: gthan (held window_time) or lthan (left before window_time)
+        "window_time": 1e-6,  # s, the duration the condition is compared with
+        "window_tpoint": "boundary",  # enter/exit fire at the boundary instant (boundary) or once the
+        # new state has lasted window_time (timeout)
+        "timeout_source": None,  # the timeout family's source word; None: the main source
+        "timeout_condition": "unchanged",  # high, low or unchanged
+        "timeout_time": 1e-3,  # s, the time the state lasts before the trigger
+        "nedge_source": None,  # the nth-edge family's source word; None: the main source
+        "nedge_slope": None,  # the counted edges' slope; None: the main slope
+        "nedge_count": 1,  # the edge that triggers: the nedge_count-th (1 is the first)
     }
     units = {
         "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V",
-        "width_low": "s", "width_high": "s",
+        "width_low": "s", "width_high": "s", "runt_time": "s", "transition_time": "s",
+        "window_time": "s", "timeout_time": "s",
     }  # fmt: skip
     choices = {
-        "mode": ("edge", "glitch"),
+        "mode": ("edge", "glitch", "runt", "transition", "window", "timeout", "nedge"),
         "polarity": ("positive", "negative"),
         "qualifier": ("less", "greater", "range"),
+        "hysteresis_setting": ("normal", "nreject", "hsensitivity"),
+        "runt_polarity": ("positive", "negative"),
+        "transition_type": ("risetime", "falltime"),
+        "transition_mode": ("gthan", "lthan", "range", "orange"),
+        "window_condition": ("enter", "exit", "inside", "outside"),
+        "window_qualifier": ("", "gthan", "lthan"),
+        "window_tpoint": ("boundary", "timeout"),
+        "timeout_condition": ("high", "low", "unchanged"),
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -1067,20 +1133,84 @@ class ScopeTrigger(_ChannelBound):
         if not -lim - offset - 1e-12 <= float(new) <= lim - offset + 1e-12:
             raise ScpiError(-222, f"trigger level outside +-{divs} div")
 
-    def source_channel(self) -> int | None:
+    def source_channel(self, source: str | None = None) -> int | None:
         """The channel the source names, None for external, line and the like."""
-        return trigger_channel(self.param("source"))
+        return trigger_channel(self.param("source") if source is None else source)
 
-    def source_kind(self) -> str:
+    def source_kind(self, source: str | None = None) -> str:
         """channel | external | line | none."""
-        src = str(self.param("source")).upper()
-        if self.source_channel() is not None:
+        src = str(self.param("source") if source is None else source).upper()
+        if self.source_channel(src) is not None:
             return "channel"
         if src in _upper(self.param("external")):
             return "external"
         if src in _upper(self.param("line")):
             return "line"
         return "none"
+
+    def family_source(self) -> str:
+        """The source word the current mode's family looks at: each advanced family keeps its own
+        source setting (#1184), the edge and glitch families share the main one."""
+        key = {
+            "runt": "runt_source",
+            "transition": "transition_source",
+            "window": "window_source",
+            "timeout": "timeout_source",
+            "nedge": "nedge_source",
+        }.get(str(self.choice("mode")))
+        if key is None:
+            return str(self.param("source"))
+        own = self.param(key)
+        return str(self.param("source")) if own in (None, "") else str(own)
+
+    def threshold(self, which: str, source: str) -> float | None:
+        """The ``high`` or ``low`` threshold of a source in display volts: the source's own
+        setting (``high_by_source``/``low_by_source``, like the level's), else the fallback
+        (``high_threshold``/``low_threshold``), else None — unset, nothing to compare against."""
+        by = {str(k).upper(): str(v) for k, v in dict(self.param(f"{which}_by_source") or {}).items()}
+        if by and self.owner is not None:
+            src = str(source).upper()
+            for word, path in by.items():
+                if src in (word, V.short_form(word)):
+                    return float(self.owner.get_state(path))
+        value = self.param(f"{which}_threshold")
+        return None if value is None else float(value)
+
+    @op("window_condition")
+    def op_window_condition(
+        self, condition: Any = None, qualifier: Any = None, query: bool = False, **_: Any
+    ) -> OpResult:
+        """``:TRIGger:WINDow:CONDition {ENTer | EXIT | INSide[,{GTHan | LTHan}] | OUTSide[,…]}``
+        (manual p.1587): the duration qualifier belongs to inside and outside, and the query
+        answers it only for those two (the manual's returned format). The words arrive as the raw
+        parameter's list."""
+        assert self.owner is not None
+        cond, qual = self.bound_path("window_condition"), self.bound_path("window_qualifier")
+        if cond is None or qual is None:
+            raise ScpiError(-300, "the window condition is not bound to a setting")
+        if query:
+            word = str(self.owner.get_state(cond))
+            if word in ("INSide", "OUTSide"):
+                word = f"{word},{self.owner.get_state(qual)}"
+            return OpResult(",".join(V.short_form(part) for part in word.split(",")).encode())
+        given = list(condition) if isinstance(condition, list) else ([] if condition is None else [condition])
+
+        def word(value: Any, options: tuple[str, ...]) -> str:
+            raw = value if isinstance(value, bytes) else str(value).encode()
+            return V.parse_enum(raw, options)
+
+        if not given:
+            raise ScpiError(-109, "a condition is required")
+        words = word(given[0], ("ENTer", "EXIT", "INSide", "OUTSide"))
+        self.owner.set_state(cond, words)
+        if words in ("INSide", "OUTSide"):
+            if len(given) > 1:  # the qualifier is optional: given, it replaces the setting
+                self.owner.set_state(qual, word(given[1], ("GTHan", "LTHan")))
+        elif len(given) > 1:
+            raise ScpiError(
+                -108, f"the qualifier belongs to {V.short_form('INSide')} and {V.short_form('OUTSide')}"
+            )
+        return OpResult()
 
     def level(self) -> float:
         """The trigger level in display volts (the scope screen draws it). With ``level_by_source``
@@ -1108,8 +1238,17 @@ class ScopeTrigger(_ChannelBound):
         return sig
 
     def _hysteresis(self, scale: float) -> float:
-        on = self.param("noise_reject") in (True, 1, "1", "ON", "on")
-        divs = float(self.param("reject_hysteresis_divs" if on else "hysteresis_divs"))
+        setting = str(self.choice("hysteresis_setting") or "normal")
+        normal = float(self.param("hysteresis_divs"))
+        if setting == "nreject":  # the widest band, whether or not the old noise_reject flag is on
+            divs = float(self.param("reject_hysteresis_divs"))
+        elif setting == "hsensitivity":  # the narrowest band (a 4 GHz and above waveform)
+            own = self.param("hsensitivity_divs")
+            divs = normal / 2.0 if own is None else float(own)
+        elif self.param("noise_reject") in (True, 1, "1", "ON", "on"):
+            divs = float(self.param("reject_hysteresis_divs"))
+        else:
+            divs = normal
         return divs * scale
 
     def _noisy(
@@ -1157,13 +1296,14 @@ class ScopeTrigger(_ChannelBound):
         earliest_s: float,
     ) -> TriggerHit | None:
         """:meth:`search` itself."""
-        kind = self.source_kind()
+        kind = self.source_kind(self.family_source())
         start_s = max(pre * dt, earliest_s)
         if self.last_ns is not None and self.param("holdoff_on") in (True, 1, "1", "ON", "on"):
             start_s = max(start_s, (self.last_ns - t0) * 1e-9 + float(self.param("holdoff")))
         span = max(points * int(self.param("search_windows")), pre + 2 * points) * dt
         horizon = max(span, float(horizon_s or 0.0))
-        glitch = self.choice("mode") == "glitch"
+        mode = self.choice("mode") or "edge"
+        glitch = mode == "glitch"
         if glitch and kind not in ("channel", "external"):
             return None  # the mains has no pulse to time
         if kind == "line":
@@ -1183,6 +1323,8 @@ class ScopeTrigger(_ChannelBound):
         # included) is not searched for: a waiting acquisition looks again at every command.
         swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
         top, bottom = sig.dc + swing, sig.dc - swing
+        if mode in _ADVANCED:
+            return self._advanced(sig, t0, dt, start_s, span, horizon, mode, n, scale, hyst, top, bottom)
         can_rise = bottom < level - hyst and top >= level
         can_fall = top > level + hyst and bottom <= level
         if glitch:  # a pulse needs both of its edges
@@ -1210,6 +1352,494 @@ class ScopeTrigger(_ChannelBound):
         # The work is samples times lines: a signal of many lines is searched on fewer samples.
         budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
         return max(step, (horizon - span) / budget)
+
+    # ---- the advanced families (#1184): runt, transition, window, timeout, nedge ----------------
+    #
+    # The same steady-state signal the edge and glitch searches look at, the same hysteresis band
+    # and instants; what changes is what qualifies. The pulse families (runt, transition) walk the
+    # crossings of both thresholds, the state families (window, timeout) the runs of the signal's
+    # state, nedge counts the edge trigger's own crossings.
+
+    def _stretches(
+        self, sig: Signal, dt: float, start_s: float, span: float, horizon: float, *bounds: float
+    ) -> list[tuple[float, float]]:
+        """The grids a pulse- or state-based search walks: the record grid for as many samples as
+        ``max_search_points`` allows (fewer for a signal of many lines), then a grid an eighth of
+        the narrowest bound the qualification compares, so a coarse grid still bounds the durations
+        it judges (#1000)."""
+        budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
+        fine = min(span, horizon, start_s + budget * dt)
+        stretches = [(fine, dt)]
+        if horizon > fine:
+            usable = [b for b in bounds if 0 < b < math.inf]
+            step = max(dt, min(usable) / 8) if usable else self._far_step(sig, dt, fine, horizon)
+            stretches.append((min(horizon, fine + step * budget), step))
+        return stretches
+
+    def _level_stream(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        level: float,
+        hyst: float,
+    ) -> Iterator[_Crossing]:
+        """The crossings of one threshold, in time order, for the pulse families: the side of the
+        threshold flips only beyond the hysteresis band, and the flip's own crossing of the level —
+        between the last sample on the old side and this one — is what counts. A threshold of a
+        pair is reached from its partner, not from beyond its own far band, so the edge search's
+        arming rule would miss just the edges the pulse families look for (an edge whose top is
+        barely past the threshold never sees the far side of it). The side the signal is on at the
+        search's start is carried in: the crossing that put it there lies before the search."""
+        side = 0  # -1 below the band, +1 above it, 0 not yet decided
+        anchor: tuple[float, float] | None = None  # the last sample decisively on this side
+        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        prev: tuple[float, float] | None = None
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                for k in range(count):
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    decisive = 1 if v_k > level + hyst else (-1 if v_k < level - hyst else 0)
+                    # a flip needs a side behind it (which is where its anchor sample came from)
+                    if side and decisive and decisive != side and anchor is not None:
+                        # the level was crossed between the last sample on the old side and this
+                        # one; without noise the crossing is bisected on the signal, with noise
+                        # the line between the two samples carries the estimate
+                        rising = decisive > 0
+                        if noisy:
+                            estimate = _between(anchor[0], anchor[1], t_k, v_k, level)
+                        else:
+                            estimate = self._bisect(sig, t0, anchor[0], t_k, level, rising, dt)
+                        yield _Crossing("rise" if rising else "fall", anchor[0], t_k, estimate, True)
+                    if decisive:
+                        side, anchor = decisive, (t_k, v_k)
+                    prev = (t_k, v_k)
+                prev = (float(offsets[-1]), float(v[-1]))
+                a = prev[0] + step
+        yield _Crossing(
+            None,
+            prev[0] if prev else start_s,
+            prev[0] if prev else start_s,
+            prev[0] if prev else start_s,
+            True,
+        )
+
+    def _merged(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        low: float,
+        high: float,
+        hyst: float,
+    ) -> Iterator[tuple[str, _Crossing]]:
+        """The crossings of both thresholds in time order, ``(which, crossing)`` with ``which``
+        ``low`` or ``high`` — each level walked by the pulse families' own rule
+        (:meth:`_level_stream`). ``""`` carries the progress markers: how far the search has come
+        where neither level crossed."""
+        streams = {
+            which: self._level_stream(sig, t0, dt, start_s, stretches, level, hyst)
+            for which, level in (("low", low), ("high", high))
+        }
+        heads: dict[str, _Crossing | None] = {}
+
+        def head(which: str) -> _Crossing | None:
+            if which not in heads:
+                heads[which] = next(streams[which], None)
+            return heads[which]
+
+        while True:
+            ready = {w: c for w in streams if (c := head(w)) is not None}
+            if not ready:
+                return
+            marks = {w: c for w, c in ready.items() if c.direction is None}
+            if marks and len(marks) == len(ready):
+                for w, c in marks.items():
+                    del heads[w]
+                    yield ("", c)
+                continue
+            _, w = min((c.at, w) for w, c in ready.items() if c.direction is not None)
+            crossing = heads.pop(w)
+            assert crossing is not None
+            yield (w, crossing)
+
+    def _advanced(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        span: float,
+        horizon: float,
+        mode: str,
+        n: int | None,
+        scale: float,
+        hyst: float,
+        top: float,
+        bottom: float,
+    ) -> TriggerHit | None:
+        """The advanced families (#1184), each on the steady-state signal with the edge search's
+        arming and instants: runt and transition on the crossings of the two thresholds, window
+        and timeout on the runs of the signal's state, nedge on the counted crossings."""
+        source = self.family_source()
+        level = float(self.channel_param("level", n) if n is not None else self.level())
+        noiseless = self.param("noise_rms") in (0, 0.0, None)
+        period = _period(sig) if noiseless else None
+        high = self.threshold("high", source)
+        low = self.threshold("low", source)
+
+        if mode == "nedge":
+            slope = self.param("nedge_slope")
+            if slope in (None, ""):
+                slope = str(self.channel_param("slope", n) if n is not None else self.param("slope"))
+            slope = str(slope).upper()
+            rising = slope in _upper(self.param("rising"))
+            falling = slope in _upper(self.param("falling"))
+            directions = [d for d, on in (("rise", rising), ("fall", falling)) if on]
+            if not directions or not (
+                (rising and bottom < level - hyst and top >= level)
+                or (falling and top > level + hyst and bottom <= level)
+            ):
+                return None
+            count = max(1, int(self.param("nedge_count")))
+            if period is not None:
+                # The edges repeat each period: what one period shows is what every period shows,
+                # so the nth lands in its own period — the horizon reaches that far (within the
+                # sample budget; a search that cannot look that far waits and looks again at the
+                # next command, as the glitch search does).
+                probe_stop = min(span, 2.0 * period + dt)
+                probe = [
+                    c
+                    for c in self._edges(sig, t0, dt, start_s, [(probe_stop, dt)], level, hyst)
+                    if c.direction in directions
+                ]
+                per_period = max(len(probe) / max(probe_stop / period, 1.0), 1.0)
+                horizon = min(
+                    horizon,
+                    max(probe_stop, start_s + period * math.ceil(count / per_period) + 2.0 * dt),
+                )
+            seen = 0
+            for c in self._edges(
+                sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon), level, hyst
+            ):
+                if c.direction not in directions:
+                    continue
+                seen += 1
+                if seen >= count:
+                    if not c.final:  # found on the coarse grid: bisected on the signal
+                        c.estimate = self._bisect(sig, t0, c.before, c.at, level, c.direction == "rise", dt)
+                        c.final = True
+                    return TriggerHit(c.estimate, math.ceil(c.estimate / dt - 1e-9))
+            return None
+
+        if mode == "timeout":
+            limit = float(self.param("timeout_time"))
+            cond = str(self.choice("timeout_condition") or "unchanged")
+            if limit <= 0:
+                return None
+            if period is not None:  # one period shows every state run there is
+                horizon = min(horizon, start_s + period + limit + 2.0 * dt)
+            for state, entry, upto, _final in self._runs(
+                sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon, limit), level, hyst
+            ):
+                if cond != "unchanged" and state != cond:
+                    continue
+                begin = max(entry, start_s)  # armed here: the run counts from the arming
+                if upto - begin >= limit:
+                    return TriggerHit(begin + limit, math.ceil((begin + limit) / dt - 1e-9))
+            return None
+
+        if mode == "window":
+            if high is None or low is None:  # no thresholds set: nothing to enter or leave
+                return None
+            high, low = float(high), float(low)
+            if low > high:
+                low, high = high, low
+            condition = str(self.choice("window_condition") or "enter")
+            wanted = "inside" if condition in ("enter", "inside") else "outside"
+            qualifier = str(self.choice("window_qualifier") or "")
+            tpoint = str(self.choice("window_tpoint") or "boundary")
+            limit = float(self.param("window_time"))
+            if not (top >= low and bottom <= high) or not (bottom < low - hyst or top > high + hyst):
+                return None  # the signal never reaches the band, or never leaves it
+            if period is not None:
+                horizon = min(horizon, start_s + 2.0 * period + limit + 2.0 * dt)
+
+            def instant(c: tuple) -> float:
+                bound, d, before, at, estimate, final = c
+                if final:
+                    return estimate
+                return self._bisect(sig, t0, before, at, bound, d == "rise", dt)
+
+            for state, entry, exit_c, upto, _final in self._runs_window(
+                sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon, limit), low, high, hyst
+            ):
+                if state != wanted:
+                    continue
+                carried = entry is None  # the signal already sat in this state at the arming
+                begin = (
+                    start_s if carried else max(instant(entry), start_s)
+                )  # armed here: the transition counts from then
+                left = instant(exit_c) if exit_c is not None else None
+                if condition in ("enter", "exit") and tpoint == "boundary":
+                    if carried:
+                        continue  # being in the state already is not a transition of the search
+                    return TriggerHit(begin, math.ceil(begin / dt - 1e-9))
+                if qualifier == "lthan":
+                    # left before the time: the exit instant is the trigger
+                    if left is not None and left - begin < limit:
+                        return TriggerHit(left, math.ceil(left / dt - 1e-9))
+                    continue
+                held = (left if left is not None else upto) - begin
+                if held >= limit:  # boundary timeout, or a greater inside/outside: still there
+                    return TriggerHit(begin + limit, math.ceil((begin + limit) / dt - 1e-9))
+            return None
+
+        # ---- runt and transition: the crossings of both thresholds in time order ----------------
+        if high is None or low is None:
+            return None
+        high, low = float(high), float(low)
+        if low > high:
+            low, high = high, low
+        polarity = str(self.choice("runt_polarity") or "positive")
+        ttype = str(self.choice("transition_type") or "risetime")
+        if mode == "runt":
+            opens = ("low", "rise") if polarity == "positive" else ("high", "fall")
+            closes = ("low", "fall") if polarity == "positive" else ("high", "rise")
+            rejects = {("high", "rise")} if polarity == "positive" else {("low", "fall")}
+            entry = (
+                (bottom < low - hyst and top >= low)
+                if polarity == "positive"
+                else (top > high + hyst and bottom <= high)
+            )
+            if not entry:
+                return None
+            qualified = V.flag(self.param("runt_qualified"))
+            bounds = (float(self.param("runt_time")),)
+        else:
+            opens = ("low", "rise") if ttype == "risetime" else ("high", "fall")
+            closes = ("high", "rise") if ttype == "risetime" else ("low", "fall")
+            rejects = (
+                {("low", "fall"), ("high", "fall")}
+                if ttype == "risetime"
+                else {("high", "rise"), ("low", "rise")}
+            )
+            entry = (
+                (bottom < low - hyst and top > high)
+                if ttype == "risetime"
+                else (top > high + hyst and bottom < low)
+            )
+            if not entry:
+                return None
+            qualified = False
+            tmode = str(self.choice("transition_mode") or "greater")
+            t_limit = float(self.param("transition_time"))
+            t_lo = float(self.param("transition_range_low"))
+            t_hi = float(self.param("transition_range_high"))
+            bounds = (t_limit,) if tmode in ("gthan", "lthan") else (t_lo, t_hi)
+        if period is not None:  # a signal that repeats shows every pulse within two periods
+            horizon = min(horizon, start_s + 2.0 * period + 2.0 * dt)
+        levels = {"low": low, "high": high}
+
+        def instant(c: _Crossing, which: str) -> float:
+            if not c.final:  # found on the coarse grid: bisected on the signal
+                c.estimate = self._bisect(sig, t0, c.before, c.at, levels[which], c.direction == "rise", dt)
+                c.final = True
+            return c.estimate
+
+        def hit(t: float) -> TriggerHit:
+            return TriggerHit(t, math.ceil(t / dt - 1e-9))
+
+        began: tuple[str, _Crossing] | None = None  # the opening crossing of the pulse under way
+        for which, c in self._merged(
+            sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon, *bounds), low, high, hyst
+        ):
+            if which == "":  # progress: a runt still open has lasted its time
+                if mode == "runt" and qualified and began is not None:
+                    begun = instant(began[1], began[0])
+                    if c.at - begun > float(self.param("runt_time")):
+                        return hit(begun + float(self.param("runt_time")))
+                continue
+            key = (which, str(c.direction))
+            if began is not None and key in rejects:
+                began = None
+                continue
+            if key == closes and began is not None:
+                begun = instant(began[1], began[0])
+                done = instant(c, which)
+                if mode == "runt":
+                    if not qualified or done - begun > float(self.param("runt_time")):
+                        return hit(done)
+                else:
+                    edge_time = done - begun
+                    inside = t_lo < edge_time < t_hi
+                    if (
+                        (tmode == "gthan" and edge_time > t_limit)
+                        or (tmode == "lthan" and edge_time < t_limit)
+                        or (tmode == "range" and inside)
+                        or (tmode == "orange" and not inside)
+                    ):
+                        return hit(done)
+                began = None
+                continue
+            if key == opens:
+                began = (which, c)
+            elif key == closes:
+                began = None  # a close without an open: whatever ran before is over
+        return None
+
+    def _runs(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        level: float,
+        hyst: float,
+    ) -> Iterator[tuple[str, float, float, bool]]:
+        """The runs of the signal's state against ``level`` (the timeout family): high above
+        ``level + hyst``, low below ``level - hyst``, in between keeps the previous state (the
+        hysteresis band; at the very start, with no state behind it, the nearer side decides).
+        Yields ``(state, entry, upto, final)`` when a run closes — ``entry`` where it began,
+        ``upto`` where it ended — and once more for the run still open where the search ends."""
+        state = ""
+        entry = 0.0
+        anchor: tuple[float, float] | None = None  # the last sample decisively in this state
+        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        prev: tuple[float, float] | None = None
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                for k in range(count):
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    if v_k > level + hyst:
+                        decisive = "high"
+                    elif v_k < level - hyst:
+                        decisive = "low"
+                    else:
+                        decisive = ""  # the hysteresis band keeps the state
+                    new = decisive or state or ("high" if v_k >= level else "low")
+                    if state and new != state:
+                        yield (state, entry, t_k, True)
+                        # the state truly began where the band edge was crossed, between the last
+                        # sample on the other side and this one; bisected without noise, the line
+                        # between the two samples carrying the estimate with it
+                        bound = level + hyst if new == "high" else level - hyst
+                        if anchor is not None and prev is not None:
+                            if noisy:
+                                entry = _between(anchor[0], anchor[1], t_k, v_k, bound)
+                            else:
+                                entry = self._bisect(sig, t0, anchor[0], t_k, bound, new == "high", dt)
+                        else:
+                            entry = t_k
+                    elif not state:
+                        entry = t_k
+                    state = new
+                    if decisive:
+                        anchor = (t_k, v_k)  # a sample of the state the next flip is measured from
+                    prev = (t_k, v_k)
+                prev = (float(offsets[-1]), float(v[-1]))
+                a = prev[0] + step
+        if state:
+            yield (state, entry, prev[0] if prev else entry, True)
+
+    def _runs_window(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        low: float,
+        high: float,
+        hyst: float,
+    ) -> Iterator[tuple[str, tuple | None, tuple | None, float, bool]]:
+        """The runs of the signal inside and outside the band ``[low, high]`` (the window family):
+        inside between the bounds, outside beyond either bound widened by the hysteresis, the ring
+        between keeping the previous state. Yields ``(state, entry, exit, upto, final)`` when a run
+        closes — ``exit`` the crossing out of it — and once for the run still open where the search
+        ends (``exit`` None, ``upto`` how far the search has come). An entry or exit is
+        ``(bound, direction, before, at, estimate, final)``: the crossing of the bound the signal
+        actually crossed, its instant bisected later on the coarse grids."""
+        state = ""  # "" until a sample decides one way or the other
+        entry: tuple | None = None
+        anchor: tuple[float, float] | None = None  # the last sample decisively in this state
+        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        prev: tuple[float, float] | None = None
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                for k in range(count):
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    if low <= v_k <= high:
+                        decisive = "inside"
+                    elif v_k > high + hyst or v_k < low - hyst:
+                        decisive = "outside"
+                    else:
+                        decisive = ""  # the ring between the band and its hysteresis: stays
+                    if decisive and decisive != state:
+                        # the bound was crossed between the last sample decisively on the other
+                        # side and this one (the ring in between never says so); the estimate is
+                        # the line between the two samples, bisected by the consumer on the exact
+                        # signal when there is no noise (final False). The run the signal already
+                        # sits in at the search's start has no crossing behind it (entry None):
+                        # being in the state is not the same as entering it.
+                        cross = (
+                            self._window_crossing(anchor, (t_k, v_k), low, high, noisy)
+                            if anchor is not None
+                            else None
+                        )
+                        if state:
+                            yield (state, entry, cross, prev[0] if prev else t_k, noisy)
+                        entry = cross
+                        state = decisive
+                    if decisive:
+                        anchor = (t_k, v_k)  # a sample of the state the next crossing is found from
+                    prev = (t_k, v_k)
+                prev = (float(offsets[-1]), float(v[-1]))
+                a = prev[0] + step
+        if state and entry is not None:
+            yield (state, entry, None, prev[0] if prev else start_s, True)
+
+    @staticmethod
+    def _window_crossing(
+        before: tuple[float, float] | None, at: tuple[float, float], low: float, high: float, final: bool
+    ) -> tuple:
+        """The crossing into or out of the window band between the samples ``before`` and ``at``:
+        into the band from above is the high bound falling, from below the low bound rising; out of
+        it upward the high bound rising, downward the low bound falling."""
+        (t_k, v_k) = at
+        if before is not None:
+            t_p, v_p = before
+            if low <= v_k <= high:  # into the band
+                bound, d = (high, "fall") if v_p > high else (low, "rise")
+            elif v_k > high:  # out of it upward
+                bound, d = high, "rise"
+            else:  # out of it downward
+                bound, d = low, "fall"
+            return (bound, d, t_p, t_k, _between(t_p, v_p, t_k, v_k, bound), final)
+        return (low, "rise", t_k, t_k, t_k, True)
 
     def _glitch(
         self,
@@ -1881,8 +2511,11 @@ class ScopeAcquisition(Component):
         """The trigger the acquisition starting at ``t0`` finds (``waits``: as far as the trigger's
         search horizon; none before ``earliest_s``), or None."""
         trig = self.trigger_unit()
-        n_trig = trig.source_channel()
-        kind = trig.source_kind()
+        # The mode's family looks at its own source (#1184): each advanced family keeps one, the
+        # edge and glitch families share the main one.
+        source = trig.family_source()
+        n_trig = trig.source_channel(source)
+        kind = trig.source_kind(source)
         if kind == "channel":
             sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
         elif kind == "external":

@@ -2268,3 +2268,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 手册用例 | ✅ `tests/models/keysight-uxr1104b/cases.yaml` 78/78（移植 12 个用例组，校准输出组与 main 的 #1170 版合并；0334B 的 77/77 不受影响）。规格适配：前导的 Y 增量/满幅按 *RST 500 mV/div、模型串与带宽按本型号；反相 VMAX/VMIN 容差按 0.1 V/div 档 6.1 mV rms 的最坏峰放宽到 ±4.5σ；探头换算证明改小信号 + VAVerage（1 mm 型号最大 500 mV/div，装不下 0334B 的 4 Vpp 读数，且换算过的噪声 0.29 V rms 会顶满） |
 | 顺带修正移植用例里的失效命令 | ✅ awg 幅度命令应为 `[:SOURce<ch>]:VOLTage`（33622A 无 `:VOLTage:AMPLitude`，原样发 -113 不生效：削波用例的 5 Vpp 与恢复步都是空操作，0.4 Vpp 在 1 mV/div 本就削波所以此前未暴露）；`tests/models/keysight-uxr0334b/cases.yaml` 的同款两处未动（不在本 issue 范围） |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 示波器：欠幅/过渡/窗口/超时/第 N 边沿触发与高/低阈值、迟滞选择（Issue 1184）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| C8 里不依赖 C7 瞬态信号的 22 条做成实现级 | ✅ `ScopeTrigger` 的 mode 增至七个（edge、glitch、runt、transition、window、timeout、nedge）；每族记自己的信源（未设则随主信源），欠幅/过渡/窗口用每源高/低阈值对（HTHReshold 允许 AUX、LTHReshold 仅通道），HYSTeresis 三档映射迟滞带（NREJect=噪声抑制带、HSENsitivity=一半默认带）；搜索沿用边沿触发的插值、迟滞与释抑，仍在解析的稳态信号上 |
+| 两台型号接线 | ✅ `keysight-uxr0334b.yaml`/`keysight-uxr1104b.yaml`：`trigger.mode` 从 EDGE-only 扩到六词（RUNT/TRANsition/TIMeout/WINDow/NEDGe 入 options，其余仍 not_modeled），`mode: $trigger.mode` 首次绑进组件块；+26 state、+19 命令（`[{1|2}]` 的 TERM2 后缀未建模报 -114）；WINDow:CONDition 用 op 让查询按手册只在 INSIDE/OUTSIDE 时带时长限定词（短形 `INS,GTH`） |
+| 覆盖表 | ✅ 两台各 22 条 → implemented（NEDGe 3、TIMeout 3、WINDow 4、RUNT 4、TRANsition 5、HTH/LTH/HYSTeresis 3）：实现 257→279 · 接受 40（25.9%→27.8%，共 1147），可做余量 96→93，未分拣 0 |
+| 手册用例 | ✅ 两台各 +6 组（83/83、84/84）：命中用 TRIGgered 的 :SINGle（真正触发才完成，:TERegister? 置 1），不命中用 AUTO（自动触发兜底、寄存器保持 0）——TRIGgered 下等不到触发的 *OPC? 会一直等（no_trigger: wait），用例里不出现；每族都有命中与不命中路径（欠幅高阈值收到 0.15 V、过渡大于 50 ns、窗口带内限定 100 ns 而带内只有 16.7 ns、超时 800 ns 而顶部只有 500 ns） |
+| 组件单元测试 | ✅ `tests/test_scope_trigger_advanced.py` 16 例：五种模式的触发时刻对解析信号逐一断言（NEDGe 第 7 条边跨两周期探针、超时起算点钳到布防时刻、窗口的进/出/越界与 carry 段、欠幅双极性与宽度限定、过渡四种限定、迟滞三档映射）；两电平走子说明阈值对从对方到达而非自身远带（edge 的 arming 规则会漏恰好这些边） |
+| `scripts/check.sh` 通过 | ✅ ty 零新增；coverage 一致性（header 带 `<S>` 后缀与定义逐字一致）与参数描述守卫已修 |
