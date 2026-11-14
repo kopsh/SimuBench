@@ -71,6 +71,9 @@ class CommandRunner:
 
     def __init__(self, inst: Instrument) -> None:
         self.inst = inst
+        # The header suffixes of the command being run, set for that command only (`_run`): a
+        # named suffix (<f> in :FUNCtion<f>:…) picks its settings, 'function{f}.operator'.
+        self._suffixes: dict[str, int] = {}
 
     def _dispatch(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         self.inst.settle_pending()
@@ -153,29 +156,35 @@ class CommandRunner:
         if (unit.query and not spec.query) or (not unit.query and not spec.set):
             # A header the definition has, used the wrong way: an error even when unknown ones are ignored.
             raise ScpiError(-113, f"{unit.raw_header} is {'not a query' if unit.query else 'a query only'}")
-        if spec.state is not None:
-            body = self._state_command(spec, unit, channel)
-        elif spec.op is not None:
-            if unit.query and spec.read is not None:
-                # The same header: set calls the operation, query reads the setting it writes.
-                path = self._resolve(spec.read, channel)
-                body = self._format(self.inst.specs[path], self.inst.state[path], spec.format)
-                return body, parse_duration(spec.duration)
-            result = self._op_command(compiled, spec, unit, channel, suffixes)
-            return result.response, result.duration_ns + parse_duration(spec.duration)
-        elif any(p.type == "channel_list" for p in spec.params):
-            body = self._channel_list_command(spec, unit, channel)
-        elif any(p.type == "quantities" for p in spec.params):
-            body = self._quantities_command(spec, unit, channel)
-        else:
-            body = self._settings_command(spec, unit, channel)
-        if body is not None:
-            body = self._reply(compiled, body, channel, suffixes)
-        return body, parse_duration(spec.duration)
+        self._suffixes = suffixes  # for _resolve, the length of this command only
+        try:
+            if spec.state is not None:
+                body = self._state_command(spec, unit, channel)
+            elif spec.op is not None:
+                if unit.query and spec.read is not None:
+                    # The same header: set calls the operation, query reads the setting it writes.
+                    path = self._resolve(spec.read, channel)
+                    body = self._format(self.inst.specs[path], self.inst.state[path], spec.format)
+                    return body, parse_duration(spec.duration)
+                result = self._op_command(compiled, spec, unit, channel, suffixes)
+                return result.response, result.duration_ns + parse_duration(spec.duration)
+            elif any(p.type == "channel_list" for p in spec.params):
+                body = self._channel_list_command(spec, unit, channel)
+            elif any(p.type == "quantities" for p in spec.params):
+                body = self._quantities_command(spec, unit, channel)
+            else:
+                body = self._settings_command(spec, unit, channel)
+            if body is not None:
+                body = self._reply(compiled, body, channel, suffixes)
+            return body, parse_duration(spec.duration)
+        finally:
+            self._suffixes = {}
 
     def _resolve(self, ref: str, channel: int | None) -> str:
         if ref.startswith("ch.") and channel is not None:
-            return f"ch{channel}.{ref[3:]}"
+            ref = f"ch{channel}.{ref[3:]}"
+        for name, value in self._suffixes.items():  # a header suffix picks its settings (#1074)
+            ref = ref.replace("{" + name + "}", str(value))
         return ref
 
     def _reply(

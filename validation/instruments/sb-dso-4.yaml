@@ -51,8 +51,8 @@ state:
     label_en: Trigger mode
   waveform.source:
     type: enum
-    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
-    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4}
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2]
+    option_labels: {CHANnel1: CH1, CHANnel2: CH2, CHANnel3: CH3, CHANnel4: CH4, FUNCtion1: F1, FUNCtion2: F2}
     default: CHANnel1
     label: 波形传输源
     label_en: Waveform source
@@ -81,6 +81,271 @@ state:
     ladder: [100, 250, 500, 1000, 2000, 5000, 10000]
     label: 记录长度
     label_en: Record length
+  # ---- 数学函数（#1074，Infiniium 第 22 章的方言）----
+  function1.operator:
+    type: enum
+    options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT,
+              MAGNify, DELay, GATing, DIFF, INTegrate, SMOoth, AVERage, HIGHpass, LOWPass,
+              MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity]
+    default: NONE
+    label: 函数 1 运算
+    label_en: Function 1 operator
+  function1.source1:
+    type: string
+    default: ""
+    label: 函数 1 信源 1
+    label_en: Function 1 source 1
+  function1.source2:
+    type: string
+    default: ""
+    label: 函数 1 信源 2
+    label_en: Function 1 source 2
+  function1.display:
+    type: bool
+    default: false
+    label: 函数 1 显示
+    label_en: Function 1 display
+  function1.range:
+    type: float
+    unit: V
+    min: -100.0e15
+    max: 100.0e15
+    default: 8.0
+    label: 函数 1 量程
+    label_en: Function 1 range
+  function1.offset:
+    type: float
+    unit: V
+    default: 0.0
+    label: 函数 1 偏置
+    label_en: Function 1 offset
+  function1.vertical:
+    type: enum
+    options: [AUTO, MANual]
+    default: AUTO
+    label: 函数 1 垂直方式
+    label_en: Function 1 vertical
+  function1.smooth:
+    type: int
+    min: 3
+    max: 4001
+    default: 5
+    label: 函数 1 平滑点数
+    label_en: Function 1 smoothing points
+  function1.hp_bw:
+    type: float
+    unit: HZ
+    min: 50.0
+    max: 50.0e9
+    default: 1.0e6
+    label: 函数 1 高通带宽
+    label_en: Function 1 high-pass bandwidth
+  function1.lp_bw:
+    type: float
+    unit: HZ
+    min: 50.0
+    max: 50.0e9
+    default: 1.0e6
+    label: 函数 1 低通带宽
+    label_en: Function 1 low-pass bandwidth
+  function1.window:
+    type: enum
+    options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop]
+    default: HANNing
+    label: 函数 1 FFT 窗
+    label_en: Function 1 FFT window
+  function1.vunits:
+    type: enum
+    options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ]
+    default: DB
+    label: 函数 1 FFT 纵轴单位
+    label_en: Function 1 FFT vertical unit
+  function1.span:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 1.0e12
+    label: 函数 1 FFT 跨度
+    label_en: Function 1 FFT span
+  function1.center:
+    type: float
+    unit: HZ
+    min: -1.0e12
+    max: 1.0e12
+    label: 函数 1 FFT 中心频率
+    label_en: Function 1 FFT center
+  function1.peak_level:
+    type: float
+    unit: DBM
+    default: -60.0
+    label: 函数 1 峰值门限
+    label_en: Function 1 peak level
+  function1.peak_count:
+    type: int
+    min: 1
+    max: 100
+    default: 5
+    label: 函数 1 峰值数
+    label_en: Function 1 peak count
+  function.peak_sort:
+    type: enum
+    options: [DMAGnitude, IMAGnitude, IFRequency, DFRequency]
+    default: DMAGnitude
+    label: FFT 峰值排序
+    label_en: FFT peak sort
+  function2.operator:
+    type: enum
+    options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT,
+              MAGNify, DELay, GATing, DIFF, INTegrate, SMOoth, AVERage, HIGHpass, LOWPass,
+              MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity]
+    default: NONE
+    label: 函数 2 运算
+    label_en: Function 2 operator
+  function2.source1:
+    type: string
+    default: ""
+    label: 函数 2 信源 1
+    label_en: Function 2 source 1
+  function2.source2:
+    type: string
+    default: ""
+    label: 函数 2 信源 2
+    label_en: Function 2 source 2
+  function2.display:
+    type: bool
+    default: false
+    label: 函数 2 显示
+    label_en: Function 2 display
+  function2.range:
+    type: float
+    unit: V
+    min: -100.0e15
+    max: 100.0e15
+    default: 8.0
+    label: 函数 2 量程
+    label_en: Function 2 range
+  function2.offset:
+    type: float
+    unit: V
+    default: 0.0
+    label: 函数 2 偏置
+    label_en: Function 2 offset
+  function2.vertical:
+    type: enum
+    options: [AUTO, MANual]
+    default: AUTO
+    label: 函数 2 垂直方式
+    label_en: Function 2 vertical
+  function2.smooth:
+    type: int
+    min: 3
+    max: 4001
+    default: 5
+    label: 函数 2 平滑点数
+    label_en: Function 2 smoothing points
+  function2.hp_bw:
+    type: float
+    unit: HZ
+    min: 50.0
+    max: 50.0e9
+    default: 1.0e6
+    label: 函数 2 高通带宽
+    label_en: Function 2 high-pass bandwidth
+  function2.lp_bw:
+    type: float
+    unit: HZ
+    min: 50.0
+    max: 50.0e9
+    default: 1.0e6
+    label: 函数 2 低通带宽
+    label_en: Function 2 low-pass bandwidth
+  function2.window:
+    type: enum
+    options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop]
+    default: HANNing
+    label: 函数 2 FFT 窗
+    label_en: Function 2 FFT window
+  function2.vunits:
+    type: enum
+    options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ]
+    default: DB
+    label: 函数 2 FFT 纵轴单位
+    label_en: Function 2 FFT vertical unit
+  function2.span:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 1.0e12
+    label: 函数 2 FFT 跨度
+    label_en: Function 2 FFT span
+  function2.center:
+    type: float
+    unit: HZ
+    min: -1.0e12
+    max: 1.0e12
+    label: 函数 2 FFT 中心频率
+    label_en: Function 2 FFT center
+  function2.peak_level:
+    type: float
+    unit: DBM
+    default: -60.0
+    label: 函数 2 峰值门限
+    label_en: Function 2 peak level
+  function2.peak_count:
+    type: int
+    min: 1
+    max: 100
+    default: 5
+    label: 函数 2 峰值数
+    label_en: Function 2 peak count
+  # ---- 光标（:MARKer，#1074）----
+  marker.mode:
+    type: enum
+    options: ["OFF", MANual, WAVeform, MEASurement, XONLy, YONLy]
+    default: "OFF"
+    label: 光标方式
+    label_en: Marker mode
+  marker.x1:
+    type: float
+    unit: S
+    default: 0.0
+    label: 光标 Ax
+    label_en: Marker Ax
+  marker.x2:
+    type: float
+    unit: S
+    default: 0.0
+    label: 光标 Bx
+    label_en: Marker Bx
+  marker.y1:
+    type: float
+    unit: V
+    default: 0.0
+    label: 光标 Ay
+    label_en: Marker Ay
+  marker.y2:
+    type: float
+    unit: V
+    default: 0.0
+    label: 光标 By
+    label_en: Marker By
+  marker.source1:
+    type: string
+    default: CHANnel1
+    label: 光标 AB 信源
+    label_en: Marker AB source
+  marker.source2:
+    type: string
+    default: CHANnel1
+    label: 光标 CD 信源
+    label_en: Marker CD source
+  marker.meas:
+    type: int
+    min: 1
+    max: 20
+    default: 1
+    label: 跟踪的测量
+    label_en: Tracked measurement
 channel_state:
   scale:
     type: float
@@ -148,16 +413,37 @@ components:
     type: scope_trigger
   - name: adc
     type: scope_adc
-  # :MEASure:VPP? 等：在 :WAVeform:SOURce（或命令给出的信源）的记录上测量。
+  # :MEASure:VPP? 等：在 :WAVeform:SOURce（或命令给出的信源）的记录上测量；光标读数走同一处。
   - name: meas
     type: scope_measurements
     params:
       source: $waveform.source
+      math: math
+      marker_mode: $marker.mode
+      marker_x1: $marker.x1
+      marker_x2: $marker.x2
+      marker_y1: $marker.y1
+      marker_y2: $marker.y2
+      marker_source1: $marker.source1
+      marker_source2: $marker.source2
+      marker_measurement: $marker.meas
+      markers: 12
+  # 数学函数（#1074）：F1/F2 的定义在 function1/function2.* 设置里，读的时候才算。
+  - name: math
+    type: scope_math
+    params:
+      record: acq
+      prefix: function
+      functions: 2
+      channels: 4
+      peak_sort: $function.peak_sort
+      resolution_scale: timebase.scale
   - name: xfer
     type: waveform_transfer
     params:
       # :WAVeform:DATA? 按 :WAVeform:FORMat：BYTE / WORD 为 ADC 码的定长块，ASCii 为伏特的 NR3 列表。
       source: $waveform.source
+      math: math
       encoding: {from: $waveform.format, map: {BYTE: block, WORD: block, ASCii: ascii}}
       values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
       codes_per_div: {from: $waveform.format, map: {BYTE: 32.0, WORD: 8192.0}, default: 32.0}
@@ -300,3 +586,194 @@ commands:
     set: false
     args: {what: PERiod}
     params: [{name: source, type: string, optional: true}]
+  # ---- FUNCtion（#1074，Infiniium 第 22 章的方言）----
+  # :FUNCtion<f>:ADD <operand>,<operand>：算子写进 function{f}.operator，两个信源各归各位。
+  - header: ":FUNCtion<f>:ADD"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": ADD}
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+  - header: ":FUNCtion<f>:SUBTract"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": SUBTract}
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+  - header: ":FUNCtion<f>:MULTiply"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": MULTiply}
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+  - header: ":FUNCtion<f>:DIVide"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": DIVide}
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+  - header: ":FUNCtion<f>:ABSolute"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": ABSolute}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:INVert"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": INVert}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:SQUare"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": SQUare}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:SQRT"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": SQRT}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:DIFF"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": DIFF}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:INTegrate"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": INTegrate}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:SMOoth"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": SMOoth}
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: points, type: int, optional: true, state: "function{f}.smooth"}
+  - header: ":FUNCtion<f>:HIGHpass"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": HIGHpass}
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: bandwidth, type: float, unit: HZ, optional: true, state: "function{f}.hp_bw"}
+  - header: ":FUNCtion<f>:LOWPass"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": LOWPass}
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: bandwidth, type: float, unit: HZ, optional: true, state: "function{f}.lp_bw"}
+  - header: ":FUNCtion<f>:FFTMagnitude"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": FFTMagnitude}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:FFTPhase"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": FFTPhase}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>:PSDensity"
+    suffixes: {f: [1, 2]}
+    writes: {"function{f}.operator": PSDensity}
+    params: [{name: source1, type: string, state: "function{f}.source1"}]
+  - header: ":FUNCtion<f>"
+    suffixes: {f: [1, 2]}
+    set: false
+    params:
+      - {name: source1, type: string, state: "function{f}.source1"}
+      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+  - {header: ":FUNCtion<f>:DISPlay", suffixes: {f: [1, 2]}, state: "function{f}.display"}
+  - {header: ":FUNCtion<f>:RANGe", suffixes: {f: [1, 2]}, state: "function{f}.range"}
+  - {header: ":FUNCtion<f>:OFFSet", suffixes: {f: [1, 2]}, state: "function{f}.offset"}
+  - {header: ":FUNCtion<f>:VERTical", suffixes: {f: [1, 2]}, state: "function{f}.vertical"}
+  - {header: ":FUNCtion<f>:FFT:WINDow", suffixes: {f: [1, 2]}, state: "function{f}.window"}
+  - {header: ":FUNCtion<f>:FFT:VUNits", suffixes: {f: [1, 2]}, state: "function{f}.vunits"}
+  - {header: ":FUNCtion<f>:FFT:SPAN", suffixes: {f: [1, 2]}, state: "function{f}.span"}
+  - {header: ":FUNCtion<f>:FFT:FREQuency", suffixes: {f: [1, 2]}, state: "function{f}.center"}
+  - header: ":FUNCtion<f>:FFT:RESolution"
+    suffixes: {f: [1, 2]}
+    op: math.fft_resolution
+    params: [{name: resolution, type: float, unit: HZ, optional: true}]
+  - {header: ":FUNCtion:FFT:PEAK:SORT", state: function.peak_sort}
+  - {header: ":FUNCtion<f>:FFT:PEAK:LEVel", suffixes: {f: [1, 2]}, state: "function{f}.peak_level"}
+  - {header: ":FUNCtion<f>:FFT:PEAK:COUNt", suffixes: {f: [1, 2]}, state: "function{f}.peak_count"}
+  - header: ":FUNCtion<f>:FFT:PEAK:FREQuency"
+    suffixes: {f: [1, 2]}
+    op: math.fft_peak
+    set: false
+    args: {kind: FREQuency}
+  - header: ":FUNCtion<f>:FFT:PEAK:MAGNitude"
+    suffixes: {f: [1, 2]}
+    op: math.fft_peak
+    set: false
+    args: {kind: MAGNitude}
+  # ---- :MEASure:FFT（#1074）----
+  - header: ":MEASure:FFT:FREQuency"
+    op: math.fft_measure
+    set: false
+    args: {kind: FREQuency}
+    params:
+      - {name: source, type: string}
+      - {name: peak, type: int, optional: true}
+      - {name: level, type: float, optional: true}
+  - header: ":MEASure:FFT:MAGNitude"
+    op: math.fft_measure
+    set: false
+    args: {kind: MAGNitude}
+    params:
+      - {name: source, type: string}
+      - {name: peak, type: int, optional: true}
+      - {name: level, type: float, optional: true}
+  - header: ":MEASure:FFT:DFRequency"
+    op: math.fft_measure
+    set: false
+    args: {kind: DFRequency}
+    params:
+      - {name: source, type: string}
+      - {name: peak1, type: int, optional: true}
+      - {name: peak2, type: int, optional: true}
+      - {name: level, type: float, optional: true}
+  - header: ":MEASure:FFT:CPOWer"
+    op: math.fft_measure
+    set: false
+    args: {kind: CPOWer}
+    params:
+      - {name: source, type: string}
+      - {name: center, type: float, optional: true}
+      - {name: bandwidth, type: float, optional: true}
+  - header: ":MEASure:FFT:PSD"
+    op: math.fft_measure
+    set: false
+    args: {kind: PSD}
+    params:
+      - {name: source, type: string}
+      - {name: center, type: float, optional: true}
+      - {name: bandwidth, type: float, optional: true}
+  - header: ":MEASure:FFT:OBW"
+    op: math.fft_measure
+    set: false
+    args: {kind: OBW}
+    params:
+      - {name: source, type: string}
+      - {name: percent, type: float, optional: true}
+  - header: ":MEASure:FFT:THDistortion"
+    op: math.fft_measure
+    set: false
+    args: {kind: THDistortion}
+    params:
+      - {name: source, type: string}
+      - {name: mode, type: enum, options: [MANual], optional: true}
+      - {name: fundamental, type: float, optional: true}
+  # ---- :MARKer（#1074）----
+  - {header: ":MARKer:MODE", state: marker.mode}
+  - {header: ":MARKer:X1Position", state: marker.x1}
+  - {header: ":MARKer:X2Position", state: marker.x2}
+  - {header: ":MARKer:Y1Position", state: marker.y1}
+  - {header: ":MARKer:Y2Position", state: marker.y2}
+  - {header: ":MARKer:TSTArt", state: marker.x1}
+  - {header: ":MARKer:TSTOp", state: marker.x2}
+  - {header: ":MARKer:VSTArt", state: marker.y1}
+  - {header: ":MARKer:VSTOp", state: marker.y2}
+  - {header: ":MARKer:X1Y1source", state: marker.source1}
+  - {header: ":MARKer:X2Y2source", state: marker.source2}
+  - {header: ":MARKer:XDELta", op: meas.x_delta, set: false}
+  - {header: ":MARKer:YDELta", op: meas.y_delta, set: false}
+  - header: ":MARKer:CURSor"
+    op: meas.cursor
+    set: false
+    params: [{name: which, type: enum, options: [DELTa, STARt, STOP], optional: true}]
+  - {header: ":MARKer<K>:TYPE", suffixes: {k: [1, 2]}, op: meas.k_field, args: {field: type}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer<K>:SOURce", suffixes: {k: [1, 2]}, op: meas.k_field, args: {field: source}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer<K>:ENABle", suffixes: {k: [1, 2]}, op: meas.k_field, args: {field: enable}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer<K>:X:POSition", suffixes: {k: [1, 2]}, op: meas.k_field, args: {field: x}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer<K>:Y:POSition", suffixes: {k: [1, 2]}, op: meas.k_field, args: {field: y}, params: [{name: value, type: raw, optional: true}]}

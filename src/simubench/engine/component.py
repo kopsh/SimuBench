@@ -161,6 +161,21 @@ class RecordSource(Protocol):
 
 
 @runtime_checkable
+class MathSource(Protocol):
+    """What a waveform transfer or a measurement reads a math function's record from
+    (``scope_math``, #1074): the function's waveform over its operands' records, computed as it
+    is read."""
+
+    def read_function(self, f: int, start: bool = True) -> tuple[Record | None, int]:
+        """The record a read of function ``f`` uses, and the virtual time its sources took."""
+        ...
+
+    def transfer_function(self, f: int, first: int) -> tuple[Record | None, int]:
+        """The record a waveform transfer of function ``f`` reads (``first``: its first point)."""
+        ...
+
+
+@runtime_checkable
 class NoiseSource(Protocol):
     """A block in front of a record taker that adds noise the analytic signal does not carry (an
     optical receiver's input-referred noise, #1093): the taker adds it to its own in power."""

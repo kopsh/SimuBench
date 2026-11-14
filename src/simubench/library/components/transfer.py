@@ -42,22 +42,35 @@ from typing import Any
 
 import numpy as np
 
-from ...engine.component import Acquisition, AcquisitionInput, Component, OpResult, component, op
+from ...engine.component import (
+    Acquisition,
+    AcquisitionInput,
+    Component,
+    MathSource,
+    OpResult,
+    component,
+    op,
+)
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from . import adc
 from .scope import Record, channel_index
+from .scope_math import function_index
 from .scope_record import Points
 
 
 @component("waveform_transfer")
 class WaveformTransfer(Component):
-    """The selected points of a channel's record, encoded as text, an ASCII list or a binary block."""
+    """The selected points of a channel's record, encoded as text, an ASCII list or a binary
+    block. The source may name a math function (``FUNCtion<F>``, #1074): the record then comes
+    from the ``math`` block instead of the acquisition, with the same encoding and preamble."""
 
-    refs = {"record": (Acquisition, "instrument")}
+    refs = {"record": (Acquisition, "instrument"), "math": (MathSource, "instrument")}
+    optional_refs = frozenset({"math"})
     defaults = {
         "record": "acq",  # the acquisition component holding the records
-        "source": "",  # the channel (C1, CHANnel1, 1); empty: the command's channel
+        "math": "",  # the math block a FUNCtion<F> source reads from; empty: channels only
+        "source": "",  # the channel (C1, CHANnel1, 1) or function (FUNC1); empty: the command's channel
         "first": 0,  # index of the first point sent
         "count": 0,  # points sent; 0: to the end, at most max_points when that is set
         "step": 1,  # send every step-th point
@@ -107,6 +120,29 @@ class WaveformTransfer(Component):
         if channel is None:
             raise ScpiError(-300, f"{self.uid}: no source channel")
         return channel
+
+    def _read(
+        self, channel: int | None, first: int | None = None, start: bool = True
+    ) -> tuple[Record | None, int, int, bool]:
+        """The record the source names — a channel's, from the acquisition, or a math function's
+        (``FUNCtion<F>``, #1074), from the ``math`` block — the virtual time getting it took, the
+        number its preamble's ``{n}`` fields use, and whether it is a function's record (an input
+        chain the preamble figures name does not apply to one)."""
+        source = self.param("source")
+        f = function_index(source) if source not in (None, "") else None
+        if f is not None:
+            block = self.ref("math")
+            if block is None or not isinstance(block, MathSource):
+                raise ScpiError(-224, f"{source}: this model has no math functions to transfer")
+            if first is not None:
+                rec, used = block.transfer_function(f, first)
+            else:
+                rec, used = block.read_function(f, start)
+            return rec, used, f, True
+        acq = self._acquisition()
+        n = self._source(channel)
+        rec, used = acq.transfer_record(n, first) if first is not None else acq.read_record(n, start)
+        return rec, used, n, False
 
     def _acquisition(self) -> Acquisition:
         """The acquisition the ``record`` ref names (``engine.component.Acquisition``): the refs
@@ -203,12 +239,10 @@ class WaveformTransfer(Component):
         return block + str(self.param("trailer")).encode()
 
     def transfer(self, channel: int | None, first: int | None = None, count: int | None = None) -> OpResult:
-        """Encode the current record of the source channel (asking the acquisition for it); ``first``
-        and ``count``: this read's points, instead of the parameters'."""
+        """Encode the current record of the source — a channel's or a math function's (#1074);
+        ``first`` and ``count``: this read's points, instead of the parameters'."""
         assert self.owner is not None
-        acq = self._acquisition()
-        n = self._source(channel)
-        rec, used = acq.transfer_record(n, int(self.param("first")) if first is None else first)
+        rec, used, _n, _ = self._read(channel, int(self.param("first")) if first is None else first)
         if rec is None:
             self.owner.push_error(-230, str(self.param("no_record")))
         return OpResult(self.encode(rec, first, count), used)
@@ -219,13 +253,11 @@ class WaveformTransfer(Component):
         one ``descriptor_item`` per ``descriptor`` entry, figures of the record, this transfer's
         selection and the acquisition (``count``: acquisitions so far)."""
         assert self.owner is not None
-        acq = self._acquisition()
-        n = self._source(channel)
-        rec, used = acq.read_record(n, start=False)
+        rec, used, n, function = self._read(channel, start=False)
         if rec is None:
             self.owner.push_error(-230, str(self.param("no_record")))
             return OpResult(b"", used)
-        figures = self.figures(rec, n)
+        figures = self.figures(rec, n, function=function)
         item = str(self.param("descriptor_item"))
         parts = [
             item.format(name=name, value=str(fmt).format(**figures))
@@ -235,15 +267,16 @@ class WaveformTransfer(Component):
 
     # ---- a declared preamble ------------------------------------------------------------------------
 
-    def figures(self, rec: Record, n: int) -> dict[str, Any]:
+    def figures(self, rec: Record, n: int, function: bool = False) -> dict[str, Any]:
         """What header fields and descriptor entries can name: the record, this transfer's
-        selection and the acquisition."""
+        selection and the acquisition. ``function``: the record is a math function's (#1074), to
+        which an input chain the preamble figures name does not apply."""
         assert self.owner is not None
         acq = self._acquisition()
         sel = self.selection(rec.points)
         # the acquisition's input chain when it declares one (AcquisitionInput), else this
-        # transfer's own parameters
-        chain = acq if isinstance(acq, AcquisitionInput) else None
+        # transfer's own parameters; a math record has none
+        chain = None if function else (acq if isinstance(acq, AcquisitionInput) else None)
         probe = float(chain.probe_ratio(n)) if chain is not None else 1.0
         bits = int(chain.adc_unit().param("bits")) if chain is not None else int(self.param("adc_bits"))
         per_div = chain.adc_codes_per_div() if chain is not None else 0.0
@@ -308,10 +341,10 @@ class WaveformTransfer(Component):
             value = float(value) * float(spec["scale"])
         return value
 
-    def header_bytes(self, rec: Record, n: int) -> bytes:
+    def header_bytes(self, rec: Record, n: int, function: bool = False) -> bytes:
         """The declared preamble of a record (without the block around a binary one)."""
         h = self.param("header") or {}
-        figures = self.figures(rec, n)
+        figures = self.figures(rec, n, function=function)
         fields = h.get("fields") or []
         if str(h.get("encoding", "binary")) == "text":
             parts = []
@@ -348,13 +381,11 @@ class WaveformTransfer(Component):
         in the error queue (``no_record``), as a scope's own ``:WAVeform:PREamble?`` does."""
         assert self.owner is not None
         h = self.param("header") or {}
-        acq = self._acquisition()
-        n = self._source(channel)
-        rec, used = acq.read_record(n)
+        rec, used, n, function = self._read(channel)
         if rec is None:
             raise ScpiError(-230, str(self.param("no_record")))
         text = str(h.get("encoding", "binary")) == "text"
-        payload = self.header_bytes(rec, n)
+        payload = self.header_bytes(rec, n, function=function)
         if text:
             return OpResult(payload, used)
         digits = int(h.get("block_digits", 0))
@@ -370,13 +401,11 @@ class WaveformTransfer(Component):
         """One figure of the source's record and this transfer's selection (``figures``), e.g.
         ``:WAVeform:XINCrement?``; ``format`` is a printf format, else the definition's numbers."""
         assert self.owner is not None
-        acq = self._acquisition()
-        n = self._source(channel)
-        rec, used = acq.read_record(n, start=False)
+        rec, used, n, function = self._read(channel, start=False)
         if rec is None:
             self.owner.push_error(-230, str(self.param("no_record")))
             return OpResult(b"", used)
-        value = self.figures(rec, n)[what]
+        value = self.figures(rec, n, function=function)[what]
         if format:
             return OpResult((format % value).encode(), used)
         if isinstance(value, int):

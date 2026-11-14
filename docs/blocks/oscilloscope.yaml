@@ -21,5 +21,7 @@ blocks:
     components: [scope_trigger]
   - block: measurements        # 测量(自动测量、光标)
     components: [scope_measurements]
+  - block: math                # 数学函数:逐点运算、FFT 与变换测量(#1074,scope_math)
+    components: [scope_math]
   - block: waveform_transfer   # 波形传输(前导码与数据块)
     components: [waveform_transfer]
