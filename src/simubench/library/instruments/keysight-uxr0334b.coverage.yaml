@@ -25,13 +25,13 @@ sections:
     note: '*OPC? waits for a :DIGitize or :SINGle in progress; without a trigger it does not answer (the
       guide: abort a :DIGitize with a device clear)'
   - header: '*OPT'
-    level: not_modeled
-    note: 'Model work: option handling exists (#1007); declare the installed options.'
-    gap: model_work
+    level: implemented
+    note: 'p. 259: the installed options, a string starting 0 when none are. The model carries the
+      standard 500 Mpts memory (not an option) and no others, so it answers 0.'
   - header: '*PSC'
-    level: not_modeled
-    note: 'Model work: status register on the existing status system.'
-    gap: model_work
+    level: implemented
+    note: 'p. 269: the power-on status clear flag, stored and returned. The boot behavior it controls
+      (the PON bit at power-on) is outside the simulation.'
   - header: '*RCL'
     level: implemented
     note: 'setup_memory component (#1070): puts every setting back as saved; an empty register changes nothing and queues no error (the guide: a message on the display).'
@@ -207,9 +207,9 @@ sections:
     level: implemented
     note: 'p. 323: the model''s maximum bandwidth, 33 GHz (specs.bandwidth_hz).'
   - header: :ACQuire:BANDwidth:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 324: the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
+      sample rate''s lower limit is 0, the stored AUTO value.'
   - header: :ACQuire:COMPlete
     level: implemented
     note: 0 to 100, 90 after a default setup (the guide). In real-time sampling it has no effect on the
@@ -269,9 +269,9 @@ sections:
       model stores one number: a depth that happens to equal the AUTO value reads back as AUTO (an OFF at
       the AUTO value is indistinguishable from it).'
   - header: :ACQuire:POINts:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 340: the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
+      sample rate''s lower limit is 0, the stored AUTO value.'
   - header: :ACQuire:REDGe
     level: implemented
     note: 'p. 341: OFF is the only valid setting on the UXR and the query answers 0; anything else is -224.'
@@ -315,9 +315,9 @@ sections:
     note: 'p. 352: whether the sample rate follows AUTO. ON selects AUTO, OFF keeps the present rate as a
       manual one; the query answers whether the setting sits at the AUTO value.'
   - header: :ACQuire:SRATe:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 352: the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
+      sample rate''s lower limit is 0, the stored AUTO value.'
   - header: :ACQuire:VLSCapture:DURation
     level: not_modeled
     note: 'Blocked by C11 (product-plan.md 4.2): very long sequence capture needs block-wise computation (#1012).'
@@ -709,21 +709,22 @@ sections:
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
   - header: :CALibrate:OUTPut
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 473: the selection stores (the reply words the guides short forms: PROB, DPUL, NDPUL) and the query
+      answers it; the signal itself is not modeled (#1170).'
   - header: :CALibrate:OUTPut:AUX
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 475: the enable stores.'
   - header: :CALibrate:OUTPut:AUX:RTIMe
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 476: FAST or SLOW; the *RST value is not in the manual, FAST is a SimuBench value.'
   - header: :CALibrate:OUTPut:CAL
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 477: the enable stores.'
   - header: :CALibrate:SKEW
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
@@ -785,9 +786,8 @@ sections:
     gap: blocked
     blocked_by: differential-input
   - header: :CHANnel<N>:DISPlay:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 496: the valid settings of :CHANnel<N>:DISPlay - every channel can be turned on, 0|1.'
   - header: :CHANnel<N>:INPut
     level: implemented
     note: DC50 (DCFifty answers DC50); the UXR has no other coupling or impedance, so other words are
@@ -1007,16 +1007,14 @@ sections:
     level: implemented
     note: 'The channel''s spectral view centre frequency (stored; the view''s data path is :FUNCtion FFT, the view itself is not modeled, #1074).'
   - header: :CHANnel<N>:SPECtral:CFRequency:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 552: the declared range of the channel''s spectral center.'
   - header: :CHANnel<N>:SPECtral:SPAN
     level: implemented
     note: 'The channel''s spectral view span (stored; as :SPECtral:CFRequency, #1074).'
   - header: :CHANnel<N>:SPECtral:SPAN:TESTLIMITS
-    level: not_modeled
-    note: 'Model work: query of the limits declared in the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 554: the declared range of the channel''s spectral span.'
   - header: :CHANnel<N>:UNITs
     level: implemented
     note: 'p. 555: the channel''s vertical units, VOLT/AMPere/WATT/UNKNown. The unit conversion of the
@@ -3872,17 +3870,15 @@ sections:
 - section: :SYSTem Commands (Programmer's Guide 11.60, ch. 37)
   commands:
   - header: :SYSTem:CAPability:ACQuire
-    level: not_modeled
-    note: 'Model work: capability query answered from the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 1437: HALFchannel (no half-channel mode: 0), MEMory (500 Mpts), SRATe (128 GSa/s) and
+      BANDwidth (33 GHz), as quoted strings; the definition''s own numbers.'
   - header: :SYSTem:CAPability:CHANnel
-    level: not_modeled
-    note: 'Model work: capability query answered from the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 1438: the analog channel count, 4.'
   - header: :SYSTem:CAPability:DIGital
-    level: not_modeled
-    note: 'Model work: capability query answered from the definition.'
-    gap: model_work
+    level: implemented
+    note: 'p. 1439: the model has no digital channels, 0 for each.'
   - header: :SYSTem:CLOud:CONNect:USER
     level: not_modeled
     note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'
