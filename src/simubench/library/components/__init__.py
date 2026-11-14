@@ -3,6 +3,7 @@
 from . import (  # noqa: F401
     adc,
     arb_segments,
+    cal_output,
     calibrator,
     calstore,
     counter,
