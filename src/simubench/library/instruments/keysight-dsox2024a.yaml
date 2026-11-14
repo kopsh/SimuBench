@@ -413,6 +413,218 @@ state:
     label_en: Measure source 2
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
     default: CHANnel2
+  # ---- 数学函数（:FUNCtion，手册第 16 章，#1155）：单函数布局，设置按块的 <编号> 约定叫
+  # function1.*（命令头无编号），g(t) 源由 :FUNCtion:GOFT:* 拼。
+  # 垂直设置无 AUTO：函数自己的量程/偏移就是设置值（function1.vertical 恒为 MANual，无命令写它）。
+  function1.operator:
+    type: enum
+    label: 函数运算
+    label_en: Function operation
+    options: [ADD, SUBTract, MULTiply, INTegrate, DIFF, FFT, SQRT, MAGNify, ABSolute, SQUare, LN, LOG, EXP, TEN, LOWPass, HIGHpass, DIVide, LINear]
+    default: ADD
+  function1.source1:
+    type: enum
+    label: 函数信源 1
+    label_en: Function source 1
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, GOFT]
+    default: CHANnel1
+  function1.source2:
+    type: enum
+    label: 函数信源 2
+    label_en: Function source 2
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, NONE]
+    default: CHANnel2
+  function1.display:
+    type: bool
+    label: 函数显示
+    label_en: Function display
+    default: false
+  function1.vertical:
+    type: enum
+    options: [MANual]
+    default: MANual
+    label: 函数垂直方式
+    label_en: Function vertical
+  function1.range:
+    type: float
+    unit: V
+    min: 8.0e-6
+    max: 8.0e5
+    default: 8.0
+    label: 函数满量程
+    label_en: Function full-scale range
+  function1.offset:
+    type: float
+    unit: V
+    min: -80.0
+    max: 80.0
+    default: 0.0
+    label: 函数屏幕中心值
+    label_en: Function offset
+  function1.center:
+    type: float
+    unit: HZ
+    min: 0.0
+    max: 2.5e10
+    default: 0.0
+    label: FFT 中心频率
+    label_en: FFT center
+  function1.span:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 1.0e11
+    default: 0.0
+    label: FFT 跨度
+    label_en: FFT span
+  function1.vunits:
+    type: enum
+    label: FFT 垂直单位
+    label_en: FFT vertical units
+    options: [DECibel, VRMS]
+    default: DECibel
+  function1.window:
+    type: enum
+    label: FFT 窗
+    label_en: FFT window
+    options: [RECTangular, HANNing, FLATtop, BHARris]
+    default: HANNing
+  function1.lp_bw:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 1.0e11
+    default: 1.0e3
+    label: 低通 -3 dB 截止
+    label_en: Low-pass cutoff
+  function1.hp_bw:
+    type: float
+    unit: HZ
+    min: 1.0
+    max: 1.0e11
+    default: 1.0e3
+    label: 高通 -3 dB 截止
+    label_en: High-pass cutoff
+  function1.i_offset:
+    type: float
+    unit: V
+    min: -80.0
+    max: 80.0
+    default: 0.0
+    label: 积分直流校正
+    label_en: Integrate offset
+  function1.lin_gain:
+    type: float
+    min: -1.0e6
+    max: 1.0e6
+    default: 1.0
+    label: 线性增益 A
+    label_en: Linear gain A
+  function1.lin_off:
+    type: float
+    unit: V
+    min: -8.0e5
+    max: 8.0e5
+    default: 0.0
+    label: 线性偏置 B
+    label_en: Linear offset B
+  goft1.operator:
+    type: enum
+    label: g(t) 运算
+    label_en: g(t) operation
+    options: [ADD, SUBTract, MULTiply]
+    default: ADD
+  goft1.source1:
+    type: enum
+    label: g(t) 信源 1
+    label_en: g(t) source 1
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+  goft1.source2:
+    type: enum
+    label: g(t) 信源 2
+    label_en: g(t) source 2
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel2
+  # ---- 光标（:MARKer，手册第 19 章，#1155）：X1/X2 与 Y1/Y2；单位换算带锚点（:XUNits:USE）。
+  marker.mode:
+    type: enum
+    label: 光标方式
+    label_en: Cursor mode
+    options: ["OFF", MEASurement, MANual, WAVeform]
+    default: "OFF"
+  marker.x1:
+    type: float
+    unit: S
+    default: 0.0
+    label: 光标 X1
+    label_en: Cursor X1
+  marker.x2:
+    type: float
+    unit: S
+    default: 0.0
+    label: 光标 X2
+    label_en: Cursor X2
+  marker.y1:
+    type: float
+    unit: V
+    default: 0.0
+    label: 光标 Y1
+    label_en: Cursor Y1
+  marker.y2:
+    type: float
+    unit: V
+    default: 0.0
+    label: 光标 Y2
+    label_en: Cursor Y2
+  marker.source1:
+    type: enum
+    label: 光标 X1Y1 信源
+    label_en: Cursor X1Y1 source
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion, MATH]
+    default: CHANnel1
+  marker.source2:
+    type: enum
+    label: 光标 X2Y2 信源
+    label_en: Cursor X2Y2 source
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion, MATH]
+    default: CHANnel1
+  marker.x_units:
+    type: enum
+    label: X 光标单位
+    label_en: X cursor units
+    options: [SEConds, HERTz, DEGRees, PERCent]
+    default: SEConds
+  marker.y_units:
+    type: enum
+    label: Y 光标单位
+    label_en: Y cursor units
+    options: [BASE, PERCent]
+    default: BASE
+  marker.x_anchor1:
+    type: float
+    unit: S
+    default: 0.0
+    label: X 单位锚点 0
+    label_en: X unit anchor 0
+  marker.x_anchor2:
+    type: float
+    unit: S
+    default: 0.0
+    label: X 单位锚点满
+    label_en: X unit anchor full
+  marker.y_anchor1:
+    type: float
+    unit: V
+    default: 0.0
+    label: Y 单位锚点 0
+    label_en: Y unit anchor 0
+  marker.y_anchor2:
+    type: float
+    unit: V
+    default: 0.0
+    label: Y 单位锚点满
+    label_en: Y unit anchor full
   # :SYSTem 的界面与身份：前面板锁定、选件保护、软键菜单与显示文本都不改变数据；序列号与主机 ID
   # 是只读的身份串（手册的 *IDN? 与 :SYSTem:DIDentifier?）。
   system.lock:
@@ -650,8 +862,34 @@ components:
       trigger_levels: {1: trigger.level1, 2: trigger.level2, 3: trigger.level3, 4: trigger.level4}
       # 屏幕测量列表（#373）：不带 ? 的测量命令把测量放上屏幕，最多 4 个，再加时挤出最旧的。
       slots: 4
+      # 光标（#1155）：方式与位置/信源/单位都在 marker.* 设置里；MEASurement 方式没有“跟踪哪个
+      # 测量”的命令，就跟踪屏幕上最近的一个（手册 p.359）。
+      math: math
+      marker_mode: $marker.mode
+      marker_x1: $marker.x1
+      marker_x2: $marker.x2
+      marker_y1: $marker.y1
+      marker_y2: $marker.y2
+      marker_source1: $marker.source1
+      marker_source2: $marker.source2
+      marker_x_units: $marker.x_units
+      marker_y_units: $marker.y_units
+      marker_xa1: $marker.x_anchor1
+      marker_xa2: $marker.x_anchor2
+      marker_ya1: $marker.y_anchor1
+      marker_ya2: $marker.y_anchor2
       # :MEASure:ALL? 按这一顺序回一个信源上全部单源测量的当前值（顺序为模型约定，覆盖表注明）。
       all: [VPP, VMAX, VMIN, VAMPlitude, VTOP, VBASe, OVERshoot, PREShoot, VAVerage, VRMS, PERiod, FREQuency, RISetime, FALLtime, PWIDth, NWIDth, DUTYcycle, NDUTy, BRATe]
+  # 数学函数（#1155，手册第 16 章）：单函数，定义在 function1.* 设置里，读的时候才算；g(t) 源
+  # （:FUNCtion:GOFT:*）拼在 goft1.* 设置里。
+  - name: math
+    type: scope_math
+    params:
+      record: acq
+      prefix: function
+      functions: 1
+      channels: 4
+      goft_prefix: goft1
   # 系统：:SYSTem:PRESet 与 *RST 相同的预置（手册的 PRESet 重置条件与 *RST 表一致，仅“偏好”不同，
   # 仿真没有偏好设置）。
   - name: sys
@@ -841,6 +1079,49 @@ commands:
   - {header: ":MEASure:TVALue", op: meas.at, set: false, args: {what: TVALue}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:DELay", op: meas.pair, set: false, args: {what: DELay}, params: [{name: source, type: raw}]}
   - {header: ":MEASure:PHASe", op: meas.pair, set: false, args: {what: PHASe}, params: [{name: source, type: raw}]}
+  # ---- FUNCtion（手册第 16 章，#1155）：单函数数学。运算词存定义自己的拼法（块按大写比较），
+  # FFT 即幅度变换（块的 CANONICAL 别名）；OFFSet 与 REFerence 是同一设置的两个命令（手册注明
+  # 等价）；SCALe 与 RANGe 是同一垂直设置的两套说法（每格/满量程，由 op 换算）。
+  - {header: ":FUNCtion:OPERation", state: function1.operator}
+  - header: ":FUNCtion:SOURce<f>"
+    suffixes: {f: [1, 2]}
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, GOFT, NONE], state: "function1.source{f}"}
+  - {header: ":FUNCtion:GOFT:OPERation", state: goft1.operator}
+  - header: ":FUNCtion:GOFT:SOURce<f>"
+    suffixes: {f: [1, 2]}
+    params:
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: "goft1.source{f}"}
+  - {header: ":FUNCtion:DISPlay", state: function1.display}
+  - {header: ":FUNCtion:RANGe", state: function1.range, format: {number: engineering, significant: 3}}
+  - {header: ":FUNCtion:SCALe", op: math.scale, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":FUNCtion:OFFSet", state: function1.offset, format: {number: engineering, significant: 3}}
+  - {header: ":FUNCtion:REFerence", state: function1.offset, format: {number: engineering, significant: 3}}
+  # FFT 的窗与视图：跨度 0 读作未设（整条单边带，AUTO），一次写入后不再随时基（手册 NOTE）。
+  - {header: ":FUNCtion[:FFT]:CENTer", state: function1.center, format: {number: engineering, significant: 4}}
+  - {header: ":FUNCtion[:FFT]:SPAN", state: function1.span, format: {number: engineering, significant: 4}}
+  - {header: ":FUNCtion[:FFT]:VTYPe", state: function1.vunits}
+  - {header: ":FUNCtion[:FFT]:WINDow", state: function1.window}
+  - {header: ":FUNCtion:FREQuency:HIGHpass", state: function1.hp_bw, format: {number: engineering, significant: 3}}
+  - {header: ":FUNCtion:FREQuency:LOWPass", state: function1.lp_bw, format: {number: engineering, significant: 3}}
+  - {header: ":FUNCtion:INTegrate:IOFFset", state: function1.i_offset, format: {number: engineering, significant: 3}}
+  - {header: ":FUNCtion:LINear:GAIN", state: function1.lin_gain}
+  - {header: ":FUNCtion:LINear:OFFSet", state: function1.lin_off, format: {number: engineering, significant: 3}}
+  # ---- MARKer（手册第 19 章，#1155）：X1/X2 与 Y1/Y2 光标。位置写把方式切到 MANual（非跟踪时），
+  # 跟踪方式下 Y 位置拒写；单位换算（SEConds/HERTz/DEGRees/PERCent）由 op 做，:USE 定锚点。
+  - {header: ":MARKer:MODE", state: marker.mode}
+  - {header: ":MARKer:X1Position", op: meas.x_position, args: {which: X1}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer:X2Position", op: meas.x_position, args: {which: X2}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer:Y1Position", op: meas.y_position, args: {which: Y1}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer:Y2Position", op: meas.y_position, args: {which: Y2}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer:XDELta", op: meas.x_delta, set: false}
+  - {header: ":MARKer:YDELta", op: meas.y_delta, set: false}
+  - {header: ":MARKer:X1Y1source", op: meas.marker_source, args: {which: X1Y1}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer:X2Y2source", op: meas.marker_source, args: {which: X2Y2}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ":MARKer:XUNits", state: marker.x_units}
+  - {header: ":MARKer:XUNits:USE", op: meas.units_use, args: {axis: X}, query: false}
+  - {header: ":MARKer:YUNits", state: marker.y_units}
+  - {header: ":MARKer:YUNits:USE", op: meas.units_use, args: {axis: Y}, query: false}
   # ---- TIMebase ----
   - {header: ":TIMebase:SCALe", state: timebase.scale, format: {number: engineering, significant: 3}}
   - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0, format: {number: engineering, significant: 3}}

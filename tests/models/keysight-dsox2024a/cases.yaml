@@ -798,3 +798,181 @@ cases:
       - query: ":ACQuire:TYPE?"
         expect: "AVER"
       - send: ":ACQuire:TYPE NORMal"
+  - name: "数学函数的设置往返：运算、信源、g(t) 源、垂直设置与 FFT 视图（手册第 16 章）"
+    manual: ":FUNCtion Commands (Programmer's Guide 02.66, ch. 16)"
+    steps:
+      - send: ":FUNCtion:OPERation SUBTract;:FUNCtion:SOURce1 CHANnel1;:FUNCtion:SOURce2 CHANnel2"
+      - query: ":FUNCtion:OPERation?"
+        expect: "SUBT"
+      - query: ":FUNCtion:SOURce1?"
+        expect: "CHAN1"
+      - query: ":FUNCtion:SOURce2?"
+        expect: "CHAN2"
+      - send: ":FUNCtion:OPERation FFT;:FUNCtion:SOURce1 GOFT;:FUNCtion:SOURce2 NONE"
+      - query: ":FUNCtion:OPERation?"
+        expect: "FFT"
+      - query: ":FUNCtion:SOURce1?"
+        expect: "GOFT"
+      - query: ":FUNCtion:SOURce2?"
+        expect: "NONE"
+      - send: ":FUNCtion:GOFT:OPERation MULTiply;:FUNCtion:GOFT:SOURce1 CHANnel3;:FUNCtion:GOFT:SOURce2 CHANnel4"
+      - query: ":FUNCtion:GOFT:OPERation?"
+        expect: "MULT"
+      - query: ":FUNCtion:GOFT:SOURce1?"
+        expect: "CHAN3"
+      - query: ":FUNCtion:GOFT:SOURce2?"
+        expect: "CHAN4"
+      - send: ":FUNCtion:DISPlay ON;:FUNCtion:RANGe 4;:FUNCtion:OFFSet 0.5"
+      - query: ":FUNCtion:DISPlay?"
+        expect: "1"
+      - query: ":FUNCtion:RANGe?"
+        expect: "+4.00E+00"
+      - query: ":FUNCtion:OFFSet?"
+        expect: "+500E-03"
+      - send: ":FUNCtion:SCALe 2"
+      - query: ":FUNCtion:SCALe?"
+        expect: "2"
+      - query: ":FUNCtion:RANGe?"
+        expect: "+16.0E+00"
+      - send: ":FUNCtion:REFerence -0.25"
+      - query: ":FUNCtion:OFFSet?"
+        expect: "-250E-03"
+      - send: ":FUNCtion:CENTer 1e6;:FUNCtion:SPAN 2e6;:FUNCtion:VTYPe VRMS;:FUNCtion:WINDow FLATtop"
+      - query: ":FUNCtion:CENTer?"
+        expect: "+1.000E+06"
+      - query: ":FUNCtion:SPAN?"
+        expect: "+2.000E+06"
+      - query: ":FUNCtion:VTYPe?"
+        expect: "VRMS"
+      - query: ":FUNCtion:WINDow?"
+        expect: "FLAT"
+      - send: ":FUNCtion:FREQuency:HIGHpass 500;:FUNCtion:FREQuency:LOWPass 5000;:FUNCtion:INTegrate:IOFFset -0.1;:FUNCtion:LINear:GAIN 2.5;:FUNCtion:LINear:OFFSet 1"
+      - query: ":FUNCtion:FREQuency:HIGHpass?"
+        expect: "+500E+00"
+      - query: ":FUNCtion:FREQuency:LOWPass?"
+        expect: "+5.00E+03"
+      - query: ":FUNCtion:INTegrate:IOFFset?"
+        expect: "-100E-03"
+      - query: ":FUNCtion:LINear:GAIN?"
+        expect: "+2.50000E+00"
+      - query: ":FUNCtion:LINear:OFFSet?"
+        expect: "+1.00E+00"
+      - query: ':SYSTem:ERRor?'
+        expect: '+0,"No error"'
+  - name: "线性函数 A=0、B=1 是常数 1：光标在函数迹线上的读数与信源相位无关"
+    manual: ":FUNCtion:LINear:GAIN/:OFFSet (Programmer's Guide 02.66, pp. 324-325); :MARKer Commands"
+    steps:
+      - send: ":TIMebase:RANGe 1.00E-03;:CHANnel1:PROBe 1;:CHANnel1:SCALe 0.5"
+      - send: ":FUNCtion:OPERation LINear;:FUNCtion:SOURce1 CHANnel1;:FUNCtion:LINear:GAIN 0;:FUNCtion:LINear:OFFSet 1"
+      - send: ":DIGitize CHANnel1"
+      # WAVeform 方式下两对光标的信源独立（手册 p.361）：X2Y2 单独设成函数。
+      - send: ":MARKer:MODE WAVeform;:MARKer:X1Y1source FUNCtion;:MARKer:X2Y2source FUNCtion"
+      - send: ":MARKer:X1Position 0.00025"
+      - query: ":MARKer:Y1Position?"
+        expect_fields:
+          - {value: 1.0, tolerance: 0.01}
+      - send: ":MARKer:X2Position 0.0004"
+      - query: ":MARKer:Y2Position?"
+        expect_fields:
+          - {value: 1.0, tolerance: 0.01}
+      - query: ":MARKer:YDELta?"
+        expect_fields:
+          - {value: 0.0, tolerance: 0.01}
+  - name: "数学 FFT：FLATtop 窗的单音幅度经光标读取（DECibel 即 dBV）"
+    manual: ":FUNCtion Commands (Programmer's Guide 02.66, ch. 16, pp. 314-317); :MARKer Commands"
+    steps:
+      - instrument: awg
+        send: "C1:BSWV FRQ,3051.757813"
+      - send: ":TIMebase:RANGe +1.00E-03;:CHANnel1:PROBe 1;:CHANnel1:SCALe 0.5"
+      - send: ":FUNCtion:OPERation FFT;:FUNCtion:SOURce1 CHANnel1;:FUNCtion:WINDow FLATtop;:FUNCtion:VTYPe DECibel"
+      - send: ":DIGitize CHANnel1"
+      - send: ":MARKer:MODE WAVeform;:MARKer:X1Y1source FUNCtion"
+      - send: ":MARKer:X1Position 3051.757813"
+      # 1 V 幅度的正弦（2 Vpp）在 FLATtop 窗、DECibel 单位下读 20·log10(1/√2) = -3.01 dBV；
+      # 8 位记录的量化把峰拉高零点几 dB，容差放宽到 0.5 dB。
+      - query: ":MARKer:Y1Position?"
+        expect_fields:
+          - {value: -3.0103, tolerance: 0.5}
+      - send: ":MARKer:X2Position 6103.515625"
+      - query: ":MARKer:XDELta?"
+        expect_fields:
+          - {value: 3051.757813, tolerance: 1.0}
+      # X2 在主瓣边缘（+2 bin）：FLATtop 的平顶宽到 bin 4 只比峰低零点几 dB（容差按此放宽）。
+      - query: ":MARKer:YDELta?"
+        expect_fields:
+          - {value: 2.72, tolerance: 0.6}
+  - name: "光标的方式、位置与差值：位置写把方式切到 MANual，跟踪方式拒写 Y 位置"
+    manual: ":MARKer Commands (Programmer's Guide 02.66, ch. 19, pp. 359-371)"
+    steps:
+      - query: ":MARKer:MODE?"
+        expect: "OFF"
+      - send: ":MARKer:MODE MANual"
+      - query: ":MARKer:MODE?"
+        expect: "MAN"
+      - send: ":MARKer:MODE WAVeform;:MARKer:X1Y1source CHANnel1"
+      - query: ":MARKer:X1Y1source?"
+        expect: "CHAN1"
+      - send: ":MARKer:Y1Position 0.5"
+      - query: ":SYSTem:ERRor?"
+        expect_prefix: '-222,'
+      - send: ":MARKer:MODE MANual;:MARKer:X1Position 0.0001;:MARKer:X2Position 0.0004"
+      - query: ":MARKer:XDELta?"
+        expect_fields:
+          - {value: 3.0e-4, tolerance: 1.0e-9}
+      - send: ":MARKer:Y1Position 0.5;:MARKer:Y2Position -0.5"
+      - query: ":MARKer:YDELta?"
+        expect_fields:
+          - {value: -1.0, tolerance: 1.0e-9}
+      - send: ":MARKer:MODE MEASurement"
+      - query: ":MARKer:MODE?"
+        expect: "MEAS"
+  - name: "光标的单位与锚点：HERTz 换算、DEGRees/PERCent 经 :USE 定标（手册第 19 章）"
+    manual: ":MARKer Commands (Programmer's Guide 02.66, ch. 19, pp. 365-373)"
+    steps:
+      - send: ":MARKer:MODE MANual;:MARKer:X1Position 0.0001;:MARKer:X2Position 0.0004;:MARKer:Y1Position 0.5;:MARKer:Y2Position -0.5"
+      - send: ":MARKer:XUNits HERTz"
+      - query: ":MARKer:XUNits?"
+        expect: "HERT"
+      - query: ":MARKer:X1Position?"
+        expect_fields:
+          - {value: 10000.0, tolerance: 1.0}
+      - send: ":MARKer:X1Position 4000"
+      - query: ":MARKer:X1Position?"
+        expect_fields:
+          - {value: 4000.0, tolerance: 1.0}
+      - send: ":MARKer:XUNits SEConds"
+      - query: ":MARKer:X1Position?"
+        expect_fields:
+          - {value: 2.5e-4, tolerance: 1.0e-9}
+      - send: ":MARKer:XUNits DEGRees;:MARKer:XUNits:USE"
+      - query: ":MARKer:X1Position?"
+        expect_fields:
+          - {value: 0.0, tolerance: 1.0e-9}
+      - query: ":MARKer:X2Position?"
+        expect_fields:
+          - {value: 360.0, tolerance: 1.0e-6}
+      - send: ":MARKer:X2Position 90"
+      - query: ":MARKer:X2Position?"
+        expect_fields:
+          - {value: 90.0, tolerance: 1.0e-6}
+      - send: ":MARKer:XUNits SEConds"
+      - query: ":MARKer:X2Position?"
+        expect_fields:
+          - {value: 2.875e-4, tolerance: 1.0e-9}
+      - send: ":MARKer:YUNits PERCent;:MARKer:YUNits:USE"
+      - query: ":MARKer:Y1Position?"
+        expect_fields:
+          - {value: 0.0, tolerance: 1.0e-9}
+      - query: ":MARKer:Y2Position?"
+        expect_fields:
+          - {value: 100.0, tolerance: 1.0e-6}
+      - send: ":MARKer:YUNits BASE"
+      - query: ":MARKer:Y2Position?"
+        expect_fields:
+          - {value: -0.5, tolerance: 1.0e-9}
+      - send: ":MARKer:X2Y2source MATH"
+      - query: ":MARKer:X2Y2source?"
+        expect: "FUNC"
+      - send: ":MARKer:X2Y2source FUNCtion"
+      - query: ":MARKer:X2Y2source?"
+        expect: "FUNC"

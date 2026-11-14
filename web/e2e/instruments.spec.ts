@@ -213,7 +213,9 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
   expect(Math.abs((await cellValue("meas-ch1-frequency")) - freq) / freq).toBeLessThan(1e-3);
 
   // Cursors: 6 divisions apart at 200 µs/div is 1.2 ms; 4 divisions at 500 mV/div is 2 V.
-  await page.getByRole("button", { name: "光标" }).click();
+  // exact: the settings panel also shows the :MARKer fields (#1155) and their steppers' labels
+  // ("增大 光标 X1", …) contain the word; substring matching would hit all of them.
+  await page.getByRole("button", { name: "光标", exact: true }).click();
   await expect(page.getByTestId("scope-cursors")).toBeVisible();
   await expectNear(page.getByTestId("cursor-dt"), 1.2e-3, 1e-7, "s");
   await expectNear(page.getByTestId("cursor-dv"), 2, 1e-4, "V");

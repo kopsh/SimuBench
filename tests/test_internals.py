@@ -122,6 +122,9 @@ def test_a_scope_s_acquisition_is_fed_by_its_time_base_trigger_and_adc_and_feeds
         ("timebase", "dec", "horizontal"),
         ("acq", "meas", "record"),
         ("acq", "xfer", "record"),
+        # 数学块（#1155）：acq 喂它，它的迹线喂测量（xfer 的信源枚举没有函数，不取 math）。
+        ("acq", "math", "record"),
+        ("math", "meas", "math"),
     }
     # Together with the wires, the converter, the time base, the measurements and the transfer each
     # have a place in the flow: only the command and status side (system, registers) stands alone.

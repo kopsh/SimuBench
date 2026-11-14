@@ -386,12 +386,14 @@ def channel_index(source: object) -> int:
 
 def short_source(source: object) -> str:
     """A source word as the reply's short form (the manual's Returned Format): CHANnel1 -> CHAN1,
-    FUNCtion2 -> FUNC2, anything else as it came."""
+    FUNCtion -> FUNC, FUNCtion2 -> FUNC2, anything else as it came."""
     text = str(source).strip()
     upper = text.upper()
     for prefix, short in (("CHANNEL", "CHAN"), ("FUNCTION", "FUNC")):
-        if upper.startswith(prefix) and upper[len(prefix) :].isdigit():
-            return short + upper[len(prefix) :]
+        if upper.startswith(prefix):
+            rest = upper[len(prefix) :]
+            if rest == "" or rest.isdigit():
+                return short + rest
     return text
 
 
@@ -2316,6 +2318,15 @@ class ScopeMeasurements(Component):
         "marker_delta": None,  # whether the deltas are drawn on screen (a bool setting); None: no command
         "marker_measurement": None,  # the measurement the MEASurement mode tracks, 1-based (an int setting)
         "markers": 0,  # how many of the numbered :MARKer<K> markers the model has (1..60); 0: none
+        # ---- the markers' units (2000 X-series :MARKer:XUNits/:YUNits, #1155): the words the
+        # positions and deltas answer in, and the anchors a :UNits:USE write sets (None: no
+        # command, the values pass through unscaled).
+        "marker_x_units": "",  # the X cursors' unit word: SEConds/HERTz/DEGRees/PERCent
+        "marker_y_units": "",  # the Y cursors' unit word: BASE/PERCent
+        "marker_xa1": None,  # the X unit's 0 anchor (a position in the source's x unit)
+        "marker_xa2": None,  # the X unit's full anchor (360 degrees, 100 percent)
+        "marker_ya1": None,  # the Y unit's 0 anchor
+        "marker_ya2": None,  # the Y unit's full anchor
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -2713,9 +2724,12 @@ class ScopeMeasurements(Component):
 
     def _marker_record(self, which: int) -> tuple[Any, int]:
         """The record the A (``which`` 1) or B (2) markers read: their source's, a channel's or a
-        math function's (#1074)."""
+        math function's (#1074). A numberless ``FUNCtion`` — or its alias ``MATH`` (2000 X-series
+        Programmer's Guide 02.66 p. 361) — names the one function a single-function layout has."""
         word = str(self.param(f"marker_source{which}") or "")
         f = function_index(word) if word else None
+        if f is None and word.strip().upper() in ("FUNCTION", "FUNC", "F", "MATH"):
+            f = 1
         if f is not None:
             block = self.ref("math")
             if block is None or not isinstance(block, MathSource):
@@ -2742,7 +2756,14 @@ class ScopeMeasurements(Component):
             return math.nan, 0
         if mode == "measurement":
             n = self.param("marker_measurement")
-            which_meas = int(n) if n not in (None, "") else 0
+            if n in (None, ""):
+                # no tracked-measurement command: the cursors track the most recent measurement
+                # on screen (the 2000 X-series semantics, Programmer's Guide 02.66 p. 359)
+                if not self.installed:
+                    return math.nan, 0
+                what, channel = self.installed[-1]
+                return self.value(what, channel)
+            which_meas = int(n)
             if 1 <= which_meas <= len(self.installed):
                 what, channel = self.installed[which_meas - 1]
                 return self.value(what, channel)
@@ -2789,11 +2810,14 @@ class ScopeMeasurements(Component):
 
     @op("x_delta")
     def x_delta(self, query: bool = True, **_: Any) -> OpResult:
-        """``:MARKer:XDELta?``: Bx − Ax, in the source's x unit — seconds, or the Hz of a
-        transform's bins."""
+        """``:MARKer:XDELta?``: Bx − Ax, in the X cursors' units — the value at each cursor in
+        that unit, minus (the 2000 X-series manual's Xdelta; #1155)."""
         assert self.owner is not None
         x1, x2 = (float(self.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
-        return OpResult(self.owner.format_number(x2 - x1))
+        shown = self._marker_diff("x", x1, x2)
+        if not math.isfinite(shown):
+            return OpResult(str(self.param("invalid_value")).encode())
+        return OpResult(self.owner.format_number(shown))
 
     @op("y_delta")
     def y_delta(self, query: bool = True, **_: Any) -> OpResult:
@@ -2802,10 +2826,173 @@ class ScopeMeasurements(Component):
         assert self.owner is not None
         ya, ua = self._marker_y(1)
         yb, ub = self._marker_y(2)
-        value = yb - ya
+        value = self._marker_diff("y", ya, yb)
         if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
             return OpResult(str(self.param("invalid_value")).encode(), ua + ub)
         return OpResult(self.owner.format_number(value), ua + ub)
+
+    # ---- the markers' units (2000 X-series :MARKer:XUNits/:YUNits, #1155) ------------------------
+
+    XUNITS = {"SEC": "s", "HERT": "hz", "DEGR": "deg", "PERC": "pct"}
+    YUNITS = {"BASE": "base", "PERC": "pct"}
+
+    def _marker_units(self, axis: str) -> str:
+        """The X or Y cursors' unit as this block spells it, from the setting's word."""
+        word = str(self.param(f"marker_{axis}_units") or "").upper()
+        table = self.XUNITS if axis == "x" else self.YUNITS
+        for key, unit in table.items():
+            if word.startswith(key):
+                return unit
+        return table[next(iter(table))]  # the first: seconds, or base units
+
+    def _marker_scaled(self, axis: str, value: float) -> float:
+        """A position in the axis's own units expressed in its cursors' unit: the degrees or
+        percent from the unit's 0 anchor (:MARKer:XUNits:USE, :MARKer:YUNits:USE set the
+        anchors); without anchors the value passes through (the unit has nothing to scale
+        against). A difference between two positions scales the same way without the anchor's
+        offset — see ``_marker_diff``."""
+        if self._marker_units(axis) not in ("deg", "pct"):
+            return value
+        a1 = self.param(f"marker_{axis}a1")
+        a2 = self.param(f"marker_{axis}a2")
+        if a1 is None or a2 is None or float(a2) == float(a1):
+            return value
+        span = float(a2) - float(a1)
+        full = 360.0 if self._marker_units(axis) == "deg" else 100.0
+        return full * (value - float(a1)) / span
+
+    def _marker_diff(self, axis: str, one: float, two: float) -> float:
+        """The cursors' difference in their unit: the value at each cursor in the unit, minus —
+        the 2000 X-series manual's Xdelta/Ydelta (degrees and percent scale the difference)."""
+        unit = self._marker_units(axis)
+        if unit == "s" or unit == "base":
+            return two - one
+        if unit == "hz":
+            if one <= 0.0 or two <= 0.0:
+                return math.nan
+            return 1.0 / two - 1.0 / one
+        a1 = self.param(f"marker_{axis}a1")
+        a2 = self.param(f"marker_{axis}a2")
+        if a1 is None or a2 is None or float(a2) == float(a1):
+            return two - one
+        span = float(a2) - float(a1)
+        full = 360.0 if unit == "deg" else 100.0
+        return full * (two - one) / span
+
+    @op("x_position", fields=("which",))
+    def op_x_position(self, which: str = "X1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
+        """``:MARKer:X1Position`` / ``:MARKer:X2Position``: the cursor's position. A write puts
+        the cursors in the MANual mode unless they track (the manual); the input and the reply
+        are in the X cursors' units (:MARKer:XUNits)."""
+        return self._position(which, value, query, "x")
+
+    @op("y_position", fields=("which",))
+    def op_y_position(self, which: str = "Y1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
+        """``:MARKer:Y1Position`` / ``:MARKer:Y2Position``: the cursor's position. A write is
+        refused while the cursors track (the manual: Y positions cannot be set in the WAVeform
+        mode) and otherwise puts them in the MANual mode."""
+        return self._position(which, value, query, "y")
+
+    def _position(self, which: str, value: Any, query: bool, axis: str) -> OpResult:
+        """One X or Y cursor's read or write, in the cursors' unit, with the mode moves the
+        manual gives a position write (MANual unless tracking; a tracking Y is refused)."""
+        assert self.owner is not None
+        n = 1 if str(which).strip().upper().endswith("1") else 2
+        param = f"marker_{axis}{n}"
+        mode_path = self.bound_path("marker_mode")
+        mode = self._marker_mode()
+        if query:
+            if mode == "off":
+                raise ScpiError(-222, "the cursors are off: their positions are not defined")
+            used = 0
+            if axis == "y" and mode in ("waveform", "measurement"):
+                shown, used = self._marker_y(n)
+                if not math.isfinite(shown) and self.param("invalid_value") != "UNDEF":
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+            else:
+                shown = float(self.param(param) if self.param(param) is not None else 0.0)
+            unit = self._marker_units(axis)
+            if unit == "hz":
+                if shown <= 0.0:
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+                shown = 1.0 / shown
+            elif unit in ("deg", "pct"):
+                shown = self._marker_scaled(axis, shown)
+            return OpResult(self.owner.format_number(shown), used)
+        if axis == "y" and mode == "waveform":
+            raise ScpiError(-222, "the cursors track the waveform: Y positions cannot be set")
+        if mode != "waveform" and mode_path is not None:
+            self.owner.set_state(mode_path, self._marker_word("MAN"), source="scpi", internal=True)
+        path = self.bound_path(param)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: the {param} setting is not bound")
+        number = self._marker_number(axis, value)
+        self.owner.set_state(path, number, source="scpi", internal=True)
+        return OpResult()
+
+    def _marker_number(self, axis: str, value: Any) -> float:
+        """A cursor position write in the cursors' unit, stored in the axis's own units (seconds
+        or volts): Hz is its inverse, degrees and percent ride the anchors (:UNits:USE)."""
+        if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
+            value = value[0] if value else None
+        if value is None:
+            raise ScpiError(-109)
+        text = value.decode("ascii", errors="replace") if isinstance(value, bytes) else str(value)
+        v = float(V.parse_number(text))
+        unit = self._marker_units(axis)
+        if unit == "s" or unit == "base":
+            return v
+        if unit == "hz":
+            if v <= 0.0:
+                raise ScpiError(-222, f"{v:g} Hz: a cursor's frequency is positive")
+            return 1.0 / v
+        a1 = self.param(f"marker_{axis}a1")
+        a2 = self.param(f"marker_{axis}a2")
+        if a1 is None or a2 is None or float(a2) == float(a1):
+            return v  # nothing to scale against: the value passes through (the model's convention)
+        full = 360.0 if unit == "deg" else 100.0
+        return float(a1) + (float(a2) - float(a1)) * v / full
+
+    @op("units_use", fields=("axis",))
+    def op_units_use(self, axis: str = "X", **_: Any) -> OpResult:
+        """``:MARKer:XUNits:USE`` / ``:MARKer:YUNits:USE``: the current cursor locations become
+        the unit's anchors — 0 and 360 degrees, or 0 and 100 percent (no query)."""
+        assert self.owner is not None
+        axis = axis.strip().lower()
+        if axis not in ("x", "y"):
+            raise ScpiError(-224, f"{axis}: X or Y")
+        one = float(self.param(f"marker_{axis}1") or 0.0)
+        two = float(self.param(f"marker_{axis}2") or 0.0)
+        for name, value in ((f"marker_{axis}a1", one), (f"marker_{axis}a2", two)):
+            path = self.bound_path(name)
+            if path is None:
+                raise ScpiError(-300, f"{self.uid}: the {name} setting is not bound")
+            self.owner.set_state(path, value, source="scpi", internal=True)
+        return OpResult()
+
+    @op("marker_source", fields=("which",))
+    def op_marker_source(
+        self, which: str = "X1Y1", value: Any = None, query: bool = False, **_: Any
+    ) -> OpResult:
+        """``:MARKer:X1Y1source`` / ``:MARKer:X2Y2source``: the cursors' source. ``MATH`` is an
+        alias stored as FUNCtion, so the query answers FUNC for either (the manual's note,
+        Programmer's Guide 02.66 p. 361); the reply is the source's short form (CHAN1, FUNC)."""
+        assert self.owner is not None
+        param = f"marker_source{2 if str(which).strip().upper().endswith('2') else 1}"
+        if query or value is None:
+            return OpResult(short_source(self.param(param) or "NONE").encode())
+        if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
+            value = value[0] if value else None
+        if value is None:
+            raise ScpiError(-109)
+        word = V.parse_string(value if isinstance(value, bytes) else str(value).encode())
+        if word.strip().upper() == "MATH":
+            word = "FUNCtion"
+        path = self.bound_path(param)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: the {param} setting is not bound")
+        self.owner.set_state(path, word, source="scpi", internal=True)
+        return OpResult()
 
     @op("marker_measurements")
     def marker_measurements(
