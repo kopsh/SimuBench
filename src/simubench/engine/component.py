@@ -174,6 +174,10 @@ class MathSource(Protocol):
         """The record a waveform transfer of function ``f`` reads (``first``: its first point)."""
         ...
 
+    def function_units(self, f: int) -> tuple[str, str]:
+        """The function's X and Y axis unit words (``:WAVeform:XUNits?``/``:YUNits?``, #1066)."""
+        ...
+
 
 @runtime_checkable
 class NoiseSource(Protocol):

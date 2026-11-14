@@ -176,12 +176,11 @@ state:
     label_en: Holdoff
   acquire.mode:
     type: enum
-    options: [RTIMe]
+    options: [RTIMe, SEGMented]
     default: RTIMe
     not_modeled:
       PDETect: real-time peak detect is not modeled
       HRESolution: real-time high resolution is not modeled
-      SEGMented: segmented memory is not modeled
       SEGPdetect: segmented memory is not modeled
       SEGHres: segmented memory is not modeled
     label: 采集模式
@@ -245,6 +244,52 @@ state:
     default: FLATmag
     label: 带宽滤波响应
     label_en: Filter response
+  # 分段存储（:ACQuire:MODE SEGMented，#1066）：一次采集连续取 COUNt 段（每段一整条记录），各等一次
+  # 触发。段数上限 25,680 取数据手册 Max # of segments 的高带宽触发使能列（UXR0334B 列；禁用列
+  # 134,885，该触发选项未建模）；段数 × 记录深超出内存由采集报 -221。手册未给 *RST 后的段数：2 为
+  # SimuBench 值。
+  acquire.segmented_count:
+    type: int
+    min: 2
+    max: 25680
+    default: 2
+    label: 分段数
+    label_en: Segments
+  # 所选段（:ACQuire:SEGMented:INDex）：波形传输与测量读它；手册 p.345：越界报错并钳到最大段号。
+  acquire.segmented_index:
+    type: int
+    min: 1
+    max: 25680
+    default: 1
+    label: 所选段
+    label_en: Segment index
+  # 时间标签（:ACQuire:SEGMented:TTAGs）：手册未给上电默认，OFF 为 SimuBench 值。
+  acquire.segmented_ttags:
+    type: bool
+    default: false
+    label: 分段时间标签
+    label_en: Segment time tags
+  # 段回放（:ACQuire:SEGMented:AUToplay / :PLAY）：采集后自动逐段回放 / 播放或停止。模型的回放是
+  # 瞬时的：查询回保存的状态，不是进行中的回放（覆盖表注明）。
+  acquire.segmented_autoplay:
+    type: bool
+    default: false
+    label: 分段自动回放
+    label_en: Segment autoplay
+  acquire.segmented_play:
+    type: bool
+    default: false
+    label: 分段回放
+    label_en: Segment play
+  # 回放速率（:ACQuire:SEGMented:PRATe，每段 0.001–1 s）。手册未给上电默认，0.1 为 SimuBench 值。
+  acquire.segmented_prate:
+    type: float
+    unit: S
+    min: 0.001
+    max: 1.0
+    default: 0.1
+    label: 分段回放速率
+    label_en: Segment play rate
   waveform.source:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16]
@@ -272,6 +317,25 @@ state:
     default: false
     label: 流式传输
     label_en: Streaming
+  # 分段一并传输（:WAVeform:SEGMented:ALL，#1066）：ON 时 :WAVeform:DATA? 回全部段的拼接，前导末尾
+  # 多一段数；OFF 时只回所选段。上电与 *RST 为 OFF（手册）。
+  waveform.seg_all:
+    type: bool
+    default: false
+    label: 分段一并传输
+    label_en: Transfer all segments
+  # 传输视图（:WAVeform:VIEW，#1066）：数据与前导读哪一视图。记录恒覆盖主时基（存储深度与时基联动，
+  # 手册 :ACQuire:SRATe/POINts 的交互表），ALL 与 MAIN 取同一数据；WINDow 是缩放拉窗视图（等缩放窗口
+  # 接入），CGRade 不做（C17）。
+  waveform.view:
+    type: enum
+    options: [ALL, MAIN]
+    default: ALL
+    not_modeled:
+      WINDow: the zoom (delayed) view waits for the zoom window
+      CGRade: color grade is out of scope (C17)
+    label: 波形视图
+    label_en: Waveform view
   measure.source:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
@@ -1036,6 +1100,14 @@ components:
       processing: {from: $acquire.average, map: {"True": average}, default: normal}
       averages: $acquire.count
       trigger_jitter_s: 2.5e-14  # specs.trigger_jitter_s_rms: the data sheet's 25 fs intrinsic jitter (#745)
+      # 分段存储（#1066）：MODE SEGMented 时一次采集连续取 COUNt 段（每段一整条记录），全部采满才
+      # 完成；INDex 选的段供波形传输与测量。最小触发间隔 3.5 µs（数据手册 Min time between triggers，
+      # 高带宽触发禁用列；使能列 5.0 µs，该触发选项未建模）。
+      segmented: {from: $acquire.mode, map: {SEGMented: true}, default: false}
+      segments: $acquire.segmented_count
+      segment_index: $acquire.segmented_index
+      rearm_s: 3.5e-6
+      memory_points: 500000000
   # 时基：采样率为 128 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
   # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 500 Mpts）。参考位置 LEFT / CENTer / RIGHt
   # 取屏幕 10% / 50% / 90%。
@@ -1119,6 +1191,10 @@ components:
       source: $waveform.source
       # FUNCtion<F> 信源从 math 块取记录（#1074）。
       math: math
+      # :WAVeform:SEGMented:ALL（#1066）：ON 时 DATA? 回全部段拼接的记录（start/size 仍在拼接记录上取）。
+      seg_all: $waveform.seg_all
+      # :WAVeform:COUPling?（#1066）：本型号输入恒为直流 50 Ω（数据手册），查询恒回 DC（手册 p.1600）。
+      coupling: "DC"
       # :WAVeform:DATA?：BYTE 为有符号 8 位、WORD 为有符号 16 位（10 位码左移 6 位），定长块；ASCii 为
       # 逗号分隔的伏特数，不带块头（手册）。
       encoding: {from: $waveform.format, map: {ASCii: text}, default: block}
@@ -1164,6 +1240,9 @@ components:
           - {value: 1}
           - {setting: acquire.bandwidth, format: "%.6E"}
           - {value: "0.000000E+00"}
+          # 末尾的 <segment count>（手册表 19）：仅当 SEGMented:ALL ON 且信源通道确有分段采集时出现
+          # （transfer 对不适用状态回 None，此处跳过）。
+          - {figure: segments}
 channel_components:
   # 50 Ω 直流耦合输入（数据手册）。
   - name: inp
@@ -1295,6 +1374,14 @@ commands:
     params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
   - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
   - {header: ":ACQuire:RESPonse", state: acquire.response}
+  # ---- 分段存储（:ACQuire:SEGMented，手册第 15 章，#1066）---------------------------------------------
+  - {header: ":ACQuire:SEGMented:AUToplay", state: acquire.segmented_autoplay}
+  - {header: ":ACQuire:SEGMented:COUNt", state: acquire.segmented_count}
+  # INDex（手册 p.345）：超出已采段数报 -222，并把所选段钳到最大段号。
+  - {header: ":ACQuire:SEGMented:INDex", op: acq.set_segment_index, params: [{name: index, type: int, min: 1, optional: true}]}
+  - {header: ":ACQuire:SEGMented:PLAY", state: acquire.segmented_play}
+  - {header: ":ACQuire:SEGMented:PRATe", state: acquire.segmented_prate}
+  - {header: ":ACQuire:SEGMented:TTAGs", state: acquire.segmented_ttags}
   # ---- CHANnel<N> ----
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
   - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0}
@@ -1432,6 +1519,28 @@ commands:
   - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment}}
   - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin}}
   - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}
+  # ---- 波形传输的状态查询与视图（手册第 40 章，#1066）-------------------------------------------------
+  # BANDpass?：下限为耦合的高通角（本型号恒直流 → 0），上限为 :ACQuire:BANDwidth 的数字滤波。
+  - {header: ":WAVeform:BANDpass", op: xfer.bandpass, set: false, args: {low: 0.0, high: $acquire.bandwidth, digits: 6}}
+  - {header: ":WAVeform:COMPlete", op: xfer.complete, set: false}
+  - {header: ":WAVeform:COUNt", op: xfer.hits, set: false, args: {averaging: $acquire.average, averages: $acquire.count}}
+  - {header: ":WAVeform:COUPling", op: xfer.figure, set: false, args: {what: coupling}}
+  - {header: ":WAVeform:TYPE", op: xfer.wfm_type, set: false, args: {averaging: $acquire.average, averaged: AVER, normal: RAW}}
+  - {header: ":WAVeform:VIEW", state: waveform.view}
+  # 显示四值（手册 pp.1639/1641/1642/1645）：记录恒覆盖显示，显示左沿 = 记录起点、显示跨度 =
+  # 时基 10 格、显示中心电压 = 通道偏置、显示满幅 = 8 格 × 档位。
+  - {header: ":WAVeform:XDISplay", op: xfer.figure, set: false, args: {what: x_start}}
+  - {header: ":WAVeform:XRANge", op: xfer.figure, set: false, args: {what: timebase, scale: 10.0}}
+  - {header: ":WAVeform:XUNits", op: xfer.axis_units, set: false, args: {axis: X}}
+  - {header: ":WAVeform:YDISplay", op: xfer.figure, set: false, args: {what: offset}}
+  - {header: ":WAVeform:YRANge", op: xfer.figure, set: false, args: {what: scale, scale: 8.0}}
+  - {header: ":WAVeform:YUNits", op: xfer.axis_units, set: false, args: {axis: Y}}
+  # ---- 分段存储的传输（手册第 40 章，#1066）-----------------------------------------------------------
+  - {header: ":WAVeform:SEGMented:ALL", state: waveform.seg_all}
+  - {header: ":WAVeform:SEGMented:COUNt", op: acq.figure, set: false, args: {what: segments}}
+  - {header: ":WAVeform:SEGMented:POINts", op: xfer.segment_points, set: false}
+  - {header: ":WAVeform:SEGMented:TTAG", op: acq.figure, set: false, args: {what: time_tag}}
+  - {header: ":WAVeform:SEGMented:XLISt", op: xfer.xlist, set: false, params: [{name: what, type: string}]}
   # ---- 磁盘（:DISK，手册第 20 章，#1069）：目录、复制删除、按完整路径上传下载 ---------------------------
   - header: ":DISK:CDIRectory"
     op: disk.folder

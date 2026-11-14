@@ -1830,6 +1830,41 @@ class ScopeAcquisition(Component):
 
         return (instant(self.segment_records[self._selected()]) - instant(self.segment_records[0])) * 1e-9
 
+    def read_segments(self, channel: int) -> list[Record] | None:
+        """The latest acquisition's segments' records for a channel (``:WAVeform:SEGMented:ALL``,
+        #1066), each segment one full record; None when the latest acquisition was not a segmented
+        one or the channel has no records in it. Read as they are: the transfer concatenates."""
+        if not self.segment_records:
+            return None
+        recs: list[Record] = []
+        for seg in self.segment_records:
+            rec = seg.get(channel)
+            if rec is None:
+                return None
+            recs.append(rec)
+        return recs
+
+    @op("set_segment_index")
+    def set_segment_index(self, query: bool = False, index: int | None = None, **_: Any) -> OpResult:
+        """``:ACQuire:SEGMented:INDex``: the segment the reads and the display use. Beyond the
+        segments the latest acquisition has, the guide (p. 345) errors that the data is out of
+        range and sets the index to the maximum segment number."""
+        assert self.owner is not None
+        path = self.bound_path("segment_index")
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: segment_index is not bound to a setting")
+        if query:
+            return OpResult(str(int(self.owner.get_state(path))).encode())
+        if index is None:
+            raise ScpiError(-109, "an index is required")
+        i = int(index)
+        limit = max(1, len(self.segment_records))
+        if i < 1 or i > limit:
+            self.owner.set_state(path, min(max(i, 1), limit))
+            raise ScpiError(-222, f"segment {i} is out of range: {limit} segment(s) acquired")
+        self.owner.set_state(path, i)
+        return OpResult()
+
     def triggers_now(self) -> bool:
         """Whether an acquisition starting now finds its trigger within its search windows (a
         continuous run's state: it re-arms on every trigger, so it is waiting while none comes)."""
