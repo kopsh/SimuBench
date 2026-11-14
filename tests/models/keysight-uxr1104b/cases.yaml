@@ -1,5 +1,5 @@
 # Manual cases for the Keysight Infiniium UXR1104B: Infiniium UXR-Series Oscilloscopes Programmer's
-# Guide 11.60.00000 (9018-07723); ranges from the UXR-B data sheet 3123-1313, 1 mm input models (#1092). Numbers answer as the
+# Guide 11.80.00012 (9018-07723); ranges from the UXR-B data sheet 3123-1313, 1 mm input models (#1092). Numbers answer as the
 # guide's sample (+8.00000E-01): NR3, five decimals, signed; booleans 1/0; enumerations short.
 # The bench: 10 MHz 400 mVpp sine on CH1, 1 MHz 400 mVpp square on CH2 (50 ohm).
 model: keysight-uxr1104b
@@ -10,7 +10,7 @@ cases:
     manual: "* (Common) Commands > *IDN?"
     steps:
       - query: "*IDN?"
-        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.80.00012"
   - name: ":MODel? 与 :SERial? 回不带引号的型号与序列号"
     manual: ": (Root Level) Commands > :MODel?; :SERial"
     steps:
@@ -658,7 +658,7 @@ cases:
       - query: ":SYSTem:ERRor?"
         expect: ":SYST:ERR 0"
       - query: "*IDN?"
-        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.80.00012"
   - name: "界面命令（接受）：前面板锁定、隐藏指示灯、屏幕文字、标签显示、网格亮度"
     manual: ":SYSTem:LOCK; :SYSTem:HLED; :SYSTem:DSP; :DISPlay:LABel; :DISPlay:GRATicule:INTensity"
     steps:
