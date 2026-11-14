@@ -96,7 +96,8 @@ def test_the_components_endpoint():
         "net": None,
         "channel": None,
     } in by_type["output_stage"]["ports"]
-    assert by_type["waveform_transfer"]["operations"][0]["name"] == "data"
+    # the operations list is alphabetical; the point here is that the transfer's main op is in it
+    assert "data" in {o["name"] for o in by_type["waveform_transfer"]["operations"]}
 
 
 # ---- the hook contract (#898) ------------------------------------------------------------------

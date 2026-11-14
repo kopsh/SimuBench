@@ -96,6 +96,8 @@ class WaveformTransfer(Component):
         "indefinite": False,
         "trailer": "",  # appended after a block, e.g. a line feed
         "no_record": "no acquisition for this source",  # the -230 message when there is no record
+        "seg_all": False,  # :WAVeform:SEGMented:ALL: the data read returns every segment (#1066)
+        "coupling": "DC",  # the input coupling word :WAVeform:COUPling? replies (the guide: always DC)
         # describe: NAME -> a format of the record's figures (points, first, step, dt, x_offset,
         # offset, scale, gain, timebase, count), e.g. {HORIZ_INTERVAL: "{dt:.9e}"}
         "descriptor": {},
@@ -240,12 +242,44 @@ class WaveformTransfer(Component):
 
     def transfer(self, channel: int | None, first: int | None = None, count: int | None = None) -> OpResult:
         """Encode the current record of the source — a channel's or a math function's (#1074);
-        ``first`` and ``count``: this read's points, instead of the parameters'."""
+        ``first`` and ``count``: this read's points, instead of the parameters'.
+
+        With ``:WAVeform:SEGMented:ALL ON`` and a channel source (#1066), the record is every
+        segment of the latest acquisition as one (the guide, p. 1624), ``first``/``count`` then
+        indexing into the combined record (the guide: ``<start>,<size>`` still work)."""
         assert self.owner is not None
-        rec, used, _n, _ = self._read(channel, int(self.param("first")) if first is None else first)
+        rec, used, n, _ = self._read(channel, int(self.param("first")) if first is None else first)
         if rec is None:
             self.owner.push_error(-230, str(self.param("no_record")))
+        else:
+            rec = self._all_segments(rec, n) or rec
         return OpResult(self.encode(rec, first, count), used)
+
+    def _all_segments(self, rec: Record, n: int) -> Record | None:
+        """Every segment of the latest acquisition as one record (``:WAVeform:SEGMented:ALL ON``,
+        #1066), or None when this read is single-segment: no flag, a function source (the guide:
+        functions transfer the current segment only), or the latest acquisition was not a
+        segmented one. The segments share the timing and the vertical, so their samples
+        concatenate over the first segment's origin (a deep segment computes whole)."""
+        if not V.flag(self.param("seg_all")):
+            return None
+        read_segments = getattr(self._acquisition(), "read_segments", None)
+        recs = read_segments(n) if callable(read_segments) else None
+        if not recs:
+            return None
+        first = recs[0]
+        return Record(
+            channel=first.channel,
+            t_start_ns=first.t_start_ns,
+            dt_s=first.dt_s,
+            trigger_index=first.trigger_index,
+            scale=first.scale,
+            offset=first.offset,
+            triggered=all(r.triggered for r in recs),
+            volts=np.concatenate([r.volts for r in recs]),
+            x_origin_s=first.x_origin_s,
+            trigger_ns=first.trigger_ns,
+        )
 
     @op("describe")
     def op_describe(self, query: bool = False, channel: int | None = None, **_: Any) -> OpResult:
@@ -287,7 +321,7 @@ class WaveformTransfer(Component):
         unsigned = self.param("unsigned") in (True, 1, "1", "ON", "on")
         # codes per division of the word sent: the ADC's, shifted up or down to fit the word
         word_per_div = float(self.param("codes_per_div")) * 2.0 ** (width - int(self.param("adc_bits")))
-        return {
+        figures = {
             "points": int(sel.size),
             "record_points": rec.points,
             "first": first,
@@ -317,7 +351,15 @@ class WaveformTransfer(Component):
             "count": acq.acq_count,
             "channel": n,
             "channel0": n - 1,
+            # the input coupling word the model declares (:WAVeform:COUPling?, #1066)
+            "coupling": str(self.param("coupling")),
         }
+        # the appended <segment count> preamble element (the guide's table 19): only while the
+        # ALL-ON read returns segments of a channel; left out otherwise, which drops the element
+        records = getattr(acq, "segment_records", None)
+        if V.flag(self.param("seg_all")) and not function and records:
+            figures["segments"] = len(records)
+        return figures
 
     def _field(self, spec: dict[str, Any], figures: dict[str, Any], n: int) -> Any:
         assert self.owner is not None
@@ -325,7 +367,9 @@ class WaveformTransfer(Component):
         if when and any(str(self.owner.get_state(p)) != str(v) for p, v in when.items()):
             return spec.get("else")  # the field's value while the settings are otherwise
         if "figure" in spec:
-            value = figures[str(spec["figure"])]
+            # a figure the current state has no value for (the segment count outside the ALL-ON
+            # read): None, and the text preamble drops the field
+            value = figures.get(str(spec["figure"]))
         elif "setting" in spec:
             value = self.owner.get_state(str(spec["setting"]).replace("{n}", str(n)))
         else:
@@ -350,6 +394,8 @@ class WaveformTransfer(Component):
             parts = []
             for spec in fields:
                 value = self._field(spec, figures, n)
+                if value is None:
+                    continue  # a ``when`` field with no ``else``: absent here (the segment count)
                 fmt = spec.get("format")
                 parts.append(str(fmt) % value if fmt else str(value))
             return str(h.get("separator", ",")).join(parts).encode()
@@ -397,15 +443,22 @@ class WaveformTransfer(Component):
 
     @op("figure")
     def figure(self, query: bool = False, channel: int | None = None, what: str = "points",
-               format: str = "", **_: Any) -> OpResult:  # fmt: skip
+               format: str = "", scale: float = 1.0, **_: Any) -> OpResult:  # fmt: skip
         """One figure of the source's record and this transfer's selection (``figures``), e.g.
-        ``:WAVeform:XINCrement?``; ``format`` is a printf format, else the definition's numbers."""
+        ``:WAVeform:XINCrement?``; ``format`` is a printf format, else the definition's numbers.
+        ``scale`` rescales a number (the display spans are figures of the record times the grid's
+        divisions); a word (``coupling``) is returned as it stands."""
         assert self.owner is not None
         rec, used, n, function = self._read(channel, start=False)
         if rec is None:
             self.owner.push_error(-230, str(self.param("no_record")))
             return OpResult(b"", used)
         value = self.figures(rec, n, function=function)[what]
+        if isinstance(value, str):
+            return OpResult(value.encode(), used)
+        if scale != 1.0:
+            value = float(value) * scale
+            return OpResult((format % value).encode() if format else self.owner.format_number(value), used)
         if format:
             return OpResult((format % value).encode(), used)
         if isinstance(value, int):
@@ -432,3 +485,108 @@ class WaveformTransfer(Component):
         if start < 0 or (size is not None and size < 1):
             raise ScpiError(-222, f"start {start}, size {size}: start is 0 or more, size 1 or more")
         return self.transfer(channel, int(start), 0 if size is None else int(size))
+
+    # ---- what the read is (Infiniium's :WAVeform state queries, #1066) -----------------------------
+
+    @op("complete")
+    def complete(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``:WAVeform:COMPlete?``: the percent of time buckets that are complete (the guide,
+        p. 1598). A finished acquisition's buckets are all complete: 100; nothing read yet: 0."""
+        rec, used, _n, _f = self._read(channel, start=False)
+        return OpResult(b"100" if rec is not None else b"0", used)
+
+    @op("hits")
+    def hits(
+        self, channel: int | None = None, averaging: bool = False, averages: int = 1, **_: Any
+    ) -> OpResult:
+        """``:WAVeform:COUNt?``: the fewest number of hits in all of the time buckets (the guide,
+        p. 1599) — the averages one averaging completed with, one hit otherwise; nothing read
+        yet: 0. The model's records have no holes, so the zero the guide gives for holes is the
+        no-record case only."""
+        rec, used, _n, _f = self._read(channel, start=False)
+        if rec is None:
+            return OpResult(b"0", used)
+        return OpResult(str(int(averages)).encode() if V.flag(averaging) else b"1", used)
+
+    @op("wfm_type")
+    def wfm_type(
+        self, averaging: bool = False, averaged: str = "AVER", normal: str = "RAW", **_: Any
+    ) -> OpResult:
+        """``:WAVeform:TYPE?``: how the source's waveform was acquired (the guide, p. 1632), in
+        the guide's short words — the averaged record AVER, the raw one RAW."""
+        return OpResult((averaged if V.flag(averaging) else normal).encode())
+
+    @op("axis_units")
+    def axis_units(self, axis: str = "X", channel: int | None = None, **_: Any) -> OpResult:
+        """``:WAVeform:XUNits?``/``:YUNits?`` (the guide, pp. 1641/1647): the source's axis units
+        in the guide's words. A channel's trace is time and volts; a function's the math block
+        says (the transform: HERTz against its vertical unit's word)."""
+        source = self.param("source")
+        f = function_index(source) if source not in (None, "") else None
+        if f is not None:
+            block = self.ref("math")
+            if block is None or not isinstance(block, MathSource):
+                raise ScpiError(-224, f"{source}: this model has no math functions to transfer")
+            x_word, y_word = block.function_units(f)
+        else:
+            x_word, y_word = "SECond", "VOLT"  # a channel's time-domain trace
+        return OpResult((x_word if str(axis).upper().startswith("X") else y_word).encode())
+
+    @op("bandpass")
+    def bandpass(self, low: float = 0.0, high: float = 0.0, digits: int = 6, **_: Any) -> OpResult:
+        """``:WAVeform:BANDpass?``: the acquisition path's lower and upper cutoff (the guide,
+        p. 1594) — the lower is the coupling's high-pass corner (0: DC), the upper the digital
+        filter's ``:ACQuire:BANDwidth``."""
+        return OpResult(f"{float(low):.{digits}E},{float(high):.{digits}E}".encode())
+
+    @op("segment_points")
+    def segment_points(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``:WAVeform:SEGMented:POINts?`` (the guide, p. 1627): the points the data read sends —
+        every segment's with ``:WAVeform:SEGMented:ALL ON``, the current segment's otherwise."""
+        assert self.owner is not None
+        rec, used, n, _f = self._read(channel, start=False)
+        if rec is None:
+            self.owner.push_error(-230, str(self.param("no_record")))
+            return OpResult(b"", used)
+        rec = self._all_segments(rec, n) or rec
+        return OpResult(str(int(self.selection(rec.points).size)).encode(), used)
+
+    @op("xlist")
+    def xlist(self, what: str, channel: int | None = None, **_: Any) -> OpResult:
+        """``:WAVeform:SEGMented:XLISt? {RELXorigin|ABSXorigin|TTAG|OFFSet}`` (the guide, p. 1629):
+        one x value per segment of the source channel's latest segmented acquisition, in the data
+        read's ASCii format. The guide supports the ASCii and BINary float64 formats for it; this
+        model's ``:WAVeform:FORMat`` has no BINary, so a WORD/BYTE selection is -224."""
+        if str(self.param("encoding")).lower() != "text":
+            raise ScpiError(-224, "XLISt reads the ASCii format (the guide's BINary float64 is not modeled)")
+        kind = str(what).upper()
+        if kind not in ("RELXORIGIN", "ABSXORIGIN", "TTAG", "OFFSET"):
+            raise ScpiError(-224, f"{what!r}: no such x list (RELXorigin, ABSXorigin, TTAG, OFFSet)")
+        source = self.param("source")
+        f = function_index(source) if source not in (None, "") else None
+        if f is not None:
+            raise ScpiError(-224, "XLISt reads a channel source (the guide: CHANnel<N> or POD<N>)")
+        n = self._source(channel)
+        read_segments = getattr(self._acquisition(), "read_segments", None)
+        recs = read_segments(n) if callable(read_segments) else None
+        if not recs:
+            raise ScpiError(-221, f"channel {n} has no segments to list")
+        first = recs[0]
+
+        def instant(rec: Record) -> float:
+            if rec.trigger_ns is not None:
+                return rec.trigger_ns * 1e-9
+            return rec.t_start_ns * 1e-9 + rec.trigger_index * rec.dt_s
+
+        ttags = [instant(rec) - instant(first) for rec in recs]
+        if kind == "TTAG":
+            values: list[float] = ttags
+        elif kind == "RELXORIGIN":
+            values = [rec.origin for rec in recs]
+        elif kind == "ABSXORIGIN":
+            values = [rec.origin + ttag for rec, ttag in zip(recs, ttags, strict=True)]
+        else:  # OFFSet: where each segment begins in the ALL-ON data record; zeros with ALL OFF
+            offset = self.selection(first.points).size if V.flag(self.param("seg_all")) else 0
+            values = [float(k * offset) for k in range(len(recs))]
+        fmt = str(self.param("format"))
+        return OpResult(str(self.param("separator")).join(fmt % v for v in values).encode())

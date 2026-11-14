@@ -64,6 +64,20 @@ WINDOW_WORDS = {word.upper(): word for word in WINDOWS}
 VUNITS = ("DB", "DBV", "DBMV", "DBUV", "WATT", "VRMS", "DBMHZ", "WATTHZ", "VRTHZ")
 #: A model's word for a unit this block spells otherwise (the setting holds the model's word).
 VUNIT_WORDS = {"DECIBEL": "DBV"}
+#: The vertical unit's word in the guide's ``:WAVeform:YUNits?`` list (pp. 1647, #1066): the dB
+#: family reads DECibels, the Watt family WATT, the volt family VOLT.
+GUIDE_UNIT_WORDS = {
+    "DB": "DECibels",
+    "DBV": "DECibels",
+    "DBMV": "DECibels",
+    "DBUV": "DECibels",
+    "DBMHZ": "DECibels",
+    "DECIBEL": "DECibels",
+    "VRMS": "VOLT",
+    "VRTHZ": "VOLT",
+    "WATT": "WATT",
+    "WATTHZ": "WATT",
+}
 
 #: The transform operators (whole-record); everything else is computed span by span.
 FFT_OPERATORS = frozenset({"FFTMagnitude", "FFTPhase", "PSDensity"})
@@ -711,6 +725,20 @@ class ScopeMath(Component):
         if rec is None:
             raise ScpiError(-230, f"function {f} is not defined")
         return rec, used
+
+    def function_units(self, f: int) -> tuple[str, str]:
+        """The function's X and Y axis unit words (``:WAVeform:XUNits?``/``:YUNits?``, #1066): the
+        transform's axes are frequency against its vertical unit's word (the guide's lists, pp.
+        1641/1647); the phase trace has no word in the guide's Y list, so it reads UNKNown. Every
+        other operator's trace is time and volts."""
+        f = self._function(f)
+        operator = self._operator(f)
+        if operator not in FFT_OPERATORS:
+            return "SECond", "VOLT"
+        if operator == "FFTPhase":
+            return "HERTz", "UNKNown"
+        unit = str(self._setting(f, "vunits", "DB") or "DB").upper()
+        return "HERTz", GUIDE_UNIT_WORDS.get(unit, "VOLT")
 
     def _goft_setting(self, name: str, default: Any = None) -> Any:
         """One of the g(t) source's settings (``goft_prefix`` names the paths)."""
