@@ -23,18 +23,24 @@ sections:
   - header: '*OPT'
     level: not_modeled
     note: 选件串未实现。
+    gap: model_work
   - header: '*RCL'
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RDT'
     level: not_modeled
     note: 通道描述未实现（型号用 SYSTem:CHANnel:MODel?）。
+    gap: model_work
   - header: '*RST'
     level: implemented
     note: 按 *RST 表：电压/电流 0、输出 OFF、OVP MAX（60 V）、OCP OFF、OCP 延迟 0.020 s、SCHange、内部检测、显示 METER1。
   - header: '*SAV'
     level: not_modeled
     note: 状态存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器。
@@ -55,15 +61,21 @@ sections:
   - header: ABORt:ACQuire
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: ABORt:DLOG
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: ABORt:ELOG
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: ABORt:HISTogram
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: ABORt:TRANsient
     level: implemented
     note: 通道列表必需；回到空闲，取消等待中的就绪（*RST 也执行，#548）。
@@ -72,60 +84,79 @@ sections:
   - header: CALibrate:COUNt
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:CURRent[:LEVel]
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:CURRent:LIMit:NEGative
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:CURRent:LIMit:POSitive
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:CURRent:MEASure
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:CURRent:PEAK
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:DATA
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:DATE
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:DPRog
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:LEVel
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:PASSword
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:RESistance
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: CALibrate:SAVE
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:STATe
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:VOLTage[:LEVel]
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:VOLTage:CMRR
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:VOLTage:LIMit:POSitive
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:VOLTage:MEASure
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
   - header: CALibrate:VOLTage:MEASure:AUXiliary
     level: not_modeled
     note: 校准流程未实现。
+    gap: out_of_scope
 - section: DISPlay
   commands:
   - header: DISPlay[:WINDow][:STATe]
@@ -141,137 +172,199 @@ sections:
   - header: FETCh[:SCALar]:CURRent[:DC]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: model_work
   - header: FETCh[:SCALar]:CURRent:ACDC
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:CURRent:HIGH
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:CURRent:LOW
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:CURRent:MAXimum
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:CURRent:MINimum
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:POWer[:DC]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: out_of_scope
   - header: FETCh[:SCALar]:POWer:MAXimum
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: out_of_scope
   - header: FETCh[:SCALar]:POWer:MINimum
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: out_of_scope
   - header: FETCh[:SCALar]:VOLTage[:DC]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: model_work
   - header: FETCh[:SCALar]:VOLTage:ACDC
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:VOLTage:HIGH
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:VOLTage:LOW
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:VOLTage:MAXimum
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh[:SCALar]:VOLTage:MINimum
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh:ARRay:CURRent[:DC]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh:ARRay:POWer[:DC]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: out_of_scope
   - header: FETCh:ARRay:VOLTage[:DC]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh:DLOG:AHOur
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: FETCh:DLOG:CURRent[:DC]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: FETCh:DLOG:CURRent:MAXimum
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh:DLOG:CURRent:MINimum
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh:DLOG:CURRent:PTPeak
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: FETCh:DLOG:VOLTage[:DC]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: FETCh:DLOG:VOLTage:MAXimum
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh:DLOG:VOLTage:MINimum
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: FETCh:DLOG:VOLTage:PTPeak
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: FETCh:DLOG:WHOur
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: FETCh:ELOG
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: FETCh:HISTogram:CURRent
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
 - section: FORMat
   commands:
   - header: FORMat[:DATA]
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: FORMat:BORDer
     level: not_modeled
     note: 未实现。
+    gap: model_work
 - section: HCOPy
   commands:
   - header: HCOPy:SDUMp:DATA
     level: not_modeled
     note: 未实现。
+    gap: blocked
+    blocked_by: screenshot
   - header: HCOPy:SDUMp:DATA:FORMat
     level: not_modeled
     note: 未实现。
+    gap: blocked
+    blocked_by: screenshot
 - section: INITiate
   commands:
   - header: INITiate[:IMMediate]:ACQuire
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: INITiate[:IMMediate]:DLOG
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: INITiate[:IMMediate]:ELOG
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: INITiate[:IMMediate]:HISTogram
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: INITiate[:IMMediate]:TRANsient
     level: implemented
     note: 通道列表必需；初始化瞬变系统：TRAN-active（OPER 条件位 6）立即置位，5 ms（虚拟时间）后就绪、置 WTG-tran（位 4），之前到达的触发被忽略（Programming Output Transients："It takes a few milliseconds … the trigger will be ignored"，手册未给数值，#548）；IMMediate 源在就绪时触发（#541）。已知偏差：*OPC? 只等到就绪，手册把已初始化的瞬变列为待完成操作（*OPC? 等到瞬变完成）。
   - header: INITiate:CONTinuous:TRANsient
     level: not_modeled
     note: 瞬变触发系统（触发电平、STEP 模式、INIT/TRIG:TRANsient）未实现（#541）。
+    gap: model_work
 - section: LXI
   commands:
   - header: LXI:IDENtify[:STATe]
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: LXI:MDNS[:STATe]
     level: not_modeled
     note: 未实现。
+    gap: model_work
 - section: MEASure
   commands:
   - header: MEASure[:SCALar]:CURRent[:DC]
@@ -280,74 +373,113 @@ sections:
   - header: MEASure[:SCALar]:CURRent:ACDC
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:CURRent:HIGH
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:CURRent:LOW
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:CURRent:MAXimum
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:CURRent:MINimum
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:POWer[:DC]
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: out_of_scope
   - header: MEASure[:SCALar]:POWer:MAXimum
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: out_of_scope
   - header: MEASure[:SCALar]:POWer:MINimum
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: out_of_scope
   - header: MEASure[:SCALar]:VOLTage[:DC]
     level: implemented
     note: 通道列表必需（省略报 -109）；回读输出端（远端检测时为 sense 端）电压；多通道以逗号分隔。读数带噪声（specs.noise_readback_rms：估计值，#744/D46），逐读数独立抽样，同种子逐位复现。
   - header: MEASure[:SCALar]:VOLTage:ACDC
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:VOLTage:HIGH
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:VOLTage:LOW
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:VOLTage:MAXimum
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure[:SCALar]:VOLTage:MINimum
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure:ARRay:CURRent[:DC]
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
   - header: MEASure:ARRay:POWer[:DC]
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: out_of_scope
   - header: MEASure:ARRay:VOLTage[:DC]
     level: not_modeled
     note: 只实现电压/电流的平均值；交流、峰值与数组测量未实现（需要采样波形）。
+    gap: blocked
+    blocked_by: digitize
 - section: MMEMory
   commands:
   - header: MMEMory:ATTRibute
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:DATA[:DEFinite]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:DELete
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:EXPort:DLOG
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: MMEMory:LOAD:ARB:SEQuence
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: MMEMory:STORe:ARB:SEQuence
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: psu-arb
 - section: OUTPut
   commands:
   - header: OUTPut[:STATe]
@@ -356,15 +488,19 @@ sections:
   - header: OUTPut:COUPle:CHANnel
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:COUPle:DOFFset
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:COUPle:DOFFset:MODE
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: model_work
   - header: OUTPut:COUPle:MAX:DOFFset
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut[:STATe]:DELay:FALL
     level: implemented
     note: 通道列表必需；0–1023 s，*RST 0：关输出前等待该时间（计入虚拟时间，期间输出仍导通）；保护动作关输出不受影响（#540）。
@@ -374,217 +510,309 @@ sections:
   - header: OUTPut:PMODE
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: OUTPut:TMODE
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: OUTPut:INHibit:MODE
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: out_of_scope
   - header: OUTPut:PON:STATe
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: OUTPut:PROTection:CLEar
     level: implemented
     note: 通道列表必需（省略报 -109）；清除 OVP/OCP 锁存，原因消除后输出恢复到保护前的状态。
   - header: OUTPut:PROTection:COUPle
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:PROTection:DELay
     level: implemented
     note: 通道列表必需（省略报 -109）；与 CURRent:PROTection:DELay 同一设定（手册）。
   - header: OUTPut:PROTection:OSCillation
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:PROTection:TEMPerature:MARGin
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:PROTection:WDOG[:STATe]
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:PROTection:WDOG:DELay
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:RELay:POLarity
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
   - header: OUTPut:SHORt[:STATe]
     level: not_modeled
     note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
+    gap: model_work
 - section: SENSe
   commands:
   - header: SENSe:CURRent:CCOMpensate
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: SENSe:CURRent[:DC]:RANGe[:UPPer]
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+    gap: model_work
   - header: SENSe:CURRent[:DC]:RANGe:AUTO
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+    gap: model_work
   - header: SENSe:DLOG:CURRent[:DC]:RANGe[:UPPer]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:CURRent[:DC]:RANGe:AUTO
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:FUNCtion:CURRent
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:FUNCtion:MINMax
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:FUNCtion:VOLTage
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:MARKer<n>:POINt
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:OFFSet
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:PERiod
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:TIME
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:TINTerval
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:VOLTage[:DC]:RANGe[:UPPer]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:DLOG:VOLTage[:DC]:RANGe:AUTO
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:CURRent[:DC]:RANGe[:UPPer]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:CURRent[:DC]:RANGe:AUTO
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:FUNCtion:CURRent
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:FUNCtion:CURRent:MINMax
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:FUNCtion:VOLTage
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:FUNCtion:VOLTage:MINMax
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:PERiod
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:VOLTage[:DC]:RANGe[:UPPer]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:ELOG:VOLTage[:DC]:RANGe:AUTO
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: SENSe:FUNCtion
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: SENSe:FUNCtion:CURRent
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: SENSe:FUNCtion:VOLTage
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: SENSe:FUNCtion:VOLTage:INPut
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: SENSe:HISTogram:CURRent[:DC]:BIN:GAIN
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: SENSe:HISTogram:CURRent[:DC]:BIN:OFFSet
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: SENSe:HISTogram:CURRent[:DC]:BIN:RANGes
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: SENSe:HISTogram:CURRent[:DC]:RANGe[:UPPer]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: SENSe:HISTogram:CURRent[:DC]:RANGe:AUTO
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: SENSe:HISTogram:FUNCtion:CURRent
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: SENSe:SWEep:OFFSet:POINts
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: SENSe:SWEep:POINts
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: SENSe:SWEep:TINTerval
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: SENSe:SWEep:TINTerval:RESolution
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: SENSe:VOLTage[:DC]:RANGe[:UPPer]
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+    gap: model_work
   - header: SENSe:VOLTage[:DC]:RANGe:AUTO
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+    gap: model_work
   - header: SENSe:WINDow[:TYPE]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: model_work
 - section: 'SOURce: ARB'
   commands:
   - header: '[:SOURce]:ARB:COUNt'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:CDWell'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:CONVert'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:EXPonential'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:PULSe'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:RAMP'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:SINusoid'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:STAircase'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:STEP'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:TRAPezoid'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:{CURRent|VOLTage}:UDEFined'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:FUNCtion'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: model_work
   - header: '[:SOURce]:ARB:FUNCtion:SHAPe'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: model_work
   - header: '[:SOURce]:ARB:FUNCtion:TYPE'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: model_work
   - header: '[:SOURce]:ARB:SEQuence'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:ARB:TERMinate:LAST'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
 - section: 'SOURce: CURRent'
   commands:
   - header: '[:SOURce]:CURRent[:LEVel][:IMMediate][:AMPLitude]'
@@ -597,12 +825,15 @@ sections:
   - header: '[:SOURce]:CURRent:LIMit[:POSitive][:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:CURRent:LIMit:COUPle'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:CURRent:LIMit:NEGative[:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:CURRent:MODE'
     level: implemented
     note: 通道列表必需；FIXed（*RST）/ STEP；LIST、ARB 未建模（-224）（#541）。
@@ -618,144 +849,209 @@ sections:
   - header: '[:SOURce]:CURRent:RANGe'
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+    gap: model_work
   - header: '[:SOURce]:CURRent:SLEW[:POSitive][:IMMediate]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:CURRent:SLEW[:POSitive]:MAXimum'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: '[:SOURce]:CURRent:SLEW:COUPle'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:CURRent:SLEW:NEGative[:IMMediate]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:CURRent:SLEW:NEGative:MAXimum'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: blocked
+    blocked_by: digitize
 - section: 'SOURce: DIGital'
   commands:
   - header: '[:SOURce]:DIGital:INPut:DATA'
     level: not_modeled
     note: 数字控制口未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:OUTPut:DATA'
     level: not_modeled
     note: 数字控制口未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:PIN<n>:FUNCtion'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:DIGital:PIN<n>:POLarity'
     level: not_modeled
     note: 数字控制口未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:TOUTput:BUS[:ENABle]'
     level: not_modeled
     note: 数字控制口未实现。
+    gap: blocked
+    blocked_by: digital-io
 - section: 'SOURce: EMULation, FUNCtion, LIST'
   commands:
   - header: '[:SOURce]:EMULation'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:FUNCtion'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:LIST:COUNt'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:CURRent[:LEVel]'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:CURRent:POINts'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:DWELl'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:DWELl:POINts'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:POWer[:LEVel]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:LIST:POWer:POINts'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:LIST:RESistance[:LEVel]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:LIST:RESistance:POINts'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:LIST:STEP'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:TERMinate:LAST'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:TOUTput:BOSTep[:DATA]'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:TOUTput:BOSTep:POINts'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:TOUTput:EOSTep[:DATA]'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:TOUTput:EOSTep:POINts'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:VOLTage[:LEVel]'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
   - header: '[:SOURce]:LIST:VOLTage:POINts'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: psu-arb
 - section: 'SOURce: POWer, RESistance, STEP'
   commands:
   - header: '[:SOURce]:POWer[:LEVel][:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:POWer[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:POWer:LIMit'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:POWer:MODE'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:POWer:PROTection:DELay[:TIME]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:POWer:PROTection:STATe'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:POWer:RANGe'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:POWer:SLEW'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:RESistance[:LEVel][:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:RESistance[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:RESistance:MODE'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:RESistance:RANGe'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:RESistance:SLEW'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:RESistance:STATe'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:STEP:TOUTput'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: blocked
+    blocked_by: digital-io
 - section: 'SOURce: VOLTage'
   commands:
   - header: '[:SOURce]:VOLTage[:LEVel][:IMMediate][:AMPLitude]'
@@ -767,24 +1063,33 @@ sections:
   - header: '[:SOURce]:VOLTage:BWIDth[:RANGe]'
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+    gap: blocked
+    blocked_by: output-filter
   - header: '[:SOURce]:VOLTage:BWIDth:LEVel'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: blocked
+    blocked_by: output-filter
   - header: '[:SOURce]:VOLTage:INHibit:VON[:LEVel]'
     level: not_modeled
     note: 未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:INHibit:VON:MODE'
     level: not_modeled
     note: 任意波、列表与阶跃瞬变（含触发电平）未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:LIMit[:POSitive][:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:LIMit:COUPle'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:LIMit:NEGative[:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:MODE'
     level: implemented
     note: 通道列表必需；FIXed（*RST）/ STEP；LIST、ARB 未建模（-224）（#541）。
@@ -794,42 +1099,56 @@ sections:
   - header: '[:SOURce]:VOLTage:PROTection:DELay[:TIME]'
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: '[:SOURce]:VOLTage:PROTection:REMote[:POSitive][:LEVel]'
     level: not_modeled
     note: 未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:PROTection:REMote:NEGative[:LEVel]'
     level: not_modeled
     note: 未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:PROTection:REVerse:STATe'
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: '[:SOURce]:VOLTage:RANGe'
     level: not_modeled
     note: 输出与测量量程未实现（精密模块的低量程：量程与电平的耦合规则无法用定义表达）。
+    gap: model_work
   - header: '[:SOURce]:VOLTage:RESistance[:LEVel][:IMMediate][:AMPLitude]'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:RESistance:STATe'
     level: not_modeled
     note: 电子负载 / 电阻 / 功率优先等其他模块的功能，本配置的模块不具备或未实现。
+    gap: out_of_scope
   - header: '[:SOURce]:VOLTage:SENSe:SOURce'
     level: implemented
     note: 通道列表必需（省略报 -109）；INTernal / EXTernal：外部检测时按 SENSE 端子调节；SENSE 未接时回退本地检测。
   - header: '[:SOURce]:VOLTage:SLEW[:POSitive][:IMMediate]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:VOLTage:SLEW[:POSitive]:MAXimum'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: blocked
+    blocked_by: digitize
   - header: '[:SOURce]:VOLTage:SLEW:COUPle'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:VOLTage:SLEW:NEGative[:IMMediate]'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: model_work
   - header: '[:SOURce]:VOLTage:SLEW:NEGative:MAXimum'
     level: not_modeled
     note: 转换速率、带宽、SMU 专用的限值/模式等功能未实现。
+    gap: blocked
+    blocked_by: digitize
 - section: STATus
   commands:
   - header: STATus:OPERation[:EVENt]
@@ -880,57 +1199,74 @@ sections:
   - header: SYSTem:CHANnel:SERial
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:COMMunicate:LAN:CONTrol
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:COMMunicate:RLSTate
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:DATE
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: out_of_scope
   - header: SYSTem:ERRor[:NEXT]
     level: implemented
     note: 错误队列 FIFO，溢出 -350；文字按手册的错误列表。
   - header: SYSTem:GROup:CATalog
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:GROup:DEFine
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:GROup:DELete
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:GROup:DELete:ALL
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:PASSword:FPANel:RESet
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: out_of_scope
   - header: SYSTem:PERSona:MANufacturer
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:PERSona:MANufacturer:DEFault
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:PERSona:MODel
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:PERSona:MODel:DEFault
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:REBoot
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: out_of_scope
   - header: SYSTem:SECurity:IMMediate
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: out_of_scope
   - header: SYSTem:SET
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: model_work
   - header: SYSTem:TIME
     level: not_modeled
     note: 系统设置（分组、身份、日期时间、远程/本地、重启等）未实现。
+    gap: out_of_scope
   - header: SYSTem:VERSion
     level: implemented
     note: 1999.0。
@@ -939,60 +1275,89 @@ sections:
   - header: TRIGger:ACQuire[:IMMediate]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:ACQuire:CURRent[:LEVel]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:ACQuire:CURRent:SLOPe
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:ACQuire:SOURce
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:ACQuire:TOUTput[:ENABle]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:ACQuire:VOLTage[:LEVel]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:ACQuire:VOLTage:SLOPe
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: digitize
   - header: TRIGger:ARB:SOURce
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: blocked
+    blocked_by: psu-arb
   - header: TRIGger:DLOG[:IMMediate]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:DLOG:CURRent[:LEVel]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:DLOG:CURRent:SLOPe
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:DLOG:SOURce
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:DLOG:VOLTage[:LEVel]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:DLOG:VOLTage:SLOPe
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:ELOG[:IMMediate]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:ELOG:SOURce
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: model_work
   - header: TRIGger:HISTogram[:IMMediate]
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: TRIGger:HISTogram:SOURce
     level: not_modeled
     note: 数据记录、直方图与文件系统未实现。
+    gap: blocked
+    blocked_by: histogram
   - header: TRIGger:MEASure:TALign:CORRection[:STATe]
     level: not_modeled
     note: 测量与瞬变触发系统（采样点数、间隔、FETCh 的统计量）未实现；测量只有 MEASure 的平均值。
+    gap: model_work
   - header: TRIGger:TRANsient[:IMMediate]
     level: implemented
     note: 通道列表必需；立即触发（不论触发源）；未初始化或未就绪时不动作、不报错（Error List 没有 -211，#548）。
