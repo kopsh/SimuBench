@@ -93,9 +93,9 @@ sections:
     gap: blocked
     blocked_by: autoscale
   - header: :BEEP
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 291: beeps at <frequency> Hz for <duration> ms. The bench is silent; both parameters are parsed and stored, nothing else changes'
   - header: :BLANk
     level: implemented
     note: CHANnel<N> only; ALL, functions, histograms and memories are not modeled
@@ -225,9 +225,9 @@ sections:
     gap: blocked
     blocked_by: differential-input
   - header: :ACQuire:FPLot
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: "p. 329: the fast-plot scheduling flag (analysis synchronous or asynchronous with acquisitions). The model analyzes the current record at every read, so no reply value changes; the *RST value is not in the manual, ON is a SimuBench value"
   - header: :ACQuire:HISTory:COUNt
     level: not_modeled
     note: 'Blocked by C8 (product-plan.md 4.2): acquisition history playback.'
@@ -1090,29 +1090,29 @@ sections:
 - section: :DISPlay Commands (Programmer's Guide 11.60, ch. 21)
   commands:
   - header: :DISPlay:BOOKmark:DELete:ALL
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 583: deletes all display bookmarks. The model keeps one global bookmark, not 1-100 of them; the delete clears its label'
   - header: :DISPlay:BOOKmark<N>:DELete
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 584: deletes a bookmark. The model keeps one global bookmark, not 1-100 of them; the delete clears its label'
   - header: :DISPlay:BOOKmark<N>:SET
+    level: accepted
+    affects_data: false
+    note: 'p. 585: sets a bookmark (source or NONE, label, and color, content, grid or time). The model stores the label of one global bookmark, not 1-100 of them; the other parameters parse and are not stored'
+  - header: :DISPlay:BOOKmark<N>:VERTical?
     level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
-  - header: :DISPlay:BOOKmark<N>:VERTical
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    note: 'Model work: the query returns the waveform''s vertical value at the bookmark''s horizontal position (p. 586) - a data readout needing the bookmark''s source-bound time, not a display-only setting.'
     gap: model_work
   - header: :DISPlay:BOOKmark<N>:XPOSition
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 587: the callout box''s horizontal grid position, 0.0-1.0. The model stores one global value, not one per bookmark'
   - header: :DISPlay:BOOKmark<N>:YPOSition
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 588: the callout box''s vertical grid position, 0.0-1.0. The model stores one global value, not one per bookmark'
   - header: :DISPlay:CGRade
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1134,46 +1134,46 @@ sections:
     note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
     gap: model_work
   - header: :DISPlay:CONNect
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 597: the connect-the-dots display mode. The optional <source> is not distinguished (one global value); a write or query that carries it errors -108'
   - header: :DISPlay:DATA
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
     gap: blocked
     blocked_by: screenshot
   - header: :DISPlay:GRATicule
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 599: the GRID or FRAMe graticule; the *RST value is not in the manual, GRID is a SimuBench value'
   - header: :DISPlay:GRATicule:AREA<N>:HSCale
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 600: whether a waveform area shows the horizontal scale. The model stores one global value, not one per area (1-8)'
   - header: :DISPlay:GRATicule:AREA<N>:STATe
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 601: turns a waveform area on or off. The model stores one global value, not one per area'
   - header: :DISPlay:GRATicule:AREA<N>:VSCale
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 602: OFF, AUTO or MANual vertical scaling of a waveform area. The model stores one global value, not one per area'
   - header: :DISPlay:GRATicule:GLAYout
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 603: the grid layout of a waveform area (stacked or tiled, vertical or horizontal). The optional <area> is not distinguished (one global value); the ZOOM reply of a zoomed area does not apply (no zoom yet)'
   - header: :DISPlay:GRATicule:INTensity
     level: accepted
     affects_data: false
     note: 0 to 100; 50 after power-on is a SimuBench value
   - header: :DISPlay:GRATicule:NUMBer
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 605: the number of grids (1-16) in a waveform area. The optional <area> is not distinguished (one global value)'
   - header: :DISPlay:GRATicule:SETGrat
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 606: assigns a waveform to a grid (<waveform>,<grid>[,<area>][,MAIN|CGRade]); the four values are stored, and there is no display the assignment would rearrange'
   - header: :DISPlay:ISIM:DGRaphs
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1211,13 +1211,13 @@ sections:
     affects_data: false
     note: 草稿：定义中已有，确认程度与说明
   - header: :DISPlay:LAYout
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 617: TAB (or CUSTom) or stacked window layout; the *RST value is not in the manual, TAB is a SimuBench value'
   - header: :DISPlay:MAIN
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 618: the main-window view of a source, on or off. The model stores one global value and the optional <source> is not distinguished (a write or query that carries it errors -108); the *RST value is not in the manual, ON is a SimuBench value'
   - header: :DISPlay:NOISe:LEVel
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1235,17 +1235,17 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :DISPlay:PERSistence
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 623: MINimum or INFinite display persistence; the <time> variable form is not modeled (a numeric parameter is rejected by the enumeration) and the optional <source> is not distinguished'
   - header: :DISPlay:PROPortion
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 624: a pane''s size proportion (<pane>,<0-100>). Its query portion is deprecated (the manual''s history), so the model stores the value without a query'
   - header: :DISPlay:PROPortion:RESults
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 625: the Results pane''s proportion (0-100). Its query portion is deprecated (the manual''s history), so the model stores the value without a query'
   - header: :DISPlay:PRECprobe:GCOunt
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1259,29 +1259,29 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :DISPlay:RESults:LAYout
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 629: TAB (or CUSTom) or SHORizontal layout of the Results pane; the *RST value is not in the manual, TAB is a SimuBench value'
   - header: :DISPlay:SCOLor
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 630: a display element''s color (<name>,<hue>,<saturation>,<luminosity>). The three numbers are stored and the query returns them for whatever name it is given (one global color, not one per element)'
   - header: :DISPlay:STATus:COLumn
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 632: the status label''s column, 0.0-1.0 of the screen; the *RST value is not in the manual, 0 is a SimuBench value'
   - header: :DISPlay:STATus:ROW
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 633: the status label''s row, 0.0-1.0 of the screen; the *RST value is not in the manual, 0 is a SimuBench value'
   - header: :DISPlay:THEMe
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 634: the UI theme, Midnight or Platinum; the reply quotes the full word, as the manual''s format shows. The *RST value is not in the manual, Platinum is a SimuBench value'
   - header: :DISPlay:WINDow:MAXimize
-    level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 635: maximizes a window (<window>); there is no query, the model parses and stores the window name'
 - section: :FUNCtion<F> Commands (Programmer's Guide 11.60, ch. 22)
   commands:
   - header: :FUNCtion<F>
@@ -3940,7 +3940,7 @@ sections:
     gap: model_work
   - header: :SYSTem:MODE
     level: not_modeled
-    note: 'Model work: display-only setting; candidate for accepted (affects_data: false).'
+    note: 'Model work: selects OSCilloscope or RTSA mode (p. 1458). RTSA turns the instrument into a multi-channel spectrum analyzer (time-domain commands stop being valid), which is not modeled; accepting the switch would change what the instrument is.'
     gap: model_work
   - header: :SYSTem:PERSona
     level: not_modeled

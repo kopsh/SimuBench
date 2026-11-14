@@ -57,3 +57,11 @@ class System(Component):
         """How many entries the error queue holds (a model's own error count query)."""
         assert self.owner is not None
         return OpResult(V.format_int(len(self.owner.errors)))
+
+    @op("accept")
+    def accept(self, **_: Any) -> OpResult:
+        """A command the model parses and stores without an effect on the simulation (an accepted
+        command, #1068): the parameters' ``state`` writes carry the values, the op itself does
+        nothing. The empty response lets the command's ``reply`` template answer a query from the
+        stored settings."""
+        return OpResult(b"")

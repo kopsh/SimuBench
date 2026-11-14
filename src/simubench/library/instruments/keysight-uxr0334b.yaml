@@ -244,6 +244,9 @@ state:
     default: FLATmag
     label: 带宽滤波响应
     label_en: Filter response
+  # 快速绘图（:ACQuire:FPLot，#1068）：分析随采集异步进行的调度开关。模型的分析始终在读的当下对
+  # 当前记录做，开关不改变任何回复的数值（覆盖表注明）。手册未给上电默认，ON 为 SimuBench 值。
+  acquire.fplot: {type: bool, default: true, label: 快速绘图, label_en: Fast plot}
   # 分段存储（:ACQuire:MODE SEGMented，#1066）：一次采集连续取 COUNt 段（每段一整条记录），各等一次
   # 触发。段数上限 25,680 取数据手册 Max # of segments 的高带宽触发使能列（UXR0334B 列；禁用列
   # 134,885，该触发选项未建模）；段数 × 记录深超出内存由采集报 -221。手册未给 *RST 后的段数：2 为
@@ -354,6 +357,78 @@ state:
   system.dsp: {type: string, default: "", label: 屏幕文字, label_en: Display text}
   display.label: {type: bool, default: false, label: 显示标签, label_en: Labels}
   display.intensity: {type: int, min: 0, max: 100, default: 50, label: 网格亮度, label_en: Grid intensity}
+  # ---- 仅影响显示的设置（#1068，手册第 14/21/37 章）：解析并保存，查询回读，不改变任何采集、
+  # 测量、传输与回复的数值（覆盖表逐条注明）。手册未给上电默认值的为 SimuBench 值。带可选
+  # <source>/<area> 的写法模型不区分来源，全局存一个值。
+  system.beep_frequency: {type: float, unit: HZ, default: 1000.0, label: 蜂鸣频率, label_en: Beep frequency}
+  system.beep_duration: {type: float, unit: MS, default: 500.0, label: 蜂鸣时长, label_en: Beep duration}
+  display.main: {type: bool, default: true, label: 主窗口显示, label_en: Main view}
+  display.connect: {type: bool, default: false, label: 连点显示, label_en: Connect the dots}
+  display.graticule:
+    type: enum
+    options: [GRID, FRAMe]
+    default: GRID
+    label: 网格类型
+    label_en: Graticule
+  display.area_hscale: {type: bool, default: true, label: 区域水平刻度, label_en: Area horizontal scale}
+  display.area_state: {type: bool, default: true, label: 区域显示, label_en: Area state}
+  display.area_vscale:
+    type: enum
+    options: ["OFF", AUTO, MANual]
+    default: AUTO
+    label: 区域垂直刻度
+    label_en: Area vertical scale
+  display.graticule_glayout:
+    type: enum
+    options: [SVERtical, SHORizontal, TVERtical, THORizontal]
+    default: SVERtical
+    label: 网格布局
+    label_en: Grid layout
+  display.graticule_number: {type: int, min: 1, max: 16, default: 1, label: 网格数, label_en: Grids}
+  display.setgrat_chan: {type: string, default: "", label: 网格波形, label_en: Grid waveform}
+  display.setgrat_grid: {type: int, min: 1, max: 16, default: 1, label: 网格编号, label_en: Grid number}
+  display.setgrat_area: {type: int, min: 1, max: 8, default: 1, label: 波形区, label_en: Waveform area}
+  display.setgrat_view:
+    type: enum
+    options: [MAIN, CGRade]
+    default: MAIN
+    label: 网格视图
+    label_en: Grid view
+  display.layout:
+    type: enum
+    options: [TAB, CUSTom, SVERtical, SHORizontal]
+    default: TAB
+    label: 窗口布局
+    label_en: Window layout
+  display.persistence:
+    type: enum
+    options: [MINimum, INFinite]
+    default: MINimum
+    label: 余辉
+    label_en: Persistence
+  display.proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 面板占比, label_en: Pane proportion}
+  display.results_proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 结果面板占比, label_en: Results proportion}
+  display.results_layout:
+    type: enum
+    options: [TAB, CUSTom, SHORizontal]
+    default: TAB
+    label: 结果面板布局
+    label_en: Results layout
+  display.scolor_hue: {type: int, min: 0, max: 100, default: 50, label: 颜色色调, label_en: Color hue}
+  display.scolor_saturation: {type: int, min: 0, max: 100, default: 100, label: 颜色饱和度, label_en: Color saturation}
+  display.scolor_luminosity: {type: int, min: 0, max: 100, default: 100, label: 颜色亮度, label_en: Color luminosity}
+  display.status_column: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签列, label_en: Status column}
+  display.status_row: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签行, label_en: Status row}
+  display.theme:
+    type: enum
+    options: [Midnight, Platinum]
+    default: Platinum
+    label: 界面主题
+    label_en: UI theme
+  display.window_maximize: {type: string, default: "", label: 最大化窗口, label_en: Maximized window}
+  display.bookmark_label: {type: string, default: "", label: 书签标签, label_en: Bookmark label}
+  display.bookmark_x: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签横位置, label_en: Bookmark x}
+  display.bookmark_y: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签纵位置, label_en: Bookmark y}
   # ---- 数学函数（#1074，手册第 22 章）：FUNCtion1-16 的定义存放在 function<f>.* 设置里，
   # 波形在读的时候从源记录算出（scope_math）。手册未给默认值的条目为 SimuBench 值，覆盖表注明。
   function.peak_sort:
@@ -1330,6 +1405,8 @@ commands:
     params: [{name: sources, type: raw}]
   - {header: ":SERial", state: system.serial, set: false}
   - {header: ":MODel", state: system.model, set: false}
+  # 蜂鸣（手册 p.291）：频率 Hz、时长 ms；仿真无声，解析并保存两参数（#1068）。
+  - {header: ":BEEP", op: sys.accept, query: false, params: [{name: frequency, type: float, unit: HZ, state: system.beep_frequency}, {name: duration, type: float, unit: MS, state: system.beep_duration}]}
   - header: ":VIEW"
     params:
       - name: source
@@ -1395,6 +1472,42 @@ commands:
   # ---- DISPlay ----
   - {header: ":DISPlay:LABel", state: display.label}
   - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}
+  # ---- 仅影响显示的设置（手册第 21 章，#1068）：解析并保存，查询回读；带可选 <source> 的写法
+  # 模型不区分来源，全局存一个值（覆盖表注明）。 ----
+  - {header: ":DISPlay:MAIN", state: display.main}
+  - {header: ":DISPlay:CONNect", state: display.connect}
+  - {header: ":DISPlay:GRATicule", state: display.graticule}
+  - {header: ":DISPlay:GRATicule:AREA<n>:HSCale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_hscale}
+  - {header: ":DISPlay:GRATicule:AREA<n>:STATe", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_state}
+  - {header: ":DISPlay:GRATicule:AREA<n>:VSCale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_vscale}
+  - {header: ":DISPlay:GRATicule:GLAYout", state: display.graticule_glayout}
+  - {header: ":DISPlay:GRATicule:NUMBer", state: display.graticule_number}
+  # 把波形指派到网格（手册 p.606）：<波形>,<网格>[,<区>][,MAIN|CGRade]，四个参数分开存。
+  - {header: ":DISPlay:GRATicule:SETGrat", op: sys.accept, query: false, params: [{name: chan, type: string, state: display.setgrat_chan}, {name: grid, type: int, min: 1, max: 16, state: display.setgrat_grid}, {name: area, type: int, min: 1, max: 8, optional: true, state: display.setgrat_area}, {name: view, type: string, optional: true, state: display.setgrat_view}]}
+  - {header: ":DISPlay:LAYout", state: display.layout}
+  # 余辉（手册 p.623）：MINimum / INFinite；<time> 的可变余辉未建模（数值参数会被枚举拒绝）。
+  - {header: ":DISPlay:PERSistence", state: display.persistence}
+  # 面板占比（手册 p.624/625）：<面板>,<0-100>；两查询都已弃用（手册 History），只写不查。
+  - {header: ":DISPlay:PROPortion", op: sys.accept, query: false, params: [{name: pane, type: string}, {name: proportion, type: float, min: 0.0, max: 100.0, state: display.proportion}]}
+  - {header: ":DISPlay:PROPortion:RESults", state: display.results_proportion, query: false}
+  - {header: ":DISPlay:RESults:LAYout", state: display.results_layout}
+  # 颜色（手册 p.630）：<色名>,<色调>,<饱和度>,<亮度>，三个数值分开存；查询带 <色名> 回三值
+  # （模型存一个全局颜色，不分元素）。
+  - {header: ":DISPlay:SCOLor", op: sys.accept, reply: "{display.scolor_hue},{display.scolor_saturation},{display.scolor_luminosity}", params: [{name: name, type: string}, {name: hue, type: int, min: 0, max: 100, optional: true, state: display.scolor_hue}, {name: saturation, type: int, min: 0, max: 100, optional: true, state: display.scolor_saturation}, {name: luminosity, type: int, min: 0, max: 100, optional: true, state: display.scolor_luminosity}]}
+  - {header: ":DISPlay:STATus:COLumn", state: display.status_column}
+  - {header: ":DISPlay:STATus:ROW", state: display.status_row}
+  # 主题（手册 p.634）：回复带引号的完整词（手册 {"Midnight" | "Platinum"}）。
+  - {header: ":DISPlay:THEMe", state: display.theme, format: {enum: as_defined}, reply: '"{value}"'}
+  - {header: ":DISPlay:WINDow:MAXimize", state: display.window_maximize, query: false}
+  # 显示书签（手册 pp.583-588）：模型存一个全局书签，不分 1-100 号（覆盖表注明）；VERTical? 是
+  # 波形读数（书签时刻的波形值），不在此列。
+  - {header: ":DISPlay:BOOKmark:DELete:ALL", state: display.bookmark_label, set_value: "", query: false}
+  - {header: ":DISPlay:BOOKmark<n>:DELete", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_label, set_value: "", query: false}
+  - {header: ":DISPlay:BOOKmark<n>:SET", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, op: sys.accept, query: false, params: [{name: source, type: string}, {name: label, type: string, state: display.bookmark_label}, {name: color, type: string, optional: true}, {name: content, type: string, optional: true}, {name: last, type: string, optional: true}]}
+  - {header: ":DISPlay:BOOKmark<n>:XPOSition", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_x}
+  - {header: ":DISPlay:BOOKmark<n>:YPOSition", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_y}
+  # 快速绘图（手册 p.329，#1068）：模型的读数始终同步分析当前记录，开关不改变数值。
+  - {header: ":ACQuire:FPLot", state: acquire.fplot}
   # ---- MEASure ----
   - header: ":MEASure:SOURce"
     params:
