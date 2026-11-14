@@ -441,7 +441,8 @@ class InstrumentScreen(ControlEditingScreen):
     def _spectrum_lines(
         self, state: dict[str, dict], width: int, budget: int | None = None
     ) -> list[list[tuple[str, str]]]:
-        return rows.spectrum_rows(self.app.lang, self.readings, state, width, budget)
+        app: Any = self.app
+        return rows.spectrum_rows(app.lang, self.readings, state, width, budget, app.clock_mode())
 
     def _rf_lines(
         self, state: dict[str, dict], width: int, budget: int | None = None

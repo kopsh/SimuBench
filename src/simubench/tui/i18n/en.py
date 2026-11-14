@@ -26,6 +26,11 @@ TERMS: dict = {
         "stepped": "Stepped clock",
         "scaled": "Scaled clock",
     },
+    # spectrum in the web i18n (the sweep hint, #1178).
+    "spectrum": {
+        "hintClock": "Command clock: the analyzer only sweeps when a command is sent or time is advanced, so the trace stands still.",
+        "hintSingle": "Single sweep: the trace is held; turn Continuous on to sweep again.",
+    },
     # panel.client in the web i18n, plus the terminal console's own sources (tui-screens.md 1.5).
     "source": {
         "ui": "UI",

@@ -2257,3 +2257,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 真实型号接入，覆盖表改实现并有手册用例 | ✅ UXR1104B 与 UXR0334B（同一命令集）：16 个函数 × 5 条命令 + 60 个标记 × 若干 + MEASure:FFT 共 86 条实现，覆盖表实现 196 条（1148 条的 17.6%，此前 113 条 9.8%），96 条 blocked_by C5 清零；`tests/models/keysight-uxr1104b|uxr0334b/cases.yaml` 65 用例/台全过（含 FFT 相干窗下峰值频率 ±1 bin 容差、PSD/CPW/OBW/THD）。**DSO-X 2024A 未接入**（EXEMPT 债表），跟进 #1155 |
 | 光标 | ✅ `:MARKer` 屏幕光标（WAVeform 模式 Y 对轨迹、Y 模式两水平线）与编号 1–60 光标（X/Y/DELTa 关系、TRACk/MANual）；测量读数经同一 math/meas 链 |
 | `scripts/check.sh` 通过 | ✅（命令 runner 支持 `suffixes` 头替换、`MathSource` 协议、scpi 词内数字 `X1Position` 解析为平台改动） |
+
+## 频谱仪扫频提示：渲染测试、TUI 共用措辞与评估结论（Issue 1178，#1100 的后续）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 提示的出现条件有测试：命令时钟出现 `sweep-hint` 且点按钮后 `扫描 #` 增加；`readonly` 无按钮；`init.continuous` 关时出现 HOLD；wall 时钟无提示 | ✅ `web/src/features/workbench/screens/SpectrumScreen.render.test.tsx`（渲染，含 readonly）；`web/e2e/instruments.spec.ts` 的 “standing-trace hint” 用例（命令时钟示例台、`:INIT:CONT OFF`、wall 台） |
+| TUI 频谱仪屏幕显示与 Web 同源的提示 | ✅ `rows.sweep_hint`（`spectrum.hintClock` / `hintSingle`，英文原文与 web `en.ts` 逐字一致，列入 `scripts/check_tui_i18n.py` 的 SHARED）；`tests/test_tui_rows.py` |
+| 评估：示例台时钟 | 保持 `clock: command`：示例台的探针要读“同一时刻”的帧（D47），改 wall 会让读数随机器速度变；由提示加按钮解释静止，不改台 |
+| 评估：示波器等其他连续采集屏幕 | 示波器屏幕目前没有 RUN/STOP 或时钟提示，命令时钟下同样静止；本 issue 不做，属 Web 交互改动，需要时另开 `核心` issue |
+| reduced-motion | 不需要处理：`prefersReducedMotion` 只关掉扫描光标与余晖动画（`SpectrumScreen.tsx` 画布），迹线仍随每次扫描更新；提示针对“数据不更新”，与动画无关。e2e 配置本身即 `reducedMotion: reduce`，上面的用例在该设置下通过 |
+| `scripts/check.sh` 通过 | 见 PR |
