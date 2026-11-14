@@ -418,6 +418,7 @@ state:
     label: 测量信源 2
     label_en: Measure source 2
   # 界面与身份：前面板锁定、隐藏指示灯、屏幕文字、标签显示与网格亮度都不改变数据。
+  status.psc: {type: bool, default: true, label: 上电清状态, label_en: Power-on status clear}
   system.lock: {type: bool, default: false, label: 前面板锁定, label_en: Front panel lock}
   system.hled: {type: bool, default: false, label: 隐藏指示灯, label_en: Hide LEDs}
   system.dsp: {type: string, default: "", label: 屏幕文字, label_en: Display text}
@@ -495,6 +496,16 @@ state:
   display.bookmark_label: {type: string, default: "", label: 书签标签, label_en: Bookmark label}
   display.bookmark_x: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签横位置, label_en: Bookmark x}
   display.bookmark_y: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签纵位置, label_en: Bookmark y}
+  # 校准输出（:CALibrate:OUTPut 组，#1067）：输出选择与使能存取；输出的信号本身未建模（#1170）。
+  calibrate.output_signal: {type: string, default: "ZERO", label: 校准输出信号, label_en: Cal output signal}
+  calibrate.output_aux: {type: bool, default: false, label: AUX 输出使能, label_en: Aux out enable}
+  calibrate.output_aux_rtime:
+    type: enum
+    options: [FAST, SLOW]
+    default: FAST
+    label: AUX 沿速
+    label_en: Aux rise time
+  calibrate.output_cal: {type: bool, default: false, label: CAL 输出使能, label_en: Cal out enable}
   # 显示 ADC 削波提示（:DISPlay:CLIPped，手册 p.596）：不影响削波检测本身（手册原文），纯显示偏好。
   display.clipped: {type: bool, default: true, label: 显示削波提示, label_en: Show ADC clipping}
   # ---- 数学函数（#1074，手册第 22 章）：FUNCtion1-16 的定义存放在 function<f>.* 设置里，
@@ -1532,6 +1543,11 @@ commands:
   # 清屏（手册 p.293）：显示与关联测量清空——已存的记录全部作废（停止状态下一屏空白，运行状态
   # 下次采集重填）；波形存储器不清（手册）。
   - {header: ":CDISplay", op: acq.clear_display, query: false}
+  # 选件列表（手册 p.259）：本型号按标配 500 Mpts 内存建模，无选件，首字符 0（手册：无选件时
+  # 首字符为 0）。
+  - {header: "*OPT", set: false, op: sys.accept, reply: "0"}
+  # 上电清状态（手册 p.269）：PON 位是否置位由它决定；跨上电行为不在仿真中体现，存取即可。
+  - {header: "*PSC", state: status.psc}
   # 手册 :SINGle：下一次触发采一次，不改 :TRIGger:SWEep。
   - {header: ":SINGle", op: acq.digitize, query: false}
   - header: ":DIGitize"
@@ -1594,6 +1610,10 @@ commands:
   # 存储深度/采样率的 AUTO 控制（手册 pp.339/352）：查询回是否在 AUTO 值上；OFF 把当前值定为手动。
   - {header: ":ACQuire:POINts:AUTO", op: acq.points_auto, params: [{name: "on", type: bool, optional: true}]}
   - {header: ":ACQuire:SRATe[:ANALog]:AUTO", op: acq.srate_auto, params: [{name: "on", type: bool, optional: true}]}
+  # 声明的限值（手册 pp.324/340/352，#1067）：设置为定义声明的范围
+  - {header: ":ACQuire:BANDwidth:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.bandwidth}}
+  - {header: ":ACQuire:POINts:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.points}}
+  - {header: ":ACQuire:SRATe:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.srate}}
   # 削波状态（#1067）：ADC 的削波检测锁存每通道的低/高削波，读后清零（手册 p.484），CLEar 全清（p.319）。
   - {header: ":ACQuire:ADC:CLIPped:CLEar", op: acq.clear_clip, query: false}
   # ---- 分段存储（:ACQuire:SEGMented，手册第 15 章，#1066）---------------------------------------------
@@ -1751,6 +1771,16 @@ commands:
     set: false
     params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
     reply: "{header} {code}"
+  # 能力查询（手册 pp.1437-1439，#1067）：回答定义声明的范围（内存按样点数、带宽 33 GHz、
+  # 采样率 128 GSa/s；数字通道 0 个）。
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.capability, set: false, params: [{name: what, type: string}], args: {HALFchannel: "0", MEMory: "500000000", SRATe: "128000000000", BANDwidth: "33000000000"}}
+  - {header: ":SYSTem:CAPability:CHANnel", op: sys.capability, set: false, params: [{name: what, type: string}], args: {COUNt: "4"}}
+  - {header: ":SYSTem:CAPability:DIGital", op: sys.capability, set: false, params: [{name: what, type: string}], args: {MEMory: "0", SRATe: "0", CHANnels: "0"}}
+  # 校准输出（手册 pp.473-477，#1067）：选择与使能存取；输出的信号本身未建模（#1170）。
+  - {header: ":CALibrate:OUTPut", op: sys.cal_output, params: [{name: signal, type: string, optional: true}, {name: dc, type: float, unit: V, optional: true}], args: {path: calibrate.output_signal}, reply: "{calibrate.output_signal}"}
+  - {header: ":CALibrate:OUTPut:AUX", state: calibrate.output_aux}
+  - {header: ":CALibrate:OUTPut:AUX:RTIMe", state: calibrate.output_aux_rtime}
+  - {header: ":CALibrate:OUTPut:CAL", state: calibrate.output_cal}
   - header: ":SYSTem:PRESet"
     op: sys.reset
     query: false
@@ -2196,3 +2226,7 @@ commands:
   # ---- CHANnel<N>:SPECtral（手册 p.551，#1074）：频谱视图的窗口设置，数据路径是 :FUNCtion FFT。
   - {header: ":CHANnel<ch>:SPECtral:CFRequency", state: ch.spectral_center}
   - {header: ":CHANnel<ch>:SPECtral:SPAN", state: ch.spectral_span}
+  # 限值与能力查询（手册 pp.496/552/554，#1067）：DISPlay 的有效设定为 0|1；频谱视图取定义声明的范围
+  - {header: ":CHANnel<ch>:DISPlay:TESTLIMITS", op: sys.limits, set: false, args: {kind: enum, words: "0|1"}}
+  - {header: ":CHANnel<ch>:SPECtral:CFRequency:TESTLIMITS", op: sys.limits, set: false, args: {path: ch.spectral_center}}
+  - {header: ":CHANnel<ch>:SPECtral:SPAN:TESTLIMITS", op: sys.limits, set: false, args: {path: ch.spectral_span}}

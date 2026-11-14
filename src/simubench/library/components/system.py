@@ -65,3 +65,49 @@ class System(Component):
         nothing. The empty response lets the command's ``reply`` template answer a query from the
         stored settings."""
         return OpResult(b"")
+
+    @op("capability")
+    def capability(self, what: str = "", **answers: Any) -> OpResult:
+        """``:SYSTem:CAPability:*?`` (the guide, pp. 1437-1439, #1067): the definition's ``answers``
+        carry each capability word's reply, the query names one of them."""
+        word = V.parse_string(what).upper() if isinstance(what, bytes) else str(what).upper()
+        table = {str(k).upper(): v for k, v in answers.items()}
+        answer = table.get(word)
+        if answer is None:
+            raise ScpiError(-224, f"{word}: no such capability")
+        return OpResult(f'"{answer}"'.encode())
+
+    @op("limits")
+    def limits(self, path: str = "", kind: str = "numeric", words: str = "", channel: int | None = None, **_: Any) -> OpResult:  # fmt: skip
+        """``…:TESTLIMITS?`` (the guide's ``<n>,<type><limits>`` shape, pp. 324/340/352/496/552/554,
+        #1067): a numeric setting answers its declared min:max, an enumeration its valid settings
+        (the definition's ``words``). A ``ch.``-prefixed path resolves on the command's channel."""
+        assert self.owner is not None
+        if str(kind).lower() == "enum":
+            return OpResult(f"1,<enum>{words}".encode())
+        resolved = f"ch{channel}.{path[3:]}" if path.startswith("ch.") and channel is not None else path
+        lo, hi = self.owner.limits(resolved)
+        if lo is None or hi is None:
+            raise ScpiError(-300, f"{resolved}: the definition declares no limits")
+        lo_word = self.owner.format_number(lo).decode().strip()
+        hi_word = self.owner.format_number(hi).decode().strip()
+        return OpResult(f"1,<numeric>{lo_word}:{hi_word}".encode())
+
+    @op("cal_output")
+    def cal_output(self, query: bool = False, signal: str = "", dc: float | None = None, path: str = "", **_: Any) -> OpResult:  # fmt: skip
+        """``:CALibrate:OUTPut``: the front-panel output's signal (the guide, p. 473) — the DC form
+        carries the level and the query answers them together, so the setting at ``path`` stores
+        the composed reply and the command's reply template answers a query. The signal itself is
+        not modeled (#1170)."""
+        assert self.owner is not None
+        if query:
+            return OpResult(b"")
+        if not signal:
+            raise ScpiError(-109, "a signal is required")
+        owner = self.owner
+        word = V.parse_string(signal).upper() if isinstance(signal, bytes) else str(signal).upper()
+        word = {"PROBECOMP": "PROB", "DPULSE": "DPUL", "NDPULSE": "NDPUL"}.get(word, word)
+        level = "" if dc is None else "," + owner.format_number(float(dc)).decode().strip()
+        value = f"{word}{level}"
+        self.owner.set_state(path, value)
+        return OpResult(b"")
