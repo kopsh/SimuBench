@@ -117,6 +117,54 @@ state:
     default: CENTer
     label: 时间参考
     label_en: Reference
+  # 参考位置的百分比（:TIMebase:REFerence:PERCent，#1067）：0-100%。LEFT/CENTer/RIGHt 即 10/50/90；
+  # 参考被设为百分比位置时 :TIMebase:REFerence? 回 PERC（手册）。
+  timebase.reference_percent:
+    type: int
+    min: 0
+    max: 100
+    default: 50
+    rst: 50
+    label: 时间参考百分比
+    label_en: Reference percent
+  # 缩放拉窗（:TIMebase:VIEW 与 :WINDow:*，#1067）：延迟视图的档位与位置；记录不变（主时基的样点
+  # 全在），视图是显示状态。手册未给上电默认：档位取主时基默认、位置 0 为 SimuBench 值。
+  timebase.view:
+    type: enum
+    options: [MAIN, WINDow]
+    default: MAIN
+    label: 时基视图
+    label_en: Time base view
+  timebase.window_scale:
+    type: float
+    unit: S
+    min: 1.0e-12
+    max: 20.0
+    default: 1.0e-7
+    label: 缩放时基档位
+    label_en: Zoom time/div
+  timebase.window_position:
+    type: float
+    unit: S
+    min: -200.0
+    max: 200.0
+    default: 0.0
+    label: 缩放时基位置
+    label_en: Zoom position
+  # 外参考（:TIMebase:REFClock，#1067）：ON 时采样时钟跟随 REF_IN 上的 10 MHz（组件的 rosc 机制：
+  # 频率在 ±10 ppm 内才接管，REF_IN 无输入时保持内参考——本台未接参考源）。
+  timebase.refclock:
+    type: bool
+    default: false
+    label: 外参考时钟
+    label_en: Reference clock
+  # 滚动模式（:TIMebase:ROLL:ENABLE，手册 p.1474）：UXR 上唯一有效的设定是 OFF，查询回 0。
+  timebase.roll_enable:
+    type: enum
+    options: ["OFF", "0"]
+    default: "OFF"
+    label: 滚动模式
+    label_en: Roll mode
   trigger.mode:
     type: enum
     options: [EDGE]
@@ -247,6 +295,24 @@ state:
   # 快速绘图（:ACQuire:FPLot，#1068）：分析随采集异步进行的调度开关。模型的分析始终在读的当下对
   # 当前记录做，开关不改变任何回复的数值（覆盖表注明）。手册未给上电默认，ON 为 SimuBench 值。
   acquire.fplot: {type: bool, default: true, label: 快速绘图, label_en: Fast plot}
+  # 函数平均等待（:ACQuire:COMPlete:STATe，#1067）：测量前等函数平均完成。模型的测量总在读的当下
+  # 对已完成平均的记录算，开关不改变数值。手册未给上电默认，ON 为 SimuBench 值。
+  acquire.complete_state: {type: bool, default: true, label: 等待函数平均, label_en: Wait for average}
+  # 高分辨率位数（:ACQuire:HRESolution，#1067）：HRESolution/SEGHres 模式下的最小位分辨率；该两种
+  # 采集模式未建模，设定存值不影响数据。
+  acquire.hres:
+    type: enum
+    options: [AUTO, BITS11, BITS12]
+    default: AUTO
+    label: 高分辨率位数
+    label_en: HRES bits
+  # 实时边沿扩展（:ACQuire:REDGe，手册 p.341）：UXR 上唯一有效的设定是 OFF，查询回 0。
+  acquire.redge:
+    type: enum
+    options: ["OFF", "0"]
+    default: "OFF"
+    label: 实时边沿扩展
+    label_en: Realtime edge
   # 分段存储（:ACQuire:MODE SEGMented，#1066）：一次采集连续取 COUNt 段（每段一整条记录），各等一次
   # 触发。段数上限 25,680 取数据手册 Max # of segments 的高带宽触发使能列（UXR0334B 列；禁用列
   # 134,885，该触发选项未建模）；段数 × 记录深超出内存由采集报 -221。手册未给 *RST 后的段数：2 为
@@ -1191,7 +1257,7 @@ components:
     params:
       scale: $timebase.scale
       delay: $timebase.position
-      reference_divs: {from: $timebase.reference, map: {LEFT: 1.0, CENTer: 5.0, RIGHt: 9.0}}
+      reference_percent: $timebase.reference_percent
       record_length: rate_pow2
       points: $acquire.points
       sample_rate: $acquire.srate
@@ -1397,6 +1463,9 @@ commands:
   - {header: ":OPERegister", op: oper.event, set: false}
   - {header: ":RUN", op: acq.run, query: false}
   - {header: ":STOP", op: acq.stop, query: false}
+  # 清屏（手册 p.293）：显示与关联测量清空——已存的记录全部作废（停止状态下一屏空白，运行状态
+  # 下次采集重填）；波形存储器不清（手册）。
+  - {header: ":CDISplay", op: acq.clear_display, query: false}
   # 手册 :SINGle：下一次触发采一次，不改 :TRIGger:SWEep。
   - {header: ":SINGle", op: acq.digitize, query: false}
   - header: ":DIGitize"
@@ -1451,6 +1520,14 @@ commands:
     params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
   - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
   - {header: ":ACQuire:RESPonse", state: acquire.response}
+  # 最大带宽（手册 p.323）：模型硬件带宽 33 GHz（specs.bandwidth_hz），查询回它。
+  - {header: ":ACQuire:BANDwidth:FRAMe", op: sys.accept, set: false, reply: "3.300000E+10"}
+  - {header: ":ACQuire:COMPlete:STATe", state: acquire.complete_state}
+  - {header: ":ACQuire:HRESolution", state: acquire.hres, format: {enum: as_defined}}
+  - {header: ":ACQuire:REDGe", state: acquire.redge, reply: "0"}
+  # 存储深度/采样率的 AUTO 控制（手册 pp.339/352）：查询回是否在 AUTO 值上；OFF 把当前值定为手动。
+  - {header: ":ACQuire:POINts:AUTO", op: acq.points_auto, params: [{name: "on", type: bool, optional: true}]}
+  - {header: ":ACQuire:SRATe[:ANALog]:AUTO", op: acq.srate_auto, params: [{name: "on", type: bool, optional: true}]}
   # ---- 分段存储（:ACQuire:SEGMented，手册第 15 章，#1066）---------------------------------------------
   - {header: ":ACQuire:SEGMented:AUToplay", state: acquire.segmented_autoplay}
   - {header: ":ACQuire:SEGMented:COUNt", state: acquire.segmented_count}
@@ -1598,7 +1675,17 @@ commands:
   - {header: ":TIMebase:SCALe", state: timebase.scale}
   - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0}
   - {header: ":TIMebase:POSition", state: timebase.position}
-  - {header: ":TIMebase:REFerence", state: timebase.reference}
+  # REFerence（手册 p.1472）：LEFT/CENTer/RIGHt 即 10/50/90%；参考为百分比位置时查询回 PERC。
+  - {header: ":TIMebase:REFerence", op: timebase.set_reference, params: [{name: word, type: string, optional: true}]}
+  - {header: ":TIMebase:REFerence:PERCent", state: timebase.reference_percent}
+  # 缩放拉窗（手册 pp.1476-1482，#1067）：DELay 与 POSition 同义（手册注明为兼容旧程序）。
+  - {header: ":TIMebase:VIEW", state: timebase.view}
+  - {header: ":TIMebase:WINDow:SCALe", state: timebase.window_scale, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:WINDow:RANGe", state: timebase.window_scale, factor: 10.0, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:WINDow:POSition", state: timebase.window_position, format: {number: engineering, significant: 2}}
+  - {header: ":TIMebase:WINDow:DELay", state: timebase.window_position, format: {number: engineering, significant: 2}}
+  - {header: ":TIMebase:REFClock", state: timebase.refclock}
+  - {header: ":TIMebase:ROLL:ENABLE", state: timebase.roll_enable, reply: "0"}
   # ---- TRIGger ----
   - {header: ":TRIGger:MODE", state: trigger.mode}
   - {header: ":TRIGger:SWEep", state: trigger.sweep}

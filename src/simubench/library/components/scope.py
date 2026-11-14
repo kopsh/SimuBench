@@ -680,6 +680,9 @@ class ScopeTimebase(Component):
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
         "reference_divs": 5.0,  # where the trigger (delay 0) sits, divisions from the left; may map a setting
+        # the reference as 0-100 percent of screen (a setting, :TIMebase:REFerence:PERCent, #1067);
+        # set (not None) it takes the place of reference_divs, the delay still moving the trigger
+        "reference_percent": None,
         # A model with a reference mode setting (DELay | POSition) places the trigger from it: in
         # POSition mode the trigger sits `reference_position` percent across the record and the
         # delay setting does not move it; in DELay mode it starts at the centre, moved by `delay`.
@@ -767,7 +770,16 @@ class ScopeTimebase(Component):
         delay = self.param("delay")
         mode = str(self.param("reference_mode") or "").upper()
         position = self.param("reference_position")
-        if mode.startswith("POS") and position not in (None, ""):
+        percent = self.param("reference_percent")
+        if percent not in (None, ""):
+            # the reference as a percent of screen (:TIMebase:REFerence:PERCent, #1067); the delay
+            # still moves the trigger
+            ref = window * float(percent) / 100.0
+            if delay in (None, "") and abs(ref - window / 2) < 1e-15 * window:
+                pre = points // 2
+            else:
+                pre = round((ref - float(delay or 0.0)) / dt)
+        elif mode.startswith("POS") and position not in (None, ""):
             ref = window * float(position) / 100.0
             pre = round(ref / dt)
             pre = max(0, min(points - 1, pre))  # the record still has one sample after the trigger
@@ -800,6 +812,55 @@ class ScopeTimebase(Component):
             f = float(sig.freq[k])
             if abs(f - 10e6) <= 10e6 * 10e-6 and abs(sig.amp[k]) > 0.05:
                 self._ref_error, self._ref_locked = f / 10e6 - 1, True
+
+    # ---- reference position, AUTO controls (:TIMebase, #1067) -----------------------------------------
+
+    @op("set_reference")
+    def set_reference(self, query: bool = False, word: str = "", **_: Any) -> OpResult:
+        """``:TIMebase:REFerence``: the reference at LEFT, CENTer or RIGHt — 10, 50 or 90 percent
+        of screen, the same setting :TIMebase:REFerence:PERCent writes. The query answers the
+        word, PERC once a percent position is set (the guide, p. 1472)."""
+        assert self.owner is not None
+        path = self.bound_path("reference_percent")
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: reference_percent is not bound to a setting")
+        words = {"LEFT": 10, "CENT": 50, "RIGH": 90}
+        written = {"LEFT": 10, "CENT": 50, "CENTER": 50, "RIGH": 90, "RIGHT": 90}
+        if query:
+            pct = int(self.owner.get_state(path))
+            word = {v: k for k, v in words.items()}.get(pct, "PERC")
+            # the long-form echo answers the model's own words (SYSTem:LONGform)
+            if self.owner.get_state("system.longform"):
+                word = {v: k for k, v in written.items()}.get(pct, "PERCent")
+            return OpResult(word.encode())
+        w = V.parse_string(word).upper() if isinstance(word, bytes) else str(word).upper()
+        if w not in written:
+            raise ScpiError(-224, f"{word}: no such reference (LEFT, CENTer, RIGHt)")
+        self.owner.set_state(path, written[w])
+        return OpResult()
+
+    def auto_control(self, key: str, query: bool, on: bool | None, actual: Any = None) -> OpResult:
+        """The AUTO on/off control of the ``points`` or ``sample_rate`` setting (the acquisition's
+        ``:ACQuire:POINts:AUTO``/``:SRATe:AUTO``, #1067): the query answers whether the setting
+        sits at its AUTO value, ON moves it there, OFF makes the present value (the actual rate,
+        for a sample rate) a manual one."""
+        assert self.owner is not None
+        path = self.bound_path(key)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: {key} is not bound to a setting")
+        spec = self.owner.specs[path]
+        auto = (spec.special or {}).get("AUTO")
+        if auto is None:
+            raise ScpiError(-300, f"{self.uid}: {path} has no AUTO value")
+        if query:
+            return OpResult(b"1" if self.owner.get_state(path) == auto else b"0")
+        if on is None:
+            raise ScpiError(-109, "ON or OFF is required")
+        if V.flag(on):
+            self.owner.set_state(path, auto)
+        elif self.owner.get_state(path) == auto:
+            self.owner.set_state(path, actual() if actual is not None else auto)
+        return OpResult()
 
 
 @dataclass
@@ -2264,6 +2325,29 @@ class ScopeAcquisition(Component):
         """``:ACQuire:SEGMented:ANALyze``: accepted. Measurement statistics and persistence over
         all the segments are not modeled; a measurement reads the selected segment."""
         return OpResult()
+
+    @op("clear_display")
+    def clear_display(self, **_: Any) -> OpResult:
+        """``:CDISplay``: the display clears and the associated measurements reset (the guide,
+        p. 293) — the stored records go (a stopped scope shows nothing until its next
+        acquisition, a running one refills them). Waveform memories are not erased; the
+        measurement commands stay installed (their values recompute from what is read)."""
+        self.records.clear()
+        self.segment_records = []
+        self.session.invalidate()
+        return OpResult()
+
+    @op("points_auto")
+    def points_auto(self, query: bool = False, on: bool | None = None, **_: Any) -> OpResult:
+        """``:ACQuire:POINts:AUTO``: whether the memory depth follows the AUTO value (the guide,
+        p. 339). ON selects the AUTO depth, OFF keeps the current depth as a manual one."""
+        return self.horizontal().auto_control("points", query, on)
+
+    @op("srate_auto")
+    def srate_auto(self, query: bool = False, on: bool | None = None, **_: Any) -> OpResult:
+        """``:ACQuire:SRATe[:ANALog]:AUTO``: whether the sample rate follows AUTO (the guide,
+        p. 352). ON selects AUTO, OFF keeps the present rate as a manual one."""
+        return self.horizontal().auto_control("sample_rate", query, on, actual=self.sample_rate)
 
     @op("digitize")
     def digitize(self, sources: list[bytes] | None = None, **_: Any) -> OpResult:
