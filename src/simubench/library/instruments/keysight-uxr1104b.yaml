@@ -174,19 +174,15 @@ state:
     label_en: Roll mode
   trigger.mode:
     type: enum
-    options: [EDGE]
+    options: [EDGE, RUNT, TRANsition, TIMeout, WINDow, NEDGe]
     default: EDGE
     not_modeled:
       GLITch: glitch trigger is not modeled
       PWIDth: pulse width trigger is not modeled
       PATTern: pattern trigger is not modeled
       STATe: state trigger is not modeled
-      RUNT: runt trigger is not modeled
       SHOLd: setup and hold trigger is not modeled
-      TRANsition: transition trigger is not modeled
       DELay: delay trigger is not modeled
-      TIMeout: timeout trigger is not modeled
-      WINDow: window trigger is not modeled
       OR: ORed edges trigger is not modeled
       EBURst: burst trigger is not modeled
       SEQuence: sequence trigger is not modeled
@@ -220,6 +216,162 @@ state:
     default: POSitive
     label: 触发沿
     label_en: Trigger slope
+  # ---- 高级触发族（手册 pp.1533–1590，#1184）：欠幅、过渡、窗口、超时与第 N 边沿。各族
+  # 记自己的信源（与 EDGE 的主信源并存，默认 CH1）；[{1 | 2}] 后缀的第二项（序列触发的
+  # TERM2）未建模，后缀 2 报 -114。
+  trigger.runt_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 欠幅触发源
+    label_en: Runt trigger source
+  trigger.runt_polarity:
+    type: enum
+    options: [POSitive, NEGative]
+    default: POSitive
+    label: 欠幅极性
+    label_en: Runt polarity
+  trigger.runt_qualified:
+    type: bool
+    default: false
+    label: 欠幅时间限定
+    label_en: Runt time qualified
+  # 时间限定 250 ps 到 30 ns（手册 p.1553）。
+  trigger.runt_time:
+    type: float
+    unit: s
+    min: 250.0e-12
+    max: 30.0e-9
+    default: 250.0e-12
+    label: 欠幅宽度下限
+    label_en: Runt width qualifier
+  trigger.transition_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 过渡触发源
+    label_en: Transition trigger source
+  trigger.transition_type:
+    type: enum
+    options: [RISetime, FALLtime]
+    default: RISetime
+    label: 过渡类型
+    label_en: Transition type
+  trigger.transition_mode:
+    type: enum
+    options: [GTHan, LTHan, RANGe, ORANge]
+    default: GTHan
+    label: 过渡限定
+    label_en: Transition qualifier
+  trigger.transition_time:
+    type: float
+    unit: s
+    min: 0.0
+    default: 1.0e-9
+    label: 过渡时间限定
+    label_en: Transition time bound
+  trigger.transition_range_low:
+    type: float
+    unit: s
+    min: 0.0
+    default: 10.0e-9
+    label: 过渡时间范围下限
+    label_en: Transition range minimum
+  trigger.transition_range_high:
+    type: float
+    unit: s
+    min: 0.0
+    default: 20.0e-9
+    label: 过渡时间范围上限
+    label_en: Transition range maximum
+  trigger.window_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 窗口触发源
+    label_en: Window trigger source
+  trigger.window_condition:
+    type: enum
+    options: [ENTer, EXIT, INSide, OUTSide]
+    default: ENTer
+    label: 窗口条件
+    label_en: Window condition
+  # 时长限定属于 INSIDE/OUTSIDE（手册 p.1587）。
+  trigger.window_qualifier:
+    type: enum
+    options: [GTHan, LTHan]
+    default: GTHan
+    label: 窗口时长限定
+    label_en: Window duration qualifier
+  trigger.window_time:
+    type: float
+    unit: s
+    min: 0.0
+    default: 1.0e-6
+    label: 窗口时长
+    label_en: Window time
+  trigger.window_tpoint:
+    type: enum
+    options: [BOUNdary, TIMeout]
+    default: BOUNdary
+    label: 窗口触发点
+    label_en: Window trigger point
+  trigger.timeout_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 超时触发源
+    label_en: Timeout trigger source
+  trigger.timeout_condition:
+    type: enum
+    options: [HIGH, LOW, UNCHanged]
+    default: UNCHanged
+    label: 超时条件
+    label_en: Timeout condition
+  trigger.timeout_time:
+    type: float
+    unit: s
+    min: 0.0
+    default: 1.0e-3
+    label: 超时时间
+    label_en: Timeout time
+  trigger.nedge_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 第N边沿触发源
+    label_en: Nth edge trigger source
+  trigger.nedge_slope:
+    type: enum
+    options: [POSitive, NEGative]
+    default: POSitive
+    label: 第N边沿斜率
+    label_en: Nth edge slope
+  trigger.nedge_count:
+    type: int
+    min: 1
+    max: 65000000000
+    default: 1
+    label: 边沿计数
+    label_en: Edge count
+  # 每个信源一对高/低阈值（手册 :TRIGger:HTHReshold p.1495、:TRIGger:LTHReshold p.1499），
+  # 欠幅、过渡与窗口三族共用；高阈值允许 AUX，低阈值仅通道。默认 ±0.5 V。
+  trigger.hth1: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH1, label_en: High threshold CH1}
+  trigger.hth2: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH2, label_en: High threshold CH2}
+  trigger.hth3: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH3, label_en: High threshold CH3}
+  trigger.hth4: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH4, label_en: High threshold CH4}
+  trigger.hth5: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 AUX, label_en: High threshold AUX}
+  trigger.lth1: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH1, label_en: Low threshold CH1}
+  trigger.lth2: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH2, label_en: Low threshold CH2}
+  trigger.lth3: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH3, label_en: Low threshold CH3}
+  trigger.lth4: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH4, label_en: Low threshold CH4}
+  # 触发迟滞选择（手册 p.1496）：NREJect 噪声抑制最宽、HSENsitivity 最窄（≥4 GHz 用）。
+  trigger.hysteresis:
+    type: enum
+    options: [NORMal, NREJect, HSENsitivity]
+    default: NORMal
+    label: 触发迟滞
+    label_en: Trigger hysteresis
   # 手册：释抑 100 ns 到 10 s（数据手册写 40 ns 起，按编程手册）。
   trigger.holdoff:
     type: float
@@ -1360,10 +1512,45 @@ components:
       slope: $trigger.slope
       rising: [POSitive, EITHer, ALTernate]
       falling: [NEGative, EITHer, ALTernate]
+      mode: $trigger.mode
       level_range_divs: 4.0
       hysteresis_divs: 0.5
       holdoff: $trigger.holdoff
       external: [AUXiliary]
+      # ---- 高级触发族（#1184）：每族自己的信源与参数；欠幅/过渡/窗口用每源阈值对 ----
+      high_by_source:
+        CHANnel1: trigger.hth1
+        CHANnel2: trigger.hth2
+        CHANnel3: trigger.hth3
+        CHANnel4: trigger.hth4
+        AUXiliary: trigger.hth5
+      low_by_source:
+        CHANnel1: trigger.lth1
+        CHANnel2: trigger.lth2
+        CHANnel3: trigger.lth3
+        CHANnel4: trigger.lth4
+      hysteresis_setting: $trigger.hysteresis
+      runt_source: $trigger.runt_source
+      runt_polarity: $trigger.runt_polarity
+      runt_qualified: $trigger.runt_qualified
+      runt_time: $trigger.runt_time
+      transition_source: $trigger.transition_source
+      transition_type: $trigger.transition_type
+      transition_mode: $trigger.transition_mode
+      transition_time: $trigger.transition_time
+      transition_range_low: $trigger.transition_range_low
+      transition_range_high: $trigger.transition_range_high
+      window_source: $trigger.window_source
+      window_condition: $trigger.window_condition
+      window_qualifier: $trigger.window_qualifier
+      window_time: $trigger.window_time
+      window_tpoint: $trigger.window_tpoint
+      timeout_source: $trigger.timeout_source
+      timeout_condition: $trigger.timeout_condition
+      timeout_time: $trigger.timeout_time
+      nedge_source: $trigger.nedge_source
+      nedge_slope: $trigger.nedge_slope
+      nedge_count: $trigger.nedge_count
   # ADC：10 位；1024 个码对应屏幕 8 格（数据手册：10 位分辨率 = 满量程的 0.1%，满量程 8 格）。
   - name: adc
     type: scope_adc
@@ -1836,6 +2023,65 @@ commands:
   # :TRIGger:EDGE[{1 | 2}]：第二项（序列触发的 TERM2）未建模，后缀 2 报 -114。
   - {header: ":TRIGger:EDGE<e>:SOURce", state: trigger.source, suffixes: {e: [1]}}
   - {header: ":TRIGger:EDGE<e>:SLOPe", state: trigger.slope, suffixes: {e: [1]}}
+  # :TRIGger:HTHReshold {CHANnel<N> | AUXiliary},<level>（手册 p.1495）：每信源的高阈值，
+  # 欠幅、过渡与窗口族共用；查询也带信源。
+  - header: ":TRIGger:HTHReshold"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, AUXiliary]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, AUXiliary: 5}
+        echo: false
+      - {name: level, type: float, unit: V, state: "trigger.hth{source}"}
+  # :TRIGger:LTHReshold CHANnel<N>,<level>（手册 p.1499）：低阈值仅通道。
+  - header: ":TRIGger:LTHReshold"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+        echo: false
+      - {name: level, type: float, unit: V, state: "trigger.lth{source}"}
+  # :TRIGger:HYSTeresis（手册 p.1496）：迟滞带选择。
+  - {header: ":TRIGger:HYSTeresis", state: trigger.hysteresis}
+  # ---- 欠幅触发（手册 pp.1549–1553）：过低阈值而未到高阈值的脉冲；QUALified ON 时宽度还要
+  # 大于 TIME（250 ps–30 ns）。
+  - {header: ":TRIGger:RUNT<S>:SOURce", state: trigger.runt_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:RUNT<S>:POLarity", state: trigger.runt_polarity, suffixes: {s: [1]}}
+  - {header: ":TRIGger:RUNT<S>:QUALified", state: trigger.runt_qualified, suffixes: {s: [1]}}
+  - {header: ":TRIGger:RUNT<S>:TIME", state: trigger.runt_time, suffixes: {s: [1]}}
+  # ---- 过渡触发（手册 pp.1580–1585）：边沿在两阈值间的过渡时间违例（上升/下降、大于/小于/
+  # 范围内/范围外）。
+  - {header: ":TRIGger:TRANsition<S>:SOURce", state: trigger.transition_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TRANsition<S>:TYPE", state: trigger.transition_type, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TRANsition<S>:MODE", state: trigger.transition_mode, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TRANsition<S>:TIME", state: trigger.transition_time, suffixes: {s: [1]}}
+  - header: ":TRIGger:TRANsition<S>:RANGe"
+    suffixes: {s: [1]}
+    params:
+      - {name: gt, type: float, unit: s, state: trigger.transition_range_low}
+      - {name: lt, type: float, unit: s, state: trigger.transition_range_high}
+  # ---- 窗口触发（手册 pp.1586–1590）：信号进/出两阈值间的窗口；CONDition 的第二词（时长
+  # 限定）属于 INSIDE/OUTSIDE，查询按手册只在 INSIDE/OUTSIDE 时带第二词。
+  - {header: ":TRIGger:WINDow<S>:SOURce", state: trigger.window_source, suffixes: {s: [1]}}
+  - header: ":TRIGger:WINDow<S>:CONDition"
+    suffixes: {s: [1]}
+    op: trigger.window_condition
+    params:
+      - {name: condition, type: raw, optional: true}
+      - {name: qualifier, type: raw, optional: true}
+  - {header: ":TRIGger:WINDow<S>:TIME", state: trigger.window_time, suffixes: {s: [1]}}
+  - {header: ":TRIGger:WINDow<S>:TPOint", state: trigger.window_tpoint, suffixes: {s: [1]}}
+  # ---- 超时触发（手册 pp.1576–1579）：波形高/低/不变持续超过设定时间。
+  - {header: ":TRIGger:TIMeout<S>:SOURce", state: trigger.timeout_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TIMeout<S>:CONDition", state: trigger.timeout_condition, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TIMeout<S>:TIME", state: trigger.timeout_time, suffixes: {s: [1]}}
+  # ---- 第 N 边沿触发（手册 pp.1533–1536）：计到第 N 条边触发。
+  - {header: ":TRIGger:NEDGe<S>:SOURce", state: trigger.nedge_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:NEDGe<S>:SLOPe", state: trigger.nedge_slope, suffixes: {s: [1]}}
+  - {header: ":TRIGger:NEDGe<S>:COUNt", state: trigger.nedge_count, suffixes: {s: [1]}}
   # :TRIGger:LEVel {CHANnel<N> | AUX},<level>：信源写在前面，必填；查询也带信源。
   - header: ":TRIGger:LEVel"
     params:
