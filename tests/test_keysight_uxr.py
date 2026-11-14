@@ -14,6 +14,7 @@ import pyvisa
 import yaml
 
 from helpers import load_script
+from simubench.library.loader import DefinitionLibrary
 
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "keysight-uxr0334b" / "bench.yaml"
@@ -129,6 +130,17 @@ def test_the_captures_scatter_by_the_table_noise_around_the_true_level(
         assert lo <= float(np.std(samples)) <= hi, (float(np.std(samples)), lo, hi)
     finally:
         rm.close()
+
+
+@pytest.mark.parametrize("def_id", ["keysight-uxr0334b", "keysight-uxr1104b"])
+def test_the_bandwidth_filter_ceiling_is_the_spec_bandwidth(def_id):
+    """#1098: :ACQuire:BANDwidth's MAX (and the setting's range ceiling) is the model's data-sheet
+    typical bandwidth (specs.bandwidth_hz), with the warranted bandwidth inside it — so the cases'
+    MAX readback and the out-of-range rejection stay tied to the bandwidth the model simulates."""
+    definition = DefinitionLibrary().get(def_id)
+    bandwidth = definition.state["acquire.bandwidth"]
+    assert bandwidth.special["MAX"] == bandwidth.max == definition.specs["bandwidth_hz"]
+    assert definition.specs["warranted_bandwidth_hz"] <= bandwidth.max
 
 
 def test_the_records_time_origin_scatters_by_the_jitter_spec(scope):
