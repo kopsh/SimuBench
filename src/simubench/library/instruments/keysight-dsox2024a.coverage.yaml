@@ -457,134 +457,88 @@ sections:
   commands:
   - header: :FUNCtion:BUS:CLOCk
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    note: 'Bus charting (BTIMing/BSTate) charts a digital bus: the digital channels wait for C16 (product-plan.md 4.2).'
     gap: blocked
-    blocked_by: C5
+    blocked_by: C16
   - header: :FUNCtion:BUS:SLOPe
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    note: 'Bus charting (BTIMing/BSTate) charts a digital bus: the digital channels wait for C16 (product-plan.md 4.2).'
     gap: blocked
-    blocked_by: C5
+    blocked_by: C16
   - header: :FUNCtion:BUS:YINCrement
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    note: 'Bus charting (BTIMing/BSTate) charts a digital bus: the digital channels wait for C16 (product-plan.md 4.2).'
     gap: blocked
-    blocked_by: C5
+    blocked_by: C16
   - header: :FUNCtion:BUS:YORigin
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    note: 'Bus charting (BTIMing/BSTate) charts a digital bus: the digital channels wait for C16 (product-plan.md 4.2).'
     gap: blocked
-    blocked_by: C5
+    blocked_by: C16
   - header: :FUNCtion:BUS:YUNits
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    note: 'Bus charting (BTIMing/BSTate) charts a digital bus: the digital channels wait for C16 (product-plan.md 4.2).'
     gap: blocked
-    blocked_by: C5
+    blocked_by: C16
   - header: :FUNCtion:DISPlay
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 313（Programmer's Guide 02.66）.ON 才计算并显示函数；OFF 不算也不显示。"
   - header: :FUNCtion[:FFT]:CENTer
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 314（Programmer's Guide 02.66）.FFT 的中心频率；*RST/:AUToscale 后随时基，一旦写入即固定（手册 NOTE）。"
   - header: :FUNCtion[:FFT]:SPAN
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 315（Programmer's Guide 02.66）.FFT 的显示跨度；越界自动取最近的合法值；0 读作未设=整条单边带（模型约定）。"
   - header: :FUNCtion[:FFT]:VTYPe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 316（Programmer's Guide 02.66）.DECibel 即 dBV（RANGe 8–800 dBV，p. 329），VRMS 即有效值。"
   - header: :FUNCtion[:FFT]:WINDow
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 317（Programmer's Guide 02.66）.四窗 RECTangular/HANNing/FLATtop/BHARris，回复模型约定存全词。"
   - header: :FUNCtion:FREQuency:HIGHpass
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 318（Programmer's Guide 02.66）.单极点高通的 -3 dB 截止。"
   - header: :FUNCtion:FREQuency:LOWPass
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 319（Programmer's Guide 02.66）.4 阶 Bessel-Thompson 低通的 -3 dB 截止（按数据手册滤波器族实现）。"
   - header: :FUNCtion:GOFT:OPERation
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
-  - header: :FUNCtion:GOFT:SOURce1
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
-  - header: :FUNCtion:GOFT:SOURce2
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 320（Programmer's Guide 02.66）.g(t) 源的运算 ADD/SUBTract/MULTiply，作为变换与滤波的输入。"
+  - header: :FUNCtion:GOFT:SOURce<f>
+    level: implemented
+    note: "pp. 321-322 (Programmer's Guide 02.66). g(t) 源 1/2，只收通道。"
   - header: :FUNCtion:INTegrate:IOFFset
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 323（Programmer's Guide 02.66）.积分前的直流校正，先减去再积。"
   - header: :FUNCtion:LINear:GAIN
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 324（Programmer's Guide 02.66）.Ax + B 的 A。"
   - header: :FUNCtion:LINear:OFFSet
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 325（Programmer's Guide 02.66）.Ax + B 的 B。"
   - header: :FUNCtion:OFFSet
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 326（Programmer's Guide 02.66）.函数在屏幕中心的值；越界自动取最近的合法值。"
   - header: :FUNCtion:OPERation
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 327（Programmer's Guide 02.66）.块实现的运算：ADD/SUBTract/MULTiply/DIVide/INTegrate/DIFF/FFT(=幅度)/SQRT/MAGNify/ABSolute/SQUare/LN/LOG/EXP/TEN/LOWPass/HIGHpass/LINear；回复存全词（模型约定）。"
   - header: :FUNCtion:RANGe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 329（Programmer's Guide 02.66）.满量程 = 8 格；SCALe 是它的八分之一（p. 331）。"
   - header: :FUNCtion:REFerence
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 330（Programmer's Guide 02.66）.与 :FUNCtion:OFFSet 等价（手册 NOTE），同一设置。"
   - header: :FUNCtion:SCALe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
-  - header: :FUNCtion:SOURce1
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
-  - header: :FUNCtion:SOURce2
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 331（Programmer's Guide 02.66）.每格垂直单位；写满量程 ×8，回复 NR1 整数（手册的 Return Format）。"
+  - header: :FUNCtion:SOURce<f>
+    level: implemented
+    note: "pp. 332-333 (Programmer's Guide 02.66). 运算的信源 1/2：SOURce1 用于一切运算（GOFT 经 :FUNCtion:GOFT:* 拼，BUS<m> 等数字通道 C16），SOURce2 只用于双源运算、NONE 表示不用。回复存全词（模型约定）。"
   - header: :FUNCtion:TRENd:MEASurement
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math channel, FFT and spectral views (F1-3).'
+    note: 'The measurement trend draws one measurement value per cycle: waits for the per-cycle measurement trend capability.'
     gap: blocked
-    blocked_by: C5
+    blocked_by: measurement-trend
 - section: :HARDcopy Commands (Programmer's Guide 02.66, ch. 17)
   commands:
   - header: :HARDcopy:AREA
@@ -671,70 +625,44 @@ sections:
 - section: :MARKer Commands (Programmer's Guide 02.66, ch. 19)
   commands:
   - header: :MARKer:MODE
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 359（Programmer's Guide 02.66）.OFF/MEASurement/MANual/WAVeform；MEASurement 跟踪屏幕最近一次测量（p. 359）。"
   - header: :MARKer:X1Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 360（Programmer's Guide 02.66）.写把方式切到 MANual（非 WAVeform 时）；单位随 :MARKer:XUNits。"
   - header: :MARKer:X1Y1source
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 361（Programmer's Guide 02.66）.CHANnel<n>/FUNCtion/MATH 别名（块内映射到函数）；WMEMory<r> 等 waveform-memory；WAVeform 方式下两对信源独立，其余方式一起改（模型取后者语义）。"
   - header: :MARKer:X2Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 362（Programmer's Guide 02.66）.同 X1Position；:MEASure:TSTArt/TSTOp 的等价命令。"
   - header: :MARKer:X2Y2source
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 363（Programmer's Guide 02.66）.同 X1Y1source。"
   - header: :MARKer:XDELta
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 364（Programmer's Guide 02.66）.X2 处的值 − X1 处的值，按 :MARKer:XUNits 的单位。"
   - header: :MARKer:XUNits
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 365（Programmer's Guide 02.66）.SEConds/HERTz/DEGRees/PERCent，影响位置与差值的进出值。"
   - header: :MARKer:XUNits:USE
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 366（Programmer's Guide 02.66）.把当前 X1/X2 位置定为 0 与 360 度（或 0 与 100 %），只写不查。"
   - header: :MARKer:Y1Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 367（Programmer's Guide 02.66）.WAVeform 方式下拒写（手册：Y positions cannot be set），查询回跟踪值。"
   - header: :MARKer:Y2Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 369（Programmer's Guide 02.66）.同 Y1Position。"
   - header: :MARKer:YDELta
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 371（Programmer's Guide 02.66）.Y2 处的值 − Y1 处的值。"
   - header: :MARKer:YUNits
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 372（Programmer's Guide 02.66）.BASE/PERCent。"
   - header: :MARKer:YUNits:USE
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: "p. 373（Programmer's Guide 02.66）.把当前 Y1/Y2 位置定为 0 与 100 %，只写不查。"
 - section: :MEASure Commands (Programmer's Guide 02.66, ch. 20)
   commands:
   - header: :MEASure:ALL
@@ -1891,9 +1819,8 @@ sections:
     note: 'CHANnel1 to 4 (FUNCtion, MATH, WMEMory, SBUS1 not modeled)'
   - header: :WAVeform:SOURce:SUBSource
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): selects the math function (or histogram, waveform memory) as waveform source.'
-    gap: blocked
-    blocked_by: C5
+    note: 'Serial decode (SBUS) is not modeled; with :WAVeform:SOURce CHANnel<n>/FUNCtion the only subsource is SUB0 (the manual, p. 753).'
+    gap: out_of_scope
   - header: :WAVeform:TYPE
     level: implemented
   - header: :WAVeform:UNSigned

@@ -59,9 +59,11 @@ WINDOWS: dict[str, tuple[float, ...]] = {
 #: The windows by their upper-case word: a setting may hold the definition's own spelling.
 WINDOW_WORDS = {word.upper(): word for word in WINDOWS}
 
-#: The FFT vertical units (:FUNCtion<F>:FFT:VUNits): the magnitude family (dBm as DB, dBmV, dBµV,
-#: Watt, Vrms) and the power-spectral-density family (dBm/Hz, Watt/Hz, V/√Hz).
-VUNITS = ("DB", "DBMV", "DBUV", "WATT", "VRMS", "DBMHZ", "WATTHZ", "VRTHZ")
+#: The FFT vertical units (:FUNCtion<F>:FFT:VUNits): the magnitude family (dBm as DB, dBV, dBmV,
+#: dBµV, Watt, Vrms) and the power-spectral-density family (dBm/Hz, Watt/Hz, V/√Hz).
+VUNITS = ("DB", "DBV", "DBMV", "DBUV", "WATT", "VRMS", "DBMHZ", "WATTHZ", "VRTHZ")
+#: A model's word for a unit this block spells otherwise (the setting holds the model's word).
+VUNIT_WORDS = {"DECIBEL": "DBV"}
 
 #: The transform operators (whole-record); everything else is computed span by span.
 FFT_OPERATORS = frozenset({"FFTMagnitude", "FFTPhase", "PSDensity"})
@@ -86,6 +88,11 @@ UNARY = (
             "LOWPass",
             "MAXimum",
             "MINimum",
+            "LN",
+            "LOG",
+            "EXP",
+            "TEN",
+            "LINear",
         }
     )
     | FFT_OPERATORS
@@ -103,9 +110,13 @@ _TIMEBASE_BOUND = {
     "COMMONMODE",
     "DIFF",
     "DIVIDE",
+    "EXP",
     "HIGHPASS",
     "INTEGRATE",
     "INVERT",
+    "LN",
+    "LINEAR",
+    "LOG",
     "LOWPASS",
     "MAXIMUM",
     "MINIMUM",
@@ -140,11 +151,19 @@ OPERATORS = (
     "LOWPass",
     "MAXimum",
     "MINimum",
+    "LN",
+    "LOG",
+    "EXP",
+    "TEN",
+    "LINear",
     "FFTMagnitude",
     "FFTPhase",
     "PSDensity",
 )
 CANONICAL: dict[str, str] = {word.upper(): word for word in OPERATORS}
+#: A model may spell the transform plainly: the 2000 X-series (:FUNCtion:OPERation FFT) has one
+#: FFT, the magnitude one — the phase and density are named transforms (:FUNCtion<F>:FFT:PHASE).
+CANONICAL["FFT"] = "FFTMagnitude"
 
 
 # ---- the point-wise operators (pure) ---------------------------------------------------------------
@@ -243,7 +262,8 @@ def bucket_extreme(v: np.ndarray, m: int, most: bool) -> np.ndarray:
 def pointwise(kind: str, a: np.ndarray, b: np.ndarray | None = None) -> np.ndarray:
     """One point-wise operator over aligned arrays (``b`` None: unary): ADD, SUBTract, MULTiply,
     DIVide (a hole — NaN — where the divisor is 0), COMMonmode, ABSolute, INVert, SQUare, SQRT
-    (NaN where negative) and MAGNify."""
+    (NaN where negative), the logarithms and exponentials (a hole where the argument is not in
+    the domain) and MAGNify."""
     if kind == "ADD":
         return a + b
     if kind == "SUBTract":
@@ -264,6 +284,16 @@ def pointwise(kind: str, a: np.ndarray, b: np.ndarray | None = None) -> np.ndarr
     if kind == "SQRT":
         with np.errstate(invalid="ignore"):
             return np.where(a >= 0.0, np.sqrt(np.abs(a)), np.nan)
+    if kind == "LN":
+        with np.errstate(invalid="ignore"):
+            return np.where(a > 0.0, np.log(np.where(a > 0.0, a, 1.0)), np.nan)
+    if kind == "LOG":
+        with np.errstate(invalid="ignore"):
+            return np.where(a > 0.0, np.log10(np.where(a > 0.0, a, 1.0)), np.nan)
+    if kind == "EXP":
+        return np.exp(a)
+    if kind == "TEN":
+        return np.power(10.0, a)
     if kind == "MAGNify":
         return a
     raise ValueError(f"no point-wise operator {kind!r}")
@@ -297,7 +327,7 @@ def one_sided_fft(v: np.ndarray, w: np.ndarray) -> np.ndarray:
 
 
 def magnitude(x: np.ndarray, unit: str, impedance: float) -> np.ndarray:
-    """The one-sided transform in a vertical unit: Vrms and its decibels (dBmV, dBµV), a power
+    """The one-sided transform in a vertical unit: Vrms and its decibels (dBV, dBmV, dBµV), a power
     unit (dBm referenced to ``impedance``, Watt)."""
     rms = np.abs(x) / math.sqrt(2.0)
     if unit == "VRMS":
@@ -307,7 +337,7 @@ def magnitude(x: np.ndarray, unit: str, impedance: float) -> np.ndarray:
     if unit in ("DB", "DBMHZ"):
         with np.errstate(divide="ignore", invalid="ignore"):
             return 10.0 * np.log10(np.where(rms > 0, rms * rms / impedance / 1e-3, np.nan))
-    scale = {"DBMV": 60.0, "DBUV": 120.0}[unit]
+    scale = {"DBV": 0.0, "DBMV": 60.0, "DBUV": 120.0}[unit]
     with np.errstate(divide="ignore", invalid="ignore"):
         return 20.0 * np.log10(np.where(rms > 0, rms, np.nan)) + scale
 
@@ -382,18 +412,19 @@ def bin_power(values: np.ndarray, unit: str, impedance: float, df: float) -> np.
 
 
 class Operand:
-    """One operand of a function as its setting spells it: a channel, another function, a
-    constant (a float word) or unset."""
+    """One operand of a function as its setting spells it: a channel, another function, the
+    model's g(t) source (GOFT), a constant (a float word) or unset."""
 
-    __slots__ = ("channel", "constant", "function", "word")
+    __slots__ = ("channel", "constant", "function", "goft", "word")
 
     def __init__(self, word: str, channels: int, functions: int) -> None:
         name = word.strip().upper()
         self.word = name
         self.channel: int | None = None
         self.function: int | None = None
+        self.goft = name == "GOFT"
         self.constant: float | None = None
-        if not name:
+        if not name or self.goft:
             return
         for prefix in ("CHANNEL", "CHAN", "CH"):
             if name.startswith(prefix) and name.removeprefix(prefix).isdigit():
@@ -522,8 +553,10 @@ def apply_span(rec: MathRecord, a: int, b: int) -> np.ndarray:
         va = src.span(a, b) if src is not None else np.full(b - a, rec.constants[0])
         vb = second.span(a, b) if second is not None else np.full(b - a, rec.constants[1])
         return pointwise(operator, va, vb)
-    if operator in ("ABSolute", "INVert", "SQUare", "SQRT", "MAGNify"):
+    if operator in ("ABSolute", "INVert", "SQUare", "SQRT", "MAGNify", "LN", "LOG", "EXP", "TEN"):
         return pointwise(operator, src.span(a, b))
+    if operator == "LINear":
+        return src.span(a, b) * float(params["gain"]) + float(params["offset"])
     if operator in ("DELay", "GATing"):
         off = int(rec.spec["index0"])
         return src.span(a + off, b + off)
@@ -571,6 +604,7 @@ class ScopeMath(Component):
         "invalid_value": "9.99E+37",  # what a measurement that cannot be made answers
         "peak_sort": "DMAG",  # the order the annotated peaks list in (a setting): DMAG, IMAG, IFR, DFR
         "resolution_scale": "",  # the timebase scale setting a :FFT:RESolution write follows, e.g. timebase.scale
+        "goft_prefix": "",  # the g(t) source's settings (<prefix>.operator/source1/source2); "": no GOFT
     }
 
     # ---- the functions' definitions ----------------------------------------------------------
@@ -644,6 +678,10 @@ class ScopeMath(Component):
                     raise ScpiError(-221, f"function {operand.function} is not defined")
                 records[which - 1] = rec
                 used += u
+            elif operand.goft:
+                rec, u = self._goft_record(start)
+                records[which - 1] = rec
+                used += u
             elif operand.channel is not None:
                 rec, u = acq.read_record(operand.channel, start)
                 used += u
@@ -673,6 +711,59 @@ class ScopeMath(Component):
         if rec is None:
             raise ScpiError(-230, f"function {f} is not defined")
         return rec, used
+
+    def _goft_setting(self, name: str, default: Any = None) -> Any:
+        """One of the g(t) source's settings (``goft_prefix`` names the paths)."""
+        assert self.owner is not None
+        prefix = str(self.param("goft_prefix") or "")
+        path = f"{prefix}.{name}"
+        if path not in self.owner.definition.state:
+            return default
+        value = self.owner.get_state(path)
+        return default if value is None else value
+
+    def _goft_record(self, start: bool) -> tuple[MathRecord, int]:
+        """The g(t) source a ``GOFT`` operand names: the goft operator (ADD, SUBTract or
+        MULTiply) over its two channel sources, as a function reads them — a raw record, no
+        vertical scaling of its own."""
+        prefix = str(self.param("goft_prefix") or "")
+        if not prefix:
+            raise ScpiError(-224, "GOFT: this model has no g(t) source")
+        word = str(self._goft_setting("operator", "ADD") or "ADD").strip().upper()
+        if word not in ("ADD", "SUBTRACT", "MULTIPLY"):
+            raise ScpiError(-224, f"{word}: no such g(t) operation")
+        operator = CANONICAL[word]
+        records: list[Any] = [None, None]
+        used = 0
+        acq = self.ref("record")
+        if acq is None or not isinstance(acq, Acquisition):
+            raise ScpiError(-300, f"{self.uid}: no acquisition to take sources from")
+        for which in (1, 2):
+            operand = Operand(
+                str(self._goft_setting(f"source{which}", "") or ""),
+                int(self.param("channels")),
+                int(self.param("functions")),
+            )
+            if not operand.word or operand.channel is None:
+                raise ScpiError(-224, f"{operand.word or ''}: the g(t) source names channels")
+            rec, u = acq.read_record(operand.channel, start)
+            used += u
+            if rec is None:
+                raise ScpiError(-230, f"channel {operand.channel} has no record")
+            records[which - 1] = rec
+        aligned(records[0], records[1])
+        spec = {
+            "f": 0,
+            "operator": operator,
+            "params": {},
+            "dt_s": float(records[0].dt_s),
+            "x_origin_s": float(records[0].origin),
+            "points": int(records[0].points),
+            "index0": 0,
+            "scale": 1.0,
+            "offset": 0.0,
+        }
+        return MathRecord(spec, records, [None, None]), used
 
     # ---- building the operator ------------------------------------------------------------------
 
@@ -710,6 +801,11 @@ class ScopeMath(Component):
         elif operator in ("MAXimum", "MINimum"):
             params["bucket"] = max(1, int(float(self._setting(f, "bucket", 1) or 1)))
             points = points // params["bucket"]
+        elif operator == "LINear":
+            gain = self._setting(f, "lin_gain", 1.0)
+            off = self._setting(f, "lin_off", 0.0)
+            params["gain"] = 1.0 if gain is None else float(gain)  # 0 is a legal gain
+            params["offset"] = 0.0 if off is None else float(off)
         spec: dict[str, Any] = {
             "f": f,
             "operator": operator,
@@ -743,7 +839,9 @@ class ScopeMath(Component):
         operator = spec["operator"]
         v = np.asarray(source.volts, dtype=np.float64)
         if operator == "INTegrate":
-            volts = integral(v, spec["dt_s"])
+            # the DC offset correction an INTegrate:IOFFset sets comes off before integrating
+            off = float(self._setting(spec["f"], "i_offset", 0.0) or 0.0)
+            volts = integral(v - off, spec["dt_s"])
         elif operator == "HIGHpass":
             volts = highpass(v, spec["dt_s"], float(self._setting(spec["f"], "hp_bw", 1e3) or 1e3))
         elif operator == "LOWPass":
@@ -773,6 +871,7 @@ class ScopeMath(Component):
         dt = float(source.dt_s)
         rate = 1.0 / dt
         unit = str(self._setting(f, "vunits", "DB") or "DB").upper()
+        unit = VUNIT_WORDS.get(unit, unit)
         window_word = str(self._setting(f, "window", "HANNing") or "HANNing").upper()
         if window_word not in WINDOW_WORDS:
             raise ScpiError(-224, f"{window_word}: no such window")
@@ -1088,6 +1187,32 @@ class ScopeMath(Component):
         )
         return OpResult()
 
+    @op("scale")
+    def op_scale(
+        self, value: Any = None, query: bool = False, suffixes: dict[str, int] | None = None, **_: Any
+    ) -> OpResult:
+        """``:FUNCtion:SCALe``: the function's vertical scale, units per division — the same
+        setup the ``range`` setting holds at full scale, eight divisions (the 2000 X-series
+        commands both views of it, Programmer's Guide 02.66 p. 331). The manual's reply is an
+        integer in NR1 format."""
+        f = self._function(_suffix(suffixes))
+        full = 8.0  # the range the scale is an eighth of
+        rng = self._setting(f, "range", 8.0)
+        if query or value is None:
+            scale = float(rng if rng is not None else full) / full
+            return OpResult(str(round(scale)).encode())
+        if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
+            value = value[0] if value else None
+        if value is None:
+            raise ScpiError(-109)
+        if isinstance(value, bytes):
+            number = float(V.parse_number(value.decode("ascii", errors="replace")))
+        elif isinstance(value, str):
+            number = float(V.parse_number(value))
+        else:
+            number = float(value)
+        return self._set_h(f, "range", number * full)
+
 
 def _suffix(suffixes: dict[str, int] | None) -> int:
     """The ``<f>`` a command carried; 1 when it carried none."""
@@ -1126,6 +1251,8 @@ def _in_dbm(value: float, unit: str, impedance: float) -> float:
     if unit in ("VRMS", "VRTHZ"):
         p = value * value / impedance
         return 10.0 * math.log10(p / 1e-3) if p > 0 else -math.inf
+    if unit == "DBV":
+        return value - 10.0 * math.log10(impedance) + 30.0
     if unit == "DBMV":
         return value - 60.0 + 30.0 - 10.0 * math.log10(impedance)
     if unit == "DBUV":
