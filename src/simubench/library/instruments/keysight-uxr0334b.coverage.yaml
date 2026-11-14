@@ -131,9 +131,9 @@ sections:
       become set), bit 5 WAIT TRIG, bit 11 AUTO TRIG (:ATER?). MASK (bit 9) and OVLR (bit 12) are not
       modeled'
   - header: :OVLRegister
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: 'p. 301: the overload event register, one bit per channel. The model detects no
+      overloads, so it reads 0.'
   - header: :PDER
     level: implemented
     note: measurements are computed when queried, so processing is done when the acquisition is; its own
@@ -187,9 +187,8 @@ sections:
 - section: :ACQuire Commands (Programmer's Guide 11.60, ch. 15)
   commands:
   - header: :ACQuire:ADC:CLIPped:CLEar
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: 'p. 319: the clipping status of every channel clears at once.'
   - header: :ACQuire:AVERage
     level: implemented
     note: 'ON: each record is the mean of :ACQuire:COUNt acquisitions, each noisy and quantized (D46)'
@@ -740,13 +739,13 @@ sections:
 - section: :CHANnel<N> Commands (Programmer's Guide 11.60, ch. 19)
   commands:
   - header: :CHANnel<N>:ADC:CLIPped
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: 'p. 484: whether the ADC clipped low (1), high (2) or both (3) since the last read or clear;
+      reading resets it. A record computed whole latches it; a deep record (computed at read) does not.'
   - header: :CHANnel<N>:CLIPped
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: implemented
+    note: 'p. 485: whether the channel clipped at least once (0 or 1); reading resets it, and so does a
+      change of the channel''s vertical scale or offset.'
   - header: :CHANnel<N>:COMMonmode
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): differential and common-mode channel inputs.'
@@ -794,9 +793,10 @@ sections:
     note: DC50 (DCFifty answers DC50); the UXR has no other coupling or impedance, so other words are
       -224
   - header: :CHANnel<N>:INVert
-    level: not_modeled
-    note: 'Model work: channel setting on the existing analog front end.'
-    gap: model_work
+    level: implemented
+    note: 'p. 498: the waveform reflects about 0 V - the record''s samples negate and the measurements
+      with them (the case''s VAVerage flips). The guide''s note that it can stop triggering: the trigger
+      detects on the analog path, which the model does not invert.'
   - header: :CHANnel<N>:ISIM:APPLy
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -868,17 +868,20 @@ sections:
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:ATTenuation
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: 'p. 518: DIV1 or DIV10 sets the display''s probe attenuation ratio (the readings change with
+      it, the case proves). The manual''s command is for the 1154A probe alone (a settings conflict
+      without it); the model has no probe identification and models the display''s attenuation on the
+      channel''s generic probe.'
   - header: :CHANnel<N>:PROBe:AUTozero
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:COUPling
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 520: the probe''s own DC/AC coupling - a probe accessory the model does not carry (the
+      channel''s input coupling is :CHANnel<N>:INPut, implemented). The value stores.'
   - header: :CHANnel<N>:PROBe:EADapter
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
@@ -890,25 +893,27 @@ sections:
     gap: blocked
     blocked_by: probe
   - header: :CHANnel<N>:PROBe:EXTernal
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 525: the external-probe mode (a signal conditioner in place of a probe) - no external
+      hardware is modeled, the value stores.'
   - header: :CHANnel<N>:PROBe:EXTernal:GAIN
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 526: the external probe''s gain - stores.'
   - header: :CHANnel<N>:PROBe:EXTernal:OFFSet
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 527: the external probe''s offset - stores.'
   - header: :CHANnel<N>:PROBe:EXTernal:UNITs
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 528: the external probe''s vertical units - stores.'
   - header: :CHANnel<N>:PROBe:GAIN
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 529: X1 or X10, the 1154A probe''s input amplifier gain - the probe hardware is not
+      modeled (see :PROBe:ATTenuation for the display''s one attenuation stage), the value stores.'
   - header: :CHANnel<N>:PROBe:HEAD:ADD
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
@@ -969,13 +974,15 @@ sections:
     note: 'Out of scope: optical probes and optical measurements (product-plan.md section 6).'
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:SKEW
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: 'p. 544: the channel''s probe skew, +-1 ms - the record''s samples shift by it (the probe''s
+      delay, instrument-authoring.md 8.4 G3). No implemented measurement reads a time from the trigger,
+      so no case reads the shift; the round trip is in the case.'
   - header: :CHANnel<N>:PROBe:SKEW:AUTO
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 545: the deskew against the probe''s own compensation signal - the model has no probe
+      identification and no compensation signal, so the command parses and the skew keeps its value.'
   - header: :CHANnel<N>:PROBe:STYPe
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): probe component (identity, head, auto-detection).'
@@ -1011,9 +1018,10 @@ sections:
     note: 'Model work: query of the limits declared in the definition.'
     gap: model_work
   - header: :CHANnel<N>:UNITs
-    level: not_modeled
-    note: 'Model work: probe scaling (attenuation, gain, offset, units, skew) on the channel.'
-    gap: model_work
+    level: implemented
+    note: 'p. 555: the channel''s vertical units, VOLT/AMPere/WATT/UNKNown. The unit conversion of the
+      scales and readings is not modeled (they stay volts); :WAVeform:YUNits? answers the setting''s
+      word.'
 - section: :DISK Commands (Programmer's Guide 11.60, ch. 20)
   commands:
   - header: :DISK:CDIRectory
@@ -1135,9 +1143,10 @@ sections:
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :DISPlay:CLIPped
-    level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 'p. 596: the show-ADC-clipping display preference - the manual: it does not enable or disable
+      the clip detect feature. The *RST value is not in the manual, ON is a SimuBench value.'
   - header: :DISPlay:CONNect
     level: accepted
     affects_data: false
