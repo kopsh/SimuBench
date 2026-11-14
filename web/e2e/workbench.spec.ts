@@ -343,11 +343,12 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   // (3), then the sample stream (D67): ADC -> decimator -> acquisition, one wire per channel (4 + 4);
   // dependencies (#729): the time base, trigger, ADC group and decimator feed the acquisition, the
   // time base and ADC group feed the decimator, and the acquisition feeds the measurements and the
-  // transfer (8).
-  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 3 + 3 + 8 + 8);
+  // transfer (8); math (#1074) sits between them: the acquisition feeds it, it feeds the
+  // measurements and the transfer, whose function sources read through it (3).
+  await expect(graph.locator(".react-flow__edge")).toHaveCount(4 + 3 + 3 + 8 + 8 + 3);
   await expect(
     graph.locator('.react-flow__edge-path[style*="stroke-dasharray"]'),
-  ).toHaveCount(8);
+  ).toHaveCount(11);
   for (const param of ["horizontal", "trigger", "adc", "record"])
     await expect(
       graph.locator(".react-flow__edge-text", { hasText: param }).first(),
@@ -362,8 +363,8 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   // Expanding everything shows every channel's chain.
   await page.getByRole("button", { name: "全部展开" }).click();
   // 4 channels × (input port, vertical, probe), the ADC group, the decimator, the acquisition, its
-  // timebase and trigger, the measurements and the waveform transfer.
-  await expect(graph.getByTestId("internal-component")).toHaveCount(19);
+  // timebase and trigger, the measurements, the waveform transfer and the math block (#1074).
+  await expect(graph.getByTestId("internal-component")).toHaveCount(20);
   for (const name of ["timebase", "trigger", "adc", "dec", "meas"])
     await expect(graph.locator(`[data-name="${name}"]`)).toBeVisible();
   await expect(graph.locator('[data-name="xfer"]')).toBeVisible();
