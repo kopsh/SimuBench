@@ -26,10 +26,11 @@
 | acquisition | `scope_acquisition` | 数据(定时、触发搜索、向采样流请求一帧并存成记录、运行控制;分段存储 `segments`、`rearm_s`、`segment_index`、`memory_points`:一次采集连续取 N 次触发各存一段,全部采满才完成,#957) | 已实现 | 分段存储每段的点数不随段数减少;跨段的测量统计与余辉未建模 |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
 | trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248;触发类型 `mode`:边沿 `edge`、脉宽 `glitch`(`polarity`、`qualifier` 小于/大于/范围、`width_low`、`width_high`),与边沿触发共用模拟通路上的过零时刻、迟滞、耦合、噪声与释抑,#956) | 已实现(边沿、脉宽;码型、欠幅、串行、视频触发未做) | — |
-| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 测量作用于所选的段(分段存储,#957),跨段的统计未建模;测量窗口只用主记录(没有缩放记录) |
-| waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
+| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373;光标:方式 MODE(手动/跟踪波形/跟踪测量)、X1/X2/Y1/Y2 位置与差值、CURSor? 回 <x>,<y> 并把方式切到跟踪(手册 CAUTION)、编号光标 <K> 的类型/信源/位置/差值关系,#1074) | 测量作用于所选的段(分段存储,#957),跨段的统计未建模;测量窗口只用主记录(没有缩放记录) |
+| math | `scope_math` | 数据(读的时候从源记录算出:逐点运算 ADD/SUBTract/MULTiply/DIVide/COMMonmode/ABSolute/INVert/SQUare/SQRT/MAGNify、延迟与门控、微分/积分/平滑/平均/桶极值、单极点高通与 4 阶 Bessel 低通、加窗 FFT(幅度 dBm/dBV 系/功率/VRMS、相位、PSD)、FFT 峰值标注与 :MEASure:FFT:*(峰频率/幅度、差值、通道功率、PSD、OBW、THD),#1074;函数定义在 function<f>.* 设置里,传输与测量经 `MathSource` 协议取记录) | 已实现(UXR1104B、UXR0334B 接入) | 幅度解调 ADEMod、测量趋势/直方图、码型平均、X-Y 显示、用户自定义算子未建模;DSOX 2024A、SDS 2104X Plus、WavePro 804HD 尚未接入(EXEMPT 债表) |
+| waveform_transfer | `waveform_transfer` | 数据(信源可为 FUNCtion<F>:经 `MathSource` 协议从 `scope_math` 取函数记录,#1074) | 已实现 | — |
 
-内置型号(keysight-dsox2024a、keysight-uxr0334b、keysight-uxr1104b、siglent-sds2104xplus、lecroy-wavepro804hd)全覆盖,无豁免。
+内置型号:DSOX 2024A、SDS 2104X Plus、WavePro 804HD 豁免 math 块(EXEMPT 债表,上面注明);其余全覆盖。
 
 ## sampling_oscilloscope(等效时间采样示波器,#1094)
 

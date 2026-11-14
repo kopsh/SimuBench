@@ -998,19 +998,15 @@ sections:
     level: implemented
     note: '1 mV/div to 1 V/div (data sheet, 3.5 mm input models); out of range is -222. Records carry the range''s input noise (specs.noise_per_division: the Infiniium UXR-B data sheet 3123-1313''s measured RMS Noise Floor table, UXR0334B column, page 8 — per division, #786); each acquisition differs'
   - header: :CHANnel<N>:SPECtral:CFRequency
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The channel''s spectral view centre frequency (stored; the view''s data path is :FUNCtion FFT, the view itself is not modeled, #1074).'
   - header: :CHANnel<N>:SPECtral:CFRequency:TESTLIMITS
     level: not_modeled
     note: 'Model work: query of the limits declared in the definition.'
     gap: model_work
   - header: :CHANnel<N>:SPECtral:SPAN
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The channel''s spectral view span (stored; as :SPECtral:CFRequency, #1074).'
   - header: :CHANnel<N>:SPECtral:SPAN:TESTLIMITS
     level: not_modeled
     note: 'Model work: query of the limits declared in the definition.'
@@ -1295,225 +1291,140 @@ sections:
 - section: :FUNCtion<F> Commands (Programmer's Guide 11.60, ch. 22)
   commands:
   - header: :FUNCtion<F>
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The function''s operands as set ("CHAN1,CHAN2" with headers off).'
   - header: :FUNCtion<F>:ABSolute
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = |source1|, computed from the record when read (#1074).'
   - header: :FUNCtion<F>:ADD
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 + source2, computed from the records when read (#1074); operands: CHANnel<N>, FUNCtion<F>, a constant.'
   - header: :FUNCtion<F>:ADEMod
     level: not_modeled
     note: 'Blocked by C9 (product-plan.md 4.2): band-pass (carrier + complex envelope) signals.'
     gap: blocked
     blocked_by: C9
   - header: :FUNCtion<F>:AVERage
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = the running mean of source1 over the averages setting (#1074); the manual gives no default, SimuBench takes 16.'
   - header: :FUNCtion<F>:COMMonmode
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): differential and common-mode channel inputs.'
-    gap: blocked
-    blocked_by: differential-input
+    level: implemented
+    note: 'f = (source1 + source2) / 2, computed from the records when read (#1074); the DIFF<D> and COMMonmode<C> operand words (the differential and common-mode channel inputs) are not modeled.'
   - header: :FUNCtion<F>:DELay
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 shifted by the delay setting in time (#1074).'
   - header: :FUNCtion<F>:DIFF
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = d(source1)/dt (central differences), computed from the record when read (#1074).'
   - header: :FUNCtion<F>:DISPlay
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Function <f> shown on screen.'
   - header: :FUNCtion<F>:DIVide
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 / source2, computed from the records when read (#1074); a division by 0 leaves a hole.'
   - header: :FUNCtion<F>:FFT:DETector:POINts
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Buckets the detector decimates to; 0 keeps every point.'
   - header: :FUNCtion<F>:FFT:DETector:TYPE
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The trace decimation applied to the transform trace (OFF, SAMPle, PPOSitive, PNEGative, NORMal, AVERage).'
   - header: :FUNCtion<F>:FFT:FREQuency
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s centre frequency (with :FFT:SPAN). The four window settings store independently (see :FFT:SPAN).'
   - header: :FUNCtion<F>:FFT:HSCale
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Stores the horizontal scale word (LINear/LOG); the log-frequency FFT trace is not modeled.'
   - header: :FUNCtion<F>:FFT:IMPedance
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The power units'' reference impedance (AUTO is 50 Ω, the single-ended input''s).'
   - header: :FUNCtion:FFT:PEAK:SORT
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The order the annotated peaks list in.'
   - header: :FUNCtion<F>:FFT:PEAK:COUNt
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'At most this many peaks are annotated. The manual gives no default, SimuBench takes 3.'
   - header: :FUNCtion<F>:FFT:PEAK:FREQuency
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s centre frequency (with :FFT:SPAN). The four window settings store independently (see :FFT:SPAN).'
   - header: :FUNCtion<F>:FFT:PEAK:LEVel
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Peaks above this level (dBm) are annotated.'
   - header: :FUNCtion<F>:FFT:PEAK:MAGNitude
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The annotated peaks'' magnitudes, comma-separated in the PEAK:SORT order; none: 9.99999E+37.'
   - header: :FUNCtion<F>:FFT:PEAK:STATe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Whether the FFT peaks are annotated; OFF makes the peak queries answer 9.99999E+37.'
   - header: :FUNCtion<F>:FFT:REFerence
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The phase reference of the FFTPhase function; both words store, the phase is computed from the transform''s own origin.'
   - header: :FUNCtion<F>:FFT:RESolution
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Query: the bin width times the window''s equivalent noise bandwidth. A write moves the timebase''s scale (the instrument reaches a resolution by sampling longer).'
   - header: :FUNCtion<F>:FFT:SPAN
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s frequency span, with :FFT:FREQuency as its centre; 0 spans the whole record band. The four window settings store independently (the instrument links STARt/STOP to a FREQuency/SPAN write); the trace reads the span/centre first, then start/stop.'
   - header: :FUNCtion<F>:FFT:STARt
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s start frequency (with :FFT:STOP); 0 with STOP 0 spans the whole record band.'
   - header: :FUNCtion<F>:FFT:STOP
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s stop frequency (with :FFT:STARt).'
   - header: :FUNCtion<F>:FFT:TDELay
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The time delay the FFTPhase function''s phase is turned by.'
   - header: :FUNCtion<F>:FFT:VUNits
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s vertical units (DB, DBMV, DBUV, WATT, VRMS; the PSDensity family: DBMHZ, WATTHZ, VRTHZ).'
   - header: :FUNCtion<F>:FFT:WINDow
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s window; applies when function <f> is a transform. The manual gives no default, SimuBench takes HANNing.'
   - header: :FUNCtion<F>:FFTMagnitude
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = the windowed one-sided FFT of source1 in the vunits setting, over the span the FFT settings name; the transform length is the effective memory depth (the highest power of two ≤ the record, capped at 1 Mpt) and a longer record is refused, not truncated (#1074). The manual gives no window default, SimuBench takes HANNing.'
   - header: :FUNCtion<F>:FFTPhase
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = the transform''s phase in degrees, turned by the FFT:TDELay setting (#1074).'
   - header: :FUNCtion<F>:GATing
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 over the gating window (the gate_start/gate_stop settings, #1074); the global gates (:GATing:GLOBal) are not modeled.'
   - header: :FUNCtion<F>:GATing:GLOBal
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    note: 'The global gates are not modeled; the function''s own gate (:FUNCtion<F>:GATing) is. (#1074)'
+    gap: out_of_scope
   - header: :FUNCtion<F>:GATing:STARt
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s start frequency (with :FFT:STOP); 0 with STOP 0 spans the whole record band.'
   - header: :FUNCtion<F>:GATing:STOP
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The transform''s stop frequency (with :FFT:STARt).'
   - header: :FUNCtion<F>:HIGHpass
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 through a single-pole high pass at the bandwidth setting (#1074).'
   - header: :FUNCtion<F>:HORizontal
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Horizontal scaling mode of function <f>; a write of POSition/RANGe turns it MANual. The operators whose horizontal scaling follows the source''s timebase (ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, DIFF, INTegrate, INVert, HIGHpass, LOWPass, MAXimum, MINimum, SMOoth, AVERage, SQUare, SQRT) refuse the write with -221, as the manual notes.'
   - header: :FUNCtion<F>:HORizontal:POSition
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Time at centre screen of function <f> (the centre frequency of an FFTMagnitude); -221 on the timebase-bound operators.'
   - header: :FUNCtion<F>:HORizontal:RANGe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Time span of function <f> (the span of an FFTMagnitude); -221 on the timebase-bound operators.'
   - header: :FUNCtion<F>:INTegrate
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = the cumulative trapezoid integral of source1, in V·s (#1074).'
   - header: :FUNCtion<F>:INVert
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = −source1, computed from the record when read (#1074).'
   - header: :FUNCtion<F>:LABel
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The function''s label (an on-screen text).'
   - header: :FUNCtion<F>:LOWPass
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 through a 4th-order Bessel-Thompson low pass at the bandwidth setting (#1074).'
   - header: :FUNCtion<F>:MAGNify
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 under the function''s own scale and offset (#1074).'
   - header: :FUNCtion<F>:MATLab
     level: not_modeled
     note: 'Out of scope in the platform: user code runs only through algorithm hosting (P4-1).'
@@ -1527,112 +1438,78 @@ sections:
     note: 'Out of scope in the platform: user code runs only through algorithm hosting (P4-1).'
     gap: out_of_scope
   - header: :FUNCtion<F>:MAXimum
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 as it is (#1074): the per-bucket extremes are the display''s decimation, not a record change.'
   - header: :FUNCtion<F>:MHIStogram
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): waveform and measurement histograms.'
     gap: blocked
     blocked_by: histogram
   - header: :FUNCtion<F>:MINimum
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 as it is (#1074): the per-bucket extremes are the display''s decimation, not a record change.'
   - header: :FUNCtion<F>:MLOG
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    note: 'The scrolling record of measurement values is not modeled. (#1074)'
+    gap: out_of_scope
   - header: :FUNCtion<F>:MTRend
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): measurement statistics and limit testing.'
     gap: blocked
     blocked_by: measurement-statistics
   - header: :FUNCtion<F>:MULTiply
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 · source2, computed from the records when read (#1074).'
   - header: :FUNCtion<F>:OFFSet
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Voltage at centre screen of function <f>.'
   - header: :FUNCtion<F>:PAVerage
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    note: 'The pattern average (needs clock recovery and pattern detection) is not modeled. (#1074)'
+    gap: out_of_scope
   - header: :FUNCtion<F>:PSDensity
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = the transform as a power spectral density (the bin spread over the window''s equivalent noise bandwidth, #1074).'
   - header: :FUNCtion<F>:RANGe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Full-scale range of function <f>; a division is an eighth of it. AUTO keeps the source''s.'
   - header: :FUNCtion<F>:SMOoth
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = the centred running mean of source1 over the points setting (3..4001, #1074); the manual gives no default, SimuBench takes 5.'
   - header: :FUNCtion<F>:SQRT
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = √source1, computed from the record when read (#1074); negative samples leave a hole.'
   - header: :FUNCtion<F>:SQUare
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1², computed from the record when read (#1074).'
   - header: :FUNCtion<F>:SUBTract
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'f = source1 − source2, computed from the records when read (#1074).'
   - header: :FUNCtion<F>:VERSus
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    note: 'The X-versus-Y display is not modeled. (#1074)'
+    gap: out_of_scope
   - header: :FUNCtion<F>:VERTical
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Vertical scaling mode of function <f>: AUTO follows the source, MANual uses the RANGe/OFFSet settings.'
   - header: :FUNCtion<F>:VERTical:OFFSet
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Voltage at centre screen of function <f>.'
   - header: :FUNCtion<F>:VERTical:RANGe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Full-scale range of function <f>; a division is an eighth of it. AUTO keeps the source''s.'
   - header: :FUNCtion<F>:VERTical:SIZE
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    note: 'Belongs to the measurement histogram function (:FUNCtion<F>:MHIStogram), which is not modeled. (#1074)'
+    gap: out_of_scope
   - header: :FUNCtion<F>:XYZ
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    note: 'The X-versus-Y display with a qualifier is not modeled. (#1074)'
+    gap: out_of_scope
   - header: :FUNCtion<F>:XYZI
     level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
-- section: :HARDcopy Commands (Programmer's Guide 11.60, ch. 23)
-  commands:
+    note: 'The X-versus-Y display with intensity grading is not modeled. (#1074)'
+    gap: out_of_scope
   - header: :HARDcopy:AREA
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
@@ -2264,132 +2141,77 @@ sections:
 - section: :MARKer Commands (Programmer's Guide 11.60, ch. 31)
   commands:
   - header: :MARKer:CURSor
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
-  - header: :MARKer:DELTa
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The tracked positions as <x>,<y> (DELTa: the deltas); the query also puts the markers in the waveform-tracking mode, as the manual''s CAUTION notes.'
   - header: :MARKer:MEASurement:MEASurement
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Which measurement the MEASurement mode tracks; without the on/off argument the list becomes that one measurement.'
   - header: :MARKer:MODE
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'OFF, MANual, XONLy, YONLy, WAVeform (the marker reads the value its source has at its x) and MEASurement (it tracks the measurement the :MARKer:MEASurement:MEASurement command last named).'
   - header: :MARKer:TSTArt
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Sets the same position as :MARKer:X1Position (the manual''s compatibility spelling).'
   - header: :MARKer:TSTOp
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Sets the same position as :MARKer:X2Position (the manual''s compatibility spelling).'
   - header: :MARKer:VSTArt
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Sets the same level as :MARKer:Y1Position (the manual''s compatibility spelling).'
   - header: :MARKer:VSTOp
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Sets the same level as :MARKer:Y2Position (the manual''s compatibility spelling).'
   - header: :MARKer:X1Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The Ax marker''s position, in seconds (a transform''s source: Hz).'
   - header: :MARKer:X2Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The Bx marker''s position, in seconds (a transform''s source: Hz).'
   - header: :MARKer:X1Y1source
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The source the Ax/Ay markers read: a channel or a FUNCtion<F> (#1074).'
   - header: :MARKer:X2Y2source
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The source the Bx/By markers read: a channel or a FUNCtion<F> (#1074).'
   - header: :MARKer:XDELta
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Bx − Ax, in the source''s x unit.'
   - header: :MARKer:Y1Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The Ay marker''s level.'
   - header: :MARKer:Y2Position
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The By marker''s level.'
   - header: :MARKer:YDELta
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'By − Ay: the markers'' levels, or the values at their x in the tracking modes.'
   - header: :MARKer<K>:CMODe
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'CUSTom uses the :MARKer<K>:COLor colour, SOURce the source''s.'
   - header: :MARKer<K>:COLor
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The marker''s custom colour (a string, #RRGGBBAA or a named colour); stored, colours do not change data.'
   - header: :MARKer<K>:DELTa
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Without a MARKer<L> word, the screen''s delta-markers switch; with one, marker <K>''s delta-to relationship with marker <L>: <state>,<Δx>,<1/Δx>,<Δy>,<Δy/Δx> (9.99999E+37 where not applicable).'
   - header: :MARKer<K>:ENABle
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'Turns numbered marker <K> on or off.'
   - header: :MARKer<K>:NAME
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The name of numbered marker <K> (an on-screen text).'
   - header: :MARKer<K>:SOURce
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The source of numbered marker <K>: a channel or a FUNCtion<F> (#1074).'
   - header: :MARKer<K>:TYPE
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The type of numbered marker <K> (XMANual, YMANual, TRACk, RF); a type change needs the marker off (-221).'
   - header: :MARKer<K>:X:POSition
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The horizontal position of marker <K> (seconds, or Hz on a transform); a YMANual marker answers 9.99999E+37.'
   - header: :MARKer<K>:Y:POSition
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): cursors/markers on waveforms.'
-    gap: blocked
-    blocked_by: C5
-- section: :MEASure Commands (Programmer's Guide 11.60, ch. 32)
-  commands:
+    level: implemented
+    note: 'The vertical position of marker <K>; an X-only or tracking marker answers 9.99999E+37.'
   - header: :MEASure:AREA
     level: not_modeled
     note: 'Model work: waveform measurement on the existing measurement engine.'
@@ -2545,45 +2367,29 @@ sections:
     level: implemented
     note: 90 % to 10 % of top minus base; the PAM-4 level arguments are not modeled. Query only
   - header: :MEASure:FFT:CPOWer
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The power of the source transform''s band <center> ± <bw>/2, in dBm (#1074).'
   - header: :MEASure:FFT:DFRequency
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The frequency difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074).'
   - header: :MEASure:FFT:DMAGnitude
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The magnitude difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074).'
   - header: :MEASure:FFT:FREQuency
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The frequency of the source transform''s peak <peak> (numbered low to high) above <level> dBm, computed when queried (#1074); no such peak: 9.99999E+37.'
   - header: :MEASure:FFT:MAGNitude
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The magnitude of the source transform''s peak <peak> above <level> dBm (#1074); no such peak: 9.99999E+37.'
   - header: :MEASure:FFT:OBW
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The bandwidth holding <pct> percent of the source transform''s power (#1074).'
   - header: :MEASure:FFT:PSD
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: 'The power spectral density of the source transform''s band <center> ± <bw>/2, in dBm/Hz (#1074).'
   - header: :MEASure:FFT:THDistortion
-    level: not_modeled
-    note: 'Blocked by C5 (product-plan.md 4.2): math functions, FFT and spectral views (F1-3).'
-    gap: blocked
-    blocked_by: C5
+    level: implemented
+    note: '√(Σ harmonics² / fundamental²) of the source transform, in percent; the fundamental is the <fund_freq> given (MANual) or the first peak above <level> (PEAK) (#1074).'
   - header: :MEASure:FREQuency
     level: implemented
     note: rising edge to rising edge (RISing); FALLing is not modeled. Query only

@@ -34,6 +34,11 @@ EXEMPT: set[tuple[str, str]] = {
     # keysight-34465a: 读数后处理块 reading_math(#1041)已有,34465A 的 CALCulate/NULL 尚未接入
     # (product-plan.md P2-2 的可认领 issue)。
     ("keysight-34465a", "math"),
+    # 示波器数学块 scope_math(#1074)已有:UXR1104B 与 UXR0334B 已接入;DSOX 2024A、
+    # SDS 2104X Plus 与 WavePro 804HD 的数学/FFT/光标命令(#1046、#1047、#1050 的分拣)尚未接到该块上。
+    ("keysight-dsox2024a", "math"),
+    ("siglent-sds2104xplus", "math"),
+    ("lecroy-wavepro804hd", "math"),
 }
 
 #: (definition id, block) -> why — blocks the real instrument does not have at all, so there is
@@ -124,6 +129,7 @@ def test_a_new_definition_must_cover_every_block():
         "trigger",
         "measurements",
         "waveform_transfer",
+        "math",
     }
 
 

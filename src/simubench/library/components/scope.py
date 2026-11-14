@@ -12,7 +12,16 @@ from typing import Any, cast
 
 import numpy as np
 
-from ...engine.component import Component, OpResult, PortSpec, RecordSource, binding_of, component, op
+from ...engine.component import (
+    Component,
+    MathSource,
+    OpResult,
+    PortSpec,
+    RecordSource,
+    binding_of,
+    component,
+    op,
+)
 from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
 from ...engine.stream import MAX_FRAME, MAX_REQUEST_FANOUT, FrameRequest, SampleFrame, beyond_model
@@ -29,6 +38,7 @@ from .measurements import (
     mid_crossings,
     top_base,
 )
+from .scope_math import function_index
 from .scope_pending import Acquisition, PendingAcquisitions, _Segment
 from .scope_record import (
     CHUNKED_MEASUREMENTS,
@@ -372,6 +382,17 @@ def channel_index(source: object) -> int:
         if text.startswith(prefix) and text[len(prefix) :].isdigit():
             return int(text[len(prefix) :])
     return 1
+
+
+def short_source(source: object) -> str:
+    """A source word as the reply's short form (the manual's Returned Format): CHANnel1 -> CHAN1,
+    FUNCtion2 -> FUNC2, anything else as it came."""
+    text = str(source).strip()
+    upper = text.upper()
+    for prefix, short in (("CHANNEL", "CHAN"), ("FUNCTION", "FUNC")):
+        if upper.startswith(prefix) and upper[len(prefix) :].isdigit():
+            return short + upper[len(prefix) :]
+    return text
 
 
 #: Edge slope names across models: SCPI-style and Siglent-style.
@@ -2257,9 +2278,11 @@ class ScopeMeasurements(Component):
     Every value taken is kept for ``statistics`` (count, mean, sdev, min, max) until cleared.
     """
 
-    refs = {"record": (RecordSource, "instrument")}
+    refs = {"record": (RecordSource, "instrument"), "math": (MathSource, "instrument")}
+    optional_refs = frozenset({"math"})
     defaults = {
         "record": "acq",  # the acquisition component holding the records (RecordSource: a real-time or sampling one)
+        "math": "",  # the math block a FUNCtion<F> source reads from (#1074); empty: channels only
         "source": "",  # the channel measured (a setting such as $measure.source); empty: the command's
         "names": {},  # model name -> [engine measurement, unit], e.g. {AMPL: [VAMPlitude, V]}
         "top_base": "histogram",  # histogram | extremes
@@ -2281,16 +2304,30 @@ class ScopeMeasurements(Component):
         # past `slots` the oldest leaves. 0: no list (the query only answers).
         "slots": 0,
         "all": [],  # the measurements :MEASure:ALL? answers, in order (engine names)
+        # ---- the markers (cursors, #1074): the settings the definition binds the :MARKer words to;
+        # a model without them has no marker commands.
+        "marker_mode": "",  # the marker mode setting, e.g. $marker.mode: OFF/MANual/XONly/YONly/WAVeform/MEASurement
+        "marker_x1": None,  # the Ax marker's x, in the source's x unit (s, or Hz on a transform), e.g. $marker.x1
+        "marker_x2": None,  # the Bx marker's x
+        "marker_y1": None,  # the Ay marker's y, in the source's vertical unit
+        "marker_y2": None,  # the By marker's y
+        "marker_source1": "",  # the Ax/Ay markers' source word, e.g. $marker.source1 (CHANnel1, FUNCtion1, …)
+        "marker_source2": "",  # the Bx/By markers' source word
+        "marker_delta": None,  # whether the deltas are drawn on screen (a bool setting); None: no command
+        "marker_measurement": None,  # the measurement the MEASurement mode tracks, 1-based (an int setting)
+        "markers": 0,  # how many of the numbered :MARKer<K> markers the model has (1..60); 0: none
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         self.history: dict[tuple[str, int], list[float]] = {}
         self.installed: list[tuple[str, int]] = []  # the screen's measurements, oldest first (#373)
+        self.k_markers: dict[int, dict[str, Any]] = {}  # the numbered markers' state, #1074
 
     def reset(self) -> None:
         self.history = {}
         self.installed = []
+        self.k_markers = {}
 
     # ---- the screen's measurement list (#373) ------------------------------------------------------
 
@@ -2366,7 +2403,7 @@ class ScopeMeasurements(Component):
             words = [V.parse_string(b).strip().upper() for b in source]
             source = next((w for w in words if w.startswith("CH")), None)
         if source:
-            name = source.strip().upper()
+            name = (source.decode() if isinstance(source, bytes) else str(source)).strip().upper()
             m = name.removeprefix("CHANNEL").removeprefix("CHAN").removeprefix("C")
             if not m.isdigit():
                 raise ScpiError(-224, f"unknown source {source!r}")
@@ -2653,3 +2690,316 @@ class ScopeMeasurements(Component):
     def clear_statistics(self, **_: Any) -> OpResult:
         self.history = {}
         return OpResult()
+
+    # ---- the markers (cursors, #1074) ------------------------------------------------------------
+
+    #: What a marker mode word stands for, by its first letters (the settings hold SCPI words).
+    MODES = {
+        "OFF": "off",
+        "MAN": "manual",
+        "XON": "x_only",
+        "YON": "y_only",
+        "WAV": "waveform",
+        "MEAS": "measurement",
+    }
+
+    def _marker_mode(self) -> str:
+        """The marker mode as one of ``MODES``' values, ``off`` when the model has none."""
+        word = str(self.param("marker_mode") or "").upper()
+        for key, mode in self.MODES.items():
+            if word.startswith(key):
+                return mode
+        return "off"
+
+    def _marker_record(self, which: int) -> tuple[Any, int]:
+        """The record the A (``which`` 1) or B (2) markers read: their source's, a channel's or a
+        math function's (#1074)."""
+        word = str(self.param(f"marker_source{which}") or "")
+        f = function_index(word) if word else None
+        if f is not None:
+            block = self.ref("math")
+            if block is None or not isinstance(block, MathSource):
+                raise ScpiError(-224, f"{word}: this model has no math functions to mark")
+            return block.read_function(f)  # type: ignore[return-value]
+        n = self._channel(None, word.encode() if word else None)
+        return self._acq().measure_record(n)  # type: ignore[return-value]
+
+    def _value_at(self, rec: Any, x: float) -> float:
+        """The record's value at x (its grid's unit — seconds, or Hz on a transform), the sample
+        nearest x: the markers of the real instrument read the point the screen draws."""
+        if rec.points < 1:
+            return math.nan
+        k = (x - rec.origin) / rec.dt_s
+        i = int(min(max(round(k), 0), rec.points - 1))
+        return float(rec.span(i, i + 1)[0])
+
+    def _marker_y(self, which: int) -> tuple[float, int]:
+        """The A (1) or B (2) marker's y: in the manual modes its setting, in the waveform mode
+        the value its source's record has at the marker's x; the measurement mode tracks the
+        measurement ``marker_measurement`` names."""
+        mode = self._marker_mode()
+        if mode in ("off", "x_only"):
+            return math.nan, 0
+        if mode == "measurement":
+            n = self.param("marker_measurement")
+            which_meas = int(n) if n not in (None, "") else 0
+            if 1 <= which_meas <= len(self.installed):
+                what, channel = self.installed[which_meas - 1]
+                return self.value(what, channel)
+            return math.nan, 0
+        if mode == "waveform":
+            rec, used = self._marker_record(which)
+            x = self.param(f"marker_x{which}")
+            return self._value_at(rec, float(x) if x is not None else 0.0), used
+        y = self.param(f"marker_y{which}")  # manual and y_only: the marker is its setting
+        return (float(y) if y is not None else math.nan), 0
+
+    def _marker_word(self, mode: str) -> str:
+        """The SCPI word a mode's setting carries, as the definition's options spell it."""
+        assert self.owner is not None
+        path = self.bound_path("marker_mode")
+        if path is None:
+            return mode
+        for option in self.owner.specs[path].options or []:
+            if option.upper().startswith(mode[:3]):
+                return str(option)
+        return mode
+
+    @op("cursor")
+    def cursor(self, which: str = "STARt", query: bool = True, **_: Any) -> OpResult:
+        """``:MARKer:CURSor? {DELTa | STARt | STOP}``: the tracked positions as ``<x>,<y>``.
+        The query also puts the markers in the waveform-tracking mode, whatever they were (the
+        manual's caution: it changes the mode)."""
+        assert self.owner is not None
+        word = str(which).strip().upper()
+        if not word.startswith(("DEL", "STA", "STO")):
+            raise ScpiError(-224, f"{which}: DELTa, STARt or STOP")
+        mode_path = self.bound_path("marker_mode")
+        if self._marker_mode() != "waveform" and mode_path is not None:
+            self.owner.set_state(mode_path, self._marker_word("WAV"), source="scpi", internal=True)
+        if word.startswith("DEL"):
+            x1, x2 = (float(self.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
+            ya, ua = self._marker_y(1)
+            yb, ub = self._marker_y(2)
+            return OpResult(b",".join(self.owner.format_number(v) for v in (x2 - x1, yb - ya)), ua + ub)
+        n = 1 if word.startswith("STA") else 2
+        y, used = self._marker_y(n)
+        x = float(self.param(f"marker_x{n}") or 0.0)
+        return OpResult(b",".join(self.owner.format_number(v) for v in (x, y)), used)
+
+    @op("x_delta")
+    def x_delta(self, query: bool = True, **_: Any) -> OpResult:
+        """``:MARKer:XDELta?``: Bx − Ax, in the source's x unit — seconds, or the Hz of a
+        transform's bins."""
+        assert self.owner is not None
+        x1, x2 = (float(self.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
+        return OpResult(self.owner.format_number(x2 - x1))
+
+    @op("y_delta")
+    def y_delta(self, query: bool = True, **_: Any) -> OpResult:
+        """``:MARKer:YDELta?``: By − Ay — the markers' settings, or the values at their x in the
+        tracking modes."""
+        assert self.owner is not None
+        ya, ua = self._marker_y(1)
+        yb, ub = self._marker_y(2)
+        value = yb - ya
+        if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
+            return OpResult(str(self.param("invalid_value")).encode(), ua + ub)
+        return OpResult(self.owner.format_number(value), ua + ub)
+
+    @op("marker_measurements")
+    def marker_measurements(
+        self, measurement: Any = None, state: Any = None, query: bool = False, **_: Any
+    ) -> OpResult:
+        """``:MARKer:MEASurement:MEASurement``: which measurements the MEASurement mode tracks.
+        Without ``state`` the list becomes that one measurement; with it, that measurement's
+        tracking alone turns on or off. The query answers the tracked measurement, or empty."""
+        if isinstance(measurement, list):  # a raw parameter takes all the remaining ones
+            measurement = measurement[0] if measurement else None
+        if measurement is None:
+            if not query:
+                raise ScpiError(-109)
+            tracked = sorted(m["measurement"] for m in self.k_markers.values() if m.get("tracking"))
+            return OpResult((",".join(f"MEAS{n}" for n in tracked)).encode()) if tracked else OpResult()
+        word = V.parse_string(measurement if isinstance(measurement, bytes) else str(measurement).encode())
+        digits = word.upper().removeprefix("MEAS").removeprefix("UREMENT").removeprefix("UREMENT")
+        # MEASurement<N> rides its own short spellings (MEAS1, MEASurement1); a bare number too
+        if not (digits.startswith("1") or digits.isdigit()):
+            digits = digits.lstrip("0")
+        if not digits.isdigit():
+            raise ScpiError(-224, f"{word}: not a measurement number")
+        n = int(digits)
+        slot = next((k for k, m in self.k_markers.items() if m.get("measurement") == n), None)
+        if state:  # an omitted parameter arrives as an empty list, not None
+            on = V.flag(state)
+            if slot is None and on:
+                slot = max(self.k_markers, default=0) + 1
+            if slot is not None:
+                if on:
+                    self.k_markers[slot] = {"tracking": True, "measurement": n}
+                else:
+                    self.k_markers.pop(slot, None)
+            return OpResult()
+        self.k_markers = {k: m for k, m in self.k_markers.items() if not m.get("tracking")}
+        self.k_markers[max(self.k_markers, default=0) + 1] = {"tracking": True, "measurement": n}
+        meas_path = self.bound_path("marker_measurement")
+        if meas_path is not None:
+            assert self.owner is not None
+            self.owner.set_state(meas_path, n, source="scpi", internal=True)
+        return OpResult()
+
+    # ---- the numbered markers (:MARKer<K>, #1074) --------------------------------------------------
+
+    def _k(self, suffixes: dict[str, int] | None) -> int:
+        """The ``<K>`` a numbered-marker command carried, checked against the model's count."""
+        most = int(self.param("markers") or 0)
+        k = int(next(iter(suffixes.values()))) if suffixes else 1
+        if most <= 0 or not 1 <= k <= most:
+            raise ScpiError(-114, f"marker {k} is not 1..{most}")
+        return k
+
+    def _k_marker(self, k: int) -> dict[str, Any]:
+        """Marker k's state, its defaults in: XMANual type, channel 1, off."""
+        return self.k_markers.setdefault(
+            k, {"type": "XMANual", "source": "CHANnel1", "enable": False, "x": 0.0, "y": 0.0}
+        )
+
+    @op("k_field", fields=("field",))
+    def k_field(
+        self,
+        field: str = "type",
+        value: Any = None,
+        query: bool = False,
+        suffixes: dict[str, int] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """One field of a numbered marker — its type, source, enable, name, color, colour mode, x
+        or y position — as ``:MARKer<K>:<field>`` reads and writes it. A type change needs the
+        marker off (the manual: -221); what the marker's type has no place for answers
+        ``invalid_value``. The query answers the short forms the manual's Returned Format names
+        (XMAN, TRAC, CHAN1, CUST)."""
+        assert self.owner is not None
+        k = self._k(suffixes)
+        marker = self._k_marker(k)
+        key = {
+            "type": "type",
+            "source": "source",
+            "enable": "enable",
+            "name": "name",
+            "color": "color",
+            "cmode": "cmode",
+            "x": "x",
+            "y": "y",
+        }[field]
+        if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
+            value = value[0] if value else None
+        if query or value is None:
+            if key == "x" and marker["type"] == "YMANual":
+                return OpResult(str(self.param("invalid_value")).encode())
+            if key == "y" and marker["type"] in ("XMANual", "TRACk", "RF"):
+                return OpResult(str(self.param("invalid_value")).encode())
+            current = marker.get(key)
+            if key == "enable":
+                return OpResult(V.format_int(int(bool(current))))
+            if isinstance(current, (int, float)) and key in ("x", "y"):
+                return OpResult(self.owner.format_number(float(current)))
+            if current in (None, ""):
+                return OpResult(b'""')
+            if key == "type":
+                return OpResult(
+                    {"XMANual": "XMAN", "YMANual": "YMAN", "TRACk": "TRAC", "RF": "RF"}[current].encode()
+                )
+            if key == "source":
+                return OpResult(short_source(current).encode())
+            if key == "cmode":
+                return OpResult(b"CUST" if current == "CUSTom" else b"SOUR")
+            if key in ("name", "color"):  # a quoted string, as the manual's Returned Format has it
+                return OpResult(f'"{current}"'.encode())
+            return OpResult(str(current).encode())
+        raw = value if isinstance(value, bytes) else str(value).encode()
+        if key == "type":
+            word = V.parse_string(raw).upper()
+            if word not in ("XMANUAL", "YMANUAL", "TRACK", "RF"):
+                raise ScpiError(-224, f"{value}: XMANual, YMANual, TRACk or RF")
+            if marker["enable"]:
+                raise ScpiError(-221, f"marker {k} is on: turn it off before changing its type")
+            marker["type"] = {"XMANUAL": "XMANual", "YMANUAL": "YMANual", "TRACK": "TRACk", "RF": "RF"}[word]
+            return OpResult()
+        if key == "enable":
+            marker["enable"] = V.flag(raw)
+            return OpResult()
+        if key == "cmode":
+            word = V.parse_string(raw).upper()
+            if word not in ("CUSTOM", "SOURCE"):
+                raise ScpiError(-224, f"{value}: CUSTom or SOURce")
+            marker["cmode"] = "CUSTom" if word == "CUSTOM" else "SOURce"
+            return OpResult()
+        if key in ("source", "name", "color"):
+            marker[key] = V.parse_string(raw)
+            return OpResult()
+        if key == "x" and marker["type"] == "YMANual":
+            raise ScpiError(-221, "a Y-only marker has no x position")
+        if key == "y" and marker["type"] in ("XMANual", "TRACk", "RF"):
+            raise ScpiError(-221, "an X-only or tracking marker has no y position")
+        marker[key] = parse_number(raw.decode("ascii", errors="replace"))
+        return OpResult()
+
+    @op("marker_delta")
+    def marker_delta(
+        self,
+        other: Any = None,
+        state: Any = None,
+        query: bool = True,
+        suffixes: dict[str, int] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """``:MARKer:DELTa`` and ``:MARKer<K>:DELTa``, which share a header: without a ``MARKer<L>``
+        word the command is the screen's delta-markers switch (``{ON | OFF}``, the query answers
+        0/1); with one, it is marker K's delta-to relationship with marker L — the query answers
+        ``<state>,<Δx>,<1/Δx>,<Δy>,<Δy/Δx>`` (``invalid_value`` where not applicable)."""
+        assert self.owner is not None
+        if isinstance(other, list):  # a raw parameter takes all the remaining ones: the ON/OFF
+            extra = other[1:]  # state of a :MARKer<K>:DELTa MARKer<L>,{ON | OFF} rides here
+            other = other[0] if other else None
+            if not state and extra:  # an omitted parameter arrives as an empty list
+                state = extra[0]
+        if isinstance(state, list):
+            state = state[0] if state else None
+        raw = other if isinstance(other, bytes) else (str(other).encode() if other is not None else b"")
+        word = V.parse_string(raw).upper() if raw else ""
+        if word.startswith("MARKER") and word.removeprefix("MARKER").isdigit():
+            k = self._k(suffixes)
+            other_k = int(word.removeprefix("MARKER"))
+            if not 1 <= other_k <= int(self.param("markers") or 0) or other_k == k:
+                raise ScpiError(-224, f"{other!r}: not another marker of this model")
+            first, second = self._k_marker(k), self._k_marker(other_k)
+            if not query:
+                word = (
+                    ""
+                    if state is None
+                    else V.parse_string(state if isinstance(state, bytes) else str(state).encode())
+                )
+                first["delta_to"] = other_k if state is None or V.flag(word) else None
+                return OpResult()
+            on = first.get("delta_to") == other_k
+            dx = float(second["x"]) - float(first["x"])
+            invalid = str(self.param("invalid_value")).encode()
+            parts = [V.format_int(int(on)), self.owner.format_number(dx)]
+            parts.append(self.owner.format_number(1.0 / dx) if dx else invalid)
+            if first["type"] == second["type"] == "YMANual":
+                dy = float(second["y"]) - float(first["y"])
+                parts.append(self.owner.format_number(dy))
+                parts.append(self.owner.format_number(dy / dx) if dx else invalid)
+            else:
+                parts += [invalid, invalid]
+            return OpResult(b",".join(parts))
+        if not query:  # :MARKer:DELTa {ON | OFF}: the screen's delta-markers check box
+            path = self.bound_path("marker_delta")
+            if path is None:
+                raise ScpiError(-113, "this model has no delta-marker display setting")
+            self.owner.set_state(path, V.flag(raw), source="scpi", internal=True)
+            return OpResult()
+        path = self.bound_path("marker_delta")
+        if path is None:
+            raise ScpiError(-113, "this model has no delta-marker display setting")
+        return OpResult(V.format_int(int(V.flag(self.owner.get_state(path)))))

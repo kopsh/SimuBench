@@ -50,15 +50,16 @@ def test_a_command_the_coverage_marks_not_modeled(tmp_path):
 
 
 def test_a_not_modeled_command_says_why(tmp_path):
-    """覆盖表写明原因的未实现命令：事件带原因类别、所等的能力与说明（#1037）。"""
+    """覆盖表写明原因的未实现命令：事件带原因类别、所等的能力与说明（#1037）。ADD（#1074）等
+    数学命令已实现，改用仍在等测量统计的 MTRend。"""
     s = _open(tmp_path, "keysight-uxr0334b")
     try:
-        s.write("dut", b":FUNCtion1:ADD CHANnel1,CHANnel2\n")
+        s.write("dut", b":FUNCtion1:MTRend MEAS1\n")
         e = _last(s)
         assert e["code"] == -113
         assert e["reason"] == "not_modeled"
-        assert (e["gap"], e["blocked_by"]) == ("blocked", "C5")
-        assert "math functions" in e["note"]
+        assert (e["gap"], e["blocked_by"]) == ("blocked", "measurement-statistics")
+        assert "measurement statistics" in e["note"]
         s.write("dut", b":SYSTem:CLOud:DISConnect\n")  # cloud service: out of scope (#1073)
         e = _last(s)
         assert e["gap"] == "out_of_scope" and "blocked_by" not in e

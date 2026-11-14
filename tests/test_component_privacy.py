@@ -45,7 +45,9 @@ def accesses_in(nodes: list[ast.AST]) -> list[tuple[int, str]]:
 #: Every component module's syntax-tree nodes, parsed and walked once at collection — and the
 #: private accesses read out of them there too, not in the 100 ms call phase (D49).
 TREES = [
-    (p.name, list(ast.walk(ast.parse(p.read_text(encoding="utf-8")))))
+    # only ast.Attribute nodes matter for the guard; walking them out at import keeps the
+    # test's call under the unit budget as the component library grows (#1074)
+    (p.name, [n for n in ast.walk(ast.parse(p.read_text(encoding="utf-8"))) if isinstance(n, ast.Attribute)])
     for p in sorted(COMPONENTS.glob("*.py"))
 ]
 OFFENDERS = [f"{name}:{n}: {access}" for name, nodes in TREES for n, access in accesses_in(nodes)]
