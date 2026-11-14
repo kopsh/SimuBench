@@ -530,6 +530,9 @@ class WaveformTransfer(Component):
             x_word, y_word = block.function_units(f)
         else:
             x_word, y_word = "SECond", "VOLT"  # a channel's time-domain trace
+            assert self.owner is not None
+            units = str(self.owner.get_state(f"ch{self._source(channel)}.units") or "").upper()
+            y_word = {"AMPERE": "AMP", "WATT": "WATT", "UNKNOWN": "UNKNown"}.get(units, "VOLT")
         return OpResult((x_word if str(axis).upper().startswith("X") else y_word).encode())
 
     @op("bandpass")

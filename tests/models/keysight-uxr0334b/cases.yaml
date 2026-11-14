@@ -1403,3 +1403,120 @@ cases:
       - send: ":TIMebase:REFClock OFF"
       - query: ":TIMebase:REFClock?"
         expect: "0"
+  - name: "通道反相与削波（#1067）：反相翻转读数，削波锁存读后清零、改档位重置"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:INVert; :ADC:CLIPped?; :CLIPped?; :ACQuire Commands > :ACQuire:ADC:CLIPped:CLEar; :OVLRegister?; :DISPlay Commands > :DISPlay:CLIPped"
+    steps:
+      # 反相（p.498）：波形绕 0 V 反射——带 0.1 V 直流的正弦，平均值变号、顶底互换
+      - send: ":SOURce1:VOLTage:OFFSet 0.1"
+        instrument: awg
+      - send: ":CHANnel1:SCALe 0.1;:DIGitize CHANnel1"
+      - query: ":MEASure:VAVerage? DISPlay,CHANnel1"
+        expect_value: 0.1
+        tolerance: 0.005
+      - send: ":CHANnel1:INVert ON"
+      - query: ":CHANnel1:INVert?"
+        expect: "1"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VAVerage? DISPlay,CHANnel1"
+        expect_value: -0.1
+        tolerance: 0.005
+      - query: ":MEASure:VMAX? CHANnel1"
+        expect_value: 0.1
+        tolerance: 0.02
+      - query: ":MEASure:VMIN? CHANnel1"
+        expect_value: -0.3
+        tolerance: 0.02
+      - send: ":CHANnel1:INVert OFF"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      # 削波（pp.484-485）：5 V 进入 1 mV/div 档，ADC 两端都削——ADC 状态 3（低+高）、通道状态 1；
+      # 各自读后清零
+      - send: ":SOURce1:VOLTage:OFFSet 0"
+        instrument: awg
+      - send: ":SOURce1:VOLTage:AMPLitude 5"
+        instrument: awg
+      - send: ":CHANnel1:SCALe 1E-3;:DIGitize CHANnel1"
+      - query: ":CHANnel1:ADC:CLIPped?"
+        expect: "3"
+      - query: ":CHANnel1:ADC:CLIPped?"
+        expect: "0"
+      - send: ":DIGitize CHANnel1"
+      - query: ":CHANnel1:CLIPped?"
+        expect: "1"
+      - query: ":CHANnel1:CLIPped?"
+        expect: "0"
+      # 改档位重置（p.485）：削波后改垂直档位，状态重置
+      - send: ":DIGitize CHANnel1"
+      - send: ":CHANnel1:SCALe 2E-3"
+      - query: ":CHANnel1:CLIPped?"
+        expect: "0"
+      - send: ":DIGitize CHANnel1"
+      - query: ":CHANnel1:CLIPped?"
+        expect: "1"
+      - send: ":ACQuire:ADC:CLIPped:CLEar"
+      - query: ":CHANnel1:ADC:CLIPped?"
+        expect: "0"
+      - query: ":CHANnel1:CLIPped?"
+        expect: "0"
+      # 过载寄存器（p.301）：过载检测未建模，恒 0；显示偏好存取（p.596）
+      - query: ":OVLRegister?"
+        expect: "0"
+      - send: ":DISPlay:CLIPped OFF"
+      - query: ":DISPlay:CLIPped?"
+        expect: "0"
+      - send: ":SOURce1:VOLTage:AMPLitude 0.4"
+        instrument: awg
+      - send: ":CHANnel1:SCALe 0.1"
+  - name: "探头缩放（#1067）：DIV10 改变读数，SKEW 存取，增益/耦合/外部探头与单位存取"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:PROBe:ATTenuation; :PROBe:GAIN; :PROBe:COUPling; :PROBe:SKEW; :PROBe:SKEW:AUTO; :PROBe:EXTernal*; :CHANnel<N>:UNITs"
+    steps:
+      # 探头衰减（p.518）：DIV10 把显示的探头衰减比设为 10，读数 ×10
+      - send: ":CHANnel1:SCALe 0.1;:DIGitize CHANnel1"
+      - send: ":CHANnel1:PROBe:ATTenuation DIV10"
+      - query: ":CHANnel1:PROBe:ATTenuation?"
+        expect: "DIV10"
+      # ×10 的信号在 0.1 V/div 档顶满 ADC：换到 1 V/div（满幅 8 V）再测。读数 = 4 V 正弦 +
+      # 该档噪声峰（探头衰减比 10：输入 0.1 V/div 档的 2.91 mV rms ×10 = 29.1 mV 显示，
+      # 256 kpts 的峰峰约 ±3.5σ）
+      - send: ":CHANnel1:SCALe 1;:DIGitize CHANnel1"
+      - query: ":MEASure:VPP? CHANnel1"
+        expect_value: 6.1
+        tolerance: 0.3
+      - send: ":CHANnel1:PROBe:ATTenuation DIV1"
+      - query: ":CHANnel1:PROBe:ATTenuation?"
+        expect: "DIV1"
+      # 偏斜（p.544）：该通道的记录样点随它移动（探头的延迟语义）；模型没有读触发时刻的测量，
+      # 用例只做存取（覆盖表注明）
+      - send: ":CHANnel1:PROBe:SKEW 1E-6"
+      - query: ":CHANnel1:PROBe:SKEW?"
+        expect: "+1.00000E-06"
+      - send: ":CHANnel1:PROBe:SKEW 0;:CHANnel1:PROBe:SKEW:AUTO"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      # 1154A 增益、探头耦合、外部探头（pp.520-529）：设定存值（探头硬件未建模，覆盖表注明）
+      - send: ":CHANnel1:PROBe:GAIN X10"
+      - query: ":CHANnel1:PROBe:GAIN?"
+        expect: "X10"
+      - send: ":CHANnel1:PROBe:COUPling AC"
+      - query: ":CHANnel1:PROBe:COUPling?"
+        expect: "AC"
+      - send: ":CHANnel1:PROBe:EXTernal ON"
+      - query: ":CHANnel1:PROBe:EXTernal?"
+        expect: "1"
+      - send: ":CHANnel1:PROBe:EXTernal:GAIN 2.5;:CHANnel1:PROBe:EXTernal:OFFSet 0.1"
+      - query: ":CHANnel1:PROBe:EXTernal:GAIN?"
+        expect: "+2.50000E+00"
+      - query: ":CHANnel1:PROBe:EXTernal:OFFSet?"
+        expect: "+1.00000E-01"
+      - send: ":CHANnel1:PROBe:EXTernal:UNITs AMPere"
+      - query: ":CHANnel1:PROBe:EXTernal:UNITs?"
+        expect: "AMPere"
+      # 垂直单位（p.555）：单位换算未建模；:WAVeform:YUNits? 随之回答
+      - send: ":CHANnel1:UNITs AMPere;:DIGitize CHANnel1"
+      - query: ":CHANnel1:UNITs?"
+        expect: "AMP"
+      - query: ":WAVeform:YUNits?"
+        expect: "AMP"
+      - send: ":CHANnel1:UNITs VOLT"
+      - query: ":WAVeform:YUNits?"
+        expect: "VOLT"

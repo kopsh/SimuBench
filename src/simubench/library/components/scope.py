@@ -139,6 +139,7 @@ class ScopeVertical(Component):
         "response": "first_order",
         "scale": "$ch.scale",  # V/div as displayed
         "offset": "$ch.offset",  # V as displayed
+        "invert": False,  # the waveform reflects about 0 V (:CHANnel<N>:INVert, #1067)
         "probe_ratio": 1.0,  # the probe setting the displayed scale and offset include
         "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
@@ -223,8 +224,9 @@ class ScopeVertical(Component):
         return store  # type: ignore[no-any-return]
 
     def correct(self, volts: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]:
-        """The record as the calibration constants correct it: (raw − offset) × gain, keyed by
-        the displayed V/div (the setting the store names)."""
+        """The record as the display stage shows it: the calibration's (raw − offset) × gain,
+        keyed by the displayed V/div (the setting the store names); ``invert`` negates the gain
+        (the waveform reflects about 0 V, #1067)."""
         coefficients = self.correction()
         if coefficients is None:
             return volts
@@ -232,12 +234,15 @@ class ScopeVertical(Component):
         return (volts - offset) * gain
 
     def correction(self) -> tuple[float, float] | None:
-        """The calibration's (gain, offset) now, None without a calibration store."""
+        """The display stage's (gain, offset) now: the calibration's coefficients, or (−1, 0)
+        while ``invert`` reflects the waveform about 0 V (:CHANnel<N>:INVert, #1067) — the same
+        transform a deep record applies from the tuple alone."""
         store = self._store()
-        if store is None:
-            return None
-        gain, offset = store.coefficients()
-        return float(gain), float(offset)
+        coefficients = None if store is None else store.coefficients()
+        if not V.flag(self.param("invert")):
+            return None if coefficients is None else (float(coefficients[0]), float(coefficients[1]))
+        gain, offset = (1.0, 0.0) if coefficients is None else coefficients
+        return -float(gain), float(offset)
 
     def self_calibrate(self) -> None:
         """A self-calibration's write: the coefficients that cancel this unit's gain and offset
@@ -362,6 +367,33 @@ class ScopeProbe(Component):
         if limits is not None and not float(limits[0]) <= ratio <= float(limits[1]):
             raise ScpiError(-222)
         self.owner.set_state(path, ratio)  # the display settings follow it (on_state)
+        return OpResult()
+
+    @op("set_attenuation")
+    def set_attenuation(self, query: bool = False, word: str = "", words: Any = None, **_: Any) -> OpResult:
+        """A probe attenuation given as the model's words (``DIV1``/``DIV10``, the 1154A's input
+        amplifier, #1067): the ``words`` argument maps each word to the display ratio it sets
+        (the readings change with it); the query answers the word that is set."""
+        assert self.owner is not None
+        table = {str(k).upper(): float(v) for k, v in (words or {}).items()}
+        if query:
+            ratio = round(float(self.param("ratio")), 9)
+            answer = next((w for w, r in table.items() if round(r, 9) == ratio), str(ratio))
+            return OpResult(answer.encode())
+        w = V.parse_string(word).upper() if isinstance(word, bytes) else str(word).upper()
+        if w not in table:
+            raise ScpiError(-224, f"{word}: no such attenuation ({', '.join(table) or 'none declared'})")
+        path = self.bound_path("ratio")
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: ratio names no setting")
+        self.owner.set_state(path, table[w])
+        return OpResult()
+
+    @op("skew_auto")
+    def skew_auto(self, **_: Any) -> OpResult:
+        """``:CHANnel<n>:PROBe:SKEW:AUTO``: the deskew against the probe's own compensation signal.
+        The model has no compensation signal to compare against (no probe identification), so
+        the command parses and the skew keeps its value (#1067)."""
         return OpResult()
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
@@ -1514,6 +1546,10 @@ class ScopeAcquisition(Component):
         super().__init__(*args, **kwargs)
         self.records: dict[int, Record] = {}
         self.segment_records: list[dict[int, Record]] = []  # the latest acquisition's segments, if segmented
+        # the ADC's clip detectors' latches per channel (#1067): the ADC status (:ADC:CLIPped?,
+        # low/high, read clears) and the channel's own (:CLIPped?, 0/1, read clears and a scale or
+        # offset change away from the latched (scale, offset) resets it)
+        self.clip_latches: dict[int, dict[str, Any]] = {}
         self.acq_count = 0
         self.running = True
         self.armed = False
@@ -1743,7 +1779,9 @@ class ScopeAcquisition(Component):
             deep = self._deep(n, request)
             volts = None
             if deep is None:
-                volts = self.vertical_of(n).correct(self.input_frames(f"in{n}", request).data)
+                frames = self.input_frames(f"in{n}", request)
+                volts = self.vertical_of(n).correct(frames.data)
+                self._latch_clip(n, frames)
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,
@@ -1763,6 +1801,58 @@ class ScopeAcquisition(Component):
             used = points * int(self.trigger_unit().param("search_windows")) * dt
         used = used * self._averages() + float(self.param("overhead_s"))
         return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
+
+    def _latch_clip(self, n: int, frame: Any) -> None:
+        """The ADC's clip detectors latch a channel's clipping until it is read or cleared
+        (:CHANnel<N>:ADC:CLIPped? / :CHANnel<N>:CLIPped?, #1067). Only a record computed whole
+        carries the ADC's codes; a deep one computes at read and does not latch."""
+        if not frame.clipped:
+            return
+        fmt = frame.fmt
+        if fmt.bits <= 0:
+            return
+        half, lsb = 1 << (fmt.bits - 1), float(fmt.lsb)
+        at = self.scale_offset(n)
+        latch = self.clip_latches.setdefault(n, {"adc_low": False, "adc_high": False, "low": False, "at": at})
+        low = bool(np.min(frame.data) <= -half * lsb)
+        high = bool(np.max(frame.data) >= (half - 1) * lsb)
+        latch["adc_low"] |= low
+        latch["adc_high"] |= high
+        latch["low"] |= low or high
+        latch["at"] = at
+
+    @op("adc_clip_status")
+    def adc_clip_status(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``:CHANnel<n>:ADC:CLIPped?``: whether the ADC clipped low, high or both since the last
+        read or clear — 0, 1, 2 or 3; reading resets it (the guide, p. 484)."""
+        n = channel or 1
+        latch = self.clip_latches.get(n)
+        code = (2 if latch is not None and latch["adc_high"] else 0) + (
+            1 if latch is not None and latch["adc_low"] else 0
+        )
+        if latch is not None:
+            latch["adc_low"] = latch["adc_high"] = False
+        return OpResult(str(code).encode())
+
+    @op("clipped_status")
+    def clipped_status(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``:CHANnel<n>:CLIPped?``: whether the channel clipped at least once (0 or 1) since the
+        last read or clear; reading resets it, and so does a change of the channel's scale or
+        offset (the guide, p. 485)."""
+        n = channel or 1
+        latch = self.clip_latches.get(n)
+        code = 0
+        if latch is not None and latch["low"]:
+            code = 1 if latch["at"] == self.scale_offset(n) else 0
+            latch["low"] = False  # the read resets it (a scale or offset change resets it too)
+        return OpResult(str(code).encode())
+
+    @op("clear_clip")
+    def clear_clip(self, **_: Any) -> OpResult:
+        """``:ACQuire:ADC:CLIPped:CLEar``: the clipping status of every channel clears at once
+        (the guide, p. 319)."""
+        self.clip_latches.clear()
+        return OpResult()
 
     def _deep(self, n: int, request: FrameRequest) -> DeepRecord | None:
         """Channel n's record for ``request`` as a deep record — the chain captured, nothing

@@ -495,6 +495,8 @@ state:
   display.bookmark_label: {type: string, default: "", label: 书签标签, label_en: Bookmark label}
   display.bookmark_x: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签横位置, label_en: Bookmark x}
   display.bookmark_y: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签纵位置, label_en: Bookmark y}
+  # 显示 ADC 削波提示（:DISPlay:CLIPped，手册 p.596）：不影响削波检测本身（手册原文），纯显示偏好。
+  display.clipped: {type: bool, default: true, label: 显示削波提示, label_en: Show ADC clipping}
   # ---- 数学函数（#1074，手册第 22 章）：FUNCtion1-16 的定义存放在 function<f>.* 设置里，
   # 波形在读的时候从源记录算出（scope_math）。手册未给默认值的条目为 SimuBench 值，覆盖表注明。
   function.peak_sort:
@@ -1083,6 +1085,67 @@ channel_state:
     default: false
     label: 显示
     label_en: Display
+  # 反相（:CHANnel<N>:INVert，#1067）：波形绕 0 V 反射——记录样点取负，测量随读数翻转（用例证明）。
+  invert:
+    type: bool
+    default: false
+    label: 反相
+    label_en: Invert
+  # 通道垂直单位（:CHANnel<N>:UNITs，#1067）：VOLT/AMPere/WATT/UNKNown；单位的换算显示未建模，
+  # :WAVeform:YUNits? 随之回答（覆盖表注明）。
+  units:
+    type: enum
+    options: [VOLT, AMPere, WATT, UNKNown]
+    default: VOLT
+    label: 垂直单位
+    label_en: Vertical units
+  # 探头衰减（:CHANnel<N>:PROBe:ATTenuation DIV1|DIV10，#1067）：显示假设的探头衰减比（DIV1=1、
+  # DIV10=10），读数随之改变（用例证明）。手册限定 1154A 探头（未接报 settings conflict）；
+  # 模型按通用探头建模，无探头识别（覆盖表注明）。
+  probe:
+    type: float
+    min: 1.0e-9
+    max: 1.0e9
+    default: 1.0
+    label: 探头衰减比
+    label_en: Probe attenuation
+  # 探头通道间偏斜（:CHANnel<N>:PROBe:SKEW，#1067）：该通道记录滞后这么多秒（采样提前），读数的
+  # 时间原点随之移动（用例证明）。
+  probe_skew:
+    type: float
+    unit: S
+    min: -1.0e-3
+    max: 1.0e-3
+    default: 0.0
+    label: 探头偏斜
+    label_en: Probe skew
+  # 1154A 探头的放大器增益与探头耦合（#1067）：探头硬件未建模，设定存值（覆盖表注明）。
+  probe_gain:
+    type: enum
+    options: [X1, X10]
+    default: X1
+    label: 探头增益
+    label_en: Probe gain
+  probe_coupling:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: 探头耦合
+    label_en: Probe coupling
+  # 外部探头模式及其增益/偏置/单位（#1067）：外部信号调理未建模，设定存值（覆盖表注明）。
+  probe_external:
+    type: bool
+    default: false
+    label: 外部探头
+    label_en: External probe
+  probe_ext_gain: {type: float, default: 1.0, label: 外部探头增益, label_en: External gain}
+  probe_ext_offset: {type: float, unit: V, default: 0.0, label: 外部探头偏置, label_en: External offset}
+  probe_ext_units:
+    type: enum
+    options: [VOLT, AMPere, WATT, UNKNown]
+    default: VOLT
+    label: 外部探头单位
+    label_en: External units
   # 1 mV/div 到 1 V/div（3.5 mm 输入型号的显示灵敏度，数据手册）；默认设置 1 V/div。
   scale:
     type: float
@@ -1396,6 +1459,8 @@ channel_components:
     type: scope_vertical
     params:
       coupling: DC
+      invert: $ch.invert
+      probe_ratio: $ch.probe
       bandwidth: 3.3e10
       bw_limit: true
       bw_limit_hz: $acquire.bandwidth
@@ -1428,7 +1493,8 @@ channel_components:
   - name: probe
     type: scope_probe
     params:
-      ratio: 1.0
+      ratio: $ch.probe
+      skew: $ch.probe_skew
 wiring:
   channel:
     - [inp.out, front.in]
@@ -1528,6 +1594,8 @@ commands:
   # 存储深度/采样率的 AUTO 控制（手册 pp.339/352）：查询回是否在 AUTO 值上；OFF 把当前值定为手动。
   - {header: ":ACQuire:POINts:AUTO", op: acq.points_auto, params: [{name: "on", type: bool, optional: true}]}
   - {header: ":ACQuire:SRATe[:ANALog]:AUTO", op: acq.srate_auto, params: [{name: "on", type: bool, optional: true}]}
+  # 削波状态（#1067）：ADC 的削波检测锁存每通道的低/高削波，读后清零（手册 p.484），CLEar 全清（p.319）。
+  - {header: ":ACQuire:ADC:CLIPped:CLEar", op: acq.clear_clip, query: false}
   # ---- 分段存储（:ACQuire:SEGMented，手册第 15 章，#1066）---------------------------------------------
   - {header: ":ACQuire:SEGMented:AUToplay", state: acquire.segmented_autoplay}
   - {header: ":ACQuire:SEGMented:COUNt", state: acquire.segmented_count}
@@ -1540,6 +1608,26 @@ commands:
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
   - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0}
   - {header: ":CHANnel<ch>:OFFSet", state: ch.offset}
+  # 反相（手册 p.498）：波形绕 0 V 反射，测量随读数翻转（用例证明）。
+  - {header: ":CHANnel<ch>:INVert", state: ch.invert}
+  # 垂直单位（手册 p.531）：单位的换算显示未建模；:WAVeform:YUNits? 随之回答。
+  - {header: ":CHANnel<ch>:UNITs", state: ch.units}
+  # 探头缩放（手册 pp.518-530，#1067）：DIV1/DIV10 写通道的探头衰减比（读数随之改变，用例证明）；
+  # SKEW 把该通道的记录推迟这么多秒（时间原点随之移动，用例证明）。其余为 1154A/外部探头的
+  # 设定存值（探头硬件未建模，覆盖表注明）。
+  - {header: ":CHANnel<ch>:PROBe:ATTenuation", op: ch.probe.set_attenuation, params: [{name: word, type: string, optional: true}], args: {words: {DIV1: 1.0, DIV10: 10.0}}}
+  - {header: ":CHANnel<ch>:PROBe:COUPling", state: ch.probe_coupling}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal", state: ch.probe_external}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:GAIN", state: ch.probe_ext_gain}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:OFFSet", state: ch.probe_ext_offset}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:UNITs", state: ch.probe_ext_units, format: {enum: as_defined}}
+  - {header: ":CHANnel<ch>:PROBe:GAIN", state: ch.probe_gain}
+  - {header: ":CHANnel<ch>:PROBe:SKEW", state: ch.probe_skew}
+  - {header: ":CHANnel<ch>:PROBe:SKEW:AUTO", op: ch.probe.skew_auto, query: false}
+  # 过载事件寄存器（手册 p.301）：过载检测未建模，恒回 0。
+  - {header: ":OVLRegister", op: sys.accept, set: false, reply: "0"}
+  - {header: ":CHANnel<ch>:ADC:CLIPped", op: acq.adc_clip_status, set: false}
+  - {header: ":CHANnel<ch>:CLIPped", op: acq.clipped_status, set: false}
   - {header: ":CHANnel<ch>:INPut", state: ch.input}
   - {header: ":CHANnel<ch>:DISPlay", state: ch.display}
   - {header: ":CHANnel<ch>:LABel", state: ch.label}
@@ -1573,6 +1661,7 @@ commands:
   - {header: ":DISPlay:SCOLor", op: sys.accept, reply: "{display.scolor_hue},{display.scolor_saturation},{display.scolor_luminosity}", params: [{name: name, type: string}, {name: hue, type: int, min: 0, max: 100, optional: true, state: display.scolor_hue}, {name: saturation, type: int, min: 0, max: 100, optional: true, state: display.scolor_saturation}, {name: luminosity, type: int, min: 0, max: 100, optional: true, state: display.scolor_luminosity}]}
   - {header: ":DISPlay:STATus:COLumn", state: display.status_column}
   - {header: ":DISPlay:STATus:ROW", state: display.status_row}
+  - {header: ":DISPlay:CLIPped", state: display.clipped}
   # 主题（手册 p.634）：回复带引号的完整词（手册 {"Midnight" | "Platinum"}）。
   - {header: ":DISPlay:THEMe", state: display.theme, format: {enum: as_defined}, reply: '"{value}"'}
   - {header: ":DISPlay:WINDow:MAXimize", state: display.window_maximize, query: false}
