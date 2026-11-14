@@ -7,19 +7,19 @@ version: 1
 description: >-
   Keysight Infiniium UXR0334B, 4 channels, 33 GHz, 128 GSa/s, 10-bit ADC, 50 ohm inputs. Real model
   (D42): commands, replies and default-setup values follow the Infiniium UXR-Series Oscilloscopes
-  Programmer's Guide 11.60.00000 (9018-07723); ranges follow the UXR-B data sheet 3123-1313. The
+  Programmer's Guide 11.80.00012 (9018-07723); ranges follow the UXR-B data sheet 3123-1313. The
   Infiniium dialect next to the InfiniiVision DSO-X 2024A (#338). Values neither document gives are
   SimuBench defaults, listed in the coverage table.
 reference:
   title: Keysight Infiniium UXR-Series Oscilloscopes Programmer's Guide
   document: 9018-07723
-  version: "Version 11.60.00000, March 2024"
-  firmware: "Infiniium UXR-Series software 11.60"
+  version: "Version 11.80.00012, September 2026"
+  firmware: "Infiniium UXR-Series software 11.80"
 identity:
   # *IDN? per the guide: Keysight Technologies,<Model #>,<USXXXXXXXX>,<Rev #>[,<Options>].
   idn: "Keysight Technologies,UXR0334B,{serial},{firmware}"
   serial: MY64280101
-  firmware: "11.60.00000"
+  firmware: "11.80.00012"
 # :SYSTem:ERRor? is the model's own command (a number, or with STRing the number and the text).
 builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
 # The guide: the error queue is 30 errors deep.
