@@ -30,6 +30,8 @@
 | math | `scope_math` | 数据(读的时候从源记录算出:逐点运算 ADD/SUBTract/MULTiply/DIVide/COMMonmode/ABSolute/INVert/SQUare/SQRT/MAGNify、LN/LOG/EXP/TEN/LINear(Ax+B)、延迟与门控、微分/积分(含直流校正)/平滑/平均/桶极值、单极点高通与 4 阶 Bessel 低通、加窗 FFT(幅度 dBm/dBV 系/功率/VRMS、相位、PSD)、g(t) 源(GOFT)、FFT 峰值标注与 :MEASure:FFT:*(峰频率/幅度、差值、通道功率、PSD、OBW、THD),#1074;函数定义在 function<f>.* 设置里,传输与测量经 `MathSource` 协议取记录) | 已实现(UXR1104B、UXR0334B、DSOX 2024A 接入) | 幅度解调 ADEMod、测量趋势/直方图、码型平均、X-Y 显示、用户自定义算子未建模;SDS 2104X Plus、WavePro 804HD 尚未接入(EXEMPT 债表,#1159/#1160) |
 | waveform_transfer | `waveform_transfer` | 数据(信源可为 FUNCtion<F>:经 `MathSource` 协议从 `scope_math` 取函数记录,#1074) | 已实现 | — |
 
+前面板校准输出(AUX OUT / CAL OUT,#1170):`cal_output`(信号:`selection` 取 `:CALibrate:OUTPut` 存下的选择,`port` 分 `cal`/`aux`,`rise` 限 AUX 沿的带宽)经 `output_stage` 出到仪器端口 `AUX_OUT`、`CAL_OUT`(可接另一台仪表)。不是功能块(不进块清单、不进 EXEMPT):只有带这些输出的型号(UXR0334B、UXR1104B)使用。DC、ZERO(−440 mV)、探补方波(750 Hz)、97 MHz / 7.5 MHz 时钟方波已实现;TOUT(需高带宽触发选件)与 DPULse/NDPULse 停在 ZERO 电平,未建模。
+
 内置型号:DSOX 2024A、SDS 2104X Plus、WavePro 804HD 豁免 math 块(EXEMPT 债表,上面注明);其余全覆盖。
 
 ## sampling_oscilloscope(等效时间采样示波器,#1094)

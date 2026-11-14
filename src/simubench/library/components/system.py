@@ -7,6 +7,7 @@ from typing import Any
 from ...engine.component import Component, OpResult, component, op
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .cal_output import DC_MAX, WORDS
 
 
 @component("system")
@@ -98,7 +99,7 @@ class System(Component):
         """``:CALibrate:OUTPut``: the front-panel output's signal (the guide, p. 473) — the DC form
         carries the level and the query answers them together, so the setting at ``path`` stores
         the composed reply and the command's reply template answers a query. The signal itself is
-        not modeled (#1170)."""
+        sets the signal the ``cal_output`` components drive (#1170)."""
         assert self.owner is not None
         if query:
             return OpResult(b"")
@@ -107,6 +108,10 @@ class System(Component):
         owner = self.owner
         word = V.parse_string(signal).upper() if isinstance(signal, bytes) else str(signal).upper()
         word = {"PROBECOMP": "PROB", "DPULSE": "DPUL", "NDPULSE": "NDPUL"}.get(word, word)
+        if word not in WORDS:
+            raise ScpiError(-224, f"calibration output signal {word!r} is not one of {', '.join(WORDS)}")
+        if dc is not None and (word != "DC" or abs(float(dc)) > DC_MAX):
+            raise ScpiError(-222, f"the DC level is within ±{DC_MAX:g} V (CAL OUT) and only follows DC")
         level = "" if dc is None else "," + owner.format_number(float(dc)).decode().strip()
         value = f"{word}{level}"
         self.owner.set_state(path, value)

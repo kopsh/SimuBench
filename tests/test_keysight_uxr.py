@@ -157,3 +157,76 @@ def test_the_records_time_origin_scatters_by_the_jitter_spec(scope):
         origins.append(session.instruments["scope"].components["acq"].records[1].origin)
     lo, hi = sigma_interval(2.5e-14, len(origins))
     assert lo <= float(np.std(origins)) <= hi, (float(np.std(origins)), lo, hi)
+
+
+@pytest.mark.parametrize("def_id", ["keysight-uxr0334b", "keysight-uxr1104b"])
+def test_the_front_panel_outputs_drive_what_a_second_scope_measures(tmp_path, def_id):
+    """#1170: one UXR's CAL OUT and AUX OUT carry the :CALibrate:OUTPut signal into another's
+    50 ohm input — DC levels (CAL's commanded, AUX's fixed ZERO of -440 mV, guide p. 473), the
+    enables, and the 750 Hz probe-compensation square."""
+    bench = {
+        "schema": "simubench.bench/2",
+        "name": "uxr_cal_out",
+        "instruments": {"src": {"model": def_id}, "scope": {"model": def_id}},
+        "wires": [{"from": "src.CAL_OUT", "to": "scope.CH1"}],
+        "run": {"seed": 1, "clock": "command", "idle": "off"},
+    }
+    path = tmp_path / "bench.yaml"
+    path.write_text(yaml.safe_dump(bench), "utf-8")
+    rm = pyvisa.ResourceManager(f"{path}@simubench")
+    try:
+        src = rm.open_resource("src", read_termination="\n", write_termination="\n", timeout=5000)
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+        uxr.write(":ACQuire:POINts 2000;:CHANnel1:SCALe 0.2;:TIMebase:SCALe 2e-4")
+
+        def read() -> np.ndarray:
+            uxr.write(":DIGitize CHANnel1")
+            return np.asarray(reader.read_waveform(uxr, "CHANnel1")[1])
+
+        tol = 6e-3  # five sigma of the 200 mV/div noise on 2000 samples, and the code step
+        assert abs(read().mean()) < tol  # the output is off at power-up
+        src.write(":CALibrate:OUTPut DC,0.5;:CALibrate:OUTPut:CAL ON")
+        assert abs(read().mean() - 0.5) < tol  # the commanded level, into 50 ohm
+        src.write(":CALibrate:OUTPut ZERO")
+        assert abs(read().mean() + 0.44) < tol  # ZERO: -440 mV
+        src.write(":CALibrate:OUTPut:CAL OFF")
+        assert abs(read().mean()) < tol  # disabled again
+        src.write(":CALibrate:OUTPut PROBecomp;:CALibrate:OUTPut:CAL ON")
+        volts = read()
+        # a 0 to 0.5 V square: the 750 Hz spends half the time at each level
+        assert abs(volts.mean() - 0.25) < 0.02
+        assert np.percentile(volts, 10) < 0.05 and np.percentile(volts, 90) > 0.45
+        src.write(":CALibrate:OUTPut DC,2")
+        assert src.query(":SYSTem:ERRor?").startswith("-222")  # beyond ±1.2 V
+        src.write(":CALibrate:OUTPut NOPE")
+        assert src.query(":SYSTem:ERRor?").startswith("-224")
+    finally:
+        rm.close()
+
+
+def test_the_aux_output_has_its_own_enable_and_a_fixed_dc_level(tmp_path):
+    bench = {
+        "schema": "simubench.bench/2",
+        "name": "uxr_aux_out",
+        "instruments": {"src": {"model": "keysight-uxr0334b"}, "scope": {"model": "keysight-uxr0334b"}},
+        "wires": [{"from": "src.AUX_OUT", "to": "scope.CH1"}],
+        "run": {"seed": 1, "clock": "command", "idle": "off"},
+    }
+    path = tmp_path / "bench.yaml"
+    path.write_text(yaml.safe_dump(bench), "utf-8")
+    rm = pyvisa.ResourceManager(f"{path}@simubench")
+    try:
+        src = rm.open_resource("src", read_termination="\n", write_termination="\n", timeout=5000)
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+        uxr.write(":ACQuire:POINts 2000;:CHANnel1:SCALe 0.2")
+
+        def read() -> float:
+            uxr.write(":DIGitize CHANnel1")
+            return float(np.mean(reader.read_waveform(uxr, "CHANnel1")[1]))
+
+        src.write(":CALibrate:OUTPut DC,0.5;:CALibrate:OUTPut:CAL ON")
+        assert abs(read()) < 4e-3  # CAL is on, but the cable is on AUX, which is off
+        src.write(":CALibrate:OUTPut:AUX ON")
+        assert abs(read() + 0.44) < 4e-3  # AUX's DC is the fixed ZERO level whatever the level asked
+    finally:
+        rm.close()

@@ -713,21 +713,17 @@ sections:
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
   - header: :CALibrate:OUTPut
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: 'p. 473: selects the signal the AUX OUT / CAL OUT connectors carry (cal_output component, #1170): DC (CAL OUT''s level within ±1.2 V; AUX OUT''s DC is the ZERO level, −440 mV), ZERO, ONE, PROBecomp (750 Hz square), MHZ97 and MHZ7_5 (clock squares); the query answers the guide''s short forms (PROB, DPUL, NDPUL). TOUT (needs the high-bandwidth trigger option) and DPULse/NDPULse idle at the ZERO level — not modeled. Levels other than ZERO''s, the 750 Hz and the 50 ohm output impedance are SimuBench values. A level beyond ±1.2 V is -222; an unknown word -224.'
   - header: :CALibrate:OUTPut:AUX
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: 'p. 475: enables the AUX OUT connector (an output_stage); off, the pin floats.'
   - header: :CALibrate:OUTPut:AUX:RTIMe
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: 'p. 476: FAST or SLOW limits the AUX OUT edges'' bandwidth (2 GHz / 200 MHz, SimuBench values, visible on the periodic selections); the *RST value is not in the manual, FAST is a SimuBench value.'
   - header: :CALibrate:OUTPut:CAL
-    level: not_modeled
-    note: 'Model work: front-panel calibrator/aux output as a signal source.'
-    gap: model_work
+    level: implemented
+    note: 'p. 477: enables the CAL OUT connector (an output_stage); off, the pin floats.'
   - header: :CALibrate:SKEW
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
