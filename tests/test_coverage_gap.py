@@ -8,7 +8,12 @@ from pydantic import ValidationError
 from helpers import raises_with
 from simubench.engine.coverage_advice import CoverageAdvisor
 from simubench.library.coverage import Coverage, CoverageEntry
-from simubench.library.loader import DefinitionLibrary
+from simubench.library.loader import (
+    BUILTIN_DIR,
+    COVERAGE_SUFFIX,
+    DefinitionLibrary,
+    _read_yaml,
+)
 from simubench.scpi.parse import Pattern, parse_unit
 
 LIB = DefinitionLibrary()
@@ -45,6 +50,19 @@ def test_gap_stats_count_untriaged_commands_apart():
         ],
     )
     assert cov.gap_stats() == {"out_of_scope": 1, "blocked": 1, "model_work": 0, "untriaged": 1}
+
+
+def test_every_builtin_not_modeled_command_carries_its_gap():
+    """All built-in tables are triaged (#1037): a not_modeled entry without a gap is a regression —
+    an out-of-date branch overwriting a table silently loses the reasons and the -113 event
+    degrades to a bare not_modeled (#1154). A new table merges only fully triaged."""
+    bare = [
+        f"{p.stem}: {c.header}"
+        for p in sorted(BUILTIN_DIR.glob(f"*{COVERAGE_SUFFIX}"))
+        for _sec, c in Coverage.model_validate(_read_yaml(p)).entries()
+        if c.level == "not_modeled" and not (c.gap or "").strip()
+    ]
+    assert bare == []
 
 
 def test_the_advisor_hands_over_the_entry_with_its_gap():

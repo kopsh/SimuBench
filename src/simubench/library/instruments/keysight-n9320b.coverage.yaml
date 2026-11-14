@@ -48,44 +48,91 @@ sections:
     note: Applies to marker 1.
   - header: :CALCulate:AUTOtune
     level: not_modeled
+    note: 'Model work: the peak search exists; AUTOTune moves the center to the found peak.'
+    gap: model_work
   - header: :CALCulate:BWIDth|BANDwidth:NDB
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:BWIDth|BANDwidth[:STATe]
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:BWIDth|BANDwidth:RESult
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:CLIMits:FAIL
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe:ALL:DELete
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:DATA
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:DELete
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:DISPlay
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:FAIL
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:STATe
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:MARGin
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:MARGin:STATe
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:LLINe[1]|2:TYPE
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
   - header: ':CALCulate:MARKer:AOFF'
     level: implemented
     note: 'Turns the marker off and back to normal mode (#274).'
   - header: :CALCulate:MARKer[n]:CPEak[:STATe]
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer:FCOunt:RESolution
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer:FCOunt:RESolution:AUTO
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: ':CALCulate:MARKer<m>:FCOunt[:STATe]'
     level: implemented
     note: 'Marker counter switch, off after *RST; FCOunt:X? reads 0 while off (#274).'
@@ -106,110 +153,194 @@ sections:
     note: 'POSition or DELTa; DELTa fixes a reference marker where the marker is, Y? then reads the level difference in dB (#274). A marker that is off turns on first (screen center) and the reference is fixed at that same point, so the delta pair starts at 0/0 (#349). Whether re-sending DELTa while already in DELTa fixes the reference again is not verifiable from the manuals at hand; the model does not re-fix it.'
   - header: :CALCulate:MARKer:PEAK:THReshold:STATe
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n]:PTPeak
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n]:PHNoise:[STATe]
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer:PHNoise:Y
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer:PHNoise:OFFSet:FREQuency
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer:PHNoise:OFFSet:FRRQuency
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer:PHNoise:OFFSet
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer:PHNoise:OPTimize
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n][:SET]:CENTer
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n][:SET]:RLEVel
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n][:SET]:STARt
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n][:SET]:STEP
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n][:SET]:STOP
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: ':CALCulate:MARKer<m>:STATe'
     level: implemented
     note: 'Marker on/off, off after *RST; turning it on puts it at the center; peak search and X turn it on; reading an off marker is -221 (#274).'
   - header: :CALCulate:MARKer:TABLe:STATe
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n]:TRACe
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n]:TRACe:AUTO
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n]:TRCKing[:STATe]
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n]:X:CENTer
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: ':CALCulate:MARKer<m>:X:DELTa'
     level: implemented
     note: 'Frequency from the fixed reference marker in delta mode; 0 in normal mode (#274).'
   - header: :CALCulate:MARKer[n]:X:REFerence
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:MARKer[n]:X:SPAN
     level: not_modeled
-    note: 'Marker functions beyond one normal marker are not modeled; the capability issue is #274 (under #181).'
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
   - header: :CALCulate:NTData[:STATe]
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace measurements — markers, bandwidth measurement, channel-power limits and limit lines.'
+    gap: blocked
+    blocked_by: C6
 - section: CALibration Subsystem
   commands:
   - header: :CALibration[:ALL]
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibration:FREQuency:REFerence:COARse
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
   - header: :CALibration:SOURce:STATe
     level: not_modeled
+    note: 'Out of scope: calibration and service procedures that need real hardware.'
+    gap: out_of_scope
 - section: CONFigure Subsystem
   commands:
   - header: :CONFigure:ACPower
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :CONFigure:CHPower
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :CONFigure:OBWidth
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :CONFigure:SANalyzer
     level: not_modeled
+    note: 'Model work: the base spectrum-analyzer mode is implemented; SANALYZer exits the measurement back to it.'
+    gap: model_work
   - header: :CONFigure:SEMask
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :CONFigure:TOI
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :CONFigure:AM|FM|ASK|FSK
     level: not_modeled
+    note: 'Out of scope: measurement application (C17, product-plan.md section 6): the AM/FM/ASK/FSK demodulation application.'
+    gap: out_of_scope
   - header: :CONFigure:POWermeter
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the external power-sensor mode — the generic capability is #1128 (there on a source; the analyzer side is the same).'
+    gap: blocked
+    blocked_by: power-sensor
   - header: :CONFigure:TGENerator
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the tracking generator option — #1135.'
+    gap: blocked
+    blocked_by: tg-source
   - header: :CONFigure
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): places the analyzer in a one-button power measurement state.'
+    gap: blocked
+    blocked_by: C6
 - section: DEMod Subsystem
   commands:
   - header: :DEMod:AM:STATe
     level: not_modeled
+    note: 'Out of scope: measurement application (C17, product-plan.md section 6): analog demodulation and its markers.'
+    gap: out_of_scope
   - header: :DEMod:FM:STATe
     level: not_modeled
+    note: 'Out of scope: measurement application (C17, product-plan.md section 6): analog demodulation and its markers.'
+    gap: out_of_scope
   - header: :DEMOd:MARKer[1]|2|3|...|12:STATe
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): marker functions beyond one normal marker (peak table, phase-noise marker, marker-to-center tracking).'
+    gap: blocked
+    blocked_by: C6
 - section: DISPlay Subsystem
   commands:
   - header: :DISPlay:WINDow[:TRACe]:Y[:SCALe]:RLEVel
@@ -252,36 +383,80 @@ sections:
     note: LOGarithmic only.
   - header: :DISPlay:WINDow:TRACe:X[:SCALe]:OFFSet
     level: not_modeled
+    note: 'Model work: display-only frequency offset; candidate for accepted (affects_data: false).'
+    gap: model_work
 - section: FETCh Subsystem
   commands:
   - header: :FETCh:ACPower
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:ACPower:LOWer
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:ACPower:UPPer
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:ACPower:MAIN
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:CHPower
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:CHPower:CHPower
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:CHPower:DENSity
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:OBWidth
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:OBWidth:OBWidth
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:OBWidth:OBWidth:FERRor
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:OBWidth:XDB
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:SEMask
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:TOIntercept
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :FETCh:TOIntercept:IP3
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
 - section: INITiate Subsystem
   commands:
   - header: :INITiate:CONTinuous
@@ -292,63 +467,123 @@ sections:
   commands:
   - header: :MMEMory:CATalog
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069); not wired in this model.'
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:DELete
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069); not wired in this model.'
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:LOAD:LIMit
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Blocked by C6 (product-plan.md 4.2): limit lines and their files.'
+    gap: blocked
+    blocked_by: C6
   - header: :MMEMory:LOAD:STATe
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Capability gap (not in product-plan.md 4.2): setup files (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :MMEMory:STORe:STATe
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Capability gap (not in product-plan.md 4.2): setup files (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :MMEMory:LOAD:TRACe
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Capability gap (not in product-plan.md 4.2): traces saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
   - header: :MMEMory:STORe:LIMit
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Blocked by C6 (product-plan.md 4.2): limit lines and their files.'
+    gap: blocked
+    blocked_by: C6
   - header: :MMEMory:STORe:SCReen
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
+    gap: blocked
+    blocked_by: screenshot
   - header: :MMEMory:STORe:TRACe
     level: not_modeled
-    note: 'No file system: saving, recalling and cataloguing are not modeled.'
+    note: 'Capability gap (not in product-plan.md 4.2): traces saved as files (data_file, #1071); not wired in this model.'
+    gap: blocked
+    blocked_by: data-file
 - section: OUTPut Subsystem
   commands:
   - header: :OUTPut[:STATe]
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): the tracking generator output — #1135.'
+    gap: blocked
+    blocked_by: tg-source
 - section: READ Subsystem
   commands:
   - header: :READ:ACPower:LOWer
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:ACPower:UPPer
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:ACPower:MAIN
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:CHPower
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:CHPower:CHPower
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:CHPower:DENSity
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:OBWidth
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:OBWidth:OBWidth
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:OBWidth:OBWidth:FERRor
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:OBWidth:XDB
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:SEMask
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:TOIntercept
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
   - header: :READ:TOIntercept:IP3
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements (ACP, channel power, OBW, SEM, TOI).'
+    gap: blocked
+    blocked_by: C6
 - section: SENSe Subsystem
   commands:
   - header: '[:SENSe]:FREQuency:CENTer'
@@ -414,179 +649,386 @@ sections:
     note: The count of the average trace mode (:TRACe:MODE AVERage).
   - header: '[:SENSe]:ACPower:AVERage:COUNt'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:AVERage:[:STATe]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:AVERage:TCONtrol'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:BANDwidth|BWIDth:INTegration'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:CARRier:AUTO[:STATe]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:CARRier[:POWer]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:LIMit[:STATe]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:METHod'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:OFFSet:LIST[:FREQuency]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:OFFSet:LIST:STATe'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:ACPower:TYPE'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:CHPower:AVERage:COUNt'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:CHPower:AVERage[:STATe]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:CHPower:AVERage:TCONrol'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:CHPower:BANDwidth|BWIDth:INTegration'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:CHPower:FREQuency:SPAN'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:CORRection:OFFSet[:MAGNitude]'
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): amplitude correction data sets (CORRection) — #1125.'
+    gap: blocked
+    blocked_by: correction
   - header: '[:SENSe]:CORRection:IMPedance[:INPut][:MAGNitude]'
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): amplitude correction data sets (CORRection) — #1125.'
+    gap: blocked
+    blocked_by: correction
   - header: '[:SENSe]:DEMod:STATe'
     level: not_modeled
+    note: 'Out of scope: measurement application (C17, product-plan.md section 6): analog demodulation.'
+    gap: out_of_scope
   - header: '[:SENSe]:DEMod:TIME'
     level: not_modeled
+    note: 'Out of scope: measurement application (C17, product-plan.md section 6): analog demodulation.'
+    gap: out_of_scope
   - header: '[:SENSe]:OBWidth:AVERage:COUNt'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:OBWidth:AVERage[:STATe]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:OBWidth:AVERage:TCONrol'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:OBWidth:FREQuency:SPAN'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:OBWidth:MAXHold'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:OBWidth:PERCent'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:OBWidth:XDB'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:TOI:AVERage:COUNt'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:TOI:AVERage[:STATe]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:TOI:AVERage:TCONrol'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:TOI:FREQuency:MIXer:RANGe[:UPPer]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:TOI:FREQuency:MIXer:RANGe:AUTO'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:TOI:FREQuency:SPAN'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:AVERage:COUNt'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:AVERage[:STATe]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:BANDwidth|BWIDth:INTegration'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:FREQuency:SPAN'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:FREQuency:STARt'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:STATe'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:FREQuency:STOP'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:SWEeptime'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:SWEeptime:AUTO'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:STARt:ABSolute'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:STARt:RCARrier'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:STOP:ABSolute:COUPle'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:STOP:RCARrier:COUPle'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet:LIST:TEST'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:OFFSet[n]:LIST:TEST'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:SWEeptime'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:SEMask:SWEeptime:AUTO'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
   - header: '[:SENSe]:AVERage[:STATe]'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:AVERage:TYPE:AUTO'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:AVERage:TYPE'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:BANDwidth|BWIDth:VIDeo:RATio'
     level: not_modeled
+    note: 'Model work: the VBW:RBW ratio is fixed at 1 (the auto rule); store and return the setting.'
+    gap: model_work
   - header: '[:SENSe]:BANDwidth|BWIDth:VIDeo:RATio:AUTO'
     level: not_modeled
+    note: 'Model work: the VBW:RBW ratio is fixed at 1 (the auto rule); store and return the setting.'
+    gap: model_work
   - header: '[:SENSe]:DETector:AUTO'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:FREQuency:CENTer:STEP:AUTO'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:FREQuency:CENTer:STEP[:INCRement]'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:FREQuency:SPAN:FULL'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:FREQuency:SPAN:PREVious'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:POWer[:RF]:ATTLimit:STATe'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:POWer[:RF]:GAIN[:STATe]'
     level: implemented
     note: 'The preamplifier, option P03 (data sheet p.3: 1 MHz to 3 GHz, 18 dB nominal; #960): an instance with options: [P03] switches 18 dB of gain ahead of the mixer; its own noise figure is taken as 0 dB (the data sheet gives none; its preamp-on DANL is the preamp-off DANL minus 18 dB in five of seven bands), so the floor drops by 18 dB. A unit without P03 answers 0 to the query and -241 to a set, and OFF after *RST: both SimuBench assumptions (the guide is not in the repository).'
   - header: '[:SENSe]:SWEep:TYPE'
     level: not_modeled
+    note: 'Model work: the average/detector/attenuation/sweep machinery is implemented; these are its auto rules and step settings.'
+    gap: model_work
   - header: '[:SENSe]:ACPower:OFFSet:LIST:BANDwidth[:INTegration]'
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): the one-button power measurements and their settings.'
+    gap: blocked
+    blocked_by: C6
 - section: SOURce Subsystem
   commands:
   - header: :SOURce:CORRection:OFFSet
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: correction
   - header: :SOURce:POWer:ATTenuation
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer:ATTenuation:AUTO
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer[:LEVel][:IMMediate][:AMPLitude]
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer:STARt
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer:MODE
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer:SPAN
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer:SWEep
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer:TRCKing
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
   - header: :SOURce:POWer:TRCKing:PEAK
     level: not_modeled
     note: No tracking generator / source option is modeled.
+    gap: blocked
+    blocked_by: tg-source
 - section: STATus Subsystem
   commands:
   - header: :STATus:OPERation:CONDition
     level: not_modeled
+    note: 'Model work: status-register groups on the existing status system (status_register).'
+    gap: model_work
   - header: :STATus:OPERation:ENABle
     level: not_modeled
+    note: 'Model work: status-register groups on the existing status system (status_register).'
+    gap: model_work
   - header: :STATus:OPERation[:EVENt]
     level: not_modeled
+    note: 'Model work: status-register groups on the existing status system (status_register).'
+    gap: model_work
   - header: :STATus:QUEStionable:INTegrity:CONDition
     level: not_modeled
+    note: 'Model work: status-register groups on the existing status system (status_register).'
+    gap: model_work
   - header: :STATus:QUEStionable:INTegrity:ENABle
     level: not_modeled
+    note: 'Model work: status-register groups on the existing status system (status_register).'
+    gap: model_work
   - header: :STATus:QUEStionable:INTegrity[:EVENt]
     level: not_modeled
+    note: 'Model work: status-register groups on the existing status system (status_register).'
+    gap: model_work
 - section: SYSTem Subsystem
   commands:
   - header: :SYSTem:PRESet
@@ -620,20 +1062,34 @@ sections:
     affects_data: false
   - header: :SYSTem:CONFigure:HARDware
     level: not_modeled
+    note: 'Model work: hardware/software configuration info; a static string is enough (candidate for accepted, affects_data: false).'
+    gap: model_work
   - header: :SYSTem:CONFigure:SOFTware
     level: not_modeled
+    note: 'Model work: hardware/software configuration info; a static string is enough (candidate for accepted, affects_data: false).'
+    gap: model_work
   - header: :SYSTem:CONFigure[:SYSTem]
     level: not_modeled
+    note: 'Model work: hardware/software configuration info; a static string is enough (candidate for accepted, affects_data: false).'
+    gap: model_work
   - header: :SYSTem:DATE
     level: implemented
   - header: :SYSTem:ERRor[:NEXT]
     level: implemented
   - header: :SYSTem:OPTions
     level: not_modeled
+    note: 'Model work: option handling exists (#1007); declare the installed options.'
+    gap: model_work
   - header: :SYSTem:PRESet:PERSistent
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): user presets (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :SYSTem:PRESet[:USER]:SAVE
     level: not_modeled
+    note: 'Capability gap (not in product-plan.md 4.2): user presets (setup_memory, #1070); not wired in this model.'
+    gap: blocked
+    blocked_by: setup-memory
   - header: :SYSTem:TIME
     level: implemented
 - section: TRACe Subsystem
@@ -646,30 +1102,45 @@ sections:
     note: 'Trace 1 only; 1001 points in dBm, seven decimals. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (5990-8119EN p.4-5, #960): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the 1 GHz table around every line. The frequency response is a per-unit deviation within the band limits of the data sheet (p.3, preamp-off limits, 0 at 50 MHz; deviation: from_specs), and the preamplifier is option P03. Not modeled: input-related spurious and residual responses (the data sheet gives no frequencies or mixing orders).'
   - header: :TRACe:MATH:OFF
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace math (add/subtract/normalize).'
+    gap: blocked
+    blocked_by: C6
   - header: :TRACe:MATH:ADD|SUBTract
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace math (add/subtract/normalize).'
+    gap: blocked
+    blocked_by: C6
   - header: :TRACe:MATH:BY
     level: not_modeled
+    note: 'Blocked by C6 (product-plan.md 4.2): trace math (add/subtract/normalize).'
+    gap: blocked
+    blocked_by: C6
 - section: TRIGger Subsystem
   commands:
   - header: :TRIGger[:SEQuence]:EXTernal[1]:SLOPe
     level: not_modeled
     note: 'No trigger system: sweeps run on the virtual clock.'
+    gap: model_work
   - header: :TRIGger[:SEQuence]:OFFSet
     level: not_modeled
     note: 'No trigger system: sweeps run on the virtual clock.'
+    gap: model_work
   - header: :TRIGger[:SEQuence]:OFFSet:STATe
     level: not_modeled
     note: 'No trigger system: sweeps run on the virtual clock.'
+    gap: model_work
   - header: :TRIGger[:SEQuence]:SOURce
     level: not_modeled
     note: 'No trigger system: sweeps run on the virtual clock.'
+    gap: model_work
   - header: :TRIGger[:SEQuence]:VIDeo:LEVel
     level: not_modeled
     note: 'No trigger system: sweeps run on the virtual clock.'
+    gap: model_work
   - header: :TRIGger[:SEQuence]:VIDeo:LEVel:FREQuency
     level: not_modeled
     note: 'No trigger system: sweeps run on the virtual clock.'
+    gap: model_work
 - section: UNIT Subsystem
   commands:
   - header: :UNIT:POWer
