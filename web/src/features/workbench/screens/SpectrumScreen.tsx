@@ -3,7 +3,7 @@ import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
-import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
+import { scpiOutcome, useAdvance, useInstrumentReadings, useScpi } from "@/api/hooks";
 
 import { Button } from "@/components/ui/button";
 import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
@@ -22,8 +22,19 @@ const DB_PER_DIV = 10;
  * level at the top, the marker and its readout, the coupled settings with their auto state.
  * Window, RBW and sweep time are sent as SCPI so that the analyzer applies its couplings.
  */
-export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
+export function SpectrumScreen({
+  sid,
+  inst,
+  readonly,
+  clockMode = "wall",
+}: {
+  sid: string;
+  inst: InstrumentInfo;
+  readonly: boolean;
+  clockMode?: string;
+}) {
   const { t } = useTranslation();
+  const advance = useAdvance(sid);
   const { values: v, query: readings, vars } = useInstrumentReadings(sid, inst);
   const scpi = useScpi(sid, inst.name);
   const n = (k: string) => Number(v[`sa.${k}`] ?? 0);
@@ -37,6 +48,7 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
       },
     });
 
+  const status = sweepStatus(clockMode, vars.get("init.continuous")?.value !== false);
   const marker = { x: n("marker_x"), y: n("marker_y") };
   const mx = engParts(marker.x, "Hz", 9);
 
@@ -47,6 +59,7 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
           <ScreenIdentity inst={inst} />
           <Flag on={!!v["sa.uncal"]} label="UNCAL" title={t("spectrum.uncalReason")} testId="uncal" />
           <Flag on={!!v["sa.overload"]} label={t("spectrum.overload")} testId="overload" />
+          {status === "single" && <span className="bg-muted rounded px-1.5 py-0.5 text-[11px] font-medium" data-testid="hold">HOLD</span>}
           <span className="text-muted-foreground num ml-auto">
             {t("spectrum.reference")} {String(v["sa.reference"] ?? "INT")} · {t("spectrum.sweep")} #{n("sweep")}
           </span>
@@ -62,6 +75,22 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
             {mx.unit} · {marker.y.toFixed(3)} dBm
           </span>
         </div>
+        {status !== "running" && (
+          <div className="bg-muted/50 text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-[11px]" role="status" data-testid="sweep-hint">
+            <span>{t(status === "single" ? "spectrum.hintSingle" : "spectrum.hintClock")}</span>
+            {status === "clock" && !readonly && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-6 text-[11px]"
+                disabled={advance.isPending}
+                onClick={() => advance.mutate(n("sweep_time") > 0 ? n("sweep_time") : 0.1, { onError: (e) => toast.error((e as Error).message) })}
+              >
+                {t("spectrum.advanceSweep")}
+              </Button>
+            )}
+          </div>
+        )}
         <SpectrumCanvas
           values={trace?.values ?? []}
           refLevel={n("ref_level")}
@@ -124,6 +153,15 @@ export function SpectrumScreen({ sid, inst, readonly }: { sid: string; inst: Ins
       </aside>
     </div>
   );
+}
+
+/**
+ * Why the trace may not move: ``single`` (continuous sweep off: HOLD), ``clock`` (command/stepped
+ * clock: virtual time only passes on a command or Advance, D47), else ``running``. Single wins.
+ */
+export function sweepStatus(clockMode: string, continuous: boolean): "running" | "single" | "clock" {
+  if (!continuous) return "single";
+  return clockMode === "wall" || clockMode === "scaled" ? "running" : "clock";
 }
 
 /** A warning badge, shown only while it holds (an unlit UNCAL read as a warning, #279). */
