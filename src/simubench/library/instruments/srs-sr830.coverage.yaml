@@ -56,6 +56,7 @@ sections:
       - header: SYNC
         level: not_modeled
         note: 同步滤波（检测频率 <200 Hz 时抑制 2f 纹波）在 lockin_lowpass 里没有模型，#273 第 5 节。
+        gap: model_work
   - section: "DISPLAY and OUTPUT (5-8)"
     commands:
       - header: DDEF
@@ -71,6 +72,7 @@ sections:
       - header: AOFF
         level: not_modeled
         note: 自动偏置（X/Y/R 归零）没有通用操作；手册在 5-8 与 5-11 各列一次，覆盖表只列一条。
+        gap: model_work
   - section: "AUX INPUT and OUTPUT (5-9)"
     commands:
       - header: OAUX
@@ -100,17 +102,23 @@ sections:
       - header: SSET
         level: not_modeled
         note: 设置缓冲（1…9）的保存未实现。
+        blocked_by: setup-memory
+        gap: blocked
       - header: RSET
         level: not_modeled
         note: 调用设置缓冲会改变全部设置，需要设置缓冲能力。
+        blocked_by: setup-memory
+        gap: blocked
   - section: "AUTO FUNCTIONS (5-11)"
     commands:
       - header: AGAN
         level: not_modeled
         note: 自动增益写回的是灵敏度电压，而本定义的 SENS 状态是档位索引；需要按档位写回的能力（#273 第 5 节）。
+        gap: model_work
       - header: ARSV
         level: not_modeled
         note: 自动储备没有通用操作。
+        gap: model_work
       - header: APHS
         level: implemented
         note: 自动相位，按当前滤波输出把参考相位移到 θ=0（lockin_output.auto_phase）。
@@ -148,6 +156,7 @@ sections:
       - header: SNAP
         level: not_modeled
         note: 2…6 个编号（1…11，含 X/Y/R/θ、AUX、频率、显示值）在同一时刻读取；lockin_output.snap 只认名字，需要编号选择能力（#273 第 2 节）。
+        gap: model_work
       - header: SPTS
         level: implemented
         note: 已存点数（#273）；循环模式下最多 16383。
@@ -163,9 +172,11 @@ sections:
       - header: FAST
         level: not_modeled
         note: GPIB 快速传输（按采样节拍连续推送 X/Y）不在模型里：仿真的传输是请求/应答式（#273 第 2 节允许另评估）。
+        gap: out_of_scope
       - header: STRD
         level: not_modeled
         note: 快速传输下延迟 0.5 s 启动扫描，随 FAST 不建模。
+        gap: model_work
   - section: "INTERFACE (5-19)"
     commands:
       - header: '*RST'
@@ -213,37 +224,37 @@ sections:
         note: 位 0 输入/储备过载、2 输出过载、3 失锁、4 量程改变、5 时间常数改变、6 收到触发；读后清零，LIAS? i 读并清第 i 位（#273）。位 1 滤波器过载没有模型。
   - section: "Using SR530 Programs (5-31)"
     commands:
-      - {header: AX, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: AY, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: AR, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: AP, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: B, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: C, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: D, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: E, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: F, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: G, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: H, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: I, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: J, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: K, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: L, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: M, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: N, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: OX, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: OY, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: OR, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: P, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: Q1, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: Q2, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: QX, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: QY, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: R, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: S, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: T, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: U, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: V, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: W, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: X, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: Y, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
-      - {header: Z, level: not_modeled, note: SR530 兼容层，不在本定义范围。}
+      - {header: AX, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: AY, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: AR, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: AP, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: B, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: C, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: D, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: E, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: F, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: G, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: H, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: I, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: J, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: K, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: L, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: M, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: N, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: OX, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: OY, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: OR, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: P, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: Q1, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: Q2, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: QX, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: QY, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: R, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: S, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: T, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: U, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: V, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: W, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: X, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: Y, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}
+      - {header: Z, level: not_modeled, note: SR530 兼容层，不在本定义范围。, gap: out_of_scope}

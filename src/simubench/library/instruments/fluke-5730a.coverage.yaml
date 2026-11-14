@@ -8,36 +8,47 @@ sections:
   - header: ADJOUT
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: ERR_REF
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: INCR
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: MULT
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: NEWREF
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: OFFSET
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: OLDREF
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: OUT_ERR
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: REFOUT
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: SCALE
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
   - header: SCAL_ERR
     level: not_modeled
     note: 误差模式（INCR、偏置、比例、参考）未实现。
+    gap: model_work
 - section: Table 6-4 > Calibrator Configuration Commands
   commands:
   - header: BRIGHTNESS
@@ -47,15 +58,20 @@ sections:
   - header: BTYPE
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: out_of_scope
   - header: CLOCK
     level: not_modeled
     note: 未实现。
+    gap: out_of_scope
   - header: CUR_POST
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: blocked
+    blocked_by: cal-functions
   - header: EMULATE
     level: not_modeled
     note: 未实现。
+    gap: out_of_scope
   - header: EXTGUARD
     level: accepted
     note: 内部/外部保护（ON/OFF，*RST OFF）保存；台架的单一地下保护屏蔽不影响电路。
@@ -67,12 +83,15 @@ sections:
   - header: FORMAT
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: LIMIT
     level: not_modeled
     note: 输出上下限设定未实现（限值只按手册的 ±1100 V）。
+    gap: model_work
   - header: '*LRN'
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: RANGE
     level: implemented
     note: 当前量程的名字（Table 6-7：DC220MV、DC2_2V、DC11V、DC22V、DC220V、DC1100V；AC2_2MV … AC1100V）：锁定时为锁定的量程，否则为幅值所在的最小量程（#552）。
@@ -84,20 +103,26 @@ sections:
   - header: LCOMP_52120
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: out_of_scope
   - header: POST_52120
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: out_of_scope
   - header: XFERCHOICE
     level: not_modeled
     note: 交流/直流传递未实现。
+    gap: out_of_scope
 - section: Table 6-4 > Output Commands
   commands:
   - header: BOOST
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: out_of_scope
   - header: DBMOUT
     level: not_modeled
     note: dBm 单位未实现。
+    gap: blocked
+    blocked_by: cal-functions
   - header: OPER
     level: implemented
     note: 进入工作，3 s 建立时间（量程或极性改变 +1 s）后到达设定值（*OPC? 等待）。故障队列非空时 ≥22 V 禁止 OPER（2232）未实现。
@@ -111,27 +136,37 @@ sections:
   - header: PHASE
     level: not_modeled
     note: 相位输出与锁相未实现。
+    gap: blocked
+    blocked_by: C14
   - header: PHASELCK
     level: not_modeled
     note: 相位输出与锁相未实现。
+    gap: blocked
+    blocked_by: C14
   - header: PHASESFT
     level: not_modeled
     note: 相位输出与锁相未实现。
+    gap: blocked
+    blocked_by: C14
   - header: RCOMP
     level: not_modeled
     note: 两线电阻补偿未实现：电阻输出按二线、无引线补偿建模（#550 之后的缺口）。
+    gap: model_work
   - header: STBY
     level: implemented
     note: 回到待机，端子与电路断开。自动回待机：选中 ≥22 V 且前一输出 <22 V 时，或改变输出功能（直流↔交流）时（第 4 章，#553）；≥22 V 之间的改变保持工作。
   - header: VOUT
     level: not_modeled
     note: dBm 单位未实现。
+    gap: model_work
   - header: WBAND
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: out_of_scope
   - header: XFER
     level: not_modeled
     note: 交流/直流传递未实现。
+    gap: out_of_scope
 - section: Table 6-4 > Overall Functions
   commands:
   - header: '*CLS'
@@ -140,15 +175,18 @@ sections:
   - header: ECHO
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: '*OPC'
     level: implemented
     note: '*OPC 置 ESR 位 0；*OPC? 等建立完成后回 1。'
   - header: '*PUD'
     level: not_modeled
     note: 未实现。
+    gap: out_of_scope
   - header: RPT_STR
     level: not_modeled
     note: 未实现。
+    gap: out_of_scope
   - header: '*RST'
     level: implemented
     note: 0 V、0 Hz、待机、外部保护 OFF（手册 *RST 条目；其他复位项对应的功能未实现）。
@@ -160,113 +198,149 @@ sections:
   - header: SP_EOF
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: SP_SET
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: ADDR
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: DHCP
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: ENETPORT
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: EOL
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: GWADDR
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: IPADDR
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: MACADDR
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: REM_MODE
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
   - header: SUBNETMASK
     level: not_modeled
     note: 串口与网络接口参数未实现。
+    gap: model_work
 - section: Table 6-4 > Calibration, Testing, and Diagnostics Commands
   commands:
   - header: CAL_ADJ
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_CHK
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_CLST
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_CONF
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_CONST
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_COUNT
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_DATE
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_DAYS
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_INTV
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_PASSWD
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_REF
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_RNG
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_RPT
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_SECURE
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_SHIFT
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_SLST
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_STORE
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_TEMP
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_USB
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_WBFLAT
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_WBGAIN
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: CAL_ZERO
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: DIAG
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: DIAGFLT
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: OHMSREF
     level: not_modeled
     note: 校准、自检与诊断流程未实现。
+    gap: out_of_scope
   - header: '*TST'
     level: implemented
     note: 自检通过回复 0。
@@ -295,6 +369,7 @@ sections:
   - header: EXPLAIN
     level: not_modeled
     note: 故障码的文字解释未实现（FAULT? 只回码）。
+    gap: model_work
   - header: FAULT
     level: implemented
     note: 取出最早的故障码，空队列回 0；本模型产生 210（过载跳回待机）、2206、2207 与平台的 -113/-222/-224。
@@ -304,30 +379,38 @@ sections:
   - header: ID52120
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: out_of_scope
   - header: ISCE
     level: not_modeled
     note: 仪器状态寄存器（ISR/ISCR/ISCE）未实现：组件不报告工作/待机、建立中等状态位。
+    gap: model_work
   - header: ISCR
     level: not_modeled
     note: 仪器状态寄存器（ISR/ISCR/ISCE）未实现：组件不报告工作/待机、建立中等状态位。
+    gap: model_work
   - header: ISR
     level: not_modeled
     note: 仪器状态寄存器（ISR/ISCR/ISCE）未实现：组件不报告工作/待机、建立中等状态位。
+    gap: model_work
   - header: ONTIME
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: '*OPT'
     level: not_modeled
     note: 外部放大器（5725A、52120A）、Wideband 选件与选件查询未实现。
+    gap: model_work
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器。
   - header: STATE
     level: not_modeled
     note: 未实现。
+    gap: model_work
   - header: '*STB'
     level: implemented
     note: 状态字节；ISR 汇总位无来源（ISR/ISCR 未实现）。
   - header: UNCERT
     level: not_modeled
     note: 未实现。
+    gap: model_work
