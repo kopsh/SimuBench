@@ -278,6 +278,11 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
     for _pname, (cname, cport) in inst.ports.items():
         exposed.setdefault(cname, set()).add(cport)
     commands = inst.definition.commands
+    specs = {c.name: c for c in inst.definition.components} | {
+        f"ch{n}.{c.name}": c
+        for n in range(1, inst.channel_count + 1)
+        for c in inst.definition.channel_components
+    }
     edges = influence_edges(inst, wires)
     with s.view():
         components = [
@@ -286,6 +291,8 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
                 type=comp.type_name,
                 channel=comp.channel,
                 doc=_first_paragraph(type(comp).__doc__),
+                label=getattr(specs.get(name), "label", None),
+                description=getattr(specs.get(name), "description", None),
                 params=[
                     M.InternalParam(name=k, value=jsonable(v), binding=b, unit=comp.units.get(k))
                     for k, v, b in comp.nominal()

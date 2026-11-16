@@ -39,6 +39,14 @@ def test_every_definition_matches_the_view(def_id):
     assert [c.name for c in view.components] == expected
     types = {c.name: c.type for c in view.components}
     assert all(types[f"ch{k}.{c.name}"] == c.type for k in range(1, n + 1) for c in d.channel_components)
+    # A block's own label and description are the definition's (#1261).
+    labels = {c.name: (c.label, c.description) for c in view.components}
+    assert all(labels[c.name] == (c.label, c.description) for c in d.components)
+    assert all(
+        labels[f"ch{k}.{c.name}"] == (c.label, c.description)
+        for k in range(1, n + 1)
+        for c in d.channel_components
+    )
     wiring = len(d.wiring.channel) * n + sum(
         n if "{n}" in a or "{n}" in b else 1 for a, b in d.wiring.instrument
     )
@@ -70,6 +78,18 @@ def test_scope_chain_and_bindings():
     assert (other.binding, other.value) == ("ch1.coupling", "DC")
     bandwidth = next(p for p in comps["ch1.front"].params if p.name == "bandwidth")
     assert bandwidth.binding is None and bandwidth.value == 200e6
+
+
+@pytest.mark.parametrize("def_id", ["keysight-uxr1104b", "keysight-uxr0334b"])
+def test_the_uxr_probe_block_says_it_converts_settings_and_the_two_vertical_blocks_differ(def_id):
+    """The probe block sits after the input port: its label says it is the setting's conversion, not
+    the physical probe, and InfiniiSim is told apart from the front end (#1261)."""
+    comps = {c.name: c for c in internals({"instruments": {"scope": {"model": def_id}}}, "scope").components}
+    probe = comps["ch1.probe"]
+    assert probe.label == "探头换算（倍率/偏斜/反相）"
+    assert probe.description and "物理探头在面板端口之外" in probe.description
+    assert comps["ch1.isim"].label == "InfiniiSim 滤波"
+    assert comps["ch1.front"].label and comps["ch1.front"].label != comps["ch1.isim"].label
 
 
 def test_per_unit_overrides_are_not_part_of_the_model():

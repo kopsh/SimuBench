@@ -2284,6 +2284,16 @@ export interface components {
         };
         /** ComponentSpec */
         ComponentSpec: {
+            /**
+             * Description
+             * @description What this block does in this instrument, shown with the type's description (#1261)
+             */
+            description?: string | null;
+            /**
+             * Label
+             * @description What this block is called in this instrument, shown instead of the type's name where the types alone do not tell blocks apart (e.g. 'InfiniiSim 滤波', #1261)
+             */
+            label?: string | null;
             /** Name */
             name: string;
             /**
@@ -3527,10 +3537,20 @@ export interface components {
              */
             commands: components["schemas"]["InternalCommand"][];
             /**
+             * Description
+             * @description The definition's note on what the block does here (ComponentSpec.description)
+             */
+            description: string | null;
+            /**
              * Doc
              * @description What the component type does (first paragraph of its description)
              */
             doc: string | null;
+            /**
+             * Label
+             * @description The definition's own name for the block (ComponentSpec.label)
+             */
+            label: string | null;
             /**
              * Name
              * @description Unique within the instrument, e.g. 'ch1.front' or 'acq'
@@ -5797,6 +5817,10 @@ export interface components {
          * @description A component of a definition's structure as the build area edits it (#1201).
          */
         "StructureComponent-Input": {
+            /** Description */
+            description?: string | null;
+            /** Label */
+            label?: string | null;
             /** Name */
             name: string;
             /**
@@ -5814,6 +5838,10 @@ export interface components {
          * @description A component of a definition's structure as the build area edits it (#1201).
          */
         "StructureComponent-Output": {
+            /** Description */
+            description: string | null;
+            /** Label */
+            label: string | null;
             /** Name */
             name: string;
             /**

@@ -156,17 +156,28 @@ def test_the_uis_explicit_advance_is_still_refused_while_a_script_is_connected(s
 # ---- the addresses the service itself serves ------------------------------------------------------------------------
 
 
-def test_the_addresses_the_service_prints_open_through_the_link(served):
+def test_the_addresses_the_service_prints_open_through_the_link(served, monkeypatch):
     """The ports are the service's choice, so what `serve` prints has to be found in connected mode too."""
+    from simubench.access import pyvisa_backend
+
     c, info, _ = served
     now = c.get(f"/api/sessions/{info['id']}").json()
     awg = next(i for i in now["instruments"] if i["name"] == "awg")
     assert awg["address_virtual"] and awg["address_hislip"]
+    # As with `serve` on its default port: the HiSLIP address the client derives is one the service also
+    # reports as served (#1259).
+    monkeypatch.setattr(
+        pyvisa_backend, "HISLIP_PORT", int(awg["address_hislip"].split(",")[1].split("::")[0])
+    )
     rm = pyvisa.ResourceManager(f"{now['link_address']}@simubench")
     try:
         for address in (awg["address_virtual"], awg["address_hislip"]):
             inst = rm.open_resource(address, read_termination="\n", write_termination="\n")
             assert inst.query("*IDN?").startswith("SIMUBENCH,SB-AWG-2"), address
-        assert awg["address_virtual"] in rm.list_resources("?*")
+        listed = rm.list_resources("?*")
+        assert awg["address_virtual"] in listed
+        assert len(listed) == len(set(listed)), (
+            listed
+        )  # served and HiSLIP addresses overlap: listed once (#1259)
     finally:
         rm.close()
