@@ -958,3 +958,84 @@ def test_a_file_event_is_a_log_line_with_the_path_and_size():
     }
     (line,) = build_lines([ev], "en")
     assert line.command == "File written: INT:\\a.csv" and line.result == "5 B" and line.kind == "file"
+
+
+# ---- the scope screen's math functions (tui-screens.md 6.1, #1219's demo) ---------------------------
+
+
+class _ThemeApp:
+    """What the scope renderers read of the app: the theme name and its colour variables."""
+
+    theme = "simubench"
+
+    def get_css_variables(self) -> dict[str, str]:
+        from simubench.tui.theme import COLORS
+
+        return dict(COLORS)
+
+
+_FFT: dict[str, Any] = {
+    "function": 1,
+    "operator": "FFTMagnitude",
+    "spectrum": True,
+    "x0": 0.0,
+    "dx": 122070.3125,
+    "unit": "DECibels",
+    "values": [],
+    # four bins: a peak of -2 dBm in the second, the floor at -80 dBm elsewhere (10 dB/div, -40 centre)
+    "minmax": [-80, -80, -2, -2, -80, -80, -80, -80],
+    "scale": 10.0,
+    "offset": -40.0,
+}
+
+
+def test_the_spectrum_pane_takes_two_fifths_of_the_rows_under_a_label_row() -> None:
+    from simubench.tui.screens.scope import split_rows
+
+    assert split_rows(16, False) == (16, 0)
+    assert split_rows(16, True) == (9, 6)  # 9 + label + 6 = 16 (100 × 32)
+    assert split_rows(8, True) == (4, 3)  # 80 × 24: neither pane collapses
+
+
+def test_the_spectrum_label_writes_the_function_its_scale_the_span_and_the_bin() -> None:
+    from simubench.tui.screens.scope import spectrum_label
+
+    label = spectrum_label([_FFT], 80, "en").plain
+    assert label.startswith("F1 FFTMagnitude 10 dB/div")
+    assert label.endswith("Frequency 0.000 Hz – 366.2 kHz · Bin 122.1 kHz")
+    assert cell_len(label) == 80
+    # A narrower box (100 × 32: 69 cells) drops the bin width rather than wrap the row.
+    narrow = spectrum_label([_FFT], 69, "en").plain
+    assert narrow.endswith("366.2 kHz") and cell_len(narrow) == 69
+
+
+def test_the_spectrum_pane_draws_the_peak_near_the_top_in_the_math_colour() -> None:
+    from simubench.tui.screens.scope import render_spectrum
+
+    text = render_spectrum(_ThemeApp(), [_FFT], 8, 4)
+    lit = {(span.start // 9, span.start % 9) for span in text.spans if "#4fd38a" in str(span.style)}
+    # -2 dBm is 3.8 div above the centre: the second bin (characters 2-3) lights the top row,
+    # the first does not; -80 dBm is off the bottom and pinned to the last row.
+    assert (0, 2) in lit and (0, 0) not in lit
+    assert (3, 0) in lit
+
+
+def test_a_time_domain_function_is_drawn_over_the_channels_not_in_the_spectrum() -> None:
+    from simubench.tui.screens.scope import render_wave, spectra_of
+
+    add = {**_FFT, "function": 2, "operator": "ADD", "spectrum": False, "unit": "VOLT", "scale": 1.0}
+    add["offset"], add["minmax"] = 0.0, [0.5, 0.5] * 4
+    screen = {"traces": [], "functions": [add]}
+    assert spectra_of(screen) == []
+    text, _ = render_wave(_ThemeApp(), screen, 8, 4, {}, "en", [])
+    assert any(span.style and "#4fd38a" in str(span.style) for span in text.spans)
+
+
+def test_the_wave_title_groups_channels_with_the_same_scale() -> None:
+    from simubench.tui.screens.scope import title_scales
+
+    scales = [(1, "100 mV"), (2, "100 mV"), (3, "100 mV"), (4, "50.0 mV")]
+    assert title_scales(scales, group=False).startswith("CH1 100 mV/div · CH2 100 mV/div")
+    assert title_scales(scales, group=True) == "CH1–3 100 mV/div · CH4 50.0 mV/div"
+    # only neighbours join: CH1 and CH3 at the same scale stay apart
+    assert title_scales([(1, "1 V"), (3, "1 V")], group=True) == "CH1 1 V/div · CH3 1 V/div"

@@ -459,6 +459,7 @@ TERMS: dict = {
         "channelOff": "{ch} off · unwired",
         "legend": "Channels: {items}",
         "unwired": "unwired",
+        "spectrum": {"span": "Frequency", "bin": "Bin"},
     },
     # ---- the SCPI console (tui-screens.md 10.3) --------------------------------------------------------
     "console": {

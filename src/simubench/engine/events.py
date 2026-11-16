@@ -131,7 +131,7 @@ ENGINE_SIDE_KEYS = frozenset(
 )
 
 
-def _summary(data: bytes) -> str:
+def binary_summary(data: bytes) -> str:
     """Printable summary of binary SCPI data: the block header and the byte count."""
     if data.startswith(b"#") and len(data) > 2 and data[1:2].isdigit():
         n = int(data[1:2])
@@ -165,5 +165,5 @@ def project(ev: dict[str, Any], seq: int) -> dict[str, Any]:
     if isinstance(data, bytes):
         enc = encode_bytes(data)
         out["size"] = len(data)
-        out["text"] = enc.get("text") if "text" in enc else _summary(data)
+        out["text"] = enc.get("text") if "text" in enc else binary_summary(data)
     return Event.model_validate(out).model_dump(exclude_none=True)

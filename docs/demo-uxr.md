@@ -83,6 +83,10 @@ PYVISA_LIBRARY=127.0.0.1:<port>@simubench \
   的 FFT（1、3、5 MHz 的峰）；测量表与脚本输出一致；
 - **通信**：每条 SCPI 与应答，包括 40 008 字节的 `:WAVeform:DATA?` 块与最后的 `:SYSTem:ERRor?` → 0。
 
+终端里看同一次运行：`uv run simubench tui examples/demo/uxr.bench.yaml` 同样打印
+`PYVISA_LIBRARY=…` 一行，脚本照上面运行；总览里在示波器卡片上按 `⏎` 打开示波器屏幕：四个通道叠画，
+F1 的频谱画在波形区下方（1、3、5、7、9 MHz 的峰），上面一行写刻度与频率范围。
+
 ## 3. 讲解要点
 
 - 只换连接方式不换代码：`--bench`、`PYVISA_LIBRARY` 和真机地址跑的是同一份脚本；

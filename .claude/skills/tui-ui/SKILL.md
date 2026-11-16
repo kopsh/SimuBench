@@ -23,7 +23,7 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 
 - **Size**: designed at 100×32, minimum 80×24; smaller shows one "window too small" line, no
   squeezed layout (`tui-screens.md` 1.1). Every screen = 1-line top bar + content + 1-line bottom bar.
-- **Colour**: only the tokens in `theme.py` (`fg muted focus bad ok sim ch1–ch4 hud line bar`, the HUD palette,
+- **Colour**: only the tokens in `theme.py` (`fg muted focus bad ok sim ch1–ch4 math hud line bar`, the HUD palette,
   `tui-screens.md` 1.2). Red marks only the offending words, never a whole card or row. State is
   always also text or a glyph (`●` `○` `▲` `✗` `→` `·` `—` `…`) — `NO_COLOR` turns every token
   into the default foreground and the screen must still read.

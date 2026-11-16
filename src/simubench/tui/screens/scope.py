@@ -30,12 +30,16 @@ from .instrument import _Box
 SETTINGS_WIDTH = 26  # the right settings column's total width (tui-screens.md 6.1)
 
 
-def trace_frame(trace: dict[str, Any], cols: int, rows: int) -> tuple[list[list[int]], bool]:
+def trace_frame(
+    trace: dict[str, Any], cols: int, rows: int, connect: bool = False
+) -> tuple[list[list[int]], bool]:
     """One trace's dot grid as per-character bit ORs, plus whether it was clipped (6.1).
 
     Each braille character covers 2 dot columns × 4 dot rows; the server returned per-bin min
     and max (2 values per bin, bins == 2×cols). ``y`` maps volts to divisions by the channel's
-    scale and offset; parts beyond the screen draw pinned to the top/bottom row.
+    scale and offset; parts beyond the screen draw pinned to the top/bottom row. ``connect``
+    joins each column to the previous one: a record with fewer points than dot columns (an FFT
+    over 0–10 MHz has some 80 bins) would otherwise draw as scattered dots.
     """
     grid = [[0] * cols for _ in range(rows)]
     minmax = trace.get("minmax") or []
@@ -48,10 +52,16 @@ def trace_frame(trace: dict[str, Any], cols: int, rows: int) -> tuple[list[list[
     scale = float(trace.get("scale") or 1.0) or 1.0
     offset = float(trace.get("offset") or 0.0)
     total_rows = rows * 4
+    prev: float | None = None
     for col in range(cols * 2):
         bin_index = min(bins - 1, col * bins // (cols * 2))
         lo = minmax[bin_index * 2]
         hi = minmax[bin_index * 2 + 1]
+        if connect:
+            mid = (lo + hi) / 2
+            if prev is not None:
+                lo, hi = min(lo, hi, prev), max(lo, hi, prev)
+            prev = mid
         y_top = (max(lo, hi) - offset) / scale  # divisions above the centre
         y_bottom = (min(lo, hi) - offset) / scale
         if y_top > 4.0 or y_bottom < -4.0:
@@ -85,8 +95,8 @@ def render_wave(
     """
     mono = app.theme == "simubench-mono"
     grid: list[list[list[int]]] = [
-        [[0] * cols for _ in range(rows)] for _ in range(5)
-    ]  # per channel 1-4 + grid
+        [[0] * cols for _ in range(rows)] for _ in range(6)
+    ]  # per channel 1-4, the grid, the time-domain math functions
     # The grid: 10 divisions across, 8 down, a dot every 4 points (muted); the centre is not bold.
     dot_rows = rows * 4
     for r in range(0, dot_rows, max(1, dot_rows // 8)):
@@ -105,10 +115,21 @@ def render_wave(
             for c in range(cols):
                 if own[r][c]:
                     grid[ch - 1][r][c] |= own[r][c]
+    # Time-domain functions (ADD, DIFF…) in the math colour, over the channels (6.1).
+    for func in (screen or {}).get("functions", []):
+        if func.get("spectrum"):
+            continue
+        own, _ = trace_frame(func, cols, rows, connect=True)
+        for r in range(rows):
+            for c in range(cols):
+                grid[5][r][c] |= own[r][c]
     text = Text()
     muted = style_of(app, "muted")
     for r in range(rows):
         for c in range(cols):
+            if grid[5][r][c]:
+                text.append(chr(0x2800 + grid[5][r][c]), style=None if mono else style_of(app, "math"))
+                continue
             ch_bits = [grid[k][r][c] for k in range(4)]
             drawn = False
             for k in (3, 2, 1, 0):  # later channels cover earlier ones (6.1)
@@ -126,6 +147,96 @@ def render_wave(
                     text.append("⠀")
         text.append("\n")
     return text, clipped
+
+
+#: A function's unit as the screen writes it (the Web's UNIT_TEXT).
+UNIT_TEXT = {"DECibels": "dB", "DB": "dB", "DBM": "dBm", "VOLT": "V", "WATT": "W"}
+
+
+def spectra_of(screen: dict[str, Any] | None) -> list[dict[str, Any]]:
+    """The transforms turned on (FFT magnitude, phase, PSD): drawn in their own pane (6.1)."""
+    return [f for f in (screen or {}).get("functions", []) if f.get("spectrum")]
+
+
+def spectrum_label(spectra: list[dict[str, Any]], width: int, lang: str) -> Text:
+    """``F1 FFTMagnitude 10 dB/div`` per transform, then the frequency span and the bin width on
+    the right, as the Web's spectrum pane writes them."""
+    left = Text()
+    for i, f in enumerate(spectra):
+        if i:
+            left.append("  ")
+        unit = UNIT_TEXT.get(f.get("unit", ""), f.get("unit", ""))
+        left.append(f"F{f.get('function')}", style="bold")
+        left.append(f" {f.get('operator')} ")
+        left.append(f"{float(f.get('scale') or 0):.3g} {unit}/div", style="bold")
+    first = spectra[0]
+    points = len(first.get("values") or []) or len(first.get("minmax") or []) // 2
+    x0, dx = float(first.get("x0") or 0.0), float(first.get("dx") or 0.0)
+    stop = x0 + dx * max(points - 1, 0)
+    span = f"{i18n.t('scope.spectrum.span', lang)} {fmt(x0, 'Hz', digits=4)} – {fmt(stop, 'Hz', digits=4)}"
+    from ..fmt import cell_len
+
+    # A row wider than the box wraps (6.1): the bin width goes first, then the span.
+    for right in (f"{span} · {i18n.t('scope.spectrum.bin', lang)} {fmt(dx, 'Hz', digits=4)}", span, ""):
+        gap = width - cell_len(left.plain) - cell_len(right)
+        if gap >= 2 or not right:
+            break
+    if right:
+        left.append(" " * gap)
+        left.append(right)
+    if cell_len(left.plain) > width:
+        left.truncate(width)
+    return left
+
+
+def render_spectrum(app: Any, spectra: list[dict[str, Any]], cols: int, rows: int) -> Text:
+    """The spectrum pane: the same 10 × 8 grid, each transform at its own scale and offset."""
+    mono = app.theme == "simubench-mono"
+    grid = [[0] * cols for _ in range(rows)]
+    dots = [[0] * cols for _ in range(rows)]
+    dot_rows = rows * 4
+    for r in range(0, dot_rows, max(1, dot_rows // 8)):
+        for c in range(0, cols * 2, 4):
+            dots[r // 4][c // 2] |= _BRAILLE[r % 4][c % 2]
+    for func in spectra:
+        own, _ = trace_frame(func, cols, rows, connect=True)
+        for r in range(rows):
+            for c in range(cols):
+                grid[r][c] |= own[r][c]
+    text = Text()
+    muted = style_of(app, "muted")
+    math = style_of(app, "math")
+    for r in range(rows):
+        for c in range(cols):
+            if grid[r][c]:
+                text.append(chr(0x2800 + grid[r][c]), style=None if mono else math)
+            elif dots[r][c]:
+                text.append(chr(0x2800 + dots[r][c]), style=muted)
+            else:
+                text.append("⠀")
+        text.append("\n")
+    return text
+
+
+def title_scales(scales: list[tuple[int, str]], group: bool) -> str:
+    """``CH1 100 mV/div · CH4 50.0 mV/div`` for the wave box's title; ``group`` joins neighbouring
+    channels with the same scale: ``CH1–3 100 mV/div``."""
+    runs: list[tuple[int, int, str]] = []
+    for ch, scale in scales:
+        if group and runs and runs[-1][2] == scale and runs[-1][1] == ch - 1:
+            runs[-1] = (runs[-1][0], ch, scale)
+        else:
+            runs.append((ch, ch, scale))
+    return " · ".join((f"CH{a}" if a == b else f"CH{a}–{b}") + f" {scale}/div" for a, b, scale in runs)
+
+
+def split_rows(rows: int, spectra: bool) -> tuple[int, int]:
+    """The trace rows and the spectrum rows (0 without a transform): the spectrum takes about two
+    fifths, under one label row (6.1)."""
+    if not spectra:
+        return rows, 0
+    spec = max(3, (rows - 1) * 2 // 5)
+    return max(3, rows - 1 - spec), spec
 
 
 def silence_lines(app: Any, screen: dict[str, Any] | None, state: dict[str, dict], lang: str) -> Text:
@@ -211,7 +322,18 @@ class ScopeScreen(ControlEditingScreen):
             self._wave_silence.can_focus = False
             self._wave_static = Static(id="wave-text")
             self._wave_static.can_focus = False
-            self._wave_box = _Box(self._wave_silence, self._wave_static, id="wave-box")
+            self._spectrum_label = Static(id="spectrum-label")
+            self._spectrum_label.can_focus = False
+            self._spectrum_static = Static(id="spectrum-text")
+            self._spectrum_static.can_focus = False
+            self._spectrum_label.display = self._spectrum_static.display = False
+            self._wave_box = _Box(
+                self._wave_silence,
+                self._wave_static,
+                self._spectrum_label,
+                self._spectrum_static,
+                id="wave-box",
+            )
             self._wave_box.can_focus = False
             yield self._wave_box
             self._settings_static = Static(id="settings-text")
@@ -291,8 +413,14 @@ class ScopeScreen(ControlEditingScreen):
         self._last_version = version
         cols, rows = self._wave_size()
         state = {sv["path"]: sv for sv in self.info.get("state", [])}
+        spectra = spectra_of(self.frame)
+        rows, spec_rows = split_rows(rows, bool(spectra))
         text, clipped = render_wave(app, self.frame, cols, rows, state, app.lang, self._open_channels())
         self._wave_static.update(text)
+        self._spectrum_label.display = self._spectrum_static.display = bool(spectra)
+        if spectra:
+            self._spectrum_label.update(spectrum_label(spectra, cols, app.lang))
+            self._spectrum_static.update(render_spectrum(app, spectra, cols, spec_rows))
         silences = silence_lines(app, self.frame, state, app.lang)
         self._wave_silence.update(silences)
         self._wave_silence.display = silences.plain != ""
@@ -309,15 +437,11 @@ class ScopeScreen(ControlEditingScreen):
         app: Any = self.app
         lang = app.lang
         state = {sv["path"]: sv for sv in self.info.get("state", [])}
-        left = " · ".join(
-            f"CH{ch} " + fmt((state.get(f"ch{ch}.scale") or {}).get("value"), "V", digits=3) + "/div"
+        scales = [
+            (ch, fmt((state.get(f"ch{ch}.scale") or {}).get("value"), "V", digits=3))
             for ch in self._open_channels()
-        )
+        ]
         tb = fmt((state.get("timebase.scale") or {}).get("value"), "S", digits=4) + "/div"
-        if left:
-            left += f" · {tb}"
-        else:
-            left = tb
         data = self.frame or {}
         if data.get("waiting"):
             run = (i18n.t("cards.waiting", lang), "focus")
@@ -326,17 +450,33 @@ class ScopeScreen(ControlEditingScreen):
         else:
             run = (i18n.t("cards.stopped", lang), "muted")
         mode = C.summary_text((state.get("trigger.mode") or {}).get("value"), state.get("trigger.mode"), lang)
-        right = f"{run[0]} · {mode} · " + i18n.t(
+        full_right = f"{run[0]} · {mode} · " + i18n.t(
             "scope.acquisitions", lang, count=data.get("acquisitions", 0)
         )
-        for ch in clipped:
-            left += "  " + i18n.t("scope.outOfScreen", lang, ch=f"CH{ch}")
+        clips = "".join("  " + i18n.t("scope.outOfScreen", lang, ch=f"CH{ch}") for ch in clipped)
         # One title row: left, dashes, right (this Textual does not render border_subtitle).
         from ..fmt import cell_len
 
-        width = max(30, self._wave_box.size.width + 2)  # the border row spans size + 2
-        gap = max(1, width - cell_len(left) - cell_len(right) - 4)
-        return f" {left} " + "─" * gap + f" {right} "
+        # The border row is the box's outer width; its corners and one ─ and one space on each
+        # side are not the title's, and a longer title is cut at its right end (the run state
+        # went first).
+        width = max(30, self._wave_box.outer_size.width - 6)
+        # When it does not fit (four open channels, an 80-column terminal): channels with the same
+        # scale share one entry (CH1–3), then the right keeps only the run state, and last the
+        # scales go (the settings column has them).
+        grouped = title_scales(scales, group=True)
+        for channels, right in (
+            (title_scales(scales, group=False), full_right),
+            (grouped, full_right),
+            (grouped, run[0]),
+            ("", full_right),
+            ("", run[0]),
+        ):
+            left = (f"{channels} · {tb}" if channels else tb) + clips
+            gap = width - cell_len(left) - cell_len(right) - 4
+            if gap >= 1:
+                break
+        return f" {left} " + "─" * max(1, gap) + f" {right} "
 
     # -- the settings column (6.2) -------------------------------------------------------------------------
 

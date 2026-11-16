@@ -128,7 +128,13 @@ def _instrument_tools(mcp: MCPServer, ctx: McpContext) -> None:
     ) -> dict[str, Any]:
         """Send SCPI to an instrument of the session and return its response and any new errors
         from the error queue, as of virtual time ``now_ns`` (nanoseconds, the unit every
-        SimuBench tool reports). Logged as client 'mcp'."""
+        SimuBench tool reports). Logged as client 'mcp'.
+
+        A binary reply (a waveform block in WORD or BYTE format, a screen image) comes back as
+        its block header and byte count, not its bytes: read waveform values in the instrument's
+        ASCII format. A text reply longer than 16 000 characters is cut there, with
+        ``truncated`` and ``response_chars`` (the full length) set: ask for fewer points
+        (``:WAVeform:POINts``, ``:ACQuire:POINts``) or a range of the record to read all of it."""
         guard()
         s = served(session_id)
         try:
@@ -141,7 +147,7 @@ def _instrument_tools(mcp: MCPServer, ctx: McpContext) -> None:
 
         def run() -> dict[str, Any]:
             # One exchange (#121): a script on the port cannot take this command's response.
-            return scpi_payload(s.session, instrument, command, client="mcp")
+            return limit_reply(scpi_payload(s.session, instrument, command, client="mcp"))
 
         return await asyncio.to_thread(run)
 
@@ -156,6 +162,21 @@ def _instrument_tools(mcp: MCPServer, ctx: McpContext) -> None:
             raise fail(exc) from None
         snap["state"] = {k: jsonable(v) for k, v in snap["state"].items()}
         return snap
+
+
+#: The longest SCPI reply send_scpi returns whole, in characters: 20 000 waveform points in ASCII
+#: are some 220 000, more than an agent's context takes in one tool result.
+REPLY_LIMIT = 16000
+
+
+def limit_reply(payload: dict[str, Any]) -> dict[str, Any]:
+    """Cut a reply longer than REPLY_LIMIT, saying so and how long it was."""
+    text = payload.get("response")
+    if isinstance(text, str) and len(text) > REPLY_LIMIT:
+        payload["response"] = text[:REPLY_LIMIT]
+        payload["truncated"] = True
+        payload["response_chars"] = len(text)
+    return payload
 
 
 def _log_clock_and_fault_tools(mcp: MCPServer, ctx: McpContext) -> None:
