@@ -2408,11 +2408,29 @@
             "title": "Channel Components",
             "type": "array"
           },
+          "channel_state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Settings every channel has one of (StateSpec)",
+            "title": "Channel State",
+            "type": "object"
+          },
           "channels": {
             "default": 1,
             "description": "How many channels the channel components are repeated for",
             "title": "Channels",
             "type": "integer"
+          },
+          "commands": {
+            "description": "The commands (CommandSpec)",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Commands",
+            "type": "array"
           },
           "components": {
             "items": {
@@ -2454,7 +2472,10 @@
                 "components",
                 "channel_components",
                 "wiring",
-                "ports"
+                "ports",
+                "state",
+                "channel_state",
+                "commands"
               ],
               "type": "string"
             },
@@ -2473,6 +2494,15 @@
             "title": "Sha256",
             "type": "string"
           },
+          "state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Instrument settings (StateSpec)",
+            "title": "State",
+            "type": "object"
+          },
           "wiring": {
             "$ref": "#/components/schemas/StructureWiring-Output"
           }
@@ -2487,6 +2517,9 @@
           "channel_components",
           "wiring",
           "ports",
+          "state",
+          "channel_state",
+          "commands",
           "inherited",
           "ok",
           "diagnostics"
@@ -9382,6 +9415,24 @@
             "title": "Channel Components",
             "type": "array"
           },
+          "channel_state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Settings every channel has one of (StateSpec)",
+            "title": "Channel State",
+            "type": "object"
+          },
+          "commands": {
+            "description": "The commands (CommandSpec)",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
           "components": {
             "items": {
               "$ref": "#/components/schemas/StructureComponent-Input"
@@ -9391,6 +9442,15 @@
           },
           "ports": {
             "$ref": "#/components/schemas/StructurePorts-Input"
+          },
+          "state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Instrument settings (StateSpec)",
+            "title": "State",
+            "type": "object"
           },
           "wiring": {
             "$ref": "#/components/schemas/StructureWiring-Input"

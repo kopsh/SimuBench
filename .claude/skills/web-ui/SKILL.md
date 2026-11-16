@@ -49,7 +49,8 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   instant, and its baselines, alone).
 - `web/src/features/instrument/structure/` — the acceptance page's build area (#1201, D3,
   instrument-authoring.md 9): `model.ts` (the structure's edits — add, wire, delete, parameters, panel
-  ports, layout; unit-tested), `BuildTab.tsx` (library, canvas, side panel; each edit sends the whole
+  ports, settings, commands; layout; unit-tested), `BuildTab.tsx` (library, canvas, side panel; `SettingsPanel.tsx`
+  holds the settings and commands pages, #1206; each edit sends the whole
   structure to `PUT /api/definitions/{id}/structure`, one save at a time). Dragged positions are kept
   per viewer in `localStorage`. e2e: `e2e/build.spec.ts`. (Not `build/`: `.gitignore` hides it.)
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every

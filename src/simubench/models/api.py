@@ -148,6 +148,13 @@ class StructureUpdate(_Model):
     channel_components: list[StructureComponent] = Field(default_factory=list)
     wiring: StructureWiring = Field(default_factory=StructureWiring)
     ports: StructurePorts = Field(default_factory=StructurePorts)
+    state: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, description="Instrument settings (StateSpec)"
+    )
+    channel_state: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, description="Settings every channel has one of (StateSpec)"
+    )
+    commands: list[dict[str, Any]] = Field(default_factory=list, description="The commands (CommandSpec)")
 
 
 class DefinitionStructure(_Model):
@@ -163,7 +170,16 @@ class DefinitionStructure(_Model):
     channel_components: list[StructureComponent]
     wiring: StructureWiring
     ports: StructurePorts
-    inherited: list[Literal["components", "channel_components", "wiring", "ports"]] = Field(
+    state: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, description="Instrument settings (StateSpec)"
+    )
+    channel_state: dict[str, dict[str, Any]] = Field(
+        default_factory=dict, description="Settings every channel has one of (StateSpec)"
+    )
+    commands: list[dict[str, Any]] = Field(default_factory=list, description="The commands (CommandSpec)")
+    inherited: list[
+        Literal["components", "channel_components", "wiring", "ports", "state", "channel_state", "commands"]
+    ] = Field(
         default_factory=list, description="Structure items the file does not write: they come from extends"
     )
     ok: bool

@@ -2509,11 +2509,27 @@ export interface components {
             /** Channel Components */
             channel_components: components["schemas"]["StructureComponent-Output"][];
             /**
+             * Channel State
+             * @description Settings every channel has one of (StateSpec)
+             */
+            channel_state: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /**
              * Channels
              * @description How many channels the channel components are repeated for
              * @default 1
              */
             channels: number;
+            /**
+             * Commands
+             * @description The commands (CommandSpec)
+             */
+            commands: {
+                [key: string]: unknown;
+            }[];
             /** Components */
             components: components["schemas"]["StructureComponent-Output"][];
             /** Diagnostics */
@@ -2528,7 +2544,7 @@ export interface components {
              * Inherited
              * @description Structure items the file does not write: they come from extends
              */
-            inherited: ("components" | "channel_components" | "wiring" | "ports")[];
+            inherited: ("components" | "channel_components" | "wiring" | "ports" | "state" | "channel_state" | "commands")[];
             /** Ok */
             ok: boolean;
             ports: components["schemas"]["StructurePorts-Output"];
@@ -2537,6 +2553,15 @@ export interface components {
              * @description Hash of the file bytes; pass back as base_sha256 to save
              */
             sha256: string;
+            /**
+             * State
+             * @description Instrument settings (StateSpec)
+             */
+            state: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
             wiring: components["schemas"]["StructureWiring-Output"];
         };
         /** DefinitionSummary */
@@ -5620,9 +5645,34 @@ export interface components {
             base_sha256: string;
             /** Channel Components */
             channel_components?: components["schemas"]["StructureComponent-Input"][];
+            /**
+             * Channel State
+             * @description Settings every channel has one of (StateSpec)
+             */
+            channel_state?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /**
+             * Commands
+             * @description The commands (CommandSpec)
+             */
+            commands?: {
+                [key: string]: unknown;
+            }[];
             /** Components */
             components?: components["schemas"]["StructureComponent-Input"][];
             ports?: components["schemas"]["StructurePorts-Input"];
+            /**
+             * State
+             * @description Instrument settings (StateSpec)
+             */
+            state?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
             wiring?: components["schemas"]["StructureWiring-Input"];
         };
         /** StructureWiring */

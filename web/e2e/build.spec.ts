@@ -84,3 +84,57 @@ test("build area of a built-in model is read only and points at the copy (#1201)
   await expect(page.getByTestId("build-panel-ports").getByRole("button", { name: "添加" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "复制为我的仪表" })).toBeVisible();
 });
+
+test("build area: declare a setting, bind a parameter to it, give it a command, try it (#1206)", async ({ page, request }) => {
+  const copy = await request.post("/api/definitions/sb-oe-1/copy", { headers });
+  const id = ((await copy.json()) as { data: { id: string } }).data.id;
+  await page.goto(`/i/${id}?token=${TOKEN}`);
+  await page.getByTestId("acceptance-tab-build").click();
+  await expect(page.getByTestId("build-area")).toBeVisible();
+
+  // A setting: out.zout, a real number in ohms.
+  await page.getByTestId("build-tab-settings").click();
+  const settings = page.getByTestId("build-settings");
+  await settings.getByPlaceholder("设置名，如 out.level").fill("out.zout");
+  await settings.getByRole("button", { name: "添加设置" }).click();
+  const row = page.getByTestId("build-setting-out.zout");
+  await expect(row).toBeVisible();
+  await row.getByLabel("out.zout 单位").fill("OHM");
+  await row.getByLabel("out.zout 单位").press("Enter");
+  await row.getByLabel("out.zout 默认值").fill("50");
+  await row.getByLabel("out.zout 默认值").press("Enter");
+  await expect
+    .poll(async () => ((await stored(request, id)).data.state as Record<string, { unit?: string; default?: number }>)["out.zout"])
+    .toMatchObject({ type: "float", unit: "OHM", default: 50 });
+
+  // The output stage's impedance follows it.
+  await page.locator('[data-name="out"]').click();
+  await page.getByTestId("bind-out-z_out").click();
+  await page.getByRole("option", { name: "out.zout" }).click();
+  await expect(page.getByText("跟随设置 out.zout")).toBeVisible();
+  await expect
+    .poll(async () => ((await stored(request, id)).data.components as { name: string; params?: Record<string, unknown> }[]).find((c) => c.name === "out")?.params?.z_out)
+    .toBe("$out.zout");
+
+  // A command for it.
+  await page.locator(".react-flow__pane").click({ position: { x: 8, y: 8 } });
+  await page.getByTestId("build-tab-commands").click();
+  const commands = page.getByTestId("build-commands");
+  const before = await commands.getByTestId("build-command").count();
+  await commands.getByPlaceholder("命令头，如 :OUTPut:LEVel").fill(":OUTPut:IMPedance");
+  await commands.getByRole("combobox", { name: "绑定到" }).click();
+  await page.getByRole("option", { name: "out.zout" }).click();
+  await commands.getByRole("button", { name: "添加命令" }).click();
+  await expect(commands.getByTestId("build-command")).toHaveCount(before + 1);
+  await expect.poll(async () => JSON.stringify((await stored(request, id)).data.commands)).toContain(":OUTPut:IMPedance");
+  expect((await stored(request, id)).ok).toBe(true);
+
+  // The try run answers with what was set.
+  await page.getByTestId("acceptance-tab-try").click();
+  const command = page.getByRole("textbox", { name: "命令" });
+  await command.fill(":OUTPut:IMPedance 75");
+  await page.getByRole("button", { name: "发送" }).click();
+  await command.fill(":OUTPut:IMPedance?");
+  await page.getByRole("button", { name: "发送" }).click();
+  await expect(page.locator("pre").last()).toContainText("7.5");
+});

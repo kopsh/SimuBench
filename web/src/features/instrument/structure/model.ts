@@ -15,6 +15,10 @@ export interface Structure {
   channel_components: StructureComponent[];
   wiring: { instrument: [string, string][]; channel: [string, string][] };
   ports: { instrument: Record<string, string>; channel: Record<string, string> };
+  /** Settings (#1206): the instrument's, and those every channel has one of. */
+  state: Record<string, SettingSpec>;
+  channel_state: Record<string, SettingSpec>;
+  commands: CommandSpec[];
 }
 
 /** Where a component lives: the whole instrument, or every channel (one copy each). */
@@ -46,12 +50,18 @@ export function structureOf(s: {
   channel_components: StructureComponent[];
   wiring: { instrument: string[][]; channel: string[][] };
   ports: Structure["ports"];
+  state?: Record<string, SettingSpec>;
+  channel_state?: Record<string, SettingSpec>;
+  commands?: CommandSpec[];
 }): Structure {
   return {
     components: s.components,
     channel_components: s.channel_components,
     wiring: { instrument: pairs(s.wiring.instrument), channel: pairs(s.wiring.channel) },
     ports: { instrument: s.ports.instrument, channel: s.ports.channel },
+    state: s.state ?? {},
+    channel_state: s.channel_state ?? {},
+    commands: s.commands ?? [],
   };
 }
 
@@ -177,6 +187,7 @@ export function removeComponent(
     return Object.keys(params).length === Object.keys(c.params ?? {}).length ? c : { ...c, params };
   };
   const next: Structure = {
+    ...s,
     components: s.components.filter((c) => scope !== "instrument" || c.name !== name).map(unref),
     channel_components: s.channel_components.filter((c) => scope !== "channel" || c.name !== name).map(unref),
     wiring: { instrument: s.wiring.instrument.filter(keepWire("instrument")), channel: s.wiring.channel.filter(keepWire("channel")) },
@@ -440,4 +451,170 @@ export function channelBand(positions: Record<string, Point>, s: Structure, widt
 
 export function inBand(p: Point, band: { x: number; y: number; w: number; h: number }): boolean {
   return p.x >= band.x && p.x <= band.x + band.w && p.y >= band.y && p.y <= band.y + band.h;
+}
+
+// ---- settings (#1206) --------------------------------------------------------------------------
+
+/** A setting's declaration as the definition writes it (StateSpec); the build area edits the
+ * common fields and keeps the others as they are. */
+export type SettingSpec = Record<string, unknown>;
+
+export const SETTING_TYPES = ["float", "int", "bool", "enum", "string"] as const;
+export type SettingType = (typeof SETTING_TYPES)[number];
+
+function settingsOf(s: Structure, scope: Scope): Record<string, SettingSpec> {
+  return scope === "instrument" ? s.state : s.channel_state;
+}
+
+function withSettings(s: Structure, scope: Scope, table: Record<string, SettingSpec>): Structure {
+  return scope === "instrument" ? { ...s, state: table } : { ...s, channel_state: table };
+}
+
+/** The path a parameter or a command names a setting by: `level`, or `ch.level` for a channel's. */
+export function settingPath(scope: Scope, name: string): string {
+  return scope === "channel" ? `ch.${name}` : name;
+}
+
+/** A setting name: letters, digits, `_` and `.` (groups like `out.level`), not starting with `ch.`. */
+export function settingName(raw: string): string | null {
+  const name = raw.trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)*$/.test(name) || name.startsWith("ch.")) return null;
+  return name;
+}
+
+export function newSetting(type: SettingType): SettingSpec {
+  switch (type) {
+    case "bool":
+      return { type, default: false };
+    case "enum":
+      return { type, options: ["A", "B"], default: "A" };
+    case "string":
+      return { type, default: "" };
+    default:
+      return { type, default: 0 };
+  }
+}
+
+export function addSetting(s: Structure, scope: Scope, name: string, type: SettingType): Structure | null {
+  if (name in settingsOf(s, scope)) return null;
+  return withSettings(s, scope, { ...settingsOf(s, scope), [name]: newSetting(type) });
+}
+
+/** Change fields of a setting; `undefined` removes a field. A new type resets what only the old
+ * type had (options, min, max, unit) and gives a default of the new kind. */
+export function updateSetting(s: Structure, scope: Scope, name: string, patch: SettingSpec): Structure {
+  const old = settingsOf(s, scope)[name] ?? {};
+  let spec: SettingSpec = { ...old };
+  if (patch.type !== undefined && patch.type !== old.type) {
+    const fresh = newSetting(patch.type as SettingType);
+    spec = Object.fromEntries(Object.entries(spec).filter(([k]) => !["options", "min", "max", "unit", "ladder", "default", "rst"].includes(k)));
+    spec = { ...spec, ...fresh };
+  }
+  for (const [k, v] of Object.entries(patch)) {
+    if (k === "type") continue;
+    if (v === undefined) delete spec[k];
+    else spec[k] = v;
+  }
+  return withSettings(s, scope, { ...settingsOf(s, scope), [name]: spec });
+}
+
+export function removeSetting(s: Structure, scope: Scope, name: string): Structure {
+  const table = { ...settingsOf(s, scope) };
+  delete table[name];
+  return withSettings(s, scope, table);
+}
+
+/** The setting a parameter value follows (`$x`, or a mapping `{from: "$x"}`), or null. */
+export function boundSetting(value: unknown): string | null {
+  if (typeof value === "string" && value.startsWith("$")) return value.slice(1);
+  if (value && typeof value === "object" && typeof (value as { from?: unknown }).from === "string") {
+    return ((value as { from: string }).from).replace(/^\$/, "");
+  }
+  return null;
+}
+
+/** How many component parameters and commands name a setting: what deleting it leaves dangling. */
+export function settingUses(s: Structure, scope: Scope, name: string): { params: number; commands: number } {
+  const path = settingPath(scope, name);
+  const comps = scope === "instrument" ? [...s.components, ...s.channel_components] : s.channel_components;
+  const params = comps.reduce((n, c) => n + Object.values(c.params ?? {}).filter((v) => boundSetting(v) === path).length, 0);
+  const commands = s.commands.filter((c) => c.state === path).length;
+  return { params, commands };
+}
+
+/** The settings a component's parameter can follow: a channel component its channel's and the
+ * instrument's, an instrument component the instrument's. */
+export function settingChoices(s: Structure, scope: Scope): string[] {
+  const own = Object.keys(s.state).map((n) => settingPath("instrument", n));
+  return scope === "channel" ? [...Object.keys(s.channel_state).map((n) => settingPath("channel", n)), ...own] : own;
+}
+
+// ---- commands (#1206) --------------------------------------------------------------------------
+
+/** A command as the definition writes it (CommandSpec); the build area edits the header, what it
+ * is bound to and whether it can be set and queried, and keeps the other fields. */
+export type CommandSpec = Record<string, unknown> & { header?: string; state?: string; op?: string; set?: boolean; query?: boolean };
+
+export type CommandKind = "state" | "op";
+
+/** What a command does, for the list: a setting, an operation, or something else the agent wrote. */
+export function commandTarget(c: CommandSpec): { kind: CommandKind | "other"; target: string } {
+  if (typeof c.state === "string") return { kind: "state", target: c.state };
+  if (typeof c.op === "string") return { kind: "op", target: c.op };
+  if (typeof c.read === "string") return { kind: "other", target: c.read };
+  return { kind: "other", target: "" };
+}
+
+/** Every operation a command can run: `<component>.<op>`, `ch.<component>.<op>` for a channel's. */
+export function operationChoices(s: Structure, docs: ReadonlyMap<string, ComponentDoc>): string[] {
+  const of = (scope: Scope) => (c: StructureComponent) =>
+    (docs.get(c.type)?.operations ?? []).map((o) => `${scope === "channel" ? "ch." : ""}${c.name}.${o.name}`);
+  return [...s.components.flatMap(of("instrument")), ...s.channel_components.flatMap(of("channel"))];
+}
+
+/** Every setting a command can bind: `level`, `ch.level`. */
+export function commandSettingChoices(s: Structure): string[] {
+  return [...Object.keys(s.state), ...Object.keys(s.channel_state).map((n) => `ch.${n}`)];
+}
+
+/** A header as typed: no spaces, not empty (the definition checks do the rest, E-DEF-HEADER). */
+export function commandHeader(raw: string): string | null {
+  const h = raw.trim();
+  return h && !/\s/.test(h) ? h : null;
+}
+
+export function addCommand(s: Structure, header: string, kind: CommandKind, target: string): Structure | null {
+  if (s.commands.some((c) => c.header === header)) return null;
+  const cmd: CommandSpec = kind === "state" ? { header, state: target } : { header, op: target, query: false };
+  return { ...s, commands: [...s.commands, cmd] };
+}
+
+/** Change fields of command `index`; `undefined` removes a field. Binding it to a setting drops
+ * its operation and the other way round. */
+export function updateCommand(s: Structure, index: number, patch: CommandSpec): Structure {
+  return {
+    ...s,
+    commands: s.commands.map((c, i) => {
+      if (i !== index) return c;
+      const next: CommandSpec = { ...c };
+      if (patch.state !== undefined) delete next.op;
+      if (patch.op !== undefined) delete next.state;
+      for (const [k, v] of Object.entries(patch)) {
+        if (v === undefined) delete next[k];
+        else next[k] = v;
+      }
+      return next;
+    }),
+  };
+}
+
+export function removeCommand(s: Structure, index: number): Structure {
+  return { ...s, commands: s.commands.filter((_, i) => i !== index) };
+}
+
+/** A channel command needs `<ch>` in its header to say which channel (unless the definition
+ * selects one with a setting); the build area points that out. */
+export function needsChannelSuffix(c: CommandSpec): boolean {
+  const { target } = commandTarget(c);
+  return target.startsWith("ch.") && !(c.header ?? "").includes("<ch>");
 }

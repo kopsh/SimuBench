@@ -15,7 +15,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertTriangle, Check, GripVertical, LayoutGrid, Loader2, Plus, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Check, GripVertical, LayoutGrid, Link2, Loader2, Plus, Search, Trash2 } from "lucide-react";
 import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -28,6 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { T } from "@/i18n";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
@@ -60,9 +61,11 @@ import {
   removeWire,
   setPanelPort,
   setParam,
+  settingChoices,
   structureOf,
   wiresOf,
 } from "./model";
+import { CommandsPanel, SettingsPanel } from "./SettingsPanel";
 
 type DefinitionStructure = NonNullable<ReturnType<typeof useDefinitionStructure>["data"]>;
 
@@ -770,7 +773,48 @@ function SidePanel({
       );
     }
   }
-  return <PanelPorts structure={structure} docs={docs} editable={editable} onChange={onChange} />;
+  return <Overview structure={structure} docs={docs} editable={editable} onChange={onChange} />;
+}
+
+/** With nothing selected: the panel ports, the settings and the commands (#1206). */
+function Overview({
+  structure,
+  docs,
+  editable,
+  onChange,
+}: {
+  structure: Structure;
+  docs: ReadonlyMap<string, ComponentDoc>;
+  editable: boolean;
+  onChange: (next: Structure | null) => boolean;
+}) {
+  const { t } = useTranslation();
+  return (
+    <Tabs defaultValue="ports" className="gap-0">
+      <div className="border-b px-2">
+        <TabsList variant="line" className="h-9">
+          <TabsTrigger value="ports" className="text-xs" data-testid="build-tab-ports">
+            {t("acceptance.build.tabPorts")}
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="text-xs" data-testid="build-tab-settings">
+            {t("acceptance.build.tabSettings")}
+          </TabsTrigger>
+          <TabsTrigger value="commands" className="text-xs" data-testid="build-tab-commands">
+            {t("acceptance.build.tabCommands")}
+          </TabsTrigger>
+        </TabsList>
+      </div>
+      <TabsContent value="ports">
+        <PanelPorts structure={structure} docs={docs} editable={editable} onChange={onChange} />
+      </TabsContent>
+      <TabsContent value="settings">
+        <SettingsPanel structure={structure} editable={editable} onChange={onChange} />
+      </TabsContent>
+      <TabsContent value="commands">
+        <CommandsPanel structure={structure} docs={docs} editable={editable} onChange={onChange} />
+      </TabsContent>
+    </Tabs>
+  );
 }
 
 function ComponentPanel({
@@ -851,6 +895,7 @@ function ParamRow({
   const { t } = useTranslation();
   const kind = paramKind(comp, doc, name);
   const info = doc?.params.find((p) => p.name === name);
+  const choices = settingChoices(structure, scope);
   const id = `param-${comp.name}-${name}`;
   return (
     <div className="space-y-0.5" title={info?.doc ?? undefined}>
@@ -859,11 +904,26 @@ function ParamRow({
         {info?.unit && <span className="text-muted-foreground">{info.unit}</span>}
         {kind.kind === "literal" && !kind.set && <span className="text-muted-foreground ml-auto">{t("acceptance.build.default")}</span>}
       </label>
-      {kind.kind === "setting" && (
-        <p className="text-sim num text-[11px]" title={t("acceptance.build.settingHint")}>
-          {t("acceptance.build.followsSetting", { setting: kind.setting })}
-        </p>
-      )}
+      {kind.kind === "setting" &&
+        (typeof comp.params?.[name] === "string" ? (
+          <div className="flex items-center gap-1">
+            <p className="text-sim num min-w-0 flex-1 truncate text-[11px]" title={t("acceptance.build.settingHint")}>
+              {t("acceptance.build.followsSetting", { setting: kind.setting })}
+            </p>
+            {editable && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-6 px-1.5 text-[11px]"
+                onClick={() => onChange(setParam(structure, scope, comp.name, name, undefined))}
+              >
+                {t("acceptance.build.unbind")}
+              </Button>
+            )}
+          </div>
+        ) : (
+          <p className="text-sim num text-[11px]">{t("acceptance.build.mapped", { setting: kind.setting })}</p>
+        ))}
       {kind.kind === "ref" && (
         <Select
           value={kind.value ?? NONE}
@@ -910,6 +970,26 @@ function ParamRow({
               if (!same) onChange(setParam(structure, scope, comp.name, name, value));
             }}
           />
+          {editable && choices.length > 0 && (
+            <Select value="" onValueChange={(v) => onChange(setParam(structure, scope, comp.name, name, "$" + v))}>
+              <SelectTrigger
+                className="size-7 shrink-0 justify-center px-0 [&>svg:last-child]:hidden"
+                size="sm"
+                aria-label={t("acceptance.build.bind")}
+                title={t("acceptance.build.bind")}
+                data-testid={`bind-${comp.name}-${name}`}
+              >
+                <Link2 className="size-3.5" />
+              </SelectTrigger>
+              <SelectContent position="popper" align="end">
+                {choices.map((c) => (
+                  <SelectItem key={c} value={c} className="num">
+                    {c}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {editable && kind.set && (
             <Button
               variant="ghost"

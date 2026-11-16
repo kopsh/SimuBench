@@ -1,6 +1,21 @@
 import { describe, expect, it } from "vitest";
 import {
+  addCommand,
   addComponent,
+  addSetting,
+  boundSetting,
+  commandHeader,
+  commandSettingChoices,
+  commandTarget,
+  needsChannelSuffix,
+  operationChoices,
+  removeCommand,
+  removeSetting,
+  settingChoices,
+  settingName,
+  settingUses,
+  updateCommand,
+  updateSetting,
   autoLayout,
   canWire,
   connect,
@@ -29,6 +44,9 @@ const empty: Structure = {
   channel_components: [],
   wiring: { instrument: [], channel: [] },
   ports: { instrument: {}, channel: {} },
+  state: {},
+  channel_state: {},
+  commands: [],
 };
 
 /** A small scope: a channel input and front end, a shared ADC that takes every channel. */
@@ -43,6 +61,12 @@ const scope: Structure = {
   ],
   wiring: { instrument: [["ch{n}.front.out", "adc.in{n}"]], channel: [["inp.out", "front.in"]] },
   ports: { instrument: {}, channel: { "CH{n}": "inp.pin" } },
+  state: { depth: { type: "int", default: 1000 } },
+  channel_state: { impedance: { type: "enum", options: ["ONEMeg", "FIFTy"], default: "ONEMeg" }, bwlimit: { type: "bool", default: false } },
+  commands: [
+    { header: ":CHANnel<ch>:IMPedance", state: "ch.impedance" },
+    { header: ":DIGitize", op: "acq.digitize", query: false },
+  ],
 };
 
 const doc = (over: Partial<ComponentDoc>): ComponentDoc =>
@@ -200,5 +224,80 @@ describe("layout and diagnostics", () => {
     expect(diagnosticNode(scope, "/channel_components/0")).toBe(nodeId("channel", "inp"));
     expect(diagnosticNode(scope, "/commands/2")).toBeNull();
     expect(diagnosticNode(scope, null)).toBeNull();
+  });
+});
+
+describe("settings (#1206)", () => {
+  it("adds a setting with a default of its type and refuses a taken name", () => {
+    const s = addSetting(scope, "instrument", "level", "float")!;
+    expect(s.state.level).toEqual({ type: "float", default: 0 });
+    expect(addSetting(s, "instrument", "level", "bool")).toBeNull();
+    expect(addSetting(scope, "channel", "on", "enum")!.channel_state.on).toEqual({ type: "enum", options: ["A", "B"], default: "A" });
+  });
+
+  it("checks a setting name", () => {
+    expect(settingName(" out.level ")).toBe("out.level");
+    expect(settingName("ch.level")).toBeNull();
+    expect(settingName("1x")).toBeNull();
+    expect(settingName("a b")).toBeNull();
+  });
+
+  it("edits fields, and a new type drops what only the old one had", () => {
+    let s = updateSetting(scope, "channel", "impedance", { label: "阻抗" });
+    expect(s.channel_state.impedance).toMatchObject({ label: "阻抗", options: ["ONEMeg", "FIFTy"] });
+    s = updateSetting(s, "channel", "impedance", { type: "float" });
+    expect(s.channel_state.impedance).toEqual({ type: "float", default: 0, label: "阻抗" });
+    s = updateSetting(s, "channel", "impedance", { label: undefined, unit: "OHM" });
+    expect(s.channel_state.impedance).toEqual({ type: "float", default: 0, unit: "OHM" });
+  });
+
+  it("counts the parameters and commands that name a setting, and deletes it", () => {
+    const bound = { ...scope, channel_components: [{ name: "inp", type: "input_port", params: { z_in: "$ch.impedance" } }] };
+    expect(settingUses(bound, "channel", "impedance")).toEqual({ params: 1, commands: 1 });
+    expect(settingUses(bound, "instrument", "depth")).toEqual({ params: 0, commands: 0 });
+    expect(removeSetting(bound, "channel", "impedance").channel_state).not.toHaveProperty("impedance");
+  });
+
+  it("offers a channel component its channel's settings and the instrument's", () => {
+    expect(settingChoices(scope, "channel")).toEqual(["ch.impedance", "ch.bwlimit", "depth"]);
+    expect(settingChoices(scope, "instrument")).toEqual(["depth"]);
+    expect(boundSetting("$ch.impedance")).toBe("ch.impedance");
+    expect(boundSetting({ from: "$ch.bwlimit", map: {} })).toBe("ch.bwlimit");
+    expect(boundSetting(3)).toBeNull();
+  });
+});
+
+describe("commands (#1206)", () => {
+  const docs = new Map<string, ComponentDoc>([
+    ["scope_acquisition", doc({ operations: [{ name: "digitize", params: [], doc: null }] })],
+    ["input_port", doc({ operations: [{ name: "probe_comp", params: [], doc: null }] })],
+  ]);
+
+  it("lists what a command can bind to", () => {
+    expect(commandSettingChoices(scope)).toEqual(["depth", "ch.impedance", "ch.bwlimit"]);
+    expect(operationChoices(scope, docs)).toEqual(["acq.digitize", "ch.inp.probe_comp"]);
+  });
+
+  it("adds a setting command and an operation command, not a header twice", () => {
+    const s = addCommand(scope, ":ACQuire:DEPTh", "state", "depth")!;
+    expect(s.commands.at(-1)).toEqual({ header: ":ACQuire:DEPTh", state: "depth" });
+    expect(addCommand(s, ":ACQuire:DEPTh", "state", "depth")).toBeNull();
+    expect(addCommand(scope, ":RUN", "op", "acq.digitize")!.commands.at(-1)).toEqual({ header: ":RUN", op: "acq.digitize", query: false });
+  });
+
+  it("rebinds a command from an operation to a setting and keeps its other fields", () => {
+    const s = updateCommand(scope, 1, { state: "depth" });
+    expect(s.commands[1]).toEqual({ header: ":DIGitize", state: "depth", query: false });
+    expect(commandTarget(s.commands[1])).toEqual({ kind: "state", target: "depth" });
+    expect(updateCommand(s, 1, { query: undefined }).commands[1]).toEqual({ header: ":DIGitize", state: "depth" });
+    expect(removeCommand(s, 0).commands).toHaveLength(1);
+  });
+
+  it("checks a header and points out a channel command without <ch>", () => {
+    expect(commandHeader(" :LEVel ")).toBe(":LEVel");
+    expect(commandHeader(":A B")).toBeNull();
+    expect(needsChannelSuffix({ header: ":CHANnel:SCALe", state: "ch.scale" })).toBe(true);
+    expect(needsChannelSuffix({ header: ":CHANnel<ch>:SCALe", state: "ch.scale" })).toBe(false);
+    expect(needsChannelSuffix({ header: ":RUN", op: "acq.run" })).toBe(false);
   });
 });
