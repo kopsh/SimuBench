@@ -18,6 +18,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from ruamel.yaml.error import YAMLError as RuamelError
 
 from ..engine import edit
 from ..engine.component import component_types
@@ -26,6 +27,7 @@ from ..library.loader import SKIP_DIRS, DefinitionLibrary, load_yaml
 from ..library.migrate import FormatError, upgrade
 from ..models import api as M
 from ..models.bench import BenchDefinition
+from . import yamlpatch
 from .errors import Forbidden, NotFound
 from .history import History, Source
 
@@ -95,9 +97,31 @@ class BenchFiles:
             raise ValueError(f"bench files end with {' or '.join(SUFFIXES)}")
         # Schema-valid content is written in canonical form; invalid content is kept as given so
         # that work in progress is never lost.
+        canonical = False
         with contextlib.suppress(ValueError):
             data = edit.to_yaml_data(BenchDefinition.model_validate(data))
+            canonical = True
+        raw = self._patched(path, data) if canonical else None
+        if raw is not None:
+            return self._write(bench_path, path, raw, _parse(path, raw), base_sha256, source)
         return self._write(bench_path, path, _dump(path, data), data, base_sha256, source)
+
+    def _patched(self, path: Path, data: dict[str, Any]) -> bytes | None:
+        """The existing file's text with only the change to ``data`` applied (#1254): its comments,
+        number spelling, key order and explicit defaults stay. None when there is no such text to
+        keep (a new file, JSON, a file that is not a valid bench) or the patch would not read back
+        as ``data`` — the canonical form is written then."""
+        if path.suffix == ".json" or not path.exists():
+            return None
+        try:
+            old_raw = path.read_bytes()
+            old = edit.to_yaml_data(BenchDefinition.model_validate(_parse(path, old_raw)))
+            raw = yamlpatch.patched(old_raw, old, data)
+            if raw is None or edit.to_yaml_data(BenchDefinition.model_validate(_parse(path, raw))) != data:
+                return None
+            return raw
+        except (ValueError, UnicodeDecodeError, yaml.YAMLError, RuamelError):
+            return None
 
     def _write(
         self,
