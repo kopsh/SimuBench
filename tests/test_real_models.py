@@ -5,7 +5,6 @@ named after the manual section it checks. Every real-model definition (one with 
 must agree with its coverage table and its cases.
 """
 
-import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -100,7 +99,7 @@ def real_models():
 def _declares_reference(path: Path) -> bool:
     """Whether the file has a top-level ``reference:`` key. Read as text: every xdist worker
     collects this module, and loading and validating ~30 definitions each cost seconds."""
-    return re.search(r"^reference:", path.read_text(encoding="utf-8"), re.M) is not None
+    return any(line.startswith("reference:") for line in path.read_text(encoding="utf-8").splitlines())
 
 
 @pytest.mark.parametrize("path", list(real_models()))
