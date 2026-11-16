@@ -28,9 +28,9 @@ export const useScreenFields = create<{ counts: Record<string, number>; add: (in
   }),
 );
 
-/** Count this field as shown on a screen while it is mounted inside one. */
-export function useCountOnScreen(instrument: string, path: string) {
-  const onScreen = useContext(OnScreen);
+/** Count this field as shown on a screen while it is mounted inside one (and ``counted``). */
+export function useCountOnScreen(instrument: string, path: string, counted = true) {
+  const onScreen = useContext(OnScreen) && counted;
   useEffect(() => (onScreen ? useScreenFields.getState().add(instrument, path) : undefined), [onScreen, instrument, path]);
 }
 

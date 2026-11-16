@@ -11,6 +11,7 @@ import { cssVar, decimate, resolveColor } from "@/lib/canvas";
 import { prefersReducedMotion, sweepDurationMs, sweepProgress } from "@/lib/motion";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
+import { useCountOnScreen } from "../onScreen";
 import { StateField } from "../StateField";
 import { ScreenIdentity } from "./parts";
 
@@ -133,8 +134,8 @@ export function SpectrumScreen({
         </section>
         <section className="bg-card space-y-1.5 rounded-lg border p-3">
           <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{t("spectrum.frequency")}</h3>
-          <ScpiField label={t("spectrum.center")} value={(n("start") + n("stop")) / 2} unit="Hz" header=":SENS:FREQ:CENT" onSend={send} disabled={readonly} />
-          <ScpiField label={t("spectrum.span")} value={n("stop") - n("start")} unit="Hz" header=":SENS:FREQ:SPAN" onSend={send} disabled={readonly} />
+          <ScpiField label={t("spectrum.center")} instrument={inst.name} path="freq.center" value={(n("start") + n("stop")) / 2} unit="Hz" header=":SENS:FREQ:CENT" onSend={send} disabled={readonly} />
+          <ScpiField label={t("spectrum.span")} instrument={inst.name} path="freq.span" value={n("stop") - n("start")} unit="Hz" header=":SENS:FREQ:SPAN" onSend={send} disabled={readonly} />
           <ScpiField label="RBW" value={n("rbw")} unit="Hz" header=":SENS:BAND:RES" onSend={send} disabled={readonly} />
           <ScpiField label={t("spectrum.sweepTime")} value={n("sweep_time")} unit="s" header=":SENS:SWE:TIME" onSend={send} disabled={readonly} />
           <div className="flex gap-2 pt-1">
@@ -176,6 +177,8 @@ function Flag({ on, label, title, testId }: { on: boolean; label: string; title?
 
 /** A numeric setting written through SCPI, so the instrument applies its own rules. */
 function ScpiField({
+  instrument,
+  path,
   label,
   value,
   unit,
@@ -183,6 +186,13 @@ function ScpiField({
   onSend,
   disabled,
 }: {
+  /**
+   * The setting this field shows as it is set: counted as on the screen, so the inspector beside it
+   * leaves it out (#1252). Not given for RBW and sweep time, whose fields read the value in use (the
+   * automatic one, when auto): the inspector keeps their manual setting and its auto switch.
+   */
+  instrument?: string;
+  path?: string;
   label: string;
   value: number;
   unit: string;
@@ -190,6 +200,7 @@ function ScpiField({
   onSend: (cmd: string) => void;
   disabled?: boolean;
 }) {
+  useCountOnScreen(instrument ?? "", path ?? "", !!(instrument && path));
   const shown = (() => {
     const p = engParts(value, unit, 7);
     return `${p.mantissa} ${p.prefix}`.trim();

@@ -130,17 +130,20 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
     <div className="space-y-4 p-3">
       <RemoteBanner sid={sid} inst={inst} className="-mx-3 -mt-3" />
       <Header title={instrumentTitle(inst)} subtitle={`${inst.manufacturer} ${inst.model}`} />
-      <div className="grid gap-1.5">
-        <Button variant="outline" size="sm" onClick={() => openScreen(inst.name)}>
+      {/* One primary action (the screen); the rest are less frequent and sit as a row below it (#1252). */}
+      <div className="grid gap-1.5" data-testid="instrument-actions">
+        <Button size="sm" onClick={() => openScreen(inst.name)}>
           <MonitorPlay className="size-4" /> {t("workbench.openScreen")}
         </Button>
-        <Button variant="outline" size="sm" onClick={() => openInternals(inst.name)}>
-          <Blocks className="size-4" /> {t("internals.open")}
-        </Button>
-        <Button variant="outline" size="sm" onClick={() => openAcceptance(inst.name)}>
-          <ClipboardCheck className="size-4" /> {t("acceptance.open")}
-        </Button>
-        {bench && <SaveTemplateButton bench={bench} instrument={inst.name} label={inst.label ?? instrumentTitle(inst)} />}
+        <div className="grid grid-cols-3 gap-1.5">
+          <Button variant="outline" size="sm" className="px-1 text-xs" aria-label={t("internals.open")} title={t("internals.open")} onClick={() => openInternals(inst.name)}>
+            <Blocks className="size-4" /> {t("internals.short")}
+          </Button>
+          <Button variant="outline" size="sm" className="px-1 text-xs" aria-label={t("acceptance.open")} title={t("acceptance.open")} onClick={() => openAcceptance(inst.name)}>
+            <ClipboardCheck className="size-4" /> {t("acceptance.short")}
+          </Button>
+          {bench && <SaveTemplateButton compact bench={bench} instrument={inst.name} label={inst.label ?? instrumentTitle(inst)} />}
+        </div>
       </div>
       <Section title={t("workbench.identitySection")}>
         <CopyRow label="*IDN?" value={inst.idn} />
