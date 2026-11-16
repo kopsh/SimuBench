@@ -1182,6 +1182,35 @@ class ReplayResult(_Model):
     warnings: list[str]
 
 
+# ---- workspace data in .simubench/ (#1238) -------------------------------------------------------
+
+
+class StorageEntry(_Model):
+    kind: Literal["history", "assistant", "files"] = Field(
+        ...,
+        description="history: saved versions; assistant: a bench's conversation; files: its instruments' files",
+    )
+    name: str = Field(
+        ..., description="The workspace file it belongs to (files: the bench path without suffix)"
+    )
+    bytes: int = Field(..., description="Bytes on disk")
+    orphan: bool = Field(..., description="Its file no longer exists in the workspace")
+
+
+class StorageReport(_Model):
+    total_bytes: int = Field(..., description="Everything listed in entries")
+    entries: list[StorageEntry] = Field(..., description="Largest first")
+
+
+class StorageCleanRequest(_Model):
+    history: bool = Field(False, description="Also delete the saved versions of files that are gone")
+
+
+class StorageCleanResult(_Model):
+    removed: list[StorageEntry]
+    bytes: int = Field(..., description="Bytes freed")
+
+
 class AssetRegister(_Model):
     """The bench's virtual calibration register on its calendar (M5)."""
 

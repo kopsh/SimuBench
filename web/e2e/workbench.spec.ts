@@ -1,6 +1,9 @@
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
 
 import { benchRow, expectContrastAA, expectText, expectValue, isClockTime, isSession, isVersion, near, openButton, quantity, sessionIdOf } from "./judge";
+import { WORKSPACE } from "./workspace.mjs";
 
 const TOKEN = "e2e-token";
 
@@ -307,6 +310,33 @@ test("about and diagnostics: manifest, health checks, bundle download", async ({
   await page.getByRole("button", { name: "导出诊断包" }).click();
   const name = (await download).suggestedFilename();
   expect(name.startsWith("simubench-diagnostics-") && name.endsWith(".zip"), name).toBe(true);
+});
+
+test("workspace data: what lost its file is listed, cleaned after a confirm, its history kept", async ({ page }) => {
+  // A bench deleted outside SimuBench leaves its instrument files, conversation and versions (#1238).
+  const sb = join(WORKSPACE, ".simubench");
+  const files = join(sb, "files", "e2e-gone", "dmm");
+  mkdirSync(files, { recursive: true });
+  writeFileSync(join(files, "a.csv"), "x".repeat(4096));
+  mkdirSync(join(sb, "assistant"), { recursive: true });
+  writeFileSync(join(sb, "assistant", "e2e-gone.bench.yaml.json"), "{}");
+  const history = join(sb, "history", "e2e-gone.bench.yaml");
+  mkdirSync(history, { recursive: true });
+  writeFileSync(join(history, "index.jsonl"), "");
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("button", { name: "设置" }).click();
+  await page.getByRole("menuitem", { name: "工作区数据" }).click();
+  const orphans = page.getByTestId("storage-orphans");
+  await expect(orphans).toContainText("e2e-gone");
+  await expect(orphans.locator("li[data-kept]")).toContainText("e2e-gone.bench.yaml");
+  await page.getByTestId("storage-clean").click();
+  await expect(page.getByRole("alert")).toContainText("无法撤销");
+  await page.getByTestId("storage-confirm").click();
+  await expect(page.getByText("已删除")).toBeVisible();
+  expect(existsSync(join(sb, "files", "e2e-gone")), "instrument files removed").toBe(false);
+  expect(existsSync(join(sb, "assistant", "e2e-gone.bench.yaml.json")), "conversation removed").toBe(false);
+  expect(existsSync(history), "history kept by default").toBe(true);
+  await expect(orphans.locator("li[data-kept]").filter({ hasText: "e2e-gone.bench.yaml" })).toHaveCount(1);
 });
 
 test("home: the product page shows the same bench in the web, the terminal and a script", async ({ page }) => {
