@@ -19,6 +19,7 @@ import pytest
 
 from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
+from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,11 +48,17 @@ STEP = {"0.1": 3e-8, "1": 3e-7, "10": 3e-6}  # NPLC 1: resolution fraction x ran
 READING_TIME = {0.02: 0.0009, 0.06: 0.00253, 0.2: 0.00813, 1: 0.04013, 10: 0.40016, 100: 4.00016}
 
 
+METER = next(c for c in DefinitionLibrary().get("keysight-34465a").components if c.name == "meter")
+NOISE = METER.params["noise"]
+
+
 def noise_sigma(range_v: float, nplc: float = 1.0) -> float:
-    """The front end's reading-noise rms on a range at an NPLC (#744): 1 ppm of range at the
-    0.02 s reference (specs.noise_ppm_of_range), falling with the square root of the reading
-    time; the tolerances below sit at 4σ of it."""
-    return 1.0e-6 * range_v * math.sqrt(0.02 / READING_TIME[nplc])
+    """The front end's reading-noise rms on a range at an NPLC, as the definition gives it (#744,
+    #1256): the range's ``table`` entry or ``ppm_of_range`` of the range at ``ref_time_s``, falling
+    with the square root of the reading time; the tolerances below sit at 4σ of it."""
+    table = {float(k): float(v) for k, v in NOISE.get("table", {}).items()}
+    rms = table.get(range_v, NOISE["ppm_of_range"] * 1e-6 * range_v)
+    return rms * math.sqrt(NOISE["ref_time_s"] / READING_TIME[nplc])
 
 
 def quantized(value: float, range_key: str = "0.1") -> float:
@@ -437,6 +444,14 @@ def test_the_definition_noise_distributes_and_falls_with_nplc():
         q("VOLT:DC:NPLC 10")
         tens = [float(q("MEAS:VOLT:DC?").lstrip("+")) for _ in range(200)]
         assert statistics.stdev(tens) == pytest.approx(noise_sigma(0.1, 10.0), rel=0.25)
+        # Consecutive READ? at 10 PLC on the 100 mV range (#1256): the readings move with the
+        # specified noise, 0.1 µV rms, well above the 10 nV step — not a fixed offset.
+        q("CONF:VOLT:DC 0.1")
+        q("VOLT:DC:NPLC 10")
+        reads = [float(q("READ?").lstrip("+")) for _ in range(100)]
+        assert noise_sigma(0.1, 10.0) == pytest.approx(1.0e-7)
+        assert len(set(reads)) > 20
+        assert statistics.stdev(reads) == pytest.approx(noise_sigma(0.1, 10.0), rel=0.3)
     finally:
         s.close()
     s = open_bench(BENCH)

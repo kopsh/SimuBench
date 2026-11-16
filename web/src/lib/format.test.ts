@@ -34,6 +34,17 @@ describe("formatReadout (#313)", () => {
     expect(text(formatReadout(9.9990002, { unit: "V", digits: 7, fixed: true }))).toBe("9.999000 V");
     expect(text(formatReadout(0.1, { unit: "V", digits: 7, fixed: true }))).toBe("100.0000 mV");
   });
+  it("6½-digit multimeter on a range: the range's prefix and width, no digit past the resolution (#1256)", () => {
+    const dmm = (v: number, range: number, resolution?: number) => text(formatReadout(v, { unit: "V", digits: 7, fixed: true, range, resolution }));
+    expect(dmm(-20e-9, 0.1)).toBe("+000.0000 mV"); // 20 nV is below the 0.1 µV display step
+    expect(dmm(-2.0e-7, 0.1)).toBe("-000.0002 mV");
+    expect(dmm(0.0123456789, 0.1)).toBe("+012.3457 mV");
+    expect(dmm(0.5, 1)).toBe("+0.500000 V");
+    expect(dmm(5, 10)).toBe("+05.00000 V");
+    expect(dmm(999.9, 1000)).toBe("+0999.900 V"); // no kV on a meter
+    expect(dmm(0.05, 0.1, 3e-7)).toBe("+050.000 mV"); // an A/D step of 0.3 µV: one digit fewer
+    expect(text(formatReadout(1234.5, { unit: "Ω", digits: 7, fixed: true, range: 10000 }))).toBe("+01.23450 kΩ");
+  });
   it("counter: counts are whole numbers, statistics carry their unit", () => {
     expect(formatReadout(1000, { count: true }).mantissa).toBe("1000");
     expect(formatReadout(12.0000001, { count: true }).mantissa).toBe("12");

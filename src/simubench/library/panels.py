@@ -99,6 +99,8 @@ def _multimeter(d: InstrumentDefinition) -> Panel | None:
                 label_en=label_en,
                 unit=unit,
                 digits=digits,
+                range=f"{adc.name}.{function}_range",
+                resolution=f"{adc.name}.{function}_resolution" if adc.params.get("resolution") else None,
                 when=when,
             )
         )

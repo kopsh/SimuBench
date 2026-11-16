@@ -4186,10 +4186,20 @@ export interface components {
             /** Label En */
             label_en?: string | null;
             /**
+             * Range
+             * @description A reading that gives the range in use, e.g. 'meter.DC_range': the display then shows the value in the range's unit prefix with a fixed number of decimals, as a meter does (#1256)
+             */
+            range?: string | null;
+            /**
              * Reading
              * @description A reading of the instrument, '<component>.<reading>', e.g. 'meter.DC'
              */
             reading: string;
+            /**
+             * Resolution
+             * @description A reading that gives the A/D's step on that range, e.g. 'meter.DC_resolution': no digit finer than it is shown (#1256)
+             */
+            resolution?: string | null;
             /**
              * Unit
              * @description The reading's unit, e.g. V; none for a count or a word

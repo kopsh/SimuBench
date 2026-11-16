@@ -5975,10 +5975,34 @@
             ],
             "title": "Label En"
           },
+          "range": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A reading that gives the range in use, e.g. 'meter.DC_range': the display then shows the value in the range's unit prefix with a fixed number of decimals, as a meter does (#1256)",
+            "title": "Range"
+          },
           "reading": {
             "description": "A reading of the instrument, '<component>.<reading>', e.g. 'meter.DC'",
             "title": "Reading",
             "type": "string"
+          },
+          "resolution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A reading that gives the A/D's step on that range, e.g. 'meter.DC_resolution': no digit finer than it is shown (#1256)",
+            "title": "Resolution"
           },
           "unit": {
             "anyOf": [

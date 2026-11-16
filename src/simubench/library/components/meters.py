@@ -478,6 +478,15 @@ class DmmAdc(Component):
         active = self._conditioning().active_function()
         if active not in ("DC", "AC"):
             values[active] = self.reading(active, frame=frame)  # the selected ohms or current function (#301)
+        # What the display formats a reading by (#1256): the range in use and the A/D's step on it.
+        conditioning = self._conditioning()
+        for function in [k for k in values if not k.startswith("true_")]:
+            r = conditioning.effective_range(function)
+            if r is not None:
+                values[f"{function}_range"] = r
+                step = float(self.param("resolution") or 0.0) * r
+                if step > 0:
+                    values[f"{function}_resolution"] = step
         if self.session.reveal_true_values:
             values.update({f"true_{k}": v for k, v in self._conditioning().true_values().items()})
         return {"values": values}

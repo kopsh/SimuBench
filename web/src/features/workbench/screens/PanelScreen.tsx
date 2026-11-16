@@ -101,11 +101,11 @@ export function PanelScreen({
           </Tooltip>
         </header>
         <div aria-live="polite">
-          {primary && <ReadoutView r={primary} value={readings[primary.reading]} big />}
+          {primary && <ReadoutView r={primary} value={readings[primary.reading]} readings={readings} big />}
           {rest.length > 0 && (
             <div className="grid grid-cols-2 divide-x border-t">
               {rest.map((r) => (
-                <ReadoutView key={r.reading} r={r} value={readings[r.reading]} />
+                <ReadoutView key={r.reading} r={r} value={readings[r.reading]} readings={readings} />
               ))}
             </div>
           )}
@@ -160,7 +160,7 @@ export function PanelScreen({
   );
 }
 
-function ReadoutView({ r, value, big }: { r: PanelReadout; value: unknown; big?: boolean }) {
+function ReadoutView({ r, value, readings, big }: { r: PanelReadout; value: unknown; readings?: Record<string, unknown>; big?: boolean }) {
   const { t } = useTranslation();
   const label = pickLabel(r.label, r.label_en, r.reading);
   let mantissa: string;
@@ -172,6 +172,9 @@ function ReadoutView({ r, value, big }: { r: PanelReadout; value: unknown; big?:
       digits: r.digits ?? 6,
       fixed: true,
       count: !r.unit && Number.isInteger(value),
+      // a meter's reading follows its range and resolution (#1256)
+      range: numberOf(r.range ? readings?.[r.range] : undefined),
+      resolution: numberOf(r.resolution ? readings?.[r.resolution] : undefined),
     });
     mantissa = p.overload ? t("instPanel.overload") : p.mantissa;
     unit = p.overload ? "" : `${p.prefix}${p.unit}`;
@@ -191,6 +194,10 @@ function ReadoutView({ r, value, big }: { r: PanelReadout; value: unknown; big?:
       </div>
     </div>
   );
+}
+
+function numberOf(v: unknown): number | undefined {
+  return typeof v === "number" && Number.isFinite(v) ? v : undefined;
 }
 
 function ControlView({
