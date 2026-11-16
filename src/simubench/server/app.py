@@ -129,6 +129,14 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.token = token
+
+    @app.exception_handler(Exception)
+    async def unexpected(request: Request, exc: Exception) -> JSONResponse:
+        # A bug or an unforeseen environment error: the page shows what happened instead of a bare
+        # "Internal Server Error" (#1195); the service is loopback-only, so the text stays local.
+        # Starlette still re-raises it after this response, so it is logged with its traceback.
+        return JSONResponse({"detail": f"{type(exc).__name__}: {exc}"}, status_code=500)
+
     app.state.manager = manager
     app.add_middleware(LocalOnly)
     ctx = ApiContext.of(manager, token)

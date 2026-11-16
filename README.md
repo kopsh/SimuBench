@@ -45,7 +45,7 @@ simubench serve --workspace 我的测试台目录 --open
 ./scripts/build-wheel.sh && ./scripts/build-windows.sh   # 在 Linux 上构建：dist/SimuBench-<版本>-win64.zip
 ```
 
-用户解压后双击 `SimuBench.exe`：浏览器打开界面，同时启动 MCP 服务（`http://127.0.0.1:8765/mcp`；界面右上角「连接 AI 助手」给出地址与可复制的配置），不需要安装 Python、不联网；测试台默认放在 `文档\SimuBench`，关闭黑色窗口即停止。`tools\simubench.exe` 是完整命令行。包里自带 python.org 的 embeddable Python 与按 `uv.lock` 装好的 Windows 依赖；内部镜像用 `UV_INDEX_URL` 与 `SIMUBENCH_PYTHON_EMBED=<embed zip 的地址或本地文件>`。在 Windows 上验收：`python scripts/smoke_windows_bundle.py <解压目录> --ui`。
+用户解压后双击 `SimuBench.exe`：浏览器打开界面，同时启动 MCP 服务（`http://127.0.0.1:8765/mcp`；界面右上角「连接 AI 助手」给出地址与可复制的配置），不需要安装 Python、不联网；测试台默认放在 `文档\SimuBench`，关闭黑色窗口即停止。默认的 SCPI（5025 起）或 HiSLIP（4880）端口被其他程序占用时，自动换用空闲端口并在界面上提示；要固定端口就在快捷方式里加 `--scpi-base-port`、`--hislip-port`（`launch` 接受与 `serve` 相同的服务选项），这时被占用会报错而不换。`tools\simubench.exe` 是完整命令行。包里自带 python.org 的 embeddable Python 与按 `uv.lock` 装好的 Windows 依赖；内部镜像用 `UV_INDEX_URL` 与 `SIMUBENCH_PYTHON_EMBED=<embed zip 的地址或本地文件>`。在 Windows 上验收：`python scripts/smoke_windows_bundle.py <解压目录> --ui`。
 
 内网访问不了 python.org 时：在外网下载一次 `https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip`（版本见 `scripts/windows_bundle.py` 的 `PYTHON_VERSION`），放进内部制品库或共享盘，构建时指向它；或直接放到构建机的 `build/windows/` 下，什么都不用设：
 

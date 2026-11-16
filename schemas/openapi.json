@@ -7777,6 +7777,14 @@
             "title": "Parts",
             "type": "array"
           },
+          "port_notices": {
+            "description": "Why an address is not the configured one: a taken default port replaced by a free one (#1197)",
+            "items": {
+              "type": "string"
+            },
+            "title": "Port Notices",
+            "type": "array"
+          },
           "record_path": {
             "anyOf": [
               {
@@ -7832,6 +7840,7 @@
           "bench_fingerprint",
           "stale_definitions",
           "record_path",
+          "port_notices",
           "link_address",
           "clients",
           "instruments",
