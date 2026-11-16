@@ -279,10 +279,12 @@ def _harmonics(
     above it). When the line limit cuts it lower, the model leaves content out, and says so.
     """
     n_band = int(f_max // freq) if freq > 0 else 1
-    n = np.arange(1, max(n_band, 1) + 1, step)
-    if n.size <= MAX_LINES:
+    total = len(range(1, max(n_band, 1) + 1, step))
+    # Build at most MAX_LINES numbers: a low frequency under a wide bandwidth has millions of
+    # harmonics and np.arange over all of them cost more than the rest of the solve.
+    n = np.arange(1, 1 + min(total, MAX_LINES) * step, step)
+    if total <= MAX_LINES:
         return n, ()
-    n = n[:MAX_LINES]
     note = FidelityNote(
         "truncated", f"{what}: {n.size} harmonics up to {n[-1] * freq:.6g} Hz kept, the rest left out"
     )
