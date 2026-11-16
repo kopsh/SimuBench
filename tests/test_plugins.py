@@ -12,9 +12,11 @@ import pytest
 from helpers import raises_with
 from simubench import plugins
 from simubench.api import open_bench
+from simubench.cli import main
 from simubench.engine.component import component_type, registry
 from simubench.engine.replay import replay
 from simubench.ops import doctor, manifest
+from simubench.plugins import legacy_setting_present, workspace_allows_plugins
 from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -149,13 +151,23 @@ def test_manager_takes_the_flag_and_the_workspace_setting(tmp_path, clean_plugin
     assert (ws / "components" / "bomb.imported").exists()
 
 
-def test_workspace_setting_enables_plugins_without_the_flag(tmp_path, clean_plugins):
+def test_user_trust_enables_plugins_and_a_workspace_setting_does_not(tmp_path, clean_plugins):
     ws = workspace_with(tmp_path, "bomb.py")
     (ws / ".simubench").mkdir()
+    # The old grant travels with the folder, so it is no longer honoured (#1237) ...
     (ws / ".simubench" / "settings.json").write_text('{"allow_workspace_plugins": true}', encoding="utf-8")
+    assert not SessionManager(ws, scpi_base_port=0, hislip_port=0).plugins_allowed()
+    assert not (ws / "components" / "bomb.imported").exists()
+    assert legacy_setting_present(ws)
+    # ... the user's own `simubench trust` is, and withdrawing it takes effect.
+    assert main(["trust", str(ws)]) == 0
+    assert workspace_allows_plugins(ws)
     manager = SessionManager(ws, scpi_base_port=0, hislip_port=0)
     assert manager.plugins_allowed()
     assert (ws / "components" / "bomb.imported").exists()
+    assert not (ws / ".simubench" / "trusted-workspaces.json").exists()  # nothing of it in the workspace
+    assert main(["trust", "--revoke", str(ws)]) == 0
+    assert not workspace_allows_plugins(ws)
 
 
 async def test_manager_session_uses_a_workspace_plugin(tmp_path, clean_plugins):

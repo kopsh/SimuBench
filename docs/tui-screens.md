@@ -635,7 +635,7 @@ TUI 只调用以下接口（D18），不新增端点；括号内是本文规定�
    → +9.99900009E+00                                       ⏎ 发送  ↑↓ 历史  Esc 关闭
 ```
 
-`:` 在底栏上方打开一行输入，提示符为当前仪表；`⏎` 发送（`POST …/scpi`），回复显示在下一行（错误为 `bad`），同时进入通信记录（来源“终端”）；`↑` `↓` 历史（每台仪表各自保存，退出后保留在 `~/.simubench/tui-history`）；`Esc` 关闭。查询不会取走脚本的回复（D32）。
+`:` 在底栏上方打开一行输入，提示符为当前仪表；`⏎` 发送（`POST …/scpi`），回复显示在下一行（错误为 `bad`），同时进入通信记录（来源“终端”）；`↑` `↓` 历史（每台仪表各自保存，退出后保留在用户状态目录的 `tui-history`（Linux `~/.local/state/simubench/`、Windows `%LOCALAPPDATA%\SimuBench\`、macOS `~/Library/Application Support/SimuBench/`，可用 `SIMUBENCH_HOME` 改，#1237；旧的 `~/.simubench/tui-history` 在新文件出现前仍会被读取一次））；`Esc` 关闭。查询不会取走脚本的回复（D32）。
 
 ## 11. 网络、时钟与运行记录
 

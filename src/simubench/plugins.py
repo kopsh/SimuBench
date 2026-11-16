@@ -7,8 +7,10 @@ targets (instrument-authoring.md 4). Two sources, with different trust (D3):
 * an installed package's ``simubench.components`` entry points load like any installed Python
   package - installing it is already the act of trust;
 * ``components/*.py`` in a workspace may come from a git checkout or a colleague, so it is code
-  that runs only when the engineer allows it: ``--allow-plugins``, or the workspace setting
-  ``.simubench/settings.json`` with ``{"allow_workspace_plugins": true}``.
+  that runs only when the engineer allows it: ``--allow-plugins``, or ``simubench trust`` for
+  that workspace. The grant is kept in the user's own data folder (``paths.py``), never in the
+  workspace: a folder that arrives with its own "yes" (a zip, a synced drive) would otherwise
+  run its code for whoever opens it (#1237).
 
 Every loaded plugin is listed with its origin and file hash: the run record header carries the
 hashes, a replay warns when one changed (D36), and ``doctor`` / the diagnostics bundle list the
@@ -22,6 +24,7 @@ import importlib.metadata
 import importlib.util
 import json
 import logging
+import os
 import sys
 import threading
 import types
@@ -30,10 +33,12 @@ from pathlib import Path
 from typing import Any
 
 from .engine.component import registry
+from .paths import user_data_dir
 
 PLUGIN_API = 1
 ENTRY_POINT_GROUP = "simubench.components"
-SETTING = ".simubench/settings.json"
+SETTING = ".simubench/settings.json"  # the old, workspace-held grant: no longer honoured (#1237)
+TRUST_FILE = "trusted-workspaces.json"
 
 logger = logging.getLogger(__name__)
 
@@ -203,8 +208,43 @@ def report() -> dict[str, dict[str, str | None]]:
     }
 
 
+def _trust_key(workspace: Path) -> str:
+    return os.path.normcase(str(Path(workspace).resolve()))
+
+
+def _trusted() -> list[str]:
+    try:
+        data = json.loads((user_data_dir() / TRUST_FILE).read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    items = data.get("workspaces") if isinstance(data, dict) else None
+    return [i for i in items if isinstance(i, str)] if isinstance(items, list) else []
+
+
+def _write_trusted(items: list[str]) -> None:
+    path = user_data_dir() / TRUST_FILE
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_name(f".{path.name}.tmp")
+    tmp.write_text(json.dumps({"workspaces": sorted(set(items))}, indent=2), encoding="utf-8")
+    os.replace(tmp, path)
+
+
 def workspace_allows_plugins(workspace: Path) -> bool:
-    """The workspace setting (``.simubench/settings.json``): ``{"allow_workspace_plugins": true}``."""
+    """Whether this user ran ``simubench trust`` for the workspace (kept in their own data folder)."""
+    return _trust_key(workspace) in _trusted()
+
+
+def trust_workspace(workspace: Path) -> None:
+    _write_trusted([*_trusted(), _trust_key(workspace)])
+
+
+def untrust_workspace(workspace: Path) -> None:
+    key = _trust_key(workspace)
+    _write_trusted([i for i in _trusted() if i != key])
+
+
+def legacy_setting_present(workspace: Path) -> bool:
+    """The workspace still carries the old ``allow_workspace_plugins`` grant, which is ignored now."""
     try:
         data = json.loads((Path(workspace) / SETTING).read_text(encoding="utf-8"))
     except (OSError, ValueError):
@@ -222,7 +262,10 @@ def status_line(workspace: Path | None, allow: bool) -> str:
             for i in load_workspace_plugins(workspace / "components"):
                 parts.append(f"{i.name} (workspace)" if i.error is None else f"{i.name}: {i.error}")
         else:
-            parts.append("workspace components/ present but not enabled (start with --allow-plugins)")
+            hint = "start with --allow-plugins, or run `simubench trust` in this folder"
+            if legacy_setting_present(workspace):
+                hint += "; the old allow_workspace_plugins setting in .simubench/settings.json is ignored"
+            parts.append(f"workspace components/ present but not enabled ({hint})")
     return "; ".join(parts)
 
 
