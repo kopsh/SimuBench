@@ -38,6 +38,11 @@ EXEMPT: set[tuple[str, str]] = {
     # SDS 2104X Plus 与 WavePro 804HD 的数学/FFT/光标命令(#1159、#1160 跟进)尚未接到该块上。
     ("siglent-sds2104xplus", "math"),
     ("lecroy-wavepro804hd", "math"),
+    # 自动设置块 scope_autoscale 已有:UXR1104B、UXR0334B 已接入;DSOX 2024A 的 :AUToscale、
+    # SDS 2104X Plus 的 :AUToset 与 WavePro 804HD 的 AUTO_SETUP 尚未接到该块上(覆盖表记为等能力)。
+    ("keysight-dsox2024a", "autoscale"),
+    ("siglent-sds2104xplus", "autoscale"),
+    ("lecroy-wavepro804hd", "autoscale"),
 }
 
 #: (definition id, block) -> why — blocks the real instrument does not have at all, so there is
@@ -129,6 +134,7 @@ def test_a_new_definition_must_cover_every_block():
         "measurements",
         "waveform_transfer",
         "math",
+        "autoscale",
     }
 
 

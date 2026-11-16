@@ -18,7 +18,7 @@ sections:
   - header: '*IDN'
     level: implemented
     note: Keysight Technologies,UXR1104B,<serial>,<software version> as the guide writes it (no options field);
-      serial MY64310101 and version 11.60.00000 are SimuBench values
+      serial MY64310101 and version 11.80.00012 are SimuBench values
   - header: '*LRN'
     level: implemented
     note: 'setup_memory component (#1070): ":SYST:SET " and a definite-length block, whatever :SYSTem:HEADer is;
@@ -81,25 +81,28 @@ sections:
     level: implemented
     note: set by an acquisition an AUTO sweep took without its trigger; read and cleared by the query
   - header: :AUToscale
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: scope_autoscale. Searches the channels (all, or the displayed ones), turns off those without a waveform
+      (their settings kept), sets each found channel's scale (its spread over at most 6 divisions, 1-2-5) and
+      offset (centred), the timebase for 3 periods of the lowest-numbered found channel's fundamental, an edge
+      trigger on the first triggerable channel from CH4 down at its waveform's middle, AUTO sweep, positive
+      slope, normal hysteresis, minimum holdoff, marker mode MEASurement, auto memory depth and sample rate,
+      and turns the functions off; nothing found leaves every setting as it was. The fill, the periods and
+      the presence threshold (3 noise rms, from the data sheet's noise table) are SimuBench values; the
+      acquisition completion criterion, windows, memories and InfiniiSim autoscale also resets are not
+      modeled, measurements on channels it turns off stay listed.
   - header: :AUToscale:CHANnels
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: ALL or DISPlayed; kept by Default Setup (a user preference); power-on ALL (SimuBench value).
   - header: :AUToscale:PLACement
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: STACk gives each found waveform its own band of the screen, top to bottom in channel order;
+      OVERlay and SEParate (each grid the whole range) the whole screen. Kept by Default Setup; power-on
+      OVERlay (SimuBench value).
   - header: :AUToscale:VERTical
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: CHANnel<N>'s scale and offset as :AUToscale sets them, nothing else; no waveform leaves them.
+      DIFF<D> and COMMonmode<C> (differential pairs) are not modeled (-224).
   - header: :BEEP
     level: accepted
     note: Frequency (Hz) and duration (ms) are checked and kept; the guide gives no range, SimuBench takes 0 to
@@ -2606,10 +2609,10 @@ sections:
     note: Sets the same position as :MARKer:X2Position (the manual's compatibility spelling).
   - header: :MARKer:VSTArt
     level: implemented
-    note: Sets the same level as :MARKer:Y1Position (the manual's compatibility spelling).
+    note: Same as :MARKer:Y1Position (the manual's compatibility spelling).
   - header: :MARKer:VSTOp
     level: implemented
-    note: Sets the same level as :MARKer:Y2Position (the manual's compatibility spelling).
+    note: Same as :MARKer:Y2Position (the manual's compatibility spelling).
   - header: :MARKer:X1Position
     level: implemented
     note: 'The Ax marker''s position, in seconds (a transform''s source: Hz).'
@@ -2627,10 +2630,10 @@ sections:
     note: Bx − Ax, in the source's x unit.
   - header: :MARKer:Y1Position
     level: implemented
-    note: The Ay marker's level.
+    note: 'The Ay marker''s level: in the WAVeform mode the X1Y1 source''s value at the Ax marker (the guide: the level at the marker position), otherwise the level set; a write keeps the mode.'
   - header: :MARKer:Y2Position
     level: implemented
-    note: The By marker's level.
+    note: 'The By marker''s level: in the WAVeform mode the X2Y2 source''s value at the Bx marker (the guide: the level at the marker position), otherwise the level set; a write keeps the mode.'
   - header: :MARKer:YDELta
     level: implemented
     note: 'By − Ay: the markers'' levels, or the values at their x in the tracking modes.'
@@ -2661,7 +2664,7 @@ sections:
     note: The horizontal position of marker <K> (seconds, or Hz on a transform); a YMANual marker answers 9.99999E+37.
   - header: :MARKer<K>:Y:POSition
     level: implemented
-    note: The vertical position of marker <K>; an X-only or tracking marker answers 9.99999E+37.
+    note: 'The vertical position of marker <K>; a TRACk or RF marker answers its source''s value at its X position (the guide: that value is marked but cannot be moved, a write is -221); an X-only marker answers 9.99999E+37.'
   - header: :MEASure:AREA
     level: implemented
     note: 'DISPlay (default): the integral of the record over the screen, V*s; CYCLe: over the first complete cycle,
@@ -2876,17 +2879,16 @@ sections:
     note: The power of the source transform's band <center> ± <bw>/2, in dBm (#1074).
   - header: :MEASure:FFT:DFRequency
     level: implemented
-    note: The frequency difference between the source transform's peaks <peak1> and <peak2> above <level> dBm (#1074).
+    note: 'The frequency difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074); the guide gives every argument, an omitted one takes SimuBench''s default: peak1 1, peak2 2, level -60 dBm.'
   - header: :MEASure:FFT:DMAGnitude
     level: implemented
-    note: The magnitude difference between the source transform's peaks <peak1> and <peak2> above <level> dBm (#1074).
+    note: 'The magnitude difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074); the guide gives every argument, an omitted one takes SimuBench''s default: peak1 1, peak2 2, level -60 dBm.'
   - header: :MEASure:FFT:FREQuency
     level: implemented
-    note: 'The frequency of the source transform''s peak <peak> (numbered low to high) above <level> dBm, computed
-      when queried (#1074); no such peak: 9.99999E+37.'
+    note: 'The frequency of the source transform''s peak <peak> (numbered low to high) above <level> dBm, computed when queried (#1074); no such peak: 9.99999E+37; an omitted peak is 1, an omitted level -60 dBm (SimuBench defaults).'
   - header: :MEASure:FFT:MAGNitude
     level: implemented
-    note: 'The magnitude of the source transform''s peak <peak> above <level> dBm (#1074); no such peak: 9.99999E+37.'
+    note: 'The magnitude of the source transform''s peak <peak> above <level> dBm (#1074); no such peak: 9.99999E+37; an omitted peak is 1, an omitted level -60 dBm (SimuBench defaults).'
   - header: :MEASure:FFT:OBW
     level: implemented
     note: The bandwidth holding <pct> percent of the source transform's power (#1074).
@@ -3420,8 +3422,7 @@ sections:
     note: rising edge to rising edge (RISing); FALLing is not modeled; the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:PHASe
     level: implemented
-    note: The delay from source 1's first rising (or FALLing) middle crossing to source 2's, over source 1's period,
-      in degrees; without sources the two of :MEASure:SOURce.
+    note: The delay from source 1's first rising (or FALLing) middle crossing to source 2's, over source 1's period, in degrees; without sources the two of :MEASure:SOURce; folded into one period, -180..+180 degrees (the guide gives no range; SimuBench's convention).
   - header: :MEASure:PJITter
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM,
@@ -3749,7 +3750,9 @@ sections:
     gap: out_of_scope
   - header: :MEASure:SOURce
     level: implemented
-    note: one or two channels; the second is kept for two-source measurements
+    note: one or two channels or math functions (FUNCtion<F>); the second is kept for two-source measurements.
+      Every measurement takes a FUNCtion<F> source and measures the function's waveform over its operands (a
+      transform's trace in its own units, its X axis in Hz); an undefined function is -230
   - header: :MEASure:STATistics
     level: implemented
     note: 'What :MEASure:RESults? gives per measurement: ON (default, a SimuBench value) the label, current, min,
@@ -3984,8 +3987,8 @@ sections:
       measured
   - header: :MEASure:VAVerage
     level: implemented
-    note: 'DISPlay over the record; CYCLe is not modeled; the command form adds it to the screen (:MEASure:RESults?):
-      the command form (adding the measurement to the screen) is not modeled; 9.99999E+37 when it cannot be measured'
+    note: DISPlay over the record, CYCLe over its first complete cycle (rising middle crossing to the next); the command form adds it to the screen (:MEASure:RESults?);
+      9.99999E+37 when it cannot be measured
   - header: :MEASure:VBASe
     level: implemented
     note: the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37 when it cannot be
@@ -4018,8 +4021,9 @@ sections:
       crossing.'
   - header: :MEASure:VRMS
     level: implemented
-    note: DISPlay,DC[,<source>[,VOLT]] over the record; CYCLe, AC and DBM are not modeled; the command form adds
-      it to the screen (:MEASure:RESults?)
+    note: DISPlay over the record or CYCLe over its first complete cycle; DC includes the mean, AC takes it out
+      (AC² = DC² - VAVG²); DBM is the RMS as power into the reference impedance, AUTO 50 Ω (the guide's value for
+      single-ended channels and functions) or 10 to 200 Ω (-222 beyond); the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:VTIMe
     level: implemented
     note: The voltage at <time> from the trigger, linear between samples; 9.99999E+37 off the record.

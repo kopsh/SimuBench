@@ -10,9 +10,8 @@ sections:
     note: 单次采集：armed 后触发一次，采完停在 STOP；触发方式本身不变
   - header: AUTO_SETUP
     level: not_modeled
-    note: 等能力:自动设置(按输入信号定标,#1080)。
-    gap: blocked
-    blocked_by: autoscale
+    note: 可做:平台已有自动设置组件 scope_autoscale(UXR 型号已接入),本型号尚未接上。
+    gap: model_work
   - header: C<ch>:ATTeNuation
     level: implemented
     note: 数值是探头衰减比（1、2、5、10、…、10000）；改档时垂直档位与偏置按比例缩放，使探头尖的读数保持不变

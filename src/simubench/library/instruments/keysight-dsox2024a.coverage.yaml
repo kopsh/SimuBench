@@ -64,24 +64,20 @@ sections:
     note: 'Arm Event Register (status_register, #248): 1 once the trigger system was armed (:RUN, a single acquisition) since the last read; reading clears it'
   - header: :AUToscale
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    note: 'The platform has autoscale (scope_autoscale, as the UXR models use it); this model does not wire it yet.'
+    gap: model_work
   - header: :AUToscale:AMODE
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    note: 'The platform has autoscale (scope_autoscale, as the UXR models use it); this model does not wire it yet.'
+    gap: model_work
   - header: :AUToscale:CHANnels
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    note: 'The platform has autoscale (scope_autoscale, as the UXR models use it); this model does not wire it yet.'
+    gap: model_work
   - header: :AUToscale:FDEBug
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    note: 'The platform has autoscale (scope_autoscale, as the UXR models use it); this model does not wire it yet.'
+    gap: model_work
   - header: :BLANk
     level: implemented
     note: 'turns off the channel the parameter names (an index word picks the setting, #248)'
@@ -713,7 +709,7 @@ sections:
     note: 'as :MEASure:FREQuency'
   - header: :MEASure:PHASe
     level: implemented
-    note: 'the DELay over the period of source 1, in degrees (#350)'
+    note: the DELay over the period of source 1, in degrees (#350); folded into one period, -180..+180 degrees (the guide gives no range; SimuBench's convention).
   - header: :MEASure:PPULses
     level: implemented
     note: 'positive pulses on the record (#248); query only'
