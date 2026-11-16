@@ -1,11 +1,11 @@
-# Generated from the table of contents of the Infiniium UXR-Series Programmer's Guide 11.60.00000 (9018-07723); levels and notes by hand.
+# Generated from the table of contents of the Infiniium UXR-Series Programmer's Guide 11.80.00012 (9018-07723); levels and notes by hand.
 # 噪声与抖动（#744/#774/#786/#859）：每档通道噪声取数据手册 3123-1313 的值（specs.noise_per_division）；触发抖动取
 # 数据手册的 25 fs 固有抖动（specs.trigger_jitter_s_rms）；逐次独立抽样、同种子逐位复现；统计测试见
 # tests/test_keysight_uxr.py。#859 复核：通道噪声表 + 触发抖动两项均已满足 #744 的约定。
 schema: simubench.coverage/1
 model: keysight-uxr0334b
 sections:
-- section: '* (Common) Commands (Programmer''s Guide 11.60, ch. 13)'
+- section: '* (Common) Commands (Programmer''s Guide 11.80, ch. 13)'
   commands:
   - header: '*CLS'
     level: implemented
@@ -16,7 +16,7 @@ sections:
   - header: '*IDN'
     level: implemented
     note: Keysight Technologies,UXR0334B,<serial>,<software version> as the guide writes it (no options
-      field); serial MY64280101 and version 11.60.00000 are SimuBench values
+      field); serial MY64280101 and version 11.80.00012 are SimuBench values
   - header: '*LRN'
     level: implemented
     note: 'setup_memory component (#1070): ":SYST:SET " and a definite-length block, whatever :SYSTem:HEADer is; sent back as it is, it restores the setup. The setup is SimuBench''s JSON (every setting a command can change), not the scope''s own byte format; what SimuBench saves it reads back.'
@@ -56,7 +56,7 @@ sections:
     level: implemented
   - header: '*WAI'
     level: implemented
-- section: ': (Root Level) Commands (Programmer''s Guide 11.60, ch. 14)'
+- section: ': (Root Level) Commands (Programmer''s Guide 11.80, ch. 14)'
   commands:
   - header: :ADER
     level: implemented
@@ -184,7 +184,7 @@ sections:
   - header: :VIEW
     level: implemented
     note: CHANnel<N> only; functions, histograms, memories and the like are not modeled
-- section: :ACQuire Commands (Programmer's Guide 11.60, ch. 15)
+- section: :ACQuire Commands (Programmer's Guide 11.80, ch. 15)
   commands:
   - header: :ACQuire:ADC:CLIPped:CLEar
     level: implemented
@@ -323,7 +323,7 @@ sections:
     note: 'Blocked by C11 (product-plan.md 4.2): very long sequence capture needs block-wise computation (#1012).'
     gap: blocked
     blocked_by: C11
-- section: :ANALyze Commands (Programmer's Guide 11.60, ch. 16)
+- section: :ANALyze Commands (Programmer's Guide 11.80, ch. 16)
   commands:
   - header: :ANALyze:AEDGes
     level: not_modeled
@@ -691,14 +691,14 @@ sections:
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
-- section: :BUS Commands (Programmer's Guide 11.60, ch. 17)
+- section: :BUS Commands (Programmer's Guide 11.80, ch. 17)
   commands:
   - header: :BUS:B<N>:TYPE
     level: not_modeled
     note: 'Blocked by C16 (product-plan.md 4.2): digital channels and buses.'
     gap: blocked
     blocked_by: C16
-- section: :CALibrate (Calibration) Commands (Programmer's Guide 11.60, ch. 18)
+- section: :CALibrate (Calibration) Commands (Programmer's Guide 11.80, ch. 18)
   commands:
   - header: :CALibrate:DATE
     level: not_modeled
@@ -732,7 +732,7 @@ sections:
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
-- section: :CHANnel<N> Commands (Programmer's Guide 11.60, ch. 19)
+- section: :CHANnel<N> Commands (Programmer's Guide 11.80, ch. 19)
   commands:
   - header: :CHANnel<N>:ADC:CLIPped
     level: implemented
@@ -1015,7 +1015,7 @@ sections:
     note: 'p. 555: the channel''s vertical units, VOLT/AMPere/WATT/UNKNown. The unit conversion of the
       scales and readings is not modeled (they stay volts); :WAVeform:YUNits? answers the setting''s
       word.'
-- section: :DISK Commands (Programmer's Guide 11.60, ch. 20)
+- section: :DISK Commands (Programmer's Guide 11.80, ch. 20)
   commands:
   - header: :DISK:CDIRectory
     level: implemented
@@ -1093,7 +1093,7 @@ sections:
     note: 'Capability gap (not in product-plan.md 4.2): waveforms and results saved as files (#1071).'
     gap: blocked
     blocked_by: data-file
-- section: :DISPlay Commands (Programmer's Guide 11.60, ch. 21)
+- section: :DISPlay Commands (Programmer's Guide 11.80, ch. 21)
   commands:
   - header: :DISPlay:BOOKmark:DELete:ALL
     level: accepted
@@ -1289,7 +1289,7 @@ sections:
     level: accepted
     affects_data: false
     note: 'p. 635: maximizes a window (<window>); there is no query, the model parses and stores the window name'
-- section: :FUNCtion<F> Commands (Programmer's Guide 11.60, ch. 22)
+- section: :FUNCtion<F> Commands (Programmer's Guide 11.80, ch. 22)
   commands:
   - header: :FUNCtion<F>
     level: implemented
@@ -1534,7 +1534,7 @@ sections:
     level: not_modeled
     note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
     gap: model_work
-- section: :HISTogram Commands (Programmer's Guide 11.60, ch. 24)
+- section: :HISTogram Commands (Programmer's Guide 11.80, ch. 24)
   commands:
   - header: :HISTogram:AXIS
     level: not_modeled
@@ -1606,7 +1606,7 @@ sections:
     note: 'Capability gap (not in product-plan.md 4.2): waveform and measurement histograms.'
     gap: blocked
     blocked_by: histogram
-- section: :HOSTed Commands (Programmer's Guide 11.60, ch. 25)
+- section: :HOSTed Commands (Programmer's Guide 11.80, ch. 25)
   commands:
   - header: :HOSTed:CALibrate:CALibrate
     level: not_modeled
@@ -1728,7 +1728,7 @@ sections:
     note: 'Blocked by C14 (product-plan.md 4.2): multi-scope synchronisation (hosted leader/follower).'
     gap: blocked
     blocked_by: C14
-- section: :ISCan (InfiniiScan) Commands (Programmer's Guide 11.60, ch. 26)
+- section: :ISCan (InfiniiScan) Commands (Programmer's Guide 11.80, ch. 26)
   commands:
   - header: :ISCan:DELay
     level: not_modeled
@@ -1835,7 +1835,7 @@ sections:
     note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
     gap: blocked
     blocked_by: C8
-- section: :LANE<N> (Equalization) Commands (Programmer's Guide 11.60, ch. 27)
+- section: :LANE<N> (Equalization) Commands (Programmer's Guide 11.80, ch. 27)
   commands:
   - header: :LANE<N>:COPYto
     level: not_modeled
@@ -2081,7 +2081,7 @@ sections:
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
     gap: out_of_scope
-- section: :LISTer Commands (Programmer's Guide 11.60, ch. 28)
+- section: :LISTer Commands (Programmer's Guide 11.80, ch. 28)
   commands:
   - header: :LISTer:DATA
     level: not_modeled
@@ -2091,7 +2091,7 @@ sections:
     level: not_modeled
     note: 'Out of scope: protocol decode (product-plan.md section 6).'
     gap: out_of_scope
-- section: :LTESt (Limit Test) Commands (Programmer's Guide 11.60, ch. 29)
+- section: :LTESt (Limit Test) Commands (Programmer's Guide 11.80, ch. 29)
   commands:
   - header: :LTESt:ADDStats
     level: not_modeled
@@ -2133,13 +2133,13 @@ sections:
     note: 'Capability gap (not in product-plan.md 4.2): measurement statistics and limit testing.'
     gap: blocked
     blocked_by: measurement-statistics
-- section: :LXI Commands (Programmer's Guide 11.60, ch. 30)
+- section: :LXI Commands (Programmer's Guide 11.80, ch. 30)
   commands:
   - header: :LXI:IDENtify[:STATe]
     level: not_modeled
     note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
     gap: model_work
-- section: :MARKer Commands (Programmer's Guide 11.60, ch. 31)
+- section: :MARKer Commands (Programmer's Guide 11.80, ch. 31)
   commands:
   - header: :MARKer:CURSor
     level: implemented
@@ -3299,7 +3299,7 @@ sections:
     level: not_modeled
     note: 'Model work: measurement list management on the existing measurement engine.'
     gap: model_work
-- section: :MTESt (Mask Test) Commands (Programmer's Guide 11.60, ch. 33)
+- section: :MTESt (Mask Test) Commands (Programmer's Guide 11.80, ch. 33)
   commands:
   - header: :MTESt:CPOLygons
     level: not_modeled
@@ -3548,7 +3548,7 @@ sections:
     note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
     gap: blocked
     blocked_by: mask-test
-- section: :REPository Commands (Programmer's Guide 11.60, ch. 34)
+- section: :REPository Commands (Programmer's Guide 11.80, ch. 34)
   commands:
   - header: :REPository:CANCel
     level: not_modeled
@@ -3622,7 +3622,7 @@ sections:
     level: not_modeled
     note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'
     gap: out_of_scope
-- section: :SBUS<N> (Serial Bus) Commands (Programmer's Guide 11.60, ch. 35)
+- section: :SBUS<N> (Serial Bus) Commands (Programmer's Guide 11.80, ch. 35)
   commands:
   - header: :SBUS<N>[:DISPlay]
     level: not_modeled
@@ -3852,7 +3852,7 @@ sections:
     level: not_modeled
     note: 'Out of scope: protocol decode (product-plan.md section 6).'
     gap: out_of_scope
-- section: :SELFtest (Self-Test) Commands (Programmer's Guide 11.60, ch. 36)
+- section: :SELFtest (Self-Test) Commands (Programmer's Guide 11.80, ch. 36)
   commands:
   - header: :SELFtest:CANCel
     level: not_modeled
@@ -3862,7 +3862,7 @@ sections:
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
     gap: out_of_scope
-- section: :SYSTem Commands (Programmer's Guide 11.60, ch. 37)
+- section: :SYSTem Commands (Programmer's Guide 11.80, ch. 37)
   commands:
   - header: :SYSTem:CAPability:ACQuire
     level: implemented
@@ -3965,7 +3965,7 @@ sections:
     level: not_modeled
     note: 'Model work: changes only the instrument''s own configuration or front panel, not the data; candidate accepted (affects_data: false).'
     gap: model_work
-- section: :TIMebase Commands (Programmer's Guide 11.60, ch. 38)
+- section: :TIMebase Commands (Programmer's Guide 11.80, ch. 38)
   commands:
   - header: :TIMebase:POSition
     level: implemented
@@ -4023,7 +4023,7 @@ sections:
     level: implemented
     note: 'p. 1482: the delayed view''s time per division, 1 ps/div to the main scale; the value stores (the
       zoom''s data read is not modeled).'
-- section: :TRIGger Commands (Programmer's Guide 11.60, ch. 39)
+- section: :TRIGger Commands (Programmer's Guide 11.80, ch. 39)
   commands:
   - header: :TRIGger:AND:ENABle
     level: not_modeled
@@ -4063,13 +4063,11 @@ sections:
     note: 'Model work: edge trigger setting on the existing trigger.'
     gap: model_work
   - header: :TRIGger:HTHReshold
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: implemented
+    note: 'the high threshold of each source (CHANnel<N> or AUXiliary), one half of the pair the runt, transition and window families compare (#1184); the model default is 0.5 V'
   - header: :TRIGger:HYSTeresis
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: implemented
+    note: 'the hysteresis band the edges arm and cross within: NREJect the noise-reject band, HSENsitivity the narrowest (half the normal band)'
   - header: :TRIGger:LEVel
     level: implemented
     note: one level per source (CHANnel<N>, AUX); the query takes the source too. Channel levels within
@@ -4079,12 +4077,11 @@ sections:
     note: 'Model work: edge trigger setting on the existing trigger.'
     gap: model_work
   - header: :TRIGger:LTHReshold
-    level: not_modeled
-    note: 'Model work: edge trigger setting on the existing trigger.'
-    gap: model_work
+    level: implemented
+    note: 'the low threshold of each channel, the other half of the pair (manual: channels only, no AUX); the model default is -0.5 V'
   - header: :TRIGger:MODE
     level: implemented
-    note: EDGE only; the advanced trigger modes are not modeled (-224)
+    note: the trigger types the model has (EDGE, RUNT, TRANsition, TIMeout, WINDow, NEDGe); the rest answer -224
   - header: :TRIGger:SWEep
     level: implemented
     note: 'AUTO, TRIGgered; SINGle (the guide: do not use in new programs) is not modeled'
@@ -4207,21 +4204,15 @@ sections:
     note: 'Blocked by C9 (product-plan.md 4.2): band-pass (carrier + complex envelope) signals.'
     gap: blocked
     blocked_by: C9
-  - header: :TRIGger:NEDGe:COUNt
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:NEDGe:SLOPe
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:NEDGe:SOURce
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
+  - header: :TRIGger:NEDGe<S>:COUNt
+    level: implemented
+    note: 'the Nth edge (from 1) the NEDGe family triggers on; a count whose edges lie beyond the reach of the search waits and looks again at the next command'
+  - header: :TRIGger:NEDGe<S>:SLOPe
+    level: implemented
+    note: 'the slope of the edges the NEDGe family counts (the family keeps its own slope)'
+  - header: :TRIGger:NEDGe<S>:SOURce
+    level: implemented
+    note: 'the channel the NEDGe family counts edges on (the family keeps its own source)'
   - header: :TRIGger:OR:LOGic
     level: not_modeled
     note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
@@ -4261,26 +4252,18 @@ sections:
     level: not_modeled
     note: 'Model work: pulse-width trigger exists in the platform (#956).'
     gap: model_work
-  - header: :TRIGger:RUNT:POLarity
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:RUNT:QUALified
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:RUNT:SOURce
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:RUNT:TIME
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
+  - header: :TRIGger:RUNT<S>:POLarity
+    level: implemented
+    note: 'the runt pulse is the one between the thresholds (POSitive, above the low) or the mirror below the high threshold (NEGative)'
+  - header: :TRIGger:RUNT<S>:QUALified
+    level: implemented
+    note: 'ON: the width of the runt must also exceed :TRIGger:RUNT:TIME'
+  - header: :TRIGger:RUNT<S>:SOURce
+    level: implemented
+    note: 'the channel the runt family watches (the family keeps its own source)'
+  - header: :TRIGger:RUNT<S>:TIME
+    level: implemented
+    note: 'the width a qualified runt exceeds, 250 ps to 30 ns (the range of the manual)'
   - header: :TRIGger:SEQuence:TERM1
     level: not_modeled
     note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
@@ -4376,67 +4359,43 @@ sections:
     note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
     gap: blocked
     blocked_by: C8
-  - header: :TRIGger:TIMeout:CONDition
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:TIMeout:SOURce
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:TIMeout:TIME
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:TRANsition:MODE
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:TRANsition:RANGe
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:TRANsition:SOURce
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:TRANsition:TIME
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:TRANsition:TYPE
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:WINDow:CONDition
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:WINDow:SOURce
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:WINDow:TIME
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-  - header: :TRIGger:WINDow:TPOint
-    level: not_modeled
-    note: 'Blocked by C8 (product-plan.md 4.2): this trigger type needs transient signals (C7) before it has anything to trigger on.'
-    gap: blocked
-    blocked_by: C8
-- section: :WAVeform Commands (Programmer's Guide 11.60, ch. 40)
+  - header: :TRIGger:TIMeout<S>:CONDition
+    level: implemented
+    note: 'the state that lasts too long: high or low against the trigger level and hysteresis band, or unchanged; on a periodic signal the longest run of one period decides'
+  - header: :TRIGger:TIMeout<S>:SOURce
+    level: implemented
+    note: 'the channel the timeout family watches (the family keeps its own source)'
+  - header: :TRIGger:TIMeout<S>:TIME
+    level: implemented
+    note: 'how long the condition must hold before the trigger'
+  - header: :TRIGger:TRANsition<S>:MODE
+    level: implemented
+    note: 'the time of the edge between the two thresholds against the bound: GTHan/LTHan against :TRANsition:TIME, RANGe/ORANge against :TRANsition:RANGe'
+  - header: :TRIGger:TRANsition<S>:RANGe
+    level: implemented
+    note: 'the (minimum, maximum) the transition time is inside (RANGe) or outside (ORANge)'
+  - header: :TRIGger:TRANsition<S>:SOURce
+    level: implemented
+    note: 'the channel the transition family watches (the family keeps its own source)'
+  - header: :TRIGger:TRANsition<S>:TIME
+    level: implemented
+    note: 'the time the greater/less modes compare the transition time with'
+  - header: :TRIGger:TRANsition<S>:TYPE
+    level: implemented
+    note: 'rise time or fall time (the edge the two thresholds time)'
+  - header: :TRIGger:WINDow<S>:CONDition
+    level: implemented
+    note: 'the signal entering or leaving the band between the two thresholds (ENTer/EXIT), or INSide/OUTSide with a GTHan/LTHan duration qualifier; the query answers the qualifier only for INSIDE/OUTSIDE (the returned format of the manual)'
+  - header: :TRIGger:WINDow<S>:SOURce
+    level: implemented
+    note: 'the channel the window family watches (the family keeps its own source)'
+  - header: :TRIGger:WINDow<S>:TIME
+    level: implemented
+    note: 'the duration the timeout point and the inside/outside qualifiers compare'
+  - header: :TRIGger:WINDow<S>:TPOint
+    level: implemented
+    note: 'the trigger at the boundary crossing itself, or once the new state has held :WINDow:TIME'
+- section: :WAVeform Commands (Programmer's Guide 11.80, ch. 40)
   commands:
   - header: :WAVeform:BANDpass
     level: implemented
@@ -4548,7 +4507,7 @@ sections:
   - header: :WAVeform:YUNits
     level: implemented
     note: "p. 1647: the Y-axis units in the guide's words - VOLT for a channel; a transform by its vertical unit (the dB family DECibels, the Watt family WATT, the volt family VOLT); the phase trace has no word in the guide's list, so UNKNown"
-- section: :WMEMory (Waveform Memory) Commands (Programmer's Guide 11.60, ch. 41)
+- section: :WMEMory (Waveform Memory) Commands (Programmer's Guide 11.80, ch. 41)
   commands:
   - header: :WMEMory:TIETimebase
     level: not_modeled
@@ -4620,7 +4579,7 @@ sections:
     note: 'Capability gap (not in product-plan.md 4.2): reference waveform memories.'
     gap: blocked
     blocked_by: waveform-memory
-- section: :XTALk (Crosstalk Analysis) Commands (Programmer's Guide 11.60, ch. 42)
+- section: :XTALk (Crosstalk Analysis) Commands (Programmer's Guide 11.80, ch. 42)
   commands:
   - header: :XTALk:ENABle
     level: not_modeled

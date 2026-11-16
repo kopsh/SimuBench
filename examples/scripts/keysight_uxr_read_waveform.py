@@ -1,7 +1,7 @@
 """Read a waveform from a Keysight Infiniium UXR-Series oscilloscope, the way the Programmer's Guide
 shows it.
 
-The steps follow the guide's examples (11.60.00000): headers off, :DIGitize the channel, WORD data
+The steps follow the guide's examples (11.80.00012): headers off, :DIGitize the channel, WORD data
 with the LSBFirst byte order and streaming on (#0 blocks), the 24 fields of :WAVeform:PREamble?,
 :WAVeform:DATA? as signed 16-bit words, ``voltage = (code - yreference) * yincrement + yorigin`` and
 ``time = (index - xreference) * xincrement + xorigin``, then :SYSTem:ERRor? until it answers 0. The
