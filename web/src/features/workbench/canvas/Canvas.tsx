@@ -64,22 +64,20 @@ export function placeNew(preferred: Point): Point {
 }
 
 /**
- * Bring the node just added (`id`) into view, when it is not in view already (#1258): once the
- * canvas has drawn and measured it and the inspector that opens for the selection has taken its
- * width (a few hundred ms), the view is centred on it at the current zoom — only if part of it lies
- * outside the canvas, so a node placed in sight never moves the view under the user's next action.
+ * Bring the node just added (`id`) into view when it is not in view (#1258): the view is centred on
+ * it at the current zoom while part of it lies outside the canvas — only then, so a node placed in
+ * sight never moves the view under the user's next action.
  */
 export function revealPlaced(id: string): void {
-  let tries = 0;
-  const settle = () => {
+  // Checked every 100 ms for 2 s: on a slow machine the node is measured late and the inspector
+  // narrows the canvas later still. The view moves only while the node is not wholly in sight.
+  const started = Date.now();
+  const check = () => {
     const box = nodeBox?.(id);
-    if (!box) {
-      if (tries++ < 40) window.setTimeout(settle, 25);
-      return;
-    }
-    if (!inView?.(box)) centerOn?.({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    if (box && !inView?.(box)) centerOn?.({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    if (Date.now() - started < 2000) window.setTimeout(check, 100);
   };
-  window.setTimeout(settle, 300);
+  window.setTimeout(check, 100);
 }
 
 export interface CanvasProps {
