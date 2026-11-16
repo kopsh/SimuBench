@@ -59,6 +59,11 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   structure to `PUT /api/definitions/{id}/structure`, one save at a time; undo/redo saves the earlier
   structure as a new version, #1207). Dragged positions go to `instruments/<id>.layout.json` through
   `PUT /api/definitions/{id}/layout` (no version, #1207). e2e: `e2e/build.spec.ts`. (Not `build/`: `.gitignore` hides it.)
+- `web/src/features/workbench/store.ts` — the workbench's UI state (zustand): tabs, selection, the
+  locate request (`reveal`, #800), and the inspector shown or folded per kind of tab
+  (`INSPECTOR_SHOWN`, `lentTo`: a selection or locate shows a folded inspector until the tab
+  changes, #1221). Keep such rules in store actions (unit-tested in `store.test.ts`), not in
+  effects that call `setState`: the React compiler lint rejects those, and refs written during render.
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key
@@ -116,6 +121,45 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 - **The TUI shows the same thing?** Its wording and behaviour must agree — see the `tui-ui` skill.
 - Add or update the story (Storybook) for a new component state; the stories are the design source (D23).
 
+## Reviewing and improving the UI (walkthrough)
+
+How the lead agent reviews the Web Bench and turns findings into work (#1220–#1222). Interaction
+changes are `核心`; a finding becomes a `可认领` issue only with its fix settled and written down.
+
+1. **Walk the real app on Hello World**, as a new user would: home → 「从 Hello World 开始」 → canvas →
+   each instrument's screen → internals → acceptance page → build mode → bottom panel → ⌘K; then
+   dark mode and 1024 px. Build (`pnpm build`), serve a scratch workspace
+   (`uv run simubench serve --workspace <tmp> --token t --port <p>`), and script the walk with
+   Playwright from `web/` (it resolves `@playwright/test` there; keep the script in your scratchpad
+   and copy it in to run). Each run is a fresh browser: per-browser memory (open screen tabs, the
+   inspector fold, `localStorage`) starts empty, so "lost on refresh" must be checked in one context.
+2. **Check each finding against the engine before calling it a UI bug.** A number that looks wrong
+   may be the model being right: the UXR's Vpp of 1.25 V for a 1 Vpp setting is its data-sheet
+   noise, so the fix was an amplitude column, not the bench (#1220). A behaviour may be a recorded
+   choice: the scope's live frame while the command clock stands still is D44 — read
+   `docs/decisions.md` before "fixing" it.
+3. **Know what a panel holds before folding it.** The inspector also carries the SCPI console and
+   the settings a screen lacks; the bottom panel already starts as its tab bar (#1221).
+4. **Hello World feeds the home page.** Changing `src/simubench/library/examples/hello.bench.yaml`
+   or a model it uses means regenerating, in the same pull request: `hello-preview.json`
+   (`scripts/capture_hello_preview.py`), the web showcase screenshots (the workbench on Hello World,
+   dark, 1440×900, PNG → WebP, e.g. `ffmpeg -i x.png -c:v libwebp -quality 82 x.webp`; wait for the
+   "已创建" toast to go) and the TUI ones (`docs/tui/hello.steps.yaml`; stop any service holding the
+   SCPI ports first, or the run fails with 409). `tests/test_hello_bench.py` pins its numbers.
+5. **Traps met on the way:**
+   - No regular expressions in e2e (D49): `expectText(locator, predicate, what)` or a string
+     `name` from `e2e/judge.ts` / Playwright.
+   - Clicking across the internals graph: click `.react-flow__controls-fitview` first, or the view
+     can pan while the click is aimed and it lands beside the port.
+   - Do not transition an inherited `color`: text inheriting it is briefly the background's colour
+     on a theme switch (`scroll-area.tsx` did, contrast 1.03 in `expectContrastAA`). Transition
+     `box-shadow`/`opacity`, or give the text its own colour.
+   - The full-app visual baselines mask the measurement table and other live values: a new column
+     does not change them, so assert it in an e2e test (`meas-ch1-<key>`).
+6. **Deliver**: one issue per batch (content, layout, polish), fix the content batch first (smallest
+   change, biggest effect on first impressions), and say in the pull request where the result
+   differs from the issue and why.
+
 ## Commands
 
 ```bash
@@ -123,6 +167,6 @@ cd web
 pnpm install
 pnpm dev                       # with: uv run simubench serve --workspace validation
 pnpm -s typecheck && pnpm -s lint && pnpm -s test     # what PR CI runs (also check:api)
-pnpm e2e                       # Playwright; runs on main after merge
-pnpm visual                    # screenshot diffs; runs on main after merge
+pnpm e2e                       # Playwright (end-to-end + full-app visual); gates pull requests
+pnpm visual                    # Storybook screenshot diffs; gates pull requests
 ```

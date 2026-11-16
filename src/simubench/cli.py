@@ -7,6 +7,7 @@ import asyncio
 import json
 import secrets
 import sys
+import threading
 import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -30,6 +31,7 @@ def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
     from .server.app import create_app
+    from .server.catalog import components as component_catalog
 
     bench = Path(args.bench).resolve() if args.bench else None
     workspace = Path(args.workspace).resolve() if args.workspace else (bench.parent if bench else Path.cwd())
@@ -52,6 +54,9 @@ def _serve(args: argparse.Namespace) -> int:
 
     @app.on_event("startup")
     async def _startup() -> None:
+        # The component catalog (/api/components) takes a second or more to build the first time:
+        # build it now, beside the startup, so the first build area opened does not wait (#1231).
+        threading.Thread(target=component_catalog, name="component-catalog", daemon=True).start()
         if bench:
             served = await manager.start(bench.relative_to(workspace).as_posix())
             for lst in served.scpi.listeners if served.scpi else []:
