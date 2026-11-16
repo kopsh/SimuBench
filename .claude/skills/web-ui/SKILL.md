@@ -49,7 +49,8 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   instant, and its baselines, alone).
 - `web/src/features/instrument/structure/` — the acceptance page's build area (#1201, D3,
   instrument-authoring.md 9): `model.ts` (the structure's edits — add, wire, delete, parameters, panel
-  ports, settings, commands; layout; unit-tested), `BuildTab.tsx` (library, canvas, side panel; `SettingsPanel.tsx`
+  ports, settings, commands; layout — chains in columns, the rest in a grid; the references and followed
+  settings the canvas draws, #1212; unit-tested), `BuildTab.tsx` (library, canvas, side panel; `SettingsPanel.tsx`
   holds the settings and commands pages, #1206; each edit sends the whole
   structure to `PUT /api/definitions/{id}/structure`, one save at a time; undo/redo saves the earlier
   structure as a new version, #1207). Dragged positions go to `instruments/<id>.layout.json` through

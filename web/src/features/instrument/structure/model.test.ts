@@ -24,6 +24,11 @@ import {
   updateCommand,
   updateSetting,
   autoLayout,
+  followedSettings,
+  followers,
+  refLinks,
+  COLUMN,
+  ROW,
   canWire,
   connect,
   diagnosticNode,
@@ -226,6 +231,38 @@ describe("layout and diagnostics", () => {
     expect(autoLayout(scope, { [id]: { x: 5, y: 7 } })[id]).toEqual({ x: 5, y: 7 });
   });
 
+  it("puts the components on no signal chain in a grid below it, a reference beside its target (#1212)", () => {
+    // A DMM: input → path on a chain; meter, its calibration store, a trigger model and a buffer on none.
+    const storeDoc = doc({ type: "dmm_adc", refs: [{ param: "store", scope: "instrument", optional: false, target: null }] });
+    const dmm: Structure = {
+      ...empty,
+      components: [
+        { name: "trig", type: "trigger_model", params: {} },
+        { name: "input", type: "dmm_input_terminal", params: {} },
+        { name: "meter", type: "dmm_adc", params: { store: "cal" } },
+        { name: "path", type: "signal_conditioning", params: {} },
+        { name: "mem", type: "reading_buffer", params: {} },
+        { name: "cal", type: "calibration_store", params: {} },
+      ],
+      wiring: { instrument: [["input.out", "path.in"]], channel: [] },
+    };
+    const at = autoLayout(dmm, {}, new Map([["dmm_adc", storeDoc]]));
+    const p = (n: string) => at[nodeId("instrument", n)];
+    expect(p("input")).toEqual({ x: 0, y: 0 });
+    expect(p("path")).toEqual({ x: COLUMN, y: 0 });
+    // the other four below the chain, not stacked in one column
+    const loose = ["trig", "meter", "cal", "mem"].map(p);
+    expect(Math.min(...loose.map((q) => q.y))).toBeGreaterThan(ROW - 1);
+    expect(new Set(loose.map((q) => q.x)).size).toBeGreaterThan(1);
+    // the store follows the meter that names it
+    expect(p("cal").x - p("meter").x).toBe(COLUMN);
+    expect(p("cal").y).toBe(p("meter").y);
+    // no two components in the same place
+    expect(new Set(Object.values(at).map((q) => `${q.x},${q.y}`)).size).toBe(6);
+    // no channel components: the instrument starts at the top
+    expect(Math.min(...Object.values(at).map((q) => q.y))).toBe(0);
+  });
+
   it("finds the component a diagnostic points at", () => {
     expect(diagnosticNode(scope, "/components/1/params/depth")).toBe(nodeId("instrument", "acq"));
     expect(diagnosticNode(scope, "/channel_components/0")).toBe(nodeId("channel", "inp"));
@@ -354,5 +391,29 @@ describe("undo (#1207)", () => {
     expect(undo(EMPTY_HISTORY, a)).toBeNull();
     expect(redo(EMPTY_HISTORY, a)).toBeNull();
     expect(recordEdit(EMPTY_HISTORY, a, 1).past).toHaveLength(1);
+  });
+});
+
+describe("references and settings on the canvas (#1212)", () => {
+  const docs = new Map<string, ComponentDoc>([["scope_acquisition", acqDoc]]);
+
+  it("lists a reference whose target exists, as node ids", () => {
+    expect(refLinks(scope, docs)).toEqual([{ from: nodeId("instrument", "acq"), to: nodeId("instrument", "adc"), param: "adc" }]);
+    const dangling = setParam(scope, "instrument", "acq", "adc", "nothing");
+    expect(refLinks(dangling, docs)).toEqual([]);
+    expect(refLinks(scope, new Map())).toEqual([]);
+  });
+
+  it("names the settings a component follows, bound and mapped", () => {
+    expect(followedSettings(scope.channel_components[0])).toEqual([{ setting: "ch.impedance", params: ["z_in"] }]);
+    expect(followedSettings(scope.channel_components[1])).toEqual([{ setting: "ch.bwlimit", params: ["bandwidth"] }]);
+    expect(followedSettings(scope.components[1])).toEqual([]);
+  });
+
+  it("finds the components that follow a setting", () => {
+    expect(followers(scope, "ch.impedance")).toEqual([nodeId("channel", "inp")]);
+    expect(followers(scope, "depth")).toEqual([]);
+    const both = setParam(scope, "instrument", "acq", "depth", "$depth");
+    expect(followers(both, "depth")).toEqual([nodeId("instrument", "acq")]);
   });
 });
