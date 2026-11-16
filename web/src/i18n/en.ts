@@ -113,6 +113,8 @@ export const en: Widen<Messages> = {
   },
   // The inspector's settings, grouped by the first path segment (#728); others show the segment.
   inspector: {
+    instance: "Which {{name}}",
+    instanceCount: "{{count}} in all",
     group: {
       timebase: "Timebase",
       horizontal: "Horizontal",

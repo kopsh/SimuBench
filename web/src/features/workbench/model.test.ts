@@ -4,7 +4,7 @@ import type { InstrumentInfo } from "@/api/client";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, distinctOptions, globalVars, groupName, groupOpen, hasLabel, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
+import { accessoryLabel, channelVars, distinctOptions, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -26,6 +26,15 @@ describe("option labels (#281)", () => {
     expect(optionLabel({ option_labels: null }, "IMMediate")).toBe("立即");
     expect(optionLabel({ option_labels: { SINusoid: "Sine wave" } }, "SINusoid")).toBe("Sine wave");
     expect(optionLabel({ option_labels: null }, "ONEMeg")).toBe("ONEM");
+  });
+  it("names the inspector's former raw mnemonics, by the option as written and by numbered family (#1257)", () => {
+    expect(optionLabel({ option_labels: null }, "PERCent")).toBe("百分比");
+    expect(optionLabel({ option_labels: null }, "SVERtical")).toBe("垂直堆叠");
+    expect(optionLabel({ option_labels: null }, "HANNing")).toBe("Hanning 窗");
+    expect(optionLabel({ option_labels: null }, "COMMa")).toBe("逗号");
+    expect(optionLabel({ option_labels: null }, "COMMonmode")).toBe("共模");
+    expect(optionLabel({ option_labels: null }, "CHANnel3")).toBe("通道 3");
+    expect(optionLabel({ option_labels: null }, "DIV10")).toBe("衰减 ÷10");
   });
 });
 
@@ -236,5 +245,37 @@ describe("distinctOptions (#1252)", () => {
   });
   it("keeps options whose words differ", () => {
     expect(distinctOptions({ options: ["SIN", "SQU"], option_labels: null, value: "SIN" })).toEqual(["SIN", "SQU"]);
+  });
+});
+
+describe("instance families (#1257)", () => {
+  const v = (path: string) => ({ path, channel: null, type: "enum", value: "" }) as unknown as StateVarInfo;
+  it("folds a family of numbered settings into one block per family, the instances in number order", () => {
+    const vars = [10, 2, 1, 3].flatMap((n) => [v(`display.bookmark${n}.color`), v(`display.bookmark${n}.x`)]);
+    const { families, rest } = instanceFamilies([v("display.grid"), ...vars]);
+    expect(families.map((f) => [f.key, f.instances])).toEqual([["display.bookmark", ["1", "2", "3", "10"]]]);
+    expect(families[0].byInstance.get("2")!.map((x) => x.path)).toEqual(["display.bookmark2.color", "display.bookmark2.x"]);
+    expect(rest.map((x) => x.path)).toEqual(["display.grid"]);
+  });
+  it("leaves a family of a few instances as rows", () => {
+    const { families, rest } = instanceFamilies([v("trigger.level1.v"), v("trigger.level2.v")]);
+    expect(families).toEqual([]);
+    expect(rest).toHaveLength(2);
+  });
+});
+
+describe("automatic and unset values (#1257)", () => {
+  const num = (extra: Partial<StateVarInfo>) => ({ path: "sense.range", channel: null, type: "float", unit: "V", value: 0, ...extra }) as unknown as StateVarInfo;
+  it("shows the AUTO special value and the unset value as 自动, never as 0 V", () => {
+    expect(formatValue(num({ special: { AUTO: 0 } }))).toBe("自动");
+    expect(formatValue(num({ unset: 0, unit: "HZ" }))).toBe("自动");
+    expect(isAutoValue(num({ special: { AUTO: 0 }, value: 0.1 }))).toBe(false);
+    expect(formatValue(num({ special: { AUTO: 0 }, value: 0.1 }))).toBe("100 mV");
+    expect(formatValue(num({ value: 0 }))).toBe("0 V"); // a real 0 stays a number
+  });
+  it("writes a unit word after its prefix: an amplitude in Vpp", () => {
+    expect(formatValue(num({ display_unit: "Vpp", value: 0.5 }))).toBe("500 mVpp");
+    expect(formatValue(num({ display_unit: "Vpp", value: 1 }))).toBe("1 Vpp");
+    expect(formatValue(num({ display_unit: "%", value: 50 }))).toBe("50%");
   });
 });

@@ -8,11 +8,12 @@ import { EmptyState } from "@/components/app/StateViews";
 import { SaveTemplateButton } from "@/features/assistant/SaveTemplateDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, groupName, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner } from "./RemoteBanner";
@@ -452,6 +453,50 @@ function GroupTitle({ group }: { group: SettingGroup }) {
   );
 }
 
+/** A family of numbered settings (#1257): one instance at a time, picked by its number. */
+function FamilyBlock({
+  inst,
+  family,
+  field,
+}: {
+  inst: { name: string };
+  family: InstanceFamily;
+  field: (v: SettingGroup["vars"][number]) => ReactNode;
+}) {
+  const { t } = useTranslation();
+  const reveal = useWorkbench((s) => s.reveal);
+  const asked =
+    reveal?.instrument === inst.name ? family.instances.find((n) => family.byInstance.get(n)!.some((v) => v.path === reveal.path)) : undefined;
+  const [chosen, setChosen] = useState(family.instances[0]);
+  const [lastAsked, setLastAsked] = useState<string | undefined>(undefined);
+  if (asked && asked !== lastAsked) {
+    setLastAsked(asked);
+    setChosen(asked);
+  }
+  const shown = family.byInstance.get(chosen) ?? [];
+  return (
+    <div className="space-y-1.5 rounded-md border p-2" data-testid="setting-family" data-family={family.key}>
+      <div className="flex items-center gap-2 text-xs">
+        <span className="num text-muted-foreground">{family.name}</span>
+        <Select value={chosen} onValueChange={setChosen}>
+          <SelectTrigger size="sm" className="num h-7 w-24 text-xs" aria-label={t("inspector.instance", { name: family.name })}>
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {family.instances.map((n) => (
+              <SelectItem key={n} value={n} className="num text-xs">
+                {n}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <span className="text-muted-foreground/70">{t("inspector.instanceCount", { count: family.instances.length })}</span>
+      </div>
+      {shown.map(field)}
+    </div>
+  );
+}
+
 /** A group's settings; measurement slots (P1…P8) are one row of controls each. */
 function GroupBody({
   sid,
@@ -461,10 +506,14 @@ function GroupBody({
   stateVars,
   field,
 }: SettingsProps & { group: SettingGroup; field: (v: SettingGroup["vars"][number]) => ReactNode }) {
-  const { slots, rest } = slotRows(group.vars);
+  const { slots, rest: unslotted } = slotRows(group.vars);
+  const { families, rest } = instanceFamilies(unslotted);
   return (
     <div className="space-y-1.5">
       {rest.map(field)}
+      {families.map((f) => (
+        <FamilyBlock key={f.key} inst={inst} family={f} field={field} />
+      ))}
       {slots.map((row) => (
         <div key={row.label} className="grid grid-cols-[2rem_1fr] items-center gap-x-2">
           <span className="num text-muted-foreground text-xs">{row.label}</span>

@@ -3,6 +3,7 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, expect, it, vi } from "vitest";
 import type { StateVarInfo } from "@/api/client";
 import { api } from "@/api/client";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { StateField } from "./StateField";
 
 afterEach(() => {
@@ -67,4 +68,40 @@ it("a step from the live value when nothing was committed", async () => {
   await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
   // A continuous quantity without min/max: one whole unit per step (model.ts stepNumber).
   expect(body(0)).toEqual({ path: "sense.range", value: 1 });
+});
+
+// An amplitude in Vpp (#1257): the field says Vpp, takes Vpp or V, and refuses another unit
+// rather than reading "2 Vrms" as 2 Vpp.
+it("a Vpp field shows Vpp, takes 2 Vpp and refuses 2 Vrms", async () => {
+  const POST = setup();
+  const amplitude = { path: "ch1.amplitude", label: "幅度", type: "float", unit: "V", display_unit: "Vpp", value: 1 } as unknown as StateVarInfo;
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <StateField sid="s1" instrument="awg" v={amplitude} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  const input = screen.getByLabelText("幅度") as HTMLInputElement;
+  expect(input.value).toContain("Vpp");
+  input.focus();
+  fireEvent.change(input, { target: { value: "2 Vrms" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  await waitFor(() => expect(screen.getByLabelText("设置被拒绝")).toBeTruthy()); // the field says it was refused
+  expect(POST).not.toHaveBeenCalled();
+  const again = screen.getByLabelText("幅度") as HTMLInputElement; // the field re-renders with its error mark
+  again.focus();
+  fireEvent.change(again, { target: { value: "2 Vpp" } });
+  fireEvent.keyDown(again, { key: "Enter" });
+  await waitFor(() => expect(POST).toHaveBeenCalledTimes(1));
+  expect(body(0)).toEqual({ path: "ch1.amplitude", value: 2 });
+});
+
+it("a range of 0 that means AUTO reads 自动, not 0 V (#1257)", () => {
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <StateField sid="s1" instrument="dmm" v={{ ...RANGE, special: { AUTO: 0 } } as StateVarInfo} />
+    </QueryClientProvider>,
+  );
+  expect((screen.getByLabelText("量程") as HTMLInputElement).value).toBe("自动");
 });

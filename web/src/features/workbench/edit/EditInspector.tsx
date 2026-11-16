@@ -372,6 +372,7 @@ function paramVar(key: string, value: unknown, unit: string | undefined): StateV
     rst: null,
     ladder: null,
     special: null,
+    unset: null,
     not_modeled: null,
     words: null,
     replies: null,
