@@ -21,6 +21,7 @@ a ``__main__.py`` appended as a zip.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import io
 import os
 import re
@@ -35,6 +36,9 @@ from pathlib import Path
 PYTHON_VERSION = "3.12.10"
 PY_TAG = "312"
 EMBED_URL = f"https://www.python.org/ftp/python/{PYTHON_VERSION}/python-{PYTHON_VERSION}-embed-amd64.zip"
+#: SHA-256 of that zip: a copy from an internal mirror or share must be the same file. Changing
+#: PYTHON_VERSION changes this too (sha256sum of the new python.org file).
+EMBED_SHA256 = "4acbed6dd1c744b0376e3b1cf57ce906f9dc9e95e68824584c8099a63025a3c3"
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -73,17 +77,30 @@ def _run(cmd: list[str], **kw: object) -> None:
     subprocess.run(cmd, check=True, **kw)  # type: ignore[call-overload]
 
 
+def check_embed(data: bytes, src: str) -> bytes:
+    digest = hashlib.sha256(data).hexdigest()
+    if digest != EMBED_SHA256:
+        raise SystemExit(
+            f"{src}: sha256 {digest}, expected {EMBED_SHA256} "
+            f"(python-{PYTHON_VERSION}-embed-amd64.zip from python.org)"
+        )
+    return data
+
+
 def _embed_zip(cache: Path) -> bytes:
+    """The embeddable CPython zip: SIMUBENCH_PYTHON_EMBED (a local file or a URL, for a network
+    without python.org), else the copy in the cache folder, else python.org; always checksummed."""
     src = os.environ.get("SIMUBENCH_PYTHON_EMBED") or EMBED_URL
     if Path(src).is_file():
-        return Path(src).read_bytes()
+        return check_embed(Path(src).read_bytes(), src)
     cached = cache / Path(src).name
     if not cached.is_file():
         print(f"+ download {src}", flush=True)
         cache.mkdir(parents=True, exist_ok=True)
         with urllib.request.urlopen(src, timeout=120) as r:
-            cached.write_bytes(r.read())
-    return cached.read_bytes()
+            data = check_embed(r.read(), src)
+        cached.write_bytes(data)
+    return check_embed(cached.read_bytes(), str(cached))
 
 
 def _launcher() -> bytes:

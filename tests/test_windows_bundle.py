@@ -98,3 +98,10 @@ def test_launcher_exe_runs_the_bundled_python_on_its_appended_zip():
     assert exe.startswith(b"MZlauncher#!<launcher_dir>\\..\\python\\python.exe\n")
     with zipfile.ZipFile(io.BytesIO(exe)) as z:  # a zip read from its end, past the launcher
         assert z.read("__main__.py").decode() == bundle.CLI_MAIN
+
+
+@pytest.mark.unit
+def test_embed_zip_from_a_mirror_must_be_the_python_org_file():
+    with pytest.raises(SystemExit) as err:
+        bundle.check_embed(b"not python", "mirror.zip")
+    assert bundle.EMBED_SHA256 in str(err.value)

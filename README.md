@@ -47,6 +47,15 @@ simubench serve --workspace 我的测试台目录 --open
 
 用户解压后双击 `SimuBench.exe`：浏览器打开界面，同时启动 MCP 服务（`http://127.0.0.1:8765/mcp`；界面右上角「连接 AI 助手」给出地址与可复制的配置），不需要安装 Python、不联网；测试台默认放在 `文档\SimuBench`，关闭黑色窗口即停止。`tools\simubench.exe` 是完整命令行。包里自带 python.org 的 embeddable Python 与按 `uv.lock` 装好的 Windows 依赖；内部镜像用 `UV_INDEX_URL` 与 `SIMUBENCH_PYTHON_EMBED=<embed zip 的地址或本地文件>`。在 Windows 上验收：`python scripts/smoke_windows_bundle.py <解压目录> --ui`。
 
+内网访问不了 python.org 时：在外网下载一次 `https://www.python.org/ftp/python/3.12.10/python-3.12.10-embed-amd64.zip`（版本见 `scripts/windows_bundle.py` 的 `PYTHON_VERSION`），放进内部制品库或共享盘，构建时指向它；或直接放到构建机的 `build/windows/` 下，什么都不用设：
+
+```bash
+SIMUBENCH_PYTHON_EMBED=https://<内部制品库>/python-3.12.10-embed-amd64.zip ./scripts/build-windows.sh
+SIMUBENCH_PYTHON_EMBED=/mnt/share/python-3.12.10-embed-amd64.zip ./scripts/build-windows.sh
+```
+
+文件按 `EMBED_SHA256` 校验，拿错版本或文件损坏直接报错。依赖的 Windows wheel（numpy、scipy……的 `win_amd64` 包）照常经 `UV_INDEX_URL` 从内部 pip 源取。
+
 版本号由 git 提交历史算出（D58）：`YYYY.M.D.N`，日期是最新提交的日期，N 是当天第几个提交，不打 tag；构建需要完整的 git 历史，或 GitHub zip / `git archive` 导出的源码。改了什么（只列产品变更，一次打包一节）：构建时写在 wheel 旁边的 `dist/CHANGELOG.md`，安装后 `simubench changelog`；发布说明（只含上一个已发布版本之后的新增）：`scripts/build-wheel.sh <上一版>` 写出 `dist/RELEASE_NOTES.md`，或 `python scripts/changelog.py --since <版本>`。
 
 ### 从脚本连接
