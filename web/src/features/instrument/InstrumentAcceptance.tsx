@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, Copy, FlaskConical, History, Info, ListTree, Terminal, X } from "lucide-react";
+import { Blocks, Copy, FlaskConical, Hammer, History, Info, ListTree, Terminal, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useCopyDefinition } from "@/api/hooks";
@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { InternalsPanel } from "@/features/workbench/internals/InternalsView";
+import { BuildTab } from "./structure/BuildTab";
 import { CasesTab } from "./CasesTab";
 import { CommandsTab } from "./CommandsTab";
 import { HistoryTab } from "./HistoryTab";
@@ -59,6 +60,7 @@ const SECTIONS = [
   { key: "overview", icon: Info },
   { key: "commands", icon: ListTree },
   { key: "internals", icon: Blocks },
+  { key: "build", icon: Hammer },
   { key: "try", icon: Terminal },
   { key: "cases", icon: FlaskConical },
   { key: "history", icon: History },
@@ -155,7 +157,8 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
           </ul>
         </div>
       )}
-      {notice && (
+      {/* The build area saves on every edit and says so itself (#1201): no "reloaded" notice there. */}
+      {notice && section !== "build" && (
         <div className="bg-sim-muted text-sim flex items-center gap-2 border-b px-4 py-1.5 text-[11px]" role="status">
           <span>{t("acceptance.reloaded")}</span>
           <button type="button" className="ml-auto rounded p-0.5 hover:opacity-70" aria-label={t("common.close")} onClick={() => setNotice(false)}>
@@ -164,7 +167,12 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
         </div>
       )}
 
-      <Tabs value={section} onValueChange={(v) => setSection(v as SectionKey)} className="min-h-0 flex-1 gap-0">
+      <Tabs
+        value={section}
+        onValueChange={(v) => {
+          if (section === "build") setNotice(false); // the build area's own saves are not news
+          setSection(v as SectionKey);
+        }} className="min-h-0 flex-1 gap-0">
         <div className="bg-sidebar overflow-x-auto border-b px-3">
           <TabsList variant="line" className="h-10">
             {SECTIONS.map(({ key, icon: Icon }) => (
@@ -182,6 +190,14 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
         </TabsContent>
         <TabsContent value="internals" className="min-h-0 flex-1 overflow-hidden">
           <InternalsSection sid={trySession.sid} inst={inst.data} error={trySession.error} />
+        </TabsContent>
+        <TabsContent value="build" className="min-h-0 flex-1 overflow-hidden">
+          {section === "build" && (
+            <BuildTab
+              definitionId={definitionId}
+              tryPanel={<TryTab sid={trySession.sid} inst={inst.data} error={trySession.error} onReopen={trySession.reopen} />}
+            />
+          )}
         </TabsContent>
         <TabsContent value="try" className="min-h-0 flex-1 overflow-hidden">
           <TryTab sid={trySession.sid} inst={inst.data} error={trySession.error} onReopen={trySession.reopen} />

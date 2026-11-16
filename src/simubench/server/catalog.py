@@ -47,6 +47,15 @@ def component_info(name: str, cls: type[Component]) -> M.ComponentDoc:
                 for k, v in cls.defaults.items()
             ],
             operations=operations(cls),
+            refs=[
+                M.RefInfo(
+                    param=k,
+                    scope=scope,
+                    optional=k in cls.optional_refs,
+                    target=target if isinstance(target, str) else None,
+                )
+                for k, (target, scope) in cls.refs.items()
+            ],
         )
     return _cache[cls]
 

@@ -125,6 +125,61 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
             raise HTTPException(422, str(exc).splitlines()[0]) from None
 
     @router.get(
+        "/api/definitions/{def_id}/structure",
+        response_model=M.DefinitionStructure,
+        operation_id="getDefinitionStructure",
+        dependencies=[Depends(auth)],
+    )
+    def definition_structure(def_id: str) -> M.DefinitionStructure:
+        """The effective structure (components, wiring, panel ports; extends merged in) for the
+        Web's build area (#1201); read even when the draft does not pass the checks."""
+        try:
+            return definition_files.structure(def_id)
+        except KeyError as exc:
+            raise not_found(exc) from None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc).splitlines()[0]) from None
+
+    @router.put(
+        "/api/definitions/{def_id}/structure",
+        response_model=M.DefinitionStructure,
+        operation_id="saveDefinitionStructure",
+        dependencies=[Depends(auth)],
+        responses={
+            403: {"description": "The definition is not in the workspace"},
+            409: {"description": "The file changed since base_sha256 was read"},
+        },
+    )
+    def save_definition_structure(def_id: str, req: M.StructureUpdate) -> M.DefinitionStructure:
+        """Write the structure the build area drew into a workspace definition (#1201): one saved
+        version, with the change log in the instrument's language (D35, T3)."""
+        return ctx.file_errors(lambda: definition_files.save_structure(def_id, req, "ui"))  # type: ignore[no-any-return]
+
+    @router.get(
+        "/api/definitions/{def_id}/layout",
+        response_model=M.DefinitionLayout,
+        operation_id="getDefinitionLayout",
+        dependencies=[Depends(auth)],
+    )
+    def definition_layout(def_id: str) -> M.DefinitionLayout:
+        """Where the build area draws the components (#1207); empty when none were saved."""
+        try:
+            return definition_files.layout(def_id)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from None
+
+    @router.put(
+        "/api/definitions/{def_id}/layout",
+        response_model=M.DefinitionLayout,
+        operation_id="saveDefinitionLayout",
+        dependencies=[Depends(auth)],
+        responses={403: {"description": "The definition is not in the workspace"}},
+    )
+    def save_definition_layout(def_id: str, req: M.DefinitionLayout) -> M.DefinitionLayout:
+        """Keep the positions beside a workspace definition: no version, no session restart."""
+        return ctx.file_errors(lambda: definition_files.save_layout(def_id, req))  # type: ignore[no-any-return]
+
+    @router.get(
         "/api/definitions/{def_id}/coverage",
         response_model=M.DefinitionCoverage | None,
         operation_id="getDefinitionCoverage",

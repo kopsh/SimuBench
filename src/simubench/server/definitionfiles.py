@@ -9,6 +9,7 @@ import copy
 import json
 import os
 import re
+from pathlib import Path
 from typing import Any
 
 import yaml
@@ -19,6 +20,7 @@ from ..engine.validate_definition import validate_definition_data
 from ..library.loader import layered_definition_data, load_yaml
 from ..library.migrate import upgrade
 from ..models import api as M
+from . import definitionstructure
 from .benchfiles import BenchFiles, Conflict, _sha
 from .definitionchanges import definition_changes
 from .errors import Forbidden
@@ -26,6 +28,8 @@ from .history import Source
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 FOLDER = "instruments"
+#: The build area's positions beside a definition (#1207).
+LAYOUT_SUFFIX = ".layout.json"
 
 
 class DefinitionFiles:
@@ -138,6 +142,53 @@ class DefinitionFiles:
         rel = self.rel_path(def_id)
         data = _parse(self.files.history.content(rel, seq))
         return self.save(def_id, base_sha256, data, "restore")
+
+    def source(self, def_id: str) -> Path:
+        """The file a definition is read from: the workspace's, else the library's."""
+        path = self.files.workspace / self.rel_path(def_id)
+        return path if path.is_file() else self.files.library(None).path(def_id)
+
+    def structure(self, def_id: str) -> M.DefinitionStructure:
+        """The effective structure the Web's build area edits (#1201)."""
+        return definitionstructure.structure(self.read(def_id), self.source(def_id))
+
+    def save_structure(
+        self, def_id: str, new: M.StructureUpdate, source: Source = "ui"
+    ) -> M.DefinitionStructure:
+        """Write a whole structure into a workspace definition: one version (D35), the file keeping
+        only what it does not inherit (D59). The draft is kept even when it does not pass the checks."""
+        doc = self.read(def_id)
+        if not doc.editable:
+            raise Forbidden(f"{def_id} is not in the workspace; copy it as your instrument to change it")
+        if doc.sha256 != new.base_sha256:
+            raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
+        path = self.source(def_id)
+        self.save(def_id, new.base_sha256, definitionstructure.written(doc.data, new, path), source)
+        return self.structure(def_id)
+
+    def layout_path(self, def_id: str) -> Path:
+        return self.files.workspace / FOLDER / f"{def_id}{LAYOUT_SUFFIX}"
+
+    def layout(self, def_id: str) -> M.DefinitionLayout:
+        """The build area's positions (#1207); empty when none were saved or the file is broken
+        (positions are a convenience: the canvas lays itself out without them)."""
+        self.rel_path(def_id)
+        path = self.layout_path(def_id)
+        try:
+            return M.DefinitionLayout.model_validate_json(path.read_bytes())
+        except (OSError, ValueError):
+            return M.DefinitionLayout()
+
+    def save_layout(self, def_id: str, layout: M.DefinitionLayout) -> M.DefinitionLayout:
+        """Write the positions beside a workspace definition; no version, no session restart."""
+        if not self.read(def_id).editable:
+            raise Forbidden(f"{def_id} is not in the workspace; its layout is not kept")
+        path = self.layout_path(def_id)
+        with self.files._lock:
+            tmp = path.with_name(f".{path.name}.tmp")
+            tmp.write_text(layout.model_dump_json(indent=1), encoding="utf-8")
+            os.replace(tmp, path)
+        return layout
 
     def free_id(self, base: str) -> str:
         """``base``, or the first ``-2``, ``-3`` … variant that names no definition yet (workspace

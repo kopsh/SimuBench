@@ -16,6 +16,8 @@ interface Entry {
   linkError: string | null;
   timedOut: boolean;
   seconds: number;
+  /** A line of the console's own, not a command: the session was reopened on a new version. */
+  note?: string;
 }
 
 /** Try the instrument alone: send commands to a temporary session, read the replies and the error
@@ -39,6 +41,17 @@ export function TryTab({
   const [busy, setBusy] = useState(false);
   const [nowNs, setNowNs] = useState(0);
   const list = useRef<HTMLDivElement>(null);
+  // A save in the build area reopens the session on the new definition (#1207): say so where the
+  // replies are, so that a changed answer is not a mystery.
+  const [seenSid, setSeenSid] = useState(sid);
+  if (sid !== seenSid) {
+    setSeenSid(sid);
+    if (seenSid && sid && entries.length)
+      setEntries((prev) => [
+        ...prev,
+        { command: "", response: null, errors: [], linkError: null, timedOut: false, seconds: 0, note: t("acceptance.reopened") },
+      ]);
+  }
 
   useEffect(() => {
     const el = list.current;
@@ -114,7 +127,12 @@ export function TryTab({
           {entries.length === 0 && (
             <p className="text-muted-foreground max-w-lg font-sans text-xs">{t("acceptance.consoleHint")}</p>
           )}
-          {entries.map((entry, i) => (
+          {entries.map((entry, i) =>
+            entry.note ? (
+              <p key={`note-${i}`} className="text-muted-foreground my-2 text-center font-sans text-[11px]" role="status">
+                — {entry.note} —
+              </p>
+            ) : (
             <div key={`${entry.command}-${i}`} className="mb-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-muted-foreground select-none">›</span>
@@ -130,7 +148,8 @@ export function TryTab({
                 </p>
               ))}
             </div>
-          ))}
+            ),
+          )}
         </div>
         {error ? (
           <p className="text-error border-t px-3 py-2 text-[11px]">{t("acceptance.tryFailed", { error })}</p>

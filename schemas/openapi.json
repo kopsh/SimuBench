@@ -1728,6 +1728,14 @@
             "title": "Ports",
             "type": "array"
           },
+          "refs": {
+            "description": "Parameters that name another component of the instrument",
+            "items": {
+              "$ref": "#/components/schemas/RefInfo"
+            },
+            "title": "Refs",
+            "type": "array"
+          },
           "role": {
             "anyOf": [
               {
@@ -1759,6 +1767,7 @@
           "ports",
           "port_pattern",
           "params",
+          "refs",
           "operations"
         ],
         "title": "ComponentDoc",
@@ -2387,6 +2396,168 @@
           "changes"
         ],
         "title": "DefinitionDocument",
+        "type": "object"
+      },
+      "DefinitionLayout-Input": {
+        "description": "Where the build area draws each component of a workspace definition (#1207): kept beside\nthe definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change\nto the instrument, so it makes no version and restarts no session.",
+        "properties": {
+          "positions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LayoutPoint"
+            },
+            "description": "Node id ('i:<name>' instrument, 'c:<name>' channel) -> position",
+            "title": "Positions",
+            "type": "object"
+          }
+        },
+        "title": "DefinitionLayout",
+        "type": "object"
+      },
+      "DefinitionLayout-Output": {
+        "description": "Where the build area draws each component of a workspace definition (#1207): kept beside\nthe definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change\nto the instrument, so it makes no version and restarts no session.",
+        "properties": {
+          "positions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LayoutPoint"
+            },
+            "description": "Node id ('i:<name>' instrument, 'c:<name>' channel) -> position",
+            "title": "Positions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "positions"
+        ],
+        "title": "DefinitionLayout",
+        "type": "object"
+      },
+      "DefinitionStructure": {
+        "description": "The effective structure of a definition (``extends`` and the category default merged in,\nD59), for the Web's build area (#1201). Read even when the draft does not pass the checks.",
+        "properties": {
+          "channel_components": {
+            "items": {
+              "$ref": "#/components/schemas/StructureComponent-Output"
+            },
+            "title": "Channel Components",
+            "type": "array"
+          },
+          "channel_state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Settings every channel has one of (StateSpec)",
+            "title": "Channel State",
+            "type": "object"
+          },
+          "channels": {
+            "default": 1,
+            "description": "How many channels the channel components are repeated for",
+            "title": "Channels",
+            "type": "integer"
+          },
+          "commands": {
+            "description": "The commands (CommandSpec)",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/StructureComponent-Output"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "editable": {
+            "title": "Editable",
+            "type": "boolean"
+          },
+          "extends": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Extends"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "inherited": {
+            "description": "Structure items the file does not write: they come from extends",
+            "items": {
+              "enum": [
+                "components",
+                "channel_components",
+                "wiring",
+                "ports",
+                "state",
+                "channel_state",
+                "commands"
+              ],
+              "type": "string"
+            },
+            "title": "Inherited",
+            "type": "array"
+          },
+          "ok": {
+            "title": "Ok",
+            "type": "boolean"
+          },
+          "ports": {
+            "$ref": "#/components/schemas/StructurePorts-Output"
+          },
+          "sha256": {
+            "description": "Hash of the file bytes; pass back as base_sha256 to save",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Instrument settings (StateSpec)",
+            "title": "State",
+            "type": "object"
+          },
+          "wiring": {
+            "$ref": "#/components/schemas/StructureWiring-Output"
+          }
+        },
+        "required": [
+          "id",
+          "sha256",
+          "editable",
+          "extends",
+          "channels",
+          "components",
+          "channel_components",
+          "wiring",
+          "ports",
+          "state",
+          "channel_state",
+          "commands",
+          "inherited",
+          "ok",
+          "diagnostics"
+        ],
+        "title": "DefinitionStructure",
         "type": "object"
       },
       "DefinitionSummary": {
@@ -4865,6 +5036,24 @@
         "title": "LayoutItem",
         "type": "object"
       },
+      "LayoutPoint": {
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "LayoutPoint",
+        "type": "object"
+      },
       "Move": {
         "additionalProperties": false,
         "properties": {
@@ -6220,6 +6409,49 @@
           "values"
         ],
         "title": "ReadingTrace",
+        "type": "object"
+      },
+      "RefInfo": {
+        "description": "A component parameter that names another component (a ``refs`` declaration).",
+        "properties": {
+          "optional": {
+            "default": false,
+            "title": "Optional",
+            "type": "boolean"
+          },
+          "param": {
+            "title": "Param",
+            "type": "string"
+          },
+          "scope": {
+            "description": "instrument: a whole-instrument component; channel: one of its own channel's",
+            "enum": [
+              "instrument",
+              "channel"
+            ],
+            "title": "Scope",
+            "type": "string"
+          },
+          "target": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The component type it must name, when one is required",
+            "title": "Target"
+          }
+        },
+        "required": [
+          "param",
+          "scope",
+          "optional",
+          "target"
+        ],
+        "title": "RefInfo",
         "type": "object"
       },
       "Reference": {
@@ -9129,6 +9361,255 @@
         "title": "StepResult",
         "type": "object"
       },
+      "StructureComponent-Input": {
+        "description": "A component of a definition's structure as the build area edits it (#1201).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "description": "As written in the definition: a literal, a setting ('$ch.x') or a mapping of a setting",
+            "title": "Params",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type"
+        ],
+        "title": "StructureComponent",
+        "type": "object"
+      },
+      "StructureComponent-Output": {
+        "description": "A component of a definition's structure as the build area edits it (#1201).",
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "params": {
+            "additionalProperties": true,
+            "description": "As written in the definition: a literal, a setting ('$ch.x') or a mapping of a setting",
+            "title": "Params",
+            "type": "object"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "type",
+          "params"
+        ],
+        "title": "StructureComponent",
+        "type": "object"
+      },
+      "StructurePorts-Input": {
+        "properties": {
+          "channel": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "'CH{n}' -> 'component.port'",
+            "title": "Channel",
+            "type": "object"
+          },
+          "instrument": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Panel port -> 'component.port'",
+            "title": "Instrument",
+            "type": "object"
+          }
+        },
+        "title": "StructurePorts",
+        "type": "object"
+      },
+      "StructurePorts-Output": {
+        "properties": {
+          "channel": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "'CH{n}' -> 'component.port'",
+            "title": "Channel",
+            "type": "object"
+          },
+          "instrument": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "Panel port -> 'component.port'",
+            "title": "Instrument",
+            "type": "object"
+          }
+        },
+        "required": [
+          "instrument",
+          "channel"
+        ],
+        "title": "StructurePorts",
+        "type": "object"
+      },
+      "StructureUpdate": {
+        "description": "A whole structure to write into a workspace definition (#1201): what it should run; the\nfile gets only what differs from what it inherits (D59).",
+        "properties": {
+          "base_sha256": {
+            "description": "sha256 of the definition file as read",
+            "title": "Base Sha256",
+            "type": "string"
+          },
+          "channel_components": {
+            "items": {
+              "$ref": "#/components/schemas/StructureComponent-Input"
+            },
+            "title": "Channel Components",
+            "type": "array"
+          },
+          "channel_state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Settings every channel has one of (StateSpec)",
+            "title": "Channel State",
+            "type": "object"
+          },
+          "commands": {
+            "description": "The commands (CommandSpec)",
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Commands",
+            "type": "array"
+          },
+          "components": {
+            "items": {
+              "$ref": "#/components/schemas/StructureComponent-Input"
+            },
+            "title": "Components",
+            "type": "array"
+          },
+          "ports": {
+            "$ref": "#/components/schemas/StructurePorts-Input"
+          },
+          "state": {
+            "additionalProperties": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "description": "Instrument settings (StateSpec)",
+            "title": "State",
+            "type": "object"
+          },
+          "wiring": {
+            "$ref": "#/components/schemas/StructureWiring-Input"
+          }
+        },
+        "required": [
+          "base_sha256"
+        ],
+        "title": "StructureUpdate",
+        "type": "object"
+      },
+      "StructureWiring-Input": {
+        "properties": {
+          "channel": {
+            "description": "Wires inside each channel",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Channel",
+            "type": "array"
+          },
+          "instrument": {
+            "description": "Wires at instrument level; 'ch{n}.<component>' for a channel's",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Instrument",
+            "type": "array"
+          }
+        },
+        "title": "StructureWiring",
+        "type": "object"
+      },
+      "StructureWiring-Output": {
+        "properties": {
+          "channel": {
+            "description": "Wires inside each channel",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Channel",
+            "type": "array"
+          },
+          "instrument": {
+            "description": "Wires at instrument level; 'ch{n}.<component>' for a channel's",
+            "items": {
+              "maxItems": 2,
+              "minItems": 2,
+              "prefixItems": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "string"
+                }
+              ],
+              "type": "array"
+            },
+            "title": "Instrument",
+            "type": "array"
+          }
+        },
+        "required": [
+          "instrument",
+          "channel"
+        ],
+        "title": "StructureWiring",
+        "type": "object"
+      },
       "TemplateSource": {
         "additionalProperties": false,
         "description": "The template a definition was expanded from and the inputs it was given (instrument-authoring.md\n7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the\ndefinition as the template generated it.",
@@ -10746,6 +11227,97 @@
         "summary": "Definition Change List"
       }
     },
+    "/api/definitions/{def_id}/layout": {
+      "get": {
+        "description": "Where the build area draws the components (#1207); empty when none were saved.",
+        "operationId": "getDefinitionLayout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionLayout-Output"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition Layout"
+      },
+      "put": {
+        "description": "Keep the positions beside a workspace definition: no version, no session restart.",
+        "operationId": "saveDefinitionLayout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinitionLayout-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionLayout-Output"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "The definition is not in the workspace"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Definition Layout"
+      }
+    },
     "/api/definitions/{def_id}/restore": {
       "post": {
         "description": "Write an earlier version of a workspace definition back as the newest one (D35).",
@@ -10797,6 +11369,100 @@
           }
         },
         "summary": "Restore Definition"
+      }
+    },
+    "/api/definitions/{def_id}/structure": {
+      "get": {
+        "description": "The effective structure (components, wiring, panel ports; extends merged in) for the\nWeb's build area (#1201); read even when the draft does not pass the checks.",
+        "operationId": "getDefinitionStructure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionStructure"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition Structure"
+      },
+      "put": {
+        "description": "Write the structure the build area drew into a workspace definition (#1201): one saved\nversion, with the change log in the instrument's language (D35, T3).",
+        "operationId": "saveDefinitionStructure",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StructureUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionStructure"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "The definition is not in the workspace"
+          },
+          "409": {
+            "description": "The file changed since base_sha256 was read"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Definition Structure"
       }
     },
     "/api/diagnostics": {

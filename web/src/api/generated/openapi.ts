@@ -549,6 +549,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/definitions/{def_id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition Layout
+         * @description Where the build area draws the components (#1207); empty when none were saved.
+         */
+        get: operations["getDefinitionLayout"];
+        /**
+         * Save Definition Layout
+         * @description Keep the positions beside a workspace definition: no version, no session restart.
+         */
+        put: operations["saveDefinitionLayout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/definitions/{def_id}/restore": {
         parameters: {
             query?: never;
@@ -563,6 +587,32 @@ export interface paths {
          * @description Write an earlier version of a workspace definition back as the newest one (D35).
          */
         post: operations["restoreDefinition"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/definitions/{def_id}/structure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition Structure
+         * @description The effective structure (components, wiring, panel ports; extends merged in) for the
+         *     Web's build area (#1201); read even when the draft does not pass the checks.
+         */
+        get: operations["getDefinitionStructure"];
+        /**
+         * Save Definition Structure
+         * @description Write the structure the build area drew into a workspace definition (#1201): one saved
+         *     version, with the change log in the instrument's language (D35, T3).
+         */
+        put: operations["saveDefinitionStructure"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2148,6 +2198,11 @@ export interface components {
             port_pattern: string | null;
             /** Ports */
             ports: components["schemas"]["PortInfo"][];
+            /**
+             * Refs
+             * @description Parameters that name another component of the instrument
+             */
+            refs: components["schemas"]["RefInfo"][];
             /** Role */
             role: ("driver" | "series") | null;
             /** Type */
@@ -2468,6 +2523,100 @@ export interface components {
              * @description Hash of the file bytes; pass back as base_sha256 to edit
              */
             sha256: string;
+        };
+        /**
+         * DefinitionLayout
+         * @description Where the build area draws each component of a workspace definition (#1207): kept beside
+         *     the definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change
+         *     to the instrument, so it makes no version and restarts no session.
+         */
+        "DefinitionLayout-Input": {
+            /**
+             * Positions
+             * @description Node id ('i:<name>' instrument, 'c:<name>' channel) -> position
+             */
+            positions?: {
+                [key: string]: components["schemas"]["LayoutPoint"];
+            };
+        };
+        /**
+         * DefinitionLayout
+         * @description Where the build area draws each component of a workspace definition (#1207): kept beside
+         *     the definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change
+         *     to the instrument, so it makes no version and restarts no session.
+         */
+        "DefinitionLayout-Output": {
+            /**
+             * Positions
+             * @description Node id ('i:<name>' instrument, 'c:<name>' channel) -> position
+             */
+            positions: {
+                [key: string]: components["schemas"]["LayoutPoint"];
+            };
+        };
+        /**
+         * DefinitionStructure
+         * @description The effective structure of a definition (``extends`` and the category default merged in,
+         *     D59), for the Web's build area (#1201). Read even when the draft does not pass the checks.
+         */
+        DefinitionStructure: {
+            /** Channel Components */
+            channel_components: components["schemas"]["StructureComponent-Output"][];
+            /**
+             * Channel State
+             * @description Settings every channel has one of (StateSpec)
+             */
+            channel_state: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /**
+             * Channels
+             * @description How many channels the channel components are repeated for
+             * @default 1
+             */
+            channels: number;
+            /**
+             * Commands
+             * @description The commands (CommandSpec)
+             */
+            commands: {
+                [key: string]: unknown;
+            }[];
+            /** Components */
+            components: components["schemas"]["StructureComponent-Output"][];
+            /** Diagnostics */
+            diagnostics: components["schemas"]["Diagnostic"][];
+            /** Editable */
+            editable: boolean;
+            /** Extends */
+            extends: string | null;
+            /** Id */
+            id: string;
+            /**
+             * Inherited
+             * @description Structure items the file does not write: they come from extends
+             */
+            inherited: ("components" | "channel_components" | "wiring" | "ports" | "state" | "channel_state" | "commands")[];
+            /** Ok */
+            ok: boolean;
+            ports: components["schemas"]["StructurePorts-Output"];
+            /**
+             * Sha256
+             * @description Hash of the file bytes; pass back as base_sha256 to save
+             */
+            sha256: string;
+            /**
+             * State
+             * @description Instrument settings (StateSpec)
+             */
+            state: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            wiring: components["schemas"]["StructureWiring-Output"];
         };
         /** DefinitionSummary */
         DefinitionSummary: {
@@ -3559,6 +3708,13 @@ export interface components {
              */
             y: number;
         };
+        /** LayoutPoint */
+        LayoutPoint: {
+            /** X */
+            x: number;
+            /** Y */
+            y: number;
+        };
         /** Move */
         Move: {
             /** Name */
@@ -4225,6 +4381,30 @@ export interface components {
              * @description Edition, revision or date of the basis
              */
             version?: string | null;
+        };
+        /**
+         * RefInfo
+         * @description A component parameter that names another component (a ``refs`` declaration).
+         */
+        RefInfo: {
+            /**
+             * Optional
+             * @default false
+             */
+            optional: boolean;
+            /** Param */
+            param: string;
+            /**
+             * Scope
+             * @description instrument: a whole-instrument component; channel: one of its own channel's
+             * @enum {string}
+             */
+            scope: "instrument" | "channel";
+            /**
+             * Target
+             * @description The component type it must name, when one is required
+             */
+            target: string | null;
         };
         /** Remove */
         Remove: {
@@ -5451,6 +5631,155 @@ export interface components {
             ok: boolean;
         };
         /**
+         * StructureComponent
+         * @description A component of a definition's structure as the build area edits it (#1201).
+         */
+        "StructureComponent-Input": {
+            /** Name */
+            name: string;
+            /**
+             * Params
+             * @description As written in the definition: a literal, a setting ('$ch.x') or a mapping of a setting
+             */
+            params?: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
+        };
+        /**
+         * StructureComponent
+         * @description A component of a definition's structure as the build area edits it (#1201).
+         */
+        "StructureComponent-Output": {
+            /** Name */
+            name: string;
+            /**
+             * Params
+             * @description As written in the definition: a literal, a setting ('$ch.x') or a mapping of a setting
+             */
+            params: {
+                [key: string]: unknown;
+            };
+            /** Type */
+            type: string;
+        };
+        /** StructurePorts */
+        "StructurePorts-Input": {
+            /**
+             * Channel
+             * @description 'CH{n}' -> 'component.port'
+             */
+            channel?: {
+                [key: string]: string;
+            };
+            /**
+             * Instrument
+             * @description Panel port -> 'component.port'
+             */
+            instrument?: {
+                [key: string]: string;
+            };
+        };
+        /** StructurePorts */
+        "StructurePorts-Output": {
+            /**
+             * Channel
+             * @description 'CH{n}' -> 'component.port'
+             */
+            channel: {
+                [key: string]: string;
+            };
+            /**
+             * Instrument
+             * @description Panel port -> 'component.port'
+             */
+            instrument: {
+                [key: string]: string;
+            };
+        };
+        /**
+         * StructureUpdate
+         * @description A whole structure to write into a workspace definition (#1201): what it should run; the
+         *     file gets only what differs from what it inherits (D59).
+         */
+        StructureUpdate: {
+            /**
+             * Base Sha256
+             * @description sha256 of the definition file as read
+             */
+            base_sha256: string;
+            /** Channel Components */
+            channel_components?: components["schemas"]["StructureComponent-Input"][];
+            /**
+             * Channel State
+             * @description Settings every channel has one of (StateSpec)
+             */
+            channel_state?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            /**
+             * Commands
+             * @description The commands (CommandSpec)
+             */
+            commands?: {
+                [key: string]: unknown;
+            }[];
+            /** Components */
+            components?: components["schemas"]["StructureComponent-Input"][];
+            ports?: components["schemas"]["StructurePorts-Input"];
+            /**
+             * State
+             * @description Instrument settings (StateSpec)
+             */
+            state?: {
+                [key: string]: {
+                    [key: string]: unknown;
+                };
+            };
+            wiring?: components["schemas"]["StructureWiring-Input"];
+        };
+        /** StructureWiring */
+        "StructureWiring-Input": {
+            /**
+             * Channel
+             * @description Wires inside each channel
+             */
+            channel?: [
+                string,
+                string
+            ][];
+            /**
+             * Instrument
+             * @description Wires at instrument level; 'ch{n}.<component>' for a channel's
+             */
+            instrument?: [
+                string,
+                string
+            ][];
+        };
+        /** StructureWiring */
+        "StructureWiring-Output": {
+            /**
+             * Channel
+             * @description Wires inside each channel
+             */
+            channel: [
+                string,
+                string
+            ][];
+            /**
+             * Instrument
+             * @description Wires at instrument level; 'ch{n}.<component>' for a channel's
+             */
+            instrument: [
+                string,
+                string
+            ][];
+        };
+        /**
          * TemplateSource
          * @description The template a definition was expanded from and the inputs it was given (instrument-authoring.md
          *     7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the
@@ -6618,6 +6947,79 @@ export interface operations {
             };
         };
     };
+    getDefinitionLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionLayout-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveDefinitionLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefinitionLayout-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionLayout-Output"];
+                };
+            };
+            /** @description The definition is not in the workspace */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     restoreDefinition: {
         parameters: {
             query?: never;
@@ -6641,6 +7043,86 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DefinitionDocument"];
                 };
+            };
+            /** @description The file changed since base_sha256 was read */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDefinitionStructure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionStructure"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveDefinitionStructure: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StructureUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionStructure"];
+                };
+            };
+            /** @description The definition is not in the workspace */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description The file changed since base_sha256 was read */
             409: {

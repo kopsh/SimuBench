@@ -43,6 +43,9 @@ export const keys = {
   definitionCases: (id: string) => ["definition-cases", id] as const,
   tryInstrument: (sid: string) => ["try-instrument", sid] as const,
   tryInternals: (sid: string) => ["try-internals", sid] as const,
+  components: ["components"] as const,
+  definitionStructure: (id: string) => ["definition-structure", id] as const,
+  definitionLayout: (id: string) => ["definition-layout", id] as const,
 };
 
 export function useCatalog() {
@@ -127,6 +130,57 @@ export function useCopyDefinition() {
   return useMutation({
     mutationFn: (defId: string) => unwrap(api.POST("/api/definitions/{def_id}/copy", { params: { path: { def_id: defId } } })),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.catalog }),
+  });
+}
+
+/** Every component type: the build area's library (#1201). */
+export function useComponents() {
+  return useQuery({ queryKey: keys.components, queryFn: () => unwrap(api.GET("/api/components")), staleTime: Infinity });
+}
+
+/** A definition's effective structure for the build area (#1201); polled so a change made
+ * elsewhere (the agent, the file) shows up. */
+export function useDefinitionStructure(id: string, pollMs: number | false = 2500) {
+  return useQuery({
+    queryKey: keys.definitionStructure(id),
+    queryFn: () =>
+      unwrap(api.GET("/api/definitions/{def_id}/structure", { params: { path: { def_id: id } } })),
+    enabled: !!id,
+    refetchInterval: pollMs,
+  });
+}
+
+/** Where the build area draws the components of a definition (#1207). */
+export function useDefinitionLayout(id: string) {
+  return useQuery({
+    queryKey: keys.definitionLayout(id),
+    queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/layout", { params: { path: { def_id: id } } })),
+    enabled: !!id,
+    staleTime: Infinity,
+  });
+}
+
+/** Keep the positions beside a workspace definition: no version, no session restart. */
+export function useSaveDefinitionLayout(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Schemas["DefinitionLayout-Input"]) =>
+      unwrap(api.PUT("/api/definitions/{def_id}/layout", { params: { path: { def_id: id } }, body })),
+    onSuccess: (layout) => qc.setQueryData(keys.definitionLayout(id), layout),
+  });
+}
+
+/** Save the structure the build area drew: one version of the definition (D35). */
+export function useSaveDefinitionStructure(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Schemas["StructureUpdate"]) =>
+      unwrap(api.PUT("/api/definitions/{def_id}/structure", { params: { path: { def_id: id } }, body })),
+    onSuccess: (structure) => {
+      qc.setQueryData(keys.definitionStructure(id), structure);
+      void qc.invalidateQueries({ queryKey: keys.definitionDoc(id) });
+      void qc.invalidateQueries({ queryKey: keys.definitionHistory(id) });
+    },
   });
 }
 
