@@ -10,6 +10,7 @@ sections:
   - header: '*CAL'
     level: not_modeled
     note: 自校验是硬件流程；仿真的仪表无漂移可校准。
+    gap: out_of_scope
   - header: '*CLS'
     level: implemented
     note: 清状态字节、标准事件寄存器与错误队列；不清使能寄存器。
@@ -28,12 +29,16 @@ sections:
   - header: '*RCL'
     level: not_modeled
     note: 状态存储（0–9）未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RST'
     level: implemented
     note: 恢复本定义的初始设置（值见各命令的 default/rst）。
   - header: '*SAV'
     level: not_modeled
     note: 状态存储（0–9）未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器（引擎内置，整数回复）。
@@ -53,82 +58,166 @@ sections:
   commands:
   - header: :CALCulate<ch>:CLIMits:CLEar:AUTO
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:CLIMits:CLEar:AUTO:DELay
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:CLIMits:CLEar[:IMMediate]
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:CLIMits:FAIL:DIGital[:DATA]
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:CLIMits:PASS:DIGital[:DATA]
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:CLIMits:MODE
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:CLIMits:STATe
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:CLIMits:STATe:ANY
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:CLIMits:UPDate
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:DATA
     level: not_modeled
     note: 计算/极限测试数据未实现。
+    gap: model_work
   - header: :CALCulate<ch>:DATA:LATest
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:DIGital:BIT
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:DIGital:BUSY
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:DIGital:EOT
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:DIGital:SOT
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:FEED
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:LIMit[m]:COMPliance:DIGital[:DATA]
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:LIMit[m]:COMPliance:FAIL
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:LIMit[m]:FAIL
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:LIMit[m]:FUNCtion
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:LIMit[m]:LOWer
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:LIMit[m]:UPPer
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:LIMit[m]:LOWer:DIGital[:DATA]
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:LIMit[m]:UPPer:DIGital[:DATA]
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:LIMit[m]:PASS:DIGital[:DATA]
     level: not_modeled
+    note: '等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :CALCulate<ch>:LIMit[m]:STATe
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH:DATA
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH:DATA:LATest
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH[:EXPRession]:CATalog
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH[:EXPRession][:DEFine]
     level: not_modeled
     note: 数学表达式未实现。
+    gap: model_work
   - header: :CALCulate<ch>:MATH[:EXPRession]:DELete:ALL
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH[:EXPRession]:DELete[:SELected]
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH[:EXPRession]:NAME
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH:STATe
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:MATH:UNITs
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:OFFSet
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:OFFSet:ACQuire
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
   - header: :CALCulate<ch>:OFFSet:STATe
     level: not_modeled
+    note: 可做:限值测试与数学/偏置经 reading_math(#1041)与读数缓冲接入。
+    gap: model_work
 - section: DISPlay Subsystem
   commands:
   - header: :DISPlay:CSET
@@ -150,12 +239,17 @@ sections:
   - header: :DISPlay[:WINDow[d]]:DATA
     level: not_modeled
     note: 前面板显示数据未实现。
+    gap: blocked
+    blocked_by: screenshot
   - header: :DISPlay[:WINDow[d]]:TEXT:DATA
     level: not_modeled
     note: 显示文本未实现。
+    gap: blocked
+    blocked_by: screenshot
   - header: :DISPlay[:WINDow[d]]:TEXT:STATe
     level: not_modeled
     note: 显示文本未实现。
+    gap: model_work
   - header: :DISPlay:ZOOM
     level: accepted
     note: 显示缩放保存并回读；不影响测量。
@@ -174,6 +268,7 @@ sections:
   - header: :FETCh:ARRay:SOURce
     level: not_modeled
     note: 源输出值元素未实现（测量组件只给出 V/I/R/TIME/STAT）。
+    gap: model_work
   - header: :FETCh:ARRay:STATus
     level: implemented
     note: 本次运行全部读数的状态元素（按数字格式回复，手册为 NR1）。
@@ -186,23 +281,31 @@ sections:
   - header: :FETCh[:SCALar]
     level: not_modeled
     note: 只取最新一条的标量形式未实现（数组形式给出整次运行的数据）。
+    gap: model_work
   - header: :FETCh[:SCALar]:CURRent
     level: not_modeled
+    gap: model_work
   - header: :FETCh[:SCALar]:RESistance
     level: not_modeled
+    gap: model_work
   - header: :FETCh[:SCALar]:SOURce
     level: not_modeled
+    gap: model_work
   - header: :FETCh[:SCALar]:STATus
     level: not_modeled
+    gap: model_work
   - header: :FETCh[:SCALar]:TIME
     level: not_modeled
+    gap: model_work
   - header: :FETCh[:SCALar]:VOLTage
     level: not_modeled
+    gap: model_work
 - section: FORMat Subsystem
   commands:
   - header: :FORMat:BORDer
     level: not_modeled
     note: 只支持 ASCII 数据格式；字节序未实现。
+    gap: model_work
   - header: :FORMat[:DATA]
     level: accepted
     note: 只接受 ASCii（默认）；REAL,32/64 未实现。
@@ -210,129 +313,240 @@ sections:
   - header: :FORMat:DIGital
     level: not_modeled
     note: 数字量（GPIO/极限测试）回复格式未实现。
+    gap: model_work
   - header: :FORMat:ELEMents:CALCulate
     level: not_modeled
     note: 计算结果元素选择未实现。
+    gap: model_work
   - header: :FORMat:ELEMents:SENSe
     level: implemented
     note: 选择 MEASure?/FETCh:ARRay?/READ:ARRay?/TRACe:DATA? 回的元素（#252）；顺序固定为 VOLT,CURR,RES,TIME,STAT,SOUR，与写入顺序无关，*RST 为全部六个。SOUR 是源输出设定值。
   - header: :FORMat:SREGister
     level: not_modeled
     note: 状态寄存器回复格式选择未实现（固定十进制）。
+    gap: model_work
 - section: HCOPy Subsystem
   commands:
   - header: :HCOPy:SDUMp:DATA
     level: not_modeled
+    note: 等能力:截图/硬拷贝(#1072)。
+    gap: blocked
+    blocked_by: screenshot
   - header: :HCOPy:SDUMp:FORMat
     level: not_modeled
+    note: 等能力:截图/硬拷贝(#1072)。
+    gap: blocked
+    blocked_by: screenshot
 - section: LXI Subsystem
   commands:
   - header: :ARM:LXI:COUNt
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :ARM:LXI:DELay
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :ARM:LXI:LAN[:SET]:DETection
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :ARM:LXI:LAN[:SET]:ENABle
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :ARM:LXI:LAN[:SET]:FILTer
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :ARM:LXI:LAN[:SET]:IDENtifier
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:DOMain
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN:ADD
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN:COUNt
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN:DISable:ALL
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN:LIST
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN:REMove:ALL
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN:REMove
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN[:SET]:CONFigure
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN[:SET]:DELay
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN[:SET]:DETection
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN[:SET]:ENABle
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN[:SET]:FILTer
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:INPut:LAN[:SET]:IDENtifier
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:ALL
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:CIRCular[:ENABle]
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:CIRCular:FBEntry
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:CLEar
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:COUNt
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:ENABle
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:ENTRy
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt:LOG:SIZE
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN:ADD
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN:COUNt
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN:DISable:ALL
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN:LIST
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN:REMove:ALL
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN:REMove
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN:SEND
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:CONFigure
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:DESTination
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:DRIVe
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:ENABle
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:IDENtifier
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:SLOPe
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:SOURce
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:EVENt[:OUTPut]:LAN[:SET]:TSDelta
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:IDENtify[:STATe]
     level: accepted
     note: LAN 指示灯保存并回读；不影响测量。
     affects_data: false
   - header: :LXI:MDNS:ENABle
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:MDNS:HNAMe[:RESolved]
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:MDNS:SNAMe:DESired
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :LXI:MDNS:SNAMe[:RESolved]
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :TRIGger:LXI:LAN[:SET]:DELay
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :TRIGger:LXI:LAN[:SET]:DETection
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :TRIGger:LXI:LAN[:SET]:ENABle
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :TRIGger:LXI:LAN[:SET]:FILTer
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
   - header: :TRIGger:LXI:LAN[:SET]:IDENtifier
     level: not_modeled
+    note: '可做:接口与 LXI 事件服务;候选"接受"(affects_data: false);ARM/TRIGGER 的 LXI 计数与延迟随触发模型。'
+    gap: model_work
 - section: MEASure Subsystem
   commands:
   - header: :MEASure
@@ -351,73 +565,140 @@ sections:
   commands:
   - header: :MMEMory:CATalog
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:CDIRectory
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:COPY
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:DELete
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:LOAD:MACRo
     level: not_modeled
+    note: 不做:宏文件随 TSP 用户代码(product-plan.md 第 6 节)。
+    gap: out_of_scope
   - header: :MMEMory:LOAD:STATe
     level: not_modeled
+    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
   - header: :MMEMory:MDIRectory
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:MOVE
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:RDIRectory
     level: not_modeled
+    note: 等能力:仪表文件系统(file_system,#1069),本模型未接入。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:STORe:DATA:LIMit
     level: not_modeled
+    note: 等能力:测量数据存为文件(data_file,#1071),本模型未接入。
+    gap: blocked
+    blocked_by: data-file
   - header: :MMEMory:STORe:DATA:MATH
     level: not_modeled
+    note: 等能力:测量数据存为文件(data_file,#1071),本模型未接入。
+    gap: blocked
+    blocked_by: data-file
   - header: :MMEMory:STORe:DATA:SENSe
     level: not_modeled
+    note: 等能力:测量数据存为文件(data_file,#1071),本模型未接入。
+    gap: blocked
+    blocked_by: data-file
   - header: :MMEMory:STORe:DATA[:ALL]
     level: not_modeled
+    note: 等能力:测量数据存为文件(data_file,#1071),本模型未接入。
+    gap: blocked
+    blocked_by: data-file
   - header: :MMEMory:STORe:MACRo
     level: not_modeled
+    note: 不做:宏文件随 TSP 用户代码(product-plan.md 第 6 节)。
+    gap: out_of_scope
   - header: :MMEMory:STORe:STATe
     level: not_modeled
+    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
   - header: :MMEMory:STORe:TRACe
     level: not_modeled
+    note: 等能力:测量数据存为文件(data_file,#1071),本模型未接入。
+    gap: blocked
+    blocked_by: data-file
 - section: OUTPut Subsystem
   commands:
   - header: :OUTPut<ch>:FILTer:AUTO
     level: not_modeled
     note: 输出滤波器未接入电路求解，未实现。
+    gap: blocked
+    blocked_by: output-filter
   - header: :OUTPut<ch>:FILTer[:LPASs]:FREQuency
     level: not_modeled
     note: 输出滤波器未接入电路求解，未实现。
+    gap: blocked
+    blocked_by: output-filter
   - header: :OUTPut<ch>:FILTer[:LPASs][:STATe]
     level: not_modeled
     note: 输出滤波器未接入电路求解，未实现。
+    gap: blocked
+    blocked_by: output-filter
   - header: :OUTPut<ch>:FILTer[:LPASs]:TCONstant
     level: not_modeled
     note: 输出滤波器未接入电路求解，未实现。
+    gap: blocked
+    blocked_by: output-filter
   - header: :OUTPut<ch>:HCAPacitance[:STATe]
     level: not_modeled
+    note: '等能力(4.2 未列):输出路径的模拟行为(低通滤波/高容模式/低端浮地),见 #1133。'
+    gap: blocked
+    blocked_by: output-filter
   - header: :OUTPut<ch>:LOW
     level: not_modeled
     note: 低端子浮地/接地未实现（本定义固定为接地）。
+    gap: blocked
+    blocked_by: output-filter
   - header: :OUTPut<ch>:OFF:AUTO
     level: not_modeled
     note: 自动关输出与关输出后的状态未实现。
+    gap: model_work
   - header: :OUTPut<ch>:OFF:MODE
     level: not_modeled
     note: 自动关输出与关输出后的状态未实现。
+    gap: model_work
   - header: :OUTPut<ch>:ON:AUTO
     level: not_modeled
     note: INIT/READ 时自动开输出未实现。
+    gap: model_work
   - header: :OUTPut<ch>:PROTection[:STATe]
     level: not_modeled
     note: 合规时自动关输出（OVP/OCP 保护）未实现。
+    gap: model_work
   - header: :OUTPut<ch>:RECall
     level: not_modeled
     note: 通道设置存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: :OUTPut<ch>:SAVE
     level: not_modeled
     note: 通道设置存储未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: :OUTPut<ch>[:STATe]
     level: implemented
     note: 源输出继电器；开/关改变电路。
@@ -426,42 +707,55 @@ sections:
   - header: :PROGram:CATalog
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram:PON:COPY
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram:PON:DELete
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram:PON:RUN
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:APPend
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:DEFine
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:DELete:ALL
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:DELete[:SELected]
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:EXECute
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:NAME
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:STATe
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram[:SELected]:WAIT
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
   - header: :PROGram:VARiable[h]
     level: not_modeled
     note: 程序内存（TSP/内置宏）未实现。
+    gap: out_of_scope
 - section: READ Subsystem
   commands:
   - header: :READ:ARRay
@@ -476,6 +770,7 @@ sections:
   - header: :READ:ARRay:SOURce
     level: not_modeled
     note: 源输出值元素未实现。
+    gap: model_work
   - header: :READ:ARRay:STATus
     level: implemented
     note: 本次运行全部读数的状态（按数字格式回复，手册为 NR1）。
@@ -488,32 +783,51 @@ sections:
   - header: :READ[:SCALar]
     level: not_modeled
     note: 只取最新一条的标量形式未实现（数组形式给出整次运行的数据）。
+    gap: model_work
   - header: :READ[:SCALar]:CURRent
     level: not_modeled
+    gap: model_work
   - header: :READ[:SCALar]:RESistance
     level: not_modeled
+    gap: model_work
   - header: :READ[:SCALar]:SOURce
     level: not_modeled
+    gap: model_work
   - header: :READ[:SCALar]:STATus
     level: not_modeled
+    gap: model_work
   - header: :READ[:SCALar]:TIME
     level: not_modeled
+    gap: model_work
   - header: :READ[:SCALar]:VOLTage
     level: not_modeled
+    gap: model_work
 - section: SENSe Subsystem
   commands:
   - header: :SENSe<ch>:CURRent[:DC]:APERture
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:RESistance:APERture
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:APERture
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:APERture:AUTO
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:RESistance:APERture:AUTO
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:APERture:AUTO
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:NPLCycles
     level: implemented
     note: 与电压 NPLC 同一设置。
@@ -525,10 +839,16 @@ sections:
     note: NPLC 为全部测量项共用（默认 0.1）；读数时间 = NPLC/线频率 + 开销。
   - header: :SENSe<ch>:CURRent[:DC]:NPLCycles:AUTO
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:RESistance:NPLCycles:AUTO
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:NPLCycles:AUTO
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:PROTection[:LEVel][:BOTH]
     level: implemented
     note: 电压源时的电流限值（默认 100 µA）。
@@ -537,12 +857,20 @@ sections:
     note: 电流源时的电压限值（默认 2 V）。
   - header: :SENSe<ch>:CURRent[:DC]:PROTection[:LEVel]:NEGative
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:PROTection[:LEVel]:NEGative
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:PROTection[:LEVel]:POSitive
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:PROTection[:LEVel]:POSitive
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:PROTection:TRIPped
     level: implemented
     note: 是否处于电流限值（CV 源的 CL）。
@@ -555,44 +883,68 @@ sections:
   - header: :SENSe<ch>:RESistance:RANGe:AUTO
     level: not_modeled
     note: 电阻测量量程未实现。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:RANGe:AUTO
     level: implemented
     note: 电压测量自动量程（默认开）。
   - header: :SENSe<ch>:CURRent[:DC]:RANGe:AUTO:LLIMit
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:RESistance:RANGe:AUTO:LLIMit
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:RANGe:AUTO:LLIMit
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:RANGe:AUTO:MODE
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:RANGe:AUTO:MODE
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:RANGe:AUTO:THReshold
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:RANGe:AUTO:THReshold
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:RESistance:RANGe:AUTO:ULIMit
     level: not_modeled
     note: 自动量程的上下限/模式/阈值未实现（使用固定滞回带）。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:RANGe:AUTO:ULIMit
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:RANGe:AUTO:ULIMit
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:CURRent[:DC]:RANGe[:UPPer]
     level: implemented
     note: 手动电流测量量程 10 nA–3 A（Table 2-10）；写入后关闭自动量程。
   - header: :SENSe<ch>:RESistance:RANGe:UPPer
     level: not_modeled
+    note: 可做:孔径/量程规则/保护限值/等待时间在现有 ranging、protection 与触发模型上接入;电阻测量按 V/I 计算。
+    gap: model_work
   - header: :SENSe<ch>:VOLTage[:DC]:RANGe[:UPPer]
     level: implemented
     note: 手动电压测量量程；写入后关闭自动量程。
   - header: :SENSe<ch>:DATA
     level: not_modeled
     note: 数据缓冲读取命令未实现（用 FETCh/TRACe）。
+    gap: model_work
   - header: :SENSe:DATA:LATest
     level: not_modeled
     note: 数据缓冲读取命令未实现（用 FETCh/TRACe）。
+    gap: model_work
   - header: :SENSe<ch>:FUNCtion:OFF
     level: implemented
     note: 每通道关闭所列功能（"CURR"/"VOLT"/"RES"，可写长格式与 :DC）；查询回已关闭的功能，无则 ""（p.246，#397）。
@@ -620,37 +972,55 @@ sections:
   - header: :SENSe<ch>:RESistance:MODE
     level: not_modeled
     note: 电阻测量模式（自动换源）未实现。
+    gap: model_work
   - header: :SENSe<ch>:RESistance:OCOMpensated
     level: not_modeled
     note: 偏置补偿电阻测量未实现。
+    gap: model_work
   - header: :SENSe<ch>:TOUTput:SIGNal
     level: not_modeled
     note: 触发输出端口未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: :SENSe<ch>:TOUTput[:STATe]
     level: not_modeled
     note: 触发输出端口未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: :SENSe<ch>:WAIT:AUTO
     level: not_modeled
     note: 源/测量等待时间未实现。
+    gap: model_work
   - header: :SENSe<ch>:WAIT:GAIN
     level: not_modeled
     note: 源/测量等待时间未实现。
+    gap: model_work
   - header: :SENSe<ch>:WAIT:OFFSet
     level: not_modeled
     note: 源/测量等待时间未实现。
+    gap: model_work
   - header: :SENSe<ch>:WAIT[:STATe]
     level: not_modeled
     note: 源/测量等待时间未实现。
+    gap: model_work
 - section: SOURce Subsystem
   commands:
   - header: '[:SOURce<ch>]:CURRent:CENTer'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:CURRent:SPAN'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:CENTer'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:SPAN'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:CURRent[:LEVel][:IMMediate][:AMPLitude]'
     level: implemented
     note: 每通道的电流设定（-3.03…3.03 A；Table 2-7）。
@@ -659,8 +1029,12 @@ sections:
     note: 每通道的电压设定（-210…210 V；Table 2-4）。
   - header: '[:SOURce<ch>]:CURRent[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage[:LEVel]:TRIGgered[:AMPLitude]'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:CURRent:MODE'
     level: implemented
     note: FIXed / SWEep / LIST（p.256，#398）；源功能为电流（FUNC:MODE CURR）时决定扫描形式。
@@ -687,12 +1061,20 @@ sections:
     note: 电压源自动量程（默认开；与电流源自动量程相互独立）。
   - header: '[:SOURce<ch>]:CURRent:RANGe:AUTO:LLIMit'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:RANGe:AUTO:LLIMit'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:CURRent:RANGe:RPRiority'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:RANGe:RPRiority'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:CURRent:STARt'
     level: implemented
     note: 电流扫描起始电平（±3.03 A，p.260，#398）。
@@ -707,33 +1089,55 @@ sections:
     note: 扫描终止电平。
   - header: '[:SOURce<ch>]:CURRent:STEP'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:STEP'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:CURRent:TRANsient:SPEed'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:TRANsient:SPEed'
     level: not_modeled
+    note: 可做:触发电平/扫描/步进/瞬态速度在 SMU 触发模型(#382)与 ranging 上接入;脉冲模式经定时触发。
+    gap: model_work
   - header: '[:SOURce]:DIGital:DATA'
     level: not_modeled
-    note: GPIO 数字 I/O 与触发引脚未实现。
+    note: 等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:EXTernal[n][:FUNCtion]'
     level: not_modeled
-    note: GPIO 数字 I/O 与触发引脚未实现。
+    note: 等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:EXTernal[n]:POLarity'
     level: not_modeled
-    note: GPIO 数字 I/O 与触发引脚未实现。
+    note: 等能力(4.2 未列):数字 I/O 与触发引脚,见 #1132。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:EXTernal[n]:TOUTput[:EDGE]:POSition'
     level: not_modeled
     note: GPIO 数字 I/O 与触发引脚未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:EXTernal[n]:TOUTput[:EDGE]:WIDTh'
     level: not_modeled
     note: GPIO 数字 I/O 与触发引脚未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:EXTernal[n]:TOUTput:TYPE'
     level: not_modeled
     note: GPIO 数字 I/O 与触发引脚未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce]:DIGital:INTernal[i]:TOUTput[:EDGE]:POSition'
     level: not_modeled
     note: GPIO 数字 I/O 与触发引脚未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce<ch>]:FUNCtion:MODE'
     level: implemented
     note: 电压源或电流源；切换源功能。
@@ -744,6 +1148,7 @@ sections:
   - header: '[:SOURce<ch>]:FUNCtion:TRIGgered:CONTinuous'
     level: not_modeled
     note: 连续触发输出未实现。
+    gap: model_work
   - header: '[:SOURce<ch>]:LIST:CURRent'
     level: implemented
     note: 列表扫描的数据（逗号分隔，查询按读数格式 NR3 逐项回），*RST 为 0（p.268，#398）。
@@ -771,9 +1176,11 @@ sections:
   - header: '[:SOURce<ch>]:PULSe:DELay'
     level: not_modeled
     note: 脉冲输出未实现（只做直流）。
+    gap: model_work
   - header: '[:SOURce<ch>]:PULSe:WIDTh'
     level: not_modeled
     note: 脉冲输出未实现（只做直流）。
+    gap: model_work
   - header: '[:SOURce<ch>]:SWEep:DIRection'
     level: implemented
     note: UP（起始→终止，*RST）/ DOWN（终止→起始）（p.271，#398）；只作用于 SWEep，不改列表。
@@ -793,111 +1200,201 @@ sections:
   - header: '[:SOURce<ch>]:TOUTput:SIGNal'
     level: not_modeled
     note: 触发输出端口未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce<ch>]:TOUTput[:STATe]'
     level: not_modeled
     note: 触发输出端口未实现。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce<ch>]:WAIT:AUTO'
     level: not_modeled
     note: 源等待时间未实现。
+    gap: model_work
   - header: '[:SOURce<ch>]:WAIT:GAIN'
     level: not_modeled
     note: 源等待时间未实现。
+    gap: model_work
   - header: '[:SOURce<ch>]:WAIT:OFFSet'
     level: not_modeled
     note: 源等待时间未实现。
+    gap: model_work
   - header: '[:SOURce<ch>]:WAIT[:STATe]'
     level: not_modeled
     note: 源等待时间未实现。
+    gap: model_work
 - section: STATus Subsystem
   commands:
   - header: :STATus:MEASurement:CONDition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:OPERation:CONDition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CONDition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:MEASurement:ENABle
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:OPERation:ENABle
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:ENABle
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:MEASurement[:EVENt]
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:OPERation[:EVENt]
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable[:EVENt]
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:MEASurement:NTRansition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:OPERation:NTRansition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:NTRansition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:MEASurement:PTRansition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:OPERation:PTRansition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:PTRansition
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:PRESet
     level: not_modeled
     note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
+    gap: model_work
   - header: :STATus:QUEStionable:CALibration:CON
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CURRent:CON
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEMPerature:CON
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEST:CON
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:CON
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CALibration:ENAB
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CURRent:ENAB
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEMPerature:ENAB
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEST:ENAB
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:ENAB
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CALibration[:EVEN
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CURRent[:EVEN
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEMPerature[:EVEN
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEST[:EVEN
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage[:EVEN
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CALibration:NTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CURRent:NTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEMPerature:NTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEST:NTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:NTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CALibration:PTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:CURRent:PTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEMPerature:PTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:TEST:PTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:PTRa
     level: not_modeled
+    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
+    gap: model_work
 - section: SYSTem Subsystem
   commands:
   - header: :SYSTem:BEEPer[:IMMediate]
     level: not_modeled
     note: 立即鸣叫是面板动作，未实现（开关已建模）。
+    gap: model_work
   - header: :SYSTem:BEEPer:STATe
     level: accepted
     note: 蜂鸣器开关保存并回读；不影响测量。
@@ -905,6 +1402,7 @@ sections:
   - header: :SYSTem:COMMunicate:ENABle
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:GPIB[:SELF]:ADDRess
     level: accepted
     note: GPIB 地址保存并回读（不影响仿真）。
@@ -912,13 +1410,19 @@ sections:
   - header: :SYSTem:COMMunicate:LAN:ADDRess
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:BSTatus
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:CONTrol
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:COMMunicate:TCPip:CONTrol
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:DHCP
     level: accepted
     note: DHCP 开关保存并回读（不影响仿真）。
@@ -926,35 +1430,51 @@ sections:
   - header: :SYSTem:COMMunicate:LAN:DNS[j]
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:DOMain
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:GATE
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:GATeway
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:HNAMe
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:HOSTname
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:MAC
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:SMASk
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:TELNet:PROMpt
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:TELNet:WMESsage
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:UPDate
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:WINS[j]
     level: not_modeled
     note: 接口配置未实现（除 GPIB 地址与 DHCP）。
+    gap: model_work
   - header: :SYSTem:DATA:QUANtity
     level: implemented
     note: 数据缓冲中的点数。
@@ -967,9 +1487,11 @@ sections:
   - header: :SYSTem:ERRor:CODE:ALL
     level: not_modeled
     note: 只给错误码的查询未实现（用 :SYSTem:ERRor?）。
+    gap: model_work
   - header: :SYSTem:ERRor:CODE[:NEXT]
     level: not_modeled
     note: 只给错误码的查询未实现（用 :SYSTem:ERRor?）。
+    gap: model_work
   - header: :SYSTem:ERRor:COUNt
     level: implemented
     note: 错误队列条目数（引擎内置；回复不带 + 号）。
@@ -983,58 +1505,82 @@ sections:
   - header: :SYSTem:GROup[:DEFine]
     level: not_modeled
     note: 通道分组未实现（单通道）。
+    gap: model_work
   - header: :SYSTem:GROup:RESet
     level: not_modeled
     note: 通道分组未实现（单通道）。
+    gap: model_work
   - header: :SYSTem:INTerlock:TRIPped
     level: implemented
     note: 互锁未触发，回复 0。
   - header: :SYSTem:LANGuage
     level: not_modeled
     note: 命令集语言（DEF/2400）未实现。
+    gap: model_work
   - header: :SYSTem:LFRequency
     level: implemented
     note: 线频率 50/60 Hz；决定 NPLC 读数时间。
   - header: :SYSTem:LOCK:NAME
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: :SYSTem:LOCK:OWNer
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: :SYSTem:LOCK:RELease
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: :SYSTem:LOCK:REQuest
     level: not_modeled
     note: 接口锁定未实现。
+    gap: model_work
   - header: :SYSTem:PERSona[:MANufacturer]
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:PERSona[:MANufacturer]:DEFault
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:PERSona:MODel
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTem:PERSona:MODel:DEFault
     level: not_modeled
+    note: '可做:接口配置/锁定/身份/计时器/错误队列变体;候选"接受"(affects_data: false)。'
+    gap: model_work
   - header: :SYSTtem:PON
     level: not_modeled
+    gap: blocked
+    blocked_by: setup-memory
   - header: :SYSTem:PRESet
     level: not_modeled
     note: 上电状态、预置与设置块未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: :SYSTem:SET
     level: not_modeled
     note: 上电状态、预置与设置块未实现。
+    gap: blocked
+    blocked_by: setup-memory
   - header: :SYSTem:TIME
     level: implemented
     note: 虚拟仪表的时间（引擎内置）。
   - header: :SYSTem:TIME:TIMer:COUNt
     level: not_modeled
     note: 计时器未实现。
+    gap: model_work
   - header: :SYSTem:TIME:TIMer:COUNt:RESet:AUTO
     level: not_modeled
     note: 计时器未实现。
+    gap: model_work
   - header: :SYSTem:TIME:TIMer:COUNt:RESet[:IMMediate]
     level: not_modeled
     note: 计时器未实现。
+    gap: model_work
   - header: :SYSTem:VERSion
     level: implemented
     note: SCPI 版本 1999.0。
@@ -1049,27 +1595,34 @@ sections:
   - header: :TRACe<ch>:FEED
     level: not_modeled
     note: 缓冲数据源选择未实现（固定为测量数据）。
+    gap: model_work
   - header: :TRACe<ch>:FEED:CONTrol
     level: not_modeled
     note: 缓冲写入控制未实现。
+    gap: model_work
   - header: :TRACe<ch>:FREE
     level: not_modeled
     note: 剩余缓冲大小未实现。
+    gap: model_work
   - header: :TRACe<ch>:POINts
     level: not_modeled
     note: 缓冲大小设置未实现（固定 100000 点）。
+    gap: model_work
   - header: :TRACe<ch>:POINts:ACTual
     level: implemented
     note: 缓冲中的读数条数。
   - header: :TRACe<ch>:STATistic:DATA
     level: not_modeled
     note: 统计未实现。
+    gap: model_work
   - header: :TRACe<ch>:STATistic:FORMat
     level: not_modeled
     note: 统计未实现。
+    gap: model_work
   - header: :TRACe<ch>:TSTamp:FORMat
     level: not_modeled
     note: 时间戳格式未实现。
+    gap: model_work
 - section: TRIGger Subsystem
   commands:
   - header: :ABORt:ACQuire
@@ -1078,84 +1631,158 @@ sections:
   - header: :ABORt:TRANsient
     level: not_modeled
     note: 只停止源输出动作未实现。
+    gap: model_work
   - header: :ABORt[:ALL]
     level: implemented
     note: 停止等待/进行中的触发运行（全部设备动作）。
   - header: :ARM:ACQuire[:IMMediate]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM:TRANsient[:IMMediate]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM[:ALL][:IMMediate]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:ACQuire[:LAYer]:BYPass
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:TRANsient[:LAYer]:BYPass
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>[:ALL][:LAYer]:BYPass
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:ACQuire[:LAYer]:COUNt
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:TRANsient[:LAYer]:COUNt
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>[:ALL][:LAYer]:COUNt
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:ACQuire[:LAYer]:DELay
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:TRANsient[:LAYer]:DELay
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>[:ALL][:LAYer]:DELay
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:ACQuire[:LAYer]:SOURce:LAN
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:TRANsient[:LAYer]:SOURce:LAN
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>[:ALL][:LAYer]:SOURce:LAN
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:ACQuire[:LAYer]:SOURce[:SIGNal]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:TRANsient[:LAYer]:SOURce[:SIGNal]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>[:ALL][:LAYer]:SOURce[:SIGNal]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:ACQuire[:LAYer]:TIMer
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:TRANsient[:LAYer]:TIMer
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>[:ALL][:LAYer]:TIMer
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :ARM<ch>:ACQuire[:LAYer]:TOUTput:SIGNal
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :ARM<ch>:TRANsient[:LAYer]:TOUTput:SIGNal
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :ARM<ch>[:ALL][:LAYer]:TOUTput:SIGNal
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :ARM<ch>:ACQuire[:LAYer]:TOUTput[:STATe]
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :ARM<ch>:TRANsient[:LAYer]:TOUTput[:STATe]
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :ARM<ch>[:ALL][:LAYer]:TOUTput[:STATe]
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :IDLE<ch>:ACQuire
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :IDLE<ch>:TRANsient
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :IDLE<ch>[:ALL]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :INITiate[:IMMediate]:ACQuire
     level: implemented
     note: 开始测量动作（与 INITiate 同一实现）。
   - header: :INITiate[:IMMediate]:TRANsient
     level: not_modeled
     note: 只开始源输出动作未实现。
+    gap: model_work
   - header: :INITiate[:IMMediate][:ALL]
     level: implemented
     note: 开始一次运行；立即触发时立即取数，BUS 时等待触发。
   - header: :TRIGger<ch>:ACQuire:BYPass
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>:TRANsient:BYPass
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>[:ALL]:BYPass
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>:ACQuire:COUNt
     level: implemented
     note: 与 ALL 的触发次数共用一组设置。
@@ -1176,16 +1803,28 @@ sections:
     note: 每个触发到取数的延迟。
   - header: :TRIGger:ACQuire[:IMMediate]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger:TRANsient[:IMMediate]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger[:ALL][:IMMediate]
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>:ACQuire:SOURce:LAN
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>:TRANsient:SOURce:LAN
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>[:ALL]:SOURce:LAN
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>:ACQuire:SOURce[:SIGNal]
     level: implemented
     note: 与 ALL 的触发源共用一组设置。
@@ -1197,19 +1836,43 @@ sections:
     note: 触发源 AINT（自动内部）或 BUS（*TRG）；TIMer/INT/LAN/EXT 未实现。
   - header: :TRIGger<ch>:ACQuire:TIMer
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>:TRANsient:TIMer
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>[:ALL]:TIMer
     level: not_modeled
+    note: 可做:ARM/TRIGGER/IDLE 分层触发在 SMU 触发模型(#382)上接入;BYPASS/COUNT/DELAY/SOURCE/TIMER 逐项按手册。
+    gap: model_work
   - header: :TRIGger<ch>:ACQuire:TOUTput:SIGNal
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :TRIGger<ch>:TRANsient:TOUTput:SIGNal
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :TRIGger<ch>[:ALL]:TOUTput:SIGNal
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :TRIGger<ch>:ACQuire:TOUTput[:STATe]
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :TRIGger<ch>:TRANsient:TOUTput[:STATe]
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io
   - header: :TRIGger<ch>[:ALL]:TOUTput[:STATe]
     level: not_modeled
+    note: '等能力(4.2 未列):触发输出引脚,见 #1132。'
+    gap: blocked
+    blocked_by: digital-io

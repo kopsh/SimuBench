@@ -17,12 +17,16 @@ sections:
   - header: '*RCL'
     level: not_modeled
     note: Saved setups are not modeled.
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*RST'
     level: implemented
     note: The manual's *RST table; protection latches and status registers are not affected.
   - header: '*SAV'
     level: not_modeled
     note: Saved setups are not modeled.
+    gap: blocked
+    blocked_by: setup-memory
   - header: '*SRE'
     level: implemented
   - header: '*STB'
@@ -38,6 +42,7 @@ sections:
   - header: '*RDT'
     level: not_modeled
     note: The frame type reply is not given in the manual.
+    gap: out_of_scope
 - section: 3.3 Trigger Commands
   commands:
   - header: :TRIGger[:IMMediate]
@@ -62,12 +67,14 @@ sections:
   - header: :SYSTem:VERSion
     level: not_modeled
     note: The manual gives no value.
+    gap: model_work
   - header: ':SYSTem:ERRor[:NEXT]'
     level: implemented
     note: 'Empty queue: 0,"No Error"; the queue holds 10 messages (the last becomes -350).'
   - header: :SYSTem:CLEar
     level: not_modeled
     note: Not modeled.
+    gap: model_work
   - header: :SYSTem:LOCal
     level: accepted
     affects_data: false
@@ -105,30 +112,39 @@ sections:
   - header: :TRACe:CLEar
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:FREE
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:POINts
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:FEED
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:FEED:CONTrol
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:FILTer[:STATe]
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:DELay
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:TIMer
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
   - header: :TRACe:DATA
     level: not_modeled
     note: The trace buffer is not modeled.
+    gap: model_work
 - section: 3.3 Source Commands
   commands:
   - header: '[:SOURce]:INPut[:STATe]'
@@ -136,14 +152,19 @@ sections:
   - header: '[:SOURce]:INPut:SHORt[:STATe]'
     level: not_modeled
     note: The input short is not modeled.
+    gap: model_work
   - header: '[:SOURce]:INPut:SYNCon'
     level: not_modeled
+    note: 不做:同步输出引脚是对外信号。
+    gap: out_of_scope
   - header: '[:SOURce]:INPut:TIMer[:STATe]'
     level: not_modeled
     note: The input timer is not modeled.
+    gap: model_work
   - header: '[:SOURce]:INPut:TIMer:DELay'
     level: not_modeled
     note: The input timer is not modeled.
+    gap: model_work
   - header: '[:SOURce]:REMote:SENSe[:STATe]'
     level: accepted
     affects_data: false
@@ -157,6 +178,7 @@ sections:
   - header: '[:SOURce]:TRANsient[:STATe]'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:PROTection:CLEar'
     level: implemented
     note: Clears the OVP/OCP/OPP latch; a condition still present trips again at once.
@@ -187,18 +209,23 @@ sections:
   - header: '[:SOURce]:CURRent:TRANsient:MODE'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:CURRent:TRANsient:ALEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:CURRent:TRANsient:BLEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:CURRent:TRANsient:AWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:CURRent:TRANsient:BWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:CURRent:HIGH'
     level: accepted
     affects_data: false
@@ -234,18 +261,23 @@ sections:
   - header: '[:SOURce]:VOLTage:TRANsient:MODE'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:VOLTage:TRANsient:ALEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:VOLTage:TRANsient:BLEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:VOLTage:TRANsient:AWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:VOLTage:TRANsient:BWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:RESistance[:LEVel][:IMMediate]'
     level: implemented
     note: 0.01–7500 Ω; *RST MAX.
@@ -263,24 +295,31 @@ sections:
   - header: '[:SOURce]:RESistance:TRANsient:MODE'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:RESistance:TRANsient:ALEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:RESistance:TRANsient:BLEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:RESistance:TRANsient:AWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:RESistance:TRANsient:BWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:RESistance:VDRop'
     level: not_modeled
     note: The CR-LED test is not modeled.
+    gap: out_of_scope
   - header: '[:SOURce]:RESistance:LED[:STATe]'
     level: not_modeled
     note: The CR-LED test is not modeled.
+    gap: out_of_scope
   - header: '[:SOURce]:POWer[:LEVel][:IMMediate]'
     level: implemented
     note: 0–1500 W.
@@ -298,18 +337,23 @@ sections:
   - header: '[:SOURce]:POWer:TRANsient:MODE'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:POWer:TRANsient:ALEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:POWer:TRANsient:BLEVel'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:POWer:TRANsient:AWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:POWer:TRANsient:BWIDth'
     level: not_modeled
     note: Transient operation (C2) is not modeled.
+    gap: model_work
   - header: '[:SOURce]:POWer:PROTection[:LEVel]'
     level: implemented
     note: Soft OPP, *RST MAX (1500 W); the power stage itself stops at 1550 W (the data sheet's typical OPP).
@@ -319,35 +363,45 @@ sections:
   - header: '[:SOURce]:POWer:CONFig[:LEVel]'
     level: not_modeled
     note: The hard power protection level; how it relates to the soft OPP the manual does not say.
+    gap: model_work
 - section: 3.3 List Commands
   commands:
   - header: '[:SOURce]:LIST:RANGe'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:SLOWrate[:STATe]'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:COUNt'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:STEP'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:LEVel'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:SLEW[:BOTH]'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:WIDth'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:SAV'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
   - header: '[:SOURce]:LIST:RCL'
     level: not_modeled
     note: List mode is not modeled.
+    gap: model_work
 - section: 3.3 Measurement Commands
   commands:
   - header: :FETCh:VOLTage

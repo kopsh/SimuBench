@@ -370,6 +370,7 @@ function paramVar(key: string, value: unknown, unit: string | undefined): StateV
     ladder: null,
     special: null,
     not_modeled: null,
+    words: null,
     replies: null,
     readonly: false,
     electrical: false,
@@ -377,6 +378,7 @@ function paramVar(key: string, value: unknown, unit: string | undefined): StateV
     dangerous: false,
     value,
     channel: null,
+    fidelity: null,
   };
 }
 

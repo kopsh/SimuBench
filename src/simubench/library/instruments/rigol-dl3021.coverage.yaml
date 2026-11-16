@@ -49,6 +49,7 @@ sections:
   - header: :STATus:QUEStionable:CONDition
     level: not_modeled
     note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+    gap: model_work
   - header: :STATus:QUEStionable:ENABle
     level: accepted
     note: 使能寄存器保存与回读；条件/事件寄存器未建模（平台缺通用状态寄存器组件），该使能不参与 *STB 汇总。
@@ -56,6 +57,7 @@ sections:
   - header: :STATus:QUEStionable[:EVENt]
     level: not_modeled
     note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+    gap: model_work
   - header: :STATus:PRESet
     level: accepted
     note: 清事件使能寄存器的命令；仿真里只记录动作，不改变任何数据。
@@ -63,6 +65,7 @@ sections:
   - header: :STATus:OPERation:CONDition
     level: not_modeled
     note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+    gap: model_work
   - header: :STATus:OPERation:ENABle
     level: accepted
     note: 使能寄存器保存与回读；条件/事件寄存器未建模。
@@ -70,6 +73,7 @@ sections:
   - header: :STATus:OPERation[:EVENt]
     level: not_modeled
     note: 条件/事件寄存器需要通用状态寄存器组件（平台缺口）；本定义只保存使能寄存器。
+    gap: model_work
 - section: :MEASure commands and :FETCh commands
   commands:
   - header: :FETCh:VOLTage[:DC]
@@ -81,15 +85,19 @@ sections:
   - header: :FETCh:VOLTage:MAX
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :MEASure:VOLTage:MAX
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :FETCh:VOLTage:MIN
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :MEASure:VOLTage:MIN
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :FETCh:CURRent[:DC]
     level: implemented
     note: 返回灌入电流的当前工作点；格式与积分时间同电压读数。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
@@ -99,21 +107,27 @@ sections:
   - header: :FETCh:CURRent:MAX
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :MEASure:CURRent:MAX
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :FETCh:CURRent:MIN
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :MEASure:CURRent:MIN
     level: not_modeled
     note: 最大值/最小值读数需要测量缓冲，未建模；只做当前工作点的 V/I/P 回读。
+    gap: model_work
   - header: :FETCh:RESistance[:DC]
     level: not_modeled
     note: 电阻读数（V/I）未建模；只做 V/I/P 回读。
+    gap: model_work
   - header: :MEASure:RESistance[:DC]
     level: not_modeled
     note: 电阻读数（V/I）未建模；只做 V/I/P 回读。
+    gap: model_work
   - header: :FETCh:POWer[:DC]
     level: implemented
     note: 返回 V×I；格式与积分时间同电压读数。 读数带回读噪声（specs.readback_noise_rms：估计值，#744/#808），逐读数独立抽样，同种子逐位复现；功率读 V·I；输入未导通时电流读数恒为 0，设定值回读不加噪。
@@ -123,21 +137,31 @@ sections:
   - header: :FETCh:CAPability
     level: not_modeled
     note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+    gap: model_work
   - header: :MEASure:CAPability
     level: not_modeled
     note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+    gap: model_work
   - header: :FETCh:WATThours
     level: not_modeled
     note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+    gap: blocked
+    blocked_by: battery
   - header: :MEASure:WATThours
     level: not_modeled
     note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+    gap: blocked
+    blocked_by: battery
   - header: :FETCh:DISChargingTime
     level: not_modeled
     note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+    gap: blocked
+    blocked_by: battery
   - header: :MEASure:DISChargingTime
     level: not_modeled
     note: 电池测试功能未建模（电池模式属 C2 之外的后续能力）。
+    gap: blocked
+    blocked_by: battery
   - header: :FETCh:TIME
     level: implemented
     note: 固定 200（10 PLC）；只读。
@@ -147,9 +171,13 @@ sections:
   - header: :FETCh:WAVedata
     level: not_modeled
     note: 波形显示的数据缓存未建模。
+    gap: blocked
+    blocked_by: digitize
   - header: :MEASure:WAVedata
     level: not_modeled
     note: 波形显示的数据缓存未建模。
+    gap: blocked
+    blocked_by: digitize
 - section: :TRIGger Commands
   commands:
   - header: :TRIGger[:IMMediate]
@@ -174,6 +202,8 @@ sections:
   - header: '[:SOURce]:TRANsient[:STATe]'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent[:LEVel][:IMMediate]'
     level: implemented
     note: CC 设定电流 0–40 A，默认 0 A；支撑 MIN/MAX/DEF。
@@ -186,9 +216,13 @@ sections:
   - header: '[:SOURce]:CURRent:SLEW:POSitive'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:SLEW:NEGative'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:VON'
     level: implemented
     note: CC 起始电压 0–150 V（默认 0）；输入电压低于 Von 时不灌电流，手册只有一个 VON，没有 Voff。
@@ -201,27 +235,43 @@ sections:
   - header: '[:SOURce]:CURRent:TRANsient:MODE'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:TRANsient:ALEVel'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:TRANsient:BLEVel'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:TRANsient:AWIDth'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:TRANsient:BWIDth'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:TRANsient:FREQuency'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:TRANsient:PERiod'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:CURRent:TRANsient:ADUTy'
     level: not_modeled
     note: 动态/瞬时功能（C2）未建模。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:VOLTage[:LEVel][:IMMediate]'
     level: implemented
     note: CV 设定电压 0–150 V，默认 0 V；源电压低于设定值时负载开路（负载不能灌出电流）。
@@ -258,117 +308,193 @@ sections:
   - header: '[:SOURce]:LIST:MODE'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:LIST:RANGe'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:LIST:COUNt'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:LIST:STEP'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:LIST:LEVel'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:LIST:WIDth'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:LIST:SLEW'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:LIST:END'
     level: not_modeled
     note: 列表功能（C2）未建模。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:BATTary:RANGe'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary[:LEVel][:IMMediate]'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary:VSTop'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary:CSTop'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary:TIMestop'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary:VON'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary:VENabstop'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary:CENabstop'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:BATTary:TENabstop'
     level: not_modeled
     note: 电池测试功能未建模。
+    gap: blocked
+    blocked_by: battery
   - header: '[:SOURce]:OCP:RANGe'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:VON'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:VONDelay'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:ISET'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:ISTep'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:IDELaystep'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:IMAX'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:IMIN'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:VOCP'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OCP:TOCP'
     level: not_modeled
     note: OCP 测试（动态扫描）未建模（C2）；电子负载自身的 OCP 由 V_LIMIT/ILIMIT 阈值承担。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:VON'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:VONDelay'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:PSET'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:PSTep'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:PDELaystep'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:PMAX'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:PMIN'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:VOPP'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:OPP:TOPP'
     level: not_modeled
     note: OPP 测试（动态扫描）未建模（C2）；电子负载自身的 OPP 在 200 W 处动作。
+    gap: blocked
+    blocked_by: C7
   - header: '[:SOURce]:WAVe:TIMe'
     level: not_modeled
     note: 波形显示功能未建模。
+    gap: blocked
+    blocked_by: digitize
   - header: '[:SOURce]:WAVe:TSTep'
     level: not_modeled
     note: 波形显示功能未建模。
+    gap: blocked
+    blocked_by: digitize
   - header: '[:SOURce]:SENSe'
     level: accepted
     note: 远端 Sense 开关保存与回读；引线压降不在理想模型中出现，读数不受影响。
@@ -378,6 +504,7 @@ sections:
   - header: :SYSTem:KEY
     level: not_modeled
     note: 前面板按键仿真未建模（界面/交互属核心）。
+    gap: out_of_scope
   - header: :SYSTem:ERRor[:NEXT]
     level: implemented
     note: 错误队列（内置）；无错误回 0,"No error"，未建模命令回 -113,"…not implemented in this definition"。
@@ -387,6 +514,7 @@ sections:
   - header: :SYSTem:IDN:SET
     level: not_modeled
     note: 运行时改 *IDN? 需要身份覆盖能力（平台缺口），未建模。
+    gap: model_work
 - section: :LXI Commands
   commands:
   - header: LXI:IDENtify[:STATe]
@@ -410,3 +538,4 @@ sections:
   - header: :LIC:SET
     level: not_modeled
     note: 选件安装（LAN/数字 I/O/高分辨率/高频）会改变量程与接口能力，未建模。
+    gap: out_of_scope

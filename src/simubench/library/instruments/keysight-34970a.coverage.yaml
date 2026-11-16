@@ -13,9 +13,9 @@ sections:
   - {header: '*ESR', level: implemented, note: '标准事件寄存器（引擎内置，读取后清）。'}
   - {header: '*IDN', level: implemented, note: 'Keysight Technologies,34970A,0,1.0-1.0-1.0（手册 p.176 的三段固件版本）。'}
   - {header: '*OPC', level: implemented, note: '*OPC 置 ESR 位 0；*OPC? 等扫描/读数完成后回 1。'}
-  - {header: '*RCL', level: not_modeled, note: '状态存储（0–5）未建模。'}
+  - {header: '*RCL', level: not_modeled, note: '状态存储（0–5）未建模。', gap: blocked, blocked_by: setup-memory}
   - {header: '*RST', level: implemented, note: '恢复手册的出厂状态：功能 DCV、量程自动、5½ 位（1 PLC）、10 MΩ、扫描表空、计数 1、间隔 0 s、触发源 IMMediate、继电器全开、显示开。'}
-  - {header: '*SAV', level: not_modeled, note: '状态存储（0–5）未建模。'}
+  - {header: '*SAV', level: not_modeled, note: '状态存储（0–5）未建模。', gap: blocked, blocked_by: setup-memory}
   - {header: '*SRE', level: implemented, note: '服务请求使能寄存器（引擎内置）。'}
   - {header: '*STB', level: implemented, note: '状态字节（引擎内置）：错误队列非空置位 2，输出缓冲有数据置位 4。'}
   - {header: '*TRG', level: implemented, note: '总线触发：触发等待中的扫描（触发源 BUS 时），每条 *TRG 扫描一遍列表，TRIGger:COUNt 条之后回空闲；否则 -211（#422）。'}
@@ -26,58 +26,58 @@ sections:
   - {header: 'ABORt', level: implemented, note: '停止扫描；已取的读数留在存储器。'}
 - section: CALCulate Subsystem
   commands:
-  - {header: 'CALCulate:AVERage:AVERage', level: not_modeled, note: '读数统计（按通道的最小/最大/平均）不在首波；读数缓冲也没有按通道的统计。'}
-  - {header: 'CALCulate:AVERage:CLEar', level: not_modeled, note: '读数统计不在首波。'}
-  - {header: 'CALCulate:AVERage:COUNt', level: not_modeled, note: '读数统计不在首波。'}
-  - {header: 'CALCulate:AVERage:MAXimum', level: not_modeled, note: '读数统计不在首波。'}
-  - {header: 'CALCulate:AVERage:MAXimum:TIME', level: not_modeled, note: '读数统计与时间戳不在首波。'}
-  - {header: 'CALCulate:AVERage:MINimum', level: not_modeled, note: '读数统计不在首波。'}
-  - {header: 'CALCulate:AVERage:MINimum:TIME', level: not_modeled, note: '读数统计与时间戳不在首波。'}
-  - {header: 'CALCulate:AVERage:PTPeak', level: not_modeled, note: '读数统计不在首波。'}
-  - {header: 'CALCulate:COMParator:DATA', level: not_modeled, note: '比较器不在首波。'}
-  - {header: 'CALCulate:COMParator:MASK', level: not_modeled, note: '比较器不在首波。'}
-  - {header: 'CALCulate:COMParator:STATe', level: not_modeled, note: '比较器不在首波。'}
-  - {header: 'CALCulate:COMParator:TYPE', level: not_modeled, note: '比较器不在首波。'}
-  - {header: 'CALCulate:LIMit:LOWer', level: not_modeled, note: '报警限不在首波。'}
-  - {header: 'CALCulate:LIMit:LOWer:STATe', level: not_modeled, note: '报警限不在首波。'}
-  - {header: 'CALCulate:LIMit:UPPer', level: not_modeled, note: '报警限不在首波。'}
-  - {header: 'CALCulate:LIMit:UPPer:STATe', level: not_modeled, note: '报警限不在首波。'}
-  - {header: 'CALCulate:SCALe:GAIN', level: not_modeled, note: 'Mx+B 定标不在首波。'}
-  - {header: 'CALCulate:SCALe:OFFSet', level: not_modeled, note: 'Mx+B 定标不在首波。'}
-  - {header: 'CALCulate:SCALe:OFFSet:NULL', level: not_modeled, note: 'Mx+B 定标不在首波。'}
-  - {header: 'CALCulate:SCALe:STATe', level: not_modeled, note: 'Mx+B 定标不在首波。'}
-  - {header: 'CALCulate:SCALe:UNIT', level: not_modeled, note: 'Mx+B 定标不在首波。'}
+  - {header: 'CALCulate:AVERage:AVERage', level: not_modeled, note: '读数统计（按通道的最小/最大/平均）不在首波；读数缓冲也没有按通道的统计。', gap: model_work}
+  - {header: 'CALCulate:AVERage:CLEar', level: not_modeled, note: '读数统计不在首波。', gap: model_work}
+  - {header: 'CALCulate:AVERage:COUNt', level: not_modeled, note: '读数统计不在首波。', gap: model_work}
+  - {header: 'CALCulate:AVERage:MAXimum', level: not_modeled, note: '读数统计不在首波。', gap: model_work}
+  - {header: 'CALCulate:AVERage:MAXimum:TIME', level: not_modeled, note: '读数统计与时间戳不在首波。', gap: model_work}
+  - {header: 'CALCulate:AVERage:MINimum', level: not_modeled, note: '读数统计不在首波。', gap: model_work}
+  - {header: 'CALCulate:AVERage:MINimum:TIME', level: not_modeled, note: '读数统计与时间戳不在首波。', gap: model_work}
+  - {header: 'CALCulate:AVERage:PTPeak', level: not_modeled, note: '读数统计不在首波。', gap: model_work}
+  - {header: 'CALCulate:COMParator:DATA', level: not_modeled, note: '比较器不在首波。', gap: model_work}
+  - {header: 'CALCulate:COMParator:MASK', level: not_modeled, note: '比较器不在首波。', gap: model_work}
+  - {header: 'CALCulate:COMParator:STATe', level: not_modeled, note: '比较器不在首波。', gap: model_work}
+  - {header: 'CALCulate:COMParator:TYPE', level: not_modeled, note: '比较器不在首波。', gap: model_work}
+  - {header: 'CALCulate:LIMit:LOWer', level: not_modeled, note: '报警限不在首波。', gap: model_work}
+  - {header: 'CALCulate:LIMit:LOWer:STATe', level: not_modeled, note: '报警限不在首波。', gap: model_work}
+  - {header: 'CALCulate:LIMit:UPPer', level: not_modeled, note: '报警限不在首波。', gap: model_work}
+  - {header: 'CALCulate:LIMit:UPPer:STATe', level: not_modeled, note: '报警限不在首波。', gap: model_work}
+  - {header: 'CALCulate:SCALe:GAIN', level: not_modeled, note: 'Mx+B 定标不在首波。', gap: model_work}
+  - {header: 'CALCulate:SCALe:OFFSet', level: not_modeled, note: 'Mx+B 定标不在首波。', gap: model_work}
+  - {header: 'CALCulate:SCALe:OFFSet:NULL', level: not_modeled, note: 'Mx+B 定标不在首波。', gap: model_work}
+  - {header: 'CALCulate:SCALe:STATe', level: not_modeled, note: 'Mx+B 定标不在首波。', gap: model_work}
+  - {header: 'CALCulate:SCALe:UNIT', level: not_modeled, note: 'Mx+B 定标不在首波。', gap: model_work}
 - section: CALibration Subsystem
   commands:
-  - {header: 'CALibration:SECure:CODE', level: not_modeled, note: '校准不在首波。'}
-  - {header: 'CALibration:SECure:STATe', level: not_modeled, note: '校准不在首波。'}
-  - {header: 'CALibration:STRing', level: not_modeled, note: '校准不在首波。'}
+  - {header: 'CALibration:SECure:CODE', level: not_modeled, note: '校准不在首波。', gap: out_of_scope}
+  - {header: 'CALibration:SECure:STATe', level: not_modeled, note: '校准不在首波。', gap: out_of_scope}
+  - {header: 'CALibration:STRing', level: not_modeled, note: '校准不在首波。', gap: out_of_scope}
 - section: CONFigure Subsystem
   commands:
   - {header: 'CONFigure', level: implemented, note: 'CONFigure? (@list)：每个通道一段带引号的「功能 量程,分辨率」，按列表顺序以逗号连接（#365）；自动量程时回当前所用的档。'}
-  - {header: 'CONFigure:DIGital:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'CONFigure:DIGital:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'CONFigure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。'}
+  - {header: 'CONFigure:DIGital:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'CONFigure:DIGital:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'CONFigure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。', gap: blocked, blocked_by: dmm-functions}
   - {header: 'CONFigure:RESistance', level: implemented, note: '两线电阻（#301）：按量程的测试电流经模拟总线流过 DUT，读数由电路求解（含继电器触点与引线电阻）；不能用电流通道 21/22（-221，错误码为模型选择）。量程接受 AUTO/MIN/MAX/DEF（#354），MIN/MAX 是手册 p.144 的两端 100 Ω–100 MΩ；分辨率关键字同 CONFigure:VOLTage[:DC]。'}
   - {header: 'CONFigure:FRESistance', level: implemented, note: '四线电阻（#301）：通道 n（1–10）供电流，n+10 接检测总线；给 11–20 或电流通道报 -221（错误码为模型选择）。'}
-  - {header: 'CONFigure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'CONFigure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。'}
+  - {header: 'CONFigure:TEMPerature', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'CONFigure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。', gap: out_of_scope}
   - {header: 'CONFigure:VOLTage:AC', level: implemented, note: '选交流电压功能，量程参数关闭自动量程，通道列表写进扫描表（#300）；功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率的关键字同 CONFigure:VOLTage[:DC]（#354）；交流量程 100 mV–300 V，MAX 的 300 V 即真机最高量程（用户指南第 8 章技术规格的交流电压表；原备注称 750 V 未建模有误，#392）。'}
   - {header: 'CONFigure:VOLTage[:DC]', level: implemented, note: '选直流电压功能，量程参数关闭自动量程（不给则自动），通道列表整表写进扫描表（#300）；分辨率只保存。功能、量程与分辨率按通道保存，扫描到该通道时装入内部 DMM（#365）。量程与分辨率接受 AUTO/MIN/MAX/DEF（#354，语法见 34972-90001；用户指南 p.130 示例 CONF:VOLT:DC 10,DEF,(@301)）：量程 MIN/MAX 是量程表两端 0.1/300 V，300 V 即真机最高量程（用户指南第 8 章技术规格的直流电压表：100 mV、1 V、10 V、100 V、300 V；原备注称 1000 V 未建模有误，#392），分辨率 MIN/MAX 选 NPLC 表两端（200/0.02 PLC，最细/最粗）。'}
   - {header: 'CONFigure:CURRent:AC', level: implemented, note: '交流电流（真有效值，#301），同 CONFigure:CURRent:DC。'}
   - {header: 'CONFigure:CURRent[:DC]', level: implemented, note: '直流电流（#301）：只在电流通道 21/22（121/122）上，总线并分流电阻读 V/R（分流值为模型值）；其他通道报 -221（错误码为模型选择）。量程接受 AUTO/MIN/MAX/DEF（#354），MIN/MAX 是 10 mA/1 A 两端；分辨率关键字同 CONFigure:VOLTage[:DC]。'}
 - section: DATA Subsystem
   commands:
-  - {header: 'DATA:LAST', level: not_modeled, note: '读数缓冲没有按通道查询（组件债务）；手册要求单通道参数（错误 281）。'}
+  - {header: 'DATA:LAST', level: not_modeled, note: '读数缓冲没有按通道查询（组件债务）；手册要求单通道参数（错误 281）。', gap: model_work}
   - {header: 'DATA:POINts', level: implemented, note: '读数存储器里的条数（读出不清除）。'}
   - {header: 'DATA:REMove', level: implemented, note: '从最旧的读数起取走 n 条并回复（读出后存储器里删除）。'}
 - section: DIAGnostic Subsystem
   commands:
-  - {header: 'DIAGnostic:DMM:CYCLes', level: not_modeled, note: '内部 DMM 的继电器计数不在首波。'}
-  - {header: 'DIAGnostic:DMM:CYCLes:CLEar', level: not_modeled, note: '内部 DMM 的继电器计数不在首波。'}
-  - {header: 'DIAGnostic:RELAY:CYCLes', level: not_modeled, note: '继电器计数不在首波。'}
-  - {header: 'DIAGnostic:RELAY:CYCLes:CLEar', level: not_modeled, note: '继电器计数不在首波。'}
-  - {header: 'DIAGnostic:SECurity', level: not_modeled, note: '诊断安全查询不在首波。'}
+  - {header: 'DIAGnostic:DMM:CYCLes', level: not_modeled, note: '内部 DMM 的继电器计数不在首波。', gap: out_of_scope}
+  - {header: 'DIAGnostic:DMM:CYCLes:CLEar', level: not_modeled, note: '内部 DMM 的继电器计数不在首波。', gap: out_of_scope}
+  - {header: 'DIAGnostic:RELAY:CYCLes', level: not_modeled, note: '继电器计数不在首波。', gap: out_of_scope}
+  - {header: 'DIAGnostic:RELAY:CYCLes:CLEar', level: not_modeled, note: '继电器计数不在首波。', gap: out_of_scope}
+  - {header: 'DIAGnostic:SECurity', level: not_modeled, note: '诊断安全查询不在首波。', gap: out_of_scope}
 - section: DISPlay Subsystem
   commands:
   - {header: 'DISPlay[:STATe]', level: accepted, affects_data: false, note: '接受：显示开关保存并回读，不影响读数。*RST 置开。'}
@@ -88,11 +88,11 @@ sections:
   - {header: 'FETCh', level: implemented, note: '取回 INITiate 存下的读数（读出不清除）；存储器为空时 -230。'}
 - section: FORMat Subsystem
   commands:
-  - {header: 'FORMat:READing:ALARm', level: not_modeled, note: '读数格式（报警）未建模；READ?/FETCh? 固定按读数回复。'}
-  - {header: 'FORMat:READing:CHANnel', level: not_modeled, note: '读数格式（通道号）未建模；READ?/FETCh? 固定按读数回复。'}
-  - {header: 'FORMat:READing:TIME', level: not_modeled, note: '读数格式（时间戳）未建模。'}
-  - {header: 'FORMat:READing:TIME:TYPE', level: not_modeled, note: '读数格式（时间戳类型）未建模。'}
-  - {header: 'FORMat:READing:UNIT', level: not_modeled, note: '读数格式（单位）未建模。'}
+  - {header: 'FORMat:READing:ALARm', level: not_modeled, note: '读数格式（报警）未建模；READ?/FETCh? 固定按读数回复。', gap: model_work}
+  - {header: 'FORMat:READing:CHANnel', level: not_modeled, note: '读数格式（通道号）未建模；READ?/FETCh? 固定按读数回复。', gap: model_work}
+  - {header: 'FORMat:READing:TIME', level: not_modeled, note: '读数格式（时间戳）未建模。', gap: model_work}
+  - {header: 'FORMat:READing:TIME:TYPE', level: not_modeled, note: '读数格式（时间戳类型）未建模。', gap: model_work}
+  - {header: 'FORMat:READing:UNIT', level: not_modeled, note: '读数格式（单位）未建模。', gap: model_work}
 - section: INITiate Subsystem
   commands:
   - {header: 'INITiate', level: implemented, note: '启动一次扫描，读数写入存储器（最多 50,000 条，溢出覆盖最旧的）。'}
@@ -101,12 +101,12 @@ sections:
   - {header: 'INPut:IMPedance:AUTO', level: implemented, note: '10 MΩ / >10 GΩ 自动输入阻抗（按通道，#365）；ON 时 100 mV–10 V 量程用 >10 GΩ（改变测试台电路，进求解）。'}
 - section: INSTrument Subsystem
   commands:
-  - {header: 'INSTrument:DMM[:STATe]', level: not_modeled, note: '内部 DMM 禁用（外接扫描）未建模。'}
-  - {header: 'INSTrument:DMM', level: not_modeled, note: '内部 DMM 禁用（外接扫描）未建模。'}
+  - {header: 'INSTrument:DMM[:STATe]', level: not_modeled, note: '内部 DMM 禁用（外接扫描）未建模。', gap: model_work}
+  - {header: 'INSTrument:DMM', level: not_modeled, note: '内部 DMM 禁用（外接扫描）未建模。', gap: model_work}
 - section: MEMory Subsystem
   commands:
-  - {header: 'MEMory:STATe:NAME', level: not_modeled, note: '状态存储命名不在首波。'}
-  - {header: 'MEMory:STATe:RECall:AUTO', level: not_modeled, note: '上电恢复方式不在首波。'}
+  - {header: 'MEMory:STATe:NAME', level: not_modeled, note: '状态存储命名不在首波。', gap: blocked, blocked_by: setup-memory}
+  - {header: 'MEMory:STATe:RECall:AUTO', level: not_modeled, note: '上电恢复方式不在首波。', gap: blocked, blocked_by: setup-memory}
 - section: MEASure Subsystem
   commands:
   - {header: 'MEASure:VOLTage[:DC]', level: implemented, note: '与 CONFigure 相同的设定后按扫描表跑一次扫描并回读数（READ? 的路径，#300）；量程与分辨率的关键字同 CONFigure:VOLTage[:DC]（#354）。'}
@@ -115,83 +115,83 @@ sections:
   - {header: 'MEASure:CURRent:AC', level: implemented, note: '与 CONFigure:CURRent:AC 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
   - {header: 'MEASure:RESistance', level: implemented, note: '与 CONFigure:RESistance 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
   - {header: 'MEASure:FRESistance', level: implemented, note: '与 CONFigure:FRESistance 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
-  - {header: 'MEASure:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'MEASure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。'}
-  - {header: 'MEASure:PERiod', level: not_modeled, note: '频率/周期测量不在首波。'}
-  - {header: 'MEASure:DIGital:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'MEASure:DIGital:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'MEASure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。'}
+  - {header: 'MEASure:TEMPerature', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'MEASure:FREQuency', level: not_modeled, note: '频率/周期测量不在首波。', gap: blocked, blocked_by: dmm-functions}
+  - {header: 'MEASure:PERiod', level: not_modeled, note: '频率/周期测量不在首波。', gap: blocked, blocked_by: dmm-functions}
+  - {header: 'MEASure:DIGital:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'MEASure:DIGital:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'MEASure:TOTalize', level: not_modeled, note: '34907A 总加器不在首波。', gap: out_of_scope}
 - section: OUTPut Subsystem
   commands:
-  - {header: 'OUTPut:ALARm1:SOURce', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm2:SOURce', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm3:SOURce', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm4:SOURce', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm1:CLEar', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm2:CLEar', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm3:CLEar', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm4:CLEar', level: not_modeled, note: '报警输出不在首波。'}
-  - {header: 'OUTPut:ALARm:CLEar:ALL', level: not_modeled, note: '报警输出不在首波。'}
+  - {header: 'OUTPut:ALARm1:SOURce', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm2:SOURce', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm3:SOURce', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm4:SOURce', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm1:CLEar', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm2:CLEar', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm3:CLEar', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm4:CLEar', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
+  - {header: 'OUTPut:ALARm:CLEar:ALL', level: not_modeled, note: '报警输出不在首波。', gap: blocked, blocked_by: digital-io}
 - section: READ subsystem
   commands:
   - {header: 'READ', level: implemented, note: '启动一次扫描并把读数直接送到输出缓冲（不写入读数存储器，手册 p.122）；触发源 BUS/EXT 时 -214。读数带噪声（specs.noise_ppm_of_range：估计值，#744/#806），逐读数独立抽样，同种子逐位复现；交流（RMS）读数加噪后取绝对值，不为负（#803）。空扫描表报 -222（手册的设备错误 113 未单独映射）。'}
 - section: ROUTe Subsystem
   commands:
-  - {header: 'ROUTe:CHANnel:ADVance:SOURce', level: not_modeled, note: '外部扫描的通道推进不在首波。'}
-  - {header: 'ROUTe:CHANnel:DELay', level: not_modeled, note: '每通道延时是 scan_table 的已知债务（组件只保存一个间隔，没有每通道延时）。'}
-  - {header: 'ROUTe:CHANnel:DELay:AUTO', level: not_modeled, note: '自动每通道延时是 scan_table 的已知债务。'}
-  - {header: 'ROUTe:CHANnel:FWIRe', level: not_modeled, note: '四线配对由 CONFigure/MEASure:FRESistance 选定（#301）；单独的 FWIRe 设定未实现。'}
+  - {header: 'ROUTe:CHANnel:ADVance:SOURce', level: not_modeled, note: '外部扫描的通道推进不在首波。', gap: model_work}
+  - {header: 'ROUTe:CHANnel:DELay', level: not_modeled, note: '每通道延时是 scan_table 的已知债务（组件只保存一个间隔，没有每通道延时）。', gap: model_work}
+  - {header: 'ROUTe:CHANnel:DELay:AUTO', level: not_modeled, note: '自动每通道延时是 scan_table 的已知债务。', gap: model_work}
+  - {header: 'ROUTe:CHANnel:FWIRe', level: not_modeled, note: '四线配对由 CONFigure/MEASure:FRESistance 选定（#301）；单独的 FWIRe 设定未实现。', gap: model_work}
   - {header: 'ROUTe:CLOSe', level: implemented, note: '闭合通道列表里的继电器；查询按列表顺序回 1/0。闭合多个通道时都接到模拟总线（未配置扫描表时手册允许多路闭合）。槽 2/3 无模块 → -114。'}
-  - {header: 'ROUTe:MONitor', level: not_modeled, note: '单通道监视不在首波。'}
-  - {header: 'ROUTe:MONitor:DATA', level: not_modeled, note: '单通道监视不在首波。'}
-  - {header: 'ROUTe:MONitor:STATe', level: not_modeled, note: '单通道监视不在首波。'}
+  - {header: 'ROUTe:MONitor', level: not_modeled, note: '单通道监视不在首波。', gap: model_work}
+  - {header: 'ROUTe:MONitor:DATA', level: not_modeled, note: '单通道监视不在首波。', gap: model_work}
+  - {header: 'ROUTe:MONitor:STATe', level: not_modeled, note: '单通道监视不在首波。', gap: model_work}
   - {header: 'ROUTe:OPEN', level: implemented, note: '断开通道列表里的继电器。'}
   - {header: 'ROUTe:OPEN:ALL', level: implemented, note: '断开所有继电器。'}
   - {header: 'ROUTe:SCAN', level: implemented, note: '扫描表；按手册保存通道列表，`*RST` 后为空。查询回读 `(@101:103)` 形式。扫描按通道号升序执行，与写入顺序无关。'}
-  - {header: 'ROUTe:SCAN:SIZE', level: not_modeled, note: '扫描表长度查询没有对应操作（组件债务）；手册的 Excel 示例程序用到它。'}
+  - {header: 'ROUTe:SCAN:SIZE', level: not_modeled, note: '扫描表长度查询没有对应操作（组件债务）；手册的 Excel 示例程序用到它。', gap: model_work}
 - section: SENSe Subsystem
   commands:
-  - {header: 'SENSe:DIGital:DATA:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'SENSe:DIGital:DATA:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'SENSe:FREQuency:RANGe:LOWer', level: not_modeled, note: '频率/周期测量不在首波。'}
-  - {header: 'SENSe:FRESistance:OCOMpensated', level: not_modeled, note: '偏移补偿未建模（#301 只做电阻读数本身）。'}
-  - {header: 'SENSe:FRESistance:RESolution', level: not_modeled, note: '分辨率经 CONFigure 的参数保存（#301）；单独的 SENSe 命令未实现。'}
-  - {header: 'SENSe:RESistance:APERture', level: not_modeled, note: '积分时间按 NPLC 建模，按秒的孔径未实现。'}
-  - {header: 'SENSe:RESistance:OCOMpensated', level: not_modeled, note: '偏移补偿未建模（#301 只做电阻读数本身）。'}
-  - {header: 'SENSe:TEMPerature:TRANsducer:FRTD:RESistance', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'SENSe:TEMPerature:TRANsducer:FRTD:TYPE', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'SENSe:TEMPerature:TRANsducer:TC:CHECK', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'SENSe:TEMPerature:TRANsducer:TC:RJUNction', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'SENSe:TEMPerature:TRANsducer:TC:RJUNction:TYPE', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'SENSe:TEMPerature:TRANsducer:TC:TYPE', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'SENSe:TEMPerature:TRANsducer:THERMistor:TYPE', level: not_modeled, note: '温度测量不在首波。'}
-  - {header: 'SENSe:TOTalize:DATA', level: not_modeled, note: '34907A 总加器不在首波。'}
-  - {header: 'SENSe:TOTalize:TYPE', level: not_modeled, note: '34907A 总加器不在首波。'}
-  - {header: 'SENSe:VOLTage:AC:BANDwidth', level: not_modeled, note: 'ACV 的功能选择被 #300 阻塞；只建模 DCV。'}
-  - {header: 'SENSe:VOLTage:DC:APERture', level: not_modeled, note: '孔径时间未建模：读数时间只按 NPLC 表；孔径与 NPLC 的互相换算超出组件参数映射。'}
+  - {header: 'SENSe:DIGital:DATA:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'SENSe:DIGital:DATA:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'SENSe:FREQuency:RANGe:LOWer', level: not_modeled, note: '频率/周期测量不在首波。', gap: blocked, blocked_by: dmm-functions}
+  - {header: 'SENSe:FRESistance:OCOMpensated', level: not_modeled, note: '偏移补偿未建模（#301 只做电阻读数本身）。', gap: model_work}
+  - {header: 'SENSe:FRESistance:RESolution', level: not_modeled, note: '分辨率经 CONFigure 的参数保存（#301）；单独的 SENSe 命令未实现。', gap: model_work}
+  - {header: 'SENSe:RESistance:APERture', level: not_modeled, note: '积分时间按 NPLC 建模，按秒的孔径未实现。', gap: model_work}
+  - {header: 'SENSe:RESistance:OCOMpensated', level: not_modeled, note: '偏移补偿未建模（#301 只做电阻读数本身）。', gap: model_work}
+  - {header: 'SENSe:TEMPerature:TRANsducer:FRTD:RESistance', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'SENSe:TEMPerature:TRANsducer:FRTD:TYPE', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'SENSe:TEMPerature:TRANsducer:TC:CHECK', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'SENSe:TEMPerature:TRANsducer:TC:RJUNction', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'SENSe:TEMPerature:TRANsducer:TC:RJUNction:TYPE', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'SENSe:TEMPerature:TRANsducer:TC:TYPE', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'SENSe:TEMPerature:TRANsducer:THERMistor:TYPE', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
+  - {header: 'SENSe:TOTalize:DATA', level: not_modeled, note: '34907A 总加器不在首波。', gap: out_of_scope}
+  - {header: 'SENSe:TOTalize:TYPE', level: not_modeled, note: '34907A 总加器不在首波。', gap: out_of_scope}
+  - {header: 'SENSe:VOLTage:AC:BANDwidth', level: not_modeled, note: 'ACV 的功能选择被 #300 阻塞；只建模 DCV。', gap: blocked, blocked_by: dmm-functions}
+  - {header: 'SENSe:VOLTage:DC:APERture', level: not_modeled, note: '孔径时间未建模：读数时间只按 NPLC 表；孔径与 NPLC 的互相换算超出组件参数映射。', gap: model_work}
   - {header: 'SENSe:VOLTage:DC:NPLCycles', level: implemented, note: '积分时间；按 `(@ch_list)` 的号域读写；按通道保存（#365）。读数时间与分辨率按 NPLC 表（50 Hz 电源）。'}
   - {header: 'SENSe:VOLTage:DC:RANGe', level: implemented, note: '直流电压量程（0/AUTO 为自动量程）；按通道保存（#365）。存设置并回读；设置量程不会自动关闭自动量程，需另发 RANGe:AUTO OFF（通道列表命令不能写 `sets`，见 #300）。'}
   - {header: 'SENSe:VOLTage:DC:RANGe:AUTO', level: implemented, note: '自动量程开关（按通道，#365）；阈值按手册（<10% 降档、>120% 升档）。'}
-  - {header: 'SENSe:VOLTage:DC:RESolution', level: not_modeled, note: '分辨率只由 NPLC 决定；分辨率参数不能反过来改 NPLC（组件映射限制）。'}
-  - {header: 'SENSe:VOLTage:DC:ZERO:AUTO', level: not_modeled, note: '自动调零未建模（组件读数不含零漂）。'}
+  - {header: 'SENSe:VOLTage:DC:RESolution', level: not_modeled, note: '分辨率只由 NPLC 决定；分辨率参数不能反过来改 NPLC（组件映射限制）。', gap: model_work}
+  - {header: 'SENSe:VOLTage:DC:ZERO:AUTO', level: not_modeled, note: '自动调零未建模（组件读数不含零漂）。', gap: model_work}
 - section: SOURce Subsystem
   commands:
-  - {header: 'SOURce:DIGital:DATA', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'SOURce:DIGital:DATA:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'SOURce:DIGital:DATA:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。'}
-  - {header: 'SOURce:VOLTage', level: not_modeled, note: '34907A 的 DAC 输出不在首波。'}
+  - {header: 'SOURce:DIGital:DATA', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'SOURce:DIGital:DATA:BYTE', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'SOURce:DIGital:DATA:WORD', level: not_modeled, note: '34907A 数字 I/O 不在首波。', gap: out_of_scope}
+  - {header: 'SOURce:VOLTage', level: not_modeled, note: '34907A 的 DAC 输出不在首波。', gap: out_of_scope}
 - section: STATus Subsystem
   commands:
-  - {header: 'STATus:ALARm:ENABle', level: not_modeled, note: '报警状态寄存器不在首波。'}
-  - {header: 'STATus:ALARm:EVENt', level: not_modeled, note: '报警状态寄存器不在首波。'}
+  - {header: 'STATus:ALARm:ENABle', level: not_modeled, note: '报警状态寄存器不在首波。', gap: model_work}
+  - {header: 'STATus:ALARm:EVENt', level: not_modeled, note: '报警状态寄存器不在首波。', gap: model_work}
 - section: SYSTem Subsystem
   commands:
-  - {header: 'SYSTem:CTYPe', level: not_modeled, note: '按槽位查询模块型号没有对应操作（组件债务）。'}
-  - {header: 'SYSTem:DATE', level: not_modeled, note: '实时时钟未建模（内置命令也排除）。'}
+  - {header: 'SYSTem:CTYPe', level: not_modeled, note: '按槽位查询模块型号没有对应操作（组件债务）。', gap: model_work}
+  - {header: 'SYSTem:DATE', level: not_modeled, note: '实时时钟未建模（内置命令也排除）。', gap: out_of_scope}
   - {header: 'SYSTem:ERRor[:NEXT]', level: implemented, note: '错误队列 FIFO，长度 10（34970A）；无错误回 +0,"No error"，溢出为 -350。'}
-  - {header: 'SYSTem:PRESet', level: not_modeled, note: '仪器预置与 *RST 的差异（功能/量程/计数不变）未建模。'}
-  - {header: 'SYSTem:TIME', level: not_modeled, note: '实时时钟未建模（内置命令也排除）。'}
-  - {header: 'SYSTem:TIME:SCAN', level: not_modeled, note: '扫描时间戳不在首波。'}
+  - {header: 'SYSTem:PRESet', level: not_modeled, note: '仪器预置与 *RST 的差异（功能/量程/计数不变）未建模。', gap: model_work}
+  - {header: 'SYSTem:TIME', level: not_modeled, note: '实时时钟未建模（内置命令也排除）。', gap: out_of_scope}
+  - {header: 'SYSTem:TIME:SCAN', level: not_modeled, note: '扫描时间戳不在首波。', gap: model_work}
   - {header: 'SYSTem:VERSion', level: implemented, note: 'SCPI 版本查询，回复 1994.0（手册 p.180）。'}
 - section: TRIGger Subsystem
   commands:
@@ -200,7 +200,7 @@ sections:
   - {header: 'TRIGger:TIMer', level: implemented, note: '扫描间隔，0–359,999 s；保存并回读。首波不把间隔计入虚拟时间（scan_table 的已知债务），读数时间只算继电器建立时间 + DMM 读数时间。'}
 - section: UNIT Subsystem
   commands:
-  - {header: 'UNIT:TEMPerature', level: not_modeled, note: '温度测量不在首波。'}
+  - {header: 'UNIT:TEMPerature', level: not_modeled, note: '温度测量不在首波。', gap: blocked, blocked_by: temperature}
 - section: ZERO Subsystem
   commands:
-  - {header: 'ZERO:AUTO', level: not_modeled, note: '自动调零未建模。'}
+  - {header: 'ZERO:AUTO', level: not_modeled, note: '自动调零未建模。', gap: model_work}

@@ -53,6 +53,15 @@ MODEL_NAMES = model_names()
 TUI_FILES = sorted(TUI.rglob("*.py"))
 
 
+def lines_with(text: str, lowered: list[str]) -> list[tuple[int, str]]:
+    """``(line number, name)`` for every line of ``text`` that holds a name, case-insensitively.
+    Pure on memory, so the guard's own test touches no disk (a Windows file write stalled for a
+    second there and broke the 100 ms budget, #1138)."""
+    return [
+        (number, n) for number, line in enumerate(text.lower().splitlines(), 1) for n in lowered if n in line
+    ]
+
+
 def find_hits(names: set[str], files: list[Path]) -> list[str]:
     """``file:line  name`` for every line that holds a name, case-insensitively. A substring test
     over each file's lowered text first (fast), the line scan only for the files that hit."""
@@ -61,12 +70,10 @@ def find_hits(names: set[str], files: list[Path]) -> list[str]:
     for path in files:
         text = path.read_text(encoding="utf-8")
         low = text.lower()
-        found = [n for n in lowered if n in low]
-        if not found:
+        if not any(n in low for n in lowered):
             continue
         shown = path.relative_to(ROOT) if path.is_relative_to(ROOT) else path
-        for number, line in enumerate(low.splitlines(), 1):
-            hits.extend(f"{shown}:{number}  {n}" for n in found if n in line)
+        hits.extend(f"{shown}:{number}  {n}" for number, n in lines_with(text, lowered))
     return hits
 
 
@@ -78,8 +85,7 @@ def test_the_tui_source_names_no_instrument_model():
 
 
 @pytest.mark.unit
-def test_the_guard_does_catch_a_model_name(tmp_path):
-    source = tmp_path / "x.py"
-    source.write_text('"""one line"""\n# special-case the Siglent-SDG2042X layout\n', encoding="utf-8")
-    hits = find_hits({"siglent-sdg2042x", "SDG2042X"}, [source])
-    assert hits and all(":2 " in h for h in hits)
+def test_the_guard_does_catch_a_model_name():
+    source = '"""one line"""\n# special-case the Siglent-SDG2042X layout\n'
+    hits = lines_with(source, ["siglent-sdg2042x", "sdg2042x"])
+    assert hits and all(number == 2 for number, _ in hits)

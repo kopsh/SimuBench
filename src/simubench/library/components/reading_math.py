@@ -9,8 +9,9 @@ each step switched on by its own setting:
    one reading takes N times as long);
 2. **math** — ``(m·x − c) / z``, each factor on its own (Fluke 8588A ``CALC:MATH``; a null is
    ``c``, an ``mx+b`` scaling is ``m`` with ``c = −b``). A factor can be taken from the last
-   reading (8588A ``LREading``, #1043): a factor written as :data:`LAST_READING` (the
-   definition's ``special: {LRE: -.inf, LREADING: -.inf}``) becomes the last reading — the reading
+   reading (8588A ``LREading``, #1043): a factor written as the word the
+   definition declares (``words: {LREading: last_reading}``, resolved in :meth:`resolve_word`)
+   becomes the last reading — the reading
    after the average and before the math, as the block last saw it — at the moment of the write,
    and stays that number; with no reading since power-on or ``*RST`` the write is refused (-230);
 3. **units** — percent (×100), dB (``20·log10|y|``, relative to 1) or dBm into a reference
@@ -42,8 +43,6 @@ from ...scpi.errors import ScpiError
 #: Reference impedances of the dBm units (Ω).
 DBM_UNITS = {"DB50": 50.0, "DB75": 75.0, "DB600": 600.0}
 UNITS = ("NONE", "PERCent", "DB", *DBM_UNITS)
-#: The value a factor (m, c, z) is written as to take it from the last reading (LREading, #1043).
-LAST_READING = -math.inf
 FACTORS = ("m", "c", "z")
 
 
@@ -110,6 +109,7 @@ class ReadingMath(Component):
         "statistics": False,  # keep statistics of the readings (a setting)
         "clear_on_run": True,  # a new run (INITiate, READ?) clears the statistics and the window
     }
+    resolvers = frozenset({"last_reading"})
     choices = {"average_mode": ("MOVing", "REPeat"), "units": UNITS}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -130,7 +130,10 @@ class ReadingMath(Component):
             self.window.clear()  # the filter restarts after a change, as the instrument's does
         if key == "statistics" and V.flag(new) and not V.flag(old):
             self.samples.clear()
-        if key in FACTORS and new == LAST_READING:
+        return None
+
+    def resolve_word(self, key: str | None, path: str, name: str) -> float | None:
+        if key in FACTORS and name == "last_reading":
             if self.last is None:
                 raise ScpiError(-230, f"{self.uid}: no last reading for the math factor {key}")
             return self.last

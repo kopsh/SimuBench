@@ -19,6 +19,7 @@ sections:
   - header: '[:SOURce<ch>]:APPLy:NOISe'
     level: not_modeled
     note: 高斯噪声未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:APPLy:PRBS'
     level: implemented
     note: 设函数并按顺序写比特率、幅度、偏置（各可省略或 DEF），打开输出，关闭所有调制。
@@ -42,6 +43,7 @@ sections:
   - header: '[:SOURce<ch>]:DATA:ARBitrary2:FORMat'
     level: not_modeled
     note: 双通道 IQ 任意波未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:DATA:ARBitrary'
     level: implemented
     note: 按名把 -1…+1 的数值装入该通道的易失存储（8 点起）；二进制块形式（FORMat:BORDer）未建模。名字至多 12 个字符（手册 DATA:ARBitrary：<arb_name> is an unquoted string of up to 12 characters）；超长时模型报 -224 "Illegal parameter value"——手册未写超长名的错误号，-224 为推测（#468）；已载入的名字再载入 +786 "Specified arb waveform already exists"（手册错误表，#430）。重名比较模型按大小写不敏感处理，手册未写是否区分大小写（未能核实，#468）；首字符与可用字符手册未写，不检查。
@@ -51,18 +53,23 @@ sections:
   - header: '[:SOURce<ch>]:DATA:ATTRibute:AVERage'
     level: not_modeled
     note: 任意波属性查询未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:DATA:ATTRibute:CFACtor'
     level: not_modeled
     note: 任意波属性查询未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:DATA:ATTRibute:POINts'
     level: not_modeled
     note: 任意波属性查询未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:DATA:ATTRibute:PTPeak'
     level: not_modeled
     note: 任意波属性查询未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:DATA:SEQuence'
     level: not_modeled
     note: 任意波序列未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:DATA:VOLatile:CATalog'
     level: implemented
     note: 易失存储中波形的带引号名字，逗号分隔；内置波形（INT:\BUILTIN）未列出。
@@ -72,6 +79,7 @@ sections:
   - header: '[:SOURce<ch>]:DATA:VOLatile:FREE'
     level: not_modeled
     note: 易失存储剩余点数未建模。
+    gap: model_work
 - section: FUNCtion Subsystem
   commands:
   - header: '[:SOURce<ch>]:FUNCtion'
@@ -83,12 +91,14 @@ sections:
   - header: '[:SOURce<ch>]:FUNCtion:SQUare:PERiod'
     level: not_modeled
     note: 以周期设定未建模（用 FREQuency）。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:RAMP:SYMMetry'
     level: implemented
     note: 斜波对称度（%），*RST 100。
   - header: '[:SOURce<ch>]:FUNCtion:NOISe:BANDwidth'
     level: not_modeled
     note: 高斯噪声未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:PRBS:BRATe'
     level: implemented
     note: PRBS 比特率，*RST 1 kbps。
@@ -98,54 +108,67 @@ sections:
   - header: '[:SOURce<ch>]:FUNCtion:PRBS:TRANsition[:BOTH]'
     level: not_modeled
     note: PRBS 边沿时间未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary'
     level: implemented
     note: 选中易失存储中按名装载的波形；查询回带引号的名字；内置波形与文件路径未建模（-224）。*RST 回到默认波形（Factory Reset State 的 Arb），易失存储保留（手册未写 *RST 清空它，#430）；默认波形在模型中名为空串、FUNC:ARB? 回 ""——真机的默认 Arb 是内置波形 Exponential Rise（Factory Reset State，内置路径形如 INT:\BuiltIn\EXP_RISE.arb），与模型不同（#468；真机该状态下的确切查询回包手册未写）。
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:ADVance'
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:FILTer'
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:FREQuency'
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:PERiod'
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:POINts'
     level: implemented
     note: 当前任意波的点数。
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:PTPeak'
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:SRATe'
     level: implemented
     note: 任意波采样率 1 µSa/s–1 GSa/s，*RST 40 kSa/s；任意波频率 = 采样率 / 点数。
   - header: FUNCtion:ARBitrary:BALance[:STATe]
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: FUNCtion:ARBitrary:BALance:GAIN
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: FUNCtion:ARBitrary:BALance:OFFSet<ch>
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: FUNCtion:ARBitrary:SKEW[:STATe]
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: FUNCtion:ARBitrary:SKEW:TIME
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:ARBitrary:SYNChronize'
     level: not_modeled
     note: 该任意波设置（滤波、推进、周期/频率、峰峰值、同步、IQ 平衡与时偏）未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:DCYCle'
     level: implemented
     note: 脉冲占空比（%），*RST 10；也可由 FUNC:PULS:WIDT 写入（宽度 × 频率，#437）；HOLD 未建模。
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:HOLD'
     level: not_modeled
     note: 脉冲宽度/周期/边沿/保持设置未建模（用 FUNCtion:PULSe:DCYCle 与 FREQuency）。
+    gap: model_work
   - header: '[:SOURce<ch>]:FUNCtion:PULSe:PERiod'
     level: implemented
     note: 脉冲周期 = 1/频率，写周期即改频率（占空比保持）（手册 Pulse Period，#437）；MIN/MAX/DEF 为频率声明范围的倒数（脉冲模式下上限收窄到 100 MHz，#478），手册具体数值未逐项核实；周期与宽度“后设者优先”的保持（HOLD）未建模。
@@ -169,49 +192,65 @@ sections:
   - header: '[:SOURce<ch>]:FREQuency:CENTer'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:COUPle:MODE'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:COUPle:OFFSet'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:COUPle:RATio'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:COUPle[:STATe]'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:MODE'
     level: not_modeled
     note: 只建模 CW（扫频与列表未建模）。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:SPAN'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:STARt'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:FREQuency:STOP'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
 - section: LIST Subsystem
   commands:
   - header: '[:SOURce<ch>]:LIST:DWELl'
     level: not_modeled
     note: 频率列表未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:LIST:FREQuency'
     level: not_modeled
     note: 频率列表未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:LIST:FREQuency:POINts'
     level: not_modeled
     note: 频率列表未建模。
+    gap: model_work
 - section: MMEMory Subsystem
   commands:
   - header: MMEMory:LOAD:LIST<ch>
     level: not_modeled
     note: 频率列表未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:STORe:LIST<ch>
     level: not_modeled
     note: 频率列表未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: MMEMory:CATalog[:ALL]
     level: implemented
     note: 'file_system 组件（#1069）：<used>,<free>{,"<名称>,<类型>,<字节>"}，数字带 +；.sta 为 STAT、.csv 为 ASC、文件夹为 FOLD、其余为空；used 只计用户文件（手册说的内部占用不建模），free 按 1 GB 容量计。'
@@ -287,6 +326,7 @@ sections:
   - header: '[:SOURce<ch>]:VOLTage:COUPle[:STATe]'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:HIGH'
     level: implemented
     note: 高电平：偏置 + Vpp/2；设定时保持低电平，幅度与偏置随之改变（#424）。
@@ -296,18 +336,22 @@ sections:
   - header: '[:SOURce<ch>]:VOLTage:LIMit:HIGH'
     level: not_modeled
     note: 输出电压限制未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:LIMit:LOW'
     level: not_modeled
     note: 输出电压限制未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:LIMit:STATe'
     level: not_modeled
     note: 输出电压限制未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:OFFSet'
     level: implemented
     note: 偏置 ±10 V（按负载设定）；|偏置| + Vpp/2 的峰值限制未检查。
   - header: '[:SOURce<ch>]:VOLTage:RANGe:AUTO'
     level: not_modeled
     note: 电压自动量程开关未建模（不影响模型输出）。
+    gap: model_work
   - header: '[:SOURce<ch>]:VOLTage:UNIT'
     level: implemented
     note: VPP/VRMS/DBM；切换时换算幅度值，输出不变。
@@ -316,17 +360,21 @@ sections:
   - header: '[:SOURce<ch>]:RATE:COUPle[:STATe]'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:RATE:COUPle:MODE'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:RATE:COUPle:OFFSet'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
 - section: RATe Subsystem
   commands:
   - header: '[:SOURce<ch>]:RATe:COUPle:RATio'
     level: not_modeled
     note: 双通道耦合未建模。
+    gap: model_work
 - section: OUTPut Subsystem
   commands:
   - header: :OUTPut<ch>
@@ -338,30 +386,38 @@ sections:
   - header: :OUTPut<ch>:MODE
     level: not_modeled
     note: 该输出设置（门控模式、同步与触发输出）未建模。
+    gap: model_work
   - header: :OUTPut<ch>:POLarity
     level: implemented
     note: NORMal/INVerted：反相输出。
   - header: :OUTPut:SYNC
     level: not_modeled
     note: 该输出设置（门控模式、同步与触发输出）未建模。
+    gap: model_work
   - header: :OUTPut<ch>:SYNC:MODE
     level: not_modeled
     note: 该输出设置（门控模式、同步与触发输出）未建模。
+    gap: model_work
   - header: :OUTPut<ch>:SYNC:POLarity
     level: not_modeled
     note: 该输出设置（门控模式、同步与触发输出）未建模。
+    gap: model_work
   - header: :OUTPut:SYNC:SOURce
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: :OUTPut:TRIGger
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :OUTPut:TRIGger:SLOPe
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :OUTPut:TRIGger:SOURce
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
 - section: AM Subsystem
   commands:
   - header: '[:SOURce<ch>]:AM[:DEPTh]'
@@ -370,15 +426,18 @@ sections:
   - header: '[:SOURce<ch>]:AM:DSSC'
     level: not_modeled
     note: 双边带抑制载波未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:AM:INTernal:FREQuency'
     level: implemented
     note: AM 内部调制频率，*RST 100 Hz。
   - header: '[:SOURce<ch>]:AM:INTernal:FUNCtion'
     level: not_modeled
     note: 内部调制波形只建模正弦。
+    gap: model_work
   - header: '[:SOURce<ch>]:AM:SOURce'
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: '[:SOURce<ch>]:AM:STATe'
     level: implemented
     note: AM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
@@ -393,9 +452,11 @@ sections:
   - header: '[:SOURce<ch>]:FM:INTernal:FUNCtion'
     level: not_modeled
     note: 内部调制波形只建模正弦。
+    gap: model_work
   - header: '[:SOURce<ch>]:FM:SOURce'
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: '[:SOURce<ch>]:FM:STATe'
     level: implemented
     note: FM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
@@ -404,15 +465,23 @@ sections:
   - header: '[:SOURce<ch>]:BPSK:SOURce'
     level: not_modeled
     note: BPSK 未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce<ch>]:BPSK:STATe'
     level: not_modeled
     note: BPSK 未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce<ch>]:BPSK:INTernal:RATE'
     level: not_modeled
     note: BPSK 未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce<ch>]:BPSK[:PHASe]'
     level: not_modeled
     note: BPSK 未建模。
+    gap: blocked
+    blocked_by: C9
 - section: PM Subsystem
   commands:
   - header: '[:SOURce<ch>]:PM:DEViation'
@@ -424,9 +493,11 @@ sections:
   - header: '[:SOURce<ch>]:PM:INTernal:FUNCtion'
     level: not_modeled
     note: 内部调制波形只建模正弦。
+    gap: model_work
   - header: '[:SOURce<ch>]:PM:SOURce'
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: '[:SOURce<ch>]:PM:STATe'
     level: implemented
     note: PM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
@@ -441,6 +512,7 @@ sections:
   - header: '[:SOURce<ch>]:FSKey:SOURce'
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: '[:SOURce<ch>]:FSKey:STATe'
     level: implemented
     note: FSK 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
@@ -449,6 +521,7 @@ sections:
   - header: '[:SOURce<ch>]:PWM:DEViation'
     level: not_modeled
     note: 以秒为单位的 PWM 偏差未建模（用 PWM:DEViation:DCYCle）。
+    gap: model_work
   - header: '[:SOURce<ch>]:PWM:DEViation:DCYCle'
     level: implemented
     note: PWM 占空比偏差（%），*RST 1 %。
@@ -458,9 +531,11 @@ sections:
   - header: '[:SOURce<ch>]:PWM:INTernal:FUNCtion'
     level: not_modeled
     note: 内部调制波形只建模正弦。
+    gap: model_work
   - header: '[:SOURce<ch>]:PWM:SOURce'
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: '[:SOURce<ch>]:PWM:STATe'
     level: implemented
     note: PWM 开关；打开一种调制时关闭其余（同一时刻只开一种）。内部正弦调制（awg_modulator）。
@@ -469,89 +544,118 @@ sections:
   - header: '[:SOURce<ch>]:SUM:AMPLitude'
     level: not_modeled
     note: SUM 叠加调制未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SUM:INTernal:FREQuency'
     level: not_modeled
     note: SUM 叠加调制未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SUM:INTernal:FUNCtion'
     level: not_modeled
     note: SUM 叠加调制未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SUM:SOURce'
     level: not_modeled
     note: SUM 叠加调制未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SUM:STATe'
     level: not_modeled
     note: SUM 叠加调制未建模。
+    gap: model_work
 - section: SWEep Subsystem
   commands:
   - header: '[:SOURce<ch>]:SWEep:HTIMe'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SWEep:RTIMe'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SWEep:SPACing'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SWEep:STATe'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:SWEep:TIME'
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
 - section: BURSt Subsystem
   commands:
   - header: '[:SOURce<ch>]:BURSt:GATE:POLarity'
     level: not_modeled
     note: 突发未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:BURSt:INTernal:PERiod'
     level: not_modeled
     note: 突发未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:BURSt:MODE'
     level: not_modeled
     note: 突发未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:BURSt:NCYCles'
     level: not_modeled
     note: 突发未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:BURSt:PHASe'
     level: not_modeled
     note: 突发未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:BURSt:STATe'
     level: not_modeled
     note: 突发未建模。
+    gap: model_work
 - section: MARKer Subsystem
   commands:
   - header: '[:SOURce<ch>]:MARKer:CYCle'
     level: not_modeled
     note: 标记未建模。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce<ch>]:MARKer:FREQuency'
     level: not_modeled
     note: 标记未建模。
+    gap: blocked
+    blocked_by: digital-io
   - header: '[:SOURce<ch>]:MARKer:POINt'
     level: not_modeled
     note: 标记未建模。
+    gap: blocked
+    blocked_by: digital-io
 - section: TRIGger Subsystem
   commands:
   - header: :TRIGger<ch>
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :TRIGger<ch>:COUNt
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :TRIGger<ch>:DELay
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :TRIGger<ch>:LEVel
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :TRIGger<ch>:SLOPe
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :TRIGger<ch>:SOURce
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
   - header: :TRIGger<ch>:TIMer
     level: not_modeled
     note: 触发系统（突发/扫频/列表的触发）未建模。
+    gap: model_work
 - section: MEMory Subsystem
   commands:
   - header: MEMory:NSTates
@@ -590,153 +694,202 @@ sections:
   - header: DISPlay:UNIT:ARBRate
     level: not_modeled
     note: 显示设置未建模。
+    gap: model_work
   - header: DISPlay:UNIT:PULse
     level: not_modeled
     note: 显示设置未建模。
+    gap: model_work
   - header: DISPlay:UNIT:RATE
     level: not_modeled
     note: 显示设置未建模。
+    gap: model_work
   - header: DISPlay:UNIT:SWEep
     level: not_modeled
     note: 扫频未建模。
+    gap: model_work
   - header: DISPlay:UNIT:VOLT
     level: not_modeled
     note: 显示设置未建模。
+    gap: model_work
   - header: DISPlay:VIEW
     level: not_modeled
     note: 显示设置未建模。
+    gap: model_work
 - section: HCOPy Subsystem
   commands:
   - header: HCOPy:SDUMp:DATA
     level: not_modeled
     note: 屏幕截图未建模。
+    gap: blocked
+    blocked_by: screenshot
   - header: HCOPy:SDUMp:DATA:FORMat
     level: not_modeled
     note: 屏幕截图未建模。
+    gap: blocked
+    blocked_by: screenshot
 - section: LXI Subsystem
   commands:
   - header: LXI:IDENtify[:STATE]
     level: not_modeled
     note: LXI/网络配置未建模。
+    gap: model_work
   - header: LXI:MDNS:ENABle
     level: not_modeled
     note: LXI/网络配置未建模。
+    gap: model_work
   - header: LXI:MDNS:HNAMe:RESolved
     level: not_modeled
     note: LXI/网络配置未建模。
+    gap: model_work
   - header: LXI:MDNS:SNAMe:DESired
     level: not_modeled
     note: LXI/网络配置未建模。
+    gap: model_work
   - header: LXI:MDNS:SNAMe[:RESolved]
     level: not_modeled
     note: LXI/网络配置未建模。
+    gap: model_work
   - header: LXI:RESet
     level: not_modeled
     note: LXI/网络配置未建模。
+    gap: model_work
   - header: LXI:RESTart
     level: not_modeled
     note: LXI/网络配置未建模。
+    gap: model_work
 - section: SYSTem Subsystem
   commands:
   - header: :SYSTem:COMMunicate:ENABle
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:GPIB:ADDRess
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:CONTrol
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:DHCP
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:DNS<ch>
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:DOMain
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:GATeway
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:HOSTname
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:IPADdress
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:MAC
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:SMASk
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:TELNet:PROMpt
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:TELNet:WMESsage
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:UPDate
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:COMMunicate:LAN:WINS<ch>
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:BEEPer[:IMMediate]
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:BEEPer:STATe
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:CLICk:STATe
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:DATE
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:ERRor[:NEXT]
     level: implemented
     note: 读取并移除最早的错误（引擎内置）。
   - header: :SYSTem:LICense:CATalog
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:LICense:DELete
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:LICense:DELete:ALL
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:LICense:DESCription
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:LICense:ERRor
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:LICense:ERRor:COUNt
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:LICense:INSTall
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:LOCK:NAME
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:LOCK:OWNer
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:LOCK:RELease
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:LOCK:REQuest
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: model_work
   - header: :SYSTem:SECurity:IMMediate
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:TIME
     level: not_modeled
     note: 系统配置、远程接口、许可、锁与时钟未建模。
+    gap: out_of_scope
   - header: :SYSTem:VERSion
     level: implemented
     note: 1994.0。
@@ -745,58 +898,75 @@ sections:
   - header: '[:SOURce<ch>]:PHASe'
     level: not_modeled
     note: 相位设置与通道同步未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:PHASe:ARBitrary'
     level: not_modeled
     note: 相位设置与通道同步未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:PHASe:MODulation'
     level: not_modeled
     note: 相位设置与通道同步未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:PHASe:REFerence'
     level: not_modeled
     note: 相位设置与通道同步未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:PHASe:SYNChronize'
     level: not_modeled
     note: 相位设置与通道同步未建模。
+    gap: model_work
   - header: '[:SOURce<ch>]:PHASe:UNLock:ERRor:STATe'
     level: not_modeled
     note: 相位设置与通道同步未建模。
+    gap: model_work
 - section: ROSCillator Subsystem
   commands:
   - header: ROSCillator:SOURce
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: ROSCillator:SOURce:AUTO
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
   - header: ROSCillator:SOURce:CURRent
     level: not_modeled
     note: 只建模内部调制源（外部与通道源未建模）。
+    gap: model_work
 - section: CALibration Subsystem
   commands:
   - header: CALibration[:ALL]
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
   - header: CALibration:COUNt
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
   - header: CALibration:SECure:CODE
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
   - header: CALibration:SECure:STATe
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
   - header: CALibration:SETup
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
   - header: CALibration:STORe
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
   - header: CALibration:STRing
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
   - header: CALibration:VALue
     level: not_modeled
     note: 校准未建模。
+    gap: out_of_scope
 - section: IEEE-488.2 Common Commands
   commands:
   - header: '*CLS'
@@ -817,9 +987,11 @@ sections:
   - header: '*OPT'
     level: not_modeled
     note: 选件查询未建模。
+    gap: model_work
   - header: '*PSC'
     level: not_modeled
     note: 上电清状态未建模。
+    gap: model_work
   - header: '*RCL'
     level: implemented
     note: 'setup_memory 组件（#1070）：按存下时的值写回全部设置；空位置报 +291 Not able to recall state: it is empty，设置不变。任意波数据不在状态里。'
@@ -838,6 +1010,7 @@ sections:
   - header: '*TRG'
     level: not_modeled
     note: 触发系统未建模。
+    gap: model_work
   - header: '*TST'
     level: implemented
     note: 自检通过，回复 0。
@@ -849,68 +1022,86 @@ sections:
   - header: :STATus:OPERation:CONDition
     level: not_modeled
     note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: :STATus:OPERation:ENABle
     level: not_modeled
     note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: :STATus:OPERation[:EVENt]
     level: not_modeled
     note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: :STATus:PRESet
     level: not_modeled
     note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: :STATus:QUEStionable:CONDition
     level: not_modeled
     note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: :STATus:QUEStionable:ENABle
     level: not_modeled
     note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
   - header: :STATus:QUEStionable[:EVENt]
     level: not_modeled
     note: 操作与可疑状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
+    gap: model_work
 - section: ABORt Subsystem
   commands:
   - header: ABORt
     level: not_modeled
     note: 触发系统未建模。
+    gap: model_work
 - section: COMBine Subsystem
   commands:
   - header: '[:SOURce<ch>]:COMBine:FEED'
     level: not_modeled
     note: 通道合并未建模。
+    gap: model_work
 - section: FORMat Subsystem
   commands:
   - header: FORMat:BORDer
     level: not_modeled
     note: 二进制块字节序未建模。
+    gap: model_work
 - section: INITiate Subsystem
   commands:
   - header: INITiate<ch>:CONTinuous
     level: not_modeled
     note: 触发系统未建模。
+    gap: model_work
   - header: INITiate:CONTinuous:ALL
     level: not_modeled
     note: 触发系统未建模。
+    gap: model_work
   - header: INITiate<ch>[:IMMediate]
     level: not_modeled
     note: 触发系统未建模。
+    gap: model_work
   - header: INITiate[:IMMediate]:ALL
     level: not_modeled
     note: 触发系统未建模。
+    gap: model_work
 - section: INPut Subsystem
   commands:
   - header: INPut:ATTenuation[:STATe]
     level: not_modeled
     note: 调制输入衰减未建模。
+    gap: out_of_scope
 - section: TRACk Subsystem
   commands:
   - header: '[:SOURce<ch>]:TRACk'
     level: not_modeled
     note: 通道跟踪未建模。
+    gap: model_work
 - section: UNIT Subsystem
   commands:
   - header: UNIT:ANGLe
     level: not_modeled
     note: 角度单位未建模（相位按度）。
+    gap: model_work
   - header: UNIT:ARBitrary:ANGLe
     level: not_modeled
     note: 角度单位未建模（相位按度）。
+    gap: model_work

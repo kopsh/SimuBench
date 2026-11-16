@@ -611,6 +611,13 @@ cases:
       - query: ":READ?"
         expect_value: 100.0
         tolerance: 2.4e-4
+      # 长形式同样匹配；NINF 是数值 −∞，按超范围拒绝，不当作 LREading（#1096）
+      - send: ":CALC:MATH:CFAC LREADING"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: ":CALC:MATH:CFAC NINF"
+      - query: ":SYST:ERR?"
+        expect: '-222,"Data out of range"'
   - name: "CALCulate:LIMit：越限标志、FAIL? 与 CLEar"
     manual: "Table 6 > CALCulate:LIMit (LOWer, UPPer, :STATe, FAIL? Outside limits = 1, CLEar)"
     steps:

@@ -71,6 +71,9 @@ class CommandRunner:
 
     def __init__(self, inst: Instrument) -> None:
         self.inst = inst
+        # The header suffixes of the command being run, set for that command only (`_run`): a
+        # named suffix (<f> in :FUNCtion<f>:…) picks its settings, 'function{f}.operator'.
+        self._suffixes: dict[str, int] = {}
 
     def _dispatch(self, unit: Unit, tokens: tuple[Token, ...]) -> tuple[bytes | None, int]:
         self.inst.settle_pending()
@@ -153,32 +156,35 @@ class CommandRunner:
         if (unit.query and not spec.query) or (not unit.query and not spec.set):
             # A header the definition has, used the wrong way: an error even when unknown ones are ignored.
             raise ScpiError(-113, f"{unit.raw_header} is {'not a query' if unit.query else 'a query only'}")
-        # Named header suffixes other than <ch> pick settings too: ``{n}`` in a state path is the
-        # suffix's value (:DISPlay:BOOKmark<n>:XPOSition writes display.bookmark{n}.x).
-        named = {k: v for k, v in suffixes.items() if k != "ch"}
-        if spec.state is not None:
-            body = self._state_command(spec, unit, channel, named)
-        elif spec.op is not None:
-            if unit.query and spec.read is not None:
-                # The same header: set calls the operation, query reads the setting it writes.
-                path = self._resolve(spec.read, channel)
-                body = self._format(self.inst.specs[path], self.inst.state[path], spec.format)
-                return body, parse_duration(spec.duration)
-            result = self._op_command(compiled, spec, unit, channel, suffixes)
-            return result.response, result.duration_ns + parse_duration(spec.duration)
-        elif any(p.type == "channel_list" for p in spec.params):
-            body = self._channel_list_command(spec, unit, channel)
-        elif any(p.type == "quantities" for p in spec.params):
-            body = self._quantities_command(spec, unit, channel)
-        else:
-            body = self._settings_command(spec, unit, channel, named)
-        if body is not None:
-            body = self._reply(compiled, body, channel, suffixes)
-        return body, parse_duration(spec.duration)
+        self._suffixes = suffixes  # for _resolve, the length of this command only
+        try:
+            if spec.state is not None:
+                body = self._state_command(spec, unit, channel)
+            elif spec.op is not None:
+                if unit.query and spec.read is not None:
+                    # The same header: set calls the operation, query reads the setting it writes.
+                    path = self._resolve(spec.read, channel)
+                    body = self._format(self.inst.specs[path], self.inst.state[path], spec.format)
+                    return body, parse_duration(spec.duration)
+                result = self._op_command(compiled, spec, unit, channel, suffixes)
+                return result.response, result.duration_ns + parse_duration(spec.duration)
+            elif any(p.type == "channel_list" for p in spec.params):
+                body = self._channel_list_command(spec, unit, channel)
+            elif any(p.type == "quantities" for p in spec.params):
+                body = self._quantities_command(spec, unit, channel)
+            else:
+                body = self._settings_command(spec, unit, channel)
+            if body is not None:
+                body = self._reply(compiled, body, channel, suffixes)
+            return body, parse_duration(spec.duration)
+        finally:
+            self._suffixes = {}
 
     def _resolve(self, ref: str, channel: int | None) -> str:
         if ref.startswith("ch.") and channel is not None:
-            return f"ch{channel}.{ref[3:]}"
+            ref = f"ch{channel}.{ref[3:]}"
+        for name, value in self._suffixes.items():  # a header suffix picks its settings (#1074)
+            ref = ref.replace("{" + name + "}", str(value))
         return ref
 
     def _reply(
@@ -260,10 +266,10 @@ class CommandRunner:
             if spec.factor != 1:
                 # The command's number is the setting times factor (:TIMebase:RANGe is ten :SCALe).
                 word = V.parse_string(unit.params[0]).strip().upper()
-                keyword = word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT") or word in (
-                    st.special or {}
+                keyword = word in ("MIN", "MINIMUM", "MAX", "MAXIMUM", "DEF", "DEFAULT") or bool(
+                    self._special_key(st, unit.params[0]) or self._word_name(st, unit.params[0])
                 )
-                v = V.parse_float(unit.params[0], st.unit)
+                v = 0.0 if keyword else V.parse_float(unit.params[0], st.unit)
                 value = self._parse_state(st, unit.params[0], path) if keyword else v / spec.factor
             else:
                 value = self._parse_state(st, unit.params[0], path)
@@ -711,7 +717,30 @@ class CommandRunner:
     def _keyword_argument(st: StateSpec, raw: bytes) -> bool:
         """Whether a numeric argument is DEF or one of the setting's special words (AUTO)."""
         word = raw.decode(errors="replace").strip().upper()
-        return word.startswith("DEF") or bool(st.special and word in st.special)
+        return (
+            word.startswith("DEF")
+            or CommandRunner._special_key(st, raw) is not None
+            or CommandRunner._word_name(st, raw) is not None
+        )
+
+    @staticmethod
+    def _special_key(st: StateSpec, raw: bytes) -> str | None:
+        """The ``special`` key a word names, in either SCPI form (``LREading``: ``LRE`` and
+        ``LREADING``); an exact (upper-case) key wins, so a key like ``CH1`` or ``AUTO`` is unchanged."""
+        if not st.special:
+            return None
+        word = raw.decode(errors="replace").strip().upper()
+        if word in st.special:
+            return word
+        return next((k for k in st.special if V.matches_word(word, k)), None)
+
+    @staticmethod
+    def _word_name(st: StateSpec, raw: bytes) -> str | None:
+        """The resolver a ``words`` entry names for this word (either SCPI form), else None."""
+        if not st.words:
+            return None
+        word = raw.decode(errors="replace").strip()
+        return next((name for k, name in st.words.items() if V.matches_word(word, k)), None)
 
     @classmethod
     def _keyword_word(cls, ps: ParamSpec, st: StateSpec | None, raw: bytes) -> bool:
@@ -737,18 +766,15 @@ class CommandRunner:
         self._refuse_not_modeled(st.not_modeled, raw)
         if st.type in ("float", "int"):
             word = raw.decode(errors="replace").strip().upper()
-            # A special word in any SCPI form (MIN for MINimum); an exact key first.
-            key = (
-                (
-                    word
-                    if word in st.special
-                    else next((k for k in st.special if V.matches_word(word, k)), None)
-                )
-                if st.special
-                else None
-            )
-            if st.special and key is not None:
-                value = st.special[key]
+            resolver = self._word_name(st, raw)
+            if resolver is not None and path is not None:
+                # A word a component resolves (#1096): the component returns its number now, and
+                # that number is judged by the range like any written value.
+                return self.inst.resolve_word(path, resolver)
+            special = self._special_key(st, raw)
+            if special is not None and st.special is not None:
+                word = special
+                value = st.special[word]
                 # An infinite special is a mode word, not an extreme (the Infiniium's persistence
                 # MINimum / INFinite): only a finite MIN/MAX/DEF follows the limits.
                 if word.startswith(("MIN", "MAX", "DEF")) and path is not None and math.isfinite(value):

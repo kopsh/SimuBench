@@ -307,6 +307,12 @@ class StateVarInfo(StateSpec):
     )
     value: Any = None
     channel: int | None = None
+    fidelity: Literal["computed_on_read"] | None = Field(
+        None,
+        description="How the model computes what this setting sets, where users should know: "
+        "computed_on_read — a scope's memory depth, whose deep records are computed where they are "
+        "read (#1012, real-models.md 10)",
+    )
 
 
 class DisplayInfo(_Model):

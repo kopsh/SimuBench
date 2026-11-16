@@ -25,11 +25,14 @@
 | decimator | `scope_decimator` | 采样流(从 ADC 的速率到记录的速率:普通、平均、峰值检测、高分辨率,#950) | 已实现 | — |
 | acquisition | `scope_acquisition` | 数据(定时、触发搜索、向采样流请求一帧并存成记录、运行控制;分段存储 `segments`、`rearm_s`、`segment_index`、`memory_points`:一次采集连续取 N 次触发各存一段,全部采满才完成,#957) | 已实现 | 分段存储每段的点数不随段数减少;跨段的测量统计与余辉未建模 |
 | timebase | `scope_timebase` | 数据 | 已实现 | — |
-| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248;触发类型 `mode`:边沿 `edge`、脉宽 `glitch`(`polarity`、`qualifier` 小于/大于/范围/范围外、`greater_at` 超时或结束沿、`width_low`、`width_high`),与边沿触发共用模拟通路上的过零时刻、迟滞、耦合、噪声与释抑,#956) | 已实现(边沿、脉宽;码型、欠幅、串行、视频触发未做) | — |
-| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373) | 测量作用于所选的段(分段存储,#957),跨段的统计未建模;测量窗口只用主记录(没有缩放记录) |
-| waveform_transfer | `waveform_transfer` | 数据 | 已实现 | — |
+| trigger | `scope_trigger` | 数据(每个信源各自的电平 `level_by_source`,#248;触发类型 `mode`:边沿 `edge`、脉宽 `glitch`(`polarity`、`qualifier` 小于/大于/范围、`width_low`、`width_high`),与边沿触发共用模拟通路上的过零时刻、迟滞、耦合、噪声与释抑,#956) | 已实现(边沿、脉宽;码型、欠幅、串行、视频触发未做) | — |
+| measurements | `scope_measurements` | 数据 | 已实现(VPP…PERiod 与形状测量:顶/底、过冲/预冲、上升/下降、脉宽、占空比、边沿与脉冲计数,#248;相对触发点的时间测量 XMAX/XMIN/VTIMe/TEDGe/TVALue、位速率 BRATe、两源 DELay/PHASe,触发电平 ASETup,#350;屏幕测量列表:不带 ? 的测量上屏、槽位上限 `slots`、RESults? 带统计、CLEar、ALL? 快照,#373;光标:方式 MODE(手动/跟踪波形/跟踪测量)、X1/X2/Y1/Y2 位置与差值、CURSor? 回 <x>,<y> 并把方式切到跟踪(手册 CAUTION)、编号光标 <K> 的类型/信源/位置/差值关系,#1074) | 测量作用于所选的段(分段存储,#957),跨段的统计未建模;测量窗口只用主记录(没有缩放记录) |
+| math | `scope_math` | 数据(读的时候从源记录算出:逐点运算 ADD/SUBTract/MULTiply/DIVide/COMMonmode/ABSolute/INVert/SQUare/SQRT/MAGNify、LN/LOG/EXP/TEN/LINear(Ax+B)、延迟与门控、微分/积分(含直流校正)/平滑/平均/桶极值、单极点高通与 4 阶 Bessel 低通、加窗 FFT(幅度 dBm/dBV 系/功率/VRMS、相位、PSD)、g(t) 源(GOFT)、FFT 峰值标注与 :MEASure:FFT:*(峰频率/幅度、差值、通道功率、PSD、OBW、THD),#1074;函数定义在 function<f>.* 设置里,传输与测量经 `MathSource` 协议取记录) | 已实现(UXR1104B、UXR0334B、DSOX 2024A 接入) | 幅度解调 ADEMod、测量趋势/直方图、码型平均、X-Y 显示、用户自定义算子未建模;SDS 2104X Plus、WavePro 804HD 尚未接入(EXEMPT 债表,#1159/#1160) |
+| waveform_transfer | `waveform_transfer` | 数据(信源可为 FUNCtion<F>:经 `MathSource` 协议从 `scope_math` 取函数记录,#1074) | 已实现 | — |
 
-内置型号(keysight-dsox2024a、keysight-uxr0334b、keysight-uxr1104b、siglent-sds2104xplus、lecroy-wavepro804hd)全覆盖,无豁免。
+前面板校准输出(AUX OUT / CAL OUT,#1170):`cal_output`(信号:`selection` 取 `:CALibrate:OUTPut` 存下的选择,`port` 分 `cal`/`aux`,`rise` 限 AUX 沿的带宽)经 `output_stage` 出到仪器端口 `AUX_OUT`、`CAL_OUT`(可接另一台仪表)。不是功能块(不进块清单、不进 EXEMPT):只有带这些输出的型号(UXR0334B、UXR1104B)使用。DC、ZERO(−440 mV)、探补方波(750 Hz)、97 MHz / 7.5 MHz 时钟方波已实现;TOUT(需高带宽触发选件)与 DPULse/NDPULse 停在 ZERO 电平,未建模。
+
+内置型号:DSOX 2024A、SDS 2104X Plus、WavePro 804HD 豁免 math 块(EXEMPT 债表,上面注明);其余全覆盖。
 
 ## sampling_oscilloscope(等效时间采样示波器,#1094)
 
@@ -242,6 +245,41 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 | trigger | `trigger_model`(现有) | 数据 | 已实现 | — |
 
 F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控、时基、计数、统计与触发),类别默认面板见 `library/panels.py` 的 `_counter`。计数按主谱线的周期事件建模:阈值穿越的波形用 `sample_rel` 在一个周期上采样并线性内插;非谐波相关的多音信号按最强谱线计数(模型边界)。每个事件加内插器单次分辨率(默认 1 ns,模型值)与触发误差(默认 1 ns)的合成误差,按虚拟时刻与种子确定：频率/周期的相对分辨率随门时间变长而下降(约 √2×单次分辨率/门时间),时间间隔的两个通道误差各自独立抽取。累加按半开区间 [start, end) 计数,恰好落在门末的事件归下一门;门控「外部」表示由触发模型开始这一轮(触发源),门长仍由门时间给出。53230A 的无间隙连续测量与时间戳不在首波,后由 #328、#385 补上。
+
+## tunable_laser(可调激光源,#1103)
+
+框图:外腔可调激光(波长调谐、LD 电流)→ 输出功率控制 → 光闸 → 光输出;波长扫描控制器驱动调谐元件,在扫描中按时间改变波长。
+依据:可调激光源的通用架构(外腔调谐 + 功率控制 + 光闸 + 扫描控制);第一台内置型号 Santec TSL-570(#1104)入库手册后核对。
+
+| 块 | 组件 | 求解层级 | 实现状态 | 债务 |
+| --- | --- | --- | --- | --- |
+| laser | `tunable_laser` | 信号(光功率)+ 数据(波长随光传递,D71;绝对波长误差) | 已实现 | 跳模、线宽与相干控制、扫描中的功率平坦度、功率建立过程不建模 |
+| shutter | `tunable_laser` | 信号 | 已实现 | — |
+| sweep | `tunable_laser` | 数据(扫描在虚拟时间里:连续/步进、循环、循环间隔;任一时刻的波长由设置与起始时刻算出,`Session.at_instant`) | 已实现 | 扫描中改设置按新设置算整段;触发输出未建模(记录由自己的命令开始) |
+
+## optical_power_meter(光功率计,#1103)
+
+框图:探头(光电二极管,光谱响应)→ 量程放大 → ADC 平均 → 读数(W/dBm/dB);记录把读数按采样率存成数组。
+依据:光功率计的通用架构(探头 + 量程跨阻 + 平均 + 记录);第一台内置型号 OPM-230(#1105)入库手册后核对。
+
+| 块 | 组件 | 求解层级 | 实现状态 | 债务 |
+| --- | --- | --- | --- | --- |
+| detector | `optical_power_meter` | 数据(平均光功率 × 实际波长与设定波长的响应度之比 × 增益误差 + 暗偏置;调零取当时的读数,带光调零会把光也调掉) | 已实现 | 探头的非线性、温度漂移不建模 |
+| ranging | `optical_power_meter` | 数据(自动/手动量程、超量程读数;读数噪声用仪表通用的 `noise` 参数,按量程满度与平均时间) | 已实现 | 换量程的时间不建模 |
+| logging | `curve_buffer` | 数据(功率计是 `TraceSource`,每点在自己的时刻求值:扫描中每点对应那一时刻的波长) | 已实现 | — |
+
+## optical_attenuator(可变光衰减器,#1103)
+
+框图:光输入 → 衰减元件(插损 + 可调衰减,随波长的附加损耗)→ 光闸 → 监测分光 → 光输出;功率模式由监测读数调节衰减。
+依据:可变光衰减器的通用架构;第一台内置型号 9951Y(#1106)入库手册后核对。
+
+| 块 | 组件 | 求解层级 | 实现状态 | 债务 |
+| --- | --- | --- | --- | --- |
+| attenuator | `variable_optical_attenuator` | 信号(插损 + 衰减 + 实际波长与设定波长的附加损耗之差;改衰减后经到位时间阶跃到新值) | 已实现 | 回波损耗、偏振相关损耗不建模 |
+| shutter | `variable_optical_attenuator` | 信号 | 已实现 | — |
+| power_control | `variable_optical_attenuator` | 信号(按输入功率求出使输出等于目标的衰减,限在 0 … 最大衰减,够不到时 UNREACH) | 已实现 | 功率模式下的到位过程不建模 |
+
+测试台上的固定光衰减器仍是配件 `optical_attenuator`(D71);可变光衰减器是仪表内部组件。验证:`sb-tls-1` → `sb-voa-1` → `sb-opm-1`(`validation/benches/optical_sweep.bench.yaml`,`tests/test_optical_instruments.py`),类别默认面板见 `library/panels.py` 的 `_tunable_laser`、`_optical_power_meter`、`_optical_attenuator`。
 
 ## 缺口清单 v1(#309 定稿)
 

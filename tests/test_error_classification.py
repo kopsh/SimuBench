@@ -30,14 +30,19 @@ def _last(session, kind: str = "error") -> dict:
 
 
 def test_a_command_the_coverage_marks_not_modeled(tmp_path):
-    """覆盖表中标为未实现的命令：not_modeled，出处是覆盖表文件（内置真实型号）。"""
-    s = _open(tmp_path, "siglent-sds2104xplus")
+    """覆盖表中标为未实现的命令：not_modeled，出处是覆盖表文件（真实型号，未分拣时不带原因）。"""
+    bench = tmp_path / "bench.yaml"
+    bench.write_text(
+        yaml.safe_dump({"name": "classification", "instruments": {"dut": {"model": "acme-dm1"}}}),
+        encoding="utf-8",
+    )
+    s = open_bench(bench, clock="command", definition_dirs=[ROOT / "tests/models/acme-dm1"])
     try:
-        s.write("dut", b":AUToset\n")
+        s.write("dut", b":TRIGger:COUPling AC\n")  # in the coverage table, untriaged (no gap)
         e = _last(s)
         assert e["code"] == -113
         assert e["reason"] == "not_modeled"
-        assert e["origin"].endswith("siglent-sds2104xplus.coverage.yaml")
+        assert e["origin"].endswith("acme-dm1.coverage.yaml")
         assert "not implemented in this definition" in e["message"]  # the reply text stays (#172)
         assert "gap" not in e and "note" not in e  # an untriaged entry says nothing more (#1037)
     finally:
@@ -45,15 +50,16 @@ def test_a_command_the_coverage_marks_not_modeled(tmp_path):
 
 
 def test_a_not_modeled_command_says_why(tmp_path):
-    """覆盖表写明原因的未实现命令：事件带原因类别、所等的能力与说明（#1037）。"""
+    """覆盖表写明原因的未实现命令：事件带原因类别、所等的能力与说明（#1037）。ADD（#1074）等
+    数学命令已实现，改用仍在等测量统计的 MTRend。"""
     s = _open(tmp_path, "keysight-uxr0334b")
     try:
-        s.write("dut", b":FUNCtion1:ADD CHANnel1,CHANnel2\n")
+        s.write("dut", b":FUNCtion1:MTRend MEAS1\n")
         e = _last(s)
         assert e["code"] == -113
         assert e["reason"] == "not_modeled"
-        assert (e["gap"], e["blocked_by"]) == ("blocked", "C5")
-        assert "math functions" in e["note"]
+        assert (e["gap"], e["blocked_by"]) == ("blocked", "measurement-statistics")
+        assert "measurement statistics" in e["note"]
         s.write("dut", b":SYSTem:CLOud:DISConnect\n")  # cloud service: out of scope (#1073)
         e = _last(s)
         assert e["gap"] == "out_of_scope" and "blocked_by" not in e

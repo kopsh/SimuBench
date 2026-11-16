@@ -8,11 +8,14 @@ from typing import ClassVar
 
 import pytest
 
+from helpers import raises_with
+from simubench.api import open_bench
 from simubench.cli import main
 from simubench.engine.component import Component, PortSpec, component, registry
 from simubench.engine.validate import validate_data
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.library.loader import DefinitionLibrary, layered_definition_data, load_yaml
+from simubench.scpi.errors import ScpiError
 
 ROOT = Path(__file__).resolve().parents[1]
 AWG = load_yaml((ROOT / "validation" / "instruments" / "sb-awg-2.yaml").read_text(encoding="utf-8"))
@@ -302,3 +305,39 @@ def test_a_quantizing_adc_and_its_transfer_must_share_the_offset_convention():
     assert [c for c in codes(data) if c[0] == "E-DEF-OFFSET-CONVENTION"] == [
         ("E-DEF-OFFSET-CONVENTION", f"/components/{data['components'].index(xfer)}/params/offset")
     ]
+
+
+def _fluke() -> dict:
+    path = ROOT / "src/simubench/library/instruments/fluke-8588a.yaml"
+    return layered_definition_data(load_yaml(path.read_text(encoding="utf-8")), path)
+
+
+def test_a_misspelled_words_resolver_is_reported_with_the_known_ones():
+    bad = _fluke()
+    bad["state"]["calc.math.c"]["words"] = {"LREading": "last_reding"}
+    _, report = validate_definition_data(bad)
+    [d] = report.diagnostics
+    assert (d.code, d.pointer) == ("E-DEF-WORDS-RESOLVER", "/state/calc.math.c/words/LREading")
+    assert d.suggestion == "改为 'last_reading'"
+
+
+def test_a_words_setting_no_component_binds_is_reported():
+    bad = _fluke()
+    bad["state"]["loose"] = {"type": "float", "default": 0.0, "words": {"LREading": "last_reading"}}
+    assert ("E-DEF-WORDS-UNBOUND", "/state/loose/words/LREading") in codes(bad)
+
+
+def test_special_keys_that_are_one_word_are_reported():
+    bad = _fluke()
+    bad["state"]["calc.math.c"]["special"] = {"LRE": 1.0, "LREading": 1.0}
+    assert ("E-DEF-SPECIAL-DUPLICATE", "/state/calc.math.c/special/LREading") in codes(bad)
+
+
+def test_a_word_no_component_resolves_is_refused_at_run_time_with_224():
+    s = open_bench(ROOT / "examples" / "benches" / "fluke-8588a.bench.yaml", idle="off")
+    try:
+        inst = next(iter(s.instruments.values()))
+        with raises_with(ScpiError, "no component resolves the word"):
+            inst.resolve_word("calc.math.c", "nothing")
+    finally:
+        s.close()

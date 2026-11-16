@@ -1,0 +1,158 @@
+schema: simubench.instrument/1
+id: sb-tls-1
+manufacturer: SimuBench
+model: SB-TLS-1
+class: tunable_laser
+version: 1
+description: >-
+  可调激光源（验证仪表，#1103）：1480–1640 nm 连续光，功率 10 µW–20 mW，光闸；波长扫描可连续（速度 nm/s）
+  或步进（步长、驻留时间），可多次循环，扫描在虚拟时间里进行，光纤上的功率计与衰减器看到的是每一时刻的波长。
+  绝对波长误差 +2 pm。
+identity:
+  serial: SBTLS000001
+  firmware: "1.0.0"
+state:
+  wavelength:
+    type: float
+    unit: M
+    min: 1.48e-6
+    max: 1.64e-6
+    default: 1.55e-6
+    label: 波长
+    label_en: Wavelength
+  power:
+    type: float
+    unit: W
+    min: 1.0e-5
+    max: 2.0e-2
+    default: 1.0e-3
+    label: 输出功率
+    label_en: Output power
+  output:
+    type: bool
+    default: false
+    label: 激光输出
+    label_en: Laser on
+  shutter:
+    type: bool
+    default: false
+    label: 光闸关闭
+    label_en: Shutter closed
+  sweep.mode:
+    type: enum
+    options: [CONTinuous, STEPped]
+    default: CONTinuous
+    label: 扫描方式
+    label_en: Sweep mode
+  sweep.start:
+    type: float
+    unit: M
+    min: 1.48e-6
+    max: 1.64e-6
+    default: 1.50e-6
+    label: 扫描起点
+    label_en: Sweep start
+  sweep.stop:
+    type: float
+    unit: M
+    min: 1.48e-6
+    max: 1.64e-6
+    default: 1.60e-6
+    label: 扫描终点
+    label_en: Sweep stop
+  sweep.speed:
+    type: float
+    min: 0.5
+    max: 200.0
+    default: 10.0
+    label: 扫描速度 (nm/s)
+    label_en: Sweep speed (nm/s)
+  sweep.step:
+    type: float
+    unit: M
+    min: 1.0e-12
+    max: 1.6e-7
+    default: 1.0e-9
+    label: 步长
+    label_en: Step
+  sweep.dwell:
+    type: float
+    unit: S
+    min: 1.0e-3
+    max: 100.0
+    default: 0.1
+    label: 驻留时间
+    label_en: Dwell
+  sweep.cycles:
+    type: int
+    min: 1
+    max: 999
+    default: 1
+    label: 循环次数
+    label_en: Cycles
+components:
+  - name: laser
+    type: tunable_laser
+    params:
+      wavelength: $wavelength
+      power: $power
+      enabled: $output
+      shutter_closed: $shutter
+      wavelength_offset: 2.0e-12
+      sweep_mode: $sweep.mode
+      sweep_start: $sweep.start
+      sweep_stop: $sweep.stop
+      sweep_speed: {from: $sweep.speed, scale: 1.0e-9}
+      sweep_step: $sweep.step
+      sweep_dwell: $sweep.dwell
+      sweep_cycles: $sweep.cycles
+ports:
+  instrument:
+    OUT: laser.out
+display:
+  summary: [wavelength, power, output, sweep.mode, sweep.start, sweep.stop]
+capabilities: [tunable_laser]
+commands:
+  - header: "[:SOURce]:WAVelength"
+    state: wavelength
+  - header: "[:SOURce]:WAVelength:FREQuency"
+    op: laser.frequency
+    params: [{name: value, type: float, optional: true}]
+  - header: ":FETCh:WAVelength"
+    op: laser.wavelength
+    set: false
+  - header: "[:SOURce]:POWer"
+    state: power
+  - header: "[:SOURce]:POWer:STATe"
+    state: output
+  - header: "[:SOURce]:POWer:SHUTter"
+    state: shutter
+  - header: "[:SOURce]:WAVelength:SWEep:MODE"
+    state: sweep.mode
+  - header: "[:SOURce]:WAVelength:SWEep:STARt"
+    state: sweep.start
+  - header: "[:SOURce]:WAVelength:SWEep:STOP"
+    state: sweep.stop
+  - header: "[:SOURce]:WAVelength:SWEep:SPEed"
+    state: sweep.speed
+  - header: "[:SOURce]:WAVelength:SWEep:STEP"
+    state: sweep.step
+  - header: "[:SOURce]:WAVelength:SWEep:DWELl"
+    state: sweep.dwell
+  - header: "[:SOURce]:WAVelength:SWEep:CYCLes"
+    state: sweep.cycles
+  - header: "[:SOURce]:WAVelength:SWEep:STATe"
+    op: laser.sweep_state
+    set: false
+  - header: "[:SOURce]:WAVelength:SWEep:COUNt"
+    op: laser.sweep_count
+    set: false
+  - header: "[:SOURce]:WAVelength:SWEep:TIME"
+    op: laser.sweep_time
+    set: false
+  - header: ":INITiate[:SWEep]"
+    op: laser.start
+    query: false
+  - header: ":ABORt"
+    op: laser.stop
+    query: false

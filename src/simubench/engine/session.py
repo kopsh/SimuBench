@@ -145,9 +145,11 @@ class Session:
         self._electrical_version = 0
         self._circuit: tuple[int, Circuit] | None = None
         self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
-        self._output_cache: dict[tuple[int, str, str, float | None], Signal] = {}
+        self._output_cache: dict[tuple[int, str, str, float | None, int | None], Signal] = {}
         #: The tuning point of the read in progress (:meth:`tuned`); None outside one.
         self.tune_hz: float | None = None
+        #: The instant an evaluation in progress is for (:meth:`at_instant`); None: now.
+        self._at_ns: int | None = None
         #: Frames of the sample streams (D67), newest last: (signal version, uid, port, request) ->
         #: (frame, samples asked for along the chain to make it).
         self._frame_cache: OrderedDict[tuple[int, str, str, FrameRequest], tuple[SampleFrame, int]] = (
@@ -277,21 +279,33 @@ class Session:
         comp = self.components.get(owner)
         return (comp, port) if comp is not None and port in comp.ports else None
 
-    def optical_input(self, comp: Component, port: str) -> Signal:
-        """The optical power arriving at an optical input exposed on the bench: the output of the
-        one optical output on its fibre (D71); no fibre or no source: darkness."""
+    def optical_feed(self, comp: Component, port: str) -> tuple[Component, str] | None:
+        """The one optical output on the fibre at an optical input exposed on the bench (D71);
+        None without a fibre or a source on it."""
         ref = self.port_ref(comp, port)
         net = None if ref is None else self.port_net.get(ref)
         if net is None:
-            return Signal.zero()
+            return None
         for member in self.nets[net].members:
             found = self.component_at(member)
             if found is None or found[0] is comp:
                 continue
             spec = found[0].ports.get(found[1])
             if spec is not None and spec.medium == "optical" and spec.direction == "out":
-                return self.cached_output(*found)
-        return Signal.zero()
+                return found
+        return None
+
+    def optical_input(self, comp: Component, port: str) -> Signal:
+        """The optical power arriving at an optical input exposed on the bench: the output of the
+        one optical output on its fibre (D71); no fibre or no source: darkness."""
+        found = self.optical_feed(comp, port)
+        return Signal.zero() if found is None else self.cached_output(*found)
+
+    def optical_carrier(self, comp: Component, port: str) -> float | None:
+        """The wavelength (m) of the light arriving at an optical input exposed on the bench (D71,
+        #1103); None in the dark or when the source does not say."""
+        found = self.optical_feed(comp, port)
+        return None if found is None else found[0].carrier(found[1])
 
     def node_of(self, comp: Component, port: str) -> str:
         ref = self.port_ref(comp, port)
@@ -437,8 +451,28 @@ class Session:
         finally:
             self.tune_hz = outer
 
+    @property
+    def instant_ns(self) -> int:
+        """The instant signals are evaluated for: the one :meth:`at_instant` set, else now."""
+        return self.now_ns if self._at_ns is None else self._at_ns
+
+    @contextlib.contextmanager
+    def at_instant(self, t_ns: int | None) -> Generator[None]:
+        """Evaluate signals as they were at instant ``t_ns`` (≤ now) under the current settings
+        (#1103): a block whose output moves in time by itself — a laser sweeping its wavelength, an
+        attenuator settling — reads :attr:`instant_ns` instead of ``now_ns``. A logger catching up
+        on points it missed between two commands uses it; like :meth:`tuned` it is an input of the
+        evaluation only (part of :meth:`cached_output`'s key, no event, no version bump).
+        Re-entrant: leaving restores the outer value."""
+        outer = self._at_ns
+        self._at_ns = None if t_ns is None else int(t_ns)
+        try:
+            yield
+        finally:
+            self._at_ns = outer
+
     def cached_output(self, comp: Component, port: str) -> Signal:
-        key = (self._signal_version, comp.uid, port, self.tune_hz)
+        key = (self._signal_version, comp.uid, port, self.tune_hz, self._at_ns)
         hit = self._output_cache.get(key)
         if hit is None:
             if len(self._output_cache) > 4096:

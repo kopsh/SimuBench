@@ -61,7 +61,7 @@ channel_state:
     min: 1.0
     max: 10000.0
     default: 50.0
-    special: {INF: .inf, INFinity: .inf}
+    special: {INFinity: .inf}
     label: 输出负载设定
     label_en: Output load
   # 调制（#327，awg_modulator）：总开关、类型、内部调制频率与各类型的深度/频偏。

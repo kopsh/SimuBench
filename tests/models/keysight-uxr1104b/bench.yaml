@@ -19,6 +19,6 @@ instruments:
 wires:
   - {from: awg.CH1, to: scope.CH1}
   - {from: awg.CH2, to: scope.CH2}
-  - {from: scope.CAL OUT, to: scope.CH3}
-  - {from: scope.AUX OUT, to: scope.CH4}
+  - {from: scope.CAL_OUT, to: scope.CH3}
+  - {from: scope.AUX_OUT, to: scope.CH4}
 run: {seed: 1, clock: command, idle: "off"}

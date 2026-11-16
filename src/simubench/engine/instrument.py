@@ -294,6 +294,15 @@ class Instrument:
     def get_state(self, path: str) -> Any:
         return self.settings.get(path)
 
+    def resolve_word(self, path: str, name: str) -> float:
+        """The number a bound component gives for a ``words`` entry of the setting (#1096): -224
+        when none of them resolves ``name``."""
+        for comp in self._watchers.get(path, ()):
+            value = comp.resolve_word(self._watch_param.get(path, {}).get(comp.uid), path, name)
+            if value is not None:
+                return value
+        raise ScpiError(-224, f"no component resolves the word {name!r} of {path}")
+
     def set_state(
         self, path: str, value: Any, *, source: str = "scpi", internal: bool = False, outside: bool = False
     ) -> None:

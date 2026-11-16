@@ -31,7 +31,7 @@ from .portref import ladder, split
 from .settings import validate_value
 from .validate import Report, _ptr, unknown_name
 
-_NODE = re.compile(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?")
+_NODE = re.compile(r"\[:?[A-Za-z_][A-Za-z0-9_]*(?:<\w+>)?\]|:?[A-Za-z_][A-Za-z0-9_]*(?:<\w+>)?")
 
 
 def _protocol_gaps(cls: type, protocol: type) -> list[str]:
@@ -87,6 +87,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     _check_deviations(d, known, report)
     _check_options(d, known, report)
     _check_constraints(d, report)
+    _check_words(d, known, report)
     _check_wiring(d, classes, report)
     compiled = [_check_command(d, i, cmd, classes, report) for i, cmd in enumerate(d.commands)]
     _check_overlaps(d, compiled, report)
@@ -377,6 +378,66 @@ def _check_options(d: InstrumentDefinition, known: dict[str, type[Component]], r
             )
 
 
+def _setting_key(ref: str) -> tuple[bool, str]:
+    """A state binding as (per channel, name): ``ch.x``, ``ch{n}.x`` and ``ch2.x`` are channel ``x``."""
+    m = re.fullmatch(r"ch(?:\d+|\{n\})?\.(.+)", ref)
+    return (True, m.group(1)) if m else (False, ref)
+
+
+def _check_words(d: InstrumentDefinition, known: dict[str, type[Component]], report: Report) -> None:
+    """``words`` (#1115): every resolver a setting names is one a component bound to that setting
+    implements (``Component.resolvers``), and ``special`` has no two keys that are one word."""
+    bound: dict[tuple[bool, str], list[type[Component]]] = {}
+    for specs in (d.components, d.channel_components):
+        for spec in specs:
+            cls = known.get(spec.type)
+            if cls is None:
+                continue
+            for value in spec.params.values():
+                ref = binding_of(value)
+                if ref is not None:
+                    bound.setdefault(_setting_key(ref), []).append(cls)
+    for table, channel in ((d.state, False), (d.channel_state, True)):
+        for path, st in table.items():
+            keys = list((st.special or {}).keys())
+            for i, a in enumerate(keys):
+                for b in keys[i + 1 :]:
+                    if V.matches_word(a, b):
+                        report.add(
+                            "error",
+                            "E-DEF-SPECIAL-DUPLICATE",
+                            _ptr("channel_state" if channel else "state", path, "special", b),
+                            f"special 的键 {a!r} 与 {b!r} 是同一个词（长短形式、大小写只算一个）",
+                            f"只留一个，写成混合大小写的 {a if len(a) >= len(b) else b!r}",
+                            path,
+                        )
+            if not st.words:
+                continue
+            classes = bound.get((channel, path), [])
+            offered = sorted({r for c in classes for r in c.resolvers})
+            for word, resolver in st.words.items():
+                ptr = _ptr("channel_state" if channel else "state", path, "words", word)
+                if not classes:
+                    report.add(
+                        "error",
+                        "E-DEF-WORDS-UNBOUND",
+                        ptr,
+                        f"设置 {path} 声明了 words，但没有组件的参数绑定它，写这个词只会报 -224",
+                        "把设置绑定到实现了该解析器的组件的参数，或去掉 words",
+                        path,
+                    )
+                elif resolver not in offered:
+                    unknown_name(
+                        report,
+                        "E-DEF-WORDS-RESOLVER",
+                        ptr,
+                        f"绑定 {path} 的组件都不实现解析器 {resolver!r}",
+                        resolver,
+                        offered,
+                        path,
+                    )
+
+
 def _check_constraints(d: InstrumentDefinition, report: Report) -> None:
     """Constraints (#1013): instrument-wide settings that exist, values they can hold, a coerced
     value that is not itself forbidden, and power-on and *RST states that keep every constraint."""
@@ -582,9 +643,8 @@ def _check_command(
     )
     indexes = _index_values(cmd)
     if cmd.state is not None:
-        for ref in _expand(cmd.state, indexes):  # a header suffix may pick the setting
-            if not _check_state_ref(d, ref, per_channel, _ptr(*p, "state"), cmd.header, report):
-                break
+        for ref in _expand(cmd.state, indexes):
+            _check_state_ref(d, ref, per_channel, _ptr(*p, "state"), cmd.header, report)
     if cmd.op is not None:
         _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
     for key, value in cmd.args.items():
@@ -593,7 +653,8 @@ def _check_command(
                 if not _check_state_ref(d, ref, per_channel, _ptr(*p, "args", key), cmd.header, report):
                     break
     if cmd.read is not None:
-        _check_state_ref(d, cmd.read, per_channel, _ptr(*p, "read"), cmd.header, report)
+        for ref in _expand(cmd.read, indexes):
+            _check_state_ref(d, ref, per_channel, _ptr(*p, "read"), cmd.header, report)
     for state, value in cmd.writes.items():
         for ref in _expand(state, indexes):  # an index may pick the setting (#248: VIEW CHAN2)
             _check_write(d, ref, value, per_channel, _ptr(*p, "writes", state), cmd.header, report)
@@ -755,9 +816,9 @@ def _check_quantity_write(
 
 
 def _index_values(cmd: CommandSpec) -> dict[str, list[int]]:
-    """The values each index parameter and each named header suffix can take (at most 64 checked
-    per parameter; a suffix's are its ``suffixes`` list)."""
-    out = {name: list(values)[:64] for name, values in (cmd.suffixes or {}).items()}
+    """The values each index parameter and each header suffix can take (at most 64 checked); both
+    substitute ``{name}`` in the command's paths (a suffix picks its settings, #1074)."""
+    out = {k: list(v) for k, v in (cmd.suffixes or {}).items()}
     for ps in cmd.params:
         if ps.index and ps.index_words:
             out[ps.name] = sorted(set(ps.index_words.values()))

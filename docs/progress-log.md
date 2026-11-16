@@ -2221,3 +2221,61 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档 | ✅ `decisions.md` D72、`architecture.md` 2.8、`component-map.md` 的 sampling_oscilloscope 节、`glossary.md`、`product-plan.md` 4.2 的 C19、4.0 第 6 步 |
 | 全量测试不超过 60 s | ✅ 约 35 s（新测试合计约 1.5 s） |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 光器件仪表类别：波长传递、可调激光源、光功率计、可变光衰减器（Issue 1103，#1107 的子项）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 波长随光传递（改 D71） | ✅ `Component.carrier` / `input_carrier`：光源给出被求值时刻的波长，光器件默认传下去，测试台光纤上按网络找唯一的光输出（`Session.optical_feed`、`optical_carrier`）；`Session.instant_ns` 与 `at_instant(t)` 让随时间变化的光可在过去时刻求值（进输出缓存的键，不发事件）；`optical_receiver` 行为不变 |
+| 可调激光源 | ✅ `tunable_laser`：波长、功率、LD 开关、光闸、绝对波长误差；连续 / 步进扫描、循环与间隔，`start`/`stop`、扫描状态、已完成循环、扫描总时长、当前波长、光频率读写（c/λ）；扫描结束回到设定波长或停在起点 / 终点（`park`）；调制、相干控制、触发输出不建模 |
+| 光功率计 | ✅ `optical_power_meter`：按设定波长校准的光谱响应（设错波长按响应度之比读偏）、增益误差、暗偏置与调零（带光调零会把光也调掉）、自动 / 手动量程与超量程、平均时间与通用 `noise` 参数、W / dBm / dB（参考可取当前读数）；是 `TraceSource`，记录用现有的 `curve_buffer`，每点在自己的时刻求值 |
+| 可变光衰减器 | ✅ `variable_optical_attenuator`：插损 + 衰减、随波长的附加损耗（按设定波长校准）、光闸、改衰减后的到位时间（阶跃）、功率模式（按目标输出功率调衰减，够不到时 UNREACH）、监测输出功率；固定的 `optical_attenuator` 配件不变 |
+| 类别模板 | ✅ `docs/blocks/` 的 `tunable_laser`、`optical_power_meter`、`optical_attenuator`；`library/panels.py` 三个类别默认面板（Web 与 TUI 都按 API 给的面板绘制）；Web 类别清单与中英文类别名 |
+| `sb-*` 仪表与测试 | ✅ `sb-tls-1`、`sb-opm-1`、`sb-voa-1`，`validation/benches/optical_sweep.bench.yaml`；`tests/test_optical_instruments.py`：静态读数 = 0 dBm − 1.2 dB − 10 dB；功率计设 1310 nm 读 1550 nm 光偏 +0.458 dB（1/0.9）；改衰减 50 ms 后到位；c/f 写入；1500 → 1600 nm、10 nm/s 扫描按 100 Hz 记 1000 点，逐点与该时刻波长下的解析值相差 < 0.001 dB；关光闸读暗偏置，调零后归零 |
+| 文档 | ✅ `decisions.md` D71（波长、过去时刻求值、代价）、`architecture.md` 2.7、`component-map.md` 三个新类别节、`glossary.md`、`product-plan.md` 3.4 的例外、4.2 的 C20、第 7 节 |
+| 全量测试不超过 60 s | ✅ 约 40 s（新测试合计约 0.5 s） |
+| `scripts/check.sh` 通过 | ✅ |
+
+## N9042B 的 µW 通路：POW:MW:PATH 的 LNP / MPB / 全旁路与按通路的指标（Issue 1039）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| MW:PATH 与 MW:PRESelector 命令 | ✅ `:POW:MW:PATH` 四个值（STD 预置任何整机可用；LNP 需选件 LNP，MPB/FULL 需选件 MPB——FULL 同时需要 LNP 与 MPB，单选件字段按 MPB 门控，假设）；按值 `when` + `option` 分流，未装选件发对应值报 -224，手册写 -241（第 575、577 页）——按值选件门控待 #1113，覆盖表注明；`:POW:MW:PRES` ON/OFF 用 `writes` 连带写通路（ON→STD、OFF→MPB，第 577 页），MW:PATH 经单向约束带动预选器开关（D69 coerce） |
+| 通路 2a（LNP） | ✅ 选件 LNP；预选器仍在链上（数据手册 p.8）；只在 3.6 GHz 以上、前放不在用时接入（手册 p.575 的规则按中心频率判断，覆盖表注明）；DANL 2a（p.23 typical 列）、SHI 2a（p.26）、TOI 2a（p.28 nominal）、压缩 2a（p.20）、频响 2a（p.11）按 D70 嵌套映射与按设置分组的偏差；前放 FULL 开着时 LNP 不用、回落 1c（p.575），FULL 通路同理回落 3c |
+| 通路 3a/3c（MPB）与 4a（全旁路） | ✅ 选件 MPB；MPB 旁路预选器（3.6 GHz 以上），镜像与信号同幅度（`image_rejection` 按通路取 0 dB，p.577）；3a 的 DANL/压缩/频响、3c 的频响（p.11，前放按 1c 的假设注明）、4a 的 DANL/压缩/频响（p.11、p.20、p.23-24）；MPB/FBP 没有 SHI/TOI（不声明，理想） |
+| 定义、覆盖表、用例与示例测试台同步 | ✅ `simubench validate`；`simubench coverage keysight-n9042b` 一致（实现 68 · 接受 8）；`simubench cases tests/models/keysight-n9042b/cases.yaml` 26/26（新增 4 个用例：命令与选件门控、2a 噪声底、3a 噪声底 + 镜像差值 ≈ 0 dB、4a 噪声底）；`tests/models/keysight-n9042b/bench.yaml` 加 sa_lnp/sa_mpb/sa_fbp 与 sg3 |
+| LNA 不做并写明 | ✅ 参考手册（2014 版）与多触摸版（9018-04666）的 SA 模式都没有独立的 LNA 命令，1b/1d/2b/3b/3d/4b 不建模，覆盖表 `:MW:PATH` 与 `:GAIN[:STATe]` 的 note 写明 |
+| `scripts/check.sh` 通过 | ✅（`test_conditional_params` 两条随定义增长的索引/选件断言同步；四处守卫/定义解析移到收集期，修并行负载下的 D49 边缘超时，断言未变） |
+
+## 示波器：数学函数、FFT 与光标（Issue 1074）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 一台 `sb-*` 示波器的 FFT 迹线，对已知单音的峰值频率与幅度和窗的解析修正一致（F1-3） | ✅ `tests/test_scope_math.py`：5 种窗（矩形/汉宁/汉明/布莱克曼-哈里斯/平顶）下 0.7 V 相干单音幅度读 0.700000、dBm = 20·log10(0.7·√2) 精确（单边折算，DC/奈奎斯特不倍频）；峰值频率 = 设置频率；ENBW = Σw²/(Σw)²/dt，分辨率查询即 ENBW；超出 `fft_max_points`/`fft_span_max` 拒绝（−221）不截断 |
+| 数学通道与逐点手算一致 | ✅ 纯函数对拍：滑动平均、微分、积分、4 阶 Bessel-Thompson 低通（双线性变换，−3 dB 点走到 |H|=1/√2）、高通、平滑、限幅包络；递归函数引用成环报 −221；网格不对齐报 −221 |
+| 验证仪表接入块图 | ✅ `sb-dso-4` 挂 `scope_math`（function1/2 设置、math/meas/xfer 组件参数）；`docs/blocks/oscilloscope.yaml` 增 math 块、`docs/component-map.md` 更新；e2e 内部结构图计数同步（节点 20、边 29、虚线 11） |
+| 真实型号接入，覆盖表改实现并有手册用例 | ✅ UXR1104B 与 UXR0334B（同一命令集）：16 个函数 × 5 条命令 + 60 个标记 × 若干 + MEASure:FFT 共 86 条实现，覆盖表实现 196 条（1148 条的 17.6%，此前 113 条 9.8%），96 条 blocked_by C5 清零；`tests/models/keysight-uxr1104b|uxr0334b/cases.yaml` 65 用例/台全过（含 FFT 相干窗下峰值频率 ±1 bin 容差、PSD/CPW/OBW/THD）。**DSO-X 2024A 未接入**（EXEMPT 债表），跟进 #1155 |
+| 光标 | ✅ `:MARKer` 屏幕光标（WAVeform 模式 Y 对轨迹、Y 模式两水平线）与编号 1–60 光标（X/Y/DELTa 关系、TRACk/MANual）；测量读数经同一 math/meas 链 |
+| `scripts/check.sh` 通过 | ✅（命令 runner 支持 `suffixes` 头替换、`MathSource` 协议、scpi 词内数字 `X1Position` 解析为平台改动） |
+
+## 示波器：UXR1104B 对齐 UXR0334B 已接入的 95 条（Issue 1176）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 三处文件移植，组件代码不动 | ✅ `keysight-uxr1104b.yaml`：+53 state、+91 命令（校准输出 4 条由 main 的 #1172 先行做成实现级，合并时以其为准）；acquire.mode 的 SEGMented 提正；timebase（reference_percent）/xfer（seg_all、coupling、前导末段数）/acq（分段五参数、memory_points 2G）/front（invert）/probe（ratio、skew）组件参数；未改 `library/components/` |
+| 规格联动值保持 1104B 自己的 | ✅ 分段上限 20,825（数据手册 Max # of segments 高带宽触发使能列的 256 GSa/s 模型列；0334B 的 128 GSa/s 列为 25,680）、`*OPT?` 答 02G（装 2 Gpts 选件，手册表 10；0334B 无选件答 0）、`:ACQuire:BANDwidth:FRAMe?` 113 GHz、`:SYSTem:CAPability:*` 2 Gpts/256 GSa/s/113 GHz、TESTLIMITS 回 1104B 声明范围 |
+| 覆盖表对齐并全分拣 | ✅ `simubench coverage keysight-uxr1104b`：实现 257 · 接受 40（共 25.9%，与 0334B 逐条一致——#1172 把两台的校准输出都提为实现级），可做余量 96（两台相同的 MARKer/TRIGger 尾巴），未分拣 0；(header, level) 集合与 0334B 完全相等；`:DISPlay:BOOKmark<N>:VERTical` 头按手册 p.586 补 `?`（两台均仍 not_modeled） |
+| 手册用例 | ✅ `tests/models/keysight-uxr1104b/cases.yaml` 78/78（移植 12 个用例组，校准输出组与 main 的 #1170 版合并；0334B 的 77/77 不受影响）。规格适配：前导的 Y 增量/满幅按 *RST 500 mV/div、模型串与带宽按本型号；反相 VMAX/VMIN 容差按 0.1 V/div 档 6.1 mV rms 的最坏峰放宽到 ±4.5σ；探头换算证明改小信号 + VAVerage（1 mm 型号最大 500 mV/div，装不下 0334B 的 4 Vpp 读数，且换算过的噪声 0.29 V rms 会顶满） |
+| 顺带修正移植用例里的失效命令 | ✅ awg 幅度命令应为 `[:SOURce<ch>]:VOLTage`（33622A 无 `:VOLTage:AMPLitude`，原样发 -113 不生效：削波用例的 5 Vpp 与恢复步都是空操作，0.4 Vpp 在 1 mV/div 本就削波所以此前未暴露）；`tests/models/keysight-uxr0334b/cases.yaml` 的同款两处未动（不在本 issue 范围） |
+| `scripts/check.sh` 通过 | ✅ |
+
+## 示波器：欠幅/过渡/窗口/超时/第 N 边沿触发与高/低阈值、迟滞选择（Issue 1184）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| C8 里不依赖 C7 瞬态信号的 22 条做成实现级 | ✅ `ScopeTrigger` 的 mode 增至七个（edge、glitch、runt、transition、window、timeout、nedge）；每族记自己的信源（未设则随主信源），欠幅/过渡/窗口用每源高/低阈值对（HTHReshold 允许 AUX、LTHReshold 仅通道），HYSTeresis 三档映射迟滞带（NREJect=噪声抑制带、HSENsitivity=一半默认带）；搜索沿用边沿触发的插值、迟滞与释抑，仍在解析的稳态信号上 |
+| 两台型号接线 | ✅ `keysight-uxr0334b.yaml`/`keysight-uxr1104b.yaml`：`trigger.mode` 从 EDGE-only 扩到六词（RUNT/TRANsition/TIMeout/WINDow/NEDGe 入 options，其余仍 not_modeled），`mode: $trigger.mode` 首次绑进组件块；+26 state、+19 命令（`[{1|2}]` 的 TERM2 后缀未建模报 -114）；WINDow:CONDition 用 op 让查询按手册只在 INSIDE/OUTSIDE 时带时长限定词（短形 `INS,GTH`） |
+| 覆盖表 | ✅ 两台各 22 条 → implemented（NEDGe 3、TIMeout 3、WINDow 4、RUNT 4、TRANsition 5、HTH/LTH/HYSTeresis 3）：实现 257→279 · 接受 40（25.9%→27.8%，共 1147），可做余量 96→93，未分拣 0 |
+| 手册用例 | ✅ 两台各 +6 组（83/83、84/84）：命中用 TRIGgered 的 :SINGle（真正触发才完成，:TERegister? 置 1），不命中用 AUTO（自动触发兜底、寄存器保持 0）——TRIGgered 下等不到触发的 *OPC? 会一直等（no_trigger: wait），用例里不出现；每族都有命中与不命中路径（欠幅高阈值收到 0.15 V、过渡大于 50 ns、窗口带内限定 100 ns 而带内只有 16.7 ns、超时 800 ns 而顶部只有 500 ns） |
+| 组件单元测试 | ✅ `tests/test_scope_trigger_advanced.py` 16 例：五种模式的触发时刻对解析信号逐一断言（NEDGe 第 7 条边跨两周期探针、超时起算点钳到布防时刻、窗口的进/出/越界与 carry 段、欠幅双极性与宽度限定、过渡四种限定、迟滞三档映射）；两电平走子说明阈值对从对方到达而非自身远带（edge 的 arming 规则会漏恰好这些边） |
+| `scripts/check.sh` 通过 | ✅ ty 零新增；coverage 一致性（header 带 `<S>` 后缀与定义逐字一致）与参数描述守卫已修 |

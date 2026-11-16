@@ -125,9 +125,12 @@ def test_averaging_takes_the_time_of_its_acquisitions():
 
 
 def test_an_average_beyond_the_model_is_refused_before_its_first_acquisition(monkeypatch):
-    """#986: count x record samples beyond ``MAX_REQUEST_FANOUT`` is refused when the acquisition
-    starts, not once the running count gets there — the ADC is not asked for a single frame, by
-    the acquisition or by a measurement after it; a count within the limit still acquires."""
+    """#986, for a record computed whole as one frame (the session's fan-out limit lowered, the
+    scope's own left, so the record is not deep): count x record samples beyond
+    ``MAX_REQUEST_FANOUT`` is refused when the acquisition starts, not once the running count gets
+    there — the ADC is not asked for a single frame, by the acquisition or by a measurement after it;
+    a count within the limit still acquires. A deep record takes such an average and refuses only
+    reads beyond the limit (#1012, test_scope_deep_record.py)."""
     session = open_bench(DSOX, clock="command", seed=1, idle="off")
     query = _noise_query(session)
     scope = session.instruments["scope"].components

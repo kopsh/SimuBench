@@ -7,19 +7,27 @@ import itertools
 import math
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Any, cast
 
 import numpy as np
 
-from ...engine.component import Component, OpResult, PortSpec, RecordSource, binding_of, component, op
+from ...engine.component import (
+    Component,
+    MathSource,
+    OpResult,
+    PortSpec,
+    RecordSource,
+    binding_of,
+    component,
+    op,
+)
 from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
-from ...engine.stream import FrameRequest, SampleFormat, SampleFrame
+from ...engine.stream import MAX_FRAME, MAX_REQUEST_FANOUT, FrameRequest, SampleFrame, beyond_model
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
-from . import adc
 from .calstore import CalibrationStore
 from .measurements import (
     DEFAULT_THRESHOLDS,
@@ -37,7 +45,24 @@ from .measurements import (
     threshold_levels,
     top_base,
 )
+from .scope_math import function_index
 from .scope_pending import Acquisition, PendingAcquisitions, _Segment
+from .scope_record import (
+    CHUNKED_MEASUREMENTS,
+    EAGER_POINTS,
+    AdcView,
+    DecimatorView,
+    DeepRecord,
+    Record,
+    boxcar,
+    chunked_value,
+    peak_detect,
+    quantize,
+)
+
+__all__ = ["Record", "peak_detect"]
+
+_boxcar = boxcar  # the earlier name (tests)
 
 #: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
 DIVS_V = 8
@@ -121,6 +146,7 @@ class ScopeVertical(Component):
         "response": "first_order",
         "scale": "$ch.scale",  # V/div as displayed
         "offset": "$ch.offset",  # V as displayed
+        "invert": False,  # the waveform reflects about 0 V (:CHANnel<N>:INVert, #1067)
         "probe_ratio": 1.0,  # the probe setting the displayed scale and offset include
         "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
@@ -205,13 +231,25 @@ class ScopeVertical(Component):
         return store  # type: ignore[no-any-return]
 
     def correct(self, volts: np.typing.NDArray[np.float64]) -> np.typing.NDArray[np.float64]:
-        """The record as the calibration constants correct it: (raw − offset) × gain, keyed by
-        the displayed V/div (the setting the store names)."""
-        store = self._store()
-        if store is None:
+        """The record as the display stage shows it: the calibration's (raw − offset) × gain,
+        keyed by the displayed V/div (the setting the store names); ``invert`` negates the gain
+        (the waveform reflects about 0 V, #1067)."""
+        coefficients = self.correction()
+        if coefficients is None:
             return volts
-        gain, offset = store.coefficients()
+        gain, offset = coefficients
         return (volts - offset) * gain
+
+    def correction(self) -> tuple[float, float] | None:
+        """The display stage's (gain, offset) now: the calibration's coefficients, or (−1, 0)
+        while ``invert`` reflects the waveform about 0 V (:CHANnel<N>:INVert, #1067) — the same
+        transform a deep record applies from the tuple alone."""
+        store = self._store()
+        coefficients = None if store is None else store.coefficients()
+        if not V.flag(self.param("invert")):
+            return None if coefficients is None else (float(coefficients[0]), float(coefficients[1]))
+        gain, offset = (1.0, 0.0) if coefficients is None else coefficients
+        return -float(gain), float(offset)
 
     def self_calibrate(self) -> None:
         """A self-calibration's write: the coefficients that cancel this unit's gain and offset
@@ -347,6 +385,33 @@ class ScopeProbe(Component):
         self.owner.set_state(path, ratio)  # the display settings follow it (on_state)
         return OpResult()
 
+    @op("set_attenuation")
+    def set_attenuation(self, query: bool = False, word: str = "", words: Any = None, **_: Any) -> OpResult:
+        """A probe attenuation given as the model's words (``DIV1``/``DIV10``, the 1154A's input
+        amplifier, #1067): the ``words`` argument maps each word to the display ratio it sets
+        (the readings change with it); the query answers the word that is set."""
+        assert self.owner is not None
+        table = {str(k).upper(): float(v) for k, v in (words or {}).items()}
+        if query:
+            ratio = round(float(self.param("ratio")), 9)
+            answer = next((w for w, r in table.items() if round(r, 9) == ratio), str(ratio))
+            return OpResult(answer.encode())
+        w = V.parse_string(word).upper() if isinstance(word, bytes) else str(word).upper()
+        if w not in table:
+            raise ScpiError(-224, f"{word}: no such attenuation ({', '.join(table) or 'none declared'})")
+        path = self.bound_path("ratio")
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: ratio names no setting")
+        self.owner.set_state(path, table[w])
+        return OpResult()
+
+    @op("skew_auto")
+    def skew_auto(self, **_: Any) -> OpResult:
+        """``:CHANnel<n>:PROBe:SKEW:AUTO``: the deskew against the probe's own compensation signal.
+        The model has no compensation signal to compare against (no probe identification), so
+        the command parses and the skew keeps its value (#1067)."""
+        return OpResult()
+
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
         """The ``rescales`` settings follow a change of the ratio, however it is written."""
         if key != "ratio" or self.owner is None or not old:
@@ -365,6 +430,19 @@ def channel_index(source: object) -> int:
         if text.startswith(prefix) and text[len(prefix) :].isdigit():
             return int(text[len(prefix) :])
     return 1
+
+
+def short_source(source: object) -> str:
+    """A source word as the reply's short form (the manual's Returned Format): CHANnel1 -> CHAN1,
+    FUNCtion -> FUNC, FUNCtion2 -> FUNC2, anything else as it came."""
+    text = str(source).strip()
+    upper = text.upper()
+    for prefix, short in (("CHANNEL", "CHAN"), ("FUNCTION", "FUNC")):
+        if upper.startswith(prefix):
+            rest = upper[len(prefix) :]
+            if rest == "" or rest.isdigit():
+                return short + rest
+    return text
 
 
 #: Edge slope names across models: SCPI-style and Siglent-style.
@@ -397,37 +475,6 @@ def ladder_down(value: float) -> float:
         if m * 10.0**k <= value * (1 + 1e-12):
             return m * 10.0**k
     return 10.0 ** (k - 1) * 5.0
-
-
-def _boxcar(v: np.typing.NDArray[np.float64], w: int) -> np.typing.NDArray[np.float64]:
-    """The centered boxcar average of ``w`` samples; at the edges the window runs past the record
-    and the edge sample is repeated to fill it (high resolution, F4/D46: white noise falls by
-    sqrt(w), the bandwidth by the window)."""
-    if w <= 1:
-        return v
-    c = np.concatenate(([0.0], np.cumsum(np.pad(v, (w // 2, w - 1 - w // 2), mode="edge"))))
-    return (c[w:] - c[:-w]) / w  # as many samples as it was given, each the mean of its own window
-
-
-@dataclass
-class Record:
-    channel: int
-    t_start_ns: int  # instant of sample 0
-    dt_s: float
-    trigger_index: int
-    volts: np.typing.NDArray[np.float64]  # display volts (probe ratio applied)
-    scale: float
-    offset: float
-    triggered: bool
-    #: Time of sample 0 relative to the trigger as the scope measured it, s: -trigger_index * dt
-    #: plus the trigger's fraction of a sample and its jitter (G5). None: -trigger_index * dt.
-    x_origin_s: float | None = None
-    trigger_ns: int | None = None  # the trigger's instant (holdoff); None: untriggered
-
-    @property
-    def origin(self) -> float:
-        """Time of sample 0 relative to the trigger, s."""
-        return self.x_origin_s if self.x_origin_s is not None else -self.trigger_index * self.dt_s
 
 
 def _upper(values: Any) -> set[str]:
@@ -506,13 +553,8 @@ class ScopeAdc(Component):
         self, volts: np.typing.NDArray[np.float64], scale: float, offset: float
     ) -> np.typing.NDArray[np.float64]:
         """What the ADC keeps: the codes of ``bits``, back in volts."""
-        bits = int(self.param("bits"))
-        if bits <= 0:
-            return volts
-        per_div = self.codes_per_div()
-        off = offset if str(self.param("offset_sign")).lower() == "add" else -offset
-        codes = adc.codes(volts, scale, off, per_div, bits)
-        return codes / per_div * scale - off
+        add = str(self.param("offset_sign")).lower() == "add"
+        return quantize(volts, scale, offset, int(self.param("bits")), self.codes_per_div(), add)
 
     # ---- the sample stream ------------------------------------------------------------------------
 
@@ -532,22 +574,22 @@ class ScopeAdc(Component):
         return self.input(f"in{n}")
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:
-        n = _channel_of(port)
+        return self.view(_channel_of(port)).frame(request)
+
+    def view(self, n: int) -> AdcView:
+        """What channel n's frames are computed from now, as values (a deep record keeps it)."""
         vertical, probe = self._vertical(n), self._probe(n)
-        scale, offset = float(vertical.param("scale")), float(vertical.param("offset"))
-        skew = probe.delay() if probe is not None else 0.0
-        volts = self.analog(n).sample_rel(request.t0_ns, request.offsets_s() - skew)
-        sigma = vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0)
-        if sigma > 0:
-            volts = volts + sigma * gaussian(stream_key(self.session.seed, *request.key), request.indexes())
-        bits = int(self.param("bits"))
-        kept = self.quantize(volts, scale, offset)
-        clipped = False
-        if bits > 0:
-            top, bottom = self.quantize(np.array([1e30, -1e30]), scale, offset)
-            clipped = bool(np.max(kept) >= top or np.min(kept) <= bottom)
-        fmt = SampleFormat("volts", bits=bits, lsb=scale / self.codes_per_div() if bits > 0 else 0.0)
-        return SampleFrame(kept, request.t0_ns, request.dt_s, fmt, clipped=clipped)
+        return AdcView(
+            signal=self.analog(n),
+            skew=probe.delay() if probe is not None else 0.0,
+            sigma=vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0),
+            seed=self.session.seed,
+            scale=float(vertical.param("scale")),
+            offset=float(vertical.param("offset")),
+            bits=int(self.param("bits")),
+            per_div=self.codes_per_div(),
+            add=str(self.param("offset_sign")).lower() == "add",
+        )
 
     def sample_interval(self, port: str) -> float:
         """The converter's own interval: its top rate with the channels that are on. One without a
@@ -627,26 +669,22 @@ class ScopeDecimator(Component):
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:
         source = f"in{_channel_of(port)}"
+        return self.view().frame(
+            request,
+            lambda r: self.input_frames(source, r),
+            lambda samples: self.session.reserve_frames(self, source, samples),
+        )
+
+    def view(self) -> DecimatorView:
+        """The acquisition mode now, as values (a deep record keeps it)."""
         proc = str(self.param("processing"))
         m = self.oversample()
-        native = replace(request, first=request.first * m, count=request.count * m, dt_s=request.dt_s / m)
-        count = self.averages() if m == 1 else 1
-        if count > 1:
-            # Every acquisition of the average is one more request of the same read: one that would
-            # go beyond the model is refused here, before any of them is computed (#986).
-            self.session.reserve_frames(self, source, count * native.count)
-        frame = self.input_frames(source, native)
-        volts, clipped = frame.data, frame.clipped
-        if m > 1:
-            volts = peak_detect(volts, m)
-        elif proc == "average":
-            for k in range(1, count):
-                more = self.input_frames(source, replace(native, index0=native.index0 + k * native.count))
-                volts, clipped = volts + more.data, clipped or more.clipped
-            volts = volts / count
-        elif proc == "eres":
-            volts = _boxcar(volts, round(4.0 ** float(self.param("eres_bits"))))
-        return SampleFrame(volts, request.t0_ns, request.dt_s, frame.fmt, clipped=clipped)
+        return DecimatorView(
+            proc=proc,
+            m=m,
+            count=self.averages() if m == 1 else 1,
+            w=round(4.0 ** float(self.param("eres_bits"))) if proc == "eres" else 1,
+        )
 
     def sample_interval(self, port: str) -> float:
         """The record's sample interval with the current settings."""
@@ -656,15 +694,6 @@ class ScopeDecimator(Component):
     def input_interval(self, port: str) -> float:
         """The converter's interval behind one record sample: the record's, over the oversampling."""
         return self.sample_interval(port) / self.oversample()
-
-
-def peak_detect(samples: np.typing.NDArray[np.float64], m: int) -> np.typing.NDArray[np.float64]:
-    """Peak detect over intervals of ``m`` samples: of each interval's smallest and largest value,
-    the one that departs farther from the interval's ends."""
-    grid = samples.reshape(-1, m)
-    ends = (grid[:, 0] + grid[:, -1]) / 2
-    lo, hi = grid.min(axis=1), grid.max(axis=1)
-    return np.where(np.abs(hi - ends) >= np.abs(lo - ends), hi, lo)
 
 
 @component("scope_timebase")
@@ -699,6 +728,9 @@ class ScopeTimebase(Component):
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
         "reference_divs": 5.0,  # where the trigger (delay 0) sits, divisions from the left; may map a setting
+        # the reference as 0-100 percent of screen (a setting, :TIMebase:REFerence:PERCent, #1067);
+        # set (not None) it takes the place of reference_divs, the delay still moving the trigger
+        "reference_percent": None,
         # A model with a reference mode setting (DELay | POSition) places the trigger from it: in
         # POSition mode the trigger sits `reference_position` percent across the record and the
         # delay setting does not move it; in DELay mode it starts at the centre, moved by `delay`.
@@ -789,7 +821,16 @@ class ScopeTimebase(Component):
         delay = self.param("delay")
         mode = str(self.param("reference_mode") or "").upper()
         position = self.param("reference_position")
-        if mode.startswith("POS") and position not in (None, ""):
+        percent = self.param("reference_percent")
+        if percent not in (None, ""):
+            # the reference as a percent of screen (:TIMebase:REFerence:PERCent, #1067); the delay
+            # still moves the trigger
+            ref = window * float(percent) / 100.0
+            if delay in (None, "") and abs(ref - window / 2) < 1e-15 * window:
+                pre = points // 2
+            else:
+                pre = round((ref - float(delay or 0.0)) / dt)
+        elif mode.startswith("POS") and position not in (None, ""):
             ref = window * float(position) / 100.0
             pre = round(ref / dt)
             pre = max(0, min(points - 1, pre))  # the record still has one sample after the trigger
@@ -825,6 +866,55 @@ class ScopeTimebase(Component):
             lo, hi = float(self.param("lock_min_v")), float(self.param("lock_max_v"))
             if abs(f - 10e6) <= 10e6 * float(self.param("lock_ppm")) * 1e-6 and lo < a <= hi:
                 self._ref_error, self._ref_locked = f / 10e6 - 1, True
+
+    # ---- reference position, AUTO controls (:TIMebase, #1067) -----------------------------------------
+
+    @op("set_reference")
+    def set_reference(self, query: bool = False, word: str = "", **_: Any) -> OpResult:
+        """``:TIMebase:REFerence``: the reference at LEFT, CENTer or RIGHt — 10, 50 or 90 percent
+        of screen, the same setting :TIMebase:REFerence:PERCent writes. The query answers the
+        word, PERC once a percent position is set (the guide, p. 1472)."""
+        assert self.owner is not None
+        path = self.bound_path("reference_percent")
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: reference_percent is not bound to a setting")
+        words = {"LEFT": 10, "CENT": 50, "RIGH": 90}
+        written = {"LEFT": 10, "CENT": 50, "CENTER": 50, "RIGH": 90, "RIGHT": 90}
+        if query:
+            pct = int(self.owner.get_state(path))
+            word = {v: k for k, v in words.items()}.get(pct, "PERC")
+            # the long-form echo answers the model's own words (SYSTem:LONGform)
+            if self.owner.get_state("system.longform"):
+                word = {v: k for k, v in written.items()}.get(pct, "PERCent")
+            return OpResult(word.encode())
+        w = V.parse_string(word).upper() if isinstance(word, bytes) else str(word).upper()
+        if w not in written:
+            raise ScpiError(-224, f"{word}: no such reference (LEFT, CENTer, RIGHt)")
+        self.owner.set_state(path, written[w])
+        return OpResult()
+
+    def auto_control(self, key: str, query: bool, on: bool | None, actual: Any = None) -> OpResult:
+        """The AUTO on/off control of the ``points`` or ``sample_rate`` setting (the acquisition's
+        ``:ACQuire:POINts:AUTO``/``:SRATe:AUTO``, #1067): the query answers whether the setting
+        sits at its AUTO value, ON moves it there, OFF makes the present value (the actual rate,
+        for a sample rate) a manual one."""
+        assert self.owner is not None
+        path = self.bound_path(key)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: {key} is not bound to a setting")
+        spec = self.owner.specs[path]
+        auto = (spec.special or {}).get("AUTO")
+        if auto is None:
+            raise ScpiError(-300, f"{self.uid}: {path} has no AUTO value")
+        if query:
+            return OpResult(b"1" if self.owner.get_state(path) == auto else b"0")
+        if on is None:
+            raise ScpiError(-109, "ON or OFF is required")
+        if V.flag(on):
+            self.owner.set_state(path, auto)
+        elif self.owner.get_state(path) == auto:
+            self.owner.set_state(path, actual() if actual is not None else auto)
+        return OpResult()
 
 
 @dataclass
@@ -872,6 +962,11 @@ def _period(sig: Signal) -> float | None:
     return 1.0 / g
 
 
+#: The trigger families that compare against both thresholds or the signal's state (#1184): each
+#: keeps its own source setting and shares the edge search's machinery.
+_ADVANCED = ("runt", "transition", "window", "timeout", "nedge")
+
+
 @component("scope_trigger")
 class ScopeTrigger(_ChannelBound):
     """Edge and pulse-width (glitch) trigger on its own analog path (instrument-authoring.md 8.4,
@@ -909,6 +1004,25 @@ class ScopeTrigger(_ChannelBound):
     bisected on the signal (without trigger noise); a pulse narrower than that grid can be missed
     there, and an acquisition that finds nothing within that reach waits, looking again at the
     next command (#1000).
+
+    The advanced families (#1184) keep the same machinery on the steady-state signal — an object
+    to trigger on without transient signals (C7): ``mode`` ``runt`` fires on a pulse that crosses
+    ``low_threshold`` but never ``high_threshold`` (a negative one the mirror below
+    ``high_threshold``), ``transition`` on an edge whose time between the two thresholds fails
+    ``transition_mode`` (``gthan``/``lthan`` against ``transition_time``, ``range``/``orange``
+    against ``transition_range_low``/``transition_range_high``), ``window`` on the signal entering or leaving the band between
+    the two thresholds (``window_condition``; ``window_tpoint`` at the boundary instant or after
+    ``window_time`` of staying put, and ``inside``/``outside`` conditions with a ``greater``/
+    ``less`` duration qualifier), ``timeout`` when the signal has stayed high, low or unchanged
+    for ``timeout_time``, and ``nedge`` on the ``nedge_count``-th edge of the family's slope.
+    Each family keeps its own ``<family>_source`` (the edge trigger's source until one is set);
+    the runt, transition and window comparisons read the per-source ``high_threshold``/
+    ``low_threshold`` (``high_by_source``/``low_by_source`` name the sources' settings, like
+    ``level_by_source``), and the hysteresis band follows ``hysteresis_setting`` — ``normal``,
+    ``nreject`` (the noise-reject band) or ``hsensitivity`` (``hsensitivity_divs``, half the
+    normal band when unset). An unset threshold leaves runt, transition and window nothing to
+    compare against: the search finds nothing and a waiting acquisition looks again at the next
+    command.
     """
 
     ports = {"ext": PortSpec("in", "signal", "external trigger input")}
@@ -939,7 +1053,9 @@ class ScopeTrigger(_ChannelBound):
         "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
         "line": ["LINE"],  # sources that trigger on the mains
         "line_hz": 50.0,  # mains frequency
-        "mode": "edge",  # the trigger type: edge, or glitch (a pulse by its width)
+        "mode": "edge",  # the trigger type: edge, glitch (a pulse by its width), runt,
+        # transition, window, timeout or nedge (the Nth edge); each non-edge family keeps its own
+        # source (see <family>_source) while edge and glitch share the main one
         "polarity": "positive",  # glitch: the pulse above the level (positive) or below it (negative)
         # glitch: narrower than width_high (less), wider than width_low (greater), between (range),
         # narrower than width_low or wider than width_high (outside)
@@ -947,16 +1063,56 @@ class ScopeTrigger(_ChannelBound):
         "greater_at": "timeout",  # glitch greater: trigger once the pulse lasted width_low (timeout) or at its end
         "width_low": 20e-9,  # glitch: the width a greater or range pulse exceeds, s
         "width_high": 30e-9,  # glitch: the width a less or range pulse stays under, s
+        # ---- the advanced families (#1184) ----
+        "high_threshold": None,  # display volts, runt/transition/window; per source like the level
+        "low_threshold": None,  # display volts, the pair's other half; per source like the level
+        "high_by_source": {},  # each source's own threshold setting, by source word, e.g.
+        "low_by_source": {},  # {CHANnel1: trigger.hth1, CHANnel2: trigger.hth2}; unlisted: the fallback above
+        "hysteresis_setting": "normal",  # :TRIGger:HYSTeresis: normal, nreject (the wider noise-reject
+        # band) or hsensitivity (the narrower band below); the band the edges arm and cross within
+        "hsensitivity_divs": None,  # the hsensitivity band, in divisions of the source; None: half the normal band
+        "runt_source": None,  # the runt family's source word; None: the main source
+        "runt_polarity": "positive",  # the pulse between low and high threshold (positive) or below high (negative)
+        "runt_qualified": False,  # on: the runt's width must exceed runt_time as well
+        "runt_time": 250e-12,  # the time a qualified runt exceeds, s (manual: 250 ps to 30 ns)
+        "transition_source": None,  # the transition family's source word; None: the main source
+        "transition_type": "risetime",  # rise time (rising edge) or fall time (falling edge)
+        "transition_mode": "gthan",  # the violation: gthan/lthan transition_time, or inside
+        # (range) / outside (orange) transition_range
+        "transition_time": 1e-9,  # s, the greater/less bound
+        "transition_range_low": 10e-9,  # s, the minimum of the range modes
+        "transition_range_high": 20e-9,  # s, the maximum of the range modes
+        "window_source": None,  # the window family's source word; None: the main source
+        "window_condition": "enter",  # enter, exit, inside or outside the band; inside/outside take a
+        "window_qualifier": "",  # duration qualifier: gthan (held window_time) or lthan (left before window_time)
+        "window_time": 1e-6,  # s, the duration the condition is compared with
+        "window_tpoint": "boundary",  # enter/exit fire at the boundary instant (boundary) or once the
+        # new state has lasted window_time (timeout)
+        "timeout_source": None,  # the timeout family's source word; None: the main source
+        "timeout_condition": "unchanged",  # high, low or unchanged
+        "timeout_time": 1e-3,  # s, the time the state lasts before the trigger
+        "nedge_source": None,  # the nth-edge family's source word; None: the main source
+        "nedge_slope": None,  # the counted edges' slope; None: the main slope
+        "nedge_count": 1,  # the edge that triggers: the nedge_count-th (1 is the first)
     }
     units = {
         "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V",
-        "width_low": "s", "width_high": "s",
+        "width_low": "s", "width_high": "s", "runt_time": "s", "transition_time": "s",
+        "window_time": "s", "timeout_time": "s",
     }  # fmt: skip
     choices = {
-        "mode": ("edge", "glitch"),
+        "mode": ("edge", "glitch", "runt", "transition", "window", "timeout", "nedge"),
         "polarity": ("positive", "negative"),
         "qualifier": ("less", "greater", "range", "outside"),
         "greater_at": ("timeout", "end"),
+        "hysteresis_setting": ("normal", "nreject", "hsensitivity"),
+        "runt_polarity": ("positive", "negative"),
+        "transition_type": ("risetime", "falltime"),
+        "transition_mode": ("gthan", "lthan", "range", "orange"),
+        "window_condition": ("enter", "exit", "inside", "outside"),
+        "window_qualifier": ("", "gthan", "lthan"),
+        "window_tpoint": ("boundary", "timeout"),
+        "timeout_condition": ("high", "low", "unchanged"),
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -1005,20 +1161,84 @@ class ScopeTrigger(_ChannelBound):
         if not -lim - offset - 1e-12 <= float(new) <= lim - offset + 1e-12:
             raise ScpiError(-222, f"trigger level outside +-{divs} div")
 
-    def source_channel(self) -> int | None:
+    def source_channel(self, source: str | None = None) -> int | None:
         """The channel the source names, None for external, line and the like."""
-        return trigger_channel(self.param("source"))
+        return trigger_channel(self.param("source") if source is None else source)
 
-    def source_kind(self) -> str:
+    def source_kind(self, source: str | None = None) -> str:
         """channel | external | line | none."""
-        src = str(self.param("source")).upper()
-        if self.source_channel() is not None:
+        src = str(self.param("source") if source is None else source).upper()
+        if self.source_channel(src) is not None:
             return "channel"
         if src in _upper(self.param("external")):
             return "external"
         if src in _upper(self.param("line")):
             return "line"
         return "none"
+
+    def family_source(self) -> str:
+        """The source word the current mode's family looks at: each advanced family keeps its own
+        source setting (#1184), the edge and glitch families share the main one."""
+        key = {
+            "runt": "runt_source",
+            "transition": "transition_source",
+            "window": "window_source",
+            "timeout": "timeout_source",
+            "nedge": "nedge_source",
+        }.get(str(self.choice("mode")))
+        if key is None:
+            return str(self.param("source"))
+        own = self.param(key)
+        return str(self.param("source")) if own in (None, "") else str(own)
+
+    def threshold(self, which: str, source: str) -> float | None:
+        """The ``high`` or ``low`` threshold of a source in display volts: the source's own
+        setting (``high_by_source``/``low_by_source``, like the level's), else the fallback
+        (``high_threshold``/``low_threshold``), else None — unset, nothing to compare against."""
+        by = {str(k).upper(): str(v) for k, v in dict(self.param(f"{which}_by_source") or {}).items()}
+        if by and self.owner is not None:
+            src = str(source).upper()
+            for word, path in by.items():
+                if src in (word, V.short_form(word)):
+                    return float(self.owner.get_state(path))
+        value = self.param(f"{which}_threshold")
+        return None if value is None else float(value)
+
+    @op("window_condition")
+    def op_window_condition(
+        self, condition: Any = None, qualifier: Any = None, query: bool = False, **_: Any
+    ) -> OpResult:
+        """``:TRIGger:WINDow:CONDition {ENTer | EXIT | INSide[,{GTHan | LTHan}] | OUTSide[,…]}``
+        (manual p.1587): the duration qualifier belongs to inside and outside, and the query
+        answers it only for those two (the manual's returned format). The words arrive as the raw
+        parameter's list."""
+        assert self.owner is not None
+        cond, qual = self.bound_path("window_condition"), self.bound_path("window_qualifier")
+        if cond is None or qual is None:
+            raise ScpiError(-300, "the window condition is not bound to a setting")
+        if query:
+            word = str(self.owner.get_state(cond))
+            if word in ("INSide", "OUTSide"):
+                word = f"{word},{self.owner.get_state(qual)}"
+            return OpResult(",".join(V.short_form(part) for part in word.split(",")).encode())
+        given = list(condition) if isinstance(condition, list) else ([] if condition is None else [condition])
+
+        def word(value: Any, options: tuple[str, ...]) -> str:
+            raw = value if isinstance(value, bytes) else str(value).encode()
+            return V.parse_enum(raw, options)
+
+        if not given:
+            raise ScpiError(-109, "a condition is required")
+        words = word(given[0], ("ENTer", "EXIT", "INSide", "OUTSide"))
+        self.owner.set_state(cond, words)
+        if words in ("INSide", "OUTSide"):
+            if len(given) > 1:  # the qualifier is optional: given, it replaces the setting
+                self.owner.set_state(qual, word(given[1], ("GTHan", "LTHan")))
+        elif len(given) > 1:
+            raise ScpiError(
+                -108, f"the qualifier belongs to {V.short_form('INSide')} and {V.short_form('OUTSide')}"
+            )
+        return OpResult()
 
     def level(self) -> float:
         """The trigger level in display volts (the scope screen draws it). With ``level_by_source``
@@ -1046,8 +1266,17 @@ class ScopeTrigger(_ChannelBound):
         return sig
 
     def _hysteresis(self, scale: float) -> float:
-        on = self.param("noise_reject") in (True, 1, "1", "ON", "on")
-        divs = float(self.param("reject_hysteresis_divs" if on else "hysteresis_divs"))
+        setting = str(self.choice("hysteresis_setting") or "normal")
+        normal = float(self.param("hysteresis_divs"))
+        if setting == "nreject":  # the widest band, whether or not the old noise_reject flag is on
+            divs = float(self.param("reject_hysteresis_divs"))
+        elif setting == "hsensitivity":  # the narrowest band (a 4 GHz and above waveform)
+            own = self.param("hsensitivity_divs")
+            divs = normal / 2.0 if own is None else float(own)
+        elif self.param("noise_reject") in (True, 1, "1", "ON", "on"):
+            divs = float(self.param("reject_hysteresis_divs"))
+        else:
+            divs = normal
         return divs * scale
 
     def _noisy(
@@ -1095,13 +1324,14 @@ class ScopeTrigger(_ChannelBound):
         earliest_s: float,
     ) -> TriggerHit | None:
         """:meth:`search` itself."""
-        kind = self.source_kind()
+        kind = self.source_kind(self.family_source())
         start_s = max(pre * dt, earliest_s)
         if self.last_ns is not None and self.param("holdoff_on") in (True, 1, "1", "ON", "on"):
             start_s = max(start_s, (self.last_ns - t0) * 1e-9 + float(self.param("holdoff")))
         span = max(points * int(self.param("search_windows")), pre + 2 * points) * dt
         horizon = max(span, float(horizon_s or 0.0))
-        glitch = self.choice("mode") == "glitch"
+        mode = self.choice("mode") or "edge"
+        glitch = mode == "glitch"
         if glitch and kind not in ("channel", "external"):
             return None  # the mains has no pulse to time
         if kind == "line":
@@ -1121,6 +1351,8 @@ class ScopeTrigger(_ChannelBound):
         # included) is not searched for: a waiting acquisition looks again at every command.
         swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
         top, bottom = sig.dc + swing, sig.dc - swing
+        if mode in _ADVANCED:
+            return self._advanced(sig, t0, dt, start_s, span, horizon, mode, n, scale, hyst, top, bottom)
         can_rise = bottom < level - hyst and top >= level
         can_fall = top > level + hyst and bottom <= level
         if glitch:  # a pulse needs both of its edges
@@ -1148,6 +1380,494 @@ class ScopeTrigger(_ChannelBound):
         # The work is samples times lines: a signal of many lines is searched on fewer samples.
         budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
         return max(step, (horizon - span) / budget)
+
+    # ---- the advanced families (#1184): runt, transition, window, timeout, nedge ----------------
+    #
+    # The same steady-state signal the edge and glitch searches look at, the same hysteresis band
+    # and instants; what changes is what qualifies. The pulse families (runt, transition) walk the
+    # crossings of both thresholds, the state families (window, timeout) the runs of the signal's
+    # state, nedge counts the edge trigger's own crossings.
+
+    def _stretches(
+        self, sig: Signal, dt: float, start_s: float, span: float, horizon: float, *bounds: float
+    ) -> list[tuple[float, float]]:
+        """The grids a pulse- or state-based search walks: the record grid for as many samples as
+        ``max_search_points`` allows (fewer for a signal of many lines), then a grid an eighth of
+        the narrowest bound the qualification compares, so a coarse grid still bounds the durations
+        it judges (#1000)."""
+        budget = float(self.param("max_search_points")) / max(1.0, sig.freq.size / 16.0)
+        fine = min(span, horizon, start_s + budget * dt)
+        stretches = [(fine, dt)]
+        if horizon > fine:
+            usable = [b for b in bounds if 0 < b < math.inf]
+            step = max(dt, min(usable) / 8) if usable else self._far_step(sig, dt, fine, horizon)
+            stretches.append((min(horizon, fine + step * budget), step))
+        return stretches
+
+    def _level_stream(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        level: float,
+        hyst: float,
+    ) -> Iterator[_Crossing]:
+        """The crossings of one threshold, in time order, for the pulse families: the side of the
+        threshold flips only beyond the hysteresis band, and the flip's own crossing of the level —
+        between the last sample on the old side and this one — is what counts. A threshold of a
+        pair is reached from its partner, not from beyond its own far band, so the edge search's
+        arming rule would miss just the edges the pulse families look for (an edge whose top is
+        barely past the threshold never sees the far side of it). The side the signal is on at the
+        search's start is carried in: the crossing that put it there lies before the search."""
+        side = 0  # -1 below the band, +1 above it, 0 not yet decided
+        anchor: tuple[float, float] | None = None  # the last sample decisively on this side
+        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        prev: tuple[float, float] | None = None
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                for k in range(count):
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    decisive = 1 if v_k > level + hyst else (-1 if v_k < level - hyst else 0)
+                    # a flip needs a side behind it (which is where its anchor sample came from)
+                    if side and decisive and decisive != side and anchor is not None:
+                        # the level was crossed between the last sample on the old side and this
+                        # one; without noise the crossing is bisected on the signal, with noise
+                        # the line between the two samples carries the estimate
+                        rising = decisive > 0
+                        if noisy:
+                            estimate = _between(anchor[0], anchor[1], t_k, v_k, level)
+                        else:
+                            estimate = self._bisect(sig, t0, anchor[0], t_k, level, rising, dt)
+                        yield _Crossing("rise" if rising else "fall", anchor[0], t_k, estimate, True)
+                    if decisive:
+                        side, anchor = decisive, (t_k, v_k)
+                    prev = (t_k, v_k)
+                prev = (float(offsets[-1]), float(v[-1]))
+                a = prev[0] + step
+        yield _Crossing(
+            None,
+            prev[0] if prev else start_s,
+            prev[0] if prev else start_s,
+            prev[0] if prev else start_s,
+            True,
+        )
+
+    def _merged(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        low: float,
+        high: float,
+        hyst: float,
+    ) -> Iterator[tuple[str, _Crossing]]:
+        """The crossings of both thresholds in time order, ``(which, crossing)`` with ``which``
+        ``low`` or ``high`` — each level walked by the pulse families' own rule
+        (:meth:`_level_stream`). ``""`` carries the progress markers: how far the search has come
+        where neither level crossed."""
+        streams = {
+            which: self._level_stream(sig, t0, dt, start_s, stretches, level, hyst)
+            for which, level in (("low", low), ("high", high))
+        }
+        heads: dict[str, _Crossing | None] = {}
+
+        def head(which: str) -> _Crossing | None:
+            if which not in heads:
+                heads[which] = next(streams[which], None)
+            return heads[which]
+
+        while True:
+            ready = {w: c for w in streams if (c := head(w)) is not None}
+            if not ready:
+                return
+            marks = {w: c for w, c in ready.items() if c.direction is None}
+            if marks and len(marks) == len(ready):
+                for w, c in marks.items():
+                    del heads[w]
+                    yield ("", c)
+                continue
+            _, w = min((c.at, w) for w, c in ready.items() if c.direction is not None)
+            crossing = heads.pop(w)
+            assert crossing is not None
+            yield (w, crossing)
+
+    def _advanced(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        span: float,
+        horizon: float,
+        mode: str,
+        n: int | None,
+        scale: float,
+        hyst: float,
+        top: float,
+        bottom: float,
+    ) -> TriggerHit | None:
+        """The advanced families (#1184), each on the steady-state signal with the edge search's
+        arming and instants: runt and transition on the crossings of the two thresholds, window
+        and timeout on the runs of the signal's state, nedge on the counted crossings."""
+        source = self.family_source()
+        level = float(self.channel_param("level", n) if n is not None else self.level())
+        noiseless = self.param("noise_rms") in (0, 0.0, None)
+        period = _period(sig) if noiseless else None
+        high = self.threshold("high", source)
+        low = self.threshold("low", source)
+
+        if mode == "nedge":
+            slope = self.param("nedge_slope")
+            if slope in (None, ""):
+                slope = str(self.channel_param("slope", n) if n is not None else self.param("slope"))
+            slope = str(slope).upper()
+            rising = slope in _upper(self.param("rising"))
+            falling = slope in _upper(self.param("falling"))
+            directions = [d for d, on in (("rise", rising), ("fall", falling)) if on]
+            if not directions or not (
+                (rising and bottom < level - hyst and top >= level)
+                or (falling and top > level + hyst and bottom <= level)
+            ):
+                return None
+            count = max(1, int(self.param("nedge_count")))
+            if period is not None:
+                # The edges repeat each period: what one period shows is what every period shows,
+                # so the nth lands in its own period — the horizon reaches that far (within the
+                # sample budget; a search that cannot look that far waits and looks again at the
+                # next command, as the glitch search does).
+                probe_stop = min(span, 2.0 * period + dt)
+                probe = [
+                    c
+                    for c in self._edges(sig, t0, dt, start_s, [(probe_stop, dt)], level, hyst)
+                    if c.direction in directions
+                ]
+                per_period = max(len(probe) / max(probe_stop / period, 1.0), 1.0)
+                horizon = min(
+                    horizon,
+                    max(probe_stop, start_s + period * math.ceil(count / per_period) + 2.0 * dt),
+                )
+            seen = 0
+            for c in self._edges(
+                sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon), level, hyst
+            ):
+                if c.direction not in directions:
+                    continue
+                seen += 1
+                if seen >= count:
+                    if not c.final:  # found on the coarse grid: bisected on the signal
+                        c.estimate = self._bisect(sig, t0, c.before, c.at, level, c.direction == "rise", dt)
+                        c.final = True
+                    return TriggerHit(c.estimate, math.ceil(c.estimate / dt - 1e-9))
+            return None
+
+        if mode == "timeout":
+            limit = float(self.param("timeout_time"))
+            cond = str(self.choice("timeout_condition") or "unchanged")
+            if limit <= 0:
+                return None
+            if period is not None:  # one period shows every state run there is
+                horizon = min(horizon, start_s + period + limit + 2.0 * dt)
+            for state, entry, upto, _final in self._runs(
+                sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon, limit), level, hyst
+            ):
+                if cond != "unchanged" and state != cond:
+                    continue
+                begin = max(entry, start_s)  # armed here: the run counts from the arming
+                if upto - begin >= limit:
+                    return TriggerHit(begin + limit, math.ceil((begin + limit) / dt - 1e-9))
+            return None
+
+        if mode == "window":
+            if high is None or low is None:  # no thresholds set: nothing to enter or leave
+                return None
+            high, low = float(high), float(low)
+            if low > high:
+                low, high = high, low
+            condition = str(self.choice("window_condition") or "enter")
+            wanted = "inside" if condition in ("enter", "inside") else "outside"
+            qualifier = str(self.choice("window_qualifier") or "")
+            tpoint = str(self.choice("window_tpoint") or "boundary")
+            limit = float(self.param("window_time"))
+            if not (top >= low and bottom <= high) or not (bottom < low - hyst or top > high + hyst):
+                return None  # the signal never reaches the band, or never leaves it
+            if period is not None:
+                horizon = min(horizon, start_s + 2.0 * period + limit + 2.0 * dt)
+
+            def instant(c: tuple) -> float:
+                bound, d, before, at, estimate, final = c
+                if final:
+                    return estimate
+                return self._bisect(sig, t0, before, at, bound, d == "rise", dt)
+
+            for state, entry, exit_c, upto, _final in self._runs_window(
+                sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon, limit), low, high, hyst
+            ):
+                if state != wanted:
+                    continue
+                carried = entry is None  # the signal already sat in this state at the arming
+                begin = (
+                    start_s if carried else max(instant(entry), start_s)
+                )  # armed here: the transition counts from then
+                left = instant(exit_c) if exit_c is not None else None
+                if condition in ("enter", "exit") and tpoint == "boundary":
+                    if carried:
+                        continue  # being in the state already is not a transition of the search
+                    return TriggerHit(begin, math.ceil(begin / dt - 1e-9))
+                if qualifier == "lthan":
+                    # left before the time: the exit instant is the trigger
+                    if left is not None and left - begin < limit:
+                        return TriggerHit(left, math.ceil(left / dt - 1e-9))
+                    continue
+                held = (left if left is not None else upto) - begin
+                if held >= limit:  # boundary timeout, or a greater inside/outside: still there
+                    return TriggerHit(begin + limit, math.ceil((begin + limit) / dt - 1e-9))
+            return None
+
+        # ---- runt and transition: the crossings of both thresholds in time order ----------------
+        if high is None or low is None:
+            return None
+        high, low = float(high), float(low)
+        if low > high:
+            low, high = high, low
+        polarity = str(self.choice("runt_polarity") or "positive")
+        ttype = str(self.choice("transition_type") or "risetime")
+        if mode == "runt":
+            opens = ("low", "rise") if polarity == "positive" else ("high", "fall")
+            closes = ("low", "fall") if polarity == "positive" else ("high", "rise")
+            rejects = {("high", "rise")} if polarity == "positive" else {("low", "fall")}
+            entry = (
+                (bottom < low - hyst and top >= low)
+                if polarity == "positive"
+                else (top > high + hyst and bottom <= high)
+            )
+            if not entry:
+                return None
+            qualified = V.flag(self.param("runt_qualified"))
+            bounds = (float(self.param("runt_time")),)
+        else:
+            opens = ("low", "rise") if ttype == "risetime" else ("high", "fall")
+            closes = ("high", "rise") if ttype == "risetime" else ("low", "fall")
+            rejects = (
+                {("low", "fall"), ("high", "fall")}
+                if ttype == "risetime"
+                else {("high", "rise"), ("low", "rise")}
+            )
+            entry = (
+                (bottom < low - hyst and top > high)
+                if ttype == "risetime"
+                else (top > high + hyst and bottom < low)
+            )
+            if not entry:
+                return None
+            qualified = False
+            tmode = str(self.choice("transition_mode") or "greater")
+            t_limit = float(self.param("transition_time"))
+            t_lo = float(self.param("transition_range_low"))
+            t_hi = float(self.param("transition_range_high"))
+            bounds = (t_limit,) if tmode in ("gthan", "lthan") else (t_lo, t_hi)
+        if period is not None:  # a signal that repeats shows every pulse within two periods
+            horizon = min(horizon, start_s + 2.0 * period + 2.0 * dt)
+        levels = {"low": low, "high": high}
+
+        def instant(c: _Crossing, which: str) -> float:
+            if not c.final:  # found on the coarse grid: bisected on the signal
+                c.estimate = self._bisect(sig, t0, c.before, c.at, levels[which], c.direction == "rise", dt)
+                c.final = True
+            return c.estimate
+
+        def hit(t: float) -> TriggerHit:
+            return TriggerHit(t, math.ceil(t / dt - 1e-9))
+
+        began: tuple[str, _Crossing] | None = None  # the opening crossing of the pulse under way
+        for which, c in self._merged(
+            sig, t0, dt, start_s, self._stretches(sig, dt, start_s, span, horizon, *bounds), low, high, hyst
+        ):
+            if which == "":  # progress: a runt still open has lasted its time
+                if mode == "runt" and qualified and began is not None:
+                    begun = instant(began[1], began[0])
+                    if c.at - begun > float(self.param("runt_time")):
+                        return hit(begun + float(self.param("runt_time")))
+                continue
+            key = (which, str(c.direction))
+            if began is not None and key in rejects:
+                began = None
+                continue
+            if key == closes and began is not None:
+                begun = instant(began[1], began[0])
+                done = instant(c, which)
+                if mode == "runt":
+                    if not qualified or done - begun > float(self.param("runt_time")):
+                        return hit(done)
+                else:
+                    edge_time = done - begun
+                    inside = t_lo < edge_time < t_hi
+                    if (
+                        (tmode == "gthan" and edge_time > t_limit)
+                        or (tmode == "lthan" and edge_time < t_limit)
+                        or (tmode == "range" and inside)
+                        or (tmode == "orange" and not inside)
+                    ):
+                        return hit(done)
+                began = None
+                continue
+            if key == opens:
+                began = (which, c)
+            elif key == closes:
+                began = None  # a close without an open: whatever ran before is over
+        return None
+
+    def _runs(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        level: float,
+        hyst: float,
+    ) -> Iterator[tuple[str, float, float, bool]]:
+        """The runs of the signal's state against ``level`` (the timeout family): high above
+        ``level + hyst``, low below ``level - hyst``, in between keeps the previous state (the
+        hysteresis band; at the very start, with no state behind it, the nearer side decides).
+        Yields ``(state, entry, upto, final)`` when a run closes — ``entry`` where it began,
+        ``upto`` where it ended — and once more for the run still open where the search ends."""
+        state = ""
+        entry = 0.0
+        anchor: tuple[float, float] | None = None  # the last sample decisively in this state
+        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        prev: tuple[float, float] | None = None
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                for k in range(count):
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    if v_k > level + hyst:
+                        decisive = "high"
+                    elif v_k < level - hyst:
+                        decisive = "low"
+                    else:
+                        decisive = ""  # the hysteresis band keeps the state
+                    new = decisive or state or ("high" if v_k >= level else "low")
+                    if state and new != state:
+                        yield (state, entry, t_k, True)
+                        # the state truly began where the band edge was crossed, between the last
+                        # sample on the other side and this one; bisected without noise, the line
+                        # between the two samples carrying the estimate with it
+                        bound = level + hyst if new == "high" else level - hyst
+                        if anchor is not None and prev is not None:
+                            if noisy:
+                                entry = _between(anchor[0], anchor[1], t_k, v_k, bound)
+                            else:
+                                entry = self._bisect(sig, t0, anchor[0], t_k, bound, new == "high", dt)
+                        else:
+                            entry = t_k
+                    elif not state:
+                        entry = t_k
+                    state = new
+                    if decisive:
+                        anchor = (t_k, v_k)  # a sample of the state the next flip is measured from
+                    prev = (t_k, v_k)
+                prev = (float(offsets[-1]), float(v[-1]))
+                a = prev[0] + step
+        if state:
+            yield (state, entry, prev[0] if prev else entry, True)
+
+    def _runs_window(
+        self,
+        sig: Signal,
+        t0: int,
+        dt: float,
+        start_s: float,
+        stretches: list[tuple[float, float]],
+        low: float,
+        high: float,
+        hyst: float,
+    ) -> Iterator[tuple[str, tuple | None, tuple | None, float, bool]]:
+        """The runs of the signal inside and outside the band ``[low, high]`` (the window family):
+        inside between the bounds, outside beyond either bound widened by the hysteresis, the ring
+        between keeping the previous state. Yields ``(state, entry, exit, upto, final)`` when a run
+        closes — ``exit`` the crossing out of it — and once for the run still open where the search
+        ends (``exit`` None, ``upto`` how far the search has come). An entry or exit is
+        ``(bound, direction, before, at, estimate, final)``: the crossing of the bound the signal
+        actually crossed, its instant bisected later on the coarse grids."""
+        state = ""  # "" until a sample decides one way or the other
+        entry: tuple | None = None
+        anchor: tuple[float, float] | None = None  # the last sample decisively in this state
+        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        prev: tuple[float, float] | None = None
+        a = start_s - stretches[0][1]
+        for stop, step in stretches:
+            chunk = 1 << 12
+            while a <= stop:
+                count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
+                chunk = min(chunk * 2, 1 << 18)
+                offsets = a + step * np.arange(count, dtype=np.float64)
+                v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
+                for k in range(count):
+                    t_k, v_k = float(offsets[k]), float(v[k])
+                    if low <= v_k <= high:
+                        decisive = "inside"
+                    elif v_k > high + hyst or v_k < low - hyst:
+                        decisive = "outside"
+                    else:
+                        decisive = ""  # the ring between the band and its hysteresis: stays
+                    if decisive and decisive != state:
+                        # the bound was crossed between the last sample decisively on the other
+                        # side and this one (the ring in between never says so); the estimate is
+                        # the line between the two samples, bisected by the consumer on the exact
+                        # signal when there is no noise (final False). The run the signal already
+                        # sits in at the search's start has no crossing behind it (entry None):
+                        # being in the state is not the same as entering it.
+                        cross = (
+                            self._window_crossing(anchor, (t_k, v_k), low, high, noisy)
+                            if anchor is not None
+                            else None
+                        )
+                        if state:
+                            yield (state, entry, cross, prev[0] if prev else t_k, noisy)
+                        entry = cross
+                        state = decisive
+                    if decisive:
+                        anchor = (t_k, v_k)  # a sample of the state the next crossing is found from
+                    prev = (t_k, v_k)
+                prev = (float(offsets[-1]), float(v[-1]))
+                a = prev[0] + step
+        if state and entry is not None:
+            yield (state, entry, None, prev[0] if prev else start_s, True)
+
+    @staticmethod
+    def _window_crossing(
+        before: tuple[float, float] | None, at: tuple[float, float], low: float, high: float, final: bool
+    ) -> tuple:
+        """The crossing into or out of the window band between the samples ``before`` and ``at``:
+        into the band from above is the high bound falling, from below the low bound rising; out of
+        it upward the high bound rising, downward the low bound falling."""
+        (t_k, v_k) = at
+        if before is not None:
+            t_p, v_p = before
+            if low <= v_k <= high:  # into the band
+                bound, d = (high, "fall") if v_p > high else (low, "rise")
+            elif v_k > high:  # out of it upward
+                bound, d = high, "rise"
+            else:  # out of it downward
+                bound, d = low, "fall"
+            return (bound, d, t_p, t_k, _between(t_p, v_p, t_k, v_k, bound), final)
+        return (low, "rise", t_k, t_k, t_k, True)
 
     def _glitch(
         self,
@@ -1507,6 +2227,10 @@ class ScopeAcquisition(Component):
         super().__init__(*args, **kwargs)
         self.records: dict[int, Record] = {}
         self.segment_records: list[dict[int, Record]] = []  # the latest acquisition's segments, if segmented
+        # the ADC's clip detectors' latches per channel (#1067): the ADC status (:ADC:CLIPped?,
+        # low/high, read clears) and the channel's own (:CLIPped?, 0/1, read clears and a scale or
+        # offset change away from the latched (scale, offset) resets it)
+        self.clip_latches: dict[int, dict[str, Any]] = {}
         self.acq_count = 0
         self.running = True
         self.armed = False
@@ -1729,17 +2453,23 @@ class ScopeAcquisition(Component):
         records: dict[int, Record] = {}
         for n in channels:
             scale, offset = self.scale_offset(n)
-            # The channel's chain (ADC, then the decimator's acquisition mode) gives the record's
-            # samples: the codes, as volts (D46: they are kept).
-            volts = self.input_frames(
-                f"in{n}", self._request(n, t0, start, dt, points, t_start_ns, m, frame, segment)
-            ).data
+            request = self._request(n, t0, start, dt, points, t_start_ns, m, frame, segment)
+            # A deep record is computed where it is read (#1012); one up to EAGER_POINTS now, whole:
+            # the channel's chain (ADC, then the decimator's acquisition mode) gives the record's
+            # samples, the codes, as volts (D46: they are kept).
+            deep = self._deep(n, request)
+            volts = None
+            if deep is None:
+                frames = self.input_frames(f"in{n}", request)
+                volts = self.vertical_of(n).correct(frames.data)
+                self._latch_clip(n, frames)
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,
                 dt_s=nominal_dt,
                 trigger_index=pre,
-                volts=self.vertical_of(n).correct(volts),
+                volts=volts,
+                deep=deep,
                 scale=scale,
                 offset=offset,
                 triggered=triggered,
@@ -1753,14 +2483,90 @@ class ScopeAcquisition(Component):
         used = used * self._averages() + float(self.param("overhead_s"))
         return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
 
+    def _latch_clip(self, n: int, frame: Any) -> None:
+        """The ADC's clip detectors latch a channel's clipping until it is read or cleared
+        (:CHANnel<N>:ADC:CLIPped? / :CHANnel<N>:CLIPped?, #1067). Only a record computed whole
+        carries the ADC's codes; a deep one computes at read and does not latch."""
+        if not frame.clipped:
+            return
+        fmt = frame.fmt
+        if fmt.bits <= 0:
+            return
+        half, lsb = 1 << (fmt.bits - 1), float(fmt.lsb)
+        at = self.scale_offset(n)
+        latch = self.clip_latches.setdefault(n, {"adc_low": False, "adc_high": False, "low": False, "at": at})
+        low = bool(np.min(frame.data) <= -half * lsb)
+        high = bool(np.max(frame.data) >= (half - 1) * lsb)
+        latch["adc_low"] |= low
+        latch["adc_high"] |= high
+        latch["low"] |= low or high
+        latch["at"] = at
+
+    @op("adc_clip_status")
+    def adc_clip_status(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``:CHANnel<n>:ADC:CLIPped?``: whether the ADC clipped low, high or both since the last
+        read or clear — 0, 1, 2 or 3; reading resets it (the guide, p. 484)."""
+        n = channel or 1
+        latch = self.clip_latches.get(n)
+        code = (2 if latch is not None and latch["adc_high"] else 0) + (
+            1 if latch is not None and latch["adc_low"] else 0
+        )
+        if latch is not None:
+            latch["adc_low"] = latch["adc_high"] = False
+        return OpResult(str(code).encode())
+
+    @op("clipped_status")
+    def clipped_status(self, channel: int | None = None, **_: Any) -> OpResult:
+        """``:CHANnel<n>:CLIPped?``: whether the channel clipped at least once (0 or 1) since the
+        last read or clear; reading resets it, and so does a change of the channel's scale or
+        offset (the guide, p. 485)."""
+        n = channel or 1
+        latch = self.clip_latches.get(n)
+        code = 0
+        if latch is not None and latch["low"]:
+            code = 1 if latch["at"] == self.scale_offset(n) else 0
+            latch["low"] = False  # the read resets it (a scale or offset change resets it too)
+        return OpResult(str(code).encode())
+
+    @op("clear_clip")
+    def clear_clip(self, **_: Any) -> OpResult:
+        """``:ACQuire:ADC:CLIPped:CLEar``: the clipping status of every channel clears at once
+        (the guide, p. 319)."""
+        self.clip_latches.clear()
+        return OpResult()
+
+    def _deep(self, n: int, request: FrameRequest) -> DeepRecord | None:
+        """Channel n's record for ``request`` as a deep record — the chain captured, nothing
+        computed — when it is deeper than ``EAGER_POINTS`` or its samples along the chain exceed the
+        model's fan-out (an average of many acquisitions). None: computed whole now. A chain other
+        than the scope's own ADC and decimator is computed whole (and refused beyond the model)."""
+        dec = self.decimator_unit()
+        view = dec.view() if isinstance(dec, ScopeDecimator) else None
+        # A high-resolution boxcar is a running sum along the whole record, whose rounding a tile
+        # cannot repeat: such a record stays whole as far as the model holds one (MAX_FRAME).
+        eager = MAX_FRAME if view is not None and view.proc == "eres" and view.w > 1 else EAGER_POINTS
+        if view is None or (request.count <= eager and request.count * view.cost <= MAX_REQUEST_FANOUT):
+            return None
+        assert self.owner is not None and dec.owner is not None
+        if self.owner.wiring.source(self.name, f"in{n}") != (dec.name, f"out{n}"):
+            return None
+        src = dec.owner.wiring.source(dec.name, f"in{n}")
+        converter = dec.owner.components.get(src[0]) if src is not None else None
+        if not isinstance(converter, ScopeAdc) or src != (converter.name, f"out{n}"):
+            return None
+        return DeepRecord(request.count, request, converter.view(n), view, self.vertical_of(n).correction())
+
     def _trigger_hit(
         self, t0: int, dt: float, pre: int, points: int, waits: bool, earliest_s: float = 0.0
     ) -> TriggerHit | None:
         """The trigger the acquisition starting at ``t0`` finds (``waits``: as far as the trigger's
         search horizon; none before ``earliest_s``), or None."""
         trig = self.trigger_unit()
-        n_trig = trig.source_channel()
-        kind = trig.source_kind()
+        # The mode's family looks at its own source (#1184): each advanced family keeps one, the
+        # edge and glitch families share the main one.
+        source = trig.family_source()
+        n_trig = trig.source_channel(source)
+        kind = trig.source_kind(source)
         if kind == "channel":
             sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
         elif kind == "external":
@@ -1859,6 +2665,41 @@ class ScopeAcquisition(Component):
 
         return (instant(self.segment_records[self._selected()]) - instant(self.segment_records[0])) * 1e-9
 
+    def read_segments(self, channel: int) -> list[Record] | None:
+        """The latest acquisition's segments' records for a channel (``:WAVeform:SEGMented:ALL``,
+        #1066), each segment one full record; None when the latest acquisition was not a segmented
+        one or the channel has no records in it. Read as they are: the transfer concatenates."""
+        if not self.segment_records:
+            return None
+        recs: list[Record] = []
+        for seg in self.segment_records:
+            rec = seg.get(channel)
+            if rec is None:
+                return None
+            recs.append(rec)
+        return recs
+
+    @op("set_segment_index")
+    def set_segment_index(self, query: bool = False, index: int | None = None, **_: Any) -> OpResult:
+        """``:ACQuire:SEGMented:INDex``: the segment the reads and the display use. Beyond the
+        segments the latest acquisition has, the guide (p. 345) errors that the data is out of
+        range and sets the index to the maximum segment number."""
+        assert self.owner is not None
+        path = self.bound_path("segment_index")
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: segment_index is not bound to a setting")
+        if query:
+            return OpResult(str(int(self.owner.get_state(path))).encode())
+        if index is None:
+            raise ScpiError(-109, "an index is required")
+        i = int(index)
+        limit = max(1, len(self.segment_records))
+        if i < 1 or i > limit:
+            self.owner.set_state(path, min(max(i, 1), limit))
+            raise ScpiError(-222, f"segment {i} is out of range: {limit} segment(s) acquired")
+        self.owner.set_state(path, i)
+        return OpResult()
+
     def triggers_now(self) -> bool:
         """Whether an acquisition starting now finds its trigger within its search windows (a
         continuous run's state: it re-arms on every trigger, so it is waiting while none comes)."""
@@ -1910,11 +2751,20 @@ class ScopeAcquisition(Component):
                         str(ch): {
                             "t_start_ns": rec.t_start_ns,
                             "dt_s": rec.dt_s,
-                            "points": int(rec.volts.size),
+                            "points": rec.points,
                             "trigger_index": rec.trigger_index,
                             "x_origin_s": rec.origin,
                             "triggered": rec.triggered,
-                            "sha256": hashlib.sha256(np.ascontiguousarray(rec.volts).tobytes()).hexdigest(),
+                            # a deep record is computed where it is read (#1012): no digest of it
+                            **(
+                                {"computed": "on_read"}
+                                if rec.deep is not None
+                                else {
+                                    "sha256": hashlib.sha256(
+                                        np.ascontiguousarray(rec.volts).tobytes()
+                                    ).hexdigest()
+                                }
+                            ),
                         }
                         for ch, rec in sorted(records.items())
                     },
@@ -2289,6 +3139,29 @@ class ScopeAcquisition(Component):
         all the segments are not modeled; a measurement reads the selected segment."""
         return OpResult()
 
+    @op("clear_display")
+    def clear_display(self, **_: Any) -> OpResult:
+        """``:CDISplay``: the display clears and the associated measurements reset (the guide,
+        p. 293) — the stored records go (a stopped scope shows nothing until its next
+        acquisition, a running one refills them). Waveform memories are not erased; the
+        measurement commands stay installed (their values recompute from what is read)."""
+        self.records.clear()
+        self.segment_records = []
+        self.session.invalidate()
+        return OpResult()
+
+    @op("points_auto")
+    def points_auto(self, query: bool = False, on: bool | None = None, **_: Any) -> OpResult:
+        """``:ACQuire:POINts:AUTO``: whether the memory depth follows the AUTO value (the guide,
+        p. 339). ON selects the AUTO depth, OFF keeps the current depth as a manual one."""
+        return self.horizontal().auto_control("points", query, on)
+
+    @op("srate_auto")
+    def srate_auto(self, query: bool = False, on: bool | None = None, **_: Any) -> OpResult:
+        """``:ACQuire:SRATe[:ANALog]:AUTO``: whether the sample rate follows AUTO (the guide,
+        p. 352). ON selects AUTO, OFF keeps the present rate as a manual one."""
+        return self.horizontal().auto_control("sample_rate", query, on, actual=self.sample_rate)
+
     @op("digitize")
     def digitize(self, sources: list[bytes] | None = None, **_: Any) -> OpResult:
         chans: list[int] = []
@@ -2339,9 +3212,11 @@ class ScopeMeasurements(Component):
     Every value taken is kept for ``statistics`` (count, mean, sdev, min, max) until cleared.
     """
 
-    refs = {"record": (RecordSource, "instrument")}
+    refs = {"record": (RecordSource, "instrument"), "math": (MathSource, "instrument")}
+    optional_refs = frozenset({"math"})
     defaults = {
         "record": "acq",  # the acquisition component holding the records (RecordSource: a real-time or sampling one)
+        "math": "",  # the math block a FUNCtion<F> source reads from (#1074); empty: channels only
         "source": "",  # the channel measured (a setting such as $measure.source); empty: the command's
         "names": {},  # model name -> [engine measurement, unit], e.g. {AMPL: [VAMPlitude, V]}
         "top_base": "histogram",  # histogram | extremes
@@ -2363,6 +3238,27 @@ class ScopeMeasurements(Component):
         # past `slots` the oldest leaves. 0: no list (the query only answers).
         "slots": 0,
         "all": [],  # the measurements :MEASure:ALL? answers, in order (engine names)
+        # ---- the markers (cursors, #1074): the settings the definition binds the :MARKer words to;
+        # a model without them has no marker commands.
+        "marker_mode": "",  # the marker mode setting, e.g. $marker.mode: OFF/MANual/XONly/YONly/WAVeform/MEASurement
+        "marker_x1": None,  # the Ax marker's x, in the source's x unit (s, or Hz on a transform), e.g. $marker.x1
+        "marker_x2": None,  # the Bx marker's x
+        "marker_y1": None,  # the Ay marker's y, in the source's vertical unit
+        "marker_y2": None,  # the By marker's y
+        "marker_source1": "",  # the Ax/Ay markers' source word, e.g. $marker.source1 (CHANnel1, FUNCtion1, …)
+        "marker_source2": "",  # the Bx/By markers' source word
+        "marker_delta": None,  # whether the deltas are drawn on screen (a bool setting); None: no command
+        "marker_measurement": None,  # the measurement the MEASurement mode tracks, 1-based (an int setting)
+        "markers": 0,  # how many of the numbered :MARKer<K> markers the model has (1..60); 0: none
+        # ---- the markers' units (2000 X-series :MARKer:XUNits/:YUNits, #1155): the words the
+        # positions and deltas answer in, and the anchors a :UNits:USE write sets (None: no
+        # command, the values pass through unscaled).
+        "marker_x_units": "",  # the X cursors' unit word: SEConds/HERTz/DEGRees/PERCent
+        "marker_y_units": "",  # the Y cursors' unit word: BASE/PERCent
+        "marker_xa1": None,  # the X unit's 0 anchor (a position in the source's x unit)
+        "marker_xa2": None,  # the X unit's full anchor (360 degrees, 100 percent)
+        "marker_ya1": None,  # the Y unit's 0 anchor
+        "marker_ya2": None,  # the Y unit's full anchor
         # The model's measurement thresholds, by setting: "<prefix>.<group><n>.<field>" for channel n,
         # groups "general" (every measurement but rise and fall) and "rfall" (rise and fall times),
         # fields those of measurements.DEFAULT_THRESHOLDS (method, upper, middle, lower, abs_*,
@@ -2382,12 +3278,14 @@ class ScopeMeasurements(Component):
         super().__init__(*args, **kwargs)
         self.history: dict[tuple[str, int], list[float]] = {}
         self.installed: list[tuple[str, int]] = []  # the screen's measurements, oldest first (#373)
+        self.k_markers: dict[int, dict[str, Any]] = {}  # the numbered markers' state, #1074
         self.names: dict[tuple[str, int], str] = {}  # a measurement's own name (:MEASure:NAME)
         self.screen: list[tuple[str, int]] = []  # top to bottom: the newest first unless moved
 
     def reset(self) -> None:
         self.history = {}
         self.installed = []
+        self.k_markers = {}
         self.names = {}
         self.screen = []
 
@@ -2605,7 +3503,7 @@ class ScopeMeasurements(Component):
             words = [V.parse_string(b).strip().upper() for b in source]
             source = next((w for w in words if w.startswith("CH")), None)
         if source:
-            name = source.strip().upper()
+            name = (source.decode() if isinstance(source, bytes) else str(source)).strip().upper()
             m = name.removeprefix("CHANNEL").removeprefix("CHAN").removeprefix("C")
             if not m.isdigit():
                 raise ScpiError(-224, f"unknown source {source!r}")
@@ -2626,6 +3524,8 @@ class ScopeMeasurements(Component):
         and base, crossing level): what :MEASure? answers, and what the screen's measurement
         panel shows for the record on screen (#280)."""
         acq = self._acq()
+        if rec.points > MAX_FRAME:
+            return self._deep_value(what, rec)
         v = np.asarray(rec.volts, dtype=float)
         gate = self.param("gate")
         if gate:
@@ -2669,6 +3569,29 @@ class ScopeMeasurements(Component):
             min_band=self._band_floor(rec),
         )
         return value
+
+    def _deep_value(self, what: str, rec: Record) -> float:
+        """A measurement on a record too deep to hold in memory (#1012): those that reduce it chunk
+        by chunk (``CHUNKED_MEASUREMENTS``) read it in chunks; the others need every sample at once
+        and are refused as beyond the model."""
+        if what not in CHUNKED_MEASUREMENTS:
+            raise beyond_model(
+                f"{what} on a record of {rec.points} points needs the whole record in memory "
+                f"(at most {MAX_FRAME} points)"
+            )
+        lo, hi = 0, rec.points
+        gate = self.param("gate")
+        if gate:
+            lo, hi = (max(0, min(rec.points, round(float(g) / 10 * rec.points))) for g in gate)
+        acq = self._acq()
+        if str(self.param("clipped")) == "invalid" and acq.adc_unit().param("bits"):
+            rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
+            if (
+                chunked_value("VMAX", rec, lo, hi) >= rails[0]
+                or chunked_value("VMIN", rec, lo, hi) <= rails[1]
+            ):
+                return math.nan
+        return chunked_value(what, rec, lo, hi)
 
     def threshold_spec(self, n: int, group: str) -> dict[str, Any]:
         """Channel n's threshold set ``group`` (general / rfall) from the settings ``thresholds``
@@ -2752,18 +3675,20 @@ class ScopeMeasurements(Component):
         if channels:
             self._follow(n, f"CHANnel{n}")
         rec, used = self._acq().measure_record(n)
-        v = np.asarray(rec.volts, dtype=float)
         dt, origin = rec.dt_s, rec.origin
         if what == "VTIMe":
             if not args:
                 raise ScpiError(-109, "VTIMe? takes a time")
             x = (V.parse_float(args[0].encode(), "S") - origin) / dt
-            if v.size == 0 or not 0 <= x <= v.size - 1:
+            size = rec.points
+            if size == 0 or not 0 <= x <= size - 1:
                 return self._reply(math.nan, used)
-            k = min(int(x), v.size - 2) if v.size > 1 else 0
+            k = min(int(x), size - 2) if size > 1 else 0
             frac = x - k
-            value = float(v[k]) if v.size == 1 else float(v[k] + (v[k + 1] - v[k]) * frac)
+            pair = rec.span(k, k + 2)  # the two samples around the time: a deep record computes no more
+            value = float(pair[0]) if size == 1 else float(pair[0] + (pair[1] - pair[0]) * frac)
             return self._reply(value, used)
+        v = np.asarray(rec.volts, dtype=float)
         if what == "TEDGe":
             position = "MIDDle"
             if args and args[0].strip().upper().startswith(("UPP", "MIDD", "LOW")):
@@ -3016,3 +3941,492 @@ class ScopeMeasurements(Component):
     def clear_statistics(self, **_: Any) -> OpResult:
         self.history = {}
         return OpResult()
+
+    # ---- the markers (cursors, #1074) ------------------------------------------------------------
+
+    #: What a marker mode word stands for, by its first letters (the settings hold SCPI words).
+    MODES = {
+        "OFF": "off",
+        "MAN": "manual",
+        "XON": "x_only",
+        "YON": "y_only",
+        "WAV": "waveform",
+        "MEAS": "measurement",
+    }
+
+    def _marker_mode(self) -> str:
+        """The marker mode as one of ``MODES``' values, ``off`` when the model has none."""
+        word = str(self.param("marker_mode") or "").upper()
+        for key, mode in self.MODES.items():
+            if word.startswith(key):
+                return mode
+        return "off"
+
+    def _marker_record(self, which: int) -> tuple[Any, int]:
+        """The record the A (``which`` 1) or B (2) markers read: their source's, a channel's or a
+        math function's (#1074). A numberless ``FUNCtion`` — or its alias ``MATH`` (2000 X-series
+        Programmer's Guide 02.66 p. 361) — names the one function a single-function layout has."""
+        word = str(self.param(f"marker_source{which}") or "")
+        f = function_index(word) if word else None
+        if f is None and word.strip().upper() in ("FUNCTION", "FUNC", "F", "MATH"):
+            f = 1
+        if f is not None:
+            block = self.ref("math")
+            if block is None or not isinstance(block, MathSource):
+                raise ScpiError(-224, f"{word}: this model has no math functions to mark")
+            return block.read_function(f)  # type: ignore[return-value]
+        n = self._channel(None, word.encode() if word else None)
+        return self._acq().measure_record(n)  # type: ignore[return-value]
+
+    def _value_at(self, rec: Any, x: float) -> float:
+        """The record's value at x (its grid's unit — seconds, or Hz on a transform), the sample
+        nearest x: the markers of the real instrument read the point the screen draws."""
+        if rec.points < 1:
+            return math.nan
+        k = (x - rec.origin) / rec.dt_s
+        i = int(min(max(round(k), 0), rec.points - 1))
+        return float(rec.span(i, i + 1)[0])
+
+    def _marker_y(self, which: int) -> tuple[float, int]:
+        """The A (1) or B (2) marker's y: in the manual modes its setting, in the waveform mode
+        the value its source's record has at the marker's x; the measurement mode tracks the
+        measurement ``marker_measurement`` names."""
+        mode = self._marker_mode()
+        if mode in ("off", "x_only"):
+            return math.nan, 0
+        if mode == "measurement":
+            n = self.param("marker_measurement")
+            if n in (None, ""):
+                # no tracked-measurement command: the cursors track the most recent measurement
+                # on screen (the 2000 X-series semantics, Programmer's Guide 02.66 p. 359)
+                if not self.installed:
+                    return math.nan, 0
+                what, channel = self.installed[-1]
+                return self.value(what, channel)
+            which_meas = int(n)
+            if 1 <= which_meas <= len(self.installed):
+                what, channel = self.installed[which_meas - 1]
+                return self.value(what, channel)
+            return math.nan, 0
+        if mode == "waveform":
+            rec, used = self._marker_record(which)
+            x = self.param(f"marker_x{which}")
+            return self._value_at(rec, float(x) if x is not None else 0.0), used
+        y = self.param(f"marker_y{which}")  # manual and y_only: the marker is its setting
+        return (float(y) if y is not None else math.nan), 0
+
+    def _marker_word(self, mode: str) -> str:
+        """The SCPI word a mode's setting carries, as the definition's options spell it."""
+        assert self.owner is not None
+        path = self.bound_path("marker_mode")
+        if path is None:
+            return mode
+        for option in self.owner.specs[path].options or []:
+            if option.upper().startswith(mode[:3]):
+                return str(option)
+        return mode
+
+    @op("cursor")
+    def cursor(self, which: str = "STARt", query: bool = True, **_: Any) -> OpResult:
+        """``:MARKer:CURSor? {DELTa | STARt | STOP}``: the tracked positions as ``<x>,<y>``.
+        The query also puts the markers in the waveform-tracking mode, whatever they were (the
+        manual's caution: it changes the mode)."""
+        assert self.owner is not None
+        word = str(which).strip().upper()
+        if not word.startswith(("DEL", "STA", "STO")):
+            raise ScpiError(-224, f"{which}: DELTa, STARt or STOP")
+        mode_path = self.bound_path("marker_mode")
+        if self._marker_mode() != "waveform" and mode_path is not None:
+            self.owner.set_state(mode_path, self._marker_word("WAV"), source="scpi", internal=True)
+        if word.startswith("DEL"):
+            x1, x2 = (float(self.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
+            ya, ua = self._marker_y(1)
+            yb, ub = self._marker_y(2)
+            return OpResult(b",".join(self.owner.format_number(v) for v in (x2 - x1, yb - ya)), ua + ub)
+        n = 1 if word.startswith("STA") else 2
+        y, used = self._marker_y(n)
+        x = float(self.param(f"marker_x{n}") or 0.0)
+        return OpResult(b",".join(self.owner.format_number(v) for v in (x, y)), used)
+
+    @op("x_delta")
+    def x_delta(self, query: bool = True, **_: Any) -> OpResult:
+        """``:MARKer:XDELta?``: Bx − Ax, in the X cursors' units — the value at each cursor in
+        that unit, minus (the 2000 X-series manual's Xdelta; #1155)."""
+        assert self.owner is not None
+        x1, x2 = (float(self.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
+        shown = self._marker_diff("x", x1, x2)
+        if not math.isfinite(shown):
+            return OpResult(str(self.param("invalid_value")).encode())
+        return OpResult(self.owner.format_number(shown))
+
+    @op("y_delta")
+    def y_delta(self, query: bool = True, **_: Any) -> OpResult:
+        """``:MARKer:YDELta?``: By − Ay — the markers' settings, or the values at their x in the
+        tracking modes."""
+        assert self.owner is not None
+        ya, ua = self._marker_y(1)
+        yb, ub = self._marker_y(2)
+        value = self._marker_diff("y", ya, yb)
+        if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
+            return OpResult(str(self.param("invalid_value")).encode(), ua + ub)
+        return OpResult(self.owner.format_number(value), ua + ub)
+
+    # ---- the markers' units (2000 X-series :MARKer:XUNits/:YUNits, #1155) ------------------------
+
+    XUNITS = {"SEC": "s", "HERT": "hz", "DEGR": "deg", "PERC": "pct"}
+    YUNITS = {"BASE": "base", "PERC": "pct"}
+
+    def _marker_units(self, axis: str) -> str:
+        """The X or Y cursors' unit as this block spells it, from the setting's word."""
+        word = str(self.param(f"marker_{axis}_units") or "").upper()
+        table = self.XUNITS if axis == "x" else self.YUNITS
+        for key, unit in table.items():
+            if word.startswith(key):
+                return unit
+        return table[next(iter(table))]  # the first: seconds, or base units
+
+    def _marker_scaled(self, axis: str, value: float) -> float:
+        """A position in the axis's own units expressed in its cursors' unit: the degrees or
+        percent from the unit's 0 anchor (:MARKer:XUNits:USE, :MARKer:YUNits:USE set the
+        anchors); without anchors the value passes through (the unit has nothing to scale
+        against). A difference between two positions scales the same way without the anchor's
+        offset — see ``_marker_diff``."""
+        if self._marker_units(axis) not in ("deg", "pct"):
+            return value
+        a1 = self.param(f"marker_{axis}a1")
+        a2 = self.param(f"marker_{axis}a2")
+        if a1 is None or a2 is None or float(a2) == float(a1):
+            return value
+        span = float(a2) - float(a1)
+        full = 360.0 if self._marker_units(axis) == "deg" else 100.0
+        return full * (value - float(a1)) / span
+
+    def _marker_diff(self, axis: str, one: float, two: float) -> float:
+        """The cursors' difference in their unit: the value at each cursor in the unit, minus —
+        the 2000 X-series manual's Xdelta/Ydelta (degrees and percent scale the difference)."""
+        unit = self._marker_units(axis)
+        if unit == "s" or unit == "base":
+            return two - one
+        if unit == "hz":
+            if one <= 0.0 or two <= 0.0:
+                return math.nan
+            return 1.0 / two - 1.0 / one
+        a1 = self.param(f"marker_{axis}a1")
+        a2 = self.param(f"marker_{axis}a2")
+        if a1 is None or a2 is None or float(a2) == float(a1):
+            return two - one
+        span = float(a2) - float(a1)
+        full = 360.0 if unit == "deg" else 100.0
+        return full * (two - one) / span
+
+    @op("x_position", fields=("which",))
+    def op_x_position(self, which: str = "X1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
+        """``:MARKer:X1Position`` / ``:MARKer:X2Position``: the cursor's position. A write puts
+        the cursors in the MANual mode unless they track (the manual); the input and the reply
+        are in the X cursors' units (:MARKer:XUNits)."""
+        return self._position(which, value, query, "x")
+
+    @op("y_position", fields=("which",))
+    def op_y_position(self, which: str = "Y1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
+        """``:MARKer:Y1Position`` / ``:MARKer:Y2Position``: the cursor's position. A write is
+        refused while the cursors track (the manual: Y positions cannot be set in the WAVeform
+        mode) and otherwise puts them in the MANual mode."""
+        return self._position(which, value, query, "y")
+
+    def _position(self, which: str, value: Any, query: bool, axis: str) -> OpResult:
+        """One X or Y cursor's read or write, in the cursors' unit, with the mode moves the
+        manual gives a position write (MANual unless tracking; a tracking Y is refused)."""
+        assert self.owner is not None
+        n = 1 if str(which).strip().upper().endswith("1") else 2
+        param = f"marker_{axis}{n}"
+        mode_path = self.bound_path("marker_mode")
+        mode = self._marker_mode()
+        if query:
+            if mode == "off":
+                raise ScpiError(-222, "the cursors are off: their positions are not defined")
+            used = 0
+            if axis == "y" and mode in ("waveform", "measurement"):
+                shown, used = self._marker_y(n)
+                if not math.isfinite(shown) and self.param("invalid_value") != "UNDEF":
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+            else:
+                shown = float(self.param(param) if self.param(param) is not None else 0.0)
+            unit = self._marker_units(axis)
+            if unit == "hz":
+                if shown <= 0.0:
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+                shown = 1.0 / shown
+            elif unit in ("deg", "pct"):
+                shown = self._marker_scaled(axis, shown)
+            return OpResult(self.owner.format_number(shown), used)
+        if axis == "y" and mode == "waveform":
+            raise ScpiError(-222, "the cursors track the waveform: Y positions cannot be set")
+        if mode != "waveform" and mode_path is not None:
+            self.owner.set_state(mode_path, self._marker_word("MAN"), source="scpi", internal=True)
+        path = self.bound_path(param)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: the {param} setting is not bound")
+        number = self._marker_number(axis, value)
+        self.owner.set_state(path, number, source="scpi", internal=True)
+        return OpResult()
+
+    def _marker_number(self, axis: str, value: Any) -> float:
+        """A cursor position write in the cursors' unit, stored in the axis's own units (seconds
+        or volts): Hz is its inverse, degrees and percent ride the anchors (:UNits:USE)."""
+        if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
+            value = value[0] if value else None
+        if value is None:
+            raise ScpiError(-109)
+        text = value.decode("ascii", errors="replace") if isinstance(value, bytes) else str(value)
+        v = float(V.parse_number(text))
+        unit = self._marker_units(axis)
+        if unit == "s" or unit == "base":
+            return v
+        if unit == "hz":
+            if v <= 0.0:
+                raise ScpiError(-222, f"{v:g} Hz: a cursor's frequency is positive")
+            return 1.0 / v
+        a1 = self.param(f"marker_{axis}a1")
+        a2 = self.param(f"marker_{axis}a2")
+        if a1 is None or a2 is None or float(a2) == float(a1):
+            return v  # nothing to scale against: the value passes through (the model's convention)
+        full = 360.0 if unit == "deg" else 100.0
+        return float(a1) + (float(a2) - float(a1)) * v / full
+
+    @op("units_use", fields=("axis",))
+    def op_units_use(self, axis: str = "X", **_: Any) -> OpResult:
+        """``:MARKer:XUNits:USE`` / ``:MARKer:YUNits:USE``: the current cursor locations become
+        the unit's anchors — 0 and 360 degrees, or 0 and 100 percent (no query)."""
+        assert self.owner is not None
+        axis = axis.strip().lower()
+        if axis not in ("x", "y"):
+            raise ScpiError(-224, f"{axis}: X or Y")
+        one = float(self.param(f"marker_{axis}1") or 0.0)
+        two = float(self.param(f"marker_{axis}2") or 0.0)
+        for name, value in ((f"marker_{axis}a1", one), (f"marker_{axis}a2", two)):
+            path = self.bound_path(name)
+            if path is None:
+                raise ScpiError(-300, f"{self.uid}: the {name} setting is not bound")
+            self.owner.set_state(path, value, source="scpi", internal=True)
+        return OpResult()
+
+    @op("marker_source", fields=("which",))
+    def op_marker_source(
+        self, which: str = "X1Y1", value: Any = None, query: bool = False, **_: Any
+    ) -> OpResult:
+        """``:MARKer:X1Y1source`` / ``:MARKer:X2Y2source``: the cursors' source. ``MATH`` is an
+        alias stored as FUNCtion, so the query answers FUNC for either (the manual's note,
+        Programmer's Guide 02.66 p. 361); the reply is the source's short form (CHAN1, FUNC)."""
+        assert self.owner is not None
+        param = f"marker_source{2 if str(which).strip().upper().endswith('2') else 1}"
+        if query or value is None:
+            return OpResult(short_source(self.param(param) or "NONE").encode())
+        if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
+            value = value[0] if value else None
+        if value is None:
+            raise ScpiError(-109)
+        word = V.parse_string(value if isinstance(value, bytes) else str(value).encode())
+        if word.strip().upper() == "MATH":
+            word = "FUNCtion"
+        path = self.bound_path(param)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: the {param} setting is not bound")
+        self.owner.set_state(path, word, source="scpi", internal=True)
+        return OpResult()
+
+    @op("marker_measurements")
+    def marker_measurements(
+        self, measurement: Any = None, state: Any = None, query: bool = False, **_: Any
+    ) -> OpResult:
+        """``:MARKer:MEASurement:MEASurement``: which measurements the MEASurement mode tracks.
+        Without ``state`` the list becomes that one measurement; with it, that measurement's
+        tracking alone turns on or off. The query answers the tracked measurement, or empty."""
+        if isinstance(measurement, list):  # a raw parameter takes all the remaining ones
+            measurement = measurement[0] if measurement else None
+        if measurement is None:
+            if not query:
+                raise ScpiError(-109)
+            tracked = sorted(m["measurement"] for m in self.k_markers.values() if m.get("tracking"))
+            return OpResult((",".join(f"MEAS{n}" for n in tracked)).encode()) if tracked else OpResult()
+        word = V.parse_string(measurement if isinstance(measurement, bytes) else str(measurement).encode())
+        digits = word.upper().removeprefix("MEAS").removeprefix("UREMENT").removeprefix("UREMENT")
+        # MEASurement<N> rides its own short spellings (MEAS1, MEASurement1); a bare number too
+        if not (digits.startswith("1") or digits.isdigit()):
+            digits = digits.lstrip("0")
+        if not digits.isdigit():
+            raise ScpiError(-224, f"{word}: not a measurement number")
+        n = int(digits)
+        slot = next((k for k, m in self.k_markers.items() if m.get("measurement") == n), None)
+        if state:  # an omitted parameter arrives as an empty list, not None
+            on = V.flag(state)
+            if slot is None and on:
+                slot = max(self.k_markers, default=0) + 1
+            if slot is not None:
+                if on:
+                    self.k_markers[slot] = {"tracking": True, "measurement": n}
+                else:
+                    self.k_markers.pop(slot, None)
+            return OpResult()
+        self.k_markers = {k: m for k, m in self.k_markers.items() if not m.get("tracking")}
+        self.k_markers[max(self.k_markers, default=0) + 1] = {"tracking": True, "measurement": n}
+        meas_path = self.bound_path("marker_measurement")
+        if meas_path is not None:
+            assert self.owner is not None
+            self.owner.set_state(meas_path, n, source="scpi", internal=True)
+        return OpResult()
+
+    # ---- the numbered markers (:MARKer<K>, #1074) --------------------------------------------------
+
+    def _k(self, suffixes: dict[str, int] | None) -> int:
+        """The ``<K>`` a numbered-marker command carried, checked against the model's count."""
+        most = int(self.param("markers") or 0)
+        k = int(next(iter(suffixes.values()))) if suffixes else 1
+        if most <= 0 or not 1 <= k <= most:
+            raise ScpiError(-114, f"marker {k} is not 1..{most}")
+        return k
+
+    def _k_marker(self, k: int) -> dict[str, Any]:
+        """Marker k's state, its defaults in: XMANual type, channel 1, off."""
+        return self.k_markers.setdefault(
+            k, {"type": "XMANual", "source": "CHANnel1", "enable": False, "x": 0.0, "y": 0.0}
+        )
+
+    @op("k_field", fields=("field",))
+    def k_field(
+        self,
+        field: str = "type",
+        value: Any = None,
+        query: bool = False,
+        suffixes: dict[str, int] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """One field of a numbered marker — its type, source, enable, name, color, colour mode, x
+        or y position — as ``:MARKer<K>:<field>`` reads and writes it. A type change needs the
+        marker off (the manual: -221); what the marker's type has no place for answers
+        ``invalid_value``. The query answers the short forms the manual's Returned Format names
+        (XMAN, TRAC, CHAN1, CUST)."""
+        assert self.owner is not None
+        k = self._k(suffixes)
+        marker = self._k_marker(k)
+        key = {
+            "type": "type",
+            "source": "source",
+            "enable": "enable",
+            "name": "name",
+            "color": "color",
+            "cmode": "cmode",
+            "x": "x",
+            "y": "y",
+        }[field]
+        if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
+            value = value[0] if value else None
+        if query or value is None:
+            if key == "x" and marker["type"] == "YMANual":
+                return OpResult(str(self.param("invalid_value")).encode())
+            if key == "y" and marker["type"] in ("XMANual", "TRACk", "RF"):
+                return OpResult(str(self.param("invalid_value")).encode())
+            current = marker.get(key)
+            if key == "enable":
+                return OpResult(V.format_int(int(bool(current))))
+            if isinstance(current, (int, float)) and key in ("x", "y"):
+                return OpResult(self.owner.format_number(float(current)))
+            if current in (None, ""):
+                return OpResult(b'""')
+            if key == "type":
+                return OpResult(
+                    {"XMANual": "XMAN", "YMANual": "YMAN", "TRACk": "TRAC", "RF": "RF"}[current].encode()
+                )
+            if key == "source":
+                return OpResult(short_source(current).encode())
+            if key == "cmode":
+                return OpResult(b"CUST" if current == "CUSTom" else b"SOUR")
+            if key in ("name", "color"):  # a quoted string, as the manual's Returned Format has it
+                return OpResult(f'"{current}"'.encode())
+            return OpResult(str(current).encode())
+        raw = value if isinstance(value, bytes) else str(value).encode()
+        if key == "type":
+            word = V.parse_string(raw).upper()
+            if word not in ("XMANUAL", "YMANUAL", "TRACK", "RF"):
+                raise ScpiError(-224, f"{value}: XMANual, YMANual, TRACk or RF")
+            if marker["enable"]:
+                raise ScpiError(-221, f"marker {k} is on: turn it off before changing its type")
+            marker["type"] = {"XMANUAL": "XMANual", "YMANUAL": "YMANual", "TRACK": "TRACk", "RF": "RF"}[word]
+            return OpResult()
+        if key == "enable":
+            marker["enable"] = V.flag(raw)
+            return OpResult()
+        if key == "cmode":
+            word = V.parse_string(raw).upper()
+            if word not in ("CUSTOM", "SOURCE"):
+                raise ScpiError(-224, f"{value}: CUSTom or SOURce")
+            marker["cmode"] = "CUSTom" if word == "CUSTOM" else "SOURce"
+            return OpResult()
+        if key in ("source", "name", "color"):
+            marker[key] = V.parse_string(raw)
+            return OpResult()
+        if key == "x" and marker["type"] == "YMANual":
+            raise ScpiError(-221, "a Y-only marker has no x position")
+        if key == "y" and marker["type"] in ("XMANual", "TRACk", "RF"):
+            raise ScpiError(-221, "an X-only or tracking marker has no y position")
+        marker[key] = parse_number(raw.decode("ascii", errors="replace"))
+        return OpResult()
+
+    @op("marker_delta")
+    def marker_delta(
+        self,
+        other: Any = None,
+        state: Any = None,
+        query: bool = True,
+        suffixes: dict[str, int] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """``:MARKer:DELTa`` and ``:MARKer<K>:DELTa``, which share a header: without a ``MARKer<L>``
+        word the command is the screen's delta-markers switch (``{ON | OFF}``, the query answers
+        0/1); with one, it is marker K's delta-to relationship with marker L — the query answers
+        ``<state>,<Δx>,<1/Δx>,<Δy>,<Δy/Δx>`` (``invalid_value`` where not applicable)."""
+        assert self.owner is not None
+        if isinstance(other, list):  # a raw parameter takes all the remaining ones: the ON/OFF
+            extra = other[1:]  # state of a :MARKer<K>:DELTa MARKer<L>,{ON | OFF} rides here
+            other = other[0] if other else None
+            if not state and extra:  # an omitted parameter arrives as an empty list
+                state = extra[0]
+        if isinstance(state, list):
+            state = state[0] if state else None
+        raw = other if isinstance(other, bytes) else (str(other).encode() if other is not None else b"")
+        word = V.parse_string(raw).upper() if raw else ""
+        if word.startswith("MARKER") and word.removeprefix("MARKER").isdigit():
+            k = self._k(suffixes)
+            other_k = int(word.removeprefix("MARKER"))
+            if not 1 <= other_k <= int(self.param("markers") or 0) or other_k == k:
+                raise ScpiError(-224, f"{other!r}: not another marker of this model")
+            first, second = self._k_marker(k), self._k_marker(other_k)
+            if not query:
+                word = (
+                    ""
+                    if state is None
+                    else V.parse_string(state if isinstance(state, bytes) else str(state).encode())
+                )
+                first["delta_to"] = other_k if state is None or V.flag(word) else None
+                return OpResult()
+            on = first.get("delta_to") == other_k
+            dx = float(second["x"]) - float(first["x"])
+            invalid = str(self.param("invalid_value")).encode()
+            parts = [V.format_int(int(on)), self.owner.format_number(dx)]
+            parts.append(self.owner.format_number(1.0 / dx) if dx else invalid)
+            if first["type"] == second["type"] == "YMANual":
+                dy = float(second["y"]) - float(first["y"])
+                parts.append(self.owner.format_number(dy))
+                parts.append(self.owner.format_number(dy / dx) if dx else invalid)
+            else:
+                parts += [invalid, invalid]
+            return OpResult(b",".join(parts))
+        if not query:  # :MARKer:DELTa {ON | OFF}: the screen's delta-markers check box
+            path = self.bound_path("marker_delta")
+            if path is None:
+                raise ScpiError(-113, "this model has no delta-marker display setting")
+            self.owner.set_state(path, V.flag(raw), source="scpi", internal=True)
+            return OpResult()
+        path = self.bound_path("marker_delta")
+        if path is None:
+            raise ScpiError(-113, "this model has no delta-marker display setting")
+        return OpResult(V.format_int(int(V.flag(self.owner.get_state(path)))))

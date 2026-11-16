@@ -9,101 +9,134 @@ sections:
   - header: '*LRN'
     level: not_modeled
     note: 设置的二进制学习串未建模。
+    gap: blocked
+    blocked_by: setup-memory
 - section: Status Model
   commands:
   - header: :STATus:PRESet
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable[:EVENt]
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:CONDition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:ENABle
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:NTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:PTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation[:EVENt]
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:CONDition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:ENABle
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:NTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:PTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage[:EVENt]
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:CONDition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:ENABle
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:NTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:VOLTage:PTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:FREQuency[:EVENt]
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:FREQuency:CONDition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:FREQuency:ENABle
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:FREQuency:NTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:FREQuency:PTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:CONNection[:EVENt]
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:CONNection:CONDition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:CONNection:ENABle
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:CONNection:NTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:QUEStionable:CONNection:PTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:RUN[:EVENt]
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:RUN:CONDition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:RUN:ENABle
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:RUN:NTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
   - header: :STATus:OPERation:RUN:PTRansition
     level: not_modeled
     note: 未建模：状态寄存器组（OPERation/QUEStionable 及其子组）没有通用的状态组件；*STB?/*ESR? 照常工作。
+    gap: model_work
 - section: :ABOrt Commands
   commands:
   - header: :ABORt<ch>
@@ -139,36 +172,58 @@ sections:
   - header: :MMEMory:CATalog
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:CDIRectory
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:COPY
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:DATA
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:DATA:APPend
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:DELete
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:LOAD:CSTate
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:MDIRectory
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:MOVE
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:RDIRectory
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
   - header: :MMEMory:STORe:CSTate
     level: not_modeled
     note: 未建模：文件系统（MMEMory）不在仿真范围。
+    gap: blocked
+    blocked_by: file-system
 - section: :OUTPut Commands
   commands:
   - header: :OUTPut<ch>:DIOFfset
@@ -185,6 +240,7 @@ sections:
   - header: '[:SOURce]:CHARacteris<ch>[:VALue]'
     level: not_modeled
     note: 逐通道频率与相位响应数据（校准数据）未建模。手册把头写成 CHARacteris（缺末尾字符），此处照抄。
+    gap: model_work
   - header: '[:SOURce]:FREQuency:RASTer'
     level: implemented
     note: 采样频率 95.6–120.2 GSa/s（数据手册：三档范围之间的空隙不检查）；MIN/MAX 取整体范围的端点，不随 :FREQuency:RANGe 变化。
@@ -212,6 +268,7 @@ sections:
   - header: '[:SOURce]:ROSCillator:SOURce:CHECk'
     level: not_modeled
     note: 外部参考是否可用的检查未建模（没有外部信号模型）。
+    gap: model_work
   - header: '[:SOURce]:ROSCillator:EXTernal:FREQuency'
     level: implemented
     note: 外部参考频率 200–300 MHz（手册）；只保存并回读。
@@ -229,33 +286,43 @@ sections:
   - header: :SYSTem:COMMunicate:HISLip[:NUMBer]
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:COMMunicate:INSTr[:NUMBer]
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:COMMunicate:SOCKet[:PORT]
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:COMMunicate:TCPip:CONTrol
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:COMMunicate:TELNet[:PORT]
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:HELP:HEADers
     level: not_modeled
     note: 命令列表块未建模。
+    gap: model_work
   - header: :SYSTem:LICense:EXTended:LIST
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:LICense:LIST
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:LICense:SUBScription:DATE
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
+    gap: model_work
   - header: :SYSTem:SET
     level: not_modeled
     note: 设置学习串未建模（同 *LRN?）。
+    gap: model_work
   - header: :SYSTem:VERSion
     level: implemented
     note: SCPI 版本，回 "1999.0"（手册示例）。
@@ -264,9 +331,11 @@ sections:
   - header: :TEST:PON
     level: not_modeled
     note: 上电自检结果未建模，手册未给回复格式。
+    gap: out_of_scope
   - header: :TEST:TST
     level: not_modeled
     note: 自检消息未建模，手册未给回复格式；*TST? 回 0。
+    gap: out_of_scope
 - section: :TRACe Commands
   commands:
   - header: :TRACe<ch>:CATalog
@@ -299,9 +368,12 @@ sections:
   - header: :TRACe<ch>:IMPort
     level: not_modeled
     note: 未建模：从文件导入（涉及文件系统，不在仿真范围）。
+    gap: blocked
+    blocked_by: file-system
   - header: :TRACe<ch>:MARKer[:STATe]
     level: not_modeled
     note: 未建模：M8194A 不支持标记（手册 :TRACe:IMPort 的说明）。
+    gap: out_of_scope
   - header: :TRACe<ch>:NAME
     level: implemented
     note: 段的名字，至多 32 个字符；查询 :NAME? <segment_id> 回带引号的名字。
@@ -310,24 +382,40 @@ sections:
   - header: :INSTrument:MDIScover
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14
   - header: :INSTrument:MMODule:IDENtify
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14
   - header: :INSTrument:MMODule:MODE
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14
   - header: :INSTrument:MMODule:CONFig
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14
   - header: :INSTrument:SLAVe:LIST
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14
   - header: :INSTrument:SLAVe:ADD
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14
   - header: :INSTrument:SLAVe:DELete
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14
   - header: :INSTrument:SLAVe:DELete:ALL
     level: not_modeled
     note: 未建模：多模块同步（一个模块组最多四个）不在本模型范围，只建模单模块。
+    gap: blocked
+    blocked_by: C14

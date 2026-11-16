@@ -112,7 +112,8 @@ def test_a_running_screen_measures_its_live_frame(client):
 
 
 def test_a_running_screen_holds_its_record_when_the_average_is_beyond_the_model(client):
-    """#986: 8192 averages of the 100 000-point record are refused; the screen is not an error."""
+    """#986/#1012: a frame of 8192 averages of the 100 000-point record is beyond what a screen
+    computes (``ENVELOPE_BUDGET``); the screen holds its record and is not an error."""
     b = Bench(client, "benches/keysight-dsox2024a.bench.yaml")
     b.scpi(":DIGitize CHANnel1")
     b.scpi(":RUN")
@@ -148,3 +149,25 @@ def test_a_value_that_cannot_be_measured_is_empty_not_a_number(client):
     assert row["frequency"] is None and row["period"] is None
     assert float(b.scpi(":MEASure:FREQuency? CHANnel1")) > 9e37  # 9.9E+37
     assert row["vpp"] is not None
+
+
+def test_a_deep_record_screen_is_an_envelope_and_the_memory_depth_says_so(client):
+    """#1012: a deep record (6.4 Mpts here) reaches the screen as per-pixel extremes, not sample by
+    sample; its measurement row is empty (the screen does not read the whole record); the session
+    marks the memory depth setting as computed on read, and no other setting."""
+    b = Bench(client, "benches/keysight-uxr0334b.bench.yaml")
+    for command in (":ACQuire:POINts 10000000", ":TIMebase:SCALe 1E-5", ":DIGitize"):
+        b.scpi(command)
+    screen = b.screen()
+    trace = next(t for t in screen["traces"] if t["channel"] == 1)
+    assert trace["volts"] == [] and len(trace["minmax"]) == 2 * 1000
+    lows, highs = trace["minmax"][0::2], trace["minmax"][1::2]
+    assert (
+        all(h >= lo for lo, h in zip(lows, highs, strict=True)) and max(highs) - min(lows) > 0.3
+    )  # 400 mVpp
+    assert all(_row(screen, 1)[k] is None for k in KEYS)
+    scope = next(
+        i for i in client.get(f"/api/sessions/{b.sid}").json()["instruments"] if i["name"] == "scope"
+    )
+    marked = {v["path"] for v in scope["state"] if v["fidelity"] == "computed_on_read"}
+    assert marked == {"acquire.points"}

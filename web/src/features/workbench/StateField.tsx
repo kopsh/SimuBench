@@ -122,6 +122,18 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
           title={inactive ? `${v.path} · ${t("workbench.autoInactive")}` : v.path}
         >
           {labelOf(v)}
+          {v.fidelity === "computed_on_read" && (
+            // The memory depth of a scope: its deep records are computed where they are read (#1012),
+            // marked as fidelity is elsewhere (≈).
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="text-muted-foreground/70 ml-1" data-fidelity="computed_on_read" aria-label={t("workbench.computedOnRead")}>
+                  ≈
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>{t("workbench.computedOnRead")}</TooltipContent>
+            </Tooltip>
+          )}
           {inactive && <span className="text-muted-foreground/70 block text-[10px]">{t("workbench.autoInactive")}</span>}
         </label>
       )}

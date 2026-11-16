@@ -13,8 +13,8 @@ description: >-
 reference:
   title: Keysight Infiniium UXR-Series Oscilloscopes Programmer's Guide
   document: 9018-07723
-  version: "Version 11.60.00000, March 2024"
-  firmware: "Infiniium UXR-Series software 11.60"
+  version: "Version 11.80.00012, September 2026"
+  firmware: "Infiniium UXR-Series software 11.80"
 identity:
   # *IDN? per the guide: Keysight Technologies,<Model #>,<USXXXXXXXX>,<Rev #>[,<Options>].
   # :SYSTem:PERSona 改厂商与型号两段。
@@ -137,17 +137,13 @@ state:
     label_en: Reference
   trigger.mode:
     type: enum
-    options: [EDGE, GLITch, PWIDth]
+    options: [EDGE, GLITch, PWIDth, RUNT, TRANsition, TIMeout, WINDow, NEDGe]
     default: EDGE
     not_modeled:
       PATTern: pattern trigger is not modeled
       STATe: state trigger is not modeled
-      RUNT: runt trigger is not modeled
       SHOLd: setup and hold trigger is not modeled
-      TRANsition: transition trigger is not modeled
       DELay: delay trigger is not modeled
-      TIMeout: timeout trigger is not modeled
-      WINDow: window trigger is not modeled
       OR: ORed edges trigger is not modeled
       EBURst: burst trigger is not modeled
       SEQuence: sequence trigger is not modeled
@@ -220,12 +216,12 @@ state:
     default: 90
     label: 采集完成判据
     label_en: Acquire complete
-  # 存储深度：AUTO 由示波器选择（SimuBench 取 256 kpts，默认时基下正好 256 GSa/s）；手动值到 10 Mpts
-  # （仿真上限，真机标配 500 Mpts、选件到 2 Gpts，#1012，覆盖表注明）。
+  # 存储深度：AUTO 由示波器选择（SimuBench 取 256 kpts，默认时基下正好 256 GSa/s）；手动值到 2 Gpts
+  # （真机标配 500 Mpts，选件 1/2 Gpts；SimuBench 按装了 2 Gpts 选件）。超过 2^22 点的记录读的时候才算（#1012）。
   acquire.points:
     type: int
     min: 16
-    max: 10000000
+    max: 2000000000
     default: 256000
     special: {AUTO: 256000}
     label: 存储深度
@@ -375,7 +371,7 @@ state:
   acquire.segmented_prate: {type: float, unit: S, min: 0.001, max: 1.0, default: 0.1, label: 回放速率, label_en: Play rate}
   acquire.segmented_ttags: {type: bool, default: true, label: 段时间标签, label_en: Time tags}
   # ---- 前面板 AUX OUT / CAL OUT（:CALibrate:OUTPut）：同一信号，电平不同（手册）；50 Ω（数据手册）。 ----------
-  calibrate.output: {type: enum, options: [DC, PROBecomp, ZERO, ONE, DPULse, NDPULse, MHZ97, MHZ7_5], not_modeled: {TOUT: the trigger output pulse is not modeled}, default: PROBecomp, label: 校准输出信号, label_en: Cal output signal}
+  calibrate.output: {type: enum, options: [DC, PROBecomp, ZERO, ONE, DPULse, NDPULse, SOSC, MHZ97, MHZ7_5], not_modeled: {TOUT: the trigger output pulse is not modeled}, default: PROBecomp, label: 校准输出信号, label_en: Cal output signal}
   calibrate.dc: {type: float, unit: V, min: -1.2, max: 1.2, default: 0.0, label: 校准输出直流, label_en: Cal output DC}
   calibrate.aux: {type: bool, default: true, label: AUX OUT 输出, label_en: Aux Out}
   calibrate.cal: {type: bool, default: true, label: CAL OUT 输出, label_en: Cal Out}
@@ -424,6 +420,566 @@ state:
   # :MEASure:RESults? 回什么（:MEASure:STATistics）：ON 为标签与全部统计。上电值 ON（SimuBench 值）。
   measure.statistics: {type: enum, options: ["ON", "1", CURRent, MAXimum, MEAN, MINimum, STDDev, COUNt], replies: {"1": "ON"}, default: "ON", label: 测量统计, label_en: Statistics}
   measure.window: {type: enum, options: [MAIN, ALL], default: MAIN, label: 测量窗口, label_en: Measurement window}
+  # ---- 自 main 移植（#1153、#1184）：数学函数 FUNCtion1-16、光标、欠幅/过渡/窗口/超时/第 N 边沿触发的设置 ----
+  trigger.runt_source: {default: CHANnel1, label: 欠幅触发源, label_en: Runt trigger source, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], type: enum}
+  trigger.runt_polarity: {default: POSitive, label: 欠幅极性, label_en: Runt polarity, options: [POSitive, NEGative], type: enum}
+  trigger.runt_qualified: {default: false, label: 欠幅时间限定, label_en: Runt time qualified, type: bool}
+  trigger.runt_time: {default: 2.5e-10, label: 欠幅宽度下限, label_en: Runt width qualifier, max: 3.0e-08, min: 2.5e-10, type: float, unit: s}
+  trigger.transition_source: {default: CHANnel1, label: 过渡触发源, label_en: Transition trigger source, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], type: enum}
+  trigger.transition_type: {default: RISetime, label: 过渡类型, label_en: Transition type, options: [RISetime, FALLtime], type: enum}
+  trigger.transition_mode: {default: GTHan, label: 过渡限定, label_en: Transition qualifier, options: [GTHan, LTHan, RANGe, ORANge], type: enum}
+  trigger.transition_time: {default: 1.0e-09, label: 过渡时间限定, label_en: Transition time bound, min: 0.0, type: float, unit: s}
+  trigger.transition_range_low: {default: 1.0e-08, label: 过渡时间范围下限, label_en: Transition range minimum, min: 0.0, type: float, unit: s}
+  trigger.transition_range_high: {default: 2.0e-08, label: 过渡时间范围上限, label_en: Transition range maximum, min: 0.0, type: float, unit: s}
+  trigger.window_source: {default: CHANnel1, label: 窗口触发源, label_en: Window trigger source, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], type: enum}
+  trigger.window_condition: {default: ENTer, label: 窗口条件, label_en: Window condition, options: [ENTer, EXIT, INSide, OUTSide], type: enum}
+  trigger.window_qualifier: {default: GTHan, label: 窗口时长限定, label_en: Window duration qualifier, options: [GTHan, LTHan], type: enum}
+  trigger.window_time: {default: 1.0e-06, label: 窗口时长, label_en: Window time, min: 0.0, type: float, unit: s}
+  trigger.window_tpoint: {default: BOUNdary, label: 窗口触发点, label_en: Window trigger point, options: [BOUNdary, TIMeout], type: enum}
+  trigger.timeout_source: {default: CHANnel1, label: 超时触发源, label_en: Timeout trigger source, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], type: enum}
+  trigger.timeout_condition: {default: UNCHanged, label: 超时条件, label_en: Timeout condition, options: [HIGH, LOW, UNCHanged], type: enum}
+  trigger.timeout_time: {default: 0.001, label: 超时时间, label_en: Timeout time, min: 0.0, type: float, unit: s}
+  trigger.nedge_source: {default: CHANnel1, label: 第N边沿触发源, label_en: Nth edge trigger source, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], type: enum}
+  trigger.nedge_slope: {default: POSitive, label: 第N边沿斜率, label_en: Nth edge slope, options: [POSitive, NEGative], type: enum}
+  trigger.nedge_count: {default: 1, label: 边沿计数, label_en: Edge count, max: 65000000000, min: 1, type: int}
+  function.peak_sort: {default: DMAGnitude, label: FFT 峰值排序, label_en: FFT peak sort, options: [DMAGnitude, IMAGnitude, DFRequency, IFRequency], type: enum}
+  function1.operator: {default: NONE, label: 函数1 operator, label_en: Function 1 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function1.source1: {default: '', label: 函数1 source1, label_en: Function 1 source1, type: string}
+  function1.source2: {default: '', label: 函数1 source2, label_en: Function 1 source2, type: string}
+  function1.display: {default: false, label: 函数1 display, label_en: Function 1 display, type: bool}
+  function1.vertical: {default: AUTO, label: 函数1 vertical, label_en: Function 1 vertical, options: [AUTO, MANual], type: enum}
+  function1.range: {default: 8.0, label: 函数1 range, label_en: Function 1 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function1.offset: {default: 0.0, label: 函数1 offset, label_en: Function 1 offset, type: float, unit: V}
+  function1.horizontal: {default: AUTO, label: 函数1 horizontal, label_en: Function 1 horizontal, options: [AUTO, MANual], type: enum}
+  function1.h_position: {default: 0.0, label: 函数1 h_position, label_en: Function 1 h_position, type: float, unit: S}
+  function1.h_range: {default: 0.0, label: 函数1 h_range, label_en: Function 1 h_range, type: float, unit: S}
+  function1.delay: {default: 0.0, label: 函数1 delay, label_en: Function 1 delay, type: float, unit: S}
+  function1.gate_start: {default: 0.0, label: 函数1 gate_start, label_en: Function 1 gate_start, type: float, unit: S}
+  function1.gate_stop: {default: 0.0, label: 函数1 gate_stop, label_en: Function 1 gate_stop, type: float, unit: S}
+  function1.smooth: {default: 5, label: 函数1 smooth, label_en: Function 1 smooth, max: 4001, min: 3, type: int}
+  function1.average: {default: 16, label: 函数1 average, label_en: Function 1 average, max: 65534, min: 2, type: int}
+  function1.hp_bw: {default: 1.0e6, label: 函数1 hp_bw, label_en: Function 1 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function1.lp_bw: {default: 1.0e6, label: 函数1 lp_bw, label_en: Function 1 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function1.window: {default: HANNing, label: 函数1 window, label_en: Function 1 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function1.vunits: {default: DB, label: 函数1 vunits, label_en: Function 1 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function1.span: {default: 0.0, label: 函数1 span, label_en: Function 1 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function1.center: {default: 0.0, label: 函数1 center, label_en: Function 1 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function1.start: {default: 0.0, label: 函数1 start, label_en: Function 1 start, type: float, unit: HZ}
+  function1.stop: {default: 0.0, label: 函数1 stop, label_en: Function 1 stop, type: float, unit: HZ}
+  function1.impedance: {default: 50.0, label: 函数1 impedance, label_en: Function 1 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function1.tdelay: {default: 0.0, label: 函数1 tdelay, label_en: Function 1 tdelay, type: float, unit: S}
+  function1.fft_ref: {default: DISPlay, label: 函数1 fft_ref, label_en: Function 1 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function1.hsc: {default: LINear, label: 函数1 hsc, label_en: Function 1 hsc, options: [LINear, LOG], type: enum}
+  function1.detector: {default: 'OFF', label: 函数1 detector, label_en: Function 1 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function1.detector_points: {default: 0, label: 函数1 detector_points, label_en: Function 1 detector_points, max: 1000000, min: 0, type: int}
+  function1.peak_state: {default: false, label: 函数1 peak_state, label_en: Function 1 peak_state, type: bool}
+  function1.peak_count: {default: 3, label: 函数1 peak_count, label_en: Function 1 peak_count, max: 100, min: 1, type: int}
+  function1.peak_level: {default: -30.0, label: 函数1 peak_level, label_en: Function 1 peak_level, type: float, unit: DBM}
+  function1.label: {default: '', label: 函数1 label, label_en: Function 1 label, type: string}
+  function2.operator: {default: NONE, label: 函数2 operator, label_en: Function 2 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function2.source1: {default: '', label: 函数2 source1, label_en: Function 2 source1, type: string}
+  function2.source2: {default: '', label: 函数2 source2, label_en: Function 2 source2, type: string}
+  function2.display: {default: false, label: 函数2 display, label_en: Function 2 display, type: bool}
+  function2.vertical: {default: AUTO, label: 函数2 vertical, label_en: Function 2 vertical, options: [AUTO, MANual], type: enum}
+  function2.range: {default: 8.0, label: 函数2 range, label_en: Function 2 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function2.offset: {default: 0.0, label: 函数2 offset, label_en: Function 2 offset, type: float, unit: V}
+  function2.horizontal: {default: AUTO, label: 函数2 horizontal, label_en: Function 2 horizontal, options: [AUTO, MANual], type: enum}
+  function2.h_position: {default: 0.0, label: 函数2 h_position, label_en: Function 2 h_position, type: float, unit: S}
+  function2.h_range: {default: 0.0, label: 函数2 h_range, label_en: Function 2 h_range, type: float, unit: S}
+  function2.delay: {default: 0.0, label: 函数2 delay, label_en: Function 2 delay, type: float, unit: S}
+  function2.gate_start: {default: 0.0, label: 函数2 gate_start, label_en: Function 2 gate_start, type: float, unit: S}
+  function2.gate_stop: {default: 0.0, label: 函数2 gate_stop, label_en: Function 2 gate_stop, type: float, unit: S}
+  function2.smooth: {default: 5, label: 函数2 smooth, label_en: Function 2 smooth, max: 4001, min: 3, type: int}
+  function2.average: {default: 16, label: 函数2 average, label_en: Function 2 average, max: 65534, min: 2, type: int}
+  function2.hp_bw: {default: 1.0e6, label: 函数2 hp_bw, label_en: Function 2 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function2.lp_bw: {default: 1.0e6, label: 函数2 lp_bw, label_en: Function 2 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function2.window: {default: HANNing, label: 函数2 window, label_en: Function 2 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function2.vunits: {default: DB, label: 函数2 vunits, label_en: Function 2 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function2.span: {default: 0.0, label: 函数2 span, label_en: Function 2 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function2.center: {default: 0.0, label: 函数2 center, label_en: Function 2 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function2.start: {default: 0.0, label: 函数2 start, label_en: Function 2 start, type: float, unit: HZ}
+  function2.stop: {default: 0.0, label: 函数2 stop, label_en: Function 2 stop, type: float, unit: HZ}
+  function2.impedance: {default: 50.0, label: 函数2 impedance, label_en: Function 2 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function2.tdelay: {default: 0.0, label: 函数2 tdelay, label_en: Function 2 tdelay, type: float, unit: S}
+  function2.fft_ref: {default: DISPlay, label: 函数2 fft_ref, label_en: Function 2 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function2.hsc: {default: LINear, label: 函数2 hsc, label_en: Function 2 hsc, options: [LINear, LOG], type: enum}
+  function2.detector: {default: 'OFF', label: 函数2 detector, label_en: Function 2 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function2.detector_points: {default: 0, label: 函数2 detector_points, label_en: Function 2 detector_points, max: 1000000, min: 0, type: int}
+  function2.peak_state: {default: false, label: 函数2 peak_state, label_en: Function 2 peak_state, type: bool}
+  function2.peak_count: {default: 3, label: 函数2 peak_count, label_en: Function 2 peak_count, max: 100, min: 1, type: int}
+  function2.peak_level: {default: -30.0, label: 函数2 peak_level, label_en: Function 2 peak_level, type: float, unit: DBM}
+  function2.label: {default: '', label: 函数2 label, label_en: Function 2 label, type: string}
+  function3.operator: {default: NONE, label: 函数3 operator, label_en: Function 3 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function3.source1: {default: '', label: 函数3 source1, label_en: Function 3 source1, type: string}
+  function3.source2: {default: '', label: 函数3 source2, label_en: Function 3 source2, type: string}
+  function3.display: {default: false, label: 函数3 display, label_en: Function 3 display, type: bool}
+  function3.vertical: {default: AUTO, label: 函数3 vertical, label_en: Function 3 vertical, options: [AUTO, MANual], type: enum}
+  function3.range: {default: 8.0, label: 函数3 range, label_en: Function 3 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function3.offset: {default: 0.0, label: 函数3 offset, label_en: Function 3 offset, type: float, unit: V}
+  function3.horizontal: {default: AUTO, label: 函数3 horizontal, label_en: Function 3 horizontal, options: [AUTO, MANual], type: enum}
+  function3.h_position: {default: 0.0, label: 函数3 h_position, label_en: Function 3 h_position, type: float, unit: S}
+  function3.h_range: {default: 0.0, label: 函数3 h_range, label_en: Function 3 h_range, type: float, unit: S}
+  function3.delay: {default: 0.0, label: 函数3 delay, label_en: Function 3 delay, type: float, unit: S}
+  function3.gate_start: {default: 0.0, label: 函数3 gate_start, label_en: Function 3 gate_start, type: float, unit: S}
+  function3.gate_stop: {default: 0.0, label: 函数3 gate_stop, label_en: Function 3 gate_stop, type: float, unit: S}
+  function3.smooth: {default: 5, label: 函数3 smooth, label_en: Function 3 smooth, max: 4001, min: 3, type: int}
+  function3.average: {default: 16, label: 函数3 average, label_en: Function 3 average, max: 65534, min: 2, type: int}
+  function3.hp_bw: {default: 1.0e6, label: 函数3 hp_bw, label_en: Function 3 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function3.lp_bw: {default: 1.0e6, label: 函数3 lp_bw, label_en: Function 3 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function3.window: {default: HANNing, label: 函数3 window, label_en: Function 3 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function3.vunits: {default: DB, label: 函数3 vunits, label_en: Function 3 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function3.span: {default: 0.0, label: 函数3 span, label_en: Function 3 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function3.center: {default: 0.0, label: 函数3 center, label_en: Function 3 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function3.start: {default: 0.0, label: 函数3 start, label_en: Function 3 start, type: float, unit: HZ}
+  function3.stop: {default: 0.0, label: 函数3 stop, label_en: Function 3 stop, type: float, unit: HZ}
+  function3.impedance: {default: 50.0, label: 函数3 impedance, label_en: Function 3 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function3.tdelay: {default: 0.0, label: 函数3 tdelay, label_en: Function 3 tdelay, type: float, unit: S}
+  function3.fft_ref: {default: DISPlay, label: 函数3 fft_ref, label_en: Function 3 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function3.hsc: {default: LINear, label: 函数3 hsc, label_en: Function 3 hsc, options: [LINear, LOG], type: enum}
+  function3.detector: {default: 'OFF', label: 函数3 detector, label_en: Function 3 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function3.detector_points: {default: 0, label: 函数3 detector_points, label_en: Function 3 detector_points, max: 1000000, min: 0, type: int}
+  function3.peak_state: {default: false, label: 函数3 peak_state, label_en: Function 3 peak_state, type: bool}
+  function3.peak_count: {default: 3, label: 函数3 peak_count, label_en: Function 3 peak_count, max: 100, min: 1, type: int}
+  function3.peak_level: {default: -30.0, label: 函数3 peak_level, label_en: Function 3 peak_level, type: float, unit: DBM}
+  function3.label: {default: '', label: 函数3 label, label_en: Function 3 label, type: string}
+  function4.operator: {default: NONE, label: 函数4 operator, label_en: Function 4 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function4.source1: {default: '', label: 函数4 source1, label_en: Function 4 source1, type: string}
+  function4.source2: {default: '', label: 函数4 source2, label_en: Function 4 source2, type: string}
+  function4.display: {default: false, label: 函数4 display, label_en: Function 4 display, type: bool}
+  function4.vertical: {default: AUTO, label: 函数4 vertical, label_en: Function 4 vertical, options: [AUTO, MANual], type: enum}
+  function4.range: {default: 8.0, label: 函数4 range, label_en: Function 4 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function4.offset: {default: 0.0, label: 函数4 offset, label_en: Function 4 offset, type: float, unit: V}
+  function4.horizontal: {default: AUTO, label: 函数4 horizontal, label_en: Function 4 horizontal, options: [AUTO, MANual], type: enum}
+  function4.h_position: {default: 0.0, label: 函数4 h_position, label_en: Function 4 h_position, type: float, unit: S}
+  function4.h_range: {default: 0.0, label: 函数4 h_range, label_en: Function 4 h_range, type: float, unit: S}
+  function4.delay: {default: 0.0, label: 函数4 delay, label_en: Function 4 delay, type: float, unit: S}
+  function4.gate_start: {default: 0.0, label: 函数4 gate_start, label_en: Function 4 gate_start, type: float, unit: S}
+  function4.gate_stop: {default: 0.0, label: 函数4 gate_stop, label_en: Function 4 gate_stop, type: float, unit: S}
+  function4.smooth: {default: 5, label: 函数4 smooth, label_en: Function 4 smooth, max: 4001, min: 3, type: int}
+  function4.average: {default: 16, label: 函数4 average, label_en: Function 4 average, max: 65534, min: 2, type: int}
+  function4.hp_bw: {default: 1.0e6, label: 函数4 hp_bw, label_en: Function 4 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function4.lp_bw: {default: 1.0e6, label: 函数4 lp_bw, label_en: Function 4 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function4.window: {default: HANNing, label: 函数4 window, label_en: Function 4 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function4.vunits: {default: DB, label: 函数4 vunits, label_en: Function 4 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function4.span: {default: 0.0, label: 函数4 span, label_en: Function 4 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function4.center: {default: 0.0, label: 函数4 center, label_en: Function 4 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function4.start: {default: 0.0, label: 函数4 start, label_en: Function 4 start, type: float, unit: HZ}
+  function4.stop: {default: 0.0, label: 函数4 stop, label_en: Function 4 stop, type: float, unit: HZ}
+  function4.impedance: {default: 50.0, label: 函数4 impedance, label_en: Function 4 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function4.tdelay: {default: 0.0, label: 函数4 tdelay, label_en: Function 4 tdelay, type: float, unit: S}
+  function4.fft_ref: {default: DISPlay, label: 函数4 fft_ref, label_en: Function 4 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function4.hsc: {default: LINear, label: 函数4 hsc, label_en: Function 4 hsc, options: [LINear, LOG], type: enum}
+  function4.detector: {default: 'OFF', label: 函数4 detector, label_en: Function 4 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function4.detector_points: {default: 0, label: 函数4 detector_points, label_en: Function 4 detector_points, max: 1000000, min: 0, type: int}
+  function4.peak_state: {default: false, label: 函数4 peak_state, label_en: Function 4 peak_state, type: bool}
+  function4.peak_count: {default: 3, label: 函数4 peak_count, label_en: Function 4 peak_count, max: 100, min: 1, type: int}
+  function4.peak_level: {default: -30.0, label: 函数4 peak_level, label_en: Function 4 peak_level, type: float, unit: DBM}
+  function4.label: {default: '', label: 函数4 label, label_en: Function 4 label, type: string}
+  function5.operator: {default: NONE, label: 函数5 operator, label_en: Function 5 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function5.source1: {default: '', label: 函数5 source1, label_en: Function 5 source1, type: string}
+  function5.source2: {default: '', label: 函数5 source2, label_en: Function 5 source2, type: string}
+  function5.display: {default: false, label: 函数5 display, label_en: Function 5 display, type: bool}
+  function5.vertical: {default: AUTO, label: 函数5 vertical, label_en: Function 5 vertical, options: [AUTO, MANual], type: enum}
+  function5.range: {default: 8.0, label: 函数5 range, label_en: Function 5 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function5.offset: {default: 0.0, label: 函数5 offset, label_en: Function 5 offset, type: float, unit: V}
+  function5.horizontal: {default: AUTO, label: 函数5 horizontal, label_en: Function 5 horizontal, options: [AUTO, MANual], type: enum}
+  function5.h_position: {default: 0.0, label: 函数5 h_position, label_en: Function 5 h_position, type: float, unit: S}
+  function5.h_range: {default: 0.0, label: 函数5 h_range, label_en: Function 5 h_range, type: float, unit: S}
+  function5.delay: {default: 0.0, label: 函数5 delay, label_en: Function 5 delay, type: float, unit: S}
+  function5.gate_start: {default: 0.0, label: 函数5 gate_start, label_en: Function 5 gate_start, type: float, unit: S}
+  function5.gate_stop: {default: 0.0, label: 函数5 gate_stop, label_en: Function 5 gate_stop, type: float, unit: S}
+  function5.smooth: {default: 5, label: 函数5 smooth, label_en: Function 5 smooth, max: 4001, min: 3, type: int}
+  function5.average: {default: 16, label: 函数5 average, label_en: Function 5 average, max: 65534, min: 2, type: int}
+  function5.hp_bw: {default: 1.0e6, label: 函数5 hp_bw, label_en: Function 5 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function5.lp_bw: {default: 1.0e6, label: 函数5 lp_bw, label_en: Function 5 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function5.window: {default: HANNing, label: 函数5 window, label_en: Function 5 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function5.vunits: {default: DB, label: 函数5 vunits, label_en: Function 5 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function5.span: {default: 0.0, label: 函数5 span, label_en: Function 5 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function5.center: {default: 0.0, label: 函数5 center, label_en: Function 5 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function5.start: {default: 0.0, label: 函数5 start, label_en: Function 5 start, type: float, unit: HZ}
+  function5.stop: {default: 0.0, label: 函数5 stop, label_en: Function 5 stop, type: float, unit: HZ}
+  function5.impedance: {default: 50.0, label: 函数5 impedance, label_en: Function 5 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function5.tdelay: {default: 0.0, label: 函数5 tdelay, label_en: Function 5 tdelay, type: float, unit: S}
+  function5.fft_ref: {default: DISPlay, label: 函数5 fft_ref, label_en: Function 5 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function5.hsc: {default: LINear, label: 函数5 hsc, label_en: Function 5 hsc, options: [LINear, LOG], type: enum}
+  function5.detector: {default: 'OFF', label: 函数5 detector, label_en: Function 5 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function5.detector_points: {default: 0, label: 函数5 detector_points, label_en: Function 5 detector_points, max: 1000000, min: 0, type: int}
+  function5.peak_state: {default: false, label: 函数5 peak_state, label_en: Function 5 peak_state, type: bool}
+  function5.peak_count: {default: 3, label: 函数5 peak_count, label_en: Function 5 peak_count, max: 100, min: 1, type: int}
+  function5.peak_level: {default: -30.0, label: 函数5 peak_level, label_en: Function 5 peak_level, type: float, unit: DBM}
+  function5.label: {default: '', label: 函数5 label, label_en: Function 5 label, type: string}
+  function6.operator: {default: NONE, label: 函数6 operator, label_en: Function 6 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function6.source1: {default: '', label: 函数6 source1, label_en: Function 6 source1, type: string}
+  function6.source2: {default: '', label: 函数6 source2, label_en: Function 6 source2, type: string}
+  function6.display: {default: false, label: 函数6 display, label_en: Function 6 display, type: bool}
+  function6.vertical: {default: AUTO, label: 函数6 vertical, label_en: Function 6 vertical, options: [AUTO, MANual], type: enum}
+  function6.range: {default: 8.0, label: 函数6 range, label_en: Function 6 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function6.offset: {default: 0.0, label: 函数6 offset, label_en: Function 6 offset, type: float, unit: V}
+  function6.horizontal: {default: AUTO, label: 函数6 horizontal, label_en: Function 6 horizontal, options: [AUTO, MANual], type: enum}
+  function6.h_position: {default: 0.0, label: 函数6 h_position, label_en: Function 6 h_position, type: float, unit: S}
+  function6.h_range: {default: 0.0, label: 函数6 h_range, label_en: Function 6 h_range, type: float, unit: S}
+  function6.delay: {default: 0.0, label: 函数6 delay, label_en: Function 6 delay, type: float, unit: S}
+  function6.gate_start: {default: 0.0, label: 函数6 gate_start, label_en: Function 6 gate_start, type: float, unit: S}
+  function6.gate_stop: {default: 0.0, label: 函数6 gate_stop, label_en: Function 6 gate_stop, type: float, unit: S}
+  function6.smooth: {default: 5, label: 函数6 smooth, label_en: Function 6 smooth, max: 4001, min: 3, type: int}
+  function6.average: {default: 16, label: 函数6 average, label_en: Function 6 average, max: 65534, min: 2, type: int}
+  function6.hp_bw: {default: 1.0e6, label: 函数6 hp_bw, label_en: Function 6 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function6.lp_bw: {default: 1.0e6, label: 函数6 lp_bw, label_en: Function 6 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function6.window: {default: HANNing, label: 函数6 window, label_en: Function 6 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function6.vunits: {default: DB, label: 函数6 vunits, label_en: Function 6 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function6.span: {default: 0.0, label: 函数6 span, label_en: Function 6 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function6.center: {default: 0.0, label: 函数6 center, label_en: Function 6 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function6.start: {default: 0.0, label: 函数6 start, label_en: Function 6 start, type: float, unit: HZ}
+  function6.stop: {default: 0.0, label: 函数6 stop, label_en: Function 6 stop, type: float, unit: HZ}
+  function6.impedance: {default: 50.0, label: 函数6 impedance, label_en: Function 6 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function6.tdelay: {default: 0.0, label: 函数6 tdelay, label_en: Function 6 tdelay, type: float, unit: S}
+  function6.fft_ref: {default: DISPlay, label: 函数6 fft_ref, label_en: Function 6 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function6.hsc: {default: LINear, label: 函数6 hsc, label_en: Function 6 hsc, options: [LINear, LOG], type: enum}
+  function6.detector: {default: 'OFF', label: 函数6 detector, label_en: Function 6 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function6.detector_points: {default: 0, label: 函数6 detector_points, label_en: Function 6 detector_points, max: 1000000, min: 0, type: int}
+  function6.peak_state: {default: false, label: 函数6 peak_state, label_en: Function 6 peak_state, type: bool}
+  function6.peak_count: {default: 3, label: 函数6 peak_count, label_en: Function 6 peak_count, max: 100, min: 1, type: int}
+  function6.peak_level: {default: -30.0, label: 函数6 peak_level, label_en: Function 6 peak_level, type: float, unit: DBM}
+  function6.label: {default: '', label: 函数6 label, label_en: Function 6 label, type: string}
+  function7.operator: {default: NONE, label: 函数7 operator, label_en: Function 7 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function7.source1: {default: '', label: 函数7 source1, label_en: Function 7 source1, type: string}
+  function7.source2: {default: '', label: 函数7 source2, label_en: Function 7 source2, type: string}
+  function7.display: {default: false, label: 函数7 display, label_en: Function 7 display, type: bool}
+  function7.vertical: {default: AUTO, label: 函数7 vertical, label_en: Function 7 vertical, options: [AUTO, MANual], type: enum}
+  function7.range: {default: 8.0, label: 函数7 range, label_en: Function 7 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function7.offset: {default: 0.0, label: 函数7 offset, label_en: Function 7 offset, type: float, unit: V}
+  function7.horizontal: {default: AUTO, label: 函数7 horizontal, label_en: Function 7 horizontal, options: [AUTO, MANual], type: enum}
+  function7.h_position: {default: 0.0, label: 函数7 h_position, label_en: Function 7 h_position, type: float, unit: S}
+  function7.h_range: {default: 0.0, label: 函数7 h_range, label_en: Function 7 h_range, type: float, unit: S}
+  function7.delay: {default: 0.0, label: 函数7 delay, label_en: Function 7 delay, type: float, unit: S}
+  function7.gate_start: {default: 0.0, label: 函数7 gate_start, label_en: Function 7 gate_start, type: float, unit: S}
+  function7.gate_stop: {default: 0.0, label: 函数7 gate_stop, label_en: Function 7 gate_stop, type: float, unit: S}
+  function7.smooth: {default: 5, label: 函数7 smooth, label_en: Function 7 smooth, max: 4001, min: 3, type: int}
+  function7.average: {default: 16, label: 函数7 average, label_en: Function 7 average, max: 65534, min: 2, type: int}
+  function7.hp_bw: {default: 1.0e6, label: 函数7 hp_bw, label_en: Function 7 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function7.lp_bw: {default: 1.0e6, label: 函数7 lp_bw, label_en: Function 7 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function7.window: {default: HANNing, label: 函数7 window, label_en: Function 7 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function7.vunits: {default: DB, label: 函数7 vunits, label_en: Function 7 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function7.span: {default: 0.0, label: 函数7 span, label_en: Function 7 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function7.center: {default: 0.0, label: 函数7 center, label_en: Function 7 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function7.start: {default: 0.0, label: 函数7 start, label_en: Function 7 start, type: float, unit: HZ}
+  function7.stop: {default: 0.0, label: 函数7 stop, label_en: Function 7 stop, type: float, unit: HZ}
+  function7.impedance: {default: 50.0, label: 函数7 impedance, label_en: Function 7 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function7.tdelay: {default: 0.0, label: 函数7 tdelay, label_en: Function 7 tdelay, type: float, unit: S}
+  function7.fft_ref: {default: DISPlay, label: 函数7 fft_ref, label_en: Function 7 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function7.hsc: {default: LINear, label: 函数7 hsc, label_en: Function 7 hsc, options: [LINear, LOG], type: enum}
+  function7.detector: {default: 'OFF', label: 函数7 detector, label_en: Function 7 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function7.detector_points: {default: 0, label: 函数7 detector_points, label_en: Function 7 detector_points, max: 1000000, min: 0, type: int}
+  function7.peak_state: {default: false, label: 函数7 peak_state, label_en: Function 7 peak_state, type: bool}
+  function7.peak_count: {default: 3, label: 函数7 peak_count, label_en: Function 7 peak_count, max: 100, min: 1, type: int}
+  function7.peak_level: {default: -30.0, label: 函数7 peak_level, label_en: Function 7 peak_level, type: float, unit: DBM}
+  function7.label: {default: '', label: 函数7 label, label_en: Function 7 label, type: string}
+  function8.operator: {default: NONE, label: 函数8 operator, label_en: Function 8 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function8.source1: {default: '', label: 函数8 source1, label_en: Function 8 source1, type: string}
+  function8.source2: {default: '', label: 函数8 source2, label_en: Function 8 source2, type: string}
+  function8.display: {default: false, label: 函数8 display, label_en: Function 8 display, type: bool}
+  function8.vertical: {default: AUTO, label: 函数8 vertical, label_en: Function 8 vertical, options: [AUTO, MANual], type: enum}
+  function8.range: {default: 8.0, label: 函数8 range, label_en: Function 8 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function8.offset: {default: 0.0, label: 函数8 offset, label_en: Function 8 offset, type: float, unit: V}
+  function8.horizontal: {default: AUTO, label: 函数8 horizontal, label_en: Function 8 horizontal, options: [AUTO, MANual], type: enum}
+  function8.h_position: {default: 0.0, label: 函数8 h_position, label_en: Function 8 h_position, type: float, unit: S}
+  function8.h_range: {default: 0.0, label: 函数8 h_range, label_en: Function 8 h_range, type: float, unit: S}
+  function8.delay: {default: 0.0, label: 函数8 delay, label_en: Function 8 delay, type: float, unit: S}
+  function8.gate_start: {default: 0.0, label: 函数8 gate_start, label_en: Function 8 gate_start, type: float, unit: S}
+  function8.gate_stop: {default: 0.0, label: 函数8 gate_stop, label_en: Function 8 gate_stop, type: float, unit: S}
+  function8.smooth: {default: 5, label: 函数8 smooth, label_en: Function 8 smooth, max: 4001, min: 3, type: int}
+  function8.average: {default: 16, label: 函数8 average, label_en: Function 8 average, max: 65534, min: 2, type: int}
+  function8.hp_bw: {default: 1.0e6, label: 函数8 hp_bw, label_en: Function 8 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function8.lp_bw: {default: 1.0e6, label: 函数8 lp_bw, label_en: Function 8 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function8.window: {default: HANNing, label: 函数8 window, label_en: Function 8 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function8.vunits: {default: DB, label: 函数8 vunits, label_en: Function 8 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function8.span: {default: 0.0, label: 函数8 span, label_en: Function 8 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function8.center: {default: 0.0, label: 函数8 center, label_en: Function 8 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function8.start: {default: 0.0, label: 函数8 start, label_en: Function 8 start, type: float, unit: HZ}
+  function8.stop: {default: 0.0, label: 函数8 stop, label_en: Function 8 stop, type: float, unit: HZ}
+  function8.impedance: {default: 50.0, label: 函数8 impedance, label_en: Function 8 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function8.tdelay: {default: 0.0, label: 函数8 tdelay, label_en: Function 8 tdelay, type: float, unit: S}
+  function8.fft_ref: {default: DISPlay, label: 函数8 fft_ref, label_en: Function 8 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function8.hsc: {default: LINear, label: 函数8 hsc, label_en: Function 8 hsc, options: [LINear, LOG], type: enum}
+  function8.detector: {default: 'OFF', label: 函数8 detector, label_en: Function 8 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function8.detector_points: {default: 0, label: 函数8 detector_points, label_en: Function 8 detector_points, max: 1000000, min: 0, type: int}
+  function8.peak_state: {default: false, label: 函数8 peak_state, label_en: Function 8 peak_state, type: bool}
+  function8.peak_count: {default: 3, label: 函数8 peak_count, label_en: Function 8 peak_count, max: 100, min: 1, type: int}
+  function8.peak_level: {default: -30.0, label: 函数8 peak_level, label_en: Function 8 peak_level, type: float, unit: DBM}
+  function8.label: {default: '', label: 函数8 label, label_en: Function 8 label, type: string}
+  function9.operator: {default: NONE, label: 函数9 operator, label_en: Function 9 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function9.source1: {default: '', label: 函数9 source1, label_en: Function 9 source1, type: string}
+  function9.source2: {default: '', label: 函数9 source2, label_en: Function 9 source2, type: string}
+  function9.display: {default: false, label: 函数9 display, label_en: Function 9 display, type: bool}
+  function9.vertical: {default: AUTO, label: 函数9 vertical, label_en: Function 9 vertical, options: [AUTO, MANual], type: enum}
+  function9.range: {default: 8.0, label: 函数9 range, label_en: Function 9 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function9.offset: {default: 0.0, label: 函数9 offset, label_en: Function 9 offset, type: float, unit: V}
+  function9.horizontal: {default: AUTO, label: 函数9 horizontal, label_en: Function 9 horizontal, options: [AUTO, MANual], type: enum}
+  function9.h_position: {default: 0.0, label: 函数9 h_position, label_en: Function 9 h_position, type: float, unit: S}
+  function9.h_range: {default: 0.0, label: 函数9 h_range, label_en: Function 9 h_range, type: float, unit: S}
+  function9.delay: {default: 0.0, label: 函数9 delay, label_en: Function 9 delay, type: float, unit: S}
+  function9.gate_start: {default: 0.0, label: 函数9 gate_start, label_en: Function 9 gate_start, type: float, unit: S}
+  function9.gate_stop: {default: 0.0, label: 函数9 gate_stop, label_en: Function 9 gate_stop, type: float, unit: S}
+  function9.smooth: {default: 5, label: 函数9 smooth, label_en: Function 9 smooth, max: 4001, min: 3, type: int}
+  function9.average: {default: 16, label: 函数9 average, label_en: Function 9 average, max: 65534, min: 2, type: int}
+  function9.hp_bw: {default: 1.0e6, label: 函数9 hp_bw, label_en: Function 9 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function9.lp_bw: {default: 1.0e6, label: 函数9 lp_bw, label_en: Function 9 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function9.window: {default: HANNing, label: 函数9 window, label_en: Function 9 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function9.vunits: {default: DB, label: 函数9 vunits, label_en: Function 9 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function9.span: {default: 0.0, label: 函数9 span, label_en: Function 9 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function9.center: {default: 0.0, label: 函数9 center, label_en: Function 9 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function9.start: {default: 0.0, label: 函数9 start, label_en: Function 9 start, type: float, unit: HZ}
+  function9.stop: {default: 0.0, label: 函数9 stop, label_en: Function 9 stop, type: float, unit: HZ}
+  function9.impedance: {default: 50.0, label: 函数9 impedance, label_en: Function 9 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function9.tdelay: {default: 0.0, label: 函数9 tdelay, label_en: Function 9 tdelay, type: float, unit: S}
+  function9.fft_ref: {default: DISPlay, label: 函数9 fft_ref, label_en: Function 9 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function9.hsc: {default: LINear, label: 函数9 hsc, label_en: Function 9 hsc, options: [LINear, LOG], type: enum}
+  function9.detector: {default: 'OFF', label: 函数9 detector, label_en: Function 9 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function9.detector_points: {default: 0, label: 函数9 detector_points, label_en: Function 9 detector_points, max: 1000000, min: 0, type: int}
+  function9.peak_state: {default: false, label: 函数9 peak_state, label_en: Function 9 peak_state, type: bool}
+  function9.peak_count: {default: 3, label: 函数9 peak_count, label_en: Function 9 peak_count, max: 100, min: 1, type: int}
+  function9.peak_level: {default: -30.0, label: 函数9 peak_level, label_en: Function 9 peak_level, type: float, unit: DBM}
+  function9.label: {default: '', label: 函数9 label, label_en: Function 9 label, type: string}
+  function10.operator: {default: NONE, label: 函数10 operator, label_en: Function 10 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function10.source1: {default: '', label: 函数10 source1, label_en: Function 10 source1, type: string}
+  function10.source2: {default: '', label: 函数10 source2, label_en: Function 10 source2, type: string}
+  function10.display: {default: false, label: 函数10 display, label_en: Function 10 display, type: bool}
+  function10.vertical: {default: AUTO, label: 函数10 vertical, label_en: Function 10 vertical, options: [AUTO, MANual], type: enum}
+  function10.range: {default: 8.0, label: 函数10 range, label_en: Function 10 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function10.offset: {default: 0.0, label: 函数10 offset, label_en: Function 10 offset, type: float, unit: V}
+  function10.horizontal: {default: AUTO, label: 函数10 horizontal, label_en: Function 10 horizontal, options: [AUTO, MANual], type: enum}
+  function10.h_position: {default: 0.0, label: 函数10 h_position, label_en: Function 10 h_position, type: float, unit: S}
+  function10.h_range: {default: 0.0, label: 函数10 h_range, label_en: Function 10 h_range, type: float, unit: S}
+  function10.delay: {default: 0.0, label: 函数10 delay, label_en: Function 10 delay, type: float, unit: S}
+  function10.gate_start: {default: 0.0, label: 函数10 gate_start, label_en: Function 10 gate_start, type: float, unit: S}
+  function10.gate_stop: {default: 0.0, label: 函数10 gate_stop, label_en: Function 10 gate_stop, type: float, unit: S}
+  function10.smooth: {default: 5, label: 函数10 smooth, label_en: Function 10 smooth, max: 4001, min: 3, type: int}
+  function10.average: {default: 16, label: 函数10 average, label_en: Function 10 average, max: 65534, min: 2, type: int}
+  function10.hp_bw: {default: 1.0e6, label: 函数10 hp_bw, label_en: Function 10 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function10.lp_bw: {default: 1.0e6, label: 函数10 lp_bw, label_en: Function 10 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function10.window: {default: HANNing, label: 函数10 window, label_en: Function 10 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function10.vunits: {default: DB, label: 函数10 vunits, label_en: Function 10 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function10.span: {default: 0.0, label: 函数10 span, label_en: Function 10 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function10.center: {default: 0.0, label: 函数10 center, label_en: Function 10 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function10.start: {default: 0.0, label: 函数10 start, label_en: Function 10 start, type: float, unit: HZ}
+  function10.stop: {default: 0.0, label: 函数10 stop, label_en: Function 10 stop, type: float, unit: HZ}
+  function10.impedance: {default: 50.0, label: 函数10 impedance, label_en: Function 10 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function10.tdelay: {default: 0.0, label: 函数10 tdelay, label_en: Function 10 tdelay, type: float, unit: S}
+  function10.fft_ref: {default: DISPlay, label: 函数10 fft_ref, label_en: Function 10 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function10.hsc: {default: LINear, label: 函数10 hsc, label_en: Function 10 hsc, options: [LINear, LOG], type: enum}
+  function10.detector: {default: 'OFF', label: 函数10 detector, label_en: Function 10 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function10.detector_points: {default: 0, label: 函数10 detector_points, label_en: Function 10 detector_points, max: 1000000, min: 0, type: int}
+  function10.peak_state: {default: false, label: 函数10 peak_state, label_en: Function 10 peak_state, type: bool}
+  function10.peak_count: {default: 3, label: 函数10 peak_count, label_en: Function 10 peak_count, max: 100, min: 1, type: int}
+  function10.peak_level: {default: -30.0, label: 函数10 peak_level, label_en: Function 10 peak_level, type: float, unit: DBM}
+  function10.label: {default: '', label: 函数10 label, label_en: Function 10 label, type: string}
+  function11.operator: {default: NONE, label: 函数11 operator, label_en: Function 11 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function11.source1: {default: '', label: 函数11 source1, label_en: Function 11 source1, type: string}
+  function11.source2: {default: '', label: 函数11 source2, label_en: Function 11 source2, type: string}
+  function11.display: {default: false, label: 函数11 display, label_en: Function 11 display, type: bool}
+  function11.vertical: {default: AUTO, label: 函数11 vertical, label_en: Function 11 vertical, options: [AUTO, MANual], type: enum}
+  function11.range: {default: 8.0, label: 函数11 range, label_en: Function 11 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function11.offset: {default: 0.0, label: 函数11 offset, label_en: Function 11 offset, type: float, unit: V}
+  function11.horizontal: {default: AUTO, label: 函数11 horizontal, label_en: Function 11 horizontal, options: [AUTO, MANual], type: enum}
+  function11.h_position: {default: 0.0, label: 函数11 h_position, label_en: Function 11 h_position, type: float, unit: S}
+  function11.h_range: {default: 0.0, label: 函数11 h_range, label_en: Function 11 h_range, type: float, unit: S}
+  function11.delay: {default: 0.0, label: 函数11 delay, label_en: Function 11 delay, type: float, unit: S}
+  function11.gate_start: {default: 0.0, label: 函数11 gate_start, label_en: Function 11 gate_start, type: float, unit: S}
+  function11.gate_stop: {default: 0.0, label: 函数11 gate_stop, label_en: Function 11 gate_stop, type: float, unit: S}
+  function11.smooth: {default: 5, label: 函数11 smooth, label_en: Function 11 smooth, max: 4001, min: 3, type: int}
+  function11.average: {default: 16, label: 函数11 average, label_en: Function 11 average, max: 65534, min: 2, type: int}
+  function11.hp_bw: {default: 1.0e6, label: 函数11 hp_bw, label_en: Function 11 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function11.lp_bw: {default: 1.0e6, label: 函数11 lp_bw, label_en: Function 11 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function11.window: {default: HANNing, label: 函数11 window, label_en: Function 11 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function11.vunits: {default: DB, label: 函数11 vunits, label_en: Function 11 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function11.span: {default: 0.0, label: 函数11 span, label_en: Function 11 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function11.center: {default: 0.0, label: 函数11 center, label_en: Function 11 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function11.start: {default: 0.0, label: 函数11 start, label_en: Function 11 start, type: float, unit: HZ}
+  function11.stop: {default: 0.0, label: 函数11 stop, label_en: Function 11 stop, type: float, unit: HZ}
+  function11.impedance: {default: 50.0, label: 函数11 impedance, label_en: Function 11 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function11.tdelay: {default: 0.0, label: 函数11 tdelay, label_en: Function 11 tdelay, type: float, unit: S}
+  function11.fft_ref: {default: DISPlay, label: 函数11 fft_ref, label_en: Function 11 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function11.hsc: {default: LINear, label: 函数11 hsc, label_en: Function 11 hsc, options: [LINear, LOG], type: enum}
+  function11.detector: {default: 'OFF', label: 函数11 detector, label_en: Function 11 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function11.detector_points: {default: 0, label: 函数11 detector_points, label_en: Function 11 detector_points, max: 1000000, min: 0, type: int}
+  function11.peak_state: {default: false, label: 函数11 peak_state, label_en: Function 11 peak_state, type: bool}
+  function11.peak_count: {default: 3, label: 函数11 peak_count, label_en: Function 11 peak_count, max: 100, min: 1, type: int}
+  function11.peak_level: {default: -30.0, label: 函数11 peak_level, label_en: Function 11 peak_level, type: float, unit: DBM}
+  function11.label: {default: '', label: 函数11 label, label_en: Function 11 label, type: string}
+  function12.operator: {default: NONE, label: 函数12 operator, label_en: Function 12 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function12.source1: {default: '', label: 函数12 source1, label_en: Function 12 source1, type: string}
+  function12.source2: {default: '', label: 函数12 source2, label_en: Function 12 source2, type: string}
+  function12.display: {default: false, label: 函数12 display, label_en: Function 12 display, type: bool}
+  function12.vertical: {default: AUTO, label: 函数12 vertical, label_en: Function 12 vertical, options: [AUTO, MANual], type: enum}
+  function12.range: {default: 8.0, label: 函数12 range, label_en: Function 12 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function12.offset: {default: 0.0, label: 函数12 offset, label_en: Function 12 offset, type: float, unit: V}
+  function12.horizontal: {default: AUTO, label: 函数12 horizontal, label_en: Function 12 horizontal, options: [AUTO, MANual], type: enum}
+  function12.h_position: {default: 0.0, label: 函数12 h_position, label_en: Function 12 h_position, type: float, unit: S}
+  function12.h_range: {default: 0.0, label: 函数12 h_range, label_en: Function 12 h_range, type: float, unit: S}
+  function12.delay: {default: 0.0, label: 函数12 delay, label_en: Function 12 delay, type: float, unit: S}
+  function12.gate_start: {default: 0.0, label: 函数12 gate_start, label_en: Function 12 gate_start, type: float, unit: S}
+  function12.gate_stop: {default: 0.0, label: 函数12 gate_stop, label_en: Function 12 gate_stop, type: float, unit: S}
+  function12.smooth: {default: 5, label: 函数12 smooth, label_en: Function 12 smooth, max: 4001, min: 3, type: int}
+  function12.average: {default: 16, label: 函数12 average, label_en: Function 12 average, max: 65534, min: 2, type: int}
+  function12.hp_bw: {default: 1.0e6, label: 函数12 hp_bw, label_en: Function 12 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function12.lp_bw: {default: 1.0e6, label: 函数12 lp_bw, label_en: Function 12 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function12.window: {default: HANNing, label: 函数12 window, label_en: Function 12 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function12.vunits: {default: DB, label: 函数12 vunits, label_en: Function 12 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function12.span: {default: 0.0, label: 函数12 span, label_en: Function 12 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function12.center: {default: 0.0, label: 函数12 center, label_en: Function 12 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function12.start: {default: 0.0, label: 函数12 start, label_en: Function 12 start, type: float, unit: HZ}
+  function12.stop: {default: 0.0, label: 函数12 stop, label_en: Function 12 stop, type: float, unit: HZ}
+  function12.impedance: {default: 50.0, label: 函数12 impedance, label_en: Function 12 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function12.tdelay: {default: 0.0, label: 函数12 tdelay, label_en: Function 12 tdelay, type: float, unit: S}
+  function12.fft_ref: {default: DISPlay, label: 函数12 fft_ref, label_en: Function 12 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function12.hsc: {default: LINear, label: 函数12 hsc, label_en: Function 12 hsc, options: [LINear, LOG], type: enum}
+  function12.detector: {default: 'OFF', label: 函数12 detector, label_en: Function 12 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function12.detector_points: {default: 0, label: 函数12 detector_points, label_en: Function 12 detector_points, max: 1000000, min: 0, type: int}
+  function12.peak_state: {default: false, label: 函数12 peak_state, label_en: Function 12 peak_state, type: bool}
+  function12.peak_count: {default: 3, label: 函数12 peak_count, label_en: Function 12 peak_count, max: 100, min: 1, type: int}
+  function12.peak_level: {default: -30.0, label: 函数12 peak_level, label_en: Function 12 peak_level, type: float, unit: DBM}
+  function12.label: {default: '', label: 函数12 label, label_en: Function 12 label, type: string}
+  function13.operator: {default: NONE, label: 函数13 operator, label_en: Function 13 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function13.source1: {default: '', label: 函数13 source1, label_en: Function 13 source1, type: string}
+  function13.source2: {default: '', label: 函数13 source2, label_en: Function 13 source2, type: string}
+  function13.display: {default: false, label: 函数13 display, label_en: Function 13 display, type: bool}
+  function13.vertical: {default: AUTO, label: 函数13 vertical, label_en: Function 13 vertical, options: [AUTO, MANual], type: enum}
+  function13.range: {default: 8.0, label: 函数13 range, label_en: Function 13 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function13.offset: {default: 0.0, label: 函数13 offset, label_en: Function 13 offset, type: float, unit: V}
+  function13.horizontal: {default: AUTO, label: 函数13 horizontal, label_en: Function 13 horizontal, options: [AUTO, MANual], type: enum}
+  function13.h_position: {default: 0.0, label: 函数13 h_position, label_en: Function 13 h_position, type: float, unit: S}
+  function13.h_range: {default: 0.0, label: 函数13 h_range, label_en: Function 13 h_range, type: float, unit: S}
+  function13.delay: {default: 0.0, label: 函数13 delay, label_en: Function 13 delay, type: float, unit: S}
+  function13.gate_start: {default: 0.0, label: 函数13 gate_start, label_en: Function 13 gate_start, type: float, unit: S}
+  function13.gate_stop: {default: 0.0, label: 函数13 gate_stop, label_en: Function 13 gate_stop, type: float, unit: S}
+  function13.smooth: {default: 5, label: 函数13 smooth, label_en: Function 13 smooth, max: 4001, min: 3, type: int}
+  function13.average: {default: 16, label: 函数13 average, label_en: Function 13 average, max: 65534, min: 2, type: int}
+  function13.hp_bw: {default: 1.0e6, label: 函数13 hp_bw, label_en: Function 13 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function13.lp_bw: {default: 1.0e6, label: 函数13 lp_bw, label_en: Function 13 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function13.window: {default: HANNing, label: 函数13 window, label_en: Function 13 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function13.vunits: {default: DB, label: 函数13 vunits, label_en: Function 13 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function13.span: {default: 0.0, label: 函数13 span, label_en: Function 13 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function13.center: {default: 0.0, label: 函数13 center, label_en: Function 13 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function13.start: {default: 0.0, label: 函数13 start, label_en: Function 13 start, type: float, unit: HZ}
+  function13.stop: {default: 0.0, label: 函数13 stop, label_en: Function 13 stop, type: float, unit: HZ}
+  function13.impedance: {default: 50.0, label: 函数13 impedance, label_en: Function 13 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function13.tdelay: {default: 0.0, label: 函数13 tdelay, label_en: Function 13 tdelay, type: float, unit: S}
+  function13.fft_ref: {default: DISPlay, label: 函数13 fft_ref, label_en: Function 13 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function13.hsc: {default: LINear, label: 函数13 hsc, label_en: Function 13 hsc, options: [LINear, LOG], type: enum}
+  function13.detector: {default: 'OFF', label: 函数13 detector, label_en: Function 13 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function13.detector_points: {default: 0, label: 函数13 detector_points, label_en: Function 13 detector_points, max: 1000000, min: 0, type: int}
+  function13.peak_state: {default: false, label: 函数13 peak_state, label_en: Function 13 peak_state, type: bool}
+  function13.peak_count: {default: 3, label: 函数13 peak_count, label_en: Function 13 peak_count, max: 100, min: 1, type: int}
+  function13.peak_level: {default: -30.0, label: 函数13 peak_level, label_en: Function 13 peak_level, type: float, unit: DBM}
+  function13.label: {default: '', label: 函数13 label, label_en: Function 13 label, type: string}
+  function14.operator: {default: NONE, label: 函数14 operator, label_en: Function 14 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function14.source1: {default: '', label: 函数14 source1, label_en: Function 14 source1, type: string}
+  function14.source2: {default: '', label: 函数14 source2, label_en: Function 14 source2, type: string}
+  function14.display: {default: false, label: 函数14 display, label_en: Function 14 display, type: bool}
+  function14.vertical: {default: AUTO, label: 函数14 vertical, label_en: Function 14 vertical, options: [AUTO, MANual], type: enum}
+  function14.range: {default: 8.0, label: 函数14 range, label_en: Function 14 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function14.offset: {default: 0.0, label: 函数14 offset, label_en: Function 14 offset, type: float, unit: V}
+  function14.horizontal: {default: AUTO, label: 函数14 horizontal, label_en: Function 14 horizontal, options: [AUTO, MANual], type: enum}
+  function14.h_position: {default: 0.0, label: 函数14 h_position, label_en: Function 14 h_position, type: float, unit: S}
+  function14.h_range: {default: 0.0, label: 函数14 h_range, label_en: Function 14 h_range, type: float, unit: S}
+  function14.delay: {default: 0.0, label: 函数14 delay, label_en: Function 14 delay, type: float, unit: S}
+  function14.gate_start: {default: 0.0, label: 函数14 gate_start, label_en: Function 14 gate_start, type: float, unit: S}
+  function14.gate_stop: {default: 0.0, label: 函数14 gate_stop, label_en: Function 14 gate_stop, type: float, unit: S}
+  function14.smooth: {default: 5, label: 函数14 smooth, label_en: Function 14 smooth, max: 4001, min: 3, type: int}
+  function14.average: {default: 16, label: 函数14 average, label_en: Function 14 average, max: 65534, min: 2, type: int}
+  function14.hp_bw: {default: 1.0e6, label: 函数14 hp_bw, label_en: Function 14 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function14.lp_bw: {default: 1.0e6, label: 函数14 lp_bw, label_en: Function 14 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function14.window: {default: HANNing, label: 函数14 window, label_en: Function 14 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function14.vunits: {default: DB, label: 函数14 vunits, label_en: Function 14 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function14.span: {default: 0.0, label: 函数14 span, label_en: Function 14 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function14.center: {default: 0.0, label: 函数14 center, label_en: Function 14 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function14.start: {default: 0.0, label: 函数14 start, label_en: Function 14 start, type: float, unit: HZ}
+  function14.stop: {default: 0.0, label: 函数14 stop, label_en: Function 14 stop, type: float, unit: HZ}
+  function14.impedance: {default: 50.0, label: 函数14 impedance, label_en: Function 14 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function14.tdelay: {default: 0.0, label: 函数14 tdelay, label_en: Function 14 tdelay, type: float, unit: S}
+  function14.fft_ref: {default: DISPlay, label: 函数14 fft_ref, label_en: Function 14 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function14.hsc: {default: LINear, label: 函数14 hsc, label_en: Function 14 hsc, options: [LINear, LOG], type: enum}
+  function14.detector: {default: 'OFF', label: 函数14 detector, label_en: Function 14 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function14.detector_points: {default: 0, label: 函数14 detector_points, label_en: Function 14 detector_points, max: 1000000, min: 0, type: int}
+  function14.peak_state: {default: false, label: 函数14 peak_state, label_en: Function 14 peak_state, type: bool}
+  function14.peak_count: {default: 3, label: 函数14 peak_count, label_en: Function 14 peak_count, max: 100, min: 1, type: int}
+  function14.peak_level: {default: -30.0, label: 函数14 peak_level, label_en: Function 14 peak_level, type: float, unit: DBM}
+  function14.label: {default: '', label: 函数14 label, label_en: Function 14 label, type: string}
+  function15.operator: {default: NONE, label: 函数15 operator, label_en: Function 15 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function15.source1: {default: '', label: 函数15 source1, label_en: Function 15 source1, type: string}
+  function15.source2: {default: '', label: 函数15 source2, label_en: Function 15 source2, type: string}
+  function15.display: {default: false, label: 函数15 display, label_en: Function 15 display, type: bool}
+  function15.vertical: {default: AUTO, label: 函数15 vertical, label_en: Function 15 vertical, options: [AUTO, MANual], type: enum}
+  function15.range: {default: 8.0, label: 函数15 range, label_en: Function 15 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function15.offset: {default: 0.0, label: 函数15 offset, label_en: Function 15 offset, type: float, unit: V}
+  function15.horizontal: {default: AUTO, label: 函数15 horizontal, label_en: Function 15 horizontal, options: [AUTO, MANual], type: enum}
+  function15.h_position: {default: 0.0, label: 函数15 h_position, label_en: Function 15 h_position, type: float, unit: S}
+  function15.h_range: {default: 0.0, label: 函数15 h_range, label_en: Function 15 h_range, type: float, unit: S}
+  function15.delay: {default: 0.0, label: 函数15 delay, label_en: Function 15 delay, type: float, unit: S}
+  function15.gate_start: {default: 0.0, label: 函数15 gate_start, label_en: Function 15 gate_start, type: float, unit: S}
+  function15.gate_stop: {default: 0.0, label: 函数15 gate_stop, label_en: Function 15 gate_stop, type: float, unit: S}
+  function15.smooth: {default: 5, label: 函数15 smooth, label_en: Function 15 smooth, max: 4001, min: 3, type: int}
+  function15.average: {default: 16, label: 函数15 average, label_en: Function 15 average, max: 65534, min: 2, type: int}
+  function15.hp_bw: {default: 1.0e6, label: 函数15 hp_bw, label_en: Function 15 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function15.lp_bw: {default: 1.0e6, label: 函数15 lp_bw, label_en: Function 15 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function15.window: {default: HANNing, label: 函数15 window, label_en: Function 15 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function15.vunits: {default: DB, label: 函数15 vunits, label_en: Function 15 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function15.span: {default: 0.0, label: 函数15 span, label_en: Function 15 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function15.center: {default: 0.0, label: 函数15 center, label_en: Function 15 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function15.start: {default: 0.0, label: 函数15 start, label_en: Function 15 start, type: float, unit: HZ}
+  function15.stop: {default: 0.0, label: 函数15 stop, label_en: Function 15 stop, type: float, unit: HZ}
+  function15.impedance: {default: 50.0, label: 函数15 impedance, label_en: Function 15 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function15.tdelay: {default: 0.0, label: 函数15 tdelay, label_en: Function 15 tdelay, type: float, unit: S}
+  function15.fft_ref: {default: DISPlay, label: 函数15 fft_ref, label_en: Function 15 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function15.hsc: {default: LINear, label: 函数15 hsc, label_en: Function 15 hsc, options: [LINear, LOG], type: enum}
+  function15.detector: {default: 'OFF', label: 函数15 detector, label_en: Function 15 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function15.detector_points: {default: 0, label: 函数15 detector_points, label_en: Function 15 detector_points, max: 1000000, min: 0, type: int}
+  function15.peak_state: {default: false, label: 函数15 peak_state, label_en: Function 15 peak_state, type: bool}
+  function15.peak_count: {default: 3, label: 函数15 peak_count, label_en: Function 15 peak_count, max: 100, min: 1, type: int}
+  function15.peak_level: {default: -30.0, label: 函数15 peak_level, label_en: Function 15 peak_level, type: float, unit: DBM}
+  function15.label: {default: '', label: 函数15 label, label_en: Function 15 label, type: string}
+  function16.operator: {default: NONE, label: 函数16 operator, label_en: Function 16 operator, options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT, MAGNify, DIFF, INTegrate, AVERage, DELay, GATing, SMOoth, HIGHpass, LOWPass, MAXimum, MINimum, FFTMagnitude, FFTPhase, PSDensity], type: enum}
+  function16.source1: {default: '', label: 函数16 source1, label_en: Function 16 source1, type: string}
+  function16.source2: {default: '', label: 函数16 source2, label_en: Function 16 source2, type: string}
+  function16.display: {default: false, label: 函数16 display, label_en: Function 16 display, type: bool}
+  function16.vertical: {default: AUTO, label: 函数16 vertical, label_en: Function 16 vertical, options: [AUTO, MANual], type: enum}
+  function16.range: {default: 8.0, label: 函数16 range, label_en: Function 16 range, max: 100.0e15, min: -100.0e15, type: float, unit: V}
+  function16.offset: {default: 0.0, label: 函数16 offset, label_en: Function 16 offset, type: float, unit: V}
+  function16.horizontal: {default: AUTO, label: 函数16 horizontal, label_en: Function 16 horizontal, options: [AUTO, MANual], type: enum}
+  function16.h_position: {default: 0.0, label: 函数16 h_position, label_en: Function 16 h_position, type: float, unit: S}
+  function16.h_range: {default: 0.0, label: 函数16 h_range, label_en: Function 16 h_range, type: float, unit: S}
+  function16.delay: {default: 0.0, label: 函数16 delay, label_en: Function 16 delay, type: float, unit: S}
+  function16.gate_start: {default: 0.0, label: 函数16 gate_start, label_en: Function 16 gate_start, type: float, unit: S}
+  function16.gate_stop: {default: 0.0, label: 函数16 gate_stop, label_en: Function 16 gate_stop, type: float, unit: S}
+  function16.smooth: {default: 5, label: 函数16 smooth, label_en: Function 16 smooth, max: 4001, min: 3, type: int}
+  function16.average: {default: 16, label: 函数16 average, label_en: Function 16 average, max: 65534, min: 2, type: int}
+  function16.hp_bw: {default: 1.0e6, label: 函数16 hp_bw, label_en: Function 16 hp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function16.lp_bw: {default: 1.0e6, label: 函数16 lp_bw, label_en: Function 16 lp_bw, max: 50.0e9, min: 50.0, type: float, unit: HZ}
+  function16.window: {default: HANNing, label: 函数16 window, label_en: Function 16 window, options: [RECTangular, HANNing, HAMMing, BHARris, FLATtop], type: enum}
+  function16.vunits: {default: DB, label: 函数16 vunits, label_en: Function 16 vunits, options: [DB, DBMV, DBUV, WATT, VRMS, DBMHZ, WATTHZ, VRTHZ], type: enum}
+  function16.span: {default: 0.0, label: 函数16 span, label_en: Function 16 span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  function16.center: {default: 0.0, label: 函数16 center, label_en: Function 16 center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  function16.start: {default: 0.0, label: 函数16 start, label_en: Function 16 start, type: float, unit: HZ}
+  function16.stop: {default: 0.0, label: 函数16 stop, label_en: Function 16 stop, type: float, unit: HZ}
+  function16.impedance: {default: 50.0, label: 函数16 impedance, label_en: Function 16 impedance, max: 200.0, min: 20.0, type: float, unit: OHM}
+  function16.tdelay: {default: 0.0, label: 函数16 tdelay, label_en: Function 16 tdelay, type: float, unit: S}
+  function16.fft_ref: {default: DISPlay, label: 函数16 fft_ref, label_en: Function 16 fft_ref, options: [DISPlay, TRIGger], type: enum}
+  function16.hsc: {default: LINear, label: 函数16 hsc, label_en: Function 16 hsc, options: [LINear, LOG], type: enum}
+  function16.detector: {default: 'OFF', label: 函数16 detector, label_en: Function 16 detector, options: ['OFF', SAMPle, PPOSitive, PNEGative, NORMal, AVERage], type: enum}
+  function16.detector_points: {default: 0, label: 函数16 detector_points, label_en: Function 16 detector_points, max: 1000000, min: 0, type: int}
+  function16.peak_state: {default: false, label: 函数16 peak_state, label_en: Function 16 peak_state, type: bool}
+  function16.peak_count: {default: 3, label: 函数16 peak_count, label_en: Function 16 peak_count, max: 100, min: 1, type: int}
+  function16.peak_level: {default: -30.0, label: 函数16 peak_level, label_en: Function 16 peak_level, type: float, unit: DBM}
+  function16.label: {default: '', label: 函数16 label, label_en: Function 16 label, type: string}
+  marker.mode: {default: 'OFF', label: 光标方式, label_en: Marker mode, options: ['OFF', MANual, WAVeform, MEASurement, XONLy, YONLy], type: enum}
+  marker.x1: {default: 0.0, label: 光标 Ax, label_en: Marker Ax, type: float, unit: S}
+  marker.x2: {default: 0.0, label: 光标 Bx, label_en: Marker Bx, type: float, unit: S}
+  marker.y1: {default: 0.0, label: 光标 Ay, label_en: Marker Ay, type: float, unit: V}
+  marker.y2: {default: 0.0, label: 光标 By, label_en: Marker By, type: float, unit: V}
+  marker.source1: {default: CHANnel1, label: 光标 AB 信源, label_en: Marker AB source, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], type: enum}
+  marker.source2: {default: CHANnel1, label: 光标 CD 信源, label_en: Marker CD source, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], type: enum}
+  marker.delta: {default: false, label: 屏幕显示差值, label_en: Delta markers, type: bool}
+  marker.meas: {default: 1, label: 跟踪的测量, label_en: Tracked measurement, max: 40, min: 1, type: int}
   # ---- 界面偏好与显示（不改变数据，覆盖表为“接受”；手册 Default Setup 不改用户偏好与显示颜色，
   # 故标 keep_on_reset）。上电值手册未给的为 SimuBench 值，覆盖表注明。
   system.psc: {type: bool, default: true, label: 上电状态清除, label_en: Power-on status clear}
@@ -562,6 +1118,9 @@ channel_state:
   units: {type: enum, options: [VOLT, AMPere, WATT, UNKNown], default: VOLT, label: 垂直单位, label_en: Units}
   # 通道间延迟校正（:CHANnel<N>:PROBe:SKEW）：±1 ms；Default Setup 不改它（手册）。
   skew: {type: float, unit: S, min: -1.0e-3, max: 1.0e-3, default: 0.0, keep_on_reset: true, label: 延迟校正, label_en: Skew}
+  # 频谱视图（DDC）的中心频率与跨度：保存与回读（自 main 移植）。
+  spectral_center: {default: 0.0, label: 频谱中心频率, label_en: Spectral center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  spectral_span: {default: 0.0, label: 频谱跨度, label_en: Spectral span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
   # :DISPlay:GRATicule:SETGrat：通道波形放在哪个网格、哪个波形区、主视图或色阶视图（不改变数据）。
   grid: {type: int, min: 1, max: 16, default: 1, label: 网格, label_en: Grid}
   grid_area: {type: int, min: 1, max: 8, default: 1, label: 波形区, label_en: Waveform area}
@@ -665,7 +1224,7 @@ components:
       segmented: {from: $acquire.mode, map: {SEGMented: true}, default: false}
       segments: $acquire.segmented_count
       segment_index: $acquire.segmented_index
-      memory_points: 10000000
+      memory_points: 2000000000
   # 时基：采样率为 256 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
   # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 10 Mpts）。参考位置 LEFT / CENTer / RIGHt
   # 取屏幕 10% / 50% / 90%。
@@ -679,7 +1238,7 @@ components:
       record_length: rate_pow2
       points: {from: $acquire.points_auto, map: {"True": 256000}, default: $acquire.points}
       sample_rate: {from: $acquire.srate_auto, map: {"True": 0.0}, default: $acquire.srate}
-      max_points: 10000000
+      max_points: 2000000000
       # 10 MHz 参考输入（:TIMebase:REFClock ON）：锁上后采样时钟跟随它（锁定范围 ±20 ppm、最低 -5 dBm，手册）。
       rosc: {from: $timebase.refclock, map: {"True": EXTernal}, default: INTernal}
       lock_ppm: 20.0
@@ -691,7 +1250,7 @@ components:
     params:
       # 边沿用 :TRIGger:EDGE:SOURce；毛刺、脉宽各有自己的信源（手册）。
       source: {from: $trigger.mode, map: {GLITch: $trigger.glitch_source, PWIDth: $trigger.pwidth_source}, default: $trigger.source}
-      mode: {from: $trigger.mode, map: {GLITch: glitch, PWIDth: glitch}, default: edge}
+      mode: {from: $trigger.mode, map: {GLITch: glitch, PWIDth: glitch, RUNT: runt, TRANsition: transition, WINDow: window, TIMeout: timeout, NEDGe: nedge}, default: edge}
       polarity:
         from: $trigger.mode
         map:
@@ -734,6 +1293,41 @@ components:
       holdoff: $trigger.holdoff
       external: [AUXiliary]
   # ADC：10 位；1024 个码对应屏幕 8 格（数据手册：10 位分辨率 = 满量程的 0.1%，满量程 8 格）。
+      # ---- 高级触发族（#1184）：每族自己的信源与参数；欠幅/过渡/窗口用每源阈值对 ----
+      high_by_source:
+        CHANnel1: trigger.hth1
+        CHANnel2: trigger.hth2
+        CHANnel3: trigger.hth3
+        CHANnel4: trigger.hth4
+        AUXiliary: trigger.hth5
+      low_by_source:
+        CHANnel1: trigger.lth1
+        CHANnel2: trigger.lth2
+        CHANnel3: trigger.lth3
+        CHANnel4: trigger.lth4
+      hysteresis_setting: $trigger.hysteresis
+      runt_source: $trigger.runt_source
+      runt_polarity: $trigger.runt_polarity
+      runt_qualified: $trigger.runt_qualified
+      runt_time: $trigger.runt_time
+      transition_source: $trigger.transition_source
+      transition_type: $trigger.transition_type
+      transition_mode: $trigger.transition_mode
+      transition_time: $trigger.transition_time
+      transition_range_low: $trigger.transition_range_low
+      transition_range_high: $trigger.transition_range_high
+      window_source: $trigger.window_source
+      window_condition: $trigger.window_condition
+      window_qualifier: $trigger.window_qualifier
+      window_time: $trigger.window_time
+      window_tpoint: $trigger.window_tpoint
+      timeout_source: $trigger.timeout_source
+      timeout_condition: $trigger.timeout_condition
+      timeout_time: $trigger.timeout_time
+      nedge_source: $trigger.nedge_source
+      nedge_slope: $trigger.nedge_slope
+      nedge_count: $trigger.nedge_count
+  # ADC：10 位；1024 个码对应屏幕 8 格（数据手册：10 位分辨率 = 满量程的 0.1%，满量程 8 格）。
   - name: adc
     type: scope_adc
     params:
@@ -760,7 +1354,7 @@ components:
     type: function_generator_core
     params:
       function: {from: $calibrate.output, map: {DC: DC, ZERO: DC, ONE: DC}, default: SQUare}
-      frequency: {from: $calibrate.output, map: {PROBecomp: 750.0, DPULse: 1538461.5, NDPULse: 1538461.5, MHZ97: 9.7e7, MHZ7_5: 7.5e6}, default: 1000.0}
+      frequency: {from: $calibrate.output, map: {PROBecomp: 750.0, DPULse: 1538461.5, NDPULse: 1538461.5, SOSC: 1.0e8, MHZ97: 9.7e7, MHZ7_5: 7.5e6}, default: 1000.0}
       amplitude: 0.3
       offset: {from: $calibrate.output, map: {DC: $calibrate.dc, ZERO: -0.15, ONE: 0.15}, default: 0.0}
       duty: {from: $calibrate.output, map: {DPULse: 0.16923, NDPULse: 99.83077}, default: 50.0}
@@ -772,7 +1366,7 @@ components:
     type: function_generator_core
     params:
       function: {from: $calibrate.output, map: {DC: DC, ZERO: DC, ONE: DC}, default: SQUare}
-      frequency: {from: $calibrate.output, map: {PROBecomp: 750.0, DPULse: 1538461.5, NDPULse: 1538461.5, MHZ97: 9.7e7, MHZ7_5: 7.5e6}, default: 1000.0}
+      frequency: {from: $calibrate.output, map: {PROBecomp: 750.0, DPULse: 1538461.5, NDPULse: 1538461.5, SOSC: 1.0e8, MHZ97: 9.7e7, MHZ7_5: 7.5e6}, default: 1000.0}
       amplitude: 0.315
       offset: {from: $calibrate.output, map: {DC: -0.44, ZERO: -0.44, ONE: -0.125}, default: -0.2825}
       duty: {from: $calibrate.output, map: {DPULse: 0.16923, NDPULse: 99.83077}, default: 50.0}
@@ -795,6 +1389,28 @@ components:
       storage: disk  # 手册：AORDered（或不带参数）先回最新加的
       # :TRIGger:LEVel:FIFTy：触发信源的电平设到其波形的 50%。
       trigger_levels: {1: trigger.level1, 2: trigger.level2, 3: trigger.level3, 4: trigger.level4}
+      # 光标（#1074）：方式与位置是 marker.* 设置，60 个编号光标（手册 :MARKer<K> 1-60）。
+      math: math
+      marker_mode: $marker.mode
+      marker_x1: $marker.x1
+      marker_x2: $marker.x2
+      marker_y1: $marker.y1
+      marker_y2: $marker.y2
+      marker_source1: $marker.source1
+      marker_source2: $marker.source2
+      marker_measurement: $marker.meas
+      markers: 60
+  # 数学函数（#1074，手册第 22 章）：FUNCtion1-16 的定义在 function<f>.* 设置里，读的时候才算。
+  - name: math
+    type: scope_math
+    params:
+      record: acq
+      prefix: function
+      functions: 16
+      channels: 4
+      invalid_value: "9.99999E+37"
+      peak_sort: $function.peak_sort
+      resolution_scale: timebase.scale
   - name: sys
     type: system
   - name: xfer
@@ -910,9 +1526,9 @@ ports:
     "CH{n}": inp.pin
   instrument:
     AUX: auxin.pin
-    "REF IN": refin.pin
-    "CAL OUT": calout.pin
-    "AUX OUT": auxout.pin
+    REF_IN: refin.pin
+    CAL_OUT: calout.pin
+    AUX_OUT: auxout.pin
 display:
   template: oscilloscope
   summary: [timebase.scale, trigger.source, trigger.slope]
@@ -1225,7 +1841,8 @@ commands:
   - {header: ":WAVeform:STReaming", state: waveform.streaming}
   - {header: ":WAVeform:POINts", op: xfer.figure, set: false, args: {what: points}}
   - {header: ":WAVeform:PREamble", op: xfer.header, set: false}
-  - {header: ":WAVeform:DATA", op: xfer.data, set: false}
+  # :WAVeform:DATA? [<start>[,<size>]]（手册）：从第 start 点起读 size 点，size 超出时截到记录末尾；深记录按段读回（#1012）。
+  - {header: ":WAVeform:DATA", op: xfer.data, set: false, params: [{name: start, type: int, min: 0, optional: true}, {name: size, type: int, min: 1, optional: true}]}
   - {header: ":WAVeform:XINCrement", op: xfer.figure, set: false, args: {what: x_increment}}
   - {header: ":WAVeform:XORigin", op: xfer.figure, set: false, args: {what: x_start}}
   - {header: ":WAVeform:XREFerence", op: xfer.figure, set: false, args: {what: x_reference}}
@@ -1261,8 +1878,10 @@ commands:
     params: [{name: what, type: enum, options: [RELXorigin, ABSXorigin, TTAG, OFFSet]}]
   # ---- 前面板 AUX OUT / CAL OUT（手册第 18 章）----
   - header: ":CALibrate:OUTPut"
+    op: sys.word_value
+    args: {word: $calibrate.output, value: $calibrate.dc, with_value: [DC]}
     params:
-      - {name: signal, type: enum, options: [DC, PROBecomp, ZERO, ONE, DPULse, NDPULse, MHZ97, MHZ7_5], state: calibrate.output, not_modeled: {TOUT: the trigger output pulse is not modeled}}
+      - {name: signal, type: enum, options: [DC, PROBecomp, ZERO, ONE, DPULse, NDPULse, SOSC, MHZ97, MHZ7_5], optional: true, state: calibrate.output, not_modeled: {TOUT: the trigger output pulse is not modeled}}
       - {name: level, type: float, unit: V, optional: true, state: calibrate.dc}
   - {header: ":CALibrate:OUTPut:AUX", state: calibrate.aux}
   - {header: ":CALibrate:OUTPut:CAL", state: calibrate.cal}
@@ -1479,7 +2098,7 @@ commands:
   - {header: ":SYSTem:CAPability:DIGital", op: sys.none, set: false, when: {what: CHANnels}, params: [{name: what, type: enum, options: [MEMory, SRATe, CHANnels]}], reply: '"0"'}
   # *:TESTLIMITS?（手册）：<个数>,<<类型>><下限>:<上限>，取本定义接受的范围（与设置的 MIN/MAX 一致）。
   - {header: ":ACQuire:BANDwidth:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>+1.00000E+08:+1.13000E+11"}
-  - {header: ":ACQuire:POINts:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>16:10000000"}
+  - {header: ":ACQuire:POINts:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>16:2000000000"}
   - {header: ":ACQuire:SRATe:TESTLIMITS", op: sys.none, set: false, reply: "1,<numeric>+0.00000E+00:+2.56000E+11"}
   # 四个通道都能打开：1,<enum>0|1（手册的例子）。
   - {header: ":CHANnel<ch>:DISPlay:TESTLIMITS", op: sys.none, set: false, reply: "1,<enum>0|1"}
@@ -1601,3 +2220,115 @@ commands:
     params:
       - {name: name, type: string}
       - {name: destination, type: raw, optional: true}
+  # ---- 自 main 移植：数学函数与 FFT（#1153）、光标、FFT 测量、频谱视图、欠幅/过渡/窗口/超时/第 N 边沿触发（#1184） ----
+  - {header: ':CHANnel<ch>:PROBe:SKEW:AUTO', op: ch.probe.skew_auto, query: false}
+  - {header: ':TRIGger:RUNT<S>:SOURce', state: trigger.runt_source, suffixes: {s: [1]}}
+  - {header: ':TRIGger:RUNT<S>:POLarity', state: trigger.runt_polarity, suffixes: {s: [1]}}
+  - {header: ':TRIGger:RUNT<S>:QUALified', state: trigger.runt_qualified, suffixes: {s: [1]}}
+  - {header: ':TRIGger:RUNT<S>:TIME', state: trigger.runt_time, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TRANsition<S>:SOURce', state: trigger.transition_source, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TRANsition<S>:TYPE', state: trigger.transition_type, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TRANsition<S>:MODE', state: trigger.transition_mode, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TRANsition<S>:TIME', state: trigger.transition_time, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TRANsition<S>:RANGe', params: [{name: gt, state: trigger.transition_range_low, type: float, unit: s}, {name: lt, state: trigger.transition_range_high, type: float, unit: s}], suffixes: {s: [1]}}
+  - {header: ':TRIGger:WINDow<S>:SOURce', state: trigger.window_source, suffixes: {s: [1]}}
+  - {header: ':TRIGger:WINDow<S>:CONDition', op: trigger.window_condition, params: [{name: condition, optional: true, type: raw}, {name: qualifier, optional: true, type: raw}], suffixes: {s: [1]}}
+  - {header: ':TRIGger:WINDow<S>:TIME', state: trigger.window_time, suffixes: {s: [1]}}
+  - {header: ':TRIGger:WINDow<S>:TPOint', state: trigger.window_tpoint, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TIMeout<S>:SOURce', state: trigger.timeout_source, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TIMeout<S>:CONDition', state: trigger.timeout_condition, suffixes: {s: [1]}}
+  - {header: ':TRIGger:TIMeout<S>:TIME', state: trigger.timeout_time, suffixes: {s: [1]}}
+  - {header: ':TRIGger:NEDGe<S>:SOURce', state: trigger.nedge_source, suffixes: {s: [1]}}
+  - {header: ':TRIGger:NEDGe<S>:SLOPe', state: trigger.nedge_slope, suffixes: {s: [1]}}
+  - {header: ':TRIGger:NEDGe<S>:COUNt', state: trigger.nedge_count, suffixes: {s: [1]}}
+  - {header: ':FUNCtion<f>:ADD', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: source2, optional: true, state: 'function{f}.source2', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': ADD}}
+  - {header: ':FUNCtion<f>:SUBTract', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: source2, optional: true, state: 'function{f}.source2', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': SUBTract}}
+  - {header: ':FUNCtion<f>:MULTiply', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: source2, optional: true, state: 'function{f}.source2', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': MULTiply}}
+  - {header: ':FUNCtion<f>:DIVide', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: source2, optional: true, state: 'function{f}.source2', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': DIVide}}
+  - {header: ':FUNCtion<f>:COMMonmode', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: source2, optional: true, state: 'function{f}.source2', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': COMMonmode}}
+  - {header: ':FUNCtion<f>:ABSolute', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': ABSolute}}
+  - {header: ':FUNCtion<f>:INVert', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': INVert}}
+  - {header: ':FUNCtion<f>:SQUare', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': SQUare}}
+  - {header: ':FUNCtion<f>:SQRT', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': SQRT}}
+  - {header: ':FUNCtion<f>:MAGNify', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': MAGNify}}
+  - {header: ':FUNCtion<f>:DIFF', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': DIFF}}
+  - {header: ':FUNCtion<f>:INTegrate', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': INTegrate}}
+  - {header: ':FUNCtion<f>:AVERage', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: averages, optional: true, state: 'function{f}.average', type: int}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': AVERage}}
+  - {header: ':FUNCtion<f>:DELay', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: delay, optional: true, state: 'function{f}.delay', type: float, unit: S}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': DELay}}
+  - {header: ':FUNCtion<f>:GATing', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': GATing}}
+  - {header: ':FUNCtion<f>:SMOoth', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: points, optional: true, state: 'function{f}.smooth', type: int}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': SMOoth}}
+  - {header: ':FUNCtion<f>:GATing:STARt', state: 'function{f}.gate_start', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:GATing:STOP', state: 'function{f}.gate_stop', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:HIGHpass', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: bandwidth, optional: true, state: 'function{f}.hp_bw', type: float, unit: HZ}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': HIGHpass}}
+  - {header: ':FUNCtion<f>:LOWPass', params: [{name: source1, state: 'function{f}.source1', type: string}, {name: bandwidth, optional: true, state: 'function{f}.lp_bw', type: float, unit: HZ}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': LOWPass}}
+  - {header: ':FUNCtion<f>:MAXimum', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': MAXimum}}
+  - {header: ':FUNCtion<f>:MINimum', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': MINimum}}
+  - {header: ':FUNCtion<f>:FFTMagnitude', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': FFTMagnitude}}
+  - {header: ':FUNCtion<f>:FFTPhase', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': FFTPhase}}
+  - {header: ':FUNCtion<f>:PSDensity', params: [{name: source1, state: 'function{f}.source1', type: string}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, writes: {'function{f}.operator': PSDensity}}
+  - {header: ':FUNCtion<f>', op: math.definition, reply: '{header} {value}', set: false, suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:DISPlay', state: 'function{f}.display', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:RANGe', state: 'function{f}.range', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:OFFSet', state: 'function{f}.offset', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:VERTical', state: 'function{f}.vertical', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:VERTical:RANGe', state: 'function{f}.range', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:VERTical:OFFSet', state: 'function{f}.offset', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {args: {field: horizontal}, header: ':FUNCtion<f>:HORizontal', op: math.h_field, params: [{name: value, optional: true, type: raw}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {args: {field: position}, header: ':FUNCtion<f>:HORizontal:POSition', op: math.h_field, params: [{name: value, optional: true, type: raw}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {args: {field: range}, header: ':FUNCtion<f>:HORizontal:RANGe', op: math.h_field, params: [{name: value, optional: true, type: raw}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:WINDow', state: 'function{f}.window', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:VUNits', state: 'function{f}.vunits', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:SPAN', state: 'function{f}.span', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:FREQuency', state: 'function{f}.center', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:STARt', state: 'function{f}.start', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:STOP', state: 'function{f}.stop', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:TDELay', state: 'function{f}.tdelay', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:IMPedance', state: 'function{f}.impedance', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:REFerence', state: 'function{f}.fft_ref', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:HSCale', state: 'function{f}.hsc', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:DETector:TYPE', state: 'function{f}.detector', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:DETector:POINts', state: 'function{f}.detector_points', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:RESolution', op: math.fft_resolution, params: [{name: resolution, optional: true, type: float, unit: HZ}], suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion:FFT:PEAK:SORT', state: function.peak_sort}
+  - {header: ':FUNCtion<f>:FFT:PEAK:STATe', state: 'function{f}.peak_state', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:PEAK:COUNt', state: 'function{f}.peak_count', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:FFT:PEAK:LEVel', state: 'function{f}.peak_level', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {args: {kind: FREQuency}, header: ':FUNCtion<f>:FFT:PEAK:FREQuency', op: math.fft_peak, set: false, suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {args: {kind: MAGNitude}, header: ':FUNCtion<f>:FFT:PEAK:MAGNitude', op: math.fft_peak, set: false, suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {header: ':FUNCtion<f>:LABel', state: 'function{f}.label', suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}}
+  - {args: {kind: FREQuency}, header: ':MEASure:FFT:FREQuency', op: math.fft_measure, params: [{name: source, type: string}, {name: peak, optional: true, type: int}, {name: level, optional: true, type: float}], set: false}
+  - {args: {kind: MAGNitude}, header: ':MEASure:FFT:MAGNitude', op: math.fft_measure, params: [{name: source, type: string}, {name: peak, optional: true, type: int}, {name: level, optional: true, type: float}], set: false}
+  - {args: {kind: DFRequency}, header: ':MEASure:FFT:DFRequency', op: math.fft_measure, params: [{name: source, type: string}, {name: peak1, optional: true, type: int}, {name: peak2, optional: true, type: int}, {name: level, optional: true, type: float}], set: false}
+  - {args: {kind: DMAGnitude}, header: ':MEASure:FFT:DMAGnitude', op: math.fft_measure, params: [{name: source, type: string}, {name: peak1, optional: true, type: int}, {name: peak2, optional: true, type: int}, {name: level, optional: true, type: float}], set: false}
+  - {args: {kind: CPOWer}, header: ':MEASure:FFT:CPOWer', op: math.fft_measure, params: [{name: source, type: string}, {name: center, optional: true, type: float}, {name: bandwidth, optional: true, type: float}], set: false}
+  - {args: {kind: PSD}, header: ':MEASure:FFT:PSD', op: math.fft_measure, params: [{name: source, type: string}, {name: center, optional: true, type: float}, {name: bandwidth, optional: true, type: float}], set: false}
+  - {args: {kind: OBW}, header: ':MEASure:FFT:OBW', op: math.fft_measure, params: [{name: source, type: string}, {name: percent, optional: true, type: float}], set: false}
+  - {args: {kind: THDistortion}, header: ':MEASure:FFT:THDistortion', op: math.fft_measure, params: [{name: source, type: string}, {name: mode, optional: true, options: [MANual, PEAK], type: enum}, {name: fundamental, optional: true, type: float}, {name: level, optional: true, type: float}], set: false}
+  - {header: ':MARKer:MODE', state: marker.mode}
+  - {header: ':MARKer:X1Position', state: marker.x1}
+  - {header: ':MARKer:X2Position', state: marker.x2}
+  - {header: ':MARKer:Y1Position', state: marker.y1}
+  - {header: ':MARKer:Y2Position', state: marker.y2}
+  - {header: ':MARKer:TSTArt', state: marker.x1}
+  - {header: ':MARKer:TSTOp', state: marker.x2}
+  - {header: ':MARKer:VSTArt', state: marker.y1}
+  - {header: ':MARKer:VSTOp', state: marker.y2}
+  - {header: ':MARKer:X1Y1source', state: marker.source1}
+  - {header: ':MARKer:X2Y2source', state: marker.source2}
+  - {header: ':MARKer:XDELta', op: meas.x_delta, set: false}
+  - {header: ':MARKer:YDELta', op: meas.y_delta, set: false}
+  - {header: ':MARKer:CURSor', op: meas.cursor, params: [{name: which, optional: true, options: [DELTa, STARt, STOP], type: enum}], set: false}
+  - {header: ':MARKer:MEASurement:MEASurement', op: meas.marker_measurements, params: [{name: measurement, optional: true, type: raw}, {name: state, optional: true, type: raw}]}
+  - {args: {field: type}, header: ':MARKer<K>:TYPE', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {args: {field: source}, header: ':MARKer<K>:SOURce', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {args: {field: name}, header: ':MARKer<K>:NAME', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {args: {field: enable}, header: ':MARKer<K>:ENABle', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {args: {field: color}, header: ':MARKer<K>:COLor', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {args: {field: cmode}, header: ':MARKer<K>:CMODe', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {args: {field: x}, header: ':MARKer<K>:X:POSition', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {args: {field: y}, header: ':MARKer<K>:Y:POSition', op: meas.k_field, params: [{name: value, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {header: ':MARKer<K>:DELTa', op: meas.marker_delta, params: [{name: other, optional: true, type: raw}, {name: state, optional: true, type: raw}], suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}}
+  - {header: ':CHANnel<ch>:SPECtral:CFRequency', state: ch.spectral_center}
+  - {header: ':CHANnel<ch>:SPECtral:SPAN', state: ch.spectral_span}
+  - {args: {path: ch.spectral_center}, header: ':CHANnel<ch>:SPECtral:CFRequency:TESTLIMITS', op: sys.limits, set: false}
+  - {args: {path: ch.spectral_span}, header: ':CHANnel<ch>:SPECtral:SPAN:TESTLIMITS', op: sys.limits, set: false}

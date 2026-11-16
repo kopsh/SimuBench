@@ -5289,6 +5289,13 @@ export interface components {
              * @description Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM
              */
             unit?: string | null;
+            /**
+             * Words
+             * @description Words a component resolves to a number when the setting is written, e.g. {LREading: last_reading} (SCPI mixed case: the short and the long form both match); the value names the resolver the bound component implements (``Component.resolve_word``). The number is then judged by the range like any written value, and a query answers the number (#1096)
+             */
+            words?: {
+                [key: string]: string;
+            } | null;
         };
         /** StateVarInfo */
         StateVarInfo: {
@@ -5313,6 +5320,11 @@ export interface components {
              * @default false
              */
             electrical: boolean;
+            /**
+             * Fidelity
+             * @description How the model computes what this setting sets, where users should know: computed_on_read — a scope's memory depth, whose deep records are computed where they are read (#1012, real-models.md 10)
+             */
+            fidelity: "computed_on_read" | null;
             /**
              * Keep On Reset
              * @description *RST and the model's preset leave it as it is (a user preference, a display colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on still sets `default`
@@ -5389,6 +5401,13 @@ export interface components {
             unit: string | null;
             /** Value */
             value: unknown;
+            /**
+             * Words
+             * @description Words a component resolves to a number when the setting is written, e.g. {LREading: last_reading} (SCPI mixed case: the short and the long form both match); the value names the resolver the bound component implements (``Component.resolve_word``). The number is then judged by the range like any written value, and a query answers the number (#1096)
+             */
+            words: {
+                [key: string]: string;
+            } | null;
         };
         /**
          * StepResult

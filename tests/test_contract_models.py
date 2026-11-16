@@ -65,9 +65,11 @@ def test_the_state_variable_view_derives_from_the_spec():
         "dangerous",
         "value",
         "channel",
+        "fidelity",  # what users should know of how the setting is modeled (#1012)
     }
     info = M.StateVarInfo(path="ch1.freq", type="float", unit="HZ", value=1e3)
     assert info.path == "ch1.freq" and info.value == 1e3 and info.unit == "HZ"
+    assert info.fidelity is None
 
 
 def test_a_silence_reason_survives_the_round_trip():

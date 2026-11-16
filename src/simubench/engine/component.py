@@ -161,6 +161,25 @@ class RecordSource(Protocol):
 
 
 @runtime_checkable
+class MathSource(Protocol):
+    """What a waveform transfer or a measurement reads a math function's record from
+    (``scope_math``, #1074): the function's waveform over its operands' records, computed as it
+    is read."""
+
+    def read_function(self, f: int, start: bool = True) -> tuple[Record | None, int]:
+        """The record a read of function ``f`` uses, and the virtual time its sources took."""
+        ...
+
+    def transfer_function(self, f: int, first: int) -> tuple[Record | None, int]:
+        """The record a waveform transfer of function ``f`` reads (``first``: its first point)."""
+        ...
+
+    def function_units(self, f: int) -> tuple[str, str]:
+        """The function's X and Y axis unit words (``:WAVeform:XUNits?``/``:YUNits?``, #1066)."""
+        ...
+
+
+@runtime_checkable
 class NoiseSource(Protocol):
     """A block in front of a record taker that adds noise the analytic signal does not carry (an
     optical receiver's input-referred noise, #1093): the taker adds it to its own in power."""
@@ -463,6 +482,9 @@ class Component:
     #: ``flatness``): the ones an individual deviation by frequency bands (``bands``) may draw
     #: (#1004).
     curves: ClassVar[frozenset[str]] = frozenset()
+    #: The resolver names a setting's ``words`` may name when this component binds the setting
+    #: (:meth:`resolve_word`); definition validation checks them (E-DEF-WORDS-*, #1115).
+    resolvers: ClassVar[frozenset[str]] = frozenset()
     #: Instrument settings a component reads by path rather than through a bound parameter, whose
     #: changes it still hears in :meth:`on_state` (the analyzer's marker group, #274). Paths the
     #: definition does not declare are ignored.
@@ -720,6 +742,31 @@ class Component:
         """Signal leaving a signal output port. Override in components with signal outputs."""
         raise NotImplementedError(f"{self.type_name} has no signal output {port!r}")
 
+    def carrier(self, port: str) -> float | None:
+        """The wavelength (m) of the light leaving an optical output at the instant being evaluated
+        (D71, #1103); None when there is no light or nothing says. By default an optical block
+        passes on the wavelength arriving at its first optical input (a fibre part, an
+        attenuator); a light source overrides it."""
+        spec = self.ports.get(port)
+        if spec is None or spec.medium != "optical" or spec.direction != "out":
+            return None
+        for name, other in self.ports.items():
+            if other.medium == "optical" and other.direction == "in":
+                return self.input_carrier(name)
+        return None
+
+    def input_carrier(self, port: str) -> float | None:
+        """The wavelength (m) of the light arriving at an optical input, found the way
+        :meth:`input` finds its power; None in the dark."""
+        spec = self.ports.get(port)
+        if spec is None or spec.medium != "optical":
+            return None
+        src = None if self.owner is None else self.owner.wiring.source(self.name, port)
+        if src is None:
+            return self.session.optical_carrier(self, port)
+        assert self.owner is not None
+        return self.owner.components[src[0]].carrier(src[1])
+
     # ---- sample streams (D67, signal-chain.md 3) ----------------------------------------------
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:
@@ -793,6 +840,13 @@ class Component:
         the component through ``watches`` or a nested mapping instead. ``path`` is the state path.
         Raise ScpiError to refuse the change, or return the value to keep instead (e.g. the nearest
         legal one). None keeps ``new``."""
+
+    def resolve_word(self, key: str | None, path: str, name: str) -> float | None:
+        """The number for a word the setting at ``path`` declares in ``words`` (#1096) — ``name``
+        is the resolver the definition names (``last_reading``); ``key`` as in :meth:`on_state`.
+        Return None when this component does not resolve it (the next bound component is asked);
+        raise ScpiError to refuse the write."""
+        return None
 
     def check_settings(self) -> None:
         """After a command that writes several settings at once (a ``quantities`` command such as

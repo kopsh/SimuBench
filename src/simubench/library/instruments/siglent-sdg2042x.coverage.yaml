@@ -18,6 +18,7 @@ sections:
   - header: Comm_HeaDeR
     level: not_modeled
     note: not available on the SDG2000X (availability table)
+    gap: out_of_scope
 - section: 3.3 Output Command (PG02_E05C)
   commands:
   - header: C<ch>:OUTPut
@@ -25,8 +26,12 @@ sections:
     note: ON|OFF, LOAD (50..100000 Ω or HZ), PLRT (NOR|INVT); reply C<n>:OUTP ON,LOAD,HZ,PLRT,NOR. Changing the load keeps the amplitude setting, so the output voltage changes (D13)
   - header: C<ch>:NOISE_ADD
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
   - header: OUT_BOTHCH
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
 - section: 3.4 Basic Wave Command (PG02_E05C)
   commands:
   - header: C<ch>:BaSic_WaVe
@@ -38,124 +43,168 @@ sections:
   commands:
   - header: C<ch>:MoDulateWaVe
     level: not_modeled
+    note: 可做:波形作调制源;调制与 arb 组件已有。
+    gap: model_work
 - section: 3.6 Sweep Wave Command (PG02_E05C)
   commands:
   - header: C<ch>:SweepWaVe
     level: not_modeled
+    note: 可做:扫频;rfgen 的扫频机制已有(#291),接入 siglent_sdg 组件。
+    gap: model_work
   - header: C<ch>:SWEep
     level: not_modeled
+    note: 可做:扫频;rfgen 的扫频机制已有(#291),接入 siglent_sdg 组件。
+    gap: model_work
   - header: C<ch>:SWEep:TYPE
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:SOURce
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:FMODe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:AMODe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:FSNumber
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:ASNumber
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:TIME
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:SHTime
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:EHTime
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:RTIMe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:SFRequency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:EFRequency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CFRequency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:FSPan
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:SAMPlitude
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:EAMPlitude
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CAMPlitude
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:ASPan
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:FDIRection
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:ADIRection
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:FSYMmetry
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:ASYMmetry
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:TOUT
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:EDGe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:MTRigger
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:FMARker
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:MFRequency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:MSNumber
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:WTYPe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:FREQuency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:PHASe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:PAMPlitude
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:RAMPlitude
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:OFFSet
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:SYMMetry
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SWEep:CARRier:DUTY
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
 - section: 3.7 Burst Wave Command (PG02_E05C)
   commands:
   - header: C<ch>:BursTWaVe
     level: not_modeled
+    note: 可做:突发(N 圈/触发);触发模型已有。
+    gap: model_work
 - section: 3.8 Parameter Copy Command (PG02_E05C)
   commands:
   - header: PAraCoPy
@@ -165,9 +214,12 @@ sections:
   commands:
   - header: C<ch>:ARbWaVe
     level: not_modeled
+    note: 可做:任意波段与内部波形存储;arb_segments 已有。
+    gap: model_work
   - header: C<ch>:MARKer
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
 - section: 3.10 Sync Command (PG02_E05C)
   commands:
   - header: C<ch>:SYNC
@@ -178,33 +230,50 @@ sections:
   commands:
   - header: EQPHASE
     level: not_modeled
+    note: 可做:通道相位对齐;通道相位已有。
+    gap: model_work
 - section: 3.12 Number Format Command (PG02_E05C)
   commands:
   - header: NumBer_ForMat
     level: not_modeled
     note: replies always use a dot and no separator
+    gap: model_work
 - section: 3.13 Language Command (PG02_E05C)
   commands:
   - header: LAnGuaGe
     level: not_modeled
+    note: '可做:界面偏好;候选"接受"(affects_data: false)。'
+    gap: model_work
 - section: 3.14 Configuration Command (PG02_E05C)
   commands:
   - header: Sys_CFG
     level: not_modeled
+    note: 等能力:配置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
 - section: 3.15 Date and Time Command (PG02_E05C)
   commands:
   - header: SYSTem:DATE
     level: not_modeled
+    note: 不做:真实时钟(只用虚拟时间)。
+    gap: out_of_scope
   - header: SYSTem:TIME
     level: not_modeled
+    note: 不做:真实时钟(只用虚拟时间)。
+    gap: out_of_scope
 - section: 3.16 Power On Command (PG02_E05C)
   commands:
   - header: POWer:ON
     level: not_modeled
+    note: 等能力:配置存取(setup_memory,#1070),本模型未接入。
+    gap: blocked
+    blocked_by: setup-memory
 - section: 3.17 Key Command (PG02_E05C)
   commands:
   - header: KEY
     level: not_modeled
+    note: 不做:面板按键模拟,仿真无面板。
+    gap: out_of_scope
 - section: 3.18 Buzzer Command (PG02_E05C)
   commands:
   - header: BUZZer
@@ -215,110 +284,149 @@ sections:
   commands:
   - header: C<ch>:TRIGger:SOURce
     level: not_modeled
+    note: 可做:通道触发源;触发模型已有。
+    gap: model_work
 - section: 3.20 Screen Saver Command (PG02_E05C)
   commands:
   - header: SCreen_SaVe
     level: not_modeled
+    note: '可做:界面偏好;候选"接受"(affects_data: false)。'
+    gap: model_work
 - section: 3.21 Clock Source Command (PG02_E05C)
   commands:
   - header: ROSCillator
     level: not_modeled
+    note: '可做:参考时钟源;候选"接受"(affects_data: false)。'
+    gap: model_work
 - section: 3.22 Frequency Counter Command (PG02_E05C)
   commands:
   - header: FreqCouNTer
     level: not_modeled
+    note: '等能力(4.2 未列):内置频率计数器,通用能力见 #1122(示波器为例)。'
+    gap: blocked
+    blocked_by: counter
 - section: 3.23 Counter Command (SDG7000A only) (PG02_E05C)
   commands:
   - header: :SENSe:COUNTer:CLEar
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:MEASure
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:RFREQuency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:SNUMBer
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:FDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:MEAN
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:MEAN:FDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:MAX
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:MAX:FDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:MIN
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:MIN:FDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:SDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:SDEViation:FDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:PERiod
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:PERiod:MEAN
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:PERiod:MAX
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:PERiod:MIN
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:PERiod:SDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:DUTY
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:DUTY:MEAN
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:DUTY:MAX
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:DUTY:MIN
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:FREQuency:DUTY:SDEViation
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:TOTalizer:GATE:STATe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:TOTalizer:EDGE
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:TOTalizer:GATE:MODE
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:TOTalizer:GOLarity:GATE:POLarity
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:TOTalizer:GOLarity:GATE:EDGE
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: :SENSe:COUNTer:TOTalizer
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
 - section: 3.24 Invert Command (PG02_E05C)
   commands:
   - header: C<ch>:INVerT
@@ -328,305 +436,445 @@ sections:
   commands:
   - header: C<ch>:FILTer
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
 - section: 3.26 Coupling Command (PG02_E05C)
   commands:
   - header: COUPling
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
 - section: 3.27 Over-Voltage Protection Command (PG02_E05C)
   commands:
   - header: VOLTPRT
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
 - section: 3.28 Over-Current Protection Command (PG02_E05C)
   commands:
   - header: C<ch>:OCP
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
 - section: 3.29 Overload Status Query Command (PG02_E05C)
   commands:
   - header: C<ch>:OVLD
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
 - section: 3.30 Output Skew (PG02_E05C)
   commands:
   - header: C<ch>:SKEW
     level: not_modeled
+    note: 可做:输出与通道设置(加噪/偏斜/滤波/耦合/保护)在 siglent_sdg 组件与 protection 上接入。
+    gap: model_work
 - section: 3.31 Store List Command (PG02_E05C)
   commands:
   - header: SToreList
     level: not_modeled
+    note: 可做:任意波段与内部波形存储;arb_segments 已有。
+    gap: model_work
 - section: 3.32 Arb Data Command (PG02_E05C)
   commands:
   - header: WaVeDaTa
     level: not_modeled
+    note: 可做:任意波段与内部波形存储;arb_segments 已有。
+    gap: model_work
 - section: 3.33 Sequence Command (SDG7000A only) (PG02_E05C)
   commands:
   - header: C<ch>:ARBMode
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:BURSt
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:RMODe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:TRIGger[:SEQuence]:SOURce
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:TRIGger[:SEQuence][:IMMediate]
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:TRIGger:TIMer
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:TRIGger[:SEQuence]:SLOPe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:COUNt
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:DEFAult
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:NEW
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:WAVeform
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:REPeat:COUNt
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:AMPlitude
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:OFFset
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:VOLTage:HIGH
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:VOLTage:LOW
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:LENGth
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:DELEte
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SEGMent<x>:INSErt
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:STATe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SCALe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:INCReasing
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:DECReasing
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:RECall
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:SEQuence:SAVe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
 - section: 3.34 Digital Channel Command (SDG7000A only) (PG02_E05C)
   commands:
   - header: DIG:SRATe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: DIG:PERiod
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: DIG:CHANnel<x>:STATe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: DIG:OUTPut
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: DIG:WAVeform
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
 - section: 3.35 Frequency Hop Command (SDG7000A only) (PG02_E05C)
   commands:
   - header: C<ch>:FHOP:SWITch
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:STATe
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:TYPE
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:TIME
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:SFREquency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:EFREquency
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:FSTep
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:RPATtern
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:RLPAttern
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:ALSTate
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:AFLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:DFLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:CFLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:MFLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:AOLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:DOLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:COLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:MOLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:AALIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:DALIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:CALIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:LFLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:SFLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:LOLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:SOLIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:LALIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: C<ch>:FHOP:SALIst
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
 - section: 3.36 Virtual Key Command (PG02_E05C)
   commands:
   - header: VirtualKEY
     level: not_modeled
+    note: 不做:面板按键模拟,仿真无面板。
+    gap: out_of_scope
 - section: 3.37 IP Command (PG02_E05C)
   commands:
   - header: SYSTem:COMMunicate:LAN:IPADdress
     level: not_modeled
+    note: '可做:接口配置(LAN);候选"接受"(affects_data: false)。'
+    gap: model_work
 - section: 3.38 Subnet Mask Command (PG02_E05C)
   commands:
   - header: SYSTem:COMMunicate:LAN:SMASk
     level: not_modeled
+    note: '可做:接口配置(LAN);候选"接受"(affects_data: false)。'
+    gap: model_work
 - section: 3.39 Gateway Command (PG02_E05C)
   commands:
   - header: SYSTem:COMMunicate:LAN:GATeway
     level: not_modeled
+    note: '可做:接口配置(LAN);候选"接受"(affects_data: false)。'
+    gap: model_work
 - section: 3.40 Sampling Rate Command (PG02_E05C)
   commands:
   - header: C<ch>:SampleRATE
     level: not_modeled
+    note: 可做:采样率/谐波合成/波形叠加在 siglent_sdg 组件上接入。
+    gap: model_work
 - section: 3.41 Harmonic Command (PG02_E05C)
   commands:
   - header: C<ch>:HARMonic
     level: not_modeled
+    note: 可做:采样率/谐波合成/波形叠加在 siglent_sdg 组件上接入。
+    gap: model_work
 - section: 3.42 Waveform Combining Command (PG02_E05C)
   commands:
   - header: C<ch>:CoMBiNe
     level: not_modeled
+    note: 可做:采样率/谐波合成/波形叠加在 siglent_sdg 组件上接入。
+    gap: model_work
 - section: 3.43 Mode Select Command (PG02_E05C)
   commands:
   - header: MODE
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
 - section: 3.44 Multi-Device Sync (PG02_E05C)
   commands:
   - header: CASCADE
     level: not_modeled
+    note: 等能力 C14(product-plan.md 4.2):多机级联同步。
+    gap: blocked
+    blocked_by: C14
 - section: 3.45 IQ Commands (PG02_E05C)
   commands:
   - header: IQ:WAVeinfo
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:CENTerfreq
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:SAMPlerate
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:SYMBolrate
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:AMPLitude
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:IQADjustment:GAIN
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:IQADjustment:IOFFset
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:IQADjustment:QOFFset
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:IQADjustment:QSKew
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:TRIGger:SOURce
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:WAVEload:BUILtin
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:WAVEload:USERstored
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
   - header: IQ:FrequencySampling
     level: not_modeled
+    note: 等能力 C9(product-plan.md 4.2):IQ 波形发生等复包络表示。
+    gap: blocked
+    blocked_by: C9
 - section: 3.46 File Operation Commands (SDG7000A only) (PG02_E05C)
   commands:
   - header: MMEMory:DELete
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:RDIRectory
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:MDIRectory
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:CATalog
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:COPY
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:MOVE
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:SAVE:XML
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:LOAD:XML
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope
   - header: MMEMory:TRANsfer
     level: not_modeled
-    note: SDG7000A only
+    note: 'SDG7000A only: the modeled SDG2000X series does not offer this command.'
+    gap: out_of_scope

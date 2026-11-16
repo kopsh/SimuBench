@@ -6,9 +6,12 @@ import {
   Cpu,
   Crosshair,
   Gauge,
+  Lightbulb,
   Radio,
+  SlidersHorizontal,
   SquareFunction,
   Target,
+  SunDim,
   Waves,
   Zap,
 } from "lucide-react";
@@ -53,7 +56,7 @@ export const INSTRUMENT_CLASSES = {
   },
   spectrum_analyzer: {
     icon: BarChart3,
-    screen: ({ session, inst, readonly }) => <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} />,
+    screen: ({ session, inst, readonly }) => <SpectrumScreen sid={session.id} inst={inst} readonly={readonly} clockMode={session.clock_mode} />,
   },
   rf_generator: {
     icon: Radio,
@@ -72,6 +75,9 @@ export const INSTRUMENT_CLASSES = {
   frequency_counter: { icon: Cpu },
   calibrator: { icon: Target },
   power_supply: { icon: Zap },
+  tunable_laser: { icon: Lightbulb },
+  optical_power_meter: { icon: SunDim },
+  optical_attenuator: { icon: SlidersHorizontal },
 } satisfies Record<string, ClassEntry>;
 
 export type InstrumentClassId = keyof typeof INSTRUMENT_CLASSES;

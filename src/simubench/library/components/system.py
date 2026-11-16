@@ -7,6 +7,7 @@ from typing import Any
 from ...engine.component import Component, OpResult, component, op
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .cal_output import DC_MAX, WORDS
 
 
 @component("system")
@@ -46,6 +47,26 @@ class System(Component):
         the command's ``reply`` template, a constant (:SYSTem:CAPability:CHANnel? COUNt → "4")."""
         return OpResult(b"" if query else None)
 
+    @op("word_value")
+    def word_value(
+        self,
+        query: bool = False,
+        word: str = "",
+        value: Any = None,
+        with_value: list[str] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """A query that answers a setting's word, followed by ``,<value>`` only for the words of
+        ``with_value`` (the Infiniium's :CALibrate:OUTPut? — ``DC,<level>`` but ``PROB``); the word in
+        the definition's short form. A set does nothing (its parameters write the settings)."""
+        assert self.owner is not None
+        if not query:
+            return OpResult()
+        text = V.format_enum(str(word), long=False).decode()
+        if any(V.matches_word(str(word).upper(), w) or str(word) == w for w in with_value or []):
+            text += "," + self.owner.format_number(float(value)).decode().strip()
+        return OpResult(text.encode())
+
     @op("next_error", fields=("code", "text"))
     def next_error(self, **_: Any) -> OpResult:
         """The next entry of the error queue, as the ``{code}`` and ``{text}`` fields of the
@@ -64,3 +85,61 @@ class System(Component):
         """How many entries the error queue holds (a model's own error count query)."""
         assert self.owner is not None
         return OpResult(V.format_int(len(self.owner.errors)))
+
+    @op("accept")
+    def accept(self, **_: Any) -> OpResult:
+        """A command the model parses and stores without an effect on the simulation (an accepted
+        command, #1068): the parameters' ``state`` writes carry the values, the op itself does
+        nothing. The empty response lets the command's ``reply`` template answer a query from the
+        stored settings."""
+        return OpResult(b"")
+
+    @op("capability")
+    def capability(self, what: str = "", **answers: Any) -> OpResult:
+        """``:SYSTem:CAPability:*?`` (the guide, pp. 1437-1439, #1067): the definition's ``answers``
+        carry each capability word's reply, the query names one of them."""
+        word = V.parse_string(what).upper() if isinstance(what, bytes) else str(what).upper()
+        table = {str(k).upper(): v for k, v in answers.items()}
+        answer = table.get(word)
+        if answer is None:
+            raise ScpiError(-224, f"{word}: no such capability")
+        return OpResult(f'"{answer}"'.encode())
+
+    @op("limits")
+    def limits(self, path: str = "", kind: str = "numeric", words: str = "", channel: int | None = None, **_: Any) -> OpResult:  # fmt: skip
+        """``…:TESTLIMITS?`` (the guide's ``<n>,<type><limits>`` shape, pp. 324/340/352/496/552/554,
+        #1067): a numeric setting answers its declared min:max, an enumeration its valid settings
+        (the definition's ``words``). A ``ch.``-prefixed path resolves on the command's channel."""
+        assert self.owner is not None
+        if str(kind).lower() == "enum":
+            return OpResult(f"1,<enum>{words}".encode())
+        resolved = f"ch{channel}.{path[3:]}" if path.startswith("ch.") and channel is not None else path
+        lo, hi = self.owner.limits(resolved)
+        if lo is None or hi is None:
+            raise ScpiError(-300, f"{resolved}: the definition declares no limits")
+        lo_word = self.owner.format_number(lo).decode().strip()
+        hi_word = self.owner.format_number(hi).decode().strip()
+        return OpResult(f"1,<numeric>{lo_word}:{hi_word}".encode())
+
+    @op("cal_output")
+    def cal_output(self, query: bool = False, signal: str = "", dc: float | None = None, path: str = "", **_: Any) -> OpResult:  # fmt: skip
+        """``:CALibrate:OUTPut``: the front-panel output's signal (the guide, p. 473) — the DC form
+        carries the level and the query answers them together, so the setting at ``path`` stores
+        the composed reply and the command's reply template answers a query. The signal itself is
+        sets the signal the ``cal_output`` components drive (#1170)."""
+        assert self.owner is not None
+        if query:
+            return OpResult(b"")
+        if not signal:
+            raise ScpiError(-109, "a signal is required")
+        owner = self.owner
+        word = V.parse_string(signal).upper() if isinstance(signal, bytes) else str(signal).upper()
+        word = {"PROBECOMP": "PROB", "DPULSE": "DPUL", "NDPULSE": "NDPUL"}.get(word, word)
+        if word not in WORDS:
+            raise ScpiError(-224, f"calibration output signal {word!r} is not one of {', '.join(WORDS)}")
+        if dc is not None and (word != "DC" or abs(float(dc)) > DC_MAX):
+            raise ScpiError(-222, f"the DC level is within ±{DC_MAX:g} V (CAL OUT) and only follows DC")
+        level = "" if dc is None else "," + owner.format_number(float(dc)).decode().strip()
+        value = f"{word}{level}"
+        self.owner.set_state(path, value)
+        return OpResult(b"")

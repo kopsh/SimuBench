@@ -386,12 +386,154 @@ def _counter(d: InstrumentDefinition) -> Panel | None:
     return Panel(readouts=readouts, groups=groups, softkeys=[])
 
 
+def _optical_group(
+    d: InstrumentDefinition, spec: ComponentSpec, params: list[str], label: str, label_en: str, used: set[str]
+) -> PanelGroup | None:
+    """A group of controls for the settings these parameters of one component are bound to."""
+    narrowed = spec.model_copy(update={"params": {k: v for k, v in spec.params.items() if k in params}})
+    controls = _controls(d, [narrowed], used)
+    return PanelGroup(label=label, label_en=label_en, controls=controls) if controls else None
+
+
+def _groups(*found: PanelGroup | None) -> list[PanelGroup]:
+    return [g for g in found if g is not None]
+
+
+def _tunable_laser(d: InstrumentDefinition) -> Panel | None:
+    """Tunable laser class default (#1103): the wavelength being emitted (the sweep's, while one
+    runs), the output power and whether light leaves; output, wavelength and sweep settings."""
+    laser = _first(d, "tunable_laser")
+    if laser is None:
+        return None
+    n = laser.name
+    readouts = [
+        PanelReadout(reading=f"{n}.wavelength", label="波长", label_en="Wavelength", unit="m", digits=8),
+        PanelReadout(reading=f"{n}.frequency", label="光频率", label_en="Frequency", unit="Hz", digits=7),
+        PanelReadout(reading=f"{n}.power_dbm", label="输出功率", label_en="Power", unit="dBm", digits=5),
+        PanelReadout(reading=f"{n}.emitting", label="出光", label_en="Light on"),
+        PanelReadout(reading=f"{n}.sweeping", label="扫描中", label_en="Sweeping"),
+    ]
+    used: set[str] = set()
+    groups = _groups(
+        _optical_group(d, laser, ["enabled", "shutter_closed", "power"], "输出", "Output", used),
+        _optical_group(d, laser, ["wavelength"], "波长", "Wavelength", used),
+        _optical_group(
+            d,
+            laser,
+            [
+                "sweep_mode",
+                "sweep_start",
+                "sweep_stop",
+                "sweep_speed",
+                "sweep_step",
+                "sweep_dwell",
+                "sweep_cycles",
+            ],
+            "扫描",
+            "Sweep",
+            used,
+        ),
+    )
+    return Panel(readouts=readouts, groups=groups, softkeys=_action_keys(d))
+
+
+def _optical_power_meter(d: InstrumentDefinition) -> Panel | None:
+    """Optical power meter class default (#1103): the power in dBm and W, the range in use and
+    the wavelength it is calibrated for; wavelength, range and averaging settings per channel."""
+    meters = [c for c in d.components if c.type == "optical_power_meter"]
+    if not meters:
+        return None
+    readouts: list[PanelReadout] = []
+    groups: list[PanelGroup] = []
+    used: set[str] = set()
+    for index, meter in enumerate(meters):
+        n = meter.name
+        tag = f" {index + 1}" if len(meters) > 1 else ""
+        readouts += [
+            PanelReadout(
+                reading=f"{n}.power_dbm", label=f"功率{tag}", label_en=f"Power{tag}", unit="dBm", digits=5
+            ),
+            PanelReadout(
+                reading=f"{n}.power", label=f"功率{tag} (W)", label_en=f"Power{tag} (W)", unit="W", digits=5
+            ),
+            PanelReadout(
+                reading=f"{n}.range", label=f"量程{tag}", label_en=f"Range{tag}", unit="dBm", digits=3
+            ),
+            PanelReadout(
+                reading=f"{n}.wavelength",
+                label=f"校准波长{tag}",
+                label_en=f"Wavelength{tag}",
+                unit="m",
+                digits=6,
+            ),
+        ]
+        groups += _groups(
+            _optical_group(
+                d,
+                meter,
+                ["wavelength", "range_auto", "range", "averaging_time", "reference"],
+                f"测量{tag}",
+                f"Measure{tag}",
+                used,
+            )
+        )
+    return Panel(readouts=readouts, groups=groups, softkeys=_action_keys(d))
+
+
+def _optical_attenuator(d: InstrumentDefinition) -> Panel | None:
+    """Variable optical attenuator class default (#1103): the attenuation in effect, the output
+    power and the shutter; attenuation, wavelength, shutter and the control mode."""
+    voas = [c for c in d.components if c.type == "variable_optical_attenuator"]
+    if not voas:
+        return None
+    readouts: list[PanelReadout] = []
+    groups: list[PanelGroup] = []
+    used: set[str] = set()
+    for index, voa in enumerate(voas):
+        n = voa.name
+        tag = f" {index + 1}" if len(voas) > 1 else ""
+        readouts += [
+            PanelReadout(
+                reading=f"{n}.attenuation",
+                label=f"衰减{tag}",
+                label_en=f"Attenuation{tag}",
+                unit="dB",
+                digits=5,
+            ),
+            PanelReadout(
+                reading=f"{n}.output_power_dbm",
+                label=f"输出功率{tag}",
+                label_en=f"Output power{tag}",
+                unit="dBm",
+                digits=5,
+            ),
+            PanelReadout(
+                reading=f"{n}.shutter_closed", label=f"光闸关闭{tag}", label_en=f"Shutter closed{tag}"
+            ),
+            PanelReadout(reading=f"{n}.settled", label=f"已到位{tag}", label_en=f"Settled{tag}"),
+        ]
+        groups += _groups(
+            _optical_group(
+                d,
+                voa,
+                ["attenuation", "wavelength", "shutter_closed", "mode", "power_target"],
+                f"衰减{tag}",
+                f"Attenuation{tag}",
+                used,
+            )
+        )
+    return Panel(readouts=readouts, groups=groups, softkeys=_action_keys(d))
+
+
 _DEFAULTS = {
     "multimeter": _multimeter,
     "calibrator": _calibrator,
     "daq": _daq,
     "power_supply": _power_supply,
     "frequency_counter": _counter,
+    "tunable_laser": _tunable_laser,
+    "optical_power_meter": _optical_power_meter,
+    "optical_attenuator": _optical_attenuator,
 }
 _FUNCTION_KEYS = {"DC": "DC V", "AC": "AC V", "RES": "Ω 2W", "FRES": "Ω 4W", "DCI": "DC I", "ACI": "AC I"}
 

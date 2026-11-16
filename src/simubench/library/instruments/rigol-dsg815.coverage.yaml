@@ -18,51 +18,83 @@ sections:
   - header: ':MMEMory:CATalog'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:CATalog:LENGth'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:COPY'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:DATA:IQ'
     level: not_modeled
     note: IQ 选件与文件系统未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: ':MMEMory:DATA:IQ:LIST'
     level: not_modeled
     note: IQ 选件与文件系统未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: ':MMEMory:DELete'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:DISK:FORMat'
     level: not_modeled
     note: 文件系统未建模；不实现格式化磁盘这类破坏性命令。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:DISK:INFormation'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:FILEtype'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:LDISk:SPACe'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:LOAD'
     level: not_modeled
     note: 仪器状态文件未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:MDIRectory'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:MOVE'
     level: not_modeled
     note: 文件系统未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:PNAMe:EDIT'
     level: not_modeled
     note: 文件名前缀未建模。
+    gap: blocked
+    blocked_by: file-system
   - header: ':MMEMory:PNAMe:STATe'
     level: not_modeled
     note: 文件名前缀未建模。
+    gap: blocked
+    blocked_by: setup-memory
   - header: ':MMEMory:SAVe'
     level: not_modeled
     note: 仪器状态文件未建模。
+    gap: blocked
+    blocked_by: file-system
 - section: ':OUTPut Command'
   commands:
   - header: ':OUTPut[:STATe]'
@@ -102,12 +134,18 @@ sections:
   - header: '[:SOURce]:CORRection:FLATness:COUNt'
     level: not_modeled
     note: 平坦度校准表未建模（无对应组件能力）。
+    gap: blocked
+    blocked_by: correction
   - header: '[:SOURce]:CORRection:FLATness:LIST'
     level: not_modeled
     note: 平坦度校准表未建模。
+    gap: blocked
+    blocked_by: correction
   - header: '[:SOURce]:CORRection:FLATness[:STATe]'
     level: not_modeled
     note: 平坦度校准表未建模。
+    gap: blocked
+    blocked_by: correction
 - section: ':SOURce Commands > [:SOURce]:FM Command Subsystem'
   commands:
   - header: '[:SOURce]:FM[:DEViation]'
@@ -158,71 +196,114 @@ sections:
   - header: '[:SOURce]:INPut:TRIGger:SLOPe'
     level: not_modeled
     note: 外部触发输入未建模（扫描只由 :TRIGger / *TRG 推进）。
+    gap: out_of_scope
 - section: ':SOURce Commands > [:SOURce]:IQ Command Subsystem'
   commands:
   - header: '[:SOURce]:IQ:BASeout:LEVel'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:BASeout:LEVel:STEP'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:BASeout:STATe'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:MODe'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:MODe:STATe'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:SAMPle'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:SAMPle:STEP'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:ARB'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:DELay'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:DELay:STEP'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:DURation'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:DURation:STEP'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:DURation:UNIT'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:INHibit'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:INHibit:STEP'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:MODe'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:OPTMode'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:SEGMent:CURRent?'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:SEGMent:EXECute'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:SEGMent:MODE'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:IQ:TRIGger:SEGMent:NEXT'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
 - section: ':SOURce Commands > [:SOURce]:LEVel Command Subsystem'
   commands:
   - header: '[:SOURce]:LEVel'
@@ -236,15 +317,19 @@ sections:
   - header: '[:SOURce]:LFOutput:FREQuency'
     level: not_modeled
     note: LF 输出（前面板的低频输出）未建模。
+    gap: model_work
   - header: '[:SOURce]:LFOutput:LEVel'
     level: not_modeled
     note: LF 输出未建模。
+    gap: model_work
   - header: '[:SOURce]:LFOutput:SHAPe'
     level: not_modeled
     note: LF 输出未建模。
+    gap: model_work
   - header: '[:SOURce]:LFOutput[:STATe]'
     level: not_modeled
     note: LF 输出未建模。
+    gap: model_work
 - section: ':SOURce Commands > [:SOURce]:MODulation:STATe'
   commands:
   - header: '[:SOURce]:MODulation:STATe'
@@ -284,70 +369,111 @@ sections:
   - header: '[:SOURce]:PULM:MODE'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:OUT:STATe'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:PERiod'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:PERiod:STEP'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:POLarity'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:SOURce'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:STATe'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:TRAin:LIST:COUNt'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:TRAin:LIST:GET'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:TRIGger:DELay'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:TRIGger:DELay:STEP'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:TRIGger:EXTernal:GATE:POLarity'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:TRIGger:EXTernal:SLOPe'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:TRIGger:MODE'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:WIDTh'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
   - header: '[:SOURce]:PULM:WIDTh:STEP'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: blocked
+    blocked_by: C9
 - section: ':SOURce Commands > [:SOURce]:SWEep Command Subsystem'
   commands:
   - header: '[:SOURce]:SWEep:DIRection'
     level: not_modeled
     note: 扫描方向（正向/反向）未建模；扫描点固定从起始到终止。
+    gap: model_work
   - header: '[:SOURce]:SWEep:EXECute'
     level: implemented
   - header: '[:SOURce]:SWEep:LIST:CPOint'
     level: not_modeled
     note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:SWEep:LIST:INITialize:FSTep'
     level: not_modeled
     note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:SWEep:LIST:INITialize:PRESet'
     level: not_modeled
     note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:SWEep:LIST:LIST'
     level: not_modeled
     note: 列表扫描未建模：#291 先做电平扫描与驻留时序，列表扫描作为后续能力（组件图的缺口清单）。
+    gap: blocked
+    blocked_by: list-sweep
   - header: '[:SOURce]:SWEep:MODE'
     level: implemented
     note: CONTinue 时扫描一打开就按驻留在虚拟时间里循环；SINGle 时 :SWE:EXEC 起扫一次，停在最后一点（#291）。*RST 值 CONTinue 未能按手册正文核实。
@@ -365,6 +491,7 @@ sections:
   - header: '[:SOURce]:SWEep:STEP:DWELl:STEP'
     level: not_modeled
     note: 驻留时间的步进量（旋钮/步进键的增量）未建模；驻留本身已建模，见 :SWEep:STEP:DWELl（#291）。
+    gap: model_work
   - header: '[:SOURce]:SWEep:STEP:POINts'
     level: implemented
   - header: '[:SOURce]:SWEep:STEP:POINts:STEP'
@@ -374,6 +501,7 @@ sections:
   - header: '[:SOURce]:SWEep:STEP:SHAPe'
     level: not_modeled
     note: 扫描形状（三角/斜坡）未建模：连续扫描的时序不仿真。
+    gap: model_work
   - header: '[:SOURce]:SWEep:STEP:SPACing'
     level: implemented
   - header: '[:SOURce]:SWEep:STEP:STARt:FREQuency'
@@ -382,27 +510,32 @@ sections:
   - header: '[:SOURce]:SWEep:STEP:STARt:FREQuency:STEP'
     level: not_modeled
     note: 只影响旋钮步进；未建模（与扫描步进无关）。
+    gap: model_work
   - header: '[:SOURce]:SWEep:STEP:STARt:LEVel'
     level: implemented
     note: 电平扫描的起始电平（#291），各点按 dB 线性分布；*RST 值未能按手册正文核实。
   - header: '[:SOURce]:SWEep:STEP:STARt:LEVel:STEP'
     level: not_modeled
     note: 电平扫描未建模。
+    gap: model_work
   - header: '[:SOURce]:SWEep:STEP:STOP:FREQuency'
     level: implemented
     note: 回读按手册带 SI 前缀与单位，如 4.00000000MHz（#289）。
   - header: '[:SOURce]:SWEep:STEP:STOP:FREQuency:STEP'
     level: not_modeled
     note: 只影响旋钮步进；未建模。
+    gap: model_work
   - header: '[:SOURce]:SWEep:STEP:STOP:LEVel'
     level: implemented
     note: 电平扫描的终止电平（#291）。
   - header: '[:SOURce]:SWEep:STEP:STOP:LEVel:STEP'
     level: not_modeled
     note: 电平扫描未建模。
+    gap: model_work
   - header: '[:SOURce]:SWEep:SWEep:TRIGger:TYPE'
     level: not_modeled
     note: 扫描周期触发源（AUTO/KEY/BUS/EXT）未建模。
+    gap: model_work
   - header: '[:SOURce]:SWEep:TYPE'
     level: accepted
     affects_data: false
@@ -413,84 +546,111 @@ sections:
   - header: ':STATus:OPERation:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:OPERation:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:OPERation[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:CALibration:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:CALibration:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:CALibration[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:CONNect:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:CONNect:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:CONNect[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:FREQuency:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:FREQuency:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:FREQuency[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:MODulation:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:MODulation:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:MODulation[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:POWer:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:POWer:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:POWer[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:SELFtest:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:SELFtest:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:SELFtest[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:TEMP:CONDition'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:TEMP:ENABle'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
   - header: ':STATus:QUEStionable:TEMP[:EVENt]'
     level: not_modeled
     note: 状态寄存器组未建模。
+    gap: model_work
 - section: ':SYSTem Commands'
   commands:
   - header: ':SYSTem:BRIGhtness'
@@ -500,39 +660,51 @@ sections:
   - header: ':SYSTem:CLEar'
     level: not_modeled
     note: 清除全部用户数据（格式化 NAND、恢复出厂）；没有用户存储可清，不实现破坏性操作。
+    gap: model_work
   - header: ':SYSTem:COMMunication:INTerface'
     level: not_modeled
     note: 通信接口未建模（仿真中始终在线）。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:DHCP'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:IP:ADDress'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:IP:AUTO'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:IP:GATeway'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:IP:MANual'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:IP:SET'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:IP:SUBnet:MASK'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN:RESet'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:COMMunication:LAN[:SELF]:PREFerred'
     level: not_modeled
     note: LAN 配置未建模。
+    gap: model_work
   - header: ':SYSTem:DATE'
     level: not_modeled
     note: 仪器时钟未建模（界面没有日期时间来源）。
+    gap: model_work
   - header: ':SYSTem:DISPlay:UPDate[:STATe]'
     level: accepted
     affects_data: false
@@ -540,6 +712,7 @@ sections:
   - header: ':SYSTem:FSWitch:STATe'
     level: not_modeled
     note: 未建模。
+    gap: model_work
   - header: ':SYSTem:LANGuage'
     level: accepted
     affects_data: false
@@ -547,6 +720,7 @@ sections:
   - header: ':SYSTem:LKEY'
     level: not_modeled
     note: 选件许可证未建模。
+    gap: model_work
   - header: ':SYSTem:POWer:ON:TYPE'
     level: accepted
     affects_data: false
@@ -560,9 +734,11 @@ sections:
   - header: ':SYSTem:PRESet:SAVE'
     level: not_modeled
     note: 用户预设存储未建模（预设类型只接受 FACtory）。
+    gap: model_work
   - header: ':SYSTem:TIME'
     level: not_modeled
     note: 仪器时钟未建模。
+    gap: model_work
   - header: ':SYSTem:TIME:STATe'
     level: accepted
     affects_data: false
@@ -572,9 +748,12 @@ sections:
   - header: ':TRIGger:IQ[:IMMediate]'
     level: not_modeled
     note: IQ 选件未建模。
+    gap: blocked
+    blocked_by: C9
   - header: ':TRIGger:PULSe[:IMMediate]'
     level: not_modeled
     note: 脉冲调制未建模。
+    gap: model_work
   - header: ':TRIGger[:SWEep][:IMMediate]'
     level: implemented
 - section: ':UNIT Command'

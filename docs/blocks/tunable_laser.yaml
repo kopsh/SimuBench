@@ -1,0 +1,11 @@
+# 可调激光源的真实功能块(D50,依据见 docs/component-map.md 的 tunable_laser 节,#1103)。
+# 第一台内置型号是 Santec TSL-570(#1104)。
+schema: simubench.blocks/1
+class: tunable_laser
+blocks:
+  - block: laser               # 外腔可调激光:波长设定、输出功率、LD 开关、绝对波长误差
+    components: [tunable_laser]
+  - block: shutter             # 输出光闸
+    components: [tunable_laser]
+  - block: sweep               # 波长扫描:连续/步进、速度、步长与驻留、循环次数,在虚拟时间里进行
+    components: [tunable_laser]

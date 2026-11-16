@@ -108,7 +108,7 @@ def split_params(text: bytes) -> list[bytes]:
     return params
 
 
-_TOKEN = re.compile(r"^([A-Za-z_][A-Za-z_]*?)(\d*)$")
+_TOKEN = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*?)(\d*)$")
 
 
 def parse_unit(unit: bytes) -> Unit:
@@ -203,15 +203,19 @@ class Pattern:
             word = text[1:]
             return Pattern(text, True, (Node(word.upper(), word.upper(), False, None),))
         nodes: list[Node] = []
-        for m in re.finditer(r"\[:?[A-Za-z_]+(?:<\w+>)?\]|:?[A-Za-z_]+(?:<\w+>)?", text):
+        for m in re.finditer(
+            r"\[:?[A-Za-z_][A-Za-z0-9_]*(?:<\w+>)?\]|:?[A-Za-z_][A-Za-z0-9_]*(?:<\w+>)?", text
+        ):
             part = m.group(0)
             optional = part.startswith("[")
             core = part.strip("[]").lstrip(":")
-            sm = re.match(r"([A-Za-z_]+)(?:<(\w+)>)?$", core)
+            sm = re.match(r"([A-Za-z_][A-Za-z0-9_]*)(?:<(\w+)>)?$", core)
             if not sm:
                 raise ValueError(f"bad pattern node {part!r} in {text!r}")
             word, suffix = sm.group(1), sm.group(2)
-            short = "".join(c for c in word if c.isupper()) or word.upper()
+            # A word with a digit inside keeps it (X1Position -> X1P): the digit is part of the
+            # mnemonic, not a numbered suffix (Infiniium's :MARKer:X1Position, #1074).
+            short = "".join(c for c in word if c.isupper() or c.isdigit()) or word.upper()
             nodes.append(Node(word.upper(), short.upper(), optional, suffix))
         return Pattern(text, False, tuple(nodes))
 

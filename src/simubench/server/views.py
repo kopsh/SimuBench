@@ -27,6 +27,9 @@ from ..scpi.errors import ScpiError
 from .internals_links import drivers, influence_edges, selections
 from .internals_links import readings as readings_of
 
+#: Bins of the envelope a deep record's screen trace gets when the caller asks for every sample (#1012).
+DEEP_SCREEN_BINS = 1000
+
 if TYPE_CHECKING:
     from .manager import ServedSession, SessionManager
 
@@ -176,6 +179,7 @@ class SessionViews:
                 )
             )
         dangerous_paths = {c.state for c in d.commands if c.dangerous and c.state}
+        on_read = _memory_depth_paths(inst)
         state = []
         for path, spec in inst.specs.items():
             generic = f"ch.{path.split('.', 1)[1]}" if path.startswith("ch") and path[2:3].isdigit() else path
@@ -187,6 +191,7 @@ class SessionViews:
                     dangerous=generic in dangerous_paths,
                     value=jsonable(inst.state.get(path)),
                     channel=ch,
+                    fidelity="computed_on_read" if path in on_read else None,
                 )
             )
         return M.InstrumentInfo(
@@ -369,6 +374,52 @@ def _internal_wires(s: Session, inst: Instrument, wires: list[tuple[str, str]]) 
 # ---- actions ------------------------------------------------------------------------------------
 
 
+def _memory_depth_paths(inst: Instrument) -> set[str]:
+    """The settings a scope's record length follows (bound to a ``scope_timebase``'s ``points``):
+    the memory depth, whose deep records are computed where they are read (#1012)."""
+    paths = set()
+    for comp in inst.components.values():
+        if comp.type_name == "scope_timebase":
+            bound = comp.bound_path("points")
+            if bound is not None:
+                paths.add(bound)
+    return paths
+
+
+def _screen_traces(
+    s: Session, inst: Instrument, records: dict[int, Any], bins: int | None, strict: bool
+) -> list[M.Trace]:
+    """The screen's traces of ``records``: every sample, or per-bin min and max (``bins``; a deep
+    record always, #1012: its envelope stands for it). A trace whose screen is beyond the model is
+    refused (``strict``) or left out."""
+    out = []
+    for n, r in sorted(records.items()):
+        minmax: list[float] | None = None
+        want = bins if bins is not None or r.deep is None else DEEP_SCREEN_BINS
+        try:
+            if want is not None and r.points:
+                minmax = r.envelope(want, ("screen", n)) or None
+            volts = np.asarray(r.volts, dtype=float) if minmax is None else np.zeros(0)
+        except ModelLimit:
+            if strict:
+                raise
+            continue
+        out.append(
+            M.Trace(
+                channel=n,
+                t0_s=r.origin,
+                dt_s=r.dt_s,
+                volts=[] if minmax is not None else [float(x) for x in volts],
+                scale=r.scale,
+                offset=r.offset,
+                triggered=r.triggered,
+                silence=_channel_silence(s, inst, n),
+                minmax=minmax,
+            )
+        )
+    return out
+
+
 def scope_screen(served: ServedSession, instrument: str, points: int | None = None) -> M.ScopeScreen:
     """The scope's screen. ``points`` (tui-screens.md 6.1): downsample each trace to that many
     bins of per-bin min and max (2 values per bin) instead of returning every sample — the
@@ -382,43 +433,21 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
     with s.view(settle=(instrument,)):  # nothing else the instrument keeps changes here
         live = bool(acq.shows_live())  # type: ignore[attr-defined]
         records = dict(acq.records)  # type: ignore[attr-defined]
+        traces: list[M.Trace] | None = None
         if live:
             # A running scope redraws the signal now; a frame is not an acquisition (no record,
             # no virtual time), and its noise is its own. Untriggered in a normal mode, it holds.
             frame = served.frames[instrument] = served.frames.get(instrument, 0) + 1
             try:
                 shown, _, triggered = acq.compute(acq.displayed(), frame=frame)  # type: ignore[attr-defined]
-            except ModelLimit:
-                # Settings whose acquisition is beyond the model (an average of too many samples,
-                # #986): the screen holds what it has, as the acquisition itself is refused.
-                live = False
-            else:
                 if triggered or acq._is("auto") or not records:  # type: ignore[attr-defined]
-                    records = shown
-        traces = []
-        for n, r in sorted(records.items()):
-            volts = np.asarray(r.volts, dtype=float)
-            minmax: list[float] | None = None
-            if bins is not None and volts.size:
-                # Per-bin min and max: split the samples into ``bins`` near-equal parts.
-                edges = np.linspace(0, volts.size, bins + 1, dtype=int)
-                chunks = (volts[edges[i] : edges[i + 1]] for i in range(bins))
-                pairs = [(float(c.min()), float(c.max())) for c in chunks if c.size]
-                flat = [v for pair in pairs for v in pair]
-                minmax = flat if flat else None
-            traces.append(
-                M.Trace(
-                    channel=n,
-                    t0_s=r.origin,
-                    dt_s=r.dt_s,
-                    volts=[] if minmax is not None else [float(x) for x in volts],
-                    scale=r.scale,
-                    offset=r.offset,
-                    triggered=r.triggered,
-                    silence=_channel_silence(s, inst, n),
-                    minmax=minmax,
-                )
-            )
+                    traces, records = _screen_traces(s, inst, shown, bins, strict=True), shown
+            except ModelLimit:
+                # Settings whose frame is beyond the model (an average of too many samples, #986):
+                # the screen holds what it has, as a read of such an acquisition is refused.
+                live = False
+        if traces is None:
+            traces = _screen_traces(s, inst, records, bins, strict=False)
         meas = next((c for c in inst.components.values() if c.type_name == "scope_measurements"), None)
         measurements = []
         if meas is not None:
@@ -433,7 +462,8 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
             }
             for n, r in sorted(records.items()):
                 row: dict[str, Any] = {"channel": n}
-                for key, what in names.items():
+                # A deep record's measurements read the record (#1012): the screen does not.
+                for key, what in names.items() if r.deep is None else ():
                     value = float(meas.record_value(what, r))  # type: ignore[attr-defined]
                     row[key] = value if math.isfinite(value) else None
                 measurements.append(M.ScopeMeasurement(**row))
