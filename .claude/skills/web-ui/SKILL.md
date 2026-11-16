@@ -67,7 +67,10 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `setState`: the React compiler lint rejects those, and refs written during render.
 - `web/src/features/workbench/onScreen.ts` — which settings a screen shows as fields: a
   `StateField` inside a screen tab counts its path while mounted, and the inspector beside that
-  screen leaves those paths out (#1229). A new screen gets this for free by using `StateField`.
+  screen leaves those paths out (#1229). A new screen gets this for free by using `StateField`; a
+  field that writes SCPI itself calls `useCountOnScreen(instrument, path)` (the analyzer's
+  `ScpiField`, #1252). Enum options go through `distinctOptions` (model.ts) so an alias sharing a
+  label is not offered twice.
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key

@@ -12,6 +12,7 @@ import {
   ReactFlowProvider,
   applyNodeChanges,
   useReactFlow,
+  useStore,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
 import { type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
@@ -305,9 +306,30 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
     >
       <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border)" />
       <Controls showInteractive={false} position="bottom-left" />
-      <MiniMap pannable zoomable position="bottom-right" nodeStrokeWidth={2} className="!border !rounded-md" />
+      <OverflowMiniMap />
     </ReactFlow>
   );
+}
+
+/**
+ * The minimap, only while some node lies outside the view (#1252): a bench that fits needs no
+ * map, and a map drawn over a fitted bench covers its lower-right node once the bottom panel
+ * opens and the canvas gets shorter.
+ */
+function OverflowMiniMap() {
+  const outside = useStore((s) => {
+    const [tx, ty, zoom] = s.transform;
+    for (const n of s.nodeLookup.values()) {
+      const w = n.measured.width ?? 0;
+      const h = n.measured.height ?? 0;
+      const x = n.internals.positionAbsolute.x * zoom + tx;
+      const y = n.internals.positionAbsolute.y * zoom + ty;
+      if (x < 0 || y < 0 || x + w * zoom > s.width + 0.5 || y + h * zoom > s.height + 0.5) return true;
+    }
+    return false;
+  });
+  if (!outside) return null;
+  return <MiniMap pannable zoomable position="bottom-right" nodeStrokeWidth={2} className="!border !rounded-md" />;
 }
 
 export function Canvas(props: CanvasProps) {

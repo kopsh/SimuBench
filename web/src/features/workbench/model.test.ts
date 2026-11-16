@@ -4,7 +4,7 @@ import type { InstrumentInfo } from "@/api/client";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, globalVars, groupOpen, hasLabel, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
+import { accessoryLabel, channelVars, distinctOptions, globalVars, groupOpen, hasLabel, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -214,5 +214,18 @@ describe("netTitle (#1222)", () => {
   });
   it("is empty when only accessory points are on it", () => {
     expect(netTitle(["wire1.a.OUT", "wire1.b.IN"], owners)).toBe("");
+  });
+});
+
+describe("distinctOptions (#1252)", () => {
+  const input = { options: ["DC50", "DCFifty"], option_labels: { DC50: "DC 50 Ω", DCFifty: "DC 50 Ω" } };
+  it("leaves out an alias that shows as the same word", () => {
+    expect(distinctOptions({ ...input, value: "DC50" })).toEqual(["DC50"]);
+  });
+  it("keeps the alias when it is the current value", () => {
+    expect(distinctOptions({ ...input, value: "DCFifty" })).toEqual(["DC50", "DCFifty"]);
+  });
+  it("keeps options whose words differ", () => {
+    expect(distinctOptions({ options: ["SIN", "SQU"], option_labels: null, value: "SIN" })).toEqual(["SIN", "SQU"]);
   });
 });

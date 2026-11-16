@@ -173,7 +173,7 @@ export function panelView(inst: InstrumentInfo): PanelView {
         state: v.path,
         label: pickLabel(v.label, v.label_en, v.path),
         kind: v.type === "enum" ? "select" : v.type === "bool" ? "switch" : "number",
-        choices: v.type === "enum" ? (v.options ?? []).map((o) => v.option_labels?.[o] ?? shortForm(o)) : null,
+        choices: v.type === "enum" ? unique((v.options ?? []).map((o) => v.option_labels?.[o] ?? shortForm(o))) : null,
         range: v.type === "bool" ? null : rangeText(v),
       });
       groups.set(prefix, list);
@@ -193,7 +193,7 @@ export function panelView(inst: InstrumentInfo): PanelView {
       label: pickLabel(g.label, g.label_en, g.label),
       controls: (g.controls ?? []).map((c) => {
         const s = stateOf(inst, c.state);
-        const enumChoices = s?.options?.map((o) => s.option_labels?.[o] ?? shortForm(o)) ?? null;
+        const enumChoices = s?.options ? unique(s.options.map((o) => s.option_labels?.[o] ?? shortForm(o))) : null;
         return {
           state: c.state,
           label: pickLabel(c.label, c.label_en, s ? pickLabel(s.label, s.label_en, c.state) : c.state),
@@ -222,7 +222,7 @@ function rangeText(v: StateVarInfo | undefined): string | null {
     const shown = (n: number) => (v.unit ? eng(n, v.unit, 3) : String(n));
     return `${v.min != null ? shown(v.min) : "−∞"} … ${v.max != null ? shown(v.max) : "∞"}`;
   }
-  if (v.options?.length) return v.options.map((o) => v.option_labels?.[o] ?? shortForm(o)).join(" | ");
+  if (v.options?.length) return unique(v.options.map((o) => v.option_labels?.[o] ?? shortForm(o))).join(" | ");
   if (v.type === "bool") return BOOL_WORDS().join(" | ");
   return null;
 }
@@ -324,4 +324,9 @@ export function savedAt(iso: string): string {
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+/** Labels once each: an option alias shares its label with the option it stands for (#1252). */
+function unique(labels: string[]): string[] {
+  return [...new Set(labels)];
 }
