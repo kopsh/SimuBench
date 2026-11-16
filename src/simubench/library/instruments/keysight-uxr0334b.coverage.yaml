@@ -26,11 +26,11 @@ sections:
       guide: abort a :DIGitize with a device clear)'
   - header: '*OPT'
     level: implemented
-    note: 'p. 259: the installed options, a string starting 0 when none are. The model carries the
+    note: 'the installed options, a string starting 0 when none are. The model carries the
       standard 500 Mpts memory (not an option) and no others, so it answers 0.'
   - header: '*PSC'
     level: implemented
-    note: 'p. 269: the power-on status clear flag, stored and returned. The boot behavior it controls
+    note: 'the power-on status clear flag, stored and returned. The boot behavior it controls
       (the PON bit at power-on) is outside the simulation.'
   - header: '*RCL'
     level: implemented
@@ -98,13 +98,13 @@ sections:
   - header: :BEEP
     level: accepted
     affects_data: false
-    note: 'p. 291: beeps at <frequency> Hz for <duration> ms. The bench is silent; both parameters are parsed and stored, nothing else changes'
+    note: 'beeps at <frequency> Hz for <duration> ms. The bench is silent; both parameters are parsed and stored, nothing else changes'
   - header: :BLANk
     level: implemented
     note: CHANnel<N> only; ALL, functions, histograms and memories are not modeled
   - header: :CDISplay
     level: implemented
-    note: 'p. 293: the display clears and the associated measurements reset - the stored records
+    note: 'the display clears and the associated measurements reset - the stored records
       go (a stopped scope shows nothing; a read re-acquires, this model''s missing-record policy). Waveform
       memories are not erased.'
   - header: :DIGitize
@@ -135,7 +135,7 @@ sections:
       modeled'
   - header: :OVLRegister
     level: implemented
-    note: 'p. 301: the overload event register, one bit per channel. The model detects no
+    note: 'the overload event register, one bit per channel. The model detects no
       overloads, so it reads 0.'
   - header: :PDER
     level: implemented
@@ -191,7 +191,7 @@ sections:
   commands:
   - header: :ACQuire:ADC:CLIPped:CLEar
     level: implemented
-    note: 'p. 319: the clipping status of every channel clears at once.'
+    note: 'the clipping status of every channel clears at once.'
   - header: :ACQuire:AVERage
     level: implemented
     note: 'ON: each record is the mean of :ACQuire:COUNt acquisitions, each noisy and quantized (D46)'
@@ -208,10 +208,10 @@ sections:
       (#607). AUTO is not modeled; the lower limit is a SimuBench value'
   - header: :ACQuire:BANDwidth:FRAMe
     level: implemented
-    note: 'p. 323: the model''s maximum bandwidth, 33 GHz (specs.bandwidth_hz).'
+    note: 'the model''s maximum bandwidth, 33 GHz (specs.bandwidth_hz).'
   - header: :ACQuire:BANDwidth:TESTLIMITS
     level: implemented
-    note: 'p. 324: the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
+    note: 'the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
       sample rate''s lower limit is 0, the stored AUTO value.'
   - header: :ACQuire:COMPlete
     level: implemented
@@ -219,7 +219,7 @@ sections:
       record (the guide)
   - header: :ACQuire:COMPlete:STATe
     level: implemented
-    note: 'p. 327: whether function averaging completes before measurements. The model''s measurements
+    note: 'whether function averaging completes before measurements. The model''s measurements
       compute on the completed record a read brings, so the flag changes no value; the *RST value is not in
       the manual, ON is a SimuBench value.'
   - header: :ACQuire:DIFFerential:PARTner
@@ -230,7 +230,7 @@ sections:
   - header: :ACQuire:FPLot
     level: accepted
     affects_data: false
-    note: "p. 329: the fast-plot scheduling flag (analysis synchronous or asynchronous with acquisitions). The model analyzes the current record at every read, so no reply value changes; the *RST value is not in the manual, ON is a SimuBench value"
+    note: "the fast-plot scheduling flag (analysis synchronous or asynchronous with acquisitions). The model analyzes the current record at every read, so no reply value changes; the *RST value is not in the manual, ON is a SimuBench value"
   - header: :ACQuire:HISTory:COUNt
     level: not_modeled
     note: 'Blocked by C8 (product-plan.md 4.2): acquisition history playback.'
@@ -248,7 +248,7 @@ sections:
     blocked_by: C8
   - header: :ACQuire:HRESolution
     level: implemented
-    note: 'p. 333: the minimum bit resolution of the HRESolution/SEGHres acquire modes, which are not
+    note: 'the minimum bit resolution of the HRESolution/SEGHres acquire modes, which are not
       modeled - the setting stores and cannot change data while the modes do not exist.'
   - header: :ACQuire:INTerpolate
     level: not_modeled
@@ -267,17 +267,17 @@ sections:
       / 2^n not above points / 10 div'
   - header: :ACQuire:POINts:AUTO
     level: implemented
-    note: 'p. 339: whether the memory depth follows AUTO. ON selects the AUTO depth (128 kpts), OFF keeps
+    note: 'whether the memory depth follows AUTO. ON selects the AUTO depth (128 kpts), OFF keeps
       the present depth as a manual one; the query answers whether the setting sits at the AUTO value. The
       model stores one number: a depth that happens to equal the AUTO value reads back as AUTO (an OFF at
       the AUTO value is indistinguishable from it).'
   - header: :ACQuire:POINts:TESTLIMITS
     level: implemented
-    note: 'p. 340: the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
+    note: 'the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
       sample rate''s lower limit is 0, the stored AUTO value.'
   - header: :ACQuire:REDGe
     level: implemented
-    note: 'p. 341: OFF is the only valid setting on the UXR and the query answers 0; anything else is -224.'
+    note: 'OFF is the only valid setting on the UXR and the query answers 0; anything else is -224.'
   - header: :ACQuire:RESPonse
     level: implemented
     note: 'FLATmag (default, the guide): flat magnitude, linear phase, a brick wall at :ACQuire:BANDwidth
@@ -286,22 +286,22 @@ sections:
       the -3 dB point (#607)'
   - header: :ACQuire:SEGMented:AUToplay
     level: implemented
-    note: "p. 343: whether segments play back automatically after a segmented acquisition. Playback is instantaneous here: the query replies the stored setting, not a playback in progress"
+    note: "whether segments play back automatically after a segmented acquisition. Playback is instantaneous here: the query replies the stored setting, not a playback in progress"
   - header: :ACQuire:SEGMented:COUNt
     level: implemented
-    note: "p. 344: the segments one acquisition takes. At most 25,680 (data sheet Max # of segments, high-bandwidth trigger enabled; the disabled column 134,885 needs that trigger option, not modeled) and each segment is a full record (the real one divides its points among segments, not modeled); the acquisition errors -221 when the segments exceed the memory. The *RST count is not in the manual: 2 is a SimuBench value"
+    note: "the segments one acquisition takes. At most 25,680 (data sheet Max # of segments, high-bandwidth trigger enabled; the disabled column 134,885 needs that trigger option, not modeled) and each segment is a full record (the real one divides its points among segments, not modeled); the acquisition errors -221 when the segments exceed the memory. The *RST count is not in the manual: 2 is a SimuBench value"
   - header: :ACQuire:SEGMented:INDex
     level: implemented
-    note: "p. 345: the segment the reads and the display use. An index beyond the segments the latest acquisition has errors -222 and sets the index to the maximum segment number, as the manual says"
+    note: "the segment the reads and the display use. An index beyond the segments the latest acquisition has errors -222 and sets the index to the maximum segment number, as the manual says"
   - header: :ACQuire:SEGMented:PLAY
     level: implemented
-    note: "p. 346: plays or stops the acquired segments. Playback is instantaneous here: the query replies the stored setting, not a playback in progress"
+    note: "plays or stops the acquired segments. Playback is instantaneous here: the query replies the stored setting, not a playback in progress"
   - header: :ACQuire:SEGMented:PRATe
     level: implemented
-    note: "p. 347: the navigation play rate, 0.001 to 1 s per segment. The power-on value is not in the manual: 0.1 is a SimuBench value"
+    note: "the navigation play rate, 0.001 to 1 s per segment. The power-on value is not in the manual: 0.1 is a SimuBench value"
   - header: :ACQuire:SEGMented:TTAGs
     level: implemented
-    note: "p. 348: the time tags feature on or off. The manual does not gate :WAVeform:SEGMented:TTAG? on it, so the query answers whatever this is"
+    note: "the time tags feature on or off. The manual does not gate :WAVeform:SEGMented:TTAG? on it, so the query answers whatever this is"
   - header: :ACQuire:SEGMented:VLSCapture
     level: not_modeled
     note: 'Blocked by C11 (product-plan.md 4.2): very long sequence capture needs block-wise computation (#1012).'
@@ -315,11 +315,11 @@ sections:
       steps down to fit). The query answers the rate in use
   - header: :ACQuire:SRATe[:ANALog]:AUTO
     level: implemented
-    note: 'p. 352: whether the sample rate follows AUTO. ON selects AUTO, OFF keeps the present rate as a
+    note: 'whether the sample rate follows AUTO. ON selects AUTO, OFF keeps the present rate as a
       manual one; the query answers whether the setting sits at the AUTO value.'
   - header: :ACQuire:SRATe:TESTLIMITS
     level: implemented
-    note: 'p. 352: the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
+    note: 'the declared range of the setting, as the guide''s "1,<numeric><min>:<max>". The
       sample rate''s lower limit is 0, the stored AUTO value.'
   - header: :ACQuire:VLSCapture:DURation
     level: not_modeled
@@ -713,16 +713,16 @@ sections:
     gap: out_of_scope
   - header: :CALibrate:OUTPut
     level: implemented
-    note: 'p. 473: selects the signal the AUX OUT / CAL OUT connectors carry (cal_output component, #1170): DC (CAL OUT''s level within ±1.2 V; AUX OUT''s DC is the ZERO level, −440 mV), ZERO, ONE, PROBecomp (750 Hz square), MHZ97 and MHZ7_5 (clock squares); the query answers the guide''s short forms (PROB, DPUL, NDPUL). TOUT (needs the high-bandwidth trigger option) and DPULse/NDPULse idle at the ZERO level — not modeled. Levels other than ZERO''s, the 750 Hz and the 50 ohm output impedance are SimuBench values. A level beyond ±1.2 V is -222; an unknown word -224.'
+    note: 'selects the signal the AUX OUT / CAL OUT connectors carry (cal_output component, #1170): DC (CAL OUT''s level within ±1.2 V; AUX OUT''s DC is the ZERO level, −440 mV), ZERO, ONE, PROBecomp (750 Hz square), MHZ97 and MHZ7_5 (clock squares); the query answers the guide''s short forms (PROB, DPUL, NDPUL). TOUT (needs the high-bandwidth trigger option) and DPULse/NDPULse idle at the ZERO level — not modeled. Levels other than ZERO''s, the 750 Hz and the 50 ohm output impedance are SimuBench values. A level beyond ±1.2 V is -222; an unknown word -224.'
   - header: :CALibrate:OUTPut:AUX
     level: implemented
-    note: 'p. 475: enables the AUX OUT connector (an output_stage); off, the pin floats.'
+    note: 'enables the AUX OUT connector (an output_stage); off, the pin floats.'
   - header: :CALibrate:OUTPut:AUX:RTIMe
     level: implemented
-    note: 'p. 476: FAST or SLOW limits the AUX OUT edges'' bandwidth (2 GHz / 200 MHz, SimuBench values, visible on the periodic selections); the *RST value is not in the manual, FAST is a SimuBench value.'
+    note: 'FAST or SLOW limits the AUX OUT edges'' bandwidth (2 GHz / 200 MHz, SimuBench values, visible on the periodic selections); the *RST value is not in the manual, FAST is a SimuBench value.'
   - header: :CALibrate:OUTPut:CAL
     level: implemented
-    note: 'p. 477: enables the CAL OUT connector (an output_stage); off, the pin floats.'
+    note: 'enables the CAL OUT connector (an output_stage); off, the pin floats.'
   - header: :CALibrate:SKEW
     level: not_modeled
     note: 'Out of scope: calibration, self-test and service procedures are not simulated.'
@@ -739,11 +739,11 @@ sections:
   commands:
   - header: :CHANnel<N>:ADC:CLIPped
     level: implemented
-    note: 'p. 484: whether the ADC clipped low (1), high (2) or both (3) since the last read or clear;
+    note: 'whether the ADC clipped low (1), high (2) or both (3) since the last read or clear;
       reading resets it. A record computed whole latches it; a deep record (computed at read) does not.'
   - header: :CHANnel<N>:CLIPped
     level: implemented
-    note: 'p. 485: whether the channel clipped at least once (0 or 1); reading resets it, and so does a
+    note: 'whether the channel clipped at least once (0 or 1); reading resets it, and so does a
       change of the channel''s vertical scale or offset.'
   - header: :CHANnel<N>:COMMonmode
     level: not_modeled
@@ -785,14 +785,14 @@ sections:
     blocked_by: differential-input
   - header: :CHANnel<N>:DISPlay:TESTLIMITS
     level: implemented
-    note: 'p. 496: the valid settings of :CHANnel<N>:DISPlay - every channel can be turned on, 0|1.'
+    note: 'the valid settings of :CHANnel<N>:DISPlay - every channel can be turned on, 0|1.'
   - header: :CHANnel<N>:INPut
     level: implemented
     note: DC50 (DCFifty answers DC50); the UXR has no other coupling or impedance, so other words are
       -224
   - header: :CHANnel<N>:INVert
     level: implemented
-    note: 'p. 498: the waveform reflects about 0 V - the record''s samples negate and the measurements
+    note: 'the waveform reflects about 0 V - the record''s samples negate and the measurements
       with them (the case''s VAVerage flips). The guide''s note that it can stop triggering: the trigger
       detects on the analog path, which the model does not invert.'
   - header: :CHANnel<N>:ISIM:APPLy
@@ -867,7 +867,7 @@ sections:
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:ATTenuation
     level: implemented
-    note: 'p. 518: DIV1 or DIV10 sets the display''s probe attenuation ratio (the readings change with
+    note: 'DIV1 or DIV10 sets the display''s probe attenuation ratio (the readings change with
       it, the case proves). The manual''s command is for the 1154A probe alone (a settings conflict
       without it); the model has no probe identification and models the display''s attenuation on the
       channel''s generic probe.'
@@ -878,7 +878,7 @@ sections:
   - header: :CHANnel<N>:PROBe:COUPling
     level: accepted
     affects_data: false
-    note: 'p. 520: the probe''s own DC/AC coupling - a probe accessory the model does not carry (the
+    note: 'the probe''s own DC/AC coupling - a probe accessory the model does not carry (the
       channel''s input coupling is :CHANnel<N>:INPut, implemented). The value stores.'
   - header: :CHANnel<N>:PROBe:EADapter
     level: not_modeled
@@ -893,24 +893,24 @@ sections:
   - header: :CHANnel<N>:PROBe:EXTernal
     level: accepted
     affects_data: false
-    note: 'p. 525: the external-probe mode (a signal conditioner in place of a probe) - no external
+    note: 'the external-probe mode (a signal conditioner in place of a probe) - no external
       hardware is modeled, the value stores.'
   - header: :CHANnel<N>:PROBe:EXTernal:GAIN
     level: accepted
     affects_data: false
-    note: 'p. 526: the external probe''s gain - stores.'
+    note: 'the external probe''s gain - stores.'
   - header: :CHANnel<N>:PROBe:EXTernal:OFFSet
     level: accepted
     affects_data: false
-    note: 'p. 527: the external probe''s offset - stores.'
+    note: 'the external probe''s offset - stores.'
   - header: :CHANnel<N>:PROBe:EXTernal:UNITs
     level: accepted
     affects_data: false
-    note: 'p. 528: the external probe''s vertical units - stores.'
+    note: 'the external probe''s vertical units - stores.'
   - header: :CHANnel<N>:PROBe:GAIN
     level: accepted
     affects_data: false
-    note: 'p. 529: X1 or X10, the 1154A probe''s input amplifier gain - the probe hardware is not
+    note: 'X1 or X10, the 1154A probe''s input amplifier gain - the probe hardware is not
       modeled (see :PROBe:ATTenuation for the display''s one attenuation stage), the value stores.'
   - header: :CHANnel<N>:PROBe:HEAD:ADD
     level: not_modeled
@@ -973,13 +973,13 @@ sections:
     gap: out_of_scope
   - header: :CHANnel<N>:PROBe:SKEW
     level: implemented
-    note: 'p. 544: the channel''s probe skew, +-1 ms - the record''s samples shift by it (the probe''s
+    note: 'the channel''s probe skew, +-1 ms - the record''s samples shift by it (the probe''s
       delay, instrument-authoring.md 8.4 G3). No implemented measurement reads a time from the trigger,
       so no case reads the shift; the round trip is in the case.'
   - header: :CHANnel<N>:PROBe:SKEW:AUTO
     level: accepted
     affects_data: false
-    note: 'p. 545: the deskew against the probe''s own compensation signal - the model has no probe
+    note: 'the deskew against the probe''s own compensation signal - the model has no probe
       identification and no compensation signal, so the command parses and the skew keeps its value.'
   - header: :CHANnel<N>:PROBe:STYPe
     level: not_modeled
@@ -1006,16 +1006,16 @@ sections:
     note: 'The channel''s spectral view centre frequency (stored; the view''s data path is :FUNCtion FFT, the view itself is not modeled, #1074).'
   - header: :CHANnel<N>:SPECtral:CFRequency:TESTLIMITS
     level: implemented
-    note: 'p. 552: the declared range of the channel''s spectral center.'
+    note: 'the declared range of the channel''s spectral center.'
   - header: :CHANnel<N>:SPECtral:SPAN
     level: implemented
     note: 'The channel''s spectral view span (stored; as :SPECtral:CFRequency, #1074).'
   - header: :CHANnel<N>:SPECtral:SPAN:TESTLIMITS
     level: implemented
-    note: 'p. 554: the declared range of the channel''s spectral span.'
+    note: 'the declared range of the channel''s spectral span.'
   - header: :CHANnel<N>:UNITs
     level: implemented
-    note: 'p. 555: the channel''s vertical units, VOLT/AMPere/WATT/UNKNown. The unit conversion of the
+    note: 'the channel''s vertical units, VOLT/AMPere/WATT/UNKNown. The unit conversion of the
       scales and readings is not modeled (they stay volts); :WAVeform:YUNits? answers the setting''s
       word.'
 - section: :DISK Commands (Programmer's Guide 11.80, ch. 20)
@@ -1101,27 +1101,27 @@ sections:
   - header: :DISPlay:BOOKmark:DELete:ALL
     level: accepted
     affects_data: false
-    note: 'p. 583: deletes all display bookmarks. The model keeps one global bookmark, not 1-100 of them; the delete clears its label'
+    note: 'deletes all display bookmarks. The model keeps one global bookmark, not 1-100 of them; the delete clears its label'
   - header: :DISPlay:BOOKmark<N>:DELete
     level: accepted
     affects_data: false
-    note: 'p. 584: deletes a bookmark. The model keeps one global bookmark, not 1-100 of them; the delete clears its label'
+    note: 'deletes a bookmark. The model keeps one global bookmark, not 1-100 of them; the delete clears its label'
   - header: :DISPlay:BOOKmark<N>:SET
     level: accepted
     affects_data: false
-    note: 'p. 585: sets a bookmark (source or NONE, label, and color, content, grid or time). The model stores the label of one global bookmark, not 1-100 of them; the other parameters parse and are not stored'
+    note: 'sets a bookmark (source or NONE, label, and color, content, grid or time). The model stores the label of one global bookmark, not 1-100 of them; the other parameters parse and are not stored'
   - header: :DISPlay:BOOKmark<N>:VERTical?
     level: not_modeled
-    note: 'Model work: the query returns the waveform''s vertical value at the bookmark''s horizontal position (p. 586) - a data readout needing the bookmark''s source-bound time, not a display-only setting.'
+    note: 'Model work: the query returns the waveform''s vertical value at the bookmark''s horizontal position - a data readout needing the bookmark''s source-bound time, not a display-only setting.'
     gap: model_work
   - header: :DISPlay:BOOKmark<N>:XPOSition
     level: accepted
     affects_data: false
-    note: 'p. 587: the callout box''s horizontal grid position, 0.0-1.0. The model stores one global value, not one per bookmark'
+    note: 'the callout box''s horizontal grid position, 0.0-1.0. The model stores one global value, not one per bookmark'
   - header: :DISPlay:BOOKmark<N>:YPOSition
     level: accepted
     affects_data: false
-    note: 'p. 588: the callout box''s vertical grid position, 0.0-1.0. The model stores one global value, not one per bookmark'
+    note: 'the callout box''s vertical grid position, 0.0-1.0. The model stores one global value, not one per bookmark'
   - header: :DISPlay:CGRade
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1141,12 +1141,12 @@ sections:
   - header: :DISPlay:CLIPped
     level: accepted
     affects_data: false
-    note: 'p. 596: the show-ADC-clipping display preference - the manual: it does not enable or disable
+    note: 'the show-ADC-clipping display preference - the manual: it does not enable or disable
       the clip detect feature. The *RST value is not in the manual, ON is a SimuBench value.'
   - header: :DISPlay:CONNect
     level: accepted
     affects_data: false
-    note: 'p. 597: the connect-the-dots display mode. The optional <source> is not distinguished (one global value); a write or query that carries it errors -108'
+    note: 'the connect-the-dots display mode. The optional <source> is accepted and not distinguished (one global value); omitted, it applies to all sources as the guide says'
   - header: :DISPlay:DATA
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'
@@ -1155,23 +1155,23 @@ sections:
   - header: :DISPlay:GRATicule
     level: accepted
     affects_data: false
-    note: 'p. 599: the GRID or FRAMe graticule; the *RST value is not in the manual, GRID is a SimuBench value'
+    note: 'the GRID or FRAMe graticule; the *RST value is not in the manual, GRID is a SimuBench value'
   - header: :DISPlay:GRATicule:AREA<N>:HSCale
     level: accepted
     affects_data: false
-    note: 'p. 600: whether a waveform area shows the horizontal scale. The model stores one global value, not one per area (1-8)'
+    note: 'whether a waveform area shows the horizontal scale. The model stores one global value, not one per area (1-8)'
   - header: :DISPlay:GRATicule:AREA<N>:STATe
     level: accepted
     affects_data: false
-    note: 'p. 601: turns a waveform area on or off. The model stores one global value, not one per area'
+    note: 'turns a waveform area on or off. The model stores one global value, not one per area'
   - header: :DISPlay:GRATicule:AREA<N>:VSCale
     level: accepted
     affects_data: false
-    note: 'p. 602: OFF, AUTO or MANual vertical scaling of a waveform area. The model stores one global value, not one per area'
+    note: 'OFF, AUTO or MANual vertical scaling of a waveform area. The model stores one global value, not one per area'
   - header: :DISPlay:GRATicule:GLAYout
     level: accepted
     affects_data: false
-    note: 'p. 603: the grid layout of a waveform area (stacked or tiled, vertical or horizontal). The optional <area> is not distinguished (one global value); the ZOOM reply of a zoomed area does not apply (no zoom yet)'
+    note: 'the grid layout of a waveform area (stacked or tiled, vertical or horizontal). The optional <area> is not distinguished (one global value); the ZOOM reply of a zoomed area does not apply (no zoom yet)'
   - header: :DISPlay:GRATicule:INTensity
     level: accepted
     affects_data: false
@@ -1179,11 +1179,11 @@ sections:
   - header: :DISPlay:GRATicule:NUMBer
     level: accepted
     affects_data: false
-    note: 'p. 605: the number of grids (1-16) in a waveform area. The optional <area> is not distinguished (one global value)'
+    note: 'the number of grids (1-16) in a waveform area. The optional <area> is not distinguished (one global value)'
   - header: :DISPlay:GRATicule:SETGrat
     level: accepted
     affects_data: false
-    note: 'p. 606: assigns a waveform to a grid (<waveform>,<grid>[,<area>][,MAIN|CGRade]); the four values are stored, and there is no display the assignment would rearrange'
+    note: 'assigns a waveform to a grid (<waveform>,<grid>[,<area>][,MAIN|CGRade]); the four values are stored, and there is no display the assignment would rearrange'
   - header: :DISPlay:ISIM:DGRaphs
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1223,11 +1223,11 @@ sections:
   - header: :DISPlay:LAYout
     level: accepted
     affects_data: false
-    note: 'p. 617: TAB (or CUSTom) or stacked window layout; the *RST value is not in the manual, TAB is a SimuBench value'
+    note: 'TAB (or CUSTom) or stacked window layout; the *RST value is not in the manual, TAB is a SimuBench value'
   - header: :DISPlay:MAIN
     level: accepted
     affects_data: false
-    note: 'p. 618: the main-window view of a source, on or off. The model stores one global value and the optional <source> is not distinguished (a write or query that carries it errors -108); the *RST value is not in the manual, ON is a SimuBench value'
+    note: 'the main-window view of a source, on or off. The optional <source> is accepted and not distinguished (one global value); the *RST value is not in the manual, ON is a SimuBench value'
   - header: :DISPlay:NOISe:LEVel
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1247,15 +1247,15 @@ sections:
   - header: :DISPlay:PERSistence
     level: accepted
     affects_data: false
-    note: 'p. 623: MINimum or INFinite display persistence; the <time> variable form is not modeled (a numeric parameter is rejected by the enumeration) and the optional <source> is not distinguished'
+    note: 'MINimum, INFinite or a variable 0.1–200 s persistence. The optional <source> is accepted and not distinguished; as the guide says, persistence always applies to all waveforms'
   - header: :DISPlay:PROPortion
     level: accepted
     affects_data: false
-    note: 'p. 624: a pane''s size proportion (<pane>,<0-100>). Its query portion is deprecated (the manual''s history), so the model stores the value without a query'
+    note: 'a pane''s size proportion (<pane>,<0-100>). Its query portion is deprecated (the manual''s history), so the model stores the value without a query'
   - header: :DISPlay:PROPortion:RESults
     level: accepted
     affects_data: false
-    note: 'p. 625: the Results pane''s proportion (0-100). Its query portion is deprecated (the manual''s history), so the model stores the value without a query'
+    note: 'the Results pane''s proportion (0-100). Its query portion is deprecated (the manual''s history), so the model stores the value without a query'
   - header: :DISPlay:PRECprobe:GCOunt
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -1271,27 +1271,27 @@ sections:
   - header: :DISPlay:RESults:LAYout
     level: accepted
     affects_data: false
-    note: 'p. 629: TAB (or CUSTom) or SHORizontal layout of the Results pane; the *RST value is not in the manual, TAB is a SimuBench value'
+    note: 'TAB (or CUSTom) or SHORizontal layout of the Results pane; the *RST value is not in the manual, TAB is a SimuBench value'
   - header: :DISPlay:SCOLor
     level: accepted
     affects_data: false
-    note: 'p. 630: a display element''s color (<name>,<hue>,<saturation>,<luminosity>). The three numbers are stored and the query returns them for whatever name it is given (one global color, not one per element)'
+    note: 'a display element''s color (<name>,<hue>,<saturation>,<luminosity>). The three numbers are stored and the query returns them for whatever name it is given (one global color, not one per element)'
   - header: :DISPlay:STATus:COLumn
     level: accepted
     affects_data: false
-    note: 'p. 632: the status label''s column, 0.0-1.0 of the screen; the *RST value is not in the manual, 0 is a SimuBench value'
+    note: 'the status label''s column, 0.0-1.0 of the screen; the *RST value is not in the manual, 0 is a SimuBench value'
   - header: :DISPlay:STATus:ROW
     level: accepted
     affects_data: false
-    note: 'p. 633: the status label''s row, 0.0-1.0 of the screen; the *RST value is not in the manual, 0 is a SimuBench value'
+    note: 'the status label''s row, 0.0-1.0 of the screen; the *RST value is not in the manual, 0 is a SimuBench value'
   - header: :DISPlay:THEMe
     level: accepted
     affects_data: false
-    note: 'p. 634: the UI theme, Midnight or Platinum; the reply quotes the full word, as the manual''s format shows. The *RST value is not in the manual, Platinum is a SimuBench value'
+    note: 'the UI theme, Midnight or Platinum; the reply quotes the full word, as the manual''s format shows. The *RST value is not in the manual, Platinum is a SimuBench value'
   - header: :DISPlay:WINDow:MAXimize
     level: accepted
     affects_data: false
-    note: 'p. 635: maximizes a window (<window>); there is no query, the model parses and stores the window name'
+    note: 'maximizes a window (<window>); there is no query, the model parses and stores the window name'
 - section: :FUNCtion<F> Commands (Programmer's Guide 11.80, ch. 22)
   commands:
   - header: :FUNCtion<F>
@@ -3873,14 +3873,14 @@ sections:
   commands:
   - header: :SYSTem:CAPability:ACQuire
     level: implemented
-    note: 'p. 1437: HALFchannel (no half-channel mode: 0), MEMory (500 Mpts), SRATe (128 GSa/s) and
+    note: 'HALFchannel (no half-channel mode: 0), MEMory (500 Mpts), SRATe (128 GSa/s) and
       BANDwidth (33 GHz), as quoted strings; the definition''s own numbers.'
   - header: :SYSTem:CAPability:CHANnel
     level: implemented
-    note: 'p. 1438: the analog channel count, 4.'
+    note: 'the analog channel count, 4.'
   - header: :SYSTem:CAPability:DIGital
     level: implemented
-    note: 'p. 1439: the model has no digital channels, 0 for each.'
+    note: 'the model has no digital channels, 0 for each.'
   - header: :SYSTem:CLOud:CONNect:USER
     level: not_modeled
     note: 'Out of scope: network services, cloud, repository, LXI and real-time clock are not simulated.'
@@ -3952,7 +3952,7 @@ sections:
     gap: model_work
   - header: :SYSTem:MODE
     level: not_modeled
-    note: 'Model work: selects OSCilloscope or RTSA mode (p. 1458). RTSA turns the instrument into a multi-channel spectrum analyzer (time-domain commands stop being valid), which is not modeled; accepting the switch would change what the instrument is.'
+    note: 'Model work: selects OSCilloscope or RTSA mode. RTSA turns the instrument into a multi-channel spectrum analyzer (time-domain commands stop being valid), which is not modeled; accepting the switch would change what the instrument is.'
     gap: model_work
   - header: :SYSTem:PERSona
     level: not_modeled
@@ -3982,27 +3982,27 @@ sections:
     note: 10 divisions of :TIMebase:SCALe
   - header: :TIMebase:REFClock
     level: implemented
-    note: 'p. 1470: the 10 MHz In BNC on or off. ON, the sampling clock follows a 10 MHz on the scope''s
+    note: 'the 10 MHz In BNC on or off. ON, the sampling clock follows a 10 MHz on the scope''s
       REF IN within +-10 ppm (the timebase''s external-reference mechanism) and keeps the internal clock when
       nothing usable is on it - this bench wires no reference, so the clock error stays the internal one
       (specs-timebase deviation, at most 0.025 ppm) either way.'
   - header: :TIMebase:REFerence
     level: implemented
-    note: 'p. 1472: LEFT, CENTer or RIGHt - 10, 50 or 90 percent of screen, the same setting
+    note: 'LEFT, CENTer or RIGHt - 10, 50 or 90 percent of screen, the same setting
       :TIMebase:REFerence:PERCent writes; the query answers the word, PERC once a percent position is set.'
   - header: :TIMebase:REFerence:PERCent
     level: implemented
-    note: 'p. 1473: the reference position as 0-100 percent of screen; the trigger sits there and the
+    note: 'the reference position as 0-100 percent of screen; the trigger sits there and the
       :TIMebase:POSition delay still moves it.'
   - header: :TIMebase:ROLL:ENABLE
     level: implemented
-    note: 'p. 1474: OFF is the only valid setting on the UXR and the query answers 0; anything else is -224.'
+    note: 'OFF is the only valid setting on the UXR and the query answers 0; anything else is -224.'
   - header: :TIMebase:SCALe
     level: implemented
     note: 5 ps/div to 20 s/div (the guide)
   - header: :TIMebase:VIEW
     level: implemented
-    note: 'p. 1476: MAIN or WINDow (the horizontal zoom on or off). The record keeps the main time base''s
+    note: 'MAIN or WINDow (the horizontal zoom on or off). The record keeps the main time base''s
       samples, so the view is a display state that changes no data.'
   - header: :TIMebase:VLSCapture:POSTtrigger
     level: not_modeled
@@ -4016,19 +4016,19 @@ sections:
     blocked_by: C11
   - header: :TIMebase:WINDow:DELay
     level: implemented
-    note: 'p. 1479: the delayed view''s position - the same setting :TIMebase:WINDow:POSition writes (the
+    note: 'the delayed view''s position - the same setting :TIMebase:WINDow:POSition writes (the
       manual''s compatibility command).'
   - header: :TIMebase:WINDow:POSition
     level: implemented
-    note: 'p. 1480: the delayed view''s position in seconds; the value stores (the zoom''s data read is not
+    note: 'the delayed view''s position in seconds; the value stores (the zoom''s data read is not
       modeled).'
   - header: :TIMebase:WINDow:RANGe
     level: implemented
-    note: 'p. 1481: the delayed view''s full-scale range, ten :WINDow:SCALe (at most the main range, at
+    note: 'the delayed view''s full-scale range, ten :WINDow:SCALe (at most the main range, at
       least 10 ps); the value stores (the zoom''s data read is not modeled).'
   - header: :TIMebase:WINDow:SCALe
     level: implemented
-    note: 'p. 1482: the delayed view''s time per division, 1 ps/div to the main scale; the value stores (the
+    note: 'the delayed view''s time per division, 1 ps/div to the main scale; the value stores (the
       zoom''s data read is not modeled).'
 - section: :TRIGger Commands (Programmer's Guide 11.80, ch. 39)
   commands:
@@ -4406,7 +4406,7 @@ sections:
   commands:
   - header: :WAVeform:BANDpass
     level: implemented
-    note: "p. 1594: the acquisition path's lower and upper cutoff - the coupling's high-pass corner (0: the input is DC-coupled only) and the :ACQuire:BANDwidth digital filter"
+    note: "the acquisition path's lower and upper cutoff - the coupling's high-pass corner (0: the input is DC-coupled only) and the :ACQuire:BANDwidth digital filter"
   - header: :WAVeform:BYTeorder
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
@@ -4420,13 +4420,13 @@ sections:
     gap: out_of_scope
   - header: :WAVeform:COMPlete
     level: implemented
-    note: "p. 1598: the percent of time buckets complete. A finished acquisition's buckets are all complete: 100; nothing read yet: 0"
+    note: "the percent of time buckets complete. A finished acquisition's buckets are all complete: 100; nothing read yet: 0"
   - header: :WAVeform:COUNt
     level: implemented
-    note: "p. 1599: the fewest hits in all of the time buckets - the :ACQuire:COUNt averages one averaging completed with, one hit otherwise; 0 with nothing read yet. The model's records have no holes, so the zero the guide gives for holes is the no-record case only"
+    note: "the fewest hits in all of the time buckets - the :ACQuire:COUNt averages one averaging completed with, one hit otherwise; 0 with nothing read yet. The model's records have no holes, so the zero the guide gives for holes is the no-record case only"
   - header: :WAVeform:COUPling
     level: implemented
-    note: "p. 1600: always DC, as the manual says (provided for compatibility with other Infiniium oscilloscopes); the input is DC-coupled only (data sheet)"
+    note: "always DC, as the manual says (provided for compatibility with other Infiniium oscilloscopes); the input is DC-coupled only (data sheet)"
   - header: :WAVeform:DATA
     level: implemented
     note: 'BYTE: signed 8-bit codes; WORD: signed 16-bit codes (the 10-bit ADC code shifted up 6 bits,
@@ -4452,19 +4452,19 @@ sections:
       full scale; known deviation)'
   - header: :WAVeform:SEGMented:ALL
     level: implemented
-    note: "p. 1624: ON, the data read returns every segment of the latest acquisition as one record (<start>,<size> still work, on the combined record) and the preamble gains the segment count; OFF, the current segment only. A function source always transfers the current segment (the manual)"
+    note: "ON, the data read returns every segment of the latest acquisition as one record (<start>,<size> still work, on the combined record) and the preamble gains the segment count; OFF, the current segment only. A function source always transfers the current segment (the manual)"
   - header: :WAVeform:SEGMented:COUNt
     level: implemented
-    note: "p. 1626: the index of the last captured segment, 0 when :ACQuire:MODE is not SEGMented (all channels acquire together, so the per-channel counts the guide mentions for VLSC do not differ here)"
+    note: "the index of the last captured segment, 0 when :ACQuire:MODE is not SEGMented (all channels acquire together, so the per-channel counts the guide mentions for VLSC do not differ here)"
   - header: :WAVeform:SEGMented:POINts
     level: implemented
-    note: "p. 1627: the points the data read sends - every segment with :WAVeform:SEGMented:ALL ON, the current segment otherwise"
+    note: "the points the data read sends - every segment with :WAVeform:SEGMented:ALL ON, the current segment otherwise"
   - header: :WAVeform:SEGMented:TTAG
     level: implemented
-    note: "p. 1628: the selected segment's trigger minus the first segment's"
+    note: "the selected segment's trigger minus the first segment's"
   - header: :WAVeform:SEGMented:XLISt
     level: implemented
-    note: "p. 1629: one x value per segment - RELXorigin (the segment's own X origin), ABSXorigin (relative origin + time tag, as the manual words it), TTAG (its trigger minus the first's) or OFFSet (where the segment begins in the ALL-ON data; zeros with ALL OFF). The guide supports the ASCii and BINary float64 formats for it; this model's :WAVeform:FORMat has no BINary, so a WORD/BYTE selection errors -224, as does a function source (the guide: channels and pods only)"
+    note: "one x value per segment - RELXorigin (the segment's own X origin), ABSXorigin (relative origin + time tag, as the manual words it), TTAG (its trigger minus the first's) or OFFSet (where the segment begins in the ALL-ON data; zeros with ALL OFF). The guide supports the ASCii and BINary float64 formats for it; this model's :WAVeform:FORMat has no BINary, so a WORD/BYTE selection errors -224, as does a function source (the guide: channels and pods only)"
   - header: :WAVeform:SOURce
     level: implemented
     note: CHANnel<N> only
@@ -4474,13 +4474,13 @@ sections:
       block. OFF after power-on is a SimuBench value'
   - header: :WAVeform:TYPE
     level: implemented
-    note: "p. 1632: how the source's waveform was acquired - the averaged record AVER, the raw one RAW; PDETect (mode not modeled) and INTerpolate are not modeled"
+    note: "how the source's waveform was acquired - the averaged record AVER, the raw one RAW; PDETect (mode not modeled) and INTerpolate are not modeled"
   - header: :WAVeform:VIEW
     level: implemented
-    note: "p. 1633: the view the data and preamble read. The record always covers the main time base (memory depth and timebase are linked, the :ACQuire:SRATe/POINts interaction), so ALL and MAIN reference the same data; WINDow waits for the zoom window, CGRade is out of scope (C17)"
+    note: "the view the data and preamble read. The record always covers the main time base (memory depth and timebase are linked, the :ACQuire:SRATe/POINts interaction), so ALL and MAIN reference the same data; WINDow waits for the zoom window, CGRade is out of scope (C17)"
   - header: :WAVeform:XDISplay
     level: implemented
-    note: "p. 1640: the X at the left edge of the display - the record's first point (the record covers the display)"
+    note: "the X at the left edge of the display - the record's first point (the record covers the display)"
   - header: :WAVeform:XINCrement
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
@@ -4489,16 +4489,16 @@ sections:
     note: 草稿：定义中已有，确认程度与说明
   - header: :WAVeform:XRANge
     level: implemented
-    note: "p. 1639: the time across the display - 10 divisions of the timebase scale"
+    note: "the time across the display - 10 divisions of the timebase scale"
   - header: :WAVeform:XREFerence
     level: implemented
     note: always 0 (the guide)
   - header: :WAVeform:XUNits
     level: implemented
-    note: "p. 1641: the X-axis units in the guide's words - SECond for a channel, HERTz for a transform function (the math block says)"
+    note: "the X-axis units in the guide's words - SECond for a channel, HERTz for a transform function (the math block says)"
   - header: :WAVeform:YDISplay
     level: implemented
-    note: "p. 1642: the Y at the center of the display - the channel's offset"
+    note: "the Y at the center of the display - the channel's offset"
   - header: :WAVeform:YINCrement
     level: implemented
     note: 草稿：定义中已有，确认程度与说明
@@ -4507,13 +4507,13 @@ sections:
     note: 'the channel offset: the voltage at code 0'
   - header: :WAVeform:YRANge
     level: implemented
-    note: "p. 1645: the voltage across the display - 8 divisions of the channel's scale"
+    note: "the voltage across the display - 8 divisions of the channel's scale"
   - header: :WAVeform:YREFerence
     level: implemented
     note: always 0 (the guide)
   - header: :WAVeform:YUNits
     level: implemented
-    note: "p. 1647: the Y-axis units in the guide's words - VOLT for a channel; a transform by its vertical unit (the dB family DECibels, the Watt family WATT, the volt family VOLT); the phase trace has no word in the guide's list, so UNKNown"
+    note: "the Y-axis units in the guide's words - VOLT for a channel; a transform by its vertical unit (the dB family DECibels, the Watt family WATT, the volt family VOLT); the phase trace has no word in the guide's list, so UNKNown"
 - section: :WMEMory (Waveform Memory) Commands (Programmer's Guide 11.80, ch. 41)
   commands:
   - header: :WMEMory:TIETimebase

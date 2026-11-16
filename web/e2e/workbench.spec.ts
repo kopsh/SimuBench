@@ -420,10 +420,16 @@ test("internals full screen: covers the viewport, keeps the view, leaves with Es
   const graph = page.getByTestId("internals-graph");
   const tab = page.getByRole("tab", { name: "示波器 · 内部结构" });
   await expect(panel).toHaveAttribute("data-fullscreen", "false");
+  // The assistant sidebar stays open across the switch (#1186): its state is the page's, not the
+  // internals view's.
+  const assistant = page.getByTestId("assistant-panel");
+  await page.getByRole("button", { name: "AI 助手", exact: true }).click();
+  await expect(assistant).toBeVisible();
   const small = await graph.boundingBox();
   // In: the panel is the viewport; the graph is bigger than in the tab.
   await page.getByRole("button", { name: "全屏查看" }).click();
   await expect(panel).toHaveAttribute("data-fullscreen", "true");
+  await expect(assistant).toBeVisible();
   const vp = page.viewportSize()!;
   const box = (await panel.boundingBox())!;
   expect([box.x, box.y, box.width, box.height]).toEqual([0, 0, vp.width, vp.height]);
@@ -438,6 +444,7 @@ test("internals full screen: covers the viewport, keeps the view, leaves with Es
   // Out with the button, in again, out with Esc: back on the tab.
   await page.getByRole("button", { name: "退出全屏" }).click();
   await expect(panel).toHaveAttribute("data-fullscreen", "false");
+  await expect(assistant).toBeVisible();
   await expect(tab).toBeVisible();
   await page.getByRole("button", { name: "全屏查看" }).click();
   await expect(panel).toHaveAttribute("data-fullscreen", "true");

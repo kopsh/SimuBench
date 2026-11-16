@@ -2290,3 +2290,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 手册用例 | ✅ 两台各 +6 组（83/83、84/84）：命中用 TRIGgered 的 :SINGle（真正触发才完成，:TERegister? 置 1），不命中用 AUTO（自动触发兜底、寄存器保持 0）——TRIGgered 下等不到触发的 *OPC? 会一直等（no_trigger: wait），用例里不出现；每族都有命中与不命中路径（欠幅高阈值收到 0.15 V、过渡大于 50 ns、窗口带内限定 100 ns 而带内只有 16.7 ns、超时 800 ns 而顶部只有 500 ns） |
 | 组件单元测试 | ✅ `tests/test_scope_trigger_advanced.py` 16 例：五种模式的触发时刻对解析信号逐一断言（NEDGe 第 7 条边跨两周期探针、超时起算点钳到布防时刻、窗口的进/出/越界与 carry 段、欠幅双极性与宽度限定、过渡四种限定、迟滞三档映射）；两电平走子说明阈值对从对方到达而非自身远带（edge 的 arming 规则会漏恰好这些边） |
 | `scripts/check.sh` 通过 | ✅ ty 零新增；coverage 一致性（header 带 `<S>` 后缀与定义逐字一致）与参数描述守卫已修 |
+
+## 示波器：DSO-X 2024A 接入数学/FFT/光标（Issue 1155）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 数学、FFT 与光标命令接到 `scope_math` | ✅ `keysight-dsox2024a.yaml` 接入 `:FUNCtion:*` 18 条（运算与信源、g(t)、垂直设置、FFT 中心/跨度/窗口/垂直单位、滤波、积分与线性）与 `:MARKer:*` 13 条（方式、X1/X2 位置与信源、差值、单位与锚点），共 31 条由未实现改为实现；覆盖表对应条目的 `blocked_by: C5` 清零 |
+| 覆盖表与用例 | ✅ `simubench coverage keysight-dsox2024a`：实现 151 · 接受 13 · 未实现 321（共 485）；`tests/models/keysight-dsox2024a/cases.yaml` 42/42 通过（新增 5 例：数学设置往返、线性函数的光标读数、FFT 幅度光标、光标方式与差值、光标单位与锚点） |
+| 债务清理 | ✅ `tests/test_block_coverage.py` 的 EXEMPT 移除 `("keysight-dsox2024a", "math")`；剩余债拆为可认领的 #1159（SDS 2104X Plus）、#1160（WavePro 804HD） |
+| `scripts/check.sh` 通过 | ✅ |
