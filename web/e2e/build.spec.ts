@@ -194,3 +194,49 @@ test("build area: rename follows the wires and ports, undo and redo, layout kept
   const transform = (style: string | null) => (style ?? "").split(";").find((p) => p.includes("transform"));
   expect(transform(await page.locator('.react-flow__node[data-id="i:orx"]').getAttribute("style"))).toBe(transform(moved));
 });
+
+test("build area: references and followed settings on the canvas, a grid for the rest, the channel zone while dragging (#1212)", async ({ page, request }) => {
+  const copy = await request.post("/api/definitions/keysight-34465a/copy", { headers });
+  const id = ((await copy.json()) as { data: { id: string } }).data.id;
+  await page.goto(`/i/${id}?token=${TOKEN}`);
+  await page.getByTestId("acceptance-tab-build").click();
+  await expect(page.getByTestId("build-area")).toBeVisible();
+
+  // The input names its signal conditioning: a dashed reference line with the parameter's name.
+  await expect(page.locator(".react-flow__edge.build-ref").first()).toBeAttached();
+  await expect(page.locator(".react-flow__edge-text", { hasText: "conditioning" }).first()).toBeVisible();
+  // The A/D converter lists the settings it follows.
+  const meter = page.locator('[data-name="meter"]');
+  await expect(meter.getByTestId("build-follows")).toContainText("sense.nplc");
+
+  // The blocks on no signal chain lie side by side, not in one column.
+  const x = async (name: string) => (await page.locator(`[data-name="${name}"]`).boundingBox())!.x;
+  expect(await x("trig")).not.toBe(await x("meter"));
+
+  // Pointing at a setting lights what follows it and dims the rest.
+  await page.getByTestId("build-tab-settings").click();
+  await page.getByTestId("build-setting-sense.nplc").hover();
+  await expect(meter).toHaveAttribute("data-lit", "true");
+  await expect(page.locator('[data-name="trig"]')).toHaveAttribute("data-dim", "true");
+  await page.getByTestId("build-tab-ports").click();
+  await expect(meter).not.toHaveAttribute("data-lit", "true");
+
+  // A single-channel meter shows no per-channel band; a drag shows the zone, a drop there makes a channel component.
+  await expect(page.getByTestId("build-band")).toHaveCount(0);
+  await expect(page.getByTestId("build-band-drop")).toHaveCount(0);
+  await page.getByPlaceholder("按类型、名称或说明过滤").fill("input_port");
+  const source = page.getByTestId("build-library-input_port");
+  const from = (await source.boundingBox())!;
+  await page.mouse.move(from.x + 20, from.y + 10);
+  await page.mouse.down();
+  await page.mouse.move(from.x + 300, from.y + 40, { steps: 6 });
+  const zone = page.getByTestId("build-band-drop");
+  await expect(zone).toBeVisible();
+  const to = (await zone.boundingBox())!;
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 6 });
+  await page.mouse.up();
+  await expect(page.getByTestId("build-band")).toBeVisible();
+  await expect
+    .poll(async () => ((await stored(request, id)).data.channel_components as { name: string }[] | undefined)?.map((c) => c.name))
+    .toEqual(["input_port"]);
+});
