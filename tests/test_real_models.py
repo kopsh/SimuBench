@@ -5,6 +5,7 @@ named after the manual section it checks. Every real-model definition (one with 
 must agree with its coverage table and its cases.
 """
 
+import re
 import shutil
 from pathlib import Path
 from typing import Any
@@ -92,8 +93,14 @@ def real_models():
     paths = [lib.path(i) for i in lib.ids()]
     paths += [d / f"{d.name}.yaml" for d in sorted(MODELS.iterdir()) if (d / f"{d.name}.yaml").is_file()]
     for path in paths:
-        if DefinitionLibrary([path.parent]).get(path.stem).reference is not None:
+        if _declares_reference(path):
             yield pytest.param(path, id=path.stem)
+
+
+def _declares_reference(path: Path) -> bool:
+    """Whether the file has a top-level ``reference:`` key. Read as text: every xdist worker
+    collects this module, and loading and validating ~30 definitions each cost seconds."""
+    return re.search(r"^reference:", path.read_text(encoding="utf-8"), re.M) is not None
 
 
 @pytest.mark.parametrize("path", list(real_models()))
