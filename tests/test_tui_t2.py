@@ -405,20 +405,23 @@ async def test_console_sends_reply_and_lands_in_the_log():
         assert line.source == "Terminal" and line.result_text().startswith("→ +9.9")
 
 
-def test_console_history_moves_to_the_state_folder_and_reads_the_old_file_once(monkeypatch, tmp_path):
-    """#1237: the history lives in the user's state folder; the old ``~/.simubench`` file is read until the
-    first save writes the new one."""
+def test_console_history_is_copied_from_the_old_place_once(monkeypatch, tmp_path):
+    """#1237, #1246: the history lives in the user's state folder; the old ``~/.simubench`` file is
+    copied there on the first load and never read again."""
     import simubench.tui.screens.dialogs as dialogs
 
     old = tmp_path / "old-tui-history"
     old.write_text('{"smu": [":MEAS:CURR?"]}', encoding="utf-8")
-    monkeypatch.setattr(dialogs, "_LEGACY_HISTORY_PATH", old)
+    monkeypatch.setattr(dialogs, "_legacy_history_path", lambda: old)
     monkeypatch.setenv("SIMUBENCH_HOME", str(tmp_path / "home"))
-    assert dialogs.load_history() == {"smu": [":MEAS:CURR?"]}  # the old file, before any save
+    new = tmp_path / "home" / "tui-history"
+    assert not new.exists()
+    assert dialogs.load_history() == {"smu": [":MEAS:CURR?"]}  # first load: copied over
+    assert new.exists() and old.exists()  # the old file is left alone
+    old.write_text('{"smu": ["*RST"]}', encoding="utf-8")
+    assert dialogs.load_history() == {"smu": [":MEAS:CURR?"]}  # the old file is not read again
     dialogs.save_history({"smu": [":MEAS:CURR?", "*IDN?"]})
-    assert (tmp_path / "home" / "tui-history").exists()
-    assert dialogs.load_history() == {"smu": [":MEAS:CURR?", "*IDN?"]}  # now the new file wins
-    assert old.read_text(encoding="utf-8") == '{"smu": [":MEAS:CURR?"]}'  # the old one is left alone
+    assert dialogs.load_history() == {"smu": [":MEAS:CURR?", "*IDN?"]}
 
 
 async def test_console_history_persists_across_reopen(monkeypatch, tmp_path):

@@ -7,6 +7,7 @@ submit callback that performs the write (the app's client) and show the write's 
 from __future__ import annotations
 
 import json
+import shutil
 from collections.abc import Awaitable, Callable, Mapping, Sequence
 from pathlib import Path
 from typing import Any, ClassVar
@@ -17,7 +18,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Input, Static
 
-from ...paths import user_state_dir
+from ...paths import legacy_user_dir, user_state_dir
 from .. import i18n
 from ..fmt import cell_len
 from ..reasons import ReasonReport, plain_text
@@ -132,7 +133,6 @@ class ReasonScreen(ModalScreen[None]):
 
 # ---- the SCPI console (tui-screens.md 10.3) ----------------------------------------------------------
 
-_LEGACY_HISTORY_PATH = Path.home() / ".simubench" / "tui-history"
 _HISTORY_PATH: Path | None = None  # test seam; None = the user's state folder (paths.py)
 _HISTORY_LIMIT = 100
 
@@ -141,12 +141,27 @@ def _history_path() -> Path:
     return _HISTORY_PATH if _HISTORY_PATH is not None else user_state_dir() / "tui-history"
 
 
+def _legacy_history_path() -> Path:
+    return legacy_user_dir() / "tui-history"
+
+
+def _move_legacy_history(path: Path) -> None:
+    """Copy the pre-#1237 history to ``path`` once; after that the old file is never read again."""
+    legacy = _legacy_history_path()
+    if _HISTORY_PATH is not None or path.exists() or not legacy.is_file():
+        return
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(legacy, path)
+    except OSError:
+        pass
+
+
 def load_history() -> dict[str, list[str]]:
     """Per-instrument command history, kept across runs in the user's state folder (#1237)."""
     path = _history_path()
+    _move_legacy_history(path)
     try:
-        if not path.exists() and _HISTORY_PATH is None and _LEGACY_HISTORY_PATH.exists():
-            path = _LEGACY_HISTORY_PATH  # first run after the move: read the old file once
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}

@@ -16,7 +16,7 @@ from simubench.cli import main
 from simubench.engine.component import component_type, registry
 from simubench.engine.replay import replay
 from simubench.ops import doctor, manifest
-from simubench.plugins import legacy_setting_present, workspace_allows_plugins
+from simubench.plugins import legacy_setting_present, trust_changed, workspace_allows_plugins
 from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -168,6 +168,33 @@ def test_user_trust_enables_plugins_and_a_workspace_setting_does_not(tmp_path, c
     assert not (ws / ".simubench" / "trusted-workspaces.json").exists()  # nothing of it in the workspace
     assert main(["trust", "--revoke", str(ws)]) == 0
     assert not workspace_allows_plugins(ws)
+
+
+def test_trust_follows_the_code_not_the_path(tmp_path, clean_plugins):
+    """#1246: a folder unpacked over a trusted one brings other code, so the grant no longer holds."""
+    ws = workspace_with(tmp_path, "bomb.py")
+    assert main(["trust", str(ws)]) == 0
+    assert workspace_allows_plugins(ws) and not trust_changed(ws)
+    (ws / "components" / "bomb.py").write_text(
+        "raise SystemExit('someone else wrote this')\n", encoding="utf-8"
+    )
+    assert not workspace_allows_plugins(ws) and trust_changed(ws)
+    assert not SessionManager(ws, scpi_base_port=0, hislip_port=0).plugins_allowed()  # nothing ran
+    assert "changed since you trusted it" in plugins.status_line(ws, False)
+    (ws / "components" / "extra.py").write_text("x = 1\n", encoding="utf-8")  # a new file counts too
+    assert main(["trust", str(ws)]) == 0  # looked at it: trusted again
+    assert workspace_allows_plugins(ws)
+
+
+def test_the_first_path_only_grant_format_grants_nothing(tmp_path, clean_plugins):
+    from simubench.paths import user_data_dir
+    from simubench.plugins import TRUST_FILE
+
+    ws = workspace_with(tmp_path, "bomb.py")
+    (user_data_dir() / TRUST_FILE).write_text(
+        json.dumps({"workspaces": [str(ws.resolve())]}), encoding="utf-8"
+    )
+    assert not workspace_allows_plugins(ws)  # #1241's list carries no digest of what was trusted
 
 
 async def test_manager_session_uses_a_workspace_plugin(tmp_path, clean_plugins):

@@ -21,7 +21,7 @@ HOME_ENV = "SIMUBENCH_HOME"
 APP = "simubench"
 
 
-def _home(env: Mapping[str, str], home: Path | None) -> Path:
+def _home(home: Path | None) -> Path:
     return home if home is not None else Path.home()
 
 
@@ -29,7 +29,7 @@ def _base(kind: str, env: Mapping[str, str], platform: str, home: Path | None) -
     override = env.get(HOME_ENV)
     if override:
         return Path(override)
-    h = _home(env, home)
+    h = _home(home)
     if platform.startswith("win"):
         return Path(env.get("LOCALAPPDATA") or h / "AppData" / "Local") / "SimuBench"
     if platform == "darwin":
@@ -53,3 +53,9 @@ def user_state_dir(
 ) -> Path:
     """Small per-user state that may be lost without harm: histories, last-used values."""
     return _base("state", os.environ if env is None else env, platform or sys.platform, home)
+
+
+def legacy_user_dir() -> Path:
+    """``~/.simubench``, where releases before #1237 kept the console history. Only for moving what
+    is there to the folders above; nothing new is written to it."""
+    return Path.home() / ".simubench"
