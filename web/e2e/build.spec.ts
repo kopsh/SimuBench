@@ -1,7 +1,19 @@
+import { rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
 
 const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
+
+/** The e2e service's workspace (e2e/serve.mjs). */
+const WORKSPACE = join(tmpdir(), "simubench-e2e-workspace");
+
+/** Remove a workspace copy of a model other specs open by name (the 34465A): its second entry in
+ * the instrument list would make their link ambiguous. */
+function forget(id: string) {
+  for (const suffix of [".yaml", ".layout.json"]) rmSync(join(WORKSPACE, "instruments", `${id}${suffix}`), { force: true });
+}
 
 /** The definition file as stored, through the same API the acceptance page reads. */
 async function stored(request: import("@playwright/test").APIRequestContext, id: string) {
@@ -239,4 +251,5 @@ test("build area: references and followed settings on the canvas, a grid for the
   await expect
     .poll(async () => ((await stored(request, id)).data.channel_components as { name: string }[] | undefined)?.map((c) => c.name))
     .toEqual(["input_port"]);
+  forget(id);
 });
