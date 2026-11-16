@@ -89,13 +89,12 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
   useEffect(() => {
     if (!sha) return;
     if (seen.current && seen.current !== sha) {
-      // The build area saves on every edit and says so itself (#1201): no "reloaded" notice there.
-      if (section !== "build") setNotice(true);
+      setNotice(true);
       // What the page shows follows the new file, not just the hash.
       void qc.invalidateQueries({ queryKey: keys.definitionCases(definitionId) });
     }
     seen.current = sha;
-  }, [sha, definitionId, qc, section]);
+  }, [sha, definitionId, qc]);
 
   if (doc.isLoading) {
     return (
@@ -158,7 +157,8 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
           </ul>
         </div>
       )}
-      {notice && (
+      {/* The build area saves on every edit and says so itself (#1201): no "reloaded" notice there. */}
+      {notice && section !== "build" && (
         <div className="bg-sim-muted text-sim flex items-center gap-2 border-b px-4 py-1.5 text-[11px]" role="status">
           <span>{t("acceptance.reloaded")}</span>
           <button type="button" className="ml-auto rounded p-0.5 hover:opacity-70" aria-label={t("common.close")} onClick={() => setNotice(false)}>
@@ -167,7 +167,12 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
         </div>
       )}
 
-      <Tabs value={section} onValueChange={(v) => setSection(v as SectionKey)} className="min-h-0 flex-1 gap-0">
+      <Tabs
+        value={section}
+        onValueChange={(v) => {
+          if (section === "build") setNotice(false); // the build area's own saves are not news
+          setSection(v as SectionKey);
+        }} className="min-h-0 flex-1 gap-0">
         <div className="bg-sidebar overflow-x-auto border-b px-3">
           <TabsList variant="line" className="h-10">
             {SECTIONS.map(({ key, icon: Icon }) => (
