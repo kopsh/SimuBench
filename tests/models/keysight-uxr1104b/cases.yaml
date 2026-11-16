@@ -2059,3 +2059,31 @@ cases:
       - send: ":CHANnel1:PROBe:SKEW:AUTO"
       - query: ":SYSTem:ERRor?"
         expect: "0"
+  - name: "测量以数学函数为信源：CH1+CH1 的幅度是 CH1 的两倍，FFT 的峰值约 −4 dBm、峰值处在 10 MHz；屏幕测量列表、:MEASure:SOURce 与未定义的函数"
+    manual: ":MEASure Commands > <source> ::= {CHANnel<N> | FUNCtion<F> | …}; :MEASure:VAMPlitude, :VMAX, :TMAX, :VPP, :SOURce, :RESults?"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1;:TIMebase:SCALe 1E-6"
+      - send: ":FUNCtion1:ADD CHANnel1,CHANnel1"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VAMPlitude? CHANnel1"
+        expect_fields: [{min: 0.36, max: 0.42, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VAMPlitude? FUNCtion1"
+        expect_fields: [{min: 0.72, max: 0.84, format: "±d.dddddE±0d"}]
+      - send: ":FUNCtion2:FFTMagnitude CHANnel1"
+      - query: ":MEASure:VMAX? FUNC2"
+        expect_fields: [{min: -5.0, max: -3.0, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:TMAX? FUNCtion2"
+        expect_fields: [{min: 9.8e6, max: 1.02e7, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:CLEar;:MEASure:VPP FUNCtion1"
+      - query: ":MEASurement1:SOURce?"
+        expect: "FUNC1"
+      - query: ":MEASure:RESults?"
+        expect_fields: ["VPP(f1)", {min: 0.72, max: 1.2}, {min: 0.72, max: 1.2}, {min: 0.72, max: 1.2}, {min: 0.72, max: 1.2}, {min: 0.0, max: 1.0}, "1"]
+      - send: ":MEASure:SOURce FUNCtion1"
+      - query: ":MEASure:SOURce?"
+        expect: "FUNC1,CHAN2"
+      - query: ":MEASure:VAMPlitude?"
+        expect_fields: [{min: 0.72, max: 0.84, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:VPP? FUNCtion5"
+      - query: ":SYSTem:ERRor?"
+        expect: "-230"

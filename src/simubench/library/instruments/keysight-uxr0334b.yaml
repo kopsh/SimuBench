@@ -559,13 +559,13 @@ state:
     label_en: Waveform view
   measure.source:
     type: enum
-    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16]
     default: CHANnel1
     label: 测量信源
     label_en: Measure source
   measure.source2:
     type: enum
-    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16]
     default: CHANnel2
     label: 测量信源 2
     label_en: Measure source 2
@@ -1902,15 +1902,15 @@ commands:
   # ---- MEASure ----
   - header: ":MEASure:SOURce"
     params:
-      - {name: source1, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], state: measure.source}
-      - {name: source2, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true, state: measure.source2}
+      - {name: source1, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], state: measure.source}
+      - {name: source2, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true, state: measure.source2}
     reply: "{measure.source},{measure.source2}"
-  - {header: ":MEASure:VPP", op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VMAX", op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VMIN", op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VAMPlitude", op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VTOP", op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:VBASe", op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:VPP", op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:VMAX", op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:VMIN", op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:VAMPlitude", op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:VTOP", op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:VBASe", op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
   # VAVerage / VRMS：只实现整屏（DISPlay）与含直流（DC）的写法，单周期与 AC、dBm 未建模。
   - header: ":MEASure:VAVerage"
     op: meas.measure
@@ -1918,7 +1918,7 @@ commands:
     args: {what: VAVerage}
     params:
       - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
   - header: ":MEASure:VRMS"
     op: meas.measure
     set: false
@@ -1926,7 +1926,7 @@ commands:
     params:
       - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
       - {name: coupling, type: enum, options: [DC], not_modeled: {AC: AC RMS is not modeled}}
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
       - {name: units, type: enum, options: [VOLT], optional: true, not_modeled: {DBM: dBm results are not modeled}}
   # FREQuency / PERiod / DUTYcycle：从上升沿到上升沿（RISing）；FALLing 未建模。
   - header: ":MEASure:FREQuency"
@@ -1934,28 +1934,28 @@ commands:
     set: false
     args: {what: FREQuency}
     params:
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
       - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
   - header: ":MEASure:PERiod"
     op: meas.measure
     set: false
     args: {what: PERiod}
     params:
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
       - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
   - header: ":MEASure:DUTYcycle"
     op: meas.measure
     set: false
     args: {what: DUTYcycle}
     params:
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
       - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
-  - {header: ":MEASure:RISetime", op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:FALLtime", op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:PWIDth", op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:NWIDth", op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
-  - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], optional: true}]}
+  - {header: ":MEASure:RISetime", op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:FALLtime", op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:PWIDth", op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:NWIDth", op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
   # ---- SYSTem ----
   # :SYSTem:ERRor? [{NUMBer | STRing}]：STRing 回码与带引号的文字；不带参数或 NUMBer 只回错误码
   # （后一条不带 when，是前一条的兜底，#602）。

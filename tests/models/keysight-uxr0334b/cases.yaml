@@ -1741,3 +1741,24 @@ cases:
       - query: ":TERegister?"
         expect: "1"
       - send: ":TRIGger:MODE EDGE;:TRIGger:SWEep AUTO"
+  - name: "测量以数学函数为信源：CH1+CH1 的幅度是 CH1 的两倍，FFT 的峰值约 −4 dBm；:MEASure:SOURce 与未定义的函数"
+    manual: ":MEASure Commands > <source> ::= {CHANnel<N> | FUNCtion<F> | …}; :MEASure:VAMPlitude, :VMAX, :SOURce"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1;:TIMebase:SCALe 1E-6"
+      - send: ":FUNCtion1:ADD CHANnel1,CHANnel1"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VAMPlitude? CHANnel1"
+        expect_fields: [{min: 0.36, max: 0.42, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VAMPlitude? FUNCtion1"
+        expect_fields: [{min: 0.72, max: 0.84, format: "±d.dddddE±0d"}]
+      - send: ":FUNCtion2:FFTMagnitude CHANnel1"
+      - query: ":MEASure:VMAX? FUNC2"
+        expect_fields: [{min: -5.0, max: -3.0, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:SOURce FUNCtion1"
+      - query: ":MEASure:SOURce?"
+        expect: "FUNC1,CHAN2"
+      - query: ":MEASure:VAMPlitude?"
+        expect_fields: [{min: 0.72, max: 0.84, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:VPP? FUNCtion5"
+      - query: ":SYSTem:ERRor?"
+        expect: "-230"

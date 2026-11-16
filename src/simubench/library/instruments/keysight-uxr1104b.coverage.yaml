@@ -3749,7 +3749,9 @@ sections:
     gap: out_of_scope
   - header: :MEASure:SOURce
     level: implemented
-    note: one or two channels; the second is kept for two-source measurements
+    note: one or two channels or math functions (FUNCtion<F>); the second is kept for two-source measurements.
+      Every measurement takes a FUNCtion<F> source and measures the function's waveform over its operands (a
+      transform's trace in its own units, its X axis in Hz); an undefined function is -230
   - header: :MEASure:STATistics
     level: implemented
     note: 'What :MEASure:RESults? gives per measurement: ON (default, a SimuBench value) the label, current, min,

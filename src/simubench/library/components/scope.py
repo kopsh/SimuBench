@@ -3308,7 +3308,7 @@ class ScopeMeasurements(Component):
         self.screen = [e for e in self.screen if e in self.installed]
 
     def _label(self, what: str, n: int) -> str:
-        return self.names.get((what, n)) or f"{what}({n})"
+        return self.names.get((what, n)) or (f"{what}(f{-n})" if n < 0 else f"{what}({n})")
 
     @op("results")
     def op_results(self, order: str = "", **_: Any) -> OpResult:
@@ -3428,7 +3428,7 @@ class ScopeMeasurements(Component):
             return OpResult()
         if what == "source":
             if query:
-                return OpResult(f"CHAN{entry[1]}".encode())
+                return OpResult(self._source_word(entry[1]).encode())
             n = self._channel(None, V.parse_string(value) if isinstance(value, bytes) else str(value))
             moved = (entry[0], n)
             self.screen[k] = moved
@@ -3457,6 +3457,8 @@ class ScopeMeasurements(Component):
         """Whether channel n's record reaches the ADC's limits: 1 low, 2 high, 3 both, 0 neither
         (a channel without a record or an unquantized ADC: 0)."""
         acq = self._acq()
+        if n < 0:
+            return 0  # a math function has no ADC to reach
         try:
             rec, _ = acq.measure_record(n)
         except ScpiError:
@@ -3498,25 +3500,55 @@ class ScopeMeasurements(Component):
         assert self.owner is not None
         return self.ref("record")  # type: ignore[return-value]
 
+    @staticmethod
+    def _is_source(word: str) -> bool:
+        """Whether a parameter word names a source: a channel (CHANnel<n>) or a math function
+        (FUNCtion<F>, FUNC<F>, F<F>)."""
+        return word.strip().upper().startswith("CH") or function_index(word) is not None
+
     def _channel(self, channel: int | None, source: Any = None) -> int:
+        """The source key a measurement reads: channel n as n, math function F as -F (#1074) —
+        the key the statistics, the screen's list and the labels carry."""
         if isinstance(source, list):  # raw parameters: [<interval>][,<type>][,<source>]
             words = [V.parse_string(b).strip().upper() for b in source]
-            source = next((w for w in words if w.startswith("CH")), None)
+            source = next((w for w in words if self._is_source(w)), None)
         if source:
             name = (source.decode() if isinstance(source, bytes) else str(source)).strip().upper()
+            f = function_index(name)
+            if f is not None:
+                return -f
             m = name.removeprefix("CHANNEL").removeprefix("CHAN").removeprefix("C")
             if not m.isdigit():
                 raise ScpiError(-224, f"unknown source {source!r}")
             return int(m)
         bound = self.param("source")
         if bound not in (None, ""):
-            return channel_index(bound)
+            return self._channel(None, str(bound))
         return channel or 1
 
+    @staticmethod
+    def _source_word(n: int) -> str:
+        """A source key's short word: CHAN<n>, or FUNC<F> for a function."""
+        return f"FUNC{-n}" if n < 0 else f"CHAN{n}"
+
+    def record(self, n: int) -> tuple[Any, int]:
+        """The record a measurement on source key ``n`` reads: channel n's acquisition, or math
+        function -n's waveform over its operands (#1074) — a model without math functions refuses
+        the source (-224), a function without an operator is -230."""
+        if n >= 0:
+            return self._acq().measure_record(n)
+        block = self.ref("math")
+        if block is None or not isinstance(block, MathSource):
+            raise ScpiError(-224, f"FUNCtion{-n}: this model has no math functions to measure")
+        rec, used = block.read_function(-n)
+        if rec is None:
+            raise ScpiError(-230, f"function {-n} is not defined")
+        return rec, used
+
     def value(self, what: str, n: int) -> tuple[float, int]:
-        """The engine measurement ``what`` on channel n's record (NaN: cannot be measured), and the
+        """The engine measurement ``what`` on source n's record (NaN: cannot be measured), and the
         virtual time getting the record took."""
-        rec, used = self._acq().measure_record(n)
+        rec, used = self.record(n)
         return self.record_value(what, rec), used
 
     def record_value(self, what: str, rec: Any) -> float:
@@ -3531,7 +3563,7 @@ class ScopeMeasurements(Component):
         if gate:
             lo, hi = (max(0, min(v.size, round(float(g) / 10 * v.size))) for g in gate)
             v = v[lo:hi]
-        if v.size and str(self.param("clipped")) == "invalid":
+        if v.size and str(self.param("clipped")) == "invalid" and rec.channel > 0:  # a function: no ADC
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
                 return math.nan
@@ -3584,7 +3616,7 @@ class ScopeMeasurements(Component):
         if gate:
             lo, hi = (max(0, min(rec.points, round(float(g) / 10 * rec.points))) for g in gate)
         acq = self._acq()
-        if str(self.param("clipped")) == "invalid" and acq.adc_unit().param("bits"):
+        if str(self.param("clipped")) == "invalid" and rec.channel > 0 and acq.adc_unit().param("bits"):
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if (
                 chunked_value("VMAX", rec, lo, hi) >= rails[0]
@@ -3648,8 +3680,8 @@ class ScopeMeasurements(Component):
             ).strip()
             for b in raw or []
         ]
-        channels = [self._channel(None, w) for w in words if w.upper().startswith("CH")]
-        return [w for w in words if not w.upper().startswith("CH")], channels
+        channels = [self._channel(None, w) for w in words if self._is_source(w)]
+        return [w for w in words if not self._is_source(w)], channels
 
     def _reply(self, value: float, used: int) -> OpResult:
         assert self.owner is not None
@@ -3673,8 +3705,8 @@ class ScopeMeasurements(Component):
             return self._reply(math.nan, 0)
         n = channels[0] if channels else self._channel(channel)
         if channels:
-            self._follow(n, f"CHANnel{n}")
-        rec, used = self._acq().measure_record(n)
+            self._follow(n, self._source_word(n))
+        rec, used = self.record(n)
         dt, origin = rec.dt_s, rec.origin
         if what == "VTIMe":
             if not args:
@@ -3729,7 +3761,7 @@ class ScopeMeasurements(Component):
         if what == "DELTatime" and len(channels) == 1:
             channels = channels * 2
         if len(channels) < 2:
-            pair = [channel_index(self.owner.get_state(p)) for p in (self.param("sources") or [])]
+            pair = [self._channel(None, str(self.owner.get_state(p))) for p in (self.param("sources") or [])]
             channels = (channels + pair[len(channels) :])[:2]
         if len(channels) < 2:
             raise ScpiError(-109, f"{what}? needs two sources")
@@ -3738,7 +3770,7 @@ class ScopeMeasurements(Component):
         hyst = float(self.param("hysteresis"))
         recs, used = [], 0
         for n in channels:
-            rec, u = self._acq().measure_record(n)
+            rec, u = self.record(n)
             used += u
             recs.append(rec)
         if what == "CROSsing":
@@ -3778,7 +3810,9 @@ class ScopeMeasurements(Component):
         if not self.param("thresholds"):
             raise ScpiError(-300, f"{self.uid}: thresholds names no settings")
         n = self._channel(channel, source)
-        rec, used = self._acq().measure_record(n)
+        if n < 0:
+            raise ScpiError(-224, "the threshold sets are per channel")
+        rec, used = self.record(n)
         v = np.asarray(rec.volts, dtype=float)
         lv = threshold_levels(
             v, {"method": "PERCent"}, float(self.param("hysteresis")), self._band_floor(rec)
@@ -3802,7 +3836,7 @@ class ScopeMeasurements(Component):
         if not words:
             raise ScpiError(-109, f"{what}? takes a number after the source")
         number = V.parse_float(words[0].encode(), "S" if what.startswith("B") else None)
-        rec, used = self._acq().measure_record(n)
+        rec, used = self.record(n)
         v = np.asarray(rec.volts, dtype=float)
         lv = self.levels(v, rec, "general")
         if lv is None or v.size == 0:
@@ -3851,7 +3885,9 @@ class ScopeMeasurements(Component):
         if not source or path is None or self.owner is None:
             return
         options = self.owner.specs[path].options or []
-        match = next((o for o in options if trigger_channel(o) == n), None)
+        match = next(
+            (o for o in options if (function_index(o) == -n if n < 0 else trigger_channel(o) == n)), None
+        )
         if match is not None:
             self.owner.set_state(path, match)
 
