@@ -69,6 +69,21 @@ const WORDS: Record<string, [string, string]> = {
   NONE: ["无", "None"],
 };
 
+/**
+ * The options worth offering: an alias the instrument also accepts (UXR ``DCFifty`` beside ``DC50``,
+ * one label for both) would show as the same word twice, so the second of a label is left out —
+ * unless it is the current value, which a select must still be able to show (#1252).
+ */
+export function distinctOptions(v: Pick<StateVarInfo, "options" | "option_labels"> & { value?: unknown }): string[] {
+  const seen = new Set<string>();
+  return (v.options ?? []).filter((o) => {
+    const label = optionLabel(v, o);
+    if (seen.has(label) && o !== String(v.value)) return false;
+    seen.add(label);
+    return true;
+  });
+}
+
 /** A setting's option as the panel shows it: its own label, a common word, or the short form. */
 export function optionLabel(v: Pick<StateVarInfo, "option_labels">, option: string): string {
   const own = v.option_labels?.[option];

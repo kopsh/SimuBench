@@ -67,7 +67,10 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `setState`: the React compiler lint rejects those, and refs written during render.
 - `web/src/features/workbench/onScreen.ts` — which settings a screen shows as fields: a
   `StateField` inside a screen tab counts its path while mounted, and the inspector beside that
-  screen leaves those paths out (#1229). A new screen gets this for free by using `StateField`.
+  screen leaves those paths out (#1229). A new screen gets this for free by using `StateField`; a
+  field that writes SCPI itself calls `useCountOnScreen(instrument, path)` (the analyzer's
+  `ScpiField`, #1252). Enum options go through `distinctOptions` (model.ts) so an alias sharing a
+  label is not offered twice.
 - `web/src/components/app/PreferencesMenu.tsx` — the settings menu (theme, language, workspace data,
   about). Its dialogs: `AboutDialog.tsx` (manifest, health checks, diagnostics bundle) and
   `StorageDialog.tsx` (what `.simubench/` holds, orphans, the clean with a confirm step; history is

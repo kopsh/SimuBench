@@ -10,7 +10,7 @@ import { pickLabel } from "@/i18n";
 import { displayUnit, formatReadout } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { applyOps } from "../edit/editor";
-import { labelOf, numeric, optionLabel, stateMap } from "../model";
+import { distinctOptions, labelOf, numeric, optionLabel, stateMap } from "../model";
 import { StateField } from "../StateField";
 import { ScreenIdentity } from "./parts";
 
@@ -229,7 +229,7 @@ function ControlView({
             { value: true, label: t("instPanel.on"), sets: {} },
             { value: false, label: t("instPanel.off"), sets: {} },
           ]
-        : (v.options ?? []).map((o) => ({ value: o, label: optionLabel(v, o), sets: {} })));
+        : distinctOptions(v).map((o) => ({ value: o, label: optionLabel(v, o), sets: {} })));
     return (
       <div className="space-y-1">
         <div className="text-muted-foreground text-xs">{label}</div>
