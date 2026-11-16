@@ -18,6 +18,7 @@ import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner } from "./RemoteBanner";
 import { StateField } from "./StateField";
 import { showSetting } from "./reveal";
+import { useScreenPaths } from "./onScreen";
 import { useWorkbench } from "./store";
 
 export function Inspector({ session, readonly }: { session: SessionInfo; readonly: boolean }) {
@@ -107,9 +108,12 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
   const openInternals = useWorkbench((s) => s.openInternals);
   const openAcceptance = useWorkbench((s) => s.openAcceptance);
   const bench = useSession(sid).data?.bench_path;
-  const globals = globalVars(inst);
+  // Beside its own screen, the settings the screen shows as fields are left out: one place to change a value (#1229).
+  const onScreen = useScreenPaths(useWorkbench((s) => s.active) === `screen:${inst.name}` ? inst.name : null);
+  const offScreen = (v: { path: string }) => !onScreen.has(v.path);
+  const globals = globalVars(inst).filter(offScreen);
   const vars = stateMap(inst);
-  const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
+  const channels = Array.from({ length: inst.channels }, (_, i) => i + 1).filter((n) => channelVars(inst, n).some(offScreen));
   const reveal = useWorkbench((s) => s.reveal);
   const consumeReveal = useWorkbench((s) => s.consumeReveal);
   useEffect(() => {
@@ -163,7 +167,14 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
           <SettingsBlock sid={sid} inst={inst} vars={globals} summary={inst.display.summary} readonly={readonly} stateVars={vars} />
         </Section>
       )}
-      {channels.length > 0 && <ChannelSettings sid={sid} inst={inst} readonly={readonly} stateVars={vars} channels={channels} />}
+      {channels.length > 0 && (
+        <ChannelSettings sid={sid} inst={inst} readonly={readonly} stateVars={vars} channels={channels} hidden={onScreen} />
+      )}
+      {onScreen.size > 0 && (
+        <p data-testid="inspector-on-screen" className="text-muted-foreground flex items-center gap-1.5 text-xs">
+          <MonitorPlay className="size-3.5 shrink-0" /> {t("workbench.onScreenNote", { count: onScreen.size })}
+        </p>
+      )}
       <Section title={t("workbench.sendCommand")}>
         <ScpiConsole sid={sid} instrument={inst.name} disabled={readonly} />
       </Section>
@@ -338,7 +349,14 @@ type SettingsProps = {
  * One channel at a time (a 4-channel scope no longer stacks four lists), picked by a CH selector in
  * the channel colours (#728).
  */
-function ChannelSettings({ sid, inst, readonly, stateVars, channels }: SettingsProps & { channels: number[] }) {
+function ChannelSettings({
+  sid,
+  inst,
+  readonly,
+  stateVars,
+  channels,
+  hidden,
+}: SettingsProps & { channels: number[]; /** Shown on the screen beside: left out here (#1229). */ hidden: Set<string> }) {
   const { t } = useTranslation();
   const [picked, setPicked] = useState(channels[0]);
   const n = channels.includes(picked) ? picked : channels[0];
@@ -380,7 +398,7 @@ function ChannelSettings({ sid, inst, readonly, stateVars, channels }: SettingsP
         key={n}
         sid={sid}
         inst={inst}
-        vars={channelVars(inst, n)}
+        vars={channelVars(inst, n).filter((v) => !hidden.has(v.path))}
         summary={inst.display.channel_summary}
         readonly={readonly}
         stateVars={stateVars}

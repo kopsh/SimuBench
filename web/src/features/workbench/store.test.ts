@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { INSPECTOR_SHOWN, tabKindOf, useWorkbench } from "./store";
+import { INSPECTOR_SHOWN, INSPECTOR_SIZE, tabKindOf, useWorkbench } from "./store";
 
 describe("revealSetting (#800)", () => {
   beforeEach(() => useWorkbench.getState().reset());
@@ -102,5 +102,22 @@ describe("the inspector beside each kind of tab (#1221)", () => {
     useWorkbench.getState().setInspector("canvas", false);
     useWorkbench.getState().reset();
     expect(useWorkbench.getState().inspector.canvas).toBe(false);
+  });
+});
+
+describe("the inspector's width beside each kind of tab (#1229)", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    useWorkbench.setState({ inspectorSize: { ...INSPECTOR_SIZE } });
+  });
+
+  it("is narrower beside a screen, whose settings it leaves out", () => {
+    expect(INSPECTOR_SIZE.screen).toBeLessThan(INSPECTOR_SIZE.canvas);
+  });
+
+  it("keeps a dragged width for that kind of tab only, in this browser", () => {
+    useWorkbench.getState().setInspectorSize("screen", 21.04);
+    expect(useWorkbench.getState().inspectorSize).toEqual({ ...INSPECTOR_SIZE, screen: 21 });
+    expect(JSON.parse(localStorage.getItem("simubench:inspector-size") ?? "null")).toMatchObject({ screen: 21 });
   });
 });

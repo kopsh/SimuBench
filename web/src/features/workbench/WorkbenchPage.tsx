@@ -32,6 +32,7 @@ import { InternalsView } from "./internals/InternalsView";
 import { InstrumentAcceptance } from "@/features/instrument/InstrumentAcceptance";
 import { LiveValuesBanner } from "./edit/LiveValuesBanner";
 import { RemoteBanner } from "./RemoteBanner";
+import { OnScreen } from "./onScreen";
 import { PanelScreen } from "./screens/PanelScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
 import { type Mode, type Tab, tabKey, tabKindOf, useWorkbench } from "./store";
@@ -160,7 +161,7 @@ export function WorkbenchPage() {
               <LeftPanel session={view ?? s} mode={editing ? "edit" : "run"} />
             </ResizablePanel>
             <ResizableHandle />
-            <ResizablePanel defaultSize="60%" minSize="30%">
+            <ResizablePanel defaultSize="60%" minSize="30%" data-testid="center-panel">
               <CenterTabs
                 inspectorShown={inspector.shown}
                 onToggleInspector={inspector.toggle}
@@ -178,10 +179,11 @@ export function WorkbenchPage() {
               panelRef={inspector.panel}
               collapsible
               collapsedSize={0}
-              defaultSize={inspector.shown ? "24%" : 0}
+              defaultSize={inspector.shown ? `${inspector.initialSize}%` : 0}
               minSize="16%"
               maxSize="40%"
               className="bg-sidebar"
+              data-testid="inspector-panel"
               onResize={inspector.onResize}
             >
               {inspector.shown &&
@@ -198,6 +200,7 @@ export function WorkbenchPage() {
           collapsible
           collapsedSize={BOTTOM_BAR}
           defaultSize={BOTTOM_BAR}
+          data-testid="bottom-panel"
           minSize="12%"
           onResize={(size) => setBottomOpen(size.inPixels > BOTTOM_BAR + 4)}
         >
@@ -455,11 +458,16 @@ function Screen({
   if (!inst) return null;
   // The class template picks the screen (D1); instruments without one get the generic layout.
   const template = inst.display.template ?? inst.instrument_class;
-  const own = classScreen(template, { session, inst, readonly });
-  if (own) return own;
   // Otherwise the definition's panel, or its class's default (multimeter, calibrator); else the generic layout.
-  if (inst.display.panel) return <PanelScreen sid={session.id} inst={inst} initial={initial} readonly={readonly} />;
-  return <ReadingsScreen sid={session.id} inst={inst} readonly={readonly} />;
+  const screen =
+    classScreen(template, { session, inst, readonly }) ??
+    (inst.display.panel ? (
+      <PanelScreen sid={session.id} inst={inst} initial={initial} readonly={readonly} />
+    ) : (
+      <ReadingsScreen sid={session.id} inst={inst} readonly={readonly} />
+    ));
+  // The fields on it are left out of the inspector beside it (#1229).
+  return <OnScreen.Provider value={!initial}>{screen}</OnScreen.Provider>;
 }
 
 function BenchCanvas({
@@ -559,17 +567,26 @@ function useInspectorFold() {
   const kind = useWorkbench((s) => tabKindOf(s.active));
   const shown = useWorkbench(inspectorShown);
   const panel = usePanelRef();
+  // The width for this kind of tab (#1229), read once when the panel first lays out.
+  const [initialSize] = useState(() => useWorkbench.getState().inspectorSize[kind]);
   useEffect(() => {
     const p = panel.current;
     if (!p) return;
-    if (shown && p.isCollapsed()) p.expand();
-    else if (!shown && !p.isCollapsed()) p.collapse();
-  }, [shown, panel]);
+    if (!shown) {
+      if (!p.isCollapsed()) p.collapse();
+      return;
+    }
+    // Read before expanding: expanding reports the width it had beside the previous kind of tab.
+    const want = useWorkbench.getState().inspectorSize[kind];
+    if (p.isCollapsed()) p.expand();
+    if (Math.abs(p.getSize().asPercentage - want) > 0.5) p.resize(`${want}%`);
+  }, [shown, kind, panel]);
   const onResize = useCallback(
     (size: { asPercentage: number }) => {
       const open = size.asPercentage > 0;
       const st = useWorkbench.getState();
       if (open !== inspectorShown(st)) st.setInspector(kind, open); // else: the fold asked for above
+      else if (open) st.setInspectorSize(kind, size.asPercentage);
     },
     [kind],
   );
@@ -577,7 +594,7 @@ function useInspectorFold() {
     const st = useWorkbench.getState();
     st.setInspector(kind, !inspectorShown(st));
   }, [kind]);
-  return { shown, panel, onResize, toggle };
+  return { shown, panel, onResize, toggle, initialSize };
 }
 
 const inspectorShown = (s: { active: string; inspector: Record<string, boolean>; lentTo: string | null }) =>
