@@ -52,11 +52,9 @@
         "max": 7500000000.0,
         "default": 1000000000.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -68,8 +66,7 @@
         "path": "freq.center",
         "dangerous": false,
         "value": 1000500000.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -78,11 +75,9 @@
         "max": 7500000000.0,
         "default": 100000000.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -94,8 +89,7 @@
         "path": "freq.span",
         "dangerous": false,
         "value": 5000000.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -104,11 +98,9 @@
         "max": 3000000.0,
         "default": 3000000.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -120,8 +112,7 @@
         "path": "bw.res",
         "dangerous": false,
         "value": 3000000.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "bool",
@@ -130,11 +121,9 @@
         "max": null,
         "default": true,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -146,8 +135,7 @@
         "path": "bw.res_auto",
         "dangerous": false,
         "value": true,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -156,11 +144,9 @@
         "max": 3000000.0,
         "default": 3000000.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -172,8 +158,7 @@
         "path": "bw.vid",
         "dangerous": false,
         "value": 3000000.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "bool",
@@ -182,11 +167,9 @@
         "max": null,
         "default": true,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -198,8 +181,7 @@
         "path": "bw.vid_auto",
         "dangerous": false,
         "value": true,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -208,11 +190,9 @@
         "max": 10000.0,
         "default": 0.001,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -224,8 +204,7 @@
         "path": "sweep.time",
         "dangerous": false,
         "value": 0.001,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "bool",
@@ -234,11 +213,9 @@
         "max": null,
         "default": true,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -250,8 +227,7 @@
         "path": "sweep.time_auto",
         "dangerous": false,
         "value": true,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "int",
@@ -260,11 +236,9 @@
         "max": 40001.0,
         "default": 1001,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -276,8 +250,7 @@
         "path": "sweep.points",
         "dangerous": false,
         "value": 1001,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -286,11 +259,9 @@
         "max": 70.0,
         "default": 10.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -302,8 +273,7 @@
         "path": "power.att",
         "dangerous": false,
         "value": 10.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "bool",
@@ -312,11 +282,9 @@
         "max": null,
         "default": true,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -328,8 +296,7 @@
         "path": "power.att_auto",
         "dangerous": false,
         "value": true,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -338,11 +305,9 @@
         "max": 30.0,
         "default": 0.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -354,8 +319,7 @@
         "path": "display.ref_level",
         "dangerous": false,
         "value": 0.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "enum",
@@ -364,7 +328,6 @@
         "max": null,
         "default": "POSitive",
         "rst": null,
-        "keep_on_reset": false,
         "options": [
           "POSitive",
           "SAMPle",
@@ -373,7 +336,6 @@
         ],
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": {
@@ -390,8 +352,7 @@
         "path": "detector",
         "dangerous": false,
         "value": "POSitive",
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "enum",
@@ -400,7 +361,6 @@
         "max": null,
         "default": "WRITe",
         "rst": null,
-        "keep_on_reset": false,
         "options": [
           "WRITe",
           "AVERage",
@@ -408,7 +368,6 @@
         ],
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": {
@@ -424,8 +383,7 @@
         "path": "trace.type",
         "dangerous": false,
         "value": "WRITe",
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "int",
@@ -434,11 +392,9 @@
         "max": 10000.0,
         "default": 10,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -450,8 +406,7 @@
         "path": "aver.count",
         "dangerous": false,
         "value": 10,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -460,11 +415,9 @@
         "max": 7500000000.0,
         "default": 0.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -476,8 +429,7 @@
         "path": "marker.x",
         "dangerous": false,
         "value": 1000000000.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -486,11 +438,9 @@
         "max": 30.0,
         "default": -130.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -502,8 +452,7 @@
         "path": "marker.threshold",
         "dangerous": false,
         "value": -130.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "float",
@@ -512,11 +461,9 @@
         "max": 100.0,
         "default": 6.0,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -528,8 +475,7 @@
         "path": "marker.excursion",
         "dangerous": false,
         "value": 6.0,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "enum",
@@ -538,14 +484,12 @@
         "max": null,
         "default": "INTernal",
         "rst": null,
-        "keep_on_reset": false,
         "options": [
           "INTernal",
           "EXTernal"
         ],
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": {
@@ -560,8 +504,7 @@
         "path": "rosc.source",
         "dangerous": false,
         "value": "INTernal",
-        "channel": null,
-        "fidelity": null
+        "channel": null
       },
       {
         "type": "bool",
@@ -570,11 +513,9 @@
         "max": null,
         "default": true,
         "rst": null,
-        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
-        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -586,15 +527,13 @@
         "path": "init.continuous",
         "dangerous": false,
         "value": true,
-        "channel": null,
-        "fidelity": null
+        "channel": null
       }
     ],
     "errors": [],
     "dut": false,
     "deviation": "nominal",
     "deviations": [],
-    "options": [],
     "remote": [],
     "local": false
   },
@@ -1357,12 +1296,6 @@
             "value": 0.0,
             "binding": null,
             "unit": "dB"
-          },
-          {
-            "name": "preamp_in_mixer_level",
-            "value": false,
-            "binding": null,
-            "unit": null
           },
           {
             "name": "preamp_noise_figure",
