@@ -7,19 +7,19 @@ version: 1
 description: >-
   Keysight Infiniium UXR1104B, 4 channels, 110 GHz, 256 GSa/s, 10-bit ADC, 1 mm 50 ohm inputs. Real
   model (D42): the same command set as the UXR0334B (Infiniium UXR-Series Oscilloscopes Programmer's
-  Guide 11.60.00000, 9018-07723); ranges, noise and accuracies follow the 1 mm input columns of the
+  Guide 11.80.00012, 9018-07723); ranges, noise and accuracies follow the 1 mm input columns of the
   UXR-B data sheet 3123-1313 (#1092). Values neither document gives are SimuBench defaults, listed
   in the coverage table.
 reference:
   title: Keysight Infiniium UXR-Series Oscilloscopes Programmer's Guide
   document: 9018-07723
-  version: "Version 11.60.00000, March 2024"
-  firmware: "Infiniium UXR-Series software 11.60"
+  version: "Version 11.80.00012, September 2026"
+  firmware: "Infiniium UXR-Series software 11.80"
 identity:
   # *IDN? per the guide: Keysight Technologies,<Model #>,<USXXXXXXXX>,<Rev #>[,<Options>].
   idn: "Keysight Technologies,UXR1104B,{serial},{firmware}"
   serial: MY64310101
-  firmware: "11.60.00000"
+  firmware: "11.80.00012"
 # :SYSTem:ERRor? is the model's own command (a number, or with STRing the number and the text).
 builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
 # The guide: the error queue is 30 errors deep.
@@ -124,21 +124,65 @@ state:
     default: CENTer
     label: 时间参考
     label_en: Reference
+  # 参考位置的百分比（:TIMebase:REFerence:PERCent，#1067）：0-100%。LEFT/CENTer/RIGHt 即 10/50/90；
+  # 参考被设为百分比位置时 :TIMebase:REFerence? 回 PERC（手册）。
+  timebase.reference_percent:
+    type: int
+    min: 0
+    max: 100
+    default: 50
+    rst: 50
+    label: 时间参考百分比
+    label_en: Reference percent
+  # 缩放拉窗（:TIMebase:VIEW 与 :WINDow:*，#1067）：延迟视图的档位与位置；记录不变（主时基的样点
+  # 全在），视图是显示状态。手册未给上电默认：档位取主时基默认、位置 0 为 SimuBench 值。
+  timebase.view:
+    type: enum
+    options: [MAIN, WINDow]
+    default: MAIN
+    label: 时基视图
+    label_en: Time base view
+  timebase.window_scale:
+    type: float
+    unit: S
+    min: 1.0e-12
+    max: 20.0
+    default: 1.0e-7
+    label: 缩放时基档位
+    label_en: Zoom time/div
+  timebase.window_position:
+    type: float
+    unit: S
+    min: -200.0
+    max: 200.0
+    default: 0.0
+    label: 缩放时基位置
+    label_en: Zoom position
+  # 外参考（:TIMebase:REFClock，#1067）：ON 时采样时钟跟随 REF_IN 上的 10 MHz（组件的 rosc 机制：
+  # 频率在 ±10 ppm 内才接管，REF_IN 无输入时保持内参考——本台未接参考源）。
+  timebase.refclock:
+    type: bool
+    default: false
+    label: 外参考时钟
+    label_en: Reference clock
+  # 滚动模式（:TIMebase:ROLL:ENABLE，手册 p.1474）：UXR 上唯一有效的设定是 OFF，查询回 0。
+  timebase.roll_enable:
+    type: enum
+    options: ["OFF", "0"]
+    default: "OFF"
+    label: 滚动模式
+    label_en: Roll mode
   trigger.mode:
     type: enum
-    options: [EDGE]
+    options: [EDGE, RUNT, TRANsition, TIMeout, WINDow, NEDGe]
     default: EDGE
     not_modeled:
       GLITch: glitch trigger is not modeled
       PWIDth: pulse width trigger is not modeled
       PATTern: pattern trigger is not modeled
       STATe: state trigger is not modeled
-      RUNT: runt trigger is not modeled
       SHOLd: setup and hold trigger is not modeled
-      TRANsition: transition trigger is not modeled
       DELay: delay trigger is not modeled
-      TIMeout: timeout trigger is not modeled
-      WINDow: window trigger is not modeled
       OR: ORed edges trigger is not modeled
       EBURst: burst trigger is not modeled
       SEQuence: sequence trigger is not modeled
@@ -172,6 +216,162 @@ state:
     default: POSitive
     label: 触发沿
     label_en: Trigger slope
+  # ---- 高级触发族（手册 pp.1533–1590，#1184）：欠幅、过渡、窗口、超时与第 N 边沿。各族
+  # 记自己的信源（与 EDGE 的主信源并存，默认 CH1）；[{1 | 2}] 后缀的第二项（序列触发的
+  # TERM2）未建模，后缀 2 报 -114。
+  trigger.runt_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 欠幅触发源
+    label_en: Runt trigger source
+  trigger.runt_polarity:
+    type: enum
+    options: [POSitive, NEGative]
+    default: POSitive
+    label: 欠幅极性
+    label_en: Runt polarity
+  trigger.runt_qualified:
+    type: bool
+    default: false
+    label: 欠幅时间限定
+    label_en: Runt time qualified
+  # 时间限定 250 ps 到 30 ns（手册 p.1553）。
+  trigger.runt_time:
+    type: float
+    unit: s
+    min: 250.0e-12
+    max: 30.0e-9
+    default: 250.0e-12
+    label: 欠幅宽度下限
+    label_en: Runt width qualifier
+  trigger.transition_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 过渡触发源
+    label_en: Transition trigger source
+  trigger.transition_type:
+    type: enum
+    options: [RISetime, FALLtime]
+    default: RISetime
+    label: 过渡类型
+    label_en: Transition type
+  trigger.transition_mode:
+    type: enum
+    options: [GTHan, LTHan, RANGe, ORANge]
+    default: GTHan
+    label: 过渡限定
+    label_en: Transition qualifier
+  trigger.transition_time:
+    type: float
+    unit: s
+    min: 0.0
+    default: 1.0e-9
+    label: 过渡时间限定
+    label_en: Transition time bound
+  trigger.transition_range_low:
+    type: float
+    unit: s
+    min: 0.0
+    default: 10.0e-9
+    label: 过渡时间范围下限
+    label_en: Transition range minimum
+  trigger.transition_range_high:
+    type: float
+    unit: s
+    min: 0.0
+    default: 20.0e-9
+    label: 过渡时间范围上限
+    label_en: Transition range maximum
+  trigger.window_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 窗口触发源
+    label_en: Window trigger source
+  trigger.window_condition:
+    type: enum
+    options: [ENTer, EXIT, INSide, OUTSide]
+    default: ENTer
+    label: 窗口条件
+    label_en: Window condition
+  # 时长限定属于 INSIDE/OUTSIDE（手册 p.1587）。
+  trigger.window_qualifier:
+    type: enum
+    options: [GTHan, LTHan]
+    default: GTHan
+    label: 窗口时长限定
+    label_en: Window duration qualifier
+  trigger.window_time:
+    type: float
+    unit: s
+    min: 0.0
+    default: 1.0e-6
+    label: 窗口时长
+    label_en: Window time
+  trigger.window_tpoint:
+    type: enum
+    options: [BOUNdary, TIMeout]
+    default: BOUNdary
+    label: 窗口触发点
+    label_en: Window trigger point
+  trigger.timeout_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 超时触发源
+    label_en: Timeout trigger source
+  trigger.timeout_condition:
+    type: enum
+    options: [HIGH, LOW, UNCHanged]
+    default: UNCHanged
+    label: 超时条件
+    label_en: Timeout condition
+  trigger.timeout_time:
+    type: float
+    unit: s
+    min: 0.0
+    default: 1.0e-3
+    label: 超时时间
+    label_en: Timeout time
+  trigger.nedge_source:
+    type: enum
+    options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+    default: CHANnel1
+    label: 第N边沿触发源
+    label_en: Nth edge trigger source
+  trigger.nedge_slope:
+    type: enum
+    options: [POSitive, NEGative]
+    default: POSitive
+    label: 第N边沿斜率
+    label_en: Nth edge slope
+  trigger.nedge_count:
+    type: int
+    min: 1
+    max: 65000000000
+    default: 1
+    label: 边沿计数
+    label_en: Edge count
+  # 每个信源一对高/低阈值（手册 :TRIGger:HTHReshold p.1495、:TRIGger:LTHReshold p.1499），
+  # 欠幅、过渡与窗口三族共用；高阈值允许 AUX，低阈值仅通道。默认 ±0.5 V。
+  trigger.hth1: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH1, label_en: High threshold CH1}
+  trigger.hth2: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH2, label_en: High threshold CH2}
+  trigger.hth3: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH3, label_en: High threshold CH3}
+  trigger.hth4: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 CH4, label_en: High threshold CH4}
+  trigger.hth5: {type: float, unit: V, min: -5.0, max: 5.0, default: 0.5, label: 高阈值 AUX, label_en: High threshold AUX}
+  trigger.lth1: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH1, label_en: Low threshold CH1}
+  trigger.lth2: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH2, label_en: Low threshold CH2}
+  trigger.lth3: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH3, label_en: Low threshold CH3}
+  trigger.lth4: {type: float, unit: V, min: -5.0, max: 5.0, default: -0.5, label: 低阈值 CH4, label_en: Low threshold CH4}
+  # 触发迟滞选择（手册 p.1496）：NREJect 噪声抑制最宽、HSENsitivity 最窄（≥4 GHz 用）。
+  trigger.hysteresis:
+    type: enum
+    options: [NORMal, NREJect, HSENsitivity]
+    default: NORMal
+    label: 触发迟滞
+    label_en: Trigger hysteresis
   # 手册：释抑 100 ns 到 10 s（数据手册写 40 ns 起，按编程手册）。
   trigger.holdoff:
     type: float
@@ -183,12 +383,11 @@ state:
     label_en: Holdoff
   acquire.mode:
     type: enum
-    options: [RTIMe]
+    options: [RTIMe, SEGMented]
     default: RTIMe
     not_modeled:
       PDETect: real-time peak detect is not modeled
       HRESolution: real-time high resolution is not modeled
-      SEGMented: segmented memory is not modeled
       SEGPdetect: segmented memory is not modeled
       SEGHres: segmented memory is not modeled
     label: 采集模式
@@ -253,6 +452,73 @@ state:
     default: FLATmag
     label: 带宽滤波响应
     label_en: Filter response
+  # 快速绘图（:ACQuire:FPLot，#1068）：分析随采集异步进行的调度开关。模型的分析始终在读的当下对
+  # 当前记录做，开关不改变任何回复的数值（覆盖表注明）。手册未给上电默认，ON 为 SimuBench 值。
+  acquire.fplot: {type: bool, default: true, label: 快速绘图, label_en: Fast plot}
+  # 函数平均等待（:ACQuire:COMPlete:STATe，#1067）：测量前等函数平均完成。模型的测量总在读的当下
+  # 对已完成平均的记录算，开关不改变数值。手册未给上电默认，ON 为 SimuBench 值。
+  acquire.complete_state: {type: bool, default: true, label: 等待函数平均, label_en: Wait for average}
+  # 高分辨率位数（:ACQuire:HRESolution，#1067）：HRESolution/SEGHres 模式下的最小位分辨率；该两种
+  # 采集模式未建模，设定存值不影响数据。
+  acquire.hres:
+    type: enum
+    options: [AUTO, BITS11, BITS12]
+    default: AUTO
+    label: 高分辨率位数
+    label_en: HRES bits
+  # 实时边沿扩展（:ACQuire:REDGe，手册 p.341）：UXR 上唯一有效的设定是 OFF，查询回 0。
+  acquire.redge:
+    type: enum
+    options: ["OFF", "0"]
+    default: "OFF"
+    label: 实时边沿扩展
+    label_en: Realtime edge
+  # 分段存储（:ACQuire:MODE SEGMented，#1066）：一次采集连续取 COUNt 段（每段一整条记录），各等一次
+  # 触发。段数上限 20,825 取数据手册 Max # of segments 的高带宽触发使能列（UXR1104B 的 256 GSa/s
+  # 列；0334B 的 128 GSa/s 列为 25,680；禁用列 134,885，该触发选项未建模）；段数 × 记录深超出内存
+  # 由采集报 -221。手册未给 *RST 后的段数：2 为 SimuBench 值。
+  acquire.segmented_count:
+    type: int
+    min: 2
+    max: 20825
+    default: 2
+    label: 分段数
+    label_en: Segments
+  # 所选段（:ACQuire:SEGMented:INDex）：波形传输与测量读它；手册 p.345：越界报错并钳到最大段号。
+  acquire.segmented_index:
+    type: int
+    min: 1
+    max: 20825
+    default: 1
+    label: 所选段
+    label_en: Segment index
+  # 时间标签（:ACQuire:SEGMented:TTAGs）：手册未给上电默认，OFF 为 SimuBench 值。
+  acquire.segmented_ttags:
+    type: bool
+    default: false
+    label: 分段时间标签
+    label_en: Segment time tags
+  # 段回放（:ACQuire:SEGMented:AUToplay / :PLAY）：采集后自动逐段回放 / 播放或停止。模型的回放是
+  # 瞬时的：查询回保存的状态，不是进行中的回放（覆盖表注明）。
+  acquire.segmented_autoplay:
+    type: bool
+    default: false
+    label: 分段自动回放
+    label_en: Segment autoplay
+  acquire.segmented_play:
+    type: bool
+    default: false
+    label: 分段回放
+    label_en: Segment play
+  # 回放速率（:ACQuire:SEGMented:PRATe，每段 0.001–1 s）。手册未给上电默认，0.1 为 SimuBench 值。
+  acquire.segmented_prate:
+    type: float
+    unit: S
+    min: 0.001
+    max: 1.0
+    default: 0.1
+    label: 分段回放速率
+    label_en: Segment play rate
   waveform.source:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16]
@@ -280,6 +546,25 @@ state:
     default: false
     label: 流式传输
     label_en: Streaming
+  # 分段一并传输（:WAVeform:SEGMented:ALL，#1066）：ON 时 :WAVeform:DATA? 回全部段的拼接，前导末尾
+  # 多一段数；OFF 时只回所选段。上电与 *RST 为 OFF（手册）。
+  waveform.seg_all:
+    type: bool
+    default: false
+    label: 分段一并传输
+    label_en: Transfer all segments
+  # 传输视图（:WAVeform:VIEW，#1066）：数据与前导读哪一视图。记录恒覆盖主时基（存储深度与时基联动，
+  # 手册 :ACQuire:SRATe/POINts 的交互表），ALL 与 MAIN 取同一数据；WINDow 是缩放拉窗视图（等缩放窗口
+  # 接入），CGRade 不做（C17）。
+  waveform.view:
+    type: enum
+    options: [ALL, MAIN]
+    default: ALL
+    not_modeled:
+      WINDow: the zoom (delayed) view waits for the zoom window
+      CGRade: color grade is out of scope (C17)
+    label: 波形视图
+    label_en: Waveform view
   measure.source:
     type: enum
     options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
@@ -293,6 +578,7 @@ state:
     label: 测量信源 2
     label_en: Measure source 2
   # 界面与身份：前面板锁定、隐藏指示灯、屏幕文字、标签显示与网格亮度都不改变数据。
+  status.psc: {type: bool, default: true, label: 上电清状态, label_en: Power-on status clear}
   system.lock: {type: bool, default: false, label: 前面板锁定, label_en: Front panel lock}
   system.hled: {type: bool, default: false, label: 隐藏指示灯, label_en: Hide LEDs}
   system.dsp: {type: string, default: "", label: 屏幕文字, label_en: Display text}
@@ -308,6 +594,80 @@ state:
   calibrate.output_cal: {type: bool, default: false, electrical: true, label: CAL 输出使能, label_en: Cal out enable}
   display.label: {type: bool, default: false, label: 显示标签, label_en: Labels}
   display.intensity: {type: int, min: 0, max: 100, default: 50, label: 网格亮度, label_en: Grid intensity}
+  # ---- 仅影响显示的设置（#1068，手册第 14/21/37 章）：解析并保存，查询回读，不改变任何采集、
+  # 测量、传输与回复的数值（覆盖表逐条注明）。手册未给上电默认值的为 SimuBench 值。带可选
+  # <source>/<area> 的写法模型不区分来源，全局存一个值。
+  system.beep_frequency: {type: float, unit: HZ, default: 1000.0, label: 蜂鸣频率, label_en: Beep frequency}
+  system.beep_duration: {type: float, unit: MS, default: 500.0, label: 蜂鸣时长, label_en: Beep duration}
+  display.main: {type: bool, default: true, label: 主窗口显示, label_en: Main view}
+  display.connect: {type: bool, default: false, label: 连点显示, label_en: Connect the dots}
+  display.graticule:
+    type: enum
+    options: [GRID, FRAMe]
+    default: GRID
+    label: 网格类型
+    label_en: Graticule
+  display.area_hscale: {type: bool, default: true, label: 区域水平刻度, label_en: Area horizontal scale}
+  display.area_state: {type: bool, default: true, label: 区域显示, label_en: Area state}
+  display.area_vscale:
+    type: enum
+    options: ["OFF", AUTO, MANual]
+    default: AUTO
+    label: 区域垂直刻度
+    label_en: Area vertical scale
+  display.graticule_glayout:
+    type: enum
+    options: [SVERtical, SHORizontal, TVERtical, THORizontal]
+    default: SVERtical
+    label: 网格布局
+    label_en: Grid layout
+  display.graticule_number: {type: int, min: 1, max: 16, default: 1, label: 网格数, label_en: Grids}
+  display.setgrat_chan: {type: string, default: "", label: 网格波形, label_en: Grid waveform}
+  display.setgrat_grid: {type: int, min: 1, max: 16, default: 1, label: 网格编号, label_en: Grid number}
+  display.setgrat_area: {type: int, min: 1, max: 8, default: 1, label: 波形区, label_en: Waveform area}
+  display.setgrat_view:
+    type: enum
+    options: [MAIN, CGRade]
+    default: MAIN
+    label: 网格视图
+    label_en: Grid view
+  display.layout:
+    type: enum
+    options: [TAB, CUSTom, SVERtical, SHORizontal]
+    default: TAB
+    label: 窗口布局
+    label_en: Window layout
+  display.persistence:
+    type: enum
+    options: [MINimum, INFinite]
+    default: MINimum
+    label: 余辉
+    label_en: Persistence
+  display.proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 面板占比, label_en: Pane proportion}
+  display.results_proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 结果面板占比, label_en: Results proportion}
+  display.results_layout:
+    type: enum
+    options: [TAB, CUSTom, SHORizontal]
+    default: TAB
+    label: 结果面板布局
+    label_en: Results layout
+  display.scolor_hue: {type: int, min: 0, max: 100, default: 50, label: 颜色色调, label_en: Color hue}
+  display.scolor_saturation: {type: int, min: 0, max: 100, default: 100, label: 颜色饱和度, label_en: Color saturation}
+  display.scolor_luminosity: {type: int, min: 0, max: 100, default: 100, label: 颜色亮度, label_en: Color luminosity}
+  display.status_column: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签列, label_en: Status column}
+  display.status_row: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签行, label_en: Status row}
+  display.theme:
+    type: enum
+    options: [Midnight, Platinum]
+    default: Platinum
+    label: 界面主题
+    label_en: UI theme
+  display.window_maximize: {type: string, default: "", label: 最大化窗口, label_en: Maximized window}
+  display.bookmark_label: {type: string, default: "", label: 书签标签, label_en: Bookmark label}
+  display.bookmark_x: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签横位置, label_en: Bookmark x}
+  display.bookmark_y: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签纵位置, label_en: Bookmark y}
+  # 显示 ADC 削波提示（:DISPlay:CLIPped，手册 p.596）：不影响削波检测本身（手册原文），纯显示偏好。
+  display.clipped: {type: bool, default: true, label: 显示削波提示, label_en: Show ADC clipping}
   # ---- 数学函数（#1074，手册第 22 章）：FUNCtion1-16 的定义存放在 function<f>.* 设置里，
   # 波形在读的时候从源记录算出（scope_math）。手册未给默认值的条目为 SimuBench 值，覆盖表注明。
   function.peak_sort:
@@ -896,6 +1256,67 @@ channel_state:
     default: false
     label: 显示
     label_en: Display
+  # 反相（:CHANnel<N>:INVert，#1067）：波形绕 0 V 反射——记录样点取负，测量随读数翻转（用例证明）。
+  invert:
+    type: bool
+    default: false
+    label: 反相
+    label_en: Invert
+  # 通道垂直单位（:CHANnel<N>:UNITs，#1067）：VOLT/AMPere/WATT/UNKNown；单位的换算显示未建模，
+  # :WAVeform:YUNits? 随之回答（覆盖表注明）。
+  units:
+    type: enum
+    options: [VOLT, AMPere, WATT, UNKNown]
+    default: VOLT
+    label: 垂直单位
+    label_en: Vertical units
+  # 探头衰减（:CHANnel<N>:PROBe:ATTenuation DIV1|DIV10，#1067）：显示假设的探头衰减比（DIV1=1、
+  # DIV10=10），读数随之改变（用例证明）。手册限定 1154A 探头（未接报 settings conflict）；
+  # 模型按通用探头建模，无探头识别（覆盖表注明）。
+  probe:
+    type: float
+    min: 1.0e-9
+    max: 1.0e9
+    default: 1.0
+    label: 探头衰减比
+    label_en: Probe attenuation
+  # 探头通道间偏斜（:CHANnel<N>:PROBe:SKEW，#1067）：该通道记录滞后这么多秒（采样提前），读数的
+  # 时间原点随之移动（用例证明）。
+  probe_skew:
+    type: float
+    unit: S
+    min: -1.0e-3
+    max: 1.0e-3
+    default: 0.0
+    label: 探头偏斜
+    label_en: Probe skew
+  # 1154A 探头的放大器增益与探头耦合（#1067）：探头硬件未建模，设定存值（覆盖表注明）。
+  probe_gain:
+    type: enum
+    options: [X1, X10]
+    default: X1
+    label: 探头增益
+    label_en: Probe gain
+  probe_coupling:
+    type: enum
+    options: [DC, AC]
+    default: DC
+    label: 探头耦合
+    label_en: Probe coupling
+  # 外部探头模式及其增益/偏置/单位（#1067）：外部信号调理未建模，设定存值（覆盖表注明）。
+  probe_external:
+    type: bool
+    default: false
+    label: 外部探头
+    label_en: External probe
+  probe_ext_gain: {type: float, default: 1.0, label: 外部探头增益, label_en: External gain}
+  probe_ext_offset: {type: float, unit: V, default: 0.0, label: 外部探头偏置, label_en: External offset}
+  probe_ext_units:
+    type: enum
+    options: [VOLT, AMPere, WATT, UNKNown]
+    default: VOLT
+    label: 外部探头单位
+    label_en: External units
   # 1 mV/div 到 500 mV/div（1 mm 输入型号的显示灵敏度，数据手册 p.5）；默认设置取最大档 500 mV/div
   # （UXR0334B 的默认设置为其最大档 1 V/div，同理；SimuBench 值，覆盖表注明）。
   scale:
@@ -1055,15 +1476,23 @@ components:
       processing: {from: $acquire.average, map: {"True": average}, default: normal}
       averages: $acquire.count
       trigger_jitter_s: 2.5e-14  # specs.trigger_jitter_s_rms: the data sheet's 25 fs intrinsic jitter (#745)
+      # 分段存储（#1066）：MODE SEGMented 时一次采集连续取 COUNt 段（每段一整条记录），全部采满才
+      # 完成；INDex 选的段供波形传输与测量。最小触发间隔 3.5 µs（数据手册 Min time between triggers，
+      # 高带宽触发禁用列；使能列 5.0 µs，该触发选项未建模）。
+      segmented: {from: $acquire.mode, map: {SEGMented: true}, default: false}
+      segments: $acquire.segmented_count
+      segment_index: $acquire.segmented_index
+      rearm_s: 3.5e-6
+      memory_points: 2000000000  # 装了 2 Gpts 选件（#1092），acquire.points 的上限同源
   # 时基：采样率为 256 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
   # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 2 Gpts）。参考位置 LEFT / CENTer / RIGHt
-  # 取屏幕 10% / 50% / 90%。
+  # 取屏幕 10% / 50% / 90%（:TIMebase:REFerence:PERCent 亦可设百分比，#1067）。
   - name: timebase
     type: scope_timebase
     params:
       scale: $timebase.scale
       delay: $timebase.position
-      reference_divs: {from: $timebase.reference, map: {LEFT: 1.0, CENTer: 5.0, RIGHt: 9.0}}
+      reference_percent: $timebase.reference_percent
       record_length: rate_pow2
       points: $acquire.points
       sample_rate: $acquire.srate
@@ -1083,10 +1512,45 @@ components:
       slope: $trigger.slope
       rising: [POSitive, EITHer, ALTernate]
       falling: [NEGative, EITHer, ALTernate]
+      mode: $trigger.mode
       level_range_divs: 4.0
       hysteresis_divs: 0.5
       holdoff: $trigger.holdoff
       external: [AUXiliary]
+      # ---- 高级触发族（#1184）：每族自己的信源与参数；欠幅/过渡/窗口用每源阈值对 ----
+      high_by_source:
+        CHANnel1: trigger.hth1
+        CHANnel2: trigger.hth2
+        CHANnel3: trigger.hth3
+        CHANnel4: trigger.hth4
+        AUXiliary: trigger.hth5
+      low_by_source:
+        CHANnel1: trigger.lth1
+        CHANnel2: trigger.lth2
+        CHANnel3: trigger.lth3
+        CHANnel4: trigger.lth4
+      hysteresis_setting: $trigger.hysteresis
+      runt_source: $trigger.runt_source
+      runt_polarity: $trigger.runt_polarity
+      runt_qualified: $trigger.runt_qualified
+      runt_time: $trigger.runt_time
+      transition_source: $trigger.transition_source
+      transition_type: $trigger.transition_type
+      transition_mode: $trigger.transition_mode
+      transition_time: $trigger.transition_time
+      transition_range_low: $trigger.transition_range_low
+      transition_range_high: $trigger.transition_range_high
+      window_source: $trigger.window_source
+      window_condition: $trigger.window_condition
+      window_qualifier: $trigger.window_qualifier
+      window_time: $trigger.window_time
+      window_tpoint: $trigger.window_tpoint
+      timeout_source: $trigger.timeout_source
+      timeout_condition: $trigger.timeout_condition
+      timeout_time: $trigger.timeout_time
+      nedge_source: $trigger.nedge_source
+      nedge_slope: $trigger.nedge_slope
+      nedge_count: $trigger.nedge_count
   # ADC：10 位；1024 个码对应屏幕 8 格（数据手册：10 位分辨率 = 满量程的 0.1%，满量程 8 格）。
   - name: adc
     type: scope_adc
@@ -1152,6 +1616,10 @@ components:
       source: $waveform.source
       # FUNCtion<F> 信源从 math 块取记录（#1074）。
       math: math
+      # :WAVeform:SEGMented:ALL（#1066）：ON 时 DATA? 回全部段拼接的记录（start/size 仍在拼接记录上取）。
+      seg_all: $waveform.seg_all
+      # :WAVeform:COUPling?（#1066）：本型号输入恒为直流 50 Ω（数据手册），查询恒回 DC（手册 p.1600）。
+      coupling: "DC"
       # :WAVeform:DATA?：BYTE 为有符号 8 位、WORD 为有符号 16 位（10 位码左移 6 位），定长块；ASCii 为
       # 逗号分隔的伏特数，不带块头（手册）。
       encoding: {from: $waveform.format, map: {ASCii: text}, default: block}
@@ -1197,6 +1665,9 @@ components:
           - {value: 1}
           - {setting: acquire.bandwidth, format: "%.6E"}
           - {value: "0.000000E+00"}
+          # 末尾的 <segment count>（手册表 19）：仅当 SEGMented:ALL ON 且信源通道确有分段采集时出现
+          # （transfer 对不适用状态回 None，此处跳过）。
+          - {figure: segments}
 channel_components:
   # 50 Ω 直流耦合输入（数据手册）。
   - name: inp
@@ -1209,6 +1680,7 @@ channel_components:
     type: scope_vertical
     params:
       coupling: DC
+      invert: $ch.invert
       bandwidth: 1.13e11
       bw_limit: true
       bw_limit_hz: $acquire.bandwidth
@@ -1240,7 +1712,8 @@ channel_components:
   - name: probe
     type: scope_probe
     params:
-      ratio: 1.0
+      ratio: $ch.probe
+      skew: $ch.probe_skew
 wiring:
   channel:
     - [inp.out, front.in]
@@ -1279,6 +1752,13 @@ commands:
   - {header: ":OPERegister", op: oper.event, set: false}
   - {header: ":RUN", op: acq.run, query: false}
   - {header: ":STOP", op: acq.stop, query: false}
+  # 清屏（手册 p.293）：显示与关联测量清空——已存的记录全部作废（停止状态下一屏空白，运行状态
+  # 下次采集重填）；波形存储器不清（手册）。
+  - {header: ":CDISplay", op: acq.clear_display, query: false}
+  # 选件列表（手册 p.259）：装了 2 Gpts 内存选件（#1092），按手册表 10 的选件码回答（无其他选件）。
+  - {header: "*OPT", set: false, op: sys.accept, reply: "02G"}
+  # 上电清状态（手册 p.269）：PON 位是否置位由它决定；跨上电行为不在仿真中体现，存取即可。
+  - {header: "*PSC", state: status.psc}
   # 手册 :SINGle：下一次触发采一次，不改 :TRIGger:SWEep。
   - {header: ":SINGle", op: acq.digitize, query: false}
   - header: ":DIGitize"
@@ -1287,6 +1767,8 @@ commands:
     params: [{name: sources, type: raw}]
   - {header: ":SERial", state: system.serial, set: false}
   - {header: ":MODel", state: system.model, set: false}
+  # 蜂鸣（手册 p.291）：频率 Hz、时长 ms；仿真无声，解析并保存两参数（#1068）。
+  - {header: ":BEEP", op: sys.accept, query: false, params: [{name: frequency, type: float, unit: HZ, state: system.beep_frequency}, {name: duration, type: float, unit: MS, state: system.beep_duration}]}
   - header: ":VIEW"
     params:
       - name: source
@@ -1331,10 +1813,52 @@ commands:
     params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
   - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
   - {header: ":ACQuire:RESPonse", state: acquire.response}
+  # 最大带宽（手册 p.323）：模型硬件带宽 113 GHz（specs.bandwidth_hz），查询回它。
+  - {header: ":ACQuire:BANDwidth:FRAMe", op: sys.accept, set: false, reply: "1.130000E+11"}
+  - {header: ":ACQuire:COMPlete:STATe", state: acquire.complete_state}
+  - {header: ":ACQuire:HRESolution", state: acquire.hres, format: {enum: as_defined}}
+  - {header: ":ACQuire:REDGe", state: acquire.redge, reply: "0"}
+  # 存储深度/采样率的 AUTO 控制（手册 pp.339/352）：查询回是否在 AUTO 值上；OFF 把当前值定为手动。
+  - {header: ":ACQuire:POINts:AUTO", op: acq.points_auto, params: [{name: "on", type: bool, optional: true}]}
+  - {header: ":ACQuire:SRATe[:ANALog]:AUTO", op: acq.srate_auto, params: [{name: "on", type: bool, optional: true}]}
+  # 声明的限值（手册 pp.324/340/352，#1067）：设置为定义声明的范围
+  - {header: ":ACQuire:BANDwidth:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.bandwidth}}
+  - {header: ":ACQuire:POINts:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.points}}
+  - {header: ":ACQuire:SRATe:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.srate}}
+  # 削波状态（#1067）：ADC 的削波检测锁存每通道的低/高削波，读后清零（手册 p.484），CLEar 全清（p.319）。
+  - {header: ":ACQuire:ADC:CLIPped:CLEar", op: acq.clear_clip, query: false}
+  # ---- 分段存储（:ACQuire:SEGMented，手册第 15 章，#1066）---------------------------------------------
+  - {header: ":ACQuire:SEGMented:AUToplay", state: acquire.segmented_autoplay}
+  - {header: ":ACQuire:SEGMented:COUNt", state: acquire.segmented_count}
+  # INDex（手册 p.345）：超出已采段数报 -222，并把所选段钳到最大段号。
+  - {header: ":ACQuire:SEGMented:INDex", op: acq.set_segment_index, params: [{name: index, type: int, min: 1, optional: true}]}
+  - {header: ":ACQuire:SEGMented:PLAY", state: acquire.segmented_play}
+  - {header: ":ACQuire:SEGMented:PRATe", state: acquire.segmented_prate}
+  - {header: ":ACQuire:SEGMented:TTAGs", state: acquire.segmented_ttags}
   # ---- CHANnel<N> ----
   - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
   - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0}
   - {header: ":CHANnel<ch>:OFFSet", state: ch.offset}
+  # 反相（手册 p.498）：波形绕 0 V 反射，测量随读数翻转（用例证明）。
+  - {header: ":CHANnel<ch>:INVert", state: ch.invert}
+  # 垂直单位（手册 p.531）：单位的换算显示未建模；:WAVeform:YUNits? 随之回答。
+  - {header: ":CHANnel<ch>:UNITs", state: ch.units}
+  # 探头缩放（手册 pp.518-530，#1067）：DIV1/DIV10 写通道的探头衰减比（读数随之改变，用例证明）；
+  # SKEW 把该通道的记录推迟这么多秒（时间原点随之移动，用例证明）。其余为 1154A/外部探头的
+  # 设定存值（探头硬件未建模，覆盖表注明）。
+  - {header: ":CHANnel<ch>:PROBe:ATTenuation", op: ch.probe.set_attenuation, params: [{name: word, type: string, optional: true}], args: {words: {DIV1: 1.0, DIV10: 10.0}}}
+  - {header: ":CHANnel<ch>:PROBe:COUPling", state: ch.probe_coupling}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal", state: ch.probe_external}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:GAIN", state: ch.probe_ext_gain}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:OFFSet", state: ch.probe_ext_offset}
+  - {header: ":CHANnel<ch>:PROBe:EXTernal:UNITs", state: ch.probe_ext_units, format: {enum: as_defined}}
+  - {header: ":CHANnel<ch>:PROBe:GAIN", state: ch.probe_gain}
+  - {header: ":CHANnel<ch>:PROBe:SKEW", state: ch.probe_skew}
+  - {header: ":CHANnel<ch>:PROBe:SKEW:AUTO", op: ch.probe.skew_auto, query: false}
+  # 过载事件寄存器（手册 p.301）：过载检测未建模，恒回 0。
+  - {header: ":OVLRegister", op: sys.accept, set: false, reply: "0"}
+  - {header: ":CHANnel<ch>:ADC:CLIPped", op: acq.adc_clip_status, set: false}
+  - {header: ":CHANnel<ch>:CLIPped", op: acq.clipped_status, set: false}
   - {header: ":CHANnel<ch>:INPut", state: ch.input}
   - {header: ":CHANnel<ch>:DISPlay", state: ch.display}
   - {header: ":CHANnel<ch>:LABel", state: ch.label}
@@ -1348,6 +1872,43 @@ commands:
   - {header: ":CALibrate:OUTPut:CAL", state: calibrate.output_cal}
   - {header: ":DISPlay:LABel", state: display.label}
   - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}
+  # ---- 仅影响显示的设置（手册第 21 章，#1068）：解析并保存，查询回读；带可选 <source> 的写法
+  # 模型不区分来源，全局存一个值（覆盖表注明）。 ----
+  - {header: ":DISPlay:MAIN", state: display.main}
+  - {header: ":DISPlay:CONNect", state: display.connect}
+  - {header: ":DISPlay:GRATicule", state: display.graticule}
+  - {header: ":DISPlay:GRATicule:AREA<n>:HSCale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_hscale}
+  - {header: ":DISPlay:GRATicule:AREA<n>:STATe", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_state}
+  - {header: ":DISPlay:GRATicule:AREA<n>:VSCale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_vscale}
+  - {header: ":DISPlay:GRATicule:GLAYout", state: display.graticule_glayout}
+  - {header: ":DISPlay:GRATicule:NUMBer", state: display.graticule_number}
+  # 把波形指派到网格（手册 p.606）：<波形>,<网格>[,<区>][,MAIN|CGRade]，四个参数分开存。
+  - {header: ":DISPlay:GRATicule:SETGrat", op: sys.accept, query: false, params: [{name: chan, type: string, state: display.setgrat_chan}, {name: grid, type: int, min: 1, max: 16, state: display.setgrat_grid}, {name: area, type: int, min: 1, max: 8, optional: true, state: display.setgrat_area}, {name: view, type: string, optional: true, state: display.setgrat_view}]}
+  - {header: ":DISPlay:LAYout", state: display.layout}
+  # 余辉（手册 p.623）：MINimum / INFinite；<time> 的可变余辉未建模（数值参数会被枚举拒绝）。
+  - {header: ":DISPlay:PERSistence", state: display.persistence}
+  # 面板占比（手册 p.624/625）：<面板>,<0-100>；两查询都已弃用（手册 History），只写不查。
+  - {header: ":DISPlay:PROPortion", op: sys.accept, query: false, params: [{name: pane, type: string}, {name: proportion, type: float, min: 0.0, max: 100.0, state: display.proportion}]}
+  - {header: ":DISPlay:PROPortion:RESults", state: display.results_proportion, query: false}
+  - {header: ":DISPlay:RESults:LAYout", state: display.results_layout}
+  # 颜色（手册 p.630）：<色名>,<色调>,<饱和度>,<亮度>，三个数值分开存；查询带 <色名> 回三值
+  # （模型存一个全局颜色，不分元素）。
+  - {header: ":DISPlay:SCOLor", op: sys.accept, reply: "{display.scolor_hue},{display.scolor_saturation},{display.scolor_luminosity}", params: [{name: name, type: string}, {name: hue, type: int, min: 0, max: 100, optional: true, state: display.scolor_hue}, {name: saturation, type: int, min: 0, max: 100, optional: true, state: display.scolor_saturation}, {name: luminosity, type: int, min: 0, max: 100, optional: true, state: display.scolor_luminosity}]}
+  - {header: ":DISPlay:STATus:COLumn", state: display.status_column}
+  - {header: ":DISPlay:STATus:ROW", state: display.status_row}
+  - {header: ":DISPlay:CLIPped", state: display.clipped}
+  # 主题（手册 p.634）：回复带引号的完整词（手册 {"Midnight" | "Platinum"}）。
+  - {header: ":DISPlay:THEMe", state: display.theme, format: {enum: as_defined}, reply: '"{value}"'}
+  - {header: ":DISPlay:WINDow:MAXimize", state: display.window_maximize, query: false}
+  # 显示书签（手册 pp.583-588）：模型存一个全局书签，不分 1-100 号（覆盖表注明）；VERTical? 是
+  # 波形读数（书签时刻的波形值），不在此列。
+  - {header: ":DISPlay:BOOKmark:DELete:ALL", state: display.bookmark_label, set_value: "", query: false}
+  - {header: ":DISPlay:BOOKmark<n>:DELete", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_label, set_value: "", query: false}
+  - {header: ":DISPlay:BOOKmark<n>:SET", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, op: sys.accept, query: false, params: [{name: source, type: string}, {name: label, type: string, state: display.bookmark_label}, {name: color, type: string, optional: true}, {name: content, type: string, optional: true}, {name: last, type: string, optional: true}]}
+  - {header: ":DISPlay:BOOKmark<n>:XPOSition", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_x}
+  - {header: ":DISPlay:BOOKmark<n>:YPOSition", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_y}
+  # 快速绘图（手册 p.329，#1068）：模型的读数始终同步分析当前记录，开关不改变数值。
+  - {header: ":ACQuire:FPLot", state: acquire.fplot}
   # ---- MEASure ----
   - header: ":MEASure:SOURce"
     params:
@@ -1425,6 +1986,11 @@ commands:
     set: false
     params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
     reply: "{header} {code}"
+  # 能力查询（手册 pp.1437-1439，#1067）：回答定义声明的范围（内存按样点数，装了 2 Gpts 选件、
+  # 带宽 113 GHz、采样率 256 GSa/s；数字通道 0 个）。
+  - {header: ":SYSTem:CAPability:ACQuire", op: sys.capability, set: false, params: [{name: what, type: string}], args: {HALFchannel: "0", MEMory: "2000000000", SRATe: "256000000000", BANDwidth: "113000000000"}}
+  - {header: ":SYSTem:CAPability:CHANnel", op: sys.capability, set: false, params: [{name: what, type: string}], args: {COUNt: "4"}}
+  - {header: ":SYSTem:CAPability:DIGital", op: sys.capability, set: false, params: [{name: what, type: string}], args: {MEMory: "0", SRATe: "0", CHANnels: "0"}}
   - header: ":SYSTem:PRESet"
     op: sys.reset
     query: false
@@ -1438,7 +2004,17 @@ commands:
   - {header: ":TIMebase:SCALe", state: timebase.scale}
   - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0}
   - {header: ":TIMebase:POSition", state: timebase.position}
-  - {header: ":TIMebase:REFerence", state: timebase.reference}
+  # REFerence（手册 p.1472）：LEFT/CENTer/RIGHt 即 10/50/90%；参考为百分比位置时查询回 PERC。
+  - {header: ":TIMebase:REFerence", op: timebase.set_reference, params: [{name: word, type: string, optional: true}]}
+  - {header: ":TIMebase:REFerence:PERCent", state: timebase.reference_percent}
+  # 缩放拉窗（手册 pp.1476-1482，#1067）：DELay 与 POSition 同义（手册注明为兼容旧程序）。
+  - {header: ":TIMebase:VIEW", state: timebase.view}
+  - {header: ":TIMebase:WINDow:SCALe", state: timebase.window_scale, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:WINDow:RANGe", state: timebase.window_scale, factor: 10.0, format: {number: engineering, significant: 3}}
+  - {header: ":TIMebase:WINDow:POSition", state: timebase.window_position, format: {number: engineering, significant: 2}}
+  - {header: ":TIMebase:WINDow:DELay", state: timebase.window_position, format: {number: engineering, significant: 2}}
+  - {header: ":TIMebase:REFClock", state: timebase.refclock}
+  - {header: ":TIMebase:ROLL:ENABLE", state: timebase.roll_enable, reply: "0"}
   # ---- TRIGger ----
   - {header: ":TRIGger:MODE", state: trigger.mode}
   - {header: ":TRIGger:SWEep", state: trigger.sweep}
@@ -1447,6 +2023,65 @@ commands:
   # :TRIGger:EDGE[{1 | 2}]：第二项（序列触发的 TERM2）未建模，后缀 2 报 -114。
   - {header: ":TRIGger:EDGE<e>:SOURce", state: trigger.source, suffixes: {e: [1]}}
   - {header: ":TRIGger:EDGE<e>:SLOPe", state: trigger.slope, suffixes: {e: [1]}}
+  # :TRIGger:HTHReshold {CHANnel<N> | AUXiliary},<level>（手册 p.1495）：每信源的高阈值，
+  # 欠幅、过渡与窗口族共用；查询也带信源。
+  - header: ":TRIGger:HTHReshold"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, AUXiliary]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, AUXiliary: 5}
+        echo: false
+      - {name: level, type: float, unit: V, state: "trigger.hth{source}"}
+  # :TRIGger:LTHReshold CHANnel<N>,<level>（手册 p.1499）：低阈值仅通道。
+  - header: ":TRIGger:LTHReshold"
+    params:
+      - name: source
+        type: enum
+        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
+        index: true
+        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
+        echo: false
+      - {name: level, type: float, unit: V, state: "trigger.lth{source}"}
+  # :TRIGger:HYSTeresis（手册 p.1496）：迟滞带选择。
+  - {header: ":TRIGger:HYSTeresis", state: trigger.hysteresis}
+  # ---- 欠幅触发（手册 pp.1549–1553）：过低阈值而未到高阈值的脉冲；QUALified ON 时宽度还要
+  # 大于 TIME（250 ps–30 ns）。
+  - {header: ":TRIGger:RUNT<S>:SOURce", state: trigger.runt_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:RUNT<S>:POLarity", state: trigger.runt_polarity, suffixes: {s: [1]}}
+  - {header: ":TRIGger:RUNT<S>:QUALified", state: trigger.runt_qualified, suffixes: {s: [1]}}
+  - {header: ":TRIGger:RUNT<S>:TIME", state: trigger.runt_time, suffixes: {s: [1]}}
+  # ---- 过渡触发（手册 pp.1580–1585）：边沿在两阈值间的过渡时间违例（上升/下降、大于/小于/
+  # 范围内/范围外）。
+  - {header: ":TRIGger:TRANsition<S>:SOURce", state: trigger.transition_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TRANsition<S>:TYPE", state: trigger.transition_type, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TRANsition<S>:MODE", state: trigger.transition_mode, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TRANsition<S>:TIME", state: trigger.transition_time, suffixes: {s: [1]}}
+  - header: ":TRIGger:TRANsition<S>:RANGe"
+    suffixes: {s: [1]}
+    params:
+      - {name: gt, type: float, unit: s, state: trigger.transition_range_low}
+      - {name: lt, type: float, unit: s, state: trigger.transition_range_high}
+  # ---- 窗口触发（手册 pp.1586–1590）：信号进/出两阈值间的窗口；CONDition 的第二词（时长
+  # 限定）属于 INSIDE/OUTSIDE，查询按手册只在 INSIDE/OUTSIDE 时带第二词。
+  - {header: ":TRIGger:WINDow<S>:SOURce", state: trigger.window_source, suffixes: {s: [1]}}
+  - header: ":TRIGger:WINDow<S>:CONDition"
+    suffixes: {s: [1]}
+    op: trigger.window_condition
+    params:
+      - {name: condition, type: raw, optional: true}
+      - {name: qualifier, type: raw, optional: true}
+  - {header: ":TRIGger:WINDow<S>:TIME", state: trigger.window_time, suffixes: {s: [1]}}
+  - {header: ":TRIGger:WINDow<S>:TPOint", state: trigger.window_tpoint, suffixes: {s: [1]}}
+  # ---- 超时触发（手册 pp.1576–1579）：波形高/低/不变持续超过设定时间。
+  - {header: ":TRIGger:TIMeout<S>:SOURce", state: trigger.timeout_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TIMeout<S>:CONDition", state: trigger.timeout_condition, suffixes: {s: [1]}}
+  - {header: ":TRIGger:TIMeout<S>:TIME", state: trigger.timeout_time, suffixes: {s: [1]}}
+  # ---- 第 N 边沿触发（手册 pp.1533–1536）：计到第 N 条边触发。
+  - {header: ":TRIGger:NEDGe<S>:SOURce", state: trigger.nedge_source, suffixes: {s: [1]}}
+  - {header: ":TRIGger:NEDGe<S>:SLOPe", state: trigger.nedge_slope, suffixes: {s: [1]}}
+  - {header: ":TRIGger:NEDGe<S>:COUNt", state: trigger.nedge_count, suffixes: {s: [1]}}
   # :TRIGger:LEVel {CHANnel<N> | AUX},<level>：信源写在前面，必填；查询也带信源。
   - header: ":TRIGger:LEVel"
     params:
@@ -1472,6 +2107,28 @@ commands:
   - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment}}
   - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin}}
   - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}
+  # ---- 波形传输的状态查询与视图（手册第 40 章，#1066）-------------------------------------------------
+  # BANDpass?：下限为耦合的高通角（本型号恒直流 → 0），上限为 :ACQuire:BANDwidth 的数字滤波。
+  - {header: ":WAVeform:BANDpass", op: xfer.bandpass, set: false, args: {low: 0.0, high: $acquire.bandwidth, digits: 6}}
+  - {header: ":WAVeform:COMPlete", op: xfer.complete, set: false}
+  - {header: ":WAVeform:COUNt", op: xfer.hits, set: false, args: {averaging: $acquire.average, averages: $acquire.count}}
+  - {header: ":WAVeform:COUPling", op: xfer.figure, set: false, args: {what: coupling}}
+  - {header: ":WAVeform:TYPE", op: xfer.wfm_type, set: false, args: {averaging: $acquire.average, averaged: AVER, normal: RAW}}
+  - {header: ":WAVeform:VIEW", state: waveform.view}
+  # 显示四值（手册 pp.1639/1641/1642/1645）：记录恒覆盖显示，显示左沿 = 记录起点、显示跨度 =
+  # 时基 10 格、显示中心电压 = 通道偏置、显示满幅 = 8 格 × 档位。
+  - {header: ":WAVeform:XDISplay", op: xfer.figure, set: false, args: {what: x_start}}
+  - {header: ":WAVeform:XRANge", op: xfer.figure, set: false, args: {what: timebase, scale: 10.0}}
+  - {header: ":WAVeform:XUNits", op: xfer.axis_units, set: false, args: {axis: X}}
+  - {header: ":WAVeform:YDISplay", op: xfer.figure, set: false, args: {what: offset}}
+  - {header: ":WAVeform:YRANge", op: xfer.figure, set: false, args: {what: scale, scale: 8.0}}
+  - {header: ":WAVeform:YUNits", op: xfer.axis_units, set: false, args: {axis: Y}}
+  # ---- 分段存储的传输（手册第 40 章，#1066）-----------------------------------------------------------
+  - {header: ":WAVeform:SEGMented:ALL", state: waveform.seg_all}
+  - {header: ":WAVeform:SEGMented:COUNt", op: acq.figure, set: false, args: {what: segments}}
+  - {header: ":WAVeform:SEGMented:POINts", op: xfer.segment_points, set: false}
+  - {header: ":WAVeform:SEGMented:TTAG", op: acq.figure, set: false, args: {what: time_tag}}
+  - {header: ":WAVeform:SEGMented:XLISt", op: xfer.xlist, set: false, params: [{name: what, type: string}]}
   # ---- 磁盘（:DISK，手册第 20 章，#1069）：目录、复制删除、按完整路径上传下载 ---------------------------
   - header: ":DISK:CDIRectory"
     op: disk.folder
@@ -1840,3 +2497,7 @@ commands:
   # ---- CHANnel<N>:SPECtral（手册 p.551，#1074）：频谱视图的窗口设置，数据路径是 :FUNCtion FFT。
   - {header: ":CHANnel<ch>:SPECtral:CFRequency", state: ch.spectral_center}
   - {header: ":CHANnel<ch>:SPECtral:SPAN", state: ch.spectral_span}
+  # 限值与能力查询（手册 pp.496/552/554，#1067）：DISPlay 的有效设定为 0|1；频谱视图取定义声明的范围
+  - {header: ":CHANnel<ch>:DISPlay:TESTLIMITS", op: sys.limits, set: false, args: {kind: enum, words: "0|1"}}
+  - {header: ":CHANnel<ch>:SPECtral:CFRequency:TESTLIMITS", op: sys.limits, set: false, args: {path: ch.spectral_center}}
+  - {header: ":CHANnel<ch>:SPECtral:SPAN:TESTLIMITS", op: sys.limits, set: false, args: {path: ch.spectral_span}}

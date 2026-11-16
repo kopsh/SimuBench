@@ -393,6 +393,9 @@ export const zh = {
     noReading: "—",
   },
   spectrum: {
+    hintClock: "命令时钟：发送命令或推进时间时才会扫频，迹线因此静止。",
+    hintSingle: "单次扫描：已保持当前迹线，开启“连续扫描”后才会再扫。",
+    advanceSweep: "推进一次扫描时间",
     overload: "混频器过载",
     uncalReason: "扫描时间短于当前 RBW/VBW 所需时间，幅度读数未校准",
     reference: "参考",
