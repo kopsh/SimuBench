@@ -502,6 +502,10 @@ components:
       autorange_up: 2.02
       autorange_down: 0.19
       ac_low: $sense.ac.filter
+      # 高频响应（#1255）：交流电压到 10 MHz，8–10 MHz 的 1 年误差 15% + 1.0%（产品规格的 ACV 表）；
+      # 模型为二阶滚降、−3 dB 于 13 MHz（估计，D46）：10 MHz 处低 14%、4 MHz 处低 0.5%，均在指标之内。
+      ac_high: 1.3e7
+      ac_high_order: 2
   # A/D：读数 9 位尾数（8½ 位）；满度 2.02 倍以上为过载，回 9.91E+37（手册 FETCh? 的"无有效值"）。
   # 读数时间：手动为孔径时间，Auto / Auto Fast 取默认 7 位分辨率的孔径（Operators Manual Table 8）。
   - name: meter

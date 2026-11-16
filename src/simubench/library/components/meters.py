@@ -198,7 +198,9 @@ class DmmConditioning(Component):
     """Signal conditioning (#190 E1): function, ranges and the AC filter, and the analog errors.
 
     DC (mean) and true-rms AC of the signal on its input; AC is the rms of the lines above
-    ``ac_low`` Hz (the AC path's coupling). The measurement path has a hidden gain error (ppm) and
+    ``ac_low`` Hz (the AC path's coupling), each weighted by the true-rms converter's high-frequency
+    response when ``ac_high`` is given: a Butterworth magnitude ``1/√(1 + (f/ac_high)^(2·order))``
+    with its −3 dB point at ``ac_high`` Hz (#1255), so lines past the meter's bandwidth read low. The measurement path has a hidden gain error (ppm) and
     offset (V), the instrument's own errors; the ADC's calibration coefficients correct them::
 
         raw     = true × (1 + gain_error_ppm·1e-6) + offset
@@ -220,6 +222,8 @@ class DmmConditioning(Component):
     ports = {"in": PortSpec("in", "signal", "the signal from the input terminal")}
     defaults = {
         "ac_low": 3.0,  # Hz above which lines count into the AC reading
+        "ac_high": None,  # Hz, −3 dB point of the AC path's high-frequency roll-off (None: flat, #1255)
+        "ac_high_order": 2,  # order of that roll-off (Butterworth magnitude)
         "function": "DC",  # DC | AC: what a command without one measures; what sample() reads
         "ranges": None,  # full-scale value of each range, per function ({DC: [...]}) or one list
         "range": None,  # manual range: a value the range must be able to measure (None, <= 0: auto)
@@ -245,8 +249,13 @@ class DmmConditioning(Component):
 
     def true_values(self) -> dict[str, float]:
         sig = self.input("in").merged()
-        ac = sig.amp[sig.freq >= float(self.param("ac_low"))]
-        return {"DC": sig.mean(), "AC": math.sqrt(float(np.sum(np.abs(ac) ** 2)) / 2)}
+        keep = sig.freq >= float(self.param("ac_low"))
+        ac = np.abs(sig.amp[keep])
+        high = self.param("ac_high")
+        if high:
+            order = float(self.param("ac_high_order"))
+            ac = ac / np.sqrt(1.0 + (sig.freq[keep] / float(high)) ** (2.0 * order))
+        return {"DC": sig.mean(), "AC": math.sqrt(float(np.sum(ac**2)) / 2)}
 
     @staticmethod
     def _kind(function: str) -> str:

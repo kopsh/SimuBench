@@ -318,7 +318,7 @@ sections:
     note: 立即按当前设定测一次直流电压；量程与分辨率参数被接受但不改变设置（操作参数不写状态），不重置其他参数为默认值、不写读数存储器。
   - header: :MEASure[:VOLTage]:AC
     level: implemented
-    note: 立即测一次交流电压（真有效值，带宽以上的谱线）；其余同直流。
+    note: 立即测一次交流电压（真有效值，带宽以上的谱线）；高频按真有效值转换器的二阶滚降衰减（−3 dB 于 1 MHz，估计，specs.acv_bandwidth，#1255），1 MHz 方波的高次谐波大部分滤掉；其余同直流。
   - header: MEASure[:VOLTage][:DC]:RATio?
     level: not_modeled
     note: 比值测量需要 Sense 端口，未实现。

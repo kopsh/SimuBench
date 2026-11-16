@@ -119,6 +119,33 @@ def test_the_input_impedance_and_acv_flow():
         want = quantized(solve(False) / np.sqrt(2))
         assert float(q("dut", "MEAS:VOLT:AC?").lstrip("+")) == pytest.approx(want, abs=4 * sig + STEP["0.1"])
         assert float(q("dut", "MEAS:VOLT:DC?").lstrip("+")) == pytest.approx(0.0, abs=4 * sig)
+        # -- the AC path's high-frequency response (#1255): a sine reads lower as its frequency rises,
+        # by the definition's roll-off; a 1 MHz square loses its harmonics and reads below its rms.
+        path = next(c for c in DefinitionLibrary().get("keysight-34465a").components if c.name == "path")
+        f3db, order = float(path.params["ac_high"]), float(path.params["ac_high_order"])
+
+        def response(f: float) -> float:
+            return 1 / math.sqrt(1 + (f / f3db) ** (2 * order))
+
+        def acv() -> float:
+            return float(q("dut", "MEAS:VOLT:AC?").lstrip("+"))
+
+        low_f = acv()
+        tol = 4 * sig + STEP["0.1"]
+        readings = []
+        for f in (1.0e5, 3.0e5, 1.0e6):
+            q("awg", f"C1:BSWV FRQ,{f:g}")
+            readings.append(acv())
+            assert readings[-1] == pytest.approx(low_f * response(f) / response(1000.0), abs=2 * tol), f
+        assert low_f > readings[0] > readings[1] > readings[2]
+        assert readings[1] / low_f > 0.99  # within the 1 % the data sheet gives for 100–300 kHz
+        q("awg", "C1:BSWV WVTP,SQUARE,FRQ,1000")
+        square_rms = acv()  # 1 kHz: every harmonic that matters is in band, the rms of the square
+        assert square_rms == pytest.approx(want * math.sqrt(2), abs=tol + 1e-3 * want)
+        q("awg", "C1:BSWV FRQ,1000000")
+        fast = acv()
+        fundamental = 2 * math.sqrt(2) / math.pi * square_rms  # 0.900 of the square's rms
+        assert fundamental * response(1.0e6) < fast < 0.95 * square_rms
     finally:
         s.close()
 
