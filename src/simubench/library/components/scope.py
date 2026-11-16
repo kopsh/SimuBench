@@ -4125,9 +4125,8 @@ class ScopeMeasurements(Component):
             self.owner.set_state(mode_path, self._marker_word("WAV"), source="scpi", internal=True)
         if word.startswith("DEL"):
             x1, x2 = (float(self.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
-            ya, ua = self._marker_y(1)
-            yb, ub = self._marker_y(2)
-            return OpResult(b",".join(self.owner.format_number(v) for v in (x2 - x1, yb - ya)), ua + ub)
+            ya, yb, used = self._marker_ys()
+            return OpResult(b",".join(self.owner.format_number(v) for v in (x2 - x1, yb - ya)), used)
         n = 1 if word.startswith("STA") else 2
         y, used = self._marker_y(n)
         x = float(self.param(f"marker_x{n}") or 0.0)
@@ -4149,12 +4148,22 @@ class ScopeMeasurements(Component):
         """``:MARKer:YDELta?``: By − Ay — the markers' settings, or the values at their x in the
         tracking modes."""
         assert self.owner is not None
-        ya, ua = self._marker_y(1)
-        yb, ub = self._marker_y(2)
+        ya, yb, used = self._marker_ys()
         value = self._marker_diff("y", ya, yb)
         if not math.isfinite(value) and self.param("invalid_value") != "UNDEF":
-            return OpResult(str(self.param("invalid_value")).encode(), ua + ub)
-        return OpResult(self.owner.format_number(value), ua + ub)
+            return OpResult(str(self.param("invalid_value")).encode(), used)
+        return OpResult(self.owner.format_number(value), used)
+
+    def _marker_ys(self) -> tuple[float, float, int]:
+        """Both markers' y and the virtual time reading them took. In the MEASurement mode both
+        sit on the one result of the measurement they track: it is taken once, so their
+        difference is that result's, not two acquisitions' noise apart."""
+        if self._marker_mode() == "measurement":
+            y, used = self._marker_y(1)
+            return y, y, used
+        ya, ua = self._marker_y(1)
+        yb, ub = self._marker_y(2)
+        return ya, yb, ua + ub
 
     # ---- the markers' units (2000 X-series :MARKer:XUNits/:YUNits, #1155) ------------------------
 
@@ -4221,14 +4230,16 @@ class ScopeMeasurements(Component):
     @op("tracked_y", fields=("which",))
     def op_tracked_y(self, which: str = "Y1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
         """The Infiniium's ``:MARKer:Y1Position`` / ``:MARKer:Y2Position`` (and VSTArt/VSTOp): the
-        query answers "the level at the marker position" — in the WAVeform mode the source's value
-        at the marker's x, otherwise the setting. A write stores the setting and leaves the mode
-        alone (the guide names no mode change, unlike the 2000 X-series' ``y_position``)."""
+        query answers "the level at the marker position" — where the marker is: in the WAVeform
+        mode the source's value at the marker's x, in the MEASurement mode the level of the
+        measurement it tracks (as ``:MARKer:YDELta?`` reads it), otherwise the setting; nothing to
+        track answers the invalid value. A write stores the setting and leaves the mode alone (the
+        guide names no mode change, unlike the 2000 X-series' ``y_position``)."""
         assert self.owner is not None
         n = 1 if str(which).strip().upper().endswith("1") else 2
         param = f"marker_y{n}"
         if query:
-            if self._marker_mode() == "waveform":
+            if self._marker_mode() in ("waveform", "measurement"):
                 shown, used = self._marker_y(n)
                 if not math.isfinite(shown):
                     return OpResult(str(self.param("invalid_value")).encode(), used)

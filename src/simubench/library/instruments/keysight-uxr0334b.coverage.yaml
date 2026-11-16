@@ -2182,13 +2182,13 @@ sections:
     note: 'Bx − Ax, in the source''s x unit.'
   - header: :MARKer:Y1Position
     level: implemented
-    note: 'The Ay marker''s level: in the WAVeform mode the X1Y1 source''s value at the Ax marker (the guide: the level at the marker position), otherwise the level set; a write keeps the mode.'
+    note: 'The Ay marker''s level: in the WAVeform mode the X1Y1 source''s value at the Ax marker, in the MEASurement mode the level of the tracked measurement (as YDELta reads it; none: the invalid value) — the guide: the level at the marker position; otherwise the level set. A write stores the level and keeps the mode.'
   - header: :MARKer:Y2Position
     level: implemented
-    note: 'The By marker''s level: in the WAVeform mode the X2Y2 source''s value at the Bx marker (the guide: the level at the marker position), otherwise the level set; a write keeps the mode.'
+    note: 'The By marker''s level: in the WAVeform mode the X2Y2 source''s value at the Bx marker, in the MEASurement mode the level of the tracked measurement (as YDELta reads it; none: the invalid value) — the guide: the level at the marker position; otherwise the level set. A write stores the level and keeps the mode.'
   - header: :MARKer:YDELta
     level: implemented
-    note: 'By − Ay: the markers'' levels, or the values at their x in the tracking modes.'
+    note: 'By − Ay: the markers'' levels, or the values at their x in the WAVeform mode; in the MEASurement mode both markers sit on the one tracked result (0).'
   - header: :MARKer<K>:CMODe
     level: implemented
     note: 'CUSTom uses the :MARKer<K>:COLor colour, SOURce the source''s.'

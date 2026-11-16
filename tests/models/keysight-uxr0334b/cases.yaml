@@ -975,15 +975,22 @@ cases:
   - name: "光标的兼容拼写与补充设置：TSTArt/TSTOp、VSTArt/VSTOp、X2Y2source、跟踪测量、编号光标的名称/颜色/色模式/Y 位置"
     manual: ":MARKer Commands > :MARKer:TSTArt, :TSTOp, :VSTArt, :VSTOp, :X2Y2source, :MEASurement:MEASurement, :MARKer<K>:NAME, :COLor, :CMODe, :Y:POSition"
     steps:
+      # 跟踪测量时光标在测量的电平上：Y 位置的查询与 YDELta 一样跟着测量（没有可跟踪的测量时回无效值）；
+      # 写入只存设定，回到 MANual 后生效。
       - send: ":MARKer:MODE MEASurement"
       - send: ":MARKer:MEASurement:MEASurement MEASurement1"
       - query: ":MARKer:MEASurement:MEASurement?"
         expect: "MEAS1"
+      - query: ":MARKer:Y1Position?"
+        expect: "9.99999E+37"
+      # 这个型号的 :MEASure:<item> 只有查询、不装入测量：跟踪的光标一直没有电平（UXR1104B 的同名用例装入了测量）
       - send: ":MARKer:VSTArt 0.1"
       - query: ":MARKer:Y1Position?"
-        expect: "+1.00000E-01"
+        expect: "9.99999E+37"
       - send: ":MARKer:VSTOp -0.1"
       - send: ":MARKer:MODE MANual"
+      - query: ":MARKer:Y1Position?"
+        expect: "+1.00000E-01"
       - query: ":MARKer:YDELta?"
         expect: "-2.00000E-01"
       - send: ":MARKer:MODE MANual;:MARKer:TSTArt 1e-6"
