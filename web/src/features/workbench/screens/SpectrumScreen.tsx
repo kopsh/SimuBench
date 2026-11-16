@@ -280,7 +280,9 @@ function SpectrumCanvas({
       ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
       ctx.fillStyle = cssVar(canvas, "--plot-text", "#bbb");
       ctx.font = "10px var(--font-mono, monospace)";
-      for (let i = 0; i <= DIVS; i += 2) ctx.fillText(`${(refLevel - i * DB_PER_DIV).toFixed(0)}`, 4, Math.max(10, (i * h) / DIVS - 3));
+      // Every other line is labelled; the top one, the reference level, carries the unit (#1222).
+      for (let i = 0; i <= DIVS; i += 2)
+        ctx.fillText(`${(refLevel - i * DB_PER_DIV).toFixed(0)}${i === 0 ? " dBm" : ""}`, 4, Math.max(10, (i * h) / DIVS - 3));
 
       const yOf = (db: number) => ((refLevel - db) / (DIVS * DB_PER_DIV)) * h;
       const clamp = (y: number) => Math.max(1, Math.min(h - 1, y));

@@ -29,6 +29,12 @@ export function displayUnit(unit?: string | null): string {
       return "°";
     case "DBM":
       return "dBm";
+    case "DB":
+      return "dB";
+    case "PCT":
+      return "%";
+    case "RAD":
+      return "rad";
     default:
       return unit ?? "";
   }

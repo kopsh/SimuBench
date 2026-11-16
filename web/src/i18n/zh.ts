@@ -878,7 +878,8 @@ export const zh = {
       try: "试运行",
       cases: "用例",
       history: "修改记录",
-      build: "搭建",
+      // Not 「搭建」: that is the bench's build mode in the top bar (#1222).
+      build: "编辑结构",
     },
     build: {
       library: "组件库",
@@ -1024,6 +1025,8 @@ export const zh = {
       tunable_laser: "可调激光源",
       optical_power_meter: "光功率计",
       optical_attenuator: "可变光衰减器",
+      sampling_oscilloscope: "采样示波器",
+      converter: "转换器",
     },
     identity: "身份与接口",
     manufacturer: "厂商",

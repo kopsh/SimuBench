@@ -66,7 +66,8 @@ export function ScopeScreen({
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
-      <div className="flex items-center gap-3">
+      {/* Narrow, the readouts wrap to a second line as a whole, never inside a word (#1222). */}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <div
           role="group"
           aria-label={t("scope.acquisition")}
@@ -100,7 +101,7 @@ export function ScopeScreen({
         {data && (
           <span
             className={cn(
-              "text-xs",
+              "text-xs whitespace-nowrap",
               running
                 ? "text-ok"
                 : data.waiting
@@ -132,7 +133,7 @@ export function ScopeScreen({
           {t("scope.cursors.toggle")}
         </Button>
         {data && (
-          <div className="text-muted-foreground ml-auto flex items-center gap-4 text-xs">
+          <div className="text-muted-foreground ml-auto flex items-center gap-4 text-xs whitespace-nowrap">
             <span>
               {t("scope.timebase")}{" "}
               <span className="num text-foreground">
@@ -627,7 +628,8 @@ function MeasurementTable({ data }: { data: ScopeScreenData }) {
     { key: "rms", unit: "V" },
   ];
   return (
-    <table className="shrink-0 text-xs" aria-label={t("scope.measure.title")}>
+    // Packed to the left (self-start): stretched across the screen the readings sat far apart (#1222).
+    <table className="shrink-0 self-start text-xs" aria-label={t("scope.measure.title")}>
       <thead>
         <tr className="text-muted-foreground">
           <th className="pr-4 text-left font-normal">

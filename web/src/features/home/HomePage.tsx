@@ -306,11 +306,19 @@ function ResumeStrip({ session, onEnter }: { session: SessionInfo; onEnter: () =
   );
 }
 
-/** One of the user's bench files; the open one carries the one primary action (#281). */
+/**
+ * One of the user's bench files; the open one carries the one primary action (#281). The others
+ * open from anywhere on the row, with an arrow at its end rather than the same button on every row
+ * (#1222); the arrow is the keyboard's way in and keeps the action's name.
+ */
 function BenchRow({ bench: b, session, busy, onOpen }: { bench: BenchFile; session: SessionInfo | undefined; busy: boolean; onOpen: (s?: SessionInfo) => void }) {
   const { t } = useTranslation();
+  const openable = !session && !b.error && !busy;
   return (
-    <li className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors", session ? "bg-primary/5" : "hover:bg-accent/40")}>
+    <li
+      className={cn("flex items-center gap-3 px-4 py-2.5 transition-colors", session ? "bg-primary/5" : "hover:bg-accent/40", openable && "group cursor-pointer")}
+      onClick={openable ? () => onOpen() : undefined}
+    >
       <span className={cn("grid size-8 shrink-0 place-items-center rounded-lg", b.error ? "bg-error/10 text-error" : "bg-primary/10 text-primary")}>
         {b.error ? <FileWarning className="size-4" /> : <Workflow className="size-4" />}
       </span>
@@ -330,9 +338,26 @@ function BenchRow({ bench: b, session, busy, onOpen }: { bench: BenchFile; sessi
         </div>
       </div>
       {session ? <ScriptAccess session={session} /> : <span className="text-muted-foreground num hidden max-w-56 truncate text-[11px] xl:block">{b.path}</span>}
-      <Button size="sm" variant={session ? "default" : "outline"} disabled={!!b.error || busy} onClick={() => onOpen(session)}>
-        {session ? t("home.continue") : t("home.open")}
-      </Button>
+      {session ? (
+        <Button size="sm" disabled={busy} onClick={() => onOpen(session)}>
+          {t("home.continue")}
+        </Button>
+      ) : (
+        <Button
+          size="icon"
+          variant="ghost"
+          className="text-muted-foreground group-hover:text-foreground size-8"
+          disabled={!!b.error || busy}
+          aria-label={t("home.open")}
+          title={t("home.open")}
+          onClick={(e) => {
+            e.stopPropagation();
+            onOpen();
+          }}
+        >
+          <ArrowRight className="size-4" />
+        </Button>
+      )}
     </li>
   );
 }

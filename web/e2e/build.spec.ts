@@ -34,6 +34,8 @@ test("build area: drag a component in, wire it, set a parameter, add a panel por
   const id = ((await copy.json()) as { data: { id: string } }).data.id;
 
   await page.goto(`/i/${id}?token=${TOKEN}`);
+  // Not 「搭建」, the bench's build mode in the top bar: this tab edits the definition's structure (#1222).
+  await expect(page.getByTestId("acceptance-tab-build")).toHaveText("编辑结构");
   await page.getByTestId("acceptance-tab-build").click();
   const area = page.getByTestId("build-area");
   await expect(area).toBeVisible();

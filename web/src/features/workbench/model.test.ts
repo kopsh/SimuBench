@@ -4,7 +4,7 @@ import type { InstrumentInfo } from "@/api/client";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, globalVars, groupOpen, hasLabel, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
+import { accessoryLabel, channelVars, globalVars, groupOpen, hasLabel, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -202,3 +202,17 @@ function withoutChannel(path: string): string {
   const isChannel = head.startsWith("ch") && digits.length > 0 && [...digits].every((c) => c >= "0" && c <= "9");
   return isChannel && rest.length ? rest.join(".") : path;
 }
+
+describe("netTitle (#1222)", () => {
+  const owners = ["awg", "rc", "scope"];
+  it("names a net by the instrument and part ports it joins", () => {
+    expect(netTitle(["awg.OUT1", "rc.IN"], owners)).toBe("awg.OUT1 · rc.IN");
+  });
+  it("leaves out the points inside a wire's accessories", () => {
+    expect(netTitle(["rc.OUT", "wire1.passive_probe0.IN"], owners)).toBe("rc.OUT");
+    expect(netTitle(["wire1.passive_probe0.OUT", "scope.CH1"], owners)).toBe("scope.CH1");
+  });
+  it("is empty when only accessory points are on it", () => {
+    expect(netTitle(["wire1.a.OUT", "wire1.b.IN"], owners)).toBe("");
+  });
+});

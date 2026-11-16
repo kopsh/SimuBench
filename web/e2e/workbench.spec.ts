@@ -274,7 +274,9 @@ test("virtual probe: select a net and see why it reads what it reads", async ({
   await openButton(page.getByRole("listitem").filter({ hasText: "awg_rc_scope" }))
     .click();
   await expect(page.locator(".react-flow__node")).toHaveCount(3);
-  await page.getByRole("button", { name: "net-1" }).click();
+  // The tree names a net by the ports it joins, not its id; the probe's end inside the wire is left out (#1222).
+  await expect(page.getByTestId("tree-net-1")).toContainText("rc.OUT");
+  await page.getByTestId("tree-net-1").click();
   const probe = page.getByTestId("probe");
   await expect(probe).toContainText("没有信号源连到这个网络"); // the generator's output is off
   const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
@@ -284,7 +286,7 @@ test("virtual probe: select a net and see why it reads what it reads", async ({
     .click();
   await input.fill(":OUTPut1:STATe ON");
   await input.press("Enter");
-  await page.getByRole("button", { name: "net-1" }).click();
+  await page.getByTestId("tree-net-1").click();
   await expect(page.getByTestId("probe-sources")).toContainText(
     "awg · ch1.out",
   );
@@ -318,7 +320,10 @@ test("home: the product page shows the same bench in the web, the terminal and a
   // Reduced motion (playwright.config.ts): the session is shown whole, not typed out.
   await expect(show.getByRole("tabpanel")).toContainText("@simubench");
   await expect(show.getByRole("tabpanel")).toContainText("N9320B");
-  await expect(page.getByTestId("instrument-list").getByRole("button", { name: "示波器" })).toBeVisible();
+  // The first: 「采样示波器」 also contains the word (#1222), and the class list puts 示波器 first.
+  const scopes = page.getByTestId("instrument-list").getByRole("button", { name: "示波器" }).first();
+  await expect(scopes).toBeVisible();
+  await expectText(scopes, (text) => text.startsWith("示波器"), "the oscilloscope class first");
 });
 
 test("instrument internals: the scope's components, wiring and panel ports, read-only (issue 20)", async ({

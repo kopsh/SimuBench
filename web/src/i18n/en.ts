@@ -889,7 +889,7 @@ export const en: Widen<Messages> = {
       try: "Try run",
       cases: "Cases",
       history: "Changes",
-      build: "Build",
+      build: "Edit structure",
     },
     build: {
       library: "Components",
@@ -1035,6 +1035,8 @@ export const en: Widen<Messages> = {
       tunable_laser: "Tunable laser",
       optical_power_meter: "Optical power meter",
       optical_attenuator: "Variable optical attenuator",
+      sampling_oscilloscope: "Sampling oscilloscope",
+      converter: "Converter",
     },
     identity: "Identity and ports",
     manufacturer: "Manufacturer",
