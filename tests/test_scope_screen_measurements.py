@@ -20,7 +20,7 @@ from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "test-token"
-KEYS = ("vpp", "vmax", "vmin", "mean", "rms", "frequency", "period")
+KEYS = ("amplitude", "vpp", "vmax", "vmin", "mean", "rms", "frequency", "period")
 
 
 @pytest.fixture
@@ -59,6 +59,7 @@ def test_dsox_after_digitize_the_table_is_the_measure_replies(client):
     assert screen["source"] == "record" and not screen["running"] and screen["acquisitions"] == 1
     row = _row(screen, 1)
     items = {
+        "amplitude": "VAMPlitude",
         "vpp": "VPP",
         "vmax": "VMAX",
         "vmin": "VMIN",
@@ -85,6 +86,7 @@ def test_siglent_after_a_single_acquisition_the_table_is_the_simple_values(clien
     row = _row(screen, 1)
     b.scpi(":MEASure:SIMPle:SOURce C1")
     items = {
+        "amplitude": "AMPL",
         "vpp": "PKPK",
         "vmax": "MAX",
         "vmin": "MIN",

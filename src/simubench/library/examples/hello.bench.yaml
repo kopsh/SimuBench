@@ -18,6 +18,8 @@ instruments:
       ch2.function: SQUARE
       ch2.frequency: 1.0e6
       ch2.amplitude: 1.0
+      # 频谱分析仪也是 50 Ω 输入：两路负载都设 50 Ω，两台仪表收到的是同一个 1 Vpp。
+      ch2.load: 50.0
       ch2.output: true
   scope:
     model: keysight-uxr1104b
@@ -32,8 +34,12 @@ instruments:
     state:
       freq.center: 4.0e6
       freq.span: 8.0e6
-      # 方波的总功率约 +1 dBm：参考电平留 10 dB 余量，自动衰减随之加到 30 dB，混频器不过载。
+      # 1 Vpp 方波在 50 Ω 上的基波约 +6 dBm、总功率约 +7 dBm：参考电平 10 dBm 留出余量，
+      # 自动衰减随之加到 30 dB，混频器不过载。
       display.ref_level: 10.0
+      # 标记放在 1 MHz 基波上：打开屏幕第一眼读到的是信号，不是噪底。
+      marker.enabled: true
+      marker.x: 1.0e6
 wires:
   - {from: awg.CH1, to: scope.CH1}
   - {from: awg.CH2, to: sa.RF_IN}

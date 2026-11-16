@@ -900,6 +900,10 @@ class ScopeMeasurement(_Model):
     None: not measurable (fewer cycles than a period needs, a clipped record)."""
 
     channel: int
+    amplitude: float | None = Field(
+        None,
+        description="Top minus base (VAMPlitude): a square wave's set amplitude, without its noise peaks.",
+    )
     vpp: float | None = None
     vmax: float | None = None
     vmin: float | None = None

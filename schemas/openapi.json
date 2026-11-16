@@ -7664,6 +7664,18 @@
       "ScopeMeasurement": {
         "description": "One channel's automatic measurements on the record the screen shows (#280), taken by the\nscope's own measurement rules, so they agree with its :MEASure? replies on the same record.\nNone: not measurable (fewer cycles than a period needs, a clipped record).",
         "properties": {
+          "amplitude": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Top minus base (VAMPlitude): a square wave's set amplitude, without its noise peaks.",
+            "title": "Amplitude"
+          },
           "channel": {
             "title": "Channel",
             "type": "integer"
@@ -7748,6 +7760,7 @@
         },
         "required": [
           "channel",
+          "amplitude",
           "vpp",
           "vmax",
           "vmin",

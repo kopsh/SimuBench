@@ -40,6 +40,12 @@ def test_hello_runs_clean_in_both_domains(tmp_path):
         assert math.isclose(amplitude, 1.0, rel_tol=0.02), amplitude
         assert scope.query(":SYSTem:ERRor?").strip() == "0"
 
+        # The analyzer's 50 ohm input gets the same 1 Vpp (CH2's load setting is 50 ohms too, #1220):
+        # the fundamental of a 1 Vpp square into 50 ohms is (4/pi * 0.5 V)^2 / 2 / 50 ohm = +6.1 dBm,
+        # and the marker the bench sets reads it at 1 MHz.
+        assert float(sa.query(":CALC:MARK1:X?")) == 1.0e6
+        assert abs(float(sa.query(":CALC:MARK1:Y?")) - 6.1) < 0.5
+
         # Frequency domain: the odd harmonics fall as 1/n (0, -9.5, -14 dB), the even ones are absent.
         trace = [float(v) for v in sa.query(":TRAC:DATA? TRACE1").split(",")]
 
@@ -47,7 +53,7 @@ def test_hello_runs_clean_in_both_domains(tmp_path):
             i = round(mhz / 8 * (len(trace) - 1))
             return max(trace[i - 3 : i + 4])
 
-        assert abs(at(1) - 0.0) < 1.0, at(1)
+        assert abs(at(1) - 6.1) < 1.0, at(1)
         assert abs((at(1) - at(3)) - 9.54) < 1.0, at(3)
         assert abs((at(1) - at(5)) - 13.98) < 1.0, at(5)
         # The even harmonics are absent: at 2 MHz there is only the analyzer's noise. The noise is

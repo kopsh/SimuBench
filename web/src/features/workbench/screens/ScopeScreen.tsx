@@ -521,9 +521,11 @@ function MeasurementTable({ data }: { data: ScopeScreenData }) {
   const cell = (v: number | null | undefined, unit: string) =>
     v == null ? "—" : formatEng(v, unit, 4);
   const columns: {
-    key: "vpp" | "frequency" | "period" | "mean" | "rms";
+    key: "amplitude" | "vpp" | "frequency" | "period" | "mean" | "rms";
     unit: string;
   }[] = [
+    // Amplitude (top - base) first: what a generator's setting reads; Vpp adds the noise peaks (#1220).
+    { key: "amplitude", unit: "V" },
     { key: "vpp", unit: "V" },
     { key: "frequency", unit: "Hz" },
     { key: "period", unit: "s" },

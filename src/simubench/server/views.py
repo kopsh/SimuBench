@@ -453,6 +453,7 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
         measurements = []
         if meas is not None:
             names = {
+                "amplitude": "VAMPlitude",
                 "vpp": "VPP",
                 "vmax": "VMAX",
                 "vmin": "VMIN",
