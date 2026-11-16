@@ -328,7 +328,8 @@ test("workspace data: what lost its file is listed, cleaned after a confirm, its
   await page.getByRole("menuitem", { name: "工作区数据" }).click();
   const orphans = page.getByTestId("storage-orphans");
   await expect(orphans).toContainText("e2e-gone");
-  await expect(orphans.locator("li[data-kept]")).toContainText("e2e-gone.bench.yaml");
+  // Other tests leave kept history of their own (a deleted definition), so pick this bench's row.
+  await expect(orphans.locator("li[data-kept]").filter({ hasText: "e2e-gone.bench.yaml" })).toHaveCount(1);
   await page.getByTestId("storage-clean").click();
   await expect(page.getByRole("alert")).toContainText("无法撤销");
   await page.getByTestId("storage-confirm").click();
