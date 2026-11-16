@@ -98,6 +98,10 @@ def test_the_components_endpoint():
     } in by_type["output_stage"]["ports"]
     # the operations list is alphabetical; the point here is that the transfer's main op is in it
     assert "data" in {o["name"] for o in by_type["waveform_transfer"]["operations"]}
+    # refs parameters (#1201): the build area offers the components a parameter may name
+    refs = {r["param"]: r for r in by_type["waveform_transfer"]["refs"]}
+    assert refs and all(r["scope"] in ("instrument", "channel") for r in refs.values())
+    assert by_type["output_stage"]["refs"] == []
 
 
 # ---- the hook contract (#898) ------------------------------------------------------------------

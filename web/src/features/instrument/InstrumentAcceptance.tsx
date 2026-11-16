@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, Copy, FlaskConical, History, Info, ListTree, Terminal, X } from "lucide-react";
+import { Blocks, Copy, FlaskConical, Hammer, History, Info, ListTree, Terminal, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useCopyDefinition } from "@/api/hooks";
@@ -22,6 +22,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { InternalsPanel } from "@/features/workbench/internals/InternalsView";
+import { BuildTab } from "./structure/BuildTab";
 import { CasesTab } from "./CasesTab";
 import { CommandsTab } from "./CommandsTab";
 import { HistoryTab } from "./HistoryTab";
@@ -59,6 +60,7 @@ const SECTIONS = [
   { key: "overview", icon: Info },
   { key: "commands", icon: ListTree },
   { key: "internals", icon: Blocks },
+  { key: "build", icon: Hammer },
   { key: "try", icon: Terminal },
   { key: "cases", icon: FlaskConical },
   { key: "history", icon: History },
@@ -87,12 +89,13 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
   useEffect(() => {
     if (!sha) return;
     if (seen.current && seen.current !== sha) {
-      setNotice(true);
+      // The build area saves on every edit and says so itself (#1201): no "reloaded" notice there.
+      if (section !== "build") setNotice(true);
       // What the page shows follows the new file, not just the hash.
       void qc.invalidateQueries({ queryKey: keys.definitionCases(definitionId) });
     }
     seen.current = sha;
-  }, [sha, definitionId, qc]);
+  }, [sha, definitionId, qc, section]);
 
   if (doc.isLoading) {
     return (
@@ -182,6 +185,9 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
         </TabsContent>
         <TabsContent value="internals" className="min-h-0 flex-1 overflow-hidden">
           <InternalsSection sid={trySession.sid} inst={inst.data} error={trySession.error} />
+        </TabsContent>
+        <TabsContent value="build" className="min-h-0 flex-1 overflow-hidden">
+          {section === "build" && <BuildTab definitionId={definitionId} />}
         </TabsContent>
         <TabsContent value="try" className="min-h-0 flex-1 overflow-hidden">
           <TryTab sid={trySession.sid} inst={inst.data} error={trySession.error} onReopen={trySession.reopen} />

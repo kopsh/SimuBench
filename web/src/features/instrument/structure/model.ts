@@ -1,0 +1,443 @@
+/**
+ * The build area's pure logic (#1201, instrument-authoring.md 9): a definition's structure —
+ * components, channel components, signal wiring, panel ports — and the edits the canvas makes to
+ * it. Every function returns a new structure; the page sends it whole to
+ * `PUT /api/definitions/{id}/structure`, and the server keeps only what the file does not inherit.
+ */
+import type { Schemas } from "@/api/client";
+
+export type StructureComponent = Schemas["StructureComponent-Output"];
+export type ComponentDoc = Schemas["ComponentDoc"];
+
+/** The part of a structure the editor changes (what the save carries besides the hash). */
+export interface Structure {
+  components: StructureComponent[];
+  channel_components: StructureComponent[];
+  wiring: { instrument: [string, string][]; channel: [string, string][] };
+  ports: { instrument: Record<string, string>; channel: Record<string, string> };
+}
+
+/** Where a component lives: the whole instrument, or every channel (one copy each). */
+export type Scope = "instrument" | "channel";
+
+/** A component port: which component, in which scope, which port. */
+export interface End {
+  scope: Scope;
+  name: string;
+  port: string;
+}
+
+/** A signal wire as the canvas draws it: its list, its place in it, and both ends resolved. */
+export interface Wire {
+  list: Scope;
+  index: number;
+  from: End;
+  to: End;
+}
+
+/** The channel prefix instrument-level wiring uses for a channel's component (`ch{n}.probe.out`). */
+export const CHANNEL_PREFIX = "ch{n}.";
+
+const pairs = (wires: string[][]): [string, string][] => wires.map((w) => [w[0], w[1]]);
+
+/** The editable part of a structure the server returned. */
+export function structureOf(s: {
+  components: StructureComponent[];
+  channel_components: StructureComponent[];
+  wiring: { instrument: string[][]; channel: string[][] };
+  ports: Structure["ports"];
+}): Structure {
+  return {
+    components: s.components,
+    channel_components: s.channel_components,
+    wiring: { instrument: pairs(s.wiring.instrument), channel: pairs(s.wiring.channel) },
+    ports: { instrument: s.ports.instrument, channel: s.ports.channel },
+  };
+}
+
+function listOf(s: Structure, scope: Scope): StructureComponent[] {
+  return scope === "instrument" ? s.components : s.channel_components;
+}
+
+function withList(s: Structure, scope: Scope, list: StructureComponent[]): Structure {
+  return scope === "instrument" ? { ...s, components: list } : { ...s, channel_components: list };
+}
+
+/** The node id of a component on the canvas (names are unique across both scopes). */
+export function nodeId(scope: Scope, name: string): string {
+  return `${scope === "instrument" ? "i" : "c"}:${name}`;
+}
+
+export function parseNodeId(id: string): { scope: Scope; name: string } | null {
+  if (id.startsWith("i:")) return { scope: "instrument", name: id.slice(2) };
+  if (id.startsWith("c:")) return { scope: "channel", name: id.slice(2) };
+  return null;
+}
+
+/** `name.port` → its two halves (a component name has no dot). */
+function splitRef(ref: string): { name: string; port: string } | null {
+  const dot = ref.indexOf(".");
+  if (dot <= 0 || dot === ref.length - 1) return null;
+  return { name: ref.slice(0, dot), port: ref.slice(dot + 1) };
+}
+
+/** One end of a wire as written in `list`; null when it names no known component. */
+export function parseEnd(s: Structure, list: Scope, text: string): End | null {
+  if (list === "instrument" && text.startsWith(CHANNEL_PREFIX)) {
+    const ref = splitRef(text.slice(CHANNEL_PREFIX.length));
+    return ref && s.channel_components.some((c) => c.name === ref.name) ? { scope: "channel", ...ref } : null;
+  }
+  const ref = splitRef(text);
+  if (!ref) return null;
+  return listOf(s, list).some((c) => c.name === ref.name) ? { scope: list, ...ref } : null;
+}
+
+/** An end written for a wire in `list`. */
+function endText(end: End, list: Scope): string {
+  return list === "instrument" && end.scope === "channel"
+    ? `${CHANNEL_PREFIX}${end.name}.${end.port}`
+    : `${end.name}.${end.port}`;
+}
+
+/** Every wire whose two ends name components (a wire to nothing is left for the diagnostics). */
+export function wiresOf(s: Structure): Wire[] {
+  const out: Wire[] = [];
+  for (const list of ["instrument", "channel"] as const) {
+    s.wiring[list].forEach(([a, b], index) => {
+      const from = parseEnd(s, list, a);
+      const to = parseEnd(s, list, b);
+      if (from && to) out.push({ list, index, from, to });
+    });
+  }
+  return out;
+}
+
+/** All component names, both scopes. */
+export function names(s: Structure): Set<string> {
+  return new Set([...s.components, ...s.channel_components].map((c) => c.name));
+}
+
+/** A name for a new component of `type`: the type itself, else `type2`, `type3` … */
+export function freeName(s: Structure, type: string): string {
+  const taken = names(s);
+  if (!taken.has(type)) return type;
+  for (let n = 2; ; n++) if (!taken.has(`${type}${n}`)) return `${type}${n}`;
+}
+
+export function addComponent(s: Structure, type: string, scope: Scope): { structure: Structure; name: string } {
+  const name = freeName(s, type);
+  return { structure: withList(s, scope, [...listOf(s, scope), { name, type, params: {} }]), name };
+}
+
+/** What deleting a component also takes with it: the counts the confirmation names. */
+export interface RemovalCounts {
+  wires: number;
+  ports: number;
+}
+
+function touches(end: End | null, scope: Scope, name: string): boolean {
+  return !!end && end.scope === scope && end.name === name;
+}
+
+function portTargets(panel: Scope, target: string, scope: Scope, name: string): boolean {
+  const ref = splitRef(target);
+  return panel === scope && !!ref && ref.name === name;
+}
+
+export function removalCounts(s: Structure, scope: Scope, name: string): RemovalCounts {
+  const wires = (["instrument", "channel"] as const).reduce(
+    (n, list) =>
+      n +
+      s.wiring[list].filter(([a, b]) => touches(parseEnd(s, list, a), scope, name) || touches(parseEnd(s, list, b), scope, name))
+        .length,
+    0,
+  );
+  const ports = (["instrument", "channel"] as const).reduce(
+    (n, panel) => n + Object.values(s.ports[panel]).filter((t) => portTargets(panel, t, scope, name)).length,
+    0,
+  );
+  return { wires, ports };
+}
+
+/** Delete a component, its wires and the panel ports that lead to it; a `refs` parameter that
+ * named it is emptied (the diagnostics then say a required one is missing). */
+export function removeComponent(
+  s: Structure,
+  scope: Scope,
+  name: string,
+  docs: ReadonlyMap<string, ComponentDoc> = new Map(),
+): Structure {
+  const keepWire = (list: Scope) => ([a, b]: [string, string]) =>
+    !touches(parseEnd(s, list, a), scope, name) && !touches(parseEnd(s, list, b), scope, name);
+  const keepPorts = (panel: Scope) =>
+    Object.fromEntries(Object.entries(s.ports[panel]).filter(([, t]) => !portTargets(panel, t, scope, name)));
+  const unref = (c: StructureComponent): StructureComponent => {
+    const refs = new Set((docs.get(c.type)?.refs ?? []).map((r) => r.param));
+    const params = Object.fromEntries(Object.entries(c.params ?? {}).filter(([k, v]) => !(refs.has(k) && v === name)));
+    return Object.keys(params).length === Object.keys(c.params ?? {}).length ? c : { ...c, params };
+  };
+  const next: Structure = {
+    components: s.components.filter((c) => scope !== "instrument" || c.name !== name).map(unref),
+    channel_components: s.channel_components.filter((c) => scope !== "channel" || c.name !== name).map(unref),
+    wiring: { instrument: s.wiring.instrument.filter(keepWire("instrument")), channel: s.wiring.channel.filter(keepWire("channel")) },
+    ports: { instrument: keepPorts("instrument"), channel: keepPorts("channel") },
+  };
+  return next;
+}
+
+/** The list a wire between two ends is written in: inside a channel when both ends are a
+ * channel's, else at instrument level. */
+export function wireList(from: End, to: End): Scope {
+  return from.scope === "channel" && to.scope === "channel" ? "channel" : "instrument";
+}
+
+/** Add a wire `from` → `to`; the same wire twice, or a wire into an input that already has one, is
+ * not added (null). */
+export function connect(s: Structure, from: End, to: End): Structure | null {
+  const list = wireList(from, to);
+  const a = endText(from, list);
+  const b = endText(to, list);
+  if (from.scope === to.scope && from.name === to.name) return null;
+  const taken = wiresOf(s).some((w) => w.to.scope === to.scope && w.to.name === to.name && w.to.port === to.port);
+  if (taken || s.wiring[list].some(([x, y]) => x === a && y === b)) return null;
+  return { ...s, wiring: { ...s.wiring, [list]: [...s.wiring[list], [a, b]] } };
+}
+
+export function removeWire(s: Structure, list: Scope, index: number): Structure {
+  return { ...s, wiring: { ...s.wiring, [list]: s.wiring[list].filter((_, i) => i !== index) } };
+}
+
+/** Set a parameter's value, or remove it (`undefined`: the component's default applies). */
+export function setParam(s: Structure, scope: Scope, name: string, key: string, value: unknown): Structure {
+  return withList(
+    s,
+    scope,
+    listOf(s, scope).map((c) => {
+      if (c.name !== name) return c;
+      const params = { ...(c.params ?? {}) };
+      if (value === undefined) delete params[key];
+      else params[key] = value;
+      return { ...c, params };
+    }),
+  );
+}
+
+/** A panel port's name for a channel table holds `{n}` (`CH{n}`). */
+export function panelPortName(raw: string, panel: Scope): string | null {
+  const name = raw.trim();
+  if (!name || name.includes(" ")) return null;
+  if (panel === "channel" && !name.includes("{n}")) return `${name}{n}`;
+  return name;
+}
+
+export function setPanelPort(s: Structure, panel: Scope, name: string, target: string): Structure {
+  return { ...s, ports: { ...s.ports, [panel]: { ...s.ports[panel], [name]: target } } };
+}
+
+export function removePanelPort(s: Structure, panel: Scope, name: string): Structure {
+  const table = { ...s.ports[panel] };
+  delete table[name];
+  return { ...s, ports: { ...s.ports, [panel]: table } };
+}
+
+// ---- ports of a component type ------------------------------------------------------------------
+
+export interface PortRow {
+  name: string;
+  direction: string;
+  medium: string;
+  /** A port the type's `port_pattern` creates, offered as the next free one. */
+  extra?: boolean;
+}
+
+/** The prefixes of a numbered port pattern (`in\d+` → in; `(in|out)\d+` → in, out); empty for a
+ * pattern of another shape, whose ports come only from the wiring. */
+export function patternPrefixes(pattern: string | null | undefined): string[] {
+  if (!pattern || !pattern.endsWith("\\d+")) return [];
+  const head = pattern.slice(0, -3);
+  const alt = head.startsWith("(") && head.endsWith(")") ? head.slice(1, -1).split("|") : [head];
+  return alt.every((p) => /^[A-Za-z_]+$/.test(p)) ? alt : [];
+}
+
+/** A component's ports: its type's own, those the wiring created from its pattern, and the next
+ * free one of each prefix (so a wire can be dragged to it). */
+export function portsOf(s: Structure, scope: Scope, name: string, doc: ComponentDoc | undefined): PortRow[] {
+  const rows: PortRow[] = (doc?.ports ?? []).map((p) => ({ name: p.name, direction: p.direction, medium: p.medium }));
+  const used = new Set<string>();
+  for (const w of wiresOf(s)) {
+    for (const end of [w.from, w.to]) if (end.scope === scope && end.name === name) used.add(end.port);
+  }
+  const own = new Set(rows.map((r) => r.name));
+  for (const prefix of patternPrefixes(doc?.port_pattern)) {
+    const direction = prefix.startsWith("out") ? "out" : "in";
+    const numbers = [...used]
+      .filter((p) => p.startsWith(prefix) && /^\d+$/.test(p.slice(prefix.length)))
+      .map((p) => Number(p.slice(prefix.length)))
+      .sort((a, b) => a - b);
+    for (const n of numbers) rows.push({ name: `${prefix}${n}`, direction, medium: "any" });
+    rows.push({ name: `${prefix}${(numbers.at(-1) ?? 0) + 1}`, direction, medium: "any", extra: true });
+  }
+  for (const p of [...used].sort()) {
+    if (!own.has(p) && !rows.some((r) => r.name === p)) rows.push({ name: p, direction: "in", medium: "any" });
+  }
+  return rows;
+}
+
+/** Can a wire run from port `a` (an output) to port `b` (an input)? Media must agree; a port of a
+ * pattern takes any. Electrical pins lead to the panel, not to a wire. */
+export function canWire(a: PortRow | undefined, b: PortRow | undefined): boolean {
+  if (!a || !b || a.direction !== "out" || (b.direction !== "in" && b.direction !== "ref")) return false;
+  if (a.medium === "electrical" || b.medium === "electrical") return false;
+  return a.medium === "any" || b.medium === "any" || a.medium === b.medium;
+}
+
+// ---- parameters --------------------------------------------------------------------------------
+
+/** How a parameter is written: a literal the build area edits, a setting it follows (read only
+ * here), or a component it names (a `refs` parameter). */
+export type ParamKind =
+  | { kind: "literal"; value: unknown; set: boolean }
+  | { kind: "setting"; setting: string }
+  | { kind: "ref"; value: string | null; scope: Scope; optional: boolean; target: string | null };
+
+export function paramKind(c: StructureComponent, doc: ComponentDoc | undefined, key: string): ParamKind {
+  const ref = doc?.refs?.find((r) => r.param === key);
+  const value = (c.params ?? {})[key];
+  if (ref) {
+    return {
+      kind: "ref",
+      value: typeof value === "string" ? value : null,
+      scope: ref.scope,
+      optional: ref.optional ?? false,
+      target: ref.target ?? null,
+    };
+  }
+  if (typeof value === "string" && value.startsWith("$")) return { kind: "setting", setting: value.slice(1) };
+  if (value && typeof value === "object" && "from" in (value as Record<string, unknown>)) {
+    const from = (value as Record<string, unknown>).from;
+    return { kind: "setting", setting: typeof from === "string" ? from.replace(/^\$/, "") : "?" };
+  }
+  const set = key in (c.params ?? {});
+  const fallback = doc?.params.find((p) => p.name === key)?.default;
+  return { kind: "literal", value: set ? value : fallback, set };
+}
+
+/** The parameter names to list for a component: its type's, then any the definition writes that
+ * the type does not declare (the diagnostics flag those). */
+export function paramNames(c: StructureComponent, doc: ComponentDoc | undefined): string[] {
+  const declared = (doc?.params ?? []).map((p) => p.name);
+  const refs = (doc?.refs ?? []).map((r) => r.param).filter((r) => !declared.includes(r));
+  const extra = Object.keys(c.params ?? {}).filter((k) => !declared.includes(k) && !refs.includes(k));
+  return [...declared, ...refs, ...extra];
+}
+
+/** Parse a typed literal like the default's kind: a number for a number (SI suffixes not
+ * accepted here: the build area writes plain values), true/false for a boolean, else text. An
+ * empty entry means "back to the default". */
+export function parseLiteral(typed: string, like: unknown): { ok: true; value: unknown } | { ok: false } {
+  const text = typed.trim();
+  if (text === "") return { ok: true, value: undefined };
+  if (typeof like === "number") {
+    if (text === "INF" || text === "-INF") return { ok: true, value: text };
+    const n = Number(text);
+    return Number.isFinite(n) ? { ok: true, value: n } : { ok: false };
+  }
+  if (typeof like === "boolean") {
+    if (text === "true") return { ok: true, value: true };
+    if (text === "false") return { ok: true, value: false };
+    return { ok: false };
+  }
+  if (like !== null && typeof like === "object") {
+    try {
+      return { ok: true, value: JSON.parse(text) };
+    } catch {
+      return { ok: false };
+    }
+  }
+  return { ok: true, value: text };
+}
+
+export function literalText(value: unknown): string {
+  if (value === undefined || value === null) return "";
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+}
+
+// ---- diagnostics -------------------------------------------------------------------------------
+
+/** The component a diagnostic's pointer points at (`/components/3/params/x` → that component). */
+export function diagnosticNode(s: Structure, pointer: string | null | undefined): string | null {
+  if (!pointer) return null;
+  const parts = pointer.split("/");
+  const index = Number(parts[2]);
+  if (!Number.isInteger(index)) return null;
+  if (parts[1] === "components" && s.components[index]) return nodeId("instrument", s.components[index].name);
+  if (parts[1] === "channel_components" && s.channel_components[index])
+    return nodeId("channel", s.channel_components[index].name);
+  return null;
+}
+
+// ---- layout ------------------------------------------------------------------------------------
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export const COLUMN = 260;
+export const ROW = 150;
+/** Where the instrument's components start below the channel band. */
+export const BAND_GAP = 80;
+
+/** A column for every component from the signal wires (left to right, a source in column 0; a
+ * wire that loops back does not push), then one row per column entry; the channel components in a
+ * band on top. A position the user dragged to wins. */
+export function autoLayout(s: Structure, saved: Record<string, Point> = {}): Record<string, Point> {
+  const ids = [
+    ...s.channel_components.map((c) => nodeId("channel", c.name)),
+    ...s.components.map((c) => nodeId("instrument", c.name)),
+  ];
+  const into = new Map<string, string[]>(ids.map((id) => [id, []]));
+  for (const w of wiresOf(s)) into.get(nodeId(w.to.scope, w.to.name))?.push(nodeId(w.from.scope, w.from.name));
+  const col = new Map<string, number>();
+  const visiting = new Set<string>();
+  const depth = (id: string): number => {
+    const known = col.get(id);
+    if (known !== undefined) return known;
+    if (visiting.has(id)) return 0;
+    visiting.add(id);
+    const d = Math.max(-1, ...(into.get(id) ?? []).map(depth)) + 1;
+    visiting.delete(id);
+    col.set(id, d);
+    return d;
+  };
+  ids.forEach(depth);
+  const out: Record<string, Point> = {};
+  const rows = new Map<string, number>();
+  const place = (id: string, top: number) => {
+    const c = col.get(id) ?? 0;
+    const key = `${top}:${c}`;
+    const r = rows.get(key) ?? 0;
+    rows.set(key, r + 1);
+    out[id] = saved[id] ?? { x: c * COLUMN, y: top + r * ROW };
+  };
+  s.channel_components.forEach((c) => place(nodeId("channel", c.name), 0));
+  const top = Math.max(1, ...[...rows.values()]) * ROW + BAND_GAP;
+  s.components.forEach((c) => place(nodeId("instrument", c.name), top));
+  return out;
+}
+
+/** The band the channel components are drawn in: a box around them with room to drop more. */
+export function channelBand(positions: Record<string, Point>, s: Structure, width = 220): { x: number; y: number; w: number; h: number } {
+  const pts = s.channel_components.map((c) => positions[nodeId("channel", c.name)]).filter(Boolean);
+  if (!pts.length) return { x: -30, y: -50, w: COLUMN * 2, h: ROW };
+  const xs = pts.map((p) => p.x);
+  const ys = pts.map((p) => p.y);
+  const x = Math.min(...xs) - 30;
+  const y = Math.min(...ys) - 50;
+  return { x, y, w: Math.max(...xs) + width + 30 - x + COLUMN / 2, h: Math.max(...ys) + ROW - y };
+}
+
+export function inBand(p: Point, band: { x: number; y: number; w: number; h: number }): boolean {
+  return p.x >= band.x && p.x <= band.x + band.w && p.y >= band.y && p.y <= band.y + band.h;
+}

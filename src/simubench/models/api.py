@@ -116,6 +116,60 @@ class DefinitionDocument(_Model):
     )
 
 
+class StructureComponent(_Model):
+    """A component of a definition's structure as the build area edits it (#1201)."""
+
+    name: str
+    type: str
+    params: dict[str, Any] = Field(
+        default_factory=dict,
+        description="As written in the definition: a literal, a setting ('$ch.x') or a mapping of a setting",
+    )
+
+
+class StructureWiring(_Model):
+    instrument: list[tuple[str, str]] = Field(
+        default_factory=list, description="Wires at instrument level; 'ch{n}.<component>' for a channel's"
+    )
+    channel: list[tuple[str, str]] = Field(default_factory=list, description="Wires inside each channel")
+
+
+class StructurePorts(_Model):
+    instrument: dict[str, str] = Field(default_factory=dict, description="Panel port -> 'component.port'")
+    channel: dict[str, str] = Field(default_factory=dict, description="'CH{n}' -> 'component.port'")
+
+
+class StructureUpdate(_Model):
+    """A whole structure to write into a workspace definition (#1201): what it should run; the
+    file gets only what differs from what it inherits (D59)."""
+
+    base_sha256: str = Field(..., description="sha256 of the definition file as read")
+    components: list[StructureComponent] = Field(default_factory=list)
+    channel_components: list[StructureComponent] = Field(default_factory=list)
+    wiring: StructureWiring = Field(default_factory=StructureWiring)
+    ports: StructurePorts = Field(default_factory=StructurePorts)
+
+
+class DefinitionStructure(_Model):
+    """The effective structure of a definition (``extends`` and the category default merged in,
+    D59), for the Web's build area (#1201). Read even when the draft does not pass the checks."""
+
+    id: str
+    sha256: str = Field(..., description="Hash of the file bytes; pass back as base_sha256 to save")
+    editable: bool
+    extends: str | None = None
+    channels: int = Field(1, description="How many channels the channel components are repeated for")
+    components: list[StructureComponent]
+    channel_components: list[StructureComponent]
+    wiring: StructureWiring
+    ports: StructurePorts
+    inherited: list[Literal["components", "channel_components", "wiring", "ports"]] = Field(
+        default_factory=list, description="Structure items the file does not write: they come from extends"
+    )
+    ok: bool
+    diagnostics: list[Diagnostic]
+
+
 class CoverageEntryInfo(_Model):
     """One command of a real model's coverage table (D42)."""
 
@@ -263,6 +317,17 @@ class OperationInfo(_Model):
     )
 
 
+class RefInfo(_Model):
+    """A component parameter that names another component (a ``refs`` declaration)."""
+
+    param: str
+    scope: Literal["instrument", "channel"] = Field(
+        ..., description="instrument: a whole-instrument component; channel: one of its own channel's"
+    )
+    optional: bool = False
+    target: str | None = Field(None, description="The component type it must name, when one is required")
+
+
 class ComponentDoc(_Model):
     """A component type as instrument definitions use it: ports, parameters, operations, role."""
 
@@ -280,6 +345,9 @@ class ComponentDoc(_Model):
     ports: list[PortInfo]
     port_pattern: str | None = Field(None, description="Ports created by the wiring, e.g. 'in\\d+'")
     params: list[ParamInfo]
+    refs: list[RefInfo] = Field(
+        default_factory=list, description="Parameters that name another component of the instrument"
+    )
     operations: list[OperationInfo]
 
 

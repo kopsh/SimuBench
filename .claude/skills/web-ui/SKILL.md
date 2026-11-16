@@ -47,6 +47,11 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `web/e2e/fixtures/benches/sa-two-tone.bench.yaml`) — regenerate after a model or API change:
   `uv run python scripts/capture_internals_fixture.py [specan.fixture.json]` (name one to leave the other's
   instant, and its baselines, alone).
+- `web/src/features/instrument/structure/` — the acceptance page's build area (#1201, D3,
+  instrument-authoring.md 9): `model.ts` (the structure's edits — add, wire, delete, parameters, panel
+  ports, layout; unit-tested), `BuildTab.tsx` (library, canvas, side panel; each edit sends the whole
+  structure to `PUT /api/definitions/{id}/structure`, one save at a time). Dragged positions are kept
+  per viewer in `localStorage`. e2e: `e2e/build.spec.ts`. (Not `build/`: `.gitignore` hides it.)
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key
