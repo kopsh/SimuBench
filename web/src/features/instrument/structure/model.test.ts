@@ -24,11 +24,25 @@ import {
   updateCommand,
   updateSetting,
   autoLayout,
+  accessPatch,
+  commandAccess,
+  formatNumber,
+  isTable,
+  libraryGroups,
+  literalText,
+  matches,
+  parseNumber,
+  portSignature,
+  removeTableRow,
+  setTableRow,
+  settingUsers,
+  tableKey,
   followedSettings,
   followers,
   refLinks,
   COLUMN,
-  ROW,
+  NODE_WIDTH,
+  nodeHeight,
   canWire,
   connect,
   diagnosticNode,
@@ -252,7 +266,7 @@ describe("layout and diagnostics", () => {
     expect(p("path")).toEqual({ x: COLUMN, y: 0 });
     // the other four below the chain, not stacked in one column
     const loose = ["trig", "meter", "cal", "mem"].map(p);
-    expect(Math.min(...loose.map((q) => q.y))).toBeGreaterThan(ROW - 1);
+    expect(Math.min(...loose.map((q) => q.y))).toBeGreaterThan(p("input").y);
     expect(new Set(loose.map((q) => q.x)).size).toBeGreaterThan(1);
     // the store follows the meter that names it
     expect(p("cal").x - p("meter").x).toBe(COLUMN);
@@ -261,6 +275,56 @@ describe("layout and diagnostics", () => {
     expect(new Set(Object.values(at).map((q) => `${q.x},${q.y}`)).size).toBe(6);
     // no channel components: the instrument starts at the top
     expect(Math.min(...Object.values(at).map((q) => q.y))).toBe(0);
+  });
+
+  it("never overlaps two blocks, however many ports and followed settings they have (#1216)", () => {
+    // Tall blocks: an acquisition with many numbered inputs, components following many settings,
+    // a panel port — on chains, in the grid and in the channel band.
+    const many = (prefix: string, n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`p${i}`, "$" + prefix + i]));
+    const tall: Structure = {
+      ...scope,
+      components: [
+        ...scope.components.map((c) => ({ ...c, params: { ...c.params, ...many("a", 5) } })),
+        { name: "acq2", type: "scope_acquisition", params: many("b", 4) },
+        { name: "x1", type: "x", params: many("c", 3) },
+        { name: "x2", type: "x", params: many("d", 6) },
+        { name: "x3", type: "x", params: {} },
+        { name: "x4", type: "x", params: many("e", 2) },
+      ],
+      channel_components: [
+        ...scope.channel_components.map((c) => ({ ...c, params: { ...c.params, ...many("f", 4) } })),
+        { name: "cx", type: "x", params: many("g", 5) },
+      ],
+      wiring: {
+        instrument: [
+          ...scope.wiring.instrument,
+          ["ch{n}.front.out", "acq.in1"],
+          ["ch{n}.front.out", "acq.in2"],
+          ["ch{n}.front.out", "acq.in3"],
+          ["acq.out", "acq2.in1"],
+        ],
+        channel: scope.wiring.channel,
+      },
+      ports: { instrument: { MON: "acq.mon" }, channel: scope.ports.channel },
+    };
+    const docs = new Map<string, ComponentDoc>([["scope_acquisition", acqDoc]]);
+    const at = autoLayout(tall, {}, docs);
+    const boxes = (["channel", "instrument"] as const).flatMap((sc) =>
+      (sc === "channel" ? tall.channel_components : tall.components).map((c) => {
+        const p = at[nodeId(sc, c.name)];
+        return { name: c.name, x: p.x, y: p.y, w: NODE_WIDTH, h: nodeHeight(tall, sc, c, docs) };
+      }),
+    );
+    expect(boxes).toHaveLength(10);
+    expect(Math.max(...boxes.map((b) => b.h))).toBeGreaterThan(150); // taller than the old fixed row
+    const overlapping: string[] = [];
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) overlapping.push(`${a.name}/${b.name}`);
+      }
+    expect(overlapping).toEqual([]);
   });
 
   it("finds the component a diagnostic points at", () => {
@@ -415,5 +479,97 @@ describe("references and settings on the canvas (#1212)", () => {
     expect(followers(scope, "depth")).toEqual([]);
     const both = setParam(scope, "instrument", "acq", "depth", "$depth");
     expect(followers(both, "depth")).toEqual([nodeId("instrument", "acq")]);
+  });
+});
+
+describe("numbers, tables, the library and setting users (#1214)", () => {
+  it("reads a number with an SI prefix, m for milli and M for mega", () => {
+    expect(parseNumber("10M")).toBe(1e7);
+    expect(parseNumber("1.5k")).toBe(1500);
+    expect(parseNumber("100u")).toBe(1e-4);
+    expect(parseNumber("2m")).toBe(0.002);
+    expect(parseNumber("4.7 n")).toBe(4.7e-9);
+    expect(parseNumber("2.5e6")).toBe(2.5e6);
+    expect(parseNumber("1e3k")).toBe(1e6);
+    expect(parseNumber("10X")).toBeNull();
+    expect(parseNumber("")).toBeNull();
+    expect(parseLiteral("10M", 50)).toEqual({ ok: true, value: 1e7 });
+  });
+
+  it("writes a number with a prefix only where it reads back the same", () => {
+    expect(formatNumber(1e7)).toBe("10M");
+    expect(formatNumber(1e10)).toBe("10G");
+    expect(formatNumber(1e-4)).toBe("100u");
+    expect(formatNumber(1.2)).toBe("1.2");
+    expect(formatNumber(0)).toBe("0");
+    expect(formatNumber(9.9e37)).toBe("9.9e+37");
+    expect(literalText(1e7)).toBe("10M");
+    expect(literalText({ a: 1 })).toBe('{"a":1}');
+  });
+
+  it("edits a table row by row, keys kept in place", () => {
+    const t = { "1": 0.1, "3": 0.1 };
+    expect(isTable(t)).toBe(true);
+    expect(isTable([1, 2])).toBe(false);
+    expect(isTable({ a: { b: 1 } })).toBe(false);
+    expect(Object.keys(setTableRow(t, "1", 0.2, "2"))).toEqual(["2", "3"]);
+    expect(setTableRow(t, "10", 0.5)).toEqual({ "1": 0.1, "3": 0.1, "10": 0.5 });
+    expect(removeTableRow(t, "1")).toEqual({ "3": 0.1 });
+    expect(tableKey(" 10k ")).toBe("10000");
+    expect(tableKey("DC")).toBe("DC");
+    expect(tableKey(" ")).toBeNull();
+  });
+
+  it("groups the library by family and filters it", () => {
+    const docs = [
+      doc({ type: "trigger_model", group: "trigger" }),
+      doc({ type: "output_stage", group: "signal", doc: "A driven output" }),
+      doc({ type: "input_port", group: "signal" }),
+      doc({ type: "resistor", category: "part", group: "other" }),
+    ];
+    const all = libraryGroups(docs, "", (d) => d.type);
+    expect(all.map((g) => g.group)).toEqual(["signal", "trigger"]);
+    expect(all[0].items.map((d) => d.type)).toEqual(["output_stage", "input_port"]);
+    expect(libraryGroups(docs, "driven", (d) => d.type).flatMap((g) => g.items.map((d) => d.type))).toEqual(["output_stage"]);
+  });
+
+  it("writes a type's ports in one line", () => {
+    const d = doc({
+      ports: [
+        { name: "in", direction: "in", medium: "voltage" },
+        { name: "out", direction: "out", medium: "voltage" },
+        { name: "pin", direction: "out", medium: "electrical" },
+      ] as ComponentDoc["ports"],
+    });
+    expect(portSignature(d)).toBe("in → out  ⊡ pin");
+    expect(portSignature(acqDoc)).toBe("in1… → —");
+    expect(portSignature(doc({}))).toBe("");
+  });
+
+  it("names who uses a setting", () => {
+    expect(settingUsers(scope, "channel", "impedance")).toEqual({ components: ["inp"], commands: [":CHANnel<ch>:IMPedance"] });
+    expect(settingUsers(scope, "instrument", "depth")).toEqual({ components: [], commands: [] });
+    expect(matches("imp", "ch.impedance")).toBe(true);
+    expect(matches("", "x")).toBe(true);
+    expect(matches("zz", "x", null)).toBe(false);
+  });
+});
+
+describe("command access (#1214)", () => {
+  it("reads three uses from set and query, none when both are off", () => {
+    expect(commandAccess({ header: "A" })).toBe("both");
+    expect(commandAccess({ header: "A", query: false })).toBe("set");
+    expect(commandAccess({ header: "A", set: false })).toBe("query");
+    expect(commandAccess({ header: "A", set: false, query: false })).toBeNull();
+  });
+
+  it("writes only what differs from the default", () => {
+    const s = addCommand(scope, ":X", "state", "depth")!;
+    const i = s.commands.length - 1;
+    const only = updateCommand(s, i, accessPatch("query"));
+    expect(only.commands[i]).toEqual({ header: ":X", state: "depth", set: false });
+    const both = updateCommand(only, i, accessPatch("both"));
+    expect(both.commands[i]).toEqual({ header: ":X", state: "depth" });
+    expect(commandAccess(updateCommand(both, i, accessPatch("set")).commands[i])).toBe("set");
   });
 });

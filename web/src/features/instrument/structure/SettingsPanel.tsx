@@ -1,4 +1,4 @@
-import { AlertTriangle, ChevronDown, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { AlertTriangle, Bot, ChevronDown, ChevronRight, CornerDownRight, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -6,10 +6,12 @@ import { DraftInput, INVALID, SKIP, commit } from "@/components/app/DraftInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { AccessIcon, AccessPicker, Hint, Tip, TypeIcon } from "./glyphs";
 import {
   type CommandKind,
+  accessPatch,
+  commandAccess,
   type ComponentDoc,
   type Scope,
   SETTING_TYPES,
@@ -22,6 +24,8 @@ import {
   commandSettingChoices,
   commandTarget,
   literalText,
+  matches,
+  settingUsers,
   needsChannelSuffix,
   operationChoices,
   parseLiteral,
@@ -36,6 +40,16 @@ import {
 
 type Change = (next: Structure | null) => boolean;
 
+/** A search box over a long list (#1214). */
+function ListSearch({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
+  return (
+    <div className="relative flex-1">
+      <Search className="text-muted-foreground absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+      <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="num h-7 pl-7 text-xs" />
+    </div>
+  );
+}
+
 // ---- settings ----------------------------------------------------------------------------------
 
 /** The settings of the instrument and of every channel (#1206): add, edit the common fields, delete. */
@@ -44,10 +58,13 @@ export function SettingsPanel({
   editable,
   onChange,
   onFocus,
+  wide = false,
 }: {
   structure: Structure;
   editable: boolean;
   onChange: Change;
+  /** The side panel opened wide: each row also shows its default and who uses it (#1214). */
+  wide?: boolean;
   /** The setting pointed at (hovered, else open): the canvas lights what follows it (#1212). */
   onFocus?: (setting: string | null) => void;
 }) {
@@ -56,6 +73,7 @@ export function SettingsPanel({
   const [scope, setScope] = useState<Scope>("instrument");
   const [type, setType] = useState<SettingType>("float");
   const [open, setOpen] = useState<string | null>(null);
+  const [query, setQuery] = useState("");
   const pathOf = (key: string | null) => {
     if (!key) return null;
     const [sc, ...rest] = key.split(":");
@@ -65,9 +83,10 @@ export function SettingsPanel({
     setOpen(expanded ? null : key);
     onFocus?.(expanded ? null : pathOf(key));
   };
-  const rows = (["instrument", "channel"] as const).flatMap((sc) =>
+  const all = (["instrument", "channel"] as const).flatMap((sc) =>
     Object.entries(sc === "instrument" ? structure.state : structure.channel_state).map(([n, spec]) => ({ scope: sc, name: n, spec })),
   );
+  const rows = all.filter((r) => matches(query, settingPath(r.scope, r.name), String(r.spec.type ?? ""), String(r.spec.unit ?? ""), String(r.spec.label ?? "")));
   const add = () => {
     const n = settingName(name);
     if (!n) return void toast.error(t("acceptance.build.settingInvalid"));
@@ -80,8 +99,12 @@ export function SettingsPanel({
   };
   return (
     <div className="space-y-3 p-3 text-xs" data-testid="build-settings">
-      <p className="text-muted-foreground text-[11px]">{t("acceptance.build.settingsHint")}</p>
-      {!rows.length && <p className="text-muted-foreground">{t("acceptance.build.settingNone")}</p>}
+      <div className="flex min-h-7 items-center gap-2">
+        {all.length > 6 && <ListSearch value={query} onChange={setQuery} placeholder={t("acceptance.build.settingSearch")} />}
+        <Hint text={t("acceptance.build.settingsHint")} className="ml-auto" />
+      </div>
+      {!all.length && <p className="text-muted-foreground">{t("acceptance.build.settingNone")}</p>}
+      {all.length > 0 && !rows.length && <p className="text-muted-foreground">{t("acceptance.build.noMatch")}</p>}
       <ul className="space-y-1">
         {rows.map((r) => {
           const key = `${r.scope}:${r.name}`;
@@ -102,10 +125,11 @@ export function SettingsPanel({
               >
                 {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
                 <span className="num truncate font-medium">{r.scope === "channel" ? `ch.${r.name}` : r.name}</span>
-                <span className="text-muted-foreground ml-auto shrink-0 text-[10.5px]">
-                  {t(`acceptance.build.types.${String(r.spec.type)}`, { defaultValue: String(r.spec.type) })}
-                  {typeof r.spec.unit === "string" ? ` · ${r.spec.unit}` : ""}
+                <span className="text-muted-foreground num ml-auto flex shrink-0 items-center gap-1 text-[10.5px]">
+                  {typeof r.spec.unit === "string" && r.spec.unit}
+                  <TypeIcon type={String(r.spec.type)} />
                 </span>
+                {wide && <SettingUsers structure={structure} scope={r.scope} name={r.name} />}
               </button>
               {expanded && (
                 <SettingEditor structure={structure} scope={r.scope} name={r.name} spec={r.spec} editable={editable} onChange={onChange} />
@@ -142,6 +166,23 @@ export function SettingsPanel({
         </section>
       )}
     </div>
+  );
+}
+
+/** Who uses a setting, in the wide panel: the components that follow it and its commands. */
+function SettingUsers({ structure, scope, name }: { structure: Structure; scope: Scope; name: string }) {
+  const { t } = useTranslation();
+  const users = settingUsers(structure, scope, name);
+  const list = [...users.components, ...users.commands];
+  return (
+    <span
+      className="num text-muted-foreground flex w-[45%] shrink-0 items-center gap-1 truncate text-[10.5px]"
+      title={list.length ? t("acceptance.build.usedBy", { list: list.join(", ") }) : t("acceptance.build.usedByNone")}
+      data-testid="build-setting-users"
+    >
+      <CornerDownRight className="size-3 shrink-0" aria-hidden />
+      <span className="truncate">{list.length ? list.join(", ") : "—"}</span>
+    </span>
   );
 }
 
@@ -267,17 +308,23 @@ export function CommandsPanel({
   docs,
   editable,
   onChange,
+  definitionId,
+  wide = false,
 }: {
   structure: Structure;
   docs: ReadonlyMap<string, ComponentDoc>;
   editable: boolean;
   onChange: Change;
+  /** For the note handed to the agent (#1214). */
+  definitionId?: string;
+  wide?: boolean;
 }) {
   const { t } = useTranslation();
   const [header, setHeader] = useState("");
   const [kind, setKind] = useState<CommandKind>("state");
   const [target, setTarget] = useState("");
   const [open, setOpen] = useState<number | null>(null);
+  const [query, setQuery] = useState("");
   const settings = commandSettingChoices(structure);
   const ops = operationChoices(structure, docs);
   const choices = kind === "state" ? settings : ops;
@@ -293,12 +340,17 @@ export function CommandsPanel({
   };
   return (
     <div className="space-y-3 p-3 text-xs" data-testid="build-commands">
-      <p className="text-muted-foreground text-[11px]">{t("acceptance.build.commandsHint")}</p>
+      <div className="flex min-h-7 items-center gap-2">
+        {structure.commands.length > 6 && <ListSearch value={query} onChange={setQuery} placeholder={t("acceptance.build.cmdSearch")} />}
+        {definitionId && editable && <AgentNote definitionId={definitionId} structure={structure} />}
+        <Hint text={t("acceptance.build.commandsHint")} className={cn(!(definitionId && editable) && "ml-auto")} />
+      </div>
       {!structure.commands.length && <p className="text-muted-foreground">{t("acceptance.build.cmdNone")}</p>}
       <ul className="space-y-1">
         {structure.commands.map((c, i) => {
           const expanded = open === i;
           const { kind: k, target: to } = commandTarget(c);
+          if (!expanded && !matches(query, c.header, to)) return null;
           return (
             <li key={`${c.header}-${i}`} className="rounded-md border" data-testid="build-command">
               <button
@@ -308,9 +360,12 @@ export function CommandsPanel({
                 onClick={() => setOpen(expanded ? null : i)}
               >
                 {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
-                <span className="num min-w-0 flex-1 truncate font-medium">{c.header}</span>
+                <span className="num min-w-0 flex-1 truncate font-medium" title={c.header}>{c.header}</span>
                 {needsChannelSuffix(c) && <AlertTriangle className="text-warning size-3.5 shrink-0" aria-label={t("acceptance.build.cmdNeedsCh")} />}
-                <span className={cn("num text-muted-foreground max-w-[45%] shrink-0 truncate text-[10.5px]", k === "other" && "italic")}>{to}</span>
+                <AccessIcon access={commandAccess(c)} className="shrink-0" />
+                <span className={cn("num text-muted-foreground max-w-[45%] shrink-0 truncate text-[10.5px]", wide && "w-[40%]", k === "other" && "italic")} title={to}>
+                  {to}
+                </span>
               </button>
               {expanded && (
                 <CommandEditor
@@ -378,6 +433,35 @@ export function CommandsPanel({
   );
 }
 
+/** What the Web leaves to the agent — a command's parameters and reply format — as a note to
+ * paste into it (#1214): the definition, its file and the commands to complete. */
+function AgentNote({ definitionId, structure }: { definitionId: string; structure: Structure }) {
+  const { t } = useTranslation();
+  const copy = async () => {
+    const headers = structure.commands
+      .filter((c) => commandTarget(c).kind !== "other")
+      .map((c) => c.header)
+      .filter(Boolean);
+    const text = t("acceptance.build.agentPrompt", {
+      id: definitionId,
+      commands: headers.slice(0, 20).join(", ") + (headers.length > 20 ? " …" : ""),
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      toast.success(t("acceptance.build.agentCopied"));
+    } catch {
+      toast.error(t("acceptance.build.agentCopyFailed"), { description: text });
+    }
+  };
+  return (
+    <Tip label={t("acceptance.build.agentCopyHint")}>
+      <Button variant="outline" size="sm" className="ml-auto h-7 shrink-0" onClick={() => void copy()} data-testid="build-agent-note">
+        <Bot className="size-3.5" /> {t("acceptance.build.agentCopy")}
+      </Button>
+    </Tip>
+  );
+}
+
 function CommandEditor({
   structure,
   index,
@@ -436,7 +520,7 @@ function CommandEditor({
                 if (first) set(v === "op" ? { op: first } : { state: first });
               }}
             >
-              <SelectTrigger className="h-7 text-xs" size="sm" aria-label={t("acceptance.build.cmdKind")}>
+              <SelectTrigger className="h-7 w-full min-w-0 text-xs" size="sm" aria-label={t("acceptance.build.cmdKind")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -445,7 +529,7 @@ function CommandEditor({
               </SelectContent>
             </Select>
             <Select value={target} disabled={!editable} onValueChange={(v) => set(kind === "op" ? { op: v } : { state: v })}>
-              <SelectTrigger className="num h-7 text-xs" size="sm" aria-label={t("acceptance.build.cmdTarget")}>
+              <SelectTrigger className="num h-7 w-full min-w-0 text-xs" size="sm" aria-label={t("acceptance.build.cmdTarget")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -457,16 +541,7 @@ function CommandEditor({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5">
-              <Switch size="sm" checked={c.set !== false} disabled={!editable} onCheckedChange={(v) => set({ set: v ? undefined : false })} />
-              {t("acceptance.build.cmdSet")}
-            </label>
-            <label className="flex items-center gap-1.5">
-              <Switch size="sm" checked={c.query !== false} disabled={!editable} onCheckedChange={(v) => set({ query: v ? undefined : false })} />
-              {t("acceptance.build.cmdQuery")}
-            </label>
-          </div>
+          <AccessPicker value={commandAccess(c)} disabled={!editable} onChange={(a) => set(accessPatch(a))} />
         </>
       )}
       {canDelete && (

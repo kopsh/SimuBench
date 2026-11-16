@@ -23,6 +23,53 @@ _OP_CONTEXT = {"self", "query", "channel", "suffixes"}
 
 _cache: dict[type[Component], M.ComponentDoc] = {}
 
+#: The library family of each module under ``library/components`` (#1214): what the build area's
+#: component library groups by. A new module is added here; ``test_component_catalog`` checks it.
+GROUPS: dict[str, M.LibraryGroup] = {
+    **dict.fromkeys(
+        (
+            "electrical",
+            "optical",
+            "sampling",
+            "adc",
+            "modulation",
+            "transfer",
+            "curve",
+            "ranging",
+            "protection",
+            "daq",
+        ),
+        "signal",
+    ),
+    **dict.fromkeys(
+        ("meters", "measurements", "counter", "lockin", "reading_math", "specan", "specan_backend"), "measure"
+    ),
+    **dict.fromkeys(
+        (
+            "sources",
+            "power",
+            "smu",
+            "eload",
+            "rfgen",
+            "calibrator",
+            "cal_output",
+            "arb_segments",
+            "siglent_sdg",
+        ),
+        "source",
+    ),
+    **dict.fromkeys(("scope", "scope_autoscale", "scope_math", "scope_pending", "scope_record"), "scope"),
+    "trigger": "trigger",
+    **dict.fromkeys(("calstore", "datafiles", "files", "setups", "status", "system"), "system"),
+}
+
+
+def group_of(cls: type[Component]) -> M.LibraryGroup:
+    """The library family of a component class, from the module it is defined in."""
+    module = cls.__module__
+    prefix = "simubench.library.components."
+    return GROUPS.get(module[len(prefix) :], "other") if module.startswith(prefix) else "other"
+
 
 def components() -> list[M.ComponentDoc]:
     """All registered component types, by name."""
@@ -39,6 +86,7 @@ def component_info(name: str, cls: type[Component]) -> M.ComponentDoc:
             generic=cls.generic,
             label=cls.label or None,
             label_en=cls.label_en or None,
+            group=group_of(cls),
             doc=inspect.getdoc(cls),
             ports=[M.PortInfo(name=p, direction=s.direction, medium=s.medium) for p, s in cls.ports.items()],
             port_pattern=cls.port_pattern,
