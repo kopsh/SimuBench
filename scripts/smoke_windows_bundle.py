@@ -54,12 +54,14 @@ def main(argv: list[str] | None = None) -> int:
     launch = shlex.split(args.launch) if args.launch else [str(args.bundle / "SimuBench.exe")]
     cli = shlex.split(args.cli) if args.cli else [str(args.bundle / "tools" / "simubench.exe")]
 
-    doctor = subprocess.run([*cli, "doctor"], capture_output=True, text=True, timeout=300)
+    doctor = subprocess.run(
+        [*cli, "doctor"], capture_output=True, encoding="utf-8", errors="replace", timeout=300
+    )
     print(doctor.stdout + doctor.stderr)
     _check(doctor.returncode == 0, "simubench doctor")
 
     workspace = Path(tempfile.mkdtemp(prefix="simubench-smoke-"))
-    log = open(workspace / "launch.log", "w+", encoding="utf-8")  # noqa: SIM115
+    log = open(workspace / "launch.log", "w+", encoding="utf-8", errors="replace")  # noqa: SIM115
     proc = subprocess.Popen([*launch, "--no-browser", "--workspace", str(workspace)], stdout=log, stderr=log)
     try:
         deadline = time.monotonic() + 120
@@ -88,7 +90,9 @@ def main(argv: list[str] | None = None) -> int:
         _mcp({"jsonrpc": "2.0", "method": "notifications/initialized"}, session)
         text, _ = _mcp({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, session)
         _check('"list_benches"' in text, "MCP tools/list")
-        again = subprocess.run([*launch, "--no-browser"], capture_output=True, text=True, timeout=120)
+        again = subprocess.run(
+            [*launch, "--no-browser"], capture_output=True, encoding="utf-8", errors="replace", timeout=120
+        )
         _check(
             again.returncode == 0 and "already running" in again.stdout, "a second start opens the first one"
         )

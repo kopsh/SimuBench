@@ -127,3 +127,13 @@ def test_embed_zip_from_a_mirror_must_be_the_python_org_file():
     with pytest.raises(SystemExit) as err:
         bundle.check_embed(b"not python", "mirror.zip")
     assert bundle.EMBED_SHA256 in str(err.value)
+
+
+@pytest.mark.unit
+def test_cli_output_to_a_code_page_pipe_is_utf8():
+    # A redirected stdout on Windows is cp1252: doctor's ✓ and launch's Chinese must not raise (#1203)
+    raw = io.BytesIO()
+    pipe = io.TextIOWrapper(raw, encoding="cp1252")
+    cli.utf8_output(pipe)
+    print("✓ SimuBench 已在运行 — ok", file=pipe, flush=True)
+    assert raw.getvalue().decode("utf-8") == "✓ SimuBench 已在运行 — ok\n"

@@ -570,7 +570,22 @@ def _schemas(args: argparse.Namespace) -> int:
     return 0
 
 
+def utf8_output(*streams: object) -> None:
+    """Write UTF-8 to a pipe or file whose locale encoding is narrower (#1203).
+
+    On Windows a redirected stdout is cp1252 (or another code page), and the CLI's ✓, Chinese and
+    dashes would raise UnicodeEncodeError mid-output. A console window is already Unicode, and a
+    stream that cannot be reconfigured is left alone.
+    """
+    for stream in streams or (sys.stdout, sys.stderr):
+        encoding = str(getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        reconfigure = getattr(stream, "reconfigure", None)
+        if encoding != "utf8" and reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    utf8_output()
     parser = argparse.ArgumentParser(prog="simubench", description="SimuBench virtual instrument benches")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
