@@ -1,5 +1,5 @@
 # Manual cases for the Keysight Infiniium UXR1104B: Infiniium UXR-Series Oscilloscopes Programmer's
-# Guide 11.60.00000 (9018-07723); ranges from the UXR-B data sheet 3123-1313, 1 mm input models (#1092). Numbers answer as the
+# Guide 11.80.00012 (9018-07723); ranges from the UXR-B data sheet 3123-1313, 1 mm input models (#1092). Numbers answer as the
 # guide's sample (+8.00000E-01): NR3, five decimals, signed; booleans 1/0; enumerations short.
 # The bench: 10 MHz 400 mVpp sine on CH1, 1 MHz 400 mVpp square on CH2 (50 ohm).
 model: keysight-uxr1104b
@@ -10,7 +10,7 @@ cases:
     manual: "* (Common) Commands > *IDN?"
     steps:
       - query: "*IDN?"
-        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.80.00012"
   - name: ":MODel? 与 :SERial? 回不带引号的型号与序列号"
     manual: ": (Root Level) Commands > :MODel?; :SERial"
     steps:
@@ -458,7 +458,7 @@ cases:
       - query: ":MEASure:VBASe? CHANnel1"
         expect_value: -0.2
         tolerance: 0.02
-  - name: "自动测量：平均值与有效值（整屏、含直流）；AC 与单周期未建模"
+  - name: "自动测量：平均值与有效值（整屏、含直流与去直流）"
     manual: ":MEASure Commands > :MEASure:VAVerage; :MEASure:VRMS"
     steps:
       - send: ":CHANnel1:SCALe 0.1"
@@ -471,9 +471,9 @@ cases:
       - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1,VOLT"
         expect_value: 0.1414
         tolerance: 0.005
-      - send: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
+        expect_value: 0.1414
+        tolerance: 0.005
   - name: "带宽滤波的响应：平坦幅度截断截止以上的正弦，高斯幅度只衰减"
     manual: ":ACQuire Commands > :ACQuire:RESPonse; :ACQuire:BANDwidth; data sheet (bandwidth filters: brick wall)"
     steps:
@@ -614,7 +614,7 @@ cases:
       - query: ":SYSTem:ERRor?"
         expect: ":SYST:ERR 0"
       - query: "*IDN?"
-        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.80.00012"
   - name: "界面命令（接受）：前面板锁定、隐藏指示灯、屏幕文字、标签显示、网格亮度"
     manual: ":SYSTem:LOCK; :SYSTem:HLED; :SYSTem:DSP; :DISPlay:LABel; :DISPlay:GRATicule:INTensity"
     steps:
@@ -960,10 +960,10 @@ cases:
       - query: ":SYSTem:PERSona?"
         expect: '"Acme","X1"'
       - query: "*IDN?"
-        expect: "Acme,X1,MY64310101,11.60.00000"
+        expect: "Acme,X1,MY64310101,11.80.00012"
       - send: ":SYSTem:PERSona DEFault"
       - query: "*IDN?"
-        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.80.00012"
   - name: ":SYSTem:CAPability 的采集、通道与数字通道能力（带引号）"
     manual: ":SYSTem Commands > :SYSTem:CAPability:ACQuire?; :SYSTem:CAPability:CHANnel?; :SYSTem:CAPability:DIGital?"
     steps:
@@ -2059,3 +2059,178 @@ cases:
       - send: ":CHANnel1:PROBe:SKEW:AUTO"
       - query: ":SYSTem:ERRor?"
         expect: "0"
+  - name: "测量以数学函数为信源：CH1+CH1 的幅度是 CH1 的两倍，FFT 的峰值约 −4 dBm、峰值处在 10 MHz；屏幕测量列表、:MEASure:SOURce 与未定义的函数"
+    manual: ":MEASure Commands > <source> ::= {CHANnel<N> | FUNCtion<F> | …}; :MEASure:VAMPlitude, :VMAX, :TMAX, :VPP, :SOURce, :RESults?"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1;:TIMebase:SCALe 1E-6"
+      - send: ":FUNCtion1:ADD CHANnel1,CHANnel1"
+      - send: ":DIGitize CHANnel1"
+      - query: ":MEASure:VAMPlitude? CHANnel1"
+        expect_fields: [{min: 0.36, max: 0.42, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VAMPlitude? FUNCtion1"
+        expect_fields: [{min: 0.72, max: 0.84, format: "±d.dddddE±0d"}]
+      - send: ":FUNCtion2:FFTMagnitude CHANnel1"
+      - query: ":MEASure:VMAX? FUNC2"
+        expect_fields: [{min: -5.0, max: -3.0, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:TMAX? FUNCtion2"
+        expect_fields: [{min: 9.8e6, max: 1.02e7, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:CLEar;:MEASure:VPP FUNCtion1"
+      - query: ":MEASurement1:SOURce?"
+        expect: "FUNC1"
+      - query: ":MEASure:RESults?"
+        expect_fields: ["VPP(f1)", {min: 0.72, max: 1.2}, {min: 0.72, max: 1.2}, {min: 0.72, max: 1.2}, {min: 0.72, max: 1.2}, {min: 0.0, max: 1.0}, "1"]
+      - send: ":MEASure:SOURce FUNCtion1"
+      - query: ":MEASure:SOURce?"
+        expect: "FUNC1,CHAN2"
+      - query: ":MEASure:VAMPlitude?"
+        expect_fields: [{min: 0.72, max: 0.84, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:VPP? FUNCtion5"
+      - query: ":SYSTem:ERRor?"
+        expect: "-230"
+  - name: "自动设置：只搜已显示的 CH1、CH2，各取 100 mV/div、时基按 CH1 的 10 MHz 取 50 ns/div，触发从高编号往下找到 CH2、电平在方波中点；光标方式 MEASurement，函数关掉"
+    manual: ":AUToscale; :AUToscale:CHANnels"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:FUNCtion1:ADD CHANnel1,CHANnel2;:FUNCtion1:DISPlay ON"
+      - send: ":AUToscale:CHANnels DISPlayed"
+      - query: ":AUToscale:CHANnels?"
+        expect: "DISP"
+      - send: ":AUToscale"
+      - query: ":CHANnel1:SCALe?"
+        expect: "+1.00000E-01"
+      - query: ":CHANnel2:SCALe?"
+        expect: "+1.00000E-01"
+      - query: ":CHANnel3:DISPlay?"
+        expect: "0"
+      - query: ":TIMebase:SCALe?"
+        expect: "+5.00000E-08"
+      - query: ":TRIGger:EDGE:SOURce?"
+        expect: "CHAN2"
+      - query: ":TRIGger:LEVel? CHANnel2"
+        expect_fields: [{min: -0.02, max: 0.02, format: "±d.dddddE±0d"}]
+      - query: ":TRIGger:MODE?"
+        expect: "EDGE"
+      - query: ":MARKer:MODE?"
+        expect: "MEAS"
+      - query: ":FUNCtion1:DISPlay?"
+        expect: "0"
+      - send: ":DIGitize"
+      - query: ":MEASure:FREQuency? CHANnel1"
+        expect_fields: [{min: 9.9e6, max: 1.01e7, format: "±d.dddddE±0d"}]
+  - name: "自动设置的摆放与单通道垂直自动设置：STACk 时两路各占半屏；:AUToscale:VERTical 只改该通道的档位与偏置"
+    manual: ":AUToscale:PLACement; :AUToscale:VERTical"
+    steps:
+      - send: ":AUToscale:PLACement STACk"
+      - query: ":AUToscale:PLACement?"
+        expect: "STAC"
+      - send: ":CHANnel2:DISPlay ON;:AUToscale:CHANnels DISPlayed;:AUToscale"
+      - query: ":CHANnel1:SCALe?"
+        expect: "+2.00000E-01"
+      - query: ":CHANnel1:OFFSet?"
+        expect_fields: [{min: -0.42, max: -0.38, format: "±d.dddddE±0d"}]
+      - query: ":CHANnel2:OFFSet?"
+        expect_fields: [{min: 0.38, max: 0.42, format: "±d.dddddE±0d"}]
+      - send: ":TIMebase:SCALe 1E-6;:CHANnel1:SCALe 0.5;:CHANnel1:OFFSet 1"
+      - send: ":AUToscale:VERTical CHANnel1"
+      - query: ":CHANnel1:SCALe?"
+        expect: "+1.00000E-01"
+      - query: ":CHANnel1:OFFSet?"
+        expect_fields: [{min: -0.02, max: 0.02, format: "±d.dddddE±0d"}]
+      - query: ":TIMebase:SCALe?"
+        expect: "+1.00000E-06"
+      - send: ":AUToscale:VERTical DIFF1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: "VRMS 的 AC 与单周期、VAVerage 的单周期：0.4 Vpp 正弦的交流有效值 0.141 V、方波 0.2 V；dBm 按参考阻抗（AUTO 为 50 Ω）"
+    manual: ":MEASure Commands > :MEASure:VRMS {CYCLe | DISPlay},{AC | DC}[,<source>[,{VOLT | DBM}[,{AUTO | <impedance>}]]]; :MEASure:VAVerage {CYCLe | DISPlay}"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1;:CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 1E-6"
+      - send: ":DIGitize CHANnel1,CHANnel2"
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
+        expect_fields: [{min: 0.138, max: 0.145, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? CYCLe,DC,CHANnel1"
+        expect_fields: [{min: 0.136, max: 0.147, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? CYCLe,AC,CHANnel2"
+        expect_fields: [{min: 0.195, max: 0.205, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VAVerage? CYCLe,CHANnel2"
+        expect_fields: [{min: -0.005, max: 0.005, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1,DBM"
+        expect_fields: [{min: -4.2, max: -3.7, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1,DBM,100"
+        expect_fields: [{min: -7.2, max: -6.7, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:VRMS? DISPlay,AC,CHANnel1,DBM,5"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+  - name: "FFT 峰测量省略可选参数：只给信源不报错，peak1≠peak2 时差值非 0（方波 1 MHz 与 3 MHz 两峰）"
+    manual: ":MEASure Commands > :MEASure:FFT:DFRequency, :DMAGnitude, :FREQuency, :MAGNitude"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 1E-5"
+      - send: ":FUNCtion1:FFTMagnitude CHANnel2"
+      # 省略的参数取 SimuBench 默认：peak1 1、peak2 2、level -60 dBm（手册各参数都给）。
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1"
+        expect_value: 2.0e6
+        tolerance: 2.0e4
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1,1,2,-30"
+        expect_value: 2.0e6
+        tolerance: 2.0e4
+      # peak1 真的选第一个峰：2→3 是 3 MHz→5 MHz，3→2 是负的。
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1,3,2,-30"
+        expect_value: -2.0e6
+        tolerance: 2.0e4
+      # 方波的三次谐波比基波低 20·log10(3) ≈ 9.5 dB。
+      - query: ":MEASure:FFT:DMAGnitude? FUNCtion1"
+        expect_value: -9.5
+        tolerance: 1.5
+      - query: ":MEASure:FFT:FREQuency? FUNCtion1"
+        expect_value: 1.0e6
+        tolerance: 2.0e4
+      - query: ":MEASure:FFT:MAGNitude? FUNCtion1"
+        expect_fields: [{min: -10.0, max: 3.0, format: "±d.dddddE±dd"}]
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1,0,2,-30"
+        expect: "9.99999E+37"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+  - name: "跟踪光标：WAVeform 方式的 Y1Position 是信源在 X1 处的电压，编号 TRACk 光标的 Y:POSition 同理，MANual 回设定值"
+    manual: ":MARKer Commands > :MARKer:MODE, :X1Y1source, :X1Position, :Y1Position, :VSTArt, :MARKer<K>:TYPE, :MARKer<K>:Y:POSition"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1"
+      - send: ":DIGitize CHANnel1"
+      # 10 MHz、0.4 Vpp 正弦在上升沿触发，四分之一周期（25 ns）处是波峰 +0.2 V，75 ns 处是波谷。
+      - send: ":MARKer:MODE WAVeform;:MARKer:X1Y1source CHANnel1;:MARKer:X1Position 2.5e-8"
+      - query: ":MARKer:Y1Position?"
+        expect_value: 0.2
+        tolerance: 0.02
+      - query: ":MARKer:VSTArt?"
+        expect_value: 0.2
+        tolerance: 0.02
+      - send: ":MARKer:X1Position 7.5e-8"
+      - query: ":MARKer:Y1Position?"
+        expect_value: -0.2
+        tolerance: 0.02
+      - send: ":MARKer3:TYPE TRACk;:MARKer3:SOURce CHANnel1;:MARKer3:ENABle ON;:MARKer3:X:POSition 2.5e-8"
+      - query: ":MARKer3:Y:POSition?"
+        expect_value: 0.2
+        tolerance: 0.02
+      # 跟踪光标的 Y 不能移动；X-only 光标没有 Y，回 9.99999E+37。
+      - send: ":MARKer3:Y:POSition 0.1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+      - send: ":MARKer4:TYPE XMANual;:MARKer4:X:POSition 2.5e-8"
+      - query: ":MARKer4:Y:POSition?"
+        expect: "9.99999E+37"
+      # MANual 方式：Y 是设定值，写 Y 不改方式。
+      - send: ":MARKer:MODE MANual;:MARKer:Y1Position 0.05"
+      - query: ":MARKer:Y1Position?"
+        expect: "+5.00000E-02"
+      - send: ":MARKer:MODE XONLy;:MARKer:Y2Position 0.07"
+      - query: ":MARKer:MODE?"
+        expect: "XONL"
+      - query: ":MARKer:Y2Position?"
+        expect: "+7.00000E-02"
+  - name: "相位折进一个周期：10 MHz 正弦到 1 MHz 方波的第一个上升沿隔了好几个周期，回 -180..+180 度"
+    manual: ":MEASure Commands > :MEASure:PHASe"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1;:CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      - query: ":MEASure:PHASe? CHANnel1,CHANnel2"
+        expect_fields: [{min: -180.0, max: 180.0}]
+      - query: ":MEASure:PHASe? CHANnel1,CHANnel2,FALLing"
+        expect_fields: [{min: -180.0, max: 180.0}]

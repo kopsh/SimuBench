@@ -21,6 +21,8 @@ blocks:
     components: [scope_trigger]
   - block: measurements        # 测量(自动测量、光标)
     components: [scope_measurements]
+  - block: autoscale           # 自动设置:按输入波形定垂直档位/偏置、时基与边沿触发(scope_autoscale)
+    components: [scope_autoscale]
   - block: math                # 数学函数:逐点运算、FFT 与变换测量(#1074,scope_math)
     components: [scope_math]
   - block: waveform_transfer   # 波形传输(前导码与数据块)

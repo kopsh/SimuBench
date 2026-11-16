@@ -276,6 +276,7 @@ LEVEL_MEASUREMENTS = (
     "VUPPer", "VMIDdle", "VLOWer", "VOVershoot", "VPReshoot", "VUNDershoot", "UNDershoot",
     "VOVershoot:FALLing", "VPReshoot:FALLing", "VUNDershoot:FALLing", "UNDershoot:FALLing",
     "AREA", "AREA:CYCLe", "AREA:CYCLe:FALLing",
+    "VAVerage:CYCLe", "VRMS:AC", "VRMS:CYCLe", "VRMS:CYCLe:AC",
 )  # fmt: skip
 
 
@@ -296,6 +297,9 @@ def level_measure(what: str, v: np.ndarray, dt: float, lv: Levels) -> float:
       percent of top minus base, 0 when the pulse never sags.
     * AREA: the integral of the record over the screen (V·s); AREA:CYCLe over the first complete
       cycle, rising (falling) middle crossing to the next.
+    * VAVerage:CYCLe, VRMS:CYCLe: the mean and the RMS over that first cycle (the Infiniium's
+      CYCLe interval, "the first period of the display"); VRMS:AC and VRMS:CYCLe:AC without the
+      DC component (over the screen, over the cycle): AC RMS² = DC RMS² - average².
     """
     if v.size == 0:
         return math.nan
@@ -309,19 +313,24 @@ def level_measure(what: str, v: np.ndarray, dt: float, lv: Levels) -> float:
         return lv.lower
     if word == "AREA" and kind == "":
         return float(np.sum(v) * dt)
+    if what == "VRMS:AC":
+        return float(v.std())
     edges = _edges(v, dt, lv)
     sign = -1 if falling else 1
     idx = [i for i, (_t, d) in enumerate(edges) if d == sign]
-    if word == "AREA":
+    if word in ("AREA", "VAVerage", "VRMS"):
         if len(idx) < 2:
             return math.nan
         # the cycle runs to the next crossing in the same direction
-        t0 = edges[idx[0]][0]
-        t1 = next((edges[j][0] for j in idx[1:]), None)
-        if t1 is None:
+        a, b = math.ceil(edges[idx[0]][0] / dt), math.floor(edges[idx[1]][0] / dt)
+        cycle = v[a : b + 1]
+        if not cycle.size:
             return math.nan
-        a, b = math.ceil(t0 / dt), math.floor(t1 / dt)
-        return float(np.sum(v[a : b + 1]) * dt)
+        if word == "AREA":
+            return float(np.sum(cycle) * dt)
+        if word == "VAVerage":
+            return float(cycle.mean())
+        return float(cycle.std() if what.endswith(":AC") else np.sqrt(np.mean(cycle**2)))
     if not idx:
         return math.nan
     k = idx[0]

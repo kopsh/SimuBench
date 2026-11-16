@@ -3308,7 +3308,7 @@ class ScopeMeasurements(Component):
         self.screen = [e for e in self.screen if e in self.installed]
 
     def _label(self, what: str, n: int) -> str:
-        return self.names.get((what, n)) or f"{what}({n})"
+        return self.names.get((what, n)) or (f"{what}(f{-n})" if n < 0 else f"{what}({n})")
 
     @op("results")
     def op_results(self, order: str = "", **_: Any) -> OpResult:
@@ -3428,7 +3428,7 @@ class ScopeMeasurements(Component):
             return OpResult()
         if what == "source":
             if query:
-                return OpResult(f"CHAN{entry[1]}".encode())
+                return OpResult(self._source_word(entry[1]).encode())
             n = self._channel(None, V.parse_string(value) if isinstance(value, bytes) else str(value))
             moved = (entry[0], n)
             self.screen[k] = moved
@@ -3457,6 +3457,8 @@ class ScopeMeasurements(Component):
         """Whether channel n's record reaches the ADC's limits: 1 low, 2 high, 3 both, 0 neither
         (a channel without a record or an unquantized ADC: 0)."""
         acq = self._acq()
+        if n < 0:
+            return 0  # a math function has no ADC to reach
         try:
             rec, _ = acq.measure_record(n)
         except ScpiError:
@@ -3498,31 +3500,92 @@ class ScopeMeasurements(Component):
         assert self.owner is not None
         return self.ref("record")  # type: ignore[return-value]
 
+    @staticmethod
+    def _is_source(word: str) -> bool:
+        """Whether a parameter word names a source: a channel (CHANnel<n>) or a math function
+        (FUNCtion<F>, FUNC<F>, F<F>)."""
+        return word.strip().upper().startswith("CH") or function_index(word) is not None
+
     def _channel(self, channel: int | None, source: Any = None) -> int:
+        """The source key a measurement reads: channel n as n, math function F as -F (#1074) —
+        the key the statistics, the screen's list and the labels carry."""
         if isinstance(source, list):  # raw parameters: [<interval>][,<type>][,<source>]
             words = [V.parse_string(b).strip().upper() for b in source]
-            source = next((w for w in words if w.startswith("CH")), None)
+            source = next((w for w in words if self._is_source(w)), None)
         if source:
             name = (source.decode() if isinstance(source, bytes) else str(source)).strip().upper()
+            f = function_index(name)
+            if f is not None:
+                return -f
             m = name.removeprefix("CHANNEL").removeprefix("CHAN").removeprefix("C")
             if not m.isdigit():
                 raise ScpiError(-224, f"unknown source {source!r}")
             return int(m)
         bound = self.param("source")
         if bound not in (None, ""):
-            return channel_index(bound)
+            return self._key(bound)
         return channel or 1
 
+    @staticmethod
+    def _key(word: Any) -> int:
+        """A setting's source word as a source key (CHANnel2, CH2, C2 -> 2; FUNCtion3 -> -3)."""
+        f = function_index(word)
+        return -f if f is not None else channel_index(word)
+
+    @staticmethod
+    def _source_word(n: int) -> str:
+        """A source key's short word: CHAN<n>, or FUNC<F> for a function."""
+        return f"FUNC{-n}" if n < 0 else f"CHAN{n}"
+
+    def record(self, n: int) -> tuple[Any, int]:
+        """The record a measurement on source key ``n`` reads: channel n's acquisition, or math
+        function -n's waveform over its operands (#1074) — a model without math functions refuses
+        the source (-224), a function without an operator is -230."""
+        if n >= 0:
+            return self._acq().measure_record(n)
+        block = self.ref("math")
+        if block is None or not isinstance(block, MathSource):
+            raise ScpiError(-224, f"FUNCtion{-n}: this model has no math functions to measure")
+        rec, used = block.read_function(-n)
+        if rec is None:
+            raise ScpiError(-230, f"function {-n} is not defined")
+        return rec, used
+
     def value(self, what: str, n: int) -> tuple[float, int]:
-        """The engine measurement ``what`` on channel n's record (NaN: cannot be measured), and the
+        """The engine measurement ``what`` on source n's record (NaN: cannot be measured), and the
         virtual time getting the record took."""
-        rec, used = self._acq().measure_record(n)
+        rec, used = self.record(n)
         return self.record_value(what, rec), used
+
+    @staticmethod
+    def _impedance(value: Any) -> float:
+        """A dBm result's reference impedance: AUTO (or none) 50 Ω, else 10 to 200 Ω."""
+        if isinstance(value, list):  # a raw parameter: the words after the units
+            value = value[0] if value else None
+        if value is None:
+            return 50.0
+        word = (V.parse_string(value) if isinstance(value, bytes) else str(value)).strip()
+        if word.upper().startswith("AUTO"):
+            return 50.0
+        ohms = V.parse_float(word.encode(), "OHM")
+        if not 10.0 <= ohms <= 200.0:
+            raise ScpiError(-222, "the reference impedance is 10 to 200 ohms")
+        return ohms
 
     def record_value(self, what: str, rec: Any) -> float:
         """The engine measurement ``what`` on a record by this model's rules (gate, clipping, top
         and base, crossing level): what :MEASure? answers, and what the screen's measurement
-        panel shows for the record on screen (#280)."""
+        panel shows for the record on screen (#280). A ``:DBM<ohms>`` suffix gives an RMS as dBm
+        into that impedance."""
+        base, dbm, ohms = what.partition(":DBM")
+        if dbm:
+            volts = self._record_value(base, rec)
+            if not math.isfinite(volts) or volts <= 0:
+                return math.nan
+            return 10.0 * math.log10(volts * volts / float(ohms) / 1e-3)
+        return self._record_value(what, rec)
+
+    def _record_value(self, what: str, rec: Any) -> float:
         acq = self._acq()
         if rec.points > MAX_FRAME:
             return self._deep_value(what, rec)
@@ -3531,7 +3594,7 @@ class ScopeMeasurements(Component):
         if gate:
             lo, hi = (max(0, min(v.size, round(float(g) / 10 * v.size))) for g in gate)
             v = v[lo:hi]
-        if v.size and str(self.param("clipped")) == "invalid":
+        if v.size and str(self.param("clipped")) == "invalid" and rec.channel > 0:  # a function: no ADC
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
                 return math.nan
@@ -3584,7 +3647,7 @@ class ScopeMeasurements(Component):
         if gate:
             lo, hi = (max(0, min(rec.points, round(float(g) / 10 * rec.points))) for g in gate)
         acq = self._acq()
-        if str(self.param("clipped")) == "invalid" and acq.adc_unit().param("bits"):
+        if str(self.param("clipped")) == "invalid" and rec.channel > 0 and acq.adc_unit().param("bits"):
             rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
             if (
                 chunked_value("VMAX", rec, lo, hi) >= rails[0]
@@ -3648,8 +3711,8 @@ class ScopeMeasurements(Component):
             ).strip()
             for b in raw or []
         ]
-        channels = [self._channel(None, w) for w in words if w.upper().startswith("CH")]
-        return [w for w in words if not w.upper().startswith("CH")], channels
+        channels = [self._channel(None, w) for w in words if self._is_source(w)]
+        return [w for w in words if not self._is_source(w)], channels
 
     def _reply(self, value: float, used: int) -> OpResult:
         assert self.owner is not None
@@ -3673,8 +3736,8 @@ class ScopeMeasurements(Component):
             return self._reply(math.nan, 0)
         n = channels[0] if channels else self._channel(channel)
         if channels:
-            self._follow(n, f"CHANnel{n}")
-        rec, used = self._acq().measure_record(n)
+            self._follow(n, self._source_word(n))
+        rec, used = self.record(n)
         dt, origin = rec.dt_s, rec.origin
         if what == "VTIMe":
             if not args:
@@ -3719,7 +3782,7 @@ class ScopeMeasurements(Component):
     ) -> OpResult:
         """``DELay? [<source1>][,<source2>]``: the time from source 1's first rising edge to source 2's
         first rising edge at their middle levels; ``PHASe?``: that delay over source 1's period, in
-        degrees (#350), with a trailing RISing / FALLing taking that edge on both. Without sources,
+        degrees folded into -180..+180 (#350), with a trailing RISing / FALLing taking that edge on both. Without sources,
         :MEASure:SOURce's two (``sources``). ``CROSsing?``: the voltage where the two records cross
         (nearest the centre). ``DELTatime?`` (the Infiniium's): from source 1's edge ``define`` names
         to source 2's — ``define`` = [start direction, number, position, stop direction, number,
@@ -3729,7 +3792,7 @@ class ScopeMeasurements(Component):
         if what == "DELTatime" and len(channels) == 1:
             channels = channels * 2
         if len(channels) < 2:
-            pair = [channel_index(self.owner.get_state(p)) for p in (self.param("sources") or [])]
+            pair = [self._key(self.owner.get_state(p)) for p in (self.param("sources") or [])]
             channels = (channels + pair[len(channels) :])[:2]
         if len(channels) < 2:
             raise ScpiError(-109, f"{what}? needs two sources")
@@ -3738,7 +3801,7 @@ class ScopeMeasurements(Component):
         hyst = float(self.param("hysteresis"))
         recs, used = [], 0
         for n in channels:
-            rec, u = self._acq().measure_record(n)
+            rec, u = self.record(n)
             used += u
             recs.append(rec)
         if what == "CROSsing":
@@ -3767,7 +3830,10 @@ class ScopeMeasurements(Component):
             return self._reply(delay, used)
         first = np.asarray(recs[0].volts, dtype=float)
         period = measure("PERiod", first, recs[0].dt_s, hysteresis=hyst)
-        return self._reply(delay / period * 360.0 if math.isfinite(period) and period > 0 else math.nan, used)
+        if not (math.isfinite(period) and period > 0):
+            return self._reply(math.nan, used)
+        # folded into one period, -180..+180 degrees: the first edges may lie whole periods apart
+        return self._reply((delay / period * 360.0 + 180.0) % 360.0 - 180.0, used)
 
     @op("auto_thresholds")
     def op_auto_thresholds(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
@@ -3778,7 +3844,9 @@ class ScopeMeasurements(Component):
         if not self.param("thresholds"):
             raise ScpiError(-300, f"{self.uid}: thresholds names no settings")
         n = self._channel(channel, source)
-        rec, used = self._acq().measure_record(n)
+        if n < 0:
+            raise ScpiError(-224, "the threshold sets are per channel")
+        rec, used = self.record(n)
         v = np.asarray(rec.volts, dtype=float)
         lv = threshold_levels(
             v, {"method": "PERCent"}, float(self.param("hysteresis")), self._band_floor(rec)
@@ -3802,7 +3870,7 @@ class ScopeMeasurements(Component):
         if not words:
             raise ScpiError(-109, f"{what}? takes a number after the source")
         number = V.parse_float(words[0].encode(), "S" if what.startswith("B") else None)
-        rec, used = self._acq().measure_record(n)
+        rec, used = self.record(n)
         v = np.asarray(rec.volts, dtype=float)
         lv = self.levels(v, rec, "general")
         if lv is None or v.size == 0:
@@ -3851,7 +3919,9 @@ class ScopeMeasurements(Component):
         if not source or path is None or self.owner is None:
             return
         options = self.owner.specs[path].options or []
-        match = next((o for o in options if trigger_channel(o) == n), None)
+        match = next(
+            (o for o in options if (function_index(o) == -n if n < 0 else trigger_channel(o) == n)), None
+        )
         if match is not None:
             self.owner.set_state(path, match)
 
@@ -3868,19 +3938,28 @@ class ScopeMeasurements(Component):
         query: bool = True,
         interval: str | None = None,
         direction: str | None = None,
+        coupling: str | None = None,
+        units: str | None = None,
+        impedance: Any = None,
         **_: Any,
     ) -> OpResult:
         """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
         command) in the definition's number format; what cannot be measured is NaN's sentinel.
         Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list (#373).
         For the level measurements (``LEVEL_MEASUREMENTS``) an ``interval`` CYCLe and a ``direction``
-        FALLing parameter select their variants (``AREA:CYCLe``, ``VOVershoot:FALLing``)."""
+        FALLing parameter select their variants (``AREA:CYCLe``, ``VOVershoot:FALLing``); for
+        VAVerage and VRMS the CYCLe interval is the first period on screen, a ``coupling`` AC takes
+        the DC component out (``VRMS:CYCLe:AC``), ``units`` DBM gives the power into ``impedance``
+        ohms (AUTO or none: 50 Ω, the guide's reference for single-ended channels and functions)."""
         assert self.owner is not None
-        if what in LEVEL_MEASUREMENTS:
-            if interval and str(interval).upper().startswith("CYCL"):
-                what += ":CYCLe"
-            if direction and str(direction).upper().startswith("FALL"):
-                what += ":FALLing"
+        if interval and str(interval).upper().startswith("CYCL") and f"{what}:CYCLe" in LEVEL_MEASUREMENTS:
+            what += ":CYCLe"
+        if coupling and str(coupling).upper().startswith("AC") and f"{what}:AC" in LEVEL_MEASUREMENTS:
+            what += ":AC"
+        if what in LEVEL_MEASUREMENTS and direction and str(direction).upper().startswith("FALL"):
+            what += ":FALLing"
+        if units and str(units).upper().startswith("DBM"):
+            what += f":DBM{self._impedance(impedance):g}"
         n = self._channel(channel, source)
         self._follow(n, source)
         if not query:
@@ -3966,7 +4045,10 @@ class ScopeMeasurements(Component):
         """The record the A (``which`` 1) or B (2) markers read: their source's, a channel's or a
         math function's (#1074). A numberless ``FUNCtion`` — or its alias ``MATH`` (2000 X-series
         Programmer's Guide 02.66 p. 361) — names the one function a single-function layout has."""
-        word = str(self.param(f"marker_source{which}") or "")
+        return self._source_record(str(self.param(f"marker_source{which}") or ""))
+
+    def _source_record(self, word: str) -> tuple[Any, int]:
+        """The record a marker's source word names (see ``_marker_record``); empty: channel 1."""
         f = function_index(word) if word else None
         if f is None and word.strip().upper() in ("FUNCTION", "FUNC", "F", "MATH"):
             f = 1
@@ -4132,6 +4214,29 @@ class ScopeMeasurements(Component):
         refused while the cursors track (the manual: Y positions cannot be set in the WAVeform
         mode) and otherwise puts them in the MANual mode."""
         return self._position(which, value, query, "y")
+
+    @op("tracked_y", fields=("which",))
+    def op_tracked_y(self, which: str = "Y1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
+        """The Infiniium's ``:MARKer:Y1Position`` / ``:MARKer:Y2Position`` (and VSTArt/VSTOp): the
+        query answers "the level at the marker position" — in the WAVeform mode the source's value
+        at the marker's x, otherwise the setting. A write stores the setting and leaves the mode
+        alone (the guide names no mode change, unlike the 2000 X-series' ``y_position``)."""
+        assert self.owner is not None
+        n = 1 if str(which).strip().upper().endswith("1") else 2
+        param = f"marker_y{n}"
+        if query:
+            if self._marker_mode() == "waveform":
+                shown, used = self._marker_y(n)
+                if not math.isfinite(shown):
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+                return OpResult(self.owner.format_number(shown), used)
+            stored = self.param(param)
+            return OpResult(self.owner.format_number(float(stored) if stored is not None else 0.0))
+        path = self.bound_path(param)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: the {param} setting is not bound")
+        self.owner.set_state(path, self._marker_number("y", value), source="scpi", internal=True)
+        return OpResult()
 
     def _position(self, which: str, value: Any, query: bool, axis: str) -> OpResult:
         """One X or Y cursor's read or write, in the cursors' unit, with the mode moves the
@@ -4303,8 +4408,8 @@ class ScopeMeasurements(Component):
         """One field of a numbered marker — its type, source, enable, name, color, colour mode, x
         or y position — as ``:MARKer<K>:<field>`` reads and writes it. A type change needs the
         marker off (the manual: -221); what the marker's type has no place for answers
-        ``invalid_value``. The query answers the short forms the manual's Returned Format names
-        (XMAN, TRAC, CHAN1, CUST)."""
+        ``invalid_value``; a TRACk or RF marker's y is its source's value at its x. The query
+        answers the short forms the manual's Returned Format names (XMAN, TRAC, CHAN1, CUST)."""
         assert self.owner is not None
         k = self._k(suffixes)
         marker = self._k_marker(k)
@@ -4323,8 +4428,15 @@ class ScopeMeasurements(Component):
         if query or value is None:
             if key == "x" and marker["type"] == "YMANual":
                 return OpResult(str(self.param("invalid_value")).encode())
-            if key == "y" and marker["type"] in ("XMANual", "TRACk", "RF"):
+            if key == "y" and marker["type"] == "XMANual":
                 return OpResult(str(self.param("invalid_value")).encode())
+            if key == "y" and marker["type"] in ("TRACk", "RF"):
+                # a tracking marker marks its source's value at its x (the guide's TRACk / RF)
+                rec, used = self._source_record(str(marker.get("source") or ""))
+                y = self._value_at(rec, float(marker.get("x") or 0.0))
+                if not math.isfinite(y):
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+                return OpResult(self.owner.format_number(y), used)
             current = marker.get(key)
             if key == "enable":
                 return OpResult(V.format_int(int(bool(current))))
