@@ -199,3 +199,12 @@ def test_the_screen_draws_the_math_functions_turned_on(client):
     assert len(add["values"]) == len(ch1["volts"]) and add["x0"] == pytest.approx(ch1["t0_s"])
     b.scpi(":FUNCtion2:DISPlay OFF")
     assert [f["function"] for f in b.screen()["functions"]] == [1]
+
+
+def test_the_scpi_console_shows_a_binary_block_as_its_header_and_size(client):
+    """POST …/scpi (the Web's SCPI console and the MCP send_scpi alike): a WORD waveform block is
+    shown as its header and byte count, as the log writes it, not as replacement characters."""
+    b = Bench(client, "demo/uxr.bench.yaml")
+    b.scpi(":ACQuire:POINts 2000;:DIGitize;:WAVeform:SOURce CHANnel1;:WAVeform:FORMat WORD")
+    assert b.scpi(":WAVeform:DATA?") == "#44000… (4007 B)"
+    assert b.scpi(":WAVeform:FORMat ASCii;:WAVeform:DATA?").count(",") == 1999

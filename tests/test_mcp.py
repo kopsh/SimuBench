@@ -851,3 +851,31 @@ async def test_an_error_fault_with_count_queues_it_that_many_times(ws):
         log = await call(c, "read_log", kinds=["fault"])
         events = [e for e in log["events"] if e.get("fault") == f["id"]]
         assert events and events[0]["source"] == "mcp"
+
+
+async def test_send_scpi_summarises_a_binary_block_and_cuts_a_very_long_reply(tmp_path):
+    """The UXR demo through an agent: a WORD waveform block comes back as its header and size, not
+    tens of kilobytes of replacement characters; 20 000 points in ASCii (some 220 000 characters,
+    more than a tool result an agent can take) are cut, saying so and how long the reply was."""
+    from simubench.mcp_tools.sessions import REPLY_LIMIT
+
+    shutil.copy(ROOT / "examples" / "demo" / "uxr.bench.yaml", tmp_path / "uxr.bench.yaml")
+    _, server = make(tmp_path)
+    async with Client(server) as c:
+        await call(c, "start_session", path="uxr.bench.yaml")
+        await call(c, "send_scpi", instrument="scope", command=":ACQuire:POINts 20000;:DIGitize")
+        await call(
+            c, "send_scpi", instrument="scope", command=":WAVeform:SOURce CHANnel1;:WAVeform:FORMat WORD"
+        )
+        block = await call(c, "send_scpi", instrument="scope", command=":WAVeform:DATA?")
+        header, size = block["response"].split("… (")
+        # the header, 2 bytes per point and the newline that ends the message
+        assert header.startswith("#5") and size == f"{2 + 5 + int(header[2:]) + 1} B)"
+        assert block["errors"] == []
+        await call(c, "send_scpi", instrument="scope", command=":WAVeform:FORMat ASCii")
+        text = await call(c, "send_scpi", instrument="scope", command=":WAVeform:DATA?")
+        assert text["truncated"] is True and len(text["response"]) == REPLY_LIMIT
+        assert text["response_chars"] > 100_000 and text["response"].startswith(("+", "-", "0", "1", "2"))
+        short = await call(c, "send_scpi", instrument="scope", command="*IDN?")
+        assert "truncated" not in short and "UXR1104B" in short["response"]
+        await call(c, "stop_session")
