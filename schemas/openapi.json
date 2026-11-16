@@ -1673,6 +1673,21 @@
             "title": "Generic",
             "type": "boolean"
           },
+          "group": {
+            "default": "other",
+            "description": "The family the build area's library lists it under (#1214)",
+            "enum": [
+              "signal",
+              "measure",
+              "source",
+              "scope",
+              "trigger",
+              "system",
+              "other"
+            ],
+            "title": "Group",
+            "type": "string"
+          },
           "label": {
             "anyOf": [
               {
@@ -1763,6 +1778,7 @@
           "generic",
           "label",
           "label_en",
+          "group",
           "doc",
           "ports",
           "port_pattern",

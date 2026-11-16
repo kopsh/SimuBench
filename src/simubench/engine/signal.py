@@ -296,11 +296,13 @@ def _harmonics(
     gaussian = rolloff == "gaussian"
     span = ROLLOFF_SPAN if gaussian else 1.0
     n_band = int(span * f_max // freq) if freq > 0 else 1
-    n = np.arange(1, max(n_band, 1) + 1, step)
+    total = len(range(1, max(n_band, 1) + 1, step))
+    # Build at most MAX_LINES numbers: a low frequency under a wide bandwidth has millions of
+    # harmonics and np.arange over all of them cost more than the rest of the solve.
+    n = np.arange(1, 1 + min(total, MAX_LINES) * step, step)
     notes: tuple[FidelityNote, ...] = ()
     f_3db = f_max
-    if n.size > MAX_LINES:
-        n = n[:MAX_LINES]
+    if total > MAX_LINES:
         top = float(n[-1] * freq)
         if top < f_max:
             notes = (

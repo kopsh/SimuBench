@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from simubench.engine.component import component_types
 from simubench.engine.validate_definition import operations
 from simubench.server.app import create_app
-from simubench.server.catalog import components, param_docs
+from simubench.server.catalog import GROUPS, components, param_docs
 from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -102,6 +102,21 @@ def test_the_components_endpoint():
     refs = {r["param"]: r for r in by_type["waveform_transfer"]["refs"]}
     assert refs and all(r["scope"] in ("instrument", "channel") for r in refs.values())
     assert by_type["output_stage"]["refs"] == []
+    # the library family (#1214): every internal component has one, from its module
+    assert by_type["trigger_model"]["group"] == "trigger"
+    assert by_type["calibration_store"]["group"] == "system"
+    types = component_types()  # other tests register their own classes; only the library's count
+    internal = [
+        c
+        for c in body
+        if c["category"] == "internal"
+        and types[c["type"]].__module__.startswith("simubench.library.components.")
+    ]
+    assert internal and all(c["group"] != "other" for c in internal)
+    modules = {
+        p.stem for p in (ROOT / "src/simubench/library/components").glob("*.py") if p.stem != "__init__"
+    }
+    assert modules <= set(GROUPS), modules - set(GROUPS)
 
 
 # ---- the hook contract (#898) ------------------------------------------------------------------

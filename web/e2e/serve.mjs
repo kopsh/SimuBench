@@ -4,12 +4,12 @@
 // folder so a test can edit a definition the way an agent would (instrument.spec.ts).
 import { spawn } from "node:child_process";
 import { cpSync, mkdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { WORKSPACE } from "./workspace.mjs";
 
 const port = process.argv[2] ?? "18765";
 const root = resolve(import.meta.dirname, "..", "..");
-const workspace = join(tmpdir(), "simubench-e2e-workspace");
+const workspace = WORKSPACE;
 rmSync(workspace, { recursive: true, force: true });
 mkdirSync(workspace, { recursive: true });
 cpSync(join(root, "examples"), workspace, { recursive: true });

@@ -359,6 +359,10 @@ class RefInfo(_Model):
     target: str | None = Field(None, description="The component type it must name, when one is required")
 
 
+#: The families the build area's component library groups by (#1214).
+LibraryGroup = Literal["signal", "measure", "source", "scope", "trigger", "system", "other"]
+
+
 class ComponentDoc(_Model):
     """A component type as instrument definitions use it: ports, parameters, operations, role."""
 
@@ -372,6 +376,9 @@ class ComponentDoc(_Model):
     )
     label: str | None = None
     label_en: str | None = None
+    group: LibraryGroup = Field(
+        "other", description="The family the build area's library lists it under (#1214)"
+    )
     doc: str | None = None
     ports: list[PortInfo]
     port_pattern: str | None = Field(None, description="Ports created by the wiring, e.g. 'in\\d+'")

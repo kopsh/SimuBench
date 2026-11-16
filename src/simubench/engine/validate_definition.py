@@ -636,6 +636,15 @@ def _check_command(
             cmd.header,
         )
         return None
+    if not cmd.set and not cmd.query:
+        report.add(
+            "error",
+            "E-DEF-ACCESS",
+            _ptr(*p),
+            f"命令 {cmd.header} 既不可写也不可查：两种用法都会报错",
+            "set 与 query 至少保留一个（只写的命令写 query: false，只查的写 set: false）",
+            cmd.header,
+        )
     # A channel-list parameter also runs the command per channel (#183): its settings and
     # operations are channel state, even without a <ch> header suffix.
     per_channel = any(n.suffix == "ch" for n in pattern.nodes) or any(

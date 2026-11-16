@@ -2183,6 +2183,13 @@ export interface components {
              * @default true
              */
             generic: boolean;
+            /**
+             * Group
+             * @description The family the build area's library lists it under (#1214)
+             * @default other
+             * @enum {string}
+             */
+            group: "signal" | "measure" | "source" | "scope" | "trigger" | "system" | "other";
             /** Label */
             label: string | null;
             /** Label En */

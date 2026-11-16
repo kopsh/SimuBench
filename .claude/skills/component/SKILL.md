@@ -104,6 +104,9 @@ class CounterGate(Component):
   definition in `validation/instruments/` when a whole instrument is needed.
 - `tests/test_component_catalog.py` reads metadata from the class: every default needs a comment
   next to (or above) it — that is the parameter description; op parameters come from the signature.
+- A new module under `library/components/` gets its library family in `GROUPS` (`server/catalog.py`,
+  #1214): the Web build area's component library groups by it, and `test_component_catalog.py` fails
+  for a module that has none.
 - Update `docs/blocks/<class>.yaml` and the class table in `docs/component-map.md`
   (implementation-status column); shrink `EXEMPT`/`ALLOWED` if your work closes a gap.
 - If a definition field changed: `uv run simubench schemas --out schemas`, `cd web && pnpm gen:api`,
