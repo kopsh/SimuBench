@@ -421,6 +421,33 @@ def _screen_traces(
     return out
 
 
+def _screen_functions(inst: Instrument, records: dict[int, Any], bins: int | None) -> list[M.FunctionTrace]:
+    """The math functions the screen draws, over the channel records it shows (#1219's demo: an
+    FFT turned on with ``:FUNCtion1:DISPlay ON`` appears under the time traces)."""
+    # the scope_math block (its class is registered by type name, so it is looked up by that)
+    math_block: Any = next((c for c in inst.components.values() if c.type_name == "scope_math"), None)
+    if math_block is None or not records:
+        return []
+    out = []
+    for f, operator, rec in math_block.screen_functions(records):
+        minmax = rec.envelope(bins) if bins is not None and rec.points else None
+        out.append(
+            M.FunctionTrace(
+                function=f,
+                operator=operator,
+                spectrum=rec.x_hz,
+                x0=rec.origin,
+                dx=rec.dt_s,
+                unit=math_block.function_units(f)[1],
+                values=[] if minmax is not None else [float(v) for v in rec.volts],
+                scale=rec.scale,
+                offset=rec.offset,
+                minmax=minmax or None,
+            )
+        )
+    return out
+
+
 def scope_screen(served: ServedSession, instrument: str, points: int | None = None) -> M.ScopeScreen:
     """The scope's screen. ``points`` (tui-screens.md 6.1): downsample each trace to that many
     bins of per-bin min and max (2 values per bin) instead of returning every sample — the
@@ -453,6 +480,7 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
         measurements = []
         if meas is not None:
             names = {
+                "amplitude": "VAMPlitude",
                 "vpp": "VPP",
                 "vmax": "VMAX",
                 "vmin": "VMIN",
@@ -468,6 +496,7 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
                     value = float(meas.record_value(what, r))  # type: ignore[attr-defined]
                     row[key] = value if math.isfinite(value) else None
                 measurements.append(M.ScopeMeasurement(**row))
+        functions = _screen_functions(inst, records, bins)
         return M.ScopeScreen(
             instrument=instrument,
             source="live" if live else "record",
@@ -477,6 +506,7 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
             trigger_level=acq.trigger_level(),  # type: ignore[attr-defined]
             trigger_source=channel_index(inst.get_state("trigger.source")),
             traces=traces,
+            functions=functions,
             acquisitions=int(acq.acq_count),  # type: ignore[attr-defined]
             measurements=measurements,
         )

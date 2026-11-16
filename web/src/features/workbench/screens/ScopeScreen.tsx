@@ -3,6 +3,7 @@ import { useDeferredValue, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type {
+  FunctionTrace,
   InstrumentInfo,
   ScopeScreen as ScopeScreenData,
   SessionInfo,
@@ -19,7 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { channelColor } from "@/lib/channels";
+import { channelColor, FUNCTION_COLOR } from "@/lib/channels";
 import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { refTarget, stateMap } from "../model";
@@ -55,6 +56,13 @@ export function ScopeScreen({
   const [cursors, setCursors] = useState<Cursors | null>(null);
   const channelScale = (n: number) =>
     Number(vars.get(`ch${n}.scale`)?.value ?? 1);
+  // Math functions turned on: the time-domain ones over the channels, a transform in its own pane.
+  const functions = data?.functions ?? [];
+  const spectra = functions.filter((f) => f.spectrum);
+  const timeTraces = [
+    ...(data?.traces ?? []),
+    ...functions.filter((f) => !f.spectrum).map(functionTrace),
+  ];
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
@@ -180,13 +188,19 @@ export function ScopeScreen({
           </div>
         ) : (
           <>
-            <WaveformCanvas
-              className="h-full w-full rounded-md"
-              traces={data?.traces ?? []}
-              triggerLevel={data?.trigger_level}
-              triggerChannel={data?.trigger_source}
-              live={running && data?.source === "live"}
-            />
+            <div className="flex h-full min-h-0 flex-col gap-2">
+              <WaveformCanvas
+                className={cn(
+                  "w-full rounded-md",
+                  spectra.length ? "min-h-0 flex-[3]" : "h-full",
+                )}
+                traces={timeTraces}
+                triggerLevel={data?.trigger_level}
+                triggerChannel={data?.trigger_source}
+                live={running && data?.source === "live"}
+              />
+              {spectra.length > 0 && <SpectrumPane spectra={spectra} />}
+            </div>
             {data && <SilenceNotice session={session} traces={data.traces} />}
             {cursors && data && (
               <CursorOverlay
@@ -245,6 +259,86 @@ export function ScopeScreen({
           );
         })}
       </div>
+    </div>
+  );
+}
+
+/** A math function's trace in the channels' shape: channel -f picks the function color. */
+function functionTrace(f: FunctionTrace): Trace {
+  return {
+    channel: -f.function,
+    t0_s: f.x0,
+    dt_s: f.dx,
+    volts: f.values,
+    scale: f.scale,
+    offset: f.offset,
+    triggered: true,
+    silence: [],
+    minmax: f.minmax,
+  };
+}
+
+/** The vertical unit word a function's trace is in, as the screen writes it. */
+const UNIT_TEXT: Record<string, string> = {
+  DECibels: "dB",
+  DB: "dB",
+  DBM: "dBm",
+  VOLT: "V",
+  WATT: "W",
+};
+
+/**
+ * The transforms turned on (FFT magnitude, phase, PSD): their spectra on a grid of their own,
+ * frequency across from the first bin to the last, each function's vertical scale as its settings
+ * place it.
+ */
+function SpectrumPane({ spectra }: { spectra: FunctionTrace[] }) {
+  const { t } = useTranslation();
+  const first = spectra[0];
+  const points = first.values.length || (first.minmax?.length ?? 0) / 2;
+  const stop = first.x0 + first.dx * Math.max(points - 1, 0);
+  return (
+    <div
+      className="flex min-h-0 flex-[2] flex-col gap-1"
+      data-testid="scope-spectrum"
+    >
+      <div className="text-muted-foreground flex items-center gap-4 text-xs">
+        {spectra.map((f) => {
+          const unit = UNIT_TEXT[f.unit] ?? f.unit;
+          return (
+            <span key={f.function}>
+              <span
+                className="num font-semibold"
+                style={{ color: FUNCTION_COLOR }}
+              >
+                F{f.function}
+              </span>{" "}
+              {f.operator}{" "}
+              <span className="num text-foreground">
+                {Number(f.scale.toPrecision(3))} {unit}
+                {t("scope.perDiv")}
+              </span>
+            </span>
+          );
+        })}
+        <span className="ml-auto">
+          {t("scope.spectrum.span")}{" "}
+          <span className="num text-foreground">
+            {formatEng(first.x0, "Hz", 4)} – {formatEng(stop, "Hz", 4)}
+          </span>
+          {" · "}
+          {t("scope.spectrum.bin")}{" "}
+          <span className="num text-foreground">
+            {formatEng(first.dx, "Hz", 4)}
+          </span>
+        </span>
+      </div>
+      <WaveformCanvas
+        className="min-h-0 w-full flex-1 rounded-md"
+        traces={spectra.map(functionTrace)}
+        markers={false}
+        label={t("scope.spectrum.label")}
+      />
     </div>
   );
 }
@@ -521,9 +615,11 @@ function MeasurementTable({ data }: { data: ScopeScreenData }) {
   const cell = (v: number | null | undefined, unit: string) =>
     v == null ? "—" : formatEng(v, unit, 4);
   const columns: {
-    key: "vpp" | "frequency" | "period" | "mean" | "rms";
+    key: "amplitude" | "vpp" | "frequency" | "period" | "mean" | "rms";
     unit: string;
   }[] = [
+    // Amplitude (top - base) first: what a generator's setting reads; Vpp adds the noise peaks (#1220).
+    { key: "amplitude", unit: "V" },
     { key: "vpp", unit: "V" },
     { key: "frequency", unit: "Hz" },
     { key: "period", unit: "s" },

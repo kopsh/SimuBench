@@ -270,39 +270,69 @@ def sine(freq: float, peak: float, phase_rad: float = 0.0, t0_ns: int = 0) -> Si
     return Signal.lines([freq], [a], t0_ns=t0_ns)
 
 
-def _harmonics(
-    freq: float, f_max: float, step: int, what: str
-) -> tuple[np.ndarray, tuple[FidelityNote, ...]]:
-    """Harmonic numbers up to the generator's bandwidth ``f_max``.
+#: A gaussian roll-off keeps harmonics up to this multiple of its -3 dB frequency: the Gaussian is
+#: -27 dB there, so leaving out what lies beyond leaves no visible ringing.
+ROLLOFF_SPAN = 3.0
+#: How a generator's harmonics end at its bandwidth (the ``rolloff`` of the waveform builders).
+ROLLOFFS = ("brickwall", "gaussian")
 
-    A waveform cut only by the generator's own bandwidth is exact (the generator outputs nothing
-    above it). When the line limit cuts it lower, the model leaves content out, and says so.
+
+def _harmonics(
+    freq: float, f_max: float, step: int, what: str, rolloff: str = "brickwall"
+) -> tuple[np.ndarray, np.ndarray, tuple[FidelityNote, ...]]:
+    """Harmonic numbers of a waveform shaped by the generator's bandwidth ``f_max``, and their
+    weights.
+
+    ``brickwall``: every harmonic up to ``f_max`` at full weight, nothing above (the generator
+    outputs nothing beyond its bandwidth); the finite sum rings at every edge (the Gibbs overshoot,
+    9 % of the step). ``gaussian``: the output rolls off smoothly, -3 dB at ``f_max``, harmonics
+    kept up to ``ROLLOFF_SPAN`` times it; a step rises in about 0.34 / f_max (10–90 %) without
+    overshoot, as a real generator's square (33600A: under 2 %). When the line limit cuts the
+    harmonics below the bandwidth, the model leaves content out, and says so; a gaussian roll-off
+    then moves down with the cut (slower edges, still no ringing).
     """
-    n_band = int(f_max // freq) if freq > 0 else 1
+    if rolloff not in ROLLOFFS:
+        raise ValueError(f"rolloff {rolloff!r}: one of {', '.join(ROLLOFFS)}")
+    gaussian = rolloff == "gaussian"
+    span = ROLLOFF_SPAN if gaussian else 1.0
+    n_band = int(span * f_max // freq) if freq > 0 else 1
     total = len(range(1, max(n_band, 1) + 1, step))
     # Build at most MAX_LINES numbers: a low frequency under a wide bandwidth has millions of
     # harmonics and np.arange over all of them cost more than the rest of the solve.
     n = np.arange(1, 1 + min(total, MAX_LINES) * step, step)
-    if total <= MAX_LINES:
-        return n, ()
-    note = FidelityNote(
-        "truncated", f"{what}: {n.size} harmonics up to {n[-1] * freq:.6g} Hz kept, the rest left out"
-    )
-    return n, (note,)
+    notes: tuple[FidelityNote, ...] = ()
+    f_3db = f_max
+    if total > MAX_LINES:
+        top = float(n[-1] * freq)
+        if top < f_max:
+            notes = (
+                FidelityNote(
+                    "truncated", f"{what}: {n.size} harmonics up to {top:.6g} Hz kept, the rest left out"
+                ),
+            )
+        f_3db = min(f_max, top / span)
+    if not gaussian:
+        return n, np.ones(n.size), notes
+    return n, np.exp(-0.5 * math.log(2.0) * (n * freq / f_3db) ** 2), notes
 
 
-def square(freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0) -> Signal:
-    """50 % duty square wave of amplitude ``peak`` (±peak), as odd harmonics up to ``f_max``."""
-    n, notes = _harmonics(freq, f_max, 2, "square wave")
-    a = 4 * peak / (np.pi * n) * np.exp(1j * (n * phase_rad - np.pi / 2))
+def square(
+    freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0, rolloff: str = "brickwall"
+) -> Signal:
+    """50 % duty square wave of amplitude ``peak`` (±peak), as odd harmonics ending at ``f_max`` as
+    ``rolloff`` says (:func:`_harmonics`)."""
+    n, weight, notes = _harmonics(freq, f_max, 2, "square wave", rolloff)
+    a = weight * 4 * peak / (np.pi * n) * np.exp(1j * (n * phase_rad - np.pi / 2))
     return Signal.lines(n * freq, a, t0_ns=t0_ns, notes=notes)
 
 
-def ramp(freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0) -> Signal:
+def ramp(
+    freq: float, peak: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0, rolloff: str = "brickwall"
+) -> Signal:
     """Rising sawtooth of amplitude ``peak``: rises from −peak to +peak, crossing zero at phase 0."""
-    n, notes = _harmonics(freq, f_max, 1, "ramp")
+    n, weight, notes = _harmonics(freq, f_max, 1, "ramp", rolloff)
     # x/pi on (-pi, pi) = (2/pi) * sum (-1)^(n+1) sin(n x) / n
-    a = (2 * peak / np.pi) * ((-1.0) ** (n + 1)) / n * np.exp(1j * (n * phase_rad - np.pi / 2))
+    a = weight * (2 * peak / np.pi) * ((-1.0) ** (n + 1)) / n * np.exp(1j * (n * phase_rad - np.pi / 2))
     return Signal.lines(n * freq, a, t0_ns=t0_ns, notes=notes)
 
 
@@ -315,6 +345,7 @@ def pulse_train(
     t0_ns: int = 0,
     lead_s: float = 0.0,
     trail_s: float = 0.0,
+    rolloff: str = "brickwall",
 ) -> Signal:
     """Rectangular wave at ``duty`` (0..1): +peak for duty * T from the rising edge at phase 0, else
     -peak. Its mean is peak * (2 duty - 1); harmonics up to ``f_max``. Duty 0.5 is :func:`square`.
@@ -322,13 +353,13 @@ def pulse_train(
     ``lead_s`` / ``trail_s`` (#437): linear edges with that 10–90 % time, centred on the ideal
     edge (the duty is measured between the 50 % points): each edge is the step convolved with a box
     of the 0–100 % time t / 0.8, so its harmonics are multiplied by sinc(n f t / 0.8)."""
-    n, notes = _harmonics(freq, f_max, 1, "pulse train")
+    n, weight, notes = _harmonics(freq, f_max, 1, "pulse train", rolloff)
     x = 2 * np.pi * n * duty
     # f = P(2d-1) + sum 2P/(n pi) [sin(x) cos(n w t) + (1 - cos x) sin(n w t)]; a_n = c_n - j s_n,
     # that is (2P / (j pi n)) (rise - e^{-jx} fall): the rising edge minus the falling one.
     rise = np.sinc(n * freq * lead_s / 0.8) if lead_s > 0 else 1.0
     fall = np.sinc(n * freq * trail_s / 0.8) if trail_s > 0 else 1.0
-    a = (2 * peak / (1j * np.pi * n)) * (rise - np.exp(-1j * x) * fall) * np.exp(1j * n * phase_rad)
+    a = weight * (2 * peak / (1j * np.pi * n)) * (rise - np.exp(-1j * x) * fall) * np.exp(1j * n * phase_rad)
     keep = np.abs(a) > 1e-15 * peak
     return Signal.lines(n[keep] * freq, a[keep], t0_ns=t0_ns, notes=notes) + Signal.constant(
         peak * (2 * duty - 1)
@@ -336,18 +367,24 @@ def pulse_train(
 
 
 def triangle(
-    freq: float, peak: float, symmetry: float, f_max: float, phase_rad: float = 0.0, t0_ns: int = 0
+    freq: float,
+    peak: float,
+    symmetry: float,
+    f_max: float,
+    phase_rad: float = 0.0,
+    t0_ns: int = 0,
+    rolloff: str = "brickwall",
 ) -> Signal:
     """Ramp with ``symmetry`` (0..1, the rising share of the period) between -peak and +peak, crossing
     zero on the rise at phase 0. Symmetry 1 is :func:`ramp` (sawtooth); 0 a falling sawtooth."""
     if symmetry >= 1.0:
-        return ramp(freq, peak, f_max, phase_rad, t0_ns)
+        return ramp(freq, peak, f_max, phase_rad, t0_ns, rolloff)
     if symmetry <= 0.0:
-        return ramp(freq, -peak, f_max, phase_rad + np.pi, t0_ns)
-    n, notes = _harmonics(freq, f_max, 1, "ramp")
+        return ramp(freq, -peak, f_max, phase_rad + np.pi, t0_ns, rolloff)
+    n, weight, notes = _harmonics(freq, f_max, 1, "ramp", rolloff)
     th = 2 * np.pi * n * symmetry
     # From -P at t=0, rising to +P at s*T, falling back by T: a_n = -P (1 - e^-j th) / (pi^2 n^2 s (1-s)).
-    a = -peak * (1 - np.exp(-1j * th)) / (np.pi**2 * n**2 * symmetry * (1 - symmetry))
+    a = weight * -peak * (1 - np.exp(-1j * th)) / (np.pi**2 * n**2 * symmetry * (1 - symmetry))
     # Shift so the rising zero crossing (t = s*T/2) sits at phase 0.
     a = a * np.exp(1j * n * (np.pi * symmetry + phase_rad))
     keep = np.abs(a) > 1e-15 * peak

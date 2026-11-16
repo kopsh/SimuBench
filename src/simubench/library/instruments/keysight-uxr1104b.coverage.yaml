@@ -1193,7 +1193,7 @@ sections:
   - header: :CHANnel<N>:PROBe:SKEW:AUTO
     level: accepted
     affects_data: false
-    note: 'p. 545: the deskew against the probe''s own compensation signal - the model has no probe identification
+    note: 'the deskew against the probe''s own compensation signal - the model has no probe identification
       and no compensation signal, so the command parses and the skew keeps its value.'
   - header: :CHANnel<N>:PROBe:STYPe
     level: not_modeled
@@ -1223,13 +1223,13 @@ sections:
       itself is not modeled, #1074).'
   - header: :CHANnel<N>:SPECtral:CFRequency:TESTLIMITS
     level: implemented
-    note: 'p. 552: the declared range of the channel''s spectral center.'
+    note: 'the declared range of the channel''s spectral center.'
   - header: :CHANnel<N>:SPECtral:SPAN
     level: implemented
     note: 'The channel''s spectral view span (stored; as :SPECtral:CFRequency, #1074).'
   - header: :CHANnel<N>:SPECtral:SPAN:TESTLIMITS
     level: implemented
-    note: 'p. 554: the declared range of the channel''s spectral span.'
+    note: 'the declared range of the channel''s spectral span.'
   - header: :CHANnel<N>:UNITs
     level: accepted
     note: 'VOLT, AMPere, WATT or UNKNown: the unit''s name only (:WAVeform:YUNits? answers it); values are unchanged.'

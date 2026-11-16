@@ -21,12 +21,18 @@ export function WaveformCanvas({
   triggerLevel,
   triggerChannel,
   live = false,
+  markers = true,
+  label,
   className,
 }: {
   traces: Trace[];
   triggerLevel?: number;
   triggerChannel?: number;
   live?: boolean;
+  /** The ground and trigger markers (a spectrum has neither). */
+  markers?: boolean;
+  /** An accessible name other than "waveform". */
+  label?: string;
   className?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -91,6 +97,7 @@ export function WaveformCanvas({
         ctx.clip();
         strokeTrace(ctx, tr, w, h, color, 1.5);
         ctx.restore();
+        if (!markers) continue;
         // Channel ground marker on the left edge.
         const y0 = clampY(yOf(0), h);
         ctx.fillStyle = color;
@@ -101,6 +108,7 @@ export function WaveformCanvas({
         ctx.fill();
       }
 
+      if (!markers) return;
       // Trigger level marker on the right edge, trigger point at the top center.
       const trig = traces.find((t) => t.channel === triggerChannel);
       if (trig && triggerLevel !== undefined) {
@@ -133,9 +141,9 @@ export function WaveformCanvas({
       cancelAnimationFrame(raf);
       ro.disconnect();
     };
-  }, [traces, triggerLevel, triggerChannel, live]);
+  }, [traces, triggerLevel, triggerChannel, live, markers]);
 
-  return <canvas ref={ref} className={className} role="img" aria-label="waveform" />;
+  return <canvas ref={ref} className={className} role="img" aria-label={label ?? "waveform"} />;
 }
 
 /** One channel's record as a polyline, or min/max per pixel when it is longer than 2 points a pixel. */

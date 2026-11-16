@@ -235,6 +235,7 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
   // :DIGitize takes one acquisition and stops (#248): the screen then shows that record.
   await scpi(":DIGitize CHANnel1");
   const vpp = Number(await scpi(":MEASure:VPP? CHANnel1"));
+  const amplitude = Number(await scpi(":MEASure:VAMPlitude? CHANnel1"));
   const freq = Number(await scpi(":MEASure:FREQuency? CHANnel1"));
   expect(freq).toBeGreaterThan(900);
 
@@ -244,13 +245,15 @@ test("scope screen: the measurement table matches :MEASure? on the record shown,
   await expect(page.getByTestId("scope-source")).toContainText("采集次数"); // a record, not live frames
   const cellValue = async (id: string) => {
     const text = (await page.getByTestId(id).textContent()) ?? "";
-    return quantity(text, id.endsWith("vpp") ? "V" : "Hz") ?? NaN;
+    return quantity(text, id.endsWith("frequency") ? "Hz" : "V") ?? NaN;
   };
   await expect(page.getByTestId("meas-ch1-vpp")).not.toHaveText("—");
   // The table shows four significant digits: a relative error of at most half a unit in the
   // fourth digit (5e-4); 1e-3 leaves room for the rounding of the reply itself (#356).
   expect(Math.abs((await cellValue("meas-ch1-vpp")) - vpp) / vpp).toBeLessThan(1e-3);
   expect(Math.abs((await cellValue("meas-ch1-frequency")) - freq) / freq).toBeLessThan(1e-3);
+  // Amplitude (top - base) comes first, what the generator's setting reads (#1220).
+  expect(Math.abs((await cellValue("meas-ch1-amplitude")) - amplitude) / amplitude).toBeLessThan(1e-3);
 
   // Cursors: 6 divisions apart at 200 µs/div is 1.2 ms; 4 divisions at 500 mV/div is 2 V.
   // exact: the settings panel also shows the :MARKer fields (#1155) and their steppers' labels

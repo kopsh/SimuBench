@@ -83,6 +83,7 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 每个型号一个 `src/simubench/library/instruments/<id>.coverage.yaml`（工作区中的定义放在定义旁边），按作者所依据的文件列出全部命令及其程度（实现、接受、未实现）与说明。
 
 - CI 检查覆盖表与定义一致：定义中的命令都在覆盖表中，标为“实现”或“接受”的命令都在定义中，并且都有用例；“接受”条目必须有 `affects_data: false`。带 `reference` 的工作区定义同样适用（`simubench coverage`、`simubench cases`、MCP `run_cases`）。
+- 覆盖表说明里的位置只写章节（如 `ch. 21`），不写页码（#1183）：厂商手册不同印刷版本的分页会整体位移（UXR 的 11.60 到 11.80，同一条命令相差十余页），页码一旦过时就误导读者；需要核对时按命令名在 `manuals/` 的分页文本中检索。
 - **未实现的原因**（#1037）：未实现的条目可写 `gap`，说明为什么没有实现——`out_of_scope`（不在仿真范围内：[product-plan.md](product-plan.md) 第 6 节的应用层（抖动、眼图、PAM、均衡、协议解码、用户代码）、云与仓库服务、真实时钟、需要真实硬件的服务流程（校准、自检、探头校准））、`blocked`（等平台的某项能力，`blocked_by` 写能力：[product-plan.md](product-plan.md) 4.2 的编号如 `C5`，或 4.2 尚未列出的能力的短名如 `mask-test`）、`model_work`（平台已有能力，只差写进定义）；`note` 写具体内容。`gap` 与 `blocked_by` 只能写在未实现的条目上，`blocked` 必须有 `blocked_by`。没有 `gap` 的未实现条目算“未分拣”。SimuBench 是本地工具，用户脚本里的文件与设置命令要能用（#1073）：文件系统由通用组件 `file_system` 实现（#1069：盘符、当前文件夹、目录、复制移动删除、上传下载；33622A 的 MMEMory 与 UXR0334B 的 :DISK 已接入），还没接入的写 `blocked_by: file-system`，设置存取由通用组件 `setup_memory` 实现（#1070：寄存器、状态文件、学习串；内容是 SimuBench 的格式，覆盖表说明里写明不与厂商格式逐字节一致），还没接入的写 `setup-memory`，波形与结果存为文件由通用组件 `data_file` 实现（#1071：读数存储器、示波器记录；文件内容与同一时刻的查询一致，手册没给的版式在说明里写明是 SimuBench 的，私有容器格式报错），还没接入的写 `data-file`，截图、硬拷贝与打印写 `screenshot`（#1072）；只改仪表自身配置、不影响数据的命令（LAN/GPIB/USB 等接口配置、LXI 标识、蜂鸣器、显示与界面偏好、打印机选择）写 `model_work`，候选“接受”（`affects_data: false`）；应用层分析结果的保存随该分析仍算 `out_of_scope`。
 - 用户看得见：脚本发出一条覆盖表写明原因的未实现命令时，`-113` 的错误事件带 `gap`、`blocked_by` 与 `note`，TUI 日志与 Web 事件历史显示出来；Web 的命令页与 `GET /api/definitions/{id}/coverage` 给出每条命令的程度与原因。
 - `simubench coverage <id>` 打印覆盖表与统计（未实现另按原因分：不做 · 等能力 · 可做 · 未分拣），用于演示时说明做到了什么程度。
@@ -174,7 +175,7 @@ cases:
 - `waveform_transfer`：`reserve_lowest`（最低码表示无数据，数据不落在它上面）、`ascii_block`（ASCII 列表放在定长块里）、头字段的 `when` / `else`、op `figure` 单独读出 x/y 增量、原点与参考；16 位字的 y 增量按移位后的码计算；
 - `scope_trigger` 的 `reject` / `hf_reject`：触发路径上的低频、高频抑制滤波。
 
-**110 GHz 的 UXR**：`keysight-uxr1104b`（#1092）。256 GSa/s，与 `keysight-uxr0334b` 同一份编程手册与命令集；量程（1 mV–500 mV/div）、偏置分档、每档噪声与精度取数据手册 3123-1313 的 1 mm 输入型号列，覆盖表的程度与 UXR0334B 相同，型号相关的说明各自写。记录与 UXR0334B 一样至多 1000 万点（真机标配 500 Mpts、选件到 2 Gpts，等 #1012）。示例台 `examples/benches/keysight-uxr1104b.bench.yaml` 跑同一个波形读取脚本（`tests/test_keysight_uxr.py`）。
+**110 GHz 的 UXR**：`keysight-uxr1104b`（#1092）。256 GSa/s，与 `keysight-uxr0334b` 同一份编程手册与命令集；量程（1 mV–500 mV/div）、偏置分档、每档噪声与精度取数据手册 3123-1313 的 1 mm 输入型号列，覆盖表的程度与 UXR0334B 相同，型号相关的说明各自写。记录与 UXR0334B 一样至多 1000 万点（真机标配 500 Mpts、选件到 2 Gpts，等 #1012）。示例台 `examples/benches/keysight-uxr1104b.bench.yaml` 跑同一个波形读取脚本（`tests/test_keysight_uxr.py`）。完整的演示（四路信号、自动设置、测量、FFT 与波形读取）见 [demo-uxr.md](demo-uxr.md)。
 
 ## 9. 内置定义与验证定义
 
