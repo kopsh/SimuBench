@@ -7,7 +7,7 @@ version: 1
 description: >-
   Keysight Infiniium UXR1104B, 4 channels, 110 GHz, 256 GSa/s, 10-bit ADC, 1 mm 50 ohm inputs. Real
   model (D42): the same command set as the UXR0334B (Infiniium UXR-Series Oscilloscopes Programmer's
-  Guide 11.60.00000, 9018-07723); ranges, noise and accuracies follow the 1 mm input columns of the
+  Guide 11.80.00012, 9018-07723); ranges, noise and accuracies follow the 1 mm input columns of the
   UXR-B data sheet 3123-1313 (#1092). Values neither document gives are SimuBench defaults, listed
   in the coverage table.
 reference:
@@ -22,7 +22,7 @@ identity:
   # *OPT?：内置命令按测试台实例的选件回答（手册表 10），没有选件回 0。
   options_reply: "{options}"
   serial: MY64310101
-  firmware: "11.60.00000"
+  firmware: "11.80.00012"
 # :SYSTem:ERRor? is the model's own command (a number, or with STRing the number and the text).
 # 选件（*OPT?，手册表 10；数据手册 3123-1313 的存储深度选件）：01G 为 1 Gpts、02G 为 2 Gpts。仿真的记录
 # 至多 10 Mpts（#1012），选件只改 *OPT? 的回答。
@@ -2327,12 +2327,12 @@ commands:
   - {header: ':MARKer:MODE', state: marker.mode}
   - {header: ':MARKer:X1Position', state: marker.x1}
   - {header: ':MARKer:X2Position', state: marker.x2}
-  - {header: ':MARKer:Y1Position', state: marker.y1}
-  - {header: ':MARKer:Y2Position', state: marker.y2}
+  - {header: ':MARKer:Y1Position', op: meas.tracked_y, args: {which: Y1}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ':MARKer:Y2Position', op: meas.tracked_y, args: {which: Y2}, params: [{name: value, type: raw, optional: true}]}
   - {header: ':MARKer:TSTArt', state: marker.x1}
   - {header: ':MARKer:TSTOp', state: marker.x2}
-  - {header: ':MARKer:VSTArt', state: marker.y1}
-  - {header: ':MARKer:VSTOp', state: marker.y2}
+  - {header: ':MARKer:VSTArt', op: meas.tracked_y, args: {which: Y1}, params: [{name: value, type: raw, optional: true}]}
+  - {header: ':MARKer:VSTOp', op: meas.tracked_y, args: {which: Y2}, params: [{name: value, type: raw, optional: true}]}
   - {header: ':MARKer:X1Y1source', state: marker.source1}
   - {header: ':MARKer:X2Y2source', state: marker.source2}
   - {header: ':MARKer:XDELta', op: meas.x_delta, set: false}

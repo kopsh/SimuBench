@@ -2161,10 +2161,10 @@ sections:
     note: 'Sets the same position as :MARKer:X2Position (the manual''s compatibility spelling).'
   - header: :MARKer:VSTArt
     level: implemented
-    note: 'Sets the same level as :MARKer:Y1Position (the manual''s compatibility spelling).'
+    note: Same as :MARKer:Y1Position (the manual's compatibility spelling).
   - header: :MARKer:VSTOp
     level: implemented
-    note: 'Sets the same level as :MARKer:Y2Position (the manual''s compatibility spelling).'
+    note: Same as :MARKer:Y2Position (the manual's compatibility spelling).
   - header: :MARKer:X1Position
     level: implemented
     note: 'The Ax marker''s position, in seconds (a transform''s source: Hz).'
@@ -2182,10 +2182,10 @@ sections:
     note: 'Bx − Ax, in the source''s x unit.'
   - header: :MARKer:Y1Position
     level: implemented
-    note: 'The Ay marker''s level.'
+    note: 'The Ay marker''s level: in the WAVeform mode the X1Y1 source''s value at the Ax marker (the guide: the level at the marker position), otherwise the level set; a write keeps the mode.'
   - header: :MARKer:Y2Position
     level: implemented
-    note: 'The By marker''s level.'
+    note: 'The By marker''s level: in the WAVeform mode the X2Y2 source''s value at the Bx marker (the guide: the level at the marker position), otherwise the level set; a write keeps the mode.'
   - header: :MARKer:YDELta
     level: implemented
     note: 'By − Ay: the markers'' levels, or the values at their x in the tracking modes.'
@@ -2215,7 +2215,7 @@ sections:
     note: 'The horizontal position of marker <K> (seconds, or Hz on a transform); a YMANual marker answers 9.99999E+37.'
   - header: :MARKer<K>:Y:POSition
     level: implemented
-    note: 'The vertical position of marker <K>; an X-only or tracking marker answers 9.99999E+37.'
+    note: 'The vertical position of marker <K>; a TRACk or RF marker answers its source''s value at its X position (the guide: that value is marked but cannot be moved, a write is -221); an X-only marker answers 9.99999E+37.'
   - header: :MEASure:AREA
     level: not_modeled
     note: 'Model work: waveform measurement on the existing measurement engine.'
@@ -2375,16 +2375,16 @@ sections:
     note: 'The power of the source transform''s band <center> ± <bw>/2, in dBm (#1074).'
   - header: :MEASure:FFT:DFRequency
     level: implemented
-    note: 'The frequency difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074).'
+    note: 'The frequency difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074); the guide gives every argument, an omitted one takes SimuBench''s default: peak1 1, peak2 2, level -60 dBm.'
   - header: :MEASure:FFT:DMAGnitude
     level: implemented
-    note: 'The magnitude difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074).'
+    note: 'The magnitude difference between the source transform''s peaks <peak1> and <peak2> above <level> dBm (#1074); the guide gives every argument, an omitted one takes SimuBench''s default: peak1 1, peak2 2, level -60 dBm.'
   - header: :MEASure:FFT:FREQuency
     level: implemented
-    note: 'The frequency of the source transform''s peak <peak> (numbered low to high) above <level> dBm, computed when queried (#1074); no such peak: 9.99999E+37.'
+    note: 'The frequency of the source transform''s peak <peak> (numbered low to high) above <level> dBm, computed when queried (#1074); no such peak: 9.99999E+37; an omitted peak is 1, an omitted level -60 dBm (SimuBench defaults).'
   - header: :MEASure:FFT:MAGNitude
     level: implemented
-    note: 'The magnitude of the source transform''s peak <peak> above <level> dBm (#1074); no such peak: 9.99999E+37.'
+    note: 'The magnitude of the source transform''s peak <peak> above <level> dBm (#1074); no such peak: 9.99999E+37; an omitted peak is 1, an omitted level -60 dBm (SimuBench defaults).'
   - header: :MEASure:FFT:OBW
     level: implemented
     note: 'The bandwidth holding <pct> percent of the source transform''s power (#1074).'

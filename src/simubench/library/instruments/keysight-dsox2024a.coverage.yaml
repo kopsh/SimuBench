@@ -709,7 +709,7 @@ sections:
     note: 'as :MEASure:FREQuency'
   - header: :MEASure:PHASe
     level: implemented
-    note: 'the DELay over the period of source 1, in degrees (#350)'
+    note: the DELay over the period of source 1, in degrees (#350); folded into one period, -180..+180 degrees (the guide gives no range; SimuBench's convention).
   - header: :MEASure:PPULses
     level: implemented
     note: 'positive pulses on the record (#248); query only'

@@ -1835,3 +1835,69 @@ cases:
       - send: ":MEASure:VRMS? DISPlay,AC,CHANnel1,DBM,5"
       - query: ":SYSTem:ERRor?"
         expect: "-222"
+  - name: "FFT 峰测量省略可选参数：只给信源不报错，peak1≠peak2 时差值非 0（方波 1 MHz 与 3 MHz 两峰）"
+    manual: ":MEASure Commands > :MEASure:FFT:DFRequency, :DMAGnitude, :FREQuency, :MAGNitude"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 1E-5"
+      - send: ":FUNCtion1:FFTMagnitude CHANnel2"
+      # 省略的参数取 SimuBench 默认：peak1 1、peak2 2、level -60 dBm（手册各参数都给）。
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1"
+        expect_value: 2.0e6
+        tolerance: 2.0e4
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1,1,2,-30"
+        expect_value: 2.0e6
+        tolerance: 2.0e4
+      # peak1 真的选第一个峰：2→3 是 3 MHz→5 MHz，3→2 是负的。
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1,3,2,-30"
+        expect_value: -2.0e6
+        tolerance: 2.0e4
+      # 方波的三次谐波比基波低 20·log10(3) ≈ 9.5 dB。
+      - query: ":MEASure:FFT:DMAGnitude? FUNCtion1"
+        expect_value: -9.5
+        tolerance: 1.5
+      - query: ":MEASure:FFT:FREQuency? FUNCtion1"
+        expect_value: 1.0e6
+        tolerance: 2.0e4
+      - query: ":MEASure:FFT:MAGNitude? FUNCtion1"
+        expect_fields: [{min: -10.0, max: 3.0, format: "±d.dddddE±dd"}]
+      - query: ":MEASure:FFT:DFRequency? FUNCtion1,0,2,-30"
+        expect: "9.99999E+37"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+  - name: "跟踪光标：WAVeform 方式的 Y1Position 是信源在 X1 处的电压，编号 TRACk 光标的 Y:POSition 同理，MANual 回设定值"
+    manual: ":MARKer Commands > :MARKer:MODE, :X1Y1source, :X1Position, :Y1Position, :VSTArt, :MARKer<K>:TYPE, :MARKer<K>:Y:POSition"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1"
+      - send: ":DIGitize CHANnel1"
+      # 10 MHz、0.4 Vpp 正弦在上升沿触发，四分之一周期（25 ns）处是波峰 +0.2 V，75 ns 处是波谷。
+      - send: ":MARKer:MODE WAVeform;:MARKer:X1Y1source CHANnel1;:MARKer:X1Position 2.5e-8"
+      - query: ":MARKer:Y1Position?"
+        expect_value: 0.2
+        tolerance: 0.02
+      - query: ":MARKer:VSTArt?"
+        expect_value: 0.2
+        tolerance: 0.02
+      - send: ":MARKer:X1Position 7.5e-8"
+      - query: ":MARKer:Y1Position?"
+        expect_value: -0.2
+        tolerance: 0.02
+      - send: ":MARKer3:TYPE TRACk;:MARKer3:SOURce CHANnel1;:MARKer3:ENABle ON;:MARKer3:X:POSition 2.5e-8"
+      - query: ":MARKer3:Y:POSition?"
+        expect_value: 0.2
+        tolerance: 0.02
+      # 跟踪光标的 Y 不能移动；X-only 光标没有 Y，回 9.99999E+37。
+      - send: ":MARKer3:Y:POSition 0.1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+      - send: ":MARKer4:TYPE XMANual;:MARKer4:X:POSition 2.5e-8"
+      - query: ":MARKer4:Y:POSition?"
+        expect: "9.99999E+37"
+      # MANual 方式：Y 是设定值，写 Y 不改方式。
+      - send: ":MARKer:MODE MANual;:MARKer:Y1Position 0.05"
+      - query: ":MARKer:Y1Position?"
+        expect: "+5.00000E-02"
+      - send: ":MARKer:MODE XONLy;:MARKer:Y2Position 0.07"
+      - query: ":MARKer:MODE?"
+        expect: "XONL"
+      - query: ":MARKer:Y2Position?"
+        expect: "+7.00000E-02"

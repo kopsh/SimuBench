@@ -1034,19 +1034,23 @@ class ScopeMath(Component):
         self,
         kind: str = "FREQuency",
         source: Any = None,
-        peak: int = 1,
-        peak2: int = 1,
+        peak: int | None = None,
+        peak1: int | None = None,
+        peak2: int | None = None,
         level: float | None = -60.0,
-        center: float = 0.0,
-        bandwidth: float = 0.0,
-        percent: float = 99.0,
+        center: float | None = 0.0,
+        bandwidth: float | None = 0.0,
+        percent: float | None = 99.0,
         mode: str | None = None,
         fundamental: float | None = None,
         **_: Any,
     ) -> OpResult:
         """``:MEASure:FFT:<kind>? <source>,…``: FREQuency and MAGNitude of a peak, DFRequency and
         DMAGnitude between two peaks (numbered low to high above ``level`` dBm), CPOWer of a band
-        and its PSD, OBW at ``percent`` of the power, THDistortion about the fundamental."""
+        and its PSD, OBW at ``percent`` of the power, THDistortion about the fundamental. The guide
+        gives every argument; an omitted one arrives as None and takes SimuBench's default: peak
+        (FREQuency/MAGNitude, ``peak`` or ``peak1``) 1, the second peak 2, level -60 dBm, center and
+        bandwidth 0, percent 99."""
         f = _source_function(source, int(self.param("functions")))
         rec, freqs, values = self._trace(f)
         fft = rec.spec["fft"]
@@ -1064,12 +1068,16 @@ class ScopeMath(Component):
                 if _in_dbm(float(values[i]), str(fft["unit"]), float(fft["impedance"])) > threshold
             ]
             peaks.sort(key=lambda i: freqs[i])  # numbered from low to high frequency
+            first = int(peak1 if peak1 is not None else peak if peak is not None else 1)
+            second = int(peak2) if peak2 is not None else 2
+            if first < 1 or second < 1:  # peaks number from 1: no peak 0 or below
+                return OpResult(invalid)
             try:
                 if kind in ("FREQUENCY", "MAGNITUDE"):
-                    i = peaks[int(peak) - 1]
+                    i = peaks[first - 1]
                     value = float(freqs[i]) if kind == "FREQUENCY" else float(values[i])
                 else:
-                    i, j = peaks[int(peak) - 1], peaks[int(peak2) - 1]
+                    i, j = peaks[first - 1], peaks[second - 1]
                     value = (
                         float(freqs[j] - freqs[i]) if kind == "DFREQUENCY" else float(values[j] - values[i])
                     )
@@ -1078,12 +1086,16 @@ class ScopeMath(Component):
             return OpResult(number(value))
         power = bin_power(values, str(fft["unit"]), float(fft["impedance"]), rec.dt_s)
         if kind in ("CPOWER", "PSD"):
-            value = band_power(power, freqs, float(center), float(bandwidth) / 2.0)
+            center = float(center) if center is not None else 0.0
+            bandwidth = float(bandwidth) if bandwidth is not None else 0.0
+            value = band_power(power, freqs, center, bandwidth / 2.0)
             if kind == "PSD":
-                value = value / float(bandwidth) if bandwidth > 0 else math.nan
+                value = value / bandwidth if bandwidth > 0 else math.nan
             return OpResult(number(10.0 * math.log10(value / 1e-3) if value > 0 else -math.inf))
         if kind == "OBW":
-            return OpResult(number(occupied_bandwidth(freqs, power, float(percent))))
+            return OpResult(
+                number(occupied_bandwidth(freqs, power, float(percent if percent is not None else 99.0)))
+            )
         if kind == "THDISTORTION":
             if str(mode or "").upper().startswith("PEAK"):
                 # the fundamental is the first peak above the level (the manual's PEAK form)

@@ -3782,7 +3782,7 @@ class ScopeMeasurements(Component):
     ) -> OpResult:
         """``DELay? [<source1>][,<source2>]``: the time from source 1's first rising edge to source 2's
         first rising edge at their middle levels; ``PHASe?``: that delay over source 1's period, in
-        degrees (#350), with a trailing RISing / FALLing taking that edge on both. Without sources,
+        degrees folded into -180..+180 (#350), with a trailing RISing / FALLing taking that edge on both. Without sources,
         :MEASure:SOURce's two (``sources``). ``CROSsing?``: the voltage where the two records cross
         (nearest the centre). ``DELTatime?`` (the Infiniium's): from source 1's edge ``define`` names
         to source 2's — ``define`` = [start direction, number, position, stop direction, number,
@@ -3830,7 +3830,10 @@ class ScopeMeasurements(Component):
             return self._reply(delay, used)
         first = np.asarray(recs[0].volts, dtype=float)
         period = measure("PERiod", first, recs[0].dt_s, hysteresis=hyst)
-        return self._reply(delay / period * 360.0 if math.isfinite(period) and period > 0 else math.nan, used)
+        if not (math.isfinite(period) and period > 0):
+            return self._reply(math.nan, used)
+        # folded into one period, -180..+180 degrees: the first edges may lie whole periods apart
+        return self._reply((delay / period * 360.0 + 180.0) % 360.0 - 180.0, used)
 
     @op("auto_thresholds")
     def op_auto_thresholds(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
@@ -4042,7 +4045,10 @@ class ScopeMeasurements(Component):
         """The record the A (``which`` 1) or B (2) markers read: their source's, a channel's or a
         math function's (#1074). A numberless ``FUNCtion`` — or its alias ``MATH`` (2000 X-series
         Programmer's Guide 02.66 p. 361) — names the one function a single-function layout has."""
-        word = str(self.param(f"marker_source{which}") or "")
+        return self._source_record(str(self.param(f"marker_source{which}") or ""))
+
+    def _source_record(self, word: str) -> tuple[Any, int]:
+        """The record a marker's source word names (see ``_marker_record``); empty: channel 1."""
         f = function_index(word) if word else None
         if f is None and word.strip().upper() in ("FUNCTION", "FUNC", "F", "MATH"):
             f = 1
@@ -4208,6 +4214,29 @@ class ScopeMeasurements(Component):
         refused while the cursors track (the manual: Y positions cannot be set in the WAVeform
         mode) and otherwise puts them in the MANual mode."""
         return self._position(which, value, query, "y")
+
+    @op("tracked_y", fields=("which",))
+    def op_tracked_y(self, which: str = "Y1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
+        """The Infiniium's ``:MARKer:Y1Position`` / ``:MARKer:Y2Position`` (and VSTArt/VSTOp): the
+        query answers "the level at the marker position" — in the WAVeform mode the source's value
+        at the marker's x, otherwise the setting. A write stores the setting and leaves the mode
+        alone (the guide names no mode change, unlike the 2000 X-series' ``y_position``)."""
+        assert self.owner is not None
+        n = 1 if str(which).strip().upper().endswith("1") else 2
+        param = f"marker_y{n}"
+        if query:
+            if self._marker_mode() == "waveform":
+                shown, used = self._marker_y(n)
+                if not math.isfinite(shown):
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+                return OpResult(self.owner.format_number(shown), used)
+            stored = self.param(param)
+            return OpResult(self.owner.format_number(float(stored) if stored is not None else 0.0))
+        path = self.bound_path(param)
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: the {param} setting is not bound")
+        self.owner.set_state(path, self._marker_number("y", value), source="scpi", internal=True)
+        return OpResult()
 
     def _position(self, which: str, value: Any, query: bool, axis: str) -> OpResult:
         """One X or Y cursor's read or write, in the cursors' unit, with the mode moves the
@@ -4379,8 +4408,8 @@ class ScopeMeasurements(Component):
         """One field of a numbered marker — its type, source, enable, name, color, colour mode, x
         or y position — as ``:MARKer<K>:<field>`` reads and writes it. A type change needs the
         marker off (the manual: -221); what the marker's type has no place for answers
-        ``invalid_value``. The query answers the short forms the manual's Returned Format names
-        (XMAN, TRAC, CHAN1, CUST)."""
+        ``invalid_value``; a TRACk or RF marker's y is its source's value at its x. The query
+        answers the short forms the manual's Returned Format names (XMAN, TRAC, CHAN1, CUST)."""
         assert self.owner is not None
         k = self._k(suffixes)
         marker = self._k_marker(k)
@@ -4399,8 +4428,15 @@ class ScopeMeasurements(Component):
         if query or value is None:
             if key == "x" and marker["type"] == "YMANual":
                 return OpResult(str(self.param("invalid_value")).encode())
-            if key == "y" and marker["type"] in ("XMANual", "TRACk", "RF"):
+            if key == "y" and marker["type"] == "XMANual":
                 return OpResult(str(self.param("invalid_value")).encode())
+            if key == "y" and marker["type"] in ("TRACk", "RF"):
+                # a tracking marker marks its source's value at its x (the guide's TRACk / RF)
+                rec, used = self._source_record(str(marker.get("source") or ""))
+                y = self._value_at(rec, float(marker.get("x") or 0.0))
+                if not math.isfinite(y):
+                    return OpResult(str(self.param("invalid_value")).encode(), used)
+                return OpResult(self.owner.format_number(y), used)
             current = marker.get(key)
             if key == "enable":
                 return OpResult(V.format_int(int(bool(current))))
