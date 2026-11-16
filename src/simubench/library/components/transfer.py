@@ -65,6 +65,11 @@ class WaveformTransfer(Component):
     block. The source may name a math function (``FUNCtion<F>``, #1074): the record then comes
     from the ``math`` block instead of the acquisition, with the same encoding and preamble."""
 
+    label = "波形传输"
+    label_en = "Waveform transfer"
+    about = "把通道记录的选定点编码成文本、ASCII 列表或二进制块。"
+    about_en = "Encodes the selected points of a channel's record as text, ASCII or a binary block."
+
     refs = {"record": (Acquisition, "instrument"), "math": (MathSource, "instrument")}
     optional_refs = frozenset({"math"})
     defaults = {

@@ -29,6 +29,11 @@ class CalOutput(Component):
     impedance are the downstream ``output_stage``'s.
     """
 
+    label = "校准输出选择"
+    label_en = "Calibration output select"
+    about = "选择前面板输出端口送出的信号（:CALibrate:OUTPut）。"
+    about_en = "Chooses the signal a front-panel output port carries (:CALibrate:OUTPut)."
+
     ports = {"out": PortSpec("out", "signal")}
     defaults = {
         "selection": "ZERO",  # the stored :CALibrate:OUTPut selection, e.g. ZERO or DC,0.5

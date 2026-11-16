@@ -41,6 +41,11 @@ class CounterInput(Component):
     level and the sensitivity (the smallest peak-to-peak amplitude the channel counts; below it the
     signal is rejected as noise)."""
 
+    label = "计数器输入"
+    label_en = "Counter input"
+    about = "一个输入通道：阻抗、交直流耦合、触发电平和灵敏度。"
+    about_en = "One input channel: impedance, AC/DC coupling, trigger level and sensitivity."
+
     ports = {
         "pin": PortSpec("in", "electrical"),
         "out": PortSpec("out", "signal"),
@@ -128,6 +133,11 @@ class CounterGate(Component):
     """The gate (F #192): its time and source, and the true duration the timebase produces. A fast
     timebase makes the instrument's second short, so the gate lasts ``T / (1 + ε)`` of true time."""
 
+    label = "闸门"
+    label_en = "Gate"
+    about = "计数器的闸门时间与闸门源，以及时基产生的真实时长。"
+    about_en = "The counter's gate time and source, and the true duration the timebase produces."
+
     refs = {"clock": ("reference_clock", "instrument")}
     defaults = {
         "time": 0.1,  # s, the gate time
@@ -148,6 +158,11 @@ class CounterGate(Component):
 class CounterStatistics(Component):
     """The statistics block (F #192): the measurements taken, and their mean, minimum, maximum and
     standard deviation (sample standard deviation, n − 1)."""
+
+    label = "统计"
+    label_en = "Statistics"
+    about = "对测量结果求平均、最小、最大和标准差。"
+    about_en = "Mean, minimum, maximum and standard deviation of the measurements taken."
 
     defaults = {"capacity": 10000}  # measurements kept (the oldest go past this)
 
@@ -225,6 +240,13 @@ class CounterTimebase(Component):
     gap-free mode; without it each gate measures its own first-to-last edge span).
     """
 
+    label = "计数器时基"
+    label_en = "Counter timebase"
+    about = "把参考时钟变成仪表的时间刻度，含插值器的单次分辨率。"
+    about_en = (
+        "Turns the reference clock into the instrument's time scale, with the interpolator's resolution."
+    )
+
     refs = {"clock": ("reference_clock", "instrument")}
     defaults = {
         "clock": "",  # the reference_clock the timebase runs on
@@ -260,6 +282,11 @@ class CounterCore(Component):
     channel A and the next on channel B, plus each channel's trigger error (normal, seeded by the
     virtual instant, so two readings at one instant agree).
     """
+
+    label = "计数核心"
+    label_en = "Counting core"
+    about = "在闸门时间内测频率、周期、累计计数和时间间隔。"
+    about_en = "Measures frequency, period, totalize and time interval over the gate."
 
     ports = {
         "a": PortSpec("in", "signal"),

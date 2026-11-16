@@ -59,6 +59,22 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   structure to `PUT /api/definitions/{id}/structure`, one save at a time; undo/redo saves the earlier
   structure as a new version, #1207). Dragged positions go to `instruments/<id>.layout.json` through
   `PUT /api/definitions/{id}/layout` (no version, #1207). e2e: `e2e/build.spec.ts`. (Not `build/`: `.gitignore` hides it.)
+- `web/src/lib/component.ts` + `web/src/components/app/TypeTitle.tsx` — a component type's name and
+  one-sentence description (`label`/`label_en`/`about`/`about_en` from the API, #1251; on an internal
+  component `type_label`/`type_label_en`, read with `internalType(c)`, since its `label` is the
+  definition's own name for the block, #1261, which wins when set): show
+  `typeName(doc)` as the label with the type as a grey tag (`TypeTitle`), `TypeDescription` for the
+  sentence with the English docstring folded under 「详细说明」. Never translate types in the i18n
+  files: a new component class carries its own names (`tests/test_component_catalog.py` fails
+  without them). Settings group titles: `groupName(id)` in `features/workbench/model.ts` over
+  `inspector.group.<segment>` (`<prefix>N` for numbered ones); `tests/test_setting_groups.py` fails
+  when a built-in or validation model has a segment without a name in both i18n files.
+- "Copy as my instrument" (#1250): `InstrumentAcceptance` takes `onOpenCopy` (the workbench shows the
+  copy in the same acceptance tab, `store.showDefinition(instrument, id, section)`, then offers
+  `replace_instrument` with an undo) and `pageHref`; on its own page it navigates to `/i/<copy>`
+  keeping `?from=<sid>` (the back-to-bench link) and `?section=`. `useCopyOf` finds an existing copy
+  through `DefinitionSummary.extends`. e2e: `e2e/edit.spec.ts` (copy test) removes its copy file
+  afterwards, as other specs open that model by name.
 - `web/src/features/workbench/store.ts` — the workbench's UI state (zustand): tabs, selection, the
   locate request (`reveal`, #800), and the inspector shown or folded per kind of tab
   (`INSPECTOR_SHOWN`, `lentTo`: a selection or locate shows a folded inspector until the tab

@@ -17,6 +17,11 @@ class System(Component):
     ``error_count`` let a definition declare an error query that is not ``:SYSTem:ERRor?`` (Fluke's
     ``ERR?``), with the reply format given by the command's ``reply`` template (``{code},{text}``)."""
 
+    label = "系统命令"
+    label_en = "System commands"
+    about = "*CLS、预置和型号自己的错误队列命令。"
+    about_en = "*CLS, a preset and the error queue under the model's own headers."
+
     defaults = {
         "clear_reply": "0",  # what the query form of the clear-status command answers (*CLS? on LeCroy)
     }

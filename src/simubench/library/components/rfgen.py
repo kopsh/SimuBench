@@ -48,6 +48,11 @@ class RfReference(ReferenceClock):
     use (10 MHz at +4 dBm into a matched load).
     """
 
+    label = "10 MHz 参考"
+    label_en = "10 MHz reference"
+    about = "射频源的 10 MHz 时基及 REF_OUT 输出。"
+    about_en = "The RF source's 10 MHz timebase and the REF_OUT output."
+
     ports = {**ReferenceClock.ports, "out": PortSpec("out", "signal")}
     defaults = {
         **ReferenceClock.defaults,
@@ -105,6 +110,11 @@ class RfSynthesizer(Component):
     point, advanced by ``:INITiate`` and ``:TRIGger``. The line it emits is unit amplitude at the
     set frequency times the timebase error of the reference it locks to; level and modulation come
     later in the chain."""
+
+    label = "载波合成"
+    label_en = "Carrier synthesizer"
+    about = "载波频率合成：连续波，或扫描/列表及其当前点。"
+    about_en = "The carrier synthesizer: CW frequency, or the sweep/list plan and its current point."
 
     ports = {"out": PortSpec("out", "signal")}
     refs = {"clock": ("reference_clock", "instrument")}
@@ -288,6 +298,11 @@ class RfModSource(Component):
     reference's error scales it too; FM modulates with a phase shift of −π/2 (a sine tone), PM in
     phase with the carrier."""
 
+    label = "调制源"
+    label_en = "Modulation source"
+    about = "内部低频调制源：AM、FM 或 PM 的调制音。"
+    about_en = "The internal low-frequency source: the tone of AM, FM or PM."
+
     refs = {"clock": ("reference_clock", "instrument")}
     defaults = {
         "am_rate": 1e3,  # Hz of the AM tone
@@ -321,6 +336,11 @@ class RfModulator(Component):
     either, pulse modulation is refused (-221), and a modulation index needing more than
     ``LINE_BUDGET`` lines is refused (-222) on the setting that causes it. ``enabled`` is the
     master switch (#290): off, the carrier passes bare and every modulation keeps its settings."""
+
+    label = "调制器"
+    label_en = "Modulator"
+    about = "把 AM、FM/PM 调制加到载波上。"
+    about_en = "Applies AM and FM/PM modulation to the carrier."
 
     ports = {
         "in": PortSpec("in", "signal"),
@@ -433,6 +453,11 @@ class RfLevelControl(Component):
     level is exact over the whole range (no ALC dynamics, settling or level error,
     validation-rfgen.md), so this block is the conversion from dBm to the carrier's EMF."""
 
+    label = "电平控制（ALC）"
+    label_en = "Level control (ALC)"
+    about = "射频输出电平控制：把 50 Ω 负载上的 dBm 换算成载波电动势。"
+    about_en = "The RF level control: dBm into 50 Ω converted to the carrier's EMF."
+
     ports = {
         "in": PortSpec("in", "signal"),
         "out": PortSpec("out", "signal"),
@@ -463,6 +488,11 @@ class RfAttenuator(Component):
     """The output step attenuator (D2 #188). This model has no attenuation steps — its level is
     exact over the whole range (validation-rfgen.md) — so ``attenuation`` is 0 dB unless a
     definition sets it."""
+
+    label = "输出衰减器"
+    label_en = "Output attenuator"
+    about = "射频源的输出步进衰减器。"
+    about_en = "The RF source's output step attenuator."
 
     ports = {
         "in": PortSpec("in", "signal"),

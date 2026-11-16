@@ -35,6 +35,11 @@ class PowerSupplySetpoint(Component):
     """A channel's setpoint DAC (B2 #185): the voltage and current levels, within the channel's
     range (``stage.v_max`` / ``stage.i_max``). The control loop programs from the same settings."""
 
+    label = "电源设定 DAC"
+    label_en = "Supply setpoint DAC"
+    about = "电源通道的电压和电流设定，限在通道的量程内。"
+    about_en = "A supply channel's voltage and current levels, within its range."
+
     refs = {"stage": ("power_stage", "channel")}
     defaults = {
         "voltage": 0.0,  # V, programmed output voltage
@@ -68,6 +73,11 @@ class PowerStage(Component):
     level to, so a definition whose state allows a wider number still cannot over-drive the stage.
     """
 
+    label = "电源功率级"
+    label_en = "Supply power stage"
+    about = "电源通道的电压/电流能力和限流上限。"
+    about_en = "A supply channel's voltage/current capability and current-limit cap."
+
     units = {"v_max": "V", "i_max": "A", "p_max": "W"}
     defaults = {
         "v_max": 25.75,  # V, the channel's maximum output voltage (magnitude)
@@ -88,6 +98,11 @@ class PowerOutput(Component):
     source regulating the sense pair (or the force terminals) in CV mode, a current source in CC
     mode — the same elements the SMU's output stage uses, driven by the reused control loop.
     """
+
+    label = "电源输出级"
+    label_en = "Supply output stage"
+    about = "电源通道的输出继电器、远端采样和控制环驱动的源。"
+    about_en = "A supply channel's output relay, remote sense and the source the loop programs."
 
     refs = {
         "loop": ("output_control_loop", "channel"),
@@ -354,6 +369,11 @@ class SupplyReadback(Component):
     """A channel's V/I/P readback (B2 #185): the voltmeter and ammeter of the output, with the
     regulation state (CV / CC / OFF) the front panel shows."""
 
+    label = "电源回读"
+    label_en = "Supply readback"
+    about = "电源通道的电压/电流/功率回读和稳压状态（CV/CC/OFF）。"
+    about_en = "A supply channel's V/I/P readback and regulation state (CV/CC/OFF)."
+
     refs = {"output": ("power_output", "channel")}
     defaults = {
         "output": "",  # the channel's power_output
@@ -427,6 +447,11 @@ class SupplyProtection(ProtectionLatch, Component):
     replies are the shared protection primitive (:class:`ProtectionLatch`); this block's
     increments are the OCP delay in constant current (#271) and the output-state restore.
     """
+
+    label = "电源保护"
+    label_en = "Supply protection"
+    about = "电源通道的过压/过流保护锁存。"
+    about_en = "A supply channel's OVP/OCP latch."
 
     # OV and OC are the questionable register's over-voltage and over-current bits while the
     # latch holds the output off (#539).
@@ -590,6 +615,11 @@ class SupplyTracking(Component):
       ``v_max``/``i_max``/``p_max`` of its stage); leaving the combination brings the
       independent range back and clips a level above it.
     """
+
+    label = "输出跟踪"
+    label_en = "Output tracking"
+    about = "输出 2 和 3 的组合：跟踪、并联或串联。"
+    about_en = "The combination of outputs 2 and 3: track, parallel or series."
 
     defaults = {
         "mode": "OFF",  # OFF | TRAC | PAR | SER (the instrument's combination state)
@@ -772,6 +802,11 @@ class SupplyTransient(Triggerable, Component):
     the channel reports TRAN-active, while ready for a trigger WTG-tran (the N6700 operation
     register's bits 6 and 4).
     """
+
+    label = "输出瞬变"
+    label_en = "Output transient"
+    about = "电源通道在触发时从即时电平跳到触发电平。"
+    about_en = "A supply channel's step from the immediate to the triggered levels on a trigger."
 
     defaults = {
         "voltage": 0.0,  # the immediate voltage setting a STEP trigger writes (a binding)

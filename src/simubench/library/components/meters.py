@@ -41,6 +41,11 @@ class DmmInputTerminal(Component):
     terminal references it (``conditioning``).
     """
 
+    label = "万用表输入端子"
+    label_en = "DMM input terminals"
+    about = "万用表的电气输入及其对地阻抗。"
+    about_en = "The DMM's electrical input and its impedance to ground."
+
     refs = {"conditioning": ("dmm_conditioning", "instrument")}
     ports = {
         "pin": PortSpec("in", "electrical", "the instrument's input terminal"),
@@ -207,6 +212,11 @@ class DmmConditioning(Component):
     and range: ``{DC: {0.1: 8, 1: 3}, AC: 60}``.
     """
 
+    label = "信号调理"
+    label_en = "Signal conditioning"
+    about = "万用表的功能、量程、交流滤波及模拟误差。"
+    about_en = "The DMM's function, ranges, AC filter and analog errors."
+
     ports = {"in": PortSpec("in", "signal", "the signal from the input terminal")}
     defaults = {
         "ac_low": 3.0,  # Hz above which lines count into the AC reading
@@ -350,6 +360,11 @@ class DmmAdc(Component):
     ``cal_*`` operations delegate to it; without a store the single legacy coefficient set below
     applies. The component is the instrument's sampler (metrology-authoring.md 3.1).
     """
+
+    label = "万用表 A/D"
+    label_en = "DMM A/D"
+    about = "万用表的 A/D 转换：位数、积分时间（NPLC）、分辨率、校准与读数。"
+    about_en = "The DMM's A/D: digits, NPLC reading time, resolution, calibration and the reading."
 
     refs = {
         "conditioning": ("dmm_conditioning", "instrument"),

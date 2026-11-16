@@ -604,6 +604,11 @@ class ScopeMath(Component):
     constant. Model limits: a transform longer than ``fft_max_points`` points or a span beyond
     ``fft_span_max`` is refused (-221/-222), never truncated; an unknown operand is -224."""
 
+    label = "数学运算"
+    label_en = "Math functions"
+    about = "示波器的数学函数：运算、变换以及对其迹线的测量。"
+    about_en = "A scope's math functions: operators, transforms and measurements on their traces."
+
     refs = {"record": (Acquisition, "instrument")}
     defaults = {
         "record": "acq",  # the acquisition component holding the source records

@@ -449,8 +449,13 @@ class Component:
     #: Where the component may be placed: "part" (a bench node of its own), "accessory" (on a wire) or "internal"
     #: (inside instrument definitions only).
     category: ClassVar[str] = "internal"
+    #: The name the UI shows (Chinese first, D23) and its English form; with ``about`` /
+    #: ``about_en``, one sentence on what the block does (#1251). Every built-in type has all
+    #: four (``test_component_catalog``); the class docstring is the longer, English description.
     label: ClassVar[str] = ""
     label_en: ClassVar[str] = ""
+    about: ClassVar[str] = ""
+    about_en: ClassVar[str] = ""
     ports: ClassVar[dict[str, PortSpec]] = {}
     #: Ports the instrument wiring creates (a regular expression), e.g. ``in\d+`` for in1..inN.
     port_pattern: ClassVar[str | None] = None

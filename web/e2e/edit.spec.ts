@@ -1,6 +1,9 @@
+import { rmSync } from "node:fs";
+import { join } from "node:path";
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 
-import { isSession } from "./judge";
+import { expectText, isSession, sessionIdOf } from "./judge";
+import { WORKSPACE } from "./workspace.mjs";
 
 const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
@@ -238,4 +241,73 @@ test("build mode: the canvas shows the initial settings, a screen the running va
   await expect(page.getByRole("note", { name: "运行中的值" })).toHaveCount(0);
   await page.getByRole("tab", { name: "画布" }).click();
   await expect(page.getByRole("note", { name: "初始设置" })).toHaveCount(0);
+});
+
+test("copy as my instrument stays in the bench: the tab turns into the copy, the bench may use it, one copy only (#1250)", async ({ page }) => {
+  const model = "siglent-sds2104xplus";
+  const path = `e2e/copy-${Date.now()}.bench.yaml`;
+  const bench = { schema: "simubench.bench/2", name: "copy-e2e", instruments: { scope: { model, label: "示波器" } }, layout: { scope: { x: 0, y: 0 } } };
+  expect((await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data: bench } })).ok()).toBeTruthy();
+  const start = await page.request.post("/api/sessions", { headers, data: { bench_path: path } });
+  const sid = ((await start.json()) as { id: string }).id;
+  let copy = "";
+  try {
+    await page.goto(`/s/${sid}?token=${TOKEN}`);
+    await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
+    await page.getByRole("button", { name: "验收页" }).click();
+    const tab = page.getByRole("tab", { name: "示波器 · 验收" });
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+
+    // Copied from 「编辑结构」: the same tab shows the copy, still at 「编辑结构」, and it can be edited.
+    await page.getByTestId("acceptance-tab-build").click();
+    await page.getByRole("button", { name: "复制为我的仪表" }).click();
+    await expect(page.getByTestId("build-library")).toBeVisible();
+    await expect(page).toHaveURL(isSession);
+    await expect(tab).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByTestId("acceptance-tab-build")).toHaveAttribute("aria-selected", "true");
+    const catalog = (await (await page.request.get("/api/catalog", { headers })).json()) as { instruments: { id: string; workspace: boolean; extends: string | null }[] };
+    copy = catalog.instruments.find((d) => d.workspace && d.extends === model)?.id ?? "";
+    expect(copy.startsWith(`my-${model}`)).toBe(true);
+
+    // Asked at once whether the scope should use the copy; yes writes it into the bench file, undo takes it back.
+    await expect(page.getByText("让 scope 改用副本？")).toBeVisible();
+    await page.getByRole("button", { name: "改用副本" }).click();
+    const scopeModel = async () => ((await readDoc(page.request, path)).data.instruments as Record<string, { model: string }>).scope.model;
+    await expect.poll(scopeModel).toBe(copy);
+    await expect(page.getByText(`scope 已改用 ${copy}`)).toBeVisible();
+    await page.getByRole("button", { name: "撤销", exact: true }).click();
+    await expect.poll(scopeModel).toBe(model);
+
+    // Its own page, opened from the bench, leads back to the bench.
+    await page.getByTestId("acceptance-own-page").click();
+    await expect(page).toHaveURL((url) => url.pathname === `/i/${copy}` && url.searchParams.get("from") === sid);
+    await expect(page.getByTestId("back-to-bench")).toContainText("copy-e2e");
+
+    // The built-in model now offers the copy instead of a second one.
+    await page.goto(`/i/${model}?from=${sid}&section=build&token=${TOKEN}`);
+    await expect(page.getByTestId("acceptance-tab-build")).toHaveAttribute("aria-selected", "true");
+    await expect(page.getByRole("button", { name: "复制为我的仪表" })).toHaveCount(0);
+    await page.getByRole("button", { name: "打开我的副本" }).click();
+    await expect(page).toHaveURL((url) => url.pathname === `/i/${copy}`);
+    await expect(page.getByTestId("acceptance-tab-build")).toHaveAttribute("aria-selected", "true");
+    const after = (await (await page.request.get("/api/catalog", { headers })).json()) as { instruments: { workspace: boolean; extends: string | null }[] };
+    expect(after.instruments.filter((d) => d.workspace && d.extends === model)).toHaveLength(1);
+    await page.getByTestId("back-to-bench").click();
+    await expect(page).toHaveURL((url) => sessionIdOf(url) === sid);
+
+    // Build mode: the copy is marked as mine with its own id; the model picker leads with the model.
+    await page.getByRole("radio", { name: "搭建" }).click();
+    await page.getByRole("tab", { name: "元件库" }).click();
+    const mine = page.getByTestId(`library-${copy}`);
+    await expect(mine).toContainText("我的");
+    await expect(mine).toContainText(copy);
+    await expect(page.getByTestId(`library-${model}`)).not.toContainText("我的");
+    await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
+    await expectText(page.getByTestId("edit-model"), (text) => text.trim().startsWith("SDS2104X Plus"), "the model before its maker");
+    await page.getByTestId("edit-model").click();
+    await expect(page.getByRole("option", { name: "SDS2104X Plus 我的" })).toContainText(copy);
+  } finally {
+    // Other specs open this model by name: leave no copy behind (#1216).
+    if (copy) for (const suffix of [".yaml", ".layout.json"]) rmSync(join(WORKSPACE, "instruments", `${copy}${suffix}`), { force: true });
+  }
 });

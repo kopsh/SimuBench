@@ -1,8 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, Copy, FlaskConical, Hammer, History, Info, ListTree, Terminal, X } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import { Blocks, Copy, ExternalLink, FlaskConical, FolderOpen, Hammer, History, Info, ListTree, Terminal, X } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { useCopyDefinition } from "@/api/hooks";
+import { useCatalog, useCopyDefinition } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -29,23 +29,50 @@ import { HistoryTab } from "./HistoryTab";
 import { OverviewTab } from "./OverviewTab";
 import { TryTab } from "./TryTab";
 
-/** "Copy as my instrument" on a built-in model: a workspace definition that extends it (D59); the
- * page then opens the copy, whose YAML the user or the agent changes. */
-function CopyAsMine({ definitionId }: { definitionId: string }) {
+/** What the page does with a copy of the definition (#1250): `created` is false when an earlier
+ * copy is opened instead of a new one made. Without it the page navigates to the copy's own page. */
+export type OpenCopy = (definitionId: string, section: SectionKey, created: boolean) => void;
+
+/** The workspace copy already made of `definitionId` ("copy as my instrument" writes one that
+ * `extends` it, D59), if any: the first by id. */
+export function useCopyOf(definitionId: string): string | null {
+  const catalog = useCatalog();
+  const mine = (catalog.data?.instruments ?? []).filter((d) => d.workspace && d.extends === definitionId).map((d) => d.id);
+  return mine.sort()[0] ?? null;
+}
+
+/** "Copy as my instrument" on a built-in model: a workspace definition that extends it (D59), whose
+ * YAML the user or the agent changes. When a copy exists the button opens it instead (#1250). */
+function CopyAsMine({ definitionId, section, onOpen }: { definitionId: string; section: SectionKey; onOpen?: OpenCopy }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const copy = useCopyDefinition();
+  const existing = useCopyOf(definitionId);
+  const open = (id: string, created: boolean) => {
+    if (onOpen) return onOpen(id, section, created);
+    const params = new URLSearchParams(window.location.search);
+    params.set("section", section);
+    navigate(`/i/${id}?${params.toString()}`);
+  };
+  if (existing) {
+    return (
+      <Button size="sm" variant="outline" className="h-7" onClick={() => open(existing, false)} data-testid="open-my-copy">
+        <FolderOpen className="size-3.5" /> {t("acceptance.openMyCopy")}
+      </Button>
+    );
+  }
   return (
     <Button
       size="sm"
       variant="outline"
       className="h-7"
       disabled={copy.isPending}
+      data-testid="copy-as-mine"
       onClick={() =>
         copy.mutate(definitionId, {
           onSuccess: (doc) => {
             toast.success(t("acceptance.copied", { path: doc.path ?? "" }), { description: t("acceptance.copiedHint") });
-            navigate(`/i/${doc.data.id as string}`);
+            open(doc.data.id as string, true);
           },
           onError: (e) => toast.error(t("errors.generic"), { description: (e as Error).message }),
         })
@@ -66,21 +93,39 @@ const SECTIONS = [
   { key: "history", icon: History },
 ] as const;
 
-type SectionKey = (typeof SECTIONS)[number]["key"];
+export type SectionKey = (typeof SECTIONS)[number]["key"];
+
+/** A section key from outside (a tab, a URL); the overview for anything else. */
+export function sectionOf(value: string | null | undefined): SectionKey {
+  return SECTIONS.find((x) => x.key === value)?.key ?? "overview";
+}
 
 /**
  * The acceptance page of an instrument definition (T4, instrument-authoring.md 7.2): read-only, in
  * the instrument's language. Opened as a workbench tab beside the internals view, or on its own
  * page from the home screen's instrument list.
  */
-export function InstrumentAcceptance({ definitionId }: { definitionId: string }) {
+export function InstrumentAcceptance({
+  definitionId,
+  initialSection,
+  onOpenCopy,
+  pageHref,
+}: {
+  definitionId: string;
+  /** The section it opens at (#1250): the one a copy was made from. */
+  initialSection?: string;
+  /** Inside the workbench: show the copy in this tab (#1250); else the page navigates to it. */
+  onOpenCopy?: OpenCopy;
+  /** Inside the workbench: the definition's own page, which links back to the bench (#1250). */
+  pageHref?: string;
+}) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const doc = useDefinitionDocument(definitionId);
   const sha = doc.data?.sha256;
   const definition = useDefinition(definitionId, sha ?? "");
   const coverage = useDefinitionCoverage(definitionId, sha ?? "");
-  const [section, setSection] = useState<SectionKey>("overview");
+  const [section, setSection] = useState<SectionKey>(() => sectionOf(initialSection));
   const trySession = useTrySession(definitionId, sha);
   const inst = useTryInstrument(trySession.sid);
   const [notice, setNotice] = useState(false);
@@ -140,7 +185,16 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
           >
             {t("acceptance.copyIdn")}
           </button>
-          {!doc.data.editable && <CopyAsMine definitionId={definitionId} />}
+          {pageHref && (
+            <Link
+              to={pageHref}
+              className="hover:text-foreground inline-flex items-center gap-1 underline-offset-2 hover:underline"
+              data-testid="acceptance-own-page"
+            >
+              <ExternalLink className="size-3" /> {t("acceptance.ownPage")}
+            </Link>
+          )}
+          {!doc.data.editable && <CopyAsMine definitionId={definitionId} section={section} onOpen={onOpenCopy} />}
         </div>
       </header>
 

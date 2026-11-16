@@ -204,13 +204,16 @@ function ModelField({ inst }: { inst: InstrumentInfo }) {
         value={inst.definition_id}
         onValueChange={(model) => model !== inst.definition_id && void applyOps([{ op: "replace_instrument", name: inst.name, model }])}
       >
-        <SelectTrigger className="h-7 w-full text-xs" aria-label={t("edit.model")}>
+        <SelectTrigger className="h-7 w-full text-xs" aria-label={t("edit.model")} data-testid="edit-model">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
           {options.map((o) => (
+            // The model first; the maker, or the copy's own id, after it in grey (#1250).
             <SelectItem key={o.id} value={o.id} className="text-xs">
-              {o.manufacturer} {o.model}
+              <span className="font-medium">{o.model}</span>
+              {o.workspace && <span className="text-primary text-[10.5px]">{t("edit.mine")}</span>}
+              <span className="text-muted-foreground truncate">{o.workspace ? o.id : o.manufacturer}</span>
             </SelectItem>
           ))}
         </SelectContent>

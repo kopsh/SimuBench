@@ -54,6 +54,11 @@ class SmuSource(Component):
     limit for the level in use (:meth:`limit_cap`), so the envelope follows a sweep point too.
     """
 
+    label = "SMU 源设定"
+    label_en = "SMU source setting"
+    about = "SMU 源 DAC 的设定：源量程、扫描和量程范围。"
+    about_en = "The SMU source DAC's setting: source range, sweep and range envelope."
+
     units = {
         "source_range": "V",  # legacy: both functions
         "source_range_voltage": "V",
@@ -257,6 +262,11 @@ class OutputControlLoop(Component):
     channel-level loop names its channel's ``power_stage`` in ``channel_envelope`` instead (B2).
     """
 
+    label = "CV/CC 控制环"
+    label_en = "CV/CC control loop"
+    about = "电压/电流控制环及其限流切换，可供任何输出级复用。"
+    about_en = "The voltage/current control loop and its limit switch, reusable by any output stage."
+
     refs = {
         "envelope": ("smu_source", "instrument"),
         "channel_envelope": ("power_stage", "channel"),
@@ -401,6 +411,11 @@ class SmuOutput(Component):
     is a valid bench (quadrant 2). The control loop it drives holds the mode (D34).
     """
 
+    label = "SMU 输出级"
+    label_en = "SMU output stage"
+    about = "SMU 的 HI/LO 端、远端采样、浮地 LO 和输出继电器。"
+    about_en = "The SMU's HI/LO, remote sense, floating LO and output relay."
+
     ports = {
         "hi": PortSpec("inout", "electrical"),
         "lo": PortSpec("inout", "electrical"),
@@ -513,6 +528,11 @@ class SmuMeter(Component):
     The bench front panel reads this component's values (``core.voltage`` …), so the SMU
     definitions keep naming it ``core``.
     """
+
+    label = "SMU 测量"
+    label_en = "SMU meter"
+    about = "SMU 的电压/电流测量：量程电阻、A/D、NPLC 和读数存储。"
+    about_en = "The SMU's V/I meter: range resistors, A/D, NPLC and the reading memory."
 
     refs = {
         "source": ("smu_source", "instrument"),
@@ -926,9 +946,12 @@ class SmuMeter(Component):
 class DcSupply(Component):
     """A fixed DC source with an output resistance (a bench supply or a battery), to ground."""
 
-    category = "part"
     label = "直流电源"
     label_en = "DC supply"
+    about = "带输出电阻的固定直流源（台式电源或电池），对地输出。"
+    about_en = "A fixed DC source with an output resistance (a bench supply or a battery), to ground."
+
+    category = "part"
     role = "driver"
     units = {"v": "V", "r": "OHM"}
     ports = {"OUT": PortSpec("out", "electrical")}

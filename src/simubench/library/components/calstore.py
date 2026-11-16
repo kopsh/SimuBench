@@ -42,6 +42,11 @@ class CalibrationStore(Component):
     ops they write that state back, so the store follows the instrument's own variables.
     """
 
+    label = "校准存储"
+    label_en = "Calibration store"
+    about = "按测量条件保存校准系数和校准记录。"
+    about_en = "Keeps calibration coefficients by measurement context, and the calibration ledger."
+
     defaults = {
         "secured": True,  # calibration secured: adjusting needs the security code
         "code": "SIMUBENCH",  # the factory security code

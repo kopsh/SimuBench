@@ -132,6 +132,11 @@ class ScopeVertical(Component):
     (metrology-authoring.md 4); :meth:`self_calibrate` writes them for every tabulated scale.
     """
 
+    label = "垂直通道"
+    label_en = "Vertical channel"
+    about = "垂直通道：耦合、带宽、刻度与偏置及其范围。"
+    about_en = "The vertical channel: coupling, bandwidth, scale and offset with their ranges."
+
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     choices = {"response": ("first_order", "brickwall", "gaussian", "bessel4", "butterworth4")}
     # A channel's own store first, then the instrument's (Component.peer); none: no correction.
@@ -317,6 +322,11 @@ class ScopeVertical(Component):
 class ScopeFrontend(ScopeVertical):
     """The earlier name of ``scope_vertical`` (same behavior), kept so existing definitions load."""
 
+    label = "模拟前端（旧名）"
+    label_en = "Analog front end (old name)"
+    about = "垂直通道的旧名称，行为相同，保留以载入旧定义。"
+    about_en = "The earlier name of the vertical channel, kept so existing definitions load."
+
 
 @component("scope_probe")
 class ScopeProbe(Component):
@@ -328,6 +338,11 @@ class ScopeProbe(Component):
     samples the channel's signal that much earlier (instrument-authoring.md 8.4, G3). A real
     scope applies the delay after the ADC, so the trigger path — which detects on the analog
     signal — is not delayed with it."""
+
+    label = "探头设置"
+    label_en = "Probe setting"
+    about = "通道的探头衰减比：显示电压等于输入电压乘以衰减比。"
+    about_en = "A channel's probe ratio: display volts are input volts times the ratio."
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     defaults = {
@@ -517,6 +532,11 @@ class ScopeAdc(Component):
     volts. ``max_rate`` is the top sample rate (0: no limit); channels of a ``rate_pairs`` pair share
     a converter, so with both on the top rate is ``max_rate_paired``."""
 
+    label = "ADC 组"
+    label_en = "ADC group"
+    about = "各通道共用的 ADC：分辨率、最高采样率和交织。"
+    about_en = "The ADC group the channels share: resolution, top sample rates and interleaving."
+
     port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
     refs = {"vertical": ("scope_vertical", "channel"), "probe": ("scope_probe", "channel")}
     # The acquisition macro fills these from the acquisition's own (library/macros.py); a frame
@@ -628,6 +648,11 @@ class ScopeDecimator(Component):
     one's samples there.
     """
 
+    label = "抽取与采集方式"
+    label_en = "Decimation and acquisition mode"
+    about = "从 ADC 采样率降到记录采样率：各采集方式。"
+    about_en = "From the ADC's rate to the record's: the acquisition modes."
+
     port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
     refs = {"adc": ("scope_adc", "instrument"), "horizontal": ("scope_timebase", "instrument")}
     optional_refs = frozenset({"adc", "horizontal"})  # filled by the acquisition macro; asked for at a frame
@@ -720,6 +745,11 @@ class ScopeTimebase(Component):
     closer together than the nominal interval, so the records keep the nominal dt the scope
     reports and time measurements read low — the spectrum analyzer's reference convention.
     """
+
+    label = "时基"
+    label_en = "Timebase"
+    about = "水平系统：每格时间、记录长度规则和触发位置。"
+    about_en = "The horizontal system: time per division, record length and trigger position."
 
     ports = {"ref": PortSpec("in", "signal", "REF_IN")}
     defaults = {
@@ -1027,6 +1057,11 @@ class ScopeTrigger(_ChannelBound):
     compare against: the search finds nothing and a waiting acquisition looks again at the next
     command.
     """
+
+    label = "触发"
+    label_en = "Trigger"
+    about = "在独立模拟通路上的边沿触发和脉宽（毛刺）触发。"
+    about_en = "Edge and pulse-width (glitch) trigger on its own analog path."
 
     ports = {"ext": PortSpec("in", "signal", "external trigger input")}
     defaults = {
@@ -2172,6 +2207,11 @@ class ScopeAcquisition(Component):
     ``waveform_transfer``.
     """
 
+    label = "采集"
+    label_en = "Acquisition"
+    about = "示波器的运行控制、采样和记录。"
+    about_en = "A scope's run control, sampling and records."
+
     ports: dict[str, PortSpec] = {}
     port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
     pattern_port = _SAMPLES_IN  # each channel's samples at the record's rate (the decimator's output)
@@ -3214,6 +3254,11 @@ class ScopeMeasurements(Component):
 
     Every value taken is kept for ``statistics`` (count, mean, sdev, min, max) until cleared.
     """
+
+    label = "自动测量"
+    label_en = "Automatic measurements"
+    about = "对示波器记录做自动测量。"
+    about_en = "Automatic measurements on a scope's records."
 
     refs = {"record": (RecordSource, "instrument"), "math": (MathSource, "instrument")}
     optional_refs = frozenset({"math"})

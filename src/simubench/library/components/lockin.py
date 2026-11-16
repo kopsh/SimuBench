@@ -80,6 +80,11 @@ class LockinReference(Component):
     oscillator keeps running at the last frequency and error 327 is queued once.
     """
 
+    label = "参考源"
+    label_en = "Reference"
+    about = "内部振荡器或跟踪 REF_IN 的基波；谐波次数；SINE_OUT 输出。"
+    about_en = "Internal oscillator or tracking of REF_IN; harmonic n; the SINE_OUT drive."
+
     ports = {
         "ext": PortSpec("in", "signal", "REF_IN signal"),
         "ref": PortSpec("out", "reference"),
@@ -243,6 +248,11 @@ class LockinInputMode(Component):
     are referred to one ground, so floating or grounding the shield changes no reading.
     """
 
+    label = "输入方式"
+    label_en = "Input mode"
+    about = "输入配置：单端 A、差分 A − B 或电流输入。"
+    about_en = "The input configuration: single-ended A, differential A − B, or current."
+
     ports = {
         "a": PortSpec("in", "signal", "the A input"),
         "b": PortSpec("in", "signal", "the B input"),
@@ -280,6 +290,11 @@ class LockinInputFilter(Component):
     the spectral lines (data level, like the coupling the old monolith applied); the input
     impedance, shielding and the differential pair are the circuit part of the input terminal.
     """
+
+    label = "输入滤波"
+    label_en = "Input filter"
+    about = "输入耦合与工频陷波。"
+    about_en = "Input coupling and the line-frequency notches."
 
     ports = {
         "in": PortSpec("in", "signal"),
@@ -333,6 +348,11 @@ class LockinInputAmp(Component):
     the overload limits and the auto-gain ladder, and the reserve widens the limit over it. The
     signal itself passes through unchanged, which is what makes the outputs input-referred.
     """
+
+    label = "输入放大"
+    label_en = "Input amplifier"
+    about = "低噪声前置放大：灵敏度满量程、动态储备、输入极限和噪声密度。"
+    about_en = "The low-noise front end: sensitivity, dynamic reserve, input limit and noise density."
 
     ports = {
         "in": PortSpec("in", "signal"),
@@ -399,6 +419,11 @@ class LockinMixer(Component):
     reference, each becoming a complex exponential at Δf = f − f_detect, plus the input's DC term.
     The low-pass filter is applied to those exponentials by ``lockin_lowpass``."""
 
+    label = "相敏检波"
+    label_en = "Phase-sensitive detector"
+    about = "把输入的谱线与参考相乘，得到检测频率附近的分量。"
+    about_en = "Multiplies the input's spectral lines by the reference, near the detection frequency."
+
     ports = {"ref": PortSpec("in", "reference")}
 
     def mix(self, sig: Signal, now: int) -> tuple[np.ndarray, np.ndarray]:
@@ -463,6 +488,11 @@ class LockinLowpass(Component):
     """The n-pole RC low-pass (D3 #189): time constant, slope (6 dB/oct per pole), the closed-form
     settling from a new regime, the equivalent noise bandwidth, and the truncation check that
     queues 329 when a truncated input still passes the filter."""
+
+    label = "低通滤波"
+    label_en = "Low-pass filter"
+    about = "n 阶 RC 低通：时间常数、斜率、建立过程和等效噪声带宽。"
+    about_en = "The n-pole RC low-pass: time constant, slope, settling and noise bandwidth."
 
     ports = {
         "in": PortSpec("in", "signal"),
@@ -622,6 +652,11 @@ class LockinOutput(Component):
     (subtracted) and ``expand`` multiplies the deviation from the offset; R and θ always show the
     raw outputs. The defaults (0 %, x1) leave X and Y untouched.
     """
+
+    label = "直流输出"
+    label_en = "DC output"
+    about = "X/Y 与 R/θ 输出，含偏置、扩展、过载标志和自动增益/相位。"
+    about_en = "X/Y and R/θ outputs, with offset, expansion, overload flags and auto gain/phase."
 
     refs = {
         "filter": ("lockin_lowpass", "instrument"),
@@ -1007,6 +1042,11 @@ class LockinAux(Component):
     source of ``dac`` volts behind ``z_out``. The inputs read the solved voltage of their nets, so a
     wire to another instrument or a DUT matters exactly as it does for any other circuit block.
     """
+
+    label = "AUX 输入输出"
+    label_en = "AUX inputs and outputs"
+    about = "锁相放大器的四路辅助 ADC 输入和四路 DAC 输出。"
+    about_en = "The lock-in's four auxiliary ADC inputs and four DAC outputs."
 
     ports = {
         **{f"in{n}": PortSpec("in", "electrical") for n in range(1, 5)},

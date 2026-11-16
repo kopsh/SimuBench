@@ -100,6 +100,11 @@ class ClockRecovery(Component):
     is kept and answered, the recovered clock follows the data exactly (no tracking error, no
     transfer of jitter)."""
 
+    label = "时钟恢复"
+    label_en = "Clock recovery"
+    about = "从数据中恢复时钟，作为无独立时钟的采样示波器的触发。"
+    about_en = "Recovers a clock from the data, the trigger of a sampling scope with no separate clock."
+
     ports = {"in": PortSpec("in", "signal")}
     units = {"rate": "HZ", "min_rate": "HZ", "max_rate": "HZ", "loop_bandwidth": "HZ"}
     defaults = {
@@ -180,6 +185,11 @@ class SamplingAcquisition(Component):
     acquisition's: ``read_record``, ``transfer_record``, ``measure_record``, ``displayed``,
     ``compute``, ``records``, ``acq_count``.
     """
+
+    label = "等效时间采集"
+    label_en = "Equivalent-time acquisition"
+    about = "等效时间采样示波器带码型锁定的采集。"
+    about_en = "The acquisition of an equivalent-time sampling scope with pattern lock."
 
     port_pattern = r"in\d+"  # inputs in1..inN are created by the instrument wiring
     pattern_port = PortSpec("in", "signal")  # each channel's signal after its vertical

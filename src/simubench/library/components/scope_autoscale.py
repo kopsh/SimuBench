@@ -73,6 +73,11 @@ class ScopeAutoscale(Component):
     are the settings autoscale leaves at fixed values (the trigger mode, slope and sweep, the marker
     mode, the functions off). Nothing found: every setting as it was."""
 
+    label = "自动设置"
+    label_en = "Autoscale"
+    about = "示波器的自动设置（前面板 Autoscale 键，:AUToscale）。"
+    about_en = "The oscilloscope's autoscale (the Autoscale key, :AUToscale)."
+
     refs = {"record": ("scope_acquisition", "instrument")}
     defaults = {
         "record": "acq",  # the scope_acquisition component that acquires the channels

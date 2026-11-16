@@ -35,9 +35,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import type { T } from "@/i18n";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
+import { typeAbout, typeName } from "@/lib/component";
+import { TypeDescription, TypeTitle } from "@/components/app/TypeTitle";
 import {
   EMPTY_HISTORY,
   type History,
@@ -486,18 +487,10 @@ function Toolbar({
   );
 }
 
-function typeLabel(t: T, type: string): string {
-  return t(`internals.types.${type}`, { defaultValue: type });
-}
-
-function firstLine(doc: string | null | undefined): string {
-  return (doc ?? "").split("\n\n")[0].replace(/\s+/g, " ").trim();
-}
-
 function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: boolean) => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const groups = libraryGroups(docs, query, (d) => typeLabel(t, d.type));
+  const groups = libraryGroups(docs, query);
   return (
     <aside className="bg-sidebar flex w-60 shrink-0 flex-col border-r" aria-label={t("acceptance.build.library")}>
       <div className="space-y-1.5 border-b p-2">
@@ -535,12 +528,10 @@ function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: bo
   );
 }
 
-/** One component type in the library: its name, the type when that differs, a line of what it
- * does, and its ports (#1214). */
+/** One component type in the library: its name with the type as a grey tag, a sentence of what it
+ * does, and its ports (#1214, #1251). */
 function LibraryItem({ doc: d, onDrag }: { doc: ComponentDoc; onDrag: (dragging: boolean) => void }) {
-  const { t } = useTranslation();
-  const label = typeLabel(t, d.type);
-  const about = firstLine(d.doc);
+  const about = typeAbout(d) ?? "";
   const ports = portSignature(d);
   return (
     <li
@@ -557,10 +548,7 @@ function LibraryItem({ doc: d, onDrag }: { doc: ComponentDoc; onDrag: (dragging:
     >
       <GripVertical className="text-muted-foreground/50 mt-0.5 size-3.5 shrink-0" />
       <div className="min-w-0 flex-1 space-y-0.5">
-        <div className="flex items-baseline gap-1.5">
-          <span className="truncate text-[12.5px] leading-tight font-medium">{label}</span>
-          {label !== d.type && <span className="text-muted-foreground num truncate text-[10.5px]">{d.type}</span>}
-        </div>
+        <TypeTitle of={d} className="text-[12.5px] leading-tight" />
         {about && <p className="text-muted-foreground truncate text-[11px] leading-snug">{about}</p>}
         {ports && <p className="text-muted-foreground/80 num truncate text-[10.5px]">{ports}</p>}
       </div>
@@ -577,6 +565,8 @@ interface CompData extends Record<string, unknown> {
   panel: string[];
   problem: boolean;
   editable: boolean;
+  /** The type's name (#1251): the block's heading, its own name under it. */
+  title: string;
   /** The settings it follows (#1212), and whether the one the side panel points at is among them. */
   follows: { setting: string; params: string[] }[];
   lit: boolean;
@@ -615,7 +605,7 @@ function CompNode({ data, selected }: NodeProps<Node<CompData>>) {
       {scope === "channel" && <div className="bg-primary/60 absolute inset-y-0 left-0 w-1 rounded-l-lg" aria-hidden />}
       <div className="flex items-start gap-1 border-b px-3 py-1.5" style={{ height: HEAD }}>
         <div className="min-w-0 flex-1">
-          <div className="truncate text-[13px] leading-tight font-medium">{typeLabel(t, comp.type)}</div>
+          <div className="truncate text-[13px] leading-tight font-medium">{data.title}</div>
           <div className="text-muted-foreground num truncate text-[11px] leading-tight">{comp.name}</div>
         </div>
         {problem && <AlertTriangle className="text-error size-3.5 shrink-0" aria-label={t("acceptance.build.problems", { count: 1 })} />}
@@ -773,6 +763,7 @@ function BuildCanvas({
           panel: panelOf(scope, c.name),
           problem: problems.has(id),
           editable,
+          title: typeName(docs.get(c.type) ?? { type: c.type }),
           follows: followedSettings(c),
           lit: !!lit?.has(id),
           dim: !!lit && lit.size > 0 && !lit.has(id),
@@ -800,7 +791,7 @@ function BuildCanvas({
         ]
       : [];
     return [...bandNode, ...structure.channel_components.map(comp("channel")), ...structure.components.map(comp("instrument"))];
-  }, [structure, positions, band, rowsOf, problems, editable, selected, channels, t, lit, hasBand]);
+  }, [structure, positions, band, rowsOf, problems, editable, selected, channels, t, lit, hasBand, docs]);
 
   const [nodes, setNodes] = useState<Node[]>(built);
   const [prevBuilt, setPrevBuilt] = useState(built);
@@ -1195,7 +1186,7 @@ function ComponentPanel({
     <div className="space-y-3 p-3 text-xs" data-testid="build-component-panel">
       <div>
         <div className="text-muted-foreground text-[11px]">{scope === "channel" ? t("acceptance.build.channel") : t("acceptance.build.instrument")}</div>
-        <h2 className="text-sm font-medium">{typeLabel(t, comp.type)}</h2>
+        <h2 className="text-sm font-medium">{doc ? typeName(doc) : comp.type}</h2>
         <div className="num text-muted-foreground">{comp.type}</div>
         <label className="mt-1.5 block space-y-0.5">
           <span className="text-muted-foreground text-[10.5px]">{t("acceptance.build.name")}</span>
@@ -1215,7 +1206,7 @@ function ComponentPanel({
             }}
           />
         </label>
-        {doc?.doc && <p className="text-muted-foreground mt-1.5 leading-relaxed">{firstLine(doc.doc)}</p>}
+        {doc && <TypeDescription of={doc} doc={doc.doc} className="mt-1.5" />}
       </div>
       <section className="space-y-1.5">
         <h3 className="font-medium">{t("acceptance.build.params")}</h3>

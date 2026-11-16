@@ -43,6 +43,8 @@ import { prefersReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 import { load, save } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { internalType, typeName } from "@/lib/component";
+import { TypeDescription } from "@/components/app/TypeTitle";
 import { formatValue, labelOf, numeric, stateMap } from "../model";
 import { useInternalProbes } from "@/api/hooks";
 import { InternalProbePanel, type Tuned } from "./ProbeView";
@@ -462,7 +464,7 @@ function probeTitle(t: T, view: InstrumentInternals, port: string): { heading: s
   const channel = c?.channel != null ? ` CH${c.channel}` : "";
   const pin = port.slice(name.length + 1);
   // A port the engineer has a name for (`混频器 · 中频输出`); else the port as the model names it.
-  const heading = `${c ? blockLabel(t, c) : name}${channel} · ${c ? t(`internals.portNames.${c.type}.${pin}`, { defaultValue: pin }) : pin}`;
+  const heading = `${c ? blockLabel(c) : name}${channel} · ${c ? t(`internals.portNames.${c.type}.${pin}`, { defaultValue: pin }) : pin}`;
   const wire = view.wires.find((w) => w.from === port);
   const medium = c?.ports.find((p) => p.name === port.slice(name.length + 1))?.medium;
   const tag = flowTag(t, wire ?? { medium: medium === "samples" ? "samples" : "signal", sample_rate_hz: null, format: null });
@@ -591,7 +593,7 @@ function SearchResults({
                 onClick={() => onSelect(name)}
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium">{blockLabel(t, c)}</span>
+                  <span className="font-medium">{blockLabel(c)}</span>
                   <span className="text-muted-foreground num">{name}</span>
                 </div>
                 {list.map((h) => (
@@ -1037,9 +1039,9 @@ function boundsOf(nodes: readonly GraphNode[]): { x: number; y: number; width: n
 /** Where a port row's thumbnail starts, and what it leaves for the port's name at the right. */
 const MINI = { left: 44, right: 58, height: 22 } as const;
 
-/** A block's title: the definition's own label for it (#1261), else its type's name. */
-function blockLabel(t: T, c: { type: string; label?: string | null }): string {
-  return c.label || t(`internals.types.${c.type}`, { defaultValue: c.type });
+/** A block's title: the definition's own label for it (#1261), else its type's name (#1251). */
+function blockLabel(c: Parameters<typeof internalType>[0] & { label?: string | null }): string {
+  return c.label || typeName(internalType(c));
 }
 
 function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
@@ -1068,7 +1070,7 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
       )}
       <div className="border-b px-3 py-1.5" style={{ height: 40 }}>
         <div className="truncate text-[13px] leading-tight font-medium" data-part="block-name">
-          {blockLabel(t, c)}
+          {blockLabel(c)}
         </div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">
           {c.name}
@@ -1142,7 +1144,7 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
                 style={{ top, left: MINI.left - 2, right: 6, transform: "translateY(-50%)" }}
-                aria-label={t("internals.probe.open", { port: `${blockLabel(t, c)} · ${row.name}` })}
+                aria-label={t("internals.probe.open", { port: `${blockLabel(c)} · ${row.name}` })}
                 aria-pressed={probing === port}
                 title={t("internals.probe.open", { port })}
                 data-testid="internal-probe-port"
@@ -1313,7 +1315,7 @@ export function ComponentDetails({
   return (
     <div className="space-y-4 p-3" data-testid="internal-details">
       <div>
-        <div className="text-sm font-semibold">{blockLabel(t, comp)}</div>
+        <div className="text-sm font-semibold">{blockLabel(comp)}</div>
         <div className="text-muted-foreground num text-xs">
           {comp.name} · {comp.type}
         </div>
@@ -1336,11 +1338,7 @@ export function ComponentDetails({
             {comp.description}
           </p>
         )}
-        {comp.doc && (
-          <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-            {comp.doc}
-          </p>
-        )}
+        <TypeDescription of={internalType(comp)} doc={comp.doc} className="mt-2 text-xs" />
       </div>
       <ControlSection comp={comp} view={view} vars={vars} focus={focus} onLocate={onLocate} />
       <Readings comp={comp} view={view} vars={vars} focus={focus} />
@@ -1462,7 +1460,6 @@ function CompLink({
   view: InstrumentInternals;
   focus: FocusHandlers;
 }) {
-  const { t } = useTranslation();
   const c = view.components.find((x) => x.name === name);
   return (
     <button
@@ -1471,7 +1468,7 @@ function CompLink({
       title={name}
       onClick={() => focus.onSelect(name)}
     >
-      {c ? blockLabel(t, c) : name}
+      {c ? blockLabel(c) : name}
       {c?.channel != null && (
         <span className="num ml-0.5 text-[10px]">CH{c.channel}</span>
       )}
@@ -1654,7 +1651,7 @@ function ReadingRow({
       id={`reading:${g.provider}`}
       trace={pathTrace(g.path)}
       focus={focus}
-      label={provider ? blockLabel(t, provider) : g.provider}
+      label={provider ? blockLabel(provider) : g.provider}
     >
       <div className="flex flex-wrap items-center gap-x-1 pr-5 text-[11px]">
         {g.kind === "self" ? (
@@ -1667,7 +1664,7 @@ function ReadingRow({
               )}
               {n === comp.name ? (
                 <span className="text-muted-foreground">
-                  {blockLabel(t, comp)}
+                  {blockLabel(comp)}
                 </span>
               ) : (
                 <CompLink name={n} view={view} focus={focus} />

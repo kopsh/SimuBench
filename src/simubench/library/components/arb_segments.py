@@ -37,6 +37,11 @@ class ArbSegments(Component):
     only that it cannot be read back). Sequencing, markers and interpolated I/Q modes are not modeled.
     """
 
+    label = "任意波存储"
+    label_en = "Arbitrary waveform memory"
+    about = "任意波发生器的波形段存储，按采样率经零阶保持 DAC 循环播放。"
+    about_en = "Waveform segments of an arbitrary generator, played in a loop through a zero-order-hold DAC."
+
     ports = {"out": PortSpec("out", "signal")}
     defaults = {
         "rate": 1.0e9,  # samples per second, the DAC's sample frequency
