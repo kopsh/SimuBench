@@ -30,20 +30,20 @@ python examples/demo/uxr_demo.py TCPIP0::192.168.1.61::hislip0::INSTR
 1. Keysight Technologies,UXR1104B,MY64310101,11.80.00012
 2. :AUToscale -> 50 ns/div, trigger CHAN4
    CH1: 100 mV/div, offset +0.0 mV
-   CH2: 100 mV/div, offset +0.4 mV
+   CH2: 100 mV/div, offset +0.0 mV
    CH3: 100 mV/div, offset +0.4 mV
-   CH4: 50 mV/div, offset +99.6 mV
+   CH4: 50 mV/div, offset +99.2 mV
 3. 1 µs/div, 20000 points, :DIGitize
 4.      freq        amplitude  AC rms     rise       duty
    CH1  10 MHz     386.7 mV   142.5 mV   28.41 ns   51.2 %
-   CH2  1 MHz      401.6 mV   199.6 mV   3.769 ns   50.0 %
+   CH2  1 MHz      401.6 mV   199.5 mV   2.912 ns   50.0 %
    CH3  501.4 kHz  336.7 mV   86.69 mV   974.4 ns   49.9 %
-   CH4  2 MHz      200 mV     78.08 mV   9.622 ns   20.0 %
+   CH4  2 MHz      198.4 mV   77.98 mV   9.65 ns    20.0 %
 5. FFT of CH2 (peaks above -30 dBm)
    976.6 kHz  -2.1 dBm
    3.052 MHz  -12.4 dBm  -10.3 dB
    5.005 MHz  -15.9 dBm  -13.8 dB
-6. CH4: 20000 points, -11.7 mV to 210.5 mV
+6. CH4: 20000 points, -11.7 mV to 211.3 mV
    written to /tmp/ch4.csv
 7. :SYSTem:ERRor? 0, no errors
 ```
@@ -86,6 +86,7 @@ PYVISA_LIBRARY=127.0.0.1:<port>@simubench \
 - 只换连接方式不换代码：`--bench`、`PYVISA_LIBRARY` 和真机地址跑的是同一份脚本；
 - 测量值来自信号：方波的交流 RMS 是幅度的一半，三角波是 A/(2√3)，脉冲是 A·√(d(1−d))；FFT 的
   3、5 次谐波比基波低约 9.5 dB 与 14 dB；
+- 33622A 的方波边沿按数据手册：谐波在 120 MHz 处高斯滚降，10–90 % 上升时间约 2.9 ns、无振铃；
 - 噪声按数据手册：100 mV/div 时 6.1 mV rms（UXR1104B 列），所以峰峰值比幅度大几十毫伏，三角波的
   幅度比 300 mV 大；
 - 编程手册的行为照做：缺参数的 `:MEASure:VRMS? CHANnel1` 报 -224 且不应答；测不了的量返回
@@ -99,8 +100,6 @@ PYVISA_LIBRARY=127.0.0.1:<port>@simubench \
   测量明显变差；演示用默认的 OVERlay。
 - FFT 取记录里 2 的幂个点（20 000 点取 16 384 点，2 GSa/s 下频点间隔 122 kHz），所以 1 MHz 的峰
   显示为 976.6 kHz。
-- 发生器的方波由有限条谱线合成，边沿前后有约 9 % 的吉布斯振铃（真机 33622A 的过冲小于 2 %）：
-  方波的峰峰值读数因此偏大。
 
 ## 5. 自动测试
 

@@ -80,6 +80,8 @@ def test_the_measurements_match_the_generators(demo):
     # a sine's 10-90 % rise is 2 asin(0.8) / (2 pi f); the pulse's edge is the generator's 10 ns
     assert rows[1]["rise_s"] == pytest.approx(2 * math.asin(0.8) / (2 * math.pi * 1e7), rel=0.1)
     assert rows[4]["rise_s"] == pytest.approx(1e-8, rel=0.15)
+    # the 33622A's square: rolled off at its 120 MHz bandwidth, the data sheet's 2.9 ns edge
+    assert rows[2]["rise_s"] == pytest.approx(2.9e-9, rel=0.1)
 
 
 def test_the_fft_shows_the_square_odd_harmonics(demo):
