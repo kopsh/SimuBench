@@ -55,6 +55,12 @@ IDLE_THRESHOLD_NS = 10_000_000
 IDLE_QUANTUM_NS = 1_000_000
 
 
+def _header_of(data: bytes) -> str:
+    """The first command header of a program message, for an advance event (#1260)."""
+    text = data.decode(errors="replace").strip()
+    return text.split(";", 1)[0].split(None, 1)[0][:80] if text else ""
+
+
 @dataclass
 class Net:
     id: str
@@ -644,13 +650,15 @@ class Session:
         finally:
             self._syncing = False
 
-    def _advance(self, dt_ns: int, reason: str) -> None:
+    def _advance(self, dt_ns: int, reason: str, **detail: Any) -> None:
+        """Move virtual time by ``dt_ns``; the advance event says why (``reason``) and, for a
+        command, which instrument and header took the time (#1260), so the UI can explain it."""
         if dt_ns <= 0:
             return
         self.sync()
         self.now_ns += int(dt_ns)
         self._signal_version += 1  # time-dependent components (filters, sweeps) may change
-        self.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason})
+        self.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason, **detail})
         self.faults.tick()
 
     # ---- passive views ------------------------------------------------------------------------------
@@ -719,7 +727,7 @@ class Session:
                 return
             duration = inst.receive(data)
             if self.clock_mode == "command" and duration:
-                self._advance(duration, reason="command")
+                self._advance(duration, reason="command", instrument=name, header=_header_of(data))
             self.seq += 1
             self.emit(
                 {

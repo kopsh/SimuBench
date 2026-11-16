@@ -185,7 +185,7 @@
         }
       ],
       "default": null,
-      "description": "The header that was ignored, for ignored events",
+      "description": "The header that was ignored, for ignored events; the command that took the time, for advance events with reason command (#1260)",
       "title": "Header"
     },
     "instrument": {

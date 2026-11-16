@@ -40,7 +40,7 @@ export type Forced = boolean | null;
  */
 export type Gap = ("out_of_scope" | "blocked" | "model_work") | null;
 /**
- * The header that was ignored, for ignored events
+ * The header that was ignored, for ignored events; the command that took the time, for advance events with reason command (#1260)
  */
 export type Header = string | null;
 export type Instrument = string | null;

@@ -18,6 +18,7 @@ import { Toggle } from "@/components/ui/toggle";
 import { formatClock, formatEng } from "@/lib/format";
 import { notExecutedSuffix } from "@/lib/notexecuted";
 import { cn } from "@/lib/utils";
+import { advanceReason } from "./clockAdvances";
 import { useWorkbench } from "./store";
 
 const ROW = 24;
@@ -260,7 +261,7 @@ function EventRow({ e }: { e: Event }) {
       : e.kind === "state"
       ? `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`
       : e.kind === "advance"
-        ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${e.reason ?? ""}`
+        ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${advanceReason({ reason: e.reason ?? "", instrument: e.instrument ?? null, header: e.header ?? null }, t)}`
         : e.kind === "error"
           ? `${e.instrument}  ${e.code}, ${e.message}${notExecutedSuffix(e, t)}`
           : e.kind === "ignored"

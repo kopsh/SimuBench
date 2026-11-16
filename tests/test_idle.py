@@ -152,6 +152,9 @@ def test_serve_treats_sleep_as_off(tmp_path):
         c.headers["x-simubench-token"] = TOKEN
         sid = c.post("/api/sessions", json={"bench_path": "b.bench.yaml"}).json()["id"]
         assert manager.sessions[sid].session.idle_mode == "off"
+        assert (
+            c.get(f"/api/sessions/{sid}").json()["idle_mode"] == "off"
+        )  # the UI explains the clock by it (#1260)
         c.delete(f"/api/sessions/{sid}")
 
 
