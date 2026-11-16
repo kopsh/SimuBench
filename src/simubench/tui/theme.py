@@ -23,6 +23,7 @@ COLORS: dict[str, str] = {
     "ch2": "#35e0ff",
     "ch3": "#ff5bd1",
     "ch4": "#5b8cff",
+    "math": "#4fd38a",  # math functions (FFT, ADD…): the Web's --math green
     "hud": "#35e0ff",  # the HUD's cyan: box titles, the screen name in the top bar, keys
     "line": "#2f6a85",  # box lines
     "bar": "#0b141c",  # the top and bottom bars' background
