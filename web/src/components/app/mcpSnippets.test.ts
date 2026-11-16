@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mcpSnippets } from "./mcpConnect";
+import { mcpSnippets } from "./mcpSnippets";
 
 describe("mcpSnippets", () => {
   it("gives the address, a client config and the Claude Code command for the same URL", () => {
