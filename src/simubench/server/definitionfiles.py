@@ -28,6 +28,8 @@ from .history import Source
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
 FOLDER = "instruments"
+#: The build area's positions beside a definition (#1207).
+LAYOUT_SUFFIX = ".layout.json"
 
 
 class DefinitionFiles:
@@ -163,6 +165,30 @@ class DefinitionFiles:
         path = self.source(def_id)
         self.save(def_id, new.base_sha256, definitionstructure.written(doc.data, new, path), source)
         return self.structure(def_id)
+
+    def layout_path(self, def_id: str) -> Path:
+        return self.files.workspace / FOLDER / f"{def_id}{LAYOUT_SUFFIX}"
+
+    def layout(self, def_id: str) -> M.DefinitionLayout:
+        """The build area's positions (#1207); empty when none were saved or the file is broken
+        (positions are a convenience: the canvas lays itself out without them)."""
+        self.rel_path(def_id)
+        path = self.layout_path(def_id)
+        try:
+            return M.DefinitionLayout.model_validate_json(path.read_bytes())
+        except (OSError, ValueError):
+            return M.DefinitionLayout()
+
+    def save_layout(self, def_id: str, layout: M.DefinitionLayout) -> M.DefinitionLayout:
+        """Write the positions beside a workspace definition; no version, no session restart."""
+        if not self.read(def_id).editable:
+            raise Forbidden(f"{def_id} is not in the workspace; its layout is not kept")
+        path = self.layout_path(def_id)
+        with self.files._lock:
+            tmp = path.with_name(f".{path.name}.tmp")
+            tmp.write_text(layout.model_dump_json(indent=1), encoding="utf-8")
+            os.replace(tmp, path)
+        return layout
 
     def free_id(self, base: str) -> str:
         """``base``, or the first ``-2``, ``-3`` … variant that names no definition yet (workspace

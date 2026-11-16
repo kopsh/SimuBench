@@ -138,3 +138,59 @@ test("build area: declare a setting, bind a parameter to it, give it a command, 
   await page.getByRole("button", { name: "发送" }).click();
   await expect(page.locator("pre").last()).toContainText("7.5");
 });
+
+test("build area: rename follows the wires and ports, undo and redo, layout kept, try run beside (#1207)", async ({ page, request }) => {
+  const copy = await request.post("/api/definitions/sb-oe-1/copy", { headers });
+  const id = ((await copy.json()) as { data: { id: string } }).data.id;
+  await page.goto(`/i/${id}?token=${TOKEN}`);
+  await page.getByTestId("acceptance-tab-build").click();
+  await expect(page.getByTestId("build-area")).toBeVisible();
+  // The names it runs with: after an undo back to the model it copies, the file no longer writes them.
+  const names = async () =>
+    ((await (await request.get(`/api/definitions/${id}/structure`, { headers })).json()) as { components: { name: string }[] }).components.map((c) => c.name);
+
+  // The test run, beside the canvas.
+  await page.getByTestId("build-try-toggle").click();
+  const drawer = page.getByTestId("build-try");
+  await drawer.getByRole("textbox", { name: "命令" }).fill("*IDN?");
+  await drawer.getByRole("button", { name: "发送" }).click();
+  await expect(drawer.locator("pre").last()).toContainText("SB-OE-1");
+
+  // Rename the output stage: its wire and its panel port follow.
+  await page.locator('[data-name="out"]').click();
+  const name = page.getByTestId("build-component-panel").getByRole("textbox", { name: "名称", exact: true });
+  await name.fill("drive");
+  await name.press("Enter");
+  await expect.poll(names).toEqual(["orx", "drive"]);
+  const doc = await stored(request, id);
+  expect((doc.data.wiring as { instrument: string[][] }).instrument).toEqual([["orx.out", "drive.in"]]);
+  expect((doc.data.ports as { instrument: Record<string, string> }).instrument).toMatchObject({ OUT: "drive.pin" });
+  expect(doc.ok).toBe(true);
+  // The test run reopened on the saved change.
+  await expect(drawer.getByText("已按新保存的定义重开")).toBeVisible();
+
+  // Undo with the button, redo with the keyboard: each is a saved version.
+  await page.getByRole("button", { name: "撤销（Ctrl/⌘+Z）" }).click();
+  await expect.poll(names).toEqual(["orx", "out"]);
+  await page.locator(".react-flow__pane").click({ position: { x: 8, y: 8 } });
+  await page.keyboard.press("Control+Shift+Z");
+  await expect.poll(names).toEqual(["orx", "drive"]);
+
+  // Drag a block: the position is kept beside the definition and survives a reload.
+  await page.getByTestId("build-try-toggle").click(); // closed: the canvas has its full height again
+  const node = page.locator('.react-flow__node[data-id="i:orx"]');
+  const box = (await node.boundingBox())!;
+  await page.mouse.move(box.x + 40, box.y + 12);
+  await page.mouse.down();
+  await page.mouse.move(box.x + 140, box.y + 92, { steps: 8 });
+  await page.mouse.up();
+  await expect
+    .poll(async () => ((await (await request.get(`/api/definitions/${id}/layout`, { headers })).json()) as { positions: Record<string, unknown> }).positions)
+    .toHaveProperty("i:orx");
+  const moved = await node.getAttribute("style");
+  await page.reload();
+  await page.getByTestId("acceptance-tab-build").click();
+  await expect(page.locator('.react-flow__node[data-id="i:orx"]')).toBeVisible();
+  const transform = (style: string | null) => (style ?? "").split(";").find((p) => p.includes("transform"));
+  expect(transform(await page.locator('.react-flow__node[data-id="i:orx"]').getAttribute("style"))).toBe(transform(moved));
+});

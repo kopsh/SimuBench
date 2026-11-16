@@ -45,6 +45,7 @@ export const keys = {
   tryInternals: (sid: string) => ["try-internals", sid] as const,
   components: ["components"] as const,
   definitionStructure: (id: string) => ["definition-structure", id] as const,
+  definitionLayout: (id: string) => ["definition-layout", id] as const,
 };
 
 export function useCatalog() {
@@ -146,6 +147,26 @@ export function useDefinitionStructure(id: string, pollMs: number | false = 2500
       unwrap(api.GET("/api/definitions/{def_id}/structure", { params: { path: { def_id: id } } })),
     enabled: !!id,
     refetchInterval: pollMs,
+  });
+}
+
+/** Where the build area draws the components of a definition (#1207). */
+export function useDefinitionLayout(id: string) {
+  return useQuery({
+    queryKey: keys.definitionLayout(id),
+    queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/layout", { params: { path: { def_id: id } } })),
+    enabled: !!id,
+    staleTime: Infinity,
+  });
+}
+
+/** Keep the positions beside a workspace definition: no version, no session restart. */
+export function useSaveDefinitionLayout(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: Schemas["DefinitionLayout-Input"]) =>
+      unwrap(api.PUT("/api/definitions/{def_id}/layout", { params: { path: { def_id: id } }, body })),
+    onSuccess: (layout) => qc.setQueryData(keys.definitionLayout(id), layout),
   });
 }
 

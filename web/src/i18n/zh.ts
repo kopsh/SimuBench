@@ -868,6 +868,7 @@ export const zh = {
     copyIdn: "复制 *IDN?",
     invalid: "定义未通过静态校验",
     reloaded: "已载入新的修改",
+    reopened: "已按新保存的定义重开",
     section: {
       overview: "概览",
       commands: "命令",
@@ -969,6 +970,12 @@ export const zh = {
       cmdNeedsCh: "通道命令的命令头里没有 <ch>",
       cmdOther: "由 Agent 写的命令：{{target}}",
       noTargets: "先添加设置或带操作的组件",
+      undo: "撤销（Ctrl/⌘+Z）",
+      redo: "重做（Ctrl/⌘+Shift+Z）",
+      try: "试运行",
+      tryHint: "按最新保存的定义运行；每次修改保存后自动重开",
+      nameInvalid: "名称由字母、数字、_ 和 - 组成，不能含 .，不能与已有组件重名",
+      layoutFailed: "布局没有保存：{{message}}",
       selectHint: "选中组件看它的参数；选中连线或组件后按 Delete 删除",
     },
     class: {

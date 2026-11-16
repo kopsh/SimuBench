@@ -122,3 +122,24 @@ def test_build_area_settings_and_commands(tmp_path):
         assert c.post(scpi, json={"command": ":OUTPut:LEVel 2.5"}).status_code == 200
         reply = c.post(scpi, json={"command": ":OUTPut:LEVel?"}).json()
         assert float(reply["response"]) == 2.5
+
+
+def test_build_area_layout_is_kept_beside_the_definition(tmp_path):
+    """#1207: positions live in instruments/<id>.layout.json — read back as written, no version
+    of the definition, none for a built-in model, and a broken file reads as no positions."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        my_id = c.post("/api/definitions/keysight-34465a/copy").json()["data"]["id"]
+        url = f"/api/definitions/{my_id}/layout"
+        assert c.get(url).json() == {"positions": {}}
+        body = {"positions": {"i:input": {"x": 10, "y": 20.5}, "c:inp": {"x": -3, "y": 0}}}
+        assert c.put(url, json=body).status_code == 200
+        assert c.get(url).json() == body
+        assert (tmp_path / "instruments" / f"{my_id}.layout.json").is_file()
+        assert len(c.get(f"/api/definitions/{my_id}/history").json()) == 1  # only the copy
+        assert c.put("/api/definitions/keysight-34465a/layout", json=body).status_code == 403
+        (tmp_path / "instruments" / f"{my_id}.layout.json").write_text("{not json", encoding="utf-8")
+        assert c.get(url).json() == {"positions": {}}
+        assert c.get(f"/api/definitions/{my_id}").status_code == 200  # the loader ignores the file

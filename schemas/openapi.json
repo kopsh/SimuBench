@@ -2398,6 +2398,39 @@
         "title": "DefinitionDocument",
         "type": "object"
       },
+      "DefinitionLayout-Input": {
+        "description": "Where the build area draws each component of a workspace definition (#1207): kept beside\nthe definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change\nto the instrument, so it makes no version and restarts no session.",
+        "properties": {
+          "positions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LayoutPoint"
+            },
+            "description": "Node id ('i:<name>' instrument, 'c:<name>' channel) -> position",
+            "title": "Positions",
+            "type": "object"
+          }
+        },
+        "title": "DefinitionLayout",
+        "type": "object"
+      },
+      "DefinitionLayout-Output": {
+        "description": "Where the build area draws each component of a workspace definition (#1207): kept beside\nthe definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change\nto the instrument, so it makes no version and restarts no session.",
+        "properties": {
+          "positions": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/LayoutPoint"
+            },
+            "description": "Node id ('i:<name>' instrument, 'c:<name>' channel) -> position",
+            "title": "Positions",
+            "type": "object"
+          }
+        },
+        "required": [
+          "positions"
+        ],
+        "title": "DefinitionLayout",
+        "type": "object"
+      },
       "DefinitionStructure": {
         "description": "The effective structure of a definition (``extends`` and the category default merged in,\nD59), for the Web's build area (#1201). Read even when the draft does not pass the checks.",
         "properties": {
@@ -5001,6 +5034,24 @@
           }
         },
         "title": "LayoutItem",
+        "type": "object"
+      },
+      "LayoutPoint": {
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "LayoutPoint",
         "type": "object"
       },
       "Move": {
@@ -11165,6 +11216,97 @@
           }
         },
         "summary": "Definition Change List"
+      }
+    },
+    "/api/definitions/{def_id}/layout": {
+      "get": {
+        "description": "Where the build area draws the components (#1207); empty when none were saved.",
+        "operationId": "getDefinitionLayout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionLayout-Output"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Definition Layout"
+      },
+      "put": {
+        "description": "Keep the positions beside a workspace definition: no version, no session restart.",
+        "operationId": "saveDefinitionLayout",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "def_id",
+            "required": true,
+            "schema": {
+              "title": "Def Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DefinitionLayout-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DefinitionLayout-Output"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "The definition is not in the workspace"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Definition Layout"
       }
     },
     "/api/definitions/{def_id}/restore": {

@@ -157,6 +157,21 @@ class StructureUpdate(_Model):
     commands: list[dict[str, Any]] = Field(default_factory=list, description="The commands (CommandSpec)")
 
 
+class LayoutPoint(_Model):
+    x: float
+    y: float
+
+
+class DefinitionLayout(_Model):
+    """Where the build area draws each component of a workspace definition (#1207): kept beside
+    the definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change
+    to the instrument, so it makes no version and restarts no session."""
+
+    positions: dict[str, LayoutPoint] = Field(
+        default_factory=dict, description="Node id ('i:<name>' instrument, 'c:<name>' channel) -> position"
+    )
+
+
 class DefinitionStructure(_Model):
     """The effective structure of a definition (``extends`` and the category default merged in,
     D59), for the Web's build area (#1201). Read even when the draft does not pass the checks."""

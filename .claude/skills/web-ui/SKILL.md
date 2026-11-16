@@ -51,8 +51,9 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   instrument-authoring.md 9): `model.ts` (the structure's edits — add, wire, delete, parameters, panel
   ports, settings, commands; layout; unit-tested), `BuildTab.tsx` (library, canvas, side panel; `SettingsPanel.tsx`
   holds the settings and commands pages, #1206; each edit sends the whole
-  structure to `PUT /api/definitions/{id}/structure`, one save at a time). Dragged positions are kept
-  per viewer in `localStorage`. e2e: `e2e/build.spec.ts`. (Not `build/`: `.gitignore` hides it.)
+  structure to `PUT /api/definitions/{id}/structure`, one save at a time; undo/redo saves the earlier
+  structure as a new version, #1207). Dragged positions go to `instruments/<id>.layout.json` through
+  `PUT /api/definitions/{id}/layout` (no version, #1207). e2e: `e2e/build.spec.ts`. (Not `build/`: `.gitignore` hides it.)
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key

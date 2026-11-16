@@ -618,3 +618,98 @@ export function needsChannelSuffix(c: CommandSpec): boolean {
   const { target } = commandTarget(c);
   return target.startsWith("ch.") && !(c.header ?? "").includes("<ch>");
 }
+
+// ---- rename (#1207) ----------------------------------------------------------------------------
+
+/** A component name as typed: letters, digits, `_` and `-`, no dot (a dot separates the port);
+ * null when it is not one or another component has it. */
+export function componentName(s: Structure, raw: string, current?: string): string | null {
+  const name = raw.trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_-]*$/.test(name)) return null;
+  if (name !== current && names(s).has(name)) return null;
+  return name;
+}
+
+/** Rename a component and everything that names it: both ends of its wires, the panel ports that
+ * lead to it, `refs` parameters of the others, and the commands that run or read it
+ * (`<name>.<op>`, `ch.<name>.<op>`). */
+export function renameComponent(
+  s: Structure,
+  scope: Scope,
+  from: string,
+  to: string,
+  docs: ReadonlyMap<string, ComponentDoc> = new Map(),
+): Structure {
+  if (from === to) return s;
+  const wire = (list: Scope) => (pair: [string, string]): [string, string] =>
+    pair.map((text) => {
+      const end = parseEnd(s, list, text);
+      return end && end.scope === scope && end.name === from ? endText({ ...end, name: to }, list) : text;
+    }) as [string, string];
+  const port = (panel: Scope) =>
+    Object.fromEntries(
+      Object.entries(s.ports[panel]).map(([p, target]) => {
+        const ref = splitRef(target);
+        return [p, panel === scope && ref?.name === from ? `${to}.${ref.port}` : target];
+      }),
+    );
+  const rename = (list: Scope) => (c: StructureComponent): StructureComponent => {
+    const own = list === scope && c.name === from ? { ...c, name: to } : c;
+    const refs = (docs.get(c.type)?.refs ?? []).filter((r) => r.scope === scope).map((r) => r.param);
+    if (!refs.some((k) => (own.params ?? {})[k] === from)) return own;
+    return { ...own, params: Object.fromEntries(Object.entries(own.params ?? {}).map(([k, v]) => [k, refs.includes(k) && v === from ? to : v])) };
+  };
+  const prefix = scope === "channel" ? `ch.${from}.` : `${from}.`;
+  const renamed = scope === "channel" ? `ch.${to}.` : `${to}.`;
+  const command = (c: CommandSpec): CommandSpec => {
+    let next = c;
+    for (const key of ["op", "read"] as const) {
+      const v = next[key];
+      if (typeof v === "string" && v.startsWith(prefix)) next = { ...next, [key]: renamed + v.slice(prefix.length) };
+    }
+    return next;
+  };
+  return {
+    ...s,
+    components: s.components.map(rename("instrument")),
+    channel_components: s.channel_components.map(rename("channel")),
+    wiring: { instrument: s.wiring.instrument.map(wire("instrument")), channel: s.wiring.channel.map(wire("channel")) },
+    ports: { instrument: port("instrument"), channel: port("channel") },
+    commands: s.commands.map(command),
+  };
+}
+
+// ---- undo (#1207) ------------------------------------------------------------------------------
+
+/** The structures behind and ahead of the one shown: an edit pushes the old one behind and clears
+ * what was ahead; undo and redo move one step. At most `limit` steps are kept. */
+export interface History {
+  past: Structure[];
+  future: Structure[];
+}
+
+export const EMPTY_HISTORY: History = { past: [], future: [] };
+
+export function recordEdit(h: History, before: Structure, limit = 100): History {
+  return { past: [...h.past, before].slice(-limit), future: [] };
+}
+
+export function undo(h: History, current: Structure): { history: History; structure: Structure } | null {
+  const prev = h.past.at(-1);
+  if (!prev) return null;
+  return { history: { past: h.past.slice(0, -1), future: [current, ...h.future] }, structure: prev };
+}
+
+export function redo(h: History, current: Structure): { history: History; structure: Structure } | null {
+  const next = h.future[0];
+  if (!next) return null;
+  return { history: { past: [...h.past, current], future: h.future.slice(1) }, structure: next };
+}
+
+/** A layout with one node id renamed (a renamed component keeps its place). */
+export function renameInLayout(layout: Record<string, Point>, from: string, to: string): Record<string, Point> {
+  if (!(from in layout)) return layout;
+  const out = { ...layout, [to]: layout[from] };
+  delete out[from];
+  return out;
+}

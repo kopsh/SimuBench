@@ -879,6 +879,7 @@ export const en: Widen<Messages> = {
     copyIdn: "Copy *IDN?",
     invalid: "The definition does not pass its static checks",
     reloaded: "The new version has been loaded",
+    reopened: "Reopened on the newly saved definition",
     section: {
       overview: "Overview",
       commands: "Commands",
@@ -980,6 +981,12 @@ export const en: Widen<Messages> = {
       cmdNeedsCh: "A channel command without <ch> in its header",
       cmdOther: "Written by the agent: {{target}}",
       noTargets: "Add a setting or a component with operations first",
+      undo: "Undo (Ctrl/⌘+Z)",
+      redo: "Redo (Ctrl/⌘+Shift+Z)",
+      try: "Try run",
+      tryHint: "Runs the latest saved definition; reopened after every saved change",
+      nameInvalid: "A name is letters, digits, _ and -, without a dot, and not another component's",
+      layoutFailed: "Layout not saved: {{message}}",
       selectHint: "Select a component to see its parameters; select a wire or component and press Delete to delete it",
     },
     class: {

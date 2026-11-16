@@ -192,7 +192,12 @@ export function InstrumentAcceptance({ definitionId }: { definitionId: string })
           <InternalsSection sid={trySession.sid} inst={inst.data} error={trySession.error} />
         </TabsContent>
         <TabsContent value="build" className="min-h-0 flex-1 overflow-hidden">
-          {section === "build" && <BuildTab definitionId={definitionId} />}
+          {section === "build" && (
+            <BuildTab
+              definitionId={definitionId}
+              tryPanel={<TryTab sid={trySession.sid} inst={inst.data} error={trySession.error} onReopen={trySession.reopen} />}
+            />
+          )}
         </TabsContent>
         <TabsContent value="try" className="min-h-0 flex-1 overflow-hidden">
           <TryTab sid={trySession.sid} inst={inst.data} error={trySession.error} onReopen={trySession.reopen} />

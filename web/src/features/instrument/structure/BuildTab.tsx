@@ -15,12 +15,18 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertTriangle, Check, GripVertical, LayoutGrid, Link2, Loader2, Plus, Search, Trash2 } from "lucide-react";
-import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, Check, GripVertical, LayoutGrid, Link2, Loader2, Plus, Redo2, Search, Terminal, Trash2, Undo2 } from "lucide-react";
+import { type DragEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { ApiError } from "@/api/client";
-import { useComponents, useDefinitionStructure, useSaveDefinitionStructure } from "@/api/hooks";
+import {
+  useComponents,
+  useDefinitionLayout,
+  useDefinitionStructure,
+  useSaveDefinitionLayout,
+  useSaveDefinitionStructure,
+} from "@/api/hooks";
 import { useEvents } from "@/api/events";
 import { DraftInput, INVALID, commit } from "@/components/app/DraftInput";
 import { ErrorState } from "@/components/app/StateViews";
@@ -33,6 +39,14 @@ import type { T } from "@/i18n";
 import { useTheme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 import {
+  EMPTY_HISTORY,
+  type History,
+  componentName,
+  recordEdit,
+  redo,
+  renameComponent,
+  renameInLayout,
+  undo,
   type ComponentDoc,
   type End,
   type Point,
@@ -76,28 +90,25 @@ const HEAD = 44;
 const PORT_ROW = 22;
 const BAND_ID = "band";
 
-// ---- the dragged positions, per viewer (a convenience: the file does not hold them) -----------
+// ---- the positions, beside the definition in the workspace (#1207) ---------------------------
 
-function layoutKey(id: string): string {
-  return `simubench.build.layout.${id}`;
-}
-
-function loadLayout(id: string): Record<string, Point> {
-  try {
-    const raw = localStorage.getItem(layoutKey(id));
-    return raw ? (JSON.parse(raw) as Record<string, Point>) : {};
-  } catch {
-    return {};
-  }
-}
-
-function storeLayout(id: string, layout: Record<string, Point>): void {
-  try {
-    if (Object.keys(layout).length) localStorage.setItem(layoutKey(id), JSON.stringify(layout));
-    else localStorage.removeItem(layoutKey(id));
-  } catch {
-    // private window or blocked storage: positions are not kept, the canvas still works
-  }
+/** Where the components are drawn: `instruments/<id>.layout.json` for a workspace definition (no
+ * version, no session restart); a built-in model keeps them on this page only. */
+function useLayout(definitionId: string, editable: boolean) {
+  const { t } = useTranslation();
+  const query = useDefinitionLayout(definitionId);
+  const save = useSaveDefinitionLayout(definitionId);
+  const [positions, setPositions] = useState<Record<string, Point> | null>(null);
+  if (positions === null && query.data) setPositions(query.data.positions);
+  const update = useCallback(
+    (next: Record<string, Point>) => {
+      setPositions(next);
+      if (editable)
+        save.mutate({ positions: next }, { onError: (e: Error) => toast.error(t("acceptance.build.layoutFailed", { message: e.message })) });
+    },
+    [editable, save, t],
+  );
+  return { positions: positions ?? {}, ready: !query.isLoading, update };
 }
 
 // ---- saving: one structure at a time, the newest wins -----------------------------------------
@@ -116,10 +127,13 @@ function useBuildState(definitionId: string, server: DefinitionStructure | undef
   const queued = useRef<Structure | null>(null);
   const sha = useRef<string | null>(null);
   const [seen, setSeen] = useState<string | null>(null);
-  // A new file from elsewhere (or our own save coming back) replaces the draft when nothing waits.
+  const [history, setHistory] = useState<History>(EMPTY_HISTORY);
+  // A new file from elsewhere replaces the draft when nothing waits (our own saves set `seen`), and
+  // the steps to undo no longer apply to it.
   if (server && server.sha256 !== seen && !busy) {
     setSeen(server.sha256);
     setDraft(structureOf(server));
+    setHistory(EMPTY_HISTORY);
   }
   useEffect(() => {
     if (server && !running.current) sha.current = server.sha256;
@@ -151,35 +165,84 @@ function useBuildState(definitionId: string, server: DefinitionStructure | undef
     }
   }, [save, t, reload]);
 
-  const apply = useCallback(
-    (next: Structure | null) => {
-      if (!next) return false;
+  const send = useCallback(
+    (next: Structure) => {
       setDraft(next);
       queued.current = next;
       if (!running.current) void flush();
-      return true;
     },
     [flush],
   );
-  return { draft, apply, busy };
+  const apply = useCallback(
+    (next: Structure | null) => {
+      if (!next || !draft) return false;
+      setHistory((h) => recordEdit(h, draft));
+      send(next);
+      return true;
+    },
+    [draft, send],
+  );
+  // An undo is saved as a new version like any edit: the history of the file only grows (D35).
+  const step = useCallback(
+    (move: typeof undo) => {
+      if (!draft) return;
+      const done = move(history, draft);
+      if (!done) return;
+      setHistory(done.history);
+      send(done.structure);
+    },
+    [draft, history, send],
+  );
+  return {
+    draft,
+    apply,
+    busy,
+    undo: () => step(undo),
+    redo: () => step(redo),
+    canUndo: history.past.length > 0,
+    canRedo: history.future.length > 0,
+  };
 }
 
 // ---- the page ----------------------------------------------------------------------------------
 
 /** The build area of a definition (#1201, instrument-authoring.md 9): its structure on a canvas
  * the user edits by dragging. Read-only for a built-in model and while disconnected. */
-export function BuildTab({ definitionId }: { definitionId: string }) {
+export function BuildTab({ definitionId, tryPanel }: { definitionId: string; tryPanel?: ReactNode }) {
   const { t } = useTranslation();
   const structure = useDefinitionStructure(definitionId);
   const components = useComponents();
   const status = useEvents((s) => s.status);
   const { refetch } = structure;
   const reload = useCallback(() => void refetch(), [refetch]);
-  const { draft, apply, busy } = useBuildState(definitionId, structure.data, reload);
+  const build = useBuildState(definitionId, structure.data, reload);
+  const { draft, apply, busy } = build;
   const docs = useMemo(() => new Map((components.data ?? []).map((c) => [c.type, c])), [components.data]);
   const [selected, setSelected] = useState<string | null>(null);
+  const [trying, setTrying] = useState(false);
+  const editable = !!structure.data?.editable && status !== "reconnecting" && status !== "gone";
+  const layout = useLayout(definitionId, !!structure.data?.editable);
+  const { undo: undoStep, redo: redoStep } = build;
 
-  if (structure.isLoading || components.isLoading) {
+  // Ctrl/⌘+Z and Ctrl/⌘+Shift+Z (or Ctrl+Y) undo and redo, except while typing in a field, whose
+  // own undo the browser keeps.
+  useEffect(() => {
+    if (!editable) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const el = e.target as HTMLElement | null;
+      if (el && (el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName))) return;
+      const key = e.key.toLowerCase();
+      if (key === "z" && !e.shiftKey) undoStep();
+      else if ((key === "z" && e.shiftKey) || key === "y") redoStep();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editable, undoStep, redoStep]);
+
+  if (structure.isLoading || components.isLoading || !layout.ready) {
     return (
       <div className="flex h-full gap-3 p-3">
         <Skeleton className="h-full w-56" />
@@ -199,16 +262,27 @@ export function BuildTab({ definitionId }: { definitionId: string }) {
     );
   }
   const data = structure.data;
-  const editable = data.editable && status !== "reconnecting" && status !== "gone";
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="build-area">
-      <Toolbar data={data} busy={busy} draft={draft} definitionId={definitionId} />
+      <Toolbar
+        data={data}
+        busy={busy}
+        draft={draft}
+        editable={editable}
+        onRelayout={() => layout.update({})}
+        onUndo={build.canUndo ? build.undo : undefined}
+        onRedo={build.canRedo ? build.redo : undefined}
+        trying={trying}
+        onTry={tryPanel ? () => setTrying((v) => !v) : undefined}
+      />
       <div className="flex min-h-0 flex-1">
         {editable && <Library docs={components.data ?? []} />}
         <div className="relative min-w-0 flex-1">
           <ReactFlowProvider>
             <BuildCanvas
               definitionId={definitionId}
+              saved={layout.positions}
+              onLayout={layout.update}
               structure={draft}
               channels={data.channels}
               docs={docs}
@@ -228,9 +302,19 @@ export function BuildTab({ definitionId }: { definitionId: string }) {
             selected={selected}
             onSelect={setSelected}
             onChange={apply}
+            onRename={(from, to) => {
+              if (layout.positions[from]) layout.update(renameInLayout(layout.positions, from, to));
+              setSelected(to);
+            }}
           />
         </aside>
       </div>
+      {trying && tryPanel && (
+        <section className="flex h-72 shrink-0 flex-col border-t" aria-label={t("acceptance.build.try")} data-testid="build-try">
+          <div className="text-muted-foreground border-b px-3 py-1 text-[11px]">{t("acceptance.build.tryHint")}</div>
+          <div className="min-h-0 flex-1">{tryPanel}</div>
+        </section>
+      )}
     </div>
   );
 }
@@ -239,12 +323,22 @@ function Toolbar({
   data,
   busy,
   draft,
-  definitionId,
+  editable,
+  onRelayout,
+  onUndo,
+  onRedo,
+  trying,
+  onTry,
 }: {
   data: DefinitionStructure;
   busy: boolean;
   draft: Structure;
-  definitionId: string;
+  editable: boolean;
+  onRelayout: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  trying: boolean;
+  onTry?: () => void;
 }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -280,19 +374,47 @@ function Toolbar({
           {problems.length ? <AlertTriangle className="size-3.5" /> : <Check className="size-3.5" />}
           {problems.length ? t("acceptance.build.problems", { count: problems.length }) : t("acceptance.build.noProblems")}
         </button>
+        {editable && (
+          <div className="ml-auto flex items-center">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={onUndo}
+              disabled={!onUndo}
+              title={t("acceptance.build.undo")}
+              aria-label={t("acceptance.build.undo")}
+            >
+              <Undo2 className="size-3.5" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="size-7"
+              onClick={onRedo}
+              disabled={!onRedo}
+              title={t("acceptance.build.redo")}
+              aria-label={t("acceptance.build.redo")}
+            >
+              <Redo2 className="size-3.5" />
+            </Button>
+          </div>
+        )}
         <Button
           variant="ghost"
           size="sm"
-          className="ml-auto h-7"
+          className={cn("h-7", !editable && "ml-auto")}
           title={t("acceptance.build.relayoutHint")}
-          onClick={() => {
-            storeLayout(definitionId, {});
-            window.dispatchEvent(new CustomEvent("simubench:build-relayout", { detail: definitionId }));
-          }}
+          onClick={onRelayout}
           disabled={!draft.components.length && !draft.channel_components.length}
         >
           <LayoutGrid className="size-3.5" /> {t("acceptance.build.relayout")}
         </Button>
+        {onTry && (
+          <Button variant={trying ? "secondary" : "outline"} size="sm" className="h-7" onClick={onTry} aria-pressed={trying} data-testid="build-try-toggle">
+            <Terminal className="size-3.5" /> {t("acceptance.build.try")}
+          </Button>
+        )}
       </div>
       {open && data.diagnostics.length > 0 && (
         <ul className="max-h-32 space-y-0.5 overflow-y-auto border-t px-4 py-1.5 text-[11px]" role="list">
@@ -475,6 +597,8 @@ const nodeTypes = { comp: CompNode, band: BandNode };
 
 function BuildCanvas({
   definitionId,
+  saved,
+  onLayout,
   structure,
   channels,
   docs,
@@ -485,6 +609,8 @@ function BuildCanvas({
   onSelect,
 }: {
   definitionId: string;
+  saved: Record<string, Point>;
+  onLayout: (next: Record<string, Point>) => void;
   structure: Structure;
   channels: number;
   docs: ReadonlyMap<string, ComponentDoc>;
@@ -497,14 +623,6 @@ function BuildCanvas({
   const { t } = useTranslation();
   const flow = useReactFlow();
   const theme = useTheme((s) => s.resolved);
-  const [saved, setSaved] = useState<Record<string, Point>>(() => loadLayout(definitionId));
-  useEffect(() => {
-    const reset = (e: Event) => {
-      if ((e as CustomEvent).detail === definitionId) setSaved({});
-    };
-    window.addEventListener("simubench:build-relayout", reset);
-    return () => window.removeEventListener("simubench:build-relayout", reset);
-  }, [definitionId]);
   const positions = useMemo(() => autoLayout(structure, saved), [structure, saved]);
   const band = useMemo(() => channelBand(positions, structure, NODE_WIDTH), [positions, structure]);
   const problems = useMemo(
@@ -645,8 +763,7 @@ function BuildCanvas({
     const { structure: next, name } = addComponent(structure, type, scope);
     const id = nodeId(scope, name);
     const layout = { ...saved, [id]: { x: Math.round(at.x - NODE_WIDTH / 2), y: Math.round(at.y - HEAD / 2) } };
-    setSaved(layout);
-    storeLayout(definitionId, layout);
+    onLayout(layout);
     onChange(next);
     onSelect(id);
     toast.success(t("acceptance.build.added", { name }));
@@ -678,8 +795,7 @@ function BuildCanvas({
         onNodeDragStop={(_, n) => {
           if (n.id === BAND_ID) return;
           const layout = { ...saved, [n.id]: { x: Math.round(n.position.x), y: Math.round(n.position.y) } };
-          setSaved(layout);
-          storeLayout(definitionId, layout);
+          onLayout(layout);
         }}
         onNodeClick={(_, n) => onSelect(n.id === BAND_ID ? null : n.id)}
         onEdgeClick={(_, e) => onSelect(e.id)}
@@ -728,6 +844,7 @@ function SidePanel({
   selected,
   onSelect,
   onChange,
+  onRename,
 }: {
   structure: Structure;
   docs: ReadonlyMap<string, ComponentDoc>;
@@ -735,6 +852,7 @@ function SidePanel({
   selected: string | null;
   onSelect: (id: string | null) => void;
   onChange: (next: Structure | null) => boolean;
+  onRename: (fromId: string, toId: string) => void;
 }) {
   const { t } = useTranslation();
   const at = selected ? parseNodeId(selected) : null;
@@ -742,7 +860,19 @@ function SidePanel({
     ? (at.scope === "instrument" ? structure.components : structure.channel_components).find((c) => c.name === at.name)
     : undefined;
   if (at && comp) {
-    return <ComponentPanel key={selected} structure={structure} scope={at.scope} comp={comp} docs={docs} editable={editable} onChange={onChange} onSelect={onSelect} />;
+    return (
+      <ComponentPanel
+        key={selected}
+        structure={structure}
+        scope={at.scope}
+        comp={comp}
+        docs={docs}
+        editable={editable}
+        onChange={onChange}
+        onSelect={onSelect}
+        onRename={onRename}
+      />
+    );
   }
   const wire = selected?.startsWith("w:") ? selected.split(":") : null;
   if (wire) {
@@ -825,6 +955,7 @@ function ComponentPanel({
   editable,
   onChange,
   onSelect,
+  onRename,
 }: {
   structure: Structure;
   scope: Scope;
@@ -833,6 +964,7 @@ function ComponentPanel({
   editable: boolean;
   onChange: (next: Structure | null) => boolean;
   onSelect: (id: string | null) => void;
+  onRename: (fromId: string, toId: string) => void;
 }) {
   const { t } = useTranslation();
   const doc = docs.get(comp.type);
@@ -843,9 +975,25 @@ function ComponentPanel({
       <div>
         <div className="text-muted-foreground text-[11px]">{scope === "channel" ? t("acceptance.build.channel") : t("acceptance.build.instrument")}</div>
         <h2 className="text-sm font-medium">{typeLabel(t, comp.type)}</h2>
-        <div className="num text-muted-foreground">
-          {comp.name} · {comp.type}
-        </div>
+        <div className="num text-muted-foreground">{comp.type}</div>
+        <label className="mt-1.5 block space-y-0.5">
+          <span className="text-muted-foreground text-[10.5px]">{t("acceptance.build.name")}</span>
+          <DraftInput<string>
+            text={comp.name}
+            disabled={!editable}
+            className="num h-7 text-xs"
+            aria-label={t("acceptance.build.name")}
+            parse={(typed) => {
+              const n = componentName(structure, typed, comp.name);
+              return n ? commit(n) : INVALID;
+            }}
+            onInvalid={() => toast.error(t("acceptance.build.nameInvalid"))}
+            onCommit={(n) => {
+              if (n === comp.name) return;
+              if (onChange(renameComponent(structure, scope, comp.name, n, docs))) onRename(nodeId(scope, comp.name), nodeId(scope, n));
+            }}
+          />
+        </label>
         {doc?.doc && <p className="text-muted-foreground mt-1.5 leading-relaxed">{firstLine(doc.doc)}</p>}
       </div>
       <section className="space-y-1.5">

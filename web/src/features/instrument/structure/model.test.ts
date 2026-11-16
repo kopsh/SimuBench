@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  EMPTY_HISTORY,
+  componentName,
+  recordEdit,
+  redo,
+  renameComponent,
+  renameInLayout,
+  undo,
   addCommand,
   addComponent,
   addSetting,
@@ -299,5 +306,53 @@ describe("commands (#1206)", () => {
     expect(needsChannelSuffix({ header: ":CHANnel:SCALe", state: "ch.scale" })).toBe(true);
     expect(needsChannelSuffix({ header: ":CHANnel<ch>:SCALe", state: "ch.scale" })).toBe(false);
     expect(needsChannelSuffix({ header: ":RUN", op: "acq.run" })).toBe(false);
+  });
+});
+
+describe("rename (#1207)", () => {
+  const docs = new Map<string, ComponentDoc>([["scope_acquisition", acqDoc]]);
+
+  it("checks a new name", () => {
+    expect(componentName(scope, " amp ")).toBe("amp");
+    expect(componentName(scope, "a.b")).toBeNull();
+    expect(componentName(scope, "front")).toBeNull();
+    expect(componentName(scope, "front", "front")).toBe("front");
+  });
+
+  it("renames a channel component in its wires, panel ports and commands", () => {
+    const s = renameComponent({ ...scope, commands: [{ header: ":X", op: "ch.inp.probe_comp" }] }, "channel", "inp", "input", docs);
+    expect(s.channel_components[0].name).toBe("input");
+    expect(s.wiring.channel).toEqual([["input.out", "front.in"]]);
+    expect(s.ports.channel).toEqual({ "CH{n}": "input.pin" });
+    expect(s.commands[0].op).toBe("ch.input.probe_comp");
+  });
+
+  it("renames an instrument component in channel-to-instrument wires and in refs", () => {
+    const s = renameComponent(scope, "instrument", "adc", "adc_bank", docs);
+    expect(s.wiring.instrument).toEqual([["ch{n}.front.out", "adc_bank.in{n}"]]);
+    expect(s.components[1].params).toEqual({ adc: "adc_bank", depth: 1000 });
+    expect(s.commands).toEqual(scope.commands);
+  });
+
+  it("moves a renamed node's position", () => {
+    expect(renameInLayout({ "i:a": { x: 1, y: 2 } }, "i:a", "i:b")).toEqual({ "i:b": { x: 1, y: 2 } });
+  });
+});
+
+describe("undo (#1207)", () => {
+  it("steps back and forward, and a new edit clears what was ahead", () => {
+    const a = empty;
+    const b = addComponent(a, "x", "instrument").structure;
+    const c = addComponent(b, "y", "instrument").structure;
+    let h = recordEdit(recordEdit(EMPTY_HISTORY, a), b);
+    const back = undo(h, c)!;
+    expect(back.structure).toBe(b);
+    const forward = redo(back.history, back.structure)!;
+    expect(forward.structure).toBe(c);
+    h = recordEdit(back.history, b);
+    expect(h.future).toEqual([]);
+    expect(undo(EMPTY_HISTORY, a)).toBeNull();
+    expect(redo(EMPTY_HISTORY, a)).toBeNull();
+    expect(recordEdit(EMPTY_HISTORY, a, 1).past).toHaveLength(1);
   });
 });

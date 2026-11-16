@@ -549,6 +549,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/definitions/{def_id}/layout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Definition Layout
+         * @description Where the build area draws the components (#1207); empty when none were saved.
+         */
+        get: operations["getDefinitionLayout"];
+        /**
+         * Save Definition Layout
+         * @description Keep the positions beside a workspace definition: no version, no session restart.
+         */
+        put: operations["saveDefinitionLayout"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/definitions/{def_id}/restore": {
         parameters: {
             query?: never;
@@ -2501,6 +2525,36 @@ export interface components {
             sha256: string;
         };
         /**
+         * DefinitionLayout
+         * @description Where the build area draws each component of a workspace definition (#1207): kept beside
+         *     the definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change
+         *     to the instrument, so it makes no version and restarts no session.
+         */
+        "DefinitionLayout-Input": {
+            /**
+             * Positions
+             * @description Node id ('i:<name>' instrument, 'c:<name>' channel) -> position
+             */
+            positions?: {
+                [key: string]: components["schemas"]["LayoutPoint"];
+            };
+        };
+        /**
+         * DefinitionLayout
+         * @description Where the build area draws each component of a workspace definition (#1207): kept beside
+         *     the definition in ``instruments/<id>.layout.json``, not in it — moving a block is not a change
+         *     to the instrument, so it makes no version and restarts no session.
+         */
+        "DefinitionLayout-Output": {
+            /**
+             * Positions
+             * @description Node id ('i:<name>' instrument, 'c:<name>' channel) -> position
+             */
+            positions: {
+                [key: string]: components["schemas"]["LayoutPoint"];
+            };
+        };
+        /**
          * DefinitionStructure
          * @description The effective structure of a definition (``extends`` and the category default merged in,
          *     D59), for the Web's build area (#1201). Read even when the draft does not pass the checks.
@@ -3652,6 +3706,13 @@ export interface components {
              * Y
              * @default 0
              */
+            y: number;
+        };
+        /** LayoutPoint */
+        LayoutPoint: {
+            /** X */
+            x: number;
+            /** Y */
             y: number;
         };
         /** Move */
@@ -6869,6 +6930,79 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["DefinitionChangeList"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getDefinitionLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionLayout-Output"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    saveDefinitionLayout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DefinitionLayout-Input"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionLayout-Output"];
+                };
+            };
+            /** @description The definition is not in the workspace */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
