@@ -134,6 +134,9 @@ class ScopeVertical(Component):
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     choices = {"response": ("first_order", "brickwall", "gaussian", "bessel4", "butterworth4")}
+    # A channel's own store first, then the instrument's (Component.peer); none: no correction.
+    refs = {"store": ("calibration_store", "instrument")}
+    optional_refs = frozenset({"store"})
     defaults = {
         "coupling": "DC",  # DC | AC | GND
         "bandwidth": 200e6,  # -3 dB point of the first-order low-pass

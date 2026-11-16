@@ -438,6 +438,12 @@ def test_static_checks_of_index_states_when_and_reply_fields():
             ("E-DEF-REPLY", f"/commands/{len(bad['commands']) - 1}/reply"),
         ]
     )
+    # neither written nor queried (#1214): every use would fail
+    dead = copy.deepcopy(AUTHORING)
+    dead["commands"].append({"header": "DEAD", "op": "sys.reset", "set": False, "query": False})
+    assert ("E-DEF-ACCESS", f"/commands/{len(dead['commands']) - 1}") in codes(dead)
+    dead["commands"][-1]["query"] = True
+    assert not [c for c in codes(dead) if c[0] == "E-DEF-ACCESS"]
     with raises_with(ValidationError, "when names"):
         InstrumentDefinition.model_validate(
             {**DEMO, "commands": [{"header": "X", "op": "a.b", "when": {"y": "1"}}]}
