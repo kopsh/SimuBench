@@ -9477,6 +9477,100 @@
         "title": "StepResult",
         "type": "object"
       },
+      "StorageCleanRequest": {
+        "properties": {
+          "history": {
+            "default": false,
+            "description": "Also delete the saved versions of files that are gone",
+            "title": "History",
+            "type": "boolean"
+          }
+        },
+        "title": "StorageCleanRequest",
+        "type": "object"
+      },
+      "StorageCleanResult": {
+        "properties": {
+          "bytes": {
+            "description": "Bytes freed",
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "removed": {
+            "items": {
+              "$ref": "#/components/schemas/StorageEntry"
+            },
+            "title": "Removed",
+            "type": "array"
+          }
+        },
+        "required": [
+          "removed",
+          "bytes"
+        ],
+        "title": "StorageCleanResult",
+        "type": "object"
+      },
+      "StorageEntry": {
+        "properties": {
+          "bytes": {
+            "description": "Bytes on disk",
+            "title": "Bytes",
+            "type": "integer"
+          },
+          "kind": {
+            "description": "history: saved versions; assistant: a bench's conversation; files: its instruments' files",
+            "enum": [
+              "history",
+              "assistant",
+              "files"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "name": {
+            "description": "The workspace file it belongs to (files: the bench path without suffix)",
+            "title": "Name",
+            "type": "string"
+          },
+          "orphan": {
+            "description": "Its file no longer exists in the workspace",
+            "title": "Orphan",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "name",
+          "bytes",
+          "orphan"
+        ],
+        "title": "StorageEntry",
+        "type": "object"
+      },
+      "StorageReport": {
+        "properties": {
+          "entries": {
+            "description": "Largest first",
+            "items": {
+              "$ref": "#/components/schemas/StorageEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "total_bytes": {
+            "description": "Everything listed in entries",
+            "title": "Total Bytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_bytes",
+          "entries"
+        ],
+        "title": "StorageReport",
+        "type": "object"
+      },
       "StructureComponent-Input": {
         "description": "A component of a definition's structure as the build area edits it (#1201).",
         "properties": {
@@ -13071,6 +13165,64 @@
           }
         },
         "summary": "Reset"
+      }
+    },
+    "/api/storage": {
+      "get": {
+        "description": "What the workspace's ``.simubench/`` holds, and which of it lost its file (#1238).",
+        "operationId": "getStorage",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageReport"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Storage"
+      }
+    },
+    "/api/storage/clean": {
+      "post": {
+        "description": "Delete the conversations and instrument files whose bench is gone; their saved versions only\nwith ``history`` (they are how a deleted file comes back, #1238).",
+        "operationId": "cleanStorage",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StorageCleanRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StorageCleanResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clean Storage"
       }
     },
     "/api/try": {

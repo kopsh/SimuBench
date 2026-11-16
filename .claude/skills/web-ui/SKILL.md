@@ -71,6 +71,10 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   field that writes SCPI itself calls `useCountOnScreen(instrument, path)` (the analyzer's
   `ScpiField`, #1252). Enum options go through `distinctOptions` (model.ts) so an alias sharing a
   label is not offered twice.
+- `web/src/components/app/PreferencesMenu.tsx` — the settings menu (theme, language, workspace data,
+  about). Its dialogs: `AboutDialog.tsx` (manifest, health checks, diagnostics bundle) and
+  `StorageDialog.tsx` (what `.simubench/` holds, orphans, the clean with a confirm step; history is
+  kept unless switched on, #1238; pure logic in `storage.ts`, e2e in `e2e/workbench.spec.ts`).
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key
@@ -92,6 +96,12 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   machine `pnpm visual` fails exactly four stories whose canvas refits on text width (Assistant/Panel
   Stuck and Workbench/Live canvas Counter, light and dark, ~2 % of pixels) — expected, not a regression
   (#984). Judge baselines by CI's actuals only.
+- A new story's baselines on a Linux machine that has Inter / JetBrains Mono: hide them with a
+  fontconfig file that includes `/etc/fonts/fonts.conf` and adds `<selectfont><rejectfont>` globs
+  `*Inter*` and `*JetBrains*`, then `FONTCONFIG_FILE=<it> pnpm visual -g "<story title>"
+  --update-snapshots`. Check first that the existing baselines pass that way (all but the Counter
+  story did, #1238). `--update-snapshots` rewrites only a baseline that differs past the 1 %
+  threshold: delete the PNGs (or pass `--update-snapshots=all`) after a small layout fix.
 - WCAG AA contrast in an e2e test: `expectContrastAA(locator)` in `e2e/judge.ts` (colors read back
   through a canvas, so the oklch tokens and alpha count; SVG wire labels on their `edge-textbg`). The
   internals view checks its probe panel and wire labels in both themes (#984).

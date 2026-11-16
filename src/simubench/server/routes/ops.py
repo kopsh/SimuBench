@@ -9,8 +9,13 @@ from fastapi import APIRouter, Depends, Response
 
 from ... import __version__
 from ...models import api as M
+from ...storage import Entry
 from ..errors import FILE_ERRORS
 from .context import ApiContext
+
+
+def _entry(e: Entry) -> M.StorageEntry:
+    return M.StorageEntry(kind=e.kind, name=e.name, bytes=e.bytes, orphan=e.orphan)
 
 
 def _status_routes(ctx: ApiContext, router: APIRouter) -> None:
@@ -74,6 +79,35 @@ def _status_routes(ctx: ApiContext, router: APIRouter) -> None:
         from ...ops import doctor
 
         return [asdict(c) for c in doctor(manager.files.workspace)]
+
+    @router.get(
+        "/api/storage",
+        response_model=M.StorageReport,
+        operation_id="getStorage",
+        dependencies=[Depends(auth)],
+    )
+    def get_storage() -> M.StorageReport:
+        """What the workspace's ``.simubench/`` holds, and which of it lost its file (#1238)."""
+        from ...storage import inventory
+
+        entries = [_entry(e) for e in inventory(manager.files.workspace)]
+        entries.sort(key=lambda e: -e.bytes)
+        return M.StorageReport(total_bytes=sum(e.bytes for e in entries), entries=entries)
+
+    @router.post(
+        "/api/storage/clean",
+        response_model=M.StorageCleanResult,
+        operation_id="cleanStorage",
+        dependencies=[Depends(auth)],
+    )
+    def clean_storage(body: M.StorageCleanRequest) -> M.StorageCleanResult:
+        """Delete the conversations and instrument files whose bench is gone; their saved versions only
+        with ``history`` (they are how a deleted file comes back, #1238)."""
+        from ...storage import clean_orphans
+
+        kinds = ("assistant", "files", "history") if body.history else ("assistant", "files")
+        removed = [_entry(e) for e in clean_orphans(manager.files.workspace, kinds)]
+        return M.StorageCleanResult(removed=removed, bytes=sum(e.bytes for e in removed))
 
 
 def _diagnostic_and_run_routes(ctx: ApiContext, router: APIRouter) -> None:

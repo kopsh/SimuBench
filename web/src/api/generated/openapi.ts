@@ -1220,6 +1220,47 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/storage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Storage
+         * @description What the workspace's ``.simubench/`` holds, and which of it lost its file (#1238).
+         */
+        get: operations["getStorage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/storage/clean": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clean Storage
+         * @description Delete the conversations and instrument files whose bench is gone; their saved versions only
+         *     with ``history`` (they are how a deleted file comes back, #1238).
+         */
+        post: operations["cleanStorage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/try": {
         parameters: {
             query?: never;
@@ -5695,6 +5736,62 @@ export interface components {
             /** Ok */
             ok: boolean;
         };
+        /** StorageCleanRequest */
+        StorageCleanRequest: {
+            /**
+             * History
+             * @description Also delete the saved versions of files that are gone
+             * @default false
+             */
+            history: boolean;
+        };
+        /** StorageCleanResult */
+        StorageCleanResult: {
+            /**
+             * Bytes
+             * @description Bytes freed
+             */
+            bytes: number;
+            /** Removed */
+            removed: components["schemas"]["StorageEntry"][];
+        };
+        /** StorageEntry */
+        StorageEntry: {
+            /**
+             * Bytes
+             * @description Bytes on disk
+             */
+            bytes: number;
+            /**
+             * Kind
+             * @description history: saved versions; assistant: a bench's conversation; files: its instruments' files
+             * @enum {string}
+             */
+            kind: "history" | "assistant" | "files";
+            /**
+             * Name
+             * @description The workspace file it belongs to (files: the bench path without suffix)
+             */
+            name: string;
+            /**
+             * Orphan
+             * @description Its file no longer exists in the workspace
+             */
+            orphan: boolean;
+        };
+        /** StorageReport */
+        StorageReport: {
+            /**
+             * Entries
+             * @description Largest first
+             */
+            entries: components["schemas"]["StorageEntry"][];
+            /**
+             * Total Bytes
+             * @description Everything listed in entries
+             */
+            total_bytes: number;
+        };
         /**
          * StructureComponent
          * @description A component of a definition's structure as the build area edits it (#1201).
@@ -8319,6 +8416,59 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    getStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageReport"];
+                };
+            };
+        };
+    };
+    cleanStorage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StorageCleanRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StorageCleanResult"];
+                };
             };
             /** @description Validation Error */
             422: {
