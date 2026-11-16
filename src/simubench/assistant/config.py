@@ -1,9 +1,10 @@
 """The assistant's LLM settings (#872, docs/ai-assistant.md 6).
 
 Defaults come from the server: the environment (``SIMUBENCH_LLM_*``) over the ``assistant`` block
-of the workspace's ``.simubench/settings.json``. The Web settings page saves overrides in
-``.simubench/assistant.json`` (the folder is git-ignored; the file is made readable by its owner
-only — on Windows as far as the platform allows). The API key is write-only: no response, log line
+of the workspace's ``.simubench/settings.json``. The Web settings page saves overrides in the
+user's own data folder (``paths.py``), not in the workspace: the API key is the user's, and a
+workspace is zipped, synced and sent on (#1237). The file is made readable by its owner only — on
+Windows as far as the platform allows. The API key is write-only: no response, log line
 or diagnostics bundle carries it; :class:`AssistantConfig` reports ``api_key_set`` instead.
 
 The address must be ``http`` or ``https`` and may be a private network address (a private
@@ -16,6 +17,7 @@ from __future__ import annotations
 import contextlib
 import ipaddress
 import json
+import logging
 import os
 import stat
 from dataclasses import dataclass, field, fields, replace
@@ -24,11 +26,13 @@ from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
 from ..models import api as M
+from ..paths import user_data_dir
 
 if TYPE_CHECKING:
     from ..server.manager import SessionManager
 
-OVERRIDES = Path(".simubench") / "assistant.json"
+OVERRIDES = "assistant.json"  # in the user data folder
+LEGACY_OVERRIDES = Path(".simubench") / "assistant.json"  # the old, workspace-held file: ignored (#1237)
 SETTINGS = Path(".simubench") / "settings.json"
 ENV = {
     "protocol": "SIMUBENCH_LLM_PROTOCOL",
@@ -40,6 +44,9 @@ ENV = {
 }
 #: How many SCPI ports past the base one a bench may take (one per instrument).
 SCPI_SPAN = 64
+
+
+logger = logging.getLogger(__name__)
 
 
 class ConfigError(ValueError):
@@ -106,7 +113,15 @@ class AssistantSettings:
         return LlmSettings(**values)
 
     def overrides(self) -> dict[str, Any]:
-        return _coerce(_read_json(self.workspace / OVERRIDES))
+        legacy = self.workspace / LEGACY_OVERRIDES
+        if (
+            legacy.exists()
+        ):  # not adopted: a folder that arrives with a key and an address is not the user's word
+            logger.warning(
+                "%s is no longer read (the assistant's settings are kept per user); set them again on the settings page and delete the file",
+                legacy,
+            )
+        return _coerce(_read_json(user_data_dir() / OVERRIDES))
 
     def current(self) -> LlmSettings:
         return replace(self.defaults(), **self.overrides())
@@ -146,7 +161,7 @@ class AssistantSettings:
         return self.view()
 
     def _write(self, data: dict[str, Any]) -> None:
-        path = self.workspace / OVERRIDES
+        path = user_data_dir() / OVERRIDES
         path.parent.mkdir(parents=True, exist_ok=True)
         tmp = path.with_name(f".{path.name}.tmp")
         # Created owner-only before the content goes in, so the key is never readable by others.

@@ -17,6 +17,13 @@ os.environ[DEFINITIONS_ENV] = os.pathsep.join(
 # A test never reads or writes the developer's real user folder (paths.py, #1237).
 os.environ.setdefault("SIMUBENCH_HOME", tempfile.mkdtemp(prefix="simubench-home-"))
 
+
+@pytest.fixture(autouse=True)
+def _own_user_folder(tmp_path_factory, monkeypatch):
+    """Each test gets its own user folder, so a grant or a saved key never leaks into the next one."""
+    monkeypatch.setenv("SIMUBENCH_HOME", str(tmp_path_factory.mktemp("simubench-home")))
+
+
 # One BLAS thread per worker process, set before numpy/scipy load anywhere: the suite runs under
 # pytest-xdist (issue 209) and the circuits are tiny, so the BLAS pools would only oversubscribe
 # the machine — burning CPU in spinlocks that lands in the solver's CPU-time budgets.
