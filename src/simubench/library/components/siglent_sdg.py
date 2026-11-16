@@ -70,6 +70,11 @@ def check_ranges(s: dict[str, Any]) -> None:
 class SiglentSdg(Component):
     """C<n>:BSWV, C<n>:OUTP, C<n>:INVT, C<n>:SYNC, PACP and BUZZ of an SDG2000X."""
 
+    label = "SDG 波形发生"
+    label_en = "SDG waveform generation"
+    about = "SDG2000X 专用的波形、输出、反相、同步等命令。"
+    about_en = "The SDG2000X's own waveform, output, invert and sync commands."
+
     generic = False
 
     # ---- helpers ----------------------------------------------------------------------------------
@@ -305,6 +310,11 @@ class SiglentSdg(Component):
 @component("siglent_sdg_channel_limits")
 class SiglentSdgChannelLimits(Component):
     """Checks a channel's ranges whenever one of its settings changes outside a command (UI, bench)."""
+
+    label = "SDG 输出范围检查"
+    label_en = "SDG range check"
+    about = "SDG2000X 的通道设置在命令之外改动时检查其范围。"
+    about_en = "Checks an SDG2000X channel's ranges when a setting changes outside a command."
 
     generic = False
 

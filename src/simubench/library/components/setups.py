@@ -70,6 +70,11 @@ class SetupMemory(Component):
     written at the end of a run.
     """
 
+    label = "设置存储"
+    label_en = "Setup memory"
+    about = "保存和调出仪表设置：寄存器、状态文件和设置块。"
+    about_en = "Saves and recalls the instrument's settings: registers, state files and setup blocks."
+
     refs = {"storage": ("file_system", "instrument")}
     optional_refs = frozenset({"storage"})
     defaults = {

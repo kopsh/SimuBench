@@ -170,6 +170,7 @@ describe("panel view", () => {
       }),
     );
     expect(view.groups).toHaveLength(1);
+    expect(view.groups[0].label).toBe("整机"); // not the bare "instrument" (#1251)
     expect(view.groups[0].controls.map((c) => [c.state, c.kind, c.range])).toEqual([
       ["sense.nplc", "number", "0.02 … 100"],
       ["sense.range_auto", "switch", null],

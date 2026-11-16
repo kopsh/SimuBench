@@ -5,6 +5,7 @@
  * `PUT /api/definitions/{id}/structure`, and the server keeps only what the file does not inherit.
  */
 import type { Schemas } from "@/api/client";
+import { typeSearchText } from "@/lib/component";
 
 type StructureComponentOut = Schemas["StructureComponent-Output"];
 /** A block as written: its own label and description are optional (#1261), so a new block leaves them out. */
@@ -643,21 +644,10 @@ export const LIBRARY_GROUPS = [
 ] as const;
 export type LibraryGroup = (typeof LIBRARY_GROUPS)[number];
 
-/** The internal components matching `query` (type, label, description), by family. */
-export function libraryGroups(
-  docs: readonly ComponentDoc[],
-  query: string,
-  label: (d: ComponentDoc) => string,
-): { group: LibraryGroup; items: ComponentDoc[] }[] {
+/** The internal components matching `query` (type, names, descriptions in both languages), by family. */
+export function libraryGroups(docs: readonly ComponentDoc[], query: string): { group: LibraryGroup; items: ComponentDoc[] }[] {
   const q = query.trim().toLowerCase();
-  const shown = docs.filter(
-    (d) =>
-      d.category === "internal" &&
-      (!q ||
-        [d.type, label(d), d.label ?? "", d.doc ?? ""].some((f) =>
-          f.toLowerCase().includes(q),
-        )),
-  );
+  const shown = docs.filter((d) => d.category === "internal" && (!q || typeSearchText(d).some((f) => f.toLowerCase().includes(q))));
   return LIBRARY_GROUPS.map((group) => ({
     group,
     items: shown.filter((d) => (d.group ?? "other") === group),

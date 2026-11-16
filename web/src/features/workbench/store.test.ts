@@ -121,3 +121,18 @@ describe("the inspector's width beside each kind of tab (#1229)", () => {
     expect(JSON.parse(localStorage.getItem("simubench:inspector-size") ?? "null")).toMatchObject({ screen: 21 });
   });
 });
+
+describe("showDefinition (#1250)", () => {
+  beforeEach(() => useWorkbench.getState().reset());
+
+  it("turns the instrument's acceptance tab into the copy's page at the section it was on", () => {
+    const { openAcceptance, showDefinition } = useWorkbench.getState();
+    openAcceptance("scope");
+    showDefinition("scope", "my-keysight-uxr1104b", "build");
+    const s = useWorkbench.getState();
+    expect(s.tabs.filter((t) => t.kind === "acceptance")).toEqual([
+      { kind: "acceptance", instrument: "scope", definition: "my-keysight-uxr1104b", section: "build" },
+    ]);
+    expect(s.active).toBe("acceptance:scope");
+  });
+});

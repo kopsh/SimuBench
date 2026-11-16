@@ -274,6 +274,11 @@ class TriggerModel(Triggerable, Component):
     consumed), kept for FETCh? and in the reading buffer.
     """
 
+    label = "触发模型"
+    label_en = "Trigger model"
+    about = "测量仪表的 INITiate、触发和 FETCh?：按触发次数×采样次数读数。"
+    about_en = "A meter's INITiate, triggers and FETCh?: trigger count × sample count readings."
+
     defaults = {
         "sampler": "",  # the component that takes the readings (a Sampler: a meter's core, an SMU)
         "source": "immediate",  # immediate | bus (*TRG) | external; map the model's names to these
@@ -494,6 +499,11 @@ class TriggerModel(Triggerable, Component):
 class ReadingBuffer(Component):
     """Named reading buffers: a DMM's reading memory, an SMU's ``defbuffer1`` and the ones a script
     makes. Commands name a buffer with ``name``; without one they use ``default``."""
+
+    label = "读数缓冲区"
+    label_en = "Reading buffers"
+    about = "具名的读数存储：万用表的读数存储、SMU 的 defbuffer1 等。"
+    about_en = "Named reading buffers: a DMM's reading memory, an SMU's defbuffer1 and others."
 
     defaults = {
         "default": "defbuffer1",  # the buffer commands use when they name none

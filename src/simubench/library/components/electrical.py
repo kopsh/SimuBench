@@ -24,6 +24,11 @@ class OutputStage(Component):
     instruments whose high-impedance setting is a number (a calibrator's ``LOAD 10000``).
     """
 
+    label = "输出级"
+    label_en = "Output stage"
+    about = "由信号输入驱动电气引脚的戴维南源。"
+    about_en = "A Thevenin source driving an electrical pin from a signal input."
+
     role = "driver"
     ports = {
         "in": PortSpec("in", "signal"),
@@ -59,6 +64,11 @@ class OutputStage(Component):
 @component("input_port")
 class InputPort(Component):
     """An electrical input with a resistive (and optional capacitive) impedance to ground."""
+
+    label = "输入端口"
+    label_en = "Input port"
+    about = "电气输入，对地呈电阻（可选并联电容）阻抗。"
+    about_en = "An electrical input with a resistive (and optional capacitive) impedance to ground."
 
     ports = {
         "pin": PortSpec("in", "electrical"),
@@ -96,9 +106,13 @@ class InputPort(Component):
 
 @component("resistor")
 class Resistor(Component):
-    category = "part"
+    """A resistor between its two terminals A and B."""
+
     label = "电阻"
     label_en = "Resistor"
+    about = "A、B 两端之间的电阻。"
+    about_en = "A resistor between terminals A and B."
+    category = "part"
     units = {"r": "OHM"}
     ports = {"A": PortSpec("inout", "electrical"), "B": PortSpec("inout", "electrical")}
     defaults = {"r": 1000.0}  # resistance
@@ -111,9 +125,12 @@ class Resistor(Component):
 class LoadResistor(Component):
     """A resistor from its one terminal to the bench ground (a load on a single-ended net)."""
 
-    category = "part"
     label = "对地电阻"
     label_en = "Resistor to ground"
+    about = "一端接到测试台地的电阻，作为单端网络的负载。"
+    about_en = "A resistor from its one terminal to the bench ground, a load on a single-ended net."
+
+    category = "part"
     units = {"r": "OHM"}
     ports = {"A": PortSpec("inout", "electrical")}
     defaults = {"r": 1000.0}  # resistance to ground
@@ -126,9 +143,12 @@ class LoadResistor(Component):
 class RcLowpass(Component):
     """Series R from IN to OUT, C from OUT to ground. ``tol_r`` / ``tol_c`` are hidden tolerances."""
 
-    category = "part"
     label = "RC 低通"
     label_en = "RC low-pass"
+    about = "IN 到 OUT 串联电阻、OUT 对地电容的低通滤波器。"
+    about_en = "Series R from IN to OUT and C from OUT to ground."
+
+    category = "part"
     units = {"r": "OHM", "c": "F"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
@@ -156,9 +176,12 @@ class PassiveProbe(Component):
     Probe capacitance and compensation are not modeled (transients are out of scope, D10).
     """
 
-    category = "accessory"
     label = "无源探头"
     label_en = "Passive probe"
+    about = "分压探头：从探针（IN）到示波器接头（OUT）的串联电阻。"
+    about_en = "A divider probe: series resistance from the tip (IN) to the scope connector (OUT)."
+
+    category = "accessory"
     units = {"r_tip": "OHM", "r_scope": "OHM", "c_pf": "pF"}
 
     ports = {"IN": PortSpec("in", "electrical"), "OUT": PortSpec("out", "electrical")}
@@ -185,9 +208,12 @@ class Lead(Component):
     not look through it and the bench circuit solves the drop across it.
     """
 
-    category = "accessory"
     label = "测试导线"
     label_en = "Test lead"
+    about = "连在线上的测试导线：一段真实的串联电阻。"
+    about_en = "A test lead on a wire: a real series resistance."
+
+    category = "accessory"
     units = {"r": "OHM"}
 
     ports = {"IN": PortSpec("inout", "electrical"), "OUT": PortSpec("out", "electrical")}
@@ -207,9 +233,12 @@ class CoaxCable(Component):
     after each edge. A lumped model, valid while the cable is short against the wavelength.
     """
 
-    category = "accessory"
     label = "同轴线缆"
     label_en = "Coax cable"
+    about = "一段短同轴线：只有很小的串联电阻，不计延时和反射。"
+    about_en = "A short cable: a small series resistance, no delay or reflections."
+
+    category = "accessory"
     role = "series"
     units = {"r": "OHM", "length_m": "m", "r_skin_1mhz": "OHM"}
 
@@ -237,9 +266,12 @@ class CoaxCable(Component):
 class UnityBuffer(Component):
     """Unity-gain buffer: high-impedance input, low-impedance output."""
 
-    category = "part"
     label = "单位增益缓冲器"
     label_en = "Unity-gain buffer"
+    about = "单位增益缓冲：高阻输入、低阻输出。"
+    about_en = "Unity-gain buffer: high-impedance input, low-impedance output."
+
+    category = "part"
     role = "driver"
     units = {"z_in": "OHM", "z_out": "OHM"}
 

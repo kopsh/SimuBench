@@ -1892,6 +1892,10 @@
         "name": "acq",
         "type": "scope_acquisition",
         "channel": null,
+        "type_label": "采集",
+        "type_label_en": "Acquisition",
+        "about": "示波器的运行控制、采样和记录。",
+        "about_en": "A scope's run control, sampling and records.",
         "doc": "Run control, sampling and the records of a scope, built from the scope's modules.",
         "params": [
           {
@@ -2296,6 +2300,10 @@
         "name": "timebase",
         "type": "scope_timebase",
         "channel": null,
+        "type_label": "时基",
+        "type_label_en": "Timebase",
+        "about": "水平系统：每格时间、记录长度规则和触发位置。",
+        "about_en": "The horizontal system: time per division, record length and trigger position.",
         "doc": "The horizontal system: time per division, the record length rule and the trigger position.",
         "params": [
           {
@@ -2544,6 +2552,10 @@
         "name": "trigger",
         "type": "scope_trigger",
         "channel": null,
+        "type_label": "触发",
+        "type_label_en": "Trigger",
+        "about": "在独立模拟通路上的边沿触发和脉宽（毛刺）触发。",
+        "about_en": "Edge and pulse-width (glitch) trigger on its own analog path.",
         "doc": "Edge trigger on its own analog path (instrument-authoring.md 8.4, G5).",
         "params": [
           {
@@ -2910,6 +2922,10 @@
         "name": "adc",
         "type": "scope_adc",
         "channel": null,
+        "type_label": "ADC 组",
+        "type_label_en": "ADC group",
+        "about": "各通道共用的 ADC：分辨率、最高采样率和交织。",
+        "about_en": "The ADC group the channels share: resolution, top sample rates and interleaving.",
         "doc": "The ADC group shared by a scope's channels: where each channel's analog signal becomes samples (D67), its resolution, top sample rates and interleaving.",
         "params": [
           {
@@ -3160,6 +3176,10 @@
         "name": "meas",
         "type": "scope_measurements",
         "channel": null,
+        "type_label": "自动测量",
+        "type_label_en": "Automatic measurements",
+        "about": "对示波器记录做自动测量。",
+        "about_en": "Automatic measurements on a scope's records.",
         "doc": "Automatic measurements on a scope's records (instrument-authoring.md 8.4).",
         "params": [
           {
@@ -3338,6 +3358,10 @@
         "name": "xfer",
         "type": "waveform_transfer",
         "channel": null,
+        "type_label": "波形传输",
+        "type_label_en": "Waveform transfer",
+        "about": "把通道记录的选定点编码成文本、ASCII 列表或二进制块。",
+        "about_en": "Encodes the selected points of a channel's record as text, ASCII or a binary block.",
         "doc": "The selected points of a channel's record, encoded as text, an ASCII list or a binary block.",
         "params": [
           {
@@ -3755,6 +3779,10 @@
         "name": "dec",
         "type": "scope_decimator",
         "channel": null,
+        "type_label": "抽取与采集方式",
+        "type_label_en": "Decimation and acquisition mode",
+        "about": "从 ADC 采样率降到记录采样率：各采集方式。",
+        "about_en": "From the ADC's rate to the record's: the acquisition modes.",
         "doc": "From the ADC's rate to the record's: the acquisition modes (F4, D46, D67).",
         "params": [
           {
@@ -3978,6 +4006,10 @@
         "name": "ch1.inp",
         "type": "input_port",
         "channel": 1,
+        "type_label": "输入端口",
+        "type_label_en": "Input port",
+        "about": "电气输入，对地呈电阻（可选并联电容）阻抗。",
+        "about_en": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "params": [
           {
@@ -4183,6 +4215,10 @@
         "name": "ch1.front",
         "type": "scope_vertical",
         "channel": 1,
+        "type_label": "垂直通道",
+        "type_label_en": "Vertical channel",
+        "about": "垂直通道：耦合、带宽、刻度与偏置及其范围。",
+        "about_en": "The vertical channel: coupling, bandwidth, scale and offset with their ranges.",
         "doc": "The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.",
         "params": [
           {
@@ -4528,6 +4564,10 @@
         "name": "ch1.probe",
         "type": "scope_probe",
         "channel": 1,
+        "type_label": "探头设置",
+        "type_label_en": "Probe setting",
+        "about": "通道的探头衰减比：显示电压等于输入电压乘以衰减比。",
+        "about_en": "A channel's probe ratio: display volts are input volts times the ratio.",
         "doc": "The probe setting of one channel: display volts are the volts at the input times ``ratio``.",
         "params": [
           {
@@ -4749,6 +4789,10 @@
         "name": "ch1.cal",
         "type": "calibration_store",
         "channel": 1,
+        "type_label": "校准存储",
+        "type_label_en": "Calibration store",
+        "about": "按测量条件保存校准系数和校准记录。",
+        "about_en": "Keeps calibration coefficients by measurement context, and the calibration ledger.",
         "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
         "params": [
           {
@@ -4929,6 +4973,10 @@
         "name": "ch2.inp",
         "type": "input_port",
         "channel": 2,
+        "type_label": "输入端口",
+        "type_label_en": "Input port",
+        "about": "电气输入，对地呈电阻（可选并联电容）阻抗。",
+        "about_en": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "params": [
           {
@@ -5134,6 +5182,10 @@
         "name": "ch2.front",
         "type": "scope_vertical",
         "channel": 2,
+        "type_label": "垂直通道",
+        "type_label_en": "Vertical channel",
+        "about": "垂直通道：耦合、带宽、刻度与偏置及其范围。",
+        "about_en": "The vertical channel: coupling, bandwidth, scale and offset with their ranges.",
         "doc": "The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.",
         "params": [
           {
@@ -5479,6 +5531,10 @@
         "name": "ch2.probe",
         "type": "scope_probe",
         "channel": 2,
+        "type_label": "探头设置",
+        "type_label_en": "Probe setting",
+        "about": "通道的探头衰减比：显示电压等于输入电压乘以衰减比。",
+        "about_en": "A channel's probe ratio: display volts are input volts times the ratio.",
         "doc": "The probe setting of one channel: display volts are the volts at the input times ``ratio``.",
         "params": [
           {
@@ -5700,6 +5756,10 @@
         "name": "ch2.cal",
         "type": "calibration_store",
         "channel": 2,
+        "type_label": "校准存储",
+        "type_label_en": "Calibration store",
+        "about": "按测量条件保存校准系数和校准记录。",
+        "about_en": "Keeps calibration coefficients by measurement context, and the calibration ledger.",
         "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
         "params": [
           {
@@ -5880,6 +5940,10 @@
         "name": "ch3.inp",
         "type": "input_port",
         "channel": 3,
+        "type_label": "输入端口",
+        "type_label_en": "Input port",
+        "about": "电气输入，对地呈电阻（可选并联电容）阻抗。",
+        "about_en": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "params": [
           {
@@ -6085,6 +6149,10 @@
         "name": "ch3.front",
         "type": "scope_vertical",
         "channel": 3,
+        "type_label": "垂直通道",
+        "type_label_en": "Vertical channel",
+        "about": "垂直通道：耦合、带宽、刻度与偏置及其范围。",
+        "about_en": "The vertical channel: coupling, bandwidth, scale and offset with their ranges.",
         "doc": "The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.",
         "params": [
           {
@@ -6430,6 +6498,10 @@
         "name": "ch3.probe",
         "type": "scope_probe",
         "channel": 3,
+        "type_label": "探头设置",
+        "type_label_en": "Probe setting",
+        "about": "通道的探头衰减比：显示电压等于输入电压乘以衰减比。",
+        "about_en": "A channel's probe ratio: display volts are input volts times the ratio.",
         "doc": "The probe setting of one channel: display volts are the volts at the input times ``ratio``.",
         "params": [
           {
@@ -6651,6 +6723,10 @@
         "name": "ch3.cal",
         "type": "calibration_store",
         "channel": 3,
+        "type_label": "校准存储",
+        "type_label_en": "Calibration store",
+        "about": "按测量条件保存校准系数和校准记录。",
+        "about_en": "Keeps calibration coefficients by measurement context, and the calibration ledger.",
         "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
         "params": [
           {
@@ -6831,6 +6907,10 @@
         "name": "ch4.inp",
         "type": "input_port",
         "channel": 4,
+        "type_label": "输入端口",
+        "type_label_en": "Input port",
+        "about": "电气输入，对地呈电阻（可选并联电容）阻抗。",
+        "about_en": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "params": [
           {
@@ -7036,6 +7116,10 @@
         "name": "ch4.front",
         "type": "scope_vertical",
         "channel": 4,
+        "type_label": "垂直通道",
+        "type_label_en": "Vertical channel",
+        "about": "垂直通道：耦合、带宽、刻度与偏置及其范围。",
+        "about_en": "The vertical channel: coupling, bandwidth, scale and offset with their ranges.",
         "doc": "The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.",
         "params": [
           {
@@ -7381,6 +7465,10 @@
         "name": "ch4.probe",
         "type": "scope_probe",
         "channel": 4,
+        "type_label": "探头设置",
+        "type_label_en": "Probe setting",
+        "about": "通道的探头衰减比：显示电压等于输入电压乘以衰减比。",
+        "about_en": "A channel's probe ratio: display volts are input volts times the ratio.",
         "doc": "The probe setting of one channel: display volts are the volts at the input times ``ratio``.",
         "params": [
           {
@@ -7602,6 +7690,10 @@
         "name": "ch4.cal",
         "type": "calibration_store",
         "channel": 4,
+        "type_label": "校准存储",
+        "type_label_en": "Calibration store",
+        "about": "按测量条件保存校准系数和校准记录。",
+        "about_en": "Keeps calibration coefficients by measurement context, and the calibration ledger.",
         "doc": "Calibration coefficients keyed by the measurement context, and the calibration ledger.",
         "params": [
           {

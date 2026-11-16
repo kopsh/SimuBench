@@ -72,6 +72,11 @@ class Adc(Component):
     and what one code step is worth. ``bits`` 0 does not quantize (and cannot clip). The request's
     interval is the real one — the block that starts the read holds the clock and its error."""
 
+    label = "模数转换器（ADC）"
+    label_en = "ADC"
+    about = "把模拟信号按固定满量程采样成数字样本。"
+    about_en = "Samples an analog signal into digital samples at a fixed full scale."
+
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "samples")}
     defaults = {
         "bits": 16,  # resolution (0: not quantized)

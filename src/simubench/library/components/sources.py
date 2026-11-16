@@ -26,6 +26,11 @@ class FunctionGeneratorCore(Component):
     ``amplitude`` means: VPP, VPK or VRMS of the waveform).
     """
 
+    label = "波形发生"
+    label_en = "Waveform generation"
+    about = "生成标准波形，改频率时相位连续。"
+    about_en = "Standard waveforms with phase-continuous frequency changes."
+
     ports = {"out": PortSpec("out", "signal")}
     defaults = {
         "function": "SINusoid",  # SINusoid | SQUare | RAMP | DC (SINE, SQUARE are aliases)
@@ -113,6 +118,13 @@ class ReferenceClock(Component):
     entry), or with ``source`` EXTernal the 10 MHz on ``ref`` when one within ±10 ppm is there (the
     internal oscillator otherwise, as a real source falls back when it cannot lock)."""
 
+    label = "参考时钟"
+    label_en = "Reference clock"
+    about = "源的频率参考：有偏差的内部振荡器，或外接 10 MHz。"
+    about_en = (
+        "The source's frequency reference: an internal oscillator with its error, or an external 10 MHz."
+    )
+
     ports = {"ref": PortSpec("ref", "signal")}
     defaults = {
         "source": "INTernal",  # INTernal | EXTernal (a setting such as $clock_source)
@@ -159,6 +171,11 @@ class WaveformSynth(Component):
     a 10–90 % edge of about 0.34 / bandwidth). ``clock`` names a reference_clock whose error scales
     the frequency.
     """
+
+    label = "波形合成"
+    label_en = "Waveform synthesis"
+    about = "生成零点对称的 1 Vpp 标准波形，改频率时相位连续。"
+    about_en = "A standard 1 Vpp waveform around zero, phase-continuous across frequency changes."
 
     ports = {"out": PortSpec("out", "signal")}
     refs = {
@@ -411,6 +428,11 @@ class AwgModulator(Component):
     ``type`` picks one modulation. Off, the waveform passes untouched.
     """
 
+    label = "波形调制"
+    label_en = "Waveform modulation"
+    about = "函数发生器的调制，位于波形合成与幅度/偏置之间。"
+    about_en = "A function generator's modulation, between waveform synthesis and amplitude/offset."
+
     ports = {
         "in": PortSpec("in", "signal", "the synthesized waveform (1 Vpp)"),
         "ext": PortSpec("in", "signal", "the external modulation input"),
@@ -603,6 +625,13 @@ class AmplitudeLevel(Component):
     with -221. Switching the unit converts the value, so the output does not move (a real source's
     ``VOLT:UNIT``); there is no dBm expression of 0 Vpp, so that switch is refused with -221.
     """
+
+    label = "幅度与偏置"
+    label_en = "Amplitude and offset"
+    about = "按仪表的定义把 1 Vpp 波形缩放到设定的幅度并加上偏置。"
+    about_en = (
+        "Scales a 1 Vpp waveform to the set amplitude and adds the offset, as the instrument defines them."
+    )
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     refs = {"synth": ("waveform_synth", "channel"), "output": ("output_stage", "channel")}
@@ -833,6 +862,11 @@ class ArbTable(Component):
     spectrum is exact, not sampled (validation-lockin.md 6). Harmonics are kept up to ``max_lines``.
     """
 
+    label = "任意波表"
+    label_en = "Arbitrary waveform table"
+    about = "按设定采样率播放的波形表，点间线性插值。"
+    about_en = "A waveform table played at the set sample rate, linearly interpolated."
+
     ports = {"out": PortSpec("out", "signal")}
     defaults = {
         "table": [0.0],  # one period of the waveform, sampled (until a loaded waveform is selected)
@@ -994,6 +1028,11 @@ class PrbsSource(Component):
     kept for ``lobes`` sinc lobes, within the line limit. Symbol 0 starts at time zero (the
     pattern's start, which a sampling scope's pattern lock finds).
     """
+
+    label = "PRBS 码型"
+    label_en = "PRBS pattern"
+    about = "按符号率输出的伪随机码型，NRZ 或 PAM4。"
+    about_en = "A pseudo-random pattern at the symbol rate, NRZ or PAM4."
 
     ports = {"out": PortSpec("out", "signal")}
     choices = {"format": ("NRZ", "PAM4")}

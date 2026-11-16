@@ -339,6 +339,11 @@ class CalibratorSetpoint(_Setpoint, Component):
     ``gain_error_ppm`` / ``offset``. Its ``out`` is the signal the output control drives onto the
     terminal; it settles in virtual time when the control operates it."""
 
+    label = "校准源设定"
+    label_en = "Calibrator setpoint"
+    about = "校准源的功能、电平、频率与量程生成。"
+    about_en = "A calibrator's function, level, frequency and range generation."
+
     ports = {"out": PortSpec("out", "signal", "the generated setpoint, to the output control")}
     refs = {"control": ("calibrator_control", "instrument")}
     units = {"level": "V", "offset": "V"}
@@ -555,6 +560,11 @@ class CalibratorControl(_Control, Component):
     ``standby_above`` (a change of the output to or from above it returns to standby). It drives
     the setpoint block's signal onto the electrical terminal."""
 
+    label = "校准源输出控制"
+    label_en = "Calibrator output control"
+    about = "校准源的工作/待机、输出阻抗和过载跳回待机。"
+    about_en = "A calibrator's operate/standby, output impedance and overload trip to standby."
+
     role = "driver"
     ports = {
         "in": PortSpec("in", "signal", "the setpoint, from the setpoint block"),
@@ -696,6 +706,11 @@ class CalibratorOutput(_Setpoint, _Control, Component):
     The settings are bound to instrument state (``function: $out.function`` ...); the commands
     write the state and the component follows. ``settle`` is taken from the table by the target
     function when it is a dict (``{DCV: 1.0, ACV: 2.0}``)."""
+
+    label = "校准源输出"
+    label_en = "Calibrator output"
+    about = "校准源的设定值与输出控制合在一个块里。"
+    about_en = "A calibrator's setpoint and output control in one block."
 
     role = "driver"
     ports = {"out": PortSpec("out", "electrical", "the output terminal")}

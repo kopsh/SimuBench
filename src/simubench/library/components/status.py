@@ -36,6 +36,11 @@ from ...scpi.errors import ScpiError
 class StatusRegister(Component):
     """A status register group: named condition/event bits, an enable mask, a summary bit."""
 
+    label = "状态寄存器"
+    label_en = "Status register"
+    about = "状态寄存器组：具名的条件/事件位、使能掩码和汇总位。"
+    about_en = "A status register group: named condition/event bits, an enable mask and a summary bit."
+
     defaults = {
         "bits": {},  # flag name -> bit number, e.g. {TRG: 0, RUN: 3}
         "enable": 0,  # the enable mask (a setting such as $status.lia_enable)

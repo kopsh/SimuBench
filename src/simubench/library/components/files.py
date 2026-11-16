@@ -136,6 +136,11 @@ class FileSystem(Component):
     not the instrument's own bookkeeping; no hidden or system files, no file locks.
     """
 
+    label = "文件系统"
+    label_en = "File system"
+    about = "仪表的驱动器、文件夹和文件，存放在工程师的电脑上。"
+    about_en = "The instrument's drives, folders and files, kept on the engineer's computer."
+
     defaults = {
         "drives": ["INTernal"],  # the drive words, the first the default (INTernal, USB, C ...)
         "home": "",  # the current folder at power-on, e.g. INT:\ or C:\Users\Public\Documents\Infiniium

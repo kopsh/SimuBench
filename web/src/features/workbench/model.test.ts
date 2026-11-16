@@ -4,7 +4,7 @@ import type { InstrumentInfo } from "@/api/client";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, distinctOptions, globalVars, groupOpen, hasLabel, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
+import { accessoryLabel, channelVars, distinctOptions, globalVars, groupName, groupOpen, hasLabel, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -214,6 +214,15 @@ describe("netTitle (#1222)", () => {
   });
   it("is empty when only accessory points are on it", () => {
     expect(netTitle(["wire1.a.OUT", "wire1.b.IN"], owners)).toBe("");
+  });
+});
+
+describe("groupName (#1251)", () => {
+  it("names a group from the translation files, numbered ones with their number", () => {
+    expect(groupName("power")).toBe("功率");
+    expect(groupName("function3")).toBe("数学函数 3");
+    expect(groupName("timebase")).toBe("时基");
+    expect(groupName("nothing_like_this")).toBeNull();
   });
 });
 

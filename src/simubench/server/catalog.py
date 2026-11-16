@@ -86,6 +86,8 @@ def component_info(name: str, cls: type[Component]) -> M.ComponentDoc:
             generic=cls.generic,
             label=cls.label or None,
             label_en=cls.label_en or None,
+            about=cls.about or None,
+            about_en=cls.about_en or None,
             group=group_of(cls),
             doc=inspect.getdoc(cls),
             ports=[M.PortInfo(name=p, direction=s.direction, medium=s.medium) for p, s in cls.ports.items()],

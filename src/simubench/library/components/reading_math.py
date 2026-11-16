@@ -84,6 +84,11 @@ class ReadingMath(Component):
     passed through since they were cleared, not a recomputation over the reading memory.
     """
 
+    label = "读数运算"
+    label_en = "Reading math"
+    about = "A/D 之后的运算：平均、mx+b、百分比/dB/dBm、限值和统计。"
+    about_en = "A meter's math after the A/D: average, mx+b, percent/dB/dBm, limits and statistics."
+
     refs = {"source": (Sampler, "instrument")}
     defaults = {
         "source": "",  # the sampler whose readings it processes (the meter's A/D)
