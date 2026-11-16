@@ -128,7 +128,7 @@ export function OverviewTab({ definition, inst }: { definition: DefinitionData; 
                 <h4 className="text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase">{g.label}</h4>
                 <div className="space-y-2">
                   {g.controls.map((c) => (
-                    <div key={`${c.state}.${c.label}`} className="text-[11px]">
+                    <div key={`${c.state}.${c.label}`} className="text-[11px]" data-testid={`overview-control-${c.state}`}>
                       <div className="flex items-baseline justify-between gap-2">
                         <span>{c.label}</span>
                         <span className="text-muted-foreground num shrink-0">{c.state}</span>

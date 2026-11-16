@@ -251,13 +251,17 @@ export function InternalsPanel({
   const channels = Array.from({ length: view.channels }, (_, i) => i + 1);
   const grouped =
     view.channels > 1 && view.components.some((c) => c.channel != null);
-  const toggle = (n: number) =>
+  // The channel just opened: the new layout brings its row into view (#1252).
+  const [opened, setOpened] = useState<number | null>(null);
+  const toggle = (n: number) => {
+    setOpened(expanded.has(n) ? null : n);
     setExpanded((s) => {
       const next = new Set(s);
       if (next.has(n)) next.delete(n);
       else next.add(n);
       return next;
     });
+  };
   /** Select a component (or nothing), opening its channel when it is collapsed. */
   const select = (name: string | null) => {
     setSelected(name);
@@ -305,12 +309,13 @@ export function InternalsPanel({
     <div
       // fixed inset-0 must not sit under a transformed or contained ancestor; the full-screen e2e
       // checks the viewport corners with elementFromPoint, which fails first if one appears (#1186).
-      className={cn("flex min-h-0", fullscreen ? "bg-background fixed inset-0 z-50" : "h-full")}
+      className={cn("flex min-h-0 flex-col", fullscreen ? "bg-background fixed inset-0 z-50" : "h-full")}
       data-testid="internals-panel"
       data-fullscreen={fullscreen}
     >
-      <div className="flex min-w-0 flex-1 flex-col">
-        <div className="space-y-1.5 border-b px-3 py-2">
+        {/* The toolbar spans the side column too: opening it (a block chosen) leaves the toolbar's
+            width, its wrapping, and so the diagram's top edge where they were (#1252). */}
+        <div className="space-y-1.5 border-b px-3 py-2" data-testid="internals-toolbar">
          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="relative w-56">
             <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
@@ -358,13 +363,14 @@ export function InternalsPanel({
                 size="sm"
                 variant="ghost"
                 className="h-7 text-xs"
-                onClick={() =>
+                onClick={() => {
+                  setOpened(null);
                   setExpanded(
                     expanded.size === channels.length
                       ? new Set()
                       : new Set(channels),
-                  )
-                }
+                  );
+                }}
               >
                 {expanded.size === channels.length
                   ? t("internals.collapseAll")
@@ -407,7 +413,8 @@ export function InternalsPanel({
          </div>
          <Basis view={view} />
         </div>
-        <div className="min-h-0 flex-1" data-testid="internals-graph">
+      <div className="flex min-h-0 flex-1">
+        <div className="min-h-0 min-w-0 flex-1" data-testid="internals-graph">
           <ReactFlowProvider>
             <Graph
               view={view}
@@ -417,6 +424,7 @@ export function InternalsPanel({
               lit={lit}
               onSelect={select}
               onExpand={toggle}
+              opened={opened}
               onProbe={renderProbe ? openProbe : undefined}
               probing={probe}
               signals={signals}
@@ -425,7 +433,6 @@ export function InternalsPanel({
             />
           </ReactFlowProvider>
         </div>
-      </div>
       {/* The side column is there when it has something to say (a block, a probe, search results):
           until then the diagram has the whole width, and the legend says what a click does. */}
       {(comp || probeSlot || query.trim()) && (
@@ -440,6 +447,7 @@ export function InternalsPanel({
           </ScrollArea>
         </aside>
       )}
+      </div>
     </div>
   );
 }
@@ -722,12 +730,15 @@ function Graph({
   signals,
   overview,
   onOverflows,
+  opened,
 }: {
   signals?: ReadonlyMap<string, MiniSignal>;
   /** The overview map is shown (asked for, and part of the graph is out of view). */
   overview: boolean;
   /** Whether part of the graph lies outside the view, after each move. */
   onOverflows: (outside: boolean) => void;
+  /** A channel just expanded: its first block is brought into view once the new layout opens. */
+  opened?: number | null;
   view: InstrumentInternals;
   vars: Map<string, StateVarInfo>;
   expanded: Set<number>;
@@ -936,11 +947,15 @@ function Graph({
       // A new layout (a channel expanded) fits the view again.
       key={[...expanded].sort().join(",")}
       onInit={(flow) => {
-        const opened = home();
-        if (!opened) return;
-        void flow.setViewport(opened);
-        onOverflows(outside(opened));
+        const start = home();
+        if (!start) return;
+        void flow.setViewport(start);
+        onOverflows(outside(start));
         if (selected) reveal(selected, false);
+        else if (opened != null) {
+          const first = view.components.find((c) => c.channel === opened);
+          if (first) reveal(first.name, false);
+        }
       }}
       onMoveEnd={(_, v) => onOverflows(outside(v))}
       nodes={nodes}

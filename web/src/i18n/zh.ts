@@ -264,7 +264,7 @@ export const zh = {
     computedOnRead: "深记录读的时候才算：读到哪段算哪段，读回与测量的耗时随点数增长",
     auto: "自动",
     sendCommand: "发送 SCPI 命令",
-    commandPlaceholder: "例如 :CHANnel1:SCALe 0.05 或 *IDN?",
+    commandPlaceholder: "例如 *IDN? 或 :SYSTem:ERRor?",
     send: "发送",
     response: "响应",
   },
@@ -697,11 +697,15 @@ export const zh = {
     offset: "偏置",
     load: "负载设定",
     highZ: "高阻",
+    preview: "CH{{channel}} 设定的输出波形：两个周期",
+    previewOff: "输出关",
+    previewPeriods: "2 个周期 · {{period}}",
   },
   component: {
     details: "详细说明",
   },
   internals: {
+    short: "内部结构",
     fullscreen: "全屏查看",
     exitFullscreen: "退出全屏",
     exitFullscreenTip: "退出全屏（Esc）",
@@ -866,6 +870,7 @@ export const zh = {
     refusedHint: "按“本地（LOCAL）”从脚本接管后再操作；脚本发出下一条命令后回到远程。",
   },
   acceptance: {
+    short: "验收",
     copyAsMine: "复制为我的仪表",
     openMyCopy: "打开我的副本",
     ownPage: "在独立页面打开",
@@ -1208,6 +1213,7 @@ export const zh = {
     fewerChanges: "收起",
   },
   template: {
+    short: "存为模板",
     save: "保存为我的模板",
     hint: "把这台仪表连同它的初始设置和标识保存为你自己的模板（独立的定义，不随内置型号变化）。保存后测试台里这台仪表改用新模板；地址和个体偏差不进模板。",
     name: "模板名称",

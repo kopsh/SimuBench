@@ -9,13 +9,20 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
-export function SaveTemplateButton({ bench, instrument, label }: { bench: string; instrument: string; label: string }) {
+export function SaveTemplateButton({ bench, instrument, label, compact = false }: { bench: string; instrument: string; label: string; compact?: boolean }) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
-        <BookmarkPlus className="size-4" /> {t("template.save")}
+      <Button
+        variant="outline"
+        size="sm"
+        className={compact ? "px-1 text-xs" : undefined}
+        aria-label={compact ? t("template.save") : undefined}
+        title={compact ? t("template.save") : undefined}
+        onClick={() => setOpen(true)}
+      >
+        <BookmarkPlus className="size-4" /> {compact ? t("template.short") : t("template.save")}
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

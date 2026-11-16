@@ -267,7 +267,7 @@ export const en: Widen<Messages> = {
     computedOnRead: "Deep records are computed when read: only what is read, so reads and measurements take longer with more points",
     auto: "Auto",
     sendCommand: "Send SCPI command",
-    commandPlaceholder: "e.g. :CHANnel1:SCALe 0.05 or *IDN?",
+    commandPlaceholder: "e.g. *IDN? or :SYSTem:ERRor?",
     send: "Send",
     response: "Response",
   },
@@ -700,11 +700,15 @@ export const en: Widen<Messages> = {
     offset: "Offset",
     load: "Load setting",
     highZ: "High Z",
+    preview: "CH{{channel}} output as set: two periods",
+    previewOff: "Output off",
+    previewPeriods: "2 periods · {{period}}",
   },
   component: {
     details: "Details",
   },
   internals: {
+    short: "Internals",
     fullscreen: "Full screen",
     exitFullscreen: "Exit full screen",
     exitFullscreenTip: "Exit full screen (Esc)",
@@ -877,6 +881,7 @@ export const en: Widen<Messages> = {
     refusedHint: "Press LOCAL to take it from the script first; the script's next command returns it to remote.",
   },
   acceptance: {
+    short: "Acceptance",
     copyAsMine: "Copy as my instrument",
     openMyCopy: "Open my copy",
     ownPage: "Open on its own page",
@@ -1218,6 +1223,7 @@ export const en: Widen<Messages> = {
     fewerChanges: "Show less",
   },
   template: {
+    short: "Template",
     save: "Save as my template",
     hint: "Save this instrument with its initial settings and identity as your own template (a definition of its own, unaffected by later changes to the built-in model). The bench's instrument then uses it; the address and individual deviations are not part of it.",
     name: "Template name",

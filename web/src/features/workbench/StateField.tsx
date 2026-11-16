@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { displayUnit, engParts, parseEngineering } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { hasLabel, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
+import { distinctOptions, hasLabel, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
 import { useCountOnScreen } from "./onScreen";
 
 interface Props {
@@ -86,7 +86,7 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
           <SelectValue placeholder="—" />
         </SelectTrigger>
         <SelectContent>
-          {(v.options ?? []).map((o) => (
+          {distinctOptions(v).map((o) => (
             <SelectItem key={o} value={o} className="num text-xs">
               {optionLabel(v, o)}{" "}
               {/* The mnemonic a script sends, beside the plain word (#281). */}

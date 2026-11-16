@@ -363,7 +363,9 @@ export function CommandsPanel({
                 onClick={() => setOpen(expanded ? null : i)}
               >
                 {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
-                <span className="num min-w-0 flex-1 truncate font-medium" title={c.header}>{c.header}</span>
+                {/* The whole header, wrapped at any letter: a long one cut at its end loses the very part
+                    that tells it from its siblings (:AUToscale:CHANnels / :PLACement / :VERTical, #1252). */}
+                <span className="num min-w-0 flex-1 font-medium [overflow-wrap:anywhere]" data-testid="build-command-header">{c.header}</span>
                 {needsChannelSuffix(c) && <AlertTriangle className="text-warning size-3.5 shrink-0" aria-label={t("acceptance.build.cmdNeedsCh")} />}
                 <AccessIcon access={commandAccess(c)} className="shrink-0" />
                 <span className={cn("num text-muted-foreground max-w-[45%] shrink-0 truncate text-[10.5px]", wide && "w-[40%]", k === "other" && "italic")} title={to}>

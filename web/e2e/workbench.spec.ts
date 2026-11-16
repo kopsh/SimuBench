@@ -1240,3 +1240,79 @@ test("internals first view: names readable, collapsed channels and the overview 
     await expect(map).toHaveCount(0);
   }
 });
+
+test("bench details: the analyzer's screen fields leave the inspector, the minimap only when needed, the generator draws its output (#1252)", async ({
+  page,
+}) => {
+  await startBench(page);
+  // Three nodes that fit: no minimap over them, with the bottom panel open or not.
+  const canvas = page.getByTestId("center-panel");
+  await expect(canvas.locator(".react-flow__node").first()).toBeVisible();
+  await expect(canvas.locator(".react-flow__minimap")).toHaveCount(0);
+
+  // One primary action, the rest in a row below it that keeps its names for screen readers.
+  const awg = page.locator(".react-flow__node").filter({ hasText: "函数发生器" });
+  await awg.click();
+  const actions = page.getByTestId("instrument-actions");
+  await expect(actions.getByRole("button", { name: "打开屏幕" })).toBeVisible();
+  await expect(actions.getByRole("button", { name: "查看内部结构" })).toBeVisible();
+  await expect(actions.getByRole("button", { name: "验收页" })).toBeVisible();
+  const primary = (await actions.getByRole("button", { name: "打开屏幕" }).boundingBox())!;
+  const internals = (await actions.getByRole("button", { name: "查看内部结构" }).boundingBox())!;
+  expect(internals.y, "the secondary actions sit below the primary one").toBeGreaterThan(primary.y);
+  expect(internals.width, "a secondary action is narrower than the primary one").toBeLessThan(primary.width / 2);
+  // The SCPI example is one every instrument answers.
+  await expect(page.getByRole("textbox", { name: "发送 SCPI 命令" })).toHaveAttribute("placeholder", "例如 *IDN? 或 :SYSTem:ERRor?");
+
+  // The generator's screen fills its height with each channel's output as set.
+  await awg.dblclick();
+  const preview = page.getByTestId("generator-preview").first();
+  await expect(preview).toBeVisible();
+  expect((await preview.boundingBox())!.height, "the output preview's height in px").toBeGreaterThan(150);
+});
+
+test("the spectrum analyzer's screen fields are not repeated beside it (#1252)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", {
+    headers: { "x-simubench-token": TOKEN },
+    data: { bench_path: "benches/keysight_n9320b.bench.yaml", force: true },
+  });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  const sa = page.locator(".react-flow__node").filter({ hasText: "N9320B" });
+  await sa.click();
+  const inspector = page.getByTestId("inspector-panel");
+  await expect(inspector.getByText("中心频率", { exact: true })).toBeVisible();
+  await sa.dblclick();
+  await expect(page.getByTestId("inspector-on-screen")).toBeVisible();
+  await expect(inspector.getByText("中心频率", { exact: true })).toHaveCount(0);
+  await expect(inspector.getByText("跨度", { exact: true })).toHaveCount(0);
+});
+
+test("internals: choosing a block leaves the diagram where it was (#1252)", async ({ page }) => {
+  const start = await page.request.post("/api/sessions", {
+    headers: { "x-simubench-token": TOKEN },
+    data: { bench_path: "benches/keysight-uxr1104b.bench.yaml", force: true },
+  });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  const graph = page.getByTestId("internals-graph");
+  await expect(graph.locator("[data-part=block-name]").first()).toBeVisible();
+  const before = (await graph.boundingBox())!;
+  await graph.locator(".react-flow__node-component").first().click();
+  await expect(page.getByTestId("internals-panel").getByRole("complementary")).toBeVisible();
+  const after = (await graph.boundingBox())!;
+  expect(Math.abs(after.y - before.y), "the diagram's top edge moved by px").toBeLessThan(1);
+});
+
+test("an option alias is not listed twice, and a long command header is shown whole (#1252)", async ({ page }) => {
+  await page.goto(`/i/keysight-uxr1104b?token=${TOKEN}`);
+  await expect(page.getByTestId("overview-control-ch1.input").getByText("DC 50 Ω", { exact: true })).toHaveCount(1);
+  await page.getByTestId("acceptance-tab-build").click();
+  await page.getByTestId("build-tab-commands").click();
+  const headers = page.getByTestId("build-command-header");
+  await expect(headers.first()).toBeVisible();
+  const cut = await headers.evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
+  expect(cut, "command headers cut off").toEqual([]);
+});
