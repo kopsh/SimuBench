@@ -9,7 +9,7 @@ import secrets
 import sys
 import webbrowser
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from . import __version__
 from .service import (
@@ -66,6 +66,9 @@ def _serve(args: argparse.Namespace) -> int:
         print(f"  界面 / UI: {url}")
         if mcp is not None:
             print(f"  MCP (streamable HTTP): {_mcp_url(args.port)}")
+            if getattr(args, "mcp_config", False):  # launch: the client config, once (#1193)
+                config = {"mcpServers": {"simubench": {"type": "http", "url": _mcp_url(args.port)}}}
+                print("  AI 助手（MCP 客户端）配置 / MCP client config: " + json.dumps(config))
         _print_plugins(manager)
         if args.open:
             webbrowser.open(url)
@@ -94,15 +97,44 @@ def _mcp_url(port: int) -> str:
     return f"http://127.0.0.1:{port}{MCP_PATH}"
 
 
-def _running_simubench(port: int) -> bool:
-    """Whether a SimuBench service already answers on this loopback port (a second double-click)."""
+def _running_simubench(port: int) -> dict[str, Any] | None:
+    """What answers on this loopback port, when it is SimuBench (a second double-click, #1193):
+    ``{"mcp_url": … or None, "token": whether its data routes want a token}``; ``None`` otherwise."""
+    import urllib.error
     import urllib.request
 
+    base = f"http://127.0.0.1:{port}"
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1) as r:
-            return "version" in json.loads(r.read())
+        with urllib.request.urlopen(base + "/api/health", timeout=1) as r:
+            health = json.loads(r.read())
+        if not isinstance(health, dict) or "version" not in health:
+            return None
+        try:
+            urllib.request.urlopen(base + "/api/benches", timeout=1).close()
+            token = False
+        except urllib.error.HTTPError as exc:
+            token = exc.code == 401
+        return {"mcp_url": health.get("mcp_url"), "token": token}
     except (OSError, ValueError):
-        return False
+        return None
+
+
+def _already_running(port: int, running: dict[str, Any], *, browser: bool) -> int:
+    """A second start: open the running service's page, or say why it is not the double-click one."""
+    url = _ui_url(port, None)
+    if running["token"]:
+        print(f"SimuBench 已在运行，但它要求访问令牌 / already running, but it requires a token: {url}")
+        print("  用启动它时打印的带令牌的地址打开 / open the address with the token it printed at start")
+        return 1
+    print(f"SimuBench 已在运行 / already running: {url}")
+    if not running["mcp_url"]:
+        print(
+            "  它没有开启 MCP（serve 未带 --mcp），AI 助手连不上；关闭它后再启动，或用 --port 另起一个"
+            " / it has no MCP (serve without --mcp): close it and start again, or use --port"
+        )
+    if browser:
+        webbrowser.open(url)
+    return 0
 
 
 def default_launch_workspace() -> Path:
@@ -115,14 +147,12 @@ def default_launch_workspace() -> Path:
 def _launch(args: argparse.Namespace) -> int:
     """``SimuBench.exe`` of the Windows bundle (#1188): Web Bench and MCP in one service, browser open.
 
-    A second start finds the first one on the default port and only opens its page.
+    A second start finds the first one on the port (the default, or ``--port``) and only opens its
+    page; one that wants a token or has no MCP is named as such (#1193).
     """
-    if args.port is None and _running_simubench(DEFAULT_PORT):
-        url = _ui_url(DEFAULT_PORT, None)
-        print(f"SimuBench 已在运行 / already running: {url}")
-        if not args.no_browser:
-            webbrowser.open(url)
-        return 0
+    running = _running_simubench(args.port or DEFAULT_PORT)
+    if running is not None:
+        return _already_running(args.port or DEFAULT_PORT, running, browser=not args.no_browser)
     workspace = Path(args.workspace) if args.workspace else default_launch_workspace()
     workspace.mkdir(parents=True, exist_ok=True)
     port = _free_port(args.port or DEFAULT_PORT)
@@ -137,9 +167,7 @@ def _launch(args: argparse.Namespace) -> int:
         fallback.add("HiSLIP")
     print("SimuBench —— 关闭此窗口即停止服务 / close this window to stop the service")
     print("  连接 AI 助手：界面右上角「连接 AI 助手」/ Connect AI assistant: top right of the page")
-    print("  AI 助手（MCP 客户端）配置 / MCP client config:")
-    print("    " + json.dumps({"mcpServers": {"simubench": {"type": "http", "url": _mcp_url(port)}}}))
-    args.port_fallback = fallback
+    args.port_fallback, args.mcp_config = fallback, True
     args.workspace, args.port, args.bench = str(workspace), port, None
     args.mcp, args.allow_control, args.open = True, False, not args.no_browser
     return _serve(args)
