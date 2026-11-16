@@ -4906,7 +4906,7 @@ export interface components {
             gap: ("out_of_scope" | "blocked" | "model_work") | null;
             /**
              * Header
-             * @description The header that was ignored, for ignored events
+             * @description The header that was ignored, for ignored events; the command that took the time, for advance events with reason command (#1260)
              */
             header: string | null;
             /** Instrument */
@@ -5217,6 +5217,13 @@ export interface components {
             duts: string[];
             /** Id */
             id: string;
+            /**
+             * Idle Mode
+             * @description How a command clock counts the real time between actions (run.idle, D47): wall bills it at the next action, which the UI explains beside the clock (#1260)
+             * @default wall
+             * @enum {string}
+             */
+            idle_mode: "wall" | "sleep" | "off";
             /** Instruments */
             instruments: components["schemas"]["InstrumentInfo"][];
             /** Layout */

@@ -765,6 +765,11 @@ class SessionInfo(_Model):
     description: str | None = None
     clock_mode: Literal["command", "wall", "stepped", "scaled"]
     time_scale: float = Field(1.0, description="Virtual seconds per real second (scaled clock)")
+    idle_mode: Literal["wall", "sleep", "off"] = Field(
+        "wall",
+        description="How a command clock counts the real time between actions (run.idle, D47): wall bills it "
+        "at the next action, which the UI explains beside the clock (#1260)",
+    )
     now_ns: int
     seed: int
     reveal_true_values: bool

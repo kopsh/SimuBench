@@ -201,3 +201,21 @@ def test_every_key_a_session_emits_is_contract_or_declared_engine_side():
         assert set(e) <= set(Event.model_fields) | ENGINE_SIDE_KEYS, e
         out = project(e, 0)  # every event projects cleanly onto the stream
         assert out["kind"] == e["kind"] and isinstance(out["seq"], int)
+
+
+def test_a_command_s_advance_names_the_instrument_and_header():
+    """The clock's explanation (#1260): an advance a command takes says which instrument and which
+    header took the time; a manual advance says it was explicit; both project onto the stream."""
+    s = open_bench(ROOT / "acceptance/benches/awg_rc_scope.bench.yaml", clock="command", idle="off")
+    try:
+        seen: list[dict] = []
+        s.subscribe(seen.append)
+        s.write("scope", b":DIGitize;*OPC\n")
+        s.advance(1e-3)
+    finally:
+        s.close()
+    advances = [project(e, 0) for e in seen if e.get("kind") == "advance"]
+    command = [a for a in advances if a["reason"] == "command"]
+    assert command and command[0]["instrument"] == "scope" and command[0]["header"] == ":DIGitize"
+    assert command[0]["dt_ns"] > 0
+    assert advances[-1]["reason"] == "explicit" and advances[-1].get("instrument") is None

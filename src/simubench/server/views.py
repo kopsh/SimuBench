@@ -110,6 +110,7 @@ class SessionViews:
             description=b.description,
             clock_mode=s.clock_mode,  # type: ignore[arg-type]
             time_scale=s.time_scale,
+            idle_mode=s.idle_mode,  # ty: ignore[invalid-argument-type] — checked in Session.__init__
             now_ns=s.now_ns,
             seed=s.seed,
             reveal_true_values=s.reveal_true_values,

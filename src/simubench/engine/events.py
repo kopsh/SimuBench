@@ -21,7 +21,7 @@ from .record import encode_bytes, jsonable
 EVENT_KINDS: dict[str, str] = {
     "scpi": "a program message written to, or a reply read from, the bus (dir, instrument, text/size)",
     "state": "a setting changed (instrument, path, old, new)",
-    "advance": "virtual time moved (dt_ns, reason)",
+    "advance": "virtual time moved (dt_ns, reason; for a command also instrument and header, #1260)",
     "error": "an error queued on the instrument (code, message, reason)",
     "ignored": "a command ignored by unknown_commands: no error and no reply (header, query, reason)",
     "fault": "a fault injected, tripped or cleared (fault, reason, message)",
@@ -74,7 +74,11 @@ class Event(BaseModel):
         "Fault, advance and solver events carry their own kind-specific reason (solver: unsettled, D52)",
     )
     wall: float | None = None
-    header: str | None = Field(None, description="The header that was ignored, for ignored events")
+    header: str | None = Field(
+        None,
+        description="The header that was ignored, for ignored events; the command that took the time, for "
+        "advance events with reason command (#1260)",
+    )
     query: bool | None = Field(None, description="Whether the ignored header was a query")
     origin: str | None = Field(
         None,

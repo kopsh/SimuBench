@@ -1316,3 +1316,36 @@ test("an option alias is not listed twice, and a long command header is shown wh
   const cut = await headers.evaluateAll((els) => els.filter((e) => e.scrollWidth > e.clientWidth + 1).map((e) => e.textContent));
   expect(cut, "command headers cut off").toEqual([]);
 });
+
+test("the clock says where the time went: a generator change after idle real time is billed as idle, not to a command (#1260)", async ({
+  page,
+}) => {
+  const headers = { "x-simubench-token": TOKEN };
+  const start = await page.request.post("/api/sessions", {
+    headers,
+    data: { bench_path: "benches/keysight-34465a.bench.yaml", force: true },
+  });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await expect(page.locator(".react-flow__node").first()).toBeVisible();
+  await page.waitForTimeout(1200); // a person looking at the bench: real idle time, billed at the next action (D47)
+  const changed = await page.request.post(`/api/sessions/${sid}/instruments/awg/configure`, {
+    headers,
+    data: { path: "ch1.amplitude", value: 2.0 },
+  });
+  expect(changed.ok()).toBe(true);
+  const info = (await (await page.request.get(`/api/sessions/${sid}`, { headers })).json()) as { now_ns: number; idle_mode: string };
+  expect(info.idle_mode).toBe("wall");
+  expect(info.now_ns, "the idle second is in the clock").toBeGreaterThanOrEqual(1e9);
+
+  await page.getByTestId("clock").hover();
+  const why = page.getByTestId("clock-why");
+  await expect(why).toBeVisible();
+  await expect(why).toContainText("run.idle: wall");
+  const rows = why.getByTestId("clock-advance");
+  await expect(rows.first()).toContainText("空闲");
+  // Changing the amplitude takes no time of its own: every advance is idle time, and they add up to the clock.
+  const listed = await rows.evaluateAll((els) => els.map((e) => [e.getAttribute("data-reason"), Number(e.getAttribute("data-dt-ns"))] as const));
+  expect(listed.map(([reason]) => reason).every((r) => r === "idle"), JSON.stringify(listed)).toBe(true);
+  expect(listed.reduce((sum, [, dt]) => sum + dt, 0)).toBe(info.now_ns);
+});

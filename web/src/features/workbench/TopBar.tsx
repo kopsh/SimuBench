@@ -18,6 +18,7 @@ import { formatClock, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EditControls, benchChanged, useRebuild } from "./edit/EditControls";
 import { useEditor } from "./edit/editor";
+import { advanceReason, recentAdvances } from "./clockAdvances";
 import { useWorkbench } from "./store";
 
 const STEPS = [1e-3, 10e-3, 100e-3, 1];
@@ -58,7 +59,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
         <div className="truncate text-[13px] leading-tight font-medium">{session.bench_name}</div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">{session.bench_path}</div>
       </div>
-      <ConnectionBadge status={status} clockMode={session.clock_mode} scale={session.time_scale} />
+      <ConnectionBadge status={status} clockMode={session.clock_mode} idleMode={session.idle_mode} scale={session.time_scale} />
       <Separator orientation="vertical" className="mx-1 !h-5" />
       <EditControls session={session} />
       {mode === "run" && changed && (
@@ -102,17 +103,25 @@ export function TopBar({ session }: { session: SessionInfo }) {
       )}
 
       <div className="mx-auto flex shrink-0 items-center gap-2">
-        <div
-          className="bg-background flex h-8 items-center gap-3 rounded-md border px-3 whitespace-nowrap"
-          aria-live="polite"
-          title={t(`workbench.clockMode.${session.clock_mode}`)}
-        >
-          {/* The mode name gives way first on a narrow window; the tooltip still names it (#276). */}
-          <span className="text-muted-foreground hidden text-[11px] xl:inline">{t(`workbench.clockMode.${session.clock_mode}`)}</span>
-          <span className="num text-[13px] font-medium" title={t("workbench.clock")}>
-            t = {formatClock(nowNs)}
-          </span>
-        </div>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <div
+              className="bg-background flex h-8 items-center gap-3 rounded-md border px-3 whitespace-nowrap"
+              aria-live="polite"
+              tabIndex={0}
+              data-testid="clock"
+            >
+              {/* The mode name gives way first on a narrow window; the tooltip still names it (#276). */}
+              <span className="text-muted-foreground hidden text-[11px] xl:inline">{t(`workbench.clockMode.${session.clock_mode}`)}</span>
+              <span className="num text-[13px] font-medium" title={t("workbench.clock")}>
+                t = {formatClock(nowNs)}
+              </span>
+            </div>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-sm">
+            <ClockWhy session={session} />
+          </TooltipContent>
+        </Tooltip>
         {session.clock_mode !== "wall" && session.clock_mode !== "scaled" && (
           <div className="flex items-center">
             <Select value={String(step)} onValueChange={(v) => setStep(Number(v))}>
@@ -216,7 +225,47 @@ export function TopBar({ session }: { session: SessionInfo }) {
   );
 }
 
-function ConnectionBadge({ status, clockMode, scale }: { status: ConnectionState; clockMode: string; scale: number }) {
+/** Where the virtual time went (#1260): the clock mode and the latest advances with their causes. */
+function ClockWhy({ session }: { session: SessionInfo }) {
+  const { t } = useTranslation();
+  const events = useEvents((s) => s.events);
+  const runs = recentAdvances(events);
+  return (
+    <div className="space-y-1.5 text-xs" data-testid="clock-why">
+      <div className="font-medium">
+        {t(`workbench.clockMode.${session.clock_mode}`)} · {t("workbench.clockWhy")}
+      </div>
+      {runs.length === 0 ? (
+        <div className="opacity-80">{t("workbench.clockWhyNone")}</div>
+      ) : (
+        <ul className="space-y-0.5">
+          {runs.map((r) => (
+            <li key={`${r.tNs}-${r.reason}`} className="flex gap-3" data-testid="clock-advance" data-reason={r.reason} data-dt-ns={r.dtNs}>
+              <span className="num w-20 shrink-0 text-right">+{formatEng(r.dtNs / 1e9, "s", 4)}</span>
+              <span>
+                {advanceReason(r, t)}
+                {r.count > 1 ? ` ×${r.count}` : ""}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {session.clock_mode === "command" && session.idle_mode === "wall" && <div className="opacity-80">{t("workbench.clockIdleNote")}</div>}
+    </div>
+  );
+}
+
+function ConnectionBadge({
+  status,
+  clockMode,
+  idleMode,
+  scale,
+}: {
+  status: ConnectionState;
+  clockMode: string;
+  idleMode: string;
+  scale: number;
+}) {
   const { t } = useTranslation();
   const busy = useEvents((s) => s.busy);
   // "Running" alone hid that a command-driven clock stands still between commands (D44).
@@ -240,7 +289,9 @@ function ConnectionBadge({ status, clockMode, scale }: { status: ConnectionState
   return (
     <Tooltip>
       <TooltipTrigger asChild>{badge}</TooltipTrigger>
-      <TooltipContent className="max-w-xs">{t(`workbench.activityHint.${activity}`)}</TooltipContent>
+      <TooltipContent className="max-w-xs">
+        {t(`workbench.activityHint.${activity === "idle" && idleMode === "wall" ? "idleWall" : activity}`)}
+      </TooltipContent>
     </Tooltip>
   );
 }
