@@ -44,7 +44,17 @@ def _check(ok: bool, what: str) -> None:
         raise SystemExit(1)
 
 
+def _utf8_output() -> None:
+    """Write UTF-8 whatever the console's code page: the doctor's ✓ and Chinese text, echoed here,
+    do not fit cp1252 (a Windows runner's default, #1210) — the same choice the CLI makes (#1205)."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _utf8_output()
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("bundle", type=Path, nargs="?")
     p.add_argument("--launch", help="command instead of <bundle>/SimuBench.exe")
