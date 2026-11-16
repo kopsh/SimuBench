@@ -44,12 +44,12 @@ export async function addItem(catalog: Catalog, item: LibraryItem, at?: { x: num
     name = suggestName(CLASS_PREFIX[def?.instrument_class ?? ""] ?? item.id.split("-")[1] ?? "inst", taken);
     const done = await applyOps([{ op: "add_instrument", name, model: item.id, ...pos }]);
     if (done) useWorkbench.getState().select({ kind: "instrument", id: name });
-    if (done && !at && placed) revealPlaced(name, placed);
+    if (done && !at && placed) revealPlaced(name);
   } else {
     name = suggestName(TYPE_PREFIX[item.id] ?? item.id, taken);
     const done = await applyOps([{ op: "add_part", name, type: item.id, dut: false, ...pos }]);
     if (done) useWorkbench.getState().select({ kind: "part", id: name });
-    if (done && !at && placed) revealPlaced(name, placed);
+    if (done && !at && placed) revealPlaced(name);
   }
   return name;
 }

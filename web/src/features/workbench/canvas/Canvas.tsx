@@ -50,6 +50,8 @@ let nodeRects: (() => Rect[]) | null = null;
 let centerOn: ((p: Point) => void) | null = null;
 // A node's box once the canvas has measured it, or null before.
 let nodeBox: ((id: string) => Rect | null) | null = null;
+// Whether a box (flow coordinates) lies wholly inside the canvas on screen.
+let inView: ((box: Rect) => boolean) | null = null;
 
 /** A spot for a new node near `preferred` that covers no node of the bench (#1258). */
 export function placeNew(preferred: Point): Point {
@@ -62,29 +64,22 @@ export function placeNew(preferred: Point): Point {
 }
 
 /**
- * Move the view to the node just added (`id`), placed at `at`: once the canvas has drawn and measured
- * it (the bench file's update and the inspector opening beside it land a moment later, and both move
- * where its middle is), the view centres on its box at the current zoom. Until then, and if it never
- * shows, the estimated box at `at` is used.
+ * Bring the node just added (`id`) into view, when it is not in view already (#1258): once the
+ * canvas has drawn and measured it and the inspector that opens for the selection has taken its
+ * width (a few hundred ms), the view is centred on it at the current zoom — only if part of it lies
+ * outside the canvas, so a node placed in sight never moves the view under the user's next action.
  */
-export function revealPlaced(id: string, at: Point): void {
-  const rects = nodeRects?.() ?? [];
-  const width = rects.length ? Math.max(...rects.map((r) => r.width)) : 240;
-  const height = rects.length ? Math.max(...rects.map((r) => r.height)) : 140;
-  centerOn?.({ x: at.x + width / 2, y: at.y + height / 2 });
+export function revealPlaced(id: string): void {
   let tries = 0;
   const settle = () => {
     const box = nodeBox?.(id);
-    if (box) {
-      // Twice: the inspector that opens for the selection narrows the canvas after the first frame.
-      centerOn?.({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
-      window.setTimeout(() => {
-        const again = nodeBox?.(id);
-        if (again) centerOn?.({ x: again.x + again.width / 2, y: again.y + again.height / 2 });
-      }, 300);
-    } else if (tries++ < 40) window.setTimeout(settle, 25);
+    if (!box) {
+      if (tries++ < 40) window.setTimeout(settle, 25);
+      return;
+    }
+    if (!inView?.(box)) centerOn?.({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
   };
-  window.setTimeout(settle, 0);
+  window.setTimeout(settle, 300);
 }
 
 export interface CanvasProps {
@@ -289,6 +284,13 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
         height: n.measured?.height ?? n.height ?? 140,
       }));
     centerOn = (p) => void flow.setCenter(p.x, p.y, { zoom: flow.getZoom(), duration: 200 });
+    inView = (box) => {
+      const pane = document.querySelector(".react-flow")?.getBoundingClientRect();
+      if (!pane) return true;
+      const tl = flow.flowToScreenPosition({ x: box.x, y: box.y });
+      const br = flow.flowToScreenPosition({ x: box.x + box.width, y: box.y + box.height });
+      return tl.x >= pane.left && tl.y >= pane.top && br.x <= pane.right && br.y <= pane.bottom;
+    };
     nodeBox = (id) => {
       const n = flow.getNode(id);
       const width = n?.measured?.width;
@@ -300,6 +302,7 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
       nodeRects = null;
       centerOn = null;
       nodeBox = null;
+      inView = null;
     };
   }, [flow]);
 
