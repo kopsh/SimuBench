@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { api, unwrap } from "@/api/client";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { mcpSnippets } from "./mcpConnect";
+import { mcpSnippets } from "./mcpSnippets";
 
 function CopyBlock({ label, value }: { label: string; value: string }) {
   const { t } = useTranslation();
