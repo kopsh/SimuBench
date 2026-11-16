@@ -2927,6 +2927,8 @@ export interface components {
         };
         /** Health */
         Health: {
+            /** Mcp Url */
+            mcp_url: string | null;
             /**
              * Status
              * @default ok

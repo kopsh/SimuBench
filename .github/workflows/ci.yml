@@ -140,6 +140,32 @@ jobs:
         run: |
           test -s dist/CHANGELOG.md
           cd /tmp && /tmp/wheel-env/bin/simubench changelog | cmp - "$GITHUB_WORKSPACE/dist/CHANGELOG.md"
+      - name: The portable Windows bundle builds on Linux (#1188)
+        run: ./scripts/build-windows.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-bundle
+          path: dist/SimuBench-*-win64.zip
+          retention-days: 7
+
+  windows-bundle:
+    # The double-click start on a real Windows: SimuBench.exe serves the UI and MCP, no Python installed.
+    name: Windows bundle starts (SimuBench.exe)
+    if: github.ref == 'refs/heads/main'
+    needs: [package]
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-bundle
+          path: bundle
+      - name: Unzip, then doctor, the UI and MCP on one port, a second start
+        shell: pwsh
+        run: |
+          Expand-Archive -Path (Get-ChildItem bundle/*.zip).FullName -DestinationPath "$env:RUNNER_TEMP/sb"
+          $app = (Get-ChildItem "$env:RUNNER_TEMP/sb" -Directory)[0].FullName
+          python scripts/smoke_windows_bundle.py $app --ui
 
   tui:
     # Gates pull requests (#858): a changed TUI snapshot baseline or screen is checked before the
@@ -291,7 +317,7 @@ jobs:
     # re-run of a failed job runs this job again.
     name: Main status
     if: always() && github.ref == 'refs/heads/main'
-    needs: [python, python311, web, package, slow, e2e, visual, rehearsal]
+    needs: [python, python311, web, package, windows-bundle, slow, e2e, visual, rehearsal]
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -303,7 +329,7 @@ jobs:
           RESULTS="${{ join(needs.*.result, ' ') }}"
           # Green is every real job passing; the rehearsal job is skipped in a normal run. A job
           # that was skipped because one it needs failed is not green either.
-          REAL="${{ needs.python.result }} ${{ needs.python311.result }} ${{ needs.web.result }} ${{ needs.package.result }} ${{ needs.slow.result }} ${{ needs.e2e.result }}"
+          REAL="${{ needs.python.result }} ${{ needs.python311.result }} ${{ needs.web.result }} ${{ needs.package.result }} ${{ needs['windows-bundle'].result }} ${{ needs.slow.result }} ${{ needs.e2e.result }}"
           case " $RESULTS " in
             *" failure "*) STATE=red ;;
             *" cancelled "*) exit 0 ;;
