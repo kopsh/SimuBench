@@ -89,7 +89,7 @@ def _ui_url(port: int, token: str | None) -> str:
 
 
 def _mcp_url(port: int) -> str:
-    from .server.app import MCP_PATH
+    from .server import MCP_PATH
 
     return f"http://127.0.0.1:{port}{MCP_PATH}"
 
