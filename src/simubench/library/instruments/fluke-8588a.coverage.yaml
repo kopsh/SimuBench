@@ -54,7 +54,7 @@ sections:
       1、DEL 0、DEL:AUTO OFF。ARM 层固定为 IMMediate、计数 1（未实现）。
   - header: :CONFigure:VOLTage:AC
     level: implemented
-    note: 同直流电压；交流通路 1 MΩ、RMS 滤波按 VOLT:AC:FILTer。
+    note: 同直流电压；交流通路 1 MΩ、RMS 滤波按 VOLT:AC:FILTer；高频按二阶滚降衰减（−3 dB 于 13 MHz，估计，#1255）。
   - header: :CONFigure:CURRent[:DC]
     level: implemented
     note: 选直流电流；输入并入规格书的输入阻抗（10 µA 量程 100 Ω … 30 A 量程 10 mΩ），读数由电路求解。分辨率 DEF 1E-6。

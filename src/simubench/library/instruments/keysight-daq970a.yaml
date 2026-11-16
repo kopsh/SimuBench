@@ -243,6 +243,10 @@ components:
       autorange: $sense.range_auto
       autorange_up: 1.2
       autorange_down: 0.1
+      # 高频响应（#1255）：手册的交流电压频率范围 3 Hz–300 kHz；300 kHz 以上不给指标。模型为二阶滚降、
+      # −3 dB 于 600 kHz（估计，D46）：300 kHz 处读数低 3%，1 MHz 处低约 66%。
+      ac_high: 6.0e5
+      ac_high_order: 2
   # A/D：8 位尾数；分辨率按 [SENSe:]VOLTage[:DC]:NPLCycles 的表（× 量程）；读数时间 = NPLC × 20 ms（50 Hz）
   # 加 1 ms 的模型值。
   - name: meter
