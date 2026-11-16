@@ -533,6 +533,9 @@ state:
     label: 波形字节序
     label_en: Waveform byte order
   # 流式传输：ON 时 :WAVeform:DATA? 回 #0 不定长块（手册 Streaming On）；默认 OFF 为 SimuBench 值。
+  # 自动设置（:AUToscale）：搜索全部通道或只搜已显示的；波形的摆放。上电值手册未给，SimuBench 取 ALL 与 OVERlay。
+  autoscale.channels: {type: enum, options: [ALL, DISPlayed], default: ALL, keep_on_reset: true, label: 自动设置的通道, label_en: Autoscale channels}
+  autoscale.placement: {type: enum, options: [STACk, SEParate, OVERlay], default: OVERlay, keep_on_reset: true, label: 自动设置的摆放, label_en: Autoscale placement}
   waveform.streaming:
     type: bool
     default: false
@@ -1570,6 +1573,14 @@ components:
     type: input_port
     params:
       z_in: 50.0
+  # 自动设置（:AUToscale，手册 pp. 295-298）：与 UXR1104B 相同（scope_autoscale）。
+  - name: autoscale
+    type: scope_autoscale
+    params:
+      channels: $autoscale.channels
+      placement: $autoscale.placement
+      trigger_order: DESCending
+      writes: {trigger.mode: EDGE, trigger.sweep: AUTO, trigger.slope: POSitive, trigger.hysteresis: NORMal, trigger.holdoff: 1.0e-7, marker.mode: MEASurement, function1.display: false, function2.display: false, function3.display: false, function4.display: false, function5.display: false, function6.display: false, function7.display: false, function8.display: false, function9.display: false, function10.display: false, function11.display: false, function12.display: false, function13.display: false, function14.display: false, function15.display: false, function16.display: false}
   - name: meas
     type: scope_measurements
     params:
@@ -1739,6 +1750,10 @@ commands:
   - {header: ":ADER", op: ader.event, set: false}
   - {header: ":PDER", op: pder.event, set: false}
   - {header: ":ATER", op: ater.event, set: false}
+  - {header: ":AUToscale", op: autoscale.autoscale, query: false}
+  - {header: ":AUToscale:CHANnels", state: autoscale.channels}
+  - {header: ":AUToscale:PLACement", state: autoscale.placement}
+  - {header: ":AUToscale:VERTical", op: autoscale.vertical, query: false, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], not_modeled: {DIFF1: differential channels are not modeled, DIFF2: differential channels are not modeled, COMMonmode3: common-mode channels are not modeled, COMMonmode4: common-mode channels are not modeled}}]}
   - {header: ":ASTate", op: acq.status, set: false}
   - {header: ":RSTate", op: acq.run_state, set: false}
   - {header: ":OPEEnable", state: status.opee}

@@ -3523,8 +3523,14 @@ class ScopeMeasurements(Component):
             return int(m)
         bound = self.param("source")
         if bound not in (None, ""):
-            return self._channel(None, str(bound))
+            return self._key(bound)
         return channel or 1
+
+    @staticmethod
+    def _key(word: Any) -> int:
+        """A setting's source word as a source key (CHANnel2, CH2, C2 -> 2; FUNCtion3 -> -3)."""
+        f = function_index(word)
+        return -f if f is not None else channel_index(word)
 
     @staticmethod
     def _source_word(n: int) -> str:
@@ -3761,7 +3767,7 @@ class ScopeMeasurements(Component):
         if what == "DELTatime" and len(channels) == 1:
             channels = channels * 2
         if len(channels) < 2:
-            pair = [self._channel(None, str(self.owner.get_state(p))) for p in (self.param("sources") or [])]
+            pair = [self._key(self.owner.get_state(p)) for p in (self.param("sources") or [])]
             channels = (channels + pair[len(channels) :])[:2]
         if len(channels) < 2:
             raise ScpiError(-109, f"{what}? needs two sources")

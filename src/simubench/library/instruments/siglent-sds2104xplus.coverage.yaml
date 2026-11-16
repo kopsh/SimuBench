@@ -20,9 +20,8 @@ sections:
   commands:
   - header: :AUToset
     level: not_modeled
-    note: 等能力:自动设置(按输入信号定标,#1080)。
-    gap: blocked
-    blocked_by: autoscale
+    note: 可做:平台已有自动设置组件 scope_autoscale(UXR 型号已接入),本型号尚未接上。
+    gap: model_work
   - header: :PRINt
     level: not_modeled
     note: 等能力:截图/硬拷贝(#1072)。

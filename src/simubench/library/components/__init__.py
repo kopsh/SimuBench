@@ -21,6 +21,7 @@ from . import (  # noqa: F401
     rfgen,
     sampling,
     scope,
+    scope_autoscale,
     scope_math,
     setups,
     siglent_sdg,

@@ -81,25 +81,28 @@ sections:
     level: implemented
     note: set by an acquisition an AUTO sweep took without its trigger; read and cleared by the query
   - header: :AUToscale
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: scope_autoscale. Searches the channels (all, or the displayed ones), turns off those without a waveform
+      (their settings kept), sets each found channel's scale (its spread over at most 6 divisions, 1-2-5) and
+      offset (centred), the timebase for 3 periods of the lowest-numbered found channel's fundamental, an edge
+      trigger on the first triggerable channel from CH4 down at its waveform's middle, AUTO sweep, positive
+      slope, normal hysteresis, minimum holdoff, marker mode MEASurement, auto memory depth and sample rate,
+      and turns the functions off; nothing found leaves every setting as it was. The fill, the periods and
+      the presence threshold (3 noise rms, from the data sheet's noise table) are SimuBench values; the
+      acquisition completion criterion, windows, memories and InfiniiSim autoscale also resets are not
+      modeled, measurements on channels it turns off stay listed.
   - header: :AUToscale:CHANnels
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: ALL or DISPlayed; kept by Default Setup (a user preference); power-on ALL (SimuBench value).
   - header: :AUToscale:PLACement
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: STACk gives each found waveform its own band of the screen, top to bottom in channel order;
+      OVERlay and SEParate (each grid the whole range) the whole screen. Kept by Default Setup; power-on
+      OVERlay (SimuBench value).
   - header: :AUToscale:VERTical
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): autoscale (settings derived from the input signal).'
-    gap: blocked
-    blocked_by: autoscale
+    level: implemented
+    note: CHANnel<N>'s scale and offset as :AUToscale sets them, nothing else; no waveform leaves them.
+      DIFF<D> and COMMonmode<C> (differential pairs) are not modeled (-224).
   - header: :BEEP
     level: accepted
     note: Frequency (Hz) and duration (ms) are checked and kept; the guide gives no range, SimuBench takes 0 to
