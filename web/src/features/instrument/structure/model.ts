@@ -400,16 +400,29 @@ export const ROW = 150;
 /** Where the instrument's components start below the channel band. */
 export const BAND_GAP = 80;
 
-/** A column for every component from the signal wires (left to right, a source in column 0; a
- * wire that loops back does not push), then one row per column entry; the channel components in a
- * band on top. A position the user dragged to wins. */
-export function autoLayout(s: Structure, saved: Record<string, Point> = {}): Record<string, Point> {
+/** A column for every component on a signal chain, from its wires (left to right, a source in
+ * column 0; a wire that loops back does not push), one row per column entry. The components on
+ * no chain (a calibration store, a trigger model, a reading buffer) go in a grid below the chains,
+ * wrapped to the canvas width, each one followed by the components it refers to (#1212). The
+ * channel components lie in a band on top. A position the user dragged to wins. */
+export function autoLayout(
+  s: Structure,
+  saved: Record<string, Point> = {},
+  docs: ReadonlyMap<string, ComponentDoc> = new Map(),
+): Record<string, Point> {
+  const out: Record<string, Point> = {};
   const ids = [
     ...s.channel_components.map((c) => nodeId("channel", c.name)),
     ...s.components.map((c) => nodeId("instrument", c.name)),
   ];
   const into = new Map<string, string[]>(ids.map((id) => [id, []]));
-  for (const w of wiresOf(s)) into.get(nodeId(w.to.scope, w.to.name))?.push(nodeId(w.from.scope, w.from.name));
+  const chained = new Set<string>();
+  for (const w of wiresOf(s)) {
+    const a = nodeId(w.from.scope, w.from.name);
+    const b = nodeId(w.to.scope, w.to.name);
+    into.get(b)?.push(a);
+    chained.add(a).add(b);
+  }
   const col = new Map<string, number>();
   const visiting = new Set<string>();
   const depth = (id: string): number => {
@@ -423,19 +436,93 @@ export function autoLayout(s: Structure, saved: Record<string, Point> = {}): Rec
     return d;
   };
   ids.forEach(depth);
-  const out: Record<string, Point> = {};
-  const rows = new Map<string, number>();
-  const place = (id: string, top: number) => {
-    const c = col.get(id) ?? 0;
-    const key = `${top}:${c}`;
-    const r = rows.get(key) ?? 0;
-    rows.set(key, r + 1);
-    out[id] = saved[id] ?? { x: c * COLUMN, y: top + r * ROW };
+  const place = (scope: Scope, top: number): number => {
+    const own = listOf(s, scope).map((c) => nodeId(scope, c.name));
+    const rows = new Map<number, number>();
+    for (const id of own.filter((i) => chained.has(i))) {
+      const c = col.get(id) ?? 0;
+      const r = rows.get(c) ?? 0;
+      rows.set(c, r + 1);
+      out[id] = saved[id] ?? { x: c * COLUMN, y: top + r * ROW };
+    }
+    const chainRows = Math.max(0, ...rows.values());
+    const loose = looseOrder(s, scope, own.filter((i) => !chained.has(i)), docs);
+    const columns = Math.max(0, ...[...chained].map((i) => (col.get(i) ?? 0) + 1));
+    const width = Math.max(columns, Math.ceil(Math.sqrt(loose.length * 2)), Math.min(loose.length, 3), 1);
+    const below = top + (chainRows ? chainRows * ROW + LOOSE_GAP : 0);
+    loose.forEach((id, i) => {
+      out[id] = saved[id] ?? { x: (i % width) * COLUMN, y: below + Math.floor(i / width) * ROW };
+    });
+    const looseRows = Math.ceil(loose.length / width);
+    return looseRows ? below + looseRows * ROW : top + Math.max(chainRows, 1) * ROW;
   };
-  s.channel_components.forEach((c) => place(nodeId("channel", c.name), 0));
-  const top = Math.max(1, ...[...rows.values()]) * ROW + BAND_GAP;
-  s.components.forEach((c) => place(nodeId("instrument", c.name), top));
+  const band = place("channel", 0);
+  place("instrument", s.channel_components.length ? band + BAND_GAP : 0);
   return out;
+}
+
+/** The components on no chain, in definition order, each followed by those it refers to that
+ * are on no chain either, so a reference is drawn between neighbours. */
+function looseOrder(s: Structure, scope: Scope, loose: string[], docs: ReadonlyMap<string, ComponentDoc>): string[] {
+  const pending = new Set(loose);
+  const order: string[] = [];
+  const targets = new Map<string, string[]>();
+  for (const r of refLinks(s, docs)) targets.set(r.from, [...(targets.get(r.from) ?? []), r.to]);
+  const visit = (id: string) => {
+    if (!pending.has(id)) return;
+    pending.delete(id);
+    order.push(id);
+    for (const to of targets.get(id) ?? []) if (to.startsWith(scope === "instrument" ? "i:" : "c:")) visit(to);
+  };
+  loose.forEach(visit);
+  return order;
+}
+
+/** The gap between the signal chains and the grid of the other components. */
+export const LOOSE_GAP = 40;
+
+// ---- what the canvas draws besides the signal wires (#1212) ----------------------------------
+
+/** A reference from one component to another: a `refs` parameter naming it (`store: cal`). */
+export interface RefLink {
+  from: string;
+  to: string;
+  param: string;
+}
+
+/** Every reference whose target exists, as node ids. */
+export function refLinks(s: Structure, docs: ReadonlyMap<string, ComponentDoc>): RefLink[] {
+  const out: RefLink[] = [];
+  for (const scope of ["instrument", "channel"] as const) {
+    for (const c of listOf(s, scope)) {
+      for (const r of docs.get(c.type)?.refs ?? []) {
+        const v = (c.params ?? {})[r.param];
+        if (typeof v !== "string" || !listOf(s, r.scope).some((x) => x.name === v)) continue;
+        if (r.scope === scope && v === c.name) continue;
+        out.push({ from: nodeId(scope, c.name), to: nodeId(r.scope, v), param: r.param });
+      }
+    }
+  }
+  return out;
+}
+
+/** The settings a component follows, one per setting, with the parameters that follow it. */
+export function followedSettings(c: StructureComponent): { setting: string; params: string[] }[] {
+  const by = new Map<string, string[]>();
+  for (const [k, v] of Object.entries(c.params ?? {})) {
+    const setting = boundSetting(v);
+    if (setting) by.set(setting, [...(by.get(setting) ?? []), k]);
+  }
+  return [...by].map(([setting, params]) => ({ setting, params }));
+}
+
+/** The components (node ids) with a parameter that follows the setting at `path`. */
+export function followers(s: Structure, path: string): string[] {
+  const of = (scope: Scope) =>
+    listOf(s, scope)
+      .filter((c) => Object.values(c.params ?? {}).some((v) => boundSetting(v) === path))
+      .map((c) => nodeId(scope, c.name));
+  return [...of("channel"), ...of("instrument")];
 }
 
 /** The band the channel components are drawn in: a box around them with room to drop more. */

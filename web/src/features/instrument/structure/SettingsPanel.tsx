@@ -28,6 +28,7 @@ import {
   removeCommand,
   removeSetting,
   settingName,
+  settingPath,
   settingUses,
   updateCommand,
   updateSetting,
@@ -38,12 +39,32 @@ type Change = (next: Structure | null) => boolean;
 // ---- settings ----------------------------------------------------------------------------------
 
 /** The settings of the instrument and of every channel (#1206): add, edit the common fields, delete. */
-export function SettingsPanel({ structure, editable, onChange }: { structure: Structure; editable: boolean; onChange: Change }) {
+export function SettingsPanel({
+  structure,
+  editable,
+  onChange,
+  onFocus,
+}: {
+  structure: Structure;
+  editable: boolean;
+  onChange: Change;
+  /** The setting pointed at (hovered, else open): the canvas lights what follows it (#1212). */
+  onFocus?: (setting: string | null) => void;
+}) {
   const { t } = useTranslation();
   const [name, setName] = useState("");
   const [scope, setScope] = useState<Scope>("instrument");
   const [type, setType] = useState<SettingType>("float");
   const [open, setOpen] = useState<string | null>(null);
+  const pathOf = (key: string | null) => {
+    if (!key) return null;
+    const [sc, ...rest] = key.split(":");
+    return settingPath(sc as Scope, rest.join(":"));
+  };
+  const toggle = (key: string, expanded: boolean) => {
+    setOpen(expanded ? null : key);
+    onFocus?.(expanded ? null : pathOf(key));
+  };
   const rows = (["instrument", "channel"] as const).flatMap((sc) =>
     Object.entries(sc === "instrument" ? structure.state : structure.channel_state).map(([n, spec]) => ({ scope: sc, name: n, spec })),
   );
@@ -66,12 +87,18 @@ export function SettingsPanel({ structure, editable, onChange }: { structure: St
           const key = `${r.scope}:${r.name}`;
           const expanded = open === key;
           return (
-            <li key={key} className="rounded-md border" data-testid={`build-setting-${r.name}`}>
+            <li
+              key={key}
+              className="rounded-md border"
+              data-testid={`build-setting-${r.name}`}
+              onMouseEnter={() => onFocus?.(pathOf(key))}
+              onMouseLeave={() => onFocus?.(pathOf(open))}
+            >
               <button
                 type="button"
                 className="hover:bg-accent/50 flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left"
                 aria-expanded={expanded}
-                onClick={() => setOpen(expanded ? null : key)}
+                onClick={() => toggle(key, expanded)}
               >
                 {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
                 <span className="num truncate font-medium">{r.scope === "channel" ? `ch.${r.name}` : r.name}</span>

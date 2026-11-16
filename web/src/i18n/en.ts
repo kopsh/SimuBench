@@ -895,6 +895,8 @@ export const en: Widen<Messages> = {
       dragHint: "Drag onto the canvas to add; dropped in the per-channel band, it is a channel component",
       noMatch: "No matching component",
       band: "Per channel ({{count}} channels, one copy each)",
+      followsTitle: "{{params}} follow the setting {{setting}}",
+      followsMore: "{{count}} more settings",
       bandEmpty: "Drop components here: one copy per channel",
       saved: "Saved",
       saving: "Saving…",

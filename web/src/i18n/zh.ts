@@ -884,6 +884,8 @@ export const zh = {
       dragHint: "拖到画布上添加；放进“每通道”区域的是通道组件",
       noMatch: "没有匹配的组件",
       band: "每通道（{{count}} 个通道，每个通道一份）",
+      followsTitle: "参数 {{params}} 跟随设置 {{setting}}",
+      followsMore: "另有 {{count}} 项设置",
       bandEmpty: "把组件拖到这里：每个通道一份",
       saved: "已保存",
       saving: "保存中…",

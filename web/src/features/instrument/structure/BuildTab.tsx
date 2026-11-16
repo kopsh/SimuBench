@@ -15,7 +15,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertTriangle, Check, GripVertical, LayoutGrid, Link2, Loader2, Plus, Redo2, Search, Terminal, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, Check, GripVertical, SlidersHorizontal, LayoutGrid, Link2, Loader2, Plus, Redo2, Search, Terminal, Trash2, Undo2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -55,11 +55,16 @@ import {
   type Structure,
   type StructureComponent,
   addComponent,
+  BAND_GAP,
+  ROW,
   autoLayout,
   canWire,
   channelBand,
   connect,
   diagnosticNode,
+  followedSettings,
+  followers,
+  refLinks,
   inBand,
   literalText,
   nodeId,
@@ -89,6 +94,25 @@ const NODE_WIDTH = 220;
 const HEAD = 44;
 const PORT_ROW = 22;
 const BAND_ID = "band";
+const FOLLOW_ROW = 18;
+/** At most this many followed settings on a node; the rest as "+n more". */
+const FOLLOW_ROWS = 3;
+/** The sides a reference line can leave and enter a node by, picked from where the two are. */
+const SIDES = [
+  ["top", Position.Top],
+  ["bottom", Position.Bottom],
+  ["left", Position.Left],
+  ["right", Position.Right],
+] as const;
+
+/** A reference line runs side to side between neighbours in a row, else bottom to top. */
+function refSides(from: Point | undefined, to: Point | undefined): [string, string] {
+  if (!from || !to) return ["bottom", "top"];
+  if (Math.abs(to.y - from.y) < ROW * 0.6) return to.x >= from.x ? ["right", "left"] : ["left", "right"];
+  return to.y > from.y ? ["bottom", "top"] : ["top", "bottom"];
+}
+/** The smallest zoom the canvas opens at: node text stays about 11px or more. */
+const MIN_READABLE = 0.85;
 
 // ---- the positions, beside the definition in the workspace (#1207) ---------------------------
 
@@ -220,6 +244,11 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
   const docs = useMemo(() => new Map((components.data ?? []).map((c) => [c.type, c])), [components.data]);
   const [selected, setSelected] = useState<string | null>(null);
   const [trying, setTrying] = useState(false);
+  // A setting the side panel points at (hovered or open): the canvas lights the components that
+  // follow it (#1212).
+  const [focus, setFocus] = useState<string | null>(null);
+  // A component type being dragged from the library: the per-channel drop zone shows meanwhile.
+  const [dragging, setDragging] = useState(false);
   const editable = !!structure.data?.editable && status !== "reconnecting" && status !== "gone";
   const layout = useLayout(definitionId, !!structure.data?.editable);
   const { undo: undoStep, redo: redoStep } = build;
@@ -276,7 +305,7 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
         onTry={tryPanel ? () => setTrying((v) => !v) : undefined}
       />
       <div className="flex min-h-0 flex-1">
-        {editable && <Library docs={components.data ?? []} />}
+        {editable && <Library docs={components.data ?? []} onDrag={setDragging} />}
         <div className="relative min-w-0 flex-1">
           <ReactFlowProvider>
             <BuildCanvas
@@ -291,6 +320,8 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
               onChange={apply}
               selected={selected}
               onSelect={setSelected}
+              focus={focus}
+              dragging={dragging}
             />
           </ReactFlowProvider>
         </div>
@@ -302,6 +333,7 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
             selected={selected}
             onSelect={setSelected}
             onChange={apply}
+            onFocus={setFocus}
             onRename={(from, to) => {
               if (layout.positions[from]) layout.update(renameInLayout(layout.positions, from, to));
               setSelected(to);
@@ -438,7 +470,7 @@ function firstLine(doc: string | null | undefined): string {
   return (doc ?? "").split("\n\n")[0].replace(/\s+/g, " ").trim();
 }
 
-function Library({ docs }: { docs: ComponentDoc[] }) {
+function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: boolean) => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const q = query.trim().toLowerCase();
@@ -475,7 +507,9 @@ function Library({ docs }: { docs: ComponentDoc[] }) {
             onDragStart={(e) => {
               e.dataTransfer.setData(BUILD_MIME, d.type);
               e.dataTransfer.effectAllowed = "copy";
+              onDrag(true);
             }}
+            onDragEnd={() => onDrag(false)}
             title={firstLine(d.doc)}
             data-testid={`build-library-${d.type}`}
             className="bg-card hover:border-primary/50 flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 active:cursor-grabbing"
@@ -502,6 +536,10 @@ interface CompData extends Record<string, unknown> {
   panel: string[];
   problem: boolean;
   editable: boolean;
+  /** The settings it follows (#1212), and whether the one the side panel points at is among them. */
+  follows: { setting: string; params: string[] }[];
+  lit: boolean;
+  dim: boolean;
 }
 
 interface BandData extends Record<string, unknown> {
@@ -512,20 +550,26 @@ interface BandData extends Record<string, unknown> {
 
 function CompNode({ data, selected }: NodeProps<Node<CompData>>) {
   const { t } = useTranslation();
-  const { comp, scope, rows, panel, problem, editable } = data;
+  const { comp, scope, rows, panel, problem, editable, follows, lit, dim } = data;
   const left = rows.filter((r) => r.direction !== "out");
   const right = rows.filter((r) => r.direction === "out");
-  const height = HEAD + Math.max(left.length, right.length, 1) * PORT_ROW + (panel.length ? PORT_ROW : 0) + 6;
+  const portRows = Math.max(left.length, right.length, 1);
+  const shown = follows.slice(0, FOLLOW_ROWS);
+  const height = HEAD + portRows * PORT_ROW + (panel.length ? PORT_ROW : 0) + (follows.length ? FOLLOW_ROW * Math.min(follows.length, FOLLOW_ROWS + 1) + 4 : 0) + 6;
   return (
     <div
       className={cn(
         "bg-card text-card-foreground relative rounded-lg border shadow-sm",
         selected && "ring-primary ring-2 shadow-md",
+        lit && !selected && "ring-sim ring-2 shadow-md",
+        dim && "opacity-45",
         problem && "border-error",
       )}
       style={{ width: NODE_WIDTH, height }}
       data-testid="build-component"
       data-name={comp.name}
+      data-lit={lit || undefined}
+      data-dim={dim || undefined}
     >
       {scope === "channel" && <div className="bg-primary/60 absolute inset-y-0 left-0 w-1 rounded-l-lg" aria-hidden />}
       <div className="flex items-start gap-1 border-b px-3 py-1.5" style={{ height: HEAD }}>
@@ -549,6 +593,37 @@ function CompNode({ data, selected }: NodeProps<Node<CompData>>) {
           ⊡ {panel.join(", ")}
         </div>
       )}
+      {follows.length > 0 && (
+        <ul
+          className="absolute inset-x-0 space-y-0 border-t border-dashed px-3 pt-1"
+          style={{ top: HEAD + portRows * PORT_ROW + (panel.length ? PORT_ROW : 0) }}
+          data-testid="build-follows"
+        >
+          {shown.map((f) => (
+            <li
+              key={f.setting}
+              className="text-sim num flex items-center gap-1 truncate text-[11px]"
+              style={{ height: FOLLOW_ROW }}
+              title={t("acceptance.build.followsTitle", { setting: f.setting, params: f.params.join(", ") })}
+            >
+              <SlidersHorizontal className="size-3 shrink-0" aria-hidden />
+              <span className="truncate">{f.setting}</span>
+            </li>
+          ))}
+          {follows.length > FOLLOW_ROWS && (
+            <li className="text-muted-foreground text-[11px]" style={{ height: FOLLOW_ROW }}>
+              {t("acceptance.build.followsMore", { count: follows.length - FOLLOW_ROWS })}
+            </li>
+          )}
+        </ul>
+      )}
+      {/* where a reference line starts and ends (#1212); not for wiring by hand */}
+      {SIDES.map(([side, position]) => (
+        <span key={side}>
+          <Handle id={`ref-s-${side}`} type="source" position={position} isConnectable={false} className="!pointer-events-none !opacity-0" />
+          <Handle id={`ref-t-${side}`} type="target" position={position} isConnectable={false} className="!pointer-events-none !opacity-0" />
+        </span>
+      ))}
     </div>
   );
 }
@@ -607,6 +682,8 @@ function BuildCanvas({
   onChange,
   selected,
   onSelect,
+  focus,
+  dragging,
 }: {
   definitionId: string;
   saved: Record<string, Point>;
@@ -619,11 +696,13 @@ function BuildCanvas({
   onChange: (next: Structure | null) => boolean;
   selected: string | null;
   onSelect: (id: string | null) => void;
+  focus: string | null;
+  dragging: boolean;
 }) {
   const { t } = useTranslation();
   const flow = useReactFlow();
   const theme = useTheme((s) => s.resolved);
-  const positions = useMemo(() => autoLayout(structure, saved), [structure, saved]);
+  const positions = useMemo(() => autoLayout(structure, saved, docs), [structure, saved, docs]);
   const band = useMemo(() => channelBand(positions, structure, NODE_WIDTH), [positions, structure]);
   const problems = useMemo(
     () => new Set(diagnostics.filter((d) => d.severity === "error").map((d) => diagnosticNode(structure, d.pointer))),
@@ -633,6 +712,9 @@ function BuildCanvas({
     (scope: Scope, c: StructureComponent) => portsOf(structure, scope, c.name, docs.get(c.type)),
     [structure, docs],
   );
+
+  const lit = useMemo(() => (focus ? new Set(followers(structure, focus)) : null), [focus, structure]);
+  const hasBand = structure.channel_components.length > 0;
 
   const built = useMemo<Node[]>(() => {
     const panelOf = (scope: Scope, name: string) =>
@@ -646,10 +728,23 @@ function BuildCanvas({
         type: "comp",
         position: positions[id],
         selected: selected === id,
-        data: { comp: c, scope, rows: rowsOf(scope, c), panel: panelOf(scope, c.name), problem: problems.has(id), editable },
+        data: {
+          comp: c,
+          scope,
+          rows: rowsOf(scope, c),
+          panel: panelOf(scope, c.name),
+          problem: problems.has(id),
+          editable,
+          follows: followedSettings(c),
+          lit: !!lit?.has(id),
+          dim: !!lit && lit.size > 0 && !lit.has(id),
+        },
       };
     };
-    return [
+    // The per-channel band holds the channel components; an instrument without any shows none (a
+    // drop zone appears while a component is dragged, #1212).
+    const bandNode: Node<BandData>[] = hasBand
+      ? [
       {
         id: BAND_ID,
         type: "band",
@@ -661,15 +756,13 @@ function BuildCanvas({
         data: {
           w: band.w,
           h: band.h,
-          label: structure.channel_components.length
-            ? t("acceptance.build.band", { count: channels })
-            : t("acceptance.build.bandEmpty"),
+          label: t("acceptance.build.band", { count: channels }),
         },
-      } satisfies Node<BandData>,
-      ...structure.channel_components.map(comp("channel")),
-      ...structure.components.map(comp("instrument")),
-    ];
-  }, [structure, positions, band, rowsOf, problems, editable, selected, channels, t]);
+      },
+        ]
+      : [];
+    return [...bandNode, ...structure.channel_components.map(comp("channel")), ...structure.components.map(comp("instrument"))];
+  }, [structure, positions, band, rowsOf, problems, editable, selected, channels, t, lit, hasBand]);
 
   const [nodes, setNodes] = useState<Node[]>(built);
   const [prevBuilt, setPrevBuilt] = useState(built);
@@ -685,8 +778,8 @@ function BuildCanvas({
   }
 
   const edges = useMemo<Edge[]>(
-    () =>
-      wiresOf(structure).map((w) => {
+    () => [
+      ...wiresOf(structure).map((w): Edge => {
         const id = `w:${w.list}:${w.index}`;
         return {
           id,
@@ -699,7 +792,28 @@ function BuildCanvas({
           style: { strokeWidth: selected === id ? 2.5 : 1.5, stroke: selected === id ? "var(--primary)" : "var(--muted-foreground)" },
         };
       }),
-    [structure, selected, editable],
+      // A reference (`store: cal`) as a dashed line with the parameter's name (#1212): shown, not
+      // edited here — the parameter in the side panel changes it.
+      ...refLinks(structure, docs).map((r): Edge => {
+        const [out, into] = refSides(positions[r.from], positions[r.to]);
+        return {
+          id: `ref|${r.from}|${r.param}`,
+          source: r.from,
+          sourceHandle: `ref-s-${out}`,
+          target: r.to,
+          targetHandle: `ref-t-${into}`,
+          selectable: false,
+          deletable: false,
+          focusable: false,
+          label: r.param,
+          labelStyle: { fontSize: 10, fill: "var(--muted-foreground)" },
+          labelBgStyle: { fill: "var(--background)" },
+          style: { strokeWidth: 1.2, stroke: "var(--muted-foreground)", strokeDasharray: "4 3", opacity: 0.8 },
+          className: "build-ref",
+        };
+      }),
+    ],
+    [structure, selected, editable, docs, positions],
   );
 
   const rowFor = (id: string | null, handle: string | null | undefined): PortRow | undefined => {
@@ -759,7 +873,7 @@ function BuildCanvas({
     if (!editable || !type) return;
     e.preventDefault();
     const at = flow.screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    const scope: Scope = inBand(at, band) ? "channel" : "instrument";
+    const scope: Scope = hasBand && inBand(at, band) ? "channel" : "instrument";
     const { structure: next, name } = addComponent(structure, type, scope);
     const id = nodeId(scope, name);
     const layout = { ...saved, [id]: { x: Math.round(at.x - NODE_WIDTH / 2), y: Math.round(at.y - HEAD / 2) } };
@@ -773,16 +887,34 @@ function BuildCanvas({
     // Readable at open, not complete (as the internals view, ui-design.md): text stays legible;
     // the fit-view control shows the whole when wanted.
     const id = window.setTimeout(async () => {
-      await flow.fitView({ padding: 0.12, minZoom: 0.72, maxZoom: 1, duration: 0 });
+      await flow.fitView({ padding: 0.08, minZoom: MIN_READABLE, maxZoom: 1, duration: 0 });
       const { zoom } = flow.getViewport();
-      if (zoom <= 0.72) {
+      if (zoom <= MIN_READABLE) {
         // too big to fit readably: start at the top left, where the channel band is
         const b = flow.getNodesBounds(flow.getNodes());
-        flow.setViewport({ x: 24 - b.x * 0.72, y: 24 - b.y * 0.72, zoom: 0.72 });
+        flow.setViewport({ x: 24 - b.x * MIN_READABLE, y: 24 - b.y * MIN_READABLE, zoom: MIN_READABLE });
       }
     }, 0);
     return () => window.clearTimeout(id);
   }, [flow, definitionId]);
+
+  // With no channel components yet, a strip on top of the canvas takes the first one while a
+  // component is dragged; it lands above everything, where the band will then be drawn.
+  const onDropChannel = (e: DragEvent) => {
+    const type = e.dataTransfer.getData(BUILD_MIME);
+    if (!editable || !type) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const { structure: next, name } = addComponent(structure, type, "channel");
+    const id = nodeId("channel", name);
+    const pts = Object.values(positions);
+    const top = pts.length ? Math.min(...pts.map((p) => p.y)) : 0;
+    const left = pts.length ? Math.min(...pts.map((p) => p.x)) : 0;
+    onLayout({ ...saved, [id]: { x: left, y: top - ROW - BAND_GAP } });
+    onChange(next);
+    onSelect(id);
+    toast.success(t("acceptance.build.added", { name }));
+  };
 
   const empty = !structure.components.length && !structure.channel_components.length;
   return (
@@ -798,7 +930,7 @@ function BuildCanvas({
           onLayout(layout);
         }}
         onNodeClick={(_, n) => onSelect(n.id === BAND_ID ? null : n.id)}
-        onEdgeClick={(_, e) => onSelect(e.id)}
+        onEdgeClick={(_, e) => e.id.startsWith("w:") && onSelect(e.id)}
         onPaneClick={() => onSelect(null)}
         onConnect={onConnect}
         isValidConnection={(c) => canWire(rowFor(c.source, c.sourceHandle), rowFor(c.target, c.targetHandle))}
@@ -826,6 +958,16 @@ function BuildCanvas({
         <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border)" />
         <Controls showInteractive={false} position="bottom-left" />
       </ReactFlow>
+      {editable && dragging && !hasBand && (
+        <div
+          className="border-primary/50 bg-primary/10 text-primary absolute inset-x-4 top-3 z-10 flex h-16 items-center justify-center rounded-xl border border-dashed text-xs font-medium"
+          onDragOver={onDragOver}
+          onDrop={onDropChannel}
+          data-testid="build-band-drop"
+        >
+          {t("acceptance.build.bandEmpty")}
+        </div>
+      )}
       {empty && (
         <p className="text-muted-foreground pointer-events-none absolute inset-x-0 bottom-16 text-center text-xs">
           {editable ? t("acceptance.build.empty") : ""}
@@ -845,6 +987,7 @@ function SidePanel({
   onSelect,
   onChange,
   onRename,
+  onFocus,
 }: {
   structure: Structure;
   docs: ReadonlyMap<string, ComponentDoc>;
@@ -853,6 +996,7 @@ function SidePanel({
   onSelect: (id: string | null) => void;
   onChange: (next: Structure | null) => boolean;
   onRename: (fromId: string, toId: string) => void;
+  onFocus: (setting: string | null) => void;
 }) {
   const { t } = useTranslation();
   const at = selected ? parseNodeId(selected) : null;
@@ -903,7 +1047,7 @@ function SidePanel({
       );
     }
   }
-  return <Overview structure={structure} docs={docs} editable={editable} onChange={onChange} />;
+  return <Overview structure={structure} docs={docs} editable={editable} onChange={onChange} onFocus={onFocus} />;
 }
 
 /** With nothing selected: the panel ports, the settings and the commands (#1206). */
@@ -912,15 +1056,19 @@ function Overview({
   docs,
   editable,
   onChange,
+  onFocus,
 }: {
   structure: Structure;
   docs: ReadonlyMap<string, ComponentDoc>;
   editable: boolean;
   onChange: (next: Structure | null) => boolean;
+  onFocus: (setting: string | null) => void;
 }) {
   const { t } = useTranslation();
+  // Leaving the settings page lets go of the setting it pointed at.
+  useEffect(() => () => onFocus(null), [onFocus]);
   return (
-    <Tabs defaultValue="ports" className="gap-0">
+    <Tabs defaultValue="ports" className="gap-0" onValueChange={(v) => v !== "settings" && onFocus(null)}>
       <div className="border-b px-2">
         <TabsList variant="line" className="h-9">
           <TabsTrigger value="ports" className="text-xs" data-testid="build-tab-ports">
@@ -938,7 +1086,7 @@ function Overview({
         <PanelPorts structure={structure} docs={docs} editable={editable} onChange={onChange} />
       </TabsContent>
       <TabsContent value="settings">
-        <SettingsPanel structure={structure} editable={editable} onChange={onChange} />
+        <SettingsPanel structure={structure} editable={editable} onChange={onChange} onFocus={onFocus} />
       </TabsContent>
       <TabsContent value="commands">
         <CommandsPanel structure={structure} docs={docs} editable={editable} onChange={onChange} />
