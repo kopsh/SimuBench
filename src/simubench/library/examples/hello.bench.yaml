@@ -1,8 +1,8 @@
 schema: simubench.bench/2
 name: hello
 description: >-
-  Hello World：Siglent SDG2042X 的两路输出同一个 1 MHz、1 Vpp 方波，CH1 接 Siglent SDS2104X Plus
-  示波器看时域，CH2 接 Keysight N9320B 频谱分析仪看频域（1、3、5、7 MHz 奇次谐波）。
+  Hello World：Siglent SDG2042X 的两路输出同一个 1 MHz、1 Vpp 方波，CH1 接 Keysight Infiniium UXR1104B
+  示波器（110 GHz、50 Ω 输入）看时域，CH2 接 Keysight N9320B 频谱分析仪看频域（1、3、5、7 MHz 奇次谐波）。
   脚本连接：pyvisa.ResourceManager("hello.bench.yaml@simubench")。
 instruments:
   awg:
@@ -12,13 +12,15 @@ instruments:
       ch1.function: SQUARE
       ch1.frequency: 1.0e6
       ch1.amplitude: 1.0
+      # UXR 是 50 Ω 输入：发生器的负载设定 50 Ω，示波器上看到的就是设定的 1 Vpp。
+      ch1.load: 50.0
       ch1.output: true
       ch2.function: SQUARE
       ch2.frequency: 1.0e6
       ch2.amplitude: 1.0
       ch2.output: true
   scope:
-    model: siglent-sds2104xplus
+    model: keysight-uxr1104b
     label: 示波器
     state:
       # 屏幕上 5 个周期：频率、周期的自动测量需要至少两个上升沿（#745）。

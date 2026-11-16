@@ -8,6 +8,7 @@ every 200 ms (tui-screens.md 1.6), otherwise only after acquisition/state events
 
 from __future__ import annotations
 
+from dataclasses import replace
 from typing import Any, ClassVar
 
 from rich.text import Text
@@ -362,11 +363,16 @@ class ScopeScreen(ControlEditingScreen):
             if sv is not None and not sv.get("readonly"):
                 out.append(C._control_for(path, sv, lang))
         for ch in range(1, 5):
+            first = True
             for suffix in ("display", "scale", "coupling", "impedance", "probe"):
                 path = f"ch{ch}.{suffix}"
                 sv = state.get(path)
                 if sv is not None and not sv.get("readonly"):
-                    out.append(C._control_for(path, sv, lang))
+                    control = C._control_for(path, sv, lang)
+                    if first:  # the channel's first field names it; the rest follow beneath
+                        control = replace(control, label=f"CH{ch} {control.label}")
+                        first = False
+                    out.append(control)
         return out
 
     def _build_buttons(self) -> None:

@@ -88,7 +88,7 @@ def test_save_as_template_copy_bench_and_restore_a_definition(client, tmp_path):
     assert r.status_code == 200, r.text
     out = r.json()
     new_id = out["definition"]["id"]
-    assert new_id == "my-lab-scope" and out["based_on"] == "siglent-sds2104xplus" and out["definition"]["ok"]
+    assert new_id == "my-lab-scope" and out["based_on"] == "keysight-uxr1104b" and out["definition"]["ok"]
     stored = yaml.safe_load((tmp_path / "instruments" / f"{new_id}.yaml").read_text(encoding="utf-8"))
     assert "extends" not in stored and stored["description"] == "Lab scope"
     assert stored["identity"]["serial"] == "SN42"

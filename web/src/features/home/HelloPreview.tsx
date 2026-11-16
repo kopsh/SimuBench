@@ -88,7 +88,7 @@ export function HelloPreview() {
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 px-4 pt-3.5 pb-1.5">
         <Node className="row-span-2" title="SDG2042X" sub={`Siglent · ${t("acceptance.class.function_generator")}`} />
         <Wire color="var(--ch1)" />
-        <Node tag="CH1" tagColor="var(--ch1)" title="SDS2104X Plus" sub={`Siglent · ${t("acceptance.class.oscilloscope")}`} />
+        <Node tag="CH1" tagColor="var(--ch1)" title="UXR1104B" sub={`Keysight · ${t("acceptance.class.oscilloscope")}`} />
         <Wire color="var(--ch2)" />
         <Node tag="CH2" tagColor="var(--ch2)" title="N9320B" sub={`Keysight · ${t("acceptance.class.spectrum_analyzer")}`} />
       </div>

@@ -89,7 +89,7 @@ async def test_files_the_turn_created_are_deleted_benches_first_no_dangling_temp
     assert done.done
     assert not template.exists() and not (manager.workspace / "hello-copy.bench.yaml").exists()
     restored = manager.files.read(BENCH)
-    assert restored.ok and restored.data["instruments"]["scope"]["model"] == "siglent-sds2104xplus"
+    assert restored.ok and restored.data["instruments"]["scope"]["model"] == "keysight-uxr1104b"
     assert load_yaml(original.decode())["instruments"] == restored.data["instruments"]
 
 

@@ -37,7 +37,7 @@ export const zh = {
       label: "Hello World 测试台的实时预览",
       title: "预览",
       acquisition: "采集 #{{n}}",
-      time: "时域 · C1",
+      time: "时域 · CH1",
       freq: "频域 · RF IN",
       real: "引擎实测数据",
     },
