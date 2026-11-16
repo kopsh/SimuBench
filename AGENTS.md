@@ -50,7 +50,7 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
 4. **Check** before every push: run `scripts/check.sh` (lint, format, tests, generated schemas and
    API types). Merging the latest `main` into the branch first is optional — when the branch is
    behind, the merge bot merges `main` into it and re-runs CI itself (#481). If the full test run
-   exceeds 60 s, fix that immediately as part of the current task: profile with
+   exceeds 75 s, fix that immediately as part of the current task: profile with
    `pytest --durations`, address the slowest cases (waits, timeouts) or add parallelism — never
    leave the overrun for a later issue.
 5. **Pull request** into `main` with `Closes #<number>` in the description. Its title becomes the
