@@ -60,7 +60,7 @@ def open_instrument(tmp_path: Path, cases_file: Path, cases):
 
 
 def _manual_cases_class(params: list[Any]) -> type:
-    """One test class per model: ``--dist loadscope`` keeps a class on one worker, so the models'
+    """One test class per model chunk: ``--dist loadscope`` keeps a class on one worker, so the
     cases spread over the workers instead of the whole module running on one (#1185)."""
 
     @pytest.mark.parametrize(("cases_file", "cases", "case"), params)
@@ -75,9 +75,15 @@ def _manual_cases_class(params: list[Any]) -> type:
 _BY_MODEL: dict[str, list[Any]] = {}
 for _param in all_cases():
     _BY_MODEL.setdefault(_param.values[1].model, []).append(_param)
+# A big model (the UXR1104B has over a hundred cases, ~50 s) in one class would be the whole run's
+# critical path, so a model's cases are cut into chunks that loadscope can place on other workers.
+_CHUNK = 20
 for _model, _params in _BY_MODEL.items():
-    _name = "TestManualCases_" + "".join(c if c.isalnum() else "_" for c in _model)
-    globals()[_name] = type(_name, (_manual_cases_class(_params),), {})
+    _base = "TestManualCases_" + "".join(c if c.isalnum() else "_" for c in _model)
+    _chunks = [_params[i : i + _CHUNK] for i in range(0, len(_params), _CHUNK)]
+    for _n, _chunk in enumerate(_chunks, 1):
+        _name = _base if len(_chunks) == 1 else f"{_base}_part{_n}"
+        globals()[_name] = type(_name, (_manual_cases_class(_chunk),), {})
 
 
 def real_models():
