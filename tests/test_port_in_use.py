@@ -56,6 +56,35 @@ def test_taken_scpi_port_is_a_409_that_says_why_and_closes_the_rest(tmp_path):
         holder.close()
 
 
+def test_taken_default_port_falls_back_to_a_free_one_and_says_so(tmp_path):
+    shutil.copy(ROOT / "validation" / "benches" / BENCH, tmp_path / BENCH)
+    base = _two_free_ports()
+    holder = socket.socket()
+    holder.bind(("127.0.0.1", base + 1))
+    holder.listen()
+    try:
+        # the double-click start (#1197): the SCPI port was not asked for, so a taken one is replaced
+        manager = SessionManager(
+            tmp_path, scpi_base_port=base, hislip_port=0, port_fallback=frozenset({"SCPI"})
+        )
+        with TestClient(create_app(manager), base_url="http://127.0.0.1") as c:
+            r = c.post("/api/sessions", json={"bench_path": BENCH})
+            # step: the bench starts
+            assert r.status_code == 200
+            info = r.json()
+            # step: the page is told, with the way to pin a port
+            (notice,) = info["port_notices"]
+            assert str(base + 1) in notice
+            assert "--scpi-base-port" in notice
+            # step: every instrument answers on a port, none on the taken one
+            ports = [lst.port for lst in manager.get(info["id"]).scpi.listeners]
+            assert len(ports) == 2
+            assert base + 1 not in ports
+            c.delete(f"/api/sessions/{info['id']}")
+    finally:
+        holder.close()
+
+
 def test_unforeseen_error_reaches_the_page_with_its_text(tmp_path, monkeypatch):
     manager = SessionManager(tmp_path, scpi_base_port=None)
 

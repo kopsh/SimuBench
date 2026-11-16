@@ -65,6 +65,10 @@ README = """SimuBench {version}（Windows 便携版）
 
 脚本连接仪表
   界面与窗口里列出每台仪表的 SCPI / HiSLIP 地址，NI-VISA、Keysight IO Libraries、pyvisa 可直接连接。
+  默认端口：SCPI 从 5025 起（每台仪表加 1），HiSLIP 4880。默认端口被别的程序占用时，自动改用空闲端口，
+  界面会提示，脚本按界面上列出的地址连接。要固定端口：给 SimuBench.exe 的快捷方式「目标」末尾加参数，例如
+    SimuBench.exe --scpi-base-port 6000 --hislip-port 4890
+  （指定了端口而它被占用时会报错，不会自动换。）
 
 命令行
   tools\\simubench.exe 是完整的命令行（validate、doctor、replay ……），例如：

@@ -81,15 +81,29 @@ def test_launch_workspace_is_in_documents(monkeypatch, tmp_path):
 
 @pytest.mark.unit
 def test_launch_starts_serve_with_mcp_and_the_browser(monkeypatch, tmp_path, capsys):
-    calls = []
-    real_main = cli.main
+    served = []
     monkeypatch.setattr(cli, "_running_simubench", lambda port: False)
     monkeypatch.setattr(cli, "_free_port", lambda port: 9123)
-    monkeypatch.setattr(cli, "main", lambda argv=None: calls.append(argv) or 0)
-    assert real_main(["launch", "--workspace", str(tmp_path / "ws")]) == 0
-    assert calls == [["serve", "--workspace", str(tmp_path / "ws"), "--port", "9123", "--mcp", "--open"]]
+    monkeypatch.setattr(cli, "_serve", lambda args: served.append(args) or 0)
+    assert cli.main(["launch", "--workspace", str(tmp_path / "ws")]) == 0
+    (args,) = served
+    assert (args.workspace, args.port, args.mcp, args.open) == (str(tmp_path / "ws"), 9123, True, True)
+    # no port given: the usual ones, replaced by free ones if taken (#1197)
+    assert (args.scpi_base_port, args.hislip_port) == (5025, 4880)
+    assert args.port_fallback == {"SCPI", "HiSLIP"}
     config = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert config["mcpServers"]["simubench"]["url"] == "http://127.0.0.1:9123/mcp"
+
+
+@pytest.mark.unit
+def test_launch_keeps_a_port_given_on_the_command_line(monkeypatch, tmp_path):
+    served = []
+    monkeypatch.setattr(cli, "_running_simubench", lambda port: False)
+    monkeypatch.setattr(cli, "_serve", lambda args: served.append(args) or 0)
+    assert cli.main(["launch", "--workspace", str(tmp_path), "--no-browser", "--scpi-base-port", "6000"]) == 0
+    (args,) = served
+    assert args.scpi_base_port == 6000
+    assert args.port_fallback == {"HiSLIP"}  # the SCPI port was asked for: kept, or refused
 
 
 @pytest.mark.unit

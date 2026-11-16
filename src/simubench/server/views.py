@@ -117,6 +117,7 @@ class SessionViews:
             bench_fingerprint=served.bench_fingerprint,
             stale_definitions=self.manager.stale_definitions(served) if served.id != "preview" else [],
             record_path=str(s.recorder.path) if s.recorder and s.recorder.path.exists() else None,
+            port_notices=list(served.port_notices),
             link_address=served.link.address() if served.link else None,
             clients=clients,
             instruments=instruments,

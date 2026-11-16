@@ -246,7 +246,7 @@
   - **CI**：验收测试在 Windows 与 Linux 上都运行；
   - **进程间通信**：服务进程与客户端之间使用本机 TCP，不依赖只在类 Unix 系统上可用的 Unix 套接字；
   - **路径与文件**：Bench 中的文件引用使用与平台无关的相对路径；
-  - **发布**：纯 Python 包 + NumPy，两个平台使用同一份包（内部 pip 源）。另给 Windows 用户一个**便携包**（#1188）：`dist/SimuBench-<版本>-win64.zip`，解压后双击 `SimuBench.exe`，不装 Python、不联网；里面是 python.org 的 embeddable CPython、按 `uv.lock` 装好的 Windows 依赖与同一份 wheel，`SimuBench.exe`/`tools\simubench.exe` 是 pip 在 Windows 上生成脚本时用的启动器（distlib `t64.exe`，shebang 相对启动器目录）。整包在 Linux 上组装（`scripts/build-windows.sh`，跟在 `build-wheel.sh` 之后），内部构建机不需要 Windows；main 的 CI 在 Windows 上解压并冒烟（`scripts/smoke_windows_bundle.py`）。双击即 `simubench launch`：一个服务同时给界面与 MCP（`serve --mcp`，streamable HTTP 在 `/mcp`，D26），打开浏览器；工作区默认 `文档\SimuBench`。备选一 PyInstaller：要在 Windows 上构建，内部流水线得多一台 Windows 构建机，且常被杀毒软件误报；备选二安装程序（NSIS）：多一种格式要维护，便携 zip 已够用，以后需要开始菜单项再加。均不采用。
+  - **发布**：纯 Python 包 + NumPy，两个平台使用同一份包（内部 pip 源）。另给 Windows 用户一个**便携包**（#1188）：`dist/SimuBench-<版本>-win64.zip`，解压后双击 `SimuBench.exe`，不装 Python、不联网；里面是 python.org 的 embeddable CPython、按 `uv.lock` 装好的 Windows 依赖与同一份 wheel，`SimuBench.exe`/`tools\simubench.exe` 是 pip 在 Windows 上生成脚本时用的启动器（distlib `t64.exe`，shebang 相对启动器目录）。整包在 Linux 上组装（`scripts/build-windows.sh`，跟在 `build-wheel.sh` 之后），内部构建机不需要 Windows；main 的 CI 在 Windows 上解压并冒烟（`scripts/smoke_windows_bundle.py`）。双击即 `simubench launch`：一个服务同时给界面与 MCP（`serve --mcp`，streamable HTTP 在 `/mcp`，D26），打开浏览器；工作区默认 `文档\SimuBench`。没有在命令行指定的 SCPI/HiSLIP 端口被占用时改用系统分配的空闲端口并在界面提示（#1197），指定了的端口被占用则报错（#1195）：双击不因别的程序占着 5025 而失败，要固定端口的人得到确定的端口。备选一 PyInstaller：要在 Windows 上构建，内部流水线得多一台 Windows 构建机，且常被杀毒软件误报；备选二安装程序（NSIS）：多一种格式要维护，便携 zip 已够用，以后需要开始菜单项再加。均不采用。
 
 ## D21 Web 技术栈与接口生成
 

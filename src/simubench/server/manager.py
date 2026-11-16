@@ -71,7 +71,7 @@ class PortInUse(OSError):
         super().__init__(
             f"无法打开 {service} 端口（通常是被占用），测试台未启动：{exc}。"
             f"可能是另一个 SimuBench（例如 AI 助手自行启动的 simubench mcp）或仪器软件正在使用它；"
-            f"关掉它，或以 {_PORT_OPTION[service]} <其他端口> 重新启动 SimuBench。"
+            f"关掉它，或以 {_PORT_OPTION[service]} <其他端口> 重新启动 SimuBench（SimuBench.exe 也接受这个参数）。"
         )
         self.service = service
 
@@ -262,6 +262,8 @@ class ServedSession:
         self.seed: int | None = None
         #: Instruments taken back to local from the UI (LOCAL), until a remote client's next command.
         self.local: set[str] = set()
+        #: Why an address is not the configured one (a taken default port, #1197), for the page.
+        self.port_notices: list[str] = []
         session.subscribe(self._follow_remote)
         # The engine raises what this raises: an explicit advance refuses while scripts are
         # connected to the ports, unless confirmed (#121, issue 624).
@@ -342,8 +344,12 @@ class SessionManager:
         record_dir: Path | None = None,
         record_raw: bool = False,
         allow_plugins: bool = False,
+        port_fallback: frozenset[str] = frozenset(),
     ) -> None:
         self.workspace = workspace
+        #: Services ("SCPI", "HiSLIP") whose taken port is replaced by one the OS picks instead of
+        #: refusing the bench: the double-click start's default ports (#1197). An explicit port never is.
+        self.port_fallback = port_fallback
         self.scpi_host = scpi_host
         self.scpi_base_port = scpi_base_port
         self.hislip_port = hislip_port
@@ -437,31 +443,40 @@ class SessionManager:
         for other in list(self.sessions.values()):
             await self.stop(other.id, force=True)  # confirmed above, as part of starting
         if self.scpi_base_port is not None:
-            service = "SCPI"
             try:
-                served.scpi = ScpiServer(session, self.scpi_host, self.scpi_base_port)
-                await served.scpi.start()
+                served.scpi = await self._open(
+                    served,
+                    "SCPI",
+                    self.scpi_base_port,
+                    lambda port: ScpiServer(session, self.scpi_host, port),
+                )
                 if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
-                    service = "HiSLIP"
-                    served.hislip = HislipServer(
-                        session,
-                        self.scpi_host,
+                    served.hislip = await self._open(
+                        served,
+                        "HiSLIP",
                         self.hislip_port,
-                        overlapped=self.hislip_overlapped,
-                        secure=self.hislip_secure,
+                        lambda port: HislipServer(
+                            session,
+                            self.scpi_host,
+                            port,
+                            overlapped=self.hislip_overlapped,
+                            secure=self.hislip_secure,
+                        ),
                     )
-                    await served.hislip.start()
                 if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
-                    service = "VXI-11"
-                    served.vxi11 = Vxi11Server(session, self.scpi_host, self.vxi11_port, self.portmapper_port)
-                    await served.vxi11.start()
-            except OSError as exc:
+                    served.vxi11 = await self._open(
+                        served,
+                        "VXI-11",
+                        self.vxi11_port,
+                        lambda port: Vxi11Server(session, self.scpi_host, port, self.portmapper_port),
+                    )
+            except PortInUse:
                 # Close what did open (the instruments before the taken port), and the session.
                 for server in (served.vxi11, served.hislip, served.scpi):
                     if server is not None:
                         await server.stop()
                 await asyncio.to_thread(session.close)
-                raise PortInUse(service, exc) from exc
+                raise
             if self.link_port is not None:  # scripts in other processes drive this bench (D63)
                 link = BenchLinkServer(session, self.scpi_host, self.link_port)
                 try:
@@ -472,6 +487,31 @@ class SessionManager:
                     log.warning("bench link not started (port %s: %s)", self.link_port, exc)
         self.sessions[served.id] = served
         return served
+
+    async def _open(self, served: ServedSession, service: str, port: int, make: Any) -> Any:
+        """Start one port server; a port that cannot be opened is :class:`PortInUse`, or, for a
+        service in ``port_fallback``, a port the OS picks plus a notice saying so (#1197)."""
+        server = make(port)
+        try:
+            await server.start()
+            return server
+        except OSError as exc:
+            await server.stop()  # what did open (the instruments before the taken port)
+            if port == 0 or service not in self.port_fallback:
+                raise PortInUse(service, exc) from exc
+            server = make(0)
+            try:
+                await server.start()
+            except OSError as again:
+                await server.stop()
+                raise PortInUse(service, again) from again
+            notice = (
+                f"{service} 默认端口 {port} 被占用（{exc.strerror or exc}），已改用系统分配的空闲端口；"
+                f"脚本请按界面上列出的地址连接。要固定端口：SimuBench.exe {_PORT_OPTION[service]} <端口>"
+            )
+            log.warning(notice)
+            served.port_notices.append(notice)
+            return server
 
     async def reset(
         self, sid: str, clock: str | None = None, seed: int | None = None, force: bool = False

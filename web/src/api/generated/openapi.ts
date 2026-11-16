@@ -4873,6 +4873,11 @@ export interface components {
             now_ns: number;
             /** Parts */
             parts: components["schemas"]["ComponentInfo"][];
+            /**
+             * Port Notices
+             * @description Why an address is not the configured one: a taken default port replaced by a free one (#1197)
+             */
+            port_notices: string[];
             /** Record Path */
             record_path: string | null;
             /** Reveal True Values */
