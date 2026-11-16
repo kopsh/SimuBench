@@ -15,7 +15,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertTriangle, Check, GripVertical, Maximize2, Minimize2, SlidersHorizontal, LayoutGrid, Link2, Loader2, Plus, Redo2, Search, Terminal, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, Check, GripVertical, Layers, Maximize2, Minimize2, RotateCcw, Shuffle, SlidersHorizontal, Unlink, LayoutGrid, Link2, Loader2, Plus, Redo2, Search, Terminal, Trash2, Undo2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -56,7 +56,14 @@ import {
   type StructureComponent,
   addComponent,
   BAND_GAP,
+  FOLLOW_ROW,
+  FOLLOW_ROWS,
+  NODE_HEAD as HEAD,
+  NODE_WIDTH,
+  PORT_ROW,
   ROW,
+  blockHeight,
+  panelPortsOf,
   autoLayout,
   canWire,
   channelBand,
@@ -91,19 +98,14 @@ import {
   structureOf,
   wiresOf,
 } from "./model";
+import { Hint, Tip } from "./glyphs";
 import { CommandsPanel, SettingsPanel } from "./SettingsPanel";
 
 type DefinitionStructure = NonNullable<ReturnType<typeof useDefinitionStructure>["data"]>;
 
 /** What the library hands the canvas on a drag: a component type. */
 export const BUILD_MIME = "application/x-simubench-component";
-const NODE_WIDTH = 220;
-const HEAD = 44;
-const PORT_ROW = 22;
 const BAND_ID = "band";
-const FOLLOW_ROW = 18;
-/** At most this many followed settings on a node; the rest as "+n more". */
-const FOLLOW_ROWS = 3;
 /** The sides a reference line can leave and enter a node by, picked from where the two are. */
 const SIDES = [
   ["top", Position.Top],
@@ -452,16 +454,18 @@ function Toolbar({
             </Button>
           </div>
         )}
-        <Button
-          variant="ghost"
-          size="sm"
-          className={cn("h-7", !editable && "ml-auto")}
-          title={t("acceptance.build.relayoutHint")}
-          onClick={onRelayout}
-          disabled={!draft.components.length && !draft.channel_components.length}
-        >
-          <LayoutGrid className="size-3.5" /> {t("acceptance.build.relayout")}
-        </Button>
+        <Tip label={t("acceptance.build.relayoutHint")}>
+          <Button
+            variant="ghost"
+            size="icon"
+            className={cn("size-7", !editable && "ml-auto")}
+            aria-label={t("acceptance.build.relayout")}
+            onClick={onRelayout}
+            disabled={!draft.components.length && !draft.channel_components.length}
+          >
+            <LayoutGrid className="size-3.5" />
+          </Button>
+        </Tip>
         {onTry && (
           <Button variant={trying ? "secondary" : "outline"} size="sm" className="h-7" onClick={onTry} aria-pressed={trying} data-testid="build-try-toggle">
             <Terminal className="size-3.5" /> {t("acceptance.build.try")}
@@ -497,7 +501,10 @@ function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: bo
   return (
     <aside className="bg-sidebar flex w-60 shrink-0 flex-col border-r" aria-label={t("acceptance.build.library")}>
       <div className="space-y-1.5 border-b p-2">
-        <h2 className="text-xs font-medium">{t("acceptance.build.library")}</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-medium">{t("acceptance.build.library")}</h2>
+          <Hint text={t("acceptance.build.dragHint")} />
+        </div>
         <div className="relative">
           <Search className="text-muted-foreground absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
           <Input
@@ -508,7 +515,6 @@ function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: bo
             className="h-7 pl-7 text-xs"
           />
         </div>
-        <p className="text-muted-foreground text-[11px] leading-snug">{t("acceptance.build.dragHint")}</p>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2" data-testid="build-library">
         {groups.map((g) => (
@@ -555,7 +561,7 @@ function LibraryItem({ doc: d, onDrag }: { doc: ComponentDoc; onDrag: (dragging:
           <span className="truncate text-[12.5px] leading-tight font-medium">{label}</span>
           {label !== d.type && <span className="text-muted-foreground num truncate text-[10.5px]">{d.type}</span>}
         </div>
-        {about && <p className="text-muted-foreground line-clamp-2 text-[11px] leading-snug">{about}</p>}
+        {about && <p className="text-muted-foreground truncate text-[11px] leading-snug">{about}</p>}
         {ports && <p className="text-muted-foreground/80 num truncate text-[10.5px]">{ports}</p>}
       </div>
     </li>
@@ -590,7 +596,7 @@ function CompNode({ data, selected }: NodeProps<Node<CompData>>) {
   const right = rows.filter((r) => r.direction === "out");
   const portRows = Math.max(left.length, right.length, 1);
   const shown = follows.slice(0, FOLLOW_ROWS);
-  const height = HEAD + portRows * PORT_ROW + (panel.length ? PORT_ROW : 0) + (follows.length ? FOLLOW_ROW * Math.min(follows.length, FOLLOW_ROWS + 1) + 4 : 0) + 6;
+  const height = blockHeight(rows, panel.length, follows.length);
   return (
     <div
       className={cn(
@@ -752,10 +758,7 @@ function BuildCanvas({
   const hasBand = structure.channel_components.length > 0;
 
   const built = useMemo<Node[]>(() => {
-    const panelOf = (scope: Scope, name: string) =>
-      Object.entries(structure.ports[scope])
-        .filter(([, target]) => target.split(".")[0] === name)
-        .map(([port]) => port);
+    const panelOf = (scope: Scope, name: string) => panelPortsOf(structure, scope, name);
     const comp = (scope: Scope) => (c: StructureComponent): Node<CompData> => {
       const id = nodeId(scope, c.name);
       return {
@@ -1268,31 +1271,39 @@ function ParamRow({
       <label htmlFor={id} className="num flex items-baseline gap-1 text-[11px]">
         <span className="font-medium">{name}</span>
         {info?.unit && <span className="text-muted-foreground">{info.unit}</span>}
-        {kind.kind === "literal" && !kind.set && <span className="text-muted-foreground ml-auto">{t("acceptance.build.default")}</span>}
       </label>
       {kind.kind === "setting" && (
         // One look for a parameter that follows a setting, bound (`$x`, can be unbound here) or
         // through a mapping (written by the agent) (#1214).
         <div className="bg-sim-muted flex h-7 items-center gap-1.5 rounded-md px-2" data-testid={`binding-${comp.name}-${name}`}>
           <SlidersHorizontal className="text-sim size-3.5 shrink-0" aria-hidden />
-          <span className="text-sim num min-w-0 flex-1 truncate text-[11px]" title={t("acceptance.build.settingHint")}>
-            {t("acceptance.build.followsSetting", { setting: kind.setting })}
+          <span
+            className="text-sim num min-w-0 flex-1 truncate text-[11px]"
+            title={t("acceptance.build.followsSetting", { setting: kind.setting })}
+            aria-label={t("acceptance.build.followsSetting", { setting: kind.setting })}
+          >
+            {kind.setting}
           </span>
           {typeof comp.params?.[name] === "string"
             ? editable && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-1.5 text-[11px]"
-                  onClick={() => onChange(setParam(structure, scope, comp.name, name, undefined))}
-                >
-                  {t("acceptance.build.unbind")}
-                </Button>
+                <Tip label={t("acceptance.build.unbind")}>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-5"
+                    aria-label={t("acceptance.build.unbind")}
+                    onClick={() => onChange(setParam(structure, scope, comp.name, name, undefined))}
+                  >
+                    <Unlink className="size-3" />
+                  </Button>
+                </Tip>
               )
             : (
-                <span className="text-muted-foreground shrink-0 text-[10.5px]" title={t("acceptance.build.mappedHint")}>
-                  {t("acceptance.build.mapped")}
-                </span>
+                <Tip label={t("acceptance.build.mappedHint")}>
+                  <span role="img" aria-label={t("acceptance.build.mapped")} className="text-muted-foreground inline-flex shrink-0" data-mapped>
+                    <Shuffle className="size-3" />
+                  </span>
+                </Tip>
               )}
         </div>
       )}
@@ -1486,12 +1497,12 @@ function TableEditor({
             aria-label={t("acceptance.build.tableNewKey")}
             className="num h-6 flex-1 text-[11px]"
           />
-          <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[11px]" onClick={add} disabled={!newKey.trim()}>
-            <Plus className="size-3" /> {t("acceptance.build.tableAdd")}
+          <Button variant="ghost" size="icon" className="size-6" onClick={add} disabled={!newKey.trim()} aria-label={t("acceptance.build.tableAdd")} title={t("acceptance.build.tableAdd")}>
+            <Plus className="size-3" />
           </Button>
           {onReset && (
-            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[11px]" onClick={onReset}>
-              {t("acceptance.build.resetDefault")}
+            <Button variant="ghost" size="icon" className="size-6" onClick={onReset} aria-label={t("acceptance.build.resetDefault")} title={t("acceptance.build.resetDefault")}>
+              <RotateCcw className="size-3" />
             </Button>
           )}
         </div>
@@ -1538,17 +1549,24 @@ function PanelPorts({
   };
   return (
     <div className="space-y-3 p-3 text-xs" data-testid="build-panel-ports">
-      <p className="text-muted-foreground text-[11px]">{t("acceptance.build.selectHint")}</p>
       <section className="space-y-1.5">
-        <h2 className="font-medium">{t("acceptance.build.panelPorts")}</h2>
-        <p className="text-muted-foreground text-[11px]">{t("acceptance.build.panelPortsHint")}</p>
+        <h2 className="flex items-center gap-1.5 font-medium">
+          {t("acceptance.build.panelPorts")}
+          <Hint text={`${t("acceptance.build.panelPortsHint")}。${t("acceptance.build.selectHint")}`} className="ml-auto" />
+        </h2>
         {!rows.length && <p className="text-muted-foreground">{t("acceptance.build.panelNone")}</p>}
         <ul className="space-y-1">
           {rows.map((r) => (
             <li key={`${r.scope}-${r.port}`} className="num flex items-center gap-1.5">
               <span className="font-medium">{r.port}</span>
               <span className="text-muted-foreground truncate">→ {r.to}</span>
-              {r.scope === "channel" && <span className="text-muted-foreground text-[10px]">{t("acceptance.build.panelChannel")}</span>}
+              {r.scope === "channel" && (
+                <Tip label={t("acceptance.build.panelChannel")}>
+                  <span role="img" aria-label={t("acceptance.build.panelChannel")} className="text-muted-foreground inline-flex">
+                    <Layers className="size-3" />
+                  </span>
+                </Tip>
+              )}
               {editable && (
                 <Button
                   variant="ghost"

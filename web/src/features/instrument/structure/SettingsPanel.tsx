@@ -1,4 +1,4 @@
-import { AlertTriangle, Bot, ChevronDown, ChevronRight, Plus, Search, Trash2 } from "lucide-react";
+import { AlertTriangle, Bot, ChevronDown, ChevronRight, CornerDownRight, Plus, Search, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -6,10 +6,12 @@ import { DraftInput, INVALID, SKIP, commit } from "@/components/app/DraftInput";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { AccessIcon, AccessPicker, Hint, Tip, TypeIcon } from "./glyphs";
 import {
   type CommandKind,
+  accessPatch,
+  commandAccess,
   type ComponentDoc,
   type Scope,
   SETTING_TYPES,
@@ -41,7 +43,7 @@ type Change = (next: Structure | null) => boolean;
 /** A search box over a long list (#1214). */
 function ListSearch({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder: string }) {
   return (
-    <div className="relative">
+    <div className="relative flex-1">
       <Search className="text-muted-foreground absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
       <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} aria-label={placeholder} className="num h-7 pl-7 text-xs" />
     </div>
@@ -97,8 +99,10 @@ export function SettingsPanel({
   };
   return (
     <div className="space-y-3 p-3 text-xs" data-testid="build-settings">
-      <p className="text-muted-foreground text-[11px]">{t("acceptance.build.settingsHint")}</p>
-      {all.length > 6 && <ListSearch value={query} onChange={setQuery} placeholder={t("acceptance.build.settingSearch")} />}
+      <div className="flex min-h-7 items-center gap-2">
+        {all.length > 6 && <ListSearch value={query} onChange={setQuery} placeholder={t("acceptance.build.settingSearch")} />}
+        <Hint text={t("acceptance.build.settingsHint")} className="ml-auto" />
+      </div>
       {!all.length && <p className="text-muted-foreground">{t("acceptance.build.settingNone")}</p>}
       {all.length > 0 && !rows.length && <p className="text-muted-foreground">{t("acceptance.build.noMatch")}</p>}
       <ul className="space-y-1">
@@ -121,9 +125,9 @@ export function SettingsPanel({
               >
                 {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
                 <span className="num truncate font-medium">{r.scope === "channel" ? `ch.${r.name}` : r.name}</span>
-                <span className="text-muted-foreground ml-auto shrink-0 text-[10.5px]">
-                  {t(`acceptance.build.types.${String(r.spec.type)}`, { defaultValue: String(r.spec.type) })}
-                  {typeof r.spec.unit === "string" ? ` · ${r.spec.unit}` : ""}
+                <span className="text-muted-foreground num ml-auto flex shrink-0 items-center gap-1 text-[10.5px]">
+                  {typeof r.spec.unit === "string" && r.spec.unit}
+                  <TypeIcon type={String(r.spec.type)} />
                 </span>
                 {wide && <SettingUsers structure={structure} scope={r.scope} name={r.name} />}
               </button>
@@ -171,8 +175,13 @@ function SettingUsers({ structure, scope, name }: { structure: Structure; scope:
   const users = settingUsers(structure, scope, name);
   const list = [...users.components, ...users.commands];
   return (
-    <span className="num text-muted-foreground w-[45%] shrink-0 truncate text-[10.5px]" title={list.join(", ")} data-testid="build-setting-users">
-      {list.length ? t("acceptance.build.usedBy", { list: list.join(", ") }) : t("acceptance.build.usedByNone")}
+    <span
+      className="num text-muted-foreground flex w-[45%] shrink-0 items-center gap-1 truncate text-[10.5px]"
+      title={list.length ? t("acceptance.build.usedBy", { list: list.join(", ") }) : t("acceptance.build.usedByNone")}
+      data-testid="build-setting-users"
+    >
+      <CornerDownRight className="size-3 shrink-0" aria-hidden />
+      <span className="truncate">{list.length ? list.join(", ") : "—"}</span>
     </span>
   );
 }
@@ -331,9 +340,11 @@ export function CommandsPanel({
   };
   return (
     <div className="space-y-3 p-3 text-xs" data-testid="build-commands">
-      <p className="text-muted-foreground text-[11px]">{t("acceptance.build.commandsHint")}</p>
-      {definitionId && editable && <AgentNote definitionId={definitionId} structure={structure} />}
-      {structure.commands.length > 6 && <ListSearch value={query} onChange={setQuery} placeholder={t("acceptance.build.cmdSearch")} />}
+      <div className="flex min-h-7 items-center gap-2">
+        {structure.commands.length > 6 && <ListSearch value={query} onChange={setQuery} placeholder={t("acceptance.build.cmdSearch")} />}
+        {definitionId && editable && <AgentNote definitionId={definitionId} structure={structure} />}
+        <Hint text={t("acceptance.build.commandsHint")} className={cn(!(definitionId && editable) && "ml-auto")} />
+      </div>
       {!structure.commands.length && <p className="text-muted-foreground">{t("acceptance.build.cmdNone")}</p>}
       <ul className="space-y-1">
         {structure.commands.map((c, i) => {
@@ -351,11 +362,7 @@ export function CommandsPanel({
                 {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
                 <span className="num min-w-0 flex-1 truncate font-medium" title={c.header}>{c.header}</span>
                 {needsChannelSuffix(c) && <AlertTriangle className="text-warning size-3.5 shrink-0" aria-label={t("acceptance.build.cmdNeedsCh")} />}
-                {wide && (
-                  <span className="text-muted-foreground w-16 shrink-0 text-[10.5px]">
-                    {[c.set !== false && t("acceptance.build.cmdSet"), c.query !== false && t("acceptance.build.cmdQuery")].filter(Boolean).join(" · ")}
-                  </span>
-                )}
+                <AccessIcon access={commandAccess(c)} className="shrink-0" />
                 <span className={cn("num text-muted-foreground max-w-[45%] shrink-0 truncate text-[10.5px]", wide && "w-[40%]", k === "other" && "italic")} title={to}>
                   {to}
                 </span>
@@ -447,9 +454,11 @@ function AgentNote({ definitionId, structure }: { definitionId: string; structur
     }
   };
   return (
-    <Button variant="outline" size="sm" className="h-7 w-full justify-start" onClick={() => void copy()} data-testid="build-agent-note">
-      <Bot className="size-3.5" /> {t("acceptance.build.agentCopy")}
-    </Button>
+    <Tip label={t("acceptance.build.agentCopyHint")}>
+      <Button variant="outline" size="sm" className="ml-auto h-7 shrink-0" onClick={() => void copy()} data-testid="build-agent-note">
+        <Bot className="size-3.5" /> {t("acceptance.build.agentCopy")}
+      </Button>
+    </Tip>
   );
 }
 
@@ -511,7 +520,7 @@ function CommandEditor({
                 if (first) set(v === "op" ? { op: first } : { state: first });
               }}
             >
-              <SelectTrigger className="h-7 text-xs" size="sm" aria-label={t("acceptance.build.cmdKind")}>
+              <SelectTrigger className="h-7 w-full min-w-0 text-xs" size="sm" aria-label={t("acceptance.build.cmdKind")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -520,7 +529,7 @@ function CommandEditor({
               </SelectContent>
             </Select>
             <Select value={target} disabled={!editable} onValueChange={(v) => set(kind === "op" ? { op: v } : { state: v })}>
-              <SelectTrigger className="num h-7 text-xs" size="sm" aria-label={t("acceptance.build.cmdTarget")}>
+              <SelectTrigger className="num h-7 w-full min-w-0 text-xs" size="sm" aria-label={t("acceptance.build.cmdTarget")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -532,16 +541,7 @@ function CommandEditor({
               </SelectContent>
             </Select>
           </div>
-          <div className="flex items-center gap-4">
-            <label className="flex items-center gap-1.5">
-              <Switch size="sm" checked={c.set !== false} disabled={!editable} onCheckedChange={(v) => set({ set: v ? undefined : false })} />
-              {t("acceptance.build.cmdSet")}
-            </label>
-            <label className="flex items-center gap-1.5">
-              <Switch size="sm" checked={c.query !== false} disabled={!editable} onCheckedChange={(v) => set({ query: v ? undefined : false })} />
-              {t("acceptance.build.cmdQuery")}
-            </label>
-          </div>
+          <AccessPicker value={commandAccess(c)} disabled={!editable} onChange={(a) => set(accessPatch(a))} />
         </>
       )}
       {canDelete && (

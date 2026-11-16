@@ -1,14 +1,12 @@
 import { execFileSync } from "node:child_process";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { resolve } from "node:path";
 import { expect, test } from "@playwright/test";
 
 import { openButton } from "./judge";
+import { WORKSPACE } from "./workspace.mjs";
 
 const TOKEN = "e2e-token";
 const ROOT = resolve(import.meta.dirname, "..", "..");
-// The workspace web/e2e/serve.mjs builds, so a test can edit a definition the way an agent does.
-const WORKSPACE = join(tmpdir(), "simubench-e2e-workspace");
 
 test("acceptance page: functions, commands, trial run and cases of a real model", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);

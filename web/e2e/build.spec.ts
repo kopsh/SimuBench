@@ -1,18 +1,25 @@
 import { rmSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import { WORKSPACE } from "./workspace.mjs";
 
 const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
 
-/** The e2e service's workspace (e2e/serve.mjs). */
-const WORKSPACE = join(tmpdir(), "simubench-e2e-workspace");
+/** Copies of a model other specs open by name (the 34465A): removed after each test, passed or
+ * failed, since a second entry in the instrument list would make their link ambiguous (#1216). */
+const transient: string[] = [];
+test.afterEach(() => {
+  for (const id of transient.splice(0))
+    for (const suffix of [".yaml", ".layout.json"]) rmSync(join(WORKSPACE, "instruments", `${id}${suffix}`), { force: true });
+});
 
-/** Remove a workspace copy of a model other specs open by name (the 34465A): its second entry in
- * the instrument list would make their link ambiguous. */
-function forget(id: string) {
-  for (const suffix of [".yaml", ".layout.json"]) rmSync(join(WORKSPACE, "instruments", `${id}${suffix}`), { force: true });
+/** A workspace copy of the 34465A, removed after the test. */
+async function copy34465a(request: import("@playwright/test").APIRequestContext): Promise<string> {
+  const res = await request.post("/api/definitions/keysight-34465a/copy", { headers });
+  const id = ((await res.json()) as { data: { id: string } }).data.id;
+  transient.push(id);
+  return id;
 }
 
 /** The definition file as stored, through the same API the acceptance page reads. */
@@ -123,7 +130,7 @@ test("build area: declare a setting, bind a parameter to it, give it a command, 
   await page.locator('[data-name="out"]').click();
   await page.getByTestId("bind-out-z_out").click();
   await page.getByRole("option", { name: "out.zout" }).click();
-  await expect(page.getByText("跟随设置 out.zout")).toBeVisible();
+  await expect(page.getByTestId("binding-out-z_out")).toContainText("out.zout");
   await expect
     .poll(async () => ((await stored(request, id)).data.components as { name: string; params?: Record<string, unknown> }[]).find((c) => c.name === "out")?.params?.z_out)
     .toBe("$out.zout");
@@ -208,8 +215,7 @@ test("build area: rename follows the wires and ports, undo and redo, layout kept
 });
 
 test("build area: references and followed settings on the canvas, a grid for the rest, the channel zone while dragging (#1212)", async ({ page, request }) => {
-  const copy = await request.post("/api/definitions/keysight-34465a/copy", { headers });
-  const id = ((await copy.json()) as { data: { id: string } }).data.id;
+  const id = await copy34465a(request);
   await page.goto(`/i/${id}?token=${TOKEN}`);
   await page.getByTestId("acceptance-tab-build").click();
   await expect(page.getByTestId("build-area")).toBeVisible();
@@ -217,6 +223,9 @@ test("build area: references and followed settings on the canvas, a grid for the
   // The input names its signal conditioning: a dashed reference line with the parameter's name.
   await expect(page.locator(".react-flow__edge.build-ref").first()).toBeAttached();
   await expect(page.locator(".react-flow__edge-text", { hasText: "conditioning" }).first()).toBeVisible();
+  // The A/D converter's calibration store, named by its store parameter (#1216).
+  await expect(page.getByTestId("rf__edge-ref|i:meter|store")).toBeAttached();
+  await expect(page.locator(".react-flow__edge-text", { hasText: "store" })).toBeVisible();
   // The A/D converter lists the settings it follows.
   const meter = page.locator('[data-name="meter"]');
   await expect(meter.getByTestId("build-follows")).toContainText("sense.nplc");
@@ -251,13 +260,11 @@ test("build area: references and followed settings on the canvas, a grid for the
   await expect
     .poll(async () => ((await stored(request, id)).data.channel_components as { name: string }[] | undefined)?.map((c) => c.name))
     .toEqual(["input_port"]);
-  forget(id);
 });
 
 test("build area: grouped library, SI values, a table edited by row, one binding look, wide searchable lists, a note for the agent (#1214)", async ({ page, request, context }) => {
   await context.grantPermissions(["clipboard-read", "clipboard-write"]);
-  const copy = await request.post("/api/definitions/keysight-34465a/copy", { headers });
-  const id = ((await copy.json()) as { data: { id: string } }).data.id;
+  const id = await copy34465a(request);
   await page.goto(`/i/${id}?token=${TOKEN}`);
   await page.getByTestId("acceptance-tab-build").click();
   await expect(page.getByTestId("build-area")).toBeVisible();
@@ -287,8 +294,8 @@ test("build area: grouped library, SI values, a table edited by row, one binding
   await expect.poll(async () => Object.keys(((await input())?.test_current ?? {}) as object)).toContain("10000000");
 
   // Bound and mapped parameters look the same; only the bound one can be unbound here.
-  await expect(page.getByTestId("binding-input-high_z")).toContainText("解除绑定");
-  await expect(page.getByTestId("binding-input-mode")).toContainText("按映射");
+  await expect(page.getByTestId("binding-input-high_z").getByRole("button", { name: "解除绑定" })).toBeVisible();
+  await expect(page.getByTestId("binding-input-mode").getByRole("img", { name: "按映射" })).toBeVisible();
 
   // The side panel opens wide; the settings are searched and say who uses them.
   await page.locator(".react-flow__pane").click({ position: { x: 8, y: 8 } });
@@ -302,8 +309,16 @@ test("build area: grouped library, SI values, a table edited by row, one binding
   // The commands: searched, and what the Web leaves to the agent copied as a note.
   await page.getByTestId("build-tab-commands").click();
   await page.getByPlaceholder("搜索命令头或绑定").fill("NPLC");
-  await expect(page.getByTestId("build-command").first()).toContainText("NPLC");
+  const nplc = page.getByTestId("build-command").first();
+  await expect(nplc).toContainText("NPLC");
+  await expect(nplc.getByRole("img", { name: "可写可查" })).toBeVisible();
+  // Write only / query only / both: one of three, written as set/query.
+  await nplc.getByRole("button").first().click();
+  await nplc.getByTestId("build-command-access").getByRole("radio", { name: "只查" }).click();
+  await expect(nplc.getByRole("img", { name: "只查" })).toBeVisible();
+  await expect
+    .poll(async () => JSON.stringify((await stored(request, id)).data.commands ?? []))
+    .toContain('"set":false');
   await page.getByTestId("build-agent-note").click();
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(`instruments/${id}.yaml`);
-  forget(id);
 });

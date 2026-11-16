@@ -351,7 +351,11 @@ class DmmAdc(Component):
     applies. The component is the instrument's sampler (metrology-authoring.md 3.1).
     """
 
-    refs = {"conditioning": ("dmm_conditioning", "instrument")}
+    refs = {
+        "conditioning": ("dmm_conditioning", "instrument"),
+        "store": ("calibration_store", "instrument"),
+    }
+    optional_refs = frozenset({"store"})  # without one, the legacy coefficients apply
     defaults = {
         "digits": 7,  # display digits of a reading
         "overrange": 1.2,  # a reading beyond this fraction of full scale is an overload

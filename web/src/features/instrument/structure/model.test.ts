@@ -24,6 +24,8 @@ import {
   updateCommand,
   updateSetting,
   autoLayout,
+  accessPatch,
+  commandAccess,
   formatNumber,
   isTable,
   libraryGroups,
@@ -39,7 +41,8 @@ import {
   followers,
   refLinks,
   COLUMN,
-  ROW,
+  NODE_WIDTH,
+  nodeHeight,
   canWire,
   connect,
   diagnosticNode,
@@ -263,7 +266,7 @@ describe("layout and diagnostics", () => {
     expect(p("path")).toEqual({ x: COLUMN, y: 0 });
     // the other four below the chain, not stacked in one column
     const loose = ["trig", "meter", "cal", "mem"].map(p);
-    expect(Math.min(...loose.map((q) => q.y))).toBeGreaterThan(ROW - 1);
+    expect(Math.min(...loose.map((q) => q.y))).toBeGreaterThan(p("input").y);
     expect(new Set(loose.map((q) => q.x)).size).toBeGreaterThan(1);
     // the store follows the meter that names it
     expect(p("cal").x - p("meter").x).toBe(COLUMN);
@@ -272,6 +275,56 @@ describe("layout and diagnostics", () => {
     expect(new Set(Object.values(at).map((q) => `${q.x},${q.y}`)).size).toBe(6);
     // no channel components: the instrument starts at the top
     expect(Math.min(...Object.values(at).map((q) => q.y))).toBe(0);
+  });
+
+  it("never overlaps two blocks, however many ports and followed settings they have (#1216)", () => {
+    // Tall blocks: an acquisition with many numbered inputs, components following many settings,
+    // a panel port — on chains, in the grid and in the channel band.
+    const many = (prefix: string, n: number) => Object.fromEntries(Array.from({ length: n }, (_, i) => [`p${i}`, "$" + prefix + i]));
+    const tall: Structure = {
+      ...scope,
+      components: [
+        ...scope.components.map((c) => ({ ...c, params: { ...c.params, ...many("a", 5) } })),
+        { name: "acq2", type: "scope_acquisition", params: many("b", 4) },
+        { name: "x1", type: "x", params: many("c", 3) },
+        { name: "x2", type: "x", params: many("d", 6) },
+        { name: "x3", type: "x", params: {} },
+        { name: "x4", type: "x", params: many("e", 2) },
+      ],
+      channel_components: [
+        ...scope.channel_components.map((c) => ({ ...c, params: { ...c.params, ...many("f", 4) } })),
+        { name: "cx", type: "x", params: many("g", 5) },
+      ],
+      wiring: {
+        instrument: [
+          ...scope.wiring.instrument,
+          ["ch{n}.front.out", "acq.in1"],
+          ["ch{n}.front.out", "acq.in2"],
+          ["ch{n}.front.out", "acq.in3"],
+          ["acq.out", "acq2.in1"],
+        ],
+        channel: scope.wiring.channel,
+      },
+      ports: { instrument: { MON: "acq.mon" }, channel: scope.ports.channel },
+    };
+    const docs = new Map<string, ComponentDoc>([["scope_acquisition", acqDoc]]);
+    const at = autoLayout(tall, {}, docs);
+    const boxes = (["channel", "instrument"] as const).flatMap((sc) =>
+      (sc === "channel" ? tall.channel_components : tall.components).map((c) => {
+        const p = at[nodeId(sc, c.name)];
+        return { name: c.name, x: p.x, y: p.y, w: NODE_WIDTH, h: nodeHeight(tall, sc, c, docs) };
+      }),
+    );
+    expect(boxes).toHaveLength(10);
+    expect(Math.max(...boxes.map((b) => b.h))).toBeGreaterThan(150); // taller than the old fixed row
+    const overlapping: string[] = [];
+    for (let i = 0; i < boxes.length; i++)
+      for (let j = i + 1; j < boxes.length; j++) {
+        const a = boxes[i];
+        const b = boxes[j];
+        if (a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h) overlapping.push(`${a.name}/${b.name}`);
+      }
+    expect(overlapping).toEqual([]);
   });
 
   it("finds the component a diagnostic points at", () => {
@@ -499,5 +552,24 @@ describe("numbers, tables, the library and setting users (#1214)", () => {
     expect(matches("imp", "ch.impedance")).toBe(true);
     expect(matches("", "x")).toBe(true);
     expect(matches("zz", "x", null)).toBe(false);
+  });
+});
+
+describe("command access (#1214)", () => {
+  it("reads three uses from set and query, none when both are off", () => {
+    expect(commandAccess({ header: "A" })).toBe("both");
+    expect(commandAccess({ header: "A", query: false })).toBe("set");
+    expect(commandAccess({ header: "A", set: false })).toBe("query");
+    expect(commandAccess({ header: "A", set: false, query: false })).toBeNull();
+  });
+
+  it("writes only what differs from the default", () => {
+    const s = addCommand(scope, ":X", "state", "depth")!;
+    const i = s.commands.length - 1;
+    const only = updateCommand(s, i, accessPatch("query"));
+    expect(only.commands[i]).toEqual({ header: ":X", state: "depth", set: false });
+    const both = updateCommand(only, i, accessPatch("both"));
+    expect(both.commands[i]).toEqual({ header: ":X", state: "depth" });
+    expect(commandAccess(updateCommand(both, i, accessPatch("set")).commands[i])).toBe("set");
   });
 });

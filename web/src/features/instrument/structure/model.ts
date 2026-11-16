@@ -498,6 +498,39 @@ export interface Point {
 
 export const COLUMN = 260;
 export const ROW = 150;
+/** The vertical gap between two blocks in a column or between two grid rows. */
+export const GAP_Y = 36;
+
+// A block's size on the canvas (#1216): the canvas draws it and the layout spaces it from the
+// same numbers, so no combination of ports and settings makes two blocks overlap.
+export const NODE_WIDTH = 220;
+export const NODE_HEAD = 44;
+export const PORT_ROW = 22;
+export const FOLLOW_ROW = 18;
+/** At most this many followed settings on a block; the rest as "+n". */
+export const FOLLOW_ROWS = 3;
+
+/** The height of a block with these ports, panel ports and followed settings. */
+export function blockHeight(rows: PortRow[], panel: number, follows: number): number {
+  const ins = rows.filter((r) => r.direction !== "out").length;
+  const outs = rows.length - ins;
+  const ports = Math.max(ins, outs, 1) * PORT_ROW;
+  const panelRow = panel ? PORT_ROW : 0;
+  const followRows = follows ? FOLLOW_ROW * Math.min(follows, FOLLOW_ROWS + 1) + 4 : 0;
+  return NODE_HEAD + ports + panelRow + followRows + 6;
+}
+
+/** The panel ports that lead to a component. */
+export function panelPortsOf(s: Structure, scope: Scope, name: string): string[] {
+  return Object.entries(s.ports[scope])
+    .filter(([, target]) => target.split(".")[0] === name)
+    .map(([port]) => port);
+}
+
+/** The height a component's block is drawn at. */
+export function nodeHeight(s: Structure, scope: Scope, c: StructureComponent, docs: ReadonlyMap<string, ComponentDoc>): number {
+  return blockHeight(portsOf(s, scope, c.name, docs.get(c.type)), panelPortsOf(s, scope, c.name).length, followedSettings(c).length);
+}
 /** Where the instrument's components start below the channel band. */
 export const BAND_GAP = 80;
 
@@ -538,27 +571,32 @@ export function autoLayout(
   };
   ids.forEach(depth);
   const place = (scope: Scope, top: number): number => {
-    const own = listOf(s, scope).map((c) => nodeId(scope, c.name));
-    const rows = new Map<number, number>();
+    const comps = listOf(s, scope);
+    const height = new Map(comps.map((c) => [nodeId(scope, c.name), nodeHeight(s, scope, c, docs)]));
+    const own = comps.map((c) => nodeId(scope, c.name));
+    // Each chain column stacks its blocks by their heights.
+    const below = new Map<number, number>();
     for (const id of own.filter((i) => chained.has(i))) {
       const c = col.get(id) ?? 0;
-      const r = rows.get(c) ?? 0;
-      rows.set(c, r + 1);
-      out[id] = saved[id] ?? { x: c * COLUMN, y: top + r * ROW };
+      const y = below.get(c) ?? top;
+      below.set(c, y + (height.get(id) ?? ROW) + GAP_Y);
+      out[id] = saved[id] ?? { x: c * COLUMN, y };
     }
-    const chainRows = Math.max(0, ...rows.values());
+    const chainBottom = Math.max(top, ...below.values());
     const loose = looseOrder(s, scope, own.filter((i) => !chained.has(i)), docs);
     const columns = Math.max(0, ...[...chained].map((i) => (col.get(i) ?? 0) + 1));
     const width = Math.max(columns, Math.ceil(Math.sqrt(loose.length * 2)), Math.min(loose.length, 3), 1);
-    const below = top + (chainRows ? chainRows * ROW + LOOSE_GAP : 0);
-    loose.forEach((id, i) => {
-      out[id] = saved[id] ?? { x: (i % width) * COLUMN, y: below + Math.floor(i / width) * ROW };
-    });
-    const looseRows = Math.ceil(loose.length / width);
-    return looseRows ? below + looseRows * ROW : top + Math.max(chainRows, 1) * ROW;
+    // The grid: each row as tall as its tallest block.
+    let y = below.size ? chainBottom + LOOSE_GAP : top;
+    for (let i = 0; i < loose.length; i += width) {
+      const row = loose.slice(i, i + width);
+      row.forEach((id, k) => (out[id] = saved[id] ?? { x: k * COLUMN, y }));
+      y += Math.max(...row.map((id) => height.get(id) ?? ROW)) + GAP_Y;
+    }
+    return loose.length ? y : Math.max(chainBottom, top + ROW);
   };
   const band = place("channel", 0);
-  place("instrument", s.channel_components.length ? band + BAND_GAP : 0);
+  place("instrument", s.channel_components.length ? band - GAP_Y + BAND_GAP : 0);
   return out;
 }
 
@@ -598,9 +636,12 @@ export function refLinks(s: Structure, docs: ReadonlyMap<string, ComponentDoc>):
     for (const c of listOf(s, scope)) {
       for (const r of docs.get(c.type)?.refs ?? []) {
         const v = (c.params ?? {})[r.param];
-        if (typeof v !== "string" || !listOf(s, r.scope).some((x) => x.name === v)) continue;
-        if (r.scope === scope && v === c.name) continue;
-        out.push({ from: nodeId(scope, c.name), to: nodeId(r.scope, v), param: r.param });
+        if (typeof v !== "string") continue;
+        // As Component.peer: a channel component finds a name in its own channel first.
+        const where: Scope[] = scope === "channel" && r.scope === "instrument" ? ["channel", "instrument"] : [r.scope];
+        const at = where.find((w) => listOf(s, w).some((x) => x.name === v));
+        if (!at || (at === scope && v === c.name)) continue;
+        out.push({ from: nodeId(scope, c.name), to: nodeId(at, v), param: r.param });
       }
     }
   }
@@ -804,6 +845,22 @@ export function updateCommand(s: Structure, index: number, patch: CommandSpec): 
       return next;
     }),
   };
+}
+
+/** How a command is used (#1214): written, queried, or both. Neither is not offered (every use
+ * would fail; the definition checks report it, E-DEF-ACCESS). */
+export const COMMAND_ACCESS = ["set", "query", "both"] as const;
+export type CommandAccess = (typeof COMMAND_ACCESS)[number];
+
+export function commandAccess(c: CommandSpec): CommandAccess | null {
+  const set = c.set !== false;
+  const query = c.query !== false;
+  return set && query ? "both" : set ? "set" : query ? "query" : null;
+}
+
+/** The fields that give a command this use; a default (true) is left unwritten. */
+export function accessPatch(access: CommandAccess): CommandSpec {
+  return { set: access === "query" ? false : undefined, query: access === "set" ? false : undefined };
 }
 
 export function removeCommand(s: Structure, index: number): Structure {
