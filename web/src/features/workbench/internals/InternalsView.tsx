@@ -18,8 +18,26 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { Activity, ArrowRight, BookOpen, Crosshair, Map as MapIcon, Maximize2, Minimize2, Pin, Search } from "lucide-react";
-import { type ReactNode, memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Activity,
+  ArrowRight,
+  BookOpen,
+  Crosshair,
+  Map as MapIcon,
+  Maximize2,
+  Minimize2,
+  Pin,
+  Search,
+} from "lucide-react";
+import {
+  type ReactNode,
+  memo,
+  useDeferredValue,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkbench } from "../store";
 import type { T } from "@/i18n";
@@ -46,7 +64,15 @@ import { cn } from "@/lib/utils";
 import { formatValue, labelOf, numeric, stateMap } from "../model";
 import { useInternalProbes } from "@/api/hooks";
 import { InternalProbePanel, type Tuned } from "./ProbeView";
-import { type MiniSignal, type Tune, CENTER, flowTag, miniOf, miniPath, probeable } from "./probe";
+import {
+  type MiniSignal,
+  type Tune,
+  CENTER,
+  flowTag,
+  miniOf,
+  miniPath,
+  probeable,
+} from "./probe";
 import {
   type GraphEdge,
   type GraphNode,
@@ -101,7 +127,14 @@ export function InternalsView({
       <ErrorState error={query.error} onRetry={() => void query.refetch()} />
     );
   if (!query.data) return <Skeleton className="m-3 h-[calc(100%-1.5rem)]" />;
-  return <LiveInternals session={session} inst={inst} view={query.data} onLocate={(path) => revealSetting(inst.name, path)} />;
+  return (
+    <LiveInternals
+      session={session}
+      inst={inst}
+      view={query.data}
+      onLocate={(path) => revealSetting(inst.name, path)}
+    />
+  );
 }
 
 /** A value once it has stopped changing for `ms`: a burst of events asks for the thumbnails once. */
@@ -131,13 +164,26 @@ function LiveInternals({
   view: InstrumentInternals;
   onLocate: (setting: string) => void;
 }) {
-  const version = useSettled(useEvents((s) => s.version), 200);
+  const version = useSettled(
+    useEvents((s) => s.version),
+    200,
+  );
   const [ports, setPorts] = useState<string[]>([]);
   const [withheld, setWithheld] = useState(false);
-  const read = useInternalProbes(session.id, inst.name, ports, version, !withheld);
+  const read = useInternalProbes(
+    session.id,
+    inst.name,
+    ports,
+    version,
+    !withheld,
+  );
   // Refused once is refused for the session's mode: remembered, so the next version does not ask again.
   if (read.withheld && !withheld) setWithheld(true);
-  const signals = useMemo(() => new Map([...read.probes].map(([port, probe]) => [port, miniOf(probe)])), [read.probes]);
+  const signals = useMemo(
+    () =>
+      new Map([...read.probes].map(([port, probe]) => [port, miniOf(probe)])),
+    [read.probes],
+  );
   return (
     <InternalsPanel
       view={view}
@@ -216,7 +262,9 @@ export function InternalsPanel({
   // Full screen is in-app (#1174): the same tree, restyled to cover the viewport, so the viewport,
   // selection and probe survive the switch and a future editor reuses one structure for both forms.
   const [fullscreen, setFullscreen] = useState(false);
-  const [overview, setOverview] = useState(() => load<boolean>("internals-overview", false));
+  const [overview, setOverview] = useState(() =>
+    load<boolean>("internals-overview", false),
+  );
   const [overflows, setOverflows] = useState(false);
   useEffect(() => {
     if (!fullscreen) return;
@@ -270,7 +318,9 @@ export function InternalsPanel({
     () =>
       view.components
         .filter((c) => c.channel == null || expanded.has(c.channel))
-        .flatMap((c) => c.ports.filter(probeable).map((p) => `${c.name}.${p.name}`)),
+        .flatMap((c) =>
+          c.ports.filter(probeable).map((p) => `${c.name}.${p.name}`),
+        ),
     [view, expanded],
   );
   const shownKey = shownPorts.join("|");
@@ -288,7 +338,9 @@ export function InternalsPanel({
       ? {
           port: probe,
           ...probeTitle(t, view, probe),
-          tuned: view.tuning ? { tuning: view.tuning, tune, onTune: setTune } : undefined,
+          tuned: view.tuning
+            ? { tuning: view.tuning, tune, onTune: setTune }
+            : undefined,
           close: () => setProbe(null),
         }
       : null;
@@ -303,107 +355,123 @@ export function InternalsPanel({
     <div
       // fixed inset-0 must not sit under a transformed or contained ancestor; the full-screen e2e
       // checks the viewport corners with elementFromPoint, which fails first if one appears (#1186).
-      className={cn("flex min-h-0", fullscreen ? "bg-background fixed inset-0 z-50" : "h-full")}
+      className={cn(
+        "flex min-h-0",
+        fullscreen ? "bg-background fixed inset-0 z-50" : "h-full",
+      )}
       data-testid="internals-panel"
       data-fullscreen={fullscreen}
     >
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="space-y-1.5 border-b px-3 py-2">
-         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <div className="relative w-56">
-            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
-            <Input
-              type="search"
-              value={query}
-              onChange={(e) => {
-                setQuery(e.target.value);
-                if (selected) select(null);
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape" && query) {
-                  setQuery("");
-                  e.preventDefault();
-                }
-                if (e.key === "Enter" && hits.length) select(hits[0].component);
-              }}
-              placeholder={t("internals.find")}
-              title={t("internals.findTip")}
-              aria-label={t("internals.find")}
-              className="num h-7 pl-7 text-xs"
-              data-testid="internals-find"
-            />
-          </div>
-          {grouped && (
-            <div
-              role="group"
-              aria-label={t("internals.channels")}
-              className="flex items-center gap-1"
-            >
-              {channels.map((n) => (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+            <div className="relative w-56">
+              <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
+              <Input
+                type="search"
+                value={query}
+                onChange={(e) => {
+                  setQuery(e.target.value);
+                  if (selected) select(null);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape" && query) {
+                    setQuery("");
+                    e.preventDefault();
+                  }
+                  if (e.key === "Enter" && hits.length)
+                    select(hits[0].component);
+                }}
+                placeholder={t("internals.find")}
+                title={t("internals.findTip")}
+                aria-label={t("internals.find")}
+                className="num h-7 pl-7 text-xs"
+                data-testid="internals-find"
+              />
+            </div>
+            {grouped && (
+              <div
+                role="group"
+                aria-label={t("internals.channels")}
+                className="flex items-center gap-1"
+              >
+                {channels.map((n) => (
+                  <Button
+                    key={n}
+                    size="sm"
+                    variant={expanded.has(n) ? "secondary" : "ghost"}
+                    className="num h-7 px-2 text-xs"
+                    aria-pressed={expanded.has(n)}
+                    onClick={() => toggle(n)}
+                    style={{ color: channelColor(n) }}
+                  >
+                    CH{n}
+                  </Button>
+                ))}
                 <Button
-                  key={n}
                   size="sm"
-                  variant={expanded.has(n) ? "secondary" : "ghost"}
-                  className="num h-7 px-2 text-xs"
-                  aria-pressed={expanded.has(n)}
-                  onClick={() => toggle(n)}
-                  style={{ color: channelColor(n) }}
+                  variant="ghost"
+                  className="h-7 text-xs"
+                  onClick={() =>
+                    setExpanded(
+                      expanded.size === channels.length
+                        ? new Set()
+                        : new Set(channels),
+                    )
+                  }
                 >
-                  CH{n}
+                  {expanded.size === channels.length
+                    ? t("internals.collapseAll")
+                    : t("internals.expandAll")}
                 </Button>
-              ))}
+              </div>
+            )}
+            <Legend probes={!!renderProbe} />
+            {/* The overview map covers a corner of the diagram: shown when asked for, and only while
+              part of the graph is out of view (#1234). */}
+            {overflows && (
               <Button
                 size="sm"
-                variant="ghost"
-                className="h-7 text-xs"
-                onClick={() =>
-                  setExpanded(
-                    expanded.size === channels.length
-                      ? new Set()
-                      : new Set(channels),
-                  )
-                }
+                variant={overview ? "secondary" : "ghost"}
+                className="ml-auto h-7 px-2"
+                onClick={() => {
+                  save("internals-overview", !overview);
+                  setOverview(!overview);
+                }}
+                aria-pressed={overview}
+                title={t("internals.overview")}
+                aria-label={t("internals.overview")}
+                data-testid="internals-overview"
               >
-                {expanded.size === channels.length
-                  ? t("internals.collapseAll")
-                  : t("internals.expandAll")}
+                <MapIcon className="size-3.5" />
               </Button>
-            </div>
-          )}
-          <Legend probes={!!renderProbe} />
-          {/* The overview map covers a corner of the diagram: shown when asked for, and only while
-              part of the graph is out of view (#1234). */}
-          {overflows && (
+            )}
             <Button
               size="sm"
-              variant={overview ? "secondary" : "ghost"}
-              className="ml-auto h-7 px-2"
-              onClick={() => {
-                save("internals-overview", !overview);
-                setOverview(!overview);
-              }}
-              aria-pressed={overview}
-              title={t("internals.overview")}
-              aria-label={t("internals.overview")}
-              data-testid="internals-overview"
+              variant={fullscreen ? "secondary" : "ghost"}
+              className={cn("h-7 gap-1 px-2 text-xs", !overflows && "ml-auto")}
+              onClick={() => setFullscreen((f) => !f)}
+              title={
+                fullscreen
+                  ? t("internals.exitFullscreenTip")
+                  : t("internals.fullscreen")
+              }
+              aria-label={
+                fullscreen
+                  ? t("internals.exitFullscreen")
+                  : t("internals.fullscreen")
+              }
+              data-testid="internals-fullscreen"
             >
-              <MapIcon className="size-3.5" />
+              {fullscreen ? (
+                <Minimize2 className="size-3.5" />
+              ) : (
+                <Maximize2 className="size-3.5" />
+              )}
+              {fullscreen && t("internals.exitFullscreen")}
             </Button>
-          )}
-          <Button
-            size="sm"
-            variant={fullscreen ? "secondary" : "ghost"}
-            className={cn("h-7 gap-1 px-2 text-xs", !overflows && "ml-auto")}
-            onClick={() => setFullscreen((f) => !f)}
-            title={fullscreen ? t("internals.exitFullscreenTip") : t("internals.fullscreen")}
-            aria-label={fullscreen ? t("internals.exitFullscreen") : t("internals.fullscreen")}
-            data-testid="internals-fullscreen"
-          >
-            {fullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
-            {fullscreen && t("internals.exitFullscreen")}
-          </Button>
-         </div>
-         <Basis view={view} />
+          </div>
+          <Basis view={view} />
         </div>
         <div className="min-h-0 flex-1" data-testid="internals-graph">
           <ReactFlowProvider>
@@ -427,13 +495,27 @@ export function InternalsPanel({
       {/* The side column is there when it has something to say (a block, a probe, search results):
           until then the diagram has the whole width, and the legend says what a click does. */}
       {(comp || probeSlot || query.trim()) && (
-        <aside className="bg-sidebar w-80 shrink-0 border-l" aria-label={t("workbench.inspector")}>
+        <aside
+          className="bg-sidebar w-80 shrink-0 border-l"
+          aria-label={t("workbench.inspector")}
+        >
           <ScrollArea className="h-full">
             {probeSlot && renderProbe?.(probeSlot)}
             {comp ? (
-              <ComponentDetails comp={comp} inst={inst} view={view} focus={focus} onLocate={onLocate} />
+              <ComponentDetails
+                comp={comp}
+                inst={inst}
+                view={view}
+                focus={focus}
+                onLocate={onLocate}
+              />
             ) : (
-              <SearchResults view={view} query={query} hits={hits} onSelect={select} />
+              <SearchResults
+                view={view}
+                query={query}
+                hits={hits}
+                onSelect={select}
+              />
             )}
           </ScrollArea>
         </aside>
@@ -448,16 +530,29 @@ function componentOf(port: string): string {
 }
 
 /** A probe's title — the block in the engineer's words and the port (`ADC 组 · out1`) — and its wire's label. */
-function probeTitle(t: T, view: InstrumentInternals, port: string): { heading: string; tag: string } {
+function probeTitle(
+  t: T,
+  view: InstrumentInternals,
+  port: string,
+): { heading: string; tag: string } {
   const name = componentOf(port);
   const c = view.components.find((x) => x.name === name);
   const channel = c?.channel != null ? ` CH${c.channel}` : "";
   const pin = port.slice(name.length + 1);
   // A port the engineer has a name for (`混频器 · 中频输出`); else the port as the model names it.
-  const heading = `${c ? typeLabel(t, c.type) : name}${channel} · ${c ? t(`internals.portNames.${c.type}.${pin}`, { defaultValue: pin }) : pin}`;
+  const heading = `${c ? blockLabel(t, c) : name}${channel} · ${c ? t(`internals.portNames.${c.type}.${pin}`, { defaultValue: pin }) : pin}`;
   const wire = view.wires.find((w) => w.from === port);
-  const medium = c?.ports.find((p) => p.name === port.slice(name.length + 1))?.medium;
-  const tag = flowTag(t, wire ?? { medium: medium === "samples" ? "samples" : "signal", sample_rate_hz: null, format: null });
+  const medium = c?.ports.find(
+    (p) => p.name === port.slice(name.length + 1),
+  )?.medium;
+  const tag = flowTag(
+    t,
+    wire ?? {
+      medium: medium === "samples" ? "samples" : "signal",
+      sample_rate_hz: null,
+      format: null,
+    },
+  );
   return { heading, tag };
 }
 
@@ -468,17 +563,25 @@ function probeTitle(t: T, view: InstrumentInternals, port: string): { heading: s
 function Basis({ view }: { view: InstrumentInternals }) {
   const { t } = useTranslation();
   const ref = view.reference;
-  const basis = ref ? [ref.title, ref.document, ref.version].filter(Boolean).join(" · ") : null;
+  const basis = ref
+    ? [ref.title, ref.document, ref.version].filter(Boolean).join(" · ")
+    : null;
   const whole = `${t("internals.basis")} ${basis ? `${t("internals.basisLabel")} ${basis}` : t("internals.basisNone")}`;
   return (
-    <p className="text-muted-foreground flex items-start gap-1.5 text-[11px]" data-testid="internals-basis" title={whole}>
+    <p
+      className="text-muted-foreground flex items-start gap-1.5 text-[11px]"
+      data-testid="internals-basis"
+      title={whole}
+    >
       <BookOpen className="mt-px size-3.5 shrink-0" aria-hidden />
       {/* Wraps when narrow: the statement is read whole, not cut off (#1234). */}
       <span>
         {t("internals.basis")}{" "}
         {basis ? (
           <>
-            <span className="text-foreground font-medium">{t("internals.basisLabel")}</span>{" "}
+            <span className="text-foreground font-medium">
+              {t("internals.basisLabel")}
+            </span>{" "}
             <span className="text-foreground">{basis}</span>
           </>
         ) : (
@@ -519,7 +622,12 @@ function Legend({ probes }: { probes: boolean }) {
       </li>
       <li className="flex items-center gap-1.5">
         <svg width="22" height="8" aria-hidden>
-          <path d="M0,4H22" stroke={line} strokeWidth="1.25" strokeDasharray="4 3" />
+          <path
+            d="M0,4H22"
+            stroke={line}
+            strokeWidth="1.25"
+            strokeDasharray="4 3"
+          />
         </svg>
         {t("internals.legend.uses")}
       </li>
@@ -563,15 +671,21 @@ function SearchResults({
   const { t } = useTranslation();
   if (!hits.length)
     return (
-      <p className="text-muted-foreground p-4 text-xs" data-testid="internals-find-results">
+      <p
+        className="text-muted-foreground p-4 text-xs"
+        data-testid="internals-find-results"
+      >
         {t("internals.findNone", { query: query.trim() })}
       </p>
     );
   const byComp = new Map<string, SearchHit[]>();
-  for (const h of hits) byComp.set(h.component, [...(byComp.get(h.component) ?? []), h]);
+  for (const h of hits)
+    byComp.set(h.component, [...(byComp.get(h.component) ?? []), h]);
   return (
     <div className="space-y-1 p-3" data-testid="internals-find-results">
-      <h3 className={HEADING}>{t("internals.findResults", { count: byComp.size })}</h3>
+      <h3 className={HEADING}>
+        {t("internals.findResults", { count: byComp.size })}
+      </h3>
       <ul className="space-y-1">
         {[...byComp].map(([name, list]) => {
           const c = view.components.find((x) => x.name === name)!;
@@ -583,7 +697,7 @@ function SearchResults({
                 onClick={() => onSelect(name)}
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium">{typeLabel(t, c.type)}</span>
+                  <span className="font-medium">{blockLabel(t, c)}</span>
                   <span className="text-muted-foreground num">{name}</span>
                 </div>
                 {list.map((h) => (
@@ -630,13 +744,32 @@ function FlowEdge({
   labelBgStyle,
   data,
 }: EdgeProps) {
-  const [path] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+  const [path] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
   const { medium, lit } = (data ?? {}) as { medium?: string; lit?: boolean };
   const digital = medium === "samples";
   return (
     <>
-      <BaseEdge path={path} style={digital ? { ...style, strokeWidth: 4.5 } : style} />
-      {digital && <path d={path} fill="none" stroke="var(--background)" strokeWidth={1.75} pointerEvents="none" data-digital="" />}
+      <BaseEdge
+        path={path}
+        style={digital ? { ...style, strokeWidth: 4.5 } : style}
+      />
+      {digital && (
+        <path
+          d={path}
+          fill="none"
+          stroke="var(--background)"
+          strokeWidth={1.75}
+          pointerEvents="none"
+          data-digital=""
+        />
+      )}
       {/* On the lit chain the signal is seen to move, source to target: beads on an analog wire,
           words travelling inside a sample stream's double line. Still under reduced motion. */}
       {lit && (
@@ -671,8 +804,26 @@ function FlowEdge({
  * What a component uses (#729): dashed, named by the parameter. The name sits at the user's end —
  * a wire's label sits at its source's end, so the two never share a place between two columns.
  */
-function RefEdge({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, style, label, labelStyle, labelBgStyle }: EdgeProps) {
-  const [path] = getSmoothStepPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition });
+function RefEdge({
+  sourceX,
+  sourceY,
+  targetX,
+  targetY,
+  sourcePosition,
+  targetPosition,
+  style,
+  label,
+  labelStyle,
+  labelBgStyle,
+}: EdgeProps) {
+  const [path] = getSmoothStepPath({
+    sourceX,
+    sourceY,
+    sourcePosition,
+    targetX,
+    targetY,
+    targetPosition,
+  });
   // Straight up within a column: the name sits on the line, half-way.
   const upright = sourcePosition === Position.Top;
   return (
@@ -702,7 +853,6 @@ function textWidth(text: string): number {
 }
 
 const edgeTypes = { flow: FlowEdge, ref: RefEdge };
-
 
 const HEADING =
   "text-muted-foreground mb-1.5 text-[11px] font-medium tracking-wide uppercase";
@@ -738,7 +888,10 @@ function Graph({
 }) {
   const { t } = useTranslation();
   const theme = useTheme((s) => s.resolved);
-  const graph = useMemo(() => buildGraph(view, expanded, (flow) => textWidth(flowTag(t, flow))), [view, expanded, t]);
+  const graph = useMemo(
+    () => buildGraph(view, expanded, (flow) => textWidth(flowTag(t, flow))),
+    [view, expanded, t],
+  );
   const rf = useReactFlow();
   const wrap = useRef<HTMLDivElement>(null);
   // The view opens readable, not merely complete: the whole graph when it fits at a size its text
@@ -749,24 +902,40 @@ function Graph({
     if (!box?.width || !box.height) return null;
     const b = boundsOf(graph.nodes);
     // On the left a gutter for the zoom buttons: no block opens under them (#1234).
-    const fit = Math.min((box.width - CONTROLS_GUTTER - VIEW_PAD) / b.width, (box.height - 2 * VIEW_PAD) / b.height);
+    const fit = Math.min(
+      (box.width - CONTROLS_GUTTER - VIEW_PAD) / b.width,
+      (box.height - 2 * VIEW_PAD) / b.height,
+    );
     const zoom = Math.min(MAX_OPEN_ZOOM, Math.max(fit, READABLE_ZOOM));
     const along = (size: number, from: number, extent: number, lead: number) =>
-      extent * zoom <= size - lead - VIEW_PAD ? lead + (size - lead - VIEW_PAD - extent * zoom) / 2 - from * zoom : lead - from * zoom;
-    return { x: along(box.width, b.x, b.width, CONTROLS_GUTTER), y: along(box.height, b.y, b.height, VIEW_PAD), zoom };
+      extent * zoom <= size - lead - VIEW_PAD
+        ? lead + (size - lead - VIEW_PAD - extent * zoom) / 2 - from * zoom
+        : lead - from * zoom;
+    return {
+      x: along(box.width, b.x, b.width, CONTROLS_GUTTER),
+      y: along(box.height, b.y, b.height, VIEW_PAD),
+      zoom,
+    };
   };
   /** Whether part of the graph lies outside the view as it stands: only then is the overview map worth its corner. */
   const outside = (v: { x: number; y: number; zoom: number }) => {
     const box = wrap.current?.getBoundingClientRect();
     if (!box?.width) return false;
     const b = boundsOf(graph.nodes);
-    return b.x * v.zoom + v.x < 0 || b.y * v.zoom + v.y < 0 || (b.x + b.width) * v.zoom + v.x > box.width || (b.y + b.height) * v.zoom + v.y > box.height;
+    return (
+      b.x * v.zoom + v.x < 0 ||
+      b.y * v.zoom + v.y < 0 ||
+      (b.x + b.width) * v.zoom + v.x > box.width ||
+      (b.y + b.height) * v.zoom + v.y > box.height
+    );
   };
   /** Bring a block into view if it is not (found by search, or chosen in the details): the least move that shows it whole. */
   const reveal = (name: string, animate: boolean) => {
     const box = wrap.current?.getBoundingClientRect();
     const c = view.components.find((x) => x.name === name);
-    const n = graph.nodes.find((x) => x.id === `c:${name}`) ?? graph.nodes.find((x) => x.id === `g:${c?.channel}`);
+    const n =
+      graph.nodes.find((x) => x.id === `c:${name}`) ??
+      graph.nodes.find((x) => x.id === `g:${c?.channel}`);
     if (!box?.width || !n || !rf.viewportInitialized) return;
     const v = rf.getViewport();
     const shift = (pos: number, extent: number, size: number, at: number) => {
@@ -778,7 +947,11 @@ function Graph({
     };
     const x = shift(n.x, NODE_WIDTH.component, box.width, v.x);
     const y = shift(n.y, n.height, box.height, v.y);
-    if (x !== v.x || y !== v.y) void rf.setViewport({ x, y, zoom: v.zoom }, { duration: animate && !prefersReducedMotion() ? 260 : 0 });
+    if (x !== v.x || y !== v.y)
+      void rf.setViewport(
+        { x, y, zoom: v.zoom },
+        { duration: animate && !prefersReducedMotion() ? 260 : 0 },
+      );
   };
   useEffect(() => {
     if (selected) reveal(selected, true);
@@ -828,7 +1001,15 @@ function Graph({
       initialHeight: n.height,
       data:
         n.kind === "component"
-          ? { node: n, selected: n.comp.name === selected, lit: !dim && !!lit, dim, onProbe, probing, signals }
+          ? {
+              node: n,
+              selected: n.comp.name === selected,
+              lit: !dim && !!lit,
+              dim,
+              onProbe,
+              probing,
+              signals,
+            }
           : { node: n, dim },
       draggable: false,
       connectable: false,
@@ -839,41 +1020,54 @@ function Graph({
   // Parallel wires between the same two blocks that carry the same thing (a converter's four
   // channels) are labelled once, on the first.
   const labelled = new Set<string>();
-  const wireLabel = (source: string, target: string, flow: NonNullable<GraphEdge["flow"]>) => {
+  const wireLabel = (
+    source: string,
+    target: string,
+    flow: NonNullable<GraphEdge["flow"]>,
+  ) => {
     const tag = flowTag(t, flow);
     const key = `${source}>${target}>${tag}`;
     if (labelled.has(key)) return undefined;
     labelled.add(key);
     return tag;
   };
-  const edges: Edge[] = graph.edges.map(({ kind, label, links, flow, ...e }) => {
-    const on = !!lit && links.some((l) => lit.links.has(l));
-    const style = {
-      ...base,
-      ...(kind === "ref" ? { strokeDasharray: "5 4" } : {}),
-      ...(on
-        ? { stroke: "var(--primary)", strokeWidth: 2 }
-        : lit
-          ? { opacity: 0.2 }
-          : kind === "ref"
-            ? { opacity: 0.8 }
+  const edges: Edge[] = graph.edges.map(
+    ({ kind, label, links, flow, ...e }) => {
+      const on = !!lit && links.some((l) => lit.links.has(l));
+      const style = {
+        ...base,
+        ...(kind === "ref" ? { strokeDasharray: "5 4" } : {}),
+        ...(on
+          ? { stroke: "var(--primary)", strokeWidth: 2 }
+          : lit
+            ? { opacity: 0.2 }
+            : kind === "ref"
+              ? { opacity: 0.8 }
+              : {}),
+      };
+      const text = {
+        labelStyle: { fontSize: 10.5, fill: "var(--muted-foreground)" },
+        labelBgStyle: { fill: "var(--background)" },
+      };
+      return {
+        ...e,
+        // A signal wire is solid — thin when analog, a double line when it carries a sample stream —
+        // and says which in words (signal-chain.md 1.2); what a component uses is dashed and named by
+        // its parameter (#729).
+        type: flow ? "flow" : kind === "ref" ? "ref" : "smoothstep",
+        focusable: false,
+        selectable: false,
+        zIndex: on ? 1 : 0,
+        ...(kind === "ref"
+          ? { label, ...text }
+          : flow
+            ? { label: wireLabel(e.source, e.target, flow), ...text }
             : {}),
-    };
-    const text = { labelStyle: { fontSize: 10.5, fill: "var(--muted-foreground)" }, labelBgStyle: { fill: "var(--background)" } };
-    return {
-      ...e,
-      // A signal wire is solid — thin when analog, a double line when it carries a sample stream —
-      // and says which in words (signal-chain.md 1.2); what a component uses is dashed and named by
-      // its parameter (#729).
-      type: flow ? "flow" : kind === "ref" ? "ref" : "smoothstep",
-      focusable: false,
-      selectable: false,
-      zIndex: on ? 1 : 0,
-      ...(kind === "ref" ? { label, ...text } : flow ? { label: wireLabel(e.source, e.target, flow), ...text } : {}),
-      style,
-      data: { kind, lit: on, medium: flow?.medium },
-    };
-  });
+        style,
+        data: { kind, lit: on, medium: flow?.medium },
+      };
+    },
+  );
   // A channel picked by a setting (a trigger source) has no wire or ref to draw: while the chain
   // is lit, a dotted line names the setting and says which channel it picks now (#739).
   const drawn = new Set(graph.edges.flatMap((e) => e.links));
@@ -921,84 +1115,89 @@ function Graph({
   }
   return (
     <div className="flex h-full w-full flex-col">
-    <div
-      ref={wrap}
-      className="min-h-0 w-full flex-1"
-      // A block or port reached with Tab may lie left of or above the view, where no scroll reaches: pan to it.
-      onFocusCapture={(e) => {
-        const name = (e.target as HTMLElement).closest<HTMLElement>("[data-name]")?.dataset.name;
-        if (name) reveal(name, true);
-      }}
-    >
-    <ReactFlow
-      // A new layout (a channel expanded) fits the view again.
-      key={[...expanded].sort().join(",")}
-      onInit={(flow) => {
-        const opened = home();
-        if (!opened) return;
-        void flow.setViewport(opened);
-        onOverflows(outside(opened));
-        if (selected) reveal(selected, false);
-      }}
-      onMoveEnd={(_, v) => onOverflows(outside(v))}
-      nodes={nodes}
-      edges={edges}
-      nodeTypes={nodeTypes}
-      edgeTypes={edgeTypes}
-      onNodeClick={(_, n) => {
-        if (n.type === "component")
-          onSelect((n.data as ComponentData).node.comp.name);
-        else if (n.type === "channel")
-          onExpand((n.data as GroupData).node.channel);
-      }}
-      onPaneClick={() => onSelect(null)}
-      connectionMode={ConnectionMode.Loose}
-      nodesConnectable={false}
-      nodesDraggable={false}
-      edgesFocusable={false}
-      deleteKeyCode={null}
-      zoomOnDoubleClick={false}
-      fitViewOptions={{ padding: 0.1, maxZoom: MAX_OPEN_ZOOM }}
-      colorMode={theme}
-      minZoom={0.2}
-      maxZoom={2}
-      proOptions={{ hideAttribution: true }}
-      aria-label={t("internals.title")}
-    >
-      <Background
-        variant={BackgroundVariant.Dots}
-        gap={20}
-        size={1.2}
-        color="var(--border)"
-      />
-      <Controls showInteractive={false} position="bottom-left" />
-    </ReactFlow>
-    </div>
-    {/* The overview map in a strip of its own under the diagram, not over a corner of it (#1234). */}
-    {overview && (
-      <div className="bg-card relative h-24 shrink-0 border-t" data-testid="internals-overview-strip">
-        <MiniMap
-          pannable
-          zoomable
-          position="bottom-right"
-          ariaLabel={t("internals.overview")}
-          style={{ width: 320, height: 84, margin: 6 }}
-          bgColor="var(--card)"
-          maskColor="color-mix(in oklab, var(--foreground) 9%, transparent)"
-          nodeStrokeWidth={0}
-          nodeColor={(n) =>
-            n.type === "label"
-              ? "transparent"
-              : (n.data as { dim?: boolean }).dim
-                ? "var(--border)"
-                : lit || n.id === `c:${selected}`
-                  ? "var(--primary)"
-                  : "color-mix(in oklab, var(--muted-foreground) 65%, transparent)"
-          }
-          nodeBorderRadius={6}
-        />
+      <div
+        ref={wrap}
+        className="min-h-0 w-full flex-1"
+        // A block or port reached with Tab may lie left of or above the view, where no scroll reaches: pan to it.
+        onFocusCapture={(e) => {
+          const name = (e.target as HTMLElement).closest<HTMLElement>(
+            "[data-name]",
+          )?.dataset.name;
+          if (name) reveal(name, true);
+        }}
+      >
+        <ReactFlow
+          // A new layout (a channel expanded) fits the view again.
+          key={[...expanded].sort().join(",")}
+          onInit={(flow) => {
+            const opened = home();
+            if (!opened) return;
+            void flow.setViewport(opened);
+            onOverflows(outside(opened));
+            if (selected) reveal(selected, false);
+          }}
+          onMoveEnd={(_, v) => onOverflows(outside(v))}
+          nodes={nodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          onNodeClick={(_, n) => {
+            if (n.type === "component")
+              onSelect((n.data as ComponentData).node.comp.name);
+            else if (n.type === "channel")
+              onExpand((n.data as GroupData).node.channel);
+          }}
+          onPaneClick={() => onSelect(null)}
+          connectionMode={ConnectionMode.Loose}
+          nodesConnectable={false}
+          nodesDraggable={false}
+          edgesFocusable={false}
+          deleteKeyCode={null}
+          zoomOnDoubleClick={false}
+          fitViewOptions={{ padding: 0.1, maxZoom: MAX_OPEN_ZOOM }}
+          colorMode={theme}
+          minZoom={0.2}
+          maxZoom={2}
+          proOptions={{ hideAttribution: true }}
+          aria-label={t("internals.title")}
+        >
+          <Background
+            variant={BackgroundVariant.Dots}
+            gap={20}
+            size={1.2}
+            color="var(--border)"
+          />
+          <Controls showInteractive={false} position="bottom-left" />
+        </ReactFlow>
       </div>
-    )}
+      {/* The overview map in a strip of its own under the diagram, not over a corner of it (#1234). */}
+      {overview && (
+        <div
+          className="bg-card relative h-24 shrink-0 border-t"
+          data-testid="internals-overview-strip"
+        >
+          <MiniMap
+            pannable
+            zoomable
+            position="bottom-right"
+            ariaLabel={t("internals.overview")}
+            style={{ width: 320, height: 84, margin: 6 }}
+            bgColor="var(--card)"
+            maskColor="color-mix(in oklab, var(--foreground) 9%, transparent)"
+            nodeStrokeWidth={0}
+            nodeColor={(n) =>
+              n.type === "label"
+                ? "transparent"
+                : (n.data as { dim?: boolean }).dim
+                  ? "var(--border)"
+                  : lit || n.id === `c:${selected}`
+                    ? "var(--primary)"
+                    : "color-mix(in oklab, var(--muted-foreground) 65%, transparent)"
+            }
+            nodeBorderRadius={6}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -1011,19 +1210,30 @@ const VIEW_PAD = 24;
 const CONTROLS_GUTTER = 52;
 
 /** The box around every node of the graph. */
-function boundsOf(nodes: readonly GraphNode[]): { x: number; y: number; width: number; height: number } {
+function boundsOf(nodes: readonly GraphNode[]): {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+} {
   const x = Math.min(...nodes.map((n) => n.x));
   const y = Math.min(...nodes.map((n) => n.y));
   const right = Math.max(...nodes.map((n) => n.x + NODE_WIDTH[n.kind]));
   const bottom = Math.max(...nodes.map((n) => n.y + n.height));
-  return { x, y, width: Math.max(1, right - x), height: Math.max(1, bottom - y) };
+  return {
+    x,
+    y,
+    width: Math.max(1, right - x),
+    height: Math.max(1, bottom - y),
+  };
 }
 
 /** Where a port row's thumbnail starts, and what it leaves for the port's name at the right. */
 const MINI = { left: 44, right: 58, height: 22 } as const;
 
-function typeLabel(t: T, type: string): string {
-  return t(`internals.types.${type}`, { defaultValue: type });
+/** A block's title: the definition's own label for it (#1261), else its type's name. */
+function blockLabel(t: T, c: { type: string; label?: string | null }): string {
+  return c.label || t(`internals.types.${c.type}`, { defaultValue: c.type });
 }
 
 function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
@@ -1051,8 +1261,11 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
         />
       )}
       <div className="border-b px-3 py-1.5" style={{ height: 40 }}>
-        <div className="truncate text-[13px] leading-tight font-medium" data-part="block-name">
-          {typeLabel(t, c.type)}
+        <div
+          className="truncate text-[13px] leading-tight font-medium"
+          data-part="block-name"
+        >
+          {blockLabel(t, c)}
         </div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">
           {c.name}
@@ -1090,8 +1303,36 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
         }}
       />
       {/* A dependency inside one column (#959): out of the used block's top, into its user's foot. */}
-      <Handle id="ref-up" type="source" position={Position.Top} isConnectable={false} style={{ width: 6, height: 6, borderWidth: 1, borderStyle: "dashed", borderColor: "var(--muted-foreground)", background: "var(--card)", opacity: 0 }} />
-      <Handle id="ref-foot" type="target" position={Position.Bottom} isConnectable={false} style={{ width: 6, height: 6, borderWidth: 1, borderStyle: "dashed", borderColor: "var(--muted-foreground)", background: "var(--card)", opacity: 0 }} />
+      <Handle
+        id="ref-up"
+        type="source"
+        position={Position.Top}
+        isConnectable={false}
+        style={{
+          width: 6,
+          height: 6,
+          borderWidth: 1,
+          borderStyle: "dashed",
+          borderColor: "var(--muted-foreground)",
+          background: "var(--card)",
+          opacity: 0,
+        }}
+      />
+      <Handle
+        id="ref-foot"
+        type="target"
+        position={Position.Bottom}
+        isConnectable={false}
+        style={{
+          width: 6,
+          height: 6,
+          borderWidth: 1,
+          borderStyle: "dashed",
+          borderColor: "var(--muted-foreground)",
+          background: "var(--card)",
+          opacity: 0,
+        }}
+      />
       {node.rows.map((row) => {
         const top = row.top;
         const left = row.side === "left";
@@ -1125,8 +1366,15 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
-                style={{ top, left: MINI.left - 2, right: 6, transform: "translateY(-50%)" }}
-                aria-label={t("internals.probe.open", { port: `${typeLabel(t, c.type)} · ${row.name}` })}
+                style={{
+                  top,
+                  left: MINI.left - 2,
+                  right: 6,
+                  transform: "translateY(-50%)",
+                }}
+                aria-label={t("internals.probe.open", {
+                  port: `${blockLabel(t, c)} · ${row.name}`,
+                })}
                 aria-pressed={probing === port}
                 title={t("internals.probe.open", { port })}
                 data-testid="internal-probe-port"
@@ -1149,14 +1397,25 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
                     data-kind={mini.silent ? "silent" : mini.kind}
                   >
                     {mini.silent ? (
-                      <path d={`M3,${MINI.height / 2}H${miniWidth - 3}`} stroke="var(--muted-foreground)" strokeWidth="1" strokeDasharray="1 3" />
+                      <path
+                        d={`M3,${MINI.height / 2}H${miniWidth - 3}`}
+                        stroke="var(--muted-foreground)"
+                        strokeWidth="1"
+                        strokeDasharray="1 3"
+                      />
                     ) : (
                       <path
                         d={miniPath(mini, miniWidth, MINI.height)}
                         fill="none"
-                        stroke={c.channel != null ? channelColor(c.channel) : "var(--primary)"}
+                        stroke={
+                          c.channel != null
+                            ? channelColor(c.channel)
+                            : "var(--primary)"
+                        }
                         strokeWidth="1.25"
-                        strokeLinejoin={mini.kind === "samples" ? "miter" : "round"}
+                        strokeLinejoin={
+                          mini.kind === "samples" ? "miter" : "round"
+                        }
                       />
                     )}
                   </svg>
@@ -1297,7 +1556,7 @@ export function ComponentDetails({
   return (
     <div className="space-y-4 p-3" data-testid="internal-details">
       <div>
-        <div className="text-sm font-semibold">{typeLabel(t, comp.type)}</div>
+        <div className="text-sm font-semibold">{blockLabel(t, comp)}</div>
         <div className="text-muted-foreground num text-xs">
           {comp.name} · {comp.type}
         </div>
@@ -1315,13 +1574,27 @@ export function ComponentDetails({
             </span>
           )}
         </div>
+        {comp.description && (
+          <p
+            className="mt-2 text-xs leading-relaxed"
+            data-testid="internal-description"
+          >
+            {comp.description}
+          </p>
+        )}
         {comp.doc && (
           <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
             {comp.doc}
           </p>
         )}
       </div>
-      <ControlSection comp={comp} view={view} vars={vars} focus={focus} onLocate={onLocate} />
+      <ControlSection
+        comp={comp}
+        view={view}
+        vars={vars}
+        focus={focus}
+        onLocate={onLocate}
+      />
       <Readings comp={comp} view={view} vars={vars} focus={focus} />
       <section>
         <h3 className={HEADING}>{t("internals.params")}</h3>
@@ -1450,7 +1723,7 @@ function CompLink({
       title={name}
       onClick={() => focus.onSelect(name)}
     >
-      {c ? typeLabel(t, c.type) : name}
+      {c ? blockLabel(t, c) : name}
       {c?.channel != null && (
         <span className="num ml-0.5 text-[10px]">CH{c.channel}</span>
       )}
@@ -1501,10 +1774,15 @@ function ControlSection({
                 label={label}
               >
                 <div className="flex items-baseline justify-between gap-2 pr-5">
-                  <span className="min-w-0 truncate font-medium" title={r.setting}>
+                  <span
+                    className="min-w-0 truncate font-medium"
+                    title={r.setting}
+                  >
                     {label}
                   </span>
-                  <span className="num shrink-0">{v ? formatValue(v) : "—"}</span>
+                  <span className="num shrink-0">
+                    {v ? formatValue(v) : "—"}
+                  </span>
                   {onLocate && v && (
                     <button
                       type="button"
@@ -1583,7 +1861,14 @@ function Readings({
   const list = (gs: ReadingGroup[]) => (
     <ul className="-mx-2 space-y-0.5">
       {gs.map((g) => (
-        <ReadingRow key={g.provider} g={g} comp={comp} view={view} vars={vars} focus={focus} />
+        <ReadingRow
+          key={g.provider}
+          g={g}
+          comp={comp}
+          view={view}
+          vars={vars}
+          focus={focus}
+        />
       ))}
     </ul>
   );
@@ -1591,7 +1876,9 @@ function Readings({
     <section data-testid="internal-readings">
       <h3 className={HEADING}>{t("internals.readings")}</h3>
       {!groups.length && (
-        <p className="text-muted-foreground text-xs">{t("internals.noReadings")}</p>
+        <p className="text-muted-foreground text-xs">
+          {t("internals.noReadings")}
+        </p>
       )}
       {main.length > 0 && list(main)}
       {onTheWay.length > 0 && (
@@ -1633,7 +1920,7 @@ function ReadingRow({
       id={`reading:${g.provider}`}
       trace={pathTrace(g.path)}
       focus={focus}
-      label={provider ? typeLabel(t, provider.type) : g.provider}
+      label={provider ? blockLabel(t, provider) : g.provider}
     >
       <div className="flex flex-wrap items-center gap-x-1 pr-5 text-[11px]">
         {g.kind === "self" ? (
@@ -1642,11 +1929,14 @@ function ReadingRow({
           g.path.map((n, i) => (
             <span key={n} className="inline-flex items-center gap-1">
               {i > 0 && (
-                <ArrowRight className="text-muted-foreground size-3" aria-hidden />
+                <ArrowRight
+                  className="text-muted-foreground size-3"
+                  aria-hidden
+                />
               )}
               {n === comp.name ? (
                 <span className="text-muted-foreground">
-                  {typeLabel(t, comp.type)}
+                  {blockLabel(t, comp)}
                 </span>
               ) : (
                 <CompLink name={n} view={view} focus={focus} />

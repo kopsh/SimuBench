@@ -121,6 +121,8 @@ class StructureComponent(_Model):
 
     name: str
     type: str
+    label: str | None = None
+    description: str | None = None
     params: dict[str, Any] = Field(
         default_factory=dict,
         description="As written in the definition: a literal, a setting ('$ch.x') or a mapping of a setting",
@@ -598,6 +600,12 @@ class InternalComponent(_Model):
     )
     doc: str | None = Field(
         None, description="What the component type does (first paragraph of its description)"
+    )
+    label: str | None = Field(
+        None, description="The definition's own name for the block (ComponentSpec.label)"
+    )
+    description: str | None = Field(
+        None, description="The definition's note on what the block does here (ComponentSpec.description)"
     )
     params: list[InternalParam] = Field(default_factory=list)
     ports: list[PortInfo] = Field(default_factory=list)

@@ -57,7 +57,10 @@ def _components(value: Any) -> list[M.StructureComponent]:
     for item in value if isinstance(value, list) else []:
         if isinstance(item, dict) and isinstance(item.get("name"), str) and isinstance(item.get("type"), str):
             params = item.get("params")
-            out.append(M.StructureComponent(name=item["name"], type=item["type"], params=dict(params or {})))
+            texts = {k: item[k] for k in ("label", "description") if isinstance(item.get(k), str)}
+            out.append(
+                M.StructureComponent(name=item["name"], type=item["type"], params=dict(params or {}), **texts)
+            )
     return out
 
 
@@ -128,12 +131,6 @@ def structure(doc: M.DefinitionDocument, source: Path) -> M.DefinitionStructure:
     )
 
 
-def _component_data(items: list[M.StructureComponent]) -> list[dict[str, Any]]:
-    return [
-        {"name": c.name, "type": c.type, **({"params": dict(c.params)} if c.params else {})} for c in items
-    ]
-
-
 def _as_json(value: Any) -> Any:
     return json.loads(json.dumps(value, default=str))
 
@@ -193,7 +190,13 @@ def _diff(new: dict[str, Any], below: dict[str, Any]) -> dict[str, Any]:
 
 def _component_data(items: list[M.StructureComponent]) -> list[dict[str, Any]]:
     return [
-        {"name": c.name, "type": c.type, **({"params": dict(c.params)} if c.params else {})} for c in items
+        {
+            "name": c.name,
+            "type": c.type,
+            **{k: v for k, v in (("label", c.label), ("description", c.description)) if v},
+            **({"params": dict(c.params)} if c.params else {}),
+        }
+        for c in items
     ]
 
 

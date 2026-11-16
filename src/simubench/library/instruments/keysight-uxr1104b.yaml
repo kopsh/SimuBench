@@ -1486,6 +1486,7 @@ channel_components:
   # （数据手册）；超出范围报 -222。
   - name: front
     type: scope_vertical
+    label: 垂直前端（档位/偏置/带宽）
     params:
       coupling: DC
       bandwidth: 1.13e11
@@ -1511,6 +1512,8 @@ channel_components:
   # 这一组合未建模（覆盖表注明）。
   - name: isim
     type: scope_vertical
+    label: InfiniiSim 滤波
+    description: 通道的数字带宽限制（砖墙 / Bessel / Butterworth），关时直通。
     params:
       coupling: DC
       bandwidth: .inf
@@ -1519,6 +1522,8 @@ channel_components:
       response: {from: $ch.isim_type, map: {WALL: brickwall, BESSEL4: bessel4, BUTTerworth: butterworth4}}
   - name: probe
     type: scope_probe
+    label: 探头换算（倍率/偏斜/反相）
+    description: 物理探头在面板端口之外，本块只做探头设置值对应的换算：倍率、偏斜、反相和外部缩放增益。
     params:
       ratio: 1.0
       skew: $ch.skew

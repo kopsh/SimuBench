@@ -175,6 +175,14 @@ class OptionSpec(_Model):
 class ComponentSpec(_Model):
     name: str
     type: str
+    label: str | None = Field(
+        None,
+        description="What this block is called in this instrument, shown instead of the type's name "
+        "where the types alone do not tell blocks apart (e.g. 'InfiniiSim 滤波', #1261)",
+    )
+    description: str | None = Field(
+        None, description="What this block does in this instrument, shown with the type's description (#1261)"
+    )
     params: dict[str, Any] = Field(
         default_factory=dict,
         description="Parameter values: a literal, a setting ('$ch.frequency') or a mapping of a setting "

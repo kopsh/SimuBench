@@ -425,7 +425,9 @@ def test_in_process_backend_opens_hislip_addresses(tmp_path):
     bench.write_bytes(BENCH.read_bytes())
     rm = pyvisa.ResourceManager(f"{bench}@simubench")
     try:
-        assert "TCPIP0::127.0.0.1::hislip1,4880::INSTR" in rm.list_resources("?*::INSTR")
+        listed = rm.list_resources("?*::INSTR")
+        assert "TCPIP0::127.0.0.1::hislip1,4880::INSTR" in listed
+        assert len(listed) == len(set(listed)), listed  # each resource once (#1259)
         scope = rm.open_resource(
             "TCPIP0::127.0.0.1::hislip1,4880::INSTR", read_termination="\n", write_termination="\n"
         )
