@@ -811,6 +811,16 @@ class PanelReadout(_Model):
     label_en: str | None = None
     unit: str | None = Field(None, description="The reading's unit, e.g. V; none for a count or a word")
     digits: int | None = Field(None, ge=1, le=12, description="Significant digits shown")
+    range: str | None = Field(
+        None,
+        description="A reading that gives the range in use, e.g. 'meter.DC_range': the display then shows "
+        "the value in the range's unit prefix with a fixed number of decimals, as a meter does (#1256)",
+    )
+    resolution: str | None = Field(
+        None,
+        description="A reading that gives the A/D's step on that range, e.g. 'meter.DC_resolution': no digit "
+        "finer than it is shown (#1256)",
+    )
     when: dict[str, Any] = Field(
         default_factory=dict,
         description="Shown only while these settings have these values, e.g. {sense.function: VOLT}",

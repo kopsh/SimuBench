@@ -53,9 +53,11 @@ specs:
   acv_accuracy_percent_1year: {reading_plus_range: {"3Hz-5Hz": [0.50, 0.02], "5Hz-10Hz": [0.10, 0.02], "10Hz-20kHz": [0.05, 0.02], "20kHz-50kHz": [0.07, 0.03], "50kHz-100kHz": [0.15, 0.05], "100kHz-300kHz": [1.00, 0.10]}}
   adc_linearity: "0.0001% of reading + 0.0001% of range"
   noise_ppm_of_range: >-
-    1.0 ppm of range（估计，#744/D46）：数据手册没有噪声指标，取 1 年 DCV 10 V 量程项 0.0004%
-    （dcv_accuracy_percent_1year_10plc）的 1/4，明显小于准确度；ref_time_s 0.02 s（一个 50 Hz
-    PLC），随 NPLC 的 reading_time 按平方根下降。
+    10 PLC（reading_time 0.40016 s）时 0.1 ppm of range：数据手册「积分时间与性能」表的分辨率列
+    （10 PLC 0.1 ppm × 量程），手册把分辨率定义为 10 V 档的典型 RMS 噪声；其余积分时间按 reading_time
+    的平方根换算（0.02 PLC 约 2 ppm，手册 3 ppm），#1256。100 mV 档取 0.1 µV（1 ppm）、1 V 档取 0.3 µV
+    （0.3 ppm）为估计值（D46）：低量程的噪声以固定电压噪声为主，按量程比例换算会偏小；与 1 年准确度
+    （100 mV 档 0.0035% of range = 3.5 µV）相比仍小一个数量级。电阻与电流档按同一 ppm of range。
   input_resistance: {dcv_100mV_1V_10V: "10 MΩ 或 >10 GΩ（VOLT:IMP:AUTO ON）", dcv_100V_1000V: "10 MΩ"}
   nplc: [0.02, 0.06, 0.2, 1, 10, 100]
   aperture: "200 µs – 1 s（2 µs 分辨率），默认 100 ms"
@@ -331,9 +333,9 @@ components:
       set_resolution: $sense.resolution
       digits: 8
       reading_time: {from: $sense.nplc, table: {0.02: 0.0009, 0.06: 0.00253, 0.2: 0.00813, 1: 0.04013, 10: 0.40016, 100: 4.00016}}
-      # 读数噪声（specs.noise_ppm_of_range，#744）：估计值，依据 = 1 年 10 V 量程项 0.0004% 的
-      # 1/4；ref_time_s 为一个 50 Hz PLC，随 NPLC 的 reading_time 按平方根缩放。
-      noise: {ppm_of_range: 1.0, ref_time_s: 0.02}
+      # 读数噪声（specs.noise_ppm_of_range，#744、#1256）：10 PLC 时 0.1 ppm of range（手册的分辨率
+      # = 10 V 档 RMS 噪声）；100 mV、1 V 档为估计值（伏特 rms）；随 NPLC 的 reading_time 按平方根缩放。
+      noise: {ppm_of_range: 0.1, ref_time_s: 0.40016, table: {0.1: 1.0e-7, 1: 3.0e-7}}
   # 触发模型与读数存储器（50,000 readings，溢出覆盖最旧的）。
   - name: trig
     type: trigger_model

@@ -23,7 +23,7 @@ sections:
     note: 定长块给出并删除最旧的读数（R? [max]；块内 ASCII，逗号分隔，块后无换行）。
   - header: READ
     level: implemented
-    note: INITiate + FETCh?；等待总线/外部触发时按手册报 -214（触发死锁）。读数带噪声（specs.noise_ppm_of_range：估计值，#744/D46），逐读数独立抽样，同种子逐位复现；交流（RMS）读数加噪后取绝对值，零输入也不为负（#803）。
+    note: INITiate + FETCh?；等待总线/外部触发时按手册报 -214（触发死锁）。读数带噪声（specs.noise_ppm_of_range：10 PLC 时 0.1 ppm of range，取手册分辨率列——手册把分辨率定义为 10 V 档 RMS 噪声；100 mV 档 0.1 µV、1 V 档 0.3 µV 为估计值，#744/#1256/D46），逐读数独立抽样，同种子逐位复现；交流（RMS）读数加噪后取绝对值，零输入也不为负（#803）。
   - header: ROUTe:TERMinals?
     level: not_modeled
     note: 前面板 Front/Rear 开关不是可编程的；仿真中无此开关。

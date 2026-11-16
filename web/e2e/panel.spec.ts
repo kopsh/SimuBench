@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, test } from "@playwright/test";
 
-import { expectNear, expectNotNear } from "./judge";
+import { expectNear } from "./judge";
 
 // Front panels drawn from the definition (issue 128, instrument-authoring.md 7.3): the class
 // defaults of a multimeter and a calibrator, a declared panel, and build mode's initial settings.
@@ -34,19 +34,22 @@ test("34465A default panel: function and range keys change the reading", async (
   await open(page, "benches/keysight-34465a.bench.yaml", "数字万用表", 4);
   await expect(page.getByTestId("panel-source")).toHaveAccessibleName("类别默认布局"); // a hint, not display text (#281)
   const display = panel(page).getByTestId("panel-readout-meter.DC");
-  // 1 V into 900 kΩ / (100 kΩ ∥ 10 MΩ): 99.103 mV on the 100 mV range the bench sets.
-  await expectNear(display, 99.1035, 5e-4); // as shown, in mV
+  // 1 V into 900 kΩ / (100 kΩ ∥ 10 MΩ): 99.103 mV on the 100 mV range the bench sets, within 4σ of
+  // the reading noise (#1256: 0.1 µV at 10 PLC, √-scaled to 1 NPLC → σ ≈ 0.32 µV) and the 0.1 µV digit.
+  await expectNear(display, 99.1035, 1.5e-3); // as shown, in mV
+  // The display shows the range's digits (#1256): 6½ digits on 100 mV are "+099.dddd", in mV.
+  await expect(display).toContainText("+099.");
+  await expect.poll(async () => ((await display.textContent()) ?? "").split(".").map((part) => part.length)).toEqual([4, 4]);
   const range = panel(page).getByRole("group", { name: "量程设定" });
   await expect(range.getByRole("button", { name: "100 mV" })).toHaveAttribute("aria-pressed", "true");
 
-  // The 1000 V range is coarser and noisier (#744: 1 ppm of range per 50 Hz PLC, √-scaled to
-  // 1 NPLC's 40 ms → σ ≈ 0.71 mV): the same input reads 99.1 mV within 4σ, no longer to 1 µV.
+  // The 1000 V range is coarser and noisier (#1256: 0.1 ppm of range at 10 PLC, √-scaled to 1 NPLC
+  // → σ ≈ 0.32 mV): the same input reads 99.1 mV within 4σ and the 1 mV digit, shown in V on that range.
   await range.getByRole("button", { name: "1000 V" }).click();
   await expect(range.getByRole("button", { name: "1000 V" })).toHaveAttribute("aria-pressed", "true");
-  await expect
-    .poll(async () => Math.abs(Number.parseFloat((await display.textContent()) ?? "") - 99.103))
-    .toBeLessThanOrEqual(4 * 0.71);
-  await expectNotNear(display, 99.1035, 5e-4); // no longer to 1 µV
+  await expect.poll(async () => Math.abs((await readoutValue(display)) - 0.099103)).toBeLessThanOrEqual(4 * 0.32e-3 + 1e-3);
+  await expect(display).toContainText("+0000.");
+  await expect.poll(async () => ((await display.textContent()) ?? "").split(".")[1]?.length).toBe(3); // no longer to 1 µV
   await range.getByRole("button", { name: "AUTO" }).click();
   await expect(range.getByRole("button", { name: "AUTO" })).toHaveAttribute("aria-pressed", "true");
   await expect(panel(page).getByRole("switch", { name: "自动量程" })).toHaveCount(0); // the AUTO key is the autorange
@@ -56,11 +59,11 @@ test("34465A default panel: function and range keys change the reading", async (
   await fn.getByRole("button", { name: "AC V" }).click();
   await expect(fn.getByRole("button", { name: "AC V" })).toHaveAttribute("aria-pressed", "true");
   await expect(panel(page).getByTestId("panel-readout-meter.DC")).toHaveCount(0);
-  // Only the reading noise is left (#744: tens of nV on this range), far below a real AC signal;
-  // an rms reading is never negative (#803).
+  // Only the reading noise is left (#1256: σ ≈ 0.32 µV on this range at 1 NPLC), far below a real AC
+  // signal; an rms reading is never negative (#803).
   const ac = panel(page).getByTestId("panel-readout-meter.AC");
   await expect.poll(async () => readoutValue(ac)).toBeGreaterThanOrEqual(0);
-  await expect.poll(async () => readoutValue(ac)).toBeLessThan(1e-6);
+  await expect.poll(async () => readoutValue(ac)).toBeLessThan(4 * 0.32e-6 + 1e-7);
 
   // NPLC and input impedance are on the panel too.
   await expect(panel(page).getByRole("textbox", { name: "积分时间（PLC）" })).toBeVisible();

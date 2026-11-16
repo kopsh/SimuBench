@@ -101,6 +101,14 @@ export interface ReadoutOptions {
   signed?: boolean;
   /** A count (points, totalize, a channel): a whole number, no prefix. */
   count?: boolean;
+  /**
+   * The range in use (#1256): the value is shown in the range's prefix with the digits the range
+   * leaves (`digits` counts the leading ½ digit), the sign always written, as a meter's display does:
+   * "+000.0200" mV on 100 mV at 6½ digits, never a digit beyond the display's resolution.
+   */
+  range?: number;
+  /** The A/D's step on that range: no digit finer than the decade it falls in is shown (#1256). */
+  resolution?: number;
 }
 
 export interface Readout {
@@ -117,9 +125,37 @@ export function formatReadout(value: number, options: ReadoutOptions = {}): Read
   const { unit = "", digits = 5, fixed = false, signed = false, count = false } = options;
   if (isOverload(value)) return { mantissa: "", prefix: "", unit, overload: true };
   if (count) return { mantissa: String(Math.round(value)), prefix: "", unit, overload: false };
+  if (options.range && Number.isFinite(options.range) && options.range > 0) {
+    return { ...rangedParts(value, options.range, digits, options.resolution, unit), unit, overload: false };
+  }
   const p = engParts(value, unit, digits, fixed);
   const mantissa = signed && !p.mantissa.startsWith("-") ? `+${p.mantissa}` : p.mantissa;
   return { mantissa, prefix: p.prefix, unit: p.unit, overload: false };
+}
+
+/** A reading on a range (#1256): the range's prefix (no kV or kA, a meter has none), the decimals
+ * the range leaves at `digits` (the finest step range × 10^-(digits-1), coarsened to the decade of
+ * the A/D's `resolution`), the integer part padded to the range's width and the sign written. */
+function rangedParts(value: number, range: number, digits: number, resolution: number | undefined, unit: string) {
+  const capped = unit === "V" || unit === "A";
+  let scale = 1e-12;
+  let prefix = "p";
+  for (const [s, p] of PREFIXES) {
+    if (capped && s > 1) continue;
+    if (range >= s * 0.99995) {
+      scale = s;
+      prefix = p;
+      break;
+    }
+  }
+  let step = range * 10 ** -(digits - 1);
+  if (resolution && resolution > step) step = 10 ** Math.ceil(Math.log10(resolution) - 1e-9);
+  const decimals = Math.max(0, Math.round(-Math.log10(step / scale)));
+  const width = Math.max(1, Math.floor(Math.log10(range / scale) + 1e-9) + 1);
+  const shown = Math.abs(value / scale).toFixed(decimals);
+  const [whole, frac] = shown.split(".");
+  const sign = value < 0 && Number(shown) !== 0 ? "-" : "+";
+  return { mantissa: `${sign}${whole.padStart(width, "0")}${frac !== undefined ? `.${frac}` : ""}`, prefix };
 }
 
 /** Virtual time as hh:mm:ss.mmm (ns input). */

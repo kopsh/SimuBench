@@ -73,7 +73,7 @@ cases:
         instrument: src
       - query: "MEAS:VOLT?"
         expect_value: 2.0e-4
-        tolerance: 3.0e-7
+        tolerance: 4.1e-7  # 4σ 前端噪声（100 mV 档 10 PLC σ = 0.1 µV，#1256）+ 量化
 
   - name: "CONFigure 命令头选择功能并设置量程与分辨率；CONF? 查询"
     manual: "CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC} / CONFigure?"
@@ -161,7 +161,7 @@ cases:
         expect: '"VOLT:AC"'
       - query: "MEAS:VOLT:AC?"
         expect_value: 0.0
-        tolerance: 3.0e-7
+        tolerance: 4.1e-7  # 4σ 前端噪声（100 mV 档 10 PLC，#1256）
       - send: "FUNC VOLT"
       - query: "FUNC?"
         expect: '"VOLT"'
@@ -178,7 +178,7 @@ cases:
         instrument: src
       - query: "READ?"
         expect_value: 1.152115e-01
-        tolerance: 3.0e-7
+        tolerance: 4.1e-7  # 4σ 前端噪声（100 mV 档 10 PLC，#1256）+ 量化
       - send: ":VOLT:DC:RANG:AUTO ON"
       - send: ":SOUR:VOLT 0.5"
         instrument: src
