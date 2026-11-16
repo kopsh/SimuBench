@@ -95,7 +95,7 @@ Web 对话面板 ──HTTP/SSE──▶ /api/assistant/*  ──▶ 对话循�
 
 ## 6. 配置与安全
 
-- API key 存工作区 `.simubench/` 下（已在 `.gitignore`，不会被提交），文件权限收紧。
+- API key 与设置页的覆盖存**用户自己的数据目录**（`paths.py`，各平台位置见 `security.md`），不在工作区里，文件权限收紧；每个用户一份，各工作区共用。旧的工作区 `.simubench/assistant.json` 不再读取（来自工作区的“key 与地址”不是用户本人的决定），日志里提示删除（#1237）。
 - 配置文件：工作区 `.simubench/settings.json` 增加 `assistant` 块，或 `serve` 的命令行与环境变量（具体入口在 `service.py` 加一次，所有入口共用，见 `codebase-map`）。
 - Web 设置页写入的值覆盖默认值，保存在服务端工作区；GET 接口**不返回 key**，只返回“已设置”。
 - 新增的 `/api/assistant/*` 路由必须要求令牌（`test_every_api_route_needs_the_token` 会遍历全部路由）。
@@ -159,7 +159,7 @@ Web 对话面板 ──HTTP/SSE──▶ /api/assistant/*  ──▶ 对话循�
 
 | 部分 | 位置 |
 | --- | --- |
-| LLM 配置（默认值：环境变量 `SIMUBENCH_LLM_PROTOCOL/BASE_URL/MODEL/API_KEY/TIMEOUT/CONTEXT_TOKENS` 胜过工作区 `.simubench/settings.json` 的 `assistant` 块；设置页的覆盖存 `.simubench/assistant.json`，0600）、地址规则（保存与使用前都校验，默认地址同样过一遍，见 `security.md`） | `assistant/config.py` |
+| LLM 配置（默认值：环境变量 `SIMUBENCH_LLM_PROTOCOL/BASE_URL/MODEL/API_KEY/TIMEOUT/CONTEXT_TOKENS` 胜过工作区 `.simubench/settings.json` 的 `assistant` 块；设置页的覆盖存用户数据目录的 `assistant.json`，0600，#1237）、地址规则（保存与使用前都校验，默认地址同样过一遍，见 `security.md`） | `assistant/config.py` |
 | 两种协议的模型、连通性测试（一次带工具调用的流式请求） | `assistant/llm.py` |
 | 工具与服务端规则 | `assistant/tools.py` |
 | 对话循环、事件流、自修复、按轮恢复 | `assistant/service.py` |

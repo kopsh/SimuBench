@@ -21,6 +21,7 @@ from simubench.assistant.config import AssistantSettings, ConfigError, check_bas
 from simubench.assistant.llm import build_model, check_connection
 from simubench.assistant.service import AssistantService
 from simubench.models import api as M
+from simubench.paths import user_data_dir
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 
@@ -200,7 +201,10 @@ def test_settings_come_from_the_server_and_the_page_overrides_them(tmp_path):
     assert (view.protocol, view.model, view.api_key_set) == ("anthropic", "page-model", True)
     assert view.overridden == ["api_key", "model", "protocol"]
     assert KEY not in view.model_dump_json()
-    stored = tmp_path / ".simubench" / "assistant.json"
+    stored = user_data_dir() / "assistant.json"
+    assert (
+        stored.exists() and not (tmp_path / ".simubench" / "assistant.json").exists()
+    )  # not in the workspace
     if sys.platform != "win32":
         assert stat.S_IMODE(os.stat(stored).st_mode) == 0o600
     assert s.update(M.AssistantConfigUpdate(timeout_s=5)).api_key_set  # a key left out is kept
@@ -334,3 +338,16 @@ def test_routes_settings_conversation_and_event_stream(client, manager):
         assert all(KEY.encode() not in z.read(n) for n in z.namelist())
     assert client.delete("/api/assistant/conversation", params={"bench": BENCH}).status_code == 204
     assert client.get("/api/assistant/conversation", params={"bench": BENCH}).json()["turns"] == []
+
+
+def test_a_key_file_inside_the_workspace_is_not_adopted(tmp_path, caplog):
+    """#1237: the old workspace-held overrides (key, address) came with the folder, not from the user."""
+    (tmp_path / ".simubench").mkdir()
+    (tmp_path / ".simubench" / "assistant.json").write_text(
+        json.dumps({"base_url": "http://elsewhere/v1", "model": "m", "api_key": KEY}), encoding="utf-8"
+    )
+    s = AssistantSettings(tmp_path, {})
+    with caplog.at_level(logging.WARNING):
+        view = s.view()
+    assert not view.api_key_set and view.base_url is None and view.overridden == []
+    assert "no longer read" in caplog.text and KEY not in caplog.text
