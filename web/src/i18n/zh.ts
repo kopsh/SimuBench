@@ -526,6 +526,15 @@ export const zh = {
     whyHint: "网络电压 = 每个独立源的电动势 × 电路从该源到这个网络的传递函数（节点分析求得），再求和。探针不加载电路。",
     noSource: "没有信号源连到这个网络。",
   },
+  mcp: {
+    button: "连接 AI 助手",
+    title: "连接 AI 助手（MCP）",
+    description: "SimuBench 正在提供 MCP 服务。把下面的地址或配置填进 AI 助手，它搭建、运行的测试台会实时出现在这个页面上。",
+    url: "MCP 地址（streamable HTTP）",
+    json: "客户端配置（Claude Desktop、Cursor 等的 mcpServers）",
+    claude: "Claude Code 命令",
+    note: "只在本机可用；SimuBench 关闭后地址失效。端口以这里显示的为准。",
+  },
   about: {
     menu: "关于与诊断",
     title: "关于 SimuBench",

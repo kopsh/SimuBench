@@ -506,7 +506,7 @@ Bench 的编辑操作（添加/删除仪表与元件、标记 DUT、连线、修
 | 运行记录 | 分段 JSON Lines；以后可选列式格式用于大数据 |
 | 日志与指标 | 结构化 JSON 日志；指标与追踪采用 OpenTelemetry 导出 |
 | 确定性 | 固定依赖版本；数学库单线程运行；随机数用计数器式算法（如 Philox） |
-| 发布 | 内部软件包源上的 Python 包；CI 用容器镜像 |
+| 发布 | 内部软件包源上的 Python 包；Windows 另有便携 zip（双击 `SimuBench.exe`，自带 Python，#1188）；CI 用容器镜像 |
 
 ---
 

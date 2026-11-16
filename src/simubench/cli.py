@@ -32,7 +32,16 @@ def _serve(args: argparse.Namespace) -> int:
 
     setup_logging(args.log_level, args.log_format, args.log_file)
     token = _token(args)
-    app = create_app(manager, token=token)
+    url = _ui_url(args.port, token)
+    mcp = None
+    if args.mcp:
+        try:
+            from .mcp_server import build_server
+        except ImportError:
+            print("MCP 需要可选依赖：pip install 'simubench[mcp]'", file=sys.stderr)
+            return 2
+        mcp = build_server(manager, allow_control=args.allow_control, ui_url=url)
+    app = create_app(manager, token=token, mcp=mcp)
 
     @app.on_event("startup")
     async def _startup() -> None:
@@ -46,15 +55,19 @@ def _serve(args: argparse.Namespace) -> int:
                 print(address_line("VXI-11", name, addr))
             if served.link:
                 print(link_line(served.link.address()))
-        url = _ui_url(args.port, token)
         print(f"SimuBench {__version__}  workspace: {workspace}")
         print(f"  界面 / UI: {url}")
+        if mcp is not None:
+            print(f"  MCP (streamable HTTP): {_mcp_url(args.port)}")
         _print_plugins(manager)
         if args.open:
             webbrowser.open(url)
 
     uvicorn.run(app, host="127.0.0.1", port=args.port, log_level=args.log_level, log_config=None)
     return 0
+
+
+DEFAULT_PORT = 8765
 
 
 def _token(args: argparse.Namespace) -> str | None:
@@ -66,6 +79,54 @@ def _token(args: argparse.Namespace) -> str | None:
 
 def _ui_url(port: int, token: str | None) -> str:
     return f"http://127.0.0.1:{port}/" + (f"?token={token}" if token else "")
+
+
+def _mcp_url(port: int) -> str:
+    from .server.app import MCP_PATH
+
+    return f"http://127.0.0.1:{port}{MCP_PATH}"
+
+
+def _running_simubench(port: int) -> bool:
+    """Whether a SimuBench service already answers on this loopback port (a second double-click)."""
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/api/health", timeout=1) as r:
+            return "version" in json.loads(r.read())
+    except (OSError, ValueError):
+        return False
+
+
+def default_launch_workspace() -> Path:
+    """The double-click start's workspace: ``Documents/SimuBench`` in the user's home (#1188)."""
+    home = Path.home()
+    docs = home / "Documents"
+    return (docs if docs.is_dir() else home) / "SimuBench"
+
+
+def _launch(args: argparse.Namespace) -> int:
+    """``SimuBench.exe`` of the Windows bundle (#1188): Web Bench and MCP in one service, browser open.
+
+    A second start finds the first one on the default port and only opens its page.
+    """
+    if args.port is None and _running_simubench(DEFAULT_PORT):
+        url = _ui_url(DEFAULT_PORT, None)
+        print(f"SimuBench 已在运行 / already running: {url}")
+        if not args.no_browser:
+            webbrowser.open(url)
+        return 0
+    workspace = Path(args.workspace) if args.workspace else default_launch_workspace()
+    workspace.mkdir(parents=True, exist_ok=True)
+    port = _free_port(args.port or DEFAULT_PORT)
+    print("SimuBench —— 关闭此窗口即停止服务 / close this window to stop the service")
+    print("  连接 AI 助手：界面右上角「连接 AI 助手」/ Connect AI assistant: top right of the page")
+    print("  AI 助手（MCP 客户端）配置 / MCP client config:")
+    print("    " + json.dumps({"mcpServers": {"simubench": {"type": "http", "url": _mcp_url(port)}}}))
+    argv = ["serve", "--workspace", str(workspace), "--port", str(port), "--mcp"]
+    if not args.no_browser:
+        argv.append("--open")
+    return main(argv)
 
 
 def _print_plugins(manager: SessionManager, *, err: bool = False) -> None:
@@ -500,10 +561,28 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("serve", help="start the local service (Web Bench, SCPI sockets)")
     p.add_argument("bench", nargs="?", help="bench file to start right away")
     p.add_argument("--workspace", help="folder searched for bench files (default: the bench's folder)")
-    p.add_argument("--port", type=int, default=8765)
+    p.add_argument("--port", type=int, default=DEFAULT_PORT)
     add_service_options(p)
     p.add_argument("--open", action="store_true", help="open the browser")
+    p.add_argument(
+        "--mcp",
+        action="store_true",
+        help="also serve MCP for AI agents at /mcp (streamable HTTP, needs [mcp])",
+    )
+    p.add_argument(
+        "--allow-control",
+        action="store_true",
+        help="with --mcp: enable simulation control tools (advance the clock, read true values)",
+    )
     p.set_defaults(fn=_serve)
+
+    p = sub.add_parser(
+        "launch", help="start Web Bench and MCP together and open the browser (the Windows SimuBench.exe)"
+    )
+    p.add_argument("--workspace", help="folder with bench files (default: Documents/SimuBench in your home)")
+    p.add_argument("--port", type=int, help=f"port (default: {DEFAULT_PORT}, next free one if taken)")
+    p.add_argument("--no-browser", action="store_true", help="do not open the browser")
+    p.set_defaults(fn=_launch)
 
     p = sub.add_parser("tui", help="terminal console for a running bench (optional dependency, D18)")
     p.add_argument("bench", nargs="?", help="bench file to start in this process, then observe")
@@ -538,7 +617,7 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("mcp", help="MCP service on stdio for AI agents, with the Web Bench alongside")
     p.add_argument("--workspace", default=".", help="folder with bench files (default: current folder)")
-    p.add_argument("--port", type=int, default=8765, help="Web Bench port (next free one if taken)")
+    p.add_argument("--port", type=int, default=DEFAULT_PORT, help="Web Bench port (next free one if taken)")
     p.add_argument("--no-ui", action="store_true", help="do not serve the Web Bench")
     add_service_options(p)
     p.add_argument(

@@ -63,6 +63,10 @@ plausible fake).
   called by `pyproject.toml` `[tool.hatch.version]`; `hatch_build.py` writes `src/simubench/_version.py`,
   git-ignored); changelog `scripts/changelog.py` (one section per build), written into the
   wheel and `dist/CHANGELOG.md` by `scripts/build-wheel.sh` (`simubench changelog`).
+- Windows portable bundle (D20, #1188): `scripts/build-windows.sh` → `scripts/windows_bundle.py`
+  (embeddable CPython + Windows wheels + launcher exes, built on Linux), smoke test
+  `scripts/smoke_windows_bundle.py` (CI `windows-bundle` job on main). The double-click start is
+  `simubench launch` = `serve --mcp` (MCP over HTTP at `/mcp`, `server/app.py`).
 - `tests/models/<id>/cases.yaml` — manual cases per model; `tests/definitions/` — test-only defs.
 - `tests/helpers.py` — shared test skeletons: example-script loading, example-bench script runs,
   session queries, golden-table runners (`*_migration.py`), the MCP tool-result unwrap; new
