@@ -929,7 +929,7 @@ sections:
     gap: out_of_scope
   - header: MEASure[:VOLTage]:AC
     level: implemented
-    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。
+    note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）；高频按二阶滚降衰减（−3 dB 于 600 kHz，估计；手册频率范围 3 Hz–300 kHz，#1255）。
   - header: MEASure[:VOLTage]:DC
     level: implemented
     note: 同 CONFigure，并按扫描表扫描一次、读数进存储器并返回（同 READ?）。

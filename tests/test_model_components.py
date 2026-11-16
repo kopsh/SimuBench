@@ -71,3 +71,15 @@ def test_the_catalog_says_which_components_are_generic():
     by_type = {c.type: c.generic for c in components()}
     assert by_type["siglent_sdg"] is False and by_type["dmm_conditioning"] is True
     assert {t for t, g in by_type.items() if not g} == {c for _, c in ALLOWED}
+
+
+def test_every_real_meter_with_an_ac_function_rolls_off_at_high_frequency():
+    """A true-rms converter has a bandwidth (#1255): a built-in meter whose conditioning measures
+    AC gives its ``ac_high`` roll-off, so a line far above it does not read at full value."""
+    flat = []
+    for d in builtin_definitions():
+        for c in (*d.components, *d.channel_components):
+            ac = c.type == "dmm_conditioning" and "AC" in (c.params.get("ranges") or {})
+            if ac and not c.params.get("ac_high"):
+                flat.append(d.id)
+    assert flat == []

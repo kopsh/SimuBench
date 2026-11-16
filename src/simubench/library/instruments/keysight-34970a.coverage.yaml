@@ -110,7 +110,7 @@ sections:
 - section: MEASure Subsystem
   commands:
   - {header: 'MEASure:VOLTage[:DC]', level: implemented, note: '与 CONFigure 相同的设定后按扫描表跑一次扫描并回读数（READ? 的路径，#300）；量程与分辨率的关键字同 CONFigure:VOLTage[:DC]（#354）。'}
-  - {header: 'MEASure:VOLTage:AC', level: implemented, note: '交流电压的 MEASure?，同 MEASure:VOLTage:DC（#300、#354）。'}
+  - {header: 'MEASure:VOLTage:AC', level: implemented, note: '交流电压的 MEASure?，同 MEASure:VOLTage:DC（#300、#354）；高频按二阶滚降衰减（−3 dB 于 600 kHz，估计；手册频率范围 3 Hz–300 kHz，#1255）。'}
   - {header: 'MEASure:CURRent[:DC]', level: implemented, note: '与 CONFigure:CURRent:DC 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
   - {header: 'MEASure:CURRent:AC', level: implemented, note: '与 CONFigure:CURRent:AC 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}
   - {header: 'MEASure:RESistance', level: implemented, note: '与 CONFigure:RESistance 相同的设定后跑一次扫描并回读数（#301），关键字同 CONFigure（#354）。'}

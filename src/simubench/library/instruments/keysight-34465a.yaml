@@ -62,6 +62,10 @@ specs:
   nplc: [0.02, 0.06, 0.2, 1, 10, 100]
   aperture: "200 µs – 1 s（2 µs 分辨率），默认 100 ms"
   ac_filter_hz: [3, 20, 200]
+  acv_bandwidth: >-
+    交流电压的标称频率范围 3 Hz–300 kHz，100–300 kHz 的 1 年误差 1.00% of reading + 0.10% of range
+    （acv_accuracy_percent_1year）；300 kHz 以上手册不给指标。模型为二阶滚降、−3 dB 于 1 MHz（估计，
+    D46）：300 kHz 处读数低 0.4%，在 1% 之内；1 MHz 方波的 3、5、7 次谐波大部分被滤掉（#1255）。
   reading_memory: "50,000 readings（无 MEM 选项），溢出后覆盖最旧的"
   max_trigger_count: 1.0e9
   max_sample_count: 1.0e9
@@ -317,6 +321,9 @@ components:
       autorange_up: 1.2
       autorange_down: 0.1
       ac_low: {from: $sense.ac.bandwidth, table: {3: 3.0, 20: 20.0, 200: 200.0}}
+      # 高频响应（#1255，specs.acv_bandwidth）：真有效值转换器的滚降，二阶 −3 dB 于 1 MHz（估计）。
+      ac_high: 1.0e6
+      ac_high_order: 2
   # A/D：8 位尾数、超量程 +9.9E+37；分辨率与读数时间按手册的 NPLC 表（50 Hz 电源、自动调零开启、
   # 含 DC 的自动触发延迟 100/130/160 µs）。
   - name: meter
