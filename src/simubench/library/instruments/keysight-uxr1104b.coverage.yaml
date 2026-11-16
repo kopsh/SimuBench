@@ -3989,8 +3989,8 @@ sections:
       measured
   - header: :MEASure:VAVerage
     level: implemented
-    note: 'DISPlay over the record; CYCLe is not modeled; the command form adds it to the screen (:MEASure:RESults?):
-      the command form (adding the measurement to the screen) is not modeled; 9.99999E+37 when it cannot be measured'
+    note: DISPlay over the record, CYCLe over its first complete cycle (rising middle crossing to the next); the command form adds it to the screen (:MEASure:RESults?);
+      9.99999E+37 when it cannot be measured
   - header: :MEASure:VBASe
     level: implemented
     note: the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37 when it cannot be
@@ -4023,8 +4023,9 @@ sections:
       crossing.'
   - header: :MEASure:VRMS
     level: implemented
-    note: DISPlay,DC[,<source>[,VOLT]] over the record; CYCLe, AC and DBM are not modeled; the command form adds
-      it to the screen (:MEASure:RESults?)
+    note: DISPlay over the record or CYCLe over its first complete cycle; DC includes the mean, AC takes it out
+      (AC² = DC² - VAVG²); DBM is the RMS as power into the reference impedance, AUTO 50 Ω (the guide's value for
+      single-ended channels and functions) or 10 to 200 Ω (-222 beyond); the command form adds it to the screen (:MEASure:RESults?)
   - header: :MEASure:VTIMe
     level: implemented
     note: The voltage at <time> from the trigger, linear between samples; 9.99999E+37 off the record.

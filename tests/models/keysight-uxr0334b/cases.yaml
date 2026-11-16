@@ -451,7 +451,7 @@ cases:
       - query: ":MEASure:VBASe? CHANnel1"
         expect_value: -0.2
         tolerance: 0.02
-  - name: "自动测量：平均值与有效值（整屏、含直流）；AC 与单周期未建模"
+  - name: "自动测量：平均值与有效值（整屏、含直流与去直流）"
     manual: ":MEASure Commands > :MEASure:VAVerage; :MEASure:VRMS"
     steps:
       - send: ":CHANnel1:SCALe 0.1"
@@ -464,9 +464,9 @@ cases:
       - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1,VOLT"
         expect_value: 0.1414
         tolerance: 0.005
-      - send: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
+        expect_value: 0.1414
+        tolerance: 0.005
   - name: "带宽滤波的响应：平坦幅度截断截止以上的正弦，高斯幅度只衰减"
     manual: ":ACQuire Commands > :ACQuire:RESPonse; :ACQuire:BANDwidth; data sheet (bandwidth filters: brick wall)"
     steps:
@@ -1815,3 +1815,23 @@ cases:
       - send: ":AUToscale:VERTical DIFF1"
       - query: ":SYSTem:ERRor?"
         expect: "-224"
+  - name: "VRMS 的 AC 与单周期、VAVerage 的单周期：0.4 Vpp 正弦的交流有效值 0.141 V、方波 0.2 V；dBm 按参考阻抗（AUTO 为 50 Ω）"
+    manual: ":MEASure Commands > :MEASure:VRMS {CYCLe | DISPlay},{AC | DC}[,<source>[,{VOLT | DBM}[,{AUTO | <impedance>}]]]; :MEASure:VAVerage {CYCLe | DISPlay}"
+    steps:
+      - send: ":CHANnel1:SCALe 0.1;:CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 1E-6"
+      - send: ":DIGitize CHANnel1,CHANnel2"
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
+        expect_fields: [{min: 0.138, max: 0.145, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? CYCLe,DC,CHANnel1"
+        expect_fields: [{min: 0.136, max: 0.147, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? CYCLe,AC,CHANnel2"
+        expect_fields: [{min: 0.195, max: 0.205, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VAVerage? CYCLe,CHANnel2"
+        expect_fields: [{min: -0.005, max: 0.005, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1,DBM"
+        expect_fields: [{min: -4.2, max: -3.7, format: "±d.dddddE±0d"}]
+      - query: ":MEASure:VRMS? DISPlay,AC,CHANnel1,DBM,100"
+        expect_fields: [{min: -7.2, max: -6.7, format: "±d.dddddE±0d"}]
+      - send: ":MEASure:VRMS? DISPlay,AC,CHANnel1,DBM,5"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"

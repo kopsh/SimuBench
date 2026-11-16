@@ -3557,10 +3557,35 @@ class ScopeMeasurements(Component):
         rec, used = self.record(n)
         return self.record_value(what, rec), used
 
+    @staticmethod
+    def _impedance(value: Any) -> float:
+        """A dBm result's reference impedance: AUTO (or none) 50 Ω, else 10 to 200 Ω."""
+        if isinstance(value, list):  # a raw parameter: the words after the units
+            value = value[0] if value else None
+        if value is None:
+            return 50.0
+        word = (V.parse_string(value) if isinstance(value, bytes) else str(value)).strip()
+        if word.upper().startswith("AUTO"):
+            return 50.0
+        ohms = V.parse_float(word.encode(), "OHM")
+        if not 10.0 <= ohms <= 200.0:
+            raise ScpiError(-222, "the reference impedance is 10 to 200 ohms")
+        return ohms
+
     def record_value(self, what: str, rec: Any) -> float:
         """The engine measurement ``what`` on a record by this model's rules (gate, clipping, top
         and base, crossing level): what :MEASure? answers, and what the screen's measurement
-        panel shows for the record on screen (#280)."""
+        panel shows for the record on screen (#280). A ``:DBM<ohms>`` suffix gives an RMS as dBm
+        into that impedance."""
+        base, dbm, ohms = what.partition(":DBM")
+        if dbm:
+            volts = self._record_value(base, rec)
+            if not math.isfinite(volts) or volts <= 0:
+                return math.nan
+            return 10.0 * math.log10(volts * volts / float(ohms) / 1e-3)
+        return self._record_value(what, rec)
+
+    def _record_value(self, what: str, rec: Any) -> float:
         acq = self._acq()
         if rec.points > MAX_FRAME:
             return self._deep_value(what, rec)
@@ -3910,19 +3935,28 @@ class ScopeMeasurements(Component):
         query: bool = True,
         interval: str | None = None,
         direction: str | None = None,
+        coupling: str | None = None,
+        units: str | None = None,
+        impedance: Any = None,
         **_: Any,
     ) -> OpResult:
         """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
         command) in the definition's number format; what cannot be measured is NaN's sentinel.
         Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list (#373).
         For the level measurements (``LEVEL_MEASUREMENTS``) an ``interval`` CYCLe and a ``direction``
-        FALLing parameter select their variants (``AREA:CYCLe``, ``VOVershoot:FALLing``)."""
+        FALLing parameter select their variants (``AREA:CYCLe``, ``VOVershoot:FALLing``); for
+        VAVerage and VRMS the CYCLe interval is the first period on screen, a ``coupling`` AC takes
+        the DC component out (``VRMS:CYCLe:AC``), ``units`` DBM gives the power into ``impedance``
+        ohms (AUTO or none: 50 Ω, the guide's reference for single-ended channels and functions)."""
         assert self.owner is not None
-        if what in LEVEL_MEASUREMENTS:
-            if interval and str(interval).upper().startswith("CYCL"):
-                what += ":CYCLe"
-            if direction and str(direction).upper().startswith("FALL"):
-                what += ":FALLing"
+        if interval and str(interval).upper().startswith("CYCL") and f"{what}:CYCLe" in LEVEL_MEASUREMENTS:
+            what += ":CYCLe"
+        if coupling and str(coupling).upper().startswith("AC") and f"{what}:AC" in LEVEL_MEASUREMENTS:
+            what += ":AC"
+        if what in LEVEL_MEASUREMENTS and direction and str(direction).upper().startswith("FALL"):
+            what += ":FALLing"
+        if units and str(units).upper().startswith("DBM"):
+            what += f":DBM{self._impedance(impedance):g}"
         n = self._channel(channel, source)
         self._follow(n, source)
         if not query:

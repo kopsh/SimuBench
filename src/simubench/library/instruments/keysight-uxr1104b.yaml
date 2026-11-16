@@ -1718,21 +1718,23 @@ commands:
   - {header: ":MEASure:VAMPlitude", op: meas.measure, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
   - {header: ":MEASure:VTOP", op: meas.measure, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
   - {header: ":MEASure:VBASe", op: meas.measure, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  # VAVerage / VRMS：只实现整屏（DISPlay）与含直流（DC）的写法，单周期与 AC、dBm 未建模。
+  # VAVerage / VRMS：整屏（DISPlay）或第一个周期（CYCLe），含直流（DC）或去掉直流（AC）；dBm 按参考阻抗
+  # （AUTO：单端通道与函数为 50 Ω，手册的表；或 10–200 Ω）。
   - header: ":MEASure:VAVerage"
     op: meas.measure
     args: {what: VAVerage}
     params:
-      - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
+      - {name: interval, type: enum, options: [CYCLe, DISPlay]}
       - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
   - header: ":MEASure:VRMS"
     op: meas.measure
     args: {what: VRMS}
     params:
-      - {name: interval, type: enum, options: [DISPlay], not_modeled: {CYCLe: single-cycle measurements are not modeled}}
-      - {name: coupling, type: enum, options: [DC], not_modeled: {AC: AC RMS is not modeled}}
+      - {name: interval, type: enum, options: [CYCLe, DISPlay]}
+      - {name: coupling, type: enum, options: [AC, DC]}
       - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
-      - {name: units, type: enum, options: [VOLT], optional: true, not_modeled: {DBM: dBm results are not modeled}}
+      - {name: units, type: enum, options: [VOLT, DBM], optional: true}
+      - {name: impedance, type: raw, optional: true}
   # FREQuency / PERiod / DUTYcycle：从上升沿到上升沿（RISing）；FALLing 未建模。
   - header: ":MEASure:FREQuency"
     op: meas.measure

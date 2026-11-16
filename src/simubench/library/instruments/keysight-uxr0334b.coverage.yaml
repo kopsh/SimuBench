@@ -3207,8 +3207,8 @@ sections:
       when it cannot be measured'
   - header: :MEASure:VAVerage
     level: implemented
-    note: 'DISPlay over the record; CYCLe is not modeled. Query only: the command form (adding the measurement
-      to the screen) is not modeled; 9.99999E+37 when it cannot be measured'
+    note: DISPlay over the record, CYCLe over its first complete cycle (rising middle crossing to the next). Query only;
+      9.99999E+37 when it cannot be measured
   - header: :MEASure:VBASe
     level: implemented
     note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
@@ -3243,7 +3243,9 @@ sections:
     gap: model_work
   - header: :MEASure:VRMS
     level: implemented
-    note: DISPlay,DC[,<source>[,VOLT]] over the record; CYCLe, AC and DBM are not modeled. Query only
+    note: DISPlay over the record or CYCLe over its first complete cycle; DC includes the mean, AC takes it out
+      (AC² = DC² - VAVG²); DBM is the RMS as power into the reference impedance, AUTO 50 Ω (the guide's value for
+      single-ended channels and functions) or 10 to 200 Ω (-222 beyond). Query only
   - header: :MEASure:VTIMe
     level: not_modeled
     note: 'Model work: waveform measurement on the existing measurement engine.'
