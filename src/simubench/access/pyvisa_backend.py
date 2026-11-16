@@ -334,7 +334,12 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         for inst in self.bench.instruments.values():
             if inst.instance.address:
                 resources.append(inst.instance.address)
-        return tuple(rname.filter(resources, query))
+        # The served addresses repeat the HiSLIP ones in connected mode (#1259): one name per resource,
+        # in the order it first appears, so a script that queries each name once finds each instrument once.
+        unique: dict[str, str] = {}
+        for resource in resources:
+            unique.setdefault(self._norm(resource), resource)
+        return tuple(rname.filter(list(unique.values()), query))
 
     def parse_resource_extended(
         self, session: Any, resource_name: str

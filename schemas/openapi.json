@@ -1879,6 +1879,30 @@
       "ComponentSpec": {
         "additionalProperties": false,
         "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What this block does in this instrument, shown with the type's description (#1261)",
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "What this block is called in this instrument, shown instead of the type's name where the types alone do not tell blocks apart (e.g. 'InfiniiSim 滤波', #1261)",
+            "title": "Label"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -4648,6 +4672,18 @@
             "title": "Commands",
             "type": "array"
           },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The definition's note on what the block does here (ComponentSpec.description)",
+            "title": "Description"
+          },
           "doc": {
             "anyOf": [
               {
@@ -4669,19 +4705,8 @@
                 "type": "null"
               }
             ],
-            "description": "The component type's name, Chinese (D23, #1251)",
+            "description": "The definition's own name for the block (ComponentSpec.label)",
             "title": "Label"
-          },
-          "label_en": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Label En"
           },
           "name": {
             "description": "Unique within the instrument, e.g. 'ch1.front' or 'acq'",
@@ -4721,17 +4746,42 @@
           "type": {
             "title": "Type",
             "type": "string"
+          },
+          "type_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The component type's name, Chinese (D23, #1251); label is the definition's own",
+            "title": "Type Label"
+          },
+          "type_label_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Type Label En"
           }
         },
         "required": [
           "name",
           "type",
           "channel",
-          "label",
-          "label_en",
+          "type_label",
+          "type_label_en",
           "about",
           "about_en",
           "doc",
+          "label",
+          "description",
           "params",
           "ports",
           "settings",
@@ -9691,6 +9741,28 @@
       "StructureComponent-Input": {
         "description": "A component of a definition's structure as the build area edits it (#1201).",
         "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -9716,6 +9788,28 @@
       "StructureComponent-Output": {
         "description": "A component of a definition's structure as the build area edits it (#1201).",
         "properties": {
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -9734,6 +9828,8 @@
         "required": [
           "name",
           "type",
+          "label",
+          "description",
           "params"
         ],
         "title": "StructureComponent",

@@ -54,13 +54,22 @@ def test_build_area_structure_flow(tmp_path):
 
         # edit: add a component and a wire, drop the SENSE port
         body = _body(same)
-        body["components"].append({"name": "out", "type": "output_stage", "params": {"z_out": 50.0}})
+        body["components"].append(
+            {"name": "out", "type": "output_stage", "label": "输出", "params": {"z_out": 50.0}}
+        )
         body["wiring"]["instrument"].append(["path.out", "out.in"])
         del body["ports"]["instrument"]["SENSE"]
         body["ports"]["instrument"]["OUT"] = "out.pin"
         edited = c.put(url, json=body).json()
         on_disk = yaml.safe_load(path.read_text(encoding="utf-8"))
-        assert on_disk["components"][-1] == {"name": "out", "type": "output_stage", "params": {"z_out": 50.0}}
+        # a block's own label is kept, and no empty label or description is written (#1261)
+        assert on_disk["components"][-1] == {
+            "name": "out",
+            "type": "output_stage",
+            "label": "输出",
+            "params": {"z_out": 50.0},
+        }
+        assert next(x for x in edited["components"] if x["name"] == "out")["label"] == "输出"
         assert ["path.out", "out.in"] in on_disk["wiring"]["instrument"]
         assert on_disk["ports"]["instrument"] == {"SENSE": None, "OUT": "out.pin"}
         shunt = next(x for x in on_disk["components"] if x["name"] == "input")["params"]["shunt"]

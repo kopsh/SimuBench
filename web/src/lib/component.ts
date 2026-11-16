@@ -23,3 +23,15 @@ export function typeAbout(c: TypeNames): string | null {
 export function typeSearchText(c: TypeNames & { doc?: string | null }): string[] {
   return [c.type, c.label, c.label_en, c.about, c.about_en, c.doc].filter((s): s is string => !!s);
 }
+
+/** An instrument's internal component as the internals API gives it: the type's names are
+ * `type_label`/`type_label_en`, since `label` there is the definition's own name for the block. */
+export function internalType(c: {
+  type: string;
+  type_label?: string | null;
+  type_label_en?: string | null;
+  about?: string | null;
+  about_en?: string | null;
+}): TypeNames {
+  return { type: c.type, label: c.type_label, label_en: c.type_label_en, about: c.about, about_en: c.about_en };
+}

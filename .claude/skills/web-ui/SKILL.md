@@ -60,7 +60,9 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   structure as a new version, #1207). Dragged positions go to `instruments/<id>.layout.json` through
   `PUT /api/definitions/{id}/layout` (no version, #1207). e2e: `e2e/build.spec.ts`. (Not `build/`: `.gitignore` hides it.)
 - `web/src/lib/component.ts` + `web/src/components/app/TypeTitle.tsx` — a component type's name and
-  one-sentence description (`label`/`label_en`/`about`/`about_en` from the API, #1251): show
+  one-sentence description (`label`/`label_en`/`about`/`about_en` from the API, #1251; on an internal
+  component `type_label`/`type_label_en`, read with `internalType(c)`, since its `label` is the
+  definition's own name for the block, #1261, which wins when set): show
   `typeName(doc)` as the label with the type as a grey tag (`TypeTitle`), `TypeDescription` for the
   sentence with the English docstring folded under 「详细说明」. Never translate types in the i18n
   files: a new component class carries its own names (`tests/test_component_catalog.py` fails

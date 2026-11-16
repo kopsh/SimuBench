@@ -5,7 +5,11 @@ import specan from "./specan.fixture.json";
 import { NODE_WIDTH, ROW_PROBE, buildGraph } from "./layout";
 
 /** What a wire carries when it is analog (the API fills these in). */
-const ANALOG = { medium: "signal" as const, sample_rate_hz: null, format: null };
+const ANALOG = {
+  medium: "signal" as const,
+  sample_rate_hz: null,
+  format: null,
+};
 
 const port = (
   name: string,
@@ -27,9 +31,11 @@ const scope: InstrumentInternals = {
       channel: null,
       doc: null,
       label: null,
-      label_en: null,
+      type_label: null,
+      type_label_en: null,
       about: null,
       about_en: null,
+      description: null,
       params: [],
       settings: [],
       commands: [],
@@ -43,9 +49,11 @@ const scope: InstrumentInternals = {
         channel: n,
         doc: null,
         label: null,
-        label_en: null,
+        type_label: null,
+        type_label_en: null,
         about: null,
         about_en: null,
+        description: null,
         params: [],
         settings: [],
         commands: [],
@@ -61,9 +69,11 @@ const scope: InstrumentInternals = {
         channel: n,
         doc: null,
         label: null,
-        label_en: null,
+        type_label: null,
+        type_label_en: null,
         about: null,
         about_en: null,
+        description: null,
         params: [],
         settings: [],
         commands: [],
@@ -145,9 +155,11 @@ const flow: InstrumentInternals = {
       channel: null,
       doc: null,
       label: null,
-      label_en: null,
+      type_label: null,
+      type_label_en: null,
       about: null,
       about_en: null,
+      description: null,
       params: [],
       settings: [],
       commands: [],
@@ -160,9 +172,11 @@ const flow: InstrumentInternals = {
       channel: null,
       doc: null,
       label: null,
-      label_en: null,
+      type_label: null,
+      type_label_en: null,
       about: null,
       about_en: null,
+      description: null,
       params: [],
       settings: [],
       commands: [],
@@ -175,9 +189,11 @@ const flow: InstrumentInternals = {
       channel: null,
       doc: null,
       label: null,
-      label_en: null,
+      type_label: null,
+      type_label_en: null,
       about: null,
       about_en: null,
+      description: null,
       params: [],
       settings: [],
       commands: [],
@@ -190,9 +206,11 @@ const flow: InstrumentInternals = {
       channel: null,
       doc: null,
       label: null,
-      label_en: null,
+      type_label: null,
+      type_label_en: null,
       about: null,
       about_en: null,
+      description: null,
       params: [],
       settings: [],
       commands: [],
@@ -268,7 +286,9 @@ const sds = fixture.internals as unknown as InstrumentInternals;
 const columns = (expanded: ReadonlySet<number>) => {
   const { nodes } = buildGraph(sds, expanded);
   const byX = new Map<number, string[]>();
-  for (const n of nodes) if (n.kind !== "label" && !n.id.endsWith(".cal")) byX.set(n.x, [...(byX.get(n.x) ?? []), n.id]);
+  for (const n of nodes)
+    if (n.kind !== "label" && !n.id.endsWith(".cal"))
+      byX.set(n.x, [...(byX.get(n.x) ?? []), n.id]);
   return [...byX].sort((a, b) => a[0] - b[0]).map(([, ids]) => ids.sort());
 };
 
@@ -289,7 +309,12 @@ describe("buildGraph on a real model (#953)", () => {
 
   it("gives the same columns on every call (the layout is a pure function of the view)", () => {
     expect(columns(new Set([1]))).toEqual(columns(new Set([1])));
-    expect(columns(new Set([1]))[1]).toEqual(["c:ch1.inp", "g:2", "g:3", "g:4"]);
+    expect(columns(new Set([1]))[1]).toEqual([
+      "c:ch1.inp",
+      "g:2",
+      "g:3",
+      "g:4",
+    ]);
   });
 
   it("puts the shared blocks where the channel rows meet, not above them", () => {
@@ -307,23 +332,54 @@ describe("buildGraph on a real model (#953)", () => {
       ...sds,
       components: [
         ...sds.components,
-        { ...sds.components.find((c) => c.name === "ch1.inp")!, name: "extin", channel: null },
+        {
+          ...sds.components.find((c) => c.name === "ch1.inp")!,
+          name: "extin",
+          channel: null,
+        },
       ],
-      ports: [...sds.ports, { name: "EXT", target: "extin.pin", direction: "in", medium: "electrical", channel: null }],
-      wires: [...sds.wires, { from: "extin.out", to: "trigger.ext", medium: "signal", sample_rate_hz: null, format: null }],
+      ports: [
+        ...sds.ports,
+        {
+          name: "EXT",
+          target: "extin.pin",
+          direction: "in",
+          medium: "electrical",
+          channel: null,
+        },
+      ],
+      wires: [
+        ...sds.wires,
+        {
+          from: "extin.out",
+          to: "trigger.ext",
+          medium: "signal",
+          sample_rate_hz: null,
+          format: null,
+        },
+      ],
     };
     const { nodes } = buildGraph(ext, new Set([1, 2, 3, 4]));
     const at = (id: string) => nodes.find((n) => n.id === id)!;
     const adc = at("c:adc");
     expect(adc.y).toBeGreaterThan(at("c:ch1.probe").y);
-    expect(adc.y + adc.height).toBeLessThan(at("c:ch4.probe").y + at("c:ch4.probe").height);
-    expect(at("c:extin").y).toBeGreaterThan(at("c:ch4.inp").y + at("c:ch4.inp").height);
+    expect(adc.y + adc.height).toBeLessThan(
+      at("c:ch4.probe").y + at("c:ch4.probe").height,
+    );
+    expect(at("c:extin").y).toBeGreaterThan(
+      at("c:ch4.inp").y + at("c:ch4.inp").height,
+    );
     expect(at("c:extin").x).toBe(at("c:ch1.inp").x);
   });
 
   it("lines the n-th input up with the n-th output, and gives a probed output room for its thumbnail", () => {
     const { nodes } = buildGraph(sds, new Set([1]));
-    const rows = (nodes.find((n) => n.id === "c:adc") as Extract<(typeof nodes)[number], { kind: "component" }>).rows;
+    const rows = (
+      nodes.find((n) => n.id === "c:adc") as Extract<
+        (typeof nodes)[number],
+        { kind: "component" }
+      >
+    ).rows;
     const top = (name: string) => rows.find((r) => r.name === name)!.top;
     expect(top("in1")).toBe(top("out1"));
     expect(top("in4")).toBe(top("out4"));
@@ -333,19 +389,45 @@ describe("buildGraph on a real model (#953)", () => {
   it("keeps what a wire carries on its edge: analog, or a sample stream with rate and format", () => {
     const { edges } = buildGraph(sds, new Set([1, 2, 3, 4]));
     const flow = (id: string) => edges.find((e) => e.id === id)!.flow;
-    expect(flow("c:ch1.front/out->c:ch1.probe/in")).toEqual({ medium: "signal", sample_rate_hz: null, format: null });
+    expect(flow("c:ch1.front/out->c:ch1.probe/in")).toEqual({
+      medium: "signal",
+      sample_rate_hz: null,
+      format: null,
+    });
     const adc = flow("c:adc/out1->c:dec/in1")!;
-    expect(adc).toMatchObject({ medium: "samples", format: { kind: "volts", bits: 8 } });
+    expect(adc).toMatchObject({
+      medium: "samples",
+      format: { kind: "volts", bits: 8 },
+    });
     expect(adc.sample_rate_hz! / 2e9).toBeCloseTo(1, 12);
-    expect(flow("c:dec/out1->c:acq/in1")!.sample_rate_hz! / 1e6).toBeCloseTo(1, 12);
-    expect(edges.filter((e) => e.kind === "ref").every((e) => e.flow === undefined)).toBe(true);
+    expect(flow("c:dec/out1->c:acq/in1")!.sample_rate_hz! / 1e6).toBeCloseTo(
+      1,
+      12,
+    );
+    expect(
+      edges.filter((e) => e.kind === "ref").every((e) => e.flow === undefined),
+    ).toBe(true);
   });
 
   it("marks the outputs a probe opens on: signal and sample-stream outputs, not inputs", () => {
     const { nodes } = buildGraph(sds, new Set([1]));
-    const rows = (id: string) => (nodes.find((n) => n.id === id) as Extract<(typeof nodes)[number], { kind: "component" }>).rows;
-    expect(rows("c:adc").filter((r) => r.probe).map((r) => r.name)).toEqual(["out1", "out2", "out3", "out4"]);
-    expect(rows("c:adc").filter((r) => r.side === "left").every((r) => !r.probe)).toBe(true);
+    const rows = (id: string) =>
+      (
+        nodes.find((n) => n.id === id) as Extract<
+          (typeof nodes)[number],
+          { kind: "component" }
+        >
+      ).rows;
+    expect(
+      rows("c:adc")
+        .filter((r) => r.probe)
+        .map((r) => r.name),
+    ).toEqual(["out1", "out2", "out3", "out4"]);
+    expect(
+      rows("c:adc")
+        .filter((r) => r.side === "left")
+        .every((r) => !r.probe),
+    ).toBe(true);
     expect(rows("c:ch1.front").find((r) => r.name === "out")!.probe).toBe(true);
   });
 });
@@ -355,13 +437,26 @@ describe("buildGraph on a spectrum analyzer (signal-chain.md 1.5, #959)", () => 
   const view = specan.internals as unknown as InstrumentInternals;
   const { nodes, edges } = buildGraph(view, new Set([1]));
   const at = (name: string) => nodes.find((n) => n.id === `c:${name}`)!;
-  const column = (name: string) => Math.round(at(name).x / (at("input").x - at("rf_in").x));
+  const column = (name: string) =>
+    Math.round(at(name).x / (at("input").x - at("rf_in").x));
   const middle = (name: string) => at(name).y + at(name).height / 2;
 
   it("lays the signal out in one line: input, attenuator, mixer, IF, ADC, down-converter, RBW/FFT, detector, video filter, trace", () => {
-    const chain = ["rf_in", "input", "mixer", "if_filter", "adc", "ddc", "rbw", "detector", "vbw", "sa"];
+    const chain = [
+      "rf_in",
+      "input",
+      "mixer",
+      "if_filter",
+      "adc",
+      "ddc",
+      "rbw",
+      "detector",
+      "vbw",
+      "sa",
+    ];
     expect(chain.map(column)).toEqual(chain.map((_, i) => column("rf_in") + i));
-    for (const name of chain) expect(middle(name)).toBeCloseTo(middle("mixer"), 6);
+    for (const name of chain)
+      expect(middle(name)).toBeCloseTo(middle("mixer"), 6);
     const rfIn = nodes.find((n) => n.id === "p:RF_IN")!;
     expect(rfIn.x).toBeLessThan(at("rf_in").x);
     expect(rfIn.y + rfIn.height / 2).toBeCloseTo(middle("mixer"), 6);
@@ -377,18 +472,29 @@ describe("buildGraph on a spectrum analyzer (signal-chain.md 1.5, #959)", () => 
   });
 
   it("draws the oscillator's dependency straight up into the mixer", () => {
-    const lo = edges.find((e) => e.kind === "ref" && e.source === "c:lo" && e.target === "c:mixer")!;
+    const lo = edges.find(
+      (e) => e.kind === "ref" && e.source === "c:lo" && e.target === "c:mixer",
+    )!;
     expect([lo.sourceHandle, lo.targetHandle]).toEqual(["ref-up", "ref-foot"]);
     // between columns a dependency still leaves a block's side
-    const clock = edges.find((e) => e.kind === "ref" && e.source === "c:clock" && e.target === "c:lo")!;
-    expect([clock.sourceHandle, clock.targetHandle]).toEqual(["ref-out", "ref-in"]);
+    const clock = edges.find(
+      (e) => e.kind === "ref" && e.source === "c:clock" && e.target === "c:lo",
+    )!;
+    expect([clock.sourceHandle, clock.targetHandle]).toEqual([
+      "ref-out",
+      "ref-in",
+    ]);
   });
 
   it("overlaps no two blocks", () => {
     const boxes = nodes.filter((n) => n.kind === "component");
     for (const a of boxes)
       for (const b of boxes)
-        if (a.id < b.id) expect(a.x === b.x && a.y < b.y + b.height && b.y < a.y + a.height, `${a.id} on ${b.id}`).toBe(false);
+        if (a.id < b.id)
+          expect(
+            a.x === b.x && a.y < b.y + b.height && b.y < a.y + a.height,
+            `${a.id} on ${b.id}`,
+          ).toBe(false);
     expect(NODE_WIDTH.component).toBeLessThan(at("input").x - at("rf_in").x);
   });
 });
