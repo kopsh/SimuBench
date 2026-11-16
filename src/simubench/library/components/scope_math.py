@@ -663,11 +663,19 @@ class ScopeMath(Component):
     # ---- the records ---------------------------------------------------------------------------
 
     def function_record(
-        self, f: int, start: bool = True, seen: frozenset[int] = frozenset()
+        self,
+        f: int,
+        start: bool = True,
+        seen: frozenset[int] = frozenset(),
+        shown: dict[int, Any] | None = None,
     ) -> tuple[MathRecord | None, int]:
         """Function ``f``'s waveform over its sources' records as they are read now (``start``:
         the read starts a transfer), and the virtual time getting the sources took. None: the
-        function has no operator."""
+        function has no operator.
+
+        ``shown``: the channel records the screen draws (a live frame or the last acquisition),
+        taken as they are — nothing is acquired, no virtual time passes; a function over a
+        channel the screen has no record of, or over the g(t) source, is None."""
         f = self._function(f)
         if f in seen:
             raise ScpiError(-221, f"function {f} takes its own output as a source (a cycle)")
@@ -687,11 +695,18 @@ class ScopeMath(Component):
             if not operand.word:
                 raise ScpiError(-221, f"function {f} has no source")
             if operand.function is not None:
-                rec, u = self.function_record(operand.function, start, seen | {f})
+                rec, u = self.function_record(operand.function, start, seen | {f}, shown)
                 if rec is None:
+                    if shown is not None:
+                        return None, 0
                     raise ScpiError(-221, f"function {operand.function} is not defined")
                 records[which - 1] = rec
                 used += u
+            elif shown is not None and (operand.goft or operand.channel is not None):
+                rec = None if operand.goft else shown.get(operand.channel)
+                if rec is None:
+                    return None, 0
+                records[which - 1] = rec
             elif operand.goft:
                 rec, u = self._goft_record(start)
                 records[which - 1] = rec
@@ -710,6 +725,26 @@ class ScopeMath(Component):
         if operator in WHOLE_OPERATORS:
             return self._whole(spec, records, constants), used
         return MathRecord(spec, records, constants), used
+
+    def screen_functions(self, shown: dict[int, Any]) -> list[tuple[int, str, MathRecord]]:
+        """The functions the screen draws over ``shown`` (its channel records): each one turned
+        on, with an operator and a record to compute it from, as (number, operator, record). A
+        function the model cannot compute there (a settings conflict, a limit) is left out, as
+        the scope leaves its trace blank."""
+        out = []
+        for f in range(1, int(self.param("functions")) + 1):
+            if not V.flag(self._setting(f, "display", False)):
+                continue
+            try:
+                operator = self._operator(f)
+                rec, _ = self.function_record(f, start=False, shown=shown)
+                if rec is not None:
+                    _ = rec.volts  # computed here, so a refusal (a model limit too) leaves it out
+            except ScpiError:
+                continue
+            if rec is not None:
+                out.append((f, operator, rec))
+        return out
 
     def read_function(self, f: int, start: bool = True) -> tuple[MathRecord | None, int]:
         """The record a read of function ``f`` uses (the transfer's ``Acquisition.read_record``)."""

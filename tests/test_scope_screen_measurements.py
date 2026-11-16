@@ -173,3 +173,29 @@ def test_a_deep_record_screen_is_an_envelope_and_the_memory_depth_says_so(client
     )
     marked = {v["path"] for v in scope["state"] if v["fidelity"] == "computed_on_read"}
     assert marked == {"acquire.points"}
+
+
+def test_the_screen_draws_the_math_functions_turned_on(client):
+    """A function turned on (``:FUNCtion<f>:DISPlay ON``) comes with the screen, computed from the
+    record it shows without a new acquisition: an FFT as a spectrum (its bins, its span setting,
+    its peaks where :MEASure:FFT finds them), a time-domain function on the channels' grid; a
+    function turned off is not drawn."""
+    b = Bench(client, "demo/uxr.bench.yaml")
+    b.scpi(":CHANnel2:DISPlay ON;:TIMebase:SCALe 1E-6;:ACQuire:POINts 2000;:DIGitize")
+    assert b.screen()["functions"] == []
+    b.scpi(":FUNCtion1:FFTMagnitude CHANnel2;:FUNCtion1:FFT:STOP 10E6;:FUNCtion1:DISPlay ON")
+    b.scpi(":FUNCtion2:ADD CHANnel1,CHANnel2;:FUNCtion2:DISPlay ON")
+    before = b.screen()["acquisitions"]
+    screen = b.screen()
+    assert screen["acquisitions"] == before  # drawn from the record shown: nothing acquired
+    fft, add = screen["functions"]
+    assert (fft["function"], fft["operator"], fft["spectrum"]) == (1, "FFTMagnitude", True)
+    assert fft["x0"] == 0.0 and fft["x0"] + fft["dx"] * (len(fft["values"]) - 1) <= 10e6
+    peak = fft["x0"] + fft["dx"] * fft["values"].index(max(fft["values"]))
+    assert peak == pytest.approx(float(b.scpi(":MEASure:FFT:FREQuency? FUNCtion1,1,-30")))
+    assert max(fft["values"]) == pytest.approx(float(b.scpi(":MEASure:FFT:MAGNitude? FUNCtion1,1,-30")))
+    ch1 = next(t for t in screen["traces"] if t["channel"] == 1)
+    assert (add["function"], add["spectrum"], add["unit"]) == (2, False, "VOLT")
+    assert len(add["values"]) == len(ch1["volts"]) and add["x0"] == pytest.approx(ch1["t0_s"])
+    b.scpi(":FUNCtion2:DISPlay OFF")
+    assert [f["function"] for f in b.screen()["functions"]] == [1]

@@ -9,7 +9,7 @@ import numpy as np
 from scipy.special import jv
 
 from ...engine.component import ArbSource, Component, OpResult, PortSpec, component, op
-from ...engine.signal import MAX_LINES, FidelityNote, Signal, pulse_train, sine, square, triangle
+from ...engine.signal import MAX_LINES, ROLLOFFS, FidelityNote, Signal, pulse_train, sine, square, triangle
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .modulation import LineBuilder, am_sidebands, angle_sidebands, carson_orders, omitted_power_fraction
@@ -154,7 +154,10 @@ class WaveformSynth(Component):
     ``arb`` table or ``prbs`` source on the same channel, #426). ``duty`` is a percentage or
     a ratio as ``duty_unit`` declares; nothing is guessed from its size (0.1 is 0.1 % or 10 %, by the
     declaration). Square, pulse and ramp keep harmonics up to ``bandwidth`` (and the line limit, with a
-    fidelity note, D33). ``clock`` names a reference_clock whose error scales the frequency.
+    fidelity note, D33); ``rolloff`` says how they end there: ``brickwall`` (all at full weight up
+    to the bandwidth: the edges ring, Gibbs) or ``gaussian`` (-3 dB at the bandwidth: no overshoot,
+    a 10–90 % edge of about 0.34 / bandwidth). ``clock`` names a reference_clock whose error scales
+    the frequency.
     """
 
     ports = {"out": PortSpec("out", "signal")}
@@ -173,6 +176,7 @@ class WaveformSynth(Component):
         "duty_unit": "percent",  # percent | ratio: what duty means
         "symmetry": 100.0,  # percent rising half of the ramp (100: sawtooth)
         "bandwidth": 100e6,  # Hz, harmonic limit for square, pulse and ramp
+        "rolloff": "brickwall",  # brickwall | gaussian: how the harmonics end at the bandwidth
         "square_max": math.inf,  # Hz, highest square/ramp frequency (inf: none)
         # Highest frequency per function word (#437), e.g. {SINusoid: 120e6, RAMP: 800e3}: FREQ? MAX
         # follows the waveform, a frequency above it is -222 and set to it, and changing to a
@@ -185,6 +189,7 @@ class WaveformSynth(Component):
         "prbs": "",  # the prbs_source played for PRBS (#426; empty: not offered)
     }
     units = {"frequency": "Hz", "bandwidth": "Hz", "square_max": "Hz", "phase": "deg"}
+    choices = {"rolloff": ROLLOFFS}
     #: Other names for the same shapes.
     ALIASES = {
         "SINE": "SINusoid",
@@ -266,6 +271,7 @@ class WaveformSynth(Component):
         freq = self.frequency()
         phase = self._phase0 + math.radians(float(self.param("phase")))
         bw = float(self.param("bandwidth"))
+        rolloff = str(self.param("rolloff") or "brickwall")
         if fn == "SINusoid":
             return sine(freq, 0.5, phase, self._t0)
         if fn == "SQUare":
@@ -275,15 +281,15 @@ class WaveformSynth(Component):
             lead = float(self.param("lead_time") or 0.0) if pulse else 0.0
             trail = float(self.param("trail_time") or 0.0) if pulse else 0.0
             if duty == 0.5 and not lead and not trail:
-                return square(freq, 0.5, bw, phase, self._t0)
-            return pulse_train(freq, 0.5, duty, bw, phase, self._t0, lead, trail)
+                return square(freq, 0.5, bw, phase, self._t0, rolloff)
+            return pulse_train(freq, 0.5, duty, bw, phase, self._t0, lead, trail, rolloff)
         if fn == "RAMP":
             sym = (
                 50.0
                 if str(self.param("function")).upper().startswith("TRI")
                 else float(self.param("symmetry"))
             )
-            return triangle(freq, 0.5, sym / 100.0, bw, phase, self._t0)
+            return triangle(freq, 0.5, sym / 100.0, bw, phase, self._t0, rolloff)
         if fn in ("ARBitrary", "PRBS"):
             source = self._played("arb" if fn == "ARBitrary" else "prbs")
             if source is not None:

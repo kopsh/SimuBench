@@ -609,6 +609,7 @@ export const zh = {
     acquisitions: "采集次数",
     liveFrame: "实时画面",
     cursors: { toggle: "光标", title: "光标", channel: "通道", x1: "X1", x2: "X2", y1: "Y1", y2: "Y2" },
+    spectrum: { label: "频谱", span: "频率", bin: "频点间隔" },
     measure: { title: "测量", amplitude: "幅值", vpp: "Vpp", frequency: "频率", period: "周期", mean: "均值", rms: "RMS" },
   },
   generator: {
