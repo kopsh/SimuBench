@@ -59,6 +59,23 @@ class ClientsConnected(RuntimeError):
         self.clients = clients
 
 
+#: The command-line option that moves each service's port (#1195).
+_PORT_OPTION = {"SCPI": "--scpi-base-port", "HiSLIP": "--hislip-port", "VXI-11": "--vxi11-port"}
+
+
+class PortInUse(OSError):
+    """A port the bench serves on cannot be opened, usually held by another process (#1195): which
+    one, and the way out."""
+
+    def __init__(self, service: str, exc: OSError) -> None:
+        super().__init__(
+            f"无法打开 {service} 端口（通常是被占用），测试台未启动：{exc}。"
+            f"可能是另一个 SimuBench（例如 AI 助手自行启动的 simubench mcp）或仪器软件正在使用它；"
+            f"关掉它，或以 {_PORT_OPTION[service]} <其他端口> 重新启动 SimuBench。"
+        )
+        self.service = service
+
+
 def vxi11_port_of(args: Any) -> int | None:
     """The VXI-11 core port the command line asks for: ``--vxi11-port`` (0 lets the OS choose), or
     implied by ``--portmapper-port``; ``None`` leaves VXI-11 off, as it is by default (D63)."""
@@ -420,20 +437,31 @@ class SessionManager:
         for other in list(self.sessions.values()):
             await self.stop(other.id, force=True)  # confirmed above, as part of starting
         if self.scpi_base_port is not None:
-            served.scpi = ScpiServer(session, self.scpi_host, self.scpi_base_port)
-            await served.scpi.start()
-            if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
-                served.hislip = HislipServer(
-                    session,
-                    self.scpi_host,
-                    self.hislip_port,
-                    overlapped=self.hislip_overlapped,
-                    secure=self.hislip_secure,
-                )
-                await served.hislip.start()
-            if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
-                served.vxi11 = Vxi11Server(session, self.scpi_host, self.vxi11_port, self.portmapper_port)
-                await served.vxi11.start()
+            service = "SCPI"
+            try:
+                served.scpi = ScpiServer(session, self.scpi_host, self.scpi_base_port)
+                await served.scpi.start()
+                if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
+                    service = "HiSLIP"
+                    served.hislip = HislipServer(
+                        session,
+                        self.scpi_host,
+                        self.hislip_port,
+                        overlapped=self.hislip_overlapped,
+                        secure=self.hislip_secure,
+                    )
+                    await served.hislip.start()
+                if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
+                    service = "VXI-11"
+                    served.vxi11 = Vxi11Server(session, self.scpi_host, self.vxi11_port, self.portmapper_port)
+                    await served.vxi11.start()
+            except OSError as exc:
+                # Close what did open (the instruments before the taken port), and the session.
+                for server in (served.vxi11, served.hislip, served.scpi):
+                    if server is not None:
+                        await server.stop()
+                await asyncio.to_thread(session.close)
+                raise PortInUse(service, exc) from exc
             if self.link_port is not None:  # scripts in other processes drive this bench (D63)
                 link = BenchLinkServer(session, self.scpi_host, self.link_port)
                 try:
