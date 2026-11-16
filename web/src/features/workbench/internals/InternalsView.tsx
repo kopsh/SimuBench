@@ -190,7 +190,7 @@ export function InternalsPanel({
   /** Told which output ports are on screen (the expanded channels' and the whole instrument's), so their signals can be read. */
   onPorts?: (ports: string[]) => void;
   /** Where the view starts (stories): a selected component, a search, or an open probe. */
-  initial?: { selected?: string; query?: string; probe?: string; tune?: Tune; fullscreen?: boolean };
+  initial?: { selected?: string; query?: string; probe?: string; tune?: Tune };
   /** Show a setting in the workbench inspector (#800). The acceptance page has no inspector and leaves it out. */
   onLocate?: (setting: string) => void;
   /** The internal probe on an output port (#953). Without it (the acceptance page: no session) ports are not probed. */
@@ -214,7 +214,7 @@ export function InternalsPanel({
   const [hover, setHover] = useState<Focus>(null);
   // Full screen is in-app (#1174): the same tree, restyled to cover the viewport, so the viewport,
   // selection and probe survive the switch and a future editor reuses one structure for both forms.
-  const [fullscreen, setFullscreen] = useState(initial?.fullscreen ?? false);
+  const [fullscreen, setFullscreen] = useState(false);
   useEffect(() => {
     if (!fullscreen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -298,6 +298,8 @@ export function InternalsPanel({
 
   return (
     <div
+      // fixed inset-0 must not sit under a transformed or contained ancestor; the full-screen e2e
+      // checks the viewport corners with elementFromPoint, which fails first if one appears (#1186).
       className={cn("flex min-h-0", fullscreen ? "bg-background fixed inset-0 z-50" : "h-full")}
       data-testid="internals-panel"
       data-fullscreen={fullscreen}

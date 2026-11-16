@@ -206,11 +206,12 @@ def test_the_front_panel_outputs_drive_what_a_second_scope_measures(tmp_path, de
         rm.close()
 
 
-def test_the_aux_output_has_its_own_enable_and_a_fixed_dc_level(tmp_path):
+@pytest.mark.parametrize("def_id", ["keysight-uxr0334b", "keysight-uxr1104b"])
+def test_the_aux_output_has_its_own_enable_and_a_fixed_dc_level(tmp_path, def_id):
     bench = {
         "schema": "simubench.bench/2",
         "name": "uxr_aux_out",
-        "instruments": {"src": {"model": "keysight-uxr0334b"}, "scope": {"model": "keysight-uxr0334b"}},
+        "instruments": {"src": {"model": def_id}, "scope": {"model": def_id}},
         "wires": [{"from": "src.AUX_OUT", "to": "scope.CH1"}],
         "run": {"seed": 1, "clock": "command", "idle": "off"},
     }
@@ -226,12 +227,112 @@ def test_the_aux_output_has_its_own_enable_and_a_fixed_dc_level(tmp_path):
             uxr.write(":DIGitize CHANnel1")
             return float(np.mean(reader.read_waveform(uxr, "CHANnel1")[1]))
 
-        src.write(":CALibrate:OUTPut DC,0.5;:CALibrate:OUTPut:CAL ON")
+        src.write(":CALibrate:OUTPut DC,0.5;:CALibrate:OUTPut:CAL ON;:CALibrate:OUTPut:AUX OFF")
         assert abs(read()) < 4e-3  # CAL is on, but the cable is on AUX, which is off
         src.write(":CALibrate:OUTPut:AUX ON")
         assert abs(read() + 0.44) < 4e-3  # AUX's DC is the fixed ZERO level whatever the level asked
     finally:
         rm.close()
+
+
+@pytest.mark.parametrize(
+    ("def_id", "one_level", "output_after_reset", "aux_after_reset", "cal_after_reset"),
+    [
+        ("keysight-uxr0334b", 0.44, '"ZERO"', "0", "0"),
+        ("keysight-uxr1104b", -0.125, "PROB", "1", "1"),
+    ],
+    ids=["uxr0334b", "uxr1104b"],
+)
+def test_the_front_panel_signals_follow_the_guide(
+    tmp_path, def_id, one_level, output_after_reset, aux_after_reset, cal_after_reset
+):
+    """#1173: the AUX OUT clocks, ONE level and FAST/SLOW edges of both UXR models, and *RST.
+
+    The clocks are read back through the scope's own measurements: MHZ97 and MHZ7_5 at their
+    frequencies, ONE at its level (the guide's p. 473 levels differ per model), and the AUX OUT
+    rise time much shorter on FAST than on SLOW (the guide's edge-speed setting).
+    """
+    bench = {
+        "schema": "simubench.bench/2",
+        "name": "uxr_front_panel",
+        "instruments": {"src": {"model": def_id}, "scope": {"model": def_id}},
+        "wires": [{"from": "src.AUX_OUT", "to": "scope.CH1"}],
+        "run": {"seed": 1, "clock": "command", "idle": "off"},
+    }
+    path = tmp_path / "bench.yaml"
+    path.write_text(yaml.safe_dump(bench), "utf-8")
+    rm = pyvisa.ResourceManager(f"{path}@simubench")
+    try:
+        src = rm.open_resource("src", read_termination="\n", write_termination="\n", timeout=5000)
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+        uxr.write(":ACQuire:POINts 2000;:CHANnel1:SCALe 0.2;:TIMebase:SCALe 2e-7")
+        src.write(":CALibrate:OUTPut MHZ97;:CALibrate:OUTPut:AUX ON")
+
+        def measure(what: str) -> float:
+            return float(uxr.query(f":MEASure:{what}? CHANnel1"))
+
+        assert measure("FREQuency") == pytest.approx(97e6, rel=1e-2)
+        src.write(":CALibrate:OUTPut MHZ7_5")
+        assert measure("FREQuency") == pytest.approx(7.5e6, rel=1e-2)
+
+        # The AUX OUT edges: FAST is much shorter than SLOW, on the 97 MHz clock (a periodic
+        # selection, where the guide makes the setting visible).
+        src.write(":CALibrate:OUTPut MHZ97;:CALibrate:OUTPut:AUX:RTIMe FAST")
+        uxr.write(":TIMebase:SCALe 5e-9")
+        fast = measure("RISetime")
+        src.write(":CALibrate:OUTPut:AUX:RTIMe SLOW")
+        slow = measure("RISetime")
+        assert fast > 0 and slow > 3 * fast, (fast, slow)
+
+        # ONE is a constant at the model's own level (the guide gives -440 to -125 mV on AUX OUT).
+        src.write(":CALibrate:OUTPut ONE")
+        uxr.write(":TIMebase:SCALe 2e-6")
+        assert float(uxr.query(":MEASure:VAVerage? DISPlay,CHANnel1")) == pytest.approx(one_level, abs=0.02)
+
+        # *RST puts the selection and both enables back to the model's power-on values.
+        src.write("*RST")
+        assert src.query(":CALibrate:OUTPut?").strip() == output_after_reset
+        assert src.query(":CALibrate:OUTPut:AUX?").strip() == aux_after_reset
+        assert src.query(":CALibrate:OUTPut:CAL?").strip() == cal_after_reset
+    finally:
+        rm.close()
+
+
+@pytest.mark.parametrize("def_id", ["keysight-uxr0334b", "keysight-uxr1104b"])
+def test_the_probe_compensation_square_keeps_its_phase_and_seed(tmp_path, def_id):
+    """#1173: PROBecomp is the guide's ~750 Hz square, its half-period edges spaced by the same
+    interval in every record (aligned to virtual time), and two benches with the same seed read
+    exactly the same values."""
+    bench = {
+        "schema": "simubench.bench/2",
+        "name": "uxr_probe_comp",
+        "instruments": {"src": {"model": def_id}, "scope": {"model": def_id}},
+        "wires": [{"from": "src.CAL_OUT", "to": "scope.CH1"}],
+        "run": {"seed": 1, "clock": "command", "idle": "off"},
+    }
+
+    def capture() -> tuple[np.ndarray, np.ndarray]:
+        path = tmp_path / "bench.yaml"
+        path.write_text(yaml.safe_dump(bench), "utf-8")
+        rm = pyvisa.ResourceManager(f"{path}@simubench")
+        try:
+            src = rm.open_resource("src", read_termination="\n", write_termination="\n", timeout=5000)
+            uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+            uxr.write(":ACQuire:POINts 2000;:CHANnel1:SCALe 0.2;:TIMebase:SCALe 2e-4")
+            src.write(":CALibrate:OUTPut PROB;:CALibrate:OUTPut:CAL ON")
+            times, volts, _ = reader.read_waveform(uxr, "CHANnel1")
+            return np.asarray(times), np.asarray(volts)
+        finally:
+            rm.close()
+
+    times, volts = capture()
+    _same_times, same_seed = capture()
+    assert np.array_equal(volts, same_seed)
+    mid = (float(volts.min()) + float(volts.max())) / 2.0
+    crossings = np.nonzero(np.diff(np.sign(volts - mid)) != 0)[0]
+    assert len(crossings) >= 2
+    half_periods = np.diff(times[crossings])
+    assert np.allclose(half_periods, 1.0 / 1500.0, rtol=1e-2), half_periods
 
 
 def test_uxr1104b_reference_input_and_memory_option(tmp_path):

@@ -622,12 +622,8 @@ state:
     default: TAB
     label: 窗口布局
     label_en: Window layout
-  display.persistence:
-    type: enum
-    options: [MINimum, INFinite]
-    default: MINimum
-    label: 余辉
-    label_en: Persistence
+  # 余辉：MINimum（零余辉）、INFinite 或 0.1–200 s（手册）。
+  display.persistence: {type: float, unit: S, min: 0.1, max: 200.0, default: -.inf, special: {MINimum: -.inf, INFinite: .inf}, label: 余辉, label_en: Persistence}
   display.proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 面板占比, label_en: Pane proportion}
   display.results_proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 结果面板占比, label_en: Results proportion}
   display.results_layout:
@@ -1878,9 +1874,15 @@ commands:
   - {header: ":DISPlay:LABel", state: display.label}
   - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}
   # ---- 仅影响显示的设置（手册第 21 章，#1068）：解析并保存，查询回读；带可选 <source> 的写法
-  # 模型不区分来源，全局存一个值（覆盖表注明）。 ----
-  - {header: ":DISPlay:MAIN", state: display.main}
-  - {header: ":DISPlay:CONNect", state: display.connect}
+  # 与真机一样接受，来源不区分，全局存一个值（覆盖表注明）。 ----
+  - header: ":DISPlay:MAIN"
+    params:
+      - {name: "on", type: bool, state: display.main}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
+  - header: ":DISPlay:CONNect"
+    params:
+      - {name: "on", type: bool, state: display.connect}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
   - {header: ":DISPlay:GRATicule", state: display.graticule}
   - {header: ":DISPlay:GRATicule:AREA<n>:HSCale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_hscale}
   - {header: ":DISPlay:GRATicule:AREA<n>:STATe", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_state}
@@ -1890,8 +1892,12 @@ commands:
   # 把波形指派到网格（手册 p.606）：<波形>,<网格>[,<区>][,MAIN|CGRade]，四个参数分开存。
   - {header: ":DISPlay:GRATicule:SETGrat", op: sys.accept, query: false, params: [{name: chan, type: string, state: display.setgrat_chan}, {name: grid, type: int, min: 1, max: 16, state: display.setgrat_grid}, {name: area, type: int, min: 1, max: 8, optional: true, state: display.setgrat_area}, {name: view, type: string, optional: true, state: display.setgrat_view}]}
   - {header: ":DISPlay:LAYout", state: display.layout}
-  # 余辉（手册 p.623）：MINimum / INFinite；<time> 的可变余辉未建模（数值参数会被枚举拒绝）。
-  - {header: ":DISPlay:PERSistence", state: display.persistence}
+  # 余辉（手册 p.623）：MINimum / INFinite / 0.1–200 s 的可变余辉，带可选 <source>（真机接受，
+  # 来源不区分，总是作用于全部波形）。
+  - header: ":DISPlay:PERSistence"
+    params:
+      - {name: time, type: float, unit: S, state: display.persistence}
+      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
   # 面板占比（手册 p.624/625）：<面板>,<0-100>；两查询都已弃用（手册 History），只写不查。
   - {header: ":DISPlay:PROPortion", op: sys.accept, query: false, params: [{name: pane, type: string}, {name: proportion, type: float, min: 0.0, max: 100.0, state: display.proportion}]}
   - {header: ":DISPlay:PROPortion:RESults", state: display.results_proportion, query: false}

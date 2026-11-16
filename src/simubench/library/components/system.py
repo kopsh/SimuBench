@@ -125,8 +125,8 @@ class System(Component):
     def cal_output(self, query: bool = False, signal: str = "", dc: float | None = None, path: str = "", **_: Any) -> OpResult:  # fmt: skip
         """``:CALibrate:OUTPut``: the front-panel output's signal (the guide, p. 473) — the DC form
         carries the level and the query answers them together, so the setting at ``path`` stores
-        the composed reply and the command's reply template answers a query. The signal itself is
-        sets the signal the ``cal_output`` components drive (#1170)."""
+        the composed reply and the command's reply template answers a query. The signal itself
+        sets what the ``cal_output`` components drive (#1170)."""
         assert self.owner is not None
         if query:
             return OpResult(b"")
