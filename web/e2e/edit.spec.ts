@@ -311,3 +311,39 @@ test("copy as my instrument stays in the bench: the tab turns into the copy, the
     if (copy) for (const suffix of [".yaml", ".layout.json"]) rmSync(join(WORKSPACE, "instruments", `${copy}${suffix}`), { force: true });
   }
 });
+
+test("an instrument added from the library lands beside the bench's nodes, not on them, and comes into view (#1258)", async ({ page }) => {
+  // The Hello World bench's layout: the generator on the left, the scope and the analyzer stacked on the right.
+  const hello = {
+    schema: "simubench.bench/2",
+    name: "hello-place",
+    instruments: {
+      awg: { model: "siglent-sdg2042x", label: "函数发生器" },
+      scope: { model: "keysight-uxr1104b", label: "示波器" },
+      sa: { model: "keysight-n9320b", label: "频谱分析仪" },
+    },
+    wires: [
+      { from: "awg.CH1", to: "scope.CH1" },
+      { from: "awg.CH2", to: "sa.RF_IN" },
+    ],
+    layout: { awg: { x: 0, y: 120 }, scope: { x: 420, y: 0 }, sa: { x: 420, y: 240 } },
+  };
+  const path = await openEditor(page, hello);
+  await page.getByRole("button", { name: "添加 34465A" }).click();
+  const nodes = page.locator(".react-flow__node");
+  await expect(nodes).toHaveCount(4);
+  await expect(page.getByText("已保存到文件")).toBeVisible();
+  const boxes = await nodes.evaluateAll((els) =>
+    els.map((e) => {
+      const r = e.getBoundingClientRect();
+      return { id: e.getAttribute("data-id"), r: [r.left, r.top, r.right, r.bottom] };
+    }),
+  );
+  const overlap = (a: number[], b: number[]) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
+  for (const a of boxes) for (const b of boxes) if (a !== b) expect(overlap(a.r, b.r), `${a.id} and ${b.id} overlap`).toBe(false);
+  // The view moved to the new node: it is on screen, whole.
+  const added = page.locator('.react-flow__node[data-id="dmm"]');
+  await expect(added).toBeInViewport({ ratio: 1 });
+  const layout = (await readDoc(page.request, path)).data.layout as Record<string, { x: number; y: number }>;
+  expect(Object.keys(layout).sort()).toEqual(["awg", "dmm", "sa", "scope"]);
+});

@@ -112,11 +112,29 @@ export function WorkbenchPage() {
   const hasProblems = (doc?.diagnostics.length ?? 0) > 0 || (session.data?.instruments.some((i) => i.errors.length > 0) ?? false);
   const openedOnce = useRef(false);
   const ready = !!session.data;
+  // The internals and acceptance pages need the height (#1258): the log folds to its tab bar while
+  // one is the active tab and opens again on the canvas or a screen. Opening it there by hand is
+  // kept until the next switch; a log that was folded by the user stays folded.
+  const tabKind = useWorkbench((st) => tabKindOf(st.active));
+  const tall = tabKind === "internals" || tabKind === "acceptance";
+  const foldedForPage = useRef(false);
+  useEffect(() => {
+    const p = bottom.current;
+    if (!p) return;
+    if (tall && !p.isCollapsed()) {
+      p.collapse();
+      foldedForPage.current = true;
+    } else if (!tall && foldedForPage.current) {
+      foldedForPage.current = false;
+      if (p.isCollapsed()) p.resize(BOTTOM_OPEN);
+    }
+  }, [tall, bottom]);
   useEffect(() => {
     if (!ready || openedOnce.current || !(hasLog || hasProblems) || !bottom.current) return;
     openedOnce.current = true;
-    if (bottom.current.isCollapsed()) bottom.current.resize(BOTTOM_OPEN);
-  }, [ready, hasLog, hasProblems, bottom]);
+    if (tall) foldedForPage.current = true; // opens when the user comes back to the bench
+    else if (bottom.current.isCollapsed()) bottom.current.resize(BOTTOM_OPEN);
+  }, [ready, hasLog, hasProblems, bottom, tall]);
 
   if (session.isLoading) {
     return (
