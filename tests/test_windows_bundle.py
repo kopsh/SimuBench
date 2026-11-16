@@ -3,6 +3,7 @@ and the launcher executables scripts/windows_bundle.py writes."""
 
 from __future__ import annotations
 
+import gc
 import io
 import json
 import zipfile
@@ -31,6 +32,13 @@ MCP_HEADERS = {"Accept": "application/json, text/event-stream", "Content-Type": 
 
 def test_serve_mcp_shares_the_port_and_the_token(tmp_path):
     pytest.importorskip("mcp")
+    _serve_mcp_flow(tmp_path)
+    # The app, the MCP server and the test client leave ~14k objects in reference cycles. Collect
+    # them here, so the full GC they trigger is not paid inside the next (unit) test's budget (#1199).
+    gc.collect()
+
+
+def _serve_mcp_flow(tmp_path):
     from fastapi.testclient import TestClient
 
     from simubench.mcp_server import build_server

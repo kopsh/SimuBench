@@ -29,6 +29,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .. import __version__
 from ..models import api as M
+from . import MCP_PATH
 from .manager import SessionManager
 from .routes import acceptance, assistant, benches, definitions, events, ops, sessions
 from .routes.context import IN_USE, LOOPBACK_HOSTS, ApiContext, host_ok
@@ -54,10 +55,6 @@ class LocalOnly(BaseHTTPMiddleware):
         if not host_ok(request.headers.get("host")) or not host_ok(request.headers.get("origin")):
             return JSONResponse({"detail": "only loopback hosts and origins are allowed"}, status_code=403)
         return await call_next(request)
-
-
-#: Where ``serve --mcp`` answers MCP (streamable HTTP).
-MCP_PATH = "/mcp"
 
 
 def _mcp_token_guard(inner: Any, token: str) -> Any:
