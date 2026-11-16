@@ -3,6 +3,7 @@ and the launcher executables scripts/windows_bundle.py writes."""
 
 from __future__ import annotations
 
+import gc
 import io
 import json
 import zipfile
@@ -31,6 +32,13 @@ MCP_HEADERS = {"Accept": "application/json, text/event-stream", "Content-Type": 
 
 def test_serve_mcp_shares_the_port_and_the_token(tmp_path):
     pytest.importorskip("mcp")
+    _serve_mcp_flow(tmp_path)
+    # The app, the MCP server and the test client leave ~14k objects in reference cycles. Collect
+    # them here, so the full GC they trigger is not paid inside the next (unit) test's budget (#1199).
+    gc.collect()
+
+
+def _serve_mcp_flow(tmp_path):
     from fastapi.testclient import TestClient
 
     from simubench.mcp_server import build_server
@@ -81,15 +89,29 @@ def test_launch_workspace_is_in_documents(monkeypatch, tmp_path):
 
 @pytest.mark.unit
 def test_launch_starts_serve_with_mcp_and_the_browser(monkeypatch, tmp_path, capsys):
-    calls = []
-    real_main = cli.main
+    served = []
     monkeypatch.setattr(cli, "_running_simubench", lambda port: False)
     monkeypatch.setattr(cli, "_free_port", lambda port: 9123)
-    monkeypatch.setattr(cli, "main", lambda argv=None: calls.append(argv) or 0)
-    assert real_main(["launch", "--workspace", str(tmp_path / "ws")]) == 0
-    assert calls == [["serve", "--workspace", str(tmp_path / "ws"), "--port", "9123", "--mcp", "--open"]]
+    monkeypatch.setattr(cli, "_serve", lambda args: served.append(args) or 0)
+    assert cli.main(["launch", "--workspace", str(tmp_path / "ws")]) == 0
+    (args,) = served
+    assert (args.workspace, args.port, args.mcp, args.open) == (str(tmp_path / "ws"), 9123, True, True)
+    # no port given: the usual ones, replaced by free ones if taken (#1197)
+    assert (args.scpi_base_port, args.hislip_port) == (5025, 4880)
+    assert args.port_fallback == {"SCPI", "HiSLIP"}
     config = json.loads(capsys.readouterr().out.splitlines()[-1])
     assert config["mcpServers"]["simubench"]["url"] == "http://127.0.0.1:9123/mcp"
+
+
+@pytest.mark.unit
+def test_launch_keeps_a_port_given_on_the_command_line(monkeypatch, tmp_path):
+    served = []
+    monkeypatch.setattr(cli, "_running_simubench", lambda port: False)
+    monkeypatch.setattr(cli, "_serve", lambda args: served.append(args) or 0)
+    assert cli.main(["launch", "--workspace", str(tmp_path), "--no-browser", "--scpi-base-port", "6000"]) == 0
+    (args,) = served
+    assert args.scpi_base_port == 6000
+    assert args.port_fallback == {"HiSLIP"}  # the SCPI port was asked for: kept, or refused
 
 
 @pytest.mark.unit
@@ -105,3 +127,13 @@ def test_embed_zip_from_a_mirror_must_be_the_python_org_file():
     with pytest.raises(SystemExit) as err:
         bundle.check_embed(b"not python", "mirror.zip")
     assert bundle.EMBED_SHA256 in str(err.value)
+
+
+@pytest.mark.unit
+def test_cli_output_to_a_code_page_pipe_is_utf8():
+    # A redirected stdout on Windows is cp1252: doctor's ✓ and launch's Chinese must not raise (#1203)
+    raw = io.BytesIO()
+    pipe = io.TextIOWrapper(raw, encoding="cp1252")
+    cli.utf8_output(pipe)
+    print("✓ SimuBench 已在运行 — ok", file=pipe, flush=True)
+    assert raw.getvalue().decode("utf-8") == "✓ SimuBench 已在运行 — ok\n"

@@ -13,6 +13,10 @@ from pathlib import Path
 
 from .server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
+#: The ports a bench serves on unless told otherwise: the usual SCPI and HiSLIP ports of real instruments.
+DEFAULT_SCPI_BASE_PORT = 5025
+DEFAULT_HISLIP_PORT = 4880
+
 
 def add_service_options(
     parser: argparse.ArgumentParser, *, logs: bool = True, token: str = "require"
@@ -22,12 +26,15 @@ def add_service_options(
     only takes ``--token VALUE`` (the TUI presents a token to a service it did not start).
     ``logs=False`` for entries that do not configure logging."""
     parser.add_argument(
-        "--scpi-base-port", type=int, default=5025, help="first SCPI port; 0 lets the OS choose"
+        "--scpi-base-port",
+        type=int,
+        default=DEFAULT_SCPI_BASE_PORT,
+        help="first SCPI port; 0 lets the OS choose",
     )
     parser.add_argument(
         "--hislip-port",
         type=int,
-        default=4880,
+        default=DEFAULT_HISLIP_PORT,
         help="shared HiSLIP port (D41); 0 lets the OS choose, and --no-scpi disables it too",
     )
     parser.add_argument(
@@ -112,6 +119,7 @@ def build_manager(args: argparse.Namespace, workspace: Path) -> SessionManager:
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=bool(getattr(args, "record_raw", False)),
         allow_plugins=args.allow_plugins,
+        port_fallback=frozenset(getattr(args, "port_fallback", ())),
     )
 
 

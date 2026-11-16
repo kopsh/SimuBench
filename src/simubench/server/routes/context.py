@@ -17,7 +17,14 @@ from ...library.loader import DefinitionLibrary
 from ..benchfiles import BenchFiles, Conflict
 from ..definitionfiles import DefinitionFiles
 from ..errors import FILE_ERRORS
-from ..manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession, SessionManager
+from ..manager import (
+    BenchInvalid,
+    ClientsConnected,
+    InstrumentRemote,
+    PortInUse,
+    ServedSession,
+    SessionManager,
+)
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
 
@@ -123,6 +130,8 @@ class ApiContext:
         ``files``: False when the operation reads no file, so a file error is not its to map."""
         if isinstance(exc, (ClientsConnected, InstrumentRemote)):
             return self.in_use(exc)
+        if isinstance(exc, PortInUse):  # before PermissionError/FileNotFoundError: also an OSError
+            return HTTPException(409, str(exc))
         if files and isinstance(exc, PermissionError):
             return HTTPException(403, str(exc))
         if files and isinstance(exc, FileNotFoundError):

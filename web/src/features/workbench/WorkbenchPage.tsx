@@ -36,6 +36,8 @@ import { PanelScreen } from "./screens/PanelScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
 import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
+import { toast } from "sonner";
+import { isCancelled } from "@/components/app/ClientsConfirm";
 
 /** The log's tab bar alone (its collapsed height, px), and the share of the height it opens to. */
 const BOTTOM_BAR = 37;
@@ -231,7 +233,13 @@ function StoppedBench({ sid, bench, assistantOpen, onAssistant }: { sid: string;
           <p className="font-medium">{t("assistant.stoppedBench.title")}</p>
           <p className="text-muted-foreground text-[12.5px]">{t("assistant.stoppedBench.body", { path: bench })}</p>
           <div className="flex flex-wrap justify-center gap-2">
-            <Button size="sm" disabled={start.isPending} onClick={() => start.mutate(bench, { onSuccess: (s) => navigate(`/s/${s.id}`, { replace: true }) })}>
+            <Button size="sm" disabled={start.isPending} onClick={() =>
+                start.mutate(bench, {
+                  onSuccess: (s) => navigate(`/s/${s.id}`, { replace: true }),
+                  onError: (e) => !isCancelled(e) && toast.error(t("errors.generic"), { description: (e as Error).message }),
+                })
+              }
+            >
               {t("assistant.stoppedBench.start")}
             </Button>
             {!assistantOpen && (

@@ -196,6 +196,8 @@ export function useStartSession() {
     onSuccess: (s) => {
       qc.setQueryData(keys.session(s.id), s);
       void qc.invalidateQueries({ queryKey: keys.sessions });
+      // A taken default port was replaced by a free one (#1197): scripts must use the shown address.
+      for (const notice of s.port_notices ?? []) toast.warning(notice, { duration: 15000 });
     },
   });
 }

@@ -29,6 +29,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 
 from .. import __version__
 from ..models import api as M
+from . import MCP_PATH
 from .manager import SessionManager
 from .routes import acceptance, assistant, benches, definitions, events, ops, sessions
 from .routes.context import IN_USE, LOOPBACK_HOSTS, ApiContext, host_ok
@@ -54,10 +55,6 @@ class LocalOnly(BaseHTTPMiddleware):
         if not host_ok(request.headers.get("host")) or not host_ok(request.headers.get("origin")):
             return JSONResponse({"detail": "only loopback hosts and origins are allowed"}, status_code=403)
         return await call_next(request)
-
-
-#: Where ``serve --mcp`` answers MCP (streamable HTTP).
-MCP_PATH = "/mcp"
 
 
 def _mcp_token_guard(inner: Any, token: str) -> Any:
@@ -129,6 +126,14 @@ def create_app(
         lifespan=lifespan,
     )
     app.state.token = token
+
+    @app.exception_handler(Exception)
+    async def unexpected(request: Request, exc: Exception) -> JSONResponse:
+        # A bug or an unforeseen environment error: the page shows what happened instead of a bare
+        # "Internal Server Error" (#1195); the service is loopback-only, so the text stays local.
+        # Starlette still re-raises it after this response, so it is logged with its traceback.
+        return JSONResponse({"detail": f"{type(exc).__name__}: {exc}"}, status_code=500)
+
     app.state.manager = manager
     app.add_middleware(LocalOnly)
     ctx = ApiContext.of(manager, token)

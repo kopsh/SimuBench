@@ -12,7 +12,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import __version__
-from .service import add_service_options, address_line, build_manager, link_line
+from .service import (
+    DEFAULT_HISLIP_PORT,
+    DEFAULT_SCPI_BASE_PORT,
+    add_service_options,
+    address_line,
+    build_manager,
+    link_line,
+)
 
 if TYPE_CHECKING:
     from .library.loader import DefinitionLibrary
@@ -82,7 +89,7 @@ def _ui_url(port: int, token: str | None) -> str:
 
 
 def _mcp_url(port: int) -> str:
-    from .server.app import MCP_PATH
+    from .server import MCP_PATH
 
     return f"http://127.0.0.1:{port}{MCP_PATH}"
 
@@ -119,14 +126,23 @@ def _launch(args: argparse.Namespace) -> int:
     workspace = Path(args.workspace) if args.workspace else default_launch_workspace()
     workspace.mkdir(parents=True, exist_ok=True)
     port = _free_port(args.port or DEFAULT_PORT)
+    # A port not given on the command line is the usual one, or a free one when that is taken: the
+    # double-click must not fail on another program's 5025. A port given is kept, or refused (#1197).
+    fallback = set()
+    if args.scpi_base_port is None:
+        args.scpi_base_port = DEFAULT_SCPI_BASE_PORT
+        fallback.add("SCPI")
+    if args.hislip_port is None:
+        args.hislip_port = DEFAULT_HISLIP_PORT
+        fallback.add("HiSLIP")
     print("SimuBench —— 关闭此窗口即停止服务 / close this window to stop the service")
     print("  连接 AI 助手：界面右上角「连接 AI 助手」/ Connect AI assistant: top right of the page")
     print("  AI 助手（MCP 客户端）配置 / MCP client config:")
     print("    " + json.dumps({"mcpServers": {"simubench": {"type": "http", "url": _mcp_url(port)}}}))
-    argv = ["serve", "--workspace", str(workspace), "--port", str(port), "--mcp"]
-    if not args.no_browser:
-        argv.append("--open")
-    return main(argv)
+    args.port_fallback = fallback
+    args.workspace, args.port, args.bench = str(workspace), port, None
+    args.mcp, args.allow_control, args.open = True, False, not args.no_browser
+    return _serve(args)
 
 
 def _print_plugins(manager: SessionManager, *, err: bool = False) -> None:
@@ -554,7 +570,22 @@ def _schemas(args: argparse.Namespace) -> int:
     return 0
 
 
+def utf8_output(*streams: object) -> None:
+    """Write UTF-8 to a pipe or file whose locale encoding is narrower (#1203).
+
+    On Windows a redirected stdout is cp1252 (or another code page), and the CLI's ✓, Chinese and
+    dashes would raise UnicodeEncodeError mid-output. A console window is already Unicode, and a
+    stream that cannot be reconfigured is left alone.
+    """
+    for stream in streams or (sys.stdout, sys.stderr):
+        encoding = str(getattr(stream, "encoding", "") or "").lower().replace("-", "")
+        reconfigure = getattr(stream, "reconfigure", None)
+        if encoding != "utf8" and reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    utf8_output()
     parser = argparse.ArgumentParser(prog="simubench", description="SimuBench virtual instrument benches")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
@@ -582,7 +613,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--workspace", help="folder with bench files (default: Documents/SimuBench in your home)")
     p.add_argument("--port", type=int, help=f"port (default: {DEFAULT_PORT}, next free one if taken)")
     p.add_argument("--no-browser", action="store_true", help="do not open the browser")
-    p.set_defaults(fn=_launch)
+    add_service_options(p)
+    # None: not given, so the usual port, or a free one when it is taken (#1197).
+    p.set_defaults(fn=_launch, scpi_base_port=None, hislip_port=None)
 
     p = sub.add_parser("tui", help="terminal console for a running bench (optional dependency, D18)")
     p.add_argument("bench", nargs="?", help="bench file to start in this process, then observe")

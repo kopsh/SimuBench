@@ -747,6 +747,10 @@ class SessionInfo(_Model):
         description="Instrument definitions changed on disk since the session started: restart to apply them",
     )
     record_path: str | None = None
+    port_notices: list[str] = Field(
+        default_factory=list,
+        description="Why an address is not the configured one: a taken default port replaced by a free one (#1197)",
+    )
     link_address: str | None = Field(
         None,
         description="host:port scripts in other processes connect to with PYVISA_LIBRARY=<this>@simubench "
