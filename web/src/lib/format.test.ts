@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatClock, formatEng, formatReadout, isOverload, parseEngineering, resistance } from "./format";
+import { displayUnit, formatClock, formatEng, formatReadout, isOverload, parseEngineering, resistance } from "./format";
 
 describe("format", () => {
   it("engineering notation", () => {
@@ -49,5 +49,16 @@ describe("formatReadout (#313)", () => {
   it("resistance with no current is overload, not 0 Ω", () => {
     expect(isOverload(resistance(1, 0))).toBe(true);
     expect(text(formatReadout(resistance(5, 0.005), { unit: "Ω", digits: 5, fixed: true, signed: true }))).toBe("+1.0000 kΩ");
+  });
+});
+
+describe("displayUnit", () => {
+  it("writes the SCPI units as people read them, dB in lower case (#1222)", () => {
+    expect(displayUnit("DB")).toBe("dB");
+    expect(displayUnit("DBM")).toBe("dBm");
+    expect(displayUnit("PCT")).toBe("%");
+    expect(displayUnit("RAD")).toBe("rad");
+    expect(displayUnit("HZ")).toBe("Hz");
+    expect(displayUnit("W")).toBe("W");
   });
 });

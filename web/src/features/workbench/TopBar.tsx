@@ -51,9 +51,10 @@ export function TopBar({ session }: { session: SessionInfo }) {
         </TooltipTrigger>
         <TooltipContent>{t("workbench.backHome")}</TooltipContent>
       </Tooltip>
-      <Logo className="hidden shrink-0 lg:inline" />
+      {/* At 1024 px the logo would squeeze the bench's name to a letter (#1222): it shows from xl. */}
+      <Logo className="hidden shrink-0 xl:inline" />
       <Separator orientation="vertical" className="mx-1 !h-5" />
-      <div className="min-w-0">
+      <div className="min-w-20" title={`${session.bench_name} · ${session.bench_path}`}>
         <div className="truncate text-[13px] leading-tight font-medium">{session.bench_name}</div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">{session.bench_path}</div>
       </div>

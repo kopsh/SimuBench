@@ -1,5 +1,6 @@
 import {
   Activity,
+  ArrowLeftRight,
   AudioWaveform,
   BarChart3,
   BatteryCharging,
@@ -78,6 +79,9 @@ export const INSTRUMENT_CLASSES = {
   tunable_laser: { icon: Lightbulb },
   optical_power_meter: { icon: SunDim },
   optical_attenuator: { icon: SlidersHorizontal },
+  // A sampling scope's record is not a real-time scope's: no scope screen, its panel or the generic layout.
+  sampling_oscilloscope: { icon: Activity },
+  converter: { icon: ArrowLeftRight },
 } satisfies Record<string, ClassEntry>;
 
 export type InstrumentClassId = keyof typeof INSTRUMENT_CLASSES;

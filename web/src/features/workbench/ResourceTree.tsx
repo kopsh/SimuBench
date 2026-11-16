@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { SessionInfo } from "@/api/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
-import { instrumentTitle } from "./model";
+import { instrumentTitle, netTitle } from "./model";
 import { type Selection, useWorkbench } from "./store";
 import { ClassIcon } from "./classes";
 import { DutBadge } from "./canvas/InstrumentNode";
@@ -14,6 +14,7 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
   const { t } = useTranslation();
   const { selection, select, openScreen } = useWorkbench();
   const is = (s: Selection) => JSON.stringify(s) === JSON.stringify(selection);
+  const owners = [...session.instruments.map((i) => i.name), ...session.parts.map((p) => p.name)];
   return (
     <ScrollArea className="h-full">
       <nav className="p-2 text-[12.5px]" aria-label={t("workbench.resources")}>
@@ -29,7 +30,7 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
             );
           })}
         </Group>
-        <Group title={t("workbench.parts")}>
+        <Group title={t("workbench.parts")} empty={session.parts.length === 0}>
           {session.parts.map((d) => {
             const s = { kind: "part", id: d.name } as const;
             return (
@@ -40,7 +41,7 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
             );
           })}
         </Group>
-        <Group title={t("workbench.wires")}>
+        <Group title={t("workbench.wires")} empty={session.wires.length === 0}>
           {session.wires.map((w) => {
             const s = { kind: "wire", id: w.index } as const;
             return (
@@ -52,13 +53,13 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
             );
           })}
         </Group>
-        <Group title={t("workbench.nets")}>
+        <Group title={t("workbench.nets")} empty={session.nets.length === 0}>
           {session.nets.map((n) => {
             const s = { kind: "net", id: n.id } as const;
             return (
-              <Item key={n.id} active={is(s)} onClick={() => select(s)} icon={<Network className="size-3.5" />}>
-                <span className="num truncate text-[11.5px]" title={n.members.join(", ")}>
-                  {n.id}
+              <Item key={n.id} active={is(s)} onClick={() => select(s)} icon={<Network className="size-3.5" />} testId={`tree-${n.id}`}>
+                <span className="num truncate text-[11.5px]" title={`${n.id}: ${n.members.join(", ")}`}>
+                  {netTitle(n.members, owners) || n.id}
                 </span>
                 <span className="text-muted-foreground num ml-auto text-[11px]">{n.members.length}</span>
               </Item>
@@ -70,7 +71,9 @@ export function ResourceTree({ session }: { session: SessionInfo }) {
   );
 }
 
-function Group({ title, children }: { title: string; children: ReactNode }) {
+/** A titled group; none at all when it would be empty (a bench without parts, #1222). */
+function Group({ title, empty, children }: { title: string; empty?: boolean; children: ReactNode }) {
+  if (empty) return null;
   return (
     <div className="mb-3">
       <div className="text-muted-foreground mb-1 px-2 text-[11px] font-medium tracking-wide uppercase">{title}</div>
@@ -85,7 +88,9 @@ function Item({
   active,
   onClick,
   onDoubleClick,
+  testId,
 }: {
+  testId?: string;
   children: ReactNode;
   icon: ReactNode;
   active: boolean;
@@ -98,6 +103,7 @@ function Item({
         type="button"
         onClick={onClick}
         onDoubleClick={onDoubleClick}
+        data-testid={testId}
         className={cn(
           "focus-visible:ring-ring flex h-7 w-full items-center gap-2 rounded-md px-2 text-left focus-visible:ring-2 focus-visible:outline-none",
           active ? "bg-primary/12 text-foreground" : "hover:bg-accent text-foreground/90",

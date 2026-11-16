@@ -139,6 +139,17 @@ export function instrumentTitle(inst: InstrumentInfo): string {
   return inst.label || inst.name;
 }
 
+/**
+ * A net's name in the resource tree (#1222): the instrument and part ports it joins, not its id
+ * ("net-1") — what a probe on it would be clipped to. Points inside a wire's accessories (a probe's
+ * ends, "wire1.passive_probe0.IN") are left out; a net with nothing else keeps its id.
+ */
+export function netTitle(members: string[], owners: Iterable<string>): string {
+  const known = new Set(owners);
+  const ports = members.filter((m) => known.has(m.split(".")[0]));
+  return ports.length ? ports.join(" · ") : "";
+}
+
 export function errorsCount(session: SessionInfo): number {
   return session.instruments.reduce((n, i) => n + i.errors.length, 0);
 }
