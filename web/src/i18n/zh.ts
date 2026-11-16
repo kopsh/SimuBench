@@ -110,6 +110,8 @@ export const zh = {
   },
   // The inspector's settings, grouped by the first path segment (#728); others show the segment.
   inspector: {
+    instance: "{{name}} 的编号",
+    instanceCount: "共 {{count}} 个",
     group: {
       timebase: "时基",
       horizontal: "水平",

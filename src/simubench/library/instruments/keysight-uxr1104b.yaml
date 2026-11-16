@@ -1122,8 +1122,8 @@ channel_state:
   # 通道间延迟校正（:CHANnel<N>:PROBe:SKEW）：±1 ms；Default Setup 不改它（手册）。
   skew: {type: float, unit: S, min: -1.0e-3, max: 1.0e-3, default: 0.0, keep_on_reset: true, label: 延迟校正, label_en: Skew}
   # 频谱视图（DDC）的中心频率与跨度：保存与回读（自 main 移植）。
-  spectral_center: {default: 0.0, label: 频谱中心频率, label_en: Spectral center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
-  spectral_span: {default: 0.0, label: 频谱跨度, label_en: Spectral span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
+  spectral_center: {default: 0.0, unset: 0.0, label: 频谱中心频率, label_en: Spectral center, max: 1.0e12, min: -1.0e12, type: float, unit: HZ}
+  spectral_span: {default: 0.0, unset: 0.0, label: 频谱跨度, label_en: Spectral span, max: 1.0e12, min: 0.0, type: float, unit: HZ}
   # :DISPlay:GRATicule:SETGrat：通道波形放在哪个网格、哪个波形区、主视图或色阶视图（不改变数据）。
   grid: {type: int, min: 1, max: 16, default: 1, label: 网格, label_en: Grid}
   grid_area: {type: int, min: 1, max: 8, default: 1, label: 波形区, label_en: Waveform area}

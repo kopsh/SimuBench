@@ -9298,6 +9298,18 @@
             "description": "Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM",
             "title": "Unit"
           },
+          "unset": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The number that means 'not given, the instrument chooses' (a resolution CONFigure left out, a spectral view not yet set): the UI shows 自动 instead of it, as it does for a special AUTO value (#1257)",
+            "title": "Unset"
+          },
           "words": {
             "anyOf": [
               {
@@ -9555,6 +9567,18 @@
             "description": "Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM",
             "title": "Unit"
           },
+          "unset": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The number that means 'not given, the instrument chooses' (a resolution CONFigure left out, a spectral view not yet set): the UI shows 自动 instead of it, as it does for a special AUTO value (#1257)",
+            "title": "Unset"
+          },
           "value": {
             "title": "Value"
           },
@@ -9584,6 +9608,7 @@
           "keep_on_reset",
           "options",
           "ladder",
+          "unset",
           "special",
           "words",
           "not_modeled",

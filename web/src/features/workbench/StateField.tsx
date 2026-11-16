@@ -17,9 +17,9 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { displayUnit, engParts, parseEngineering } from "@/lib/format";
+import { displayUnit, engParts, parseEngineering, unitWord } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { distinctOptions, hasLabel, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
+import { distinctOptions, hasLabel, isAutoValue, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
 import { useCountOnScreen } from "./onScreen";
 
 interface Props {
@@ -183,6 +183,11 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
   );
 }
 
+/** The units a number field takes as typed: its own, and the base unit it stores in. */
+function acceptedUnits(v: StateVarInfo): Set<string> {
+  return new Set([v.display_unit, displayUnit(v.unit), v.unit].filter((u): u is string => !!u).map((u) => u.toLowerCase()));
+}
+
 function NumberInput({
   v,
   disabled,
@@ -275,6 +280,9 @@ function NumberInput({
     if (typed === rest) return SKIP; // focused and left without a change
     if (typed === t("generator.highZ")) typed = "INF";
     if (unit && typed.endsWith(unit)) typed = typed.slice(0, -unit.length);
+    // Another unit than the field's ("2 Vrms" in a Vpp field) is refused, not read as the field's (#1257).
+    const typedUnit = unitWord(typed);
+    if (typedUnit && !acceptedUnits(v).has(typedUnit)) return INVALID;
     const parsed = parseEngineering(typed);
     if (parsed === null) return INVALID;
     if (parsed === n) return SKIP;
@@ -286,7 +294,7 @@ function NumberInput({
       <DraftInput
         ref={field}
         text={rest}
-        display={inactive ? t("workbench.auto") : undefined}
+        display={inactive || isAutoValue(v) ? t("workbench.auto") : undefined}
         parse={parse}
         onCommit={handleCommit}
         onInvalid={onInvalid}

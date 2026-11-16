@@ -55,6 +55,8 @@ channel_state:
   amplitude:
     type: float
     unit: V
+    # BSWV AMP 的幅度是峰峰值（手册）：界面写 Vpp（#1257）。
+    display_unit: Vpp
     min: 1.0e-3
     max: 20.0
     default: 4.0
