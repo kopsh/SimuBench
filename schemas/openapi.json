@@ -3524,6 +3524,17 @@
       },
       "Health": {
         "properties": {
+          "mcp_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mcp Url"
+          },
           "status": {
             "const": "ok",
             "default": "ok",
@@ -3537,7 +3548,8 @@
         },
         "required": [
           "status",
-          "version"
+          "version",
+          "mcp_url"
         ],
         "title": "Health",
         "type": "object"

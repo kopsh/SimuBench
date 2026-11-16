@@ -246,7 +246,7 @@
   - **CI**：验收测试在 Windows 与 Linux 上都运行；
   - **进程间通信**：服务进程与客户端之间使用本机 TCP，不依赖只在类 Unix 系统上可用的 Unix 套接字；
   - **路径与文件**：Bench 中的文件引用使用与平台无关的相对路径；
-  - **发布**：纯 Python 包 + NumPy，两个平台使用同一份包。
+  - **发布**：纯 Python 包 + NumPy，两个平台使用同一份包（内部 pip 源）。另给 Windows 用户一个**便携包**（#1188）：`dist/SimuBench-<版本>-win64.zip`，解压后双击 `SimuBench.exe`，不装 Python、不联网；里面是 python.org 的 embeddable CPython、按 `uv.lock` 装好的 Windows 依赖与同一份 wheel，`SimuBench.exe`/`tools\simubench.exe` 是 pip 在 Windows 上生成脚本时用的启动器（distlib `t64.exe`，shebang 相对启动器目录）。整包在 Linux 上组装（`scripts/build-windows.sh`，跟在 `build-wheel.sh` 之后），内部构建机不需要 Windows；main 的 CI 在 Windows 上解压并冒烟（`scripts/smoke_windows_bundle.py`）。双击即 `simubench launch`：一个服务同时给界面与 MCP（`serve --mcp`，streamable HTTP 在 `/mcp`，D26），打开浏览器；工作区默认 `文档\SimuBench`。备选一 PyInstaller：要在 Windows 上构建，内部流水线得多一台 Windows 构建机，且常被杀毒软件误报；备选二安装程序（NSIS）：多一种格式要维护，便携 zip 已够用，以后需要开始菜单项再加。均不采用。
 
 ## D21 Web 技术栈与接口生成
 
@@ -301,7 +301,7 @@
 
 ## D26 MCP 服务与 Web Bench 同进程
 
-- **结论**：`simubench mcp` 以 stdio 提供 MCP 服务，同一事件循环中启动 Web Bench；Agent 部署的会话、编辑的文件实时出现在工程师的浏览器中。stdout 只用于 MCP 协议，其余输出写 stderr。
+- **结论**：`simubench mcp` 以 stdio 提供 MCP 服务，同一事件循环中启动 Web Bench；Agent 部署的会话、编辑的文件实时出现在工程师的浏览器中。stdout 只用于 MCP 协议，其余输出写 stderr。`simubench serve --mcp`（Windows 便携包双击启动的 `simubench launch` 即它，#1188）在同一端口的 `/mcp` 上以 streamable HTTP 提供同一套工具：Agent 不必由自己拉起进程，连到已在运行、工程师已打开界面的服务；Host/Origin 校验与访问令牌（D43，请求头 `x-simubench-token` 或 `Authorization: Bearer`）与界面路由相同。
 - **安全**：危险命令需 `confirm=true`；仿真控制（故障注入、推进时钟、读取真实值）默认关闭，需 `--allow-control`；读取真实值还需测试台 `run.reveal_true_values`；所有工具共享限流。
 - **由脚本生成**：静态分析 PyVISA 脚本（不执行），按“支持的命令最多”选择仪表定义，列出不支持的命令与行号；看不出接线，草稿只含仪表。
 

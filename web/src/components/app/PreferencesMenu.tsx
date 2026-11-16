@@ -15,6 +15,7 @@ import {
 import { type Language, setLanguage } from "@/i18n";
 import { type ThemePreference, useTheme } from "@/lib/theme";
 import { AboutDialog } from "./AboutDialog";
+import { McpConnect } from "./McpConnect";
 
 export function PreferencesMenu() {
   const { t, i18n } = useTranslation();
@@ -22,6 +23,7 @@ export function PreferencesMenu() {
   const [about, setAbout] = useState(false);
   return (
     <>
+      <McpConnect />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="size-8" aria-label={t("workbench.settings")}>

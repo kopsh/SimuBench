@@ -529,6 +529,15 @@ export const en: Widen<Messages> = {
     whyHint: "Net voltage = each independent source's EMF × the circuit's transfer function from it to this net (nodal analysis), summed. The probe does not load the circuit.",
     noSource: "No source reaches this net.",
   },
+  mcp: {
+    button: "Connect AI assistant",
+    title: "Connect an AI assistant (MCP)",
+    description: "SimuBench is serving MCP. Give your AI assistant the address or config below; the benches it builds and runs appear live on this page.",
+    url: "MCP address (streamable HTTP)",
+    json: "Client config (mcpServers for Claude Desktop, Cursor, …)",
+    claude: "Claude Code command",
+    note: "Local to this computer; the address stops working when SimuBench closes. Use the port shown here.",
+  },
   about: {
     menu: "About and diagnostics",
     title: "About SimuBench",
