@@ -50,6 +50,7 @@
   --ch2: oklch(0.72 0.13 205);
   --ch3: oklch(0.68 0.2 330);
   --ch4: oklch(0.65 0.16 255);
+  --math: oklch(0.78 0.15 150);
 
   --medium-electrical: oklch(0.62 0.1 230);
   --medium-reference: oklch(0.65 0.15 160);
@@ -128,6 +129,7 @@
   --color-ch2: var(--ch2);
   --color-ch3: var(--ch3);
   --color-ch4: var(--ch4);
+  --color-math: var(--math);
   --color-plot: var(--plot-bg);
 }
 

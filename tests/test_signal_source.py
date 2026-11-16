@@ -474,3 +474,27 @@ def _errors(change) -> list[tuple[str, str]]:
 def test_a_wrong_input_is_named_by_its_pointer(change, expected):
     code, path = expected
     assert (code, INPUTS + path) in _errors(change)
+
+
+@pytest.mark.parametrize(
+    ("rolloff", "overshoot", "rise"), [("brickwall", 0.09, None), ("gaussian", 0.0, 0.34)]
+)
+def test_the_square_edge_follows_the_rolloff(rolloff, overshoot, rise):
+    """A square ending at the generator's bandwidth: cut off there (brickwall), its edges ring by
+    the Gibbs 9 % of the step; rolled off (gaussian, -3 dB at the bandwidth), they rise in about
+    0.34 / bandwidth (10–90 %) without overshoot — the 33600A's 2.9 ns square edge at 120 MHz."""
+    from simubench.engine.signal import square
+
+    freq, bw = 1e6, 1.2e8
+    sig = square(freq, 0.5, bw, rolloff=rolloff)
+    t = np.linspace(0, 1 / freq, 200_001)
+    v = sig.sample_rel(0, t)
+    step = 1.0  # -0.5 V to +0.5 V
+    assert (v.max() - 0.5) / step == pytest.approx(overshoot, abs=0.01)
+    if rise is not None:
+        dt = t[1] - t[0]
+        up = v[: len(v) // 4]  # the rising edge at t = 0 lies in the first quarter
+        up = np.concatenate([v[-len(v) // 4 :], up])  # the edge straddles the period's start
+        t10 = np.argmax(up > -0.4)
+        t90 = np.argmax(up > 0.4)
+        assert (t90 - t10) * dt == pytest.approx(rise / bw, rel=0.05)
