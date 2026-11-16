@@ -221,6 +221,22 @@ def doctor(
     detail = "; ".join(bad) or "; ".join(f"{i.name} {i.origin}" for i in infos if i.error is None) or "none"
     checks.append(Check("plugins", "warn" if bad else "ok", detail))
     if workspace is not None:
+        from .storage import human, inventory
+
+        held = inventory(workspace)
+        lost = [e for e in held if e.orphan]
+        checks.append(
+            Check(
+                "workspace data",
+                "warn" if lost else "ok",
+                f".simubench/ holds {human(sum(e.bytes for e in held))}"
+                + (
+                    f"; {human(sum(e.bytes for e in lost))} of it lost its file (`simubench storage --clean`)"
+                    if lost
+                    else ""
+                ),
+            )
+        )
         folder = workspace / "components"
         if folder.is_dir():
             if allow_plugins or workspace_allows_plugins(workspace):
