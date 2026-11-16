@@ -40,6 +40,8 @@ SHARED: dict[str, str] = {
     "clockMode.command": "workbench.clockMode.command",
     "clockMode.wall": "workbench.clockMode.wall",
     "clockMode.stepped": "workbench.clockMode.stepped",
+    "spectrum.hintClock": "spectrum.hintClock",
+    "spectrum.hintSingle": "spectrum.hintSingle",
     "source.ui": "panel.client.ui",
     "source.mcp": "panel.client.mcp",
     "source.pyvisa": "panel.client.script",

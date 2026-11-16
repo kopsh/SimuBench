@@ -101,3 +101,17 @@ def test_the_identity_box_names_the_options_the_unit_has():
     assert rows.options_text({"options": declared}, LANG) == "P03"
     assert rows.options_text({"options": [{**o, "installed": False} for o in declared]}, LANG) == "none"
     assert rows.options_text({"options": []}, LANG) is None and rows.options_text({}, LANG) is None
+
+
+def test_the_spectrum_screen_says_why_the_trace_stands_still():
+    """#1178: command/stepped clock or a single sweep → the web screen's wording; wall → none."""
+    hold = {"init.continuous": {"value": False}}
+    on = {"init.continuous": {"value": True}}
+    assert "Command clock" in rows.sweep_hint(LANG, "command", on)
+    assert "Command clock" in rows.sweep_hint(LANG, "stepped", {})
+    assert "Single sweep" in rows.sweep_hint(LANG, "wall", hold)
+    assert "Single sweep" in rows.sweep_hint(LANG, "command", hold)
+    assert rows.sweep_hint(LANG, "wall", on) is None
+    assert rows.sweep_hint(LANG, "scaled", {}) is None
+    out = rows.spectrum_rows(LANG, {}, {}, 80, None, "command")
+    assert any("Command clock" in text for row in out for text, _ in row)
