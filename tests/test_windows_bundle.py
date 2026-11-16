@@ -210,7 +210,8 @@ def test_launch_with_a_code_page_stdout_redirected_starts_and_a_second_start_fin
 
     pytest.importorskip("mcp")
     # A redirected stdout in a narrow code page (Windows' cp1252) must not stop the start (#1192)
-    env = {**os.environ, "PYTHONIOENCODING": "cp1252", "PYTHONUTF8": "0"}
+    # unbuffered: the banner reaches the log before the service is stopped, not at a flush on exit
+    env = {**os.environ, "PYTHONIOENCODING": "cp1252", "PYTHONUTF8": "0", "PYTHONUNBUFFERED": "1"}
     port, token_port = cli._free_port(0), cli._free_port(0)
     common = ["--scpi-base-port", "0", "--hislip-port", "0", "--no-browser", "--workspace", str(tmp_path)]
     with open(tmp_path / "launch.log", "w+b") as log, open(tmp_path / "serve.log", "w+b") as slog:
