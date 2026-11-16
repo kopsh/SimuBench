@@ -613,7 +613,7 @@ export const en: Widen<Messages> = {
     liveFrame: "Live frames",
     cursors: { toggle: "Cursors", title: "Cursors", channel: "Channel", x1: "X1", x2: "X2", y1: "Y1", y2: "Y2" },
     spectrum: { label: "Spectrum", span: "Frequency", bin: "Bin" },
-    measure: { title: "Measure", vpp: "Vpp", frequency: "Frequency", period: "Period", mean: "Mean", rms: "RMS" },
+    measure: { title: "Measure", amplitude: "Amplitude", vpp: "Vpp", frequency: "Frequency", period: "Period", mean: "Mean", rms: "RMS" },
   },
   generator: {
     title: "Function generator",

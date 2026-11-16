@@ -4969,6 +4969,11 @@ export interface components {
          *     None: not measurable (fewer cycles than a period needs, a clipped record).
          */
         ScopeMeasurement: {
+            /**
+             * Amplitude
+             * @description Top minus base (VAMPlitude): a square wave's set amplitude, without its noise peaks.
+             */
+            amplitude: number | null;
             /** Channel */
             channel: number;
             /** Frequency */
