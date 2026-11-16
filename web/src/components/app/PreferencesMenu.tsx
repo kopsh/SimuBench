@@ -1,4 +1,4 @@
-import { Info, Languages, Monitor, Moon, Settings2, Sun } from "lucide-react";
+import { HardDrive, Info, Languages, Monitor, Moon, Settings2, Sun } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -16,11 +16,13 @@ import { type Language, setLanguage } from "@/i18n";
 import { type ThemePreference, useTheme } from "@/lib/theme";
 import { AboutDialog } from "./AboutDialog";
 import { McpConnect } from "./McpConnect";
+import { StorageDialog } from "./StorageDialog";
 
 export function PreferencesMenu() {
   const { t, i18n } = useTranslation();
   const { preference, setPreference } = useTheme();
   const [about, setAbout] = useState(false);
+  const [storage, setStorage] = useState(false);
   return (
     <>
       <McpConnect />
@@ -52,12 +54,16 @@ export function PreferencesMenu() {
             <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
+          <DropdownMenuItem onSelect={() => setStorage(true)}>
+            <HardDrive className="size-4" /> {t("storage.menu")}
+          </DropdownMenuItem>
           <DropdownMenuItem onSelect={() => setAbout(true)}>
             <Info className="size-4" /> {t("about.menu")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
       <AboutDialog open={about} onOpenChange={setAbout} />
+      <StorageDialog open={storage} onOpenChange={setStorage} />
     </>
   );
 }

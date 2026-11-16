@@ -83,9 +83,9 @@ def _orphan_folders(workspace: Path, files_root: Path, folder: Path) -> tuple[li
         sub, live = _orphan_folders(workspace, files_root, child)
         found += sub
         any_live = any_live or live
-    if any_live:
-        return found, True
-    return ([folder] if folder != files_root and (children or any(folder.iterdir())) else []), False
+    if any_live or folder == files_root:
+        return found, any_live
+    return ([folder] if children or any(folder.iterdir()) else []), False
 
 
 def _files(workspace: Path) -> list[Entry]:

@@ -34,6 +34,7 @@ export const keys = {
   history: (path: string, sha: string) => ["bench-history", path, sha] as const,
   version: (path: string, seq: number) => ["bench-version", path, seq] as const,
   runs: ["runs"] as const,
+  storage: ["storage"] as const,
   run: (id: string) => ["run", id] as const,
   definition: (id: string) => ["definition", id] as const,
   definitionDoc: (id: string) => ["definition-document", id] as const,
@@ -446,6 +447,23 @@ export function useReadings(sid: string, name: string, version: number, enabled 
     queryFn: () =>
       unwrap(api.GET("/api/sessions/{sid}/instruments/{name}/readings", { params: { path: { sid, name } } })),
     placeholderData: (prev) => prev,
+  });
+}
+
+/** What the workspace's `.simubench/` holds and which of it lost its file (#1238). */
+export function useStorage(enabled: boolean) {
+  return useQuery({ queryKey: keys.storage, queryFn: () => unwrap(api.GET("/api/storage")), enabled });
+}
+
+/** Delete what lost its file: conversations and instrument files, saved versions only with `history`. */
+export function useCleanStorage() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (history: boolean) => unwrap(api.POST("/api/storage/clean", { body: { history } })),
+    onSettled: () => {
+      void qc.invalidateQueries({ queryKey: keys.storage });
+      void qc.invalidateQueries({ queryKey: ["doctor"] });
+    },
   });
 }
 
