@@ -1020,7 +1020,8 @@ function Graph({
   );
 }
 
-/** The smallest size the view opens at: a block's name (13 px) shows at 10 px or more (#1234). */
+/** The smallest size the view opens at: a block's name (13 px) and a port row's label (12.5 px)
+ * show at 10 px or more (#1234, #1240). */
 const READABLE_ZOOM = 0.8;
 const MAX_OPEN_ZOOM = 1.15;
 const VIEW_PAD = 24;
@@ -1138,11 +1139,12 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
               <button
                 type="button"
                 className={cn(
-                  "nodrag nopan num focus-visible:ring-ring group/port absolute flex items-center justify-end gap-1.5 rounded-md py-0.5 pr-1 pl-0.5 text-[10px] leading-none outline-none focus-visible:ring-2",
+                  "nodrag nopan num focus-visible:ring-ring group/port absolute flex items-center justify-end gap-1.5 rounded-md py-0.5 pr-1 pl-0.5 text-[12.5px] leading-none outline-none focus-visible:ring-2",
                   probing === port
                     ? "bg-primary text-primary-foreground"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
+                data-part="port-name"
                 style={{ top, left: MINI.left - 2, right: 6, transform: "translateY(-50%)" }}
                 aria-label={t("internals.probe.open", { port: `${blockLabel(c)} · ${row.name}` })}
                 aria-pressed={probing === port}
@@ -1186,7 +1188,8 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
               </button>
             ) : (
               <span
-                className="num text-muted-foreground pointer-events-none absolute text-[10px] leading-none"
+                className="num text-muted-foreground pointer-events-none absolute text-[12.5px] leading-none"
+                data-part="port-name"
                 style={{
                   top,
                   transform: "translateY(-50%)",

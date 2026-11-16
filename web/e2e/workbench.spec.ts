@@ -1208,6 +1208,16 @@ test("internals first view: names readable, collapsed channels and the overview 
     });
     expect(Math.min(...sizes), `${bench}: the smallest block name in px`).toBeGreaterThanOrEqual(10);
 
+    // Every visible port row's label opens at 10 px or more on screen too (#1240).
+    const ports = graph.locator("[data-part=port-name]");
+    expect(await ports.count(), `${bench}: port rows on the first view`).toBeGreaterThan(0);
+    const portSizes = await ports.evaluateAll((els) => {
+      const viewport = els[0].closest(".react-flow__viewport")!;
+      const scale = new DOMMatrix(getComputedStyle(viewport).transform).a;
+      return els.map((e) => parseFloat(getComputedStyle(e).fontSize) * scale);
+    });
+    expect(Math.min(...portSizes), `${bench}: the smallest port label in px`).toBeGreaterThanOrEqual(10);
+
     // A collapsed channel is one box: drawn exactly where its node is, overlapping no other node.
     const nodeBoxes = async () =>
       graph.locator(".react-flow__node").evaluateAll((els) =>
