@@ -210,7 +210,9 @@ test("going in circles stops the turn in words, and compaction leaves a note", a
   await openBench(page);
   await openPanel(page);
   await say(page, "看看目录里的仪表");
-  await expect(panel.getByText("更早的内容已压缩")).toBeVisible({ timeout: 30_000 });
+  // The note is drawn twice on purpose: once on the turn that compacted, once at the top of the panel
+  // when the conversation reports it. Which of the two is there first is a race, so match either.
+  await expect(panel.getByText("更早的内容已压缩").first()).toBeVisible({ timeout: 30_000 });
   await expect(panel.getByText("看完了")).toBeVisible({ timeout: 20_000 });
   await say(page, "谢谢"); // the conversation still works on the compacted history
   await expect(panel.getByText("你好，")).toBeVisible({ timeout: 15_000 });
