@@ -29,6 +29,7 @@ def test_hello_runs_clean_in_both_domains(tmp_path):
     (tmp_path / "hello.bench.yaml").write_bytes(HELLO.read_bytes())
     rm = pyvisa.ResourceManager(f"{tmp_path / 'hello.bench.yaml'}@simubench")
     try:
+        awg = rm.open_resource("awg", read_termination="\n", write_termination="\n")
         scope = rm.open_resource("scope", read_termination="\n", write_termination="\n")
         sa = rm.open_resource("sa", read_termination="\n", write_termination="\n")
 
@@ -70,5 +71,17 @@ def test_hello_runs_clean_in_both_domains(tmp_path):
         # No warning on the first screen: the reference level leaves headroom, attenuation follows.
         assert float(sa.query(":SENS:POW:RF:ATT?")) == 30.0
         assert sa.query(":SYST:ERR?").startswith("+0")
+
+        # The source is symmetric: both channels run with their load setting at 50 ohms and the same
+        # waveform settings, so each instrument really does see the same 1 Vpp on its 50 ohm input
+        # (#1225). If a load fell back to HZ (high impedance), the amplitude on that input would double.
+        outp1 = awg.query("C1:OUTP?")
+        outp2 = awg.query("C2:OUTP?")
+        assert outp1 == "C1:OUTP ON,LOAD,50,PLRT,NOR", outp1
+        assert outp2 == "C2:OUTP ON,LOAD,50,PLRT,NOR", outp2
+        bswv1 = awg.query("C1:BSWV?")
+        bswv2 = awg.query("C2:BSWV?")
+        assert bswv1.removeprefix("C1:BSWV ") == bswv2.removeprefix("C2:BSWV "), (bswv1, bswv2)
+        assert "AMP,1V," in bswv1, bswv1
     finally:
         rm.close()
