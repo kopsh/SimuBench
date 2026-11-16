@@ -146,6 +146,7 @@ export const zh = {
     },
   },
   workbench: {
+    inspectorToggle: "检查器",
     copyBench: "复制测试台",
     copied: "已复制为 {{path}}",
     openCopy: "打开副本",

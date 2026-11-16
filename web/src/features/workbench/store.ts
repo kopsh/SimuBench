@@ -17,12 +17,31 @@ export type Tab =
   | { kind: "internals"; instrument: string }
   | { kind: "acceptance"; instrument: string };
 export type Mode = "run" | "edit";
+export type TabKind = Tab["kind"];
+
+/**
+ * Whether the inspector is shown beside each kind of tab (#1221). Beside the canvas and an
+ * instrument screen it is shown: it holds the SCPI console and the settings a screen does not have.
+ * The internals and acceptance pages carry their own side panels, so there it starts folded away
+ * and gives its width to the page. The user's choice for a kind (the button at the end of the tab
+ * bar) is kept in this browser.
+ */
+export const INSPECTOR_SHOWN: Record<TabKind, boolean> = { canvas: true, screen: true, internals: false, acceptance: false };
+
+/** The tab kind a tab key names ("screen:scope" → "screen"). */
+export const tabKindOf = (key: string): TabKind => (key === "canvas" ? "canvas" : (key.split(":")[0] as TabKind));
 
 interface WorkbenchState {
   /** Run drives the session; Edit changes the bench file. Kept across restarts of the session. */
   mode: Mode;
   setMode: (mode: Mode) => void;
   selection: Selection;
+  /**
+   * The tab beside which a folded inspector is shown for the moment (#1221): the user selected
+   * something there (a source on a screen, an instrument in the tree) or asked to see a setting
+   * (#800). Opening a tab, which selects its instrument, does not count; another tab ends it.
+   */
+  lentTo: string | null;
   reveal: Reveal;
   /** Select the instrument and ask its inspector to show this setting: the channel picked, the group open, the field scrolled to and focused. */
   revealSetting: (instrument: string, path: string) => void;
@@ -48,6 +67,9 @@ interface WorkbenchState {
   /** The AI assistant panel (#877) is shown; remembered in this browser, kept across sessions. */
   assistantOpen: boolean;
   setAssistant: (open: boolean) => void;
+  /** The inspector shown beside each kind of tab (INSPECTOR_SHOWN; remembered in this browser). */
+  inspector: Record<TabKind, boolean>;
+  setInspector: (kind: TabKind, shown: boolean) => void;
   reset: () => void;
   /** Reopen screens remembered for a bench (instruments it no longer has are dropped). */
   restore: (tabs: Tab[], active: string) => void;
@@ -57,6 +79,7 @@ export const tabKey = (t: Tab) => (t.kind === "canvas" ? "canvas" : `${t.kind}:$
 
 const initial = {
   selection: null,
+  lentTo: null as string | null,
   reveal: null as Reveal,
   tabs: [{ kind: "canvas" }] as Tab[],
   active: "canvas",
@@ -71,6 +94,7 @@ function openTab(tabs: Tab[], tab: Tab & { instrument: string }) {
     tabs: tabs.some((t) => tabKey(t) === key) ? tabs : [...tabs, tab],
     active: key,
     selection: { kind: "instrument" as const, id: tab.instrument },
+    lentTo: null,
   };
 }
 
@@ -82,11 +106,25 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
     save("assistant-open", assistantOpen);
     set({ assistantOpen });
   },
-  setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas" })),
+  inspector: { ...INSPECTOR_SHOWN, ...load<Partial<Record<TabKind, boolean>>>("inspector-shown", {}) },
+  setInspector: (kind, shown) =>
+    set((s) => {
+      // Folding a lent inspector is the same choice as the one stored: it ends the lending.
+      if (s.inspector[kind] === shown) return s.lentTo === null ? s : { lentTo: null };
+      const inspector = { ...s.inspector, [kind]: shown };
+      save("inspector-shown", inspector);
+      return { inspector, lentTo: null };
+    }),
+  setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas", lentTo: null })),
   revealSetting: (instrument, path) =>
-    set((s) => ({ selection: { kind: "instrument", id: instrument }, reveal: { instrument, path, n: (s.reveal?.n ?? 0) + 1 } })),
+    set((s) => ({
+      selection: { kind: "instrument", id: instrument },
+      reveal: { instrument, path, n: (s.reveal?.n ?? 0) + 1 },
+      lentTo: s.active,
+    })),
   consumeReveal: (n) => set((s) => (s.reveal?.n === n ? { reveal: null } : s)),
-  select: (selection) => set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection })),
+  select: (selection) =>
+    set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection, lentTo: s.active })),
   openScreen: (instrument) => set((s) => openTab(s.tabs, { kind: "screen", instrument })),
   openInternals: (instrument) => set((s) => openTab(s.tabs, { kind: "internals", instrument })),
   openAcceptance: (instrument) => set((s) => openTab(s.tabs, { kind: "acceptance", instrument })),
@@ -94,9 +132,9 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
     set((s) => {
       if (key === "canvas") return s;
       const tabs = s.tabs.filter((t) => tabKey(t) !== key);
-      return { tabs, active: s.active === key ? "canvas" : s.active };
+      return s.active === key ? { tabs, active: "canvas", lentTo: null } : { tabs };
     }),
-  setActive: (active) => set({ active }),
+  setActive: (active) => set((s) => (s.active === active ? s : { active, lentTo: null })),
   setPalette: (paletteOpen) => set({ paletteOpen }),
   setHistory: (historyOpen) => set({ historyOpen }),
   setBottomTab: (bottomTab) => set({ bottomTab }),

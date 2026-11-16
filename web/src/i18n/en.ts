@@ -149,6 +149,7 @@ export const en: Widen<Messages> = {
     },
   },
   workbench: {
+    inspectorToggle: "Inspector",
     copyBench: "Copy the bench",
     copied: "Copied to {{path}}",
     openCopy: "Open the copy",

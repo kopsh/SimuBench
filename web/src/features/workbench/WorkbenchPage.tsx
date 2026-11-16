@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Blocks, ClipboardCheck, LayoutGrid, PowerOff, WifiOff, X } from "lucide-react";
+import { Blocks, ClipboardCheck, LayoutGrid, PanelRightClose, PanelRightOpen, PowerOff, WifiOff, X } from "lucide-react";
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { usePanelRef } from "react-resizable-panels";
@@ -34,7 +34,7 @@ import { LiveValuesBanner } from "./edit/LiveValuesBanner";
 import { RemoteBanner } from "./RemoteBanner";
 import { PanelScreen } from "./screens/PanelScreen";
 import { ReadingsScreen } from "./screens/ReadingsScreen";
-import { type Mode, type Tab, tabKey, useWorkbench } from "./store";
+import { type Mode, type Tab, tabKey, tabKindOf, useWorkbench } from "./store";
 import { TopBar } from "./TopBar";
 import { toast } from "sonner";
 import { isCancelled } from "@/components/app/ClientsConfirm";
@@ -101,6 +101,8 @@ export function WorkbenchPage() {
   const doc = editorDoc && editorDoc.path === benchPath ? editorDoc : null;
   const preview = useBenchPreview(benchPath, mode === "edit" ? doc?.sha256 : undefined);
 
+  const inspector = useInspectorFold();
+
   // The log under the bench: collapsed to its tab bar until there is something to read.
   const bottom = usePanelRef();
   const [bottomOpen, setBottomOpen] = useState(false);
@@ -160,6 +162,8 @@ export function WorkbenchPage() {
             <ResizableHandle />
             <ResizablePanel defaultSize="60%" minSize="30%">
               <CenterTabs
+                inspectorShown={inspector.shown}
+                onToggleInspector={inspector.toggle}
                 session={s}
                 view={view}
                 doc={doc}
@@ -170,8 +174,18 @@ export function WorkbenchPage() {
               />
             </ResizablePanel>
             <ResizableHandle />
-            <ResizablePanel defaultSize="24%" minSize="16%" maxSize="40%" className="bg-sidebar">
-              {editing && doc ? <EditInspector view={view} doc={doc} /> : <Inspector session={s} readonly={readonly} />}
+            <ResizablePanel
+              panelRef={inspector.panel}
+              collapsible
+              collapsedSize={0}
+              defaultSize={inspector.shown ? "24%" : 0}
+              minSize="16%"
+              maxSize="40%"
+              className="bg-sidebar"
+              onResize={inspector.onResize}
+            >
+              {inspector.shown &&
+                (editing && doc ? <EditInspector view={view} doc={doc} /> : <Inspector session={s} readonly={readonly} />)}
             </ResizablePanel>
           </ResizablePanelGroup>
         </ResizablePanel>
@@ -295,6 +309,8 @@ function issuesOf(doc: BenchDocument | null): Map<string, Issue> {
 }
 
 function CenterTabs({
+  inspectorShown,
+  onToggleInspector,
   session,
   view,
   doc,
@@ -303,6 +319,8 @@ function CenterTabs({
   omitted,
   readonly,
 }: {
+  inspectorShown: boolean;
+  onToggleInspector: () => void;
   session: SessionInfo;
   view: SessionInfo | null;
   doc: BenchDocument | null;
@@ -365,6 +383,17 @@ function CenterTabs({
             </div>
           );
         })}
+        <button
+          type="button"
+          className="text-muted-foreground hover:text-foreground hover:bg-accent sticky right-0 mb-1 ml-auto shrink-0 rounded p-1"
+          onClick={onToggleInspector}
+          aria-pressed={inspectorShown}
+          aria-label={t("workbench.inspectorToggle")}
+          title={t("workbench.inspectorToggle")}
+          data-testid="inspector-toggle"
+        >
+          {inspectorShown ? <PanelRightClose className="size-4" /> : <PanelRightOpen className="size-4" />}
+        </button>
       </div>
       <div className="min-h-0 flex-1">
         {current.kind === "canvas" ? (
@@ -518,6 +547,41 @@ function BenchCanvas({
     </div>
   );
 }
+
+/**
+ * The inspector beside the current tab (#1221): shown or folded away by the kind of tab (the
+ * store's ``inspector``, the user's choice per kind), and shown for the moment when something asks
+ * it to show a setting (the internals view's "locate", #800) or the user selects something, until
+ * another tab is chosen. Dragging
+ * its edge shut or open is a choice for that kind of tab, like the button.
+ */
+function useInspectorFold() {
+  const kind = useWorkbench((s) => tabKindOf(s.active));
+  const shown = useWorkbench(inspectorShown);
+  const panel = usePanelRef();
+  useEffect(() => {
+    const p = panel.current;
+    if (!p) return;
+    if (shown && p.isCollapsed()) p.expand();
+    else if (!shown && !p.isCollapsed()) p.collapse();
+  }, [shown, panel]);
+  const onResize = useCallback(
+    (size: { asPercentage: number }) => {
+      const open = size.asPercentage > 0;
+      const st = useWorkbench.getState();
+      if (open !== inspectorShown(st)) st.setInspector(kind, open); // else: the fold asked for above
+    },
+    [kind],
+  );
+  const toggle = useCallback(() => {
+    const st = useWorkbench.getState();
+    st.setInspector(kind, !inspectorShown(st));
+  }, [kind]);
+  return { shown, panel, onResize, toggle };
+}
+
+const inspectorShown = (s: { active: string; inspector: Record<string, boolean>; lentTo: string | null }) =>
+  s.inspector[tabKindOf(s.active)] || s.lentTo === s.active;
 
 /**
  * The screens open on a bench are remembered per bench file in this browser and reopened the next

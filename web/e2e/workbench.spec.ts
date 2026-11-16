@@ -544,6 +544,8 @@ test("internal probe: the ADC's samples and resolution, then peak detect at the 
 
   // The decimator's output in normal mode, then with peak detect: it keeps each interval's
   // extremes at the ADC's rate, so the frame spans more.
+  // Across the graph: fit it first, or the view can pan while the click is aimed (web-ui skill).
+  await graph.locator(".react-flow__controls-fitview").click();
   await graph.locator('[data-port="dec.out1"]').click();
   await expect(page.getByTestId("internal-probe-heading")).toHaveText("抽取与采集方式 · out1");
   await expect(page.getByTestId("internal-probe-tag")).toContainText("数字 · 50 MSa/s · 8 位");
@@ -602,6 +604,8 @@ test("internal probe: a narrow pulse the decimator drops in normal acquisition a
 
   // Normal acquisition: one sample per 100 ns, none of them on a 20 ns pulse — the record
   // never rises above 1 V, the pulses are gone.
+  // Across the graph: fit it first, or the view can pan while the click is aimed (web-ui skill).
+  await graph.locator(".react-flow__controls-fitview").click();
   await graph.locator('[data-port="dec.out1"]').click();
   await expect(page.getByTestId("internal-probe-heading")).toHaveText("抽取与采集方式 · out1");
   await expect(page.getByTestId("internal-probe-tag")).toContainText("数字 · 10 MSa/s · 8 位");
@@ -843,6 +847,10 @@ test("internals: a setting row locates its field in the inspector, in the right 
   await page.waitForTimeout(500);
   await expect(page.locator('[data-setting="timebase.scale"] input')).not.toBeFocused();
   await page.getByRole("tab", { name: "示波器 · 内部结构" }).click();
+  // Back beside the internals the inspector is folded again (#1221): the locate above showed it
+  // for that request only. Shown from its button, to see the channel it is on.
+  await expect(page.getByTestId("channel-settings")).toHaveCount(0);
+  await page.getByTestId("inspector-toggle").click();
 
   // A channel's setting: the inspector switches to that channel first (CH1 is the one it shows).
   await expect(page.getByTestId("channel-settings").getByRole("tab", { selected: true })).toContainText("1");
@@ -1021,4 +1029,64 @@ test("the fault panel queues an error code the given number of times (#697, #766
   expect(await scpi()).toContain("-313");
   expect(await scpi()).toContain("-313");
   expect((await scpi()).startsWith("0,")).toBe(true); // used up: the queue is empty again
+});
+
+test("the inspector folds away beside the internals and acceptance pages, and the log's tabs count their entries (#1221)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => window.localStorage.removeItem("simubench:inspector-shown"));
+  await startBench(page);
+  const toggle = page.getByTestId("inspector-toggle");
+  const inspector = page.getByRole("button", { name: "打开屏幕" });
+  const scope = page.locator(".react-flow__node").filter({ hasText: "示波器" });
+
+  // The canvas and a screen: shown (the SCPI console and the settings a screen lacks are in it).
+  await scope.click();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await expect(inspector).toBeVisible();
+  await scope.dblclick();
+  await expect(page.getByRole("tab", { name: "示波器" })).toHaveAttribute("aria-selected", "true");
+  await expect(inspector).toBeVisible();
+
+  // The internals page has its own probe panel: the inspector starts folded and gives it the width.
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  await expect(page.getByTestId("internals-graph")).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(inspector).toHaveCount(0);
+  // Shown again from the button, and that choice is kept for this kind of tab.
+  await toggle.click();
+  await expect(inspector).toBeVisible();
+  await page.getByRole("tab", { name: "画布" }).click();
+  await page.getByRole("tab", { name: "示波器 · 内部结构" }).click();
+  await expect(inspector).toBeVisible();
+  await toggle.click();
+  await expect(inspector).toHaveCount(0);
+
+  // A selection made beside the folded inspector shows it, until another tab is chosen.
+  await page.getByText("函数发生器", { exact: true }).first().click();
+  await expect(inspector).toBeVisible();
+  await expect(toggle).toHaveAttribute("aria-pressed", "true");
+  await toggle.click(); // and the button folds it again
+  await expect(inspector).toHaveCount(0);
+  await page.getByText("示波器", { exact: true }).first().click(); // another selection shows it again
+  await expect(inspector).toBeVisible();
+  await page.getByRole("tab", { name: "画布" }).click();
+  await page.getByRole("tab", { name: "示波器 · 内部结构" }).click();
+  await expect(inspector).toHaveCount(0);
+
+  // The acceptance page too: it is about the definition, not this bench's settings.
+  await page.getByRole("tab", { name: "画布" }).click();
+  await scope.click();
+  await page.getByRole("button", { name: "验收页" }).click();
+  await expect(page.getByRole("tab", { name: "示波器 · 验收" })).toHaveAttribute("aria-selected", "true");
+  await expect(toggle).toHaveAttribute("aria-pressed", "false");
+  await expect(inspector).toHaveCount(0);
+
+  // The log's tabs say how many entries are behind them, before it is opened.
+  await page.getByRole("tab", { name: "画布" }).click();
+  await scope.click();
+  const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  await input.fill("*IDN?");
+  await input.press("Enter");
+  await expectText(page.getByTestId("panel-count-comms"), (text) => Number(text) >= 1, "a count of the commands sent");
 });

@@ -59,6 +59,9 @@ export function BottomPanel({
       ),
     [events, q, source],
   );
+  // How many there are, whatever the filter: shown on the tabs so the bar says what is inside (#1221).
+  const commsCount = useMemo(() => events.filter((e) => e.kind === "scpi").length, [events]);
+  const othersCount = events.length - commsCount;
   const others = useMemo(
     () =>
       events.filter(
@@ -79,11 +82,13 @@ export function BottomPanel({
           }}
         >
           <TabsList className="h-7">
-            <TabsTrigger value="comms" className="h-6 px-2.5 text-xs">
+            <TabsTrigger value="comms" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.comms")}
+              <TabCount n={commsCount} testId="panel-count-comms" />
             </TabsTrigger>
             <TabsTrigger value="events" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.events")}
+              <TabCount n={othersCount} testId="panel-count-events" />
             </TabsTrigger>
             <TabsTrigger value="problems" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.problems")}
@@ -335,4 +340,14 @@ function formatWall(epochS: number): string {
   const d = new Date(epochS * 1000);
   const pad = (n: number, w = 2) => String(n).padStart(w, "0");
   return `${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}.${pad(d.getMilliseconds(), 3)}`;
+}
+
+/** The number of entries behind a tab, muted; none shown when there are none. */
+function TabCount({ n, testId }: { n: number; testId: string }) {
+  if (n === 0) return null;
+  return (
+    <span className="num text-muted-foreground bg-muted rounded px-1 text-[10px]" data-testid={testId}>
+      {n > 999 ? "999+" : n}
+    </span>
+  );
 }
