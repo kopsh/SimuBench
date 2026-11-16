@@ -186,6 +186,8 @@ export const en: Widen<Messages> = {
     language: "Language",
     fitView: "Fit view",
     openScreen: "Open screen",
+    onScreenNote_one: "{{count}} more setting is changed on the screen",
+    onScreenNote_other: "{{count}} more settings are changed on the screen",
     channel: "Channel",
     channels: "Channels",
     channelN: "CH{{n}}",

@@ -1095,3 +1095,49 @@ test("the inspector folds away beside the internals and acceptance pages, and th
   await input.press("Enter");
   await expectText(page.getByTestId("panel-count-comms"), (text) => Number(text) >= 1, "a count of the commands sent");
 });
+
+test("beside its screen the inspector leaves out what the screen shows, and the screen gets the width (#1229)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.removeItem("simubench:inspector-shown");
+    window.localStorage.removeItem("simubench:inspector-size");
+  });
+  await startBench(page);
+  const center = page.getByTestId("center-panel");
+  const inspector = page.getByTestId("inspector-panel");
+  const awg = page.locator(".react-flow__node").filter({ hasText: "函数发生器" });
+
+  // Beside the canvas: every setting, the frequency among them.
+  await awg.click();
+  await expect(inspector.getByText("频率", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("inspector-on-screen")).toHaveCount(0);
+  const canvasWidth = (await center.boundingBox())!.width;
+
+  // Beside the generator's screen: what the screen has fields for is changed there only; what it
+  // lacks (modulation) and the SCPI console stay, and the screen is wider than the canvas was.
+  await awg.dblclick();
+  await expect(page.getByRole("tab", { name: "函数发生器" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("inspector-on-screen")).toBeVisible();
+  await expect(inspector.getByText("频率", { exact: true })).toHaveCount(0);
+  await expect(inspector.getByText("调制频率", { exact: true })).toBeVisible();
+  await expect(inspector.getByRole("textbox", { name: "发送 SCPI 命令" })).toBeVisible();
+  await expect.poll(async () => (await center.boundingBox())!.width - canvasWidth, { message: "the screen's extra width in px" }).toBeGreaterThan(50);
+
+  // Back on the canvas, the inspector lists everything again at its own width.
+  await page.getByRole("tab", { name: "画布" }).click();
+  await expect(inspector.getByText("频率", { exact: true })).toBeVisible();
+  await expect.poll(async () => Math.abs((await center.boundingBox())!.width - canvasWidth), { message: "the canvas width" }).toBeLessThan(4);
+});
+
+test("with nothing in the log, the bottom bar is one row high (#1229)", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await openButton(page.getByRole("listitem").filter({ hasText: "lockin_rc" })).click();
+  await expect(page).toHaveURL(isSession);
+  await expect(page.locator(".react-flow__node").first()).toBeVisible();
+  await expect(page.getByTestId("panel-count-comms")).toHaveCount(0);
+  await expect(page.getByTestId("panel-count-events")).toHaveCount(0);
+  const bar = page.getByTestId("bottom-panel");
+  await expect(bar).toBeVisible();
+  expect((await bar.boundingBox())!.height, "the bottom bar's height in px").toBeLessThanOrEqual(40);
+});

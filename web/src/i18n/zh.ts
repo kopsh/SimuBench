@@ -183,6 +183,8 @@ export const zh = {
     language: "语言",
     fitView: "适应窗口",
     openScreen: "打开屏幕",
+    onScreenNote_one: "另有 {{count}} 项设置在屏幕上修改",
+    onScreenNote_other: "另有 {{count}} 项设置在屏幕上修改",
     channel: "通道",
     channels: "通道",
     channelN: "CH{{n}}",

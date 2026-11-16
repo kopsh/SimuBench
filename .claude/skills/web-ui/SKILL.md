@@ -62,8 +62,12 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 - `web/src/features/workbench/store.ts` — the workbench's UI state (zustand): tabs, selection, the
   locate request (`reveal`, #800), and the inspector shown or folded per kind of tab
   (`INSPECTOR_SHOWN`, `lentTo`: a selection or locate shows a folded inspector until the tab
-  changes, #1221). Keep such rules in store actions (unit-tested in `store.test.ts`), not in
-  effects that call `setState`: the React compiler lint rejects those, and refs written during render.
+  changes, #1221) and its width per kind (`INSPECTOR_SIZE`, narrower beside a screen, #1229).
+  Keep such rules in store actions (unit-tested in `store.test.ts`), not in effects that call
+  `setState`: the React compiler lint rejects those, and refs written during render.
+- `web/src/features/workbench/onScreen.ts` — which settings a screen shows as fields: a
+  `StateField` inside a screen tab counts its path while mounted, and the inspector beside that
+  screen leaves those paths out (#1229). A new screen gets this for free by using `StateField`.
 - `web/src/lib/motion.ts` — instrument-screen motion (scope persistence, analyzer sweep line); every
   motion checks `prefersReducedMotion()`, and the e2e config runs with `reducedMotion: "reduce"`.
 - `web/src/lib/enums.ts` — `oneOf` guards and tuples (`CLOCK_MODES`, `PANEL_ACTIONS`) for i18n key
@@ -139,7 +143,8 @@ changes are `核心`; a finding becomes a `可认领` issue only with its fix se
    choice: the scope's live frame while the command clock stands still is D44 — read
    `docs/decisions.md` before "fixing" it.
 3. **Know what a panel holds before folding it.** The inspector also carries the SCPI console and
-   the settings a screen lacks; the bottom panel already starts as its tab bar (#1221).
+   the settings a screen lacks (beside a screen it shows only those, #1229); the bottom panel
+   already starts as its tab bar (#1221).
 4. **Hello World feeds the home page.** Changing `src/simubench/library/examples/hello.bench.yaml`
    or a model it uses means regenerating, in the same pull request: `hello-preview.json`
    (`scripts/capture_hello_preview.py`), the web showcase screenshots (the workbench on Hello World,
