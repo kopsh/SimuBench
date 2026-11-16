@@ -33,6 +33,10 @@ def test_readings_go_in_one_column_per_channel_and_one_row_per_sweep():
 
 def test_the_daq_file_holds_the_readings_fetch_answers():
     with open_bench(ROOT / "examples/benches/keysight-daq970a.bench.yaml", idle="off") as s:
+        # An empty reading memory stores an empty file (#1090); the manual's behavior is unverified.
+        ask(s, "daq", 'MMEM:STOR:DATA RDG_STORE,"INT:\\Empty"')
+        assert block(ask(s, "daq", 'MMEM:UPL? "INT:\\Empty.csv"')) == b""
+        assert ask(s, "daq", ":SYSTem:ERRor?").strip().startswith(b"+0")
         ask(s, "daq", "CONF:VOLT:DC 10,(@101:103)")
         ask(s, "daq", "TRIG:COUN 3")
         ask(s, "daq", "INIT")
@@ -45,25 +49,41 @@ def test_the_daq_file_holds_the_readings_fetch_answers():
 
 
 def test_the_scope_files_hold_the_record_the_transfer_reads():
+    """#1090: the CSV/BIN files hold what ``:WAVeform:DATA?`` answers, scaled by the preamble.
+
+    The record is read through SCPI only (``:WAVeform:PREamble?`` and ``:WAVeform:DATA?``, WORD
+    codes scaled to volts), then compared with the saved CSV's voltage column and the binary file.
+    """
     with open_bench(ROOT / "tests/models/keysight-uxr0334b/bench.yaml", idle="off") as s:
-        ask(s, "scope", ":TIMebase:SCALe 20E-9")
+        ask(s, "scope", ":TIMebase:SCALe 20E-9;:ACQuire:POINts 2000")
         ask(s, "scope", ":DIGitize CHANnel1")
-        rec, _ = s.instrument("scope").components["acq"].read_record(1, start=False)
+        ask(s, "scope", ":WAVeform:SOURce CHANnel1;:WAVeform:FORMat WORD;:WAVeform:BYTeorder LSBFirst")
+        pre = ask(s, "scope", ":WAVeform:PREamble?").decode().strip().split(",")
+        points = int(pre[2])
+        x_inc, x_org, x_ref = float(pre[4]), float(pre[5]), float(pre[6])
+        y_inc, y_org, y_ref = float(pre[7]), float(pre[8]), float(pre[9])
+        codes = np.frombuffer(block(ask(s, "scope", ":WAVeform:DATA?")), dtype="<i2")
+        assert codes.size == points
+        scpi_volts = (codes - y_ref) * y_inc + y_org
+        scpi_times = (np.arange(points) - x_ref) * x_inc + x_org
+
         ask(s, "scope", ':DISK:SAVE:WAVeform CHANnel1,"w",CSV')
         ask(s, "scope", ':DISK:SAVE:WAVeform CHANnel1,"w",BIN')
         text = block(ask(s, "scope", ':DISK:GETFILE? "w.csv"')).decode().strip().split("\r\n")
-        volts = np.array([float(line.split(",")[1]) for line in text])
-        assert volts == pytest.approx(rec.volts, abs=5e-7 * max(1.0, float(np.abs(rec.volts).max())))
-        times = np.array([float(line.split(",")[0]) for line in text])
-        assert times[0] == pytest.approx(rec.origin) and np.diff(times).mean() == pytest.approx(rec.dt_s)
+        file_volts = np.array([float(line.split(",")[1]) for line in text])
+        file_times = np.array([float(line.split(",")[0]) for line in text])
+        # The CSV writes seven significant digits: within a few float32 ULPs of the transfer.
+        assert file_volts == pytest.approx(scpi_volts, rel=5e-7, abs=5e-8)
+        assert file_times == pytest.approx(scpi_times)
         raw = block(ask(s, "scope", ':DISK:GETFILE? "w.bin"'))
         assert raw[:4] == b"AG10" and struct.unpack("<ii", raw[4:12]) == (len(raw), 1)
-        header_size, kind, buffers, points = struct.unpack("<4i", raw[12:28])
-        assert (header_size, kind, buffers, points) == (140, 1, 1, rec.volts.size)
-        x_inc, x_org = struct.unpack("<2d", raw[12 + 32 : 12 + 48])
-        assert (x_inc, x_org) == (rec.dt_s, rec.origin)
+        header_size, kind, buffers, bin_points = struct.unpack("<4i", raw[12:28])
+        assert (header_size, kind, buffers, bin_points) == (140, 1, 1, points)
+        x_increment, x_origin = struct.unpack("<2d", raw[12 + 32 : 12 + 48])
+        assert x_increment == pytest.approx(x_inc, rel=1e-6)
+        assert x_origin == pytest.approx(x_org, rel=1e-6, abs=1e-15)
         data = np.frombuffer(raw[12 + 140 + 12 :], dtype="<f4")
-        assert np.array_equal(data, rec.volts.astype(np.float32))
+        assert np.allclose(data, scpi_volts.astype(np.float32), rtol=5e-7, atol=5e-8)
 
 
 def test_formats_and_sources_not_written_are_refused():
