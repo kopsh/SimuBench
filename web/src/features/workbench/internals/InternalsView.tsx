@@ -18,7 +18,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { Activity, ArrowRight, BookOpen, Crosshair, Pin, Search } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Crosshair, Maximize2, Minimize2, Pin, Search } from "lucide-react";
 import { type ReactNode, memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkbench } from "../store";
@@ -190,7 +190,7 @@ export function InternalsPanel({
   /** Told which output ports are on screen (the expanded channels' and the whole instrument's), so their signals can be read. */
   onPorts?: (ports: string[]) => void;
   /** Where the view starts (stories): a selected component, a search, or an open probe. */
-  initial?: { selected?: string; query?: string; probe?: string; tune?: Tune };
+  initial?: { selected?: string; query?: string; probe?: string; tune?: Tune; fullscreen?: boolean };
   /** Show a setting in the workbench inspector (#800). The acceptance page has no inspector and leaves it out. */
   onLocate?: (setting: string) => void;
   /** The internal probe on an output port (#953). Without it (the acceptance page: no session) ports are not probed. */
@@ -212,6 +212,17 @@ export function InternalsPanel({
   const [query, setQuery] = useState(initial?.query ?? "");
   const [pinned, setPinned] = useState<Focus>(null);
   const [hover, setHover] = useState<Focus>(null);
+  // Full screen is in-app (#1174): the same tree, restyled to cover the viewport, so the viewport,
+  // selection and probe survive the switch and a future editor reuses one structure for both forms.
+  const [fullscreen, setFullscreen] = useState(initial?.fullscreen ?? false);
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !e.defaultPrevented) setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fullscreen]);
   const comp = view.components.find((c) => c.name === selected) ?? null;
   const vars = useMemo(() => stateMap(inst), [inst]);
   const hits = useMemo(
@@ -286,7 +297,11 @@ export function InternalsPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0">
+    <div
+      className={cn("flex min-h-0", fullscreen ? "bg-background fixed inset-0 z-50" : "h-full")}
+      data-testid="internals-panel"
+      data-fullscreen={fullscreen}
+    >
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="space-y-1.5 border-b px-3 py-2">
          <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
@@ -300,7 +315,10 @@ export function InternalsPanel({
                 if (selected) select(null);
               }}
               onKeyDown={(e) => {
-                if (e.key === "Escape") setQuery("");
+                if (e.key === "Escape" && query) {
+                  setQuery("");
+                  e.preventDefault();
+                }
                 if (e.key === "Enter" && hits.length) select(hits[0].component);
               }}
               placeholder={t("internals.find")}
@@ -348,6 +366,18 @@ export function InternalsPanel({
             </div>
           )}
           <Legend probes={!!renderProbe} />
+          <Button
+            size="sm"
+            variant={fullscreen ? "secondary" : "ghost"}
+            className="ml-auto h-7 gap-1 px-2 text-xs"
+            onClick={() => setFullscreen((f) => !f)}
+            title={fullscreen ? t("internals.exitFullscreenTip") : t("internals.fullscreen")}
+            aria-label={fullscreen ? t("internals.exitFullscreen") : t("internals.fullscreen")}
+            data-testid="internals-fullscreen"
+          >
+            {fullscreen ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+            {fullscreen && t("internals.exitFullscreen")}
+          </Button>
          </div>
          <Basis view={view} />
         </div>

@@ -409,6 +409,43 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   await expect(graph.locator(".react-flow__node.draggable")).toHaveCount(0);
 });
 
+test("internals full screen: covers the viewport, keeps the view, leaves with Esc or the button (#1174)", async ({
+  page,
+}) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await openButton(page.getByRole("listitem").filter({ hasText: "awg_rc_scope" })).click();
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  const panel = page.getByTestId("internals-panel");
+  const graph = page.getByTestId("internals-graph");
+  const tab = page.getByRole("tab", { name: "示波器 · 内部结构" });
+  await expect(panel).toHaveAttribute("data-fullscreen", "false");
+  const small = await graph.boundingBox();
+  // In: the panel is the viewport; the graph is bigger than in the tab.
+  await page.getByRole("button", { name: "全屏查看" }).click();
+  await expect(panel).toHaveAttribute("data-fullscreen", "true");
+  const vp = page.viewportSize()!;
+  const box = (await panel.boundingBox())!;
+  expect([box.x, box.y, box.width, box.height]).toEqual([0, 0, vp.width, vp.height]);
+  expect((await graph.boundingBox())!.width).toBeGreaterThan(small!.width);
+  // Nothing of the workbench shows through: the tab bar's corner and the far corner are the panel.
+  for (const [x, y] of [[5, 5], [vp.width - 5, vp.height - 5]])
+    expect(await page.evaluate(([px, py]) => document.elementFromPoint(px, py)?.closest("[data-testid=internals-panel]") !== null, [x, y])).toBe(true);
+  // The existing abilities work: expand a channel, select a block.
+  await page.getByRole("button", { name: "CH2" }).click();
+  await expect(graph.locator('[data-name="ch2.front"]')).toBeVisible();
+  await graph.locator('[data-name="ch2.front"]').click();
+  // Out with the button, in again, out with Esc: back on the tab.
+  await page.getByRole("button", { name: "退出全屏" }).click();
+  await expect(panel).toHaveAttribute("data-fullscreen", "false");
+  await expect(tab).toBeVisible();
+  await page.getByRole("button", { name: "全屏查看" }).click();
+  await expect(panel).toHaveAttribute("data-fullscreen", "true");
+  await page.keyboard.press("Escape");
+  await expect(panel).toHaveAttribute("data-fullscreen", "false");
+  await expect(tab).toBeVisible();
+});
+
 test("instrument internals: what only commands drive waits under its own label (#729)", async ({
   page,
 }) => {

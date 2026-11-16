@@ -173,7 +173,12 @@ def readings_rows(readings: dict[str, Any]) -> list[list[tuple[str, str]]]:
 
 
 def spectrum_rows(
-    lang: str, readings: dict[str, Any], state: dict[str, dict], width: int, budget: int | None = None
+    lang: str,
+    readings: dict[str, Any],
+    state: dict[str, dict],
+    width: int,
+    budget: int | None = None,
+    clock_mode: str | None = None,
 ) -> list[list[tuple[str, str]]]:
     """The analyzer's trace as braille (4 rows of dots per text row), the marker, RBW/VBW and
     sweep time, then its settings (#282) — the same data the web screen draws."""
@@ -218,8 +223,21 @@ def spectrum_rows(
             line.append(("UNCAL", "bad"))
         if line:
             rows.append(line)
+    hint = sweep_hint(lang, clock_mode, state)
+    if hint:
+        rows.append([(hint, "muted")])
     rows.append([("", "")])
     return rows + generic_rows(lang, state, width, budget - len(rows) if budget is not None else None)
+
+
+def sweep_hint(lang: str, clock_mode: str | None, state: dict[str, dict]) -> str | None:
+    """Why the trace stands still: a single sweep holds it, and so does a clock that moves only on
+    commands (the web screen's ``sweepStatus``, #1100/#1178)."""
+    if (state.get("init.continuous") or {}).get("value") is False:
+        return i18n.t("spectrum.hintSingle", lang)
+    if clock_mode in ("command", "stepped"):
+        return i18n.t("spectrum.hintClock", lang)
+    return None
 
 
 def rf_rows(
