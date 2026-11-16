@@ -615,6 +615,9 @@ export const en: Widen<Messages> = {
     highZ: "High Z",
   },
   internals: {
+    fullscreen: "Full screen",
+    exitFullscreen: "Exit full screen",
+    exitFullscreenTip: "Exit full screen (Esc)",
     hint: "This model is built from the components below (read-only); the signal runs left to right. Solid lines are signal wires: a thin line is analog, a double line a digital sample stream; dashed lines show what a component uses. Click a component to light its chain; click one of its outputs to see the signal there (internal probe).",
     basis: "This is a functional block-level model: the blocks follow public documents (see basis), not the model's actual circuit design.",
     basisLabel: "Basis:",
