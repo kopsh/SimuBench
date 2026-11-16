@@ -123,5 +123,6 @@ Changed a path, command, check, rule or workflow step that a skill states? Updat
   (`tests/test_block_coverage.py`) may only shrink.
 - Decision entries (`docs/decisions.md`) only for choices with real alternatives **and**
   cross-feature impact; edit the existing entry instead of adding a new one.
+- Data that belongs to one user (a key, a grant, a history of theirs) goes in the user folders, never in a workspace: take the path from `simubench.paths` (`user_data_dir()` / `user_state_dir()`, `SIMUBENCH_HOME` overrides), never write `Path.home()` yourself. Only small content that does not grow without bound goes there (roughly under 1 MB; anything that grows with use stays in the workspace, which the user placed on the disk they chose). Tests get their own user folder from `conftest.py` (#1237).
 - Docs and UI text are Chinese first, English second (D23). Commit messages in the repo are
   Chinese with `(Closes #n)`.
