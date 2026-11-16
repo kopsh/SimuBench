@@ -330,6 +330,37 @@ def _trust(args: argparse.Namespace) -> int:
     return 0 if workspace_allows_plugins(workspace) != args.revoke else 1
 
 
+def _storage(args: argparse.Namespace) -> int:
+    """What the workspace's ``.simubench/`` holds and which of it lost its file; ``--clean`` removes it (#1238)."""
+    from dataclasses import asdict
+
+    from .storage import clean_orphans, human, inventory
+
+    workspace = Path(args.workspace).resolve()
+    entries = inventory(workspace)
+    kinds = ("assistant", "files", "history") if args.history else ("assistant", "files")
+    doomed = [e for e in entries if e.orphan and e.kind in kinds]
+    if args.json:
+        print(json.dumps([{**asdict(e), "path": str(e.path)} for e in entries], ensure_ascii=False, indent=2))
+    else:
+        for kind in ("history", "assistant", "files"):
+            mine = [e for e in entries if e.kind == kind]
+            print(f"{kind}: {human(sum(e.bytes for e in mine))} in {len(mine)} entries")
+            for e in sorted(mine, key=lambda e: -e.bytes):
+                print(f"  {human(e.bytes):>10}  {e.name}{'  (its file is gone)' if e.orphan else ''}")
+        if args.clean:
+            print(
+                f"\n{'removing' if args.yes else 'would remove'}: {len(doomed)} entries, {human(sum(e.bytes for e in doomed))}"
+            )
+            for e in doomed:
+                print(f"  {e.kind}: {e.name}")
+    if args.clean and args.yes:
+        clean_orphans(workspace, kinds)
+    elif args.clean and doomed:
+        print("nothing deleted; add --yes to delete (version history is kept unless --history)")
+    return 0
+
+
 def _doctor(args: argparse.Namespace) -> int:
     """Health checks; exit 1 when one fails (warnings do not fail)."""
     from dataclasses import asdict
@@ -788,6 +819,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("workspace", nargs="?", default=".", help="the workspace folder (default: here)")
     p.add_argument("--revoke", action="store_true", help="withdraw the consent")
     p.set_defaults(fn=_trust)
+
+    p = sub.add_parser(
+        "storage", help="what the workspace's .simubench/ holds and what lost its file (--clean removes it)"
+    )
+    p.add_argument("workspace", nargs="?", default=".", help="the workspace folder (default: here)")
+    p.add_argument("--clean", action="store_true", help="list what would be removed: data whose file is gone")
+    p.add_argument("--yes", action="store_true", help="with --clean: really delete")
+    p.add_argument(
+        "--history", action="store_true", help="with --clean: also saved versions of files that are gone"
+    )
+    p.add_argument("--json", action="store_true")
+    p.set_defaults(fn=_storage)
 
     p = sub.add_parser("doctor", help="check that SimuBench can run here (exit 1 on a failure)")
     p.add_argument("--workspace", help="also validate the bench files in this folder")
