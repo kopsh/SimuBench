@@ -24,6 +24,17 @@ import {
   updateCommand,
   updateSetting,
   autoLayout,
+  formatNumber,
+  isTable,
+  libraryGroups,
+  literalText,
+  matches,
+  parseNumber,
+  portSignature,
+  removeTableRow,
+  setTableRow,
+  settingUsers,
+  tableKey,
   followedSettings,
   followers,
   refLinks,
@@ -415,5 +426,78 @@ describe("references and settings on the canvas (#1212)", () => {
     expect(followers(scope, "depth")).toEqual([]);
     const both = setParam(scope, "instrument", "acq", "depth", "$depth");
     expect(followers(both, "depth")).toEqual([nodeId("instrument", "acq")]);
+  });
+});
+
+describe("numbers, tables, the library and setting users (#1214)", () => {
+  it("reads a number with an SI prefix, m for milli and M for mega", () => {
+    expect(parseNumber("10M")).toBe(1e7);
+    expect(parseNumber("1.5k")).toBe(1500);
+    expect(parseNumber("100u")).toBe(1e-4);
+    expect(parseNumber("2m")).toBe(0.002);
+    expect(parseNumber("4.7 n")).toBe(4.7e-9);
+    expect(parseNumber("2.5e6")).toBe(2.5e6);
+    expect(parseNumber("1e3k")).toBe(1e6);
+    expect(parseNumber("10X")).toBeNull();
+    expect(parseNumber("")).toBeNull();
+    expect(parseLiteral("10M", 50)).toEqual({ ok: true, value: 1e7 });
+  });
+
+  it("writes a number with a prefix only where it reads back the same", () => {
+    expect(formatNumber(1e7)).toBe("10M");
+    expect(formatNumber(1e10)).toBe("10G");
+    expect(formatNumber(1e-4)).toBe("100u");
+    expect(formatNumber(1.2)).toBe("1.2");
+    expect(formatNumber(0)).toBe("0");
+    expect(formatNumber(9.9e37)).toBe("9.9e+37");
+    expect(literalText(1e7)).toBe("10M");
+    expect(literalText({ a: 1 })).toBe('{"a":1}');
+  });
+
+  it("edits a table row by row, keys kept in place", () => {
+    const t = { "1": 0.1, "3": 0.1 };
+    expect(isTable(t)).toBe(true);
+    expect(isTable([1, 2])).toBe(false);
+    expect(isTable({ a: { b: 1 } })).toBe(false);
+    expect(Object.keys(setTableRow(t, "1", 0.2, "2"))).toEqual(["2", "3"]);
+    expect(setTableRow(t, "10", 0.5)).toEqual({ "1": 0.1, "3": 0.1, "10": 0.5 });
+    expect(removeTableRow(t, "1")).toEqual({ "3": 0.1 });
+    expect(tableKey(" 10k ")).toBe("10000");
+    expect(tableKey("DC")).toBe("DC");
+    expect(tableKey(" ")).toBeNull();
+  });
+
+  it("groups the library by family and filters it", () => {
+    const docs = [
+      doc({ type: "trigger_model", group: "trigger" }),
+      doc({ type: "output_stage", group: "signal", doc: "A driven output" }),
+      doc({ type: "input_port", group: "signal" }),
+      doc({ type: "resistor", category: "part", group: "other" }),
+    ];
+    const all = libraryGroups(docs, "", (d) => d.type);
+    expect(all.map((g) => g.group)).toEqual(["signal", "trigger"]);
+    expect(all[0].items.map((d) => d.type)).toEqual(["output_stage", "input_port"]);
+    expect(libraryGroups(docs, "driven", (d) => d.type).flatMap((g) => g.items.map((d) => d.type))).toEqual(["output_stage"]);
+  });
+
+  it("writes a type's ports in one line", () => {
+    const d = doc({
+      ports: [
+        { name: "in", direction: "in", medium: "voltage" },
+        { name: "out", direction: "out", medium: "voltage" },
+        { name: "pin", direction: "out", medium: "electrical" },
+      ] as ComponentDoc["ports"],
+    });
+    expect(portSignature(d)).toBe("in → out  ⊡ pin");
+    expect(portSignature(acqDoc)).toBe("in1… → —");
+    expect(portSignature(doc({}))).toBe("");
+  });
+
+  it("names who uses a setting", () => {
+    expect(settingUsers(scope, "channel", "impedance")).toEqual({ components: ["inp"], commands: [":CHANnel<ch>:IMPedance"] });
+    expect(settingUsers(scope, "instrument", "depth")).toEqual({ components: [], commands: [] });
+    expect(matches("imp", "ch.impedance")).toBe(true);
+    expect(matches("", "x")).toBe(true);
+    expect(matches("zz", "x", null)).toBe(false);
   });
 });

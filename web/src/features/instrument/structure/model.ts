@@ -342,16 +342,16 @@ export function paramNames(c: StructureComponent, doc: ComponentDoc | undefined)
   return [...declared, ...refs, ...extra];
 }
 
-/** Parse a typed literal like the default's kind: a number for a number (SI suffixes not
- * accepted here: the build area writes plain values), true/false for a boolean, else text. An
- * empty entry means "back to the default". */
+/** Parse a typed literal like the default's kind: a number for a number (with an SI prefix:
+ * `10M`, `1.5k`, `100u`, #1214), true/false for a boolean, else text. An empty entry means "back
+ * to the default". */
 export function parseLiteral(typed: string, like: unknown): { ok: true; value: unknown } | { ok: false } {
   const text = typed.trim();
   if (text === "") return { ok: true, value: undefined };
   if (typeof like === "number") {
     if (text === "INF" || text === "-INF") return { ok: true, value: text };
-    const n = Number(text);
-    return Number.isFinite(n) ? { ok: true, value: n } : { ok: false };
+    const n = parseNumber(text);
+    return n === null ? { ok: false } : { ok: true, value: n };
   }
   if (typeof like === "boolean") {
     if (text === "true") return { ok: true, value: true };
@@ -371,7 +371,108 @@ export function parseLiteral(typed: string, like: unknown): { ok: true; value: u
 export function literalText(value: unknown): string {
   if (value === undefined || value === null) return "";
   if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "number") return formatNumber(value);
   return String(value);
+}
+
+// ---- numbers with an SI prefix (#1214) ---------------------------------------------------------
+
+const PREFIXES: Record<string, number> = { p: -12, n: -9, u: -6, "µ": -6, m: -3, k: 3, M: 6, G: 9, T: 12 };
+const NUMBER = /^([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)\s*([pnuµmkMGT])?$/;
+
+/** A number as typed: plain (`2.5e6`) or with an SI prefix (`10M`, `1.5k`, `100u`; `m` is milli,
+ * `M` mega); null when it is not one. */
+export function parseNumber(text: string): number | null {
+  const m = NUMBER.exec(text.trim());
+  if (!m) return null;
+  const base = Number(m[1]);
+  if (!Number.isFinite(base)) return null;
+  // Scale by a power of ten written out, so 1.5k is exactly 1500.
+  if (!m[2]) return base;
+  return m[1].toLowerCase().includes("e") ? base * 10 ** PREFIXES[m[2]] : Number(`${m[1]}e${PREFIXES[m[2]]}`);
+}
+
+/** A number written with an SI prefix where one reads better (10000000 → 10M, 0.0001 → 100u)
+ * and gives back the same number; else as it is. */
+export function formatNumber(n: number): string {
+  const plain = String(n);
+  const abs = Math.abs(n);
+  if (!Number.isFinite(n) || abs === 0 || (abs >= 1e-3 && abs < 1e3)) return plain;
+  const exp = Math.floor(Math.log10(abs) / 3) * 3;
+  const prefix = Object.entries(PREFIXES).find(([k, e]) => e === exp && k !== "µ")?.[0];
+  if (!prefix) return plain;
+  const mantissa = Number((n / 10 ** exp).toPrecision(12));
+  const text = `${mantissa}${prefix}`;
+  return parseNumber(text) === n ? text : plain;
+}
+
+// ---- table parameters (#1214) ------------------------------------------------------------------
+
+/** A table a parameter holds: a mapping of plain values (a range → a shunt), edited row by row. */
+export function isTable(value: unknown): value is Record<string, string | number | boolean> {
+  return (
+    !!value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.values(value as Record<string, unknown>).every((v) => ["string", "number", "boolean"].includes(typeof v))
+  );
+}
+
+/** The table with row `key` set (renamed to `to` when given); the row keeps its place. */
+export function setTableRow(table: Record<string, unknown>, key: string, value: unknown, to = key): Record<string, unknown> {
+  if (!(key in table)) return { ...table, [to]: value };
+  return Object.fromEntries(Object.entries(table).map(([k, v]) => (k === key ? [to, value] : [k, v])));
+}
+
+export function removeTableRow(table: Record<string, unknown>, key: string): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(table).filter(([k]) => k !== key));
+}
+
+/** A table key as typed: a number written plainly (the server makes it a number again, #1214). */
+export function tableKey(raw: string): string | null {
+  const text = raw.trim();
+  if (!text) return null;
+  const n = parseNumber(text);
+  return n === null ? text : String(n);
+}
+
+// ---- the component library (#1214) -------------------------------------------------------------
+
+/** The library's families, in the order it lists them. */
+export const LIBRARY_GROUPS = ["signal", "measure", "source", "scope", "trigger", "system", "other"] as const;
+export type LibraryGroup = (typeof LIBRARY_GROUPS)[number];
+
+/** The internal components matching `query` (type, label, description), by family. */
+export function libraryGroups(
+  docs: readonly ComponentDoc[],
+  query: string,
+  label: (d: ComponentDoc) => string,
+): { group: LibraryGroup; items: ComponentDoc[] }[] {
+  const q = query.trim().toLowerCase();
+  const shown = docs.filter(
+    (d) =>
+      d.category === "internal" &&
+      (!q || [d.type, label(d), d.label ?? "", d.doc ?? ""].some((f) => f.toLowerCase().includes(q))),
+  );
+  return LIBRARY_GROUPS.map((group) => ({ group, items: shown.filter((d) => (d.group ?? "other") === group) })).filter(
+    (g) => g.items.length > 0,
+  );
+}
+
+/** A component type's ports in one line: inputs → outputs (`in → out`; a pattern as `in1…`). */
+export function portSignature(doc: ComponentDoc): string {
+  const ins = doc.ports.filter((p) => p.direction !== "out" && p.medium !== "electrical").map((p) => p.name);
+  const outs = doc.ports.filter((p) => p.direction === "out" && p.medium !== "electrical").map((p) => p.name);
+  for (const prefix of patternPrefixes(doc.port_pattern)) (prefix.startsWith("out") ? outs : ins).push(`${prefix}1…`);
+  const pins = doc.ports.filter((p) => p.medium === "electrical").map((p) => p.name);
+  const flow = ins.length || outs.length ? `${ins.join(", ") || "—"} → ${outs.join(", ") || "—"}` : "";
+  return [flow, pins.length ? `⊡ ${pins.join(", ")}` : ""].filter(Boolean).join("  ");
+}
+
+/** Does any of `fields` contain the query (case-insensitive)? An empty query matches. */
+export function matches(query: string, ...fields: (string | null | undefined)[]): boolean {
+  const q = query.trim().toLowerCase();
+  return !q || fields.some((f) => (f ?? "").toLowerCase().includes(q));
 }
 
 // ---- diagnostics -------------------------------------------------------------------------------
@@ -627,6 +728,16 @@ export function settingUses(s: Structure, scope: Scope, name: string): { params:
   const params = comps.reduce((n, c) => n + Object.values(c.params ?? {}).filter((v) => boundSetting(v) === path).length, 0);
   const commands = s.commands.filter((c) => c.state === path).length;
   return { params, commands };
+}
+
+/** Who uses a setting: the components with a parameter that follows it, the commands bound to it. */
+export function settingUsers(s: Structure, scope: Scope, name: string): { components: string[]; commands: string[] } {
+  const path = settingPath(scope, name);
+  const comps = scope === "instrument" ? [...s.components, ...s.channel_components] : s.channel_components;
+  return {
+    components: comps.filter((c) => Object.values(c.params ?? {}).some((v) => boundSetting(v) === path)).map((c) => c.name),
+    commands: s.commands.filter((c) => c.state === path).map((c) => c.header ?? ""),
+  };
 }
 
 /** The settings a component's parameter can follow: a channel component its channel's and the

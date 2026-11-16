@@ -65,6 +65,7 @@ def test_build_area_structure_flow(tmp_path):
         assert on_disk["ports"]["instrument"] == {"SENSE": None, "OUT": "out.pin"}
         shunt = next(x for x in on_disk["components"] if x["name"] == "input")["params"]["shunt"]
         assert 0.001 in shunt  # a table's number keys survive the JSON round trip
+
         assert set(edited["inherited"]) == {"state", "commands"}
         assert (
             "SENSE" not in edited["ports"]["instrument"]
@@ -77,6 +78,14 @@ def test_build_area_structure_flow(tmp_path):
         history = c.get(f"/api/definitions/{my_id}/history").json()
         assert history[0]["source"] == "ui"
         assert any(ch["target"] == "out" for ch in history[0]["changes"])
+        # a row added to a number-keyed table in the Web (#1214) gets a number key too
+        body = _body(edited)
+        table = next(x for x in body["components"] if x["name"] == "input")["params"]["shunt"]
+        table["30"] = 0.01
+        edited = c.put(url, json=body).json()
+        on_disk = yaml.safe_load(path.read_text(encoding="utf-8"))
+        shunt = next(x for x in on_disk["components"] if x["name"] == "input")["params"]["shunt"]
+        assert shunt[30] == 0.01 and "30" not in shunt and 0.001 in shunt
 
         # refused: a stale hash (409), a built-in definition (403), an unknown one (404)
         assert c.put(url, json=_body(first)).status_code == 409

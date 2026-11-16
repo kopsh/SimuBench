@@ -141,15 +141,33 @@ def _as_json(value: Any) -> Any:
 def _restore(new: Any, old: Any) -> Any:
     """``new`` as the client sent it, with what it sent back unchanged taken from ``old`` as the
     definition holds it: JSON turns a table's number keys (``{0.001: 100}``) into strings, which
-    would change what the table means. A key keeps its old type even where its value changed."""
+    would change what the table means. A key keeps its old type even where its value changed, and
+    a key added to a table whose keys are all numbers becomes a number too (#1214)."""
     if _as_json(new) == _as_json(old):
         return copy.deepcopy(old)
     if isinstance(new, dict) and isinstance(old, dict):
         keys = {str(k): k for k in old}
-        return {keys.get(k, k): _restore(v, old[keys[k]]) if k in keys else v for k, v in new.items()}
+        numeric = bool(old) and all(isinstance(k, int | float) and not isinstance(k, bool) for k in old)
+        return {
+            keys.get(k, _number_key(k) if numeric else k): _restore(v, old[keys[k]]) if k in keys else v
+            for k, v in new.items()
+        }
     if isinstance(new, list) and isinstance(old, list) and len(new) == len(old):
         return [_restore(a, b) for a, b in zip(new, old, strict=True)]
     return new
+
+
+def _number_key(key: Any) -> Any:
+    """A table key typed in the Web as text: the number it spells, else the text."""
+    if not isinstance(key, str):
+        return key
+    try:
+        return int(key)
+    except ValueError:
+        try:
+            return float(key)
+        except ValueError:
+            return key
 
 
 def _restore_items(new: list[Any], old: list[Any], key: Any) -> list[Any]:

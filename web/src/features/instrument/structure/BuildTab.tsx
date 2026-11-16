@@ -15,7 +15,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
-import { AlertTriangle, Check, GripVertical, SlidersHorizontal, LayoutGrid, Link2, Loader2, Plus, Redo2, Search, Terminal, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, Check, GripVertical, Maximize2, Minimize2, SlidersHorizontal, LayoutGrid, Link2, Loader2, Plus, Redo2, Search, Terminal, Trash2, Undo2 } from "lucide-react";
 import { type DragEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
@@ -66,6 +66,12 @@ import {
   followers,
   refLinks,
   inBand,
+  isTable,
+  libraryGroups,
+  portSignature,
+  removeTableRow,
+  setTableRow,
+  tableKey,
   literalText,
   nodeId,
   panelPortName,
@@ -73,6 +79,7 @@ import {
   paramNames,
   parseLiteral,
   parseNodeId,
+  parseNumber,
   portsOf,
   removalCounts,
   removeComponent,
@@ -249,6 +256,8 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
   const [focus, setFocus] = useState<string | null>(null);
   // A component type being dragged from the library: the per-channel drop zone shows meanwhile.
   const [dragging, setDragging] = useState(false);
+  // The side panel opened wide for the long lists of settings and commands (#1214).
+  const [wide, setWide] = useState(false);
   const editable = !!structure.data?.editable && status !== "reconnecting" && status !== "gone";
   const layout = useLayout(definitionId, !!structure.data?.editable);
   const { undo: undoStep, redo: redoStep } = build;
@@ -273,9 +282,12 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
 
   if (structure.isLoading || components.isLoading || !layout.ready) {
     return (
-      <div className="flex h-full gap-3 p-3">
+      <div className="relative flex h-full gap-3 p-3" aria-busy="true">
         <Skeleton className="h-full w-56" />
         <Skeleton className="h-full flex-1" />
+        <p className="text-muted-foreground absolute inset-0 flex items-center justify-center gap-1.5 text-xs" role="status">
+          <Loader2 className="size-3.5 animate-spin motion-reduce:animate-none" /> {t("acceptance.build.loading")}
+        </p>
       </div>
     );
   }
@@ -325,7 +337,12 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
             />
           </ReactFlowProvider>
         </div>
-        <aside className="bg-sidebar w-72 shrink-0 overflow-y-auto border-l" aria-label={t("acceptance.build.params")}>
+        <aside
+          className={cn("bg-sidebar shrink-0 overflow-y-auto border-l transition-[width] motion-reduce:transition-none", wide ? "w-[44rem] max-w-[60%]" : "w-72")}
+          aria-label={t("acceptance.build.params")}
+          data-testid="build-side"
+          data-wide={wide || undefined}
+        >
           <SidePanel
             structure={draft}
             docs={docs}
@@ -334,6 +351,9 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
             onSelect={setSelected}
             onChange={apply}
             onFocus={setFocus}
+            definitionId={definitionId}
+            wide={wide}
+            onWide={setWide}
             onRename={(from, to) => {
               if (layout.positions[from]) layout.update(renameInLayout(layout.positions, from, to));
               setSelected(to);
@@ -473,18 +493,9 @@ function firstLine(doc: string | null | undefined): string {
 function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: boolean) => void }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const q = query.trim().toLowerCase();
-  const shown = docs.filter(
-    (d) =>
-      d.category === "internal" &&
-      (!q ||
-        d.type.toLowerCase().includes(q) ||
-        typeLabel(t, d.type).toLowerCase().includes(q) ||
-        (d.label ?? "").toLowerCase().includes(q) ||
-        (d.doc ?? "").toLowerCase().includes(q)),
-  );
+  const groups = libraryGroups(docs, query, (d) => typeLabel(t, d.type));
   return (
-    <aside className="bg-sidebar flex w-56 shrink-0 flex-col border-r" aria-label={t("acceptance.build.library")}>
+    <aside className="bg-sidebar flex w-60 shrink-0 flex-col border-r" aria-label={t("acceptance.build.library")}>
       <div className="space-y-1.5 border-b p-2">
         <h2 className="text-xs font-medium">{t("acceptance.build.library")}</h2>
         <div className="relative">
@@ -499,31 +510,55 @@ function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: bo
         </div>
         <p className="text-muted-foreground text-[11px] leading-snug">{t("acceptance.build.dragHint")}</p>
       </div>
-      <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto p-2" data-testid="build-library">
-        {shown.map((d) => (
-          <li
-            key={d.type}
-            draggable
-            onDragStart={(e) => {
-              e.dataTransfer.setData(BUILD_MIME, d.type);
-              e.dataTransfer.effectAllowed = "copy";
-              onDrag(true);
-            }}
-            onDragEnd={() => onDrag(false)}
-            title={firstLine(d.doc)}
-            data-testid={`build-library-${d.type}`}
-            className="bg-card hover:border-primary/50 flex cursor-grab items-center gap-2 rounded-md border px-2 py-1.5 active:cursor-grabbing"
-          >
-            <GripVertical className="text-muted-foreground/50 size-3.5 shrink-0" />
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-[12.5px] leading-tight font-medium">{typeLabel(t, d.type)}</div>
-              <div className="text-muted-foreground num truncate text-[11px] leading-tight">{d.type}</div>
-            </div>
-          </li>
+      <div className="min-h-0 flex-1 overflow-y-auto pb-2" data-testid="build-library">
+        {groups.map((g) => (
+          <section key={g.group} aria-label={t(`acceptance.build.groups.${g.group}`)} data-testid={`build-library-group-${g.group}`}>
+            <h3 className="bg-sidebar text-muted-foreground sticky top-0 z-[1] px-3 pt-2 pb-1 text-[11px] font-medium">
+              {t(`acceptance.build.groups.${g.group}`)} <span className="num opacity-70">{g.items.length}</span>
+            </h3>
+            <ul className="space-y-1 px-2">
+              {g.items.map((d) => (
+                <LibraryItem key={d.type} doc={d} onDrag={onDrag} />
+              ))}
+            </ul>
+          </section>
         ))}
-        {!shown.length && <li className="text-muted-foreground px-1 text-[11px]">{t("acceptance.build.noMatch")}</li>}
-      </ul>
+        {!groups.length && <p className="text-muted-foreground px-3 py-2 text-[11px]">{t("acceptance.build.noMatch")}</p>}
+      </div>
     </aside>
+  );
+}
+
+/** One component type in the library: its name, the type when that differs, a line of what it
+ * does, and its ports (#1214). */
+function LibraryItem({ doc: d, onDrag }: { doc: ComponentDoc; onDrag: (dragging: boolean) => void }) {
+  const { t } = useTranslation();
+  const label = typeLabel(t, d.type);
+  const about = firstLine(d.doc);
+  const ports = portSignature(d);
+  return (
+    <li
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData(BUILD_MIME, d.type);
+        e.dataTransfer.effectAllowed = "copy";
+        onDrag(true);
+      }}
+      onDragEnd={() => onDrag(false)}
+      title={about}
+      data-testid={`build-library-${d.type}`}
+      className="bg-card hover:border-primary/50 flex cursor-grab items-start gap-1.5 rounded-md border px-2 py-1.5 active:cursor-grabbing"
+    >
+      <GripVertical className="text-muted-foreground/50 mt-0.5 size-3.5 shrink-0" />
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <div className="flex items-baseline gap-1.5">
+          <span className="truncate text-[12.5px] leading-tight font-medium">{label}</span>
+          {label !== d.type && <span className="text-muted-foreground num truncate text-[10.5px]">{d.type}</span>}
+        </div>
+        {about && <p className="text-muted-foreground line-clamp-2 text-[11px] leading-snug">{about}</p>}
+        {ports && <p className="text-muted-foreground/80 num truncate text-[10.5px]">{ports}</p>}
+      </div>
+    </li>
   );
 }
 
@@ -988,6 +1023,9 @@ function SidePanel({
   onChange,
   onRename,
   onFocus,
+  definitionId,
+  wide,
+  onWide,
 }: {
   structure: Structure;
   docs: ReadonlyMap<string, ComponentDoc>;
@@ -997,6 +1035,9 @@ function SidePanel({
   onChange: (next: Structure | null) => boolean;
   onRename: (fromId: string, toId: string) => void;
   onFocus: (setting: string | null) => void;
+  definitionId: string;
+  wide: boolean;
+  onWide: (wide: boolean) => void;
 }) {
   const { t } = useTranslation();
   const at = selected ? parseNodeId(selected) : null;
@@ -1047,7 +1088,18 @@ function SidePanel({
       );
     }
   }
-  return <Overview structure={structure} docs={docs} editable={editable} onChange={onChange} onFocus={onFocus} />;
+  return (
+    <Overview
+      structure={structure}
+      docs={docs}
+      editable={editable}
+      onChange={onChange}
+      onFocus={onFocus}
+      definitionId={definitionId}
+      wide={wide}
+      onWide={onWide}
+    />
+  );
 }
 
 /** With nothing selected: the panel ports, the settings and the commands (#1206). */
@@ -1057,19 +1109,25 @@ function Overview({
   editable,
   onChange,
   onFocus,
+  definitionId,
+  wide,
+  onWide,
 }: {
   structure: Structure;
   docs: ReadonlyMap<string, ComponentDoc>;
   editable: boolean;
   onChange: (next: Structure | null) => boolean;
   onFocus: (setting: string | null) => void;
+  definitionId: string;
+  wide: boolean;
+  onWide: (wide: boolean) => void;
 }) {
   const { t } = useTranslation();
   // Leaving the settings page lets go of the setting it pointed at.
   useEffect(() => () => onFocus(null), [onFocus]);
   return (
     <Tabs defaultValue="ports" className="gap-0" onValueChange={(v) => v !== "settings" && onFocus(null)}>
-      <div className="border-b px-2">
+      <div className="flex items-center border-b px-2">
         <TabsList variant="line" className="h-9">
           <TabsTrigger value="ports" className="text-xs" data-testid="build-tab-ports">
             {t("acceptance.build.tabPorts")}
@@ -1081,15 +1139,27 @@ function Overview({
             {t("acceptance.build.tabCommands")}
           </TabsTrigger>
         </TabsList>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-auto size-7"
+          onClick={() => onWide(!wide)}
+          aria-pressed={wide}
+          title={wide ? t("acceptance.build.narrow") : t("acceptance.build.wide")}
+          aria-label={wide ? t("acceptance.build.narrow") : t("acceptance.build.wide")}
+          data-testid="build-wide"
+        >
+          {wide ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
+        </Button>
       </div>
       <TabsContent value="ports">
         <PanelPorts structure={structure} docs={docs} editable={editable} onChange={onChange} />
       </TabsContent>
       <TabsContent value="settings">
-        <SettingsPanel structure={structure} editable={editable} onChange={onChange} onFocus={onFocus} />
+        <SettingsPanel structure={structure} editable={editable} onChange={onChange} onFocus={onFocus} wide={wide} />
       </TabsContent>
       <TabsContent value="commands">
-        <CommandsPanel structure={structure} docs={docs} editable={editable} onChange={onChange} />
+        <CommandsPanel structure={structure} docs={docs} editable={editable} onChange={onChange} definitionId={definitionId} wide={wide} />
       </TabsContent>
     </Tabs>
   );
@@ -1200,26 +1270,32 @@ function ParamRow({
         {info?.unit && <span className="text-muted-foreground">{info.unit}</span>}
         {kind.kind === "literal" && !kind.set && <span className="text-muted-foreground ml-auto">{t("acceptance.build.default")}</span>}
       </label>
-      {kind.kind === "setting" &&
-        (typeof comp.params?.[name] === "string" ? (
-          <div className="flex items-center gap-1">
-            <p className="text-sim num min-w-0 flex-1 truncate text-[11px]" title={t("acceptance.build.settingHint")}>
-              {t("acceptance.build.followsSetting", { setting: kind.setting })}
-            </p>
-            {editable && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-6 px-1.5 text-[11px]"
-                onClick={() => onChange(setParam(structure, scope, comp.name, name, undefined))}
-              >
-                {t("acceptance.build.unbind")}
-              </Button>
-            )}
-          </div>
-        ) : (
-          <p className="text-sim num text-[11px]">{t("acceptance.build.mapped", { setting: kind.setting })}</p>
-        ))}
+      {kind.kind === "setting" && (
+        // One look for a parameter that follows a setting, bound (`$x`, can be unbound here) or
+        // through a mapping (written by the agent) (#1214).
+        <div className="bg-sim-muted flex h-7 items-center gap-1.5 rounded-md px-2" data-testid={`binding-${comp.name}-${name}`}>
+          <SlidersHorizontal className="text-sim size-3.5 shrink-0" aria-hidden />
+          <span className="text-sim num min-w-0 flex-1 truncate text-[11px]" title={t("acceptance.build.settingHint")}>
+            {t("acceptance.build.followsSetting", { setting: kind.setting })}
+          </span>
+          {typeof comp.params?.[name] === "string"
+            ? editable && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 text-[11px]"
+                  onClick={() => onChange(setParam(structure, scope, comp.name, name, undefined))}
+                >
+                  {t("acceptance.build.unbind")}
+                </Button>
+              )
+            : (
+                <span className="text-muted-foreground shrink-0 text-[10.5px]" title={t("acceptance.build.mappedHint")}>
+                  {t("acceptance.build.mapped")}
+                </span>
+              )}
+        </div>
+      )}
       {kind.kind === "ref" && (
         <Select
           value={kind.value ?? NONE}
@@ -1249,7 +1325,17 @@ function ParamRow({
           </SelectContent>
         </Select>
       )}
-      {kind.kind === "literal" && (
+      {kind.kind === "literal" && isTable(kind.value) && (
+        <TableEditor
+          id={id}
+          table={kind.value}
+          editable={editable}
+          isDefault={!kind.set}
+          onChange={(next) => onChange(setParam(structure, scope, comp.name, name, next))}
+          onReset={kind.set ? () => onChange(setParam(structure, scope, comp.name, name, undefined)) : undefined}
+        />
+      )}
+      {kind.kind === "literal" && !isTable(kind.value) && (
         <div className="flex items-center gap-1">
           <DraftInput<unknown>
             id={id}
@@ -1296,6 +1382,116 @@ function ParamRow({
               onClick={() => onChange(setParam(structure, scope, comp.name, name, undefined))}
             >
               <Trash2 className="size-3.5" />
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** A table parameter row by row (#1214): key and value, a row added at the end, a row removed.
+ * Number keys are typed plainly (or with a prefix) and saved as numbers. */
+function TableEditor({
+  id,
+  table,
+  editable,
+  isDefault,
+  onChange,
+  onReset,
+}: {
+  id: string;
+  table: Record<string, string | number | boolean>;
+  editable: boolean;
+  isDefault: boolean;
+  onChange: (next: Record<string, unknown>) => void;
+  onReset?: () => void;
+}) {
+  const { t } = useTranslation();
+  const rows = Object.entries(table);
+  const like = rows[0]?.[1] ?? 0;
+  const [newKey, setNewKey] = useState("");
+  const add = () => {
+    const key = tableKey(newKey);
+    if (!key || key in table) return void toast.error(t("acceptance.build.tableKeyInvalid"));
+    onChange(setTableRow(table, key, like));
+    setNewKey("");
+  };
+  return (
+    <div className={cn("rounded-md border", isDefault && "text-muted-foreground")} id={id} data-testid={`table-${id}`}>
+      <table className="num w-full text-[11px]">
+        <thead>
+          <tr className="text-muted-foreground border-b">
+            <th className="px-2 py-0.5 text-left font-normal">{t("acceptance.build.tableKey")}</th>
+            <th className="px-2 py-0.5 text-left font-normal">{t("acceptance.build.tableValue")}</th>
+            <th className="w-6" />
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k} className="border-b last:border-0">
+              <td className="px-1 py-0.5">
+                <DraftInput<string>
+                  text={literalText(parseNumber(k) ?? k)}
+                  disabled={!editable}
+                  className="h-6 border-0 px-1 text-[11px] shadow-none"
+                  aria-label={t("acceptance.build.tableKeyOf", { key: k })}
+                  parse={(typed) => {
+                    const key = tableKey(typed);
+                    return key && (key === k || !(key in table)) ? commit(key) : INVALID;
+                  }}
+                  onInvalid={() => toast.error(t("acceptance.build.tableKeyInvalid"))}
+                  onCommit={(key) => key !== k && onChange(setTableRow(table, k, v, key))}
+                />
+              </td>
+              <td className="px-1 py-0.5">
+                <DraftInput<unknown>
+                  text={literalText(v)}
+                  disabled={!editable}
+                  className="h-6 border-0 px-1 text-[11px] shadow-none"
+                  aria-label={t("acceptance.build.tableValueOf", { key: k })}
+                  parse={(typed) => {
+                    const p = parseLiteral(typed, v);
+                    return p.ok && p.value !== undefined ? commit(p.value) : INVALID;
+                  }}
+                  onInvalid={() => toast.error(t("acceptance.build.invalidValue"))}
+                  onCommit={(value) => value !== v && onChange(setTableRow(table, k, value))}
+                />
+              </td>
+              <td className="pr-1">
+                {editable && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="size-5"
+                    aria-label={t("acceptance.build.tableRemove", { key: k })}
+                    title={t("acceptance.build.tableRemove", { key: k })}
+                    onClick={() => onChange(removeTableRow(table, k))}
+                  >
+                    <Trash2 className="size-3" />
+                  </Button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {editable && (
+        <div className="flex items-center gap-1 border-t p-1">
+          <Input
+            value={newKey}
+            onChange={(e) => setNewKey(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && add()}
+            placeholder={t("acceptance.build.tableNewKey")}
+            aria-label={t("acceptance.build.tableNewKey")}
+            className="num h-6 flex-1 text-[11px]"
+          />
+          <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[11px]" onClick={add} disabled={!newKey.trim()}>
+            <Plus className="size-3" /> {t("acceptance.build.tableAdd")}
+          </Button>
+          {onReset && (
+            <Button variant="ghost" size="sm" className="h-6 px-1.5 text-[11px]" onClick={onReset}>
+              {t("acceptance.build.resetDefault")}
             </Button>
           )}
         </div>

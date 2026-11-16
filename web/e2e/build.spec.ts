@@ -253,3 +253,57 @@ test("build area: references and followed settings on the canvas, a grid for the
     .toEqual(["input_port"]);
   forget(id);
 });
+
+test("build area: grouped library, SI values, a table edited by row, one binding look, wide searchable lists, a note for the agent (#1214)", async ({ page, request, context }) => {
+  await context.grantPermissions(["clipboard-read", "clipboard-write"]);
+  const copy = await request.post("/api/definitions/keysight-34465a/copy", { headers });
+  const id = ((await copy.json()) as { data: { id: string } }).data.id;
+  await page.goto(`/i/${id}?token=${TOKEN}`);
+  await page.getByTestId("acceptance-tab-build").click();
+  await expect(page.getByTestId("build-area")).toBeVisible();
+  // The input terminal's parameters as the instrument runs with them (the copy inherits them until the first edit).
+  const input = async () => {
+    const res = await request.get(`/api/definitions/${id}/structure`, { headers });
+    return ((await res.json()) as { components: { name: string; params?: Record<string, unknown> }[] }).components.find((c) => c.name === "input")?.params;
+  };
+
+  // The library is grouped by family, each type with its ports.
+  await expect(page.getByTestId("build-library-group-signal")).toBeVisible();
+  await expect(page.getByTestId("build-library-group-trigger")).toBeVisible();
+  await expect(page.getByTestId("build-library-input_port")).toContainText("→ out");
+
+  // A value reads and takes an SI prefix.
+  await page.locator('[data-name="input"]').click();
+  const zin = page.locator("#param-input-z_in");
+  await expect(zin).toHaveValue("10M");
+  await zin.fill("20M");
+  await zin.press("Enter");
+  await expect.poll(async () => (await input())?.z_in).toBe(2e7);
+
+  // A table parameter row by row: a new row keyed 10M.
+  const table = page.getByTestId("table-param-input-test_current");
+  await table.getByPlaceholder("新一行的键，如 10 或 1k").fill("10M");
+  await table.getByRole("button", { name: "添加行" }).click();
+  await expect.poll(async () => Object.keys(((await input())?.test_current ?? {}) as object)).toContain("10000000");
+
+  // Bound and mapped parameters look the same; only the bound one can be unbound here.
+  await expect(page.getByTestId("binding-input-high_z")).toContainText("解除绑定");
+  await expect(page.getByTestId("binding-input-mode")).toContainText("按映射");
+
+  // The side panel opens wide; the settings are searched and say who uses them.
+  await page.locator(".react-flow__pane").click({ position: { x: 8, y: 8 } });
+  await page.getByTestId("build-tab-settings").click();
+  await page.getByTestId("build-wide").click();
+  await expect(page.getByTestId("build-side")).toHaveAttribute("data-wide", "true");
+  await page.getByPlaceholder("搜索设置名、类型或单位").fill("nplc");
+  await expect(page.locator('[data-testid^="build-setting-sense"]')).toHaveCount(1);
+  await expect(page.getByTestId("build-setting-users")).toContainText("meter");
+
+  // The commands: searched, and what the Web leaves to the agent copied as a note.
+  await page.getByTestId("build-tab-commands").click();
+  await page.getByPlaceholder("搜索命令头或绑定").fill("NPLC");
+  await expect(page.getByTestId("build-command").first()).toContainText("NPLC");
+  await page.getByTestId("build-agent-note").click();
+  await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(`instruments/${id}.yaml`);
+  forget(id);
+});
