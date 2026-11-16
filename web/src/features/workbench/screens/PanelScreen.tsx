@@ -10,7 +10,7 @@ import { pickLabel } from "@/i18n";
 import { displayUnit, formatReadout } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { applyOps } from "../edit/editor";
-import { distinctOptions, labelOf, numeric, optionLabel, stateMap } from "../model";
+import { distinctOptions, labelOf, numeric, optionLabel, shortForm, stateMap } from "../model";
 import { StateField } from "../StateField";
 import { ScreenIdentity } from "./parts";
 
@@ -237,6 +237,8 @@ function ControlView({
             { value: false, label: t("instPanel.off"), sets: {} },
           ]
         : distinctOptions(v).map((o) => ({ value: o, label: optionLabel(v, o), sets: {} })));
+    // A key named from the option shows its mnemonic beside the word, as a select does (#1251, #1257).
+    const mnemonicOf = (k: PanelKey) => (c.keys || v.type === "bool" ? null : shortForm(String(k.value)));
     return (
       <div className="space-y-1">
         <div className="text-muted-foreground text-xs">{label}</div>
@@ -255,6 +257,7 @@ function ControlView({
                 onClick={() => void write([[c.state, k.value], ...Object.entries(k.sets ?? {})])}
               >
                 {text}
+                {mnemonicOf(k) && mnemonicOf(k) !== text && <span className="opacity-60">{mnemonicOf(k)}</span>}
               </Button>
             );
           })}
