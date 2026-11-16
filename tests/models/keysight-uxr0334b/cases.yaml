@@ -708,6 +708,8 @@ cases:
       - send: ":SYSTem:SETup #13abc"
       - query: ":SYSTem:ERRor?"
         expect: "-161"
+  # 文件内容与 :WAVeform:DATA?（经 PREamble 缩放）的逐点一致性由
+  # tests/test_data_file.py::test_the_scope_files_hold_the_record_the_transfer_reads 断言（#1090）。
   - name: ":DISK:SAVE:WAVeform：通道 1 的记录存成 CSV（带表头）与 BIN，取回；H5 未建模"
     manual: ":DISK Commands > :DISK:SAVE:WAVeform; :DISK:GETFILE?"
     steps:

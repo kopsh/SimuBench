@@ -957,7 +957,7 @@ sections:
     affects_data: false
   - header: MMEMory:STORe:DATA
     level: implemented
-    note: 'data_file 组件（#1071）：读数存储器的全部读数写成 .csv（没有扩展名时加 .csv）：首行列标题 Chan <通道号>，每次扫描一行，读数的写法与 FETCh? 相同，列分隔符按 CSEParator，行尾 CR LF。.dat 二进制格式未建模，报 -257。存储器满后的覆盖与只存完整扫描按读数存储器本身的行为。'
+    note: 'data_file 组件（#1071）：读数存储器的全部读数写成 .csv（没有扩展名时加 .csv）：首行列标题 Chan <通道号>，每次扫描一行，读数的写法与 FETCh? 相同，列分隔符按 CSEParator，行尾 CR LF。.dat 二进制格式未建模，报 -257。存储器满后的覆盖与只存完整扫描按读数存储器本身的行为。CSV 的列标题、每次扫描一行与不带时间戳列是 SimuBench 的布局；空读数存储器写出空文件（上传回 #10、无错误）——这两点未能对照 DAQ970A 编程手册核实（#1090）。'
   - header: MMEMory:STORe:DATA:AUTO
     level: not_modeled
     note: 文件系统与状态存储未建模。
