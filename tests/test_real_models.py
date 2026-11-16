@@ -7,6 +7,7 @@ must agree with its coverage table and its cases.
 
 import shutil
 from pathlib import Path
+from typing import Any
 
 import pytest
 import pyvisa
@@ -58,11 +59,25 @@ def open_instrument(tmp_path: Path, cases_file: Path, cases):
     return rm, rm.open_resource(cases.instrument, read_termination="\n", write_termination="\n", timeout=2000)
 
 
-@pytest.mark.parametrize(("cases_file", "cases", "case"), list(all_cases()))
-def test_manual_case(cases_file, cases, case):
-    """Through the same runner as ``simubench cases``: a freshly powered bench per case."""
-    result = run_case(cases_file, cases, case)
-    assert result.passed, result.describe()
+def _manual_cases_class(params: list[Any]) -> type:
+    """One test class per model: ``--dist loadscope`` keeps a class on one worker, so the models'
+    cases spread over the workers instead of the whole module running on one (#1185)."""
+
+    @pytest.mark.parametrize(("cases_file", "cases", "case"), params)
+    def test_manual_case(self, cases_file, cases, case):
+        """Through the same runner as ``simubench cases``: a freshly powered bench per case."""
+        result = run_case(cases_file, cases, case)
+        assert result.passed, result.describe()
+
+    return type("ManualCases", (), {"test_manual_case": test_manual_case})
+
+
+_BY_MODEL: dict[str, list[Any]] = {}
+for _param in all_cases():
+    _BY_MODEL.setdefault(_param.values[1].model, []).append(_param)
+for _model, _params in _BY_MODEL.items():
+    _name = "TestManualCases_" + "".join(c if c.isalnum() else "_" for c in _model)
+    globals()[_name] = type(_name, (_manual_cases_class(_params),), {})
 
 
 def real_models():

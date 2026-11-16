@@ -123,7 +123,11 @@ def when_matches(spec: CommandSpec, unit: Unit) -> bool:
     names = [p.name for p in spec.params]
     for key, want in (spec.when or {}).items():
         i = names.index(key)
-        if i >= len(unit.params) or V.parse_string(unit.params[i]).strip().upper() != str(want).upper():
+        if i >= len(unit.params):
+            return False
+        text = V.parse_string(unit.params[i]).strip().upper()
+        # the word in any SCPI form: COUN for COUNt, STR for STRing
+        if text != str(want).upper() and not V.matches_word(text, str(want)):
             return False
     return True
 

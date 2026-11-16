@@ -649,7 +649,9 @@ def _check_command(
         _check_op(d, classes, cmd.op, per_channel, _ptr(*p, "op"), cmd.header, report)
     for key, value in cmd.args.items():
         if isinstance(value, str) and value.startswith("$"):  # an argument bound to a setting (#252)
-            _check_state_ref(d, value[1:], per_channel, _ptr(*p, "args", key), cmd.header, report)
+            for ref in _expand(value[1:], indexes):  # a header suffix may pick it
+                if not _check_state_ref(d, ref, per_channel, _ptr(*p, "args", key), cmd.header, report):
+                    break
     if cmd.read is not None:
         for ref in _expand(cmd.read, indexes):
             _check_state_ref(d, ref, per_channel, _ptr(*p, "read"), cmd.header, report)
@@ -661,6 +663,12 @@ def _check_command(
             for ref in _expand(ps.state, indexes):  # every setting an index can pick
                 if not _check_state_ref(
                     d, ref, per_channel, _ptr(*p, "params", k, "state"), cmd.header, report
+                ):
+                    break
+        for j, mirrored in enumerate(ps.mirror or []):
+            for ref in _expand(mirrored, indexes):
+                if not _check_state_ref(
+                    d, ref, per_channel, _ptr(*p, "params", k, "mirror", j), cmd.header, report
                 ):
                     break
         for key, ref in (ps.keys or {}).items():

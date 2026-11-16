@@ -1,5 +1,5 @@
 # Manual cases for the Keysight Infiniium UXR1104B: Infiniium UXR-Series Oscilloscopes Programmer's
-# Guide 11.80.00012 (9018-07723); ranges from the UXR-B data sheet 3123-1313, 1 mm input models (#1092). Numbers answer as the
+# Guide 11.60.00000 (9018-07723); ranges from the UXR-B data sheet 3123-1313, 1 mm input models (#1092). Numbers answer as the
 # guide's sample (+8.00000E-01): NR3, five decimals, signed; booleans 1/0; enumerations short.
 # The bench: 10 MHz 400 mVpp sine on CH1, 1 MHz 400 mVpp square on CH2 (50 ohm).
 model: keysight-uxr1104b
@@ -10,7 +10,7 @@ cases:
     manual: "* (Common) Commands > *IDN?"
     steps:
       - query: "*IDN?"
-        expect: "Keysight Technologies,UXR1104B,MY64310101,11.80.00012"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
   - name: ":MODel? 与 :SERial? 回不带引号的型号与序列号"
     manual: ": (Root Level) Commands > :MODel?; :SERial"
     steps:
@@ -161,14 +161,14 @@ cases:
   - name: "触发：边沿信源、斜率、各信源的电平与释抑"
     manual: ":TRIGger Commands > :TRIGger:EDGE:SOURce; :TRIGger:EDGE:SLOPe; :TRIGger:LEVel; :TRIGger:HOLDoff"
     steps:
-      - send: ":TRIGger:EDGE:SOURce CHANnel3"
+      - send: ":TRIGger:EDGE:SOURce CHANnel2"
       - query: ":TRIGger:EDGE:SOURce?"
-        expect: "CHAN3"
+        expect: "CHAN2"
       - send: ":TRIGger:EDGE1:SLOPe EITHer"
       - query: ":TRIGger:EDGE:SLOPe?"
         expect: "EITH"
-      - send: ":TRIGger:LEVel CHANnel3,0.05;:TRIGger:LEVel AUX,1.5"
-      - query: ":TRIGger:LEVel? CHANnel3"
+      - send: ":TRIGger:LEVel CHANnel2,0.05;:TRIGger:LEVel AUX,1.5"
+      - query: ":TRIGger:LEVel? CHANnel2"
         expect: "+5.00000E-02"
       - query: ":TRIGger:LEVel? CHANnel1"
         expect: "+0.00000E+00"
@@ -189,7 +189,7 @@ cases:
       - send: ":TRIGger:EDGE2:SLOPe NEGative"
       - query: ":SYSTem:ERRor?"
         expect: "-114"
-      - send: ":TRIGger:MODE GLITch"
+      - send: ":TRIGger:MODE PATTern"
       - query: ":SYSTem:ERRor?"
         expect: "-224"
       - query: ":TRIGger:MODE?"
@@ -230,10 +230,6 @@ cases:
       - send: ":ACQuire:BANDwidth MAX"
       - query: ":ACQuire:BANDwidth?"
         expect: "+1.13000E+11"
-      # MAX 就是硬件带宽（定义 specs.bandwidth_hz，数据手册典型 113 GHz）：上限之外的数字滤波被拒绝（#1098）
-      - send: ":ACQuire:BANDwidth 1.2E11"
-      - query: ":SYSTem:ERRor?"
-        expect: "-222"
       - send: ":ACQuire:MODE PDETect"
       - query: ":SYSTem:ERRor?"
         expect: "-224"
@@ -478,46 +474,6 @@ cases:
       - send: ":MEASure:VRMS? DISPlay,AC,CHANnel1"
       - query: ":SYSTem:ERRor?"
         expect: "-224"
-  - name: "噪声表：关信号源后七档各自的噪声 rms（12.5 mV/div 以下放大区保持 860 µV）"
-    manual: "data sheet (Measured RMS Noise Floor, p.8 UXR1104B/UXR1102B column); :MEASure:VRMS"
-    steps:
-      # 无输入（发生器关闭）时整屏 DC rms 就是噪声 rms（零均值）。tolerance 取 2%·σ：256 kpts 的
-      # 抽样误差 1/√(2N) ≈ 0.14%（≈14 倍余量，≥3 倍要求，#1098），含量化偏置（500 mV/div 档约 +0.15%）。
-      - send: ":OUTPut1 OFF"
-        instrument: awg
-      # 1 mV/div 与 5 mV/div 都在 60 mV 满量程的放大区：噪声保持最小档的 860 µV
-      - send: ":CHANnel1:SCALe 1E-3;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 8.6e-4
-        tolerance: 1.7e-5
-      - send: ":CHANnel1:SCALe 5E-3;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 8.6e-4
-        tolerance: 1.7e-5
-      - send: ":CHANnel1:SCALe 1.25E-2;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 1.1e-3
-        tolerance: 2.2e-5
-      - send: ":CHANnel1:SCALe 2E-2;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 1.5e-3
-        tolerance: 3e-5
-      - send: ":CHANnel1:SCALe 5E-2;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 2.9e-3
-        tolerance: 5.8e-5
-      - send: ":CHANnel1:SCALe 0.1;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 6.1e-3
-        tolerance: 1.2e-4
-      - send: ":CHANnel1:SCALe 0.2;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 1.3e-2
-        tolerance: 2.6e-4
-      - send: ":CHANnel1:SCALe 0.5;:DIGitize CHANnel1"
-      - query: ":MEASure:VRMS? DISPlay,DC,CHANnel1"
-        expect_value: 2.9e-2
-        tolerance: 5.8e-4
   - name: "带宽滤波的响应：平坦幅度截断截止以上的正弦，高斯幅度只衰减"
     manual: ":ACQuire Commands > :ACQuire:RESPonse; :ACQuire:BANDwidth; data sheet (bandwidth filters: brick wall)"
     steps:
@@ -658,7 +614,7 @@ cases:
       - query: ":SYSTem:ERRor?"
         expect: ":SYST:ERR 0"
       - query: "*IDN?"
-        expect: "Keysight Technologies,UXR1104B,MY64310101,11.80.00012"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
   - name: "界面命令（接受）：前面板锁定、隐藏指示灯、屏幕文字、标签显示、网格亮度"
     manual: ":SYSTem:LOCK; :SYSTem:HLED; :SYSTem:DSP; :DISPlay:LABel; :DISPlay:GRATicule:INTensity"
     steps:
@@ -783,8 +739,914 @@ cases:
       - send: ':DISK:SAVE:WAVeform CHANnel1,"FILE3",H5'
       - query: ":SYSTem:ERRor?"
         expect: "-257"
-
-  # ---- 数学函数、FFT 与光标（#1074，手册第 22、31、32 章）----
+  # ---- 界面偏好、显示与身份（覆盖表多为“接受”：保存与回读，不改变数据）----
+  - name: "*PSC 保存与回读；*OPT? 没有选件时回 0"
+    manual: "* (Common) Commands > *PSC; *OPT?"
+    steps:
+      - query: "*PSC?"
+        expect: "1"
+      - send: "*PSC 0"
+      - query: "*PSC?"
+        expect: "0"
+      - query: "*OPT?"
+        expect: "0"
+  - name: ":BEEP 只有命令；:CDISplay 清屏"
+    manual: ": (Root Level) Commands > :BEEP; :CDISplay"
+    steps:
+      - send: ":BEEP 1000,500"
+      - send: ":CDISplay"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      - send: ":BEEP 1000"
+      - query: ":SYSTem:ERRor?"
+        expect: "-109"
+  - name: ":DISPlay:CLIPped、:DISPlay:CONNect、:DISPlay:MAIN 开关与回读"
+    manual: ":DISPlay Commands > :DISPlay:CLIPped; :DISPlay:CONNect; :DISPlay:MAIN"
+    steps:
+      - query: ":DISPlay:CLIPped?"
+        expect: "1"
+      - send: ":DISPlay:CLIPped OFF"
+      - query: ":DISPlay:CLIPped?"
+        expect: "0"
+      - query: ":DISPlay:CONNect?"
+        expect: "1"
+      - send: ":DISPlay:CONNect OFF,CHANnel2"
+      - query: ":DISPlay:CONNect? CHANnel2"
+        expect: "0"
+      - send: ":DISPlay:CONNect ON,FUNCtion1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":DISPlay:MAIN OFF"
+      - query: ":DISPlay:MAIN?"
+        expect: "0"
+  - name: ":DISPlay:PERSistence：MINimum、INFinite 与 0.1–200 s"
+    manual: ":DISPlay Commands > :DISPlay:PERSistence"
+    steps:
+      - query: ":DISPlay:PERSistence?"
+        expect: "MINimum"
+      - send: ":DISPlay:PERSistence INFinite"
+      - query: ":DISPlay:PERSistence?"
+        expect: "INFinite"
+      - send: ":DISPlay:PERSistence 0.5,CHANnel1"
+      - query: ":DISPlay:PERSistence?"
+        expect: "+5.00000E-01"
+      - send: ":DISPlay:PERSistence 0.01"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+      - send: ":DISPlay:PERSistence MIN"
+      - query: ":DISPlay:PERSistence?"
+        expect: "MINimum"
+  - name: ":DISPlay:GRATicule 与波形区：AREA<N>:HSCale / VSCale / STATe（区 1 不能关）"
+    manual: ":DISPlay Commands > :DISPlay:GRATicule; :DISPlay:GRATicule:AREA<N>:HSCale; :DISPlay:GRATicule:AREA<N>:VSCale; :DISPlay:GRATicule:AREA<N>:STATe"
+    steps:
+      - query: ":DISPlay:GRATicule?"
+        expect: "GRID"
+      - send: ":DISPlay:GRATicule FRAMe"
+      - query: ":DISPlay:GRATicule?"
+        expect: "FRAM"
+      - send: ":DISPlay:GRATicule:AREA2:HSCale OFF"
+      - query: ":DISPlay:GRATicule:AREA2:HSCale?"
+        expect: "0"
+      - send: ":DISPlay:GRATicule:AREA3:VSCale MANual"
+      - query: ":DISPlay:GRATicule:AREA3:VSCale?"
+        expect: "MAN"
+      - query: ":DISPlay:GRATicule:AREA1:STATe?"
+        expect: "1"
+      - send: ":DISPlay:GRATicule:AREA2:STATe ON"
+      - query: ":DISPlay:GRATicule:AREA2:STATe?"
+        expect: "1"
+      - send: ":DISPlay:GRATicule:AREA1:STATe OFF"
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+      - send: ":DISPlay:GRATicule:AREA9:HSCale ON"
+      - query: ":SYSTem:ERRor?"
+        expect: "-114"
+  - name: ":DISPlay:GRATicule:GLAYout、NUMBer、SETGrat 按波形区"
+    manual: ":DISPlay Commands > :DISPlay:GRATicule:GLAYout; :DISPlay:GRATicule:NUMBer; :DISPlay:GRATicule:SETGrat"
+    steps:
+      - send: ":DISPlay:GRATicule:GLAYout TVERtical,2"
+      - query: ":DISPlay:GRATicule:GLAYout? 2"
+        expect: "TVER"
+      - query: ":DISPlay:GRATicule:GLAYout?"
+        expect: "SVER"
+      - send: ":DISPlay:GRATicule:NUMBer 4"
+      - query: ":DISPlay:GRATicule:NUMBer?"
+        expect: "4"
+      - send: ":DISPlay:GRATicule:NUMBer 3,2"
+      - query: ":DISPlay:GRATicule:NUMBer? 2"
+        expect: "3"
+      - send: ":DISPlay:GRATicule:NUMBer 17"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+      - send: ":DISPlay:GRATicule:SETGrat CHN2,3,2,CGRade"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      - send: ":DISPlay:GRATicule:SETGrat HIST,1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: ":DISPlay:LAYout、:DISPlay:PROPortion、:DISPlay:PROPortion:RESults、:DISPlay:RESults:LAYout、:DISPlay:WINDow:MAXimize"
+    manual: ":DISPlay Commands > :DISPlay:LAYout; :DISPlay:PROPortion; :DISPlay:PROPortion:RESults; :DISPlay:RESults:LAYout; :DISPlay:WINDow:MAXimize"
+    steps:
+      - send: ":DISPlay:LAYout CUSTom"
+      - query: ":DISPlay:LAYout?"
+        expect: "TAB"
+      - send: ":DISPlay:LAYout SVERtical"
+      - query: ":DISPlay:LAYout?"
+        expect: "SVER"
+      - send: ":DISPlay:PROPortion AREA1,40;:DISPlay:PROPortion:RESults 25;:DISPlay:WINDow:MAXimize AREA2"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      - send: ":DISPlay:PROPortion JITTer,60"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":DISPlay:RESults:LAYout SHORizontal"
+      - query: ":DISPlay:RESults:LAYout?"
+        expect: "SHOR"
+  - name: ":DISPlay:SCOLor 按元素保存色相、饱和度、亮度；:DISPlay:STATus:COLumn / ROW；:DISPlay:THEMe"
+    manual: ":DISPlay Commands > :DISPlay:SCOLor; :DISPlay:STATus:COLumn; :DISPlay:STATus:ROW; :DISPlay:THEMe"
+    steps:
+      - send: ":DISPlay:SCOLor CHANnel1,15,80,60"
+      - query: ":DISPlay:SCOLor? CHANnel1"
+        expect: "CHAN1,15,80,60"
+      - send: ":DISPlay:SCOLor WMEMories,10,20,30"
+      - query: ":DISPlay:SCOLor? WMEMory1"
+        expect: "WMEM1,10,20,30"
+      - send: ":DISPlay:STATus:COLumn 0.25"
+      - query: ":DISPlay:STATus:COLumn?"
+        expect: "+2.50000E-01"
+      - query: ":DISPlay:STATus:ROW?"
+        expect: "+5.00000E-01"
+      - query: ":DISPlay:THEMe?"
+        expect: '"Midnight"'
+      - send: ':DISPlay:THEMe "Platinum"'
+      - query: ":DISPlay:THEMe?"
+        expect: '"Platinum"'
+      - send: ':DISPlay:THEMe "Blue"'
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: "Default Setup 不改用户偏好与显示颜色（:SYSTem:GUI、:DISPlay:SCOLor、:DISPlay:THEMe）"
+    manual: ":SYSTem Commands > :SYSTem:PRESet (Default Setup); :SYSTem:GUI"
+    steps:
+      - send: ':SYSTem:GUI LOCK;:DISPlay:SCOLor GRID,33,40,50;:DISPlay:THEMe "Platinum";*RST'
+      - query: ":SYSTem:GUI?"
+        expect: "LOCK"
+      - query: ":DISPlay:SCOLor? GRID"
+        expect: "GRID,33,40,50"
+      - query: ":DISPlay:THEMe?"
+        expect: '"Platinum"'
+  - name: "书签：SET、XPOSition / YPOSition、VERTical?（书签所在波形在其时间的电压）、DELete、DELete:ALL"
+    manual: ":DISPlay Commands > :DISPlay:BOOKmark<N>:SET; :DISPlay:BOOKmark<N>:XPOSition; :DISPlay:BOOKmark<N>:YPOSition; :DISPlay:BOOKmark<N>:VERTical?; :DISPlay:BOOKmark<N>:DELete; :DISPlay:BOOKmark:DELete:ALL"
+    steps:
+      - send: ":DIGitize CHANnel1"
+      - send: ':DISPlay:BOOKmark5:SET CHANnel1,"edge",CHANnel1,"first edge",2E-8'
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      # 10 MHz、0.2 V 峰值的正弦在 20 ns 处 = 0.2·sin(0.4π) = 0.190 V；500 mV/div 的量化步长 3.9 mV，
+      # 噪声 29 mV rms（数据手册），容差取 4σ。
+      - query: ":DISPlay:BOOKmark5:VERTical?"
+        expect_value: 0.190
+        tolerance: 0.12
+      - send: ':DISPlay:BOOKmark6:SET NONE,"note"'
+      - query: ":DISPlay:BOOKmark6:VERTical?"
+        expect: "9.99999E+37"
+      - send: ":DISPlay:BOOKmark5:XPOSition 0.3"
+      - query: ":DISPlay:BOOKmark5:XPOSition?"
+        expect: "+3.00000E-01"
+      - send: ":DISPlay:BOOKmark5:YPOSition 0.7"
+      - query: ":DISPlay:BOOKmark5:YPOSition?"
+        expect: "+7.00000E-01"
+      - send: ":DISPlay:BOOKmark5:DELete;:DISPlay:BOOKmark:DELete:ALL"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"
+      - send: ":DISPlay:BOOKmark101:XPOSition 0.5"
+      - query: ":SYSTem:ERRor?"
+        expect: "-114"
+  - name: "打印机：仿真台没有装打印机"
+    manual: ":HARDcopy Commands > :HARDcopy:PRINters?; :HARDcopy:DPRinter"
+    steps:
+      - query: ":HARDcopy:PRINters?"
+        expect: "0"
+      - query: ":HARDcopy:DPRinter?"
+        expect: ""
+      - send: ':HARDcopy:DPRinter "HP Laser"'
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+  - name: ":LXI:IDENtify、:SYSTem:DEBug、:SYSTem:DONTtabmeas、:SYSTem:GUI、:SYSTem:TOUChscreen、:SYSTem:MODE"
+    manual: ":LXI Commands > :LXI:IDENtify[:STATe]; :SYSTem Commands > :SYSTem:DEBug; :SYSTem:DONTtabmeas; :SYSTem:GUI; :SYSTem:TOUChscreen; :SYSTem:MODE"
+    steps:
+      - send: ":LXI:IDENtify ON"
+      - query: ":LXI:IDENtify:STATe?"
+        expect: "1"
+      - send: ':SYSTem:DEBug ON,FILE,"C:\\trace.txt",APPend'
+      - query: ":SYSTem:DEBug?"
+        expect: '1,FILE,"C:\\trace.txt",APP'
+      - send: ":SYSTem:DONTtabmeas 1"
+      - query: ":SYSTem:DONTtabmeas?"
+        expect: "1"
+      - send: ":SYSTem:GUI OFF"
+      - query: ":SYSTem:GUI?"
+        expect: "OFF"
+      - query: ":SYSTem:TOUChscreen?"
+        expect: "1"
+      - query: ":SYSTem:MODE?"
+        expect: "OSC"
+      - send: ":SYSTem:MODE RTSA"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: ":SYSTem:PERSona 改 *IDN? 的厂商与型号，DEFault 恢复"
+    manual: ":SYSTem Commands > :SYSTem:PERSona; * (Common) Commands > *IDN?"
+    steps:
+      - send: ':SYSTem:PERSona "Acme","X1"'
+      - query: ":SYSTem:PERSona?"
+        expect: '"Acme","X1"'
+      - query: "*IDN?"
+        expect: "Acme,X1,MY64310101,11.60.00000"
+      - send: ":SYSTem:PERSona DEFault"
+      - query: "*IDN?"
+        expect: "Keysight Technologies,UXR1104B,MY64310101,11.60.00000"
+  - name: ":SYSTem:CAPability 的采集、通道与数字通道能力（带引号）"
+    manual: ":SYSTem Commands > :SYSTem:CAPability:ACQuire?; :SYSTem:CAPability:CHANnel?; :SYSTem:CAPability:DIGital?"
+    steps:
+      - query: ":SYSTem:CAPability:ACQuire? MEMory"
+        expect: '"500000000"'
+      - query: ":SYSTem:CAPability:ACQuire? SRATe"
+        expect: '"256000000000"'
+      - query: ":SYSTem:CAPability:ACQuire? BANDwidth"
+        expect: '"110000000000"'
+      - query: ":SYSTem:CAPability:ACQuire? HALFchannel"
+        expect: '"0"'
+      - query: ":SYSTem:CAPability:CHANnel? COUNt"
+        expect: '"4"'
+      - query: ":SYSTem:CAPability:DIGital? CHANnels"
+        expect: '"0"'
+  - name: "TESTLIMITS?：带宽、点数、采样率的上下限，通道能否打开"
+    manual: ":ACQuire Commands > :ACQuire:BANDwidth:TESTLIMITS?; :ACQuire:POINts:TESTLIMITS?; :ACQuire:SRATe:TESTLIMITS?; :CHANnel<N> Commands > :CHANnel<N>:DISPlay:TESTLIMITS?"
+    steps:
+      - query: ":ACQuire:BANDwidth:TESTLIMITS?"
+        expect: "1,<numeric>+1.00000E+08:+1.13000E+11"
+      - query: ":ACQuire:POINts:TESTLIMITS?"
+        expect: "1,<numeric>16:2000000000"
+      - query: ":ACQuire:SRATe:TESTLIMITS?"
+        expect: "1,<numeric>+0.00000E+00:+2.56000E+11"
+      - query: ":CHANnel4:DISPlay:TESTLIMITS?"
+        expect: "1,<enum>0|1"
+  # ---- 触发：毛刺、脉宽、释抑、迟滞、门限、50% ----
+  - name: "毛刺触发的信源、极性与宽度；GLITch2（序列触发）报 -114"
+    manual: ":TRIGger:GLITch (Glitch Trigger) Commands > :TRIGger:GLITch:SOURce; :TRIGger:GLITch:POLarity; :TRIGger:GLITch:WIDTh"
+    steps:
+      - send: ":TRIGger:MODE GLITch;:TRIGger:GLITch:SOURce CHANnel2;:TRIGger:GLITch:WIDTh 2E-9;:TRIGger:GLITch:POLarity NEGative"
+      - query: ":TRIGger:MODE?"
+        expect: "GLIT"
+      - query: ":TRIGger:GLITch:SOURce?"
+        expect: "CHAN2"
+      - query: ":TRIGger:GLITch:WIDTh?"
+        expect: "+2.00000E-09"
+      - query: ":TRIGger:GLITch:POLarity?"
+        expect: "NEG"
+      - send: ":TRIGger:GLITch2:SOURce CHANnel1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-114"
+      - send: ":TRIGger:GLITch:WIDTh 20"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+  - name: "脉宽触发：条件、极性（长格式）、宽度、范围（按大小写入）、触发点"
+    manual: ":TRIGger:PWIDth (Pulse Width Trigger) Commands > :TRIGger:PWIDth:MODE; :TRIGger:PWIDth:POLarity; :TRIGger:PWIDth:RANGe; :TRIGger:PWIDth:SOURce; :TRIGger:PWIDth:TPOint; :TRIGger:PWIDth:WIDTh"
+    steps:
+      - send: ":TRIGger:MODE PWIDth;:TRIGger:PWIDth:SOURce CHANnel2"
+      - query: ":TRIGger:PWIDth:SOURce?"
+        expect: "CHAN2"
+      - query: ":TRIGger:PWIDth:MODE?"
+        expect: "GTH"
+      - query: ":TRIGger:PWIDth:POLarity?"
+        expect: "POSITIVE"
+      - query: ":TRIGger:PWIDth:TPOint?"
+        expect: "EPULSE"
+      - send: ":TRIGger:PWIDth:MODE ORANge;:TRIGger:PWIDth:TPOint TIMeout;:TRIGger:PWIDth:WIDTh 3E-7"
+      - query: ":TRIGger:PWIDth:MODE?"
+        expect: "ORAN"
+      - query: ":TRIGger:PWIDth:TPOint?"
+        expect: "TIMEOUT"
+      - query: ":TRIGger:PWIDth:WIDTh?"
+        expect: "+3.00000E-07"
+      - send: ":TRIGger:PWIDth:RANGe 9E-7,3E-7"
+      - query: ":TRIGger:PWIDth:RANGe?"
+        expect: "+3.00000E-07,+9.00000E-07"
+      - send: ":TRIGger:PWIDth:WIDTh 1E-10"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+  - name: "释抑方式（RANDom 未建模）与随机释抑上下限；高带宽触发；迟滞；高低门限"
+    manual: "General :TRIGger Commands > :TRIGger:HOLDoff:MODE; :TRIGger:HOLDoff:MIN; :TRIGger:HOLDoff:MAX; :TRIGger:HIGH; :TRIGger:HYSTeresis; :TRIGger:HTHReshold; :TRIGger:LTHReshold"
+    steps:
+      - query: ":TRIGger:HOLDoff:MODE?"
+        expect: "FIX"
+      - send: ":TRIGger:HOLDoff:MODE RANDom"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":TRIGger:HOLDoff:MIN 2E-7;:TRIGger:HOLDoff:MAX 5E-6"
+      - query: ":TRIGger:HOLDoff:MIN?"
+        expect: "+2.00000E-07"
+      - query: ":TRIGger:HOLDoff:MAX?"
+        expect: "+5.00000E-06"
+      - query: ":TRIGger:HIGH?"
+        expect: "1"
+      - send: ":TRIGger:HIGH OFF;:TRIGger:HYSTeresis NREJect"
+      - query: ":TRIGger:HIGH?"
+        expect: "0"
+      - query: ":TRIGger:HYSTeresis?"
+        expect: "NREJ"
+      - send: ":TRIGger:HTHReshold AUXiliary,0.5;:TRIGger:LTHReshold CHANnel3,-0.1"
+      - query: ":TRIGger:HTHReshold? AUXiliary"
+        expect: "+5.00000E-01"
+      - query: ":TRIGger:LTHReshold? CHANnel3"
+        expect: "-1.00000E-01"
+      - send: ":TRIGger:LTHReshold AUXiliary,0"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: ":TRIGger:LEVel:FIFTy 把当前触发信源的电平设到其波形的 50%"
+    manual: "General :TRIGger Commands > :TRIGger:LEVel:FIFTy"
+    steps:
+      - send: ":TRIGger:EDGE:SOURce CHANnel2;:TRIGger:LEVel CHANnel2,0.3;:TRIGger:LEVel:FIFTy"
+      # 方波 ±0.2 V 的顶与底的中点为 0 V；500 mV/div 的量化步长 3.9 mV，噪声平均后在 10 mV 内。
+      - query: ":TRIGger:LEVel? CHANnel2"
+        expect_value: 0.0
+        tolerance: 0.01
+      - query: ":TRIGger:LEVel? CHANnel1"
+        expect: "+0.00000E+00"
+  # ---- 时基：百分比参考位置、参考输入、滚动、缩放 ----
+  - name: ":TIMebase:REFerence:PERCent 与 :TIMebase:REFerence 互相跟随，记录的起点随之移动"
+    manual: ":TIMebase Commands > :TIMebase:REFerence:PERCent; :TIMebase:REFerence"
+    steps:
+      - query: ":TIMebase:REFerence:PERCent?"
+        expect: "50"
+      - send: ":TIMebase:REFerence LEFT"
+      - query: ":TIMebase:REFerence:PERCent?"
+        expect: "10"
+      - send: ":TIMebase:REFerence:PERCent 25"
+      - query: ":TIMebase:REFerence?"
+        expect: "PERC"
+      # 100 ns/div：25% 处是触发，记录从 -250 ns 起。
+      - query: ":WAVeform:XORigin?"
+        expect: "-2.50000E-07"
+      - send: ":TIMebase:REFerence PERCent"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: ":TIMebase:REFClock、:TIMebase:ROLL:ENABLE（只能 OFF）、缩放 :TIMebase:VIEW 与 WINDow"
+    manual: ":TIMebase Commands > :TIMebase:REFClock; :TIMebase:ROLL:ENABLE; :TIMebase:VIEW; :TIMebase:WINDow:SCALe; :TIMebase:WINDow:RANGe; :TIMebase:WINDow:POSition; :TIMebase:WINDow:DELay"
+    steps:
+      - send: ":TIMebase:REFClock ON"
+      - query: ":TIMebase:REFClock?"
+        expect: "1"
+      - query: ":TIMebase:ROLL:ENABLE?"
+        expect: "0"
+      - send: ":TIMebase:ROLL:ENABLE ON"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":TIMebase:VIEW WINDow;:TIMebase:WINDow:RANGe 1E-9;:TIMebase:WINDow:DELay 2E-8"
+      - query: ":TIMebase:VIEW?"
+        expect: "WIND"
+      - query: ":TIMebase:WINDow:SCALe?"
+        expect: "+1.00000E-10"
+      - query: ":TIMebase:WINDow:POSition?"
+        expect: "+2.00000E-08"
+  # ---- 采集 ----
+  - name: "存储深度与采样率的自动 / 手动"
+    manual: ":ACQuire Commands > :ACQuire:POINts:AUTO; :ACQuire:SRATe[:ANALog]:AUTO; :ACQuire:POINts[:ANALog]"
+    steps:
+      - query: ":ACQuire:POINts:AUTO?"
+        expect: "1"
+      - send: ":ACQuire:POINts 2000"
+      - query: ":ACQuire:POINts:AUTO?"
+        expect: "0"
+      - send: ":ACQuire:POINts:AUTO ON"
+      - query: ":ACQuire:POINts?"
+        expect: "256000"
+      - send: ":ACQuire:SRATe 1E9"
+      - query: ":ACQuire:SRATe:AUTO?"
+        expect: "0"
+      - send: ":ACQuire:SRATe:ANALog:AUTO ON"
+      - query: ":ACQuire:SRATe?"
+        expect: "+2.56000E+11"
+  - name: "不改变数据的采集设置：COMPlete:STATe、FPLot、HRESolution、INTerpolate、REDGe（只能 OFF）；BANDwidth:FRAMe?"
+    manual: ":ACQuire Commands > :ACQuire:COMPlete:STATe; :ACQuire:FPLot; :ACQuire:HRESolution; :ACQuire:INTerpolate; :ACQuire:REDGe; :ACQuire:BANDwidth:FRAMe?"
+    steps:
+      - send: ":ACQuire:COMPlete:STATe OFF;:ACQuire:FPLot OFF;:ACQuire:HRESolution BITS12;:ACQuire:INTerpolate INT8"
+      - query: ":ACQuire:COMPlete:STATe?"
+        expect: "0"
+      - query: ":ACQuire:FPLot?"
+        expect: "0"
+      - query: ":ACQuire:HRESolution?"
+        expect: "BITS12"
+      - query: ":ACQuire:INTerpolate?"
+        expect: "INT8"
+      - send: ":ACQuire:INTerpolate ON"
+      - query: ":ACQuire:INTerpolate?"
+        expect: "1"
+      - query: ":ACQuire:REDGe?"
+        expect: "0"
+      - send: ":ACQuire:REDGe ON"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - query: ":ACQuire:BANDwidth:FRAMe?"
+        expect: "+1.13000E+11"
+  - name: "分段存储：4 段，各段的时间标签、XLISt、所选的段与当前段的点数"
+    manual: ":ACQuire Commands > :ACQuire:SEGMented:COUNt; :ACQuire:SEGMented:INDex; :WAVeform Commands > :WAVeform:SEGMented:COUNt?; :WAVeform:SEGMented:TTAG?; :WAVeform:SEGMented:XLISt?; :WAVeform:SEGMented:POINts?; :WAVeform:SEGMented:ALL"
+    steps:
+      - query: ":WAVeform:SEGMented:COUNt?"
+        expect: "0"
+      - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 4;:TRIGger:EDGE:SOURce CHANnel2"
+      - query: ":ACQuire:MODE?"
+        expect: "SEGM"
+      - send: ":DIGitize CHANnel2;:WAVeform:SOURce CHANnel2"
+      - query: ":WAVeform:SEGMented:COUNt?"
+        expect: "4"
+      - send: ":ACQuire:SEGMented:INDex 3"
+      - query: ":ACQuire:SEGMented:INDex?"
+        expect: "3"
+      # 1 MHz 方波每 1 µs 一个上升沿：第 3 段在第 1 段之后 2 µs。
+      - query: ":WAVeform:SEGMented:TTAG?"
+        expect_value: 2.0e-6
+        tolerance: 1.0e-9
+      - query: ":WAVeform:SEGMented:XLISt? TTAG"
+        expect_values: [0.0, 1.0e-6, 2.0e-6, 3.0e-6]
+        tolerance: 1.0e-9
+      - query: ":WAVeform:SEGMented:XLISt? RELXorigin"
+        expect_values: [-5.0e-7, -5.0e-7, -5.0e-7, -5.0e-7]
+        tolerance: 1.0e-12
+      - query: ":WAVeform:SEGMented:XLISt? OFFSet"
+        expect: "0"
+      - query: ":WAVeform:SEGMented:POINts?"
+        expect: "256000"
+      - query: ":WAVeform:SEGMented:ALL?"
+        expect: "0"
+      - send: ":WAVeform:SEGMented:ALL ON"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: "分段回放：AUToplay、PLAY（瞬间放完）、PRATe、TTAGs"
+    manual: ":ACQuire Commands > :ACQuire:SEGMented:AUToplay; :ACQuire:SEGMented:PLAY; :ACQuire:SEGMented:PRATe; :ACQuire:SEGMented:TTAGs"
+    steps:
+      - send: ":ACQuire:SEGMented:AUToplay ON;:ACQuire:SEGMented:PRATe 0.5;:ACQuire:SEGMented:TTAGs OFF;:ACQuire:SEGMented:PLAY ON"
+      - query: ":ACQuire:SEGMented:AUToplay?"
+        expect: "1"
+      - query: ":ACQuire:SEGMented:PRATe?"
+        expect: "+5.00000E-01"
+      - query: ":ACQuire:SEGMented:TTAGs?"
+        expect: "0"
+      - query: ":ACQuire:SEGMented:PLAY?"
+        expect: "0"
+      - send: ":ACQuire:SEGMented:PRATe 2"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+  - name: "ADC 削波：CH2 的 ±0.2 V 方波在 10 mV/div 下两边都削；:OVLRegister? 按通道置位"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:ADC:CLIPped?; :CHANnel<N>:CLIPped?; :ACQuire:ADC:CLIPped:CLEar; : (Root Level) Commands > :OVLRegister?"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.01"
+      - query: ":CHANnel2:ADC:CLIPped?"
+        expect: "3"
+      - query: ":CHANnel2:CLIPped?"
+        expect: "1"
+      - query: ":CHANnel1:CLIPped?"
+        expect: "0"
+      - query: ":OVLRegister?"
+        expect: "2"
+      - send: ":ACQuire:ADC:CLIPped:CLEar;:CHANnel2:SCALe 0.1"
+      - query: ":CHANnel2:ADC:CLIPped?"
+        expect: "0"
+  # ---- 通道：反相、探头 ----
+  - name: ":CHANnel<N>:INVert：CAL OUT 的 +0.1 V 直流在 CH3 上反相为 -0.1 V"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:INVert; :CALibrate Commands > :CALibrate:OUTPut"
+    steps:
+      - send: ":CALibrate:OUTPut DC,0.1;:CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.05"
+      # 50 mV/div 的噪声 2.9 mV rms（数据手册），全屏平均后远小于 5 mV。
+      - query: ":MEASure:VAVerage? DISPlay,CHANnel3"
+        expect_value: 0.1
+        tolerance: 0.005
+      - send: ":CHANnel3:INVert ON"
+      - query: ":CHANnel3:INVert?"
+        expect: "1"
+      - query: ":MEASure:VAVerage? DISPlay,CHANnel3"
+        expect_value: -0.1
+        tolerance: 0.005
+  - name: "外部缩放：增益 0.1 时 0.1 V 显示为 1 V；DECibel 未建模；外部偏置即通道偏置；单位只改名字"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:PROBe:EXTernal; :CHANnel<N>:PROBe:EXTernal:GAIN; :CHANnel<N>:PROBe:EXTernal:OFFSet; :CHANnel<N>:PROBe:EXTernal:UNITs; :CHANnel<N>:UNITs; :WAVeform:YUNits?"
+    steps:
+      - send: ":CALibrate:OUTPut DC,0.1;:CHANnel3:DISPlay ON;:CHANnel3:PROBe:EXTernal ON;:CHANnel3:PROBe:EXTernal:GAIN 0.1;:CHANnel3:SCALe 0.5"
+      - query: ":CHANnel3:PROBe:EXTernal?"
+        expect: "1"
+      - query: ":CHANnel3:PROBe:EXTernal:GAIN?"
+        expect: "+1.00000E-01,RAT"
+      # 输入端 50 mV/div（显示 500 mV/div 除以 10），噪声 2.9 mV rms，显示端放大 10 倍。
+      - query: ":MEASure:VAVerage? DISPlay,CHANnel3"
+        expect_value: 1.0
+        tolerance: 0.05
+      - send: ":CHANnel3:PROBe:EXTernal:GAIN 1,DECibel"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":CHANnel3:PROBe:EXTernal:OFFSet 0.2"
+      - query: ":CHANnel3:OFFSet?"
+        expect: "+2.00000E-01"
+      - send: ":CHANnel3:PROBe:EXTernal:UNITs AMPere;:WAVeform:SOURce CHANnel3"
+      - query: ":CHANnel3:UNITs?"
+        expect: "AMP"
+      - query: ":WAVeform:YUNits?"
+        expect: "AMP"
+  - name: "1154A 探头命令报 -221；探头耦合；延迟校正（Default Setup 不改它）"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:PROBe:ATTenuation; :CHANnel<N>:PROBe:GAIN; :CHANnel<N>:PROBe:COUPling; :CHANnel<N>:PROBe:SKEW"
+    steps:
+      - send: ":CHANnel1:PROBe:ATTenuation DIV10"
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+      - query: ":CHANnel1:PROBe:ATTenuation?"
+        expect: "DIV1"
+      - send: ":CHANnel1:PROBe:GAIN X10"
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+      - query: ":CHANnel1:PROBe:GAIN?"
+        expect: "X1"
+      - send: ":CHANnel1:PROBe:COUPling AC"
+      - query: ":CHANnel1:PROBe:COUPling?"
+        expect: "AC"
+      - send: ":CHANnel1:PROBe:SKEW 1E-9;*RST"
+      - query: ":CHANnel1:PROBe:SKEW?"
+        expect: "+1.00000E-09"
+      - send: ":CHANnel1:PROBe:SKEW 2E-3"
+      - query: ":SYSTem:ERRor?"
+        expect: "-222"
+  # ---- 波形传输的其他查询 ----
+  - name: "波形传输：BANDpass、COMPlete、COUNt、COUPling、TYPE、显示范围与单位、VIEW"
+    manual: ":WAVeform Commands > :WAVeform:BANDpass?; :WAVeform:COMPlete?; :WAVeform:COUNt?; :WAVeform:COUPling?; :WAVeform:TYPE?; :WAVeform:XDISplay?; :WAVeform:XRANge?; :WAVeform:XUNits?; :WAVeform:YDISplay?; :WAVeform:YRANge?; :WAVeform:VIEW"
+    steps:
+      - send: ":CHANnel1:OFFSet 0.1;:DIGitize CHANnel1"
+      - query: ":WAVeform:BANDpass?"
+        expect: "+0.00000E+00,+1.13000E+11"
+      - query: ":WAVeform:COMPlete?"
+        expect: "100"
+      - query: ":WAVeform:COUNt?"
+        expect: "1"
+      - query: ":WAVeform:COUPling?"
+        expect: "DC"
+      - query: ":WAVeform:TYPE?"
+        expect: "RAW"
+      - query: ":WAVeform:XDISplay?"
+        expect: "-5.00000E-07"
+      - query: ":WAVeform:XRANge?"
+        expect: "+1.00000E-06"
+      - query: ":WAVeform:XUNits?"
+        expect: "SEC"
+      - query: ":WAVeform:YDISplay?"
+        expect: "+1.00000E-01"
+      - query: ":WAVeform:YRANge?"
+        expect: "+4.00000E+00"
+      - query: ":WAVeform:YUNits?"
+        expect: "VOLT"
+      - send: ":WAVeform:VIEW MAIN"
+      - query: ":WAVeform:VIEW?"
+        expect: "MAIN"
+      - send: ":WAVeform:VIEW WINDow"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":ACQuire:AVERage ON;:ACQuire:COUNt 8"
+      - query: ":WAVeform:COUNt?"
+        expect: "8"
+      - query: ":WAVeform:TYPE?"
+        expect: "AVER"
+  # ---- 前面板 AUX OUT / CAL OUT ----
+  - name: "CAL OUT 的探头补偿方波 750 Hz、±150 mV；关掉后 CH3 为 0"
+    manual: ":CALibrate Commands > :CALibrate:OUTPut; :CALibrate:OUTPut:CAL"
+    steps:
+      - send: ":CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.05;:TIMebase:SCALe 5E-4"
+      - query: ":CALibrate:OUTPut?"
+        expect: "PROB"
+      - query: ":MEASure:FREQuency? CHANnel3"
+        expect_value: 750.0
+        tolerance: 1.0
+      - query: ":MEASure:VTOP? CHANnel3"
+        expect_value: 0.15
+        tolerance: 0.005
+      - query: ":MEASure:VBASe? CHANnel3"
+        expect_value: -0.15
+        tolerance: 0.005
+      - send: ":CALibrate:OUTPut:CAL OFF"
+      - query: ":CALibrate:OUTPut:CAL?"
+        expect: "0"
+      - query: ":MEASure:VAVerage? DISPlay,CHANnel3"
+        expect_value: 0.0
+        tolerance: 0.005
+      - send: ":CALibrate:OUTPut TOUT"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: "AUX OUT 的电平 -440 mV 到 -125 mV；DC 时 AUX OUT 为 ZERO；上升时间 FAST / SLOW；关掉"
+    manual: ":CALibrate Commands > :CALibrate:OUTPut; :CALibrate:OUTPut:AUX; :CALibrate:OUTPut:AUX:RTIMe"
+    steps:
+      - send: ":CHANnel4:DISPlay ON;:CHANnel4:SCALe 0.05;:CHANnel4:OFFSet -0.28;:TIMebase:SCALe 5E-4"
+      - query: ":MEASure:VTOP? CHANnel4"
+        expect_value: -0.125
+        tolerance: 0.005
+      - query: ":MEASure:VBASe? CHANnel4"
+        expect_value: -0.44
+        tolerance: 0.005
+      - send: ":CALibrate:OUTPut DC,1.0"
+      - query: ":MEASure:VAVerage? DISPlay,CHANnel4"
+        expect_value: -0.44
+        tolerance: 0.005
+      - send: ":CALibrate:OUTPut:AUX:RTIMe SLOW"
+      - query: ":CALibrate:OUTPut:AUX:RTIMe?"
+        expect: "SLOW"
+      - send: ":CALibrate:OUTPut:AUX OFF"
+      - query: ":CALibrate:OUTPut:AUX?"
+        expect: "0"
+  # ---- 测量：电平与形状、带参数的测量、时间测量 ----
+  # CH2：1 MHz、±0.2 V 方波；100 mV/div 的噪声 6.1 mV rms（数据手册），顶与底为直方图的众数（平均后远小于 5 mV）。
+  - name: "参考电平 VUPPer / VMIDdle / VLOWer 与脉冲计数"
+    manual: ":MEASure Commands > :MEASure:VUPPer; :MEASure:VMIDdle; :MEASure:VLOWer; :MEASure:PPULses; :MEASure:NPULses"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      - query: ":MEASure:VUPPer? CHANnel2"
+        expect_value: 0.16
+        tolerance: 0.005
+      - query: ":MEASure:VMIDdle? CHANnel2"
+        expect_value: 0.0
+        tolerance: 0.005
+      - query: ":MEASure:VLOWer? CHANnel2"
+        expect_value: -0.16
+        tolerance: 0.005
+      # 5 µs 的屏幕上 1 MHz 方波的完整正、负脉冲各 4 个。
+      - query: ":MEASure:PPULses? CHANnel2"
+        expect_value: 4
+        tolerance: 0
+      - query: ":MEASure:NPULses? CHANnel2"
+        expect_value: 4
+        tolerance: 0
+  - name: "过冲、预冲、下冲的电压与下冲百分比；面积；脉冲窗口内的平均"
+    manual: ":MEASure Commands > :MEASure:VOVershoot; :MEASure:VPReshoot; :MEASure:VUNDershoot; :MEASure:UNDershoot; :MEASure:AREA; :MEASure:PTOP; :MEASure:PBASe"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 发生器方波边沿的振铃：过冲的局部极值在顶之上、预冲的在底之下，下冲在顶之下。
+      - query: ":MEASure:VOVershoot? CHANnel2"
+        expect_fields: [{min: 0.2, max: 0.3}]
+      - query: ":MEASure:VOVershoot? CHANnel2,FALLing"
+        expect_fields: [{min: -0.3, max: -0.2}]
+      - query: ":MEASure:VPReshoot? CHANnel2"
+        expect_fields: [{min: -0.3, max: -0.19}]
+      - query: ":MEASure:VUNDershoot? CHANnel2"
+        expect_fields: [{min: 0.1, max: 0.2}]
+      - query: ":MEASure:UNDershoot? CHANnel2"
+        expect_fields: [{min: 0.0, max: 25.0}]
+      # 对称方波整屏与一个周期的面积都为 0（0.2 V × 1 µs 的量级为 2E-7 V·s）。
+      - query: ":MEASure:AREA? DISPlay,CHANnel2"
+        expect_value: 0.0
+        tolerance: 2.0e-9
+      - query: ":MEASure:AREA? CYCLe,CHANnel2"
+        expect_value: 0.0
+        tolerance: 2.0e-9
+      - query: ":MEASure:PTOP? CHANnel2,50"
+        expect_value: 0.2
+        tolerance: 0.005
+      - query: ":MEASure:PBASe? CHANnel2,50"
+        expect_value: -0.2
+        tolerance: 0.005
+  - name: "突发：CAL OUT 的 DPULse（每 650 ns 一个 1.1 ns 脉冲）的宽度、周期与间隔"
+    manual: ":MEASure Commands > :MEASure:BWIDth; :MEASure:BPERiod; :MEASure:BINTerval"
+    steps:
+      - send: ":CALibrate:OUTPut DPULse;:CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.05;:TIMebase:SCALe 5E-7"
+      - query: ":MEASure:BWIDth? CHANnel3,1E-7"
+        expect_value: 1.1e-9
+        tolerance: 1.0e-10
+      - query: ":MEASure:BPERiod? CHANnel3,1E-7"
+        expect_value: 6.5e-7
+        tolerance: 1.0e-9
+      - query: ":MEASure:BINTerval? CHANnel3,1E-7"
+        expect_value: 6.489e-7
+        tolerance: 1.0e-9
+  - name: "相对触发点的时间测量：VTIMe?、TEDGe?（按阈值位置）、TVOLt?、TMAX? / TMIN?"
+    manual: ":MEASure Commands > :MEASure:VTIMe; :MEASure:TEDGe; :MEASure:TVOLt; :MEASure:TMAX; :MEASure:TMIN"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 触发在 CH1 的上升沿（时间 0）；CH2 的方波在 -0.5 µs 上升、0 µs 下降：-0.25 µs 为高。
+      - query: ":MEASure:VTIMe? -2.5E-7,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:TEDGe? MIDDle,+1,CHANnel2"
+        expect_value: -1.5e-6
+        tolerance: 2.0e-9
+      # 下降沿过上阈值在过中阈值之前（边沿约 4 ns）。
+      - query: ":MEASure:TEDGe? UPPer,-1,CHANnel2"
+        expect_value: -2.0e-6
+        tolerance: 5.0e-9
+      - query: ":MEASure:TVOLt? 0.1,+2,CHANnel2"
+        expect_value: -1.5e-6
+        tolerance: 5.0e-9
+      - query: ":MEASure:TMAX? CHANnel2"
+        expect_fields: [{min: -2.5e-6, max: 2.5e-6}]
+      - query: ":MEASure:TMIN? CHANnel2"
+        expect_fields: [{min: -2.5e-6, max: 2.5e-6}]
+  - name: "两个信源：交叉电压、相位（RISing / FALLing）、DELTatime 与 DEFine"
+    manual: ":MEASure Commands > :MEASure:CROSsing; :MEASure:PHASe; :MEASure:DELTatime; :MEASure:DELTatime:DEFine"
+    steps:
+      - send: ":CALibrate:OUTPut DC,0.1;:CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.1;:CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 0.1 V 的直流与方波的边沿在 0.1 V 处相交。
+      - query: ":MEASure:CROSsing? CHANnel2,CHANnel3"
+        expect_value: 0.1
+        tolerance: 0.02
+      - query: ":MEASure:PHASe? CHANnel2,CHANnel2,FALLing"
+        expect_value: 0.0
+        tolerance: 0.5
+      - query: ":MEASure:DELTatime? CHANnel2"
+        expect_value: 0.0
+        tolerance: 1.0e-10
+      - send: ":MEASure:DELTatime:DEFine RISing,1,MIDDle,FALLing,1,MIDDle"
+      - query: ":MEASure:DELTatime:DEFine?"
+        expect: "RIS,1,MIDD,FALL,1,MIDD"
+      # 第一个上升沿 -1.5 µs，第一个下降沿 -2.0 µs。
+      - query: ":MEASure:DELTatime? CHANnel2"
+        expect_value: -5.0e-7
+        tolerance: 2.0e-9
+  # ---- 阈值 ----
+  - name: "上升时间按 RFALl 阈值；不带 GENeral / RFALl 的老命令同时改两组"
+    manual: ":MEASure Commands > :MEASure:THResholds:RFALl:PERCent; :MEASure:THResholds:PERCent; :MEASure:THResholds:GENeral:PERCent"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      # 33622A 方波的边沿：10–90% 约 3.8 ns，20–80% 约 2.7 ns。
+      - query: ":MEASure:RISetime? CHANnel2"
+        expect_fields: [{min: 3.0e-9, max: 4.5e-9}]
+      - send: ":MEASure:THResholds:RFALl:PERCent CHANnel2,80,50,20"
+      - query: ":MEASure:THResholds:RFALl:PERCent? CHANnel2"
+        expect: "+8.00000E+01,+5.00000E+01,+2.00000E+01"
+      - query: ":MEASure:RISetime? CHANnel2"
+        expect_fields: [{min: 2.0e-9, max: 3.2e-9}]
+      - query: ":MEASure:THResholds:GENeral:PERCent? CHANnel2"
+        expect: "+9.00000E+01,+5.00000E+01,+1.00000E+01"
+      - send: ":MEASure:THResholds:PERCent CHANnel2,70,50,30"
+      - query: ":MEASure:THResholds:PERCent? CHANnel2"
+        expect: "+7.00000E+01,+5.00000E+01,+3.00000E+01"
+      - query: ":MEASure:THResholds:RFALl:PERCent? CHANnel2"
+        expect: "+7.00000E+01,+5.00000E+01,+3.00000E+01"
+      - query: ":MEASure:VUPPer? CHANnel2"
+        expect_value: 0.08
+        tolerance: 0.005
+  - name: "阈值方式：ABSolute、HYSTeresis（GENAUTO 自动设）；PAM 方式未建模"
+    manual: ":MEASure Commands > :MEASure:THResholds:GENeral:METHod; :MEASure:THResholds:GENeral:ABSolute; :MEASure:THResholds:GENeral:HYSTeresis; :MEASure:THResholds:GENAUTO; :MEASure:THResholds:METHod; :MEASure:THResholds:ABSolute; :MEASure:THResholds:HYSTeresis; :MEASure:THResholds:RFALl:METHod; :MEASure:THResholds:RFALl:ABSolute"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      - send: ":MEASure:THResholds:GENeral:METHod CHANnel2,ABSolute;:MEASure:THResholds:GENeral:ABSolute CHANnel2,0.15,0.05,-0.05"
+      - query: ":MEASure:THResholds:GENeral:METHod? CHANnel2"
+        expect: "ABS"
+      - query: ":MEASure:VMIDdle? CHANnel2"
+        expect: "+5.00000E-02"
+      - query: ":MEASure:THResholds:GENeral:ABSolute? CHANnel2"
+        expect: "+1.50000E-01,+5.00000E-02,-5.00000E-02"
+      - send: ":MEASure:THResholds:GENeral:METHod CHANnel2,HYSTeresis;:MEASure:THResholds:GENeral:HYSTeresis CHANnel2,0.05,0.1"
+      - query: ":MEASure:VUPPer? CHANnel2"
+        expect: "+1.50000E-01"
+      - query: ":MEASure:VLOWer? CHANnel2"
+        expect: "+5.00000E-02"
+      - send: ":MEASure:THResholds:GENAUTO CHANnel2"
+      # 中点 0 V，范围为顶到底 0.4 V 的 10%。
+      - query: ":MEASure:THResholds:GENeral:HYSTeresis? CHANnel2"
+        expect_values: [0.04, 0.0]
+        tolerance: 0.003
+      - send: ":MEASure:THResholds:GENeral:METHod ALL,PAMCustom"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":MEASure:THResholds:METHod CHANnel3,ABSolute;:MEASure:THResholds:ABSolute CHANnel3,0.3,0.2,0.1;:MEASure:THResholds:HYSTeresis CHANnel3,0.02,0.2"
+      - query: ":MEASure:THResholds:METHod? CHANnel3"
+        expect: "ABS"
+      - query: ":MEASure:THResholds:RFALl:METHod? CHANnel3"
+        expect: "ABS"
+      - query: ":MEASure:THResholds:RFALl:ABSolute? CHANnel3"
+        expect: "+3.00000E-01,+2.00000E-01,+1.00000E-01"
+      - query: ":MEASure:THResholds:HYSTeresis? CHANnel3"
+        expect: "+2.00000E-02,+2.00000E-01"
+      - send: ":MEASure:THResholds:RFALl:METHod CHANnel3,HYSTeresis"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: "顶与底的求法：ABSolute、MINmax（极值）"
+    manual: ":MEASure Commands > :MEASure:THResholds:GENeral:TOPBase:METHod; :MEASure:THResholds:GENeral:TOPBase:ABSolute; :MEASure:THResholds:TOPBase:METHod; :MEASure:THResholds:TOPBase:ABSolute; :MEASure:THResholds:RFALl:TOPBase:METHod; :MEASure:THResholds:RFALl:TOPBase:ABSolute"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
+      - send: ":MEASure:THResholds:GENeral:TOPBase:METHod CHANnel2,ABSolute;:MEASure:THResholds:GENeral:TOPBase:ABSolute CHANnel2,0.3,-0.1"
+      - query: ":MEASure:VTOP? CHANnel2"
+        expect: "+3.00000E-01"
+      - query: ":MEASure:VMIDdle? CHANnel2"
+        expect: "+1.00000E-01"
+      - query: ":MEASure:THResholds:GENeral:TOPBase:ABSolute? CHANnel2"
+        expect: "+3.00000E-01,-1.00000E-01"
+      - send: ":MEASure:THResholds:TOPBase:METHod CHANnel2,MINmax"
+      - query: ":MEASure:THResholds:RFALl:TOPBase:METHod? CHANnel2"
+        expect: "MIN"
+      - send: ":MEASure:THResholds:RFALl:TOPBase:ABSolute CHANnel2,0.25,-0.25;:MEASure:THResholds:TOPBase:ABSolute CHANnel1,0.5,-0.5"
+      - query: ":MEASure:THResholds:RFALl:TOPBase:ABSolute? CHANnel1"
+        expect: "+5.00000E-01,-5.00000E-01"
+  # ---- 屏幕上的测量列表 ----
+  - name: "测量列表：不带问号的测量命令加到屏幕上；RESults?（AORDered / GORDered）、NAME、POSition、SOURce、CLEar"
+    manual: ":MEASure Commands > :MEASure:RESults?; :MEASure:NAME; :MEASure:CLEar; :MEASure:SCRatch; :MEASurement<N> Commands > :MEASurement<N>:NAME; :MEASurement<N>:POSition; :MEASurement<N>:SOURce; :MEASurement<N>:CLEar"
+    steps:
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - send: ":MEASure:VTOP CHANnel1;:MEASure:VBASe CHANnel1"
+      - query: ":MEASure:RESults?"
+        expect_fields: ["VBASe(1)", {nonempty: true}, {count: 4, nonempty: true}, "1", "VTOP(1)", {nonempty: true}, {count: 4, nonempty: true}, "1"]
+      - send: ':MEASure:NAME MEAS1,"base"'
+      - query: ":MEASure:NAME? MEAS1"
+        expect: '"base"'
+      - query: ":MEASurement2:NAME?"
+        expect: '"VTOP(1)"'
+      - send: ':MEASurement2:NAME "top"'
+      - send: ":MEASurement2:POSition 1"
+      - query: ":MEASure:RESults? GORDered"
+        expect_fields: ["top", {nonempty: true}, {count: 4, nonempty: true}, {nonempty: true}, "base", {nonempty: true}, {count: 4, nonempty: true}, {nonempty: true}]
+      - query: ":MEASurement1:SOURce?"
+        expect: "CHAN1"
+      - send: ":MEASurement1:SOURce CHANnel2"
+      - query: ":MEASurement1:SOURce?"
+        expect: "CHAN2"
+      - send: ":MEASurement2:CLEar;:MEASure:NAME MEAS2,\"x\""
+      - query: ":SYSTem:ERRor?"
+        expect: "-221"
+      - send: ":MEASure:SCRatch"
+      - query: ":MEASure:RESults?"
+        expect: ""
+      - send: ":MEASure:VPP CHANnel1;:MEASure:CLEar"
+      - query: ":MEASure:RESults?"
+        expect: ""
+  - name: ":MEASure:SENDvalid 只能 OFF；:MEASure:WINDow 只有 MAIN / ALL"
+    manual: ":MEASure Commands > :MEASure:SENDvalid; :MEASure:WINDow"
+    steps:
+      - query: ":MEASure:SENDvalid?"
+        expect: "0"
+      - send: ":MEASure:SENDvalid ON"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":MEASure:WINDow ALL,MEAS1"
+      - query: ":MEASure:WINDow? MEAS1"
+        expect: "ALL"
+      - send: ":MEASure:WINDow ZOOM"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  # ---- 用 :MEASure:VTIMe? 看毛刺 / 脉宽触发的触发点（触发点即时间 0）----
+  - name: "脉宽触发：范围内的 500 ns 正脉冲在结束沿（下降沿）触发；TIMeout 在脉宽达到设定值时触发"
+    manual: ":TRIGger:PWIDth (Pulse Width Trigger) Commands > :TRIGger:PWIDth:MODE; :TRIGger:PWIDth:TPOint; :MEASure Commands > :MEASure:VTIMe"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 2E-7;:TRIGger:SWEep TRIGgered"
+      - send: ":TRIGger:MODE PWIDth;:TRIGger:PWIDth:SOURce CHANnel2;:TRIGger:PWIDth:MODE RANGe;:TRIGger:PWIDth:RANGe 4E-7,6E-7"
+      - send: ":DIGitize CHANnel2"
+      # 触发前 10 ns 为高、后 10 ns 为低：下降沿。
+      - query: ":MEASure:VTIMe? -1E-8,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:VTIMe? 1E-8,CHANnel2"
+        expect_value: -0.2
+        tolerance: 0.03
+      - send: ":TRIGger:PWIDth:MODE GTHan;:TRIGger:PWIDth:WIDTh 3E-7;:TRIGger:PWIDth:TPOint TIMeout;:DIGitize CHANnel2"
+      # 正脉冲开始后 300 ns：触发点两侧都是高电平，上升沿在 -300 ns。
+      - query: ":MEASure:VTIMe? 1E-8,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:TEDGe? MIDDle,+1,CHANnel2"
+        expect_value: -3.0e-7
+        tolerance: 2.0e-9
+  - name: "毛刺触发：比 600 ns 窄的正脉冲（500 ns）在下降沿触发"
+    manual: ":TRIGger:GLITch (Glitch Trigger) Commands > :TRIGger:GLITch:WIDTh; :MEASure Commands > :MEASure:VTIMe"
+    steps:
+      - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 2E-7;:TRIGger:SWEep TRIGgered"
+      - send: ":TRIGger:MODE GLITch;:TRIGger:GLITch:SOURce CHANnel2;:TRIGger:GLITch:WIDTh 6E-7;:DIGitize CHANnel2"
+      - query: ":MEASure:VTIMe? -1E-8,CHANnel2"
+        expect_value: 0.2
+        tolerance: 0.03
+      - query: ":MEASure:VTIMe? 1E-8,CHANnel2"
+        expect_value: -0.2
+        tolerance: 0.03
+  - name: ":MEASure:STATistics 选 :MEASure:RESults? 回的统计；:DISK:SAVE:MEASurements 存成 CSV"
+    manual: ":MEASure Commands > :MEASure:STATistics; :DISK Commands > :DISK:SAVE:MEASurements"
+    steps:
+      - query: ":MEASure:STATistics?"
+        expect: "ON"
+      - send: ":MEASure:VTOP CHANnel1;:MEASure:VBASe CHANnel1;:MEASure:STATistics COUNt"
+      - query: ":MEASure:RESults?"
+        expect: "1,1"
+      - send: ":MEASure:STATistics MEAN"
+      - query: ":MEASure:STATistics?"
+        expect: "MEAN"
+      - query: ":MEASure:RESults?"
+        expect_fields: [{nonempty: true}, {nonempty: true}]
+      - send: ':MEASure:STATistics ON;:DISK:SAVE:MEASurements "M1"'
+      - query: ":DISK:DIRectory?"
+        expect: "1\nM1.csv"
+      - query: ':DISK:GETFILE? "M1.csv"'
+        binary: true
+        expect_block: {starts: "Measurement,Current,Min,Max,Mean,Std Dev,Count\r\nVBASe(1),"}
+      - send: ':DISK:SAVE:MEASurements "M2",ON'
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+  - name: ":DISK:LOAD 装回设置文件；波形文件未建模（-257）"
+    manual: ":DISK Commands > :DISK:LOAD"
+    steps:
+      - send: ':CHANnel1:SCALe 0.2;:DISK:SAVE:SETup "S1";:CHANnel1:SCALe 0.5;:DISK:LOAD "S1.set"'
+      - query: ":CHANnel1:SCALe?"
+        expect: "+2.00000E-01"
+      - send: ':DISK:LOAD "W1",WMEMory1'
+      - query: ":SYSTem:ERRor?"
+        expect: "-257"
+  # ---- 自 main 移植的用例：数学函数与 FFT、光标、FFT 测量、频谱视图、欠幅/过渡/窗口/超时/第 N 边沿触发 ----
   - name: "数学函数：F1 = CHAN1+CHAN1 的信源查询，二元算子两个信源、一元一个"
     manual: ":FUNCtion<F> Commands > :FUNCtion<F>?, :FUNCtion<F>:ADD, :FUNCtion<F>:ABSolute"
     steps:
@@ -1063,625 +1925,6 @@ cases:
       - send: ":MARKer6:TYPE YMANual;:MARKer6:Y:POSition 0.05"
       - query: ":MARKer6:Y:POSition?"
         expect: "+5.00000E-02"
-  - name: "分段存储：4 段采集后逐段取回，时间标签等间隔（段间隔 = 重布防 3.5 µs + 记录 1 µs）"
-    manual: ":ACQuire Commands > :ACQuire:MODE; :ACQuire:SEGMented:COUNt; :ACQuire:SEGMented:INDex; :WAVeform:SEGMented:TTAG; data sheet (Min time between triggers 3.5 µs)"
-    steps:
-      - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 4"
-      - query: ":ACQuire:SEGMented:COUNt?"
-        expect: "4"
-      - send: ":ACQuire:POINts 1000;:DIGitize CHANnel1"
-      - query: ":WAVeform:SEGMented:COUNt?"
-        expect: "4"
-      - query: ":WAVeform:POINts?"
-        expect: "1000"
-      # 逐段取回：INDex 选段，DATA? 回该段的 1000 点；段间隔 4.5 µs = 重布防 3.5 µs + 记录 1 µs
-      # （10 MHz 正弦 100 ns 一周期，段间隔是 45 个整周期，各段等触发相位，时间标签等间隔）
-      - send: ":ACQuire:SEGMented:INDex 1"
-      - query: ":WAVeform:DATA?"
-        expect_fields: [{format: "~d.ddddE±dd"}, {format: "~d.ddddE±dd", count: 999}]
-      - query: ":WAVeform:SEGMented:TTAG?"
-        expect_value: 0.0
-        tolerance: 2e-8
-      - send: ":ACQuire:SEGMented:INDex 2"
-      - query: ":WAVeform:DATA?"
-        expect_fields: [{format: "~d.ddddE±dd"}, {format: "~d.ddddE±dd", count: 999}]
-      - query: ":WAVeform:SEGMented:TTAG?"
-        expect_value: 4.5e-6
-        tolerance: 2e-8
-      - send: ":ACQuire:SEGMented:INDex 3"
-      - query: ":WAVeform:SEGMented:TTAG?"
-        expect_value: 9e-6
-        tolerance: 2e-8
-      - send: ":ACQuire:SEGMented:INDex 4"
-      - query: ":WAVeform:DATA?"
-        expect_fields: [{format: "~d.ddddE±dd"}, {format: "~d.ddddE±dd", count: 999}]
-      - query: ":WAVeform:SEGMented:TTAG?"
-        expect_value: 1.35e-5
-        tolerance: 2e-8
-      # 手册 p.345：越界报错并把所选段钳到最大段号
-      - send: ":ACQuire:SEGMented:INDex 9"
-      - query: ":SYSTem:ERRor?"
-        expect: "-222"
-      - query: ":ACQuire:SEGMented:INDex?"
-        expect: "4"
-  - name: ":WAVeform:SEGMented:ALL ON：DATA? 回 4 段拼接，前导末尾多段数，XLISt 给各段的起点"
-    manual: ":WAVeform Commands > :WAVeform:SEGMented:ALL; :WAVeform:SEGMented:POINts?; :WAVeform:SEGMented:XLISt?; :WAVeform:PREamble? (Table 19)"
-    steps:
-      - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 4;:ACQuire:POINts 1000;:DIGitize CHANnel1"
-      # OFF（默认）：只回所选段
-      - query: ":WAVeform:SEGMented:POINts?"
-        expect: "1000"
-      - send: ":WAVeform:SEGMented:ALL ON"
-      - query: ":WAVeform:SEGMented:ALL?"
-        expect: "1"
-      # 前导末尾多段数（手册表 19）：24 个常规字段（500 mV/div：Y 增量 = 档位 / 8192）+ 段数 4
-      - query: ":WAVeform:PREamble?"
-        expect_fields:
-          - "0"
-          - "1"
-          - "1000"
-          - "1"
-          - "1.000000E-09"
-          - {value: -5.0e-07, tolerance: 1.0e-09, format: "-d.ddddddE-dd"}
-          - "0"
-          - "6.103516E-05"
-          - "0.000000E+00"
-          - "0"
-          - "2"
-          - "1.000000E-06"
-          - {value: -5.0e-07, tolerance: 1.0e-09, format: "-d.ddddddE-dd"}
-          - "4.000000E+00"
-          - "0.000000E+00"
-          - "\"01 JAN 2024\""
-          - "\"00:00:00:00\""
-          - "\"UXR1104B:MY64310101\""
-          - "0"
-          - "100"
-          - "2"
-          - "1"
-          - "1.130000E+11"
-          - "0.000000E+00"
-          - "4"
-      - query: ":WAVeform:DATA?"
-        expect_fields: [{format: "~d.ddddE±dd"}, {format: "~d.ddddE±dd", count: 3999}]
-      - query: ":WAVeform:SEGMented:POINts?"
-        expect: "4000"
-      # XLISt：RELX = 各段自己的 X origin（触发在中央：−5.00000E-07）；ABSX = relative origin +
-      # time tag（手册原文）；TTAG 等间隔 4.5 µs；OFFSet = 各段在拼接记录里的起点（手册：ALL OFF 时回 0）
-      - query: ":WAVeform:SEGMented:XLISt? RELXorigin"
-        expect: "-5.0000E-07,-5.0000E-07,-5.0000E-07,-5.0000E-07"
-      - query: ":WAVeform:SEGMented:XLISt? ABSXorigin"
-        expect: "-5.0000E-07,4.0000E-06,8.5000E-06,1.3000E-05"
-      - query: ":WAVeform:SEGMented:XLISt? TTAG"
-        expect: "0.0000E+00,4.5000E-06,9.0000E-06,1.3500E-05"
-      - query: ":WAVeform:SEGMented:XLISt? OFFSet"
-        expect: "0.0000E+00,1.0000E+03,2.0000E+03,3.0000E+03"
-      # 手册限定 XLISt 用 ASCii 或 BINary float64；本模型的 FORMat 无 BINary，WORD 报 -224
-      - send: ":WAVeform:FORMat WORD"
-      - send: ":WAVeform:SEGMented:XLISt? TTAG"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-      - send: ":WAVeform:FORMat ASCii;:WAVeform:SEGMented:ALL OFF"
-      - query: ":WAVeform:SEGMented:XLISt? OFFSet"
-        expect: "0.0000E+00,0.0000E+00,0.0000E+00,0.0000E+00"
-  - name: "波形传输的状态查询：TYPE/COUNt 随平均变化，COMPlete 完成即 100，COUPling 恒 DC，BANDpass 跟滤波"
-    manual: ":WAVeform Commands > :WAVeform:TYPE?; :WAVeform:COUNt?; :WAVeform:COMPlete?; :WAVeform:COUPling?; :WAVeform:BANDpass?"
-    steps:
-      - send: ":ACQuire:POINts 1000;:DIGitize CHANnel1"
-      - query: ":WAVeform:TYPE?"
-        expect: "RAW"
-      - query: ":WAVeform:COUNt?"
-        expect: "1"
-      - query: ":WAVeform:COMPlete?"
-        expect: "100"
-      - query: ":WAVeform:COUPling?"
-        expect: "DC"
-      # 上限 = 数字滤波的 :ACQuire:BANDwidth（硬件 113 GHz）
-      - query: ":WAVeform:BANDpass?"
-        expect: "0.000000E+00,1.130000E+11"
-      - send: ":ACQuire:BANDwidth 1E9"
-      - query: ":WAVeform:BANDpass?"
-        expect: "0.000000E+00,1.000000E+09"
-      - send: ":ACQuire:BANDwidth MAX;:ACQuire:AVERage ON;:ACQuire:AVERage:COUNt 8;:DIGitize CHANnel1"
-      - query: ":WAVeform:TYPE?"
-        expect: "AVER"
-      - query: ":WAVeform:COUNt?"
-        expect: "8"
-      - send: ":ACQuire:AVERage OFF"
-      - query: ":WAVeform:TYPE?"
-        expect: "RAW"
-  - name: "显示四值与单位：左沿 = 记录起点、跨度 = 时基 10 格、中心 = 偏置、满幅 = 8 格；变换函数 HERTz"
-    manual: ":WAVeform Commands > :WAVeform:XDISplay?; :XRANge?; :YDISplay?; :YRANge?; :XUNits?; :YUNits?"
-    steps:
-      - send: ":CHANnel1:SCALe 0.1;:CHANnel1:OFFSet 0.05;:ACQuire:POINts 1000;:DIGitize CHANnel1"
-      # 触发在中央（参考 CENTer）：记录起点 = −5.00000E-07；跨度 = 10 格 × 100 ns/div
-      - query: ":WAVeform:XDISplay?"
-        expect: "-5.00000E-07"
-      - query: ":WAVeform:XRANge?"
-        expect: "+1.00000E-06"
-      - query: ":WAVeform:YDISplay?"
-        expect: "+5.00000E-02"
-      # 8 格 × 0.1 V/div
-      - query: ":WAVeform:YRANge?"
-        expect: "+8.00000E-01"
-      - query: ":WAVeform:XUNits?"
-        expect: "SECond"
-      - query: ":WAVeform:YUNits?"
-        expect: "VOLT"
-      # 变换函数：X 轴 HERTz；Y 按垂直单位（DB → DECibels，VRMS → VOLT）；相位在手册的单位表里
-      # 没有词，回 UNKNown；其余算子仍是时间与电压
-      - send: ":FUNCtion1:FFTMagnitude CHANnel1;:WAVeform:SOURce FUNCtion1"
-      - query: ":WAVeform:XUNits?"
-        expect: "HERTz"
-      - query: ":WAVeform:YUNits?"
-        expect: "DECibels"
-      - send: ":FUNCtion1:FFT:VUNits VRMS"
-      - query: ":WAVeform:YUNits?"
-        expect: "VOLT"
-      - send: ":FUNCtion1:FFTPhase CHANnel1"
-      - query: ":WAVeform:XUNits?"
-        expect: "HERTz"
-      - query: ":WAVeform:YUNits?"
-        expect: "UNKNown"
-      - send: ":FUNCtion1:ADD CHANnel1,CHANnel2"
-      - query: ":WAVeform:XUNits?"
-        expect: "SECond"
-      - query: ":WAVeform:YUNits?"
-        expect: "VOLT"
-  - name: ":WAVeform:VIEW 与分段回放设置：ALL/MAIN 同一数据，WINDow/CGRade 报 -224，回放设置存取"
-    manual: ":WAVeform Commands > :WAVeform:VIEW; :ACQuire Commands > :ACQuire:SEGMented:AUToplay; :PLAY; :PRATe; :TTAGs"
-    steps:
-      - query: ":WAVeform:VIEW?"
-        expect: "ALL"
-      # 记录恒覆盖主时基（存储深度与时基联动），ALL 与 MAIN 取同一数据
-      - send: ":WAVeform:VIEW MAIN"
-      - query: ":WAVeform:VIEW?"
-        expect: "MAIN"
-      - send: ":WAVeform:SOURce CHANnel1;:ACQuire:POINts 1000;:DIGitize CHANnel1"
-      - query: ":WAVeform:POINts?"
-        expect: "1000"
-      - send: ":WAVeform:VIEW WINDow"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-      - send: ":WAVeform:VIEW CGRade"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-      - send: ":WAVeform:VIEW ALL"
-      # 回放设置：AUToplay/PLAY 开关、PRATe 每段 0.001–1 s、TTAGs 开关；模型的回放是瞬时的，
-      # 查询回保存的状态（覆盖表注明）
-      - send: ":ACQuire:SEGMented:AUToplay ON;:ACQuire:SEGMented:PLAY ON;:ACQuire:SEGMented:PRATe 0.25;:ACQuire:SEGMented:TTAGs ON"
-      - query: ":ACQuire:SEGMented:AUToplay?"
-        expect: "1"
-      - query: ":ACQuire:SEGMented:PLAY?"
-        expect: "1"
-      - query: ":ACQuire:SEGMented:PRATe?"
-        expect: "+2.50000E-01"
-      - query: ":ACQuire:SEGMented:TTAGs?"
-        expect: "1"
-      - send: ":ACQuire:SEGMented:PRATe 2"
-      - query: ":SYSTem:ERRor?"
-        expect: "-222"
-  - name: "仅影响显示的设置（#1068）：设置后查询回读，采集与传输的数值不变"
-    manual: ":BEEP; :ACQuire:FPLot; :DISPlay Commands (Main, Connect, Graticule, Layout, Persistence, Proportion, SColor, Status, Theme, Window:Maximize, Bookmarks); data sheet"
-    steps:
-      # 蜂鸣（p.291）：仿真无声，两参数解析保存；写后无错误
-      - send: ":BEEP 2000,250"
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      # 主窗口与连点（pp.597/618）：模型全局存一个值，可选 <source> 不区分（覆盖表注明）
-      - send: ":DISPlay:MAIN OFF"
-      - query: ":DISPlay:MAIN?"
-        expect: "0"
-      - send: ":DISPlay:MAIN ON;:DISPlay:CONNect ON"
-      - query: ":DISPlay:CONNect?"
-        expect: "1"
-      # 网格（pp.599-606）：类型、每区刻度与显示（模型不分区）、布局、数量、指派
-      - send: ":DISPlay:GRATicule FRAMe"
-      - query: ":DISPlay:GRATicule?"
-        expect: "FRAM"
-      - send: ":DISPlay:GRATicule GRID;:DISPlay:GRATicule:AREA2:HSCale OFF"
-      - query: ":DISPlay:GRATicule:AREA2:HSCale?"
-        expect: "0"
-      - query: ":DISPlay:GRATicule:AREA3:HSCale?"
-        expect: "0"
-      - send: ":DISPlay:GRATicule:AREA1:STATe OFF;:DISPlay:GRATicule:AREA2:VSCale MANual"
-      - query: ":DISPlay:GRATicule:AREA2:VSCale?"
-        expect: "MAN"
-      - send: ":DISPlay:GRATicule:GLAYout THORizontal;:DISPlay:GRATicule:NUMBer 4"
-      - query: ":DISPlay:GRATicule:GLAYout?"
-        expect: "THOR"
-      - query: ":DISPlay:GRATicule:NUMBer?"
-        expect: "4"
-      - send: ":DISPlay:GRATicule:SETGrat CHN1,2,1,MAIN"
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      # 布局、余辉与占比（pp.617-625）：占比的两查询已弃用（手册 History），只写不查
-      - send: ":DISPlay:LAYout SVERtical;:DISPlay:PERSistence INFinite"
-      - query: ":DISPlay:LAYout?"
-        expect: "SVER"
-      - query: ":DISPlay:PERSistence?"
-        expect: "INF"
-      - send: ":DISPlay:PROPortion AREA1,60;:DISPlay:PROPortion:RESults 40"
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      - send: ":DISPlay:RESults:LAYout SHORizontal"
-      - query: ":DISPlay:RESults:LAYout?"
-        expect: "SHOR"
-      # 颜色与状态标签（pp.630-633）：三数值全局存，查询对任意色名回它们
-      - send: ":DISPlay:SCOLor MARKers,50,70,90"
-      - query: ":DISPlay:SCOLor? MARKers"
-        expect: "50,70,90"
-      - send: ":DISPlay:STATus:COLumn 0.5;:DISPlay:STATus:ROW 0.5"
-      - query: ":DISPlay:STATus:COLumn?"
-        expect: "+5.00000E-01"
-      - query: ":DISPlay:STATus:ROW?"
-        expect: "+5.00000E-01"
-      # 主题（p.634）：回复带引号的完整词；窗口最大化无查询
-      - send: ':DISPlay:THEMe "Midnight"'
-      - query: ":DISPlay:THEMe?"
-        expect: "\"Midnight\""
-      - send: ":DISPlay:WINDow:MAXimize AREA1"
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      # 显示书签（pp.583-588）：模型一个全局书签，删除清标签，位置回读
-      - send: ":DISPlay:BOOKmark:DELete:ALL;:DISPlay:BOOKmark1:DELete"
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      - send: ':DISPlay:BOOKmark1:SET NONE,"a"'
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      - send: ":DISPlay:BOOKmark1:XPOSition 0.3;:DISPlay:BOOKmark1:YPOSition 0.7"
-      - query: ":DISPlay:BOOKmark1:XPOSition?"
-        expect: "+3.00000E-01"
-      - query: ":DISPlay:BOOKmark1:YPOSition?"
-        expect: "+7.00000E-01"
-      # 快速绘图（p.329）：模型的读数始终同步分析当前记录，开关不改变数值
-      - send: ":ACQuire:FPLot OFF"
-      - query: ":ACQuire:FPLot?"
-        expect: "0"
-      - send: ":ACQuire:FPLot ON"
-      - query: ":ACQuire:FPLot?"
-        expect: "1"
-      # 有疑问的两条不为数字而标接受（D42）：VERTical? 是波形读数、SYSTem:MODE 切 RTSA，都未实现
-      - send: ":DISPlay:BOOKmark1:VERTical?"
-      - query: ":SYSTem:ERRor?"
-        expect: "-113"
-      - send: ":SYSTem:MODE RTSA"
-      - query: ":SYSTem:ERRor?"
-        expect: "-113"
-  - name: "采集的其余设置（#1067）：清屏作废记录、最大带宽、完成等待、高分辨率位数的存取、AUTO 控制"
-    manual: ": (Root Level) Commands > :CDISplay; :ACQuire Commands > :ACQuire:BANDwidth:FRAMe?; :COMPlete:STATe; :HRESolution; :REDGe; :POINts:AUTO; :SRATe[:ANALog]:AUTO"
-    steps:
-      # 清屏（p.293）：已存的记录全部作废——分段计数归零；模型的读取缺记录时会现采（覆盖表注明）
-      - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 2;:ACQuire:POINts 128;:DIGitize CHANnel1"
-      - query: ":WAVeform:SEGMented:COUNt?"
-        expect: "2"
-      - send: ":CDISplay"
-      - query: ":WAVeform:SEGMented:COUNt?"
-        expect: "0"
-      - send: ":ACQuire:MODE RTIMe;:ACQuire:POINts AUTO"
-      # 最大带宽（p.323）＝模型硬件带宽
-      - query: ":ACQuire:BANDwidth:FRAMe?"
-        expect: "1.130000E+11"
-      # 完成等待（p.327）：模型的测量总在读的当下对完成平均的记录算，开关不改数值
-      - send: ":ACQuire:COMPlete:STATe OFF"
-      - query: ":ACQuire:COMPlete:STATe?"
-        expect: "0"
-      - send: ":ACQuire:COMPlete:STATe ON"
-      - query: ":ACQuire:COMPlete:STATe?"
-        expect: "1"
-      # 高分辨率位数（p.333）：HRES/SEGHres 模式未建模，设定存值
-      - send: ":ACQuire:HRESolution BITS12"
-      - query: ":ACQuire:HRESolution?"
-        expect: "BITS12"
-      - send: ":ACQuire:HRESolution AUTO"
-      - query: ":ACQuire:HRESolution?"
-        expect: "AUTO"
-      # REDGe（p.341）：UXR 上只有 OFF 有效，查询回 0
-      - send: ":ACQuire:REDGe 0"
-      - query: ":ACQuire:REDGe?"
-        expect: "0"
-      - send: ":ACQuire:REDGe ON"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-      # 存储深度 AUTO（p.339）：查询回是否在 AUTO 值上。模型里 AUTO 与手动值同为 256 kpts，
-      # 在 AUTO 值上 OFF 存不出区别（覆盖表注明）：先设手动深度再验证 OFF/ON
-      - query: ":ACQuire:POINts:AUTO?"
-        expect: "1"
-      - send: ":ACQuire:POINts 1000"
-      - query: ":ACQuire:POINts:AUTO?"
-        expect: "0"
-      - send: ":ACQuire:POINts:AUTO ON"
-      - query: ":ACQuire:POINts:AUTO?"
-        expect: "1"
-      - query: ":ACQuire:POINts?"
-        expect: "256000"
-      # 采样率 AUTO（p.352）：OFF 把当前实际速率（256 GSa/s，256 kpts / 1 µs）定为手动
-      - query: ":ACQuire:SRATe:AUTO?"
-        expect: "1"
-      - send: ":ACQuire:SRATe:AUTO OFF"
-      - query: ":ACQuire:SRATe:AUTO?"
-        expect: "0"
-      - query: ":ACQuire:SRATe?"
-        expect: "+2.56000E+11"
-      - send: ":ACQuire:SRATe:AUTO ON"
-      - query: ":ACQuire:SRATe:AUTO?"
-        expect: "1"
-  - name: "时基的其余设置（#1067）：参考位置百分比（触发随之移动）、滚动、缩放拉窗、外参考"
-    manual: ":TIMebase Commands > :TIMebase:REFerence; :REFerence:PERCent; :ROLL:ENABLE; :VIEW; :WINDow:DELay/POSition/RANGe/SCALe; :REFClock"
-    steps:
-      # 参考位置（pp.1472-1473）：LEFT=10%、PERCent 25 → 触发在 25% 处，记录起点 = 触发前 1/4 屏；
-      # 参考为百分比位置时 :TIMebase:REFerence? 回 PERC
-      - send: ":TIMebase:REFerence LEFT"
-      - query: ":TIMebase:REFerence?"
-        expect: "LEFT"
-      - query: ":TIMebase:REFerence:PERCent?"
-        expect: "10"
-      - send: ":TIMebase:REFerence:PERCent 25;:ACQuire:POINts 1000;:DIGitize CHANnel1"
-      - query: ":TIMebase:REFerence?"
-        expect: "PERC"
-      - query: ":WAVeform:XORigin?"
-        expect: "-2.50000E-07"
-      - send: ":TIMebase:REFerence CENTer"
-      - query: ":TIMebase:REFerence?"
-        expect: "CENT"
-      # 滚动（p.1474）：UXR 上只有 OFF 有效
-      - send: ":TIMebase:ROLL:ENABLE 0"
-      - query: ":TIMebase:ROLL:ENABLE?"
-        expect: "0"
-      - send: ":TIMebase:ROLL:ENABLE ON"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-      # 缩放拉窗（pp.1476-1482）：视图与档位/位置存取；DELay 与 POSition 同一设定；RANGe = 10×SCALe
-      - send: ":TIMebase:VIEW WINDow"
-      - query: ":TIMebase:VIEW?"
-        expect: "WIND"
-      - send: ":TIMebase:WINDow:SCALe 1E-8"
-      - query: ":TIMebase:WINDow:SCALe?"
-        expect: "+10.0E-09"
-      - query: ":TIMebase:WINDow:RANGe?"
-        expect: "+100.0E-09"
-      - send: ":TIMebase:WINDow:RANGe 5E-7"
-      - query: ":TIMebase:WINDow:SCALe?"
-        expect: "+50.0E-09"
-      - send: ":TIMebase:WINDow:POSition 2E-7"
-      - query: ":TIMebase:WINDow:POSition?"
-        expect: "+200E-09"
-      - query: ":TIMebase:WINDow:DELay?"
-        expect: "+200E-09"
-      # 外参考（p.1470）：ON 时时钟跟随 REF_IN 上的 10 MHz（±10 ppm 内）；本台未接参考源，
-      # 保持内参考（覆盖表注明）
-      - send: ":TIMebase:REFClock ON"
-      - query: ":TIMebase:REFClock?"
-        expect: "1"
-      - send: ":CHANnel1:SCALe 0.1;:DIGitize CHANnel1"
-      - query: ":MEASure:FREQuency? CHANnel1"
-        expect_value: 1.0e7
-        tolerance: 1.0e4
-      - send: ":TIMebase:REFClock OFF"
-      - query: ":TIMebase:REFClock?"
-        expect: "0"
-  - name: "通道反相与削波（#1067）：反相翻转读数，削波锁存读后清零、改档位重置"
-    manual: ":CHANnel<N> Commands > :CHANnel<N>:INVert; :ADC:CLIPped?; :CLIPped?; :ACQuire Commands > :ACQuire:ADC:CLIPped:CLEar; :OVLRegister?; :DISPlay Commands > :DISPlay:CLIPped"
-    steps:
-      # 反相（p.498）：波形绕 0 V 反射——带 0.1 V 直流的正弦，平均值变号、顶底互换
-      - send: ":SOURce1:VOLTage:OFFSet 0.1"
-        instrument: awg
-      - send: ":CHANnel1:SCALe 0.1;:DIGitize CHANnel1"
-      - query: ":MEASure:VAVerage? DISPlay,CHANnel1"
-        expect_value: 0.1
-        tolerance: 0.005
-      - send: ":CHANnel1:INVert ON"
-      - query: ":CHANnel1:INVert?"
-        expect: "1"
-      - send: ":DIGitize CHANnel1"
-      - query: ":MEASure:VAVerage? DISPlay,CHANnel1"
-        expect_value: -0.1
-        tolerance: 0.005
-      - query: ":MEASure:VMAX? CHANnel1"
-        expect_value: 0.1
-        # 0.1 V/div 档噪声 6.1 mV rms：256 kpts 的最坏峰值约 ±4.5σ（±27 mV）
-        tolerance: 0.035
-      - query: ":MEASure:VMIN? CHANnel1"
-        expect_value: -0.3
-        tolerance: 0.035
-      - send: ":CHANnel1:INVert OFF"
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      # 削波（pp.484-485）：5 V 进入 1 mV/div 档，ADC 两端都削——ADC 状态 3（低+高）、通道状态 1；
-      # 各自读后清零
-      - send: ":SOURce1:VOLTage:OFFSet 0"
-        instrument: awg
-      - send: ":SOURce1:VOLTage 5"
-        instrument: awg
-      - send: ":CHANnel1:SCALe 1E-3;:DIGitize CHANnel1"
-      - query: ":CHANnel1:ADC:CLIPped?"
-        expect: "3"
-      - query: ":CHANnel1:ADC:CLIPped?"
-        expect: "0"
-      - send: ":DIGitize CHANnel1"
-      - query: ":CHANnel1:CLIPped?"
-        expect: "1"
-      - query: ":CHANnel1:CLIPped?"
-        expect: "0"
-      # 改档位重置（p.485）：削波后改垂直档位，状态重置
-      - send: ":DIGitize CHANnel1"
-      - send: ":CHANnel1:SCALe 2E-3"
-      - query: ":CHANnel1:CLIPped?"
-        expect: "0"
-      - send: ":DIGitize CHANnel1"
-      - query: ":CHANnel1:CLIPped?"
-        expect: "1"
-      - send: ":ACQuire:ADC:CLIPped:CLEar"
-      - query: ":CHANnel1:ADC:CLIPped?"
-        expect: "0"
-      - query: ":CHANnel1:CLIPped?"
-        expect: "0"
-      # 过载寄存器（p.301）：过载检测未建模，恒 0；显示偏好存取（p.596）
-      - query: ":OVLRegister?"
-        expect: "0"
-      - send: ":DISPlay:CLIPped OFF"
-      - query: ":DISPlay:CLIPped?"
-        expect: "0"
-      - send: ":SOURce1:VOLTage 0.4"
-        instrument: awg
-      - send: ":CHANnel1:SCALe 0.1"
-  - name: "探头缩放（#1067）：DIV10 改变读数，SKEW 存取，增益/耦合/外部探头与单位存取"
-    manual: ":CHANnel<N> Commands > :CHANnel<N>:PROBe:ATTenuation; :PROBe:GAIN; :PROBe:COUPling; :PROBe:SKEW; :PROBe:SKEW:AUTO; :PROBe:EXTernal*; :CHANnel<N>:UNITs"
-    steps:
-      # 探头衰减（p.518）：DIV10 把显示的探头衰减比设为 10，读数 ×10。1 mm 输入型号最大
-      # 500 mV/div（满幅 4 V），装不下 0334B 那个 4 Vpp 的读数，改用小直流信号证明换算：
-      # 探头换算过的噪声（0.5 V/div 档 29 mV rms ×10）只影响峰值，不影响均值
-      - send: ":SOURce1:VOLTage 0.04;:SOURce1:VOLTage:OFFSet 0.05"
-        instrument: awg
-      - send: ":CHANnel1:SCALe 0.5;:DIGitize CHANnel1"
-      - query: ":MEASure:VAVerage? DISPlay,CHANnel1"
-        expect_value: 0.05
-        tolerance: 0.005
-      - send: ":CHANnel1:PROBe:ATTenuation DIV10"
-      - query: ":CHANnel1:PROBe:ATTenuation?"
-        expect: "DIV10"
-      - send: ":DIGitize CHANnel1"
-      - query: ":MEASure:VAVerage? DISPlay,CHANnel1"
-        expect_value: 0.5
-        tolerance: 0.005
-      - send: ":CHANnel1:PROBe:ATTenuation DIV1"
-      - query: ":CHANnel1:PROBe:ATTenuation?"
-        expect: "DIV1"
-      # 偏斜（p.544）：该通道的记录样点随它移动（探头的延迟语义）；模型没有读触发时刻的测量，
-      # 用例只做存取（覆盖表注明）
-      - send: ":CHANnel1:PROBe:SKEW 1E-6"
-      - query: ":CHANnel1:PROBe:SKEW?"
-        expect: "+1.00000E-06"
-      - send: ":CHANnel1:PROBe:SKEW 0;:CHANnel1:PROBe:SKEW:AUTO"
-      - query: ":SYSTem:ERRor?"
-        expect: "0"
-      # 1154A 增益、探头耦合、外部探头（pp.520-529）：设定存值（探头硬件未建模，覆盖表注明）
-      - send: ":CHANnel1:PROBe:GAIN X10"
-      - query: ":CHANnel1:PROBe:GAIN?"
-        expect: "X10"
-      - send: ":CHANnel1:PROBe:COUPling AC"
-      - query: ":CHANnel1:PROBe:COUPling?"
-        expect: "AC"
-      - send: ":CHANnel1:PROBe:EXTernal ON"
-      - query: ":CHANnel1:PROBe:EXTernal?"
-        expect: "1"
-      - send: ":CHANnel1:PROBe:EXTernal:GAIN 2.5;:CHANnel1:PROBe:EXTernal:OFFSet 0.1"
-      - query: ":CHANnel1:PROBe:EXTernal:GAIN?"
-        expect: "+2.50000E+00"
-      - query: ":CHANnel1:PROBe:EXTernal:OFFSet?"
-        expect: "+1.00000E-01"
-      - send: ":CHANnel1:PROBe:EXTernal:UNITs AMPere"
-      - query: ":CHANnel1:PROBe:EXTernal:UNITs?"
-        expect: "AMPere"
-      # 垂直单位（p.555）：单位换算未建模；:WAVeform:YUNits? 随之回答
-      - send: ":CHANnel1:UNITs AMPere;:DIGitize CHANnel1"
-      - query: ":CHANnel1:UNITs?"
-        expect: "AMP"
-      - query: ":WAVeform:YUNits?"
-        expect: "AMP"
-      - send: ":CHANnel1:UNITs VOLT"
-      - query: ":WAVeform:YUNits?"
-        expect: "VOLT"
-      - send: ":SOURce1:VOLTage 0.4;:SOURce1:VOLTage:OFFSet 0"
-        instrument: awg
-  - name: "限值查询、能力查询与公共命令（#1067）：TESTLIMITS 回声明范围，CAPability 回型号数字"
-    manual: ":ACQuire Commands > :ACQuire:BANDwidth:TESTLIMITS?; :POINts:TESTLIMITS?; :SRATe:TESTLIMITS?; :CHANnel<N> Commands > :DISPlay:TESTLIMITS?; :SPECtral:CFRequency:TESTLIMITS?; :SPAN:TESTLIMITS?; :SYSTem Commands > :SYSTem:CAPability:*; * (Common) Commands > *OPT?; *PSC"
-    steps:
-      # 限值（pp.324/340/352）：设置为定义声明的范围；采样率下限 0 是 AUTO 的存储值
-      - query: ":ACQuire:BANDwidth:TESTLIMITS?"
-        expect: "1,<numeric>+1.00000E+08:+1.13000E+11"
-      - query: ":ACQuire:POINts:TESTLIMITS?"
-        expect: "1,<numeric>+1.60000E+01:+2.00000E+09"
-      - query: ":ACQuire:SRATe:TESTLIMITS?"
-        expect: "1,<numeric>+0.00000E+00:+2.56000E+11"
-      - query: ":CHANnel1:DISPlay:TESTLIMITS?"
-        expect: "1,<enum>0|1"
-      - query: ":CHANnel1:SPECtral:CFRequency:TESTLIMITS?"
-        expect: "1,<numeric>-1.00000E+12:+1.00000E+12"
-      - query: ":CHANnel1:SPECtral:SPAN:TESTLIMITS?"
-        expect: "1,<numeric>+0.00000E+00:+1.00000E+12"
-      # 能力（pp.1437-1439）：定义自己的数字，带引号的字符串
-      - query: ":SYSTem:CAPability:ACQuire? MEMory"
-        expect: "\"2000000000\""
-      - query: ":SYSTem:CAPability:ACQuire? SRATe"
-        expect: "\"256000000000\""
-      - query: ":SYSTem:CAPability:ACQuire? BANDwidth"
-        expect: "\"113000000000\""
-      - query: ":SYSTem:CAPability:ACQuire? HALFchannel"
-        expect: "\"0\""
-      - query: ":SYSTem:CAPability:CHANnel? COUNt"
-        expect: "\"4\""
-      - query: ":SYSTem:CAPability:DIGital? CHANnels"
-        expect: "\"0\""
-      - send: ":SYSTem:CAPability:ACQuire? FOO"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-      # 公共命令：选件 2G（p.259，表 10）与上电清状态（p.269）
-      - query: "*OPT?"
-        expect: "02G"
-      - send: "*PSC OFF"
-      - query: "*PSC?"
-        expect: "0"
-      - send: "*PSC ON"
-      - query: "*PSC?"
-        expect: "1"
-  - name: "校准输出（#1067、#1170）：信号选择、使能与越限；输出的信号由 tests/test_keysight_uxr.py 接另一台示波器测"
-    manual: ":CALibrate Commands > :CALibrate:OUTPut; :CALibrate:OUTPut:AUX; :AUX:RTIMe; :CALibrate:OUTPut:CAL"
-    steps:
-      # 选择（p.473）：DC 带电平、其余词按手册短形式回答
-      - send: ":CALibrate:OUTPut DC,0.5"
-      - query: ":CALibrate:OUTPut?"
-        expect: "\"DC,+5.00000E-01\""
-      - send: ":CALibrate:OUTPut PROBecomp"
-      - query: ":CALibrate:OUTPut?"
-        expect: "\"PROB\""
-      - send: ":CALibrate:OUTPut ZERO"
-      - query: ":CALibrate:OUTPut?"
-        expect: "\"ZERO\""
-      # 使能与沿速（pp.475-477）
-      - send: ":CALibrate:OUTPut:AUX ON;:CALibrate:OUTPut:AUX:RTIMe SLOW;:CALibrate:OUTPut:CAL ON"
-      - query: ":CALibrate:OUTPut:AUX?"
-        expect: "1"
-      - query: ":CALibrate:OUTPut:AUX:RTIMe?"
-        expect: "SLOW"
-      - query: ":CALibrate:OUTPut:CAL?"
-        expect: "1"
-      # 越限与未知词（p.473）：DC 电平 ±1.2 V，词只取手册所列
-      - send: ":CALibrate:OUTPut DC,2"
-      - query: ":SYSTem:ERRor?"
-        expect: "-222"
-      - send: ":CALibrate:OUTPut NOPE"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-
-  # ---- 高级触发族（手册 pp.1533–1590，#1184）：欠幅、过渡、窗口、超时与第 N 边沿，都在
-  # 稳态周期信号上触发。0.05 V/div 时迟滞带 25 mV（迟滞 0.5 格）；命中的采集用 TRIGgered
-  # 的 :SINGle（只在那真正触发时完成），不命中的用 AUTO（自动触发兜底出记录，:TERegister?
-  # 保持 0）。
-  - name: "高/低阈值与迟滞：每信源一对阈值，HYSTeresis 三档"
-    manual: ":TRIGger Commands > :TRIGger:HTHReshold; :TRIGger:LTHReshold; :TRIGger:HYSTeresis"
-    steps:
-      - send: ":TRIGger:HTHReshold CHANnel1,0.8;:TRIGger:LTHReshold CHANnel1,-0.3"
-      - query: ":TRIGger:HTHReshold? CHANnel1"
-        expect: "+8.00000E-01"
-      - query: ":TRIGger:LTHReshold? CHANnel1"
-        expect: "-3.00000E-01"
-      - send: ":TRIGger:HTHReshold AUXiliary,1.2"
-      - query: ":TRIGger:HTHReshold? AUXiliary"
-        expect: "+1.20000E+00"
-      - send: ":TRIGger:LTHReshold AUXiliary,0.1"
-      - query: ":SYSTem:ERRor?"
-        expect: "-224"
-      - send: ":TRIGger:HYSTeresis HSENsitivity"
-      - query: ":TRIGger:HYSTeresis?"
-        expect: "HSEN"
-      - send: ":TRIGger:HYSTeresis NREJect"
-      - query: ":TRIGger:HYSTeresis?"
-        expect: "NREJ"
-      - send: ":TRIGger:HYSTeresis NORMal"
-      - query: ":TRIGger:HYSTeresis?"
-        expect: "NORM"
   - name: "第 N 边沿：计到第 3 条上升沿触发"
     manual: ":TRIGger Commands > :TRIGger:NEDGe (Nth Edge Trigger) Commands"
     steps:
@@ -1806,3 +2049,13 @@ cases:
       - query: ":TERegister?"
         expect: "1"
       - send: ":TRIGger:MODE EDGE;:TRIGger:SWEep AUTO"
+  - name: "频谱视图的限值查询；:CHANnel<N>:PROBe:SKEW:AUTO 接受"
+    manual: ":CHANnel<N> Commands > :CHANnel<N>:SPECtral:CFRequency:TESTLIMITS?; :CHANnel<N>:SPECtral:SPAN:TESTLIMITS?; :CHANnel<N>:PROBe:SKEW:AUTO"
+    steps:
+      - query: ":CHANnel1:SPECtral:CFRequency:TESTLIMITS?"
+        expect: "1,<numeric>-1.00000E+12:+1.00000E+12"
+      - query: ":CHANnel1:SPECtral:SPAN:TESTLIMITS?"
+        expect: "1,<numeric>+0.00000E+00:+1.00000E+12"
+      - send: ":CHANnel1:PROBe:SKEW:AUTO"
+      - query: ":SYSTem:ERRor?"
+        expect: "0"

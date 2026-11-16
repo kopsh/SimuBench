@@ -3552,6 +3552,7 @@
           },
           "idn": {
             "default": "{manufacturer},{model},{serial},{firmware}",
+            "description": "The *IDN? reply: {manufacturer}, {model}, {serial}, {firmware}, and {$<setting>} for a setting's text (a persona command that changes the reported model)",
             "title": "Idn",
             "type": "string"
           },
@@ -5868,6 +5869,21 @@
               }
             ],
             "title": "Min"
+          },
+          "mirror": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Further settings that take the same value as `state` (a legacy command that sets two threshold sets at once: the Infiniium's :MEASure:THResholds:PERCent writes the general and the rise/fall percentages); `{index}` placeholders as in `state`",
+            "title": "Mirror"
           },
           "missing_unit_error": {
             "default": -131,
@@ -8486,6 +8502,28 @@
         "title": "StartSessionRequest",
         "type": "object"
       },
+      "StateEach": {
+        "additionalProperties": false,
+        "description": "The numbers a placeholder in a state's name runs through: ``first`` to ``last``.",
+        "properties": {
+          "first": {
+            "description": "The first number, e.g. 1",
+            "title": "First",
+            "type": "integer"
+          },
+          "last": {
+            "description": "The last number, e.g. 100",
+            "title": "Last",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "first",
+          "last"
+        ],
+        "title": "StateEach",
+        "type": "object"
+      },
       "StateSpec": {
         "additionalProperties": false,
         "description": "One settable state variable.",
@@ -8509,6 +8547,12 @@
             "default": false,
             "description": "Changing this variable changes the bench's circuit",
             "title": "Electrical",
+            "type": "boolean"
+          },
+          "keep_on_reset": {
+            "default": false,
+            "description": "*RST and the model's preset leave it as it is (a user preference, a display colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on still sets `default`",
+            "title": "Keep On Reset",
             "type": "boolean"
           },
           "label": {
@@ -8758,6 +8802,12 @@
             "description": "How the model computes what this setting sets, where users should know: computed_on_read — a scope's memory depth, whose deep records are computed where they are read (#1012, real-models.md 10)",
             "title": "Fidelity"
           },
+          "keep_on_reset": {
+            "default": false,
+            "description": "*RST and the model's preset leave it as it is (a user preference, a display colour, a probe's skew: the Infiniium's Default Setup does not change them); power-on still sets `default`",
+            "title": "Keep On Reset",
+            "type": "boolean"
+          },
           "label": {
             "anyOf": [
               {
@@ -8959,6 +9009,7 @@
           "max",
           "default",
           "rst",
+          "keep_on_reset",
           "options",
           "ladder",
           "special",

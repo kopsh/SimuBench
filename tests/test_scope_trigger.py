@@ -207,6 +207,14 @@ def test_the_glitch_trigger_flow():
         begin = crossing(sig, 5.0e-3, rising=True)
         greater = search("greater", 600e-6, 30e-9, 0.03)
         assert abs(greater.t_s - (begin + 600e-6)) < dt / 10
+        # -- greater_at end (the Infiniium's TPOint EPULse): at the edge that ends the 1.5 ms pulse
+        finish = crossing(sig, begin + 1.5e-3, rising=False)
+        s.set_parameter("scope", "trigger", "greater_at", "end")
+        assert abs(search("greater", 600e-6, 30e-9, 0.03).t_s - finish) < dt / 10
+        s.set_parameter("scope", "trigger", "greater_at", "timeout")
+        # -- outside 40 to 600 us: the 50 and 500 us pulses lie inside, the 1.5 ms one ends outside
+        assert abs(search("outside", 40e-6, 600e-6, 0.03).t_s - finish) < dt / 10
+        assert abs(search("outside", 60e-6, 600e-6, 0.03).t_s - end) < dt / 10  # 50 us: narrower
         # -- the holdoff is the edge trigger's: after a trigger, the next period's 50 us pulse
         trig.last_ns = round(less.t_s * 1e9)
         s.set_parameter("scope", "trigger", "holdoff", 1e-3)

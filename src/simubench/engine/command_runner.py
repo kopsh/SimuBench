@@ -224,9 +224,11 @@ class CommandRunner:
 
         return re.sub(r"\{([^{}]+)\}", field, template).encode()
 
-    def _state_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
+    def _state_command(
+        self, spec: CommandSpec, unit: Unit, channel: int | None, named: dict[str, int] | None = None
+    ) -> bytes | None:
         assert spec.state is not None
-        path = self._resolve(spec.state, channel)
+        path = self._resolve(_at(named or {}, spec.state), channel)
         st = self.inst.specs[path]
         if unit.query:
             if unit.params:
@@ -314,11 +316,14 @@ class CommandRunner:
         finally:
             self.inst._constraints_checked = False
 
-    def _settings_command(self, spec: CommandSpec, unit: Unit, channel: int | None) -> bytes | None:
+    def _settings_command(
+        self, spec: CommandSpec, unit: Unit, channel: int | None, named: dict[str, int] | None = None
+    ) -> bytes | None:
         """A command whose parameters each write a setting (``TRSE EDGE,SR,C1``); all are checked
-        before any is set. The query answers the settings in the same order and form."""
+        before any is set. The query answers the settings in the same order and form. The header's
+        named suffixes act as index values (``named``)."""
         raw = list(unit.params)
-        index = self._pick_indexes(spec, unit, raw, channel)
+        index = {**(named or {}), **self._pick_indexes(spec, unit, raw, channel)}
         if unit.query:
             if raw:
                 raise ScpiError(-108)
@@ -411,6 +416,13 @@ class CommandRunner:
                     raise ScpiError(-109, f"missing {ps.name}")
                 path = self._resolve(_at(index, ps.state), channel)
                 token = raw.pop(0)
+                # The parameter may narrow the setting: its own words not modeled, its own options.
+                self._refuse_not_modeled(ps.not_modeled, token)
+                if ps.type == "enum" and ps.options:
+                    try:
+                        V.parse_enum(token, ps.options)
+                    except ScpiError as e:
+                        raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
                 instead = self._keyword_writes(ps, token)
                 if instead is not None:
                     # A keyword with its own settings (#344: resolution MIN picks the finest NPLC).
@@ -428,6 +440,8 @@ class CommandRunner:
                     for ref, constant in (ps.sets or {}).items():
                         new[self._resolve(_at(index, ref), channel)] = constant
                 new[path] = value
+                for ref in ps.mirror or []:  # the same value into further settings
+                    new[self._resolve(_at(index, ref), channel)] = value
                 continue
             items = raw[:]
             raw.clear()  # the name,value pairs take every parameter that is left
@@ -761,7 +775,9 @@ class CommandRunner:
             if special is not None and st.special is not None:
                 word = special
                 value = st.special[word]
-                if word.startswith(("MIN", "MAX", "DEF")) and path is not None:
+                # An infinite special is a mode word, not an extreme (the Infiniium's persistence
+                # MINimum / INFinite): only a finite MIN/MAX/DEF follows the limits.
+                if word.startswith(("MIN", "MAX", "DEF")) and path is not None and math.isfinite(value):
                     # MIN/MAX are the setting's legal extremes *now*, and DEF stays legal too: a
                     # component narrowing the range (#437) narrows all three with it — the static
                     # table is only the fallback (issue 663: a load's slew follows its selected
@@ -922,22 +938,22 @@ class CommandRunner:
         fn = comp.operation(op_name)
         if fn is None:
             raise ScpiError(-300, f"operation {comp_ref}.{op_name!r} missing")
+        named = {k: v for k, v in suffixes.items() if k != "ch"}
+
+        def setting(ref: str) -> Any:  # a header suffix may pick it ({n}: the bookmark's own source)
+            return self.inst.state[self._resolve(_at(named, ref), channel)]
+
         # An argument written as $path is that setting's value (#252: the elements a FETCh? answers
         # follow :FORMat:ELEMents:SENSe); as {from: $path, map: {...}} it goes through the same
         # mapping a parameter or a wiring binding takes (#364: OUTR? reads the quantity DDEF picks).
         args = {
             k: (
-                map_setting(v, self.inst.state[self._resolve(str(v["from"])[1:], channel)])
+                map_setting(v, setting(str(v["from"])[1:]))
                 if isinstance(v, dict) and isinstance(v.get("from"), str)
-                else self.inst.state[self._resolve(v[1:], channel)]
+                else setting(v[1:])
                 if isinstance(v, str) and v.startswith("$")
                 # a list's $path items too (#383: SNAPD? reads the four data-channel assignments)
-                else [
-                    self.inst.state[self._resolve(x[1:], channel)]
-                    if isinstance(x, str) and x.startswith("$")
-                    else x
-                    for x in v
-                ]
+                else [setting(x[1:]) if isinstance(x, str) and x.startswith("$") else x for x in v]
                 if isinstance(v, list)
                 else v
             )
@@ -1003,6 +1019,16 @@ class CommandRunner:
                         if (ps.min is not None and v < ps.min) or (ps.max is not None and v > ps.max):
                             raise ScpiError(-222)
                         out[ps.name] = v
+                elif (
+                    ps.type == "int"
+                    and (ps.keywords or ps.state is not None)
+                    and self._keyword_word(
+                        ps,
+                        self.inst.specs.get(self._resolve(ps.state, 1)) if ps.state is not None else None,
+                        r,
+                    )
+                ):
+                    out[ps.name] = r  # a keyword word, as for a float (:ACQuire:POINts AUTO)
                 elif ps.type == "int":
                     n = V.parse_int(r)
                     # declared bounds hold for an operation's integer as for its float (FETCh? 2

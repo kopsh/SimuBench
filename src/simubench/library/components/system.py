@@ -40,6 +40,33 @@ class System(Component):
             self.owner.set_state(path, value, internal=True)
         return OpResult()
 
+    @op("none")
+    def none(self, query: bool = False, **_: Any) -> OpResult:
+        """Nothing: for a command whose constants (``writes``, written before the operation runs)
+        are all it does (:DISPlay:BOOKmark:DELete:ALL clears every bookmark's flag). A query answers
+        the command's ``reply`` template, a constant (:SYSTem:CAPability:CHANnel? COUNt → "4")."""
+        return OpResult(b"" if query else None)
+
+    @op("word_value")
+    def word_value(
+        self,
+        query: bool = False,
+        word: str = "",
+        value: Any = None,
+        with_value: list[str] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """A query that answers a setting's word, followed by ``,<value>`` only for the words of
+        ``with_value`` (the Infiniium's :CALibrate:OUTPut? — ``DC,<level>`` but ``PROB``); the word in
+        the definition's short form. A set does nothing (its parameters write the settings)."""
+        assert self.owner is not None
+        if not query:
+            return OpResult()
+        text = V.format_enum(str(word), long=False).decode()
+        if any(V.matches_word(str(word).upper(), w) or str(word) == w for w in with_value or []):
+            text += "," + self.owner.format_number(float(value)).decode().strip()
+        return OpResult(text.encode())
+
     @op("next_error", fields=("code", "text"))
     def next_error(self, **_: Any) -> OpResult:
         """The next entry of the error queue, as the ``{code}`` and ``{text}`` fields of the

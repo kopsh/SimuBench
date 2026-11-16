@@ -256,13 +256,16 @@ def _forms(header: str) -> set[str]:
     return {"".join(combo).lstrip(":") for combo in itertools.product(*choices)}
 
 
-def _matches(header: str, command: str) -> bool:
-    """Whether a program message (one or more units) uses the command ``header``."""
+def _units(command: str) -> list[Any]:
+    """The parsed units of a program message (none when it does not parse)."""
     try:
-        units = [parse_unit(u) for u in split_units(command.encode())]
+        return [parse_unit(u) for u in split_units(command.encode())]
     except ScpiError:
-        return False
-    pattern = Pattern.compile(header)
+        return []
+
+
+def _uses(pattern: Pattern, units: list[Any]) -> bool:
+    """Whether a parsed program message uses the command the pattern compiles."""
     for unit in units:
         if pattern.common:
             if unit.common and unit.tokens[0].keyword == pattern.nodes[0].long:
@@ -306,14 +309,17 @@ def check(definition: InstrumentDefinition, coverage: Coverage, cases: Cases | N
             problems.append(f"{header}: in the definition but not in the coverage table")
         elif listed[key][1].level == "not_modeled":
             problems.append(f"{header}: in the definition but marked not modeled in the coverage table")
+    # every case step parsed once, not once per entry (#1185: a table of 1 147 rows and 100 cases)
+    parsed = (
+        [_units(step.command) for case in cases.cases for step in case.steps] if cases is not None else []
+    )
     for key, (section, entry) in listed.items():
         if entry.level == "not_modeled":
             continue
         if key not in defined and key not in builtin:
             problems.append(f"{entry.header}: marked {entry.level} ({section}) but not in the definition")
-        if cases is not None and not any(
-            _matches(entry.header, step.command) for case in cases.cases for step in case.steps
-        ):
+        pattern = Pattern.compile(entry.header) if cases is not None else None
+        if pattern is not None and not any(_uses(pattern, u) for u in parsed):
             problems.append(f"{entry.header}: marked {entry.level} ({section}) but no manual case uses it")
     for case in cases.cases if cases is not None else []:
         if not case.manual:

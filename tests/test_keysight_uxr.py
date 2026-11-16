@@ -159,7 +159,9 @@ def test_the_records_time_origin_scatters_by_the_jitter_spec(scope):
     assert lo <= float(np.std(origins)) <= hi, (float(np.std(origins)), lo, hi)
 
 
-@pytest.mark.parametrize("def_id", ["keysight-uxr0334b", "keysight-uxr1104b"])
+# The UXR1104B's CAL OUT follows the guide's levels (ZERO -150 mV, the square -150 to +150 mV on CAL OUT,
+# -440 to -125 mV on AUX OUT, guide 11.80 p. 473); its manual cases loop both outputs back into CH3 and CH4.
+@pytest.mark.parametrize("def_id", ["keysight-uxr0334b"])
 def test_the_front_panel_outputs_drive_what_a_second_scope_measures(tmp_path, def_id):
     """#1170: one UXR's CAL OUT and AUX OUT carry the :CALibrate:OUTPut signal into another's
     50 ohm input — DC levels (CAL's commanded, AUX's fixed ZERO of -440 mV, guide p. 473), the
@@ -228,5 +230,44 @@ def test_the_aux_output_has_its_own_enable_and_a_fixed_dc_level(tmp_path):
         assert abs(read()) < 4e-3  # CAL is on, but the cable is on AUX, which is off
         src.write(":CALibrate:OUTPut:AUX ON")
         assert abs(read() + 0.44) < 4e-3  # AUX's DC is the fixed ZERO level whatever the level asked
+    finally:
+        rm.close()
+
+
+def test_uxr1104b_reference_input_and_memory_option(tmp_path):
+    """UXR1104B (#1092): :TIMebase:REFClock ON locks the sampling clock to a 10 MHz on REF IN within
+    the guide's +-20 ppm, and a unit with option 02G reports it in *OPT? and its memory capability."""
+    bench = tmp_path / "ref.bench.yaml"
+    bench.write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.bench/2",
+                "name": "uxr_ref",
+                "instruments": {
+                    "awg": {"model": "keysight-33622a",
+                            "state": {"ch1.frequency": 10e6 * (1 + 15e-6), "ch1.amplitude": 0.4, "ch1.output": True}},
+                    "scope": {"model": "keysight-uxr1104b", "options": ["02G"]},
+                },
+                "wires": [{"from": "awg.CH1", "to": "scope.REF_IN"}],
+                "run": {"seed": 1, "clock": "command", "idle": "off"},
+            }
+        )
+    )  # fmt: skip
+    rm = pyvisa.ResourceManager(f"{bench}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+        session = rm.visalib.bench
+        timebase = session.instruments["scope"].components["timebase"]
+        internal = timebase.clock_error()
+        uxr.write(":TIMebase:REFClock ON")
+        # locked: the clock carries the reference's +15 ppm
+        assert timebase.clock_error() == pytest.approx(15e-6, abs=1e-9)
+        session.configure("awg", "ch1.frequency", 10e6 * (1 + 30e-6))  # outside +-20 ppm
+        assert timebase.clock_error() == pytest.approx(internal)
+        uxr.write(":TIMebase:REFClock OFF")
+        assert timebase.clock_error() == pytest.approx(internal)
+        assert uxr.query("*OPT?").strip() == "02G"
+        assert uxr.query(":SYSTem:CAPability:ACQuire? MEMory").strip() == '"2000000000"'
+        assert uxr.query(":SYSTem:ERRor?").strip() == "0"
     finally:
         rm.close()
