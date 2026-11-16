@@ -476,11 +476,12 @@ test("instrument internals: what only commands drive waits under its own label (
   const graph = page.getByTestId("internals-graph");
   await expect(graph.getByTestId("internal-command-side")).toBeVisible();
   // The system block and the status registers are not on the signal flow; the acquisition's stages are.
-  // The view opens at a readable size from the signal's start, so part of the graph is off screen
-  // (the overview map says where): the "fit view" control brings all of it in, and the map goes.
-  await expect(graph.locator(".react-flow__minimap")).toBeVisible();
+  // The view opens at a readable size from the signal's start, so part of the graph is off screen:
+  // the overview map is offered (shown on request, #1234), and the "fit view" control brings all of
+  // it in, after which there is nothing to overview.
+  await expect(page.getByTestId("internals-overview")).toBeVisible();
   await graph.locator(".react-flow__controls-fitview").click();
-  await expect(graph.locator(".react-flow__minimap")).toHaveCount(0);
+  await expect(page.getByTestId("internals-overview")).toHaveCount(0);
   await graph.locator('[data-name="sys"]').click();
   await expect(page.getByTestId("internal-refs")).toContainText("不在信号流上");
   // Commands are its reason to exist (#739): it lists the ones that operate it.
@@ -1094,4 +1095,107 @@ test("the inspector folds away beside the internals and acceptance pages, and th
   await input.fill("*IDN?");
   await input.press("Enter");
   await expectText(page.getByTestId("panel-count-comms"), (text) => Number(text) >= 1, "a count of the commands sent");
+});
+
+test("beside its screen the inspector leaves out what the screen shows, and the screen gets the width (#1229)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => {
+    window.localStorage.removeItem("simubench:inspector-shown");
+    window.localStorage.removeItem("simubench:inspector-size");
+  });
+  await startBench(page);
+  const center = page.getByTestId("center-panel");
+  const inspector = page.getByTestId("inspector-panel");
+  const awg = page.locator(".react-flow__node").filter({ hasText: "函数发生器" });
+
+  // Beside the canvas: every setting, the frequency among them.
+  await awg.click();
+  await expect(inspector.getByText("频率", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("inspector-on-screen")).toHaveCount(0);
+  const canvasWidth = (await center.boundingBox())!.width;
+
+  // Beside the generator's screen: what the screen has fields for is changed there only; what it
+  // lacks (modulation) and the SCPI console stay, and the screen is wider than the canvas was.
+  await awg.dblclick();
+  await expect(page.getByRole("tab", { name: "函数发生器" })).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByTestId("inspector-on-screen")).toBeVisible();
+  await expect(inspector.getByText("频率", { exact: true })).toHaveCount(0);
+  await expect(inspector.getByText("调制频率", { exact: true })).toBeVisible();
+  await expect(inspector.getByRole("textbox", { name: "发送 SCPI 命令" })).toBeVisible();
+  await expect.poll(async () => (await center.boundingBox())!.width - canvasWidth, { message: "the screen's extra width in px" }).toBeGreaterThan(50);
+
+  // Back on the canvas, the inspector lists everything again at its own width.
+  await page.getByRole("tab", { name: "画布" }).click();
+  await expect(inspector.getByText("频率", { exact: true })).toBeVisible();
+  await expect.poll(async () => Math.abs((await center.boundingBox())!.width - canvasWidth), { message: "the canvas width" }).toBeLessThan(4);
+});
+
+test("with nothing in the log, the bottom bar is one row high (#1229)", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await openButton(page.getByRole("listitem").filter({ hasText: "lockin_rc" })).click();
+  await expect(page).toHaveURL(isSession);
+  await expect(page.locator(".react-flow__node").first()).toBeVisible();
+  await expect(page.getByTestId("panel-count-comms")).toHaveCount(0);
+  await expect(page.getByTestId("panel-count-events")).toHaveCount(0);
+  const bar = page.getByTestId("bottom-panel");
+  await expect(bar).toBeVisible();
+  expect((await bar.boundingBox())!.height, "the bottom bar's height in px").toBeLessThanOrEqual(40);
+});
+
+test("internals first view: names readable, collapsed channels and the overview map cover no block (#1234)", async ({
+  page,
+}) => {
+  await page.addInitScript(() => window.localStorage.removeItem("simubench:internals-overview"));
+  for (const bench of ["keysight-uxr1104b", "keysight-dsox2024a"]) {
+    const start = await page.request.post("/api/sessions", {
+      headers: { "x-simubench-token": TOKEN },
+      data: { bench_path: `benches/${bench}.bench.yaml`, force: true },
+    });
+    const sid = ((await start.json()) as { id: string }).id;
+    await page.goto(`/s/${sid}?token=${TOKEN}`);
+    await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+    await page.getByRole("button", { name: "查看内部结构" }).click();
+    const graph = page.getByTestId("internals-graph");
+    await expect(graph.locator("[data-part=block-name]").first()).toBeVisible();
+
+    // Every block's name opens at 10 px or more on screen.
+    const sizes = await graph.locator("[data-part=block-name]").evaluateAll((els) => {
+      const viewport = els[0].closest(".react-flow__viewport")!;
+      const scale = new DOMMatrix(getComputedStyle(viewport).transform).a;
+      return els.map((e) => parseFloat(getComputedStyle(e).fontSize) * scale);
+    });
+    expect(Math.min(...sizes), `${bench}: the smallest block name in px`).toBeGreaterThanOrEqual(10);
+
+    // A collapsed channel is one box: drawn exactly where its node is, overlapping no other node.
+    const nodeBoxes = async () =>
+      graph.locator(".react-flow__node").evaluateAll((els) =>
+        els.map((e) => {
+          const r = e.getBoundingClientRect();
+          const inner = (e.firstElementChild as HTMLElement | null)?.getBoundingClientRect();
+          return { channel: e.classList.contains("react-flow__node-channel"), r: [r.left, r.top, r.right, r.bottom], inner: inner ? [inner.left, inner.top, inner.right, inner.bottom] : null };
+        }),
+      );
+    const overlap = (a: number[], b: number[]) => a[0] < b[2] - 1 && b[0] < a[2] - 1 && a[1] < b[3] - 1 && b[1] < a[3] - 1;
+    const boxes = await nodeBoxes();
+    const channels = boxes.filter((b) => b.channel);
+    expect(channels.length, `${bench}: collapsed channels`).toBeGreaterThan(0);
+    for (const c of channels) {
+      expect(c.inner!.map((v, i) => Math.abs(v - c.r[i])).every((d) => d < 1), `${bench}: a collapsed channel's box is its node`).toBe(true);
+      expect(boxes.filter((b) => b !== c && overlap(b.r, c.r)).length, `${bench}: nodes under a collapsed channel`).toBe(0);
+    }
+
+    // The overview map is offered when part of the graph is out of view, and shown on request in a
+    // strip under the diagram, not over any of it.
+    const toggle = page.getByTestId("internals-overview");
+    await expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await expect(graph.locator(".react-flow__minimap")).toHaveCount(0);
+    await toggle.click();
+    const map = graph.locator(".react-flow__minimap");
+    await expect(map).toBeVisible();
+    const diagram = (await graph.locator(".react-flow").boundingBox())!;
+    expect((await map.boundingBox())!.y, `${bench}: the overview map's top, below the diagram`).toBeGreaterThanOrEqual(diagram.y + diagram.height - 1);
+    await toggle.click();
+    await expect(map).toHaveCount(0);
+  }
 });

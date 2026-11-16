@@ -20,6 +20,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { displayUnit, engParts, parseEngineering } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { hasLabel, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
+import { useCountOnScreen } from "./onScreen";
 
 interface Props {
   sid: string;
@@ -44,6 +45,7 @@ export const FIELD_GRID_COLS = "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]"
 export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing, inactive, bare }: Props) {
   const { t } = useTranslation();
   const configure = useConfigure(sid);
+  useCountOnScreen(instrument, v.path);
   const [error, setError] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<null | (() => void)>(null);
 

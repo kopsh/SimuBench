@@ -28,6 +28,13 @@ export type TabKind = Tab["kind"];
  */
 export const INSPECTOR_SHOWN: Record<TabKind, boolean> = { canvas: true, screen: true, internals: false, acceptance: false };
 
+/**
+ * The inspector's width beside each kind of tab, in per cent of the row (#1229). Beside a screen it
+ * is narrower: the settings the screen shows are left out of it, and the width goes to the screen.
+ * Dragging its edge sets the width for that kind of tab, kept in this browser.
+ */
+export const INSPECTOR_SIZE: Record<TabKind, number> = { canvas: 24, screen: 18, internals: 24, acceptance: 24 };
+
 /** The tab kind a tab key names ("screen:scope" → "screen"). */
 export const tabKindOf = (key: string): TabKind => (key === "canvas" ? "canvas" : (key.split(":")[0] as TabKind));
 
@@ -70,6 +77,9 @@ interface WorkbenchState {
   /** The inspector shown beside each kind of tab (INSPECTOR_SHOWN; remembered in this browser). */
   inspector: Record<TabKind, boolean>;
   setInspector: (kind: TabKind, shown: boolean) => void;
+  /** The inspector's width beside each kind of tab (INSPECTOR_SIZE; remembered in this browser). */
+  inspectorSize: Record<TabKind, number>;
+  setInspectorSize: (kind: TabKind, percent: number) => void;
   reset: () => void;
   /** Reopen screens remembered for a bench (instruments it no longer has are dropped). */
   restore: (tabs: Tab[], active: string) => void;
@@ -114,6 +124,15 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
       const inspector = { ...s.inspector, [kind]: shown };
       save("inspector-shown", inspector);
       return { inspector, lentTo: null };
+    }),
+  inspectorSize: { ...INSPECTOR_SIZE, ...load<Partial<Record<TabKind, number>>>("inspector-size", {}) },
+  setInspectorSize: (kind, percent) =>
+    set((s) => {
+      const size = Math.round(percent * 10) / 10;
+      if (s.inspectorSize[kind] === size) return s;
+      const inspectorSize = { ...s.inspectorSize, [kind]: size };
+      save("inspector-size", inspectorSize);
+      return { inspectorSize };
     }),
   setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas", lentTo: null })),
   revealSetting: (instrument, path) =>

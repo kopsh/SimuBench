@@ -18,7 +18,7 @@ import {
   useReactFlow,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { Activity, ArrowRight, BookOpen, Crosshair, Maximize2, Minimize2, Pin, Search } from "lucide-react";
+import { Activity, ArrowRight, BookOpen, Crosshair, Map as MapIcon, Maximize2, Minimize2, Pin, Search } from "lucide-react";
 import { type ReactNode, memo, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useWorkbench } from "../store";
@@ -41,6 +41,7 @@ import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { prefersReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
+import { load, save } from "@/lib/storage";
 import { cn } from "@/lib/utils";
 import { formatValue, labelOf, numeric, stateMap } from "../model";
 import { useInternalProbes } from "@/api/hooks";
@@ -215,6 +216,8 @@ export function InternalsPanel({
   // Full screen is in-app (#1174): the same tree, restyled to cover the viewport, so the viewport,
   // selection and probe survive the switch and a future editor reuses one structure for both forms.
   const [fullscreen, setFullscreen] = useState(false);
+  const [overview, setOverview] = useState(() => load<boolean>("internals-overview", false));
+  const [overflows, setOverflows] = useState(false);
   useEffect(() => {
     if (!fullscreen) return;
     const onKey = (e: KeyboardEvent) => {
@@ -368,10 +371,29 @@ export function InternalsPanel({
             </div>
           )}
           <Legend probes={!!renderProbe} />
+          {/* The overview map covers a corner of the diagram: shown when asked for, and only while
+              part of the graph is out of view (#1234). */}
+          {overflows && (
+            <Button
+              size="sm"
+              variant={overview ? "secondary" : "ghost"}
+              className="ml-auto h-7 px-2"
+              onClick={() => {
+                save("internals-overview", !overview);
+                setOverview(!overview);
+              }}
+              aria-pressed={overview}
+              title={t("internals.overview")}
+              aria-label={t("internals.overview")}
+              data-testid="internals-overview"
+            >
+              <MapIcon className="size-3.5" />
+            </Button>
+          )}
           <Button
             size="sm"
             variant={fullscreen ? "secondary" : "ghost"}
-            className="ml-auto h-7 gap-1 px-2 text-xs"
+            className={cn("h-7 gap-1 px-2 text-xs", !overflows && "ml-auto")}
             onClick={() => setFullscreen((f) => !f)}
             title={fullscreen ? t("internals.exitFullscreenTip") : t("internals.fullscreen")}
             aria-label={fullscreen ? t("internals.exitFullscreen") : t("internals.fullscreen")}
@@ -396,6 +418,8 @@ export function InternalsPanel({
               onProbe={renderProbe ? openProbe : undefined}
               probing={probe}
               signals={signals}
+              overview={overview && overflows}
+              onOverflows={setOverflows}
             />
           </ReactFlowProvider>
         </div>
@@ -447,9 +471,10 @@ function Basis({ view }: { view: InstrumentInternals }) {
   const basis = ref ? [ref.title, ref.document, ref.version].filter(Boolean).join(" · ") : null;
   const whole = `${t("internals.basis")} ${basis ? `${t("internals.basisLabel")} ${basis}` : t("internals.basisNone")}`;
   return (
-    <p className="text-muted-foreground flex items-center gap-1.5 text-[11px]" data-testid="internals-basis" title={whole}>
-      <BookOpen className="size-3.5 shrink-0" aria-hidden />
-      <span className="truncate">
+    <p className="text-muted-foreground flex items-start gap-1.5 text-[11px]" data-testid="internals-basis" title={whole}>
+      <BookOpen className="mt-px size-3.5 shrink-0" aria-hidden />
+      {/* Wraps when narrow: the statement is read whole, not cut off (#1234). */}
+      <span>
         {t("internals.basis")}{" "}
         {basis ? (
           <>
@@ -580,7 +605,8 @@ function SearchResults({
 
 const nodeTypes = {
   component: memo(ComponentNode),
-  group: memo(GroupNode),
+  // Not "group": xyflow styles its own built-in group type (a 150 px bordered box under ours, #1234).
+  channel: memo(GroupNode),
   port: memo(PortNode),
   label: memo(LabelNode),
 };
@@ -692,8 +718,14 @@ function Graph({
   onProbe,
   probing,
   signals,
+  overview,
+  onOverflows,
 }: {
   signals?: ReadonlyMap<string, MiniSignal>;
+  /** The overview map is shown (asked for, and part of the graph is out of view). */
+  overview: boolean;
+  /** Whether part of the graph lies outside the view, after each move. */
+  onOverflows: (outside: boolean) => void;
   view: InstrumentInternals;
   vars: Map<string, StateVarInfo>;
   expanded: Set<number>;
@@ -709,7 +741,6 @@ function Graph({
   const graph = useMemo(() => buildGraph(view, expanded, (flow) => textWidth(flowTag(t, flow))), [view, expanded, t]);
   const rf = useReactFlow();
   const wrap = useRef<HTMLDivElement>(null);
-  const [overflows, setOverflows] = useState(false);
   // The view opens readable, not merely complete: the whole graph when it fits at a size its text
   // can be read at, otherwise at that size from the left — where the signal comes in — and the
   // overview map says where the rest is.
@@ -717,11 +748,12 @@ function Graph({
     const box = wrap.current?.getBoundingClientRect();
     if (!box?.width || !box.height) return null;
     const b = boundsOf(graph.nodes);
-    const fit = Math.min((box.width - 2 * VIEW_PAD) / b.width, (box.height - 2 * VIEW_PAD) / b.height);
+    // On the left a gutter for the zoom buttons: no block opens under them (#1234).
+    const fit = Math.min((box.width - CONTROLS_GUTTER - VIEW_PAD) / b.width, (box.height - 2 * VIEW_PAD) / b.height);
     const zoom = Math.min(MAX_OPEN_ZOOM, Math.max(fit, READABLE_ZOOM));
-    const along = (size: number, from: number, extent: number) =>
-      extent * zoom <= size - 2 * VIEW_PAD ? (size - extent * zoom) / 2 - from * zoom : VIEW_PAD - from * zoom;
-    return { x: along(box.width, b.x, b.width), y: along(box.height, b.y, b.height), zoom };
+    const along = (size: number, from: number, extent: number, lead: number) =>
+      extent * zoom <= size - lead - VIEW_PAD ? lead + (size - lead - VIEW_PAD - extent * zoom) / 2 - from * zoom : lead - from * zoom;
+    return { x: along(box.width, b.x, b.width, CONTROLS_GUTTER), y: along(box.height, b.y, b.height, VIEW_PAD), zoom };
   };
   /** Whether part of the graph lies outside the view as it stands: only then is the overview map worth its corner. */
   const outside = (v: { x: number; y: number; zoom: number }) => {
@@ -789,7 +821,7 @@ function Graph({
     const dim = !!lit && !isLit(n);
     return {
       id: n.id,
-      type: n.kind,
+      type: n.kind === "group" ? "channel" : n.kind,
       position: { x: n.x, y: n.y },
       // The layout knows every node's size: the overview map draws from it without waiting for a measurement.
       initialWidth: NODE_WIDTH[n.kind],
@@ -888,9 +920,10 @@ function Graph({
     });
   }
   return (
+    <div className="flex h-full w-full flex-col">
     <div
       ref={wrap}
-      className="h-full w-full"
+      className="min-h-0 w-full flex-1"
       // A block or port reached with Tab may lie left of or above the view, where no scroll reaches: pan to it.
       onFocusCapture={(e) => {
         const name = (e.target as HTMLElement).closest<HTMLElement>("[data-name]")?.dataset.name;
@@ -904,10 +937,10 @@ function Graph({
         const opened = home();
         if (!opened) return;
         void flow.setViewport(opened);
-        setOverflows(outside(opened));
+        onOverflows(outside(opened));
         if (selected) reveal(selected, false);
       }}
-      onMoveEnd={(_, v) => setOverflows(outside(v))}
+      onMoveEnd={(_, v) => onOverflows(outside(v))}
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
@@ -915,7 +948,7 @@ function Graph({
       onNodeClick={(_, n) => {
         if (n.type === "component")
           onSelect((n.data as ComponentData).node.comp.name);
-        else if (n.type === "group")
+        else if (n.type === "channel")
           onExpand((n.data as GroupData).node.channel);
       }}
       onPaneClick={() => onSelect(null)}
@@ -939,13 +972,17 @@ function Graph({
         color="var(--border)"
       />
       <Controls showInteractive={false} position="bottom-left" />
-      {overflows && (
+    </ReactFlow>
+    </div>
+    {/* The overview map in a strip of its own under the diagram, not over a corner of it (#1234). */}
+    {overview && (
+      <div className="bg-card relative h-24 shrink-0 border-t" data-testid="internals-overview-strip">
         <MiniMap
           pannable
           zoomable
           position="bottom-right"
           ariaLabel={t("internals.overview")}
-          style={{ width: 168, height: 92 }}
+          style={{ width: 320, height: 84, margin: 6 }}
           bgColor="var(--card)"
           maskColor="color-mix(in oklab, var(--foreground) 9%, transparent)"
           nodeStrokeWidth={0}
@@ -960,16 +997,18 @@ function Graph({
           }
           nodeBorderRadius={6}
         />
-      )}
-    </ReactFlow>
+      </div>
+    )}
     </div>
   );
 }
 
-/** The smallest size the view opens at: below it the blocks' names and port labels cannot be read. */
-const READABLE_ZOOM = 0.72;
+/** The smallest size the view opens at: a block's name (13 px) shows at 10 px or more (#1234). */
+const READABLE_ZOOM = 0.8;
 const MAX_OPEN_ZOOM = 1.15;
 const VIEW_PAD = 24;
+/** The zoom buttons' column at the bottom left (15 px in, 26 px wide) and a margin. */
+const CONTROLS_GUTTER = 52;
 
 /** The box around every node of the graph. */
 function boundsOf(nodes: readonly GraphNode[]): { x: number; y: number; width: number; height: number } {
@@ -1012,7 +1051,7 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
         />
       )}
       <div className="border-b px-3 py-1.5" style={{ height: 40 }}>
-        <div className="truncate text-[13px] leading-tight font-medium">
+        <div className="truncate text-[13px] leading-tight font-medium" data-part="block-name">
           {typeLabel(t, c.type)}
         </div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">
