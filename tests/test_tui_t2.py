@@ -405,6 +405,22 @@ async def test_console_sends_reply_and_lands_in_the_log():
         assert line.source == "Terminal" and line.result_text().startswith("→ +9.9")
 
 
+def test_console_history_moves_to_the_state_folder_and_reads_the_old_file_once(monkeypatch, tmp_path):
+    """#1237: the history lives in the user's state folder; the old ``~/.simubench`` file is read until the
+    first save writes the new one."""
+    import simubench.tui.screens.dialogs as dialogs
+
+    old = tmp_path / "old-tui-history"
+    old.write_text('{"smu": [":MEAS:CURR?"]}', encoding="utf-8")
+    monkeypatch.setattr(dialogs, "_LEGACY_HISTORY_PATH", old)
+    monkeypatch.setenv("SIMUBENCH_HOME", str(tmp_path / "home"))
+    assert dialogs.load_history() == {"smu": [":MEAS:CURR?"]}  # the old file, before any save
+    dialogs.save_history({"smu": [":MEAS:CURR?", "*IDN?"]})
+    assert (tmp_path / "home" / "tui-history").exists()
+    assert dialogs.load_history() == {"smu": [":MEAS:CURR?", "*IDN?"]}  # now the new file wins
+    assert old.read_text(encoding="utf-8") == '{"smu": [":MEAS:CURR?"]}'  # the old one is left alone
+
+
 async def test_console_history_persists_across_reopen(monkeypatch, tmp_path):
     """The console's ↑↓ history is per instrument and survives a reopen (10.3)."""
     import simubench.tui.screens.dialogs as dialogs

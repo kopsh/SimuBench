@@ -314,6 +314,22 @@ def _validate(args: argparse.Namespace) -> int:
     return status
 
 
+def _trust(args: argparse.Namespace) -> int:
+    """Grant or withdraw this user's consent to run a workspace's ``components/*.py`` (#1237)."""
+    from .paths import user_data_dir
+    from .plugins import TRUST_FILE, trust_workspace, untrust_workspace, workspace_allows_plugins
+
+    workspace = Path(args.workspace).resolve()
+    if args.revoke:
+        untrust_workspace(workspace)
+        print(f"no longer trusting {workspace}")
+    else:
+        trust_workspace(workspace)
+        print(f"trusting {workspace}: its components/*.py runs when it is opened")
+    print(f"kept in {user_data_dir() / TRUST_FILE} (yours, not the workspace's)")
+    return 0 if workspace_allows_plugins(workspace) != args.revoke else 1
+
+
 def _doctor(args: argparse.Namespace) -> int:
     """Health checks; exit 1 when one fails (warnings do not fail)."""
     from dataclasses import asdict
@@ -767,6 +783,11 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("changelog", help="what changed for the user, by version (built into the wheel)")
     p.set_defaults(fn=_changelog)
+
+    p = sub.add_parser("trust", help="let a workspace's components/*.py run when you open it (kept per user)")
+    p.add_argument("workspace", nargs="?", default=".", help="the workspace folder (default: here)")
+    p.add_argument("--revoke", action="store_true", help="withdraw the consent")
+    p.set_defaults(fn=_trust)
 
     p = sub.add_parser("doctor", help="check that SimuBench can run here (exit 1 on a failure)")
     p.add_argument("--workspace", help="also validate the bench files in this folder")

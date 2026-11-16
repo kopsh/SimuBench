@@ -2,6 +2,7 @@
 shipped with the package (D42), through the definition search path."""
 
 import os
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -12,6 +13,9 @@ VALIDATION_INSTRUMENTS = Path(__file__).parent / "validation" / "instruments"
 os.environ[DEFINITIONS_ENV] = os.pathsep.join(
     [str(VALIDATION_INSTRUMENTS), *filter(None, os.environ.get(DEFINITIONS_ENV, "").split(os.pathsep))]
 )
+
+# A test never reads or writes the developer's real user folder (paths.py, #1237).
+os.environ.setdefault("SIMUBENCH_HOME", tempfile.mkdtemp(prefix="simubench-home-"))
 
 # One BLAS thread per worker process, set before numpy/scipy load anywhere: the suite runs under
 # pytest-xdist (issue 209) and the circuits are tiny, so the BLAS pools would only oversubscribe

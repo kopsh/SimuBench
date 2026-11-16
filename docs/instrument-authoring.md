@@ -436,7 +436,7 @@ constraints:
 | 来源 | 加载条件 | 说明 |
 | --- | --- | --- |
 | 已安装的 Python 包，入口点 `simubench.components` | 默认加载 | 与安装任何 Python 包同等信任；适合团队共享的组件库 |
-| 工作区 `components/*.py` | 默认**不**加载；`simubench serve --allow-plugins`，或工作区设置中显式开启 | 工作区可能来自 git 检出或他人共享，执行其中代码需要工程师明确同意 |
+| 工作区 `components/*.py` | 默认**不**加载；`simubench serve --allow-plugins`，或本用户运行 `simubench trust`（授权记在用户数据目录，不在工作区里，#1237） | 工作区可能来自 git 检出或他人共享，执行其中代码需要工程师明确同意 |
 
 - MCP 不提供写入 `.py` 文件的工具；Agent 需要插件时，生成说明与草稿交给工程师（原则 3）。
 - 运行记录头部带插件文件的哈希，回放时不一致则警告（与定义哈希相同，D36）。

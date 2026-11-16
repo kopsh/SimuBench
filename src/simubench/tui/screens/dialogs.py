@@ -17,6 +17,7 @@ from textual.containers import Horizontal, Vertical
 from textual.screen import ModalScreen
 from textual.widgets import Input, Static
 
+from ...paths import user_state_dir
 from .. import i18n
 from ..fmt import cell_len
 from ..reasons import ReasonReport, plain_text
@@ -131,14 +132,22 @@ class ReasonScreen(ModalScreen[None]):
 
 # ---- the SCPI console (tui-screens.md 10.3) ----------------------------------------------------------
 
-_HISTORY_PATH = Path.home() / ".simubench" / "tui-history"
+_LEGACY_HISTORY_PATH = Path.home() / ".simubench" / "tui-history"
+_HISTORY_PATH: Path | None = None  # test seam; None = the user's state folder (paths.py)
 _HISTORY_LIMIT = 100
 
 
+def _history_path() -> Path:
+    return _HISTORY_PATH if _HISTORY_PATH is not None else user_state_dir() / "tui-history"
+
+
 def load_history() -> dict[str, list[str]]:
-    """Per-instrument command history, kept across runs in ``~/.simubench/tui-history``."""
+    """Per-instrument command history, kept across runs in the user's state folder (#1237)."""
+    path = _history_path()
     try:
-        data = json.loads(_HISTORY_PATH.read_text(encoding="utf-8"))
+        if not path.exists() and _HISTORY_PATH is None and _LEGACY_HISTORY_PATH.exists():
+            path = _LEGACY_HISTORY_PATH  # first run after the move: read the old file once
+        data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return {}
     return (
@@ -151,9 +160,10 @@ def load_history() -> dict[str, list[str]]:
 def save_history(history: Mapping[str, Sequence[str]]) -> None:
     """Write the history back; failures are silent (a console must not crash the TUI)."""
     try:
-        _HISTORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+        path = _history_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
         trimmed = {k: list(v)[-_HISTORY_LIMIT:] for k, v in history.items()}
-        _HISTORY_PATH.write_text(json.dumps(trimmed, ensure_ascii=False), encoding="utf-8")
+        path.write_text(json.dumps(trimmed, ensure_ascii=False), encoding="utf-8")
     except OSError:
         pass
 
