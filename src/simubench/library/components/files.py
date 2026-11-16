@@ -38,6 +38,11 @@ MAX_FILE_BYTES = 64 * 1024 * 1024
 FORBIDDEN = set('\\/:*?"<>|') | {chr(c) for c in range(32)}
 MAX_PATH = 240
 _TMP = ".simubench-tmp-"
+# Windows device names: a file by one of these names (with or without an extension) is a device.
+RESERVED = frozenset(
+    {"CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$"}
+    | {f"{dev}{n}" for dev in ("COM", "LPT") for n in range(1, 10)}
+)
 _DRIVE = re.compile(r"^([A-Za-z][A-Za-z0-9]*):(.*)$", re.DOTALL)
 
 
@@ -63,12 +68,20 @@ def split_path(text: str) -> tuple[str | None, bool, list[str]]:
 
 
 def check_name(name: str, *, wildcards: bool = False) -> None:
-    """A folder or file name the instrument accepts (no separators, no forbidden characters)."""
+    """A folder or file name the instrument accepts (no separators, no forbidden characters).
+
+    Windows-style names (the instruments' own rule, and the host may be Windows): a reserved device
+    name (``CON``, ``NUL``, ``COM1``, ``con.txt``, any case) and a name ending in a dot or a space
+    are refused on every platform, so one script writes the same files everywhere (#1088)."""
     bad = FORBIDDEN - ({"*", "?"} if wildcards else set())
     if any(c in bad for c in name) or name.startswith(_TMP):
         raise FileNameError("invalid character in name")
     if name.strip(". ") == "":
         raise FileNameError("path name missing")
+    if name[-1] in ". ":
+        raise FileNameError("name ends with a dot or a space")
+    if name.split(".", 1)[0].rstrip(" ").upper() in RESERVED:
+        raise FileNameError("reserved device name")
 
 
 def find(folder: Path, name: str) -> Path:

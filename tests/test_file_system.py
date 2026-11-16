@@ -37,6 +37,51 @@ def test_parent_folders_are_refused():
     assert F.split_path("a/b") == (None, False, ["a", "b"])
 
 
+DEVICE_NAMES = [
+    "NUL",
+    "nul",
+    "CON",
+    "con.txt",
+    "Con .txt",
+    "PRN",
+    "AUX",
+    "COM1",
+    "com9.csv",
+    "LPT1",
+    "LPT9.dat",
+]
+
+
+@pytest.mark.parametrize("name", [*DEVICE_NAMES, "a.", "a ", "a. ", "data.csv."])
+def test_windows_device_names_and_a_trailing_dot_or_space_are_refused_everywhere(name):
+    with pytest.raises(F.FileNameError):
+        F.check_name(name)
+
+
+@pytest.mark.parametrize(
+    "name", ["NULL", "CONSOLE.csv", "COM10", "COM", "LPT0", "a.b", "nul_x.txt", ".hidden"]
+)
+def test_names_near_a_device_name_are_accepted(name):
+    F.check_name(name)
+
+
+def test_a_device_name_in_a_script_is_a_file_error_and_writes_nothing():
+    with session() as s:
+        ask(s, 'MMEM:DOWN:FNAM "USB:\\NUL"')
+        assert last_error(s) in (-256, -257)
+        ask(s, 'MMEM:DOWN:FNAM "USB:\\x.csv."')
+        assert last_error(s) in (-256, -257)
+
+
+def test_the_download_header_carries_quotes_and_chinese_names():
+    from simubench.server.routes.sessions import attachment
+
+    assert attachment('a"b\\c.csv') == "attachment; filename=\"a_b_c.csv\"; filename*=UTF-8''a%22b%5Cc.csv"
+    assert (
+        attachment("波形.csv") == "attachment; filename=\"__.csv\"; filename*=UTF-8''%E6%B3%A2%E5%BD%A2.csv"
+    )
+
+
 @pytest.mark.parametrize(
     "path",
     ['"INT:\\..\\..\\etc"', '"..\\x"', '"INT:\\a:b"', '"INT:\\a<b"', '"C:\\Windows"', '"/etc/passwd/.."'],

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
@@ -15,6 +16,13 @@ from ..services import clock as clock_service
 from ..services import faults, instrument_files, internal_probe
 from ..services import sessions as sessions_service
 from .context import IN_USE, ApiContext
+
+
+def attachment(filename: str) -> str:
+    """A ``Content-Disposition`` for a download (RFC 6266, #1088): an ASCII ``filename`` with
+    quotes, backslashes and non-ASCII replaced, and the exact name as ``filename*`` in UTF-8."""
+    plain = "".join(c if " " <= c <= "~" and c not in '"\\' else "_" for c in filename)
+    return f"attachment; filename=\"{plain}\"; filename*=UTF-8''{quote(filename, safe='')}"
 
 
 def instrument_info(ctx: ApiContext, sid: str, name: str) -> M.InstrumentInfo:
@@ -328,7 +336,7 @@ def _net_and_clock_routes(ctx: ApiContext, router: APIRouter) -> None:
         return Response(
             data,
             media_type="application/octet-stream",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            headers={"Content-Disposition": attachment(filename)},
         )
 
     @router.get(
