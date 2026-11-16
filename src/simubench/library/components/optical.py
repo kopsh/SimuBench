@@ -354,14 +354,19 @@ class TunableLaser(Component):
     @op("wavelength")
     def op_wavelength(self, **_: Any) -> OpResult:
         """The wavelength being emitted now, m (the setting, or where the sweep is), offset included."""
-        return OpResult(self.reply_number(self.set_wavelength() + float(self.param("wavelength_offset")), 10))
+        return OpResult(self.reply_number(self.emitted_wavelength(), 10))
+
+    def emitted_wavelength(self) -> float:
+        """The wavelength being emitted now, m: the setting or the sweep's position, plus the offset."""
+        return self.set_wavelength() + float(self.param("wavelength_offset"))
 
     @op("frequency")
     def op_frequency(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
-        """The wavelength setting as an optical frequency, Hz: a query answers c/λ, a value sets
+        """The optical frequency, Hz: a query answers c/λ of the wavelength being emitted now (the
+        sweep's position and the offset included, as ``wavelength`` answers, #1110); a value sets
         the wavelength setting to c/f."""
         if query:
-            return OpResult(self.reply_number(C_M_S / float(self.param("wavelength")), 10))
+            return OpResult(self.reply_number(C_M_S / max(self.emitted_wavelength(), 1e-12), 10))
         if value is None or not float(value) > 0:
             raise ScpiError(-222, "optical frequency must be above zero")
         path = self.bound_path("wavelength")
@@ -378,8 +383,8 @@ class TunableLaser(Component):
     def readings(self) -> dict[str, Any]:
         return {
             "values": {
-                "wavelength": self.set_wavelength() + float(self.param("wavelength_offset")),
-                "frequency": C_M_S / max(self.set_wavelength(), 1e-12),
+                "wavelength": self.emitted_wavelength(),
+                "frequency": C_M_S / max(self.emitted_wavelength(), 1e-12),
                 "power": float(self.param("power")),
                 "power_dbm": watts_to_dbm(float(self.param("power"))),
                 "emitting": self.emitting(),

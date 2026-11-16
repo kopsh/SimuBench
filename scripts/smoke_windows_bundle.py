@@ -4,8 +4,9 @@
 
 Checks: ``tools\\simubench.exe doctor`` passes; a double-click start (``SimuBench.exe --no-browser``)
 serves the Web Bench page and MCP on one port (initialize, then the tool list); a second start finds
-the first one and exits. ``--launch``/``--cli`` replace the two executables with other commands (a
-checkout on Linux: ``--launch "uv run simubench launch" --cli "uv run simubench"``).
+the first one and exits. The port is a free one, passed with ``--port`` (#1193). ``--launch``/``--cli``
+replace the two executables with other commands (a checkout on Linux: ``--launch "uv run simubench
+launch" --cli "uv run simubench"``).
 """
 
 from __future__ import annotations
@@ -13,6 +14,7 @@ from __future__ import annotations
 import argparse
 import json
 import shlex
+import socket
 import subprocess
 import sys
 import tempfile
@@ -20,7 +22,16 @@ import time
 import urllib.request
 from pathlib import Path
 
-PORT = 8765
+
+def _free_port() -> int:
+    """A loopback port nothing listens on, so a SimuBench already running here is not mistaken
+    for the one under test (#1193)."""
+    with socket.socket() as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+PORT = _free_port()
 BASE = f"http://127.0.0.1:{PORT}"
 
 
@@ -72,7 +83,9 @@ def main(argv: list[str] | None = None) -> int:
 
     workspace = Path(tempfile.mkdtemp(prefix="simubench-smoke-"))
     log = open(workspace / "launch.log", "w+", encoding="utf-8", errors="replace")  # noqa: SIM115
-    proc = subprocess.Popen([*launch, "--no-browser", "--workspace", str(workspace)], stdout=log, stderr=log)
+    proc = subprocess.Popen(
+        [*launch, "--no-browser", "--port", str(PORT), "--workspace", str(workspace)], stdout=log, stderr=log
+    )
     try:
         deadline = time.monotonic() + 120
         health = ""
@@ -101,7 +114,11 @@ def main(argv: list[str] | None = None) -> int:
         text, _ = _mcp({"jsonrpc": "2.0", "id": 2, "method": "tools/list"}, session)
         _check('"list_benches"' in text, "MCP tools/list")
         again = subprocess.run(
-            [*launch, "--no-browser"], capture_output=True, encoding="utf-8", errors="replace", timeout=120
+            [*launch, "--no-browser", "--port", str(PORT)],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=120,
         )
         _check(
             again.returncode == 0 and "already running" in again.stdout, "a second start opens the first one"

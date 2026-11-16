@@ -120,12 +120,25 @@ def test_sweep_through_attenuator_into_logging_meter():
         # 4. frequency and wavelength are one setting
         s.write("tls", b":WAV:FREQ 193.4E12")
         assert float(s.query("tls", ":WAV?")) == pytest.approx(C_M_S / 193.4e12, rel=1e-9), "c/f"
+        emitted = C_M_S / 193.4e12 + OFFSET
+        assert float(s.query("tls", ":WAV:FREQ?")) == pytest.approx(C_M_S / emitted, rel=1e-9), (
+            "f of λ emitted"
+        )
         # 5. a 10 s sweep 1500 → 1600 nm logged at 100 Hz: each point sees its instant's wavelength
         s.write("tls", b":INIT")
         s.write("opm", b":SENS:LOGG:RATE 100;:SENS:LOGG:POIN 1000;:SENS:LOGG:STAR")
         assert s.query("tls", ":WAV:SWE:STAT?").strip() == b"1", "sweeping"
         assert float(s.query("tls", ":WAV:SWE:TIME?")) == pytest.approx(10.0), "sweep time"
-        s.advance(10.5)
+        s.advance(5.0)
+        # the optical frequency follows the sweep: c/λ of the wavelength emitted now (#1110)
+        laser = s.instrument("tls").components["laser"]
+        now = float(s.query("tls", ":FETCh:WAV?"))
+        assert now == pytest.approx(1.55e-6 + OFFSET, rel=1e-9), "mid-sweep λ"
+        assert float(s.query("tls", ":WAV:FREQ?")) == pytest.approx(C_M_S / now, rel=1e-9), "mid-sweep f"
+        panel = laser.readings()["values"]
+        assert panel["frequency"] == pytest.approx(C_M_S / panel["wavelength"], rel=1e-12), "panel f = c/λ"
+        assert panel["wavelength"] == pytest.approx(now, rel=1e-9), "panel λ"
+        s.advance(5.5)
         assert s.query("tls", ":WAV:SWE:STAT?").strip() == b"0", "sweep over"
         assert int(s.query("opm", ":SENS:LOGG:COUN?")) == 1000, "points logged"
         data = s.query("opm", ":SENS:LOGG:DATA? 0,1000").decode().strip().rstrip(",").split(",")
