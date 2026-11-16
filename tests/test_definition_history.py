@@ -149,3 +149,7 @@ def test_copy_as_my_instrument_extends_the_built_in_model(tmp_path):
     assert defs.validate(doc.data).diagnostics == []
     assert DefinitionLibrary([tmp_path / "instruments"])("my-keysight-34465a").model == "34465A"
     assert defs.copy_of("keysight-34465a").path == "instruments/my-keysight-34465a-2.yaml"
+    # the catalog says which model a copy came from: the UI opens it instead of copying again (#1250)
+    mine = {d.id: d for d in defs.files.catalog().instruments if d.workspace}
+    assert mine["my-keysight-34465a"].extends == "keysight-34465a"
+    assert next(d for d in defs.files.catalog().instruments if d.id == "keysight-34465a").extends is None

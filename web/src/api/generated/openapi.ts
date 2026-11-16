@@ -2212,6 +2212,16 @@ export interface components {
          */
         ComponentDoc: {
             /**
+             * About
+             * @description One sentence on what the type does, Chinese (#1251)
+             */
+            about: string | null;
+            /**
+             * About En
+             * @description The same sentence in English
+             */
+            about_en: string | null;
+            /**
              * Category
              * @enum {string}
              */
@@ -2231,7 +2241,10 @@ export interface components {
              * @enum {string}
              */
             group: "signal" | "measure" | "source" | "scope" | "trigger" | "system" | "other";
-            /** Label */
+            /**
+             * Label
+             * @description The type's name, Chinese (D23)
+             */
             label: string | null;
             /** Label En */
             label_en: string | null;
@@ -2298,6 +2311,16 @@ export interface components {
         };
         /** ComponentTypeInfo */
         ComponentTypeInfo: {
+            /**
+             * About
+             * @description One sentence on what the type does, Chinese (#1251)
+             */
+            about: string | null;
+            /**
+             * About En
+             * @description The same sentence in English
+             */
+            about_en: string | null;
             /**
              * Category
              * @enum {string}
@@ -2672,6 +2695,11 @@ export interface components {
             channels: number;
             /** Description */
             description: string | null;
+            /**
+             * Extends
+             * @description The definition this one extends (D59): for a copy made with 'copy as my instrument', the model it was copied from (#1250)
+             */
+            extends: string | null;
             /** Id */
             id: string;
             /** Instrument Class */
@@ -3517,6 +3545,16 @@ export interface components {
         /** InternalComponent */
         InternalComponent: {
             /**
+             * About
+             * @description One sentence on what the type does, Chinese (#1251)
+             */
+            about: string | null;
+            /**
+             * About En
+             * @description The same sentence in English
+             */
+            about_en: string | null;
+            /**
              * Channel
              * @description Channel the component belongs to; none for the whole instrument
              */
@@ -3531,6 +3569,13 @@ export interface components {
              * @description What the component type does (first paragraph of its description)
              */
             doc: string | null;
+            /**
+             * Label
+             * @description The component type's name, Chinese (D23, #1251)
+             */
+            label: string | null;
+            /** Label En */
+            label_en: string | null;
             /**
              * Name
              * @description Unique within the instrument, e.g. 'ch1.front' or 'acq'

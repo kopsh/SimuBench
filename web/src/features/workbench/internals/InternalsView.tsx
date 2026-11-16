@@ -43,6 +43,8 @@ import { prefersReducedMotion } from "@/lib/motion";
 import { useTheme } from "@/lib/theme";
 import { load, save } from "@/lib/storage";
 import { cn } from "@/lib/utils";
+import { typeName } from "@/lib/component";
+import { TypeDescription } from "@/components/app/TypeTitle";
 import { formatValue, labelOf, numeric, stateMap } from "../model";
 import { useInternalProbes } from "@/api/hooks";
 import { InternalProbePanel, type Tuned } from "./ProbeView";
@@ -454,7 +456,7 @@ function probeTitle(t: T, view: InstrumentInternals, port: string): { heading: s
   const channel = c?.channel != null ? ` CH${c.channel}` : "";
   const pin = port.slice(name.length + 1);
   // A port the engineer has a name for (`混频器 · 中频输出`); else the port as the model names it.
-  const heading = `${c ? typeLabel(t, c.type) : name}${channel} · ${c ? t(`internals.portNames.${c.type}.${pin}`, { defaultValue: pin }) : pin}`;
+  const heading = `${c ? typeName(c) : name}${channel} · ${c ? t(`internals.portNames.${c.type}.${pin}`, { defaultValue: pin }) : pin}`;
   const wire = view.wires.find((w) => w.from === port);
   const medium = c?.ports.find((p) => p.name === port.slice(name.length + 1))?.medium;
   const tag = flowTag(t, wire ?? { medium: medium === "samples" ? "samples" : "signal", sample_rate_hz: null, format: null });
@@ -583,7 +585,7 @@ function SearchResults({
                 onClick={() => onSelect(name)}
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium">{typeLabel(t, c.type)}</span>
+                  <span className="font-medium">{typeName(c)}</span>
                   <span className="text-muted-foreground num">{name}</span>
                 </div>
                 {list.map((h) => (
@@ -1022,10 +1024,6 @@ function boundsOf(nodes: readonly GraphNode[]): { x: number; y: number; width: n
 /** Where a port row's thumbnail starts, and what it leaves for the port's name at the right. */
 const MINI = { left: 44, right: 58, height: 22 } as const;
 
-function typeLabel(t: T, type: string): string {
-  return t(`internals.types.${type}`, { defaultValue: type });
-}
-
 function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
   const { t } = useTranslation();
   const { node, selected, lit, dim, onProbe, probing } = data;
@@ -1052,7 +1050,7 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
       )}
       <div className="border-b px-3 py-1.5" style={{ height: 40 }}>
         <div className="truncate text-[13px] leading-tight font-medium" data-part="block-name">
-          {typeLabel(t, c.type)}
+          {typeName(c)}
         </div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">
           {c.name}
@@ -1126,7 +1124,7 @@ function ComponentNode({ data }: NodeProps<Node<ComponentData>>) {
                     : "text-muted-foreground hover:bg-accent hover:text-foreground",
                 )}
                 style={{ top, left: MINI.left - 2, right: 6, transform: "translateY(-50%)" }}
-                aria-label={t("internals.probe.open", { port: `${typeLabel(t, c.type)} · ${row.name}` })}
+                aria-label={t("internals.probe.open", { port: `${typeName(c)} · ${row.name}` })}
                 aria-pressed={probing === port}
                 title={t("internals.probe.open", { port })}
                 data-testid="internal-probe-port"
@@ -1297,7 +1295,7 @@ export function ComponentDetails({
   return (
     <div className="space-y-4 p-3" data-testid="internal-details">
       <div>
-        <div className="text-sm font-semibold">{typeLabel(t, comp.type)}</div>
+        <div className="text-sm font-semibold">{typeName(comp)}</div>
         <div className="text-muted-foreground num text-xs">
           {comp.name} · {comp.type}
         </div>
@@ -1315,11 +1313,7 @@ export function ComponentDetails({
             </span>
           )}
         </div>
-        {comp.doc && (
-          <p className="text-muted-foreground mt-2 text-xs leading-relaxed">
-            {comp.doc}
-          </p>
-        )}
+        <TypeDescription of={comp} doc={comp.doc} className="mt-2 text-xs" />
       </div>
       <ControlSection comp={comp} view={view} vars={vars} focus={focus} onLocate={onLocate} />
       <Readings comp={comp} view={view} vars={vars} focus={focus} />
@@ -1441,7 +1435,6 @@ function CompLink({
   view: InstrumentInternals;
   focus: FocusHandlers;
 }) {
-  const { t } = useTranslation();
   const c = view.components.find((x) => x.name === name);
   return (
     <button
@@ -1450,7 +1443,7 @@ function CompLink({
       title={name}
       onClick={() => focus.onSelect(name)}
     >
-      {c ? typeLabel(t, c.type) : name}
+      {c ? typeName(c) : name}
       {c?.channel != null && (
         <span className="num ml-0.5 text-[10px]">CH{c.channel}</span>
       )}
@@ -1633,7 +1626,7 @@ function ReadingRow({
       id={`reading:${g.provider}`}
       trace={pathTrace(g.path)}
       focus={focus}
-      label={provider ? typeLabel(t, provider.type) : g.provider}
+      label={provider ? typeName(provider) : g.provider}
     >
       <div className="flex flex-wrap items-center gap-x-1 pr-5 text-[11px]">
         {g.kind === "self" ? (
@@ -1646,7 +1639,7 @@ function ReadingRow({
               )}
               {n === comp.name ? (
                 <span className="text-muted-foreground">
-                  {typeLabel(t, comp.type)}
+                  {typeName(comp)}
                 </span>
               ) : (
                 <CompLink name={n} view={view} focus={focus} />

@@ -270,6 +270,7 @@ class BenchFiles:
                     ports=ports,
                     template=d.display.template,
                     workspace=self.workspace in lib.path(def_id).resolve().parents,
+                    extends=d.extends,
                 )
             )
         components = [
@@ -278,6 +279,8 @@ class BenchFiles:
                 category=cls.category,  # type: ignore[arg-type]
                 label=cls.label or None,
                 label_en=cls.label_en or None,
+                about=cls.about or None,
+                about_en=cls.about_en or None,
                 doc=inspect.getdoc(cls),
                 ports=[
                     M.PortInfo(name=p, direction=spec.direction, medium=spec.medium)

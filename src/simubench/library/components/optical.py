@@ -76,6 +76,11 @@ class OpticalSource(Component):
     drive inside the swing, as a real driver is set up. Off (``enabled`` false): no light.
     """
 
+    label = "光源"
+    label_en = "Optical source"
+    about = "激光器与调制器：电驱动决定输出光功率。"
+    about_en = "A laser and its modulator: the electrical drive sets the optical power."
+
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "optical")}
     units = {"power": "W", "extinction_ratio": "DB", "swing": "V", "wavelength": "M"}
     defaults = {
@@ -113,6 +118,11 @@ class OpticalReceiver(Component):
     an analytic signal carries no noise (architecture.md 2). Average power (``power``) is the mean
     of the light arriving, as a power meter in the receiver's DC path reads it.
     """
+
+    label = "光接收机"
+    label_en = "Optical receiver"
+    about = "光电探测器与放大器：把光功率转换成电压，带宽受限。"
+    about_en = "A photodetector and its amplifier: optical power becomes volts, band-limited."
 
     ports = {"in": PortSpec("in", "optical"), "out": PortSpec("out", "signal")}
     units = {
@@ -176,9 +186,12 @@ class OpticalReceiver(Component):
 class OpticalAttenuator(Component):
     """A fixed optical attenuator on a fibre: ``attenuation`` dB of loss, flat in frequency."""
 
-    category = "part"
     label = "光衰减器"
     label_en = "Optical attenuator"
+    about = "光纤上的固定光衰减器：与频率无关的固定损耗（dB）。"
+    about_en = "A fixed optical attenuator on a fibre: a flat loss in dB."
+
+    category = "part"
     units = {"attenuation": "DB"}
     ports = {"IN": PortSpec("in", "optical"), "OUT": PortSpec("out", "optical")}
     defaults = {"attenuation": 3.0}  # loss, dB
@@ -205,6 +218,11 @@ class TunableLaser(Component):
     hops, linewidth and coherence control, power flatness over the sweep, the power settling after
     a change, modulation, the trigger output (a logger starts by its own command).
     """
+
+    label = "可调激光源"
+    label_en = "Tunable laser"
+    about = "功率和波长可设的连续光源，带快门和波长扫描。"
+    about_en = "Continuous-wave light of settable power and wavelength, with a shutter and a sweep."
 
     ports = {"out": PortSpec("out", "optical")}
     units = {
@@ -413,6 +431,13 @@ class OpticalPowerMeter(Component):
     its instant.
     """
 
+    label = "光功率计"
+    label_en = "Optical power meter"
+    about = "光功率计的探头与测量：平均光功率，按所设波长校准。"
+    about_en = (
+        "An optical power meter's head and measurement: average power, calibrated at the set wavelength."
+    )
+
     ports = {"in": PortSpec("in", "optical")}
     units = {
         "wavelength": "M",
@@ -576,6 +601,11 @@ class VariableOpticalAttenuator(Component):
     ``attenuation_max``; a target it cannot reach sets UNREACH. Not modelled: return loss,
     polarization-dependent loss, the settling inside power mode.
     """
+
+    label = "可调光衰减器"
+    label_en = "Variable optical attenuator"
+    about = "插入损耗加可设衰减的光衰减器，带快门和输出功率模式。"
+    about_en = "Insertion loss plus a settable attenuation, with a shutter and an output-power mode."
 
     ports = {"IN": PortSpec("in", "optical"), "OUT": PortSpec("out", "optical")}
     units = {

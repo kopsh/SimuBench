@@ -52,9 +52,11 @@
         "max": 7500000000.0,
         "default": 1000000000.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -66,7 +68,8 @@
         "path": "freq.center",
         "dangerous": false,
         "value": 1000500000.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -75,9 +78,11 @@
         "max": 7500000000.0,
         "default": 100000000.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -89,7 +94,8 @@
         "path": "freq.span",
         "dangerous": false,
         "value": 5000000.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -98,9 +104,11 @@
         "max": 3000000.0,
         "default": 3000000.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -112,7 +120,8 @@
         "path": "bw.res",
         "dangerous": false,
         "value": 3000000.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "bool",
@@ -121,9 +130,11 @@
         "max": null,
         "default": true,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -135,7 +146,8 @@
         "path": "bw.res_auto",
         "dangerous": false,
         "value": true,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -144,9 +156,11 @@
         "max": 3000000.0,
         "default": 3000000.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -158,7 +172,8 @@
         "path": "bw.vid",
         "dangerous": false,
         "value": 3000000.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "bool",
@@ -167,9 +182,11 @@
         "max": null,
         "default": true,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -181,7 +198,8 @@
         "path": "bw.vid_auto",
         "dangerous": false,
         "value": true,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -190,9 +208,11 @@
         "max": 10000.0,
         "default": 0.001,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -204,7 +224,8 @@
         "path": "sweep.time",
         "dangerous": false,
         "value": 0.001,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "bool",
@@ -213,9 +234,11 @@
         "max": null,
         "default": true,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -227,7 +250,8 @@
         "path": "sweep.time_auto",
         "dangerous": false,
         "value": true,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "int",
@@ -236,9 +260,11 @@
         "max": 40001.0,
         "default": 1001,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -250,7 +276,8 @@
         "path": "sweep.points",
         "dangerous": false,
         "value": 1001,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -259,9 +286,11 @@
         "max": 70.0,
         "default": 10.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -273,7 +302,8 @@
         "path": "power.att",
         "dangerous": false,
         "value": 10.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "bool",
@@ -282,9 +312,11 @@
         "max": null,
         "default": true,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -296,7 +328,8 @@
         "path": "power.att_auto",
         "dangerous": false,
         "value": true,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -305,9 +338,11 @@
         "max": 30.0,
         "default": 0.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -319,7 +354,8 @@
         "path": "display.ref_level",
         "dangerous": false,
         "value": 0.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "enum",
@@ -328,6 +364,7 @@
         "max": null,
         "default": "POSitive",
         "rst": null,
+        "keep_on_reset": false,
         "options": [
           "POSitive",
           "SAMPle",
@@ -336,6 +373,7 @@
         ],
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": {
@@ -352,7 +390,8 @@
         "path": "detector",
         "dangerous": false,
         "value": "POSitive",
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "enum",
@@ -361,6 +400,7 @@
         "max": null,
         "default": "WRITe",
         "rst": null,
+        "keep_on_reset": false,
         "options": [
           "WRITe",
           "AVERage",
@@ -368,6 +408,7 @@
         ],
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": {
@@ -383,7 +424,8 @@
         "path": "trace.type",
         "dangerous": false,
         "value": "WRITe",
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "int",
@@ -392,9 +434,11 @@
         "max": 10000.0,
         "default": 10,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -406,7 +450,8 @@
         "path": "aver.count",
         "dangerous": false,
         "value": 10,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -415,9 +460,11 @@
         "max": 7500000000.0,
         "default": 0.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -429,7 +476,8 @@
         "path": "marker.x",
         "dangerous": false,
         "value": 1000000000.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -438,9 +486,11 @@
         "max": 30.0,
         "default": -130.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -452,7 +502,8 @@
         "path": "marker.threshold",
         "dangerous": false,
         "value": -130.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "float",
@@ -461,9 +512,11 @@
         "max": 100.0,
         "default": 6.0,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -475,7 +528,8 @@
         "path": "marker.excursion",
         "dangerous": false,
         "value": 6.0,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "enum",
@@ -484,12 +538,14 @@
         "max": null,
         "default": "INTernal",
         "rst": null,
+        "keep_on_reset": false,
         "options": [
           "INTernal",
           "EXTernal"
         ],
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": {
@@ -504,7 +560,8 @@
         "path": "rosc.source",
         "dangerous": false,
         "value": "INTernal",
-        "channel": null
+        "channel": null,
+        "fidelity": null
       },
       {
         "type": "bool",
@@ -513,9 +570,11 @@
         "max": null,
         "default": true,
         "rst": null,
+        "keep_on_reset": false,
         "options": null,
         "ladder": null,
         "special": null,
+        "words": null,
         "not_modeled": null,
         "replies": null,
         "option_labels": null,
@@ -527,13 +586,15 @@
         "path": "init.continuous",
         "dangerous": false,
         "value": true,
-        "channel": null
+        "channel": null,
+        "fidelity": null
       }
     ],
     "errors": [],
     "dut": false,
     "deviation": "nominal",
     "deviations": [],
+    "options": [],
     "remote": [],
     "local": false
   },
@@ -547,6 +608,10 @@
         "name": "rf_in",
         "type": "input_port",
         "channel": null,
+        "label": "输入端口",
+        "label_en": "Input port",
+        "about": "电气输入，对地呈电阻（可选并联电容）阻抗。",
+        "about_en": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "params": [
           {
@@ -790,6 +855,10 @@
         "name": "ref_in",
         "type": "input_port",
         "channel": null,
+        "label": "输入端口",
+        "label_en": "Input port",
+        "about": "电气输入，对地呈电阻（可选并联电容）阻抗。",
+        "about_en": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "doc": "An electrical input with a resistive (and optional capacitive) impedance to ground.",
         "params": [
           {
@@ -1019,6 +1088,10 @@
         "name": "clock",
         "type": "reference_clock",
         "channel": null,
+        "label": "参考时钟",
+        "label_en": "Reference clock",
+        "about": "源的频率参考：有偏差的内部振荡器，或外接 10 MHz。",
+        "about_en": "The source's frequency reference: an internal oscillator with its error, or an external 10 MHz.",
         "doc": "The source's frequency reference: an internal oscillator off by ``ppm`` (hidden; a deviations entry), or with ``source`` EXTernal the 10 MHz on ``ref`` when one within ±10 ppm is there (the internal oscillator otherwise, as a real source falls back when it cannot lock).",
         "params": [
           {
@@ -1243,6 +1316,10 @@
         "name": "input",
         "type": "specan_input",
         "channel": null,
+        "label": "输入衰减器",
+        "label_en": "Input attenuator",
+        "about": "频谱仪的输入步进衰减器和过载检查。",
+        "about_en": "The analyzer's input step attenuator and overload check.",
         "doc": "The input attenuator and overload check (D1 #187): the RF input port is the generic ``input_port`` (50 Ω to ground, the only circuit-layer part of the analyzer). The step attenuator is automatic (reference level kept at the mixer limit, 2 dB steps) or manual; the receiver overloads when the total input power minus the attenuation passes the maximum mixer level. ``out`` is the input attenuated (and amplified by the preamplifier, 0 dB unless declared).",
         "params": [
           {
@@ -1280,6 +1357,12 @@
             "value": 0.0,
             "binding": null,
             "unit": "dB"
+          },
+          {
+            "name": "preamp_in_mixer_level",
+            "value": false,
+            "binding": null,
+            "unit": null
           },
           {
             "name": "preamp_noise_figure",
@@ -1557,6 +1640,10 @@
         "name": "mixer",
         "type": "specan_mixer",
         "channel": null,
+        "label": "混频器",
+        "label_en": "Mixer",
+        "about": "把输入与本振混频变到中频，含变频损耗和镜像抑制。",
+        "about_en": "Converts the input to the IF against the LO, with conversion loss and image rejection.",
         "doc": "The mixer (signal-chain.md 5.2): ``out`` is the input converted to the IF against the local oscillator, f_if = f_rf − f_lo, less the conversion loss. What lies below the oscillator (the image side) is rejected by ``image_rejection`` — completely without it, as before; the oscillator's leak (``lo_feedthrough``) sits at DC in the IF frame; the declared ``spurs`` (m·f_rf ± n·f_lo responses) and the distortion products of the mixer's own intercepts appear as further lines; the ``residuals`` are there with no input at all. The output depends on where the oscillator is tuned.",
         "params": [
           {
@@ -1818,6 +1905,10 @@
         "name": "lo",
         "type": "specan_lo",
         "channel": null,
+        "label": "本振",
+        "label_en": "Local oscillator",
+        "about": "本振：接收机调谐到哪里、频率参考和扫描速度。",
+        "about_en": "The local oscillator: where the receiver is tuned, its reference and sweep speed.",
         "doc": "The local oscillator (signal-chain.md 5.1): where the receiver is tuned, the reference its frequency runs off, and how fast it sweeps.",
         "params": [
           {
@@ -2059,6 +2150,10 @@
         "name": "if_filter",
         "type": "specan_if",
         "channel": null,
+        "label": "中频滤波",
+        "label_en": "IF filter",
+        "about": "ADC 前的中频滤波与放大，防止混叠。",
+        "about_en": "The IF filter and amplifier ahead of the ADC, which keeps it from aliasing.",
         "doc": "The IF filter and amplifier (signal-chain.md 5.1): the analog passband ahead of the ADC — what keeps the converter from aliasing — centered on the intermediate frequency ``if_hz``, ``bandwidth`` wide at -3 dB, and the IF gain. ``out`` is the mixer's output through it.",
         "params": [
           {
@@ -2282,6 +2377,10 @@
         "name": "adc",
         "type": "adc",
         "channel": null,
+        "label": "模数转换器（ADC）",
+        "label_en": "ADC",
+        "about": "把模拟信号按固定满量程采样成数字样本。",
+        "about_en": "Samples an analog signal into digital samples at a fixed full scale.",
         "doc": "A sampling ADC with one input and a fixed full scale (signal-chain.md 3.3): where an analog signal becomes samples.",
         "params": [
           {
@@ -2495,6 +2594,10 @@
         "name": "ddc",
         "type": "specan_ddc",
         "channel": null,
+        "label": "数字下变频",
+        "label_en": "Digital down-converter",
+        "about": "把 ADC 样本搬到零中频并抽取，输出复基带样本。",
+        "about_en": "Shifts the ADC's samples to 0 Hz and decimates them into complex baseband.",
         "doc": "The digital down-converter (signal-chain.md 5.3): the ADC's samples times a numerically controlled oscillator at ``nco_hz`` — the intermediate frequency comes to 0 Hz — then the decimation filter and the lower rate. ``out`` carries complex baseband samples (``iq``) whose 0 Hz stands for the frequency the receiver is tuned to (the frame's ``center_hz``); a real tone of amplitude A on the IF is the complex amplitude A.",
         "params": [
           {
@@ -2684,6 +2787,10 @@
         "name": "rbw",
         "type": "specan_rbw",
         "channel": null,
+        "label": "RBW 滤波 / FFT",
+        "label_en": "RBW filter / FFT",
+        "about": "分辨率带宽：自动或手动，以及对应的高斯滤波（FFT 实现）。",
+        "about_en": "The resolution bandwidth, auto or manual, and its Gaussian filter as an FFT.",
         "doc": "The resolution filter (signal-chain.md 5.3): the resolution bandwidth — auto: span / ``auto_ratio``, snapped to the model's filter steps and held at or below ``auto_max``; manual otherwise — and the Gaussian filter of that bandwidth at -3 dB, as a windowed FFT.",
         "params": [
           {
@@ -2922,6 +3029,10 @@
         "name": "detector",
         "type": "specan_detector",
         "channel": null,
+        "label": "检波",
+        "label_en": "Detector",
+        "about": "每个分辨单元的检波方式（峰值、采样、平均、RMS 等）与对数换算。",
+        "about_en": "The detector per resolution cell (peak, sample, average, RMS, …) and log conversion.",
         "doc": "The detector and log conversion (D1 #187): positive peak / sample / average / RMS / negative peak / normal per resolution cell, then the level in dBm.",
         "params": [
           {
@@ -3079,6 +3190,10 @@
         "name": "vbw",
         "type": "specan_vbw",
         "channel": null,
+        "label": "视频滤波",
+        "label_en": "Video filter",
+        "about": "视频带宽：自动跟随 RBW，手动时影响扫描时间。",
+        "about_en": "The video bandwidth: auto follows the RBW; a manual value stretches the sweep.",
         "doc": "The video filter's bandwidth (D1 #187): auto follows the RBW; the manual value stretches the sweep the same way the old monolith did (its auto sweep time uses min(RBW, VBW)). Steps and limits as the resolution filter's (#616); a ``vbw_max`` above the ladder is the wide-open setting.",
         "params": [
           {
@@ -3266,6 +3381,10 @@
         "name": "sa",
         "type": "specan_trace",
         "channel": null,
+        "label": "迹线",
+        "label_en": "Trace",
+        "about": "频谱仪的迹线与扫描：分析窗口、扫描时间、迹线模式和标记。",
+        "about_en": "The analyzer's trace and scan: window, sweep timing, trace modes and markers.",
         "doc": "The trace and scan engine (D1 #187): the analysis window and its settings couplings, the sweep timing in virtual time, the RF history, the trace modes (write / average / max / min hold), the markers, and the SCPI operations of the display. It reads the analog front end by its wiring: from the IF filter upstream to the input, the lines at the head of that chain and the stages' cascaded noise figure (the analytic evaluation of signal-chain.md 5.4).",
         "params": [
           {

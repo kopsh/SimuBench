@@ -167,7 +167,7 @@ export function panelView(inst: InstrumentInfo): PanelView {
     const groups = new Map<string, ControlView[]>();
     for (const v of inst.state) {
       if (v.readonly) continue;
-      const prefix = v.channel != null ? `ch${v.channel}` : "instrument";
+      const prefix = v.channel != null ? i18n.t("acceptance.groupChannel", { n: v.channel }) : i18n.t("acceptance.groupInstrument");
       const list = groups.get(prefix) ?? [];
       list.push({
         state: v.path,

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { pickLabel } from "@/i18n";
 import { AccessIcon, AccessPicker, Hint, Tip, TypeIcon } from "./glyphs";
 import {
   type CommandKind,
@@ -86,7 +87,9 @@ export function SettingsPanel({
   const all = (["instrument", "channel"] as const).flatMap((sc) =>
     Object.entries(sc === "instrument" ? structure.state : structure.channel_state).map(([n, spec]) => ({ scope: sc, name: n, spec })),
   );
-  const rows = all.filter((r) => matches(query, settingPath(r.scope, r.name), String(r.spec.type ?? ""), String(r.spec.unit ?? ""), String(r.spec.label ?? "")));
+  const rows = all.filter((r) =>
+    matches(query, settingPath(r.scope, r.name), String(r.spec.type ?? ""), String(r.spec.unit ?? ""), String(r.spec.label ?? ""), String(r.spec.label_en ?? "")),
+  );
   const add = () => {
     const n = settingName(name);
     if (!n) return void toast.error(t("acceptance.build.settingInvalid"));
@@ -124,7 +127,7 @@ export function SettingsPanel({
                 onClick={() => toggle(key, expanded)}
               >
                 {expanded ? <ChevronDown className="size-3.5 shrink-0" /> : <ChevronRight className="size-3.5 shrink-0" />}
-                <span className="num truncate font-medium">{r.scope === "channel" ? `ch.${r.name}` : r.name}</span>
+                <SettingTitle scope={r.scope} name={r.name} spec={r.spec} />
                 <span className="text-muted-foreground num ml-auto flex shrink-0 items-center gap-1 text-[10.5px]">
                   {typeof r.spec.unit === "string" && r.spec.unit}
                   <TypeIcon type={String(r.spec.type)} />
@@ -558,5 +561,18 @@ function CommandEditor({
         </Button>
       )}
     </div>
+  );
+}
+
+/** A setting's row title (#1251): its name, the path as a grey tag; the path alone when it has no name. */
+function SettingTitle({ scope, name, spec }: { scope: Scope; name: string; spec: SettingSpec }) {
+  const path = scope === "channel" ? `ch.${name}` : name;
+  const label = pickLabel(typeof spec.label === "string" ? spec.label : null, typeof spec.label_en === "string" ? spec.label_en : null);
+  if (!label) return <span className="num truncate font-medium">{path}</span>;
+  return (
+    <span className="flex min-w-0 items-baseline gap-1.5" data-part="setting-title">
+      <span className="truncate font-medium">{label}</span>
+      <span className="text-muted-foreground num truncate text-[10.5px]">{path}</span>
+    </span>
   );
 }

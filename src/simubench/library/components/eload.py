@@ -38,6 +38,11 @@ class EloadPowerStage(Component):
     CC setpoint above the capability is power-limited rather than drawn.
     """
 
+    label = "负载功率级"
+    label_en = "Load power stage"
+    about = "电子负载的工作范围：恒流拐点、电流与功率能力。"
+    about_en = "The load's operating envelope: CC knee, current and power capability."
+
     units = {"r_min": "OHM", "i_max": "A", "p_max": "W"}
     defaults = {
         "r_min": 0.0367,  # minimum operating resistance in CC mode (the knee), ohm
@@ -78,6 +83,11 @@ class EloadModeLoop(Component):
     smallest range that holds the value written, and a setpoint outside the new range is brought
     to its nearest edge (the B&K 8600 rule: CURR:RANG 30 selects the 240 A range).
     """
+
+    label = "负载模式环"
+    label_en = "Load mode loop"
+    about = "电子负载的工作模式：恒流、恒压、恒阻或恒功率。"
+    about_en = "The electronic load's operating mode: CC, CV, CR or CP."
 
     refs = {"stage": ("eload_power_stage", "instrument")}
     units = {
@@ -309,6 +319,11 @@ class EloadInput(Component):
     (CR or the CC knee) or a voltage clamp (CV). ``c_in`` adds the input capacitance to ground.
     """
 
+    label = "负载输入级"
+    label_en = "Load input stage"
+    about = "电子负载的输入端子和开关，接入电路的元件。"
+    about_en = "The electronic load's input terminal and switch, the element in the circuit."
+
     refs = {
         "loop": ("eload_mode_loop", "instrument"),
         "protection": ("eload_protection", "instrument"),
@@ -448,6 +463,11 @@ class EloadMeter(Component):
     """The load's V/I/P measurement (#186 C1). The readings keep the ``load.*`` keys the front
     panel uses; the input stage supplies the solved values."""
 
+    label = "负载测量"
+    label_en = "Load measurement"
+    about = "电子负载的电压、电流和功率测量。"
+    about_en = "The electronic load's voltage, current and power measurement."
+
     refs = {"input": ("eload_input", "instrument")}
     defaults = {
         "input": "",  # the eload_input whose solved values are read
@@ -533,6 +553,11 @@ class EloadProtection(ProtectionLatch, Component):
     status flags are the 8600's questionable bits: OV and VF while OVP stands, OC while the
     current is over its limit or OCP stands, OP likewise for power, PS while OCP or OPP stands.
     """
+
+    label = "负载保护"
+    label_en = "Load protection"
+    about = "过压、过流、过功率保护的门限和跳闸锁存。"
+    about_en = "Over-voltage, over-current and over-power thresholds and the trip latch."
 
     thresholds = (
         TripThreshold("OVP", "ovp", "v"),

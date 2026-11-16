@@ -268,6 +268,11 @@ class SpecanDdc(Component):
     of the reference moves it with the sample rate, and the frequency scale of everything behind
     it carries that error once, as the swept analyzer's does."""
 
+    label = "数字下变频"
+    label_en = "Digital down-converter"
+    about = "把 ADC 样本搬到零中频并抽取，输出复基带样本。"
+    about_en = "Shifts the ADC's samples to 0 Hz and decimates them into complex baseband."
+
     ports = {"in": PortSpec("in", "samples"), "out": PortSpec("out", "samples")}
     defaults = {
         "nco_hz": 21.4e6,  # Hz, the oscillator's frequency: the intermediate frequency it brings to 0 Hz
@@ -359,6 +364,11 @@ class SpecanRbw(Component):
     ``fft_width`` resolution bandwidths (the usable middle half of twice that rate). The steps
     and limits are the model's (#616): the 1-3-10 ladder to 3 MHz by default, the X-Series "10%"
     steps to 8 MHz."""
+
+    label = "RBW 滤波 / FFT"
+    label_en = "RBW filter / FFT"
+    about = "分辨率带宽：自动或手动，以及对应的高斯滤波（FFT 实现）。"
+    about_en = "The resolution bandwidth, auto or manual, and its Gaussian filter as an FFT."
 
     ports = {"in": PortSpec("in", "samples"), "out": PortSpec("out", "samples")}
     defaults = {

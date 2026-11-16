@@ -34,6 +34,11 @@ class DaqBackplane(Component):
     table and the multiplexer card check their channels against it.
     """
 
+    label = "主机背板"
+    label_en = "Mainframe backplane"
+    about = "数据采集主机的插槽和已装的模块。"
+    about_en = "The data-acquisition mainframe's slots and installed modules."
+
     defaults = {
         "slots": 3,  # module slots in the mainframe
         "modules": [],  # installed modules: [{slot: 1, model: "34901A", channels: 20}]
@@ -83,6 +88,11 @@ class MuxCard(Component):
     The relay state lives in the instrument's channel state (``ch<n>.<relay_state>``, declared as
     ``channel_state`` by the definition); the card reads it whenever it stamps the circuit.
     """
+
+    label = "多路复用卡"
+    label_en = "Multiplexer card"
+    about = "多路复用卡的继电器和模拟总线。"
+    about_en = "A multiplexer card's relays and analog bus."
 
     refs = {
         "backplane": ("daq_backplane", "instrument"),
@@ -280,6 +290,11 @@ class ScanTable(Component):
     break-before-make rule), reads the internal DMM and carries the channel number in the ``CHAN``
     field, so the reading buffer keeps channel and value together.
     """
+
+    label = "扫描表"
+    label_en = "Scan table"
+    about = "作为一次运行读取的通道列表，及其背后的采样器。"
+    about_en = "A channel list read as one run, and the sampler behind it."
 
     refs = {
         "mux": ("mux_card", "instrument"),

@@ -22,7 +22,8 @@ import type { Issue } from "./canvas/InstrumentNode";
 import { addItem } from "./edit/actions";
 import { HistoryDialog } from "./edit/HistoryDialog";
 import { EditInspector } from "./edit/EditInspector";
-import { applyOps, bindEditor, syncDocument, useEditor } from "./edit/editor";
+import { applyOps, bindEditor, syncDocument, undo, useEditor } from "./edit/editor";
+import i18n from "@/i18n";
 import { LibraryPanel } from "./edit/LibraryPanel";
 import { CommandPalette } from "./CommandPalette";
 import { Inspector } from "./Inspector";
@@ -404,7 +405,7 @@ function CenterTabs({
         ) : current.kind === "internals" ? (
           <Internals session={session} instrument={current.instrument} />
         ) : current.kind === "acceptance" ? (
-          <Acceptance session={session} instrument={current.instrument} />
+          <Acceptance session={session} tab={current} />
         ) : (
           <div className="flex h-full flex-col">
             {editing && (() => {
@@ -436,10 +437,39 @@ function Internals({ session, instrument }: { session: SessionInfo; instrument: 
   return inst ? <InternalsView key={inst.name} session={session} inst={inst} /> : null;
 }
 
-/** The instrument's definition acceptance page, as a workbench tab beside the internals view. */
-function Acceptance({ session, instrument }: { session: SessionInfo; instrument: string }) {
-  const inst = session.instruments.find((i) => i.name === instrument);
-  return inst ? <InstrumentAcceptance key={inst.definition_id} definitionId={inst.definition_id} /> : null;
+/**
+ * The instrument's definition acceptance page, as a workbench tab beside the internals view. A copy
+ * made there ("copy as my instrument") opens in the same tab at the same section, and the bench is
+ * offered the copy for this instrument (#1250).
+ */
+function Acceptance({ session, tab }: { session: SessionInfo; tab: Extract<Tab, { kind: "acceptance" }> }) {
+  const showDefinition = useWorkbench((s) => s.showDefinition);
+  const inst = session.instruments.find((i) => i.name === tab.instrument);
+  if (!inst) return null;
+  const definitionId = tab.definition ?? inst.definition_id;
+  const onOpenCopy = (id: string, section: string) => {
+    showDefinition(inst.name, id, section);
+    if (id !== inst.definition_id && session.bench_path) offerCopy(inst.name, id);
+  };
+  const page = `/i/${definitionId}?${new URLSearchParams({ from: session.id }).toString()}`;
+  return <InstrumentAcceptance key={definitionId} definitionId={definitionId} initialSection={tab.section} onOpenCopy={onOpenCopy} pageHref={page} />;
+}
+
+/** Ask whether the bench should use the copy for this instrument; yes swaps its model in the bench file, with an undo (#1250). */
+function offerCopy(name: string, id: string) {
+  const t = i18n.t.bind(i18n);
+  toast(t("acceptance.useCopy", { name }), {
+    id: `use-copy-${name}`,
+    description: t("acceptance.useCopyBody", { name, id }),
+    duration: 15000,
+    action: {
+      label: t("acceptance.useCopyConfirm"),
+      onClick: () =>
+        void applyOps([{ op: "replace_instrument", name, model: id }]).then((doc) => {
+          if (doc) toast.success(t("acceptance.usedCopy", { name, id }), { action: { label: t("edit.undo"), onClick: () => void undo() } });
+        }),
+    },
+  });
 }
 
 function Screen({

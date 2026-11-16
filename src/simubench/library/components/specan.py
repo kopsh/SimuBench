@@ -124,6 +124,11 @@ class SpecanInput(Component):
     level. ``out`` is the input attenuated (and amplified by the preamplifier, 0 dB unless
     declared)."""
 
+    label = "输入衰减器"
+    label_en = "Input attenuator"
+    about = "频谱仪的输入步进衰减器和过载检查。"
+    about_en = "The analyzer's input step attenuator and overload check."
+
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     defaults = {
         "z_in": 50.0,  # input impedance, ohm
@@ -247,6 +252,11 @@ class SpecanLo(Component):
     as noise around every line the mixer converts (the trace, #954); without the table there is
     none."""
 
+    label = "本振"
+    label_en = "Local oscillator"
+    about = "本振：接收机调谐到哪里、频率参考和扫描速度。"
+    about_en = "The local oscillator: where the receiver is tuned, its reference and sweep speed."
+
     refs = {"clock": ("reference_clock", "instrument"), "if_filter": ("specan_if", "instrument")}
     defaults = {
         "clock": "",  # the reference_clock on REF_IN
@@ -353,6 +363,11 @@ class SpecanMixer(Component):
 
     ``noise_figure`` is the whole receiver's (the earlier way to declare it): with no other stage
     declaring one, the chain's cascaded figure is exactly this."""
+
+    label = "混频器"
+    label_en = "Mixer"
+    about = "把输入与本振混频变到中频，含变频损耗和镜像抑制。"
+    about_en = "Converts the input to the IF against the LO, with conversion loss and image rejection."
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     tuned_ports = frozenset({"out"})
@@ -495,6 +510,11 @@ class SpecanIf(Component):
     over the middle 60 % of the bandwidth, 30 dB down at twice the bandwidth. The resolution
     bandwidth is not here: it is the digital filter behind the ADC (``specan_rbw``)."""
 
+    label = "中频滤波"
+    label_en = "IF filter"
+    about = "ADC 前的中频滤波与放大，防止混叠。"
+    about_en = "The IF filter and amplifier ahead of the ADC, which keeps it from aliasing."
+
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
     tuned_ports = frozenset({"out"})
     defaults = {
@@ -552,6 +572,11 @@ class SpecanDetector(Component):
     ones, as the X-Series reference describes. With ``auto`` the detector follows the trace mode:
     max hold peak, min hold negative peak, otherwise normal (the X-Series preset rule); a detector
     chosen through :meth:`op_select` turns ``auto`` off."""
+
+    label = "检波"
+    label_en = "Detector"
+    about = "每个分辨单元的检波方式（峰值、采样、平均、RMS 等）与对数换算。"
+    about_en = "The detector per resolution cell (peak, sample, average, RMS, …) and log conversion."
 
     defaults = {
         "detector": "POSitive",  # POSitive | SAMPle | AVERage | RMS | NEGative | NORMal (a setting)
@@ -640,6 +665,11 @@ class SpecanVbw(Component):
     sweep the same way the old monolith did (its auto sweep time uses min(RBW, VBW)). Steps and
     limits as the resolution filter's (#616); a ``vbw_max`` above the ladder is the wide-open setting."""
 
+    label = "视频滤波"
+    label_en = "Video filter"
+    about = "视频带宽：自动跟随 RBW，手动时影响扫描时间。"
+    about_en = "The video bandwidth: auto follows the RBW; a manual value stretches the sweep."
+
     refs = {"rbw": ("specan_rbw", "instrument")}
     defaults = {
         "vid": 3.0e6,  # Hz, manual VBW (a setting such as $bw.vid)
@@ -678,6 +708,11 @@ class SpecanTrace(Component):
     markers, and the SCPI operations of the display. It reads the analog front end by its wiring:
     from the IF filter upstream to the input, the lines at the head of that chain and the stages'
     cascaded noise figure (the analytic evaluation of signal-chain.md 5.4)."""
+
+    label = "迹线"
+    label_en = "Trace"
+    about = "频谱仪的迹线与扫描：分析窗口、扫描时间、迹线模式和标记。"
+    about_en = "The analyzer's trace and scan: window, sweep timing, trace modes and markers."
 
     refs = {
         "input": ("specan_input", "instrument"),

@@ -34,6 +34,10 @@ test("build area: drag a component in, wire it, set a parameter, add a panel por
   const id = ((await copy.json()) as { data: { id: string } }).data.id;
 
   await page.goto(`/i/${id}?token=${TOKEN}`);
+  // A model without a declared panel: its settings are grouped as 「整机」, not "INSTRUMENT" (#1251).
+  await expect(page.getByText("功能与量程")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "整机", level: 4 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "instrument", level: 4 })).toHaveCount(0);
   // Not 「搭建」, the bench's build mode in the top bar: this tab edits the definition's structure (#1222).
   await expect(page.getByTestId("acceptance-tab-build")).toHaveText("编辑结构");
   await page.getByTestId("acceptance-tab-build").click();
@@ -280,9 +284,28 @@ test("build area: grouped library, SI values, a table edited by row, one binding
   await expect(page.getByTestId("build-library-group-signal")).toBeVisible();
   await expect(page.getByTestId("build-library-group-trigger")).toBeVisible();
   await expect(page.getByTestId("build-library-input_port")).toContainText("→ out");
+  // Names first, the type as a grey tag, a sentence in Chinese (#1251); the search finds either.
+  await expect(page.getByTestId("build-library-input_port")).toContainText("输入端口");
+  await expect(page.getByTestId("build-library-input_port")).toContainText("input_port");
+  await expect(page.getByTestId("build-library-clock_recovery")).toContainText("时钟恢复");
+  await page.getByPlaceholder("按类型、名称或说明过滤").fill("时钟恢复");
+  await expect(page.locator('[data-testid^="build-library-"][draggable]')).toHaveCount(1);
+  await page.getByPlaceholder("按类型、名称或说明过滤").fill("clock_recovery");
+  await expect(page.getByTestId("build-library-clock_recovery")).toBeVisible();
+  await expect(page.getByTestId("build-library-input_port")).toHaveCount(0);
+  await page.getByPlaceholder("按类型、名称或说明过滤").fill("");
 
   // A value reads and takes an SI prefix.
   await page.locator('[data-name="input"]').click();
+  // The side panel: the name, the type, a sentence, and the English description folded away (#1251).
+  const side = page.getByTestId("build-component-panel");
+  await expect(side.getByRole("heading", { level: 2 })).toHaveText("万用表输入端子");
+  await expect(side).toContainText("dmm_input_terminal");
+  await expect(side.getByTestId("type-description")).toContainText("对地阻抗");
+  await expect(side.getByTestId("type-details")).not.toHaveAttribute("open");
+  await side.getByText("详细说明").click();
+  await expect(side.getByTestId("type-details")).toHaveAttribute("open");
+  await expect(side.getByTestId("type-details")).toContainText("The DMM's input terminals");
   const zin = page.locator("#param-input-z_in");
   await expect(zin).toHaveValue("10M");
   await zin.fill("20M");
@@ -306,6 +329,14 @@ test("build area: grouped library, SI values, a table edited by row, one binding
   await expect(page.getByTestId("build-side")).toHaveAttribute("data-wide", "true");
   await page.getByPlaceholder("搜索设置名、类型或单位").fill("nplc");
   await expect(page.locator('[data-testid^="build-setting-sense"]')).toHaveCount(1);
+  // Each row: the setting's name, its path as a grey tag (#1251); the name finds it as well.
+  const nplcTitle = page.locator('[data-testid^="build-setting-sense"]').locator("[data-part=setting-title]");
+  await expect(nplcTitle).toContainText("sense.nplc");
+  const named = (await nplcTitle.innerText()).replace("sense.nplc", "").trim();
+  expect(named.length).toBeGreaterThan(0);
+  await page.getByPlaceholder("搜索设置名、类型或单位").fill(named);
+  await expect(page.locator('[data-testid^="build-setting-sense.nplc"]')).toHaveCount(1);
+  await page.getByPlaceholder("搜索设置名、类型或单位").fill("nplc");
   await expect(page.getByTestId("build-setting-users")).toContainText("meter");
 
   // The commands: searched, and what the Web leaves to the agent copied as a note.

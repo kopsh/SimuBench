@@ -394,6 +394,11 @@ test("instrument internals: the scope's components, wiring and panel ports, read
   await graph.locator('[data-name="ch1.front"]').click();
   const details = page.getByTestId("internal-details");
   await expect(details).toContainText("scope_vertical");
+  // The block is named in words, the type a grey tag; the English description folded away (#1251).
+  await expect(graph.locator('[data-name="ch1.front"] [data-part=block-name]')).toHaveText("垂直通道");
+  await expect(details).toContainText("垂直通道：耦合、带宽");
+  await expect(details.getByTestId("type-details")).not.toHaveAttribute("open");
+  await expect(details.getByTestId("type-details")).toContainText("The vertical channel");
   await expect(details).toContainText("跟随设置：耦合");
   await expect(details).toContainText("200 MHz");
   // Expanding everything shows every channel's chain.
@@ -686,6 +691,11 @@ test("internal probe on the spectrum analyzer: the chain, the mixer's products, 
     return sid;
   };
   let sid = await open();
+  // The inspector titles its settings groups in words, not path segments (#1251): 「功率」, not "power".
+  await page.getByRole("tab", { name: "画布" }).click();
+  await expect(page.getByRole("button", { name: "功率" }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: "power", exact: true })).toHaveCount(0);
+  await page.getByRole("tab", { name: "频谱仪 · 内部结构" }).first().click();
   const graph = page.getByTestId("internals-graph");
   const probe = page.getByTestId("internal-probe");
   const heading = page.getByTestId("internal-probe-heading");
@@ -810,7 +820,7 @@ test("internal probe on the spectrum analyzer: the chain, the mixer's products, 
   // Step 3 — the ADC's output: the title states its rate and resolution; samples and their FFT.
   const adcOut = graph.locator('[data-port="adc.out"]');
   await adcOut.click();
-  await expect(heading).toHaveText("ADC · 输出");
+  await expect(heading).toHaveText("模数转换器（ADC） · 输出");
   await expect(page.getByTestId("internal-probe-tag")).toHaveText("数字 · 100 MSa/s · 16 位");
   await expect(probe).toContainText("4096 个采样");
   await expect(page.getByTestId("internal-probe-wave")).toBeVisible();

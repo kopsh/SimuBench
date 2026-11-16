@@ -1647,6 +1647,30 @@
       "ComponentDoc": {
         "description": "A component type as instrument definitions use it: ports, parameters, operations, role.",
         "properties": {
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One sentence on what the type does, Chinese (#1251)",
+            "title": "About"
+          },
+          "about_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The same sentence in English",
+            "title": "About En"
+          },
           "category": {
             "enum": [
               "part",
@@ -1697,6 +1721,7 @@
                 "type": "null"
               }
             ],
+            "description": "The type's name, Chinese (D23)",
             "title": "Label"
           },
           "label_en": {
@@ -1778,6 +1803,8 @@
           "generic",
           "label",
           "label_en",
+          "about",
+          "about_en",
           "group",
           "doc",
           "ports",
@@ -1876,6 +1903,30 @@
       },
       "ComponentTypeInfo": {
         "properties": {
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One sentence on what the type does, Chinese (#1251)",
+            "title": "About"
+          },
+          "about_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The same sentence in English",
+            "title": "About En"
+          },
           "category": {
             "enum": [
               "part",
@@ -1947,6 +1998,8 @@
           "category",
           "label",
           "label_en",
+          "about",
+          "about_en",
           "doc",
           "ports",
           "defaults",
@@ -2593,6 +2646,18 @@
             ],
             "title": "Description"
           },
+          "extends": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The definition this one extends (D59): for a copy made with 'copy as my instrument', the model it was copied from (#1250)",
+            "title": "Extends"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -2643,7 +2708,8 @@
           "channels",
           "ports",
           "template",
-          "workspace"
+          "workspace",
+          "extends"
         ],
         "title": "DefinitionSummary",
         "type": "object"
@@ -4538,6 +4604,30 @@
       },
       "InternalComponent": {
         "properties": {
+          "about": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "One sentence on what the type does, Chinese (#1251)",
+            "title": "About"
+          },
+          "about_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The same sentence in English",
+            "title": "About En"
+          },
           "channel": {
             "anyOf": [
               {
@@ -4569,6 +4659,29 @@
             ],
             "description": "What the component type does (first paragraph of its description)",
             "title": "Doc"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The component type's name, Chinese (D23, #1251)",
+            "title": "Label"
+          },
+          "label_en": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label En"
           },
           "name": {
             "description": "Unique within the instrument, e.g. 'ch1.front' or 'acq'",
@@ -4614,6 +4727,10 @@
           "name",
           "type",
           "channel",
+          "label",
+          "label_en",
+          "about",
+          "about_en",
           "doc",
           "params",
           "ports",

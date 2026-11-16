@@ -524,13 +524,16 @@ describe("numbers, tables, the library and setting users (#1214)", () => {
     const docs = [
       doc({ type: "trigger_model", group: "trigger" }),
       doc({ type: "output_stage", group: "signal", doc: "A driven output" }),
-      doc({ type: "input_port", group: "signal" }),
+      doc({ type: "input_port", group: "signal", label: "输入端口", label_en: "Input port" }),
       doc({ type: "resistor", category: "part", group: "other" }),
     ];
-    const all = libraryGroups(docs, "", (d) => d.type);
+    const all = libraryGroups(docs, "");
     expect(all.map((g) => g.group)).toEqual(["signal", "trigger"]);
     expect(all[0].items.map((d) => d.type)).toEqual(["output_stage", "input_port"]);
-    expect(libraryGroups(docs, "driven", (d) => d.type).flatMap((g) => g.items.map((d) => d.type))).toEqual(["output_stage"]);
+    expect(libraryGroups(docs, "driven").flatMap((g) => g.items.map((d) => d.type))).toEqual(["output_stage"]);
+    // the names in both languages count as well as the type (#1251)
+    expect(libraryGroups(docs, "输入").flatMap((g) => g.items.map((d) => d.type))).toEqual(["input_port"]);
+    expect(libraryGroups(docs, "input port").flatMap((g) => g.items.map((d) => d.type))).toEqual(["input_port"]);
   });
 
   it("writes a type's ports in one line", () => {

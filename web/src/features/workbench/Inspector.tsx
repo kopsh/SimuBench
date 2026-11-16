@@ -12,7 +12,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instrumentTitle, numeric, groupName, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner } from "./RemoteBanner";
@@ -439,48 +439,11 @@ function SettingsBlock({
   );
 }
 
-/** The group names the translation files carry; a path prefix without one shows as written. */
-const GROUP_KEYS = {
-  timebase: "inspector.group.timebase",
-  horizontal: "inspector.group.horizontal",
-  vertical: "inspector.group.vertical",
-  trigger: "inspector.group.trigger",
-  acquire: "inspector.group.acquire",
-  measure: "inspector.group.measure",
-  display: "inspector.group.display",
-  memory: "inspector.group.memory",
-  math: "inspector.group.math",
-  cursor: "inspector.group.cursor",
-  bw: "inspector.group.bw",
-  comm: "inspector.group.comm",
-  waveform: "inspector.group.waveform",
-  status: "inspector.group.status",
-  system: "inspector.group.system",
-  remote: "inspector.group.remote",
-  interface: "inspector.group.interface",
-  lan: "inspector.group.lan",
-  gpib: "inspector.group.gpib",
-  usb: "inspector.group.usb",
-  sense: "inspector.group.sense",
-  source: "inspector.group.source",
-  sweep: "inspector.group.sweep",
-  output: "inspector.group.output",
-  compliance: "inspector.group.compliance",
-  sample: "inspector.group.sample",
-  beeper: "inspector.group.beeper",
-  click: "inspector.group.click",
-  line: "inspector.group.line",
-  cal: "inspector.group.cal",
-  format: "inspector.group.format",
-  other: "inspector.group.other",
-} as const;
-
 function GroupTitle({ group }: { group: SettingGroup }) {
-  const { t } = useTranslation();
-  const key = (GROUP_KEYS as Record<string, (typeof GROUP_KEYS)[keyof typeof GROUP_KEYS]>)[group.id];
+  const name = groupName(group.id);
   return (
     <span className="flex items-center gap-1.5">
-      {key ? t(key) : <span className="num normal-case">{group.id}</span>}
+      {name ?? <span className="num normal-case">{group.id}</span>}
       <span className="num text-muted-foreground/70 font-normal">{group.vars.length}</span>
     </span>
   );

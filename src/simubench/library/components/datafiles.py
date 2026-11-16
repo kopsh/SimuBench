@@ -111,6 +111,11 @@ class DataFile(Component):
     give them); only channel sources, one record per file (no segments, no ALL).
     """
 
+    label = "数据文件"
+    label_en = "Data file"
+    about = "把测量数据（读数存储或通道记录）写到仪表的驱动器上。"
+    about_en = "Writes measurement data (reading memory or a channel's record) to the instrument's drives."
+
     refs = {
         "storage": ("file_system", "instrument"),
         "readings": ("reading_buffer", "instrument"),

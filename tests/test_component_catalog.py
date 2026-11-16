@@ -82,6 +82,19 @@ def test_every_parameter_has_a_description():
         assert not missing, f"{name}: parameters without a description: {missing}"
 
 
+def test_every_built_in_type_has_a_name_and_a_one_sentence_description_in_both_languages():
+    """The UI shows the name first and the type as a grey tag (#1251): no fallback to the bare type."""
+    for name, cls in sorted(component_types().items()):
+        if not cls.__module__.startswith("simubench.library.components."):
+            continue  # other tests register their own classes
+        missing = [a for a in ("label", "label_en", "about", "about_en") if not getattr(cls, a)]
+        assert not missing, f"{name}: missing {missing}"
+        assert any("\u4e00" <= ch <= "\u9fff" for ch in cls.label), f"{name}: label is not Chinese"
+        assert cls.label != name and cls.label_en != name, f"{name}: the name repeats the type"
+        assert cls.about.endswith("。") and cls.about.count("。") == 1, f"{name}: not one sentence"
+        assert cls.about_en.endswith(".") and "\n" not in cls.about_en, f"{name}: not one sentence"
+
+
 def test_the_components_endpoint():
     app = create_app(SessionManager(ROOT / "validation", scpi_base_port=None), token="t", web_dist=Path("/x"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
@@ -89,6 +102,11 @@ def test_the_components_endpoint():
         body = c.get("/api/components", headers={"x-simubench-token": "t"}).json()
     by_type = {c["type"]: c for c in body}
     assert by_type["output_stage"]["role"] == "driver"
+    assert (by_type["scope_vertical"]["label"], by_type["scope_vertical"]["label_en"]) == (
+        "垂直通道",
+        "Vertical channel",
+    )
+    assert by_type["scope_vertical"]["about"] and by_type["scope_vertical"]["about_en"]
     assert {
         "name": "pin",
         "direction": "out",

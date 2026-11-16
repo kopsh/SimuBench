@@ -15,7 +15,11 @@ export type Tab =
   | { kind: "canvas" }
   | { kind: "screen"; instrument: string }
   | { kind: "internals"; instrument: string }
-  | { kind: "acceptance"; instrument: string };
+  /**
+   * `definition`: the page shows this definition instead of the instrument's own — the copy just
+   * made with "copy as my instrument", before the bench uses it (#1250); `section`: where it opens.
+   */
+  | { kind: "acceptance"; instrument: string; definition?: string; section?: string };
 export type Mode = "run" | "edit";
 export type TabKind = Tab["kind"];
 
@@ -66,6 +70,8 @@ interface WorkbenchState {
   openInternals: (instrument: string) => void;
   /** The definition's acceptance page (T4): overview, commands, internals, try run, cases, history. */
   openAcceptance: (instrument: string) => void;
+  /** Show `definition` in the instrument's acceptance tab, at `section` (#1250): the tab stays, its page changes. */
+  showDefinition: (instrument: string, definition: string, section: string) => void;
   closeTab: (key: string) => void;
   setActive: (key: string) => void;
   setPalette: (open: boolean) => void;
@@ -147,6 +153,13 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   openScreen: (instrument) => set((s) => openTab(s.tabs, { kind: "screen", instrument })),
   openInternals: (instrument) => set((s) => openTab(s.tabs, { kind: "internals", instrument })),
   openAcceptance: (instrument) => set((s) => openTab(s.tabs, { kind: "acceptance", instrument })),
+  showDefinition: (instrument, definition, section) =>
+    set((s) => {
+      const tab: Tab = { kind: "acceptance", instrument, definition, section };
+      const key = tabKey(tab);
+      const tabs = s.tabs.some((t) => tabKey(t) === key) ? s.tabs.map((t) => (tabKey(t) === key ? tab : t)) : [...s.tabs, tab];
+      return { tabs, active: key };
+    }),
   closeTab: (key) =>
     set((s) => {
       if (key === "canvas") return s;

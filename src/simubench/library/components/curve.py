@@ -53,6 +53,11 @@ class CurveBuffer(Component):
     per trigger, single shot or loop, ``TRCA?``/``TRCB?``/``TRCL?`` reading k points from bin j.
     """
 
+    label = "曲线缓冲"
+    label_en = "Curve buffer"
+    about = "按采样率把迹线记入数据点，可开始、暂停、继续和清空。"
+    about_en = "Records traces at a rate into bins, with start, pause, resume and reset."
+
     defaults = {
         "trace1": "",  # what trace 1 records: <component>.<quantity> (empty: nothing)
         "trace2": "",  # what trace 2 records

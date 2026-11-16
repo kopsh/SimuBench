@@ -285,6 +285,10 @@ def internals(served: ServedSession, instrument: str) -> M.InstrumentInternals:
                 name=name,
                 type=comp.type_name,
                 channel=comp.channel,
+                label=comp.label or None,
+                label_en=comp.label_en or None,
+                about=comp.about or None,
+                about_en=comp.about_en or None,
                 doc=_first_paragraph(type(comp).__doc__),
                 params=[
                     M.InternalParam(name=k, value=jsonable(v), binding=b, unit=comp.units.get(k))

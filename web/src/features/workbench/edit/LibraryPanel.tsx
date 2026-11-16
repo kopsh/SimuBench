@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { pickLabel } from "@/i18n";
+import { typeAbout, typeSearchText } from "@/lib/component";
 import { LIBRARY_MIME, type LibraryItem } from "../canvas/Canvas";
 import { addItem } from "./actions";
 import { ClassIcon } from "../classes";
@@ -27,7 +28,7 @@ export function LibraryPanel() {
     const match = (...fields: (string | null | undefined)[]) => !query || fields.some((f) => f?.toLowerCase().includes(query));
     return {
       instruments: c.instruments.filter((d) => match(d.id, d.model, d.manufacturer, d.instrument_class, d.description)),
-      parts: c.components.filter((x) => x.category === "part" && match(x.type, x.label, x.label_en, x.doc)),
+      parts: c.components.filter((x) => x.category === "part" && match(...typeSearchText(x))),
     };
   }, [catalog.data, query]);
 
@@ -66,7 +67,9 @@ export function LibraryPanel() {
                     item={{ kind: "instrument", id: d.id }}
                     icon={<ClassIcon cls={d.instrument_class} className="size-4" />}
                     title={d.model}
-                    subtitle={`${d.manufacturer} · ${d.channels} CH`}
+                    // the user's own copy (#1250): marked, and named by its definition so two copies differ
+                    badge={d.workspace ? t("edit.mine") : undefined}
+                    subtitle={d.workspace ? `${d.id} · ${d.manufacturer}` : `${d.manufacturer} · ${d.channels} CH`}
                     hint={d.description ?? undefined}
                   />
                 );
@@ -81,7 +84,7 @@ export function LibraryPanel() {
                   icon={<CircuitBoard className="size-4" />}
                   title={pickLabel(c.label, c.label_en, c.type)}
                   subtitle={c.type}
-                  hint={c.doc ?? undefined}
+                  hint={typeAbout(c) ?? c.doc ?? undefined}
                 />
               ))}
             </Group>
@@ -108,6 +111,7 @@ function Entry({
   title,
   subtitle,
   hint,
+  badge,
 }: {
   catalog: Catalog;
   item: LibraryItem;
@@ -115,6 +119,7 @@ function Entry({
   title: string;
   subtitle: string;
   hint?: string;
+  badge?: string;
 }) {
   const { t } = useTranslation();
   const onDragStart = (e: DragEvent) => {
@@ -132,7 +137,14 @@ function Entry({
       <GripVertical className="text-muted-foreground/50 size-3.5 shrink-0" />
       <span className="text-muted-foreground shrink-0">{icon}</span>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-[12.5px] leading-tight font-medium">{title}</div>
+        <div className="flex min-w-0 items-center gap-1.5">
+          <span className="truncate text-[12.5px] leading-tight font-medium">{title}</span>
+          {badge && (
+            <span className="bg-primary/10 text-primary shrink-0 rounded px-1 text-[10px] leading-4 font-medium" data-part="mine">
+              {badge}
+            </span>
+          )}
+        </div>
         <div className="text-muted-foreground num truncate text-[11px] leading-tight">{subtitle}</div>
       </div>
       <Button

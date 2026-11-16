@@ -287,6 +287,20 @@ export const OTHER = "other";
  * multimeter's aperture, a source's autorange), so a group of those is open; the folded ones are the
  * remote-programming groups and groups the definition did not name (a template's measurement slots).
  */
+/**
+ * The name of a settings group (``inspector.group.<id>``); a numbered prefix (``function3``) takes
+ * ``<prefix>N`` with the number. None when the translation files have no name for it: every prefix
+ * of the built-in models has one (``tests/test_setting_groups.py``, #1251).
+ */
+export function groupName(id: string): string | null {
+  let digits = id.length;
+  while (digits > 0 && id[digits - 1] >= "0" && id[digits - 1] <= "9") digits--;
+  if (digits > 0 && digits < id.length && i18n.exists(`inspector.group.${id.slice(0, digits)}N`)) {
+    return i18n.t(`inspector.group.${id.slice(0, digits)}N` as never, { n: id.slice(digits) });
+  }
+  return i18n.exists(`inspector.group.${id}`) ? i18n.t(`inspector.group.${id}` as never) : null;
+}
+
 export function groupOpen(g: SettingGroup): boolean {
   return !g.remote && g.vars.filter(hasLabel).length * 2 >= g.vars.length;
 }

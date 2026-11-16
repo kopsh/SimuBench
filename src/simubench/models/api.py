@@ -312,6 +312,11 @@ class DefinitionSummary(_Model):
     workspace: bool = Field(
         False, description="Defined in the workspace's instruments/ (the user's own), not built in"
     )
+    extends: str | None = Field(
+        None,
+        description="The definition this one extends (D59): for a copy made with 'copy as my "
+        "instrument', the model it was copied from (#1250)",
+    )
 
 
 class ComponentTypeInfo(_Model):
@@ -319,6 +324,8 @@ class ComponentTypeInfo(_Model):
     category: Literal["part", "accessory", "internal"]
     label: str | None = None
     label_en: str | None = None
+    about: str | None = Field(None, description="One sentence on what the type does, Chinese (#1251)")
+    about_en: str | None = Field(None, description="The same sentence in English")
     doc: str | None = None
     ports: list[PortInfo]
     defaults: dict[str, Any]
@@ -374,8 +381,10 @@ class ComponentDoc(_Model):
         description="False for a component written for one model's own behavior; built-in real models "
         "use generic components only (metrology-authoring.md 9)",
     )
-    label: str | None = None
+    label: str | None = Field(None, description="The type's name, Chinese (D23)")
     label_en: str | None = None
+    about: str | None = Field(None, description="One sentence on what the type does, Chinese (#1251)")
+    about_en: str | None = Field(None, description="The same sentence in English")
     group: LibraryGroup = Field(
         "other", description="The family the build area's library lists it under (#1214)"
     )
@@ -596,6 +605,10 @@ class InternalComponent(_Model):
     channel: int | None = Field(
         None, description="Channel the component belongs to; none for the whole instrument"
     )
+    label: str | None = Field(None, description="The component type's name, Chinese (D23, #1251)")
+    label_en: str | None = None
+    about: str | None = Field(None, description="One sentence on what the type does, Chinese (#1251)")
+    about_en: str | None = Field(None, description="The same sentence in English")
     doc: str | None = Field(
         None, description="What the component type does (first paragraph of its description)"
     )
