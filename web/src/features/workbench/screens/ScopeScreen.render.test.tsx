@@ -29,7 +29,7 @@ vi.mock("@/api/hooks", () => ({
 
 afterEach(cleanup);
 
-const trace = { channel: 1, t0_s: -5e-6, dt_s: 5e-10, volts: [0, 0.1], scale: 0.1, offset: 0, triggered: true, silence: [] };
+const trace = { channel: 1, t0_s: -5e-6, dt_s: 5e-10, volts: [0, 0.1], scale: 0.1, offset: 0, triggered: true, silence: [], minmax: null };
 const base: ScopeScreenData = {
   instrument: "scope",
   source: "record",
@@ -53,6 +53,7 @@ const fft = {
   values: [-60, -2.1, -60],
   scale: 10,
   offset: -40,
+  minmax: null,
 };
 const inst = { name: "scope", channels: 4, state: [] } as unknown as InstrumentInfo;
 const session = { id: "s" } as unknown as SessionInfo;
