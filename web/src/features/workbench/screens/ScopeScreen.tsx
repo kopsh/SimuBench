@@ -2,14 +2,23 @@ import { Crosshair, Info, Play, Square, StepForward } from "lucide-react";
 import { useDeferredValue, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { InstrumentInfo, ScopeScreen as ScopeScreenData, SessionInfo, Trace } from "@/api/client";
+import type {
+  InstrumentInfo,
+  ScopeScreen as ScopeScreenData,
+  SessionInfo,
+  Trace,
+} from "@/api/client";
 import { useEvents } from "@/api/events";
 import { usePanel, useScopeScreen } from "@/api/hooks";
 import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { EmptyState } from "@/components/app/StateViews";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { channelColor } from "@/lib/channels";
 import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
@@ -17,7 +26,15 @@ import { refTarget, stateMap } from "../model";
 import { useWorkbench } from "../store";
 import { WaveformCanvas } from "./WaveformCanvas";
 
-export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo; inst: InstrumentInfo; readonly: boolean }) {
+export function ScopeScreen({
+  session,
+  inst,
+  readonly,
+}: {
+  session: SessionInfo;
+  inst: InstrumentInfo;
+  readonly: boolean;
+}) {
   const { t } = useTranslation();
   const sid = session.id;
   const version = useDeferredValue(useEvents((s) => s.version));
@@ -36,12 +53,17 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
   const running = !!data?.running;
   const hint = running ? t("scope.liveHint") : t("scope.recordHint");
   const [cursors, setCursors] = useState<Cursors | null>(null);
-  const channelScale = (n: number) => Number(vars.get(`ch${n}.scale`)?.value ?? 1);
+  const channelScale = (n: number) =>
+    Number(vars.get(`ch${n}.scale`)?.value ?? 1);
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
       <div className="flex items-center gap-3">
-        <div role="group" aria-label={t("scope.acquisition")} className="flex items-center gap-1">
+        <div
+          role="group"
+          aria-label={t("scope.acquisition")}
+          className="flex items-center gap-1"
+        >
           <Button
             size="sm"
             variant={running ? "default" : "outline"}
@@ -49,17 +71,40 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
             disabled={readonly || !data || panel.isPending}
             onClick={() => press(running ? "stop" : "run")}
           >
-            {running ? <Square className="size-3.5" /> : <Play className="size-3.5" />}
+            {running ? (
+              <Square className="size-3.5" />
+            ) : (
+              <Play className="size-3.5" />
+            )}
             {running ? t("scope.stop") : t("scope.run")}
           </Button>
-          <Button size="sm" variant="outline" className="h-7 gap-1.5 text-xs" disabled={readonly || panel.isPending} onClick={() => press("single")}>
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 gap-1.5 text-xs"
+            disabled={readonly || panel.isPending}
+            onClick={() => press("single")}
+          >
             <StepForward className="size-3.5" />
             {t("scope.single")}
           </Button>
         </div>
         {data && (
-          <span className={cn("text-xs", running ? "text-ok" : data.waiting ? "text-warn" : "text-muted-foreground")}>
-            {running ? t("scope.running") : data.waiting ? t("scope.waiting") : t("scope.stopped")}
+          <span
+            className={cn(
+              "text-xs",
+              running
+                ? "text-ok"
+                : data.waiting
+                  ? "text-warn"
+                  : "text-muted-foreground",
+            )}
+          >
+            {running
+              ? t("scope.running")
+              : data.waiting
+                ? t("scope.waiting")
+                : t("scope.stopped")}
           </span>
         )}
         <Tooltip>
@@ -81,32 +126,45 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
         {data && (
           <div className="text-muted-foreground ml-auto flex items-center gap-4 text-xs">
             <span>
-              {t("scope.timebase")} <span className="num text-foreground">{formatEng(data.timebase_scale, "s", 3)}</span>
+              {t("scope.timebase")}{" "}
+              <span className="num text-foreground">
+                {formatEng(data.timebase_scale, "s", 3)}
+              </span>
               {t("scope.perDiv")}
             </span>
             <span>
               {t("scope.trigger")}{" "}
-              <span className="num" style={{ color: channelColor(data.trigger_source) }}>
+              <span
+                className="num"
+                style={{ color: channelColor(data.trigger_source) }}
+              >
                 CH{data.trigger_source}
               </span>{" "}
-              <span className="num text-foreground">{formatEng(data.trigger_level, "V", 3)}</span>
+              <span className="num text-foreground">
+                {formatEng(data.trigger_level, "V", 3)}
+              </span>
             </span>
             {/* A running screen draws live frames, not acquisitions (#280): say so rather than "0". */}
             {data.source === "live" ? (
               <span data-testid="scope-source">{t("scope.liveFrame")}</span>
             ) : (
               <span data-testid="scope-source">
-                {t("scope.acquisitions")} <span className="num text-foreground">{data.acquisitions}</span>
+                {t("scope.acquisitions")}{" "}
+                <span className="num text-foreground">{data.acquisitions}</span>
               </span>
             )}
             {data.traces[0] && (
               <span
                 className={cn(
                   "rounded px-1.5 py-0.5 text-[11px] font-medium",
-                  data.traces[0].triggered ? "bg-ok/15 text-ok" : "bg-warn/15 text-warn",
+                  data.traces[0].triggered
+                    ? "bg-ok/15 text-ok"
+                    : "bg-warn/15 text-warn",
                 )}
               >
-                {data.traces[0].triggered ? t("scope.triggered") : t("scope.autoTriggered")}
+                {data.traces[0].triggered
+                  ? t("scope.triggered")
+                  : t("scope.autoTriggered")}
               </span>
             )}
           </div>
@@ -160,13 +218,28 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
           const coupling = String(vars.get(`ch${n}.coupling`)?.value ?? "");
           const probe = Number(vars.get(`ch${n}.probe`)?.value ?? 1);
           return (
-            <div key={n} className={cn("rounded-md border px-2.5 py-1.5 text-xs", !on && "opacity-50")}>
-              <div className="num font-semibold" style={{ color: channelColor(n) }}>
+            <div
+              key={n}
+              className={cn(
+                "rounded-md border px-2.5 py-1.5 text-xs",
+                !on && "opacity-50",
+              )}
+            >
+              <div
+                className="num font-semibold"
+                style={{ color: channelColor(n) }}
+              >
                 CH{n}
               </div>
               <div className="num">
-                {formatEng(scale, "V", 3)}
-                {t("scope.perDiv")} · {coupling} · {probe}×
+                {/* a model without a coupling setting (the UXR's 50 Ω inputs) leaves it out */}
+                {[
+                  `${formatEng(scale, "V", 3)}${t("scope.perDiv")}`,
+                  coupling,
+                  `${probe}×`,
+                ]
+                  .filter(Boolean)
+                  .join(" · ")}
               </div>
             </div>
           );
@@ -180,10 +253,18 @@ export function ScopeScreen({ session, inst, readonly }: { session: SessionInfo;
  * Why a channel reads 0 V, traced upstream by the service (unwired, source off, set to 0, no source,
  * a fault), with each hop selectable so it can be found on the canvas and in the inspector.
  */
-function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trace[] }) {
+function SilenceNotice({
+  session,
+  traces,
+}: {
+  session: SessionInfo;
+  traces: Trace[];
+}) {
   const { t } = useTranslation();
   const select = useWorkbench((s) => s.select);
-  const silent = traces.filter((tr) => tr.silence.length > 0 && tr.volts.every((v) => v === 0));
+  const silent = traces.filter(
+    (tr) => tr.silence.length > 0 && tr.volts.every((v) => v === 0),
+  );
   if (silent.length === 0) return null;
   return (
     <div
@@ -195,8 +276,14 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
         tr.silence.map((r, i) => {
           const source = r.source ? refTarget(session, r.source).label : "";
           return (
-            <div key={`${tr.channel}-${i}`} className="text-muted-foreground flex flex-wrap items-center gap-1">
-              <span className="num font-semibold" style={{ color: channelColor(tr.channel) }}>
+            <div
+              key={`${tr.channel}-${i}`}
+              className="text-muted-foreground flex flex-wrap items-center gap-1"
+            >
+              <span
+                className="num font-semibold"
+                style={{ color: channelColor(tr.channel) }}
+              >
                 CH{tr.channel}
               </span>
               {r.path.slice(1, r.source ? -1 : undefined).map((ref) => {
@@ -204,7 +291,11 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
                 return (
                   <span key={ref} className="flex items-center gap-1">
                     <span aria-hidden>←</span>
-                    <button className="text-foreground hover:underline" disabled={!hop.selection} onClick={() => hop.selection && select(hop.selection)}>
+                    <button
+                      className="text-foreground hover:underline"
+                      disabled={!hop.selection}
+                      onClick={() => hop.selection && select(hop.selection)}
+                    >
                       {hop.label}
                     </button>
                   </span>
@@ -220,10 +311,16 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
                       if (sel) select(sel);
                     }}
                   >
-                    {t(`scope.silence.${r.kind}`, { source, fault: r.fault_id ?? "" })}
+                    {t(`scope.silence.${r.kind}`, {
+                      source,
+                      fault: r.fault_id ?? "",
+                    })}
                   </button>
                 ) : (
-                  t(`scope.silence.${r.kind}`, { source, fault: r.fault_id ?? "" })
+                  t(`scope.silence.${r.kind}`, {
+                    source,
+                    fault: r.fault_id ?? "",
+                  })
                 )}
               </span>
             </div>
@@ -236,7 +333,13 @@ function SilenceNotice({ session, traces }: { session: SessionInfo; traces: Trac
 
 /** Two time cursors (divisions from the left edge) and two voltage cursors (divisions from the
  * center) on one channel's scale; the screen's graticule is 10 × 8 divisions (#280). */
-type Cursors = { x1: number; x2: number; y1: number; y2: number; channel: number };
+type Cursors = {
+  x1: number;
+  x2: number;
+  y1: number;
+  y2: number;
+  channel: number;
+};
 const DEFAULT_CURSORS: Cursors = { x1: 2, x2: 8, y1: 2, y2: -2, channel: 1 };
 
 type CursorKey = "x1" | "x2" | "y1" | "y2";
@@ -268,14 +371,18 @@ function CursorOverlay({
   };
   const handle = (key: CursorKey) => {
     const vertical = key.startsWith("x");
-    const pos = vertical ? `${(cursors[key] / 10) * 100}%` : `${((4 - cursors[key]) / 8) * 100}%`;
+    const pos = vertical
+      ? `${(cursors[key] / 10) * 100}%`
+      : `${((4 - cursors[key]) / 8) * 100}%`;
     return (
       <div
         key={key}
         data-testid={`cursor-${key}`}
         className={cn(
           "pointer-events-auto absolute touch-none",
-          vertical ? "top-0 bottom-0 -ml-1.5 w-3 cursor-ew-resize" : "right-0 left-0 -mt-1.5 h-3 cursor-ns-resize",
+          vertical
+            ? "top-0 bottom-0 -ml-1.5 w-3 cursor-ew-resize"
+            : "right-0 left-0 -mt-1.5 h-3 cursor-ns-resize",
         )}
         style={vertical ? { left: pos } : { top: pos }}
         onPointerDown={(e) => {
@@ -291,7 +398,9 @@ function CursorOverlay({
         <div
           className={cn(
             "absolute border-dashed",
-            vertical ? "top-0 bottom-0 left-1.5 border-l border-white/70" : "top-1.5 right-0 left-0 border-t",
+            vertical
+              ? "top-0 bottom-0 left-1.5 border-l border-white/70"
+              : "top-1.5 right-0 left-0 border-t",
             dragging === key && "border-solid",
           )}
           style={vertical ? undefined : { borderColor: color }}
@@ -302,7 +411,11 @@ function CursorOverlay({
   const dt = (cursors.x2 - cursors.x1) * timePerDiv;
   const dv = (cursors.y1 - cursors.y2) * voltsPerDiv;
   return (
-    <div ref={ref} className="pointer-events-none absolute inset-0" data-testid="scope-cursors">
+    <div
+      ref={ref}
+      className="pointer-events-none absolute inset-0"
+      data-testid="scope-cursors"
+    >
       {(["x1", "x2", "y1", "y2"] as const).map(handle)}
       <div
         className="bg-card/85 num absolute top-2 right-2 rounded border px-2 py-1 text-[11px] leading-tight"
@@ -342,23 +455,33 @@ function CursorBar({
         step={0.1}
         value={cursors[key]}
         aria-label={t(`scope.cursors.${key}`)}
-        onChange={(e) => onChange({ ...cursors, [key]: Number(e.target.value) })}
+        onChange={(e) =>
+          onChange({ ...cursors, [key]: Number(e.target.value) })
+        }
         className="w-24"
       />
     </label>
   );
   return (
-    <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-2.5 py-1.5 text-xs" role="group" aria-label={t("scope.cursors.title")}>
+    <div
+      className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-md border px-2.5 py-1.5 text-xs"
+      role="group"
+      aria-label={t("scope.cursors.title")}
+    >
       {slider("x1", 0, 10)}
       {slider("x2", 0, 10)}
       {slider("y1", -4, 4)}
       {slider("y2", -4, 4)}
       <label className="flex items-center gap-1.5">
-        <span className="text-muted-foreground">{t("scope.cursors.channel")}</span>
+        <span className="text-muted-foreground">
+          {t("scope.cursors.channel")}
+        </span>
         <select
           className="bg-background rounded border px-1"
           value={cursors.channel}
-          onChange={(e) => onChange({ ...cursors, channel: Number(e.target.value) })}
+          onChange={(e) =>
+            onChange({ ...cursors, channel: Number(e.target.value) })
+          }
         >
           {Array.from({ length: channels }, (_, i) => i + 1).map((n) => (
             <option key={n} value={n}>
@@ -369,13 +492,22 @@ function CursorBar({
       </label>
       <span className="ml-auto flex gap-4">
         <span>
-          Δt <span className="num" data-testid="cursor-dt">{formatEng(dt, "s", 4)}</span>
+          Δt{" "}
+          <span className="num" data-testid="cursor-dt">
+            {formatEng(dt, "s", 4)}
+          </span>
         </span>
         <span>
-          1/Δt <span className="num" data-testid="cursor-inv-dt">{dt !== 0 ? formatEng(1 / Math.abs(dt), "Hz", 4) : "—"}</span>
+          1/Δt{" "}
+          <span className="num" data-testid="cursor-inv-dt">
+            {dt !== 0 ? formatEng(1 / Math.abs(dt), "Hz", 4) : "—"}
+          </span>
         </span>
         <span>
-          ΔV <span className="num" data-testid="cursor-dv">{formatEng(dv, "V", 4)}</span>
+          ΔV{" "}
+          <span className="num" data-testid="cursor-dv">
+            {formatEng(dv, "V", 4)}
+          </span>
         </span>
       </span>
     </div>
@@ -386,8 +518,12 @@ function CursorBar({
  * the same rules as its :MEASure? replies. */
 function MeasurementTable({ data }: { data: ScopeScreenData }) {
   const { t } = useTranslation();
-  const cell = (v: number | null | undefined, unit: string) => (v == null ? "—" : formatEng(v, unit, 4));
-  const columns: { key: "vpp" | "frequency" | "period" | "mean" | "rms"; unit: string }[] = [
+  const cell = (v: number | null | undefined, unit: string) =>
+    v == null ? "—" : formatEng(v, unit, 4);
+  const columns: {
+    key: "vpp" | "frequency" | "period" | "mean" | "rms";
+    unit: string;
+  }[] = [
     { key: "vpp", unit: "V" },
     { key: "frequency", unit: "Hz" },
     { key: "period", unit: "s" },
@@ -398,7 +534,9 @@ function MeasurementTable({ data }: { data: ScopeScreenData }) {
     <table className="shrink-0 text-xs" aria-label={t("scope.measure.title")}>
       <thead>
         <tr className="text-muted-foreground">
-          <th className="pr-4 text-left font-normal">{t("scope.measure.title")}</th>
+          <th className="pr-4 text-left font-normal">
+            {t("scope.measure.title")}
+          </th>
           {columns.map((c) => (
             <th key={c.key} className="pr-4 text-right font-normal">
               {t(`scope.measure.${c.key}`)}
@@ -409,11 +547,18 @@ function MeasurementTable({ data }: { data: ScopeScreenData }) {
       <tbody>
         {data.measurements.map((m) => (
           <tr key={m.channel}>
-            <td className="num pr-4 font-semibold" style={{ color: channelColor(m.channel) }}>
+            <td
+              className="num pr-4 font-semibold"
+              style={{ color: channelColor(m.channel) }}
+            >
               CH{m.channel}
             </td>
             {columns.map((c) => (
-              <td key={c.key} className="num pr-4 text-right" data-testid={`meas-ch${m.channel}-${c.key}`}>
+              <td
+                key={c.key}
+                className="num pr-4 text-right"
+                data-testid={`meas-ch${m.channel}-${c.key}`}
+              >
                 {cell(m[c.key], c.unit)}
               </td>
             ))}

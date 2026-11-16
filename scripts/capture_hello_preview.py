@@ -38,18 +38,15 @@ def read_block(inst) -> bytes:
 
 
 def scope_capture(scope) -> list[float]:
-    """CH1 in volts, as the SDS programming guide's read-waveform example converts it."""
-    scope.write(":WAVeform:STARt 0")
-    scope.write("WAV:SOUR C1")
-    scope.write("WAV:PREamble?")
-    desc = read_block(scope)
-    probe = struct.unpack("<f", desc[0x148:0x14C])[0]
-    vdiv = struct.unpack("<f", desc[0x9C:0xA0])[0] * probe
-    offset = struct.unpack("<f", desc[0xA0:0xA4])[0] * probe
-    code = struct.unpack("<f", desc[0xA4:0xA8])[0]
-    scope.write("WAV:DATA?")
+    """CH1 in volts, as the Infiniium programmer's guide reads a waveform: :DIGitize, WORD data
+    in LSBFirst order, voltage = (code - yreference) * yincrement + yorigin."""
+    scope.write(":SYSTem:HEADer OFF;:WAVeform:SOURce CHANnel1;:WAVeform:FORMat WORD;:WAVeform:BYTeorder LSBFirst")
+    scope.write(":DIGitize CHANnel1")
+    pre = scope.query(":WAVeform:PREamble?").strip().split(",")
+    yinc, yorg, yref = float(pre[7]), float(pre[8]), float(pre[9])
+    scope.write(":WAVeform:DATA?")
     raw = read_block(scope)
-    volts = [b / code * vdiv - offset for b in struct.unpack(f"<{len(raw)}b", raw)]
+    volts = [(c - yref) * yinc + yorg for c in struct.unpack(f"<{len(raw) // 2}h", raw)]
     step = len(volts) / POINTS
     return [round(volts[int(i * step)], 4) for i in range(POINTS)]
 

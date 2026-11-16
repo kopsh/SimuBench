@@ -32,9 +32,13 @@ def test_hello_runs_clean_in_both_domains(tmp_path):
         scope = rm.open_resource("scope", read_termination="\n", write_termination="\n")
         sa = rm.open_resource("sa", read_termination="\n", write_termination="\n")
 
-        # Time domain: five periods on screen, so the scope's own counter measures 1 MHz.
-        freq = float(scope.query(":MEASure:SIMPle:VALue? FREQ"))
+        # Time domain: five periods on screen, so the scope's own counter measures 1 MHz; the UXR's
+        # 50 ohm input sees the generator's 1 Vpp (its load setting is 50 ohms).
+        freq = float(scope.query(":MEASure:FREQuency? CHANnel1"))
         assert math.isclose(freq, 1.0e6, rel_tol=1e-3), freq
+        amplitude = float(scope.query(":MEASure:VAMPlitude? CHANnel1"))
+        assert math.isclose(amplitude, 1.0, rel_tol=0.02), amplitude
+        assert scope.query(":SYSTem:ERRor?").strip() == "0"
 
         # Frequency domain: the odd harmonics fall as 1/n (0, -9.5, -14 dB), the even ones are absent.
         trace = [float(v) for v in sa.query(":TRAC:DATA? TRACE1").split(",")]

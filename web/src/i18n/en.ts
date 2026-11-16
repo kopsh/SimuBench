@@ -40,7 +40,7 @@ export const en: Widen<Messages> = {
       label: "Live preview of the Hello World bench",
       title: "preview",
       acquisition: "Acquisition #{{n}}",
-      time: "Time · C1",
+      time: "Time · CH1",
       freq: "Frequency · RF IN",
       real: "Measured by the engine",
     },
