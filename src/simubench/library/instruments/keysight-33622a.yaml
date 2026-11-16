@@ -202,6 +202,9 @@ channel_components:
       duty: {from: $ch.function, map: {SQUare: $ch.sq_duty, PULSe: $ch.pulse_duty}, default: 50.0}
       symmetry: $ch.ramp_symm
       bandwidth: 1.2e8
+      # 方波与脉冲的谐波在 120 MHz 处高斯滚降：10–90 % 边沿约 2.8 ns、无过冲（33600A 数据手册：方波
+      # 上升/下降时间 2.9 ns、过冲小于 2 %）；硬截断会在每个边沿留下 9 % 的吉布斯振铃。
+      rolloff: gaussian
       # 最高频率按波形（33500-90901 第 1 章 Models and Options，33622A：正弦 120 MHz（4 Vpp 以下）、
       # 方波/脉冲 100 MHz（4 Vpp 以下）、斜波/三角 800 kHz，#437）；按幅度的分档未建模。
       max_frequency: {SINusoid: 1.2e8, SQUare: 1.0e8, PULSe: 1.0e8, RAMP: 8.0e5, TRIangle: 8.0e5}

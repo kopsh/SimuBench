@@ -1465,14 +1465,15 @@ cases:
     manual: ":MEASure Commands > :MEASure:THResholds:RFALl:PERCent; :MEASure:THResholds:PERCent; :MEASure:THResholds:GENeral:PERCent"
     steps:
       - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
-      # 33622A 方波的边沿：10–90% 约 3.8 ns，20–80% 约 2.7 ns。
+      # 33622A 方波的边沿（120 MHz 带宽上的高斯滚降，无过冲）：10–90% 约 2.9 ns（33600A 数据手册的
+      # 方波上升/下降时间），20–80% 约 1.9 ns（高斯边沿两者之比 0.66）。
       - query: ":MEASure:RISetime? CHANnel2"
-        expect_fields: [{min: 3.0e-9, max: 4.5e-9}]
+        expect_fields: [{min: 2.5e-9, max: 3.3e-9}]
       - send: ":MEASure:THResholds:RFALl:PERCent CHANnel2,80,50,20"
       - query: ":MEASure:THResholds:RFALl:PERCent? CHANnel2"
         expect: "+8.00000E+01,+5.00000E+01,+2.00000E+01"
       - query: ":MEASure:RISetime? CHANnel2"
-        expect_fields: [{min: 2.0e-9, max: 3.2e-9}]
+        expect_fields: [{min: 1.6e-9, max: 2.2e-9}]
       - query: ":MEASure:THResholds:GENeral:PERCent? CHANnel2"
         expect: "+9.00000E+01,+5.00000E+01,+1.00000E+01"
       - send: ":MEASure:THResholds:PERCent CHANnel2,70,50,30"
