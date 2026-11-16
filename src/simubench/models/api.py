@@ -887,6 +887,27 @@ class Trace(_Model):
     )
 
 
+class FunctionTrace(_Model):
+    """A math function the scope's screen draws (``FUNCtion<f>:DISPlay ON``), computed from the
+    channel records the screen shows. A transform's trace is a spectrum: ``x0``/``dx`` are
+    frequencies (Hz) and the values are in its vertical unit (dB, dBm, V…); the others share the
+    channels' time grid. ``scale`` and ``offset`` place it on the 8 vertical divisions as the
+    function's own settings do."""
+
+    function: int
+    operator: str = Field(description="The operator word, e.g. FFTMagnitude, ADD")
+    spectrum: bool = Field(description="A frequency-domain trace (the transforms)")
+    x0: float = Field(..., description="The first point's time (s, from the trigger) or frequency (Hz)")
+    dx: float = Field(..., description="A sample's interval (s) or a bin's width (Hz)")
+    unit: str = Field(description="The vertical unit word, e.g. VOLT, DB, DBM")
+    values: list[float]
+    scale: float
+    offset: float
+    minmax: list[float] | None = Field(
+        None, description="As Trace.minmax: per bin the minimum and the maximum"
+    )
+
+
 class ScopeMeasurement(_Model):
     """One channel's automatic measurements on the record the screen shows (#280), taken by the
     scope's own measurement rules, so they agree with its :MEASure? replies on the same record.
@@ -914,6 +935,9 @@ class ScopeScreen(_Model):
     trigger_level: float
     trigger_source: int
     traces: list[Trace]
+    functions: list[FunctionTrace] = Field(
+        default_factory=list, description="The math functions turned on, over the traces' records"
+    )
     acquisitions: int = Field(
         description="Acquisitions taken (commands, single, a stop); a running screen draws live frames, "
         "which are not acquisitions"

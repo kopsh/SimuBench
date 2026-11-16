@@ -3074,6 +3074,54 @@ export interface components {
              */
             status: "pending" | "active" | "ended";
         };
+        /**
+         * FunctionTrace
+         * @description A math function the scope's screen draws (``FUNCtion<f>:DISPlay ON``), computed from the
+         *     channel records the screen shows. A transform's trace is a spectrum: ``x0``/``dx`` are
+         *     frequencies (Hz) and the values are in its vertical unit (dB, dBm, V…); the others share the
+         *     channels' time grid. ``scale`` and ``offset`` place it on the 8 vertical divisions as the
+         *     function's own settings do.
+         */
+        FunctionTrace: {
+            /**
+             * Dx
+             * @description A sample's interval (s) or a bin's width (Hz)
+             */
+            dx: number;
+            /** Function */
+            function: number;
+            /**
+             * Minmax
+             * @description As Trace.minmax: per bin the minimum and the maximum
+             */
+            minmax: number[] | null;
+            /** Offset */
+            offset: number;
+            /**
+             * Operator
+             * @description The operator word, e.g. FFTMagnitude, ADD
+             */
+            operator: string;
+            /** Scale */
+            scale: number;
+            /**
+             * Spectrum
+             * @description A frequency-domain trace (the transforms)
+             */
+            spectrum: boolean;
+            /**
+             * Unit
+             * @description The vertical unit word, e.g. VOLT, DB, DBM
+             */
+            unit: string;
+            /** Values */
+            values: number[];
+            /**
+             * X0
+             * @description The first point's time (s, from the trigger) or frequency (Hz)
+             */
+            x0: number;
+        };
         /** Health */
         Health: {
             /** Mcp Url */
@@ -4942,6 +4990,11 @@ export interface components {
              * @description Acquisitions taken (commands, single, a stop); a running screen draws live frames, which are not acquisitions
              */
             acquisitions: number;
+            /**
+             * Functions
+             * @description The math functions turned on, over the traces' records
+             */
+            functions: components["schemas"]["FunctionTrace"][];
             /** Instrument */
             instrument: string;
             /**

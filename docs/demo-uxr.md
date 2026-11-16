@@ -58,7 +58,8 @@ python examples/demo/uxr_demo.py TCPIP0::192.168.1.61::hislip0::INSTR
    50 ns/div 只装得下方波的半个周期：在那个时基上，CH2–CH4 的频率与占空比会是无效值 9.99999E+37。
 4. 每个通道：频率、幅度（顶–底）、整周期的交流 RMS（`:MEASure:VRMS? CYCLe,AC,…`）、10–90 % 上升时间、
    占空比。
-5. `:FUNCtion1:FFTMagnitude CHANnel2`：方波的奇次谐波。`:MEASure:FFT:FREQuency? FUNCtion1,<n>,-30`
+5. `:FUNCtion1:FFTMagnitude CHANnel2`，`:FUNCtion1:FFT:STARt 0;STOP 10E6` 把屏幕上的频谱限在 0–10 MHz
+   （默认到奈奎斯特频率 1 GHz，谐波挤在左边），`:FUNCtion1:DISPlay ON`：方波的奇次谐波。`:MEASure:FFT:FREQuency? FUNCtion1,<n>,-30`
    按手册把 -30 dBm 以上的峰从低频到高频编号；不给门限时噪声峰也会被编进去。
 6. `:WAVeform:SOURce CHANnel4`、WORD、LSBFirst，按 `:WAVeform:PREamble?` 换算成时间与电压。
 7. `:SYSTem:ERRor?` 读到 0。
@@ -78,7 +79,8 @@ PYVISA_LIBRARY=127.0.0.1:<port>@simubench \
 ```
 
 - **画布**：四根连线上的波形缩略图与 RMS；示波器节点显示时基、触发源和每个通道的档位与偏置；
-- **示波器屏幕**：自动设置后的四个通道叠在一起（OVERlay），下方测量表与脚本输出一致；
+- **示波器屏幕**：自动设置后的四个通道叠在一起（OVERlay）；打开的 F1 在下方的频谱区显示 0–10 MHz
+  的 FFT（1、3、5 MHz 的峰）；测量表与脚本输出一致；
 - **通信**：每条 SCPI 与应答，包括 40 008 字节的 `:WAVeform:DATA?` 块与最后的 `:SYSTem:ERRor?` → 0。
 
 ## 3. 讲解要点

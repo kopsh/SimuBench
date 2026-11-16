@@ -16,7 +16,7 @@ The steps (docs/demo-uxr.md):
    timebase and the edge trigger.
 3. A timebase that holds several periods of every channel (1 µs/div), 20 000 points, ``:DIGitize``.
 4. Per channel: frequency, amplitude, AC RMS over whole cycles, rise time, duty cycle.
-5. An FFT of the square (``:FUNCtion1:FFTMagnitude``): its odd harmonics and their levels
+5. An FFT of the square (``:FUNCtion1:FFTMagnitude``, 0 to 10 MHz on screen): its odd harmonics and their levels
    relative to the fundamental (1/3 and 1/5 in voltage: -9.5 dB and -14.0 dB).
 6. One channel's waveform through ``:WAVeform:DATA?`` (WORD, LSBFirst), scaled by the preamble.
 7. ``:SYSTem:ERRor?`` until it answers 0.
@@ -45,6 +45,7 @@ MEASUREMENTS = (
 INVALID = 9.99999e37
 TIMEBASE = 1e-6  # s/div: 10 µs on screen, five periods of the slowest signal (500 kHz)
 POINTS = 20000  # 2 GSa/s over the 10 µs
+FFT_STOP = 10e6  # Hz: the FFT's span on screen, 0 to 10 MHz (the default runs to the Nyquist 1 GHz)
 FFT_LEVEL = -30.0  # dBm: the FFT peaks counted lie above this level (the noise floor is far below)
 
 
@@ -95,6 +96,7 @@ def fft_peaks(scope, source: str = "CHANnel2", count: int = 3) -> list[tuple[flo
     """Step 5: the first ``count`` FFT peaks of ``source`` above FFT_LEVEL, low to high frequency,
     as (Hz, dBm)."""
     scope.write(f":FUNCtion1:FFTMagnitude {source}")
+    scope.write(f":FUNCtion1:FFT:STARt 0;:FUNCtion1:FFT:STOP {FFT_STOP:g}")
     scope.write(":FUNCtion1:DISPlay ON")
     peaks = []
     for p in range(1, count + 1):
