@@ -437,7 +437,7 @@ def test_the_document_route_names_the_sessions_to_restart(tmp_path):
         sid = c.post("/api/sessions", json={"bench_path": "awg_rc_scope.bench.yaml"}).json()["id"]
         assert c.get("/api/definitions/sb-awg-2/document").json()["sessions_to_restart"] == []
         path = tmp_path / "instruments" / "sb-awg-2.yaml"
-        data = yaml.safe_load(path.read_text())
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
         data["description"] = "changed after the session started"
         path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
         assert c.get("/api/definitions/sb-awg-2/document").json()["sessions_to_restart"] == [sid]
