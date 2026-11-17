@@ -24,26 +24,26 @@ uv run python examples/demo/uxr_demo.py scope --bench examples/demo/uxr.bench.ya
 python examples/demo/uxr_demo.py TCPIP0::192.168.1.61::hislip0::INSTR
 ```
 
-预期输出（种子固定，逐位复现）：
+预期输出（种子固定时同一版本逐位复现；模型改进后末几位会变，以 `acceptance/test_uxr_demo.py` 的容差为准）：
 
 ```
 1. Keysight Technologies,UXR1104B,MY64310101,11.80.00012
 2. :AUToscale -> 50 ns/div, trigger CHAN4
-   CH1: 100 mV/div, offset +0.0 mV
+   CH1: 100 mV/div, offset +0.4 mV
    CH2: 100 mV/div, offset +0.0 mV
    CH3: 100 mV/div, offset +0.4 mV
-   CH4: 50 mV/div, offset +99.2 mV
+   CH4: 50 mV/div, offset +100.0 mV
 3. 1 µs/div, 20000 points, :DIGitize
 4.      freq        amplitude  AC rms     rise       duty
-   CH1  10 MHz     386.7 mV   142.5 mV   28.41 ns   51.2 %
-   CH2  1 MHz      401.6 mV   199.5 mV   2.912 ns   50.0 %
-   CH3  501.4 kHz  336.7 mV   86.69 mV   974.4 ns   49.9 %
-   CH4  2 MHz      198.4 mV   77.98 mV   9.65 ns    20.0 %
+   CH1  10 MHz     393 mV     142.9 mV   29.34 ns   50.9 %
+   CH2  1 MHz      402.3 mV   200.3 mV   2.867 ns   50.0 %
+   CH3  500.6 kHz  333.6 mV   86.7 mV    1.027 µs   48.7 %
+   CH4  2 MHz      200.8 mV   78.55 mV   10.17 ns   20.0 %
 5. FFT of CH2 (peaks above -30 dBm)
    976.6 kHz  -2.1 dBm
-   3.052 MHz  -12.4 dBm  -10.3 dB
-   5.005 MHz  -15.9 dBm  -13.8 dB
-6. CH4: 20000 points, -11.7 mV to 211.3 mV
+   3.052 MHz  -12.4 dBm  -10.4 dB
+   5.005 MHz  -15.8 dBm  -13.8 dB
+6. CH4: 20000 points, -11.7 mV to 212.9 mV
    written to /tmp/ch4.csv
 7. :SYSTem:ERRor? 0, no errors
 ```
