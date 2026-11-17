@@ -12,7 +12,7 @@ from .drive import scpi_response
 
 if TYPE_CHECKING:
     from .benchfiles import BenchFiles
-    from .manager import SessionManager, ServedSession
+    from .manager import ServedSession, SessionManager
 
 
 def scpi_payload(s: Any, instrument: str, command: str, client: str) -> dict[str, Any]:
@@ -48,10 +48,14 @@ async def try_commands(
     them. The pool owns the try semantics (no ports, no run record, scratch bench) and the reuse: a
     second batch for the same definition runs on the same session instead of cycling a bench per
     call (issue 636)."""
+
     def run() -> list[dict[str, Any]]:
         with manager.tries.using(definition_id) as entry:
             return [
-                {"command": command, **scpi_payload(entry.served.session, definition_id, command, client=client)}
+                {
+                    "command": command,
+                    **scpi_payload(entry.served.session, definition_id, command, client=client),
+                }
                 for command in commands
             ]
 

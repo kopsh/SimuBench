@@ -21,7 +21,7 @@ from ..server.errors import tool_text
 from ..server.manager import ClientsConnected, ServedSession, SessionManager
 from ..server.projections import scpi_payload  # re-exported for the tool modules
 
-__all__ = ["scpi_payload", "tool_input", "McpContext", "RateLimiter"]
+__all__ = ["McpContext", "RateLimiter", "scpi_payload", "tool_input"]
 
 
 class RateLimiter:
@@ -56,13 +56,12 @@ def tool_input(model_cls: type[_M]) -> Callable[[Callable[[Any], Any]], Callable
     def signature() -> inspect.Signature:
         params = []
         for name, f in model_cls.model_fields.items():
-            info = Field(
-                description=f.description,
-                default=f.default if not f.is_required() else ...,
-            )
             params.append(
                 inspect.Parameter(
-                    name, kind=inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=Annotated[f.annotation, info]
+                    name,
+                    kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=inspect.Parameter.empty if f.is_required() else f.get_default(call_default_factory=True),
+                    annotation=Annotated[f.annotation, f],  # the field's own info: description and limits
                 )
             )
         return inspect.Signature(params)

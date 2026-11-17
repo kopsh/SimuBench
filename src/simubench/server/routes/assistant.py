@@ -13,7 +13,7 @@ from ...assistant.config import ConfigError, check_settings
 from ...assistant.llm import check_connection
 from ...assistant.service import Busy
 from ...models import api as M
-from ..errors import ClientsConnected, FILE_ERRORS, Conflict
+from ..errors import FILE_ERRORS, ClientsConnected, Conflict
 from .context import ApiContext
 
 _BUSY: dict[int | str, dict[str, Any]] = {409: {"description": "A turn of this conversation is running"}}

@@ -27,7 +27,7 @@ from ..library.loader import load_bench
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from .benchfiles import BenchFiles, scan
-from .errors import BenchInvalid, ClientsConnected, InstrumentRemote, PORT_OPTION, PortInUse
+from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse
 from .runs import Runs
 from .views import SessionViews, served_addresses
 

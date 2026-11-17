@@ -14,8 +14,9 @@ the same table row. Code that raises one of its own uses the domain name, which 
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any
 
 from fastapi import HTTPException
 
@@ -131,9 +132,7 @@ def _http_conflict(exc: Exception, **_: Any) -> HTTPException:
 
 
 def _http_invalid(exc: Exception, **_: Any) -> HTTPException:
-    return HTTPException(
-        422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
-    )
+    return HTTPException(422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]})
 
 
 def _http_edit(exc: Exception, **_: Any) -> HTTPException:

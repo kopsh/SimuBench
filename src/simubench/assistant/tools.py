@@ -20,7 +20,6 @@ the panel and goes through the loop guard (:mod:`guard`).
 
 from __future__ import annotations
 
-import asyncio
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -29,15 +28,16 @@ from typing import TYPE_CHECKING, Annotated, Any
 from pydantic import Field, TypeAdapter
 from pydantic_ai import RunContext, Tool
 
-from ..engine.edit import AddInstrument, EditError, EditOp
-from ..engine.jsonpatch import PatchError, PatchOp
+from ..engine.edit import AddInstrument
+from ..engine.jsonpatch import PatchOp
 from ..engine.record import jsonable
 from ..models import api as M
+from ..models import tools as T
 from ..server import drive
-from ..server.benchfiles import Conflict
-from ..server.errors import Forbidden
-from ..server.manager import BenchInvalid, ClientsConnected, InstrumentRemote, ServedSession
+from ..server.errors import DOMAIN_ERRORS, Forbidden, tool_text
+from ..server.manager import ServedSession
 from ..server.mytemplates import save_as_template
+from ..server.projections import definition_spec, instrument_state, run_cases_file, try_commands
 from .guard import LoopGuard, Stuck
 from .store import Conversation, TurnFiles
 
@@ -60,7 +60,6 @@ STRUCTURAL = frozenset(
         "set_dut",
     }
 )
-_OPS = TypeAdapter(list[EditOp])
 _PATCH = TypeAdapter(list[PatchOp])
 _SCPI_SECTIONS = ("/commands", "/errors", "/builtins")
 
@@ -85,25 +84,12 @@ class TurnContext:
 
 
 def _error_text(exc: Exception) -> str:
-    if isinstance(exc, Conflict):
-        return f"{exc}：文件在别处被改过（可能是用户在画布上），重新读取后再改"
-    if isinstance(exc, BenchInvalid):
-        return "测试台未通过校验，不能启动：" + "；".join(
-            f"{d.pointer} {d.message}" for d in exc.diagnostics if d.severity == "error"
-        )
-    if isinstance(exc, ClientsConnected | InstrumentRemote):
-        return f"{exc}：有脚本连着端口，告诉用户先断开脚本"
-    if isinstance(exc, FileNotFoundError):
-        return "文件不存在"
-    if isinstance(exc, KeyError):
-        return str(exc).strip("'\"")
-    if isinstance(exc, PatchError):
-        return f"补丁没有应用：{exc}"
-    text = str(exc).splitlines()[0] if str(exc) else type(exc).__name__
-    return text
+    """The text a failed tool leaves for the model: the assistant column of the one domain-error
+    table (:mod:`..server.errors`, #936, #1382) — the same wording the MCP tools read."""
+    return tool_text(exc, "assistant")
 
 
-_EXPECTED = (EditError, Conflict, PermissionError, FileNotFoundError, KeyError, ValueError, PatchError)
+_EXPECTED = DOMAIN_ERRORS
 
 
 class _Step:
@@ -141,7 +127,7 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
     except Stuck:
         step.done(False)
         raise
-    except (*_EXPECTED, BenchInvalid, ClientsConnected, InstrumentRemote) as exc:
+    except _EXPECTED as exc:
         text = _error_text(exc)
         step.done(False, text)
         ctx.guard.record(tool, args, False, text)
@@ -154,7 +140,7 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
 async def _call_async(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step) -> Any:
     try:
         result = await fn()
-    except (*_EXPECTED, BenchInvalid, ClientsConnected, InstrumentRemote) as exc:
+    except _EXPECTED as exc:
         text = _error_text(exc)
         step.done(False, text)
         ctx.guard.record(tool, args, False, text)
@@ -285,23 +271,14 @@ def get_definition(ctx: RunContext[TurnContext], definition_id: str) -> dict[str
 
     def run() -> dict[str, Any]:
         d = t.service.files.library(None).get(definition_id)
-
-        def spec(path: str, s: Any) -> dict[str, Any]:
-            out: dict[str, Any] = {"path": path, "type": s.type}
-            for key in ("unit", "min", "max", "options", "default", "readonly"):
-                v = getattr(s, key)
-                if v not in (None, False):
-                    out[key] = jsonable(v)
-            return out
-
         return {
             "id": d.id,
             "class": d.instrument_class,
             "manufacturer": d.manufacturer,
             "model": d.model,
             "channels": d.channels.count,
-            "state": [spec(k, s) for k, s in d.state.items()],
-            "channel_state": [spec(f"ch<n>.{k}", s) for k, s in d.channel_state.items()],
+            "state": [definition_spec(k, s) for k, s in d.state.items()],
+            "channel_state": [definition_spec(f"ch<n>.{k}", s) for k, s in d.channel_state.items()],
             "channel_ports": list(d.ports.channel),
             "instrument_ports": list(d.ports.instrument),
             "commands": [c.header for c in d.commands][:120],
@@ -372,21 +349,7 @@ def copy_bench(
     return _call(t, "copy_bench", {"path": source, "new": new_path}, run, _Step(t, "copy_bench", source))  # type: ignore[no-any-return]
 
 
-def edit_bench(
-    ctx: RunContext[TurnContext],
-    base_sha256: Annotated[str, Field(description="sha256 from the last read_bench / edit_bench")],
-    ops: Annotated[
-        list[dict[str, Any]],
-        Field(
-            description="Edit operations, applied in order, all or nothing: add_instrument {name, model, "
-            "address?}, add_part {name, type, params}, remove {name}, connect {from: 'a.OUT1', to: 'b.CH1'}, "
-            "disconnect {index}, set_state {instrument, path, value}, set_params {part, params}, "
-            "replace_instrument {name, model}, rename {name, new_name}, set_label, set_address, "
-            "set_identity {instrument, idn?, serial?, firmware?}, set_deviation, set_dut, set_meta, set_run",
-        ),
-    ],
-    path: str | None = Field(None, description="The bench; default: this conversation's bench"),
-) -> dict[str, Any]:
+def edit_bench(ctx: RunContext[TurnContext], req: T.AssistantBenchEdit) -> dict[str, Any]:
     """Change a bench: add and remove instruments and parts, connect and disconnect ports, set initial
     settings and part parameters. An address already used by another instrument is replaced by a
     free one (the result says which). While the bench runs only settings may change; structure needs
@@ -394,16 +357,8 @@ def edit_bench(
     keeps its own (use set_live_setting to change what runs now). Returns the new sha256, the
     diagnostics and what changed."""
     t = ctx.deps
-    bench = _bench(t, path)
-    try:
-        parsed = _OPS.validate_python(ops)
-    except ValueError as exc:
-        message = "操作格式不对：" + str(exc).splitlines()[0]
-
-        def refuse() -> Any:
-            raise EditError(message)
-
-        return _call(t, "edit_bench", {"path": bench, "ops": ops}, refuse, _Step(t, "edit_bench", bench))  # type: ignore[no-any-return]
+    bench = _bench(t, req.path)
+    parsed = req.ops
     step = _Step(t, parsed[0].op if parsed else "edit_bench", _op_subject(t, parsed[0]) if parsed else bench)
     for op in parsed[1:]:
         step.add(op.op, _op_subject(t, op))
@@ -418,7 +373,7 @@ def edit_bench(
             )
         before = t.service.files.read(bench)
         touch(t, bench, "bench")
-        doc = t.service.files.edit(bench, base_sha256, parsed, "agent")
+        doc = t.service.files.edit(bench, req.base_sha256, parsed, "agent")
         notes = []
         if running and any(op.op in ("set_state", "set_params") for op in parsed):
             notes.append(
@@ -434,7 +389,7 @@ def edit_bench(
         changes = [_change_text(c) for c in bench_changes(before.data, doc.data)]
         return _bench_out(doc, t, {"changes": changes, "notes": notes})
 
-    return _call(t, "edit_bench", {"path": bench, "ops": ops}, run, step)  # type: ignore[no-any-return]
+    return _call(t, "edit_bench", req, run, step)  # type: ignore[no-any-return]
 
 
 def _change_text(c: M.DefinitionChange) -> str:
@@ -559,9 +514,7 @@ def get_instrument_state(ctx: RunContext[TurnContext], instrument: str) -> dict[
         served = running_session(t, t.conv.bench)
         if served is None:
             raise ValueError("测试台没有在运行；先 start_session")
-        snap = served.session.instrument(instrument).snapshot()
-        snap["state"] = {k: jsonable(v) for k, v in snap["state"].items()}
-        return snap  # type: ignore[no-any-return]
+        return instrument_state(served, instrument)
 
     return _call(
         t, "get_instrument_state", {"i": instrument}, run, _Step(t, "get_instrument_state", instrument)
@@ -712,54 +665,33 @@ def validate_definition(ctx: RunContext[TurnContext], definition_id: str) -> dic
     )  # type: ignore[no-any-return]
 
 
-async def try_definition(
-    ctx: RunContext[TurnContext],
-    definition_id: str,
-    commands: Annotated[
-        list[str], Field(description="Program messages sent in order to the instrument alone", max_length=100)
-    ],
-) -> dict[str, Any]:
+async def try_definition(ctx: RunContext[TurnContext], req: T.AssistantTryDefinition) -> dict[str, Any]:
     """Send commands to a model's instrument alone, without a bench (a scratch session): each
     command's reply and the errors it caused. Use it after edit_definition to show the user what
     was sent and what came back."""
     t = ctx.deps
-    step = _Step(t, "try_definition", definition_id)
+    step = _Step(t, "try_definition", req.definition_id)
 
     async def run() -> dict[str, Any]:
-        def go() -> list[dict[str, Any]]:
-            with t.service.manager.tries.using(definition_id) as entry:
-                return [
-                    {
-                        "command": c,
-                        **drive.scpi_response(
-                            entry.served.session, definition_id, c, client="agent"
-                        ).model_dump(mode="json"),
-                    }
-                    for c in commands
-                ]
+        results = await try_commands(t.service.manager, req.definition_id, req.commands, client="agent")
+        return {"definition": req.definition_id, "results": results}
 
-        return {"definition": definition_id, "results": await asyncio.to_thread(go)}
-
-    return await _call_async(t, "try_definition", {"id": definition_id, "c": commands}, run, step)  # type: ignore[no-any-return]
+    return await _call_async(t, "try_definition", req, run, step)  # type: ignore[no-any-return]
 
 
-def run_cases(
-    ctx: RunContext[TurnContext], path: Annotated[str, Field(description="Workspace-relative cases file")]
-) -> dict[str, Any]:
+def run_cases(ctx: RunContext[TurnContext], req: T.RunCases) -> dict[str, Any]:
     """Run a cases file (commands and expected replies), each case on a fresh instrument."""
     t = ctx.deps
 
     def run() -> dict[str, Any]:
-        from ..library.coverage import run_cases as run_file
-
-        results = run_file(t.service.files.resolve(path), [t.service.files.workspace / "instruments"])
+        results = run_cases_file(t.service.files, req.path)
         return {
             "passed": sum(r.passed for r in results),
             "failed": sum(not r.passed for r in results),
             "failures": [r.describe() for r in results if not r.passed][:20],
         }
 
-    return _call(t, "run_cases", {"path": path}, run, _Step(t, "run_cases", path))  # type: ignore[no-any-return]
+    return _call(t, "run_cases", req, run, _Step(t, "run_cases", req.path))  # type: ignore[no-any-return]
 
 
 TOOLS = [

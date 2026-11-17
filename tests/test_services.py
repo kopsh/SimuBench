@@ -81,9 +81,9 @@ def _status(ctx, exc, **options):
 
 def test_the_http_error_table_maps_each_domain_error_once(tmp_path):
     from simubench.models import api as M
-    from simubench.server.benchfiles import Conflict
+    from simubench.server.errors import Conflict
     from simubench.server.errors import Forbidden, NotFound
-    from simubench.server.manager import BenchInvalid, ClientsConnected
+    from simubench.server.errors import BenchInvalid, ClientsConnected
 
     ctx = _ctx(tmp_path)
     diag = M.Diagnostic(severity="error", code="E-X", pointer="/p", message="m")
@@ -131,7 +131,7 @@ def test_http_error_lets_a_bug_surface_as_it_is(tmp_path):
 def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
     pytest.importorskip("mcp")  # the optional extra (#987); the rest of the file does not need it
     from simubench.mcp_tools.context import McpContext, RateLimiter
-    from simubench.server.benchfiles import Conflict
+    from simubench.server.errors import Conflict
     from simubench.server.manager import SessionManager
 
     ctx = McpContext(
@@ -152,9 +152,9 @@ def test_the_agent_texts_come_from_one_table():
     from simubench.engine.edit import EditError
     from simubench.engine.jsonpatch import PatchError
     from simubench.models import api as M
-    from simubench.server.benchfiles import Conflict
+    from simubench.server.errors import Conflict
     from simubench.server.errors import tool_text
-    from simubench.server.manager import BenchInvalid, ClientsConnected
+    from simubench.server.errors import BenchInvalid, ClientsConnected
 
     shared = [
         Conflict("agent.bench.yaml changed since it was read", "abc"),
@@ -175,9 +175,9 @@ def test_the_tool_text_and_the_http_row_agree_per_kind(tmp_path):
     both agent seams, and the text carries what the HTTP row's status is about (the missing file's
     name, the conflict's sha, the invalid bench's pointer)."""
     from simubench.models import api as M
-    from simubench.server.benchfiles import Conflict
+    from simubench.server.errors import Conflict
     from simubench.server.errors import tool_text
-    from simubench.server.manager import BenchInvalid
+    from simubench.server.errors import BenchInvalid
 
     ctx = _ctx(tmp_path)
     diag = M.Diagnostic(severity="error", code="E-X", pointer="/p", message="m")
