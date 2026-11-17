@@ -669,3 +669,18 @@
   2. `check_settings` 面扩大到每批：单条 SCPI 写与面板写也过组合检查——5522A 被监视设置的 SCPI 写口只有 `OUT`（quantities 命令，本就受检），面板写新增的拒绝见上条；用例无改写。
   3. `_commit` 回滚不再发事件：被拒的多写命令在运行记录里零 `state` 事件（原来 A→B→A 共四条）。无既有测试断言 A→B→A，无需改写；新语义有直接测试（`tests/test_write_tx.py`、`tests/test_constraints.py::test_a_refused_batch_sends_no_events_for_the_way_back`）。
 - **代价**：被拒批的看门人非状态副作用（已入队错误、组件内部状态）与今天一样不退回；reinforce 批里看门人的连带写先发事件、再被整批覆盖（与今天相同）；`*RCL` 的恢复以一条批事件代替逐设置事件，回放按 `*RCL` 命令字节重放，不受影响。
+
+## D76 领域错误一张表分 Seam 编码：错误类集中 errors.py，投影与工具入参同源
+
+- **结论**：每类领域错误在一张表（`server/errors.py` 的 `SEAM_ROWS`，#936 的表原则落到全部三缝）里持有两个编码：HTTP 行（`ApiContext.error_row`，保留 `missing`/`key`/`full_detail`/`files` 选项）与 tool 文案（`tool_text(exc, seam)`，seam 是 `"mcp"` 或 `"assistant"`）。ApiContext、`McpContext.fail` 与 assistant 的 `_error_text` 全查它，服务的 `except` 元组也用表派生的 `DOMAIN_ERRORS`——一个新领域错误种类只写一行。错误类住址按层收拢：engine 的（`EditError`、`PatchError`）留在 engine，server 的（`Conflict`、`BenchInvalid`、`ClientsConnected`、`InstrumentRemote`、`PortInUse`）集中到 errors.py。tool 文案取错误的结构化字段：`FileNotFoundError` 的文件名、`Conflict` 的 `current_sha256`、`BenchInvalid` 的 `diagnostics`；脚本连着端口的下一步按缝给（MCP：`force=true` 重试；助手：告诉用户先断开脚本）。
+- **共享投影**（`server/projections.py`）：定义的 setting spec（补上 `label`/`label_en`——助手复制时丢了，agent 拿不到中文名）、运行中仪表的状态快照、try 池的一批命令、cases 文件的运行，各一份，MCP 工具、助手工具与 HTTP 路由共用；参数限制（try 的 100 对 200 命令）与结果字段名（`cases` 对 `failures`）留调用方。`sessions_to_restart` 由 `SessionManager.sessions_using_stale_definition` 一处计算，HTTP 的 definition document 与 MCP 的 `read_definition` 同样填充（模型字段一直在，HTTP 侧此前永远空）。
+- **工具入参模型化**（D21 的 MCP/助手腿）：`edit_bench`、`create_bench`、`try_definition`、`run_cases`（四个工具 × 两缝）的入参来自 `models/tools.py` 的共享模型，seams 间不同的参数（path 必填与否、命令上限）是一个基类加每缝一个子类。助手 `ops` 的 20 个操作词表第三份手抄（描述字符串）换成 `list[EditOp]` 的真 schema。两条 SDK 的接法不同：PydanticAI 原生支持——单模型参数在工具 schema 里平铺成字段，实参平铺进来、函数收到构造好的模型；MCP SDK（mcp 2.3）不平铺——裸模型参数在 schema 里嵌套一层、平铺调用被拒，`tool_input` 把模型字段镜像成工具函数的 `__signature__`（`FieldInfo.rebuild_annotation` 带上描述与限制），schema 仍从模型生成、线上形状不变，函数体收到模型实例。镜像必须携带求值后的返回注解，否则 SDK 把结构化输出悄悄降级成 `{"result": …}` 包裹（`test_user_models` 抓住的坑）。入参模型不被任何 route 引用，不泄漏进 OpenAPI schema。
+- **理由**：三张错误映射表已漂移：HTTP 保留文件名与 sha，MCP 与助手把文件不存在折叠成一句丢文件名的文案（agent 无法自恢复）；`EditError` 在助手落通用首行；Conflict 三套话术；错误类住四处而 errors.py 的 docstring 自称收留全部。13 处路由内联 `except → HTTPException` 各自挑捕获元组。assistant 复制四个 MCP tool body（约 120 行）且已漂移。备选一：三张表各修各的（补文件名、统一 Conflict）——漂移的机制还在，下一个错误种类接着漂；备选二：HTTP 借 fastapi 的异常处理器统一——MCP 与助手没有对应机制，而且 exception handler 按异常类注册，带不进 `missing`/`full_detail` 这些按调用点的策略；备选三：入参模型只给 PydanticAI 用、MCP 继续手写签名——词表单一来源的收益就只到一半。均不采用。
+- **行为变化与裁决**（HTTP 状态码与 detail 逐路由不变，`test_services` 的表测试扩展为三缝一致策略测试）：
+  1. MCP 与助手的文件不存在文案带文件名：「文件不存在」→「文件不存在：〈文件名〉」（`test_services` 的精确断言有意更新，此处记录）。
+  2. Conflict 的 tool 文案并成一套：两个 agent 缝同文（含 sha256 与重读提示；助手的「重新读取」与 MCP 的「sha256 = …」都保留在新句里，两边断言原样通过）。
+  3. 助手的 BenchInvalid 文案并成 MCP 版（含诊断码）；`PatchError` 文案本就两缝相同，入表。
+  4. 收编的内联映射里三处行为随表变好：definition document/coverage/history 对读不到的文件由 500 变 404/422；`try_entry` 的 404 文本、coverage 的 `path.name:` 前缀经 `missing` 选项与 ValueError 包装原样保留。
+  5. 助手 `edit_bench` 的 ops 校验失败文案「操作格式不对：…」由 PydanticAI 的模型校验错误接手（模型校验不过直接回给模型重试）；无测试断言旧文案。
+  6. 助手四个模型化工具的 schema 可见新信息：`ops` 的 EditOp 判别联合、`try_definition` 的 `maxItems: 100`；MCP 侧四个工具 schema 与改动前逐字段一致（含 `maxItems: 200`，有测试）。
+- **代价**：`tool_input` 依赖 inspect 镜像签名——SDK 若在未来版本改变 schema 推导方式，助手需要跟着调（有 schema 测试守住）；其余约 30 个工具仍以手写签名注册，helper 使继续铺开机械化、线上形状不变，可渐进进行；`Conflict` 话术统一后，助手不再有「可能是用户在画布上」的猜测性提示（改后的句子对两个缝都成立）。
