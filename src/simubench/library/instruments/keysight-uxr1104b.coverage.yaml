@@ -4877,7 +4877,9 @@ sections:
   - header: :TRIGger:HIGH
     level: accepted
     note: 'Saved and read back (ON at power-on: the guide says it turns on with rising or falling edge triggers).
-      The simulated trigger path has no bandwidth limit, so the setting changes nothing; the longer Trig Out delay
+      The simulated trigger path (#1263) taps the analog front end, so its bandwidth is the acquisition''s analog
+      bandwidth, as the data sheet (3123-1313, Trigger System) gives the edge trigger''s; neither document gives
+      a bandwidth for OFF, so OFF does not narrow it and the setting changes nothing. The longer Trig Out delay
       is not modeled.'
     affects_data: false
   - header: :TRIGger:HOLDoff

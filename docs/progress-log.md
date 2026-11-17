@@ -2299,3 +2299,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 覆盖表与用例 | ✅ `simubench coverage keysight-dsox2024a`：实现 151 · 接受 13 · 未实现 321（共 485）；`tests/models/keysight-dsox2024a/cases.yaml` 42/42 通过（新增 5 例：数学设置往返、线性函数的光标读数、FFT 幅度光标、光标方式与差值、光标单位与锚点） |
 | 债务清理 | ✅ `tests/test_block_coverage.py` 的 EXEMPT 移除 `("keysight-dsox2024a", "math")`；剩余债拆为可认领的 #1159（SDS 2104X Plus）、#1160（WavePro 804HD） |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 示波器：触发通路自己的带宽与噪声（Issue 1263；跟进 Issue 1298）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 触发从模拟前端分出 | ✅ `ScopeTrigger` 读 ADC 输入端的信号，不经 `:ACQuire:BANDwidth` 与 InfiniiSim 的数字滤波（#1262）；`bandwidth` 一阶低通、`noise_table` 按信源档位取噪声；内部结构图的触发 taps 接到前端 |
+| 两台 UXR 接线 | ✅ 不设 `bandwidth`（数据手册：边沿触发带宽等于采集模拟带宽，前端已限）；触发 `noise_table` 估计为通道的（同一前端），`test_the_trigger_noise_is_the_channel_s` 断言两处一致；`:TRIGger:HIGH` 的覆盖说明随之更新（1104B） |
+| 行为变化 | ✅ 默认设置下记录时间原点的散布由触发噪声与斜率主导（`docs/signal-chain.md` 4.1）；依赖不触发的用例显式设远处的触发电平，抖动用例关掉触发噪声 |
+| 测试 | ✅ 噪声触发的统计用例参数化到 0334B（0.42 V/div）；`test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger`：100 kHz 触发带宽下 10 MHz 正弦不触发而采集不变 |

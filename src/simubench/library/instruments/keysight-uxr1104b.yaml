@@ -337,7 +337,8 @@ state:
   trigger.holdoff_mode: {type: enum, options: [FIXed], not_modeled: {RANDom: random holdoff is not modeled}, default: FIXed, label: 释抑方式, label_en: Holdoff mode}
   trigger.holdoff_min: {type: float, unit: S, min: 1.0e-7, max: 10.0, default: 1.0e-7, label: 随机释抑下限, label_en: Random holdoff min}
   trigger.holdoff_max: {type: float, unit: S, min: 1.0e-7, max: 10.0, default: 1.0e-6, label: 随机释抑上限, label_en: Random holdoff max}
-  # 高带宽触发（:TRIGger:HIGH）：手册说上升/下降沿触发时自动打开；仿真的触发没有带宽限制，保存与回读。
+  # 高带宽触发（:TRIGger:HIGH）：手册说上升/下降沿触发时自动打开；触发通路的带宽即采集的模拟带宽（数据手册，#1263），
+  # 手册没有给 OFF 时的带宽，故 OFF 不收窄；保存与回读。
   trigger.high: {type: bool, default: true, label: 高带宽触发, label_en: High-bandwidth trigger}
   # 迟滞：NORMal（半格，数据手册 1 格峰峰的灵敏度）、NREJect（加大到 1 格）、HSENsitivity（减到 1/4 格）；
   # 后两档的数值手册未给，为 SimuBench 值。
