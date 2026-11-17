@@ -16,6 +16,7 @@ from simubench.scpi.errors import ScpiError
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "tests" / "models" / "siglent-sdg2042x" / "bench.yaml"
+HELLO = ROOT / "src" / "simubench" / "library" / "examples" / "hello.bench.yaml"
 Z_OUT = 50.0
 
 
@@ -67,6 +68,25 @@ def test_duty_symmetry_and_polarity_shape_the_waveform(bench):
     sdg.write("C1:BSWV WVTP,RAMP,SYM,50")
     assert measure(sds, "RMS") == pytest.approx(1 / math.sqrt(3), rel=0.01)  # triangle: peak / sqrt 3
     assert measure(sds, "FREQ") == pytest.approx(1000, rel=0.005)
+
+
+def test_the_square_edge_measured_on_the_uxr_meets_the_data_sheet():
+    """#1271: the Hello bench's 1 MHz, 1 Vpp square reaches the UXR with a 10–90 % edge of 9 ns
+    (data sheet EN02H) and no visible ringing: the harmonics roll off at 38 MHz as a gaussian,
+    where a 120 MHz brickwall left 12.8 % of Gibbs overshoot above a 3.7 ns edge."""
+    rm = pyvisa.ResourceManager(f"{HELLO}@simubench")
+    try:
+        scope = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        # The overshoot is the record's extreme above the histogram top, and a noisy record rides a
+        # few sigma above it (measurements.py, #782): average before reading it.
+        scope.write(":ACQuire:AVERage 1")
+        scope.write(":ACQuire:COUNt 64")
+        rise = float(scope.query(":MEASure:RISetime? CHANnel1"))
+        overshoot = float(scope.query(":MEASure:OVERshoot? CHANnel1"))
+    finally:
+        rm.close()
+    assert rise == pytest.approx(9.0e-9, rel=0.10)
+    assert 0.0 <= overshoot < 2.0  # the data sheet gives no overshoot figure
 
 
 def test_settings_outside_the_data_sheet_are_refused(bench):

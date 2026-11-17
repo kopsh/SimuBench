@@ -457,7 +457,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "4d52c909573b380885a8ea0c49197260442f09b4c072b0396c69e21d96906869",
+   "7093cf563e91aa9eb46280c453428765711473965c5e3a9b6af23c66270b9e95",
    0
   ],
   [
@@ -502,7 +502,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "134040f158c2dfe8798e8e16097d24719f22b0b0cf72660e933e91388ed245d1",
+   "959e3f1f240186cbd65489f156d5ffbfab7779148ee7fc2997c653a69f09ca6c",
    0
   ],
   [
@@ -517,7 +517,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "876e31fe83ed1fa2f0e2f53017104db9437273f98c7932022b59c6b490fed59d",
+   "f7afa14fd0f9bb20ec0f9d73f988b59d363f70805904b9b03cd3c2d3235a4d25",
    0
   ],
   [
@@ -557,7 +557,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "b409667f0748b9c3d2a6f10d77bf1f13411fc66f8a3429bdeb3ee4e42c3e0a81",
+   "4c5266aeffe7cc5bd1c11b644a5f5a3e13684e20c7339e16f42a5b70ed9353eb",
    0
   ],
   [
@@ -582,7 +582,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "1f716771a82745a731e4bdaf1a5690b83e4585999757b8fac1e5cb699a83cda9",
+   "7d35bc18edf551a4922a82d5540ed82da4f7bbf8e19629511e43358dbe145217",
    0
   ],
   [
@@ -597,12 +597,12 @@
   ],
   [
    "<screen values>",
-   "{\"attenuation\": 0.0, \"marker_x\": 72970000.0, \"marker_y\": -23.856508258738714, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.0025333333333333336, \"uncal\": false, \"vbw\": 1000000.0}",
+   "{\"attenuation\": 0.0, \"marker_x\": 15220000.0, \"marker_y\": -19.657910843331038, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.0025333333333333336, \"uncal\": false, \"vbw\": 1000000.0}",
    0
   ],
   [
    "<screen trace>",
-   "f37bd5f2081326876282be3d306a8335d4ee1947296f77affbde6abf6977d007",
+   "3bdce67cecd90cecda4d206ea535772cd778e7dabe5a3ab9e5df5d4e1276793f",
    0
   ]
  ],

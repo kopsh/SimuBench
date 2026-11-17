@@ -60,7 +60,7 @@
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | reference | `reference_clock` | 数据(基准偏差) | 已实现 | siglent-sdg2042x 无(例外清单) |
-| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现(按波形的最高频率 `max_frequency`:FREQ? MAX 随波形、超限置为上限;脉冲的线性边沿 `lead_time`/`trail_time` 与 `pulse_width`/`pulse_period`/`pulse_edges` 操作,#437;谐波在带宽处的收尾 `rolloff`:`brickwall` 硬截断(边沿有吉布斯振铃)或 `gaussian` 高斯滚降(无过冲、10–90 % 边沿约 0.34/带宽),33622A 取后者) | 按幅度分档的频率上限未建模 |
+| synthesis | `waveform_synth`、`function_generator_core` | 信号(波形流) | 已实现(按波形的最高频率 `max_frequency`:FREQ? MAX 随波形、超限置为上限;脉冲的线性边沿 `lead_time`/`trail_time` 与 `pulse_width`/`pulse_period`/`pulse_edges` 操作,#437;谐波在带宽处的收尾 `rolloff`:`brickwall` 硬截断(边沿有吉布斯振铃)或 `gaussian` 高斯滚降(无过冲、10–90 % 边沿约 0.34/带宽),33622A、SDG2042X 与 UXR1104B 的 CAL OUT / AUX OUT 取后者) | 按幅度分档的频率上限未建模 |
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table`、`arb_segments` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430。`arb_segments`（#879）：分段波形存储，8 位 DAC 码按段 `define`/`define_new`（及只写变体）、按偏移 `data`（块或数值列表，回读为块）、`catalog`、`name`/`comment`、`delete`/`delete_all`，段长粒度与总量限制，零阶保持 DAC 的 sinc 谱；`waveform_synth` 的 `arb` 引用经 `ArbSource` 协议播放两者，M8194A 用它；序列、标记与 I/Q 插值模式未建模) | siglent-sdg2042x 无(例外清单) |

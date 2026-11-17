@@ -22,8 +22,9 @@ class FunctionGeneratorCore(Component):
     Parameters: ``function`` (SINusoid, SQUare, RAMP, DC; Siglent's SINE, SQUARE are the same),
     ``frequency`` (Hz), ``amplitude`` (Vpp), ``offset`` (V), ``phase`` (degrees), ``duty`` (% high,
     square), ``symmetry`` (% rising, ramp; 100 is a sawtooth), ``bandwidth`` (Hz, harmonic limit for
-    square and ramp), ``square_max`` (Hz, highest square/ramp frequency), ``amplitude_unit`` (what
-    ``amplitude`` means: VPP, VPK or VRMS of the waveform).
+    square and ramp), ``rolloff`` (``brickwall``: the edges ring, Gibbs; ``gaussian``: no overshoot,
+    a 10–90 % edge of about 0.34 / bandwidth), ``square_max`` (Hz, highest square/ramp frequency),
+    ``amplitude_unit`` (what ``amplitude`` means: VPP, VPK or VRMS of the waveform).
     """
 
     label = "波形发生"
@@ -39,11 +40,13 @@ class FunctionGeneratorCore(Component):
         "offset": 0.0,  # V
         "phase": 0.0,  # degrees
         "bandwidth": 100e6,  # Hz, harmonic limit for square and ramp
+        "rolloff": "brickwall",  # brickwall | gaussian: how the harmonics end at the bandwidth
         "square_max": math.inf,  # Hz, highest square/ramp frequency (inf: none)
         "duty": 50.0,  # percent high time of the square
         "symmetry": 100.0,  # percent rising half of the ramp (100: sawtooth)
         "amplitude_unit": "VPP",  # VPP | VPK | VRMS: what amplitude means
     }
+    choices = {"rolloff": ROLLOFFS}
     #: Other instruments' names for the same shapes (Siglent SDG: C1:BSWV WVTP,SINE).
     ALIASES = {"SINE": "SINusoid", "SQUARE": "SQUare"}
     #: Peak-to-peak volts per RMS volt, by function (``amplitude_unit: VRMS``).
@@ -86,19 +89,20 @@ class FunctionGeneratorCore(Component):
         freq = float(self.param("frequency"))
         peak = self.vpp(fn) / 2.0
         phase = self._phase0 + math.radians(float(self.param("phase")))
+        bw = float(self.param("bandwidth"))
+        rolloff = str(self.param("rolloff") or "brickwall")
         if fn == "SINusoid":
             sig = sine(freq, peak, phase, self._t0)
         elif fn == "SQUare":
             duty = float(self.param("duty")) / 100.0
-            bw = float(self.param("bandwidth"))
             sig = (
-                square(freq, peak, bw, phase, self._t0)
+                square(freq, peak, bw, phase, self._t0, rolloff)
                 if duty == 0.5
-                else pulse_train(freq, peak, duty, bw, phase, self._t0)
+                else pulse_train(freq, peak, duty, bw, phase, self._t0, rolloff=rolloff)
             )
         elif fn == "RAMP":
             sym = float(self.param("symmetry")) / 100.0
-            sig = triangle(freq, peak, sym, float(self.param("bandwidth")), phase, self._t0)
+            sig = triangle(freq, peak, sym, bw, phase, self._t0, rolloff)
         else:
             raise ScpiError(-224, f"function {fn!r} not supported")
         return sig + Signal.constant(offset)
