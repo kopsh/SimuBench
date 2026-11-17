@@ -235,6 +235,7 @@ export const zh = {
       replay: "回放记录",
     },
     clockMode: { command: "命令驱动时钟", wall: "墙钟", stepped: "步进时钟", scaled: "按倍率时钟" },
+    clockModeIdleWall: "命令驱动 · 空闲按实时",
     advance: "推进",
     advanceBy: "推进 {{step}}",
     stopSession: "关闭测试台",

@@ -1,6 +1,16 @@
 import type { Event } from "@/api/generated/events";
 import type { T } from "@/i18n";
 
+/**
+ * The clock's mode as the top bar names it (#1360). A command clock whose idle time follows the
+ * wall (`run.idle: wall`, D47) says so: its time also moves between commands, so "command clock"
+ * alone read as "no command, no time".
+ */
+export function clockModeLabel(mode: string, idle: string | null | undefined, t: T): string {
+  if (mode === "command" && idle === "wall") return t("workbench.clockModeIdleWall");
+  return t(`workbench.clockMode.${mode}` as "workbench.clockMode.command");
+}
+
 /** One line of the clock's "where did the time go" list (#1260): a run of advances with the same cause. */
 export interface AdvanceRun {
   reason: string;

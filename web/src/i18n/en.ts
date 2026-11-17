@@ -238,6 +238,7 @@ export const en: Widen<Messages> = {
       replay: "Replaying a record",
     },
     clockMode: { command: "Command-driven clock", wall: "Wall clock", stepped: "Stepped clock", scaled: "Scaled clock" },
+    clockModeIdleWall: "Command clock · idle in real time",
     advance: "Advance",
     advanceBy: "Advance {{step}}",
     stopSession: "Close bench",

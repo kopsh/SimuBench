@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Event } from "@/api/generated/events";
 import i18n, { type T } from "@/i18n";
-import { advanceReason, recentAdvances } from "./clockAdvances";
+import { advanceReason, clockModeLabel, recentAdvances } from "./clockAdvances";
 
 const advance = (seq: number, dt: number, reason: string, instrument?: string, header?: string): Event =>
   ({ seq, t_ns: seq * 1000, kind: "advance", dt_ns: dt, reason, instrument: instrument ?? null, header: header ?? null }) as Event;
@@ -30,5 +30,16 @@ describe("recentAdvances (#1260)", () => {
     const t = i18n.getFixedT("zh") as T;
     expect(advanceReason({ reason: "command", instrument: "scope", header: ":DIGitize" }, t)).toContain("scope :DIGitize");
     expect(advanceReason({ reason: "idle", instrument: null, header: null }, t)).toContain("空闲");
+  });
+});
+
+describe("clockModeLabel (#1360)", () => {
+  const t = i18n.t.bind(i18n) as T;
+  it("a command clock whose idle time follows the wall says so", () => {
+    expect(clockModeLabel("command", "wall", t)).toBe("命令驱动 · 空闲按实时");
+  });
+  it("any other clock keeps its mode name", () => {
+    expect(clockModeLabel("command", "skip", t)).toBe("命令驱动时钟");
+    expect(clockModeLabel("stepped", "wall", t)).toBe("步进时钟");
   });
 });
