@@ -4398,11 +4398,25 @@
             "title": "Scpi Port"
           },
           "state": {
+            "description": "Every setting with its definition (type, options, names, range) and value; empty when the session was asked for values only (``state=values``, then see ``values``)",
             "items": {
               "$ref": "#/components/schemas/StateVarInfo"
             },
             "title": "State",
             "type": "array"
+          },
+          "values": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only with ``state=values`` (#1299): each setting's value by path, without the definitions, which do not change while the bench runs (``SessionInfo.build``)",
+            "title": "Values"
           }
         },
         "required": [
@@ -4423,6 +4437,7 @@
           "display",
           "ports",
           "state",
+          "values",
           "errors",
           "dut",
           "deviation",
@@ -8254,6 +8269,12 @@
             "description": "Hash of the bench file the session started from",
             "title": "Bench Sha256"
           },
+          "build": {
+            "default": "",
+            "description": "Changes each time the bench is built (start, reset, rebuild): the settings' definitions fetched with a build hold until it changes, so a client polling with ``state=values`` refetches the full session only then (#1299)",
+            "title": "Build",
+            "type": "string"
+          },
           "clients": {
             "description": "Scripts currently connected to the SCPI ports",
             "items": {
@@ -8401,6 +8422,7 @@
         },
         "required": [
           "id",
+          "build",
           "bench_name",
           "bench_path",
           "description",
@@ -12282,6 +12304,22 @@
             "required": true,
             "schema": {
               "title": "Sid",
+              "type": "string"
+            }
+          },
+          {
+            "description": "values: each instrument's settings as values by path (InstrumentInfo.values) instead of full definitions, for polling; they hold while SessionInfo.build does (#1299)",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "description": "values: each instrument's settings as values by path (InstrumentInfo.values) instead of full definitions, for polling; they hold while SessionInfo.build does (#1299)",
+              "enum": [
+                "full",
+                "values"
+              ],
+              "title": "State",
               "type": "string"
             }
           }

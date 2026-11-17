@@ -219,7 +219,16 @@ export interface SettingGroup {
   /** Remote-programming settings, listed after the others. */
   remote: boolean;
   vars: StateVarInfo[];
+  /**
+   * Numbered groups of one prefix (``function1`` … ``function16``) joined into one (#1299): the
+   * instance numbers in order, each with its settings; shown one at a time with a picker. The id
+   * is then the prefix (``function``).
+   */
+  numbered?: InstanceFamily;
 }
+
+/** At least this many numbered groups of one prefix are joined into one (as instance families, #1257). */
+const NUMBERED_MIN = 4;
 
 export interface SplitSettings {
   /** What a front panel puts first: the definition's summary lists, then the flat settings. */
@@ -271,36 +280,84 @@ export function splitSettings(vars: StateVarInfo[], summaryKeys: string[]): Spli
     }
     group(seg).vars.push(v);
   }
-  const all = [...groups.values()];
+  const all = joinNumbered([...groups.values()]);
   const named = all.filter((g) => !g.remote && g.id !== OTHER);
   const other = all.filter((g) => g.id === OTHER);
   return { main, groups: [...named, ...other, ...all.filter((g) => g.remote)] };
+}
+
+/** ``function12`` -> ``["function", "12"]``; null without a letter prefix or a number. */
+function numberedId(id: string): [string, string] | null {
+  let cut = id.length;
+  while (cut > 0 && id[cut - 1] >= "0" && id[cut - 1] <= "9") cut--;
+  return cut > 0 && cut < id.length ? [id.slice(0, cut), id.slice(cut)] : null;
+}
+
+/** Numbered groups of one prefix, when there are enough of them, become one group in the first one's place. */
+function joinNumbered(groups: SettingGroup[]): SettingGroup[] {
+  const byPrefix = new Map<string, SettingGroup[]>();
+  for (const g of groups) {
+    const n = numberedId(g.id);
+    if (n) byPrefix.set(n[0], [...(byPrefix.get(n[0]) ?? []), g]);
+  }
+  const out: SettingGroup[] = [];
+  for (const g of groups) {
+    const n = numberedId(g.id);
+    const same = n ? byPrefix.get(n[0])! : [];
+    if (!n || same.length < NUMBERED_MIN) {
+      out.push(g);
+      continue;
+    }
+    if (same[0] !== g) continue; // joined into the first
+    const ordered = [...same].sort((a, b) => Number(numberedId(a.id)![1]) - Number(numberedId(b.id)![1]));
+    const instances = ordered.map((x) => numberedId(x.id)![1]);
+    out.push({
+      id: n[0],
+      remote: g.remote,
+      vars: ordered.flatMap((x) => x.vars),
+      numbered: { key: n[0], name: n[0], instances, byInstance: new Map(ordered.map((x, i) => [instances[i], x.vars])) },
+    });
+  }
+  return out;
 }
 
 /** The group of flat settings the definition did not name. */
 export const OTHER = "other";
 
 /**
- * Whether a group starts open. A named setting is one the definition's author means as a knob (a
- * multimeter's aperture, a source's autorange), so a group of those is open; the folded ones are the
- * remote-programming groups and groups the definition did not name (a template's measurement slots).
- */
-/**
  * The name of a settings group (``inspector.group.<id>``); a numbered prefix (``function3``) takes
  * ``<prefix>N`` with the number. None when the translation files have no name for it: every prefix
  * of the built-in models has one (``tests/test_setting_groups.py``, #1251).
  */
-export function groupName(id: string): string | null {
-  let digits = id.length;
-  while (digits > 0 && id[digits - 1] >= "0" && id[digits - 1] <= "9") digits--;
-  if (digits > 0 && digits < id.length && i18n.exists(`inspector.group.${id.slice(0, digits)}N`)) {
-    return i18n.t(`inspector.group.${id.slice(0, digits)}N` as never, { n: id.slice(digits) });
-  }
+export function groupName(id: string, numbered = false): string | null {
+  // A joined numbered group (#1299) takes its prefix's numbered name without a number: "数学函数",
+  // not the "function" group's "功能" (a generator's function settings).
+  if (numbered && i18n.exists(`inspector.group.${id}N`)) return String(i18n.t(`inspector.group.${id}N` as never, { n: "" })).trim();
+  const n = numberedId(id);
+  if (n && i18n.exists(`inspector.group.${n[0]}N`)) return i18n.t(`inspector.group.${n[0]}N` as never, { n: n[1] });
   return i18n.exists(`inspector.group.${id}`) ? i18n.t(`inspector.group.${id}` as never) : null;
 }
 
+/** A group with more rows than this starts folded, however well named (#1299): it would push the rest away. */
+export const OPEN_ROWS_MAX = 12;
+
+/** The rows a group shows: its settings, with a measurement slot or an instance family as one row each. */
+export function groupRows(g: SettingGroup): number {
+  if (g.numbered) return 1 + (g.numbered.byInstance.get(g.numbered.instances[0])?.length ?? 0);
+  const { slots, rest } = slotRows(g.vars);
+  const { families, rest: flat } = instanceFamilies(rest);
+  return slots.length + families.length + flat.length;
+}
+
+/**
+ * Whether a group starts open. A named setting is one the definition's author means as a knob (a
+ * multimeter's aperture, a source's autorange), so a short group of those is open; the folded ones
+ * are the remote-programming groups, groups the definition did not name (a template's measurement
+ * slots), joined numbered groups and long groups (#1299: a scope's sixteen math functions open at
+ * once mounted hundreds of fields on a click).
+ */
 export function groupOpen(g: SettingGroup): boolean {
-  return !g.remote && g.vars.filter(hasLabel).length * 2 >= g.vars.length;
+  return !g.remote && !g.numbered && g.vars.filter(hasLabel).length * 2 >= g.vars.length && groupRows(g) <= OPEN_ROWS_MAX;
 }
 
 export interface SlotRow {

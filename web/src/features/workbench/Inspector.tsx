@@ -271,6 +271,7 @@ export function Section({
   collapsible,
   defaultOpen = true,
   reveal,
+  group,
 }: {
   title: ReactNode;
   children: ReactNode;
@@ -278,6 +279,8 @@ export function Section({
   defaultOpen?: boolean;
   /** The number of a reveal request for a setting inside: opens the section (#800). */
   reveal?: number | null;
+  /** A settings group's id, as ``data-group`` (tests find a group by it). */
+  group?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   // A reveal request opens the section: state adjusted while rendering, not in an effect.
@@ -287,7 +290,7 @@ export function Section({
     if (reveal != null) setOpen(true);
   }
   return (
-    <section>
+    <section data-group={group}>
       <button
         type="button"
         className={cn(
@@ -436,6 +439,7 @@ function SettingsBlock({
       {groups.map((g) => (
         <Section
           key={g.id}
+          group={g.id}
           title={<GroupTitle group={g} />}
           collapsible
           defaultOpen={groupOpen(g) || (main.length === 0 && g === groups[0])}
@@ -449,7 +453,7 @@ function SettingsBlock({
 }
 
 function GroupTitle({ group }: { group: SettingGroup }) {
-  const name = groupName(group.id);
+  const name = groupName(group.id, !!group.numbered);
   return (
     <span className="flex items-center gap-1.5">
       {name ?? <span className="num normal-case">{group.id}</span>}
@@ -463,10 +467,13 @@ function FamilyBlock({
   inst,
   family,
   field,
+  title = family.name,
 }: {
   inst: { name: string };
   family: InstanceFamily;
   field: (v: SettingGroup["vars"][number]) => ReactNode;
+  /** What the instances are called: the numbered segment's letters, or a joined group's name (#1299). */
+  title?: string;
 }) {
   const { t } = useTranslation();
   const reveal = useWorkbench((s) => s.reveal);
@@ -482,9 +489,9 @@ function FamilyBlock({
   return (
     <div className="space-y-1.5 rounded-md border p-2" data-testid="setting-family" data-family={family.key}>
       <div className="flex items-center gap-2 text-xs">
-        <span className="num text-muted-foreground">{family.name}</span>
+        <span className="num text-muted-foreground">{title}</span>
         <Select value={chosen} onValueChange={setChosen}>
-          <SelectTrigger size="sm" className="num h-7 w-24 text-xs" aria-label={t("inspector.instance", { name: family.name })}>
+          <SelectTrigger size="sm" className="num h-7 w-24 text-xs" aria-label={t("inspector.instance", { name: title })}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -511,6 +518,8 @@ function GroupBody({
   stateVars,
   field,
 }: SettingsProps & { group: SettingGroup; field: (v: SettingGroup["vars"][number]) => ReactNode }) {
+  // Joined numbered groups (function1 … function16, #1299): one instance at a time.
+  if (group.numbered) return <FamilyBlock inst={inst} family={group.numbered} field={field} title={groupName(group.id, true) ?? group.id} />;
   const { slots, rest: unslotted } = slotRows(group.vars);
   const { families, rest } = instanceFamilies(unslotted);
   return (

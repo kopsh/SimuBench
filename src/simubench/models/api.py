@@ -504,7 +504,15 @@ class InstrumentInfo(_Model):
     scpi_port: int | None = None
     display: DisplayInfo
     ports: list[PortInfo]
-    state: list[StateVarInfo]
+    state: list[StateVarInfo] = Field(
+        description="Every setting with its definition (type, options, names, range) and value; empty when the "
+        "session was asked for values only (``state=values``, then see ``values``)",
+    )
+    values: dict[str, Any] | None = Field(
+        None,
+        description="Only with ``state=values`` (#1299): each setting's value by path, without the definitions, "
+        "which do not change while the bench runs (``SessionInfo.build``)",
+    )
     errors: list[ErrorItem]
     dut: bool = Field(False, description="Marked as a DUT: the object under test or calibration")
     deviation: Literal["nominal", "from_specs"] = "nominal"
@@ -770,6 +778,12 @@ class ClientInfo(_Model):
 
 class SessionInfo(_Model):
     id: str
+    build: str = Field(
+        "",
+        description="Changes each time the bench is built (start, reset, rebuild): the settings' definitions "
+        "fetched with a build hold until it changes, so a client polling with ``state=values`` refetches "
+        "the full session only then (#1299)",
+    )
     bench_name: str
     bench_path: str | None = None
     description: str | None = None
