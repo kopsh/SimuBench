@@ -416,3 +416,46 @@ def test_the_noise_falls_with_the_bandwidth_filters_after_the_adc():
         assert reader.errors(uxr) == []
     finally:
         rm.close()
+
+
+@pytest.mark.parametrize(
+    ("example", "floor_v"),
+    [(EXAMPLE_BENCH_1104B, 0.06), (EXAMPLE_BENCH, 0.032)],
+    ids=["uxr1104b", "uxr0334b"],
+)
+def test_below_the_hardware_range_the_code_step_stays_the_range_s(example, floor_v):
+    """#1265: below the smallest hardware range (60 mV full scale on the UXR1104B, 32 mV on the
+    UXR0334B) the display is a magnification: the code step stays full scale / 1024, not the
+    displayed division's. At or above that division nothing changes. Averaging still resolves
+    finer than a code: the noise dithers the quantization."""
+    lsb = floor_v / 1024
+    rm = pyvisa.ResourceManager(f"{example}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr.write(":CHANnel3:DISPlay ON;:CHANnel3:OFFSet 0;:ACQuire:POINts 2000")
+
+        def capture(scale: float) -> np.ndarray:
+            uxr.write(f":CHANnel3:SCALe {scale:g};:DIGitize CHANnel3")
+            return np.asarray(reader.read_waveform(uxr, "CHANnel3")[1])
+
+        # -- 1 mV/div: every sample on the range's code grid, the smallest step one range code
+        volts = capture(1e-3)
+        codes = volts / lsb
+        assert np.max(np.abs(codes - np.round(codes))) < 0.01
+        assert float(np.min(np.diff(np.unique(np.round(codes))))) == 1.0
+        # -- at the range's own division and above: a step of the division's code, as before
+        for scale in (floor_v / 8, 0.02):
+            codes = capture(scale) / (scale / 128)
+            assert np.max(np.abs(codes - np.round(codes))) < 0.01, scale
+        # -- averaging 1024 acquisitions at 1 mV/div: the noise falls by ~32 and the mean leaves the grid
+        single = float(np.std(capture(1e-3)))
+        uxr.write(":ACQuire:COUNt 1024;:ACQuire:AVERage ON")
+        averaged = capture(1e-3)
+        assert float(np.std(averaged)) == pytest.approx(single / 32, rel=0.3)
+        # the record keeps the mean (the transfer's words carry the converter's 10-bit codes)
+        record = rm.visalib.bench.instruments["scope"].components["acq"].records[3].volts
+        off_grid = np.abs(record / lsb - np.round(record / lsb))
+        assert float(np.mean(off_grid > 0.05)) > 0.5
+        assert reader.errors(uxr) == []
+    finally:
+        rm.close()
