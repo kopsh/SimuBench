@@ -36,8 +36,15 @@ BENCH = BenchDefinition.model_validate(
     {
         "schema": "simubench.bench/1",
         "name": "scope-math",
-        "instruments": {"sg": {"model": "sb-sg-1"}, "scope": {"model": "sb-dso-4"}},
-        "wires": [{"from": "sg.RF_OUT", "to": "scope.CH1"}],
+        "instruments": {
+            "sg": {"model": "sb-sg-1"},
+            "harmonic": {"model": "sb-sg-1"},
+            "scope": {"model": "sb-dso-4"},
+        },
+        "wires": [
+            {"from": "sg.RF_OUT", "to": "scope.CH1"},
+            {"from": "harmonic.RF_OUT", "to": "scope.CH2"},
+        ],
     }
 )
 
@@ -255,7 +262,8 @@ def test_the_fft_measurements_of_a_pure_tone():
 def test_the_thd_takes_its_fundamental_as_its_mode_says():
     """#1362: :MEASure:FFT:THDistortion? <source>,{MANual,<fund_freq> | PEAK,<level>[,<peak_number>]}.
     The number after the mode is the fundamental (MANual) or the peak level in dBm (PEAK); the mode
-    is required; a fundamental of 0 or no peak to take answers the invalid value, never a hang."""
+    is required; a fundamental of 0 or no peak to take answers the invalid value, never a hang.
+    Peak numbers rise with frequency, independently of the annotated peak sort (#1375)."""
     s, query = bench()
     try:
         query(":DIGITIZE")
@@ -274,6 +282,35 @@ def test_the_thd_takes_its_fundamental_as_its_mode_says():
         assert query(":SYSTem:ERRor?").split(",")[0] == "-109"
         assert query(":MEASure:FFT:THDistortion? FUNCtion1,MANual") == ""
         assert query(":SYSTem:ERRor?").split(",")[0] == "-109"
+
+        # -- a -20 dBm fundamental and its -40 dBm second harmonic: THD = 10^(-20/20) = 10%
+        s.write("sg", b":POWer:LEVel -20\n")
+        for cmd in (
+            f":FREQuency:CW {2 * TONE_HZ}",
+            ":POWer:LEVel -40",
+            ":OUTPut ON",
+        ):
+            s.write("harmonic", cmd.encode() + b"\n")
+        query(":CHANnel2:IMPedance FIFTy;:CHANnel2:SCALe 0.02;:CHANnel2:DISPlay ON")
+        query(":DIGITIZE")
+        query(":FUNCtion1:ADD CHANnel1,CHANnel2")
+        query(":FUNCtion2:FFTMagnitude FUNCtion1")
+        assert floats(query(":MEASure:FFT:FREQuency? FUNCtion2,1,-60")) == [pytest.approx(TONE_HZ, abs=1e-3)]
+        assert floats(query(":MEASure:FFT:FREQuency? FUNCtion2,2,-60")) == [
+            pytest.approx(2 * TONE_HZ, abs=1e-3)
+        ]
+        thd = floats(query(":MEASure:FFT:THDistortion? FUNCtion2,MANual,9765.625"))
+        assert thd[0] == pytest.approx(10.0, abs=0.1)
+        # The annotation order must not change measurement numbering: peak 1 is still the fundamental,
+        # and peak 2 is still its second harmonic (which itself has no harmonic in this two-tone signal).
+        query(":FUNCtion:FFT:PEAK:SORT DFRequency")
+        assert query(":FUNCtion:FFT:PEAK:SORT?") == "DFR"
+        thd = floats(query(":MEASure:FFT:THDistortion? FUNCtion2,PEAK,-60,1"))
+        assert thd[0] == pytest.approx(10.0, abs=0.1)
+        thd = floats(query(":MEASure:FFT:THDistortion? FUNCtion2,PEAK,-60,2"))
+        assert 0.0 <= thd[0] < 0.1
+        # Only the fundamental is above -35 dBm, so requesting its second peak is the invalid path.
+        assert query(":MEASure:FFT:THDistortion? FUNCtion2,PEAK,-35,2") == "9.99E+37"
     finally:
         s.close()
 

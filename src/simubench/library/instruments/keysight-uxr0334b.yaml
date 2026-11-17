@@ -2527,7 +2527,7 @@ commands:
     args: {kind: MAGNitude}
   - {header: ":FUNCtion<f>:LABel", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.label"}
   # ---- :MEASure:FFT（手册第 32 章）：结果即查即算。THDistortion 的 PEAK 方式以门限之上第
-  # <peak_number> 个峰（按频率从低到高，缺省第 1 个）为基波。
+  # <peak_number> 个峰（按频率从低到高、与峰注释排序无关，缺省第 1 个）为基波（#1375）。
   - header: ":MEASure:FFT:FREQuency"
     op: math.fft_measure
     set: false
