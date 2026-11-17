@@ -81,7 +81,12 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   changes, #1221) and its width per kind (`INSPECTOR_SIZE`, narrower beside a screen, #1229).
   Keep such rules in store actions (unit-tested in `store.test.ts`), not in effects that call
   `setState`: the React compiler lint rejects those, and refs written during render.
-- Inspector render cost (#1299): a group starts open only when it is named and shows at most
+- Inspector panel (#1313): the panel holds the definition's summary, the CH selector and the channel
+  summary (`panelSettings`, model.ts), a search over every setting (`findSettings`, `FIND_MAX`), and
+  「全部设置」 with the rest, mounted only when opened (open by default up to `ALL_OPEN_MAX`). Do not
+  put more of an instrument's menu on the panel: a new common setting goes in the definition's
+  `display.summary` / `channel_summary` (the canvas card reads them too).
+- Inspector render cost (#1299): inside 「全部设置」 a group starts open only when it is named and shows at most
   `OPEN_ROWS_MAX` rows (`groupOpen`, `model.ts`); four or more numbered groups of one prefix
   (`function1`…) join into one with an instance picker (`SettingGroup.numbered`). The shared
   `Select` (`components/ui/select.tsx`) renders only the chosen item while closed — keep the items

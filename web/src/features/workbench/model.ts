@@ -286,6 +286,45 @@ export function splitSettings(vars: StateVarInfo[], summaryKeys: string[]): Spli
   return { main, groups: [...named, ...other, ...all.filter((g) => g.remote)] };
 }
 
+/* ---- The panel and the rest (#1313) --------------------------------------------------------------
+ * The inspector is not the instrument's whole menu: a scope binds over a thousand settings to its
+ * SCPI commands (UXR1104B: 1861), and listing them, even folded, made the panel a long scroll whose
+ * every control slowed the next dropdown. The panel shows what a front panel puts first; the rest
+ * is reached by name (``findSettings``) or under 「全部设置」, which is mounted only when opened. */
+
+/**
+ * What the panel shows of these settings: the definition's summary, exactly, when it gives one
+ * (the named flat settings beside it wait in the rest); without a summary, the named flat settings.
+ */
+export function panelSettings(vars: StateVarInfo[], summaryKeys: string[]): { panel: StateVarInfo[]; rest: StateVarInfo[] } {
+  const { main } = splitSettings(vars, summaryKeys);
+  const keys = new Set(summaryKeys);
+  const summarized = main.filter((v) => keys.has(varName(v)));
+  const panel = summarized.length > 0 ? summarized : main;
+  const shown = new Set(panel);
+  return { panel, rest: vars.filter((v) => !shown.has(v)) };
+}
+
+/** 「全部设置」 starts open when it holds no more than this many settings: a small instrument keeps them in sight. */
+export const ALL_OPEN_MAX = 40;
+
+/** The most settings a search lists at once; more matches ask for more words. */
+export const FIND_MAX = 30;
+
+/**
+ * Settings whose name (Chinese or English) or path holds every word of ``query``, ignoring case,
+ * in the given order; at most ``limit`` of them, with the number that matched.
+ */
+export function findSettings(vars: StateVarInfo[], query: string, limit = FIND_MAX): { hits: StateVarInfo[]; total: number } {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return { hits: [], total: 0 };
+  const matched = vars.filter((v) => {
+    const text = `${v.label ?? ""} ${v.label_en ?? ""} ${v.path}`.toLowerCase();
+    return words.every((w) => text.includes(w));
+  });
+  return { hits: matched.slice(0, limit), total: matched.length };
+}
+
 /** ``function12`` -> ``["function", "12"]``; null without a letter prefix or a number. */
 function numberedId(id: string): [string, string] | null {
   let cut = id.length;

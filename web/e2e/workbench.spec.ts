@@ -920,11 +920,21 @@ test("the inspector folds the 100 bookmarks into one block, the picker lists onl
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
   const inspector = page.getByTestId("inspector-panel");
 
-  // A click mounts what the first view shows, not the scope's 1861 settings (#1299): long groups
-  // and the sixteen math functions start folded, the math functions as one group.
+  // A click mounts the panel only, not the scope's 1861 settings (#1299, #1313): the summary, the
+  // channel's summary and a search; the rest waits folded under 「全部设置」.
   await expect(inspector.getByText("身份与地址")).toBeVisible();
   const controls = await inspector.locator("input, [role=combobox], [role=switch]").count();
-  expect(controls, "controls mounted on a click").toBeLessThanOrEqual(100);
+  expect(controls, "controls mounted on a click").toBeLessThanOrEqual(30);
+  await expect(inspector.locator('[data-group="function"]')).toHaveCount(0);
+
+  // A setting off the panel is found by name and changed in place.
+  await inspector.getByTestId("setting-find").fill("触发电平 ch2");
+  await expect(inspector.getByTestId("setting-found").locator('[data-setting="trigger.level2"]')).toBeVisible();
+  await expect(inspector.getByTestId("setting-found").locator('[data-setting="trigger.level1"]')).toHaveCount(0);
+  await inspector.getByTestId("setting-find").fill("");
+
+  // Under 「全部设置」 long groups and the sixteen math functions start folded, the math functions as one group.
+  await inspector.locator('[data-group="all"]').getByRole("button", { expanded: false }).first().click();
   const math = inspector.locator('[data-group="function"]');
   await expect(math.getByRole("button", { expanded: false })).toContainText("数学函数");
   await expect(inspector.locator('[data-group="function2"]')).toHaveCount(0);
