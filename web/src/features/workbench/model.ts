@@ -119,10 +119,12 @@ export function formatValue(v: StateVarInfo, digits = 4): string {
     case "float": {
       const n = numeric(value);
       if (!Number.isFinite(n) && v.unit?.toUpperCase() === "OHM") return i18n.t("generator.highZ");
-      // A unit word ("Vpp") takes the prefix like a unit ("500 mVpp"); a sign ("%") follows the number.
+      // A unit word ("Vpp") takes the prefix like a unit ("500 mVpp"); a sign ("%") follows the plain
+      // number, with no prefix ("0.001%", not "1 m%", #1267).
       if (v.display_unit) {
         const word = [...v.display_unit].every((c) => c.toLowerCase() !== c.toUpperCase());
-        return word ? formatEng(n, v.display_unit, digits) : `${formatEng(n, "", digits)}${v.display_unit}`;
+        if (word) return formatEng(n, v.display_unit, digits);
+        return `${String(Number(n.toPrecision(Math.max(digits, 6)))).replace("-", "−")}${v.display_unit}`;
       }
       return formatEng(n, displayUnit(v.unit), digits);
     }

@@ -586,6 +586,9 @@ class Record:
         self.trigger_ns = trigger_ns  # the trigger's instant (holdoff); None: untriggered
         self._volts = volts
         self.deep = deep
+        #: V/div one ADC code step is a ``codes_per_div``-th of: the scale, or the hardware range's
+        #: below a magnified division (#1265); the waveform transfer's codes and Y increment use it.
+        self.code_scale = scale
         #: Which ends of the converter's range the acquisition touched, 1 low | 2 high, as the
         #: converter saw them (a digital filter after it moves the samples off the codes, #1262);
         #: None: read it from the samples.
