@@ -12,7 +12,9 @@ import { pickLabel } from "@/i18n";
 import { typeAbout, typeSearchText } from "@/lib/component";
 import { LIBRARY_MIME, type LibraryItem } from "../canvas/Canvas";
 import { addItem } from "./actions";
-import { ClassIcon } from "../classes";
+import { CLASS_IDS, ClassIcon } from "../classes";
+import { makerName } from "@/lib/format";
+import { libraryGroups } from "./library";
 
 
 /** Instruments and DUTs that can be placed on the bench (the parts bin of schematic editors). */
@@ -27,7 +29,7 @@ export function LibraryPanel() {
     if (!c) return null;
     const match = (...fields: (string | null | undefined)[]) => !query || fields.some((f) => f?.toLowerCase().includes(query));
     return {
-      instruments: c.instruments.filter((d) => match(d.id, d.model, d.manufacturer, d.instrument_class, d.description)),
+      instruments: libraryGroups(c.instruments.filter((d) => match(d.id, d.model, d.manufacturer, d.instrument_class, d.description)), CLASS_IDS),
       parts: c.components.filter((x) => x.category === "part" && match(...typeSearchText(x))),
     };
   }, [catalog.data, query]);
@@ -58,9 +60,10 @@ export function LibraryPanel() {
         {catalog.error && <ErrorState error={catalog.error} onRetry={() => void catalog.refetch()} />}
         {items && catalog.data && (
           <div className="p-2" aria-label={t("edit.library")}>
-            <Group title={t("workbench.instruments")}>
-              {items.instruments.map((d) => {
-                return (
+            {/* By class, as the home page's library (#1356); the maker shortened, in full in the hint. */}
+            {items.instruments.map(({ cls, instruments }) => (
+              <Group key={cls} title={t(`acceptance.class.${cls}`, { defaultValue: cls })}>
+                {instruments.map((d) => (
                   <Entry
                     key={d.id}
                     catalog={catalog.data}
@@ -69,12 +72,12 @@ export function LibraryPanel() {
                     title={d.model}
                     // the user's own copy (#1250): marked, and named by its definition so two copies differ
                     badge={d.workspace ? t("edit.mine") : undefined}
-                    subtitle={d.workspace ? `${d.id} · ${d.manufacturer}` : `${d.manufacturer} · ${d.channels} CH`}
-                    hint={d.description ?? undefined}
+                    subtitle={d.workspace ? `${d.id} · ${makerName(d.manufacturer)}` : `${makerName(d.manufacturer)} · ${d.channels} CH`}
+                    hint={[`${d.manufacturer} ${d.model}`, d.description].filter(Boolean).join("\n")}
                   />
-                );
-              })}
-            </Group>
+                ))}
+              </Group>
+            ))}
             <Group title={t("workbench.parts")}>
               {items.parts.map((c) => (
                 <Entry

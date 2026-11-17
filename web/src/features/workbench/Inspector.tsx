@@ -145,28 +145,37 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
           </>
         }
       />
-      {/* One primary action (the screen); the rest are less frequent and sit as a row below it (#1252). */}
-      <div className="grid gap-1.5" data-testid="instrument-actions">
-        <Button size="sm" onClick={() => openScreen(inst.name)}>
-          <MonitorPlay className="size-4" /> {t("workbench.openScreen")}
-        </Button>
-        <div className="grid grid-cols-3 gap-1.5">
+      {/* One primary action (the screen); the rest are less frequent and sit as a row below it (#1252).
+          Beside its own screen, opening it is nothing to do: it joins the row as a secondary action (#1355). */}
+      {/* A narrow inspector keeps the icons and drops the words, which stay as each button's name and
+          tooltip, rather than let them run into each other (#1354, #1355). */}
+      <div className="@container grid gap-1.5" data-testid="instrument-actions">
+        {!besideScreen && (
+          <Button size="sm" onClick={() => openScreen(inst.name)}>
+            <MonitorPlay className="size-4" /> {t("workbench.openScreen")}
+          </Button>
+        )}
+        <div
+          className={cn(
+            "grid gap-1.5",
+            besideScreen ? "grid-cols-4 @max-[22rem]:[&_[data-action-label]]:hidden" : "grid-cols-3 @max-[17rem]:[&_[data-action-label]]:hidden",
+          )}
+        >
+          {besideScreen && (
+            <Button variant="outline" size="sm" className="px-1 text-xs" aria-label={t("workbench.openScreen")} title={t("workbench.openScreen")} onClick={() => openScreen(inst.name)}>
+              <MonitorPlay className="size-4" /> <span data-action-label>{t("workbench.screenShort")}</span>
+            </Button>
+          )}
           <Button variant="outline" size="sm" className="px-1 text-xs" aria-label={t("internals.open")} title={t("internals.open")} onClick={() => openInternals(inst.name)}>
-            <Blocks className="size-4" /> {t("internals.short")}
+            <Blocks className="size-4" /> <span data-action-label>{t("internals.short")}</span>
           </Button>
           <Button variant="outline" size="sm" className="px-1 text-xs" aria-label={t("acceptance.open")} title={t("acceptance.open")} onClick={() => openAcceptance(inst.name)}>
-            <ClipboardCheck className="size-4" /> {t("acceptance.short")}
+            <ClipboardCheck className="size-4" /> <span data-action-label>{t("acceptance.short")}</span>
           </Button>
           {bench && <SaveTemplateButton compact bench={bench} instrument={inst.name} label={inst.label ?? instrumentTitle(inst)} />}
         </div>
       </div>
-      <Section title={t("workbench.identitySection")}>
-        <CopyRow label="*IDN?" value={inst.idn} />
-        <CopyRow label={t("workbench.virtualAddress")} value={inst.address_virtual} />
-        {inst.address_hislip && <CopyRow label={t("workbench.hislipAddress")} value={inst.address_hislip} />}
-        {inst.address_vxi11 && <CopyRow label={t("workbench.vxi11Address")} value={inst.address_vxi11} />}
-        {inst.address_real && <CopyRow label={t("workbench.realAddress")} value={inst.address_real} />}
-      </Section>
+      <IdentitySection inst={inst} />
       <Section title={t("workbench.sendCommand")}>
         <ScpiConsole sid={sid} instrument={inst.name} disabled={readonly} />
       </Section>
@@ -394,6 +403,54 @@ export function KeyValues({ entries }: { entries: [string, string][] }) {
         </div>
       ))}
     </dl>
+  );
+}
+
+const IDENTITY_KEY = "simubench:inspector-identity";
+
+function identityOpen(): boolean {
+  try {
+    return localStorage.getItem(IDENTITY_KEY) === "open";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * The instrument's identity and addresses (#1355): folded to the one address a script uses, so the
+ * settings come first; opened, *IDN? and every address. The choice is remembered in this browser.
+ */
+function IdentitySection({ inst }: { inst: InstrumentInfo }) {
+  const { t } = useTranslation();
+  const [open, setOpen] = useState(identityOpen);
+  const toggle = () => {
+    const next = !open;
+    setOpen(next);
+    try {
+      localStorage.setItem(IDENTITY_KEY, next ? "open" : "closed");
+    } catch {
+      // private window or blocked storage: the choice lasts this page only
+    }
+  };
+  const more = [inst.idn, inst.address_hislip, inst.address_vxi11, inst.address_real].filter(Boolean).length;
+  return (
+    <section data-testid="identity-section" data-open={open || undefined}>
+      <button
+        type="button"
+        className="text-muted-foreground mb-1.5 flex w-full items-center gap-1 text-[11px] font-medium tracking-wide uppercase"
+        onClick={toggle}
+        aria-expanded={open}
+      >
+        <ChevronDown className={cn("size-3.5 transition-transform", !open && "-rotate-90")} />
+        {t("workbench.identitySection")}
+        {!open && <span className="ml-auto font-normal tracking-normal normal-case">{t("workbench.identityMore", { count: more })}</span>}
+      </button>
+      {open && <CopyRow label="*IDN?" value={inst.idn} />}
+      <CopyRow label={t("workbench.virtualAddress")} value={inst.address_virtual} />
+      {open && inst.address_hislip && <CopyRow label={t("workbench.hislipAddress")} value={inst.address_hislip} />}
+      {open && inst.address_vxi11 && <CopyRow label={t("workbench.vxi11Address")} value={inst.address_vxi11} />}
+      {open && inst.address_real && <CopyRow label={t("workbench.realAddress")} value={inst.address_real} />}
+    </section>
   );
 }
 

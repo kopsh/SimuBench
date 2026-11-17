@@ -4,7 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useCatalog, useCopyDefinition } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   keys,
@@ -28,6 +28,7 @@ import { CommandsTab } from "./CommandsTab";
 import { HistoryTab } from "./HistoryTab";
 import { OverviewTab } from "./OverviewTab";
 import { TryTab } from "./TryTab";
+import { commandRows, runnable, tryForm, trySuggestions } from "./model";
 
 /** What the page does with a copy of the definition (#1250): `created` is false when an earlier
  * copy is opened instead of a new one made. Without it the page navigates to the copy's own page. */
@@ -128,6 +129,11 @@ export function InstrumentAcceptance({
   const [section, setSection] = useState<SectionKey>(() => sectionOf(initialSection));
   const trySession = useTrySession(definitionId, sha);
   const inst = useTryInstrument(trySession.sid);
+  // The commands section brings a command to the trial run (#1358); the trial run offers the model's own.
+  const [tryDraft, setTryDraft] = useState<{ text: string; n: number } | null>(null);
+  const rows = useMemo(() => commandRows(definition.data?.commands ?? [], coverage.data), [definition.data, coverage.data]);
+  const tryKnown = useMemo(() => [...new Set(rows.filter(runnable).map((r) => tryForm(r).trim()))], [rows]);
+  const trySuggest = useMemo(() => trySuggestions(rows), [rows]);
   const [notice, setNotice] = useState(false);
   const seen = useRef<string | null>(null);
 
@@ -240,7 +246,18 @@ export function InstrumentAcceptance({
           {d ? <OverviewTab definition={d} inst={inst.data} /> : <DefinitionBody definition={definition} />}
         </TabsContent>
         <TabsContent value="commands" className="min-h-0 flex-1 overflow-hidden">
-          {d ? <CommandsTab commands={d.commands ?? []} coverage={coverage.data} /> : <DefinitionBody definition={definition} />}
+          {d ? (
+            <CommandsTab
+              commands={d.commands ?? []}
+              coverage={coverage.data}
+              onTry={(text) => {
+                setTryDraft((prev) => ({ text, n: (prev?.n ?? 0) + 1 }));
+                setSection("try");
+              }}
+            />
+          ) : (
+            <DefinitionBody definition={definition} />
+          )}
         </TabsContent>
         <TabsContent value="internals" className="min-h-0 flex-1 overflow-hidden">
           <InternalsSection sid={trySession.sid} inst={inst.data} error={trySession.error} />
@@ -249,12 +266,29 @@ export function InstrumentAcceptance({
           {section === "build" && (
             <BuildTab
               definitionId={definitionId}
-              tryPanel={<TryTab sid={trySession.sid} inst={inst.data} error={trySession.error} onReopen={trySession.reopen} />}
+              tryPanel={
+                <TryTab
+                  sid={trySession.sid}
+                  inst={inst.data}
+                  error={trySession.error}
+                  onReopen={trySession.reopen}
+                  suggestions={trySuggest}
+                  known={tryKnown}
+                />
+              }
             />
           )}
         </TabsContent>
         <TabsContent value="try" className="min-h-0 flex-1 overflow-hidden">
-          <TryTab sid={trySession.sid} inst={inst.data} error={trySession.error} onReopen={trySession.reopen} />
+          <TryTab
+            sid={trySession.sid}
+            inst={inst.data}
+            error={trySession.error}
+            onReopen={trySession.reopen}
+            draft={tryDraft}
+            suggestions={trySuggest}
+            known={tryKnown}
+          />
         </TabsContent>
         <TabsContent value="cases" className="min-h-0 flex-1 overflow-hidden">
           <CasesTab definitionId={definitionId} />
