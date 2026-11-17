@@ -1113,15 +1113,12 @@ async def test_scope_screen_says_a_live_frame_takes_no_virtual_time_on_a_command
         await open_instrument(pilot, tui, "scope")
         text = await wait_flat(pilot, tui, "Command clock")
         assert "take no virtual time" in text
-        # The session's clock goes to wall at the (fake) service too: on a wall clock the app
-        # re-reads the clock every second, and a service still on command brought the note
-        # back (main's CI under load, #1343).
-        fixture["clock"] = {**fixture["clock"], "mode": "wall"}
+        # The fake server's clock turns wall too: the wall tick re-reads it, and a stale "command"
+        # there would bring the note back under CI load.
+        fixture["clock"]["mode"] = "wall"
         tui.clock = {**(tui.clock or {}), "mode": "wall"}
         tui.screen.refresh_content()
         tui.screen._last_version = None
         tui.screen.refresh_content()
-        # The redraw lands within a few frames, not necessarily by the first pause.
-        await wait_for(
-            pilot, lambda: "Command clock" not in flat(tui), message="the clock note gone on a wall clock"
-        )
+        await pilot.pause()
+        assert "Command clock" not in flat(tui)
