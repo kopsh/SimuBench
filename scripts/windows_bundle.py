@@ -56,8 +56,8 @@ README = """SimuBench {version}（Windows 便携版）
   默认放在 文档\\SimuBench（第一次启动时创建）。另选文件夹：在命令行里运行
     SimuBench.exe --workspace D:\\我的测试台
 
-连接 AI 助手（MCP）
-  最简单：在打开的页面右上角点「连接 AI 助手」，复制地址或配置即可。
+连接外部 AI（MCP）
+  最简单：在打开的页面右上角点「连接外部 AI（MCP）」，复制地址或配置即可。
   服务启动后 MCP 地址是 http://127.0.0.1:8765/mcp （端口被占用时用下一个空闲端口，以窗口里显示的为准）。
   在支持 HTTP MCP 的客户端里加入：
     {{"mcpServers": {{"simubench": {{"type": "http", "url": "http://127.0.0.1:8765/mcp"}}}}}}

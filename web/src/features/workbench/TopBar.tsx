@@ -220,7 +220,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
         </TooltipTrigger>
         <TooltipContent>{t("workbench.stopSession")}</TooltipContent>
       </Tooltip>
-      <PreferencesMenu />
+      <PreferencesMenu mcpInMenu />
     </header>
   );
 }
