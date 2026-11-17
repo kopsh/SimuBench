@@ -1158,11 +1158,13 @@ cases:
     manual: ":ACQuire Commands > :ACQuire:SEGMented:COUNt; :ACQuire:SEGMented:INDex; :WAVeform Commands > :WAVeform:SEGMented:COUNt?; :WAVeform:SEGMented:TTAG?; :WAVeform:SEGMented:XLISt?; :WAVeform:SEGMented:POINts?; :WAVeform:SEGMented:ALL"
     steps:
       # CH1 的 400 mVpp 正弦在默认档位下小于触发迟滞（0.5 格），触发通路有噪声（#1263）时会被噪声偶然
-      # 触发、相位随机；本用例要的是自动扫描下不触发的采集，触发电平放到信号与噪声都到不了的地方。
+      # 触发、相位随机；CH1 的电平放到信号与噪声都到不了的地方，CH1 上的采集不触发。
       - send: ":TRIGger:LEVel CHANnel1,1.5"
       - query: ":WAVeform:SEGMented:COUNt?"
         expect: "0"
-      - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 4;:TRIGger:EDGE:SOURce CHANnel2"
+      # 触发源是 CH2 的 1 MHz、400 mVpp 方波，用 CH2 自己的电平（0 V，#1361）：0.1 V/div 时方波越过 ±0.5 格
+      # 的迟滞带，每个上升沿都触发（默认 0.5 V/div 时只有噪声偶然把它推出迟滞带）。
+      - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 4;:CHANnel2:SCALe 0.1;:TRIGger:EDGE:SOURce CHANnel2"
       - query: ":ACQuire:MODE?"
         expect: "SEGM"
       - send: ":DIGitize CHANnel2;:WAVeform:SOURce CHANnel2"
@@ -1171,16 +1173,18 @@ cases:
       - send: ":ACQuire:SEGMented:INDex 3"
       - query: ":ACQuire:SEGMented:INDex?"
         expect: "3"
-      # 1 MHz 方波每 1 µs 一个上升沿：第 3 段在第 1 段之后 2 µs。
+      # 1 MHz 方波每 1 µs 一个上升沿；每段 1 µs（100 ns/div），下一个沿的触发前半段落在上一段里，
+      # 所以每段取隔一个的沿：段间 2 µs，第 3 段在第 1 段之后 4 µs。
       - query: ":WAVeform:SEGMented:TTAG?"
-        expect_value: 2.0e-6
+        expect_value: 4.0e-6
         tolerance: 1.0e-9
       - query: ":WAVeform:SEGMented:XLISt? TTAG"
-        expect_values: [0.0, 1.0e-6, 2.0e-6, 3.0e-6]
+        expect_values: [0.0, 2.0e-6, 4.0e-6, 6.0e-6]
         tolerance: 1.0e-9
+      # 触发点落在两个采样之间（插值到采样的几分之一），各段的起点距触发点在一个采样（3.9 ps）之内。
       - query: ":WAVeform:SEGMented:XLISt? RELXorigin"
         expect_values: [-5.0e-7, -5.0e-7, -5.0e-7, -5.0e-7]
-        tolerance: 1.0e-12
+        tolerance: 4.0e-12
       - query: ":WAVeform:SEGMented:XLISt? OFFSet"
         expect: "0"
       - query: ":WAVeform:SEGMented:POINts?"
@@ -1755,6 +1759,17 @@ cases:
       - send: ":FUNCtion1:FFTMagnitude CHANnel1"
       - query: ":MEASure:FFT:THDistortion? FUNCtion1,MANual,1.0E7"
         expect_fields: [{value: 0.0, tolerance: 25.0, format: "±d.dddddE±dd"}]
+      # PEAK,<level>[,<peak_number>]：模式之后的数是门限（dBm），不是基波（#1362）。正弦在 −60 dBm 之上，
+      # 在 +20 dBm 之上没有峰：无效值；第 2 个峰不存在也是无效值；缺少模式与数回 −109，不卡住。
+      - query: ":MEASure:FFT:THDistortion? FUNCtion1,PEAK,-60"
+        expect_fields: [{value: 0.0, tolerance: 25.0, format: "±d.dddddE±dd"}]
+      - query: ":MEASure:FFT:THDistortion? FUNCtion1,PEAK,20"
+        expect: "9.99999E+37"
+      - query: ":MEASure:FFT:THDistortion? FUNCtion1,MANual,0"
+        expect: "9.99999E+37"
+      - send: ":MEASure:FFT:THDistortion? FUNCtion1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-109"
   - name: "手动光标：X/Y 位置回读，XDELta/YDELta 是差值"
     manual: ":MARKer Commands > :MARKer:MODE, :X1Position, :X2Position, :Y1Position, :Y2Position, :XDELta?, :YDELta?"
     steps:

@@ -252,6 +252,32 @@ def test_the_fft_measurements_of_a_pure_tone():
         s.close()
 
 
+def test_the_thd_takes_its_fundamental_as_its_mode_says():
+    """#1362: :MEASure:FFT:THDistortion? <source>,{MANual,<fund_freq> | PEAK,<level>[,<peak_number>]}.
+    The number after the mode is the fundamental (MANual) or the peak level in dBm (PEAK); the mode
+    is required; a fundamental of 0 or no peak to take answers the invalid value, never a hang."""
+    s, query = bench()
+    try:
+        query(":DIGITIZE")
+        query(":FUNCtion1:FFTMagnitude CHANnel1")
+        # -- PEAK: the first peak above the level is the tone (a pure sine: THD ~ 0)
+        assert 0.0 <= floats(query(":MEASure:FFT:THDistortion? FUNCtion1,PEAK,-60"))[0] < 0.1
+        assert 0.0 <= floats(query(":MEASure:FFT:THDistortion? FUNCtion1,PEAK,-60,1"))[0] < 0.1
+        # -- the level is the level: above the tone there is no peak to take
+        assert query(f":MEASure:FFT:THDistortion? FUNCtion1,PEAK,{TONE_DBM + 10}") == "9.99E+37"
+        # -- a pure tone has no second peak above -60 dBm
+        assert query(":MEASure:FFT:THDistortion? FUNCtion1,PEAK,-60,2") == "9.99E+37"
+        # -- MANual at 0 Hz: no fundamental to measure about
+        assert query(":MEASure:FFT:THDistortion? FUNCtion1,MANual,0") == "9.99E+37"
+        # -- the mode and its number are required: a missing parameter, no reply
+        assert query(":MEASure:FFT:THDistortion? FUNCtion1") == ""
+        assert query(":SYSTem:ERRor?").split(",")[0] == "-109"
+        assert query(":MEASure:FFT:THDistortion? FUNCtion1,MANual") == ""
+        assert query(":SYSTem:ERRor?").split(",")[0] == "-109"
+    finally:
+        s.close()
+
+
 def test_the_annotated_peaks_answer_their_frequencies_and_magnitudes():
     s, query = bench()
     try:

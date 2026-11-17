@@ -1082,7 +1082,7 @@ class ScopeMath(Component):
         bandwidth: float | None = 0.0,
         percent: float | None = 99.0,
         mode: str | None = None,
-        fundamental: float | None = None,
+        value: float | None = None,
         **_: Any,
     ) -> OpResult:
         """``:MEASure:FFT:<kind>? <source>,…``: FREQuency and MAGNitude of a peak, DFRequency and
@@ -1090,7 +1090,9 @@ class ScopeMath(Component):
         and its PSD, OBW at ``percent`` of the power, THDistortion about the fundamental. The guide
         gives every argument; an omitted one arrives as None and takes SimuBench's default: peak
         (FREQuency/MAGNitude, ``peak`` or ``peak1``) 1, the second peak 2, level -60 dBm, center and
-        bandwidth 0, percent 99."""
+        bandwidth 0, percent 99. THDistortion's ``value`` is what its ``mode`` makes it (#1362): the
+        fundamental in Hz (MANual) or the peak level in dBm (PEAK: the ``peak``-th peak above it, in
+        the order the peak annotations sort)."""
         f = _source_function(source, int(self.param("functions")))
         rec, freqs, values = self._trace(f)
         fft = rec.spec["fft"]
@@ -1100,14 +1102,17 @@ class ScopeMath(Component):
         def number(value: float) -> bytes:
             return self._number(value)
 
-        if kind in ("FREQUENCY", "MAGNITUDE", "DFREQUENCY", "DMAGNITUDE"):
-            threshold = float(level) if level is not None else -60.0
-            peaks = [
+        def numbered(threshold: float) -> list[int]:
+            """The peaks above ``threshold`` dBm, numbered from low to high frequency."""
+            unit, impedance = str(fft["unit"]), float(fft["impedance"])
+            return [
                 i
                 for i in find_peaks(freqs, values, -math.inf)
-                if _in_dbm(float(values[i]), str(fft["unit"]), float(fft["impedance"])) > threshold
-            ]
-            peaks.sort(key=lambda i: freqs[i])  # numbered from low to high frequency
+                if _in_dbm(float(values[i]), unit, impedance) > threshold
+            ]  # find_peaks answers them by rising frequency
+
+        if kind in ("FREQUENCY", "MAGNITUDE", "DFREQUENCY", "DMAGNITUDE"):
+            peaks = numbered(float(level) if level is not None else -60.0)
             first = int(peak1 if peak1 is not None else peak if peak is not None else 1)
             second = int(peak2) if peak2 is not None else 2
             if first < 1 or second < 1:  # peaks number from 1: no peak 0 or below
@@ -1137,12 +1142,20 @@ class ScopeMath(Component):
                 number(occupied_bandwidth(freqs, power, float(percent if percent is not None else 99.0)))
             )
         if kind == "THDISTORTION":
+            if value is None:
+                raise ScpiError(-109, "missing the fundamental (MANual) or the level (PEAK)")
             if str(mode or "").upper().startswith("PEAK"):
-                # the fundamental is the first peak above the level (the manual's PEAK form)
-                found = self._peaks(rec, freqs, values, float(level if level is not None else -60.0))
-                fund = float(freqs[found[0]]) if found else 0.0
+                # the fundamental is the peak_number-th peak above the level (the manual's PEAK form;
+                # "typically 1"): numbered as the function's peak annotations sort them, largest first
+                # by default (:FUNCtion<f>:FFT:PEAK:SORT)
+                found, n = self._peaks(rec, freqs, values, float(value)), int(peak) if peak is not None else 1
+                fund = float(freqs[found[n - 1]]) if 1 <= n <= len(found) else 0.0
             else:
-                fund = float(fundamental or 0.0)
+                fund = float(value)
+            # a fundamental within the first bin (0 Hz or below included) has no harmonics to sum,
+            # and above it the harmonics are at most the trace's bins (#1362: a 0 Hz one never ended)
+            if not math.isfinite(fund) or fund < rec.dt_s:
+                return OpResult(invalid)
             half = 1.5 * rec.dt_s  # the fundamental and each harmonic: the peak bin ± its neighbours
             base = band_power(power, freqs, fund, half)
             if base <= 0.0:
