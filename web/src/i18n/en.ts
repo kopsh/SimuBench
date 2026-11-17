@@ -374,7 +374,7 @@ export const en: Widen<Messages> = {
     label: "Display name",
     labelPlaceholder: "Optional, shown in the UI",
     initialState: "Initial state",
-    initialStateHint: "Settings when the bench opens; switch to Build to change them.",
+    initialStateHint: "These are the settings the bench opens with, saved to the bench file; change the running values in Operate mode or on the instrument's screen.",
     resetDefault: "Reset to default",
     defaultValue: "default",
     bench: "Bench",

@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { CLASS_IDS, ClassIcon } from "@/features/workbench/classes";
 import { cn } from "@/lib/utils";
 import { classCounts, filterInstruments } from "./model";
+import { makerName } from "@/lib/format";
 
 /** The instrument library: every model the catalog has (built in and the workspace's own), class
  * chips with live counts, the shared search, each card opening the model's acceptance page. */
@@ -44,6 +45,8 @@ export function InstrumentLibrary({ catalog, loading, query }: { catalog: Catalo
             <li key={i.id}>
               <Link
                 to={`/i/${i.id}`}
+                // The maker in full for screen readers; the card shows it short (#1356).
+                aria-label={`${i.model} ${i.manufacturer}`}
                 title={i.description || i.id}
                 className="bg-card/80 hover:border-primary/50 focus-visible:border-primary group flex items-center gap-3 rounded-xl border px-3.5 py-3 transition-[border-color,transform] outline-none hover:-translate-y-0.5 motion-reduce:hover:translate-y-0"
               >
@@ -52,7 +55,9 @@ export function InstrumentLibrary({ catalog, loading, query }: { catalog: Catalo
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="num block truncate text-[13px] font-medium">{i.model}</span>
-                  <span className="text-muted-foreground block truncate text-[11.5px]">{i.manufacturer}</span>
+                  <span className="text-muted-foreground block truncate text-[11.5px]" title={i.manufacturer}>
+                  {makerName(i.manufacturer)}
+                </span>
                 </span>
                 {i.workspace ? (
                   <span className="border-sim/40 text-sim shrink-0 rounded border px-1.5 text-[10px]">{t("home.library.mine")}</span>

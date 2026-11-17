@@ -89,6 +89,18 @@ export function globalVars(inst: InstrumentInfo): StateVarInfo[] {
   return inst.state.filter((s) => s.channel == null);
 }
 
+/**
+ * Settings in the order the front panel names them (#1356): those the definition's `display.panel`
+ * declares first, group by group, then the rest in their own order — so a bench's initial state
+ * starts with the time base and trigger, not with status registers.
+ */
+export function panelFirst(inst: InstrumentInfo, vars: readonly StateVarInfo[]): StateVarInfo[] {
+  const order = new Map<string, number>();
+  for (const g of inst.display.panel?.groups ?? []) for (const c of g.controls ?? []) if (!order.has(c.state)) order.set(c.state, order.size);
+  const rank = (v: StateVarInfo) => order.get(v.path) ?? order.size;
+  return vars.map((v, i) => ({ v, i })).sort((a, b) => rank(a.v) - rank(b.v) || a.i - b.i).map(({ v }) => v);
+}
+
 export function varName(v: StateVarInfo): string {
   return v.channel != null ? v.path.slice(v.path.indexOf(".") + 1) : v.path;
 }
