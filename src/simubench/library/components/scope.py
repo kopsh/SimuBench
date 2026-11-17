@@ -90,6 +90,9 @@ class _ChannelBound(Component):
         return {k: v for k, v in super().bound_paths().items() if "{n}" not in v}
 
 
+#: Instants across an acquisition's window the overload check draws the input at (#1264).
+EXTREME_POINTS = 4096
+
 #: Bandwidth filter shapes of the vertical channel (``response``, #607).
 RESPONSES = {
     "first_order": lowpass1,
@@ -165,8 +168,13 @@ class ScopeVertical(Component):
         "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
         "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
         "store": "",  # the calibration_store correcting the record, keyed by the displayed V/div
+        # the maximum input range: the input may swing this many divisions (at the input) either side
+        # of the offset; beyond it the channel overloads (None: no limit, #1264)
+        "max_input_divs": None,
+        "max_input_v": None,  # the absolute maximum at the input connector, V peak (None: none, #1264)
     }
     units = {
+        "max_input_v": "V",
         "bandwidth": "Hz",
         "bw_limit_hz": "Hz",
         "ac_corner": "Hz",
@@ -218,6 +226,32 @@ class ScopeVertical(Component):
     def input_scale(self) -> float:
         """V/div at the input connector: the displayed scale divided by the probe ratio."""
         return float(self.param("scale")) / float(self.param("probe_ratio"))
+
+    def input_extremes(self, t0_ns: int, span_s: float) -> tuple[float, float]:
+        """The lowest and highest the signal at the input connector reaches over ``span_s`` from
+        ``t0_ns``, V: drawn at ``EXTREME_POINTS`` instants across it (#1264)."""
+        sig = self.input("in")
+        if not sig.freq.size:
+            return float(sig.dc), float(sig.dc)
+        v = sig.sample_rel(t0_ns, np.linspace(0.0, max(span_s, 0.0), EXTREME_POINTS))
+        return float(np.min(v)), float(np.max(v))
+
+    def overload(self, add: bool, t0_ns: int, span_s: float) -> tuple[bool, bool]:
+        """(beyond the maximum input range, beyond the absolute maximum) now (#1264). The range is
+        ``max_input_divs`` input divisions either side of the screen's middle — the offset, or minus
+        it where the converter adds it (``add``); the absolute maximum ``max_input_v`` at the input."""
+        divs, limit = self.param("max_input_divs"), self.param("max_input_v")
+        if divs is None and limit is None:
+            return False, False
+        lo, hi = self.input_extremes(t0_ns, span_s)
+        ratio = float(self.param("probe_ratio"))
+        middle = (-1.0 if add else 1.0) * float(self.param("offset")) / ratio
+        over = divs is not None and (
+            hi > middle + float(divs) * self.input_scale() * (1 + 1e-9)
+            or lo < middle - float(divs) * self.input_scale() * (1 + 1e-9)
+        )
+        damage = limit is not None and max(abs(lo), abs(hi)) > float(limit) * (1 + 1e-9)
+        return bool(over), bool(damage)
 
     def _error(self, key: str, scale: float | None = None) -> float:
         """This unit's error ``key`` at input V/div ``scale`` (default: now); a scalar, or a table."""
@@ -2274,6 +2308,8 @@ class ScopeAcquisition(Component):
         # low/high, read clears) and the channel's own (:CLIPped?, 0/1, read clears and a scale or
         # offset change away from the latched (scale, offset) resets it)
         self.clip_latches: dict[int, dict[str, Any]] = {}
+        # channels whose input went beyond the maximum input range since :OVLRegister? was last read (#1264)
+        self.overloaded: set[int] = set()
         self.acq_count = 0
         self.running = True
         self.armed = False
@@ -2283,6 +2319,7 @@ class ScopeAcquisition(Component):
 
     def reset(self) -> None:
         self.records = {}
+        self.overloaded = set()
         self.segment_records = []
         self.acq_count = 0
         self.running = True
@@ -2494,6 +2531,8 @@ class ScopeAcquisition(Component):
         x_origin = (start * dt - hit.t_s - jitter) if hit is not None else -pre * dt
         trigger_ns = t0 + round(hit.t_s * 1e9) if hit is not None else None
         records: dict[int, Record] = {}
+        if frame is None:
+            self._check_overload(channels, t_start_ns, points * dt)
         for n in channels:
             scale, offset = self.scale_offset(n)
             request = self._request(n, t0, start, dt, points, t_start_ns, m, frame, segment)
@@ -2550,6 +2589,31 @@ class ScopeAcquisition(Component):
         latch["adc_high"] |= high
         latch["low"] |= low or high
         latch["at"] = at
+
+    def _check_overload(self, channels: list[int], t0_ns: int, span_s: float) -> None:
+        """Each acquired channel's input against its limits (#1264): beyond the maximum input range
+        the channel's overload bit latches (:OVLRegister?, read clears); beyond the absolute maximum
+        the instrument warns of possible damage (an event and the problems list)."""
+        add = str(self.adc_unit().param("offset_sign")).lower() == "add"
+        for n in channels:
+            vertical = self.vertical_of(n)
+            over, damage = vertical.overload(add, t0_ns, span_s)
+            if over:
+                self.overloaded.add(n)
+            if damage and self.owner is not None:
+                lo, hi = vertical.input_extremes(t0_ns, span_s)
+                self.owner.warn(
+                    f"CH{n}-OVERVOLTAGE",
+                    f"CH{n} 的输入达到 {max(abs(lo), abs(hi)):.3g} V，超过最大输入 ±{float(vertical.param('max_input_v')):g} V，"
+                    "真机可能损坏前端（Input beyond the absolute maximum: possible damage）",
+                )
+
+    def overload_bits(self) -> int:
+        """The Overload Event Register: bit n-1 for each channel overloaded since the last read,
+        which clears it (#1264)."""
+        bits = sum(1 << (n - 1) for n in self.overloaded)
+        self.overloaded = set()
+        return bits
 
     @op("adc_clip_status")
     def adc_clip_status(self, channel: int | None = None, **_: Any) -> OpResult:
@@ -3551,10 +3615,9 @@ class ScopeMeasurements(Component):
 
     @op("overload")
     def op_overload(self, **_: Any) -> OpResult:
-        """The overload register: bit n-1 set for each channel n whose record clips."""
-        acq = self._acq()
-        bits = sum(1 << (n - 1) for n in range(1, acq._channels() + 1) if self.clip_flags(n))
-        return OpResult(str(bits).encode())
+        """The Overload Event Register (:OVLRegister?): bit n-1 set for each channel n whose input
+        went beyond its maximum input range since the last read; the read clears it (#1264)."""
+        return OpResult(str(self._acq().overload_bits()).encode())
 
     @op("all")
     def op_all(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:

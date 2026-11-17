@@ -83,6 +83,9 @@ specs:
     published per full scale: the Infiniium UXR-B Series data sheet 3123-1313's "RMS Noise Floor –
     Performance Characteristics (Measured)" table, UXR1104B / UXR1102B column (page 8): 860 µV rms
     at 60 mV full scale (7.5 mV/div) rising to 29 mV rms at 4.0 V full scale (500 mV/div).
+  # p.5 Maximum Input Range (Not Exceed GND ± 6.5 V): offset ± 8 divisions; Maximum input power +6 dB
+  # (twice the amplitude) at all ranges; ±5 V at the front panel recommended for standard use (#1264).
+  max_input: {range: "offset ± 8 div", absolute_v: 6.5, recommended_v: 5.0}
   noise_per_division: >-
     the data sheet's table per full scale (60 mV to 4.0 V, 7.5 to 500 mV/div). Below 7.5 mV/div the
     scope magnifies the 60 mV range, so 1 to 7.4 mV/div hold its 860 µV. Each division takes the row
@@ -1530,6 +1533,11 @@ channel_components:
       # 数据手册 p.5 的分档表（档界 59/127/279 mV/div 与下一档之间取中点）。
       offset_ranges: [[0.0595, 0.4], [0.1275, 0.86], [0.2795, 1.85], [0.5, 4.0]]
       out_of_range: error
+      # 最大输入（数据手册 3123-1313 Vertical System 的 Maximum Input Range 表，#1264）：输入在偏置两侧各 8 格
+      # （满量程的两倍，Maximum input power +6 dB）以内；超出时该通道过载（:OVLRegister? 置位）。表头写明
+      # 对地不超过 ±6.5 V：超过时给出“可能损坏”的警告（事件与问题栏）。仿真不断开输入（手册没有输入保护动作）。
+      max_input_divs: 8.0
+      max_input_v: 6.5
       # 每档噪声（specs.noise_per_division）：数据手册 3123-1313 的 "RMS Noise Floor – Performance
       # Characteristics (Measured)" 表，UXR1104B / UXR1102B 列（p.8），按满量程 60 mV–4.0 V
       # （7.5–500 mV/div）逐档：860 µV、1.1 mV、1.5 mV、2.9 mV、6.1 mV、13 mV、29 mV。7.5 mV/div 以下为

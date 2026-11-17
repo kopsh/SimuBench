@@ -64,6 +64,9 @@ specs:
     Performance Characteristics (Measured)" table, UXR0334B column (page 8): 266 µV rms at
     4 mV/div (32 mV full scale) rising to 28.8 mV rms at 1 V/div (8 V full scale). The A-series
     sheet's UXR0334A column is identical, so the B revision kept the measured table (#786).
+  # p.5 Maximum Input Range (Not Exceed GND ± 6.5 V): offset ± 8 divisions; Maximum input power +6 dB
+  # (twice the amplitude) at all ranges; ±5 V at the front panel recommended for standard use (#1264).
+  max_input: {range: "offset ± 8 div", absolute_v: 6.5, recommended_v: 5.0}
   noise_per_division: >-
     the data sheet's measured RMS Noise Floor table per full scale (4 mV/div to 1 V/div, #786).
     The table's most sensitive setting is 4 mV/div (32 mV full scale): the 1 and 2 mV/div rows
@@ -1721,6 +1724,11 @@ channel_components:
       scale_range: [1.0e-3, 1.0]
       offset_ranges: [[0.0545, 0.4], [0.0935, 0.7], [0.1725, 1.25], [0.3065, 2.25], [1.0, 4.0]]
       out_of_range: error
+      # 最大输入（数据手册 3123-1313 Vertical System 的 Maximum Input Range 表，#1264）：输入在偏置两侧各 8 格
+      # （满量程的两倍，Maximum input power +6 dB）以内；超出时该通道过载（:OVLRegister? 置位）。表头写明
+      # 对地不超过 ±6.5 V：超过时给出“可能损坏”的警告（事件与问题栏）。仿真不断开输入（手册没有输入保护动作）。
+      max_input_divs: 8.0
+      max_input_v: 6.5
       # 每档噪声（specs.noise_per_division，#786）：Infiniium UXR-B 数据手册 3123-1313 的
       # "RMS Noise Floor – Performance Characteristics (Measured)" 表，UXR0334B 列（p.8），按
       # 满量程 32 mV–8 V（4 mV/div–1 V/div）逐档：266 µV、388 µV、702 µV、1.48 mV、2.91 mV、
@@ -1887,7 +1895,7 @@ commands:
   - {header: ":CHANnel<ch>:PROBe:SKEW", state: ch.probe_skew}
   - {header: ":CHANnel<ch>:PROBe:SKEW:AUTO", op: ch.probe.skew_auto, query: false}
   # 过载事件寄存器（手册 p.301）：过载检测未建模，恒回 0。
-  - {header: ":OVLRegister", op: sys.accept, set: false, reply: "0"}
+  - {header: ":OVLRegister", op: meas.overload, set: false}
   - {header: ":CHANnel<ch>:ADC:CLIPped", op: acq.adc_clip_status, set: false}
   - {header: ":CHANnel<ch>:CLIPped", op: acq.clipped_status, set: false}
   - {header: ":CHANnel<ch>:INPut", state: ch.input}

@@ -416,3 +416,54 @@ def test_the_noise_falls_with_the_bandwidth_filters_after_the_adc():
         assert reader.errors(uxr) == []
     finally:
         rm.close()
+
+
+def test_an_input_beyond_its_limits_overloads_and_warns(tmp_path):
+    """#1264, on the Hello World bench (the SDG2042X's CH1 into the UXR1104B's 50 ohm CH1): a 10 Vpp
+    square at 10 mV/div is clipped, and beyond the maximum input range (offset ± 8 divisions, the
+    data sheet) it sets CH1's bit of :OVLRegister? (read clears it); a 4 Vpp square on 0.5 V/div is
+    within range. Its 5 V peak is below the absolute ±6.5 V, which no source of the bench reaches
+    into 50 ohm: with the limit lowered to 4 V (a hidden parameter) the instrument warns of possible
+    damage, as an event and in the session's problems; the error queue stays empty (the guide names
+    no error for it)."""
+    hello = ROOT / "src" / "simubench" / "library" / "examples" / "hello.bench.yaml"
+
+    def run(bench: Path) -> tuple[list[str], dict[str, str], list[dict]]:
+        rm = pyvisa.ResourceManager(f"{bench}@simubench")
+        try:
+            awg = rm.open_resource("awg", read_termination="\n", write_termination="\n", timeout=20000)
+            uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+            awg.write("C1:BSWV WVTP,SQUARE,AMP,10,OFST,0")
+            uxr.write(":CHAN1:SCAL 0.01;:ACQuire:POINts 2000;:DIG CHAN1")
+            replies = [
+                uxr.query(q).strip()
+                for q in (":MEAS:VPP? CHAN1", ":CHANnel1:CLIPped?", ":OVLRegister?", ":OVLRegister?")
+            ]
+            awg.write("C1:BSWV AMP,4")
+            uxr.write(":CHAN1:SCAL 0.5;:DIG CHAN1")
+            replies += [uxr.query(":OVLRegister?").strip(), uxr.query(":SYSTem:ERRor? STR").strip()]
+            session = rm.visalib.bench
+            return (
+                replies,
+                dict(session.instruments["scope"].warnings),
+                [e for e in session.history if e.get("kind") == "warning"],
+            )
+        finally:
+            rm.close()
+
+    replies, warnings, events = run(hello)
+    # -- clipped at the converter's ±4 divisions: the measurement is the most accurate the scaling allows
+    assert float(replies[0]) == pytest.approx(0.08, abs=0.002) and replies[1] == "1"
+    # -- beyond the maximum input range: the channel's overload bit, cleared by the read; within it, none
+    assert replies[2:5] == ["1", "0", "0"]
+    assert replies[5] == '0,"No error"'
+    assert warnings == {} and events == []
+    # -- beyond the absolute maximum (lowered to 4 V): possible damage, kept and emitted once
+    data = yaml.safe_load(hello.read_text("utf-8"))
+    data["instruments"]["scope"]["hidden"] = {"ch1.front": {"max_input_v": 4.0}}
+    lowered = tmp_path / "hello.bench.yaml"
+    lowered.write_text(yaml.safe_dump(data), "utf-8")
+    replies, warnings, events = run(lowered)
+    assert list(warnings) == ["CH1-OVERVOLTAGE"] and "±4 V" in warnings["CH1-OVERVOLTAGE"]
+    assert [e["code"] for e in events] == ["CH1-OVERVOLTAGE"]
+    assert replies[5] == '0,"No error"'

@@ -135,8 +135,12 @@ sections:
       modeled'
   - header: :OVLRegister
     level: implemented
-    note: 'the overload event register, one bit per channel. The model detects no
-      overloads, so it reads 0.'
+    note: 'The Overload Event Register (guide p.309): bit n-1 for each channel n whose input went beyond its maximum
+      input range — the offset ± 8 divisions of the data sheet''s Maximum Input Range table — at an acquisition since the
+      last read; the read clears it (bits 4-7 zero). Beyond the absolute ±6.5 V to ground the instrument warns of
+      possible damage (an event and the problems list; the guide names no protection action, so the input is not
+      disconnected). A clipped record is still measured: the guide returns the most accurate value the scaling
+      allows and flags it only through :MEASure:SENDvalid''s result states, which are not modeled (#1264)'
   - header: :PDER
     level: implemented
     note: measurements are computed when queried, so processing is done when the acquisition is; its own

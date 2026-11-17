@@ -221,6 +221,7 @@ class SessionViews:
             ports=ports,
             state=state,
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in inst.errors.peek_all()],
+            warnings=[M.WarningItem(code=c, message=m) for c, m in inst.warnings.items()],
             deviation=inst.instance.deviation,
             dut=inst.instance.dut,
             deviations=[

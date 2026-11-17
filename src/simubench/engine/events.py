@@ -23,6 +23,8 @@ EVENT_KINDS: dict[str, str] = {
     "state": "a setting changed (instrument, path, old, new)",
     "advance": "virtual time moved (dt_ns, reason; for a command also instrument and header, #1260)",
     "error": "an error queued on the instrument (code, message, reason)",
+    "warning": "a warning about an instrument that is no SCPI error, e.g. an input beyond its absolute maximum "
+    "(instrument, code, message; #1264)",
     "ignored": "a command ignored by unknown_commands: no error and no reply (header, query, reason)",
     "fault": "a fault injected, tripped or cleared (fault, reason, message)",
     "acquisition": "an acquisition stored (instrument, count, forced, channels)",

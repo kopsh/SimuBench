@@ -1489,7 +1489,10 @@ cases:
         expect: "0"
       - query: ":CHANnel1:CLIPped?"
         expect: "0"
-      # 过载寄存器（p.301）：过载检测未建模，恒 0；显示偏好存取（p.596）
+      # 过载寄存器（p.301，#1264）：2 mV/div 下 400 mVpp 正弦远超偏置 ±8 格（±16 mV）的最大输入范围，CH1 置位；
+      # 读后清零。显示偏好存取（p.596）
+      - query: ":OVLRegister?"
+        expect: "1"
       - query: ":OVLRegister?"
         expect: "0"
       - send: ":DISPlay:CLIPped OFF"

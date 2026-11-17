@@ -75,6 +75,10 @@ class Instrument:
         self.channel_count = definition.channels.count
         self.channel_map = ChannelMap(definition)
         self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
+        #: Warnings about the instrument itself that are not SCPI errors (a scope input beyond its
+        #: absolute maximum: possible damage, #1264): code -> message, kept for the session, shown in
+        #: the problems list. Raised with :meth:`warn`.
+        self.warnings: dict[str, str] = {}
         #: A real model (D42): follows its manual's error texts and refuses what it does not model.
         self.real = definition.reference is not None
         self.status = StatusRegisters(lambda: self.components.values())
@@ -97,6 +101,14 @@ class Instrument:
         self._init_commands(definition)
 
     # ---- construction helpers -------------------------------------------------------------------
+
+    def warn(self, code: str, message: str) -> None:
+        """Raise a warning about the instrument (once per code for the session): kept in
+        ``warnings`` for the problems list and emitted as a ``warning`` event (#1264)."""
+        if code in self.warnings:
+            return
+        self.warnings[code] = message
+        self.session.emit({"kind": "warning", "instrument": self.name, "code": code, "message": message})
 
     def _init_state(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
         """Settings: the definition's, per channel with the bench's overrides, then the bench file's initial values."""
