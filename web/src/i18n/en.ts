@@ -287,6 +287,8 @@ export const en: Widen<Messages> = {
     state: "State",
     refused: "Setting refused",
     unitsAccepted: "Units this field accepts: {{units}}",
+    refusedValue: "{{text}} was not set: {{reason}}",
+    unreadable: "Not a number: type a number, with an SI prefix and unit if you like (2.5 kHz)",
     autoInactive: "Not in effect while auto is on",
     computedOnRead: "Deep records are computed when read: only what is read, so reads and measurements take longer with more points",
     auto: "Auto",

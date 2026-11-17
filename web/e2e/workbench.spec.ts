@@ -52,6 +52,14 @@ test("start a bench, inspect and edit an instrument", async ({ page }) => {
   await freq.fill("1G");
   await freq.press("Enter");
   await expect(page.getByLabel("-222")).toBeVisible();
+  // Said under the field, with what was typed kept in it to correct (#1353).
+  const refusal = page.getByTestId("field-refusal").first();
+  await expect(refusal).toContainText("没有设置 1G");
+  await expect(refusal).toContainText("-222");
+  await expect(freq).toHaveValue("1G");
+  await freq.press("Escape");
+  await expect(page.getByTestId("field-refusal")).toHaveCount(0);
+  await expect(freq).toHaveValue("2.5 kHz");
 });
 
 test("SCPI console, communication log and problems", async ({ page }) => {

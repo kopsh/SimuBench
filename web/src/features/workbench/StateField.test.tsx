@@ -106,3 +106,51 @@ it("a range of 0 that means AUTO reads 自动, not 0 V (#1257)", () => {
   );
   expect((screen.getByLabelText("量程") as HTMLInputElement).value).toBe("自动");
 });
+
+// A refusal is said under the field and the typed text stays to be corrected (#1353).
+it("a value the instrument refuses keeps the typed text and says why under the field", async () => {
+  vi.spyOn(api, "POST").mockResolvedValue({
+    data: { ok: false, error: { code: -222, message: "Data out of range" }, value: null },
+    error: undefined,
+    response: new Response(),
+  });
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <StateField sid="s1" instrument="dmm" v={RANGE} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  const input = screen.getByLabelText("量程") as HTMLInputElement;
+  input.focus();
+  fireEvent.change(input, { target: { value: "5000 V" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  const message = await screen.findByRole("alert");
+  expect(message.textContent).toBe("没有设置 5000 V：-222, Data out of range");
+  expect(input.value).toBe("5000 V");
+  expect(input.getAttribute("aria-invalid")).toBe("true");
+  expect(input.getAttribute("aria-describedby")).toBe(message.id);
+});
+
+it("Esc after a refusal restores the live value and clears the message", async () => {
+  setup();
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <StateField sid="s1" instrument="dmm" v={RANGE} />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  const input = screen.getByLabelText("量程") as HTMLInputElement;
+  input.focus();
+  fireEvent.change(input, { target: { value: "abc" } });
+  fireEvent.keyDown(input, { key: "Enter" });
+  expect((await screen.findByRole("alert")).textContent).toContain("没有设置 abc：读不出数值");
+  expect(input.value).toBe("abc");
+
+  input.focus();
+  fireEvent.keyDown(input, { key: "Escape" });
+  await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+  expect(input.value).toBe("0 V");
+  expect(input.getAttribute("aria-invalid")).toBeNull();
+});

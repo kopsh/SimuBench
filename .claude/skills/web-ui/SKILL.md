@@ -19,7 +19,8 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 - `web/src/components/app/DraftInput.tsx` — the one editing lifecycle of a front-panel field (focus
   starts a draft, Enter/blur enters it, Esc restores). New editable fields use it and pass their
   parse rule (`commit` / `SKIP` / `INVALID`: unit stripping, INF/high-Z, plain trim) as a prop; never
-  copy the focus/blur/Esc handlers.
+  copy the focus/blur/Esc handlers. A refused text can stay in the field (`held`, dropped by Esc through
+  `onCancel`): `StateField` keeps it and writes the reason under the field (#1353).
 - `web/src/features/workbench/classes.tsx` — the one list of instrument classes (icon + own screen).
   A new class is added there, plus `acceptance.class.<id>` in both i18n files (`classes.test.ts`
   checks they agree); do not add icon maps or `if (template === …)` chains elsewhere.
