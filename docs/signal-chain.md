@@ -279,8 +279,8 @@ class Component:
 ```
 每通道： input_port ─▶ scope_vertical ─▶ scope_probe ─┐(signal)
                                                       ▼
-共享：                                             scope_adc ──▶ scope_decimator ──▶ scope_acquisition ──▶ measurements / waveform_transfer
-                                                  (samples，原生速率) (samples，记录速率)   （存储：Record）
+共享：                                             scope_adc ──▶ [scope_dsp_filter …] ──▶ scope_decimator ──▶ scope_acquisition ──▶ measurements / waveform_transfer
+                                                  (samples，原生速率)  （DSP 带宽，#1262） (samples，记录速率)   （存储：Record）
 触发：scope_vertical 的输出 ─▶ scope_trigger（模拟通路，现有；不变）
 引用：scope_timebase、scope_trigger 仍由 acquisition 引用（它们是设置与时序，不是数据）
 ```
@@ -310,6 +310,15 @@ class Component:
 - **宏**：`macros.py` 的 `scope_acquisition` 宏扩展——定义没有显式写 `scope_decimator` 时生成一个（名字 `dec`），
   把 `processing` 等参数从采集移到它，并补上三段连线 `probe.out → adc.in<n> → dec.in<n> → acq.in<n>`。内置与验证定义**不改文件**。
 - `docs/blocks/oscilloscope.yaml` 增加一块 `decimator`（抽取与采集方式），component-map.md 的示波器表同步。
+- **ADC 之后的数字滤波**（#1262）：带宽限制是 DSP 的型号（Infiniium UXR 的 `:ACQuire:BANDwidth` 与 InfiniiSim）
+  在 `scope_adc` 与 `scope_decimator` 之间串 `scope_dsp_filter`：`in<n>` / `out<n>` 都是 samples，零相位的砖墙 / 高斯 /
+  Bessel4 / Butterworth4（与 `scope_vertical.response` 同形），FIR 核为该响应的冲激响应加 Blackman 窗，两侧各伸 32 个
+  截止周期（至多 2²⁰ 个采样）——这就是它的预热长度：一帧向上游两侧各多要这么多点，取中间（2.2）。误差界：窗把砖墙的边沿
+  展宽到约 0.2·fc（阻带低于 −70 dB），伸展被截断时边沿按比例更宽。关闭或截止不低于 `passthrough_hz`（模拟带宽）时直通，
+  帧逐位不变。噪声在 ADC 处按满带宽加入，经它按 √带宽 下降（D46），白到采样率的一半，所以 256 GSa/s 下是 √(B/128 GHz)。
+  慢于 ADC 的记录按 ADC 的采样率（至多 `max_oversample`，默认 16 倍记录采样率）滤波后再抽取；深记录把滤波器连同 ADC
+  一起保存（`scope_record.ChainView`），块与整段计算的采样在舍入内一致。触发仍取 ADC 输入端的模拟信号，不经这些滤波。
+  模拟带宽限制的型号照旧写在 `scope_vertical`（内置型号中只有两台 UXR 是 DSP 带宽）。
 
 ### 4.3 验收
 

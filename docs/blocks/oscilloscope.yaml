@@ -11,8 +11,8 @@ blocks:
     components: [scope_probe]
   - block: adc                 # ADC:分辨率、最高采样率与交织
     components: [scope_adc]
-  - block: decimator           # 抽取与采集方式:从 ADC 的速率到记录的速率(普通、平均、峰值检测、高分辨率)
-    components: [scope_decimator]
+  - block: decimator           # ADC 之后的数字处理:带宽为 DSP 的型号的数字带宽滤波(#1262),抽取与采集方式(普通、平均、峰值检测、高分辨率)
+    components: [scope_decimator, scope_dsp_filter]
   - block: acquisition         # 采集与运行控制(run/stop/single、存储)
     components: [scope_acquisition]
   - block: timebase            # 时基

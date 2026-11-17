@@ -19,7 +19,9 @@ export function shortForm(word: string): string {
  */
 const WORDS = optionWords as unknown as Record<string, [string, string]>;
 
-function wordOf(option: string): [string, string] | null {
+/** The option's word pair from the shared list, or null: exported beside ``optionLabel`` because
+ * the Python test's ``word_of`` must agree with it case for case (#1286). */
+export function wordOf(option: string): [string, string] | null {
   const direct = WORDS[option] ?? WORDS[shortForm(option)];
   if (direct) return direct;
   const short = shortForm(option);

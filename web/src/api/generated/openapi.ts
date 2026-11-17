@@ -4429,6 +4429,12 @@ export interface components {
             channel: number | null;
             /** Direction */
             direction: string;
+            /**
+             * Drives
+             * @description The port drives its net: an electrical output of a source (the checks allow one per net, E-NET-MULTIDRIVER), or an optical output (one per fibre); the canvas refuses a wire that would join two (#1269)
+             * @default false
+             */
+            drives: boolean;
             /** Medium */
             medium: string;
             /** Name */

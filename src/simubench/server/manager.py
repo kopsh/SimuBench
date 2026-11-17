@@ -585,7 +585,7 @@ class SessionManager:
         for i, w in enumerate(wires):
             ends = (str(w.get("from", "")), str(w.get("to", "")))
             if i in dropped_wires or any(split(e).owner not in names for e in ends):
-                out.omitted.append(f"wire:{i}")
+                out.omitted.append(f"{ends[0]} → {ends[1]}")  # the wire by its ends, not its index (#1269)
             else:
                 kept.append(i)
         data["wires"] = [wires[i] for i in kept]

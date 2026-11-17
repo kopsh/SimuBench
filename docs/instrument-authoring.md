@@ -226,7 +226,7 @@ iip3_dbm:
 仪表内部的功能块之间有两种连接（D67，设计见 `signal-chain.md` 第 2–5 节）：
 
 - **模拟块**：端口介质 `signal`，覆盖 `output(port)`，传递解析信号（直流 + 谱线）。频谱仪前端的 `specan_input`、`specan_mixer`、`specan_if` 还是 `RfStage`：给出各自的增益、噪声系数与截点，级联在 `engine/rfcascade.py` 里算。
-- **数字块**：端口介质 `samples`，覆盖 `frames(port, request)` 与 `sample_interval(port)`，按帧拉取采样（`engine/stream.py` 的 `FrameRequest` → `SampleFrame`；`kind` 为 `volts | codes | iq | bins`）。现有的通用数字块：`specan_ddc`（数字下变频，输出 `iq`）、`specan_rbw`（加窗 FFT，输出 `bins`）；示波器的 `scope_decimator`。
+- **数字块**：端口介质 `samples`，覆盖 `frames(port, request)` 与 `sample_interval(port)`，按帧拉取采样（`engine/stream.py` 的 `FrameRequest` → `SampleFrame`；`kind` 为 `volts | codes | iq | bins`）。现有的通用数字块：`specan_ddc`（数字下变频，输出 `iq`）、`specan_rbw`（加窗 FFT，输出 `bins`）；示波器的 `scope_decimator` 与 `scope_dsp_filter`（ADC 之后的数字带宽滤波，#1262）。
 - **ADC 是两域的边界**：`adc`（通用，固定满量程）输入 `signal`、输出 `samples`；示波器用 `scope_adc`（满量程跟随垂直设置）。数字域没有回到模拟域的块。
 
 块的标题默认是组件类型的名字。同一类型出现两次、或类型名会让人误读块在链路里的角色时，组件可以写自己的 `label`（内部结构图与构建区的块标题）和 `description`（块详情里、类型说明之前的一段话），例如 UXR 的 `probe`（`scope_probe`）写成「探头换算（倍率/偏斜/反相）」，说明物理探头在面板端口之外；`isim` 写成「InfiniiSim 滤波」，与前端的垂直通道区分（#1261）。两者只影响显示，不影响求解。
@@ -777,7 +777,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 
 **宏**：`scope_acquisition` 照旧接受现在的全部参数。没有引用独立模块时，加载定义时按这些参数展开为上述模块；展开后与显式写出的定义指纹相同。
 
-**采样流（D67、#950）**：`scope_acquisition` 的 `in<n>` 接的是采样流。完整的连线是 `ch{n}.probe.out → adc.in{n}`、`adc.out{n} → dec.in{n}`、`dec.out{n} → acq.in{n}`，其中 `dec` 是 `scope_decimator`（参数 `processing`、`averages`、`eres_bits`、`peak_max_oversample`，引用 `adc` 与 `horizontal`），`scope_adc` 用 `vertical`、`probe` 引用每通道的模块，采集用 `decimator` 引用它。定义只写了 `…probe.out → acq.in{n}`、没有写 `decimator` 时，宏在加载时补上这一段：生成名为 `dec` 的抽取块（加在组件表末尾，不改变已写组件的位置），把采集上的这四个参数移给它，把 ADC 的两个引用按采集的填好。
+**采样流（D67、#950）**：`scope_acquisition` 的 `in<n>` 接的是采样流。完整的连线是 `ch{n}.probe.out → adc.in{n}`、`adc.out{n} → dec.in{n}`、`dec.out{n} → acq.in{n}`，其中 `dec` 是 `scope_decimator`（参数 `processing`、`averages`、`eres_bits`、`peak_max_oversample`，引用 `adc` 与 `horizontal`），`scope_adc` 用 `vertical`、`probe` 引用每通道的模块，采集用 `decimator` 引用它。定义只写了 `…probe.out → acq.in{n}`、没有写 `decimator` 时，宏在加载时补上这一段：生成名为 `dec` 的抽取块（加在组件表末尾，不改变已写组件的位置），把采集上的这四个参数移给它，把 ADC 的两个引用按采集的填好。带宽限制是 DSP 的型号（UXR 的 `:ACQuire:BANDwidth`、InfiniiSim）把 `scope_dsp_filter` 串在 `adc.out{n}` 与 `dec.in{n}` 之间，并把 `dec` 写出来（宏只补没有滤波的一段）；它的参数可绑定每通道的设置（`$ch{n}.isim_bandwidth`，在 YAML 流式映射里要加引号），`passthrough_hz` 写模拟带宽，滤波设到它时帧逐位不变（signal-chain.md 4.2）。
 
 **暂不做**：数学通道与 FFT（放在测量之后，作为测量与传输的虚拟数据源）、数字通道、协议解码、参考波形、模板测试。分段存储见下（#957）。
 

@@ -205,7 +205,9 @@ sections:
   - header: :ACQuire:BANDwidth
     level: implemented
     note: 'MAX or 100 MHz to 33 GHz: the -3 dB frequency of the acquisition''s DSP filter, shaped by :ACQuire:RESPonse
-      (#607). AUTO is not modeled; the lower limit is a SimuBench value'
+      (#607). AUTO is not modeled; the lower limit is a SimuBench value. The filter is DSP after the ADC (#1262): the
+      converter''s noise, white to the Nyquist frequency at the full-bandwidth table value, falls with it as
+      sqrt(B / 64 GHz); a record slower than the converter is filtered at up to 16 times its own rate'
   - header: :ACQuire:BANDwidth:FRAMe
     level: implemented
     note: 'the model''s maximum bandwidth, 33 GHz (specs.bandwidth_hz).'
@@ -813,8 +815,8 @@ sections:
     gap: out_of_scope
   - header: :CHANnel<N>:ISIM:BWLimit
     level: implemented
-    note: 'ON: the channel''s own bandwidth limit, a filter after the front end at :CHANnel<N>:ISIM:BANDwidth
-      shaped by :CHANnel<N>:ISIM:BWLimit:TYPE (#609); OFF after power-on is a SimuBench value'
+    note: 'ON: the channel''s own bandwidth limit, a digital filter after the ADC (#1262) at
+      :CHANnel<N>:ISIM:BANDwidth shaped by :CHANnel<N>:ISIM:BWLimit:TYPE (#609): the converter''s noise falls with it; OFF after power-on is a SimuBench value'
   - header: :CHANnel<N>:ISIM:BWLimit:TYPE
     level: implemented
     note: WALL (brick wall), BESSEL4 (4th-order Bessel) and BUTTerworth (4th-order Butterworth), -3 dB
