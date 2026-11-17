@@ -344,3 +344,29 @@ def test_the_band_floor_scales_with_the_range_and_the_signal_above_it_is_untouch
     assert float(dso.query(":MEASure:FREQuency? CHANnel1")) == pytest.approx(1000.0, abs=10.0)
     session.set_parameter("scope", "meas", "hysteresis_floor_divs", 0.16)
     assert float(dso.query(":MEASure:FREQuency? CHANnel1")) == pytest.approx(1000.0, abs=10.0)
+
+
+def test_the_edge_search_uses_the_source_s_own_level(tmp_path):
+    """#1361: the edge search takes the level of the source it searches (:TRIGger[:EDGE]:LEVel
+    <level>,<source>, #248), not CH1's. The 1 V sine on CH2: at +0.5 V the record's t=0 sits at
+    +0.5 V; at +1.5 V (beyond the swing) a normal acquisition finds no edge."""
+    data = yaml.safe_load(CASES_BENCH.read_text("utf-8"))
+    data["wires"] = [{"from": "awg.CH1", "to": "scope.CH2"}]
+    bench = tmp_path / "ch2.yaml"
+    bench.write_text(yaml.safe_dump(data), "utf-8")
+    rm = pyvisa.ResourceManager(f"{bench}@simubench")
+    try:
+        dso = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+        dso.write("*RST;:CHANnel2:DISPlay 1;:CHANnel2:PROBe 1;:CHANnel2:SCALe 0.5;:TIMebase:SCALe 2E-4")
+        dso.write(":TRIGger:SWEep NORMal;:TRIGger:EDGE:SOURce CHANnel2;:TRIGger:EDGE:LEVel 0.5,CHANnel2")
+        dso.write(":DIGitize CHANnel2;:WAVeform:SOURce CHANnel2;:WAVeform:FORMat ASCii;:WAVeform:POINts 1000")
+        assert dso.query(":TER?").strip() == "1"
+        pre = dso.query(":WAVeform:PREamble?").split(",")
+        volts = np.array([float(x) for x in dso.query(":WAVeform:DATA?")[10:].split(",")])
+        times = (np.arange(volts.size) - float(pre[6])) * float(pre[4]) + float(pre[5])
+        # -- t=0 is the edge at CH2's own +0.5 V (CH1's level is 0 V)
+        assert volts[np.argmin(np.abs(times))] == pytest.approx(0.5, abs=0.1)
+        dso.write(":TRIGger:EDGE:LEVel 1.5,CHANnel2;:DIGitize CHANnel2")
+        assert dso.query(":TER?").strip() == "0"
+    finally:
+        rm.close()

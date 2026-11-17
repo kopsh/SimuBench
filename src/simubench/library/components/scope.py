@@ -1271,7 +1271,7 @@ class ScopeTrigger(_ChannelBound):
         lines = hashlib.blake2b(digest_size=16)
         for a in (sig.freq, sig.amp, sig.t0_ns):
             lines.update(np.ascontiguousarray(a).tobytes())
-        level = self.channel_param("level", n) if n is not None else self.level()
+        level = self.source_level(n)
         slope = self.channel_param("slope", n) if n is not None else self.param("slope")
         params = []
         for k in sorted(self.defaults):
@@ -1411,6 +1411,21 @@ class ScopeTrigger(_ChannelBound):
         level = self.channel_param("level", self.source_channel())
         return 0.0 if level is None else float(level)
 
+    def source_level(self, n: int | None) -> float:
+        """The level of the source a search looks at: channel ``n`` (None: the edge source, e.g.
+        external). With ``level_by_source`` the channel's own level setting, the same one
+        :meth:`level` draws (#1361: a level bound to one channel's setting answered CH1's for
+        every source); otherwise ``level`` resolved for the channel."""
+        if n is None:
+            return self.level()
+        by_source = dict(self.param("level_by_source") or {})
+        if by_source and self.owner is not None:
+            for word, path in by_source.items():
+                if trigger_channel(word) == n:
+                    return float(self.owner.get_state(str(path)))
+        level = self.channel_param("level", n)
+        return 0.0 if level is None else float(level)
+
     def path_signal(self, sig: Signal) -> Signal:
         """The source's signal as the trigger sees it: through the coupling's filters and the trigger
         path's own ``bandwidth`` (#1263)."""
@@ -1516,7 +1531,7 @@ class ScopeTrigger(_ChannelBound):
             return TriggerHit(t, math.ceil(t / dt - 1e-9)) if t <= horizon else None
         if kind == "none":
             return None
-        level = float(self.channel_param("level", n) if n is not None else self.level())
+        level = self.source_level(n)
         slope = str(self.channel_param("slope", n) if n is not None else self.param("slope")).upper()
         rising = slope in _upper(self.param("rising"))
         falling = slope in _upper(self.param("falling"))
@@ -1695,7 +1710,7 @@ class ScopeTrigger(_ChannelBound):
         arming and instants: runt and transition on the crossings of the two thresholds, window
         and timeout on the runs of the signal's state, nedge on the counted crossings."""
         source = self.family_source()
-        level = float(self.channel_param("level", n) if n is not None else self.level())
+        level = self.source_level(n)
         noiseless = self.noise_sigma() <= 0
         period = _period(sig) if noiseless else None
         high = self.threshold("high", source)

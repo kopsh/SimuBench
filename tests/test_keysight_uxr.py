@@ -663,3 +663,31 @@ def test_with_an_external_gain_the_rails_sit_on_the_record_s_code_grid():
         assert reader.errors(uxr) == []
     finally:
         rm.close()
+
+
+@pytest.mark.parametrize("cases", [CASES_BENCH_1104B, CASES_BENCH], ids=["uxr1104b", "uxr0334b"])
+def test_the_edge_search_uses_the_source_s_own_level(cases):
+    """#1361: each source keeps its own level (:TRIGger:LEVel <source>,<level>, #248), and the edge
+    search uses that one, not CH1's. CH2 carries the 1 MHz, 400 mVpp square (±0.2 V): at +0.1 V the
+    record's t=0 sits on the edge at +0.1 V; beyond the swing a normal acquisition finds no edge."""
+    rm = pyvisa.ResourceManager(f"{cases}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr.write("*RST;:SYSTem:HEADer OFF;:CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-8")
+        uxr.write(":ACQuire:POINts 20000;:TRIGger:SWEep TRIGgered;:TRIGger:EDGE:SOURce CHANnel2")
+        uxr.write(":WAVeform:SOURce CHANnel2;:WAVeform:FORMat WORD;:WAVeform:BYTeorder LSBFirst")
+        for level in (0.1, -0.1):
+            uxr.write(f":TRIGger:LEVel CHANnel2,{level};:DIGitize CHANnel2")
+            assert uxr.query(":TERegister?").strip() == "1"
+            pre = uxr.query(":WAVeform:PREamble?").split(",")
+            codes = np.array(uxr.query_binary_values(":WAVeform:DATA?", datatype="h"), float)
+            volts = codes * float(pre[7]) + float(pre[8])
+            times = float(pre[5]) + np.arange(volts.size) * float(pre[4])
+            at_zero = volts[np.argmin(np.abs(times))]
+            # -- the edge crosses the source's level at t=0 (the channel noise, 6 mV rms at 0.1 V/div)
+            assert at_zero == pytest.approx(level, abs=0.03), level
+        # -- a level beyond the square's swing: no edge, while CH1's level (0 V) would find one
+        uxr.write(":TRIGger:LEVel CHANnel2,0.35;:DIGitize CHANnel2")
+        assert uxr.query(":TERegister?").strip() == "0"
+    finally:
+        rm.close()
