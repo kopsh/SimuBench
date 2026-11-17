@@ -137,6 +137,8 @@ def measure(
     min_band: float = 0.0,
     general: Levels | None = None,
     rise_fall: Levels | None = None,
+    edge_min_samples: int = 0,
+    shoot: str = "extremes",
 ) -> float:
     """VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base), FREQuency and PERiod, and the
     shape measurements of ``PULSE_MEASUREMENTS`` (#248).
@@ -146,6 +148,11 @@ def measure(
     every measurement but rise and fall times, which take ``rise_fall`` (the Infiniium's
     :MEASure:THResholds:GENeral / :RFALl). Without them: top and base by ``top_base``, the middle
     at ``mid``, rise and fall between 10 % and 90 %.
+
+    ``edge_min_samples``: the samples a rise or fall time needs on its edge — one beyond each
+    threshold and the rest between them (the Infiniium's four, #1332); 0: no such rule.
+    ``shoot``: overshoot and preshoot from the record's extremes (``extremes``, InfiniiVision) or
+    from the first edge on the screen and its local extreme (``first_edge``, Infiniium).
 
     ``top_base``: the levels from the histogram (``histogram``) or the extremes (``extremes``);
     ``mid``: the crossing level in volts (None: halfway between top and base); ``hysteresis``: half
@@ -182,7 +189,9 @@ def measure(
             return math.nan
         return 1.0 / found if what == "FREQuency" else found
     if what in PULSE_MEASUREMENTS:
-        return _pulse_measure(what, v, dt, levels, mid, hysteresis, min_cycles, rise_fall, min_band)
+        return _pulse_measure(
+            what, v, dt, levels, mid, hysteresis, min_cycles, rise_fall, min_band, edge_min_samples, shoot
+        )
     raise ScpiError(-113, f"measurement {what!r} not supported")
 
 
@@ -481,6 +490,8 @@ def _pulse_measure(
     min_cycles: int,
     rise_fall: Levels | None = None,
     min_band: float = 0.0,
+    edge_min_samples: int = 0,
+    shoot: str = "extremes",
 ) -> float:
     vmax, vmin = float(v.max()), float(v.min())
     top, base = levels if levels else (vmax, vmin)
@@ -494,6 +505,9 @@ def _pulse_measure(
     # The crossing band never drops below the counter's floor in divisions (#745), as for the
     # period: widths, duty and edge counts count the same crossings FREQuency does (#1332).
     band = max(hysteresis * amp, min_band)
+    level = mid if mid is not None else base + amp / 2
+    if what in ("OVERshoot", "PREShoot") and shoot == "first_edge":
+        return _first_edge_shoot(what, v, dt, top, base, level, band)
     # The real instruments' method (InfiniiVision 2000 X-Series Programmer's Guide,
     # :MEASure:OVERshoot): overshoot = (Vmax - Vtop)/(Vtop - Vbase), the top and the base from
     # the histogram. On a noisy record the extremum rides a few sigma of the noise above the
@@ -516,10 +530,19 @@ def _pulse_measure(
             if d != sign:
                 continue
             ends = [t for t, e in (high if sign > 0 else low) if e == sign and t >= t0]
-            if ends:
-                return ends[0] - t0  # the first complete edge on the record
+            if not ends:
+                continue
+            # The edge starts at its last crossing of the first threshold before it reaches the
+            # second: noise on the base (top) may cross the first threshold earlier and fall back,
+            # which would stretch the edge back to that blip (#1332).
+            t0 = max(t for t, e in (low if sign > 0 else high) if e == sign and t <= ends[0])
+            # The samples strictly between the thresholds; the crossings are interpolated between
+            # a sample on each side, so those two are there (#1332).
+            between = math.floor(ends[0] / dt - 1e-9) - math.ceil(t0 / dt + 1e-9) + 1
+            if edge_min_samples and between < edge_min_samples - 2:
+                return math.nan  # too few samples on the edge to time it
+            return ends[0] - t0  # the first complete edge on the record
         return math.nan
-    level = mid if mid is not None else base + amp / 2
     cross = crossings(v, dt, level, band)
     if what in ("PEDGes", "NEDGes"):
         return float(sum(1 for _t, d in cross if d == (1 if what == "PEDGes" else -1)))
@@ -538,6 +561,29 @@ def _pulse_measure(
         return math.nan
     found = pos[0] + neg[0]
     return (pos[0] if what == "DUTYcycle" else neg[0]) / found * 100.0
+
+
+def _first_edge_shoot(
+    what: str, v: np.ndarray, dt: float, top: float, base: float, level: float, band: float
+) -> float:
+    """The Infiniium's overshoot and preshoot (UXR Programmer's Guide, :MEASure:OVERshoot /
+    :PREShoot, #1332): of the first edge on the screen, in percent of top minus base. After a
+    rising edge, up to the next edge, the local maximum's excess over the top is the overshoot;
+    before it, from the record's start, the local minimum's dip under the base is the preshoot
+    (the mirror for a falling edge). No edge: unmeasurable."""
+    cross = crossings(v, dt, level, band)
+    if not cross:
+        return math.nan
+    t, d = cross[0]
+    i = min(max(round(t / dt), 0), v.size - 1)
+    if what == "OVERshoot":
+        stop = round(cross[1][0] / dt) if len(cross) > 1 else v.size - 1
+        seg = v[i : stop + 1]
+        excess = float(seg.max()) - top if d > 0 else base - float(seg.min())
+    else:
+        seg = v[: i + 1]
+        excess = base - float(seg.min()) if d > 0 else float(seg.max()) - top
+    return max(0.0, excess) / (top - base) * 100.0
 
 
 #: Time measurements (#350): relative to the trigger (the record's origin), at the middle level.

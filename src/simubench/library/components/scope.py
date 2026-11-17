@@ -3454,6 +3454,8 @@ class ScopeMeasurements(Component):
       ``levels: absolute``; ``hysteresis`` is half the counter's band, of top minus base;
     * ``min_cycles`` complete cycles a period needs, else it cannot be measured;
     * ``clipped: invalid``: a record that reaches the ADC's limits cannot be measured;
+    * ``edge_min_samples``: the samples a rise or fall time needs on its edge (0: none);
+      ``shoot``: overshoot and preshoot from the extremes or from the first edge (#1332);
     * ``gate``: [from, to] divisions of the record (0 to 10) the measurement looks at;
     * what cannot be measured answers ``invalid_value`` with the second ``status`` word.
 
@@ -3482,6 +3484,12 @@ class ScopeMeasurements(Component):
         # of noise measures as nothing, like the real counter's screen-referenced band — an
         # assumed value, no manual states a counter's minimum amplitude (#781); 0 turns it off
         "clipped": "measure",  # measure | invalid: a record at the ADC's limits
+        # rise and fall times need this many samples on the edge, one beyond each threshold
+        # (the Infiniium's four, #1332); 0: no rule
+        "edge_min_samples": 0,
+        # overshoot / preshoot: the record's extremes (extremes, InfiniiVision) or the first edge
+        # on the screen and its local extreme (first_edge, Infiniium, #1332)
+        "shoot": "extremes",
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
         "status": ["OK", "UF"],  # measured, cannot be measured
@@ -3865,6 +3873,8 @@ class ScopeMeasurements(Component):
                 min_cycles=int(self.param("min_cycles")),
                 general=gen,
                 rise_fall=self.levels(v, rec, "rfall"),
+                edge_min_samples=int(self.param("edge_min_samples")),
+                shoot=str(self.param("shoot")),
             )
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
@@ -3884,6 +3894,8 @@ class ScopeMeasurements(Component):
             hysteresis=float(self.param("hysteresis")),
             min_cycles=int(self.param("min_cycles")),
             min_band=self._band_floor(rec),
+            edge_min_samples=int(self.param("edge_min_samples")),
+            shoot=str(self.param("shoot")),
         )
         return value
 

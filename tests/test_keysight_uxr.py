@@ -288,8 +288,10 @@ def test_the_front_panel_signals_follow_the_guide(
 
         # The AUX OUT edges: FAST is much shorter than SLOW, on the 97 MHz clock (a periodic
         # selection, where the guide makes the setting visible).
+        # The full 256 GSa/s (12800 points over 50 ns): the guide times an edge only with four or
+        # more samples on it (#1332), and the 1104B's FAST edge is shorter than two 2000-point steps.
         src.write(":CALibrate:OUTPut MHZ97;:CALibrate:OUTPut:AUX:RTIMe FAST")
-        uxr.write(":TIMebase:SCALe 5e-9")
+        uxr.write(":TIMebase:SCALe 5e-9;:ACQuire:POINts 12800")
         fast = measure("RISetime")
         src.write(":CALibrate:OUTPut:AUX:RTIMe SLOW")
         slow = measure("RISetime")
@@ -692,6 +694,22 @@ def test_the_hello_square_triggers_on_its_edge_at_every_timebase():
                 assert abs(v[at - 2 : at + 3].mean()) < 0.1, step
                 assert v[at : at + ns].mean() > v[at - ns : at].mean() + 0.02, step
                 assert uxr.query(":TER?").strip() == "1", step
+
+        # #1332: the guide times an edge only with four or more samples on it. At 500 ns/div
+        # (31 ps a sample) the square's ~9 ns edge (the data sheet's, #1271) is timed; at 1 ms/div
+        # (64 ns a sample) it is not; CH2, unwired, carries only noise and no edge to time either.
+        def measure(what: str, ch: str = "CHANnel1") -> float:
+            return float(uxr.query(f":MEASure:{what}? {ch}"))
+
+        uxr.write(":TRIGger:SWEep AUTO;:TIMebase:SCALe 5e-7;:DIGitize CHANnel1")
+        assert 8e-9 < measure("RISetime") < 10e-9
+        assert 8e-9 < measure("FALLtime") < 10e-9
+        uxr.write(":TIMebase:SCALe 1e-3;:DIGitize CHANnel1")
+        assert measure("RISetime") == 9.99999e37
+        assert measure("FALLtime") == 9.99999e37
+        uxr.write(":TIMebase:SCALe 5e-7;:CHANnel2:DISPlay ON;:DIGitize CHANnel2")
+        assert measure("RISetime", "CHANnel2") == 9.99999e37
+        assert measure("FALLtime", "CHANnel2") == 9.99999e37
         assert reader.errors(uxr) == []
     finally:
         rm.close()

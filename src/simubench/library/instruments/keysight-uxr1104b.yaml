@@ -1451,6 +1451,10 @@ components:
       source: $measure.source
       # 手册：无法测量时回 9.99999E+37。
       invalid_value: "9.99999E+37"
+      # 手册（:MEASure:RISetime/FALLtime）：边沿上至少 4 个采样点（低阈值下 1 个、高阈值上 1 个、之间 2 个），否则不可测；
+      # :MEASure:OVERshoot/PREShoot 取屏幕上第一个边沿与其局部极值（#1332）。
+      edge_min_samples: 4
+      shoot: first_edge
       sources: [measure.source, measure.source2]
       # 测量阈值（:MEASure:THResholds）按信源两组，见 measure.thr.*；屏幕上的测量至多 20 个（手册 :MEASure:RESults?）。
       thresholds: measure.thr
