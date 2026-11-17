@@ -2319,3 +2319,30 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | #1335 网格刻度 | ✅ Web 纵轴：活动通道（光标所选，否则触发源，否则第一个显示的通道）按通道色标每格电压，跟随档位与偏置；横轴：每两格标相对触发的时间（含水平位置与时间参考）；数字用 `formatEng`，画在网格内不挤占波形区。TUI 不同步：点阵放不下数字，档位与时基已在标题（`docs/tui-screens.md` 6.1） |
 | 视觉基线 | `screen-scope-1280/1440` 在本机 Chromium 重新生成（命令时钟提示多一行，网格有刻度）；频谱仪 TUI 快照（提示变长）已更新；若 CI 的实际图超出 2 % 容差，按 web-ui skill 取 `*-actual.png` 更新基线 |
 | `scripts/check.sh` 通过 | ✅ 4479 通过（69 s）；TUI `tui_boot` 档、web 单测、相关 e2e 通过 |
+
+## 示波器边沿触发：CH2–CH4 为源时按该源自己的电平搜索（Issue 1361）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 搜索按源取电平 | ✅ `ScopeTrigger.source_level(n)`：有 `level_by_source` 时取该通道自己的电平设置（与屏幕电平线 `level()` 同一规则），否则 `channel_param("level", n)`；边沿、毛刺/脉宽、高级触发族的搜索与搜索缓存键都改用它（UXR0334B、UXR1104B、DSO-X 2024A 受影响，其余型号的 `level` 按通道绑定，行为不变） |
+| 回归测试 | ✅ `tests/test_keysight_uxr.py::test_the_edge_search_uses_the_source_s_own_level`（两台 UXR：CH2 方波，电平 ±0.1 V 时 t=0 在电平上，0.35 V 不触发）、`tests/test_keysight_dsox.py::test_the_edge_search_uses_the_source_s_own_level`；三者在旧代码上失败 |
+| 依赖缺陷的用例 | ✅ UXR1104B 分段存储用例原先因 CH2 用了 CH1 的 1.5 V 而从不触发；改为 CH2 0.1 V/div 让方波越过迟滞带、每段真正触发（段间 2 µs：下一个沿的触发前半段落在上一段里），RELXorigin 容差放到一个采样（3.9 ps） |
+| `scripts/check.sh` 通过 | ✅ 4484 通过（66 s），web 334 通过 |
+
+## 示波器 FFT 的 THD：参数按模式解释、不再卡死（Issue 1362）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 参数 | ✅ 两台 UXR 与 `sb-dso-4` 的 `:MEASure:FFT:THDistortion` 参数改为 `source, mode, value, peak`（模式与其后的数必选，缺少时 −109）；`value` 在 MANual 下是基波频率，PEAK 下是门限 dBm；`<peak_number>` 取峰注释排序（默认按幅度从大到小）中的第几个 |
+| 不卡死 | ✅ 基波不足一个频率仓（含 0 Hz）或找不到第 n 个峰时回无效值，谐波循环至多为迹线点数 |
+| 其它 FFT 测量 | ✅ 与手册逐条比对 FREQuency、MAGNitude、DFRequency、DMAGnitude、CPOWer、PSD、OBW 的位置参数，均一致 |
+| 回归测试 | ✅ `tests/test_scope_math.py::test_the_thd_takes_its_fundamental_as_its_mode_says`；两台 UXR 的 `cases.yaml` THD 用例加 PEAK,−60、PEAK,20（无效）、MANual,0（无效）、缺少模式（−109） |
+| 覆盖表 | ✅ 两台 UXR 的 `:MEASure:FFT:THDistortion` 说明按手册更新 |
+| `scripts/check.sh` 通过 | ✅ |
+
+## UXR 文档：分段读与演示输出（Issue 1347）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 覆盖表与 real-models.md 第 10 节一致 | ✅ UXR1104B `:WAVeform:DATA` 说明改为 `<start>[,<size>]` 已实现、一次至多 2²⁶ 点、整条读更深的记录报 −221 不应答（UXR0334B 原已正确）；`simubench coverage keysight-uxr1104b` 不再写 not modeled |
+| demo-uxr.md 预期输出 | ✅ 按本分支运行两次（逐位相同）的输出更新；说明改为同一版本逐位复现、模型改进后以 `acceptance/test_uxr_demo.py` 的容差为准 |
