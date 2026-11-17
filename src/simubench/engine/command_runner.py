@@ -285,9 +285,7 @@ class CommandRunner:
         events for the way back, so only the writes that survive send ``state_changed``. Later
         entries for the same path overwrite earlier ones, so a stage can put the command's
         constants first and let the arguments win."""
-        apply_writes(
-            self.inst, writes, source="scpi", judged=True, name_error=self.inst.errs._bad_parameter
-        )
+        apply_writes(self.inst, writes, source="scpi", judged=True, name_error=self.inst.errs._bad_parameter)
 
     def _settings_command(
         self, spec: CommandSpec, unit: Unit, channel: int | None, named: dict[str, int] | None = None

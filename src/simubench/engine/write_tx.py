@@ -27,14 +27,15 @@ component's, an operation's side effect), a replay and a fault are not.
 
 The transaction needs five things of its instrument (:class:`WriteHost`) -- the specs, the
 state, the watchers of a path, the notification and the dynamic limits -- plus the definition's
-constraints for judged batches. #1380's host gives the same narrow interface.
+constraints for judged batches and the batch's event collector. #1380's host gives the same
+narrow interface.
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Iterable, Mapping
-from typing import TYPE_CHECKING, Any, Callable, NamedTuple, Protocol
+from collections.abc import Callable, Iterable, Mapping
+from typing import TYPE_CHECKING, Any, NamedTuple, Protocol
 
 from ..scpi.errors import ScpiError
 from .constraints import settle
@@ -60,13 +61,26 @@ class WriteHost(Protocol):
     notification and the dynamic limits (specs/state/watchers/notify/limits), plus the
     definition's constraints and the batch's deferred events. #1380's host gives the same."""
 
-    specs: Mapping[str, StateSpec]
-    state: dict[str, Any]
-    constraints: Iterable[ConstraintSpec]
-    #: The events of the transaction in progress, or None outside one: the transaction collects
-    #: its writes' events here and sends them only when the batch survives, so a refused batch
-    #: leaves no visible change -- including nothing for the way back (#1379).
-    write_events: list[WriteEvent] | None
+    @property
+    def specs(self) -> Mapping[str, StateSpec]:
+        """The settings' declarations, by state path."""
+
+    @property
+    def state(self) -> dict[str, Any]:
+        """The current values; the transaction writes them in place."""
+
+    @property
+    def constraints(self) -> list[ConstraintSpec]:
+        """The definition's settings constraints (D69), judged for writes from outside."""
+
+    @property
+    def write_events(self) -> list[WriteEvent] | None:
+        """The events of the transaction in progress, or None outside one: the transaction
+        collects its writes' events here and sends them only when the batch survives, so a
+        refused batch leaves no visible change -- including nothing for the way back (#1379)."""
+
+    @write_events.setter
+    def write_events(self, events: list[WriteEvent] | None) -> None: ...
 
     def watchers(self, path: str) -> Iterable[Component]:
         """The components told when the setting at ``path`` changes."""
@@ -158,9 +172,7 @@ def apply_writes(
         outer.extend(events)
         return
     for event in events:
-        host.notify_write(
-            event.path, event.old, event.new, electrical=event.electrical, source=event.source
-        )
+        host.notify_write(event.path, event.old, event.new, electrical=event.electrical, source=event.source)
     if batch_event is not None:
         host.notify_write(batch_event, None, None, electrical=True, source=source)
 
