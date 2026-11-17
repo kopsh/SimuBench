@@ -29,13 +29,21 @@ interface Props<T> {
   /** Shown instead of `text` until focused (an overridden value reads "Auto", #279). */
   display?: string;
   /**
+   * Text that was refused and is kept in the field (#1353): shown instead of the live value, and the
+   * draft's starting point on focus, so the user can correct what they typed. Esc drops it.
+   */
+  held?: string;
+  /**
    * The one place a field's rules live: strip a unit, read INF / high-Z, trim plain text. Return
    * `commit(value)` to enter, `SKIP` for "nothing to enter", `INVALID` to refuse the text.
    */
   parse: (typed: string) => Parsed<T>;
-  onCommit: (value: T) => void;
-  /** Called on a refused text, with the parse rule's reason when it gives one (#1286). */
-  onInvalid?: (reason?: string) => void;
+  /** Called with the parsed value and the text it was read from. */
+  onCommit: (value: T, typed: string) => void;
+  /** Called on a refused text, with the parse rule's reason when it gives one (#1286), and the text. */
+  onInvalid?: (reason: string | undefined, typed: string) => void;
+  /** Esc: the draft (and any held text) was dropped. */
+  onCancel?: () => void;
   multiline?: boolean;
   disabled?: boolean;
   placeholder?: string;
@@ -53,15 +61,17 @@ interface Props<T> {
 /**
  * The editing lifecycle of a front-panel text field, once: focus reveals the stored value when the
  * resting display stands in for it ("Auto", #279), Enter or blur enters the typed draft through
- * `parse`, Esc drops it and restores the live value (#688).
+ * `parse`, Esc drops it and restores the live value (#688). A refused text can be kept (`held`).
  */
 function DraftInputInner<T>(
   {
     text,
     display,
+    held,
     parse,
     onCommit,
     onInvalid,
+    onCancel,
     multiline,
     onKeyDown,
     ...rest
@@ -93,19 +103,20 @@ function DraftInputInner<T>(
     if (draft === null) return;
     setDraft(null);
     const r = parse(draft);
-    if (r.kind === "commit") onCommit(r.value);
-    else if (r.kind === "invalid") onInvalid?.(r.reason);
+    if (r.kind === "commit") onCommit(r.value, draft);
+    else if (r.kind === "invalid") onInvalid?.(r.reason, draft);
   };
   const common = {
     ref: el,
-    value: draft ?? display ?? text,
+    value: draft ?? held ?? display ?? text,
     // Focusing does not start a draft: the field keeps showing (and following) the live value until
     // something is typed. Seeding the draft from `text` froze a stale value in the gap between a
     // commit and its state event, and the stepper then stepped from that stale value (#835). Only
     // the stand-in display ("Auto") reveals the stored value on focus (#279).
     onFocus: () => {
       cancelled.current = false;
-      if (display !== undefined) setDraft(text);
+      if (held !== undefined) setDraft(held);
+      else if (display !== undefined) setDraft(text);
     },
     onChange: (e: { target: { value: string } }) => setDraft(e.target.value),
     onBlur: submit,
@@ -118,6 +129,7 @@ function DraftInputInner<T>(
       if (e.key === "Escape") {
         cancelled.current = true;
         setDraft(null);
+        onCancel?.();
         e.currentTarget.blur();
       }
     },

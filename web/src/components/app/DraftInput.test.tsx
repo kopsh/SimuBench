@@ -31,14 +31,14 @@ describe("DraftInput", () => {
     fireEvent.change(input, { target: { value: " 25 " } });
     fireEvent.keyDown(input, { key: "Enter" });
     fireEvent.blur(input);
-    expect(onCommit).toHaveBeenCalledExactlyOnceWith("25");
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith("25", " 25 "); // the value and the text as typed (#1353)
   });
 
   it("blur commits the typed text", () => {
     const { input, onCommit } = setup();
     fireEvent.change(input, { target: { value: "30" } });
     fireEvent.blur(input);
-    expect(onCommit).toHaveBeenCalledExactlyOnceWith("30");
+    expect(onCommit).toHaveBeenCalledExactlyOnceWith("30", "30");
     expect(input.value).toBe("10");
   });
 

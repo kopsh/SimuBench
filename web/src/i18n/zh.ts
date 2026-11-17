@@ -284,6 +284,8 @@ export const zh = {
     state: "状态",
     refused: "设置被拒绝",
     unitsAccepted: "本框接受的单位：{{units}}",
+    refusedValue: "没有设置 {{text}}：{{reason}}",
+    unreadable: "读不出数值：请输入数字，可带 SI 前缀和单位（如 2.5 kHz）",
     autoInactive: "自动时不生效",
     computedOnRead: "深记录读的时候才算：读到哪段算哪段，读回与测量的耗时随点数增长",
     auto: "自动",
