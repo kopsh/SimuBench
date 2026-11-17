@@ -1,4 +1,4 @@
-import type { InstrumentInfo, SessionInfo, StateVarInfo } from "@/api/client";
+import type { InstrumentInfo, PanelGroup, SessionInfo, StateVarInfo } from "@/api/client";
 import type { Selection } from "./store";
 import { pickLabel } from "@/i18n";
 import i18n from "@/i18n";
@@ -303,6 +303,55 @@ export function panelSettings(vars: StateVarInfo[], summaryKeys: string[]): { pa
   const panel = summarized.length > 0 ? summarized : main;
   const shown = new Set(panel);
   return { panel, rest: vars.filter((v) => !shown.has(v)) };
+}
+
+/** A setting's value and a declared value are the same: numbers by value ("INF" included), others exactly. */
+export function sameValue(a: unknown, b: unknown): boolean {
+  if (typeof a === "boolean" || typeof b === "boolean") return a === b;
+  if ((typeof a === "number" || typeof b === "number") && a != null && b != null) return numeric(a) === numeric(b);
+  return a === b;
+}
+
+/**
+ * Whether a panel ``when`` holds (#1315): every named setting has the value, or one of the values of
+ * a list. In a channel's group (``channel`` given) a name that is no whole-instrument setting is that
+ * channel's (``scale`` → ``ch2.scale``).
+ */
+export function whenHolds(when: Record<string, unknown> | undefined, vars: Map<string, StateVarInfo>, channel?: number): boolean {
+  return Object.entries(when ?? {}).every(([path, want]) => {
+    const v = vars.get(path) ?? (channel != null ? vars.get(`ch${channel}.${path}`) : undefined);
+    if (!v) return false;
+    return Array.isArray(want) ? want.some((w) => sameValue(v.value, w)) : sameValue(v.value, want);
+  });
+}
+
+export interface PanelSection {
+  label: string;
+  label_en?: string | null;
+  vars: StateVarInfo[];
+}
+
+/**
+ * The declared panel's groups as they stand now (#1315, D74): groups and controls whose ``when``
+ * holds, each control's setting (a channel group's for ``channel``), minus what ``keep`` leaves out
+ * (shown on the screen beside); groups left empty are dropped.
+ */
+export function panelSections(
+  groups: PanelGroup[] | undefined,
+  vars: Map<string, StateVarInfo>,
+  keep: (v: StateVarInfo) => boolean,
+  channel?: number,
+): PanelSection[] {
+  const out: PanelSection[] = [];
+  for (const g of groups ?? []) {
+    if (!whenHolds(g.when, vars, channel)) continue;
+    const shown = (g.controls ?? [])
+      .filter((c) => whenHolds(c.when, vars, channel))
+      .map((c) => vars.get(channel != null ? `ch${channel}.${c.state}` : c.state))
+      .filter((v): v is StateVarInfo => !!v && keep(v));
+    if (shown.length) out.push({ label: g.label, label_en: g.label_en, vars: shown });
+  }
+  return out;
 }
 
 /** 「全部设置」 starts open when it holds no more than this many settings: a small instrument keeps them in sight. */

@@ -792,11 +792,21 @@ class PanelKey(_Model):
 class PanelControl(_Model):
     """One setting on the panel, and the control it is set with (instrument-authoring.md 7.3)."""
 
-    state: str = Field(..., description="The setting, e.g. 'sense.function' (a channel's: 'ch1.level')")
-    control: Literal["buttons", "number", "switch", "select"] = Field(
+    state: str = Field(
         ...,
+        description="The setting, e.g. 'sense.function' (a channel's: 'ch1.level'; in `channel_groups` "
+        "without the prefix: 'level')",
+    )
+    control: Literal["buttons", "number", "switch", "select"] | None = Field(
+        None,
         description="buttons: a key per value (an enum's options, or `keys`); number: a value with its "
-        "unit and step keys; switch: on / off (bool); select: a drop-down (enum)",
+        "unit and step keys; switch: on / off (bool); select: a drop-down (enum). Default: the setting's "
+        "own field (number, switch or select by its type)",
+    )
+    when: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Shown only while these settings have these values (a list: any of them), e.g. "
+        "{trigger.mode: GLITch}",
     )
     label: str | None = Field(None, description="Default: the setting's label")
     label_en: str | None = None
@@ -837,6 +847,10 @@ class PanelGroup(_Model):
     label: str = Field(..., description="The group's title, e.g. 测量, 量程, 触发")
     label_en: str | None = None
     controls: list[PanelControl] = Field(default_factory=list)
+    when: dict[str, Any] = Field(
+        default_factory=dict,
+        description="Shown only while these settings have these values (a list: any of them)",
+    )
 
 
 class PanelSoftkey(_Model):
@@ -859,12 +873,19 @@ class PanelSoftkey(_Model):
 
 
 class Panel(_Model):
-    """The instrument's front panel as the UI draws it (instrument-authoring.md 7.3): the main
-    display's readings, groups of controls, and softkeys. Without one, a multimeter and a calibrator
-    get their class's default layout; the classes with a dedicated screen do not use it."""
+    """The instrument's front panel (instrument-authoring.md 7.3, D74): the main display's readings,
+    groups of controls, and softkeys. Its groups are what the Web inspector puts on its panel, for
+    every class; the rest of the settings are found by name or under 「全部设置」. A multimeter and a
+    calibrator without one get their class's default layout, which their screen draws; a class with a
+    dedicated screen (an oscilloscope) draws its own and uses only the groups, for the inspector."""
 
     readouts: list[PanelReadout] = Field(default_factory=list)
     groups: list[PanelGroup] = Field(default_factory=list)
+    channel_groups: list[PanelGroup] = Field(
+        default_factory=list,
+        description="The picked channel's groups (the inspector's CH selector): controls name a channel "
+        "setting without its prefix ('scale' for ch1.scale …); `when` may name either kind",
+    )
     softkeys: list[PanelSoftkey] = Field(default_factory=list)
 
 

@@ -454,8 +454,9 @@ class DisplayInfo(_Model):
     actions: dict[str, str] = Field(default_factory=dict, description="Commands for front-panel actions")
     panel: Panel | None = Field(
         None,
-        description="The front panel the UI draws: the definition's own, or its class's default layout "
-        "(multimeter, calibrator); none for a class with a dedicated screen or without a default",
+        description="The front panel: the definition's own, or its class's default layout (multimeter, "
+        "calibrator); none for a class with a dedicated screen that declares none, or without a default. "
+        "Its groups are the inspector's panel (D74)",
     )
     panel_source: Literal["declared", "class_default"] | None = None
 

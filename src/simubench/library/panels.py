@@ -4,8 +4,10 @@ A definition may declare its panel (``display.panel``). One that does not gets i
 layout when the class has one: a multimeter is a large reading with function and range keys, a
 calibrator its output value with operate / standby keys. Both are taken from the definition's own
 components and the settings bound to them, so a new multimeter has the same panel as the 34465A
-without writing one. Classes with a dedicated screen (oscilloscope, generator, ...) do not use a
-panel; the others without one keep the generic layout (readings and the settings list).
+without writing one. Classes with a dedicated screen (oscilloscope, generator, ...) draw their own
+screen and get no class default; a panel they declare is still passed on, for its groups, which the
+Web inspector puts on its panel (D74). The others without one keep the generic layout (readings and
+the settings list).
 """
 
 from __future__ import annotations
@@ -47,10 +49,10 @@ def template_of(d: InstrumentDefinition) -> str:
 def effective_panel(d: InstrumentDefinition) -> tuple[Panel | None, PanelSource | None]:
     """The panel the UI draws for this definition, and where it comes from."""
     template = template_of(d)
-    if template in DEDICATED:
-        return None, None
     if d.display.panel is not None:
         return d.display.panel, "declared"
+    if template in DEDICATED:
+        return None, None
     build = _DEFAULTS.get(template)
     panel = build(d) if build else None
     if panel is None or not (panel.readouts or panel.groups):
@@ -598,6 +600,14 @@ def _ranges(value: Any) -> list[float]:
     return sorted(found)
 
 
+_KINDS: dict[str, Literal["switch", "select", "number"]] = {
+    "bool": "switch",
+    "enum": "select",
+    "float": "number",
+    "int": "number",
+}
+
+
 def _controls(d: InstrumentDefinition, specs: list[ComponentSpec], used: set[str]) -> list[PanelControl]:
     """A control for each writable setting the components' parameters are bound to."""
     out: list[PanelControl] = []
@@ -607,10 +617,10 @@ def _controls(d: InstrumentDefinition, specs: list[ComponentSpec], used: set[str
             st = d.state.get(path) if path else None
             if not path or st is None or st.readonly or path in used:
                 continue
-            kind = {"bool": "switch", "enum": "select", "float": "number", "int": "number"}.get(st.type)
+            kind = _KINDS.get(st.type)
             if kind is None:
                 continue
-            out.append(PanelControl(state=path, control=kind))  # type: ignore[arg-type]
+            out.append(PanelControl(state=path, control=kind))
             used.add(path)
     return out
 

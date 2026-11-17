@@ -594,7 +594,7 @@ constraints:
 
 - 面板由定义生成。定义的 `display` 增加面板布局的声明：分组（例如“测量”“量程”“触发”）、每个设置用什么控件（按键组、旋钮式数值、开关、下拉）、主显示区显示哪些读数与单位、软键。Agent 经 MCP 写这部分，与写命令一样；
 - 没有声明面板时，按类别给出默认布局：万用表为大号读数加功能键、量程键；校准源为输出值、工作 / 待机键。都没有时退回现在的通用布局；
-- 已有专用屏幕的类别（示波器、函数发生器、锁相放大器、频谱仪、SMU）保持不变；
+- 已有专用屏幕的类别（示波器、函数发生器、锁相放大器、频谱仪、SMU）的屏幕保持不变；它们声明的面板只用分组，放到 Web 检查器的面板上（D74，#1315），读数与软键不用；
 - 搭建模式下，面板设置的是测试台文件中的初始设置；操作模式下是运行中的设置（#103 的说明照常显示）。脚本连着时遵守远程状态（#121）。
 
 面板只改设置，不改仪表定义。
@@ -619,7 +619,30 @@ display:
       - {label: 精确, state: sense.nplc, value: 10}
 ```
 
-枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。没有声明时，万用表由 E1（#190）拆出的测量链生成：读数取 `dmm_adc` 的值，功能与按 `ranges` 的量程键（加 AUTO，量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时）取 `dmm_conditioning` 的绑定，输入端子、调理与 A/D 绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键；DAQ 由 `scan_table` 生成：刚扫描的通道与读数、扫描表、闭合通道，功能与 NPLC、扫描次数与间隔，以及 Run / Stop 软键；电源由每路的回读、保护状态、输出开关与电压/电流设定，以及输出 2/3 的组合键生成。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别与没有默认布局的类别为空，界面用专用屏幕或通用布局。
+枚举的按键组不写 `keys` 时每个选项一个键，布尔量为开、关两个键。
+
+**检查器的面板（D74，#1315）**：所有类别的 Web 检查器都把 `display.panel.groups` 放在最前（“设置”），其余设置靠查找或在“全部设置”里改。复杂仪表（几百上千个设置）就靠这份声明决定检查器先给什么：
+
+```yaml
+display:
+  panel:
+    groups:
+      - label: 触发
+        controls:
+          - {state: trigger.mode}                                   # 不写 control：按设置类型用输入框、开关或下拉
+          - {state: trigger.glitch_width, when: {trigger.mode: GLITch}}   # when：只在这些设置为这些值时显示
+          - {state: trigger.level1, when: {trigger.mode: EDGE, trigger.source: CHANnel1}}
+      - label: 平均
+        when: {acquire.average: true}                             # 分组也可以有 when；列表表示任一值
+        controls: [{state: acquire.count}]
+    channel_groups:          # 所选通道的分组（检查器的 CH 选择器）：写不带前缀的通道设置名
+      - label: 垂直
+        controls:
+          - {state: scale}
+          - {state: isim_bandwidth, when: {isim_bwlimit: true}}   # 通道分组的 when 可以写本通道的设置
+```
+
+没有声明面板时检查器退回 `display.summary` / `channel_summary`（画布卡片也用这两个列表，只放三五项）；整机超过 100 个或每通道超过 40 个设置却没有声明时，校验给出 `W-DEF-PANEL-MISSING`。`keysight-uxr1104b.yaml` 是一份完整的示波器声明。没有声明时，万用表由 E1（#190）拆出的测量链生成：读数取 `dmm_adc` 的值，功能与按 `ranges` 的量程键（加 AUTO，量程设置有 `AUTO` 特殊值、自动量程绑定了布尔设置时）取 `dmm_conditioning` 的绑定，输入端子、调理与 A/D 绑定的其他设置；校准源由 `calibrator_output` 生成：输出值、交流时的频率、输出端状态，功能键与幅度、频率，OPER / STBY 键；DAQ 由 `scan_table` 生成：刚扫描的通道与读数、扫描表、闭合通道，功能与 NPLC、扫描次数与间隔，以及 Run / Stop 软键；电源由每路的回读、保护状态、输出开关与电压/电流设定，以及输出 2/3 的组合键生成。会话接口的 `display.panel` 给出界面要画的面板（`panel_source` 为 `declared` 或 `class_default`）；专用屏幕的类别没有类别默认布局，没有声明时为空，界面用专用屏幕；没有默认布局的类别为空，界面用通用布局。
 
 ### 7.4 MCP：模板与试运行（W4、W5）
 

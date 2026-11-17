@@ -62,6 +62,10 @@ When the platform cannot express something the manual requires:
    manual leaves out is an assumption noted in the coverage table. A data sheet that gives a
    deviation per path or setting (the response with the preamp on) gets one `deviations` entry per
    case with `when` (and `option`), D70 (`docs/metrology-authoring.md` 7.1).
+   What the front panel puts first goes in `display.panel.groups` / `channel_groups`, with `when`
+   for what depends on a mode (D74, `docs/instrument-authoring.md` 7.3; `keysight-uxr1104b.yaml`
+   is the reference): the Web inspector shows those and leaves the rest to search; keep
+   `display.summary` to the three to five values the canvas card shows.
    Validate as you go:
    ```bash
    uv run simubench validate src/simubench/library/instruments/<id>.yaml

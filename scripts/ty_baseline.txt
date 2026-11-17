@@ -108,7 +108,6 @@ src/simubench/library/components/trigger.py:missing-attribute Object of type `Se
 src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@fire` has no attribute `uid`
 src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@wait_fired` has no attribute `owner` ×3
 src/simubench/library/coverage.py:invalid-return-type Return type does not match returned value: expected `str`, found `str | None`
-src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Literal["buttons", "number", "switch", "select"]`, found `str`
 src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Literal["run", "stop", "single"] | None`, found `str`
 src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, bool]` ×2
 src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, str | Unknown]`

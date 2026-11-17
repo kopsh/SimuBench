@@ -773,8 +773,16 @@
     },
     "Panel": {
       "additionalProperties": false,
-      "description": "The instrument's front panel as the UI draws it (instrument-authoring.md 7.3): the main\ndisplay's readings, groups of controls, and softkeys. Without one, a multimeter and a calibrator\nget their class's default layout; the classes with a dedicated screen do not use it.",
+      "description": "The instrument's front panel (instrument-authoring.md 7.3, D74): the main display's readings,\ngroups of controls, and softkeys. Its groups are what the Web inspector puts on its panel, for\nevery class; the rest of the settings are found by name or under 「全部设置」. A multimeter and a\ncalibrator without one get their class's default layout, which their screen draws; a class with a\ndedicated screen (an oscilloscope) draws its own and uses only the groups, for the inspector.",
       "properties": {
+        "channel_groups": {
+          "description": "The picked channel's groups (the inspector's CH selector): controls name a channel setting without its prefix ('scale' for ch1.scale …); `when` may name either kind",
+          "items": {
+            "$ref": "#/$defs/PanelGroup"
+          },
+          "title": "Channel Groups",
+          "type": "array"
+        },
         "groups": {
           "items": {
             "$ref": "#/$defs/PanelGroup"
@@ -805,15 +813,23 @@
       "description": "One setting on the panel, and the control it is set with (instrument-authoring.md 7.3).",
       "properties": {
         "control": {
-          "description": "buttons: a key per value (an enum's options, or `keys`); number: a value with its unit and step keys; switch: on / off (bool); select: a drop-down (enum)",
-          "enum": [
-            "buttons",
-            "number",
-            "switch",
-            "select"
+          "anyOf": [
+            {
+              "enum": [
+                "buttons",
+                "number",
+                "switch",
+                "select"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
           ],
-          "title": "Control",
-          "type": "string"
+          "default": null,
+          "description": "buttons: a key per value (an enum's options, or `keys`); number: a value with its unit and step keys; switch: on / off (bool); select: a drop-down (enum). Default: the setting's own field (number, switch or select by its type)",
+          "title": "Control"
         },
         "keys": {
           "anyOf": [
@@ -857,7 +873,7 @@
           "title": "Label En"
         },
         "state": {
-          "description": "The setting, e.g. 'sense.function' (a channel's: 'ch1.level')",
+          "description": "The setting, e.g. 'sense.function' (a channel's: 'ch1.level'; in `channel_groups` without the prefix: 'level')",
           "title": "State",
           "type": "string"
         },
@@ -887,11 +903,16 @@
           "default": null,
           "description": "number: the unit shown; default: the setting's",
           "title": "Unit"
+        },
+        "when": {
+          "additionalProperties": true,
+          "description": "Shown only while these settings have these values (a list: any of them), e.g. {trigger.mode: GLITch}",
+          "title": "When",
+          "type": "object"
         }
       },
       "required": [
-        "state",
-        "control"
+        "state"
       ],
       "title": "PanelControl",
       "type": "object"
@@ -922,6 +943,12 @@
           ],
           "default": null,
           "title": "Label En"
+        },
+        "when": {
+          "additionalProperties": true,
+          "description": "Shown only while these settings have these values (a list: any of them)",
+          "title": "When",
+          "type": "object"
         }
       },
       "required": [
