@@ -182,7 +182,7 @@ def measure(
             return math.nan
         return 1.0 / found if what == "FREQuency" else found
     if what in PULSE_MEASUREMENTS:
-        return _pulse_measure(what, v, dt, levels, mid, hysteresis, min_cycles, rise_fall)
+        return _pulse_measure(what, v, dt, levels, mid, hysteresis, min_cycles, rise_fall, min_band)
     raise ScpiError(-113, f"measurement {what!r} not supported")
 
 
@@ -480,6 +480,7 @@ def _pulse_measure(
     hysteresis: float,
     min_cycles: int,
     rise_fall: Levels | None = None,
+    min_band: float = 0.0,
 ) -> float:
     vmax, vmin = float(v.max()), float(v.min())
     top, base = levels if levels else (vmax, vmin)
@@ -490,6 +491,9 @@ def _pulse_measure(
         return base
     if amp <= 0:
         return math.nan
+    # The crossing band never drops below the counter's floor in divisions (#745), as for the
+    # period: widths, duty and edge counts count the same crossings FREQuency does (#1332).
+    band = max(hysteresis * amp, min_band)
     # The real instruments' method (InfiniiVision 2000 X-Series Programmer's Guide,
     # :MEASure:OVERshoot): overshoot = (Vmax - Vtop)/(Vtop - Vbase), the top and the base from
     # the histogram. On a noisy record the extremum rides a few sigma of the noise above the
@@ -499,7 +503,6 @@ def _pulse_measure(
         return max(0.0, vmax - top) / amp * 100.0
     if what == "PREShoot":
         return max(0.0, base - vmin) / amp * 100.0
-    band = hysteresis * amp
     if what in ("RISetime", "FALLtime"):
         lo_v, hi_v, b = (
             (rise_fall.lower, rise_fall.upper, rise_fall.band)

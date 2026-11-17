@@ -663,3 +663,33 @@ def test_with_an_external_gain_the_rails_sit_on_the_record_s_code_grid():
         assert reader.errors(uxr) == []
     finally:
         rm.close()
+
+
+HELLO_BENCH = ROOT / "src" / "simubench" / "library" / "examples" / "hello.bench.yaml"
+
+
+def test_the_hello_square_triggers_on_its_edge_at_every_timebase():
+    """#1331: Hello World's 1 MHz square into the UXR1104B, CH1 rising at 0 V. Zoomed in to a few
+    ns/div, a record is a fraction of the period: the auto mode still finds the edge within its
+    auto timeout, and an edge found on the coarse grid is bisected onto the signal (the trigger
+    path has noise), so in both sweep modes the record's t=0 sits on a rising edge."""
+    rm = pyvisa.ResourceManager(f"{HELLO_BENCH}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr.write(":WAVeform:SOURce CHANnel1;:WAVeform:FORMat ASCii")
+        for sweep in ("AUTO", "TRIGgered"):
+            for scale in (1e-9, 5e-9, 1e-8, 2e-8):
+                uxr.write(f":TRIGger:SWEep {sweep};:TIMebase:SCALe {scale};:DIGitize CHANnel1")
+                x0 = float(uxr.query(":WAVeform:XORigin?"))
+                dx = float(uxr.query(":WAVeform:XINCrement?"))
+                v = np.asarray(uxr.query_ascii_values(":WAVeform:DATA?"))
+                at = round(-x0 / dx)  # the sample at t=0
+                ns = round(1e-9 / dx)
+                step = f"{sweep} {scale:g} s/div"
+                # 1 Vpp into 50 ohm: -0.5 V a ns before the trigger, +0.5 V a ns after it
+                assert v[: at - ns].mean() < -0.4, step
+                assert v[at + ns :].mean() > 0.4, step
+                assert uxr.query(":TER?").strip() == "1", step
+        assert reader.errors(uxr) == []
+    finally:
+        rm.close()

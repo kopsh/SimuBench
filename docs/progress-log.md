@@ -2308,3 +2308,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 两台 UXR 接线 | ✅ 不设 `bandwidth`（数据手册：边沿触发带宽等于采集模拟带宽，前端已限）；触发 `noise_table` 估计为通道的（同一前端），`test_the_trigger_noise_is_the_channel_s` 断言两处一致；`:TRIGger:HIGH` 的覆盖说明随之更新（1104B） |
 | 行为变化 | ✅ 默认设置下记录时间原点的散布由触发噪声与斜率主导（`docs/signal-chain.md` 4.1）；依赖不触发的用例显式设远处的触发电平，抖动用例关掉触发噪声 |
 | 测试 | ✅ 噪声触发的统计用例参数化到 0334B（0.42 V/div）；`test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger`：100 kHz 触发带宽下 10 MHz 正弦不触发而采集不变 |
+
+## 示波器：快时基下边沿落在触发点；脉冲测量沿用计数器的分度下限（Issue 1331，Issue 1332 部分）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 快时基下 t=0 落在边沿上 | ✅ Hello World（1 MHz 方波 → UXR1104B）1 ns/div 到 500 ns/div，AUTO 与 TRIGgered 下 `:DIGitize` 后 t=0 均为上升沿：粗网格上找到的跨越不论触发通路有无噪声都在信号上二分（#1263 给 UXR 加触发噪声后，粗网格改用相隔数微秒两点间的直线插值，边沿落到任意位置）；自动模式搜到 `auto_timeout_s`（默认 50 ms）为止，不再只看 4 条记录 |
+| 回归测试 | ✅ `tests/test_keysight_uxr.py::test_the_hello_square_triggers_on_its_edge_at_every_timebase`（两种扫描 × 1/5/10/20 ns/div，修复前在 AUTO 1 ns/div 失败） |
+| 脉冲测量的分度下限 | ✅ 无阈值组的型号上脉宽、占空比、边沿与脉冲计数的跨越带不低于 `hysteresis_floor_divs`（#745/#773），与 FREQuency 同一规则：`tests/test_keysight_dsox.py::test_the_pulse_measurements_keep_the_band_floor`（修复前 PWIDth 在只有噪声的通道上读 285 ns） |
+| #1332 其余部分 | 未改：噪声超出分度下限时按跨越计数（#773 的有意设计，`test_the_band_floor_scales_with_the_range_and_the_signal_above_it_is_untouched`）；`:TER?` 在 AUTO 未触发时本就为 0，试用时读到的 1 是之前一次触发留下的；Web 测量行对无效值已显示 “—” |
+| `scripts/check.sh` 通过 | ✅ |
