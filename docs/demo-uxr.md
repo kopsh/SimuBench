@@ -37,7 +37,7 @@ python examples/demo/uxr_demo.py TCPIP0::192.168.1.61::hislip0::INSTR
 4.      freq        amplitude  AC rms     rise       duty
    CH1  10 MHz     393 mV     142.9 mV   29.34 ns   50.9 %
    CH2  1 MHz      402.3 mV   200.3 mV   2.867 ns   50.0 %
-   CH3  500.6 kHz  333.6 mV   86.7 mV    1.027 µs   48.7 %
+   CH3  500.6 kHz  333.6 mV   86.7 mV    872 ns     48.7 %
    CH4  2 MHz      200.8 mV   78.55 mV   10.17 ns   20.0 %
 5. FFT of CH2 (peaks above -30 dBm)
    976.6 kHz  -2.1 dBm
