@@ -38,8 +38,10 @@ interface Props {
   bare?: boolean;
 }
 
-/** The label/control columns of a setting row, shared with EditInspector's field rows (#689). */
-export const FIELD_GRID_COLS = "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)]";
+/** The label/control columns of a setting row, shared with EditInspector's field rows (#689). In a
+ * narrow inspector (an `@container` under 16rem) the label goes above its control instead of
+ * squeezing it off the edge (#1354). */
+export const FIELD_GRID_COLS = "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)] @max-[16rem]:grid-cols-1";
 
 /** One editable state variable; edits are out-of-band "configure" actions (architecture.md 5.2). */
 export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing, inactive, bare }: Props) {

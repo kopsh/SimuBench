@@ -132,7 +132,7 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reveal?.n]);
   return (
-    <div className="space-y-4 p-3">
+    <div className="@container space-y-4 p-3">
       {/* Beside its own screen, the screen carries the remote banner and LOCAL; here only a mark (#1273). */}
       {!besideScreen && <RemoteBanner compact sid={sid} inst={inst} className="-mx-3 -mt-3" />}
       <Header

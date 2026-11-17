@@ -133,3 +133,43 @@ for (const [width, height] of WIDTHS) {
     });
   }
 }
+
+// A narrow window and a narrow inspector (#1354): the canvas fits every node at a readable zoom, and
+// the inspector's actions keep their icons side by side instead of running into each other.
+async function actionsApart(page: Page) {
+  const boxes = await page
+    .getByTestId("instrument-actions")
+    .getByRole("button")
+    .evaluateAll((els) => els.map((e) => e.getBoundingClientRect()).map((r) => ({ left: r.left, right: r.right, top: r.top })));
+  const panel = (await page.getByTestId("inspector-panel").boundingBox())!;
+  for (const b of boxes) expect(b.right, "an action past the inspector's edge").toBeLessThanOrEqual(panel.x + panel.width + 1);
+  const row = boxes.filter((b) => Math.abs(b.top - boxes[boxes.length - 1].top) < 2).sort((a, b) => a.left - b.left);
+  for (let i = 1; i < row.length; i++) expect(row[i].left, "two actions overlap").toBeGreaterThanOrEqual(row[i - 1].right - 1);
+}
+
+test("at 1024×700 every node is in view and the inspector's actions do not overlap (#1354)", async ({ page }) => {
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await open(page, "benches/awg_rc_scope.bench.yaml", 3);
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
+  await expect(page.getByTestId("instrument-actions")).toBeVisible();
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const pane = document.querySelector(".react-flow")!.getBoundingClientRect();
+        return [...document.querySelectorAll(".react-flow__node")]
+          .map((n) => n.getBoundingClientRect())
+          .filter((r) => r.left < pane.left - 1 || r.right > pane.right + 1 || r.top < pane.top - 1 || r.bottom > pane.bottom + 1).length;
+      }),
+    )
+    .toBe(0);
+  await actionsApart(page);
+});
+
+test("with the assistant open the inspector's actions do not overlap (#1354)", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await open(page, "benches/awg_rc_scope.bench.yaml", 3);
+  await page.locator(".react-flow__node").filter({ hasText: "函数发生器" }).click();
+  await page.getByRole("button", { name: "AI 助手" }).first().click();
+  await expect(page.getByText("AI 助手").last()).toBeVisible();
+  await actionsApart(page);
+});
