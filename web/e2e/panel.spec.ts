@@ -113,7 +113,12 @@ test("34465A default panel: function and range keys change the reading", async (
     .poll(async () => readoutValue(ac))
     .toBeLessThan(4 * 0.32e-6 + 1e-7);
 
-  // NPLC and input impedance are on the panel too.
+  // NPLC and input impedance are on the panel too, for the DC voltage they apply to (neither is
+  // shown for AC, the declared panel's `when`).
+  await expect(
+    panel(page).getByRole("textbox", { name: "积分时间（PLC）" }),
+  ).toHaveCount(0);
+  await fn.getByRole("button", { name: "DC V" }).click();
   await expect(
     panel(page).getByRole("textbox", { name: "积分时间（PLC）" }),
   ).toBeVisible();
