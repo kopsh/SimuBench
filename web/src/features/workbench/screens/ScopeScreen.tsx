@@ -27,6 +27,14 @@ import { refTarget, stateMap } from "../model";
 import { useWorkbench } from "../store";
 import { WaveformCanvas } from "./WaveformCanvas";
 
+/** The channel the voltage axis is labelled for: the cursors' channel, else the trigger source,
+ * else the first channel on screen (#1335). */
+export function scopeAxisChannel(shownChannels: number[], cursorChannel?: number, triggerSource?: number) {
+  return [cursorChannel, triggerSource, shownChannels[0]].find(
+    (n): n is number => n !== undefined && shownChannels.includes(n),
+  );
+}
+
 export function ScopeScreen({
   session,
   inst,
@@ -59,12 +67,8 @@ export function ScopeScreen({
   // Math functions turned on: the time-domain ones over the channels, a transform in its own pane.
   const functions = data?.functions ?? [];
   const spectra = functions.filter((f) => f.spectrum);
-  // The channel the voltage axis is labelled for: the cursors' channel, else the trigger source,
-  // else the first channel on screen (#1335).
   const shownChannels = (data?.traces ?? []).map((tr) => tr.channel);
-  const axisChannel = [cursors?.channel, data?.trigger_source, shownChannels[0]].find(
-    (n): n is number => n !== undefined && shownChannels.includes(n),
-  );
+  const axisChannel = scopeAxisChannel(shownChannels, cursors?.channel, data?.trigger_source);
   const timeTraces = [
     ...(data?.traces ?? []),
     ...functions.filter((f) => !f.spectrum).map(functionTrace),

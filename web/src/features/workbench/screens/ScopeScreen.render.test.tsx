@@ -3,7 +3,7 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { InstrumentInfo, ScopeScreen as ScopeScreenData, SessionInfo } from "@/api/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "@/i18n";
-import { ScopeScreen } from "./ScopeScreen";
+import { ScopeScreen, scopeAxisChannel } from "./ScopeScreen";
 
 vi.hoisted(() => {
   window.matchMedia = ((query: string) => ({
@@ -102,4 +102,17 @@ it("says a live frame takes no virtual time on a command or stepped clock, and o
   cleanup();
   show(base, "command"); // stopped on a record: no live frames to explain
   expect(screen.queryByTestId("scope-clock-hint")).toBeNull();
+});
+
+it("uses the cursor channel for the voltage axis when it is displayed", () => {
+  expect(scopeAxisChannel([1, 2], 2, 1)).toBe(2);
+});
+
+it("falls back to a displayed trigger channel when the cursor channel is hidden", () => {
+  expect(scopeAxisChannel([1, 2], 3, 2)).toBe(2);
+});
+
+it("falls back to the first displayed channel when cursor and trigger channels are hidden", () => {
+  expect(scopeAxisChannel([1, 2], 3, 4)).toBe(1);
+  expect(scopeAxisChannel([], undefined, undefined)).toBeUndefined();
 });

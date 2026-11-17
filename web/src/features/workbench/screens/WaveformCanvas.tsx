@@ -164,6 +164,22 @@ export function WaveformCanvas({
   return <canvas ref={ref} className={className} role="img" aria-label={label ?? "waveform"} />;
 }
 
+/** The label text on the graticule, kept separate from canvas drawing so offsets, horizontal
+ * positions and trigger references have direct regression tests (#1341). */
+export function axisLabels(tr: Pick<Trace, "scale" | "offset"> | undefined, span?: TimeWindow) {
+  const volts = tr
+    ? Array.from({ length: DIV_V }, (_, j) => formatEng(tr.offset + (DIV_V / 2 - j) * tr.scale, "V", 3))
+    : [];
+  const times = span
+    ? Array.from({ length: DIV_H / 2 + 1 }, (_, k) => {
+        const value = span.left + (2 * k * span.width) / DIV_H;
+        const rounding = Number.EPSILON * DIV_H * Math.max(Math.abs(span.left), Math.abs(span.width));
+        return formatEng(Math.abs(value) <= rounding ? 0 : value, "s", 3);
+      })
+    : [];
+  return { volts, times };
+}
+
 /** The numbers on the graticule (#1335): the axis channel's volts at each division line down the left
  * edge, in its colour and following its scale and offset, and the time from the trigger under every
  * second division (left edge, trigger position and time per division show in them). */
@@ -175,6 +191,7 @@ function drawAxes(
   tr: Trace | undefined,
   span?: TimeWindow,
 ) {
+  const labels = axisLabels(tr, span);
   ctx.font = `10px ${cssVar(canvas, "--font-mono", "monospace")}`;
   ctx.textBaseline = "alphabetic";
   if (tr) {
@@ -183,7 +200,7 @@ function drawAxes(
     for (let j = 0; j < DIV_V; j++) {
       // the bottom line is left to the time axis's corner
       const y = (j * h) / DIV_V;
-      ctx.fillText(formatEng(tr.offset + (DIV_V / 2 - j) * tr.scale, "V", 3), 12, j === 0 ? y + 11 : y - 2);
+      ctx.fillText(labels.volts[j], 12, j === 0 ? y + 11 : y - 2);
     }
   }
   if (span) {
@@ -191,7 +208,7 @@ function drawAxes(
     for (let i = 0; i <= DIV_H; i += 2) {
       ctx.textAlign = i === 0 ? "left" : i === DIV_H ? "right" : "center";
       const x = (i * w) / DIV_H;
-      ctx.fillText(formatEng(span.left + (i * span.width) / DIV_H, "s", 3), i === 0 ? x + 4 : i === DIV_H ? x - 4 : x, h - 4);
+      ctx.fillText(labels.times[i / 2], i === 0 ? x + 4 : i === DIV_H ? x - 4 : x, h - 4);
     }
   }
 }
