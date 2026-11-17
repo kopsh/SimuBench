@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { traceSpan } from "./WaveformCanvas";
+import { axisLabels, traceSpan } from "./WaveformCanvas";
 
 // a 50 ns record of 100 samples, the trigger at its centre (#1333)
 const rec = { t0_s: -25e-9, dt_s: 0.5e-9, volts: new Array<number>(100).fill(0) };
@@ -23,4 +23,38 @@ it("shows only the stretch of the record the faster timebase covers", () => {
   expect(i0).toBeGreaterThanOrEqual(38);
   expect(i1).toBeLessThanOrEqual(62);
   expect(xOf(50)).toBeCloseTo(500, 6);
+});
+
+it("labels every vertical division around a non-zero channel offset", () => {
+  const labels = axisLabels({ scale: 0.25, offset: 0.5 });
+  expect(labels.volts).toEqual([
+    "1.5 V",
+    "1.25 V",
+    "1 V",
+    "750 mV",
+    "500 mV",
+    "250 mV",
+    "0 V",
+    "−250 mV",
+  ]);
+});
+
+it.each([
+  {
+    reference: "left",
+    span: { left: 2e-6, width: 10e-6 },
+    expected: ["2 µs", "4 µs", "6 µs", "8 µs", "10 µs", "12 µs"],
+  },
+  {
+    reference: "centre",
+    span: { left: -3e-6, width: 10e-6 },
+    expected: ["−3 µs", "−1 µs", "1 µs", "3 µs", "5 µs", "7 µs"],
+  },
+  {
+    reference: "right",
+    span: { left: -8e-6, width: 10e-6 },
+    expected: ["−8 µs", "−6 µs", "−4 µs", "−2 µs", "0 s", "2 µs"],
+  },
+])("labels the $reference-referenced time axis after horizontal positioning", ({ span, expected }) => {
+  expect(axisLabels(undefined, span).times).toEqual(expected);
 });

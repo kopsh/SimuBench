@@ -234,7 +234,7 @@ def _check_deviation_cases(d: InstrumentDefinition, report: Report) -> None:
                 continue
             for value in wanted if isinstance(wanted, list) else [wanted]:
                 try:
-                    validate_value(spec.model_copy(update={"readonly": False}), value)
+                    validate_value(spec, value, allow_readonly=True)
                 except ScpiError:
                     report.add(
                         "error",
@@ -461,7 +461,7 @@ def _check_constraints(d: InstrumentDefinition, report: Report) -> None:
                     continue
                 for value in wanted if isinstance(wanted, list) else [wanted]:
                     try:
-                        validate_value(spec.model_copy(update={"readonly": False}), value)
+                        validate_value(spec, value, allow_readonly=True)
                     except ScpiError:
                         report.add(
                             "error",

@@ -16,15 +16,14 @@ from ...library.coverage import (
 )
 from ...models import api as M
 from .. import drive, views
-from ..errors import FILE_ERRORS
 from .context import ApiContext
 
 
 def try_entry(ctx: ApiContext, sid: str) -> Any:
     try:
         return ctx.manager.tries.get(sid)
-    except KeyError:
-        raise HTTPException(404, f"no try session {sid!r}") from None
+    except KeyError as exc:
+        raise ctx.http_error(exc, missing=f"no try session {sid!r}") from None
 
 
 def while_idle(e: Any, fn: Any, *args: Any) -> Any:
@@ -39,7 +38,6 @@ def while_idle(e: Any, fn: Any, *args: Any) -> Any:
 def _try_session_routes(ctx: ApiContext, router: APIRouter) -> None:
     manager = ctx.manager
     auth = ctx.auth
-    not_found = ctx.not_found
 
     @router.get(
         "/api/try",
@@ -70,10 +68,8 @@ def _try_session_routes(ctx: ApiContext, router: APIRouter) -> None:
         run record. Opening the same definition again replaces the previous session."""
         try:
             e = manager.tries.open(def_id)
-        except KeyError as exc:
-            raise not_found(exc) from None
-        except (ValueError, UnicodeDecodeError) as exc:  # the definition loads but does not build
-            raise HTTPException(422, str(exc).splitlines()[0]) from None
+        except Exception as exc:  # an unknown id, or a definition that loads but does not build
+            raise ctx.http_error(exc) from None
         return M.TryOpened(
             session_id=e.served.id,
             definition_id=e.definition,
@@ -242,7 +238,7 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
 
         try:
             return await asyncio.to_thread(run)
-        except (*FILE_ERRORS, ValueError) as exc:
+        except Exception as exc:
             raise ctx.http_error(exc, missing="no such cases file") from None
 
 

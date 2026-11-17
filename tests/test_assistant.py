@@ -17,6 +17,7 @@ from simubench.assistant.guard import LoopGuard, Stuck
 from simubench.assistant.service import AssistantService
 from simubench.assistant.tools import TOOLS
 from simubench.engine.edit import Move
+from simubench.server.errors import Conflict
 from simubench.server.manager import SessionManager
 
 BENCH = "hello.bench.yaml"
@@ -353,6 +354,20 @@ async def test_a_conflict_with_the_canvas_makes_the_assistant_read_again(manager
     assert again.ok is True and t.status == "done"
     data = manager.files.read(BENCH).data
     assert data["layout"]["awg"] == {"x": 5, "y": 5} and data["instruments"]["sa"]["label"] == "SA"
+
+
+def test_the_assistant_error_text_reads_the_shared_table():
+    """The assistant's wording for a failed tool is the one table's assistant column (#1382), not a
+    private copy: a Conflict says the same on the MCP seam and carries the sha."""
+    from simubench.assistant.tools import _error_text
+    from simubench.server.errors import tool_text
+
+    conflict = Conflict("agent.bench.yaml changed since it was read", "abc")
+    assert _error_text(conflict) == tool_text(conflict, "assistant")
+    assert "重新读取" in _error_text(conflict) and "sha256 = abc" in _error_text(conflict)
+    missing = FileNotFoundError("no such bench")
+    missing.filename = "agent.bench.yaml"
+    assert _error_text(missing) == "文件不存在：agent.bench.yaml"  # the name survives, for a retry
 
 
 async def test_long_conversations_are_compacted_without_splitting_tool_calls(manager):

@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 
 from ...library.coverage import coverage_path, load_coverage
 from ...models import api as M
 from ...models.definition import InstrumentDefinition
 from ..catalog import components as component_catalog
-from ..errors import FILE_ERRORS
 from ..mytemplates import save_as_template
 from .context import ApiContext
 
@@ -93,6 +92,7 @@ def _definition_routes(ctx: ApiContext, router: APIRouter) -> None:
 
 def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
     library = ctx.library
+    manager = ctx.manager
     definition_files = ctx.definition_files
     auth = ctx.auth
     not_found = ctx.not_found
@@ -116,13 +116,14 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
     )
     def definition_document(def_id: str) -> M.DefinitionDocument:
         """The definition as stored (hash, diagnostics, workspace-relative path), for the acceptance
-        page to notice a change made elsewhere and reload."""
+        page to notice a change made elsewhere and reload; ``sessions_to_restart`` names the running
+        sessions that still use an older version (D25), as the MCP tools report it."""
         try:
-            return definition_files.read(def_id)
-        except KeyError as exc:
-            raise not_found(exc) from None
-        except ValueError as exc:
-            raise HTTPException(422, str(exc).splitlines()[0]) from None
+            doc = definition_files.read(def_id)
+        except Exception as exc:
+            raise ctx.http_error(exc) from None
+        doc.sessions_to_restart = manager.sessions_using_stale_definition(def_id)
+        return doc
 
     @router.get(
         "/api/definitions/{def_id}/structure",
@@ -134,11 +135,9 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
         """The effective structure (components, wiring, panel ports; extends merged in) for the
         Web's build area (#1201); read even when the draft does not pass the checks."""
         try:
-            return definition_files.structure(def_id)
-        except KeyError as exc:
-            raise not_found(exc) from None
-        except ValueError as exc:
-            raise HTTPException(422, str(exc).splitlines()[0]) from None
+            return definition_files.structure(def_id)  # type: ignore[no-any-return]
+        except Exception as exc:
+            raise ctx.http_error(exc) from None
 
     @router.put(
         "/api/definitions/{def_id}/structure",
@@ -164,9 +163,9 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
     def definition_layout(def_id: str) -> M.DefinitionLayout:
         """Where the build area draws the components (#1207); empty when none were saved."""
         try:
-            return definition_files.layout(def_id)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from None
+            return definition_files.layout(def_id)  # type: ignore[no-any-return]
+        except Exception as exc:
+            raise ctx.http_error(exc, full_detail=True) from None
 
     @router.put(
         "/api/definitions/{def_id}/layout",
@@ -197,7 +196,7 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
         try:
             cov = load_coverage(path)
         except Exception as exc:  # a broken table is reported, not hidden
-            raise HTTPException(422, f"{path.name}: {str(exc).splitlines()[0]}") from None
+            raise ctx.http_error(ValueError(f"{path.name}: {exc}")) from None
         return M.DefinitionCoverage(
             model=cov.model,
             stats=cov.stats(),
@@ -225,9 +224,9 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
         """Saved versions of a workspace definition, newest first, each with what it changed since
         the previous one, in the instrument's language (the acceptance page's change log, T3)."""
         try:
-            return definition_files.versions(def_id)
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from None
+            return definition_files.versions(def_id)  # type: ignore[no-any-return]
+        except Exception as exc:
+            raise ctx.http_error(exc, full_detail=True) from None
 
 
 def _definition_change_routes(ctx: ApiContext, router: APIRouter) -> None:
@@ -245,8 +244,8 @@ def _definition_change_routes(ctx: ApiContext, router: APIRouter) -> None:
     ) -> M.DefinitionChangeList:
         """The changes between any two versions (base 0 compares against nothing: the creation)."""
         try:
-            return definition_files.changes_between(def_id, base, target)
-        except (*FILE_ERRORS, ValueError) as exc:
+            return definition_files.changes_between(def_id, base, target)  # type: ignore[no-any-return]
+        except Exception as exc:
             raise ctx.http_error(exc, missing="no such version", full_detail=True) from None
 
 

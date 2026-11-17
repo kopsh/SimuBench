@@ -27,53 +27,11 @@ from ..library.loader import load_bench
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from .benchfiles import BenchFiles, scan
+from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse
 from .runs import Runs
 from .views import SessionViews, served_addresses
 
 log = logging.getLogger(__name__)
-
-
-class BenchInvalid(ValueError):
-    """The bench cannot start; ``diagnostics`` say why and where."""
-
-    def __init__(self, diagnostics: list[M.Diagnostic]) -> None:
-        first = next(d for d in diagnostics if d.severity == "error")
-        super().__init__(f"{first.pointer}: {first.message}")
-        self.diagnostics = diagnostics
-
-
-class InstrumentRemote(RuntimeError):
-    """A UI operation on an instrument a script is connected to (remote, #121)."""
-
-    def __init__(self, instrument: str, clients: list[str]) -> None:
-        super().__init__(f"{instrument} is in remote control by {', '.join(clients)}; take it to local first")
-        self.instrument = instrument
-        self.clients = clients
-
-
-class ClientsConnected(RuntimeError):
-    """An operation that drops or disturbs the scripts connected to the bench, asked without force."""
-
-    def __init__(self, clients: list[str], what: str) -> None:
-        super().__init__(f"{what} affects connected scripts ({', '.join(clients)}); confirm with force")
-        self.clients = clients
-
-
-#: The command-line option that moves each service's port (#1195).
-_PORT_OPTION = {"SCPI": "--scpi-base-port", "HiSLIP": "--hislip-port", "VXI-11": "--vxi11-port"}
-
-
-class PortInUse(OSError):
-    """A port the bench serves on cannot be opened, usually held by another process (#1195): which
-    one, and the way out."""
-
-    def __init__(self, service: str, exc: OSError) -> None:
-        super().__init__(
-            f"无法打开 {service} 端口（通常是被占用），测试台未启动：{exc}。"
-            f"可能是另一个 SimuBench（例如 AI 助手自行启动的 simubench mcp）或仪器软件正在使用它；"
-            f"关掉它，或以 {_PORT_OPTION[service]} <其他端口> 重新启动 SimuBench（SimuBench.exe 也接受这个参数）。"
-        )
-        self.service = service
 
 
 def vxi11_port_of(args: Any) -> int | None:
@@ -509,7 +467,7 @@ class SessionManager:
                 raise PortInUse(service, again) from again
             notice = (
                 f"{service} 默认端口 {port} 被占用（{exc.strerror or exc}），已改用系统分配的空闲端口；"
-                f"脚本请按界面上列出的地址连接。要固定端口：SimuBench.exe {_PORT_OPTION[service]} <端口>"
+                f"脚本请按界面上列出的地址连接。要固定端口：SimuBench.exe {PORT_OPTION[service]} <端口>"
             )
             log.warning(notice)
             served.port_notices.append(notice)
@@ -624,6 +582,11 @@ class SessionManager:
             if current != definition_hash(d):
                 out.append(d.id)
         return out
+
+    def sessions_using_stale_definition(self, def_id: str) -> list[str]:
+        """The running sessions whose instruments use an older version of this definition than the
+        file now holds: they keep the old one until restarted (D25), so both seams can warn."""
+        return [sid for sid, sv in self.sessions.items() if def_id in self.stale_definitions(sv)]
 
     def get(self, sid: str) -> ServedSession:
         try:

@@ -10,7 +10,6 @@ from fastapi import APIRouter, Depends, Response
 from ... import __version__
 from ...models import api as M
 from ...storage import Entry
-from ..errors import FILE_ERRORS
 from .context import ApiContext
 
 
@@ -146,7 +145,7 @@ def _diagnostic_and_run_routes(ctx: ApiContext, router: APIRouter) -> None:
     def read_run(run_id: str) -> M.RunDetail:
         try:
             return manager.runs.detail(run_id)
-        except FILE_ERRORS as exc:
+        except Exception as exc:
             raise ctx.http_error(exc, missing="no such run record") from None
 
     @router.post(
@@ -159,7 +158,7 @@ def _diagnostic_and_run_routes(ctx: ApiContext, router: APIRouter) -> None:
         """Replay the record and compare every reply (D36)."""
         try:
             return manager.runs.replay(run_id)
-        except (*FILE_ERRORS, ValueError) as exc:
+        except Exception as exc:
             raise ctx.http_error(exc, missing="no such run record", full_detail=True) from None
 
 

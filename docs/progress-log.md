@@ -2378,3 +2378,25 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | UXR 纯音用例 | ✅ 两台 UXR 的 PEAK 门限改为 −30 dBm，排除噪声峰后第 1 峰为基波；THD 数值期望与容差不变 |
 | YAML、覆盖表与文档 | ✅ 两台 UXR 与 `sb-dso-4` 的定义、两台 UXR 的覆盖表及 `docs/demo-uxr.md` 明确编号顺序与峰注释排序无关 |
 | `scripts/check.sh` 通过 | ✅ |
+
+## 写入事务：外部写入统一收口，全有全无（Issue 1379）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 事务一个执行单位 | ✅ `engine/write_tx.py` 的 `apply_writes`：静态校验（`allow_readonly` 收口 5 处 `model_copy` 习语）→ 约束结算（`settle` 只剩事务一个调用方）→ 应用（`on_state` 每写、`check_settings` 每批）→ 收窄限值按批结束状态 → 全有全无回滚（不发事件）→ 只对存活的写按应用顺序发 `state_changed`；`_constraints_checked` 模式位删除，`set_state` 签名不变（组件约 80 个调用点零改动），`_commit` 成为薄壳，`restore_settings` 以 reinforce 批保留 #436 两阶段语义，故障与重放走事务但豁免约束与限值，SCPI 解析期 MIN/MAX 保留 |
+| write_tx 对 nub 直接单测 | ✅ `tests/test_write_tx.py` 21 例：specs/state/watchers/notify/limits 的替身直测，不构造 Session（校验先于应用、后写胜出、readonly 只给 internal、no-op 批、约束整批拒绝/改判结束状态/连带 coerce、限值判批结束状态、组合检查每批一次、回滚零事件、嵌套事务事件并入收集器、reinforce 批与 `*RCL` 批事件、被拒的设置组原样不动） |
+| 行为变化三处逐条裁决 | ✅ 记录在 PR 正文与 decisions.md D75：configure/`*RCL` 新受收窄限值与组合检查（5522A 面板 5 A 与 100 kHz、BK 8614 低量程斜率 1 A/µs 报 -222，均为真机会拒的值，`test_setup_memory` 原样通过）；`check_settings` 面扩大到每批（5522A 的 SCPI 被监视设置只有 `OUT`，本就受检，用例无改写）；`_commit` 回滚零事件（无既有断言 A→B→A，新语义有 `tests/test_constraints.py::test_a_refused_batch_sends_no_events_for_the_way_back`） |
+| 回归护栏 | ✅ #550/#580（`tests/models/fluke-5522a`、`test_fluke_5522a.py`、`test_fluke_5730a.py`）、#1013/#1030（`test_constraints.py`）、#436（`test_keysight_33622a.py::test_the_load_and_levels_flow`、`test_setup_memory.py`）、#1013 整批判定与 D69 用例全部原样通过 |
+| `scripts/check.sh` 通过 | ✅ |
+
+## 工具缝统一：领域错误一表分 Seam、共享投影、工具入参模型化（Issue 1382）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 每个领域错误种类对三个 seam 有一致策略（文件名不丢、Conflict 话术一套） | ✅ `tests/test_services.py::test_the_agent_texts_come_from_one_table`（两个 agent 缝同文，连脚本端口时按缝给下一步）、`::test_the_tool_text_and_the_http_row_agree_per_kind`（每类的 HTTP 行与两缝文案携带同一信息：文件名、sha256、诊断 pointer）；`tests/test_assistant.py::test_the_assistant_error_text_reads_the_shared_table`（助手查同一张表） |
+| 13 处路由内联 `except → HTTPException` 收编 | ✅ definitions.py 的 document/structure/layout/coverage/history 五处与 change_list 的手写捕获元组、sessions.py 的 download_file 与 inject_fault、acceptance.py 的 try_entry/open_try/run_definition_cases、ops.py 的 read_run/replay_run，全部改为 `except Exception → ctx.http_error`；`try_entry` 的 404 文本与 coverage 的 `path.name:` 前缀经 `missing` 选项与 ValueError 包装原样保留 |
+| 加一个新操作摸的处数 ~7 → ~4 | ✅ 数了一遍（PR 正文有前后对照）：改后为 models DTO + HTTP 路由 + MCP 工具体 + 助手工具体四处；新领域错误种类只在 `SEAM_ROWS` 加一行，共享输出形状只写一次投影 |
+| spike 结论写进 PR 描述；铺开的工具入参来自共享模型 | ✅ PydanticAI 原生平铺单模型参数；MCP SDK 用 `tool_input` 镜像签名（嵌套 schema 与结构化输出降级两个坑，见 PR 正文）；`edit_bench`/`create_bench`/`try_definition`/`run_cases` 四工具 × 两缝的入参来自 `models/tools.py`，MCP schema 与改前逐字段一致（`tests/test_mcp.py::test_tools_listed_with_schemas` 等），助手 schema 新增 EditOp 联合与 `maxItems: 100` |
+| HTTP 侧 `sessions_to_restart` 同样填充 | ✅ `tests/test_server.py::test_the_document_route_names_the_sessions_to_restart`：外部改定义文件后 document 路由列出运行中会话，与 MCP `read_definition` 同源（`SessionManager.sessions_using_stale_definition` 一处计算） |
+| 全量测试耗时 | ✅ 快层 `-n 4` 三次分别 221s / 163s / 179s、4546 例全过（本机刚重启、Spotlight 重索引期间测；首跑有 1 例 unit 预算护栏在满负载下报 0.151s > 0.1s，隔离运行通过）；`--durations=20` 最慢为 UXR 手册用例 12s，摘要随 PR 交主会话判断 |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |

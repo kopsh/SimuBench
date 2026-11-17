@@ -81,9 +81,7 @@ def _status(ctx, exc, **options):
 
 def test_the_http_error_table_maps_each_domain_error_once(tmp_path):
     from simubench.models import api as M
-    from simubench.server.benchfiles import Conflict
-    from simubench.server.errors import Forbidden, NotFound
-    from simubench.server.manager import BenchInvalid, ClientsConnected
+    from simubench.server.errors import BenchInvalid, ClientsConnected, Conflict, Forbidden, NotFound
 
     ctx = _ctx(tmp_path)
     diag = M.Diagnostic(severity="error", code="E-X", pointer="/p", message="m")
@@ -131,16 +129,61 @@ def test_http_error_lets_a_bug_surface_as_it_is(tmp_path):
 def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
     pytest.importorskip("mcp")  # the optional extra (#987); the rest of the file does not need it
     from simubench.mcp_tools.context import McpContext, RateLimiter
-    from simubench.server.benchfiles import Conflict
+    from simubench.server.errors import Conflict
     from simubench.server.manager import SessionManager
 
     ctx = McpContext(
         SessionManager(tmp_path, scpi_base_port=None, hislip_port=None), True, None, RateLimiter()
     )
     assert "sha256 = abc" in str(ctx.fail(Conflict("changed", "abc")))
-    assert str(ctx.fail(FileNotFoundError("x"))) == "文件不存在"
+    assert str(ctx.fail(FileNotFoundError("run-1"))) == "文件不存在：run-1"
+    named = FileNotFoundError("no such file")  # an operating-system error carries the path itself
+    named.filename = "a.yaml"
+    assert str(ctx.fail(named)) == "文件不存在：a.yaml"
     assert str(ctx.fail(KeyError("no such thing"))) == "no such thing"
     assert str(ctx.fail(ValueError("first\nsecond"))) == "first"
+
+
+def test_the_agent_texts_come_from_one_table():
+    """#1382: one table, three seams. The kinds whose wording the two agent seams share say exactly
+    the same thing; where the next step differs (scripts connected), the seam says its own."""
+    from simubench.engine.edit import EditError
+    from simubench.engine.jsonpatch import PatchError
+    from simubench.models import api as M
+    from simubench.server.errors import BenchInvalid, ClientsConnected, Conflict, tool_text
+
+    shared = [
+        Conflict("agent.bench.yaml changed since it was read", "abc"),
+        BenchInvalid([M.Diagnostic(severity="error", code="E-X", pointer="/p", message="m")]),
+        FileNotFoundError("run-1"),
+        KeyError("no session t"),
+        EditError("no such instrument ghost"),
+        PatchError("the patch does not apply"),
+    ]
+    for exc in shared:
+        assert tool_text(exc, "mcp") == tool_text(exc, "assistant"), type(exc).__name__
+    assert "force=true" in tool_text(ClientsConnected(["s"], "stop"), "mcp")
+    assert "先断开脚本" in tool_text(ClientsConnected(["s"], "stop"), "assistant")
+
+
+def test_the_tool_text_and_the_http_row_agree_per_kind(tmp_path):
+    """The table's two columns encode one policy per kind: every domain kind gets a tool text for
+    both agent seams, and the text carries what the HTTP row's status is about (the missing file's
+    name, the conflict's sha, the invalid bench's pointer)."""
+    from simubench.models import api as M
+    from simubench.server.errors import BenchInvalid, Conflict, tool_text
+
+    ctx = _ctx(tmp_path)
+    diag = M.Diagnostic(severity="error", code="E-X", pointer="/p", message="m")
+    cases = [
+        (Conflict("x changed since it was read", "abc"), "abc", 409),
+        (FileNotFoundError("a.bench.yaml"), "a.bench.yaml", 404),
+        (BenchInvalid([diag]), "/p", 422),
+    ]
+    for exc, needle, status in cases:
+        assert _status(ctx, exc) == status
+        for seam in ("mcp", "assistant"):
+            assert needle in tool_text(exc, seam), (type(exc).__name__, seam)
 
 
 # ---- starting, resetting and stopping, without a route or a tool --------------------------------

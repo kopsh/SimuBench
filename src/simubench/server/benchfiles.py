@@ -28,7 +28,7 @@ from ..library.migrate import FormatError, upgrade
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from . import yamlpatch
-from .errors import Forbidden, NotFound
+from .errors import Conflict, Forbidden, NotFound
 from .history import History, Source
 
 SUFFIXES = (".bench.yaml", ".bench.json")
@@ -43,14 +43,6 @@ def scan(workspace: Path) -> list[Path]:
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
         found.extend(Path(root) / f for f in files if f.endswith(SUFFIXES))
     return sorted(found, key=lambda p: (p.suffix != ".yaml", p.relative_to(workspace).as_posix()))
-
-
-class Conflict(Exception):
-    """The file changed since the writer read it (or exists when creating)."""
-
-    def __init__(self, message: str, current_sha256: str | None) -> None:
-        super().__init__(message)
-        self.current_sha256 = current_sha256
 
 
 #: The Hello World bench shipped with the package: the first bench a new workspace opens (one
