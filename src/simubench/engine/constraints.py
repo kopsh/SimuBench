@@ -16,11 +16,12 @@ from .settings import validate_value
 
 
 def _canonical(spec: StateSpec | None, value: Any) -> Any:
-    """A constraint's value in the form the state stores it (an enum's option, a float)."""
+    """A constraint's value in the form the state stores it (an enum's option, a float); a
+    constraint may name a read-only setting, so its declared values pass validation."""
     if spec is None:
         return value
     try:
-        return validate_value(spec.model_copy(update={"readonly": False}), value)
+        return validate_value(spec, value, allow_readonly=True)
     except ScpiError:
         return value
 

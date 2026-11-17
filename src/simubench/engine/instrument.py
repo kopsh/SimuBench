@@ -6,7 +6,7 @@ import datetime as dt
 import logging
 import time
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any
 
 from ..models.bench import LIVE_CLOCKS
@@ -23,14 +23,14 @@ from .commands import (
     _header_key,
 )
 from .component import Component, component_type, noise_problems
-from .constraints import settle
 from .coverage_advice import CoverageAdvisor
 from .error_reporter import ErrorReporter, _Ignored
 from .pending import PendingOps
 from .portref import split
-from .settings import SettingStore, validate_value
+from .settings import SettingStore
 from .status_registers import Register, StatusRegisters
 from .wiring import SignalWiring
+from .write_tx import WriteEvent, apply_writes
 
 if TYPE_CHECKING:
     from ..models.bench import InstrumentInstance
@@ -69,6 +69,9 @@ class Instrument:
         self.definition = definition
         self.instance = instance
         self.session = session
+        #: The write transaction in progress collects its events here (write_tx, #1379), so a
+        #: refused batch sends nothing; None outside one.
+        self._write_events: list[WriteEvent] | None = None
         self.runner = CommandRunner(self)
         self.errs = ErrorReporter(self)
         self.common = BuiltinCommands(self)
@@ -170,9 +173,6 @@ class Instrument:
         """Which components are told when a setting changes."""
         # state path -> components bound to it
         self._watchers: dict[str, list[Component]] = defaultdict(list)
-        #: Set while a multi-setting command applies writes it already checked against the
-        #: definition's constraints as a whole (CommandRunner._commit, #1013).
-        self._constraints_checked = False
         # state path -> {component: the parameter the change arrives through} for ``on_state``
         # (None: through ``watches`` or a nested mapping; the first binding wins when several of a
         # component's parameters bind the path, #436)
@@ -320,55 +320,16 @@ class Instrument:
     ) -> None:
         """Set a state variable after validation; notify bound components; refuse on conflict.
 
-        ``internal``: the instrument itself sets a read-only variable (e.g. calibration coefficients).
-        ``outside``: the write comes from outside the instrument -- a SCPI command's setting, the
-        panel or MCP (``configure``) -- so the definition's constraints judge it (#1013, #1030); a
-        component's own write (the default) is not judged.
-        A watcher may write other settings as a side effect (a unit switch converts the value); when
-        any watcher refuses, everything the watchers wrote is rolled back with the refused value.
+        One write is a transaction of one (#1379): validated, judged when it comes from outside,
+        told to the watchers, taken back whole when any of them refuses -- the write itself or a
+        side effect it started. ``internal``: the instrument itself sets a read-only variable
+        (e.g. calibration coefficients). ``outside``: the write comes from outside the
+        instrument -- a SCPI command's setting, the panel or MCP (``configure``) -- so the
+        definition's constraints (#1013, #1030), the dynamic limits and the components'
+        combination checks judge it; the instrument's own write (the default) is not judged, and
+        neither is a replay's nor a fault's.
         """
-        spec = self.specs.get(path)
-        if spec is None:
-            raise ScpiError(-113, f"no state {path!r}")
-        value = validate_value(spec.model_copy(update={"readonly": False}) if internal else spec, value)
-        old = self.state.get(path)
-        if old == value:
-            return
-        # Settings the instrument does not allow together (#1013): a change from outside (SCPI,
-        # the panel, MCP) is refused, or coerces the other setting, by the definition's
-        # constraints; the instrument's own writes (#1030), a replay and faults are not checked.
-        coerced: dict[str, Any] = {}
-        if outside and not self._constraints_checked:
-            coerced = settle(self.definition.constraints, self.specs, self.state, {path: value})
-        if coerced:
-            before_all = dict(self.state)
-            self._constraints_checked = True
-            try:
-                self.set_state(path, value, source=source)
-                for other, v in coerced.items():
-                    self.set_state(other, v, source=source)
-            except ScpiError:
-                self.state.update(before_all)
-                raise
-            finally:
-                self._constraints_checked = False
-            return
-        before = dict(self.state)
-        self.state[path] = value
-        try:
-            for comp in self._watchers.get(path, ()):
-                # A component may take a value outside its legal range as the nearest legal one
-                # (it returns that value) instead of refusing it.
-                adjusted = comp.on_state(self._watch_param.get(path, {}).get(comp.uid), path, old, value)
-                if adjusted is not None and adjusted != value:
-                    value = validate_value(spec.model_copy(update={"readonly": False}), adjusted)
-                    self.state[path] = value
-        except ScpiError:
-            self.state.update(before)
-            raise
-        if old == value:
-            return
-        self.session.state_changed(self, path, old, value, electrical=spec.electrical, source=source)
+        apply_writes(self, {path: value}, source=source, judged=outside, internal=internal)
 
     # ---- operations that finish later --------------------------------------------------------------
 
@@ -474,33 +435,20 @@ class Instrument:
         return {path: self.state[path] for path, spec in self.specs.items() if not spec.readonly}
 
     def restore_settings(self, values: dict[str, Any], *, source: str = "scpi") -> None:
-        """Put a setup back (``*RCL``, a state file): the settings it names that this instrument
-        has and a command can change are written at once, then the components watching them are
-        told. A saved setup is consistent as it stands, so what a watcher writes as a side effect
-        of one change (a load change rescaling the amplitude, #436) does not survive: the setup's
-        values are written again after the watchers ran. A value the setting refuses refuses the
-        whole setup, unchanged."""
-        before = dict(self.state)
-        updates: dict[str, Any] = {}
-        for path, value in values.items():
-            spec = self.specs.get(path)
-            if spec is not None and not spec.readonly:
-                updates[path] = validate_value(spec, value)
+        """Put a setup back (``*RCL``, a state file) as one transaction (#1379): the settings it
+        names that this instrument has and a command can change are the batch, judged like any
+        write from outside and applied all-or-nothing; one ``state_changed`` announces the setup.
+        The batch is reinforced (#436): a saved setup is consistent as it stands, so what a
+        watcher writes as a side effect of one change (a load change rescaling the amplitude)
+        does not survive -- the setup's values are written again after the watchers ran. A value
+        the setting refuses refuses the whole setup, unchanged."""
         self.ops.clear()
-        self.state.update(updates)
-        try:
-            for path, value in updates.items():
-                if before.get(path) == value:
-                    continue
-                for comp in self._watchers.get(path, ()):
-                    comp.on_state(
-                        self._watch_param.get(path, {}).get(comp.uid), path, before.get(path), value
-                    )
-        except ScpiError:
-            self.state.update(before)
-            raise
-        self.state.update(updates)
-        self.session.state_changed(self, "*RCL", None, None, electrical=True, source=source)
+        writes = {
+            path: value
+            for path, value in values.items()
+            if (spec := self.specs.get(path)) is not None and not spec.readonly
+        }
+        apply_writes(self, writes, source=source, judged=True, reinforce=True, batch_event="*RCL")
 
     def reset(self) -> None:
         self.ops.clear()
@@ -631,6 +579,34 @@ class Instrument:
             if narrowed[1] is not None:
                 hi = narrowed[1] if hi is None else min(hi, narrowed[1])
         return lo, hi
+
+    # ---- what a write transaction needs of this instrument (write_tx.WriteHost, #1379) ------------
+
+    @property
+    def constraints(self) -> Any:
+        """The definition's settings constraints (D69), judged for writes from outside."""
+        return self.definition.constraints
+
+    def watchers(self, path: str) -> Iterable[Component]:
+        """The components told when the setting at ``path`` changes."""
+        return self._watchers.get(path, ())
+
+    def watch_param(self, path: str, uid: str) -> str | None:
+        """The parameter a change arrives through (``on_state``'s key; None via ``watches``)."""
+        return self._watch_param.get(path, {}).get(uid)
+
+    def notify_write(self, path: str, old: Any, new: Any, *, electrical: bool, source: str) -> None:
+        """One surviving write of a transaction leaves the instrument: the ``state_changed``."""
+        self.session.state_changed(self, path, old, new, electrical=electrical, source=source)
+
+    @property
+    def write_events(self) -> list[WriteEvent] | None:
+        """The transaction in progress' event collector (see :mod:`.write_tx`)."""
+        return self._write_events
+
+    @write_events.setter
+    def write_events(self, events: list[WriteEvent] | None) -> None:
+        self._write_events = events
 
     # ---- replies: the dialect's header echo and the command's template ------------------------------
 

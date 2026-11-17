@@ -108,6 +108,70 @@ def test_the_panel_is_held_to_the_same_constraints():
     assert inst.state["acquire.type"] == "NORMal"
 
 
+@component("t_narrower")
+class Narrower(Component):
+    """A component that narrows a numeric setting's bounds now (#437): a floor of 2 on ``count``."""
+
+    defaults: ClassVar[dict[str, Any]] = {"count": None}  # the setting it narrows (a state path)
+
+    def state_limits(self, path: str) -> tuple[float | None, float | None] | None:
+        if self.bound_path("count") == path:
+            return (2.0, None)
+        return None
+
+
+def _with_count(data: dict) -> dict:
+    data = copy.deepcopy(data)
+    data["state"]["acquire.count"] = {"type": "float", "min": 0.0, "max": 100.0, "default": 5.0}
+    data["commands"] += [{"header": ":ACQuire:COUNt", "state": "acquire.count"}]
+    data["components"] = [{"name": "n", "type": "t_narrower", "params": {"count": "$acquire.count"}}]
+    return data
+
+
+def test_the_panel_is_held_to_the_narrowed_limits():
+    """A write that bypasses the SCPI parser (the panel, MCP) is held to the dynamic limits too
+    (#437), and a plain SCPI number with them at the batch's end, not only MIN/MAX (#1379); the
+    instrument's own write is not judged."""
+    session, inst, query = open_unit(_with_count(DEF))
+    query(":ACQ:COUN 1")  # below the narrowed floor: refused like any out-of-range value
+    assert query(":SYST:ERR?").startswith("-222")
+    assert inst.state["acquire.count"] == 5.0
+    query(":ACQ:COUN 5")
+    with raises_with(ScpiError, "Data out of range"):
+        session.configure("x", "acquire.count", 1.0)
+    assert inst.state["acquire.count"] == 5.0
+    inst.set_state("acquire.count", 1.0, source="probe")  # the instrument's own write: not judged
+    assert inst.state["acquire.count"] == 1.0
+
+
+@component("t_combination_guard")
+class Guard(Component):
+    """Refuses any batch that leaves the segmented mode on (a component's combination check, #580)."""
+
+    defaults: ClassVar[dict[str, Any]] = {"mode": None}  # the setting it watches (a state path)
+
+    def check_settings(self) -> None:
+        if str(self.param("mode")) == "SEGMented":
+            raise ScpiError(-221, "the combination is not allowed")
+
+
+def test_a_refused_batch_sends_no_events_for_the_way_back():
+    """A write a component refuses (#580) takes the whole batch back (#550), and the rollback is
+    not visible (#1379): no state event for what was applied before the refusal, none for the way
+    back -- the refused command leaves the run record as if it had not been sent."""
+    data = copy.deepcopy(DEF)
+    data["components"] = [{"name": "c", "type": "t_combination_guard", "params": {"mode": "$acquire.mode"}}]
+    session, inst, query = open_unit(data)
+    before = [e for e in session.history if e["kind"] == "state"]
+    query(":ACQ:BOTH SEGM,NORM")  # both settings applied, then the combination refused
+    assert query(":SYST:ERR?").startswith("-221")
+    assert (inst.state["acquire.mode"], inst.state["acquire.type"]) == ("RTIMe", "NORMal")
+    assert [e for e in session.history if e["kind"] == "state"] == before  # nothing became visible
+    query(":ACQ:MODE SEGM;:ACQ:TYPE NORM")  # a single-write command is judged as its own batch too
+    assert query(":SYST:ERR?").startswith("-221")
+    assert inst.state["acquire.mode"] == "RTIMe"
+
+
 @component("t_acquire_coupling")
 class AcquireCoupling(Component):
     """A component that writes the acquisition type itself: on a command (``average``) and as the
