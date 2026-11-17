@@ -274,6 +274,8 @@ export const en: Widen<Messages> = {
     model: "Model",
     identity: "Identity",
     identitySection: "Identity and addresses",
+    identityMore: "{{count}} more",
+    screenShort: "Screen",
     ports: "Ports",
     notConnected: "Not connected",
     params: "Parameters",

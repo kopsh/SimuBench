@@ -93,3 +93,26 @@ it("a locate request for a family's setting picks that instance (#1286)", async 
   expect(within(family).getByLabelText("书签 3 color")).toBeTruthy();
   expect(within(family).queryByLabelText("书签 1 color")).toBeNull();
 });
+
+// The settings come first (#1355): the identity folds to the script's address; opened, *IDN? and the rest.
+it("the identity section starts folded to the virtual address and opens on demand", async () => {
+  setup();
+  localStorage.removeItem("simubench:inspector-identity");
+  renderInspector();
+  const section = screen.getByTestId("identity-section");
+  expect(within(section).getByText("TCPIP0::127.0.0.1::1234::SOCKET")).toBeTruthy();
+  expect(within(section).queryByText("Keysight Technologies,UXR1104B,MY0,1.0")).toBeNull();
+  act(() => within(section).getByRole("button", { name: (n) => n.startsWith("身份与地址") }).click());
+  expect(within(section).getByText("Keysight Technologies,UXR1104B,MY0,1.0")).toBeTruthy();
+  expect(localStorage.getItem("simubench:inspector-identity")).toBe("open");
+});
+
+it("beside its own screen, opening the screen is a secondary action in the row", () => {
+  setup();
+  useWorkbench.setState({ active: "screen:scope" });
+  renderInspector();
+  const actions = screen.getByTestId("instrument-actions");
+  const open = within(actions).getByRole("button", { name: "打开屏幕" });
+  expect(open.getAttribute("data-variant")).toBe("outline");
+  useWorkbench.setState({ active: "canvas" });
+});

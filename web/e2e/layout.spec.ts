@@ -92,6 +92,9 @@ async function inspectorOverflow(page: Page): Promise<number | string> {
 
 /** The *IDN? row fits its column: whole, or cut with an ellipsis and the full string as its title. */
 async function expectIdnFits(page: Page) {
+  // The identity section starts folded to the virtual address (#1355): open it to see *IDN?.
+  const identity = page.getByTestId("identity-section");
+  if ((await identity.getAttribute("data-open")) === null) await identity.getByRole("button").first().click();
   const idn = page.locator("code").filter({ hasText: "," }).first();
   const fit = await idn.evaluate((el) => ({
     whole: el.scrollWidth <= el.clientWidth,

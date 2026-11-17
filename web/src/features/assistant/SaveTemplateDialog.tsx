@@ -22,7 +22,7 @@ export function SaveTemplateButton({ bench, instrument, label, compact = false }
         title={compact ? t("template.save") : undefined}
         onClick={() => setOpen(true)}
       >
-        <BookmarkPlus className="size-4" /> {compact ? t("template.short") : t("template.save")}
+        <BookmarkPlus className="size-4" /> <span data-action-label>{compact ? t("template.short") : t("template.save")}</span>
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
