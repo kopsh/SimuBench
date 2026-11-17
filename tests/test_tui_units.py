@@ -457,6 +457,63 @@ def test_a_control_labelled_only_in_chinese_keeps_the_settings_own_label():
     assert [c.label for c in panel_controls(group, info, "en")] == ["Level"]
 
 
+def test_a_panel_when_holds_as_on_the_web():
+    """D74 (#1327): each setting equals the value, a list means any, numbers by value ("INF"
+    too), and in a channel's group a bare name is that channel's setting."""
+    from simubench.tui.controls import when_holds
+
+    info = {
+        "state": [
+            {"path": "trigger.mode", "value": "GLITch"},
+            {"path": "load.r", "value": "INF"},
+            {"path": "acquire.average", "value": True},
+            {"path": "ch2.bwlimit", "value": False, "channel": 2},
+        ]
+    }
+    assert when_holds({"trigger.mode": "GLITch", "acquire.average": True}, info)
+    assert when_holds({"trigger.mode": ["EDGE", "GLITch"]}, info)
+    assert not when_holds({"trigger.mode": "EDGE"}, info)
+    assert when_holds({"load.r": float("inf")}, info)
+    assert not when_holds({"acquire.average": 1}, info)  # a bool is not the number 1
+    assert when_holds({"bwlimit": False}, info, channel=2)
+    assert not when_holds({"absent.setting": 1}, info)
+
+
+def test_a_panel_lists_the_groups_that_hold_then_each_channels_group_then_the_softkeys():
+    """D74 (#1327): a hidden group or control is left out; a channel group's bare names are
+    that channel's settings, labelled CH1, CH2."""
+    from simubench.tui.controls import panel_layout
+
+    info = {
+        "state": [
+            {"path": "func", "type": "enum", "value": "CC", "label_en": "Mode", "options": ["CC", "CV"]},
+            {"path": "cc.level", "type": "float", "value": 1.0, "label_en": "Current"},
+            {"path": "cv.level", "type": "float", "value": 5.0, "label_en": "Voltage"},
+            {"path": "ch1.limit", "type": "float", "value": 2.0, "label_en": "Limit", "channel": 1},
+            {"path": "ch2.limit", "type": "float", "value": 2.0, "label_en": "Limit", "channel": 2},
+        ]
+    }
+    panel = {
+        "groups": [
+            {
+                "label_en": "Set",
+                "controls": [{"state": "func"}, {"state": "cc.level", "when": {"func": "CC"}}],
+            },
+            {"label_en": "CV", "when": {"func": "CV"}, "controls": [{"state": "cv.level"}]},
+        ],
+        "channel_groups": [{"label_en": "Out", "controls": [{"state": "limit"}]}],
+        "softkeys": [{"action": "run", "label_en": "Run"}],
+    }
+    controls = panel_layout(panel, info, "en")
+    assert [(c.label, c.path) for c in controls] == [
+        ("Mode", "func"),
+        ("Current", "cc.level"),
+        ("CH1 Limit", "ch1.limit"),
+        ("CH2 Limit", "ch2.limit"),
+        ("Run", None),
+    ]
+
+
 # ---- more pairing rules (from test_tui.py's log section, #699) ---------------------------------------
 
 

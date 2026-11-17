@@ -182,11 +182,66 @@ def generic_controls(info: Mapping[str, Any], lang: str) -> list[Control]:
     ]
 
 
-def panel_controls(group: Mapping[str, Any], info: Mapping[str, Any], lang: str) -> list[Control]:
-    """A panel group's controls (tui-screens.md 5.2): one entry per control and per key."""
+def _same(a: Any, b: Any) -> bool:
+    """A setting's value and a declared one are the same: numbers by value ("INF" included),
+    others exactly — as the Web's ``sameValue`` (D74)."""
+    if isinstance(a, bool) or isinstance(b, bool):
+        return a is b
+    na, nb = as_number(a), as_number(b)
+    if isinstance(na, (int, float)) and isinstance(nb, (int, float)):
+        return float(na) == float(nb)
+    return a == b
+
+
+def in_channel(path: str, info: Mapping[str, Any], channel: int | None) -> str:
+    """A name in a channel's group: a whole-instrument setting as written, else that channel's."""
+    if channel is None or spec_of(info, path) is not None:
+        return path
+    return f"ch{channel}.{path}"
+
+
+def when_holds(when: Mapping[str, Any] | None, info: Mapping[str, Any], channel: int | None = None) -> bool:
+    """Whether a panel ``when`` holds (D74, #1327): every named setting has the value, or one of
+    a list's; in a channel's group a name that is no whole-instrument setting is the channel's."""
+    for path, want in (when or {}).items():
+        spec = spec_of(info, in_channel(path, info, channel))
+        if spec is None:
+            return False
+        value = spec.get("value")
+        wants = want if isinstance(want, list) else [want]
+        if not any(_same(value, w) for w in wants):
+            return False
+    return True
+
+
+def panel_layout(panel: Mapping[str, Any], info: Mapping[str, Any], lang: str) -> list[Control]:
+    """The instrument screen's panel controls (tui-screens.md 5.2): the groups whose ``when``
+    holds, then each channel's ``channel_groups`` (labels led by ``CH1``), then the softkeys."""
+    controls: list[Control] = []
+    for group in panel.get("groups", []):
+        controls.extend(panel_controls(group, info, lang))
+    channels = sorted({sv.get("channel") for sv in info.get("state", []) if sv.get("channel")})
+    for channel in channels:
+        for group in panel.get("channel_groups", []):
+            controls.extend(panel_controls(group, info, lang, channel))
+    controls.extend(softkey_controls(panel, lang))
+    return controls
+
+
+def panel_controls(
+    group: Mapping[str, Any], info: Mapping[str, Any], lang: str, channel: int | None = None
+) -> list[Control]:
+    """A panel group's controls (tui-screens.md 5.2): one entry per control and per key, those
+    whose ``when`` holds; ``channel`` reads a channel group's names as that channel's settings."""
     out: list[Control] = []
+    if not when_holds(group.get("when"), info, channel):
+        return out
     for pc in group.get("controls", []):
+        if not when_holds(pc.get("when"), info, channel):
+            continue
         path = pc.get("state")
+        if path and channel is not None:
+            path = in_channel(path, info, channel)
         spec = spec_of(info, path)
         kind = pc.get("control")
         if kind == "buttons":
@@ -223,6 +278,9 @@ def panel_controls(group: Mapping[str, Any], info: Mapping[str, Any], lang: str)
             if override:
                 control.label = override
             out.append(control)
+    if channel is not None:
+        for control in out:
+            control.label = f"CH{channel} {control.label}"
     return out
 
 

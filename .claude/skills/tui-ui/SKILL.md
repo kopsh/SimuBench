@@ -59,6 +59,11 @@ it never calls the engine. English only (D23). Spec: `docs/tui-screens.md` (per-
 - **No model names** in `src/simubench/tui` (D42), comments and docstrings included:
   `tests/test_tui_no_model_names.py` scans for every definition's `id` and `model`, no allow-list; write
   examples as `awg · MODEL-A`.
+- **Declared panels** (D74, #1327): a panel's `when` and `channel_groups` follow the Web's rules
+  (`controls.when_holds`, `panel_layout`; `rows.panel_rows` for the display rows). The instrument
+  screen builds its boxes once and rebuilds them only when the set of visible controls changes
+  (`_controls_shape`), keeping the focus on the same setting; channel groups are listed per
+  channel with `CH1 …` labels, no picker key.
 - **Overview log drawer**: shut by default (`DRAWER_ROWS = 3`), `L` opens it (`l` stays the full-screen
   log); a shut drawer marks its title `✗ N new` for errors not yet seen but never opens itself
   (`tui-screens.md` 4.5).

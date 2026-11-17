@@ -115,3 +115,31 @@ def test_the_spectrum_screen_says_why_the_trace_stands_still():
     assert rows.sweep_hint(LANG, "scaled", {}) is None
     out = rows.spectrum_rows(LANG, {}, {}, 80, None, "command")
     assert any("Command clock" in text for row in out for text, _ in row)
+
+
+def test_the_panel_rows_show_the_groups_that_hold_and_each_channels_group():
+    """D74 (#1327): a group or setting hidden by its ``when`` is not listed; a channel's group
+    reads ``CH1 · title`` over that channel's settings."""
+    info = {
+        "display": {
+            "panel": {
+                "groups": [
+                    {
+                        "label_en": "Set",
+                        "controls": [{"state": "func"}, {"state": "cv.level", "when": {"func": "CV"}}],
+                    },
+                    {"label_en": "Hidden", "when": {"func": "CV"}, "controls": [{"state": "cv.level"}]},
+                ],
+                "channel_groups": [{"label_en": "Out", "controls": [{"state": "limit"}]}],
+            }
+        },
+        "state": [
+            {"path": "func", "type": "enum", "value": "CC", "label_en": "Mode"},
+            {"path": "cv.level", "type": "float", "value": 5.0, "label_en": "Voltage"},
+            {"path": "ch1.limit", "type": "float", "value": 2.0, "label_en": "Limit", "channel": 1},
+        ],
+    }
+    text = "\n".join("".join(cell for cell, _ in row) for row in rows.panel_rows("en", info, {}, width=100))
+    assert "Set" in text and "Mode" in text
+    assert "Voltage" not in text and "Hidden" not in text
+    assert "CH1 · Out" in text and "Limit" in text

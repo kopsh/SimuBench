@@ -154,6 +154,64 @@ async def test_multimeter_screen_shows_panel_readouts():
         assert "Log · dmm" in text
 
 
+def _moded_dmm() -> dict[str, Any]:
+    """The bench with a multimeter whose declared panel switches with its mode and lists a group
+    per channel (D74, #1327)."""
+    bench = fresh(SMU_BENCH)
+    dmm = bench["instruments"]["dmm"]
+
+    def var(path: str, type_: str, value: Any, label: str, channel: int | None = None, **extra: Any):
+        return {"path": path, "type": type_, "value": value, "label_en": label, "channel": channel, **extra}
+
+    dmm["state"] = [
+        var("sense.mode", "enum", "DC", "Mode", options=["DC", "AC"]),
+        var("sense.nplc", "float", 10.0, "NPLC", min=0.02, max=100.0),
+        var("sense.bandwidth", "float", 20.0, "AC bandwidth", min=3.0, max=200.0, unit="HZ"),
+        var("ch1.range", "float", 10.0, "Range", 1, min=0.1, max=1000.0, unit="V"),
+        var("ch2.range", "float", 1.0, "Range", 2, min=0.1, max=1000.0, unit="V"),
+    ]
+    dmm["display"]["panel"]["groups"] = [
+        {
+            "label": "测量",
+            "label_en": "Measure",
+            "when": {},
+            "controls": [
+                {"state": "sense.mode", "when": {}},
+                {"state": "sense.nplc", "when": {"sense.mode": "DC"}},
+                {"state": "sense.bandwidth", "when": {"sense.mode": ["AC"]}},
+            ],
+        }
+    ]
+    dmm["display"]["panel"]["channel_groups"] = [
+        {"label": "输入", "label_en": "Input", "when": {}, "controls": [{"state": "range", "when": {}}]}
+    ]
+    return bench
+
+
+async def test_a_declared_panel_follows_its_when_and_lists_each_channels_group():
+    """D74 (#1327): the controls are the groups and controls whose ``when`` holds, then each
+    channel's ``channel_groups`` labelled CH1, CH2; a mode change swaps the controls."""
+    from simubench.tui.screens.instrument import ControlButton
+
+    tui, fake = unit_app(_moded_dmm())
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "dmm")
+
+        def labels() -> list[str]:
+            return [b.control.label for b in tui.screen.query(ControlButton)]
+
+        await wait_for(pilot, lambda: "NPLC" in labels(), message="the DC mode's NPLC field")
+        assert labels() == ["Mode", "NPLC", "CH1 Range", "CH2 Range"]
+        await fake.configure(fake.sid, "dmm", "sense.mode", "AC")
+        await tui._fetch_instruments({"dmm"})
+        tui.bump()
+        # The old boxes leave on the next refresh (Textual removes widgets asynchronously).
+        swapped = ["Mode", "AC bandwidth", "CH1 Range", "CH2 Range"]
+        await wait_for(pilot, lambda: labels() == swapped, message="the AC mode's controls")
+        assert "NPLC" not in labels()
+
+
 # ---- fields are edited where they stand (tui-screens.md 5.3) -----------------------------------------
 
 
