@@ -150,12 +150,28 @@ def panel_rows(
             rows.append([(pad(label, label_w), "muted"), (C.summary_text(value, None, lang), "")])
     if rows:
         rows.append([("", "")])
-    groups = {
-        (group.get("label_en") or group.get("label") or ""): [
-            pc["state"] for pc in group.get("controls", []) if pc.get("state")
+    # Groups and settings whose ``when`` holds, then each channel's groups as ``CH1 · title`` (#1327).
+    groups: dict[str, list[str]] = {}
+
+    def add(group: dict[str, Any], channel: int | None) -> None:
+        if not C.when_holds(group.get("when"), info, channel):
+            return
+        title = group.get("label_en") or group.get("label") or ""
+        if channel is not None:
+            title = f"CH{channel} · {title}"
+        paths = [
+            C.in_channel(pc["state"], info, channel)
+            for pc in group.get("controls", [])
+            if pc.get("state") and C.when_holds(pc.get("when"), info, channel)
         ]
-        for group in panel.get("groups", [])
-    }
+        if paths:
+            groups[title] = paths
+
+    for group in panel.get("groups", []):
+        add(group, None)
+    for channel in sorted({sv.get("channel") for sv in info.get("state", []) if sv.get("channel")}):
+        for group in panel.get("channel_groups", []):
+            add(group, channel)
     group_budget = budget - len(rows) if budget is not None else None
     return rows + grouped_columns(lang, groups, state, width, budget=group_budget)
 

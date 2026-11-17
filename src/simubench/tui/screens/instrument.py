@@ -66,6 +66,12 @@ class _Box(Vertical):
     """
 
 
+def _has_when(panel: dict[str, Any]) -> bool:
+    """Whether any group or control of a panel shows only under a condition (D74)."""
+    groups = [*panel.get("groups", []), *panel.get("channel_groups", [])]
+    return any(g.get("when") or any(c.get("when") for c in g.get("controls", [])) for g in groups)
+
+
 class InstrumentScreen(ControlEditingScreen):
     """仪表 (tui-screens.md 5): identity box, channel boxes, wiring and load, errors, log."""
 
@@ -104,6 +110,7 @@ class InstrumentScreen(ControlEditingScreen):
         self._last_version = -1
         self._built = False
         self._boxes: list[dict[str, Any]] = []
+        self._shape: list[tuple[str | None, Any, str]] = []
         self._other_entry: dict[str, Any] | None = None
 
     DEFAULT_CSS = """
@@ -185,11 +192,28 @@ class InstrumentScreen(ControlEditingScreen):
         if not self._built:
             self._build_boxes()
             self._built = True
+            self._shape = self._controls_shape()
             self.call_after_refresh(self._relayout)  # widths are known only after the first layout
         self._refresh_remote_hint()
         if app.data_version == self._last_version:
             return
         self._last_version = app.data_version
+        if (info_panel := (self.info.get("display") or {}).get("panel")) and (
+            info_panel.get("channel_groups") or _has_when(info_panel)
+        ):
+            # A mode change shows other controls (a load's CC set point for its CV one): rebuild the
+            # boxes when the set changes, not on every value (#1327).
+            shape = self._controls_shape()
+            if shape != self._shape:
+                focused = self.focused.control.path if isinstance(self.focused, ControlButton) else None
+                for entry in self._boxes:
+                    entry["box"].remove()
+                self._boxes = []
+                self._build_boxes()
+                self._shape = shape
+                self.call_after_refresh(self._relayout)
+                if focused is not None:
+                    self.call_after_refresh(self._focus_path, focused)
         self._refresh_buttons()  # the fields' values first: the grids size their columns from them
         self._refresh_identity()
         self._refresh_channels()
@@ -354,12 +378,23 @@ class InstrumentScreen(ControlEditingScreen):
             return C.generator_controls(info, lang, channel)
         panel = (info.get("display") or {}).get("panel")
         if panel:
-            controls: list[C.Control] = []
-            for group in panel.get("groups", []):
-                controls.extend(C.panel_controls(group, info, lang))
-            controls.extend(C.softkey_controls(panel, lang))
-            return controls
+            return C.panel_layout(panel, info, lang)
         return C.generic_controls(info, lang)
+
+    def _focus_path(self, path: str) -> None:
+        """Focus the field of ``path`` again after the boxes were rebuilt (#1327)."""
+        for button in self.query(ControlButton):
+            if button.control.path == path:
+                button.focus()
+                return
+
+    def _controls_shape(self) -> list[tuple[str | None, Any, str]]:
+        """Which controls the boxes hold: a panel's change with its ``when`` (D74, #1327)."""
+        return [
+            (c.path, c.value if c.kind == "buttons" else None, c.label)
+            for entry in self._boxes
+            for c in self._controls_for(entry["channel"])
+        ]
 
     def _channel_width(self) -> int:
         """The channel boxes' inner width: what the main row leaves for them (6.1's share) less
