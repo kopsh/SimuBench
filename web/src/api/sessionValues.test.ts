@@ -3,8 +3,8 @@ import type { InstrumentInfo, SessionInfo, StateVarInfo } from "./client";
 import { withValues } from "./sessionValues";
 
 const v = (path: string, value: unknown) => ({ path, value, type: "float", options: null }) as unknown as StateVarInfo;
-const inst = (name: string, state: StateVarInfo[], values: Record<string, unknown> | null = null) =>
-  ({ name, definition_id: `def-${name}`, state, values, remote: [] }) as unknown as InstrumentInfo;
+const inst = (name: string, state: StateVarInfo[], values: Record<string, unknown> | null = null, spec_rev = 0) =>
+  ({ name, definition_id: `def-${name}`, state, values, spec_rev, remote: [] }) as unknown as InstrumentInfo;
 const session = (build: string, instruments: InstrumentInfo[], now_ns = 0) => ({ id: "s", build, now_ns, instruments }) as unknown as SessionInfo;
 
 describe("polling a session's values (#1299)", () => {
@@ -25,6 +25,8 @@ describe("polling a session's values (#1299)", () => {
     expect(withValues(held, session("b1", [inst("scope", [], { "timebase.scale": 1 })]))).toBeNull();
     expect(withValues(held, session("b1", [inst("scope", [], { "timebase.scale": 1, "ch2.scale": 1 })]))).toBeNull();
     expect(withValues(held, session("b1", [inst("awg", [], { "timebase.scale": 1, "ch1.scale": 1 })]))).toBeNull();
+    // A limit moved at run time in the same build (a power supply's series pair, #1302).
+    expect(withValues(held, session("b1", [inst("scope", [], { "timebase.scale": 1e-6, "ch1.scale": 0.5 }, 1)]))).toBeNull();
     expect(withValues({ ...held, build: "" }, session("", [inst("scope", [], { "timebase.scale": 1, "ch1.scale": 1 })]))).toBeNull();
   });
 });
