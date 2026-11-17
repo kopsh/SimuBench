@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, distinctOptions, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSettings, slotRows, splitSettings, stepNumber, wordOf } from "./model";
+import { accessoryLabel, channelVars, distinctOptions, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -145,6 +145,44 @@ describe("inspector settings (#728)", () => {
     const found = findSettings(vars, "bookmark", 3);
     expect(found.hits).toHaveLength(3);
     expect(found.total).toBe(5);
+  });
+
+  it("holds a when while every setting has its value, a list meaning any, a channel name read in that channel (#1315)", () => {
+    const vars = new Map(
+      [v("trigger.mode", null, { value: "GLITch" }), v("acquire.average", null, { value: true }), v("ch2.bwlimit", 2, { value: false })].map((x) => [x.path, x]),
+    );
+    expect(whenHolds({ "trigger.mode": "GLITch", "acquire.average": true }, vars)).toBe(true);
+    expect(whenHolds({ "trigger.mode": ["EDGE", "GLITch"] }, vars)).toBe(true);
+    expect(whenHolds({ "trigger.mode": "EDGE" }, vars)).toBe(false);
+    expect(whenHolds({ bwlimit: false }, vars, 2)).toBe(true);
+    expect(whenHolds({ "absent.setting": 1 }, vars)).toBe(false);
+  });
+
+  it("lists a declared panel's groups as they stand: when-hidden controls and groups out, empty groups dropped (#1315)", () => {
+    const vars = new Map(
+      [
+        v("trigger.mode", null, { value: "EDGE" }),
+        v("trigger.slope"),
+        v("trigger.glitch_width"),
+        v("ch3.scale", 3),
+        v("ch3.offset", 3),
+      ].map((x) => [x.path, x]),
+    );
+    const groups = [
+      {
+        label: "触发",
+        controls: [
+          { state: "trigger.mode", when: {} },
+          { state: "trigger.slope", when: { "trigger.mode": "EDGE" } },
+          { state: "trigger.glitch_width", when: { "trigger.mode": "GLITch" } },
+        ],
+        when: {},
+      },
+      { label: "毛刺", controls: [{ state: "trigger.glitch_width", when: {} }], when: { "trigger.mode": "GLITch" } },
+    ];
+    expect(panelSections(groups, vars, () => true).map((g) => [g.label, g.vars.map((x) => x.path)])).toEqual([["触发", ["trigger.mode", "trigger.slope"]]]);
+    const channel = [{ label: "垂直", controls: [{ state: "scale", when: {} }, { state: "offset", when: {} }], when: {} }];
+    expect(panelSections(channel, vars, (x) => x.path !== "ch3.offset", 3)[0].vars.map((x) => x.path)).toEqual(["ch3.scale"]);
   });
 
   it("joins a measurement slot's kind and source into one row", () => {

@@ -1787,6 +1787,67 @@ display:
   template: oscilloscope
   summary: [timebase.scale, trigger.source, trigger.slope]
   channel_summary: [display, scale, offset, input]
+  # 检查器面板（D74）：前面板先给的设置。触发按触发类型只放该类型的条件，触发电平随触发源；
+  # 其余设置在检查器里查找或在“全部设置”里改。示波器屏幕自己画，不用这里的分组。
+  panel:
+    groups:
+      - label: 水平
+        label_en: Horizontal
+        controls:
+          - {state: timebase.scale}
+          - {state: timebase.position}
+          - {state: timebase.reference}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.mode}
+          - {state: trigger.sweep}
+          - {state: trigger.source, when: {trigger.mode: EDGE}}
+          - {state: trigger.slope, when: {trigger.mode: EDGE}}
+          - {state: trigger.level1, when: {trigger.mode: EDGE, trigger.source: CHANnel1}}
+          - {state: trigger.level2, when: {trigger.mode: EDGE, trigger.source: CHANnel2}}
+          - {state: trigger.level3, when: {trigger.mode: EDGE, trigger.source: CHANnel3}}
+          - {state: trigger.level4, when: {trigger.mode: EDGE, trigger.source: CHANnel4}}
+          - {state: trigger.level5, when: {trigger.mode: EDGE, trigger.source: AUXiliary}}
+          - {state: trigger.runt_source, when: {trigger.mode: RUNT}}
+          - {state: trigger.runt_polarity, when: {trigger.mode: RUNT}}
+          - {state: trigger.runt_qualified, when: {trigger.mode: RUNT}}
+          - {state: trigger.runt_time, when: {trigger.mode: RUNT}}
+          - {state: trigger.transition_source, when: {trigger.mode: TRANsition}}
+          - {state: trigger.transition_type, when: {trigger.mode: TRANsition}}
+          - {state: trigger.transition_mode, when: {trigger.mode: TRANsition}}
+          - {state: trigger.transition_time, when: {trigger.mode: TRANsition}}
+          - {state: trigger.timeout_source, when: {trigger.mode: TIMeout}}
+          - {state: trigger.timeout_condition, when: {trigger.mode: TIMeout}}
+          - {state: trigger.timeout_time, when: {trigger.mode: TIMeout}}
+          - {state: trigger.window_source, when: {trigger.mode: WINDow}}
+          - {state: trigger.window_condition, when: {trigger.mode: WINDow}}
+          - {state: trigger.window_qualifier, when: {trigger.mode: WINDow}}
+          - {state: trigger.window_time, when: {trigger.mode: WINDow}}
+          - {state: trigger.nedge_source, when: {trigger.mode: NEDGe}}
+          - {state: trigger.nedge_slope, when: {trigger.mode: NEDGe}}
+          - {state: trigger.nedge_count, when: {trigger.mode: NEDGe}}
+          - {state: trigger.holdoff}
+      - label: 采集
+        label_en: Acquisition
+        controls:
+          - {state: acquire.mode}
+          - {state: acquire.srate}
+          - {state: acquire.points}
+          - {state: acquire.average}
+          - {state: acquire.count, when: {acquire.average: true}}
+          - {state: acquire.bandwidth}
+    channel_groups:
+      - label: 垂直
+        label_en: Vertical
+        controls:
+          - {state: display}
+          - {state: scale}
+          - {state: offset}
+          - {state: input}
+          - {state: isim_bwlimit}
+          - {state: isim_bandwidth, when: {isim_bwlimit: true}}
+          - {state: probe_coupling}
 capabilities: [oscilloscope]
 commands:
   # ---- Common ----

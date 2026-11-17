@@ -189,23 +189,29 @@ export function panelView(inst: InstrumentInfo): PanelView {
       reading: r.reading,
       unit: r.unit ? displayUnit(r.unit) : null,
     })),
-    groups: groups0.map((g) => ({
-      label: pickLabel(g.label, g.label_en, g.label),
+    // A channel's groups (#1315) are listed once, as channel 1's settings, marked as per channel.
+    groups: [
+      ...groups0.map((g) => ({ g, prefix: "", suffix: "" })),
+      ...(panel.channel_groups ?? []).map((g) => ({ g, prefix: "ch1.", suffix: `（${i18n.t("workbench.channels")}）` })),
+    ].map(({ g, prefix, suffix }) => ({
+      label: pickLabel(g.label, g.label_en, g.label) + suffix,
       controls: (g.controls ?? []).map((c) => {
-        const s = stateOf(inst, c.state);
+        const s = stateOf(inst, prefix + c.state);
         const enumChoices = s?.options ? unique(s.options.map((o) => s.option_labels?.[o] ?? shortForm(o))) : null;
+        // Without a control kind the panel uses the setting's own field (#1315).
+        const kind = c.control ?? (s?.type === "enum" ? "select" : s?.type === "bool" ? "switch" : "number");
         return {
-          state: c.state,
+          state: prefix + c.state,
           label: pickLabel(c.label, c.label_en, s ? pickLabel(s.label, s.label_en, c.state) : c.state),
-          kind: c.control,
+          kind,
           choices:
-            c.control === "buttons"
+            kind === "buttons"
               ? (c.keys ?? []).map((k) => pickLabel(k.label, k.label_en, String(k.value)))
-              : c.control === "select"
+              : kind === "select"
                 ? enumChoices
                 : null,
           range:
-            c.control === "number"
+            kind === "number"
               ? c.unit
                 ? `${eng(s?.min ?? 0, c.unit)} … ${eng(s?.max ?? 0, c.unit)}`
                 : rangeText(s)

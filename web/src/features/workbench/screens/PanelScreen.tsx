@@ -10,7 +10,8 @@ import { pickLabel } from "@/i18n";
 import { displayUnit, formatReadout } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { applyOps } from "../edit/editor";
-import { distinctOptions, labelOf, numeric, optionLabel, shortForm, stateMap } from "../model";
+import { distinctOptions, labelOf, numeric, optionLabel, shortForm, stateMap, whenHolds } from "../model";
+import { useCountOnScreen } from "../onScreen";
 import { StateField } from "../StateField";
 import { ScreenIdentity } from "./parts";
 
@@ -141,12 +142,12 @@ export function PanelScreen({
         )}
       </section>
       <div className="space-y-3">
-        {(panel.groups ?? []).map((g) => {
+        {(panel.groups ?? []).filter((g) => whenHolds(g.when, shown)).map((g) => {
           const title = pickLabel(g.label, g.label_en);
           return (
             <section key={title} className="bg-card space-y-2 rounded-lg border p-3" aria-label={title}>
               <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">{title}</h3>
-              {(g.controls ?? []).map((c) => {
+              {(g.controls ?? []).filter((c) => whenHolds(c.when, shown)).map((c) => {
                 const v = shown.get(c.state);
                 return v ? (
                   <ControlView key={c.state} sid={sid} inst={inst} c={c} v={v} vars={shown} building={building} disabled={disabled} write={write} />
@@ -227,6 +228,8 @@ function ControlView({
     display_unit: c.unit ?? v.display_unit,
   };
   const label = labelOf(labelled);
+  // A key group sets the value here too: the inspector beside leaves it out (#1229, #1315).
+  useCountOnScreen(inst.name, c.state, c.control === "buttons");
 
   if (c.control === "buttons") {
     const keys: PanelKey[] =

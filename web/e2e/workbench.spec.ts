@@ -927,6 +927,19 @@ test("the inspector folds the 100 bookmarks into one block, the picker lists onl
   expect(controls, "controls mounted on a click").toBeLessThanOrEqual(30);
   await expect(inspector.locator('[data-group="function"]')).toHaveCount(0);
 
+  // The panel is the definition's declared one (D74, #1315): the edge trigger's level for its source,
+  // and the glitch conditions instead once the trigger type is glitch.
+  const trigger = inspector.locator('[data-panel-group="触发"]');
+  await expect(trigger.locator('[data-setting="trigger.level1"]')).toBeVisible();
+  await expect(trigger.locator('[data-setting="trigger.glitch_width"]')).toHaveCount(0);
+  await page.request.post(`/api/sessions/${sid}/instruments/scope/configure`, {
+    headers: { "x-simubench-token": TOKEN },
+    data: { path: "trigger.mode", value: "GLITch" },
+  });
+  await expect(trigger.locator('[data-setting="trigger.glitch_width"]')).toBeVisible();
+  await expect(trigger.locator('[data-setting="trigger.level1"]')).toHaveCount(0);
+  await expect(inspector.locator('[data-panel-group="垂直"] [data-setting="ch1.scale"]')).toBeVisible();
+
   // A setting off the panel is found by name and changed in place.
   await inspector.getByTestId("setting-find").fill("触发电平 ch2");
   await expect(inspector.getByTestId("setting-found").locator('[data-setting="trigger.level2"]')).toBeVisible();

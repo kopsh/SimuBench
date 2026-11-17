@@ -1354,19 +1354,35 @@ _CONTROL_TYPES = {
 }
 
 
+#: A model with more settings than this, whole-instrument or per channel, declares its panel (D74):
+#: without one the inspector shows only the summary, which the canvas card also uses.
+PANEL_EXPECTED_GLOBAL = 100
+PANEL_EXPECTED_CHANNEL = 40
+
+
 def _check_panel(d: InstrumentDefinition, report: Report) -> None:
     panel = d.display.panel
     if panel is None:
+        if len(d.state) > PANEL_EXPECTED_GLOBAL or len(d.channel_state) > PANEL_EXPECTED_CHANNEL:
+            report.add(
+                "warning",
+                "W-DEF-PANEL-MISSING",
+                _ptr("display"),
+                f"整机 {len(d.state)} 个、每通道 {len(d.channel_state)} 个设置却没有声明面板：检查器只能放 display.summary（画布卡片也用它），"
+                "其余要靠查找",
+                "在 display.panel.groups（与 channel_groups）中写出前面板先给的设置",
+                "panel",
+            )
         return
     base = ("display", "panel")
     template = template_of(d)
-    if template in DEDICATED:
+    if template in DEDICATED and (panel.readouts or panel.softkeys):
         report.add(
             "warning",
             "W-DEF-PANEL-IGNORED",
             _ptr(*base),
-            f"{template} 有专用屏幕，界面不使用面板声明",
-            "去掉 display.panel",
+            f"{template} 有专用屏幕，面板的读数与软键不用，只有分组放到检查器上",
+            "去掉 display.panel 的 readouts 与 softkeys",
             "panel",
         )
     components = {c.name for c in d.components} | {
@@ -1409,15 +1425,29 @@ def _check_panel(d: InstrumentDefinition, report: Report) -> None:
             )
         settings(readout.when, (*p, "when"))
 
-    for g, group in enumerate(panel.groups):
-        for c, control in enumerate(group.controls):
-            p = (*base, "groups", g, "controls", c)
-            spec = setting(control.state, _ptr(*p, "state"))
-            if spec is not None:
-                _check_control(control, spec, p, report)
-                for k, key in enumerate(control.keys or []):
-                    value(control.state, spec, key.value, _ptr(*p, "keys", k, "value"))
-                    settings(key.sets, (*p, "keys", k, "sets"))
+    if panel.channel_groups and not d.channel_state:
+        report.add(
+            "error",
+            "E-DEF-PANEL-STATE",
+            _ptr(*base, "channel_groups"),
+            "定义没有通道设置（channel_state），channel_groups 无处可放",
+            "把这些控件移到 groups，写完整的设置路径",
+            "panel",
+        )
+    for key, prefix in (("groups", ""), ("channel_groups", "ch1.")):
+        if key == "channel_groups" and not d.channel_state:
+            break
+        for g, group in enumerate(getattr(panel, key)):
+            settings(_in_channel(group.when, prefix, d), (*base, key, g, "when"))
+            for c, control in enumerate(group.controls):
+                p = (*base, key, g, "controls", c)
+                spec = setting(prefix + control.state, _ptr(*p, "state"))
+                settings(_in_channel(control.when, prefix, d), (*p, "when"))
+                if spec is not None:
+                    _check_control(control, spec, p, report)
+                    for k, key_ in enumerate(control.keys or []):
+                        value(control.state, spec, key_.value, _ptr(*p, "keys", k, "value"))
+                        settings(key_.sets, (*p, "keys", k, "sets"))
 
     for k, key in enumerate(panel.softkeys):
         p = (*base, "softkeys", k)
@@ -1447,7 +1477,26 @@ def _check_panel(d: InstrumentDefinition, report: Report) -> None:
         settings(key.sets, (*p, "sets"))
 
 
+def _in_channel(when: dict[str, Any], prefix: str, d: InstrumentDefinition) -> dict[str, Any]:
+    """A channel group's ``when``: a channel setting's name without its prefix reads as ch1's."""
+    if not prefix:
+        return when
+    return {(k if k in d.state else prefix + k): v for k, v in when.items()}
+
+
 def _check_control(control: PanelControl, spec: StateSpec, p: tuple[Any, ...], report: Report) -> None:
+    if control.control is None:
+        # The setting's own field; a readonly one cannot be set from a panel.
+        if spec.readonly:
+            report.add(
+                "error",
+                "E-DEF-PANEL-CONTROL",
+                _ptr(*p, "state"),
+                f"{control.state} 是只读状态，不能放控件",
+                "把它作为读数显示，或去掉这个控件",
+                "panel",
+            )
+        return
     kinds = _CONTROL_TYPES[control.control]
     if spec.readonly:
         report.add(

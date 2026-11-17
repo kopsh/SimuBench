@@ -292,14 +292,50 @@ G = "/display/panel/groups"
             lambda d: d["display"]["panel"]["softkeys"].append({"label": "单次", "action": "single"}),
             [("E-DEF-PANEL-ACTION", "/display/panel/softkeys/2/action")],
         ),
-        # A panel on a class with a dedicated screen is not used.
+        # A class with a dedicated screen uses only the groups (for the inspector, D74): readouts and
+        # softkeys there are not drawn; groups alone are clean.
         (lambda d: d["display"].update(template="oscilloscope"), [("W-DEF-PANEL-IGNORED", "/display/panel")]),
+        (
+            lambda d: (
+                d["display"].update(template="oscilloscope"),
+                d["display"]["panel"].update(readouts=[], softkeys=[]),
+            ),
+            [],
+        ),
+        # A group's or a control's `when` names a setting and a value it takes (#1315).
+        (
+            lambda d: control(d, 2, 1).update(when={"sense.func": "DC"}),
+            [("E-DEF-PANEL-STATE", f"{G}/2/controls/1/when/sense.func")],
+        ),
+        (
+            lambda d: d["display"]["panel"]["groups"][1].update(when={"sense.function": "ACV"}),
+            [("E-DEF-PANEL-VALUE", f"{G}/1/when/sense.function")],
+        ),
+        # Channel groups need channels; a control may leave its kind to the setting's type.
+        (
+            lambda d: d["display"]["panel"].update(
+                channel_groups=[{"label": "通道", "controls": [{"state": "level"}]}]
+            ),
+            [("E-DEF-PANEL-STATE", "/display/panel/channel_groups")],
+        ),
+        (lambda d: control(d, 2, 1).pop("control"), []),
     ],
 )
 def test_panel_counterexamples(change, expected):
     data = copy.deepcopy(raw(PANEL))
     change(data)
     assert codes(data) == expected
+
+
+def test_a_large_model_without_a_panel_is_asked_for_one_and_its_channel_groups_are_checked():
+    # More settings than a summary can stand for (#1315): the inspector would show the summary only.
+    data = copy.deepcopy(raw(LIB / "keysight-uxr1104b.yaml"))
+    panel = data["display"].pop("panel")
+    assert codes(data) == [("W-DEF-PANEL-MISSING", "/display")]
+    # Channel groups name a channel setting without its prefix; a wrong name is reported where it is.
+    panel["channel_groups"][0]["controls"].append({"state": "scael"})
+    data["display"]["panel"] = panel
+    assert codes(data) == [("E-DEF-PANEL-STATE", "/display/panel/channel_groups/0/controls/7/state")]
 
 
 def test_an_enum_value_in_short_form_suggests_the_option():

@@ -11,9 +11,10 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { channelColor } from "@/lib/channels";
+import { pickLabel } from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, ALL_OPEN_MAX, channelVars, findSettings, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, ALL_OPEN_MAX, channelVars, findSettings, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner, RemoteMark } from "./RemoteBanner";
@@ -389,8 +390,26 @@ function InstrumentSettings({
     }
   }
   const offScreen = (v: StateVarInfo) => !hidden.has(v.path);
-  const global = panelSettings(globals, inst.display.summary);
-  const channel = n === undefined ? { panel: [], rest: [] } : panelSettings(channelVars(inst, n).filter(offScreen), inst.display.channel_summary);
+  // The definition's declared panel when it has groups (#1315, D74); else its summary (#1313).
+  const declared = inst.display.panel;
+  const fromPanel = (sections: PanelSection[], vars: StateVarInfo[]) => {
+    const shown = new Set(sections.flatMap((x) => x.vars));
+    return { sections, panel: [...shown], rest: vars.filter((v) => !shown.has(v)) };
+  };
+  const fromSummary = (vars: StateVarInfo[], summary: string[]) => {
+    const { panel, rest } = panelSettings(vars, summary);
+    return { sections: panel.length ? [{ label: "", vars: panel }] : [], panel, rest };
+  };
+  const global = declared?.groups?.length
+    ? fromPanel(panelSections(declared.groups, stateVars, offScreen), globals)
+    : fromSummary(globals, inst.display.summary);
+  const channelOwn = n === undefined ? [] : channelVars(inst, n).filter(offScreen);
+  const channel =
+    n === undefined
+      ? { sections: [], panel: [], rest: [] }
+      : declared?.channel_groups?.length
+        ? fromPanel(panelSections(declared.channel_groups, stateVars, offScreen, n), channelOwn)
+        : fromSummary(channelOwn, inst.display.channel_summary);
   const restCount = global.rest.length + channel.rest.length;
   const field = (v: StateVarInfo) => (
     <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(stateVars, v.path)} />
@@ -414,7 +433,7 @@ function InstrumentSettings({
             <FoundSettings inst={inst} vars={[...globals, ...channels.flatMap((c) => channelVars(inst, c).filter(offScreen))]} query={query} field={field} />
           ) : (
             <>
-              {global.panel.length > 0 && <div className="space-y-1.5">{global.panel.map(field)}</div>}
+              <PanelSections sections={global.sections} field={field} />
               {n !== undefined && (
                 <section data-testid="channel-settings" className="space-y-1.5">
                   {channels.length > 1 ? (
@@ -441,7 +460,7 @@ function InstrumentSettings({
                       {t("workbench.channelN", { n })}
                     </div>
                   )}
-                  {channel.panel.map(field)}
+                  <PanelSections sections={channel.sections} field={field} />
                 </section>
               )}
             </>
@@ -476,6 +495,20 @@ function InstrumentSettings({
         </Section>
       )}
     </>
+  );
+}
+
+/** The panel's groups, each under its title (a summary has none), then its fields. */
+function PanelSections({ sections, field }: { sections: PanelSection[]; field: (v: StateVarInfo) => ReactNode }) {
+  return (
+    <div className="space-y-3" data-testid="panel-sections">
+      {sections.map((x, i) => (
+        <div key={x.label || i} className="space-y-1.5" data-panel-group={x.label || undefined}>
+          {x.label && <div className="text-muted-foreground text-[11px] font-medium">{pickLabel(x.label, x.label_en)}</div>}
+          {x.vars.map(field)}
+        </div>
+      ))}
+    </div>
   );
 }
 

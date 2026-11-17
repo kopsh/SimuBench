@@ -3025,7 +3025,7 @@ export interface components {
             };
             /** Channel Summary */
             channel_summary: string[];
-            /** @description The front panel the UI draws: the definition's own, or its class's default layout (multimeter, calibrator); none for a class with a dedicated screen or without a default */
+            /** @description The front panel: the definition's own, or its class's default layout (multimeter, calibrator); none for a class with a dedicated screen that declares none, or without a default. Its groups are the inspector's panel (D74) */
             panel: components["schemas"]["Panel"] | null;
             /** Panel Source */
             panel_source: ("declared" | "class_default") | null;
@@ -4109,11 +4109,18 @@ export interface components {
         };
         /**
          * Panel
-         * @description The instrument's front panel as the UI draws it (instrument-authoring.md 7.3): the main
-         *     display's readings, groups of controls, and softkeys. Without one, a multimeter and a calibrator
-         *     get their class's default layout; the classes with a dedicated screen do not use it.
+         * @description The instrument's front panel (instrument-authoring.md 7.3, D74): the main display's readings,
+         *     groups of controls, and softkeys. Its groups are what the Web inspector puts on its panel, for
+         *     every class; the rest of the settings are found by name or under 「全部设置」. A multimeter and a
+         *     calibrator without one get their class's default layout, which their screen draws; a class with a
+         *     dedicated screen (an oscilloscope) draws its own and uses only the groups, for the inspector.
          */
         Panel: {
+            /**
+             * Channel Groups
+             * @description The picked channel's groups (the inspector's CH selector): controls name a channel setting without its prefix ('scale' for ch1.scale …); `when` may name either kind
+             */
+            channel_groups?: components["schemas"]["PanelGroup"][];
             /** Groups */
             groups?: components["schemas"]["PanelGroup"][];
             /** Readouts */
@@ -4128,10 +4135,9 @@ export interface components {
         PanelControl: {
             /**
              * Control
-             * @description buttons: a key per value (an enum's options, or `keys`); number: a value with its unit and step keys; switch: on / off (bool); select: a drop-down (enum)
-             * @enum {string}
+             * @description buttons: a key per value (an enum's options, or `keys`); number: a value with its unit and step keys; switch: on / off (bool); select: a drop-down (enum). Default: the setting's own field (number, switch or select by its type)
              */
-            control: "buttons" | "number" | "switch" | "select";
+            control?: ("buttons" | "number" | "switch" | "select") | null;
             /**
              * Keys
              * @description buttons: the keys; default for an enum: one per option, for a bool: on and off
@@ -4146,7 +4152,7 @@ export interface components {
             label_en?: string | null;
             /**
              * State
-             * @description The setting, e.g. 'sense.function' (a channel's: 'ch1.level')
+             * @description The setting, e.g. 'sense.function' (a channel's: 'ch1.level'; in `channel_groups` without the prefix: 'level')
              */
             state: string;
             /**
@@ -4159,6 +4165,13 @@ export interface components {
              * @description number: the unit shown; default: the setting's
              */
             unit?: string | null;
+            /**
+             * When
+             * @description Shown only while these settings have these values (a list: any of them), e.g. {trigger.mode: GLITch}
+             */
+            when?: {
+                [key: string]: unknown;
+            };
         };
         /** PanelGroup */
         PanelGroup: {
@@ -4171,6 +4184,13 @@ export interface components {
             label: string;
             /** Label En */
             label_en?: string | null;
+            /**
+             * When
+             * @description Shown only while these settings have these values (a list: any of them)
+             */
+            when?: {
+                [key: string]: unknown;
+            };
         };
         /**
          * PanelKey
