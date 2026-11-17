@@ -586,7 +586,7 @@ def test_the_trigger_noise_is_the_channel_s(model):
     """#1298: the trigger's noise table is an estimate equal to the channel's (the same front end):
     the two copies in the definition stay the same."""
     definition = yaml.safe_load(
-        (ROOT / "src" / "simubench" / "library" / "instruments" / f"{model}.yaml").read_text()
+        (ROOT / "src" / "simubench" / "library" / "instruments" / f"{model}.yaml").read_text("utf-8")
     )
     trigger = next(c for c in definition["components"] if c["name"] == "trigger")
     front = next(c for c in definition["channel_components"] if c["name"] == "front")
