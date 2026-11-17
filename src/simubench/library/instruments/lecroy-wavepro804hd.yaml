@@ -212,6 +212,11 @@ specs:
   input_capacitance_f_1m: 14.0e-12
   input_impedance_ohm_50: 50.0
   trigger_level_range_divs: 4.1
+  # Maximum Input Voltage (data sheet, Vertical - Analog Channels): 50 Ω with BWL > 1 GHz ±2 V max
+  # @ 1 - 34.5 mV/div, ±5 V max @ 35 - 87 mV/div, 5.5 Vrms @ > 87.5 mV/div (BWL ≤ 1 GHz: 5 Vrms,
+  # ±10 V peak); 1 MΩ 400 V max (DC + peak AC < 10 kHz) (#1304).
+  max_input_v_50ohm: {"1 mV-34.5 mV/div": 2.0, "35 mV-87 mV/div": 5.0, "> 87.5 mV/div": "5.5 Vrms"}
+  max_input_v_1mohm: 400.0
 # 个体偏差（D3，metrology-authoring.md 7）：测试台 deviation: from_specs 时按种子抽取。
 # 直流增益 ±0.5 % 满刻度、时基 ±0.1 ppm（数据手册）。
 deviations:
@@ -352,6 +357,13 @@ channel_components:
             [[0.00495, 1.6], [0.0099, 4.0], [0.0198, 8.0], [0.1, 16.0],
              [0.198, 80.0], [1.0, 160.0], [10.0, 400.0]]
       out_of_range: clamp
+      # 最大输入电压（数据手册 Maximum Input Voltage，#1304）：50 Ω 满带宽（BWL > 1 GHz，本模型 D50 即 8 GHz）
+      # 按档位 ±2 V（≤ 34.5 mV/div）、±5 V（35–87 mV/div）、5.5 Vrms（> 87.5 mV/div，按正弦峰值 7.78 V）；1 MΩ 400 V。
+      # 超过时给出“可能损坏”警告。档位按 1:1 探头的输入端计。手册没有最大输入范围；50 Ω 过载后耦合变为 OVL 的保护动作未建模。
+      max_input_v:
+        from: $ch.coupling
+        map: {D50: {from: $ch.scale, table: {"0": 2.0, "0.035": 5.0, "0.0875": 7.78}}}
+        default: 400.0
   # 探头衰减：1、2、5、10、…、10000（手册 ATTN 的取值），改档时垂直档位与偏置同比缩放。
   - name: probe
     type: scope_probe

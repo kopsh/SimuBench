@@ -48,6 +48,9 @@ specs:
   timebase_accuracy_ppm: 25
   trigger_sensitivity: "< 10 mV/div: greater of 1 div or 5 mV; ≥ 10 mV/div: 0.6 div"
   trigger_jitter_s_rms: 5.0e-11
+  # Maximum input voltage (data sheet 5990-6618EN, Vertical system: CAT I 300 Vrms, 400 Vpk at the
+  # 1 MΩ input); no maximum input range and no overload register (#1304).
+  max_input: {absolute_v: 400.0, rating: "CAT I 300 Vrms, 400 Vpk"}
   noise_floor: >-
     estimated (the data sheet 5990-6618EN publishes no rms-noise figure and no trigger-jitter
     rms — only the TIE measurement's 500 ps, D46, #745): 0.2 mV rms of white input noise at the
@@ -953,6 +956,9 @@ channel_components:
       scale_range: [1.0e-3, 5.0]
       offset_ranges: [[0.2, 2.0], [.inf, 50.0]]
       out_of_range: clamp
+      # 最大输入电压 400 Vpk（数据手册 5990-6618EN，CAT I 300 Vrms、400 Vpk，#1304）：超过时给出“可能损坏”警告。
+      # 手册没有最大输入范围与过载寄存器（InfiniiVision 2000 X 只有 1 MΩ 输入，无 50 Ω 保护）。
+      max_input_v: 400.0
       # 每档噪声（specs.noise_per_division，估计，D46/#745）：数据手册未给分档噪声；灵敏档取
       # 0.2 mV 的输入噪声底，高档按 0.02 格线性增大。
       noise_table: [[1.0e-3, 2.0e-4], [2.0e-3, 2.0e-4], [5.0e-3, 2.0e-4], [1.0e-2, 2.0e-4],
