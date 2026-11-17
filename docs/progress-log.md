@@ -2400,3 +2400,16 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | HTTP 侧 `sessions_to_restart` 同样填充 | ✅ `tests/test_server.py::test_the_document_route_names_the_sessions_to_restart`：外部改定义文件后 document 路由列出运行中会话，与 MCP `read_definition` 同源（`SessionManager.sessions_using_stale_definition` 一处计算） |
 | 全量测试耗时 | ✅ 快层 `-n 4` 三次分别 221s / 163s / 179s、4546 例全过（本机刚重启、Spotlight 重索引期间测；首跑有 1 例 unit 预算护栏在满负载下报 0.151s > 0.1s，隔离运行通过）；`--durations=20` 最慢为 UXR 手册用例 12s，摘要随 PR 交主会话判断 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
+## 投影层收口：块级屏幕协议、manager 瘦身（Issue 1383）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| scope_screen 按协议可单测（不起 HTTP） | ✅ `tests/test_scope_screen_view.py`：替身采集/测量块直测 views——DTO 组装逐字段、帧号每次读递增并传给块、画面超出模型的定格回退（holding()）、无协议组件拒绝（`KeyError`）；unit 层 4 例 1.6 s |
+| views.py 对组件私有零 type: ignore | ✅ scope_screen 的 8 处 `# type: ignore[attr-defined]` 清零（余下两处是 Session 字段 Literal 的既有标注，与组件无关）；`scripts/ty_baseline.txt` 删去 views.py 对应的 8 行 missing-attribute（baseline 只缩不涨） |
+| 块知识归块（D57 模式） | ✅ `ScreenSource.screen_state(frame) -> ScreenState`（engine/component.py 契约对象）：live/waiting/records/level/source/count 与重画规则（D47）、normal 未触发保持、#986 定格在块里；实时与等效时间采集（`sampling.py`，屏幕测试 `test_sampling.py::test_the_scope_screen_shows_the_sampling_records` 钉住的行为）都实现；`ScreenMeasurer.screen_values`：测量名表与「深记录的测量读记录、屏幕不读」（#1012）在 `ScopeMeasurements`；views 只组装 DTO 与降采样 |
+| 帧号留引擎外投影态 | ✅ `ServedSession.frames` 注释明示投影状态（被动视图轮询不进引擎、不污染种子/记录/时钟）；views 只递计数器 |
+| manager 瘦身 | ✅ `preview` 搬 `server/preview.py`（`routes/benches.py` 改调）；bench 文件列表组装搬 `SessionViews.bench_files`（manager 留一行转发给够不着 views 的 MCP/助手缝）；四个 access server 各给 `connections()`（client/instrument/locked），`describe` 与 `remote_clients` 走公共口，`_links`/`_clients` 私有访问清零；manager 职能清单（生命周期/访问服务监督/注册表与守卫）写在模块 docstring |
+| 窗口规则一处并裁决 | ✅ `Signal.window_s`（engine/signal.py），probe/画布/内部探针三处改调；「最强谱线」裁决：两推导在幅值不并列时等价，并列时 argsort 不承诺顺序而 argmax 取最低频率——统一取 argmax，窗口无变化（`tests/test_engine.py` 三例含并列）；结论记 D77 与 PR 正文 |
+| 投影零行为变化 | ✅ 快层 4528 例全过（scope_screen 的 HTTP 对照 `test_scope_screen_measurements.py`、#986/#1012 屏用例原样）；TUI 快照 28 例本地全过（`tests/test_tui_snapshots.py`）；web vitest 362 例（check.sh 内） |
+| 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 170.85 s、`--durations=20` 复跑 243.86 s（本机满负载首跑 297 s 且 1 例 unit 预算护栏 0.101 s>0.1 s——`test_tui_palette`，隔离运行通过，与 Issue 1382 记录的同类噪声）；最慢 `test_my_templates` 20.5 s、UXR 手册用例 ~17 s，摘要交主会话 |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |

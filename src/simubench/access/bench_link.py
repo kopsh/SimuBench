@@ -35,6 +35,7 @@ from pyvisa import constants
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from . import ClientConnection
 from .bus import BusError
 from .links import Link, make_link
 
@@ -122,6 +123,14 @@ class BenchLinkServer:
         return sorted(
             label for label, (name, _) in self._clients.items() if instrument is None or name == instrument
         )
+
+    def connections(self) -> list[ClientConnection]:
+        """The open links with whether each holds its instrument's lock, in link order. A link to
+        the interface itself (GPIB board) names no instrument."""
+        return [
+            ClientConnection(client=label, instrument=name, locked=self.holds_lock(label))
+            for label, (name, _) in self._clients.items()
+        ]
 
     def holds_lock(self, label: str) -> bool:
         entry = self._clients.get(label)

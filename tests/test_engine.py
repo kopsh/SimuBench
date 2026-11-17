@@ -152,3 +152,20 @@ def test_a_negative_range_bound_is_inclusive():
     for outside in (-5.0001, -0.9999):
         with pytest.raises(ScpiError):
             validate(spec, outside)
+
+
+def test_the_waveform_window_is_two_periods_of_the_strongest_line():
+    """The thumbnail window of the probe and the canvas (D37): two periods of the line with the
+    largest amplitude, whatever its frequency."""
+    assert Signal.lines([1000.0, 50.0], [0.1, 2.0]).window_s() == pytest.approx(2.0 / 50.0)
+
+
+def test_the_waveform_window_of_a_dc_signal_is_two_milliseconds():
+    assert Signal.constant(2.0).window_s() == 2e-3
+
+
+def test_tied_strongest_lines_window_on_the_lowest_frequency():
+    """The unified window rule (#1383): among equally strong lines the lowest frequency wins, so
+    every reader of the rule samples the same window (``argmax`` takes the first of a tie; the
+    spectrum read's ``argsort`` did not promise an order)."""
+    assert Signal.lines([1000.0, 500.0], [1.0, 1.0]).window_s() == pytest.approx(2.0 / 500.0)

@@ -48,6 +48,8 @@
 | 调谐点 | Tuning point | 频谱仪接收机此刻调到的频率；混频器及其下游的输出取决于它。由发起读取的块设置（`Session.tuned`），不在其中时是中心频率 |
 | 求值方式 | Evaluation | 频谱仪迹线的产生方式，`specan_trace.evaluation`：`analytic`（解析，谱线 + 级联指标，默认；含相位噪声与失真产物）或 `sampled`（采样，迹线由 ADC 之后的采样流产生；不含相位噪声与失真产物，signal-chain.md 5.4） |
 | 被动视图 | Passive view | 对运行中测试台的一次一致读：持会话锁、跟随墙钟、可结算到期的等待操作；不推进虚拟时间、不进通信记录（D32、D47）。会话的 `view()` 是唯一入口 |
+| 投影 | Projection | 会话或文件对外的只读展示（HTTP、MCP、TUI 的 DTO）：`server/views.py` 与 `server/preview.py` 组装，一律经被动视图读取，不改会话 |
+| 屏幕协议 | Screen protocol | 示波器屏幕“此刻画什么”由采集块自己回答（`ScreenSource.screen_state`，#1383）：运行中按帧号重画信号、未触发保持、超出模型定格的规则住在块里；投影只组装 DTO 与降采样，测量面板同走测量块（`ScreenMeasurer`） |
 | 写入事务 | Write transaction | 外部写入（SCPI 设置、面板、`*RCL` 恢复、故障、重放）统一经过的执行单位：一批可含多个设置，静态校验、约束结算（D69）、动态限值与组件组合检查都在批边界一次判定，全有全无；被拒的批不产生可见状态变化。是否受约束与限值管辖随写入来源声明；组件自身的写不经事务 |
 | 命令驱动时钟 / 墙钟 / 步进时钟 / 按倍率时钟 | Command-driven / Wall / Stepped / Scaled clock | 四种时钟模式（D12、D44；按倍率时钟的虚拟时间 = 真实时间 × 倍率） |
 | 注入故障 | Inject fault | 人为制造通信或仪表故障 |

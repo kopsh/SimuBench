@@ -146,14 +146,6 @@ src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of ty
 src/simubench/server/views.py:call-non-callable Object of type `object` is not callable
 src/simubench/server/views.py:invalid-argument-type Argument is incorrect: Expected `Literal["command", "wall", "stepped", "scaled"]`, found `str`
 src/simubench/server/views.py:invalid-argument-type Argument to bound method `Solution.source_contributions` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
-src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `_is` ×2
-src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `acq_count`
-src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `armed`
-src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `displayed`
-src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `records`
-src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `shows_live`
-src/simubench/server/views.py:missing-attribute Object of type `Component & <Protocol with members 'compute'>` has no attribute `trigger_level`
-src/simubench/server/views.py:missing-attribute Object of type `Component` has no attribute `record_value`
 src/simubench/tui/app.py:call-non-callable Object of type `object` is not callable
 src/simubench/tui/app.py:invalid-argument-type Argument to bound method `ApiClient.advance` is incorrect: Expected `str`, found `str | None`
 src/simubench/tui/app.py:invalid-argument-type Argument to function `confirm_rebuild` is incorrect: Expected `(bool, /) -> None`, found `bound method Self@action_rebuild._do_rebuild(ok: bool) -> CoroutineType[Any, Any, None]`
