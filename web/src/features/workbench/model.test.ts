@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, distinctOptions, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, whenHolds, wordOf } from "./model";
+import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -379,5 +379,13 @@ describe("automatic and unset values (#1257)", () => {
     expect(formatValue(num({ display_unit: "%", value: 50 }))).toBe("50%");
     expect(formatValue(num({ display_unit: "%", value: 0.001 }))).toBe("0.001%"); // no SI prefix on a sign (#1267)
     expect(formatValue(num({ display_unit: "%", value: 99.999 }))).toBe("99.999%");
+  });
+});
+
+describe("autoBottomTab (#1360)", () => {
+  it("opens on the first tab with something to read", () => {
+    expect(autoBottomTab({ comms: false, events: true, problems: true })).toBe("events");
+    expect(autoBottomTab({ comms: true, events: true, problems: true })).toBe("comms");
+    expect(autoBottomTab({ comms: false, events: false, problems: true })).toBe("problems");
   });
 });

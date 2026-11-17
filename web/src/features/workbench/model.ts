@@ -38,6 +38,17 @@ export function wordOf(option: string): [string, string] | null {
  * one label for both) would show as the same word twice, so the second of a label is left out —
  * unless it is the current value, which a select must still be able to show (#1252).
  */
+/**
+ * The bottom tab the log opens on by itself (#1360): the first that has something to read —
+ * communication, then events, then problems — so it does not open on an empty table.
+ */
+export function autoBottomTab(has: { comms: boolean; events: boolean; problems: boolean }): "comms" | "events" | "problems" {
+  if (has.comms) return "comms";
+  if (has.events) return "events";
+  if (has.problems) return "problems";
+  return "comms";
+}
+
 export function distinctOptions(v: Pick<StateVarInfo, "options" | "option_labels"> & { value?: unknown }): string[] {
   const seen = new Set<string>();
   return (v.options ?? []).filter((o) => {

@@ -27,7 +27,7 @@ import i18n from "@/i18n";
 import { LibraryPanel } from "./edit/LibraryPanel";
 import { CommandPalette } from "./CommandPalette";
 import { Inspector } from "./Inspector";
-import { instrumentTitle } from "./model";
+import { autoBottomTab, instrumentTitle } from "./model";
 import { ResourceTree } from "./ResourceTree";
 import { InternalsView } from "./internals/InternalsView";
 import { InstrumentAcceptance } from "@/features/instrument/InstrumentAcceptance";
@@ -109,6 +109,9 @@ export function WorkbenchPage() {
   const bottom = usePanelRef();
   const [bottomOpen, setBottomOpen] = useState(false);
   const hasLog = useEvents((st) => st.events.length > 0);
+  const hasComms = useEvents((st) => st.events.some((e) => e.kind === "scpi"));
+  const hasOthers = useEvents((st) => st.events.some((e) => e.kind !== "scpi"));
+  const openBottomOn = useWorkbench((st) => st.openBottomOn);
   const hasProblems = (doc?.diagnostics.length ?? 0) > 0 || (session.data?.instruments.some((i) => i.errors.length > 0) ?? false);
   const openedOnce = useRef(false);
   const ready = !!session.data;
@@ -132,9 +135,10 @@ export function WorkbenchPage() {
   useEffect(() => {
     if (!ready || openedOnce.current || !(hasLog || hasProblems) || !bottom.current) return;
     openedOnce.current = true;
+    openBottomOn(autoBottomTab({ comms: hasComms, events: hasOthers, problems: hasProblems }));
     if (tall) foldedForPage.current = true; // opens when the user comes back to the bench
     else if (bottom.current.isCollapsed()) bottom.current.resize(BOTTOM_OPEN);
-  }, [ready, hasLog, hasProblems, bottom, tall]);
+  }, [ready, hasLog, hasProblems, hasComms, hasOthers, openBottomOn, bottom, tall]);
 
   if (session.isLoading) {
     return (
