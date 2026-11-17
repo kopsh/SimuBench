@@ -70,7 +70,8 @@ When the platform cannot express something the manual requires:
    (write two readouts for two values). A model that `extends` another replaces the parent's
    `groups` / `channel_groups` / `readouts` lists whole (write `groups: []` to drop them); a `when`
    cannot test an `enum_list` setting. A category with a class default (multimeter, calibrator,
-   DAQ, counter) that declares a panel loses that default: write its `readouts` and keys too.
+   DAQ, counter, power supply) that declares a panel loses that default, and with it the readings and
+   per-channel groups the panel screen and the TUI draw: write its `readouts`, `groups` and keys too.
    Validate as you go:
    ```bash
    uv run simubench validate src/simubench/library/instruments/<id>.yaml
