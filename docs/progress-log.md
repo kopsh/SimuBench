@@ -2400,3 +2400,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | HTTP 侧 `sessions_to_restart` 同样填充 | ✅ `tests/test_server.py::test_the_document_route_names_the_sessions_to_restart`：外部改定义文件后 document 路由列出运行中会话，与 MCP `read_definition` 同源（`SessionManager.sessions_using_stale_definition` 一处计算） |
 | 全量测试耗时 | ✅ 快层 `-n 4` 三次分别 221s / 163s / 179s、4546 例全过（本机刚重启、Spotlight 重索引期间测；首跑有 1 例 unit 预算护栏在满负载下报 0.151s > 0.1s，隔离运行通过）；`--durations=20` 最慢为 UXR 手册用例 12s，摘要随 PR 交主会话判断 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
+
+## 仪表层缝：InstrumentHost 协议、façade 正名、命令管线单测（Issue 1380）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 会话契约声明为协议，构造期点名 | ✅ `engine/instrument.py` 的 `InstrumentHost`（17 成员：时钟/确定性 6、电路 9（`solve`/`sync` 用 D60 名）、事件 2）；`_host_gaps` 按 `get_protocol_members` 逐成员查实例，缺的名字写进构造错误（D62 的组件缝点名同构，这边看实例、数据成员也点）。`tests/test_instrument_host.py`：点名报缺、`FakeHost` 与真 Session 都满足协议（`isinstance` + 空缺口） |
+| façade 唯一公共名 | ✅ `ops`/`errs`/`common` 退 `_ops`/`_errs`/`_common`；StatusRegisters 的寄存器状态退 `_esr`/`_ese`/`_sre`，`inst.esr` 等经 `Register` 描述符桥接；`*CLS` 的 `opc_armed` 直写收进 `PendingOps.disarm_opc()`，`inst._output` 直读改 `has_output`。`status`/`runner` 保持公共名（库组件 status.py 的 `look()/registers()/current`、scope.py 的 `format_setting`，库组件零改动）。`tests/test_instrument_host.py`：退名的属性 `hasattr` 为假、façade 路由可用、AST 守卫锁定 engine 外无 `._ops/._errs/._common/._status` 与挂在 `inst`/`owner`/`instruments` 链上的 `.ops/.errs/.common`（守卫自测见 `test_the_guard_sees_a_poke_and_leaves_the_rest`） |
+| CommandRunner 直接单测 | ✅ `tests/test_command_runner.py` 22 例（unit）：dispatch 的方向门/未知头分类/后缀越界/选件缺装 -241 与装上运行/`when` 拒绝，MIN/MAX/DEF 的现限值与查询应答，-222 点名参数与声明范围，special 词不是极值，factor 缩放，keyword 表写自己的设置，`sets` 随值 DEF 保留（#325），通道表按通道展开、按列表顺序应答、重复/降序规则拒绝，解析的单位与拼写，`not_modeled` 词，格式化 |
+| BuiltinCommands 直接单测 | ✅ `tests/test_builtin_commands.py` 19 例（unit）：*IDN? 模板与 `$path`、实例覆盖、*OPT? 装与未装、*RST、*CLS 清队列/寄存器/撤销已布 *OPC、*OPC 立即与等待、*OPC? 封锁、*ESR? 读清、ESE/SRE 往返、*STB? 的 EAV/MAV/ESB、*TST?、SYST 错误族三条与队列尾 +0、时钟命令与偏移、回显 `$path` 开关 short→long、`builtins` 名单外的 -113 `builtin_excluded` |
+| ErrorReporter 直接单测 | ✅ `tests/test_error_reporter.py` 13 例（unit）：push_error 入队 + ESR 位 + 事件、定义错误表文本与标准文本、队列容量与 -350 尾槽、`SYST:ERR?` 的符号拼写与 `errors[0]` 无错文本、-113 分类（not_in_definition、真实型号的手册文本、`unknown_commands: ignore` 抛 `_Ignored`）、`_bad_parameter` 点名与范围且保留已声明类别、`_parameter_error` 分类、facade `push_error` 的组件错误路径 |
+| 共享替身，桩退役 | ✅ `tests/helpers.py` 的 `FakeHost`（协议全成员；读信号/解算抛错；`events` 记录）与 `seam_instrument`/`dispatch_unit`；`test_command_equivalence.py` 与 `test_value_fit.py` 的两份 `_StubSession` 删除（残影 `_solve`/`_sync` 随之退役） |
+| 行为零变化 | ✅ #550/#580/#1013/#1030/#436 的锁行为测试、路由等价扫描（780 例）、金测原样通过；`warn` 事件字典逐键不变 |
+| 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 209s / 4583 例全过，另两次 317s / 636s（本机重负载期间测，同几分钟内重跑互有 ±，三次共 5 例 unit 预算护栏在满负载下报 0.10–0.61s > 0.1s，全部隔离运行通过，且三次各不相同——#482 记载的负载噪声类）；`--durations=20` 最慢为 UXR 手册用例 28–56s，摘要随 PR 交主会话判断 |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |
