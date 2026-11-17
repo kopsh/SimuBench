@@ -579,6 +579,67 @@ ports:
 display:
   template: multimeter
   summary: [sense.function, sense.range, sense.aperture_mode, trigger.source]
+  # 检查器与面板屏幕的前面板（D74）：读数、功能键；量程随功能、孔径随孔径方式、输入阻抗只对直流电压、
+  # 滤波只对交流，电阻的模式与低电流各随两线、四线。声明替代面板屏幕的类别默认布局，所以读数与功能键照类别默认一并写出。
+  panel:
+    readouts:
+      - {reading: meter.DC, label: 直流电压, label_en: DC voltage, unit: V, digits: 9, range: meter.DC_range, when: {sense.function: [VOLTage, 'VOLTage:DC']}}
+      - {reading: meter.AC, label: 交流电压, label_en: AC voltage, unit: V, digits: 9, range: meter.AC_range, when: {sense.function: 'VOLTage:AC'}}
+      - {reading: meter.RES, label: 电阻, label_en: Resistance, unit: Ω, digits: 9, range: meter.RES_range, when: {sense.function: RESistance}}
+      - {reading: meter.FRES, label: 四线电阻, label_en: 4-wire resistance, unit: Ω, digits: 9, range: meter.FRES_range, when: {sense.function: FRESistance}}
+      - {reading: meter.DCI, label: 直流电流, label_en: DC current, unit: A, digits: 9, range: meter.DCI_range, when: {sense.function: [CURRent, 'CURRent:DC']}}
+      - {reading: meter.ACI, label: 交流电流, label_en: AC current, unit: A, digits: 9, range: meter.ACI_range, when: {sense.function: 'CURRent:AC'}}
+    groups:
+      - label: 测量
+        label_en: Measure
+        controls:
+          - {state: sense.function, control: buttons, keys: [
+              {value: VOLTage, label: DC V},
+              {value: 'VOLTage:AC', label: AC V},
+              {value: CURRent, label: DC I},
+              {value: 'CURRent:AC', label: AC I},
+              {value: RESistance, label: Ω 2W},
+              {value: FRESistance, label: Ω 4W},
+            ]}
+      - label: 量程
+        label_en: Range
+        controls:
+          - {state: sense.range_auto, control: switch}
+          - {state: sense.range, control: number, when: {sense.function: [VOLTage, 'VOLTage:DC'], sense.range_auto: false}}
+          - {state: sense.ac.range, control: number, when: {sense.function: 'VOLTage:AC', sense.range_auto: false}}
+          - {state: sense.curr.range, control: number, when: {sense.function: [CURRent, 'CURRent:DC'], sense.range_auto: false}}
+          - {state: sense.curr.ac.range, control: number, when: {sense.function: 'CURRent:AC', sense.range_auto: false}}
+          - {state: sense.res.range, control: number, when: {sense.function: RESistance, sense.range_auto: false}}
+          - {state: sense.fres.range, control: number, when: {sense.function: FRESistance, sense.range_auto: false}}
+      - label: 设置
+        label_en: Settings
+        controls:
+          - {state: sense.aperture_mode, control: select}
+          - {state: sense.aperture, control: number, when: {sense.aperture_mode: MANual}}
+          - {state: sense.resolution, control: number}
+          - {state: sense.impedance, control: select, when: {sense.function: [VOLTage, 'VOLTage:DC']}}
+          - {state: sense.ac.filter, control: number, when: {sense.function: ['VOLTage:AC', 'CURRent:AC']}}
+          - {state: sense.res.mode, control: select, when: {sense.function: RESistance}}
+          - {state: sense.res.lowi, control: switch, when: {sense.function: RESistance}}
+          - {state: sense.fres.mode, control: select, when: {sense.function: FRESistance}}
+          - {state: sense.fres.lowi, control: switch, when: {sense.function: FRESistance}}
+      - label: 统计与限值
+        label_en: Statistics and limits
+        controls:
+          - {state: calc.average.state, control: switch}
+          - {state: calc.average.count, control: number, when: {calc.average.state: true}}
+          - {state: calc.average.mode, control: select, when: {calc.average.state: true}}
+          - {state: calc.limit.state, control: switch}
+          - {state: calc.limit.lower, control: number, when: {calc.limit.state: true}}
+          - {state: calc.limit.upper, control: number, when: {calc.limit.state: true}}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: init.continuous, control: switch}
+          - {state: trigger.source, control: select}
+          - {state: trigger.count, control: number}
+          - {state: trigger.delay_auto, control: switch}
+          - {state: trigger.delay, control: number, when: {trigger.delay_auto: false}}
 capabilities: [multimeter]
 commands:
   # ---- 测量命令 ----

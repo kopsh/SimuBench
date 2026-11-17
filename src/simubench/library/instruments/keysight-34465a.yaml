@@ -375,6 +375,62 @@ ports:
 display:
   template: multimeter
   summary: [sense.function, sense.range, sense.nplc, trigger.source]
+  # 检查器与面板屏幕的前面板（D74）：读数、功能键、量程；NPLC 与孔径只对直流类功能有效，
+  # 交流带宽只对交流功能，输入阻抗只对直流电压，两线与四线电阻、电流各用自己的量程。声明替代面板屏幕的类别默认布局，
+  # 所以读数与功能键照类别默认一并写出。
+  panel:
+    readouts:
+      - {reading: meter.DC, label: 直流电压, label_en: DC voltage, unit: V, digits: 7, range: meter.DC_range, resolution: meter.DC_resolution, when: {sense.function: VOLT}}
+      - {reading: meter.AC, label: 交流电压, label_en: AC voltage, unit: V, digits: 7, range: meter.AC_range, resolution: meter.AC_resolution, when: {sense.function: 'VOLT:AC'}}
+      - {reading: meter.RES, label: 电阻, label_en: Resistance, unit: Ω, digits: 7, range: meter.RES_range, resolution: meter.RES_resolution, when: {sense.function: RES}}
+      - {reading: meter.FRES, label: 四线电阻, label_en: 4-wire resistance, unit: Ω, digits: 7, range: meter.FRES_range, resolution: meter.FRES_resolution, when: {sense.function: FRES}}
+      - {reading: meter.DCI, label: 直流电流, label_en: DC current, unit: A, digits: 7, range: meter.DCI_range, resolution: meter.DCI_resolution, when: {sense.function: CURR}}
+      - {reading: meter.ACI, label: 交流电流, label_en: AC current, unit: A, digits: 7, range: meter.ACI_range, resolution: meter.ACI_resolution, when: {sense.function: 'CURR:AC'}}
+    groups:
+      - label: 测量
+        label_en: Measure
+        controls:
+          - {state: sense.function, control: buttons, keys: [
+              {value: VOLT, label: DC V},
+              {value: 'VOLT:AC', label: AC V},
+              {value: RES, label: Ω 2W},
+              {value: FRES, label: Ω 4W},
+              {value: CURR, label: DC I},
+              {value: 'CURR:AC', label: AC I},
+            ]}
+      - label: 量程
+        label_en: Range
+        controls:
+          - {state: sense.range_auto, control: switch}
+          - {state: sense.range, control: buttons, when: {sense.function: [VOLT, 'VOLT:AC']}, keys: [
+              {value: 0.1, label: 100 mV, sets: {sense.range_auto: false}},
+              {value: 1.0, label: 1 V, sets: {sense.range_auto: false}},
+              {value: 10.0, label: 10 V, sets: {sense.range_auto: false}},
+              {value: 100.0, label: 100 V, sets: {sense.range_auto: false}},
+              {value: 1000.0, label: 1000 V, sets: {sense.range_auto: false}},
+              {value: 0.0, label: AUTO, sets: {sense.range_auto: true}},
+            ]}
+          - {state: sense.res.range, control: number, when: {sense.function: [RES, FRES]}}
+          - {state: sense.curr.range, control: number, when: {sense.function: [CURR, 'CURR:AC']}}
+      - label: 设置
+        label_en: Settings
+        controls:
+          - {state: sense.aperture_enabled, control: switch, when: {sense.function: [VOLT, CURR, RES, FRES]}}
+          - {state: sense.nplc, control: number, when: {sense.function: [VOLT, CURR, RES, FRES], sense.aperture_enabled: false}}
+          - {state: sense.aperture, control: number, when: {sense.function: [VOLT, CURR, RES, FRES], sense.aperture_enabled: true}}
+          - {state: sense.resolution, control: number}
+          - {state: sense.zero_auto, control: switch, when: {sense.function: [VOLT, CURR, RES, FRES]}}
+          - {state: sense.imp_auto, control: switch, when: {sense.function: VOLT}}
+          - {state: sense.ac.bandwidth, control: number, when: {sense.function: ['VOLT:AC', 'CURR:AC']}}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.source, control: select}
+          - {state: trigger.slope, control: select, when: {trigger.source: EXTernal}}
+          - {state: trigger.count, control: number}
+          - {state: sample.count, control: number}
+          - {state: trigger.delay_auto, control: switch}
+          - {state: trigger.delay, control: number, when: {trigger.delay_auto: false}}
 capabilities: [multimeter]
 commands:
   # ---- 测量与配置 ----

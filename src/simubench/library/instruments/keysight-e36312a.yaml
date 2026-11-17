@@ -439,6 +439,46 @@ ports:
 display:
   template: power_supply
   summary: [ch1.voltage, ch1.current, ch2.voltage, ch3.voltage, ch1.output]
+  # 检查器面板（D74）：每路的设置在 channel_groups：电压/电流设定、限值与保护、输出开关；过流保护的延时随开关，
+  # 步进设定的触发值随步进方式；组合与跟踪在整机分组。其余设置在检查器里查找或在“全部设置”里改。
+  panel:
+    groups:
+      - label: 组合
+        label_en: Combine
+        controls:
+          - {state: output.pair}
+          - {state: output.track}
+      - label: 显示
+        label_en: Display
+        controls:
+          - {state: display.enabled}
+          - {state: display.view}
+          - {state: beeper.state}
+    channel_groups:
+      - label: 设定
+        label_en: Setpoint
+        controls:
+          - {state: voltage}
+          - {state: current}
+          - {state: range}
+          - {state: sense}
+          - {state: output}
+      - label: 保护
+        label_en: Protection
+        controls:
+          - {state: ovp}
+          - {state: ocp_enabled}
+          - {state: ocp_delay, when: {ocp_enabled: true}}
+          - {state: ocp_start, when: {ocp_enabled: true}}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trig_source}
+          - {state: trig_delay}
+          - {state: v_mode}
+          - {state: v_triggered, when: {v_mode: STEP}}
+          - {state: i_mode}
+          - {state: i_triggered, when: {i_mode: STEP}}
 capabilities: [power_supply]
 commands:
   # ---- 选中的输出（#295）：省略通道列表的命令作用于它 ------------------------------------

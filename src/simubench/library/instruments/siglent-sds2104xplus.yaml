@@ -532,6 +532,51 @@ display:
   channel_summary: [display, scale, offset, coupling, impedance, probe]
   actions:
     single: ":TRIGger:MODE SINGle"
+  # 检查器面板（D74）：前面板先给的设置，平均次数与增强分辨率随采集类型，保持时间随保持方式；
+  # 其余设置在检查器里查找或在“全部设置”里改。示波器屏幕自己画，不用这里的分组。
+  panel:
+    groups:
+      - label: 水平
+        label_en: Horizontal
+        controls:
+          - {state: timebase.scale}
+          - {state: timebase.delay}
+          - {state: timebase.reference}
+          - {state: timebase.reference_position, when: {timebase.reference: POSition}}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.mode}
+          - {state: trigger.type}
+          - {state: trigger.source}
+          - {state: trigger.level}
+          - {state: trigger.slope}
+          - {state: trigger.coupling}
+          - {state: trigger.nreject}
+          - {state: trigger.holdoff_type}
+          - {state: trigger.holdoff_time, when: {trigger.holdoff_type: TIME}}
+      - label: 采集
+        label_en: Acquisition
+        controls:
+          - {state: acquire.type}
+          - {state: acquire.average, when: {acquire.type: AVERage}}
+          - {state: acquire.eres, when: {acquire.type: ERES}}
+          - {state: acquire.resolution}
+          - {state: acquire.mdepth}
+          - {state: acquire.amode}
+          - {state: acquire.interpolation}
+    channel_groups:
+      - label: 垂直
+        label_en: Vertical
+        controls:
+          - {state: display}
+          - {state: scale}
+          - {state: offset}
+          - {state: coupling}
+          - {state: impedance}
+          - {state: probe}
+          - {state: bwlimit}
+          - {state: unit}
 capabilities: [oscilloscope]
 commands:
   # *CAL?：用户自校准（SDS 系列编程手册 SYSTEM *CAL?：回复 *CAL 0，0 = 校准成功；EN11F 目录只列

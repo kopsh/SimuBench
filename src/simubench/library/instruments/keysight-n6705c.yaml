@@ -390,6 +390,43 @@ ports:
 display:
   template: power_supply
   summary: [ch1.voltage, ch1.current, ch1.output, ch3.voltage, ch3.current]
+  # 检查器面板（D74）：每个模块的设置在 channel_groups：电压/电流设定、保护、输出开关；过流保护的延时随开关，
+  # 步进设定的触发值随步进方式。其余设置在检查器里查找或在“全部设置”里改。
+  panel:
+    groups:
+      - label: 显示
+        label_en: Display
+        controls:
+          - {state: display.enabled}
+          - {state: display.view}
+    channel_groups:
+      - label: 设定
+        label_en: Setpoint
+        controls:
+          - {state: voltage}
+          - {state: current}
+          - {state: sense}
+          - {state: output}
+      - label: 保护
+        label_en: Protection
+        controls:
+          - {state: ovp}
+          - {state: ocp_enabled}
+          - {state: ocp_delay, when: {ocp_enabled: true}}
+          - {state: ocp_start, when: {ocp_enabled: true}}
+      - label: 延时
+        label_en: Delay
+        controls:
+          - {state: rise_delay}
+          - {state: fall_delay}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: tran_source}
+          - {state: v_mode}
+          - {state: v_triggered, when: {v_mode: STEP}}
+          - {state: i_mode}
+          - {state: i_triggered, when: {i_mode: STEP}}
 capabilities: [power_supply]
 commands:
   # ---- 设定（通道列表必需，手册：A channel parameter is required with each SCPI command） ----

@@ -472,6 +472,56 @@ ports:
 display:
   template: spectrum_analyzer
   summary: [freq.center, freq.span, display.ref_level, detector, trace.type]
+  # 检查器面板（D74）：前面板先给的设置，平均次数随迹线类型，差值标记的参考随标记模式；
+  # 其余设置在检查器里查找或在“全部设置”里改。频谱仪屏幕自己画，不用这里的分组。
+  panel:
+    groups:
+      - label: 频率
+        label_en: Frequency
+        controls:
+          - {state: freq.center}
+          - {state: freq.span}
+      - label: 幅度
+        label_en: Amplitude
+        controls:
+          - {state: display.ref_level}
+          - {state: display.ref_offset}
+          - {state: display.pdiv}
+          - {state: power.att_auto}
+          - {state: power.att, when: {power.att_auto: false}}
+          - {state: power.gain}
+      - label: 带宽
+        label_en: Bandwidth
+        controls:
+          - {state: bw.res_auto}
+          - {state: bw.res, when: {bw.res_auto: false}}
+          - {state: bw.vid_auto}
+          - {state: bw.vid, when: {bw.vid_auto: false}}
+      - label: 扫描
+        label_en: Sweep
+        controls:
+          - {state: sweep.time_auto}
+          - {state: sweep.time, when: {sweep.time_auto: false}}
+          - {state: sweep.points}
+          - {state: init.continuous}
+      - label: 检波与迹线
+        label_en: Detector and trace
+        controls:
+          - {state: detector}
+          - {state: trace.type}
+          - {state: aver.count, when: {trace.type: AVERage}}
+      - label: 标记
+        label_en: Marker
+        controls:
+          - {state: marker.enabled}
+          - {state: marker.mode, when: {marker.enabled: true}}
+          - {state: marker.x, when: {marker.enabled: true}}
+          - {state: marker.ref_x, when: {marker.enabled: true, marker.mode: DELTa}}
+          - {state: marker.ref_y, when: {marker.enabled: true, marker.mode: DELTa}}
+          - {state: marker.count, when: {marker.enabled: true}}
+          - {state: marker.search}
+          - {state: marker.threshold, when: {marker.search: PARameter}}
+          - {state: marker.excursion, when: {marker.search: PARameter}}
 capabilities: [spectrum_analyzer]
 # 频响平坦度的个体偏差（数据手册第 3 页 Frequency response，10 dB 衰减，相对 50 MHz，前放关）：
 # 200 kHz–2.0 GHz ±0.5 dB、2.0–3.0 GHz ±0.7 dB；标称曲线为 0（定义不写 flatness），50 MHz 处为 0。

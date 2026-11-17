@@ -1270,6 +1270,57 @@ display:
   - input.sensitivity
   - filter.time_constant
   - filter.slope
+  # 检查器面板（D74）：前面板先给的设置，内部参考才有频率与正弦输出，外部参考才有触发与输入阻抗，电压输入才有
+  # 电压输入方式与量程，电流输入才有电流增益，偏置只在开关打开时。其余设置在检查器里查找或在“全部设置”里改。
+  # 锁相放大器屏幕自己画，不用这里的分组。
+  panel:
+    groups:
+      - label: 参考
+        label_en: Reference
+        controls:
+          - {state: reference.source}
+          - {state: reference.frequency, when: {reference.source: 0}}
+          - {state: sine_out.amplitude, when: {reference.source: 0}}
+          - {state: sine_out.dc_mode, when: {reference.source: 0}}
+          - {state: sine_out.dc_level, when: {reference.source: 0}}
+          - {state: reference.trigger, when: {reference.source: 1}}
+          - {state: reference.impedance, when: {reference.source: 1}}
+          - {state: reference.phase}
+          - {state: reference.harmonic}
+          - {state: reference.timebase}
+      - label: 输入
+        label_en: Input
+        controls:
+          - {state: input.mode}
+          - {state: input.source, when: {input.mode: 0}}
+          - {state: input.range, when: {input.mode: 0}}
+          - {state: input.current_gain, when: {input.mode: 1}}
+          - {state: input.coupling}
+          - {state: input.shield_ground}
+      - label: 增益与时间常数
+        label_en: Gain and time constant
+        controls:
+          - {state: input.sensitivity}
+          - {state: filter.time_constant}
+          - {state: filter.slope}
+          - {state: filter.sync}
+          - {state: filter.advanced}
+      - label: 输出
+        label_en: Output
+        controls:
+          - {state: output.expand0}
+          - {state: output.offset_on0}
+          - {state: output.offset0, when: {output.offset_on0: 1}}
+          - {state: output.expand1}
+          - {state: output.offset_on1}
+          - {state: output.offset1, when: {output.offset_on1: 1}}
+          - {state: output.expand2}
+          - {state: output.offset_on2}
+          - {state: output.offset2, when: {output.offset_on2: 1}}
+          - {state: aux.output1}
+          - {state: aux.output2}
+          - {state: aux.output3}
+          - {state: aux.output4}
 capabilities:
 - lockin
 commands:

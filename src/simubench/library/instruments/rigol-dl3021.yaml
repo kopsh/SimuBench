@@ -301,6 +301,49 @@ ports:
 display:
   template: electronic_load
   summary: [function.mode, current.level, voltage.level, resistance.level, input.enabled]
+  # 检查器面板（D74）：前面板先给的设置，设定值随功能（CC 放电流、CV 放电压、CR 放电阻、CP 放功率），
+  # 档位跟着功能；其余设置在检查器里查找或在“全部设置”里改。
+  panel:
+    groups:
+      - label: 功能
+        label_en: Function
+        controls:
+          - {state: function.mode}
+          - {state: input.enabled}
+      - label: 定电流 CC
+        label_en: Constant current
+        when: {function.mode: CURRent}
+        controls:
+          - {state: current.level}
+          - {state: current.range}
+          - {state: current.slew}
+      - label: 定电压 CV
+        label_en: Constant voltage
+        when: {function.mode: VOLTage}
+        controls:
+          - {state: voltage.level}
+          - {state: voltage.range}
+      - label: 定电阻 CR
+        label_en: Constant resistance
+        when: {function.mode: RESistance}
+        controls:
+          - {state: resistance.level}
+          - {state: resistance.range}
+      - label: 定功率 CP
+        label_en: Constant power
+        when: {function.mode: POWer}
+        controls:
+          - {state: power.level}
+      - label: 启动与检测
+        label_en: Von and sense
+        controls:
+          - {state: current.von}
+          - {state: sense.enabled}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.source}
+          - {state: trigger.armed}
 capabilities: [electronic_load]
 commands:
   # ---- IEEE 488.2 公共命令（内置之外的，按手册行为定义） ----

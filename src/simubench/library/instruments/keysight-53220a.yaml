@@ -332,6 +332,71 @@ ports:
   media: {REF_IN: reference}
 display:
   summary: [function, gate.time, trigger.source]
+  # 检查器与面板屏幕的前面板（D74）：读数、功能键；预期频率与分辨率随功能，门时间只在按时间门控时，
+  # 外部时基频率随时基源；每个输入通道的耦合、阻抗、阈值在 channel_groups。声明替代面板屏幕的类别默认布局，
+  # 所以读数与功能键照类别默认一并写出。
+  panel:
+    readouts:
+      - {reading: ch1.core.value, label: 频率, label_en: Frequency, unit: Hz, digits: 10, when: {function: FREQuency}}
+      - {reading: ch1.core.value, label: 周期, label_en: Period, unit: s, digits: 10, when: {function: PERiod}}
+      - {reading: ch1.core.value, label: 累加, label_en: Totalize, digits: 10, when: {function: TOTalize}}
+      - {reading: ch1.core.value, label: 时间间隔, label_en: Time interval, unit: s, digits: 10, when: {function: TINTerval}}
+      - {reading: stats.mean, label: 统计均值, label_en: Mean, unit: Hz, digits: 8, when: {function: FREQuency}}
+      - {reading: stats.mean, label: 统计均值, label_en: Mean, unit: s, digits: 8, when: {function: PERiod}}
+      - {reading: stats.mean, label: 统计均值, label_en: Mean, digits: 8, when: {function: TOTalize}}
+      - {reading: stats.mean, label: 统计均值, label_en: Mean, unit: s, digits: 8, when: {function: TINTerval}}
+      - {reading: stats.sdev, label: 统计标准差, label_en: Std dev, unit: Hz, digits: 8, when: {function: FREQuency}}
+      - {reading: stats.sdev, label: 统计标准差, label_en: Std dev, unit: s, digits: 8, when: {function: PERiod}}
+      - {reading: stats.sdev, label: 统计标准差, label_en: Std dev, digits: 8, when: {function: TOTalize}}
+      - {reading: stats.sdev, label: 统计标准差, label_en: Std dev, unit: s, digits: 8, when: {function: TINTerval}}
+      - {reading: stats.count, label: 统计点数, label_en: Points}
+    groups:
+      - label: 测量
+        label_en: Measure
+        controls:
+          - {state: function, control: buttons, keys: [
+              {value: FREQuency, label: 频率},
+              {value: PERiod, label: 周期},
+              {value: TOTalize, label: 累加},
+              {value: TINTerval, label: 时间间隔},
+            ]}
+          - {state: measure.channels, control: select, when: {function: [FREQuency, PERiod, TOTalize]}}
+          - {state: measure.stop_channel, control: select, when: {function: TINTerval}}
+          - {state: measure.expected_frequency, control: number, when: {function: FREQuency}}
+          - {state: measure.resolution_frequency, control: number, when: {function: FREQuency}}
+          - {state: measure.expected_period, control: number, when: {function: PERiod}}
+          - {state: measure.resolution_period, control: number, when: {function: PERiod}}
+      - label: 门控
+        label_en: Gate
+        controls:
+          - {state: gate.source, control: select, when: {function: [FREQuency, PERiod]}}
+          - {state: gate.time, control: number, when: {function: [FREQuency, PERiod], gate.source: TIME}}
+      - label: 时基
+        label_en: Timebase
+        controls:
+          - {state: timebase.source, control: select}
+          - {state: timebase.external_frequency, control: number, when: {timebase.source: EXTernal}}
+          - {state: timebase.auto, control: switch, when: {timebase.source: EXTernal}}
+          - {state: timebase.standby, control: switch}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.source, control: select}
+          - {state: trigger.count, control: number}
+          - {state: sample.count, control: number}
+          - {state: trigger.delay, control: number}
+      - label: 统计
+        label_en: Statistics
+        controls:
+          - {state: calculate.enabled, control: switch}
+          - {state: statistics.enabled, control: switch}
+    channel_groups:
+      - label: 输入
+        label_en: Input
+        controls:
+          - {state: coupling, control: select}
+          - {state: impedance, control: number}
+          - {state: threshold, control: number}
 capabilities: [frequency_counter]
 commands:
   # ---- 输入调理（第 4 章，INPut 子系统）----

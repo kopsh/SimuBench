@@ -399,6 +399,44 @@ display:
     - compliance.current.limit
     - compliance.voltage.limit
     - output.enabled
+  # 检查器面板（D74）：前面板先给的设置，随源功能：电压源放电压设定与电流限，电流源放电流设定与电压限；
+  # 扫描参数随扫描模式。其余设置在检查器里查找或在“全部设置”里改。SMU 屏幕自己画，不用这里的分组。
+  panel:
+    groups:
+      - label: 源
+        label_en: Source
+        controls:
+          - {state: source.function}
+          - {state: source.voltage.level, when: {source.function: VOLTage}}
+          - {state: source.autorange_voltage, when: {source.function: VOLTage}}
+          - {state: source.range_voltage, when: {source.function: VOLTage, source.autorange_voltage: false}}
+          - {state: compliance.current.limit, when: {source.function: VOLTage}}
+          - {state: source.current.level, when: {source.function: CURRent}}
+          - {state: source.autorange_current, when: {source.function: CURRent}}
+          - {state: source.range_current, when: {source.function: CURRent, source.autorange_current: false}}
+          - {state: compliance.voltage.limit, when: {source.function: CURRent}}
+          - {state: output.enabled}
+      - label: 扫描
+        label_en: Sweep
+        controls:
+          - {state: sweep.mode}
+          - {state: sweep.start, when: {sweep.mode: SWEep}}
+          - {state: sweep.stop, when: {sweep.mode: SWEep}}
+          - {state: sweep.points, when: {sweep.mode: SWEep}}
+      - label: 测量
+        label_en: Measure
+        controls:
+          - {state: sense.nplc}
+          - {state: sense.range_auto}
+          - {state: sense.range_voltage, when: {sense.range_auto: false}}
+          - {state: sense.range_current, when: {sense.range_auto: false}}
+          - {state: sense.remote}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.source}
+          - {state: trigger.count}
+          - {state: trigger.delay}
 capabilities: [smu]
 commands:
   # ---- source ----------------------------------------------------------------

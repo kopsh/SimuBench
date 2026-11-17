@@ -457,4 +457,36 @@ display:
   channel_summary: [display, scale, offset, coupling, trigger_level]
   actions:
     single: "TRMD SINGLE"
+  # 检查器面板（D74）：前面板先给的设置，释抑时间随释抑方式；其余设置在检查器里查找或在“全部设置”里改。
+  # 示波器屏幕自己画，不用这里的分组。触发电平与沿是每通道的设置，放在通道分组里。
+  panel:
+    groups:
+      - label: 水平
+        label_en: Horizontal
+        controls:
+          - {state: timebase.scale}
+          - {state: memory.size}
+          - {state: reference.clock}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.mode}
+          - {state: trigger.type}
+          - {state: trigger.source}
+          - {state: trigger.hold}
+          - {state: trigger.holdoff, when: {trigger.hold: TI}}
+    channel_groups:
+      - label: 垂直
+        label_en: Vertical
+        controls:
+          - {state: display}
+          - {state: scale}
+          - {state: offset}
+          - {state: coupling}
+          - {state: probe}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger_level}
+          - {state: trigger_slope}
 capabilities: [oscilloscope]

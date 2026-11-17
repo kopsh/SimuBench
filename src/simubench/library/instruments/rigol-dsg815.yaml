@@ -490,6 +490,60 @@ ports:
 display:
   template: rf_generator
   summary: [freq.cw, power.level, output.enabled, sweep.manner, am.state, fm.state, pm.state]
+  # 检查器面板（D74）：前面板先给的设置，调制参数随各自的开关，扫描参数在扫描类型内。扫描状态是一组词
+  # （enum_list），面板的 when 比不了，扫描分组的参数一直列出。其余设置在检查器里查找或在“全部设置”里改。
+  panel:
+    groups:
+      - label: 频率
+        label_en: Frequency
+        controls:
+          - {state: freq.cw}
+          - {state: freq.step}
+      - label: 功率
+        label_en: Power
+        controls:
+          - {state: power.level}
+          - {state: power.unit}
+          - {state: power.step}
+      - label: 输出
+        label_en: Output
+        controls:
+          - {state: output.enabled}
+          - {state: mod.state}
+      - label: 调幅
+        label_en: AM
+        controls:
+          - {state: am.state}
+          - {state: am.depth, when: {am.state: true}}
+          - {state: am.rate, when: {am.state: true}}
+          - {state: am.waveform, when: {am.state: true}}
+      - label: 调频
+        label_en: FM
+        controls:
+          - {state: fm.state}
+          - {state: fm.dev, when: {fm.state: true}}
+          - {state: fm.rate, when: {fm.state: true}}
+          - {state: fm.waveform, when: {fm.state: true}}
+      - label: 调相
+        label_en: PM
+        controls:
+          - {state: pm.state}
+          - {state: pm.dev, when: {pm.state: true}}
+          - {state: pm.rate, when: {pm.state: true}}
+          - {state: pm.waveform, when: {pm.state: true}}
+      - label: 扫描
+        label_en: Sweep
+        controls:
+          - {state: sweep.manner}
+          - {state: sweep.start}
+          - {state: sweep.stop}
+          - {state: sweep.level_start}
+          - {state: sweep.level_stop}
+          - {state: sweep.points}
+          - {state: sweep.spacing}
+          - {state: sweep.dwell}
+          - {state: sweep.mode}
+          - {state: sweep.point_trigger}
 capabilities: [rf_generator]
 commands:
   # ---- IEEE 488.2 公共命令（手册 2-2）-----------------------------------------------------------
