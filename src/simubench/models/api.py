@@ -1217,7 +1217,10 @@ class CaseRun(_Model):
 
 
 class CaseRunRequest(_Model):
-    path: str = Field(..., description="Workspace-relative cases file")
+    path: str = Field(
+        ...,
+        description="Workspace-relative cases file, or a built-in one as listed (builtin:<folder>/cases.yaml)",
+    )
 
 
 class CaseRunResult(_Model):
@@ -1228,10 +1231,11 @@ class CaseRunResult(_Model):
 
 
 class CaseFile(_Model):
-    """A cases file in the workspace whose model is the definition."""
+    """A cases file whose model is the definition: in the workspace, or shipped with a built-in model."""
 
-    path: str = Field(..., description="Workspace-relative cases file")
+    path: str = Field(..., description="Workspace-relative cases file, or builtin:<folder>/cases.yaml")
     cases: int
+    builtin: bool = Field(False, description="The manual cases shipped with a built-in model (#1352)")
 
 
 # ---- run records (D36) ---------------------------------------------------------------------------

@@ -662,3 +662,72 @@ def cases_for_model(workspace: Path, def_id: str) -> list[tuple[str, int]]:
         if cases.model == def_id:
             out.append((path.relative_to(workspace).as_posix(), len(cases.cases)))
     return out
+
+
+# ---- the built-in models' manual cases (#1352) -------------------------------------------------------
+
+#: How a built-in cases file is named in the API: ``builtin:<folder>/cases.yaml``.
+BUILTIN_PREFIX = "builtin:"
+
+
+def builtin_cases_root() -> Path | None:
+    """Where the built-in models' manual cases live (#1352): packaged in the wheel as
+    ``simubench/library/model_cases`` (hatch_build.py), else the checkout's ``tests/models``."""
+    packaged = Path(__file__).parent / "model_cases"
+    if packaged.is_dir():
+        return packaged
+    checkout = Path(__file__).resolve().parents[3] / "tests" / "models"
+    return checkout if checkout.is_dir() else None
+
+
+def _builtin_index(root: Path) -> list[tuple[str, str, int]]:
+    """(folder, model, case count) of every manual cases file under ``root``; cached per file state."""
+    files = sorted(root.glob("*/cases.yaml"))
+    key = tuple((p.as_posix(), p.stat().st_mtime_ns) for p in files)
+    if _INDEX_CACHE.get("key") != key:
+        index: list[tuple[str, str, int]] = []
+        for path in files:
+            try:
+                cases = load_cases(path)
+            except Exception as exc:  # a broken file: the case runner reports it when run
+                log.debug("built-in cases %s skipped: %s", path, exc)
+                continue
+            index.append((path.parent.name, cases.model or path.parent.name, len(cases.cases)))
+        _INDEX_CACHE.update(key=key, index=index)
+    return _INDEX_CACHE["index"]
+
+
+_INDEX_CACHE: dict[str, Any] = {}
+
+
+def builtin_cases_for_model(def_id: str, root: Path | None = None) -> list[tuple[str, int]]:
+    """The manual cases shipped with SimuBench for ``def_id``, as ``builtin:<folder>/cases.yaml``
+    with their case counts (#1352)."""
+    root = root if root is not None else builtin_cases_root()
+    if root is None:
+        return []
+    return [
+        (f"{BUILTIN_PREFIX}{folder}/cases.yaml", n)
+        for folder, model, n in _builtin_index(root)
+        if model == def_id
+    ]
+
+
+def builtin_cases_file(name: str, def_id: str, root: Path | None = None) -> Path:
+    """The file a ``builtin:<folder>/cases.yaml`` name stands for, if it is one of ``def_id``'s.
+
+    Anything else — another model's file, a path out of the folder — is a ``ValueError``."""
+    root = root if root is not None else builtin_cases_root()
+    folder = name.removeprefix(BUILTIN_PREFIX).removesuffix("/cases.yaml")
+    if (
+        root is None
+        or not name.startswith(BUILTIN_PREFIX)
+        or not folder
+        or "/" in folder
+        or "\\" in folder
+        or folder in {".", ".."}
+    ):
+        raise ValueError(f"not a built-in cases file: {name}")
+    if (folder, def_id) not in {(f, m) for f, m, _ in _builtin_index(root)}:
+        raise ValueError(f"{name} is not a cases file of {def_id}")
+    return root / folder / "cases.yaml"

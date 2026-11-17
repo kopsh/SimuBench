@@ -414,7 +414,8 @@ export interface paths {
         };
         /**
          * Definition Cases
-         * @description The workspace's cases files whose model is this definition (the acceptance page's case tab).
+         * @description The cases files whose model is this definition (the acceptance page's case tab): the manual
+         *     cases shipped with a built-in model first (#1352), then the workspace's.
          */
         get: operations["listDefinitionCases"];
         put?: never;
@@ -1924,14 +1925,20 @@ export interface components {
         };
         /**
          * CaseFile
-         * @description A cases file in the workspace whose model is the definition.
+         * @description A cases file whose model is the definition: in the workspace, or shipped with a built-in model.
          */
         CaseFile: {
+            /**
+             * Builtin
+             * @description The manual cases shipped with a built-in model (#1352)
+             * @default false
+             */
+            builtin: boolean;
             /** Cases */
             cases: number;
             /**
              * Path
-             * @description Workspace-relative cases file
+             * @description Workspace-relative cases file, or builtin:<folder>/cases.yaml
              */
             path: string;
         };
@@ -1968,7 +1975,7 @@ export interface components {
         CaseRunRequest: {
             /**
              * Path
-             * @description Workspace-relative cases file
+             * @description Workspace-relative cases file, or a built-in one as listed (builtin:<folder>/cases.yaml)
              */
             path: string;
         };
