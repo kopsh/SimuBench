@@ -103,6 +103,71 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   await expect(row).toBeVisible();
 });
 
+test("SCPI command history stays with its instrument across selection and reload (#1348)", async ({ page }) => {
+  await startBench(page);
+  const scopeCommand = ":CHANnel1:SCALe 0.2";
+  const awgCommand = "C1:OUTPut ON";
+  const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  const recent = page.getByTestId("scpi-recent");
+  const node = (label: string) => page.locator(".react-flow__node").filter({ hasText: label });
+
+  await node("示波器").click();
+  await input.fill(scopeCommand);
+  await input.press("Enter");
+  await expect(recent.getByRole("button", { name: scopeCommand })).toBeVisible();
+
+  await node("函数发生器").click();
+  await expect(input).toHaveValue("");
+  await expect(recent).toHaveCount(0);
+  await input.press("ArrowUp");
+  await expect(input).toHaveValue("");
+  await input.press("ArrowDown");
+  await expect(input).toHaveValue("");
+
+  await input.fill(awgCommand);
+  await input.press("Enter");
+  await expect(recent.getByRole("button", { name: awgCommand })).toBeVisible();
+  await expect(recent.getByRole("button", { name: scopeCommand })).toHaveCount(0);
+
+  await node("示波器").click();
+  await expect(input).toHaveValue("");
+  await expect(recent.getByRole("button", { name: scopeCommand })).toBeVisible();
+  await expect(recent.getByRole("button", { name: awgCommand })).toHaveCount(0);
+  await input.press("ArrowUp");
+  await expect(input).toHaveValue(scopeCommand);
+  await input.press("ArrowDown");
+  await expect(input).toHaveValue("");
+
+  await node("函数发生器").click();
+  await expect(input).toHaveValue("");
+  await expect(recent.getByRole("button", { name: awgCommand })).toBeVisible();
+  await expect(recent.getByRole("button", { name: scopeCommand })).toHaveCount(0);
+  await input.press("ArrowUp");
+  await expect(input).toHaveValue(awgCommand);
+  await input.press("ArrowDown");
+  await expect(input).toHaveValue("");
+
+  const stored = await page.evaluate(() => ({
+    scope: JSON.parse(localStorage.getItem("simubench.scpiHistory.scope") ?? "[]"),
+    awg: JSON.parse(localStorage.getItem("simubench.scpiHistory.awg") ?? "[]"),
+  }));
+  expect(stored).toEqual({ scope: [scopeCommand], awg: [awgCommand] });
+
+  await page.reload();
+  await expect(page.locator(".react-flow__node")).toHaveCount(3);
+  await node("示波器").click();
+  await expect(recent.getByRole("button", { name: scopeCommand })).toBeVisible();
+  await expect(recent.getByRole("button", { name: awgCommand })).toHaveCount(0);
+  await input.press("ArrowUp");
+  await expect(input).toHaveValue(scopeCommand);
+  await node("函数发生器").click();
+  await expect(input).toHaveValue("");
+  await expect(recent.getByRole("button", { name: awgCommand })).toBeVisible();
+  await expect(recent.getByRole("button", { name: scopeCommand })).toHaveCount(0);
+  await input.press("ArrowUp");
+  await expect(input).toHaveValue(awgCommand);
+});
+
 test("open the scope screen by double-clicking its node", async ({ page }) => {
   await startBench(page);
   await page
