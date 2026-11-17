@@ -1076,6 +1076,7 @@ sections:
     level: implemented
   - header: :SYSTem:ERRor[:NEXT]
     level: implemented
+    note: 'A mixer overload is not reported here: the guide gives no overload error message, and its status system has no overload bit (the Questionable Integrity register bits are reserved, #1272). The analyzer shows overload on its screen; the session''s readings carry it as `sa.overload` (the Web spectrum screen flags it, the TUI shows OVLD).'
   - header: :SYSTem:OPTions
     level: not_modeled
     note: 'Model work: option handling exists (#1007); declare the installed options.'
@@ -1099,7 +1100,7 @@ sections:
     note: 'One trace: TRACe1..4 all select trace 1. AVERage, MAXHold and WRITe only; MINHold/VIEW/BLANK are not modeled.'
   - header: :TRACe[:DATA]
     level: implemented
-    note: 'Trace 1 only; 1001 points in dBm, seven decimals. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (5990-8119EN p.4-5, #960): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the 1 GHz table around every line. The frequency response is a per-unit deviation within the band limits of the data sheet (p.3, preamp-off limits, 0 at 50 MHz; deviation: from_specs), and the preamplifier is option P03. Not modeled: input-related spurious and residual responses (the data sheet gives no frequencies or mixing orders).'
+    note: 'Trace 1 only; 1001 points in dBm, seven decimals. Analytic evaluation (specan_trace evaluation: analytic): the trace includes the front end of the data sheet (5990-8119EN p.4-5, #960): noise figure from the typical DANL and second/third-order intercepts and 1 dB compression, each for the band holding the center frequency; SSB phase noise of the 1 GHz table around every line. Below the lowest band of the data sheet the figures are estimates (D46, #1272): 1 dB compression 0 dBm and third-order intercept +13 dBm below 50 and 300 MHz, second-order intercept 23.98 dBm below 10 MHz; the LO feedthrough at 0 Hz is an estimated -40 dBm (the data sheet and the guide give none). The frequency response is a per-unit deviation within the band limits of the data sheet (p.3, preamp-off limits, 0 at 50 MHz; deviation: from_specs), and the preamplifier is option P03. Not modeled: input-related spurious and residual responses (the data sheet gives no frequencies or mixing orders).'
   - header: :TRACe:MATH:OFF
     level: not_modeled
     note: 'Blocked by C6 (product-plan.md 4.2): trace math (add/subtract/normalize).'
