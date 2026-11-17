@@ -33,7 +33,7 @@ class Health(_Model):
     status: Literal["ok"] = "ok"
     version: str
     #: Where AI agents connect over MCP (streamable HTTP), when served with ``--mcp`` (#1188);
-    #: the Web Bench shows it in "连接 AI 助手". None: no MCP on this service.
+    #: the Web Bench shows it in "连接外部 AI（MCP）". None: no MCP on this service.
     mcp_url: str | None = None
 
 

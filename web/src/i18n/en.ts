@@ -606,9 +606,9 @@ export const en: Widen<Messages> = {
     noSource: "No source reaches this net.",
   },
   mcp: {
-    button: "Connect AI assistant",
-    title: "Connect an AI assistant (MCP)",
-    description: "SimuBench is serving MCP. Give your AI assistant the address or config below; the benches it builds and runs appear live on this page.",
+    button: "Connect external AI (MCP)",
+    title: "Connect an external AI client (MCP)",
+    description: "SimuBench is serving MCP. Give your AI client the address or config below; the benches it builds and runs appear live on this page.",
     url: "MCP address (streamable HTTP)",
     json: "Client config (mcpServers for Claude Desktop, Cursor, …)",
     claude: "Claude Code command",
