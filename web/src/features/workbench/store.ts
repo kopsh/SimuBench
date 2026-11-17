@@ -104,6 +104,25 @@ const initial = {
   bottomTab: "comms" as const,
 };
 
+/** The instrument a tab key belongs to ("screen:scope" → "scope"), or null for the canvas. */
+export const tabInstrument = (key: string): string | null => (key === "canvas" ? null : key.slice(key.indexOf(":") + 1));
+
+/**
+ * The tab and the inspector always show the same instrument: an instrument tab's inspector is that
+ * instrument's. Choosing an instrument tab selects its instrument; selecting (or locating a setting
+ * of) another instrument while an instrument tab is active moves to that instrument's tab of the
+ * same kind, opening it when needed. `lend`: the selection was the user's request to see it, so a
+ * folded inspector is shown beside the new tab too (#1221).
+ */
+function followInstrument(s: Pick<WorkbenchState, "tabs" | "active">, instrument: string, lend: boolean) {
+  const kind = tabKindOf(s.active);
+  if (kind === "canvas" || tabInstrument(s.active) === instrument) {
+    return { selection: { kind: "instrument" as const, id: instrument }, lentTo: lend ? s.active : null };
+  }
+  const opened = openTab(s.tabs, { kind, instrument });
+  return { ...opened, lentTo: lend ? opened.active : null };
+}
+
 function openTab(tabs: Tab[], tab: Tab & { instrument: string }) {
   const key = tabKey(tab);
   return {
@@ -143,13 +162,16 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   setMode: (mode) => set((s) => (s.mode === mode ? s : { mode, active: "canvas", lentTo: null })),
   revealSetting: (instrument, path) =>
     set((s) => ({
-      selection: { kind: "instrument", id: instrument },
+      ...followInstrument(s, instrument, true),
       reveal: { instrument, path, n: (s.reveal?.n ?? 0) + 1 },
-      lentTo: s.active,
     })),
   consumeReveal: (n) => set((s) => (s.reveal?.n === n ? { reveal: null } : s)),
   select: (selection) =>
-    set((s) => (JSON.stringify(s.selection) === JSON.stringify(selection) ? s : { selection, lentTo: s.active })),
+    set((s) => {
+      if (JSON.stringify(s.selection) === JSON.stringify(selection)) return s;
+      if (selection?.kind === "instrument") return followInstrument(s, selection.id, true);
+      return { selection, lentTo: s.active };
+    }),
   openScreen: (instrument) => set((s) => openTab(s.tabs, { kind: "screen", instrument })),
   openInternals: (instrument) => set((s) => openTab(s.tabs, { kind: "internals", instrument })),
   openAcceptance: (instrument) => set((s) => openTab(s.tabs, { kind: "acceptance", instrument })),
@@ -158,7 +180,7 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
       const tab: Tab = { kind: "acceptance", instrument, definition, section };
       const key = tabKey(tab);
       const tabs = s.tabs.some((t) => tabKey(t) === key) ? s.tabs.map((t) => (tabKey(t) === key ? tab : t)) : [...s.tabs, tab];
-      return { tabs, active: key };
+      return { tabs, active: key, selection: { kind: "instrument" as const, id: instrument } };
     }),
   closeTab: (key) =>
     set((s) => {
@@ -166,7 +188,13 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
       const tabs = s.tabs.filter((t) => tabKey(t) !== key);
       return s.active === key ? { tabs, active: "canvas", lentTo: null } : { tabs };
     }),
-  setActive: (active) => set((s) => (s.active === active ? s : { active, lentTo: null })),
+  setActive: (active) =>
+    set((s) => {
+      if (s.active === active) return s;
+      const instrument = tabInstrument(active);
+      // An instrument tab brings its instrument into the inspector; the canvas keeps the selection.
+      return instrument ? { active, lentTo: null, selection: { kind: "instrument" as const, id: instrument } } : { active, lentTo: null };
+    }),
   setPalette: (paletteOpen) => set({ paletteOpen }),
   setHistory: (historyOpen) => set({ historyOpen }),
   setBottomTab: (bottomTab) => set({ bottomTab }),
@@ -174,6 +202,8 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
   restore: (tabs, active) =>
     set(() => {
       const all: Tab[] = [{ kind: "canvas" }, ...tabs.filter((t) => t.kind === "screen")];
-      return { tabs: all, active: all.some((t) => tabKey(t) === active) ? active : "canvas" };
+      const shown = all.some((t) => tabKey(t) === active) ? active : "canvas";
+      const instrument = tabInstrument(shown);
+      return instrument ? { tabs: all, active: shown, selection: { kind: "instrument" as const, id: instrument } } : { tabs: all, active: shown };
     }),
 }));

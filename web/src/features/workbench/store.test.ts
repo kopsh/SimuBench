@@ -87,7 +87,7 @@ describe("the inspector beside each kind of tab (#1221)", () => {
     st().reset();
     st().openInternals("scope"); // opening a tab selects its instrument: not a request to show
     expect(st().lentTo).toBeNull();
-    st().select({ kind: "instrument", id: "awg" });
+    st().select({ kind: "part", id: "dut" });
     expect(st().lentTo).toBe("internals:scope");
     st().setActive("canvas");
     expect(st().lentTo).toBeNull();
@@ -134,5 +134,55 @@ describe("showDefinition (#1250)", () => {
       { kind: "acceptance", instrument: "scope", definition: "my-keysight-uxr1104b", section: "build" },
     ]);
     expect(s.active).toBe("acceptance:scope");
+  });
+});
+
+describe("the tab and the inspector show the same instrument", () => {
+  const st = () => useWorkbench.getState();
+  beforeEach(() => st().reset());
+
+  it("selects a tab's instrument when the tab is chosen", () => {
+    st().openScreen("scope");
+    st().openScreen("dmm");
+    expect(st().selection).toEqual({ kind: "instrument", id: "dmm" });
+    st().setActive("screen:scope");
+    expect(st().selection).toEqual({ kind: "instrument", id: "scope" });
+    st().setActive("screen:dmm");
+    expect(st().selection).toEqual({ kind: "instrument", id: "dmm" });
+  });
+
+  it("keeps the selection when the canvas is chosen", () => {
+    st().openScreen("scope");
+    st().setActive("canvas");
+    expect(st().selection).toEqual({ kind: "instrument", id: "scope" });
+  });
+
+  it("moves to another instrument's tab of the same kind when that instrument is selected", () => {
+    st().openScreen("scope");
+    st().select({ kind: "instrument", id: "awg" });
+    expect(st().active).toBe("screen:awg");
+    expect(st().tabs.map((t) => t.kind + ":" + ("instrument" in t ? t.instrument : ""))).toContain("screen:awg");
+    expect(st().selection).toEqual({ kind: "instrument", id: "awg" });
+    expect(st().lentTo).toBe("screen:awg");
+  });
+
+  it("selects on the canvas without changing the tab", () => {
+    st().select({ kind: "instrument", id: "awg" });
+    expect(st().active).toBe("canvas");
+    expect(st().tabs).toHaveLength(1);
+  });
+
+  it("follows a locate request for another instrument's setting to that instrument's tab", () => {
+    st().openInternals("scope");
+    st().revealSetting("awg", "ch1.freq");
+    expect(st().active).toBe("internals:awg");
+    expect(st().selection).toEqual({ kind: "instrument", id: "awg" });
+    expect(st().reveal).toMatchObject({ instrument: "awg", path: "ch1.freq" });
+    expect(st().lentTo).toBe("internals:awg");
+  });
+
+  it("selects the active tab's instrument when the remembered tabs are restored", () => {
+    st().restore([{ kind: "screen", instrument: "scope" }], "screen:scope");
+    expect(st().selection).toEqual({ kind: "instrument", id: "scope" });
   });
 });

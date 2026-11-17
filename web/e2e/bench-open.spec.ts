@@ -40,7 +40,7 @@ test("reset brings instruments back to power-on defaults", async ({ page }) => {
     data: { path: "ch1.scale", value: 0.5 },
   });
 
-  await page.getByRole("button", { name: "重置" }).click();
+  await page.getByRole("button", { name: "重置测试台", exact: true }).click();
   await expect(page.getByText("已重置：仪表回到初始状态")).toBeVisible();
   const info = (await (
     await page.request.get(`/api/sessions/${sid}`, { headers })

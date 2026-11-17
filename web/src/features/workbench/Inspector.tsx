@@ -1,9 +1,10 @@
-import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, MonitorPlay, MousePointerClick, Send } from "lucide-react";
+import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, MonitorPlay, MousePointerClick, RotateCcw, Send } from "lucide-react";
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo, SessionInfo, StateVarInfo } from "@/api/client";
-import { useScpi, useSession } from "@/api/hooks";
+import { scpiOutcome, useScpi, useSession } from "@/api/hooks";
+import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { EmptyState } from "@/components/app/StateViews";
 import { SaveTemplateButton } from "@/features/assistant/SaveTemplateDialog";
 import { Button } from "@/components/ui/button";
@@ -133,7 +134,16 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
     <div className="space-y-4 p-3">
       {/* Beside its own screen, the screen carries the remote banner and LOCAL; here only a mark (#1273). */}
       {!besideScreen && <RemoteBanner compact sid={sid} inst={inst} className="-mx-3 -mt-3" />}
-      <Header title={instrumentTitle(inst)} subtitle={`${inst.manufacturer} ${inst.model}`} aside={besideScreen && <RemoteMark inst={inst} />} />
+      <Header
+        title={instrumentTitle(inst)}
+        subtitle={`${inst.manufacturer} ${inst.model}`}
+        aside={
+          <>
+            {besideScreen && <RemoteMark inst={inst} />}
+            <ResetInstrument sid={sid} inst={inst} disabled={readonly} />
+          </>
+        }
+      />
       {/* One primary action (the screen); the rest are less frequent and sit as a row below it (#1252). */}
       <div className="grid gap-1.5" data-testid="instrument-actions">
         <Button size="sm" onClick={() => openScreen(inst.name)}>
@@ -184,6 +194,41 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
         <FaultPanel sid={sid} instrument={inst.name} disabled={readonly} />
       </Section>
     </div>
+  );
+}
+
+/**
+ * Reset this one instrument: `*RST` through the same path as the command box, so it shows in the
+ * communication log and an instrument in remote control refuses it like any command from the UI.
+ * The other instruments, the session and its record are left alone; the top bar's reset
+ * power-cycles the whole bench.
+ */
+function ResetInstrument({ sid, inst, disabled }: { sid: string; inst: InstrumentInfo; disabled: boolean }) {
+  const { t } = useTranslation();
+  const scpi = useScpi(sid, inst.name);
+  const name = instrumentTitle(inst);
+  return (
+    <Button
+      variant="ghost"
+      size="icon"
+      className="size-7 shrink-0"
+      aria-label={t("workbench.resetInstrument")}
+      title={t("workbench.resetInstrumentHint")}
+      disabled={disabled || scpi.isPending}
+      onClick={() =>
+        scpi.mutate("*RST", {
+          onSuccess: (r) => {
+            const { ok, message } = scpiOutcome(r);
+            if (ok) toast.success(t("workbench.resetInstrumentDone", { name }));
+            else toast.error(message ?? t("workbench.resetInstrument"));
+          },
+          // An instrument in remote control is already reported, with its LOCAL button (useScpi).
+          onError: (e) => !remoteInstrument(e) && toast.error((e as Error).message),
+        })
+      }
+    >
+      <RotateCcw className={scpi.isPending ? "size-3.5 animate-spin" : "size-3.5"} />
+    </Button>
   );
 }
 
