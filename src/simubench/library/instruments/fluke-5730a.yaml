@@ -203,11 +203,16 @@ ports:
     SENSE: out.sense
 display:
   summary: [out.function, out.level, out.frequency, out.operate, extguard]
-  # 检查器与面板屏幕的前面板（D74）：输出值、频率（只在交流功能）、量程锁定、工作 / 待机，以及
-  # 接线（地线与外部保护 / 外部检测）。声明替代面板屏幕的类别默认布局，所以读数与按键照类别默认一并写出。
+  # 检查器与面板屏幕的前面板（D74）：输出值（单位随功能，V / A / Ω，#1326）、频率（只在交流功能）、
+  # 量程锁定、工作 / 待机，以及接线（地线与外部保护 / 外部检测）。声明替代面板屏幕的类别默认布局，
+  # 所以读数与按键照类别默认一并写出。一个读数的 when 只取一个值，单位不同的功能各写一条。
   panel:
     readouts:
-      - {reading: out.level, label: 输出, label_en: Output, unit: V, digits: 7}
+      - {reading: out.level, label: 输出, label_en: Output, unit: V, digits: 7, when: {out.function: DCV}}
+      - {reading: out.level, label: 输出, label_en: Output, unit: V, digits: 7, when: {out.function: ACV}}
+      - {reading: out.level, label: 输出, label_en: Output, unit: A, digits: 7, when: {out.function: DCI}}
+      - {reading: out.level, label: 输出, label_en: Output, unit: A, digits: 7, when: {out.function: ACI}}
+      - {reading: out.level, label: 输出, label_en: Output, unit: Ω, digits: 7, when: {out.function: OHM}}
       - {reading: out.frequency, label: 频率, label_en: Frequency, unit: Hz, digits: 6, when: {out.function: ACV}}
       - {reading: out.frequency, label: 频率, label_en: Frequency, unit: Hz, digits: 6, when: {out.function: ACI}}
       - {reading: out.output, label: 输出端, label_en: Terminal}
