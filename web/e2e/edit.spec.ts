@@ -126,6 +126,10 @@ test("create a bench from the home page and build it", async ({ page }) => {
   await page.getByRole("button", { name: "创建并打开" }).click();
   await expect(page).toHaveURL(isSession);
   await expect(page.getByRole("tab", { name: "元件库" })).toBeVisible();
+  // The library groups by class, as the home page does (#1356).
+  const scopes = page.getByRole("heading", { name: "示波器", exact: true });
+  await expect(scopes).toBeVisible();
+  await expect(scopes.locator("xpath=..").getByTestId("library-sb-dso-4")).toBeVisible();
 
   // Drag a scope from the library onto the canvas.
   const source = page.getByTestId("library-sb-dso-4");
@@ -136,6 +140,10 @@ test("create a bench from the home page and build it", async ({ page }) => {
   await expect(page.locator(".react-flow__node")).toHaveCount(2);
   const doc = await readDoc(page.request, `${name}.bench.yaml`);
   expect(Object.keys(doc.data.instruments as object).sort()).toEqual(["awg", "scope"]);
+  // The build inspector says what its fields change, not "switch to Build" (#1356).
+  await page.locator(".react-flow__node").filter({ hasText: "scope" }).first().click();
+  await expect(page.getByText("这里改的是打开测试台时的初始设置")).toBeVisible();
+  await expect(page.getByText("要修改请切换到搭建")).toHaveCount(0);
 });
 
 test("review an agent's change in the version history and restore the version before it", async ({ page }) => {

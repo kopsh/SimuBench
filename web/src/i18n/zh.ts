@@ -371,7 +371,7 @@ export const zh = {
     label: "显示名称",
     labelPlaceholder: "可选，用于界面显示",
     initialState: "初始状态",
-    initialStateHint: "打开测试台时仪表的设置；要修改请切换到搭建。",
+    initialStateHint: "这里改的是打开测试台时的初始设置，保存到测试台文件；运行中的值在“操作”模式或仪表屏幕里改。",
     resetDefault: "恢复默认",
     defaultValue: "默认",
     bench: "测试台",

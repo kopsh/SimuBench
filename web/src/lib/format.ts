@@ -190,3 +190,21 @@ export function parseEngineering(text: string): number | null {
   const base = Number(m[1]);
   return m[2] ? base * SI[m[2]] : base;
 }
+
+// ---- makers (#1356) ----------------------------------------------------------------------------
+
+/** Words that only say "a company" and add nothing to a short maker name. */
+const MAKER_TAIL = new Set(["technologies", "technology", "inc", "inc.", "co.", "ltd", "ltd."]);
+
+/**
+ * A maker's name as lists show it (#1356): the trailing "Technologies" dropped and shouted words
+ * written as names ("RIGOL TECHNOLOGIES" → "Rigol", "FLUKE" → "Fluke"); short initialisms ("B&K",
+ * "SRS") and mixed-case words ("LeCroy") stay. The full name goes in the title.
+ */
+export function makerName(manufacturer: string): string {
+  const words = manufacturer.trim().split(" ").filter(Boolean);
+  while (words.length > 1 && MAKER_TAIL.has(words[words.length - 1].toLowerCase())) words.pop();
+  return words
+    .map((w) => (w.length > 3 && w === w.toUpperCase() && w !== w.toLowerCase() ? w[0] + w.slice(1).toLowerCase() : w))
+    .join(" ");
+}

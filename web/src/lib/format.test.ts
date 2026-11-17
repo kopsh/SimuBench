@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayUnit, formatClock, formatEng, formatReadout, isOverload, parseEngineering, resistance, unitWord } from "./format";
+import { displayUnit, formatClock, formatEng, formatReadout, isOverload, makerName, parseEngineering, resistance, unitWord } from "./format";
 
 describe("format", () => {
   it("engineering notation", () => {
@@ -81,5 +81,18 @@ describe("unitWord (#1257)", () => {
     expect(unitWord("20 m")).toBe("");
     expect(unitWord("3 dBm")).toBe("dbm");
     expect(unitWord("abc")).toBeNull();
+  });
+});
+
+describe("makerName (#1356)", () => {
+  it("drops the company word and writes shouted names as names", () => {
+    expect(makerName("Keysight Technologies")).toBe("Keysight");
+    expect(makerName("RIGOL TECHNOLOGIES")).toBe("Rigol");
+    expect(makerName("FLUKE")).toBe("Fluke");
+  });
+  it("keeps initialisms and mixed-case names", () => {
+    expect(makerName("B&K Precision")).toBe("B&K Precision");
+    expect(makerName("Teledyne LeCroy")).toBe("Teledyne LeCroy");
+    expect(makerName("Rohde & Schwarz")).toBe("Rohde & Schwarz");
   });
 });

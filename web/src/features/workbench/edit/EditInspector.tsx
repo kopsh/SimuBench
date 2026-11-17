@@ -27,7 +27,7 @@ import { pickLabel } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { DeviationSection } from "../DeviationSection";
 import { Header, KeyValues, Section } from "../Inspector";
-import { accessoryLabel, channelVars, globalVars, instrumentTitle } from "../model";
+import { accessoryLabel, channelVars, globalVars, instrumentTitle, panelFirst } from "../model";
 import { FIELD_GRID_COLS, StateField } from "../StateField";
 import { useWorkbench } from "../store";
 import { NAME } from "./actions";
@@ -271,7 +271,7 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
       <p className="text-muted-foreground text-[11px]">{t("edit.initialStateHint")}</p>
       {globalVars(inst).length > 0 && (
         <Section title={t("edit.initialState")}>
-          <div className="space-y-1.5">{globalVars(inst).map(field)}</div>
+          <div className="space-y-1.5">{panelFirst(inst, globalVars(inst)).map(field)}</div>
         </Section>
       )}
       {channels.map((n) => (
