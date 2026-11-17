@@ -85,11 +85,11 @@ function CopyAsMine({ definitionId, section, onOpen }: { definitionId: string; s
 
 const SECTIONS = [
   { key: "overview", icon: Info },
+  { key: "cases", icon: FlaskConical },
   { key: "commands", icon: ListTree },
   { key: "internals", icon: Blocks },
-  { key: "build", icon: Hammer },
   { key: "try", icon: Terminal },
-  { key: "cases", icon: FlaskConical },
+  { key: "build", icon: Hammer },
   { key: "history", icon: History },
 ] as const;
 
