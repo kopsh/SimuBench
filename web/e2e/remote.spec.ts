@@ -1,6 +1,7 @@
 // Issue 121: while a script is connected, the UI does not change the instruments behind its back.
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 import { type Socket, createConnection } from "node:net";
+import { expectAttributeContains } from "./judge";
 
 const TOKEN = "e2e-token";
 const headers = { "x-simubench-token": TOKEN };
@@ -61,6 +62,10 @@ test("a script makes the instrument remote; LOCAL takes it back until the script
   const banner = page.getByTestId("remote-banner").first();
   await expect(banner).toContainText("远程控制中");
   await expect(banner).toContainText("socket:127.0.0.1:");
+  // In the inspector the text spans the column, LOCAL sits in the title row, the client is shown whole (#1273).
+  const client = banner.getByRole("list", { name: "已连接的客户端" }).getByRole("listitem").first();
+  expect(await client.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  expect((await banner.boundingBox())!.height).toBeLessThanOrEqual(80);
 
   // The console is refused while remote, and says how to take the instrument back.
   await page.getByLabel("发送 SCPI 命令").fill(":CHAN1:SCAL 0.5");
@@ -76,9 +81,20 @@ test("a script makes the instrument remote; LOCAL takes it back until the script
   await send(script, "*IDN?"); // the script's next command: remote again
   await expect(banner).toContainText("远程控制中");
 
+  // With the screen open, its banner is the one notice: the inspector beside it only marks the state (#1273).
+  await page.getByRole("button", { name: "打开屏幕" }).click();
+  await expect(page.getByRole("tab", { name: "示波器" })).toBeVisible();
+  await expect(page.getByTestId("remote-banner")).toHaveCount(1);
+  await expect(page.getByRole("button", { name: "本地（LOCAL）" })).toHaveCount(1);
+  const mark = page.getByTestId("remote-mark");
+  await expect(mark).toHaveText("远程");
+  await expectAttributeContains(mark, "title", "socket:127.0.0.1:");
+  expect((await mark.boundingBox())!.height).toBeLessThanOrEqual(80);
+
   script.destroy();
   await expect.poll(async () => (await session(page.request, sid)).clients.length).toBe(0);
   await expect(page.getByTestId("remote-banner")).toHaveCount(0);
+  await expect(page.getByTestId("remote-mark")).toHaveCount(0);
 });
 
 test("with a script connected, Operate asks before rebuilding and can rebuild later", async ({ page }) => {

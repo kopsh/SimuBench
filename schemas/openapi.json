@@ -5135,11 +5135,27 @@
             "description": "The setting that names the channel, e.g. 'waveform.source'",
             "title": "Setting",
             "type": "string"
+          },
+          "taps": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The channel components it reads, one per channel (a scope trigger taps the analog signal at the ADC's input, #1263); none given: every channel component reaches it",
+            "title": "Taps"
           }
         },
         "required": [
           "component",
-          "setting"
+          "setting",
+          "taps"
         ],
         "title": "InternalSelect",
         "type": "object"

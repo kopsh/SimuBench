@@ -281,7 +281,7 @@ class Component:
                                                       ▼
 共享：                                             scope_adc ──▶ [scope_dsp_filter …] ──▶ scope_decimator ──▶ scope_acquisition ──▶ measurements / waveform_transfer
                                                   (samples，原生速率)  （DSP 带宽，#1262） (samples，记录速率)   （存储：Record）
-触发：scope_vertical 的输出 ─▶ scope_trigger（模拟通路，现有；不变）
+触发：ADC 输入端的模拟信号 ─▶ scope_trigger（模拟通路：自己的 bandwidth 与按档位的 noise_table，不经 ADC 之后的数字滤波，#1263）
 引用：scope_timebase、scope_trigger 仍由 acquisition 引用（它们是设置与时序，不是数据）
 ```
 

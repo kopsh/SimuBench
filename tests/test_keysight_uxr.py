@@ -144,18 +144,28 @@ def test_the_bandwidth_filter_ceiling_is_the_spec_bandwidth(def_id):
     assert definition.specs["warranted_bandwidth_hz"] <= bandwidth.max
 
 
-def test_the_records_time_origin_scatters_by_the_jitter_spec(scope):
+def test_the_records_time_origin_scatters_by_the_jitter_spec(tmp_path):
     """#774: the data sheet's 25 fs intrinsic jitter (specs.trigger_jitter_s_rms) lands in every
     record's time origin — over repeated acquisitions of the same repeating trigger the origins
-    scatter by exactly it (the trigger's interpolated phase repeats; the jitter draws anew)."""
+    scatter by exactly it (the trigger's interpolated phase repeats; the jitter draws anew). The
+    trigger path's own noise (#1263) moves the trigger instant by its noise over the edge's slope
+    besides; it is switched off here (a hidden parameter) to see the intrinsic term alone."""
     from refcalc.noise import sigma_interval
 
-    uxr, session = scope
+    data = yaml.safe_load(CASES_BENCH.read_text("utf-8"))
+    data["instruments"]["scope"]["hidden"] = {"trigger": {"noise_table": None}}
+    bench = tmp_path / "bench.yaml"
+    bench.write_text(yaml.safe_dump(data), "utf-8")
+    rm = pyvisa.ResourceManager(f"{bench}@simubench")
+    uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=5000)
+    uxr.write(":CHANnel1:SCALe 0.1;:ACQuire:POINts 2000")
+    session = rm.visalib.bench
     origins = []
     for _ in range(24):
         uxr.write(":DIGitize CHANnel1")
         uxr.query(":WAVeform:DATA?")
         origins.append(session.instruments["scope"].components["acq"].records[1].origin)
+    rm.close()
     lo, hi = sigma_interval(2.5e-14, len(origins))
     assert lo <= float(np.std(origins)) <= hi, (float(np.std(origins)), lo, hi)
 
@@ -416,6 +426,58 @@ def test_the_noise_falls_with_the_bandwidth_filters_after_the_adc():
         assert reader.errors(uxr) == []
     finally:
         rm.close()
+
+
+CASES_BENCH_1104B = ROOT / "tests" / "models" / "keysight-uxr1104b" / "bench.yaml"
+
+
+def _bench_with(tmp_path: Path, name: str, hidden: dict | None = None) -> Path:
+    """The UXR1104B's cases bench (a 10 MHz, 400 mVpp sine on CH1), with ``hidden`` parameters."""
+    data = yaml.safe_load(CASES_BENCH_1104B.read_text("utf-8"))
+    if hidden:
+        data["instruments"]["scope"]["hidden"] = hidden
+    bench = tmp_path / name
+    bench.write_text(yaml.safe_dump(data), "utf-8")
+    return bench
+
+
+def test_the_trigger_taps_the_analog_front_end_with_its_own_noise(tmp_path):
+    """#1263: the trigger compares the signal at the ADC's input — before :ACQuire:BANDwidth's and
+    InfiniiSim's digital filters — through its own noise (the channel's per-division table, an
+    estimate the data sheet's 71 fs display jitter at 55 GHz bears out). A 400 mVpp sine at
+    0.5 V/div stays inside the normal hysteresis band (±0.25 V) but for the noise: with NORMal the
+    noise carries its troughs past the band and every acquisition triggers; NREJect's wider band
+    never triggers; without the trigger's noise neither does NORMal. Same seed, same sequence."""
+
+    def triggers(bench: Path, hysteresis: str, band: str = "MAX") -> tuple[str, list[float]]:
+        rm = pyvisa.ResourceManager(f"{bench}@simubench")
+        try:
+            uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+            uxr.write(
+                f":ACQuire:POINts 2000;:CHANnel1:SCALe 0.5;:TRIGger:HYSTeresis {hysteresis};:ACQuire:BANDwidth {band}"
+            )
+            hits, origins = "", []
+            for _ in range(12):
+                uxr.write(":DIGitize CHANnel1")
+                hits += uxr.query(":TERegister?").strip()
+                origins.append(rm.visalib.bench.instruments["scope"].components["acq"].records[1].origin)
+            return hits, origins
+        finally:
+            rm.close()
+
+    bench = _bench_with(tmp_path, "b.yaml")
+    normal, origins = triggers(bench, "NORMal")
+    # -- NORMal: the noise makes the sub-band sine trigger, every time, at its rising crossing
+    assert normal == "1" * 12
+    # -- NREJect: the band is twice as wide; noise does not reach it
+    assert triggers(bench, "NREJect")[0] == "0" * 12
+    # -- the same seed gives the same acquisitions
+    assert triggers(bench, "NORMal") == (normal, origins)
+    # -- the noise is what triggers: without it the normal band is never crossed
+    quiet = _bench_with(tmp_path, "q.yaml", {"trigger": {"noise_table": None}})
+    assert triggers(quiet, "NORMal")[0] == "0" * 12
+    # -- :ACQuire:BANDwidth is DSP after the ADC: a 1 GHz limit leaves every trigger where it was
+    assert triggers(bench, "NORMal", "1E9") == (normal, origins)
 
 
 @pytest.mark.parametrize(

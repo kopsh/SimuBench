@@ -12,7 +12,7 @@ import { InstrumentInspector } from "./Inspector";
 const v = (path: string, rest: Record<string, unknown>, channel: number | null = null) =>
   ({ path, channel, readonly: false, dangerous: false, ...rest }) as unknown as StateVarInfo;
 
-function scope(): InstrumentInfo {
+function scope(remote: string[] = []): InstrumentInfo {
   const state: StateVarInfo[] = [
     v("timebase.scale", { type: "float", unit: "S", value: 2e-4, label: "时基", label_en: "Timebase" }),
     v("trigger.source", { type: "enum", options: ["C1", "C2", "C3", "C4"], value: "C1", label: "触发源", label_en: "Trigger source" }),
@@ -38,7 +38,8 @@ function scope(): InstrumentInfo {
     model: "T-4CH",
     idn: "Template,T-4CH,0,1.0",
     address_virtual: "TCPIP0::127.0.0.1::INSTR",
-    remote: [],
+    remote,
+    local: false,
     errors: [],
     channels: 4,
     state,
@@ -46,11 +47,11 @@ function scope(): InstrumentInfo {
   } as unknown as InstrumentInfo;
 }
 
-function InspectorColumn() {
+function InspectorColumn({ remote }: { remote?: string[] }) {
   return (
     <QueryClientProvider client={new QueryClient()}>
       <div className="w-[320px] rounded-md border">
-        <InstrumentInspector sid="" inst={scope()} readonly={false} />
+        <InstrumentInspector sid="" inst={scope(remote)} readonly={false} />
       </div>
     </QueryClientProvider>
   );
@@ -61,3 +62,6 @@ export default meta;
 type Story = StoryObj<typeof InspectorColumn>;
 
 export const FourChannelTemplateScope: Story = {};
+
+/** A script holds the instrument (#1273): the notice spans the column, LOCAL in its title row, the client whole. */
+export const RemoteControlled: Story = { args: { remote: ["bench:127.0.0.1:60002#0001"] } };

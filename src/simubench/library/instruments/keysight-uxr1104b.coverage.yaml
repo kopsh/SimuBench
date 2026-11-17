@@ -4896,7 +4896,7 @@ sections:
     level: implemented
     note: 'NORMal: half a division (the data sheet''s 1 div p-p sensitivity); NREJect: one division (the noise reject
       band); HSENsitivity: a quarter division. The NREJect and HSENsitivity figures are SimuBench values, the guide
-      gives none.'
+      gives none. The trigger compares the analog signal at the ADC''s input (not through :ACQuire:BANDwidth or InfiniiSim, which are DSP after the ADC) with its own noise, the channel''s per-division noise table (an estimate: the data sheet gives no trigger noise; its 71 fs display jitter on a 55 GHz, 500 mVpp sine at 100 mV/div is 6.1 mV over the edge''s slope, the table''s 100 mV/div value). Near the band, the noise decides whether an edge counts: a sine just inside the normal band triggers on its noise, NREJect''s does not (#1263)'
   - header: :TRIGger:LEVel
     level: implemented
     note: one level per source (CHANnel<N>, AUX); the query takes the source too. Channel levels within ±4 divisions
