@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import shutil
 import socket
 import threading
 import time
@@ -415,6 +416,28 @@ def test_definition_document_and_coverage_are_served():
         assert c.get("/api/definitions/sb-dmm-1/coverage").json() is None  # not a real model
         assert c.get("/api/definitions/no-such-def/document").status_code == 404
         assert c.get("/api/definitions/no-such-def/coverage").status_code == 404
+
+
+def test_the_document_route_names_the_sessions_to_restart(tmp_path):
+    """The HTTP definition document fills sessions_to_restart like the MCP read_definition does
+    (#1382): a running session keeps the definition it started with until restarted (D25)."""
+    import yaml
+
+    shutil.copy(ROOT / "validation" / "benches" / "awg_rc_scope.bench.yaml", tmp_path / "awg_rc_scope.bench.yaml")
+    (tmp_path / "instruments").mkdir()  # the workspace copy shadows the built-in sb-awg-2
+    shutil.copy(ROOT / "validation" / "instruments" / "sb-awg-2.yaml", tmp_path / "instruments" / "sb-awg-2.yaml")
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "awg_rc_scope.bench.yaml"}).json()["id"]
+        assert c.get("/api/definitions/sb-awg-2/document").json()["sessions_to_restart"] == []
+        path = tmp_path / "instruments" / "sb-awg-2.yaml"
+        data = yaml.safe_load(path.read_text())
+        data["description"] = "changed after the session started"
+        path.write_text(yaml.safe_dump(data, allow_unicode=True), encoding="utf-8")
+        assert c.get("/api/definitions/sb-awg-2/document").json()["sessions_to_restart"] == [sid]
+        c.delete(f"/api/sessions/{sid}")
 
 
 def test_try_session_instrument_and_internals(client):

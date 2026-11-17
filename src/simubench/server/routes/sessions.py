@@ -336,10 +336,8 @@ def _net_and_clock_routes(ctx: ApiContext, router: APIRouter) -> None:
         """One file's bytes (``path`` as the listing gives it); never outside the instrument's folder."""
         try:
             data = instrument_files.read(served(sid).session, name, path)
-        except KeyError as exc:
-            raise not_found(exc) from None
-        except PermissionError as exc:
-            raise HTTPException(403, str(exc)) from None
+        except Exception as exc:
+            raise ctx.http_error(exc) from None
         filename = path.rsplit("/", 1)[-1]
         return Response(
             data,
@@ -435,10 +433,8 @@ def _reading_and_fault_routes(ctx: ApiContext, router: APIRouter) -> None:
     def inject_fault(sid: str, spec: Fault, client: str = Depends(client_of)) -> M.FaultInfo:
         try:
             return faults.inject(served(sid), spec, source=client)
-        except KeyError as exc:
-            raise not_found(exc) from None
-        except ValueError as exc:
-            raise HTTPException(422, str(exc)) from None
+        except Exception as exc:
+            raise ctx.http_error(exc, full_detail=True) from None
 
     @router.delete(
         "/api/sessions/{sid}/faults/{fault_id}",

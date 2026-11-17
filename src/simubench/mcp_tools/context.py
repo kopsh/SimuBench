@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, TypeVar
 
 from mcp.server.mcpserver.exceptions import ToolError
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 from ..engine.record import jsonable
 from ..server.benchfiles import BenchFiles
@@ -60,7 +60,9 @@ def tool_input(model_cls: type[_M]) -> Callable[[Callable[[Any], Any]], Callable
                 inspect.Parameter(
                     name,
                     kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=inspect.Parameter.empty if f.is_required() else f.get_default(call_default_factory=True),
+                    default=inspect.Parameter.empty
+                    if f.is_required()
+                    else f.get_default(call_default_factory=True),
                     annotation=Annotated[f.annotation, f],  # the field's own info: description and limits
                 )
             )
