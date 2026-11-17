@@ -87,7 +87,9 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `Select` (`components/ui/select.tsx`) renders only the chosen item while closed — keep the items
   direct children with a `value` so it can. `useSession` polls `?state=values` and lays the values
   onto the held session (`api/sessionValues.ts`); the full session is fetched only when `build`
-  changes. A new per-setting field the UI reads while running must come in that light form too.
+  or an instrument's `spec_rev` changes (a run-time change to a definition, such as the E36312A's
+  series pair doubling CH2's limits, #1302: make such changes through `SettingStore`, which counts
+  them). A new per-setting field the UI reads while running must come in that light form too.
 - `web/src/features/workbench/onScreen.ts` — which settings a screen shows as fields: a
   `StateField` inside a screen tab counts its path while mounted, and the inspector beside that
   screen leaves those paths out (#1229). A new screen gets this for free by using `StateField`; a
