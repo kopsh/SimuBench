@@ -185,7 +185,7 @@ class WaveformTransfer(Component):
         sign = 1.0 if str(self.param("offset")).lower() == "add" else -1.0
         codes = adc.codes(
             rec.volts if volts is None else volts,
-            rec.scale,
+            getattr(rec, "code_scale", rec.scale),  # the converter's step below a magnified division (#1265)
             sign * rec.offset,
             float(self.param("codes_per_div")),
             bits,
@@ -334,7 +334,7 @@ class WaveformTransfer(Component):
             "x_increment": span * rec.dt_s,
             "x_reference": 0,  # the point x_start belongs to
             # code -> volts: (code - y_reference) * y_increment + y_origin
-            "y_increment": rec.scale / word_per_div if word_per_div else 0.0,
+            "y_increment": getattr(rec, "code_scale", rec.scale) / word_per_div if word_per_div else 0.0,
             # ``+ 0.0``: no negative zero from negating a zero offset
             "y_origin": (rec.offset if str(self.param("offset")).lower() != "add" else -rec.offset) + 0.0,
             "y_reference": (1 << (width - 1)) if unsigned else 0,

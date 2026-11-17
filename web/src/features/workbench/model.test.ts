@@ -284,5 +284,7 @@ describe("automatic and unset values (#1257)", () => {
     expect(formatValue(num({ display_unit: "Vpp", value: 0.5 }))).toBe("500 mVpp");
     expect(formatValue(num({ display_unit: "Vpp", value: 1 }))).toBe("1 Vpp");
     expect(formatValue(num({ display_unit: "%", value: 50 }))).toBe("50%");
+    expect(formatValue(num({ display_unit: "%", value: 0.001 }))).toBe("0.001%"); // no SI prefix on a sign (#1267)
+    expect(formatValue(num({ display_unit: "%", value: 99.999 }))).toBe("99.999%");
   });
 });
