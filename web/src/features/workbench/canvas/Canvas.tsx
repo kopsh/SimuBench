@@ -15,9 +15,10 @@ import {
   useConnection,
   useReactFlow,
   useStore,
+  type Viewport,
 } from "@xyflow/react";
 import "@xyflow/react/dist/base.css";
-import { type DragEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type DragEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { EditOp, NetLevel, SessionInfo } from "@/api/client";
 import { useEvents } from "@/api/events";
@@ -307,11 +308,30 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
     };
   }, [flow]);
 
-  // Opening a bench fits it at a zoom where the node text stays readable (not below 0.93, so
-  // 13 px titles stay ≥ 12 px) and no larger than life, the same for every bench (#277).
+  // Opening a bench fits it at a zoom where the node text stays readable and no larger than life,
+  // the same for every bench (#277): 0.93 when it fits there (13 px titles stay ≥ 12 px); on a
+  // narrow canvas (a 1024 px window) down to 0.6, every node in view rather than cut off, to zoom
+  // into from there (#1354).
+  // Until the user pans or zooms, the view refits when the canvas changes size — a window resized,
+  // the inspector or the assistant opened (#1354).
+  const wrapper = useRef<HTMLDivElement>(null);
+  const userMoved = useRef(false);
+  const moveFrom = useRef<Viewport | null>(null);
   useEffect(() => {
-    const fit = () => flow.fitView({ padding: 0.08, minZoom: 0.93, maxZoom: 1, duration: 0 });
+    userMoved.current = false;
+    const fit = () => {
+      const pane = wrapper.current?.getBoundingClientRect();
+      const readable = pane && pane.width < 760 ? 0.6 : 0.93;
+      void flow.fitView({ padding: 0.08, minZoom: readable, maxZoom: 1, duration: 0 });
+    };
     const id = window.setTimeout(fit, 0);
+    let frame = 0;
+    const resized = new ResizeObserver(() => {
+      if (userMoved.current) return;
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(fit);
+    });
+    if (wrapper.current) resized.observe(wrapper.current);
     // Webfonts land after this first fit: card heights grow by a wrapped line, React Flow
     // re-measures the nodes, and the fit would stay computed from the fallback metrics — the
     // viewport sits off by a line until the view changes (#645). One refit once fonts settle.
@@ -322,6 +342,8 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
     return () => {
       alive = false;
       window.clearTimeout(id);
+      cancelAnimationFrame(frame);
+      resized.disconnect();
     };
   }, [flow, view.id]);
 
@@ -344,6 +366,16 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
 
   return (
     <ReactFlow
+      ref={wrapper}
+      // A pan or zoom of the user's own keeps the view from refitting: one with an event (a fit has
+      // none) that changed the viewport — a click on a node starts a move too, and changes nothing.
+      onMoveStart={(e, v) => {
+        moveFrom.current = e ? v : null;
+      }}
+      onMoveEnd={(e, v) => {
+        const from = moveFrom.current;
+        if (e && from && (from.x !== v.x || from.y !== v.y || from.zoom !== v.zoom)) userMoved.current = true;
+      }}
       nodes={nodes}
       edges={edges}
       nodeTypes={nodeTypes}
