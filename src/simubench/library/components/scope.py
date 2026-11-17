@@ -2634,6 +2634,9 @@ class ScopeAcquisition(Component):
         x_origin = (start * dt - hit.t_s - jitter) if hit is not None else -pre * dt
         trigger_ns = t0 + round(hit.t_s * 1e9) if hit is not None else None
         records: dict[int, Record] = {}
+        # ``frame`` numbers a screen frame of a running scope (compute: no state changes), never an
+        # acquisition: an acquisition — each segment of a segmented one, each average — comes here
+        # with frame None and is checked; a screen frame latches nothing (#1304).
         if frame is None:
             self._check_overload(channels, t_start_ns, points * dt)
         for n in channels:

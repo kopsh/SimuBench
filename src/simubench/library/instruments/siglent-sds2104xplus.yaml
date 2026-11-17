@@ -47,6 +47,9 @@ specs:
     8 bits, as on the real instrument. Per-division values in the scope_vertical noise_table.
   averaging_time: "an AVERage,N acquisition takes the time of N acquisitions (D46)"
   sfdr_db: 40
+  # Max input voltage (data sheet EN01D, Vertical System - Analog Channels): 1 MΩ ≤ 400 Vpk (DC + Peak
+  # AC ≤ 10 kHz), 50 Ω ≤ 5 Vrms; modeled as a peak limit, 50 Ω at a sine's 5 × √2 = 7.07 V (#1304).
+  max_input: {one_meg_vpk: 400.0, fifty_vrms: 5.0}
 channels:
   count: 4
   overrides:
@@ -490,6 +493,9 @@ channel_components:
       probe_ratio: $ch.probe
       scale_range: {from: $ch.impedance, map: {ONEMeg: [5.0e-4, 10.0], FIFTy: [5.0e-4, 1.0]}}
       offset_ranges: [[0.1, 2.0], [1.0, 20.0], [.inf, 200.0]]
+      # 最大输入电压（数据手册 EN01D，#1304）：1 MΩ ≤ 400 Vpk，50 Ω ≤ 5 Vrms（按正弦峰值 7.07 V 判定）；超过时给出
+      # “可能损坏”警告。手册没有最大输入范围与过载状态位。
+      max_input_v: {from: $ch.impedance, map: {FIFTy: 7.07}, default: 400.0}
       # 读数经校准存储按显示 V/div 修正；*CAL?（自校准）写入各档的系数。
       store: cal
       noise_table: [[5.0e-4, 3.5777087639996636e-05], [1.0e-3, 3.5777087639996636e-05],

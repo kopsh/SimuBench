@@ -479,6 +479,27 @@ def test_an_input_beyond_its_limits_overloads_and_warns(tmp_path):
     assert replies[5] == '0,"No error"'
 
 
+def test_a_screen_frame_latches_no_overload_and_each_segment_does():
+    """#1304: the overload check runs on acquisitions only. A running scope's screen frame
+    (``compute`` with a frame number, which changes no state) latches nothing; a segmented
+    acquisition — whose segments are acquisitions, not frames — is checked and sets the bit."""
+    hello = ROOT / "src" / "simubench" / "library" / "examples" / "hello.bench.yaml"
+    rm = pyvisa.ResourceManager(f"{hello}@simubench")
+    try:
+        awg = rm.open_resource("awg", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        awg.write("C1:BSWV WVTP,SQUARE,AMP,10,OFST,0")
+        uxr.write(":CHAN1:SCAL 0.01;:ACQuire:POINts 2000")
+        acq = rm.visalib.bench.instruments["scope"].components["acq"]
+        acq.compute([1], frame=3)
+        assert acq.overloaded == set()
+        assert uxr.query(":OVLRegister?").strip() == "0"
+        uxr.write(":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 2;:DIG CHAN1")
+        assert uxr.query(":OVLRegister?").strip() == "1"
+    finally:
+        rm.close()
+
+
 CASES_BENCH_1104B = ROOT / "tests" / "models" / "keysight-uxr1104b" / "bench.yaml"
 
 

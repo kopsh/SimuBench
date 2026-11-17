@@ -26,7 +26,7 @@ sections:
     blocked_by: C15
   - header: C<ch>:CouPLing
     level: implemented
-    note: D1M/A1M 为 1 MΩ，D50 为 50 Ω，GND 接地；GND 时输入仍按 1 MΩ 建模
+    note: D1M/A1M 为 1 MΩ，D50 为 50 Ω，GND 接地；GND 时输入仍按 1 MΩ 建模。超过数据手册的最大输入电压（50 Ω 按档位 ±2 V / ±5 V / 5.5 Vrms，1 MΩ 400 V）时给出“可能损坏”警告（#1304）；数据手册与手册没有最大输入范围，50 Ω 过载保护动作未建模
   - header: FoRce_TRigger
     level: implemented
     note: 无论触发条件是否满足，立即采一帧
