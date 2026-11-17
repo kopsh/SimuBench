@@ -390,6 +390,74 @@ ports:
 display:
   template: power_supply
   summary: [ch1.voltage, ch1.current, ch1.output, ch3.voltage, ch3.current]
+  # 检查器与面板屏幕的前面板（D74）：每路的回读、保护状态与输出、电压/电流设定写在 groups（面板屏幕与 TUI 画它们），
+  # 读数与分组照类别默认一并写出（声明替代类别默认布局）；检查器里所选路的其余设置在 channel_groups：保护、触发等，
+  # 过流保护的延时随开关，步进设定的触发值随步进方式。其余设置在检查器里查找或在“全部设置”里改。
+  panel:
+    readouts:
+      - {reading: ch1.read.voltage, label: CH1 电压, label_en: CH1 voltage, unit: V, digits: 7}
+      - {reading: ch1.read.current, label: CH1 电流, label_en: CH1 current, unit: A, digits: 7}
+      - {reading: ch1.prot.tripped, label: CH1 保护, label_en: CH1 protection}
+      - {reading: ch2.read.voltage, label: CH2 电压, label_en: CH2 voltage, unit: V, digits: 7}
+      - {reading: ch2.read.current, label: CH2 电流, label_en: CH2 current, unit: A, digits: 7}
+      - {reading: ch2.prot.tripped, label: CH2 保护, label_en: CH2 protection}
+      - {reading: ch3.read.voltage, label: CH3 电压, label_en: CH3 voltage, unit: V, digits: 7}
+      - {reading: ch3.read.current, label: CH3 电流, label_en: CH3 current, unit: A, digits: 7}
+      - {reading: ch3.prot.tripped, label: CH3 保护, label_en: CH3 protection}
+      - {reading: ch4.read.voltage, label: CH4 电压, label_en: CH4 voltage, unit: V, digits: 7}
+      - {reading: ch4.read.current, label: CH4 电流, label_en: CH4 current, unit: A, digits: 7}
+      - {reading: ch4.prot.tripped, label: CH4 保护, label_en: CH4 protection}
+    groups:
+      - label: CH1
+        controls:
+          - {state: ch1.output, control: switch}
+          - {state: ch1.voltage, control: number}
+          - {state: ch1.current, control: number}
+      - label: CH2
+        controls:
+          - {state: ch2.output, control: switch}
+          - {state: ch2.voltage, control: number}
+          - {state: ch2.current, control: number}
+      - label: CH3
+        controls:
+          - {state: ch3.output, control: switch}
+          - {state: ch3.voltage, control: number}
+          - {state: ch3.current, control: number}
+      - label: CH4
+        controls:
+          - {state: ch4.output, control: switch}
+          - {state: ch4.voltage, control: number}
+          - {state: ch4.current, control: number}
+      - label: 显示
+        label_en: Display
+        controls:
+          - {state: display.enabled}
+          - {state: display.view}
+    channel_groups:
+      - label: 检测
+        label_en: Sense
+        controls:
+          - {state: sense}
+      - label: 保护
+        label_en: Protection
+        controls:
+          - {state: ovp}
+          - {state: ocp_enabled}
+          - {state: ocp_delay, when: {ocp_enabled: true}}
+          - {state: ocp_start, when: {ocp_enabled: true}}
+      - label: 延时
+        label_en: Delay
+        controls:
+          - {state: rise_delay}
+          - {state: fall_delay}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: tran_source}
+          - {state: v_mode}
+          - {state: v_triggered, when: {v_mode: STEP}}
+          - {state: i_mode}
+          - {state: i_triggered, when: {i_mode: STEP}}
 capabilities: [power_supply]
 commands:
   # ---- 设定（通道列表必需，手册：A channel parameter is required with each SCPI command） ----

@@ -446,6 +446,53 @@ display:
   actions:
     run: ":INITiate"
     stop: ":ABORt"
+  # 检查器与面板屏幕的前面板（D74）：整机的扫描表、扫描次数与间隔、触发；所选通道在 channel_groups：
+  # 测量功能、量程（随功能用直流/交流电压、电阻、电流各自的量程）、NPLC 与分辨率，输入阻抗只对直流电压。
+  # 声明替代面板屏幕的类别默认布局，所以读数与运行 / 停止软键照类别默认一并写出。
+  panel:
+    readouts:
+      - {reading: scan.channel, label: 通道, label_en: Channel, digits: 3}
+      - {reading: scan.reading, label: 读数, label_en: Reading, unit: V, digits: 7}
+      - {reading: scan.list, label: 扫描表, label_en: Scan list}
+      - {reading: mux.closed, label: 闭合通道, label_en: Closed channels}
+    groups:
+      - label: 扫描
+        label_en: Scan
+        controls:
+          - {state: scan.list}
+          - {state: scan.count, control: number}
+          - {state: scan.interval, control: number}
+          - {state: trigger.source, control: select}
+      - label: 默认测量
+        label_en: Default measurement
+        controls:
+          - {state: sense.function, control: select}
+          - {state: sense.range_auto, control: switch}
+          - {state: sense.range, control: number, when: {sense.function: [VOLT, 'VOLT:AC']}}
+          - {state: sense.res.range, control: number, when: {sense.function: [RES, FRES]}}
+          - {state: sense.curr.range, control: number, when: {sense.function: [CURR, 'CURR:AC']}}
+          - {state: sense.nplc, control: number}
+          - {state: sense.resolution, control: number}
+          - {state: sense.imp_auto, control: switch, when: {sense.function: VOLT}}
+    channel_groups:
+      - label: 通道
+        label_en: Channel
+        controls:
+          - {state: closed, control: switch}
+      - label: 测量
+        label_en: Measurement
+        controls:
+          - {state: function, control: select}
+          - {state: range_auto, control: switch}
+          - {state: range, control: number, when: {function: [VOLT, 'VOLT:AC']}}
+          - {state: res_range, control: number, when: {function: [RES, FRES]}}
+          - {state: curr_range, control: number, when: {function: [CURR, 'CURR:AC']}}
+          - {state: nplc, control: number}
+          - {state: resolution, control: number}
+          - {state: imp_auto, control: switch, when: {function: VOLT}}
+    softkeys:
+      - {label: 运行, label_en: Run, action: run}
+      - {label: 停止, label_en: Stop, action: stop}
 capabilities: [daq]
 commands:
   # ---- 通道与继电器 ----------------------------------------------------------

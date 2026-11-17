@@ -1406,7 +1406,9 @@ def _check_panel(d: InstrumentDefinition, report: Report) -> None:
         for path, v in values.items():
             spec = setting(path, _ptr(*pointer, path))
             if spec is not None:
-                value(path, spec, v, _ptr(*pointer, path))
+                # a `when` value may be a list: the condition holds for any of them (7.3)
+                for item in v if isinstance(v, list) else [v]:
+                    value(path, spec, item, _ptr(*pointer, path))
 
     for i, readout in enumerate(panel.readouts):
         p = (*base, "readouts", i)

@@ -363,6 +363,70 @@ ports:
 display:
   template: rf_generator
   summary: [freq.cw, power.level, output.enabled, freq.mode, am.state, fm.state, pm.state]
+  # 检查器面板（D74）：前面板先给的设置，调制参数随各自的开关，扫描参数随频率或电平的扫描模式；
+  # 其余设置在检查器里查找或在“全部设置”里改。
+  panel:
+    groups:
+      - label: 频率
+        label_en: Frequency
+        controls:
+          - {state: freq.mode}
+          - {state: freq.cw, when: {freq.mode: [CW, FIXed]}}
+          - {state: rosc.source}
+      - label: 功率
+        label_en: Power
+        controls:
+          - {state: power.mode}
+          - {state: power.level, when: {power.mode: [CW, FIXed]}}
+          - {state: power.unit}
+      - label: 输出
+        label_en: Output
+        controls:
+          - {state: output.enabled}
+          - {state: mod.state}
+      - label: 调幅
+        label_en: AM
+        controls:
+          - {state: am.state}
+          - {state: am.depth, when: {am.state: true}}
+          - {state: am.source, when: {am.state: true}}
+      - label: 调频
+        label_en: FM
+        controls:
+          - {state: fm.state}
+          - {state: fm.dev, when: {fm.state: true}}
+          - {state: fm.source, when: {fm.state: true}}
+      - label: 调相
+        label_en: PM
+        controls:
+          - {state: pm.state}
+          - {state: pm.dev, when: {pm.state: true}}
+          - {state: pm.source, when: {pm.state: true}}
+      - label: 低频发生器
+        label_en: LF generator
+        controls:
+          - {state: lf.freq}
+      - label: 频率扫描
+        label_en: Frequency sweep
+        when: {freq.mode: [SWEep, COMBined]}
+        controls:
+          - {state: sweep.start}
+          - {state: sweep.stop}
+          - {state: sweep.points}
+          - {state: sweep.spacing}
+          - {state: sweep.dwell}
+          - {state: sweep.fmode}
+          - {state: sweep.fsource}
+      - label: 电平扫描
+        label_en: Level sweep
+        when: {power.mode: SWEep}
+        controls:
+          - {state: sweep.level_start}
+          - {state: sweep.level_stop}
+          - {state: sweep.ppoints}
+          - {state: sweep.pdwell}
+          - {state: sweep.pmode}
+          - {state: sweep.psource}
 capabilities: [rf_generator]
 commands:
   # ---- 公共命令（15.4）-------------------------------------------------------------------------

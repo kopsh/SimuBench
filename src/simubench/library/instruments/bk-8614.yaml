@@ -366,6 +366,60 @@ ports:
 display:
   template: electronic_load
   summary: [function.mode, current.level, voltage.level, resistance.level, input.enabled]
+  # 检查器面板（D74）：前面板先给的设置，设定值随功能（CC 放电流、CV 放电压、CR 放电阻、CP 放功率），
+  # 保护与档位跟着功能；其余设置在检查器里查找或在“全部设置”里改。
+  panel:
+    groups:
+      - label: 功能
+        label_en: Function
+        controls:
+          - {state: function.mode}
+          - {state: input.enabled}
+      - label: 定电流 CC
+        label_en: Constant current
+        when: {function.mode: CURRent}
+        controls:
+          - {state: current.level}
+          - {state: current.range}
+          - {state: current.slew_rise}
+          - {state: current.slew_fall}
+          - {state: current.prot_on}
+          - {state: current.prot_level, when: {current.prot_on: true}}
+          - {state: current.prot_delay, when: {current.prot_on: true}}
+      - label: 定电压 CV
+        label_en: Constant voltage
+        when: {function.mode: VOLTage}
+        controls:
+          - {state: voltage.level}
+          - {state: voltage.range_auto}
+          - {state: voltage.range, when: {voltage.range_auto: false}}
+      - label: 定电阻 CR
+        label_en: Constant resistance
+        when: {function.mode: RESistance}
+        controls:
+          - {state: resistance.level}
+          - {state: resistance.range}
+      - label: 定功率 CP
+        label_en: Constant power
+        when: {function.mode: POWer}
+        controls:
+          - {state: power.level}
+          - {state: power.range}
+          - {state: power.prot_level}
+          - {state: power.prot_delay}
+      - label: 启动与检测
+        label_en: Von and sense
+        controls:
+          - {state: voltage.von}
+          - {state: voltage.von_latch}
+          - {state: sense.remote}
+          - {state: sense.average}
+      - label: 触发
+        label_en: Trigger
+        controls:
+          - {state: trigger.source}
+          - {state: trigger.timer, when: {trigger.source: TIMer}}
+          - {state: trigger.armed}
 capabilities: [electronic_load]
 commands:
   # ---- trigger ----

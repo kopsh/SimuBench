@@ -540,6 +540,48 @@ ports:
 display:
   template: lockin
   summary: [reference.source, reference.frequency, reference.harmonic, input.sensitivity, filter.time_constant, filter.slope]
+  # 检查器面板（D74）：前面板先给的设置，内部参考才有频率与正弦输出幅度，外部参考才有触发沿；电流输入时灵敏度
+  # 的档位含义不同，但仍是同一个设置。其余设置在检查器里查找或在“全部设置”里改。锁相放大器屏幕自己画，不用这里的分组。
+  panel:
+    groups:
+      - label: 参考
+        label_en: Reference
+        controls:
+          - {state: reference.source}
+          - {state: reference.frequency, when: {reference.source: "1"}}
+          - {state: sine_out.amplitude, when: {reference.source: "1"}}
+          - {state: reference.slope, when: {reference.source: "0"}}
+          - {state: reference.phase}
+          - {state: reference.harmonic}
+      - label: 输入
+        label_en: Input
+        controls:
+          - {state: input.source}
+          - {state: input.shield_ground}
+          - {state: input.coupling}
+          - {state: input.line_notches}
+      - label: 增益与时间常数
+        label_en: Gain and time constant
+        controls:
+          - {state: input.sensitivity}
+          - {state: input.reserve}
+          - {state: filter.time_constant}
+          - {state: filter.slope}
+      - label: 输出
+        label_en: Output
+        controls:
+          - {state: display.quantity1}
+          - {state: display.quantity2}
+          - {state: output.offset1}
+          - {state: output.expand1}
+          - {state: output.offset2}
+          - {state: output.expand2}
+          - {state: output.offset3}
+          - {state: output.expand3}
+          - {state: aux.output1}
+          - {state: aux.output2}
+          - {state: aux.output3}
+          - {state: aux.output4}
 capabilities: [lockin]
 commands:
   # ---- display and output (manual 5-8, #273): the index i picks the channel or quantity; a query

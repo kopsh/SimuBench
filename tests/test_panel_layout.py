@@ -29,6 +29,13 @@ def definition(path: Path) -> InstrumentDefinition:
     return InstrumentDefinition.model_validate(raw(path))
 
 
+def undeclared(path: Path) -> InstrumentDefinition:
+    """The model as if it declared no panel: what a class default is made from."""
+    data = raw(path)
+    data["display"].pop("panel", None)
+    return InstrumentDefinition.model_validate(data)
+
+
 def codes(data: dict) -> list[tuple[str, str]]:
     _, report = validate_definition_data(data)
     return [(d.code, d.pointer) for d in report.diagnostics]
@@ -38,7 +45,7 @@ def codes(data: dict) -> list[tuple[str, str]]:
 
 
 def test_multimeter_default_is_a_reading_with_function_and_range_keys():
-    panel, source = effective_panel(definition(LIB / "keysight-34465a.yaml"))
+    panel, source = effective_panel(undeclared(LIB / "keysight-34465a.yaml"))
     assert source == "class_default" and panel is not None
     # The reading of the selected function: DC while VOLT, AC while VOLT:AC.
     assert [(r.reading, r.unit, r.when) for r in panel.readouts] == [
@@ -82,7 +89,7 @@ def test_multimeter_default_is_a_reading_with_function_and_range_keys():
 
 
 def test_calibrator_default_is_the_output_with_operate_and_standby_keys():
-    panel, source = effective_panel(definition(LIB / "fluke-5522a.yaml"))
+    panel, source = effective_panel(undeclared(LIB / "fluke-5522a.yaml"))
     assert source == "class_default" and panel is not None
     assert [r.reading for r in panel.readouts] == ["out.level", "out.frequency", "out.output"]
     assert panel.readouts[1].when == {"out.function": "ACV"}
@@ -191,8 +198,12 @@ def test_declared_panel_wins_and_dedicated_screens_have_none():
         and panel is not None
         and [g.label for g in panel.groups] == ["功能", "量程", "高级"]
     )
+    # A dedicated screen's model declares groups only (the inspector's panel, D74); one that declares
+    # nothing has no panel at all.
     for name in ("siglent-sds2104xplus.yaml", "siglent-sdg2042x.yaml"):
-        assert effective_panel(definition(LIB / name)) == (None, None)
+        panel, source = effective_panel(definition(LIB / name))
+        assert source == "declared" and panel is not None and panel.groups and not panel.readouts
+    assert effective_panel(definition(ROOT / "validation" / "instruments" / "sb-dso-4.yaml")) == (None, None)
     # A class without a default keeps the generic layout.
     assert effective_panel(definition(ROOT / "validation" / "instruments" / "sb-arb-1.yaml")) == (None, None)
     # A multimeter without bound settings still shows its readings.
@@ -208,7 +219,7 @@ def test_session_info_carries_the_panel():
         c.headers["x-simubench-token"] = "t"
         info = c.post("/api/sessions", json={"bench_path": "benches/fluke-5522a-dmm.bench.yaml"}).json()
         display = {i["name"]: i["display"] for i in info["instruments"]}
-        assert display["cal"]["panel_source"] == "class_default"
+        assert display["cal"]["panel_source"] == "declared"
         assert display["cal"]["panel"]["groups"][1]["controls"][0]["state"] == "out.operate"
         assert display["dmm"]["panel"]["readouts"][0]["reading"] == "meter.DC"
 
@@ -310,6 +321,12 @@ G = "/display/panel/groups"
         (
             lambda d: d["display"]["panel"]["groups"][1].update(when={"sense.function": "ACV"}),
             [("E-DEF-PANEL-VALUE", f"{G}/1/when/sense.function")],
+        ),
+        # A `when` value may be a list (any of them holds); each item is checked.
+        (lambda d: control(d, 2, 1).update(when={"sense.function": ["DC", "AC"]}), []),
+        (
+            lambda d: control(d, 2, 1).update(when={"sense.function": ["DC", "nope"]}),
+            [("E-DEF-PANEL-VALUE", f"{G}/2/controls/1/when/sense.function")],
         ),
         # Channel groups need channels; a control may leave its kind to the setting's type.
         (

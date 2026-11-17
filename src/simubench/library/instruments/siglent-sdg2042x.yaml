@@ -166,6 +166,37 @@ ports:
 display:
   template: function_generator
   channel_summary: [function, frequency, amplitude, offset, output, load]
+  # 检查器面板（D74）：每通道的设置在 channel_groups：占空比随方波，对称度随锯齿，频率与相位在直流时不起作用；
+  # 其余设置在检查器里查找或在“全部设置”里改。发生器屏幕上已有的字段不在这里重复（#1229）。
+  panel:
+    groups:
+      - label: 系统
+        label_en: System
+        controls:
+          - {state: buzzer}
+    channel_groups:
+      - label: 波形
+        label_en: Waveform
+        controls:
+          - {state: function}
+          - {state: frequency, when: {function: [SINE, SQUARE, RAMP]}}
+          - {state: phase, when: {function: [SINE, SQUARE, RAMP]}}
+          - {state: duty, when: {function: SQUARE}}
+          - {state: symmetry, when: {function: RAMP}}
+      - label: 幅度与偏置
+        label_en: Level
+        controls:
+          - {state: amplitude, when: {function: [SINE, SQUARE, RAMP]}}
+          - {state: offset}
+          - {state: max_output_amp}
+      - label: 输出
+        label_en: Output
+        controls:
+          - {state: output}
+          - {state: load}
+          - {state: invert}
+          - {state: sync}
+          - {state: sync_type, when: {sync: true}}
 capabilities: [function_generator]
 commands:
   - header: "C<ch>:BaSic_WaVe"

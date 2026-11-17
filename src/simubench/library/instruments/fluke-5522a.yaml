@@ -217,6 +217,31 @@ ports:
     OUT: out.out
 display:
   summary: [out.function, out.level, out.frequency, out.operate, earth, extguard]
+  # 检查器与面板屏幕的前面板（D74）：输出值、频率（只在交流功能）、量程锁定、工作 / 待机，以及
+  # 接线（地线与外部保护 / 外部检测）。声明替代面板屏幕的类别默认布局，所以读数与按键照类别默认一并写出。
+  panel:
+    readouts:
+      - {reading: out.level, label: 输出, label_en: Output, unit: V, digits: 7}
+      - {reading: out.frequency, label: 频率, label_en: Frequency, unit: Hz, digits: 6, when: {out.function: ACV}}
+      - {reading: out.frequency, label: 频率, label_en: Frequency, unit: Hz, digits: 6, when: {out.function: ACI}}
+      - {reading: out.output, label: 输出端, label_en: Terminal}
+    groups:
+      - label: 输出
+        label_en: Output
+        controls:
+          - {state: out.function, control: buttons}
+          - {state: out.level, control: number}
+          - {state: out.frequency, control: number, when: {out.function: [ACV, ACI]}}
+          - {state: out.range_lock, control: switch}
+      - label: 工作 / 待机
+        label_en: Operate / Standby
+        controls:
+          - {state: out.operate, control: buttons, keys: [{value: true, label: OPER}, {value: false, label: STBY}]}
+      - label: 连接
+        label_en: Connection
+        controls:
+          - {state: earth, control: select}
+          - {state: extguard, control: select}
 capabilities: [calibrator]
 commands:
   # ---- 输出 ----

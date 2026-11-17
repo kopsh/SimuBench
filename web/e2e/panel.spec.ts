@@ -49,7 +49,7 @@ test("34465A default panel: function and range keys change the reading", async (
 }) => {
   await open(page, "benches/keysight-34465a.bench.yaml", "数字万用表", 4);
   await expect(page.getByTestId("panel-source")).toHaveAccessibleName(
-    "类别默认布局",
+    "定义的面板",
   ); // a hint, not display text (#281)
   const display = panel(page).getByTestId("panel-readout-meter.DC");
   // 1 V into 900 kΩ / (100 kΩ ∥ 10 MΩ): 99.103 mV on the 100 mV range the bench sets, within 4σ of
@@ -113,7 +113,12 @@ test("34465A default panel: function and range keys change the reading", async (
     .poll(async () => readoutValue(ac))
     .toBeLessThan(4 * 0.32e-6 + 1e-7);
 
-  // NPLC and input impedance are on the panel too.
+  // NPLC and input impedance are on the panel too, for the DC voltage they apply to (neither is
+  // shown for AC, the declared panel's `when`).
+  await expect(
+    panel(page).getByRole("textbox", { name: "积分时间（PLC）" }),
+  ).toHaveCount(0);
+  await fn.getByRole("button", { name: "DC V" }).click();
   await expect(
     panel(page).getByRole("textbox", { name: "积分时间（PLC）" }),
   ).toBeVisible();
