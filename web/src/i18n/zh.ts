@@ -275,6 +275,7 @@ export const zh = {
     settings: "设置",
     state: "状态",
     refused: "设置被拒绝",
+    unitsAccepted: "本框接受的单位：{{units}}",
     autoInactive: "自动时不生效",
     computedOnRead: "深记录读的时候才算：读到哪段算哪段，读回与测量的耗时随点数增长",
     auto: "自动",
