@@ -56,9 +56,14 @@ IDLE_QUANTUM_NS = 1_000_000
 
 
 def _header_of(data: bytes) -> str:
-    """The first command header of a program message, for an advance event (#1260)."""
-    text = data.decode(errors="replace").strip()
-    return text.split(";", 1)[0].split(None, 1)[0][:80] if text else ""
+    """The first command header of a program message, for an advance event (#1260). An empty
+    program-message unit — ``;`` leading, trailing or alone — is tolerated the way a real
+    instrument tolerates it (#1282): the first non-empty unit names the message, or nothing does."""
+    for unit in data.decode(errors="replace").strip().split(";"):
+        words = unit.split()
+        if words:
+            return words[0][:80]
+    return ""
 
 
 @dataclass

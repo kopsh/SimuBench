@@ -25,6 +25,7 @@ from simubench.engine.events import (
     project,
 )
 from simubench.engine.record import encode_bytes, jsonable
+from simubench.engine.session import _header_of
 from simubench.jsonsafe import SPECIAL_NUMBERS, as_number, spelling
 from simubench.models import api as M
 from simubench.models.bench import Fault
@@ -211,11 +212,36 @@ def test_a_command_s_advance_names_the_instrument_and_header():
         seen: list[dict] = []
         s.subscribe(seen.append)
         s.write("scope", b":DIGitize;*OPC\n")
+        # A message whose first program-message unit is empty (``;`` …) still runs: the instrument
+        # tolerates it the way a real one does (#1282), so the header is the first non-empty unit.
+        s.write("scope", b";:DIGitize\n")
         s.advance(1e-3)
     finally:
         s.close()
     advances = [project(e, 0) for e in seen if e.get("kind") == "advance"]
     command = [a for a in advances if a["reason"] == "command"]
-    assert command and command[0]["instrument"] == "scope" and command[0]["header"] == ":DIGitize"
-    assert command[0]["dt_ns"] > 0
+    assert [a["header"] for a in command] == [":DIGitize", ":DIGitize"], command
+    assert all(a["instrument"] == "scope" and a["dt_ns"] > 0 for a in command), command
     assert advances[-1]["reason"] == "explicit" and advances[-1].get("instrument") is None
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize(
+    ("data", "header"),
+    [
+        (b":DIGitize;*OPC\n", ":DIGitize"),
+        (b";:DIGitize\n", ":DIGitize"),
+        (b"; :DIGitize\n", ":DIGitize"),
+        (b";:X", ":X"),
+        (b"*IDN?", "*IDN?"),
+        (b";", ""),
+        (b"  ;\n", ""),
+        (b"\n", ""),
+        (b"", ""),
+    ],
+)
+def test_the_advance_header_takes_the_first_non_empty_unit(data: bytes, header: str):
+    """The advance header only explains the event (#1260): an empty program-message unit (``;``
+    leading or trailing, whitespace only, an empty message) never raises and never names a
+    command (#1282)."""
+    assert _header_of(data) == header
