@@ -66,7 +66,8 @@ When the platform cannot express something the manual requires:
    for what depends on a mode (D74, `docs/instrument-authoring.md` 7.3; `keysight-uxr1104b.yaml`
    is the reference): the Web inspector shows those and leaves the rest to search; keep
    `display.summary` to the three to five values the canvas card shows.
-   A `when` value may be a list (any of them). A model that `extends` another replaces the parent's
+   A group's or control's `when` value may be a list (any of them); a readout's `when` takes one value
+   (write two readouts for two values). A model that `extends` another replaces the parent's
    `groups` / `channel_groups` / `readouts` lists whole (write `groups: []` to drop them); a `when`
    cannot test an `enum_list` setting. A category with a class default (multimeter, calibrator,
    DAQ, counter) that declares a panel loses that default: write its `readouts` and keys too.

@@ -208,7 +208,8 @@ display:
   panel:
     readouts:
       - {reading: out.level, label: 输出, label_en: Output, unit: V, digits: 7}
-      - {reading: out.frequency, label: 频率, label_en: Frequency, unit: Hz, digits: 6, when: {out.function: [ACV, ACI]}}
+      - {reading: out.frequency, label: 频率, label_en: Frequency, unit: Hz, digits: 6, when: {out.function: ACV}}
+      - {reading: out.frequency, label: 频率, label_en: Frequency, unit: Hz, digits: 6, when: {out.function: ACI}}
       - {reading: out.output, label: 输出端, label_en: Terminal}
     groups:
       - label: 输出
