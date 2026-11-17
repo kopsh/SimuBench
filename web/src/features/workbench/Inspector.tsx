@@ -177,7 +177,7 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
       </div>
       <IdentitySection inst={inst} />
       <Section title={t("workbench.sendCommand")}>
-        <ScpiConsole sid={sid} instrument={inst.name} disabled={readonly} />
+        <ScpiConsole key={inst.name} sid={sid} instrument={inst.name} disabled={readonly} />
       </Section>
       {inst.errors.length > 0 && (
         <Section title={`${t("workbench.errors")} · ${inst.errors.length}`}>
