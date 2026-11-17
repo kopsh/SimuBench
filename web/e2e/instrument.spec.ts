@@ -15,6 +15,9 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
   await expect(page.getByRole("heading", { name: "34465A" })).toBeVisible();
   await expect(page.getByText("真实型号")).toBeVisible();
   await expect(page.getByText("34460-90901")).toBeVisible();
+  // Conclusion and evidence first, editing after the read-only sections (#1359).
+  const sections = await page.locator('[data-testid^="acceptance-tab-"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
+  expect(sections).toEqual(["overview", "cases", "commands", "internals", "try", "build", "history"].map((k) => `acceptance-tab-${k}`));
   // Overview: the functions and ranges come from the definition's measurement chain.
   await expect(page.getByText("量程", { exact: true })).toBeVisible();
   await expect(page.getByText("1000 V", { exact: true })).toBeVisible();
