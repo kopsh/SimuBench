@@ -530,7 +530,12 @@ class ScopeAdc(Component):
     ``bits`` (0: records are not quantized) and ``codes_per_div`` (0: ``2**bits / divs``) set the
     quantization; ``offset_sign`` says whether the offset setting is added to or subtracted from the
     volts. ``max_rate`` is the top sample rate (0: no limit); channels of a ``rate_pairs`` pair share
-    a converter, so with both on the top rate is ``max_rate_paired``."""
+    a converter, so with both on the top rate is ``max_rate_paired``.
+
+    ``min_full_scale`` (V at the input; 0: none) is the hardware's smallest range: a division
+    smaller than ``min_full_scale / divs`` magnifies that range, so the code step stays the range's
+    (a ``codes_per_div``-th of ``min_full_scale / divs``) and the converter clips at the range's
+    edges, not the screen's (#1265)."""
 
     label = "ADC 组"
     label_en = "ADC group"
@@ -550,10 +555,11 @@ class ScopeAdc(Component):
         "max_rate": 0.0,  # top sample rate, Sa/s (0: no limit)
         "max_rate_paired": 0.0,  # the top rate when both channels of a rate pair are on
         "rate_pairs": [],  # channels sharing a converter, e.g. [[1, 2], [3, 4]]
+        "min_full_scale": 0.0,  # the hardware's smallest range, V at the input across divs (0: none)
         "vertical": "",  # the per-channel scope_vertical component: the scale, offset and input noise
         "probe": "",  # the per-channel scope_probe component: its ratio (noise) and skew
     }
-    units = {"max_rate": "Sa/s", "max_rate_paired": "Sa/s"}
+    units = {"max_rate": "Sa/s", "max_rate_paired": "Sa/s", "min_full_scale": "V"}
 
     @classmethod
     def spec_of(cls, port: str) -> PortSpec | None:
@@ -564,6 +570,13 @@ class ScopeAdc(Component):
     def codes_per_div(self) -> float:
         bits = int(self.param("bits"))
         return float(self.param("codes_per_div")) or (1 << bits) / float(self.param("divs"))
+
+    def converter_scale(self, scale: float, ratio: float = 1.0) -> float:
+        """The V/div one code step is a ``codes_per_div``-th of, in display volts: the displayed
+        ``scale``, or below it the hardware's smallest range (``min_full_scale`` over ``divs``,
+        given at the input; ``ratio`` the display volts per input volt, #1265)."""
+        floor = float(self.param("min_full_scale")) / float(self.param("divs")) * ratio
+        return max(scale, floor)
 
     def top_rate(self, on: set[int]) -> float:
         """The top sample rate with channels ``on`` displayed (inf when unlimited)."""
@@ -577,7 +590,9 @@ class ScopeAdc(Component):
     ) -> np.typing.NDArray[np.float64]:
         """What the ADC keeps: the codes of ``bits``, back in volts."""
         add = str(self.param("offset_sign")).lower() == "add"
-        return quantize(volts, scale, offset, int(self.param("bits")), self.codes_per_div(), add)
+        return quantize(
+            volts, self.converter_scale(scale), offset, int(self.param("bits")), self.codes_per_div(), add
+        )
 
     # ---- the sample stream ------------------------------------------------------------------------
 
@@ -607,7 +622,7 @@ class ScopeAdc(Component):
             skew=probe.delay() if probe is not None else 0.0,
             sigma=vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0),
             seed=self.session.seed,
-            scale=float(vertical.param("scale")),
+            scale=self.converter_scale(float(vertical.param("scale")), float(vertical.param("probe_ratio"))),
             offset=float(vertical.param("offset")),
             bits=int(self.param("bits")),
             per_div=self.codes_per_div(),
@@ -2520,6 +2535,9 @@ class ScopeAcquisition(Component):
                 triggered=triggered,
                 x_origin_s=x_origin * nominal_dt / dt,  # in the scope's own (nominal) time
                 trigger_ns=trigger_ns,
+            )
+            records[n].code_scale = self.adc_unit().converter_scale(
+                scale, float(self.vertical_of(n).param("probe_ratio"))
             )
             records[n].clip = clip
         if triggered or self.param("untriggered") == "record":

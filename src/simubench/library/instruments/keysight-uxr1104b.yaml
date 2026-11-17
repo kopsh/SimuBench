@@ -1336,6 +1336,9 @@ components:
       codes_per_div: 128.0
       divs: 8.0
       offset_sign: subtract
+      # 硬件最小量程 60 mV 满量程（数据手册 3123-1313 Hardware sensitivity）：7.5 mV/div 以下是该量程的放大，
+      # 码宽保持 60 mV / 1024，削波在量程边缘而不在屏幕边缘（#1265）。
+      min_full_scale: 0.06
       max_rate: 2.56e11
       vertical: front
       probe: probe
