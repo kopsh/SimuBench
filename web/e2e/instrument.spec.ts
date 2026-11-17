@@ -28,10 +28,17 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
   await page.getByPlaceholder("搜索命令、参数或说明").fill("NPLCycles");
   await expect(page.getByText("[:SENSe]:VOLTage[:DC]:NPLCycles")).toBeVisible();
   await expect(page.getByText("实现", { exact: true }).first()).toBeVisible();
+  // Each group says how much of it runs; a command goes to the trial run typed in, not sent (#1358).
+  await expect(page.getByTestId("command-group-progress").first()).toContainText(" / ");
+  await page.getByRole("button", { name: "在试运行中打开 :VOLTage:NPLCycles?" }).first().click();
+  await expect(page.getByTestId("acceptance-tab-try")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByRole("combobox", { name: "命令" })).toHaveValue(":VOLTage:NPLCycles?");
+  await page.getByTestId("try-suggestions").getByRole("button", { name: "*RST" }).click();
+  await expect(page.getByRole("combobox", { name: "命令" })).toHaveValue("*RST");
 
   // Try run: the temporary session builds the definition and answers.
   await page.getByTestId("acceptance-tab-try").click();
-  await page.getByRole("textbox", { name: "命令" }).fill("*IDN?");
+  await page.getByRole("combobox", { name: "命令" }).fill("*IDN?");
   await page.getByRole("button", { name: "发送" }).click();
   await expect(page.getByText("Keysight Technologies,34465A,MY57440001").last()).toBeVisible();
 

@@ -1,4 +1,4 @@
-import { ChevronsDownUp, ChevronsUpDown, Search } from "lucide-react";
+import { ChevronsDownUp, ChevronsUpDown, Search, Terminal } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DefinitionCoverage } from "@/api/client";
@@ -6,7 +6,7 @@ import type { DefinitionData } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { commandBinding, commandRows, groupCommands, LEVELS, type Level, paramFacts } from "./model";
+import { type CommandRow, commandBinding, commandRows, groupCommands, groupProgress, LEVELS, type Level, paramFacts, runnable, tryForm } from "./model";
 
 const LEVEL_CLASS: Record<Level, string> = {
   implemented: "bg-ok/10 text-ok",
@@ -19,9 +19,12 @@ const LEVEL_CLASS: Record<Level, string> = {
 export function CommandsTab({
   commands,
   coverage,
+  onTry,
 }: {
   commands: NonNullable<DefinitionData["commands"]>;
   coverage: DefinitionCoverage | null | undefined;
+  /** Take a command to the trial run, typed in and not sent (#1358). */
+  onTry?: (command: string) => void;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
@@ -111,7 +114,7 @@ export function CommandsTab({
                 >
                   <span className={cn("text-muted-foreground transition-transform", expanded(group.node) && "rotate-90")}>▶</span>
                   <span className="num">{group.node}</span>
-                  <span className="text-muted-foreground num ml-auto font-normal">{group.rows.length}</span>
+                  <GroupProgress rows={group.rows} />
                 </button>
                 {expanded(group.node) && (
                   <ul className="divide-y border-t">
@@ -126,6 +129,17 @@ export function CommandsTab({
                               </span>
                             )}
                             {!row.level && <span className="bg-muted text-muted-foreground rounded px-1.5 py-0.5 text-[10.5px]">{t("acceptance.level.implemented")}</span>}
+                            {onTry && runnable(row) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-primary ml-auto h-6 px-1.5 text-[10.5px]"
+                                aria-label={t("acceptance.tryCommand", { command: tryForm(row).trim() })}
+                                onClick={() => onTry(tryForm(row))}
+                              >
+                                <Terminal className="size-3" /> {t("acceptance.section.try")}
+                              </Button>
+                            )}
                           </div>
                           <div className="text-muted-foreground mt-0.5 flex flex-wrap gap-x-2 text-[10.5px]">
                             {row.command && (
@@ -171,5 +185,23 @@ export function CommandsTab({
         )}
       </div>
     </div>
+  );
+}
+
+/** A group's share the simulation runs (#1358): "12 / 32" and a bar, accepted in its own colour. */
+function GroupProgress({ rows }: { rows: CommandRow[] }) {
+  const { t } = useTranslation();
+  const p = groupProgress(rows);
+  const pct = (n: number) => `${(100 * n) / Math.max(1, p.total)}%`;
+  return (
+    <span className="ml-auto flex items-center gap-2 font-normal" title={t("acceptance.groupProgress", p)} data-testid="command-group-progress">
+      <span className="bg-muted flex h-1.5 w-20 overflow-hidden rounded-full" aria-hidden>
+        <span className="bg-ok h-full" style={{ width: pct(p.implemented) }} />
+        <span className="bg-warn h-full" style={{ width: pct(p.accepted) }} />
+      </span>
+      <span className="text-muted-foreground num w-16 text-right">
+        {p.implemented + p.accepted} / {p.total}
+      </span>
+    </span>
   );
 }

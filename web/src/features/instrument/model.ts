@@ -100,6 +100,58 @@ export function groupCommands(rows: CommandRow[]): { node: string; rows: Command
     .map(([node, list]) => ({ node, rows: list.sort((a, b) => a.header.localeCompare(b.header)) }));
 }
 
+/** How much of a command group the simulation runs (#1358): accepted counts apart from implemented;
+ * a definition without a coverage table counts its commands as implemented. */
+export function groupProgress(rows: readonly CommandRow[]): { implemented: number; accepted: number; total: number } {
+  let implemented = 0;
+  let accepted = 0;
+  for (const row of rows) {
+    if (row.level === "accepted") accepted++;
+    else if (row.level === null || row.level === "implemented") implemented++;
+  }
+  return { implemented, accepted, total: rows.length };
+}
+
+/** A command the simulation runs: one the trial run can send. */
+export const runnable = (row: CommandRow) => row.level !== "not_modeled";
+
+/**
+ * A command as the trial run's input takes it (#1358): optional nodes left out, a numeric suffix as 1,
+ * the query form when it has one; a setting-only command ends in a space for its value.
+ */
+export function tryForm(row: CommandRow): string {
+  let text = "";
+  let depth = 0;
+  for (const ch of row.header.replaceAll(" ", "")) {
+    if (ch === "[") depth++;
+    else if (ch === "]") depth = Math.max(0, depth - 1);
+    else if (depth === 0) text += ch;
+  }
+  text = text.replaceAll("<N>", "1").replaceAll("<n>", "1").replaceAll("{n}", "1");
+  while (text.includes("<")) text = text.slice(0, text.indexOf("<")) + "1" + text.slice(text.indexOf(">", text.indexOf("<")) + 1);
+  if (text.endsWith("?") || !row.command) return text;
+  if (row.command.query) return `${text}?`;
+  return `${text} `;
+}
+
+/** Commands every instrument answers, offered first while the trial console is empty. */
+const COMMON = ["*IDN?", "*RST", ":SYSTem:ERRor?"];
+
+/**
+ * What the empty trial console offers (#1358): *IDN? and *RST, :SYSTem:ERRor? when the model has it,
+ * then the model's own first queries, `max` in all.
+ */
+export function trySuggestions(rows: readonly CommandRow[], max = 6): string[] {
+  const forms = rows.filter(runnable).map(tryForm);
+  const has = (c: string) => forms.some((f) => normHeader(f).replace("?", "") === normHeader(c).replace("?", ""));
+  const out = COMMON.filter((c) => c.startsWith("*") || has(c));
+  for (const f of forms) {
+    if (out.length >= max) break;
+    if (f.endsWith("?") && !out.includes(f)) out.push(f);
+  }
+  return out.slice(0, max);
+}
+
 /** Height of the coverage bar: implemented / accepted / not modeled as percentages. */
 export function coverageRatio(coverage: DefinitionCoverage | null | undefined): number {
   const total = coverage ? Object.values(coverage.stats).reduce((a, b) => a + b, 0) : 0;

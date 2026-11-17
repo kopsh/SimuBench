@@ -156,7 +156,7 @@ test("build area: declare a setting, bind a parameter to it, give it a command, 
 
   // The try run answers with what was set.
   await page.getByTestId("acceptance-tab-try").click();
-  const command = page.getByRole("textbox", { name: "命令" });
+  const command = page.getByRole("combobox", { name: "命令" });
   await command.fill(":OUTPut:IMPedance 75");
   await page.getByRole("button", { name: "发送" }).click();
   await command.fill(":OUTPut:IMPedance?");
@@ -177,7 +177,7 @@ test("build area: rename follows the wires and ports, undo and redo, layout kept
   // The test run, beside the canvas.
   await page.getByTestId("build-try-toggle").click();
   const drawer = page.getByTestId("build-try");
-  await drawer.getByRole("textbox", { name: "命令" }).fill("*IDN?");
+  await drawer.getByRole("combobox", { name: "命令" }).fill("*IDN?");
   await drawer.getByRole("button", { name: "发送" }).click();
   await expect(drawer.locator("pre").last()).toContainText("SB-OE-1");
 
