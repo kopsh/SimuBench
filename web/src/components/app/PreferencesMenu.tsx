@@ -1,4 +1,4 @@
-import { HardDrive, Info, Languages, Monitor, Moon, Settings2, Sun } from "lucide-react";
+import { Bot, HardDrive, Info, Languages, Monitor, Moon, Settings2, Sun } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -15,17 +15,22 @@ import {
 import { type Language, setLanguage } from "@/i18n";
 import { type ThemePreference, useTheme } from "@/lib/theme";
 import { AboutDialog } from "./AboutDialog";
-import { McpConnect } from "./McpConnect";
+import { McpConnect, McpConnectDialog, useMcpUrl } from "./McpConnect";
 import { StorageDialog } from "./StorageDialog";
 
-export function PreferencesMenu() {
+/** The settings menu at the right of every page's top bar. `mcpInMenu`: list "connect an external
+ * AI" in the menu rather than as a button beside it — the bench page, whose top bar already has the
+ * built-in AI assistant, so the bar does not show two AI buttons. */
+export function PreferencesMenu({ mcpInMenu = false }: { mcpInMenu?: boolean }) {
   const { t, i18n } = useTranslation();
+  const mcpUrl = useMcpUrl();
+  const [mcp, setMcp] = useState(false);
   const { preference, setPreference } = useTheme();
   const [about, setAbout] = useState(false);
   const [storage, setStorage] = useState(false);
   return (
     <>
-      <McpConnect />
+      {!mcpInMenu && <McpConnect />}
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="size-8" aria-label={t("workbench.settings")}>
@@ -54,6 +59,11 @@ export function PreferencesMenu() {
             <DropdownMenuRadioItem value="en">English</DropdownMenuRadioItem>
           </DropdownMenuRadioGroup>
           <DropdownMenuSeparator />
+          {mcpInMenu && mcpUrl && (
+            <DropdownMenuItem onSelect={() => setMcp(true)}>
+              <Bot className="size-4" /> {t("mcp.button")}
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onSelect={() => setStorage(true)}>
             <HardDrive className="size-4" /> {t("storage.menu")}
           </DropdownMenuItem>
@@ -64,6 +74,7 @@ export function PreferencesMenu() {
       </DropdownMenu>
       <AboutDialog open={about} onOpenChange={setAbout} />
       <StorageDialog open={storage} onOpenChange={setStorage} />
+      {mcpInMenu && mcpUrl && <McpConnectDialog url={mcpUrl} open={mcp} onOpenChange={setMcp} />}
     </>
   );
 }

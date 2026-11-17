@@ -34,33 +34,48 @@ function CopyBlock({ label, value }: { label: string; value: string }) {
   );
 }
 
-/** "Connect an AI assistant": shown only when the service answers MCP (`serve --mcp`, the Windows
- * SimuBench.exe), so a user who double-clicked finds the address on the page that opened (#1188). */
+/** The MCP address the service answers, or undefined when it does not (`serve --mcp`, the Windows
+ * SimuBench.exe, #1188). */
+export function useMcpUrl(): string | undefined {
+  const health = useQuery({ queryKey: ["health"], queryFn: () => unwrap(api.GET("/api/health")), staleTime: Infinity });
+  return health.data?.mcp_url ?? undefined;
+}
+
+/** The addresses and configs an external AI client (Claude Desktop, Cursor…) connects with. */
+export function McpConnectDialog({ url, open, onOpenChange }: { url: string; open: boolean; onOpenChange: (open: boolean) => void }) {
+  const { t } = useTranslation();
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] overflow-auto sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{t("mcp.title")}</DialogTitle>
+          <DialogDescription>{t("mcp.description")}</DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3">
+          {mcpSnippets(url).map((s) => (
+            <CopyBlock key={s.id} label={t(`mcp.${s.id}`)} value={s.value} />
+          ))}
+          <p className="text-muted-foreground text-xs">{t("mcp.note")}</p>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** "Connect an external AI" as a top-bar button: shown only when the service answers MCP, so a user
+ * who double-clicked finds the address on the page that opened (#1188). The bench page, which has
+ * its own AI assistant button, lists it in the settings menu instead (`PreferencesMenu mcpInMenu`). */
 export function McpConnect() {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const health = useQuery({ queryKey: ["health"], queryFn: () => unwrap(api.GET("/api/health")), staleTime: Infinity });
-  const url = health.data?.mcp_url;
+  const url = useMcpUrl();
   if (!url) return null;
   return (
     <>
       <Button variant="ghost" size="sm" className="h-8 gap-1.5" onClick={() => setOpen(true)}>
         <Bot className="size-4" /> {t("mcp.button")}
       </Button>
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[85vh] overflow-auto sm:max-w-xl">
-          <DialogHeader>
-            <DialogTitle>{t("mcp.title")}</DialogTitle>
-            <DialogDescription>{t("mcp.description")}</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            {mcpSnippets(url).map((s) => (
-              <CopyBlock key={s.id} label={t(`mcp.${s.id}`)} value={s.value} />
-            ))}
-            <p className="text-muted-foreground text-xs">{t("mcp.note")}</p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <McpConnectDialog url={url} open={open} onOpenChange={setOpen} />
     </>
   );
 }

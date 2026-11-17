@@ -171,7 +171,9 @@ def _launch(args: argparse.Namespace) -> int:
         args.hislip_port = DEFAULT_HISLIP_PORT
         fallback.add("HiSLIP")
     print("SimuBench —— 关闭此窗口即停止服务 / close this window to stop the service")
-    print("  连接 AI 助手：界面右上角「连接 AI 助手」/ Connect AI assistant: top right of the page")
+    print(
+        "  连接外部 AI：首页右上角「连接外部 AI（MCP）」/ Connect external AI (MCP): top right of the home page"
+    )
     args.port_fallback, args.mcp_config = fallback, True
     args.workspace, args.port, args.bench = str(workspace), port, None
     args.mcp, args.allow_control, args.open = True, False, not args.no_browser

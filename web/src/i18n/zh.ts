@@ -603,9 +603,9 @@ export const zh = {
     noSource: "没有信号源连到这个网络。",
   },
   mcp: {
-    button: "连接 AI 助手",
-    title: "连接 AI 助手（MCP）",
-    description: "SimuBench 正在提供 MCP 服务。把下面的地址或配置填进 AI 助手，它搭建、运行的测试台会实时出现在这个页面上。",
+    button: "连接外部 AI（MCP）",
+    title: "连接外部 AI 客户端（MCP）",
+    description: "SimuBench 正在提供 MCP 服务。把下面的地址或配置填进 AI 客户端，它搭建、运行的测试台会实时出现在这个页面上。",
     url: "MCP 地址（streamable HTTP）",
     json: "客户端配置（Claude Desktop、Cursor 等的 mcpServers）",
     claude: "Claude Code 命令",
