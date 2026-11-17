@@ -3794,6 +3794,11 @@ export interface components {
              * @description The setting that names the channel, e.g. 'waveform.source'
              */
             setting: string;
+            /**
+             * Taps
+             * @description The channel components it reads, one per channel (a scope trigger taps the analog signal at the ADC's input, #1263); none given: every channel component reaches it
+             */
+            taps: string[] | null;
         };
         /**
          * InternalTuning

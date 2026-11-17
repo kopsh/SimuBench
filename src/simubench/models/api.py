@@ -604,6 +604,11 @@ class InternalSelect(_Model):
 
     component: str
     setting: str = Field(..., description="The setting that names the channel, e.g. 'waveform.source'")
+    taps: list[str] | None = Field(
+        None,
+        description="The channel components it reads, one per channel (a scope trigger taps the analog "
+        "signal at the ADC's input, #1263); none given: every channel component reaches it",
+    )
 
 
 class InternalComponent(_Model):
