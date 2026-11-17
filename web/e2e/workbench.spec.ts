@@ -61,15 +61,24 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   await input.fill("*IDN?");
   await input.press("Enter");
   await expect(page.getByText("SIMUBENCH,SB-DSO-4").first()).toBeVisible();
+  // The console sits right under the identity, above the settings (#1342); one click sends a quick command.
+  const consoleY = (await input.boundingBox())!.y;
+  const settingsY = (await page.getByTestId("instrument-actions").boundingBox())!.y;
+  expect(consoleY, "the command box is in the inspector's first screenful").toBeLessThan(settingsY + 400);
+  await page.getByTestId("scpi-quick").getByRole("button", { name: "*OPC?" }).click();
+  await expect(page.getByRole("status", { name: "响应" })).toContainText("1");
   await input.fill(":CHANnel9:SCALe 1");
   await input.press("Enter");
+  // The recent command comes back as a chip that only fills the box, and survives a reload.
+  await expect(page.getByTestId("scpi-recent").getByRole("button", { name: ":CHANnel9:SCALe 1" })).toBeVisible();
   await expect(page.getByRole("tab", { name: "问题" })).toContainText("1");
   await page.getByRole("tab", { name: "问题" }).click();
   await expect(
     page.getByRole("button", { name: "-114" }).and(page.getByRole("button", { name: "Header suffix out of range" })),
   ).toBeVisible();
   await page.getByRole("tab", { name: "通信" }).click();
-  const row = page.getByText(":CHANnel9:SCALe 1").locator("..");
+  // The recent-command chip carries the same text: the log row is the one with a wall-clock time.
+  const row = page.getByTestId("wall-time").locator("..").filter({ hasText: ":CHANnel9:SCALe 1" });
   await expect(row).toBeVisible();
   await expect(row).toContainText("界面"); // who sent it
   await expectText(row.getByTestId("wall-time"), isClockTime, "HH:MM:SS.mmm"); // real time beside virtual time
@@ -77,10 +86,10 @@ test("SCPI console, communication log and problems", async ({ page }) => {
   const source = page.getByRole("combobox", { name: "按来源过滤" });
   await source.click();
   await page.getByRole("option", { name: "脚本" }).click();
-  await expect(page.getByText(":CHANnel9:SCALe 1")).toHaveCount(0);
+  await expect(row).toHaveCount(0);
   await source.click();
   await page.getByRole("option", { name: "界面" }).click();
-  await expect(page.getByText(":CHANnel9:SCALe 1")).toBeVisible();
+  await expect(row).toBeVisible();
 });
 
 test("open the scope screen by double-clicking its node", async ({ page }) => {
