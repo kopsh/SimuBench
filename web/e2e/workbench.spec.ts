@@ -37,6 +37,9 @@ test("start a bench, inspect and edit an instrument", async ({ page }) => {
   const inspector = page
     .getByText("身份与地址")
     .locator("xpath=ancestor::div[contains(@class,'space-y-4')]");
+  // Folded to the script's address, so the settings come first; opened, every address (#1355).
+  await expect(inspector.getByText("TCPIP0::192.168.1.20::5025::SOCKET")).toHaveCount(0);
+  await inspector.getByRole("button", { name: "身份与地址" }).click();
   await expect(
     inspector.getByText("TCPIP0::192.168.1.20::5025::SOCKET"),
   ).toBeVisible();
@@ -185,6 +188,7 @@ test("an unwired channel says so; clicking the source selects it", async ({
   const why = page.getByRole("status", { name: "输入为 0 V 的原因" });
   await expect(why).toContainText("没有接线");
   await page.getByRole("button", { name: "函数发生器 OUT1 输出关闭" }).click();
+  await page.getByTestId("identity-section").getByRole("button", { name: "身份与地址" }).click(); // folded (#1355)
   await expect(
     page.getByText("TCPIP0::192.168.1.20::5025::SOCKET"),
   ).toBeVisible(); // the generator is selected

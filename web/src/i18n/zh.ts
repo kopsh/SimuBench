@@ -271,6 +271,8 @@ export const zh = {
     model: "型号",
     identity: "标识",
     identitySection: "身份与地址",
+    identityMore: "另有 {{count}} 项",
+    screenShort: "屏幕",
     ports: "端口",
     notConnected: "未连接",
     params: "参数",
