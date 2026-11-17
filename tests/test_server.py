@@ -160,8 +160,18 @@ def test_reset_power_cycles_the_bench(client):
     ).json()
     assert changed["value"] == 0.5
 
+    # Polling asks for values only (#1299): the same values by path, no definitions, the same build.
+    full = client.get(f"/api/sessions/{sid}").json()
+    light = client.get(f"/api/sessions/{sid}", params={"state": "values"}).json()
+    assert light["build"] == full["build"] != ""
+    for f_inst, l_inst in zip(full["instruments"], light["instruments"], strict=True):
+        assert l_inst["state"] == [] and f_inst["values"] is None
+        assert l_inst["values"] == {v["path"]: v["value"] for v in f_inst["state"]}
+    assert light["instruments"][1]["values"]["ch1.scale"] == 0.5
+
     after = client.post(f"/api/sessions/{sid}/reset", json={}).json()
     assert after["id"] == sid  # the same session, scripts keep their entry point
+    assert after["build"] != full["build"]  # another build: a polling client fetches the definitions again
     scale = next(
         v
         for i in after["instruments"]

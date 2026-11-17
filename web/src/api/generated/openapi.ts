@@ -3464,8 +3464,18 @@ export interface components {
             remote: string[];
             /** Scpi Port */
             scpi_port: number | null;
-            /** State */
+            /**
+             * State
+             * @description Every setting with its definition (type, options, names, range) and value; empty when the session was asked for values only (``state=values``, then see ``values``)
+             */
             state: components["schemas"]["StateVarInfo"][];
+            /**
+             * Values
+             * @description Only with ``state=values`` (#1299): each setting's value by path, without the definitions, which do not change while the bench runs (``SessionInfo.build``)
+             */
+            values: {
+                [key: string]: unknown;
+            } | null;
         };
         /**
          * InstrumentInternals
@@ -5209,6 +5219,12 @@ export interface components {
              * @description Hash of the bench file the session started from
              */
             bench_sha256: string | null;
+            /**
+             * Build
+             * @description Changes each time the bench is built (start, reset, rebuild): the settings' definitions fetched with a build hold until it changes, so a client polling with ``state=values`` refetches the full session only then (#1299)
+             * @default
+             */
+            build: string;
             /**
              * Clients
              * @description Scripts currently connected to the SCPI ports
@@ -7703,7 +7719,10 @@ export interface operations {
     };
     getSession: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description values: each instrument's settings as values by path (InstrumentInfo.values) instead of full definitions, for polling; they hold while SessionInfo.build does (#1299) */
+                state?: "full" | "values";
+            };
             header?: never;
             path: {
                 sid: string;

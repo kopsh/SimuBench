@@ -248,6 +248,8 @@ class TrySessions:
 class ServedSession:
     def __init__(self, sid: str, session: Session, bench_path: Path | None) -> None:
         self.id = sid
+        #: This build of the bench (#1299): a reset or a rebuild serves a new one, even under the same id.
+        self.build = uuid.uuid4().hex[:12]
         self.session = session
         self.bench_path = bench_path
         self.bench_sha256: str | None = None
