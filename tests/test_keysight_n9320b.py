@@ -21,8 +21,9 @@ ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight_n9320b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_n9320b_measure.py"
 POINTS = 1001
-# 2 Vpp with the HiZ load setting into the 50 ohm input: 0.5 V peak -> +3.979 dBm.
-LEVEL_DBM = 3.9793921
+# 2 Vpp with the HiZ load setting into the 50 ohm input: 0.5 V peak -> +3.979 dBm, compressed by
+# the estimated 0 dBm 1 dB compression at 10 MHz (-16.0 dBm at the mixer) to +3.956 dBm (#1272).
+LEVEL_DBM = 3.9564963
 
 
 script = load_script(SCRIPT)
@@ -42,9 +43,9 @@ def q(s, command: str) -> str | None:
 def test_manual_script_runs_on_the_example_bench(tmp_path, monkeypatch, capsys):
     out = run_manual_script(script, ["sa"], BENCH, tmp_path, monkeypatch, capsys)
     assert out[0] == "Keysight Technologies,N9320B,A.01.01.CIDKMNEW,0B.03.03"
-    assert out[1] == "marker: 10000000 Hz, 3.980 dBm"
+    assert out[1] == "marker: 10000000 Hz, 3.956 dBm"
     assert out[2] == "counter: 10000000 Hz"
-    assert out[3] == f"trace: {POINTS} points, peak 3.980 dBm"
+    assert out[3] == f"trace: {POINTS} points, peak 3.956 dBm"
     assert out[4] == '+0,"No error"'
 
 
@@ -139,5 +140,35 @@ def test_delta_marker_starts_at_zero_when_the_marker_was_off():
     assert first[1] == first[2] == "+0.0000000000000000E+000"
     # 1 MHz off the 10 MHz reference the marker reads the analyzer's phase-noise skirt (#960):
     # L(1 MHz) = -112 dBc/Hz (data sheet, typical) over the 1.0645 x 30 kHz noise bandwidth is
-    # -67.0 dBc; the positive detector reads noise a little above its mean.
-    assert -70 < float(first[4]) < -60
+    # -67.0 dBc; one trace point is a noise draw (sigma about 5.6 dB), inside this band.
+    assert -80 < float(first[4]) < -55
+
+
+def test_the_low_band_front_end_compresses_the_tone_and_shows_its_overload():
+    """#1272: below their lowest band the data sheet's front-end figures are estimates, not an
+    ideal mixer: at 4 MHz the estimated 0 dBm 1 dB compression turns a +4 dBm tone into about
+    +1.2 dBm and the session's readings flag the overload (the guide gives no overload status bit
+    or error message); with the input off, a sweep from 0 Hz shows the estimated -40 dBm LO
+    feedthrough at its left end."""
+    s = session()
+    try:
+        # -- a +4 dBm tone at 4 MHz is compressed by the estimated 0 dBm 1 dB compression
+        session_query(s, "awg", "C1:BSWV WVTP,SINE,FRQ,1MHZ,AMP,2")  # HiZ 2 Vpp -> +4.0 dBm
+        for command in (":FREQ:CENT 4 MHZ", ":FREQ:SPAN 8 MHZ", ":DISP:WIND:TRAC:Y:RLEV -30", ":POW:ATT 0"):
+            q(s, command)
+        q(s, ":CALC:MARK:MAX")
+        assert float(q(s, ":CALC:MARK:X?")) == pytest.approx(1.0e6, abs=2.0e3)
+        level = float(q(s, ":CALC:MARK:Y?"))
+        assert 1.0 < level < 2.0  # 4.0 dBm in, about 1.22 dBm read
+        readings = s.instruments["sa"].components["sa"].readings()["values"]
+        assert readings["overload"] is True
+        assert q(s, ":SYST:ERR?") == '+0,"No error"'  # no overload message in the guide
+        # -- 0 to 1 MHz with the input off: the LO feedthrough is the line at 0 Hz
+        session_query(s, "awg", "C1:OUTP OFF")
+        for command in (":FREQ:STAR 0", ":FREQ:STOP 1 MHZ"):
+            q(s, command)
+        q(s, ":CALC:MARK:X 0")
+        assert float(q(s, ":CALC:MARK:Y?")) == pytest.approx(-40.0, abs=0.5)  # the unit's flatness
+        assert s.instruments["sa"].components["sa"].readings()["values"]["overload"] is False
+    finally:
+        s.close()

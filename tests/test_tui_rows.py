@@ -117,6 +117,32 @@ def test_the_spectrum_screen_says_why_the_trace_stands_still():
     assert any("Command clock" in text for row in out for text, _ in row)
 
 
+def test_the_spectrum_screen_flags_a_mixer_overload():
+    """#1272: the analyzer's screen shows the overload; the TUI flags it as OVLD beside UNCAL."""
+    readings = {
+        "values": {
+            "sa.start": 0.0,
+            "sa.stop": 1.0e6,
+            "sa.rbw": 1.0e4,
+            "sa.vbw": 1.0e4,
+            "sa.sweep_time": 1.0e-3,
+            "sa.marker_x": 1.0e5,
+            "sa.marker_y": -40.0,
+            "sa.overload": True,
+        },
+        "traces": [{"name": "trace1", "values": [-40.0] * 10}],
+    }
+    text = "".join(
+        cell for row in rows.spectrum_rows(LANG, readings, {}, 80, None, "wall") for cell, _ in row
+    )
+    assert "OVLD" in text
+    readings["values"]["sa.overload"] = False
+    text = "".join(
+        cell for row in rows.spectrum_rows(LANG, readings, {}, 80, None, "wall") for cell, _ in row
+    )
+    assert "OVLD" not in text
+
+
 def test_the_panel_rows_show_the_groups_that_hold_and_each_channels_group():
     """D74 (#1327): a group or setting hidden by its ``when`` is not listed; a channel's group
     reads ``CH1 · title`` over that channel's settings."""

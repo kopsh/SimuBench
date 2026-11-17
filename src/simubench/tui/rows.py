@@ -237,6 +237,8 @@ def spectrum_rows(
                 line += [(f"{label} ", "muted"), (fmt(float(v), unit, 3), ""), ("   ", "")]
         if values.get(f"{base}.uncal"):
             line.append(("UNCAL", "bad"))
+        if values.get(f"{base}.overload"):
+            line.append(("OVLD", "bad"))
         if line:
             rows.append(line)
     hint = sweep_hint(lang, clock_mode, state)
