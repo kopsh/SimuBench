@@ -484,16 +484,17 @@ cases:
         instrument: awg
       - send: ":CHANnel1:SCALe 0.1;:ACQuire:BANDwidth 1E8"
       - query: ":MEASure:VPP? CHANnel1"
-        # 滤波截断后只剩这一档的噪声：6.1 mV rms，256 kpts 的峰峰约 9.2σ(specs.noise_per_division,#745)
-        expect_value: 0.056
-        tolerance: 0.02
+        # 滤波截断后只剩这一档的噪声，且噪声也经过 ADC 之后的 100 MHz 滤波（#1262）：
+        # 6.1 mV × √(100 MHz / 128 GHz) ≈ 0.17 mV rms，峰峰约 1 mV
+        expect_value: 0.0
+        tolerance: 0.003
       - send: ":ACQuire:RESPonse GAUSsianmag"
       - query: ":ACQuire:RESPonse?"
         expect: "GAUS"
       - query: ":MEASure:VPP? CHANnel1"
-        # 衰减后的幅度 0.2428 V 加上这一档噪声的两侧峰值（约 0.046 V，6.1 mV rms，#745）
-        expect_value: 0.289
-        tolerance: 0.025
+        # 衰减后的幅度 0.2428 V；噪声经同一滤波后只剩约 0.2 mV rms（#1262）
+        expect_value: 0.2428
+        tolerance: 0.005
   - name: "通道带宽限制：砖墙、4 阶 Bessel、4 阶 Butterworth 对 10 MHz 正弦"
     manual: ":CHANnel<N> Commands > :CHANnel<N>:ISIM:BWLimit; :CHANnel<N>:ISIM:BANDwidth; :CHANnel<N>:ISIM:BWLimit:TYPE"
     steps:
@@ -507,21 +508,22 @@ cases:
       - query: ":CHANnel1:ISIM:BANDwidth?"
         expect: "+8.00000E+06"
       - query: ":MEASure:VPP? CHANnel1"
-        # 滤波截断后只剩这一档的噪声：6.1 mV rms，256 kpts 的峰峰约 9.2σ(specs.noise_per_division,#745)
-        expect_value: 0.056
-        tolerance: 0.02
+        # 滤波截断后只剩噪声，且噪声也经过 ADC 之后的 8 MHz 滤波（#1262）：6.1 mV × √(8 MHz / 128 GHz)
+        # ≈ 0.05 mV rms
+        expect_value: 0.0
+        tolerance: 0.002
       - send: ":CHANnel1:ISIM:BWLimit:TYPE BUTTerworth"
       - query: ":CHANnel1:ISIM:BWLimit:TYPE?"
         expect: "BUTT"
       - query: ":MEASure:VPP? CHANnel1"
-        # 0.1516 V 加上噪声的两侧峰值（约 0.046 V）
-        expect_value: 0.198
-        tolerance: 0.025
+        # 0.1516 V；噪声经滤波后可忽略（#1262）
+        expect_value: 0.1516
+        tolerance: 0.003
       - send: ":CHANnel1:ISIM:BWLimit:TYPE BESSEL4"
       - query: ":MEASure:VPP? CHANnel1"
-        # 0.2265 V 加上噪声的两侧峰值（约 0.046 V）
-        expect_value: 0.273
-        tolerance: 0.025
+        # 0.2265 V；噪声经滤波后可忽略（#1262）
+        expect_value: 0.2265
+        tolerance: 0.003
       - send: ":CHANnel1:ISIM:BWLimit OFF"
       - query: ":MEASure:VPP? CHANnel1"
         # 峰峰含 0.1 V/div 档的噪声峰峰(#745)

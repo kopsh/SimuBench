@@ -106,6 +106,30 @@ def test_peak_detect_and_high_resolution_tiles_follow_the_whole_record(monkeypat
             assert np.max(np.abs(got - a.volts)) < 1e-12 * a.scale
 
 
+def test_a_deep_record_filtered_after_the_adc_follows_the_whole_record(monkeypatch):
+    """#1262: with the bandwidth filter on, a deep record captures the filter with the converter;
+    each tile asks for the kernel's reach on either side, so its samples are the whole record's (to
+    rounding: each tile is its own FFT), and the screen's draws are samples of that record."""
+    commands = [":ACQuire:BANDwidth 1E9", *RECORD]
+    _, whole = _replies(UXR, commands)
+    monkeypatch.setattr(scope_module, "EAGER_POINTS", 1000)
+    monkeypatch.setattr(scope_record, "TILE", 1 << 12)
+    _, deep = _replies(UXR, commands)
+    a, b = whole[1], deep[1]
+    assert a.deep is None and b.deep is not None and b.deep.chain.filters[0].active
+    assert b.deep.cost == 16  # 8 GSa/s filtered at the converter's 128 GSa/s
+    got = np.concatenate(list(b.chunks()))
+    assert np.max(np.abs(got - a.volts)) < 1e-9 * a.scale
+    # the 10 MHz sine passes the 1 GHz filter; the noise above 1 GHz does not
+    assert float(np.std(a.volts - np.mean(a.volts))) > 0.1
+    monkeypatch.setattr(scope_record, "ENVELOPE_BUDGET", 50_000)
+    envelope = b.envelope(200, ("screen", 1))
+    lows, highs = np.array(envelope[0::2]), np.array(envelope[1::2])
+    pixels = a.volts.reshape(200, 500)
+    tol = 1e-9 * a.scale
+    assert (lows >= pixels.min(axis=1) - tol).all() and (highs <= pixels.max(axis=1) + tol).all()
+
+
 def test_a_deep_record_is_computed_where_it_is_read_and_keeps_what_was_acquired(monkeypatch):
     """:DIGitize computes nothing; a read computes its tiles only; reading a sample again, or
     through another read, gives the same value; later settings do not change the record; a read

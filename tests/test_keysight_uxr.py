@@ -6,6 +6,7 @@ polling synchronization (:SINGle, then :ADER? until 1), and compare what they re
 the bench carries.
 """
 
+import math
 from pathlib import Path
 
 import numpy as np
@@ -370,5 +371,48 @@ def test_uxr1104b_reference_input_and_memory_option(tmp_path):
         assert uxr.query("*OPT?").strip() == "02G"
         assert uxr.query(":SYSTem:CAPability:ACQuire? MEMory").strip() == '"2000000000"'
         assert uxr.query(":SYSTem:ERRor?").strip() == "0"
+    finally:
+        rm.close()
+
+
+def test_the_noise_falls_with_the_bandwidth_filters_after_the_adc():
+    """#1262: :ACQuire:BANDwidth and InfiniiSim are DSP after the ADC. The noise added at the
+    converter (the data sheet's 860 µV at full bandwidth, 10 mV/div) falls with √bandwidth through
+    them; the internal probe sees the quantized codes at the ADC and the filtered stream after it."""
+    from simubench.server.manager import ServedSession
+    from simubench.server.services import internal_probe
+
+    rm = pyvisa.ResourceManager(f"{EXAMPLE_BENCH_1104B}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr.write(":CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.01;:CHANnel3:OFFSet 0")
+
+        def noise() -> float:
+            uxr.write(":DIGitize CHANnel3")
+            _t, volts, _w = reader.read_waveform(uxr, "CHANnel3")
+            return float(np.std(volts))
+
+        # -- full bandwidth: the table's value, the filter passes the samples unchanged
+        full = noise()
+        assert full == pytest.approx(8.6e-4, rel=0.05)
+        # -- each limit: within 10% of √(B / 113 GHz) of the full-bandwidth noise
+        for bw in (5e10, 1e10, 1e9):
+            uxr.write(f":ACQuire:BANDwidth {bw:g}")
+            assert noise() == pytest.approx(8.6e-4 * math.sqrt(bw / 1.13e11), rel=0.10), bw
+        # -- InfiniiSim's channel limit is a filter after the ADC as well
+        uxr.write(":ACQuire:BANDwidth MAX;:CHANnel3:ISIM:BANDwidth 1E9;:CHANnel3:ISIM:BWLimit ON")
+        assert noise() == pytest.approx(8.6e-4 * math.sqrt(1e9 / 1.13e11), rel=0.10)
+        # -- the internal probe: codes at the ADC, the filtered stream after the InfiniiSim block
+        served = ServedSession("t", rm.visalib.bench, None)
+        codes = internal_probe.probe(served, "scope", "adc.out3")
+        filtered = internal_probe.probe(served, "scope", "isim.out3")
+        assert codes.format is not None and codes.format.bits == 10
+        step = 0.01 / 128
+        assert np.allclose(
+            np.round(np.array(codes.waveform.volts) / step) * step, codes.waveform.volts, atol=1e-12
+        )
+        assert filtered.format is not None and filtered.format.bits == 0
+        assert filtered.rms < codes.rms / 5
+        assert reader.errors(uxr) == []
     finally:
         rm.close()
