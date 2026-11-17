@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Literal
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -86,8 +87,15 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
         operation_id="getSession",
         dependencies=[Depends(auth)],
     )
-    def get_session(sid: str) -> M.SessionInfo:
-        return manager.views.describe(served(sid))
+    def get_session(
+        sid: str,
+        state: Literal["full", "values"] = Query(
+            "full",
+            description="values: each instrument's settings as values by path (InstrumentInfo.values) instead of "
+            "full definitions, for polling; they hold while SessionInfo.build does (#1299)",
+        ),
+    ) -> M.SessionInfo:
+        return manager.views.describe(served(sid), values_only=state == "values")
 
     @router.delete(
         "/api/sessions/{sid}",

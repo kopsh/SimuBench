@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, distinctOptions, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber, wordOf } from "./model";
+import { accessoryLabel, channelVars, distinctOptions, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, slotRows, splitSettings, stepNumber, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -90,6 +90,28 @@ describe("inspector settings (#728)", () => {
     const vars = [v("sense.range", null, { label: "量程" }), v("sense.nplc", null, { label_en: "NPLC" }), v("trigger.hold"), v("comm.header", null, { label: "头" })];
     const open = Object.fromEntries(splitSettings(vars, []).groups.map((g) => [g.id, groupOpen(g)]));
     expect(open).toEqual({ sense: true, trigger: false, comm: false });
+  });
+
+  it("folds a group of named settings that is too long to show at once (#1299)", () => {
+    const named = (path: string) => v(path, null, { label: path });
+    const short = Array.from({ length: OPEN_ROWS_MAX }, (_, i) => named(`acquire.k${i}`));
+    const long = Array.from({ length: OPEN_ROWS_MAX + 1 }, (_, i) => named(`trigger.k${i}`));
+    const open = Object.fromEntries(splitSettings([...short, ...long], []).groups.map((g) => [g.id, groupOpen(g)]));
+    expect(open).toEqual({ acquire: true, trigger: false });
+  });
+
+  it("joins four or more numbered groups into one, numbers in order, folded and named by the prefix (#1299)", () => {
+    const fn = (n: number) => [v(`function${n}.operator`, null, { label: "运算" }), v(`function${n}.source1`, null, { label: "源 1" })];
+    const vars = [v("timebase.scale", null, { label: "时基" }), ...[10, 2, 1, 3].flatMap(fn), v("marker1.x"), v("marker2.x")];
+    const { groups } = splitSettings(vars, []);
+    expect(groups.map((g) => g.id)).toEqual(["timebase", "function", "marker1", "marker2"]);
+    const joined = groups[1];
+    expect(joined.numbered?.instances).toEqual(["1", "2", "3", "10"]);
+    expect(joined.numbered?.byInstance.get("10")?.map((x) => x.path)).toEqual(["function10.operator", "function10.source1"]);
+    expect(joined.vars).toHaveLength(8);
+    expect(groupOpen(joined)).toBe(false);
+    expect(groupName("function", true)).toBe("数学函数");
+    expect(groupName("function")).toBe("功能");
   });
 
   it("joins a measurement slot's kind and source into one row", () => {

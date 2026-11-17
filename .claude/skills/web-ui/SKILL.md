@@ -81,6 +81,13 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   changes, #1221) and its width per kind (`INSPECTOR_SIZE`, narrower beside a screen, #1229).
   Keep such rules in store actions (unit-tested in `store.test.ts`), not in effects that call
   `setState`: the React compiler lint rejects those, and refs written during render.
+- Inspector render cost (#1299): a group starts open only when it is named and shows at most
+  `OPEN_ROWS_MAX` rows (`groupOpen`, `model.ts`); four or more numbered groups of one prefix
+  (`function1`…) join into one with an instance picker (`SettingGroup.numbered`). The shared
+  `Select` (`components/ui/select.tsx`) renders only the chosen item while closed — keep the items
+  direct children with a `value` so it can. `useSession` polls `?state=values` and lays the values
+  onto the held session (`api/sessionValues.ts`); the full session is fetched only when `build`
+  changes. A new per-setting field the UI reads while running must come in that light form too.
 - `web/src/features/workbench/onScreen.ts` — which settings a screen shows as fields: a
   `StateField` inside a screen tab counts its path while mounted, and the inspector beside that
   screen leaves those paths out (#1229). A new screen gets this for free by using `StateField`; a

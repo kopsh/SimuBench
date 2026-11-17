@@ -920,6 +920,25 @@ test("the inspector folds the 100 bookmarks into one block, the picker lists onl
   await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
   const inspector = page.getByTestId("inspector-panel");
 
+  // A click mounts what the first view shows, not the scope's 1861 settings (#1299): long groups
+  // and the sixteen math functions start folded, the math functions as one group.
+  await expect(inspector.getByText("身份与地址")).toBeVisible();
+  const controls = await inspector.locator("input, [role=combobox], [role=switch]").count();
+  expect(controls, "controls mounted on a click").toBeLessThanOrEqual(100);
+  const math = inspector.locator('[data-group="function"]');
+  await expect(math.getByRole("button", { expanded: false })).toContainText("数学函数");
+  await expect(inspector.locator('[data-group="function2"]')).toHaveCount(0);
+  await math.getByRole("button", { expanded: false }).click();
+  const fn = math.getByRole("combobox", { name: "数学函数 的编号" });
+  await expect(fn).toHaveText("1");
+  await expect(math.getByText("共 16 个")).toBeVisible();
+  await expect(math.locator('[data-setting="function1.operator"]')).toBeVisible();
+  await expect(math.locator('[data-setting="function2.operator"]')).toHaveCount(0);
+
+  // The display group is long: folded until opened (#1299).
+  const display = inspector.locator('[data-group="display"]');
+  await display.getByRole("button", { expanded: false }).click();
+
   // The 100 bookmarks fold into one block (>= 4 instances); settings outside the family stay rows.
   const family = inspector.locator('[data-testid="setting-family"][data-family="display.bookmark"]');
   await expect(family).toBeVisible();

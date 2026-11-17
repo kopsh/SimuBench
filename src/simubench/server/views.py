@@ -43,14 +43,18 @@ class SessionViews:
     def __init__(self, manager: SessionManager) -> None:
         self.manager = manager
 
-    def describe(self, served: ServedSession) -> M.SessionInfo:
+    def describe(self, served: ServedSession, values_only: bool = False) -> M.SessionInfo:
+        """The session as the API shows it; ``values_only`` gives each instrument's settings as values
+        by path instead of full definitions (#1299: a 1 MB session down to its moving parts)."""
         s = served.session
         b = s.bench
         ports = {lst.instrument: lst.port for lst in (served.scpi.listeners if served.scpi else [])}
         hislip = served.hislip.addresses() if served.hislip else {}
         vxi11 = served.vxi11.addresses() if served.vxi11 else {}
         instruments = [
-            self.describe_instrument(s, inst, i, ports.get(name), hislip.get(name), vxi11.get(name))
+            self.describe_instrument(
+                s, inst, i, ports.get(name), hislip.get(name), vxi11.get(name), values_only
+            )
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
         clients: list[M.ClientInfo] = [
@@ -104,6 +108,7 @@ class SessionViews:
             )
         return M.SessionInfo(
             id=served.id,
+            build=served.build,
             bench_name=b.name,
             bench_path=served.bench_path.relative_to(self.manager.files.workspace).as_posix()
             if served.bench_path
@@ -170,6 +175,7 @@ class SessionViews:
         scpi_port: int | None,
         hislip: str | None = None,
         vxi11: str | None = None,
+        values_only: bool = False,
     ) -> M.InstrumentInfo:
         d = inst.definition
         ports = []
@@ -189,7 +195,7 @@ class SessionViews:
         dangerous_paths = {c.state for c in d.commands if c.dangerous and c.state}
         on_read = _memory_depth_paths(inst)
         state = []
-        for path, spec in inst.specs.items():
+        for path, spec in [] if values_only else inst.specs.items():
             generic = f"ch.{path.split('.', 1)[1]}" if path.startswith("ch") and path[2:3].isdigit() else path
             ch = int(path[2 : path.index(".")]) if path.startswith("ch") and path[2:3].isdigit() else None
             state.append(
@@ -220,6 +226,7 @@ class SessionViews:
             display=_display_info(d),
             ports=ports,
             state=state,
+            values={path: jsonable(inst.state.get(path)) for path in inst.specs} if values_only else None,
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in inst.errors.peek_all()],
             warnings=[M.WarningItem(code=c, message=m) for c, m in inst.warnings.items()],
             deviation=inst.instance.deviation,

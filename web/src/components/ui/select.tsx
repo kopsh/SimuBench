@@ -5,10 +5,41 @@ import { cn } from "@/lib/utils"
 import { CheckIcon, ChevronDownIcon, ChevronUpIcon } from "lucide-react"
 import { Select as SelectPrimitive } from "radix-ui"
 
+/**
+ * Whether the list is open and the chosen value: a closed select renders only the chosen item
+ * (#1299). Radix renders a closed select's items into a detached fragment to find the chosen
+ * one's text; with an enum of many options on hundreds of fields that was most of an inspector's
+ * render. Typing to pick on a closed trigger then finds only the chosen item; opening the list
+ * (click, Enter, Space, arrows) shows them all.
+ */
+const SelectState = React.createContext<{ open: boolean; value: string | undefined }>({ open: true, value: undefined })
+
 function Select({
+  open: openProp,
+  defaultOpen,
+  onOpenChange,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  const [own, setOwn] = React.useState(!!defaultOpen)
+  const open = openProp ?? own
+  const change = (o: boolean) => {
+    setOwn(o)
+    onOpenChange?.(o)
+  }
+  return (
+    <SelectState.Provider value={{ open, value: props.value }}>
+      <SelectPrimitive.Root data-slot="select" open={open} onOpenChange={change} {...props} />
+    </SelectState.Provider>
+  )
+}
+
+/** The children a closed select renders: the item of the chosen value, or all when it is not one of them. */
+function closedItems(children: React.ReactNode, value: string | undefined): React.ReactNode {
+  if (value === undefined) return children
+  const all = React.Children.toArray(children)
+  const chosen = all.filter((c) => React.isValidElement<{ value?: unknown }>(c) && c.props.value === value)
+  // Groups, separators or a value that is no item: render as given.
+  return chosen.length === 1 && all.every((c) => React.isValidElement<{ value?: unknown }>(c) && c.props.value !== undefined) ? chosen : children
 }
 
 function SelectGroup({
@@ -56,6 +87,8 @@ function SelectContent({
   align = "center",
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
+  const state = React.useContext(SelectState)
+  const items = state.open ? children : closedItems(children, state.value)
   return (
     <SelectPrimitive.Portal>
       <SelectPrimitive.Content
@@ -78,7 +111,7 @@ function SelectContent({
               "h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)] scroll-my-1"
           )}
         >
-          {children}
+          {items}
         </SelectPrimitive.Viewport>
         <SelectScrollDownButton />
       </SelectPrimitive.Content>
