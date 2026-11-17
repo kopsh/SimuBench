@@ -101,7 +101,16 @@ def peak_detect(samples: np.ndarray, m: int) -> np.ndarray:
 class AdcView:
     """What a ``scope_adc`` frame of one channel is computed from, as values: the frame is a pure
     function of this and the request (``ScopeAdc.frames`` computes through it, so the two cannot
-    differ)."""
+    differ).
+
+    In signal order (#1266): each sample instant moves by the sampling clock's aperture jitter
+    (``aperture`` s rms, its own draw per sample); the front end's harmonic distortion bends the
+    signal's lines (``hd``: the coefficients of x² and x³ on its AC part relative to half the
+    converter's span, ``half`` V; its DC is calibrated out, so a DC level reads as before); an interleaved converter of ``ilv`` sub-converters on the
+    ``native_dt`` grid gives each its own gain and offset (a cosine across the sub-converters,
+    ``ilv_gain`` relative and ``ilv_offset`` of ``half``): images at k·fs/N ± f and spurs at
+    k·fs/N; then the input noise (``sigma``) and the quantization. ``scale`` is the converter's
+    V/div — the displayed one, or the hardware range's below a magnified setting (#1265)."""
 
     signal: Signal  # the channel's signal at the converter's input, display volts
     skew: float  # the probe's delay, s
@@ -112,14 +121,49 @@ class AdcView:
     bits: int
     per_div: float
     add: bool  # the offset setting is added to the volts (else subtracted)
+    hd: tuple[float, float] = (0.0, 0.0)  # x², x³ coefficients of the front end's distortion
+    half: float = 0.0  # half the converter's span, display volts (the distortion's and spurs' unit)
+    ilv: int = 0  # interleaved sub-converters (0, 1: none)
+    ilv_gain: float = 0.0  # their gain mismatch, relative (images at k·fs/N ± f, each ilv_gain/2)
+    ilv_offset: float = 0.0  # their offset mismatch, of half (spurs at k·fs/N)
+    native_dt: float = 0.0  # the interleaved converter's own interval, s
+    aperture: float = 0.0  # the sampling clock's aperture jitter, s rms
 
     def quantize(self, volts: np.ndarray) -> np.ndarray:
         return quantize(volts, self.scale, self.offset, self.bits, self.per_div, self.add)
 
-    def frame(self, request: FrameRequest) -> SampleFrame:
-        volts = self.signal.sample_rel(request.t0_ns, request.offsets_s() - self.skew)
+    def _volts(
+        self, t0_ns: int, offsets: np.ndarray, indexes: np.ndarray, key: tuple[object, ...]
+    ) -> np.ndarray:
+        """The converter's input at the sample instants ``t0_ns`` + ``offsets`` (s), before the
+        quantization; ``indexes`` place the samples in the random streams of ``key``."""
+        when = offsets - self.skew
+        if self.aperture > 0:
+            when = when + self.aperture * gaussian(stream_key(self.seed, *key, "aperture"), indexes)
+        volts = self.signal.sample_rel(t0_ns, when)
+        middle = -self.offset if self.add else self.offset
+        if (self.hd[0] or self.hd[1]) and self.half > 0 and self.signal.freq.size:
+            # On the signal's lines, not its DC: the scope's calibration takes the static error out,
+            # so a DC level reads as before; x²'s own mean (the lines' power) is taken out with it.
+            x = (volts - self.signal.dc) / self.half
+            power = float(np.sum(np.abs(self.signal.amp) ** 2)) / 2 / self.half**2
+            volts = volts + self.half * (self.hd[0] * (x * x - power) + self.hd[1] * x * x * x)
+        if self.ilv > 1 and self.native_dt > 0 and (self.ilv_gain or self.ilv_offset):
+            n = self.ilv
+            # the sub-converter of each sample: its place on the converter's own grid, counted from
+            # time zero (whole nanoseconds first, so a late instant keeps its precision)
+            per_ns = 1e-9 / self.native_dt
+            base = math.fmod(t0_ns * per_ns, n)
+            sub = np.mod(np.round(base + offsets / self.native_dt), n)
+            pattern = np.cos(2 * math.pi * sub / n)
+            volts = (volts - middle) * (1.0 + self.ilv_gain * pattern) + middle
+            volts = volts + self.ilv_offset * self.half * pattern
         if self.sigma > 0:
-            volts = volts + self.sigma * gaussian(stream_key(self.seed, *request.key), request.indexes())
+            volts = volts + self.sigma * gaussian(stream_key(self.seed, *key), indexes)
+        return volts
+
+    def frame(self, request: FrameRequest) -> SampleFrame:
+        volts = self._volts(request.t0_ns, request.offsets_s(), request.indexes(), request.key)
         kept = self.quantize(volts)
         clipped, sides = False, None
         if self.bits > 0:
@@ -134,11 +178,8 @@ class AdcView:
         ``shift`` further along the random stream: what :meth:`frame` gives there, computed
         sample by sample (the screen's envelope)."""
         off = (request.first + positions.astype(np.float64)) * request.dt_s
-        volts = self.signal.sample_rel(request.t0_ns, off - self.skew)
-        if self.sigma > 0:
-            index = request.index0 + positions.astype(np.int64) + shift
-            volts = volts + self.sigma * gaussian(stream_key(self.seed, *request.key), index)
-        return self.quantize(volts)
+        index = request.index0 + positions.astype(np.int64) + shift
+        return self.quantize(self._volts(request.t0_ns, off, index, request.key))
 
 
 #: Samples a digital filter's kernel reaches on either side at the most (its warm-up): a filter far
