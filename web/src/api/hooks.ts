@@ -15,9 +15,11 @@ import type {
   InstrumentInfo,
   InstrumentInternals,
   ScpiResponse,
+  SessionInfo,
   TryOpened,
 } from "./client";
 import { ApiError, type FaultSpec, type Schemas, api, unwrap } from "./client";
+import { withValues } from "./sessionValues";
 
 export const keys = {
   benches: ["benches"] as const,
@@ -103,13 +105,28 @@ export function useSessions() {
 }
 
 export function useSession(sid: string) {
+  const qc = useQueryClient();
   return useQuery({
     queryKey: keys.session(sid),
-    queryFn: () => unwrap(api.GET("/api/sessions/{sid}", { params: { path: { sid } } })),
+    queryFn: () => fetchSession(qc, sid),
     retry: (count, err) => (err as { status?: number }).status !== 404 && count < 3,
     // Scripts connect and leave without an event: keep the remote marks fresh (#121).
     refetchInterval: (q) => (q.state.data?.clients.length ? 2000 : 5000),
   });
+}
+
+/**
+ * The session: in full the first time and after the bench is built again, else only its values laid
+ * onto the one held (#1299: a scope's full session is about 1 MB, polled every few seconds).
+ */
+async function fetchSession(qc: QueryClient, sid: string): Promise<SessionInfo> {
+  const held = qc.getQueryData<SessionInfo>(keys.session(sid));
+  if (held?.build) {
+    const light = await unwrap(api.GET("/api/sessions/{sid}", { params: { path: { sid }, query: { state: "values" } } }));
+    const merged = withValues(held, light);
+    if (merged) return merged;
+  }
+  return unwrap(api.GET("/api/sessions/{sid}", { params: { path: { sid } } }));
 }
 
 /**
