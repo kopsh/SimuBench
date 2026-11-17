@@ -336,7 +336,7 @@ class SamplingAcquisition(Component):
                 if sigma > 0:
                     v = v + sigma * gaussian(stream_key(self.session.seed, self.uid, "noise", n, *tag), idx)
                 if adc is not None:
-                    v = adc.quantize(v, scale, offset)
+                    v = adc.quantize(v, scale, offset, self.probe_ratio(n))
                 acc += v
             volts = vertical.correct(acc / n_avg)
             out[n] = Record(
@@ -350,6 +350,8 @@ class SamplingAcquisition(Component):
                 triggered=True,
                 x_origin_s=position,
             )
+            if adc is not None:  # the rails and the transfer use the converter's own step (#1294)
+                out[n].code_scale = adc.converter_scale(scale, self.probe_ratio(n))
         return out, self.acquisition_ns(), True
 
     def acquire(self, channels: list[int] | None = None) -> int:

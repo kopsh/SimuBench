@@ -184,6 +184,40 @@ def test_reset_power_cycles_the_bench(client):
     client.delete(f"/api/sessions/{sid}")
 
 
+def test_a_combination_that_moves_limits_reaches_a_values_poll():
+    """The E36312A's series pair doubles CH2's limits within one build (#259): a client polling
+    values only learns it from ``spec_rev`` and fetches the full session again (#1302)."""
+    app = create_app(
+        SessionManager(ROOT / "examples", scpi_base_port=None), token=TOKEN, web_dist=Path("/nonexistent")
+    )
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "benches/keysight_e36312a.bench.yaml"}).json()["id"]
+
+        def psu(**params):
+            info = c.get(f"/api/sessions/{sid}", params=params).json()
+            return info["build"], next(i for i in info["instruments"] if i["name"] == "psu")
+
+        build, before = psu()
+        single = next(v["max"] for v in before["state"] if v["path"] == "ch2.voltage")
+        _, light = psu(state="values")
+        assert light["spec_rev"] == before["spec_rev"]  # nothing moved: the values are enough
+        c.post(
+            f"/api/sessions/{sid}/instruments/psu/scpi", json={"command": "OUTP OFF,(@1:3);:OUTP:PAIR SER"}
+        )
+        assert (
+            c.post(f"/api/sessions/{sid}/instruments/psu/scpi", json={"command": "OUTP:PAIR?"}).json()[
+                "response"
+            ]
+            == "SER"
+        )
+        same_build, light = psu(state="values")
+        assert same_build == build and light["spec_rev"] != before["spec_rev"]  # the client refetches
+        _, after = psu()
+        assert after["spec_rev"] == light["spec_rev"]
+        assert next(v["max"] for v in after["state"] if v["path"] == "ch2.voltage") == 2 * single
+
+
 def test_opening_without_actions_writes_no_record(tmp_path):
     """A bench that is only opened leaves no record; the first command starts one (issue 31)."""
     app = create_app(

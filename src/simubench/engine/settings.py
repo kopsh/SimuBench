@@ -100,6 +100,9 @@ class SettingStore:
                 self.specs[f"ch{n}.{key}"] = spec.model_copy(update=patch) if patch else spec
         #: The definition's spec of a setting whose bounds a component moved at run time.
         self._origin: dict[str, StateSpec] = {}
+        #: Counts the run-time changes to ``specs`` (bounds moved or restored, #1302): a client that
+        #: holds the settings' definitions fetches them again when it moves.
+        self.spec_rev = 0
         self.values: dict[str, Any] = {}
 
     def coerce(self, path: str, value: Any) -> Any:
@@ -144,10 +147,14 @@ class SettingStore:
             "min": origin.min if minimum is None else minimum,
             "max": origin.max if maximum is None else maximum,
         }
-        self.specs[path] = origin.model_copy(update=update)
+        moved = origin.model_copy(update=update)
+        if moved != self.specs[path]:
+            self.specs[path] = moved
+            self.spec_rev += 1
 
     def restore_bounds(self, path: str) -> None:
         """The definition's limits again (see :meth:`set_bounds`)."""
         origin = self._origin.pop(path, None)
-        if origin is not None:
+        if origin is not None and origin != self.specs[path]:
             self.specs[path] = origin
+            self.spec_rev += 1
