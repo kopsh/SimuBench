@@ -142,7 +142,8 @@ def test_preview_renders_valid_parts_and_keeps_wire_indices(client):
     client.put("/api/benches/file", json={"path": "p.bench.yaml", "base_sha256": None, "data": data})
     p = client.get("/api/benches/preview", params={"path": "p.bench.yaml"}).json()
     assert p["error"] is None
-    assert set(p["omitted"]) >= {"ghost", "awg.ch1.frequency", "wire:0", "wire:1"}
+    # a wire left out is named by its ends, not by its index in the file (#1269)
+    assert set(p["omitted"]) >= {"ghost", "awg.ch1.frequency", "ghost.OUT1 → rc.IN", "awg.OUT9 → rc.IN"}
     s = p["session"]
     assert [i["name"] for i in s["instruments"]] == ["awg", "scope"]
     assert [w["index"] for w in s["wires"]] == [2]

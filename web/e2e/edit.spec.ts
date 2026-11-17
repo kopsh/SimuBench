@@ -347,3 +347,65 @@ test("an instrument added from the library lands beside the bench's nodes, not o
   const layout = (await readDoc(page.request, path)).data.layout as Record<string, { x: number; y: number }>;
   expect(Object.keys(layout).sort()).toEqual(["awg", "dmm", "sa", "scope"]);
 });
+
+test("wiring two outputs together is refused before the drop, the bench's wires and file stay (#1269)", async ({ page }) => {
+  const hello = {
+    schema: "simubench.bench/2",
+    name: "hello-drivers",
+    instruments: {
+      awg: { model: "siglent-sdg2042x", label: "函数发生器" },
+      scope: { model: "keysight-uxr1104b", label: "示波器" },
+      sa: { model: "keysight-n9320b", label: "频谱分析仪" },
+    },
+    wires: [
+      { from: "awg.CH1", to: "scope.CH1" },
+      { from: "awg.CH2", to: "sa.RF_IN" },
+    ],
+    layout: { awg: { x: 0, y: 120 }, scope: { x: 420, y: 0 }, sa: { x: 420, y: 240 } },
+  };
+  const path = await openEditor(page, hello);
+  const before = (await readDoc(page.request, path)).sha256;
+  await page.locator(".react-flow__controls-fitview").click();
+  // the bottom panel open, as in the review's scenario
+  await page.getByRole("tab", { name: "问题" }).click();
+
+  const from = page.locator('.react-flow__node[data-id="scope"] [data-handleid="CAL_OUT"]');
+  const to = page.locator('.react-flow__node[data-id="awg"] [data-handleid="CH1"]');
+  const a = (await from.boundingBox())!;
+  const b = (await to.boundingBox())!;
+  await page.mouse.move(a.x + a.width / 2, a.y + a.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 });
+  // before the drop: why not, with both ports named
+  const hint = page.getByTestId("connect-hint");
+  await expect(hint).toBeVisible();
+  await expect(hint).toContainText("scope.CAL_OUT");
+  await expect(hint).toContainText("awg.CH1");
+  await page.mouse.up();
+  await expect(hint).toHaveCount(0);
+
+  // both wires are still drawn, nothing is left out, and the file did not change
+  await expect(page.locator(".react-flow__edge")).toHaveCount(2);
+  await expect(page.locator('.react-flow__edge[data-id="wire-0"]')).toBeVisible();
+  await expect(page.getByText("因错误未显示")).toHaveCount(0);
+  expect((await readDoc(page.request, path)).sha256).toBe(before);
+
+  // the minimap, if shown, covers no node
+  const overlap = (p: number[], q: number[]) => p[0] < q[2] && q[0] < p[2] && p[1] < q[3] && q[1] < p[3];
+  const rect = (r: { x: number; y: number; width: number; height: number }) => [r.x, r.y, r.x + r.width, r.y + r.height];
+  const map = page.locator(".react-flow__minimap");
+  if (await map.count()) {
+    const m = rect((await map.boundingBox())!);
+    for (const n of await page.locator(".react-flow__node").all()) expect(overlap(m, rect((await n.boundingBox())!))).toBe(false);
+  }
+
+  // the same output to a free input is still a wire: CAL_OUT to the scope's own CH2
+  const c = (await page.locator('.react-flow__node[data-id="scope"] [data-handleid="CH2"]').boundingBox())!;
+  const a2 = (await from.boundingBox())!;
+  await page.mouse.move(a2.x + a2.width / 2, a2.y + a2.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(c.x + c.width / 2, c.y + c.height / 2, { steps: 12 });
+  await expect(page.getByTestId("connect-hint")).toHaveCount(0);
+  await page.mouse.up();
+  await expect(page.locator(".react-flow__edge")).toHaveCount(3);
+});

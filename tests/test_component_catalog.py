@@ -113,6 +113,7 @@ def test_the_components_endpoint():
         "medium": "electrical",
         "net": None,
         "channel": None,
+        "drives": True,  # a source's output: one per net (#1269)
     } in by_type["output_stage"]["ports"]
     # the operations list is alphabetical; the point here is that the transfer's main op is in it
     assert "data" in {o["name"] for o in by_type["waveform_transfer"]["operations"]}

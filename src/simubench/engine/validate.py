@@ -611,6 +611,18 @@ def _check_sense(
                     )
 
 
+def drives_net(cls: type[Component] | None, spec: Any) -> bool:
+    """Whether a port of ``cls`` drives its net as the net checks count it: an electrical output of a
+    driver component (one per net, E-NET-MULTIDRIVER), or an optical output (one per fibre). The
+    session and catalog views report it (``PortInfo.drives``), so the canvas refuses such a wire
+    before it is made (#1269)."""
+    if spec is None:
+        return False
+    if spec.medium == "optical":
+        return bool(spec.direction == "out")
+    return cls is not None and cls.role == "driver" and spec.medium == "electrical" and spec.direction != "in"
+
+
 def _check_nets(
     bench: BenchDefinition,
     defs: dict[str, InstrumentDefinition],
@@ -621,12 +633,12 @@ def _check_nets(
     types = component_types()
 
     def drives(cls: type[Component] | None, port: str) -> bool:
-        spec = cls.ports.get(port) if cls is not None and cls.role == "driver" else None
-        return spec is not None and spec.medium == "electrical" and spec.direction != "in"
+        spec = cls.ports.get(port) if cls is not None else None
+        return spec is not None and spec.medium == "electrical" and drives_net(cls, spec)
 
     def lights(cls: type[Component] | None, port: str) -> bool:
         spec = cls.ports.get(port) if cls is not None else None
-        return spec is not None and spec.medium == "optical" and spec.direction == "out"
+        return spec is not None and spec.medium == "optical" and drives_net(cls, spec)
 
     def is_driver(ref: str, test: Callable[[type[Component] | None, str], bool] = drives) -> bool:
         owner, port = split(ref)
@@ -651,9 +663,11 @@ def _check_nets(
     for members in nets:
         lit = sorted(m for m in members if is_driver(m, lights))
         if len(lit) > 1:
-            idx = next(
+            # the net's newest wire: the one that brought the second driver in, not the first
+            # (correct) one, which stays drawn (#1269)
+            idx = max(
                 (i for i, w in enumerate(bench.wires) if w.from_ in members or w.to in members),
-                0,
+                default=0,
             )
             report.add(
                 "error",
@@ -665,9 +679,11 @@ def _check_nets(
             )
         srcs = sorted(m for m in members if is_driver(m))
         if len(srcs) > 1:
-            idx = next(
+            # the net's newest wire: the one that brought the second driver in, not the first
+            # (correct) one, which stays drawn (#1269)
+            idx = max(
                 (i for i, w in enumerate(bench.wires) if w.from_ in members or w.to in members),
-                0,
+                default=0,
             )
             report.add(
                 "error",

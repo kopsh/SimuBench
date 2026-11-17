@@ -16,7 +16,7 @@ const port = (
   direction: string,
   medium = "signal",
   channel: number | null = null,
-) => ({ name, direction, medium, channel, net: null });
+) => ({ name, direction, medium, channel, net: null, drives: false });
 
 // A two-channel scope: CH<n> -> inp -> front -> acq.in<n>.
 const scope: InstrumentInternals = {

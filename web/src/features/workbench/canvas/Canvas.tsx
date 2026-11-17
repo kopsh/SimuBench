@@ -8,9 +8,11 @@ import {
   MiniMap,
   type Node,
   type NodeChange,
+  Panel,
   ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
+  useConnection,
   useReactFlow,
   useStore,
 } from "@xyflow/react";
@@ -24,8 +26,9 @@ import { useTheme } from "@/lib/theme";
 import { accessoryLabel, channelOfRef, isReferenceRef } from "../model";
 import { useWorkbench } from "../store";
 import { PartNode, type PartNodeType } from "./PartNode";
+import { driversJoined } from "./connect";
 import { InstrumentNode, type InstrumentNodeType, type Issue } from "./InstrumentNode";
-import { freeSpot, type Rect } from "./placement";
+import { freeSpot, intersects, type Rect } from "./placement";
 import { WireEdge, type WireEdgeType } from "./WireEdge";
 
 const nodeTypes = { instrument: InstrumentNode, part: PartNode };
@@ -353,7 +356,10 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
       onBeforeDelete={onBeforeDelete}
       onDragOver={onDragOver}
       onDrop={onDrop}
-      isValidConnection={(c) => c.source !== c.target || c.sourceHandle !== c.targetHandle}
+      isValidConnection={(c) =>
+        (c.source !== c.target || c.sourceHandle !== c.targetHandle) &&
+        driversJoined(view, `${c.source}.${c.sourceHandle}`, `${c.target}.${c.targetHandle}`).length === 0
+      }
       connectionMode={ConnectionMode.Loose}
       nodesConnectable={editable}
       nodesDraggable={!!onOps}
@@ -369,29 +375,73 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
       <Background variant={BackgroundVariant.Dots} gap={20} size={1.2} color="var(--border)" />
       <Controls showInteractive={false} position="bottom-left" />
       <OverflowMiniMap />
+      {editable && <ConnectHint view={view} />}
     </ReactFlow>
   );
 }
 
 /**
- * The minimap, only while some node lies outside the view (#1252): a bench that fits needs no
- * map, and a map drawn over a fitted bench covers its lower-right node once the bottom panel
- * opens and the canvas gets shorter.
+ * While a wire is dragged over a port it may not reach, why (#1269): two outputs on one net. Shown
+ * before the wire is dropped; the drop itself does nothing then.
+ */
+function ConnectHint({ view }: { view: SessionInfo }) {
+  const { t } = useTranslation();
+  const ends = useConnection((c) =>
+    c.inProgress && c.toHandle && c.isValid === false
+      ? `${c.fromHandle.nodeId}.${c.fromHandle.id}|${c.toHandle.nodeId}.${c.toHandle.id}`
+      : null,
+  );
+  if (!ends) return null;
+  const [a, b] = ends.split("|");
+  const drivers = driversJoined(view, a, b);
+  if (drivers.length < 2) return null;
+  return (
+    <Panel position="top-center">
+      <div role="alert" data-testid="connect-hint" className="bg-error/10 text-error rounded-md border border-current px-3 py-1.5 text-xs">
+        {t("edit.twoDrivers", { count: drivers.length, names: drivers.join(", ") })}
+      </div>
+    </Panel>
+  );
+}
+
+/** The minimap's box on the canvas (React Flow's default size) and its distance from the edges. */
+const MAP = { width: 200, height: 150, margin: 15 };
+/** The corners the minimap may take, in order of preference (the zoom controls hold the bottom left). */
+const MAP_CORNERS = ["bottom-right", "top-right", "top-left"] as const;
+
+/**
+ * The minimap, only while some node lies outside the view (#1252), and never over a node (#1269): it
+ * takes the first corner whose box covers no node on screen, and stays away when every corner would.
+ * A bench that fits needs no map.
  */
 function OverflowMiniMap() {
-  const outside = useStore((s) => {
+  const corner = useStore((s) => {
     const [tx, ty, zoom] = s.transform;
+    const boxes: Rect[] = [];
+    let outside = false;
     for (const n of s.nodeLookup.values()) {
-      const w = n.measured.width ?? 0;
-      const h = n.measured.height ?? 0;
+      const w = (n.measured.width ?? 0) * zoom;
+      const h = (n.measured.height ?? 0) * zoom;
       const x = n.internals.positionAbsolute.x * zoom + tx;
       const y = n.internals.positionAbsolute.y * zoom + ty;
-      if (x < 0 || y < 0 || x + w * zoom > s.width + 0.5 || y + h * zoom > s.height + 0.5) return true;
+      if (x < 0 || y < 0 || x + w > s.width + 0.5 || y + h > s.height + 0.5) outside = true;
+      boxes.push({ x, y, width: w, height: h });
     }
-    return false;
+    if (!outside) return null;
+    return (
+      MAP_CORNERS.find((c) => {
+        const box = {
+          x: c.endsWith("right") ? s.width - MAP.margin - MAP.width : MAP.margin,
+          y: c.startsWith("bottom") ? s.height - MAP.margin - MAP.height : MAP.margin,
+          width: MAP.width,
+          height: MAP.height,
+        };
+        return !boxes.some((b) => intersects(box, b));
+      }) ?? null
+    );
   });
-  if (!outside) return null;
-  return <MiniMap pannable zoomable position="bottom-right" nodeStrokeWidth={2} className="!border !rounded-md" />;
+  if (!corner) return null;
+  return <MiniMap pannable zoomable position={corner} nodeStrokeWidth={2} className="!border !rounded-md" />;
 }
 
 export function Canvas(props: CanvasProps) {

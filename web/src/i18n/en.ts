@@ -348,6 +348,7 @@ export const en: Widen<Messages> = {
     noFile: "This session has no bench file, so it cannot be edited.",
     previewError: "Cannot preview the bench: {{error}}",
     omitted: "{{count}} item(s) hidden because of errors: {{names}}",
+    twoDrivers: "Cannot connect: a net has one driver, and this would give it {{count}}: {{names}}",
     delete: "Delete",
     deleteHint: "Delete",
     name: "Name",

@@ -6514,6 +6514,12 @@
             "title": "Direction",
             "type": "string"
           },
+          "drives": {
+            "default": false,
+            "description": "The port drives its net: an electrical output of a source (the checks allow one per net, E-NET-MULTIDRIVER), or an optical output (one per fibre); the canvas refuses a wire that would join two (#1269)",
+            "title": "Drives",
+            "type": "boolean"
+          },
           "medium": {
             "title": "Medium",
             "type": "string"
@@ -6539,7 +6545,8 @@
           "direction",
           "medium",
           "net",
-          "channel"
+          "channel",
+          "drives"
         ],
         "title": "PortInfo",
         "type": "object"
