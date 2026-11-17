@@ -686,9 +686,11 @@ def test_the_hello_square_triggers_on_its_edge_at_every_timebase():
                 at = round(-x0 / dx)  # the sample at t=0
                 ns = round(1e-9 / dx)
                 step = f"{sweep} {scale:g} s/div"
-                # 1 Vpp into 50 ohm: -0.5 V a ns before the trigger, +0.5 V a ns after it
-                assert v[: at - ns].mean() < -0.4, step
-                assert v[at + ns :].mean() > 0.4, step
+                # 1 Vpp into 50 ohm, triggered rising at 0 V: at t=0 the trace crosses 0 V (within
+                # the noise and the edge's slope over a few samples) and climbs through it; a
+                # record not on the edge rests at -0.5 V or +0.5 V there
+                assert abs(v[at - 2 : at + 3].mean()) < 0.1, step
+                assert v[at : at + ns].mean() > v[at - ns : at].mean() + 0.02, step
                 assert uxr.query(":TER?").strip() == "1", step
         assert reader.errors(uxr) == []
     finally:
