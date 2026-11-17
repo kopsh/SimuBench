@@ -148,7 +148,7 @@ def test_one_look_computes_each_registers_condition_a_small_multiple_of_once(mon
     )
     session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
     inst = session.instruments["x"]
-    inst.status.sample()  # the baseline: BUSY is not a transition yet
+    inst.sample_status()  # the baseline: BUSY is not a transition yet
     inst.components["sys"].status_flags = lambda: {"BUSY": True}  # type: ignore[method-assign]
     calls = {"sample": 0, "stb": 0}
     phase = "sample"
@@ -159,7 +159,7 @@ def test_one_look_computes_each_registers_condition_a_small_multiple_of_once(mon
         return condition(self)
 
     monkeypatch.setattr(StatusRegister, "condition", counted)
-    inst.status.sample()
+    inst.sample_status()
     phase = "stb"
     stb = inst.stb()
     # BUSY rose in every register, and every summary rose in the registers that read it

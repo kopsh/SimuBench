@@ -11,6 +11,8 @@
 - ``reading_of`` / ``Near`` / ``StableScreen`` read a value back off a rendered screen and judge it
   against an expected value ± a tolerance (#926); ``raises_with`` checks an exception's message by
   plain substrings. Tests judge values and text with these, never with regular expressions.
+- ``FakeHost`` is the instrument seam's fake session (``InstrumentHost``, #1380): the shared stub
+  every test that builds an Instrument without a bench constructs it on.
 
 Model-specific assertions (hand calculations, expectation tables) stay in the per-model files;
 only the shared skeletons live here — don't copy them into new files.
@@ -19,6 +21,7 @@ only the shared skeletons live here — don't copy them into new files.
 from __future__ import annotations
 
 import contextlib
+import datetime as dt
 import importlib.util
 import math
 import shutil
@@ -321,7 +324,80 @@ def wait_for_free_ports(ports, timeout: float = 60.0, host: str = "127.0.0.1") -
         time.sleep(0.02)
 
 
-# ---- the AI assistant (#871): a scripted LLM ------------------------------------------------------
+# ---- the instrument seam's fake host (#1380) -------------------------------------------------------
+
+
+class FakeHost:
+    """The instrument seam's fake session (``InstrumentHost``, #1380): just what building an
+    Instrument and running its command pipeline touch — no circuit, no time. The routing sweep
+    (``test_command_equivalence``) and the CommandRunner / BuiltinCommands / ErrorReporter unit
+    tests construct their instruments on it; the constructor roll-call (``_host_gaps``) holds it
+    to the protocol, so every member of the seam exists here, and the ones the pipeline must not
+    reach (a reading, a solve) raise.
+
+    ``events`` records what the instrument sent to the host: ``instrument_event`` and
+    ``state_changed`` calls, as dicts with their ``kind``."""
+
+    def __init__(self) -> None:
+        self.seed = 1
+        self.clock_mode = "stepped"
+        self.time_scale = 1.0
+        self.now_ns = 0
+        self.port_net: dict[str, str] = {}
+        self.events: list[dict] = []
+
+    # ---- clock / determinism ----
+
+    def calendar(self) -> dt.datetime:
+        return dt.datetime(2026, 1, 1)
+
+    def follow_wall(self) -> None:
+        pass  # a stepped clock never follows the wall
+
+    # ---- circuit ----
+
+    def port_ref(self, comp, port):
+        return None  # nothing is exposed on the bench
+
+    def port_signal(self, comp, port):
+        raise AssertionError("the fake host has no circuit: the pipeline must not read signals")
+
+    def cached_output(self, comp, port):
+        raise AssertionError("the fake host has no circuit: the pipeline must not read outputs")
+
+    def cached_frames(self, comp, port, request):
+        raise AssertionError("the fake host has no frames: the pipeline must not read frames")
+
+    def optical_input(self, comp, port):
+        raise AssertionError("the fake host has no optics: the pipeline must not read them")
+
+    def optical_carrier(self, comp, port):
+        raise AssertionError("the fake host has no optics: the pipeline must not read them")
+
+    def solve(self):
+        raise AssertionError("the fake host solves nothing: the pipeline must not solve")
+
+    def sync(self) -> None:
+        pass  # a state write syncs; nothing dynamic exists on the fake
+
+    # ---- events ----
+
+    def state_changed(self, inst, path, old, new, *, electrical: bool, source: str) -> None:
+        self.events.append(
+            {"kind": "state", "path": path, "old": old, "new": new, "electrical": electrical, "source": source}
+        )
+
+    def instrument_event(self, inst, kind: str, data: dict) -> None:
+        self.events.append({"kind": kind, **data})
+
+
+def seam_instrument(definition, name: str = "x", host: FakeHost | None = None):
+    """An Instrument built on a :class:`FakeHost`: the instrument-layer unit tests' bench-less
+    environment. The definition must be a validated ``InstrumentDefinition``."""
+    from simubench.engine.instrument import Instrument
+    from simubench.models.bench import InstrumentInstance
+
+    return Instrument(name, definition, InstrumentInstance(model=definition.model), host or FakeHost())
 
 
 class ScriptedLLM:

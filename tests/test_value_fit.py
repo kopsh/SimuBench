@@ -11,11 +11,12 @@ verdict must match, value for value, over the values of the kind the parse layer
 
 from __future__ import annotations
 
-import datetime as dt
 import math
 from typing import Any
 
 import pytest
+
+from helpers import FakeHost
 
 from simubench.engine.instrument import Instrument
 from simubench.engine.settings import validate_value
@@ -235,25 +236,8 @@ def test_a_bench_state_outside_the_options_is_still_reported():
 # ---- the engine decides the same --------------------------------------------------------------
 
 
-class _StubSession:
-    """Just what building an Instrument touches: no circuit, no time."""
-
-    def __init__(self) -> None:
-        self.seed = 1
-        self.clock_mode = "stepped"
-        self.idle_mode = "off"
-        self.now_ns = 0
-        self.port_net: dict[str, str] = {}
-
-    def calendar(self) -> dt.datetime:
-        return dt.datetime(2026, 1, 1)
-
-    def instrument_event(self, inst, kind, data) -> None:
-        pass
-
-
 _DEFINITION = InstrumentDefinition.model_validate(BASE)
-_INSTRUMENT = Instrument("x", _DEFINITION, InstrumentInstance(model="SB-FIT"), _StubSession())
+_INSTRUMENT = Instrument("x", _DEFINITION, InstrumentInstance(model="SB-FIT"), FakeHost())
 
 
 def _runtime_verdict(st: StateSpec, value: Any) -> int | None:

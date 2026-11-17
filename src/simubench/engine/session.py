@@ -188,6 +188,10 @@ class Session:
         #: are connected to the ports and their view of time would move (#121, issue 624).
         #: In-process sessions (pytest plugin, ``@simubench`` backend, replay) have no clients.
         self.confirm_advance: Callable[[bool], None] | None = None
+        #: Port reference -> net id, empty until the wires below build the nets. Here from birth:
+        #: the instruments are constructed first and the instrument seam's contract (InstrumentHost,
+        #: #1380) carries ``port_net``, so the host answers for it before the wiring runs.
+        self.port_net: dict[str, str] = {}
 
         # ---- instruments and bench components ----
         self.instruments: dict[str, Instrument] = {}

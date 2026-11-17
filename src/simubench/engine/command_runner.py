@@ -85,20 +85,20 @@ class CommandRunner:
             word = unit.tokens[0].keyword
             if word == "OPT" and self.inst.definition.identity.options_reply is not None:
                 if not unit.query:
-                    raise self.inst.errs._undefined(unit, tokens)
-                return self.inst.common._common(unit), 0
-            if not self.inst.common._builtin_allowed(f"*{word}"):
-                raise self.inst.errs._undefined(unit, tokens, builtin=f"*{word}" in COMMON_BUILTINS)
+                    raise self.inst._errs._undefined(unit, tokens)
+                return self.inst._common._common(unit), 0
+            if not self.inst._common._builtin_allowed(f"*{word}"):
+                raise self.inst._errs._undefined(unit, tokens, builtin=f"*{word}" in COMMON_BUILTINS)
             q_ok, s_ok = COMMON_DIRECTIONS.get(word, (True, True))
             if (unit.query and not q_ok) or (not unit.query and not s_ok):
-                raise self.inst.errs._undefined(unit, tokens)
+                raise self.inst._errs._undefined(unit, tokens)
             if word == "OPC" and unit.query:
                 return self.inst.opc_query()
             if word == "WAI":
                 return None, self.inst.wait_pending()
             if word == "TRG" and not unit.query:
-                return self.inst.common._bus_trigger(unit)
-            return self.inst.common._common(unit), 0
+                return self.inst._common._bus_trigger(unit)
+            return self.inst._common._common(unit), 0
         refused: CommandSpec | None = None  # a header that matched, with other parameter values
         missing: str | None = None  # a header that matched, of an option this unit does not have
         for compiled in self.inst._commands:
@@ -132,12 +132,12 @@ class CommandRunner:
         if missing is not None:
             raise ScpiError(-241, f"{unit.raw_header}: option {missing} is not installed")
         named = named_builtin(tokens)
-        if named is not None and not self.inst.common._builtin_allowed(named):
-            raise self.inst.errs._undefined(
+        if named is not None and not self.inst._common._builtin_allowed(named):
+            raise self.inst._errs._undefined(
                 unit, tokens, builtin=True
             )  # the definition's builtins leave it out
         builtin = (
-            self.inst.common._builtin(unit, tokens)
+            self.inst._common._builtin(unit, tokens)
             if self.inst._builtins is None or named is not None
             else None
         )
@@ -145,7 +145,7 @@ class CommandRunner:
             return None, 0
         if builtin is not None:
             return builtin, 0
-        raise self.inst.errs._undefined(unit, tokens)
+        raise self.inst._errs._undefined(unit, tokens)
 
     def _run(
         self, compiled: _Compiled, unit: Unit, channel: int | None, suffixes: dict[str, int]
@@ -195,7 +195,7 @@ class CommandRunner:
         fields: dict[str, str] | None = None,
     ) -> bytes:
         template = compiled.spec.reply
-        mode = self.inst.common.echo_mode()
+        mode = self.inst._common.echo_mode()
         if template is None and mode == "off":
             return body
         template = template or "{header} {value}"
@@ -257,7 +257,7 @@ class CommandRunner:
                     path, [V.parse_enum(p, st.options or []) for p in unit.params], outside=True
                 )
             except ScpiError as e:
-                raise self.inst.errs._bad_parameter(e, path, st) from e
+                raise self.inst._errs._bad_parameter(e, path, st) from e
             return None
         if len(unit.params) > 1 and st.type != "string":
             raise ScpiError(-108)
@@ -274,7 +274,7 @@ class CommandRunner:
                 value = self._parse_state(st, unit.params[0], path)
             self.inst.set_state(path, value, outside=True)
         except ScpiError as e:
-            raise self.inst.errs._bad_parameter(e, path, st) from e
+            raise self.inst._errs._bad_parameter(e, path, st) from e
         return None
 
     def _commit(self, writes: Iterable[tuple[str, Any]]) -> None:
@@ -285,7 +285,7 @@ class CommandRunner:
         events for the way back, so only the writes that survive send ``state_changed``. Later
         entries for the same path overwrite earlier ones, so a stage can put the command's
         constants first and let the arguments win."""
-        apply_writes(self.inst, writes, source="scpi", judged=True, name_error=self.inst.errs._bad_parameter)
+        apply_writes(self.inst, writes, source="scpi", judged=True, name_error=self.inst._errs._bad_parameter)
 
     def _settings_command(
         self, spec: CommandSpec, unit: Unit, channel: int | None, named: dict[str, int] | None = None
@@ -351,7 +351,7 @@ class CommandRunner:
             else:
                 value = self._index_value(ps, token, channel)
             if (ps.min is not None and value < ps.min) or (ps.max is not None and value > ps.max):
-                raise self.inst.errs._bad_parameter(
+                raise self.inst._errs._bad_parameter(
                     ScpiError(-222, f"{ps.name} {value} out of range"), ps.name, ps
                 )
             index[ps.name] = value
@@ -393,7 +393,7 @@ class CommandRunner:
                     try:
                         V.parse_enum(token, ps.options)
                     except ScpiError as e:
-                        raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
+                        raise self.inst._errs._bad_parameter(e, ps.name, ps) from e
                 instead = self._keyword_writes(ps, token)
                 if instead is not None:
                     # A keyword with its own settings (#344: resolution MIN picks the finest NPLC).
@@ -403,7 +403,7 @@ class CommandRunner:
                 try:
                     value = self._parse_state(self.inst.specs[path], token, path)
                 except ScpiError as e:
-                    raise self.inst.errs._bad_parameter(e, path, self.inst.specs[path]) from e
+                    raise self.inst._errs._bad_parameter(e, path, self.inst.specs[path]) from e
                 # `sets` goes with an explicit value (a number, MIN, MAX): a special word of the
                 # setting (AUTO) or DEF keeps what the command's `writes` chose (#325:
                 # CONF:VOLT:DC AUTO leaves autorange on).
@@ -558,7 +558,7 @@ class CommandRunner:
         try:
             writes = self._parse_quantities(ps, unit.params, channel)
         except ScpiError as e:
-            raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
+            raise self.inst._errs._bad_parameter(e, ps.name, ps) from e
         self._commit(writes.items())
         return None
 
@@ -809,10 +809,10 @@ class CommandRunner:
         if st.type == "enum":
             if st.replies and value in st.replies:
                 return st.replies[value].encode()  # the instrument's own query word (#268)
-            long = f.enum == "long" or self.inst.common.long_form()
+            long = f.enum == "long" or self.inst._common.long_form()
             return V.format_enum(value, long=long, as_defined=f.enum == "as_defined")
         if st.type == "enum_list":
-            long = f.enum == "long" or self.inst.common.long_form()
+            long = f.enum == "long" or self.inst._common.long_form()
             return b",".join(V.format_enum(v, long=long, as_defined=f.enum == "as_defined") for v in value)
         if st.type == "int_list":
             return V.format_channel_list(value)
@@ -1016,7 +1016,7 @@ class CommandRunner:
                 else:
                     out[ps.name] = V.parse_string(r)
             except ScpiError as e:
-                raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
+                raise self.inst._errs._bad_parameter(e, ps.name, ps) from e
         if i < len(raw):
             raise ScpiError(-108)
         return out
