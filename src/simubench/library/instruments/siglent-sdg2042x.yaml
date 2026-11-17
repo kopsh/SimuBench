@@ -137,6 +137,8 @@ components:
   - name: sdg
     type: siglent_sdg
 channel_components:
+  # 方波的谐波在 38 MHz 处高斯滚降：10–90 % 边沿约 0.34 / 38 MHz ≈ 9 ns、无过冲，符合数据手册
+  # EN02H 的 9 ns；硬截断（1.2e8 砖墙）会留下约 9 % 的吉布斯振铃、边沿只有 3.7 ns（#1271）。
   - name: gen
     type: function_generator_core
     params:
@@ -147,7 +149,8 @@ channel_components:
       phase: $ch.phase
       duty: $ch.duty
       symmetry: $ch.symmetry
-      bandwidth: 1.2e8
+      bandwidth: 3.8e7
+      rolloff: gaussian
   - name: out
     type: output_stage
     params:
