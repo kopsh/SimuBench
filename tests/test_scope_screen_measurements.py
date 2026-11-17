@@ -211,3 +211,41 @@ def test_the_scpi_console_shows_a_binary_block_as_its_header_and_size(client):
     b.scpi(":ACQuire:POINts 2000;:DIGitize;:WAVeform:SOURce CHANnel1;:WAVeform:FORMat WORD")
     assert b.scpi(":WAVeform:DATA?") == "#44000… (4007 B)"
     assert b.scpi(":WAVeform:FORMat ASCii;:WAVeform:DATA?").count(",") == 1999
+
+
+def test_a_stopped_record_keeps_its_own_time_span_when_the_timebase_changes(client):
+    """#1333: the record is the acquisition's, so a new time per division moves the screen's window
+    around it (it does not stretch it), and the record's own parameters (``:WAVeform:XORigin?``,
+    the screen's ``t0_s`` / ``dt_s`` / ``points``) and measurements stay as they were."""
+    b = Bench(client, "benches/keysight-dsox2024a.bench.yaml")
+    b.scpi(":TIMebase:SCALe 5e-6")
+    b.scpi(":DIGitize CHANnel1")
+    b.scpi(":WAVeform:SOURce CHANnel1")
+    before = b.screen()
+    tr = before["traces"][0]
+    span = tr["points"] * tr["dt_s"]
+    assert before["screen_left_s"] == pytest.approx(tr["t0_s"], abs=3 * tr["dt_s"]), (
+        "the record fills its screen"
+    )
+    assert span == pytest.approx(10 * 5e-6, rel=1e-6)
+    xorigin = float(b.scpi(":WAVeform:XORigin?"))
+    row = _row(before, 1)
+
+    b.scpi(":TIMebase:SCALe 5e-4")  # 100x slower, no new acquisition
+    slow = b.screen()
+    t = slow["traces"][0]
+    assert slow["source"] == "record" and slow["acquisitions"] == before["acquisitions"]
+    assert (t["t0_s"], t["dt_s"], t["points"]) == (tr["t0_s"], tr["dt_s"], tr["points"])
+    assert float(b.scpi(":WAVeform:XORigin?")) == xorigin
+    assert _row(slow, 1) == row, "measurements are the record's, not the display's"
+    # the screen now spans 5 ms; the 50 us record covers a hundredth of it, centred on the trigger
+    window = 10 * slow["timebase_scale"]
+    assert window == pytest.approx(5e-3, rel=1e-6)
+    assert slow["screen_left_s"] == pytest.approx(-window / 2, rel=1e-6)
+    assert t["t0_s"] > slow["screen_left_s"] and t["t0_s"] + span < slow["screen_left_s"] + window
+    assert span / window == pytest.approx(0.01, rel=1e-6)
+
+    b.scpi(":TIMebase:SCALe 5e-7")  # 10x faster: the screen shows a stretch of the record
+    fast = b.screen()
+    assert fast["screen_left_s"] == pytest.approx(-2.5e-6, rel=1e-6)
+    assert fast["traces"][0]["t0_s"] < fast["screen_left_s"]
