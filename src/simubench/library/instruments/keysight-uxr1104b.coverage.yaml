@@ -911,15 +911,15 @@ sections:
     note: 'The signal on CAL OUT and AUX OUT (two 50 ohm source ports, data sheet): DC (CAL OUT only, -1.2 V to
       +1.2 V; AUX OUT at ZERO), ZERO, ONE, PROBecomp (750 Hz square), DPULse / NDPULse (1.1 ns pulse every 650 ns),
       MHZ97, MHZ7_5; levels as the guide gives them (CAL OUT -150 / +150 mV, AUX OUT -440 / -125 mV), into 50 ohm.
-      TOUT (the trigger output pulse) is not modeled (-224). Edges: 10 GHz bandwidth (a SimuBench value, the guide
-      gives no rise time).'
+      TOUT (the trigger output pulse) is not modeled (-224). Edges: 10 GHz bandwidth with a gaussian harmonic
+      roll-off (SimuBench values, the guide gives no rise time; no Gibbs ringing, #1271).'
   - header: :CALibrate:OUTPut:AUX
     level: implemented
     note: AUX OUT on or off (an off output is open); ON at power-on (a SimuBench value).
   - header: :CALibrate:OUTPut:AUX:RTIMe
     level: implemented
-    note: 'FAST or SLOW edges on AUX OUT: 10 GHz and 1 GHz bandwidth (SimuBench values; the guide gives no rise
-      times).'
+    note: 'FAST or SLOW edges on AUX OUT: 10 GHz and 1 GHz bandwidth with a gaussian harmonic roll-off (SimuBench
+      values; the guide gives no rise times; no Gibbs ringing, #1271).'
   - header: :CALibrate:OUTPut:CAL
     level: implemented
     note: CAL OUT on or off (an off output is open); ON at power-on (a SimuBench value).

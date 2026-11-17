@@ -1407,7 +1407,7 @@ components:
   # 前面板 AUX OUT 与 CAL OUT（:CALibrate:OUTPut，手册）：同一信号，CAL OUT -150 mV 到 +150 mV、AUX OUT -440 mV
   # 到 -125 mV；DC 只在 CAL OUT 上（-1.2 V 到 +1.2 V），AUX OUT 此时为 ZERO 电平。DPULse 为每 650 ns 一个 1.1 ns
   # 的脉冲。两路 50 Ω（数据手册），电平按接 50 Ω 负载写。边沿速度手册未给：CAL OUT 与 AUX OUT FAST 取 10 GHz
-  # 带宽、SLOW 取 1 GHz（SimuBench 值，覆盖表注明）。
+  # 带宽、SLOW 取 1 GHz（SimuBench 值，覆盖表注明）；方波的谐波在此处高斯滚降（无吉布斯过冲，#1271）。
   - name: calgen
     type: function_generator_core
     params:
@@ -1417,6 +1417,7 @@ components:
       offset: {from: $calibrate.output, map: {DC: $calibrate.dc, ZERO: -0.15, ONE: 0.15}, default: 0.0}
       duty: {from: $calibrate.output, map: {DPULse: 0.16923, NDPULse: 99.83077}, default: 50.0}
       bandwidth: 1.0e10
+      rolloff: gaussian
   - name: calout
     type: output_stage
     params: {z_out: 50.0, enabled: $calibrate.cal, load_setting: 50.0}
@@ -1429,6 +1430,7 @@ components:
       offset: {from: $calibrate.output, map: {DC: -0.44, ZERO: -0.44, ONE: -0.125}, default: -0.2825}
       duty: {from: $calibrate.output, map: {DPULse: 0.16923, NDPULse: 99.83077}, default: 50.0}
       bandwidth: {from: $calibrate.aux_rtime, map: {FAST: 1.0e10, SLOW: 1.0e9}}
+      rolloff: gaussian
   - name: auxout
     type: output_stage
     params: {z_out: 50.0, enabled: $calibrate.aux, load_setting: 50.0}
