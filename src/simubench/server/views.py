@@ -437,6 +437,7 @@ def _screen_traces(
                 channel=n,
                 t0_s=r.origin,
                 dt_s=r.dt_s,
+                points=int(r.points),
                 volts=[] if minmax is not None else [float(x) for x in volts],
                 scale=r.scale,
                 offset=r.offset,
@@ -465,6 +466,7 @@ def _screen_functions(inst: Instrument, records: dict[int, Any], bins: int | Non
                 spectrum=rec.x_hz,
                 x0=rec.origin,
                 dx=rec.dt_s,
+                points=int(rec.points),
                 unit=math_block.function_units(f)[1],
                 values=[] if minmax is not None else [float(v) for v in rec.volts],
                 scale=rec.scale,
@@ -524,12 +526,18 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
                     row[key] = value if math.isfinite(value) else None
                 measurements.append(M.ScopeMeasurement(**row))
         functions = _screen_functions(inst, records, bins)
+        try:
+            _, tb_dt, pre, _ = acq._timing()  # type: ignore[attr-defined]  # ty: ignore[missing-attribute]
+            screen_left = -pre * tb_dt
+        except (AttributeError, ModelLimit, ScpiError, ValueError):  # a sampling scope has no such timing
+            screen_left = -5.0 * float(inst.get_state("timebase.scale"))
         return M.ScopeScreen(
             instrument=instrument,
             source="live" if live else "record",
             running=live,
             waiting=bool(acq.armed and acq._is("single")),  # type: ignore[attr-defined]
             timebase_scale=float(inst.get_state("timebase.scale")),
+            screen_left_s=screen_left,
             trigger_level=acq.trigger_level(),  # type: ignore[attr-defined]
             trigger_source=channel_index(inst.get_state("trigger.source")),
             traces=traces,

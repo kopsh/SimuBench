@@ -2265,9 +2265,9 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 提示的出现条件有测试：命令时钟出现 `sweep-hint` 且点按钮后 `扫描 #` 增加；`readonly` 无按钮；`init.continuous` 关时出现 HOLD；wall 时钟无提示 | ✅ `web/src/features/workbench/screens/SpectrumScreen.render.test.tsx`（渲染，含 readonly）；`web/e2e/instruments.spec.ts` 的 “standing-trace hint” 用例（命令时钟示例台、`:INIT:CONT OFF`、wall 台） |
 | TUI 频谱仪屏幕显示与 Web 同源的提示 | ✅ `rows.sweep_hint`（`spectrum.hintClock` / `hintSingle`，英文原文与 web `en.ts` 逐字一致，列入 `scripts/check_tui_i18n.py` 的 SHARED）；`tests/test_tui_rows.py` |
 | 评估：示例台时钟 | 保持 `clock: command`：示例台的探针要读“同一时刻”的帧（D47），改 wall 会让读数随机器速度变；由提示加按钮解释静止，不改台 |
-| 评估：示波器等其他连续采集屏幕 | 示波器屏幕目前没有 RUN/STOP 或时钟提示，命令时钟下同样静止；本 issue 不做，属 Web 交互改动，需要时另开 `核心` issue |
+| 评估：示波器等其他连续采集屏幕 | 示波器的实时画面是不占虚拟时间的屏幕帧，命令时钟下照常刷新（#1304 之后），并非静止；两屏幕在同一时钟下的规则差异与提示见 #1334（`docs/decisions.md` D44） |
 | reduced-motion | 不需要处理：`prefersReducedMotion` 只关掉扫描光标与余晖动画（`SpectrumScreen.tsx` 画布），迹线仍随每次扫描更新；提示针对“数据不更新”，与动画无关。e2e 配置本身即 `reducedMotion: reduce`，上面的用例在该设置下通过 |
-| `scripts/check.sh` 通过 | 见 PR |
+| `scripts/check.sh` 通过 | ✅ 4479 通过（69 s）；TUI `tui_boot` 档、web 单测、相关 e2e 通过 |
 
 ## 示波器：UXR1104B 对齐 UXR0334B 已接入的 95 条（Issue 1176）
 
@@ -2308,3 +2308,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 两台 UXR 接线 | ✅ 不设 `bandwidth`（数据手册：边沿触发带宽等于采集模拟带宽，前端已限）；触发 `noise_table` 估计为通道的（同一前端），`test_the_trigger_noise_is_the_channel_s` 断言两处一致；`:TRIGger:HIGH` 的覆盖说明随之更新（1104B） |
 | 行为变化 | ✅ 默认设置下记录时间原点的散布由触发噪声与斜率主导（`docs/signal-chain.md` 4.1）；依赖不触发的用例显式设远处的触发电平，抖动用例关掉触发噪声 |
 | 测试 | ✅ 噪声触发的统计用例参数化到 0334B（0.42 V/div）；`test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger`：100 kHz 触发带宽下 10 MHz 正弦不触发而采集不变 |
+
+## 示波器屏幕：停止后改时基按实际宽度画、命令时钟提示、网格刻度（Issue 1333、1334、1335）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| #1333 停止后改时基：记录按自己的时间宽度画，记录外留空 | ✅ `ScopeScreen` 新增 `screen_left_s`（屏幕左边缘相对触发的时间，由时基的触发位置与水平位置算出），`Trace` / `FunctionTrace` 新增 `points`；Web `WaveformCanvas` 的 `window`（`traceSpan`）与 TUI `trace_frame(window=…)` 按 `t0_s`/`dt_s` 换算横坐标，调快时基只画记录中对应的一段；触发点标记随水平位置移动；`schemas/` 与 `web/src/api/generated` 已重新生成 |
+| 测量行与光标按记录本身，`:WAVeform:PREamble?` 等仍是采集时的参数 | ✅ `tests/test_scope_screen_measurements.py::test_a_stopped_record_keeps_its_own_time_span_when_the_timebase_changes`：5 µs/div 采集后改 500 µs/div（记录占屏幕百分之一、居中）与 0.5 µs/div（屏幕在记录内），记录的 `t0_s`/`dt_s`/`points`、`:WAVeform:XORigin?` 与测量行都不变；TUI `tests/test_tui_units.py::test_a_stopped_record_is_drawn_where_its_own_times_fall`；Web `WaveformCanvas.test.ts` |
+| #1334 命令时钟下两屏幕的差异 | ✅ 选方案 3（保留差异、各写规则），理由记在 D44 的「屏幕帧与时钟」；Web 示波器 `scope-clock-hint`、TUI 波形框顶部一行（`scope.hintClock`，列入 `check_tui_i18n.py` 的 SHARED），频谱仪的 `spectrum.hintClock` 改为点名示波器；测试 `ScopeScreen.render.test.tsx`、`test_tui_t2.py::test_scope_screen_says_a_live_frame_takes_no_virtual_time_on_a_command_clock`；#1178 一节里“示波器没有提示”的评估已改为现状 |
+| #1335 网格刻度 | ✅ Web 纵轴：活动通道（光标所选，否则触发源，否则第一个显示的通道）按通道色标每格电压，跟随档位与偏置；横轴：每两格标相对触发的时间（含水平位置与时间参考）；数字用 `formatEng`，画在网格内不挤占波形区。TUI 不同步：点阵放不下数字，档位与时基已在标题（`docs/tui-screens.md` 6.1） |
+| 视觉基线 | `screen-scope-1280/1440` 在本机 Chromium 重新生成（命令时钟提示多一行，网格有刻度）；频谱仪 TUI 快照（提示变长）已更新；若 CI 的实际图超出 2 % 容差，按 web-ui skill 取 `*-actual.png` 更新基线 |
+| `scripts/check.sh` 通过 | ✅ 4479 通过（69 s）；TUI `tui_boot` 档、web 单测、相关 e2e 通过 |

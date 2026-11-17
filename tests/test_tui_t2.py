@@ -15,7 +15,7 @@ from typing import Any
 import pytest
 
 from simubench.tui.app import SimuBenchApp
-from tui_mock import ev, feed, fresh, load, settle, unit_app, wait_flat, wait_for
+from tui_mock import ev, feed, flat, fresh, load, settle, unit_app, wait_flat, wait_for
 
 pytestmark = (
     pytest.mark.tui_boot
@@ -1100,3 +1100,25 @@ def test_the_embedded_log_rows_budget():
     for height, want in ((24, 3), (29, 3), (32, 6), (40, 6)):
         sham = SimpleNamespace(app=SimpleNamespace(size=SimpleNamespace(height=height)))
         assert ControlEditingScreen._log_rows(sham) == want, height
+
+
+async def test_scope_screen_says_a_live_frame_takes_no_virtual_time_on_a_command_clock():
+    """#1334: the clock note shows while the scope runs on a command clock (the fixture's), and
+    is gone on a wall clock — the Web screen's rule and wording."""
+    fixture = fresh(SCOPE_BENCH)
+    assert fixture["clock"]["mode"] == "command"
+    tui, _fake = unit_app(fixture)
+    async with tui.run_test(size=(120, 40)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "scope")
+        text = await wait_flat(pilot, tui, "Command clock")
+        assert "take no virtual time" in text
+        # The fake server's clock turns wall too: the wall tick re-reads it, and a stale "command"
+        # there would bring the note back under CI load.
+        fixture["clock"]["mode"] = "wall"
+        tui.clock = {**(tui.clock or {}), "mode": "wall"}
+        tui.screen.refresh_content()
+        tui.screen._last_version = None
+        tui.screen.refresh_content()
+        await pilot.pause()
+        assert "Command clock" not in flat(tui)

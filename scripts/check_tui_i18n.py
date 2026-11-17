@@ -27,6 +27,7 @@ SHARED: dict[str, str] = {
     "reason.gaps.out_of_scope": "errors.gaps.out_of_scope",
     "reason.gaps.blocked": "errors.gaps.blocked",
     "reason.gaps.model_work": "errors.gaps.model_work",
+    "scope.hintClock": "scope.hintClock",
     "scope.spectrum.span": "scope.spectrum.span",
     "scope.spectrum.bin": "scope.spectrum.bin",
     "common.on": "common.on",

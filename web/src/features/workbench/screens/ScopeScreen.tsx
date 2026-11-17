@@ -59,6 +59,12 @@ export function ScopeScreen({
   // Math functions turned on: the time-domain ones over the channels, a transform in its own pane.
   const functions = data?.functions ?? [];
   const spectra = functions.filter((f) => f.spectrum);
+  // The channel the voltage axis is labelled for: the cursors' channel, else the trigger source,
+  // else the first channel on screen (#1335).
+  const shownChannels = (data?.traces ?? []).map((tr) => tr.channel);
+  const axisChannel = [cursors?.channel, data?.trigger_source, shownChannels[0]].find(
+    (n): n is number => n !== undefined && shownChannels.includes(n),
+  );
   const timeTraces = [
     ...(data?.traces ?? []),
     ...functions.filter((f) => !f.spectrum).map(functionTrace),
@@ -180,6 +186,17 @@ export function ScopeScreen({
         )}
       </div>
 
+      {/* The same clock, two rules (D44): a frame takes no virtual time, a sweep does (#1334). */}
+      {running && data?.source === "live" && (session.clock_mode === "command" || session.clock_mode === "stepped") && (
+        <div
+          className="bg-muted/50 text-muted-foreground rounded px-3 py-1.5 text-[11px]"
+          role="status"
+          data-testid="scope-clock-hint"
+        >
+          {t("scope.hintClock")}
+        </div>
+      )}
+
       <div className="relative min-h-0 flex-1">
         {screen.isLoading ? (
           <Skeleton className="h-full w-full" />
@@ -199,6 +216,8 @@ export function ScopeScreen({
                 triggerLevel={data?.trigger_level}
                 triggerChannel={data?.trigger_source}
                 live={running && data?.source === "live"}
+                axisChannel={axisChannel}
+                window={data ? { left: data.screen_left_s, width: 10 * data.timebase_scale } : undefined}
               />
               {spectra.length > 0 && <SpectrumPane spectra={spectra} />}
             </div>
@@ -270,6 +289,7 @@ function functionTrace(f: FunctionTrace): Trace {
     channel: -f.function,
     t0_s: f.x0,
     dt_s: f.dx,
+    points: f.points,
     volts: f.values,
     scale: f.scale,
     offset: f.offset,
