@@ -341,10 +341,10 @@ def test_definition_cases_are_listed_and_run_with_steps(tmp_path):
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers["x-simubench-token"] = TOKEN
         assert c.get("/api/definitions/sb-dmm-1/cases").json() == [
-            {"path": "cases/dmm.cases.yaml", "cases": 2}
+            {"path": "cases/dmm.cases.yaml", "cases": 2, "builtin": False}
         ]
         assert c.get("/api/definitions/sb-awg-2/cases").json() == [
-            {"path": "cases/other.cases.yaml", "cases": 0}
+            {"path": "cases/other.cases.yaml", "cases": 0, "builtin": False}
         ]
         run = c.post("/api/definitions/sb-dmm-1/cases/run", json={"path": "cases/dmm.cases.yaml"}).json()
         assert run["path"] == "cases/dmm.cases.yaml" and run["passed"] == 1 and run["failed"] == 1
@@ -362,6 +362,32 @@ def test_definition_cases_are_listed_and_run_with_steps(tmp_path):
             == 404
         )
         assert c.post("/api/definitions/sb-dmm-1/cases/run", json={"path": "../x.yaml"}).status_code == 403
+
+
+def test_builtin_models_manual_cases_are_listed_and_run(tmp_path):
+    """A built-in model's acceptance page shows the manual cases shipped with it, and runs them (#1352)."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        listed = c.get("/api/definitions/keysight-34465a/cases").json()
+        # listed: both of the model's manual cases files, built-in, with their case counts
+        assert {f["path"] for f in listed} == {
+            "builtin:keysight-34465a/cases.yaml",
+            "builtin:keysight-34465a-impedance/cases.yaml",
+        }
+        assert all(f["builtin"] and f["cases"] > 0 for f in listed)
+        # run: the small one passes case by case, on the built-in definition
+        run = c.post(
+            "/api/definitions/keysight-34465a/cases/run",
+            json={"path": "builtin:keysight-34465a-impedance/cases.yaml"},
+        ).json()
+        assert run["passed"] == 2 and run["failed"] == 0
+        # refused: another model's file, and a name that climbs out of the folder
+        for name in ("builtin:rs-sma100b/cases.yaml", "builtin:../models/x/cases.yaml"):
+            assert (
+                c.post("/api/definitions/keysight-34465a/cases/run", json={"path": name}).status_code == 422
+            )
 
 
 def test_definition_document_and_coverage_are_served():

@@ -7,7 +7,13 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ...library.coverage import cases_for_model, run_cases
+from ...library.coverage import (
+    BUILTIN_PREFIX,
+    builtin_cases_file,
+    builtin_cases_for_model,
+    cases_for_model,
+    run_cases,
+)
 from ...models import api as M
 from .. import drive, views
 from ..errors import FILE_ERRORS
@@ -181,12 +187,14 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
         dependencies=[Depends(auth)],
     )
     def definition_cases(def_id: str) -> list[M.CaseFile]:
-        """The workspace's cases files whose model is this definition (the acceptance page's case tab)."""
+        """The cases files whose model is this definition (the acceptance page's case tab): the manual
+        cases shipped with a built-in model first (#1352), then the workspace's."""
         try:
             library.get(def_id)
         except KeyError as exc:
             raise not_found(exc) from None
-        return [M.CaseFile(path=p, cases=n) for p, n in cases_for_model(manager.workspace, def_id)]
+        shipped = [M.CaseFile(path=p, cases=n, builtin=True) for p, n in builtin_cases_for_model(def_id)]
+        return shipped + [M.CaseFile(path=p, cases=n) for p, n in cases_for_model(manager.workspace, def_id)]
 
     @router.post(
         "/api/definitions/{def_id}/cases/run",
@@ -203,7 +211,13 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
             raise not_found(exc) from None
 
         def run() -> M.CaseRunResult:
-            cases_file = files.resolve(req.path)
+            # A built-in model's manual cases (#1352) are named, not given as a path: only that
+            # model's own file can be run that way.
+            cases_file = (
+                builtin_cases_file(req.path, def_id)
+                if req.path.startswith(BUILTIN_PREFIX)
+                else files.resolve(req.path)
+            )
             results = run_cases(cases_file, [manager.workspace / "instruments"], collect=True)
             return M.CaseRunResult(
                 path=req.path,

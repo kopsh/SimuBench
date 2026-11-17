@@ -14,7 +14,8 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
   await page.getByTestId("instrument-list").getByRole("link", { name: "34465A Keysight Technologies" }).click();
   await expect(page.getByRole("heading", { name: "34465A" })).toBeVisible();
   await expect(page.getByText("真实型号")).toBeVisible();
-  await expect(page.getByText("34460-90901")).toBeVisible();
+  await expect(page.locator("#acceptance-reference").getByText("34460-90901")).toBeVisible();
+  await expect(page.getByTestId("verdict-reference")).toContainText("34460-90901"); // the verdict line names it too (#1352)
   // Conclusion and evidence first, editing after the read-only sections (#1359).
   const sections = await page.locator('[data-testid^="acceptance-tab-"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
   expect(sections).toEqual(["overview", "cases", "commands", "internals", "try", "build", "history"].map((k) => `acceptance-tab-${k}`));
@@ -60,6 +61,19 @@ test("acceptance overview words ranges and choices as the inspector does (#1357)
   await expect(page.getByTestId("overview-control-trigger.level1")).toContainText("不限");
   await expect(page.getByTestId("overview-control-trigger.level1")).not.toContainText("1000000");
   await expect(page.getByTestId("overview-control-timebase.reference")).toContainText("居中 CENT");
+});
+
+test("a built-in model's acceptance page leads with its verdict and its manual cases (#1352)", async ({ page }) => {
+  await page.goto(`/i/keysight-uxr1104b?token=${TOKEN}`);
+  const verdict = page.getByTestId("acceptance-verdict");
+  await expect(verdict.getByTestId("verdict-commands")).toContainText("%");
+  await expect(verdict.getByTestId("verdict-reference")).toContainText("9018-07723");
+  await expect(verdict.getByTestId("verdict-cases")).toContainText("内置 1 个文件");
+  await verdict.getByTestId("verdict-cases").click();
+  await expect(page.getByTestId("acceptance-tab-cases")).toHaveAttribute("aria-selected", "true");
+  await expect(page.getByText("内置手册用例")).toBeVisible();
+  await expect(page.getByRole("button", { name: "builtin:keysight-uxr1104b/cases.yaml" })).toBeVisible();
+  await expect(page.getByText("工作区中没有针对这台仪表的用例文件")).toHaveCount(0);
 });
 
 test("acceptance overview lists the model's options and what each changes (#1007)", async ({ page }) => {

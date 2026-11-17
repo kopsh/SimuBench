@@ -11,7 +11,14 @@ import { cn } from "@/lib/utils";
 
 /** The workspace's cases files for this definition: run one, see every step's expected and actual
  * reply (T4; instrument-authoring.md 7.2). */
-export function CasesTab({ definitionId }: { definitionId: string }) {
+export function CasesTab({
+  definitionId,
+  onResult,
+}: {
+  definitionId: string;
+  /** A file's run, for the overview's verdict line (#1352). */
+  onResult?: (result: CaseRunResult) => void;
+}) {
   const { t } = useTranslation();
   const files = useDefinitionCases(definitionId);
   const run = useRunDefinitionCases(definitionId);
@@ -23,7 +30,12 @@ export function CasesTab({ definitionId }: { definitionId: string }) {
 
   const start = () => {
     if (!selected) return;
-    run.mutate(selected, { onSuccess: (r) => setResult(r) });
+    run.mutate(selected, {
+      onSuccess: (r) => {
+        setResult(r);
+        onResult?.(r);
+      },
+    });
   };
 
   if (files.isLoading) return <Skeleton className="m-4 h-64" />;
@@ -43,8 +55,17 @@ export function CasesTab({ definitionId }: { definitionId: string }) {
       <aside className="bg-card min-h-0 overflow-auto rounded-lg border">
         <header className="border-b px-3 py-2 text-xs font-medium">{t("acceptance.caseFiles")}</header>
         <ul className="divide-y">
-          {files.data.map((file) => (
+          {files.data.map((file, i) => (
             <li key={file.path}>
+              {/* The manual cases shipped with a built-in model come first, then the workspace's (#1352). */}
+              {(i === 0 || files.data[i - 1].builtin !== file.builtin) && (
+                <div
+                  className="bg-muted/40 text-muted-foreground px-3 py-1 text-[10.5px] font-medium"
+                  title={file.builtin ? t("acceptance.builtinCasesHint") : undefined}
+                >
+                  {file.builtin ? t("acceptance.builtinCases") : t("acceptance.workspaceCases")}
+                </div>
+              )}
               <button
                 type="button"
                 onClick={() => setPicked(file.path)}

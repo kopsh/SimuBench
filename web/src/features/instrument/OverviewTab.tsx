@@ -5,9 +5,9 @@ import type { DefinitionData } from "@/api/hooks";
 import { cn } from "@/lib/utils";
 import { deviationLimit, optionRows, panelView, specRows } from "./model";
 
-function Card({ title, children, className }: { title: string; children: ReactNode; className?: string }) {
+function Card({ title, children, className, id }: { title: string; children: ReactNode; className?: string; id?: string }) {
   return (
-    <section className={cn("bg-card rounded-lg border", className)}>
+    <section id={id} className={cn("bg-card scroll-mt-4 rounded-lg border", className)}>
       <header className="border-b px-3 py-2 text-xs font-medium">{title}</header>
       <div className="p-3">{children}</div>
     </section>
@@ -26,6 +26,9 @@ function Rows({ rows }: { rows: [string, ReactNode][] }) {
     </dl>
   );
 }
+
+/** The reference card's element id: the verdict line's "reference" scrolls to it (#1352). */
+export const REFERENCE_ID = "acceptance-reference";
 
 /** The acceptance overview: identity and ports, the functions and ranges it offers, specs and
  * deviations side by side (instrument-authoring.md 7.2). */
@@ -82,7 +85,7 @@ export function OverviewTab({ definition, inst }: { definition: DefinitionData; 
         </div>
       </Card>
 
-      <Card title={t("acceptance.reference")}>
+      <Card title={t("acceptance.reference")} id={REFERENCE_ID}>
         {reference ? (
           <Rows
             rows={[

@@ -76,7 +76,8 @@ When the platform cannot express something the manual requires:
    ```bash
    uv run simubench validate src/simubench/library/instruments/<id>.yaml
    ```
-6. **Manual cases** `tests/models/<id>/cases.yaml`: every implemented and accepted command at
+6. **Manual cases** `tests/models/<id>/cases.yaml` (shipped in the wheel by `hatch_build.py` and shown
+   and run on the model's acceptance page as 内置手册用例, #1352): every implemented and accepted command at
    least once, each case with `manual:` naming the section. Expectations say what the reply
    means, never a regex (D49, #926; `docs/real-models.md` 4 lists the keys): `expect_prefix` for
    an error, `expect_value(s)` + `tolerance` (k·σ of the model's noise) for readings,

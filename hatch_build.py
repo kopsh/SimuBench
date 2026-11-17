@@ -1,4 +1,5 @@
-"""Build hook: write ``src/simubench/_version.py`` with the version and the commit (D58).
+"""Build hook: write ``src/simubench/_version.py`` with the version and the commit (D58), and put
+the built-in models' manual cases into the wheel (#1352).
 
 scripts/version.py gives the version; this hook writes it and the commit into the file. The commit comes from git, else from ``.git_archival.txt`` (a GitHub zip or ``git archive``),
 else from the file an sdist already carries; unknown stays ``None``.
@@ -65,3 +66,22 @@ class VersionFileHook(BuildHookInterface):
             encoding="utf-8",
         )
         build_data["artifacts"].append(f"/{VERSION_FILE}")
+        if self.target_name == "wheel":
+            build_data["force_include"].update(_model_cases(root))
+
+
+def _model_cases(root: Path) -> dict[str, str]:
+    """The built-in models' manual cases for the wheel (#1352): each ``tests/models/<folder>`` whose
+    cases.yaml is a built-in model's goes to ``simubench/library/model_cases/<folder>``, and the
+    example benches some of them name (``../../../examples/benches``) to ``simubench/examples/benches``,
+    the same place relative to them. Test-only models (no built-in definition) stay out."""
+    builtin = root / "src" / "simubench" / "library" / "instruments"
+    out: dict[str, str] = {}
+    for cases in sorted((root / "tests" / "models").glob("*/cases.yaml")):
+        m = re.search(r"^model:\s*(\S+)", cases.read_text(encoding="utf-8"), re.MULTILINE)
+        if m and (builtin / f"{m.group(1)}.yaml").is_file():
+            out[str(cases.parent)] = f"simubench/library/model_cases/{cases.parent.name}"
+    benches = root / "examples" / "benches"
+    if out and benches.is_dir():
+        out[str(benches)] = "simubench/examples/benches"
+    return out

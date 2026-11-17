@@ -1085,21 +1085,28 @@
         "type": "object"
       },
       "CaseFile": {
-        "description": "A cases file in the workspace whose model is the definition.",
+        "description": "A cases file whose model is the definition: in the workspace, or shipped with a built-in model.",
         "properties": {
+          "builtin": {
+            "default": false,
+            "description": "The manual cases shipped with a built-in model (#1352)",
+            "title": "Builtin",
+            "type": "boolean"
+          },
           "cases": {
             "title": "Cases",
             "type": "integer"
           },
           "path": {
-            "description": "Workspace-relative cases file",
+            "description": "Workspace-relative cases file, or builtin:<folder>/cases.yaml",
             "title": "Path",
             "type": "string"
           }
         },
         "required": [
           "path",
-          "cases"
+          "cases",
+          "builtin"
         ],
         "title": "CaseFile",
         "type": "object"
@@ -1212,7 +1219,7 @@
       "CaseRunRequest": {
         "properties": {
           "path": {
-            "description": "Workspace-relative cases file",
+            "description": "Workspace-relative cases file, or a built-in one as listed (builtin:<folder>/cases.yaml)",
             "title": "Path",
             "type": "string"
           }
@@ -11516,7 +11523,7 @@
     },
     "/api/definitions/{def_id}/cases": {
       "get": {
-        "description": "The workspace's cases files whose model is this definition (the acceptance page's case tab).",
+        "description": "The cases files whose model is this definition (the acceptance page's case tab): the manual\ncases shipped with a built-in model first (#1352), then the workspace's.",
         "operationId": "listDefinitionCases",
         "parameters": [
           {

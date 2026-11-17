@@ -10,6 +10,7 @@ import {
   keys,
   useCloseTry,
   useDefinition,
+  useDefinitionCases,
   useDefinitionCoverage,
   useDefinitionDocument,
   useOpenTry,
@@ -26,9 +27,10 @@ import { BuildTab } from "./structure/BuildTab";
 import { CasesTab } from "./CasesTab";
 import { CommandsTab } from "./CommandsTab";
 import { HistoryTab } from "./HistoryTab";
-import { OverviewTab } from "./OverviewTab";
+import { OverviewTab, REFERENCE_ID } from "./OverviewTab";
 import { TryTab } from "./TryTab";
-import { commandRows, runnable, tryForm, trySuggestions } from "./model";
+import { commandRows, runnable, tryForm, trySuggestions, verdictOf } from "./model";
+import { VerdictBar } from "./Verdict";
 
 /** What the page does with a copy of the definition (#1250): `created` is false when an earlier
  * copy is opened instead of a new one made. Without it the page navigates to the copy's own page. */
@@ -134,6 +136,10 @@ export function InstrumentAcceptance({
   const rows = useMemo(() => commandRows(definition.data?.commands ?? [], coverage.data), [definition.data, coverage.data]);
   const tryKnown = useMemo(() => [...new Set(rows.filter(runnable).map((r) => tryForm(r).trim()))], [rows]);
   const trySuggest = useMemo(() => trySuggestions(rows), [rows]);
+  // The verdict line (#1352): coverage, the cases behind it, the last run of each file on this page.
+  const caseFiles = useDefinitionCases(definitionId);
+  const [runs, setRuns] = useState<Record<string, { passed: number; failed: number }>>({});
+  const verdict = verdictOf(coverage.data, caseFiles.data ?? [], Object.values(runs));
   const [notice, setNotice] = useState(false);
   const seen = useRef<string | null>(null);
 
@@ -243,7 +249,20 @@ export function InstrumentAcceptance({
           </TabsList>
         </div>
         <TabsContent value="overview" className="min-h-0 flex-1 overflow-auto">
-          {d ? <OverviewTab definition={d} inst={inst.data} /> : <DefinitionBody definition={definition} />}
+          {d ? (
+            <>
+              <div className="px-4 pt-4">
+                <VerdictBar
+                  verdict={verdict}
+                  document={d.reference?.document}
+                  onSection={(to) => (to === "reference" ? document.getElementById(REFERENCE_ID)?.scrollIntoView() : setSection(to))}
+                />
+              </div>
+              <OverviewTab definition={d} inst={inst.data} />
+            </>
+          ) : (
+            <DefinitionBody definition={definition} />
+          )}
         </TabsContent>
         <TabsContent value="commands" className="min-h-0 flex-1 overflow-hidden">
           {d ? (
@@ -291,7 +310,7 @@ export function InstrumentAcceptance({
           />
         </TabsContent>
         <TabsContent value="cases" className="min-h-0 flex-1 overflow-hidden">
-          <CasesTab definitionId={definitionId} />
+          <CasesTab definitionId={definitionId} onResult={(r) => setRuns((prev) => ({ ...prev, [r.path]: { passed: r.passed, failed: r.failed } }))} />
         </TabsContent>
         <TabsContent value="history" className="min-h-0 flex-1 overflow-hidden">
           <HistoryTab definitionId={definitionId} sha={sha} editable={doc.data.editable} />

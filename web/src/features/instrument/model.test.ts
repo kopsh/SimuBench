@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommandSpec, DefinitionCoverage, InstrumentInfo, StateVarInfo } from "@/api/client";
 import type { CommandRow } from "./model";
-import { commandRows, deviationLimit, groupCommands, groupProgress, tryForm, trySuggestions, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
+import { commandRows, deviationLimit, verdictOf, groupCommands, groupProgress, tryForm, trySuggestions, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
 
 const cmd = (header: string, extra: Partial<CommandSpec> = {}): CommandSpec => ({
   header,
@@ -232,5 +232,26 @@ describe("commands to the trial run (#1358)", () => {
   it("offers the common commands first, then the model's own queries", () => {
     const rows = [row(":SYSTem:ERRor", "implemented"), row(":TIMebase:SCALe", "implemented"), row(":XTALk:ENABle", "not_modeled")];
     expect(trySuggestions(rows)).toEqual(["*IDN?", "*RST", ":SYSTem:ERRor?", ":TIMebase:SCALe?"]);
+  });
+});
+
+describe("verdictOf (#1352)", () => {
+  it("sums coverage, the case files behind it and the runs on the page", () => {
+    const v = verdictOf(
+      { stats: { implemented: 340, accepted: 63, not_modeled: 744 } } as unknown as DefinitionCoverage,
+      [
+        { path: "builtin:x/cases.yaml", cases: 31, builtin: true },
+        { path: "cases/mine.cases.yaml", cases: 2 },
+      ],
+      [{ passed: 30, failed: 1 }],
+    );
+    expect(v.coverage).toEqual({ implemented: 340, accepted: 63, total: 1147, percent: 30 });
+    expect(v.cases).toEqual({ builtinFiles: 1, workspaceFiles: 1, cases: 33 });
+    expect(v.run).toEqual({ passed: 30, failed: 1 });
+  });
+  it("says so when there is no coverage table and nothing was run", () => {
+    const v = verdictOf(null, [], []);
+    expect(v.coverage).toBeNull();
+    expect(v.run).toBeNull();
   });
 });
