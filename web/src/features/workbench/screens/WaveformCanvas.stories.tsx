@@ -30,3 +30,16 @@ export const TwoChannels: Story = {
 };
 
 export const NoSignal: Story = { args: { traces: [] } };
+
+/** Non-zero offset and horizontal position keep both sets of axis labels in the visual baseline (#1341). */
+export const OffsetAndPosition: Story = {
+  args: {
+    traces: [
+      { channel: 1, t0_s: (-N / 2) * dt, dt_s: dt, points: N, volts: sine(0.5, 1000), scale: 0.25, offset: 0.5, triggered: true, silence: [], minmax: null },
+    ],
+    triggerLevel: 0.5,
+    triggerChannel: 1,
+    axisChannel: 1,
+    window: { left: -1.5e-3, width: 4e-3 },
+  },
+};
