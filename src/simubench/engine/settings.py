@@ -38,10 +38,13 @@ def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: f
     return min(rungs, key=lambda r: abs(math.log10(r) - math.log10(value)))
 
 
-def validate_value(spec: StateSpec, value: Any) -> Any:
+def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False) -> Any:
     """``value`` checked against the setting's spec and returned in its stored form (raises the
-    SCPI error the instrument answers with: read-only -221, out of range -222, bad option -224)."""
-    if spec.readonly:
+    SCPI error the instrument answers with: read-only -221, out of range -222, bad option -224).
+
+    ``allow_readonly``: the write is the instrument's own (``internal``, a definition's constraint
+    naming a read-only setting), so a read-only setting's declared values pass too."""
+    if spec.readonly and not allow_readonly:
         raise ScpiError(-221, "read-only setting")
     if spec.type in ("float", "int"):
         v = float(value)
