@@ -475,7 +475,7 @@ export const en: Widen<Messages> = {
     noReading: "—",
   },
   spectrum: {
-    hintClock: "Command clock: the analyzer only sweeps when a command is sent or time is advanced, so the trace stands still.",
+    hintClock: "Command clock: a sweep takes virtual time, so the analyzer only sweeps when a command is sent or time is advanced and the trace stands still (a scope's screen frames take none, so its live trace keeps redrawing).",
     hintSingle: "Single sweep: the trace is held; turn Continuous on to sweep again.",
     advanceSweep: "Advance one sweep time",
     overload: "Mixer overload",
@@ -713,6 +713,7 @@ export const en: Widen<Messages> = {
     perDiv: "/div",
     acquisitions: "Acquisitions",
     liveFrame: "Live frames",
+    hintClock: "Command clock: screen frames take no virtual time; the live trace redraws the signal as it is now. Only commands and Advance move the clock.",
     cursors: { toggle: "Cursors", title: "Cursors", channel: "Channel", x1: "X1", x2: "X2", y1: "Y1", y2: "Y2" },
     spectrum: { label: "Spectrum", span: "Frequency", bin: "Bin" },
     measure: { title: "Measure", amplitude: "Amplitude", vpp: "Vpp", frequency: "Frequency", period: "Period", mean: "Mean", rms: "RMS" },

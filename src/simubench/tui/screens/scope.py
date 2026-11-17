@@ -31,7 +31,11 @@ SETTINGS_WIDTH = 26  # the right settings column's total width (tui-screens.md 6
 
 
 def trace_frame(
-    trace: dict[str, Any], cols: int, rows: int, connect: bool = False
+    trace: dict[str, Any],
+    cols: int,
+    rows: int,
+    connect: bool = False,
+    window: tuple[float, float] | None = None,
 ) -> tuple[list[list[int]], bool]:
     """One trace's dot grid as per-character bit ORs, plus whether it was clipped (6.1).
 
@@ -40,6 +44,11 @@ def trace_frame(
     scale and offset; parts beyond the screen draw pinned to the top/bottom row. ``connect``
     joins each column to the previous one: a record with fewer points than dot columns (an FFT
     over 0–10 MHz has some 80 bins) would otherwise draw as scattered dots.
+
+    ``window`` is the time the screen spans, ``(left, width)`` in seconds from the trigger
+    (``screen_left_s``, ten divisions): a record is drawn where its own times fall and the rest of
+    the screen stays empty (#1333). The bins cover the whole record, so a stretch zoomed in far
+    past the bins shows them as blocks. Without a window the record fills the width.
     """
     grid = [[0] * cols for _ in range(rows)]
     minmax = trace.get("minmax") or []
@@ -53,8 +62,18 @@ def trace_frame(
     offset = float(trace.get("offset") or 0.0)
     total_rows = rows * 4
     prev: float | None = None
+    t0 = float(trace.get("t0_s") or 0.0)
+    record_s = float(trace.get("dt_s") or 0.0) * int(trace.get("points") or 0)
     for col in range(cols * 2):
-        bin_index = min(bins - 1, col * bins // (cols * 2))
+        if window is not None and record_s > 0:
+            t = window[0] + (col + 0.5) / (cols * 2) * window[1]
+            frac = (t - t0) / record_s
+            if not 0.0 <= frac < 1.0:
+                prev = None
+                continue
+            bin_index = min(bins - 1, int(frac * bins))
+        else:
+            bin_index = min(bins - 1, col * bins // (cols * 2))
         lo = minmax[bin_index * 2]
         hi = minmax[bin_index * 2 + 1]
         if connect:
@@ -103,12 +122,15 @@ def render_wave(
         for c in range(0, cols * 2, 4):
             grid[4][r // 4][c // 2] |= _BRAILLE[r % 4][c % 2]
     clipped: list[int] = []
+    window = None
+    if screen and screen.get("screen_left_s") is not None and screen.get("timebase_scale"):
+        window = (float(screen["screen_left_s"]), 10 * float(screen["timebase_scale"]))
     traces = {t.get("channel"): t for t in (screen or {}).get("traces", [])}
     for ch in range(1, 5):
         trace = traces.get(ch)
         if trace is None or not (state.get(f"ch{ch}.display") or {}).get("value"):
             continue
-        own, was_clipped = trace_frame(trace, cols, rows)
+        own, was_clipped = trace_frame(trace, cols, rows, window=window)
         if was_clipped:
             clipped.append(ch)
         for r in range(rows):
@@ -119,7 +141,9 @@ def render_wave(
     for func in (screen or {}).get("functions", []):
         if func.get("spectrum"):
             continue
-        own, _ = trace_frame(func, cols, rows, connect=True)
+        own, _ = trace_frame(
+            {**func, "t0_s": func.get("x0"), "dt_s": func.get("dx")}, cols, rows, connect=True, window=window
+        )
         for r in range(rows):
             for c in range(cols):
                 grid[5][r][c] |= own[r][c]
@@ -320,6 +344,9 @@ class ScopeScreen(ControlEditingScreen):
         with Horizontal(id="scope-top"):
             self._wave_silence = Static(id="wave-silence")
             self._wave_silence.can_focus = False
+            self._wave_hint = Static(id="wave-hint")
+            self._wave_hint.can_focus = False
+            self._wave_hint.display = False
             self._wave_static = Static(id="wave-text")
             self._wave_static.can_focus = False
             self._spectrum_label = Static(id="spectrum-label")
@@ -328,6 +355,7 @@ class ScopeScreen(ControlEditingScreen):
             self._spectrum_static.can_focus = False
             self._spectrum_label.display = self._spectrum_static.display = False
             self._wave_box = _Box(
+                self._wave_hint,
                 self._wave_silence,
                 self._wave_static,
                 self._spectrum_label,
@@ -389,6 +417,8 @@ class ScopeScreen(ControlEditingScreen):
         # box's border and padding (4).
         cols = max(20, self._wave_static.size.width or width - 31)
         rows = max(6, height - 16)
+        if self._wave_hint.display:  # the clock note above the trace takes its lines (#1334)
+            rows = max(6, rows - -(-len(i18n.t("scope.hintClock", app.lang)) // cols))
         return cols, rows
 
     def refresh_content(self) -> None:
@@ -417,6 +447,11 @@ class ScopeScreen(ControlEditingScreen):
         rows, spec_rows = split_rows(rows, bool(spectra))
         text, clipped = render_wave(app, self.frame, cols, rows, state, app.lang, self._open_channels())
         self._wave_static.update(text)
+        # The clock rule: a live frame takes no virtual time (#1334), as the Web screen says.
+        hint = bool((self.frame or {}).get("running")) and app.clock_mode() in ("command", "stepped")
+        self._wave_hint.display = hint
+        if hint:
+            self._wave_hint.update(Text(i18n.t("scope.hintClock", app.lang), style=style_of(app, "muted")))
         self._spectrum_label.display = self._spectrum_static.display = bool(spectra)
         if spectra:
             self._spectrum_label.update(spectrum_label(spectra, cols, app.lang))

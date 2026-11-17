@@ -28,7 +28,7 @@ TERMS: dict = {
     },
     # spectrum in the web i18n (the sweep hint, #1178).
     "spectrum": {
-        "hintClock": "Command clock: the analyzer only sweeps when a command is sent or time is advanced, so the trace stands still.",
+        "hintClock": "Command clock: a sweep takes virtual time, so the analyzer only sweeps when a command is sent or time is advanced and the trace stands still (a scope's screen frames take none, so its live trace keeps redrawing).",
         "hintSingle": "Single sweep: the trace is held; turn Continuous on to sweep again.",
     },
     # panel.client in the web i18n, plus the terminal console's own sources (tui-screens.md 1.5).
@@ -450,6 +450,7 @@ TERMS: dict = {
         "runStop": "Run/Stop r",
         "single": "Single s",
         "outOfScreen": "{ch} clipped",
+        "hintClock": "Command clock: screen frames take no virtual time; the live trace redraws the signal as it is now. Only commands and Advance move the clock.",
         "silenceLine": "{ch} no signal: {reason}",
         "silUnconnected": "not wired",
         "silSourceOff": "{source}'s output is off",

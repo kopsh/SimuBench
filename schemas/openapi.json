@@ -3822,6 +3822,12 @@
             "title": "Operator",
             "type": "string"
           },
+          "points": {
+            "default": 0,
+            "description": "The record's sample count (as Trace.points)",
+            "title": "Points",
+            "type": "integer"
+          },
           "scale": {
             "title": "Scale",
             "type": "number"
@@ -3855,6 +3861,7 @@
           "spectrum",
           "x0",
           "dx",
+          "points",
           "unit",
           "values",
           "scale",
@@ -8154,6 +8161,12 @@
             "title": "Running",
             "type": "boolean"
           },
+          "screen_left_s": {
+            "default": 0.0,
+            "description": "The time of the screen's left edge relative to the trigger under the settings now (trigger position and horizontal position): the screen spans ``screen_left_s`` to ``screen_left_s + 10 * timebase_scale``. A record drawn here keeps its own ``t0_s`` and ``dt_s``, so a stopped screen whose timebase changed shows it at its real width (#1333)",
+            "title": "Screen Left S",
+            "type": "number"
+          },
           "source": {
             "enum": [
               "live",
@@ -8193,6 +8206,7 @@
           "running",
           "waiting",
           "timebase_scale",
+          "screen_left_s",
           "trigger_level",
           "trigger_source",
           "traces",
@@ -10256,6 +10270,12 @@
             "title": "Offset",
             "type": "number"
           },
+          "points": {
+            "default": 0,
+            "description": "The record's sample count: the record spans ``t0_s`` to ``t0_s + points * dt_s`` even when ``volts`` is empty and ``minmax`` stands for it (#1333)",
+            "title": "Points",
+            "type": "integer"
+          },
           "scale": {
             "title": "Scale",
             "type": "number"
@@ -10289,6 +10309,7 @@
           "channel",
           "t0_s",
           "dt_s",
+          "points",
           "volts",
           "scale",
           "offset",
