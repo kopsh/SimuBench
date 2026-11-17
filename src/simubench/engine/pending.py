@@ -72,6 +72,10 @@ class PendingOps:
             return False
         return True
 
+    def disarm_opc(self) -> None:
+        """``*CLS``: an armed *OPC is disarmed (IEEE 488.2 clears the operation-complete state)."""
+        self.opc_armed = False
+
     def wait_target(self) -> int | None:
         """The instant everything waited for is done, None when nothing is."""
         waited = self.waited()

@@ -44,9 +44,12 @@ class StatusRegisters:
         #: Provider of the instrument's components; the status registers are filtered out once.
         self._components = components
         self._registers: list[Any] | None = None
-        self.esr = 0
-        self.ese = 0
-        self.sre = 0
+        #: The event-status registers' state. Private: the instrument's ``esr`` / ``ese`` / ``sre``
+        #: attributes (:class:`Register`) are the only public way in, so ``inst.esr`` is the one
+        #: name the register answers to (#1380).
+        self._esr = 0
+        self._ese = 0
+        self._sre = 0
 
     def registers(self) -> list[Any]:
         """The ``status_register`` components, in component order (fixed once the instrument is built)."""
@@ -80,19 +83,19 @@ class StatusRegisters:
             comp.event(name)
 
     def set_opc(self) -> None:
-        self.esr |= 1
+        self._esr |= 1
 
     def set_bit(self, bit: int) -> None:
-        self.esr |= 1 << bit
+        self._esr |= 1 << bit
 
     def read_esr(self) -> int:
         """``*ESR?``: the register, which the read clears."""
-        value, self.esr = self.esr, 0
+        value, self._esr = self._esr, 0
         return value
 
     def clear(self) -> None:
         """``*CLS``: the event registers; ESE and SRE keep their enables (IEEE 488.2)."""
-        self.esr = 0
+        self._esr = 0
         for comp in self.registers():
             comp.clear()
 
@@ -110,21 +113,23 @@ class StatusRegisters:
             stb |= EAV
         if output:
             stb |= MAV
-        if self.esr & self.ese:
+        if self._esr & self._ese:
             stb |= ESB
-        if stb & self.sre & ~MSS:
+        if stb & self._sre & ~MSS:
             stb |= MSS
         return stb
 
 
 class Register:
-    """``Instrument.esr`` / ``ese`` / ``sre``: the instrument's attribute is the collaborator's."""
+    """``Instrument.esr`` / ``ese`` / ``sre``: the façade attribute is the collaborator's private
+    state (#1380) -- the descriptor is how the register answers to exactly one public name."""
 
     def __set_name__(self, owner: type, name: str) -> None:
         self.name = name
+        self._state = "_" + name
 
     def __get__(self, inst: Any, owner: type | None = None) -> Any:
-        return self if inst is None else getattr(inst.status, self.name)
+        return self if inst is None else getattr(inst.status, self._state)
 
     def __set__(self, inst: Any, value: int) -> None:
-        setattr(inst.status, self.name, value)
+        setattr(inst.status, self._state, value)

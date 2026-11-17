@@ -39,7 +39,7 @@ class BuiltinCommands:
         if word == "CLS" and not q:
             self.inst.errors.clear()
             self.inst.status.clear()
-            self.inst.ops.opc_armed = False
+            self.inst._ops.disarm_opc()
             return None
         if word == "OPC" and not q:
             self.inst.arm_opc()
@@ -60,7 +60,7 @@ class BuiltinCommands:
             return str(self.stb()).encode()
         if word == "TST" and q:
             return b"0"
-        raise self.inst.errs._undefined(unit, unit.tokens)
+        raise self.inst._errs._undefined(unit, unit.tokens)
 
     def opt(self) -> str:
         """The *OPT? reply of a definition with ``identity.options_reply`` (D68): the options this
@@ -78,7 +78,7 @@ class BuiltinCommands:
         first one's error stands — a single trigger model answers exactly as before."""
         fns = [fn for comp in self.inst.components.values() if (fn := comp.operation("bus_trigger"))]
         if not fns:
-            raise self.inst.errs._undefined(unit, unit.tokens)
+            raise self.inst._errs._undefined(unit, unit.tokens)
         response: bytes | None = None
         duration = 0
         first_error: ScpiError | None = None
@@ -100,14 +100,14 @@ class BuiltinCommands:
         """A built-in command's reply; ``_HANDLED`` for one without a reply, None when not built in."""
         err, count, all_, date, time_ = (p for _h, p, _q, _s in SYST_BUILTINS)
         if unit.query and err.match(tokens) is not None:
-            return self.inst.errs._error_reply(self.inst.errors.pop())
+            return self.inst._errs._error_reply(self.inst.errors.pop())
         if unit.query and count.match(tokens) is not None:
             return str(len(self.inst.errors)).encode()
         if unit.query and all_.match(tokens) is not None:
             items = []
             while len(self.inst.errors):
-                items.append(self.inst.errs._error_reply(self.inst.errors.pop()))
-            return b",".join(items or [self.inst.errs._error_reply(ScpiError(0))])
+                items.append(self.inst._errs._error_reply(self.inst.errors.pop()))
+            return b",".join(items or [self.inst._errs._error_reply(ScpiError(0))])
         if date.match(tokens) is not None or time_.match(tokens) is not None:
             return self._clock_command(unit, date=date.match(tokens) is not None)
         return None
@@ -178,9 +178,7 @@ class BuiltinCommands:
         """The status byte. ``commit=False`` only looks: the condition transitions the status
         registers have not latched yet stay unlatched, so an observer cannot change what a later
         ``*ESR?`` says."""
-        return self.inst.status.stb(
-            errors=len(self.inst.errors), output=bool(self.inst._output), commit=commit
-        )
+        return self.inst.status.stb(errors=len(self.inst.errors), output=self.inst.has_output, commit=commit)
 
     def status_event(self, name: str) -> None:
         """A momentary event (a trigger, a range change) for the instrument's status registers:
