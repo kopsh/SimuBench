@@ -20,8 +20,7 @@ from .commands import (
     when_matches,
 )
 from .component import OpResult, map_setting
-from .constraints import settle
-from .settings import validate_value
+from .write_tx import apply_writes
 
 if TYPE_CHECKING:
     from .instrument import Instrument
@@ -278,43 +277,15 @@ class CommandRunner:
             raise self.inst.errs._bad_parameter(e, path, st) from e
         return None
 
-    def _check_all(self, writes: Iterable[tuple[str, Any]]) -> dict[str, Any]:
-        """Validate every staged write against its setting's declaration; raise, with the setting
-        named, before any of them is applied. Later entries for the same path overwrite earlier
-        ones, so a stage can put the command's constants first and let the arguments win."""
-        checked: dict[str, Any] = {}
-        for path, v in writes:
-            try:
-                checked[path] = validate_value(self.inst.specs[path], v)
-            except ScpiError as e:
-                raise self.inst.errs._bad_parameter(e, path, self.inst.specs[path]) from e
-        return checked
-
-    def _commit(self, checked: dict[str, Any]) -> None:
-        """Apply the checked writes all-or-nothing (#550): a write a component refuses — because
-        the settings together make no sense (#580) — takes back the ones before it. After the
-        writes, the watchers of every written path may check the combination and refuse too."""
-        done: list[tuple[str, Any]] = []
-        # The definition's constraints judge the state all the writes leave together (#1013): a
-        # command that sets both settings is not refused for the state between them.
-        checked = {
-            **checked,
-            **settle(self.inst.definition.constraints, self.inst.specs, self.inst.state, checked),
-        }
-        self.inst._constraints_checked = True
-        try:
-            for path, v in checked.items():
-                before = self.inst.state[path]
-                self.inst.set_state(path, v)
-                done.append((path, before))
-            for comp in {c.uid: c for path in checked for c in self.inst._watchers.get(path, ())}.values():
-                comp.check_settings()
-        except ScpiError:
-            for path, before in reversed(done):
-                self.inst.set_state(path, before)
-            raise
-        finally:
-            self.inst._constraints_checked = False
+    def _commit(self, writes: Iterable[tuple[str, Any]]) -> None:
+        """Apply the staged writes as one transaction (#550, #1379): every write validated with
+        its setting named in an error before any of them is applied, the definition's constraints
+        judging the state they leave together (#1013), then the watchers of the written paths
+        checking the combination (#580) — and a refused write takes the whole batch back, without
+        events for the way back, so only the writes that survive send ``state_changed``. Later
+        entries for the same path overwrite earlier ones, so a stage can put the command's
+        constants first and let the arguments win."""
+        apply_writes(self.inst, writes, source="scpi", judged=True, name_error=self.inst.errs._bad_parameter)
 
     def _settings_command(
         self, spec: CommandSpec, unit: Unit, channel: int | None, named: dict[str, int] | None = None
@@ -338,7 +309,7 @@ class CommandRunner:
             (self._resolve(_at(index, ref), channel), value) for ref, value in spec.writes.items()
         ]
         staged += list(new.items())
-        self._commit(self._check_all(staged))
+        self._commit(staged)
         return None
 
     def _sort_values(
@@ -479,7 +450,7 @@ class CommandRunner:
             raise ScpiError(-108)
         if unit.query:
             return self._channel_list_reply(spec, channels, form)
-        self._commit(self._check_all(self._channel_list_writes(spec, channels, values, whole)))
+        self._commit(self._channel_list_writes(spec, channels, values, whole))
         return None
 
     def _channel_list_args(
@@ -588,7 +559,7 @@ class CommandRunner:
             writes = self._parse_quantities(ps, unit.params, channel)
         except ScpiError as e:
             raise self.inst.errs._bad_parameter(e, ps.name, ps) from e
-        self._commit(self._check_all(writes.items()))
+        self._commit(writes.items())
         return None
 
     def _parse_quantities(self, ps: ParamSpec, raw: tuple[bytes, ...], channel: int | None) -> dict[str, Any]:
@@ -894,7 +865,7 @@ class CommandRunner:
                     for ref, constant in (ps.sets or {}).items():
                         staged.append((self._resolve(ref, target), constant))
         # after the command's constants: the arguments win
-        self._commit(self._check_all(staged))
+        self._commit(staged)
         list_spec = next((p for p in spec.params if p.type == "channel_list" and p.state is None), None)
         if list_spec is None:
             result = self._run_op(comp_ref, op_name, unit, channel, suffixes, args)
