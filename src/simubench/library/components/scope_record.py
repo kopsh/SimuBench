@@ -109,7 +109,7 @@ class AdcView:
     converter's span, ``half`` V; its DC is calibrated out, so a DC level reads as before); an interleaved converter of ``ilv`` sub-converters on the
     ``native_dt`` grid gives each its own gain and offset (a cosine across the sub-converters,
     ``ilv_gain`` relative and ``ilv_offset`` of ``half``): images at k·fs/N ± f and spurs at
-    k·fs/N; then the input noise (``sigma``) and the quantization. ``scale`` is the converter's
+    k·fs/N, in a record at the converter's own rate (a slower one is decimated from all of them); then the input noise (``sigma``) and the quantization. ``scale`` is the converter's
     V/div — the displayed one, or the hardware range's below a magnified setting (#1265)."""
 
     signal: Signal  # the channel's signal at the converter's input, display volts
@@ -133,14 +133,24 @@ class AdcView:
         return quantize(volts, self.scale, self.offset, self.bits, self.per_div, self.add)
 
     def _volts(
-        self, t0_ns: int, offsets: np.ndarray, indexes: np.ndarray, key: tuple[object, ...]
+        self,
+        t0_ns: int,
+        offsets: np.ndarray,
+        indexes: np.ndarray,
+        key: tuple[object, ...],
+        dt: float | None = None,
     ) -> np.ndarray:
         """The converter's input at the sample instants ``t0_ns`` + ``offsets`` (s), before the
         quantization; ``indexes`` place the samples in the random streams of ``key``."""
         when = offsets - self.skew
-        if self.aperture > 0:
-            when = when + self.aperture * gaussian(stream_key(self.seed, *key, "aperture"), indexes)
         volts = self.signal.sample_rel(t0_ns, when)
+        if self.aperture > 0 and self.signal.freq.size:
+            # Each instant moves by its own draw; to first order the sample moves by the slope
+            # times it (the error is (2πf·σ)², 1e-6 for 15 fs at 50 GHz), so the grid stays regular
+            # and keeps the fast synthesis.
+            slope = replace(self.signal, amp=self.signal.amp * (2j * math.pi * self.signal.freq), dc=0.0)
+            shift = self.aperture * gaussian(stream_key(self.seed, *key, "aperture"), indexes)
+            volts = volts + slope.sample_rel(t0_ns, when) * shift
         middle = -self.offset if self.add else self.offset
         if (self.hd[0] or self.hd[1]) and self.half > 0 and self.signal.freq.size:
             # On the signal's lines, not its DC: the scope's calibration takes the static error out,
@@ -148,7 +158,10 @@ class AdcView:
             x = (volts - self.signal.dc) / self.half
             power = float(np.sum(np.abs(self.signal.amp) ** 2)) / 2 / self.half**2
             volts = volts + self.half * (self.hd[0] * (x * x - power) + self.hd[1] * x * x * x)
-        if self.ilv > 1 and self.native_dt > 0 and (self.ilv_gain or self.ilv_offset):
+        # The sub-converters take turns on the converter's own grid; a slower record is decimated
+        # from all of them (the hardware samples at its full rate), so it shows none of their pattern.
+        native = dt is not None and self.native_dt > 0 and abs(dt / self.native_dt - 1.0) < 1e-6
+        if self.ilv > 1 and native and (self.ilv_gain or self.ilv_offset):
             n = self.ilv
             # the sub-converter of each sample: its place on the converter's own grid, counted from
             # time zero (whole nanoseconds first, so a late instant keeps its precision)
@@ -163,7 +176,7 @@ class AdcView:
         return volts
 
     def frame(self, request: FrameRequest) -> SampleFrame:
-        volts = self._volts(request.t0_ns, request.offsets_s(), request.indexes(), request.key)
+        volts = self._volts(request.t0_ns, request.offsets_s(), request.indexes(), request.key, request.dt_s)
         kept = self.quantize(volts)
         clipped, sides = False, None
         if self.bits > 0:
@@ -179,7 +192,7 @@ class AdcView:
         sample by sample (the screen's envelope)."""
         off = (request.first + positions.astype(np.float64)) * request.dt_s
         index = request.index0 + positions.astype(np.int64) + shift
-        return self.quantize(self._volts(request.t0_ns, off, index, request.key))
+        return self.quantize(self._volts(request.t0_ns, off, index, request.key, request.dt_s))
 
 
 #: Samples a digital filter's kernel reaches on either side at the most (its warm-up): a filter far

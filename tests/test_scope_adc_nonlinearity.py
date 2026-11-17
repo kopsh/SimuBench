@@ -59,9 +59,8 @@ def test_the_harmonics_follow_the_table_at_full_scale_and_fall_with_the_amplitud
 
 def test_the_interleaved_converters_make_images_and_a_spur_at_their_rate():
     """16 sub-converters at 256 GSa/s: a gain mismatch of -52 dBc puts an image at 16 GHz ± f, an
-    offset mismatch of -65 dBFS a spur at 16 GHz (±1 dB). Every 16th sample comes from one
-    sub-converter: a record decimated by 16 carries no spur, only that converter's own gain and
-    offset (sub-converter 0 at time zero: the pattern's peak)."""
+    offset mismatch of -65 dBFS a spur at 16 GHz (±1 dB). A slower record is decimated from all
+    the sub-converters (the hardware samples at its full rate): it carries none of their pattern."""
     k = 1001
     amp = 4 * SCALE
     view = _view(
@@ -75,8 +74,7 @@ def test_the_interleaved_converters_make_images_and_a_spur_at_their_rate():
     assert _line_dbc(frame, spur, amp) == pytest.approx(-65, abs=1.0)
     decimated = _frame(view, count=N // 16, dt=16 / FS)
     clean = _frame(dataclasses.replace(view, ilv=0), count=N // 16, dt=16 / FS)
-    gain, offset = 1 + view.ilv_gain, view.ilv_offset * view.half
-    assert np.allclose(decimated, gain * clean + offset, atol=1e-12)
+    assert np.array_equal(decimated, clean)
 
 
 def test_the_aperture_jitter_adds_noise_of_two_pi_f_sigma_on_a_50_ghz_sine():
