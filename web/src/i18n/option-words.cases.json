@@ -1,0 +1,17 @@
+[
+  ["SINusoid", "正弦"],
+  ["SQUARE", "方波"],
+  ["IMMediate", "立即"],
+  ["COMMa", "逗号"],
+  ["COMMonmode", "共模"],
+  ["PERCent", "百分比"],
+  ["SVERtical", "垂直堆叠"],
+  ["HANNing", "Hanning 窗"],
+  ["CHANnel3", "通道 3"],
+  ["CHAN3", "通道 3"],
+  ["FUNCtion12", "函数 12"],
+  ["WMEMory2", "波形存储 2"],
+  ["DIV10", "衰减 ÷10"],
+  ["ONEMeg", null],
+  ["NOSuch", null]
+]

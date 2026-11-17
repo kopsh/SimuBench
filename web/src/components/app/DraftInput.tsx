@@ -6,11 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 export type Parsed<T> =
   | { kind: "commit"; value: T }
   | { kind: "skip" }
-  | { kind: "invalid" };
+  | { kind: "invalid"; reason?: string };
 
 export const commit = <T,>(value: T): Parsed<T> => ({ kind: "commit", value });
 export const SKIP: Parsed<never> = { kind: "skip" };
 export const INVALID: Parsed<never> = { kind: "invalid" };
+/** A refusal the user can read: `reason` names what went wrong (the units a field takes, #1286). */
+export const invalid = (reason?: string): Parsed<never> => ({ kind: "invalid", reason });
 
 /** Reach into a field that steps from what is typed (the state field's arrows and wheel). */
 export interface DraftHandle {
@@ -32,7 +34,8 @@ interface Props<T> {
    */
   parse: (typed: string) => Parsed<T>;
   onCommit: (value: T) => void;
-  onInvalid?: () => void;
+  /** Called on a refused text, with the parse rule's reason when it gives one (#1286). */
+  onInvalid?: (reason?: string) => void;
   multiline?: boolean;
   disabled?: boolean;
   placeholder?: string;
@@ -91,7 +94,7 @@ function DraftInputInner<T>(
     setDraft(null);
     const r = parse(draft);
     if (r.kind === "commit") onCommit(r.value);
-    else if (r.kind === "invalid") onInvalid?.();
+    else if (r.kind === "invalid") onInvalid?.(r.reason);
   };
   const common = {
     ref: el,

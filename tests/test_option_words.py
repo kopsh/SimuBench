@@ -9,13 +9,25 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from simubench.library.loader import BUILTIN_DIR, COVERAGE_SUFFIX, DefinitionLibrary
 
 ROOT = Path(__file__).resolve().parents[1]
 WORDS: dict[str, list[str]] = json.loads(
     (ROOT / "web/src/i18n/option-words.json").read_text(encoding="utf-8")
 )
-#: Settings whose options are identities, not words: a serial number, a model, a fitted module.
+#: Cases the Python and the TypeScript lookup must agree on; ``web/src/features/workbench/model.test.ts``
+#: runs the same table through the Web's ``wordOf`` (#1286). One list, one verdict — a divergence
+#: fails here and there at once.
+CASES: list[list[str | None]] = json.loads(
+    (ROOT / "web/src/i18n/option-words.cases.json").read_text(encoding="utf-8")
+)
+#: Settings whose options are identities, not words — the option reads as itself, a name would be
+#: wrong. Each is a real built-in enum (checked 2026-11, #1286): ``serial`` (system.serial of the
+#: DSO-X 2024A and both UXR), ``model`` (the UXR's system.model), ``module`` (N6705C's plug-in
+#: module), ``options`` (M8194A's system.options — an option list, not a word), ``language``
+#: (53220A/53230A/DSG815 menu language — a language code), ``installed_options`` (FLUKE 5522A).
 IDENTITIES = ("serial", "model", "module", "options", "language", "installed_options")
 
 
@@ -66,3 +78,10 @@ def test_the_word_list_names_numbered_families_and_keeps_both_languages():
     assert word_of("COMMa") == "逗号" and word_of("COMMonmode") == "共模"  # one short form, two words
     assert word_of("PERCent") == "百分比"
     assert all(len(v) == 2 and v[0] and v[1] for v in WORDS.values())
+
+
+@pytest.mark.parametrize(("option", "zh"), CASES)
+def test_the_word_list_agrees_with_the_web_lookup(option: str, zh: str | None):
+    """The shared case table runs through both lookups — the Web's vitest runs the same JSON
+    through ``wordOf`` (#1286), so the two cannot drift apart silently."""
+    assert word_of(option) == zh

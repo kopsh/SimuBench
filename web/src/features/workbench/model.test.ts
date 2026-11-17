@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { StateVarInfo } from "@/api/client";
 import type { InstrumentInfo } from "@/api/client";
+import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, distinctOptions, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber } from "./model";
+import { accessoryLabel, channelVars, distinctOptions, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OTHER, optionLabel, slotRows, splitSettings, stepNumber, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -35,6 +36,12 @@ describe("option labels (#281)", () => {
     expect(optionLabel({ option_labels: null }, "COMMonmode")).toBe("共模");
     expect(optionLabel({ option_labels: null }, "CHANnel3")).toBe("通道 3");
     expect(optionLabel({ option_labels: null }, "DIV10")).toBe("衰减 ÷10");
+  });
+
+  // One shared case table, both lookups: tests/test_option_words.py runs the same JSON through
+  // word_of, so the two cannot drift apart silently (#1286).
+  it.each(cases as [string, string | null][])("looks %s up like the Python word_of does", (option, zh) => {
+    expect(wordOf(option)?.[0] ?? null).toBe(zh);
   });
 });
 

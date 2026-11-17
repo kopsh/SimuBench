@@ -87,7 +87,8 @@ it("a Vpp field shows Vpp, takes 2 Vpp and refuses 2 Vrms", async () => {
   input.focus();
   fireEvent.change(input, { target: { value: "2 Vrms" } });
   fireEvent.keyDown(input, { key: "Enter" });
-  await waitFor(() => expect(screen.getByLabelText("设置被拒绝")).toBeTruthy()); // the field says it was refused
+  // The refusal names the units the field takes, so "2 Vrms" is diagnosable (#1286).
+  await waitFor(() => expect(screen.getByLabelText("本框接受的单位：Vpp, V")).toBeTruthy());
   expect(POST).not.toHaveBeenCalled();
   const again = screen.getByLabelText("幅度") as HTMLInputElement; // the field re-renders with its error mark
   again.focus();
