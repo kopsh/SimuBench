@@ -597,7 +597,7 @@
   ],
   [
    "<screen values>",
-   "{\"attenuation\": 0.0, \"marker_x\": 39160000.0, \"marker_y\": -13.922373158272274, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.0025333333333333336, \"uncal\": false, \"vbw\": 1000000.0}",
+   "{\"attenuation\": 0.0, \"marker_x\": 39160000.0, \"marker_y\": -13.92237, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.00253, \"uncal\": false, \"vbw\": 1000000.0}",
    0
   ],
   [
@@ -1324,7 +1324,7 @@
   ],
   [
    "<screen values>",
-   "{\"attenuation\": 0.0, \"marker_x\": 5800048000.0, \"marker_y\": -89.64551273109635, \"overload\": true, \"rbw\": 9100.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5799500000.0, \"stop\": 5800500000.0, \"sweep\": 0, \"sweep_time\": 0.03018959062915107, \"uncal\": false, \"vbw\": 9100.0}",
+   "{\"attenuation\": 0.0, \"marker_x\": 5800048000.0, \"marker_y\": -89.64551, \"overload\": true, \"rbw\": 9100.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5799500000.0, \"stop\": 5800500000.0, \"sweep\": 0, \"sweep_time\": 0.03019, \"uncal\": false, \"vbw\": 9100.0}",
    0
   ],
   [
