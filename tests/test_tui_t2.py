@@ -1113,6 +1113,9 @@ async def test_scope_screen_says_a_live_frame_takes_no_virtual_time_on_a_command
         await open_instrument(pilot, tui, "scope")
         text = await wait_flat(pilot, tui, "Command clock")
         assert "take no virtual time" in text
+        # The fake server's clock turns wall too: the wall tick re-reads it, and a stale "command"
+        # there would bring the note back under CI load.
+        fixture["clock"]["mode"] = "wall"
         tui.clock = {**(tui.clock or {}), "mode": "wall"}
         tui.screen.refresh_content()
         tui.screen._last_version = None
