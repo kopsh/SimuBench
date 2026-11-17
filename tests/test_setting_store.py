@@ -55,13 +55,17 @@ def test_bounds_move_and_restore_against_the_definitions_own():
     store = _store()
     path = _numeric(store)
     lo, hi = store.specs[path].min, store.specs[path].max
+    assert store.spec_rev == 0
     store.set_bounds(path, maximum=hi + 5)
     assert (store.specs[path].min, store.specs[path].max) == (lo, hi + 5)
     store.set_bounds(path, minimum=lo - 1)  # relative to the definition's, not to the last move
     assert (store.specs[path].min, store.specs[path].max) == (lo - 1, hi)
+    store.set_bounds(path, minimum=lo - 1)  # the same bounds again: nothing changed
+    assert store.spec_rev == 2  # each change counted, for clients holding the definitions (#1302)
     store.restore_bounds(path)
     assert (store.specs[path].min, store.specs[path].max) == (lo, hi)
     store.restore_bounds(path)  # nothing moved: no-op
+    assert store.spec_rev == 3
 
 
 def test_an_unknown_setting_names_the_instrument():
