@@ -16,7 +16,7 @@ import { cn } from "@/lib/utils";
 import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
-import { RemoteBanner } from "./RemoteBanner";
+import { RemoteBanner, RemoteMark } from "./RemoteBanner";
 import { StateField } from "./StateField";
 import { showSetting } from "./reveal";
 import { useScreenPaths } from "./onScreen";
@@ -110,7 +110,8 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
   const openAcceptance = useWorkbench((s) => s.openAcceptance);
   const bench = useSession(sid).data?.bench_path;
   // Beside its own screen, the settings the screen shows as fields are left out: one place to change a value (#1229).
-  const onScreen = useScreenPaths(useWorkbench((s) => s.active) === `screen:${inst.name}` ? inst.name : null);
+  const besideScreen = useWorkbench((s) => s.active) === `screen:${inst.name}`;
+  const onScreen = useScreenPaths(besideScreen ? inst.name : null);
   const offScreen = (v: { path: string }) => !onScreen.has(v.path);
   const globals = globalVars(inst).filter(offScreen);
   const vars = stateMap(inst);
@@ -129,8 +130,9 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
   }, [reveal?.n]);
   return (
     <div className="space-y-4 p-3">
-      <RemoteBanner sid={sid} inst={inst} className="-mx-3 -mt-3" />
-      <Header title={instrumentTitle(inst)} subtitle={`${inst.manufacturer} ${inst.model}`} />
+      {/* Beside its own screen, the screen carries the remote banner and LOCAL; here only a mark (#1273). */}
+      {!besideScreen && <RemoteBanner compact sid={sid} inst={inst} className="-mx-3 -mt-3" />}
+      <Header title={instrumentTitle(inst)} subtitle={`${inst.manufacturer} ${inst.model}`} aside={besideScreen && <RemoteMark inst={inst} />} />
       {/* One primary action (the screen); the rest are less frequent and sit as a row below it (#1252). */}
       <div className="grid gap-1.5" data-testid="instrument-actions">
         <Button size="sm" onClick={() => openScreen(inst.name)}>
@@ -251,11 +253,14 @@ function ScpiConsole({ sid, instrument, disabled }: { sid: string; instrument: s
   );
 }
 
-export function Header({ title, subtitle, mono }: { title: string; subtitle: string; mono?: boolean }) {
+export function Header({ title, subtitle, mono, aside }: { title: string; subtitle: string; mono?: boolean; aside?: ReactNode }) {
   return (
-    <div>
-      <div className={cn("text-sm font-semibold break-all", mono && "num")}>{title}</div>
-      <div className="text-muted-foreground num text-xs">{subtitle}</div>
+    <div className="flex items-start gap-2">
+      <div className="min-w-0 flex-1">
+        <div className={cn("text-sm font-semibold break-all", mono && "num")}>{title}</div>
+        <div className="text-muted-foreground num text-xs">{subtitle}</div>
+      </div>
+      {aside}
     </div>
   );
 }
