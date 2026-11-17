@@ -1,5 +1,5 @@
 import type { BenchData, Catalog } from "@/api/client";
-import { centerOfView, type LibraryItem } from "../canvas/Canvas";
+import { centerOfView, type LibraryItem, placeNew, revealPlaced } from "../canvas/Canvas";
 import { useWorkbench } from "../store";
 import { applyOps, useEditor } from "./editor";
 
@@ -32,20 +32,24 @@ export function suggestName(base: string, taken: Set<string>): string {
 /** Add a library item to the bench file and select it. */
 export async function addItem(catalog: Catalog, item: LibraryItem, at?: { x: number; y: number }) {
   const taken = names(useEditor.getState().doc?.data);
-  // Not dropped: the middle of the view, nudged so that repeated adds do not stack exactly.
+  // Not dropped: the middle of the view, or the nearest spot to it that covers no node (#1258); the
+  // view then moves to the new node. A drop goes exactly where it was dropped.
   const center = at ?? centerOfView();
-  const nudge = at ? 0 : (taken.size % 5) * 24;
-  const pos = center ? { x: Math.round(center.x - 120 + nudge), y: Math.round(center.y - 60 + nudge) } : {};
+  const corner = center ? { x: Math.round(center.x - 120), y: Math.round(center.y - 60) } : null;
+  const placed = corner ? (at ? corner : placeNew(corner)) : null;
+  const pos = placed ?? {};
   let name: string;
   if (item.kind === "instrument") {
     const def = catalog.instruments.find((d) => d.id === item.id);
     name = suggestName(CLASS_PREFIX[def?.instrument_class ?? ""] ?? item.id.split("-")[1] ?? "inst", taken);
     const done = await applyOps([{ op: "add_instrument", name, model: item.id, ...pos }]);
     if (done) useWorkbench.getState().select({ kind: "instrument", id: name });
+    if (done && !at) revealPlaced(name); // also when the canvas was not there to place it: the file puts it right of all
   } else {
     name = suggestName(TYPE_PREFIX[item.id] ?? item.id, taken);
     const done = await applyOps([{ op: "add_part", name, type: item.id, dut: false, ...pos }]);
     if (done) useWorkbench.getState().select({ kind: "part", id: name });
+    if (done && !at) revealPlaced(name); // also when the canvas was not there to place it: the file puts it right of all
   }
   return name;
 }

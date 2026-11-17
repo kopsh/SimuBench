@@ -1359,3 +1359,35 @@ test("the clock says where the time went: a generator change after idle real tim
   expect(listed.map(([reason]) => reason).every((r) => r === "idle"), JSON.stringify(listed)).toBe(true);
   expect(listed.reduce((sum, [, dt]) => sum + dt, 0)).toBe(info.now_ns);
 });
+
+test("the log folds while the internals page is open and opens again on the canvas; a manual open is kept (#1258)", async ({ page }) => {
+  await startBench(page);
+  const bar = page.getByTestId("bottom-panel");
+  const height = async () => (await bar.boundingBox())!.height;
+  // Something to read: the log opens by itself.
+  const scope = page.locator(".react-flow__node").filter({ hasText: "示波器" });
+  await scope.click();
+  const input = page.getByRole("textbox", { name: "发送 SCPI 命令" });
+  await input.fill("*IDN?");
+  await input.press("Enter");
+  await expect.poll(height, { message: "the log is open" }).toBeGreaterThan(100);
+
+  // The internals page gets the height: the log is its tab bar only.
+  await page.getByRole("button", { name: "查看内部结构" }).click();
+  await expect(page.getByTestId("internals-graph")).toBeVisible();
+  await expect.poll(height, { message: "folded beside the internals" }).toBeLessThanOrEqual(40);
+  const graph = (await page.getByTestId("internals-graph").boundingBox())!;
+  expect(graph.height, "the diagram's height in px").toBeGreaterThan(600);
+
+  // Back on the canvas the log is open again.
+  await page.getByRole("tab", { name: "画布" }).click();
+  await expect.poll(height, { message: "open again on the canvas" }).toBeGreaterThan(100);
+
+  // Opened by hand on the internals page, it stays open there.
+  await page.getByRole("tab", { name: "示波器 · 内部结构" }).click();
+  await expect.poll(height).toBeLessThanOrEqual(40);
+  await bar.getByRole("tab", { name: "通信" }).click();
+  await expect.poll(height, { message: "opened by hand" }).toBeGreaterThan(100);
+  await page.getByTestId("internals-graph").click({ position: { x: 5, y: 5 } });
+  await expect.poll(height, { message: "kept open" }).toBeGreaterThan(100);
+});

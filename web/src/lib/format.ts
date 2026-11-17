@@ -171,6 +171,16 @@ export function formatClock(ns: number): string {
 
 const SI: Record<string, number> = { T: 1e12, G: 1e9, M: 1e6, k: 1e3, K: 1e3, m: 1e-3, u: 1e-6, µ: 1e-6, n: 1e-9, p: 1e-12 };
 
+/** The unit word typed after a number, lower case, without its SI prefix: "2 Vrms" → "vrms", "1.5 kHz" → "hz",
+ * "20 m" → ""; null when the text is not a number with a unit (#1257). */
+export function unitWord(text: string): string | null {
+  const t = text.trim().replace(/\s+/g, "").replace("−", "-");
+  const m = t.match(/^[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?([TGMkKmuµnp])?([a-zA-ZΩ°]*)$/);
+  if (!m) return null;
+  // "2 m" is 2 milli; "2 MHz" is 2 mega-hertz; a lone prefix letter that is also a unit ("m" metre) is read as the prefix.
+  return (m[2] ?? "").toLowerCase();
+}
+
 /** Parse user input such as "1.5k", "20 mV", "1e-3" into a number; null when not a number. */
 export function parseEngineering(text: string): number | null {
   const t = text.trim().replace(/\s+/g, "").replace("−", "-");

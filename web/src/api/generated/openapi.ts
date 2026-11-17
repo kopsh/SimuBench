@@ -5665,6 +5665,11 @@ export interface components {
              */
             unit?: string | null;
             /**
+             * Unset
+             * @description The number that means 'not given, the instrument chooses' (a resolution CONFigure left out, a spectral view not yet set): the UI shows 自动 instead of it, as it does for a special AUTO value (#1257)
+             */
+            unset?: number | null;
+            /**
              * Words
              * @description Words a component resolves to a number when the setting is written, e.g. {LREading: last_reading} (SCPI mixed case: the short and the long form both match); the value names the resolver the bound component implements (``Component.resolve_word``). The number is then judged by the range like any written value, and a query answers the number (#1096)
              */
@@ -5774,6 +5779,11 @@ export interface components {
              * @description Base SCPI unit for suffix parsing, e.g. HZ, V, S, OHM
              */
             unit: string | null;
+            /**
+             * Unset
+             * @description The number that means 'not given, the instrument chooses' (a resolution CONFigure left out, a spectral view not yet set): the UI shows 自动 instead of it, as it does for a special AUTO value (#1257)
+             */
+            unset: number | null;
             /** Value */
             value: unknown;
             /**

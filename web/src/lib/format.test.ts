@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayUnit, formatClock, formatEng, formatReadout, isOverload, parseEngineering, resistance } from "./format";
+import { displayUnit, formatClock, formatEng, formatReadout, isOverload, parseEngineering, resistance, unitWord } from "./format";
 
 describe("format", () => {
   it("engineering notation", () => {
@@ -71,5 +71,15 @@ describe("displayUnit", () => {
     expect(displayUnit("RAD")).toBe("rad");
     expect(displayUnit("HZ")).toBe("Hz");
     expect(displayUnit("W")).toBe("W");
+  });
+});
+
+describe("unitWord (#1257)", () => {
+  it("reads the unit typed after a number, without its prefix", () => {
+    expect(unitWord("2 Vrms")).toBe("vrms");
+    expect(unitWord("1.5 kHz")).toBe("hz");
+    expect(unitWord("20 m")).toBe("");
+    expect(unitWord("3 dBm")).toBe("dbm");
+    expect(unitWord("abc")).toBeNull();
   });
 });

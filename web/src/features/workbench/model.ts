@@ -2,6 +2,7 @@ import type { InstrumentInfo, SessionInfo, StateVarInfo } from "@/api/client";
 import type { Selection } from "./store";
 import { pickLabel } from "@/i18n";
 import i18n from "@/i18n";
+import optionWords from "@/i18n/option-words.json";
 import { displayUnit, formatEng } from "@/lib/format";
 
 /** SCPI short form of a mixed-case option: SINusoid -> SIN. */
@@ -11,63 +12,24 @@ export function shortForm(word: string): string {
 }
 
 /**
- * The words SCPI settings commonly take, in the panel's language (#281): a setting without its own
- * option_labels shows "正弦 SIN", not the raw mnemonic "SIN SINusoid". Keyed by the short form.
+ * The words SCPI settings commonly take, in both languages (#281, #1257): a setting without its own
+ * option_labels shows "正弦 SIN", not the raw mnemonic. Keyed by the option as written ("COMMa"),
+ * by its short form ("SIN"), or by a numbered family ("CHAN#" → 通道 3). The list is shared with
+ * tests/test_option_words.py, which fails when a built-in model's option has no Chinese name.
  */
-const WORDS: Record<string, [string, string]> = {
-  SIN: ["正弦", "Sine"],
-  SINE: ["正弦", "Sine"],
-  SQU: ["方波", "Square"],
-  SQUARE: ["方波", "Square"],
-  RAMP: ["锯齿波", "Ramp"],
-  PULS: ["脉冲", "Pulse"],
-  PULSE: ["脉冲", "Pulse"],
-  NOIS: ["噪声", "Noise"],
-  NOISE: ["噪声", "Noise"],
-  ARB: ["任意波", "Arbitrary"],
-  IMM: ["立即", "Immediate"],
-  BUS: ["总线", "Bus"],
-  EXT: ["外部", "External"],
-  INT: ["内部", "Internal"],
-  CENT: ["居中", "Center"],
-  LEFT: ["左", "Left"],
-  RIGH: ["右", "Right"],
-  POS: ["上升沿", "Rising"],
-  NEG: ["下降沿", "Falling"],
-  EITH: ["双沿", "Either"],
-  RIS: ["上升沿", "Rising"],
-  FALL: ["下降沿", "Falling"],
-  EDGE: ["边沿", "Edge"],
-  AUTO: ["自动", "Auto"],
-  NORM: ["正常", "Normal"],
-  SING: ["单次", "Single"],
-  MAIN: ["主时基", "Main"],
-  AVER: ["平均", "Average"],
-  PEAK: ["峰值", "Peak"],
-  SAMP: ["采样", "Sample"],
-  RMS: ["有效值", "RMS"],
-  LIN: ["线性", "Linear"],
-  LOG: ["对数", "Logarithmic"],
-  FIX: ["固定", "Fixed"],
-  SWE: ["扫描", "Sweep"],
-  LIST: ["列表", "List"],
-  HIGH: ["高", "High"],
-  LOW: ["低", "Low"],
-  VOLT: ["电压", "Voltage"],
-  VOLTAC: ["交流电压", "AC voltage"],
-  CURR: ["电流", "Current"],
-  FREQ: ["频率", "Frequency"],
-  PER: ["周期", "Period"],
-  TOT: ["累加", "Totalize"],
-  TINT: ["时间间隔", "Time interval"],
-  LINE: ["电源线", "Line"],
-  MAXH: ["最大保持", "Max hold"],
-  WRIT: ["刷新", "Clear/write"],
-  ERES: ["高分辨率", "High resolution"],
-  // An empty slot of a template (a measurement not chosen): not the raw mnemonic (#728).
-  NULL: ["无", "None"],
-  NONE: ["无", "None"],
-};
+const WORDS = optionWords as unknown as Record<string, [string, string]>;
+
+function wordOf(option: string): [string, string] | null {
+  const direct = WORDS[option] ?? WORDS[shortForm(option)];
+  if (direct) return direct;
+  const short = shortForm(option);
+  let cut = short.length;
+  while (cut > 0 && short[cut - 1] >= "0" && short[cut - 1] <= "9") cut--;
+  const family = cut > 0 && cut < short.length ? WORDS[`${short.slice(0, cut)}#`] : undefined;
+  if (!family) return null;
+  const n = short.slice(cut);
+  return [family[0].replace("{n}", n), family[1].replace("{n}", n)];
+}
 
 /**
  * The options worth offering: an alias the instrument also accepts (UXR ``DCFifty`` beside ``DC50``,
@@ -88,7 +50,7 @@ export function distinctOptions(v: Pick<StateVarInfo, "options" | "option_labels
 export function optionLabel(v: Pick<StateVarInfo, "option_labels">, option: string): string {
   const own = v.option_labels?.[option];
   if (own) return own;
-  const word = WORDS[shortForm(option)];
+  const word = wordOf(option);
   if (word) return i18n.language === "en" ? word[1] : word[0];
   return shortForm(option);
 }
@@ -130,8 +92,21 @@ export function numeric(value: unknown): number {
   return Number(value);
 }
 
+/**
+ * A number that stands for "automatic" or "not given" (#1257): the definition's special AUTO value
+ * (a range of 0 meaning AUTO) or its ``unset`` value (a resolution CONFigure left out). Shown as the
+ * word, never as "0 V", which reads as a range of 0 V.
+ */
+export function isAutoValue(v: Pick<StateVarInfo, "special" | "unset" | "value" | "type">): boolean {
+  if (v.type !== "float" && v.type !== "int") return false;
+  const n = numeric(v.value);
+  if (v.unset != null && n === v.unset) return true;
+  return Object.entries(v.special ?? {}).some(([word, value]) => word.toUpperCase().startsWith("AUTO") && value === n);
+}
+
 export function formatValue(v: StateVarInfo, digits = 4): string {
   const value = v.value;
+  if (isAutoValue(v)) return i18n.t("workbench.auto");
   switch (v.type) {
     case "bool":
       return value ? i18n.t("common.on") : i18n.t("common.off");
@@ -142,7 +117,11 @@ export function formatValue(v: StateVarInfo, digits = 4): string {
     case "float": {
       const n = numeric(value);
       if (!Number.isFinite(n) && v.unit?.toUpperCase() === "OHM") return i18n.t("generator.highZ");
-      if (v.display_unit) return `${formatEng(n, "", digits)}${v.display_unit}`;
+      // A unit word ("Vpp") takes the prefix like a unit ("500 mVpp"); a sign ("%") follows the number.
+      if (v.display_unit) {
+        const word = [...v.display_unit].every((c) => c.toLowerCase() !== c.toUpperCase());
+        return word ? formatEng(n, v.display_unit, digits) : `${formatEng(n, "", digits)}${v.display_unit}`;
+      }
       return formatEng(n, displayUnit(v.unit), digits);
     }
     default:
@@ -344,6 +323,51 @@ export function slotRows(vars: StateVarInfo[]): { slots: SlotRow[]; rest: StateV
     slots.set(m[1], row);
   }
   return { slots: [...slots.values()], rest };
+}
+
+export interface InstanceFamily {
+  /** ``display.bookmark``: the settings' path up to the numbered segment's letters. */
+  key: string;
+  /** The numbered segment's letters, ``bookmark``. */
+  name: string;
+  /** The instance numbers, in order. */
+  instances: string[];
+  byInstance: Map<string, StateVarInfo[]>;
+}
+
+/**
+ * Settings a definition declares once with ``each`` (``display.bookmark{n}.color`` for n = 1…100)
+ * come in families of numbered instances (#1257): listed flat they are hundreds of rows. A family of
+ * at least ``min`` instances is shown as one block with an instance picker; the rest stay as rows.
+ */
+export function instanceFamilies(vars: StateVarInfo[], min = 4): { families: InstanceFamily[]; rest: StateVarInfo[] } {
+  const found = new Map<string, InstanceFamily>();
+  const where = new Map<StateVarInfo, string>();
+  for (const v of vars) {
+    const segs = varName(v).split(".");
+    for (let i = 1; i < segs.length - 1; i++) {
+      const seg = segs[i];
+      let cut = seg.length;
+      while (cut > 0 && seg[cut - 1] >= "0" && seg[cut - 1] <= "9") cut--;
+      if (cut === 0 || cut === seg.length) continue;
+      const name = seg.slice(0, cut);
+      const key = [...segs.slice(0, i), name].join(".");
+      const n = seg.slice(cut);
+      const fam = found.get(key) ?? { key, name, instances: [], byInstance: new Map<string, StateVarInfo[]>() };
+      if (!fam.byInstance.has(n)) {
+        fam.byInstance.set(n, []);
+        fam.instances.push(n);
+      }
+      fam.byInstance.get(n)!.push(v);
+      found.set(key, fam);
+      where.set(v, key);
+      break;
+    }
+  }
+  const families = [...found.values()].filter((f) => f.instances.length >= min);
+  const folded = new Set(families.map((f) => f.key));
+  for (const f of families) f.instances.sort((a, b) => Number(a) - Number(b));
+  return { families, rest: vars.filter((v) => !folded.has(where.get(v) ?? "")) };
 }
 
 /* ---- Stepping a number up and down (#738) -----------------------------------------------------

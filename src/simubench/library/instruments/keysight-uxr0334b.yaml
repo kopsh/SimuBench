@@ -1370,8 +1370,8 @@ channel_state:
     label_en: Channel BW limit type
   # 通道频谱视图（SPECtral 信号类型，手册 p.551）的窗口设置：数据路径是 :FUNCtion FFT（#1074），
   # 视图本身未建模。
-  spectral_center: {type: float, unit: HZ, min: -1.0e12, max: 1.0e12, default: 0.0, label: 频谱中心频率, label_en: Spectral center}
-  spectral_span: {type: float, unit: HZ, min: 0.0, max: 1.0e12, default: 0.0, label: 频谱跨度, label_en: Spectral span}
+  spectral_center: {type: float, unit: HZ, min: -1.0e12, max: 1.0e12, default: 0.0, unset: 0.0, label: 频谱中心频率, label_en: Spectral center}
+  spectral_span: {type: float, unit: HZ, min: 0.0, max: 1.0e12, default: 0.0, unset: 0.0, label: 频谱跨度, label_en: Spectral span}
 # 个体偏差（数据手册 3123-1313，按种子抽取，metrology-authoring.md 7）：直流增益精度 ±1.5% 满量程；
 # 偏置精度 ±(1% 偏置设定 + 1% 满量程 + 400 µV)（满量程 = 8 格）；时基 25 ppb。
 deviations:

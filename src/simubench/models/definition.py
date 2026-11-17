@@ -52,6 +52,12 @@ class StateSpec(_Model):
     ladder: str | list[float] | None = Field(
         None, description="Snap writes to a ladder: '1-2-5', '1-3' or an explicit list of values"
     )
+    unset: float | None = Field(
+        None,
+        description="The number that means 'not given, the instrument chooses' (a resolution CONFigure left "
+        "out, a spectral view not yet set): the UI shows 自动 instead of it, as it does for a special AUTO "
+        "value (#1257)",
+    )
     special: dict[str, float] | None = Field(
         None, description="Extra keywords accepted for numbers, e.g. {INF: .inf} for a high-Z load"
     )

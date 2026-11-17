@@ -25,6 +25,7 @@ import { accessoryLabel, channelOfRef, isReferenceRef } from "../model";
 import { useWorkbench } from "../store";
 import { PartNode, type PartNodeType } from "./PartNode";
 import { InstrumentNode, type InstrumentNodeType, type Issue } from "./InstrumentNode";
+import { freeSpot, type Rect } from "./placement";
 import { WireEdge, type WireEdgeType } from "./WireEdge";
 
 const nodeTypes = { instrument: InstrumentNode, part: PartNode };
@@ -41,6 +42,42 @@ type Point = { x: number; y: number };
 let viewCenter: (() => Point) | null = null;
 export function centerOfView(): Point | null {
   return viewCenter?.() ?? null;
+}
+
+// The nodes on the canvas as rectangles (flow coordinates), for placing a new one beside them (#1258).
+let nodeRects: (() => Rect[]) | null = null;
+// Brings a point of the flow to the middle of the view, at the current zoom.
+let centerOn: ((p: Point) => void) | null = null;
+// A node's box once the canvas has measured it, or null before.
+let nodeBox: ((id: string) => Rect | null) | null = null;
+// Whether a box (flow coordinates) lies wholly inside the canvas on screen.
+let inView: ((box: Rect) => boolean) | null = null;
+
+/** A spot for a new node near `preferred` that covers no node of the bench (#1258). */
+export function placeNew(preferred: Point): Point {
+  const rects = nodeRects?.() ?? [];
+  // A new card is about as large as the largest card already there.
+  const size = rects.length
+    ? { width: Math.max(...rects.map((r) => r.width)), height: Math.max(...rects.map((r) => r.height)) }
+    : { width: 240, height: 140 };
+  return freeSpot(rects, size, preferred);
+}
+
+/**
+ * Bring the node just added (`id`) into view when it is not in view (#1258): the view is centred on
+ * it at the current zoom while part of it lies outside the canvas — only then, so a node placed in
+ * sight never moves the view under the user's next action.
+ */
+export function revealPlaced(id: string): void {
+  // Checked every 100 ms for 2 s: on a slow machine the node is measured late and the inspector
+  // narrows the canvas later still. The view moves only while the node is not wholly in sight.
+  const started = Date.now();
+  const check = () => {
+    const box = nodeBox?.(id);
+    if (box && !inView?.(box)) centerOn?.({ x: box.x + box.width / 2, y: box.y + box.height / 2 });
+    if (Date.now() - started < 2000) window.setTimeout(check, 100);
+  };
+  window.setTimeout(check, 100);
 }
 
 export interface CanvasProps {
@@ -237,8 +274,33 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
       if (!r) return { x: 0, y: 0 };
       return flow.screenToFlowPosition({ x: r.left + r.width / 2, y: r.top + r.height / 2 });
     };
+    nodeRects = () =>
+      flow.getNodes().map((n) => ({
+        x: n.position.x,
+        y: n.position.y,
+        width: n.measured?.width ?? n.width ?? 240,
+        height: n.measured?.height ?? n.height ?? 140,
+      }));
+    centerOn = (p) => void flow.setCenter(p.x, p.y, { zoom: flow.getZoom(), duration: 200 });
+    inView = (box) => {
+      const pane = document.querySelector(".react-flow")?.getBoundingClientRect();
+      if (!pane) return true;
+      const tl = flow.flowToScreenPosition({ x: box.x, y: box.y });
+      const br = flow.flowToScreenPosition({ x: box.x + box.width, y: box.y + box.height });
+      return tl.x >= pane.left && tl.y >= pane.top && br.x <= pane.right && br.y <= pane.bottom;
+    };
+    nodeBox = (id) => {
+      const n = flow.getNode(id);
+      const width = n?.measured?.width;
+      const height = n?.measured?.height;
+      return n && width && height ? { x: n.position.x, y: n.position.y, width, height } : null;
+    };
     return () => {
       viewCenter = null;
+      nodeRects = null;
+      centerOn = null;
+      nodeBox = null;
+      inView = null;
     };
   }, [flow]);
 
