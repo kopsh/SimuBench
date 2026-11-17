@@ -56,6 +56,7 @@ from .scope_record import (
     Record,
     boxcar,
     chunked_value,
+    converter_half,
     peak_detect,
     quantize,
 )
@@ -701,8 +702,7 @@ class ScopeAdc(Component):
             per_div=per_div,
             add=str(self.param("offset_sign")).lower() == "add",
             hd=self._distortion(vertical.input_scale()),
-            # half the converter's span in display volts: the unit of the distortion and the spurs
-            half=scale * ((1 << bits) / per_div if bits > 0 else float(self.param("divs"))) / 2,
+            half=converter_half(scale, bits, per_div, float(self.param("divs"))),
             ilv=int(self.param("interleave")),
             ilv_gain=0.0 if image is None else 2.0 * 10 ** (float(image) / 20),
             ilv_offset=0.0 if spur is None else 10 ** (float(spur) / 20),

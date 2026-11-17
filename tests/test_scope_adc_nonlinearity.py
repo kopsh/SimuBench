@@ -18,7 +18,13 @@ import pytest
 from simubench.api import open_bench
 from simubench.engine.signal import Signal
 from simubench.engine.stream import FrameRequest
-from simubench.library.components.scope_record import AdcView
+from simubench.library.components.scope_record import (
+    AdcView,
+    aperture_jitter,
+    converter_half,
+    distortion,
+    interleave,
+)
 
 ROOT = Path(__file__).resolve().parents[1]
 FS = 2.56e11
@@ -88,16 +94,18 @@ def test_the_aperture_jitter_adds_noise_of_two_pi_f_sigma_on_a_50_ghz_sine():
 
 
 @pytest.mark.parametrize(
-    ("scale", "spec"),
-    [(0.05, 5.0), (0.0075, 4.2)],
+    ("scale", "spec", "model"),
+    [(0.05, 5.0, 5.35), (0.0075, 4.2, 4.41)],
     ids=["400mVfs", "60mVfs"],
 )
-def test_the_uxr1104b_enob_matches_the_data_sheet(scale, spec):
+def test_the_uxr1104b_enob_matches_the_data_sheet(scale, spec, model):
     """specs.enob_typical (≥ 400 mVfs: 5.0, 60 mVfs: 4.2) from a 0 dBFS 1 GHz sine through the
     UXR1104B's converter as its definition sets it: the range's noise, the distortion, the
-    interleaving spurs, the aperture jitter and the 10-bit codes. The model leaves 0.2 to 0.35 bit
-    more than the data sheet (its ENOB is measured over the full 113 GHz, where the frequency
-    response adds error the model does not have): within 0.4 bit."""
+    interleaving spurs, the aperture jitter and the 10-bit codes. The model gives 5.35 and 4.41
+    (±0.1, so a change of any stage shows): 0.35 and 0.21 bit above the data sheet, whose ENOB is
+    measured over the full 113 GHz, where the frequency response's error (not modeled) adds to
+    the noise; the gap is larger on 400 mVfs, where the noise is a smaller part of the error. The
+    model is never worse than the data sheet."""
     session = open_bench(ROOT / "examples" / "benches" / "keysight-uxr1104b.bench.yaml", seed=3)
     try:
         inst = session.instruments["scope"]
@@ -115,5 +123,57 @@ def test_the_uxr1104b_enob_matches_the_data_sheet(scale, spec):
     residual = frame - basis @ fit
     sinad = 20 * math.log10((amp / math.sqrt(2)) / float(np.std(residual)))
     enob = (sinad - 1.76) / 6.02
-    assert enob == pytest.approx(spec, abs=0.4)
+    assert enob == pytest.approx(model, abs=0.1)
     assert enob >= spec - 0.05  # the model is never worse than the data sheet
+
+
+# ---- each stage on its own (#1305) ------------------------------------------------------------
+
+
+def test_the_distortion_stage_leaves_dc_and_a_quiet_signal_alone():
+    """x² and x³ act on the lines, not the DC: a pure DC level passes unchanged; on a sine the
+    mean stays the DC (x²'s mean, the lines' power, is taken out)."""
+    hd = (0.1, 0.05)
+    dc = dataclasses.replace(Signal.zero(), dc=0.2)
+    v = np.full(8, 0.2)
+    assert np.array_equal(distortion(v, dc, hd, 0.35), v)
+    f = FS * 7 / N  # coherent: 7 whole periods
+    sig = dataclasses.replace(Signal.lines([f], [0.3 + 0j]), dc=0.1)
+    t = np.arange(N) / FS
+    clean = sig.sample_rel(0, t)
+    bent = distortion(clean, sig, hd, 0.35)
+    assert float(np.mean(bent)) == pytest.approx(0.1, abs=1e-9)
+    assert float(np.max(np.abs(bent - clean))) > 1e-3
+    assert np.array_equal(distortion(clean, sig, (0.0, 0.0), 0.35), clean)
+
+
+def test_the_interleave_stage_repeats_every_n_samples_from_time_zero():
+    """The pattern belongs to the converter's own grid counted from time zero: a sample keeps its
+    sub-converter whichever frame it is in, and n samples on the pattern repeats."""
+    n, dt = 16, 1 / FS
+    flat = np.zeros(64)
+    whole = interleave(flat, 0, np.arange(64) * dt, n, dt, 0.0, 1e-3, 0.0)
+    assert np.allclose(whole[:16], whole[16:32]) and np.allclose(whole[:16], whole[48:])
+    later = interleave(np.zeros(16), 0, (np.arange(16) + 5) * dt, n, dt, 0.0, 1e-3, 0.0)
+    assert np.allclose(later, whole[5:21])
+    assert np.array_equal(interleave(flat, 0, np.arange(64) * dt, 1, dt, 0.1, 1e-3, 0.0), flat)
+
+
+def test_the_aperture_stage_moves_each_sample_by_the_slope_times_its_shift():
+    """First order: v(t + δ) ≈ v(t) + v'(t)·δ, here against the exact sine (error ~ (ωδ)²)."""
+    f, amp = 5e10, 0.3
+    sig = Signal.lines([f], [amp + 0j])
+    t = np.arange(256) / FS
+    shift = np.full(256, 1e-15)
+    moved = aperture_jitter(sig.sample_rel(0, t), sig, 0, t, shift)
+    exact = sig.sample_rel(0, t + 1e-15)
+    assert float(np.max(np.abs(moved - exact))) < amp * (2 * math.pi * f * 1e-15) ** 2
+    dc_only = dataclasses.replace(Signal.zero(), dc=0.2)
+    v = np.full(4, 0.2)
+    assert np.array_equal(aperture_jitter(v, dc_only, 0, t[:4], shift[:4]), v)
+
+
+def test_the_converter_half_is_its_codes_span():
+    """10 bits at 128 codes per division: 8 divisions, half is 4 × V/div; no codes: the screen's."""
+    assert converter_half(0.0875, 10, 128.0, 10.0) == pytest.approx(0.35)
+    assert converter_half(0.1, 0, 128.0, 10.0) == pytest.approx(0.5)
