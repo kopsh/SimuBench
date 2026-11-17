@@ -12,7 +12,7 @@ from fastapi.responses import Response
 from ...models import api as M
 from ...models.bench import Fault
 from .. import drive, views
-from ..manager import ClientsConnected, InstrumentRemote
+from ..errors import ClientsConnected, InstrumentRemote
 from ..services import clock as clock_service
 from ..services import faults, instrument_files, internal_probe
 from ..services import sessions as sessions_service

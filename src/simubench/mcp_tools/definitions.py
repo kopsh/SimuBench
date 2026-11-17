@@ -10,7 +10,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
-from ..engine.jsonpatch import PatchError, PatchOp
+from ..engine.jsonpatch import PatchOp
 from ..engine.scriptscan import draft_bench, draft_definition
 from ..library.templates import get_template as template_by_id
 from ..library.templates import templates as instrument_templates
@@ -113,8 +113,6 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         try:
             return definition_out(definitions.edit(definition_id, base_sha256, patch, "agent"))
-        except PatchError as exc:
-            raise ToolError(f"补丁没有应用：{exc}") from None
         except Exception as exc:
             raise fail(exc) from None
 

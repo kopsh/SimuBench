@@ -21,7 +21,7 @@ from typing import Any
 
 from ..engine.edit import ReplaceInstrument
 from ..models import api as M
-from .benchfiles import Conflict
+from .errors import Conflict
 from .definitionfiles import DefinitionFiles
 from .history import Source
 

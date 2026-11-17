@@ -12,19 +12,11 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 
-from ...engine.edit import EditError
 from ...library.loader import DefinitionLibrary
-from ..benchfiles import BenchFiles, Conflict
+from ..benchfiles import BenchFiles
 from ..definitionfiles import DefinitionFiles
-from ..errors import FILE_ERRORS
-from ..manager import (
-    BenchInvalid,
-    ClientsConnected,
-    InstrumentRemote,
-    PortInUse,
-    ServedSession,
-    SessionManager,
-)
+from ..errors import DOMAIN_ERRORS, SEAM_ROWS, ClientsConnected, InstrumentRemote
+from ..manager import ServedSession, SessionManager
 
 LOOPBACK_HOSTS = {"127.0.0.1", "localhost", "[::1]", "::1"}
 
@@ -52,10 +44,6 @@ def host_ok(value: str | None) -> bool:
     else:
         host = host.rsplit(":", 1)[0] if host.count(":") == 1 else host
     return host in LOOPBACK_HOSTS
-
-
-def _first_line(exc: Exception) -> str:
-    return (str(exc).splitlines() or [""])[0]
 
 
 @dataclass
@@ -102,7 +90,8 @@ class ApiContext:
             raise HTTPException(404, f"no session {sid!r}") from None
 
     def not_found(self, exc: KeyError) -> HTTPException:
-        return HTTPException(404, str(exc).strip("'\""))
+        """404 for a thing asked for (a session, a definition): its table row."""
+        return self.error_row(exc)  # type: ignore[return-value]
 
     def http_error(self, exc: Exception, **options: Any) -> HTTPException:
         """The HTTP error for a domain error (see :meth:`error_row`); anything else is re-raised as
@@ -121,47 +110,26 @@ class ApiContext:
         full_detail: bool = False,
         files: bool = True,
     ) -> HTTPException | None:
-        """The one table, for every route (#936): the HTTP error of a domain error, None for
-        anything that is not one.
+        """The HTTP column of the one domain-error table (:mod:`..errors`, #936, #1382): the HTTP
+        error of a domain error, None for anything that is not one. The MCP tools and the
+        assistant read the same table's tool column, so a kind maps once for every seam.
 
-        ``missing``: the text of a 404 for a file that is not there (default: the error's own).
+        ``missing``: the text of a 404 for a file or thing that is not there (default: the error's own).
         ``key``: where a ``KeyError`` goes, ``"not_found"`` (404) or ``"unprocessable"`` (422).
         ``full_detail``: a 422 carries the whole message, not its first line.
         ``files``: False when the operation reads no file, so a file error is not its to map."""
-        if isinstance(exc, (ClientsConnected, InstrumentRemote)):
-            return self.in_use(exc)
-        if isinstance(exc, PortInUse):  # before PermissionError/FileNotFoundError: also an OSError
-            return HTTPException(409, str(exc))
-        if files and isinstance(exc, PermissionError):
-            return HTTPException(403, str(exc))
-        if files and isinstance(exc, FileNotFoundError):
-            return HTTPException(404, missing or str(exc))
-        if isinstance(exc, Conflict):
-            return HTTPException(409, {"message": str(exc), "current_sha256": exc.current_sha256})
-        if isinstance(exc, BenchInvalid):
-            return HTTPException(
-                422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]}
-            )
-        if isinstance(exc, EditError):
-            return HTTPException(422, str(exc))
-        if isinstance(exc, KeyError):
-            return self.not_found(exc) if key == "not_found" else HTTPException(422, _first_line(exc))
-        if isinstance(exc, (ValueError, UnicodeDecodeError)):
-            return HTTPException(422, str(exc) if full_detail else _first_line(exc))
-        return None
+        for row in SEAM_ROWS:
+            if isinstance(exc, row.kinds):
+                return row.http(exc, missing=missing, key=key, full_detail=full_detail, files=files)
+        return None  # pragma: no cover - the catch-all row is last
 
     def in_use(self, exc: InstrumentRemote | ClientsConnected) -> HTTPException:
-        """409 for an operation the connected scripts stand in the way of (#121)."""
-        detail: dict[str, Any] = {"message": str(exc), "clients": exc.clients}
-        if isinstance(exc, InstrumentRemote):
-            detail.update(reason="remote", instrument=exc.instrument)
-        else:
-            detail["reason"] = "clients_connected"
-        return HTTPException(409, detail)
+        """409 for an operation the connected scripts stand in the way of (#121): its table row."""
+        return self.error_row(exc)  # type: ignore[return-value]
 
     def file_errors(self, fn: Any) -> Any:
         """Run ``fn``; a domain error becomes the HTTP error of :meth:`http_error`."""
         try:
             return fn()
-        except (*FILE_ERRORS, KeyError, Conflict, EditError, ValueError) as exc:
+        except (*DOMAIN_ERRORS,) as exc:
             raise self.http_error(exc, missing="no such bench file") from None
