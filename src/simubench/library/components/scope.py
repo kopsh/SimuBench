@@ -1115,8 +1115,12 @@ class ScopeTrigger(_ChannelBound):
     ``{n}``: ``$ch{n}.trigger_level``. ``external`` sources read the ``ext`` port (wired from an
     instrument input); ``line`` sources trigger on the rising zero crossings of the mains
     (``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``
-    records ahead (its auto timeout); a normal or single acquisition waits up to
-    ``search_horizon_s`` of virtual time for its edge.
+    records ahead on the record's grid and on as far as ``auto_timeout_s`` of virtual time beyond
+    (its auto timeout: a signal that repeats within it triggers at any timebase, #1331); one that
+    finds nothing still takes only ``search_windows`` records. A normal or single acquisition
+    waits up to ``search_horizon_s`` of virtual time for its edge. Beyond the record's grid the
+    search takes a coarser one, and an edge found there is bisected on the signal (without the
+    trigger's noise) to a thousandth of a record sample.
 
     ``mode`` ``glitch`` triggers on a pulse by its width instead (signal-chain.md 7, #956): a pulse
     of ``polarity`` runs from one crossing of the level to the next opposite one — the same
@@ -1169,7 +1173,8 @@ class ScopeTrigger(_ChannelBound):
         "slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
         "rising": RISING,  # slope values that take a rising edge
         "falling": FALLING,  # slope values that take a falling edge
-        "search_windows": 4,  # records an auto mode looks ahead for an edge (its auto timeout)
+        "search_windows": 4,  # records an auto mode looks ahead on the record's grid
+        "auto_timeout_s": 0.05,  # virtual time an auto mode looks ahead for an edge in all, s (#1331)
         "search_horizon_s": 10.0,  # virtual time a normal or single acquisition waits for an edge, s
         "max_search_points": 4_000_000,  # samples a search may take (a long horizon is searched coarser)
         "level_range_divs": None,  # the level stays within +-this many divisions of the source's screen
@@ -1234,7 +1239,7 @@ class ScopeTrigger(_ChannelBound):
         "nedge_count": 1,  # the edge that triggers: the nedge_count-th (1 is the first)
     }
     units = {
-        "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V", "bandwidth": "Hz",
+        "level": "V", "holdoff": "s", "search_horizon_s": "s", "auto_timeout_s": "s", "line_hz": "Hz", "noise_rms": "V", "bandwidth": "Hz",
         "width_low": "s", "width_high": "s", "runt_time": "s", "transition_time": "s",
         "window_time": "s", "timeout_time": "s",
     }  # fmt: skip
@@ -2153,11 +2158,11 @@ class ScopeTrigger(_ChannelBound):
         far the search has come."""
         armed = {"rise": False, "fall": False}
         prev: tuple[float, float] | None = None
-        noiseless = self.noise_sigma() <= 0
         a = start_s - stretches[0][1]
         for stop, step in stretches:
             chunk = 1 << 12
-            final = not (step > dt * (1 + 1e-9) and noiseless)
+            # A crossing on a coarser grid than the record's is bisected on the signal (#1331).
+            final = not step > dt * (1 + 1e-9)
             while a <= stop:
                 count = min(chunk, max(2, math.ceil((stop - a) / step) + 1))
                 chunk = min(chunk * 2, 1 << 18)
@@ -2207,10 +2212,11 @@ class ScopeTrigger(_ChannelBound):
     ) -> float:
         """The instant of the crossing taken at sample ``k``: between it and the sample before
         (``prev``: the last one of the chunk before), linear on the record's grid, bisected on a
-        coarser one that carries no noise."""
+        coarser one on the signal without the trigger's noise: a straight line between samples
+        that may lie periods apart says nothing of where the edge is (#1331)."""
         t_k, v_k = float(offsets[k]), float(v[k])
         t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
-        if step > dt * (1 + 1e-9) and self.noise_sigma() <= 0:
+        if step > dt * (1 + 1e-9):
             return self._bisect(sig, t0, t_p, t_k, level, rising, dt)
         return _between(t_p, v_p, t_k, v_k, level)
 
@@ -2812,9 +2818,12 @@ class ScopeAcquisition(Component):
             sig, scale_t = trig.input("ext"), 1.0
         else:
             sig, scale_t = Signal.zero(), 1.0
+        # A waiting acquisition looks as far as its horizon; an auto one (or a screen frame) as
+        # far as the auto timeout (#1331).
+        horizon = trig.param("search_horizon_s") if waits else trig.param("auto_timeout_s")
         return trig.search(
             sig, t0, dt, pre, points, n_trig, scale_t,
-            float(trig.param("search_horizon_s")) if waits else None,
+            None if horizon is None else float(horizon),
             earliest_s,
         )  # fmt: skip
 
@@ -3445,6 +3454,8 @@ class ScopeMeasurements(Component):
       ``levels: absolute``; ``hysteresis`` is half the counter's band, of top minus base;
     * ``min_cycles`` complete cycles a period needs, else it cannot be measured;
     * ``clipped: invalid``: a record that reaches the ADC's limits cannot be measured;
+    * ``edge_min_samples``: the samples a rise or fall time needs on its edge (0: none);
+      ``shoot``: overshoot and preshoot from the extremes or from the first edge (#1332);
     * ``gate``: [from, to] divisions of the record (0 to 10) the measurement looks at;
     * what cannot be measured answers ``invalid_value`` with the second ``status`` word.
 
@@ -3473,6 +3484,12 @@ class ScopeMeasurements(Component):
         # of noise measures as nothing, like the real counter's screen-referenced band — an
         # assumed value, no manual states a counter's minimum amplitude (#781); 0 turns it off
         "clipped": "measure",  # measure | invalid: a record at the ADC's limits
+        # rise and fall times need this many samples on the edge, one beyond each threshold
+        # (the Infiniium's four, #1332); 0: no rule
+        "edge_min_samples": 0,
+        # overshoot / preshoot: the record's extremes (extremes, InfiniiVision) or the first edge
+        # on the screen and its local extreme (first_edge, Infiniium, #1332)
+        "shoot": "extremes",
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
         "status": ["OK", "UF"],  # measured, cannot be measured
@@ -3856,6 +3873,8 @@ class ScopeMeasurements(Component):
                 min_cycles=int(self.param("min_cycles")),
                 general=gen,
                 rise_fall=self.levels(v, rec, "rfall"),
+                edge_min_samples=int(self.param("edge_min_samples")),
+                shoot=str(self.param("shoot")),
             )
         mid = None
         if v.size and what in ("FREQuency", "PERiod"):
@@ -3875,6 +3894,8 @@ class ScopeMeasurements(Component):
             hysteresis=float(self.param("hysteresis")),
             min_cycles=int(self.param("min_cycles")),
             min_band=self._band_floor(rec),
+            edge_min_samples=int(self.param("edge_min_samples")),
+            shoot=str(self.param("shoot")),
         )
         return value
 

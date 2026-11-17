@@ -160,3 +160,52 @@ def test_pulse_windows_bursts_and_crossings():
     t = np.linspace(0.0, 1.0, 101)
     assert M.crossing_voltage(t, 0.5 * np.ones(101)) == pytest.approx(0.5)
     assert math.isnan(M.crossing_voltage(t, t + 1.0))
+
+
+def _edge(n_rise: int, blip: bool = False) -> np.ndarray:
+    """A 0 V to 1 V step whose 10-90 % rise takes ``n_rise`` samples (linear), at sample 100 of
+    400; ``blip``: a spike on the base at sample 40 that crosses the 10 % level and falls back."""
+    v = np.zeros(400)
+    ramp = np.linspace(0.0, 1.0, n_rise + 2)
+    v[100 : 100 + ramp.size] = ramp
+    v[100 + ramp.size :] = 1.0
+    if blip:
+        v[40] = 0.3
+    return v
+
+
+def test_a_rise_time_needs_four_samples_on_its_edge_when_the_model_says_so():
+    """#1332, the Infiniium's rule: one sample below the lower threshold, one above the upper and
+    two between; with fewer the edge is not timed. Without the rule the same edge is timed."""
+    steep = _edge(1)  # 0, 0.5, 1: one sample between 10 % and 90 %
+    assert math.isnan(M.measure("RISetime", steep, DT, top_base="extremes", edge_min_samples=4))
+    assert M.measure("RISetime", steep, DT, top_base="extremes") > 0
+    slow = _edge(10)
+    assert M.measure("RISetime", slow, DT, top_base="extremes", edge_min_samples=4) == pytest.approx(
+        0.8 * 11 * DT, rel=0.02
+    )
+
+
+def test_a_rise_time_starts_at_the_edge_s_last_lower_crossing():
+    """#1332: a spike on the base that crosses the 10 % level and falls back is not where the edge
+    starts: the rise is timed from the last lower crossing before the upper one."""
+    clean = M.measure("RISetime", _edge(10), DT, top_base="extremes")
+    assert M.measure("RISetime", _edge(10, blip=True), DT, top_base="extremes") == pytest.approx(clean)
+
+
+def test_overshoot_and_preshoot_from_the_first_edge_and_its_local_extreme():
+    """#1332, the Infiniium's algorithm: overshoot is the local maximum after the first (rising)
+    edge, up to the next edge, over the top; preshoot the local minimum before it, under the base.
+    A later, larger peak does not count; the extremes rule takes it."""
+    v = np.zeros(1000)
+    v[200:600] = 1.0
+    v[201] = 1.1  # 10 % after the first rising edge
+    v[199] = -0.05  # 5 % before it
+    v[600:] = 0.0
+    v[800] = 1.5  # a later spike, past the falling edge
+    v[100] = 0.02  # a third level in the lower half, so the histogram forms its levels (top_base)
+    kw = {"top_base": "histogram", "shoot": "first_edge"}
+    assert M.measure("OVERshoot", v, DT, **kw) == pytest.approx(10.0, abs=0.5)
+    assert M.measure("PREShoot", v, DT, **kw) == pytest.approx(5.0, abs=0.5)
+    assert M.measure("OVERshoot", v, DT, top_base="histogram") == pytest.approx(50.0, abs=0.5)
+    assert math.isnan(M.measure("OVERshoot", np.full(1000, 0.5) + np.r_[0.0, np.zeros(999)], DT, **kw))
