@@ -193,7 +193,10 @@ def test_the_screen_draws_the_math_functions_turned_on(client):
     assert fft["x0"] == 0.0 and fft["x0"] + fft["dx"] * (len(fft["values"]) - 1) <= 10e6
     peak = fft["x0"] + fft["dx"] * fft["values"].index(max(fft["values"]))
     assert peak == pytest.approx(float(b.scpi(":MEASure:FFT:FREQuency? FUNCtion1,1,-30")))
-    assert max(fft["values"]) == pytest.approx(float(b.scpi(":MEASure:FFT:MAGNitude? FUNCtion1,1,-30")))
+    # the reply carries six significant digits (+d.dddddE+0d): equal to within its last digit
+    assert max(fft["values"]) == pytest.approx(
+        float(b.scpi(":MEASure:FFT:MAGNitude? FUNCtion1,1,-30")), rel=5e-6
+    )
     ch1 = next(t for t in screen["traces"] if t["channel"] == 1)
     assert (add["function"], add["spectrum"], add["unit"]) == (2, False, "VOLT")
     assert len(add["values"]) == len(ch1["volts"]) and add["x0"] == pytest.approx(ch1["t0_s"])

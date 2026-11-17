@@ -34,7 +34,9 @@ function adjacency(view: InstrumentInternals): Adjacency {
   for (const r of view.refs ?? []) add(r.from, r.to, "ref");
   for (const s of view.selects ?? [])
     for (const c of view.components)
-      if (c.channel != null) add(c.name, s.component, "select");
+      // A selector that names what it taps (a scope trigger: the ADC's analog input, #1263) is reached
+      // from those components only; the line is drawn where the code reads.
+      if (c.channel != null && (!s.taps || s.taps.includes(c.name))) add(c.name, s.component, "select");
   return out;
 }
 

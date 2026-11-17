@@ -284,6 +284,9 @@ cases:
   - name: "自动触发：没有触发的 AUTO 采集置 :ATER? 与 :ADER?，不置 :TERegister?"
     manual: ": (Root Level) Commands > :ATER?; :ADER?; :TERegister? (the autotrigger does not set this register); :ASTate?"
     steps:
+      # CH1 的 400 mVpp 正弦在默认档位下小于触发迟滞（0.5 格），触发通路有噪声（#1263）时会被噪声偶然
+      # 触发、相位随机；本用例要的是自动扫描下不触发的采集，触发电平放到信号与噪声都到不了的地方。
+      - send: ":TRIGger:LEVel CHANnel1,1.5"
       - query: ":MEASure:VPP? CHANnel1"
         expect_format: "+d.dddddE-0d"
       - query: ":ASTate?"
@@ -338,7 +341,8 @@ cases:
         expect: "3"
       - query: ":OPERegister?"
         expect: "0"
-      - send: ":CHANnel1:SCALe 0.5;:RUN"
+      # 0.5 V/div 下 400 mVpp 小于触发迟滞；触发通路有噪声（#1263），电平放到噪声也到不了的地方，保证不触发
+      - send: ":CHANnel1:SCALe 0.5;:TRIGger:LEVel CHANnel1,1.5;:RUN"
       - query: ":MEASure:VPP? CHANnel1"
         expect_format: "+d.dddddE-0d"
       # 位 11 AUTO TRIG（位 5 WAIT TRIG 视触发而定）；ACQ DONE 与 PROC DONE 随 :ADER?、:PDER? 未读而保持，
@@ -1153,6 +1157,9 @@ cases:
   - name: "分段存储：4 段，各段的时间标签、XLISt、所选的段与当前段的点数"
     manual: ":ACQuire Commands > :ACQuire:SEGMented:COUNt; :ACQuire:SEGMented:INDex; :WAVeform Commands > :WAVeform:SEGMented:COUNt?; :WAVeform:SEGMented:TTAG?; :WAVeform:SEGMented:XLISt?; :WAVeform:SEGMented:POINts?; :WAVeform:SEGMented:ALL"
     steps:
+      # CH1 的 400 mVpp 正弦在默认档位下小于触发迟滞（0.5 格），触发通路有噪声（#1263）时会被噪声偶然
+      # 触发、相位随机；本用例要的是自动扫描下不触发的采集，触发电平放到信号与噪声都到不了的地方。
+      - send: ":TRIGger:LEVel CHANnel1,1.5"
       - query: ":WAVeform:SEGMented:COUNt?"
         expect: "0"
       - send: ":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 4;:TRIGger:EDGE:SOURce CHANnel2"
@@ -1361,6 +1368,9 @@ cases:
   - name: "参考电平 VUPPer / VMIDdle / VLOWer 与脉冲计数"
     manual: ":MEASure Commands > :MEASure:VUPPer; :MEASure:VMIDdle; :MEASure:VLOWer; :MEASure:PPULses; :MEASure:NPULses"
     steps:
+      # CH1 的 400 mVpp 正弦在默认档位下小于触发迟滞（0.5 格），触发通路有噪声（#1263）时会被噪声偶然
+      # 触发、相位随机；本用例要的是自动扫描下不触发的采集，触发电平放到信号与噪声都到不了的地方。
+      - send: ":TRIGger:LEVel CHANnel1,1.5"
       - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
       - query: ":MEASure:VUPPer? CHANnel2"
         expect_value: 0.16
@@ -1422,6 +1432,9 @@ cases:
   - name: "相对触发点的时间测量：VTIMe?、TEDGe?（按阈值位置）、TVOLt?、TMAX? / TMIN?"
     manual: ":MEASure Commands > :MEASure:VTIMe; :MEASure:TEDGe; :MEASure:TVOLt; :MEASure:TMAX; :MEASure:TMIN"
     steps:
+      # CH1 的 400 mVpp 正弦在默认档位下小于触发迟滞（0.5 格），触发通路有噪声（#1263）时会被噪声偶然
+      # 触发、相位随机；本用例要的是自动扫描下不触发的采集，触发电平放到信号与噪声都到不了的地方。
+      - send: ":TRIGger:LEVel CHANnel1,1.5"
       - send: ":CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
       # 触发在 CH1 的上升沿（时间 0）；CH2 的方波在 -0.5 µs 上升、0 µs 下降：-0.25 µs 为高。
       - query: ":MEASure:VTIMe? -2.5E-7,CHANnel2"
@@ -1444,6 +1457,9 @@ cases:
   - name: "两个信源：交叉电压、相位（RISing / FALLing）、DELTatime 与 DEFine"
     manual: ":MEASure Commands > :MEASure:CROSsing; :MEASure:PHASe; :MEASure:DELTatime; :MEASure:DELTatime:DEFine"
     steps:
+      # CH1 的 400 mVpp 正弦在默认档位下小于触发迟滞（0.5 格），触发通路有噪声（#1263）时会被噪声偶然
+      # 触发、相位随机；本用例要的是自动扫描下不触发的采集，触发电平放到信号与噪声都到不了的地方。
+      - send: ":TRIGger:LEVel CHANnel1,1.5"
       - send: ":CALibrate:OUTPut DC,0.1;:CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.1;:CHANnel2:DISPlay ON;:CHANnel2:SCALe 0.1;:TIMebase:SCALe 5E-7"
       # 0.1 V 的直流与方波的边沿在 0.1 V 处相交。
       - query: ":MEASure:CROSsing? CHANnel2,CHANnel3"
