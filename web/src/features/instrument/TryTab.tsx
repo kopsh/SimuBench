@@ -1,5 +1,5 @@
 import { CornerDownLeft, Eraser, Power } from "lucide-react";
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { ErrorItem, InstrumentInfo } from "@/api/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -27,17 +27,38 @@ export function TryTab({
   inst,
   error,
   onReopen,
+  draft,
+  suggestions = [],
+  known = [],
 }: {
   sid: string | undefined;
   inst: InstrumentInfo | undefined;
   error: string | null;
   onReopen: () => Promise<string | undefined>;
+  /** A command brought from the commands section, typed in and not sent (#1358); `n` counts requests. */
+  draft?: { text: string; n: number } | null;
+  /** Offered while the console is empty (#1358). */
+  suggestions?: string[];
+  /** The model's runnable commands, for the input's completion (#1358). */
+  known?: string[];
 }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
   const scpi = useTryScpi(sid);
   const [entries, setEntries] = useState<Entry[]>([]);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(draft?.text ?? "");
+  const field = useRef<HTMLInputElement>(null);
+  const listId = useId();
+  // A command brought from the commands section replaces what is typed: state adjusted while rendering.
+  const [seenDraft, setSeenDraft] = useState(draft?.n);
+  if (draft && draft.n !== seenDraft) {
+    setSeenDraft(draft.n);
+    setInput(draft.text);
+  }
+  const fill = (text: string) => {
+    setInput(text);
+    field.current?.focus();
+  };
   const [busy, setBusy] = useState(false);
   const [nowNs, setNowNs] = useState(0);
   const list = useRef<HTMLDivElement>(null);
@@ -125,7 +146,21 @@ export function TryTab({
         </header>
         <div ref={list} className="min-h-0 flex-1 overflow-auto p-3 font-mono text-[11.5px] leading-relaxed">
           {entries.length === 0 && (
-            <p className="text-muted-foreground max-w-lg font-sans text-xs">{t("acceptance.consoleHint")}</p>
+            <div className="space-y-3 font-sans">
+              <p className="text-muted-foreground max-w-lg text-xs">{t("acceptance.consoleHint")}</p>
+              {suggestions.length > 0 && (
+                <div data-testid="try-suggestions">
+                  <p className="text-muted-foreground mb-1.5 text-[11px]">{t("acceptance.trySuggest")}</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions.map((c) => (
+                      <Button key={c} variant="outline" size="sm" className="num h-7 px-2 text-[11px]" onClick={() => fill(c)} disabled={!sid}>
+                        {c}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
           {entries.map((entry, i) =>
             entry.note ? (
@@ -156,14 +191,23 @@ export function TryTab({
         ) : (
           <form onSubmit={send} className="flex items-center gap-2 border-t p-2">
             <Input
+              ref={field}
               value={input}
               onChange={(e) => setInput(e.target.value)}
+              list={known.length ? listId : undefined}
               placeholder="*IDN?"
               aria-label={t("acceptance.commandInput")}
               className="num h-8 flex-1"
               disabled={!sid || busy}
               autoFocus
             />
+            {known.length > 0 && (
+              <datalist id={listId}>
+                {known.map((c) => (
+                  <option key={c} value={c} />
+                ))}
+              </datalist>
+            )}
             <Button type="submit" size="sm" className="h-8" disabled={!sid || busy || input.trim() === ""}>
               <CornerDownLeft className="size-3.5" /> {t("acceptance.send")}
             </Button>
@@ -191,8 +235,6 @@ export function TryTab({
         <section className="bg-card rounded-lg border">
           <header className="border-b px-3 py-2 text-xs font-medium">{t("acceptance.trySession")}</header>
           <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 px-3 py-2 text-[11px]">
-            <dt className="text-muted-foreground">{t("acceptance.session")}</dt>
-            <dd className="num break-all">{sid ?? "—"}</dd>
             <dt className="text-muted-foreground">{t("acceptance.idn")}</dt>
             <dd className="num break-all">{inst?.idn ?? "—"}</dd>
           </dl>

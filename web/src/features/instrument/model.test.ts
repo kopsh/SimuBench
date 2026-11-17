@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommandSpec, DefinitionCoverage, InstrumentInfo, StateVarInfo } from "@/api/client";
-import { commandRows, deviationLimit, groupCommands, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
+import type { CommandRow } from "./model";
+import { commandRows, deviationLimit, groupCommands, groupProgress, tryForm, trySuggestions, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
 
 const cmd = (header: string, extra: Partial<CommandSpec> = {}): CommandSpec => ({
   header,
@@ -209,5 +210,27 @@ describe("optionRows", () => {
       { id: "P03", label: "Preamplifier", params: ["input.preamp_gain", "input.preamp_noise_figure"], commands: [":POW:GAIN"] },
     ]);
     expect(optionRows({})).toEqual([]);
+  });
+});
+
+describe("commands to the trial run (#1358)", () => {
+  const row = (header: string, level: CommandRow["level"], query: boolean | null = true) =>
+    ({ header, norm: normHeader(header), level, note: null, section: null, command: query === null ? null : ({ header, query } as CommandSpec) }) as CommandRow;
+  it("counts what a group runs, accepted apart", () => {
+    expect(groupProgress([row(":A", "implemented"), row(":B", "accepted"), row(":C", "not_modeled"), row(":D", null)])).toEqual({
+      implemented: 2,
+      accepted: 1,
+      total: 4,
+    });
+  });
+  it("writes a header as the console takes it: optional nodes out, suffix 1, the query form", () => {
+    expect(tryForm(row("[:SENSe]:VOLTage[:DC]:NPLCycles", "implemented"))).toBe(":VOLTage:NPLCycles?");
+    expect(tryForm(row(":CHANnel<N>:SCALe", "implemented"))).toBe(":CHANnel1:SCALe?");
+    expect(tryForm(row(":AUToscale", "implemented", false))).toBe(":AUToscale ");
+    expect(tryForm(row("*IDN?", "implemented", null))).toBe("*IDN?");
+  });
+  it("offers the common commands first, then the model's own queries", () => {
+    const rows = [row(":SYSTem:ERRor", "implemented"), row(":TIMebase:SCALe", "implemented"), row(":XTALk:ENABle", "not_modeled")];
+    expect(trySuggestions(rows)).toEqual(["*IDN?", "*RST", ":SYSTem:ERRor?", ":TIMebase:SCALe?"]);
   });
 });
