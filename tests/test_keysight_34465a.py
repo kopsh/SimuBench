@@ -263,7 +263,9 @@ def test_adjustment_is_per_range_and_stays_secured():
 
 def test_reading_time_follows_nplc():
     b = BenchDefinition.model_validate({"name": "t", "instruments": {"dut": {"model": "keysight-34465a"}}})
-    s = open_bench(b)
+    # Virtual time must move only with the commands (#455): counting idle real time would add a
+    # whole Windows scheduling tick (16 ms) under CI load (#1346).
+    s = open_bench(b, idle="off")
     try:
 
         def q(cmd):
