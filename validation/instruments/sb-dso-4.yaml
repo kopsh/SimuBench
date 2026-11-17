@@ -746,6 +746,7 @@ commands:
     params:
       - {name: source, type: string}
       - {name: percent, type: float, optional: true}
+  # PEAK,<level>,<peak_number> 按频率从低到高取基波，与峰注释排序无关（#1375）。
   - header: ":MEASure:FFT:THDistortion"
     op: math.fft_measure
     set: false

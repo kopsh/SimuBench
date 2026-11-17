@@ -1091,8 +1091,8 @@ class ScopeMath(Component):
         gives every argument; an omitted one arrives as None and takes SimuBench's default: peak
         (FREQuency/MAGNitude, ``peak`` or ``peak1``) 1, the second peak 2, level -60 dBm, center and
         bandwidth 0, percent 99. THDistortion's ``value`` is what its ``mode`` makes it (#1362): the
-        fundamental in Hz (MANual) or the peak level in dBm (PEAK: the ``peak``-th peak above it, in
-        the order the peak annotations sort)."""
+        fundamental in Hz (MANual) or the peak level in dBm (PEAK: the ``peak``-th peak above it,
+        numbered low to high like the other FFT peak measurements, whatever the annotation sort)."""
         f = _source_function(source, int(self.param("functions")))
         rec, freqs, values = self._trace(f)
         fft = rec.spec["fft"]
@@ -1145,10 +1145,9 @@ class ScopeMath(Component):
             if value is None:
                 raise ScpiError(-109, "missing the fundamental (MANual) or the level (PEAK)")
             if str(mode or "").upper().startswith("PEAK"):
-                # the fundamental is the peak_number-th peak above the level (the manual's PEAK form;
-                # "typically 1"): numbered as the function's peak annotations sort them, largest first
-                # by default (:FUNCtion<f>:FFT:PEAK:SORT)
-                found, n = self._peaks(rec, freqs, values, float(value)), int(peak) if peak is not None else 1
+                # The manual does not specify an order; use the same low-to-high numbering as the
+                # other FFT peak measurements, independently of :FUNCtion:FFT:PEAK:SORT (#1375).
+                found, n = numbered(float(value)), int(peak) if peak is not None else 1
                 fund = float(freqs[found[n - 1]]) if 1 <= n <= len(found) else 0.0
             else:
                 fund = float(value)

@@ -2368,3 +2368,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | --- | --- |
 | 覆盖表与 real-models.md 第 10 节一致 | ✅ UXR1104B `:WAVeform:DATA` 说明改为 `<start>[,<size>]` 已实现、一次至多 2²⁶ 点、整条读更深的记录报 −221 不应答（UXR0334B 原已正确）；`simubench coverage keysight-uxr1104b` 不再写 not modeled |
 | demo-uxr.md 预期输出 | ✅ 按本分支运行两次（逐位相同）的输出更新；说明改为同一版本逐位复现、模型改进后以 `acceptance/test_uxr_demo.py` 的容差为准 |
+
+## 示波器 FFT 的 THD：PEAK 峰序号统一按频率升高（Issue 1375）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 双音 THD 数值与失败路径 | ✅ `tests/test_scope_math.py::test_the_thd_takes_its_fundamental_as_its_mode_says`：−20 dBm 基波与 −40 dBm 二次谐波，MANual 与 PEAK 第 1 峰都回 10%±0.1%；只有基波高于 −35 dBm 时取第 2 峰回 9.99E+37 |
+| 第 2 峰与编号顺序 | ✅ 双音的第 2 峰是 19531.25 Hz，以其为基波时 THD 小于 0.1%；峰注释改为降频后，THD 的 PEAK 编号仍与其它 FFT 测量一样从低频到高频 |
+| UXR 纯音用例 | ✅ 两台 UXR 的 PEAK 门限改为 −30 dBm，排除噪声峰后第 1 峰为基波；THD 数值期望与容差不变 |
+| YAML、覆盖表与文档 | ✅ 两台 UXR 与 `sb-dso-4` 的定义、两台 UXR 的覆盖表及 `docs/demo-uxr.md` 明确编号顺序与峰注释排序无关 |
+| `scripts/check.sh` 通过 | ✅ |

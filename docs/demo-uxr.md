@@ -60,7 +60,8 @@ python examples/demo/uxr_demo.py TCPIP0::192.168.1.61::hislip0::INSTR
    占空比。
 5. `:FUNCtion1:FFTMagnitude CHANnel2`，`:FUNCtion1:FFT:STARt 0;STOP 10E6` 把屏幕上的频谱限在 0–10 MHz
    （默认到奈奎斯特频率 1 GHz，谐波挤在左边），`:FUNCtion1:DISPlay ON`：方波的奇次谐波。`:MEASure:FFT:FREQuency? FUNCtion1,<n>,-30`
-   按手册把 -30 dBm 以上的峰从低频到高频编号；不给门限时噪声峰也会被编进去。
+   按手册把 -30 dBm 以上的峰从低频到高频编号；不给门限时噪声峰也会被编进去。`:MEASure:FFT:THDistortion?
+   …,PEAK,<level>,<n>` 也用同一顺序取第 n 个峰为基波，不受 `:FUNCtion:FFT:PEAK:SORT` 的峰注释排序影响。
 6. `:WAVeform:SOURce CHANnel4`、WORD、LSBFirst，按 `:WAVeform:PREamble?` 换算成时间与电压。
 7. `:SYSTem:ERRor?` 读到 0。
 
