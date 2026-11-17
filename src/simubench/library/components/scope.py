@@ -1276,7 +1276,7 @@ class ScopeTrigger(_ChannelBound):
         lines = hashlib.blake2b(digest_size=16)
         for a in (sig.freq, sig.amp, sig.t0_ns):
             lines.update(np.ascontiguousarray(a).tobytes())
-        level = self.channel_param("level", n) if n is not None else self.level()
+        level = self.source_level(n)
         slope = self.channel_param("slope", n) if n is not None else self.param("slope")
         params = []
         for k in sorted(self.defaults):
@@ -1416,6 +1416,21 @@ class ScopeTrigger(_ChannelBound):
         level = self.channel_param("level", self.source_channel())
         return 0.0 if level is None else float(level)
 
+    def source_level(self, n: int | None) -> float:
+        """The level of the source a search looks at: channel ``n`` (None: the edge source, e.g.
+        external). With ``level_by_source`` the channel's own level setting, the same one
+        :meth:`level` draws (#1361: a level bound to one channel's setting answered CH1's for
+        every source); otherwise ``level`` resolved for the channel."""
+        if n is None:
+            return self.level()
+        by_source = dict(self.param("level_by_source") or {})
+        if by_source and self.owner is not None:
+            for word, path in by_source.items():
+                if trigger_channel(word) == n:
+                    return float(self.owner.get_state(str(path)))
+        level = self.channel_param("level", n)
+        return 0.0 if level is None else float(level)
+
     def path_signal(self, sig: Signal) -> Signal:
         """The source's signal as the trigger sees it: through the coupling's filters and the trigger
         path's own ``bandwidth`` (#1263)."""
@@ -1521,7 +1536,7 @@ class ScopeTrigger(_ChannelBound):
             return TriggerHit(t, math.ceil(t / dt - 1e-9)) if t <= horizon else None
         if kind == "none":
             return None
-        level = float(self.channel_param("level", n) if n is not None else self.level())
+        level = self.source_level(n)
         slope = str(self.channel_param("slope", n) if n is not None else self.param("slope")).upper()
         rising = slope in _upper(self.param("rising"))
         falling = slope in _upper(self.param("falling"))
@@ -1613,23 +1628,45 @@ class ScopeTrigger(_ChannelBound):
                 chunk = min(chunk * 2, 1 << 18)
                 offsets = a + step * np.arange(count, dtype=np.float64)
                 v = self._noisy(sig.sample_rel(t0, offsets), t0, offsets)
-                for k in range(count):
-                    t_k, v_k = float(offsets[k]), float(v[k])
-                    decisive = 1 if v_k > level + hyst else (-1 if v_k < level - hyst else 0)
+                # Only the samples beyond the band (decisive) move the side, and a flip is a
+                # decisive sample on the other side from the decisive one before it: found with
+                # numpy over the chunk, then walked in order (a per-sample loop cost seconds on a
+                # noisy UXR record of a million samples).
+                decisive = np.where(v > level + hyst, 1, np.where(v < level - hyst, -1, 0))
+                nz = np.flatnonzero(decisive)
+                if nz.size:
+                    sides = decisive[nz]
+                    before = np.concatenate(([side], sides[:-1]))
                     # a flip needs a side behind it (which is where its anchor sample came from)
-                    if side and decisive and decisive != side and anchor is not None:
-                        # the level was crossed between the last sample on the old side and this
-                        # one; without noise the crossing is bisected on the signal, with noise
-                        # the line between the two samples carries the estimate
-                        rising = decisive > 0
+                    flips = np.flatnonzero((before != 0) & (sides != before))
+                    if flips.size:
+                        ks = nz[flips]
+                        # each flip's anchor: the decisive sample before it, in this chunk or the
+                        # one carried in from the chunk before
+                        prior = nz[np.maximum(flips - 1, 0)]
+                        first = flips == 0
+                        if first.any():
+                            assert anchor is not None
+                        t_p = np.where(first, anchor[0] if anchor else 0.0, offsets[prior])
+                        v_p = np.where(first, anchor[1] if anchor else 0.0, v[prior])
+                        t_ks, v_ks = offsets[ks], v[ks]
                         if noisy:
-                            estimate = _between(anchor[0], anchor[1], t_k, v_k, level)
-                        else:
-                            estimate = self._bisect(sig, t0, anchor[0], t_k, level, rising, dt)
-                        yield _Crossing("rise" if rising else "fall", anchor[0], t_k, estimate, True)
-                    if decisive:
-                        side, anchor = decisive, (t_k, v_k)
-                    prev = (t_k, v_k)
+                            # the line between the two samples carries the estimate (_between)
+                            same = v_ks == v_p
+                            frac = np.where(same, 1.0, (level - v_p) / np.where(same, 1.0, v_ks - v_p))
+                            estimates = t_p + np.clip(frac, 0.0, 1.0) * (t_ks - t_p)
+                        for i, j in enumerate(flips):
+                            # the level was crossed between the last sample on the old side and this
+                            # one; without noise the crossing is bisected on the signal
+                            rising = bool(sides[j] > 0)
+                            a_t, t_k = float(t_p[i]), float(t_ks[i])
+                            if noisy:
+                                estimate = float(estimates[i])
+                            else:
+                                estimate = self._bisect(sig, t0, a_t, t_k, level, rising, dt)
+                            yield _Crossing("rise" if rising else "fall", a_t, t_k, estimate, True)
+                    side = int(sides[-1])
+                    anchor = (float(offsets[nz[-1]]), float(v[nz[-1]]))
                 prev = (float(offsets[-1]), float(v[-1]))
                 a = prev[0] + step
         yield _Crossing(
@@ -1655,31 +1692,29 @@ class ScopeTrigger(_ChannelBound):
         ``low`` or ``high`` — each level walked by the pulse families' own rule
         (:meth:`_level_stream`). ``""`` carries the progress markers: how far the search has come
         where neither level crossed."""
-        streams = {
-            which: self._level_stream(sig, t0, dt, start_s, stretches, level, hyst)
-            for which, level in (("low", low), ("high", high))
-        }
-        heads: dict[str, _Crossing | None] = {}
-
-        def head(which: str) -> _Crossing | None:
-            if which not in heads:
-                heads[which] = next(streams[which], None)
-            return heads[which]
-
-        while True:
-            ready = {w: c for w in streams if (c := head(w)) is not None}
-            if not ready:
-                return
-            marks = {w: c for w, c in ready.items() if c.direction is None}
-            if marks and len(marks) == len(ready):
-                for w, c in marks.items():
-                    del heads[w]
-                    yield ("", c)
+        lows = self._level_stream(sig, t0, dt, start_s, stretches, low, hyst)
+        highs = self._level_stream(sig, t0, dt, start_s, stretches, high, hyst)
+        # Each stream's head, taken when needed; an ended stream's head stays None. A plain
+        # two-way merge: the per-crossing work of a general one showed on noisy records (#1361).
+        lo, hi = next(lows, None), next(highs, None)
+        while lo is not None or hi is not None:
+            lo_real = lo is not None and lo.direction is not None
+            hi_real = hi is not None and hi.direction is not None
+            if not lo_real and not hi_real:  # only progress markers ahead: hand them on
+                if lo is not None:
+                    yield ("", lo)
+                    lo = next(lows, None)
+                if hi is not None:
+                    yield ("", hi)
+                    hi = next(highs, None)
                 continue
-            _, w = min((c.at, w) for w, c in ready.items() if c.direction is not None)
-            crossing = heads.pop(w)
-            assert crossing is not None
-            yield (w, crossing)
+            # the earlier crossing first; at the same instant the high threshold's
+            if lo is not None and lo_real and (hi is None or not hi_real or lo.at < hi.at):
+                yield ("low", lo)
+                lo = next(lows, None)
+            elif hi is not None:
+                yield ("high", hi)
+                hi = next(highs, None)
 
     def _advanced(
         self,
@@ -1700,7 +1735,7 @@ class ScopeTrigger(_ChannelBound):
         arming and instants: runt and transition on the crossings of the two thresholds, window
         and timeout on the runs of the signal's state, nedge on the counted crossings."""
         source = self.family_source()
-        level = float(self.channel_param("level", n) if n is not None else self.level())
+        level = self.source_level(n)
         noiseless = self.noise_sigma() <= 0
         period = _period(sig) if noiseless else None
         high = self.threshold("high", source)

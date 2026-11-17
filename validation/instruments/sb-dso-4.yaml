@@ -752,8 +752,9 @@ commands:
     args: {kind: THDistortion}
     params:
       - {name: source, type: string}
-      - {name: mode, type: enum, options: [MANual], optional: true}
-      - {name: fundamental, type: float, optional: true}
+      - {name: mode, type: enum, options: [MANual, PEAK]}
+      - {name: value, type: float}
+      - {name: peak, type: int, optional: true}
   # ---- :MARKer（#1074）----
   - {header: ":MARKer:MODE", state: marker.mode}
   - {header: ":MARKer:X1Position", state: marker.x1}

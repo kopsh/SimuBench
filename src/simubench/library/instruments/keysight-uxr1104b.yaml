@@ -2454,7 +2454,7 @@ commands:
   - {args: {kind: CPOWer}, header: ':MEASure:FFT:CPOWer', op: math.fft_measure, params: [{name: source, type: string}, {name: center, optional: true, type: float}, {name: bandwidth, optional: true, type: float}], set: false}
   - {args: {kind: PSD}, header: ':MEASure:FFT:PSD', op: math.fft_measure, params: [{name: source, type: string}, {name: center, optional: true, type: float}, {name: bandwidth, optional: true, type: float}], set: false}
   - {args: {kind: OBW}, header: ':MEASure:FFT:OBW', op: math.fft_measure, params: [{name: source, type: string}, {name: percent, optional: true, type: float}], set: false}
-  - {args: {kind: THDistortion}, header: ':MEASure:FFT:THDistortion', op: math.fft_measure, params: [{name: source, type: string}, {name: mode, optional: true, options: [MANual, PEAK], type: enum}, {name: fundamental, optional: true, type: float}, {name: level, optional: true, type: float}], set: false}
+  - {args: {kind: THDistortion}, header: ':MEASure:FFT:THDistortion', op: math.fft_measure, params: [{name: source, type: string}, {name: mode, options: [MANual, PEAK], type: enum}, {name: value, type: float}, {name: peak, optional: true, type: int}], set: false}
   - {header: ':MARKer:MODE', state: marker.mode}
   - {header: ':MARKer:X1Position', state: marker.x1}
   - {header: ':MARKer:X2Position', state: marker.x2}
