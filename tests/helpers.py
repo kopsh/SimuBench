@@ -384,20 +384,38 @@ class FakeHost:
 
     def state_changed(self, inst, path, old, new, *, electrical: bool, source: str) -> None:
         self.events.append(
-            {"kind": "state", "path": path, "old": old, "new": new, "electrical": electrical, "source": source}
+            {
+                "kind": "state",
+                "path": path,
+                "old": old,
+                "new": new,
+                "electrical": electrical,
+                "source": source,
+            }
         )
 
     def instrument_event(self, inst, kind: str, data: dict) -> None:
         self.events.append({"kind": kind, **data})
 
 
-def seam_instrument(definition, name: str = "x", host: FakeHost | None = None):
+def seam_instrument(definition, name: str = "x", host: FakeHost | None = None, options=()):
     """An Instrument built on a :class:`FakeHost`: the instrument-layer unit tests' bench-less
-    environment. The definition must be a validated ``InstrumentDefinition``."""
+    environment. The definition must be a validated ``InstrumentDefinition``; ``options`` names
+    the unit's fitted 选件 (D68)."""
     from simubench.engine.instrument import Instrument
     from simubench.models.bench import InstrumentInstance
 
-    return Instrument(name, definition, InstrumentInstance(model=definition.model), host or FakeHost())
+    instance = InstrumentInstance(model=definition.model, options=list(options))
+    return Instrument(name, definition, instance, host or FakeHost())
+
+
+def dispatch_unit(inst, message: str):
+    """One unit through the command runner's dispatch, the way ``receive`` feeds it: the reply and
+    the time it consumed, or the raised ScpiError — ``receive`` is what queues a refused one."""
+    from simubench.scpi.parse import parse_unit, resolve_tokens
+
+    unit = parse_unit(message.encode())
+    return inst.runner._dispatch(unit, resolve_tokens(unit, ()))
 
 
 class ScriptedLLM:

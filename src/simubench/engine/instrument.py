@@ -9,11 +9,12 @@ from collections import defaultdict
 from collections.abc import Callable, Iterable
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
+from typing_extensions import get_protocol_members
+
 from ..models.bench import LIVE_CLOCKS
 from ..models.definition import InstrumentDefinition, StateSpec
 from ..scpi.errors import ErrorQueue, ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
-from typing_extensions import get_protocol_members
 from .builtin_commands import BuiltinCommands
 from .channels import ChannelMap
 from .command_runner import (

@@ -178,9 +178,7 @@ class BuiltinCommands:
         """The status byte. ``commit=False`` only looks: the condition transitions the status
         registers have not latched yet stay unlatched, so an observer cannot change what a later
         ``*ESR?`` says."""
-        return self.inst.status.stb(
-            errors=len(self.inst.errors), output=self.inst.has_output, commit=commit
-        )
+        return self.inst.status.stb(errors=len(self.inst.errors), output=self.inst.has_output, commit=commit)
 
     def status_event(self, name: str) -> None:
         """A momentary event (a trigger, a range change) for the instrument's status registers:

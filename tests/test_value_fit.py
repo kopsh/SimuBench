@@ -17,7 +17,6 @@ from typing import Any
 import pytest
 
 from helpers import FakeHost
-
 from simubench.engine.instrument import Instrument
 from simubench.engine.settings import validate_value
 from simubench.engine.validate import validate_data
