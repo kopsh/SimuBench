@@ -1,5 +1,5 @@
-import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, MonitorPlay, MousePointerClick, RotateCcw, Send } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, History, MonitorPlay, MousePointerClick, RotateCcw, Send } from "lucide-react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo, SessionInfo, StateVarInfo } from "@/api/client";
@@ -16,6 +16,7 @@ import { pickLabel } from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { accessoryLabel, ALL_OPEN_MAX, channelVars, findSettings, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { loadHistory, pushHistory, QUICK_COMMANDS, recentChips, saveHistory } from "./commandHistory";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner, RemoteMark } from "./RemoteBanner";
@@ -166,6 +167,9 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
         {inst.address_vxi11 && <CopyRow label={t("workbench.vxi11Address")} value={inst.address_vxi11} />}
         {inst.address_real && <CopyRow label={t("workbench.realAddress")} value={inst.address_real} />}
       </Section>
+      <Section title={t("workbench.sendCommand")}>
+        <ScpiConsole sid={sid} instrument={inst.name} disabled={readonly} />
+      </Section>
       {inst.errors.length > 0 && (
         <Section title={`${t("workbench.errors")} · ${inst.errors.length}`}>
           <ul className="space-y-1">
@@ -179,6 +183,9 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
           </ul>
         </Section>
       )}
+      <Section title={t("fault.title")} collapsible defaultOpen={false}>
+        <FaultPanel sid={sid} instrument={inst.name} disabled={readonly} />
+      </Section>
       {(globals.length > 0 || channels.length > 0) && (
         <InstrumentSettings sid={sid} inst={inst} readonly={readonly} stateVars={vars} globals={globals} channels={channels} hidden={onScreen} />
       )}
@@ -187,12 +194,6 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
           <MonitorPlay className="size-3.5 shrink-0" /> {t("workbench.onScreenNote", { count: onScreen.size })}
         </p>
       )}
-      <Section title={t("workbench.sendCommand")}>
-        <ScpiConsole sid={sid} instrument={inst.name} disabled={readonly} />
-      </Section>
-      <Section title={t("fault.title")} collapsible defaultOpen={false}>
-        <FaultPanel sid={sid} instrument={inst.name} disabled={readonly} />
-      </Section>
     </div>
   );
 }
@@ -236,23 +237,28 @@ function ScpiConsole({ sid, instrument, disabled }: { sid: string; instrument: s
   const { t } = useTranslation();
   const scpi = useScpi(sid, instrument);
   const [cmd, setCmd] = useState("");
-  const [history, setHistory] = useState<string[]>([]);
+  const [history, setHistory] = useState<string[]>(() => loadHistory(instrument));
   const [cursor, setCursor] = useState(-1);
-  const send = () => {
-    const c = cmd.trim();
+  const input = useRef<HTMLInputElement>(null);
+  const run = (command: string) => {
+    const c = command.trim();
     if (!c) return;
     scpi.mutate(c);
-    setHistory((h) => [c, ...h.filter((x) => x !== c)].slice(0, 50));
+    const next = pushHistory(history, c);
+    setHistory(next);
+    saveHistory(instrument, next);
     setCursor(-1);
   };
+  const recent = recentChips(history);
   return (
     <div className="space-y-2">
       <div className="flex gap-1.5">
         <Input
+          ref={input}
           value={cmd}
           onChange={(e) => setCmd(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") send();
+            if (e.key === "Enter") run(cmd);
             if (e.key === "ArrowUp" && history.length) {
               const next = Math.min(cursor + 1, history.length - 1);
               setCursor(next);
@@ -271,10 +277,39 @@ function ScpiConsole({ sid, instrument, disabled }: { sid: string; instrument: s
           disabled={disabled}
           aria-label={t("workbench.sendCommand")}
         />
-        <Button size="sm" className="h-8" onClick={send} disabled={disabled || scpi.isPending} aria-label={t("workbench.send")}>
+        <Button size="sm" className="h-8" onClick={() => run(cmd)} disabled={disabled || scpi.isPending} aria-label={t("workbench.send")}>
           <Send className="size-3.5" />
         </Button>
       </div>
+      <div className="flex flex-wrap gap-1" data-testid="scpi-quick" aria-label={t("workbench.quickCommands")}>
+        {QUICK_COMMANDS.map((c) => (
+          <Button key={c} variant="outline" size="sm" className="num h-6 px-1.5 text-[11px]" title={t("workbench.quickHint", { command: c })} disabled={disabled || scpi.isPending} onClick={() => run(c)}>
+            {c}
+          </Button>
+        ))}
+      </div>
+      {recent.length > 0 && (
+        <div className="flex flex-wrap items-center gap-1" data-testid="scpi-recent">
+          <History className="text-muted-foreground size-3.5 shrink-0" aria-label={t("workbench.recentCommands")} />
+          {recent.map((c) => (
+            <Button
+              key={c}
+              variant="ghost"
+              size="sm"
+              className="num bg-muted/60 h-6 max-w-full truncate px-1.5 text-[11px]"
+              title={t("workbench.recentHint", { command: c })}
+              disabled={disabled}
+              onClick={() => {
+                setCmd(c);
+                setCursor(-1);
+                input.current?.focus();
+              }}
+            >
+              {c}
+            </Button>
+          ))}
+        </div>
+      )}
       {scpi.data && (
         <div className="bg-muted/60 num rounded-md p-2 text-[11.5px] break-all" role="status" aria-label={t("workbench.response")}>
           {scpi.data.response != null && <div>{scpi.data.response}</div>}
