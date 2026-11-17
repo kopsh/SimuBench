@@ -47,6 +47,14 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
   await expect(page.getByText("失败 1")).toBeHidden();
 });
 
+test("acceptance overview words ranges and choices as the inspector does (#1357)", async ({ page }) => {
+  await page.goto(`/i/keysight-uxr1104b?token=${TOKEN}`);
+  await expect(page.getByTestId("overview-control-acquire.points")).toContainText("16 … 2 G");
+  await expect(page.getByTestId("overview-control-trigger.level1")).toContainText("不限");
+  await expect(page.getByTestId("overview-control-trigger.level1")).not.toContainText("1000000");
+  await expect(page.getByTestId("overview-control-timebase.reference")).toContainText("居中 CENT");
+});
+
 test("acceptance overview lists the model's options and what each changes (#1007)", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);
   await page.getByTestId("instrument-list").getByRole("link", { name: "N9320B Keysight Technologies" }).click();
