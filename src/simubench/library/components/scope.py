@@ -646,13 +646,22 @@ class ScopeAdc(Component):
         return top
 
     def quantize(
-        self, volts: np.typing.NDArray[np.float64], scale: float, offset: float
+        self, volts: np.typing.NDArray[np.float64], scale: float, offset: float, ratio: float = 1.0
     ) -> np.typing.NDArray[np.float64]:
-        """What the ADC keeps: the codes of ``bits``, back in volts."""
+        """What the ADC keeps: the codes of ``bits``, back in volts; ``ratio`` the display volts per
+        input volt, as ``converter_scale`` takes it (#1294: the same floor as ``view``)."""
+        return self._codes(volts, self.converter_scale(scale, ratio), offset)
+
+    def rails(self, rec: Any) -> np.typing.NDArray[np.float64]:
+        """A record's converter limits [top, bottom] in display volts: the codes of its own code
+        scale (``Record.code_scale``, the floor already in display volts, #1294)."""
+        return self._codes(np.array([1e30, -1e30]), float(getattr(rec, "code_scale", rec.scale)), rec.offset)
+
+    def _codes(
+        self, volts: np.typing.NDArray[np.float64], code_scale: float, offset: float
+    ) -> np.typing.NDArray[np.float64]:
         add = str(self.param("offset_sign")).lower() == "add"
-        return quantize(
-            volts, self.converter_scale(scale), offset, int(self.param("bits")), self.codes_per_div(), add
-        )
+        return quantize(volts, code_scale, offset, int(self.param("bits")), self.codes_per_div(), add)
 
     # ---- the sample stream ------------------------------------------------------------------------
 
@@ -3700,7 +3709,7 @@ class ScopeMeasurements(Component):
         v = np.asarray(rec.volts, dtype=float)
         if not v.size or not acq.adc_unit().param("bits"):
             return 0
-        high, low = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
+        high, low = acq.adc_unit().rails(rec)
         return (1 if v.min() <= low else 0) | (2 if v.max() >= high else 0)
 
     @op("clipped")
@@ -3828,7 +3837,7 @@ class ScopeMeasurements(Component):
             lo, hi = (max(0, min(v.size, round(float(g) / 10 * v.size))) for g in gate)
             v = v[lo:hi]
         if v.size and str(self.param("clipped")) == "invalid" and rec.channel > 0:  # a function: no ADC
-            rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
+            rails = acq.adc_unit().rails(rec)
             if acq.adc_unit().param("bits") and (v.max() >= rails[0] or v.min() <= rails[1]):
                 return math.nan
         if what in TIME_MEASUREMENTS:
@@ -3881,7 +3890,7 @@ class ScopeMeasurements(Component):
             lo, hi = (max(0, min(rec.points, round(float(g) / 10 * rec.points))) for g in gate)
         acq = self._acq()
         if str(self.param("clipped")) == "invalid" and rec.channel > 0 and acq.adc_unit().param("bits"):
-            rails = acq.adc_unit().quantize(np.array([1e30, -1e30]), rec.scale, rec.offset)
+            rails = acq.adc_unit().rails(rec)
             if (
                 chunked_value("VMAX", rec, lo, hi) >= rails[0]
                 or chunked_value("VMIN", rec, lo, hi) <= rails[1]
