@@ -143,9 +143,11 @@ sections:
       set), bit 5 WAIT TRIG, bit 11 AUTO TRIG (:ATER?). MASK (bit 9) and OVLR (bit 12) are not modeled'
   - header: :OVLRegister
     level: implemented
-    note: 'The Overload Event Register (guide p.309): bit n-1 for each channel n whose input went beyond its maximum
-      input range — the offset ± 8 divisions of the data sheet''s Maximum Input Range table — at an acquisition since the
-      last read; the read clears it (bits 4-7 zero). Beyond the absolute ±6.5 V to ground the instrument warns of
+    note: 'The Overload Event Register (guide p.309): bit n-1 for each channel n with an overload since the last read;
+      the read clears it (bits 4-7 zero). ASSUMPTION (#1304): the guide does not state the condition that sets a bit
+      (on older Keysight scopes the OVLR reports a 50 Ω input protection trip, which the UXR has no command for); the
+      model sets it when the input goes beyond the data sheet''s Maximum Input Range (3123-1313, Vertical System: the
+      offset ± 8 divisions) at an acquisition. Beyond the absolute ±6.5 V to ground the instrument warns of
       possible damage (an event and the problems list; the guide names no protection action, so the input is not
       disconnected). A clipped record is still measured: the guide returns the most accurate value the scaling
       allows and flags it only through :MEASure:SENDvalid''s result states, which are not modeled (#1264)'
@@ -5308,7 +5310,7 @@ sections:
     level: implemented
     note: 'BYTE: signed 8-bit codes; WORD: signed 16-bit codes (the 10-bit ADC code shifted up 6 bits, 8192 per
       division), in a definite-length block; ASCii: comma-separated volts (%.4E, two exponent digits; the guide''s
-      sample shows one). The <start>,<size> arguments are not modeled. The samples carry the converter''s non-idealities (#1266, data sheet p.10): HD2/HD3 at 1 GHz scaled to full scale (-62/-49 dBc on the 60 mV range, -54.1/-48.2 dBc from 87.5 mV/div), 16 interleaved sub-converters (images at 16 GHz ± f at -52 dBc, a -65 dBFS spur at 16 GHz) and 15 fs rms aperture jitter; their frequency dependence is not modeled. A full-scale 1 GHz sine gives ENOB 5.35 at 400 mVfs and 4.41 at 60 mVfs (data sheet 5.0 and 4.2)'
+      sample shows one). The <start>,<size> arguments are not modeled. The samples carry the converter''s non-idealities (#1266, data sheet p.10): HD2/HD3 at 1 GHz scaled to full scale (-62/-49 dBc on the 60 mV range, -54.1/-48.2 dBc from 87.5 mV/div), 16 interleaved sub-converters (images at 16 GHz ± f at -52 dBc, a -65 dBFS spur at 16 GHz) and 15 fs rms aperture jitter; their frequency dependence is not modeled. Only a record at 256 GSa/s carries the images and the spur: a slower one is taken as decimated digitally from all the sub-converters, without their pattern (an ASSUMPTION, #1305: the data sheet gives the levels only). A full-scale 1 GHz sine gives ENOB 5.35 at 400 mVfs and 4.41 at 60 mVfs (data sheet 5.0 and 4.2)'
   - header: :WAVeform:FORMat
     level: implemented
     note: ASCii (default, the guide), BYTE, WORD; BINary and FLOat are not modeled

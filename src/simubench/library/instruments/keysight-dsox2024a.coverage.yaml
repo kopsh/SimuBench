@@ -109,7 +109,9 @@ sections:
     gap: model_work
   - header: :OVLRegister
     level: not_modeled
-    note: 'Model work: ADC clipping exists in the signal chain; report and clear it.'
+    note: 'Model work: ADC clipping exists in the signal chain; report and clear it. The data sheet gives no maximum
+      input range for the 1 MΩ inputs, only the 400 Vpk absolute maximum, beyond which the instrument warns of
+      possible damage (#1304).'
     gap: model_work
   - header: :PRINt
     level: not_modeled

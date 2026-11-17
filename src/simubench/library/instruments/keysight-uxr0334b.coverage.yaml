@@ -135,9 +135,11 @@ sections:
       modeled'
   - header: :OVLRegister
     level: implemented
-    note: 'The Overload Event Register (guide p.309): bit n-1 for each channel n whose input went beyond its maximum
-      input range — the offset ± 8 divisions of the data sheet''s Maximum Input Range table — at an acquisition since the
-      last read; the read clears it (bits 4-7 zero). Beyond the absolute ±6.5 V to ground the instrument warns of
+    note: 'The Overload Event Register (guide p.309): bit n-1 for each channel n with an overload since the last read;
+      the read clears it (bits 4-7 zero). ASSUMPTION (#1304): the guide does not state the condition that sets a bit
+      (on older Keysight scopes the OVLR reports a 50 Ω input protection trip, which the UXR has no command for); the
+      model sets it when the input goes beyond the data sheet''s Maximum Input Range (3123-1313, Vertical System: the
+      offset ± 8 divisions) at an acquisition. Beyond the absolute ±6.5 V to ground the instrument warns of
       possible damage (an event and the problems list; the guide names no protection action, so the input is not
       disconnected). A clipped record is still measured: the guide returns the most accurate value the scaling
       allows and flags it only through :MEASure:SENDvalid''s result states, which are not modeled (#1264)'
@@ -4439,7 +4441,7 @@ sections:
       8192 per division), in a definite-length block; ASCii: comma-separated volts (%.4E, two exponent
       digits; the guide''s sample shows one). <start>[,<size>]: the points from <start>, <size> of them, cut
       to the record''s end (the guide); a <start> past the record is -222. At most 2^26 points per read: a deeper
-      record is read in parts this way, each part computed as it is read (#1012, real-models.md 10). The samples carry the converter''s non-idealities (#1266): the data sheet gives distortion and spurs for the 1 mm models only, so they are estimates taken from those (HD2/HD3 -62/-49 dBc, -54.1/-48.2 from 87.5 mV/div; 8 interleaved sub-converters at 128 GSa/s with -52 dBc images and a -65 dBFS spur at 16 GHz); 15 fs rms aperture jitter (data sheet intrinsic jitter)'
+      record is read in parts this way, each part computed as it is read (#1012, real-models.md 10). The samples carry the converter''s non-idealities (#1266): the data sheet gives distortion and spurs for the 1 mm models only, so they are estimates taken from those (HD2/HD3 -62/-49 dBc, -54.1/-48.2 from 87.5 mV/div; 8 interleaved sub-converters at 128 GSa/s with -52 dBc images and a -65 dBFS spur at 16 GHz); 15 fs rms aperture jitter (data sheet intrinsic jitter). Only a record at 128 GSa/s carries the images and the spur: a slower one is taken as decimated digitally from all the sub-converters, without their pattern (an ASSUMPTION, #1305: the data sheet gives the levels only)'
   - header: :WAVeform:FORMat
     level: implemented
     note: ASCii (default, the guide), BYTE, WORD; BINary and FLOat are not modeled

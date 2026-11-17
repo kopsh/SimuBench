@@ -479,6 +479,27 @@ def test_an_input_beyond_its_limits_overloads_and_warns(tmp_path):
     assert replies[5] == '0,"No error"'
 
 
+def test_a_screen_frame_latches_no_overload_and_each_segment_does():
+    """#1304: the overload check runs on acquisitions only. A running scope's screen frame
+    (``compute`` with a frame number, which changes no state) latches nothing; a segmented
+    acquisition — whose segments are acquisitions, not frames — is checked and sets the bit."""
+    hello = ROOT / "src" / "simubench" / "library" / "examples" / "hello.bench.yaml"
+    rm = pyvisa.ResourceManager(f"{hello}@simubench")
+    try:
+        awg = rm.open_resource("awg", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        awg.write("C1:BSWV WVTP,SQUARE,AMP,10,OFST,0")
+        uxr.write(":CHAN1:SCAL 0.01;:ACQuire:POINts 2000")
+        acq = rm.visalib.bench.instruments["scope"].components["acq"]
+        acq.compute([1], frame=3)
+        assert acq.overloaded == set()
+        assert uxr.query(":OVLRegister?").strip() == "0"
+        uxr.write(":ACQuire:MODE SEGMented;:ACQuire:SEGMented:COUNt 2;:DIG CHAN1")
+        assert uxr.query(":OVLRegister?").strip() == "1"
+    finally:
+        rm.close()
+
+
 CASES_BENCH_1104B = ROOT / "tests" / "models" / "keysight-uxr1104b" / "bench.yaml"
 
 
@@ -610,6 +631,35 @@ def test_below_the_hardware_range_the_code_step_stays_the_range_s(example, floor
         record = rm.visalib.bench.instruments["scope"].components["acq"].records[3].volts
         off_grid = np.abs(record / lsb - np.round(record / lsb))
         assert float(np.mean(off_grid > 0.05)) > 0.5
+        assert reader.errors(uxr) == []
+    finally:
+        rm.close()
+
+
+def test_with_an_external_gain_the_rails_sit_on_the_record_s_code_grid():
+    """#1294: with an external probe gain (display volts per input volt 1/gain) below the smallest
+    hardware range, the converter's codes, its clip rails and the record's code step all use the
+    same floor, in display volts: 60 mV x 10 at a gain of 0.1."""
+    rm = pyvisa.ResourceManager(f"{EXAMPLE_BENCH_1104B}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr.write(":CHANnel3:DISPlay ON;:CHANnel3:PROBe:EXTernal ON;:CHANnel3:PROBe:EXTernal:GAIN 0.1")
+        uxr.write(":CHANnel3:OFFSet 0;:CHANnel3:SCALe 0.01;:ACQuire:POINts 2000;:DIGitize CHANnel3")
+        lsb = 0.6 / 1024
+        codes = np.asarray(reader.read_waveform(uxr, "CHANnel3")[1]) / lsb
+        assert np.max(np.abs(codes - np.round(codes))) < 0.01
+        scope = rm.visalib.bench.instruments["scope"]
+        acq, adc = scope.components["acq"], scope.components["adc"]
+        rec = acq.records[3]
+        assert rec.code_scale == pytest.approx(0.6 / 8)
+        top, bottom = adc.rails(rec)
+        assert (top / lsb, bottom / lsb) == (
+            pytest.approx(round(top / lsb)),
+            pytest.approx(round(bottom / lsb)),
+        )
+        assert top - bottom == pytest.approx(1023 * lsb)
+        # the converter's own quantizer, given the probe's ratio, reaches the same rails
+        assert list(adc.quantize(np.array([1e30, -1e30]), 0.01, 0.0, 10.0)) == [top, bottom]
         assert reader.errors(uxr) == []
     finally:
         rm.close()

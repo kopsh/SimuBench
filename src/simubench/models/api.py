@@ -518,7 +518,13 @@ class InstrumentInfo(_Model):
     values: dict[str, Any] | None = Field(
         None,
         description="Only with ``state=values`` (#1299): each setting's value by path, without the definitions, "
-        "which do not change while the bench runs (``SessionInfo.build``)",
+        "which hold while ``SessionInfo.build`` and ``spec_rev`` do",
+    )
+    spec_rev: int = Field(
+        0,
+        description="Counts the run-time changes to the settings' definitions within a build: limits a "
+        "combination moves (the E36312A's series pair doubles CH2's range, #259). A client holding the "
+        "definitions fetches the full session when it changes (#1302)",
     )
     errors: list[ErrorItem]
     warnings: list[WarningItem] = Field(

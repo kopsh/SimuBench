@@ -1351,6 +1351,7 @@ components:
       distortion_table: [[1.0e-3, -62.0, -49.0], [8.75e-2, -54.1, -48.2]]
       # 交织（同页 Residuals, images, and spurious）：「Signal related, multiple per 16 GHz interval: -52 dBc」，
       # 「Residual responses: -65 dBFS」——256 GSa/s / 16 GHz = 16 个子 ADC，一种余弦失配：像在 16 GHz ± f，杂散在 16 GHz。
+      # 只有 256 GSa/s 的记录带像与杂散；较慢的记录按全速采样再数字抽取、不带交织图样——假设，手册未说明（#1305）。
       interleave: 16
       interleave_image_dbc: -52.0
       interleave_spur_dbfs: -65.0

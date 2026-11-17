@@ -3465,13 +3465,19 @@ export interface components {
             /** Scpi Port */
             scpi_port: number | null;
             /**
+             * Spec Rev
+             * @description Counts the run-time changes to the settings' definitions within a build: limits a combination moves (the E36312A's series pair doubles CH2's range, #259). A client holding the definitions fetches the full session when it changes (#1302)
+             * @default 0
+             */
+            spec_rev: number;
+            /**
              * State
              * @description Every setting with its definition (type, options, names, range) and value; empty when the session was asked for values only (``state=values``, then see ``values``)
              */
             state: components["schemas"]["StateVarInfo"][];
             /**
              * Values
-             * @description Only with ``state=values`` (#1299): each setting's value by path, without the definitions, which do not change while the bench runs (``SessionInfo.build``)
+             * @description Only with ``state=values`` (#1299): each setting's value by path, without the definitions, which hold while ``SessionInfo.build`` and ``spec_rev`` do
              */
             values: {
                 [key: string]: unknown;

@@ -100,7 +100,9 @@ sections:
     note: 'AC: 5 Hz high-pass (data sheet); GND: 0 V'
   - header: :CHANnel<ch>:IMPedance
     level: implemented
-    note: 1 MΩ || 17 pF or 50 Ω in the bench circuit; at 50 Ω the scale is limited to 1 V/div
+    note: 1 MΩ || 17 pF or 50 Ω in the bench circuit; at 50 Ω the scale is limited to 1 V/div. Beyond the data
+      sheet's max input voltage (1 MΩ ≤ 400 Vpk; 50 Ω ≤ 5 Vrms, checked as a sine's 7.07 V peak) the instrument warns
+      of possible damage (#1304); the data sheet gives no maximum input range and the guide no overload status bit
   - header: :CHANnel<ch>:INVert
     level: not_modeled
     note: 可做:通道信号取反(信号链取反)。
