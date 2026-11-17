@@ -865,12 +865,12 @@
   ],
   [
    ":WAVeform:PREamble?",
-   "9c69ab14f82c27d6b1a92004256a463098c163c1f0bdafaf9a369276b22385e1",
+   "f9864e102d82697fca408e015f0e1b39b57a295cfb93af6105b24e4392f83ac8",
    0
   ],
   [
    ":WAVeform:DATA?",
-   "f167d81b112fafddb7fd013dfaf14d8b4a9e39526545ff76d25e867bc6d5acd7",
+   "a1cf59167c5d58985906d31f7134f3aec221c1b7c9fbcb1f79aa4752a26045b4",
    0
   ],
   [
@@ -900,7 +900,7 @@
   ],
   [
    ":WAVeform:PREamble?",
-   "1fab17df247d5fb9f1531bd66ba915273e9cf96f44114401dc80848bddf8e880",
+   "35013ad2e2d2eac8c842da47ddddeb82a7284c3623c85646b850aa146febbe50",
    0
   ],
   [
@@ -925,12 +925,12 @@
   ],
   [
    ":WAVeform:PREamble?",
-   "4ef96f076e3c500c748fcb0882b6c1ba86b243d4c2f577cfbac15df0fbccab95",
+   "c4299c85110267df543dbba919baa86a24e048eb6da9af25eefeb2abc28c8423",
    0
   ],
   [
    ":WAVeform:DATA?",
-   "4a084f820d88019f7a90038eab3160763990077be511f20fa2c3c32f3d58b547",
+   "31b33bffdafb24aad48b42d1549eb462194c63e37986daba1818ceab393a795e",
    0
   ],
   [
@@ -945,7 +945,7 @@
   ],
   [
    ":WAVeform:DATA?",
-   "fe3b34d35c4c1676286b7963c52db988fe123d965b100df588f8eb09d068ad08",
+   "9e76b294f98e1b75d563dfc12ec1d5ee715e13d143311f3d3b6ee51df5610efb",
    0
   ],
   [
@@ -960,7 +960,7 @@
   ],
   [
    ":WAVeform:PREamble?",
-   "aa7648a872e75db44ebe1f4dd2dfb47b33fb35455c04a8a802dc503f632f696b",
+   "be6d4c2abefb2349b1692ac69b02f4ed1199f25805b20cbd9e36b11fe8335530",
    0
   ],
   [
@@ -975,7 +975,7 @@
   ],
   [
    "<screen frame 1>",
-   "8c6209fc395323aeb8f8f0556b9b11df95cfd4297806fc6bcb140b4891cc4719",
+   "78111775cf6344d377470353e76b4fa6e053af33a996ad67ada16c90b2efc681",
    1
   ]
  ],

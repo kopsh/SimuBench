@@ -99,6 +99,19 @@ def test_the_uxr_probe_block_says_it_converts_settings_and_the_two_vertical_bloc
     assert ("bwf.out1", "isim.in1", "samples") in wires
     assert ("isim.out1", "dec.in1", "samples") in wires
     assert comps["bwf"].type == comps["isim"].type == "scope_dsp_filter"
+    # the trigger's selection starts where the trigger reads: the analog signal at the ADC's input,
+    # before the digital filters (#1263) — the component wired to adc.in<n>, as the search takes it
+    trigger = next(s for s in view.selects if s.component == "trigger")
+    assert trigger.taps == [f"ch{n}.probe" for n in range(1, 5)]
+    session = open_bench(
+        BenchDefinition.model_validate({"name": "t", "instruments": {"scope": {"model": def_id}}})
+    )
+    try:
+        inst = session.instruments["scope"]
+        adc = inst.components["acq"].adc_unit()
+        assert [inst.wiring.source(adc.name, f"in{n}")[0] for n in range(1, 5)] == trigger.taps
+    finally:
+        session.close()
 
 
 def test_per_unit_overrides_are_not_part_of_the_model():

@@ -807,6 +807,12 @@ class Component:
         markers that are on, as ('marker' | 'reference', Hz). Empty: none."""
         return []
 
+    def select_taps(self) -> list[str] | None:
+        """For a component that picks the channel it reads with a setting (a ``source``): the
+        channel components it reads from, one per channel — what the internals view draws its
+        selection from (#1263). None: it reads through the channel's whole chain (a record)."""
+        return None
+
     def sample_interval(self, port: str) -> float:
         """The sample interval a samples output port runs at with the current settings, s — what a
         reader that has no rate of its own (an internal probe) asks with. Override in components
