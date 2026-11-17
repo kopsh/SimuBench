@@ -228,6 +228,7 @@ class SessionViews:
             state=state,
             values={path: jsonable(inst.state.get(path)) for path in inst.specs} if values_only else None,
             errors=[M.ErrorItem(code=e.code, message=e.message) for e in inst.errors.peek_all()],
+            warnings=[M.WarningItem(code=c, message=m) for c, m in inst.warnings.items()],
             deviation=inst.instance.deviation,
             dut=inst.instance.dut,
             deviations=[

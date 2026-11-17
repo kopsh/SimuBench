@@ -42,6 +42,13 @@ class ErrorItem(_Model):
     message: str
 
 
+class WarningItem(_Model):
+    """A warning about an instrument that is not a SCPI error (#1264): e.g. 'CH1-OVERVOLTAGE'."""
+
+    code: str
+    message: str
+
+
 class BenchFile(_Model):
     path: str
     name: str
@@ -514,6 +521,11 @@ class InstrumentInfo(_Model):
         "which do not change while the bench runs (``SessionInfo.build``)",
     )
     errors: list[ErrorItem]
+    warnings: list[WarningItem] = Field(
+        default_factory=list,
+        description="Warnings that are no SCPI errors, kept for the session (a scope input beyond its "
+        "absolute maximum: possible damage, #1264)",
+    )
     dut: bool = Field(False, description="Marked as a DUT: the object under test or calibration")
     deviation: Literal["nominal", "from_specs"] = "nominal"
     deviations: list[DeviationInfo] = Field(

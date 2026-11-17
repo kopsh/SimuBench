@@ -4417,6 +4417,14 @@
             ],
             "description": "Only with ``state=values`` (#1299): each setting's value by path, without the definitions, which do not change while the bench runs (``SessionInfo.build``)",
             "title": "Values"
+          },
+          "warnings": {
+            "description": "Warnings that are no SCPI errors, kept for the session (a scope input beyond its absolute maximum: possible damage, #1264)",
+            "items": {
+              "$ref": "#/components/schemas/WarningItem"
+            },
+            "title": "Warnings",
+            "type": "array"
           }
         },
         "required": [
@@ -4439,6 +4447,7 @@
           "state",
           "values",
           "errors",
+          "warnings",
           "dut",
           "deviation",
           "deviations",
@@ -7560,7 +7569,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file",
+            "description": "scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file",
             "title": "Kind",
             "type": "string"
           },
@@ -10403,6 +10412,25 @@
           "type"
         ],
         "title": "ValidationError",
+        "type": "object"
+      },
+      "WarningItem": {
+        "description": "A warning about an instrument that is not a SCPI error (#1264): e.g. 'CH1-OVERVOLTAGE'.",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "message"
+        ],
+        "title": "WarningItem",
         "type": "object"
       },
       "WireInfo": {

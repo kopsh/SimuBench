@@ -76,6 +76,7 @@ def test_the_kind_description_is_generated_from_the_registry():
         "state",
         "advance",
         "error",
+        "warning",  # an instrument warning that is no SCPI error (#1264)
         "ignored",
         "fault",
         "acquisition",

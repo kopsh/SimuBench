@@ -149,7 +149,7 @@ export function netTitle(members: string[], owners: Iterable<string>): string {
 }
 
 export function errorsCount(session: SessionInfo): number {
-  return session.instruments.reduce((n, i) => n + i.errors.length, 0);
+  return session.instruments.reduce((n, i) => n + i.errors.length + (i.warnings?.length ?? 0), 0); // warnings too (#1264)
 }
 
 /** The instrument port a wire end refers to ('awg.OUT1'), if it is one. */

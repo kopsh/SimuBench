@@ -1500,3 +1500,33 @@ test("the log folds while the internals page is open and opens again on the canv
   await page.getByTestId("internals-graph").click({ position: { x: 5, y: 5 } });
   await expect.poll(height, { message: "kept open" }).toBeGreaterThan(100);
 });
+
+test("an input beyond the scope's absolute maximum shows in the problems as possible damage (#1264)", async ({ page }) => {
+  const headers = { "x-simubench-token": TOKEN };
+  // The Hello World wiring, the UXR's absolute limit lowered to 4 V (a hidden value): the generator's
+  // 10 Vpp square into 50 ohm peaks at 5 V.
+  const path = `e2e/overvoltage-${Date.now()}.bench.yaml`;
+  const bench = {
+    schema: "simubench.bench/2",
+    name: "overvoltage",
+    instruments: {
+      awg: { model: "siglent-sdg2042x", label: "函数发生器", state: { "ch1.load": 50.0, "ch1.output": true } },
+      scope: { model: "keysight-uxr1104b", label: "示波器", hidden: { "ch1.front": { max_input_v: 4.0 } } },
+    },
+    wires: [{ from: "awg.CH1", to: "scope.CH1" }],
+    run: { seed: 1, clock: "command", idle: "off" },
+  };
+  expect((await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data: bench } })).ok()).toBeTruthy();
+  const sid = ((await (await page.request.post("/api/sessions", { headers, data: { bench_path: path, force: true } })).json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await expect(page.locator(".react-flow__node")).toHaveCount(2);
+  const scpi = (instrument: string, command: string) =>
+    page.request.post(`/api/sessions/${sid}/instruments/${instrument}/scpi`, { headers, data: { command } });
+  await scpi("awg", "C1:BSWV WVTP,SQUARE,AMP,10,OFST,0");
+  await scpi("scope", ":ACQuire:POINts 2000;:DIGitize CHANnel1");
+  await page.getByRole("tab", { name: "问题" }).click();
+  const row = page.getByRole("button", { name: "CH1-OVERVOLTAGE" });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("可能损坏");
+  await expect(row).toContainText("scope");
+});

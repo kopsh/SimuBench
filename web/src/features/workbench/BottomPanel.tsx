@@ -49,6 +49,11 @@ export function BottomPanel({
     () => session.instruments.flatMap((i) => i.errors.map((e) => ({ instrument: i.name, ...e }))),
     [session.instruments],
   );
+  // Warnings that are no SCPI errors: an input beyond its absolute maximum (#1264).
+  const warnings = useMemo(
+    () => session.instruments.flatMap((i) => (i.warnings ?? []).map((w) => ({ instrument: i.name, ...w }))),
+    [session.instruments],
+  );
   const q = filter.trim().toLowerCase();
   const comms = useMemo(
     () =>
@@ -93,16 +98,16 @@ export function BottomPanel({
             </TabsTrigger>
             <TabsTrigger value="problems" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.problems")}
-              {problems.length + diagnostics.length + activeFaults.length > 0 && (
+              {problems.length + warnings.length + diagnostics.length + activeFaults.length > 0 && (
                 <span
                   className={cn(
                     "num rounded px-1 text-[10px]",
-                    problems.length || activeFaults.length || diagnostics.some((d) => d.severity === "error")
+                    problems.length || warnings.length || activeFaults.length || diagnostics.some((d) => d.severity === "error")
                       ? "bg-error/15 text-error"
                       : "bg-warn/15 text-warn",
                   )}
                 >
-                  {problems.length + diagnostics.length + activeFaults.length}
+                  {problems.length + warnings.length + diagnostics.length + activeFaults.length}
                 </span>
               )}
             </TabsTrigger>
@@ -192,7 +197,7 @@ export function BottomPanel({
       )}
       {bottomTab === "problems" && (
         <div className="min-h-0 flex-1 overflow-auto">
-          {problems.length + diagnostics.length + activeFaults.length === 0 ? (
+          {problems.length + warnings.length + diagnostics.length + activeFaults.length === 0 ? (
             <EmptyState icon={<CircleCheck className="text-ok size-6" />} title={t("panel.noProblems")} />
           ) : (
             <ul>
@@ -205,6 +210,9 @@ export function BottomPanel({
               )}
               {diagnostics.map((d, i) => (
                 <DiagnosticRow key={`d${i}`} d={d} />
+              ))}
+              {warnings.map((w) => (
+                <ProblemRow key={`${w.instrument}:${w.code}`} instrument={w.instrument} code={w.code} message={w.message} />
               ))}
               {problems.map((p, i) => (
                 <ProblemRow key={i} instrument={p.instrument} code={p.code} message={p.message} />
@@ -307,7 +315,7 @@ function DiagnosticRow({ d }: { d: Diagnostic }) {
   );
 }
 
-function ProblemRow({ instrument, code, message }: { instrument: string; code: number; message: string }) {
+function ProblemRow({ instrument, code, message }: { instrument: string; code: number | string; message: string }) {
   const select = useWorkbench((s) => s.select);
   return (
     <li>
@@ -316,7 +324,7 @@ function ProblemRow({ instrument, code, message }: { instrument: string; code: n
         onClick={() => select({ kind: "instrument", id: instrument })}
       >
         <AlertTriangle className="text-error size-3.5 shrink-0" />
-        <span className="num text-error w-12">{code}</span>
+        <span className="num text-error min-w-12 shrink-0">{code}</span>
         <span className="flex-1">{message}</span>
         <span className="text-muted-foreground">{instrument}</span>
       </button>

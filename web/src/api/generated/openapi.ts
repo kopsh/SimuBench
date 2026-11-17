@@ -3476,6 +3476,11 @@ export interface components {
             values: {
                 [key: string]: unknown;
             } | null;
+            /**
+             * Warnings
+             * @description Warnings that are no SCPI errors, kept for the session (a scope input beyond its absolute maximum: possible damage, #1264)
+             */
+            warnings: components["schemas"]["WarningItem"][];
         };
         /**
          * InstrumentInternals
@@ -4934,7 +4939,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file
+             * @description scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file
              */
             kind: string;
             /** Message */
@@ -6200,6 +6205,16 @@ export interface components {
             msg: string;
             /** Error Type */
             type: string;
+        };
+        /**
+         * WarningItem
+         * @description A warning about an instrument that is not a SCPI error (#1264): e.g. 'CH1-OVERVOLTAGE'.
+         */
+        WarningItem: {
+            /** Code */
+            code: string;
+            /** Message */
+            message: string;
         };
         /** WireInfo */
         WireInfo: {
