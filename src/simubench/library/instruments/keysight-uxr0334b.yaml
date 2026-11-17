@@ -1462,9 +1462,7 @@ components:
       no_trigger: wait
       # :ASTate? 的四种状态（手册）：ARM 布防等触发、TRIG 已触发、ATRIG 自动触发、ADONE 采集完成。
       status_text: {stopped: ADONE, waiting: ARM, triggered: TRIG, auto: ATRIG}
-      # :ACQuire:AVERage ON：取 :ACQuire:COUNt 次量化采集的均值（D46）。
-      processing: {from: $acquire.average, map: {"True": average}, default: normal}
-      averages: $acquire.count
+      decimator: dec
       trigger_jitter_s: 2.5e-14  # specs.trigger_jitter_s_rms: the data sheet's 25 fs intrinsic jitter (#745)
       # 分段存储（#1066）：MODE SEGMented 时一次采集连续取 COUNt 段（每段一整条记录），全部采满才
       # 完成；INDex 选的段供波形传输与测量。最小触发间隔 3.5 µs（数据手册 Min time between triggers，
@@ -1550,6 +1548,39 @@ components:
       divs: 8.0
       offset_sign: subtract
       max_rate: 1.28e11
+      vertical: front
+      probe: probe
+  # :ACQuire:BANDwidth（#1262）：ADC 之后的数字带宽滤波，平坦幅度为砖墙、高斯幅度为高斯形，零相位；带宽设到
+  # 模拟带宽（上电值、MAX）时直通。噪声在 ADC 处按满带宽加入，经它随 √带宽 下降（D46）。慢于 ADC 的记录
+  # 按 ADC 采样率（至多 16 倍记录采样率）滤波再抽取。
+  - name: bwf
+    type: scope_dsp_filter
+    label: 带宽滤波（ACQuire:BANDwidth）
+    params:
+      bandwidth: $acquire.bandwidth
+      response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
+      passthrough_hz: 3.3e10
+      adc: adc
+  # 通道带宽限制（:CHANnel<N>:ISIM:BWLimit / :BANDwidth / :BWLimit:TYPE，#609）：InfiniiSim 的数字滤波，
+  # WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。手册说 Bessel 与
+  # Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，这一组合未建模（覆盖表注明）。
+  - name: isim
+    type: scope_dsp_filter
+    label: InfiniiSim 滤波
+    description: 通道的数字带宽限制（砖墙 / Bessel / Butterworth），在 ADC 之后，关时直通。
+    params:
+      enabled: $ch{n}.isim_bwlimit
+      bandwidth: $ch{n}.isim_bandwidth
+      response: {from: "$ch{n}.isim_type", map: {WALL: brickwall, BESSEL4: bessel4, BUTTerworth: butterworth4}}
+      adc: adc
+  # 抽取与采集方式：:ACQuire:AVERage ON 时取 :ACQuire:COUNt 次量化采集的均值（D46）。
+  - name: dec
+    type: scope_decimator
+    params:
+      adc: adc
+      horizontal: timebase
+      processing: {from: $acquire.average, map: {"True": average}, default: normal}
+      averages: $acquire.count
   # 校准输出（:CALibrate:OUTPut 组，#1067/#1170）：前面板 AUX OUT / CAL OUT 的信号源与 50 Ω 输出级；
   # 输出阻抗与除 ZERO（-440 mV）、750 Hz 外的电平为模型值（覆盖表）。
   - name: auxsrc
@@ -1672,7 +1703,8 @@ channel_components:
     type: input_port
     params:
       z_in: 50.0
-  # 带宽 33 GHz；:ACQuire:BANDwidth 的数字滤波：平坦幅度为砖墙、高斯幅度为高斯形，零相位（#607）。偏置范围按档位
+  # 模拟前端：带宽 33 GHz，幅频按 :ACQuire:RESPonse 校正为平坦（砖墙）或高斯形，零相位（#607）；
+  # :ACQuire:BANDwidth 的限带宽是 ADC 之后的数字滤波（组件 bwf，#1262）。偏置范围按档位
   # （数据手册）；超出范围报 -222。
   - name: front
     type: scope_vertical
@@ -1682,8 +1714,6 @@ channel_components:
       invert: $ch.invert
       probe_ratio: $ch.probe
       bandwidth: 3.3e10
-      bw_limit: true
-      bw_limit_hz: $acquire.bandwidth
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
       scale: $ch.scale
       offset: $ch.offset
@@ -1699,19 +1729,6 @@ channel_components:
       noise_table: [[1.0e-3, 2.66e-4], [2.0e-3, 2.66e-4], [5.0e-3, 2.91e-4], [1.0e-2, 3.88e-4],
                     [2.0e-2, 7.02e-4], [5.0e-2, 1.48e-3], [1.0e-1, 2.91e-3], [2.0e-1, 6.48e-3],
                     [5.0e-1, 1.47e-2], [1.0, 2.88e-2]]
-  # 通道带宽限制：WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。
-  # 手册说 Bessel 与 Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，
-  # 这一组合未建模（覆盖表注明）。
-  - name: isim
-    type: scope_vertical
-    label: InfiniiSim 滤波
-    description: 通道的数字带宽限制（砖墙 / Bessel / Butterworth），关时直通。
-    params:
-      coupling: DC
-      bandwidth: .inf
-      bw_limit: $ch.isim_bwlimit
-      bw_limit_hz: $ch.isim_bandwidth
-      response: {from: $ch.isim_type, map: {WALL: brickwall, BESSEL4: bessel4, BUTTerworth: butterworth4}}
   - name: probe
     type: scope_probe
     label: 探头换算（倍率/偏斜/反相）
@@ -1722,10 +1739,14 @@ channel_components:
 wiring:
   channel:
     - [inp.out, front.in]
-    - [front.out, isim.in]
-    - [isim.out, probe.in]
+    - [front.out, probe.in]
   instrument:
-    - ["ch{n}.probe.out", "acq.in{n}"]
+    # 采样链（#1262）：ADC 之后依次是 :ACQuire:BANDwidth 的数字滤波、InfiniiSim 的通道滤波与抽取。
+    - ["ch{n}.probe.out", "adc.in{n}"]
+    - ["adc.out{n}", "bwf.in{n}"]
+    - ["bwf.out{n}", "isim.in{n}"]
+    - ["isim.out{n}", "dec.in{n}"]
+    - ["dec.out{n}", "acq.in{n}"]
     - [auxin.out, trigger.ext]
     - [auxsrc.out, auxout.in]
     - [calsrc.out, calout.in]

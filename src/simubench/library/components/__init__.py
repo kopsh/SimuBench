@@ -22,6 +22,7 @@ from . import (  # noqa: F401
     sampling,
     scope,
     scope_autoscale,
+    scope_dsp,
     scope_math,
     setups,
     siglent_sdg,
