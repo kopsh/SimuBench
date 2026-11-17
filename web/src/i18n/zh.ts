@@ -925,6 +925,7 @@ export const zh = {
     notFound: "找不到仪表 {{id}}",
     realModel: "真实型号",
     customModel: "自建/接口契约",
+    unbounded: "不限（由仪表按当前设置检查）",
     workspace: "工作区定义",
     builtin: "内置定义",
     copyIdn: "复制 *IDN?",

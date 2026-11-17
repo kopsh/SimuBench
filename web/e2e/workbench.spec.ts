@@ -1497,7 +1497,9 @@ test("the SDG2042X's settings show their units: duty cycle and symmetry in %, th
 
 test("an option alias is not listed twice, and a long command header is shown whole (#1252)", async ({ page }) => {
   await page.goto(`/i/keysight-uxr1104b?token=${TOKEN}`);
-  await expect(page.getByTestId("overview-control-ch1.input").getByText("DC 50 Ω", { exact: true })).toHaveCount(1);
+  // Named with the mnemonic a script sends (#1357), once although DC50 and DCFifty are aliases.
+  await expect(page.getByTestId("overview-control-ch1.input").getByText("DC 50 Ω DC50", { exact: true })).toHaveCount(1);
+  await expect(page.getByTestId("overview-control-ch1.input").getByText("DCF", { exact: false })).toHaveCount(0);
   await page.getByTestId("acceptance-tab-build").click();
   await page.getByTestId("build-tab-commands").click();
   const headers = page.getByTestId("build-command-header");

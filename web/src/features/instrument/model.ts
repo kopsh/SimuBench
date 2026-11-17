@@ -11,7 +11,7 @@ import type {
 import { pickLabel } from "@/i18n";
 import i18n from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
-import { formatValue, shortForm } from "@/features/workbench/model";
+import { distinctOptions, formatValue, optionLabel, shortForm } from "@/features/workbench/model";
 
 export type Level = CoverageEntryInfo["level"];
 
@@ -173,7 +173,7 @@ export function panelView(inst: InstrumentInfo): PanelView {
         state: v.path,
         label: pickLabel(v.label, v.label_en, v.path),
         kind: v.type === "enum" ? "select" : v.type === "bool" ? "switch" : "number",
-        choices: v.type === "enum" ? unique((v.options ?? []).map((o) => v.option_labels?.[o] ?? shortForm(o))) : null,
+        choices: v.type === "enum" ? enumChoices(v) : null,
         range: v.type === "bool" ? null : rangeText(v),
       });
       groups.set(prefix, list);
@@ -197,7 +197,7 @@ export function panelView(inst: InstrumentInfo): PanelView {
       label: pickLabel(g.label, g.label_en, g.label) + suffix,
       controls: (g.controls ?? []).map((c) => {
         const s = stateOf(inst, prefix + c.state);
-        const enumChoices = s?.options ? unique(s.options.map((o) => s.option_labels?.[o] ?? shortForm(o))) : null;
+        const choicesOfSetting = s?.options ? enumChoices(s) : null;
         // Without a control kind the panel uses the setting's own field (#1315).
         const kind = c.control ?? (s?.type === "enum" ? "select" : s?.type === "bool" ? "switch" : "number");
         return {
@@ -208,12 +208,12 @@ export function panelView(inst: InstrumentInfo): PanelView {
             kind === "buttons"
               ? (c.keys ?? []).map((k) => pickLabel(k.label, k.label_en, String(k.value)))
               : kind === "select"
-                ? enumChoices
+                ? choicesOfSetting
                 : null,
           range:
             kind === "number"
               ? c.unit
-                ? `${eng(s?.min ?? 0, c.unit)} … ${eng(s?.max ?? 0, c.unit)}`
+                ? boundsText(s?.min ?? 0, s?.max ?? 0, (n) => eng(n, c.unit))
                 : rangeText(s)
               : null,
         };
@@ -231,12 +231,43 @@ function rangeText(v: StateVarInfo | undefined): string | null {
         ? formatValue({ ...v, value: n, special: null, unset: null }, 3)
         : v.unit
           ? eng(n, v.unit, 3)
-          : String(n);
-    return `${v.min != null ? shown(v.min) : "−∞"} … ${v.max != null ? shown(v.max) : "∞"}`;
+          : count(n);
+    return boundsText(v.min, v.max, shown);
   }
-  if (v.options?.length) return unique(v.options.map((o) => v.option_labels?.[o] ?? shortForm(o))).join(" | ");
+  if (v.options?.length) return enumChoices(v).join(" | ");
   if (v.type === "bool") return BOOL_WORDS().join(" | ");
   return null;
+}
+
+/**
+ * An enumeration's choices as the inspector words them (#1357): the name, then the mnemonic a
+ * script sends when it differs ("居中 CENT"); an option without a name is its short form alone.
+ */
+export function enumChoices(v: Pick<StateVarInfo, "options" | "option_labels">): string[] {
+  return unique(
+    distinctOptions(v).map((o) => {
+      const name = optionLabel(v, o);
+      const code = shortForm(o);
+      return name === code ? code : `${name} ${code}`;
+    }),
+  );
+}
+
+/** A count without a unit: SI prefixed once it is long (2 G points, not 2000000000; #1357). */
+function count(n: number): string {
+  return Math.abs(n) >= 1e4 ? formatEng(n, "", 6) : String(n);
+}
+
+/**
+ * A range's two ends (#1357). A definition with no fixed limit writes a symmetric placeholder of a
+ * million or more (±1e6 V for a trigger level the vertical scale bounds, ±1e12, ±1e17): that reads
+ * as "no fixed limit", not as a number. A missing end is ∓∞, as is one of 1e15 or more.
+ */
+export function boundsText(min: number | null | undefined, max: number | null | undefined, shown: (n: number) => string): string {
+  if (min != null && max != null && max >= 1e6 && min === -max) return i18n.t("acceptance.unbounded");
+  const lo = min == null || min <= -1e15 ? "−∞" : shown(min);
+  const hi = max == null || max >= 1e15 ? "∞" : shown(max);
+  return `${lo} … ${hi}`;
 }
 
 /** The technical specifications as rows, a nested record flattened one level ("input: 10 MΩ"). */
