@@ -103,6 +103,26 @@ def test_calibrator_default_is_the_output_with_operate_and_standby_keys():
     assert [(k.label, k.value) for k in operate.keys or []] == [("OPER", True), ("STBY", False)]
 
 
+@pytest.mark.parametrize(
+    ("name", "units"),
+    [
+        ("fluke-5522a.yaml", {"DCV": "V", "ACV": "V", "DCI": "A", "ACI": "A", "RES": "Ω"}),
+        ("fluke-5730a.yaml", {"DCV": "V", "ACV": "V", "DCI": "A", "ACI": "A", "OHM": "Ω"}),
+    ],
+)
+def test_a_declared_calibrator_panel_shows_the_level_in_the_functions_unit(name, units):
+    # #1326: the output reading's unit follows the function (V, A, Ω), so a current or a resistance
+    # is not read as a voltage; the frequency belongs to the AC functions and is hidden for the rest.
+    d = definition(LIB / name)
+    panel, source = effective_panel(d)
+    assert source == "declared" and panel is not None
+    assert set(units) == set(d.state["out.function"].options or [])
+    for function, unit in units.items():
+        visible = [r for r in panel.readouts if all(value == function for value in r.when.values())]
+        assert [(r.unit, r.digits) for r in visible if r.reading == "out.level"] == [(unit, 7)]
+        assert bool([r for r in visible if r.reading == "out.frequency"]) == (function in ("ACV", "ACI"))
+
+
 def test_daq_default_is_the_scan_and_the_closed_relays():
     panel, source = effective_panel(definition(ROOT / "validation" / "instruments" / "sb-daq-1.yaml"))
     assert source == "class_default" and panel is not None
