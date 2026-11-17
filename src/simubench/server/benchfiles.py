@@ -22,7 +22,7 @@ from ruamel.yaml.error import YAMLError as RuamelError
 
 from ..engine import edit
 from ..engine.component import component_types
-from ..engine.validate import Report, validate_data
+from ..engine.validate import Report, drives_net, validate_data
 from ..library.loader import SKIP_DIRS, DefinitionLibrary, load_yaml
 from ..library.migrate import FormatError, upgrade
 from ..models import api as M
@@ -229,7 +229,9 @@ class BenchFiles:
         except ValueError:
             raise edit.EditError("文件不符合测试台格式，先修正诊断中的错误再编辑") from None
         library = self.library(self.resolve(bench_path))
-        return self.save(bench_path, base_sha256, edit.to_yaml_data(edit.apply(bench, ops, library)), source)
+        data = edit.to_yaml_data(edit.apply(bench, ops, library))
+        _refuse_new_drivers(doc, data, ops, library)
+        return self.save(bench_path, base_sha256, data, source)
 
     # ---- history (D35) ------------------------------------------------------------------------------
 
@@ -307,7 +309,9 @@ class BenchFiles:
                 about_en=cls.about_en or None,
                 doc=inspect.getdoc(cls),
                 ports=[
-                    M.PortInfo(name=p, direction=spec.direction, medium=spec.medium)
+                    M.PortInfo(
+                        name=p, direction=spec.direction, medium=spec.medium, drives=drives_net(cls, spec)
+                    )
                     for p, spec in cls.ports.items()
                 ],
                 defaults={k: _json_number(v) for k, v in cls.defaults.items()},
@@ -389,3 +393,21 @@ def _json_number(value: Any) -> Any:
     if isinstance(value, float) and value in (float("inf"), float("-inf")):
         return "INF" if value > 0 else "-INF"
     return value
+
+
+def _refuse_new_drivers(doc: M.BenchDocument, data: dict[str, Any], ops: list[Any], library: Any) -> None:
+    """A connect that puts a second driver on a net (two outputs wired together) is refused, and
+    the file is not written (#1269): the checks would otherwise flag the net, and the canvas leave
+    out a wire of it. Errors the file already had do not count."""
+    if not any(isinstance(op, edit.Connect) for op in ops):
+        return
+    before = {(d.code, d.message) for d in doc.diagnostics if d.severity == "error"}
+    _, report = validate_data(data, library)
+    new = [
+        d
+        for d in report.diagnostics
+        if d.severity == "error" and d.code == "E-NET-MULTIDRIVER" and (d.code, d.message) not in before
+    ]
+    if new:
+        first = new[0]
+        raise edit.EditError(f"{first.message}；{first.suggestion}" if first.suggestion else first.message)

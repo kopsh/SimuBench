@@ -134,3 +134,23 @@ def test_an_edit_through_the_http_api_keeps_the_file_s_text(tmp_path: Path):
         assert r.status_code == 200, r.text
     removed, added = changed_lines(before, (tmp_path / BENCH).read_text(encoding="utf-8"))
     assert (removed, added) == (["  - {from: awg.CH2, to: sa.RF_IN}"], [])
+
+
+def test_wiring_two_outputs_together_is_refused_and_the_file_stays(files: BenchFiles):
+    """#1269: connecting the scope's CAL_OUT to the generator's CH1 (both outputs, and CH1 already
+    drives the scope's CH1) is refused with the two drivers named; the file is not written. A file
+    that has such a wire already points the check at the newest wire, not the first correct one."""
+    from simubench.engine.validate import validate_data
+
+    path = files.workspace / BENCH
+    before = path.read_bytes()
+    doc = files.read(BENCH)
+    with pytest.raises(E.EditError) as refused:
+        files.edit(BENCH, doc.sha256, [E.Connect(**{"from": "scope.CAL_OUT", "to": "awg.CH1"})])
+    assert "awg.CH1" in str(refused.value) and "scope.CAL_OUT" in str(refused.value)
+    assert path.read_bytes() == before
+    data = dict(doc.data)
+    data["wires"] = [*data["wires"], {"from": "scope.CAL_OUT", "to": "awg.CH1"}]
+    _, report = validate_data(data, files.library(path))
+    multi = [d for d in report.diagnostics if d.code == "E-NET-MULTIDRIVER"]
+    assert [d.subject for d in multi] == [f"wire:{len(data['wires']) - 1}"]

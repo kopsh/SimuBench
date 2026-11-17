@@ -82,7 +82,7 @@ def test_high_z_setting_clears_the_hint():
         (
             lambda d: d["wires"].append({"from": "awg.OUT2", "to": "rc.IN"}),
             "E-NET-MULTIDRIVER",
-            "/wires/0",
+            "/wires/2",  # the newest wire of the net, the one that added the second driver (#1269)
             None,
         ),
     ],

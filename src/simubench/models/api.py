@@ -413,6 +413,11 @@ class PortInfo(_Model):
     medium: str
     net: str | None = None
     channel: int | None = None
+    drives: bool = Field(
+        False,
+        description="The port drives its net: an electrical output of a source (the checks allow one per net, "
+        "E-NET-MULTIDRIVER), or an optical output (one per fibre); the canvas refuses a wire that would join two (#1269)",
+    )
 
 
 # A state variable as the session serves it: the definition's own spec (StateSpec, reused instead

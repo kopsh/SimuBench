@@ -346,6 +346,7 @@ export const zh = {
     noFile: "这个会话没有对应的测试台文件，无法编辑。",
     previewError: "无法预览测试台：{{error}}",
     omitted: "{{count}} 项因错误未显示：{{names}}",
+    twoDrivers: "不能连接：一个网络只能有一个驱动源，这样连会有 {{count}} 个：{{names}}",
     delete: "删除",
     deleteHint: "Delete",
     name: "名称",

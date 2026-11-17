@@ -19,6 +19,7 @@ from ..engine.record import jsonable
 from ..engine.session import Session
 from ..engine.silence import why_silent
 from ..engine.stream import ModelLimit
+from ..engine.validate import drives_net
 from ..library.components.scope import channel_index
 from ..library.panels import effective_panel
 from ..models import api as M
@@ -135,7 +136,11 @@ class SessionViews:
         label = part.label if part else None
         ports = [
             M.PortInfo(
-                name=p, direction=spec.direction, medium=spec.medium, net=s.port_net.get(f"{name}.{p}")
+                name=p,
+                direction=spec.direction,
+                medium=spec.medium,
+                net=s.port_net.get(f"{name}.{p}"),
+                drives=drives_net(type(comp), spec),
             )
             for p, spec in comp.ports.items()
         ]
@@ -178,6 +183,7 @@ class SessionViews:
                     medium=d.ports.media.get(pname, spec.medium),
                     net=s.port_net.get(f"{inst.name}.{pname}"),
                     channel=comp.channel,
+                    drives=drives_net(type(comp), spec),
                 )
             )
         dangerous_paths = {c.state for c in d.commands if c.dangerous and c.state}

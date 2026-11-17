@@ -16,6 +16,7 @@ import tokenize
 from typing import Any
 
 from ..engine.component import Component, component_types
+from ..engine.validate import drives_net
 from ..models import api as M
 
 #: Arguments every operation receives from the instrument, not from a command's parameters.
@@ -92,7 +93,10 @@ def component_info(name: str, cls: type[Component]) -> M.ComponentDoc:
             about_en=cls.about_en or None,
             group=group_of(cls),
             doc=inspect.getdoc(cls),
-            ports=[M.PortInfo(name=p, direction=s.direction, medium=s.medium) for p, s in cls.ports.items()],
+            ports=[
+                M.PortInfo(name=p, direction=s.direction, medium=s.medium, drives=drives_net(cls, s))
+                for p, s in cls.ports.items()
+            ],
             port_pattern=cls.port_pattern,
             params=[
                 M.ParamInfo(name=k, default=_json(v), unit=cls.units.get(k), doc=docs.get(k))
