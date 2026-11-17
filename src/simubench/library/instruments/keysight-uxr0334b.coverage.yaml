@@ -1002,7 +1002,7 @@ sections:
     note: 8 divisions of :CHANnel<N>:SCALe
   - header: :CHANnel<N>:SCALe
     level: implemented
-    note: '1 mV/div to 1 V/div (data sheet, 3.5 mm input models); out of range is -222. Records carry the range''s input noise (specs.noise_per_division: the Infiniium UXR-B data sheet 3123-1313''s measured RMS Noise Floor table, UXR0334B column, page 8 — per division, #786); each acquisition differs'
+    note: '1 mV/div to 1 V/div (data sheet, 3.5 mm input models); out of range is -222. Records carry the range''s input noise (specs.noise_per_division: the Infiniium UXR-B data sheet 3123-1313''s measured RMS Noise Floor table, UXR0334B column, page 8 — per division, #786); each acquisition differs. Below 4 mV/div the display magnifies the 32 mV hardware range (data sheet: Hardware sensitivity 32 mV to 8.0 V full scale): the code step stays 32 mV / 1024 = 31.3 µV and the ADC clips at the range''s ±16 mV around the offset, not at the screen; WORD and BYTE data and the preamble''s Y increment are on that step (#1265)'
   - header: :CHANnel<N>:SPECtral:CFRequency
     level: implemented
     note: 'The channel''s spectral view centre frequency (stored; the view''s data path is :FUNCtion FFT, the view itself is not modeled, #1074).'
