@@ -1135,6 +1135,10 @@ class ScopeTrigger(_ChannelBound):
         "noise_reject": False,  # on: the wider band below
         "reject_hysteresis_divs": 0.5,  # the band while noise_reject is on
         "noise_rms": 0.0,  # the trigger path's own noise, display volts rms
+        # the trigger path's noise by the source's division: [[V/div, V rms], ...] (the row of the
+        # largest division not above the source's), added to noise_rms (None: none, #1263)
+        "noise_table": None,
+        "bandwidth": math.inf,  # the trigger path's own bandwidth, Hz: a first-order low-pass (#1263)
         "holdoff_on": True,  # whether holdoff applies (e.g. a holdoff mode that is TIME)
         "holdoff": 0.0,  # s after a trigger before the next one is taken
         "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
@@ -1183,7 +1187,7 @@ class ScopeTrigger(_ChannelBound):
         "nedge_count": 1,  # the edge that triggers: the nedge_count-th (1 is the first)
     }
     units = {
-        "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V",
+        "level": "V", "holdoff": "s", "search_horizon_s": "s", "line_hz": "Hz", "noise_rms": "V", "bandwidth": "Hz",
         "width_low": "s", "width_high": "s", "runt_time": "s", "transition_time": "s",
         "window_time": "s", "timeout_time": "s",
     }  # fmt: skip
@@ -1208,6 +1212,7 @@ class ScopeTrigger(_ChannelBound):
         # The latest search and its result: a search is a pure function of its inputs, and the
         # status registers ask the same one again after every command of a line (#1000).
         self._memo: tuple[str, TriggerHit | None] | None = None
+        self._source_scale: float | None = None  # the division of the source being searched
 
     def reset(self) -> None:
         self.last_ns = None
@@ -1247,6 +1252,26 @@ class ScopeTrigger(_ChannelBound):
         lim = float(divs) * scale
         if not -lim - offset - 1e-12 <= float(new) <= lim - offset + 1e-12:
             raise ScpiError(-222, f"trigger level outside +-{divs} div")
+
+    def select_taps(self) -> list[str] | None:
+        """The trigger compares the analog signal at the ADC's input, before the digital filters
+        (#1263): per channel, the component wired to the acquisition's converter."""
+        if self.owner is None:
+            return None
+        acq = next(
+            (c for c in self.owner.components.values()
+             if isinstance(c, ScopeAcquisition) and c.param("trigger") == self.name),
+            None,
+        )  # fmt: skip
+        if acq is None:
+            return None
+        adc = cast(Any, acq).adc_unit()  # ty sees the @component class as Component
+        taps = []
+        for n in range(1, self.owner.channel_count + 1):
+            src = self.owner.wiring.source(adc.name, f"in{n}")
+            if src is not None:
+                taps.append(src[0])
+        return taps
 
     def source_channel(self, source: str | None = None) -> int | None:
         """The channel the source names, None for external, line and the like."""
@@ -1340,7 +1365,8 @@ class ScopeTrigger(_ChannelBound):
         return 0.0 if level is None else float(level)
 
     def path_signal(self, sig: Signal) -> Signal:
-        """The source's signal as the trigger sees it: through the coupling's filters."""
+        """The source's signal as the trigger sees it: through the coupling's filters and the trigger
+        path's own ``bandwidth`` (#1263)."""
         table = {str(k).upper(): v for k, v in (self.param("filters") or {}).items()}
         keys = [str(self.param("coupling")).upper(), str(self.param("reject") or "").upper()]
         if self.param("hf_reject") in (True, 1, "1", "ON", "on"):
@@ -1350,7 +1376,20 @@ class ScopeTrigger(_ChannelBound):
                 sig = sig.transfer(
                     (highpass1 if str(kind).lower() == "highpass" else lowpass1)(float(corner))
                 )
+        bandwidth = float(self.param("bandwidth"))
+        if math.isfinite(bandwidth):
+            sig = sig.transfer(lowpass1(bandwidth))
         return sig
+
+    def noise_sigma(self) -> float:
+        """The trigger path's noise, display volts rms: ``noise_rms`` and the ``noise_table`` row of
+        the source's division (the search sets it, #1263)."""
+        sigma = float(self.param("noise_rms") or 0.0)
+        rows = sorted((float(r[0]), float(r[1])) for r in self.param("noise_table") or ())
+        if rows:
+            scale = rows[0][0] if self._source_scale is None else self._source_scale
+            sigma += next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
+        return sigma
 
     def _hysteresis(self, scale: float) -> float:
         setting = str(self.choice("hysteresis_setting") or "normal")
@@ -1369,12 +1408,13 @@ class ScopeTrigger(_ChannelBound):
     def _noisy(
         self, v: np.typing.NDArray[np.float64], t0: int, offsets: np.typing.NDArray[np.float64]
     ) -> np.typing.NDArray[np.float64]:
-        sigma = float(self.param("noise_rms"))
+        sigma = self.noise_sigma()
         if sigma <= 0 or self.session is None:
             return v
-        # Keyed by the absolute instant (ns) of each sample: the same instant, the same noise.
+        # Keyed by the absolute instant (ps) of each sample: the same instant, the same noise; a
+        # 256 GSa/s grid's samples (3.9 ps apart) each draw their own (#1263).
         key = stream_key(self.session.seed, self.uid, "trigger-noise")
-        return v + sigma * gaussian(key, t0 + np.round(offsets * 1e9).astype(np.int64))
+        return v + sigma * gaussian(key, t0 * 1000 + np.round(offsets * 1e12).astype(np.int64))
 
     def search(
         self,
@@ -1391,6 +1431,7 @@ class ScopeTrigger(_ChannelBound):
         """The first qualifying edge at least ``pre`` samples after ``t0`` (enough history before
         the trigger), past the holdoff and not before ``earliest_s``, within ``search_windows``
         records or, with ``horizon_s``, that much virtual time. None: no edge."""
+        self._source_scale = scale  # the noise table's row follows the source's division (#1263)
         key = self._search_key(sig, (t0, dt, pre, points, n, scale, horizon_s, earliest_s), n)
         if self._memo is not None and self._memo[0] == key:
             return self._memo[1]
@@ -1436,7 +1477,7 @@ class ScopeTrigger(_ChannelBound):
         sig = self.path_signal(sig)
         # An edge the signal cannot make (its level beyond the signal's whole swing, noise
         # included) is not searched for: a waiting acquisition looks again at every command.
-        swing = float(np.abs(sig.amp).sum()) + 6.0 * float(self.param("noise_rms"))
+        swing = float(np.abs(sig.amp).sum()) + 6.0 * self.noise_sigma()
         top, bottom = sig.dc + swing, sig.dc - swing
         if mode in _ADVANCED:
             return self._advanced(sig, t0, dt, start_s, span, horizon, mode, n, scale, hyst, top, bottom)
@@ -1510,7 +1551,7 @@ class ScopeTrigger(_ChannelBound):
         search's start is carried in: the crossing that put it there lies before the search."""
         side = 0  # -1 below the band, +1 above it, 0 not yet decided
         anchor: tuple[float, float] | None = None  # the last sample decisively on this side
-        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        noisy = self.noise_sigma() > 0
         prev: tuple[float, float] | None = None
         a = start_s - stretches[0][1]
         for stop, step in stretches:
@@ -1608,7 +1649,7 @@ class ScopeTrigger(_ChannelBound):
         and timeout on the runs of the signal's state, nedge on the counted crossings."""
         source = self.family_source()
         level = float(self.channel_param("level", n) if n is not None else self.level())
-        noiseless = self.param("noise_rms") in (0, 0.0, None)
+        noiseless = self.noise_sigma() <= 0
         period = _period(sig) if noiseless else None
         high = self.threshold("high", source)
         low = self.threshold("low", source)
@@ -1831,7 +1872,7 @@ class ScopeTrigger(_ChannelBound):
         state = ""
         entry = 0.0
         anchor: tuple[float, float] | None = None  # the last sample decisively in this state
-        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        noisy = self.noise_sigma() > 0
         prev: tuple[float, float] | None = None
         a = start_s - stretches[0][1]
         for stop, step in stretches:
@@ -1895,7 +1936,7 @@ class ScopeTrigger(_ChannelBound):
         state = ""  # "" until a sample decides one way or the other
         entry: tuple | None = None
         anchor: tuple[float, float] | None = None  # the last sample decisively in this state
-        noisy = self.param("noise_rms") not in (0, 0.0, None)
+        noisy = self.noise_sigma() > 0
         prev: tuple[float, float] | None = None
         a = start_s - stretches[0][1]
         for stop, step in stretches:
@@ -1975,7 +2016,7 @@ class ScopeTrigger(_ChannelBound):
         low, high = float(self.param("width_low")), float(self.param("width_high"))
         # A signal that repeats shows every pulse it has within two periods: none there, none ever
         # (a waiting acquisition searches again at every command).
-        period = _period(sig) if self.param("noise_rms") in (0, 0.0, None) else None
+        period = _period(sig) if self.noise_sigma() <= 0 else None
         if period is not None:
             horizon = min(horizon, max(start_s, 0.0) + 2.0 * period + 2.0 * dt)
         # The work is samples times lines, as for an edge's far search: the record grid for as
@@ -2065,7 +2106,7 @@ class ScopeTrigger(_ChannelBound):
         far the search has come."""
         armed = {"rise": False, "fall": False}
         prev: tuple[float, float] | None = None
-        noiseless = self.param("noise_rms") in (0, 0.0, None)
+        noiseless = self.noise_sigma() <= 0
         a = start_s - stretches[0][1]
         for stop, step in stretches:
             chunk = 1 << 12
@@ -2122,7 +2163,7 @@ class ScopeTrigger(_ChannelBound):
         coarser one that carries no noise."""
         t_k, v_k = float(offsets[k]), float(v[k])
         t_p, v_p = (float(offsets[k - 1]), float(v[k - 1])) if k > 0 else (prev or (t_k, v_k))
-        if step > dt * (1 + 1e-9) and self.param("noise_rms") in (0, 0.0, None):
+        if step > dt * (1 + 1e-9) and self.noise_sigma() <= 0:
             return self._bisect(sig, t0, t_p, t_k, level, rising, dt)
         return _between(t_p, v_p, t_k, v_k, level)
 

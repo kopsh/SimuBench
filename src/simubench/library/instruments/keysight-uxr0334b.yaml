@@ -1492,6 +1492,11 @@ components:
   - name: trigger
     type: scope_trigger
     params:
+      # 触发通路（#1263）：从模拟前端分出（ADC 之前，不经 :ACQuire:BANDwidth 与 InfiniiSim 的数字滤波）。
+      # 边沿触发带宽等于采集的模拟带宽（数据手册 3123-1313 Trigger System：Equal to acquisition analog
+      # bandwidth），前端已限，不另加。触发噪声手册未给，估计：与该档的通道噪声相同（同一前端，D46 通则），
+      # 按信源的档位取 front 的 noise_table。
+      noise_table: [[1.0e-3, 2.66e-4], [2.0e-3, 2.66e-4], [5.0e-3, 2.91e-4], [1.0e-2, 3.88e-4], [2.0e-2, 7.02e-4], [5.0e-2, 1.48e-3], [1.0e-1, 2.91e-3], [2.0e-1, 6.48e-3], [5.0e-1, 1.47e-2], [1.0, 2.88e-2]]
       source: $trigger.source
       level: $trigger.level1
       level_by_source:

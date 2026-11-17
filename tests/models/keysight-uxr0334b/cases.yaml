@@ -1144,6 +1144,9 @@ cases:
   - name: "显示四值与单位：左沿 = 记录起点、跨度 = 时基 10 格、中心 = 偏置、满幅 = 8 格；变换函数 HERTz"
     manual: ":WAVeform Commands > :WAVeform:XDISplay?; :XRANge?; :YDISplay?; :YRANge?; :XUNits?; :YUNits?"
     steps:
+      # CH1 的 400 mVpp 正弦在默认档位下小于触发迟滞（0.5 格），触发通路有噪声（#1263）时会被噪声偶然
+      # 触发、相位随机；本用例要的是自动扫描下不触发的采集，触发电平放到信号与噪声都到不了的地方。
+      - send: ":TRIGger:LEVel CHANnel1,1.5"
       - send: ":CHANnel1:SCALe 0.1;:CHANnel1:OFFSet 0.05;:ACQuire:POINts 1000;:DIGitize CHANnel1"
       # 触发在中央（参考 CENTer）：记录起点 = −5.00000E-07；跨度 = 10 格 × 100 ns/div
       - query: ":WAVeform:XDISplay?"

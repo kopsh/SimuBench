@@ -92,7 +92,7 @@ def selections(inst: Instrument) -> list[M.InternalSelect]:
     for name, comp in inst.components.items():
         path = comp.bound_path("source") if comp.channel is None else None
         if path is not None:
-            out.append(M.InternalSelect(component=name, setting=path))
+            out.append(M.InternalSelect(component=name, setting=path, taps=comp.select_taps()))
     return out
 
 
@@ -116,7 +116,7 @@ def influence_edges(inst: Instrument, wires: list[tuple[str, str]]) -> Edges:
             add(used, name, "ref")
     for sel in selections(inst):
         for other, oc in inst.components.items():
-            if oc.channel is not None:
+            if oc.channel is not None and (sel.taps is None or other in sel.taps):
                 add(other, sel.component, "select")
     return edges
 
