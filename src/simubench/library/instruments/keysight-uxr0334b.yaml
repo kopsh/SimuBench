@@ -1559,6 +1559,7 @@ components:
       # 一列折算到满量程的值（HD2/HD3 -62/-49 dBc 于小量程、-54.1/-48.2 dBc 于 87.5 mV/div 起），D46 通则。
       distortion_table: [[1.0e-3, -62.0, -49.0], [8.75e-2, -54.1, -48.2]]
       # 交织：估计，取 1 mm 型号的「每 16 GHz 一组」-52 dBc 像与 -65 dBFS 杂散；128 GSa/s / 16 GHz = 8 个子 ADC。
+      # 只有 128 GSa/s 的记录带像与杂散；较慢的记录按全速采样再数字抽取、不带交织图样——假设，手册未说明（#1305）。
       interleave: 8
       interleave_image_dbc: -52.0
       interleave_spur_dbfs: -65.0

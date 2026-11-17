@@ -560,8 +560,9 @@ cases:
         expect: "CHAN2,CHAN1"
       - send: ":MEASure:SOURce CHANnel1;:CHANnel1:SCALe 0.1"
       - query: ":MEASure:VPP?"
-        # 0.4 V 加上两侧的噪声峰（2.91 mV rms，128 kpts 约各 4σ）与交织杂散、失真（#1266，约 ±1 mV）
-        expect_value: 0.415
+        # 0.4 + 2·k·σ（#1305）：σ = 2.91 mV（0.1 V/div 的噪声表行），k = 3.55 是 128 kpts 的 σ 噪声叠在 0.2 V 峰值
+        # 正弦（A/σ ≈ 69）上时两侧极值的均值（蒙特卡罗，200 次，标准差 0.2）；交织杂散与失真约 ±1 mV（#1266）
+        expect_value: 0.421
         tolerance: 0.02
   - name: "无法测量时回 9.99999E+37（没有信号的通道测频率）"
     manual: "Programming Conventions > Infinity Representation; :MEASure:FREQuency"

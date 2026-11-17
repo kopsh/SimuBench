@@ -97,6 +97,64 @@ def peak_detect(samples: np.ndarray, m: int) -> np.ndarray:
     return np.where(np.abs(hi - ends) >= np.abs(lo - ends), hi, lo)
 
 
+# ---- the converter's stages (#1266, #1305): pure functions, in signal order --------------------
+
+
+def aperture_jitter(
+    volts: np.ndarray, signal: Signal, t0_ns: int, when: np.ndarray, shift: np.ndarray
+) -> np.ndarray:
+    """Samples taken ``shift`` s late (each its own draw of the clock's aperture jitter): to first
+    order the sample moves by the signal's slope times the shift (the error is (2πf·σ)², 1e-6 for
+    15 fs at 50 GHz), so the grid stays regular and keeps the fast synthesis."""
+    if not signal.freq.size:
+        return volts
+    slope = replace(signal, amp=signal.amp * (2j * math.pi * signal.freq), dc=0.0)
+    return volts + slope.sample_rel(t0_ns, when) * shift
+
+
+def distortion(volts: np.ndarray, signal: Signal, hd: tuple[float, float], half: float) -> np.ndarray:
+    """The front end's x² and x³ (``hd``) on the signal's lines relative to ``half`` the
+    converter's span, not on its DC: the scope's calibration takes the static error out, so a DC
+    level reads as before; x²'s own mean (the lines' power) is taken out with it."""
+    if not (hd[0] or hd[1]) or half <= 0 or not signal.freq.size:
+        return volts
+    x = (volts - signal.dc) / half
+    power = float(np.sum(np.abs(signal.amp) ** 2)) / 2 / half**2
+    return volts + half * (hd[0] * (x * x - power) + hd[1] * x * x * x)
+
+
+def interleave(
+    volts: np.ndarray,
+    t0_ns: int,
+    offsets: np.ndarray,
+    n: int,
+    native_dt: float,
+    gain: float,
+    offset_v: float,
+    middle: float,
+) -> np.ndarray:
+    """``n`` sub-converters taking turns on the ``native_dt`` grid, each with its own gain (a
+    cosine of relative amplitude ``gain`` across them, about the screen's ``middle``) and offset
+    (the same cosine, ``offset_v`` volts): images at k·fs/n ± f, spurs at k·fs/n. The samples are
+    at ``t0_ns`` + ``offsets`` (s), on that grid."""
+    if n <= 1 or not (gain or offset_v):
+        return volts
+    # the sub-converter of each sample: its place on the converter's own grid, counted from time
+    # zero (whole nanoseconds first, so a late instant keeps its precision)
+    per_ns = 1e-9 / native_dt
+    base = math.fmod(t0_ns * per_ns, n)
+    sub = np.mod(np.round(base + offsets / native_dt), n)
+    pattern = np.cos(2 * math.pi * sub / n)
+    volts = (volts - middle) * (1.0 + gain * pattern) + middle
+    return volts + offset_v * pattern
+
+
+def converter_half(scale: float, bits: int, per_div: float, divs: float) -> float:
+    """Half the converter's span in display volts at ``scale`` V/div: the unit of the distortion
+    and the spurs (its codes' span, or the screen's ``divs`` without codes)."""
+    return scale * ((1 << bits) / per_div if bits > 0 else divs) / 2
+
+
 @dataclass(frozen=True, eq=False)
 class AdcView:
     """What a ``scope_adc`` frame of one channel is computed from, as values: the frame is a pure
@@ -145,32 +203,25 @@ class AdcView:
         when = offsets - self.skew
         volts = self.signal.sample_rel(t0_ns, when)
         if self.aperture > 0 and self.signal.freq.size:
-            # Each instant moves by its own draw; to first order the sample moves by the slope
-            # times it (the error is (2πf·σ)², 1e-6 for 15 fs at 50 GHz), so the grid stays regular
-            # and keeps the fast synthesis.
-            slope = replace(self.signal, amp=self.signal.amp * (2j * math.pi * self.signal.freq), dc=0.0)
             shift = self.aperture * gaussian(stream_key(self.seed, *key, "aperture"), indexes)
-            volts = volts + slope.sample_rel(t0_ns, when) * shift
-        middle = -self.offset if self.add else self.offset
-        if (self.hd[0] or self.hd[1]) and self.half > 0 and self.signal.freq.size:
-            # On the signal's lines, not its DC: the scope's calibration takes the static error out,
-            # so a DC level reads as before; x²'s own mean (the lines' power) is taken out with it.
-            x = (volts - self.signal.dc) / self.half
-            power = float(np.sum(np.abs(self.signal.amp) ** 2)) / 2 / self.half**2
-            volts = volts + self.half * (self.hd[0] * (x * x - power) + self.hd[1] * x * x * x)
+            volts = aperture_jitter(volts, self.signal, t0_ns, when, shift)
+        volts = distortion(volts, self.signal, self.hd, self.half)
         # The sub-converters take turns on the converter's own grid; a slower record is decimated
-        # from all of them (the hardware samples at its full rate), so it shows none of their pattern.
+        # from all of them, so it shows none of their pattern (an ASSUMPTION, #1305: the data sheet
+        # gives the spurs' levels, not what a decimated record keeps of them).
         native = dt is not None and self.native_dt > 0 and abs(dt / self.native_dt - 1.0) < 1e-6
-        if self.ilv > 1 and native and (self.ilv_gain or self.ilv_offset):
-            n = self.ilv
-            # the sub-converter of each sample: its place on the converter's own grid, counted from
-            # time zero (whole nanoseconds first, so a late instant keeps its precision)
-            per_ns = 1e-9 / self.native_dt
-            base = math.fmod(t0_ns * per_ns, n)
-            sub = np.mod(np.round(base + offsets / self.native_dt), n)
-            pattern = np.cos(2 * math.pi * sub / n)
-            volts = (volts - middle) * (1.0 + self.ilv_gain * pattern) + middle
-            volts = volts + self.ilv_offset * self.half * pattern
+        if native:
+            middle = -self.offset if self.add else self.offset
+            volts = interleave(
+                volts,
+                t0_ns,
+                offsets,
+                self.ilv,
+                self.native_dt,
+                self.ilv_gain,
+                self.ilv_offset * self.half,
+                middle,
+            )
         if self.sigma > 0:
             volts = volts + self.sigma * gaussian(stream_key(self.seed, *key), indexes)
         return volts

@@ -268,7 +268,7 @@ class Component:
 5. 返回 `SampleFrame(fmt=SampleFormat("volts", bits, lsb), clipped=...)`：数据是量化后换回电压的码值（见上方修正第 2 条）。
 
 参数（每个带目录说明的注释）：`bits`、`full_scale`（仅 `adc`）、`max_rate`、`aperture_jitter_s`、`noise_lsb_rms`、`clock`（引用）。
-`scope_adc` 的非理想（#1266）：满量程正弦的 HD2/HD3 表（`distortion_table`，按档位）、交织子 ADC 的增益与偏置失配（`interleave`、`interleave_image_dbc`、`interleave_spur_dbfs`，像在 k·fs/N ± f、杂散在 k·fs/N，子 ADC 按绝对时刻在原生网格上的位置决定，记录抽取到子 ADC 数的整数倍时只剩一个子 ADC 的增益与偏置）、孔径抖动（`aperture_jitter_s`，每个采样独立抽取，同种子可复现）。未设时帧逐位不变。有效位数随频率下降（失真与杂散随频率的变化）仍属后续（7.2 的缺口表保留）。
+`scope_adc` 的非理想（#1266）：满量程正弦的 HD2/HD3 表（`distortion_table`，按档位）、交织子 ADC 的增益与偏置失配（`interleave`、`interleave_image_dbc`、`interleave_spur_dbfs`，像在 k·fs/N ± f、杂散在 k·fs/N，子 ADC 按绝对时刻在原生网格上的位置决定；只有原生速率的记录带像与杂散。**假设**（#1305）：慢于原生速率的记录由全部子 ADC 的样本经数字抽取得到，不带交织图样——数据手册 3123-1313 p.10 只给像与杂散的电平，没有说明抽取后的行为，编程手册也未核实到；若真机直接丢点，像会混叠、杂散变成固定偏置。`test_the_interleaved_converters_make_images_and_a_spur_at_their_rate` 固定这一行为）、孔径抖动（`aperture_jitter_s`，每个采样独立抽取，同种子可复现）。未设时帧逐位不变。有效位数随频率下降（失真与杂散随频率的变化）仍属后续（7.2 的缺口表保留）。
 
 ---
 
