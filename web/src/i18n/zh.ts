@@ -472,7 +472,7 @@ export const zh = {
     noReading: "—",
   },
   spectrum: {
-    hintClock: "命令时钟：发送命令或推进时间时才会扫频，迹线因此静止。",
+    hintClock: "命令时钟：扫描占用虚拟时间，发送命令或推进时间时才会扫频，迹线因此静止（示波器的屏幕帧不占用虚拟时间，所以实时画面照常刷新）。",
     hintSingle: "单次扫描：已保持当前迹线，开启“连续扫描”后才会再扫。",
     advanceSweep: "推进一次扫描时间",
     overload: "混频器过载",
@@ -710,6 +710,7 @@ export const zh = {
     perDiv: "/div",
     acquisitions: "采集次数",
     liveFrame: "实时画面",
+    hintClock: "命令时钟：屏幕帧不占用虚拟时间，实时画面按此刻的信号重画；只有命令和“推进”才让时钟走动。",
     cursors: { toggle: "光标", title: "光标", channel: "通道", x1: "X1", x2: "X2", y1: "Y1", y2: "Y2" },
     spectrum: { label: "频谱", span: "频率", bin: "频点间隔" },
     measure: { title: "测量", amplitude: "幅值", vpp: "Vpp", frequency: "频率", period: "周期", mean: "均值", rms: "RMS" },

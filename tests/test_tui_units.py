@@ -1096,3 +1096,35 @@ def test_the_wave_title_groups_channels_with_the_same_scale() -> None:
     assert title_scales(scales, group=True) == "CH1–3 100 mV/div · CH4 50.0 mV/div"
     # only neighbours join: CH1 and CH3 at the same scale stay apart
     assert title_scales([(1, "1 V"), (3, "1 V")], group=True) == "CH1 1 V/div · CH3 1 V/div"
+
+
+def test_a_stopped_record_is_drawn_where_its_own_times_fall():
+    """#1333: with the screen's window, a record narrower than it draws only in its stretch; a
+    window inside the record draws the part of it; no window fills the width."""
+    from simubench.tui.screens.scope import trace_frame
+
+    bins = 40
+    trace = {
+        "t0_s": -25e-9,
+        "dt_s": 1e-9,
+        "points": 50,
+        "scale": 1.0,
+        "offset": 0.0,
+        "minmax": [0.5, 0.5] * bins,
+    }
+    cols, rows = 20, 4
+
+    def filled(grid: list[list[int]]) -> list[int]:
+        return [c for c in range(cols) if any(row[c] for row in grid)]
+
+    full, _ = trace_frame(trace, cols, rows)
+    assert filled(full) == list(range(cols)), "no window: the record fills the width"
+    # a 5 us screen (500 ns/div), trigger centred: the 50 ns record is the middle hundredth
+    wide, _ = trace_frame(trace, cols, rows, window=(-2.5e-6, 5e-6))
+    assert filled(wide) == [], "narrower than a dot column: nothing is wide enough to draw"
+    # a 500 ns screen: the record is the middle tenth, i.e. the two middle columns of twenty
+    mid, _ = trace_frame(trace, cols, rows, window=(-250e-9, 500e-9))
+    assert filled(mid) == [9, 10]
+    # a 25 ns screen over the record's centre: all of it is record
+    zoom, _ = trace_frame(trace, cols, rows, window=(-12.5e-9, 25e-9))
+    assert filled(zoom) == list(range(cols))

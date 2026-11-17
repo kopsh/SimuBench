@@ -949,6 +949,11 @@ class Trace(_Model):
     channel: int
     t0_s: float = Field(..., description="Time of the first sample relative to the trigger")
     dt_s: float
+    points: int = Field(
+        0,
+        description="The record's sample count: the record spans ``t0_s`` to ``t0_s + points * dt_s`` "
+        "even when ``volts`` is empty and ``minmax`` stands for it (#1333)",
+    )
     volts: list[float]
     scale: float
     offset: float
@@ -977,6 +982,7 @@ class FunctionTrace(_Model):
     spectrum: bool = Field(description="A frequency-domain trace (the transforms)")
     x0: float = Field(..., description="The first point's time (s, from the trigger) or frequency (Hz)")
     dx: float = Field(..., description="A sample's interval (s) or a bin's width (Hz)")
+    points: int = Field(0, description="The record's sample count (as Trace.points)")
     unit: str = Field(description="The vertical unit word, e.g. VOLT, DB, DBM")
     values: list[float]
     scale: float
@@ -1014,6 +1020,13 @@ class ScopeScreen(_Model):
     running: bool = Field(description="Running in an auto or normal mode: the screen follows the signal")
     waiting: bool = Field(description="A single acquisition armed, waiting for a trigger")
     timebase_scale: float
+    screen_left_s: float = Field(
+        0.0,
+        description="The time of the screen's left edge relative to the trigger under the settings now "
+        "(trigger position and horizontal position): the screen spans ``screen_left_s`` to "
+        "``screen_left_s + 10 * timebase_scale``. A record drawn here keeps its own ``t0_s`` and "
+        "``dt_s``, so a stopped screen whose timebase changed shows it at its real width (#1333)",
+    )
     trigger_level: float
     trigger_source: int
     traces: list[Trace]

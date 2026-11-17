@@ -3188,6 +3188,12 @@ export interface components {
              * @description The operator word, e.g. FFTMagnitude, ADD
              */
             operator: string;
+            /**
+             * Points
+             * @description The record's sample count (as Trace.points)
+             * @default 0
+             */
+            points: number;
             /** Scale */
             scale: number;
             /**
@@ -5188,6 +5194,12 @@ export interface components {
              */
             running: boolean;
             /**
+             * Screen Left S
+             * @description The time of the screen's left edge relative to the trigger under the settings now (trigger position and horizontal position): the screen spans ``screen_left_s`` to ``screen_left_s + 10 * timebase_scale``. A record drawn here keeps its own ``t0_s`` and ``dt_s``, so a stopped screen whose timebase changed shows it at its real width (#1333)
+             * @default 0
+             */
+            screen_left_s: number;
+            /**
              * Source
              * @enum {string}
              */
@@ -6145,6 +6157,12 @@ export interface components {
             minmax: number[] | null;
             /** Offset */
             offset: number;
+            /**
+             * Points
+             * @description The record's sample count: the record spans ``t0_s`` to ``t0_s + points * dt_s`` even when ``volts`` is empty and ``minmax`` stands for it (#1333)
+             * @default 0
+             */
+            points: number;
             /** Scale */
             scale: number;
             /**
