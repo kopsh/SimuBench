@@ -1259,6 +1259,18 @@ test("bench details: the analyzer's screen fields leave the inspector, the minim
   const canvas = page.getByTestId("center-panel");
   await expect(canvas.locator(".react-flow__node").first()).toBeVisible();
   await expect(canvas.locator(".react-flow__minimap")).toHaveCount(0);
+  // The bottom panel open (#1267): the canvas gets shorter; a minimap, if one shows, covers no node.
+  await page.getByRole("tab", { name: "问题" }).click();
+  await expect.poll(async () => (await page.getByTestId("bottom-panel").boundingBox())!.height).toBeGreaterThan(100);
+  const rect = (r: { x: number; y: number; width: number; height: number }) => [r.x, r.y, r.x + r.width, r.y + r.height];
+  const overlap = (p: number[], q: number[]) => p[0] < q[2] && q[0] < p[2] && p[1] < q[3] && q[1] < p[3];
+  const map = canvas.locator(".react-flow__minimap");
+  if (await map.count()) {
+    const m = rect((await map.boundingBox())!);
+    for (const n of await canvas.locator(".react-flow__node").all()) {
+      expect(overlap(m, rect((await n.boundingBox())!)), "the minimap covers a node").toBe(false);
+    }
+  }
 
   // One primary action, the rest in a row below it that keeps its names for screen readers.
   const awg = page.locator(".react-flow__node").filter({ hasText: "函数发生器" });
@@ -1314,6 +1326,55 @@ test("internals: choosing a block leaves the diagram where it was (#1252)", asyn
   await expect(page.getByTestId("internals-panel").getByRole("complementary")).toBeVisible();
   const after = (await graph.boundingBox())!;
   expect(Math.abs(after.y - before.y), "the diagram's top edge moved by px").toBeLessThan(1);
+
+  // The basis line says all of itself on hover (#1267): its title holds the whole statement.
+  const basis = page.getByTestId("internals-basis");
+  const text = ((await basis.textContent()) ?? "").trim();
+  expect(text).toContain("Programmer's Guide");
+  expect(await basis.getAttribute("title")).toBe(text);
+
+  // Expand or collapse all (#1267, docs/ui-design.md): the view goes back to the readable opening
+  // view — a block in sight at a zoom whose names read — not a fit of the whole graph.
+  const zoom = async () =>
+    parseFloat(((await graph.locator(".react-flow__viewport").getAttribute("style")) ?? "").split("scale(")[1] ?? "0");
+  for (const label of ["全部展开", "全部收起"]) {
+    await page.getByRole("button", { name: label }).click();
+    await expect(page.getByRole("button", { name: label === "全部展开" ? "全部收起" : "全部展开" })).toBeVisible();
+    await expect(graph.locator(".react-flow__node-component").first()).toBeInViewport();
+    expect(await zoom(), `${label}: the zoom`).toBeGreaterThanOrEqual(0.8);
+  }
+});
+
+test("Hello World with the bottom panel open: the minimap, if shown, covers no node (#1267)", async ({ page }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByRole("button", { name: "Hello World" }).first().click();
+  const nodes = page.locator(".react-flow__node");
+  await expect(nodes).toHaveCount(3);
+  await page.getByRole("tab", { name: "问题" }).click();
+  await expect.poll(async () => (await page.getByTestId("bottom-panel").boundingBox())!.height).toBeGreaterThan(100);
+  const rect = (r: { x: number; y: number; width: number; height: number }) => [r.x, r.y, r.x + r.width, r.y + r.height];
+  const overlap = (p: number[], q: number[]) => p[0] < q[2] && q[0] < p[2] && p[1] < q[3] && q[1] < p[3];
+  const map = page.locator(".react-flow__minimap");
+  if (await map.count()) {
+    const m = rect((await map.boundingBox())!);
+    for (const n of await nodes.all()) expect(overlap(m, rect((await n.boundingBox())!)), "the minimap covers a node").toBe(false);
+  }
+  await page.getByRole("button", { name: "关闭测试台" }).click(); // leave the workspace free
+});
+
+test("the SDG2042X's settings show their units: duty cycle and symmetry in %, the maximum output amplitude in V (#1267)", async ({
+  page,
+}) => {
+  await page.goto(`/i/siglent-sdg2042x?token=${TOKEN}`);
+  for (const [path, unit] of [
+    ["ch1.duty", "%"],
+    ["ch1.symmetry", "%"],
+    ["ch1.max_output_amp", " V"],
+  ]) {
+    const control = page.getByTestId(`overview-control-${path}`);
+    await expect(control, path).toBeVisible();
+    expect(((await control.textContent()) ?? "").trim().endsWith(unit), `${path} in ${unit}`).toBe(true);
+  }
 });
 
 test("an option alias is not listed twice, and a long command header is shown whole (#1252)", async ({ page }) => {

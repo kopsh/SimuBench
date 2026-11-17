@@ -11,7 +11,7 @@ import type {
 import { pickLabel } from "@/i18n";
 import i18n from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
-import { shortForm } from "@/features/workbench/model";
+import { formatValue, shortForm } from "@/features/workbench/model";
 
 export type Level = CoverageEntryInfo["level"];
 
@@ -219,7 +219,13 @@ export function panelView(inst: InstrumentInfo): PanelView {
 function rangeText(v: StateVarInfo | undefined): string | null {
   if (!v) return null;
   if (v.min != null || v.max != null) {
-    const shown = (n: number) => (v.unit ? eng(n, v.unit, 3) : String(n));
+    // The unit the workbench shows the value in (#1267): a display unit (%, Vpp) first, else the SCPI unit.
+    const shown = (n: number) =>
+      v.display_unit && v.type === "float"
+        ? formatValue({ ...v, value: n, special: null, unset: null }, 3)
+        : v.unit
+          ? eng(n, v.unit, 3)
+          : String(n);
     return `${v.min != null ? shown(v.min) : "−∞"} … ${v.max != null ? shown(v.max) : "∞"}`;
   }
   if (v.options?.length) return unique(v.options.map((o) => v.option_labels?.[o] ?? shortForm(o))).join(" | ");
