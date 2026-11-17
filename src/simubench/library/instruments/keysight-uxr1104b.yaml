@@ -1341,6 +1341,17 @@ components:
       codes_per_div: 128.0
       divs: 8.0
       offset_sign: subtract
+      # 非线性（#1266，数据手册 3123-1313 p.10 Vertical System – Performance Measurements，1 GHz 一列）：
+      # 60 mVFS、约 50 % 满量程时 HD2 ≤ -68 dBc、HD3 ≤ -61 dBc；700 mVFS（87.5 mV/div）、约 90 % 时 -55、-50 dBc。
+      # 折算到满量程正弦（HD2 每倍幅度 +6 dB、HD3 +12 dB）：-62/-49 与 -54.1/-48.2 dBc。频率关系（25、50 GHz 更差）未建模。
+      distortion_table: [[1.0e-3, -62.0, -49.0], [8.75e-2, -54.1, -48.2]]
+      # 交织（同页 Residuals, images, and spurious）：「Signal related, multiple per 16 GHz interval: -52 dBc」，
+      # 「Residual responses: -65 dBFS」——256 GSa/s / 16 GHz = 16 个子 ADC，一种余弦失配：像在 16 GHz ± f，杂散在 16 GHz。
+      interleave: 16
+      interleave_image_dbc: -52.0
+      interleave_spur_dbfs: -65.0
+      # 孔径抖动：数据手册 Horizontal 的 Intrinsic jitter（< 1 µs 采集 15 fs rms，所有接头型号）；按每个采样独立抽取。
+      aperture_jitter_s: 1.5e-14
       # 硬件最小量程 60 mV 满量程（数据手册 3123-1313 Hardware sensitivity）：7.5 mV/div 以下是该量程的放大，
       # 码宽保持 60 mV / 1024，削波在量程边缘而不在屏幕边缘（#1265）。
       min_full_scale: 0.06

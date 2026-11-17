@@ -535,7 +535,17 @@ class ScopeAdc(Component):
     ``min_full_scale`` (V at the input; 0: none) is the hardware's smallest range: a division
     smaller than ``min_full_scale / divs`` magnifies that range, so the code step stays the range's
     (a ``codes_per_div``-th of ``min_full_scale / divs``) and the converter clips at the range's
-    edges, not the screen's (#1265)."""
+    edges, not the screen's (#1265).
+
+    The converter's own non-idealities (#1266), referred to a sine that spans the converter's range
+    (0 dBFS): ``distortion_table`` rows ``[V/div at the input, HD2 dBc, HD3 dBc]`` (the row of the
+    largest division not above the setting) bend the signal around the middle of the range with
+    x² and x³ terms — a smaller signal has less, HD2 falling 6 dB and HD3 12 dB per halving, as a
+    polynomial's do; ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
+    pattern in gain (``interleave_image_dbc``: each image at k·fs/N ± f) and offset
+    (``interleave_spur_dbfs``: the spur at k·fs/N); ``aperture_jitter_s`` moves each sample instant
+    by its own draw (σ rms), whose noise on a sine of frequency f is 2πf·σ of it. Unset (the
+    defaults), none is drawn and the frames are what they were."""
 
     label = "ADC 组"
     label_en = "ADC group"
@@ -556,10 +566,17 @@ class ScopeAdc(Component):
         "max_rate_paired": 0.0,  # the top rate when both channels of a rate pair are on
         "rate_pairs": [],  # channels sharing a converter, e.g. [[1, 2], [3, 4]]
         "min_full_scale": 0.0,  # the hardware's smallest range, V at the input across divs (0: none)
+        "distortion_table": None,  # [[V/div at the input, HD2 dBc, HD3 dBc], ...] at 0 dBFS (None: none)
+        "interleave": 0,  # sub-converters interleaved on the max_rate grid (0, 1: none)
+        "interleave_image_dbc": None,  # their gain mismatch: each image at k*fs/N +- f, dBc (None: none)
+        "interleave_spur_dbfs": None,  # their offset mismatch: the spur at k*fs/N, dBFS (None: none)
+        "aperture_jitter_s": 0.0,  # the sampling clock's aperture jitter, s rms
         "vertical": "",  # the per-channel scope_vertical component: the scale, offset and input noise
         "probe": "",  # the per-channel scope_probe component: its ratio (noise) and skew
     }
-    units = {"max_rate": "Sa/s", "max_rate_paired": "Sa/s", "min_full_scale": "V"}
+    units = {
+        "max_rate": "Sa/s", "max_rate_paired": "Sa/s", "min_full_scale": "V", "aperture_jitter_s": "s",
+    }  # fmt: skip
 
     @classmethod
     def spec_of(cls, port: str) -> PortSpec | None:
@@ -577,6 +594,15 @@ class ScopeAdc(Component):
         given at the input; ``ratio`` the display volts per input volt, #1265)."""
         floor = float(self.param("min_full_scale")) / float(self.param("divs")) * ratio
         return max(scale, floor)
+
+    def _distortion(self, input_scale: float) -> tuple[float, float]:
+        """The x², x³ coefficients of the front end at this input V/div (#1266): HD2 = a2/2 and
+        HD3 = a3/4 on a sine that spans the converter's range."""
+        rows = sorted((float(r[0]), float(r[1]), float(r[2])) for r in self.param("distortion_table") or ())
+        if not rows:
+            return 0.0, 0.0
+        row = next((r for r in reversed(rows) if r[0] <= input_scale * (1 + 1e-9)), rows[0])
+        return 2.0 * 10 ** (row[1] / 20), 4.0 * 10 ** (row[2] / 20)
 
     def top_rate(self, on: set[int]) -> float:
         """The top sample rate with channels ``on`` displayed (inf when unlimited)."""
@@ -617,16 +643,28 @@ class ScopeAdc(Component):
     def view(self, n: int) -> AdcView:
         """What channel n's frames are computed from now, as values (a deep record keeps it)."""
         vertical, probe = self._vertical(n), self._probe(n)
+        scale = self.converter_scale(float(vertical.param("scale")), float(vertical.param("probe_ratio")))
+        bits, per_div = int(self.param("bits")), self.codes_per_div()
+        image, spur = self.param("interleave_image_dbc"), self.param("interleave_spur_dbfs")
+        top = float(self.param("max_rate"))
         return AdcView(
             signal=self.analog(n),
             skew=probe.delay() if probe is not None else 0.0,
             sigma=vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0),
             seed=self.session.seed,
-            scale=self.converter_scale(float(vertical.param("scale")), float(vertical.param("probe_ratio"))),
+            scale=scale,
             offset=float(vertical.param("offset")),
-            bits=int(self.param("bits")),
-            per_div=self.codes_per_div(),
+            bits=bits,
+            per_div=per_div,
             add=str(self.param("offset_sign")).lower() == "add",
+            hd=self._distortion(vertical.input_scale()),
+            # half the converter's span in display volts: the unit of the distortion and the spurs
+            half=scale * ((1 << bits) / per_div if bits > 0 else float(self.param("divs"))) / 2,
+            ilv=int(self.param("interleave")),
+            ilv_gain=0.0 if image is None else 2.0 * 10 ** (float(image) / 20),
+            ilv_offset=0.0 if spur is None else 10 ** (float(spur) / 20),
+            native_dt=1.0 / top if top > 0 else 0.0,
+            aperture=float(self.param("aperture_jitter_s")),
         )
 
     def sample_interval(self, port: str) -> float:

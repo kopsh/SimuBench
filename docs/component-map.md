@@ -21,7 +21,7 @@
 | input_port | `input_port` | 电路(阻抗到地) | 已实现 | — |
 | probe | `scope_probe` | 设置/数据(比例换算) | 已实现 | — |
 | vertical | `scope_vertical`(旧名 `scope_frontend`,仅为加载保留) | 信号(滤波与档位;带宽滤波形状 `response`:一阶、砖墙、高斯、4 阶 Bessel、4 阶 Butterworth,#607、#609;带宽是 DSP 的型号改用 ADC 之后的 `scope_dsp_filter`,#1262) | 已实现 | — |
-| adc | `scope_adc` | 采样流(模拟到数字的边界:按请求的时刻求值、加输入噪声、量化;`in<n>` 模拟信号、`out<n>` 采样流,D67、#950) | 已实现 | 有效位数随频率下降、交织失配未建模 |
+| adc | `scope_adc` | 采样流(模拟到数字的边界:按请求的时刻求值、加输入噪声、量化;`in<n>` 模拟信号、`out<n>` 采样流,D67、#950) | 已实现(非理想 #1266:谐波失真表、交织子 ADC 的像与杂散、孔径抖动) | 失真与杂散随频率的变化未建模 |
 | decimator | `scope_decimator` | 采样流(从 ADC 的速率到记录的速率:普通、平均、峰值检测、高分辨率,#950) | 已实现 | — |
 | decimator | `scope_dsp_filter` | 采样流(ADC 之后的数字带宽滤波:砖墙/高斯/Bessel4/Butterworth4,零相位 FIR,关时或不低于模拟带宽时直通;噪声随 √带宽 下降;UXR 的 `:ACQuire:BANDwidth` 与 InfiniiSim,#1262) | 已实现 | 记录慢于 ADC 16 倍以上时,奈奎斯特以上的噪声不再被滤掉 |
 | acquisition | `scope_acquisition` | 数据(定时、触发搜索、向采样流请求一帧并存成记录、运行控制;分段存储 `segments`、`rearm_s`、`segment_index`、`memory_points`:一次采集连续取 N 次触发各存一段,全部采满才完成,#957) | 已实现 | 分段存储每段的点数不随段数减少;跨段的测量统计与余辉未建模 |
