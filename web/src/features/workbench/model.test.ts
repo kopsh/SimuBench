@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, channelVars, distinctOptions, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, slotRows, splitSettings, stepNumber, wordOf } from "./model";
+import { accessoryLabel, channelVars, distinctOptions, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSettings, slotRows, splitSettings, stepNumber, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -112,6 +112,39 @@ describe("inspector settings (#728)", () => {
     expect(groupOpen(joined)).toBe(false);
     expect(groupName("function", true)).toBe("数学函数");
     expect(groupName("function")).toBe("功能");
+  });
+
+  it("puts exactly the summary on the panel when the definition gives one, the named flat settings beside it in the rest (#1313)", () => {
+    const vars = [v("ch1.display", 1, { label: "显示" }), v("ch1.scale", 1, { label: "档位" }), v("ch1.invert", 1, { label: "反相" }), v("ch1.bw.limit", 1)];
+    const { panel, rest } = panelSettings(vars, ["scale", "display"]);
+    expect(panel.map((x) => x.path)).toEqual(["ch1.scale", "ch1.display"]);
+    expect(rest.map((x) => x.path)).toEqual(["ch1.invert", "ch1.bw.limit"]);
+  });
+
+  it("puts the named flat settings on the panel when there is no summary (#1313)", () => {
+    const vars = [v("frequency", null, { label: "频率" }), v("skew"), v("mod.depth", null, { label: "深度" })];
+    const { panel, rest } = panelSettings(vars, []);
+    expect(panel.map((x) => x.path)).toEqual(["frequency"]);
+    expect(rest.map((x) => x.path)).toEqual(["skew", "mod.depth"]);
+  });
+
+  it("finds settings by every word of the query in either name or the path, ignoring case (#1313)", () => {
+    const vars = [
+      v("trigger.level1", null, { label: "触发电平 CH1", label_en: "Trigger level CH1" }),
+      v("trigger.level2", null, { label: "触发电平 CH2", label_en: "Trigger level CH2" }),
+      v("acquire.srate", null, { label: "采样率设定" }),
+    ];
+    expect(findSettings(vars, "触发电平 ch2").hits.map((x) => x.path)).toEqual(["trigger.level2"]);
+    expect(findSettings(vars, "LEVEL").total).toBe(2);
+    expect(findSettings(vars, "acquire.s").hits.map((x) => x.path)).toEqual(["acquire.srate"]);
+    expect(findSettings(vars, "  ").total).toBe(0);
+  });
+
+  it("lists at most the limit of matches and says how many matched (#1313)", () => {
+    const vars = Array.from({ length: 5 }, (_, i) => v(`display.bookmark${i}.color`));
+    const found = findSettings(vars, "bookmark", 3);
+    expect(found.hits).toHaveLength(3);
+    expect(found.total).toBe(5);
   });
 
   it("joins a measurement slot's kind and source into one row", () => {

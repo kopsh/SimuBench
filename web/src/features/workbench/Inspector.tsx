@@ -2,7 +2,7 @@ import { AlertTriangle, Blocks, Check, ChevronDown, ClipboardCheck, Copy, Monito
 import { type ReactNode, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
-import type { InstrumentInfo, SessionInfo } from "@/api/client";
+import type { InstrumentInfo, SessionInfo, StateVarInfo } from "@/api/client";
 import { useScpi, useSession } from "@/api/hooks";
 import { EmptyState } from "@/components/app/StateViews";
 import { SaveTemplateButton } from "@/features/assistant/SaveTemplateDialog";
@@ -13,7 +13,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, channelVars, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, ALL_OPEN_MAX, channelVars, findSettings, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
 import { RemoteBanner, RemoteMark } from "./RemoteBanner";
@@ -168,13 +168,8 @@ export function InstrumentInspector({ sid, inst, readonly }: { sid: string; inst
           </ul>
         </Section>
       )}
-      {globals.length > 0 && (
-        <Section title={t("workbench.settings")}>
-          <SettingsBlock sid={sid} inst={inst} vars={globals} summary={inst.display.summary} readonly={readonly} stateVars={vars} />
-        </Section>
-      )}
-      {channels.length > 0 && (
-        <ChannelSettings sid={sid} inst={inst} readonly={readonly} stateVars={vars} channels={channels} hidden={onScreen} />
+      {(globals.length > 0 || channels.length > 0) && (
+        <InstrumentSettings sid={sid} inst={inst} readonly={readonly} stateVars={vars} globals={globals} channels={channels} hidden={onScreen} />
       )}
       {onScreen.size > 0 && (
         <p data-testid="inspector-on-screen" className="text-muted-foreground flex items-center gap-1.5 text-xs">
@@ -358,64 +353,153 @@ type SettingsProps = {
 };
 
 /**
- * One channel at a time (a 4-channel scope no longer stacks four lists), picked by a CH selector in
- * the channel colours (#728).
+ * The instrument's settings (#1313): the panel holds what a front panel puts first (the summary, a
+ * CH selector and the channel's summary, #728); any other setting is found by name, or under
+ * 「全部设置」, which mounts its groups only when opened. Listing all of them made a scope's panel
+ * thousands of rows long, and every mounted control made the next dropdown slower to open.
  */
-function ChannelSettings({
+function InstrumentSettings({
   sid,
   inst,
   readonly,
   stateVars,
+  globals,
   channels,
   hidden,
-}: SettingsProps & { channels: number[]; /** Shown on the screen beside: left out here (#1229). */ hidden: Set<string> }) {
+}: SettingsProps & { globals: StateVarInfo[]; channels: number[]; /** Shown on the screen beside: left out here (#1229). */ hidden: Set<string> }) {
   const { t } = useTranslation();
   const [picked, setPicked] = useState(channels[0]);
+  const [query, setQuery] = useState("");
+  // Another instrument starts without a search; the picked channel stays (#733).
+  const [searched, setSearched] = useState(inst.name);
+  if (searched !== inst.name) {
+    setSearched(inst.name);
+    setQuery("");
+  }
   const n = channels.includes(picked) ? picked : channels[0];
   const reveal = useWorkbench((s) => s.reveal);
-  // A reveal request for a channel's setting picks that channel (adjusted while rendering).
+  // A reveal request picks the setting's channel and leaves a search, so the field is on the page (adjusted while rendering).
   const [seen, setSeen] = useState(reveal?.n);
   if (reveal?.n !== seen) {
     setSeen(reveal?.n);
-    const ch = reveal?.instrument === inst.name ? /^ch(\d+)\./.exec(reveal.path) : null;
-    if (ch && channels.includes(Number(ch[1]))) setPicked(Number(ch[1]));
+    if (reveal?.instrument === inst.name) {
+      setQuery("");
+      const ch = /^ch(\d+)\./.exec(reveal.path);
+      if (ch && channels.includes(Number(ch[1]))) setPicked(Number(ch[1]));
+    }
   }
+  const offScreen = (v: StateVarInfo) => !hidden.has(v.path);
+  const global = panelSettings(globals, inst.display.summary);
+  const channel = n === undefined ? { panel: [], rest: [] } : panelSettings(channelVars(inst, n).filter(offScreen), inst.display.channel_summary);
+  const restCount = global.rest.length + channel.rest.length;
+  const field = (v: StateVarInfo) => (
+    <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(stateVars, v.path)} />
+  );
+  const revealHere = reveal?.instrument === inst.name ? reveal : null;
   return (
-    <section data-testid="channel-settings">
-      {channels.length > 1 ? (
-        <div role="tablist" aria-label={t("workbench.channels")} className="mb-2 flex gap-1">
-          {channels.map((c) => (
-            <button
-              key={c}
-              type="button"
-              role="tab"
-              aria-selected={c === n}
-              onClick={() => setPicked(c)}
-              className={cn(
-                "num h-7 flex-1 rounded-md border text-xs font-semibold transition-colors",
-                c === n ? "bg-muted" : "text-muted-foreground hover:bg-muted/50",
+    <>
+      <Section title={t("workbench.settings")}>
+        <div className="space-y-3">
+          <Input
+            type="search"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={(e) => e.key === "Escape" && setQuery("")}
+            placeholder={t("workbench.findSetting")}
+            aria-label={t("workbench.findSetting")}
+            className="h-8 text-xs"
+            data-testid="setting-find"
+          />
+          {query.trim() ? (
+            <FoundSettings inst={inst} vars={[...globals, ...channels.flatMap((c) => channelVars(inst, c).filter(offScreen))]} query={query} field={field} />
+          ) : (
+            <>
+              {global.panel.length > 0 && <div className="space-y-1.5">{global.panel.map(field)}</div>}
+              {n !== undefined && (
+                <section data-testid="channel-settings" className="space-y-1.5">
+                  {channels.length > 1 ? (
+                    <div role="tablist" aria-label={t("workbench.channels")} className="mb-2 flex gap-1">
+                      {channels.map((c) => (
+                        <button
+                          key={c}
+                          type="button"
+                          role="tab"
+                          aria-selected={c === n}
+                          onClick={() => setPicked(c)}
+                          className={cn(
+                            "num h-7 flex-1 rounded-md border text-xs font-semibold transition-colors",
+                            c === n ? "bg-muted" : "text-muted-foreground hover:bg-muted/50",
+                          )}
+                          style={{ color: channelColor(c), borderColor: c === n ? channelColor(c) : undefined }}
+                        >
+                          {t("workbench.channelN", { n: c })}
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="num mb-1.5 text-[11px] font-semibold" style={{ color: channelColor(n) }}>
+                      {t("workbench.channelN", { n })}
+                    </div>
+                  )}
+                  {channel.panel.map(field)}
+                </section>
               )}
-              style={{ color: channelColor(c), borderColor: c === n ? channelColor(c) : undefined }}
-            >
-              {t("workbench.channelN", { n: c })}
-            </button>
-          ))}
+            </>
+          )}
         </div>
-      ) : (
-        <div className="num mb-1.5 text-[11px] font-semibold" style={{ color: channelColor(n) }}>
-          {t("workbench.channelN", { n })}
-        </div>
+      </Section>
+      {restCount > 0 && (
+        <Section
+          key={inst.name}
+          group="all"
+          title={
+            <span className="flex items-center gap-1.5">
+              {t("workbench.allSettings")}
+              <span className="num text-muted-foreground/70 font-normal">{restCount}</span>
+            </span>
+          }
+          collapsible
+          defaultOpen={restCount <= ALL_OPEN_MAX}
+          reveal={revealHere && [...global.rest, ...channel.rest].some((v) => v.path === revealHere.path) ? revealHere.n : null}
+        >
+          <div className="space-y-4">
+            {global.rest.length > 0 && <SettingsBlock sid={sid} inst={inst} vars={global.rest} summary={[]} readonly={readonly} stateVars={stateVars} />}
+            {channel.rest.length > 0 && (
+              <div className="space-y-1.5" data-testid="channel-rest">
+                <div className="num text-[11px] font-semibold" style={{ color: channelColor(n) }}>
+                  {t("workbench.channelN", { n })}
+                </div>
+                <SettingsBlock key={n} sid={sid} inst={inst} vars={channel.rest} summary={[]} readonly={readonly} stateVars={stateVars} />
+              </div>
+            )}
+          </div>
+        </Section>
       )}
-      <SettingsBlock
-        key={n}
-        sid={sid}
-        inst={inst}
-        vars={channelVars(inst, n).filter((v) => !hidden.has(v.path))}
-        summary={inst.display.channel_summary}
-        readonly={readonly}
-        stateVars={stateVars}
-      />
-    </section>
+    </>
+  );
+}
+
+/** A search's matches (#1313): the whole-instrument ones first, then each channel's under its CH name. */
+function FoundSettings({ inst, vars, query, field }: { inst: InstrumentInfo; vars: StateVarInfo[]; query: string; field: (v: StateVarInfo) => ReactNode }) {
+  const { t } = useTranslation();
+  const { hits, total } = findSettings(vars, query);
+  if (total === 0) return <p className="text-muted-foreground text-xs">{t("workbench.findNone")}</p>;
+  const byChannel = new Map<number | null, StateVarInfo[]>();
+  for (const v of hits) byChannel.set(v.channel ?? null, [...(byChannel.get(v.channel ?? null) ?? []), v]);
+  return (
+    <div className="space-y-2" data-testid="setting-found">
+      {[...byChannel].map(([ch, list]) => (
+        <div key={ch ?? "global"} className="space-y-1.5">
+          {ch != null && inst.channels > 1 && (
+            <div className="num text-[11px] font-semibold" style={{ color: channelColor(ch) }}>
+              {t("workbench.channelN", { n: ch })}
+            </div>
+          )}
+          {list.map(field)}
+        </div>
+      ))}
+      {total > hits.length && <p className="text-muted-foreground text-xs">{t("workbench.findMore", { count: total - hits.length })}</p>}
+    </div>
   );
 }
 
