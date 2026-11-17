@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StateVarInfo } from "@/api/client";
 import { useConfigure } from "@/api/hooks";
-import { commit, DraftInput, type DraftHandle, INVALID, type Parsed, SKIP } from "@/components/app/DraftInput";
+import { commit, DraftInput, type DraftHandle, INVALID, invalid, type Parsed, SKIP } from "@/components/app/DraftInput";
 import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { Button } from "@/components/ui/button";
 import {
@@ -98,7 +98,15 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
     );
   } else if (v.type === "float" || v.type === "int") {
     control = (
-      <NumberInput v={v} disabled={readonly} inactive={inactive} onCommit={commit} onInvalid={() => setError(t("workbench.refused"))} />
+      <NumberInput
+        v={v}
+        disabled={readonly}
+        inactive={inactive}
+        onCommit={commit}
+        // A refusal the parse rule explains ("the units this field takes", #1286) says so; the
+        // rest read as the plain refusal.
+        onInvalid={(reason) => setError(reason ?? t("workbench.refused"))}
+      />
     );
   } else {
     control = (
@@ -185,7 +193,12 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
 
 /** The units a number field takes as typed: its own, and the base unit it stores in. */
 function acceptedUnits(v: StateVarInfo): Set<string> {
-  return new Set([v.display_unit, displayUnit(v.unit), v.unit].filter((u): u is string => !!u).map((u) => u.toLowerCase()));
+  return new Set(unitChoices(v).map((u) => u.toLowerCase()));
+}
+
+/** The same units as they read in the field ("Vpp, V"), for the refusal message (#1286). */
+function unitChoices(v: StateVarInfo): string[] {
+  return [...new Set([v.display_unit, displayUnit(v.unit), v.unit].filter((u): u is string => !!u))];
 }
 
 function NumberInput({
@@ -200,7 +213,7 @@ function NumberInput({
   /** The automatic switch overrides the stored value: the field reads "Auto" until focused (#279). */
   inactive?: boolean;
   onCommit: (value: number | string) => void;
-  onInvalid: () => void;
+  onInvalid: (reason?: string) => void;
 }) {
   const { t } = useTranslation();
   const unit = v.display_unit ?? displayUnit(v.unit);
@@ -280,9 +293,12 @@ function NumberInput({
     if (typed === rest) return SKIP; // focused and left without a change
     if (typed === t("generator.highZ")) typed = "INF";
     if (unit && typed.endsWith(unit)) typed = typed.slice(0, -unit.length);
-    // Another unit than the field's ("2 Vrms" in a Vpp field) is refused, not read as the field's (#1257).
+    // Another unit than the field's ("2 Vrms" in a Vpp field) is refused, not read as the field's
+    // (#1257) — the message names what the field does take, so the refusal is diagnosable (#1286).
     const typedUnit = unitWord(typed);
-    if (typedUnit && !acceptedUnits(v).has(typedUnit)) return INVALID;
+    if (typedUnit && !acceptedUnits(v).has(typedUnit)) {
+      return invalid(t("workbench.unitsAccepted", { units: unitChoices(v).join(", ") }));
+    }
     const parsed = parseEngineering(typed);
     if (parsed === null) return INVALID;
     if (parsed === n) return SKIP;

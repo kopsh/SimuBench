@@ -26,6 +26,7 @@ import math
 from collections import OrderedDict
 from collections.abc import Callable, Iterable, Iterator
 from dataclasses import dataclass, replace
+from functools import lru_cache, partial
 
 import numpy as np
 
@@ -120,12 +121,13 @@ class AdcView:
         if self.sigma > 0:
             volts = volts + self.sigma * gaussian(stream_key(self.seed, *request.key), request.indexes())
         kept = self.quantize(volts)
-        clipped = False
+        clipped, sides = False, None
         if self.bits > 0:
             top, bottom = self.quantize(np.array([1e30, -1e30]))
-            clipped = bool(np.max(kept) >= top or np.min(kept) <= bottom)
+            sides = (bool(np.min(kept) <= bottom), bool(np.max(kept) >= top))
+            clipped = sides[0] or sides[1]
         fmt = SampleFormat("volts", bits=self.bits, lsb=self.scale / self.per_div if self.bits > 0 else 0.0)
-        return SampleFrame(kept, request.t0_ns, request.dt_s, fmt, clipped=clipped)
+        return SampleFrame(kept, request.t0_ns, request.dt_s, fmt, clipped=clipped, clip_sides=sides)
 
     def at(self, request: FrameRequest, positions: np.ndarray, shift: int = 0) -> np.ndarray:
         """The samples at ``positions`` (any integers) of the grid ``request`` starts, their noise
@@ -137,6 +139,151 @@ class AdcView:
             index = request.index0 + positions.astype(np.int64) + shift
             volts = volts + self.sigma * gaussian(stream_key(self.seed, *request.key), index)
         return self.quantize(volts)
+
+
+#: Samples a digital filter's kernel reaches on either side at the most (its warm-up): a filter far
+#: narrower than the sample rate is truncated there (FilterView).
+FILTER_MAX_REACH = 1 << 20
+#: Periods of the cutoff frequency the kernel reaches on either side.
+FILTER_PERIODS = 32
+
+
+@lru_cache(maxsize=8)
+def filter_kernel(response: str, fc: float, dt: float) -> np.ndarray:
+    """The FIR kernel of a scope's digital bandwidth filter (#1262): the impulse response of the
+    zero-phase ``response`` (``scope_vertical.response``'s shapes) at ``fc``, sampled every ``dt``,
+    reaching ``FILTER_PERIODS`` periods of ``fc`` on either side (at most ``FILTER_MAX_REACH``
+    samples), shaped by a Blackman window and scaled to unit gain at 0 Hz. The brick wall's and the
+    Gaussian's responses are closed forms (a sinc, a Gaussian); the Bessel's and the Butterworth's
+    the inverse transform of their responses. The window trades the brick wall's edge for a
+    transition about 0.2·fc wide (stop band below -70 dB); a filter whose reach is cut at
+    ``FILTER_MAX_REACH`` has a wider edge, in proportion."""
+    from ...engine.signal import bessel4, butterworth4
+
+    reach = int(min(FILTER_MAX_REACH, max(8, math.ceil(FILTER_PERIODS / (fc * dt)))))
+    k = np.arange(-reach, reach + 1, dtype=np.float64)
+    if response == "brickwall":
+        h = 2 * fc * dt * np.sinc(2 * fc * dt * k)
+    elif response == "gaussian":
+        # |H| = exp(-ln2/2 (f/fc)^2): h(t) ∝ exp(-(2π fc t)^2 / (2 ln2))
+        h = np.exp(-((2 * math.pi * fc * dt * k) ** 2) / (2 * math.log(2.0)))
+    else:
+        shape = {"bessel4": bessel4, "butterworth4": butterworth4}[response]
+        n = 1 << (4 * reach).bit_length()
+        full = np.fft.ifft(shape(fc)(np.fft.fftfreq(n, dt))).real
+        h = np.concatenate((full[-reach:], full[: reach + 1]))
+    h = h * np.blackman(2 * reach + 1)
+    total = float(h.sum())
+    kernel = h / total if total else h
+    kernel.flags.writeable = False
+    return kernel
+
+
+def _or_sides(a: tuple[bool, bool] | None, b: tuple[bool, bool] | None) -> tuple[bool, bool] | None:
+    if a is None or b is None:
+        return a if b is None else b
+    return (a[0] or b[0], a[1] or b[1])
+
+
+@dataclass(frozen=True)
+class FilterView:
+    """What a ``scope_dsp_filter`` frame of one channel is computed from (#1262): a zero-phase
+    ``response`` at ``fc`` applied to the converter's samples, or nothing (``fc`` None: the filter
+    passes the samples on unchanged, bit for bit). ``m``: converter samples per output sample the
+    filter works on (a record slower than the converter is filtered at the converter's rate, then
+    decimated, as the hardware's DSP does; at most the block's ``max_oversample``)."""
+
+    response: str = "brickwall"
+    fc: float | None = None
+    m: int = 1
+
+    @property
+    def active(self) -> bool:
+        return self.fc is not None
+
+    def reach(self, dt: float) -> int:
+        """The kernel's reach on either side at output interval ``dt``, in converter samples."""
+        if self.fc is None:
+            return 0
+        return len(filter_kernel(self.response, self.fc, dt / self.m)) // 2
+
+    def frame(self, request: FrameRequest, upstream: Upstream) -> SampleFrame:
+        if self.fc is None:
+            return upstream(request)
+        m = self.m
+        kernel = filter_kernel(self.response, self.fc, request.dt_s / m)
+        w = len(kernel) // 2
+        wide = replace(
+            request,
+            count=request.count * m + 2 * w,
+            dt_s=request.dt_s / m,
+            first=request.first * m - w,
+            index0=request.index0 * m - w,
+        )
+        up = upstream(wide)
+        size = up.count + kernel.size - 1
+        nfft = 1 << (size - 1).bit_length()
+        full = np.fft.irfft(np.fft.rfft(up.data, nfft) * np.fft.rfft(kernel, nfft), nfft)
+        out = full[2 * w : 2 * w + request.count * m : m]
+        return SampleFrame(
+            out,
+            request.t0_ns,
+            request.dt_s,
+            SampleFormat("volts"),
+            clipped=up.clipped,
+            clip_sides=up.clip_sides,
+        )
+
+
+@dataclass(frozen=True, eq=False)
+class ChainView:
+    """A channel's converter and the digital filters after it, captured (a deep record keeps it):
+    frames and single samples computed through all of them, in order."""
+
+    adc: AdcView
+    filters: tuple[FilterView, ...] = ()
+
+    @property
+    def signal(self) -> Signal:
+        return self.adc.signal
+
+    @property
+    def seed(self) -> int:
+        return self.adc.seed
+
+    @property
+    def cost(self) -> int:
+        """Converter samples one output sample takes (the filters' oversampling)."""
+        return math.prod(f.m for f in self.filters if f.active)
+
+    def frame(self, request: FrameRequest) -> SampleFrame:
+        upstream: Upstream = self.adc.frame
+        for flt in self.filters:
+            upstream = partial(flt.frame, upstream=upstream)
+        return upstream(request)
+
+    def at(self, request: FrameRequest, positions: np.ndarray, shift: int = 0) -> np.ndarray:
+        """The samples at ``positions``: one by one through the converter when no filter is on;
+        through a filter, a frame around each run of nearby positions (a filtered sample needs its
+        neighbours), the same values a frame there gives."""
+        if not any(f.active for f in self.filters):
+            return self.adc.at(request, positions, shift)
+        out = np.empty(positions.size)
+        if not positions.size:
+            return out
+        order = np.argsort(positions, kind="stable")
+        sorted_ = positions[order]
+        reach = sum(f.reach(request.dt_s) for f in self.filters) + 1
+        breaks = np.flatnonzero(np.diff(sorted_) > 2 * reach) + 1
+        for lo, hi in zip(
+            np.concatenate(([0], breaks)), np.concatenate((breaks, [sorted_.size])), strict=True
+        ):
+            a, b = int(sorted_[lo]), int(sorted_[hi - 1])
+            part = replace(
+                request, first=request.first + a, count=b - a + 1, index0=request.index0 + a + shift
+            )
+            out[order[lo:hi]] = self.frame(part).data[sorted_[lo:hi] - a]
+        return out
 
 
 Upstream = Callable[[FrameRequest], SampleFrame]
@@ -184,17 +331,18 @@ class DecimatorView:
         if self.proc == "eres" and whole is not None and self.w > 1:
             return self._boxcar_part(request, native, upstream, part, whole)
         frame = upstream(native)
-        volts, clipped = frame.data, frame.clipped
+        volts, clipped, sides = frame.data, frame.clipped, frame.clip_sides
         if self.m > 1:
             volts = peak_detect(volts, self.m)
         elif self.proc == "average":
             for k in range(1, self.count):
                 more = upstream(replace(native, index0=native.index0 + k * stride))
                 volts, clipped = volts + more.data, clipped or more.clipped
+                sides = _or_sides(sides, more.clip_sides)
             volts = volts / self.count
         elif self.proc == "eres":
             volts = boxcar(volts, self.w)
-        return SampleFrame(volts, request.t0_ns, request.dt_s, frame.fmt, clipped=clipped)
+        return SampleFrame(volts, request.t0_ns, request.dt_s, frame.fmt, clipped=clipped, clip_sides=sides)
 
     def _boxcar_part(
         self, request: FrameRequest, native: FrameRequest, upstream: Upstream, part: int, whole: int
@@ -210,10 +358,17 @@ class DecimatorView:
         frame = upstream(wide)
         padded = np.pad(frame.data, (left - (part - lo), right - (hi - part - n)), mode="edge")
         return SampleFrame(
-            _window_mean(padded, w), request.t0_ns, request.dt_s, frame.fmt, clipped=frame.clipped
+            _window_mean(padded, w),
+            request.t0_ns,
+            request.dt_s,
+            frame.fmt,
+            clipped=frame.clipped,
+            clip_sides=frame.clip_sides,
         )
 
-    def at(self, adc_view: AdcView, request: FrameRequest, positions: np.ndarray, whole: int) -> np.ndarray:
+    def at(
+        self, adc_view: AdcView | ChainView, request: FrameRequest, positions: np.ndarray, whole: int
+    ) -> np.ndarray:
         """The record samples at ``positions`` (record indices) of the record ``request`` asks for
         whole (``whole`` points), each computed on its own."""
         native = self.native(request)
@@ -273,9 +428,9 @@ class Points:
 class DeepRecord:
     """The samples of a record deeper than ``EAGER_POINTS``, computed tile by tile where read.
 
-    ``request`` is what the acquisition asked the channel's chain for (the whole record); ``adc``
-    and ``dec`` are the chain, captured when the record was acquired; ``correct`` the calibration's
-    (gain, offset), if any."""
+    ``request`` is what the acquisition asked the channel's chain for (the whole record); ``adc``,
+    the ``filters`` after it (#1262) and ``dec`` are the chain, captured when the record was
+    acquired; ``correct`` the calibration's (gain, offset), if any."""
 
     def __init__(
         self,
@@ -284,13 +439,17 @@ class DeepRecord:
         adc_view: AdcView,
         dec: DecimatorView,
         correct: tuple[float, float] | None,
+        filters: tuple[FilterView, ...] = (),
     ) -> None:
         self.points = points
         self.request = request
         self.adc = adc_view
+        self.chain = ChainView(adc_view, filters)
         self.dec = dec
         self.correct = correct
-        self.tile = tile_size(adc_view.signal.freq.size, dec.cost)
+        #: Converter samples one record sample takes along the whole chain.
+        self.cost = dec.cost * self.chain.cost
+        self.tile = tile_size(adc_view.signal.freq.size, self.cost)
         self._tiles: OrderedDict[int, np.ndarray] = OrderedDict()
         self._whole: np.ndarray | None = None
 
@@ -310,7 +469,7 @@ class DeepRecord:
         req = replace(
             self.request, first=self.request.first + a, count=n, index0=self.request.index0 + a * self.dec.m
         )
-        values = self._corrected(self.dec.frame(req, self.adc.frame, part=a, whole=self.points).data)
+        values = self._corrected(self.dec.frame(req, self.chain.frame, part=a, whole=self.points).data)
         values.flags.writeable = False
         self._tiles[t] = values
         while len(self._tiles) * self.tile > TILE_CACHE_SAMPLES and len(self._tiles) > 1:
@@ -325,7 +484,7 @@ class DeepRecord:
             raise beyond_model(
                 f"a read of {points} points at once (at most {MAX_FRAME}); read the record in parts"
             )
-        total = tiles * self.tile * self.dec.cost
+        total = tiles * self.tile * self.cost
         if total > MAX_REQUEST_FANOUT:
             raise beyond_model(
                 f"this read of the record asks for {total} samples along the chain "
@@ -388,7 +547,7 @@ class DeepRecord:
 
     def at(self, positions: np.ndarray) -> np.ndarray:
         """Samples at ``positions``, each computed on its own (the envelope's draws)."""
-        return self._corrected(self.dec.at(self.adc, self.request, positions, self.points))
+        return self._corrected(self.dec.at(self.chain, self.request, positions, self.points))
 
 
 class Record:
@@ -427,6 +586,10 @@ class Record:
         self.trigger_ns = trigger_ns  # the trigger's instant (holdoff); None: untriggered
         self._volts = volts
         self.deep = deep
+        #: Which ends of the converter's range the acquisition touched, 1 low | 2 high, as the
+        #: converter saw them (a digital filter after it moves the samples off the codes, #1262);
+        #: None: read it from the samples.
+        self.clip: int | None = None
 
     @property
     def origin(self) -> float:
@@ -469,7 +632,7 @@ class Record:
         size = CHUNK
         if self.deep is not None:
             tile = self.deep.tile
-            size = max(tile, (min(CHUNK, MAX_REQUEST_FANOUT // max(1, self.deep.dec.cost)) // tile) * tile)
+            size = max(tile, (min(CHUNK, MAX_REQUEST_FANOUT // max(1, self.deep.cost)) // tile) * tile)
         for lo in range(a, b, size):
             yield self.span(lo, min(b, lo + size))
 
@@ -480,11 +643,11 @@ class Record:
         pure function of ``key`` and the record (the screen does not compute the whole record)."""
         n = self.points
         edges = np.linspace(0, n, bins + 1, dtype=int)
-        exact = self.deep is None or n * self.deep.dec.cost <= ENVELOPE_BUDGET
+        exact = self.deep is None or n * self.deep.cost <= ENVELOPE_BUDGET
         if self.deep is not None and not exact:
             dec = self.deep.dec
             # draws per bin: fewer where one draw costs many converter samples, at least one
-            per = dec.cost * max(1, dec.w)
+            per = self.deep.cost * max(1, dec.w)
             k = max(1, min(ENVELOPE_SAMPLES, ENVELOPE_BUDGET // max(1, bins * per)))
             cost = bins * k * per
             if cost > ENVELOPE_BUDGET:

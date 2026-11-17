@@ -141,6 +141,10 @@ class SampleFrame:
     df_hz: float = 0.0
     #: Whether a sample in this frame touched full scale.
     clipped: bool = False
+    #: Which ends of the converter's range the frame touched, (low, high), as the converter saw it:
+    #: a digital filter after the converter keeps it, since its samples no longer sit on the
+    #: codes (#1262). None: read it from the samples themselves.
+    clip_sides: tuple[bool, bool] | None = None
     notes: tuple[FidelityNote, ...] = ()
 
     def __post_init__(self) -> None:

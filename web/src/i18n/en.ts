@@ -278,6 +278,7 @@ export const en: Widen<Messages> = {
     settings: "Settings",
     state: "State",
     refused: "Setting refused",
+    unitsAccepted: "Units this field accepts: {{units}}",
     autoInactive: "Not in effect while auto is on",
     computedOnRead: "Deep records are computed when read: only what is read, so reads and measurements take longer with more points",
     auto: "Auto",

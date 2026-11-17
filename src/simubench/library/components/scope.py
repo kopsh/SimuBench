@@ -2501,11 +2501,13 @@ class ScopeAcquisition(Component):
             # the channel's chain (ADC, then the decimator's acquisition mode) gives the record's
             # samples, the codes, as volts (D46: they are kept).
             deep = self._deep(n, request)
-            volts = None
+            volts, clip = None, None
             if deep is None:
                 frames = self.input_frames(f"in{n}", request)
                 volts = self.vertical_of(n).correct(frames.data)
                 self._latch_clip(n, frames)
+                if frames.clip_sides is not None:
+                    clip = (1 if frames.clip_sides[0] else 0) | (2 if frames.clip_sides[1] else 0)
             records[n] = Record(
                 channel=n,
                 t_start_ns=t_start_ns,
@@ -2519,6 +2521,7 @@ class ScopeAcquisition(Component):
                 x_origin_s=x_origin * nominal_dt / dt,  # in the scope's own (nominal) time
                 trigger_ns=trigger_ns,
             )
+            records[n].clip = clip
         if triggered or self.param("untriggered") == "record":
             used = (k + max(post, 0)) * dt
         else:  # the whole trigger search
@@ -2533,13 +2536,16 @@ class ScopeAcquisition(Component):
         if not frame.clipped:
             return
         fmt = frame.fmt
-        if fmt.bits <= 0:
+        if frame.clip_sides is not None:  # the converter's own (a filter after it keeps them, #1262)
+            low, high = frame.clip_sides
+        elif fmt.bits <= 0:
             return
-        half, lsb = 1 << (fmt.bits - 1), float(fmt.lsb)
+        else:
+            half, lsb = 1 << (fmt.bits - 1), float(fmt.lsb)
+            low = bool(np.min(frame.data) <= -half * lsb)
+            high = bool(np.max(frame.data) >= (half - 1) * lsb)
         at = self.scale_offset(n)
         latch = self.clip_latches.setdefault(n, {"adc_low": False, "adc_high": False, "low": False, "at": at})
-        low = bool(np.min(frame.data) <= -half * lsb)
-        high = bool(np.max(frame.data) >= (half - 1) * lsb)
         latch["adc_low"] |= low
         latch["adc_high"] |= high
         latch["low"] |= low or high
@@ -2582,7 +2588,8 @@ class ScopeAcquisition(Component):
         """Channel n's record for ``request`` as a deep record — the chain captured, nothing
         computed — when it is deeper than ``EAGER_POINTS`` or its samples along the chain exceed the
         model's fan-out (an average of many acquisitions). None: computed whole now. A chain other
-        than the scope's own ADC and decimator is computed whole (and refused beyond the model)."""
+        than the scope's own ADC, its digital filters (#1262) and decimator is computed whole (and
+        refused beyond the model)."""
         dec = self.decimator_unit()
         view = dec.view() if isinstance(dec, ScopeDecimator) else None
         # A high-resolution boxcar is a running sum along the whole record, whose rounding a tile
@@ -2593,11 +2600,27 @@ class ScopeAcquisition(Component):
         assert self.owner is not None and dec.owner is not None
         if self.owner.wiring.source(self.name, f"in{n}") != (dec.name, f"out{n}"):
             return None
+        from .scope_dsp import ScopeDspFilter  # the filter module builds on this one
+
+        filters = []
         src = dec.owner.wiring.source(dec.name, f"in{n}")
         converter = dec.owner.components.get(src[0]) if src is not None else None
+        while (
+            isinstance(converter, ScopeDspFilter) and src == (converter.name, f"out{n}") and len(filters) < 8
+        ):
+            filters.append(converter.view(n, request.dt_s))
+            src = dec.owner.wiring.source(converter.name, f"in{n}")
+            converter = dec.owner.components.get(src[0]) if src is not None else None
         if not isinstance(converter, ScopeAdc) or src != (converter.name, f"out{n}"):
             return None
-        return DeepRecord(request.count, request, converter.view(n), view, self.vertical_of(n).correction())
+        return DeepRecord(
+            request.count,
+            request,
+            converter.view(n),
+            view,
+            self.vertical_of(n).correction(),
+            tuple(filters[::-1]),
+        )
 
     def _trigger_hit(
         self, t0: int, dt: float, pre: int, points: int, waits: bool, earliest_s: float = 0.0
@@ -3511,6 +3534,8 @@ class ScopeMeasurements(Component):
             rec, _ = acq.measure_record(n)
         except ScpiError:
             return 0
+        if getattr(rec, "clip", None) is not None:
+            return int(rec.clip)  # the converter's own, a filter after it notwithstanding (#1262)
         v = np.asarray(rec.volts, dtype=float)
         if not v.size or not acq.adc_unit().param("bits"):
             return 0

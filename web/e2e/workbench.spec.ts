@@ -908,6 +908,35 @@ test("internals: a setting row locates its field in the inspector, in the right 
   await expect(page.locator('[data-setting="ch3.scale"] input')).toBeFocused();
 });
 
+test("the inspector folds the 100 bookmarks into one block, the picker lists only that instance (#1286)", async ({
+  page,
+}) => {
+  const start = await page.request.post("/api/sessions", {
+    headers: { "x-simubench-token": TOKEN },
+    data: { bench_path: "benches/keysight-uxr1104b.bench.yaml", force: true },
+  });
+  const sid = ((await start.json()) as { id: string }).id;
+  await page.goto(`/s/${sid}?token=${TOKEN}`);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).first().click();
+  const inspector = page.getByTestId("inspector-panel");
+
+  // The 100 bookmarks fold into one block (>= 4 instances); settings outside the family stay rows.
+  const family = inspector.locator('[data-testid="setting-family"][data-family="display.bookmark"]');
+  await expect(family).toBeVisible();
+  await expect(family.getByText("共 100 个")).toBeVisible();
+  await expect(family.locator('[data-setting="display.bookmark1.color"]')).toBeVisible();
+  await expect(family.locator('[data-setting="display.bookmark3.color"]')).toHaveCount(0);
+  await expect(inspector.locator('[data-setting="display.graticule"]')).toBeVisible();
+
+  // The picker starts at the first instance; switching lists only that instance's settings.
+  const picker = family.getByRole("combobox", { name: "bookmark 的编号" });
+  await expect(picker).toHaveText("1");
+  await picker.click();
+  await page.getByRole("option", { name: "3", exact: true }).click();
+  await expect(family.locator('[data-setting="display.bookmark3.color"]')).toBeVisible();
+  await expect(family.locator('[data-setting="display.bookmark1.color"]')).toHaveCount(0);
+});
+
 test("the settings groups span the screen, not a nested grid's first column", async ({
   page,
 }) => {
