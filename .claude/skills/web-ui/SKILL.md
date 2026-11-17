@@ -79,6 +79,9 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   locate request (`reveal`, #800), and the inspector shown or folded per kind of tab
   (`INSPECTOR_SHOWN`, `lentTo`: a selection or locate shows a folded inspector until the tab
   changes, #1221) and its width per kind (`INSPECTOR_SIZE`, narrower beside a screen, #1229).
+  The tab and the inspector always show the same instrument (`followInstrument`, `tabInstrument`):
+  choosing an instrument tab selects its instrument; selecting or locating another instrument on an
+  instrument tab moves to that instrument's tab of the same kind; the canvas keeps its selection.
   Keep such rules in store actions (unit-tested in `store.test.ts`), not in effects that call
   `setState`: the React compiler lint rejects those, and refs written during render.
 - Inspector panel (#1313, D74 #1315): the panel holds the definition's `display.panel.groups` and,

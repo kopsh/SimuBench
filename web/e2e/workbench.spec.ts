@@ -94,6 +94,36 @@ test("open the scope screen by double-clicking its node", async ({ page }) => {
   await expect(page.getByText("运行中", { exact: true })).toBeVisible(); // a scope runs from power-on
 });
 
+test("the inspector shows the open tab's instrument, and resets that one instrument alone", async ({ page }) => {
+  await startBench(page);
+  const inspector = page.getByTestId("inspector-panel");
+  const node = (label: string) => page.locator(".react-flow__node").filter({ hasText: label });
+  await node("示波器").dblclick();
+  await page.getByRole("tab", { name: "画布" }).click();
+  await node("函数发生器").dblclick();
+  await expect(inspector.getByText("函数发生器", { exact: true })).toBeVisible();
+  // Back to the scope's tab: its inspector comes with it, not the generator's.
+  await page.getByRole("tab", { name: "示波器" }).click();
+  await expect(inspector.getByText("示波器", { exact: true })).toBeVisible();
+  await expect(inspector.getByText("函数发生器", { exact: true })).toHaveCount(0);
+
+  // Reset only the scope: its setting returns, the generator keeps its own.
+  const sid = sessionIdOf(page.url())!;
+  const headers = { "x-simubench-token": TOKEN };
+  const configure = (name: string, path: string, value: number) =>
+    page.request.post(`/api/sessions/${sid}/instruments/${name}/configure`, { headers, data: { path, value } });
+  await configure("scope", "ch1.scale", 0.5);
+  await configure("awg", "ch1.frequency", 2000);
+  await inspector.getByRole("button", { name: "重置此仪表" }).click();
+  await expect(page.getByText("示波器 已重置（*RST）")).toBeVisible();
+  const info = (await (await page.request.get(`/api/sessions/${sid}`, { headers })).json()) as {
+    instruments: { name: string; state: { path: string; value: number }[] }[];
+  };
+  const value = (name: string, path: string) => info.instruments.find((i) => i.name === name)!.state.find((v) => v.path === path)!.value;
+  expect(value("scope", "ch1.scale")).not.toBe(0.5);
+  expect(value("awg", "ch1.frequency")).toBe(2000);
+});
+
 test("the scope's run, stop and single are front-panel buttons, not SCPI", async ({
   page,
 }) => {
