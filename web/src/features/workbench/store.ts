@@ -64,6 +64,8 @@ interface WorkbenchState {
   /** The version history dialog (D35) is open. */
   historyOpen: boolean;
   bottomTab: "comms" | "events" | "problems";
+  /** The user chose the bottom tab: opening the log by itself no longer picks one (#1360). */
+  bottomTabChosen: boolean;
   select: (s: Selection) => void;
   openScreen: (instrument: string) => void;
   /** The read-only view of an instrument's components (issue 20). */
@@ -77,6 +79,8 @@ interface WorkbenchState {
   setPalette: (open: boolean) => void;
   setHistory: (open: boolean) => void;
   setBottomTab: (tab: WorkbenchState["bottomTab"]) => void;
+  /** The log opened by itself on `tab` (the first with something to read), unless the user chose one. */
+  openBottomOn: (tab: WorkbenchState["bottomTab"]) => void;
   /** The AI assistant panel (#877) is shown; remembered in this browser, kept across sessions. */
   assistantOpen: boolean;
   setAssistant: (open: boolean) => void;
@@ -101,7 +105,8 @@ const initial = {
   active: "canvas",
   paletteOpen: false,
   historyOpen: false,
-  bottomTab: "comms" as const,
+  bottomTab: "comms" as WorkbenchState["bottomTab"],
+  bottomTabChosen: false,
 };
 
 /** The instrument a tab key belongs to ("screen:scope" → "scope"), or null for the canvas. */
@@ -197,7 +202,8 @@ export const useWorkbench = create<WorkbenchState>((set) => ({
     }),
   setPalette: (paletteOpen) => set({ paletteOpen }),
   setHistory: (historyOpen) => set({ historyOpen }),
-  setBottomTab: (bottomTab) => set({ bottomTab }),
+  setBottomTab: (bottomTab) => set({ bottomTab, bottomTabChosen: true }),
+  openBottomOn: (tab) => set((s) => (s.bottomTabChosen ? {} : { bottomTab: tab })),
   reset: () => set(initial),
   restore: (tabs, active) =>
     set(() => {

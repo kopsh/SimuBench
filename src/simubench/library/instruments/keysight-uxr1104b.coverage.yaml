@@ -2885,7 +2885,7 @@ sections:
     level: implemented
     note: upper to lower level of the source's rise/fall thresholds (:MEASure:THResholds:RFALl, 90 % to 10 % of
       top minus base by default); the PAM-4 level arguments are not modeled; the command form adds it to the screen
-      (:MEASure:RESults?)
+      (:MEASure:RESults?). Four or more samples on the edge (one below the lower threshold, one above the upper, two between), else 9.99999E+37 (the guide, #1332); the edge starts at its last lower (upper) crossing before the upper (lower) one, so noise on the base does not stretch it.
   - header: :MEASure:FFT:CPOWer
     level: implemented
     note: The power of the source transform's band <center> ± <bw>/2, in dBm (#1074).
@@ -3242,7 +3242,7 @@ sections:
   - header: :MEASure:OVERshoot
     level: implemented
     note: the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37 when it cannot be
-      measured
+      measured. Of the first edge on the screen (as the guide defines it), the local maximum after a rising edge (minimum after a falling one), up to the next edge, over the top (#1332).
   - header: :MEASure:PAM:ELEVel
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM,
@@ -3542,7 +3542,7 @@ sections:
   - header: :MEASure:PREShoot
     level: implemented
     note: the command form adds the measurement to the screen (:MEASure:RESults?); 9.99999E+37 when it cannot be
-      measured
+      measured. Of the first edge on the screen (as the guide defines it), the local minimum before a rising edge (maximum before a falling one), from the start of the record, under the base (#1332).
   - header: :MEASure:PTOP
     level: implemented
     note: The mean of the first positive pulse within the centred window of <pulse width percent> (0-100) of its
@@ -3582,7 +3582,7 @@ sections:
     level: implemented
     note: lower to upper level of the source's rise/fall thresholds (:MEASure:THResholds:RFALl, 10 % to 90 % of
       top minus base by default); the PAM-4 level arguments are not modeled; the command form adds it to the screen
-      (:MEASure:RESults?)
+      (:MEASure:RESults?). Four or more samples on the edge (one below the lower threshold, one above the upper, two between), else 9.99999E+37 (the guide, #1332); the edge starts at its last lower (upper) crossing before the upper (lower) one, so noise on the base does not stretch it.
   - header: :MEASure:RJDJ:ALL
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM,

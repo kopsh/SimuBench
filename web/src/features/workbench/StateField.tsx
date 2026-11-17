@@ -1,5 +1,5 @@
 import { AlertCircle, ChevronDown, ChevronUp } from "lucide-react";
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type ReactNode, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { StateVarInfo } from "@/api/client";
 import { useConfigure } from "@/api/hooks";
@@ -46,11 +46,15 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
   const { t } = useTranslation();
   const configure = useConfigure(sid);
   useCountOnScreen(instrument, v.path);
-  const [error, setError] = useState<string | null>(null);
+  // A refusal is said where it happened (#1353): the reason under the field, and the text the user
+  // typed kept in it (`text`) so it can be corrected; Esc or the next accepted value clears it.
+  const [error, setError] = useState<{ reason: string; text?: string } | null>(null);
   const [confirm, setConfirm] = useState<null | (() => void)>(null);
+  const messageId = useId();
 
-  const commit = (value: unknown) => {
+  const commit = (value: unknown, typed?: string) => {
     if (onCommit) {
+      setError(null);
       onCommit(value);
       return;
     }
@@ -58,9 +62,9 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
       configure.mutate(
         { instrument, path: v.path, value },
         {
-          onSuccess: (r) => setError(r.ok ? null : `${r.error?.code}, ${r.error?.message}`),
+          onSuccess: (r) => setError(r.ok ? null : { reason: `${r.error?.code}, ${r.error?.message}`, text: typed }),
           // A remote instrument is reported by the hook, with LOCAL (#121).
-          onError: (e) => setError(remoteInstrument(e) ? null : (e as Error).message),
+          onError: (e) => setError(remoteInstrument(e) ? null : { reason: (e as Error).message, text: typed }),
         },
       );
     if (v.dangerous && value === true) setConfirm(() => run);
@@ -104,8 +108,11 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
         inactive={inactive}
         onCommit={commit}
         // A refusal the parse rule explains ("the units this field takes", #1286) says so; the
-        // rest read as the plain refusal.
-        onInvalid={(reason) => setError(reason ?? t("workbench.refused"))}
+        // rest say what the field reads.
+        onInvalid={(reason, typed) => setError({ reason: reason ?? t("workbench.unreadable"), text: typed })}
+        held={error?.text}
+        onCancel={() => setError(null)}
+        describedBy={error ? messageId : undefined}
       />
     );
   } else {
@@ -153,14 +160,21 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
         {error && (
           <Tooltip>
             <TooltipTrigger asChild>
-              <AlertCircle className="text-error size-4 shrink-0" aria-label={error} />
+              <AlertCircle className="text-error size-4 shrink-0" aria-label={error.reason} />
             </TooltipTrigger>
             <TooltipContent>
-              {t("workbench.refused")}: {error}
+              {t("workbench.refused")}: {error.reason}
             </TooltipContent>
           </Tooltip>
         )}
       </div>
+      {error && (
+        <p id={messageId} role="alert" className="text-error col-span-full mt-0.5 text-right text-[11px] leading-snug" data-testid="field-refusal">
+          {error.text !== undefined
+            ? t("workbench.refusedValue", { text: error.text.trim(), reason: error.reason })
+            : `${t("workbench.refused")}：${error.reason}`}
+        </p>
+      )}
       <Dialog open={!!confirm} onOpenChange={(o) => !o && setConfirm(null)}>
         <DialogContent>
           <DialogHeader>
@@ -207,13 +221,20 @@ function NumberInput({
   inactive,
   onCommit,
   onInvalid,
+  held,
+  onCancel,
+  describedBy,
 }: {
   v: StateVarInfo;
   disabled?: boolean;
   /** The automatic switch overrides the stored value: the field reads "Auto" until focused (#279). */
   inactive?: boolean;
-  onCommit: (value: number | string) => void;
-  onInvalid: (reason?: string) => void;
+  onCommit: (value: number | string, typed?: string) => void;
+  onInvalid: (reason: string | undefined, typed: string) => void;
+  /** A refused text kept in the field (#1353). */
+  held?: string;
+  onCancel: () => void;
+  describedBy?: string;
 }) {
   const { t } = useTranslation();
   const unit = v.display_unit ?? displayUnit(v.unit);
@@ -247,9 +268,9 @@ function NumberInput({
     const id = setTimeout(() => setAsked(null), 1000);
     return () => clearTimeout(id);
   }, [asked]);
-  const handleCommit = (value: number | string) => {
+  const handleCommit = (value: number | string, typed?: string) => {
     if (typeof value === "number" && Number.isFinite(value)) setAsked({ at: n, to: value });
-    onCommit(value);
+    onCommit(value, typed);
   };
   const canStep = !disabled && !inactive;
   const step = (dir: 1 | -1, coarse = false) => {
@@ -314,6 +335,10 @@ function NumberInput({
         parse={parse}
         onCommit={handleCommit}
         onInvalid={onInvalid}
+        held={held}
+        onCancel={onCancel}
+        aria-invalid={held !== undefined || undefined}
+        aria-describedby={describedBy}
         disabled={disabled}
         onKeyDown={(e) => {
           if (e.key === "ArrowUp" || e.key === "ArrowDown") {

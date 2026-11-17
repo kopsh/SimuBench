@@ -57,7 +57,7 @@
   ],
   [
    ":CALC:MARK:Y?",
-   "345b1ad9ba546e77d9ca187bd7b308ecbd7a8070cdc706d0eb05e19c739d8b96",
+   "07cdd7c61c8de53685dc8760db01b3766507efb9371bff5853c598d21a738a89",
    0
   ],
   [
@@ -72,7 +72,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "bd3487e73e8094c6f62579a181a4f4a5244c7b64d3f43a03a451faff471460dc",
+   "78191fc5474f0d276067aa99ec13586e91568e048cb6ea5bf177f9ce6b200716",
    0
   ],
   [
@@ -117,7 +117,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "b799653d056f5db21ab6d3cc763d8a4641e345ed4b21c871e252313c5a7c9aee",
+   "dadf831eebdc6a8fd06b50f0c9a46b891e4aa04a554106877f2e01597729cdc2",
    0
   ],
   [
@@ -132,7 +132,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "b799653d056f5db21ab6d3cc763d8a4641e345ed4b21c871e252313c5a7c9aee",
+   "dadf831eebdc6a8fd06b50f0c9a46b891e4aa04a554106877f2e01597729cdc2",
    0
   ],
   [
@@ -147,7 +147,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "e9822523c55e6d3bd2f4207d3203848d682fee76a0d392b6fe1382030b22dd72",
+   "4fd04a57277736a2d7f5cc6bd2ffaf79b57318e12bc928d0609f2f1db2fbdf29",
    0
   ],
   [
@@ -167,7 +167,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "4233e7c625cc20953d9a3c86a8600c633bd091edac90e50020d22c7572f5b765",
+   "fe9b72d48d3cf79c6439e935814a36dbf50a87270d176a5983c5b3db736cbec7",
    0
   ],
   [
@@ -182,7 +182,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "4233e7c625cc20953d9a3c86a8600c633bd091edac90e50020d22c7572f5b765",
+   "fe9b72d48d3cf79c6439e935814a36dbf50a87270d176a5983c5b3db736cbec7",
    0
   ],
   [
@@ -197,7 +197,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "4323377981168caf801b3f81f7c9fa91615fe976ef158fe74b798c751376b877",
+   "91c8940567b0426789cabdcc303a6f314d50dc4cd43c763893e40659ad60071a",
    0
   ],
   [
@@ -217,7 +217,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "77b74cb8daa6a1e1e103515195c73a3998370199145b8eb0864e52c3b000823e",
+   "c4e3b6eaf5cbb2764c2bd1f23c2200eaaecb5700d25d3ac61cdd407d48561503",
    0
   ],
   [
@@ -232,7 +232,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "77b74cb8daa6a1e1e103515195c73a3998370199145b8eb0864e52c3b000823e",
+   "c4e3b6eaf5cbb2764c2bd1f23c2200eaaecb5700d25d3ac61cdd407d48561503",
    0
   ],
   [
@@ -247,7 +247,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "9879e80a53a4cc07c39467d18ee5e711949fd261caf105f6afd1b27771f274ee",
+   "5ef25a71e4f1d443559e439a043241f2dcf3265d7f9c0b54caa8cac9e3fb0220",
    0
   ],
   [
@@ -267,7 +267,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "a3bfab4cc5f1812057a245d8435f935afe64e287435b2041cbd95f4b907e5305",
+   "8ed5eb73d751abc7010f25baf5755b650e9f127bc98eec02aed96296dc597796",
    0
   ],
   [
@@ -282,7 +282,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "a3bfab4cc5f1812057a245d8435f935afe64e287435b2041cbd95f4b907e5305",
+   "8ed5eb73d751abc7010f25baf5755b650e9f127bc98eec02aed96296dc597796",
    0
   ],
   [
@@ -297,7 +297,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "83625fd360c111e1d01b5555fae2c6923ddc77bfd87a00fbbf29c4dfc2951015",
+   "b50a18d0ad0a73d39d7849a6b29b21e21c7afa3e5a552d1769b836b1f6e47198",
    0
   ],
   [
@@ -337,12 +337,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "64c8071c0a4d7918a882b9e4d018938e2fc4a2ebab3521f77ff5873ce4f8afd9",
+   "fc1136facc3ee785cc137431808290220b9576cd53d096b9c915d507c27be39f",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "da8845532d8eee58c821e472869ffc0ed29147f453ec82ec35cb77b8f711363d",
+   "8c2b59d94f6c2389d8dbfacd55326930f6b4fa75266b420212afb32b53d3e0e3",
    0
   ],
   [
@@ -377,12 +377,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "88affbb6a51a00a2c768fba1187e1ee6e4eff7d6166454d5153f0b86230868a9",
+   "6a54d80945fe6a7c3784e33f55d2f3de3991dd3300b4da932c17e8bb567acb3f",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "e351b2c2a727313de764942c1c7554ac29ffc265c8c47333f037f01379657064",
+   "f3ac7cdeb4129b12042940499ddbf69f9f2679f6bb29e6faaf52a17982e8b2ce",
    0
   ],
   [
@@ -412,12 +412,12 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "88affbb6a51a00a2c768fba1187e1ee6e4eff7d6166454d5153f0b86230868a9",
+   "6a54d80945fe6a7c3784e33f55d2f3de3991dd3300b4da932c17e8bb567acb3f",
    0
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "e351b2c2a727313de764942c1c7554ac29ffc265c8c47333f037f01379657064",
+   "f3ac7cdeb4129b12042940499ddbf69f9f2679f6bb29e6faaf52a17982e8b2ce",
    0
   ],
   [
@@ -442,7 +442,7 @@
   ],
   [
    ":CALC:MARK1:X?",
-   "c07b823c9027c7009ee968a785cc3b3857a318d78ee3aa20b8ec1d1d4bc164ae",
+   "efef182e41ab385ecc922e25c3e8699f22cc7fc397cb111751e5322552ecace0",
    0
   ],
   [
@@ -457,7 +457,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "7093cf563e91aa9eb46280c453428765711473965c5e3a9b6af23c66270b9e95",
+   "d48016be88ccc4084039f6ed5335c91b09756286d36588f0340a12c69d5d8bf8",
    0
   ],
   [
@@ -467,7 +467,7 @@
   ],
   [
    ":CALC:MARK1:X?",
-   "e7eb5f666e4db4b4f25f804eb494bd932c597455d094d7bf5472c31747569893",
+   "80079753632b514d0344864a903fc0a9dfa48e58221eece04244e6a19a023210",
    0
   ],
   [
@@ -497,12 +497,12 @@
   ],
   [
    ":CALC:MARK1:X:DELT?",
-   "b106fe86c82845b934987e632290b0b37ccb3ff7a2a0ea3c7a67054f4f945f55",
+   "3ef37666f1b40689a2dd369978c47c22e11889e5204ccfe8e433b8f1724baf8d",
    0
   ],
   [
    ":CALC:MARK1:Y?",
-   "959e3f1f240186cbd65489f156d5ffbfab7779148ee7fc2997c653a69f09ca6c",
+   "f0013178735a4eb5d17e342b62385a203898ad10c7ccc4aa0923e373ea6c4cc0",
    0
   ],
   [
@@ -517,7 +517,7 @@
   ],
   [
    ":CALC:MARK1:Y?",
-   "f7afa14fd0f9bb20ec0f9d73f988b59d363f70805904b9b03cd3c2d3235a4d25",
+   "0c736b877fd0dcf02178d6dc1fa3499666510a17c7c71e6622b7e3a437082609",
    0
   ],
   [
@@ -557,7 +557,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "4c5266aeffe7cc5bd1c11b644a5f5a3e13684e20c7339e16f42a5b70ed9353eb",
+   "3d0093f45a58241f9416d0ada601042ef402af77fbab6f01d2818f0fec627dca",
    0
   ],
   [
@@ -582,7 +582,7 @@
   ],
   [
    ":TRAC:DATA? TRACE1",
-   "7d35bc18edf551a4922a82d5540ed82da4f7bbf8e19629511e43358dbe145217",
+   "47f7735b3a7618a14fea218da2c4efbad4ce090b35eff74be03219e538cba539",
    0
   ],
   [
@@ -597,12 +597,12 @@
   ],
   [
    "<screen values>",
-   "{\"attenuation\": 0.0, \"marker_x\": 15220000.0, \"marker_y\": -19.657910843331038, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.0025333333333333336, \"uncal\": false, \"vbw\": 1000000.0}",
+   "{\"attenuation\": 0.0, \"marker_x\": 39160000.0, \"marker_y\": -13.92237, \"overload\": true, \"rbw\": 1000000.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5000000.0, \"stop\": 75000000.0, \"sweep\": 0, \"sweep_time\": 0.00253, \"uncal\": false, \"vbw\": 1000000.0}",
    0
   ],
   [
    "<screen trace>",
-   "3bdce67cecd90cecda4d206ea535772cd778e7dabe5a3ab9e5df5d4e1276793f",
+   "fbcab6e1693fe30ab29bf08d07b5be2a10ec169e81c4e4633a0857628d0b7d57",
    0
   ]
  ],
@@ -1324,7 +1324,7 @@
   ],
   [
    "<screen values>",
-   "{\"attenuation\": 0.0, \"marker_x\": 5800048000.0, \"marker_y\": -89.64551273109635, \"overload\": true, \"rbw\": 9100.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5799500000.0, \"stop\": 5800500000.0, \"sweep\": 0, \"sweep_time\": 0.03018959062915107, \"uncal\": false, \"vbw\": 9100.0}",
+   "{\"attenuation\": 0.0, \"marker_x\": 5800048000.0, \"marker_y\": -89.64551, \"overload\": true, \"rbw\": 9100.0, \"ref_level\": 10.0, \"reference\": \"INT\", \"start\": 5799500000.0, \"stop\": 5800500000.0, \"sweep\": 0, \"sweep_time\": 0.03019, \"uncal\": false, \"vbw\": 9100.0}",
    0
   ],
   [

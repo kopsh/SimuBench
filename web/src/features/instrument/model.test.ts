@@ -177,6 +177,26 @@ describe("panel view", () => {
       ["sense.range_auto", "switch", null],
     ]);
   });
+
+  // #1357: counts SI-prefixed, placeholder limits as "no fixed limit", enumerations named.
+  it("words ranges and choices as the inspector does", () => {
+    const view = panelView(
+      inst({
+        state: [
+          state("acquire.points", { type: "int", min: 16, max: 2e9 }),
+          state("trigger.level1", { unit: "V", min: -1e6, max: 1e6 }),
+          state("trigger.glitch_width", { unit: "s", min: 250e-12, max: 10 }),
+          state("timebase.reference", { type: "enum", options: ["LEFT", "CENTer"], option_labels: { CENTer: "居中" } }),
+        ],
+      }),
+    );
+    expect(view.groups[0].controls.map((c) => c.choices ?? c.range)).toEqual([
+      "16 … 2 G",
+      "不限（由仪表按当前设置检查）",
+      "250 ps … 10 s",
+      ["左 LEFT", "居中 CENT"],
+    ]);
+  });
 });
 
 describe("optionRows", () => {

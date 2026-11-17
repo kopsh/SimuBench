@@ -186,3 +186,14 @@ describe("the tab and the inspector show the same instrument", () => {
     expect(st().selection).toEqual({ kind: "instrument", id: "scope" });
   });
 });
+
+describe("the log's own tab choice (#1360)", () => {
+  beforeEach(() => useWorkbench.getState().reset());
+  it("opening by itself picks the tab until the user has chosen one", () => {
+    useWorkbench.getState().openBottomOn("events");
+    expect(useWorkbench.getState().bottomTab).toBe("events");
+    useWorkbench.getState().setBottomTab("comms");
+    useWorkbench.getState().openBottomOn("problems");
+    expect(useWorkbench.getState().bottomTab).toBe("comms");
+  });
+});

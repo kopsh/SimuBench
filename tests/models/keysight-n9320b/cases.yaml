@@ -293,8 +293,9 @@ cases:
       - query: ":CALC:MARK:X?"
         expect_value: 1.0e7
         tolerance: 2.0e3
+      # 10 MHz 处 1 dB 压缩点取估计的 0 dBm（#1272）：混频器处 -16.0 dBm 时压缩 0.023 dB。
       - query: ":CALC:MARK:Y?"
-        expect_value: 3.9793921
+        expect_value: 3.9564963
         tolerance: 0.01
       - query: ":CALC:MARK:FCO:X?"
         expect_value: 0.0
@@ -479,9 +480,10 @@ cases:
       - query: ":CALC:MARK:X:DELT?"
         expect: "+0.0000000000000000E+000"
       - send: ":CALC:MARK:X 11 MHz"
-      # 1 MHz 外读到的是载波的相位噪声裙边（#960：-112 dBc/Hz × 1.0645 × 30 kHz ≈ -67 dBc），回复逐字节固定（#349）。
+      # 1 MHz 外读到的是载波的相位噪声裙边（#960：-112 dBc/Hz × 1.0645 × 30 kHz ≈ -67 dBc）；这是单个迹线点的
+      # 一次噪声抽样（σ ≈ 5.6 dB），低频段压缩/截点估计（#1272）改变了抽样序列，回复逐字节固定（#349）。
       - query: ":CALC:MARK:Y?"
-        expect: "-6.6512944546191491E+001"
+        expect: "-7.2657675035765195E+001"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
@@ -610,3 +612,40 @@ cases:
       - {instrument: sa_p03, send: ":INIT:IMM;*WAI"}
       - {instrument: sa_p03, query: ":CALC:MARK:Y?", expect_value: -130.0, tolerance: 2.2}
       - {instrument: sa_p03, query: ":SYST:ERR?", expect: '+0,"No error"'}
+
+  - name: "低频段的 1 dB 压缩：4 MHz 处 +4 dBm 输入被压到约 +1.2 dBm（估计的 0 dBm P1dB，#1272）"
+    manual: "Data Sheet 5990-8119EN p.4 > 1 dB gain compression, 50 MHz to 3 GHz > 0 dBm typical（50 MHz 以下取该值作为估计，D46/#1272）"
+    # SDG 的 2 Vpp（HiZ 负载设定）在 50 Ω 上是 1 Vpp = +4.0 dBm，混频器处 0 dB 衰减。
+    # 0 dBm 的 P1dB 用三阶模型压缩：4 dB 过驱动下增益约 -2.8 dB，1 MHz 基波读到 +1.22 dBm。
+    # 过载在屏幕（会话读数的 overload 标志）上提示；编程指南没有状态位或错误消息，:SYST:ERR? 为空。
+    steps:
+      - {instrument: awg, send: "C1:BSWV WVTP,SINE,FRQ,1MHZ,AMP,2"}
+      - send: ":FREQ:CENT 4 MHz"
+      - send: ":FREQ:SPAN 8 MHz"
+      - send: ":DISP:WIND:TRAC:Y:RLEV -30"
+      - send: ":POW:ATT 0"
+      - send: ":CALC:MARK:MAX"
+      - query: ":CALC:MARK:X?"
+        expect_value: 1.0e6
+        tolerance: 2.0e3
+      - query: ":CALC:MARK:Y?"
+        expect_value: 1.2243
+        tolerance: 0.05
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "0 Hz 本振馈通：0–1 MHz 跨度左端出现估计的 -40 dBm 谱线（#1272）"
+    manual: "Data Sheet 5990-8119EN > 本振馈通无手册值（估计，D46/#1272）"
+    # 输入关掉：起点 0 Hz 处只剩混频器的本振馈通（定义 -40 dBm）；RBW 10 kHz 的噪声底在 -90 dBm 以下。
+    steps:
+      - {instrument: awg, send: "C1:OUTP OFF"}
+      - send: ":FREQ:STAR 0"
+      - send: ":FREQ:STOP 1 MHz"
+      - send: ":CALC:MARK:X 0"
+      - query: ":CALC:MARK:X?"
+        expect_value: 0.0
+        tolerance: 0.0
+      # 显示的线还带这台仪器的频响个体偏差（±0.5 dB，from_specs），故容差取 0.5 dB。
+      - query: ":CALC:MARK:Y?"
+        expect_value: -40.0
+        tolerance: 0.5

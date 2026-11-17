@@ -2320,6 +2320,28 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 视觉基线 | `screen-scope-1280/1440` 在本机 Chromium 重新生成（命令时钟提示多一行，网格有刻度）；频谱仪 TUI 快照（提示变长）已更新；若 CI 的实际图超出 2 % 容差，按 web-ui skill 取 `*-actual.png` 更新基线 |
 | `scripts/check.sh` 通过 | ✅ 4479 通过（69 s）；TUI `tui_boot` 档、web 单测、相关 e2e 通过 |
 
+## 示波器：快时基下边沿落在触发点；脉冲测量沿用计数器的分度下限（Issue 1331，Issue 1332 部分）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 快时基下 t=0 落在边沿上 | ✅ Hello World（1 MHz 方波 → UXR1104B）1 ns/div 到 500 ns/div，AUTO 与 TRIGgered 下 `:DIGitize` 后 t=0 均为上升沿：粗网格上找到的跨越不论触发通路有无噪声都在信号上二分（#1263 给 UXR 加触发噪声后，粗网格改用相隔数微秒两点间的直线插值，边沿落到任意位置）；自动模式搜到 `auto_timeout_s`（默认 50 ms）为止，不再只看 4 条记录 |
+| 回归测试 | ✅ `tests/test_keysight_uxr.py::test_the_hello_square_triggers_on_its_edge_at_every_timebase`（两种扫描 × 1/5/10/20 ns/div，修复前在 AUTO 1 ns/div 失败） |
+| 脉冲测量的分度下限 | ✅ 无阈值组的型号上脉宽、占空比、边沿与脉冲计数的跨越带不低于 `hysteresis_floor_divs`（#745/#773），与 FREQuency 同一规则：`tests/test_keysight_dsox.py::test_the_pulse_measurements_keep_the_band_floor`（修复前 PWIDth 在只有噪声的通道上读 285 ns） |
+| #1332 其余部分 | 未改：噪声超出分度下限时按跨越计数（#773 的有意设计，`test_the_band_floor_scales_with_the_range_and_the_signal_above_it_is_untouched`）；`:TER?` 在 AUTO 未触发时本就为 0，试用时读到的 1 是之前一次触发留下的；Web 测量行对无效值已显示 “—” |
+| `scripts/check.sh` 通过 | ✅ |
+
+## UXR 测量：上升/下降时间按手册须边沿上 4 个采样，过冲/预冲按首个边沿（Issue 1332）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 上升/下降时间的 4 采样规则 | ✅ `scope_measurements` 新参数 `edge_min_samples`（UXR0334B、UXR1104B 设 4，依 UXR 编程手册 9018-07723 的 :MEASure:RISetime / FALLtime）：Hello World 的方波（#1271 后约 9 ns 边沿）在 500 ns/div 测得约 9 ns，1 ms/div（64 ns 一个采样）与只有噪声的 CH2 回 9.99999E+37（`tests/test_keysight_uxr.py::test_the_hello_square_triggers_on_its_edge_at_every_timebase` 的测量段；`tests/test_measurements.py::test_a_rise_time_needs_four_samples_on_its_edge_when_the_model_says_so`） |
+| 边沿起点 | ✅ 上升（下降）时间从边沿到达第二个阈值之前最后一次穿过第一个阈值算起：之前取第一次穿过，底部噪声穿过 10 % 又落回时边沿被拉长到那一刻（UXR1104B 的 AUX OUT FAST 边沿读成 0.9–4.5 ns）；`test_a_rise_time_starts_at_the_edge_s_last_lower_crossing` |
+| 过冲/预冲按首个边沿 | ✅ `shoot: first_edge`（UXR 两台）：屏幕上第一个边沿之后到下一个边沿的局部极值（预冲取之前），没有边沿时不可测；其余型号保留 InfiniiVision 的极值算法；`test_overshoot_and_preshoot_from_the_first_edge_and_its_local_extreme` |
+| 只有噪声的通道上的过冲 | 未变：噪声超过分度下限时按跨越计为边沿（#773），过冲随之在那个“边沿”上计算，与频率同一规则 |
+| 既有用例 | ✅ `test_the_front_panel_signals_follow_the_guide` 在 FAST/SLOW 一步改用 12800 点（256 GSa/s）：1104B 的 FAST 边沿短于 2000 点时的两个采样，按手册不可测；断言（FAST 远短于 SLOW）不变 |
+| 覆盖表与文档 | ✅ 两台 UXR 的 RISetime、FALLtime、OVERshoot、PREShoot 说明；`docs/instrument-authoring.md` 的 `scope_measurements` 一段 |
+| `scripts/check.sh` 通过 | ✅ |
+
 ## 示波器边沿触发：CH2–CH4 为源时按该源自己的电平搜索（Issue 1361）
 
 | 完成条件 | 自检 |

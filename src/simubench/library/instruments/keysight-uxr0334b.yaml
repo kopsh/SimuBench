@@ -1635,6 +1635,10 @@ components:
       source: $measure.source
       # 手册：无法测量时回 9.99999E+37。
       invalid_value: "9.99999E+37"
+      # 手册（:MEASure:RISetime/FALLtime）：边沿上至少 4 个采样点（低阈值下 1 个、高阈值上 1 个、之间 2 个），否则不可测；
+      # :MEASure:OVERshoot/PREShoot 取屏幕上第一个边沿与其局部极值（#1332）。
+      edge_min_samples: 4
+      shoot: first_edge
       sources: [measure.source, measure.source2]
       # 光标（#1074）：方式与位置是 marker.* 设置，60 个编号光标（手册 :MARKer<K> 1-60）。
       math: math

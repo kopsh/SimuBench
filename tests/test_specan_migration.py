@@ -15,7 +15,7 @@ their example benches walk the example script's commands, then every detector th
 the trace modes, RBW and attenuation automatic and manual, the marker searches and the counter, a
 single sweep, and an overloaded input. ``tests/data/specan_models_gold.json`` holds, per step, the
 SHA-256 of the reply (numbers rounded, see ``_digest``) and the virtual time the command consumed, then the screen's
-readings — recorded before the front end's blocks pass signals between them (#952), which must not
+readings (floats at 5 decimals, see ``_rounded``) — recorded before the front end's blocks pass signals between them (#952), which must not
 change one byte. Neither model has a reference-oscillator command; the reference switch is in the
 ``sb-sa-1`` recording above. Neither reports an overload over SCPI: the screen's flag is recorded.
 
@@ -28,6 +28,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+from typing import Any
 
 import numpy as np
 import pytest
@@ -360,6 +361,18 @@ def _digest(data: bytes | None) -> str | None:
     return hashlib.sha256(f"{len(data)}:{values}".encode()).hexdigest()
 
 
+def _rounded(value: Any) -> Any:
+    """The screen's readings with floats at 5 decimals: like a reply's, their last bits differ
+    between machines (numpy / libm builds), and the screen shows far fewer anyway."""
+    if isinstance(value, float):
+        return round(value, 5)
+    if isinstance(value, dict):
+        return {key: _rounded(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_rounded(item) for item in value]
+    return value
+
+
 def walk(model: str, show: bool = False) -> list[list]:
     """[command, reply digest, ns consumed] for every step, then the screen's readings."""
     name, steps = MODELS[model]
@@ -382,7 +395,7 @@ def walk(model: str, show: bool = False) -> list[list]:
                 print(f"  {command:40} {len(reply) if reply is not None else '-':>6} {(reply or b'')[:60]!r}")
         with s.view():
             screen = s.instruments["sa"].components["sa"].readings()
-        values = json.dumps(screen["values"], sort_keys=True)
+        values = json.dumps(_rounded(screen["values"]), sort_keys=True)
         # fixed width, like a reply: the length of ``repr`` follows the last bit of a float
         trace = ",".join(f"{v:+.12E}" for v in screen["traces"][0]["values"]).encode()
         rows.append(["<screen values>", values, 0])

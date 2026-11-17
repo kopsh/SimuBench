@@ -18,7 +18,7 @@ import { formatClock, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EditControls, benchChanged, useRebuild } from "./edit/EditControls";
 import { useEditor } from "./edit/editor";
-import { advanceReason, recentAdvances } from "./clockAdvances";
+import { advanceReason, clockModeLabel, recentAdvances } from "./clockAdvances";
 import { useWorkbench } from "./store";
 
 const STEPS = [1e-3, 10e-3, 100e-3, 1];
@@ -112,7 +112,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
               data-testid="clock"
             >
               {/* The mode name gives way first on a narrow window; the tooltip still names it (#276). */}
-              <span className="text-muted-foreground hidden text-[11px] xl:inline">{t(`workbench.clockMode.${session.clock_mode}`)}</span>
+              <span className="text-muted-foreground hidden text-[11px] xl:inline">{clockModeLabel(session.clock_mode, session.idle_mode, t)}</span>
               <span className="num text-[13px] font-medium" title={t("workbench.clock")}>
                 t = {formatClock(nowNs)}
               </span>
@@ -233,7 +233,7 @@ function ClockWhy({ session }: { session: SessionInfo }) {
   return (
     <div className="space-y-1.5 text-xs" data-testid="clock-why">
       <div className="font-medium">
-        {t(`workbench.clockMode.${session.clock_mode}`)} · {t("workbench.clockWhy")}
+        {clockModeLabel(session.clock_mode, session.idle_mode, t)} · {t("workbench.clockWhy")}
       </div>
       {runs.length === 0 ? (
         <div className="opacity-80">{t("workbench.clockWhyNone")}</div>

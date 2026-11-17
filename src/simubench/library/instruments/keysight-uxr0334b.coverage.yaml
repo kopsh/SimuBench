@@ -2377,7 +2377,7 @@ sections:
     gap: model_work
   - header: :MEASure:FALLtime
     level: implemented
-    note: 90 % to 10 % of top minus base; the PAM-4 level arguments are not modeled. Query only
+    note: '90 % to 10 % of top minus base; the PAM-4 level arguments are not modeled. Query only. Four or more samples on the edge (one below the lower threshold, one above the upper, two between), else 9.99999E+37 (the guide, #1332); the edge starts at its last lower (upper) crossing before the upper (lower) one, so noise on the base does not stretch it.'
   - header: :MEASure:FFT:CPOWer
     level: implemented
     note: 'The power of the source transform''s band <center> ± <bw>/2, in dBm (#1074).'
@@ -2664,7 +2664,7 @@ sections:
   - header: :MEASure:OVERshoot
     level: implemented
     note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
-      when it cannot be measured'
+      when it cannot be measured. Of the first edge on the screen (as the guide defines it): the local maximum after a rising edge (minimum after a falling one), up to the next edge, over the top (#1332).'
   - header: :MEASure:PAM:ELEVel
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2875,7 +2875,7 @@ sections:
   - header: :MEASure:PREShoot
     level: implemented
     note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
-      when it cannot be measured'
+      when it cannot be measured. Of the first edge on the screen (as the guide defines it): the local minimum before a rising edge (maximum before a falling one), from the start of the record, under the base (#1332).'
   - header: :MEASure:PTOP
     level: not_modeled
     note: 'Model work: waveform measurement on the existing measurement engine.'
@@ -2902,7 +2902,7 @@ sections:
     gap: model_work
   - header: :MEASure:RISetime
     level: implemented
-    note: 10 % to 90 % of top minus base; the PAM-4 level arguments are not modeled. Query only
+    note: '10 % to 90 % of top minus base; the PAM-4 level arguments are not modeled. Query only. Four or more samples on the edge (one below the lower threshold, one above the upper, two between), else 9.99999E+37 (the guide, #1332); the edge starts at its last lower (upper) crossing before the upper (lower) one, so noise on the base does not stretch it.'
   - header: :MEASure:RJDJ:ALL
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'

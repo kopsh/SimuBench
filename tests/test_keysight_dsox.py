@@ -317,6 +317,16 @@ def test_the_captures_scatter_by_the_table_noise_around_the_true_level(tmp_path)
         rm.close()
 
 
+def test_the_pulse_measurements_keep_the_band_floor(scope):
+    """#1332: the widths and the duty cycle count the same crossings FREQuency does, under the
+    same 0.16-division floor (#773): on a channel of the range's noise alone (5 V/div after *RST)
+    they are unmeasurable too, while the sine on CH1 still measures."""
+    dso, _session = scope
+    for what in ("PWIDth", "NWIDth", "DUTYcycle"):
+        assert float(dso.query(f":MEASure:{what}? CHANnel2")) == 9.9e37, what
+    assert float(dso.query(":MEASure:DUTYcycle? CHANnel1")) == pytest.approx(50.0, abs=1.0)
+
+
 def test_the_band_floor_scales_with_the_range_and_the_signal_above_it_is_untouched(scope):
     """#773's per-division crossing floor through the model's SCPI path (#781): a channel without
     a signal carries only its range's own noise, which the 0.16-division floor outruns at 5 V/div,

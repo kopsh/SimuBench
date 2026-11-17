@@ -15,6 +15,9 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
   await expect(page.getByRole("heading", { name: "34465A" })).toBeVisible();
   await expect(page.getByText("真实型号")).toBeVisible();
   await expect(page.getByText("34460-90901")).toBeVisible();
+  // Conclusion and evidence first, editing after the read-only sections (#1359).
+  const sections = await page.locator('[data-testid^="acceptance-tab-"]').evaluateAll((els) => els.map((e) => e.getAttribute("data-testid")));
+  expect(sections).toEqual(["overview", "cases", "commands", "internals", "try", "build", "history"].map((k) => `acceptance-tab-${k}`));
   // Overview: the functions and ranges come from the definition's measurement chain.
   await expect(page.getByText("量程", { exact: true })).toBeVisible();
   await expect(page.getByText("1000 V", { exact: true })).toBeVisible();
@@ -42,6 +45,14 @@ test("acceptance page: functions, commands, trial run and cases of a real model"
   await page.getByRole("button", { name: "运行用例" }).click();
   await expect(page.getByText("通过 2")).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("失败 1")).toBeHidden();
+});
+
+test("acceptance overview words ranges and choices as the inspector does (#1357)", async ({ page }) => {
+  await page.goto(`/i/keysight-uxr1104b?token=${TOKEN}`);
+  await expect(page.getByTestId("overview-control-acquire.points")).toContainText("16 … 2 G");
+  await expect(page.getByTestId("overview-control-trigger.level1")).toContainText("不限");
+  await expect(page.getByTestId("overview-control-trigger.level1")).not.toContainText("1000000");
+  await expect(page.getByTestId("overview-control-timebase.reference")).toContainText("居中 CENT");
 });
 
 test("acceptance overview lists the model's options and what each changes (#1007)", async ({ page }) => {
