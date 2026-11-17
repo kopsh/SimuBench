@@ -21,8 +21,8 @@ from typing import Any
 
 from ..engine.edit import ReplaceInstrument
 from ..models import api as M
-from .benchfiles import Conflict
 from .definitionfiles import DefinitionFiles
+from .errors import Conflict
 from .history import Source
 
 _CHANNEL_PATH = re.compile(r"ch(\d+)\.(.+)")

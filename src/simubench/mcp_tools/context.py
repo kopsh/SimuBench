@@ -3,31 +3,25 @@ refusals (a tool error the agent can act on)."""
 
 from __future__ import annotations
 
+import functools
+import inspect
 import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from mcp.server.mcpserver.exceptions import ToolError
+from pydantic import BaseModel
 
 from ..engine.record import jsonable
-from ..models import api as M
-from ..server.benchfiles import BenchFiles, Conflict
+from ..server.benchfiles import BenchFiles
 from ..server.definitionfiles import DefinitionFiles
-from ..server.drive import scpi_response
-from ..server.manager import (
-    BenchInvalid,
-    ClientsConnected,
-    ServedSession,
-    SessionManager,
-)
+from ..server.errors import tool_text
+from ..server.manager import ClientsConnected, ServedSession, SessionManager
+from ..server.projections import scpi_payload  # re-exported for the tool modules
 
-
-def scpi_payload(s: Any, instrument: str, command: str, client: str) -> dict[str, Any]:
-    """The same SCPI-exchange shape the web API returns (scpi_response in server.manager): one
-    DTO, two seams (the tools used to carry their own, with seconds instead of ns)."""
-    return scpi_response(s, instrument, command, client).model_dump(mode="json")
+__all__ = ["McpContext", "RateLimiter", "scpi_payload", "tool_input"]
 
 
 class RateLimiter:
@@ -50,25 +44,56 @@ class RateLimiter:
             self.tokens -= 1
 
 
-def _conflict_text(exc: Exception) -> str:
-    assert isinstance(exc, Conflict)
-    again = "read_definition" if "instruments/" in str(exc) else "read_bench"
-    return f"{exc}；当前 sha256 = {exc.current_sha256}，请先 {again} 再编辑"
+def tool_input(model_cls: type[BaseModel]) -> Any:
+    """A tool body that takes a shared input model (:mod:`..models.tools`, #1382) from flat
+    arguments: the SDK mirrors the model's fields into the signature (so the published schema stays
+    flat and comes from the model — a bare model parameter would nest under its name and break
+    flat callers), and the body receives the constructed model."""
 
+    def mirror_of(fn: Callable[[Any], Any]) -> inspect.Signature:
+        params = []
+        for name, f in model_cls.model_fields.items():
+            params.append(
+                inspect.Parameter(
+                    name,
+                    kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                    default=inspect.Parameter.empty
+                    if f.is_required()
+                    else f.get_default(call_default_factory=True),
+                    # the field's own info (description, limits) travels with it into the schema
+                    annotation=f.rebuild_annotation(),
+                )
+            )
+        try:
+            # the return annotation decides the SDK's structured output: it must survive the mirror
+            # as a real type (the string form does not evaluate against the wrapper's globals)
+            returns = inspect.signature(fn, eval_str=True).return_annotation
+        except NameError:  # a TYPE_CHECKING-only annotation: the SDK wraps the result instead
+            returns = inspect.signature(fn).return_annotation
+        return inspect.Signature(params, return_annotation=returns)
 
-def _invalid_text(exc: Exception) -> str:
-    assert isinstance(exc, BenchInvalid)
-    lines = [f"{d.code} {d.pointer}: {d.message}" for d in exc.diagnostics if d.severity == "error"]
-    return "测试台未通过校验，无法启动：\n" + "\n".join(lines)
+    def deco(fn: Callable[[Any], Any]) -> Any:
+        mirror = mirror_of(fn)
+        wrapper: Any
+        if inspect.iscoroutinefunction(fn):
 
+            @functools.wraps(fn)
+            async def awrapper(**kwargs: Any) -> Any:
+                return await fn(model_cls(**kwargs))
 
-#: Domain error -> what the agent reads (the HTTP twin is ``ApiContext.error_row``).
-_ERROR_ROWS: tuple[tuple[type[Exception], Callable[[Exception], str]], ...] = (
-    (Conflict, _conflict_text),
-    (BenchInvalid, _invalid_text),
-    (FileNotFoundError, lambda exc: "文件不存在"),
-    (KeyError, lambda exc: str(exc).strip("'\"")),
-)
+            wrapper = cast(Any, awrapper)
+        else:
+
+            @functools.wraps(fn)
+            def swrapper(**kwargs: Any) -> Any:
+                return fn(model_cls(**kwargs))
+
+            wrapper = cast(Any, swrapper)
+
+        wrapper.__signature__ = mirror  # the SDK reads the signature, not the source
+        return wrapper
+
+    return deco
 
 
 @dataclass
@@ -90,17 +115,14 @@ class McpContext:
         self.limiter.take()
 
     def fail(self, exc: Exception) -> ToolError:
-        """The tool error of a domain error, one table (#936): each row is a type and the text the
-        agent reads. The first row that matches wins, so a subclass sits above its parent."""
-        for kind, text in _ERROR_ROWS:
-            if isinstance(exc, kind):
-                return ToolError(text(exc))
-        return ToolError(str(exc).splitlines()[0] if str(exc) else type(exc).__name__)
+        """The tool error of a domain error: the tool column of the one table
+        (:mod:`..server.errors`, #936, #1382), the same rows the HTTP routes and the assistant read."""
+        return ToolError(tool_text(exc, "mcp"))
 
     def force_needed(self, exc: ClientsConnected) -> ToolError:
         """A whole-bench operation the connected scripts stand in the way of (#121, issue 624):
         the same refusal the HTTP API answers 409 with, as a tool error the agent can retry from."""
-        return ToolError(f"{exc}；向工程师说明后，以 force=true 重新调用")
+        return ToolError(tool_text(exc, "mcp"))
 
     def served(self, session_id: str | None) -> ServedSession:
         manager = self.manager
@@ -121,12 +143,10 @@ class McpContext:
 
     def definition_out(self, doc: Any) -> dict[str, Any]:
         doc.data = jsonable(doc.data)  # JSON has no infinity: "INF", as bench files spell it
-        doc.sessions_to_restart = [
-            sid for sid, sv in self.manager.sessions.items() if doc.id in self.manager.stale_definitions(sv)
-        ]
+        doc.sessions_to_restart = self.manager.sessions_using_stale_definition(doc.id)
         return doc.model_dump(mode="json")
 
-    def session_summary(self, s: ServedSession, info: M.SessionInfo | None = None) -> dict[str, Any]:
+    def session_summary(self, s: ServedSession, info: Any = None) -> dict[str, Any]:
         # `info` when the caller already described the session: describe re-projects every
         # instrument's state, deviations and nets — not something to do twice (issue 641).
         info = info or self.manager.views.describe(s)

@@ -11705,7 +11705,7 @@
     },
     "/api/definitions/{def_id}/document": {
       "get": {
-        "description": "The definition as stored (hash, diagnostics, workspace-relative path), for the acceptance\npage to notice a change made elsewhere and reload.",
+        "description": "The definition as stored (hash, diagnostics, workspace-relative path), for the acceptance\npage to notice a change made elsewhere and reload; ``sessions_to_restart`` names the running\nsessions that still use an older version (D25), as the MCP tools report it.",
         "operationId": "getDefinitionDocument",
         "parameters": [
           {

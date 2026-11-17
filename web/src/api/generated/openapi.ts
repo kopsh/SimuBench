@@ -498,7 +498,8 @@ export interface paths {
         /**
          * Definition Document
          * @description The definition as stored (hash, diagnostics, workspace-relative path), for the acceptance
-         *     page to notice a change made elsewhere and reload.
+         *     page to notice a change made elsewhere and reload; ``sessions_to_restart`` names the running
+         *     sessions that still use an older version (D25), as the MCP tools report it.
          */
         get: operations["getDefinitionDocument"];
         put?: never;

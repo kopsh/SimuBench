@@ -15,9 +15,10 @@ from ..engine.record import jsonable
 from ..models.bench import Fault
 from ..server.errors import FILE_ERRORS
 from ..server.manager import ClientsConnected
+from ..server.projections import instrument_state, scpi_payload
 from ..server.services import clock, faults, internal_probe
 from ..server.services import sessions as sessions_service
-from .context import McpContext, scpi_payload
+from .context import McpContext
 
 
 def _fault(f: Any) -> dict[str, Any]:
@@ -157,11 +158,9 @@ def _instrument_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         s = served(session_id)
         try:
-            snap = s.session.instrument(instrument).snapshot()
+            return instrument_state(s, instrument)
         except KeyError as exc:
             raise fail(exc) from None
-        snap["state"] = {k: jsonable(v) for k, v in snap["state"].items()}
-        return snap
 
 
 #: The longest SCPI reply send_scpi returns whole, in characters: 20 000 waveform points in ASCII
