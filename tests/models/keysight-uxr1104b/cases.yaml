@@ -1759,6 +1759,17 @@ cases:
       - send: ":FUNCtion1:FFTMagnitude CHANnel1"
       - query: ":MEASure:FFT:THDistortion? FUNCtion1,MANual,1.0E7"
         expect_fields: [{value: 0.0, tolerance: 25.0, format: "±d.dddddE±dd"}]
+      # PEAK,<level>[,<peak_number>]：模式之后的数是门限（dBm），不是基波（#1362）。正弦在 −60 dBm 之上，
+      # 在 +20 dBm 之上没有峰：无效值；第 2 个峰不存在也是无效值；缺少模式与数回 −109，不卡住。
+      - query: ":MEASure:FFT:THDistortion? FUNCtion1,PEAK,-60"
+        expect_fields: [{value: 0.0, tolerance: 25.0, format: "±d.dddddE±dd"}]
+      - query: ":MEASure:FFT:THDistortion? FUNCtion1,PEAK,20"
+        expect: "9.99999E+37"
+      - query: ":MEASure:FFT:THDistortion? FUNCtion1,MANual,0"
+        expect: "9.99999E+37"
+      - send: ":MEASure:FFT:THDistortion? FUNCtion1"
+      - query: ":SYSTem:ERRor?"
+        expect: "-109"
   - name: "手动光标：X/Y 位置回读，XDELta/YDELta 是差值"
     manual: ":MARKer Commands > :MARKer:MODE, :X1Position, :X2Position, :Y1Position, :Y2Position, :XDELta?, :YDELta?"
     steps:

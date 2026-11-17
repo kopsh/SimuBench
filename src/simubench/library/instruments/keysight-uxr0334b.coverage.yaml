@@ -2401,7 +2401,11 @@ sections:
     note: 'The power spectral density of the source transform''s band <center> ± <bw>/2, in dBm/Hz (#1074).'
   - header: :MEASure:FFT:THDistortion
     level: implemented
-    note: '√(Σ harmonics² / fundamental²) of the source transform, in percent; the fundamental is the <fund_freq> given (MANual) or the first peak above <level> (PEAK) (#1074).'
+    note: '√(Σ harmonics² / fundamental²) of the source transform, in percent (#1074). After the mode the
+      number is the fundamental <fund_freq> (MANual) or the peak level in dBm (PEAK): the fundamental is the
+      <peak_number>-th peak above it (default 1), numbered as the FFT''s peak annotations sort them (largest
+      first by default). The mode and its number are required (-109 without them); a fundamental within the
+      first bin (0 Hz included) or a peak that is not there answers 9.99999E+37 (#1362).'
   - header: :MEASure:FREQuency
     level: implemented
     note: rising edge to rising edge (RISing); FALLing is not modeled. Query only

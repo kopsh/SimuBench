@@ -2522,8 +2522,8 @@ commands:
     set: false
     args: {kind: MAGNitude}
   - {header: ":FUNCtion<f>:LABel", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.label"}
-  # ---- :MEASure:FFT（手册第 32 章）：结果即查即算。THDistortion 的 PEAK 方式以第一个过门限的
-  # 峰为基波。
+  # ---- :MEASure:FFT（手册第 32 章）：结果即查即算。THDistortion 的 PEAK 方式以门限之上第
+  # <peak_number> 个峰（按频率从低到高，缺省第 1 个）为基波。
   - header: ":MEASure:FFT:FREQuency"
     op: math.fft_measure
     set: false
@@ -2587,9 +2587,10 @@ commands:
     args: {kind: THDistortion}
     params:
       - {name: source, type: string}
-      - {name: mode, type: enum, options: [MANual, PEAK], optional: true}
-      - {name: fundamental, type: float, optional: true}
-      - {name: level, type: float, optional: true}
+      # 手册：<source>,{MANual,<fund_freq> | PEAK,<level>[,<peak_number>]}——模式之后的数按模式解释（#1362）。
+      - {name: mode, type: enum, options: [MANual, PEAK]}
+      - {name: value, type: float}
+      - {name: peak, type: int, optional: true}
   # ---- :MARKer（手册第 31 章）：MODE 选择方式，X/Y1、X/Y2 与 TST/VST 是同一对光标的两套写法；
   # :MARKer:CURSor? 在非跟踪方式下会把方式改成 WAVeform（手册 CAUTION），由 op 完成。
   - {header: ":MARKer:MODE", state: marker.mode}
