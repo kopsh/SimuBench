@@ -3,9 +3,9 @@ tools take, one source per tool (D21's tool-schema leg — the schemas are gener
 hand-copied signatures).
 
 No HTTP route references these models, so none of them appears in the OpenAPI schema
-(``schemas/openapi.json`` describes the routes only). A parameter that differs by seam (the try
-pool's command limit) is one base model with one subclass per seam; everything else is one model
-for both."""
+(``schemas/openapi.json`` describes the routes only). A parameter that differs by seam (which path
+is required, the try pool's command limit) is one base model with one subclass per seam; everything
+else is one model for both."""
 
 from __future__ import annotations
 
@@ -19,18 +19,23 @@ class _Input(BaseModel):
 
 
 class BenchEdit(_Input):
-    """The ``edit_bench`` parameters on both agent seams (the HTTP route's ``EditBenchRequest``
-    carries the same ``ops``; ``source`` is not an agent's to choose)."""
+    """The ``edit_bench`` parameters shared by both agent seams (the HTTP route's
+    ``EditBenchRequest`` carries the same ``ops``; ``source`` is not an agent's to choose)."""
 
-    path: str = Field(..., description="Workspace-relative bench file")
     base_sha256: str = Field(..., description="sha256 from the last read_bench / edit_bench")
     ops: list[EditOp] = Field(..., description="Applied in order, all or nothing")
+
+
+class McpBenchEdit(BenchEdit):
+    """The MCP tool's ``edit_bench``: the bench file is named in the call."""
+
+    path: str = Field(..., description="Workspace-relative bench file")
 
 
 class AssistantBenchEdit(BenchEdit):
     """The assistant's ``edit_bench``: the path defaults to the conversation's bench."""
 
-    path: str | None = Field(None, description="The bench; default: this conversation's bench")  # type: ignore[assignment]
+    path: str | None = Field(None, description="The bench; default: this conversation's bench")
 
 
 class CreateBench(_Input):
@@ -43,7 +48,8 @@ _TRY_COMMANDS = "Program messages, sent in order to the instrument alone"
 
 
 class TryDefinition(_Input):
-    """The ``try_definition`` parameters on both agent seams; the command limit is the seam's."""
+    """The ``try_definition`` parameters shared by both agent seams; the command limit is the
+    seam's (the assistant works in shorter batches than an MCP agent)."""
 
     definition_id: str = Field(..., description="The definition to try (list_catalog has the ids)")
     commands: list[str] = Field(..., description=_TRY_COMMANDS)
@@ -52,13 +58,13 @@ class TryDefinition(_Input):
 class McpTryDefinition(TryDefinition):
     """The MCP tool's batch limit: 200 commands."""
 
-    commands: list[str] = Field(..., max_length=200, description=_TRY_COMMANDS)  # type: ignore[assignment]
+    commands: list[str] = Field(..., max_length=200, description=_TRY_COMMANDS)
 
 
 class AssistantTryDefinition(TryDefinition):
     """The assistant's batch limit: 100 commands."""
 
-    commands: list[str] = Field(..., max_length=100, description=_TRY_COMMANDS)  # type: ignore[assignment]
+    commands: list[str] = Field(..., max_length=100, description=_TRY_COMMANDS)
 
 
 class RunCases(_Input):

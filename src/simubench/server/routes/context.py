@@ -91,7 +91,9 @@ class ApiContext:
 
     def not_found(self, exc: KeyError) -> HTTPException:
         """404 for a thing asked for (a session, a definition): its table row."""
-        return self.error_row(exc)  # type: ignore[return-value]
+        err = self.error_row(exc)
+        assert isinstance(err, HTTPException)  # the KeyError row always yields one
+        return err
 
     def http_error(self, exc: Exception, **options: Any) -> HTTPException:
         """The HTTP error for a domain error (see :meth:`error_row`); anything else is re-raised as
@@ -125,7 +127,9 @@ class ApiContext:
 
     def in_use(self, exc: InstrumentRemote | ClientsConnected) -> HTTPException:
         """409 for an operation the connected scripts stand in the way of (#121): its table row."""
-        return self.error_row(exc)  # type: ignore[return-value]
+        err = self.error_row(exc)
+        assert isinstance(err, HTTPException)  # the in-use row always yields one
+        return err
 
     def file_errors(self, fn: Any) -> Any:
         """Run ``fn``; a domain error becomes the HTTP error of :meth:`http_error`."""

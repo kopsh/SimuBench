@@ -101,7 +101,7 @@ def _tool_first_line(exc: Exception, seam: str) -> str:
     return str(exc).splitlines()[0] if str(exc) else type(exc).__name__
 
 
-def _http_in_use(exc: Exception, **_: Any) -> HTTPException:
+def _http_in_use(exc: ClientsConnected | InstrumentRemote, **_: Any) -> HTTPException:
     """409 for an operation the connected scripts stand in the way of (#121)."""
     detail: dict[str, Any] = {"message": str(exc), "clients": exc.clients}
     if isinstance(exc, InstrumentRemote):
@@ -127,11 +127,11 @@ def _http_missing_file(
     return HTTPException(404, missing or str(exc)) if files else None
 
 
-def _http_conflict(exc: Exception, **_: Any) -> HTTPException:
+def _http_conflict(exc: Conflict, **_: Any) -> HTTPException:
     return HTTPException(409, {"message": str(exc), "current_sha256": exc.current_sha256})
 
 
-def _http_invalid(exc: Exception, **_: Any) -> HTTPException:
+def _http_invalid(exc: BenchInvalid, **_: Any) -> HTTPException:
     return HTTPException(422, {"message": str(exc), "diagnostics": [d.model_dump() for d in exc.diagnostics]})
 
 
@@ -153,7 +153,7 @@ def _http_value(exc: Exception, *, full_detail: bool = False, **_: Any) -> HTTPE
     return HTTPException(422, str(exc) if full_detail else _first_line(exc))
 
 
-def _tool_in_use(exc: Exception, seam: str) -> str:
+def _tool_in_use(exc: ClientsConnected | InstrumentRemote, seam: str) -> str:
     tail = "，向工程师说明后以 force=true 重新调用" if seam == "mcp" else "，告诉用户先断开脚本"
     return f"{exc}：有脚本连着端口{tail}"
 
@@ -166,18 +166,18 @@ def _tool_permission(exc: Exception, seam: str) -> str:
     return _first_line(exc)
 
 
-def _tool_missing_file(exc: Exception, seam: str) -> str:
+def _tool_missing_file(exc: FileNotFoundError, seam: str) -> str:
     """The file's name is what the agent needs to recover: never fold it away (#1382)."""
     name = getattr(exc, "filename", None)
     return f"文件不存在：{name or exc}"
 
 
-def _tool_conflict(exc: Exception, seam: str) -> str:
+def _tool_conflict(exc: Conflict, seam: str) -> str:
     again = "read_definition" if "instruments/" in str(exc) else "read_bench"
     return f"{exc}；文件在别处被改过，先 {again} 重新读取再编辑（当前 sha256 = {exc.current_sha256}）"
 
 
-def _tool_invalid(exc: Exception, seam: str) -> str:
+def _tool_invalid(exc: BenchInvalid, seam: str) -> str:
     lines = [f"{d.code} {d.pointer}: {d.message}" for d in exc.diagnostics if d.severity == "error"]
     return "测试台未通过校验，无法启动：\n" + "\n".join(lines)
 
@@ -197,7 +197,7 @@ class ErrorRow:
 
     kinds: tuple[type[Exception], ...]
     http: Callable[..., HTTPException | None]
-    tool: Callable[[Exception, str], str]
+    tool: Callable[..., str]
 
 
 SEAM_ROWS: tuple[ErrorRow, ...] = (

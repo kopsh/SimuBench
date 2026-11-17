@@ -423,9 +423,13 @@ def test_the_document_route_names_the_sessions_to_restart(tmp_path):
     (#1382): a running session keeps the definition it started with until restarted (D25)."""
     import yaml
 
-    shutil.copy(ROOT / "validation" / "benches" / "awg_rc_scope.bench.yaml", tmp_path / "awg_rc_scope.bench.yaml")
+    shutil.copy(
+        ROOT / "validation" / "benches" / "awg_rc_scope.bench.yaml", tmp_path / "awg_rc_scope.bench.yaml"
+    )
     (tmp_path / "instruments").mkdir()  # the workspace copy shadows the built-in sb-awg-2
-    shutil.copy(ROOT / "validation" / "instruments" / "sb-awg-2.yaml", tmp_path / "instruments" / "sb-awg-2.yaml")
+    shutil.copy(
+        ROOT / "validation" / "instruments" / "sb-awg-2.yaml", tmp_path / "instruments" / "sb-awg-2.yaml"
+    )
     manager = SessionManager(tmp_path, scpi_base_port=None)
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:

@@ -163,8 +163,8 @@ def _bench_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
             raise fail(exc) from None
 
     @mcp.tool()
-    @tool_input(T.BenchEdit)
-    def edit_bench(req: T.BenchEdit) -> dict[str, Any]:
+    @tool_input(T.McpBenchEdit)
+    def edit_bench(req: T.McpBenchEdit) -> dict[str, Any]:
         """Edit a bench file: add instruments and parts, mark DUTs (set_dut), connect ports (with accessories such as
         probes), set initial state and part parameters, rename, remove, move. Returns the new
         content, sha256 and diagnostics."""

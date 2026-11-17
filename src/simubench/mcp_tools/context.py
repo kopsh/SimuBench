@@ -9,7 +9,7 @@ import threading
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Annotated, Any, TypeVar
+from typing import Any, cast
 
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel
@@ -44,16 +44,13 @@ class RateLimiter:
             self.tokens -= 1
 
 
-_M = TypeVar("_M", bound=BaseModel)
-
-
-def tool_input(model_cls: type[_M]) -> Callable[[Callable[[Any], Any]], Callable[[Any], Any]]:
+def tool_input(model_cls: type[BaseModel]) -> Any:
     """A tool body that takes a shared input model (:mod:`..models.tools`, #1382) from flat
     arguments: the SDK mirrors the model's fields into the signature (so the published schema stays
     flat and comes from the model — a bare model parameter would nest under its name and break
     flat callers), and the body receives the constructed model."""
 
-    def signature() -> inspect.Signature:
+    def mirror_of(fn: Callable[[Any], Any]) -> inspect.Signature:
         params = []
         for name, f in model_cls.model_fields.items():
             params.append(
@@ -63,29 +60,38 @@ def tool_input(model_cls: type[_M]) -> Callable[[Callable[[Any], Any]], Callable
                     default=inspect.Parameter.empty
                     if f.is_required()
                     else f.get_default(call_default_factory=True),
-                    annotation=Annotated[f.annotation, f],  # the field's own info: description and limits
+                    # the field's own info (description, limits) travels with it into the schema
+                    annotation=f.rebuild_annotation(),
                 )
             )
-        return inspect.Signature(params)
+        try:
+            # the return annotation decides the SDK's structured output: it must survive the mirror
+            # as a real type (the string form does not evaluate against the wrapper's globals)
+            returns = inspect.signature(fn, eval_str=True).return_annotation
+        except NameError:  # a TYPE_CHECKING-only annotation: the SDK wraps the result instead
+            returns = inspect.signature(fn).return_annotation
+        return inspect.Signature(params, return_annotation=returns)
 
-    def deco(fn: Callable[[Any], Any]) -> Callable[[Any], Any]:
-        mirror = signature()
-
+    def deco(fn: Callable[[Any], Any]) -> Any:
+        mirror = mirror_of(fn)
+        wrapper: Any
         if inspect.iscoroutinefunction(fn):
 
             @functools.wraps(fn)
             async def awrapper(**kwargs: Any) -> Any:
                 return await fn(model_cls(**kwargs))
 
-            awrapper.__signature__ = mirror  # type: ignore[attr-defined]
-            return awrapper  # type: ignore[return-value]
+            wrapper = cast(Any, awrapper)
+        else:
 
-        @functools.wraps(fn)
-        def wrapper(**kwargs: Any) -> Any:
-            return fn(model_cls(**kwargs))
+            @functools.wraps(fn)
+            def swrapper(**kwargs: Any) -> Any:
+                return fn(model_cls(**kwargs))
 
-        wrapper.__signature__ = mirror  # type: ignore[attr-defined]
-        return wrapper  # type: ignore[return-value]
+            wrapper = cast(Any, swrapper)
+
+        wrapper.__signature__ = mirror  # the SDK reads the signature, not the source
+        return wrapper
 
     return deco
 
