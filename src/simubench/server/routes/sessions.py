@@ -15,7 +15,6 @@ from .. import drive, views
 from ..errors import ClientsConnected, InstrumentRemote
 from ..services import clock as clock_service
 from ..services import faults, instrument_files, internal_probe
-from ..services import sessions as sessions_service
 from .context import IN_USE, ApiContext
 
 
@@ -69,8 +68,7 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
     )
     async def start(req: M.StartSessionRequest) -> M.SessionInfo:
         try:
-            s = await sessions_service.start(
-                manager,
+            s = await manager.start(
                 req.bench_path,
                 clock=req.clock,
                 seed=req.seed,
@@ -106,7 +104,7 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
     )
     async def stop(sid: str, force: bool = Query(False)) -> None:
         try:
-            await sessions_service.stop(manager, sid, force=force)
+            await manager.stop(sid, force=force)
         except (ClientsConnected, KeyError) as exc:
             raise ctx.http_error(exc) from None
 
@@ -120,7 +118,7 @@ def _lifecycle_routes(ctx: ApiContext, router: APIRouter) -> None:
     async def reset(sid: str, req: M.ResetSessionRequest) -> M.SessionInfo:
         """Power-cycle the bench: fresh instruments, a new record, the same session id."""
         try:
-            s = await sessions_service.reset(manager, sid, clock=req.clock, seed=req.seed, force=req.force)
+            s = await manager.reset(sid, clock=req.clock, seed=req.seed, force=req.force)
         except Exception as exc:
             raise ctx.http_error(exc, key="unprocessable", files=False) from None
         return manager.views.describe(s)
