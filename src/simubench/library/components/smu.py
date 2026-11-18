@@ -631,8 +631,6 @@ class SmuMeter(Component):
         v, i = self.reading()
         return self._clipped(v, i, frame)
 
-    _script_reads = 0
-
     def _clipped(self, v: float, i: float, frame: int | None = None) -> tuple[float, float]:
         v, i, _, _ = self._clipped_noisy(v, i, frame)
         return v, i
@@ -643,9 +641,7 @@ class SmuMeter(Component):
         """The clipped readings and, beside them, the same readings with their noise but before the
         overload clip: what the row's RES is computed from (#846)."""
         noisy = isinstance(self.param("noise"), dict)
-        if noisy and frame is None:
-            self._script_reads += 1  # the sequence of scripted readings keys the noise (#746)
-        when = ("panel", frame) if frame is not None else ("script", self._script_reads)
+        when = self.noise_when(frame) if noisy else ("panel", 0)  # unused without noise
         v_noisy, i_noisy = v, i
         for function, ref in (("VOLTage", "v"), ("CURRent", "i")):
             value = v if ref == "v" else i

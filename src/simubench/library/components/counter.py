@@ -29,6 +29,7 @@ from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .reading_math import value_stats
 
 NO_READING = 9.91e37  # SCPI "not a number": a measurement that did not complete (timeout)
 
@@ -179,27 +180,20 @@ class CounterStatistics(Component):
             del self.samples[: -int(self.param("capacity"))]
 
     def mean(self) -> float:
-        return float(np.mean(self.samples)) if self.samples else 0.0
+        return value_stats(self.samples)["mean"]
 
     def minimum(self) -> float:
-        return float(min(self.samples)) if self.samples else 0.0
+        return value_stats(self.samples)["minimum"]
 
     def maximum(self) -> float:
-        return float(max(self.samples)) if self.samples else 0.0
+        return value_stats(self.samples)["maximum"]
 
     def sdev(self) -> float:
-        return float(np.std(self.samples, ddof=1)) if len(self.samples) > 1 else 0.0
+        return value_stats(self.samples)["sdev"]
 
     def readings(self) -> dict[str, Any]:
-        return {
-            "values": {
-                "count": len(self.samples),
-                "mean": self.mean(),
-                "minimum": self.minimum(),
-                "maximum": self.maximum(),
-                "sdev": self.sdev(),
-            }
-        }
+        stats = value_stats(self.samples)
+        return {"values": {k: stats[k] for k in ("count", "mean", "minimum", "maximum", "sdev")}}
 
     @op("mean")
     def op_mean(self, **_: Any) -> OpResult:

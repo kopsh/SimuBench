@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from pathlib import Path
 
+import numpy as np
 import pytest
 import yaml
 
@@ -152,6 +153,23 @@ def test_the_measurement_list_flow(scope):
     assert float(q(scope, ":MEASure:FREQuency? CHANnel1")) == pytest.approx(F, rel=1e-2)
     q(scope, ":MEASure:CLEar")
     assert _results(scope) == []
+    # -- σ is the sample standard deviation (n − 1) of the values taken (#1385): the programmer's
+    # guides name the statistic without a formula, so it answers as the counters' and meters' do
+    q(scope, ":MEASure:VPP CHANnel1")
+    currents = []
+    for _ in range(4):
+        q(scope, ":DIGitize CHANnel1")  # a new record: new noise, another VPP (#745)
+        [[_label, current, *_]] = _results(scope)
+        currents.append(float(current))
+    [[_label, _current, low, high, mean, sdev, count]] = _results(scope)
+    assert int(count) == 5 and len(set(currents)) > 1  # the last read took its record a second time
+    taken = [*currents, currents[-1]]
+    assert float(sdev) == pytest.approx(np.std(taken, ddof=1), rel=1e-3)  # the replies carry six digits
+    assert float(sdev) != pytest.approx(np.std(taken), rel=1e-3)  # not the population σ
+    assert (float(low), float(high), float(mean)) == pytest.approx(
+        (min(taken), max(taken), np.mean(taken)), rel=1e-5
+    )
+    q(scope, ":MEASure:CLEar")
     # -- ALL? is a snapshot of every single-source measurement (was test_all_is_a_snapshot_of_every_single_source_measurement)
     q(scope, ":DIGitize CHANnel1")
     scope.write("scope", b":MEASure:ALL? CHANnel1\n")

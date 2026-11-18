@@ -3575,7 +3575,7 @@ sections:
     blocked_by: measurement-qualifier
   - header: :MEASure:RESults
     level: implemented
-    note: 'Each measurement on the screen as <label>,<current>,<min>,<max>,<mean>,<std dev>,<count> (statistics
+    note: 'Each measurement on the screen as <label>,<current>,<min>,<max>,<mean>,<std dev>,<count> (std dev: the sample standard deviation, n − 1 — the guide gives no formula, #1385; statistics
       since it was added; :MEASure:STATistics itself is blocked); AORDered or no option: the newest first, GORDered:
       the screen''s order after :MEASurement<N>:POSition. Label: its :MEASure:NAME, else SimuBench''s <measurement>(<channel>).
       Up to 20.'

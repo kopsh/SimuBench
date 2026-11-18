@@ -52,9 +52,18 @@ def range_of_setting(ranges: list[float], setting: Any) -> float | None:
 def auto_range(
     ranges: list[float], current: float | None, true: float, up: float, down: float
 ) -> float | None:
-    """The auto-range decision for a true value: within the hysteresis band
-    ``down .. up ×`` the range's full scale the range stays, outside it (or without one yet) the
-    smallest range that fits the value is taken."""
+    """The auto-range decision for a true value (``ranges`` ascending, full scales).
+
+    - **Stay**: while ``down × current <= |true| <= up × current`` (both ends inclusive) the
+      range in use is kept, so a value near a boundary does not toggle between two ranges.
+    - **Up**: above ``up × current`` (``up`` is over 1: the range's overrange, e.g. 1.2), and
+    - **Down**: below ``down × current`` (``down`` under 1, e.g. 0.1),
+      the smallest range that fits ``|true|`` is taken — in one step, however many ranges away,
+      not one range at a time. It fits without overrange, so after a switch up the value sits at
+      or under full scale; after a switch down it may sit under ``down ×`` the new range too
+      (nothing smaller fits), and the next call keeps that range.
+    - **None yet** (``current`` is None): the smallest range that fits.
+    - A value beyond the largest range takes the largest range; no ranges gives None."""
     high = up * current if current is not None else None
     low = down * current if current is not None else None
     if current is None or not low <= abs(true) <= high:

@@ -482,18 +482,13 @@ class EloadMeter(Component):
     def _input(self) -> EloadInput:
         return self.ref("input")  # type: ignore[return-value]
 
-    _script_reads = 0
-
     def _measured(self, frame: int | None = None) -> tuple[float, float]:
         """The V/I the load reports, the reading noise (``noise``, an absolute rms per quantity)
-        added after the solve (#750): a script reading keys on the read sequence, the Web panel's
-        on its own frame (D32), so neither moves the other's noise. Power reads the noised V·I."""
+        added after the solve (#750), keyed by :meth:`Component.noise_when`. Power reads the noised V·I."""
         v, i = self._input().measured()
         if not isinstance(self.param("noise"), dict):
             return v, i
-        if frame is None:
-            self._script_reads += 1
-        when = ("panel", frame) if frame is not None else ("script", self._script_reads)
+        when = self.noise_when(frame)
         v += self.noise_sample(self.noise_rms(None, 0.0, "voltage"), "reading", "VOLTage", *when)
         # An input that is not conducting sinks exactly nothing: its current reads 0, not noise (#863).
         i += self.noise_sample(self.noise_rms(None, 0.0, "current"), "reading", "CURRent", *when) * (
