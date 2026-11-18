@@ -167,6 +167,50 @@ def test_hidden_and_drift_change_the_circuit_and_are_undone(tmp_path):
     rm.close()
 
 
+STACK_CASES = [
+    ("hidden", "hidden"),
+    ("hidden", "drift"),
+    ("drift", "hidden"),
+]
+
+
+def stacked(kind, value):
+    if kind == "hidden":
+        return Fault(kind="hidden", component="rc", param="r", value=value)
+    return Fault(kind="drift", component="rc", param="r", drift_per_s=0.5)
+
+
+def test_stacked_faults_on_one_parameter_always_restore_the_original(tmp_path):
+    rm, _awg, s = open_bench(tmp_path)
+    rc = s.components["rc"]
+    for first, second in STACK_CASES:
+        for order in ("old_first", "new_first", "expire"):
+            a = s.faults.inject(stacked(first, 3000.0))
+            b_spec = stacked(second, 5000.0)
+            if order == "expire":
+                b_spec = b_spec.model_copy(update={"duration_s": 1.0})
+            b = s.faults.inject(b_spec)
+            if order == "old_first":
+                s.faults.clear(a.id)
+                if second == "hidden":
+                    assert rc.param("r") == pytest.approx(5000.0), (first, second, order)
+                s.faults.clear(b.id)
+            elif order == "new_first":
+                s.faults.clear(b.id)
+                if first == "hidden":
+                    assert rc.param("r") == pytest.approx(3000.0), (first, second, order)
+                s.faults.clear(a.id)
+            else:
+                s.advance(1.5)
+                assert b.status == "ended"
+                if first == "hidden":
+                    assert rc.param("r") == pytest.approx(3000.0), (first, second, order)
+                s.faults.clear(a.id)
+            assert rc.param("r") == pytest.approx(1000.0), (first, second, order)
+            assert "r" not in rc.overrides, (first, second, order)
+    rm.close()
+
+
 def test_preset_fault_starts_at_its_time(tmp_path):
     rm, awg, s = open_bench(tmp_path, faults=[{"kind": "timeout", "instrument": "awg", "at_s": 2.0}])
     assert "SB-AWG-2" in awg.query("*IDN?")
