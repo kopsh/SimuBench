@@ -179,6 +179,84 @@ class MathSource(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class ScreenState:
+    """What a scope's screen shows, as its acquisition block reports it (#1383): the one read the
+    projections (views.scope_screen) turn into the screen DTO. The screen's knowledge lives in the
+    block — whether it follows the signal, whether the frame it just drew replaces its records, the
+    records themselves, the trigger's level and channel, the acquisition count — and the numbers a
+    renderer needs around the traces come back with it.
+
+    ``frame`` (the argument of :meth:`ScreenSource.screen_state`) is the projection's own counter:
+    it numbers the redraw of a running screen (its noise and its free-running phase are the frame's,
+    D47) and never reaches the engine's deterministic state.
+    """
+
+    #: The screen follows the signal now (a running scope): False after the block held what it had
+    #: because the frame was beyond the model (#986) — the screen then shows its records, as stopped.
+    live: bool
+    #: ``records`` is the frame just drawn, not the stored records (False: the block held — an
+    #: untriggered normal mode, or the frame beyond the model).
+    shown: bool
+    #: The records the screen draws, by channel: the live frame when shown, the stored ones otherwise.
+    records: Mapping[int, Record]
+    #: The scope's own records: what the screen falls back to when a drawn frame's projection (the
+    #: per-bin envelope) turns out to be beyond the model (#986).
+    stored: Mapping[int, Record]
+    #: Armed for a single acquisition, waiting for its trigger.
+    waiting: bool
+    #: The trigger's level in display volts (where the screen draws the trigger arrow).
+    trigger_level: float
+    #: The trigger source's channel number (``channel_index`` of the source setting).
+    trigger_source: int
+    #: Acquisitions stored (commands, single, a stop); the live frames are not acquisitions.
+    acquisitions: int
+    #: The screen's left edge relative to the trigger, s, under the settings now.
+    screen_left_s: float
+
+    def holding(self) -> ScreenState:
+        """The screen holding its own records: a drawn frame's projection is beyond the model (#986),
+        so it shows what it had, as a stopped scope does."""
+        return ScreenState(
+            live=False,
+            shown=False,
+            records=self.stored,
+            stored=self.stored,
+            waiting=self.waiting,
+            trigger_level=self.trigger_level,
+            trigger_source=self.trigger_source,
+            acquisitions=self.acquisitions,
+            screen_left_s=self.screen_left_s,
+        )
+
+
+@runtime_checkable
+class ScreenSource(Protocol):
+    """What a scope's screen reads its state from: the instrument's acquisition block (a real-time
+    ``scope_acquisition`` or an equivalent-time ``sampling_acquisition``, #1383). The projection
+    calls it once per screen read, under a passive view, with the frame number to draw."""
+
+    def screen_state(self, frame: int | None = None) -> ScreenState:
+        """The screen's state now. A running scope draws frame ``frame`` — a redraw of the signal,
+        not an acquisition: no record is stored, no virtual time passes, and its noise and its
+        untriggered phase are the frame's own (D47); an untriggered normal mode holds, and a frame
+        the model cannot compute leaves the screen holding its records (#986). A stopped scope (or
+        one waiting for its single trigger) shows its last acquisition."""
+        ...
+
+
+@runtime_checkable
+class ScreenMeasurer(Protocol):
+    """What a scope's screen reads its measurement panel from (``scope_measurements``, #1383): the
+    block that measures by the model's own rules, so the panel agrees with ``:MEASure?`` (#280)."""
+
+    def screen_values(self, records: Mapping[int, Record]) -> list[dict[str, Any]]:
+        """The panel's rows, one per record by channel: the measurements the screen shows, each
+        ``None`` where it cannot be measured. A deep record's measurements read the record (#1012)
+        and the screen does not — its row carries the channel alone."""
+        ...
+
+
 @runtime_checkable
 class NoiseSource(Protocol):
     """A block in front of a record taker that adds noise the analytic signal does not carry (an

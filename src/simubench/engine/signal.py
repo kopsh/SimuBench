@@ -225,6 +225,17 @@ class Signal:
         order = np.argsort(-a_pos)
         return [SpectralLine(freq_hz=float(f_pos[i]), amplitude=float(a_pos[i])) for i in order[:max_lines]]
 
+    def window_s(self, periods: float = 2.0, dc_s: float = 2e-3) -> float:
+        """The window a waveform thumbnail samples: ``periods`` periods of the strongest line, or
+        ``dc_s`` for DC (the network probe's window, D37). The strongest line is the positive
+        frequency with the largest amplitude; tied amplitudes take the lowest frequency."""
+        m = self.merged()
+        pos = m.freq > 0
+        if not bool(pos.any()):
+            return dc_s
+        f0 = float(m.freq[pos][int(np.argmax(np.abs(m.amp[pos])))])
+        return periods / f0
+
     def phasor_at(self, f: float, rel_tol: float = 1e-12) -> complex:
         """Complex peak amplitude of the component at frequency ``f`` referenced to t = 0."""
         m = self.merged()
