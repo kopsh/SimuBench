@@ -19,8 +19,9 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..engine.commands import UnitMatch, classify
 from ..models.definition import InstrumentDefinition
-from .commands import UnitMatch, classify
+from . import categories
 
 RESOURCE = re.compile(r"\b(?:TCPIP|USB|GPIB|ASRL|VXI|PXI)\d*::[^\s\"']+", re.IGNORECASE)
 NAME_OK = re.compile(r"[^A-Za-z0-9_-]")
@@ -33,14 +34,8 @@ SEND = {
     "write_ascii_values",
     "write_binary_values",
 }
-# Hints from variable names, used only to break ties between equally good definitions.
-CLASS_HINTS = {
-    "oscilloscope": ("scope", "osc", "dso", "mso"),
-    "function_generator": ("awg", "gen", "fg", "afg", "src", "source", "sig"),
-    "spectrum_analyzer": ("sa", "spec", "fsv", "analyzer"),
-    "smu": ("smu", "keithley"),
-    "lockin": ("lockin", "lia", "sr8"),
-}
+# Hints from variable names, used only to break ties between equally good definitions: the
+# category registry's ``hints`` (#1384).
 
 
 @dataclass
@@ -216,7 +211,7 @@ def rank(res: ScannedResource, definitions: list[InstrumentDefinition]) -> list[
     cls = {d.id: d.instrument_class for d in definitions}
 
     def hint(c: Candidate) -> int:
-        words = CLASS_HINTS.get(cls[c.definition_id], ())
+        words = categories.get(cls[c.definition_id]).hints
         return 1 if any(w in leaf for w in words) else 0
 
     out.sort(key=lambda c: (c.supported, c.ratio, hint(c)), reverse=True)
@@ -460,7 +455,9 @@ def draft_definition(
         known = base
     else:
         leaf = receiver.rsplit(".", 1)[-1].lower()
-        cls = next((c for c, words in CLASS_HINTS.items() if any(w in leaf for w in words)), "other")
+        cls = next(
+            (c.id for c in categories.rows() if c.hints and any(w in leaf for w in c.hints)), "other"
+        )
         data = {
             "schema": "simubench.instrument/1",
             "id": definition_id,

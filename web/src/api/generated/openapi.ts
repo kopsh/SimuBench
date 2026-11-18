@@ -2720,8 +2720,11 @@ export interface components {
             extends: string | null;
             /** Id */
             id: string;
-            /** Instrument Class */
-            instrument_class: string;
+            /**
+             * Instrument Class
+             * @enum {string}
+             */
+            instrument_class: "oscilloscope" | "function_generator" | "spectrum_analyzer" | "smu" | "lockin" | "electronic_load" | "rf_generator" | "multimeter" | "calibrator" | "daq" | "power_supply" | "frequency_counter" | "tunable_laser" | "optical_power_meter" | "optical_attenuator" | "source" | "converter" | "sampling_oscilloscope";
             /** Manufacturer */
             manufacturer: string;
             /** Model */
@@ -3040,7 +3043,7 @@ export interface components {
             /** Summary */
             summary: string[];
             /** Template */
-            template: string | null;
+            template: ("oscilloscope" | "function_generator" | "spectrum_analyzer" | "smu" | "lockin" | "electronic_load" | "rf_generator" | "multimeter" | "calibrator" | "daq" | "power_supply" | "frequency_counter" | "tunable_laser" | "optical_power_meter" | "optical_attenuator" | "source" | "converter" | "sampling_oscilloscope") | null;
         };
         /** EditBenchRequest */
         EditBenchRequest: {
@@ -3448,8 +3451,11 @@ export interface components {
             errors: components["schemas"]["ErrorItem"][];
             /** Idn */
             idn: string;
-            /** Instrument Class */
-            instrument_class: string;
+            /**
+             * Instrument Class
+             * @enum {string}
+             */
+            instrument_class: "oscilloscope" | "function_generator" | "spectrum_analyzer" | "smu" | "lockin" | "electronic_load" | "rf_generator" | "multimeter" | "calibrator" | "daq" | "power_supply" | "frequency_counter" | "tunable_laser" | "optical_power_meter" | "optical_attenuator" | "source" | "converter" | "sampling_oscilloscope";
             /** Label */
             label: string | null;
             /**

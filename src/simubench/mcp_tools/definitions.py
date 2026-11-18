@@ -11,7 +11,7 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
 from ..engine.jsonpatch import PatchOp
-from ..engine.scriptscan import draft_bench, draft_definition
+from ..library.scriptscan import draft_bench, draft_definition
 from ..library.templates import get_template as template_by_id
 from ..library.templates import templates as instrument_templates
 from ..library.templates.draft import suggester as template_suggester

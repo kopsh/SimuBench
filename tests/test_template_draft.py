@@ -13,7 +13,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from simubench.engine.scriptscan import draft_bench
+from simubench.library.scriptscan import draft_bench
 from simubench.library.loader import DefinitionLibrary
 from simubench.library.templates import get_template
 from simubench.library.templates.draft import suggester

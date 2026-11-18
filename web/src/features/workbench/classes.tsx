@@ -39,10 +39,17 @@ interface ClassEntry {
 }
 
 /**
- * The one list of instrument classes the Web knows (#688). The icon (canvas, tree, tabs, home) and
- * the screen (the Screen picker) come from here; the label is `acceptance.class.<id>` in zh/en,
- * checked against these ids by `classes.test.ts`. A new class is declared here and in the two
- * i18n files, nowhere else.
+ * The template ids the backend's category registry knows (#1384): the generated union of the API's
+ * class ids (`InstrumentClass`, library/categories.py). Declaring the list as a Record over it
+ * makes a backend class without an entry here a compile error, so the two sides cannot drift.
+ */
+type TemplateId = InstrumentInfo["instrument_class"];
+
+/**
+ * The one list of instrument classes the Web knows (#688, #1384). The icon (canvas, tree, tabs,
+ * home) and the screen (the Screen picker) come from here; the label is `acceptance.class.<id>`
+ * in zh/en, checked against these ids by `classes.test.ts`. A new class is declared in the
+ * backend registry, here and in the two i18n files — nowhere else.
  */
 export const INSTRUMENT_CLASSES = {
   oscilloscope: { icon: Activity, screen: ScopeScreen },
@@ -82,7 +89,7 @@ export const INSTRUMENT_CLASSES = {
   // A sampling scope's record is not a real-time scope's: no scope screen, its panel or the generic layout.
   sampling_oscilloscope: { icon: Activity },
   converter: { icon: ArrowLeftRight },
-} satisfies Record<string, ClassEntry>;
+} satisfies Record<TemplateId, ClassEntry>;
 
 export type InstrumentClassId = keyof typeof INSTRUMENT_CLASSES;
 export const CLASS_IDS = Object.keys(INSTRUMENT_CLASSES) as InstrumentClassId[];
