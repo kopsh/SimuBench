@@ -551,6 +551,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/definitions/{def_id}/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Identity
+         * @description Maker, model, serial, firmware and the *IDN? format of a workspace definition (P2-5).
+         */
+        put: operations["saveDefinitionIdentity"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/definitions/{def_id}/layout": {
         parameters: {
             query?: never;
@@ -615,6 +635,27 @@ export interface paths {
          */
         put: operations["saveDefinitionStructure"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/definitions/new": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Instrument
+         * @description A new workspace definition, from a template's inputs or blank (P2-5). Inputs with errors
+         *     save nothing and come back with the template's diagnostics.
+         */
+        post: operations["newDefinition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -688,6 +729,26 @@ export interface paths {
         };
         /** Health */
         get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/instrument-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instrument Templates
+         * @description The templates a new instrument can start from (D3 layer 2): inputs schema and an example.
+         */
+        get: operations["listInstrumentTemplates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -3405,6 +3466,29 @@ export interface components {
              */
             serial: string;
         };
+        /**
+         * IdentityUpdate
+         * @description A workspace definition's identity as the build area edits it (P2-5): the maker and model, the
+         *     unit's serial and firmware, and the *IDN? format. A field left out keeps its value; one equal to
+         *     what the definition already runs (inherited included) writes nothing.
+         */
+        IdentityUpdate: {
+            /** Base Sha256 */
+            base_sha256: string;
+            /** Firmware */
+            firmware?: string | null;
+            /**
+             * Idn
+             * @description The *IDN? format ({manufacturer} is upper-cased)
+             */
+            idn?: string | null;
+            /** Manufacturer */
+            manufacturer?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Serial */
+            serial?: string | null;
+        };
         /** InstrumentDefinition */
         InstrumentDefinition: {
             /**
@@ -3690,6 +3774,33 @@ export interface components {
             values: {
                 [key: string]: number | boolean | string;
             };
+        };
+        /**
+         * InstrumentTemplateInfo
+         * @description A template the Web's "new instrument" offers (D3 layer 2): its inputs as a JSON Schema (each
+         *     field labelled in both languages) and an example to start from.
+         */
+        InstrumentTemplateInfo: {
+            /** Category */
+            category: string;
+            /** Description */
+            description: string;
+            /** Example */
+            example: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: string;
+            /** Schema */
+            schema: {
+                [key: string]: unknown;
+            };
+            /** Title */
+            title: string;
+            /** Title En */
+            title_en: string;
+            /** Version */
+            version: number;
         };
         /**
          * InternalCommand
@@ -4169,6 +4280,57 @@ export interface components {
             t0_ns: number;
             /** Volts */
             volts: number[];
+        };
+        /**
+         * NewDefinitionRequest
+         * @description A new workspace definition: from a template's inputs, or blank (a class, a maker and a model,
+         *     then built in the build area).
+         */
+        NewDefinitionRequest: {
+            /**
+             * Definition Id
+             * @description instruments/<id>.yaml
+             */
+            definition_id: string;
+            /**
+             * Inputs
+             * @description With template_id: the template's inputs
+             */
+            inputs?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Instrument Class
+             * @description Blank: the instrument class
+             */
+            instrument_class?: string | null;
+            /**
+             * Manufacturer
+             * @description Blank: the maker, as *IDN? names it
+             */
+            manufacturer?: string | null;
+            /**
+             * Model
+             * @description Blank: the model, as *IDN? names it
+             */
+            model?: string | null;
+            /**
+             * Template Id
+             * @description Expand this template's inputs
+             */
+            template_id?: string | null;
+        };
+        /**
+         * NewDefinitionResult
+         * @description What creating a definition gave: saved, with the document and its diagnostics; or not, with
+         *     the diagnostics on the inputs (pointers under /template/inputs) and nothing written.
+         */
+        NewDefinitionResult: {
+            /** Diagnostics */
+            diagnostics: components["schemas"]["Diagnostic"][];
+            document: components["schemas"]["DefinitionDocument"] | null;
+            /** Saved */
+            saved: boolean;
         };
         /** OperationInfo */
         OperationInfo: {
@@ -7439,6 +7601,48 @@ export interface operations {
             };
         };
     };
+    saveDefinitionIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionDocument"];
+                };
+            };
+            /** @description The file changed since base_sha256 was read */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getDefinitionLayout: {
         parameters: {
             query?: never;
@@ -7634,6 +7838,46 @@ export interface operations {
             };
         };
     };
+    newDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDefinitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewDefinitionResult"];
+                };
+            };
+            /** @description A definition with that id exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     saveAsTemplate: {
         parameters: {
             query?: never;
@@ -7732,6 +7976,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    listInstrumentTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentTemplateInfo"][];
                 };
             };
         };

@@ -16,6 +16,7 @@ from ..library.templates import get_template as template_by_id
 from ..library.templates import templates as instrument_templates
 from ..library.templates.draft import suggester as template_suggester
 from ..server.definitionfiles import DefinitionFiles
+from ..server.services import new_definition
 from .context import McpContext
 
 log = logging.getLogger(__name__)
@@ -232,22 +233,18 @@ def _from_template_tools(mcp: MCPServer, ctx: McpContext) -> None:
             t = template_by_id(template_id)
         except KeyError as exc:
             raise ToolError(str(exc.args[0])) from None
-        out = t.expand(inputs, definition_id)
-        if out.definition is None:
-            return {"saved": False, "diagnostics": [d.model_dump() for d in out.diagnostics]}
-        if base_sha256 is not None:
+        if base_sha256 is not None and t.expand(inputs, definition_id).definition is not None:
             _refuse_lost_edits(definitions, t, definition_id, discard_edits)
         try:
-            if base_sha256 is None:
-                doc = definitions.create(definition_id, out.definition, "agent")
-            else:
-                doc = definitions.save(definition_id, base_sha256, out.definition, "agent")
+            out = new_definition.from_template(
+                definitions, template_id, definition_id, inputs, "agent", base_sha256
+            )
         except Exception as exc:
             raise fail(exc) from None
-        result = definition_out(doc)
-        # the inputs' warnings (legal but probably a slip) go with the saved definition's diagnostics
-        warned = [d.model_dump() for d in out.diagnostics if d.pointer.startswith("/template/inputs")]
-        return {"saved": True, **result, "diagnostics": warned + list(result.get("diagnostics", []))}
+        diagnostics = [d.model_dump() for d in out.diagnostics]
+        if not out.saved or out.document is None:
+            return {"saved": False, "diagnostics": diagnostics}
+        return {"saved": True, **definition_out(out.document), "diagnostics": diagnostics}
 
 
 def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:

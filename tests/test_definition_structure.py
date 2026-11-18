@@ -252,3 +252,47 @@ def test_copy_history_reads_what_the_instrument_runs(tmp_path):
         assert items(created) == [("extends", "added", "extends", None, None, "keysight-uxr1104b")]
         assert items(limit) == [("state", "changed", "trigger.holdoff", "min", 1e-7, 4e-8)]
         assert items(added) == [("command", "added", ":SYSTem:FAN", None, None, None)]
+
+
+def test_a_new_instrument_from_a_template_or_blank_and_its_identity(tmp_path):
+    """P2-5: the Web starts an instrument from a template's inputs (judged by the template's own
+    schema and checks; an error saves nothing, a warning comes with the saved definition) or blank,
+    refuses a taken id, and edits identity — on a copy only what differs from the parent."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        listed = {t["id"]: t for t in c.get("/api/instrument-templates").json()}
+        scope = listed["oscilloscope"]
+        assert scope["schema"]["properties"]["identity"]["title_en"] == "Identity"
+        inputs = copy.deepcopy(scope["example"])
+        inputs["identity"] |= {"manufacturer": "Zhiyuan", "model": "ZY-DSO3104"}
+        wrong = copy.deepcopy(inputs)
+        wrong["vertical"]["table"][1]["v_div"] = 0.001
+        refused = c.post("/api/definitions/new", json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": wrong}).json()
+        assert refused["saved"] is False and not (tmp_path / "instruments" / "zy.yaml").exists()
+        assert [d["pointer"] for d in refused["diagnostics"]] == ["/template/inputs/vertical/table/1/v_div"]
+        inputs["adc"]["bits"] = 12
+        made = c.post("/api/definitions/new", json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs}).json()
+        assert made["saved"] and made["document"]["ok"]
+        assert [d["code"] for d in made["diagnostics"]] == ["W-TPL-ADC-CODES"]
+        assert c.post("/api/definitions/new", json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs}).status_code == 409
+        assert c.post("/api/definitions/new", json={"definition_id": "keysight-34465a", "instrument_class": "multimeter", "manufacturer": "A", "model": "B"}).status_code == 409
+        blank = c.post("/api/definitions/new", json={"definition_id": "acme-dmm", "instrument_class": "multimeter", "manufacturer": "Acme", "model": "DM-1"}).json()
+        assert blank["saved"] and blank["document"]["data"]["class"] == "multimeter"
+
+        my_id = c.post("/api/definitions/keysight-uxr1104b/copy").json()["data"]["id"]
+        sha = c.get(f"/api/definitions/{my_id}/document").json()["sha256"]
+        saved = c.put(
+            f"/api/definitions/{my_id}/identity",
+            json={"base_sha256": sha, "manufacturer": "Keysight Technologies", "serial": "MY65000123", "firmware": "11.90.00001"},
+        ).json()
+        on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
+        assert on_disk == {"schema": "simubench.instrument/1", "id": my_id, "extends": "keysight-uxr1104b", "identity": {"serial": "MY65000123", "firmware": "11.90.00001"}}
+        assert [(x["kind"], x["detail"], x["new"]) for x in saved["changes"]] == [
+            ("identity", "firmware", "11.90.00001"),
+            ("identity", "serial", "MY65000123"),
+        ]
+        sid = c.post(f"/api/try/{my_id}").json()["session_id"]
+        idn = c.post(f"/api/try/{sid}/scpi", json={"command": "*IDN?"}).json()["response"]
+        assert idn == "Keysight Technologies,UXR1104B,MY65000123,11.90.00001"

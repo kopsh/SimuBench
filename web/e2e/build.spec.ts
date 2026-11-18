@@ -151,7 +151,9 @@ test("build area: declare a setting, bind a parameter to it, give it a command, 
   await page.getByRole("option", { name: "out.zout" }).click();
   await commands.getByRole("button", { name: "添加命令" }).click();
   await expect(commands.getByTestId("build-command")).toHaveCount(before + 1);
-  await expect.poll(async () => JSON.stringify((await stored(request, id)).data.commands)).toContain(":OUTPut:IMPedance");
+  // A copy keeps the parent's command table and records the new command alone (D59 command_overrides).
+  await expect.poll(async () => JSON.stringify((await stored(request, id)).data.command_overrides)).toContain(":OUTPut:IMPedance");
+  expect((await stored(request, id)).data.commands).toBeUndefined();
   expect((await stored(request, id)).ok).toBe(true);
 
   // The try run answers with what was set.
@@ -287,7 +289,7 @@ test("build area: grouped library, SI values, a table edited by row, one binding
   await expect(page.getByTestId("build-library-clock_recovery")).toHaveCount(0);
   await page.getByTestId("build-library-all").click();
   await expect(page.getByTestId("build-library-group-signal")).toBeVisible();
-  await expect(page.getByTestId("build-library-group-trigger")).toBeVisible();
+  await expect(page.getByTestId("build-library-group-scope")).toBeVisible();
   await expect(page.getByTestId("build-library-input_port")).toContainText("→ out");
   // Names first, the type as a grey tag, a sentence in Chinese (#1251); the search finds either.
   await expect(page.getByTestId("build-library-input_port")).toContainText("输入端口");
@@ -355,8 +357,57 @@ test("build area: grouped library, SI values, a table edited by row, one binding
   await nplc.getByTestId("build-command-access").getByRole("radio", { name: "只查" }).click();
   await expect(nplc.getByRole("img", { name: "只查" })).toBeVisible();
   await expect
-    .poll(async () => JSON.stringify((await stored(request, id)).data.commands ?? []))
+    .poll(async () => JSON.stringify((await stored(request, id)).data.command_overrides ?? {}))
     .toContain('"set":false');
   await page.getByTestId("build-agent-note").click();
   await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain(`instruments/${id}.yaml`);
+});
+
+test("new instrument from the scope template, judged by the template's checks; identity edited in the build area (P2-5)", async ({ page, request }) => {
+  await page.goto(`/?token=${TOKEN}`);
+  await page.getByTestId("new-instrument-open").click();
+  const dialog = page.getByTestId("new-instrument");
+  await expect(dialog).toBeVisible();
+  await expect(page.getByTestId("new-instrument-oscilloscope")).toHaveAttribute("aria-checked", "true");
+
+  // The fields come from the template's schema, in the data sheet's language.
+  const field = (pointer: string) => dialog.locator(`[data-pointer="/template/inputs/${pointer}"] input`).first();
+  await field("identity/manufacturer").fill("Zhiyuan");
+  await field("identity/manufacturer").press("Enter");
+  await field("identity/model").fill("ZY-DSO3104");
+  await field("identity/model").press("Enter");
+  await expect(page.getByTestId("new-instrument-id")).toHaveValue("zhiyuan-zy-dso3104");
+  transient.push("zhiyuan-zy-dso3104");
+
+  // A table row out of order: the template's check refuses it at that cell, nothing is saved.
+  const row = field("vertical/table/1/v_div");
+  const before = await row.inputValue();
+  await row.fill("0.0001");
+  await row.press("Enter");
+  await page.getByTestId("new-instrument-create").click();
+  await expect(dialog.locator('[data-pointer="/template/inputs/vertical/table/1/v_div"]').getByTestId("new-instrument-problem")).toBeVisible();
+  expect((await request.get("/api/definitions/zhiyuan-zy-dso3104/document", { headers })).status()).toBe(404);
+
+  // Fixed (and 5 GSa/s typed with an SI prefix): created, and the acceptance page answers *IDN? as typed.
+  await row.fill(before);
+  await row.press("Enter");
+  await field("adc/max_rate").fill("5G");
+  await field("adc/max_rate").press("Enter");
+  await page.getByTestId("new-instrument-create").click();
+  await expect(page).toHaveURL(/\/i\/zhiyuan-zy-dso3104/);
+  await expect(page.getByText("Zhiyuan,ZY-DSO3104,AC2040001,2.1.0")).toBeVisible();
+  await expect(page.getByTestId("acceptance-provenance")).toHaveText("自建/接口契约");
+  expect(((await stored(request, "zhiyuan-zy-dso3104")).data.template as { inputs: { adc: { max_rate: number } } }).inputs.adc.max_rate).toBe(5e9);
+
+  // A copy: the identity page writes only the serial it changes, and the badge says what it is.
+  const id = await copy34465a(request);
+  await page.goto(`/i/${id}?token=${TOKEN}`);
+  await expect(page.getByTestId("acceptance-provenance")).toHaveText("基于 keysight-34465a（未改动）");
+  await page.getByTestId("acceptance-tab-build").click();
+  await page.getByTestId("build-tab-identity").click();
+  const serial = page.getByTestId("build-identity").getByLabel("序列号");
+  await serial.fill("MY99000001");
+  await serial.press("Enter");
+  await expect.poll(async () => (await stored(request, id)).data.identity).toEqual({ serial: "MY99000001" });
+  await expect(page.getByTestId("acceptance-provenance")).toHaveText("基于 keysight-34465a · 已改动");
 });

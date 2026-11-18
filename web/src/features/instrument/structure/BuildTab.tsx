@@ -31,6 +31,7 @@ import { useEvents } from "@/api/events";
 import { DraftInput, INVALID, commit } from "@/components/app/DraftInput";
 import { ErrorState } from "@/components/app/StateViews";
 import { Button } from "@/components/ui/button";
+import { IdentityPanel } from "./IdentityPanel";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -1165,6 +1166,9 @@ function Overview({
           <TabsTrigger value="commands" className="text-xs" data-testid="build-tab-commands">
             {t("acceptance.build.tabCommands")}
           </TabsTrigger>
+          <TabsTrigger value="identity" className="text-xs" data-testid="build-tab-identity">
+            {t("acceptance.build.tabIdentity")}
+          </TabsTrigger>
         </TabsList>
         <Button
           variant="ghost"
@@ -1187,6 +1191,9 @@ function Overview({
       </TabsContent>
       <TabsContent value="commands">
         <CommandsPanel structure={structure} docs={docs} editable={editable} onChange={onChange} definitionId={definitionId} wide={wide} />
+      </TabsContent>
+      <TabsContent value="identity">
+        <IdentityPanel definitionId={definitionId} editable={editable} />
       </TabsContent>
     </Tabs>
   );

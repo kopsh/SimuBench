@@ -169,6 +169,31 @@ class DefinitionFiles:
         self.save(def_id, new.base_sha256, data, source)
         return self.structure(def_id)
 
+    def save_identity(
+        self, def_id: str, new: M.IdentityUpdate, source: Source = "ui"
+    ) -> M.DefinitionDocument:
+        """Write a workspace definition's identity: only the fields that differ from what it runs
+        now (a copy inherits the rest, D59), as one version through the usual checks."""
+        doc = self.read(def_id)
+        if not doc.editable:
+            raise Forbidden(f"{def_id} is not in the workspace; copy it as your instrument to change it")
+        if doc.sha256 != new.base_sha256:
+            raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
+        runs = definitionstructure.layered(doc.data, self.source(def_id))
+        data = copy.deepcopy(doc.data)
+        for key in ("manufacturer", "model"):
+            value = getattr(new, key)
+            if value is not None and value != runs.get(key):
+                data[key] = value
+        identity = dict(data.get("identity") or {})
+        for key in ("serial", "firmware", "idn"):
+            value = getattr(new, key)
+            if value is not None and value != (runs.get("identity") or {}).get(key):
+                identity[key] = value
+        if identity:
+            data["identity"] = identity
+        return self.save(def_id, new.base_sha256, data, source)
+
     def layout_path(self, def_id: str) -> Path:
         return self.files.workspace / FOLDER / f"{def_id}{LAYOUT_SUFFIX}"
 

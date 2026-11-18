@@ -2,17 +2,21 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import type { Catalog } from "@/api/client";
+import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { CLASS_IDS, ClassIcon } from "@/features/workbench/classes";
 import { cn } from "@/lib/utils";
 import { classCounts, filterInstruments } from "./model";
 import { makerName } from "@/lib/format";
+import { NewInstrumentDialog } from "./NewInstrumentDialog";
 
 /** The instrument library: every model the catalog has (built in and the workspace's own), class
  * chips with live counts, the shared search, each card opening the model's acceptance page. */
 export function InstrumentLibrary({ catalog, loading, query }: { catalog: Catalog | undefined; loading: boolean; query: string }) {
   const { t } = useTranslation();
   const [cls, setCls] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const all = catalog?.instruments ?? [];
   const chips = useMemo(() => classCounts(catalog?.instruments ?? [], CLASS_IDS), [catalog]);
   const shown = useMemo(() => filterInstruments(catalog?.instruments ?? [], query, cls, CLASS_IDS), [catalog, query, cls]);
@@ -69,7 +73,13 @@ export function InstrumentLibrary({ catalog, loading, query }: { catalog: Catalo
           ))}
         </ul>
       )}
-      <p className="text-muted-foreground mt-3 rounded-xl border border-dashed px-4 py-3 text-[12.5px]">{t("home.library.missing")}</p>
+      <div className="text-muted-foreground mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-dashed px-4 py-3 text-[12.5px]">
+        <span className="min-w-0 flex-1">{t("home.library.missing")}</span>
+        <Button size="sm" variant="outline" onClick={() => setCreating(true)} data-testid="new-instrument-open">
+          <Plus className="size-3.5" /> {t("newInstrument.open")}
+        </Button>
+      </div>
+      <NewInstrumentDialog open={creating} onOpenChange={setCreating} />
     </div>
   );
 }

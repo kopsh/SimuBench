@@ -9,7 +9,9 @@ from ...library.loader import DefinitionLibrary
 from ...models import api as M
 from ...models.definition import InstrumentDefinition
 from ..catalog import components as component_catalog
+from ..errors import Conflict
 from ..mytemplates import save_as_template
+from ..services import new_definition
 from .context import ApiContext
 
 
@@ -83,6 +85,44 @@ def _definition_routes(ctx: ApiContext, router: APIRouter) -> None:
             return definition_files.copy_of(def_id, "ui")
         except KeyError as exc:
             raise not_found(exc) from None
+
+    @router.get(
+        "/api/instrument-templates",
+        response_model=list[M.InstrumentTemplateInfo],
+        response_model_by_alias=True,
+        operation_id="listInstrumentTemplates",
+        dependencies=[Depends(auth)],
+    )
+    def instrument_templates() -> list[M.InstrumentTemplateInfo]:
+        """The templates a new instrument can start from (D3 layer 2): inputs schema and an example."""
+        return new_definition.templates()
+
+    @router.post(
+        "/api/definitions/new",
+        response_model=M.NewDefinitionResult,
+        operation_id="newDefinition",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "A definition with that id exists"}},
+    )
+    def new_instrument(req: M.NewDefinitionRequest) -> M.NewDefinitionResult:
+        """A new workspace definition, from a template's inputs or blank (P2-5). Inputs with errors
+        save nothing and come back with the template's diagnostics."""
+        if req.definition_id in set(library.ids()):
+            raise ctx.http_error(Conflict(f"{req.definition_id} exists already", None))
+        return ctx.file_errors(  # type: ignore[no-any-return]
+            lambda: new_definition.create(definition_files, req, "ui")
+        )
+
+    @router.put(
+        "/api/definitions/{def_id}/identity",
+        response_model=M.DefinitionDocument,
+        operation_id="saveDefinitionIdentity",
+        dependencies=[Depends(auth)],
+        responses={409: {"description": "The file changed since base_sha256 was read"}},
+    )
+    def save_identity(def_id: str, req: M.IdentityUpdate) -> M.DefinitionDocument:
+        """Maker, model, serial, firmware and the *IDN? format of a workspace definition (P2-5)."""
+        return ctx.file_errors(lambda: definition_files.save_identity(def_id, req, "ui"))  # type: ignore[no-any-return]
 
     @router.post(
         "/api/definitions/templates",
