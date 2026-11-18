@@ -544,10 +544,12 @@ class SessionManager:
 
     async def stop(self, sid: str, force: bool = False) -> None:
         """Stop a session and close its ports; refused while scripts are connected, unless
-        ``force`` (#121, issue 624)."""
+        ``force`` (#121, issue 624). An unknown id raises ``Unknown``: whoever stops a session
+        must answer "no such session", not succeed silently — every seam stops on this one path,
+        so the contract lives here with the lifecycle (#1485)."""
         served = self.sessions.get(sid)
         if served is None:
-            return
+            raise Unknown(sid)
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
         self.events.publish("sessions_changed", sid=sid)

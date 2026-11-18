@@ -330,18 +330,43 @@ def test_mcp_tools_catch_domain_errors_not_everything():
 
 
 def test_stopping_an_unknown_session_is_a_key_error_not_a_silent_success(tmp_path):
+    """The contract services/sessions.py used to carry (#936) now lives on the manager itself
+    (#1485): every seam stops on this one path, and none of them can succeed silently."""
     from simubench.server.manager import SessionManager
-    from simubench.server.services import sessions as sessions_service
 
     manager = SessionManager(tmp_path, scpi_base_port=None, hislip_port=None)
     with pytest.raises(KeyError):
-        asyncio.run(sessions_service.stop(manager, "nope"))
+        asyncio.run(manager.stop("nope"))
 
 
 def test_starting_a_bench_outside_the_workspace_is_a_domain_error(tmp_path):
     from simubench.server.manager import SessionManager
-    from simubench.server.services import sessions as sessions_service
 
     manager = SessionManager(tmp_path, scpi_base_port=None, hislip_port=None)
     with pytest.raises((PermissionError, FileNotFoundError)):
-        asyncio.run(sessions_service.start(manager, "../outside.bench.yaml"))
+        asyncio.run(manager.start("../outside.bench.yaml"))
+
+
+def test_agent_seams_drive_sessions_only_through_the_manager():
+    """#1485: services/sessions.py is gone — the manager's lifecycle methods are the one path the
+    three seams share. The agent seams carry no private wrapper or hand teardown: a session starts,
+    stops or resets there only by naming the manager, and nothing closes a served session by hand."""
+    import ast
+
+    tools_dir = _mcp_tools_dir()
+    seams = [
+        *sorted(tools_dir.glob("*.py")),
+        tools_dir.parent / "assistant" / "tools.py",
+        tools_dir.parent / "assistant" / "service.py",
+    ]
+    offenders: list[str] = []
+    for path in seams:
+        for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+            if not isinstance(node, ast.Call) or not isinstance(node.func, ast.Attribute):
+                continue
+            receiver = ast.unparse(node.func.value)
+            if node.func.attr in {"start", "stop", "reset"} and not receiver.endswith("manager"):
+                offenders.append(f"{path.name}: {receiver}.{node.func.attr}()")
+            if node.func.attr == "close" and receiver.endswith(".session"):
+                offenders.append(f"{path.name}: {receiver}.close()")
+    assert offenders == []

@@ -17,7 +17,6 @@ from ..server.errors import DOMAIN_ERRORS, FILE_ERRORS
 from ..server.manager import ClientsConnected
 from ..server.projections import instrument_state, scpi_payload
 from ..server.services import clock, faults, internal_probe
-from ..server.services import sessions as sessions_service
 from .context import McpContext
 
 
@@ -52,9 +51,7 @@ def _session_lifecycle_tools(mcp: MCPServer, ctx: McpContext) -> None:
         Refused while scripts are connected to the ports, unless force=true."""
         guard()
         try:
-            s = await sessions_service.start(
-                manager, path, clock=clock, seed=seed, force=force, time_scale=time_scale
-            )
+            s = await manager.start(path, clock=clock, seed=seed, force=force, time_scale=time_scale)
         except ClientsConnected as exc:
             raise force_needed(exc) from None
         except DOMAIN_ERRORS as exc:
@@ -74,7 +71,7 @@ def _session_lifecycle_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         s = served(session_id)
         try:
-            await sessions_service.stop(manager, s.id, force=force)
+            await manager.stop(s.id, force=force)
         except ClientsConnected as exc:
             raise force_needed(exc) from None
         return f"stopped {s.id}"
