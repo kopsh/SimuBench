@@ -328,6 +328,21 @@ def test_two_sessions_to_one_device_share_its_serial_poll(board):
     assert a.read_stb() & 0x40 == 0  # ... the request is gone for the other
 
 
+def test_a_closed_intfc_session_releases_the_board_lock(board):
+    """viClose releases locks (VPP-4.3): an INTFC session's board lock goes with its close, and
+    another session takes the board at once. The board link names no instrument, and the old
+    close skipped the release for it — the lock leaked with the closed session (#1475)."""
+    a = board.open_resource("GPIB0::INTFC")
+    b = board.open_resource("GPIB0::INTFC")
+    a.lock_excl()
+    with pytest.raises(errors.VisaIOError) as err:
+        b.lock_excl(timeout=0)  # the board is really locked while a holds it
+    assert err.value.error_code == constants.VI_ERROR_TMO
+    a.close()
+    b.lock_excl()  # released with the closed session, not leaked
+    b.unlock()
+
+
 # ---- USB: the USBTMC/USB488 interface -----------------------------------------------------------------------------
 
 USB_ADDRESS = "USB0::0xFFFF::0x8614::601400010000000001::INSTR"
