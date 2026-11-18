@@ -2594,3 +2594,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | UXR0334B | ✅ 没有存储深度选件，组件已是 500 Mpts，与数据手册一致，不改 |
 | 文档 | ✅ UXR1104B 覆盖表 6 处（`*OPT`、`:ACQuire:POINts`、`TESTLIMITS`、分段、`:ACQuire:SRATe`、`:SYSTem:CAPability`）、定义注释、real-models.md 第 10 节、product-plan |
 
+
+## 示波器 ENOB 曲线：没有谱线时噪声底不消失（Issue 1442）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 做法 | ✅ `ScopeAdc._enob_sigma` 在输入没有谱线（直流、接地、只有噪声）时按 `enob_table` 最低频点取有效位数，补同样的宽带噪声；有谱线时不变。#1421 的“无谱线不加噪声”使同一台仪器去掉正弦后噪声底骤降，与真机不符 |
+| 回归测试 | ✅ `tests/test_scope_adc_nonlinearity.py::test_a_declared_enob_curve_sets_the_records_effective_bits`：信号源关闭时附加噪声远大于前端噪声，且等于 1 MHz 正弦时的（rel 1e-3，差别只是 1 MHz 的孔径抖动项）；三个频点的有效位数断言不变 |
+| 范围 | ✅ 只有声明了 `enob_table` 的定义受影响（`sb-dso-enob`）；UXR 两型号没有 `enob_table`，回复与金标准不变 |
+| 文档 | ✅ signal-chain.md `scope_adc` 一段、组件 docstring |

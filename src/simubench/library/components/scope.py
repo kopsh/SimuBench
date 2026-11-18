@@ -632,7 +632,7 @@ class ScopeAdc(Component):
     effective bits of a full-scale sine at that frequency (interpolated the same way): the converter
     adds the noise that brings the record down to them — what the input noise, the quantization,
     the distortion and the aperture jitter leave of the error budget; none when they already exceed
-    it (F1-1). ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
+    it (F1-1). An input without a line gets the lowest frequency's noise: the floor stays (#1442). ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
     pattern in gain (``interleave_image_dbc``: each image at k·fs/N ± f) and offset
     (``interleave_spur_dbfs``: the spur at k·fs/N), and each sub-converter may carry its own gain
     error, offset and sampling-time skew (``interleave_gain_errors``, ``interleave_offsets_fs``,
@@ -721,11 +721,15 @@ class ScopeAdc(Component):
         """The noise (display volts rms) the converter adds so that a full-scale sine at ``freq``
         records with ``enob_table``'s effective bits (#1421): the error a full-scale sine of that
         many bits has, less what ``sigma`` (input noise), the quantization (``lsb``/√12), the
-        distortion (``hd``) and the aperture jitter already give, in quadrature; 0 without a table,
-        a frequency, or room left."""
+        distortion (``hd``) and the aperture jitter already give, in quadrature; 0 without a table
+        or room left. Without a frequency (no line: a DC, grounded or noise-only input) the table's
+        lowest frequency is read (#1442): the broadband part of the converter's error is there with
+        or without a signal, so the noise floor does not drop when the sine is taken away."""
         rows = self.param("enob_table")
-        if not rows or freq is None or half <= 0:
+        if not rows or half <= 0:
             return 0.0
+        if freq is None:
+            freq = min(float(r[0]) for r in rows)
         enob = _interpolated([(float(r[0]), r[1]) for r in rows], freq)
         rms = half / math.sqrt(2)  # a full-scale sine
         allowed = rms * 10 ** (-(6.02 * enob + 1.76) / 20)
