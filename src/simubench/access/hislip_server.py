@@ -38,7 +38,8 @@ SERVER_VERSION = 0x0200  # HiSLIP 2.0; the negotiated version is the lower of ou
 INITIAL_MESSAGE_ID = 0xFFFF_FF00  # where both sides count from after initialization and device clear
 SERVER_VENDOR = 0x5342  # "SB" in the VPP-9 two-letter style
 MAX_MESSAGE_SIZE = 1 << 20  # what we advertise and accept (the VISA default, 1 MiB)
-STATUS_CATCH_UP = 1.0  # seconds a status query waits for the synchronous messages before it (#1399)
+STATUS_CATCH_UP = 1.0  # seconds a status query waits for a synchronous message still running (#1399)
+STATUS_IN_FLIGHT = 0.05  # seconds it waits for one its MessageID says is sent but not received (#1401)
 MAX_PAYLOAD_BUFFER = 64 << 20  # a length field beyond this is a broken header, not a message
 
 # Message types (spec table 4); 26–38 are HiSLIP 2.0-only (descriptors, TLS, authentication).
@@ -165,11 +166,12 @@ class HislipSession:
         self.done.set()
 
     def _is_caught_up(self, parameter: int) -> bool:
-        if self.done_id == parameter & 0xFFFF_FFFF:
+        ahead = (parameter - self.done_id) & 0xFFFF_FFFF
+        if ahead == 0:
             return True  # the client named the last message it sent, and it is done
         # The client named the next message it will send (pyvisa-py does): the one before it is
         # done, unless the one named is in fact received and still running.
-        return self.done_id == (parameter - 2) & 0xFFFF_FFFF and not self.busy
+        return ahead == 2 and not self.busy
 
     async def caught_up(self, parameter: int) -> None:
         """Wait until the synchronous messages sent before a status query are processed.
@@ -177,15 +179,22 @@ class HislipSession:
         Synchronized mode: the two channels are separate sockets, so an AsyncStatusQuery can
         arrive while the ``*OPC`` written just before it is still being executed, and the status
         byte would miss its effect. The query's MessageID says where the client is: the last
-        message it sent (spec 6.14), or the next one it will send (pyvisa-py). Bounded: a message
-        held by another session's lock must not hang the poll."""
+        message it sent (spec 6.14), or the next one it will send (pyvisa-py).
+
+        Two waits, both bounded so a poll stays a poll (#1401): a message that is received and
+        still running (``busy``, e.g. held by another session's lock) is waited for at most
+        :data:`STATUS_CATCH_UP`; a message the MessageID says is on its way but that has not
+        arrived is waited for at most :data:`STATUS_IN_FLIGHT`. A client whose MessageID names
+        neither (a driver that always sends 0) is answered as soon as nothing is running."""
         if self.overlapped or self.clearing:
             return
         await asyncio.sleep(0)  # a synchronous message that arrived with the query is taken first
         loop = asyncio.get_running_loop()
-        deadline = loop.time() + STATUS_CATCH_UP
+        now = loop.time()
+        deadline, in_flight = now + STATUS_CATCH_UP, now + STATUS_IN_FLIGHT
         while not self._is_caught_up(parameter) and not self.closing.is_set():
-            remaining = deadline - loop.time()
+            until = deadline if self.busy else min(deadline, in_flight)
+            remaining = until - loop.time()
             if remaining <= 0:
                 return
             self.done.clear()
@@ -505,6 +514,7 @@ class HislipServer:
             if msg_type in (DATA, DATA_END, TRIGGER):
                 sess.rx_id = parameter
                 sess.busy = True
+                sess.done.set()  # a status query waiting for this message to arrive now waits for it to finish
             if msg_type in (DATA, DATA_END, TRIGGER) and sess.overlapped:
                 pass  # overlapped: messages are only buffered; the MessageID matters for locks (3.2)
             elif msg_type in (DATA, DATA_END, TRIGGER):
