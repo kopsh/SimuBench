@@ -277,6 +277,16 @@ class DefinitionLibrary:
     def __call__(self, def_id: str) -> InstrumentDefinition:
         return self.get(def_id)
 
+    def ancestors(self, def_id: str) -> list[tuple[str, Path]]:
+        """The definitions ``def_id`` extends, nearest first, as (id, file) — resolved the way the
+        loader layers them (D59); empty without ``extends`` or when the chain is broken."""
+        p = self.path(def_id)
+        try:
+            chain = _extends_chain(p, _raw_definition(p, p.stat().st_mtime))
+        except ValueError:
+            return []
+        return [(parent.stem, parent) for parent, _ in chain]
+
     def ids(self) -> list[str]:
         seen: dict[str, None] = {}
         for d in self.dirs:

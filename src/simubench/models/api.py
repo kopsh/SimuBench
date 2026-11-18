@@ -246,6 +246,15 @@ class DefinitionCoverage(_Model):
         description="The not_modeled commands by gap: out_of_scope, blocked, model_work, untriaged",
     )
     entries: list[CoverageEntryInfo]
+    from_model: str | None = Field(
+        None,
+        description="A copy without a table of its own: the ancestor whose coverage table this is",
+    )
+    changed: list[str] = Field(
+        default_factory=list,
+        description="With from_model: the headers the copy runs differently from that model (changed, "
+        "added or removed commands); for these the table describes the model, not the copy",
+    )
 
 
 class BenchDocument(_Model):
@@ -1242,6 +1251,11 @@ class CaseFile(_Model):
     path: str = Field(..., description="Workspace-relative cases file, or builtin:<folder>/cases.yaml")
     cases: int
     builtin: bool = Field(False, description="The manual cases shipped with a built-in model (#1352)")
+    from_model: str | None = Field(
+        None,
+        description="A copy's inherited cases: the model (an ancestor through extends) whose shipped "
+        "cases these are; they run on the copy in its place, as a regression check",
+    )
 
 
 # ---- run records (D36) ---------------------------------------------------------------------------

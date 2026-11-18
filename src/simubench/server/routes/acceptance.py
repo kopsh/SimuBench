@@ -176,6 +176,21 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
     auth = ctx.auth
     not_found = ctx.not_found
 
+    def _case_ancestors(def_id: str) -> list[str]:
+        """The models a workspace definition is a copy of (extends, nearest first): their shipped
+        cases are its regression cases. A built-in model has its own cases only."""
+        instruments = (manager.workspace / "instruments").resolve()
+        if instruments not in library.path(def_id).resolve().parents:
+            return []
+        return [m for m, _ in library.ancestors(def_id)]
+
+    def _is_cases_of(name: str, model: str) -> bool:
+        try:
+            builtin_cases_file(name, model)
+        except ValueError:
+            return False
+        return True
+
     @router.get(
         "/api/definitions/{def_id}/cases",
         response_model=list[M.CaseFile],
@@ -190,7 +205,13 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
         except KeyError as exc:
             raise not_found(exc) from None
         shipped = [M.CaseFile(path=p, cases=n, builtin=True) for p, n in builtin_cases_for_model(def_id)]
-        return shipped + [M.CaseFile(path=p, cases=n) for p, n in cases_for_model(manager.workspace, def_id)]
+        inherited = [
+            M.CaseFile(path=p, cases=n, builtin=True, from_model=parent)
+            for parent in _case_ancestors(def_id)
+            for p, n in builtin_cases_for_model(parent)
+        ]
+        own = [M.CaseFile(path=p, cases=n) for p, n in cases_for_model(manager.workspace, def_id)]
+        return shipped + inherited + own
 
     @router.post(
         "/api/definitions/{def_id}/cases/run",
@@ -209,12 +230,17 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
         def run() -> M.CaseRunResult:
             # A built-in model's manual cases (#1352) are named, not given as a path: only that
             # model's own file can be run that way.
-            cases_file = (
-                builtin_cases_file(req.path, def_id)
-                if req.path.startswith(BUILTIN_PREFIX)
-                else files.resolve(req.path)
-            )
-            results = run_cases(cases_file, [manager.workspace / "instruments"], collect=True)
+            model = None  # a copy runs the cases of the model it is based on in that model's place
+            if req.path.startswith(BUILTIN_PREFIX):
+                owner = next(
+                    (m for m in [def_id, *_case_ancestors(def_id)] if _is_cases_of(req.path, m)),
+                    def_id,  # none: builtin_cases_file below says why
+                )
+                cases_file = builtin_cases_file(req.path, owner)
+                model = def_id if owner != def_id else None
+            else:
+                cases_file = files.resolve(req.path)
+            results = run_cases(cases_file, [manager.workspace / "instruments"], collect=True, model=model)
             return M.CaseRunResult(
                 path=req.path,
                 passed=sum(r.passed for r in results),

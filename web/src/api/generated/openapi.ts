@@ -1938,6 +1938,11 @@ export interface components {
             /** Cases */
             cases: number;
             /**
+             * From Model
+             * @description A copy's inherited cases: the model (an ancestor through extends) whose shipped cases these are; they run on the copy in its place, as a regression check
+             */
+            from_model: string | null;
+            /**
              * Path
              * @description Workspace-relative cases file, or builtin:<folder>/cases.yaml
              */
@@ -2662,8 +2667,18 @@ export interface components {
          *     (the acceptance page's command list; none for definitions without a reference).
          */
         DefinitionCoverage: {
+            /**
+             * Changed
+             * @description With from_model: the headers the copy runs differently from that model (changed, added or removed commands); for these the table describes the model, not the copy
+             */
+            changed: string[];
             /** Entries */
             entries: components["schemas"]["CoverageEntryInfo"][];
+            /**
+             * From Model
+             * @description A copy without a table of its own: the ancestor whose coverage table this is
+             */
+            from_model: string | null;
             /**
              * Gap Stats
              * @description The not_modeled commands by gap: out_of_scope, blocked, model_work, untriaged

@@ -5,11 +5,22 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 
 from ...library.coverage import coverage_path, load_coverage
+from ...library.loader import DefinitionLibrary
 from ...models import api as M
 from ...models.definition import InstrumentDefinition
 from ..catalog import components as component_catalog
 from ..mytemplates import save_as_template
 from .context import ApiContext
+
+
+def _changed_commands(library: DefinitionLibrary, def_id: str, model: str) -> list[str]:
+    """The headers ``def_id`` runs differently from ``model``: commands changed, added or removed."""
+
+    def table(d: str) -> dict[str, object]:
+        return {c.header: c.model_dump() for c in library.get(d).commands}
+
+    mine, theirs = table(def_id), table(model)
+    return sorted(h for h in mine.keys() | theirs.keys() if mine.get(h) != theirs.get(h))
 
 
 def _definition_routes(ctx: ApiContext, router: APIRouter) -> None:
@@ -191,8 +202,14 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
             path = coverage_path(library.path(def_id))
         except KeyError as exc:
             raise not_found(exc) from None
-        if not path.is_file():
-            return None
+        from_model: str | None = None
+        if not path.is_file():  # a copy: the table of the nearest model it extends that has one
+            from_model, path = next(
+                ((m, coverage_path(f)) for m, f in library.ancestors(def_id) if coverage_path(f).is_file()),
+                (None, path),
+            )
+            if from_model is None:
+                return None
         try:
             cov = load_coverage(path)
         except Exception as exc:  # a broken table is reported, not hidden
@@ -212,6 +229,8 @@ def _definition_history_routes(ctx: ApiContext, router: APIRouter) -> None:
                 )
                 for section, e in cov.entries()
             ],
+            from_model=from_model,
+            changed=_changed_commands(library, def_id, from_model) if from_model else [],
         )
 
     @router.get(

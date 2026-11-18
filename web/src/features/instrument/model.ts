@@ -155,14 +155,22 @@ export function trySuggestions(rows: readonly CommandRow[], max = 6): string[] {
 /** The acceptance page's verdict line (#1352): command coverage and the cases behind it. */
 export interface Verdict {
   /** null: the definition has no coverage table (a contract-written instrument). */
-  coverage: { implemented: number; accepted: number; total: number; percent: number } | null;
+  coverage: {
+    implemented: number;
+    accepted: number;
+    total: number;
+    percent: number;
+    /** A copy without its own table: the model whose table this is, and how many commands the copy changed. */
+    fromModel: string | null;
+    changed: number;
+  } | null;
   cases: { builtinFiles: number; workspaceFiles: number; cases: number };
   /** Of the files run on this page, the passed and failed cases; null until one is run. */
   run: { passed: number; failed: number } | null;
 }
 
 export function verdictOf(
-  coverage: Pick<DefinitionCoverage, "stats"> | null | undefined,
+  coverage: (Pick<DefinitionCoverage, "stats"> & Partial<Pick<DefinitionCoverage, "from_model" | "changed">>) | null | undefined,
   files: readonly { path: string; cases: number; builtin?: boolean }[],
   runs: readonly { passed: number; failed: number }[],
 ): Verdict {
@@ -171,7 +179,14 @@ export function verdictOf(
     const implemented = coverage.stats.implemented ?? 0;
     const accepted = coverage.stats.accepted ?? 0;
     const total = Object.values(coverage.stats).reduce((a, b) => a + (b ?? 0), 0);
-    cov = { implemented, accepted, total, percent: total ? Math.round((100 * implemented) / total) : 0 };
+    cov = {
+      implemented,
+      accepted,
+      total,
+      percent: total ? Math.round((100 * implemented) / total) : 0,
+      fromModel: coverage.from_model ?? null,
+      changed: coverage.changed?.length ?? 0,
+    };
   }
   return {
     coverage: cov,

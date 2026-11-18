@@ -1097,6 +1097,18 @@
             "title": "Cases",
             "type": "integer"
           },
+          "from_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A copy's inherited cases: the model (an ancestor through extends) whose shipped cases these are; they run on the copy in its place, as a regression check",
+            "title": "From Model"
+          },
           "path": {
             "description": "Workspace-relative cases file, or builtin:<folder>/cases.yaml",
             "title": "Path",
@@ -1106,7 +1118,8 @@
         "required": [
           "path",
           "cases",
-          "builtin"
+          "builtin",
+          "from_model"
         ],
         "title": "CaseFile",
         "type": "object"
@@ -2600,12 +2613,32 @@
       "DefinitionCoverage": {
         "description": "A real model's coverage table: every command of its manual and how far SimuBench goes\n(the acceptance page's command list; none for definitions without a reference).",
         "properties": {
+          "changed": {
+            "description": "With from_model: the headers the copy runs differently from that model (changed, added or removed commands); for these the table describes the model, not the copy",
+            "items": {
+              "type": "string"
+            },
+            "title": "Changed",
+            "type": "array"
+          },
           "entries": {
             "items": {
               "$ref": "#/components/schemas/CoverageEntryInfo"
             },
             "title": "Entries",
             "type": "array"
+          },
+          "from_model": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A copy without a table of its own: the ancestor whose coverage table this is",
+            "title": "From Model"
           },
           "gap_stats": {
             "additionalProperties": {
@@ -2632,7 +2665,9 @@
           "model",
           "stats",
           "gap_stats",
-          "entries"
+          "entries",
+          "from_model",
+          "changed"
         ],
         "title": "DefinitionCoverage",
         "type": "object"
