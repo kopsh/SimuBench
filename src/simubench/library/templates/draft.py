@@ -4,7 +4,7 @@ writes.
 
 Each template variant is recognised by its own commands: the variant's inputs expand into a
 definition, and the script's commands are checked against it the way library definitions are
-ranked (``engine.scriptscan.rank``), so the choice is explained by the commands it supports, with
+ranked (``library.scriptscan.rank``), so the choice is explained by the commands it supports, with
 their lines. Inputs the script shows are filled in with the line they came from; the rest are the
 variant's defaults, marked to confirm.
 """
@@ -17,8 +17,8 @@ from dataclasses import dataclass
 from functools import cache
 from typing import Any
 
-from ...engine.scriptscan import ScannedCommand, ScannedResource, rank
 from ...models.definition import InstrumentDefinition
+from ..scriptscan import ScannedCommand, ScannedResource, rank
 from . import Filled, Template, pointer, templates
 
 CHANNEL = re.compile(r"(?:^|[:;])\s*(?:C|CH|CHAN|CHANNEL|SOUR|SOURCE|OUTP|OUTPUT)(\d+)\b", re.IGNORECASE)
@@ -192,7 +192,7 @@ def found(path: tuple[str | int, ...], value: Any, line: int, note: str | None =
 
 
 def suggester(source: str) -> Any:
-    """The ``suggest`` callback of ``engine.scriptscan.draft_bench`` for one script."""
+    """The ``suggest`` callback of ``library.scriptscan.draft_bench`` for one script."""
     hints = model_hints(source)
 
     def suggest_one(res: ScannedResource, instance: str) -> dict[str, Any] | None:

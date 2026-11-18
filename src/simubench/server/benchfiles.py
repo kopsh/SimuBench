@@ -23,6 +23,7 @@ from ruamel.yaml.error import YAMLError as RuamelError
 from ..engine import edit
 from ..engine.component import component_types
 from ..engine.validate import Report, drives_net, validate_data
+from ..library import categories
 from ..library.loader import SKIP_DIRS, DefinitionLibrary, dump_yaml, load_yaml
 from ..library.migrate import FormatError, upgrade
 from ..models import api as M
@@ -286,7 +287,7 @@ class BenchFiles:
                     id=d.id,
                     manufacturer=d.manufacturer,
                     model=d.model,
-                    instrument_class=d.instrument_class,
+                    instrument_class=categories.as_api_class(d.instrument_class),
                     description=d.description,
                     channels=d.channels.count,
                     ports=ports,

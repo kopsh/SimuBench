@@ -2953,6 +2953,26 @@
             "type": "string"
           },
           "instrument_class": {
+            "enum": [
+              "oscilloscope",
+              "function_generator",
+              "spectrum_analyzer",
+              "smu",
+              "lockin",
+              "electronic_load",
+              "rf_generator",
+              "multimeter",
+              "calibrator",
+              "daq",
+              "power_supply",
+              "frequency_counter",
+              "tunable_laser",
+              "optical_power_meter",
+              "optical_attenuator",
+              "source",
+              "converter",
+              "sampling_oscilloscope"
+            ],
             "title": "Instrument Class",
             "type": "string"
           },
@@ -3637,6 +3657,26 @@
           "template": {
             "anyOf": [
               {
+                "enum": [
+                  "oscilloscope",
+                  "function_generator",
+                  "spectrum_analyzer",
+                  "smu",
+                  "lockin",
+                  "electronic_load",
+                  "rf_generator",
+                  "multimeter",
+                  "calibrator",
+                  "daq",
+                  "power_supply",
+                  "frequency_counter",
+                  "tunable_laser",
+                  "optical_power_meter",
+                  "optical_attenuator",
+                  "source",
+                  "converter",
+                  "sampling_oscilloscope"
+                ],
                 "type": "string"
               },
               {
@@ -4696,6 +4736,26 @@
             "type": "string"
           },
           "instrument_class": {
+            "enum": [
+              "oscilloscope",
+              "function_generator",
+              "spectrum_analyzer",
+              "smu",
+              "lockin",
+              "electronic_load",
+              "rf_generator",
+              "multimeter",
+              "calibrator",
+              "daq",
+              "power_supply",
+              "frequency_counter",
+              "tunable_laser",
+              "optical_power_meter",
+              "optical_attenuator",
+              "source",
+              "converter",
+              "sampling_oscilloscope"
+            ],
             "title": "Instrument Class",
             "type": "string"
           },

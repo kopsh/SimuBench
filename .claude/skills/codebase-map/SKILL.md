@@ -34,7 +34,9 @@ plausible fake).
 | Built-in component types (one module per class) | `library/components/*.py` (register in `__init__.py`) |
 | Built-in real models + coverage tables | `library/instruments/<id>.yaml`, `<id>.coverage.yaml` |
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |
+| Instrument classes in one place: label key, readings polling, row kind, panel policy, scriptscan hints (D79) | `library/categories.py` |
 | Category default blocks (per class) and the definition deep merge (D59) | `library/class_defaults.py` |
+| Script scanner (bench/definition drafts from a PyVISA script) | `library/scriptscan.py` |
 | Coverage tables & manual cases (D42) | `library/coverage.py` |
 | The packaged Hello World bench, copied into a workspace by `POST /api/benches/hello` (D65) | `library/examples/hello.bench.yaml`, `server/benchfiles.py` (`create_hello`) |
 | File models (pydantic) → JSON Schema | `models/bench.py` (`simubench.bench/2`), `models/definition.py` (`simubench.instrument/1`) |
