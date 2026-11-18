@@ -294,6 +294,7 @@ export function InstrumentAcceptance({
           {section === "build" && (
             <BuildTab
               definitionId={definitionId}
+              instrumentClass={d?.class ?? null}
               tryPanel={
                 <TryTab
                   sid={trySession.sid}

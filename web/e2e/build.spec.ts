@@ -280,7 +280,12 @@ test("build area: grouped library, SI values, a table edited by row, one binding
     return ((await res.json()) as { components: { name: string; params?: Record<string, unknown> }[] }).components.find((c) => c.name === "input")?.params;
   };
 
-  // The library is grouped by family, each type with its ports.
+  // The multimeter's own types come first (what its built-in models use); the other classes' types
+  // are folded behind a button (P2-4). Opened, the library is grouped by family, each type with its ports.
+  await expect(page.getByTestId("build-library-group-own")).toContainText("万用表型号用到的");
+  await expect(page.getByTestId("build-library-dmm_adc")).toBeVisible();
+  await expect(page.getByTestId("build-library-clock_recovery")).toHaveCount(0);
+  await page.getByTestId("build-library-all").click();
   await expect(page.getByTestId("build-library-group-signal")).toBeVisible();
   await expect(page.getByTestId("build-library-group-trigger")).toBeVisible();
   await expect(page.getByTestId("build-library-input_port")).toContainText("→ out");

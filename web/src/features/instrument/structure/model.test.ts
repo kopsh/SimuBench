@@ -527,13 +527,27 @@ describe("numbers, tables, the library and setting users (#1214)", () => {
       doc({ type: "input_port", group: "signal", label: "输入端口", label_en: "Input port" }),
       doc({ type: "resistor", category: "part", group: "other" }),
     ];
-    const all = libraryGroups(docs, "");
+    const all = libraryGroups(docs, "").groups;
     expect(all.map((g) => g.group)).toEqual(["signal", "trigger"]);
     expect(all[0].items.map((d) => d.type)).toEqual(["output_stage", "input_port"]);
-    expect(libraryGroups(docs, "driven").flatMap((g) => g.items.map((d) => d.type))).toEqual(["output_stage"]);
+    const found = (q: string) => libraryGroups(docs, q).groups.flatMap((g) => g.items.map((d) => d.type));
+    expect(found("driven")).toEqual(["output_stage"]);
     // the names in both languages count as well as the type (#1251)
-    expect(libraryGroups(docs, "输入").flatMap((g) => g.items.map((d) => d.type))).toEqual(["input_port"]);
-    expect(libraryGroups(docs, "input port").flatMap((g) => g.items.map((d) => d.type))).toEqual(["input_port"]);
+    expect(found("输入")).toEqual(["input_port"]);
+    expect(found("input port")).toEqual(["input_port"]);
+  });
+
+  it("puts the class's own types first and folds the others until asked or searched (P2-4)", () => {
+    const docs = [
+      doc({ type: "scope_vertical", group: "scope", classes: ["oscilloscope"] }),
+      doc({ type: "input_port", group: "signal", classes: ["oscilloscope", "lockin"] }),
+      doc({ type: "dmm_adc", group: "measure", classes: ["multimeter"] }),
+    ];
+    const folded = libraryGroups(docs, "", "oscilloscope", false);
+    expect(folded.groups.map((g) => [g.group, g.items.map((d) => d.type)])).toEqual([["own", ["scope_vertical", "input_port"]]]);
+    expect(folded.hidden).toBe(1);
+    expect(libraryGroups(docs, "", "oscilloscope", true).groups.map((g) => g.group)).toEqual(["own", "measure"]);
+    expect(libraryGroups(docs, "dmm", "oscilloscope", false).groups.map((g) => g.group)).toEqual(["measure"]);
   });
 
   it("writes a type's ports in one line", () => {

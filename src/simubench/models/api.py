@@ -412,6 +412,11 @@ class ComponentDoc(_Model):
     group: LibraryGroup = Field(
         "other", description="The family the build area's library lists it under (#1214)"
     )
+    classes: list[str] = Field(
+        default_factory=list,
+        description="The instrument classes whose built-in models use this type (oscilloscope, "
+        "multimeter, …), from the library itself: the build area lists a class's own types first",
+    )
     doc: str | None = None
     ports: list[PortInfo]
     port_pattern: str | None = Field(None, description="Ports created by the wiring, e.g. 'in\\d+'")

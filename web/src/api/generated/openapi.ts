@@ -2343,6 +2343,11 @@ export interface components {
              * @enum {string}
              */
             category: "part" | "accessory" | "internal";
+            /**
+             * Classes
+             * @description The instrument classes whose built-in models use this type (oscilloscope, multimeter, …), from the library itself: the build area lists a class's own types first
+             */
+            classes: string[];
             /** Doc */
             doc: string | null;
             /**
@@ -3373,7 +3378,7 @@ export interface components {
             firmware: string;
             /**
              * Idn
-             * @description The *IDN? reply: {manufacturer}, {model}, {serial}, {firmware}, and {$<setting>} for a setting's text (a persona command that changes the reported model)
+             * @description The *IDN? reply: {manufacturer} (the definition's manufacturer upper-cased, as most instruments answer; write the name itself to keep its case), {model}, {serial}, {firmware}, and {$<setting>} for a setting's text (a persona command that changes the reported model)
              * @default {manufacturer},{model},{serial},{firmware}
              */
             idn: string;
