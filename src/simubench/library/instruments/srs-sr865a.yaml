@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: srs-sr865a
 manufacturer: Stanford Research Systems
 model: SR865A
@@ -17,7 +17,7 @@ identity:
   idn: Stanford_Research_Systems,SR865A,{serial},{firmware}
   serial: '003210'
   firmware: v1.55
-dialect:
+syntax:
   echo_header: 'off'
 format:
   number: general

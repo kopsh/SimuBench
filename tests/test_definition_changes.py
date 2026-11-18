@@ -6,7 +6,7 @@ from __future__ import annotations
 from simubench.server.definitionchanges import definition_changes
 
 BASE = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "acme-x1",
     "description": "一台虚构的万用表",
     "identity": {"idn": "ACME,X1,{serial}", "serial": "S1"},

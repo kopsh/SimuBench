@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-uxr1104b
 manufacturer: Keysight Technologies
 model: UXR1104B
@@ -47,7 +47,7 @@ format:
 errors:
   0: "No error"
 # 应答头与长格式（手册 :SYSTem:HEADer、:SYSTem:LONGform、:MODel? 的表 13）。
-dialect:
+syntax:
   echo_header: $system.header
   long_form: $system.longform
 specs:

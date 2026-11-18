@@ -13,7 +13,7 @@ from typing import Any
 
 Data = dict[str, Any]
 
-CURRENT = {"bench": 2, "instrument": 1}
+CURRENT = {"bench": 2, "instrument": 2}
 
 #: (format, from_version) -> function returning the data at from_version + 1.
 MIGRATIONS: dict[tuple[str, int], Callable[[Data], Data]] = {}
@@ -82,3 +82,12 @@ def _bench_1_to_2(data: Data) -> Data:
 @migration("instrument", 0)
 def _instrument_0_to_1(data: Data) -> Data:
     return {"schema": "simubench.instrument/1", **data}
+
+
+@migration("instrument", 1)
+def _instrument_1_to_2(data: Data) -> Data:
+    """There is no "dialect" (#1418): every model's SCPI is its own, so the block of reply framing
+    and number suffixes is this model's ``syntax``. The content is the same."""
+    out = {("syntax" if k == "dialect" else k): v for k, v in data.items()}
+    out["schema"] = "simubench.instrument/2"
+    return out

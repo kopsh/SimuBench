@@ -2240,7 +2240,7 @@ export interface components {
             read?: string | null;
             /**
              * Reply
-             * @description Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is
+             * @description Query reply template: {header} (the echoed header, see syntax.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is
              */
             reply?: string | null;
             /**
@@ -2344,7 +2344,7 @@ export interface components {
             read?: string | null;
             /**
              * Reply
-             * @description Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is
+             * @description Query reply template: {header} (the echoed header, see syntax.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is
              */
             reply?: string | null;
             /**
@@ -3154,33 +3154,6 @@ export interface components {
             /** Suggestion */
             suggestion: string | null;
         };
-        /**
-         * Dialect
-         * @description How replies are framed, for instruments that are not plain SCPI (e.g. LeCroy's ``C1:VDIV 200E-3 V``).
-         *
-         *     The defaults are SCPI: no header in replies, numbers without multiplier suffixes.
-         */
-        Dialect: {
-            /**
-             * Echo Header
-             * @description Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER), or a bool setting that turns short headers on ('$system.header', Infiniium :SYSTem:HEADer, #602)
-             * @default off
-             */
-            echo_header: string;
-            /**
-             * Long Form
-             * @description A bool setting that makes replies long: headers in the long form and enumerations spelled out ('$system.longform', Infiniium :SYSTem:LONGform, #602); empty: never
-             * @default
-             */
-            long_form: string;
-            /**
-             * Multipliers
-             * @description Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'
-             */
-            multipliers?: {
-                [key: string]: number;
-            };
-        };
         /** Disconnect */
         Disconnect: {
             /**
@@ -3533,8 +3506,6 @@ export interface components {
              * @description Parameters a unit deviates in, and their ranges: a bench instance with deviation: from_specs draws its own values from the bench seed (个体偏差, metrology-authoring.md 7)
              */
             deviations?: components["schemas"]["DeviationSpec"][];
-            /** @description Reply framing beyond SCPI (headers, suffixes) */
-            dialect?: components["schemas"]["Dialect"];
             display?: components["schemas"]["Display"];
             /**
              * Error Queue
@@ -3572,10 +3543,10 @@ export interface components {
             reference?: components["schemas"]["Reference"] | null;
             /**
              * Schema
-             * @default simubench.instrument/1
+             * @default simubench.instrument/2
              * @constant
              */
-            schema: "simubench.instrument/1";
+            schema: "simubench.instrument/2";
             /**
              * Specs
              * @description Accuracy and other specifications from the manual, as written there; a record, not used in calculations (the deviations a unit draws are in `deviations`)
@@ -3587,6 +3558,8 @@ export interface components {
             state?: {
                 [key: string]: components["schemas"]["StateSpec"];
             };
+            /** @description This model's message syntax: headers echoed in replies, long replies, number suffixes */
+            syntax?: components["schemas"]["Syntax"];
             /** @description The template and inputs this definition was expanded from (a record; not used when loading or running) */
             template?: components["schemas"]["TemplateSource"] | null;
             /**
@@ -6422,6 +6395,34 @@ export interface components {
                 string,
                 string
             ][];
+        };
+        /**
+         * Syntax
+         * @description This model's message syntax beyond what the commands themselves declare: whether replies
+         *     echo the header (LeCroy's ``C1:VDIV 200E-3 V``), when they are long, which suffixes a number
+         *     written without a unit may carry. Every model has its own; the defaults are SCPI's: no header
+         *     in replies, numbers without multiplier suffixes (#1418).
+         */
+        Syntax: {
+            /**
+             * Echo Header
+             * @description Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER), or a bool setting that turns short headers on ('$system.header', Infiniium :SYSTem:HEADer, #602)
+             * @default off
+             */
+            echo_header: string;
+            /**
+             * Long Form
+             * @description A bool setting that makes replies long: headers in the long form and enumerations spelled out ('$system.longform', Infiniium :SYSTem:LONGform, #602); empty: never
+             * @default
+             */
+            long_form: string;
+            /**
+             * Multipliers
+             * @description Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'
+             */
+            multipliers?: {
+                [key: string]: number;
+            };
         };
         /**
          * TemplateSource

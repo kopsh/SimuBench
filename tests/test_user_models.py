@@ -22,7 +22,7 @@ REFERENCE = {
 }
 
 DEFINITION = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "acme-user-1",
     "manufacturer": "ACME",
     "model": "USER-1",

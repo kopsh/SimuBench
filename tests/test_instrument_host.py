@@ -24,7 +24,7 @@ pytestmark = pytest.mark.unit
 
 DEFINITION = InstrumentDefinition.model_validate(
     {
-        "schema": "simubench.instrument/1",
+        "schema": "simubench.instrument/2",
         "id": "host-demo",
         "manufacturer": "ACME",
         "model": "HOS",

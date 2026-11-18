@@ -64,7 +64,7 @@
 | amplitude | `amplitude_level` | 数据(标量) | 已实现(高/低电平操作 `high`/`low`：设一个保持另一个，改写幅度与偏置，被拒绝时两者都不变，#424、#428；`load_change`：改负载设定时保持设定值或保持实际输出，#436) | siglent-sdg2042x 无(例外清单) |
 | output | `output_stage` | 电路 | 已实现 | — |
 | arb_memory | `arb_table`、`arb_segments` | 数据 | 已实现(易失存储：按名装载 `load`/`load_dac`、`select`、`catalog`、`points`、`clear`；`waveform_synth` 的 `arb`/`prbs` 引用播放它，#426；名字长度 `max_name` 与重名 `exists_error`、`*RST` 回到默认波形而保留存储，#430。`arb_segments`（#879）：分段波形存储，8 位 DAC 码按段 `define`/`define_new`（及只写变体）、按偏移 `data`（块或数值列表，回读为块）、`catalog`、`name`/`comment`、`delete`/`delete_all`，段长粒度与总量限制，零阶保持 DAC 的 sinc 谱；`waveform_synth` 的 `arb` 引用经 `ArbSource` 协议播放两者，M8194A 用它；序列、标记与 I/Q 插值模式未建模) | siglent-sdg2042x 无(例外清单) |
-| modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。谱线超出 `line_budget`(默认 2000)时:FM/PM 拒绝(-222,展开前按 Carson 规则计数,#357);PWM 保留预算内的低次谐波、截掉其余并附 `truncated` 保真度提示(写明保留次数;预算内谐波全保留、不附提示,#440),常规基频(如 1 kHz 方波,300 MHz 带宽)照常输出(#388)。SDG2042X 的专用组件只承担 BSWV 方言,没有调制,无需迁移 |
+| modulation | `awg_modulator` | 信号(合成之后、幅度与偏置之前:AM/FM/PM/FSK/PWM,内部正弦或外部输入调制,总开关;#327) | 已实现(`sb-awg-2` 用上) | 调制波形只有正弦;BPSK/ASK/Sum/扫频未建模。谱线超出 `line_budget`(默认 2000)时:FM/PM 拒绝(-222,展开前按 Carson 规则计数,#357);PWM 保留预算内的低次谐波、截掉其余并附 `truncated` 保真度提示(写明保留次数;预算内谐波全保留、不附提示,#440),常规基频(如 1 kHz 方波,300 MHz 带宽)照常输出(#388)。SDG2042X 的专用组件只承担 BSWV 命令的解析,没有调制,无需迁移 |
 
 `keysight-m8194a` 是基带 AWG，没有调制：块覆盖测试的 `NOT_APPLICABLE` 记下“该型号没有这个功能”（与只能缩短的例外清单不同，它不是债务）。
 
@@ -96,7 +96,7 @@ E1(#190)已拆分:`keysight-34465a` 与 `sb-dmm-1` 由三个组件组成,端子 
 | setpoint_and_range | `calibrator_setpoint` | 信号(功能 DCV/ACV/DCI/ACI/OHM、电平、频率、建立过渡与隐藏误差;量程表、RANGE? 与量程锁定,量程/极性改变的附加建立时间,#552;`lock_functions` 限定锁定作用的功能(5522A 只锁 DCV/DCI),#589;电流与电阻输出,电阻取最近标称值,#550;`ohm_values: continuous` 时电阻连续可调、表为量程,功能名可为 RES,#569;`frequency_bands` 按量程限定交流频率,在整条命令写完后由 `check_settings()` 检查,#580) | 已实现(#329) | 整块的 `calibrator_output` 保留给拆分前的定义(test-calibrator),行为与两块组合相同 |
 | output_control | `calibrator_control` | 电路(工作/待机断开端子、`z_out`、过载跳闸、`standby_above`/`standby_rule`/`standby_on_function`(true 或 above,#566)回待机规则 #553、#558;外部 sense:SENSE 端子与允许的量程,SENSE 网无直流通路时回退本地调节,#551、#562;电流输出为电流源、超 compliance(按端子真有效值,#570)跳闸并记 `compliance_error`(#569),电阻输出为端子间电阻,#550) | 已实现(#329;5522A 已迁移) | 只有一个输出端子:5730A 的宽带输出(Wideband)与外部放大器接口要另一个端子与选择,需要时另开核心 issue |
 
-5730A 与 5522A 的远程方言(#329 的评估,未按 5730A 手册正文核实):两者同属 Fluke 校准器命令集——`OUT <值>[,<频率>]`、`OPER`/`STBY`、`ERR?`、`*OPC?` 与按单位分派的参数,拆分后的两块与已有的 `quantities` 参数足以表达;差别在输出端:5730A 有宽带输出选件与 5725A 放大器接口(另一套端子与选择命令),以及更细的量程结构。前者需要输出控制块支持多个端子(上表),后者只是定义里的量程表。型号 issue(#341)开工时按手册核对这些命令,确需平台能力再开核心 issue。
+5730A 与 5522A 的远程命令(#329 的评估,未按 5730A 手册正文核实):两者同属 Fluke 校准器命令集——`OUT <值>[,<频率>]`、`OPER`/`STBY`、`ERR?`、`*OPC?` 与按单位分派的参数,拆分后的两块与已有的 `quantities` 参数足以表达;差别在输出端:5730A 有宽带输出选件与 5725A 放大器接口(另一套端子与选择命令),以及更细的量程结构。前者需要输出控制块支持多个端子(上表),后者只是定义里的量程表。型号 issue(#341)开工时按手册核对这些命令,确需平台能力再开核心 issue。
 
 内置 fluke-5522a 全覆盖。该类别没有已设计的拆分,不存在目标组件类型,块清单以现有组件为覆盖者——这是现状记录,不是豁免;拆分设计立项时改写本节。
 

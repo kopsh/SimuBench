@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-n6705c
 manufacturer: Keysight Technologies
 model: N6705C

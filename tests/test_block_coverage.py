@@ -111,7 +111,7 @@ def test_builtin_real_models_cover_their_blocks():
 def test_a_new_definition_must_cover_every_block():
     acme = InstrumentDefinition.model_validate(
         {
-            "schema": "simubench.instrument/1",
+            "schema": "simubench.instrument/2",
             "id": "acme-scope1",
             "manufacturer": "ACME",
             "class": "oscilloscope",

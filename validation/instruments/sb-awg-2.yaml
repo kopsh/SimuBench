@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: sb-awg-2
 manufacturer: SimuBench
 model: SB-AWG-2

@@ -78,7 +78,7 @@ class CommandRunner:
         self.inst.settle_pending()
         self.inst.sample_status()
         if unit.common:
-            # A definition may give a common header its own behavior (e.g. a dialect's *CLS?).
+            # A definition may give a common header its own behavior (e.g. a model's own *CLS?).
             for compiled in self.inst._commands:
                 if compiled.pattern.common and compiled.pattern.match(tokens) is not None:
                     return self._run(compiled, unit, None, {})
@@ -764,7 +764,7 @@ class CommandRunner:
                         if hi is not None:
                             value = min(value, hi)
                 return value
-            multipliers = self.inst.definition.dialect.multipliers
+            multipliers = self.inst.definition.syntax.multipliers
             v = V.parse_multiplied(raw, multipliers) if multipliers and st.unit is None else None
             if v is None:
                 lo, hi = self.inst.limits(path) if path is not None else (st.min, st.max)

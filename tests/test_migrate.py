@@ -1,5 +1,7 @@
 """File format versions: old files load, newer ones are refused clearly (M5)."""
 
+from pathlib import Path
+
 import yaml
 
 from helpers import raises_with
@@ -7,6 +9,8 @@ from simubench.cli import main
 from simubench.engine.validate import validate_data
 from simubench.library.loader import DefinitionLibrary, load_bench
 from simubench.library.migrate import FormatError, upgrade
+
+ROOT = Path(__file__).resolve().parents[1]
 
 OLD = {"name": "old", "instruments": {"dmm": {"model": "sb-dmm-1"}}}
 
@@ -60,3 +64,25 @@ def test_duts_become_parts_marked_as_duts(tmp_path):
     assert bench.duts() == ["rc"] and not bench.instruments["dmm"].dut
     empty = upgrade({"schema": "simubench.bench/1", "name": "e", "duts": {}}, "bench")[0]
     assert "parts" not in empty and "duts" not in empty
+
+
+def test_an_instrument_1_dialect_block_becomes_the_models_syntax(tmp_path):
+    """instrument/1 → 2 (#1418): there is no "dialect" — every model's SCPI is its own — so the
+    block of header echo, long form and number suffixes is the model's ``syntax``, unchanged."""
+    framing = {"echo_header": "$comm.header", "multipliers": {"K": 1.0e3}}
+    data, steps = upgrade({"schema": "simubench.instrument/1", "id": "x", "dialect": framing}, "instrument")
+    assert steps == ["instrument 1 → 2"] and data["schema"] == "simubench.instrument/2"
+    assert data["syntax"] == framing and "dialect" not in data
+    assert upgrade({"schema": "simubench.instrument/1", "id": "y"}, "instrument")[0] == {
+        "schema": "simubench.instrument/2",
+        "id": "y",
+    }  # a file without the block only names the new version
+    # A file on disk in the old format loads with its syntax in effect.
+    lecroy = yaml.safe_load(
+        (ROOT / "src/simubench/library/instruments/lecroy-wavepro804hd.yaml").read_text(encoding="utf-8")
+    )
+    lecroy["schema"] = "simubench.instrument/1"
+    lecroy["dialect"] = lecroy.pop("syntax")
+    (tmp_path / "lecroy-wavepro804hd.yaml").write_text(yaml.safe_dump(lecroy, allow_unicode=True), "utf-8")
+    loaded = DefinitionLibrary([tmp_path]).get("lecroy-wavepro804hd")
+    assert loaded.syntax.echo_header == lecroy["dialect"]["echo_header"]

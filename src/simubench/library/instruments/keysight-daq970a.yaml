@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-daq970a
 manufacturer: Keysight Technologies
 model: DAQ970A

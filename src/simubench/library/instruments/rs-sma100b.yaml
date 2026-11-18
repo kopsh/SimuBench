@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: rs-sma100b
 manufacturer: Rohde & Schwarz
 model: SMA100B

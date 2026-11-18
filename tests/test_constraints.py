@@ -20,7 +20,7 @@ from simubench.scpi.errors import ScpiError
 
 #: A digitizer whose segmented mode cannot average, like the DSO-X 2000 (:ACQuire:TYPE, p. 215).
 DEF = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "constrained",
     "manufacturer": "ACME",
     "model": "C-1",

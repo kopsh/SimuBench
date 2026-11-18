@@ -9,7 +9,7 @@ from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
 
 DEF = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "status-demo",
     "manufacturer": "ACME",
     "model": "STAT",

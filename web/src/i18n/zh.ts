@@ -1249,7 +1249,7 @@ export const zh = {
       builtins: "公共命令",
       errors: "错误文字",
       format: "回复格式",
-      dialect: "方言",
+      syntax: "报文写法",
       error_queue: "错误队列",
       version: "版本",
       class: "类别",

@@ -1,5 +1,5 @@
 # A meter built from generic components only, to test trigger_model and reading_buffer (#88).
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: test-trigger-meter
 manufacturer: SimuBench
 model: TRIGGER-METER

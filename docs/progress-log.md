@@ -2472,3 +2472,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 零行为变化 | ✅ 快层 4628 过（金测、手册用例、覆盖表一致性原样）；TUI 启动层 146 过 5 跳过（快照不变）；`load_sensitive` 6 过；`test_scope_deep_record` 的 monkeypatch 改到代码所在模块（`EAGER_POINTS` / `MAX_REQUEST_FANOUT` → `scope_acquisition`，`MAX_FRAME` → 采集与测量两处，与改前覆盖同一组使用点）；组件目录的家族表（server/catalog.py）把三个新模块归入 scope |
 | 类型检查基线 | ✅ `scripts/ty_baseline.txt` 重建：总数 468 不变，只有 scope.py 的条目随代码搬到 scope_acquisition / scope_trigger |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
+
+## 去掉「方言」（一）：定义格式的 `dialect` 块改名 `syntax`，instrument/2（Issue 1418）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 格式升版、旧文件自动升级 | ✅ `library/migrate.py` 新增 instrument 1 → 2（顶层 `dialect` 改名 `syntax`，内容不变）；`tests/test_migrate.py` 新增一例：内存升级的步骤与结果、无该块的文件只改版本号、磁盘上 instrument/1 的 LeCroy 定义读入后报文写法照常生效 |
+| 引擎与校验换名 | ✅ `InstrumentDefinition.syntax`（`Syntax`）；command_runner / builtin_commands / instrument 读 `syntax`；校验码 `E-DEF-DIALECT` → `E-DEF-SYNTAX`（`tests/test_declarative.py` 同步） |
+| 库内文件 | ✅ 65 份定义的 schema 写 `simubench.instrument/2`，6 份的 `dialect:` 改 `syntax:`（LeCroy、UXR×2、SR830、SR865A、低频校准参考示波器）；写文件的代码（模板、定义保存、脚本草拟、MCP 说明）写 /2 |
+| 生成物与界面 | ✅ schemas/ 与 web/src/api/generated 重生成（不再含 dialect）；Web 段落标题「方言」→「报文写法」 / "message syntax" |
+| 文档 | ✅ D81、术语表「命令表」「报文写法」、instrument-authoring 2.1 改为「报文写法」、real-models / lowfreq-cal / component-map 措辞；模板里的 `dialect` 输入组留给同 issue 的后两个 PR |
+| 行为不变 | ✅ 快层 4638 过（金测、手册用例原样） |
+

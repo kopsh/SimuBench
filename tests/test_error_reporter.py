@@ -19,7 +19,7 @@ pytestmark = pytest.mark.unit
 _FORMAT = {"number": "nr3", "digits": 6, "sign": True, "exponent_digits": 2, "error_code": "signed"}
 
 DATA = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "reporter-demo",
     "manufacturer": "ACME",
     "model": "REP",

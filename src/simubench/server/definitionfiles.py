@@ -93,7 +93,7 @@ class DefinitionFiles:
         rel = self.rel_path(def_id)
         if data.get("id", def_id) != def_id:
             raise Invalid(f"the file {rel} holds the definition {def_id!r}, not {data.get('id')!r}")
-        data = {"schema": "simubench.instrument/1", "id": def_id, **data}
+        data = {"schema": "simubench.instrument/2", "id": def_id, **data}
         raw = dump_yaml(data).encode("utf-8")
         path = self.files.workspace / rel
         with self.files._lock:

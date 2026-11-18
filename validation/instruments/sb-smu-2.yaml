@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: sb-smu-2
 manufacturer: SimuBench
 model: SB-SMU-2

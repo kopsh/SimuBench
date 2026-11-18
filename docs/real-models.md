@@ -121,9 +121,9 @@ MCP 的 `run_cases` 运行工作区中的用例文件，返回每条用例的结
 | `options` | 测试台实例 | 这台仪表装了哪些选件，如 `options: [P03]`；定义里没有的选件报 `E-OPTION-UNKNOWN`。不写即不带选件。编辑操作 `set_options`（`{op: set_options, instrument: sa, options: [P03]}`，整体替换）改它，Web 检查器的“选件”开关与 MCP 的 `edit_bench` 都走这一操作（#1007）。 |
 | `identity.options_reply` | 定义 | 内置 `*OPT?` 按实例已装的选件回复（D68，#1007）：回复是这段文字，其中 `{options}` 换成已装选件（按定义的顺序，`identity.options_separator` 分隔，缺省逗号）；没装任何选件时回 `identity.options_none`（缺省 `0`，IEEE 488.2 10.20）。不写时 `*OPT?` 照旧由定义自己的命令回答（如 M8194A 绑定状态量）。只在手册写明 `*OPT?` 的回复格式时使用。 |
 | `unknown_commands` | 定义 | `error`（默认）：未定义的命令回复 `-113`；`ignore`：不报错、不回复，事件历史记为 `ignored`。只用于按接口契约编写、没有 `reference` 的定义（D42），真实型号不允许。 |
-| `commands[].header` 为 `*XXX` | 命令 | 定义可以给公共命令自己的行为（如方言中的 `*CLS?`），优先于内置的公共命令。 |
+| `commands[].header` 为 `*XXX` | 命令 | 定义可以给公共命令自己的行为（如某型号自己的 `*CLS?`），优先于内置的公共命令。 |
 | `idn` | 测试台实例 | 覆盖定义的 `*IDN?` 回复，字段同 `identity.idn`；用于主机程序校验的型号串。 |
-| `dialect` | 定义 | 非 SCPI 方言的应答框架：`echo_header`（`off` / `short` / `long`，或绑定一个取值为 OFF、SHORT、LONG 的状态，如 LeCroy 的 `COMM_HEADER`，或一个布尔开关，如 Infiniium 的 `:SYSTem:HEADer`），`long_form`（布尔开关，开时命令头与枚举用长格式，如 `:SYSTem:LONGform`，#602），`multipliers`（无单位数值的倍率后缀，如 `MSIZ 10K`）。默认即 SCPI。见 [instrument-authoring.md](instrument-authoring.md) 2。 |
+| `syntax` | 定义 | 本型号的报文写法（`instrument/1` 的 `dialect` 块自动升级而来，#1418）：`echo_header`（`off` / `short` / `long`，或绑定一个取值为 OFF、SHORT、LONG 的状态，如 LeCroy 的 `COMM_HEADER`，或一个布尔开关，如 Infiniium 的 `:SYSTem:HEADer`），`long_form`（布尔开关，开时命令头与枚举用长格式，如 `:SYSTem:LONGform`，#602），`multipliers`（无单位数值的倍率后缀，如 `MSIZ 10K`）。默认即 SCPI。见 [instrument-authoring.md](instrument-authoring.md) 2。 |
 | `commands[].reply` | 命令 | 查询应答模板：`{header}`（按 `echo_header` 回显的命令头）、`{value}`（绑定的状态，或操作的应答）、`{value_block}`（同一应答包成 IEEE 488.2 定长块，如 `#13(@)`，#415）、`{<状态路径>}`，如 `"{header} {value} V"`。 |
 | `commands[].params[].state`、`type: pairs` | 命令 | 参数各自写入一个状态（多状态命令，如 `TRSE EDGE,SR,C1`）；`pairs` 是 `名,值,名,值…`，`keys` 给出每个名对应的状态（`null` 为接受并忽略）。全部校验通过才写入。 |
 | `state.*.ratio` | 状态 | 比例量（0.25）；写入大于 1 的值按百分数读（40 → 0.4）。 |

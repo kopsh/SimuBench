@@ -395,7 +395,7 @@ async def test_components_are_listed_for_definition_authors(ws):
 
     params = {p["name"]: p for p in gen["params"]}
     draft = {
-        "schema": "simubench.instrument/1",
+        "schema": "simubench.instrument/2",
         "id": "agent-gen",
         "manufacturer": "Agent",
         "model": "GEN-1",

@@ -88,7 +88,7 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
     @mcp.tool()
     def create_definition(
         definition_id: str = Field(..., description="The new id; the file is instruments/<id>.yaml"),
-        data: dict[str, Any] = Field(..., description="The definition (simubench.instrument/1)"),
+        data: dict[str, Any] = Field(..., description="The definition (simubench.instrument/2)"),
     ) -> dict[str, Any]:
         """Write a new instrument definition into the workspace's instruments/ (never code: the
         building blocks are list_components). The result reports what was created (changes, in the

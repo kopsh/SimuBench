@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: fluke-5730a
 manufacturer: Fluke
 model: 5730A

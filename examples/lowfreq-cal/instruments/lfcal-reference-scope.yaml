@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: lfcal-reference-scope
 manufacturer: LeCroy
 model: LFCAL-REFSCOPE
@@ -17,7 +17,7 @@ identity:
 unknown_commands: ignore
 # LeCroy 的应答：回显命令头（COMM_HEADER 切换 OFF / SHORT / LONG）、工程计数法、ON/OFF；
 # 无单位的点数可带倍率后缀（MSIZ 10K、2.5MA；这里 M 是兆，点数没有毫）。
-dialect:
+syntax:
   echo_header: $comm.header
   multipliers: {K: 1.0e3, M: 1.0e6, MA: 1.0e6, G: 1.0e9}
 format:

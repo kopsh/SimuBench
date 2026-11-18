@@ -1,7 +1,7 @@
 # A multimeter on the ranged measurement chain (issue 87, metrology-authoring.md 2): ranges, autorange,
 # overload, resolution and a switchable high-impedance input. Test-only, not in the product
 # library (D42).
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: meter-core-test
 manufacturer: SimuBench
 model: METER-CORE-1

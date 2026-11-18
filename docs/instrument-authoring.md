@@ -12,7 +12,7 @@ SimuBench 不可能为用户提供所有型号的仪表。平台要提供的是*
 
 原则：
 
-1. **声明式优先**：常见的命令方言、应答格式、波形传输与运行控制都能在定义文件里写出来；
+1. **声明式优先**：每个型号自己的命令表（除 IEEE 488.2 与 SCPI 规定的公共部分外，每家仪表的命令都不同，没有可以枚举的「方言」，#1418）、报文写法、应答格式、波形传输与运行控制都能在定义文件里写出来；
 2. **代码是出口，不是常规路径**：确实无法声明的行为用插件组件实现，接口与内置组件相同（architecture.md 3.4）；
 3. **Agent 只写定义，不写代码**：MCP 产出的是可读、可 diff 的 YAML，由工程师审阅（D9）；
 4. **先校验再运行**：定义文件与测试台共用一套诊断（错误码、JSON 指针、修改建议，architecture.md 3.5），Agent 据此自我纠错。
@@ -34,14 +34,14 @@ SimuBench 不可能为用户提供所有型号的仪表。平台要提供的是*
 
 ## 2. 声明式命令与应答（G1）
 
-已实现（#42）：低频校准工作台两份定义中的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都改为声明，`calibrator.py` 已删除，`lecroy.py` 只剩采集、运行控制、文本回读与 `PACU`（槽号选择状态，留给插件或后续扩展）。与设计稿的差别：数值格式放在已有的 `format` 中（`number: engineering`、`integer: engineering`），不在 `dialect` 中重复；多状态命令的查询不写 `reply` 时按参数顺序回答（`EDGE,SR,C1,HT,OFF`）；新增状态的 `ratio`（比例量也接受百分数，40 → 0.4）；信号源的幅度单位（VPP / VPK / VRMS）是 `function_generator_core` 的参数 `amplitude_unit`，因为它依赖两个设置（单位与波形），不是查表与直线能表达的。
+已实现（#42）：低频校准工作台两份定义中的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都改为声明，`calibrator.py` 已删除，`lecroy.py` 只剩采集、运行控制、文本回读与 `PACU`（槽号选择状态，留给插件或后续扩展）。与设计稿的差别：数值格式放在已有的 `format` 中（`number: engineering`、`integer: engineering`），不在 `syntax`（当时叫 `dialect`）中重复；多状态命令的查询不写 `reply` 时按参数顺序回答（`EDGE,SR,C1,HT,OFF`）；新增状态的 `ratio`（比例量也接受百分数，40 → 0.4）；信号源的幅度单位（VPP / VPK / VRMS）是 `function_generator_core` 的参数 `amplitude_unit`，因为它依赖两个设置（单位与波形），不是查表与直线能表达的。
 
-### 2.1 方言
+### 2.1 报文写法
 
-定义新增 `dialect`，说明这台仪表的应答怎么写，默认值即现在的 SCPI 行为；数值写法用已有的 `format`：
+定义的 `syntax`（报文写法）说明这个型号的应答怎么写、无单位的数怎么读，默认值即 SCPI 的写法；数值写法用已有的 `format`。它是每个型号自己的属性，不是从几种「方言」里选一种（`simubench.instrument/1` 的 `dialect` 块，读入时自动升级为 `syntax`，#1418）：
 
 ```yaml
-dialect:
+syntax:
   echo_header: $comm.header      # off | short | long，或绑定到一个状态量（COMM_HEADER 可切换）
   # long_form: $system.longform   # 可选：布尔开关，开时命令头与枚举应答用长格式（Infiniium，#602）
   multipliers: {K: 1.0e3, M: 1.0e6, MA: 1.0e6, G: 1.0e9}   # 无单位数值的倍率后缀（点数）
@@ -66,7 +66,7 @@ function.mode:
 
 ### 2.2 应答模板
 
-命令可给 `reply` 模板；`{header}` 按 `echo_header` 展开（含通道前缀 `C1:`，`off` 时为空并去掉其后的空格），`{value}` 是绑定状态量按方言格式化的值，`{<状态路径>}` 引用其他状态量：
+命令可给 `reply` 模板；`{header}` 按 `echo_header` 展开（含通道前缀 `C1:`，`off` 时为空并去掉其后的空格），`{value}` 是绑定状态量按本型号的格式写出的值，`{<状态路径>}` 引用其他状态量：
 
 ```yaml
 - header: "C<ch>:Volt_DIV"
@@ -83,7 +83,7 @@ function.mode:
 
 ### 2.3 组件参数的映射
 
-组件参数绑定除 `$路径` 外，允许映射与换算，用来把方言的取值翻成通用组件的取值：
+组件参数绑定除 `$路径` 外，允许映射与换算，用来把本型号的取值翻成通用组件的取值：
 
 ```yaml
 params:
@@ -116,7 +116,7 @@ preamp_gain:
 把参考示波器最后的专用行为改为声明时补充（都与型号无关）：
 
 - **按参数区分的命令** `when`：几条命令共用一个命令头，按参数的取值选择（`C1:INSPECT? "DATA_ARRAY_1"` 回读数据，`"WAVEDESC"` 给出描述）；都不匹配时回复 -224。写在这些命令之后、不带 `when` 的同头命令是兜底：其他取值与省略参数时用它（Infiniium 的 `:SYSTem:ERRor? [STRing]`：STRing 回码与文字，不带参数只回码，#602）。静态校验只在 `when` 能区分、或后一条是兜底时才不报 `E-DEF-HEADER-DUPLICATE`；兜底写在 `when` 命令之前则那些命令永远不执行，照样报错。
-- **应答头的两个开关**（#602）：`dialect.echo_header` 可以绑定一个布尔设置（开为短命令头，Infiniium 的 `:SYSTem:HEADer`）；`dialect.long_form` 绑定另一个布尔设置，开时命令头与枚举应答都用长格式（`:SYSTem:LONGform`：`:TIMEBASE:REFERENCE CENTER`）。公共命令的查询始终不带头。
+- **应答头的两个开关**（#602）：`syntax.echo_header` 可以绑定一个布尔设置（开为短命令头，Infiniium 的 `:SYSTem:HEADer`）；`syntax.long_form` 绑定另一个布尔设置，开时命令头与枚举应答都用长格式（`:SYSTem:LONGform`：`:TIMEBASE:REFERENCE CENTER`）。公共命令的查询始终不带头。
 - **按大小排序后写入** `order`（#1011）：有的命令接受两个值、顺序任意，由仪表把较小值写到下限、较大值写到上限（DSO-X 2000 的 `:TRIGger:GLITch:RANGe`：“较小的值成为 greater_than，较大的成为 less_than”）。命令级 `order: {ascending: [greater_than, less_than]}` 按从小到大列出参数名：解析后把这些参数的值排序，依次写入它们各自的设置；各设置的范围在排序之后校验（`RANGe 12E-9,40E-6` 中 12 ns 低于“小于”的下限，排序后写到“大于”合法）。查询仍按 `params` 的顺序回读。只用于写设置的命令；列出的参数须是必填的 `float` / `int`、各写一个 `state`，不带 `keywords` / `sets`（模型校验）。
 - **参数的连带设置** `sets`：一个写设置的参数可以同时写一组常量，例如 CONFigure 的量程参数 `sets: {sense.range_auto: false}`（量程一给就关闭自动量程）。连带设置只跟随明确的取值（数值、MIN、MAX）：参数写的是该设置的特殊字（`special`，如 AUTO）或 DEF 时不写，保留命令 `writes` 的选择（#325：`CONF:VOLT:DC AUTO` 仍为自动量程）。常量与参数一起校验、一起生效；静态校验用 `E-DEF-WRITE` 检查常量。
 - **关键字代写** `keywords`：参数写某个关键字（MIN、MAX、DEF 或特殊字；MINimum 等长形式同义）时，改写表中给出的设置，参数自己的设置只在表里写出时才写。用于关键字的含义不是"参数声明的上下限"的场合，例如 34465A 的 CONFigure 分辨率 `keywords: {MIN: {sense.resolution: 0, sense.nplc: 100}}`（最细分辨率选最长积分时间，#344）。表中常量同样由 `E-DEF-WRITE` 检查。
@@ -256,7 +256,7 @@ iip3_dbm:
 # instrument-authoring.md 2.11 的例子（#961）：一台简化的数字化仪，全部是现有的通用组件。
 # 输入端口 → 放大（specan_input 的前放，带噪声系数）→ adc → 数字下变频（specan_ddc）；
 # 读数由内部探针读 ddc.out（采样流端口不能映射为仪表端口）。tests/test_docs_examples.py 加载运行。
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: doc-digitizer
 manufacturer: SimuBench
 model: DOC-DIG-1
@@ -475,7 +475,7 @@ constraints:
 | `E-DEF-WIRE-COMPONENT`、`E-DEF-WIRE-PORT` | 内部连线、端口映射指向不存在的组件或端口；由连线创建的端口（`in1..inN`）由组件的 `port_pattern` 声明 |
 | `E-DEF-PORT-TUNED` | 把取决于调谐点的端口（组件类的 `tuned_ports`：频谱仪混频器、中频滤波的 `out`）映射成仪表端口：仪表之外没有调谐点（#952） |
 | `E-DEF-WIRE-MEDIUM`、`E-DEF-SAMPLES-OPEN` | 采样流（`samples` 端口，D67）的连线：采样流输出接到了不是采样流的输入；模拟信号输出直接接到采样流输入（中间必须有 ADC）；把采样流端口映射成仪表端口。采样流输入没有连线接到它（不能悬空，#946） |
-| `E-DEF-REPLY`、`E-DEF-DIALECT`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举或布尔设置、`long_form` 绑定的不是布尔设置；参数映射的表中有设置取不到的值（#42） |
+| `E-DEF-REPLY`、`E-DEF-SYNTAX`、`W-DEF-MAP-KEY` | 应答模板引用不存在的状态（或没有 `state` 的命令用 `{value}`）；`echo_header` 绑定的不是 OFF/SHORT/LONG 枚举或布尔设置、`long_form` 绑定的不是布尔设置；参数映射的表中有设置取不到的值（#42） |
 | `E-DEF-DEVIATION`、`W-DEF-DEVIATION-ZERO` | 个体偏差指向不存在的组件或参数、非数值参数；按 % 或 ppm 的相对偏差用在标称值为 0 的参数上（不起作用，#34） |
 | `E-DEF-DEVIATION-BANDS` | 随频率变化的曲线参数（`specan_input.flatness`）的个体偏差没有按频段写（`bands`），或 `bands` 用在不是曲线的参数上（#1004） |
 | `E-DEF-DEVIATION-WHEN` | 按设置分组的个体偏差（`deviations` 的 `when`，D70）引用的设置不存在或是按通道的设置、取值不是该设置能取的值，或同一参数有两条同样条件（或两条都不带条件）的偏差（#1020） |
@@ -533,7 +533,7 @@ constraints:
 | --- | --- | --- |
 | #40 | 定义的静态校验（5.1）与组件角色元数据（5.2）（已完成） | — |
 | #41 | 组件目录接口与 MCP `list_components`（5.3）（已完成） | — |
-| #42 | 声明式应答：方言、应答模板、`pairs` 参数、倍率后缀、参数映射（第 2 节）（已完成） | #40 |
+| #42 | 声明式应答：报文写法、应答模板、`pairs` 参数、倍率后缀、参数映射（第 2 节）（已完成） | #40 |
 | #43 | 通用波形传输组件（3.1）（已完成） | #40 |
 | #44 | 可配置的采集组件，Siglent 与 LeCroy 改为配置（3.2）（已完成） | #43 |
 | #45 | `simubench cases` 与 MCP `run_cases`（5.5）（已完成） | — |
@@ -662,7 +662,7 @@ display:
 - 分辨率与读数时间：按 NPLC 列表；
 - 输入阻抗：标准值、可选的高阻值及其适用量程；
 - 触发与读数存储、校准（安全码、分键）；
-- 命令方言：通用 SCPI 万用表命令集与可选变体；
+- 命令表：每个型号自己的，只带公共命令起步，照手册逐条绑定（#1418）；
 - 面板布局：类别默认，可以覆盖；
 - 技术指标与个体偏差：分开填写，不自动换算（D3）。
 

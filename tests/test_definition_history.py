@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "test-token"
 
 MINIMAL = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "acme-x1",
     "description": "一台虚构的万用表",
     "state": {"sense.nplc": {"type": "number", "min": 0.01, "max": 100, "default": 1}},

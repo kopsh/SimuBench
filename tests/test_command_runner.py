@@ -19,7 +19,7 @@ _FORMAT = {"number": "nr3", "digits": 6, "sign": True, "exponent_digits": 2}
 
 DEFINITION = InstrumentDefinition.model_validate(
     {
-        "schema": "simubench.instrument/1",
+        "schema": "simubench.instrument/2",
         "id": "runner-demo",
         "manufacturer": "ACME",
         "model": "RUN",
@@ -83,7 +83,7 @@ DEFINITION = InstrumentDefinition.model_validate(
 
 CHANNELS = InstrumentDefinition.model_validate(
     {
-        "schema": "simubench.instrument/1",
+        "schema": "simubench.instrument/2",
         "id": "runner-channels",
         "manufacturer": "ACME",
         "model": "RUN2",

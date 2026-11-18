@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: srs-sr830
 manufacturer: Stanford Research Systems
 model: SR830
@@ -22,7 +22,7 @@ identity:
   firmware: "ver1.000"
 # SR830 is not SCPI: four-letter mnemonics with comma-separated parameters, and the queries answer
 # with a bare value (no header, no unit). That is the default framing, written out for the record.
-dialect:
+syntax:
   echo_header: "off"
 format:
   number: nr2

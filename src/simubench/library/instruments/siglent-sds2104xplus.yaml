@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: siglent-sds2104xplus
 manufacturer: Siglent Technologies
 model: SDS2104X Plus

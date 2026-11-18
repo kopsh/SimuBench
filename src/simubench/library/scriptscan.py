@@ -450,14 +450,14 @@ def draft_definition(
     res = resources[receiver]
     if base is not None:
         data = base.model_dump(mode="json", by_alias=True, exclude_defaults=True)
-        data.update(id=definition_id, schema="simubench.instrument/1")
+        data.update(id=definition_id, schema="simubench.instrument/2")
         data.pop("reference", None)  # a contract definition, not the real model's
         known = base
     else:
         leaf = receiver.rsplit(".", 1)[-1].lower()
         cls = next((c.id for c in categories.rows() if c.hints and any(w in leaf for w in c.hints)), "other")
         data = {
-            "schema": "simubench.instrument/1",
+            "schema": "simubench.instrument/2",
             "id": definition_id,
             "manufacturer": "TODO",
             "model": definition_id.upper(),

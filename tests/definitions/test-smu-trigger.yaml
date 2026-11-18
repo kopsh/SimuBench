@@ -1,6 +1,6 @@
 # A source-measure unit built from generic components only, to test the trigger system, the reading
 # memory and the ranges of smu_core (#94).
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: test-smu-trigger
 manufacturer: SimuBench
 model: TRIGGER-SMU

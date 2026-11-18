@@ -6,13 +6,13 @@
 
 | 文件 | 内容 |
 | --- | --- |
-| `instruments/lfcal-reference-scope.yaml` | D1 参考示波器：LeCroy 风格的私有命令方言 |
+| `instruments/lfcal-reference-scope.yaml` | D1 参考示波器：LeCroy 风格的私有命令与报文写法 |
 | `instruments/lfcal-scope-calibrator.yaml` | D2 示波器校准仪：4 通道，SCPI 树 |
 | `lowfreq_cal.bench.yaml` | D4 工作台预设：校准仪 CH1–CH4 经 1 m 同轴线缆接示波器 C1–C4 |
 | `lowfreq_cal_demo.py` | D5 示例脚本：按主机程序的接口契约完成初始化、逐频点采集与回读、收尾 |
 | `cases.yaml` | 契约用例：契约要求的回复格式、未知命令、单次采集、文本回读等，`simubench cases examples/lowfreq-cal/cases.yaml` 运行 |
 
-两份定义只用平台的通用组件，没有专用代码（[instrument-authoring.md](instrument-authoring.md) 第 0 节）。D3（私有文本波形回读）是通用的 `waveform_transfer`（`DATA_ARRAY_1` 的选点与 `%.6e` 文本、`WAVEDESC` 的描述变量，见 3.1 与 2.5）与 `scope_acquisition`（记录长度、触发、运行控制、噪声与 ADC、`PAVA?` 的命名测量，见 3.2）在定义中的配置；`INSPECT?` 按第一个参数区分（`when`），`PACU` 用索引参数选择测量槽位。示波器的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都在定义文件里声明（方言、应答模板、`pairs` 参数、参数映射，见 [instrument-authoring.md](instrument-authoring.md) 2）。
+两份定义只用平台的通用组件，没有专用代码（[instrument-authoring.md](instrument-authoring.md) 第 0 节）。D3（私有文本波形回读）是通用的 `waveform_transfer`（`DATA_ARRAY_1` 的选点与 `%.6e` 文本、`WAVEDESC` 的描述变量，见 3.1 与 2.5）与 `scope_acquisition`（记录长度、触发、运行控制、噪声与 ADC、`PAVA?` 的命名测量，见 3.2）在定义中的配置；`INSPECT?` 按第一个参数区分（`when`），`PACU` 用索引参数选择测量槽位。示波器的设置命令、`TRSE`、`MSIZ`、`WAVEFORM_SETUP` 与校准仪的全部命令都在定义文件里声明（报文写法、应答模板、`pairs` 参数、参数映射，见 [instrument-authoring.md](instrument-authoring.md) 2）。
 
 ## 1. 部署
 
