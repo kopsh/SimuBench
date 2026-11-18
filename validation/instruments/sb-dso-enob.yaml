@@ -1,0 +1,11 @@
+# SB-DSO-2X with a converter whose effective bits fall with the input frequency (#1421, F1-1): the
+# ADC adds the noise that brings a full-scale sine down to the declared ENOB. Validation only.
+schema: simubench.instrument/2
+id: sb-dso-enob
+extends: sb-dso-2x
+manufacturer: SimuBench
+model: SB-DSO-ENOB
+class: oscilloscope
+description: 双通道数字示波器（SB-DSO-2X），ADC 的有效位数随输入频率下降：1 MHz 9 位，50 MHz 6 位（#1421）。
+component_overrides:
+  adc: {params: {enob_table: [[1.0e6, 9.0], [5.0e7, 6.0]]}}
