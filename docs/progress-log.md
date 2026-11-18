@@ -2659,3 +2659,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | W6：solve 一遍一助手 | ✅ `Session._solve_once`（emf 收集+频率归并+solve+stats 记账+memo），模式迭代与 D52 兜底结算共用；`test_eload.py` 的 unsettled 事件、`test_trigger_model.py` 原样过 |
 | W7：点轴纯函数 | ✅ `reading_math.axis(start, stop, n, spacing)`（LIN/LOG，LOG 合法性守卫留在调用方）：rfgen.sweep_points、smu.sweep_levels（-221 守卫留守）、specan 三处换用；金测（`test_specan_migration.py`/`test_smu_migration.py`/`test_rfgen_migration.py` 等）逐位不变。issue 所列 optical.py:266 无点轴构建（台阶扫描按时间算位置、末步可半步，换 axis 会变值），未动 |
 | 全量 | ✅ `scripts/check.sh` 全绿（pytest 4704 passed, 9 skipped；本机 141 s，与基线 148 s 相当，预算门在 CI 的 wall-clock 任务）；除 W3 外零行为变化，不写 decisions 条目 |
+
+## 接入层第二轮：服务器一张表、LOCAL 读连接事实、LockTable 一本锁账（Issue 1475）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 服务器集合一张表 | ✅ `ServedSession.servers`（`manager.py`）是唯一注册表，`scpi`/`hislip`/`vxi11`/`link` 退为 property 委托；`remote_clients`、views 的 clients 与 `served_addresses`、manager 的 start/stop/PortInUse 清理全部循环注册表；`access.AccessServer` 协议（connections/addresses/stop）声明缝，SCPI 新增 `addresses()`、bench link 返回空表，四协议的端口语义留在各自模块 |
+| is_remote 暗号显式化 | ✅ `manager.py` 的 `startswith(("socket:",…))` 前缀表删除；`ServedSession.is_remote` 查 `connections()` 的存在性，客户端标签退化为展示名；四台服务器里的前缀拼写只剩展示用途 |
+| 持锁推导一处 | ✅ `LockTable.acquire/release_one` 管嵌套 viLock（`tests/test_bus.py::test_nested_vilocks_count_up_and_release_at_the_outermost`），bench link 的 `holds_lock` 走 `held_by`（`tests/test_bench_link.py` 持锁用例原样通过）；GPIB INTFC 关闭释放板卡锁（旧实现泄漏，顺带修复） |
+| 锁等待原语 | ✅ `LockTable.wait_accessible`（bus.py，含 `exclusive`/`give_up`）直测 6 例进 `tests/test_bus.py`（唤醒、成功即 grant、超时不取锁、放弃、共享 join 即 grant）；hislip_server.py 与 vxi11_server.py 的四份轮询循环删除；间隔收敛 `LOCK_POLL_S = 0.05`（D84 记录理由），`test_device_lock_holds_another_links_io` 的 ≥0.25 s 断言原样通过 |
+| engine 透传一处 | ✅ `access.engine_call` 一处（to_thread + LinkDown 关连接重抛），hislip/vxi11/scpi 各剩一行；`tests/test_hislip.py::test_status_query_waits_for_the_write_sent_before_it` 与 `tests/test_vxi11.py::test_every_queued_response_message_is_read_in_turn` 的注入缝改 `session.exchange`，断言不变 |
+| 端到端不变 | ✅ test_hislip / test_vxi11 / test_bench_link / test_pyvisa_buses / test_gpib_bus / test_link_served 全部原样通过（169 例）；serve 启动地址表逐行不变（cli.py 循环注册表，`tests/test_ops.py` 行格式原样） |
+| 守卫测试 | ✅ `tests/test_access_registry.py`：假第五协议（只实现 AccessServer 三成员）注册进表即被 remote_clients/is_remote/stop 认出、LOCAL 由连接事实回退（UI 写不解除、端口客户端写解除）；`test_no_layer_sniffs_a_client_label_prefix` 锁 access/server 两层无引号标签前缀字面量 |
+| 文档 | ✅ decisions.md D84、codebase-map 接入行、progress-log 本节 |
+| check.sh | ✅ 全绿（fast 套件 4713 过；本机 x64 全量 ~158 s，基线 feb55c6b 同机 ~152 s，预算在 CI 机器执行） |
