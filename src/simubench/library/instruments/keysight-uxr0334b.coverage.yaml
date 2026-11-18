@@ -291,7 +291,7 @@ sections:
     note: 'FLATmag (default, the guide): flat magnitude, linear phase, a brick wall at :ACQuire:BANDwidth
       with its delay removed, so a step rings; GAUSsianmag: a Gaussian magnitude -3 dB at the same frequency,
       no ringing. The guide''s narrower Gaussian bandwidth is not given in figures: the simulation keeps
-      the -3 dB point (#607)'
+      the -3 dB point (#607). The correction is the record''s: the trigger taps the analog path before the converter, shaped by the front end''s own roll-off, not given in the data sheet (a 4th-order Bessel at the same -3 dB point, a SimuBench ESTIMATE, #1423): on a fast edge it does not ring, and a 10 GHz square''s 50 % crossing moves by about 0.06 ps against the record''s'
   - header: :ACQuire:SEGMented:AUToplay
     level: implemented
     note: "whether segments play back automatically after a segmented acquisition. Playback is instantaneous here: the query replies the stored setting, not a playback in progress"

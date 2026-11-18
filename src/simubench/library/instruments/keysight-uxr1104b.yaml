@@ -1572,6 +1572,10 @@ channel_components:
       coupling: DC
       bandwidth: {same_as: specs.bandwidth_hz}
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
+      # 模拟前端自身的滚降（#1423）：平坦幅度 / 高斯幅度是 ADC 之后 DSP 修正的结果，触发从 ADC 之前的模拟通路
+      # 分出，看到的是这一形状、不带修正。形状手册未给（数据手册的 4.0 ps 上升时间与修正后的砖墙响应一致，
+      # 0.45 / 113 GHz）：取 4 阶 Bessel、-3 dB 在同一带宽（SimuBench 估计，覆盖表注明）。记录照旧是修正后的形状。
+      analog_response: bessel4
       scale: $ch.scale
       offset: $ch.offset
       # 外部缩放开时显示 = 输入 / 增益：档位与偏置的范围按输入端换算。

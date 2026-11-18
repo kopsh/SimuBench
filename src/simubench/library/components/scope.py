@@ -125,7 +125,10 @@ class ScopeVertical(Component):
     about_en = "The vertical channel: coupling, bandwidth, scale and offset with their ranges."
 
     ports = {"in": PortSpec("in", "signal"), "out": PortSpec("out", "signal")}
-    choices = {"response": ("first_order", "brickwall", "gaussian", "bessel4", "butterworth4")}
+    choices = {
+        "response": ("first_order", "brickwall", "gaussian", "bessel4", "butterworth4"),
+        "analog_response": ("first_order", "brickwall", "gaussian", "bessel4", "butterworth4"),
+    }
     # A channel's own store first, then the instrument's (Component.peer); none: no correction.
     refs = {"store": ("calibration_store", "instrument")}
     optional_refs = frozenset({"store"})
@@ -139,6 +142,9 @@ class ScopeVertical(Component):
         # brickwall (flat magnitude, linear phase), gaussian (no ringing), bessel4 or butterworth4; the
         # DSP shapes are zero phase, their delay removed as a scope deskews it (#607, #609)
         "response": "first_order",
+        # the analog front end's own shape when ``response`` is a DSP-corrected one (#1423): the
+        # trigger taps the analog path, before the converter, so it sees this one; None: the same
+        "analog_response": None,
         "scale": "$ch.scale",  # V/div as displayed
         "offset": "$ch.offset",  # V as displayed
         "invert": False,  # the waveform reflects about 0 V (:CHANnel<N>:INVert, #1067)
@@ -172,10 +178,18 @@ class ScopeVertical(Component):
     }
 
     def output(self, port: str) -> Signal:
+        sig = self._before_bandwidth()
+        if sig is None:
+            return Signal.zero()
+        return self._shaped(sig, self.choice("response") or "first_order")
+
+    def _before_bandwidth(self) -> Signal | None:
+        """The channel after the coupling and this unit's errors, before the bandwidth: None when
+        the input is grounded."""
         sig = self.input("in")
         coupling = self.param("coupling")
         if coupling == "GND":
-            return Signal.zero()
+            return None
         if coupling == "AC":
             sig = sig.transfer(highpass1(float(self.param("ac_corner"))))
         gain = self._error("gain_error_ppm")
@@ -187,10 +201,23 @@ class ScopeVertical(Component):
             # path by probe_ratio after this stage, so divide it here to keep it display-referred.
             ratio = float(self.param("probe_ratio"))
             sig = sig + Signal(dc=offset + float(self.param("offset")) * dac / ratio)
+        return sig
+
+    def analog_output(self) -> Signal:
+        """The channel as the analog path carries it (#1423): what :meth:`output` gives, shaped by
+        ``analog_response`` instead of ``response`` — the front end's own roll-off, without the
+        DSP flatness correction a scope applies after its converter. The trigger taps this."""
+        shape = self.choice("analog_response")
+        if not shape:
+            return self.output("out")
+        sig = self._before_bandwidth()
+        return Signal.zero() if sig is None else self._shaped(sig, shape)
+
+    def _shaped(self, sig: Signal, shape: str) -> Signal:
         fc = min(self._limit(), float(self.param("bandwidth")))
         if not math.isfinite(fc):
             return sig
-        return sig.transfer(RESPONSES[self.choice("response") or "first_order"](fc))
+        return sig.transfer(RESPONSES[shape](fc))
 
     def _limit(self) -> float:
         """Bandwidth limit: on/off (``bw_limit_hz``) or a named filter such as Siglent's 20M / FULL."""
@@ -403,8 +430,12 @@ class ScopeProbe(Component):
         return float(self.param("ratio")) / float(self.param("gain") or 1.0)
 
     def output(self, port: str) -> Signal:
+        return self.convert(self.input("in"))
+
+    def convert(self, sig: Signal) -> Signal:
+        """``sig`` as this probe setting shows it: times the ratio, inverted when set."""
         k = self.effective_ratio()
-        return self.input("in").scale(-k if self.param("invert") in (True, 1, "1", "ON") else k)
+        return sig.scale(-k if self.param("invert") in (True, 1, "1", "ON") else k)
 
     def delay(self) -> float:
         """How many seconds this channel's record lags the trigger timeline."""
@@ -764,9 +795,20 @@ class ScopeAdc(Component):
         return self.peer(f"ch{n}.{self.param('probe')}", required=True)
 
     def analog(self, n: int) -> Signal:
-        """Channel n's signal at the converter's input, in display volts: what the trigger
-        comparator taps."""
+        """Channel n's signal at the converter's input, in display volts."""
         return self.input(f"in{n}")
+
+    def trigger_signal(self, n: int) -> Signal:
+        """Channel n as the trigger comparator sees it, in display volts: the converter's input,
+        or, when the vertical declares its analog front end's own shape (``analog_response``,
+        #1423), the channel through that shape and the probe setting — the trigger taps the
+        analog path, before the DSP flatness correction the record gets."""
+        vertical = self._vertical(n)
+        if not vertical.choice("analog_response"):
+            return self.analog(n)
+        probe = self._probe(n)
+        sig = vertical.analog_output()
+        return probe.convert(sig) if probe is not None else sig
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:
         return self.view(_channel_of(port)).frame(request)
