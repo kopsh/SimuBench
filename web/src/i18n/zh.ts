@@ -982,7 +982,7 @@ export const zh = {
       saved: "已保存",
       saving: "保存中…",
       readOnly: "内置型号不能直接修改：先点右上角的“复制为我的仪表”，再在副本中搭建。",
-      inherited: "继承自 {{parent}}：{{items}}。第一次修改某一项时，整项写进这台仪表，之后与 {{parent}} 无关。",
+      inherited: "继承自 {{parent}}：{{items}}。第一次修改某一项时，整项写进这台仪表，之后与 {{parent}} 无关；命令例外：只记下改动的那几条，其余命令仍跟随 {{parent}}。",
       item: { components: "整机组件", channel_components: "通道组件", wiring: "连线", ports: "面板端口", state: "设置", channel_state: "通道设置", commands: "命令" },
       relayout: "自动排列",
       relayoutHint: "清除拖动过的位置，按信号连线自左向右排列",

@@ -28,7 +28,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 from ..jsonsafe import as_number, spelling
-from ..library.loader import layered_definition_data
+from ..library.loader import OVERRIDES, LayerError, apply_command_overrides, layered_definition_data
 from ..models import api as M
 
 StructureKey = Literal[
@@ -149,7 +149,7 @@ def _structure_of(data: dict[str, Any]) -> dict[str, Any]:
 
 def _inherited_data(data: dict[str, Any], source: Path) -> dict[str, Any]:
     """What the definition would run without its own structure items: the layers below it."""
-    rest = {k: v for k, v in data.items() if k not in STRUCTURE_KEYS}
+    rest = {k: v for k, v in data.items() if k not in STRUCTURE_KEYS and k != OVERRIDES}
     if "extends" not in rest:
         return {}
     return layered(rest, source)
@@ -258,7 +258,10 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
     now = layered(data, source)
     for key in ("components", "channel_components"):
         items = _restore_items(
-            [{**c, "params": _unspelled(c["params"])} if "params" in c else c for c in _component_data(getattr(new, key))],
+            [
+                {**c, "params": _unspelled(c["params"])} if "params" in c else c
+                for c in _component_data(getattr(new, key))
+            ],
             _commands(now.get(key)),
             lambda c: (c.get("name"), c.get("type")),
         )
@@ -268,7 +271,7 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
         _commands(now.get("commands")),
         lambda c: (c.get("header"), c.get("state"), c.get("op")),
     )
-    _set_list(out, "commands", commands, _commands(below.get("commands")))
+    _set_commands(out, commands, _commands(below.get("commands")))
     for key in _SETTINGS:
         settings = _restore(_numbers_read(getattr(new, key)), _settings(now.get(key)))
         _set_or_drop(out, key, _diff(settings, _settings(below.get(key))))
@@ -354,12 +357,14 @@ def check_kept(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> No
     nulls = _null_paths(new)
     if nulls:
         raise StructureNotKept(
-            "没有保存：结构里不能有 null（JSON 带不了的值，如无穷大，要写成 \"INF\"/\"-INF\"；"
+            '没有保存：结构里不能有 null（JSON 带不了的值，如无穷大，要写成 "INF"/"-INF"；'
             "删除一项就不发送它）：" + "、".join(nulls[:5])
         )
     effective = _structure_of(spelled(layered(data, source)))
     wanted = {
-        key: _comparable(getattr(new, key)) if key not in _SETTINGS else _comparable(_numbers_read(getattr(new, key)))
+        key: _comparable(getattr(new, key))
+        if key not in _SETTINGS
+        else _comparable(_numbers_read(getattr(new, key)))
         for key in STRUCTURE_KEYS
     }
     wrong = []
@@ -376,6 +381,45 @@ def check_kept(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> No
         raise StructureNotKept(
             "没有保存：写进文件后，这些项与要保存的不一致，保存会改变或丢失它们：" + "；".join(wrong)
         )
+
+
+def _overrides(commands: list[dict[str, Any]], below: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """``commands`` as ``command_overrides`` over the inherited ``below`` (D59): a changed or new
+    command by its header, a dropped one as null. None when that cannot say it — a header twice
+    on either side, or an order the overrides do not produce (only appending is)."""
+    headers = [c.get("header") for c in commands]
+    if None in headers or len(set(headers)) != len(headers):
+        return None
+    old = {c.get("header"): c for c in below}
+    out: dict[str, Any] = {}
+    for c in commands:
+        h = c["header"]
+        if h not in old or _as_json(old[h]) != _as_json(c):
+            out[h] = {k: v for k, v in c.items() if k != "header"}
+    out.update({h: None for h in old if h not in set(headers)})
+    try:
+        if _as_json(apply_command_overrides(below, out)) != _as_json(commands):
+            return None
+    except LayerError:
+        return None
+    return out
+
+
+def _set_commands(out: dict[str, Any], commands: list[dict[str, Any]], below: list[dict[str, Any]]) -> None:
+    """The commands into the file: a file that writes its own list keeps doing so (D59: a list
+    replaces); a copy that inherits its table gets only the commands it changes, as
+    ``command_overrides``, so one command added in the Web is one entry and later fixes of the
+    parent's other commands still reach it."""
+    if "commands" not in out and below:
+        overrides = _overrides(commands, below)
+        if overrides is not None:
+            if overrides:
+                out[OVERRIDES] = overrides
+            else:
+                out.pop(OVERRIDES, None)
+            return
+    out.pop(OVERRIDES, None)
+    _set_list(out, "commands", commands, below)
 
 
 def _set_list(out: dict[str, Any], key: str, items: list[Any], below: list[Any]) -> None:

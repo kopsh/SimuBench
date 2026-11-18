@@ -487,7 +487,9 @@ def _check_initial_values(d: InstrumentDefinition, report: Report) -> None:
 
 def _accepted(spec: StateSpec) -> str:
     if spec.type in ("float", "int"):
-        parts = [f"{spec.min if spec.min is not None else '-∞'} … {spec.max if spec.max is not None else '∞'}"]
+        parts = [
+            f"{spec.min if spec.min is not None else '-∞'} … {spec.max if spec.max is not None else '∞'}"
+        ]
         if spec.special:
             parts.append("special " + ", ".join(spec.special))
         return "；".join(parts)

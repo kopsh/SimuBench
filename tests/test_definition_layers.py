@@ -229,3 +229,44 @@ def test_daq970a_and_53230a_do_not_keep_the_parents_device_rows():
     assert lib.get("keysight-34970a").errors.get(111)
     counter = lib.get("keysight-53230a")
     assert "53220A" not in counter.specs["gate_time_s"] and "resolution_digits_53220a" not in counter.specs
+
+
+# ---- command_overrides: one command at a time (D59) ------------------------------------------------
+
+_STATE = {"a": {"type": "float", "default": 0}, "b": {"type": "float", "default": 0}}
+
+
+def _cmd(header: str, **fields) -> dict:
+    return {"header": header, "state": "a", **fields}
+
+
+def test_command_overrides_replace_add_and_remove_whole_commands(tmp_path, lib):
+    write(tmp_path, "base", state=_STATE, commands=[_cmd(":A"), _cmd(":B", query=False), _cmd(":C")])
+    write(
+        tmp_path,
+        "derived",
+        extends="base",
+        command_overrides={":B": {"state": "b"}, ":C": None, ":D": {"state": "b"}},
+    )
+    commands = {c.header: c for c in lib.get("derived").commands}
+    assert list(commands) == [":A", ":B", ":D"]  # replaced in place, removed, appended
+    assert commands[":B"].state == "b" and commands[":B"].query is True  # whole: query not kept
+
+
+def test_command_overrides_stack_through_the_chain_above_the_nearest_list(tmp_path, lib):
+    write(tmp_path, "grand", state=_STATE, commands=[_cmd(":A"), _cmd(":B")])
+    write(tmp_path, "mid", extends="grand", command_overrides={":B": None})
+    write(tmp_path, "leaf", extends="mid", command_overrides={":C": {"state": "b"}})
+    assert [c.header for c in lib.get("leaf").commands] == [":A", ":C"]
+    write(tmp_path, "own", extends="mid", commands=[_cmd(":X")], command_overrides={":Y": {"state": "b"}})
+    assert [c.header for c in lib.get("own").commands] == [":X", ":Y"]  # its own list replaces mid's
+
+
+def test_command_overrides_refuse_what_they_cannot_name(tmp_path, lib):
+    write(tmp_path, "base", state=_STATE, commands=[_cmd(":A"), _cmd(":A", query=False)])
+    write(tmp_path, "twice", extends="base", command_overrides={":A": {"state": "b"}})
+    write(tmp_path, "gone", extends="base", command_overrides={":Z": None})
+    for def_id, words in (("twice", "出现 2 次"), ("gone", "无从删除")):
+        with raises_with(ValueError, words) as info:
+            lib.get(def_id)
+        assert info.value.code == "E-DEF-COMMAND-OVERRIDE"  # type: ignore[attr-defined]

@@ -129,10 +129,24 @@ def test_build_area_settings_and_commands(tmp_path):
             "out.level": {"type": "float", "unit": "V", "min": -10, "max": 10, "default": 0},
             "sense.nplc": {"label": None},
         }
-        assert on_disk["commands"][-1] == {"header": ":OUTPut:LEVel", "state": "out.level"}
-        assert len(on_disk["commands"]) == len(first["commands"]) + 1
+        # the command table stays the parent's: the new command is one per-command entry (D59)
+        assert "commands" not in on_disk
+        assert on_disk["command_overrides"] == {":OUTPut:LEVel": {"state": "out.level"}}
+        assert len(saved["commands"]) == len(first["commands"]) + 1
         assert "label" not in saved["state"]["sense.nplc"] and saved["state"]["sense.nplc"]["type"] == "float"
-        assert set(saved["inherited"]) == {"wiring", "ports"}  # untouched: still the parent's
+        assert set(saved["inherited"]) == {"wiring", "ports", "commands"}  # still the parent's
+
+        # a changed and a dropped inherited command are entries too; the copy runs the result
+        body = _body(saved)
+        dropped = body["commands"].pop(0)["header"]
+        changed = next(x for x in body["commands"] if x.get("state") == "sense.nplc")
+        changed["header"] = changed["header"]  # same header, a field changed below
+        changed["query"] = False
+        c.put(url, json=body).raise_for_status()
+        on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
+        assert on_disk["command_overrides"][dropped] is None
+        assert on_disk["command_overrides"][changed["header"]]["query"] is False
+        assert len(on_disk["command_overrides"]) == 3
 
         # the copy runs the new command
         sid = c.post(f"/api/try/{my_id}").json()["session_id"]
@@ -229,7 +243,10 @@ def test_copy_history_reads_what_the_instrument_runs(tmp_path):
         c.put(url, json=body).raise_for_status()
 
         def items(version: dict) -> list[tuple]:
-            return [(x["kind"], x["action"], x["target"], x["detail"], x["old"], x["new"]) for x in version["changes"]]
+            return [
+                (x["kind"], x["action"], x["target"], x["detail"], x["old"], x["new"])
+                for x in version["changes"]
+            ]
 
         added, limit, created = c.get(f"/api/definitions/{my_id}/history").json()
         assert items(created) == [("extends", "added", "extends", None, None, "keysight-uxr1104b")]

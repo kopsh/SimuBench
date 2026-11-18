@@ -106,7 +106,9 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         patch: list[PatchOp] = Field(..., description="JSON Patch (RFC 6902) operations, applied in order"),
     ) -> dict[str, Any]:
         """Edit a workspace definition with JSON Patch, e.g. {"op": "replace", "path":
-        "/channel_state/scale/max", "value": 10}. The result reports what changed (changes, in the
+        "/channel_state/scale/max", "value": 10}. A copy (extends) changes inherited commands one at a
+        time under /command_overrides (header -> whole command, or null to remove) instead of
+        rewriting /commands. The result reports what changed (changes, in the
         instrument's language — report that to the engineer). Every save enters the version history
         (the Web acceptance page shows it with these descriptions). Sessions that use the definition
         keep the old one until restarted (sessions_to_restart)."""

@@ -99,6 +99,217 @@
       "title": "Channels",
       "type": "object"
     },
+    "CommandOverride": {
+      "additionalProperties": false,
+      "description": "A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key.",
+      "properties": {
+        "args": {
+          "additionalProperties": true,
+          "description": "Constant arguments passed to the operation",
+          "title": "Args",
+          "type": "object"
+        },
+        "dangerous": {
+          "default": false,
+          "title": "Dangerous",
+          "type": "boolean"
+        },
+        "doc": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Doc"
+        },
+        "duration": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "number"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Virtual time the command consumes (D12)",
+          "title": "Duration"
+        },
+        "factor": {
+          "default": 1.0,
+          "description": "The command's number is the bound setting times factor: :TIMebase:RANGe is factor 10 on the time/div setting; a write divides by it",
+          "title": "Factor",
+          "type": "number"
+        },
+        "format": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResponseFormat"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Overrides the definition's response format"
+        },
+        "header": {
+          "default": "",
+          "description": "Left out: the mapping key is the header",
+          "title": "Header",
+          "type": "string"
+        },
+        "op": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Component operation, e.g. 'acq.digitize'",
+          "title": "Op"
+        },
+        "option": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "The command belongs to this option (an `options` id): a unit without it skips the command — a later command on the same header without `option` answers instead (what the manual says a unit without the option replies), otherwise -241 Hardware missing",
+          "title": "Option"
+        },
+        "order": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ParamOrder"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Parameters bound to settings whose values are sorted by size before they are written (#1011), e.g. {ascending: [greater_than, less_than]}"
+        },
+        "params": {
+          "items": {
+            "$ref": "#/$defs/ParamSpec"
+          },
+          "title": "Params",
+          "type": "array"
+        },
+        "query": {
+          "default": true,
+          "title": "Query",
+          "type": "boolean"
+        },
+        "read": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "An operation command's query reads this setting instead of calling the operation: 'OPER' enters operate, 'OPER?' reads it (the setting the operation writes)",
+          "title": "Read"
+        },
+        "reply": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is",
+          "title": "Reply"
+        },
+        "set": {
+          "default": true,
+          "title": "Set",
+          "type": "boolean"
+        },
+        "set_value": {
+          "default": null,
+          "description": "A setting command without parameters writes this constant and its query reads it back (LOCAL / REMOTE / LOCKOUT, which only set the interface state)",
+          "title": "Set Value"
+        },
+        "state": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "State path bound to the command, e.g. 'ch.frequency'",
+          "title": "State"
+        },
+        "suffixes": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "items": {
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Allowed values of named header suffixes other than <ch> (#335), e.g. {hw: [1], n: [1]} for the SMA100B's [:SOURce<hw>]:AM<n>:STATe (one RF path, the first modulation channel); an omitted suffix counts as 1, any other value is -114",
+          "title": "Suffixes"
+        },
+        "when": {
+          "anyOf": [
+            {
+              "additionalProperties": {
+                "type": "string"
+              },
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? \"WAVEDESC\"). A later command on the same header without `when` is the fallback: it runs for the other values and when the parameter is left out (:SYSTem:ERRor? [STRing], #602)",
+          "title": "When"
+        },
+        "writes": {
+          "additionalProperties": true,
+          "description": "Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win). On an operation's command they are written before the operation runs (#308: MEASure:CURRent? selects the current function, as the instrument does)",
+          "title": "Writes",
+          "type": "object"
+        }
+      },
+      "title": "CommandOverride",
+      "type": "object"
+    },
     "CommandSpec": {
       "additionalProperties": false,
       "description": "One SCPI command: bound to a setting (``state``), to a component operation (``op``), or, through\nits parameters' ``state``, to several settings at once.",
@@ -2151,6 +2362,29 @@
     "class": {
       "title": "Class",
       "type": "string"
+    },
+    "command_overrides": {
+      "anyOf": [
+        {
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "$ref": "#/$defs/CommandOverride"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "type": "object"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "With extends (D59): change the inherited command table one command at a time instead of rewriting it. Key: a command header exactly as the inherited table writes it; value: the whole command without its header (it replaces the inherited one whole, or is appended when no command has that header), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own commands list; a header the table holds twice, or a removal of one it does not hold, is E-DEF-COMMAND-OVERRIDE. Empty once loaded",
+      "title": "Command Overrides"
     },
     "commands": {
       "items": {

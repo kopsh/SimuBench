@@ -55,7 +55,8 @@ class DefinitionFiles:
             data = layered_definition_data(data, self.files.workspace / FOLDER / "draft.yaml")
         except ValueError as exc:
             report = Report()
-            report.add("error", "E-DEF-EXTENDS", "/extends", str(exc), None)
+            code, pointer = getattr(exc, "code", "E-DEF-EXTENDS"), getattr(exc, "pointer", "/extends")
+            report.add("error", code, pointer, str(exc), None)
             return report
         _, report = validate_definition_data(data)
         return report
@@ -237,7 +238,9 @@ class DefinitionFiles:
         def base(data: dict[str, Any]) -> dict[str, Any]:
             return {"extends": data["extends"]} if "extends" in data else {}
 
-        before = {"extends": newer["extends"]} if not older and isinstance(newer.get("extends"), str) else older
+        before = (
+            {"extends": newer["extends"]} if not older and isinstance(newer.get("extends"), str) else older
+        )
         return definition_changes(base(older), base(newer)) + definition_changes(runs(before), runs(newer))
 
     def _document(

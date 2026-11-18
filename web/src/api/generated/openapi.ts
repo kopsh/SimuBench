@@ -2111,6 +2111,110 @@ export interface components {
             scale: number;
         };
         /**
+         * CommandOverride
+         * @description A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key.
+         */
+        CommandOverride: {
+            /**
+             * Args
+             * @description Constant arguments passed to the operation
+             */
+            args?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Dangerous
+             * @default false
+             */
+            dangerous: boolean;
+            /** Doc */
+            doc?: string | null;
+            /**
+             * Duration
+             * @description Virtual time the command consumes (D12)
+             */
+            duration?: string | number | null;
+            /**
+             * Factor
+             * @description The command's number is the bound setting times factor: :TIMebase:RANGe is factor 10 on the time/div setting; a write divides by it
+             * @default 1
+             */
+            factor: number;
+            /** @description Overrides the definition's response format */
+            format?: components["schemas"]["ResponseFormat"] | null;
+            /**
+             * Header
+             * @description Left out: the mapping key is the header
+             * @default
+             */
+            header: string;
+            /**
+             * Op
+             * @description Component operation, e.g. 'acq.digitize'
+             */
+            op?: string | null;
+            /**
+             * Option
+             * @description The command belongs to this option (an `options` id): a unit without it skips the command — a later command on the same header without `option` answers instead (what the manual says a unit without the option replies), otherwise -241 Hardware missing
+             */
+            option?: string | null;
+            /** @description Parameters bound to settings whose values are sorted by size before they are written (#1011), e.g. {ascending: [greater_than, less_than]} */
+            order?: components["schemas"]["ParamOrder"] | null;
+            /** Params */
+            params?: components["schemas"]["ParamSpec"][];
+            /**
+             * Query
+             * @default true
+             */
+            query: boolean;
+            /**
+             * Read
+             * @description An operation command's query reads this setting instead of calling the operation: 'OPER' enters operate, 'OPER?' reads it (the setting the operation writes)
+             */
+            read?: string | null;
+            /**
+             * Reply
+             * @description Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is
+             */
+            reply?: string | null;
+            /**
+             * Set
+             * @default true
+             */
+            set: boolean;
+            /**
+             * Set Value
+             * @description A setting command without parameters writes this constant and its query reads it back (LOCAL / REMOTE / LOCKOUT, which only set the interface state)
+             */
+            set_value?: unknown;
+            /**
+             * State
+             * @description State path bound to the command, e.g. 'ch.frequency'
+             */
+            state?: string | null;
+            /**
+             * Suffixes
+             * @description Allowed values of named header suffixes other than <ch> (#335), e.g. {hw: [1], n: [1]} for the SMA100B's [:SOURce<hw>]:AM<n>:STATe (one RF path, the first modulation channel); an omitted suffix counts as 1, any other value is -114
+             */
+            suffixes?: {
+                [key: string]: number[];
+            } | null;
+            /**
+             * When
+             * @description Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC"). A later command on the same header without `when` is the fallback: it runs for the other values and when the parameter is left out (:SYSTem:ERRor? [STRing], #602)
+             */
+            when?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Writes
+             * @description Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win). On an operation's command they are written before the operation runs (#308: MEASure:CURRent? selects the current function, as the instrument does)
+             */
+            writes?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * CommandSpec
          * @description One SCPI command: bound to a setting (``state``), to a component operation (``op``), or, through
          *     its parameters' ``state``, to several settings at once.
@@ -3294,6 +3398,13 @@ export interface components {
             channels?: components["schemas"]["Channels"];
             /** Class */
             class: string;
+            /**
+             * Command Overrides
+             * @description With extends (D59): change the inherited command table one command at a time instead of rewriting it. Key: a command header exactly as the inherited table writes it; value: the whole command without its header (it replaces the inherited one whole, or is appended when no command has that header), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own commands list; a header the table holds twice, or a removal of one it does not hold, is E-DEF-COMMAND-OVERRIDE. Empty once loaded
+             */
+            command_overrides?: {
+                [key: string]: components["schemas"]["CommandOverride"] | null;
+            } | null;
             /** Commands */
             commands?: components["schemas"]["CommandSpec"][];
             /** Components */

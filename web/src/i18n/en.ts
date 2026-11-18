@@ -992,7 +992,7 @@ export const en: Widen<Messages> = {
       saved: "Saved",
       saving: "Saving…",
       readOnly: "A built-in model cannot be changed: use \"Copy as my instrument\" at the top right, then build in the copy.",
-      inherited: "Inherited from {{parent}}: {{items}}. The first change to one of them writes it whole into this instrument; from then on it no longer follows {{parent}}.",
+      inherited: "Inherited from {{parent}}: {{items}}. The first change to one of them writes it whole into this instrument; from then on it no longer follows {{parent}}. Commands are the exception: only the ones you change are recorded, the rest keep following {{parent}}.",
       item: { components: "instrument components", channel_components: "channel components", wiring: "wiring", ports: "panel ports", state: "settings", channel_state: "channel settings", commands: "commands" },
       relayout: "Auto layout",
       relayoutHint: "Clear the dragged positions and lay out along the signal wires, left to right",
