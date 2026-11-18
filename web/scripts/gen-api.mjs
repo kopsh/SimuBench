@@ -20,6 +20,7 @@ async function generate() {
   const files = { "openapi.ts": banner + astToString(ast) };
   for (const [name, title] of [
     ["events.schema.json", "Event"],
+    ["workspace-events.schema.json", "WorkspaceEvent"],
     ["bench.schema.json", "BenchDefinition"],
   ]) {
     const schema = JSON.parse(await readFile(path.join(schemas, name), "utf8"));

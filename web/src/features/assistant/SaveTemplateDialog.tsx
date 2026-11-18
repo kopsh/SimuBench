@@ -39,7 +39,7 @@ export function SaveTemplateButton({ bench, instrument, label, compact = false }
 
 function TemplateForm({ bench, instrument, initial, onDone }: { bench: string; instrument: string; initial: string; onDone: () => void }) {
   const { t } = useTranslation();
-  const doc = useBenchDoc(bench, false);
+  const doc = useBenchDoc(bench);
   const save = useSaveTemplate();
   const [name, setName] = useState(initial);
   const submit = () => {

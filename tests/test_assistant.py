@@ -109,6 +109,61 @@ async def test_tool_loop_builds_a_bench_streams_and_summarizes(manager):
     assert again.conversation(BENCH).turns == []
 
 
+async def test_session_summary_comes_from_the_one_projection(tmp_path):
+    """#1485: start_session and describe_session return the summary both agent seams share — the
+    SCPI socket address included, which the assistant's own copy used to drop (the agent could not
+    tell the user how to point a script at the bench)."""
+    m = SessionManager(tmp_path, scpi_base_port=0, hislip_port=None)  # fixed ports collide across workers
+    m.files.create_hello("ui")
+    llm = ScriptedLLM([("start_session", {})], [("describe_session", {})], "已启动。")
+    service = service_with(m, llm)
+    t = await turn(service, "启动 hello 测试台")
+    assert t.status == "done", t.stop_reason
+    started = last_tool_return(llm.seen[-1], "start_session")
+    assert started["session_id"] in m.sessions and started["bench"] == "hello"
+    (awg,) = [i for i in started["instruments"] if i["name"] == "awg"]
+    assert awg["scpi_socket"] and awg["scpi_socket"].startswith("TCPIP0::127.0.0.1::")
+    assert awg["scpi_socket"].endswith("::SOCKET") and awg["scpi_socket"] == awg["resource_virtual"]
+    described = last_tool_return(llm.seen[-1], "describe_session")
+    assert described["running"] is True
+    assert described["instruments"] == started["instruments"]
+    assert {w["from"] for w in described["wires"]} == {"awg.CH1", "awg.CH2"}
+
+
+async def test_run_cases_takes_builtin_and_model_like_the_mcp_seam(manager):
+    """#1485: the assistant seam runs the same cases resolution the acceptance page and the MCP
+    seam do: a builtin: name is a shipped manual cases file, and model= runs it on another
+    definition (a copy checking itself against the model it extends)."""
+    (manager.workspace / "instruments").mkdir()
+    (manager.workspace / "instruments" / "my-keysight-34465a.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.instrument/2",
+                "id": "my-keysight-34465a",
+                "extends": "keysight-34465a",
+                "command_overrides": {"[:SENSe]:VOLTage[:DC]:IMPedance:AUTO": None},
+            },
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    impedance = "builtin:keysight-34465a-impedance/cases.yaml"
+    llm = ScriptedLLM([("run_cases", {"path": impedance})], "型号本身两例都过。")
+    service = service_with(manager, llm)
+    t = await turn(service, "跑一遍阻抗手测用例")
+    assert t.status == "done", t.stop_reason
+    base = last_tool_return(llm.seen[-1], "run_cases")
+    assert (base["passed"], base["failed"]) == (2, 0)
+    llm.script += [
+        [("run_cases", {"path": impedance, "model": "my-keysight-34465a"})],
+        "副本上两例都挂。",
+    ]
+    t2 = await turn(service, "再在我的副本上跑一遍")
+    assert t2.status == "done", t2.stop_reason
+    copy = last_tool_return(llm.seen[-1], "run_cases")
+    assert (copy["passed"], copy["failed"]) == (0, 2)
+
+
 async def test_running_bench_allows_settings_only_and_stopping_needs_consent(manager):
     await manager.start(BENCH)
     llm = ScriptedLLM(

@@ -2,6 +2,7 @@
 
 * ``openapi.json`` - HTTP interface, from FastAPI;
 * ``events.schema.json`` - WebSocket event messages;
+* ``workspace-events.schema.json`` - the workspace stream's messages (issue #1484);
 * ``bench.schema.json`` and ``instrument.schema.json`` - file formats;
 * ``coverage.schema.json`` and ``cases.schema.json`` - a real model's coverage table and manual cases (D42).
 
@@ -19,6 +20,7 @@ from ..library.coverage import Cases, Coverage
 from ..models.api import Event
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
+from .workspace_events import WorkspaceEvent
 
 
 def _dump(path: Path, data: dict[str, Any]) -> Path:
@@ -43,6 +45,7 @@ def export_all(out: Path) -> list[Path]:
     return [
         _dump(out / "openapi.json", openapi()),
         _dump(out / "events.schema.json", Event.model_json_schema()),
+        _dump(out / "workspace-events.schema.json", WorkspaceEvent.model_json_schema()),
         _dump(out / "bench.schema.json", BenchDefinition.model_json_schema(by_alias=True)),
         _dump(out / "instrument.schema.json", InstrumentDefinition.model_json_schema(by_alias=True)),
         _dump(out / "coverage.schema.json", Coverage.model_json_schema(by_alias=True)),

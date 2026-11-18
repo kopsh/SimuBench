@@ -37,7 +37,13 @@ from ..server import drive
 from ..server.errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
 from ..server.manager import ServedSession
 from ..server.mytemplates import save_as_template
-from ..server.projections import definition_spec, instrument_state, run_cases_file, try_commands
+from ..server.projections import (
+    definition_spec,
+    instrument_state,
+    run_cases_file,
+    session_summary,
+    try_commands,
+)
 from .guard import LoopGuard, Stuck
 from .store import Conversation, TurnFiles
 
@@ -412,22 +418,15 @@ def validate_bench(ctx: RunContext[TurnContext], path: str | None = None) -> dic
 
 async def start_session(ctx: RunContext[TurnContext], path: str | None = None) -> dict[str, Any]:
     """Start the bench (it replaces the bench that runs now): the instruments answer SCPI at the
-    returned addresses and the user watches it in the Web Bench. Refused while scripts are
-    connected to the ports — tell the user."""
+    returned resource addresses (and the SCPI socket), and the user watches it in the Web Bench.
+    Refused while scripts are connected to the ports — tell the user."""
     t = ctx.deps
     bench = _bench(t, path)
     step = _Step(t, "start_session", bench)
 
     async def run() -> dict[str, Any]:
         s = await t.service.manager.start(bench)
-        info = t.service.manager.views.describe(s)
-        return {
-            "session_id": s.id,
-            "instruments": [
-                {"name": i.name, "model": i.model, "address": i.address_real or i.address_virtual}
-                for i in info.instruments
-            ],
-        }
+        return session_summary(t.service.manager, s)
 
     return await _call_async(t, "start_session", {"path": bench}, run, step)  # type: ignore[no-any-return]
 
@@ -485,7 +484,8 @@ async def stop_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
 
 
 def describe_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
-    """The running session of this bench: its instruments, their addresses, wires and nets."""
+    """The running session of this bench: session id, clock, each instrument's model and the
+    addresses it answers at, and the wires."""
     t = ctx.deps
 
     def run() -> dict[str, Any]:
@@ -495,11 +495,7 @@ def describe_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
         info = t.service.manager.views.describe(served)
         return {
             "running": True,
-            "session_id": served.id,
-            "instruments": [
-                {"name": i.name, "model": i.model, "address": i.address_real or i.address_virtual}
-                for i in info.instruments
-            ],
+            **session_summary(t.service.manager, served, info),
             "wires": [{"from": w.from_, "to": w.to, "net": w.net} for w in info.wires],
         }
 
@@ -680,11 +676,13 @@ async def try_definition(ctx: RunContext[TurnContext], req: T.AssistantTryDefini
 
 
 def run_cases(ctx: RunContext[TurnContext], req: T.RunCases) -> dict[str, Any]:
-    """Run a cases file (commands and expected replies), each case on a fresh instrument."""
+    """Run a cases file (commands and expected replies), each case on a fresh instrument: a
+    workspace path, or a built-in model's manual cases (builtin:<folder>/cases.yaml); with model,
+    on that definition in place of the cases' own."""
     t = ctx.deps
 
     def run() -> dict[str, Any]:
-        results = run_cases_file(t.service.files, req.path)
+        results = run_cases_file(t.service.files, req.path, model=req.model)
         return {
             "passed": sum(r.passed for r in results),
             "failed": sum(not r.passed for r in results),

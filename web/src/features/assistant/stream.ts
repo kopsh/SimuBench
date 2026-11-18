@@ -3,7 +3,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/api/client";
-import { assistantKeys, keys } from "@/api/hooks";
+import { PROGRESS_POLL_MS, assistantKeys, keys } from "@/api/hooks";
 import { getToken } from "@/api/token";
 import { type AssistantConversation, type AssistantEvent, type AssistantTurn, SseParser, applyEvent } from "./model";
 
@@ -58,7 +58,10 @@ export function useLiveTurn(bench: string, conversation: AssistantConversation |
       void qc.invalidateQueries({ queryKey: keys.sessions });
       void qc.invalidateQueries({ queryKey: keys.catalog });
     };
-    const poll = window.setInterval(() => void qc.invalidateQueries({ queryKey: assistantKeys.conversation(bench) }), 3000);
+    const poll = window.setInterval(
+      () => void qc.invalidateQueries({ queryKey: assistantKeys.conversation(bench) }),
+      PROGRESS_POLL_MS,
+    );
     followTurn(
       bench,
       runningId,

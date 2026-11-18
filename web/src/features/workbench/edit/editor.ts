@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { create } from "zustand";
 import { ApiError, type BenchData, type BenchDocument, type EditOp, api, unwrap } from "@/api/client";
-import { keys } from "@/api/hooks";
+import { benchDocKey } from "@/api/hooks";
 import i18n from "@/i18n";
 import { useWorkbench } from "../store";
 import { describeChange } from "./diff";
@@ -30,7 +30,7 @@ export const useEditor = create<EditorState>(() => ({
 }));
 
 let queryClient: QueryClient | null = null;
-// Hashes this window has already moved past. A poll answered after one of our own saves can
+// Hashes this window has already moved past. A refetch answered after one of our own saves can
 // still carry the old hash; that is not a change made elsewhere.
 const superseded = new Set<string>();
 // Edits are applied one after another, each against the hash the previous one produced.
@@ -44,10 +44,10 @@ function publish(doc: BenchDocument) {
   const old = useEditor.getState().doc;
   if (old && old.sha256 !== doc.sha256) superseded.add(old.sha256);
   useEditor.setState({ doc });
-  queryClient?.setQueryData(keys.benchDoc(doc.path), doc);
+  queryClient?.setQueryData(benchDocKey(doc.path), doc);
 }
 
-/** Take the document the server has; called on load and whenever polling sees another hash. */
+/** Take the document the server has; called on load and whenever a refetch sees another hash. */
 export function syncDocument(doc: BenchDocument) {
   const s = useEditor.getState();
   if (s.path !== doc.path) {

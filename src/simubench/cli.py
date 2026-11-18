@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import contextlib
 import json
 import secrets
 import sys
@@ -233,6 +234,7 @@ def _mcp(args: argparse.Namespace) -> int:
 
     from .ops import setup_logging
     from .server.app import create_app
+    from .server.errors import Unknown
 
     setup_logging(args.log_level, args.log_format, args.log_file)
     workspace = Path(args.workspace).resolve()
@@ -263,7 +265,10 @@ def _mcp(args: argparse.Namespace) -> int:
             await mcp.run_stdio_async()
         finally:
             for sid in list(manager.sessions):
-                await manager.stop(sid, force=True)  # the service is going down; its ports close
+                # the service is going down; its ports close. A session the UI stopped meanwhile
+                # is nothing to clean up — and a shutdown must not mask why it is shutting down.
+                with contextlib.suppress(Unknown):
+                    await manager.stop(sid, force=True)
             if server and ui:
                 server.should_exit = True
                 await ui

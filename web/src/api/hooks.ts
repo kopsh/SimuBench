@@ -1,5 +1,5 @@
 import { type QueryClient, useMutation, useQueries, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useDeferredValue, useMemo } from "react";
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef } from "react";
 import { useEvents } from "./events";
 import i18n from "@/i18n";
 import { toast } from "sonner";
@@ -22,6 +22,7 @@ import type {
 } from "./client";
 import { ApiError, type FaultSpec, type Schemas, api, unwrap } from "./client";
 import { withValues } from "./sessionValues";
+import { definitionPath, fileRevOf, useWorkspaceEvents } from "./workspaceEvents";
 
 export const keys = {
   benches: ["benches"] as const,
@@ -57,15 +58,25 @@ export function useCatalog() {
   return useQuery({ queryKey: keys.catalog, queryFn: () => unwrap(api.GET("/api/catalog")), staleTime: 60_000 });
 }
 
-/** The bench file as stored; polled so that changes made elsewhere (an agent, an editor) show up. */
-export function useBenchDoc(path: string | null | undefined, pollMs: number | false = 2500) {
+/**
+ * The bench file as stored. Freshness is the workspace stream (issue #1484, the readings
+ * mechanism of D64 pointed at files): the query re-keys on the file's revision, so one
+ * file_changed — a write through the server's write points or a change the watcher noticed on
+ * disk (an editor, a second service) — is exactly one request, and nothing polls. The previous
+ * answer stays on screen while the next loads.
+ */
+export function useBenchDoc(path: string | null | undefined) {
+  const rev = useWorkspaceEvents((s) => (path ? (s.fileRev[path] ?? 0) : 0));
   return useQuery({
-    queryKey: keys.benchDoc(path ?? ""),
+    queryKey: [...keys.benchDoc(path ?? ""), rev] as const,
     queryFn: () => unwrap(api.GET("/api/benches/file", { params: { query: { path: path! } } })),
     enabled: !!path,
-    refetchInterval: pollMs,
+    placeholderData: (prev) => prev,
   });
 }
+
+/** The bench doc's cache key at the revision now known: a cache write must hit the live entry. */
+export const benchDocKey = (path: string) => [...keys.benchDoc(path), fileRevOf(path)] as const;
 
 /** Saved versions of a bench file, newest first (D35); refetched whenever the file changes. */
 export function useBenchHistory(path: string | null | undefined, sha: string | undefined, enabled = true) {
@@ -102,18 +113,35 @@ export function useBenches() {
 }
 
 export function useSessions() {
-  // Polled: connected scripts and the "script access" mark on the home page must stay fresh.
-  return useQuery({ queryKey: keys.sessions, queryFn: () => unwrap(api.GET("/api/sessions")), refetchInterval: 2000 });
+  // The workspace stream announces what the list shows and no session owns: a script's connect
+  // and disconnect (clients_changed) and a session's start and stop, whoever caused them
+  // (#1484). The list re-keys on it instead of polling.
+  const sessionsRev = useWorkspaceEvents((s) => s.sessionsRev);
+  return useQuery({
+    queryKey: [...keys.sessions, sessionsRev] as const,
+    queryFn: () => unwrap(api.GET("/api/sessions")),
+    placeholderData: (prev) => prev,
+  });
 }
 
 export function useSession(sid: string) {
   const qc = useQueryClient();
+  // The stream's clients_changed and sessions_changed retires the 2–5 s compensation poll
+  // (#121, #1484): remote marks stay fresh, and a session stopped under this page (the
+  // assistant's restart, another client) refetches into its 404. This key keeps its bare form —
+  // the state patch (WorkbenchPage) writes it directly — so freshness arrives as an
+  // invalidation, not a re-key.
+  const sessionsRev = useWorkspaceEvents((s) => s.sessionsRev);
+  const seenEpoch = useRef(sessionsRev);
+  useEffect(() => {
+    if (sessionsRev === seenEpoch.current) return;
+    seenEpoch.current = sessionsRev;
+    void qc.invalidateQueries({ queryKey: keys.session(sid) });
+  }, [sessionsRev, qc, sid]);
   return useQuery({
     queryKey: keys.session(sid),
     queryFn: () => fetchSession(qc, sid),
     retry: (count, err) => (err as { status?: number }).status !== 404 && count < 3,
-    // Scripts connect and leave without an event: keep the remote marks fresh (#121).
-    refetchInterval: (q) => (q.state.data?.clients.length ? 2000 : 5000),
   });
 }
 
@@ -194,17 +222,25 @@ export function useComponents() {
   return useQuery({ queryKey: keys.components, queryFn: () => unwrap(api.GET("/api/components")), staleTime: Infinity });
 }
 
-/** A definition's effective structure for the build area (#1201); polled so a change made
- * elsewhere (the agent, the file) shows up. */
-export function useDefinitionStructure(id: string, pollMs: number | false = 2500) {
+/**
+ * A definition's effective structure for the build area (#1201), keyed on the workspace
+ * stream's instruments revision (issue #1484): the structure layers the definition's parents
+ * and the category default in, so any definition file's edit can change it — one file_changed
+ * under instruments/ is one request, no polling. The previous answer stays while the next loads.
+ */
+export function useDefinitionStructure(id: string) {
+  const rev = useWorkspaceEvents((s) => s.instrumentsRev);
   return useQuery({
-    queryKey: keys.definitionStructure(id),
+    queryKey: [...keys.definitionStructure(id), rev] as const,
     queryFn: () =>
       unwrap(api.GET("/api/definitions/{def_id}/structure", { params: { path: { def_id: id } } })),
     enabled: !!id,
-    refetchInterval: pollMs,
+    placeholderData: (prev) => prev,
   });
 }
+
+/** The structure's cache key at the revision now known: a cache write must hit the live entry. */
+export const definitionStructureKey = (id: string) => [...keys.definitionStructure(id), useWorkspaceEvents.getState().instrumentsRev] as const;
 
 /** Where the build area draws the components of a definition (#1207). */
 export function useDefinitionLayout(id: string) {
@@ -233,7 +269,7 @@ export function useSaveDefinitionStructure(id: string) {
     mutationFn: (body: Schemas["StructureUpdate"]) =>
       unwrap(api.PUT("/api/definitions/{def_id}/structure", { params: { path: { def_id: id } }, body })),
     onSuccess: (structure) => {
-      qc.setQueryData(keys.definitionStructure(id), structure);
+      qc.setQueryData(definitionStructureKey(id), structure);
       void qc.invalidateQueries({ queryKey: keys.definitionDoc(id) });
       void qc.invalidateQueries({ queryKey: keys.definitionHistory(id) });
     },
@@ -522,9 +558,19 @@ export function useCleanStorage() {
   });
 }
 
+/**
+ * How often a progress domain is re-read while it works (#1484): the runs list gaining a record,
+ * a try session's instrument (whose poll also keeps the session from being reaped), the
+ * assistant's conversation advancing. These watch the server's asynchronous work, which the
+ * workspace stream does not carry — the file it will write does, the progress does not — so one
+ * named interval decides for all three instead of three private numbers. The freshness of
+ * everything a file or a port answers is the stream's (D64, #1484).
+ */
+export const PROGRESS_POLL_MS = 3000;
+
 /** Run records in the record folder, newest first (D36). */
 export function useRuns() {
-  return useQuery({ queryKey: keys.runs, queryFn: () => unwrap(api.GET("/api/runs")), refetchInterval: 5000 });
+  return useQuery({ queryKey: keys.runs, queryFn: () => unwrap(api.GET("/api/runs")), refetchInterval: PROGRESS_POLL_MS });
 }
 
 export function useRun(id: string) {
@@ -553,13 +599,19 @@ export function useNetProbe(sid: string, net: string | null | undefined, version
 
 // ---- an instrument definition's acceptance page (T4, instrument-authoring.md 7.2) -----------------
 
-/** The definition as stored (hash, diagnostics); polled so a change made elsewhere is noticed. */
-export function useDefinitionDocument(id: string, pollMs: number | false = 2000) {
+/**
+ * The definition as stored (hash, diagnostics), keyed on the file's revision from the workspace
+ * stream (issue #1484): one file_changed for its file is one request, no polling. Built-in
+ * definitions have no workspace file, so their revision never moves — nothing re-reads what
+ * cannot change.
+ */
+export function useDefinitionDocument(id: string) {
+  const rev = useWorkspaceEvents((s) => s.fileRev[definitionPath(id)] ?? 0);
   return useQuery<DefinitionDocument>({
-    queryKey: keys.definitionDoc(id),
+    queryKey: [...keys.definitionDoc(id), rev] as const,
     queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/document", { params: { path: { def_id: id } } })),
     enabled: !!id,
-    refetchInterval: pollMs,
+    placeholderData: (prev) => prev,
   });
 }
 
@@ -648,15 +700,15 @@ export function useCloseTry() {
   });
 }
 
-/** The try session's instrument (identity, settings, panel, deviations); polled, which also keeps
- * the temporary session from being reaped while the page is open. */
+/** The try session's instrument (identity, settings, panel, deviations); polled (PROGRESS_POLL_MS),
+ * which also keeps the temporary session from being reaped while the page is open. */
 export function useTryInstrument(sid: string | undefined, version = 0) {
   return useQuery<InstrumentInfo>({
     queryKey: [...keys.tryInstrument(sid ?? ""), version],
     queryFn: () => unwrap(api.GET("/api/try/{sid}/instrument", { params: { path: { sid: sid! } } })),
     enabled: !!sid,
     placeholderData: (prev) => prev,
-    refetchInterval: 3000,
+    refetchInterval: PROGRESS_POLL_MS,
     retry: (count, err) => (err as { status?: number }).status !== 404 && count < 2,
   });
 }
@@ -779,7 +831,7 @@ export function useSaveTemplate() {
     mutationFn: (body: Schemas["SaveTemplateRequest"]) => unwrap(api.POST("/api/definitions/templates", { body })),
     onSuccess: (out) => {
       void qc.invalidateQueries({ queryKey: keys.catalog });
-      qc.setQueryData(keys.benchDoc(out.bench.path), out.bench);
+      qc.setQueryData(benchDocKey(out.bench.path), out.bench);
     },
   });
 }
