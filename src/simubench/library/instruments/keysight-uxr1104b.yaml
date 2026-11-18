@@ -1352,7 +1352,7 @@ components:
     type: scope_adc
     params:
       bits: {same_as: specs.vertical_resolution_bits}
-      codes_per_div: 128.0
+      # 每格码数不写：取 2^位数 / 8 格（10 位为 128），改位数时随之变（#1445）。
       divs: 8.0
       offset_sign: subtract
       # 非线性（#1266、#1421，数据手册 3123-1313 p.10 Vertical System – Performance Measurements）：
@@ -1527,9 +1527,9 @@ components:
       values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
       format: "%.4E"
       separator: ","
-      # 位数与每格码数随 ADC（D82，#1441）；ADC 的位数随 specs.vertical_resolution_bits。
-      codes_per_div: {same_as: components.adc.params.codes_per_div}
-      adc_bits: {same_as: components.adc.params.bits}
+      # 位数与每格码数取采集链 ADC 的（adc，#1445）。
+      codes_per_div: adc
+      adc_bits: adc
       width: {from: $waveform.format, map: {BYTE: 8}, default: 16}
       offset: subtract
       unsigned: false

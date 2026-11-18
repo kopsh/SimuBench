@@ -2614,3 +2614,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试的修正 | ✅ `test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy`：整表抄写的副本里是解析后的数，xfer 不再随 adc 变；对照组同时改 xfer 的两个值（覆盖层写法的子定义 xfer 自动跟随，这正是本 issue 的目的） |
 | 回复不变 | ✅ UXR 两型号的手册用例、金测与采样流金标准原样通过 |
 | 文档 | ✅ decisions.md D82、instrument-authoring.md（same_as 的路径、前导字段）、两型号覆盖表 `:MODel` / `:SERial` |
+
+## 示波器波形传输的码值换算随 ADC（Issue 1445）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 做法 | ✅ `waveform_transfer` 的 `codes_per_div` / `adc_bits` 可写 `adc`：取采集链 ADC 的位数与每格码数（`AcquisitionInput`），没有采集链时报错；码值（`codes`）与前导的字码比例都用它。不用 `null` 作标记：定义的层合并里 `null` 表示删除该键 |
+| UXR 两型号 | ✅ adc 不写 `codes_per_div`（`scope_adc` 本来就按 2^位数 / 8 格推出 128），xfer 两项写 `adc`，回复逐字节不变（手册用例、金测、采样流金标准原样通过） |
+| 自定义机型 | ✅ 样例 my-nextgen-rt 只改 `specs.vertical_resolution_bits: 12`，不再手算 `codes_per_div: 512`；`test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b` 的码步长仍为 16；`test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy` 的整表对照组不必再改 xfer（它也写 `adc`） |
+| 文档 | ✅ instrument-authoring.md（组件覆盖的例子、传输码与 ADC 码一节）、decisions.md D82 |
