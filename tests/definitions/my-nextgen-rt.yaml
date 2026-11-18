@@ -14,5 +14,6 @@ identity: {serial: NG0001, firmware: "0.1"}
 specs: {bandwidth_hz: 1.6e11, sample_rate: 5.12e11, vertical_resolution_bits: 12}
 component_overrides:  # only what changes (#1425)
   # 32 sub-converters: the parent's 16 timing skews do not fit them (E-DEF-PARAM-VALUE), so none here
-  # (the bits follow specs.vertical_resolution_bits; the transfer follows the ADC, #1441)
-  adc: {params: {codes_per_div: 512.0, interleave: 32, interleave_skews_s: null, aperture_jitter_s: 1.0e-14}}
+  # (the bits follow specs.vertical_resolution_bits, the codes per division and the transfer follow
+  # the bits: #1441, #1445)
+  adc: {params: {interleave: 32, interleave_skews_s: null, aperture_jitter_s: 1.0e-14}}

@@ -87,9 +87,9 @@ class WaveformTransfer(Component):
         "format": "%.6e",  # text
         "separator": " ",  # text
         "digits": 8,  # ascii
-        "codes_per_div": 25.0,  # ADC codes per division of the record scale
+        "codes_per_div": 25.0,  # ADC codes per division of the record scale ("adc": the acquisition's ADC's, #1445)
         "offset": "subtract",  # subtract: (v - offset); add: (v + offset), the record's offset setting
-        "adc_bits": 8,  # bits of the ADC codes (signed around zero)
+        "adc_bits": 8,  # bits of the ADC codes, signed around zero ("adc": the acquisition's ADC's, #1445)
         "width": 8,  # bits of a block word: codes shift up or down to fit
         "unsigned": False,  # block codes offset by 2**(width-1)
         "reserve_lowest": False,  # the lowest output code means "no data" (a hole): samples stay above it
@@ -151,6 +151,21 @@ class WaveformTransfer(Component):
         rec, used = acq.transfer_record(n, first) if first is not None else acq.read_record(n, start)
         return rec, used, n, False
 
+    def _code_scale(self) -> tuple[int, float]:
+        """The bits and codes per division the codes are written with: the transfer's own
+        ``adc_bits`` / ``codes_per_div``, or, where one is ``adc``, the acquisition's ADC's (#1445) —
+        a definition that changes the converter's bits then changes the codes sent with it."""
+        bits, per_div = self.param("adc_bits"), self.param("codes_per_div")
+        if bits == "adc" or per_div == "adc":
+            acq = self._acquisition()
+            if not isinstance(acq, AcquisitionInput):
+                raise ScpiError(
+                    -300, f"{self.uid}: adc_bits / codes_per_div 'adc' needs an acquisition with an ADC"
+                )
+            bits = acq.adc_unit().param("bits") if bits == "adc" else bits
+            per_div = acq.adc_codes_per_div() if per_div == "adc" else per_div
+        return int(bits), float(per_div)
+
     def _acquisition(self) -> Acquisition:
         """The acquisition the ``record`` ref names (``engine.component.Acquisition``): the refs
         check validates the protocol when the definition loads, this when a command runs."""
@@ -180,14 +195,14 @@ class WaveformTransfer(Component):
 
     def codes(self, rec: Record, volts: np.ndarray | None = None) -> np.ndarray:
         """ADC codes of ``volts`` (default: the whole record), aligned to the output word."""
-        bits = int(self.param("adc_bits"))
+        bits, per_div = self._code_scale()
         width = int(self.param("width"))
         sign = 1.0 if str(self.param("offset")).lower() == "add" else -1.0
         codes = adc.codes(
             rec.volts if volts is None else volts,
             getattr(rec, "code_scale", rec.scale),  # the converter's step below a magnified division (#1265)
             sign * rec.offset,
-            float(self.param("codes_per_div")),
+            per_div,
             bits,
         ).astype(np.int64)
         if width > bits:
@@ -317,7 +332,7 @@ class WaveformTransfer(Component):
         # transfer's own parameters; a math record has none
         chain = None if function else (acq if isinstance(acq, AcquisitionInput) else None)
         probe = float(chain.probe_ratio(n)) if chain is not None else 1.0
-        bits = int(chain.adc_unit().param("bits")) if chain is not None else int(self.param("adc_bits"))
+        bits = int(chain.adc_unit().param("bits")) if chain is not None else self._code_scale()[0]
         per_div = chain.adc_codes_per_div() if chain is not None else 0.0
         width = int(self.param("width"))
         first = int(sel[0]) if sel.size else int(self.param("first"))
@@ -325,7 +340,8 @@ class WaveformTransfer(Component):
         span = int(sel[1] - sel[0]) if sel.size > 1 else max(1, int(self.param("step")))
         unsigned = self.param("unsigned") in (True, 1, "1", "ON", "on")
         # codes per division of the word sent: the ADC's, shifted up or down to fit the word
-        word_per_div = float(self.param("codes_per_div")) * 2.0 ** (width - int(self.param("adc_bits")))
+        own_bits, own_per_div = self._code_scale()
+        word_per_div = own_per_div * 2.0 ** (width - own_bits)
         figures = {
             "points": int(sel.size),
             "record_points": rec.points,

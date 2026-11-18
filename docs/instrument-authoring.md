@@ -205,7 +205,7 @@ preamp_gain:
 ```yaml
 extends: keysight-uxr1104b
 component_overrides:
-  adc: {params: {bits: 12, codes_per_div: 512.0}}
+  adc: {params: {bits: 12}}   # 每格码数不写时取 2^位数 / 格数，传输写 adc 的随之变（#1445）
 channel_component_overrides:
   front: {params: {bandwidth: 1.6e11}}
 ```
@@ -446,7 +446,7 @@ constraints:
 - 最大输入（`scope_vertical` 的 `max_input_divs`、`max_input_v`，#1264）：采集时输入超过偏置两侧 `max_input_divs` 格，该通道的过载位置位（`scope_measurements` 的 op `overload`，读后清零）；超过 `max_input_v`（输入端对地峰值）时仪表发出“可能损坏”的警告（`Instrument.warn`，事件与问题栏）。不断开输入，除非手册写了保护动作。
 - ADC：`adc_bits`（0：不量化）、`adc_codes_per_div`（0：`2**bits / adc_divs`）、`adc_offset`；
   - 硬件最小量程（`scope_adc` 的 `min_full_scale`，输入端的伏特，#1265）：显示档位小于 `min_full_scale / divs` 时是该量程的放大，码宽保持量程的，削波在量程边缘；记录的 `code_scale` 记下这个每格伏特数，波形传输的码值与 Y increment 按它算。
-  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以不由 ADC 推出；两处写成不同值是错误（`E-DEF-OFFSET-CONVENTION`，仅在 ADC 量化且传输发码值时检查；两个类的默认值不同，一处没写会被查出来）。理由与该检查记在 #634 的评论里。
+  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以默认不由 ADC 推出；两者相同时传输可写 `codes_per_div: adc`、`adc_bits: adc`，取采集链 ADC 的值（实现 `AcquisitionInput` 的采集组件才有，#1445），改 ADC 位数时码值跟着变（UXR 两型号）；两处写成不同值是错误（`E-DEF-OFFSET-CONVENTION`，仅在 ADC 量化且传输发码值时检查；两个类的默认值不同，一处没写会被查出来）。理由与该检查记在 #634 的评论里。
   - 调制谱线预算：RF 信号源的 `LINE_BUDGET = 999` 是金标准锁定的（`tests/test_rfgen_migration.py` 复现的参考值），AWG 调制源的 `line_budget` 是参数（默认 2000），两者是不同仪表类别的限值，不合并。
 - 噪声：`noise_rms`、`noise_key`（`time` 时 `noise_stream` 绑定的设置选择另一组噪声，如采集方式）、`trigger_jitter_s`，`averaging` 与 `averages`。
 
