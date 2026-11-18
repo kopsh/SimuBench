@@ -801,3 +801,56 @@ def test_the_edge_search_uses_the_source_s_own_level(cases):
         assert uxr.query(":TERegister?").strip() == "0"
     finally:
         rm.close()
+
+
+NEXT_GEN = ROOT / "tests" / "definitions" / "my-nextgen-rt.yaml"
+
+
+def test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b():
+    """#1429: the regression sample for defining one's own instrument on a real model (#1425-#1428).
+    A 160 GHz / 512 GSa/s / 12-bit scope is a few lines over the UXR1104B and runs as one."""
+    from simubench.api import open_bench
+    from simubench.models.bench import BenchDefinition
+
+    text = NEXT_GEN.read_text("utf-8")
+    raw = yaml.safe_load(text)
+    assert len([ln for ln in text.splitlines() if ln.strip() and not ln.lstrip().startswith("#")]) <= 30
+    assert not {"components", "channel_components", "commands"} & set(raw)  # nothing of the parent copied
+    replies = {}
+    for model in ("keysight-uxr1104b", "my-nextgen-rt"):
+        bench = {
+            "schema": "simubench.bench/2",
+            "name": "b",
+            "instruments": {"s": {"model": model}},
+            "run": {"seed": 1},
+        }
+        s = open_bench(BenchDefinition.model_validate(bench), definition_dirs=[NEXT_GEN.parent])
+        q = lambda c: s.scpi("s", c).strip()  # noqa: E731,B023
+        try:
+            out = {"idn": q("*IDN?"), "band": float(q(":ACQuire:BANDwidth?"))}
+            q(":ACQuire:BANDwidth 1.5e11")
+            out["band_err"] = q(":SYSTem:ERRor?")
+            q(":ACQuire:SRATe MAX")
+            out["srate"] = float(q(":ACQuire:SRATe?"))
+            q(':SYSTem:PERSona "Other","M1";:SYSTem:PERSona DEF')
+            out["idn_def"] = q("*IDN?")
+            q(":ACQuire:BANDwidth 1e13")  # beyond any bandwidth: the same error on both
+            out["range_err"] = q(":SYSTem:ERRor?")
+            # quantization: CH3 open at 7.5 mV/div, WORD codes (the ADC's code left-aligned in 16 bits):
+            # every step between two codes is a multiple of 2^(16 - bits)
+            q(":CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.0075;:WAVeform:SOURce CHANnel3;:WAVeform:FORMat WORD")
+            q(":WAVeform:BYTeorder LSBFirst;:DIGitize CHANnel3")
+            block = s.query("s", ":WAVeform:DATA?\n")
+            digits = int(block[1:2])
+            codes = np.frombuffer(block[2 + digits : 2 + digits + int(block[2 : 2 + digits])], dtype="<i2")
+            out["code_step"] = int(np.gcd.reduce(np.diff(np.unique(codes))))
+        finally:
+            s.close()
+        replies[model] = out
+    parent, child = replies["keysight-uxr1104b"], replies["my-nextgen-rt"]
+    assert child["idn"].startswith("MyLab,NG-RT160,NG0001,") and child["idn_def"] == child["idn"]
+    assert child["band"] == 1.6e11 and child["band_err"] == "0"  # parent: 113 GHz, -222
+    assert parent["band"] == 1.13e11 and parent["band_err"] == "-222"
+    assert child["srate"] == 5.12e11 and parent["srate"] == 2.56e11
+    assert child["range_err"] == parent["range_err"] == "-222"
+    assert child["code_step"] == 16 and parent["code_step"] == 64  # 12 bits; the parent's 10

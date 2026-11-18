@@ -1,0 +1,17 @@
+# A hypothetical next-generation real-time scope built on the UXR1104B (#1429, the regression sample
+# for #1425-#1428): 160 GHz, 512 GSa/s, 12-bit, 32-way interleaved. Nothing of the parent is copied.
+schema: simubench.instrument/2
+id: my-nextgen-rt
+extends: keysight-uxr1104b
+manufacturer: MyLab
+model: NG-RT160
+class: oscilloscope
+description: Hypothetical 160 GHz / 512 GSa/s / 12-bit real-time oscilloscope (not a real model).
+reference: null  # a hypothetical instrument; error texts still come from the class table (#1428)
+identity: {serial: NG0001, firmware: "0.1"}
+# One place each (D82): the settings, the components and the MAX keyword follow. The noise table
+# scales with the bandwidth by itself (noise_bandwidth, #1427).
+specs: {bandwidth_hz: 1.6e11, sample_rate: 5.12e11, vertical_resolution_bits: 12}
+component_overrides:  # only what changes (#1425)
+  adc: {params: {bits: 12, codes_per_div: 512.0, interleave: 32, aperture_jitter_s: 1.0e-14}}
+  xfer: {params: {codes_per_div: 512.0, adc_bits: 12}}
