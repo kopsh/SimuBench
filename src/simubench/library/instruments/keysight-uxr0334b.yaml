@@ -1496,7 +1496,8 @@ components:
       # 边沿触发带宽等于采集的模拟带宽（数据手册 3123-1313 Trigger System：Equal to acquisition analog
       # bandwidth），前端已限，不另加。触发噪声手册未给，估计：与该档的通道噪声相同（同一前端，D46 通则），
       # 按信源的档位取 front 的 noise_table。
-      noise_table: [[1.0e-3, 2.66e-4], [2.0e-3, 2.66e-4], [5.0e-3, 2.91e-4], [1.0e-2, 3.88e-4], [2.0e-2, 7.02e-4], [5.0e-2, 1.48e-3], [1.0e-1, 2.91e-3], [2.0e-1, 6.48e-3], [5.0e-1, 1.47e-2], [1.0, 2.88e-2]]
+      # 与通道前端同一张表（同一前端，D46），随通道的噪声带宽一起换算（#1427）。
+      noise_table: {same_as: channel_components.1.params.noise_table}
       source: $trigger.source
       level: $trigger.level1
       level_by_source:
@@ -1756,6 +1757,9 @@ channel_components:
       # 满量程 32 mV–8 V（4 mV/div–1 V/div）逐档：266 µV、388 µV、702 µV、1.48 mV、2.91 mV、
       # 6.48 mV、14.7 mV、28.8 mV。1/2 mV/div（zoom）取最灵敏档 4 mV/div 的 266 µV，
       # 5 mV/div 为 4 与 10 mV/div 的对数-对数插值（291 µV）。A 系列手册同列同值。
+      # 噪声表是在数据手册带宽（3.3e10 Hz）下测得的：子定义改了 bandwidth，表按 √(bandwidth/3.3e10) 换算（#1427）。
+      # 写字面值而不是 same_as：引用了 specs.bandwidth_hz 的话，子定义改带宽时两者一起变、换算不起作用。
+      noise_bandwidth: 3.3e10
       noise_table: [[1.0e-3, 2.66e-4], [2.0e-3, 2.66e-4], [5.0e-3, 2.91e-4], [1.0e-2, 3.88e-4],
                     [2.0e-2, 7.02e-4], [5.0e-2, 1.48e-3], [1.0e-1, 2.91e-3], [2.0e-1, 6.48e-3],
                     [5.0e-1, 1.47e-2], [1.0, 2.88e-2]]

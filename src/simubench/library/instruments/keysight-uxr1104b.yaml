@@ -1257,7 +1257,8 @@ components:
       # 边沿触发带宽等于采集的模拟带宽（数据手册 3123-1313 Trigger System：Equal to acquisition analog
       # bandwidth），前端已限，不另加。触发噪声手册未给，估计：与该档的通道噪声相同（同一前端，D46 通则），
       # 按信源的档位取 front 的 noise_table。
-      noise_table: [[1.0e-3, 8.6e-4], [1.25e-2, 1.1e-3], [2.0e-2, 1.5e-3], [5.0e-2, 2.9e-3], [1.0e-1, 6.1e-3], [2.0e-1, 1.3e-2], [5.0e-1, 2.9e-2]]
+      # 与通道前端同一张表（同一前端，D46），随通道的噪声带宽一起换算（#1427）。
+      noise_table: {same_as: channel_components.1.params.noise_table}
       # 边沿用 :TRIGger:EDGE:SOURce；毛刺、脉宽各有自己的信源（手册）。
       source: {from: $trigger.mode, map: {GLITch: $trigger.glitch_source, PWIDth: $trigger.pwidth_source}, default: $trigger.source}
       mode: {from: $trigger.mode, map: {GLITch: glitch, PWIDth: glitch, RUNT: runt, TRANsition: transition, WINDow: window, TIMeout: timeout, NEDGe: nedge}, default: edge}
@@ -1569,6 +1570,9 @@ channel_components:
       # Characteristics (Measured)" 表，UXR1104B / UXR1102B 列（p.8），按满量程 60 mV–4.0 V
       # （7.5–500 mV/div）逐档：860 µV、1.1 mV、1.5 mV、2.9 mV、6.1 mV、13 mV、29 mV。7.5 mV/div 以下为
       # 60 mV 量程的放大，取 860 µV。
+      # 噪声表是在数据手册带宽（1.13e11 Hz）下测得的：子定义改了 bandwidth，表按 √(bandwidth/1.13e11) 换算（#1427）。
+      # 写字面值而不是 same_as：引用了 specs.bandwidth_hz 的话，子定义改带宽时两者一起变、换算不起作用。
+      noise_bandwidth: 1.13e11
       noise_table: [[1.0e-3, 8.6e-4], [1.25e-2, 1.1e-3], [2.0e-2, 1.5e-3], [5.0e-2, 2.9e-3],
                     [1.0e-1, 6.1e-3], [2.0e-1, 1.3e-2], [5.0e-1, 2.9e-2]]
   - name: probe

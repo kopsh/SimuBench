@@ -2531,3 +2531,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 有意不变 | ✅ 未定义命令头的 -113 只对真实型号附「not implemented in this definition」（`error_reporter._undefined_text` 看 `reference`）：假想机型的定义就是它的规格，instrument-authoring 2.9 写明 |
 | 文档 | ✅ D59 条目（不新增条目）、instrument-authoring 2.9、product-plan 3.5 行 |
 
+## 示波器噪声表随带宽换算：`noise_bandwidth`（Issue 1427）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 方案 | ✅ 选 B（按带宽换算）而不是 A（校验警告）：子定义改带宽（#1426 之后一处）即得到合理的噪声，不用重填表；`scope_vertical.noise_bandwidth` 与 `noise_bandwidth_factor()`，√(bandwidth / noise_bandwidth)，D46 写明 |
+| 换算与解析式一致 | ✅ `tests/test_keysight_uxr.py::test_a_wider_bandwidth_raises_the_channel_and_trigger_noise`：UXR1104B 子定义带宽 160 GHz，7.5 mV/div 的通道噪声 = 860 µV × √(160/113)，CH1 开路 256 000 点记录的 rms 在 1 % 内（统计 0.3 %、量化 < 0.1 %），触发噪声同样换算 |
+| 绝对表写法的回复逐字节不变 | ✅ 不写 `noise_bandwidth` 时因子为 1（`test_a_noise_table_without_its_bandwidth_is_used_as_written`）；UXR 两型号写的是各自数据手册带宽，带宽未改时因子为 1，真实型号金测与手册用例原样通过 |
+| 触发噪声表与通道噪声表的关系 | ✅ 同一来源：UXR 的触发表改为 `{same_as: channel_components.1.params.noise_table}`，换算因子取信源通道的（`scope_acquisition._trigger_hit` 传给 `search`）；`test_the_trigger_noise_is_the_channel_s` 改为断言文件里只有一份、加载后两表相同 |
+| 版本变更记录不误报 | ✅ `noise_bandwidth` 记的是噪声表测得时的条件，有意保持数据手册带宽：改 `specs.bandwidth_hz` 时不列入 `still_old`（`server/definitionchanges.py` 的 `_MEASURED_AT`），否则提示作者改回它、正好抵消换算；`tests/test_definition_history.py::test_a_specs_edit_moves_the_places_that_refer_to_it` 原样通过 |
+| 文档 | ✅ D46 条目（不新增条目）、instrument-authoring 8.4 的 `noise_bandwidth`、product-plan 3.5 行 |
+
