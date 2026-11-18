@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from . import ClientConnection
 
 log = logging.getLogger("simubench.scpi")
 
@@ -84,3 +85,11 @@ class ScpiServer:
                     w.close()
                 await lst.server.wait_closed()
         self.listeners = []
+
+    def connections(self) -> list[ClientConnection]:
+        """The clients on the instruments' sockets, listener by listener. A raw socket never locks."""
+        return [
+            ClientConnection(client=label, instrument=lst.instrument)
+            for lst in self.listeners
+            for label in sorted(lst.labels)
+        ]

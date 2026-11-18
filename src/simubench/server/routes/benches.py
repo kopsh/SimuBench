@@ -5,6 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, Query
 
 from ...models import api as M
+from .. import preview as bench_preview
 from .context import ApiContext
 
 
@@ -21,7 +22,7 @@ def _bench_file_routes(ctx: ApiContext, router: APIRouter) -> None:
         dependencies=[Depends(auth)],
     )
     def benches() -> list[M.BenchFile]:
-        return manager.bench_files()
+        return manager.views.bench_files()
 
     @router.get(
         "/api/benches/file",
@@ -39,7 +40,7 @@ def _bench_file_routes(ctx: ApiContext, router: APIRouter) -> None:
         dependencies=[Depends(auth)],
     )
     def preview_bench(path: str = Query(...)) -> M.BenchPreview:
-        return file_errors(lambda: manager.preview(path))  # type: ignore[no-any-return]
+        return file_errors(lambda: bench_preview.preview(manager, path))  # type: ignore[no-any-return]
 
     @router.put(
         "/api/benches/file",

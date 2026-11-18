@@ -201,9 +201,7 @@ def probe(sv: ServedSession, instrument: str, port: str, tune_hz: float | None =
 def _analog(s: Session, inst: Instrument, comp: Component, cport: str, port: str) -> M.InternalProbe:
     sig = s.cached_output(comp, cport).merged()
     lines = sig.spectral_lines(max_lines=MAX_LINES)
-    # Two periods of the strongest line, or 2 ms for DC: the network probe's window (D37).
-    f0 = lines[0].freq_hz if lines else 0.0
-    window = 2.0 / f0 if f0 > 0 else 2e-3
+    window = sig.window_s()  # two periods of the strongest line, or 2 ms for DC (D37)
     volts = sig.sample_rel(s.now_ns, np.arange(WAVE_POINTS) * (window / WAVE_POINTS))
     notes = list(dict.fromkeys(n.detail for n in sig.notes))
     dc, peak = float(sig.mean()), float(sig.peak())

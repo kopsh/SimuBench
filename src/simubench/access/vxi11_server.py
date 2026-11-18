@@ -31,6 +31,7 @@ from pyvisa import rname
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from . import ClientConnection
 from .bus import bus_of, observe, serial_poll
 
 log = logging.getLogger("simubench.vxi11")
@@ -370,6 +371,17 @@ class Vxi11Server(_RpcServer):
             for link in self._links.values()
             if instrument is None or link.instrument == instrument
         )
+
+    def connections(self) -> list[ClientConnection]:
+        """The open links with whether each holds its instrument's lock, in link order."""
+        return [
+            ClientConnection(
+                client=link.client,
+                instrument=link.instrument,
+                locked=self.locks(link.instrument).held_by(link),
+            )
+            for link in self._links.values()
+        ]
 
     def holds_lock(self, client: str) -> bool:
         return any(

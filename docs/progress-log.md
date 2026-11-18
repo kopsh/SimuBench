@@ -2401,6 +2401,20 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 全量测试耗时 | ✅ 快层 `-n 4` 三次分别 221s / 163s / 179s、4546 例全过（本机刚重启、Spotlight 重索引期间测；首跑有 1 例 unit 预算护栏在满负载下报 0.151s > 0.1s，隔离运行通过）；`--durations=20` 最慢为 UXR 手册用例 12s，摘要随 PR 交主会话判断 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
 
+## 投影层收口：块级屏幕协议、manager 瘦身（Issue 1383）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| scope_screen 按协议可单测（不起 HTTP） | ✅ `tests/test_scope_screen_view.py`：替身采集/测量块直测 views——DTO 组装逐字段、帧号每次读递增并传给块、画面超出模型的定格回退（holding()）、无协议组件拒绝（`KeyError`）；unit 层 4 例 1.6 s |
+| views.py 对组件私有零 type: ignore | ✅ scope_screen 的 8 处 `# type: ignore[attr-defined]` 清零（余下两处是 Session 字段 Literal 的既有标注，与组件无关）；`scripts/ty_baseline.txt` 删去 views.py 对应的 8 行 missing-attribute（baseline 只缩不涨） |
+| 块知识归块（D57 模式） | ✅ `ScreenSource.screen_state(frame) -> ScreenState`（engine/component.py 契约对象）：live/waiting/records/level/source/count 与重画规则（D47）、normal 未触发保持、#986 定格在块里；实时与等效时间采集（`sampling.py`，屏幕测试 `test_sampling.py::test_the_scope_screen_shows_the_sampling_records` 钉住的行为）都实现；`ScreenMeasurer.screen_values`：测量名表与「深记录的测量读记录、屏幕不读」（#1012）在 `ScopeMeasurements`；views 只组装 DTO 与降采样 |
+| 帧号留引擎外投影态 | ✅ `ServedSession.frames` 注释明示投影状态（被动视图轮询不进引擎、不污染种子/记录/时钟）；views 只递计数器 |
+| manager 瘦身 | ✅ `preview` 搬 `server/preview.py`（`routes/benches.py` 改调）；bench 文件列表组装搬 `SessionViews.bench_files`（manager 留一行转发给够不着 views 的 MCP/助手缝）；四个 access server 各给 `connections()`（client/instrument/locked），`describe` 与 `remote_clients` 走公共口，`_links`/`_clients` 私有访问清零；manager 职能清单（生命周期/访问服务监督/注册表与守卫）写在模块 docstring |
+| 窗口规则一处并裁决 | ✅ `Signal.window_s`（engine/signal.py），probe/画布/内部探针三处改调；「最强谱线」裁决：两推导在幅值不并列时等价，并列时 argsort 不承诺顺序而 argmax 取最低频率——统一取 argmax，窗口无变化（`tests/test_engine.py` 三例含并列）；结论记 D77 与 PR 正文 |
+| 投影零行为变化 | ✅ 快层 4528 例全过（scope_screen 的 HTTP 对照 `test_scope_screen_measurements.py`、#986/#1012 屏用例原样）；TUI 快照 28 例本地全过（`tests/test_tui_snapshots.py`）；web vitest 362 例（check.sh 内） |
+| 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 170.85 s、`--durations=20` 复跑 243.86 s（本机满负载首跑 297 s 且 1 例 unit 预算护栏 0.101 s>0.1 s——`test_tui_palette`，隔离运行通过，与 Issue 1382 记录的同类噪声）；最慢 `test_my_templates` 20.5 s、UXR 手册用例 ~17 s，摘要交主会话 |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |
+
 ## 仪表层缝：InstrumentHost 协议、façade 正名、命令管线单测（Issue 1380）
 
 | 完成条件 | 自检 |
@@ -2413,6 +2427,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 共享替身，桩退役 | ✅ `tests/helpers.py` 的 `FakeHost`（协议全成员；读信号/解算抛错；`events` 记录）与 `seam_instrument`/`dispatch_unit`；`test_command_equivalence.py` 与 `test_value_fit.py` 的两份 `_StubSession` 删除（残影 `_solve`/`_sync` 随之退役） |
 | 行为零变化 | ✅ #550/#580/#1013/#1030/#436 的锁行为测试、路由等价扫描（780 例）、金测原样通过；`warn` 事件字典逐键不变 |
 | 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 209s / 4583 例全过，另两次 317s / 636s（本机重负载期间测，同几分钟内重跑互有 ±，三次共 5 例 unit 预算护栏在满负载下报 0.10–0.61s > 0.1s，全部隔离运行通过，且三次各不相同——#482 记载的负载噪声类）；`--durations=20` 最慢为 UXR 手册用例 28–56s，摘要随 PR 交主会话判断 |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |
+
+
+## 网络与通道展开单一推导（Issue 1381）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 校验语料重跑，新真阳性逐条裁决 | ✅ 唯一行为变化是校验收严：`channels.overrides` 声明的范围如今静态校验即报 E-STATE-RANGE（e36312a 的 ch1.voltage 上限 6.18 对基础 25.75，`tests/test_nets.py` 锁住）；全量语料重跑零新增失败——现有测试台无一踩在这个缺口上，无需改写用例 |
+| 附件命名统一运行时名，零回归 | ✅ 校验侧弃用 `wire<i>.acc<k>` 改运行时名 `wire<i>.<type><k>`（engine/nets.py 一处）；运行时名一字未改，internals、运行记录、golden 全部原样通过 |
+| 校验与运行时同源有测试锁 | ✅ `tests/test_nets.py`：同一线束，Session 建出的网与 `nets_of` 的分组逐一相等；`channels.overrides` 只有 settings.py 的 `channel_specs` 一处生效（SettingStore、`_init_ports`、SignalWiring、validate 全部换用） |
+| 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 304.10s、4589 例全过（重启后安静机器所测）；`--durations` 最慢为 UXR 手册用例与 `test_my_templates`（存量，交主会话按 #651 统一判断） |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
 
 ## 仪表类别单源注册表：categories、scriptscan 迁移、Web 类型贯通（Issue 1384）

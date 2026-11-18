@@ -5,12 +5,12 @@ session; actions are in :mod:`simubench.server.drive`, lifecycle in :mod:`simube
 from __future__ import annotations
 
 import logging
-import math
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ..engine.component import ScreenMeasurer, ScreenSource
 from ..engine.deviation import deviation_keys as _deviation_keys
 from ..engine.faults import FaultState
 from ..engine.instrument import Instrument
@@ -21,11 +21,12 @@ from ..engine.silence import why_silent
 from ..engine.stream import ModelLimit
 from ..engine.validate import drives_net
 from ..library import categories
-from ..library.components.scope import channel_index
+from ..library.loader import load_bench
 from ..library.panels import effective_panel
 from ..models import api as M
 from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
+from .benchfiles import scan
 from .internals_links import drivers, influence_edges, selections
 from .internals_links import readings as readings_of
 
@@ -33,16 +34,34 @@ from .internals_links import readings as readings_of
 DEEP_SCREEN_BINS = 1000
 
 if TYPE_CHECKING:
+    from ..library.components.scope import Record
     from .manager import ServedSession, SessionManager
 
 log = logging.getLogger(__name__)
 
 
 class SessionViews:
-    """The projections that need the manager (the workspace and the stale-definition check)."""
+    """The projections that need the manager (the workspace, the stale-definition check)."""
 
     def __init__(self, manager: SessionManager) -> None:
         self.manager = manager
+
+    def bench_files(self) -> list[M.BenchFile]:
+        """The workspace's bench files as the benches list shows them: name, description, instrument
+        count; a file that does not load is listed with its first error instead of hidden."""
+        out: list[M.BenchFile] = []
+        for p in scan(self.manager.files.workspace):
+            rel = p.relative_to(self.manager.files.workspace).as_posix()
+            try:
+                b = load_bench(p)
+                out.append(
+                    M.BenchFile(
+                        path=rel, name=b.name, description=b.description, instruments=len(b.instruments)
+                    )
+                )
+            except Exception as exc:  # show broken files instead of hiding them
+                out.append(M.BenchFile(path=rel, name=p.name, error=str(exc).splitlines()[0]))
+        return out
 
     def describe(self, served: ServedSession, values_only: bool = False) -> M.SessionInfo:
         """The session as the API shows it; ``values_only`` gives each instrument's settings as values
@@ -58,38 +77,13 @@ class SessionViews:
             )
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
-        clients: list[M.ClientInfo] = [
-            M.ClientInfo(client=c, instrument=lst.instrument)
-            for lst in (served.scpi.listeners if served.scpi else [])
-            for c in sorted(lst.labels)
-        ]
-        if served.hislip:
-            for hs in served.hislip.sessions():
-                clients.append(
-                    M.ClientInfo(
-                        client=hs.client,
-                        instrument=hs.instrument,
-                        locked=served.hislip.locks(hs.instrument).held_by(hs),
-                    )
-                )
-        if served.vxi11:
-            for link in served.vxi11._links.values():
-                clients.append(
-                    M.ClientInfo(
-                        client=link.client,
-                        instrument=link.instrument,
-                        locked=served.vxi11.locks(link.instrument).held_by(link),
-                    )
-                )
-        if served.link:
-            for label in served.link.clients():
-                clients.append(
-                    M.ClientInfo(
-                        client=label,
-                        instrument=served.link._clients[label][0],
-                        locked=served.link.holds_lock(label),
-                    )
-                )
+        clients: list[M.ClientInfo] = []
+        for server in (served.scpi, served.hislip, served.vxi11, served.link):
+            if server is not None:
+                clients += [
+                    M.ClientInfo(client=c.client, instrument=c.instrument, locked=c.locked)
+                    for c in server.connections()
+                ]
         for info in instruments:
             info.remote = served.remote_clients(info.name)
             info.local = info.name in served.local
@@ -416,7 +410,7 @@ def _memory_depth_paths(inst: Instrument) -> set[str]:
 
 
 def _screen_traces(
-    s: Session, inst: Instrument, records: dict[int, Any], bins: int | None, strict: bool
+    s: Session, inst: Instrument, records: Mapping[int, Record], bins: int | None, strict: bool
 ) -> list[M.Trace]:
     """The screen's traces of ``records``: every sample, or per-bin min and max (``bins``; a deep
     record always, #1012: its envelope stands for it). A trace whose screen is beyond the model is
@@ -450,7 +444,9 @@ def _screen_traces(
     return out
 
 
-def _screen_functions(inst: Instrument, records: dict[int, Any], bins: int | None) -> list[M.FunctionTrace]:
+def _screen_functions(
+    inst: Instrument, records: Mapping[int, Record], bins: int | None
+) -> list[M.FunctionTrace]:
     """The math functions the screen draws, over the channel records it shows (#1219's demo: an
     FFT turned on with ``:FUNCtion1:DISPlay ON`` appears under the time traces)."""
     # the scope_math block (its class is registered by type name, so it is looked up by that)
@@ -481,69 +477,44 @@ def _screen_functions(inst: Instrument, records: dict[int, Any], bins: int | Non
 def scope_screen(served: ServedSession, instrument: str, points: int | None = None) -> M.ScopeScreen:
     """The scope's screen. ``points`` (tui-screens.md 6.1): downsample each trace to that many
     bins of per-bin min and max (2 values per bin) instead of returning every sample — the
-    pixel extraction of architecture.md 8.3 for a renderer with a fixed dot width."""
+    pixel extraction of architecture.md 8.3 for a renderer with a fixed dot width.
+
+    The screen's state is the acquisition block's read (:class:`ScreenSource`); this assembles the
+    DTO and downsamples it, and holds the frame counter (a projection state, ServedSession.frames)."""
     s = served.session
     inst = s.instrument(instrument)
     acq = inst.components.get("acq")
-    if acq is None or not hasattr(acq, "compute"):
+    if acq is None or not isinstance(acq, ScreenSource):
         raise KeyError(f"{instrument} is not an oscilloscope")
     bins = max(2, int(points)) if points else None
     with s.view(settle=(instrument,)):  # nothing else the instrument keeps changes here
-        live = bool(acq.shows_live())  # type: ignore[attr-defined]
-        records = dict(acq.records)  # type: ignore[attr-defined]
-        traces: list[M.Trace] | None = None
-        if live:
-            # A running scope redraws the signal now; a frame is not an acquisition (no record,
-            # no virtual time), and its noise is its own. Untriggered in a normal mode, it holds.
-            frame = served.frames[instrument] = served.frames.get(instrument, 0) + 1
-            try:
-                shown, _, triggered = acq.compute(acq.displayed(), frame=frame)  # type: ignore[attr-defined]
-                if triggered or acq._is("auto") or not records:  # type: ignore[attr-defined]
-                    traces, records = _screen_traces(s, inst, shown, bins, strict=True), shown
-            except ModelLimit:
-                # Settings whose frame is beyond the model (an average of too many samples, #986):
-                # the screen holds what it has, as a read of such an acquisition is refused.
-                live = False
-        if traces is None:
-            traces = _screen_traces(s, inst, records, bins, strict=False)
-        meas = next((c for c in inst.components.values() if c.type_name == "scope_measurements"), None)
-        measurements = []
-        if meas is not None:
-            names = {
-                "amplitude": "VAMPlitude",
-                "vpp": "VPP",
-                "vmax": "VMAX",
-                "vmin": "VMIN",
-                "mean": "VAVerage",
-                "rms": "VRMS",
-                "frequency": "FREQuency",
-                "period": "PERiod",
-            }
-            for n, r in sorted(records.items()):
-                row: dict[str, Any] = {"channel": n}
-                # A deep record's measurements read the record (#1012): the screen does not.
-                for key, what in names.items() if r.deep is None else ():
-                    value = float(meas.record_value(what, r))  # type: ignore[attr-defined]
-                    row[key] = value if math.isfinite(value) else None
-                measurements.append(M.ScopeMeasurement(**row))
-        functions = _screen_functions(inst, records, bins)
+        # The screen's redraw counter advances with every read; the block draws frame `frame` —
+        # with noise and untriggered phase of its own (D47) — only when the screen follows the signal.
+        frame = served.frames[instrument] = served.frames.get(instrument, 0) + 1
+        state = acq.screen_state(frame)
         try:
-            _, tb_dt, pre, _ = acq._timing()  # type: ignore[attr-defined]  # ty: ignore[missing-attribute]
-            screen_left = -pre * tb_dt
-        except (AttributeError, ModelLimit, ScpiError, ValueError):  # a sampling scope has no such timing
-            screen_left = -5.0 * float(inst.get_state("timebase.scale"))
+            traces = _screen_traces(s, inst, state.records, bins, strict=state.shown)
+        except ModelLimit:
+            # The frame's own projection is beyond the model (#986): the screen holds what it has,
+            # as a read of such an acquisition is refused.
+            state = state.holding()
+            traces = _screen_traces(s, inst, state.records, bins, strict=False)
+        meas = next((c for c in inst.components.values() if isinstance(c, ScreenMeasurer)), None)
+        measurements = (
+            [M.ScopeMeasurement(**row) for row in meas.screen_values(state.records)] if meas else []
+        )
         return M.ScopeScreen(
             instrument=instrument,
-            source="live" if live else "record",
-            running=live,
-            waiting=bool(acq.armed and acq._is("single")),  # type: ignore[attr-defined]
+            source="live" if state.live else "record",
+            running=state.live,
+            waiting=state.waiting,
             timebase_scale=float(inst.get_state("timebase.scale")),
-            screen_left_s=screen_left,
-            trigger_level=acq.trigger_level(),  # type: ignore[attr-defined]
-            trigger_source=channel_index(inst.get_state("trigger.source")),
+            screen_left_s=state.screen_left_s,
+            trigger_level=state.trigger_level,
+            trigger_source=state.trigger_source,
             traces=traces,
-            functions=functions,
-            acquisitions=int(acq.acq_count),  # type: ignore[attr-defined]
+            functions=_screen_functions(inst, state.records, bins),
+            acquisitions=state.acquisitions,
             measurements=measurements,
         )
 
@@ -575,9 +546,7 @@ def probe(served: ServedSession, net: str, max_lines: int = 16) -> M.NetProbe:
         sol, emf = s.solution()
         sig = s.net_signal(net).merged()
         lines = sig.spectral_lines(max_lines=max_lines)
-        # Two periods of the strongest line, or 2 ms for DC.
-        f0 = lines[0].freq_hz if lines else 0.0
-        window = 2.0 / f0 if f0 > 0 else 2e-3
+        window = sig.window_s()  # two periods of the strongest line, or 2 ms for DC
         points = 400
         volts = sig.sample_rel(s.now_ns, np.arange(points) * (window / points))
         wave = M.NetWaveform(
@@ -612,10 +581,7 @@ def net_levels(served: ServedSession, points: int = 48) -> M.NetLevels:
         out: list[M.NetLevel] = []
         for net in s.nets:
             sig = s.net_signal(net).merged()
-            pos = sig.freq > 0
-            amps = np.abs(sig.amp[pos])
-            f0 = float(sig.freq[pos][int(np.argmax(amps))]) if amps.size else 0.0
-            window = 2.0 / f0 if f0 > 0 else 2e-3
+            window = sig.window_s()  # two periods of the strongest line, or 2 ms for DC
             volts = sig.sample_rel(s.now_ns, np.arange(points) * (window / points))
             peak = float(sig.peak())
             dc = float(sig.mean())

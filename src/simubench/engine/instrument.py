@@ -29,7 +29,7 @@ from .coverage_advice import CoverageAdvisor
 from .error_reporter import ErrorReporter, _Ignored
 from .pending import PendingOps
 from .portref import split
-from .settings import SettingStore
+from .settings import SettingStore, channel_ports
 from .status_registers import Register, StatusRegisters
 from .wiring import SignalWiring
 from .write_tx import WriteEvent, apply_writes
@@ -297,12 +297,12 @@ class Instrument:
                     self._watch_param[path].setdefault(comp.uid, None)
 
     def _init_ports(self, definition: InstrumentDefinition) -> None:
-        """External ports: name -> (component, port)."""
+        """External ports: name -> (component, port). Channel ports come from settings.py's one
+        expansion (channel_ports, issue 1381); the component gets its ``ch<n>.`` prefix here."""
         self.ports: dict[str, tuple[str, str]] = {}
-        for n in range(1, self.channel_count + 1):
-            for pname, target in definition.ports.channel.items():
-                comp, port = _port_target(self.name, pname, target)
-                self.ports[pname.replace("{n}", str(n))] = (f"ch{n}.{comp}", port)
+        for pname, (n, target) in channel_ports(definition, self.channel_count).items():
+            comp, port = _port_target(self.name, pname, target)
+            self.ports[pname] = (f"ch{n}.{comp}", port)
         for pname, target in definition.ports.instrument.items():
             comp, port = _port_target(self.name, pname, target)
             self.ports[pname] = (comp, port)

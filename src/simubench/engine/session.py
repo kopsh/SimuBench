@@ -24,7 +24,7 @@ from typing import Any
 from ..models.bench import LIVE_CLOCKS, BenchDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import message_is_query
-from . import sleep_mode
+from . import nets, sleep_mode
 from .circuit import Circuit, Solution
 from .component import Component, component_type
 from .deviation import draw_overrides, set_override
@@ -83,26 +83,6 @@ class CommandResult:
     reply: bytes | None
     errors: list[ScpiError]
     is_query: bool
-
-
-class _UnionFind:
-    def __init__(self) -> None:
-        self.parent: dict[str, str] = {}
-
-    def add(self, x: str) -> None:
-        self.parent.setdefault(x, x)
-
-    def find(self, x: str) -> str:
-        self.add(x)
-        while self.parent[x] != x:
-            self.parent[x] = self.parent[self.parent[x]]
-            x = self.parent[x]
-        return x
-
-    def union(self, a: str, b: str) -> None:
-        ra, rb = self.find(a), self.find(b)
-        if ra != rb:
-            self.parent[rb] = ra
 
 
 def _check_scale(scale: float) -> None:
@@ -211,28 +191,22 @@ class Session:
             )
             self.components[name] = comp
 
-        # ---- nets ----
-        uf = _UnionFind()
+        # ---- nets (nets.py, issue 1381: the same walk the bench validation groups) ----
+        uf = nets.UnionFind()
         for i, wire in enumerate(bench.wires):
-            chain = [wire.from_]
             for k, acc in enumerate(wire.accessories):
-                acc_name = f"wire{i}.{acc.type}{k}"
-                self.components[acc_name] = component_type(acc.type)(acc_name, acc.params, None, self)
-                chain += [f"{acc_name}.IN", f"{acc_name}.OUT"]
-            chain.append(wire.to)
+                name = nets.accessory_name(i, k, acc.type)
+                self.components[name] = component_type(acc.type)(name, acc.params, None, self)
             for ref in (wire.from_, wire.to):
                 self._check_ref(ref)
-            for a, b in zip(chain[0::2], chain[1::2], strict=True):
-                uf.union(a, b)
-        roots: dict[str, Net] = {}
+            nets.union_wire(uf, i, wire)
+        self.nets: dict[str, Net] = {}
         self.port_net: dict[str, str] = {}
-        for ref in uf.parent:
-            root = uf.find(ref)
-            if root not in roots:
-                roots[root] = Net(f"net-{len(roots)}")
-            roots[root].members.append(ref)
-            self.port_net[ref] = roots[root].id
-        self.nets: dict[str, Net] = {n.id: n for n in roots.values()}
+        for members in uf.groups():
+            net = Net(f"net-{len(self.nets)}", members)
+            self.nets[net.id] = net
+            for ref in members:
+                self.port_net[ref] = net.id
 
         if self.recorder:
             self.recorder.header()

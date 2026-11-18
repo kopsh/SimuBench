@@ -1,9 +1,14 @@
-"""Sessions served by ``simubench serve``: start, look up, describe."""
+"""Sessions served by ``simubench serve``. The manager's job is threefold (issue 1383): the
+sessions' lifecycle (start, reset, stop, and the port servers that come up with them), the access
+services' supervision (who is connected, remote state, LOCAL, and the guards that refuse an
+operation that would drop or disturb connected scripts), and the registries (sessions by id, try
+sessions, runs). The projections — what a session looks like to the API, the tools and the TUI —
+live in :mod:`simubench.server.views` and :mod:`simubench.server.preview`; the manager neither
+assembles DTOs nor touches a component's insides."""
 
 from __future__ import annotations
 
 import asyncio
-import copy
 import logging
 import threading
 import time
@@ -12,7 +17,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from ..access.bench_link import BenchLinkServer
 from ..access.hislip_server import HislipServer
@@ -20,16 +25,16 @@ from ..access.hislip_tls import SecureConfig, read_users
 from ..access.scpi_server import ScpiServer
 from ..access.vxi11_server import Vxi11Server
 from ..api import bench_files_dir, open_bench
-from ..engine.portref import split
 from ..engine.record import definition_hash
-from ..engine.session import Session
-from ..library.loader import load_bench
 from ..models import api as M
 from ..models.bench import BenchDefinition
-from .benchfiles import BenchFiles, scan
+from .benchfiles import BenchFiles
 from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse
 from .runs import Runs
 from .views import SessionViews, served_addresses
+
+if TYPE_CHECKING:
+    from ..engine.session import Session
 
 log = logging.getLogger(__name__)
 
@@ -216,7 +221,12 @@ class ServedSession:
         self.hislip: HislipServer | None = None
         self.vxi11: Vxi11Server | None = None
         self.link: BenchLinkServer | None = None
-        self.frames: dict[str, int] = {}  # screen frames of running scopes, by instrument (noise of each)
+        #: Projection state, deliberately engine-external: how many times each instrument's scope
+        #: screen has been read — the redraw counter a running screen draws its frame with (D47).
+        #: It lives here, not in the session, so a passive view's polling (D55) advances no virtual
+        #: time, takes no acquisition and leaves the engine's deterministic state (seed, records,
+        #: clocks) alone.
+        self.frames: dict[str, int] = {}
         self.clock: str | None = None  # startup settings, kept for a reset
         self.time_scale: float | None = None
         self.seed: int | None = None
@@ -248,23 +258,13 @@ class ServedSession:
 
     def remote_clients(self, instrument: str | None = None) -> list[str]:
         """Clients connected to the ports of ``instrument`` (or of any instrument), sorted."""
-        out = [
-            c
-            for lst in (self.scpi.listeners if self.scpi else [])
-            if instrument is None or lst.instrument == instrument
-            for c in lst.labels
-        ]
-        if self.hislip:
-            out += [
-                hs.client
-                for hs in self.hislip.sessions()
-                if instrument is None or hs.instrument == instrument
-            ]
-        if self.vxi11:
-            out += self.vxi11.clients(instrument)
-        if self.link:
-            out += self.link.clients(instrument)
-        return sorted(out)
+        return sorted(
+            c.client
+            for server in (self.scpi, self.hislip, self.vxi11, self.link)
+            if server is not None
+            for c in server.connections()
+            if instrument is None or c.instrument == instrument
+        )
 
     def require_local(self, instrument: str) -> None:
         """Refuse a UI operation on an instrument in remote control (#121)."""
@@ -344,19 +344,10 @@ class SessionManager:
     # ---- bench files --------------------------------------------------------------------------------
 
     def bench_files(self) -> list[M.BenchFile]:
-        out: list[M.BenchFile] = []
-        for p in scan(self.workspace):
-            rel = p.relative_to(self.workspace).as_posix()
-            try:
-                b = load_bench(p)
-                out.append(
-                    M.BenchFile(
-                        path=rel, name=b.name, description=b.description, instruments=len(b.instruments)
-                    )
-                )
-            except Exception as exc:  # show broken files instead of hiding them
-                out.append(M.BenchFile(path=rel, name=p.name, error=str(exc).splitlines()[0]))
-        return out
+        """The workspace's bench files; the assembly is the views' (:meth:`SessionViews.bench_files`).
+        This delegate stays for the seams that reach only the manager (the MCP tools and the
+        assistant's tools, issue 1383)."""
+        return self.views.bench_files()
 
     def resolve(self, bench_path: str) -> Path:
         return self.files.resolve(bench_path)
@@ -514,58 +505,6 @@ class SessionManager:
         if served.scpi:
             await served.scpi.stop()
         await asyncio.to_thread(served.session.close)
-
-    def preview(self, bench_path: str) -> M.BenchPreview:
-        """Build the bench without running it, leaving out what cannot be built."""
-        doc = self.files.read(bench_path)
-        out = M.BenchPreview(path=bench_path, sha256=doc.sha256)
-        errors = [d for d in doc.diagnostics if d.severity == "error"]
-        if any(d.code == "E-SCHEMA" for d in errors):
-            out.error = "文件不符合测试台格式"
-            return out
-        data = copy.deepcopy(doc.data)
-        instruments, parts = data.get("instruments") or {}, data.get("parts") or {}
-        dropped_wires: set[int] = set()
-        for d in errors:
-            segs = [p.replace("~1", "/").replace("~0", "~") for p in d.pointer.split("/")[1:]]
-            if d.code.startswith("E-STATE-") and len(segs) >= 4:
-                instruments.get(segs[1], {}).get("state", {}).pop(segs[3], None)
-                out.omitted.append(f"{segs[1]}.{segs[3]}")
-            elif d.code == "E-MODEL-UNKNOWN" and d.subject:
-                instruments.pop(d.subject, None)
-                out.omitted.append(d.subject)
-            elif d.code in ("E-COMPONENT-UNKNOWN", "E-NAME-DUPLICATE") and d.subject:
-                parts.pop(d.subject, None)
-                out.omitted.append(d.subject)
-            elif d.subject and d.subject.startswith("wire:"):
-                dropped_wires.add(int(d.subject[5:]))
-        names = set(instruments) | set(parts)
-        wires = data.get("wires") or []
-        kept: list[int] = []
-        for i, w in enumerate(wires):
-            ends = (str(w.get("from", "")), str(w.get("to", "")))
-            if i in dropped_wires or any(split(e).owner not in names for e in ends):
-                out.omitted.append(f"{ends[0]} → {ends[1]}")  # the wire by its ends, not its index (#1269)
-            else:
-                kept.append(i)
-        data["wires"] = [wires[i] for i in kept]
-        path = self.resolve(bench_path)
-        try:
-            bench = BenchDefinition.model_validate(data)
-            session = Session(bench, self.files.library(path), base_dir=path.parent)
-        except Exception as exc:
-            out.error = str(exc).splitlines()[0]
-            return out
-        try:
-            info = self.views.describe(ServedSession("preview", session, path))
-        finally:
-            session.close()
-        for w in info.wires:
-            w.index = kept[w.index]
-        info.bench_sha256 = doc.sha256
-        info.bench_fingerprint = doc.fingerprint
-        out.session = info
-        return out
 
     def stale_definitions(self, served: ServedSession) -> list[str]:
         """Definitions the session's instruments use that changed on disk since it started."""

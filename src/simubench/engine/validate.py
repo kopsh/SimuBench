@@ -17,7 +17,9 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from ..library.migrate import FormatError, upgrade
 from ..scpi import values as V
 from .component import Component, binding_of, component_types, map_setting
+from .nets import nets_of
 from .portref import closest, ladder, split
+from .settings import channel_ports, channel_specs
 
 if TYPE_CHECKING:
     from ..models.bench import BenchDefinition
@@ -148,16 +150,17 @@ def validate_bench(
     _check_faults(bench, report)
 
     # ---- remote sense of sources (metrology-authoring.md 6) ----
-    # One union-find pass for the plain nets, shared by the sense check and the net checks
-    # (issue 641); the through-variant merges across series parts, so it is its own pass — and
-    # it only runs when the bench is otherwise clean, like _check_nets itself.
-    nets = _nets(bench)
-    _check_sense(bench, defs, report, net_of={ref: i for i, members in enumerate(nets) for ref in members})
+    # One pass for the plain nets, shared by the sense check and the net checks (issue 641);
+    # the through-variant merges across series parts, so it is its own pass — and it only runs
+    # when the bench is otherwise clean, like _check_nets itself. Both come from nets.py's one
+    # derivation (issue 1381): the session builds the running bench's nets from the same walk.
+    plain = nets_of(bench)
+    _check_sense(bench, defs, report, net_of={ref: i for i, members in enumerate(plain) for ref in members})
 
     # ---- nets: one driver per net, impedance hints ----
     if report.ok:
         series = frozenset(t for t, cls in component_types().items() if cls.role == "series")
-        _check_nets(bench, defs, report, nets, _nets(bench, through=series))
+        _check_nets(bench, defs, report, plain, nets_of(bench, through=series))
     return report
 
 
@@ -216,16 +219,14 @@ def _check_instrument(
             name,
         )
     ports: dict[str, tuple[str, str, int | None]] = {}
-    for n in range(1, d.channels.count + 1):
-        for pname, target in d.ports.channel.items():
-            ports[pname.replace("{n}", str(n))] = (*_exposed_port(d, target, known_types, channel=True), n)
+    for pname, (n, target) in channel_ports(d, d.channels.count).items():
+        ports[pname] = (*_exposed_port(d, target, known_types, channel=True), n)
     for pname, target in d.ports.instrument.items():
         ports[pname] = (*_exposed_port(d, target, known_types, channel=False), None)
     port_info[name] = ports
-    specs = {**d.state}
-    for n in range(1, d.channels.count + 1):
-        for k, s in d.channel_state.items():
-            specs[f"ch{n}.{k}"] = s
+    # The runtime's own expansion (channel_specs, issue 1381): channels.overrides in force here
+    # too, so the initial state is judged against the spec the run time will enforce.
+    specs = channel_specs(d, d.channels.count)
     comp_params: dict[str, set[str]] = {}
     for spec in d.components:
         comp_params[spec.name] = set(known_types[spec.type].defaults) | set(spec.params)
@@ -695,35 +696,6 @@ def _check_nets(
             )
     for members in nets_through:
         _impedance_hints(bench, defs, members, report)
-
-
-def _nets(bench: BenchDefinition, through: frozenset[str] = frozenset()) -> list[list[str]]:
-    """Port references grouped by net; accessories of the ``through`` types join their two sides."""
-    parent: dict[str, str] = {}
-
-    def find(x: str) -> str:
-        parent.setdefault(x, x)
-        while parent[x] != x:
-            parent[x] = parent[parent[x]]
-            x = parent[x]
-        return x
-
-    def union(a: str, b: str) -> None:
-        parent[find(b)] = find(a)
-
-    for i, w in enumerate(bench.wires):
-        chain = [w.from_]
-        for k, acc in enumerate(w.accessories):
-            chain += [f"wire{i}.acc{k}.IN", f"wire{i}.acc{k}.OUT"]
-            if acc.type in through:
-                union(f"wire{i}.acc{k}.IN", f"wire{i}.acc{k}.OUT")
-        chain.append(w.to)
-        for a, b in zip(chain[0::2], chain[1::2], strict=True):
-            union(a, b)
-    nets: dict[str, list[str]] = {}
-    for ref in list(parent):
-        nets.setdefault(find(ref), []).append(ref)
-    return list(nets.values())
 
 
 def _close(z: float | None, target: float) -> bool:
