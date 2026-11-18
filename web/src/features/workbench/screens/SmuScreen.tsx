@@ -7,6 +7,7 @@ import { scpiOutcome, useInstrumentReadings, useScpi } from "@/api/hooks";
 import { Button } from "@/components/ui/button";
 import { formatEng, isOverload, resistance } from "@/lib/format";
 import { cn } from "@/lib/utils";
+import { panelSections, panelSettings } from "../model";
 import { Chip, Legend, Readout, ScreenIdentity, SettingsGroups } from "./parts";
 
 const OPEN = 9.9e37; // the SCPI "no value" a resistance reads with no current
@@ -48,12 +49,15 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
     stat: bs[k],
   }));
 
-  const groups: [string, string[]][] = [
-    [t("smu.source"), ["source.function", "source.voltage.level", "source.current.level", "output.enabled"]],
-    [t("smu.limits"), ["compliance.current.limit", "compliance.voltage.limit", "source.delay"]],
-    [t("smu.measure"), ["sense.nplc", "sense.autozero", "system.line_freq"]],
-    [t("smu.sweep"), ["sweep.mode", "sweep.function", "sweep.start", "sweep.stop", "sweep.points", "sweep.delay"]],
-  ];
+  // The settings groups are the definition's declared panel (D74, #1469), the same sections the
+  // inspector shows; a definition without one shows its summary (the visible degradation).
+  const sections = inst.display.panel?.groups?.length
+    ? panelSections(inst.display.panel.groups, vars, () => true)
+    : (() => {
+        const { panel } = panelSettings([...vars.values()], inst.display.summary);
+        return panel.length ? [{ label: t("workbench.settings"), label_en: null, vars: panel }] : [];
+      })();
+  const groups: [string, string[]][] = sections.map((s) => [s.label, s.vars.map((x) => x.path)]);
 
   return (
     <div className="grid h-full auto-rows-min gap-3 overflow-auto p-3">
@@ -129,7 +133,9 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
         </div>
       </section>
 
-      <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} compact />
+      {groups.length > 0 && (
+        <SettingsGroups groups={groups} vars={vars} sid={sid} inst={inst} readonly={readonly} compact />
+      )}
     </div>
   );
 }
