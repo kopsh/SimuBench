@@ -165,6 +165,7 @@ state:
     unit: HZ
     min: 1.0
     max: 1.0e12
+    unset: 0.0  # 未写 default 时上电为 0 Hz：未设跨度，FFT 覆盖整个单边带
     label: 函数 1 FFT 跨度
     label_en: Function 1 FFT span
   function1.center:
@@ -276,6 +277,7 @@ state:
     unit: HZ
     min: 1.0
     max: 1.0e12
+    unset: 0.0  # 未写 default 时上电为 0 Hz：未设跨度，FFT 覆盖整个单边带
     label: 函数 2 FFT 跨度
     label_en: Function 2 FFT span
   function2.center:

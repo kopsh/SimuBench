@@ -163,7 +163,9 @@ class DefinitionFiles:
         if doc.sha256 != new.base_sha256:
             raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
         path = self.source(def_id)
-        self.save(def_id, new.base_sha256, definitionstructure.written(doc.data, new, path), source)
+        data = definitionstructure.written(doc.data, new, path)
+        definitionstructure.check_kept(data, new, path)  # refuse rather than lose something silently
+        self.save(def_id, new.base_sha256, data, source)
         return self.structure(def_id)
 
     def layout_path(self, def_id: str) -> Path:

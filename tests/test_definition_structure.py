@@ -142,6 +142,55 @@ def test_build_area_settings_and_commands(tmp_path):
         assert float(reply["response"]) == 2.5
 
 
+def test_build_area_keeps_infinite_values(tmp_path):
+    """JSON has no infinity: the structure spells one "INF"/"-INF" (D60) and the write back reads it
+    as the number, so editing one setting of a UXR1104B copy leaves the inherited
+    ``display.persistence`` (default -inf, keywords MINimum/INFinite) alone instead of writing its
+    infinities back as null deletion markers; an infinity typed in the Web is written as one."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        my_id = c.post("/api/definitions/keysight-uxr1104b/copy").json()["data"]["id"]
+        url = f"/api/definitions/{my_id}/structure"
+        first = c.get(url).json()
+        persistence = first["state"]["display.persistence"]
+        assert persistence["default"] == "-INF"
+        assert persistence["special"] == {"MINimum": "-INF", "INFinite": "INF"}
+
+        # guards: a null inside the structure is refused (it can only be a value JSON lost), and
+        # nothing is saved; the static check names a power-on value the setting refuses
+        lost = _body(first)
+        lost["state"]["display.persistence"]["default"] = None
+        refused = c.put(url, json=lost)
+        assert refused.status_code == 422 and "display.persistence" in refused.json()["detail"]
+        assert c.get(url).json()["sha256"] == first["sha256"]
+        below = _body(first)
+        below["state"]["display.persistence"]["min"] = 1.0
+        below["state"]["display.persistence"]["default"] = 0.5
+        checked = c.put(url, json=below).json()
+        assert [d["pointer"] for d in checked["diagnostics"] if d["code"] == "E-DEF-STATE-INITIAL"] == [
+            "/state/display.persistence/default"
+        ]
+
+        body = _body(checked)
+        body["state"]["display.persistence"] = first["state"]["display.persistence"]
+        body["state"]["timebase.scale"]["min"] = 1e-12
+        body["state"]["probe.limit"] = {"type": "float", "min": 0, "max": "INF", "default": 1}
+        c.put(url, json=body).raise_for_status()
+        on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
+        assert on_disk["state"]["timebase.scale"] == {"min": 1e-12}
+        assert "display.persistence" not in on_disk["state"]
+        assert on_disk["state"]["probe.limit"]["max"] == float("inf")
+
+        sid = c.post(f"/api/try/{my_id}").json()["session_id"]
+        scpi = f"/api/try/{sid}/scpi"
+        assert c.post(scpi, json={"command": ":DISPlay:PERSistence?"}).json()["response"] == "MINimum"
+        reply = c.post(scpi, json={"command": ":DISPlay:PERSistence INFinite"}).json()
+        assert reply["errors"] == []
+        assert c.post(scpi, json={"command": ":TIMebase:SCALe 2e-12"}).json()["errors"] == []
+
+
 def test_build_area_layout_is_kept_beside_the_definition(tmp_path):
     """#1207: positions live in instruments/<id>.layout.json — read back as written, no version
     of the definition, none for a built-in model, and a broken file reads as no positions."""
