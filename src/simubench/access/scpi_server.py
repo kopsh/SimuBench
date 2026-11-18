@@ -17,6 +17,98 @@ from . import ClientConnection
 
 log = logging.getLogger("simubench.scpi")
 
+MAX_MESSAGE = 256 * 1024 * 1024  # bytes; a longer program message is -223 and dropped
+
+
+class MessageReader:
+    """Splits a byte stream into program messages (IEEE 488.2 7.7.6, #1448).
+
+    A message ends at the first LF outside a definite-length block (``#<n><len><bytes>``): the
+    block's bytes, LF included, belong to the message. A ``#`` inside a quoted string is not a
+    block. There is no 64 KiB line limit; over ``MAX_MESSAGE`` the rest of the message is
+    discarded up to its terminator and ``read`` returns it as ``overflow``."""
+
+    def __init__(self, reader: asyncio.StreamReader, limit: int = MAX_MESSAGE) -> None:
+        self.reader = reader
+        self.limit = limit
+        self.buf = bytearray()
+        self.pos = 0  # scanned up to here
+        self.quote = 0  # the open quote byte, or 0
+        self.skip = 0  # block bytes still to pass
+        self.dropping = False
+
+    def _scan(self) -> int | None:
+        """Index just past the terminating LF, or None when more bytes are needed."""
+        buf = self.buf
+        while True:
+            if self.skip:
+                step = min(self.skip, len(buf) - self.pos)
+                self.pos += step
+                self.skip -= step
+                if self.skip:
+                    return None
+            if self.pos >= len(buf):
+                return None
+            if self.quote:
+                i = buf.find(bytes([self.quote]), self.pos)
+                j = buf.find(b"\n", self.pos)
+                if j != -1 and (i == -1 or j < i):
+                    self.quote = 0  # a string does not span lines
+                    self.pos = j + 1
+                    return self.pos
+                if i == -1:
+                    self.pos = len(buf)
+                    return None
+                self.quote = 0
+                self.pos = i + 1
+                continue
+            while self.pos < len(buf):
+                c = buf[self.pos]
+                if c == 0x0A:
+                    self.pos += 1
+                    return self.pos
+                if c in (0x22, 0x27):
+                    self.quote = c
+                    self.pos += 1
+                    break
+                if c == 0x23:  # '#'
+                    if self.pos + 1 >= len(buf):
+                        return None
+                    n = buf[self.pos + 1] - 0x30
+                    if 1 <= n <= 9:
+                        end = self.pos + 2 + n
+                        if end > len(buf):
+                            return None
+                        digits = bytes(buf[self.pos + 2 : end])
+                        if digits.isdigit():
+                            self.pos = end
+                            self.skip = int(digits)
+                            break
+                self.pos += 1
+
+    async def read(self) -> tuple[bytes, bool]:
+        """The next message (b"" at end of stream) and whether it overflowed the limit."""
+        while True:
+            end = self._scan()
+            if end is not None:
+                msg = bytes(self.buf[:end])
+                del self.buf[:end]
+                self.pos = 0
+                over, self.dropping = self.dropping or end > self.limit, False
+                return (b"", True) if over else (msg, False)
+            if len(self.buf) > self.limit:
+                self.dropping = True
+                self.buf.clear()
+                self.pos = 0
+                self.skip = 0
+            chunk = await self.reader.read(1 << 20)
+            if not chunk:
+                rest = bytes(self.buf)  # a final message without a terminator
+                self.buf.clear()
+                self.pos = 0
+                return rest, False
+            self.buf += chunk
+
 
 @dataclass
 class ScpiListener:
@@ -60,15 +152,19 @@ class ScpiServer:
         client = f"socket:{host}:{port}"
         lst.labels.add(client)
         try:
+            messages = MessageReader(reader)
             while True:
-                line = await reader.readline()
+                line, overflow = await messages.read()
+                if overflow:
+                    self.session.instrument(lst.instrument).push_error(-223)
+                    continue
                 if not line:
                     break
                 # One action: a UI console query cannot take this message's response (#121).
                 for out in await asyncio.to_thread(self.session.exchange, lst.instrument, line, client):
                     writer.write(out)
                     await writer.drain()
-        except (ConnectionResetError, asyncio.IncompleteReadError):
+        except (ConnectionResetError, BrokenPipeError, asyncio.IncompleteReadError):
             pass
         except LinkDown:
             log.info("SCPI %s: link fault, closing %s", lst.instrument, client)
