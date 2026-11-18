@@ -5,7 +5,7 @@ model: LFCAL-REFSCOPE
 class: oscilloscope
 version: 1
 description: >-
-  低频校准工作台的参考示波器：LeCroy 风格的私有命令方言（TRSE、C1:VDIV、WAVEFORM_SETUP、
+  低频校准工作台的参考示波器：LeCroy 风格的私有命令（TRSE、C1:VDIV、WAVEFORM_SETUP、
   C1:INSPECT? 文本波形回读）。按主机测试程序的接口契约编写，不是按某一型号手册实现的真实型号
   （没有 reference，D42）；契约之外的命令被忽略而不报错。*IDN? 的型号段由测试台的 idn 设定
   （主机校验的型号串）。4 通道，记录长度恰为 MSIZ 点；噪声与 ADC 位数是假设值，见

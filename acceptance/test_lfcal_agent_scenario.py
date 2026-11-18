@@ -53,26 +53,22 @@ async def _call(c: Client, tool: str, **args):
 
 
 async def _build(c: Client) -> dict:
-    """The agent's build, from an empty workspace: draft, two templates, the missing command,
-    cable and identity, run mode, validate. Returns the draft report and the session."""
+    """The agent's build, from an empty workspace: draft, two templates (their command tables learned
+    command by command, D81), the stored-only commands reviewed, cable and identity, run mode,
+    validate. Returns the draft report and the session."""
     draft = await _call(c, "draft_bench_from_script", script_path="host.py", save_as="lfcal.bench.yaml")
     entries = {e["receiver"]: e for e in draft["report"]}
     scope_t, cal_t = entries["scope"]["template"], entries["cal"]["template"]
-    assert (scope_t["template"], scope_t["variant"]) == ("oscilloscope", "lecroy-scope")
-    assert (cal_t["template"], cal_t["variant"]) == ("signal_source", "channel-base")
-    # One command no template speaks, reported with its line: the host's PERSist 5. The source's
-    # beeper probe stays unsupported by choice — the contract says unknown commands are ignored.
+    assert (scope_t["template"], cal_t["template"]) == ("oscilloscope", "signal_source")
+    assert scope_t["learned_from"][0] == "lecroy-wavepro804hd"  # the model the script talks most like
+    # Every command is bound: as a library model binds it (the source's beeper probe, as a
+    # multimeter's beeper setting), by a mnemonic, or — what nothing knows, like the host's PERSist 5
+    # — kept as a setting that only stores its value, with its line, for the agent to confirm.
     lines = SCRIPT.read_text("utf-8").splitlines()
     persist_line = next(i for i, line in enumerate(lines, 1) if 'scope.write("PERSist 5")' in line)
-    beeper_line = next(
-        i for i, line in enumerate(lines, 1) if 'cal.write(":SYSTem:BEEPer:STATe OFF")' in line
-    )
-    assert [(u["line"], u["command"]) for u in entries["scope"]["unsupported"]] == [
-        (persist_line, "PERSist 5")
-    ]
-    assert [(u["line"], u["command"]) for u in entries["cal"]["unsupported"]] == [
-        (beeper_line, ":SYSTem:BEEPer:STATe OFF")
-    ]
+    assert entries["scope"]["unsupported"] == [] and entries["cal"]["unsupported"] == []
+    assert (persist_line, "PERSist 5") in [(u["line"], u["command"]) for u in scope_t["stored_only"]]
+    [beeper] = [c for c in cal_t["inputs"]["commands"]["table"] if "BEEP" in c["header"].upper()]
     filled = {f["pointer"]: f for f in scope_t["filled"]}
     model = filled["/template/inputs/identity/model"]
     assert model["value"] == "LFCAL-REFSCOPE" and model["source"] == "script" and model["line"] > 0
@@ -80,8 +76,12 @@ async def _build(c: Client) -> dict:
     assert draft["inferred_wires"][0]["why"].startswith("推断")
     assert draft["bench"]["run"] == {"seed": 1, "clock": "command", "idle": "off"}
 
+    # The agent keeps PERSist as a stored setting. The beeper is not part of the contract: it drops
+    # that one and lets the source ignore unknown commands (the contract: a lenient source).
     cal_inputs = json.loads(json.dumps(cal_t["inputs"]))
-    cal_inputs["dialect"]["unknown_commands"] = "ignore"  # the contract: a lenient source
+    cal_inputs["commands"]["table"] = [c for c in cal_inputs["commands"]["table"] if c != beeper]
+    cal_inputs["settings"].pop(beeper["state"])
+    cal_inputs["commands"]["unknown"] = "ignore"
     scope_doc = await _call(
         c, "create_definition_from_template", template_id="oscilloscope",
         definition_id=scope_t["definition_id"], inputs=scope_t["inputs"],
@@ -92,15 +92,6 @@ async def _build(c: Client) -> dict:
     )  # fmt: skip
     assert scope_doc["saved"] and scope_doc["ok"], scope_doc["diagnostics"]
     assert cal_doc["saved"] and cal_doc["ok"], cal_doc["diagnostics"]
-
-    # The agent teaches the scope the command the script needs, drafted on the template expansion
-    # and saved over it in one call (issue 169).
-    merged = await _call(
-        c, "draft_definition_from_script", script_path="host.py", definition_id="lfcal-refscope",
-        receiver="scope", base_definition="lfcal-refscope", save=True, base_sha256=scope_doc["sha256"],
-    )  # fmt: skip
-    assert [d["header"] for d in merged["drafted"]] == [":PERSIST"]
-    assert merged["saved"]["ok"], merged["saved"]["diagnostics"]
 
     bench = await _call(
         c, "edit_bench", path="lfcal.bench.yaml", base_sha256=draft["saved"]["sha256"], ops=[

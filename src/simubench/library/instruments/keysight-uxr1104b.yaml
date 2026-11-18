@@ -103,7 +103,7 @@ state:
     default: 0
     label: 操作状态使能
     label_en: Operation status enable
-  # 应答头（:SYSTem:HEADer）与长格式（:SYSTem:LONGform）两个开关（dialect，#602）；上电值是用户偏好，
+  # 应答头（:SYSTem:HEADer）与长格式（:SYSTem:LONGform）两个开关（报文写法 syntax，#602）；上电值是用户偏好，
   # 手册未给，SimuBench 取 OFF。
   system.header:
     type: bool

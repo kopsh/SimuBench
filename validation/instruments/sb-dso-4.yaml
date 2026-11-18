@@ -81,7 +81,7 @@ state:
     ladder: [100, 250, 500, 1000, 2000, 5000, 10000]
     label: 记录长度
     label_en: Record length
-  # ---- 数学函数（#1074，Infiniium 第 22 章的方言）----
+  # ---- 数学函数（#1074，Infiniium 第 22 章的命令）----
   function1.operator:
     type: enum
     options: [NONE, ADD, SUBTract, MULTiply, DIVide, COMMonmode, ABSolute, INVert, SQUare, SQRT,
@@ -588,7 +588,7 @@ commands:
     set: false
     args: {what: PERiod}
     params: [{name: source, type: string, optional: true}]
-  # ---- FUNCtion（#1074，Infiniium 第 22 章的方言）----
+  # ---- FUNCtion（#1074，Infiniium 第 22 章的命令）----
   # :FUNCtion<f>:ADD <operand>,<operand>：算子写进 function{f}.operator，两个信源各归各位。
   - header: ":FUNCtion<f>:ADD"
     suffixes: {f: [1, 2]}

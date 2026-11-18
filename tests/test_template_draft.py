@@ -1,9 +1,12 @@
-"""From a script to template drafts (issue 145): with the built-in library and the templates only, an
-instrument the library does not speak gets a template, a command set and inputs filled in from the
-script; the bench draft wires the source to the scope (inferred) and runs deterministically."""
+"""From a script to template drafts (issue 145, D81): with the built-in library and the templates only,
+an instrument the library does not speak gets a template and inputs filled in from the script, with a
+command table learned command by command (from a library model with the same header, else a
+mnemonic, else kept as a setting to confirm); the bench draft wires the source to the scope
+(inferred) and runs deterministically."""
 
 from __future__ import annotations
 
+import copy
 import importlib.util
 import json
 import shutil
@@ -30,7 +33,8 @@ def builtin() -> list:
 
 
 def _draft(source: str, definitions=builtin) -> dict:
-    return draft_bench(source, definitions, name="draft", suggest=suggester(source))
+    models = definitions()
+    return draft_bench(source, lambda: models, name="draft", suggest=suggester(source, models))
 
 
 def _entry(result: dict, receiver: str) -> dict:
@@ -40,11 +44,22 @@ def _entry(result: dict, receiver: str) -> dict:
 def test_the_low_frequency_script_gets_both_templates_and_every_command():
     result = _draft(LFCAL_SCRIPT.read_text("utf-8"))
     scope, cal = _entry(result, "scope"), _entry(result, "cal")
-    assert (scope["template"]["template"], scope["template"]["variant"]) == ("oscilloscope", "lecroy-scope")
-    assert (cal["template"]["template"], cal["template"]["variant"]) == ("signal_source", "channel-base")
+    assert scope["template"]["template"] == "oscilloscope" and cal["template"]["template"] == "signal_source"
+    # The scope's commands as the library's LeCroy binds them; the calibrator's tree no library model
+    # speaks, so its commands are bound by the source template's mnemonics. No command set is chosen.
+    assert scope["template"]["learned_from"][0] == "lecroy-wavepro804hd"
+    assert cal["template"]["learned_from"] == [] and cal["template"]["stored_only"] == []
     for e in (scope, cal):
         assert e["supported"] == e["checked"] > 0 and e["unsupported"] == [], e["unsupported"]
         assert e["template"]["diagnostics"] == []
+    # What neither knows is kept as a setting that only stores its value, with its line, to confirm.
+    stored = {s["command"]: s for s in scope["template"]["stored_only"]}
+    assert set(stored) == {"ILVD OFF"} and stored["ILVD OFF"]["line"] > 0
+    table = {c["header"]: c for c in cal["template"]["inputs"]["commands"]["table"]}
+    assert table[":CHANnel<ch>:BASE:FREQuency"] == {
+        "header": ":CHANnel<ch>:BASE:FREQuency",
+        "state": "ch.frequency",
+    }
     # The model strings the script checks *IDN? against, with their line; the rest are defaults.
     filled = {f["pointer"]: f for f in scope["template"]["filled"]}
     assert filled["/template/inputs/identity/model"]["value"] == "LFCAL-REFSCOPE"
@@ -62,26 +77,30 @@ def test_the_low_frequency_script_gets_both_templates_and_every_command():
     assert bench["run"] == {"seed": 1, "clock": "command", "idle": "off"}
 
 
-def test_a_keysight_style_script_without_its_model_gets_the_scpi_scope():
+def test_a_keysight_style_script_without_any_library_is_bound_by_mnemonics():
     result = _draft(KEYSIGHT_SCRIPT.read_text("utf-8"), definitions=list)
     scope = _entry(result, "scope")
-    assert (scope["template"]["template"], scope["template"]["variant"]) == ("oscilloscope", "scpi-scope")
+    assert scope["template"]["template"] == "oscilloscope" and scope["template"]["learned_from"] == []
     assert scope["supported"] == scope["checked"] > 0 and scope["unsupported"] == []
+    assert scope["template"]["stored_only"] == []
     assert scope["template"]["diagnostics"] == []
     # With the built-in library the model itself is chosen and no template is needed.
     library = _entry(_draft(KEYSIGHT_SCRIPT.read_text("utf-8")), "scope")
     assert library["model"] == "keysight-dsox2024a" and "template" not in library
 
 
-def test_a_command_no_template_has_is_reported_with_its_line():
+def test_a_command_nothing_knows_is_kept_as_a_setting_to_confirm_with_its_line():
     source = LFCAL_SCRIPT.read_text("utf-8").replace(
         '    scope.write("RCLK INTERNAL")\n',
         '    scope.write("RCLK INTERNAL")\n    scope.write("HISTOGRAM_MODE ON")\n',
     )
     line = source.splitlines().index('    scope.write("HISTOGRAM_MODE ON")') + 1
     scope = _entry(_draft(source), "scope")
-    assert scope["template"]["variant"] == "lecroy-scope"
-    assert [(u["line"], u["command"]) for u in scope["unsupported"]] == [(line, "HISTOGRAM_MODE ON")]
+    assert scope["unsupported"] == []
+    stored = [(s["line"], s["command"]) for s in scope["template"]["stored_only"]]
+    assert (line, "HISTOGRAM_MODE ON") in stored
+    setting = scope["template"]["inputs"]["settings"]["stored.histogram_mode"]
+    assert setting == {"type": "bool", "default": True}
 
 
 def _module(path: Path, name: str):
@@ -180,9 +199,15 @@ async def test_the_draft_extends_a_template_definition_in_place_and_reexpansion_
     async with Client(server) as c:
         draft = await call(c, "draft_bench_from_script", script_path="host.py")
         scope_t = next(e for e in draft["report"] if e["receiver"] == "scope")["template"]
+        # The definition as it was made before the host sent :PERSist (a template draft keeps every
+        # command of the script, D81): without that command and the setting it stored.
+        inputs = copy.deepcopy(scope_t["inputs"])
+        [persist] = [c for c in inputs["commands"]["table"] if "PERS" in c["header"].upper()]
+        inputs["commands"]["table"].remove(persist)
+        inputs["settings"].pop(persist["state"])
         doc = await call(
             c, "create_definition_from_template", template_id="oscilloscope",
-            definition_id=scope_t["definition_id"], inputs=scope_t["inputs"],
+            definition_id=scope_t["definition_id"], inputs=inputs,
         )  # fmt: skip
         assert doc["saved"] and doc["ok"], doc["diagnostics"]
         before = await call(c, "read_definition", definition_id="lfcal-refscope")
@@ -215,7 +240,7 @@ async def test_the_draft_extends_a_template_definition_in_place_and_reexpansion_
         # Re-expanding the template would drop the drafted command: refused, with its pointer.
         r = await c.call_tool(
             "create_definition_from_template", {"template_id": "oscilloscope", "definition_id": "lfcal-refscope",
-                                                "inputs": scope_t["inputs"], "base_sha256": after["sha256"]}
+                                                "inputs": inputs, "base_sha256": after["sha256"]}
         )  # fmt: skip
         assert r.is_error and f"/commands/{new_index}" in r.content[0].text, r.content[0].text
         assert (await call(c, "read_definition", definition_id="lfcal-refscope"))["sha256"] == after["sha256"]
@@ -224,13 +249,13 @@ async def test_the_draft_extends_a_template_definition_in_place_and_reexpansion_
         # untouched since the template still re-expands as before.
         redone = await call(
             c, "create_definition_from_template", template_id="oscilloscope", definition_id="lfcal-refscope",
-            inputs=scope_t["inputs"], base_sha256=after["sha256"], discard_edits=True,
+            inputs=inputs, base_sha256=after["sha256"], discard_edits=True,
         )  # fmt: skip
         assert redone["saved"] and redone["ok"], redone["diagnostics"]
         final = await call(c, "read_definition", definition_id="lfcal-refscope")
         assert len(final["data"]["commands"]) == new_index
         again = await call(
             c, "create_definition_from_template", template_id="oscilloscope", definition_id="lfcal-refscope",
-            inputs=scope_t["inputs"], base_sha256=final["sha256"],
+            inputs=inputs, base_sha256=final["sha256"],
         )  # fmt: skip
         assert again["saved"] and again["ok"], again["diagnostics"]
