@@ -79,12 +79,11 @@ class SessionViews:
             for i, (name, inst) in enumerate(s.instruments.items())
         ]
         clients: list[M.ClientInfo] = []
-        for server in (served.scpi, served.hislip, served.vxi11, served.link):
-            if server is not None:
-                clients += [
-                    M.ClientInfo(client=c.client, instrument=c.instrument, locked=c.locked)
-                    for c in server.connections()
-                ]
+        for server in served.servers.values():
+            clients += [
+                M.ClientInfo(client=c.client, instrument=c.instrument, locked=c.locked)
+                for c in server.connections()
+            ]
         for info in instruments:
             info.remote = served.remote_clients(info.name)
             info.local = info.name in served.local
@@ -263,11 +262,9 @@ def served_addresses(served: ServedSession) -> dict[str, list[str]]:
     """Every address the service's own servers answer at, by instrument: what a script that
     connects through the bench link must be able to open (the ports are the service's choice)."""
     out: dict[str, list[str]] = {name: [] for name in served.session.instruments}
-    for lst in served.scpi.listeners if served.scpi else []:
-        out[lst.instrument].append(lst.address)
-    for servers in (served.hislip, served.vxi11):
-        for name, address in (servers.addresses() if servers else {}).items():
-            out[name].append(address)
+    for server in served.servers.values():  # the registry, in start order (#1475)
+        for name, address in server.addresses().items():
+            out.setdefault(name, []).append(address)
     return out
 
 

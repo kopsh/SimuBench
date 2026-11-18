@@ -38,6 +38,11 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
+#: Registry keys of the access servers a bench starts with (#1475): the service names the
+#: addresses and the port-fallback notices show. A new access protocol adds its start-up row —
+#: nothing else in the manager knows the servers by name.
+SCPI_SERVICE, HISLIP_SERVICE, VXI11_SERVICE, LINK_SERVICE = "SCPI", "HiSLIP", "VXI-11", "bench link"
+
 
 def vxi11_port_of(args: Any) -> int | None:
     """The VXI-11 core port the command line asks for: ``--vxi11-port`` (0 lets the OS choose), or
@@ -77,11 +82,6 @@ def hislip_options_of(args: Any) -> dict[str, Any]:
     elif args.hislip_users or args.hislip_tls != "optional":
         raise SystemExit("--hislip-tls and --hislip-users need --hislip-cert and --hislip-key")
     return options
-
-
-def is_remote(client: str | None) -> bool:
-    """A client on the SCPI ports, as opposed to the UI, MCP, SDK or a replay."""
-    return bool(client) and client.startswith(("socket:", "hislip:", "vxi11:", "bench:"))  # type: ignore[union-attr]
 
 
 @dataclass
@@ -217,10 +217,11 @@ class ServedSession:
         self.bench_path = bench_path
         self.bench_sha256: str | None = None
         self.bench_fingerprint: str | None = None
-        self.scpi: ScpiServer | None = None
-        self.hislip: HislipServer | None = None
-        self.vxi11: Vxi11Server | None = None
-        self.link: BenchLinkServer | None = None
+        #: The access servers serving this bench, by service name — the one registry (#1475): a
+        #: new access protocol adds its start-up row and every collection (clients, LOCAL, stop)
+        #: follows it; the servers' port semantics stay in their own modules. The named access
+        #: below is for the places that show one server's protocol-specific facts.
+        self.servers: dict[str, Any] = {}
         #: Projection state, deliberately engine-external: how many times each instrument's scope
         #: screen has been read — the redraw counter a running screen draws its frame with (D47).
         #: It lives here, not in the session, so a passive view's polling (D55) advances no virtual
@@ -239,8 +240,38 @@ class ServedSession:
         # connected to the ports, unless confirmed (#121, issue 624).
         session.confirm_advance = self._confirm_advance
 
+    # Named access to the servers that come with a bench. The registry (``servers``) is what the
+    # loops read; these are for the seams that show one protocol's facts (a socket port, the
+    # HiSLIP address, the link address).
+
+    @property
+    def scpi(self) -> ScpiServer | None:
+        return self.servers.get(SCPI_SERVICE)
+
+    @property
+    def hislip(self) -> HislipServer | None:
+        return self.servers.get(HISLIP_SERVICE)
+
+    @property
+    def vxi11(self) -> Vxi11Server | None:
+        return self.servers.get(VXI11_SERVICE)
+
+    @property
+    def link(self) -> BenchLinkServer | None:
+        return self.servers.get(LINK_SERVICE)
+
     def _confirm_advance(self, force: bool) -> None:
         self.require_no_clients("advancing the clock", force)
+
+    def is_remote(self, client: str | None) -> bool:
+        """Whether ``client`` is a connection on the access servers' ports, as opposed to the UI,
+        MCP, SDK or a replay. Judged from the connections themselves, not from the label's
+        spelling (#1475): the client labels (``socket:``, ``hislip:``, ``vxi11:``, ``bench:``)
+        are display names, so a new protocol's clients are remote without a prefix table to
+        extend — one that a missed entry would silently break."""
+        return bool(client) and any(
+            c.client == client for server in self.servers.values() for c in server.connections()
+        )
 
     def _follow_remote(self, ev: dict[str, Any]) -> None:
         # As on hardware, a command from the remote interface returns the instrument to remote.
@@ -249,7 +280,7 @@ class ServedSession:
             ev.get("kind") == "scpi"
             and ev.get("dir") == "write"
             and name in self.local
-            and is_remote(ev.get("client"))
+            and self.is_remote(ev.get("client"))
         ):
             self.local.discard(name)
             self.session.emit(
@@ -260,8 +291,7 @@ class ServedSession:
         """Clients connected to the ports of ``instrument`` (or of any instrument), sorted."""
         return sorted(
             c.client
-            for server in (self.scpi, self.hislip, self.vxi11, self.link)
-            if server is not None
+            for server in self.servers.values()
             for c in server.connections()
             if instrument is None or c.instrument == instrument
         )
@@ -395,16 +425,16 @@ class SessionManager:
             await self.stop(other.id, force=True)  # confirmed above, as part of starting
         if self.scpi_base_port is not None:
             try:
-                served.scpi = await self._open(
+                served.servers[SCPI_SERVICE] = await self._open(
                     served,
-                    "SCPI",
+                    SCPI_SERVICE,
                     self.scpi_base_port,
                     lambda port: ScpiServer(session, self.scpi_host, port),
                 )
                 if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
-                    served.hislip = await self._open(
+                    served.servers[HISLIP_SERVICE] = await self._open(
                         served,
-                        "HiSLIP",
+                        HISLIP_SERVICE,
                         self.hislip_port,
                         lambda port: HislipServer(
                             session,
@@ -415,17 +445,16 @@ class SessionManager:
                         ),
                     )
                 if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
-                    served.vxi11 = await self._open(
+                    served.servers[VXI11_SERVICE] = await self._open(
                         served,
-                        "VXI-11",
+                        VXI11_SERVICE,
                         self.vxi11_port,
                         lambda port: Vxi11Server(session, self.scpi_host, port, self.portmapper_port),
                     )
             except PortInUse:
                 # Close what did open (the instruments before the taken port), and the session.
-                for server in (served.vxi11, served.hislip, served.scpi):
-                    if server is not None:
-                        await server.stop()
+                for server in reversed(list(served.servers.values())):
+                    await server.stop()
                 await asyncio.to_thread(session.close)
                 raise
             if self.link_port is not None:  # scripts in other processes drive this bench (D63)
@@ -433,7 +462,7 @@ class SessionManager:
                 try:
                     await link.start()
                     link.served = served_addresses(served)
-                    served.link = link
+                    served.servers[LINK_SERVICE] = link
                 except OSError as exc:  # another service holds the port: this one still works
                     log.warning("bench link not started (port %s: %s)", self.link_port, exc)
         self.sessions[served.id] = served
@@ -496,14 +525,8 @@ class SessionManager:
             return
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
-        if served.link:
-            await served.link.stop()
-        if served.vxi11:
-            await served.vxi11.stop()
-        if served.hislip:
-            await served.hislip.stop()
-        if served.scpi:
-            await served.scpi.stop()
+        for server in reversed(list(served.servers.values())):  # last served closes first
+            await server.stop()
         await asyncio.to_thread(served.session.close)
 
     def stale_definitions(self, served: ServedSession) -> list[str]:

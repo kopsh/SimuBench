@@ -213,8 +213,8 @@ async def test_queries_joined_by_semicolons_are_one_response_message(rig):
     await asyncio.to_thread(run)
 
 
-async def test_every_queued_response_message_is_read_in_turn(rig):
-    rig.server._exchange = lambda instrument, data, client: [b"first\n", b"second\n"]
+async def test_every_queued_response_message_is_read_in_turn(rig, monkeypatch):
+    monkeypatch.setattr(rig.server.session, "exchange", lambda *args: [b"first\n", b"second\n"])
 
     def run() -> None:
         link = Link(rig)

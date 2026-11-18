@@ -49,9 +49,11 @@ class Link:
 
     def __init__(self, session: Session, name: str | None, client: str = "pyvisa") -> None:
         self.session, self.name, self.client = session, name, client
-        self.lock_depth = 0
 
     # ---- locks (VISA viLock, shared with every other interface of the instrument) --------------------
+    # The one book is the LockTable (#1475): whether this session holds the lock, how many
+    # viLocks it has stacked and when the resource frees are all its state, so the bench link's
+    # service and an in-process session ask the same table.
 
     def _locks(self) -> LockTable:
         assert self.name is not None
@@ -62,30 +64,23 @@ class Link:
         if not self._locks().accessible(self):
             raise BusError(constants.VI_ERROR_RSRC_LOCKED, "the resource is locked by another session")
 
+    def holds_lock(self) -> bool:
+        """Whether this session is in control of its resource right now (the one derivation)."""
+        return self._locks().held_by(self)
+
     def lock(self, exclusive: bool, key: str, timeout_ms: Any) -> None:
-        locks = self._locks()
-        granted = locks.grant(self, exclusive, key.encode())
-        if not granted and self.lock_depth and locks.held_by(self):
-            # Nested viLock: the same kind of lock (and key) the session already holds counts up.
-            granted = (locks.exclusive is self) == exclusive and (
-                exclusive or locks.shared_key == key.encode()
-            )
-        if not granted:
+        if not self._locks().acquire(self, exclusive, key.encode()):
             self.spend_timeout(timeout_ms)  # the resource stayed locked for the whole wait
             raise BusError(constants.VI_ERROR_TMO, "the resource stayed locked")
-        self.lock_depth += 1
 
     def unlock(self) -> None:
-        if not self.lock_depth:
+        if not self._locks().release_one(self):
             raise BusError(constants.VI_ERROR_SESN_NLOCKED, "this session holds no lock")
-        self.lock_depth -= 1
-        if not self.lock_depth:
-            self._locks().release(self)
 
     def close(self) -> None:
-        if self.lock_depth and self.name is not None:
-            self._locks().release(self)  # a closed session holds no lock
-            self.lock_depth = 0
+        locks = self._locks()
+        if locks.held_by(self):
+            locks.release(self)  # a closed session holds no lock
 
     # ---- time -----------------------------------------------------------------------------------------------
 

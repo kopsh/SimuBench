@@ -13,11 +13,19 @@ any lock is held. Holders are whatever hashable object the access path uses for 
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import weakref
-from collections.abc import Hashable
+from collections.abc import Callable, Hashable
 from dataclasses import dataclass, field
 
 from ..engine.session import Session
+
+#: How long a lock wait sleeps between wake-ups when no release event fires (a missed event must
+#: not hang the wait). One decision for every access path (#1475): the four call-site copies
+#: polled at 0.1 / 0.05 / 0.02 / 0.02 s. A wake on the release event is immediate; the poll only
+#: bounds how stale a wait can be, so 50 ms costs nothing perceptible and spares the event loop
+#: the VXI-11 copy's 50 wake-ups per second per waiter.
+LOCK_POLL_S = 0.05
 
 
 class BusError(Exception):
@@ -129,13 +137,20 @@ class ServiceRequest:
 
 @dataclass
 class LockTable:
-    """Locks of one instrument, shared by every session that reaches it."""
+    """Locks of one instrument, shared by every session that reaches it.
+
+    The one book of who holds what (#1475): the servers ask :meth:`held_by` whether a client is
+    in control, VISA sessions stack their ``viLock``s here (:meth:`acquire`), and a server waits
+    for the lock with :meth:`wait_accessible` instead of a poll loop of its own."""
 
     exclusive: Hashable | None = None
     shared: set[Hashable] = field(default_factory=set)
     shared_key: bytes = b""
     #: Fired whenever a lock is released, so asyncio waiters re-check and blocked channels resume.
     released: asyncio.Event = field(default_factory=asyncio.Event)
+    #: How many viLocks each holder has stacked (VPP-4.3: as many unlocks). Only :class:`Link`
+    #: sessions nest their locks; the network servers' locks are one grant, one release.
+    depth: dict[Hashable, int] = field(default_factory=dict)
 
     def held_by(self, holder: Hashable) -> bool:
         return holder is self.exclusive or holder in self.shared
@@ -158,8 +173,22 @@ class LockTable:
         self.shared.add(holder)
         return True
 
+    def acquire(self, holder: Hashable, exclusive: bool, key: bytes = b"") -> bool:
+        """VISA ``viLock`` with nesting: a lock of the kind (and key) the holder already holds
+        counts up and needs as many unlocks; another kind (or key) is refused while held."""
+        if self.held_by(holder):
+            if (self.exclusive is holder) == exclusive and (exclusive or self.shared_key == key):
+                self.depth[holder] = self.depth.get(holder, 0) + 1
+                return True
+            return False
+        if self.grant(holder, exclusive, key):
+            self.depth[holder] = 1
+            return True
+        return False
+
     def release(self, holder: Hashable) -> int:
         """Release what this session holds; returns the HiSLIP AsyncLockResponse code."""
+        self.depth.pop(holder, None)
         if holder is self.exclusive:
             self.exclusive = None
             self.released.set()
@@ -169,6 +198,53 @@ class LockTable:
             self.released.set()
             return 2  # released a shared lock
         return 3  # error: this session held no lock
+
+    def release_one(self, holder: Hashable) -> bool:
+        """One stacked lock undone; the resource is freed at the outermost (``False``: held none)."""
+        left = self.depth.get(holder, 0) - 1
+        if left < 0:
+            return False
+        if left:
+            self.depth[holder] = left
+        else:
+            self.release(holder)
+        return True
+
+    async def wait_accessible(
+        self,
+        holder: Hashable,
+        timeout_s: float | None = None,
+        *,
+        exclusive: bool | None = None,
+        key: bytes = b"",
+        give_up: Callable[[], bool] | None = None,
+    ) -> bool:
+        """Wait until ``holder`` may use the instrument — no lock held, or its own — and, when
+        ``exclusive`` is given, take the lock the moment it is free: a successful wait grants
+        (VXI-11's device_lock granted inside its poll loop; that timing is the semantics, #1475).
+
+        ``exclusive=None`` waits for accessibility only, as the guard before I/O does. False when
+        ``timeout_s`` (``None`` waits unboundedly) is spent first or ``give_up`` turns true (a
+        connection being torn down stops waiting). The wait wakes on every release; the
+        :data:`LOCK_POLL_S` sleep only bounds one whose release event was missed."""
+        loop = asyncio.get_running_loop()
+        deadline = None if timeout_s is None else loop.time() + timeout_s
+        while not (give_up is not None and give_up()):
+            if exclusive is None:
+                if self.accessible(holder):
+                    return True
+            elif self.grant(holder, exclusive, key):
+                return True
+            remaining = None if deadline is None else deadline - loop.time()
+            if remaining is not None and remaining <= 0:
+                return False
+            self.released.clear()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(
+                    self.released.wait(),
+                    timeout=LOCK_POLL_S if remaining is None else min(remaining, LOCK_POLL_S),
+                )
+        return False
 
     def holders(self) -> int:
         return (1 if self.exclusive is not None else 0) + len(self.shared)

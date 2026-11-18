@@ -13,7 +13,7 @@ from dataclasses import dataclass, field
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
-from . import ClientConnection
+from . import ClientConnection, engine_call
 
 log = logging.getLogger("simubench.scpi")
 
@@ -161,7 +161,7 @@ class ScpiServer:
                 if not line:
                     break
                 # One action: a UI console query cannot take this message's response (#121).
-                for out in await asyncio.to_thread(self.session.exchange, lst.instrument, line, client):
+                for out in await engine_call(self.session.exchange, lst.instrument, line, client):
                     writer.write(out)
                     await writer.drain()
         except (ConnectionResetError, BrokenPipeError, asyncio.IncompleteReadError):
@@ -189,3 +189,8 @@ class ScpiServer:
             for lst in self.listeners
             for label in sorted(lst.labels)
         ]
+
+    def addresses(self) -> dict[str, str]:
+        """Instrument -> its socket address. This server's port semantics: the instruments open
+        their ports one by one (a listener each), where HiSLIP and VXI-11 share one."""
+        return {lst.instrument: lst.address for lst in self.listeners}

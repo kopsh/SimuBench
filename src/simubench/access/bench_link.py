@@ -119,6 +119,12 @@ class BenchLinkServer:
         """What goes before ``@simubench`` in ``PYVISA_LIBRARY``."""
         return f"{self.host}:{self.port}"
 
+    def addresses(self) -> dict[str, str]:
+        """No per-instrument addresses of its own: the link is one door to every resource, its
+        address is the service's (:meth:`address`), and what a script can open behind it is what
+        the other servers serve (the ``served`` table)."""
+        return {}
+
     def clients(self, instrument: str | None = None) -> list[str]:
         return sorted(
             label for label, (name, _) in self._clients.items() if instrument is None or name == instrument
@@ -133,8 +139,10 @@ class BenchLinkServer:
         ]
 
     def holds_lock(self, label: str) -> bool:
+        """Whether the link ``label`` is in control: the LockTable's word, not a counter of our
+        own (#1475) — the same table a HiSLIP or VXI-11 session's lock is read from."""
         entry = self._clients.get(label)
-        return bool(entry and entry[1].lock_depth)
+        return bool(entry and entry[1].holds_lock())
 
     def _describe(self) -> dict[str, Any]:
         instruments = [
@@ -265,7 +273,7 @@ class RemoteLink(Link):
     def __init__(self, conn: LinkConnection, link_id: int, name: str | None, kind: str) -> None:
         self._conn, self._id = conn, link_id
         self.kind = kind
-        self.name, self.lock_depth = name, 0  # the Link fields; the state itself is the service's
+        self.name = name  # the Link field; the state itself is the service's
 
     def _call(self, method: str, *args: Any) -> Any:
         reply = self._conn.request({"op": "call", "id": self._id, "method": method, "args": encode(args)})
