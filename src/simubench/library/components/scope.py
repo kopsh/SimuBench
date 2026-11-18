@@ -6,7 +6,7 @@ import hashlib
 import itertools
 import math
 import re
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -18,13 +18,21 @@ from ...engine.component import (
     OpResult,
     PortSpec,
     RecordSource,
+    ScreenState,
     binding_of,
     component,
     op,
 )
 from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, highpass1, lowpass1
-from ...engine.stream import MAX_FRAME, MAX_REQUEST_FANOUT, FrameRequest, SampleFrame, beyond_model
+from ...engine.stream import (
+    MAX_FRAME,
+    MAX_REQUEST_FANOUT,
+    FrameRequest,
+    ModelLimit,
+    SampleFrame,
+    beyond_model,
+)
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
@@ -68,6 +76,20 @@ _boxcar = boxcar  # the earlier name (tests)
 #: Vertical full scale is 8 divisions; 16-bit codes span ±4 divisions.
 DIVS_V = 8
 DIVS_H = 10
+
+#: The screen's measurement panel (#280/#373): the view's key -> the engine measurement, in the
+#: order the panel shows them. The screen measures the record it shows, so the values agree with
+#: the model's :MEASure? replies on the same record.
+SCREEN_MEASUREMENTS = {
+    "amplitude": "VAMPlitude",
+    "vpp": "VPP",
+    "vmax": "VMAX",
+    "vmin": "VMIN",
+    "mean": "VAVerage",
+    "rms": "VRMS",
+    "frequency": "FREQuency",
+    "period": "PERiod",
+}
 
 
 class _ChannelBound(Component):
@@ -3094,6 +3116,40 @@ class ScopeAcquisition(Component):
         holding the last acquisition (stopped, or a single acquisition waiting)."""
         return self.is_running() and (self._is("auto") or self._is("normal")) and not self.armed
 
+    def screen_state(self, frame: int | None = None) -> ScreenState:
+        """What the screen shows (the :class:`~simubench.engine.component.ScreenSource` protocol):
+        the screen's own rules live here — a running scope redraws the signal now (a frame is not an
+        acquisition: no record, no virtual time, noise and untriggered phase of its own, D47); an
+        untriggered normal mode holds; a frame beyond the model leaves the screen holding what it
+        has (#986). ``frame`` is the projection's redraw counter (ServedSession.frames)."""
+        stored = dict(self.records)
+        live, records, shown = self.shows_live(), stored, False
+        if live and frame is not None:
+            try:
+                drawn, _, triggered = self.compute(self.displayed(), frame=frame)
+                # A triggered or auto frame replaces the records; an untriggered normal frame
+                # does not (the screen keeps the last acquisition until the trigger comes).
+                if triggered or self._is("auto") or not stored:
+                    records, shown = drawn, True
+            except ModelLimit:
+                live = False  # the screen holds what it has, as a read of such an acquisition is refused
+        try:
+            _, dt, pre, _ = self._timing()
+            screen_left = -pre * dt
+        except (AttributeError, ModelLimit, ScpiError, ValueError):  # a sampling scope has no such timing
+            screen_left = -5.0 * float(self._st("timebase.scale"))
+        return ScreenState(
+            live=live,
+            shown=shown,
+            records=records,
+            stored=stored,
+            waiting=bool(self.armed and self._is("single")),
+            trigger_level=self.trigger_level(),
+            trigger_source=channel_index(self._st("trigger.source")),
+            acquisitions=int(self.acq_count),
+            screen_left_s=screen_left,
+        )
+
     def _finish_single(self) -> None:
         self.armed = False
         self.running = False
@@ -3853,6 +3909,21 @@ class ScopeMeasurements(Component):
         virtual time getting the record took."""
         rec, used = self.record(n)
         return self.record_value(what, rec), used
+
+    def screen_values(self, records: Mapping[int, Record]) -> list[dict[str, Any]]:
+        """The screen's measurement panel (the :class:`~simubench.engine.component.ScreenMeasurer`
+        protocol), one row per record by channel: the engine measurements the screen shows, by the
+        view's key, each ``None`` where they cannot be measured. A deep record's measurements read
+        the record (#1012) and the screen does not — its row carries the channel alone."""
+        out = []
+        for n, rec in sorted(records.items()):
+            row: dict[str, Any] = {"channel": n}
+            if rec.deep is None:
+                for key, what in SCREEN_MEASUREMENTS.items():
+                    value = float(self.record_value(what, rec))
+                    row[key] = value if math.isfinite(value) else None
+            out.append(row)
+        return out
 
     @staticmethod
     def _impedance(value: Any) -> float:

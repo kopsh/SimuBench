@@ -26,6 +26,7 @@ import struct
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from . import ClientConnection
 from .bus import LockTable, bus_of, observe, serial_poll
 from .hislip_tls import AuthState, SecureConfig, SecureStream
 
@@ -326,6 +327,15 @@ class HislipServer:
     def sessions(self) -> list[HislipSession]:
         """The open HiSLIP connections, for the client lists the manager reports (issue 641)."""
         return list(self._sessions.values())
+
+    def connections(self) -> list[ClientConnection]:
+        """The open connections with whether each holds its instrument's lock."""
+        return [
+            ClientConnection(
+                client=hs.client, instrument=hs.instrument, locked=self.locks(hs.instrument).held_by(hs)
+            )
+            for hs in self.sessions()
+        ]
 
     async def start(self) -> None:
         for i, name in enumerate(self.session.instruments):

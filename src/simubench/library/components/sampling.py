@@ -19,13 +19,13 @@ from typing import Any
 
 import numpy as np
 
-from ...engine.component import Component, NoiseSource, OpResult, PortSpec, component, op
+from ...engine.component import Component, NoiseSource, OpResult, PortSpec, ScreenState, component, op
 from ...engine.noise import gaussian, stream_key
 from ...engine.signal import Signal
-from ...engine.stream import beyond_model
+from ...engine.stream import ModelLimit, beyond_model
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
-from .scope import Record
+from .scope import Record, channel_index
 
 #: Samples one acquisition may compute (record points times averages): beyond it the request is
 #: refused (architecture.md 2.3), not truncated.
@@ -255,6 +255,32 @@ class SamplingAcquisition(Component):
 
     def shows_live(self) -> bool:
         return self.running
+
+    def screen_state(self, frame: int | None = None) -> ScreenState:
+        """What the screen shows (the :class:`~simubench.engine.component.ScreenSource` protocol):
+        running, the screen redraws the pattern now (a frame's noise is its own, D47; every frame
+        triggers, the pattern locked); stopped, it holds the last acquisition. A frame beyond the
+        sampler (too many samples) leaves the screen holding what it has (#986). The screen's left
+        edge sits 5 divisions before the trigger (the record's position is its own time zero)."""
+        stored = dict(self.records)
+        live, records, shown = self.shows_live(), stored, False
+        if live and frame is not None:
+            try:
+                records, shown = self.compute(self.displayed(), frame=frame)[0], True
+            except ModelLimit:
+                live, records = False, stored  # the screen holds what it has
+        assert self.owner is not None
+        return ScreenState(
+            live=live,
+            shown=shown,
+            records=records,
+            stored=stored,
+            waiting=bool(self.armed and self._is("single")),
+            trigger_level=self.trigger_level(),
+            trigger_source=channel_index(self.owner.get_state("trigger.source")),
+            acquisitions=int(self.acq_count),
+            screen_left_s=-5.0 * float(self.owner.get_state("timebase.scale")),
+        )
 
     def _is(self, key: str, value: Any = None) -> bool:
         """The real-time acquisition's run-mode test; a sampling scope has no auto/normal/single."""
