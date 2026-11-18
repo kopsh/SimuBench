@@ -7,6 +7,7 @@ import time
 from pathlib import Path
 
 import pytest
+import yaml
 from fastapi.testclient import TestClient
 
 from simubench.server.app import _host_ok, create_app
@@ -342,10 +343,10 @@ def test_definition_cases_are_listed_and_run_with_steps(tmp_path):
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers["x-simubench-token"] = TOKEN
         assert c.get("/api/definitions/sb-dmm-1/cases").json() == [
-            {"path": "cases/dmm.cases.yaml", "cases": 2, "builtin": False}
+            {"path": "cases/dmm.cases.yaml", "cases": 2, "builtin": False, "from_model": None}
         ]
         assert c.get("/api/definitions/sb-awg-2/cases").json() == [
-            {"path": "cases/other.cases.yaml", "cases": 0, "builtin": False}
+            {"path": "cases/other.cases.yaml", "cases": 0, "builtin": False, "from_model": None}
         ]
         run = c.post("/api/definitions/sb-dmm-1/cases/run", json={"path": "cases/dmm.cases.yaml"}).json()
         assert run["path"] == "cases/dmm.cases.yaml" and run["passed"] == 1 and run["failed"] == 1
@@ -389,6 +390,36 @@ def test_builtin_models_manual_cases_are_listed_and_run(tmp_path):
             assert (
                 c.post("/api/definitions/keysight-34465a/cases/run", json={"path": name}).status_code == 422
             )
+
+
+def test_a_copy_runs_the_cases_and_shows_the_coverage_of_the_model_it_is_based_on(tmp_path):
+    """A workspace copy (extends) lists its parent's shipped cases as inherited and runs them on
+    itself — so a command the copy removed fails them — and shows the parent's coverage table with
+    the commands it runs differently (P1-4)."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        copied = c.post("/api/definitions/keysight-34465a/copy").json()["data"]
+        my_id, name = copied["id"], "builtin:keysight-34465a-impedance/cases.yaml"
+        listed = c.get(f"/api/definitions/{my_id}/cases").json()
+        assert {f["path"] for f in listed} == {"builtin:keysight-34465a/cases.yaml", name}
+        assert all(f["builtin"] and f["from_model"] == "keysight-34465a" for f in listed)
+        run = c.post(f"/api/definitions/{my_id}/cases/run", json={"path": name}).json()
+        assert (run["passed"], run["failed"]) == (2, 0)
+        coverage = c.get(f"/api/definitions/{my_id}/coverage").json()
+        assert coverage["from_model"] == "keysight-34465a" and coverage["changed"] == []
+
+        header = "[:SENSe]:VOLTage[:DC]:IMPedance:AUTO"
+        doc = c.get(f"/api/definitions/{my_id}/document").json()
+        (tmp_path / "instruments" / f"{my_id}.yaml").write_text(
+            yaml.safe_dump({**doc["data"], "command_overrides": {header: None}}), encoding="utf-8"
+        )
+        run = c.post(f"/api/definitions/{my_id}/cases/run", json={"path": name}).json()
+        assert (run["passed"], run["failed"]) == (0, 2)  # the copy ran, without the command
+        assert c.get(f"/api/definitions/{my_id}/coverage").json()["changed"] == [header]
+        # the built-in model itself does not inherit anything
+        assert all(f["from_model"] is None for f in c.get("/api/definitions/keysight-53230a/cases").json())
 
 
 def test_definition_document_and_coverage_are_served():

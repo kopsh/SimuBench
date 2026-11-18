@@ -8,6 +8,7 @@ Specifications are a record (``specs``); the ranges a unit deviates in are fille
 
 from __future__ import annotations
 
+import math
 from typing import Any, Literal, NamedTuple
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -40,9 +41,22 @@ class IdentityIn(_In):
     firmware: str = _f("1.0.0", "固件版本", "Firmware", "The firmware version in *IDN?")
     idn: str | None = _f(
         None, "*IDN? 格式", "*IDN? format",
-        "Fields {manufacturer}, {model}, {serial}, {firmware}; default: the four, comma-separated",
+        "Fields {manufacturer} (upper-cased), {model}, {serial}, {firmware}; default: the manufacturer "
+        "as written here, then the other three, comma-separated",
     )  # fmt: skip
     description: str | None = _f(None, "说明", "Description", "One line about the instrument")
+
+    def block(self) -> dict[str, Any]:
+        """The definition's ``identity``: serial, firmware and the ``*IDN?`` format. Without an
+        ``idn`` the manufacturer is written into the format as typed — the engine's
+        ``{manufacturer}`` placeholder upper-cases it, which would break the promise above
+        ("as *IDN? names it": a script checking ``Zhiyuan,ZY-DSO3104,…`` must get exactly that)."""
+        literal = self.manufacturer.replace("{", "{{").replace("}", "}}")
+        return {
+            "idn": self.idn or f"{literal},{{model}},{{serial}},{{firmware}}",
+            "serial": self.serial,
+            "firmware": self.firmware,
+        }
 
 
 class ImpedanceIn(_In):
@@ -341,6 +355,27 @@ def check(x: OscilloscopeInputs) -> list[InputProblem]:
     def bad(code: str, path: tuple[str | int, ...], message: str, suggestion: str | None = None) -> None:
         out.append(InputProblem(code, path, message, suggestion))
 
+    if adc.bits and adc.codes_per_div:
+        codes = 1 << adc.bits
+        used = adc.codes_per_div * adc.divisions
+        natural = codes / adc.divisions
+        if used > codes:
+            bad(
+                "E-TPL-ADC-CODES", ("adc", "codes_per_div"),
+                f"每格 {adc.codes_per_div:g} 码 × {adc.divisions:g} 格 = {used:g} 码，超过 {adc.bits} 位 ADC 的 {codes} 个码",
+                f"减小每格码值（不写时按 2^位数/格数 = {natural:g}）",
+            )  # fmt: skip
+        elif used * 2 <= codes:
+            out.append(
+                InputProblem(
+                    "W-TPL-ADC-CODES",
+                    ("adc", "codes_per_div"),
+                    f"每格 {adc.codes_per_div:g} 码只用了 {adc.bits} 位 ADC 的 {used / codes:.0%} 码值：屏幕上的"
+                    f"分辨率相当于 {math.log2(used):.1f} 位",
+                    f"不写每格码值（按 2^位数/格数 = {natural:g}），或改成手册的每格码值",
+                    "warning",
+                )
+            )
     names = [z.name for z in ch.impedances]
     for i, name in enumerate(names):
         if names.index(name) != i:
@@ -890,9 +925,7 @@ def build(x: OscilloscopeInputs) -> dict[str, Any]:
     shown = {n: {"display": {"default": True}} for n in ch.displayed}
     if shown:
         channels["overrides"] = shown
-    identity: dict[str, Any] = {"serial": x.identity.serial, "firmware": x.identity.firmware}
-    if x.identity.idn:
-        identity["idn"] = x.identity.idn
+    identity = x.identity.block()
     channel_summary = ["display", "scale", "offset", "coupling", "impedance", "probe"]
     out: dict[str, Any] = {
         "manufacturer": x.identity.manufacturer,
@@ -1236,9 +1269,7 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
     shown = {i: {"display": {"default": True}} for i in ch.displayed}
     if shown:
         channels["overrides"] = shown
-    identity: dict[str, Any] = {"serial": x.identity.serial, "firmware": x.identity.firmware}
-    if x.identity.idn:
-        identity["idn"] = x.identity.idn
+    identity = x.identity.block()
     out: dict[str, Any] = {
         "manufacturer": x.identity.manufacturer,
         "model": x.identity.model,

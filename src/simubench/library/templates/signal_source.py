@@ -403,9 +403,7 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
     }
     if x.identity.description:
         out["description"] = x.identity.description
-    identity: dict[str, Any] = {"serial": x.identity.serial, "firmware": x.identity.firmware}
-    if x.identity.idn:
-        identity["idn"] = x.identity.idn
+    identity = x.identity.block()
     out["identity"] = identity
     if di.unknown_commands != "error":
         out["unknown_commands"] = di.unknown_commands

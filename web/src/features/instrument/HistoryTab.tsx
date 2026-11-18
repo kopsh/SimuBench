@@ -1,4 +1,4 @@
-import { GitCompare, History } from "lucide-react";
+import { GitCompare, History, TriangleAlert } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DefinitionChange } from "@/api/client";
@@ -28,6 +28,12 @@ export function ChangeLine({ change }: { change: DefinitionChange }) {
           {change.action === "changed" && <span className="text-muted-foreground">→</span>}
           <span className="num break-all">{changeValue(change.new)}</span>
         </>
+      )}
+      {(change.still_old?.length ?? 0) > 0 && (
+        <span className="text-muted-foreground flex basis-full items-baseline gap-1" data-testid="change-still-old">
+          <TriangleAlert className="text-warn size-3 shrink-0 self-center" aria-hidden />
+          <span className="break-all">{t("acceptance.stillOld", { places: (change.still_old ?? []).join(", ") })}</span>
+        </span>
       )}
     </li>
   );
