@@ -222,8 +222,9 @@ def test_the_uxr1104b_harmonics_follow_the_data_sheet_over_frequency():
 def test_a_declared_enob_curve_sets_the_records_effective_bits():
     """#1421 (F1-1): SB-DSO-ENOB declares 9 bits at 1 MHz and 6 bits at 50 MHz. A full-scale sine
     from the generator, recorded at each frequency, has those effective bits (±0.15: 2 000-point
-    records); halfway, 25.5 MHz, the linear interpolation's 7.5; with no line there is nothing to
-    read the table at and the converter adds nothing."""
+    records); halfway, 25.5 MHz, the linear interpolation's 7.5. With no line (the generator off)
+    the converter still adds the lowest frequency's noise (#1442): the noise floor does not depend
+    on whether a sine is applied."""
     from simubench.models.bench import BenchDefinition
 
     bench = BenchDefinition.model_validate(
@@ -238,8 +239,11 @@ def test_a_declared_enob_curve_sets_the_records_effective_bits():
         scope = session.instruments["scope"]
         adc = scope.components["adc"]
         quiet = adc.view(1)
-        assert quiet.sigma == scope.components["ch1.front"].input_noise_rms()  # no line: no ENOB noise
+        assert quiet.sigma > 2 * scope.components["ch1.front"].input_noise_rms()  # no line: the floor stays
         session.instruments["awg"].set_state("ch1.output", True)
+        session.instruments["awg"].set_state("ch1.frequency", 1e6)
+        sine = adc.view(1)
+        assert quiet.sigma == pytest.approx(sine.sigma, rel=1e-3)  # the lowest row's: 1 MHz
         for f, enob in ((1e6, 9.0), (2.55e7, 7.5), (5e7, 6.0)):
             session.instruments["awg"].set_state("ch1.frequency", f)
             view = adc.view(1)
