@@ -21,6 +21,7 @@ from simubench.api import open_bench
 from simubench.engine import session as session_module
 from simubench.engine.stream import ModelLimit
 from simubench.library.components import scope_acquisition, scope_measurements, scope_record
+from simubench.library.loader import load_bench
 
 ROOT = Path(__file__).resolve().parents[1]
 UXR = ROOT / "examples" / "benches" / "keysight-uxr0334b.bench.yaml"
@@ -219,8 +220,11 @@ def test_the_screen_of_a_deep_record_is_an_envelope_of_draws_across_each_pixel(m
 def test_two_gigapoints_are_acquired_and_read_in_parts_within_a_bounded_memory():
     """The UXR1104B with its 2 Gpts option: the acquisition computes nothing, a 1 Mpts part of the
     1.28 Gpts record is read holding about that much in memory, the end of the record reads, and
-    the whole record at once is refused (read it in parts)."""
-    session = open_bench(UXR_1104B, clock="command", seed=3, idle="off")
+    the whole record at once is refused (read it in parts). The unit has the option (#1424: the
+    standard memory is 500 Mpts)."""
+    bench = load_bench(UXR_1104B)
+    bench.instruments["scope"].options = ["02G"]
+    session = open_bench(bench, clock="command", seed=3, idle="off")
     for command in (
         ":ACQuire:POINts 2000000000",
         ":TIMebase:SCALe 1E-3",

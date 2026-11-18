@@ -24,13 +24,20 @@ identity:
   serial: MY64310101
   firmware: "11.80.00012"
 # :SYSTem:ERRor? is the model's own command (a number, or with STRing the number and the text).
-# 选件（*OPT?，手册表 10；数据手册 3123-1313 的存储深度选件）：01G 为 1 Gpts、02G 为 2 Gpts。仿真的记录
-# 至多 10 Mpts（#1012），选件只改 *OPT? 的回答。
+# 选件（*OPT?，手册表 10；数据手册 3123-1313 的存储深度选件）：标配每通道 500 Mpts，01G 为 1 Gpts、02G 为 2 Gpts
+# （#1424）。记录的实际点数受已装内存限制（:ACQuire:POINts 设的是请求的深度，手册：实际点数用 :WAVeform:POINts? 查）；
+# 深记录读多少算多少（#1012，real-models.md 第 10 节）。
 options:
   - id: 01G
     label: 存储深度 1 Gpts（1 GPts memory）
+    params:
+      acq: {memory_points: 1000000000}
+      timebase: {max_points: 1000000000}
   - id: 02G
     label: 存储深度 2 Gpts（2 GPts memory）
+    params:
+      acq: {memory_points: 2000000000}
+      timebase: {max_points: 2000000000}
 builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
 # The guide: the error queue is 30 errors deep.
 error_queue: 30
@@ -220,7 +227,8 @@ state:
     label: 采集完成判据
     label_en: Acquire complete
   # 存储深度：AUTO 由示波器选择（SimuBench 取 256 kpts，默认时基下正好 256 GSa/s）；手动值到 2 Gpts
-  # （真机标配 500 Mpts，选件 1/2 Gpts；SimuBench 按装了 2 Gpts 选件）。超过 2^22 点的记录读的时候才算（#1012）。
+  # （设置可到 2 Gpts；记录的实际点数受已装内存限制：标配 500 Mpts，选件 01G / 02G 为 1 / 2 Gpts，#1424）。
+  # 超过 2^22 点的记录读的时候才算（#1012）。
   acquire.points:
     type: int
     min: 16
@@ -1229,7 +1237,7 @@ components:
       segmented: {from: $acquire.mode, map: {SEGMented: true}, default: false}
       segments: $acquire.segmented_count
       segment_index: $acquire.segmented_index
-      memory_points: 2000000000
+      memory_points: 500000000  # 标配内存；选件 01G / 02G 改为 1 / 2 Gpts（#1424）
   # 时基：采样率为 256 GSa/s 除以 2 的幂（数据手册 "configurable in powers of two"），取不超过
   # 存储深度 / 10 格的最快一档；设了采样率时取它（记录至多 10 Mpts）。参考位置 LEFT / CENTer / RIGHt
   # 取屏幕 10% / 50% / 90%。
@@ -1243,7 +1251,7 @@ components:
       record_length: rate_pow2
       points: {from: $acquire.points_auto, map: {"True": 256000}, default: $acquire.points}
       sample_rate: {from: $acquire.srate_auto, map: {"True": 0.0}, default: $acquire.srate}
-      max_points: 2000000000
+      max_points: 500000000  # 标配内存；选件 01G / 02G 改为 1 / 2 Gpts（#1424）
       # 10 MHz 参考输入（:TIMebase:REFClock ON）：锁上后采样时钟跟随它（锁定范围 ±20 ppm、最低 -5 dBm，手册）。
       rosc: {from: $timebase.refclock, map: {"True": EXTernal}, default: INTernal}
       lock_ppm: 20.0
