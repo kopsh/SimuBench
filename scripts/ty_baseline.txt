@@ -189,7 +189,7 @@ src/simubench/tui/screens/faultdialog.py:missing-attribute Object of type `App[U
 src/simubench/tui/screens/faultdialog.py:missing-attribute Object of type `App[Unknown]` has no attribute `session_info`
 src/simubench/tui/screens/help.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang`
 src/simubench/tui/screens/instrument.py:invalid-return-type Return type does not match returned value: expected `list[dict[str, Any]]`, found `list[Mapping[str, Any]]`
-src/simubench/tui/screens/instrument.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×14
+src/simubench/tui/screens/instrument.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×13
 src/simubench/tui/screens/logscreen.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×2
 src/simubench/tui/screens/logscreen.py:missing-attribute Object of type `App[Unknown]` has no attribute `lines`
 src/simubench/tui/screens/nets.py:missing-attribute Object of type `App[Unknown]` has no attribute `lang` ×3

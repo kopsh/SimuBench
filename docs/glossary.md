@@ -51,6 +51,7 @@
 | 投影 | Projection | 会话或文件对外的只读展示（HTTP、MCP、TUI 的 DTO）：`server/views.py` 与 `server/preview.py` 组装，一律经被动视图读取，不改会话 |
 | 屏幕协议 | Screen protocol | 示波器屏幕“此刻画什么”由采集块自己回答（`ScreenSource.screen_state`，#1383）：运行中按帧号重画信号、未触发保持、超出模型定格的规则住在块里；投影只组装 DTO 与降采样，测量面板同走测量块（`ScreenMeasurer`） |
 | 写入事务 | Write transaction | 外部写入（SCPI 设置、面板、`*RCL` 恢复、故障、重放）统一经过的执行单位：一批可含多个设置，静态校验、约束结算（D69）、动态限值与组件组合检查都在批边界一次判定，全有全无；被拒的批不产生可见状态变化。是否受约束与限值管辖随写入来源声明；组件自身的写不经事务 |
+| 仪表宿主 | InstrumentHost | 仪表层（Instrument 及其命令管线、组件）对会话的契约（D78）：会话必须提供的成员（时钟与确定性、电路的端口/信号/解算、事件）声明为一个协议，Instrument 构造期点名缺成员；测试替身实现同一协议即可建仪表 |
 | 命令驱动时钟 / 墙钟 / 步进时钟 / 按倍率时钟 | Command-driven / Wall / Stepped / Scaled clock | 四种时钟模式（D12、D44；按倍率时钟的虚拟时间 = 真实时间 × 倍率） |
 | 注入故障 | Inject fault | 人为制造通信或仪表故障 |
 | 保真度 | Fidelity | 结果的精确程度标注（精确、近似、超出上限、未建模） |

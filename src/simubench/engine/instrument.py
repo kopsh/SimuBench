@@ -7,7 +7,9 @@ import logging
 import time
 from collections import defaultdict
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
+
+from typing_extensions import get_protocol_members
 
 from ..models.bench import LIVE_CLOCKS
 from ..models.definition import InstrumentDefinition, StateSpec
@@ -34,7 +36,10 @@ from .write_tx import WriteEvent, apply_writes
 
 if TYPE_CHECKING:
     from ..models.bench import InstrumentInstance
+    from .circuit import Solution
     from .session import Session
+    from .signal import Signal
+    from .stream import FrameRequest, SampleFrame
 
 log = logging.getLogger(__name__)
 #: Appended to -113 when a real model gets a command its definition does not have (D42).
@@ -48,6 +53,97 @@ def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
             f"instrument {instrument!r}: port {pname!r} target {target!r} is not <component>.<port>"
         )
     return comp, port
+
+
+@runtime_checkable
+class InstrumentHost(Protocol):
+    """What the instrument layer needs of the session (#1380): :class:`Instrument`, its
+    :class:`CommandRunner`, :class:`BuiltinCommands` and :class:`ErrorReporter`, and the components
+    the instrument builds. The seam D62 declared for the components (a refs target's protocol,
+    named at definition load) declared here for the instrument's side: ``Session`` is the real
+    host, and a test fake implements exactly these members (``tests.helpers``). Construction
+    roll-calls them (``_host_gaps``), so a session that lacks one is named when the instrument is
+    built -- like the component seam, at the earliest point the missing piece can be named."""
+
+    # ---- clock / determinism ---------------------------------------------------------------------
+
+    now_ns: int
+    """Virtual time now, in ns; the instrument adds the current message's own elapsed time."""
+
+    clock_mode: str
+    """``command``, ``stepped`` or a live clock (``wall``, ``scaled``): how virtual time moves."""
+
+    time_scale: float
+    """Virtual seconds per real second on a live clock."""
+
+    seed: int
+    """The bench's randomness seed; the instrument's drawn deviations draw from it."""
+
+    def calendar(self) -> dt.datetime:
+        """Calendar time now (the bench's start plus virtual time; the clock commands)."""
+        ...
+
+    def follow_wall(self) -> None:
+        """Live clock only: bring virtual time up to real time."""
+        ...
+
+    # ---- circuit ---------------------------------------------------------------------------------
+
+    port_net: dict[str, str]
+    """Port reference -> net id: which ports are wired together."""
+
+    def port_ref(self, comp: Component, port: str) -> str | None:
+        """The external reference (``awg.OUT1``) of a component's port, None when not exposed."""
+        ...
+
+    def port_signal(self, comp: Component, port: str) -> Signal:
+        """The signal at a component's port now."""
+        ...
+
+    def cached_output(self, comp: Component, port: str) -> Signal:
+        """A port's output signal, computed once per signal version."""
+        ...
+
+    def cached_frames(self, comp: Component, port: str, request: FrameRequest) -> SampleFrame:
+        """A samples port's frame for one request."""
+        ...
+
+    def optical_input(self, comp: Component, port: str) -> Signal:
+        """The optical power arriving at an optical input (D71)."""
+        ...
+
+    def optical_carrier(self, comp: Component, port: str) -> float | None:
+        """The wavelength of that light, None in the dark."""
+        ...
+
+    def solve(self) -> tuple[Solution, dict[str, Signal]]:
+        """Bring the operating point up to date and return it (D60)."""
+        ...
+
+    def sync(self) -> None:
+        """Let dynamic components record changes at the current instant (D60)."""
+        ...
+
+    # ---- events ----------------------------------------------------------------------------------
+
+    def state_changed(
+        self, inst: Instrument, path: str, old: Any, new: Any, *, electrical: bool, source: str
+    ) -> None:
+        """A setting changed: the ``state`` event, then a sync."""
+        ...
+
+    def instrument_event(self, inst: Instrument, kind: str, data: dict[str, Any]) -> None:
+        """An instrument event (an error, a warning, an ignored command's classification)."""
+        ...
+
+
+def _host_gaps(host: object) -> list[str]:
+    """The InstrumentHost members a session does not have: the instrument seam's construction-time
+    roll-call, D62's component seam at the instrument (there a missing protocol method is named in
+    the definition's first E-DEF-COMPONENT-REF, here the missing member is named at build time).
+    The check sees the instance, so the data members (``now_ns``, ``seed``, ``port_net``) are
+    checked too -- which the definition check, scanning the class, cannot see."""
+    return sorted(n for n in get_protocol_members(InstrumentHost) if not hasattr(host, n))
 
 
 class Instrument:
@@ -65,6 +161,11 @@ class Instrument:
         instance: InstrumentInstance,
         session: Session,
     ) -> None:
+        if gaps := _host_gaps(session):
+            raise ValueError(
+                f"instrument {name!r}: the session lacks {', '.join(gaps)} "
+                f"of the instrument seam (InstrumentHost)"
+            )
         self.name = name
         self.definition = definition
         self.instance = instance
@@ -73,8 +174,8 @@ class Instrument:
         #: refused batch sends nothing; None outside one.
         self._write_events: list[WriteEvent] | None = None
         self.runner = CommandRunner(self)
-        self.errs = ErrorReporter(self)
-        self.common = BuiltinCommands(self)
+        self._errs = ErrorReporter(self)
+        self._common = BuiltinCommands(self)
         self.channel_count = definition.channels.count
         self.channel_map = ChannelMap(definition)
         self.errors = ErrorQueue(definition.error_queue or 20, definition.errors.get(-350))
@@ -86,7 +187,7 @@ class Instrument:
         self.real = definition.reference is not None
         self.status = StatusRegisters(lambda: self.components.values())
         #: Operations that finish at a later virtual instant, and the *OPC bookkeeping (#895).
-        self.ops = PendingOps()
+        self._ops = PendingOps()
         #: A front-panel operation is executing (D32): an acquisition it starts finishes at once.
         self.on_panel = False
         self._elapsed_ns = 0  # virtual time the program message being executed has used so far
@@ -111,7 +212,7 @@ class Instrument:
         if code in self.warnings:
             return
         self.warnings[code] = message
-        self.session.emit({"kind": "warning", "instrument": self.name, "code": code, "message": message})
+        self.session.instrument_event(self, "warning", {"code": code, "message": message})
 
     def _init_state(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
         """Settings: the definition's, per channel with the bench's overrides, then the bench file's initial values."""
@@ -343,20 +444,20 @@ class Instrument:
 
     @property
     def idn(self) -> str:
-        return self.common.idn
+        return self._common.idn
 
     def stb(self, commit: bool = True) -> int:
         """The status byte (see :meth:`BuiltinCommands.stb`)."""
-        return self.common.stb(commit=commit)
+        return self._common.stb(commit=commit)
 
     def status_event(self, name: str) -> None:
         """Latch a momentary event into the status registers (see :meth:`BuiltinCommands.status_event`)."""
-        self.common.status_event(name)
+        self._common.status_event(name)
 
     # ---- ErrorReporter (#895) ----------------------------------------
 
     def push_error(self, *args: Any, **kwargs: Any) -> Any:
-        return self.errs.push_error(*args, **kwargs)
+        return self._errs.push_error(*args, **kwargs)
 
     def now_ns(self) -> int:
         """The instrument's present: the session's time plus what the current message has used."""
@@ -364,7 +465,7 @@ class Instrument:
 
     @property
     def pending(self) -> dict[str, tuple[int, Callable[[], None] | None]]:
-        return self.ops.pending
+        return self._ops.pending
 
     def register_pending(
         self, key: str, done_ns: int, on_done: Callable[[], None] | None = None, *, waited: bool = True
@@ -372,14 +473,14 @@ class Instrument:
         """An operation that finishes at virtual time ``done_ns``; ``on_done`` runs once it has.
 
         ``waited``: *OPC, *OPC? and *WAI wait for it (False: they answer regardless)."""
-        self.ops.register(key, done_ns, on_done, waited=waited)
+        self._ops.register(key, done_ns, on_done, waited=waited)
 
     def cancel_pending(self, key: str) -> None:
-        self.ops.cancel(key)
+        self._ops.cancel(key)
 
     def block(self, key: str, waiting: bool) -> None:
         """Mark (or clear) an operation that waits for an event that may never come."""
-        self.ops.block(key, waiting)
+        self._ops.block(key, waiting)
 
     def settle_pending(self) -> None:
         """Engine-internal: let waiting operations look for their event, then finish what is due
@@ -388,8 +489,8 @@ class Instrument:
         calling this from outside the engine."""
         for comp in self._retrying:
             comp.retry_pending()
-        self.ops.finish_due(self.now_ns())
-        if self.ops.opc_due():
+        self._ops.finish_due(self.now_ns())
+        if self._ops.opc_due():
             self.status.set_opc()
 
     def sample_status(self) -> None:
@@ -414,18 +515,18 @@ class Instrument:
 
     def wait_pending(self) -> int:
         """Wait until every pending operation is done (``*OPC?``, ``*WAI``), see :meth:`wait_until`."""
-        target = self.ops.wait_target()
+        target = self._ops.wait_target()
         return 0 if target is None else self.wait_until(target)
 
     def opc_query(self) -> tuple[bytes | None, int]:
         """``*OPC?``: ``1`` once what it waits for is done; no reply while an operation waits for an
         event that does not come (the client's read times out, as on hardware)."""
         used = self.wait_pending()
-        return (None if self.ops.blockers else b"1"), used
+        return (None if self._ops.blockers else b"1"), used
 
     def arm_opc(self) -> None:
         """``*OPC``: ESR bit 0 now, or once the pending operations are done."""
-        if self.ops.arm_opc():
+        if self._ops.arm_opc():
             self.status.set_opc()
 
     def settings_snapshot(self) -> dict[str, Any]:
@@ -442,7 +543,7 @@ class Instrument:
         watcher writes as a side effect of one change (a load change rescaling the amplitude)
         does not survive -- the setup's values are written again after the watchers ran. A value
         the setting refuses refuses the whole setup, unchanged."""
-        self.ops.clear()
+        self._ops.clear()
         writes = {
             path: value
             for path, value in values.items()
@@ -451,7 +552,7 @@ class Instrument:
         apply_writes(self, writes, source=source, judged=True, reinforce=True, batch_event="*RCL")
 
     def reset(self) -> None:
-        self.ops.clear()
+        self._ops.clear()
         self.settings.reset()
         for comp in self.components.values():
             comp.reset()
@@ -463,7 +564,7 @@ class Instrument:
         """Execute a program message; queue responses. Returns the virtual time consumed (ns)."""
         if self._output:
             self._output.clear()
-            self.errs._push(ScpiError(-410))
+            self._errs._push(ScpiError(-410))
         responses: list[bytes] = []
         duration = 0
         self._elapsed_ns = 0
@@ -471,13 +572,13 @@ class Instrument:
         try:
             units = split_units(message)
         except ScpiError as e:
-            self.errs._push(e)
+            self._errs._push(e)
             return 0
         for raw in units:
             try:
                 unit = parse_unit(raw)
             except ScpiError as e:
-                self.errs._push(e)
+                self._errs._push(e)
                 continue
             tokens = resolve_tokens(unit, path)
             if not unit.common:
@@ -489,10 +590,10 @@ class Instrument:
                 if resp is not None:
                     responses.append(resp)
             except ScpiError as e:
-                self.errs._push(self.errs._parameter_error(e))
+                self._errs._push(self._errs._parameter_error(e))
             except Exception as e:  # a model defect must not take the client's script down
                 log.exception("%s: internal error executing %r", self.name, unit.raw_header)
-                self.errs._push(
+                self._errs._push(
                     ScpiError(-300, f"internal simulator error in {unit.raw_header}: {type(e).__name__}")
                 )
         if responses:

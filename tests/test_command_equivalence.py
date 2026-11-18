@@ -3,8 +3,9 @@ same place: the MCP's dangerous-command confirmation and the script scanner ask 
 anything runs, so a divergence would confirm a command the instrument refuses — or miss one it
 runs (issue 594). One test per built-in model; the corpus is every command header of the
 definition, rendered both with and without its optional nodes, plus the common and built-in
-commands in both directions. Routing needs no running bench: the instrument is built on a stub
-session (no circuit, no solves), and every handler is replaced by a recorder.
+commands in both directions. Routing needs no running bench: the instrument is built on the
+shared fake host (helpers.FakeHost, the InstrumentHost seam's stub, #1380 — no circuit, no
+solves), and every handler is replaced by a recorder.
 
 The sweep is one batch over every model, not a one-behaviour unit test: the environments are
 module-scoped (D49) and a chunk of the corpus runs per test, so the D49 unit-budget marker does
@@ -12,11 +13,11 @@ not apply — the module stays in the fast gate and a chunk costs ~30 ms locally
 
 from __future__ import annotations
 
-import datetime as dt
 import gc
 
 import pytest
 
+from helpers import FakeHost
 from simubench.engine import commands
 from simubench.engine.commands import classify
 from simubench.engine.instrument import Instrument
@@ -32,38 +33,6 @@ class _Routed(Exception):
     """A routing recorder fired: dispatch reached a handler."""
 
 
-class _StubSession:
-    """Just what building an Instrument and routing through it touch: no circuit, no time."""
-
-    def __init__(self) -> None:
-        self.seed = 1
-        self.clock_mode = "stepped"
-        self.idle_mode = "off"
-        self.now_ns = 0
-        self.port_net: dict[str, str] = {}
-
-    def calendar(self) -> dt.datetime:
-        return dt.datetime(2026, 1, 1)
-
-    def port_signal(self, comp, port):  # pragma: no cover - construction-time wiring only
-        raise AssertionError("routing must not ask for signals")
-
-    def cached_output(self, comp, port):  # pragma: no cover - ditto
-        raise AssertionError("routing must not read outputs")
-
-    def port_ref(self, comp, port):
-        return None
-
-    def _solve(self):
-        pass  # a status register's condition may read the circuit; routing never changes it
-
-    def _sync(self):
-        pass  # ditto, via a lockin's status flags
-
-    def instrument_event(self, inst, kind, data):
-        pass
-
-
 _INSTRUMENTS: dict[str, tuple[Instrument, object]] = {}
 _CORPUS: dict[str, list[str]] = {}
 
@@ -73,7 +42,7 @@ def _instrument(model: str) -> tuple[Instrument, object]:
     if hit is None:
         definition = LIB.get(model)
         instance = InstrumentInstance(model=model)
-        hit = _INSTRUMENTS[model] = Instrument("x", definition, instance, _StubSession()), definition
+        hit = _INSTRUMENTS[model] = Instrument("x", definition, instance, FakeHost()), definition
     return hit
 
 
@@ -152,12 +121,12 @@ def _route(inst: Instrument, message: str) -> tuple[list[tuple[str, str | None]]
         return None
 
     inst.runner._run = run_recorder  # the command layer lives in CommandRunner (#895)
-    inst.common._common = record("_common")
+    inst._common._common = record("_common")
     inst.opc_query = record("opc_query")
     inst.wait_pending = record("wait_pending")
     inst.arm_opc = record("arm_opc")
-    inst.common._bus_trigger = record("_bus_trigger")
-    inst.common._builtin = builtin_recorder
+    inst._common._bus_trigger = record("_bus_trigger")
+    inst._common._builtin = builtin_recorder
     # The dispatch prelude settles waits and samples status registers (#575) — real instrument
     # behaviour, not routing; a component's register condition may read the circuit, which this
     # harness does not build. Routing equivalence is about the command, not the sampling.
