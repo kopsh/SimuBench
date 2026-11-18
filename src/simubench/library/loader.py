@@ -205,7 +205,7 @@ def apply_command_overrides(commands: list, overrides: dict) -> list:
         group = [{"header": header, **{k: v for k, v in e.items() if k != "header"}} for e in entries]
         if at:
             out = [c for i, c in enumerate(out) if i not in set(at)]
-            out[at[0]:at[0]] = group  # the first entry's place; the rest were after it
+            out[at[0] : at[0]] = group  # the first entry's place; the rest were after it
         else:
             out.extend(group)
     return out
