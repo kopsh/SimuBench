@@ -2705,3 +2705,17 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 绕行守卫（验收） | ✅ `tests/test_services.py::test_agent_seams_drive_sessions_only_through_the_manager`：AST 扫 mcp_tools/*.py + assistant/tools.py + assistant/service.py——起停会话的调用只许点名 manager（receiver 以 manager 结尾），无 `.session.close()` 手拆（issue 的守卫句「agent 缝不再直调 manager.start/stop」按实现落形：处置选了删除转发模块，manager 方法即唯一路，守卫锁「只此一条路」） |
 | 文档 | ✅ decisions.md D76（投影清单补全 + `builtin_cases_file`→`Invalid`）与 D77（生命周期契约收进 manager）、progress-log 本节 |
 | check.sh | ✅ 全绿（fast 套件 4774 过、web 371 过；ty 基线零新增；新增测最贵 0.5 s；终树上本机 pytest 步 225 s、check.sh 全程 ~5:13，量级与基线相当。中途一次间歇红是新测自带的固定 HiSLIP 端口 4880 并行相撞，已改 hislip_port=None 并三次连跑验证） |
+## Web 文件域新鲜度：工作区事件流 file_changed/clients_changed/sessions_changed，七处轮询收一处常量（Issue 1484）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 后端事件缝 | ✅ `server/workspace_events.py` 新模块：三类事件（`file_changed {path}`、`clients_changed {sid}`、`sessions_changed {sid}`）+ `WorkspaceEvent` 模型 + fan-out hub（线程安全发布、无订阅者即弃、队列满丢最旧）+ `WorkspaceWatcher`（2s stat 扫描，外部改动播报、写点 `note()` 去重、首 pass 基线先行、删除也播报）。发送点：`BenchFiles._write` 单一写点经 `_announce`（save/copy/restore/create_hello 全覆盖），`DefinitionFiles.save` 委托同一条；四台接入服务器各一个可选 `on_change` 回调（manager 造，access 层不知道事件流存在）；`SessionManager.start/stop` 发 sessions_changed。WS 端点 `/api/events` 进 `routes/events.py`（独立编号、无 backlog、同令牌与 host 守卫） |
+| sessions_changed 的来历 | ✅ issue 只列两类；e2e 逼出第三类：助手「同意停止→重启」后的页面跟随与停止恢复流程旧靠 session 轮询碰巧看见会话更换，轮询退役后 `e2e/assistant.spec.ts` 红，sessions_changed 修复后全绿。理由与备选记 decisions.md D85 |
+| 后端直接单测 | ✅ `tests/test_server.py`：watcher 三段式（外部改动播报一次、note 后静默、删除播报）；hub（无订阅者丢弃、未知 kind 拒绝、多队列 fan-out）；WS 端点逐类断言（file_changed 带 path、定义 copy 带 path、脚本连断各一条 clients_changed 带 sid、启停各一条 sessions_changed 带 sid） |
+| 前端 re-key | ✅ `api/workspaceEvents.ts`：store 三修订（fileRev 逐文件 / instrumentsRev / sessionsRev）+ reducer + 页面级单 socket（重连 bump 全部修订，自愈同 D64；首次连接不 bump）。四处 re-key：useBenchDoc、useDefinitionDocument 按各自文件 rev；useDefinitionStructure 按 instrumentsRev（分层 extends，任何定义文件都可能改它）；useSessions 按 sessionsRev。useSession 裸键保留（state 补丁直写），改失效不 re-key |
+| 裸轮询删除/常量化 | ✅ 删五处 refetchInterval/interval：benchDoc 2.5s、definitionStructure 2.5s、definitionDocument 2s、sessions 2s、session 2–5s（`hooks.ts`）；assistant conversation 3s 的 setInterval 改 `PROGRESS_POLL_MS`（`stream.ts`）。进度域留守收敛一个常量：runs 5s→、tryInstrument 3s→、conversation→ 均 `PROGRESS_POLL_MS = 3000` + 一段共享理由注释（服务端异步进度，事件流不携带）。session 的 patch/防抖/withValues 三层保留（D64 本来的机制）。TUI 的 REMOTE_POLL_S 留守（不在 issue 范围） |
+| vitest 锁 re-key | ✅ `web/src/api/hooks.test.tsx`：benchDoc 逐文件精度（别人的文件不触发）+ 旧 2.5s 间隔内不轮询；sessions 两类事件都重读 + 2.1s 内不轮询；定义对（structure 随 instruments/ 前缀、document 只随自己的文件）；reducer 纯函数四例 |
+| e2e 新缝 | ✅ `web/e2e/edit.spec.ts` 新用例：**不走 API** 直接改工作区文件（编辑器存盘的形状），画布上出现新标签——只有 watcher 扫描 + 事件 re-key 能解释，轮询已删。全量 e2e 110 passed（6.2m），assistant/edit/layout-visual/remote 既有用例原样 |
+| 接口生成物 | ✅ `schemas/workspace-events.schema.json` 新导出（`server/schemas.py`），`gen-api.mjs` 加一行 → `web/src/api/generated/workspace-events.ts`；`pnpm check:api` 绿 |
+| 文档 | ✅ decisions.md D85（新事件协议形状够格新立）、codebase-map 工作区事件行、web-ui skill 的 api/ 行、progress-log 本节 |
+| check.sh | ✅ 全绿（见下） |

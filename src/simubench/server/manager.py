@@ -13,7 +13,7 @@ import logging
 import threading
 import time
 import uuid
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -32,6 +32,7 @@ from .benchfiles import BenchFiles
 from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse, Unknown
 from .runs import Runs
 from .views import SessionViews, served_addresses
+from .workspace_events import WorkspaceEvents, WorkspaceWatcher
 
 if TYPE_CHECKING:
     from ..engine.session import Session
@@ -354,7 +355,10 @@ class SessionManager:
         #: The Web service's own port, when this manager serves one (``simubench serve``).
         self.web_port: int | None = None
         self.sessions: dict[str, ServedSession] = {}
-        self.files = BenchFiles(workspace)
+        #: The workspace event stream (issue #1484): the file write points and the access
+        #: servers' connection bookkeeping publish here; ``/api/events`` forwards to the Web.
+        self.events = WorkspaceEvents(WorkspaceWatcher(workspace, self._publish))
+        self.files = BenchFiles(workspace, events=self.events)
         self.runs = Runs(record_dir, [self.workspace / "instruments"])
         self.tries = TrySessions(self.files)
         self.views = SessionViews(self)
@@ -370,6 +374,15 @@ class SessionManager:
         from ..plugins import workspace_allows_plugins
 
         return self.allow_plugins or workspace_allows_plugins(self.workspace)
+
+    def _publish(self, kind: str, **fields: Any) -> None:
+        """The watcher's publish path (the write points reach the hub through BenchFiles)."""
+        self.events.publish(kind, **fields)
+
+    def _clients_changed(self, served: ServedSession) -> Callable[[], None]:
+        """What the access servers fire when their connection set changes (issue #1484): one
+        workspace event, whose sid the Web's session queries re-key on instead of polling."""
+        return lambda: self.events.publish("clients_changed", sid=served.id)
 
     # ---- bench files --------------------------------------------------------------------------------
 
@@ -429,7 +442,9 @@ class SessionManager:
                     served,
                     SCPI_SERVICE,
                     self.scpi_base_port,
-                    lambda port: ScpiServer(session, self.scpi_host, port),
+                    lambda port: ScpiServer(
+                        session, self.scpi_host, port, on_change=self._clients_changed(served)
+                    ),
                 )
                 if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
                     served.servers[HISLIP_SERVICE] = await self._open(
@@ -442,6 +457,7 @@ class SessionManager:
                             port,
                             overlapped=self.hislip_overlapped,
                             secure=self.hislip_secure,
+                            on_change=self._clients_changed(served),
                         ),
                     )
                 if self.vxi11_port is not None:  # and VXI-11 beside it (D63)
@@ -449,7 +465,13 @@ class SessionManager:
                         served,
                         VXI11_SERVICE,
                         self.vxi11_port,
-                        lambda port: Vxi11Server(session, self.scpi_host, port, self.portmapper_port),
+                        lambda port: Vxi11Server(
+                            session,
+                            self.scpi_host,
+                            port,
+                            self.portmapper_port,
+                            on_change=self._clients_changed(served),
+                        ),
                     )
             except PortInUse:
                 # Close what did open (the instruments before the taken port), and the session.
@@ -458,7 +480,9 @@ class SessionManager:
                 await asyncio.to_thread(session.close)
                 raise
             if self.link_port is not None:  # scripts in other processes drive this bench (D63)
-                link = BenchLinkServer(session, self.scpi_host, self.link_port)
+                link = BenchLinkServer(
+                    session, self.scpi_host, self.link_port, on_change=self._clients_changed(served)
+                )
                 try:
                     await link.start()
                     link.served = served_addresses(served)
@@ -466,6 +490,7 @@ class SessionManager:
                 except OSError as exc:  # another service holds the port: this one still works
                     log.warning("bench link not started (port %s: %s)", self.link_port, exc)
         self.sessions[served.id] = served
+        self.events.publish("sessions_changed", sid=served.id)
         return served
 
     async def _open(self, served: ServedSession, service: str, port: int, make: Any) -> Any:
@@ -527,6 +552,7 @@ class SessionManager:
             raise Unknown(sid)
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
+        self.events.publish("sessions_changed", sid=sid)
         for server in reversed(list(served.servers.values())):  # last served closes first
             await server.stop()
         await asyncio.to_thread(served.session.close)

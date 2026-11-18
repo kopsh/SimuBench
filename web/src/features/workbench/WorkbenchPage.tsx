@@ -92,7 +92,8 @@ export function WorkbenchPage() {
   const shownBench = session.data?.bench_path;
   if (shownBench && shownBench !== lastBench) setLastBench(shownBench);
 
-  // The bench file behind the session: polled, so that edits made elsewhere show up.
+  // The bench file behind the session: the workspace stream re-keys it (issue #1484), so an
+  // edit made elsewhere (the agent, another tab, an editor) shows up without a poll.
   const benchPath = session.data?.bench_path ?? null;
   useEffect(() => bindEditor(qc), [qc]);
   const docQuery = useBenchDoc(benchPath);

@@ -32,6 +32,7 @@ from ..models.bench import BenchDefinition
 from . import yamlpatch
 from .errors import Conflict, Forbidden, Invalid, NotFound
 from .history import History, Source
+from .workspace_events import WorkspaceEvents
 
 SUFFIXES = (".bench.yaml", ".bench.json")
 
@@ -53,10 +54,20 @@ HELLO = Path(__file__).resolve().parents[1] / "library" / "examples" / "hello.be
 
 
 class BenchFiles:
-    def __init__(self, workspace: Path) -> None:
+    def __init__(self, workspace: Path, events: WorkspaceEvents | None = None) -> None:
         self.workspace = workspace.resolve()
         self._lock = threading.Lock()
         self.history = History(self.workspace)
+        #: The workspace event stream (issue #1484): this class is the write point of the bench
+        # files, so it announces what it writes; None leaves a files-only user eventless.
+        self.events = events
+
+    def _announce(self, bench_path: str, sha256: str) -> None:
+        """One ``file_changed`` per write (issue #1484); the watcher's scan is told the content,
+        so the change the server made is not announced a second time."""
+        if self.events is not None:
+            self.events.publish("file_changed", path=bench_path)
+            self.events.note_written(bench_path, sha256)
 
     # ---- paths and libraries ------------------------------------------------------------------------
 
@@ -144,6 +155,7 @@ class BenchFiles:
                 with contextlib.suppress(ValueError, UnicodeDecodeError, yaml.YAMLError):
                     previous = (old, current, fingerprint(_parse(path, old)))
             self.history.record(bench_path, raw, _sha(raw), fingerprint(data), source, previous=previous)
+        self._announce(bench_path, _sha(raw))
         return self._document(bench_path, path, raw, data)
 
     def create_hello(self, source: Source = "ui") -> M.BenchDocument:
@@ -152,6 +164,7 @@ class BenchFiles:
         never overwritten (it is the user's now)."""
         bench_path = HELLO.name
         path = self.resolve(bench_path)
+        created: tuple[str, bytes] | None = None
         with self._lock:
             if not path.exists():
                 raw = HELLO.read_bytes()
@@ -159,6 +172,9 @@ class BenchFiles:
                 tmp.write_bytes(raw)
                 os.replace(tmp, path)
                 self.history.record(bench_path, raw, _sha(raw), fingerprint(_parse(path, raw)), source)
+                created = (bench_path, raw)
+        if created is not None:
+            self._announce(created[0], _sha(created[1]))
         return self.read(bench_path)
 
     def copy(
