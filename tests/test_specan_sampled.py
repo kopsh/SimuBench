@@ -18,6 +18,7 @@ import yaml
 from helpers import session_query
 from simubench.api import open_bench
 from simubench.engine.stream import MAX_REQUEST_FANOUT
+from simubench.library.components.reading_math import noise_bandwidth
 from simubench.library.components.specan_backend import (
     NBW_FACTOR,
     STOPBAND_DB,
@@ -25,7 +26,6 @@ from simubench.library.components.specan_backend import (
     decimation_taps,
     gaussian_window,
     line_response,
-    noise_bandwidth,
     taps_per_phase,
     window_length,
     windowed_fft,

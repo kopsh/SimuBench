@@ -68,6 +68,11 @@ def value_stats(values: Any) -> dict[str, float]:
     }
 
 
+def noise_bandwidth(window: np.ndarray, dt_s: float) -> float:
+    """Equivalent noise bandwidth of a window, Hz: Σw² / (Σw)² over the sample interval."""
+    return float(np.sum(window * window) / np.sum(window) ** 2 / dt_s)
+
+
 def apply_math(x: float, *, m: float | None, c: float | None, z: float | None) -> float:
     """``(m·x − c) / z`` with the factors that are on (None: off)."""
     y = x * m if m is not None else x

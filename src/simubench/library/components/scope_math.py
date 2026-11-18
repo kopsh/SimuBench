@@ -44,8 +44,8 @@ import numpy as np
 from ...engine.component import Acquisition, Component, OpResult, component, op
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
+from .reading_math import noise_bandwidth
 from .scope_record import CHUNK, Points
-from .specan_backend import noise_bandwidth
 
 #: Window coefficients by SCPI word: a0 − Σ ai·cos(2πik/(N−1)) — Infiniium's five
 #: (:FUNCtion<F>:FFT:WINDow); the flat top is the standard 5-term cosine sum.

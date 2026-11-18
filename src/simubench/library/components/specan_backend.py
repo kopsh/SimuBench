@@ -218,11 +218,6 @@ def gaussian_window(count: int, rbw: float, dt_s: float) -> np.ndarray:
     return np.exp(-0.5 * (t / window_sigma_s(rbw)) ** 2)
 
 
-def noise_bandwidth(window: np.ndarray, dt_s: float) -> float:
-    """Equivalent noise bandwidth of a window, Hz: Σw² / (Σw)² over the sample interval."""
-    return float(np.sum(window * window) / np.sum(window) ** 2 / dt_s)
-
-
 def windowed_fft(samples: np.ndarray, window: np.ndarray, points: int) -> np.ndarray:
     """The complex amplitude at ``points`` frequencies of the windowed ``samples``.
 

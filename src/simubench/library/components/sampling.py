@@ -25,7 +25,7 @@ from ...engine.signal import Signal
 from ...engine.stream import ModelLimit, beyond_model
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
-from .scope import Record, channel_index
+from .scope_record import Record, channel_index
 
 #: Samples one acquisition may compute (record points times averages): beyond it the request is
 #: refused (architecture.md 2.3), not truncated.

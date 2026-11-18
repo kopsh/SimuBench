@@ -810,3 +810,12 @@ def chunked_value(what: str, rec: Record, lo: int, hi: int) -> float:
 
 #: The measurements :func:`chunked_value` answers on a record too deep to hold in memory.
 CHUNKED_MEASUREMENTS = frozenset({"VMAX", "VMIN", "VPP", "VAVerage", "VRMS", "XMAX", "XMIN"})
+
+
+def channel_index(source: object) -> int:
+    """Channel number of a source name: CHANnel2 (sb-*), CH2 or C2 (Siglent)."""
+    text = str(source).upper()
+    for prefix in ("CHANNEL", "CHAN", "CH", "C"):
+        if text.startswith(prefix) and text[len(prefix) :].isdigit():
+            return int(text[len(prefix) :])
+    return 1
