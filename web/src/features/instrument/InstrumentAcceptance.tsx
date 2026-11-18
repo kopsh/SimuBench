@@ -29,7 +29,7 @@ import { CommandsTab } from "./CommandsTab";
 import { HistoryTab } from "./HistoryTab";
 import { OverviewTab, REFERENCE_ID } from "./OverviewTab";
 import { TryTab } from "./TryTab";
-import { commandRows, runnable, tryForm, trySuggestions, verdictOf } from "./model";
+import { commandRows, provenanceOf, runnable, tryForm, trySuggestions, verdictOf } from "./model";
 import { VerdictBar } from "./Verdict";
 
 /** What the page does with a copy of the definition (#1250): `created` is false when an earlier
@@ -166,6 +166,7 @@ export function InstrumentAcceptance({
   }
   const d = definition.data;
   const reference = d?.reference;
+  const provenance = provenanceOf(doc.data.data, doc.data.editable, Boolean(reference));
   return (
     <div className="flex h-full min-h-0 flex-col">
       <header className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-4 py-2">
@@ -179,8 +180,16 @@ export function InstrumentAcceptance({
               {t(`acceptance.class.${d.class}`, { defaultValue: d.class })}
             </Badge>
           )}
-          <Badge variant="outline" className={cn("font-normal", reference && "border-sim/40 text-sim")}>
-            {reference ? t("acceptance.realModel") : t("acceptance.customModel")}
+          <Badge
+            variant="outline"
+            className={cn("font-normal", provenance.kind === "real" && "border-sim/40 text-sim")}
+            data-testid="acceptance-provenance"
+          >
+            {provenance.kind === "copy"
+              ? t(provenance.changed ? "acceptance.copyChanged" : "acceptance.copyOf", { parent: provenance.parent })
+              : provenance.kind === "real"
+                ? t("acceptance.realModel")
+                : t("acceptance.customModel")}
           </Badge>
           <Badge variant="outline" className="font-normal">
             {doc.data.editable ? t("acceptance.workspace") : t("acceptance.builtin")}

@@ -472,3 +472,19 @@ export function savedAt(iso: string): string {
 function unique(labels: string[]): string[] {
   return [...new Set(labels)];
 }
+
+/** What the acceptance page's provenance badge says (P2-3): a real model, a copy of one (`extends`,
+ * in the workspace) — changed once its file holds more than the `extends` line — or a definition
+ * written from a contract or the user's own specs. A copy inherits `reference`, so the reference
+ * alone would call a customised copy a real model. */
+export type Provenance = { kind: "real" } | { kind: "custom" } | { kind: "copy"; parent: string; changed: boolean };
+
+const COPY_ONLY = new Set(["schema", "id", "extends"]);
+
+export function provenanceOf(file: Record<string, unknown>, editable: boolean, hasReference: boolean): Provenance {
+  const parent = file.extends;
+  if (editable && typeof parent === "string") {
+    return { kind: "copy", parent, changed: Object.keys(file).some((k) => !COPY_ONLY.has(k)) };
+  }
+  return hasReference ? { kind: "real" } : { kind: "custom" };
+}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommandSpec, DefinitionCoverage, InstrumentInfo, StateVarInfo } from "@/api/client";
 import type { CommandRow } from "./model";
-import { commandRows, deviationLimit, verdictOf, groupCommands, groupProgress, tryForm, trySuggestions, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
+import { commandRows, deviationLimit, provenanceOf, verdictOf, groupCommands, groupProgress, tryForm, trySuggestions, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
 
 const cmd = (header: string, extra: Partial<CommandSpec> = {}): CommandSpec => ({
   header,
@@ -264,5 +264,20 @@ describe("verdictOf (#1352)", () => {
     const v = verdictOf(null, [], []);
     expect(v.coverage).toBeNull();
     expect(v.run).toBeNull();
+  });
+});
+
+describe("provenanceOf (P2-3)", () => {
+  it("calls a workspace copy what it is, changed once the file holds more than extends", () => {
+    expect(provenanceOf({ schema: "s", id: "my", extends: "keysight-uxr1104b" }, true, true)).toEqual({
+      kind: "copy",
+      parent: "keysight-uxr1104b",
+      changed: false,
+    });
+    expect(provenanceOf({ id: "my", extends: "keysight-uxr1104b", state: {} }, true, true)).toMatchObject({ changed: true });
+  });
+  it("keeps the real-model and contract labels for the rest", () => {
+    expect(provenanceOf({ id: "keysight-53230a", extends: "keysight-53220a" }, false, true)).toEqual({ kind: "real" });
+    expect(provenanceOf({ id: "zy-dso3104" }, true, false)).toEqual({ kind: "custom" });
   });
 });

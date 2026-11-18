@@ -939,6 +939,8 @@ export const en: Widen<Messages> = {
     notFound: "No instrument {{id}}",
     realModel: "Real model",
     customModel: "Contract-written",
+    copyOf: "Based on {{parent}} (unchanged)",
+    copyChanged: "Based on {{parent}} · changed",
     unbounded: "No fixed limit (the instrument checks it against its settings)",
     workspace: "Workspace definition",
     builtin: "Built in",
