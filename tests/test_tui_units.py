@@ -18,7 +18,9 @@ import pytest
 import yaml
 
 from simubench.engine.events import project
+from simubench.tui import rows
 from simubench.tui.client import ws_url
+from simubench.tui.controls import SMU_LEGACY_PATHS, smu_source_roles
 from simubench.tui.fmt import braille, cell_len, fmt, fmt_ns
 from simubench.tui.log import build_lines, hint_text, pending_writes, source_label, visible
 from simubench.tui.reasons import error_report, limited_report
@@ -273,6 +275,100 @@ def test_limited_report_conclusion_and_traced_command():
     setting = report.evidences[0]
     assert ":SOUR:VOLT 15" in (setting.source or "") and "Script" in (setting.source or "")
     assert report.jump_seq == 1  # ⏎ jumps to the write's log line
+
+
+def _workspace_smu(def_id: str) -> dict[str, Any]:
+    """A workspace SMU's screen data from its real validation definition (sb-smu-*): the declared
+    panel and the state specs with their defaults as values — the shape the instrument DTO
+    carries (#1469). Loading the definition ties the test to the file its block names live in."""
+    from simubench.library.loader import DefinitionLibrary
+    from simubench.library.panels import effective_panel
+
+    d = DefinitionLibrary().get(def_id)
+    panel, _source = effective_panel(d)
+    return {
+        "name": def_id,
+        "display": {"panel": panel.model_dump() if panel else None},
+        "state": [
+            {"path": path, "value": spec.default, **spec.model_dump(exclude={"default"})}
+            for path, spec in d.state.items()
+        ],
+    }
+
+
+def _set(info: dict[str, Any], path: str, value: Any) -> None:
+    next(sv for sv in info["state"] if sv["path"] == path)["value"] = value
+
+
+def test_a_workspace_smu_with_its_own_panel_shows_that_panel():
+    """#1469: sb-smu-3 names its settings src.* and declares a panel — the screen's role paths,
+    table and settings groups follow that declaration, not the platform's source.* names."""
+    info = _workspace_smu("sb-smu-3")
+    roles = smu_source_roles(info)
+    assert roles["function"] == "src.function" and roles["output"] == "src.out"
+    assert roles["v_set"] == "src.vset" and roles["i_limit"] == "src.ilim"
+    assert roles["i_set"] is None and roles["v_limit"] is None  # hidden under VOLTage
+    text = ["".join(cell for cell, _ in line) for line in rows.smu_rows("en", info, {"values": {}}, 100)]
+    assert any("Source" in line for line in text) and any("Measure" in line for line in text)
+    assert not any("Settings" in line for line in text)  # the panel's groups, not the generic list
+
+
+def test_the_panel_smu_roles_follow_the_source_function():
+    """#1469: with the function switched to CURRent the visible roles swap — the current set
+    point and the voltage limit appear, the voltage set point and current limit hide."""
+    info = _workspace_smu("sb-smu-3")
+    _set(info, "src.function", "CURRent")
+    roles = smu_source_roles(info)
+    assert roles["i_set"] == "src.iset" and roles["v_limit"] == "src.vlim"
+    assert roles["v_set"] is None and roles["i_limit"] is None
+    text = ["".join(cell for cell, _ in line) for line in rows.smu_rows("en", info, {"values": {}}, 100)]
+    table = "\n".join(text)
+    assert "—" in table  # the roles that do not hold read the em dash, visibly not the value
+
+
+def test_a_workspace_smu_without_a_panel_falls_back_visibly():
+    """#1469: sb-smu-1 declares no panel — the table keeps the platform's setting names and the
+    settings half is the generic list of every setting, not a silently empty block."""
+    info = _workspace_smu("sb-smu-1")
+    roles = smu_source_roles(info)
+    assert roles["v_set"] == "source.voltage.level" and roles["i_limit"] == "compliance.current.limit"
+    assert roles == dict(SMU_LEGACY_PATHS)
+    text = ["".join(cell for cell, _ in line) for line in rows.smu_rows("en", info, {"values": {}}, 100)]
+    assert any("Settings" in line for line in text)
+    assert any("Integration time" in line for line in text)  # sense.nplc is listed
+    assert any("Sweep" in line or "sweep" in line for line in text)  # not just the summary
+
+
+def test_a_limited_reason_line_resolves_through_the_panel():
+    """#1469: the box's reason line names the declared set point — with the old hardcoded
+    source.* paths a custom-named SMU's line showed an empty setting."""
+    info = _workspace_smu("sb-smu-3")
+    readings = {"values": {"core.limited": True, "core.regulation": "CC", "core.limit": 0.01}}
+    out = rows.reason_line("en", "smu", info, readings, [])
+    assert out is not None
+    assert "(set —)" not in out[1][0]
+
+
+def test_the_limited_report_evidence_resolves_through_the_panel():
+    """#1469: the CV-limited report quotes the voltage limit the panel declares — the evidence
+    used to read the current limit whatever the regulation."""
+    info = _workspace_smu("sb-smu-3")
+    _set(info, "src.function", "CURRent")
+    _set(info, "src.iset", 0.01)
+    readings = {
+        "values": {
+            "core.limited": True,
+            "core.regulation": "CV",
+            "core.voltage": 6.0,
+            "core.current": 0.01,
+            "core.limit": 6.0,
+        }
+    }
+    report = limited_report(info, readings, [], "en")
+    assert report is not None and "constant voltage (CV)" in report.conclusion
+    setting, limit = report.evidences[0], report.evidences[1]
+    assert setting.pointer == "src.iset" and limit.pointer == "src.vlim"
+    assert "Voltage limit" in limit.value
 
 
 def test_error_report_names_the_command_and_classification():

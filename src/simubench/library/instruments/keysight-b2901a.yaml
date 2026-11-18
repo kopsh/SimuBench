@@ -399,8 +399,9 @@ display:
     - compliance.current.limit
     - compliance.voltage.limit
     - output.enabled
-  # 检查器面板（D74）：前面板先给的设置，随源功能：电压源放电压设定与电流限，电流源放电流设定与电压限；
-  # 扫描参数随扫描模式。其余设置在检查器里查找或在“全部设置”里改。SMU 屏幕自己画，不用这里的分组。
+  # 检查器面板（D74）与 SMU 屏幕共用（#1469）：前面板先给的设置，随源功能：电压源放电压设定与电流限，
+  # 电流源放电流设定与电压限；扫描参数随扫描模式。其余设置在检查器里查找或在“全部设置”里改，
+  # SMU 屏幕的“其他设置”框列出的也是面板分组之外的这些。
   panel:
     groups:
       - label: 源
@@ -431,6 +432,7 @@ display:
           - {state: sense.range_voltage, when: {sense.range_auto: false}}
           - {state: sense.range_current, when: {sense.range_auto: false}}
           - {state: sense.remote}
+          - {state: system.line_freq}
       - label: 触发
         label_en: Trigger
         controls:

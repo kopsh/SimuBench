@@ -218,8 +218,11 @@ class InstrumentScreen(ControlEditingScreen):
         self._refresh_buttons()  # the fields' values first: the grids size their columns from them
         self._refresh_identity()
         self._refresh_channels()
-        self._refresh_other()
+        # The errors box first: the side row's height reads its fresh line count — a render
+        # behind, the newest error's origin line would be clipped by a row sized for the
+        # previous content (#1469).
         self._refresh_errors()
+        self._refresh_other()
         self._refresh_wiring()
         self._refresh_log()
         self._refresh_buttons()
@@ -330,9 +333,8 @@ class InstrumentScreen(ControlEditingScreen):
 
     def _build_boxes(self) -> None:
         """One box per channel (a single one without channels), its rows, reason line, buttons."""
-        template = self._template()
         channels = self._channels_of()
-        if template == "function_generator" and channels:
+        if categories.get(self._template()).screen == "generator" and channels:
             boxes = [(f"ch{ch}", ch) for ch in channels]
         else:
             boxes = [("main", None)]
@@ -371,11 +373,8 @@ class InstrumentScreen(ControlEditingScreen):
 
     def _controls_for(self, channel: int | None) -> list[C.Control]:
         info = self.info
-        template = self._template()
         lang = self.app.lang
-        if template == "smu":
-            return C.smu_controls(info, lang)
-        if template == "function_generator":
+        if categories.get(self._template()).screen == "generator":
             return C.generator_controls(info, lang, channel)
         panel = (info.get("display") or {}).get("panel")
         if panel:
@@ -455,7 +454,7 @@ class InstrumentScreen(ControlEditingScreen):
 
     def _box_title(self, template: str, channel: int | None) -> str:
         lang = self.app.lang
-        if template == "smu":
+        if categories.get(template).screen == "smu":
             return i18n.t("instrument.smuBox", lang)
         if channel is not None:
             return f"CH{channel}"
@@ -466,7 +465,7 @@ class InstrumentScreen(ControlEditingScreen):
     def _smu_lines(
         self, state: dict[str, dict], width: int | None = None, budget: int | None = None
     ) -> list[list[tuple[str, str]]]:
-        return rows.smu_rows(self.app.lang, state, self.readings)
+        return rows.smu_rows(self.app.lang, self.info, self.readings, width, budget)
 
     def _panel_lines(
         self, width: int | None = None, budget: int | None = None
@@ -485,12 +484,12 @@ class InstrumentScreen(ControlEditingScreen):
     def _rf_lines(
         self, state: dict[str, dict], width: int, budget: int | None = None
     ) -> list[list[tuple[str, str]]]:
-        return rows.rf_rows(self.app.lang, state, self.readings, width, budget)
+        return rows.rf_rows(self.app.lang, self.info, self.readings, width, budget)
 
     def _load_lines(
         self, state: dict[str, dict], width: int, budget: int | None = None
     ) -> list[list[tuple[str, str]]]:
-        return rows.load_rows(self.app.lang, state, self.readings, width)
+        return rows.load_rows(self.app.lang, self.info, self.readings, width, budget)
 
     def _lockin_lines(
         self, state: dict[str, dict], width: int, budget: int | None = None
@@ -538,21 +537,27 @@ class InstrumentScreen(ControlEditingScreen):
     # -- other settings (5.1 #3) ---------------------------------------------------------------------------
 
     def _other_paths(self) -> list[str] | None:
-        """The state paths the template did not put into the channel area (5.1 #3)."""
-        template = self._template()
-        info = self.info
-        if template == "smu":
-            main = {
-                "output.enabled",
-                "source.function",
-                "source.voltage.level",
-                "source.current.level",
-                "compliance.current.limit",
-                "compliance.voltage.limit",
-            }
-            paths = [sv["path"] for sv in info.get("state", []) if sv["path"] not in main]
-            return paths or None
-        return None
+        """The state paths the channel box's rows and buttons do not hold (5.1 #3): for the SMU
+        screen the main set is its panel groups' paths (#1469), and the rest is listed here. A
+        definition without a declared panel lists every setting in the channel box (its settings
+        half is the generic column), so there is no other box."""
+        if categories.get(self._template()).screen != "smu":
+            return None
+        panel = (self.info.get("display") or {}).get("panel")
+        if panel is None:
+            return None
+        main: set[str] = set()
+        for group in panel.get("groups", []):
+            main.update(pc["state"] for pc in group.get("controls", []) if pc.get("state"))
+        for channel in self._channels_of():
+            for group in panel.get("channel_groups", []):
+                main.update(
+                    C.in_channel(pc["state"], self.info, channel)
+                    for pc in group.get("controls", [])
+                    if pc.get("state")
+                )
+        paths = [sv["path"] for sv in self.info.get("state", []) if sv["path"] not in main]
+        return paths or None
 
     def _refresh_other(self) -> None:
         app: Any = self.app
@@ -560,6 +565,9 @@ class InstrumentScreen(ControlEditingScreen):
         paths = self._other_paths()
         if not paths:
             self._other.display = False
+            # No other box: the side row still gets its height from the errors box alone — the
+            # screen without it used to always have the other box to size the row (#1469).
+            self._side_height(getattr(self, "_errors_rows", 1) + 2)
             return
         info = self.info
         state = {sv["path"]: sv for sv in info.get("state", [])}
@@ -769,21 +777,15 @@ class InstrumentScreen(ControlEditingScreen):
         lang = self.app.lang
         info = self.info
         state = {sv["path"]: sv for sv in info.get("state", [])}
-        if self._template() == "smu":
-            fn = C.summary_text(
-                (state.get("source.function") or {}).get("value"), state.get("source.function"), lang
-            )
-            v = C.summary_text(
-                (state.get("source.voltage.level") or {}).get("value"),
-                state.get("source.voltage.level"),
-                lang,
-            )
-            i = C.summary_text(
-                (state.get("compliance.current.limit") or {}).get("value"),
-                state.get("compliance.current.limit"),
-                lang,
-            )
-            return f"{fn} {v}，{C.label_of(state.get('compliance.current.limit') or {}, lang, 'I limit')} {i}"
+        roles = C.smu_source_roles(info)
+        if categories.get(self._template()).screen == "smu" and roles["function"] is not None:
+            fn_sv = state.get(roles["function"] or "") or {}
+            v_sv = state.get(roles["v_set"] or "") or {}
+            i_sv = state.get(roles["i_limit"] or "") or {}
+            fn = C.summary_text(fn_sv.get("value"), fn_sv, lang)
+            v = C.summary_text(v_sv.get("value"), v_sv, lang)
+            i = C.summary_text(i_sv.get("value"), i_sv, lang)
+            return f"{fn} {v}，{C.label_of(i_sv, lang, 'I limit')} {i}"
         parts = []
         for sv in info.get("state", []):
             if sv.get("electrical") and sv.get("path") not in (None,):

@@ -11,6 +11,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
+from ..library import categories
 from . import controls as C
 from . import i18n
 from .fmt import braille_rows, cell_len, fmt, fmt_ns, pad, ralign
@@ -49,13 +50,25 @@ def value_of(readings: dict[str, Any], name: str) -> Any:
     return next((v for k, v in values.items() if k.rsplit(".", 1)[-1] == name), None)
 
 
-def smu_rows(lang: str, state: dict[str, dict], readings: dict[str, Any]) -> list[list[tuple[str, str]]]:
-    """状态 / 电压 / 电流 columns, 设定 next to 限值; ▲ on the limited column (5.2)."""
-    readings = readings.get("values", {})
-    limited = bool(readings.get("core.limited"))
-    regulation = str(readings.get("core.regulation") or "")
+def smu_rows(
+    lang: str,
+    info: dict[str, Any],
+    readings: dict[str, Any],
+    width: int | None = None,
+    budget: int | None = None,
+) -> list[list[tuple[str, str]]]:
+    """状态 / 电压 / 电流 columns, 设定 next to 限值; ▲ on the limited column (5.2). The set and
+    limit paths resolve through the panel's Source group (#1469): the role that does not hold
+    under the current function reads ``—``, as the front panel does not show it. Below the table
+    the declared panel's settings groups (D74); a definition without one lists every setting in
+    one column. A group block the ``budget`` has no room for is left out whole (#374)."""
+    values = readings.get("values", {})
+    limited = bool(values.get("core.limited"))
+    regulation = str(values.get("core.regulation") or "")
     voltage_limited = limited and regulation == "CV"
     current_limited = limited and regulation == "CC"
+    state = {sv["path"]: sv for sv in info.get("state", [])}
+    roles = C.smu_source_roles(info)
     label_w = 1 + max(
         cell_len(i18n.t(k, lang)) for k in ("instrument.set", "instrument.actual", "instrument.limit")
     )
@@ -65,8 +78,8 @@ def smu_rows(lang: str, state: dict[str, dict], readings: dict[str, Any]) -> lis
     )
     status_col = status_w + 8  # On / Off, VOLTage / CURRent, CV / CC
 
-    def sv_text(path: str) -> str:
-        sv = state.get(path) or {}
+    def sv_text(path: str | None) -> str:
+        sv = state.get(path or "") or {}
         return C.summary_text(sv.get("value"), sv, lang)
 
     def cell(label: str, value: str, mark: str = "") -> list[tuple[str, str]]:
@@ -88,33 +101,59 @@ def smu_rows(lang: str, state: dict[str, dict], readings: dict[str, Any]) -> lis
         return [(pad(label, status_w), "muted"), (pad(value, max(1, status_col - status_w)), tokens)]
 
     status_rows = [
-        status(i18n.t("cards.output", lang), sv_text("output.enabled")),
-        status(i18n.t("instrument.function", lang), sv_text("source.function")),
+        status(i18n.t("cards.output", lang), sv_text(roles["output"])),
+        status(i18n.t("instrument.function", lang), sv_text(roles["function"])),
     ]
     regulation_row = status(
         i18n.t("instrument.regulation", lang), regulation or "—", "bad" if limited else ""
     )
     gap = [(" " * 2, "")]
-    v1 = cell(i18n.t("instrument.set", lang), sv_text("source.voltage.level"))
-    c1 = cell(i18n.t("instrument.set", lang), sv_text("source.current.level"))
-    v2 = cell(i18n.t("instrument.actual", lang), fmt(readings.get("core.voltage"), "V"))
-    c2 = cell(i18n.t("instrument.actual", lang), fmt(readings.get("core.current"), "A"))
-    v3 = cell(
-        i18n.t("instrument.limit", lang),
-        sv_text("compliance.voltage.limit"),
-        "▲" if voltage_limited else "",
-    )
-    c3 = cell(
-        i18n.t("instrument.limit", lang),
-        sv_text("compliance.current.limit"),
-        "▲" if current_limited else "",
-    )
-    return [
+    v1 = cell(i18n.t("instrument.set", lang), sv_text(roles["v_set"]))
+    c1 = cell(i18n.t("instrument.set", lang), sv_text(roles["i_set"]))
+    v2 = cell(i18n.t("instrument.actual", lang), fmt(values.get("core.voltage"), "V"))
+    c2 = cell(i18n.t("instrument.actual", lang), fmt(values.get("core.current"), "A"))
+    v3 = cell(i18n.t("instrument.limit", lang), sv_text(roles["v_limit"]), "▲" if voltage_limited else "")
+    c3 = cell(i18n.t("instrument.limit", lang), sv_text(roles["i_limit"]), "▲" if current_limited else "")
+    rows = [
         header,
         status_rows[0] + gap + v1 + gap + c1,
         status_rows[1] + gap + v2 + gap + c2,
         regulation_row + gap + v3 + gap + c3,
     ]
+    groups = panel_group_paths((info.get("display") or {}).get("panel"), info) or {"Settings": list(state)}
+    group_budget = budget - len(rows) if budget is not None else None
+    return rows + grouped_columns(lang, groups, state, width, budget=group_budget)
+
+
+def panel_group_paths(panel: dict[str, Any] | None, info: dict[str, Any]) -> dict[str, list[str]]:
+    """The declared panel's groups as ``title → paths`` (D74): groups whose ``when`` holds, then
+    each channel's ``channel_groups`` as ``CH<n> · title`` (#1327). What the panel screen's
+    columns draw and what the dedicated screens' settings halves (#1469) and the other-settings
+    box leave out. Empty for a definition without a declared panel."""
+    if not panel:
+        return {}
+    groups: dict[str, list[str]] = {}
+
+    def add(group: dict[str, Any], channel: int | None) -> None:
+        if not C.when_holds(group.get("when"), info, channel):
+            return
+        title = group.get("label_en") or group.get("label") or ""
+        if channel is not None:
+            title = f"CH{channel} · {title}"
+        paths = [
+            C.in_channel(pc["state"], info, channel)
+            for pc in group.get("controls", [])
+            if pc.get("state") and C.when_holds(pc.get("when"), info, channel)
+        ]
+        if paths:
+            groups[title] = paths
+
+    for group in panel.get("groups", []):
+        add(group, None)
+    for channel in sorted({sv.get("channel") for sv in info.get("state", []) if sv.get("channel")}):
+        for group in panel.get("channel_groups", []):
+            add(group, channel)
+    return groups
 
 
 def panel_rows(
@@ -150,30 +189,8 @@ def panel_rows(
             rows.append([(pad(label, label_w), "muted"), (C.summary_text(value, None, lang), "")])
     if rows:
         rows.append([("", "")])
-    # Groups and settings whose ``when`` holds, then each channel's groups as ``CH1 · title`` (#1327).
-    groups: dict[str, list[str]] = {}
-
-    def add(group: dict[str, Any], channel: int | None) -> None:
-        if not C.when_holds(group.get("when"), info, channel):
-            return
-        title = group.get("label_en") or group.get("label") or ""
-        if channel is not None:
-            title = f"CH{channel} · {title}"
-        paths = [
-            C.in_channel(pc["state"], info, channel)
-            for pc in group.get("controls", [])
-            if pc.get("state") and C.when_holds(pc.get("when"), info, channel)
-        ]
-        if paths:
-            groups[title] = paths
-
-    for group in panel.get("groups", []):
-        add(group, None)
-    for channel in sorted({sv.get("channel") for sv in info.get("state", []) if sv.get("channel")}):
-        for group in panel.get("channel_groups", []):
-            add(group, channel)
     group_budget = budget - len(rows) if budget is not None else None
-    return rows + grouped_columns(lang, groups, state, width, budget=group_budget)
+    return rows + grouped_columns(lang, panel_group_paths(panel, info), state, width, budget=group_budget)
 
 
 def readings_rows(readings: dict[str, Any]) -> list[list[tuple[str, str]]]:
@@ -260,15 +277,17 @@ def sweep_hint(lang: str, clock_mode: str | None, state: dict[str, dict]) -> str
 
 def rf_rows(
     lang: str,
-    state: dict[str, dict],
+    info: dict[str, Any],
     readings: dict[str, Any],
     width: int,
     budget: int | None = None,
 ) -> list[list[tuple[str, str]]]:
     """The RF source as the web screen shows it (#355): frequency and level, RF and modulation
-    flags, the reference, the sweep point and the output's spectral lines — then its settings
-    in three groups. Not the synthesizer's internal quantities. A group block the ``budget``
-    has no room for is left out whole (#374): a title alone above the fold misleads."""
+    flags, the reference, the sweep point and the output's spectral lines — then the declared
+    panel's settings groups (#1469); a definition without one lists every setting in one column.
+    Not the synthesizer's internal quantities. A group block the ``budget`` has no room for is
+    left out whole (#374): a title alone above the fold misleads."""
+    state = {sv["path"]: sv for sv in info.get("state", [])}
     on = lambda path: (state.get(path) or {}).get("value") is True  # noqa: E731
     freq = value_of(readings, "frequency")
     level = (state.get("power.level") or {}).get("value")
@@ -306,20 +325,22 @@ def rf_rows(
     if detail:
         rows.append(detail)
     rows.append([("", "")])
-    groups = {
-        "Carrier": ["freq.cw", "power.level", "output.enabled"],
-        "Modulation": ["am.state", "am.depth", "fm.state", "fm.dev", "pm.state", "pm.dev"],
-        "Sweep": ["freq.mode", "sweep.start", "sweep.stop", "sweep.points", "sweep.dwell"],
-    }
+    groups = panel_group_paths((info.get("display") or {}).get("panel"), info) or {"Settings": list(state)}
     group_budget = budget - len(rows) if budget is not None else None
     return rows + grouped_columns(lang, groups, state, width, budget=group_budget)
 
 
 def load_rows(
-    lang: str, state: dict[str, dict], readings: dict[str, Any], width: int
+    lang: str,
+    info: dict[str, Any],
+    readings: dict[str, Any],
+    width: int,
+    budget: int | None = None,
 ) -> list[list[tuple[str, str]]]:
     """The electronic load as the web screen shows it (#355): measured V, I and P, the input,
-    the mode and whether it holds its setting — then its settings."""
+    the mode and whether it holds its setting — then the declared panel's settings groups
+    (#1469); a definition without one lists every setting in one column."""
+    state = {sv["path"]: sv for sv in info.get("state", [])}
     rows: list[list[tuple[str, str]]] = []
     for name, label, unit, digits in (
         ("voltage", "V", "V", 6),
@@ -344,23 +365,9 @@ def load_rows(
     if enabled and not regulating:
         flags += [("UNREG", "bad")]
     rows += [flags, [("", "")]]
-    settings = [
-        p
-        for p in (
-            "function.mode",
-            "current.level",
-            "voltage.level",
-            "resistance.level",
-            "power.level",
-            "source.current.level",
-            "source.voltage.level",
-            "source.resistance.level",
-            "source.power.level",
-            "input.enabled",
-        )
-        if p in state
-    ]
-    return rows + grouped_columns(lang, {"Settings": settings}, state, width)
+    groups = panel_group_paths((info.get("display") or {}).get("panel"), info) or {"Settings": list(state)}
+    group_budget = budget - len(rows) if budget is not None else None
+    return rows + grouped_columns(lang, groups, state, width, budget=group_budget)
 
 
 def lockin_rows(
@@ -466,28 +473,30 @@ def reason_line(
 ) -> list[tuple[str, str]] | None:
     """The 原因 line of a troubled channel box, from existing data only (tui-screens.md 5.4)."""
     readings = readings.get("values", {})
-    if template == "smu" and readings.get("core.limited"):
+    if categories.get(template).screen == "smu" and readings.get("core.limited"):
         regulation = str(readings.get("core.regulation") or "CC")
-        set_path = "source.current.level" if regulation == "CV" else "source.voltage.level"
-        state = {sv["path"]: sv for sv in info.get("state", [])}
-        setting = C.summary_text((state.get(set_path) or {}).get("value"), state.get(set_path), lang)
-        if regulation == "CV":
-            text = i18n.t(
-                "reason.limitedCV",
-                lang,
-                limit=fmt(readings.get("core.limit"), "V"),
-                actual=fmt(readings.get("core.current"), "A"),
-                setting=setting,
-            )
-        else:
-            text = i18n.t(
-                "reason.limitedCC",
-                lang,
-                limit=fmt(readings.get("core.limit"), "A"),
-                actual=fmt(readings.get("core.voltage"), "V"),
-                setting=setting,
-            )
-        return [(i18n.t("reason.title", lang), "focus"), ("  " + text, "")]
+        roles = C.smu_source_roles(info)
+        set_path = roles["v_set"] if regulation == "CC" else roles["i_set"]
+        if set_path is not None:
+            state = {sv["path"]: sv for sv in info.get("state", [])}
+            setting = C.summary_text((state.get(set_path) or {}).get("value"), state.get(set_path), lang)
+            if regulation == "CV":
+                text = i18n.t(
+                    "reason.limitedCV",
+                    lang,
+                    limit=fmt(readings.get("core.limit"), "V"),
+                    actual=fmt(readings.get("core.current"), "A"),
+                    setting=setting,
+                )
+            else:
+                text = i18n.t(
+                    "reason.limitedCC",
+                    lang,
+                    limit=fmt(readings.get("core.limit"), "A"),
+                    actual=fmt(readings.get("core.voltage"), "V"),
+                    setting=setting,
+                )
+            return [(i18n.t("reason.title", lang), "focus"), ("  " + text, "")]
     for fault in faults:
         spec = fault.get("spec") or {}
         source = source_label({"kind": "fault", "source": fault.get("source", "")}, lang)
