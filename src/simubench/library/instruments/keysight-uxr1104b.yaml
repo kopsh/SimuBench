@@ -1363,12 +1363,18 @@ components:
         - [8.75e-2, 1.65e10, -54.1, -48.2]
         - [8.75e-2, 2.5e10, -50.1, -44.2]
         - [8.75e-2, 5.0e10, -43.1, -44.2]
-      # 交织（同页 Residuals, images, and spurious）：「Signal related, multiple per 16 GHz interval: -52 dBc」，
-      # 「Residual responses: -65 dBFS」——256 GSa/s / 16 GHz = 16 个子 ADC，一种余弦失配：像在 16 GHz ± f，杂散在 16 GHz。
-      # 只有 256 GSa/s 的记录带像与杂散；较慢的记录按全速采样再数字抽取、不带交织图样——假设，手册未说明（#1305）。
+      # 交织（同页，#1422）：256 GSa/s / 16 GHz（「每 16 GHz 一组」）= 16 个子 ADC。手册三条数据要一起对上：
+      # SFDR（不含谐波，含交织像）5 GHz 载波 ≤ -65 dBc、50 GHz 载波 ≤ -61 dBc，「Signal related」像 -52 dBc（最坏）。
+      # 增益失配给出与频率无关的像，时延失配给出随频率 20 dB/十倍频增长的像：增益取 -65 dBc（5 GHz 时时延项 < -80 dBc），
+      # 时延为余弦图样，幅度 δ 使 50 GHz 合计 -61 dBc：δ = 2·√(10^(-6.1) − 10^(-6.5)) / (2π·50 GHz) ≈ 4.40 fs；
+      # 113 GHz 时合计约 -55.6 dBc，接近 -52 dBc 的最坏值。#1266 把 -52 dBc 全算作增益失配，与 5 GHz 的 SFDR 不符，
+      # 且抽取后的记录（每 16 个采样同一子 ADC）会带 ±0.5 % 的直流增益误差；现为约 ±0.1 %。
+      # 杂散：Residual responses -65 dBFS（偏置失配）。较慢的记录取全速采样的每第 M 个，保留各采样的子 ADC，
+      # 像与杂散折叠进记录的频带（#1422，取代 #1305 的“不带交织图样”假设）。
       interleave: 16
-      interleave_image_dbc: -52.0
+      interleave_image_dbc: -65.0
       interleave_spur_dbfs: -65.0
+      interleave_skews_s: [4.402e-15, 4.067e-15, 3.113e-15, 1.685e-15, 0.0, -1.685e-15, -3.113e-15, -4.067e-15, -4.402e-15, -4.067e-15, -3.113e-15, -1.685e-15, 0.0, 1.685e-15, 3.113e-15, 4.067e-15]
       # 孔径抖动：数据手册 Horizontal 的 Intrinsic jitter（< 1 µs 采集 15 fs rms，所有接头型号）；按每个采样独立抽取。
       aperture_jitter_s: 1.5e-14
       # 硬件最小量程 60 mV 满量程（数据手册 3123-1313 Hardware sensitivity）：7.5 mV/div 以下是该量程的放大，

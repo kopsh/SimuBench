@@ -24,6 +24,7 @@ from simubench.library.components.scope_record import (
     converter_half,
     distortion,
     interleave,
+    sub_converters,
 )
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -65,8 +66,10 @@ def test_the_harmonics_follow_the_table_at_full_scale_and_fall_with_the_amplitud
 
 def test_the_interleaved_converters_make_images_and_a_spur_at_their_rate():
     """16 sub-converters at 256 GSa/s: a gain mismatch of -52 dBc puts an image at 16 GHz ± f, an
-    offset mismatch of -65 dBFS a spur at 16 GHz (±1 dB). A slower record is decimated from all
-    the sub-converters (the hardware samples at its full rate): it carries none of their pattern."""
+    offset mismatch of -65 dBFS a spur at 16 GHz (±1 dB). A slower record takes every M-th of the
+    full-rate samples, each keeping its sub-converter (#1422): at 128 GSa/s the 16 GHz image and
+    spur are still inside the band; at 16 GSa/s every sample is the same sub-converter's, so the
+    pattern folds into that converter's gain and a DC offset — exactly its share of the cosine."""
     k = 1001
     amp = 4 * SCALE
     view = _view(
@@ -78,9 +81,57 @@ def test_the_interleaved_converters_make_images_and_a_spur_at_their_rate():
     assert _line_dbc(frame, spur - k, amp) == pytest.approx(-52, abs=1.0)
     assert _line_dbc(frame, spur + k, amp) == pytest.approx(-52, abs=1.0)
     assert _line_dbc(frame, spur, amp) == pytest.approx(-65, abs=1.0)
+    # 128 GSa/s: N/2 samples, the same frequency resolution, the same bins
+    half_rate = _frame(view, count=N // 2, dt=2 / FS)
+    assert _line_dbc(half_rate, spur - k, amp) == pytest.approx(-52, abs=1.0)
+    assert _line_dbc(half_rate, spur, amp) == pytest.approx(-65, abs=1.0)
+    # 16 GSa/s from t = 0: sub-converter 0 throughout, cos(0) = 1: gain 1 + g, offset of half
     decimated = _frame(view, count=N // 16, dt=16 / FS)
     clean = _frame(dataclasses.replace(view, ilv=0), count=N // 16, dt=16 / FS)
-    assert np.array_equal(decimated, clean)
+    g, offset = 2 * 10 ** (-52 / 20), 10 ** (-65 / 20) * 4 * SCALE
+    assert np.allclose(decimated, clean * (1 + g) + offset, rtol=0, atol=1e-12)
+
+
+def test_each_sub_converter_s_own_mismatch_makes_the_images_of_its_fourier_series():
+    """#1422: per-sub-converter gain errors g_m give, at k·fs/N ± f, images of |Σ g_m e^(-2πikm/N)| / N
+    of the signal (the lists' discrete Fourier series); a cosine of timing skews of amplitude δ gives
+    images of 2πf·δ / 2 (to first order, the slope times the skew)."""
+    k, amp = 1001, 4 * SCALE
+    f = FS * k / N
+    gains = (3e-3, -1e-3, 0.0, 2e-3, -4e-3, 1e-3, 0.0, -1e-3)  # 8 sub-converters, made-up errors
+    view = _view(signal=Signal.lines([f], [amp + 0j]), ilv=8, ilv_gains=gains, native_dt=1 / FS)
+    frame = _frame(view)
+    series = np.fft.fft(gains) / 8
+    for j in (1, 2, 3):
+        expected = 20 * math.log10(abs(series[j]))
+        assert _line_dbc(frame, j * N // 8 + k, amp) == pytest.approx(expected, abs=0.2), j
+    delta, f_hi = 5e-15, FS * 6001 / N  # 23.4 GHz
+    skews = tuple(delta * math.cos(2 * math.pi * m / 16) for m in range(16))
+    skewed = _frame(_view(signal=Signal.lines([f_hi], [amp + 0j]), ilv=16, ilv_skews=skews, native_dt=1 / FS))
+    expected = 20 * math.log10(2 * math.pi * f_hi * delta / 2)
+    assert _line_dbc(skewed, N // 16 + 6001, amp) == pytest.approx(expected, abs=0.5)
+
+
+def test_the_uxr1104b_images_meet_the_data_sheet_s_sfdr_at_5_and_50_ghz():
+    """#1422: the UXR1104B's sub-converter mismatch, as its definition splits it — a gain mismatch
+    with -65 dBc images and a cosine of timing skews (4.40 fs) whose images grow with frequency —
+    meets the data sheet's spurious-free dynamic range (excluding harmonics, interleave images
+    included): -65 dBc with a 5 GHz carrier, -61 dBc with a 50 GHz carrier (±1 dB), the images on
+    either side of 16 GHz. Noise, distortion and jitter off: the images alone."""
+    session = open_bench(ROOT / "examples" / "benches" / "keysight-uxr1104b.bench.yaml", seed=3)
+    try:
+        view = session.instruments["scope"].components["adc"].view(3)
+    finally:
+        session.close()
+    amp = 0.9 * view.half
+    for bin_, sfdr in ((1280, -65.0), (12800, -61.0)):  # 5 GHz and 50 GHz, coherent in N samples
+        f = FS * bin_ / N
+        quiet = dataclasses.replace(
+            view, signal=Signal.lines([f], [amp + 0j]), sigma=0.0, hd=(0.0, 0.0), aperture=0.0, bits=0
+        )
+        frame = _frame(quiet)
+        assert _line_dbc(frame, N // 16 + bin_, amp) == pytest.approx(sfdr, abs=1.0), f
+        assert _line_dbc(frame, abs(N // 16 - bin_), amp) == pytest.approx(sfdr, abs=1.0), f
 
 
 def test_the_aperture_jitter_adds_noise_of_two_pi_f_sigma_on_a_50_ghz_sine():
@@ -204,6 +255,16 @@ def test_a_declared_enob_curve_sets_the_records_effective_bits():
         session.close()
 
 
+def test_a_per_sub_converter_list_must_match_the_interleave_count():
+    """#1422: one value per sub-converter. A definition that changes ``interleave`` and keeps a
+    parent's list is refused when it is validated, not when it first acquires."""
+    from simubench.library.components.scope import ScopeAdc
+
+    assert ScopeAdc.literal_problems({"interleave": 16, "interleave_skews_s": [0.0] * 16}) == []
+    ((name, message),) = ScopeAdc.literal_problems({"interleave": 32, "interleave_skews_s": [0.0] * 16})
+    assert name == "interleave_skews_s" and "16" in message and "32" in message
+
+
 # ---- each stage on its own (#1305) ------------------------------------------------------------
 
 
@@ -227,13 +288,18 @@ def test_the_distortion_stage_leaves_dc_and_a_quiet_signal_alone():
 def test_the_interleave_stage_repeats_every_n_samples_from_time_zero():
     """The pattern belongs to the converter's own grid counted from time zero: a sample keeps its
     sub-converter whichever frame it is in, and n samples on the pattern repeats."""
-    n, dt = 16, 1 / FS
+    dt = 1 / FS
     flat = np.zeros(64)
-    whole = interleave(flat, 0, np.arange(64) * dt, n, dt, 0.0, 1e-3, 0.0)
+    gains, offsets = sub_converters(16, 0.0, 1e-3)
+    whole = interleave(flat, 0, np.arange(64) * dt, dt, gains, offsets, 0.0)
     assert np.allclose(whole[:16], whole[16:32]) and np.allclose(whole[:16], whole[48:])
-    later = interleave(np.zeros(16), 0, (np.arange(16) + 5) * dt, n, dt, 0.0, 1e-3, 0.0)
+    later = interleave(np.zeros(16), 0, (np.arange(16) + 5) * dt, dt, gains, offsets, 0.0)
     assert np.allclose(later, whole[5:21])
-    assert np.array_equal(interleave(flat, 0, np.arange(64) * dt, 1, dt, 0.1, 1e-3, 0.0), flat)
+    one = sub_converters(1, 0.1, 1e-3)
+    assert np.array_equal(interleave(flat, 0, np.arange(64) * dt, dt, *one, 0.0), flat)
+    # a record every 4th sample keeps each sample's sub-converter: 4 of the 16, repeating
+    coarse = interleave(np.zeros(16), 0, np.arange(16) * 4 * dt, dt, gains, offsets, 0.0)
+    assert np.allclose(coarse, whole[::4][:16])
 
 
 def test_the_aperture_stage_moves_each_sample_by_the_slope_times_its_shift():
