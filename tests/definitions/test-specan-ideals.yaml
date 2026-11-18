@@ -1,6 +1,6 @@
 # 测试专用频谱仪（#954）：声明前端的非理想参数，验证迹线上的失真产物、相位噪声裙边、
 # 平坦度、镜像、压缩、残余与本振馈通。衰减固定 0，混频器的截点就是链的截点。
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: test-specan-ideals
 manufacturer: SimuBench
 model: TEST-SPECAN-IDEALS

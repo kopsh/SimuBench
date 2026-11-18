@@ -239,7 +239,7 @@
             }
           ],
           "default": null,
-          "description": "Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is",
+          "description": "Query reply template: {header} (the echoed header, see syntax.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is",
           "title": "Reply"
         },
         "set": {
@@ -449,7 +449,7 @@
             }
           ],
           "default": null,
-          "description": "Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is",
+          "description": "Query reply template: {header} (the echoed header, see syntax.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is",
           "title": "Reply"
         },
         "set": {
@@ -809,36 +809,6 @@
         "param"
       ],
       "title": "DeviationSpec",
-      "type": "object"
-    },
-    "Dialect": {
-      "additionalProperties": false,
-      "description": "How replies are framed, for instruments that are not plain SCPI (e.g. LeCroy's ``C1:VDIV 200E-3 V``).\n\nThe defaults are SCPI: no header in replies, numbers without multiplier suffixes.",
-      "properties": {
-        "echo_header": {
-          "default": "off",
-          "description": "Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER), or a bool setting that turns short headers on ('$system.header', Infiniium :SYSTem:HEADer, #602)",
-          "pattern": "^(off|short|long|\\$.+)$",
-          "title": "Echo Header",
-          "type": "string"
-        },
-        "long_form": {
-          "default": "",
-          "description": "A bool setting that makes replies long: headers in the long form and enumerations spelled out ('$system.longform', Infiniium :SYSTem:LONGform, #602); empty: never",
-          "pattern": "^(\\$.+)?$",
-          "title": "Long Form",
-          "type": "string"
-        },
-        "multipliers": {
-          "additionalProperties": {
-            "type": "number"
-          },
-          "description": "Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'",
-          "title": "Multipliers",
-          "type": "object"
-        }
-      },
-      "title": "Dialect",
       "type": "object"
     },
     "Display": {
@@ -2243,6 +2213,36 @@
       "title": "StateSpec",
       "type": "object"
     },
+    "Syntax": {
+      "additionalProperties": false,
+      "description": "This model's message syntax beyond what the commands themselves declare: whether replies\necho the header (LeCroy's ``C1:VDIV 200E-3 V``), when they are long, which suffixes a number\nwritten without a unit may carry. Every model has its own; the defaults are SCPI's: no header\nin replies, numbers without multiplier suffixes (#1418).",
+      "properties": {
+        "echo_header": {
+          "default": "off",
+          "description": "Replies start with the command header: off, short (C1:VDIV), long (C1:VOLT_DIV), or a setting whose value is OFF, SHORT or LONG ('$comm.header', switched by COMM_HEADER), or a bool setting that turns short headers on ('$system.header', Infiniium :SYSTem:HEADer, #602)",
+          "pattern": "^(off|short|long|\\$.+)$",
+          "title": "Echo Header",
+          "type": "string"
+        },
+        "long_form": {
+          "default": "",
+          "description": "A bool setting that makes replies long: headers in the long form and enumerations spelled out ('$system.longform', Infiniium :SYSTem:LONGform, #602); empty: never",
+          "pattern": "^(\\$.+)?$",
+          "title": "Long Form",
+          "type": "string"
+        },
+        "multipliers": {
+          "additionalProperties": {
+            "type": "number"
+          },
+          "description": "Suffixes of numbers written without a unit, e.g. {K: 1.0e3, M: 1.0e6} for 'MSIZ 10K'",
+          "title": "Multipliers",
+          "type": "object"
+        }
+      },
+      "title": "Syntax",
+      "type": "object"
+    },
     "TemplateSource": {
       "additionalProperties": false,
       "description": "The template a definition was expanded from and the inputs it was given (instrument-authoring.md\n7.4, D3). A record only: loading and running ignore it; expanding the inputs again reproduces the\ndefinition as the template generated it.",
@@ -2428,10 +2428,6 @@
       "title": "Deviations",
       "type": "array"
     },
-    "dialect": {
-      "$ref": "#/$defs/Dialect",
-      "description": "Reply framing beyond SCPI (headers, suffixes)"
-    },
     "display": {
       "$ref": "#/$defs/Display"
     },
@@ -2513,8 +2509,8 @@
       "description": "The manual this definition follows; a definition with a reference is a real model: unknown commands answer -113 'not implemented in this definition', error texts follow `errors`"
     },
     "schema": {
-      "const": "simubench.instrument/1",
-      "default": "simubench.instrument/1",
+      "const": "simubench.instrument/2",
+      "default": "simubench.instrument/2",
       "title": "Schema",
       "type": "string"
     },
@@ -2530,6 +2526,10 @@
       },
       "title": "State",
       "type": "object"
+    },
+    "syntax": {
+      "$ref": "#/$defs/Syntax",
+      "description": "This model's message syntax: headers echoed in replies, long replies, number suffixes"
     },
     "template": {
       "anyOf": [

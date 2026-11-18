@@ -92,7 +92,7 @@ def validate_definition(definition: InstrumentDefinition, report: Report | None 
     _check_wiring(d, classes, report)
     compiled = [_check_command(d, i, cmd, classes, report) for i, cmd in enumerate(d.commands)]
     _check_overlaps(d, compiled, report)
-    _check_dialect(d, report)
+    _check_syntax(d, report)
     _check_panel(d, report)
     return report
 
@@ -954,34 +954,34 @@ def _check_reply(
             )
 
 
-def _check_dialect(d: InstrumentDefinition, report: Report) -> None:
-    mode = d.dialect.echo_header
+def _check_syntax(d: InstrumentDefinition, report: Report) -> None:
+    mode = d.syntax.echo_header
     if mode.startswith("$"):
-        pointer = _ptr("dialect", "echo_header")
-        spec = _check_state_ref(d, mode[1:], False, pointer, "dialect", report)
+        pointer = _ptr("syntax", "echo_header")
+        spec = _check_state_ref(d, mode[1:], False, pointer, "syntax", report)
         if spec is not None:
             missing = {"OFF", "SHORT", "LONG"} - {o.upper() for o in spec.options or []}
             if spec.type != "bool" and (spec.type != "enum" or missing):
                 report.add(
                     "error",
-                    "E-DEF-DIALECT",
+                    "E-DEF-SYNTAX",
                     pointer,
                     f"echo_header 绑定的状态 {mode[1:]!r} 要是取值为 OFF、SHORT、LONG 的枚举，或布尔开关",
                     'options: ["OFF", SHORT, LONG]，或 type: bool',
-                    "dialect",
+                    "syntax",
                 )
-    long_form = d.dialect.long_form
+    long_form = d.syntax.long_form
     if long_form:
-        pointer = _ptr("dialect", "long_form")
-        spec = _check_state_ref(d, long_form[1:], False, pointer, "dialect", report)
+        pointer = _ptr("syntax", "long_form")
+        spec = _check_state_ref(d, long_form[1:], False, pointer, "syntax", report)
         if spec is not None and spec.type != "bool":
             report.add(
                 "error",
-                "E-DEF-DIALECT",
+                "E-DEF-SYNTAX",
                 pointer,
                 f"long_form 绑定的状态 {long_form[1:]!r} 要是布尔开关",
                 "type: bool",
-                "dialect",
+                "syntax",
             )
 
 

@@ -1,6 +1,6 @@
 # A made-up "real model" that exercises the real-model framework (D42, docs/real-models.md).
 # It is not in the product library: the tests load it from this folder.
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: acme-dm1
 manufacturer: ACME Instruments
 model: DM1

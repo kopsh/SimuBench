@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: sb-oe-1
 manufacturer: SimuBench
 model: SB-OE-1

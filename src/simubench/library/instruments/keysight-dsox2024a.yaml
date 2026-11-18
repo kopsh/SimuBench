@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-dsox2024a
 manufacturer: Keysight Technologies
 model: DSO-X 2024A

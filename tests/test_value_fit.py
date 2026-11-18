@@ -101,7 +101,7 @@ def test_a_bool_and_a_string_are_not_numbers():
 # ---- the false positives, locked from the definition side ------------------------------------
 
 BASE = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "sb-fit",
     "manufacturer": "SimuBench",
     "model": "SB-FIT",

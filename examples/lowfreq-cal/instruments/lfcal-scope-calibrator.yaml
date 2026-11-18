@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: lfcal-scope-calibrator
 manufacturer: SimuBench
 model: LFCAL-CALIBRATOR

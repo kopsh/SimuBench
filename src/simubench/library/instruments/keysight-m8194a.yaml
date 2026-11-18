@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-m8194a
 manufacturer: Keysight Technologies
 model: M8194A

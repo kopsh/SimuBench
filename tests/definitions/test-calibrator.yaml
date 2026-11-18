@@ -1,7 +1,7 @@
 # A calibrator built from generic components only, to test calibrator_output, the quantities
 # parameter type and the declared error query (issue 90, metrology-authoring.md 5). Test-only,
 # not in the product library (D42); the numbers are the test's own, not a real model's.
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: test-calibrator
 manufacturer: SimuBench
 model: CAL-TEST-1

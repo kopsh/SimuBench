@@ -1,5 +1,5 @@
 # A meter with ranges and per-range deviations, from generic components only (#34 after #87).
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: test-range-meter
 manufacturer: SimuBench
 model: RANGE-METER

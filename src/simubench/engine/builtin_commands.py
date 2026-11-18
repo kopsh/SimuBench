@@ -139,8 +139,8 @@ class BuiltinCommands:
         return builtin_allowed(self.inst.definition, header)
 
     def echo_mode(self) -> str:
-        """off, short or long: whether and how replies repeat the command header (dialect.echo_header)."""
-        mode = self.inst.definition.dialect.echo_header
+        """off, short or long: whether and how replies repeat the command header (syntax.echo_header)."""
+        mode = self.inst.definition.syntax.echo_header
         if mode.startswith("$"):
             value = self.inst.state.get(mode[1:], "off")
             if isinstance(value, bool):  # a header switch (Infiniium :SYSTem:HEADer, #602)
@@ -152,8 +152,8 @@ class BuiltinCommands:
         return mode
 
     def long_form(self) -> bool:
-        """Whether replies are long: long headers and spelled-out enumerations (dialect.long_form)."""
-        path = self.inst.definition.dialect.long_form
+        """Whether replies are long: long headers and spelled-out enumerations (syntax.long_form)."""
+        path = self.inst.definition.syntax.long_form
         return bool(path) and bool(self.inst.state.get(path[1:], False))
 
     @property

@@ -1,7 +1,7 @@
 # A multimeter on the generic calibration store (issue 89, metrology-authoring.md 4): coefficients
 # per function and range, security code, adjustment, ledger. Test-only, not in the product library
 # (D42).
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: cal-store-test
 manufacturer: SimuBench
 model: CAL-STORE-1

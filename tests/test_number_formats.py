@@ -39,7 +39,7 @@ def test_engineering_numbers_keep_their_significant_digits(value, digits, kwargs
 
 
 DEMO = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "demo",
     "manufacturer": "ACME",
     "model": "DEMO",

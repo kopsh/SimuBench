@@ -709,7 +709,7 @@ class Instrument:
     def write_events(self, events: list[WriteEvent] | None) -> None:
         self._write_events = events
 
-    # ---- replies: the dialect's header echo and the command's template ------------------------------
+    # ---- replies: the model's header echo (syntax) and the command's template ------------------------------
 
     # ---- settings --------------------------------------------------------------------------------------
 

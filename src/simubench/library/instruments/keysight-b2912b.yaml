@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-b2912b
 manufacturer: Keysight Technologies
 model: B2912B

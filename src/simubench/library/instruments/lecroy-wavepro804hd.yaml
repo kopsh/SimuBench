@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: lecroy-wavepro804hd
 manufacturer: Teledyne LeCroy
 model: WavePro 804HD
@@ -20,7 +20,7 @@ identity:
   serial: WP804HD0001
   firmware: 10.3.0.0
 builtins: ["*CLS", "*ESE", "*ESR", "*IDN", "*OPC", "*RST", "*SRE", "*STB", "*TRG", "*WAI"]
-dialect:
+syntax:
   # COMM_HEADER: SHORT echoes short headers (C1:VDIV), LONG echoes long ones (C1:VOLT_DIV).
   echo_header: $comm.header
   # Unitless numbers (MSIZ 10K, 1MA): MAUI reads a bare M as milli and MA as mega (manual, MEMORY_SIZE).

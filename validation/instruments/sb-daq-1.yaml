@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: sb-daq-1
 manufacturer: SimuBench
 model: SB-DAQ-1

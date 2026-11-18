@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: sb-dso-4
 manufacturer: SimuBench
 model: SB-DSO-4

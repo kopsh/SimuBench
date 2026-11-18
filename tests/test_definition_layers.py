@@ -48,7 +48,7 @@ def test_default_block_by_class():
 
 def write(dir_path, def_id: str, **extra) -> None:
     data = {
-        "schema": "simubench.instrument/1",
+        "schema": "simubench.instrument/2",
         "id": def_id,
         "manufacturer": "ACME",
         "model": def_id,

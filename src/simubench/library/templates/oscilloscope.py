@@ -1275,7 +1275,7 @@ def _build_lecroy(x: OscilloscopeInputs) -> dict[str, Any]:
         "model": x.identity.model,
         "class": "oscilloscope",
         "identity": identity,
-        "dialect": {"echo_header": "$comm.header", "multipliers": {"K": 1.0e3, "M": 1.0e6, "MA": 1.0e6, "G": 1.0e9}},
+        "syntax": {"echo_header": "$comm.header", "multipliers": {"K": 1.0e3, "M": 1.0e6, "MA": 1.0e6, "G": 1.0e9}},
         "format": {"number": "engineering", "boolean": "word", "enum": "short"},
         "channels": channels,
         "state": state,

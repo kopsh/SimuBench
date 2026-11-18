@@ -94,7 +94,7 @@ def blocks():
 
 
 CHAIN = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "chain",
     "manufacturer": "ACME",
     "model": "CHAIN",

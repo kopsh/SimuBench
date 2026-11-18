@@ -1259,7 +1259,7 @@ export const en: Widen<Messages> = {
       builtins: "common commands",
       errors: "error texts",
       format: "reply format",
-      dialect: "dialect",
+      syntax: "message syntax",
       error_queue: "error queue",
       version: "version",
       class: "class",

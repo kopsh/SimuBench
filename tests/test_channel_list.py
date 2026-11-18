@@ -85,7 +85,7 @@ def test_a_stored_list_reads_back_collapsed(channels, ranges, text):
 # ---- a definition with channel lists ---------------------------------------------------------------
 
 PSU = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "psu-demo",
     "manufacturer": "ACME",
     "model": "PSU3",
@@ -230,7 +230,7 @@ def test_a_definition_declares_descending_ranges_for_writes_and_queries():
 # ---- a definition whose channels are numbered 101, 102, 201, 202 (#207): one flow ------------------
 
 DAQ = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "daq-demo",
     "manufacturer": "ACME",
     "model": "DAQ4",
@@ -334,7 +334,7 @@ def test_numbering_must_not_repeat_a_channel_number():
 # ---- a channel list with the command's constants and a whole-list setting (#300) -------------------
 
 DAQ_CONF = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "daq-conf",
     "manufacturer": "ACME",
     "model": "DAQ",

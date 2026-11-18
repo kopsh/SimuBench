@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-n9042b
 manufacturer: Keysight Technologies
 model: N9042B

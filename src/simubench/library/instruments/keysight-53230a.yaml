@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-53230a
 manufacturer: Keysight Technologies
 model: 53230A

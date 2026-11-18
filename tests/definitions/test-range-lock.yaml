@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: test-range-lock
 manufacturer: SimuBench
 model: TEST-RANGE-LOCK

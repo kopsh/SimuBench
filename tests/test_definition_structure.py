@@ -326,7 +326,7 @@ def test_a_new_instrument_from_a_template_or_blank_and_its_identity(tmp_path):
         ).json()
         on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
         assert on_disk == {
-            "schema": "simubench.instrument/1",
+            "schema": "simubench.instrument/2",
             "id": my_id,
             "extends": "keysight-uxr1104b",
             "identity": {"serial": "MY65000123", "firmware": "11.90.00001"},

@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: rigol-dsg815
 manufacturer: Rigol Technologies
 model: DSG815

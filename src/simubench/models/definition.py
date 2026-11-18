@@ -1,4 +1,4 @@
-"""Instrument definition file model (``simubench.instrument/1``).
+"""Instrument definition file model (``simubench.instrument/2``).
 
 An instrument definition declares the components an instrument is made of, how they are wired,
 the settable state, and the SCPI command tree that maps onto that state and onto component
@@ -126,7 +126,7 @@ class StateSpec(_Model):
 
 
 class ParamMapping(_Model):
-    """A component parameter derived from a setting, for a dialect's values the component reads
+    """A component parameter derived from a setting, for a model's values the component reads
     differently: ``{from: $ch.wave, map: {SINe: SINusoid}}``, ``{from: $ch.duty, scale: 100}``.
 
     The value of ``from`` is looked up in ``map`` (``default`` when it is not there, else it passes
@@ -475,7 +475,7 @@ class CommandSpec(_Model):
     format: ResponseFormat | None = Field(None, description="Overrides the definition's response format")
     reply: str | None = Field(
         None,
-        description="Query reply template: {header} (the echoed header, see dialect.echo_header; with "
+        description="Query reply template: {header} (the echoed header, see syntax.echo_header; with "
         "echo off it and the space after it are left out), {value} (the bound setting, or an "
         "operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. "
         "'#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for "
@@ -611,11 +611,11 @@ class CommandSpec(_Model):
                 )
 
 
-class Dialect(_Model):
-    """How replies are framed, for instruments that are not plain SCPI (e.g. LeCroy's ``C1:VDIV 200E-3 V``).
-
-    The defaults are SCPI: no header in replies, numbers without multiplier suffixes.
-    """
+class Syntax(_Model):
+    """This model's message syntax beyond what the commands themselves declare: whether replies
+    echo the header (LeCroy's ``C1:VDIV 200E-3 V``), when they are long, which suffixes a number
+    written without a unit may carry. Every model has its own; the defaults are SCPI's: no header
+    in replies, numbers without multiplier suffixes (#1418)."""
 
     echo_header: str = Field(
         "off",
@@ -996,7 +996,7 @@ class CommandOverride(CommandSpec):
 
 
 class InstrumentDefinition(_Model):
-    schema_: Literal["simubench.instrument/1"] = Field("simubench.instrument/1", alias="schema")
+    schema_: Literal["simubench.instrument/2"] = Field("simubench.instrument/2", alias="schema")
 
     #: The file the definition was loaded from, as the loader received the path; the loader sets it
     #: (events that classify a command name the declaration's file, tui-design.md 1.1). Definitions
@@ -1091,8 +1091,9 @@ class InstrumentDefinition(_Model):
         None, ge=2, description="Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)"
     )
     format: ResponseFormat = Field(default_factory=ResponseFormat, description="Default response format")
-    dialect: Dialect = Field(
-        default_factory=Dialect, description="Reply framing beyond SCPI (headers, suffixes)"
+    syntax: Syntax = Field(
+        default_factory=Syntax,
+        description="This model's message syntax: headers echoed in replies, long replies, number suffixes",
     )
     specs: dict[str, Any] = Field(
         default_factory=dict,

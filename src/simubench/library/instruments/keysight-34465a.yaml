@@ -1,4 +1,4 @@
-schema: simubench.instrument/1
+schema: simubench.instrument/2
 id: keysight-34465a
 manufacturer: Keysight Technologies
 model: 34465A

@@ -1,4 +1,4 @@
-"""Declarative commands and replies (instrument-authoring.md 2, issue 42): the dialect, reply
+"""Declarative commands and replies (instrument-authoring.md 2, issue 42): the model's syntax, reply
 templates, ``pairs`` parameters, multiplier suffixes and component parameter mappings."""
 
 from __future__ import annotations
@@ -17,13 +17,13 @@ from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
 
 DEMO = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "demo",
     "manufacturer": "ACME",
     "model": "DEMO",
     "class": "oscilloscope",
     "unknown_commands": "ignore",
-    "dialect": {"echo_header": "$comm.header", "multipliers": {"K": 1e3, "M": 1e6, "MA": 1e6}},
+    "syntax": {"echo_header": "$comm.header", "multipliers": {"K": 1e3, "M": 1e6, "MA": 1e6}},
     "format": {"number": "engineering", "boolean": "word"},
     "channels": {"count": 2},
     "state": {
@@ -113,7 +113,7 @@ def error(query) -> str:
     return query("SYST:ERR?")
 
 
-# ---- dialect: header echo, engineering numbers, multipliers --------------------------------------
+# ---- syntax: header echo, engineering numbers, multipliers --------------------------------------
 
 
 def test_the_header_echo_follows_a_setting():
@@ -154,9 +154,9 @@ def test_a_unit_keeps_scpi_suffixes():
 
 
 def test_scpi_definitions_reply_as_before():
-    """The dialect's defaults are plain SCPI: no header in replies."""
+    """The syntax defaults are plain SCPI: no header in replies."""
     data = copy.deepcopy(DEMO)
-    del data["dialect"], data["format"]
+    del data["syntax"], data["format"]
     _, _, query, _ = open_demo(data)
     assert query("C1:VDIV?") == "+5.000000E-02 V"  # a reply template still applies, without {header}
     assert query("C1:TRA?") == "0"
@@ -298,7 +298,7 @@ def test_static_checks_of_the_new_fields():
     bad["commands"][8]["reply"] = "{header} {value}"
     bad["channel_components"][0]["params"]["duty"]["from"] = "$ch.dutty"
     bad["channel_components"][0]["params"]["function"]["map"]["SINus"] = "SINusoid"
-    bad["dialect"]["echo_header"] = "$memory.size"
+    bad["syntax"]["echo_header"] = "$memory.size"
     assert sorted(codes(bad)) == sorted(
         [
             ("E-DEF-STATE-UNKNOWN", "/channel_components/0/params/duty/from"),
@@ -307,18 +307,18 @@ def test_static_checks_of_the_new_fields():
             ("E-DEF-STATE-UNKNOWN", "/commands/7/params/0/state"),
             ("E-DEF-STATE-UNKNOWN", "/commands/7/params/1/keys/SR"),
             ("E-DEF-REPLY", "/commands/8/reply"),
-            ("E-DEF-DIALECT", "/dialect/echo_header"),
+            ("E-DEF-SYNTAX", "/syntax/echo_header"),
         ]
     )
 
 
 HEADERS = {
-    "schema": "simubench.instrument/1",
+    "schema": "simubench.instrument/2",
     "id": "demo",
     "manufacturer": "ACME",
     "model": "HDR",
     "class": "oscilloscope",
-    "dialect": {"echo_header": "$system.header", "long_form": "$system.longform"},
+    "syntax": {"echo_header": "$system.header", "long_form": "$system.longform"},
     "state": {
         "system.header": {"type": "bool", "default": False},
         "system.longform": {"type": "bool", "default": False},
@@ -347,8 +347,8 @@ def test_headers_and_long_form_are_two_switches():
 
 def test_the_long_form_switch_must_be_a_bool():
     bad = copy.deepcopy(HEADERS)
-    bad["dialect"]["long_form"] = "$timebase.reference"
-    assert codes(bad) == [("E-DEF-DIALECT", "/dialect/long_form")]
+    bad["syntax"]["long_form"] = "$timebase.reference"
+    assert codes(bad) == [("E-DEF-SYNTAX", "/syntax/long_form")]
 
 
 # ---- commands told apart by a parameter, index parameters (issue 48) -------------------------------
