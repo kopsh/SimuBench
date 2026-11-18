@@ -253,6 +253,19 @@ async def test_draft_from_script(ws):
     assert (ws / "cal.bench.yaml").is_file()
 
 
+async def test_a_file_that_does_not_parse_is_an_error_text(ws):
+    """#1406: broken bench and definition content reaches the agent as text with its position."""
+    (ws / "bad.bench.json").write_text("{not json", encoding="utf-8")
+    (ws / "instruments").mkdir()
+    (ws / "instruments" / "bad.yaml").write_text("name: [\n", encoding="utf-8")
+    _, server = make(ws)
+    async with Client(server) as c:
+        bench = await call(c, "read_bench", path="bad.bench.json")
+        assert "bad.bench.json" in bench["error"] and "line 1 column 2" in bench["error"]
+        definition = await call(c, "read_definition", definition_id="bad")
+        assert "bad" in definition["error"] and "line" in definition["error"]
+
+
 async def test_control_tools_off_by_default(ws):
     _, server = make(ws)
     async with Client(server) as c:

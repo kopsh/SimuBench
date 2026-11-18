@@ -17,7 +17,7 @@ import yaml
 from ..engine import jsonpatch
 from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
-from ..library.loader import dump_yaml, layered_definition_data, load_yaml
+from ..library.loader import dump_yaml, layered_definition_data, load_yaml, parse_error_text
 from ..library.migrate import upgrade
 from ..models import api as M
 from . import definitionstructure
@@ -48,7 +48,7 @@ class DefinitionFiles:
             raw, editable = path.read_bytes(), True
         else:
             raw, editable, rel = self.files.library(None).path(def_id).read_bytes(), False, None  # type: ignore[assignment]
-        return self._document(def_id, rel, editable, raw, _parse(raw))
+        return self._document(def_id, rel, editable, raw, _parse(raw, def_id))
 
     def validate(self, data: dict[str, Any]) -> Report:
         try:  # D59: a draft that extends a model is checked against what it will run
@@ -290,8 +290,12 @@ class DefinitionFiles:
         )
 
 
-def _parse(raw: bytes) -> dict[str, Any]:
-    data = load_yaml(raw.decode("utf-8"))
+def _parse(raw: bytes, name: str = "") -> dict[str, Any]:
+    try:
+        data = load_yaml(raw.decode("utf-8"))
+    except yaml.YAMLError as exc:
+        # Broken file content is a domain error (#1406); the parser's line and column stay.
+        raise Invalid(parse_error_text(exc, name)) from None
     if not isinstance(data, dict):
         raise Invalid("expected a mapping at the top level")
     return data
