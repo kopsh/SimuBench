@@ -11,7 +11,9 @@ the base class and ``scpi.values``, in one spelling each:
   name building and no ``components[str(self.param(...))]`` bracket lookups (a lookup of another
   channel by its number, as the SDG's copy of another channel's ``limits``, stays a direct one:
   ``peer`` is for the component's own channel);
-* boolean-ish settings parse through ``V.flag`` — no private ``_flag`` spellings.
+* boolean-ish settings parse through ``V.flag`` — no private ``_flag`` spellings;
+* a reading's noise is keyed through ``noise_when(frame)`` (D32, #746) — no ``_script_reads``
+  counter of the component's own (issue 1385).
 
 The scan below is the guard; the last tests keep it live.
 """
@@ -113,6 +115,16 @@ def duck_probe(nodes: list[ast.AST]) -> Iterator[ast.AST]:
             yield node
 
 
+def own_read_counter(nodes: list[ast.AST]) -> Iterator[ast.AST]:
+    """A component's own ``_script_reads`` (a class attribute or ``self._script_reads``): the
+    script's read sequence that keys the noise is the base class's, behind ``noise_when``."""
+    for node in nodes:
+        if _is_self_attr(node, "_script_reads") or (
+            isinstance(node, ast.Name) and node.id == "_script_reads" and isinstance(node.ctx, ast.Store)
+        ):
+            yield node
+
+
 def _lines_of(guard: Guard, nodes: list[ast.AST]) -> list[int]:
     return sorted({getattr(node, "lineno", 0) for node in guard(nodes)})
 
@@ -161,6 +173,7 @@ BRACKET = _offenders(bracket_accessor)
 PRIVATE_FLAGS = _offenders(private_flag)
 OLD_ON_STATE = _offenders(old_on_state)
 DUCK_PROBES = _offenders(duck_probe)
+OWN_READ_COUNTERS = _offenders(own_read_counter)
 
 
 def test_no_handbuilt_channel_sibling_names():
@@ -183,6 +196,10 @@ def test_no_duck_probing_of_peers():
     assert DUCK_PROBES == []
 
 
+def test_reading_noise_is_keyed_by_the_base_class():
+    assert OWN_READ_COUNTERS == []
+
+
 @pytest.mark.parametrize(
     ("guard", "planted"),
     [
@@ -193,6 +210,8 @@ def test_no_duck_probing_of_peers():
         (private_flag, "def _flag(value):\n    return bool(value)"),
         (old_on_state, "def on_state(self, path, old, new):\n    return None"),
         (duck_probe, 'if hasattr(comp, "trace_value"):\n    x = comp'),
+        (own_read_counter, "self._script_reads += 1"),
+        (own_read_counter, "_script_reads = 0  # a class attribute of its own"),
     ],
 )
 def test_the_guard_sees_the_boilerplate(guard: Guard, planted: str):

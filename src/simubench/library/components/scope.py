@@ -53,6 +53,7 @@ from .measurements import (
     threshold_levels,
     top_base,
 )
+from .reading_math import value_stats
 from .scope_math import function_index
 from .scope_pending import Acquisition, PendingAcquisitions, _Segment
 from .scope_record import (
@@ -3692,26 +3693,17 @@ class ScopeMeasurements(Component):
             value, u = self.value(what, n)
             used += u
             self._keep(what, n, value)
-            values = np.array(self.history.get((what, n)) or [])
+            stats = value_stats(self.history.get((what, n)) or [])
+            count = int(stats["count"])
+            summary = [stats[k] if count else math.nan for k in ("minimum", "maximum", "mean", "sdev")]
             if stat and not stat.startswith("ON"):
-                pick = {
-                    "CURR": value,
-                    "MIN": float(values.min()) if values.size else math.nan,
-                    "MAX": float(values.max()) if values.size else math.nan,
-                    "MEAN": float(values.mean()) if values.size else math.nan,
-                    "STDD": float(values.std()) if values.size else math.nan,
-                }
+                pick = dict(zip(("CURR", "MIN", "MAX", "MEAN", "STDD"), (value, *summary), strict=True))
                 key = next((k for k in pick if stat.startswith(k)), None)
-                parts.append(str(values.size).encode() if key is None else self._number(pick[key]))
+                parts.append(str(count).encode() if key is None else self._number(pick[key]))
                 continue
             fields = [self._label(what, n).encode(), self._number(value)]
-            if values.size:
-                fields += [
-                    self._number(float(f())) for f in (values.min, values.max, values.mean, values.std)
-                ]
-            else:
-                fields += [self._number(math.nan)] * 4
-            fields.append(str(values.size).encode())
+            fields += [self._number(x) for x in summary]
+            fields.append(str(count).encode())
             parts.append(b",".join(fields))
         return parts, used
 
@@ -4376,17 +4368,17 @@ class ScopeMeasurements(Component):
         table = {str(k).upper(): v for k, v in (self.param("names") or {}).items()}
         name = kind.strip().upper()
         n = self._channel(channel)
-        values = np.array(
+        stats = value_stats(
             self.history.get((name, n)) or self.history.get((str(table.get(name, [name])[0]), n)) or []
         )
         if item == "count":
-            return OpResult(str(values.size).encode())
-        if not values.size:
+            return OpResult(str(stats["count"]).encode())
+        if not stats["count"]:
             return OpResult(str(self.param("invalid_value")).encode())
-        stat = {"mean": values.mean, "sdev": values.std, "min": values.min, "max": values.max}.get(item)
-        if stat is None:
+        key = {"mean": "mean", "sdev": "sdev", "min": "minimum", "max": "maximum"}.get(item)
+        if key is None:
             raise ScpiError(-224, f"no statistic {item!r}")
-        return OpResult(self.owner.format_number(float(stat())))
+        return OpResult(self.owner.format_number(stats[key]))
 
     @op("clear_statistics")
     def clear_statistics(self, **_: Any) -> OpResult:

@@ -46,6 +46,28 @@ UNITS = ("NONE", "PERCent", "DB", *DBM_UNITS)
 FACTORS = ("m", "c", "z")
 
 
+def value_stats(values: Any) -> dict[str, float]:
+    """The statistics of a series of readings: ``count``, ``mean``, ``minimum``, ``maximum``,
+    ``span`` and ``sdev`` — every instrument's statistics, so one estimator answers to one name.
+
+    ``sdev`` is the sample standard deviation (n − 1, #1385): the meters' and counters' manuals
+    say so, the oscilloscope programmer's guides name the statistic without a formula. With fewer
+    than two values it is 0, and an empty series is all zeros (the caller decides what an
+    instrument replies for no values)."""
+    s = np.asarray(values, dtype=float)
+    if not s.size:
+        return {"count": 0, "mean": 0.0, "minimum": 0.0, "maximum": 0.0, "span": 0.0, "sdev": 0.0}
+    lo, hi = float(s.min()), float(s.max())
+    return {
+        "count": int(s.size),
+        "mean": float(s.mean()),
+        "minimum": lo,
+        "maximum": hi,
+        "span": hi - lo,
+        "sdev": float(s.std(ddof=1)) if s.size > 1 else 0.0,
+    }
+
+
 def apply_math(x: float, *, m: float | None, c: float | None, z: float | None) -> float:
     """``(m·x − c) / z`` with the factors that are on (None: off)."""
     y = x * m if m is not None else x
@@ -244,17 +266,7 @@ class ReadingMath(Component):
     # ---- statistics ------------------------------------------------------------------------------
 
     def statistics(self) -> dict[str, float]:
-        s = self.samples
-        if not s:
-            return {"count": 0, "mean": 0.0, "minimum": 0.0, "maximum": 0.0, "span": 0.0, "sdev": 0.0}
-        return {
-            "count": len(s),
-            "mean": float(np.mean(s)),
-            "minimum": float(min(s)),
-            "maximum": float(max(s)),
-            "span": float(max(s) - min(s)),
-            "sdev": float(np.std(s, ddof=1)) if len(s) > 1 else 0.0,
-        }
+        return value_stats(self.samples)
 
     def readings(self) -> dict[str, Any]:
         return {"values": {**self.statistics(), "limit_fail": self.failed}}

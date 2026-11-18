@@ -416,23 +416,16 @@ class DmmAdc(Component):
 
     # ---- the reading -----------------------------------------------------------------------------
 
-    _script_reads = 0
-
     def reading(self, what: str, index: int = 0, frame: int | None = None) -> float:
         """One reading. Noise (``noise``) is added after the calibration and before the
-        quantization and the overload test (#746). A script's reading is keyed by the sequence
-        number of the scripted readings of this meter (a command that takes no virtual time, as
-        ``MEAS?`` here, would otherwise read the same value twice; a replay of the same commands
-        reproduces it bit for bit); the Web panel's by its own ``frame`` (D32)."""
+        quantization and the overload test (#746), keyed by :meth:`Component.noise_when`."""
         conditioning = self._conditioning()
         function = conditioning.active_function(what)
         gain, cal_offset = self._cal(function)
         value = (conditioning.raw(function) - (cal_offset if function == "DC" else 0.0)) * gain
         r = conditioning.effective_range(function)
         if r is not None and isinstance(self.param("noise"), dict):
-            if frame is None:
-                self._script_reads += 1
-            when = ("panel", frame) if frame is not None else ("script", self._script_reads)
+            when = self.noise_when(frame)
             value += self.noise_sample(
                 self.noise_rms(r, float(self.param("reading_time"))), "reading", function, *when
             )
