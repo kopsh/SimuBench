@@ -21,9 +21,12 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   parse rule (`commit` / `SKIP` / `INVALID`: unit stripping, INF/high-Z, plain trim) as a prop; never
   copy the focus/blur/Esc handlers. A refused text can stay in the field (`held`, dropped by Esc through
   `onCancel`): `StateField` keeps it and writes the reason under the field (#1353).
-- `web/src/features/workbench/classes.tsx` — the one list of instrument classes (icon + own screen).
-  A new class is added there, plus `acceptance.class.<id>` in both i18n files (`classes.test.ts`
-  checks they agree); do not add icon maps or `if (template === …)` chains elsewhere.
+- `web/src/features/workbench/classes.tsx` — the one list of instrument classes (icon + own screen),
+  declared `satisfies Record<TemplateId, ClassEntry>` over the backend registry's generated TS
+  union (#1384, `library/categories.py`): a backend class without an entry here is a compile
+  error. A new class gets a registry row in `library/categories.py`, an entry here, and
+  `acceptance.class.<id>` in both i18n files (`classes.test.ts` checks they agree); do not add
+  icon maps or `if (template === …)` chains elsewhere.
 - `web/src/features/home/` — the product page (D65): `HelloPreview.tsx` plays engine data from
   `hello-preview.json` (regenerate: `uv run python scripts/capture_hello_preview.py`), `Showcase.tsx`
   shows real screenshots in `assets/` (TUI: `docs/tui/hello.steps.yaml`; web: the workbench on the

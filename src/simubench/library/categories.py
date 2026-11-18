@@ -21,7 +21,7 @@ a ``INSTRUMENT_CLASSES`` entry a compile error.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Literal
+from typing import Literal, cast
 
 #: The row kind a UI dispatches on: which rows the card draws and which channel lines the
 #: instrument screen shows (the TUI maps each kind to its own functions; the Web maps it to a
@@ -112,18 +112,32 @@ _ROWS: tuple[Category, ...] = (
         panel="dedicated",
         hints=("lockin", "lia", "sr8"),
     ),
-    Category("electronic_load", "acceptance.class.electronic_load", readings=True, screen="load", panel="dedicated"),
+    Category(
+        "electronic_load", "acceptance.class.electronic_load", readings=True, screen="load", panel="dedicated"
+    ),
     Category("rf_generator", "acceptance.class.rf_generator", readings=True, screen="rf", panel="dedicated"),
     Category("multimeter", "acceptance.class.multimeter", readings=True, screen="meter", panel="default"),
     Category("calibrator", "acceptance.class.calibrator", readings=True, screen="meter", panel="default"),
     Category("daq", "acceptance.class.daq", readings=True, screen="generic", panel="default"),
-    Category("power_supply", "acceptance.class.power_supply", readings=True, screen="generic", panel="default"),
     Category(
-        "frequency_counter", "acceptance.class.frequency_counter", readings=False, screen="generic", panel="default"
+        "power_supply", "acceptance.class.power_supply", readings=True, screen="generic", panel="default"
     ),
-    Category("tunable_laser", "acceptance.class.tunable_laser", readings=False, screen="generic", panel="default"),
     Category(
-        "optical_power_meter", "acceptance.class.optical_power_meter", readings=False, screen="generic", panel="default"
+        "frequency_counter",
+        "acceptance.class.frequency_counter",
+        readings=False,
+        screen="generic",
+        panel="default",
+    ),
+    Category(
+        "tunable_laser", "acceptance.class.tunable_laser", readings=False, screen="generic", panel="default"
+    ),
+    Category(
+        "optical_power_meter",
+        "acceptance.class.optical_power_meter",
+        readings=False,
+        screen="generic",
+        panel="default",
     ),
     Category(
         "optical_attenuator",
@@ -169,3 +183,10 @@ def get(category_id: str | None) -> Category:
     """The category an id names; an unknown id (or none) gets the generic fallback row, so a
     definition of a class the registry does not know still loads, runs and shows."""
     return _BY_ID.get(category_id or "") or _GENERIC
+
+
+def as_api_class(category_id: str) -> InstrumentClass:
+    """Pass a definition's ``class`` (a plain str) into an API field. The schema names the set the
+    UI is built for, the fields carrying it deliberately skip validation (``SkipValidation``), so
+    a class the registry does not know still loads, runs and shows the generic layout (#1384)."""
+    return cast(InstrumentClass, category_id)

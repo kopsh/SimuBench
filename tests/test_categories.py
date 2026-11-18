@@ -14,7 +14,7 @@ from typing import get_args
 
 from simubench.library import categories
 from simubench.library.class_defaults import CLASS_ERRORS
-from simubench.library.panels import DEDICATED, _DEFAULTS
+from simubench.library.panels import _DEFAULTS, DEDICATED
 from simubench.models.api import InstrumentClass
 
 ROOT = Path(__file__).resolve().parents[1]

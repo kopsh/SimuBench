@@ -20,6 +20,7 @@ from ..engine.session import Session
 from ..engine.silence import why_silent
 from ..engine.stream import ModelLimit
 from ..engine.validate import drives_net
+from ..library import categories
 from ..library.components.scope import channel_index
 from ..library.panels import effective_panel
 from ..models import api as M
@@ -214,7 +215,7 @@ class SessionViews:
             model=d.model,
             manufacturer=d.manufacturer,
             definition_id=d.id,
-            instrument_class=d.instrument_class,
+            instrument_class=categories.as_api_class(d.instrument_class),
             description=d.description,
             idn=inst.idn,
             channels=inst.channel_count,

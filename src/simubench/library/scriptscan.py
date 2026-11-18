@@ -455,9 +455,7 @@ def draft_definition(
         known = base
     else:
         leaf = receiver.rsplit(".", 1)[-1].lower()
-        cls = next(
-            (c.id for c in categories.rows() if c.hints and any(w in leaf for w in c.hints)), "other"
-        )
+        cls = next((c.id for c in categories.rows() if c.hints and any(w in leaf for w in c.hints)), "other")
         data = {
             "schema": "simubench.instrument/1",
             "id": definition_id,

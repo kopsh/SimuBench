@@ -6,9 +6,9 @@ import pytest
 
 from helpers import raises_with
 from simubench.engine.jsonpatch import PatchError, PatchOp, apply
-from simubench.library.scriptscan import _guess, draft_definition
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.library.loader import DefinitionLibrary
+from simubench.library.scriptscan import _guess, draft_definition
 
 
 def ops(*items):
