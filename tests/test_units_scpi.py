@@ -45,6 +45,24 @@ def test_split_units_respects_strings_and_blocks():
     assert split_units(msg) == [b':LIST "1;2"', b":DATA #15a;b,c", b"*OPC?"]
 
 
+@pytest.mark.parametrize(
+    "message",
+    [
+        b"*ESE #3abc",  # the length field is not a number
+        b"VOLT:DC:NPLC #2x",  # nor is a shorter one
+        b"X #",  # no length-digit count
+        b"X #9",  # nine length digits are not there
+        b"X #31",  # the declared payload is not there
+        b"X #212",  # nor is a longer one
+    ],
+)
+def test_split_units_rejects_malformed_blocks(message):
+    """A malformed definite-length block is -161, not a Python exception (#1449)."""
+    with pytest.raises(ScpiError) as e:
+        split_units(message)
+    assert e.value.code == -161
+
+
 def test_parse_unit_header_and_params():
     u = parse_unit(b":CHAN2:SCAL 0.05")
     assert u.absolute and not u.query
@@ -107,6 +125,14 @@ def test_values():
     with pytest.raises(ScpiError) as e:
         V.parse_float(b"abc")
     assert e.value.code == -104
+
+
+@pytest.mark.parametrize("word", [b"INF", b"NINF", b"-INF", b"NAN", b"1e999"])
+def test_parse_bool_rejects_non_finite(word):
+    """INF/NINF/NAN are not a boolean: -224, not an internal error (#1450)."""
+    with pytest.raises(ScpiError) as e:
+        V.parse_bool(word)
+    assert e.value.code == -224
 
 
 def test_compound_words_match_node_by_node():

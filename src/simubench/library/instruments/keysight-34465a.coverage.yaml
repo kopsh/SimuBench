@@ -474,11 +474,10 @@ sections:
     gap: model_work
   - header: '[:SENSe]:VOLTage[:DC]:RANGe'
     level: implemented
-    note: 100 mV–1000 V；量程设定查询返回设定值（自动时 0；真机返回实际量程）；AC 与 DC 共用一组设定（真机按功能独立记忆）。设定固定量程不自动关闭自动量程（须再发 RANGe:AUTO
-      OFF）。
+    note: 100 mV–1000 V；查询回实际使用的档位（自动量程时取当前档），DEF 取 10 V、MIN/MAX 取两端；固定量程写入即关闭自动量程（#1452）。AC 与 DC 共用一组设定（真机按功能独立记忆）。
   - header: '[:SENSe]:VOLTage:AC:RANGe'
     level: implemented
-    note: 与直流共用量程设定；手册命令表的量程到 1000 V（数据表的 750 Vrms 是安全限值）。
+    note: 与直流共用量程设定；查询回实际使用的档位，DEF 取 10 V；固定量程写入即关闭自动量程（#1452）。手册命令表的量程到 1000 V（数据表的 750 Vrms 是安全限值）。
   - header: '[:SENSe]:VOLTage[:DC]:RANGe:AUTO'
     level: implemented
     note: 自动量程：<10% 降档、>120% 升档；ONCE 未建模（-224）。
@@ -558,10 +557,10 @@ sections:
     blocked_by: dmm-functions
   - header: '[:SENSe]:RESistance:RANGe'
     level: implemented
-    note: 电阻功能自己的量程设定（与电压量程分开，#301）。
+    note: 电阻功能自己的量程设定（与电压量程分开，#301）；查询回实际使用的档位，DEF 取 10 kΩ；固定量程写入即关闭自动量程（#1452）。
   - header: '[:SENSe]:FRESistance:RANGe'
     level: implemented
-    note: 与两线电阻共用量程设定（#301）。
+    note: 与两线电阻共用量程设定（#301）；查询与 DEF 行为同两线电阻（#1452）。
   - header: '[SENSe:]{RESistance|FRESistance}:RANGe:AUTO'
     level: not_modeled
     note: 电阻功能未实现。
@@ -604,10 +603,10 @@ sections:
     blocked_by: dmm-functions
   - header: '[:SENSe]:CURRent[:DC]:RANGe'
     level: implemented
-    note: 电流功能自己的量程设定（#301）。
+    note: 电流功能自己的量程设定（#301）；查询回实际使用的档位，DEF 取 100 µA；固定量程写入即关闭自动量程（#1452）。
   - header: '[:SENSe]:CURRent:AC:RANGe'
     level: implemented
-    note: 与直流电流共用量程设定（#301）。
+    note: 与直流电流共用量程设定（#301）；查询与 DEF 行为同直流电流（#1452）。
   - header: '[SENSe:]CURRent:{AC|DC}:RANGe:AUTO'
     level: not_modeled
     note: 电流功能未实现。
