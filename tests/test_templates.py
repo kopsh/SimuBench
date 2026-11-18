@@ -24,7 +24,7 @@ SCOPE = get_template("oscilloscope")
 #: sb-dso-4 as a data sheet: the template reproduces it reply for reply.
 DSO4_INPUTS = {
     "identity": {
-        "manufacturer": "SimuBench", "model": "SB-DSO-4", "serial": "SBDSO000001", "firmware": "1.0.0",
+        "manufacturer": "SIMUBENCH", "model": "SB-DSO-4", "serial": "SBDSO000001", "firmware": "1.0.0",
         "description": "四通道数字示波器，200 MHz，16 位波形传输，输入 1 MΩ / 50 Ω 可选。",
     },
     "channels": {
@@ -193,6 +193,21 @@ def test_a_template_built_sb_dso_4_answers_as_sb_dso_4(tmp_path):
     differ = [(c, a, b) for c, a, b in zip(DSO4_SEQUENCE, ours, theirs, strict=True) if a != b]
     assert not differ, differ[:3]
     assert sum(r is not None for r in ours) == 32
+
+
+def test_idn_names_the_manufacturer_as_typed(tmp_path):
+    """The identity input promises "as *IDN? names it": a mixed-case manufacturer is answered as
+    typed, not upper-cased by the engine's ``{manufacturer}`` placeholder (P2-1)."""
+    inputs = copy.deepcopy(SCOPE.example())
+    inputs["identity"] |= {
+        "manufacturer": "Zhiyuan {Lab}",
+        "model": "ZY-DSO3104",
+        "serial": "Z1",
+        "firmware": "1.0.3",
+    }
+    assert _replies(_bench(tmp_path, _expand(inputs, "zy-dso3104")), ["*IDN?"]) == [
+        b"Zhiyuan {Lab},ZY-DSO3104,Z1,1.0.3\n"
+    ]
 
 
 # ---- the example in a bench ----------------------------------------------------------------------

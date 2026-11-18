@@ -666,8 +666,10 @@ class TemplateSource(_Model):
 class Identity(_Model):
     idn: str = Field(
         "{manufacturer},{model},{serial},{firmware}",
-        description="The *IDN? reply: {manufacturer}, {model}, {serial}, {firmware}, and {$<setting>} "
-        "for a setting's text (a persona command that changes the reported model)",
+        description="The *IDN? reply: {manufacturer} (the definition's manufacturer upper-cased, as "
+        "most instruments answer; write the name itself to keep its case), {model}, {serial}, "
+        "{firmware}, and {$<setting>} for a setting's text (a persona command that changes the "
+        "reported model)",
     )
     serial: str = "SB000001"
     firmware: str = "1.0.0"

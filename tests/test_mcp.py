@@ -596,10 +596,21 @@ async def test_an_agent_builds_a_scope_from_a_template(ws):
             inputs=inputs, base_sha256=doc["sha256"],
         )  # fmt: skip
         assert "error" in stale
+        # a 12-bit ADC still at the example's 25 codes per division: saved, with the warning
+        inputs["adc"]["bits"] = 12
+        warned = await call(
+            c, "create_definition_from_template", template_id="oscilloscope", definition_id="agent-dso",
+            inputs=inputs, base_sha256=again["sha256"],
+        )  # fmt: skip
+        assert warned["saved"] and warned["ok"]
+        assert [(d["severity"], d["code"], d["pointer"]) for d in warned["diagnostics"]] == [
+            ("warning", "W-TPL-ADC-CODES", "/template/inputs/adc/codes_per_div")
+        ]
     history = ws / ".simubench" / "history" / "instruments" / "agent-dso.yaml" / "index.jsonl"
     assert [json.loads(line)["source"] for line in history.read_text(encoding="utf-8").splitlines()] == [
         "agent",
         "agent",
+        "agent",  # the 12-bit expansion
     ]
 
 

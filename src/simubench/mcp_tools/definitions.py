@@ -244,7 +244,10 @@ def _from_template_tools(mcp: MCPServer, ctx: McpContext) -> None:
                 doc = definitions.save(definition_id, base_sha256, out.definition, "agent")
         except Exception as exc:
             raise fail(exc) from None
-        return {"saved": True, **definition_out(doc)}
+        result = definition_out(doc)
+        # the inputs' warnings (legal but probably a slip) go with the saved definition's diagnostics
+        warned = [d.model_dump() for d in out.diagnostics if d.pointer.startswith("/template/inputs")]
+        return {"saved": True, **result, "diagnostics": warned + list(result.get("diagnostics", []))}
 
 
 def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:
