@@ -2674,6 +2674,20 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档 | ✅ decisions.md D84、codebase-map 接入行、progress-log 本节 |
 | check.sh | ✅ 全绿（fast 套件 4713 过；本机 x64 全量 ~158 s，基线 feb55c6b 同机 ~152 s，预算在 CI 机器执行） |
 
+## MCP 缝捕获纪律：只捕领域错误，bug 不再折叠成工具文案（Issue 1478）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 逐处分类 14 处宽捕获 | ✅ bench.py 5 处（read_bench/create_bench/list_bench_history/read_bench_version/validate_bench）、definitions.py 8 处（read/create/edit/validate_definition、draft_definition_from_script、create_definition_from_template、draft_bench_from_script 两段）、sessions.py 1 处（start_session）逐一枚举服务可能抛的异常（`Forbidden`/`FileNotFoundError`/`Invalid`/`Unknown`/`Conflict`/`BenchInvalid`/`PatchError`/`UnicodeDecodeError`/`PortInUse`），全部在 `DOMAIN_ERRORS` 表内；判定为非用户输入流、保持 bug 形状两缝一致的：目录传给文件工具（`IsADirectoryError`）、外部损坏的历史索引（`json.JSONDecodeError`）；`definitions.py` 探测循环保留宽捕获并写明合法性（`draft_bench_from_script.defs`） |
+| 用户输入错误补进表 | ✅ 无需新错误类：`draft_definition` 的 receiver 挑不出/挑错两处裸 `ValueError`（scriptscan.py）包成 `Invalid`（与 #1406 同族的 loader 包裹；MCP 专用工具，无 HTTP 路由，状态码零变化），`SEAM_ROWS` 零新行 |
+| fail() 收窄、兜底行退役 | ✅ `SEAM_ROWS` 删 `Exception` 兜底行；`tool_text` 按行 `caught` 匹配、非领域错误 AssertionError（bug 不再有任何工具文案）；`McpContext.fail` 加 `isinstance(exc, DOMAIN_ERRORS)` 运行时门；HTTP `error_row` 仍按 `kinds`，路由状态码逐路由不变（`tests/test_services.py` 的表测试原样通过） |
+| 14 处换窄捕获 + guard 补齐 | ✅ 14 处 `except DOMAIN_ERRORS`（`create_definition_from_template` 的守卫区扩到 `_refuse_lost_edits`，ToolError 透传）；guard 补三处——issue 所列 `list_bench_history`/`read_bench_version` 之外，守卫测试又抓出 `read_asset_register`（限速承诺 mcp_server.py「全部工具限速」），其返回注解 `list[dict]` → `dict` 随之修正（ty 新诊断实证） |
+| 守卫测试两条 | ✅ `tests/test_services.py::test_every_mcp_tool_calls_the_guard`（AST 扫 `@mcp.tool()` 注册点必有 `guard()` 调用）与 `::test_mcp_tools_catch_domain_errors_not_everything`（mcp_tools 无裸 `except Exception`，白名单仅探测循环 `definitions.py:defs`） |
+| bug 不折叠（验收） | ✅ `tests/test_mcp.py::test_a_bug_surfaces_as_itself_not_as_a_tool_text`：monkeypatch 裸 `KeyError` 后 `server.call_tool` 抛 `UnexpectedToolError`（`__cause__` 原样、模型只看到 crash 行），与 HTTP 500 对齐；同测试对照领域错误仍回表文案的 `ToolError` |
+| 用户错误反馈不回归（验收） | ✅ `tests/test_mcp.py::test_a_badly_written_file_is_still_a_user_error_with_its_position`：YAML 语法坏的测试台与定义，`read_bench`/`read_definition` 仍回带文件名与行列的可操作文案（`(line 2`…），非 crash |
+| 三缝一致策略测试扩展 | ✅ `test_services.py`：共享文案表加 `Invalid`（新包进来的用户输入错误）与 `UnicodeDecodeError`；MCP 表测试加 `fail(Invalid)` 断言与 `fail(裸 KeyError)` 拒绝断言；`test_a_bare_key_or_value_error…` 加 `tool_text(裸 KeyError)` 拒绝断言；旧的 `fail(KeyError)/fail(ValueError)` 精确断言按新表改写为 `Unknown`/`Invalid`（#1478 允许的断言改写） |
+| 文档 | ✅ decisions.md D76 追加「捕获纪律」一节（不另立 D 条目：执行面收口 #1394 原裁决）、progress-log 本节 |
+| check.sh | ✅ 全绿（fast 套件 4767 过、web 371 过；ty 基线零新增；本机全量 pytest 262 s / web+全套 ~5:48） |
 ## 命令覆盖支持整组替换与删除：一个头多条 when/选件变体不再是继承死角（Issue 1480）
 
 | 完成条件 | 自检 |

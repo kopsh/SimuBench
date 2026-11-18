@@ -234,8 +234,9 @@ class ErrorRow:
 
     ``caught``: the kinds a seam catches around a service call for this row, when narrower than
     ``kinds``. A bare ``KeyError`` or ``ValueError`` is how a bug looks too, so those rows are
-    caught only as the domain's own subclasses (#1394); one that escapes still has a text when
-    a tool that catches everything reports it."""
+    caught only as the domain's own subclasses (#1394). The table has no catch-all row: an
+    exception outside these kinds is a bug and no seam turns it into text — HTTP re-raises it
+    (a 500) and the agent seams let it surface as itself (#1478)."""
 
     kinds: tuple[type[Exception], ...]
     http: Callable[..., HTTPException | None]
@@ -267,25 +268,26 @@ SEAM_ROWS: tuple[ErrorRow, ...] = (
             UnicodeDecodeError,
         ),
     ),
-    ErrorRow((Exception,), lambda exc, **_: None, _tool_first_line),  # not a domain error: HTTP re-raises it
 )
 
-#: The kinds of domain error a seam catches around one service call: the table's rows minus the
-#: catch-all, each row as narrow as its ``caught``. Anything else is a bug and surfaces as itself:
-#: a bare ``KeyError`` or ``ValueError`` too (#1394).
+#: The kinds of domain error a seam catches around one service call: every row, each as narrow as
+#: its ``caught``. Anything else is a bug and surfaces as itself: a bare ``KeyError`` or
+#: ``ValueError`` too (#1394), and no tool text dresses it up (#1478).
 DOMAIN_ERRORS = tuple(
-    kind
-    for row in SEAM_ROWS
-    for kind in (row.caught if row.caught is not None else row.kinds)
-    if kind is not Exception
+    kind for row in SEAM_ROWS for kind in (row.caught if row.caught is not None else row.kinds)
 )
 
 
 def tool_text(exc: Exception, seam: str) -> str:
     """The text an agent reads for a domain error, from the one table: the MCP tools and the
     assistant's tool results say the same thing about the same kind (the HTTP twin is
-    ``ApiContext.error_row``). A non-domain error gets its first line."""
+    ``ApiContext.error_row``). The agent seams catch each row as narrow as its ``caught``
+    (:data:`DOMAIN_ERRORS`), and a non-domain exception — a bare ``KeyError`` or ``ValueError``
+    among them (#1394) — is refused here, not given a text a tool would read as a refusal
+    (#1478)."""
     for row in SEAM_ROWS:
-        if isinstance(exc, row.kinds):
+        if isinstance(exc, row.kinds) and (row.caught is None or isinstance(exc, row.caught)):
             return row.tool(exc, seam)
-    return _first_line(exc)  # pragma: no cover - the catch-all row is last
+    raise AssertionError(
+        f"{type(exc).__name__} 不是领域错误（DOMAIN_ERRORS）；bug 原样上抛，不得折叠成工具文案 (#1478)"
+    ) from exc

@@ -134,7 +134,7 @@ def test_a_bare_key_or_value_error_is_a_bug_not_a_domain_error():
     from simubench.assistant.guard import LoopGuard
     from simubench.assistant.tools import _call
     from simubench.errors import Invalid, Unknown
-    from simubench.server.errors import DOMAIN_ERRORS
+    from simubench.server.errors import DOMAIN_ERRORS, tool_text
 
     assert isinstance(Unknown("no instrument named 'x'"), DOMAIN_ERRORS)
     assert isinstance(Invalid("bench files end with .bench.yaml"), DOMAIN_ERRORS)
@@ -154,10 +154,13 @@ def test_a_bare_key_or_value_error_is_a_bug_not_a_domain_error():
         _call(ctx, "read_bench", {}, fails(KeyError("internal")))
     with pytest.raises(ValueError):
         _call(ctx, "read_bench", {}, fails(ValueError("internal")))
+    with pytest.raises(AssertionError):  # #1478: no seam dresses a bug up as a tool text
+        tool_text(KeyError("internal"), "mcp")
 
 
 def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
     pytest.importorskip("mcp")  # the optional extra (#987); the rest of the file does not need it
+    from simubench.errors import Invalid, Unknown
     from simubench.mcp_tools.context import McpContext, RateLimiter
     from simubench.server.errors import Conflict
     from simubench.server.manager import SessionManager
@@ -170,8 +173,11 @@ def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
     named = FileNotFoundError("no such file")  # an operating-system error carries the path itself
     named.filename = "a.yaml"
     assert str(ctx.fail(named)) == "文件不存在：a.yaml"
-    assert str(ctx.fail(KeyError("no such thing"))) == "no such thing"
-    assert str(ctx.fail(ValueError("first\nsecond"))) == "first"
+    assert str(ctx.fail(Unknown("no such thing"))) == "no such thing"
+    assert str(ctx.fail(Invalid("first\nsecond"))) == "first"
+    assert str(ctx.fail(Invalid("bench files end with .bench.yaml"))) == "bench files end with .bench.yaml"
+    with pytest.raises(AssertionError):  # #1478: fail() takes domain errors only, a bug is refused
+        ctx.fail(KeyError("internal"))
 
 
 def test_the_agent_texts_come_from_one_table():
@@ -179,6 +185,7 @@ def test_the_agent_texts_come_from_one_table():
     the same thing; where the next step differs (scripts connected), the seam says its own."""
     from simubench.engine.edit import EditError
     from simubench.engine.jsonpatch import PatchError
+    from simubench.errors import Invalid, Unknown
     from simubench.models import api as M
     from simubench.server.errors import BenchInvalid, ClientsConnected, Conflict, tool_text
 
@@ -186,9 +193,11 @@ def test_the_agent_texts_come_from_one_table():
         Conflict("agent.bench.yaml changed since it was read", "abc"),
         BenchInvalid([M.Diagnostic(severity="error", code="E-X", pointer="/p", message="m")]),
         FileNotFoundError("run-1"),
-        KeyError("no session t"),
+        Unknown("no session t"),
         EditError("no such instrument ghost"),
         PatchError("the patch does not apply"),
+        Invalid("bench files end with .bench.yaml"),  # #1478: a loader-wrapped user input error
+        UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid start byte"),
     ]
     for exc in shared:
         assert tool_text(exc, "mcp") == tool_text(exc, "assistant"), type(exc).__name__
@@ -239,6 +248,82 @@ def test_the_tool_text_and_the_http_row_agree_per_kind(tmp_path):
         assert _status(ctx, exc) == status
         for seam in ("mcp", "assistant"):
             assert needle in tool_text(exc, seam), (type(exc).__name__, seam)
+
+
+# ---- the MCP seam's capture discipline (#1478): guards on every tool, DOMAIN_ERRORS only --------
+
+
+def _mcp_tools_dir():
+    from pathlib import Path
+
+    return Path(__file__).resolve().parents[1] / "src" / "simubench" / "mcp_tools"
+
+
+def test_every_mcp_tool_calls_the_guard():
+    """mcp_server.py promises every tool is rate limited (#1478): each ``@mcp.tool()`` body calls
+    ``guard()`` — the scan below is the guard, as test_instrument_host's scan is for its seam."""
+    import ast
+
+    missing: list[str] = []
+    for path in sorted(_mcp_tools_dir().glob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+                continue
+            is_tool = any(
+                isinstance(d, ast.Call)
+                and isinstance(d.func, ast.Attribute)
+                and d.func.attr == "tool"
+                and isinstance(d.func.value, ast.Name)
+                and d.func.value.id == "mcp"
+                for d in node.decorator_list
+            )
+            if not is_tool:
+                continue
+            guarded = any(
+                isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "guard"
+                for n in ast.walk(node)
+            )
+            if not guarded:
+                missing.append(f"{path.name}.{node.name}")
+    assert missing == []
+
+
+def _wide_handlers(tree):
+    """The functions of one module that have a bare ``except Exception``."""
+    import ast
+
+    found: list[str] = []
+
+    def visit(node, fn):
+        for child in ast.iter_child_nodes(node):
+            if isinstance(child, ast.FunctionDef | ast.AsyncFunctionDef):
+                visit(child, child.name)
+            else:
+                if (
+                    isinstance(child, ast.ExceptHandler)
+                    and isinstance(child.type, ast.Name)
+                    and child.type.id == "Exception"
+                ):
+                    found.append(fn)
+                visit(child, fn)
+
+    visit(tree, "<module>")
+    return found
+
+
+def test_mcp_tools_catch_domain_errors_not_everything():
+    """#1478: a tool body catches DOMAIN_ERRORS (or a narrower table kind) — a wide ``except
+    Exception`` would fold a service bug into a tool text. The one wide catch is the probe loop
+    that skips definitions which do not load (a probe, not a user path), declared in its comment."""
+    import ast
+
+    wide: dict[str, list[str]] = {}
+    for path in sorted(_mcp_tools_dir().glob("*.py")):
+        fns = _wide_handlers(ast.parse(path.read_text(encoding="utf-8")))
+        if fns:
+            wide[path.name] = fns
+    assert wide == {"definitions.py": ["defs"]}
 
 
 # ---- starting, resetting and stopping, without a route or a tool --------------------------------

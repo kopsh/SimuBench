@@ -123,7 +123,7 @@ class ApiContext:
         for row in SEAM_ROWS:
             if isinstance(exc, row.kinds):
                 return row.http(exc, missing=missing, key=key, full_detail=full_detail, files=files)
-        return None  # pragma: no cover - the catch-all row is last
+        return None  # not a domain error: http_error re-raises it, the 500 a bug is (#1478)
 
     def in_use(self, exc: InstrumentRemote | ClientsConnected) -> HTTPException:
         """409 for an operation the connected scripts stand in the way of (#121): its table row."""

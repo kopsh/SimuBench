@@ -16,6 +16,7 @@ from ..library.templates import get_template as template_by_id
 from ..library.templates import templates as instrument_templates
 from ..library.templates.draft import suggester as template_suggester
 from ..server.definitionfiles import DefinitionFiles
+from ..server.errors import DOMAIN_ERRORS
 from ..server.services import new_definition
 from .context import McpContext
 
@@ -82,7 +83,7 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         try:
             return definition_out(definitions.read(definition_id))
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
 
     @mcp.tool()
@@ -97,7 +98,7 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         try:
             return definition_out(definitions.create(definition_id, data, "agent"))
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
 
     @mcp.tool()
@@ -116,7 +117,7 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         try:
             return definition_out(definitions.edit(definition_id, base_sha256, patch, "agent"))
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
 
     @mcp.tool()
@@ -131,7 +132,7 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
             raise ToolError("给出 definition_id 或 data 之一")
         try:
             content = data if data is not None else definitions.read(definition_id).data  # type: ignore[arg-type]
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
         report = definitions.validate(content)
         return {"ok": report.ok, "diagnostics": [d.model_dump() for d in report.diagnostics]}
@@ -177,7 +178,7 @@ def _definition_draft_and_template_tools(mcp: MCPServer, ctx: McpContext) -> Non
                 out["saved"] = definition_out(
                     definitions.save(definition_id, base_sha256, out["definition"], "agent")
                 )
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
         return out
 
@@ -233,13 +234,17 @@ def _from_template_tools(mcp: MCPServer, ctx: McpContext) -> None:
             t = template_by_id(template_id)
         except KeyError as exc:
             raise ToolError(str(exc.args[0])) from None
-        if base_sha256 is not None and t.expand(inputs, definition_id).definition is not None:
-            _refuse_lost_edits(definitions, t, definition_id, discard_edits)
         try:
+            # The whole save path is guarded, `_refuse_lost_edits` included: the agent's id or
+            # sha can be wrong before `from_template` is even reached (#1478).
+            if base_sha256 is not None and t.expand(inputs, definition_id).definition is not None:
+                _refuse_lost_edits(definitions, t, definition_id, discard_edits)
             out = new_definition.from_template(
                 definitions, template_id, definition_id, inputs, "agent", base_sha256
             )
-        except Exception as exc:
+        except ToolError:
+            raise
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
         diagnostics = [d.model_dump() for d in out.diagnostics]
         if not out.saved or out.document is None:
@@ -265,7 +270,7 @@ def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:
         try:
             script = files.resolve(script_path)
             source = script.read_text(encoding="utf-8")
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
         lib = files.library(script)
 
@@ -274,7 +279,8 @@ def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:
             for i in lib.ids():
                 try:
                     out.append(lib.get(i))
-                except Exception as exc:  # a definition that does not load supports no command
+                except Exception as exc:  # wide on purpose (#1478): a definition that does not load
+                    # supports no command — a probe the scan skips, not a user path to map
                     log.debug("draft_bench_from_script: definition %r skipped: %s", i, exc)
                     continue
             return out
@@ -284,7 +290,7 @@ def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:
         if save_as:
             try:
                 result["saved"] = files.save(save_as, None, result["bench"], "agent").model_dump(mode="json")
-            except Exception as exc:
+            except DOMAIN_ERRORS as exc:
                 raise fail(exc) from None
         return result
 
