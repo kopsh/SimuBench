@@ -52,6 +52,10 @@ def _hash_file(path: Path | None) -> str | None:
         return None
 
 
+#: How often the session is re-read while clients are connected (s): the Web Bench's client poll.
+REMOTE_POLL_S = 2.0
+
+
 class SimuBenchApp(App[None]):
     """``simubench tui``: overview, communication log, and the connection states of section 3."""
 
@@ -164,6 +168,7 @@ class SimuBenchApp(App[None]):
         self.set_interval(0.1, self._tick)
         self.set_interval(1.0, self._tick_wall)
         self.set_interval(2.0, self._tick_bench)
+        self.set_interval(REMOTE_POLL_S, self._tick_remote)
         await self.client.open()
         if self.sid:
             self.push_overview()
@@ -426,11 +431,6 @@ class SimuBenchApp(App[None]):
             finally:
                 self._maintaining = False
 
-        self._maint_task: asyncio.Task | None = None
-        self._session_task: asyncio.Task | None = None
-        self._picker_task: asyncio.Task | None = None
-        self._catalog_loaded = False
-
         self._maint_task = asyncio.create_task(run())
 
     async def _maintenance(self) -> None:
@@ -522,6 +522,22 @@ class SimuBenchApp(App[None]):
                 self.labels = build_labels(self.session_info)
                 self._mark_template_instruments()
             self.bump()
+
+    def remote_held(self) -> bool:
+        """Whether any instrument lists a connected client (an instrument in remote control)."""
+        return any(i.get("remote") for i in (self.session_info or {}).get("instruments", []))
+
+    async def _tick_remote(self) -> None:
+        """While clients are connected, re-read who they are, as the Web Bench does (#121).
+
+        A script's disconnect raises no event, so without this the remote banner and the cards'
+        remote mark would stay until the instrument's next event."""
+        if not self.remote_held() or self.conn != "connected" or self._session_task_running():
+            return
+        self._session_task = asyncio.create_task(self._refresh_session())
+
+    def _session_task_running(self) -> bool:
+        return self._session_task is not None and not self._session_task.done()
 
     def _tick_bench(self) -> None:
         """D25: the launched bench file is hashed; a change lights the top bar's rebuild hint."""
