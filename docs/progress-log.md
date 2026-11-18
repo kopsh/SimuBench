@@ -2673,3 +2673,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 守卫测试 | ✅ `tests/test_access_registry.py`：假第五协议（只实现 AccessServer 三成员）注册进表即被 remote_clients/is_remote/stop 认出、LOCAL 由连接事实回退（UI 写不解除、端口客户端写解除）；`test_no_layer_sniffs_a_client_label_prefix` 锁 access/server 两层无引号标签前缀字面量 |
 | 文档 | ✅ decisions.md D84、codebase-map 接入行、progress-log 本节 |
 | check.sh | ✅ 全绿（fast 套件 4713 过；本机 x64 全量 ~158 s，基线 feb55c6b 同机 ~152 s，预算在 CI 机器执行） |
+
+## 命令覆盖支持整组替换与删除：一个头多条 when/选件变体不再是继承死角（Issue 1480）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| loader 新语义 | ✅ `apply_command_overrides`（library/loader.py）的值扩展为「单条命令 \| 命令列表 \| null」：列表整组替换该头的全部条目（位置取该头第一处，条目不含 header、条目数随意）、null 整组删除、单条值对多条目头不再报错（整头变成那一条）；「删除不存在的头报 E-DEF-COMMAND-OVERRIDE」照旧，「出现多次报错」删除。`InstrumentDefinition.command_overrides` 类型同步，schemas 与 Web 生成类型再生存入 |
+| 服务器写回不动 | ✅ `definitionstructure.py` 的 `_overrides` 原样：多头重复等表达不了的仍回退整表写入 `commands`，既有写回测试零改写 |
+| 测试 | ✅ 锁定测试 `test_command_overrides_refuse_what_they_cannot_name` 的 "twice" 案例按 issue 改写为整组替换断言（"gone" 照旧）；新增三案：列表值整组替换（位置保持、三条换两条、组内 when/option 各异）、null 整组删除、单条值对多条目头（tests/test_definition_layers.py，33 例） |
+| #1471 解锁验证 | ✅ 本地临时迁移（试后还原，未提交）：0334b → extends 1104b + 166 条 command_overrides（80 null 删除 + 86 条整组/单条替换，`:SYSTem:CAPability:ACQuire`/`:DIGital` 两个多头用列表值整组覆盖）；逐头路由等价（313 头 0 缺失/0 多出/0 组差异，组内顺序保持）、cases.yaml 90/90。给 #1471 的清单：父定义另有 129 个仅父键泄入子定义（state 111、channel_state 8、specs 8 个叶键 + options、constraints 整键），D59 的「键: null」补齐后 90/90；不补则 THEMe/REFerence/PROBe:GAIN 三例被父值污染失败 |
+| 文档 | ✅ decisions.md D59 结论句与理由句修订（整组替换/删除，不新立 D，编号仍到 D84）；instrument-authoring.md 2.9 命令逐条覆盖段与整组覆盖示例（真实 UXR 头，本地试载通过）、9.2 Web 搭建区命令行同步 |
+| check.sh | ✅ 全绿（fast 套件 PYTEST_N passed, 9 skipped，PYTEST_T；基线 509e059a 同机 122 s，本分支同口径） |
