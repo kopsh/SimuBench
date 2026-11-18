@@ -17,6 +17,7 @@ from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from .class_defaults import deep_merge, default_block, drop_deleted
 from .migrate import upgrade
+from .same_as import resolve_same_as
 
 #: Built-in definitions: real models only (D42). SimuBench's own ``sb-*`` validation definitions are
 #: not shipped; they live in ``validation/instruments`` of the repository and are loaded through
@@ -318,7 +319,8 @@ def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
                     )
                 items = apply_component_overrides(items, own, key)
         merged = {**merged, target: items}
-    return merged
+    # one value in one place (#1426, D82): resolved last, so a reference reaches what any layer wrote
+    return resolve_same_as(merged)
 
 
 def layered_definition_data(data: dict, source: Path) -> dict:

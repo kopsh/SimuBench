@@ -19,6 +19,7 @@ from typing_extensions import get_protocol_members
 from ..library.macros import expand_macros
 from ..library.migrate import FormatError, upgrade
 from ..library.panels import DEDICATED, template_of
+from ..library.same_as import SameAsError, resolve_same_as
 from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, PanelControl, StateSpec
 from ..scpi import values as V
 from ..scpi.errors import ScpiError
@@ -60,6 +61,11 @@ def validate_definition_data(data: Any) -> tuple[InstrumentDefinition | None, Re
         data, _ = upgrade(data, "instrument")
     except FormatError as exc:
         report.add("error", "E-FORMAT", "/schema", str(exc), None)
+        return None, report
+    try:
+        data = resolve_same_as(data) if isinstance(data, dict) else data  # one value in one place (D82)
+    except SameAsError as exc:
+        report.add("error", exc.code, exc.pointer, str(exc), None)
         return None, report
     try:
         data = expand_macros(data)

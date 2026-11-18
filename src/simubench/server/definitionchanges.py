@@ -109,7 +109,9 @@ def _same(a: float, b: float) -> bool:
 def _with_still_old(change: M.DefinitionChange, new: dict[str, Any]) -> M.DefinitionChange:
     """A specs change with the places that still hold its old number: the specs are a record (D3)
     and the simulation reads the settings and the component parameters, so a data-sheet value
-    edited alone changes nothing — this names what would have to change with it."""
+    edited alone changes nothing — this names what would have to change with it. A place that
+    refers to the spec with ``same_as`` (D82) already follows it (``new`` is layered and resolved),
+    so it shows as its own change, not here."""
     if change.kind != "specs" or change.action == "added":
         return change
     gone = [n for n in _numbers(change.old) if not any(_same(n, m) for m in _numbers(change.new))]

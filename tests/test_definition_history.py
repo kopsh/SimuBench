@@ -157,19 +157,41 @@ def test_copy_as_my_instrument_extends_the_built_in_model(tmp_path):
 
 
 def test_a_specs_edit_names_the_places_that_still_run_the_old_value(tmp_path):
-    """Specs are a record (D3): a copy's data-sheet bandwidth edited alone changes no behaviour, and
-    the change says where the old number still drives the simulation (settings, component
-    parameters), not counting infinities or text."""
+    """Specs are a record (D3): a data-sheet value edited alone changes no behaviour where the
+    definition writes the number as a literal, and the change says where the old number still drives
+    the simulation (settings, component parameters), not counting infinities or text. The UXR1104B
+    writes the trigger's intrinsic jitter twice, as a spec and as the acquisition's parameter."""
+    files = make_files(tmp_path)
+    my_id = files.copy_of("keysight-uxr1104b").id
+    base = files.read(my_id).sha256
+    out = files.edit(
+        my_id, base, [PatchOp(op="add", path="/specs", value={"trigger_jitter_s_rms": 1.0e-14})], "agent"
+    )
+    (change,) = out.changes
+    assert (change.kind, change.detail, change.old, change.new) == (
+        "specs",
+        "trigger_jitter_s_rms",
+        2.5e-14,
+        1.0e-14,
+    )
+    assert change.still_old == ["/components/acq/params/trigger_jitter_s"]
+
+
+def test_a_specs_edit_moves_the_places_that_refer_to_it(tmp_path):
+    """One value in one place (D82): the places that write ``{same_as: specs.bandwidth_hz}`` follow
+    the copy's data-sheet bandwidth, so the edit changes them too and none is left on the old value."""
     files = make_files(tmp_path)
     my_id = files.copy_of("keysight-uxr1104b").id
     base = files.read(my_id).sha256
     out = files.edit(my_id, base, [PatchOp(op="add", path="/specs", value={"bandwidth_hz": 1.0e11})], "agent")
-    (change,) = out.changes
-    assert (change.kind, change.detail, change.old, change.new) == ("specs", "bandwidth_hz", 1.13e11, 1.0e11)
-    assert change.still_old == [
-        "/state/acquire.bandwidth/max",
-        "/state/acquire.bandwidth/default",
-        "/state/acquire.bandwidth/special/MAX",
-        "/components/bwf/params/passthrough_hz",
-        "/channel_components/front/params/bandwidth",
-    ]
+    by_target = {(c.kind, c.target, c.detail): (c.old, c.new) for c in out.changes}
+    assert by_target[("specs", "specs", "bandwidth_hz")] == (1.13e11, 1.0e11)
+    for key in (
+        ("state", "acquire.bandwidth", "max"),
+        ("state", "acquire.bandwidth", "default"),
+        ("component", "bwf.passthrough_hz", None),
+        ("channel_component", "front.bandwidth", None),
+    ):
+        assert by_target[key] == (1.13e11, 1.0e11), key
+    spec = next(c for c in out.changes if c.kind == "specs")
+    assert not spec.still_old
