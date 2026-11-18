@@ -2683,4 +2683,4 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 测试 | ✅ 锁定测试 `test_command_overrides_refuse_what_they_cannot_name` 的 "twice" 案例按 issue 改写为整组替换断言（"gone" 照旧）；新增三案：列表值整组替换（位置保持、三条换两条、组内 when/option 各异）、null 整组删除、单条值对多条目头（tests/test_definition_layers.py，33 例） |
 | #1471 解锁验证 | ✅ 本地临时迁移（试后还原，未提交）：0334b → extends 1104b + 166 条 command_overrides（80 null 删除 + 86 条整组/单条替换，`:SYSTem:CAPability:ACQuire`/`:DIGital` 两个多头用列表值整组覆盖）；逐头路由等价（313 头 0 缺失/0 多出/0 组差异，组内顺序保持）、cases.yaml 90/90。给 #1471 的清单：父定义另有 129 个仅父键泄入子定义（state 111、channel_state 8、specs 8 个叶键 + options、constraints 整键），D59 的「键: null」补齐后 90/90；不补则 THEMe/REFerence/PROBe:GAIN 三例被父值污染失败 |
 | 文档 | ✅ decisions.md D59 结论句与理由句修订（整组替换/删除，不新立 D，编号仍到 D84）；instrument-authoring.md 2.9 命令逐条覆盖段与整组覆盖示例（真实 UXR 头，本地试载通过）、9.2 Web 搭建区命令行同步 |
-| check.sh | ✅ 全绿（fast 套件 PYTEST_N passed, 9 skipped，PYTEST_T；基线 509e059a 同机 122 s，本分支同口径） |
+| check.sh | ✅ 全绿（fast 套件 4718 passed, 9 skipped，122.4 s；基线 509e059a 同机同口径 122.1 s（4714 passed，差额为 #1481 并入的用例）） |
