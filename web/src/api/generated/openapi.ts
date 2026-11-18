@@ -2478,6 +2478,29 @@ export interface components {
             /** Type */
             type: string;
         };
+        /**
+         * ComponentOverride
+         * @description An entry of ``component_overrides`` / ``channel_component_overrides`` (#1425): the fields of
+         *     one inherited component to change, or a new component (with its ``type``) to append.
+         */
+        ComponentOverride: {
+            /** Description */
+            description?: string | null;
+            /** Label */
+            label?: string | null;
+            /**
+             * Params
+             * @description Parameters to change by name: each value replaces the inherited one whole (a mapping is one value); null removes the parameter
+             */
+            params?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Type
+             * @description Only for a new component; an inherited one keeps its type
+             */
+            type?: string | null;
+        };
         /** ComponentSpec */
         ComponentSpec: {
             /**
@@ -3474,6 +3497,13 @@ export interface components {
             builtins?: string[] | null;
             /** Capabilities */
             capabilities?: string[];
+            /**
+             * Channel Component Overrides
+             * @description With extends (#1425, D59): change the inherited channel components (channel_components) one component at a time instead of rewriting the list. Key: a component name; value: the fields to change — params merge by parameter name (each value replaced whole, null removes it), label and description replace, the type cannot change — or a new component with its type (appended), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own list; a name the list holds twice, a removal of one it does not hold, a changed type or a new component without a type is E-DEF-COMPONENT-OVERRIDE. Empty once loaded
+             */
+            channel_component_overrides?: {
+                [key: string]: components["schemas"]["ComponentOverride"] | null;
+            } | null;
             /** Channel Components */
             channel_components?: components["schemas"]["ComponentSpec"][];
             /** Channel State */
@@ -3492,6 +3522,13 @@ export interface components {
             } | null;
             /** Commands */
             commands?: components["schemas"]["CommandSpec"][];
+            /**
+             * Component Overrides
+             * @description With extends (#1425, D59): change the inherited components one component at a time instead of rewriting the list. Key: a component name; value: the fields to change — params merge by parameter name (each value replaced whole, null removes it), label and description replace, the type cannot change — or a new component with its type (appended), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own list; a name the list holds twice, a removal of one it does not hold, a changed type or a new component without a type is E-DEF-COMPONENT-OVERRIDE. Empty once loaded
+             */
+            component_overrides?: {
+                [key: string]: components["schemas"]["ComponentOverride"] | null;
+            } | null;
             /** Components */
             components?: components["schemas"]["ComponentSpec"][];
             /**

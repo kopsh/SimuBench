@@ -140,7 +140,9 @@ def _extends_chain(path: Path, data: dict) -> list[tuple[Path, float]]:
 
 class LayerError(ValueError):
     """A definition that cannot be layered: a missing or cyclic ``extends`` (E-DEF-EXTENDS), or a
-    ``command_overrides`` entry that names no single inherited command (E-DEF-COMMAND-OVERRIDE).
+    ``command_overrides`` entry that names no single inherited command (E-DEF-COMMAND-OVERRIDE), or a
+    component override that names no single inherited component or changes its type
+    (E-DEF-COMPONENT-OVERRIDE).
     ``code`` and ``pointer`` say where, for the diagnostics."""
 
     def __init__(self, message: str, code: str = "E-DEF-EXTENDS", pointer: str = "/extends") -> None:
@@ -151,6 +153,14 @@ class LayerError(ValueError):
 
 #: The per-command layer of a definition (D59): ``{header: whole command | null}``.
 OVERRIDES = "command_overrides"
+#: The per-component layers (D59, #1425): ``{component name: fields to change | null}``, one for
+#: the instrument's components and one for each channel's, keyed by the list they change.
+COMPONENT_OVERRIDES = {
+    "components": "component_overrides",
+    "channel_components": "channel_component_overrides",
+}
+#: Every override layer: set aside before the merge, applied after it.
+OVERRIDE_KEYS = (OVERRIDES, *COMPONENT_OVERRIDES.values())
 
 
 def _ptr_part(text: str) -> str:
@@ -191,6 +201,69 @@ def apply_command_overrides(commands: list, overrides: dict) -> list:
     return out
 
 
+def apply_component_overrides(components: list, overrides: dict, key: str = "component_overrides") -> list:
+    """``components`` with ``overrides`` applied, each entry naming one component by its name.
+    An inherited component is changed field by field: ``params`` by parameter name — each value
+    replaced whole (a mapping is one value, never merged into the inherited mapping), ``null``
+    removes the parameter — and every other field replaced (``null`` removes it); its ``type`` cannot
+    change (remove it and add a new name instead). A name no component has is appended and must give
+    its ``type``; ``null`` removes the component. Unlike ``command_overrides`` (whole commands, D59)
+    the merge is per field: a component's parameters are a flat name → value table, so "change one
+    parameter" has one meaning, which a command's ordered parameter list does not have. A name the
+    list holds more than once, a removal of a name it does not hold, or a changed ``type`` raises
+    :class:`LayerError` (E-DEF-COMPONENT-OVERRIDE)."""
+    out = list(components)
+    for name, change in overrides.items():
+        at = [i for i, c in enumerate(out) if isinstance(c, dict) and c.get("name") == name]
+        pointer = f"/{key}/{_ptr_part(str(name))}"
+
+        def fail(message: str, pointer: str = pointer) -> LayerError:
+            return LayerError(message, "E-DEF-COMPONENT-OVERRIDE", pointer)
+
+        if len(at) > 1:
+            raise fail(f"组件 {name} 在继承的组件表里出现 {len(at)} 次，按名字改不出是哪一个；改写整张组件表")
+        if change is None:
+            if not at:
+                raise fail(f"继承的组件表里没有组件 {name}，无从删除")
+            del out[at[0]]
+            continue
+        if not isinstance(change, dict):
+            raise fail(f"{name} 的值应是要改的字段（type、label、description、params）或 null")
+        params = change.get("params")
+        if params is not None and not isinstance(params, dict):
+            raise fail(f"{name} 的 params 应是 参数名 → 值 的映射", f"{pointer}/params")
+        if not at:
+            if not change.get("type"):
+                raise fail(f"继承的组件表里没有组件 {name}：新增组件要写明 type")
+            whole = {"name": name, **{k: v for k, v in change.items() if k != "name" and v is not None}}
+            whole["params"] = {k: v for k, v in (params or {}).items() if v is not None}
+            out.append(whole)
+            continue
+        old = out[at[0]]
+        if change.get("type") not in (None, old.get("type")):
+            raise fail(
+                f"组件 {name} 的类型不能改（{old.get('type')} → {change.get('type')}）：删掉它再用新名字加",
+                f"{pointer}/type",
+            )
+        merged = {k: v for k, v in old.items() if k != "params"}
+        for field, value in change.items():
+            if field in ("name", "params", "type"):
+                continue
+            if value is None:
+                merged.pop(field, None)
+            else:
+                merged[field] = value
+        new_params = dict(old.get("params") or {})
+        for param, value in (params or {}).items():
+            if value is None:
+                new_params.pop(param, None)
+            else:
+                new_params[param] = value
+        merged["params"] = new_params
+        out[at[0]] = merged
+    return out
+
+
 def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
     """The definition's data with every layer merged under it (instrument-authoring.md 2.9):
     类别默认 → 父 → 子 — the class's default block lowest, then the ancestors from the far end (the nearest parent over the grandparent),
@@ -199,16 +272,18 @@ def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
     ``command_overrides`` (D59) is set aside before the merge and applied afterwards to the merged
     ``commands``, layer by layer from the far end — only the layers above the nearest one that
     writes its own ``commands`` list, since that list replaces everything below it.
+    ``component_overrides`` and ``channel_component_overrides`` (#1425) do the same for
+    ``components`` and ``channel_components``.
 
     The class default serves real models (D42, a `reference`): a table entry replaces the
     engine's "standard text; detail" reply, so a definition without a reference (the ``sb-*``
     validation instruments, a toy) keeps the engine's standard texts as before."""
     layers = [data] + [_raw_definition(parent, mtime) for parent, mtime in ancestors]  # child first
     overrides = [layer.get(OVERRIDES) for layer in layers]
-    merged = {k: v for k, v in data.items() if k != OVERRIDES}
+    merged = {k: v for k, v in data.items() if k not in OVERRIDE_KEYS}
     layered = False
     for raw in layers[1:]:  # nearest parent first: each lower layer goes under
-        merged = deep_merge({k: v for k, v in raw.items() if k != OVERRIDES}, merged)
+        merged = deep_merge({k: v for k, v in raw.items() if k not in OVERRIDE_KEYS}, merged)
         layered = True
     if merged.get("reference") is not None:
         base = default_block(merged.get("class"))
@@ -229,6 +304,20 @@ def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
                     )
                 commands = apply_command_overrides(commands, own)
         merged = {**merged, "commands": commands}
+    for target, key in COMPONENT_OVERRIDES.items():
+        own_layers = [layer.get(key) for layer in layers]
+        if not any(own_layers):
+            continue
+        top = next((i for i, layer in enumerate(layers) if target in layer), len(layers) - 1)
+        items = merged.get(target) or []
+        for own in reversed(own_layers[: top + 1]):  # far → near → the file itself
+            if own:
+                if not isinstance(own, dict):
+                    raise LayerError(
+                        f"{key} 应是 组件名 → 要改的字段 的映射", "E-DEF-COMPONENT-OVERRIDE", f"/{key}"
+                    )
+                items = apply_component_overrides(items, own, key)
+        merged = {**merged, target: items}
     return merged
 
 
