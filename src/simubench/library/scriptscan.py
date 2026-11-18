@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..engine.commands import UnitMatch, classify
+from ..errors import Invalid
 from ..models.definition import InstrumentDefinition
 from . import categories
 
@@ -472,10 +473,12 @@ def draft_definition(
     if receiver is None:
         if len(resources) != 1:
             names = ", ".join(resources) or "（无）"
-            raise ValueError(f"脚本中有多台仪器发送命令：{names}；用 receiver 指定其中一台")
+            # The caller picked (or could not pick) a receiver: a user input error, a domain
+            # error like the loaders' (#1478) — a bare ValueError is how a bug looks too.
+            raise Invalid(f"脚本中有多台仪器发送命令：{names}；用 receiver 指定其中一台")
         receiver = next(iter(resources))
     if receiver not in resources:
-        raise ValueError(f"脚本中没有向 {receiver!r} 发送的命令；可选：{', '.join(resources)}")
+        raise Invalid(f"脚本中没有向 {receiver!r} 发送的命令；可选：{', '.join(resources)}")
     res = resources[receiver]
     if base is not None:
         data = base.model_dump(mode="json", by_alias=True, exclude_defaults=True)

@@ -12,7 +12,7 @@ pytest.importorskip("mcp")
 
 from mcp import Client
 
-from helpers import mcp_result
+from helpers import mcp_result, raises_with
 from simubench.mcp_server import RateLimiter, build_server
 from simubench.models import api as M
 from simubench.server import drive
@@ -904,3 +904,40 @@ async def test_send_scpi_summarises_a_binary_block_and_cuts_a_very_long_reply(tm
         short = await call(c, "send_scpi", instrument="scope", command="*IDN?")
         assert "truncated" not in short and "UXR1104B" in short["response"]
         await call(c, "stop_session")
+
+
+async def test_a_bug_surfaces_as_itself_not_as_a_tool_text(ws, monkeypatch):
+    """#1478: a tool body catches DOMAIN_ERRORS, so a service bug is not folded into a text the
+    agent could read as a refusal — it crashes the call (UnexpectedToolError, cause intact), the
+    way the same bug is a 500 at the HTTP seam; a domain error stays an anticipated ToolError."""
+    from mcp.server.mcpserver.exceptions import ToolError, UnexpectedToolError
+
+    from simubench.server.benchfiles import BenchFiles
+
+    _, server = make(ws)
+    with raises_with(ToolError, "文件不存在") as refused:
+        await server.call_tool("read_bench", {"path": "nope.bench.yaml"})
+    assert "nope.bench.yaml" in str(refused.value)
+
+    def broken(self, path):
+        raise KeyError("internal")
+
+    monkeypatch.setattr(BenchFiles, "read", broken)
+    with pytest.raises(UnexpectedToolError) as crash:
+        await server.call_tool("read_bench", {"path": BENCH})
+    assert isinstance(crash.value.__cause__, KeyError)
+    assert "internal" not in str(crash.value)  # the model reads no detail, only the crash line
+
+
+async def test_a_badly_written_file_is_still_a_user_error_with_its_position(ws):
+    """#1478 acceptance: narrowing the catches did not turn a file with broken YAML into a crash —
+    the agent reads the file (or id) name and the parser's line, as at the HTTP seam (422)."""
+    (ws / "bad.bench.yaml").write_text("name: x\n  bad indent: [\n", encoding="utf-8")
+    (ws / "instruments").mkdir()
+    (ws / "instruments" / "brok.yaml").write_text("id: brok\nschema: [oops\n", encoding="utf-8")
+    _, server = make(ws)
+    async with Client(server) as c:
+        bench = await call(c, "read_bench", path="bad.bench.yaml")
+        definition = await call(c, "read_definition", definition_id="brok")
+    assert "bad.bench.yaml" in bench["error"] and "(line 2" in bench["error"]
+    assert "brok" in definition["error"] and "(line" in definition["error"]

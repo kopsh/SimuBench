@@ -146,7 +146,7 @@ def _bench_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         try:
             return files.read(path).model_dump(mode="json")
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
 
     @mcp.tool()
@@ -159,7 +159,7 @@ def _bench_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
             data["description"] = req.description
         try:
             return files.save(req.path, None, data, "agent").model_dump(mode="json")
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
 
     @mcp.tool()
@@ -178,17 +178,19 @@ def _bench_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
     def list_bench_history(path: str) -> list[dict[str, Any]]:
         """Saved versions of a bench file, newest first: who wrote each (ui, agent, external,
         restore) and when. Read one with read_bench_version."""
+        guard()
         try:
             return [v.model_dump(mode="json") for v in files.versions(path)]
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
 
     @mcp.tool()
     def read_bench_version(path: str, seq: int) -> dict[str, Any]:
         """The content of one saved version of a bench file."""
+        guard()
         try:
             return files.version(path, seq).model_dump(mode="json")
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
 
 
@@ -213,7 +215,7 @@ def _validation_tools(mcp: MCPServer, ctx: McpContext) -> None:
             report = files.validate(data, path)
         except ToolError:
             raise
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
         return {"ok": report.ok, "diagnostics": [d.model_dump() for d in report.diagnostics]}
 
