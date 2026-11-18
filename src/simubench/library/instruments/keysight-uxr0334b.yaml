@@ -423,9 +423,9 @@ state:
     type: float
     unit: HZ
     min: 0.0
-    max: 1.28e11
+    max: {same_as: specs.sample_rate}
     default: 0.0
-    special: {AUTO: 0.0, MAX: 1.28e11}
+    special: {AUTO: 0.0, MAX: {same_as: specs.sample_rate}}
     label: 采样率设定
     label_en: Sample rate setting
   # 带宽滤波（:ACQuire:BANDwidth）：MAX 为硬件带宽 33 GHz；AUTO 未建模。
@@ -433,9 +433,9 @@ state:
     type: float
     unit: HZ
     min: 1.0e8
-    max: 3.3e10
-    default: 3.3e10
-    special: {MAX: 3.3e10}
+    max: {same_as: specs.bandwidth_hz}
+    default: {same_as: specs.bandwidth_hz}
+    special: {MAX: {same_as: specs.bandwidth_hz}}
     not_modeled: {AUTO: the automatic bandwidth selection is not modeled}
     label: 带宽
     label_en: Bandwidth
@@ -1568,7 +1568,7 @@ components:
       # 硬件最小量程 32 mV 满量程（数据手册 3123-1313 Hardware sensitivity）：4 mV/div 以下是该量程的放大，
       # 码宽保持 32 mV / 1024，削波在量程边缘而不在屏幕边缘（#1265）。
       min_full_scale: 0.032
-      max_rate: 1.28e11
+      max_rate: {same_as: specs.sample_rate}
       vertical: front
       probe: probe
   # :ACQuire:BANDwidth（#1262）：ADC 之后的数字带宽滤波，平坦幅度为砖墙、高斯幅度为高斯形，零相位；带宽设到
@@ -1580,7 +1580,7 @@ components:
     params:
       bandwidth: $acquire.bandwidth
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
-      passthrough_hz: 3.3e10
+      passthrough_hz: {same_as: specs.bandwidth_hz}
       adc: adc
   # 通道带宽限制（:CHANnel<N>:ISIM:BWLimit / :BANDwidth / :BWLimit:TYPE，#609）：InfiniiSim 的数字滤波，
   # WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。手册说 Bessel 与
@@ -1738,7 +1738,7 @@ channel_components:
       coupling: DC
       invert: $ch.invert
       probe_ratio: $ch.probe
-      bandwidth: 3.3e10
+      bandwidth: {same_as: specs.bandwidth_hz}
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
       scale: $ch.scale
       offset: $ch.offset

@@ -210,6 +210,22 @@ channel_component_overrides:
   front: {params: {bandwidth: 1.6e11}}
 ```
 
+**一个值只写一处**（#1426，D82）：同一个数据手册数值（带宽、最高采样率、型号身份）常常要出现在组件参数、设置的 `max`/`default`/`special` 与命令关键字里。写成 `{same_as: <路径>}`，它们就都取同一个值：路径是从定义顶层起的键，用点连接（`specs.bandwidth_hz`、`model`；设置名这类带点的键整段匹配，列表项用下标）。loader 在合并完全部层之后才替换，所以子定义只改被引用的那一处，引用处全部跟着变：
+
+```yaml
+# 父定义（keysight-uxr1104b）
+specs: {bandwidth_hz: 1.13e11, sample_rate: 2.56e11}
+state:
+  acquire.bandwidth: {type: float, max: {same_as: specs.bandwidth_hz}, default: {same_as: specs.bandwidth_hz}}
+# 子定义：带宽、采样率与身份各改一处
+extends: keysight-uxr1104b
+manufacturer: MyLab
+model: NG-RT160
+specs: {bandwidth_hz: 1.6e11, sample_rate: 5.12e11}
+```
+
+`same_as` 只在加载时、只取定义自己的数据；运行时引用设置仍写 `$设置名`。指向不存在的路径、成环、与其他键同在一个映射里，报 E-DEF-SAME-AS。
+
 ```yaml
 extends: keysight-uxr1104b
 command_overrides:

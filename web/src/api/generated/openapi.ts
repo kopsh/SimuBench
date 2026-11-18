@@ -2726,7 +2726,7 @@ export interface components {
             old: unknown;
             /**
              * Still Old
-             * @description A specs change only: where the new version still holds the old value (settings' limits and defaults, component parameters, as JSON pointers). Specs are a record and change no behaviour (D3); these places do
+             * @description A specs change only: where the new version still holds the old value (settings' limits and defaults, component parameters, as JSON pointers). Specs are a record and change no behaviour (D3) except through a place that refers to them with same_as (D82), which follows the new value and is not listed; these places hold the old number as a literal
              */
             still_old: string[] | null;
             /**

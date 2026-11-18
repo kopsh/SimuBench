@@ -2510,3 +2510,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 内置定义不变 | ✅ 快层全过（金测、手册用例原样） |
 | 文档与生成物 | ✅ D59 条目（不新增条目）、instrument-authoring 2.9 加「组件逐个覆盖」与示例、product-plan 3.5 行；schemas/ 与 web/src/api/generated 重生成 |
 
+## 一个值只写一处：定义里的 `{same_as: <路径>}`（Issue 1426）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 子定义只改一处，带宽、采样率、身份全部随之改变 | ✅ `tests/test_same_as.py::test_a_child_changes_the_bandwidth_the_sample_rate_and_the_identity_in_one_place`：UXR1104B 的子定义只写 `manufacturer`、`model`、`specs.bandwidth_hz`、`specs.sample_rate`，`*IDN?`、`:ACQuire:BANDwidth?`（1.5e11 不再报 -222）、`:ACQuire:SRATe MAX`、`:SYSTem:PERSona DEF` 全部给出子定义的值 |
+| 替换规则 | ✅ `library/same_as.py`：带点的键整段匹配、列表下标、链式引用、`template` 原样、`$设置` 不动；不存在、成环、不单独写、值不是路径报 E-DEF-SAME-AS 带指针（同文件的参数化用例）；loader 在全部层与覆盖层之后替换 |
+| 内置定义的回复逐字节不变 | ✅ UXR1104B、UXR0334B 的 12 / 8 处字面值改为引用；`test_the_built_in_uxr_models_resolve_to_their_data_sheet_values`；真实型号金测、手册用例与快层全过 |
+| 没经过 loader 的数据也替换 | ✅ `validate_definition_data`（模板展开等直接校验原始数据的调用方）与模型的载入前一步也替换，出错报 E-DEF-SAME-AS；`tests/test_panel_layout.py` 对原始 UXR1104B 数据的校验原样通过 |
+| 版本变更记录 | ✅ `tests/test_definition_history.py`：改被引用的 `specs.bandwidth_hz`，引用处作为各自的变更列出、`still_old` 为空（`test_a_specs_edit_moves_the_places_that_refer_to_it`）；`still_old` 的原用例改用仍写字面值的触发抖动 |
+| 文档 | ✅ D82（新增条目：文件格式的新写法，有备选）、instrument-authoring 2.9「一个值只写一处」与示例、product-plan 3.5 行 |
+

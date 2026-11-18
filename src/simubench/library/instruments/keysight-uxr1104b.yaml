@@ -235,9 +235,9 @@ state:
     type: float
     unit: HZ
     min: 0.0
-    max: 2.56e11
+    max: {same_as: specs.sample_rate}
     default: 0.0
-    special: {AUTO: 0.0, MAX: 2.56e11}
+    special: {AUTO: 0.0, MAX: {same_as: specs.sample_rate}}
     label: 采样率设定
     label_en: Sample rate setting
   # 带宽滤波（:ACQuire:BANDwidth）：MAX 为硬件带宽 113 GHz（数据手册典型值，保证 110 GHz）；AUTO 未建模。
@@ -245,9 +245,9 @@ state:
     type: float
     unit: HZ
     min: 1.0e8
-    max: 1.13e11
-    default: 1.13e11
-    special: {MAX: 1.13e11}
+    max: {same_as: specs.bandwidth_hz}
+    default: {same_as: specs.bandwidth_hz}
+    special: {MAX: {same_as: specs.bandwidth_hz}}
     not_modeled: {AUTO: the automatic bandwidth selection is not modeled}
     label: 带宽
     label_en: Bandwidth
@@ -1041,8 +1041,8 @@ state:
   hardcopy.printers: {type: int, min: 0, max: 0, default: 0, readonly: true, label: 已装打印机, label_en: Printers installed}
   hardcopy.default_printer: {type: string, default: "", readonly: true, label: 默认打印机, label_en: Default printer}
   # 改 *IDN? 的厂商与型号字符串（:SYSTem:PERSona）；DEFault 恢复。
-  system.persona_manufacturer: {type: string, default: "Keysight Technologies", label: 身份厂商, label_en: Persona manufacturer}
-  system.persona_model: {type: string, default: "UXR1104B", label: 身份型号, label_en: Persona model}
+  system.persona_manufacturer: {type: string, default: {same_as: manufacturer}, label: 身份厂商, label_en: Persona manufacturer}
+  system.persona_model: {type: string, default: {same_as: model}, label: 身份型号, label_en: Persona model}
 channel_state:
   display:
     type: bool
@@ -1360,7 +1360,7 @@ components:
       # 硬件最小量程 60 mV 满量程（数据手册 3123-1313 Hardware sensitivity）：7.5 mV/div 以下是该量程的放大，
       # 码宽保持 60 mV / 1024，削波在量程边缘而不在屏幕边缘（#1265）。
       min_full_scale: 0.06
-      max_rate: 2.56e11
+      max_rate: {same_as: specs.sample_rate}
       vertical: front
       probe: probe
   # :ACQuire:BANDwidth（#1262）：ADC 之后的数字带宽滤波，平坦幅度为砖墙、高斯幅度为高斯形，零相位；带宽设到
@@ -1372,7 +1372,7 @@ components:
     params:
       bandwidth: $acquire.bandwidth
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
-      passthrough_hz: 1.13e11
+      passthrough_hz: {same_as: specs.bandwidth_hz}
       adc: adc
   # 通道带宽限制（:CHANnel<N>:ISIM:BWLimit / :BANDwidth / :BWLimit:TYPE，#609）：InfiniiSim 的数字滤波，
   # WALL 砖墙、BESSEL4 4 阶 Bessel、BUTTerworth 4 阶 Butterworth（手册），关时直通。手册说 Bessel 与
@@ -1550,7 +1550,7 @@ channel_components:
     label: 垂直前端（档位/偏置/带宽）
     params:
       coupling: DC
-      bandwidth: 1.13e11
+      bandwidth: {same_as: specs.bandwidth_hz}
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
       scale: $ch.scale
       offset: $ch.offset
@@ -1784,7 +1784,7 @@ commands:
         optional: true
         state: acquire.srate
         sets: {acquire.srate_auto: false}
-        keywords: {AUTO: {acquire.srate_auto: true}, MAX: {acquire.srate: 2.56e11, acquire.srate_auto: false}}
+        keywords: {AUTO: {acquire.srate_auto: true}, MAX: {acquire.srate: {same_as: specs.sample_rate}, acquire.srate_auto: false}}
   - {header: ":ACQuire:SRATe[:ANALog]:AUTO", state: acquire.srate_auto}
   - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
   - {header: ":ACQuire:RESPonse", state: acquire.response}
@@ -2233,7 +2233,7 @@ commands:
       - name: manufacturer
         type: string
         state: system.persona_manufacturer
-        keywords: {DEF: {system.persona_manufacturer: "Keysight Technologies", system.persona_model: "UXR1104B"}}
+        keywords: {DEF: {system.persona_manufacturer: {same_as: manufacturer}, system.persona_model: {same_as: model}}}
       - {name: model, type: string, optional: true, state: system.persona_model}
   # :SYSTem:CAPability:*?（手册第 37 章）：数据手册 3123-1313 的能力，带引号的字符串。UXR1104B 没有半通道模式与
   # 数字通道；存储深度标配 500 Mpts，选件 01G / 02G 为 1 / 2 Gpts（仿真的记录至多 10 Mpts，覆盖表注明）。
