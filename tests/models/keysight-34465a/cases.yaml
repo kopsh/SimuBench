@@ -484,7 +484,7 @@ cases:
       - query: "VOLT:DC:NPLC?"
         expect: "+1.00000000E+01"
       - query: "VOLT:DC:RANG?"
-        expect: "+0.00000000E+00"
+        expect: "+1.00000000E-01"
 
   - name: "蜂鸣器、按键音、SYST:BEEP、SYST:LOCal（接受，不影响仿真）"
     manual: "SYSTem Subsystem > SYSTem:BEEPer:STATe / :BEEPer[:IMMediate] / :CLICk:STATe / :LOCal"
@@ -582,5 +582,49 @@ cases:
         expect_format: "±d.ddddddddE±dd"
       - query: "MEAS:CURR:AC?"
         expect_format: "±d.ddddddddE±dd"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "量程查询回实际档位；DEF/MIN/MAX 是合法档并关闭自动量程（#1452）"
+    manual: "SENSe Subsystem > [:SENSe]:VOLTage[:DC]:RANGe, RESistance:RANGe, CURRent[:DC]:RANGe"
+    steps:
+      - send: "*RST"
+      # 自动量程下查询与实际量程一致（不是占位值 0）
+      - query: "VOLT:DC:RANG?"
+        expect: "+1.00000000E-01"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E-01,+1.00000000E-08"'
+      - query: "MEAS:VOLT:DC?"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "VOLT:DC:RANG?"
+        expect: "+1.00000000E-01"
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      # DEF 是默认档 10 V，并关闭自动量程
+      - send: "VOLT:RANG DEF"
+      - query: "VOLT:RANG?"
+        expect: "+1.00000000E+01"
+      - query: "VOLT:RANG:AUTO?"
+        expect: "0"
+      - query: "CONF?"
+        expect: '"VOLT +1.00000000E+01,+1.00000000E-06"'
+      # MIN/MAX 是量程两端
+      - send: "VOLT:RANG MIN"
+      - query: "VOLT:RANG?"
+        expect: "+1.00000000E-01"
+      - send: "VOLT:RANG MAX"
+      - query: "VOLT:RANG?"
+        expect: "+1.00000000E+03"
+      # 电阻与电流功能同理
+      - send: ":CONF:RES;:RES:RANG DEF"
+      - query: "RES:RANG?"
+        expect: "+1.00000000E+04"
+      - query: "CONF?"
+        expect: '"RES +1.00000000E+04,+1.00000000E-03"'
+      - send: ":CONF:CURR:DC;:CURR:RANG DEF"
+      - query: "CURR:RANG?"
+        expect: "+1.00000000E-04"
+      - query: "CONF?"
+        expect: '"CURR +1.00000000E-04,+1.00000000E-11"'
       - query: "SYST:ERR?"
         expect: '+0,"No error"'

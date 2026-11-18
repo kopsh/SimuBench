@@ -334,7 +334,9 @@ class WaveformSynth(Component):
     @staticmethod
     def _pulse_raw(value: Any) -> bytes:
         """The command's value (a string parameter, so the words reach the operation) as the
-        parser's bytes."""
+        parser's bytes; a write without one is a missing parameter (#1451)."""
+        if value is None:
+            raise ScpiError(-109)
         return value.encode("ascii", errors="replace") if isinstance(value, str) else value
 
     @op("pulse_width")

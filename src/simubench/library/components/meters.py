@@ -318,7 +318,11 @@ class DmmConditioning(Component):
         if not self.ranges(function):
             return None
         if not V.flag(self.param("autorange")):
-            return self.range_of_setting(function)
+            manual = self.range_of_setting(function)
+            if manual is not None:
+                return manual
+            # A 0 setting is the AUTO placeholder, never a broken fixed range (#1452): measuring
+            # with autorange off before any range was given still has to answer a real range.
         r = self._auto_range.get(function)
         if r is None and derive:
             self._adopt_range(
@@ -508,14 +512,58 @@ class DmmAdc(Component):
         return OpResult(V.format_float(self.measure(what), int(self.param("digits"))))
 
     @op("range")
-    def op_range(self, query: bool = False, **_: Any) -> OpResult:
-        """The range in use, the auto-chosen one included (the definition's range query)."""
+    def op_range(
+        self,
+        query: bool = False,
+        what: str | None = None,
+        state: str = "",
+        auto_state: str = "",
+        default: float | None = None,
+        unit: str | None = None,
+        minimum: float | None = None,
+        maximum: float | None = None,
+        value: Any = None,
+        **_: Any,
+    ) -> OpResult:
+        """The range in use, the auto-chosen one included (the definition's range query).
+
+        A write selects a fixed range and leaves autorange; AUTO keeps it on and writes the 0
+        placeholder, DEF writes the model's default range (#1452). A query with a word answers for
+        that word (``RANGe? DEF``), without one for the range in use. The raw parameter keeps
+        MIN/MAX/DEF and AUTO away from the binding layer, which would write them even on a query.
+        """
         conditioning = self._conditioning()
-        function = conditioning.active_function()
-        r = conditioning.effective_range(function)
-        if r is None:
-            raise ValueError(f"{self.uid}: no ranges configured for the {function} function")
-        return OpResult(V.format_float(r, int(self.param("digits"))))
+        function = what or conditioning.active_function()
+        tokens = value if isinstance(value, list) else ([] if value is None else [value])
+        first = tokens[0] if tokens else None
+        word = first.decode("ascii", errors="replace").strip().upper() if isinstance(first, bytes) else ""
+        if query:
+            if first is None or word.startswith("AUTO"):
+                r = conditioning.effective_range(function)
+            elif word.startswith("DEF"):
+                r = default
+            else:
+                r = float(V.parse_float(first, unit, minimum, maximum, default))
+            if r is None:
+                raise ValueError(f"{self.uid}: no ranges configured for the {function} function")
+            return OpResult(V.format_float(r, int(self.param("digits"))))
+        if first is None:
+            raise ScpiError(-109)
+        if word.startswith("AUTO"):
+            number, auto = 0.0, True
+        elif word.startswith("DEF"):
+            if default is None:
+                raise ScpiError(-224, "no default range defined")
+            number, auto = float(default), False
+        else:
+            number = V.parse_float(first, unit, minimum, maximum, default)
+            if (minimum is not None and number < minimum) or (maximum is not None and number > maximum):
+                raise ScpiError(-222)
+            auto = False
+        assert self.owner is not None  # an SCPI op runs on a live instrument
+        self.owner.set_state(self.resolve_path(state), number)
+        self.owner.set_state(self.resolve_path(auto_state), auto)
+        return OpResult()
 
     @op("configure")
     def op_configure(self, **_: Any) -> OpResult:
