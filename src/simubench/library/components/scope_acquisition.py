@@ -269,8 +269,9 @@ class ScopeAcquisition(Component):
         self.owner.set_state(self.resolve_path(path), value)
 
     def _display_signal(self, n: int) -> Signal:
-        """Signal of channel n in display volts, before the converter: what the trigger compares."""
-        return self.adc_unit().analog(n)
+        """Signal of channel n in display volts, before the converter: what the trigger compares
+        (the analog path's shape when the vertical declares one, #1423)."""
+        return self.adc_unit().trigger_signal(n)
 
     def trigger_level(self) -> float:
         """The trigger level in display volts (the scope screen draws it)."""

@@ -562,6 +562,55 @@ def test_the_trigger_taps_the_analog_front_end_with_its_own_noise(tmp_path, case
     assert _triggers(bench, f"{setup};:TRIGger:HYSTeresis NORMal", "1E9") == (normal, origins)
 
 
+def test_the_trigger_sees_the_analog_front_end_and_the_record_its_dsp_correction():
+    """#1423: the UXR1104B's flat-magnitude response is a DSP correction after the converter; the
+    trigger taps the analog path before it, shaped by the front end's own roll-off (a 4th-order
+    Bessel at the same -3 dB point, a SimuBench estimate). On a 10 GHz square (harmonics to 4 THz):
+    the record's brick wall rings before and after the edge (~9 % of the step), the trigger's path
+    does not (< 1 %); the edge's 50 % crossing moves by 0.06 ps (under 0.1 ps)."""
+    from simubench.api import open_bench
+    from simubench.engine.signal import Signal, bessel4, brickwall
+
+    session = open_bench(EXAMPLE_BENCH_1104B, seed=1)
+    try:
+        scope = session.instruments["scope"]
+        front, probe, adc = (
+            scope.components["ch1.front"],
+            scope.components["ch1.probe"],
+            scope.components["adc"],
+        )
+        fc = float(front.param("bandwidth"))
+        assert front.choice("response") == "brickwall" and front.choice("analog_response") == "bessel4"
+        # routing: the record's input is the brick wall's, the trigger's the Bessel's (CH1's 10 MHz sine)
+        before = front.input("in")
+        k = probe.effective_ratio()
+        assert np.allclose(adc.analog(1).amp, before.amp * brickwall(fc)(before.freq) * k)
+        assert np.allclose(adc.trigger_signal(1).amp, before.amp * bessel4(fc)(before.freq) * k)
+        assert np.allclose(
+            scope.components["acq"]._display_signal(1).amp, adc.trigger_signal(1).amp
+        )  # what the search uses
+    finally:
+        session.close()
+    odd = np.arange(1, 400, 2)
+    square = Signal.lines(odd * 1e10, -0.5j * (4 / np.pi) / odd)  # ±0.5 V, rising through 0 at t = 0
+    t = np.linspace(-20e-12, 20e-12, 40001)
+    shapes = {
+        name: square.transfer(h(fc)).sample_rel(0, t)
+        for name, h in (("record", brickwall), ("trigger", bessel4))
+    }
+    early = t < -8e-12  # well before the edge: the record rings there, the analog path does not
+    assert float(np.max(shapes["record"])) - 0.5 == pytest.approx(0.09, abs=0.01)
+    assert float(np.max(shapes["trigger"])) - 0.5 < 0.01
+    assert float(np.ptp(shapes["record"][early & (t > -12e-12)])) > 0.01
+    assert float(np.ptp(shapes["trigger"][early & (t > -12e-12)])) < 1e-4
+
+    def crossing(v: np.ndarray) -> float:
+        i = int(np.argmax((v[:-1] < 0) & (v[1:] >= 0) & (np.abs(t[:-1]) < 5e-12)))
+        return float(t[i] - v[i] * (t[i + 1] - t[i]) / (v[i + 1] - v[i]))
+
+    assert 0 < abs(crossing(shapes["trigger"]) - crossing(shapes["record"])) < 1e-13
+
+
 @pytest.mark.parametrize("cases", [CASES_BENCH_1104B, CASES_BENCH], ids=["uxr1104b", "uxr0334b"])
 def test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger(tmp_path, cases):
     """#1298: ``scope_trigger`` ``bandwidth`` is a first-order low-pass on the trigger path only.

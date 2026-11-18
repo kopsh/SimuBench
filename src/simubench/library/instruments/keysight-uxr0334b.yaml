@@ -1743,6 +1743,10 @@ channel_components:
       probe_ratio: $ch.probe
       bandwidth: {same_as: specs.bandwidth_hz}
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
+      # 模拟前端自身的滚降（#1423）：平坦幅度 / 高斯幅度是 ADC 之后 DSP 修正的结果，触发从 ADC 之前的模拟通路
+      # 分出，看到的是这一形状、不带修正。形状手册未给：同 UXR1104B 取 4 阶 Bessel、-3 dB 在同一带宽（SimuBench
+      # 估计，覆盖表注明）。记录照旧是修正后的形状。
+      analog_response: bessel4
       scale: $ch.scale
       offset: $ch.offset
       probe_ratio: 1.0

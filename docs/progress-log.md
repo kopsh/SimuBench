@@ -2574,3 +2574,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 时限 | ✅ 时延并入孔径抖动的同一次斜率计算；全量测试 69.5 s |
 | 文档 | ✅ signal-chain.md 的 `scope_adc` 一段、UXR 两型号的覆盖表与定义注释、product-plan C4 与 F1-2 行 |
 
+## 示波器前端：模拟响应与 DSP 平坦度修正分开，触发只看到模拟响应（Issue 1423）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 做法 | ✅ `scope_vertical.analog_response`：模拟前端自身的滚降；`analog_output()` 用它代替 `response`；`scope_adc.trigger_signal(n)` = 该形状 + 探头换算，`scope_acquisition._display_signal`（触发搜索的输入）改取它。记录仍用修正后的 `response`：修正按谱线精确处理、不改变噪声的频谱形状（假设，instrument-authoring 8.4 写明）——比在采样域做均衡 FIR 改动小，且记录逐字节不变 |
+| 采集到的阶跃与正弦响应不变 | ✅ 记录路径未动：全量测试、UXR 金测、采样流金标准与手册用例原样通过（示例测试台的 MHz 信号下两种形状无可见差别） |
+| 只有触发时刻在快边沿上变化，变化量有测试并写进覆盖表 | ✅ `tests/test_keysight_uxr.py::test_the_trigger_sees_the_analog_front_end_and_the_record_its_dsp_correction`：路由（记录 = 砖墙、触发 = Bessel，逐谱线）；10 GHz 方波上记录过冲约 9 %、边沿前振铃，触发通路 < 1 %、无振铃；50 % 过零点差约 0.06 ps（< 0.1 ps），写进两型号 `:ACQuire:RESPonse` 的覆盖表注释 |
+| 触发响应与“采集的模拟带宽”一致 | ✅ Bessel 的 -3 dB 在前端的 `bandwidth`（数据手册 Trigger System：Equal to acquisition analog bandwidth） |
+| 形状的依据 | ✅ 手册未给模拟前端形状；4.0 ps 上升时间与修正后的 113 GHz 砖墙一致（0.45 / fc），所以它说的是修正后的响应；取 4 阶 Bessel 为估计，覆盖表标 ESTIMATE |
+
