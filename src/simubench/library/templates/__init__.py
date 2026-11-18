@@ -10,6 +10,7 @@ then goes through the usual static checks.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import Any, Literal
@@ -74,6 +75,40 @@ class Expansion:
 
 
 @dataclass(frozen=True)
+class Mnemonic:
+    """A spelling many models share for one of the template's settings or operations, for drafts
+    from a script whose commands no library model knows (D81: it binds one command, it does not
+    pick a vendor). ``pattern`` is matched (in full) against the header as the draft normalises it:
+    upper case, a channel number as ``#``, no leading colon or trailing ``?``. ``bind`` is the
+    command's binding, or a function of the match that returns it (None: not this one)."""
+
+    pattern: str
+    bind: dict[str, Any] | Callable[[re.Match[str]], dict[str, Any] | None]
+
+
+@dataclass(frozen=True)
+class Drafting:
+    """A template's part in drafting a definition from a script (#145, D81). The draft learns each
+    command's binding from a library model that accepts the same header, else from a mnemonic, else
+    keeps the command as a setting that only stores its value (to confirm); these hooks fill in the
+    data-sheet inputs around that."""
+
+    #: generic inputs a data sheet would replace, without commands
+    base: Callable[[], dict[str, Any]]
+    #: (inputs, the script's commands, hints) -> where the identity and channel count came from
+    basics: Callable[[dict[str, Any], list[Any], dict[str, Any]], list[Filled]]
+    mnemonics: list[Mnemonic]
+    #: (inputs, a setting path or "comp.op" a command binds, the library model it was learned from)
+    #: -> the inputs it switched on or changed so the definition has it as that model does
+    enable: Callable[[dict[str, Any], str, Any], list[Filled]]
+    #: (inputs, bound setting -> [(arguments, line)]) -> data-sheet values read from the arguments
+    refine: Callable[[dict[str, Any], dict[str, list[tuple[list[str], int]]]], list[Filled]]
+    #: (inputs, the library model the script talks most like) -> data-sheet placeholders taken from
+    #: it instead of generic ones (still to confirm)
+    resemble: Callable[[dict[str, Any], Any], list[Filled]] = lambda _inputs, _model: []
+
+
+@dataclass(frozen=True)
 class Template:
     id: str
     version: int
@@ -87,11 +122,8 @@ class Template:
     build: Callable[[Any], dict[str, Any]]
     #: problems the schema cannot express
     check: Callable[[Any], list[InputProblem]] = lambda _inputs: []
-    #: command-set variant -> inputs that switch on everything the variant can answer (its command
-    #: signature, used to recognise a script's instrument, #145)
-    variants: Callable[[], dict[str, dict[str, Any]]] = lambda: {}
-    #: (variant, the script's commands to this instrument, hints) -> (inputs, where each came from)
-    prefill: Callable[[str, list[Any], dict[str, Any]], tuple[dict[str, Any], list[Filled]]] | None = None
+    #: how a draft from a script fills this template in (#145, D81); None: no drafting
+    drafting: Drafting | None = None
 
     def summary(self) -> dict[str, Any]:
         return {

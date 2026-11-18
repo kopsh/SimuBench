@@ -1,5 +1,6 @@
 """Instrument templates (issue 125, instrument-authoring.md 7.4, D3): an agent fills in a data sheet,
-the oscilloscope template generates section 8's modules and a generic SCPI command set."""
+the oscilloscope template generates section 8's modules; the command table is the model's own data
+(D81: there is no "dialect" to choose)."""
 
 from __future__ import annotations
 
@@ -21,28 +22,156 @@ from simubench.server.catalog import components
 ROOT = Path(__file__).resolve().parents[1]
 SCOPE = get_template("oscilloscope")
 
-#: sb-dso-4 as a data sheet: the template reproduces it reply for reply.
+#: sb-dso-4 as a data sheet and its command table (the model's own, as its manual lists the commands
+#: the template's behaviour backs): the template reproduces it reply for reply. sb-dso-4 is a
+#: noiseless scope: the template's assumed default noise and trigger jitter (#731) are switched off
+#: so the two are compared like for like.
 DSO4_INPUTS = {
     "identity": {
-        "manufacturer": "SIMUBENCH", "model": "SB-DSO-4", "serial": "SBDSO000001", "firmware": "1.0.0",
+        "manufacturer": "SIMUBENCH",
+        "model": "SB-DSO-4",
+        "serial": "SBDSO000001",
+        "firmware": "1.0.0",
         "description": "四通道数字示波器，200 MHz，16 位波形传输，输入 1 MΩ / 50 Ω 可选。",
     },
     "channels": {
-        "count": 4, "bandwidth_hz": 2.0e8, "bandwidth_limit_hz": 2.0e7,
+        "count": 4,
+        "bandwidth_hz": 200000000.0,
+        "bandwidth_limit_hz": 20000000.0,
         "impedances": [
-            {"name": "ONEMeg", "ohms": 1.0e6, "label": "1 MΩ"}, {"name": "FIFTy", "ohms": 50.0, "label": "50 Ω"},
+            {"name": "ONEMeg", "ohms": 1000000.0, "label": "1 MΩ"},
+            {"name": "FIFTy", "ohms": 50.0, "label": "50 Ω"},
         ],
+        "couplings": [{"keyword": "DC", "coupling": "DC"}, {"keyword": "AC", "coupling": "AC"}],
     },
-    # sb-dso-4 is a noiseless scope: the template's assumed default noise and trigger jitter (#731) are
-    # switched off so the two are compared like for like.
     "vertical": {
-        "scale_range": [1.0e-3, 100.0], "default_scale": 1.0, "probe_range": [0.001, 10000.0], "noise_divs": 0.0,
+        "scale_range": [0.001, 100.0],
+        "default_scale": 1.0,
+        "probe_range": [0.001, 10000.0],
+        "noise_divs": 0.0,
     },
     "adc": {"bits": 0},
-    "timebase": {"scale_range": [1.0e-9, 50.0]},
-    "trigger": {"jitter_s": 0.0},
-    "transfer": {"byte_codes_per_div": 32.0, "word_codes_per_div": 8192.0},
-}  # fmt: skip
+    "timebase": {"scale_range": [1e-09, 50.0]},
+    "trigger": {
+        "jitter_s": 0.0,
+        "modes": [{"keyword": "AUTO", "meaning": "auto"}, {"keyword": "NORMal", "meaning": "normal"}],
+        "external": [],
+        "line": None,
+    },
+    "transfer": {
+        "byte_codes_per_div": 32.0,
+        "word_codes_per_div": 8192.0,
+        "formats": [
+            {"keyword": "WORD", "kind": "word"},
+            {"keyword": "BYTE", "kind": "byte"},
+            {"keyword": "ASCii", "kind": "ascii"},
+        ],
+        "no_record": "no acquisition for this source; send :DIGitize first",
+        "preamble": [
+            {"setting": "waveform.format", "map": {"BYTE": 0, "WORD": 1, "ASCii": 4}},
+            {"value": 0},
+            {"figure": "points"},
+            {"value": 1},
+            {"figure": "x_increment", "format": "%+.6E"},
+            {"figure": "x_start", "format": "%+.6E"},
+            {"value": 0},
+            {"figure": "y_increment", "format": "%+.6E"},
+            {"figure": "y_origin", "format": "%+.6E"},
+            {"figure": "y_reference"},
+        ],
+    },
+    "acquisition": {"types": [{"keyword": "NORMal", "kind": "normal"}]},
+    "measurements": {
+        "items": ["VPP", "VMAX", "VMIN", "VAMPlitude", "VRMS", "VAVerage", "FREQuency", "PERiod"]
+    },
+    "commands": {
+        "table": [
+            {"header": ":CHANnel<ch>:SCALe", "state": "ch.scale"},
+            {"header": ":CHANnel<ch>:OFFSet", "state": "ch.offset"},
+            {"header": ":CHANnel<ch>:COUPling", "state": "ch.coupling"},
+            {"header": ":CHANnel<ch>:IMPedance", "state": "ch.impedance"},
+            {"header": ":CHANnel<ch>:PROBe", "state": "ch.probe"},
+            {"header": ":CHANnel<ch>:BWLimit", "state": "ch.bwlimit"},
+            {"header": ":CHANnel<ch>:DISPlay", "state": "ch.display"},
+            {"header": ":TIMebase[:MAIN]:SCALe", "state": "timebase.scale"},
+            {"header": ":TRIGger[:EDGE]:SOURce", "state": "trigger.source"},
+            {"header": ":TRIGger[:EDGE]:LEVel", "state": "trigger.level"},
+            {"header": ":TRIGger[:EDGE]:SLOPe", "state": "trigger.slope"},
+            {"header": ":TRIGger:SWEep", "state": "trigger.mode"},
+            {
+                "header": ":DIGitize",
+                "op": "acq.digitize",
+                "query": False,
+                "params": [{"name": "sources", "type": "raw"}],
+            },
+            {"header": ":SINGle", "op": "acq.digitize", "query": False},
+            {"header": ":WAVeform:SOURce", "state": "waveform.source"},
+            {"header": ":WAVeform:FORMat", "state": "waveform.format"},
+            {"header": ":WAVeform:BYTeorder", "state": "waveform.byteorder"},
+            {"header": ":WAVeform:UNSigned", "state": "waveform.unsigned"},
+            {"header": ":WAVeform:POINts", "state": "waveform.points"},
+            {"header": ":WAVeform:PREamble", "op": "xfer.header", "set": False},
+            {"header": ":WAVeform:DATA", "op": "xfer.data", "set": False},
+            {
+                "header": ":MEASure:VPP",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "VPP"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+            {
+                "header": ":MEASure:VMAX",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "VMAX"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+            {
+                "header": ":MEASure:VMIN",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "VMIN"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+            {
+                "header": ":MEASure:VAMPlitude",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "VAMPlitude"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+            {
+                "header": ":MEASure:VRMS",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "VRMS"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+            {
+                "header": ":MEASure:VAVerage",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "VAVerage"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+            {
+                "header": ":MEASure:FREQuency",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "FREQuency"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+            {
+                "header": ":MEASure:PERiod",
+                "op": "meas.measure",
+                "set": False,
+                "args": {"what": "PERiod"},
+                "params": [{"name": "source", "type": "string", "optional": True}],
+            },
+        ],
+        "unknown": "error",
+    },
+}
 
 #: The acceptance scope scenario's commands and more (formats, measurements, trigger, coupling,
 #: impedance, limits, unknown headers), each followed by what the scope answers.
@@ -138,7 +267,7 @@ def _replies(path: Path, sequence: list[str]) -> list[bytes | None]:
 
 def _expand(inputs: dict, def_id: str = "acme-dso-204") -> dict:
     out = SCOPE.expand(inputs, def_id)
-    assert out.ok, [d.as_dict() for d in out.diagnostics]
+    assert out.ok, [d.model_dump() for d in out.diagnostics]
     assert out.definition is not None
     return out.definition
 
@@ -163,7 +292,7 @@ def test_the_templates_and_their_units():
 
 def test_the_example_expands_clean_and_records_its_template():
     definition = _expand(SCOPE.example())
-    assert definition["template"] == {"id": "oscilloscope", "version": 1, "inputs": SCOPE.example()}
+    assert definition["template"] == {"id": "oscilloscope", "version": 2, "inputs": SCOPE.example()}
     assert InstrumentDefinition.model_validate(definition).template is not None
     # Only generic components (#93): a template never needs a model's own component.
     generic = {c.type: c.generic for c in components()}
@@ -341,8 +470,8 @@ def _with(change) -> dict:
             id="power-on-points-not-listed",
         ),
         pytest.param(
-            lambda x: x.update(measurements=["VPP", "RISetime"]),
-            ("E-TPL-UNKNOWN", "/measurements/1"),
+            lambda x: x.update(measurements={"items": ["VPP", "RISetime"]}),
+            ("E-TPL-UNKNOWN", "/measurements/items/1"),
             id="unknown-measurement",
         ),
         pytest.param(
@@ -385,36 +514,145 @@ def test_a_definition_expanded_by_hand_runs_like_any_other():
         s.close()
 
 
-#: The low-frequency bench's reference scope as a data sheet, in LeCroy's command set (#145).
+#: The low-frequency bench's reference scope: its data sheet, and the command table of the
+#: definition file the bench ships (the model's own data: LeCroy-style headers, echoed in replies).
+LFCAL_SCOPE_FILE = ROOT / "examples" / "lowfreq-cal" / "instruments" / "lfcal-reference-scope.yaml"
+LFCAL_COMMANDS = yaml.safe_load(LFCAL_SCOPE_FILE.read_text(encoding="utf-8"))["commands"]
 LFCAL_SCOPE_INPUTS = {
     "identity": {
-        "manufacturer": "LeCroy", "model": "LFCAL-REFSCOPE", "serial": "LCRY0000001", "firmware": "9.6.0",
+        "manufacturer": "LeCroy",
+        "model": "LFCAL-REFSCOPE",
+        "serial": "LCRY0000001",
+        "firmware": "9.6.0",
         "idn": "{manufacturer},{model},{serial},{firmware}",
     },
     "channels": {
-        "count": 4, "bandwidth_hz": 2.5e9, "couplings": ["DC", "AC", "GND"],
+        "count": 4,
+        "bandwidth_hz": 2500000000.0,
+        "couplings": [
+            {"keyword": "D1M", "coupling": "DC", "impedance": "ONEMeg", "label": "DC 1 MΩ"},
+            {"keyword": "A1M", "coupling": "AC", "impedance": "ONEMeg", "label": "AC 1 MΩ"},
+            {"keyword": "D50", "coupling": "DC", "impedance": "FIFTy", "label": "DC 50 Ω"},
+            {"keyword": "GND", "coupling": "GND", "impedance": None, "label": "GND"},
+        ],
         "impedances": [
-            {"name": "ONEMeg", "ohms": 1.0e6, "capacitance_f": 1.6e-11},
+            {"name": "ONEMeg", "ohms": 1000000.0, "capacitance_f": 1.6e-11},
             {"name": "FIFTy", "ohms": 50.0, "capacitance_f": 1.6e-11},
         ],
+        "keyword": "C{n}",
+        "label": None,
     },
     "vertical": {
-        "scale_range": [1e-3, 10.0], "default_scale": 0.05, "ladder": False, "offset_max_v": 100.0,
-        "probe_range": [1e-4, 1e4], "table": [{"v_div": 1e-3, "noise_v_rms": 2e-4}],
+        "scale_range": [0.001, 10.0],
+        "default_scale": 0.05,
+        "ladder": False,
+        "offset_max_v": 100.0,
+        "probe_range": [0.0001, 10000.0],
+        "table": [{"v_div": 0.001, "noise_v_rms": 0.0002}],
     },
-    "adc": {"bits": 12, "divisions": 10.0, "max_rate": 2e10},
+    "adc": {"bits": 12, "divisions": 10.0, "max_rate": 20000000000.0},
     "timebase": {
-        "scale_range": [2e-11, 1000.0], "default_scale": 1e-3, "ladder": False,
-        "memory_sizes": {"min": 500, "max": 50_000_000, "default": 10_000},
+        "scale_range": [2e-11, 1000.0],
+        "default_scale": 0.001,
+        "ladder": False,
+        "memory_sizes": {"min": 500, "max": 50000000, "default": 10000},
     },
-    "trigger": {"slopes": ["POSitive", "NEGative"], "external": True, "line": True, "auto_windows": 2},
-    "measurements": ["VAMPlitude", "VPP", "VMAX", "VMIN", "VAVerage", "VRMS", "FREQuency", "PERiod"],
-    "transfer": {"max_points": 30000},
-    "dialect": {"command_set": "lecroy-scope", "unknown_commands": "ignore"},
-}  # fmt: skip
+    "trigger": {
+        "slopes": ["POSitive", "NEGative"],
+        "external": [{"keyword": "EX"}, {"keyword": "EX10"}],
+        "line": "LINE",
+        "auto_windows": 2,
+        "modes": [
+            {"keyword": "AUTO", "meaning": "auto"},
+            {"keyword": "NORMal", "meaning": "normal"},
+            {"keyword": "SINGLE", "meaning": "single"},
+            {"keyword": "STOP", "meaning": "stop"},
+        ],
+        "level_per_channel": True,
+    },
+    "transfer": {
+        "max_points": 30000,
+        "encoding": "text",
+        "source_setting": False,
+        "window": True,
+        "descriptor": {
+            "WAVE_ARRAY_COUNT": "{points}",
+            "FIRST_POINT": "{first}",
+            "SPARSING_FACTOR": "{step}",
+            "HORIZ_INTERVAL": "{dt:.9e}",
+            "HORIZ_OFFSET": "{x_offset:.9e}",
+            "VERTICAL_OFFSET": "{offset:.6e}",
+            "VERTICAL_GAIN": "{gain:.6e}",
+            "TIMEBASE": "{timebase:.6e}",
+            "VOLT_PER_DIV": "{scale:.6e}",
+            "ACQ_COUNT": "{count}",
+        },
+    },
+    "acquisition": {
+        "after_single": "stop",
+        "reacquire": "on_read_start",
+        "missing_record": "acquire",
+        "untriggered": "record",
+    },
+    "settings": {
+        "trigger.type": {"type": "enum", "options": ["EDGE"], "default": "EDGE"},
+        "trigger.hold": {
+            "type": "enum",
+            "options": ["OFF", "TI", "PS", "PL", "IS", "IL", "P2", "I2"],
+            "default": "OFF",
+        },
+        "interleaved": {
+            "type": "bool",
+            "default": False,
+            "label": "随机交错采样",
+            "label_en": "Random interleaved sampling",
+        },
+        "refclock": {
+            "type": "enum",
+            "options": ["INTERNAL", "EXTERNAL"],
+            "default": "INTERNAL",
+            "label": "参考时钟",
+            "label_en": "Reference clock",
+        },
+        "comm.header": {"type": "enum", "options": ["OFF", "SHORT", "LONG"], "default": "SHORT"},
+    },
+    "syntax": {
+        "echo_header": "$comm.header",
+        "multipliers": {"K": 1000.0, "M": 1000000.0, "MA": 1000000.0, "G": 1000000000.0},
+    },
+    "format": {"number": "engineering", "boolean": "word", "enum": "short"},
+    "panel_actions": {"single": "TRMD SINGLE"},
+    "measurements": {
+        "items": ["VAMPlitude", "VPP", "VMAX", "VMIN", "VAVerage", "VRMS", "FREQuency", "PERiod"],
+        "keywords": {
+            "VAMPlitude": "AMPL",
+            "VPP": "PKPK",
+            "VMAX": "MAX",
+            "VMIN": "MIN",
+            "VAVerage": "MEAN",
+            "VRMS": "RMS",
+            "FREQuency": "FREQ",
+            "PERiod": "PER",
+        },
+        "units": {
+            "VAMPlitude": "V",
+            "VPP": "V",
+            "VMAX": "V",
+            "VMIN": "V",
+            "VAVerage": "V",
+            "VRMS": "V",
+            "FREQuency": "HZ",
+            "PERiod": "S",
+        },
+        "slots": 8,
+    },
+    "commands": {"table": LFCAL_COMMANDS, "unknown": "ignore"},
+}
 
 
-def test_the_lecroy_command_set_writes_the_low_frequency_reference_scope(tmp_path):
+def test_the_low_frequency_reference_scope_from_its_data_sheet_and_command_table(tmp_path):
+    """Its data sheet (coupling keywords that name the input, a trigger level per channel, eight
+    measurement slots, text readback) and its own command table: the bench's 12 manual cases pass."""
     from simubench.library.coverage import run_cases
     from test_signal_source import LFCAL_INPUTS, SOURCE
 
@@ -436,18 +674,18 @@ def test_the_lecroy_command_set_writes_the_low_frequency_reference_scope(tmp_pat
     ("change", "expected"),
     [
         pytest.param(
-            lambda x: x["timebase"].pop("memory_sizes"),
-            ("E-TPL-MISSING", "/timebase/memory_sizes"),
-            id="lecroy-without-memory-sizes",
+            lambda x: x["channels"]["couplings"][2].update(impedance="SEVENTY5"),
+            ("E-TPL-UNKNOWN", "/channels/couplings/2/impedance"),
+            id="coupling-selects-a-missing-input",
         ),
         pytest.param(
-            lambda x: x["channels"]["impedances"][1].update(ohms=75.0),
-            ("E-TPL-UNSUPPORTED", "/channels/impedances/1/ohms"),
-            id="lecroy-75-ohm",
+            lambda x: x["trigger"].update(modes=[{"keyword": "AUTO", "meaning": "auto"}]),
+            ("E-TPL-MISSING", "/acquisition/after_single"),
+            id="stop-after-single-without-a-stop-mode",
         ),
     ],
 )
-def test_a_wrong_lecroy_input_is_named_by_its_pointer(change, expected):
+def test_a_wrong_low_frequency_scope_input_is_named_by_its_pointer(change, expected):
     inputs = copy.deepcopy(LFCAL_SCOPE_INPUTS)
     change(inputs)
     code, path = expected

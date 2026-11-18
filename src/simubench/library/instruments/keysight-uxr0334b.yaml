@@ -8,7 +8,7 @@ description: >-
   Keysight Infiniium UXR0334B, 4 channels, 33 GHz, 128 GSa/s, 10-bit ADC, 50 ohm inputs. Real model
   (D42): commands, replies and default-setup values follow the Infiniium UXR-Series Oscilloscopes
   Programmer's Guide 11.80.00012 (9018-07723); ranges follow the UXR-B data sheet 3123-1313. The
-  Infiniium dialect next to the InfiniiVision DSO-X 2024A (#338). Values neither document gives are
+  Infiniium command set next to the InfiniiVision DSO-X 2024A (#338). Values neither document gives are
   SimuBench defaults, listed in the coverage table.
 reference:
   title: Keysight Infiniium UXR-Series Oscilloscopes Programmer's Guide
@@ -86,7 +86,7 @@ state:
     default: 0
     label: 操作状态使能
     label_en: Operation status enable
-  # 应答头（:SYSTem:HEADer）与长格式（:SYSTem:LONGform）两个开关（dialect，#602）；上电值是用户偏好，
+  # 应答头（:SYSTem:HEADer）与长格式（:SYSTem:LONGform）两个开关（报文写法 syntax，#602）；上电值是用户偏好，
   # 手册未给，SimuBench 取 OFF。
   system.header:
     type: bool

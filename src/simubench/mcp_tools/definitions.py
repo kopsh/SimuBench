@@ -280,7 +280,7 @@ def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:
             return out
 
         name = Path(save_as or script.stem).name.split(".")[0]
-        result = draft_bench(source, defs, name=name, suggest=template_suggester(source))
+        result = draft_bench(source, defs, name=name, suggest=template_suggester(source, defs()))
         if save_as:
             try:
                 result["saved"] = files.save(save_as, None, result["bench"], "agent").model_dump(mode="json")

@@ -1,23 +1,22 @@
 """The signal source template (#144, instrument-authoring.md 7.4): a function generator's or a
 calibrator's data sheet — waveforms, frequency and amplitude ranges, amplitude units, duty, load
 setting, output impedance, reference clock — becomes the source modules (waveform_synth ->
-amplitude_level -> output_stage, reference_clock) and a SCPI source command set.
-
-Two command sets: ``scpi-source`` (``[:SOURce<n>]:FUNCtion``, ``:VOLTage``, ``:OUTPut<n>``) and
-``channel-base`` (a tree per channel: ``:CHANnel<n>:BASE:WAVe``, ``:BASE:AMPLitude``, ``:LOAD``,
-``:OUTPut``). The duty is a ratio or a percentage as declared, never guessed from its size.
+amplitude_level -> output_stage, reference_clock). The command table is the model's own data,
+written from its manual (D81: every instrument's SCPI is its own, there is no "dialect" to choose).
+The duty is a ratio or a percentage as declared, never guessed from its size.
 """
 
 from __future__ import annotations
 
 import math
+import re
 from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..components.sources import AmplitudeLevel
-from . import InputProblem, Template, register
-from .oscilloscope import IdentityIn
+from . import Drafting, InputProblem, Mnemonic, Template, register
+from .oscilloscope import CommandsIn, IdentityIn, _any
 
 Shape = Literal["sine", "square", "pulse", "ramp", "triangle", "dc"]
 #: shape -> waveform_synth function and ramp symmetry
@@ -45,7 +44,7 @@ def _group(model: type[BaseModel], title: str, title_en: str, description: str) 
 
 
 class _In(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", validate_default=True)
 
 
 class WaveformIn(_In):
@@ -149,23 +148,12 @@ class ClockIn(_In):
     )
 
 
-class DialectIn(_In):
-    command_set: Literal["scpi-source", "channel-base"] = _f(
-        "scpi-source", "命令集", "Command set",
-        "scpi-source: [:SOURce<n>]:FUNCtion, :VOLTage, :OUTPut<n>; channel-base: :CHANnel<n>:BASE:WAVe, "
-        ":BASE:FREQuency, :BASE:AMPLitude, :LOAD, :OUTPut",
-    )  # fmt: skip
-    unknown_commands: Literal["error", "ignore"] = _f(
-        "error",
-        "未知命令",
-        "Unknown commands",
-        "error: -113; ignore: swallowed and logged (a contract bench)",
-    )
-
-
 class SignalSourceInputs(_In):
     identity: IdentityIn = _f(..., "身份", "Identity", "Manufacturer, model, *IDN?")
     channels: int = _f(2, "通道数", "Channels", "Output channels", ge=1, le=8)
+    port: str = _f(
+        "OUT{n}", "输出端口名", "Output port name", "How the front panel names output {n}, e.g. OUT{n}, CH{n}"
+    )
     waveforms: list[WaveformIn] = _f(
         ...,
         "波形",
@@ -188,7 +176,19 @@ class SignalSourceInputs(_In):
     load: LoadIn = _f(..., "负载设定", "Load setting", "The load the amplitude is defined for, Ω (D13)")
     output: OutputIn = _group(OutputIn, "输出", "Output", "Output stage")
     clock: ClockIn = _group(ClockIn, "参考时钟", "Reference clock", "Clock source and its error")
-    dialect: DialectIn = _group(DialectIn, "命令方言", "Dialect", "Command set and unknown commands")
+    settings: dict[str, dict[str, Any]] = _f(
+        {}, "其他设定", "Other settings",
+        "Settings the commands keep that no behaviour reads (a beeper, a display option): path -> the "
+        "definition's setting",
+    )  # fmt: skip
+    syntax: dict[str, Any] = _f(
+        {}, "报文写法", "Message syntax",
+        "The definition's syntax: header echo, long form, number suffixes; empty: SCPI's",
+    )  # fmt: skip
+    format: dict[str, Any] = _f(
+        {}, "应答格式", "Response format", "The definition's response format; empty: the default"
+    )
+    commands: CommandsIn = _group(CommandsIn, "命令", "Commands", "This model's command table")
     specs: dict[str, Any] = _f(
         {},
         "技术指标",
@@ -278,7 +278,7 @@ def _setting(**kw: Any) -> dict[str, Any]:
 
 
 def build(x: SignalSourceInputs) -> dict[str, Any]:
-    fr, am, of, du, ld, op, ck, di = (
+    fr, am, of, du, ld, op, ck = (
         x.frequency,
         x.amplitude,
         x.offset,
@@ -286,7 +286,6 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
         x.load,
         x.output,
         x.clock,
-        x.dialect,
     )
     names = [w.name for w in x.waveforms]
     shapes = {w.name: w.shape for w in x.waveforms}
@@ -372,9 +371,7 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
     wiring: dict[str, Any] = {
         "channel": [["synth.out", "level.in"], ["level.out", "out.in"]],
     }
-    ports: dict[str, Any] = {
-        "channel": {"CH{n}" if di.command_set == "channel-base" else "OUT{n}": "out.pin"}
-    }
+    ports: dict[str, Any] = {"channel": {x.port: "out.pin"}}
     if ck.sources or ck.ppm:
         clock: dict[str, Any] = {}
         if ck.sources:
@@ -391,7 +388,7 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
     if ck.ppm:
         deviations.append({"param": "clock.ppm", "limit": ck.ppm, "distribution": "uniform"})
 
-    commands = _commands(x, len(units) > 1)
+    commands = [dict(cmd) for cmd in x.commands.table]
     summary = ["function", "frequency", "amplitude", "offset"]
     if du is not None:
         summary.append("duty")
@@ -405,9 +402,14 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
         out["description"] = x.identity.description
     identity = x.identity.block()
     out["identity"] = identity
-    if di.unknown_commands != "error":
-        out["unknown_commands"] = di.unknown_commands
+    if x.syntax:
+        out["syntax"] = dict(x.syntax)
+    if x.format:
+        out["format"] = dict(x.format)
+    if x.commands.unknown != "error":
+        out["unknown_commands"] = x.commands.unknown
     out["channels"] = {"count": x.channels}
+    state |= x.settings
     if state:
         out["state"] = state
     out |= {
@@ -437,52 +439,23 @@ def build(x: SignalSourceInputs) -> dict[str, Any]:
     return out
 
 
-def _commands(x: SignalSourceInputs, unit_setting: bool) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    dangerous = {"dangerous": True} if x.output.dangerous else {}
-    if x.dialect.command_set == "scpi-source":
-        out += [
-            {"header": "[:SOURce<ch>]:FUNCtion[:SHAPe]", "state": "ch.function"},
-            {"header": "[:SOURce<ch>]:FREQuency[:CW]", "state": "ch.frequency"},
-            {"header": "[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate][:AMPLitude]", "state": "ch.amplitude"},
-            {"header": "[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate]:OFFSet", "state": "ch.offset"},
-        ]
-        if unit_setting:
-            out.append({"header": "[:SOURce<ch>]:VOLTage:UNIT", "state": "ch.amplitude_unit"})
-        if x.phase is not None:
-            out.append({"header": "[:SOURce<ch>]:PHASe[:ADJust]", "state": "ch.phase"})
-        if x.duty is not None:
-            out.append({"header": "[:SOURce<ch>]:FUNCtion:SQUare:DCYCle", "state": "ch.duty"})
-        out += [
-            {"header": ":OUTPut<ch>[:STATe]", "state": "ch.output", **dangerous},
-            {"header": ":OUTPut<ch>:LOAD", "state": "ch.load"},
-        ]
-        if x.clock.sources:
-            out.append({"header": "[:SOURce]:ROSCillator:SOURce", "state": "clock_source"})
-        return out
-    out += [
+#: The example's own command table: an ACME CAL-4 as its manual lists it (data, not a command set).
+EXAMPLE_COMMANDS: list[dict[str, Any]] = [
         {"header": ":CHANnel<ch>:BASE:WAVe", "state": "ch.function"},
         {"header": ":CHANnel<ch>:BASE:FREQuency", "state": "ch.frequency"},
         {"header": ":CHANnel<ch>:BASE:AMPLitude", "state": "ch.amplitude"},
         {"header": ":CHANnel<ch>:BASE:OFFSet", "state": "ch.offset"},
-    ]
-    if x.phase is not None:
-        out.append({"header": ":CHANnel<ch>:BASE:PHASe", "state": "ch.phase"})
-    if x.duty is not None:
-        out.append({"header": ":CHANnel<ch>:BASE:DUTY", "state": "ch.duty"})
-    if unit_setting:
-        out.append({"header": ":CHANnel<ch>:AMPLitude:UNIT", "state": "ch.amplitude_unit"})
-    out += [
+        {"header": ":CHANnel<ch>:BASE:DUTY", "state": "ch.duty"},
+        {"header": ":CHANnel<ch>:AMPLitude:UNIT", "state": "ch.amplitude_unit"},
         {"header": ":CHANnel<ch>:LOAD", "state": "ch.load"},
-        {"header": ":CHANnel<ch>:OUTPut", "state": "ch.output", **dangerous},
-    ]
-    if x.clock.sources:
-        out.append({"header": ":SYSTem:CLKSource", "state": "clock_source"})
-    return out
+        {"header": ":CHANnel<ch>:OUTPut", "state": "ch.output", "dangerous": True},
+        {"header": ":SYSTem:CLKSource", "state": "clock_source"},
+]  # fmt: skip
 
 
 def example() -> dict[str, Any]:
-    """A 4-channel calibration source: square, pulse (0.1 %–5 % duty), sine, DC; VPP, VRMS, dBm."""
+    """A 4-channel calibration source: square, pulse (0.1 %–5 % duty), sine, DC; VPP, VRMS, dBm;
+    and the command table of its manual."""
     return {
         "identity": {"manufacturer": "ACME", "model": "CAL-4", "serial": "AC4000001", "firmware": "1.2.0"},
         "channels": 4,
@@ -499,55 +472,75 @@ def example() -> dict[str, Any]:
         "load": {"min": 1.0, "max": 1.0e6, "default": 50.0, "high_z_keywords": ["INF"], "hiz_from": 10000.0},
         "output": {"impedance_ohms": 50.0, "impedance_error_pct": 1.0},
         "clock": {"sources": ["INTernal", "EXTernal"], "ppm": 2.0, "ref_input": True},
-        "dialect": {"command_set": "channel-base"},
+        "port": "CH{n}",
+        "commands": {"table": EXAMPLE_COMMANDS},
         "specs": {"amplitude_accuracy": "±1 % of setting ± 1 mV"},
     }
 
 
-# ---- from a script (#145) ---------------------------------------------------------------------------
+# ---- drafts from a script (#145, D81) ---------------------------------------------------------------
 
 #: How a waveform keyword reads as a shape (by its leading letters).
 KEYWORD_SHAPES = [("PULS", "pulse"), ("SQU", "square"), ("SIN", "sine"), ("TRI", "triangle"), ("RAMP", "ramp"),
                   ("DC", "dc")]  # fmt: skip
-DEFAULT_WAVES = {
-    "scpi-source": [("SINusoid", "sine"), ("SQUare", "square"), ("PULSe", "pulse"), ("RAMP", "ramp"),
-                    ("TRIangle", "triangle"), ("DC", "dc")],
-    "channel-base": [("SQUare", "square"), ("PULSe", "pulse"), ("SINe", "sine"), ("DC", "dc"),
-                     ("TRIangle", "triangle"), ("RAMP", "ramp")],
-}  # fmt: skip
+#: Keywords for the shapes a script does not use (a data sheet's own replace them).
+DEFAULT_WAVES = [("SINusoid", "sine"), ("SQUare", "square"), ("PULSe", "pulse"), ("RAMP", "ramp"),
+                 ("TRIangle", "triangle"), ("DC", "dc")]  # fmt: skip
+
+_SRC = r"(?:(?:SOUR|SOURCE|CHAN|CHANNEL|CH|C)#?:)?"
+_BASE = r"(?:BASE:)?"
+
+#: Spellings many sources share, each for one setting (D81: it binds a command, it does not pick a
+#: vendor). Used only where no library model knows the script's header.
+MNEMONICS = [
+    Mnemonic(f"{_SRC}{_BASE}{_any('WAVe', 'FUNCtion')}(?::{_any('SHAPe')})?", {"state": "ch.function"}),
+    Mnemonic(f"{_SRC}{_BASE}{_any('FREQuency')}(?::{_any('CW')})?", {"state": "ch.frequency"}),
+    Mnemonic(f"{_SRC}{_any('AMPLitude', 'VOLTage')}:{_any('UNIT')}", {"state": "ch.amplitude_unit"}),
+    Mnemonic(
+        f"{_SRC}{_BASE}{_any('AMPLitude', 'VOLTage')}(?::{_any('LEVel')})?(?::{_any('IMMediate')})?(?::{_any('AMPLitude')})?",
+        {"state": "ch.amplitude"},
+    ),
+    Mnemonic(
+        f"{_SRC}{_BASE}(?:{_any('VOLTage')}(?::{_any('LEVel')})?(?::{_any('IMMediate')})?:)?{_any('OFFSet')}",
+        {"state": "ch.offset"},
+    ),
+    Mnemonic(f"{_SRC}{_BASE}{_any('PHASe')}(?::{_any('ADJust')})?", {"state": "ch.phase"}),
+    Mnemonic(
+        f"{_SRC}{_BASE}(?:{_any('DUTY', 'DCYCle')}|{_any('FUNCtion')}:{_any('SQUare')}:{_any('DCYCle')})",
+        {"state": "ch.duty"},
+    ),
+    Mnemonic(f"(?:{_SRC}|(?:OUTP|OUTPUT)#?:){_any('LOAD')}", {"state": "ch.load"}),
+    Mnemonic(
+        f"(?:(?:OUTP|OUTPUT)#?(?::{_any('STATe')})?|{_SRC}{_any('OUTPut')})",
+        {"state": "ch.output", "dangerous": True},
+    ),
+    Mnemonic(
+        f"(?:{_any('SYSTem')}:{_any('CLKSource')}|(?:{_any('SOURce')}:)?{_any('ROSCillator')}:{_any('SOURce')})",
+        {"state": "clock_source"},
+    ),
+]
 
 
-def _base(variant: str) -> dict[str, Any]:
+def _draft_base() -> dict[str, Any]:
+    """Generic inputs a data sheet would replace; no commands (the draft learns them)."""
     return {
         "identity": {"manufacturer": "Unknown", "model": "SOURCE"},
         "channels": 2,
-        "waveforms": [{"name": n, "shape": sh} for n, sh in DEFAULT_WAVES[variant]],
+        "waveforms": [{"name": n, "shape": sh} for n, sh in DEFAULT_WAVES],
         "frequency": {"min": 1.0e-3, "max": 1.1e9, "default": 1000.0, "bandwidth_hz": 1.0e9},
-        "amplitude": {"min": 0.001, "max": 20.0, "default": 0.1, "units": ["VPP", "VPK", "VRMS", "DBM"]},
+        "amplitude": {"min": 0.001, "max": 20.0, "default": 0.1, "units": ["VPP"]},
         "offset": {"min": -10.0, "max": 10.0, "default": 0.0},
         "phase": {"min": -360.0, "max": 360.0, "default": 0.0},
         "duty": {"min": 1.0e-6, "max": 1.0, "default": 0.5, "unit": "ratio"},
         "load": {"min": 1.0, "max": 1.0e9, "default": 50.0, "high_z_keywords": ["INFinity"], "hiz_from": 10000.0},
-        "clock": {"sources": ["INTernal", "EXTernal"]},
-        "dialect": {"command_set": variant},
+        "commands": {"table": []},
     }  # fmt: skip
 
 
-def variants() -> dict[str, dict[str, Any]]:
-    out = {}
-    for name in ("scpi-source", "channel-base"):
-        base = _base(name)
-        base["channels"] = 8
-        out[name] = base
-    return out
+def _basics(x: dict[str, Any], commands: list[Any], hints: dict[str, Any]) -> list[Any]:
+    from .draft import CHANNEL_NODE, channels_used, default, found, units
 
-
-def prefill(variant: str, commands: list[Any], hints: dict[str, Any]) -> tuple[dict[str, Any], list[Any]]:
-    from .draft import channels_used, default, found, matching, number, units
-
-    x = _base(variant)
     filled = []
-    us = units(commands)
     model = hints.get("model")
     if model:
         x["identity"]["model"] = model[0]
@@ -557,7 +550,7 @@ def prefill(variant: str, commands: list[Any], hints: dict[str, Any]) -> tuple[d
     filled.append(default(("identity", "manufacturer"), "Unknown"))
     used = channels_used(commands)
     n, line = max(used) if used else (1, None)
-    x["channels"] = max(n, 4 if variant == "channel-base" else 2)
+    x["channels"] = max(n, 4)  # a channel named by a variable reads as 1: room for the ones it may be
     if line is not None:
         filled.append(
             found(
@@ -567,48 +560,74 @@ def prefill(variant: str, commands: list[Any], hints: dict[str, Any]) -> tuple[d
                 f"脚本中最大的通道号为 {n}（循环里的通道号读作 1），待确认",
             )
         )
-    chan = r"(CHAN(NEL)?\d+:)?" if variant == "channel-base" else r"(SOUR(CE)?\d*:)?"
-    wave_hdr = (
-        (r"(CHAN(NEL)?\d+:)BASE:WAV(E)?",)
-        if variant == "channel-base"
-        else (r"(SOUR(CE)?\d*:)?FUNC(TION)?(:SHAP(E)?)?",)
+    # The output's front-panel name follows how the commands name a channel (CHANnel1 -> CH1).
+    for u in units(commands):
+        named = [m for node in u.header.lstrip(":").split(":") if (m := CHANNEL_NODE.fullmatch(node))]
+        if named and named[0].group(1).upper().startswith(("C", "CH")):
+            x["port"] = "CH{n}"
+            filled.append(found(("port",), "CH{n}", u.line, "输出端口名按命令里的通道名，待确认"))
+            break
+    filled.append(default(("frequency", "max"), x["frequency"]["max"]))
+    filled.append(default(("output", "impedance_ohms"), 50.0))
+    filled.append(
+        default(("load", "hiz_from"), x["load"]["hiz_from"], "不小于该值的负载设定视为高阻，待确认")
     )
+    filled.append(default(("commands", "unknown"), "error", "契约若要求忽略未建模命令，改为 ignore"))
+    return filled
+
+
+def _enable(x: dict[str, Any], target: str, teacher: Any) -> list[Any]:
+    """Switch on the input a learned command needs (D81)."""
+    from . import Filled, pointer
+
+    def put(path: tuple[str, ...], value: Any) -> list[Any]:
+        node = x
+        for key in path[:-1]:
+            node = node.setdefault(key, {})
+        if node.get(path[-1]) == value:
+            return []
+        node[path[-1]] = value
+        return [Filled(pointer(*path), value, "default", None, "命令用到它：默认值，待确认")]
+
+    if target == "ch.amplitude_unit" and len(x.get("amplitude", {}).get("units", [])) < 2:
+        return put(("amplitude", "units"), ["VPP", "VPK", "VRMS", "DBM"])
+    if target == "ch.duty" and not x.get("duty"):
+        return put(("duty",), {"min": 1.0e-6, "max": 1.0, "default": 0.5, "unit": "ratio"})
+    if target == "ch.phase" and not x.get("phase"):
+        return put(("phase",), {"min": -360.0, "max": 360.0, "default": 0.0})
+    if target == "clock_source" and not x.get("clock", {}).get("sources"):
+        return put(("clock", "sources"), ["INTernal", "EXTernal"])
+    return []
+
+
+def _refine(x: dict[str, Any], bound: dict[str, list[tuple[list[str], int]]]) -> list[Any]:
+    """Data-sheet values the bound commands' arguments show."""
+    from .draft import default, found, number
+
+    filled: list[Any] = []
     seen: list[tuple[str, str, int]] = []
-    for u in matching(us, *wave_hdr):
-        for a in u.args[:1]:
+    for args, line in bound.get("ch.function", []):
+        for a in args[:1]:
             shape = next((sh for pre, sh in KEYWORD_SHAPES if a.upper().startswith(pre)), None)
             if shape and all(a.upper() != w.upper() for w, _, _ in seen):
-                seen.append((a, shape, u.line))
+                seen.append((a, shape, line))
     if seen:
-        # The script's keywords as it writes them, then the variant's for the shapes it does not use.
-        waves = [{"name": w, "shape": sh} for w, sh, _ in seen]
+        # The script's keywords as it writes them, then generic ones for the shapes it does not use.
         shapes = {sh for _, sh, _ in seen}
         names = {w.upper() for w, _, _ in seen}
-        waves += [
-            {"name": nme, "shape": sh}
-            for nme, sh in DEFAULT_WAVES[variant]
-            if sh not in shapes and nme.upper() not in names
+        x["waveforms"] = [{"name": w, "shape": sh} for w, sh, _ in seen] + [
+            {"name": n, "shape": sh} for n, sh in DEFAULT_WAVES if sh not in shapes and n.upper() not in names
         ]
-        x["waveforms"] = waves
-        for w, _sh, ln in seen:
-            filled.append(found(("waveforms",), w, ln, "脚本使用的波形关键字"))
-    units_seen = [
-        (a.upper(), u.line)
-        for u in matching(us, chan + r"(AMPL(ITUDE)?|VOLT(AGE)?):UNIT")
-        for a in u.args[:1]
-    ]
-    for un, ln in units_seen:  # the variant offers all four units
-        filled.append(found(("amplitude", "units"), un, ln))
-    amps = [
-        number(a) for u in matching(us, chan + r"BASE:AMPL(ITUDE)?", chan + r"VOLT(AGE)?") for a in u.args[:1]
-    ]
-    amps = [a for a in amps if a is not None]
+        filled += [found(("waveforms",), w, ln, "脚本使用的波形关键字") for w, _sh, ln in seen]
+    for args, line in bound.get("ch.amplitude_unit", []):
+        filled += [found(("amplitude", "units"), a.upper(), line) for a in args[:1]]
+    amps = [v for args, _ in bound.get("ch.amplitude", []) for a in args[:1] if (v := number(a)) is not None]
     if amps and max(amps) > x["amplitude"]["max"]:
         x["amplitude"]["max"] = max(amps)
     filled.append(default(("amplitude", "max"), x["amplitude"]["max"]))
-    duties = [(number(a), u.line, a) for u in matching(us, chan + r"BASE:DUTY", chan + r"FUNC(TION)?:SQU(ARE)?:DCYC(LE)?")
-              for a in u.args[:1]]  # fmt: skip
-    duties = [(v, ln, a) for v, ln, a in duties if v is not None]
+    duties = [
+        (v, ln, a) for args, ln in bound.get("ch.duty", []) for a in args[:1] if (v := number(a)) is not None
+    ]
     if duties:
         if any(v > 1 for v, _, _ in duties):
             x["duty"] = {"min": 0.0001, "max": 100.0, "default": 50.0, "unit": "percent"}
@@ -624,41 +643,40 @@ def prefill(variant: str, commands: list[Any], hints: dict[str, Any]) -> tuple[d
                     f"脚本写 {a}（不大于 1）：按比例；若实为百分数请改为 percent，待确认",
                 )
             )
-    loads = [(a, u.line) for u in matching(us, chan + r"LOAD", r"OUTP(UT)?\d*:LOAD") for a in u.args[:1]]
-    for a, ln in loads:
-        v = number(a)
-        if v is None and a.upper() not in {k.upper() for k in x["load"]["high_z_keywords"]}:
-            x["load"]["high_z_keywords"].append(a)
-            filled.append(found(("load", "high_z_keywords"), a, ln))
-        elif v is not None:
-            filled.append(found(("load",), v, ln, "脚本写的负载设定"))
-    filled.append(
-        default(("load", "hiz_from"), x["load"]["hiz_from"], "不小于该值的负载设定视为高阻，待确认")
-    )
-    clocks = [(a, u.line) for u in matching(us, r"SYST(EM)?:CLKS(OURCE)?", r"(SOUR(CE)?:)?ROSC(ILLATOR)?:SOUR(CE)?")
-              for a in u.args[:1]]  # fmt: skip
-    for a, ln in clocks:
-        filled.append(found(("clock", "sources"), a, ln))
-    filled.append(default(("frequency", "max"), x["frequency"]["max"]))
-    filled.append(default(("output", "impedance_ohms"), 50.0))
-    filled.append(default(("dialect", "unknown_commands"), "error", "契约若要求忽略未建模命令，改为 ignore"))
-    return x, filled
+    for args, ln in bound.get("ch.load", []):
+        for a in args[:1]:
+            v = number(a)
+            if v is None and a.upper() not in {k.upper() for k in x["load"]["high_z_keywords"]}:
+                x["load"]["high_z_keywords"].append(a)
+                filled.append(found(("load", "high_z_keywords"), a, ln))
+            elif v is not None:
+                filled.append(found(("load",), v, ln, "脚本写的负载设定"))
+    for args, ln in bound.get("clock_source", []):
+        for a in args[:1]:
+            sources = x.setdefault("clock", {}).setdefault("sources", [])
+            if re.fullmatch(r"[A-Za-z]\w*", a) and a.upper() not in {s.upper() for s in sources}:
+                sources.insert(0, a)
+            filled.append(found(("clock", "sources"), a, ln))
+    return filled
+
+
+DRAFTING = Drafting(base=_draft_base, basics=_basics, mnemonics=MNEMONICS, enable=_enable, refine=_refine)
 
 
 TEMPLATE = register(
     Template(
         id="signal_source",
-        version=1,
+        version=2,
         category="function_generator",
         title="信号源",
         title_en="Signal source",
         description="函数发生器与校准源：波形、频率与幅度范围、幅度单位（Vpp、Vpk、Vrms、dBm）、占空比（比例或百分数，"
-        "按声明）、负载设定、输出阻抗、参考时钟；通用 SCPI 信号源命令集或按通道的命令树。技术指标只作记录（D3）",
+        "按声明）、负载设定、输出阻抗、参考时钟，以及这个型号自己的命令表（照手册逐条写，只带公共命令起步，D81）。"
+        "技术指标只作记录（D3）",
         inputs=SignalSourceInputs,
         example=example,
         build=build,
         check=check,
-        variants=variants,
-        prefill=prefill,
+        drafting=DRAFTING,
     )
 )

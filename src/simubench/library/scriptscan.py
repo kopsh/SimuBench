@@ -158,6 +158,26 @@ def scan_python(source: str) -> ScanResult:
                     if key:
                         resources[key] = ScannedResource(key, addr, node.lineno)
 
+    # A command sent from a loop over literal strings (``for cmd in ("*RST", "*CLS"): x.write(cmd)``)
+    # is each of those strings.
+    looped: dict[int, list[str]] = {}
+    for loop in ast.walk(tree):
+        if (
+            isinstance(loop, (ast.For, ast.AsyncFor))
+            and isinstance(loop.target, ast.Name)
+            and isinstance(loop.iter, (ast.Tuple, ast.List))
+            and loop.iter.elts
+            and all(isinstance(e, ast.Constant) and isinstance(e.value, str) for e in loop.iter.elts)
+        ):
+            values = [str(e.value) for e in loop.iter.elts if isinstance(e, ast.Constant)]
+            for call in ast.walk(loop):
+                if (
+                    isinstance(call, ast.Call)
+                    and call.args
+                    and isinstance(call.args[0], ast.Name)
+                    and call.args[0].id == loop.target.id
+                ):
+                    looped[id(call)] = values
     # Pass 2: SCPI strings sent to each receiver.
     unknown: set[str] = set()
     for node in ast.walk(tree):
@@ -170,13 +190,15 @@ def scan_python(source: str) -> ScanResult:
             continue
         key = _dotted(node.func.value)
         text = _template(node.args[0], consts)
-        if key is None or text is None:
+        texts = looped.get(id(node)) or ([text] if text is not None else [])
+        if key is None or not texts:
             continue
         if key not in resources:
             # A receiver opened elsewhere (a helper, a fixture): keep its commands anyway.
             resources[key] = ScannedResource(key, None, None)
             unknown.add(key)
-        resources[key].commands.append(ScannedCommand(text.strip(), node.lineno))
+        for t in texts:
+            resources[key].commands.append(ScannedCommand(t.strip(), node.lineno))
     for res in resources.values():
         res.commands.sort(key=lambda c: c.line)
     if unknown:
@@ -250,8 +272,8 @@ def draft_bench(
     """Scan ``source`` and return ``{"bench": <bench data>, "report": [...], "notes": [...]}``.
 
     An instrument no library definition speaks gets a template suggestion from ``suggest`` (#145):
-    the template, its command set and pre-filled inputs; the bench names the definition the agent
-    then creates with create_definition_from_template."""
+    the template and pre-filled inputs with a command table learned command by command (D81); the
+    bench names the definition the agent then creates with create_definition_from_template."""
     scan = scan_python(source)
     defs = definitions()
     by_id = {d.id: d for d in defs}
@@ -273,9 +295,16 @@ def draft_bench(
             continue
         inst = instance_name(res.key, taken)
         template = None
-        if suggest is not None and (best is None or best.supported < best.total):
+        # A model that ignores unknown commands by its contract leaves them out on purpose: the
+        # library speaks this instrument as its author meant (the gaps are not for a draft to fill).
+        lenient = best is not None and by_id[best.definition_id].unknown_commands == "ignore"
+        if suggest is not None and not lenient and (best is None or best.supported < best.total):
             template = suggest(res, inst)
-            if template is not None and best is not None and template.get("supported", 0) <= best.supported:
+            # A setting the draft only keeps from the script, to confirm, is no support.
+            bound = 0
+            if template is not None:
+                bound = template.get("supported", 0) - len(template.get("stored_only") or [])
+            if template is not None and best is not None and bound <= best.supported:
                 template = None  # the library already does as well
         if template is not None:
             entry: dict[str, Any] = {"model": template["definition_id"]}
@@ -290,7 +319,7 @@ def draft_bench(
             )
             notes.append(
                 f"{res.key}：仪表定义库中没有完整支持其命令的仪表；建议用模板 {template['template']}"
-                f"（{template['variant']}）创建 {template['definition_id']}：create_definition_from_template 直接接收"
+                f"创建 {template['definition_id']}（命令表逐条学自{'、'.join(template.get('learned_from') or []) or '助记词'}）：create_definition_from_template 直接接收"
                 "报告中的 inputs，其中来源为 default 的项待确认"
             )
         elif best is not None:

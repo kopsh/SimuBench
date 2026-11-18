@@ -26,45 +26,90 @@ SOURCE = get_template("signal_source")
 
 AWG2_INPUTS = {
     "identity": {
-        "manufacturer": "SIMUBENCH", "model": "SB-AWG-2", "serial": "SBAWG000001", "firmware": "1.0.0",
+        "manufacturer": "SIMUBENCH",
+        "model": "SB-AWG-2",
+        "serial": "SBAWG000001",
+        "firmware": "1.0.0",
         "description": "双通道函数发生器，输出阻抗 50 Ω，幅度按设定负载定义（D13）。",
     },
     "channels": 2,
     "waveforms": [
-        {"name": "SINusoid", "shape": "sine"}, {"name": "SQUare", "shape": "square"},
-        {"name": "RAMP", "shape": "ramp"}, {"name": "DC", "shape": "dc"},
+        {"name": "SINusoid", "shape": "sine"},
+        {"name": "SQUare", "shape": "square"},
+        {"name": "RAMP", "shape": "ramp"},
+        {"name": "DC", "shape": "dc"},
     ],
-    "frequency": {"min": 1.0e-6, "max": 60.0e6, "default": 1000.0, "square_max": 25.0e6, "bandwidth_hz": 300.0e6},
-    "amplitude": {"min": 1.0e-3, "max": 10.0, "default": 0.1, "label": "幅度 (Vpp)"},
+    "frequency": {
+        "min": 1e-06,
+        "max": 60000000.0,
+        "default": 1000.0,
+        "square_max": 25000000.0,
+        "bandwidth_hz": 300000000.0,
+    },
+    "amplitude": {"min": 0.001, "max": 10.0, "default": 0.1, "label": "幅度 (Vpp)"},
     "offset": {"min": -5.0, "max": 5.0, "default": 0.0},
     "phase": {"min": -360.0, "max": 360.0, "default": 0.0},
     "load": {"min": 1.0, "max": 10000.0, "default": 50.0, "high_z_keywords": ["INFinity"]},
     "output": {"impedance_ohms": 50.0, "impedance_error_pct": 2.0},
-}  # fmt: skip
+    "port": "OUT{n}",
+    "commands": {
+        "table": [
+            {"header": "[:SOURce<ch>]:FUNCtion[:SHAPe]", "state": "ch.function"},
+            {"header": "[:SOURce<ch>]:FREQuency[:CW]", "state": "ch.frequency"},
+            {"header": "[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate][:AMPLitude]", "state": "ch.amplitude"},
+            {"header": "[:SOURce<ch>]:VOLTage[:LEVel][:IMMediate]:OFFSet", "state": "ch.offset"},
+            {"header": "[:SOURce<ch>]:PHASe[:ADJust]", "state": "ch.phase"},
+            {"header": ":OUTPut<ch>[:STATe]", "state": "ch.output", "dangerous": True},
+            {"header": ":OUTPut<ch>:LOAD", "state": "ch.load"},
+        ],
+        "unknown": "error",
+    },
+}
 
 LFCAL_INPUTS = {
     "identity": {
-        "manufacturer": "SIMUBENCH", "model": "LFCAL-CALIBRATOR", "serial": "CAL0000001", "firmware": "1.0.0",
+        "manufacturer": "SIMUBENCH",
+        "model": "LFCAL-CALIBRATOR",
+        "serial": "CAL0000001",
+        "firmware": "1.0.0",
         "idn": "{manufacturer},{model},{serial},{firmware}",
     },
     "channels": 4,
     "waveforms": [
-        {"name": "SQUare", "shape": "square"}, {"name": "PULSe", "shape": "pulse"}, {"name": "SINe", "shape": "sine"},
-        {"name": "DC", "shape": "dc"}, {"name": "TRIangle", "shape": "triangle"}, {"name": "RAMP", "shape": "ramp"},
+        {"name": "SQUare", "shape": "square"},
+        {"name": "PULSe", "shape": "pulse"},
+        {"name": "SINe", "shape": "sine"},
+        {"name": "DC", "shape": "dc"},
+        {"name": "TRIangle", "shape": "triangle"},
+        {"name": "RAMP", "shape": "ramp"},
     ],
-    "frequency": {"min": 0.01, "max": 1.1e9, "default": 1000.0, "bandwidth_hz": 1.0e9},
+    "frequency": {"min": 0.01, "max": 1100000000.0, "default": 1000.0, "bandwidth_hz": 1000000000.0},
     "amplitude": {"min": 0.001, "max": 200.0, "default": 0.1, "units": ["VPP", "VPK", "VRMS", "DBM"]},
     "offset": {"min": -100.0, "max": 100.0, "default": 0.0},
-    "duty": {"min": 1.0e-6, "max": 1.0, "default": 0.5, "unit": "ratio"},
-    "load": {"min": 1.0, "max": 1.0e9, "default": 50.0, "hiz_from": 10000.0},
+    "duty": {"min": 1e-06, "max": 1.0, "default": 0.5, "unit": "ratio"},
+    "load": {"min": 1.0, "max": 1000000000.0, "default": 50.0, "hiz_from": 10000.0},
     "clock": {"sources": ["INTernal", "EXTernal"]},
-    "dialect": {"command_set": "channel-base", "unknown_commands": "ignore"},
-}  # fmt: skip
+    "port": "CH{n}",
+    "commands": {
+        "table": [
+            {"header": ":CHANnel<ch>:BASE:WAVe", "state": "ch.function"},
+            {"header": ":CHANnel<ch>:BASE:FREQuency", "state": "ch.frequency"},
+            {"header": ":CHANnel<ch>:BASE:AMPLitude", "state": "ch.amplitude"},
+            {"header": ":CHANnel<ch>:BASE:OFFSet", "state": "ch.offset"},
+            {"header": ":CHANnel<ch>:BASE:DUTY", "state": "ch.duty"},
+            {"header": ":CHANnel<ch>:AMPLitude:UNIT", "state": "ch.amplitude_unit"},
+            {"header": ":CHANnel<ch>:LOAD", "state": "ch.load"},
+            {"header": ":CHANnel<ch>:OUTPut", "state": "ch.output", "dangerous": True},
+            {"header": ":SYSTem:CLKSource", "state": "clock_source"},
+        ],
+        "unknown": "ignore",
+    },
+}
 
 
 def _expand(inputs: dict, def_id: str) -> dict:
     out = SOURCE.expand(inputs, def_id)
-    assert out.ok, [d.as_dict() for d in out.diagnostics]
+    assert out.ok, [d.model_dump() for d in out.diagnostics]
     assert out.definition is not None
     return out.definition
 
@@ -357,6 +402,10 @@ def test_the_amplitude_range_lives_on_the_level_component():
     assert level["params"]["vpp_min"] == 0.001 and level["params"]["vpp_max"] == 10.0
     vpp_only = copy.deepcopy(SOURCE.example())
     vpp_only["amplitude"]["units"] = ["VPP"]
+    # A model with one unit has no unit command: its command table says so (D81).
+    vpp_only["commands"]["table"] = [
+        c for c in vpp_only["commands"]["table"] if c["state"] != "ch.amplitude_unit"
+    ]
     built = _expand(vpp_only, "vpp-only")
     assert built["channel_state"]["amplitude"]["min"] == 0.001  # one unit: the static range stays
     assert built["channel_state"]["amplitude"]["max"] == 10.0

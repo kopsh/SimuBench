@@ -594,7 +594,7 @@ async def test_an_agent_builds_a_scope_from_a_template(ws):
             inputs=inputs,
         )
         assert doc["saved"] and doc["ok"] and doc["diagnostics"] == [], doc["diagnostics"]
-        assert doc["data"]["template"] == {"id": "oscilloscope", "version": 1, "inputs": inputs}
+        assert doc["data"]["template"] == {"id": "oscilloscope", "version": 2, "inputs": inputs}
 
         # New inputs, expanded again over the saved file.
         inputs["channels"]["count"] = 2
