@@ -945,3 +945,35 @@ def test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b():
         "MY64310101",
         '"UXR1104B:MY64310101"',
     )
+
+
+def test_the_record_noise_ends_at_the_corrected_band():
+    """#1446: the DSP flatness correction ends the record's spectrum at the bandwidth, the noise's
+    too. At 256 GSa/s (Nyquist 128 GHz) the noise above 113 GHz is at least 20 dB below the band's,
+    its rms stays the table's 860 µV (±5 %), and a 50 GHz bandwidth filter leaves √(50/113) of it
+    (±4 %: the noise density is the table's over 113 GHz, not over the Nyquist band)."""
+    rm = pyvisa.ResourceManager(f"{EXAMPLE_BENCH_1104B}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        uxr.write(":CHANnel3:DISPlay ON;:CHANnel3:SCALe 0.01;:CHANnel3:OFFSet 0;:TIMebase:SCALe 1e-8")
+        uxr.write(":ACQuire:SRATe 2.56e11")
+
+        def record() -> np.ndarray:
+            uxr.write(":DIGitize CHANnel3")
+            _t, volts, _w = reader.read_waveform(uxr, "CHANnel3")
+            return np.asarray(volts) - np.mean(volts)
+
+        assert float(uxr.query(":ACQuire:SRATe?")) == 2.56e11
+        full = record()
+        power = np.abs(np.fft.rfft(full)) ** 2
+        f = np.fft.rfftfreq(full.size, 1 / 2.56e11)
+        band, beyond = power[(f > 1e10) & (f < 1e11)].mean(), power[f > 1.18e11].mean()
+        assert 10 * math.log10(beyond / band) < -20
+        assert float(np.std(full)) == pytest.approx(8.6e-4, rel=0.05)
+        uxr.write(":ACQuire:BANDwidth 5e10")
+        assert float(np.std(record())) / float(np.std(full)) == pytest.approx(
+            math.sqrt(5e10 / 1.13e11), rel=0.04
+        )
+        assert reader.errors(uxr) == []
+    finally:
+        rm.close()
