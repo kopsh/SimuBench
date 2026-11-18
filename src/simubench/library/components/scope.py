@@ -147,6 +147,9 @@ class ScopeVertical(Component):
         "out_of_range": "error",  # error: refuse with -222 | clamp: take the nearest legal value
         "noise_table": None,  # [[V/div, noise V rms], ...] at the input, per division (None: quiet)
         "noise_divs": 0.0,  # without a table: input noise rms as a fraction of a division (scales with V/div)
+        # the bandwidth the noise table was measured at (Hz): a different ``bandwidth`` scales the
+        # table by sqrt(bandwidth / noise_bandwidth), white noise (#1427); None: the table as written
+        "noise_bandwidth": None,
         "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
         "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
         "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
@@ -159,6 +162,7 @@ class ScopeVertical(Component):
     units = {
         "max_input_v": "V",
         "bandwidth": "Hz",
+        "noise_bandwidth": "Hz",
         "bw_limit_hz": "Hz",
         "ac_corner": "Hz",
         "scale": "V",
@@ -199,12 +203,27 @@ class ScopeVertical(Component):
     def input_noise_rms(self) -> float:
         """The input-referred noise (V rms) of the current division: its ``noise_table`` row, or
         the row of the largest listed division not above it (a table that starts at a floor holds
-        the sensitive divisions first, D46). No table: ``noise_divs`` of the division, else none."""
+        the sensitive divisions first, D46), times :meth:`noise_bandwidth_factor`. No table:
+        ``noise_divs`` of the division, else none."""
         rows = sorted((float(r[0]), float(r[1])) for r in self.param("noise_table") or ())
         scale = self.input_scale()
         if not rows:
             return float(self.param("noise_divs")) * scale
-        return next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
+        row = next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
+        return row * self.noise_bandwidth_factor()
+
+    def noise_bandwidth_factor(self) -> float:
+        """How the noise table's values scale to this channel's hardware ``bandwidth`` (#1427):
+        sqrt(bandwidth / noise_bandwidth) when the table says the bandwidth it was measured at,
+        else 1. White noise grows with the square root of the band it is integrated over; a
+        definition that extends a model and widens its bandwidth gets the noise that follows
+        without rewriting the table. The bandwidth limit and the DSP filters after the ADC are
+        not part of it: they filter the noise the ADC adds at the full band (D46)."""
+        measured = self.param("noise_bandwidth")
+        bandwidth = float(self.param("bandwidth"))
+        if measured is None or not math.isfinite(bandwidth) or float(measured) <= 0:
+            return 1.0
+        return math.sqrt(bandwidth / float(measured))
 
     def input_scale(self) -> float:
         """V/div at the input connector: the displayed scale divided by the probe ratio."""

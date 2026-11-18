@@ -121,9 +121,17 @@ def _with_still_old(change: M.DefinitionChange, new: dict[str, Any]) -> M.Defini
     return change.model_copy(update={"still_old": found[:_STILL_OLD_MAX]}) if found else change
 
 
+#: Component parameters that record the condition a table was measured under, not a figure that
+#: should follow the data sheet: ``noise_bandwidth`` keeps the bandwidth the noise table was taken
+#: at, so a wider bandwidth scales the noise (#1427). Listing it as "still old" would ask the author
+#: to undo exactly that.
+_MEASURED_AT = frozenset({"noise_bandwidth"})
+
+
 def _behaviour_numbers(data: dict[str, Any]) -> list[tuple[str, float]]:
     """The numbers the simulation runs on, with their JSON pointers: settings' limits, defaults and
-    special values, and component parameters (nested tables included)."""
+    special values, and component parameters (nested tables included) other than the
+    measurement conditions (``_MEASURED_AT``)."""
     out: list[tuple[str, float]] = []
     for section in ("state", "channel_state"):
         for name, spec in (data.get(section) or {}).items():
@@ -136,7 +144,8 @@ def _behaviour_numbers(data: dict[str, Any]) -> list[tuple[str, float]]:
     for section in ("components", "channel_components"):
         for item in data.get(section) or []:
             if isinstance(item, dict) and isinstance(item.get("params"), dict):
-                out += _walk(item["params"], f"/{section}/{_esc(str(item.get('name')))}/params")
+                params = {k: v for k, v in item["params"].items() if k not in _MEASURED_AT}
+                out += _walk(params, f"/{section}/{_esc(str(item.get('name')))}/params")
     return out
 
 

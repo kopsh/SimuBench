@@ -244,6 +244,7 @@ class ScopeTrigger(_ChannelBound):
         # status registers ask the same one again after every command of a line (#1000).
         self._memo: tuple[str, TriggerHit | None] | None = None
         self._source_scale: float | None = None  # the division of the source being searched
+        self._noise_factor = 1.0  # the source channel's noise-bandwidth factor (#1427)
 
     def reset(self) -> None:
         self.last_ns = None
@@ -429,12 +430,14 @@ class ScopeTrigger(_ChannelBound):
 
     def noise_sigma(self) -> float:
         """The trigger path's noise, display volts rms: ``noise_rms`` and the ``noise_table`` row of
-        the source's division (the search sets it, #1263)."""
+        the source's division (the search sets it, #1263), scaled as the source channel's front end
+        scales its own table to its bandwidth (the trigger taps that front end, #1427)."""
         sigma = float(self.param("noise_rms") or 0.0)
         rows = sorted((float(r[0]), float(r[1])) for r in self.param("noise_table") or ())
         if rows:
             scale = rows[0][0] if self._source_scale is None else self._source_scale
-            sigma += next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
+            row = next((rms for div, rms in reversed(rows) if div <= scale * (1 + 1e-9)), rows[0][1])
+            sigma += row * self._noise_factor
         return sigma
 
     def _hysteresis(self, scale: float) -> float:
@@ -473,12 +476,15 @@ class ScopeTrigger(_ChannelBound):
         scale: float,
         horizon_s: float | None = None,
         earliest_s: float = 0.0,
+        noise_factor: float = 1.0,
     ) -> TriggerHit | None:
         """The first qualifying edge at least ``pre`` samples after ``t0`` (enough history before
         the trigger), past the holdoff and not before ``earliest_s``, within ``search_windows``
-        records or, with ``horizon_s``, that much virtual time. None: no edge."""
+        records or, with ``horizon_s``, that much virtual time. None: no edge. ``noise_factor``
+        scales the noise table as the source channel's front end scales its own (#1427)."""
         self._source_scale = scale  # the noise table's row follows the source's division (#1263)
-        key = self._search_key(sig, (t0, dt, pre, points, n, scale, horizon_s, earliest_s), n)
+        self._noise_factor = noise_factor
+        key = self._search_key(sig, (t0, dt, pre, points, n, scale, horizon_s, earliest_s, noise_factor), n)
         if self._memo is not None and self._memo[0] == key:
             return self._memo[1]
         hit = self._search(sig, t0, dt, pre, points, n, scale, horizon_s, earliest_s)

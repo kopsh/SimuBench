@@ -575,8 +575,10 @@ class ScopeAcquisition(Component):
         source = trig.family_source()
         n_trig = trig.source_channel(source)
         kind = trig.source_kind(source)
+        factor = 1.0
         if kind == "channel":
             sig, scale_t = self._display_signal(n_trig), self.scale_offset(n_trig)[0]  # type: ignore[arg-type]
+            factor = self.vertical_of(n_trig).noise_bandwidth_factor()  # type: ignore[arg-type]
         elif kind == "external":
             sig, scale_t = trig.input("ext"), 1.0
         else:
@@ -587,7 +589,7 @@ class ScopeAcquisition(Component):
         return trig.search(
             sig, t0, dt, pre, points, n_trig, scale_t,
             None if horizon is None else float(horizon),
-            earliest_s,
+            earliest_s, factor,
         )  # fmt: skip
 
     # ---- segments (segmented memory, #957) ------------------------------------------------------------

@@ -585,14 +585,74 @@ def test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger(tmp_path, cases)
 
 @pytest.mark.parametrize("model", ["keysight-uxr1104b", "keysight-uxr0334b"])
 def test_the_trigger_noise_is_the_channel_s(model):
-    """#1298: the trigger's noise table is an estimate equal to the channel's (the same front end):
-    the two copies in the definition stay the same."""
-    definition = yaml.safe_load(
+    """#1298: the trigger's noise table is an estimate equal to the channel's (the same front end).
+    Since #1427 the file holds one table: the trigger's refers to the channel's (same_as, D82)."""
+    raw = yaml.safe_load(
         (ROOT / "src" / "simubench" / "library" / "instruments" / f"{model}.yaml").read_text("utf-8")
     )
-    trigger = next(c for c in definition["components"] if c["name"] == "trigger")
-    front = next(c for c in definition["channel_components"] if c["name"] == "front")
-    assert trigger["params"]["noise_table"] == front["params"]["noise_table"]
+    trigger_raw = next(c for c in raw["components"] if c["name"] == "trigger")
+    assert trigger_raw["params"]["noise_table"] == {"same_as": "channel_components.1.params.noise_table"}
+    loaded = DefinitionLibrary([]).get(model)
+    trigger = next(c for c in loaded.components if c.name == "trigger")
+    front = next(c for c in loaded.channel_components if c.name == "front")
+    assert trigger.params["noise_table"] == front.params["noise_table"] and front.params["noise_table"]
+
+
+#: The UXR1104B's 7.5 mV/div noise row (60 mV full scale, the data sheet's 860 µV) and the
+#: bandwidth its table was measured at (#1427).
+ROW_1104B, MEASURED_1104B = 8.6e-4, 1.13e11
+
+
+def _uxr1104b_child(tmp_path, **data):
+    from simubench.api import open_bench
+    from simubench.models.bench import BenchDefinition
+
+    child = {"schema": "simubench.instrument/2", "id": "wide", "extends": "keysight-uxr1104b",
+             "manufacturer": "MyLab", "model": "W-1", "class": "oscilloscope", "reference": None, **data}  # fmt: skip
+    (tmp_path / "wide.yaml").write_text(yaml.safe_dump(child), encoding="utf-8")
+    bench = {
+        "schema": "simubench.bench/2",
+        "name": "b",
+        "instruments": {"s": {"model": "wide"}},
+        "run": {"seed": 1},
+    }
+    return open_bench(BenchDefinition.model_validate(bench), definition_dirs=[tmp_path])
+
+
+def test_a_wider_bandwidth_raises_the_channel_and_trigger_noise(tmp_path):
+    """#1427: a child that widens the bandwidth to 160 GHz (one place, D82) gets the noise table
+    scaled by sqrt(160/113), white noise: in the front end, in the record and on the trigger path."""
+    factor = math.sqrt(1.6e11 / MEASURED_1104B)
+    s = _uxr1104b_child(tmp_path, specs={"bandwidth_hz": 1.6e11})
+    try:
+        q = lambda c: s.scpi("s", c).strip()  # noqa: E731
+        scope = s.instruments["s"]
+        # front end: the 7.5 mV/div row times the factor
+        q(":CHANnel1:SCALe 0.0075;:WAVeform:SOURce CHANnel1;:WAVeform:FORMat ASCii")
+        front = scope.components["ch1.front"]
+        assert front.noise_bandwidth_factor() == pytest.approx(factor)
+        assert front.input_noise_rms() == pytest.approx(ROW_1104B * factor)
+        # record: CH1 open, 256 000 independent samples (rms known to 0.3 %; the 59 µV code adds
+        # sqrt(1/12) LSB = 17 µV in quadrature, under 0.1 %)
+        q(":DIGitize CHANnel1")
+        v = np.array([float(x) for x in q(":WAVeform:DATA?").split(",") if x])
+        assert float(np.std(v)) == pytest.approx(ROW_1104B * factor, rel=0.01)
+        # trigger path: taps the same front end, so its table scales the same way (CH1 is its source)
+        assert scope.components["trigger"].noise_sigma() == pytest.approx(ROW_1104B * factor)
+    finally:
+        s.close()
+
+
+def test_a_noise_table_without_its_bandwidth_is_used_as_written(tmp_path):
+    """#1427: a table that does not say where it was measured keeps its values whatever the bandwidth."""
+    unsaid = {"channel_component_overrides": {"front": {"params": {"noise_bandwidth": None}}}}
+    s = _uxr1104b_child(tmp_path, specs={"bandwidth_hz": 1.6e11}, **unsaid)
+    try:
+        s.scpi("s", ":CHANnel1:SCALe 0.0075")
+        front = s.instruments["s"].components["ch1.front"]
+        assert front.noise_bandwidth_factor() == 1.0 and front.input_noise_rms() == ROW_1104B
+    finally:
+        s.close()
 
 
 @pytest.mark.parametrize(
