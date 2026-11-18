@@ -20,9 +20,10 @@ there are allowed (the list only shrinks).
 
 When the platform cannot express something the manual requires:
 
-1. open a capability issue labelled `核心` under the umbrella issue it belongs to — the
-   first-wave category-expansion umbrella is #181 (what the manual needs, which commands, why the
-   existing components cannot do it — see the sub-issues of #181 for the shape); capability work
+1. open a capability issue labelled `核心` under the umbrella issue it belongs to (what the
+   manual needs, which commands, why the existing components cannot do it — the sub-issues of the
+   finished first-wave category expansion, #181, show the shape; new models are chosen by depth,
+   not by category, D10); capability work
    belongs to the lead agent (`AGENTS.md`);
 2. comment on the model issue that it is blocked by that issue, and stop or continue with what
    does not depend on it. Do not write a model-specific component to get round it.
