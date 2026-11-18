@@ -73,6 +73,15 @@ def noise_bandwidth(window: np.ndarray, dt_s: float) -> float:
     return float(np.sum(window * window) / np.sum(window) ** 2 / dt_s)
 
 
+def axis(start: float, stop: float, n: int, spacing: str) -> list[float]:
+    """The point axis of a sweep: ``n`` points from ``start`` to ``stop``, LINear (evenly
+    spaced) or LOGarithmic (a geometric ladder) as ``spacing`` says. Whether LOG is legal over
+    the ends stays with the caller — the RF generator falls back to linear when an end is not
+    positive, the SMU refuses a log sweep over non-positive levels (-221)."""
+    ladder = np.geomspace if str(spacing).upper().startswith("LOG") else np.linspace
+    return [float(x) for x in ladder(start, stop, n)]
+
+
 def apply_math(x: float, *, m: float | None, c: float | None, z: float | None) -> float:
     """``(m·x − c) / z`` with the factors that are on (None: off)."""
     y = x * m if m is not None else x

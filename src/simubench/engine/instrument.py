@@ -328,7 +328,7 @@ class Instrument:
         """Individual deviations within the definition's ranges, from the bench seed; a value the
         bench writes in ``hidden`` stays (metrology-authoring.md 7)."""
         from .constraints import when_values
-        from .deviation import case_label, deviation_keys, draw, draw_case, draw_overrides
+        from .deviation import case_label, deviation_pairs, draw, draw_case, draw_overrides
 
         # A parameter with deviations for some settings (D70) keeps its deviation for the rest as
         # the last case, not as an override: an override would win over every case.
@@ -336,9 +336,7 @@ class Instrument:
         cased = {s.param for s in mine if s.when}
         rest: list[tuple[Component, str, Any]] = []
         for spec in mine:
-            for key in deviation_keys(self, spec.component, spec.parameter, spec.when):
-                cname = key.removesuffix(f"[{case_label(spec.when)}]" if spec.when else "")
-                cname = cname.removesuffix(f".{spec.parameter}")
+            for cname, key in deviation_pairs(self, spec.component, spec.parameter, spec.when):
                 comp = self.components.get(cname)
                 if comp is None:
                     raise ValueError(f"instrument {self.name!r}: deviation of unknown component {cname!r}")

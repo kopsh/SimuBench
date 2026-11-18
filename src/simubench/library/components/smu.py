@@ -19,14 +19,13 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-import numpy as np
-
 from ...engine.circuit import GROUND, Circuit
 from ...engine.component import Component, OpResult, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .ranging import auto_range, fitting_range, range_of_setting, ranges_of, reading_time
+from .reading_math import axis
 from .trigger import Reading, ReadingBuffer
 
 OPEN = 9.91e37  # SCPI "not a number" for a resistance with no current
@@ -145,11 +144,11 @@ class SmuSource(Component):
         stop = float(self._of_function("sweep_stop", "sweep_stop"))
         n = int(self.param("sweep_points"))
         if word.startswith("LIN"):
-            levels = [float(x) for x in np.linspace(start, stop, n)]
+            levels = axis(start, stop, n, "LIN")
         elif word.startswith("LOG"):
             if start == 0 or stop == 0 or (start > 0) != (stop > 0):
                 raise ScpiError(-221, "a log sweep needs non-zero levels of one sign")
-            levels = [float(x) for x in np.geomspace(start, stop, n)]
+            levels = axis(start, stop, n, "LOG")
         elif word == "LIST":
             first = max(1, int(self.param("list_start") or 1))
             levels = self.sweep_list()[first - 1 :]

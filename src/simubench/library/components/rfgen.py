@@ -26,6 +26,7 @@ from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .modulation import LineBuilder, am_sidebands, angle_sidebands, carson_orders, omitted_power_fraction
+from .reading_math import axis
 from .sources import ReferenceClock
 
 Z0 = 50.0
@@ -229,8 +230,8 @@ class RfSynthesizer(Component):
         if n < 2:
             return [a]
         if self.param("spacing") == "LOGarithmic" and a > 0 and b > 0:
-            return [float(x) for x in np.geomspace(a, b, n)]
-        return [float(x) for x in np.linspace(a, b, n)]
+            return axis(a, b, n, "LOG")
+        return axis(a, b, n, "LIN")
 
     def frequency(self) -> float:
         """The frequency the generator is set to (before the timebase error)."""

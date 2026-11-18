@@ -22,6 +22,7 @@ from ruamel.yaml.error import YAMLError as RuamelError
 
 from ..engine import edit
 from ..engine.component import component_types
+from ..engine.settings import channel_ports
 from ..engine.validate import Report, drives_net, validate_data
 from ..library import categories
 from ..library.loader import SKIP_DIRS, DefinitionLibrary, dump_yaml, load_yaml, parse_error_text
@@ -279,9 +280,7 @@ class BenchFiles:
                     str(exc).splitlines()[0] if str(exc) else type(exc).__name__,
                 )
                 continue
-            ports = [
-                p.replace("{n}", str(n)) for n in range(1, d.channels.count + 1) for p in d.ports.channel
-            ] + list(d.ports.instrument)
+            ports = list(channel_ports(d, d.channels.count)) + list(d.ports.instrument)
             instruments.append(
                 M.DefinitionSummary(
                     id=d.id,

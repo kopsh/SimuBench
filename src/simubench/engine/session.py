@@ -335,22 +335,14 @@ class Session:
         if self._solution is None or self._solution[0] != self._signal_version:
             piecewise = [c for c in self.all_components() if c.piecewise]
             for _ in range(MAX_MODE_ITERATIONS):
-                emf: dict[str, Signal] = {}
-                for comp in self.all_components():
-                    emf.update(comp.emf())
-                freqs: set[float] = {0.0}
-                for sig in emf.values():
-                    freqs.update(float(f) for f in set(sig.freq.tolist()))
                 # The calling thread's CPU, not wall time: a solve that was merely descheduled or
                 # waited on a busy machine is not a slower solve, and BLAS pool threads spinning
                 # beside it are not solving (issue 209: the suite runs four-wide under xdist).
                 started = time.thread_time()
-                sol = self.circuit().solve(sorted(freqs))
-                self.stats["solves"] = self.stats.get("solves", 0) + 1
+                sol, emf = self._solve_once()
                 self.stats["solve_seconds"] = (
                     self.stats.get("solve_seconds", 0.0) + time.thread_time() - started
                 )
-                self._solution = (self._signal_version, sol, emf)
                 # Piecewise-linear devices check their mode against the DC operating point.
                 changed = False
                 for comp in piecewise:
@@ -371,19 +363,17 @@ class Session:
                     changed |= comp.update_mode(dc)
                 if not changed:
                     self.unsettled = False
-                    break
+                    return sol, emf  # the memo holds the same pair this iteration wrote
                 self._signal_version += 1
                 self._electrical_version += 1
             else:
-                self._settle_unsettled()
+                return self._settle_unsettled()
         return self._solution[1], self._solution[2]
 
-    def _settle_unsettled(self) -> None:
-        """No mode agreed within MAX_MODE_ITERATIONS (D52): solve once more with the modes the
-        last iteration chose and keep that, without asking the devices again. Every reading then
-        comes from one operating point that satisfies the circuit (V and I agree with the source,
-        P = V·I) and repeated queries answer the same until something changes. The first time it
-        happens a ``solver`` event (reason ``unsettled``) goes into the run record (#258)."""
+    def _solve_once(self) -> tuple[Solution, dict[str, Signal]]:
+        """One pass of the operating point, without the mode iteration around it (:meth:`solve`):
+        every source's EMF, the frequencies they carry, one circuit solve, the solve counter and
+        the memo — the block both the mode loop and the last-resort settle run."""
         emf: dict[str, Signal] = {}
         for comp in self.all_components():
             emf.update(comp.emf())
@@ -393,6 +383,15 @@ class Session:
         sol = self.circuit().solve(sorted(freqs))
         self.stats["solves"] = self.stats.get("solves", 0) + 1
         self._solution = (self._signal_version, sol, emf)
+        return sol, emf
+
+    def _settle_unsettled(self) -> tuple[Solution, dict[str, Signal]]:
+        """No mode agreed within MAX_MODE_ITERATIONS (D52): solve once more with the modes the
+        last iteration chose and keep that, without asking the devices again. Every reading then
+        comes from one operating point that satisfies the circuit (V and I agree with the source,
+        P = V·I) and repeated queries answer the same until something changes. The first time it
+        happens a ``solver`` event (reason ``unsettled``) goes into the run record (#258)."""
+        sol, emf = self._solve_once()
         if not self.unsettled:
             self.unsettled = True
             log.warning("piecewise-linear devices did not settle on a mode")
@@ -404,6 +403,7 @@ class Session:
                     "the readings are the last iteration's operating point",
                 }
             )
+        return sol, emf
 
     def node_signal(self, node: str) -> Signal:
         sol, emf = self.solve()

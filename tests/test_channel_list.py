@@ -385,6 +385,62 @@ def test_a_list_command_writes_its_constants_sets_and_the_whole_list():
     assert query("SYST:ERR?") == '0,"No error"'
 
 
+def test_a_refused_command_leaves_the_stored_list_unwritten():
+    """#1470: a list written whole into a setting joins an operation command's batch — a
+    parameter after the list failing to parse (-109/-222), or the command refused at its batch,
+    takes the write back with the rest: a refused command applies nothing. One flow on one
+    bench."""
+    import copy
+
+    data = copy.deepcopy(DAQ_CONF)
+    data["commands"] += [
+        {
+            # the list comes first, so a refusal hits after it
+            "header": "MEASure:VOLTage",
+            "op": "sys.next_error",
+            "params": [
+                {"name": "channels", "type": "channel_list", "state": "scan.list"},
+                {"name": "range", "type": "float", "state": "sense.range", "min": 0.0, "max": 10.0},
+            ],
+        },
+        {
+            # the level has no bounds of its own: only the setting's own max can refuse it
+            "header": "MEASure:CURRent",
+            "op": "sys.next_error",
+            "params": [
+                {"name": "channels", "type": "channel_list", "state": "scan.list"},
+                {"name": "level", "type": "float", "state": "sense.range", "optional": True},
+            ],
+        },
+    ]
+    session, query = open_definition(data)
+    inst = session.instruments["x"]
+    # -- a command that survives writes the list with the rest of its batch
+    query("MEAS:VOLT (@101),10")
+    assert inst.get_state("sense.range") == 10.0
+    assert inst.get_state("scan.list") == [101]
+    # -- a parameter after the list out of range: -222, the list not written
+    query("MEAS:VOLT (@101:102),100")
+    assert query("SYST:ERR?").startswith("-222")
+    assert inst.get_state("scan.list") == [101]
+    # -- a parameter after the list missing: -109, the list not written
+    query("MEAS:VOLT (@101:102)")
+    assert query("SYST:ERR?").startswith("-109")
+    assert inst.get_state("scan.list") == [101]
+    # -- an operation command refused at its batch (beyond the setting's own max): the staged
+    # list write goes back with it
+    query("MEAS:CURR (@101),2000")
+    assert query("SYST:ERR?").startswith("-222")
+    assert inst.get_state("scan.list") == [101]
+    assert inst.get_state("sense.range") == 10.0
+    # a value inside the bounds: the batch applies, list and value together
+    query("MEAS:CURR (@101:102),5")
+    assert inst.get_state("scan.list") == [101, 102]
+    assert inst.get_state("sense.range") == 5.0
+    assert query("SYST:ERR?") == '0,"No error"'
+    session.close()
+
+
 def test_a_declared_empty_list_clears_a_stored_list():
     """#418: the DAQ970A clears its scan list with ROUT:SCAN (@); a definition declares it."""
     import copy

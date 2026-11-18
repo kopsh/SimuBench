@@ -828,16 +828,20 @@ class CommandRunner:
     ) -> OpResult:
         assert spec.op is not None
         comp_ref, op_name = spec.op.rsplit(".", 1)
-        args = {**spec.args, **self._parse_params(spec.params, unit.params)}
+        parsed, list_writes = self._parse_params(spec.params, unit.params)
+        args = {**spec.args, **parsed}
         # A channel list written whole into a setting (the scan list) names the channels the
-        # command's channel settings apply to (#365).
+        # command's channel settings apply to (#365: MEAS:RES? (@101)); its write joins the
+        # command's batch below (#1470), the list's numbers as they parsed.
         listed = [
             self.inst.channel_map.index(n)
             for ps in spec.params
             if ps.type == "channel_list" and ps.state is not None
-            for n in self.inst.state[ps.state]
+            for n in dict(list_writes)[ps.state]
         ]
-        staged: list[tuple[str, Any]] = []
+        # the staged list writes go first: the batch keeps the write order the parse-time write
+        # had, and a refused batch takes the stored list back with the rest (#1470)
+        staged: list[tuple[str, Any]] = list_writes
         if spec.writes:
             # The command selects settings before its operation runs (#308); a channel setting is
             # written for every channel of a list that names the channels (#365: MEAS:RES? (@101)).
@@ -933,8 +937,15 @@ class CommandRunner:
         result = fn(query=unit.query, channel=channel, suffixes=suffixes, **args)
         return result if isinstance(result, OpResult) else OpResult()
 
-    def _parse_params(self, specs: list[ParamSpec], raw: tuple[bytes, ...]) -> dict[str, Any]:
+    def _parse_params(
+        self, specs: list[ParamSpec], raw: tuple[bytes, ...]
+    ) -> tuple[dict[str, Any], list[tuple[str, list[int]]]]:
+        """Parse the parameters against their declarations. Returns the parsed values by name and
+        the whole-list writes ``(state, numbers)`` a list parameter staged: they join the
+        command's batch (#1470), so a parameter after the list failing to parse or a refused
+        batch leaves the stored list as it was — a refused command applies nothing."""
         out: dict[str, Any] = {}
+        list_writes: list[tuple[str, list[int]]] = []
         i = 0
         for ps in specs:
             if ps.type == "channel_list":
@@ -950,7 +961,7 @@ class CommandRunner:
                 if ps.state is not None:
                     # A list with a setting is written whole into it (an int_list, e.g. the scan
                     # list) and the operation runs once over it (#300: MEAS:VOLT:DC? (@101:110)).
-                    self.inst.set_state(ps.state, list(numbers), outside=True)
+                    list_writes.append((ps.state, list(numbers)))
                     continue
                 # Operations run once per channel with the channel index (as a <n> suffix does);
                 # the list's numbers are the instrument's own (#207).
@@ -1019,7 +1030,7 @@ class CommandRunner:
                 raise self.inst._errs._bad_parameter(e, ps.name, ps) from e
         if i < len(raw):
             raise ScpiError(-108)
-        return out
+        return out, list_writes
 
     def parse_setting(self, path: str, raw: bytes) -> Any:
         """A parameter as the setting at ``path`` reads it (units, special words, enum forms)."""
