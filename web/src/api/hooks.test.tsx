@@ -53,7 +53,7 @@ it("one version bump is one readings request; the idle gap does not poll", async
 // it, the file and session queries polled every 2–3 s each.
 describe("workspace event re-key", () => {
   afterEach(() => {
-    useWorkspaceEvents.setState({ fileRev: {}, instrumentsRev: 0, clientsEpoch: 0 });
+    useWorkspaceEvents.setState({ fileRev: {}, instrumentsRev: 0, sessionsRev: 0 });
   });
 
   function mockApi(paths: Record<string, unknown>) {
@@ -79,16 +79,19 @@ describe("workspace event re-key", () => {
     expect(result.current.data).toBeDefined(); // the previous answer stayed while re-keying
   });
 
-  it("the sessions list re-keys on clients_changed", async () => {
+  it("the sessions list re-keys on clients_changed and sessions_changed", async () => {
     const GET = mockApi({ "/api/sessions": [] });
     renderHook(() => useSessions(), { wrapper });
     await waitFor(() => expect(GET).toHaveBeenCalledTimes(1));
 
-    act(() => useWorkspaceEvents.setState({ clientsEpoch: 1 })); // a script connected or left
+    act(() => useWorkspaceEvents.setState({ sessionsRev: 1 })); // a script connected or left
     await waitFor(() => expect(GET).toHaveBeenCalledTimes(2));
 
+    act(() => useWorkspaceEvents.setState({ sessionsRev: 2 })); // a session started or stopped
+    await waitFor(() => expect(GET).toHaveBeenCalledTimes(3));
+
     await new Promise((r) => setTimeout(r, 2100)); // longer than the old 2 s poll
-    expect(GET).toHaveBeenCalledTimes(2);
+    expect(GET).toHaveBeenCalledTimes(3); // the idle gap adds nothing
   });
 
   it("definition queries re-key: the structure on any instruments/ write, the document on its own file", async () => {
@@ -119,7 +122,7 @@ describe("workspace event re-key", () => {
   });
 
   it("the reducer: a definition file's edit moves both revisions, a bench file's only its own", () => {
-    const s = { status: "connected", fileRev: { "a.bench.yaml": 2 }, instrumentsRev: 5, clientsEpoch: 1 } as const;
+    const s = { status: "connected", fileRev: { "a.bench.yaml": 2 }, instrumentsRev: 5, sessionsRev: 1 } as const;
     expect(reduceWorkspaceEvent(s, { kind: "file_changed", seq: 1, path: "a.bench.yaml" })).toEqual({
       fileRev: { "a.bench.yaml": 3 },
       instrumentsRev: 5,
@@ -127,7 +130,8 @@ describe("workspace event re-key", () => {
     expect(
       reduceWorkspaceEvent(s, { kind: "file_changed", seq: 2, path: "instruments/my-dso.yaml" }),
     ).toEqual({ fileRev: { ...s.fileRev, "instruments/my-dso.yaml": 1 }, instrumentsRev: 6 });
-    expect(reduceWorkspaceEvent(s, { kind: "clients_changed", seq: 3, sid: "s1" })).toEqual({ clientsEpoch: 2 });
-    expect(reduceWorkspaceEvent(s, { kind: "file_changed", seq: 4 })).toEqual({}); // no path, no move
+    expect(reduceWorkspaceEvent(s, { kind: "clients_changed", seq: 3, sid: "s1" })).toEqual({ sessionsRev: 2 });
+    expect(reduceWorkspaceEvent(s, { kind: "sessions_changed", seq: 4, sid: "s1" })).toEqual({ sessionsRev: 2 });
+    expect(reduceWorkspaceEvent(s, { kind: "file_changed", seq: 5 })).toEqual({}); // no path, no move
   });
 });

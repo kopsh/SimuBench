@@ -32,6 +32,8 @@ WORKSPACE_KINDS: dict[str, str] = {
     "file_changed": "a workspace file's version changed (path: bench or definition file, "
     "workspace-relative; written through the server's write points or noticed on disk)",
     "clients_changed": "a script connected to or left a session's access ports (sid)",
+    "sessions_changed": "a session started or stopped (sid; its ports, scripts and life are the "
+    "sessions domain's, not one session's own)",
 }
 
 
@@ -46,7 +48,9 @@ class WorkspaceEvent(BaseModel):
     kind: str = Field(..., description=" | ".join(WORKSPACE_KINDS))
     path: str | None = Field(None, description="The workspace-relative file, for file_changed")
     sid: str | None = Field(
-        None, description="The session whose connected scripts changed, for clients_changed"
+        None,
+        description="The session the event is about: whose connected scripts changed "
+        "(clients_changed), or which started or stopped (sessions_changed)",
     )
 
 
@@ -191,6 +195,10 @@ class WorkspaceWatcher:
         return sorted(out)
 
     async def run(self) -> None:
+        # The first pass baselines now, not one scan late: a change made while the first listener
+        # connects must not vanish into the baseline.
+        with contextlib.suppress(OSError):
+            await asyncio.to_thread(self._pass)
         while True:
             await asyncio.sleep(self.scan_s)
             try:

@@ -1,4 +1,4 @@
-import { rmSync } from "node:fs";
+import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 
@@ -116,6 +116,18 @@ test("changes made elsewhere (an agent) show up live", async ({ page }) => {
   await expect(page.getByText("已载入在其他地方所做的修改")).toBeVisible();
   await expect(page.locator(".react-flow__node")).toHaveCount(4);
 });
+
+test("a change made outside the service (an editor's save) shows up through the workspace stream", async ({ page }) => {
+  // No API call makes this change, so no write point announces it: the workspace watcher's scan
+  // notices the file on disk and the stream re-keys the page's queries (#1484) — the old 2.5 s
+  // poll is gone, this can only arrive as an event.
+  const path = await openEditor(page);
+  const file = join(WORKSPACE, path);
+  const raw = readFileSync(file, "utf8");
+  writeFileSync(file, raw.replace("label: RC 低通", "label: RC 低通（外部改）"), "utf8");
+  await expect(page.locator(".react-flow__node").filter({ hasText: "RC 低通（外部改）" })).toBeVisible();
+});
+
 
 test("create a bench from the home page and build it", async ({ page }) => {
   await page.goto(`/?token=${TOKEN}`);

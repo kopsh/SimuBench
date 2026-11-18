@@ -108,7 +108,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
                     listener = asyncio.create_task(wait_disconnect())
                     continue
                 counter["seq"] += 1
-                await ws.send_json(WorkspaceEvent.model_validate({"seq": counter["seq"], **get.result()}).model_dump(exclude_none=True))
+                await ws.send_json(
+                    WorkspaceEvent.model_validate({"seq": counter["seq"], **get.result()}).model_dump(
+                        exclude_none=True
+                    )
+                )
         except (WebSocketDisconnect, RuntimeError):
             pass
         finally:

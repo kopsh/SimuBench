@@ -442,7 +442,9 @@ class SessionManager:
                     served,
                     SCPI_SERVICE,
                     self.scpi_base_port,
-                    lambda port: ScpiServer(session, self.scpi_host, port, on_change=self._clients_changed(served)),
+                    lambda port: ScpiServer(
+                        session, self.scpi_host, port, on_change=self._clients_changed(served)
+                    ),
                 )
                 if self.hislip_port is not None:  # HiSLIP starts alongside the sockets (D41)
                     served.servers[HISLIP_SERVICE] = await self._open(
@@ -464,7 +466,11 @@ class SessionManager:
                         VXI11_SERVICE,
                         self.vxi11_port,
                         lambda port: Vxi11Server(
-                            session, self.scpi_host, port, self.portmapper_port, on_change=self._clients_changed(served)
+                            session,
+                            self.scpi_host,
+                            port,
+                            self.portmapper_port,
+                            on_change=self._clients_changed(served),
                         ),
                     )
             except PortInUse:
@@ -474,7 +480,9 @@ class SessionManager:
                 await asyncio.to_thread(session.close)
                 raise
             if self.link_port is not None:  # scripts in other processes drive this bench (D63)
-                link = BenchLinkServer(session, self.scpi_host, self.link_port, on_change=self._clients_changed(served))
+                link = BenchLinkServer(
+                    session, self.scpi_host, self.link_port, on_change=self._clients_changed(served)
+                )
                 try:
                     await link.start()
                     link.served = served_addresses(served)
@@ -482,6 +490,7 @@ class SessionManager:
                 except OSError as exc:  # another service holds the port: this one still works
                     log.warning("bench link not started (port %s: %s)", self.link_port, exc)
         self.sessions[served.id] = served
+        self.events.publish("sessions_changed", sid=served.id)
         return served
 
     async def _open(self, served: ServedSession, service: str, port: int, make: Any) -> Any:
@@ -541,6 +550,7 @@ class SessionManager:
             return
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
+        self.events.publish("sessions_changed", sid=sid)
         for server in reversed(list(served.servers.values())):  # last served closes first
             await server.stop()
         await asyncio.to_thread(served.session.close)

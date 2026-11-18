@@ -2,7 +2,7 @@
   "description": "One event of the workspace's event stream (WebSocket ``/api/events``).",
   "properties": {
     "kind": {
-      "description": "file_changed | clients_changed",
+      "description": "file_changed | clients_changed | sessions_changed",
       "title": "Kind",
       "type": "string"
     },
@@ -33,7 +33,7 @@
         }
       ],
       "default": null,
-      "description": "The session whose connected scripts changed, for clients_changed",
+      "description": "The session the event is about: whose connected scripts changed (clients_changed), or which started or stopped (sessions_changed)",
       "title": "Sid"
     }
   },

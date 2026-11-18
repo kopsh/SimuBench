@@ -714,7 +714,9 @@ def test_workspace_hub_drops_events_without_a_subscriber():
 def test_workspace_event_stream_carries_file_and_client_changes(tmp_path):
     """The /api/events socket: a write through the API and a script's connect and disconnect
     arrive as file_changed and clients_changed, addressed by path and sid (#1484)."""
-    shutil.copy(ROOT / "validation" / "benches" / "awg_rc_scope.bench.yaml", tmp_path / "awg_rc_scope.bench.yaml")
+    shutil.copy(
+        ROOT / "validation" / "benches" / "awg_rc_scope.bench.yaml", tmp_path / "awg_rc_scope.bench.yaml"
+    )
     manager = SessionManager(tmp_path, scpi_base_port=0, hislip_port=0)
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
@@ -747,4 +749,15 @@ def test_workspace_event_stream_carries_file_and_client_changes(tmp_path):
             ev = ws.receive_json()
             assert ev["kind"] == "clients_changed"
             assert ev["sid"] == sid
-        c.delete(f"/api/sessions/{sid}")
+            # A session stops under a connected page: sessions_changed names it (#1484), so the
+            # Web's session queries refetch into the 404 and the stopped-bench flow sees it.
+            c.delete(f"/api/sessions/{sid}")
+            ev = ws.receive_json()
+            assert ev["kind"] == "sessions_changed"
+            assert ev["sid"] == sid
+            # A session starts again: the same announcement, so the stopped-bench page follows.
+            new_sid = c.post("/api/sessions", json={"bench_path": "awg_rc_scope.bench.yaml"}).json()["id"]
+            ev = ws.receive_json()
+            assert ev["kind"] == "sessions_changed"
+            assert ev["sid"] == new_sid
+            c.delete(f"/api/sessions/{new_sid}")

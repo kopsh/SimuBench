@@ -14,15 +14,17 @@ interface WorkspaceStore {
   /** Bumped on any file_changed under instruments/: a definition's structure layers its
    * parents and the category default, so any definition file's edit can change it. */
   instrumentsRev: number;
-  /** Bumped on any clients_changed: some session's connected scripts changed. */
-  clientsEpoch: number;
+  /** Bumped on clients_changed (a script connected to or left the ports) and sessions_changed
+   * (a session started or stopped): the sessions domain moved. The sessions list re-keys on it,
+   * the open session's detail invalidates on it. */
+  sessionsRev: number;
 }
 
 export const useWorkspaceEvents = create<WorkspaceStore>(() => ({
   status: "connecting",
   fileRev: {},
   instrumentsRev: 0,
-  clientsEpoch: 0,
+  sessionsRev: 0,
 }));
 
 /** A definition's file in the workspace, as the server writes it (DefinitionFiles.rel_path). */
@@ -41,7 +43,9 @@ export function reduceWorkspaceEvent(s: WorkspaceStore, ev: WorkspaceEvent): Par
       instrumentsRev: path.startsWith("instruments/") ? s.instrumentsRev + 1 : s.instrumentsRev,
     };
   }
-  if (ev.kind === "clients_changed") return { clientsEpoch: s.clientsEpoch + 1 };
+  if (ev.kind === "clients_changed" || ev.kind === "sessions_changed") {
+    return { sessionsRev: s.sessionsRev + 1 };
+  }
   return {};
 }
 
@@ -63,7 +67,7 @@ export function useWorkspaceStream() {
       useWorkspaceEvents.setState((s) => ({
         fileRev: Object.fromEntries(Object.keys(s.fileRev).map((path) => [path, s.fileRev[path] + 1])),
         instrumentsRev: s.instrumentsRev + 1,
-        clientsEpoch: s.clientsEpoch + 1,
+        sessionsRev: s.sessionsRev + 1,
       }));
 
     const connect = () => {

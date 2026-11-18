@@ -113,12 +113,12 @@ export function useBenches() {
 }
 
 export function useSessions() {
-  // The workspace stream announces every script's connect and disconnect (clients_changed,
-  // issue #1484): the list re-keys on it instead of polling. A session another client starts or
-  // stops is picked up on the next navigation or mutation, like the benches list beside it.
-  const clientsEpoch = useWorkspaceEvents((s) => s.clientsEpoch);
+  // The workspace stream announces what the list shows and no session owns: a script's connect
+  // and disconnect (clients_changed) and a session's start and stop, whoever caused them
+  // (#1484). The list re-keys on it instead of polling.
+  const sessionsRev = useWorkspaceEvents((s) => s.sessionsRev);
   return useQuery({
-    queryKey: [...keys.sessions, clientsEpoch] as const,
+    queryKey: [...keys.sessions, sessionsRev] as const,
     queryFn: () => unwrap(api.GET("/api/sessions")),
     placeholderData: (prev) => prev,
   });
@@ -126,16 +126,18 @@ export function useSessions() {
 
 export function useSession(sid: string) {
   const qc = useQueryClient();
-  // Scripts connect and leave: the stream's clients_changed retires the 2–5 s compensation
-  // poll (#121, #1484). This key keeps its bare form — the state patch (WorkbenchPage) writes
-  // it directly — so freshness arrives as an invalidation, not a re-key.
-  const clientsEpoch = useWorkspaceEvents((s) => s.clientsEpoch);
-  const seenEpoch = useRef(clientsEpoch);
+  // The stream's clients_changed and sessions_changed retires the 2–5 s compensation poll
+  // (#121, #1484): remote marks stay fresh, and a session stopped under this page (the
+  // assistant's restart, another client) refetches into its 404. This key keeps its bare form —
+  // the state patch (WorkbenchPage) writes it directly — so freshness arrives as an
+  // invalidation, not a re-key.
+  const sessionsRev = useWorkspaceEvents((s) => s.sessionsRev);
+  const seenEpoch = useRef(sessionsRev);
   useEffect(() => {
-    if (clientsEpoch === seenEpoch.current) return;
-    seenEpoch.current = clientsEpoch;
+    if (sessionsRev === seenEpoch.current) return;
+    seenEpoch.current = sessionsRev;
     void qc.invalidateQueries({ queryKey: keys.session(sid) });
-  }, [clientsEpoch, qc, sid]);
+  }, [sessionsRev, qc, sid]);
   return useQuery({
     queryKey: keys.session(sid),
     queryFn: () => fetchSession(qc, sid),
