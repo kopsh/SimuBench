@@ -648,11 +648,8 @@ def _check_nets(
             comp_types = {c.name: c.type for c in d.channel_components} | {
                 c.name: c.type for c in d.components
             }
-            target = None
-            for pname, t in d.ports.channel.items():
-                for n in range(1, d.channels.count + 1):
-                    if pname.replace("{n}", str(n)) == port:
-                        target = t
+            found = channel_ports(d, d.channels.count).get(port)
+            target = found[1] if found is not None else None
             target = target or d.ports.instrument.get(port)
             if target:
                 comp, pin = split(target)
@@ -712,10 +709,9 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
     channel = None
     target = d.ports.instrument.get(port)
     if target is None:
-        for pattern, t in d.ports.channel.items():
-            for n in range(1, d.channels.count + 1):
-                if pattern.replace("{n}", str(n)) == port:
-                    target, channel = t, n
+        found = channel_ports(d, d.channels.count).get(port)
+        if found is not None:
+            channel, target = found
     if target is None:
         return None
     comp_name = split(target).owner

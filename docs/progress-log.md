@@ -2647,3 +2647,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | Web | ✅ `pnpm typecheck`/`lint`/`test` 全绿；e2e 的 SMU 屏用例原样通过（sb-smu-1 的 summary 回退组仍含电流限值字段）；`screen-smu-*.png` 两张 linux 基线随 CI actuals 更新 |
 | 文档 | ✅ decisions.md D83、tui-screens.md 5.2/5.4、instrument-authoring.md 7.3（角色控件形状）、progress-log 本节 |
 | check.sh | ✅ 全绿（worktree 内 pnpm 真装）；演示截图 `docs/tui/find-the-trip*.svg` 重生成（顺带修了无面板屏幕侧行高度的裁行时序：`_refresh_errors` 先于 `_refresh_other`） |
+
+## 快赢打包：事务尾巴、{n} 残余、私有直摸、solve 循环、点轴纯函数（Issue 1470）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| W1：MAV 位走 façade | ✅ `library/components/status.py` 的 MAV 条件读 `owner.has_output`，不再直摸 `owner._output`；`tests/test_instrument_host.py` 的 AST 守卫补 `owner._` 私有链（specimen 加 `owner._output` 一戳、`owner.status.esr` 仍放行，`test_the_guard_sees_a_poke_and_leaves_the_rest`、`test_nothing_outside_engine_pokes_the_collaborators`） |
+| W3：被拒命令零部分应用 | ✅ `_parse_params` 返回解析值与整表写，op 命令的 channel list 写 staged 进 `_commit` 批首（解析期唯一状态写消灭），批拒绝随批退回；`tests/test_channel_list.py::test_a_refused_command_leaves_the_stored_list_unwritten`：list 后参数 -109/-222 与批拒绝（超 sense.range 上限）下 scan.list 原样，老代码下该测试红；既有用例零改写 |
+| W4：{n} 残余收正典 | ✅ `edit.model_surface`、`validate.is_driver` 与 `_input_impedance` 的端口反查、`server/benchfiles.py` 目录端口列表四处改读 `settings.channel_ports`；校验的两处静态代表通道习语按 D79 保留 |
+| W5：偏差键带出组件名 | ✅ `deviation_pairs` 一次给全 `(组件名, 键)`，`deviation_keys` 由它派生（views.py 消费者不变）；`instrument._draw_deviations` 删两段 `removesuffix` 反向剥离 |
+| W6：solve 一遍一助手 | ✅ `Session._solve_once`（emf 收集+频率归并+solve+stats 记账+memo），模式迭代与 D52 兜底结算共用；`test_eload.py` 的 unsettled 事件、`test_trigger_model.py` 原样过 |
+| W7：点轴纯函数 | ✅ `reading_math.axis(start, stop, n, spacing)`（LIN/LOG，LOG 合法性守卫留在调用方）：rfgen.sweep_points、smu.sweep_levels（-221 守卫留守）、specan 三处换用；金测（`test_specan_migration.py`/`test_smu_migration.py`/`test_rfgen_migration.py` 等）逐位不变。issue 所列 optical.py:266 无点轴构建（台阶扫描按时间算位置、末步可半步，换 axis 会变值），未动 |
+| 全量 | ✅ `scripts/check.sh` 全绿（pytest 4704 passed, 9 skipped；本机 141 s，与基线 148 s 相当，预算门在 CI 的 wall-clock 任务）；除 W3 外零行为变化，不写 decisions 条目 |

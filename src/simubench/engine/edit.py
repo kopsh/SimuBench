@@ -17,6 +17,7 @@ from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 from ..models.bench import Accessory, BenchDefinition, ComponentInstance, InstrumentInstance, LayoutItem, Wire
 from ..models.deviation import DeviationRange
 from .portref import closest, parse, split
+from .settings import channel_ports
 
 NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_-]{0,47}$")
 
@@ -245,8 +246,7 @@ def _free_position(b: BenchDefinition) -> LayoutItem:
 def model_surface(d: Any) -> tuple[set[str], set[str]]:
     """The port names and state paths of an instrument definition, channels expanded."""
     count = d.channels.count
-    ports = {p.replace("{n}", str(n)) for n in range(1, count + 1) for p in d.ports.channel}
-    ports |= set(d.ports.instrument)
+    ports = set(channel_ports(d, count)) | set(d.ports.instrument)
     paths = set(d.state) | {f"ch{n}.{k}" for n in range(1, count + 1) for k in d.channel_state}
     return ports, paths
 

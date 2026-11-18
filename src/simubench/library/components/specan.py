@@ -48,6 +48,7 @@ from ...engine.stream import MAX_REQUEST_FANOUT, FrameRequest, ModelLimit, beyon
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from .adc import analog_chain
+from .reading_math import axis
 from .specan_backend import (
     NBW_FACTOR,
     STEPS,
@@ -1112,7 +1113,7 @@ class SpecanTrace(Component):
             self._cache[(s, version)] = trace
             return trace
         sig = self._history[version][1] if self._history else Signal.zero()
-        x = np.linspace(st.start, st.stop, st.points)
+        x = np.asarray(axis(st.start, st.stop, st.points, "LIN"))
         f, p, _ = self._lines_in_window(sig, st)
         line_mw = np.zeros(st.points)
         bucket = (st.stop - st.start) / max(st.points - 1, 1)
@@ -1229,7 +1230,7 @@ class SpecanTrace(Component):
             )
             frame = self.session.cached_frames(rbw, "out", request)
             bins[i * plan.per : (i + 1) * plan.per] = frame.data[middle - half : middle + half] * calibration
-        x = np.linspace(st.start, st.stop, st.points)
+        x = np.asarray(axis(st.start, st.stop, st.points, "LIN"))
         bucket = (st.stop - st.start) / max(st.points - 1, 1)
         return self._detector().detect_bins(bins, plan.origin, plan.df, x, bucket, st.detector)
 
@@ -1240,7 +1241,7 @@ class SpecanTrace(Component):
         """Frequencies and levels (dBm) of the trace as the display shows it now."""
         self.session.sync()
         st = self.settings()
-        x = np.linspace(st.start, st.stop, st.points)
+        x = np.asarray(axis(st.start, st.stop, st.points, "LIN"))
         if not self._st("init.continuous") and self._frozen is not None:
             return x, self._frozen
         return x, self._trace_at(self.current_sweep(st), st)

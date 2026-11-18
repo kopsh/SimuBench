@@ -237,17 +237,29 @@ def case_label(when: Mapping[str, Any] | None) -> str:
     )
 
 
+def deviation_pairs(
+    inst: Instrument, component: str, parameter: str, when: Mapping[str, Any] | None = None
+) -> list[tuple[str, str]]:
+    """The deviation records of one spec as ``(component name, record key)`` pairs: the key is
+    ``'<component>.<parameter>'``, or one ``'ch<n>.<component>.<parameter>'`` per channel when the
+    component is a channel component; a deviation for some settings (D70) adds them:
+    ``'input.flatness[power.gain=ON]'``. The one place the ``ch<n>`` rule lives (#462) — the
+    component's name rides along, so a reader never strips the key apart (a ``case_label`` with a
+    ``.`` in it would survive a reverse strip)."""
+    suffix = f"[{case_label(when)}]" if when else ""
+    if component in {c.name for c in inst.definition.channel_components}:
+        return [
+            (f"ch{n}.{component}", f"ch{n}.{component}.{parameter}{suffix}")
+            for n in range(1, inst.channel_count + 1)
+        ]
+    return [(component, f"{component}.{parameter}{suffix}")]
+
+
 def deviation_keys(
     inst: Instrument, component: str, parameter: str, when: Mapping[str, Any] | None = None
 ) -> list[str]:
-    """The deviation-record keys of one spec: ``'<component>.<parameter>'``, or one
-    ``'ch<n>.<component>.<parameter>'`` per channel when the component is a channel component;
-    a deviation for some settings (D70) adds them: ``'input.flatness[power.gain=ON]'``. The one
-    place the ``ch<n>`` rule lives (#462)."""
-    suffix = f"[{case_label(when)}]" if when else ""
-    if component in {c.name for c in inst.definition.channel_components}:
-        return [f"ch{n}.{component}.{parameter}{suffix}" for n in range(1, inst.channel_count + 1)]
-    return [f"{component}.{parameter}{suffix}"]
+    """The deviation-record keys of one spec; see :func:`deviation_pairs` for the shape."""
+    return [key for _name, key in deviation_pairs(inst, component, parameter, when)]
 
 
 def draw_case(
