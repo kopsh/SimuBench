@@ -732,10 +732,13 @@ def builtin_cases_for_model(def_id: str, root: Path | None = None) -> list[tuple
     ]
 
 
-def builtin_cases_file(name: str, def_id: str, root: Path | None = None) -> Path:
-    """The file a ``builtin:<folder>/cases.yaml`` name stands for, if it is one of ``def_id``'s.
+def builtin_cases_file(name: str, def_id: str | None = None, root: Path | None = None) -> Path:
+    """The file a ``builtin:<folder>/cases.yaml`` name stands for: ``def_id``'s own, or any model's
+    when ``def_id`` is None (an agent seam runs a built-in name without a definition in context,
+    #1485).
 
-    Anything else — another model's file, a path out of the folder — is a ``ValueError``."""
+    Anything else — another model's file, a path out of the folder — is an :class:`Invalid`: the
+    caller typed the name, so it is a user-input error, not a broken file (#1394)."""
     root = root if root is not None else builtin_cases_root()
     folder = name.removeprefix(BUILTIN_PREFIX).removesuffix("/cases.yaml")
     if (
@@ -746,7 +749,11 @@ def builtin_cases_file(name: str, def_id: str, root: Path | None = None) -> Path
         or "\\" in folder
         or folder in {".", ".."}
     ):
-        raise ValueError(f"not a built-in cases file: {name}")
-    if (folder, def_id) not in {(f, m) for f, m, _ in _builtin_index(root)}:
-        raise ValueError(f"{name} is not a cases file of {def_id}")
+        raise Invalid(f"not a built-in cases file: {name}")
+    owners = {(f, m) for f, m, _ in _builtin_index(root)}
+    if def_id is None:
+        if folder not in {f for f, _ in owners}:
+            raise Invalid(f"not a built-in cases file: {name}")
+    elif (folder, def_id) not in owners:
+        raise Invalid(f"{name} is not a cases file of {def_id}")
     return root / folder / "cases.yaml"

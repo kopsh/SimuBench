@@ -68,4 +68,13 @@ class AssistantTryDefinition(TryDefinition):
 
 
 class RunCases(_Input):
-    path: str = Field(..., description="Workspace-relative cases file (commands and expected replies)")
+    path: str = Field(
+        ...,
+        description="Workspace-relative cases file (commands and expected replies), or a built-in "
+        "model's manual cases as listed: builtin:<folder>/cases.yaml",
+    )
+    model: str | None = Field(
+        None,
+        description="Run the cases on this definition in place of the cases' own: a copy checks "
+        "itself against the model it extends' cases",
+    )
