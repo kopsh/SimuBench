@@ -73,7 +73,7 @@ TUI 只调用以下接口（D18），不新增端点；括号内是本文规定�
 
 | 数据 | 接口 | 何时读取 |
 | --- | --- | --- |
-| 会话、仪表列表、元件、连线、网络、客户端 | `GET /api/sessions/{sid}`（网页的定时轮询用 `?state=values`，只取设置的值，`build` 变化时才整取，#1299） | 启动、重连、收到 `session` / `remote` 事件 |
+| 会话、仪表列表、元件、连线、网络、客户端 | `GET /api/sessions/{sid}`（网页的定时轮询用 `?state=values`，只取设置的值，`build` 变化时才整取，#1299） | 启动、重连、收到 `session` / `remote` 事件；有客户端连着任一仪表时另外每 2 s 一次（与网页的客户端轮询同频）：脚本断开不发事件，否则远程提示与卡片的远程标记要等该仪表的下一个事件才消失 |
 | 一台仪表的状态、错误队列、面板 | `GET /api/sessions/{sid}/instruments/{name}` | 收到该仪表的 `state` / `error` / `scpi` 事件后（同一仪表 100 ms 内合并为一次） |
 | 只读读数 | `GET …/instruments/{name}/readings` | 同上；墙钟模式另外每秒一次 |
 | 网络电平与缩略图 | `GET /api/sessions/{sid}/levels` | 任一 `state` 事件后（200 ms 内合并） |

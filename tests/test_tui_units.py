@@ -1128,3 +1128,70 @@ def test_a_stopped_record_is_drawn_where_its_own_times_fall():
     # a 25 ns screen over the record's centre: all of it is record
     zoom, _ = trace_frame(trace, cols, rows, window=(-12.5e-9, 25e-9))
     assert filled(zoom) == list(range(cols))
+
+
+# ---- the app's refresh loop: the remote poll and the tick's state ------------------------------------
+
+
+class _SessionClient:
+    """Answers /session with whatever ``info`` holds now, counting the calls."""
+
+    def __init__(self, remote: list[str]) -> None:
+        self.info: dict[str, Any] = {"id": "x", "instruments": [{"name": "smu", "remote": remote}]}
+        self.calls = 0
+
+    async def session(self, sid: str) -> dict[str, Any]:
+        self.calls += 1
+        return self.info
+
+
+def _app_with(client: _SessionClient) -> Any:
+    from simubench.tui.app import SimuBenchApp
+
+    app = SimuBenchApp("http://127.0.0.1:1", sid="x")
+    app.client = client
+    app.conn = "connected"
+    app.session_info = {"id": "x", "instruments": [{"name": "smu", "remote": ["socket:127.0.0.1:5401"]}]}
+    return app
+
+
+async def test_a_scripts_disconnect_clears_the_remote_mark_on_the_next_poll():
+    """No event marks a disconnect: the poll re-reads the clients while any is connected (as the Web)."""
+    client = _SessionClient(remote=[])  # the script has gone
+    app = _app_with(client)
+    assert app.remote_held()
+    await app._tick_remote()
+    await app._session_task
+    assert client.calls == 1
+    assert not app.remote_held()  # the banner and the card's remote mark go with it
+    await app._tick_remote()  # nobody connected: no more requests
+    assert client.calls == 1
+
+
+async def test_the_remote_poll_waits_for_its_own_request_and_the_connection():
+    client = _SessionClient(remote=["socket:127.0.0.1:5401"])
+    app = _app_with(client)
+    await app._tick_remote()
+    await app._tick_remote()  # the first request is still in flight: no second one
+    await app._session_task
+    assert client.calls == 1
+    app.conn = "disconnected"
+    await app._tick_remote()
+    assert client.calls == 1
+
+
+async def test_a_tick_keeps_the_catalog_and_the_task_handles():
+    """The tick once re-declared them: the catalog was fetched again and on_unmount lost the tasks."""
+    import asyncio
+
+    app = _app_with(_SessionClient(remote=[]))
+    app._catalog_loaded = True
+    session_task = asyncio.ensure_future(asyncio.sleep(0))
+    app._session_task = session_task
+    app._dirty_lines = True
+    app.sid = None  # the maintenance returns at once
+    app._tick()
+    await app._maint_task
+    assert app._catalog_loaded
+    assert app._session_task is session_task
+    await session_task
