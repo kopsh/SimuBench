@@ -377,3 +377,40 @@ def test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy(tmp_path, 
     dump = lambda d: [c.model_dump() for c in lib.get(d).components]  # noqa: E731
     assert dump("small") == dump("whole")
     assert dump("small") != [c.model_dump() for c in parent.components]
+
+
+# ---- a hypothetical instrument built on a real model (#1428) ----------------------------------------
+
+
+def test_a_child_that_drops_the_reference_keeps_the_class_default(tmp_path, lib):
+    write(tmp_path, "base", errors={-999: "device code"})
+    write(tmp_path, "derived", extends="base", reference=None)  # no real model, built on one
+    d = lib.get("derived")
+    assert d.reference is None
+    assert d.errors[-222] == "Data out of range" and d.errors[-999] == "device code"
+
+
+def test_a_hypothetical_34465a_answers_errors_as_the_model_it_is_built_on(tmp_path):
+    """#1428's acceptance: the 34465A's file lists none of its error texts — the multimeter class
+    table supplies them — so a child without a reference must still get the table."""
+    from simubench.api import open_bench
+    from simubench.models.bench import BenchDefinition
+
+    child = {"schema": "simubench.instrument/2", "id": "my-dmm", "extends": "keysight-34465a",
+             "manufacturer": "MyLab", "model": "DMM-1", "class": "multimeter", "reference": None}  # fmt: skip
+    (tmp_path / "my-dmm.yaml").write_text(yaml.safe_dump(child), encoding="utf-8")
+    replies = []
+    for model in ("keysight-34465a", "my-dmm"):
+        bench = BenchDefinition.model_validate(
+            {"schema": "simubench.bench/2", "name": "b", "instruments": {"m": {"model": model}}}
+        )
+        s = open_bench(bench, definition_dirs=[tmp_path])
+        got = []
+        for command in (b":SENSe:VOLTage:DC:NPLC abc", b"*TRG"):  # -104 and -211: class-table texts
+            s.write("m", command + b"\n")
+            s.write("m", b":SYSTem:ERRor?\n")
+            got.append(s.read("m").decode().strip())
+        replies.append(got)
+        s.close()
+    assert replies[0] == ['-104,"Data type error"', '-211,"Trigger ignored"']
+    assert replies[1] == replies[0]  # without the table: the engine's '-211,"Error; Trigger ignored"'
