@@ -31,7 +31,7 @@ from functools import lru_cache, partial
 import numpy as np
 
 from ...engine.noise import gaussian, stream_key, uniform
-from ...engine.signal import Signal
+from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, lowpass1
 from ...engine.stream import (
     MAX_FRAME,
     MAX_REQUEST_FANOUT,
@@ -177,6 +177,52 @@ def converter_half(scale: float, bits: int, per_div: float, divs: float) -> floa
     return scale * ((1 << bits) / per_div if bits > 0 else divs) / 2
 
 
+#: The noise shapes a record's DSP response can give (#1446): the scope_vertical ``response`` names.
+_NOISE_SHAPES: dict[str, Callable[[float], Callable[[np.ndarray], np.ndarray]]] = {
+    "first_order": lowpass1, "brickwall": brickwall, "gaussian": gaussian_lp, "bessel4": bessel4,
+    "butterworth4": butterworth4,
+}  # fmt: skip
+#: Half the length of the noise-shaping FIR: 2K + 1 taps.
+NOISE_TAPS_HALF = 24
+
+
+@lru_cache(maxsize=64)
+def noise_taps(shape: str, fc_dt: float) -> np.ndarray | None:
+    """The zero-phase FIR (2K + 1 taps, K = ``NOISE_TAPS_HALF``) that gives white noise the
+    magnitude of ``shape`` at ``fc_dt`` (the cutoff times the sample interval), with unit power so
+    the noise's rms is kept (#1446): the response sampled on a fine grid, its impulse response cut to
+    the taps with a Hann window. None when the record's Nyquist frequency is not above the cutoff:
+    the noise stays white."""
+    if not (0.0 < fc_dt < 0.5 * (1 - 1e-6)):
+        return None
+    grid = 4096
+    f = np.fft.fftfreq(grid)  # cycles per sample
+    response = np.abs(_NOISE_SHAPES[shape](fc_dt)(f))
+    impulse = np.real(np.fft.ifft(response))
+    k = np.arange(-NOISE_TAPS_HALF, NOISE_TAPS_HALF + 1)
+    taps = impulse[k % grid] * (0.5 + 0.5 * np.cos(np.pi * k / (NOISE_TAPS_HALF + 1)))
+    return taps / math.sqrt(float(np.sum(taps * taps)))
+
+
+def shaped_gaussian(key: int, indexes: np.ndarray, taps: np.ndarray) -> np.ndarray:
+    """Standard normal numbers at ``indexes`` passed through ``taps`` (#1446): each output is the
+    FIR over the draws of the neighbouring indexes, so a sample's value depends on its index only —
+    a record computed in tiles is the record computed whole."""
+    idx = np.asarray(indexes, dtype=np.int64)
+    if idx.size == 0:
+        return np.zeros(0)
+    half = (taps.size - 1) // 2
+    if idx.size == 1 or np.all(np.diff(idx) == 1):
+        wide = gaussian(key, np.arange(int(idx[0]) - half, int(idx[-1]) + half + 1, dtype=np.int64))
+        return np.convolve(wide, taps[::-1], mode="valid")
+    out = np.empty(idx.size)
+    for start in range(0, idx.size, 65536):  # scattered indexes: each sample's own neighbourhood
+        part = idx[start : start + 65536]
+        around = gaussian(key, (part[:, None] + np.arange(-half, half + 1)[None, :]).ravel())
+        out[start : start + part.size] = around.reshape(part.size, -1) @ taps
+    return out
+
+
 @dataclass(frozen=True, eq=False)
 class AdcView:
     """What a ``scope_adc`` frame of one channel is computed from, as values: the frame is a pure
@@ -189,7 +235,11 @@ class AdcView:
     converter's span, ``half`` V; its DC is calibrated out, so a DC level reads as before); an interleaved converter of ``ilv`` sub-converters on the
     ``native_dt`` grid gives each its own gain and offset (a cosine across the sub-converters,
     ``ilv_gain`` relative and ``ilv_offset`` of ``half``): images at k·fs/N ± f and spurs at
-    k·fs/N, in a record at the converter's own rate (a slower one is decimated from all of them); then the input noise (``sigma``) and the quantization. ``scale`` is the converter's
+    k·fs/N, in a record at the converter's own rate (a slower one is decimated from all of them); then the input noise (``sigma``) and the quantization.
+    With ``noise_shape`` (#1446) the noise is not white: it passes the same response as the record
+    (``noise_shape`` at ``noise_fc``), a zero-phase FIR of unit power, so its rms stays ``sigma`` and
+    its spectrum ends where the record's band ends — only when the record's Nyquist frequency is
+    above ``noise_fc`` (a slower record aliases the analog band's noise flat). ``scale`` is the converter's
     V/div — the displayed one, or the hardware range's below a magnified setting (#1265)."""
 
     signal: Signal  # the channel's signal at the converter's input, display volts
@@ -213,6 +263,9 @@ class AdcView:
     ilv_skews: tuple[float, ...] = ()
     native_dt: float = 0.0  # the interleaved converter's own interval, s
     aperture: float = 0.0  # the sampling clock's aperture jitter, s rms
+    # the record's response the noise passes (#1446): a RESPONSES name and its cutoff, Hz; "": white
+    noise_shape: str = ""
+    noise_fc: float = 0.0
 
     def quantize(self, volts: np.ndarray) -> np.ndarray:
         return quantize(volts, self.scale, self.offset, self.bits, self.per_div, self.add)
@@ -251,7 +304,9 @@ class AdcView:
             middle = -self.offset if self.add else self.offset
             volts = interleave(volts, t0_ns, offsets, self.native_dt, gains, offs * self.half, middle)
         if self.sigma > 0:
-            volts = volts + self.sigma * gaussian(stream_key(self.seed, *key), indexes)
+            taps = noise_taps(self.noise_shape, self.noise_fc * dt) if self.noise_shape and dt else None
+            draw = gaussian if taps is None else partial(shaped_gaussian, taps=taps)
+            volts = volts + self.sigma * draw(stream_key(self.seed, *key), indexes)
         return volts
 
     def _sub_converters(self) -> tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[None, None, None]:

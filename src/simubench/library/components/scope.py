@@ -213,6 +213,11 @@ class ScopeVertical(Component):
         sig = self._before_bandwidth()
         return Signal.zero() if sig is None else self._shaped(sig, shape)
 
+    def record_band(self) -> tuple[str, float]:
+        """The shape and the cutoff (Hz) of the response the record gets: ``response`` at the
+        bandwidth or the bandwidth limit, whichever is lower (inf: none)."""
+        return self.choice("response") or "first_order", min(self._limit(), float(self.param("bandwidth")))
+
     def _shaped(self, sig: Signal, shape: str) -> Signal:
         fc = min(self._limit(), float(self.param("bandwidth")))
         if not math.isfinite(fc):
@@ -673,6 +678,9 @@ class ScopeAdc(Component):
         "interleave_offsets_fs": None,  # offsets, fraction of the full scale (None: none)
         "interleave_skews_s": None,  # sampling-time skews, s (None: none)
         "aperture_jitter_s": 0.0,  # the sampling clock's aperture jitter, s rms
+        # the record's noise passes the vertical's response (a DSP-corrected record's spectrum ends
+        # at its band, #1446); False: white noise up to the record's Nyquist frequency
+        "shape_noise": False,
         "vertical": "",  # the per-channel scope_vertical component: the scale, offset and input noise
         "probe": "",  # the per-channel scope_probe component: its ratio (noise) and skew
     }
@@ -851,7 +859,15 @@ class ScopeAdc(Component):
             ilv_skews=self._per_sub("interleave_skews_s"),
             native_dt=1.0 / top if top > 0 else 0.0,
             aperture=float(self.param("aperture_jitter_s")),
+            **self._noise_shape(vertical),
         )
+
+    def _noise_shape(self, vertical: Any) -> dict[str, Any]:
+        """The response the record's noise passes (#1446): the vertical's, when ``shape_noise``."""
+        if not self.param("shape_noise"):
+            return {}
+        shape, fc = vertical.record_band()
+        return {"noise_shape": shape, "noise_fc": fc} if math.isfinite(fc) else {}
 
     def sample_interval(self, port: str) -> float:
         """The converter's own interval: its top rate with the channels that are on. One without a

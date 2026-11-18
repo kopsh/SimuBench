@@ -324,3 +324,29 @@ def test_the_converter_half_is_its_codes_span():
     """10 bits at 128 codes per division: 8 divisions, half is 4 × V/div; no codes: the screen's."""
     assert converter_half(0.0875, 10, 128.0, 10.0) == pytest.approx(0.35)
     assert converter_half(0.1, 0, 128.0, 10.0) == pytest.approx(0.5)
+
+
+def test_shaped_noise_keeps_its_rms_and_depends_on_the_index_only():
+    """#1446: noise through the record's response keeps sigma (unit-power taps, ±3 %), loses what lies
+    above the cutoff, and a sample's value depends on its stream index only: a tile computed alone
+    equals that part of the whole record, scattered indexes give the same values as consecutive ones.
+    A record whose Nyquist frequency is not above the cutoff keeps white noise."""
+    from simubench.library.components.scope_record import noise_taps, shaped_gaussian
+
+    view = _view(sigma=1e-3, noise_shape="brickwall", noise_fc=1.13e11)
+    whole = _frame(view)
+    assert float(np.std(whole)) == pytest.approx(1e-3, rel=0.03)
+    power = np.abs(np.fft.rfft(whole)) ** 2
+    f = np.fft.rfftfreq(whole.size, 1 / FS)
+    assert power[f > 1.2e11].mean() < power[(f > 1e10) & (f < 1e11)].mean() / 100
+    tile = np.asarray(view.frame(FrameRequest(0, 1000, 1 / FS, ("t",), first=4000, index0=4000)).data)
+    assert np.array_equal(tile, whole[4000:5000])
+    taps = noise_taps("brickwall", 1.13e11 / FS)
+    assert taps is not None
+    picked = np.array([7, 3, 900, 901, 42])
+    assert np.allclose(shaped_gaussian(9, picked, taps), shaped_gaussian(9, np.arange(1000), taps)[picked])
+    assert noise_taps("brickwall", 0.5) is None  # Nyquist at the cutoff: white
+    slow = _view(sigma=1e-3)
+    assert np.array_equal(
+        _frame(dataclasses.replace(view, noise_fc=2e11), count=4096), _frame(slow, count=4096)
+    )

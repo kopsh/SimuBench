@@ -2623,3 +2623,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | UXR 两型号 | ✅ adc 不写 `codes_per_div`（`scope_adc` 本来就按 2^位数 / 8 格推出 128），xfer 两项写 `adc`，回复逐字节不变（手册用例、金测、采样流金标准原样通过） |
 | 自定义机型 | ✅ 样例 my-nextgen-rt 只改 `specs.vertical_resolution_bits: 12`，不再手算 `codes_per_div: 512`；`test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b` 的码步长仍为 16；`test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy` 的整表对照组不必再改 xfer（它也写 `adc`） |
 | 文档 | ✅ instrument-authoring.md（组件覆盖的例子、传输码与 ADC 码一节）、decisions.md D82 |
+
+## 示波器记录的噪声谱跟随平坦度修正后的响应（Issue 1446）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 做法 | ✅ `scope_adc.shape_noise`（默认 false，其余型号逐字节不变）：为真且记录的奈奎斯特高于前端的截止（`scope_vertical.record_band()`：`response` 在带宽或带宽限制处）时，记录噪声改由 `shaped_gaussian` 抽取——白噪声经 49 抽头零相位 FIR（该响应的幅度逆 FFT、Hann 窗、单位功率，`noise_taps` 按 (形状, fc·dt) 缓存）。#1423 留下的“修正不改变噪声频谱形状”的假设由此去掉 |
+| rms 不变、带外被切掉 | ✅ `tests/test_scope_adc_nonlinearity.py::test_shaped_noise_keeps_its_rms_and_depends_on_the_index_only`：rms ±3 %，113 GHz 砖墙以上的功率低于带内 20 dB 以上（实测约 -43 dB）；奈奎斯特不高于截止时与白噪声逐字节相同 |
+| 分块与整段一致 | ✅ 同一测试：单独计算的 1000 点块等于整段记录的对应部分（逐字节），不连续的下标与连续下标给出相同值 |
+| UXR 两型号 | ✅ 打开；`tests/test_keysight_uxr.py::test_the_record_noise_ends_at_the_corrected_band`：256 GSa/s 下 118 GHz 以上的噪声功率低于带内 20 dB 以上（关掉时约 0 dB，测试失败），rms 为噪声表的 860 µV（±5 %），50 GHz 带宽滤波后为 √(50/113)（±4 %）。手册用例、金测与采样流金标准原样通过 |
+| 时限 | ✅ FIR 每采样 49 次乘加，2^18 点记录约 30 ms；深记录（慢速采样）不触发 |
+| 文档 | ✅ signal-chain.md `scope_adc` 一段、instrument-authoring.md 8.4、两型号覆盖表 `:ACQuire:RESPonse`、product-plan C4 与示波器顺序表 |
