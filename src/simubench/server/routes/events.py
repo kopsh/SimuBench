@@ -6,7 +6,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import secrets
-from typing import Any
+from typing import Any, cast
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -55,7 +55,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
             while True:
                 message = await ws.receive()
                 if message["type"] == "websocket.disconnect":
-                    raise WebSocketDisconnect(message.get("code"))
+                    raise WebSocketDisconnect(cast(int, message.get("code")))
 
         listener = asyncio.create_task(wait_disconnect())
         try:
@@ -95,7 +95,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
             while True:
                 message = await ws.receive()
                 if message["type"] == "websocket.disconnect":
-                    raise WebSocketDisconnect(message.get("code"))
+                    raise WebSocketDisconnect(cast(int, message.get("code")))
 
         listener = asyncio.create_task(wait_disconnect())
         try:

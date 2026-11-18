@@ -135,7 +135,6 @@ src/simubench/server/internals_links.py:invalid-argument-type Argument is incorr
 src/simubench/server/manager.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
 src/simubench/server/routes/context.py:missing-attribute Object of type `SessionManager` has no attribute `assistant`
 src/simubench/server/routes/context.py:missing-attribute Unresolved attribute `assistant` on type `SessionManager`
-src/simubench/server/routes/events.py:invalid-argument-type Argument to `WebSocketDisconnect.__init__` is incorrect: Expected `int`, found `Any | None`
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `LaxStr | None`, found `Any | int` ×17
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `LaxStr`, found `Any | int`
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Literal["out_of_scope", "blocked", "model_work"] | None`, found `Any | int`
