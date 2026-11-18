@@ -108,7 +108,9 @@ def _definition_routes(ctx: ApiContext, router: APIRouter) -> None:
         """A new workspace definition, from a template's inputs or blank (P2-5). Inputs with errors
         save nothing and come back with the template's diagnostics."""
         if req.definition_id in set(library.ids()):
-            raise ctx.http_error(Conflict(f"{req.definition_id} exists already", None))
+            raise ctx.http_error(
+                Conflict(f"{req.definition_id} exists already", None, reason="exists", target="definition")
+            )
         return ctx.file_errors(  # type: ignore[no-any-return]
             lambda: new_definition.create(definition_files, req, "ui")
         )

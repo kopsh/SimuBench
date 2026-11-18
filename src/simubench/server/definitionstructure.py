@@ -27,6 +27,7 @@ import math
 from pathlib import Path
 from typing import Any, Literal
 
+from ..errors import Invalid
 from ..jsonsafe import as_number, spelling
 from ..library.loader import OVERRIDES, LayerError, apply_command_overrides, layered_definition_data
 from ..models import api as M
@@ -295,7 +296,7 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
     return out
 
 
-class StructureNotKept(ValueError):
+class StructureNotKept(Invalid):
     """The file the write back composed would not run the structure the client sent: something
     would be lost or changed on the way (a value JSON cannot carry, a layering rule). Nothing is
     saved; the message names the items (#P0)."""

@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ...errors import Invalid
 from ...library.templates import get_template
 from ...models import api as M
 from ..definitionfiles import DefinitionFiles
@@ -53,7 +54,7 @@ def create(
     if req.template_id:
         return from_template(definitions, req.template_id, req.definition_id, req.inputs or {}, source)
     if not (req.instrument_class and req.manufacturer and req.model):
-        raise ValueError("a blank instrument needs its class, manufacturer and model (or give a template)")
+        raise Invalid("a blank instrument needs its class, manufacturer and model (or give a template)")
     data = {"manufacturer": req.manufacturer, "model": req.model, "class": req.instrument_class}
     doc = definitions.create(req.definition_id, data, source)
     return M.NewDefinitionResult(saved=True, document=doc, diagnostics=list(doc.diagnostics))
