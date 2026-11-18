@@ -1,0 +1,46 @@
+{
+  "description": "One event of the workspace's event stream (WebSocket ``/api/events``).",
+  "properties": {
+    "kind": {
+      "description": "file_changed | clients_changed",
+      "title": "Kind",
+      "type": "string"
+    },
+    "path": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The workspace-relative file, for file_changed",
+      "title": "Path"
+    },
+    "seq": {
+      "title": "Seq",
+      "type": "integer"
+    },
+    "sid": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "The session whose connected scripts changed, for clients_changed",
+      "title": "Sid"
+    }
+  },
+  "required": [
+    "seq",
+    "kind"
+  ],
+  "title": "WorkspaceEvent",
+  "type": "object"
+}

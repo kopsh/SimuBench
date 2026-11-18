@@ -23,6 +23,7 @@ import contextlib
 import logging
 import ssl
 import struct
+from collections.abc import Callable
 
 from ..engine.session import Session
 from . import ClientConnection, engine_call
@@ -318,6 +319,7 @@ class HislipServer:
         port: int = DEFAULT_PORT,
         overlapped: bool = False,
         secure: SecureConfig | None = None,
+        on_change: Callable[[], None] | None = None,
     ) -> None:
         self.session = session
         #: The secure connection capability (4): ``None`` serves HiSLIP without it.
@@ -325,6 +327,9 @@ class HislipServer:
         #: The mode InitializeResponse announces and device clear proposes (IVI-6.1 3, 6.12.1). Both
         #: modes are served: a client may ask for the other one in DeviceClearComplete.
         self.overlapped = overlapped
+        #: Fired whenever a client connects or leaves (issue #1484): the workspace event stream
+        #: announces ``clients_changed``, so the UI re-reads instead of polling the port lists.
+        self.on_change = on_change
         self.host = host
         self.port = port
         self.server: asyncio.AbstractServer | None = None
@@ -369,6 +374,8 @@ class HislipServer:
     def forget(self, sess: HislipSession) -> None:
         if self._sessions.get(sess.session_id) is sess:
             del self._sessions[sess.session_id]
+            if self.on_change is not None:
+                self.on_change()
 
     async def stop(self) -> None:
         for sess in list(self._sessions.values()):
@@ -422,6 +429,8 @@ class HislipServer:
             self.secure is not None and version >= VERSION_2 and self.secure.initial_required
         )
         self._sessions[sess.session_id] = sess
+        if self.on_change is not None:
+            self.on_change()
         # Control: bit 0 is the mode the server starts in, bits 1 and 2 the encryption mode (6.1).
         control = int(sess.overlapped) | self._feature_bits(sess)
         writer.write(_pack(INITIALIZE_RESPONSE, control, (version << 16) | sess.session_id))

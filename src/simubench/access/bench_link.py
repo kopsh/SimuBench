@@ -28,6 +28,7 @@ import json
 import logging
 import socket
 import threading
+from collections.abc import Callable
 from types import SimpleNamespace
 from typing import Any
 
@@ -92,12 +93,21 @@ def decode(value: Any) -> Any:
 class BenchLinkServer:
     """Serves the links of one bench session to scripts in other processes."""
 
-    def __init__(self, session: Session, host: str = "127.0.0.1", port: int = DEFAULT_PORT) -> None:
+    def __init__(
+        self,
+        session: Session,
+        host: str = "127.0.0.1",
+        port: int = DEFAULT_PORT,
+        on_change: Callable[[], None] | None = None,
+    ) -> None:
         self.session = session
         self.host, self.port = host, port
         #: instrument -> the addresses the service serves it at (socket, HiSLIP, VXI-11), set by the
         #: service once its servers are up: their ports are its choice, a script must find them.
         self.served: dict[str, list[str]] = {}
+        #: Fired whenever a link opens or closes (issue #1484): the workspace event stream
+        #: announces ``clients_changed``, so the UI re-reads instead of polling the port lists.
+        self.on_change = on_change
         self.server: asyncio.AbstractServer | None = None
         self._clients: dict[str, tuple[str | None, Link]] = {}  # label -> (instrument, link)
         self._writers: set[asyncio.StreamWriter] = set()
@@ -174,10 +184,13 @@ class BenchLinkServer:
             pass
         finally:
             self._writers.discard(writer)
+            dropped = bool(labels)
             for link_id, link in links.items():  # a script that goes away drops its locks
                 with contextlib.suppress(Exception):
                     await asyncio.to_thread(link.close)
                 self._clients.pop(labels[link_id], None)
+            if dropped and self.on_change is not None:
+                self.on_change()
             writer.close()
 
     async def _handle(
@@ -214,6 +227,8 @@ class BenchLinkServer:
             if link is not None:
                 await asyncio.to_thread(link.close)
                 self._clients.pop(labels.pop(link_id, ""), None)
+                if self.on_change is not None:
+                    self.on_change()
             return {"ok": True}
         return {"ok": False, "code": constants.VI_ERROR_NSUP_OPER, "message": f"unknown op {op!r}"}
 
@@ -233,6 +248,8 @@ class BenchLinkServer:
             return {"ok": False, "code": constants.VI_ERROR_INV_SETUP, "message": str(exc)}
         links[link_id], labels[link_id] = link, label
         self._clients[label] = (None if kind == "gpib_intfc" else name, link)
+        if self.on_change is not None:
+            self.on_change()
         return {"ok": True}
 
 

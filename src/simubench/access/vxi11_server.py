@@ -266,6 +266,7 @@ class Vxi11Server(_RpcServer):
         host: str = "127.0.0.1",
         port: int = 0,
         portmap_port: int | None = None,
+        on_change: Callable[[], None] | None = None,
     ) -> None:
         super().__init__(
             host,
@@ -308,6 +309,9 @@ class Vxi11Server(_RpcServer):
         self._subaddresses: dict[str, str] = {}
         self._gpib: dict[tuple[int, int, int | None], str] = {}
         self._links: dict[int, _Link] = {}
+        #: Fired whenever a link is created or dropped (issue #1484): the workspace event stream
+        #: announces ``clients_changed``, so the UI re-reads instead of polling the port lists.
+        self.on_change = on_change
         self._next_link = 1
         self._tasks: set[asyncio.Task] = set()
 
@@ -399,6 +403,8 @@ class Vxi11Server(_RpcServer):
         self.locks(link.instrument).release(link)
         self._links.pop(link.id, None)
         link.conn.links.discard(link)
+        if self.on_change is not None:
+            self.on_change()
 
     def _find(self, link_id: int) -> _Link | None:
         return self._links.get(link_id)
@@ -478,6 +484,8 @@ class Vxi11Server(_RpcServer):
         self._next_link += 1
         self._links[link.id] = link
         conn.links.add(link)
+        if self.on_change is not None:
+            self.on_change()
         if (
             lock_device
             and not self.locks(name).grant(link, True)
