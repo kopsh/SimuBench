@@ -2542,3 +2542,11 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 版本变更记录不误报 | ✅ `noise_bandwidth` 记的是噪声表测得时的条件，有意保持数据手册带宽：改 `specs.bandwidth_hz` 时不列入 `still_old`（`server/definitionchanges.py` 的 `_MEASURED_AT`），否则提示作者改回它、正好抵消换算；`tests/test_definition_history.py::test_a_specs_edit_moves_the_places_that_refer_to_it` 原样通过 |
 | 文档 | ✅ D46 条目（不新增条目）、instrument-authoring 8.4 的 `noise_bandwidth`、product-plan 3.5 行 |
 
+## 回归样例：基于 UXR1104B 的假想下一代示波器（Issue 1429）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 定义 ≤ 30 行、不抄父定义 | ✅ `tests/definitions/my-nextgen-rt.yaml`：13 行有效内容；`extends: keysight-uxr1104b`、`reference: null`、`specs` 一处改带宽与采样率（D82）、`component_overrides` 只改 ADC 与传输的位数、交织与孔径抖动（#1425）；噪声表随带宽自动换算（#1427），不重填；`simubench validate` 通过 |
+| 运行断言 | ✅ `tests/test_keysight_uxr.py::test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b`：与父定义同测试台对照——`*IDN?` 与 `:SYSTem:PERSona DEF` 为 MyLab / NG-RT160；`:ACQuire:BANDwidth?` 160 GHz，设 150 GHz 无错（父定义 -222）；`:ACQuire:SRATe MAX` 512 GSa/s；超出范围的错误与父定义相同；WORD 码的最小间隔 16（12 位，父定义 64） |
+| 时限 | ✅ 该用例约 1 s，全量测试在 75 s 内 |
+
