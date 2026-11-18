@@ -16,6 +16,12 @@ built-in and validation definitions declare and for every template's category, a
 row to carry a label key and a row kind. On the Web the generated TS type of
 ``InstrumentClass`` (a Literal of these ids, re-exported by ``models.api``) makes a class without
 a ``INSTRUMENT_CLASSES`` entry a compile error.
+
+The ids are written twice here on purpose: ``InstrumentClass`` must be a static expression for the
+type checker and the generated TS union, while ``_ROWS`` is the runtime table.
+``test_the_api_literal_names_the_registry_ids`` keeps the two in step; there is no third copy.
+``scriptscan.draft_definition`` writes ``"other"`` when no hint names a class — likewise outside
+the registry, and the documented generic fallback for a definition nobody has classified yet.
 """
 
 from __future__ import annotations

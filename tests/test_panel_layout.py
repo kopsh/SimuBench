@@ -44,6 +44,15 @@ def codes(data: dict) -> list[tuple[str, str]]:
 # ---- class defaults ---------------------------------------------------------------------------------
 
 
+def test_an_unknown_class_gets_no_class_default_panel():
+    """#1410: no registry row, no default layout — the generic layout is the fallback."""
+    data = raw(LIB / "keysight-34465a.yaml")
+    data["display"].pop("panel", None)
+    data["display"].pop("template", None)
+    data["class"] = "no_such_class"
+    assert effective_panel(InstrumentDefinition.model_validate(data)) == (None, None)
+
+
 def test_multimeter_default_is_a_reading_with_function_and_range_keys():
     panel, source = effective_panel(undeclared(LIB / "keysight-34465a.yaml"))
     assert source == "class_default" and panel is not None

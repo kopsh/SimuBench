@@ -83,3 +83,14 @@ def test_the_api_literal_names_the_registry_ids():
     """``models.api`` re-exports the registry's Literal: the schema (and with it the generated
     TS union) carries exactly the registered ids."""
     assert set(get_args(InstrumentClass)) == set(categories.ids())
+
+
+def test_an_unknown_class_gets_the_generic_row():
+    """#1410: a workspace definition may name a class the registry does not know, and every
+    consumer reads the generic row for it instead of failing."""
+    for unknown in ("no_such_class", None):
+        assert categories.find(unknown) is None
+        row = categories.get(unknown)
+        assert (row.id, row.label_key, row.readings) == ("", "", False)
+        assert (row.screen, row.panel) == ("generic", "generic")
+        assert row.hints == ()
