@@ -17,13 +17,13 @@ import yaml
 from ..engine import jsonpatch
 from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
-from ..library.loader import layered_definition_data, load_yaml
+from ..library.loader import dump_yaml, layered_definition_data, load_yaml
 from ..library.migrate import upgrade
 from ..models import api as M
 from . import definitionstructure
 from .benchfiles import BenchFiles, Conflict, _sha
 from .definitionchanges import definition_changes
-from .errors import Forbidden
+from .errors import Forbidden, Invalid
 from .history import Source
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
@@ -38,7 +38,7 @@ class DefinitionFiles:
 
     def rel_path(self, def_id: str) -> str:
         if not ID.fullmatch(def_id):
-            raise ValueError(f"{def_id!r}: an id is letters, digits, '.', '_' and '-'")
+            raise Invalid(f"{def_id!r}: an id is letters, digits, '.', '_' and '-'")
         return f"{FOLDER}/{def_id}.yaml"
 
     def read(self, def_id: str) -> M.DefinitionDocument:
@@ -83,7 +83,7 @@ class DefinitionFiles:
         if not doc.editable:
             raise Forbidden(f"{def_id} is not in the workspace; create a copy under a new id to change it")
         if doc.sha256 != base_sha256:
-            raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
+            raise Conflict(f"{doc.path} changed since it was read", doc.sha256, target="definition")
         return self.save(def_id, base_sha256, jsonpatch.apply(doc.data, ops), source)
 
     def save(
@@ -92,17 +92,17 @@ class DefinitionFiles:
         """Write the definition as given (work in progress that does not pass the checks is kept)."""
         rel = self.rel_path(def_id)
         if data.get("id", def_id) != def_id:
-            raise ValueError(f"the file {rel} holds the definition {def_id!r}, not {data.get('id')!r}")
+            raise Invalid(f"the file {rel} holds the definition {def_id!r}, not {data.get('id')!r}")
         data = {"schema": "simubench.instrument/1", "id": def_id, **data}
-        raw = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100).encode("utf-8")
+        raw = dump_yaml(data).encode("utf-8")
         path = self.files.workspace / rel
         with self.files._lock:
             old = path.read_bytes() if path.exists() else None
             current = _sha(old) if old is not None else None
             if base_sha256 is None and current is not None:
-                raise Conflict(f"{rel} already exists", current)
+                raise Conflict(f"{rel} already exists", current, reason="exists", target="definition")
             if base_sha256 is not None and base_sha256 != current:
-                raise Conflict(f"{rel} changed since it was read", current)
+                raise Conflict(f"{rel} changed since it was read", current, target="definition")
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_name(f".{path.name}.tmp")
             tmp.write_bytes(raw)
@@ -162,7 +162,7 @@ class DefinitionFiles:
         if not doc.editable:
             raise Forbidden(f"{def_id} is not in the workspace; copy it as your instrument to change it")
         if doc.sha256 != new.base_sha256:
-            raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
+            raise Conflict(f"{doc.path} changed since it was read", doc.sha256, target="definition")
         path = self.source(def_id)
         data = definitionstructure.written(doc.data, new, path)
         definitionstructure.check_kept(data, new, path)  # refuse rather than lose something silently
@@ -293,7 +293,7 @@ class DefinitionFiles:
 def _parse(raw: bytes) -> dict[str, Any]:
     data = load_yaml(raw.decode("utf-8"))
     if not isinstance(data, dict):
-        raise ValueError("expected a mapping at the top level")
+        raise Invalid("expected a mapping at the top level")
     return data
 
 

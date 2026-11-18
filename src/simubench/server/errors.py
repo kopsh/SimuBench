@@ -5,7 +5,8 @@ A service raises these (never ``HTTPException`` or ``ToolError``). One table (:d
 holds, per kind of domain error, how each seam reports it: an HTTP route maps through
 ``ApiContext.error_row``, the MCP tools and the assistant's tools through :func:`tool_text`. The
 classes live by layer: the engine's (``EditError``, ``PatchError``) stay in the engine, and the
-server's all live here.
+server's all live here; :class:`~..errors.Unknown` and :class:`~..errors.Invalid` sit below every
+layer, so the engine raises them too (#1394).
 
 ``Forbidden`` and ``NotFound`` subclass the built-in ``PermissionError`` / ``FileNotFoundError``: the
 operating system raises the built-ins itself (opening a file that is gone), and both kinds must meet
@@ -16,13 +17,19 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from ..engine.edit import EditError
 from ..engine.jsonpatch import PatchError
+from ..engine.verdicts import VerdictError
+from ..errors import Invalid, Unknown
+from ..library.components.files import FileNameError
+from ..library.migrate import FormatError
 from ..models import api as M
+from ..units import UnitError
 
 
 class Forbidden(PermissionError):
@@ -33,12 +40,31 @@ class NotFound(FileNotFoundError):
     """The thing asked for does not exist: a version, a run record, a file."""
 
 
-class Conflict(Exception):
-    """The file changed since it was read; the caller re-reads and retries with the new hash."""
+#: Why a write was refused (#1393): the file to create is already there, or the file to change is
+#: not the one the caller read.
+ConflictReason = Literal["exists", "stale"]
+#: Which kind of file: it names the tool an agent reads it again with.
+ConflictTarget = Literal["bench", "definition"]
 
-    def __init__(self, message: str, current_sha256: str | None) -> None:
+
+class Conflict(Exception):
+    """A write that would lose or clobber something: the file to create already exists
+    (``reason="exists"``), or the file changed since it was read (``"stale"``); the caller
+    re-reads and retries with the new hash, or picks another name. ``target`` says which kind of
+    file, ``None`` when it is not a file an agent reads (a conversation turn)."""
+
+    def __init__(
+        self,
+        message: str,
+        current_sha256: str | None,
+        *,
+        reason: ConflictReason = "stale",
+        target: ConflictTarget | None = None,
+    ) -> None:
         super().__init__(message)
         self.current_sha256 = current_sha256
+        self.reason = reason
+        self.target = target
 
 
 class BenchInvalid(ValueError):
@@ -94,11 +120,6 @@ FILE_ERRORS = (PermissionError, FileNotFoundError)
 def _first_line(exc: Exception) -> str:
     """The message's first line: empty when the message is empty (an HTTP detail may be empty)."""
     return (str(exc).splitlines() or [""])[0]
-
-
-def _tool_first_line(exc: Exception, seam: str) -> str:
-    """The first line for an agent: a nameless message is nothing to act on, so the kind's name."""
-    return str(exc).splitlines()[0] if str(exc) else type(exc).__name__
 
 
 def _http_in_use(exc: ClientsConnected | InstrumentRemote, **_: Any) -> HTTPException:
@@ -172,14 +193,30 @@ def _tool_missing_file(exc: FileNotFoundError, seam: str) -> str:
     return f"文件不存在：{name or exc}"
 
 
+#: The tool an agent reads each kind of file with.
+_READ_TOOL: dict[str, str] = {"bench": "read_bench", "definition": "read_definition"}
+
+
 def _tool_conflict(exc: Conflict, seam: str) -> str:
-    again = "read_definition" if "instruments/" in str(exc) else "read_bench"
-    return f"{exc}；文件在别处被改过，先 {again} 重新读取再编辑（当前 sha256 = {exc.current_sha256}）"
+    """The next step follows the reason, the read tool follows the target (#1393): a name already
+    taken is not someone else's edit."""
+    read = _READ_TOOL.get(exc.target or "")
+    sha = f"（当前 sha256 = {exc.current_sha256}）" if exc.current_sha256 else ""
+    if exc.reason == "exists":
+        look = f"，或先 {read} 读取现有文件再决定是否编辑它" if read else ""
+        return f"{exc}；同名文件已存在：换一个名字{look}{sha}"
+    again = f"先 {read} 重新读取" if read else "先重新读取"
+    return f"{exc}；文件在别处被改过，{again}再编辑{sha}"
 
 
 def _tool_invalid(exc: BenchInvalid, seam: str) -> str:
     lines = [f"{d.code} {d.pointer}: {d.message}" for d in exc.diagnostics if d.severity == "error"]
     return "测试台未通过校验，无法启动：\n" + "\n".join(lines)
+
+
+def _tool_first_line(exc: Exception, seam: str) -> str:
+    """The first line for an agent: a nameless message is nothing to act on, so the kind's name."""
+    return _first_line(exc) or type(exc).__name__
 
 
 def _tool_patch(exc: Exception, seam: str) -> str:
@@ -193,11 +230,17 @@ class ErrorRow:
     ``http`` receives the options a route may pass (``missing``, ``key``, ``full_detail``,
     ``files``) and returns the HTTP error, or ``None`` when the kind is not that route's to map.
     ``tool`` receives the agent seam (``"mcp"`` or ``"assistant"``) and returns the text the agent
-    reads. The first row that matches wins for both seams, so a subclass sits above its parent."""
+    reads. The first row that matches wins for both seams, so a subclass sits above its parent.
+
+    ``caught``: the kinds a seam catches around a service call for this row, when narrower than
+    ``kinds``. A bare ``KeyError`` or ``ValueError`` is how a bug looks too, so those rows are
+    caught only as the domain's own subclasses (#1394); one that escapes still has a text when
+    a tool that catches everything reports it."""
 
     kinds: tuple[type[Exception], ...]
     http: Callable[..., HTTPException | None]
     tool: Callable[..., str]
+    caught: tuple[type[Exception], ...] | None = None
 
 
 SEAM_ROWS: tuple[ErrorRow, ...] = (
@@ -209,14 +252,33 @@ SEAM_ROWS: tuple[ErrorRow, ...] = (
     ErrorRow((BenchInvalid,), _http_invalid, _tool_invalid),
     ErrorRow((EditError,), _http_edit, _tool_first_line),
     ErrorRow((PatchError,), _http_value, _tool_patch),
-    ErrorRow((KeyError,), _http_key, lambda exc, seam: str(exc).strip("'\"")),
-    ErrorRow((ValueError, UnicodeDecodeError), _http_value, _tool_first_line),
+    ErrorRow((KeyError,), _http_key, lambda exc, seam: str(exc).strip("'\""), caught=(Unknown,)),
+    ErrorRow(
+        (ValueError, UnicodeDecodeError),
+        _http_value,
+        _tool_first_line,
+        caught=(
+            Invalid,
+            ValidationError,
+            UnitError,
+            FileNameError,
+            FormatError,
+            VerdictError,
+            UnicodeDecodeError,
+        ),
+    ),
     ErrorRow((Exception,), lambda exc, **_: None, _tool_first_line),  # not a domain error: HTTP re-raises it
 )
 
 #: The kinds of domain error a seam catches around one service call: the table's rows minus the
-#: catch-all. Anything else is a bug and surfaces as itself.
-DOMAIN_ERRORS = tuple(kind for row in SEAM_ROWS for kind in row.kinds if kind is not Exception)
+#: catch-all, each row as narrow as its ``caught``. Anything else is a bug and surfaces as itself:
+#: a bare ``KeyError`` or ``ValueError`` too (#1394).
+DOMAIN_ERRORS = tuple(
+    kind
+    for row in SEAM_ROWS
+    for kind in (row.caught if row.caught is not None else row.kinds)
+    if kind is not Exception
+)
 
 
 def tool_text(exc: Exception, seam: str) -> str:

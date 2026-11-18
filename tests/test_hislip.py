@@ -16,6 +16,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from simubench.access import hislip_server
 from simubench.access.hislip_server import (
     ASYNC_DEVICE_CLEAR,
     ASYNC_DEVICE_CLEAR_ACKNOWLEDGE,
@@ -43,6 +44,7 @@ from simubench.access.hislip_server import (
     INTERRUPTED,
     TRIGGER,
     HislipServer,
+    HislipSession,
 )
 from simubench.api import open_bench
 from simubench.models.bench import Fault
@@ -314,6 +316,55 @@ async def test_status_query_waits_for_the_write_sent_before_it(rig, monkeypatch)
         c.close()
 
     await asyncio.to_thread(run)
+
+
+async def test_a_status_query_with_a_message_id_of_its_own_is_answered_at_once(rig):
+    """A driver that always sends MessageID 0 names no message: with nothing running, the poll
+    is answered within the in-flight grace, not after the catch-up bound (#1401)."""
+
+    def run() -> None:
+        c = client(rig)
+        assert b"SB-DSO-4" in c.query("*IDN?")
+        started = time.monotonic()
+        send_msg(c.async_, ASYNC_STATUS_QUERY, 0, 0)
+        assert recv_msg(c.async_)[0] == ASYNC_STATUS_RESPONSE
+        assert time.monotonic() - started < hislip_server.STATUS_CATCH_UP / 2
+        c.close()
+
+    await asyncio.to_thread(run)
+
+
+async def test_a_status_query_behind_a_locked_message_returns_within_the_bound(rig, monkeypatch):
+    """A message held by another session's lock is running for as long as the lock: the poll
+    waits for it at most STATUS_CATCH_UP, then answers (#1401)."""
+    monkeypatch.setattr(hislip_server, "STATUS_CATCH_UP", 0.3)
+
+    def run() -> None:
+        a, b = client(rig), client(rig)
+        assert a.lock(request=True, timeout_ms=0) == 1
+        b.send_command("*IDN?")  # held: no response while a holds the lock
+        started = time.monotonic()
+        b.status_query()
+        elapsed = time.monotonic() - started
+        assert 0.2 <= elapsed < 0.3 + 0.5  # waited for the held message, within the bound
+        assert a.lock(request=False) == 1
+        assert b.read_response()[1].startswith(b"SIMUBENCH")
+        a.close()
+        b.close()
+
+    await asyncio.to_thread(run)
+
+
+@pytest.mark.parametrize("state", ["overlapped", "clearing"])
+async def test_a_status_query_does_not_wait_in_overlapped_mode_or_during_device_clear(state):
+    """Overlapped: the MessageID names a response, not a message to wait for; device clear: the
+    input is being discarded. Neither waits, even with a message marked running (#1401)."""
+    sess = HislipSession(SimpleNamespace(overlapped=state == "overlapped"), "scope", 1)
+    sess.clearing = state == "clearing"
+    sess.busy = True
+    started = time.monotonic()
+    await sess.caught_up(sess.done_id + 2)
+    assert time.monotonic() - started < hislip_server.STATUS_IN_FLIGHT
 
 
 async def test_service_request_when_rqs_rises(rig):

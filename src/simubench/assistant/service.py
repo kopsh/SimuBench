@@ -49,6 +49,7 @@ from ..server.benchchanges import bench_changes
 from ..server.benchfiles import Conflict
 from ..server.definitionchanges import definition_changes
 from ..server.definitionfiles import FOLDER, DefinitionFiles
+from ..server.errors import Unknown
 from ..server.manager import SessionManager
 from . import compaction
 from .config import AssistantSettings, ConfigError, LlmSettings, check_settings
@@ -220,7 +221,7 @@ class AssistantService:
         if events is None or events.turn_id != turn_id:
             turn = next((t for t in self.conversation(bench).turns if t.id == turn_id), None)
             if turn is None:
-                raise KeyError(f"没有这一轮对话 {turn_id!r}")
+                raise Unknown(f"没有这一轮对话 {turn_id!r}")
             yield M.AssistantEvent(seq=after + 1, type="turn", turn_id=turn_id, turn=turn)
             return
         while True:

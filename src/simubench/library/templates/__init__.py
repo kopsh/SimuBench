@@ -17,6 +17,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ValidationError
 
 from ...engine.validate import Diagnostic
+from ...errors import Unknown
 
 INPUTS = "/template/inputs"
 
@@ -163,7 +164,7 @@ def get_template(template_id: str) -> Template:
         return _TEMPLATES[template_id]
     except KeyError:
         known = ", ".join(sorted(_TEMPLATES))
-        raise KeyError(f"没有模板 {template_id!r}（已有：{known}）") from None
+        raise Unknown(f"没有模板 {template_id!r}（已有：{known}）") from None
 
 
 def _load() -> None:
