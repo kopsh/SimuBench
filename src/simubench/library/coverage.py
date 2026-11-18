@@ -24,14 +24,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 from xml.sax.saxutils import escape, quoteattr
 
+import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from ..engine.commands import answered_builtins
+from ..errors import Invalid
 from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, parse_unit, split_units
 from .expectations import Block, Field_, Fields, as_fields, matches_format
-from .loader import COVERAGE_SUFFIX, _read_yaml, load_yaml
+from .loader import COVERAGE_SUFFIX, _read_yaml, load_yaml, parse_error_text
 
 if TYPE_CHECKING:
     from ..engine.session import Session
@@ -223,7 +225,11 @@ class Cases(_Model):
 
 
 def load_cases(path: Path) -> Cases:
-    data = load_yaml(path.read_text(encoding="utf-8"))
+    try:
+        data = load_yaml(path.read_text(encoding="utf-8"))
+    except yaml.YAMLError as exc:
+        # A cases file that does not parse is a domain error (#1406), like a bench or definition.
+        raise Invalid(parse_error_text(exc, path.name)) from None
     if isinstance(data, list):  # the short form: just the list of cases
         data = {"cases": data}
     cases = Cases.model_validate(data)
@@ -387,8 +393,6 @@ def draft_coverage(
 
 def dump_coverage(cov: Coverage, leading_comments: str = "") -> str:
     """YAML text of a coverage table, after the comment lines a hand-written file starts with."""
-    import yaml
-
     data = cov.model_dump(mode="json", by_alias=True, exclude_none=True)
     body = yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100)
     return leading_comments + body

@@ -33,6 +33,15 @@ SKIP_DIRS = frozenset({".simubench", ".git", ".venv", "node_modules"})
 log = logging.getLogger(__name__)
 
 
+def parse_error_text(exc: yaml.YAMLError, name: str = "") -> str:
+    """One line naming the file and the parser's position (#1406): the seams keep the first line."""
+    mark = getattr(exc, "problem_mark", None)
+    text = getattr(exc, "problem", None) or str(exc)
+    if mark is not None:
+        text = f"{text} (line {mark.line + 1}, column {mark.column + 1})"
+    return f"{name}: {text}" if name else text
+
+
 class YamlLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # libyaml's parser when present
     """SafeLoader that reads floats the YAML 1.2 way: ``1.0e7`` and ``1e-7`` are numbers.
 
@@ -71,7 +80,11 @@ def dump_yaml(data: object) -> str:
 
 def _read_yaml(path: Path) -> dict:
     with path.open(encoding="utf-8") as f:
-        data = load_yaml(f.read())
+        try:
+            data = load_yaml(f.read())
+        except yaml.YAMLError as exc:
+            # Broken file content is a domain error (#1406); the parser's line and column stay.
+            raise Invalid(parse_error_text(exc, path.name)) from None
     if not isinstance(data, dict):
         raise Invalid(f"{path}: expected a mapping at the top level")
     return data
@@ -310,6 +323,9 @@ class DefinitionLibrary:
 
 def load_bench(path: str | Path) -> BenchDefinition:
     p = Path(path)
-    raw = json.loads(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
+    try:
+        raw = json.loads(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
+    except json.JSONDecodeError as exc:
+        raise Invalid(f"{p.name}: {exc}") from None
     data, _ = upgrade(raw, "bench")
     return BenchDefinition.model_validate(data)

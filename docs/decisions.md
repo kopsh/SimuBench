@@ -678,6 +678,7 @@
   5. 助手 `edit_bench` 的 ops 校验失败文案「操作格式不对：…」由 PydanticAI 的模型校验错误接手（模型校验不过直接回给模型重试）；无测试断言旧文案。
   6. 助手四个模型化工具的 schema 可见新信息：`ops` 的 EditOp 判别联合、`try_definition` 的 `maxItems: 100`；MCP 侧四个工具 schema 与改动前逐字段一致（含 `maxItems: 200`，有测试）。
 - **代价**：`tool_input` 依赖 inspect 镜像签名——SDK 若在未来版本改变 schema 推导方式，助手需要跟着调（有 schema 测试守住）；其余约 30 个工具仍以手写签名注册，helper 使继续铺开机械化、线上形状不变，可渐进进行；`Conflict` 话术统一后，助手不再有「可能是用户在画布上」的猜测性提示（改后的句子对两个缝都成立）。
+- **文件内容解析**（#1406）：bench、定义、cases 与库 loader 的 YAML/JSON 读取在解析边界把 `json.JSONDecodeError` / `yaml.YAMLError` 包成 `Invalid`，消息带文件名与行列（`loader.parse_error_text`，seam 只读首行也不丢位置），于是这几种「文件写坏了」在 HTTP 是 422、在两条 agent 缝是 `{"error"}` 文本，而不是 500 或逃出工具循环。其余 `except DOMAIN_ERRORS` 调用点复查结论：`manager.start` 先校验并抛 `BenchInvalid`，`engine/session.py` 的重名与坏端点引用裸 `ValueError` 在校验之后不可达（测试实证），保持裸抛以标识校验缺口；帧数与请求不符是组件 bug，同样不该被当成领域错误。
 
 ## D77 投影层读块走块协议：屏幕的知识归块，manager 只管生命周期与访问
 

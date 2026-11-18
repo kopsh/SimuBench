@@ -449,6 +449,19 @@ def test_definition_document_and_coverage_are_served():
         assert c.get("/api/definitions/no-such-def/coverage").status_code == 404
 
 
+def test_a_definition_that_does_not_parse_is_422_with_its_position(tmp_path):
+    """#1406: a broken definition file is the caller's to fix, not a 500."""
+    (tmp_path / "instruments").mkdir()
+    (tmp_path / "instruments" / "bad.yaml").write_text("name: [\n", encoding="utf-8")
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        r = c.get("/api/definitions/bad/document")
+        assert r.status_code == 422, r.text
+        assert "bad" in str(r.json()["detail"]) and "line" in str(r.json()["detail"])
+
+
 def test_the_document_route_names_the_sessions_to_restart(tmp_path):
     """The HTTP definition document fills sessions_to_restart like the MCP read_definition does
     (#1382): a running session keeps the definition it started with until restarted (D25)."""

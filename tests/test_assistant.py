@@ -370,6 +370,17 @@ def test_the_assistant_error_text_reads_the_shared_table():
     assert _error_text(missing) == "文件不存在：agent.bench.yaml"  # the name survives, for a retry
 
 
+async def test_a_bench_that_does_not_parse_reaches_the_model_as_an_error(manager):
+    """#1406: the assistant's read_bench answers a broken file as ``{"error": ...}`` with the
+    parser's position, instead of an exception escaping the tool loop."""
+    (manager.files.workspace / "bad.bench.json").write_text("{not json", encoding="utf-8")
+    llm = ScriptedLLM([("read_bench", {"path": "bad.bench.json"})], "看过了")
+    t = await turn(service_with(manager, llm), "看看这个测试台")
+    assert t.status == "done"
+    outcome = last_tool_return(llm.seen[-1], "read_bench")
+    assert "bad.bench.json" in outcome["error"] and "line 1 column 2" in outcome["error"]
+
+
 async def test_long_conversations_are_compacted_without_splitting_tool_calls(manager):
     models = ["bk-8614", "fluke-5522a", "fluke-5730a", "fluke-8588a", "keysight-33622a", "keysight-34465a"]
     models += ["keysight-34970a", "keysight-53220a", "keysight-53230a", "keysight-b2901a"]
