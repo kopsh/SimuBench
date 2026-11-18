@@ -110,7 +110,8 @@ class WaveformTransfer(Component):
         # header: a declared preamble (op header). {encoding: binary | text, size: bytes (binary),
         # byteorder, block_digits, trailer, separator (text), fields: [{at: byte offset (binary),
         # type: i8 | u8 | i16 | u16 | i32 | u32 | i64 | f32 | f64 | str, value | figure | setting,
-        # map, nearest, scale, format (text: a printf format), when: {setting: value} with else}]}
+        # map, nearest, scale, format (text: a printf format), when: {setting: value} with else};
+        # a text field's setting may be a list, joined by its format: '"%s:%s"', #1441]}
         "header": None,
     }
 
@@ -374,6 +375,10 @@ class WaveformTransfer(Component):
             # a figure the current state has no value for (the segment count outside the ALL-ON
             # read): None, and the text preamble drops the field
             value = figures.get(str(spec["figure"]))
+        elif isinstance(spec.get("setting"), list):
+            # several settings in one text field, joined by ``format`` (the Infiniium preamble's
+            # "model:serial" frame field, #1441): a tuple for the printf format
+            return tuple(self.owner.get_state(str(p).replace("{n}", str(n))) for p in spec["setting"])
         elif "setting" in spec:
             value = self.owner.get_state(str(spec["setting"]).replace("{n}", str(n)))
         else:

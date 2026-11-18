@@ -122,7 +122,8 @@ sections:
       turns their display off (known deviation)
   - header: :MODel
     level: implemented
-    note: UXR1104B without quotes, as the guide's table writes the reply with headers off
+    note: UXR1104B without quotes, as the guide's table writes the reply with headers off; the definition's model, so
+      a definition that extends this one answers its own (#1441)
   - header: :MTEEnable
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): mask testing.'
@@ -172,7 +173,7 @@ sections:
   - header: :SERial
     level: implemented
     note: 'query only: the serial number of *IDN? without quotes, as the guide''s sample. Setting the serial number
-      is not modeled'
+      is not modeled (#1441: follows identity.serial)'
   - header: :SINGle
     level: implemented
     note: one acquisition on the next trigger; :TRIGger:SWEep is not changed (the guide)

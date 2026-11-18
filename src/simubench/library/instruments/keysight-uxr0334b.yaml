@@ -1229,18 +1229,19 @@ state:
   marker.source2: {type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], default: CHANnel1, label: 光标 CD 信源, label_en: Marker CD source}
   marker.delta: {type: bool, default: false, label: 屏幕显示差值, label_en: Delta markers}
   marker.meas: {type: int, min: 1, max: 40, default: 1, label: 跟踪的测量, label_en: Tracked measurement}
-  # 只读身份：只有一个取值的枚举使 :SERial? / :MODel? 回不带引号的字符串（手册的样例）。
+  # 只读身份：只有一个取值的枚举使 :SERial? / :MODel? 回不带引号的字符串（手册的样例）。取值引用定义的
+  # model 与 identity.serial（D82，#1441），命令按写法原样回（as_defined），子定义的“NG-RT160”不被缩写。
   system.serial:
     type: enum
-    options: [MY64280101]
-    default: MY64280101
+    options: [{same_as: identity.serial}]
+    default: {same_as: identity.serial}
     readonly: true
     label: 序列号
     label_en: Serial number
   system.model:
     type: enum
-    options: [UXR0334B]
-    default: UXR0334B
+    options: [{same_as: model}]
+    default: {same_as: model}
     readonly: true
     label: 型号
     label_en: Model
@@ -1552,7 +1553,7 @@ components:
   - name: adc
     type: scope_adc
     params:
-      bits: 10
+      bits: {same_as: specs.vertical_resolution_bits}
       codes_per_div: 128.0
       divs: 8.0
       offset_sign: subtract
@@ -1683,8 +1684,9 @@ components:
       values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
       format: "%.4E"
       separator: ","
-      codes_per_div: 128.0
-      adc_bits: 10
+      # 位数与每格码数随 ADC（D82，#1441）；ADC 的位数随 specs.vertical_resolution_bits。
+      codes_per_div: {same_as: components.adc.params.codes_per_div}
+      adc_bits: {same_as: components.adc.params.bits}
       width: {from: $waveform.format, map: {BYTE: 8}, default: 16}
       offset: subtract
       unsigned: false
@@ -1715,7 +1717,7 @@ components:
           - {figure: offset, format: "%.6E"}
           - {value: '"01 JAN 2024"'}
           - {value: '"00:00:00:00"'}
-          - {value: '"UXR0334B:MY64280101"'}
+          - {setting: [system.model, system.serial], format: '"%s:%s"'}  # 型号:序列号，随定义（#1441）
           - {value: 0}
           - {value: 100}
           - {value: 2}
@@ -1897,8 +1899,8 @@ commands:
     op: acq.digitize
     query: false
     params: [{name: sources, type: raw}]
-  - {header: ":SERial", state: system.serial, set: false}
-  - {header: ":MODel", state: system.model, set: false}
+  - {header: ":SERial", state: system.serial, set: false, format: {enum: as_defined}}
+  - {header: ":MODel", state: system.model, set: false, format: {enum: as_defined}}
   # 蜂鸣（手册 p.291）：频率 Hz、时长 ms；仿真无声，解析并保存两参数（#1068）。
   - {header: ":BEEP", op: sys.accept, query: false, params: [{name: frequency, type: float, unit: HZ, state: system.beep_frequency}, {name: duration, type: float, unit: MS, state: system.beep_duration}]}
   - header: ":VIEW"

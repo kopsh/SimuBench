@@ -2603,3 +2603,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 回归测试 | ✅ `tests/test_scope_adc_nonlinearity.py::test_a_declared_enob_curve_sets_the_records_effective_bits`：信号源关闭时附加噪声远大于前端噪声，且等于 1 MHz 正弦时的（rel 1e-3，差别只是 1 MHz 的孔径抖动项）；三个频点的有效位数断言不变 |
 | 范围 | ✅ 只有声明了 `enob_table` 的定义受影响（`sb-dso-enob`）；UXR 两型号没有 `enob_table`，回复与金标准不变 |
 | 文档 | ✅ signal-chain.md `scope_adc` 一段、组件 docstring |
+## 基于 UXR 的自定义机型回自己的型号与序列号；ADC 位数只写一处（Issue 1441）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 复现 | ✅ `tests/definitions/my-nextgen-rt.yaml` 的 `*IDN?` 已是 MyLab,NG-RT160,NG0001，但 `:MODel?` 回 UXR1104B、`:SERial?` 回 MY64310101、`:WAVeform:PREamble?` 的 frame model 回 "UXR1104B:MY64310101"——只读设置的选项与默认、前导字段写的是字面值。Web 改序列号的副本同样：`*IDN?` 变了，`:SERial?` 没变 |
+| 做法 | ✅ 两型号 `system.model` / `system.serial` 的选项与默认 `same_as: model` / `identity.serial`，`:MODel` / `:SERial` 按写法原样回（`format: {enum: as_defined}`，否则枚举的短形会把 NG-RT160 缩成 NGRT160）；前导文本字段的 `setting` 可写成列表，按 `format` 拼成一个字段（`waveform_transfer._field`）；`adc.bits` 引用 `specs.vertical_resolution_bits`，`xfer.adc_bits` 与 `xfer.codes_per_div` 引用 adc 的 |
+| `same_as` 按名字找组件 | ✅ 路径里带 `name` 的列表项可写名字（`components.adc.params.bits`）：某层插入或删除前面的组件时下标会错位，名字不会；同名两项不算找到（E-DEF-SAME-AS）；`tests/test_same_as.py::test_a_named_list_item_is_found_by_its_name` |
+| 回归测试 | ✅ `test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b`：子机型 `:MODel?`、`:SERial?`、前导 frame model 回 NG-RT160 / NG0001 / "NG-RT160:NG0001"，原型号不变；样例去掉 `adc.bits` 与整行 `xfer`；`test_a_new_instrument_from_a_template_or_blank_and_its_identity`：Web 改序列号后变更表多出 `:SERial?` 设置的默认与选项，`:SERial?` 回新序列号 |
+| 测试的修正 | ✅ `test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy`：整表抄写的副本里是解析后的数，xfer 不再随 adc 变；对照组同时改 xfer 的两个值（覆盖层写法的子定义 xfer 自动跟随，这正是本 issue 的目的） |
+| 回复不变 | ✅ UXR 两型号的手册用例、金测与采样流金标准原样通过 |
+| 文档 | ✅ decisions.md D82、instrument-authoring.md（same_as 的路径、前导字段）、两型号覆盖表 `:MODel` / `:SERial` |

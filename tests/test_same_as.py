@@ -31,6 +31,22 @@ def test_a_reference_takes_the_value_it_names():
     assert data["persona"] == {"same_as": "model"}  # the input is not changed
 
 
+def test_a_named_list_item_is_found_by_its_name():
+    """#1441: ``components.adc`` names the component called adc wherever it sits in the list, so a
+    layer that inserts or removes a component before it does not move the reference."""
+    data = {
+        "components": [
+            {"name": "acq", "params": {}},
+            {"name": "adc", "params": {"codes_per_div": 512.0}},
+            {"name": "xfer", "params": {"codes_per_div": {"same_as": "components.adc.params.codes_per_div"}}},
+        ]
+    }
+    assert resolve_same_as(data)["components"][2]["params"]["codes_per_div"] == 512.0
+    twice = {"components": [{"name": "a", "x": 1}, {"name": "a", "x": 2}], "y": {"same_as": "components.a.x"}}
+    with pytest.raises(SameAsError):  # a name the list holds twice names nothing
+        resolve_same_as(twice)
+
+
 def test_the_template_record_and_runtime_references_are_left_as_written():
     data = {"template": {"inputs": {"x": {"same_as": "nope"}}}, "params": {"bw": "$acquire.bandwidth"}}
     assert resolve_same_as(data) is data

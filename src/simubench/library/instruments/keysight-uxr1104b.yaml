@@ -312,18 +312,19 @@ state:
   system.dsp: {type: string, default: "", label: 屏幕文字, label_en: Display text}
   display.label: {type: bool, default: false, label: 显示标签, label_en: Labels}
   display.intensity: {type: int, min: 0, max: 100, default: 50, label: 网格亮度, label_en: Grid intensity}
-  # 只读身份：只有一个取值的枚举使 :SERial? / :MODel? 回不带引号的字符串（手册的样例）。
+  # 只读身份：只有一个取值的枚举使 :SERial? / :MODel? 回不带引号的字符串（手册的样例）。取值引用定义的
+  # model 与 identity.serial（D82，#1441），命令按写法原样回（as_defined），子定义的“NG-RT160”不被缩写。
   system.serial:
     type: enum
-    options: [MY64310101]
-    default: MY64310101
+    options: [{same_as: identity.serial}]
+    default: {same_as: identity.serial}
     readonly: true
     label: 序列号
     label_en: Serial number
   system.model:
     type: enum
-    options: [UXR1104B]
-    default: UXR1104B
+    options: [{same_as: model}]
+    default: {same_as: model}
     readonly: true
     label: 型号
     label_en: Model
@@ -1350,7 +1351,7 @@ components:
   - name: adc
     type: scope_adc
     params:
-      bits: 10
+      bits: {same_as: specs.vertical_resolution_bits}
       codes_per_div: 128.0
       divs: 8.0
       offset_sign: subtract
@@ -1526,8 +1527,9 @@ components:
       values: {from: $waveform.format, map: {ASCii: volts}, default: codes}
       format: "%.4E"
       separator: ","
-      codes_per_div: 128.0
-      adc_bits: 10
+      # 位数与每格码数随 ADC（D82，#1441）；ADC 的位数随 specs.vertical_resolution_bits。
+      codes_per_div: {same_as: components.adc.params.codes_per_div}
+      adc_bits: {same_as: components.adc.params.bits}
       width: {from: $waveform.format, map: {BYTE: 8}, default: 16}
       offset: subtract
       unsigned: false
@@ -1558,7 +1560,7 @@ components:
           - {figure: offset, format: "%.6E"}
           - {value: '"01 JAN 2024"'}
           - {value: '"00:00:00:00"'}
-          - {value: '"UXR1104B:MY64310101"'}
+          - {setting: [system.model, system.serial], format: '"%s:%s"'}  # 型号:序列号，随定义（#1441）
           - {value: 0}
           - {value: 100}
           - {value: 2}
@@ -1758,8 +1760,8 @@ commands:
     op: acq.digitize
     query: false
     params: [{name: sources, type: raw}]
-  - {header: ":SERial", state: system.serial, set: false}
-  - {header: ":MODel", state: system.model, set: false}
+  - {header: ":SERial", state: system.serial, set: false, format: {enum: as_defined}}
+  - {header: ":MODel", state: system.model, set: false, format: {enum: as_defined}}
   - header: ":VIEW"
     params:
       - name: source
