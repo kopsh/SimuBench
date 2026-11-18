@@ -77,6 +77,60 @@ class DefinitionChange(_Model):
     )
     old: Any = Field(None, description="The value before (None for an added object)")
     new: Any = Field(None, description="The value after (None for a removed object)")
+    still_old: list[str] | None = Field(
+        None,
+        description="A specs change only: where the new version still holds the old value (settings' "
+        "limits and defaults, component parameters, as JSON pointers). Specs are a record and change "
+        "no behaviour (D3); these places do",
+    )
+
+
+class InstrumentTemplateInfo(_Model):
+    """A template the Web's "new instrument" offers (D3 layer 2): its inputs as a JSON Schema (each
+    field labelled in both languages) and an example to start from."""
+
+    id: str
+    version: int
+    category: str
+    title: str
+    title_en: str
+    description: str
+    schema_: dict[str, Any] = Field(..., alias="schema", serialization_alias="schema")
+    example: dict[str, Any]
+
+
+class IdentityUpdate(_Model):
+    """A workspace definition's identity as the build area edits it (P2-5): the maker and model, the
+    unit's serial and firmware, and the *IDN? format. A field left out keeps its value; one equal to
+    what the definition already runs (inherited included) writes nothing."""
+
+    base_sha256: str
+    manufacturer: str | None = None
+    model: str | None = None
+    serial: str | None = None
+    firmware: str | None = None
+    idn: str | None = Field(None, description="The *IDN? format ({manufacturer} is upper-cased)")
+
+
+class NewDefinitionRequest(_Model):
+    """A new workspace definition: from a template's inputs, or blank (a class, a maker and a model,
+    then built in the build area)."""
+
+    definition_id: str = Field(..., pattern=r"^[a-z0-9][a-z0-9._-]*$", description="instruments/<id>.yaml")
+    template_id: str | None = Field(None, description="Expand this template's inputs")
+    inputs: dict[str, Any] | None = Field(None, description="With template_id: the template's inputs")
+    instrument_class: str | None = Field(None, description="Blank: the instrument class")
+    manufacturer: str | None = Field(None, description="Blank: the maker, as *IDN? names it")
+    model: str | None = Field(None, description="Blank: the model, as *IDN? names it")
+
+
+class NewDefinitionResult(_Model):
+    """What creating a definition gave: saved, with the document and its diagnostics; or not, with
+    the diagnostics on the inputs (pointers under /template/inputs) and nothing written."""
+
+    saved: bool
+    document: DefinitionDocument | None = None
+    diagnostics: list[Diagnostic] = Field(default_factory=list)
 
 
 class DefinitionVersion(_Model):
@@ -241,6 +295,15 @@ class DefinitionCoverage(_Model):
         description="The not_modeled commands by gap: out_of_scope, blocked, model_work, untriaged",
     )
     entries: list[CoverageEntryInfo]
+    from_model: str | None = Field(
+        None,
+        description="A copy without a table of its own: the ancestor whose coverage table this is",
+    )
+    changed: list[str] = Field(
+        default_factory=list,
+        description="With from_model: the headers the copy runs differently from that model (changed, "
+        "added or removed commands); for these the table describes the model, not the copy",
+    )
 
 
 class BenchDocument(_Model):
@@ -401,6 +464,11 @@ class ComponentDoc(_Model):
     about_en: str | None = Field(None, description="The same sentence in English")
     group: LibraryGroup = Field(
         "other", description="The family the build area's library lists it under (#1214)"
+    )
+    classes: list[str] = Field(
+        default_factory=list,
+        description="The instrument classes whose built-in models use this type (oscilloscope, "
+        "multimeter, …), from the library itself: the build area lists a class's own types first",
     )
     doc: str | None = None
     ports: list[PortInfo]
@@ -1245,6 +1313,11 @@ class CaseFile(_Model):
     path: str = Field(..., description="Workspace-relative cases file, or builtin:<folder>/cases.yaml")
     cases: int
     builtin: bool = Field(False, description="The manual cases shipped with a built-in model (#1352)")
+    from_model: str | None = Field(
+        None,
+        description="A copy's inherited cases: the model (an ancestor through extends) whose shipped "
+        "cases these are; they run on the copy in its place, as a regression check",
+    )
 
 
 # ---- run records (D36) ---------------------------------------------------------------------------

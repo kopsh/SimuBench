@@ -26,7 +26,7 @@ SOURCE = get_template("signal_source")
 
 AWG2_INPUTS = {
     "identity": {
-        "manufacturer": "SimuBench", "model": "SB-AWG-2", "serial": "SBAWG000001", "firmware": "1.0.0",
+        "manufacturer": "SIMUBENCH", "model": "SB-AWG-2", "serial": "SBAWG000001", "firmware": "1.0.0",
         "description": "双通道函数发生器，输出阻抗 50 Ω，幅度按设定负载定义（D13）。",
     },
     "channels": 2,
@@ -44,7 +44,7 @@ AWG2_INPUTS = {
 
 LFCAL_INPUTS = {
     "identity": {
-        "manufacturer": "SimuBench", "model": "LFCAL-CALIBRATOR", "serial": "CAL0000001", "firmware": "1.0.0",
+        "manufacturer": "SIMUBENCH", "model": "LFCAL-CALIBRATOR", "serial": "CAL0000001", "firmware": "1.0.0",
         "idn": "{manufacturer},{model},{serial},{firmware}",
     },
     "channels": 4,

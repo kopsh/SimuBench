@@ -302,7 +302,8 @@ def _validate(args: argparse.Namespace) -> int:
             try:
                 data = layered_definition_data(data, p)  # D59: what the engine runs is what is checked
             except ValueError as exc:
-                print(f"{path}:/extends: E-DEF-EXTENDS {exc}", file=sys.stderr)
+                code, pointer = getattr(exc, "code", "E-DEF-EXTENDS"), getattr(exc, "pointer", "/extends")
+                print(f"{path}:{pointer}: {code} {exc}", file=sys.stderr)
                 status = 1
                 continue
             _, report = validate_definition_data(data)

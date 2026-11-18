@@ -39,8 +39,8 @@ const done: AssistantTurn = {
       kind: "bench",
       created: false,
       changes: [
-        { kind: "instrument", action: "added", target: "scope2", detail: "model", old: null, new: "siglent-sds2104xplus" },
-        { kind: "wire", action: "added", target: "awg.CH2 ↔ scope2.CH1", detail: null, old: null, new: null },
+        { kind: "instrument", action: "added", target: "scope2", detail: "model", old: null, new: "siglent-sds2104xplus", still_old: null },
+        { kind: "wire", action: "added", target: "awg.CH2 ↔ scope2.CH1", detail: null, old: null, new: null, still_old: null },
       ],
     },
   ],

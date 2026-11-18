@@ -551,6 +551,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/definitions/{def_id}/identity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save Identity
+         * @description Maker, model, serial, firmware and the *IDN? format of a workspace definition (P2-5).
+         */
+        put: operations["saveDefinitionIdentity"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/definitions/{def_id}/layout": {
         parameters: {
             query?: never;
@@ -615,6 +635,27 @@ export interface paths {
          */
         put: operations["saveDefinitionStructure"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/definitions/new": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * New Instrument
+         * @description A new workspace definition, from a template's inputs or blank (P2-5). Inputs with errors
+         *     save nothing and come back with the template's diagnostics.
+         */
+        post: operations["newDefinition"];
         delete?: never;
         options?: never;
         head?: never;
@@ -688,6 +729,26 @@ export interface paths {
         };
         /** Health */
         get: operations["health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/instrument-templates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Instrument Templates
+         * @description The templates a new instrument can start from (D3 layer 2): inputs schema and an example.
+         */
+        get: operations["listInstrumentTemplates"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1938,6 +1999,11 @@ export interface components {
             /** Cases */
             cases: number;
             /**
+             * From Model
+             * @description A copy's inherited cases: the model (an ancestor through extends) whose shipped cases these are; they run on the copy in its place, as a regression check
+             */
+            from_model: string | null;
+            /**
              * Path
              * @description Workspace-relative cases file, or builtin:<folder>/cases.yaml
              */
@@ -2111,6 +2177,110 @@ export interface components {
             scale: number;
         };
         /**
+         * CommandOverride
+         * @description A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key.
+         */
+        CommandOverride: {
+            /**
+             * Args
+             * @description Constant arguments passed to the operation
+             */
+            args?: {
+                [key: string]: unknown;
+            };
+            /**
+             * Dangerous
+             * @default false
+             */
+            dangerous: boolean;
+            /** Doc */
+            doc?: string | null;
+            /**
+             * Duration
+             * @description Virtual time the command consumes (D12)
+             */
+            duration?: string | number | null;
+            /**
+             * Factor
+             * @description The command's number is the bound setting times factor: :TIMebase:RANGe is factor 10 on the time/div setting; a write divides by it
+             * @default 1
+             */
+            factor: number;
+            /** @description Overrides the definition's response format */
+            format?: components["schemas"]["ResponseFormat"] | null;
+            /**
+             * Header
+             * @description Left out: the mapping key is the header
+             * @default
+             */
+            header: string;
+            /**
+             * Op
+             * @description Component operation, e.g. 'acq.digitize'
+             */
+            op?: string | null;
+            /**
+             * Option
+             * @description The command belongs to this option (an `options` id): a unit without it skips the command — a later command on the same header without `option` answers instead (what the manual says a unit without the option replies), otherwise -241 Hardware missing
+             */
+            option?: string | null;
+            /** @description Parameters bound to settings whose values are sorted by size before they are written (#1011), e.g. {ascending: [greater_than, less_than]} */
+            order?: components["schemas"]["ParamOrder"] | null;
+            /** Params */
+            params?: components["schemas"]["ParamSpec"][];
+            /**
+             * Query
+             * @default true
+             */
+            query: boolean;
+            /**
+             * Read
+             * @description An operation command's query reads this setting instead of calling the operation: 'OPER' enters operate, 'OPER?' reads it (the setting the operation writes)
+             */
+            read?: string | null;
+            /**
+             * Reply
+             * @description Query reply template: {header} (the echoed header, see dialect.echo_header; with echo off it and the space after it are left out), {value} (the bound setting, or an operation's reply), {value_block} (that reply as an IEEE 488.2 definite-length block, e.g. '#13(@)') and {<setting>}, e.g. '{header} {value} V'. Default: '{header} {value}' for settings; an operation's reply as it is
+             */
+            reply?: string | null;
+            /**
+             * Set
+             * @default true
+             */
+            set: boolean;
+            /**
+             * Set Value
+             * @description A setting command without parameters writes this constant and its query reads it back (LOCAL / REMOTE / LOCKOUT, which only set the interface state)
+             */
+            set_value?: unknown;
+            /**
+             * State
+             * @description State path bound to the command, e.g. 'ch.frequency'
+             */
+            state?: string | null;
+            /**
+             * Suffixes
+             * @description Allowed values of named header suffixes other than <ch> (#335), e.g. {hw: [1], n: [1]} for the SMA100B's [:SOURce<hw>]:AM<n>:STATe (one RF path, the first modulation channel); an omitted suffix counts as 1, any other value is -114
+             */
+            suffixes?: {
+                [key: string]: number[];
+            } | null;
+            /**
+             * When
+             * @description Use this command only when parameters have these values, e.g. {name: DATA_ARRAY_1}: several commands may share a header, told apart by a parameter (C1:INSPECT? "WAVEDESC"). A later command on the same header without `when` is the fallback: it runs for the other values and when the parameter is left out (:SYSTem:ERRor? [STRing], #602)
+             */
+            when?: {
+                [key: string]: string;
+            } | null;
+            /**
+             * Writes
+             * @description Settings a multi-setting command writes along with its parameters, e.g. {sense.function: VOLT} for CONFigure:VOLTage:DC: the command header itself selects the function. Validated like a parameter and written before them (the parameters win). On an operation's command they are written before the operation runs (#308: MEASure:CURRent? selects the current function, as the instrument does)
+             */
+            writes?: {
+                [key: string]: unknown;
+            };
+        };
+        /**
          * CommandSpec
          * @description One SCPI command: bound to a setting (``state``), to a component operation (``op``), or, through
          *     its parameters' ``state``, to several settings at once.
@@ -2234,6 +2404,11 @@ export interface components {
              * @enum {string}
              */
             category: "part" | "accessory" | "internal";
+            /**
+             * Classes
+             * @description The instrument classes whose built-in models use this type (oscilloscope, multimeter, …), from the library itself: the build area lists a class's own types first
+             */
+            classes: string[];
             /** Doc */
             doc: string | null;
             /**
@@ -2527,6 +2702,11 @@ export interface components {
              */
             old: unknown;
             /**
+             * Still Old
+             * @description A specs change only: where the new version still holds the old value (settings' limits and defaults, component parameters, as JSON pointers). Specs are a record and change no behaviour (D3); these places do
+             */
+            still_old: string[] | null;
+            /**
              * Target
              * @description The object: a command header, a setting path, '<component>.<param>', 'identity.idn'
              */
@@ -2553,8 +2733,18 @@ export interface components {
          *     (the acceptance page's command list; none for definitions without a reference).
          */
         DefinitionCoverage: {
+            /**
+             * Changed
+             * @description With from_model: the headers the copy runs differently from that model (changed, added or removed commands); for these the table describes the model, not the copy
+             */
+            changed: string[];
             /** Entries */
             entries: components["schemas"]["CoverageEntryInfo"][];
+            /**
+             * From Model
+             * @description A copy without a table of its own: the ancestor whose coverage table this is
+             */
+            from_model: string | null;
             /**
              * Gap Stats
              * @description The not_modeled commands by gap: out_of_scope, blocked, model_work, untriaged
@@ -3252,7 +3442,7 @@ export interface components {
             firmware: string;
             /**
              * Idn
-             * @description The *IDN? reply: {manufacturer}, {model}, {serial}, {firmware}, and {$<setting>} for a setting's text (a persona command that changes the reported model)
+             * @description The *IDN? reply: {manufacturer} (the definition's manufacturer upper-cased, as most instruments answer; write the name itself to keep its case), {model}, {serial}, {firmware}, and {$<setting>} for a setting's text (a persona command that changes the reported model)
              * @default {manufacturer},{model},{serial},{firmware}
              */
             idn: string;
@@ -3279,6 +3469,29 @@ export interface components {
              */
             serial: string;
         };
+        /**
+         * IdentityUpdate
+         * @description A workspace definition's identity as the build area edits it (P2-5): the maker and model, the
+         *     unit's serial and firmware, and the *IDN? format. A field left out keeps its value; one equal to
+         *     what the definition already runs (inherited included) writes nothing.
+         */
+        IdentityUpdate: {
+            /** Base Sha256 */
+            base_sha256: string;
+            /** Firmware */
+            firmware?: string | null;
+            /**
+             * Idn
+             * @description The *IDN? format ({manufacturer} is upper-cased)
+             */
+            idn?: string | null;
+            /** Manufacturer */
+            manufacturer?: string | null;
+            /** Model */
+            model?: string | null;
+            /** Serial */
+            serial?: string | null;
+        };
         /** InstrumentDefinition */
         InstrumentDefinition: {
             /**
@@ -3297,6 +3510,13 @@ export interface components {
             channels?: components["schemas"]["Channels"];
             /** Class */
             class: string;
+            /**
+             * Command Overrides
+             * @description With extends (D59): change the inherited command table one command at a time instead of rewriting it. Key: a command header exactly as the inherited table writes it; value: the whole command without its header (it replaces the inherited one whole, or is appended when no command has that header), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own commands list; a header the table holds twice, or a removal of one it does not hold, is E-DEF-COMMAND-OVERRIDE. Empty once loaded
+             */
+            command_overrides?: {
+                [key: string]: components["schemas"]["CommandOverride"] | null;
+            } | null;
             /** Commands */
             commands?: components["schemas"]["CommandSpec"][];
             /** Components */
@@ -3560,6 +3780,33 @@ export interface components {
             values: {
                 [key: string]: number | boolean | string;
             };
+        };
+        /**
+         * InstrumentTemplateInfo
+         * @description A template the Web's "new instrument" offers (D3 layer 2): its inputs as a JSON Schema (each
+         *     field labelled in both languages) and an example to start from.
+         */
+        InstrumentTemplateInfo: {
+            /** Category */
+            category: string;
+            /** Description */
+            description: string;
+            /** Example */
+            example: {
+                [key: string]: unknown;
+            };
+            /** Id */
+            id: string;
+            /** Schema */
+            schema: {
+                [key: string]: unknown;
+            };
+            /** Title */
+            title: string;
+            /** Title En */
+            title_en: string;
+            /** Version */
+            version: number;
         };
         /**
          * InternalCommand
@@ -4039,6 +4286,57 @@ export interface components {
             t0_ns: number;
             /** Volts */
             volts: number[];
+        };
+        /**
+         * NewDefinitionRequest
+         * @description A new workspace definition: from a template's inputs, or blank (a class, a maker and a model,
+         *     then built in the build area).
+         */
+        NewDefinitionRequest: {
+            /**
+             * Definition Id
+             * @description instruments/<id>.yaml
+             */
+            definition_id: string;
+            /**
+             * Inputs
+             * @description With template_id: the template's inputs
+             */
+            inputs?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Instrument Class
+             * @description Blank: the instrument class
+             */
+            instrument_class?: string | null;
+            /**
+             * Manufacturer
+             * @description Blank: the maker, as *IDN? names it
+             */
+            manufacturer?: string | null;
+            /**
+             * Model
+             * @description Blank: the model, as *IDN? names it
+             */
+            model?: string | null;
+            /**
+             * Template Id
+             * @description Expand this template's inputs
+             */
+            template_id?: string | null;
+        };
+        /**
+         * NewDefinitionResult
+         * @description What creating a definition gave: saved, with the document and its diagnostics; or not, with
+         *     the diagnostics on the inputs (pointers under /template/inputs) and nothing written.
+         */
+        NewDefinitionResult: {
+            /** Diagnostics */
+            diagnostics: components["schemas"]["Diagnostic"][];
+            document: components["schemas"]["DefinitionDocument"] | null;
+            /** Saved */
+            saved: boolean;
         };
         /** OperationInfo */
         OperationInfo: {
@@ -7309,6 +7607,48 @@ export interface operations {
             };
         };
     };
+    saveDefinitionIdentity: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                def_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IdentityUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DefinitionDocument"];
+                };
+            };
+            /** @description The file changed since base_sha256 was read */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     getDefinitionLayout: {
         parameters: {
             query?: never;
@@ -7504,6 +7844,46 @@ export interface operations {
             };
         };
     };
+    newDefinition: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NewDefinitionRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NewDefinitionResult"];
+                };
+            };
+            /** @description A definition with that id exists */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     saveAsTemplate: {
         parameters: {
             query?: never;
@@ -7602,6 +7982,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Health"];
+                };
+            };
+        };
+    };
+    listInstrumentTemplates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InstrumentTemplateInfo"][];
                 };
             };
         };

@@ -478,6 +478,8 @@ state:
     min: 1.0
     max: 1.0e11
     default: 0.0
+    # 0 Hz：未设跨度，FFT 覆盖整个单边带（同 AUTO）；scope_math 按“未给出”读。
+    unset: 0.0
     label: FFT 跨度
     label_en: FFT span
   function1.vunits:

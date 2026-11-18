@@ -31,6 +31,7 @@ import { useEvents } from "@/api/events";
 import { DraftInput, INVALID, commit } from "@/components/app/DraftInput";
 import { ErrorState } from "@/components/app/StateViews";
 import { Button } from "@/components/ui/button";
+import { IdentityPanel } from "./IdentityPanel";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -242,7 +243,16 @@ function useBuildState(definitionId: string, server: DefinitionStructure | undef
 
 /** The build area of a definition (#1201, instrument-authoring.md 9): its structure on a canvas
  * the user edits by dragging. Read-only for a built-in model and while disconnected. */
-export function BuildTab({ definitionId, tryPanel }: { definitionId: string; tryPanel?: ReactNode }) {
+export function BuildTab({
+  definitionId,
+  tryPanel,
+  instrumentClass = null,
+}: {
+  definitionId: string;
+  tryPanel?: ReactNode;
+  /** The definition's class: its own component types head the library (P2-4). */
+  instrumentClass?: string | null;
+}) {
   const { t } = useTranslation();
   const structure = useDefinitionStructure(definitionId);
   const components = useComponents();
@@ -320,7 +330,7 @@ export function BuildTab({ definitionId, tryPanel }: { definitionId: string; try
         onTry={tryPanel ? () => setTrying((v) => !v) : undefined}
       />
       <div className="flex min-h-0 flex-1">
-        {editable && <Library docs={components.data ?? []} onDrag={setDragging} />}
+        {editable && <Library docs={components.data ?? []} onDrag={setDragging} instrumentClass={instrumentClass} />}
         <div className="relative min-w-0 flex-1">
           <ReactFlowProvider>
             <BuildCanvas
@@ -487,10 +497,20 @@ function Toolbar({
   );
 }
 
-function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: boolean) => void }) {
+function Library({
+  docs,
+  onDrag,
+  instrumentClass,
+}: {
+  docs: ComponentDoc[];
+  onDrag: (dragging: boolean) => void;
+  instrumentClass: string | null;
+}) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
-  const groups = libraryGroups(docs, query);
+  const [all, setAll] = useState(false);
+  const { groups, hidden } = libraryGroups(docs, query, instrumentClass, all);
+  const className = instrumentClass ? t(`acceptance.class.${instrumentClass}`, { defaultValue: instrumentClass }) : "";
   return (
     <aside className="bg-sidebar flex w-60 shrink-0 flex-col border-r" aria-label={t("acceptance.build.library")}>
       <div className="space-y-1.5 border-b p-2">
@@ -510,18 +530,32 @@ function Library({ docs, onDrag }: { docs: ComponentDoc[]; onDrag: (dragging: bo
         </div>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pb-2" data-testid="build-library">
-        {groups.map((g) => (
-          <section key={g.group} aria-label={t(`acceptance.build.groups.${g.group}`)} data-testid={`build-library-group-${g.group}`}>
-            <h3 className="bg-sidebar text-muted-foreground sticky top-0 z-[1] px-3 pt-2 pb-1 text-[11px] font-medium">
-              {t(`acceptance.build.groups.${g.group}`)} <span className="num opacity-70">{g.items.length}</span>
-            </h3>
-            <ul className="space-y-1 px-2">
-              {g.items.map((d) => (
-                <LibraryItem key={d.type} doc={d} onDrag={onDrag} />
-              ))}
-            </ul>
-          </section>
-        ))}
+        {groups.map((g) => {
+          const title = g.group === "own" ? t("acceptance.build.groups.own", { class: className }) : t(`acceptance.build.groups.${g.group}`);
+          return (
+            <section key={g.group} aria-label={title} data-testid={`build-library-group-${g.group}`}>
+              <h3 className="bg-sidebar text-muted-foreground sticky top-0 z-[1] px-3 pt-2 pb-1 text-[11px] font-medium">
+                {title} <span className="num opacity-70">{g.items.length}</span>
+              </h3>
+              <ul className="space-y-1 px-2">
+                {g.items.map((d) => (
+                  <LibraryItem key={d.type} doc={d} onDrag={onDrag} />
+                ))}
+              </ul>
+            </section>
+          );
+        })}
+        {instrumentClass && !query && (hidden > 0 || all) && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground mx-2 mt-2 h-7 w-[calc(100%-1rem)] justify-start text-[11px]"
+            onClick={() => setAll(!all)}
+            data-testid="build-library-all"
+          >
+            {all ? t("acceptance.build.ownOnly", { class: className }) : t("acceptance.build.showAll", { count: hidden })}
+          </Button>
+        )}
         {!groups.length && <p className="text-muted-foreground px-3 py-2 text-[11px]">{t("acceptance.build.noMatch")}</p>}
       </div>
     </aside>
@@ -1132,6 +1166,9 @@ function Overview({
           <TabsTrigger value="commands" className="text-xs" data-testid="build-tab-commands">
             {t("acceptance.build.tabCommands")}
           </TabsTrigger>
+          <TabsTrigger value="identity" className="text-xs" data-testid="build-tab-identity">
+            {t("acceptance.build.tabIdentity")}
+          </TabsTrigger>
         </TabsList>
         <Button
           variant="ghost"
@@ -1154,6 +1191,9 @@ function Overview({
       </TabsContent>
       <TabsContent value="commands">
         <CommandsPanel structure={structure} docs={docs} editable={editable} onChange={onChange} definitionId={definitionId} wide={wide} />
+      </TabsContent>
+      <TabsContent value="identity">
+        <IdentityPanel definitionId={definitionId} editable={editable} />
       </TabsContent>
     </Tabs>
   );

@@ -195,7 +195,10 @@ export function OverviewTab({ definition, inst }: { definition: DefinitionData; 
         {specs.length === 0 ? (
           <p className="text-muted-foreground text-xs">{t("acceptance.noSpecs")}</p>
         ) : (
-          <Rows rows={specs.map((r) => [r.key, <span className="num">{r.value}</span>] as [string, ReactNode])} />
+          <>
+            <Rows rows={specs.map((r) => [r.key, <span className="num">{r.value}</span>] as [string, ReactNode])} />
+            <p className="text-muted-foreground pt-1 text-[11px]">{t("acceptance.specsHint")}</p>
+          </>
         )}
       </Card>
 

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { CommandSpec, DefinitionCoverage, InstrumentInfo, StateVarInfo } from "@/api/client";
 import type { CommandRow } from "./model";
-import { commandRows, deviationLimit, verdictOf, groupCommands, groupProgress, tryForm, trySuggestions, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
+import { commandRows, deviationLimit, provenanceOf, verdictOf, groupCommands, groupProgress, tryForm, trySuggestions, optionRows, normHeader, panelView, paramFacts, specRows, topNode } from "./model";
 
 const cmd = (header: string, extra: Partial<CommandSpec> = {}): CommandSpec => ({
   header,
@@ -19,6 +19,8 @@ const coverage = (entries: [string, "implemented" | "accepted" | "not_modeled"][
   model: "m",
   stats: { implemented: 0, accepted: 0, not_modeled: 0 },
   gap_stats: {},
+  from_model: null,
+  changed: [],
   entries: entries.map(([header, level]) => ({ section: "S", header, level, note: null, gap: null, blocked_by: null })),
 });
 
@@ -245,13 +247,37 @@ describe("verdictOf (#1352)", () => {
       ],
       [{ passed: 30, failed: 1 }],
     );
-    expect(v.coverage).toEqual({ implemented: 340, accepted: 63, total: 1147, percent: 30 });
+    expect(v.coverage).toEqual({ implemented: 340, accepted: 63, total: 1147, percent: 30, fromModel: null, changed: 0 });
     expect(v.cases).toEqual({ builtinFiles: 1, workspaceFiles: 1, cases: 33 });
     expect(v.run).toEqual({ passed: 30, failed: 1 });
+  });
+  it("names the model a copy's coverage table comes from and how many commands the copy changed", () => {
+    const v = verdictOf(
+      { stats: { implemented: 2, accepted: 0, not_modeled: 2 }, from_model: "keysight-uxr1104b", changed: [":A", ":B"] } as unknown as DefinitionCoverage,
+      [],
+      [],
+    );
+    expect(v.coverage?.fromModel).toBe("keysight-uxr1104b");
+    expect(v.coverage?.changed).toBe(2);
   });
   it("says so when there is no coverage table and nothing was run", () => {
     const v = verdictOf(null, [], []);
     expect(v.coverage).toBeNull();
     expect(v.run).toBeNull();
+  });
+});
+
+describe("provenanceOf (P2-3)", () => {
+  it("calls a workspace copy what it is, changed once the file holds more than extends", () => {
+    expect(provenanceOf({ schema: "s", id: "my", extends: "keysight-uxr1104b" }, true, true)).toEqual({
+      kind: "copy",
+      parent: "keysight-uxr1104b",
+      changed: false,
+    });
+    expect(provenanceOf({ id: "my", extends: "keysight-uxr1104b", state: {} }, true, true)).toMatchObject({ changed: true });
+  });
+  it("keeps the real-model and contract labels for the rest", () => {
+    expect(provenanceOf({ id: "keysight-53230a", extends: "keysight-53220a" }, false, true)).toEqual({ kind: "real" });
+    expect(provenanceOf({ id: "zy-dso3104" }, true, false)).toEqual({ kind: "custom" });
   });
 });

@@ -451,23 +451,28 @@ class CaseResult:
         return {k: v for k, v in vars(self).items() if v is not None}
 
 
-def open_case_bench(cases_file: Path, cases: Cases, definition_dirs: list[Path] | None = None) -> Session:
+def open_case_bench(
+    cases_file: Path, cases: Cases, definition_dirs: list[Path] | None = None, model: str | None = None
+) -> Session:
     """A freshly powered bench for one case: the cases' bench file, or the instrument alone.
 
     Idle time does not move virtual time (``idle: off``, D47): a case's result depends on its commands
     alone, not on how fast the machine running it is. Definitions are looked up next to the cases
-    file (a model under development), in ``definition_dirs`` and in the library."""
+    file (a model under development), in ``definition_dirs`` and in the library. ``model`` runs the
+    cases on another definition in place of theirs — a copy (``extends``) checked against the
+    cases of the model it is based on."""
     from ..api import open_bench
     from ..models.bench import BenchDefinition
 
     dirs = [cases_file.parent, *(definition_dirs or [])]
+    swap = {cases.model: model} if model and cases.model else None
     if cases.bench:
-        return open_bench(cases_file.parent / cases.bench, idle="off", definition_dirs=dirs)
+        return open_bench(cases_file.parent / cases.bench, idle="off", definition_dirs=dirs, models=swap)
     bench = BenchDefinition.model_validate(
         {
             "schema": "simubench.bench/2",
             "name": "case",
-            "instruments": {cases.instrument: {"model": cases.model}},
+            "instruments": {cases.instrument: {"model": model or cases.model}},
         }
     )
     return open_bench(bench, idle="off", definition_dirs=dirs)
@@ -542,12 +547,14 @@ def run_case(
     definition_dirs: list[Path] | None = None,
     *,
     collect: bool = False,
+    model: str | None = None,
 ) -> CaseResult:
-    """Run one case on a freshly powered bench; with ``collect``, every step's outcome is kept."""
+    """Run one case on a freshly powered bench; with ``collect``, every step's outcome is kept;
+    with ``model``, on that definition in place of the cases' own (:func:`open_case_bench`)."""
     t0 = time.perf_counter()
     result = CaseResult(case.name, case.manual, passed=True, steps=[] if collect else None)
     try:
-        session = open_case_bench(cases_file, cases, definition_dirs)
+        session = open_case_bench(cases_file, cases, definition_dirs, model)
     except Exception as exc:  # the bench or a definition does not load
         result.passed, result.error = False, f"the bench does not open: {exc}"
         result.seconds = time.perf_counter() - t0
@@ -597,11 +604,19 @@ def run_case(
 
 
 def run_cases(
-    cases_file: Path, definition_dirs: list[Path] | None = None, *, collect: bool = False
+    cases_file: Path,
+    definition_dirs: list[Path] | None = None,
+    *,
+    collect: bool = False,
+    model: str | None = None,
 ) -> list[CaseResult]:
-    """Run every case of a cases file, each on a freshly powered bench."""
+    """Run every case of a cases file, each on a freshly powered bench (``model``: on that
+    definition in place of the cases' own)."""
     cases = load_cases(cases_file)
-    return [run_case(cases_file, cases, case, definition_dirs, collect=collect) for case in cases.cases]
+    return [
+        run_case(cases_file, cases, case, definition_dirs, collect=collect, model=model)
+        for case in cases.cases
+    ]
 
 
 def junit_xml(suites: list[tuple[str, list[CaseResult]]]) -> str:

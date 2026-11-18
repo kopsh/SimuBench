@@ -307,3 +307,13 @@ def test_the_samples_rule_catches_a_missing_hook():
             raise AssertionError
 
     assert _samples_gaps(Half) == ["sample_interval"]
+
+
+def test_each_type_names_the_classes_whose_built_in_models_use_it():
+    """P2-4: the build area lists a class's own types first; the classes come from the library."""
+    from simubench.server.catalog import components
+
+    classes = {c.type: c.classes for c in components()}
+    assert "oscilloscope" in classes["scope_vertical"] and "multimeter" not in classes["scope_vertical"]
+    assert "multimeter" in classes["dmm_adc"] and "oscilloscope" not in classes["dmm_adc"]
+    assert {"oscilloscope", "spectrum_analyzer"} <= set(classes["input_port"])

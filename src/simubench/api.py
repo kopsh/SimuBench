@@ -21,6 +21,7 @@ def open_bench(
     definition_dirs: list[str | Path] | None = None,
     workspace_plugins: Path | None = None,
     files_dir: str | Path | None = None,
+    models: dict[str, str] | None = None,
 ) -> Session:
     """Load a bench file (YAML or JSON) and start a session.
 
@@ -29,6 +30,8 @@ def open_bench(
     plugins; workspace code is the engineer's explicit consent (D3), so it is off unless passed.
     ``files_dir`` keeps the instruments' virtual file systems across runs (#1069,
     :func:`bench_files_dir`); without it they live in a temporary folder removed at close.
+    ``models`` swaps models, ``{old id: new id}``: every instrument of an old model runs the new one
+    (a copy of a model running the model's own cases, P1-4).
     """
     if workspace_plugins is not None:
         from .plugins import load_workspace_plugins
@@ -40,6 +43,11 @@ def open_bench(
     else:
         base = Path(bench).resolve().parent
         definition = load_bench(bench)
+    if models:
+        definition = definition.model_copy(deep=True)
+        for inst in definition.instruments.values():
+            if inst.model in models:
+                inst.model = models[inst.model]
     dirs: list[Path] = []
     if base is not None:
         dirs.append(base / "instruments")
