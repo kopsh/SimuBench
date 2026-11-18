@@ -8,7 +8,7 @@ from typing import Any
 
 from ..engine.replay import read_record, replay
 from ..models import api as M
-from .errors import NotFound
+from .errors import Invalid, NotFound
 
 RUN_ID = re.compile(r"^[0-9A-Za-z-]{1,64}$")
 MAX_EVENTS = 20_000
@@ -42,7 +42,7 @@ class Runs:
         records = events if events is not None else list(read_record(path))
         header = records[0] if records else {}
         if header.get("kind") != "header":
-            raise ValueError(path.name)
+            raise Invalid(path.name)
         end = records[-1] if records[-1].get("kind") == "end" else None
         last_t = max((int(r.get("t_ns", 0)) for r in records[1:]), default=0)
         return M.RunSummary(

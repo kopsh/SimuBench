@@ -34,7 +34,7 @@ from ..engine.record import jsonable
 from ..models import api as M
 from ..models import tools as T
 from ..server import drive
-from ..server.errors import DOMAIN_ERRORS, Forbidden, tool_text
+from ..server.errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
 from ..server.manager import ServedSession
 from ..server.mytemplates import save_as_template
 from ..server.projections import definition_spec, instrument_state, run_cases_file, try_commands
@@ -443,7 +443,7 @@ def ask_to_stop_session(
 
     def run() -> str:
         if running_session(t, t.conv.bench) is None:
-            raise ValueError("测试台没有在运行，不需要停止")
+            raise Invalid("测试台没有在运行，不需要停止")
         t.conv.stop_requested_in = t.index
         t.turn.stop_question = reason
         return (
@@ -513,7 +513,7 @@ def get_instrument_state(ctx: RunContext[TurnContext], instrument: str) -> dict[
     def run() -> dict[str, Any]:
         served = running_session(t, t.conv.bench)
         if served is None:
-            raise ValueError("测试台没有在运行；先 start_session")
+            raise Invalid("测试台没有在运行；先 start_session")
         return instrument_state(served, instrument)
 
     return _call(
@@ -531,12 +531,12 @@ def set_live_setting(ctx: RunContext[TurnContext], instrument: str, path: str, v
     def run() -> dict[str, Any]:
         served = running_session(t, t.conv.bench)
         if served is None:
-            raise ValueError("测试台没有在运行，没有可改的会话；改文件初值用 edit_bench 的 set_state")
+            raise Invalid("测试台没有在运行，没有可改的会话；改文件初值用 edit_bench 的 set_state")
         served.require_local(instrument)
         old = jsonable(served.session.instrument(instrument).state.get(path))
         out = drive.configure(served, instrument, path, value, client="agent")
         if not out.ok:
-            raise ValueError(
+            raise Invalid(
                 f"{out.error.code if out.error else ''} {out.error.message if out.error else ''}".strip()
             )
         if old != out.value:

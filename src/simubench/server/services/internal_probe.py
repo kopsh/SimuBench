@@ -29,7 +29,7 @@ from ...engine.silence import why_silent
 from ...engine.stream import FrameRequest, SampleFrame
 from ...models import api as M
 from ...scpi.errors import ScpiError
-from ..errors import Forbidden
+from ..errors import Forbidden, Invalid, Unknown
 from ..manager import ServedSession
 
 #: Samples in the frame a probe on a sample stream asks for.
@@ -167,7 +167,7 @@ def probe(sv: ServedSession, instrument: str, port: str, tune_hz: float | None =
         raise ProbeWithheld(withheld_reason(instrument))
     ports = out_ports(inst)
     if port not in ports:
-        raise KeyError(f"no output port {port!r} inside {instrument}; ports: {', '.join(sorted(ports))}")
+        raise Unknown(f"no output port {port!r} inside {instrument}; ports: {', '.join(sorted(ports))}")
     comp, cport, medium = ports[port]
     # tune_hz applies to instruments that declare a tuning context (#952): a receiver reads at the
     # tuning asked for; any other instrument ignores it. Without it the receiver's own tuning.
@@ -180,7 +180,7 @@ def probe(sv: ServedSession, instrument: str, port: str, tune_hz: float | None =
             tuned = context.center_hz if tune_hz is None else float(tune_hz)
             lo, hi = context.min_hz, context.max_hz
             if not math.isfinite(tuned) or (lo is not None and tuned < lo) or (hi is not None and tuned > hi):
-                raise ValueError(
+                raise Invalid(
                     f"tune_hz {tuned:g} Hz is outside {instrument}'s frequency range "
                     f"({0.0 if lo is None else lo:g} Hz to {math.inf if hi is None else hi:g} Hz)"
                 )
@@ -193,9 +193,7 @@ def probe(sv: ServedSession, instrument: str, port: str, tune_hz: float | None =
                 return found
             except (ScpiError, NotImplementedError) as exc:
                 detail = exc.detail if isinstance(exc, ScpiError) else str(exc)
-                raise ValueError(
-                    f"{port} has no signal to show with the current settings: {detail}"
-                ) from None
+                raise Invalid(f"{port} has no signal to show with the current settings: {detail}") from None
 
 
 def _analog(s: Session, inst: Instrument, comp: Component, cport: str, port: str) -> M.InternalProbe:

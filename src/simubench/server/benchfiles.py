@@ -24,12 +24,12 @@ from ..engine import edit
 from ..engine.component import component_types
 from ..engine.validate import Report, drives_net, validate_data
 from ..library import categories
-from ..library.loader import SKIP_DIRS, DefinitionLibrary, load_yaml
+from ..library.loader import SKIP_DIRS, DefinitionLibrary, dump_yaml, load_yaml
 from ..library.migrate import FormatError, upgrade
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from . import yamlpatch
-from .errors import Conflict, Forbidden, NotFound
+from .errors import Conflict, Forbidden, Invalid, NotFound
 from .history import History, Source
 
 SUFFIXES = (".bench.yaml", ".bench.json")
@@ -87,7 +87,7 @@ class BenchFiles:
     ) -> M.BenchDocument:
         path = self.resolve(bench_path)
         if not path.name.endswith(SUFFIXES):
-            raise ValueError(f"bench files end with {' or '.join(SUFFIXES)}")
+            raise Invalid(f"bench files end with {' or '.join(SUFFIXES)}")
         # Schema-valid content is written in canonical form; invalid content is kept as given so
         # that work in progress is never lost.
         canonical = False
@@ -131,9 +131,9 @@ class BenchFiles:
             old = path.read_bytes() if path.exists() else None
             current = _sha(old) if old is not None else None
             if base_sha256 is None and current is not None:
-                raise Conflict(f"{bench_path} already exists", current)
+                raise Conflict(f"{bench_path} already exists", current, reason="exists", target="bench")
             if base_sha256 is not None and base_sha256 != current:
-                raise Conflict(f"{bench_path} changed since it was read", current)
+                raise Conflict(f"{bench_path} changed since it was read", current, target="bench")
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_name(f".{path.name}.tmp")
             tmp.write_bytes(raw)
@@ -208,7 +208,11 @@ class BenchFiles:
                 return
             current = _sha(path.read_bytes())
             if current != expected_sha256:
-                raise Conflict(f"{rel_path} changed since it was checked", current)
+                raise Conflict(
+                    f"{rel_path} changed since it was checked",
+                    current,
+                    target="definition" if is_definition else "bench",
+                )
             path.unlink()
 
     def edit(
@@ -216,7 +220,7 @@ class BenchFiles:
     ) -> M.BenchDocument:
         doc = self.read(bench_path)
         if doc.sha256 != base_sha256:
-            raise Conflict(f"{bench_path} changed since it was read", doc.sha256)
+            raise Conflict(f"{bench_path} changed since it was read", doc.sha256, target="bench")
         try:
             bench = BenchDefinition.model_validate(doc.data)
         except ValueError:
@@ -371,14 +375,14 @@ def _parse(path: Path, raw: bytes) -> dict[str, Any]:
     text = raw.decode("utf-8")
     data = json.loads(text) if path.suffix == ".json" else load_yaml(text)
     if not isinstance(data, dict):
-        raise ValueError(f"{path.name}: expected a mapping at the top level")
+        raise Invalid(f"{path.name}: expected a mapping at the top level")
     return data
 
 
 def _dump(path: Path, data: dict[str, Any]) -> bytes:
     if path.suffix == ".json":
         return (json.dumps(data, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
-    return yaml.safe_dump(data, allow_unicode=True, sort_keys=False, width=100).encode("utf-8")
+    return dump_yaml(data).encode("utf-8")
 
 
 def _json_number(value: Any) -> Any:
