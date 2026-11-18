@@ -202,9 +202,28 @@ async def external_scpi(app: Any, instrument: str, command: str, source_port: in
     reply = b""
     if message_is_query(data):  # the parse layer's verdict, not a '?' anywhere in the text (issue 627)
         reply = await asyncio.wait_for(reader.readline(), timeout=10)
+    host, local_port = writer.get_extra_info("sockname")[:2]
     writer.close()
     await writer.wait_closed()
+    await _until_disconnected(app, instrument, f"socket:{host}:{local_port}")
     return reply
+
+
+async def _until_disconnected(app: Any, instrument: str, client: str, timeout: float = 10.0) -> None:
+    """Wait until the server no longer lists ``client`` on ``instrument``, then show that.
+
+    The command's event makes the app re-fetch the instrument, which can land before the server
+    has seen the close; a disconnect raises no event, so the app would keep showing the script
+    as the remote controller and a screenshot would depend on that race.
+    """
+    end = asyncio.get_running_loop().time() + timeout
+    while True:
+        info = await app.client.instrument(app.sid, instrument)
+        if client not in (info.get("remote") or []) or asyncio.get_running_loop().time() >= end:
+            break
+        await asyncio.sleep(0.02)
+    app._merge_instrument(info)
+    app.bump()
 
 
 async def run_steps(app: Any, pilot: Any, steps: Steps, out_dir: Path, record: bool = False) -> list[Path]:
