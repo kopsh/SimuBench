@@ -234,12 +234,13 @@ def test_copy_history_reads_what_the_instrument_runs(tmp_path):
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers["x-simubench-token"] = TOKEN
-        my_id = c.post("/api/definitions/keysight-uxr1104b/copy").json()["data"]["id"]
+        my_id = c.post("/api/definitions/keysight-34465a/copy").json()["data"]["id"]
         url = f"/api/definitions/{my_id}/structure"
         body = _body(c.get(url).json())
-        body["state"]["trigger.holdoff"]["min"] = 4e-8
+        old_max = body["state"]["sense.nplc"]["max"]
+        body["state"]["sense.nplc"]["max"] = 10
         body = _body(c.put(url, json=body).json())
-        body["commands"].append({"header": ":SYSTem:FAN", "state": "trigger.holdoff"})
+        body["commands"].append({"header": ":SYSTem:FAN", "state": "sense.nplc"})
         c.put(url, json=body).raise_for_status()
 
         def items(version: dict) -> list[tuple]:
@@ -249,8 +250,8 @@ def test_copy_history_reads_what_the_instrument_runs(tmp_path):
             ]
 
         added, limit, created = c.get(f"/api/definitions/{my_id}/history").json()
-        assert items(created) == [("extends", "added", "extends", None, None, "keysight-uxr1104b")]
-        assert items(limit) == [("state", "changed", "trigger.holdoff", "min", 1e-7, 4e-8)]
+        assert items(created) == [("extends", "added", "extends", None, None, "keysight-34465a")]
+        assert items(limit) == [("state", "changed", "sense.nplc", "max", old_max, 10)]
         assert items(added) == [("command", "added", ":SYSTem:FAN", None, None, None)]
 
 
@@ -269,26 +270,67 @@ def test_a_new_instrument_from_a_template_or_blank_and_its_identity(tmp_path):
         inputs["identity"] |= {"manufacturer": "Zhiyuan", "model": "ZY-DSO3104"}
         wrong = copy.deepcopy(inputs)
         wrong["vertical"]["table"][1]["v_div"] = 0.001
-        refused = c.post("/api/definitions/new", json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": wrong}).json()
+        refused = c.post(
+            "/api/definitions/new",
+            json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": wrong},
+        ).json()
         assert refused["saved"] is False and not (tmp_path / "instruments" / "zy.yaml").exists()
         assert [d["pointer"] for d in refused["diagnostics"]] == ["/template/inputs/vertical/table/1/v_div"]
         inputs["adc"]["bits"] = 12
-        made = c.post("/api/definitions/new", json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs}).json()
+        made = c.post(
+            "/api/definitions/new",
+            json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs},
+        ).json()
         assert made["saved"] and made["document"]["ok"]
         assert [d["code"] for d in made["diagnostics"]] == ["W-TPL-ADC-CODES"]
-        assert c.post("/api/definitions/new", json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs}).status_code == 409
-        assert c.post("/api/definitions/new", json={"definition_id": "keysight-34465a", "instrument_class": "multimeter", "manufacturer": "A", "model": "B"}).status_code == 409
-        blank = c.post("/api/definitions/new", json={"definition_id": "acme-dmm", "instrument_class": "multimeter", "manufacturer": "Acme", "model": "DM-1"}).json()
+        assert (
+            c.post(
+                "/api/definitions/new",
+                json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs},
+            ).status_code
+            == 409
+        )
+        assert (
+            c.post(
+                "/api/definitions/new",
+                json={
+                    "definition_id": "keysight-34465a",
+                    "instrument_class": "multimeter",
+                    "manufacturer": "A",
+                    "model": "B",
+                },
+            ).status_code
+            == 409
+        )
+        blank = c.post(
+            "/api/definitions/new",
+            json={
+                "definition_id": "acme-dmm",
+                "instrument_class": "multimeter",
+                "manufacturer": "Acme",
+                "model": "DM-1",
+            },
+        ).json()
         assert blank["saved"] and blank["document"]["data"]["class"] == "multimeter"
 
         my_id = c.post("/api/definitions/keysight-uxr1104b/copy").json()["data"]["id"]
         sha = c.get(f"/api/definitions/{my_id}/document").json()["sha256"]
         saved = c.put(
             f"/api/definitions/{my_id}/identity",
-            json={"base_sha256": sha, "manufacturer": "Keysight Technologies", "serial": "MY65000123", "firmware": "11.90.00001"},
+            json={
+                "base_sha256": sha,
+                "manufacturer": "Keysight Technologies",
+                "serial": "MY65000123",
+                "firmware": "11.90.00001",
+            },
         ).json()
         on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
-        assert on_disk == {"schema": "simubench.instrument/1", "id": my_id, "extends": "keysight-uxr1104b", "identity": {"serial": "MY65000123", "firmware": "11.90.00001"}}
+        assert on_disk == {
+            "schema": "simubench.instrument/1",
+            "id": my_id,
+            "extends": "keysight-uxr1104b",
+            "identity": {"serial": "MY65000123", "firmware": "11.90.00001"},
+        }
         assert [(x["kind"], x["detail"], x["new"]) for x in saved["changes"]] == [
             ("identity", "firmware", "11.90.00001"),
             ("identity", "serial", "MY65000123"),

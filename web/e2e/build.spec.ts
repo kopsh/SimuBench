@@ -394,7 +394,7 @@ test("new instrument from the scope template, judged by the template's checks; i
   await field("adc/max_rate").fill("5G");
   await field("adc/max_rate").press("Enter");
   await page.getByTestId("new-instrument-create").click();
-  await expect(page).toHaveURL(/\/i\/zhiyuan-zy-dso3104/);
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/i/zhiyuan-zy-dso3104");
   await expect(page.getByText("Zhiyuan,ZY-DSO3104,AC2040001,2.1.0")).toBeVisible();
   await expect(page.getByTestId("acceptance-provenance")).toHaveText("自建/接口契约");
   expect(((await stored(request, "zhiyuan-zy-dso3104")).data.template as { inputs: { adc: { max_rate: number } } }).inputs.adc.max_rate).toBe(5e9);

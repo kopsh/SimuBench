@@ -390,13 +390,16 @@ def _overrides(commands: list[dict[str, Any]], below: list[dict[str, Any]]) -> d
     headers = [c.get("header") for c in commands]
     if None in headers or len(set(headers)) != len(headers):
         return None
-    old = {c.get("header"): c for c in below}
+    old = {str(c.get("header")): c for c in below}
     out: dict[str, Any] = {}
     for c in commands:
         h = c["header"]
         if h not in old or _as_json(old[h]) != _as_json(c):
             out[h] = {k: v for k, v in c.items() if k != "header"}
-    out.update({h: None for h in old if h not in set(headers)})
+    kept = set(headers)
+    for h in old:
+        if h not in kept:
+            out[h] = None
     try:
         if _as_json(apply_command_overrides(below, out)) != _as_json(commands):
             return None

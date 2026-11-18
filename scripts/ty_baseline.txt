@@ -143,7 +143,6 @@ src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expect
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any] | None`, found `Any | int`
 src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of type `def list(self) -> Unknown` in a parameter annotation ×2
 src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of type `def list(self) -> Unknown` in a return type annotation
-src/simubench/server/views.py:call-non-callable Object of type `object` is not callable
 src/simubench/server/views.py:invalid-argument-type Argument is incorrect: Expected `Literal["command", "wall", "stepped", "scaled"]`, found `str`
 src/simubench/server/views.py:invalid-argument-type Argument to bound method `Solution.source_contributions` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
 src/simubench/tui/app.py:call-non-callable Object of type `object` is not callable

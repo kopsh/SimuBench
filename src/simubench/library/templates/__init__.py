@@ -12,7 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ValidationError
 
@@ -37,7 +37,7 @@ class InputProblem:
     suggestion: str | None = None
     #: "warning": legal inputs that are probably a slip (they expand, with the warning); "error"
     #: stops the expansion.
-    severity: str = "error"
+    severity: Literal["error", "warning"] = "error"
 
 
 @dataclass
@@ -116,7 +116,7 @@ class Template:
             return Expansion(None, [_from_pydantic(e) for e in exc.errors()])
         problems = [
             Diagnostic(
-                severity=p.severity,  # type: ignore[arg-type]
+                severity=p.severity,
                 code=p.code,
                 pointer=pointer(*p.path),
                 message=p.message,
