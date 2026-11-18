@@ -503,7 +503,7 @@ constraints:
 
 工具共享现有的限流与 `guard`；不写代码文件。
 
-已实现（#46，`server/definitionfiles.py`、`engine/jsonpatch.py`、`engine/scriptscan.py` 的 `draft_definition`）：
+已实现（#46，`server/definitionfiles.py`、`engine/jsonpatch.py`、`library/scriptscan.py` 的 `draft_definition`）：
 
 - `read_definition` 返回文件内容、`sha256` 与诊断；工作区之外的定义（内置、搜索路径上的）`editable: false`，要修改就以新 id（或同 id，工作区的文件优先）`create_definition` 一份副本。
 - `create_definition` / `edit_definition` 写 `instruments/<id>.yaml`；没有通过校验的内容也保存（与测试台相同，进行中的工作不丢），诊断随结果返回。`edit_definition` 的补丁整体应用或整体不应用；`sha256` 过期时报冲突并提示先 `read_definition`。每次保存进入版本历史（`.simubench/history/instruments/<id>.yaml/`，来源 `agent`）。
@@ -690,7 +690,7 @@ display:
 
 **由脚本选模板并预填输入（#145）**：
 
-- 每个模板声明自己的命令集变体（`variants`：每个变体一份打开全部功能的输入）。变体展开后的定义就是它的命令特征：扫描脚本时，与选择内置定义一样用 `engine/scriptscan.py` 的 `rank` 计数，命中最多的变体胜出，依据是它支持的命令与行号。示波器模板有 `scpi-scope` 与 `lecroy-scope` 两个变体，信号源模板有 `scpi-source` 与 `channel-base`。
+- 每个模板声明自己的命令集变体（`variants`：每个变体一份打开全部功能的输入）。变体展开后的定义就是它的命令特征：扫描脚本时，与选择内置定义一样用 `library/scriptscan.py` 的 `rank` 计数，命中最多的变体胜出，依据是它支持的命令与行号。示波器模板有 `scpi-scope` 与 `lecroy-scope` 两个变体，信号源模板有 `scpi-source` 与 `channel-base`。
 - 示波器模板的 `lecroy-scope` 命令集：`C<n>:VDIV`、`TDIV`、`MSIZ`（记录恰为该点数）、`TRSE`、`TRMD`（`SINGLE` 后变为 `STOP`）、`PACU` / `C<n>:PAVA?`、`WAVEFORM_SETUP` 与 `C<n>:INSPECT?` 的文本回读（`max_points` 为每次读取上限）、`COMM_HEADER` 回显命令头；耦合关键字 `D1M`、`A1M`、`D50`、`GND` 同时说耦合与输入阻抗。另加输入：档位与时基是否按 1-2-5（`ladder`）、存储深度设定、自动触发等待的记录数、`scpi-scope` 的 `:WAVeform:POINts:MODE`、未知命令报错或忽略。低频校准工作台的参考示波器与校准仪都可以由模板写出，契约用例全部通过。
 - **预填**（模板的 `prefill`）：从脚本中能读出的值填进输入，每项记下来源——`script` 带行号（如 `*IDN?` 校验的型号串取自 `--scope-model` 的默认值或 `*_MODEL` 常量），`default` 为待确认的默认值。占空比按脚本写的值推断表示：都不大于 1 时按比例并提示待确认，有大于 1 的值时按百分数。f-string 的占位符读作 `1`，所以循环里的通道号看不出来，通道数按脚本中最大的通道号与变体的默认值取大者，并标为待确认。
 - `draft_bench_from_script`：内置库没有完整支持某台仪器的命令时，报告的 `template` 给出模板、变体、定义 id、`inputs`（`create_definition_from_template` 直接接收）、`filled`、展开后仍不支持的命令（行号）；测试台草稿中这台仪器的型号就是该定义 id。只有一台示波器与一台信号源时，按两边脚本中最先用到的通道给出直连线缆（`inferred_wires`，标为推断）；运行方式取确定性的默认（种子 1、`clock: command`、`idle: off`）并说明。只发公共命令（如 `*IDN?`）的资源看不出是哪台仪表，不加入草稿。

@@ -4,10 +4,10 @@ A definition may declare its panel (``display.panel``). One that does not gets i
 layout when the class has one: a multimeter is a large reading with function and range keys, a
 calibrator its output value with operate / standby keys. Both are taken from the definition's own
 components and the settings bound to them, so a new multimeter has the same panel as the 34465A
-without writing one. Classes with a dedicated screen (oscilloscope, generator, ...) draw their own
-screen and get no class default; a panel they declare is still passed on, for its groups, which the
-Web inspector puts on its panel (D74). The others without one keep the generic layout (readings and
-the settings list).
+without writing one. Which classes have a dedicated screen (no panel) and which have a default
+layout is the category registry's panel policy (#1384); the builders stay here. A panel a
+dedicated class declares is still passed on, for its groups, which the Web inspector puts on its
+panel (D74). The others without one keep the generic layout (readings and the settings list).
 """
 
 from __future__ import annotations
@@ -27,17 +27,11 @@ from ..models.definition import (
     PanelSoftkey,
     StateSpec,
 )
+from . import categories
 
-# Templates the UI draws with a screen of their own; a panel is not used for them.
-DEDICATED = (
-    "oscilloscope",
-    "function_generator",
-    "lockin",
-    "spectrum_analyzer",
-    "smu",
-    "electronic_load",
-    "rf_generator",
-)
+# The classes the UI draws with a screen of their own; a panel is not used for them
+# (validate_definition's W-DEF-PANEL-IGNORED reads this).
+DEDICATED = tuple(c.id for c in categories.rows() if c.panel == "dedicated")
 
 PanelSource = Literal["declared", "class_default"]
 
@@ -51,7 +45,8 @@ def effective_panel(d: InstrumentDefinition) -> tuple[Panel | None, PanelSource 
     template = template_of(d)
     if d.display.panel is not None:
         return d.display.panel, "declared"
-    if template in DEDICATED:
+    row = categories.find(template)
+    if row is None or row.panel != "default":
         return None, None
     build = _DEFAULTS.get(template)
     panel = build(d) if build else None

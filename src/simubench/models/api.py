@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Any, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from ..engine.circuit import SourceContribution  # re-export (D57)
 from ..engine.circuit import SourceLine as SourceLine
@@ -19,6 +19,7 @@ from ..engine.replay import ReplayMismatch as ReplayMismatch  # re-export (D57, 
 from ..engine.signal import SpectralLine
 from ..engine.silence import SilenceReason as SilenceReason  # re-export (D57, issue 626)
 from ..engine.validate import Diagnostic as Diagnostic  # re-export (D57, issue 626)
+from ..library.categories import InstrumentClass as InstrumentClass  # re-export (#1384)
 from .bench import Fault, LayoutItem
 from .definition import Panel, Reference, StateSpec
 
@@ -313,7 +314,11 @@ class DefinitionSummary(_Model):
     id: str
     manufacturer: str
     model: str
-    instrument_class: str
+    #: The class id the category registry knows (#1384). SkipValidation keeps the runtime
+    #: permissive — a workspace definition may name a class the registry does not know (it loads
+    #: and runs; the UI falls back to the generic layout) — while the schema still names the set
+    #: the UI is built for, so the generated TS type has the closed union.
+    instrument_class: SkipValidation[InstrumentClass]
     description: str | None = None
     channels: int
     ports: list[str]
@@ -448,7 +453,9 @@ class StateVarInfo(StateSpec):
 
 
 class DisplayInfo(_Model):
-    template: str | None = None
+    #: The UI class template (the class, or another class's template a definition picks;
+    #: registry ids, #1384 — SkipValidation as on instrument_class).
+    template: SkipValidation[InstrumentClass] | None = None
     summary: list[str] = Field(default_factory=list)
     channel_summary: list[str] = Field(default_factory=list)
     actions: dict[str, str] = Field(default_factory=dict, description="Commands for front-panel actions")
@@ -501,7 +508,9 @@ class InstrumentInfo(_Model):
     model: str
     manufacturer: str
     definition_id: str
-    instrument_class: str
+    #: The class id the category registry knows (#1384); SkipValidation keeps the runtime
+    #: permissive while the generated TS type has the closed union (see DefinitionSummary).
+    instrument_class: SkipValidation[InstrumentClass]
     description: str | None = None
     idn: str
     channels: int
