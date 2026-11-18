@@ -25,7 +25,7 @@ from .noise import gaussian, stream_key
 from .signal import Signal
 
 if TYPE_CHECKING:
-    from ..library.components.scope import Record
+    from ..library.components.scope_record import Record
     from .circuit import Circuit
     from .instrument import Instrument
     from .session import Session

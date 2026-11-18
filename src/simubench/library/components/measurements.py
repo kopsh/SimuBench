@@ -2,7 +2,7 @@
 
 Every measurement takes the record's volts and its sample interval, and nothing else — no
 component, no session, no state — so the module can be tested on its own. The scope's
-``scope_measurements`` component (scope.py) applies a definition's rules around them (gate,
+``scope_measurements`` component (scope_measurements.py) applies a definition's rules around them (gate,
 clipping, the crossing level and its hysteresis) and formats the replies; the oscilloscope
 template's measurement vocabulary (``MEASUREMENTS``) is defined here too, so the template and
 the component cannot drift apart.

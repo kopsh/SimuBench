@@ -54,9 +54,8 @@ from ...engine.component import (
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from . import adc
-from .scope import Record, channel_index
 from .scope_math import function_index
-from .scope_record import Points
+from .scope_record import Points, Record, channel_index
 
 
 @component("waveform_transfer")

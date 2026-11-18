@@ -13,7 +13,7 @@ import pytest
 from simubench.engine.record import definition_hash
 from simubench.engine.session import Session
 from simubench.engine.validate_definition import validate_definition_data
-from simubench.library.components.scope import _boxcar, peak_detect
+from simubench.library.components.scope_record import boxcar, peak_detect
 from simubench.library.loader import load_yaml
 from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
@@ -128,14 +128,14 @@ def test_the_boxcar_keeps_the_sample_count_and_is_centered():
     center), at the edges the edge sample is repeated to fill the window."""
     ramp = np.arange(10.0)
     for w in (2, 3, 4, 7):
-        assert len(_boxcar(ramp, w)) == len(ramp)
-    assert _boxcar(ramp, 1) is ramp  # no smoothing, nothing to compute
-    assert _boxcar(ramp, 3)[1:-1] == pytest.approx(ramp[1:-1])  # odd window: centered on the sample
-    assert _boxcar(ramp, 4)[2:-2] == pytest.approx(ramp[2:-2] - 0.5)  # even window: half a step left
-    assert _boxcar(ramp, 3)[0] == pytest.approx((0.0 + 0.0 + 1.0) / 3)  # the edge sample repeated
+        assert len(boxcar(ramp, w)) == len(ramp)
+    assert boxcar(ramp, 1) is ramp  # no smoothing, nothing to compute
+    assert boxcar(ramp, 3)[1:-1] == pytest.approx(ramp[1:-1])  # odd window: centered on the sample
+    assert boxcar(ramp, 4)[2:-2] == pytest.approx(ramp[2:-2] - 0.5)  # even window: half a step left
+    assert boxcar(ramp, 3)[0] == pytest.approx((0.0 + 0.0 + 1.0) / 3)  # the edge sample repeated
     spike = np.zeros(9)
     spike[4] = 1.0
-    out = _boxcar(spike, 3)
+    out = boxcar(spike, 3)
     assert out[3] == out[5] == pytest.approx(1.0 / 3)  # a symmetric input, symmetric output
 
 
