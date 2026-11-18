@@ -542,20 +542,40 @@ def _check_faults(bench: BenchDefinition, report: Report) -> None:
             report.add("error", "E-FAULT-TARGET", _ptr(*fp), f"{f.kind} 故障需要 instrument")
 
 
-def _component_param(d: InstrumentDefinition, comp: Any, inst: Any, name: str) -> Any:
+def _bound_path(ref: str, channel: int | None) -> str:
+    """A binding's state path as the bench file writes it: channel-relative ``ch.x`` expands to
+    ``ch<n>.x`` for the component's channel (the runtime's ``resolve_path``); instrument-level
+    paths and absolute channel paths (``ch2.x``) stand as they are."""
+    if ref.startswith("ch.") and channel is not None:
+        return f"ch{channel}.{ref[3:]}"
+    return ref
+
+
+def _bound_value(d: InstrumentDefinition, inst: Any, value: Any, *, channel: int | None = None) -> Any:
+    """A definition parameter's value as the bench's initial state leaves it: an unbound value as
+    written; a binding (``$path`` or ``{from: $path, map: ...}``) reads the path out of the
+    instance's initial state -- channel-relative paths through ``channel`` -- falling back to the
+    state spec's default, then through the mapping. The one derivation of "bound parameter x bench
+    initial value" (issue 1487), so a channel binding is judged against the ``ch<n>.`` value the
+    bench wrote instead of silently falling back to the definition's default; the runtime resolves
+    the same way against its live settings (D79)."""
+    ref = binding_of(value)
+    if ref is None:
+        return value
+    relative = ref.startswith("ch.")
+    spec = (d.channel_state if relative else d.state).get(ref[3:] if relative else ref)
+    setting = inst.state.get(_bound_path(ref, channel), spec.default if spec else None)
+    return map_setting(value, setting) if isinstance(value, dict) else setting
+
+
+def _component_param(
+    d: InstrumentDefinition, comp: Any, inst: Any, name: str, *, channel: int | None = None
+) -> Any:
     """A definition component's parameter as the bench leaves it (bindings through state)."""
     cls = component_types().get(comp.type)
     if cls is None:
         return None
-    value = {**cls.defaults, **comp.params}.get(name)
-    ref = binding_of(value)
-    if ref is None:
-        return value
-    spec = (d.channel_state if ref.startswith("ch.") else d.state).get(
-        ref[3:] if ref.startswith("ch.") else ref
-    )
-    setting = inst.state.get(ref, spec.default if spec else None)
-    return map_setting(value, setting) if isinstance(value, dict) else setting
+    return _bound_value(d, inst, {**cls.defaults, **comp.params}.get(name), channel=channel)
 
 
 def _check_sense(
@@ -577,18 +597,31 @@ def _check_sense(
         d = defs.get(name)
         if d is None:
             continue
-        for comp in d.components:
+        ch_ports = channel_ports(d, d.channels.count)
+        # an instrument-level component, and every channel's copy of each channel component: a
+        # channel-bound sense param is judged at its own ch<n>. initial value (issue 1487)
+        sources = [(comp, None) for comp in d.components]
+        sources += [(comp, n) for n in range(1, d.channels.count + 1) for comp in d.channel_components]
+        for comp, channel in sources:
             cls = types.get(comp.type)
             if cls is None or not cls.sense_ports or not cls.sense_param:
                 continue
-            if not truthy(_component_param(d, comp, inst, cls.sense_param)):
+            if not truthy(_component_param(d, comp, inst, cls.sense_param, channel=channel)):
                 continue
             exposed: dict[str, str | None] = {}
             for sp in cls.sense_ports:
-                hits = [p for p, t in d.ports.instrument.items() if t == f"{comp.name}.{sp}"]
+                target = f"{comp.name}.{sp}"
+                if channel is None:
+                    hits = [p for p, t in d.ports.instrument.items() if t == target]
+                else:
+                    hits = [p for p, (n, t) in ch_ports.items() if n == channel and t == target]
                 exposed[sp] = f"{name}.{hits[0]}" if hits else None
             state_path = binding_of(comp.params.get(cls.sense_param))
-            ptr = _ptr("instruments", name, "state", state_path) if state_path else _ptr("instruments", name)
+            ptr = (
+                _ptr("instruments", name, "state", _bound_path(state_path, channel))
+                if state_path
+                else _ptr("instruments", name)
+            )
             unconnected = [sp for sp, ref in exposed.items() if ref is None or ref not in net_of]
             if unconnected:
                 report.add(
@@ -722,17 +755,10 @@ def _input_impedance(bench: BenchDefinition, defs: dict[str, InstrumentDefinitio
     if comp is None or cls is None or impedance_of is None:
         return None
 
-    def value(v: Any) -> Any:
-        path = binding_of(v)
-        if path is None:
-            return v
-        key = path[3:] if path.startswith("ch.") else path
-        full = f"ch{channel}.{key}" if path.startswith("ch.") else path
-        spec = (d.channel_state if path.startswith("ch.") else d.state).get(key)
-        setting = bench.instruments[owner].state.get(full, spec.default if spec else None)
-        return map_setting(v, setting) if isinstance(v, dict) else setting
-
-    params = {k: value(v) for k, v in {**cls.defaults, **comp.params}.items()}
+    inst = bench.instruments[owner]
+    params = {
+        k: _bound_value(d, inst, v, channel=channel) for k, v in {**cls.defaults, **comp.params}.items()
+    }
     try:
         return impedance_of(params)  # type: ignore[no-any-return]
     except (KeyError, TypeError, ValueError):
@@ -749,9 +775,14 @@ def _impedance_hints(
         if d is None or d.instrument_class != "function_generator":
             continue
         inst = bench.instruments[owner]
-        ch = "".join(c for c in port if c.isdigit()) or "1"
-        load_spec = d.channel_state.get("load")
-        load = inst.state.get(f"ch{ch}.load", load_spec.default if load_spec else None)
+        found = channel_ports(d, d.channels.count).get(port)
+        if found is None:  # a generator port outside the channel pattern has no load setting
+            continue
+        channel = found[0]
+        # the channel's load setting as the bench's initial state leaves it (its spec default when
+        # unset); ``$ch.load`` is the relative binding, ``_bound_value`` expands it to ch<n>.
+        load = _bound_value(d, inst, "$ch.load", channel=channel)
+        load_path = _bound_path("ch.load", channel)
         try:
             load_v = float(load) if load is not None else math.inf
         except (TypeError, ValueError):
@@ -763,8 +794,8 @@ def _impedance_hints(
             report.add(
                 "warning",
                 "W-IMPEDANCE-MISMATCH",
-                _ptr("instruments", owner, "state", f"ch{ch}.load"),
+                _ptr("instruments", owner, "state", load_path),
                 f"{owner}.{port} 的幅度按 {load_v:g} Ω 负载设定，但所在网络没有 {load_v:g} Ω 端接；实际电压会偏高（接近高阻时约为两倍）",
-                f"把 {owner} CH{ch} 的输出负载设为 INF（高阻），或在接收端使用 50 Ω 输入",
+                f"把 {owner} CH{channel} 的输出负载设为 INF（高阻），或在接收端使用 50 Ω 输入",
                 owner,
             )
