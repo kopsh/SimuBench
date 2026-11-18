@@ -335,10 +335,15 @@ def test_a_new_instrument_from_a_template_or_blank_and_its_identity(tmp_path):
             "extends": "keysight-uxr1104b",
             "identity": {"serial": "MY65000123", "firmware": "11.90.00001"},
         }
+        # the read-only :SERial? setting refers to identity.serial (same_as, #1441): it follows
         assert [(x["kind"], x["detail"], x["new"]) for x in saved["changes"]] == [
+            ("state", "default", "MY65000123"),
+            ("state", "options", "MY65000123"),
+            ("state", "options", None),
             ("identity", "firmware", "11.90.00001"),
             ("identity", "serial", "MY65000123"),
         ]
         sid = c.post(f"/api/try/{my_id}").json()["session_id"]
         idn = c.post(f"/api/try/{sid}/scpi", json={"command": "*IDN?"}).json()["response"]
         assert idn == "Keysight Technologies,UXR1104B,MY65000123,11.90.00001"
+        assert c.post(f"/api/try/{sid}/scpi", json={"command": ":SERial?"}).json()["response"] == "MY65000123"

@@ -11,7 +11,9 @@ including the value a child definition sets.
 The path is the keys from the top of the definition joined by dots: ``specs.sample_rate``,
 ``model``, ``state.acquire.bandwidth.max``. A key that itself has dots (a setting name) is matched
 whole — at each level the longest run of the remaining parts that is a key wins — and a list item
-is its index (``specs.memory_depth_options_pts.1``). The value may itself be a ``same_as``; a ring
+is its index (``specs.memory_depth_options_pts.1``) or, in a list of named items such as the
+components, its ``name`` (``components.adc.params.codes_per_div``: it stays right when a layer
+inserts or removes a component before it, #1441). The value may itself be a ``same_as``; a ring
 of them is refused. Resolution runs on the layered data (after ``extends``, the class default and
 the override layers), so a reference reaches what the child wrote. The ``template`` record is left
 as written. Only the runtime ``$setting`` references stay references: ``same_as`` is gone once
@@ -61,6 +63,16 @@ def _lookup(data: Any, path: str) -> tuple[Any, list[str]]:
             node = node[int(parts[i])]
             keys.append(parts[i])
             i += 1
+        elif isinstance(node, list):  # a component by its name: "components.adc" (#1441)
+            for j in range(len(parts), i, -1):
+                name = ".".join(parts[i:j])
+                at = [k for k, item in enumerate(node) if isinstance(item, dict) and item.get("name") == name]
+                if len(at) == 1:
+                    node, i = node[at[0]], j
+                    keys.append(str(at[0]))
+                    break
+            else:
+                raise KeyError(path)
         else:
             raise KeyError(path)
     if not keys:

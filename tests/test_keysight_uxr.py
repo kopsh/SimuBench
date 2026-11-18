@@ -911,6 +911,7 @@ def test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b():
         q = lambda c: s.scpi("s", c).strip()  # noqa: E731,B023
         try:
             out = {"idn": q("*IDN?"), "band": float(q(":ACQuire:BANDwidth?"))}
+            out["model"], out["serial"] = q(":MODel?"), q(":SERial?")  # #1441: the definition's own
             q(":ACQuire:BANDwidth 1.5e11")
             out["band_err"] = q(":SYSTem:ERRor?")
             q(":ACQuire:SRATe MAX")
@@ -927,6 +928,7 @@ def test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b():
             digits = int(block[1:2])
             codes = np.frombuffer(block[2 + digits : 2 + digits + int(block[2 : 2 + digits])], dtype="<i2")
             out["code_step"] = int(np.gcd.reduce(np.diff(np.unique(codes))))
+            out["frame"] = q(":WAVeform:PREamble?").split(",")[17]  # "model:serial" (#1441)
         finally:
             s.close()
         replies[model] = out
@@ -937,3 +939,9 @@ def test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b():
     assert child["srate"] == 5.12e11 and parent["srate"] == 2.56e11
     assert child["range_err"] == parent["range_err"] == "-222"
     assert child["code_step"] == 16 and parent["code_step"] == 64  # 12 bits; the parent's 10
+    assert (child["model"], child["serial"], child["frame"]) == ("NG-RT160", "NG0001", '"NG-RT160:NG0001"')
+    assert (parent["model"], parent["serial"], parent["frame"]) == (
+        "UXR1104B",
+        "MY64310101",
+        '"UXR1104B:MY64310101"',
+    )

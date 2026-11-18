@@ -371,6 +371,8 @@ def test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy(tmp_path, 
     for c in whole:
         if c["name"] == "adc":
             c["params"].update(bits=12, codes_per_div=512.0)
+        if c["name"] == "xfer":  # the copy holds resolved numbers; the small child's xfer refers to
+            c["params"].update(adc_bits=12, codes_per_div=512.0)  # the adc's (same_as, #1441)
     (tmp_path / "whole.yaml").write_text(
         yaml.safe_dump({**head, "id": "whole", "model": "whole", "components": whole}), encoding="utf-8"
     )

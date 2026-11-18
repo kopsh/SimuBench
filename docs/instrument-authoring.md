@@ -210,7 +210,7 @@ channel_component_overrides:
   front: {params: {bandwidth: 1.6e11}}
 ```
 
-**一个值只写一处**（#1426，D82）：同一个数据手册数值（带宽、最高采样率、型号身份）常常要出现在组件参数、设置的 `max`/`default`/`special` 与命令关键字里。写成 `{same_as: <路径>}`，它们就都取同一个值：路径是从定义顶层起的键，用点连接（`specs.bandwidth_hz`、`model`；设置名这类带点的键整段匹配，列表项用下标）。loader 在合并完全部层之后才替换，所以子定义只改被引用的那一处，引用处全部跟着变：
+**一个值只写一处**（#1426，D82）：同一个数据手册数值（带宽、最高采样率、型号身份）常常要出现在组件参数、设置的 `max`/`default`/`special` 与命令关键字里。写成 `{same_as: <路径>}`，它们就都取同一个值：路径是从定义顶层起的键，用点连接（`specs.bandwidth_hz`、`model`；设置名这类带点的键整段匹配，列表项用下标，组件这类带 `name` 的列表项也可用名字：`components.adc.params.bits`）。loader 在合并完全部层之后才替换，所以子定义只改被引用的那一处，引用处全部跟着变：
 
 ```yaml
 # 父定义（keysight-uxr1104b）
@@ -867,7 +867,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 - `scope_autoscale`：示波器的自动设置（Infiniium 的 `:AUToscale`，op `autoscale`；只调一个通道垂直的 `:AUToscale:VERTical` 是 op `vertical`）。每个要搜的通道先在最粗档位采一次，再按记录要的档位与偏置采，直到不再变（`passes`）：波形取 0.05 %–99.95 % 分位之间的幅度，档位让它占至多 `fill_divs` 格（1-2-5 序列的下一个值），偏置让它居中；记录扣掉该档噪声（`scope_vertical` 的噪声表）后的幅度超过 `presence` 倍噪声 rms、或均值超过 `dc_floor`，就算有波形，能穿过中点附近 `presence` 倍噪声的带才算可触发。搜之前时基先放到最慢波形的 1.5 个周期，让记录装得下方波的顶与底。没波形的通道关掉、设置照旧；时基按编号最小的有波形通道的基波（谱线中不低于最强 1/20 的最低频率，相当于触发计数器看到的、不带噪声：SimuBench 的简化）显示 `periods` 个周期；边沿触发按 `trigger_order` 找第一个可触发通道，电平取其中点；`writes` 是自动设置写成定值的设置（触发方式、斜率、扫描、光标方式、关函数）；`placement` STACk 让各波形各占一段屏幕。一个波形都没找到时所有设置照旧。`channels`（ALL / DISPlayed）、`placement` 通常绑到设置。
 - 宏：测量写在采集上的旧写法（`measurements`、`invalid_value`、`status` 参数，命令的 `<acq>.measure` / `<acq>.measurement`）在加载时移到名为 `meas` 的 `scope_measurements`（名称被占用时依次为 `meas2`……），放在组件表末尾，所以与显式写出的定义指纹相同。
 - `waveform_transfer`：
-  - 声明的前导（`header`，op `header`）：二进制块按字节偏移写字段，或文本行按顺序写字段。字段取常量、记录与本次选点的数值（`figure`：点数、首点、间隔、字节数、采样间隔、首末点时间、刻度与偏置（显示的与输入端的）、探头比、ADC 位数、每格码数、时基、采集次数、通道号）或设置（`{n}` 为信源通道），再可经 `map`、`nearest`（按对数取最近的列表下标，如时基档位表）与 `scale`。Siglent 的 346 字节 WAVEDESC 由此写成定义；
+  - 声明的前导（`header`，op `header`）：二进制块按字节偏移写字段，或文本行按顺序写字段。字段取常量、记录与本次选点的数值（`figure`：点数、首点、间隔、字节数、采样间隔、首末点时间、刻度与偏置（显示的与输入端的）、探头比、ADC 位数、每格码数、时基、采集次数、通道号）或设置（`{n}` 为信源通道；文本字段的 `setting` 可写成列表，按 `format` 拼成一个字段，如 Infiniium 前导的 `{setting: [system.model, system.serial], format: '"%s:%s"'}`，#1441），再可经 `map`、`nearest`（按对数取最近的列表下标，如时基档位表）与 `scale`。Siglent 的 346 字节 WAVEDESC 由此写成定义；
   - 浮点块：`values: volts` 加 `float: 32 | 64`（R&S 的 `FORMat REAL,32`）；
   - 点数模式：`count_mode: spread` 在整条记录上均匀取 `count` 点；
   - 每次读取的上限：`max_points` 加 `over_limit`（`allow` 照旧、`truncate` 截断、`error` 报 -222）。
