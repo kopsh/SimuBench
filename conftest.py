@@ -2,6 +2,7 @@
 shipped with the package (D42), through the definition search path."""
 
 import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -34,8 +35,9 @@ for _blas in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUM
 # The unit budget (D49), 100 ms locally. A CI runner is shared — several workflows and xdist
 # workers on two cores — and a load spike lands in a call phase that measures in single-digit
 # milliseconds locally (#482), so there the budget is tripled: still wide enough to catch a real
-# regression (5 ms → 300 ms), deaf to the noise.
-UNIT_BUDGET_S = 0.3 if os.environ.get("CI") == "true" else 0.1
+# regression (5 ms → 300 ms), deaf to the noise. The Windows runner is the noisiest (antivirus scans
+# on first file access put a 0.6 s spike on a 5 ms file-reading test, #1465), so there it is ×10.
+UNIT_BUDGET_S = (1.0 if sys.platform == "win32" else 0.3) if os.environ.get("CI") == "true" else 0.1
 
 
 @pytest.hookimpl(hookwrapper=True)
