@@ -294,6 +294,28 @@ async def test_status_query_reports_mav_until_rmt_is_delivered(rig):
     await asyncio.to_thread(run)
 
 
+async def test_status_query_waits_for_the_write_sent_before_it(rig, monkeypatch):
+    """The two channels are separate sockets: a status query must see the effect of the write
+    sent just before it, however slowly the engine runs it (#1399)."""
+    exchange = HislipServer._exchange
+
+    def slow(self, *args):
+        time.sleep(0.2)
+        return exchange(self, *args)
+
+    monkeypatch.setattr(HislipServer, "_exchange", slow)
+
+    def run() -> None:
+        c = client(rig)
+        c.send_command("*CLS;*ESE 1;*OPC")
+        assert c.status_query() & 0x20  # ESB: *OPC has run before the poll is answered
+        send_msg(c.async_, ASYNC_STATUS_QUERY, 0, c.mid)  # pyvisa-py names the next MessageID
+        assert recv_msg(c.async_)[1] & 0x20
+        c.close()
+
+    await asyncio.to_thread(run)
+
+
 async def test_service_request_when_rqs_rises(rig):
     def run() -> None:
         c = client(rig)

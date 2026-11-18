@@ -38,6 +38,7 @@ SERVER_VERSION = 0x0200  # HiSLIP 2.0; the negotiated version is the lower of ou
 INITIAL_MESSAGE_ID = 0xFFFF_FF00  # where both sides count from after initialization and device clear
 SERVER_VENDOR = 0x5342  # "SB" in the VPP-9 two-letter style
 MAX_MESSAGE_SIZE = 1 << 20  # what we advertise and accept (the VISA default, 1 MiB)
+STATUS_CATCH_UP = 1.0  # seconds a status query waits for the synchronous messages before it (#1399)
 MAX_PAYLOAD_BUFFER = 64 << 20  # a length field beyond this is a broken header, not a message
 
 # Message types (spec table 4); 26–38 are HiSLIP 2.0-only (descriptors, TLS, authentication).
@@ -144,11 +145,52 @@ class HislipSession:
         self.overlapped = server.overlapped
         self.rx_id = INITIAL_MESSAGE_ID - 2  # MessageID of the last Data, DataEND or Trigger received
         self.tx_id = INITIAL_MESSAGE_ID  # overlapped mode: the MessageID of the next Data/DataEND sent
+        #: MessageID of the last synchronous message the engine is done with, and whether one is
+        #: received and not yet done; ``done`` is set each time that changes, so a status query
+        #: can wait for the messages it follows (#1399).
+        self.done_id = INITIAL_MESSAGE_ID - 2
+        self.busy = False
+        self.done = asyncio.Event()
 
     def reset_ids(self) -> None:
         """After initialization and device clear both sides count from 0xffffff00 again (3.1.2, 3.2)."""
         self.rx_id = INITIAL_MESSAGE_ID - 2
         self.tx_id = INITIAL_MESSAGE_ID
+        self.finished(INITIAL_MESSAGE_ID - 2)
+
+    def finished(self, message_id: int) -> None:
+        """The engine is done with the synchronous message ``message_id``."""
+        self.done_id = message_id
+        self.busy = False
+        self.done.set()
+
+    def _is_caught_up(self, parameter: int) -> bool:
+        if self.done_id == parameter & 0xFFFF_FFFF:
+            return True  # the client named the last message it sent, and it is done
+        # The client named the next message it will send (pyvisa-py does): the one before it is
+        # done, unless the one named is in fact received and still running.
+        return self.done_id == (parameter - 2) & 0xFFFF_FFFF and not self.busy
+
+    async def caught_up(self, parameter: int) -> None:
+        """Wait until the synchronous messages sent before a status query are processed.
+
+        Synchronized mode: the two channels are separate sockets, so an AsyncStatusQuery can
+        arrive while the ``*OPC`` written just before it is still being executed, and the status
+        byte would miss its effect. The query's MessageID says where the client is: the last
+        message it sent (spec 6.14), or the next one it will send (pyvisa-py). Bounded: a message
+        held by another session's lock must not hang the poll."""
+        if self.overlapped or self.clearing:
+            return
+        await asyncio.sleep(0)  # a synchronous message that arrived with the query is taken first
+        loop = asyncio.get_running_loop()
+        deadline = loop.time() + STATUS_CATCH_UP
+        while not self._is_caught_up(parameter) and not self.closing.is_set():
+            remaining = deadline - loop.time()
+            if remaining <= 0:
+                return
+            self.done.clear()
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self.done.wait(), timeout=remaining)
 
     # ---- sending -------------------------------------------------------------------------------------
 
@@ -462,6 +504,7 @@ class HislipServer:
                 continue
             if msg_type in (DATA, DATA_END, TRIGGER):
                 sess.rx_id = parameter
+                sess.busy = True
             if msg_type in (DATA, DATA_END, TRIGGER) and sess.overlapped:
                 pass  # overlapped: messages are only buffered; the MessageID matters for locks (3.2)
             elif msg_type in (DATA, DATA_END, TRIGGER):
@@ -475,6 +518,7 @@ class HislipServer:
                 sess.rmt_expected = False
             if msg_type == DATA:
                 buffer.extend(_payload)
+                sess.finished(parameter)  # nothing to execute before DataEND
             elif msg_type == DATA_END:
                 buffer.extend(_payload)
                 message, buffer[:] = bytes(buffer), b""
@@ -483,7 +527,10 @@ class HislipServer:
                     return
                 # Write and take its responses in one engine action (Session.exchange, #121): two
                 # calls would let another session's read take this one's response in between.
-                outs = await self._engine(sess, self._exchange, sess.instrument, message, sess.client)
+                try:
+                    outs = await self._engine(sess, self._exchange, sess.instrument, message, sess.client)
+                finally:
+                    sess.finished(parameter)
                 sess.poll_srq()
                 if not sess.clearing:
                     await self._answer(sess, parameter, outs)
@@ -491,7 +538,10 @@ class HislipServer:
                 await self._await_lock(sess)
                 if sess.closing.is_set():
                     return
-                await self._engine(sess, self._write, sess.instrument, b"*TRG", sess.client)
+                try:
+                    await self._engine(sess, self._write, sess.instrument, b"*TRG", sess.client)
+                finally:
+                    sess.finished(parameter)
                 sess.poll_srq()
             elif msg_type == DEVICE_CLEAR_COMPLETE:
                 writer.write(_pack(DEVICE_CLEAR_ACKNOWLEDGE, self._agree_features(sess, control)))
@@ -569,6 +619,7 @@ class HislipServer:
             )
             await writer.drain()
         elif msg_type == ASYNC_STATUS_QUERY:
+            await sess.caught_up(parameter)
             if control & RMT:
                 sess.mav = False
             writer.write(_pack(ASYNC_STATUS_RESPONSE, sess.stb(parameter) & 0xFF))  # one poll
