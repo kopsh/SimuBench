@@ -270,3 +270,110 @@ def test_command_overrides_refuse_what_they_cannot_name(tmp_path, lib):
         with raises_with(ValueError, words) as info:
             lib.get(def_id)
         assert info.value.code == "E-DEF-COMMAND-OVERRIDE"  # type: ignore[attr-defined]
+
+
+# ---- component_overrides (#1425) ----------------------------------------------------------------------
+
+_SEL = {"from": "$a", "map": {"1": 50.0, "2": 75.0}, "default": 50.0}
+
+
+def _comp(name: str, **params) -> dict:
+    return {"name": name, "type": "input_port", "params": {"z_in": 50.0, **params}}
+
+
+def _components(lib, def_id: str, key: str = "components") -> dict:
+    return {c.name: c for c in getattr(lib.get(def_id), key)}
+
+
+def test_component_overrides_change_one_parameter_and_keep_the_rest(tmp_path, lib):
+    base = [{**_comp("a", k=1.0, sel=_SEL), "label": "A"}, _comp("b"), _comp("c")]
+    write(tmp_path, "base", state=_STATE, components=base)
+    write(
+        tmp_path,
+        "derived",
+        extends="base",
+        component_overrides={
+            "a": {
+                "params": {"z_in": 75.0, "k": None, "sel": {"from": "$a", "map": {"1": 60.0}}},
+                "label": None,
+            },
+            "c": None,
+            "d": {"type": "input_port", "params": {"z_in": 1.0e6}},
+        },
+    )
+    comps = _components(lib, "derived")
+    assert list(comps) == ["a", "b", "d"]  # changed in place, removed, appended
+    a = comps["a"]
+    assert a.type == "input_port" and a.label is None  # type kept, label removed
+    assert a.params["z_in"] == 75.0 and "k" not in a.params  # one parameter changed, one removed
+    assert a.params["sel"] == {"from": "$a", "map": {"1": 60.0}}  # a mapping is one value: no merge
+    assert comps["d"].params == {"z_in": 1.0e6}
+    assert lib.get("derived").component_overrides is None  # empty once loaded
+
+
+def test_component_overrides_follow_later_fixes_of_the_parent(tmp_path, lib):
+    write(tmp_path, "base", state=_STATE, components=[_comp("a"), _comp("b")])
+    write(tmp_path, "derived", extends="base", component_overrides={"a": {"params": {"z_in": 75.0}}})
+    assert _components(lib, "derived")["b"].params["z_in"] == 50.0
+    write(tmp_path, "base", state=_STATE, components=[_comp("a"), _comp("b", z_in=1.0e6)])
+    os.utime(tmp_path / "base.yaml", (10**9, 10**9 + 1))  # a distinct mtime re-keys the loader's cache
+    comps = _components(lib, "derived")
+    assert comps["b"].params["z_in"] == 1.0e6 and comps["a"].params["z_in"] == 75.0
+
+
+def test_component_overrides_stack_through_the_chain_above_the_nearest_list(tmp_path, lib):
+    write(
+        tmp_path, "grand", state=_STATE, components=[_comp("a"), _comp("b")], channel_components=[_comp("in")]
+    )
+    write(tmp_path, "mid", extends="grand", component_overrides={"b": None})
+    write(
+        tmp_path,
+        "leaf",
+        extends="mid",
+        component_overrides={"a": {"params": {"z_in": 75.0}}},
+        channel_component_overrides={"in": {"params": {"z_in": 1.0e6}}},
+    )
+    comps = _components(lib, "leaf")
+    assert list(comps) == ["a"] and comps["a"].params["z_in"] == 75.0
+    assert _components(lib, "leaf", "channel_components")["in"].params["z_in"] == 1.0e6
+    write(tmp_path, "own", extends="mid", components=[_comp("x")], component_overrides={"x": {"label": "X"}})
+    assert [(c.name, c.label) for c in lib.get("own").components] == [("x", "X")]  # its list replaces mid's
+
+
+def test_component_overrides_refuse_what_they_cannot_name(tmp_path, lib):
+    write(tmp_path, "base", state=_STATE, components=[_comp("a"), _comp("a"), _comp("b")])
+    cases = {
+        "twice": ({"a": {"params": {"z_in": 1.0}}}, "出现 2 次"),
+        "gone": ({"z": None}, "无从删除"),
+        "retype": ({"b": {"type": "output_stage"}}, "类型不能改"),
+        "untyped": ({"n": {"params": {"z_in": 1.0}}}, "要写明 type"),
+    }
+    for def_id, (overrides, _) in cases.items():
+        write(tmp_path, def_id, extends="base", component_overrides=overrides)
+    for def_id, (_, words) in cases.items():
+        with raises_with(ValueError, words) as info:
+            lib.get(def_id)
+        assert info.value.code == "E-DEF-COMPONENT-OVERRIDE"  # type: ignore[attr-defined]
+
+
+def test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy(tmp_path, lib):
+    """#1425's acceptance: a child changing two ADC parameters stays a few lines and loads the same
+    as the child that copies the parent's component list whole and edits it."""
+    parent = DefinitionLibrary([]).get("keysight-uxr1104b")
+    head = {"schema": "simubench.instrument/2", "extends": "keysight-uxr1104b", "manufacturer": "ACME",
+            "class": "oscilloscope"}  # fmt: skip
+    small = {**head, "id": "small", "model": "small",
+             "component_overrides": {"adc": {"params": {"bits": 12, "codes_per_div": 512.0}}}}  # fmt: skip
+    text = yaml.safe_dump(small, sort_keys=False, default_flow_style=None)
+    assert len(text.splitlines()) <= 10
+    (tmp_path / "small.yaml").write_text(text, encoding="utf-8")
+    whole = [c.model_dump(exclude_none=True) for c in parent.components]
+    for c in whole:
+        if c["name"] == "adc":
+            c["params"].update(bits=12, codes_per_div=512.0)
+    (tmp_path / "whole.yaml").write_text(
+        yaml.safe_dump({**head, "id": "whole", "model": "whole", "components": whole}), encoding="utf-8"
+    )
+    dump = lambda d: [c.model_dump() for c in lib.get(d).components]  # noqa: E731
+    assert dump("small") == dump("whole")
+    assert dump("small") != [c.model_dump() for c in parent.components]

@@ -137,9 +137,11 @@ test("build area: declare a setting, bind a parameter to it, give it a command, 
   await page.getByTestId("bind-out-z_out").click();
   await page.getByRole("option", { name: "out.zout" }).click();
   await expect(page.getByTestId("binding-out-z_out")).toContainText("out.zout");
+  // A copy keeps the parent's component list and records the changed parameter alone (#1425 component_overrides).
   await expect
-    .poll(async () => ((await stored(request, id)).data.components as { name: string; params?: Record<string, unknown> }[]).find((c) => c.name === "out")?.params?.z_out)
-    .toBe("$out.zout");
+    .poll(async () => ((await stored(request, id)).data.component_overrides as Record<string, { params?: Record<string, unknown> }> | undefined)?.out?.params)
+    .toEqual({ z_out: "$out.zout" });
+  expect((await stored(request, id)).data.components).toBeUndefined();
 
   // A command for it.
   await page.locator(".react-flow__pane").click({ position: { x: 8, y: 8 } });

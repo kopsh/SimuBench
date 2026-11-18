@@ -29,7 +29,15 @@ from typing import Any, Literal
 
 from ..errors import Invalid
 from ..jsonsafe import as_number, spelling
-from ..library.loader import OVERRIDES, LayerError, apply_command_overrides, layered_definition_data
+from ..library.loader import (
+    COMPONENT_OVERRIDES,
+    OVERRIDE_KEYS,
+    OVERRIDES,
+    LayerError,
+    apply_command_overrides,
+    apply_component_overrides,
+    layered_definition_data,
+)
 from ..models import api as M
 
 StructureKey = Literal[
@@ -150,7 +158,7 @@ def _structure_of(data: dict[str, Any]) -> dict[str, Any]:
 
 def _inherited_data(data: dict[str, Any], source: Path) -> dict[str, Any]:
     """What the definition would run without its own structure items: the layers below it."""
-    rest = {k: v for k, v in data.items() if k not in STRUCTURE_KEYS and k != OVERRIDES}
+    rest = {k: v for k, v in data.items() if k not in STRUCTURE_KEYS and k not in OVERRIDE_KEYS}
     if "extends" not in rest:
         return {}
     return layered(rest, source)
@@ -266,7 +274,7 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
             _commands(now.get(key)),
             lambda c: (c.get("name"), c.get("type")),
         )
-        _set_list(out, key, items, _commands(below.get(key)))
+        _set_components(out, key, items, _commands(below.get(key)))
     commands = _restore_items(
         list(new.commands),
         _commands(now.get("commands")),
@@ -424,6 +432,66 @@ def _set_commands(out: dict[str, Any], commands: list[dict[str, Any]], below: li
             return
     out.pop(OVERRIDES, None)
     _set_list(out, "commands", commands, below)
+
+
+def _component_overrides(
+    items: list[dict[str, Any]], below: list[dict[str, Any]], key: str
+) -> dict[str, Any] | None:
+    """``items`` as component overrides over the inherited ``below`` (#1425): a changed component
+    as only its changed fields and parameters (a dropped one as null), a new one whole, a dropped
+    component as null. None when that cannot say it — a name twice on either side, a changed
+    type, or an order the overrides do not produce (only appending is)."""
+    names = [c.get("name") for c in items]
+    if None in names or len(set(names)) != len(names) or len({c.get("name") for c in below}) != len(below):
+        return None
+    old = {str(c.get("name")): c for c in below}
+    out: dict[str, Any] = {}
+    for c in items:
+        name = c["name"]
+        if name not in old:
+            out[name] = {k: v for k, v in c.items() if k != "name"}
+            continue
+        was = old[name]
+        if c.get("type") != was.get("type"):
+            return None
+        change: dict[str, Any] = {}
+        for field in sorted((set(c) | set(was)) - {"name", "type", "params"}):
+            if _as_json(c.get(field)) != _as_json(was.get(field)):
+                change[field] = c.get(field)
+        params, before = c.get("params") or {}, was.get("params") or {}
+        changed = {p: v for p, v in params.items() if p not in before or _as_json(v) != _as_json(before[p])}
+        changed.update({p: None for p in before if p not in params})
+        if changed:
+            change["params"] = changed
+        if change:
+            out[name] = change
+    out.update({name: None for name in old if name not in set(names)})
+    try:
+        if _as_json(apply_component_overrides(below, out, key)) != _as_json(items):
+            return None
+    except LayerError:
+        return None
+    return out
+
+
+def _set_components(
+    out: dict[str, Any], key: str, items: list[dict[str, Any]], below: list[dict[str, Any]]
+) -> None:
+    """The components into the file, as the commands go (:func:`_set_commands`): a file that writes
+    its own list keeps doing so; a copy that inherits the list gets only what it changes, as
+    ``component_overrides`` / ``channel_component_overrides``, so changing one parameter in the Web
+    is one entry and later fixes of the parent's other components still reach it."""
+    layer = COMPONENT_OVERRIDES[key]
+    if key not in out and below:
+        overrides = _component_overrides(items, below, layer)
+        if overrides is not None:
+            if overrides:
+                out[layer] = overrides
+            else:
+                out.pop(layer, None)
+            return
+    out.pop(layer, None)
+    _set_list(out, key, items, below)
 
 
 def _set_list(out: dict[str, Any], key: str, items: list[Any], below: list[Any]) -> None:

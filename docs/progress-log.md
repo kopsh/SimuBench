@@ -2498,3 +2498,15 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 文档 | ✅ D81 补模板与起草；术语表「助记词」；instrument-authoring T1 / 信号源 / #145 三节改写；decisions D3 行、UXR 与 sb-dso-4 注释、低频校准示例措辞 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
 
+## 组件逐个覆盖：extends 的子定义按组件名改继承的组件（Issue 1425）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 新的覆盖层 | ✅ `library/loader.py` 的 `apply_component_overrides`：`component_overrides` / `channel_component_overrides` 按组件名，`params` 按参数名合并（值整条替换、null 删除），其余字段替换，新名字追加须带 `type`，null 删除组件；作用位置与次序同 `command_overrides`；模型 `ComponentOverride`，加载后为空 |
+| 只改一个参数的子定义很短，结果与整表抄写相同 | ✅ `tests/test_definition_layers.py::test_a_uxr1104b_child_that_changes_the_adc_is_the_whole_list_copy`：UXR1104B 上改 ADC 两个参数的子定义 10 行以内，加载结果与整表抄写再改的版本逐项相同 |
+| 父定义的其他组件改了，子定义随之变化 | ✅ `test_component_overrides_follow_later_fixes_of_the_parent` |
+| 校验 | ✅ `test_component_overrides_refuse_what_they_cannot_name`：重名、删不存在的、改类型、新组件缺类型都报 E-DEF-COMPONENT-OVERRIDE（`simubench validate` 给出 `/component_overrides/<名字>` 指针）；多级继承与自写列表的层次 `test_component_overrides_stack_through_the_chain_above_the_nearest_list`；映射参数整条替换 `test_component_overrides_change_one_parameter_and_keep_the_rest` |
+| Web 搭建区写成这一层 | ✅ `server/definitionstructure.py` 的 `_set_components`：继承组件表的副本只写改了的组件与参数，改类型、重排、重名才整表写入；`tests/test_definition_structure.py` 两例改为断言 `component_overrides`（新组件一条、改表格参数只写该参数） |
+| 内置定义不变 | ✅ 快层全过（金测、手册用例原样） |
+| 文档与生成物 | ✅ D59 条目（不新增条目）、instrument-authoring 2.9 加「组件逐个覆盖」与示例、product-plan 3.5 行；schemas/ 与 web/src/api/generated 重生成 |
+

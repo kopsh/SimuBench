@@ -995,6 +995,20 @@ class CommandOverride(CommandSpec):
     header: str = Field("", description="Left out: the mapping key is the header")
 
 
+class ComponentOverride(_Model):
+    """An entry of ``component_overrides`` / ``channel_component_overrides`` (#1425): the fields of
+    one inherited component to change, or a new component (with its ``type``) to append."""
+
+    type: str | None = Field(None, description="Only for a new component; an inherited one keeps its type")
+    label: str | None = None
+    description: str | None = None
+    params: dict[str, Any] | None = Field(
+        None,
+        description="Parameters to change by name: each value replaces the inherited one whole (a "
+        "mapping is one value); null removes the parameter",
+    )
+
+
 class InstrumentDefinition(_Model):
     schema_: Literal["simubench.instrument/2"] = Field("simubench.instrument/2", alias="schema")
 
@@ -1064,6 +1078,14 @@ class InstrumentDefinition(_Model):
         "after layering, from the farthest layer to this file, above the nearest layer that writes "
         "its own commands list; a header the table holds twice, or a removal of one it does not "
         "hold, is E-DEF-COMMAND-OVERRIDE. Empty once loaded",
+    )
+    component_overrides: dict[str, ComponentOverride | None] | None = Field(
+        None,
+        description="With extends (#1425, D59): change the inherited components one component at a time instead of rewriting the list. Key: a component name; value: the fields to change — params merge by parameter name (each value replaced whole, null removes it), label and description replace, the type cannot change — or a new component with its type (appended), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own list; a name the list holds twice, a removal of one it does not hold, a changed type or a new component without a type is E-DEF-COMPONENT-OVERRIDE. Empty once loaded",
+    )
+    channel_component_overrides: dict[str, ComponentOverride | None] | None = Field(
+        None,
+        description="With extends (#1425, D59): change the inherited channel components (channel_components) one component at a time instead of rewriting the list. Key: a component name; value: the fields to change — params merge by parameter name (each value replaced whole, null removes it), label and description replace, the type cannot change — or a new component with its type (appended), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own list; a name the list holds twice, a removal of one it does not hold, a changed type or a new component without a type is E-DEF-COMPONENT-OVERRIDE. Empty once loaded",
     )
     display: Display = Field(default_factory=Display)
     capabilities: list[str] = Field(default_factory=list)

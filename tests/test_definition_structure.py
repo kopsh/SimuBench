@@ -62,20 +62,17 @@ def test_build_area_structure_flow(tmp_path):
         body["ports"]["instrument"]["OUT"] = "out.pin"
         edited = c.put(url, json=body).json()
         on_disk = yaml.safe_load(path.read_text(encoding="utf-8"))
-        # a block's own label is kept, and no empty label or description is written (#1261)
-        assert on_disk["components"][-1] == {
-            "name": "out",
-            "type": "output_stage",
-            "label": "输出",
-            "params": {"z_out": 50.0},
+        # the copy inherits the component list: the new block is one component_overrides entry
+        # (#1425), not the parent's list copied whole; its own label is kept, and no empty label
+        # or description is written (#1261)
+        assert "components" not in on_disk
+        assert on_disk["component_overrides"] == {
+            "out": {"type": "output_stage", "label": "输出", "params": {"z_out": 50.0}}
         }
         assert next(x for x in edited["components"] if x["name"] == "out")["label"] == "输出"
         assert ["path.out", "out.in"] in on_disk["wiring"]["instrument"]
         assert on_disk["ports"]["instrument"] == {"SENSE": None, "OUT": "out.pin"}
-        shunt = next(x for x in on_disk["components"] if x["name"] == "input")["params"]["shunt"]
-        assert 0.001 in shunt  # a table's number keys survive the JSON round trip
-
-        assert set(edited["inherited"]) == {"state", "commands"}
+        assert set(edited["inherited"]) == {"state", "commands", "components"}
         assert (
             "SENSE" not in edited["ports"]["instrument"]
             and edited["ports"]["instrument"]["IN"] == "input.pin"
@@ -93,8 +90,11 @@ def test_build_area_structure_flow(tmp_path):
         table["30"] = 0.01
         edited = c.put(url, json=body).json()
         on_disk = yaml.safe_load(path.read_text(encoding="utf-8"))
-        shunt = next(x for x in on_disk["components"] if x["name"] == "input")["params"]["shunt"]
-        assert shunt[30] == 0.01 and "30" not in shunt and 0.001 in shunt
+        # only the changed parameter of the inherited block is written, the whole table as one value
+        change = on_disk["component_overrides"]["input"]
+        assert set(change) == {"params"} and set(change["params"]) == {"shunt"}
+        shunt = change["params"]["shunt"]
+        assert shunt[30] == 0.01 and "30" not in shunt and 0.001 in shunt  # number keys survive JSON
 
         # refused: a stale hash (409), a built-in definition (403), an unknown one (404)
         assert c.put(url, json=_body(first)).status_code == 409
@@ -134,7 +134,11 @@ def test_build_area_settings_and_commands(tmp_path):
         assert on_disk["command_overrides"] == {":OUTPut:LEVel": {"state": "out.level"}}
         assert len(saved["commands"]) == len(first["commands"]) + 1
         assert "label" not in saved["state"]["sense.nplc"] and saved["state"]["sense.nplc"]["type"] == "float"
-        assert set(saved["inherited"]) == {"wiring", "ports", "commands"}  # still the parent's
+        # the component list and the command table stay the parent's, each with its own entries
+        assert on_disk["component_overrides"] == {
+            "out": {"type": "output_stage", "params": {"z_out": "$out.level"}}
+        }
+        assert set(saved["inherited"]) == {"components", "wiring", "ports", "commands"}
 
         # a changed and a dropped inherited command are entries too; the copy runs the result
         body = _body(saved)
