@@ -113,7 +113,7 @@ async def test_session_summary_comes_from_the_one_projection(tmp_path):
     """#1485: start_session and describe_session return the summary both agent seams share — the
     SCPI socket address included, which the assistant's own copy used to drop (the agent could not
     tell the user how to point a script at the bench)."""
-    m = SessionManager(tmp_path, scpi_base_port=0)
+    m = SessionManager(tmp_path, scpi_base_port=0, hislip_port=None)  # fixed ports collide across workers
     m.files.create_hello("ui")
     llm = ScriptedLLM([("start_session", {})], [("describe_session", {})], "已启动。")
     service = service_with(m, llm)
