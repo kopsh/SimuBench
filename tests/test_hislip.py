@@ -299,13 +299,13 @@ async def test_status_query_reports_mav_until_rmt_is_delivered(rig):
 async def test_status_query_waits_for_the_write_sent_before_it(rig, monkeypatch):
     """The two channels are separate sockets: a status query must see the effect of the write
     sent just before it, however slowly the engine runs it (#1399)."""
-    exchange = HislipServer._exchange
+    exchange = rig.server.session.exchange
 
-    def slow(self, *args):
+    def slow(*args):
         time.sleep(0.2)
-        return exchange(self, *args)
+        return exchange(*args)
 
-    monkeypatch.setattr(HislipServer, "_exchange", slow)
+    monkeypatch.setattr(rig.server.session, "exchange", slow)
 
     def run() -> None:
         c = client(rig)

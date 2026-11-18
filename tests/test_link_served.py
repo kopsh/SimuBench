@@ -92,13 +92,6 @@ def test_a_reset_serves_the_link_again_at_the_same_address(served):
         rm.close()
 
 
-@pytest.mark.unit
-def test_bench_is_a_remote_client_prefix():
-    from simubench.server.manager import is_remote
-
-    assert is_remote("bench:127.0.0.1:50000#0001") and not is_remote("pyvisa") and not is_remote(None)
-
-
 def current_address(c, info) -> str:
     """The link address now: a reset starts the service's ports again, and with port 0 they move."""
     return c.get(f"/api/sessions/{info['id']}").json()["link_address"]

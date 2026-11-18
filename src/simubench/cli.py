@@ -59,12 +59,9 @@ def _serve(args: argparse.Namespace) -> int:
         threading.Thread(target=component_catalog, name="component-catalog", daemon=True).start()
         if bench:
             served = await manager.start(bench.relative_to(workspace).as_posix())
-            for lst in served.scpi.listeners if served.scpi else []:
-                print(address_line("SCPI", lst.instrument, lst.address))
-            for name, addr in served.hislip.addresses().items() if served.hislip else []:
-                print(address_line("HiSLIP", name, addr))
-            for name, addr in served.vxi11.addresses().items() if served.vxi11 else []:
-                print(address_line("VXI-11", name, addr))
+            for service, server in served.servers.items():  # the registry, in start order (#1475)
+                for name, address in server.addresses().items():
+                    print(address_line(service, name, address))
             if served.link:
                 print(link_line(served.link.address()))
         print(f"SimuBench {__version__}  workspace: {workspace}")

@@ -31,7 +31,7 @@ from pyvisa import rname
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
-from . import ClientConnection
+from . import ClientConnection, engine_call
 from .bus import bus_of, observe, serial_poll
 
 log = logging.getLogger("simubench.vxi11")
@@ -349,7 +349,9 @@ class Vxi11Server(_RpcServer):
         await super().stop()
 
     def addresses(self) -> dict[str, str]:
-        """Instrument -> VXI-11 resource address. Unless a port mapper answers on 111, the core port is spelled out."""
+        """Instrument -> VXI-11 resource address. Unless a port mapper answers on 111, the core
+        port is spelled out. This server's port semantics: one core channel serves every
+        instrument, the device name selects it (plus the abort channel the link is told)."""
         # VISA libraries ask the port mapper at 111 and nowhere else: the core port is left out only
         # when that is where ours listens.
         where = (
@@ -414,16 +416,7 @@ class Vxi11Server(_RpcServer):
     # ---- engine passthrough (blocking engine calls run off the event loop) -------------------------
 
     async def _engine(self, op: Callable, *args):
-        return await asyncio.to_thread(op, *args)
-
-    def _exchange(self, instrument: str, data: bytes, client: str) -> list[bytes]:
-        return self.session.exchange(instrument, data, client=client)
-
-    def _write(self, instrument: str, data: bytes, client: str) -> None:
-        self.session.write(instrument, data, client=client)
-
-    def _clear_output(self, instrument: str, client: str) -> None:
-        self.session.clear_output(instrument, client=client)
+        return await engine_call(op, *args)
 
     # ---- helpers ---------------------------------------------------------------------------------------
 
@@ -432,15 +425,7 @@ class Vxi11Server(_RpcServer):
 
     async def _wait_lock(self, link: _Link, lock_timeout_ms: int) -> bool:
         """Wait up to ``lock_timeout`` for the lock holders to let go (specification 2.3)."""
-        locks = self.locks(link.instrument)
-        deadline = asyncio.get_running_loop().time() + lock_timeout_ms / 1000
-        while not locks.accessible(link):
-            if asyncio.get_running_loop().time() >= deadline:
-                return False
-            locks.released.clear()
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(locks.released.wait(), timeout=0.02)
-        return True
+        return await self.locks(link.instrument).wait_accessible(link, lock_timeout_ms / 1000)
 
     def _stb(self, link: _Link) -> int:
         """device_readstb is a serial poll: the status byte with RQS, and RQS cleared (IEEE 488.2 11.2)."""
@@ -521,7 +506,7 @@ class Vxi11Server(_RpcServer):
         link.inbuf.extend(data)
         if flags & FLAG_END:
             message, link.inbuf = bytes(link.inbuf), bytearray()
-            outs = await self._engine(self._exchange, link.instrument, message, link.client)
+            outs = await self._engine(self.session.exchange, link.instrument, message, link.client)
             link.pending.extend(outs)
             self._poll_srq(link.instrument)
         return _u(OK, len(data))
@@ -574,7 +559,7 @@ class Vxi11Server(_RpcServer):
             return _error(E_INVALID_LINK)
         if not await self._guard(link, lock_timeout):
             return _error(E_LOCKED)
-        await self._engine(self._write, link.instrument, b"*TRG", link.client)
+        await self._engine(self.session.write, link.instrument, b"*TRG", link.client)
         self._poll_srq(link.instrument)
         return _error(OK)
 
@@ -587,7 +572,7 @@ class Vxi11Server(_RpcServer):
             return _error(E_LOCKED)
         link.inbuf.clear()
         link.drop_output()
-        await self._engine(self._clear_output, link.instrument, link.client)
+        await self._engine(self.session.clear_output, link.instrument, link.client)
         return _error(OK)
 
     async def _remote_local(self, rd: _Reader, code: int) -> bytes:
@@ -617,14 +602,10 @@ class Vxi11Server(_RpcServer):
         locks = self.locks(link.instrument)
         if locks.grant(link, True):
             return _error(OK)
-        if flags & FLAG_WAITLOCK:
-            deadline = asyncio.get_running_loop().time() + lock_timeout / 1000
-            while asyncio.get_running_loop().time() < deadline:
-                locks.released.clear()
-                with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(locks.released.wait(), timeout=0.02)
-                if locks.grant(link, True):
-                    return _error(OK)
+        # Waitlock: the grant of a successful wait is the semantics (a free lock is taken at once,
+        # another waiter's is retried until the timeout), so the wait itself takes the lock.
+        if flags & FLAG_WAITLOCK and await locks.wait_accessible(link, lock_timeout / 1000, exclusive=True):
+            return _error(OK)
         return _error(E_LOCKED)
 
     async def _device_unlock(self, conn: _Conn, rd: _Reader) -> bytes:

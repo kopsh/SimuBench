@@ -24,9 +24,8 @@ import logging
 import ssl
 import struct
 
-from ..engine.faults import LinkDown
 from ..engine.session import Session
-from . import ClientConnection
+from . import ClientConnection, engine_call
 from .bus import LockTable, bus_of, observe, serial_poll
 from .hislip_tls import AuthState, SecureConfig, SecureStream
 
@@ -357,7 +356,8 @@ class HislipServer:
                 log.info("HiSLIP %s at %s,%d", name, sub, self.port)
 
     def addresses(self) -> dict[str, str]:
-        """Instrument -> HiSLIP resource address; instance-name aliases included."""
+        """Instrument -> HiSLIP resource address; instance-name aliases included. This server's
+        port semantics: one shared port serves every instrument, the sub-address selects it."""
         out: dict[str, str] = {}
         for sub, name in self._subaddresses.items():
             out.setdefault(name, f"TCPIP0::{self.host}::{sub},{self.port}::INSTR")
@@ -524,7 +524,7 @@ class HislipServer:
                     # The silent interrupted of 3.1.1-2: the client sent on without reading;
                     # what it never read is dropped. No indication is sent to the client.
                     sess.rmt_expected = False
-                    await self._engine(sess, self._clear_output, sess.instrument, sess.client)
+                    await self._engine(sess, self.session.clear_output, sess.instrument, sess.client)
                 sess.rmt_expected = False
             if msg_type == DATA:
                 buffer.extend(_payload)
@@ -538,7 +538,9 @@ class HislipServer:
                 # Write and take its responses in one engine action (Session.exchange, #121): two
                 # calls would let another session's read take this one's response in between.
                 try:
-                    outs = await self._engine(sess, self._exchange, sess.instrument, message, sess.client)
+                    outs = await self._engine(
+                        sess, self.session.exchange, sess.instrument, message, sess.client
+                    )
                 finally:
                     sess.finished(parameter)
                 sess.poll_srq()
@@ -549,7 +551,7 @@ class HislipServer:
                 if sess.closing.is_set():
                     return
                 try:
-                    await self._engine(sess, self._write, sess.instrument, b"*TRG", sess.client)
+                    await self._engine(sess, self.session.write, sess.instrument, b"*TRG", sess.client)
                 finally:
                     sess.finished(parameter)
                 sess.poll_srq()
@@ -609,11 +611,7 @@ class HislipServer:
 
     async def _await_lock(self, sess: HislipSession) -> None:
         """A session without the lock has its synchronous messages held (spec 2.6.1)."""
-        locks = self.locks(sess.instrument)
-        while not locks.accessible(sess) and not sess.closing.is_set():
-            locks.released.clear()
-            with contextlib.suppress(TimeoutError):
-                await asyncio.wait_for(locks.released.wait(), timeout=0.1)
+        await self.locks(sess.instrument).wait_accessible(sess, give_up=sess.closing.is_set)
 
     async def _async_message(
         self, sess: HislipSession, writer: asyncio.StreamWriter, header: tuple, payload: bytes
@@ -652,7 +650,7 @@ class HislipServer:
             sess.clearing = True
             sess.mav = False
             sess.rmt_expected = False
-            await self._engine(sess, self._clear_output, sess.instrument, sess.client)
+            await self._engine(sess, self.session.clear_output, sess.instrument, sess.client)
             writer.write(_pack(ASYNC_DEVICE_CLEAR_ACKNOWLEDGE, self._preferred_features(sess)))
             await writer.drain()
         elif msg_type == ASYNC_REMOTE_LOCAL_CONTROL:
@@ -938,15 +936,9 @@ class HislipServer:
         if control == 1:
             # Request: an empty lock string asks for an exclusive lock (spec 6.5).
             exclusive = len(payload) == 0
-            deadline = asyncio.get_running_loop().time() + parameter / 1000.0
-            granted = locks.grant(sess, exclusive, payload)
-            while not granted and not sess.closing.is_set():
-                locks.released.clear()
-                with contextlib.suppress(TimeoutError):
-                    await asyncio.wait_for(locks.released.wait(), timeout=0.05)
-                if asyncio.get_running_loop().time() >= deadline:
-                    break
-                granted = locks.grant(sess, exclusive, payload)
+            granted = await locks.wait_accessible(
+                sess, parameter / 1000.0, exclusive=exclusive, key=payload, give_up=sess.closing.is_set
+            )
             code = 1 if granted else 0  # failure / success
         else:
             code = locks.release(sess)
@@ -957,22 +949,14 @@ class HislipServer:
     # ---- engine passthrough (run blocking engine calls off the event loop) ------------------------------
 
     async def _engine(self, sess: HislipSession | None, op, *args):
-        try:
-            return await asyncio.to_thread(op, *args)
-        except LinkDown:
+        # The link fault is logged here, where the instrument is known; the shared passthrough
+        # (access.engine_call) runs the call and closes the connection on the way out.
+        async def closing() -> None:
             if sess is not None:
                 log.info("HiSLIP %s: link fault, closing %s", sess.instrument, sess.client)
                 await sess.close()
-            raise
 
-    def _write(self, instrument: str, data: bytes, client: str) -> None:
-        self.session.write(instrument, data, client=client)
-
-    def _exchange(self, instrument: str, data: bytes, client: str) -> list[bytes]:
-        return self.session.exchange(instrument, data, client=client)
-
-    def _clear_output(self, instrument: str, client: str) -> None:
-        self.session.clear_output(instrument, client=client)
+        return await engine_call(op, *args, closing=closing)
 
 
 async def _refuse(writer: asyncio.StreamWriter, code: int, message: bytes) -> None:

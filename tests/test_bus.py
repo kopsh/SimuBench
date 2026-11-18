@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
 from simubench.access.bus import LockTable, RemoteLocal
@@ -60,3 +62,77 @@ def test_remote_local_follows_the_visa_ren_modes(codes, state, ren):
 def test_an_unknown_control_code_is_refused():
     with pytest.raises(KeyError):
         RemoteLocal().control(7)
+
+
+# ---- the one lock book: viLock nesting and the shared wait (#1475) ------------------------------------------
+
+
+def test_nested_vilocks_count_up_and_release_at_the_outermost():
+    locks = LockTable()
+    assert locks.acquire("a", exclusive=True)
+    assert locks.acquire("a", exclusive=True)  # the same kind counts up, it does not re-grant
+    assert not locks.acquire("a", exclusive=False, key=b"k")  # another kind is refused while held
+    assert locks.holders() == 1 and locks.held_by("a")
+    assert locks.release_one("a")
+    assert locks.held_by("a") and not locks.accessible("b")  # the inner one still holds
+    assert locks.release_one("a")
+    assert not locks.held_by("a") and locks.accessible("b")
+    assert not locks.release_one("a")  # held none: VI_ERROR_SESN_NLOCKED's word
+
+
+async def test_a_shared_lock_join_is_granted_without_a_wait():
+    """A session presenting the shared key joins at once (VISA): the wait does not make it wait."""
+    locks = LockTable()
+    locks.grant("a", exclusive=False, key=b"team")
+    assert await asyncio.wait_for(locks.wait_accessible("b", 5.0, exclusive=False, key=b"team"), 0.1)
+    assert locks.holders() == 2
+
+
+async def test_wait_accessible_grants_at_once_when_the_lock_is_free():
+    locks = LockTable()
+    assert await asyncio.wait_for(locks.wait_accessible("a", 5.0, exclusive=True), 0.1)
+    assert locks.held_by("a")
+
+
+async def test_wait_accessible_wakes_when_the_lock_is_released():
+    locks = LockTable()
+    locks.grant("a", exclusive=True)
+    wait = asyncio.create_task(locks.wait_accessible("b", 5.0))
+    await asyncio.sleep(0)  # one turn: the waiter is inside its wait
+    assert not wait.done()
+    locks.release("a")
+    assert await asyncio.wait_for(wait, 1.0)
+
+
+async def test_wait_accessible_takes_the_lock_the_moment_it_is_free():
+    """A successful wait grants (VXI-11's device_lock granted inside its poll loop): the winner
+    holds the lock, a waiter that lost the race keeps waiting."""
+    locks = LockTable()
+    locks.grant("a", exclusive=True)
+    winner = asyncio.create_task(locks.wait_accessible("b", 5.0, exclusive=True))
+    loser = asyncio.create_task(locks.wait_accessible("c", 5.0, exclusive=True))
+    await asyncio.sleep(0)
+    locks.release("a")
+    assert await asyncio.wait_for(winner, 1.0)
+    assert locks.held_by("b") and not loser.done()
+    loser.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await loser
+
+
+async def test_wait_accessible_reports_the_timeout_and_leaves_everything_alone():
+    locks = LockTable()
+    locks.grant("a", exclusive=True)
+    loop = asyncio.get_running_loop()
+    started = loop.time()
+    assert not await locks.wait_accessible("b", 0.08)
+    assert loop.time() - started >= 0.05  # the whole timeout was waited, poll interval included
+    assert not locks.held_by("b") and locks.held_by("a")
+
+
+async def test_wait_accessible_stops_when_the_caller_gives_up():
+    """A connection being torn down stops waiting instead of waiting out an unbounded timeout."""
+    locks = LockTable()
+    locks.grant("a", exclusive=True)
+    give_ups = iter([False, True])
+    assert not await locks.wait_accessible("b", give_up=lambda: next(give_ups))
