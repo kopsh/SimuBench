@@ -123,6 +123,7 @@ def test_definition_history_and_changes_endpoints(tmp_path):
                 "detail": "max",
                 "old": 100,
                 "new": 10,
+                "still_old": None,
             }
         ]
         assert history[2]["changes"][0]["action"] == "added"  # the creation describes everything
@@ -153,3 +154,22 @@ def test_copy_as_my_instrument_extends_the_built_in_model(tmp_path):
     mine = {d.id: d for d in defs.files.catalog().instruments if d.workspace}
     assert mine["my-keysight-34465a"].extends == "keysight-34465a"
     assert next(d for d in defs.files.catalog().instruments if d.id == "keysight-34465a").extends is None
+
+
+def test_a_specs_edit_names_the_places_that_still_run_the_old_value(tmp_path):
+    """Specs are a record (D3): a copy's data-sheet bandwidth edited alone changes no behaviour, and
+    the change says where the old number still drives the simulation (settings, component
+    parameters), not counting infinities or text."""
+    files = make_files(tmp_path)
+    my_id = files.copy_of("keysight-uxr1104b").id
+    base = files.read(my_id).sha256
+    out = files.edit(my_id, base, [PatchOp(op="add", path="/specs", value={"bandwidth_hz": 1.0e11})], "agent")
+    (change,) = out.changes
+    assert (change.kind, change.detail, change.old, change.new) == ("specs", "bandwidth_hz", 1.13e11, 1.0e11)
+    assert change.still_old == [
+        "/state/acquire.bandwidth/max",
+        "/state/acquire.bandwidth/default",
+        "/state/acquire.bandwidth/special/MAX",
+        "/components/bwf/params/passthrough_hz",
+        "/channel_components/front/params/bandwidth",
+    ]

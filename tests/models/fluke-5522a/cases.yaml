@@ -1,3 +1,6 @@
+# 万用表一侧是内置的 Keysight 34465A（不是验证用的 sb-dmm-1：随 SimuBench 发布的用例只能用随它发布的
+# 定义）。它的读数带噪声（定义的 noise：10 V 档 1 NPLC 约 0.3 ppm of range），所以经它读的端电压按
+# 数值比较：10 V 及以下档容差 20 µV，100 V 档 200 µV（4σ 加量化步长，取 1 NPLC 的上限）。
 # Fluke 5522A 的手册用例：Fluke 5522A Multi-Product Calibrator Operators Manual
 #（PN 3795084, January 2011），第 6 章远程命令的命令条目与示例、第 1 章的 *RST 表与
 # 规格（建立时间 <5 s）、第 3、4 章的 ≥33 V 跨越自动回待机（#558）。回复格式：数字 nr3 6 位尾数无 + 号，
@@ -37,7 +40,8 @@ cases:
         expect: '0,"No Error"'
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+0.0000000E+00"
+        expect_value: 0.0
+        tolerance: 2.0e-5
 
   - name: "上电即待机：设定不进入电路，OPER 后输出建立，STBY 后输出断开"
     manual: "Remote Commands > Output Commands > OPER / STBY；第 3 章 standby 模式（输出端子内部断开）"
@@ -45,17 +49,20 @@ cases:
       - send: "OUT 10 V"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+0.0000000E+00"
+        expect_value: 0.0
+        tolerance: 2.0e-5
       - send: "OPER"
       - query: "*OPC?"
         expect: "1"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+1.0000000E+01"
+        expect_value: 10.0
+        tolerance: 2.0e-5
       - send: "STBY"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+0.0000000E+00"
+        expect_value: 0.0
+        tolerance: 2.0e-5
 
   - name: "直流输出与 OUT? 查询：幅值,单位,第二输出,频率"
     manual: "Remote Commands > Output Commands > OUT / OUT?（响应格式与示例）"
@@ -66,7 +73,8 @@ cases:
       - send: "OPER;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+1.0000000E+01"
+        expect_value: 10.0
+        tolerance: 2.0e-5
 
   - name: "交流输出：OUT 1 V, 1 kHz，OUT? 带频率"
     manual: "Remote Commands > Output Commands > OUT（<value> V, <value> Hz 交流电压）"
@@ -77,10 +85,12 @@ cases:
       - send: "OPER;*WAI"
       - query: "MEAS:VOLT:AC?"
         instrument: dmm
-        expect: "+1.0000000E+00"
+        expect_value: 1.0
+        tolerance: 2.0e-5
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+0.0000000E+00"
+        expect_value: 0.0
+        tolerance: 2.0e-5
 
   - name: "0 Hz 是直流：OUT 2 V, 0 HZ 回到直流电压"
     manual: "Remote Commands > Output Commands > OUT（<value> V, <value> Hz —— 0 Hz 为直流）"
@@ -92,7 +102,8 @@ cases:
       - send: "OPER;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+2.0000000E+00"
+        expect_value: 2.0
+        tolerance: 2.0e-5
 
   - name: "OUT 60 HZ 只更新频率，幅值与功能不变"
     manual: "Remote Commands > Output Commands > OUT（<value> HZ 频率更新）"
@@ -178,7 +189,7 @@ cases:
       - query: ":MEAS:VOLT?"
         instrument: dmm
         expect_value: 0.0
-        tolerance: 1.0e-9
+        tolerance: 2.0e-5  # 待机：端子断开，读数只剩万用表噪声（而不是 10 kV）
       - query: "ERR?"
         expect: '1500,"Compliance voltage exceeded"'
       - query: "OPER?"
@@ -217,17 +228,20 @@ cases:
       - send: "OPER;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+1.0000000E+01"
+        expect_value: 10.0
+        tolerance: 2.0e-5
       - send: "OUT 40 V"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+0.0000000E+00"
+        expect_value: 0.0
+        tolerance: 2.0e-5
       - query: "ERR?"
         expect: '0,"No Error"'
       - send: "OPER;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+4.0000000E+01"
+        expect_value: 40.0
+        tolerance: 2.0e-4
 
   - name: "≥33 V 时改变输出功能回待机"
     manual: "第 4 章 Operating→Standby（Output function is changed between ac or dc voltage when the output voltage is ≥33 V）"
@@ -237,11 +251,13 @@ cases:
       - send: "OUT 40 V, 1 kHz"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+0.0000000E+00"
+        expect_value: 0.0
+        tolerance: 2.0e-5
       - send: "OPER;*WAI"
       - query: "MEAS:VOLT:AC?"
         instrument: dmm
-        expect: "+4.0000000E+01"
+        expect_value: 40.0
+        tolerance: 2.0e-4
 
   - name: "33 V 以下交流↔直流切换保持工作"
     manual: "第 4 章 Operating→Standby（Output function is changed between ac or dc voltage when the output voltage is ≥33 V —— <33 V 不在回待机事件之内，#566）"
@@ -251,11 +267,13 @@ cases:
       - send: "OUT 10 V, 1 kHz;*WAI"
       - query: "MEAS:VOLT:AC?"
         instrument: dmm
-        expect: "+1.0000000E+01"
+        expect_value: 10.0
+        tolerance: 2.0e-5
       - send: "OUT 10 V, 0 HZ;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+1.0000000E+01"
+        expect_value: 10.0
+        tolerance: 2.0e-5
 
   - name: "从 ≥33 V 往下改输出不回待机（没有跨越）"
     manual: "第 4 章 Operating→Standby（仅 previous output voltage was less than 33 V 时回待机）"
@@ -265,7 +283,8 @@ cases:
       - send: "OUT 20 V;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+2.0000000E+01"
+        expect_value: 20.0
+        tolerance: 2.0e-5
 
   - name: "33 V 以下的输出变化不回待机"
     manual: "第 4 章 Operating→Standby（10 V → 5 V 不在回待机事件之内）"
@@ -275,7 +294,8 @@ cases:
       - send: "OUT 5 V;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+5.0000000E+00"
+        expect_value: 5.0
+        tolerance: 2.0e-5
 
   - name: "≥33 V 的设定可以在待机下保存，OPER 是确认"
     manual: "第 4 章 How to Use Multiply and Divide（Press the O key if you wish to continue）"
@@ -283,11 +303,13 @@ cases:
       - send: "OUT 100 V"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+0.0000000E+00"
+        expect_value: 0.0
+        tolerance: 2.0e-5
       - send: "OPER;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+1.0000000E+02"
+        expect_value: 100.0
+        tolerance: 2.0e-4
 
   - name: "OPER? 回读工作状态（1 = 工作，0 = 待机）"
     manual: "Remote Commands > Output Commands > OPER / OPER?"
@@ -391,7 +413,8 @@ cases:
       - send: "STBY;OUT 10 V;OPER;*WAI"
       - query: "MEAS:VOLT:DC?"
         instrument: dmm
-        expect: "+1.0000000E+01"
+        expect_value: 10.0
+        tolerance: 2.0e-5
 
   - name: "没有建模的命令回复 -113 并说明（SCOPE）"
     manual: "Remote Commands > Output Commands > SCOPE（SC600 选件的示波器输出；选件未建模）"

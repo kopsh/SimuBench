@@ -29,6 +29,11 @@ export function VerdictBar({
             <span className="text-muted-foreground num text-[11px]">
               {t("acceptance.verdict.coverage", { implemented: coverage.implemented, accepted: coverage.accepted, total: coverage.total })}
             </span>
+            {coverage.fromModel && (
+              <span className="text-muted-foreground text-[11px]" data-testid="verdict-coverage-inherited">
+                {t("acceptance.verdict.inheritedCoverage", { model: coverage.fromModel, count: coverage.changed })}
+              </span>
+            )}
           </>
         ) : (
           <span className="text-muted-foreground text-[11px]">{t("acceptance.verdict.noCoverage")}</span>

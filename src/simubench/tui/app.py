@@ -17,6 +17,7 @@ from typing import Any, ClassVar
 from textual.app import App
 from textual.binding import Binding
 
+from ..library import categories
 from . import i18n, theme
 from .client import ApiClient, ApiError, stream_events, ws_url
 from .log import LogLine, build_lines
@@ -51,20 +52,8 @@ def _hash_file(path: Path | None) -> str | None:
         return None
 
 
-#: Templates whose screens show readings (or a trace) from /readings (#282); oscilloscopes also use
-#: /screen.
-READING_TEMPLATES = (
-    "smu",
-    "multimeter",
-    "calibrator",
-    "oscilloscope",
-    "spectrum_analyzer",
-    "lockin",
-    "power_supply",
-    "electronic_load",
-    "rf_generator",
-    "daq",
-)
+#: How often the session is re-read while clients are connected (s): the Web Bench's client poll.
+REMOTE_POLL_S = 2.0
 
 
 class SimuBenchApp(App[None]):
@@ -179,6 +168,7 @@ class SimuBenchApp(App[None]):
         self.set_interval(0.1, self._tick)
         self.set_interval(1.0, self._tick_wall)
         self.set_interval(2.0, self._tick_bench)
+        self.set_interval(REMOTE_POLL_S, self._tick_remote)
         await self.client.open()
         if self.sid:
             self.push_overview()
@@ -418,14 +408,14 @@ class SimuBenchApp(App[None]):
         self.bump()
 
     def _mark_template_instruments(self) -> None:
-        """Readings for the instruments that show them — the templates with readouts and every
-        instrument with a panel (its class default included, #282) — and /screen for the
+        """Readings for the instruments that show them — the categories that poll /readings and
+        every instrument with a panel (its class default included, #282) — and /screen for the
         oscilloscopes' run state (section 4.2)."""
         if self.session_info is None:
             return
         for info in self.session_info.get("instruments", []):
             display = info.get("display") or {}
-            if display.get("template") in READING_TEMPLATES or display.get("panel"):
+            if categories.get(display.get("template")).readings or display.get("panel"):
                 self._dirty_instr.add(info["name"])
 
     def _tick(self) -> None:
@@ -440,11 +430,6 @@ class SimuBenchApp(App[None]):
                 await self._maintenance()
             finally:
                 self._maintaining = False
-
-        self._maint_task: asyncio.Task | None = None
-        self._session_task: asyncio.Task | None = None
-        self._picker_task: asyncio.Task | None = None
-        self._catalog_loaded = False
 
         self._maint_task = asyncio.create_task(run())
 
@@ -481,11 +466,12 @@ class SimuBenchApp(App[None]):
             except ApiError:
                 continue
             self._merge_instrument(info)
-            template = (info.get("display") or {}).get("template")
-            if template in READING_TEMPLATES or (info.get("display") or {}).get("panel"):
+            display = info.get("display") or {}
+            row = categories.get(display.get("template"))
+            if row.readings or display.get("panel"):
                 with contextlib.suppress(ApiError):
                     self.readings[name] = await self.client.readings(self.sid, name)
-            if template == "oscilloscope":
+            if row.screen == "scope":
                 with contextlib.suppress(ApiError):
                     self.screen_data[name] = await self._screen(name, self.scope_points.get(name))
 
@@ -536,6 +522,22 @@ class SimuBenchApp(App[None]):
                 self.labels = build_labels(self.session_info)
                 self._mark_template_instruments()
             self.bump()
+
+    def remote_held(self) -> bool:
+        """Whether any instrument lists a connected client (an instrument in remote control)."""
+        return any(i.get("remote") for i in (self.session_info or {}).get("instruments", []))
+
+    async def _tick_remote(self) -> None:
+        """While clients are connected, re-read who they are, as the Web Bench does (#121).
+
+        A script's disconnect raises no event, so without this the remote banner and the cards'
+        remote mark would stay until the instrument's next event."""
+        if not self.remote_held() or self.conn != "connected" or self._session_task_running():
+            return
+        self._session_task = asyncio.create_task(self._refresh_session())
+
+    def _session_task_running(self) -> bool:
+        return self._session_task is not None and not self._session_task.done()
 
     def _tick_bench(self) -> None:
         """D25: the launched bench file is hashed; a change lights the top bar's rebuild hint."""

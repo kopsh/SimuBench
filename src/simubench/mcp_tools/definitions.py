@@ -11,11 +11,12 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
 from ..engine.jsonpatch import PatchOp
-from ..engine.scriptscan import draft_bench, draft_definition
+from ..library.scriptscan import draft_bench, draft_definition
 from ..library.templates import get_template as template_by_id
 from ..library.templates import templates as instrument_templates
 from ..library.templates.draft import suggester as template_suggester
 from ..server.definitionfiles import DefinitionFiles
+from ..server.services import new_definition
 from .context import McpContext
 
 log = logging.getLogger(__name__)
@@ -106,7 +107,9 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         patch: list[PatchOp] = Field(..., description="JSON Patch (RFC 6902) operations, applied in order"),
     ) -> dict[str, Any]:
         """Edit a workspace definition with JSON Patch, e.g. {"op": "replace", "path":
-        "/channel_state/scale/max", "value": 10}. The result reports what changed (changes, in the
+        "/channel_state/scale/max", "value": 10}. A copy (extends) changes inherited commands one at a
+        time under /command_overrides (header -> whole command, or null to remove) instead of
+        rewriting /commands. The result reports what changed (changes, in the
         instrument's language — report that to the engineer). Every save enters the version history
         (the Web acceptance page shows it with these descriptions). Sessions that use the definition
         keep the old one until restarted (sessions_to_restart)."""
@@ -230,19 +233,18 @@ def _from_template_tools(mcp: MCPServer, ctx: McpContext) -> None:
             t = template_by_id(template_id)
         except KeyError as exc:
             raise ToolError(str(exc.args[0])) from None
-        out = t.expand(inputs, definition_id)
-        if out.definition is None:
-            return {"saved": False, "diagnostics": [d.model_dump() for d in out.diagnostics]}
-        if base_sha256 is not None:
+        if base_sha256 is not None and t.expand(inputs, definition_id).definition is not None:
             _refuse_lost_edits(definitions, t, definition_id, discard_edits)
         try:
-            if base_sha256 is None:
-                doc = definitions.create(definition_id, out.definition, "agent")
-            else:
-                doc = definitions.save(definition_id, base_sha256, out.definition, "agent")
+            out = new_definition.from_template(
+                definitions, template_id, definition_id, inputs, "agent", base_sha256
+            )
         except Exception as exc:
             raise fail(exc) from None
-        return {"saved": True, **definition_out(doc)}
+        diagnostics = [d.model_dump() for d in out.diagnostics]
+        if not out.saved or out.document is None:
+            return {"saved": False, "diagnostics": diagnostics}
+        return {"saved": True, **definition_out(out.document), "diagnostics": diagnostics}
 
 
 def _bench_draft_tools(mcp: MCPServer, ctx: McpContext) -> None:

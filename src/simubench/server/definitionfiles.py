@@ -55,7 +55,8 @@ class DefinitionFiles:
             data = layered_definition_data(data, self.files.workspace / FOLDER / "draft.yaml")
         except ValueError as exc:
             report = Report()
-            report.add("error", "E-DEF-EXTENDS", "/extends", str(exc), None)
+            code, pointer = getattr(exc, "code", "E-DEF-EXTENDS"), getattr(exc, "pointer", "/extends")
+            report.add("error", code, pointer, str(exc), None)
             return report
         _, report = validate_definition_data(data)
         return report
@@ -113,7 +114,7 @@ class DefinitionFiles:
                     base_data = _parse(old)
                     previous = (old, current, _fingerprint(base_data))
             self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
-            changes = definition_changes(base_data, data)
+            changes = self._changes(def_id, base_data, data)
         return self._document(def_id, rel, True, raw, data, changes=changes)
 
     def versions(self, def_id: str) -> list[M.DefinitionVersion]:
@@ -131,7 +132,7 @@ class DefinitionFiles:
                     sha256=v.sha256,
                     source=v.source,
                     saved_at=v.saved_at,
-                    changes=definition_changes(older, data),
+                    changes=self._changes(def_id, older, data),
                 )
             )
         return out
@@ -163,8 +164,35 @@ class DefinitionFiles:
         if doc.sha256 != new.base_sha256:
             raise Conflict(f"{doc.path} changed since it was read", doc.sha256, target="definition")
         path = self.source(def_id)
-        self.save(def_id, new.base_sha256, definitionstructure.written(doc.data, new, path), source)
+        data = definitionstructure.written(doc.data, new, path)
+        definitionstructure.check_kept(data, new, path)  # refuse rather than lose something silently
+        self.save(def_id, new.base_sha256, data, source)
         return self.structure(def_id)
+
+    def save_identity(
+        self, def_id: str, new: M.IdentityUpdate, source: Source = "ui"
+    ) -> M.DefinitionDocument:
+        """Write a workspace definition's identity: only the fields that differ from what it runs
+        now (a copy inherits the rest, D59), as one version through the usual checks."""
+        doc = self.read(def_id)
+        if not doc.editable:
+            raise Forbidden(f"{def_id} is not in the workspace; copy it as your instrument to change it")
+        if doc.sha256 != new.base_sha256:
+            raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
+        runs = definitionstructure.layered(doc.data, self.source(def_id))
+        data = copy.deepcopy(doc.data)
+        for key in ("manufacturer", "model"):
+            value = getattr(new, key)
+            if value is not None and value != runs.get(key):
+                data[key] = value
+        identity = dict(data.get("identity") or {})
+        for key in ("serial", "firmware", "idn"):
+            value = getattr(new, key)
+            if value is not None and value != (runs.get("identity") or {}).get(key):
+                identity[key] = value
+        if identity:
+            data["identity"] = identity
+        return self.save(def_id, new.base_sha256, data, source)
 
     def layout_path(self, def_id: str) -> Path:
         return self.files.workspace / FOLDER / f"{def_id}{LAYOUT_SUFFIX}"
@@ -216,7 +244,29 @@ class DefinitionFiles:
         rel = self.rel_path(def_id)
         older = _parse(self.files.history.content(rel, base)) if base > 0 else {}
         newer = _parse(self.files.history.content(rel, target))
-        return M.DefinitionChangeList(base=base, target=target, changes=definition_changes(older, newer))
+        return M.DefinitionChangeList(base=base, target=target, changes=self._changes(def_id, older, newer))
+
+    def _changes(self, def_id: str, older: dict[str, Any], newer: dict[str, Any]) -> list[M.DefinitionChange]:
+        """What a version changed, in terms of the instrument it runs: both versions are compared
+        after layering (``extends`` and the category default merged in, D59), so a copy's file
+        growing from three lines to a whole command table reads as the one command it added, and an
+        inherited value overridden reads as old → new rather than as an added key. A copy's first
+        version is compared with its parent: it changes nothing yet, apart from being based on it.
+        Layering uses the parent as it is now."""
+        source = self.files.workspace / self.rel_path(def_id)
+
+        def runs(data: dict[str, Any]) -> dict[str, Any]:
+            if not isinstance(data.get("extends"), str):
+                return data
+            return {k: v for k, v in definitionstructure.layered(data, source).items() if k != "extends"}
+
+        def base(data: dict[str, Any]) -> dict[str, Any]:
+            return {"extends": data["extends"]} if "extends" in data else {}
+
+        before = (
+            {"extends": newer["extends"]} if not older and isinstance(newer.get("extends"), str) else older
+        )
+        return definition_changes(base(older), base(newer)) + definition_changes(runs(before), runs(newer))
 
     def _document(
         self,

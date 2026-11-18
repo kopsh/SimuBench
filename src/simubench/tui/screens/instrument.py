@@ -18,6 +18,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widget import Widget
 from textual.widgets import Static
 
+from ...library import categories
 from .. import controls as C
 from .. import i18n, rows
 from ..cards import ARROWS, opposite_ends
@@ -462,7 +463,9 @@ class InstrumentScreen(ControlEditingScreen):
         # The TUI is English only (D23): a bench label in another script gives way to the model.
         return _english(info.get("label")) or info.get("model", "")
 
-    def _smu_lines(self, state: dict[str, dict]) -> list[list[tuple[str, str]]]:
+    def _smu_lines(
+        self, state: dict[str, dict], width: int | None = None, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
         return rows.smu_rows(self.app.lang, state, self.readings)
 
     def _panel_lines(
@@ -484,11 +487,20 @@ class InstrumentScreen(ControlEditingScreen):
     ) -> list[list[tuple[str, str]]]:
         return rows.rf_rows(self.app.lang, state, self.readings, width, budget)
 
-    def _load_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
+    def _load_lines(
+        self, state: dict[str, dict], width: int, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
         return rows.load_rows(self.app.lang, state, self.readings, width)
 
-    def _lockin_lines(self, state: dict[str, dict], width: int) -> list[list[tuple[str, str]]]:
+    def _lockin_lines(
+        self, state: dict[str, dict], width: int, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
         return rows.lockin_rows(self.app.lang, self.readings, state, width)
+
+    def _generator_lines(
+        self, state: dict[str, dict], width: int | None = None, budget: int | None = None
+    ) -> list[list[tuple[str, str]]]:
+        return []  # the fields below are the display: ``Frequency 1.0000 kHz`` says it all
 
     def _generic_lines(self, state: dict[str, dict], width: int | None = None) -> list[list[tuple[str, str]]]:
         return rows.generic_rows(self.app.lang, state, width)
@@ -500,23 +512,25 @@ class InstrumentScreen(ControlEditingScreen):
         app: Any = self.app
         return rows.read_away(app.lang, app.store.events, queue, app.lines, self.instrument_name)
 
+    # The channel rows by the category registry's row kind (#1384): one lookup instead of a
+    # chain; a kind not in the map falls through to the panel or generic rows below.
+    _CHANNEL_LINES: ClassVar = {
+        "smu": _smu_lines,
+        "generator": _generator_lines,
+        "spectrum": _spectrum_lines,
+        "lockin": _lockin_lines,
+        "rf": _rf_lines,
+        "load": _load_lines,
+    }
+
     def _channel_lines(
         self, template: str, channel: int | None, width: int, budget: int | None = None
     ) -> list[list[tuple[str, str]]]:
         info = self.info
         state = {sv["path"]: sv for sv in info.get("state", [])}
-        if template == "smu":
-            return self._smu_lines(state)
-        if template == "function_generator":
-            return []  # the fields below are the display: ``Frequency 1.0000 kHz`` says it all
-        if template == "spectrum_analyzer":
-            return self._spectrum_lines(state, width, budget)
-        if template == "lockin":
-            return self._lockin_lines(state, width)
-        if template == "rf_generator":
-            return self._rf_lines(state, width, budget)
-        if template == "electronic_load":
-            return self._load_lines(state, width)
+        lines = self._CHANNEL_LINES.get(categories.get(template).screen)
+        if lines is not None:
+            return lines(self, state, width, budget)
         if (info.get("display") or {}).get("panel"):
             return self._panel_lines(width, budget)
         return self._readings_lines(width) + self._generic_lines(state, width)

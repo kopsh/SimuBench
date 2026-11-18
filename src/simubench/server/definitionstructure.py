@@ -10,16 +10,26 @@ only what differs from what it inherits. A list (components, a wiring list) that
 inherited one is left out of the file, so it stays inherited; a different one replaces it whole
 (D59: lists replace). A panel-port table is a mapping, merged key by key, so a port the parent
 brings and the new structure drops is written as ``null`` (D59's deletion marker). Settings merge
-the same way, by setting and then by field; the commands are one list."""
+the same way, by setting and then by field; the commands are one list.
+
+JSON has no infinity (a setting's ``default: -.inf``, a ``special`` keyword's value, a load of
+``inf``): the structure spells a non-finite number the one way the interface layer does, ``"INF"``,
+``"-INF"`` or ``"NAN"`` (:mod:`simubench.jsonsafe`, D60), and the write back reads those spellings
+as the numbers they are. Without that a non-finite value reached the client as ``null`` and came
+back as D59's deletion marker, silently dropping it from the definition (#P0, the UXR1104B copy
+lost ``display.persistence``'s default and its ``MINimum``/``INFinite`` keywords)."""
 
 from __future__ import annotations
 
 import copy
 import json
+import math
 from pathlib import Path
 from typing import Any, Literal
 
-from ..library.loader import layered_definition_data
+from ..errors import Invalid
+from ..jsonsafe import as_number, spelling
+from ..library.loader import OVERRIDES, LayerError, apply_command_overrides, layered_definition_data
 from ..models import api as M
 
 StructureKey = Literal[
@@ -41,7 +51,46 @@ _WIRES = ("instrument", "channel")
 _PORTS = ("instrument", "channel")
 
 
-def _layered(data: dict[str, Any], source: Path) -> dict[str, Any]:
+def spelled(value: Any) -> Any:
+    """``value`` with every non-finite float spelled ``"INF"``/``"-INF"``/``"NAN"`` (D60), through
+    dicts and lists, so it survives JSON."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return spelling(value)
+    if isinstance(value, dict):
+        return {k: spelled(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [spelled(v) for v in value]
+    return value
+
+
+def _unspelled(value: Any) -> Any:
+    """The reverse of :func:`spelled`: ``"INF"``/``"-INF"``/``"NAN"`` back as floats."""
+    if isinstance(value, str):
+        return as_number(value)
+    if isinstance(value, dict):
+        return {k: _unspelled(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_unspelled(v) for v in value]
+    return value
+
+
+#: The fields of a numeric setting that hold numbers (``special`` maps keywords to numbers).
+_NUMBER_FIELDS = ("min", "max", "default", "step", "special")
+
+
+def _numbers_read(settings: dict[str, Any]) -> dict[str, Any]:
+    """Settings as the client sent them, with the spelled infinities of a numeric setting's number
+    fields read back as floats; text settings keep a value that happens to read ``INF``."""
+    out = {}
+    for name, spec in settings.items():
+        if isinstance(spec, dict) and spec.get("type", "float") in ("float", "int"):
+            spec = {k: _unspelled(v) if k in _NUMBER_FIELDS else v for k, v in spec.items()}
+        out[name] = spec
+    return out
+
+
+def layered(data: dict[str, Any], source: Path) -> dict[str, Any]:
+    """``data`` as it runs: layered over what it extends (the file alone when that is broken)."""
     try:
         return layered_definition_data(copy.deepcopy(data), source)
     except ValueError:  # a broken extends: the file alone (its diagnostics say why)
@@ -101,22 +150,22 @@ def _structure_of(data: dict[str, Any]) -> dict[str, Any]:
 
 def _inherited_data(data: dict[str, Any], source: Path) -> dict[str, Any]:
     """What the definition would run without its own structure items: the layers below it."""
-    rest = {k: v for k, v in data.items() if k not in STRUCTURE_KEYS}
+    rest = {k: v for k, v in data.items() if k not in STRUCTURE_KEYS and k != OVERRIDES}
     if "extends" not in rest:
         return {}
-    return _layered(rest, source)
+    return layered(rest, source)
 
 
 def structure(doc: M.DefinitionDocument, source: Path) -> M.DefinitionStructure:
     """The effective structure of a definition document read from ``source``."""
-    layered = _layered(doc.data, source)
+    effective = layered(doc.data, source)
     inherited = _inherited_data(doc.data, source)
     below = _structure_of(inherited)
     empty = _structure_of({})
     from_parent: list[StructureKey] = [
         key for key in STRUCTURE_KEYS if key not in doc.data and below[key] != empty[key]
     ]
-    channels = _mapping(layered.get("channels"))
+    channels = _mapping(effective.get("channels"))
     count = channels.get("count", 1)
     return M.DefinitionStructure(
         id=doc.id,
@@ -127,12 +176,14 @@ def structure(doc: M.DefinitionDocument, source: Path) -> M.DefinitionStructure:
         inherited=from_parent,
         ok=doc.ok,
         diagnostics=doc.diagnostics,
-        **_structure_of(layered),
+        **_structure_of(spelled(effective)),
     )
 
 
 def _as_json(value: Any) -> Any:
-    return json.loads(json.dumps(value, default=str))
+    """``value`` as JSON carries it, non-finite numbers spelled (D60): an infinity the client
+    sends back as ``"INF"`` compares equal to the ``inf`` the definition holds."""
+    return json.loads(json.dumps(spelled(value), default=str))
 
 
 def _restore(new: Any, old: Any) -> Any:
@@ -205,10 +256,13 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
     inherits is written (the module docstring has the rules); every other key is kept as it is."""
     out = copy.deepcopy(data)
     below = _inherited_data(data, source)
-    now = _layered(data, source)
+    now = layered(data, source)
     for key in ("components", "channel_components"):
         items = _restore_items(
-            _component_data(getattr(new, key)),
+            [
+                {**c, "params": _unspelled(c["params"])} if "params" in c else c
+                for c in _component_data(getattr(new, key))
+            ],
             _commands(now.get(key)),
             lambda c: (c.get("name"), c.get("type")),
         )
@@ -218,9 +272,9 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
         _commands(now.get("commands")),
         lambda c: (c.get("header"), c.get("state"), c.get("op")),
     )
-    _set_list(out, "commands", commands, _commands(below.get("commands")))
+    _set_commands(out, commands, _commands(below.get("commands")))
     for key in _SETTINGS:
-        settings = _restore(getattr(new, key), _settings(now.get(key)))
+        settings = _restore(_numbers_read(getattr(new, key)), _settings(now.get(key)))
         _set_or_drop(out, key, _diff(settings, _settings(below.get(key))))
     for key, values in (
         ("wiring", {k: [list(w) for w in getattr(new.wiring, k)] for k in _WIRES}),
@@ -240,6 +294,136 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
                 own.pop(sub, None)
         _set_or_drop(out, key, own)
     return out
+
+
+class StructureNotKept(Invalid):
+    """The file the write back composed would not run the structure the client sent: something
+    would be lost or changed on the way (a value JSON cannot carry, a layering rule). Nothing is
+    saved; the message names the items (#P0)."""
+
+
+def _comparable(value: Any) -> Any:
+    """A structure item as JSON carries it, empty values left out on both sides: the write back
+    omits an empty field (``params: {}``, ``options: []``) and the read fills it in again."""
+    value = _as_json(_plain(value))
+    if isinstance(value, dict):
+        out = {k: _comparable(v) for k, v in value.items()}
+        return {k: v for k, v in out.items() if v not in (None, {}, [])}
+    if isinstance(value, list):
+        return [_comparable(v) for v in value]
+    return value
+
+
+def _plain(value: Any) -> Any:
+    if hasattr(value, "model_dump"):
+        return value.model_dump(exclude_none=True)
+    if isinstance(value, dict):
+        return {k: _plain(v) for k, v in value.items()}
+    if isinstance(value, list | tuple):
+        return [_plain(v) for v in value]
+    return value
+
+
+def _null_paths(new: M.StructureUpdate) -> list[str]:
+    """Where the client's structure holds a ``null`` value: inside a setting, a component's
+    parameters or a command. The structure is complete — a removed field is simply not sent, and
+    the server writes D59's deletion marker itself — so a ``null`` there can only be a value the
+    JSON did not carry (#P0: infinities arrived as null and were saved as deletions)."""
+    out: list[str] = []
+
+    def walk(value: Any, where: str) -> None:
+        if value is None:
+            out.append(where)
+        elif isinstance(value, dict):
+            for k, v in value.items():
+                walk(v, f"{where}/{k}")
+        elif isinstance(value, list):
+            for i, v in enumerate(value):
+                walk(v, f"{where}/{i}")
+
+    for key in _SETTINGS:
+        walk(getattr(new, key), key)
+    for key in _LISTS:
+        for c in getattr(new, key):
+            walk(c.params, f"{key}/{c.name}/params")
+    for i, cmd in enumerate(new.commands):
+        walk(cmd, f"commands/{i}")
+    return out
+
+
+def check_kept(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> None:
+    """The write back's own invariant: ``data`` (the file about to be saved), read the way every
+    reader reads it — layered over what it extends — runs exactly the structure ``new`` asked for.
+    Raises :class:`StructureNotKept` naming the items that would come out different."""
+    nulls = _null_paths(new)
+    if nulls:
+        raise StructureNotKept(
+            '没有保存：结构里不能有 null（JSON 带不了的值，如无穷大，要写成 "INF"/"-INF"；'
+            "删除一项就不发送它）：" + "、".join(nulls[:5])
+        )
+    effective = _structure_of(spelled(layered(data, source)))
+    wanted = {
+        key: _comparable(getattr(new, key))
+        if key not in _SETTINGS
+        else _comparable(_numbers_read(getattr(new, key)))
+        for key in STRUCTURE_KEYS
+    }
+    wrong = []
+    for key in STRUCTURE_KEYS:
+        got, want = _comparable(effective[key]), wanted[key]
+        if got != want:
+            names = (
+                sorted(k for k in set(got) | set(want) if got.get(k) != want.get(k))
+                if isinstance(got, dict) and isinstance(want, dict)
+                else []
+            )
+            wrong.append(f"{key}" + (f"（{', '.join(map(str, names[:5]))}）" if names else ""))
+    if wrong:
+        raise StructureNotKept(
+            "没有保存：写进文件后，这些项与要保存的不一致，保存会改变或丢失它们：" + "；".join(wrong)
+        )
+
+
+def _overrides(commands: list[dict[str, Any]], below: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """``commands`` as ``command_overrides`` over the inherited ``below`` (D59): a changed or new
+    command by its header, a dropped one as null. None when that cannot say it — a header twice
+    on either side, or an order the overrides do not produce (only appending is)."""
+    headers = [c.get("header") for c in commands]
+    if None in headers or len(set(headers)) != len(headers):
+        return None
+    old = {str(c.get("header")): c for c in below}
+    out: dict[str, Any] = {}
+    for c in commands:
+        h = c["header"]
+        if h not in old or _as_json(old[h]) != _as_json(c):
+            out[h] = {k: v for k, v in c.items() if k != "header"}
+    kept = set(headers)
+    for h in old:
+        if h not in kept:
+            out[h] = None
+    try:
+        if _as_json(apply_command_overrides(below, out)) != _as_json(commands):
+            return None
+    except LayerError:
+        return None
+    return out
+
+
+def _set_commands(out: dict[str, Any], commands: list[dict[str, Any]], below: list[dict[str, Any]]) -> None:
+    """The commands into the file: a file that writes its own list keeps doing so (D59: a list
+    replaces); a copy that inherits its table gets only the commands it changes, as
+    ``command_overrides``, so one command added in the Web is one entry and later fixes of the
+    parent's other commands still reach it."""
+    if "commands" not in out and below:
+        overrides = _overrides(commands, below)
+        if overrides is not None:
+            if overrides:
+                out[OVERRIDES] = overrides
+            else:
+                out.pop(OVERRIDES, None)
+            return
+    out.pop(OVERRIDES, None)
+    _set_list(out, "commands", commands, below)
 
 
 def _set_list(out: dict[str, Any], key: str, items: list[Any], below: list[Any]) -> None:

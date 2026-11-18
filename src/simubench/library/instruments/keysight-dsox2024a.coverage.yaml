@@ -723,7 +723,7 @@ sections:
     note: 'the first positive pulse''s width at the middle level (#248); query only'
   - header: :MEASure:RESults
     level: implemented
-    note: 'the screen list, oldest first: <name>(<channel>),current,min,max,mean,std dev,count per measurement; a measurement command without ? installs one, up to 4 (a fifth drops the oldest). The label wording and :MEASure:STATistics are not modeled (the statistics are always on) (#373)'
+    note: 'the screen list, oldest first: <name>(<channel>),current,min,max,mean,std dev,count per measurement (std dev: the sample standard deviation, n − 1 — the guide gives no formula, #1385); a measurement command without ? installs one, up to 4 (a fifth drops the oldest). The label wording and :MEASure:STATistics are not modeled (the statistics are always on) (#373)'
   - header: :MEASure:RISetime
     level: implemented
     note: '10 %–90 % of the first complete rising edge on the record (#248); query only'

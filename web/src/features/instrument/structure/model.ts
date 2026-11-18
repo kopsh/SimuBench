@@ -645,13 +645,29 @@ export const LIBRARY_GROUPS = [
 export type LibraryGroup = (typeof LIBRARY_GROUPS)[number];
 
 /** The internal components matching `query` (type, names, descriptions in both languages), by family. */
-export function libraryGroups(docs: readonly ComponentDoc[], query: string): { group: LibraryGroup; items: ComponentDoc[] }[] {
+/** The library's sections (#1214, P2-4): with the definition's class, the types its class's
+ * built-in models use come first as their own section (`own`); the other types follow in their
+ * families, and are left out (`hidden` counts them) unless `all` or a search asks for them. */
+export function libraryGroups(
+  docs: readonly ComponentDoc[],
+  query: string,
+  cls: string | null = null,
+  all = true,
+): { groups: { group: LibraryGroup | "own"; items: ComponentDoc[] }[]; hidden: number } {
   const q = query.trim().toLowerCase();
   const shown = docs.filter((d) => d.category === "internal" && (!q || typeSearchText(d).some((f) => f.toLowerCase().includes(q))));
-  return LIBRARY_GROUPS.map((group) => ({
-    group,
-    items: shown.filter((d) => (d.group ?? "other") === group),
-  })).filter((g) => g.items.length > 0);
+  const isOwn = (d: ComponentDoc) => cls !== null && (d.classes ?? []).includes(cls);
+  const own = shown.filter(isOwn);
+  const rest = shown.filter((d) => !isOwn(d));
+  const open = all || q !== "" || cls === null;
+  const groups: { group: LibraryGroup | "own"; items: ComponentDoc[] }[] = own.length ? [{ group: "own", items: own }] : [];
+  if (open) {
+    for (const group of LIBRARY_GROUPS) {
+      const items = rest.filter((d) => (d.group ?? "other") === group);
+      if (items.length) groups.push({ group, items });
+    }
+  }
+  return { groups, hidden: open ? 0 : rest.length };
 }
 
 /** A component type's ports in one line: inputs → outputs (`in → out`; a pattern as `in1…`). */

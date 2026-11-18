@@ -125,18 +125,77 @@ def _extends_chain(path: Path, data: dict) -> list[tuple[Path, float]]:
         current, current_data = parent, _raw_definition(parent, parent_mtime)
 
 
+class LayerError(ValueError):
+    """A definition that cannot be layered: a missing or cyclic ``extends`` (E-DEF-EXTENDS), or a
+    ``command_overrides`` entry that names no single inherited command (E-DEF-COMMAND-OVERRIDE).
+    ``code`` and ``pointer`` say where, for the diagnostics."""
+
+    def __init__(self, message: str, code: str = "E-DEF-EXTENDS", pointer: str = "/extends") -> None:
+        super().__init__(message)
+        self.code = code
+        self.pointer = pointer
+
+
+#: The per-command layer of a definition (D59): ``{header: whole command | null}``.
+OVERRIDES = "command_overrides"
+
+
+def _ptr_part(text: str) -> str:
+    return text.replace("~", "~0").replace("/", "~1")
+
+
+def apply_command_overrides(commands: list, overrides: dict) -> list:
+    """``commands`` with ``overrides`` applied, each entry naming one command by its header exactly
+    as written: a command replaces the command with that header *whole* (no field merge — D59's
+    reason for replacing lists), one no command has is appended, ``null`` removes it. A header the
+    list holds more than once, or a removal of a header it does not hold, raises :class:`LayerError`."""
+    out = list(commands)
+    for header, command in overrides.items():
+        at = [i for i, c in enumerate(out) if isinstance(c, dict) and c.get("header") == header]
+        pointer = f"/{OVERRIDES}/{_ptr_part(str(header))}"
+        if len(at) > 1:
+            raise LayerError(
+                f"命令头 {header} 在继承的命令表里出现 {len(at)} 次，按命令头改不出是哪一条；改写整张 commands",
+                "E-DEF-COMMAND-OVERRIDE",
+                pointer,
+            )
+        if command is None:
+            if not at:
+                raise LayerError(
+                    f"继承的命令表里没有命令头 {header}，无从删除", "E-DEF-COMMAND-OVERRIDE", pointer
+                )
+            del out[at[0]]
+            continue
+        if not isinstance(command, dict):
+            raise LayerError(
+                f"{header} 的值应是一条命令（不含 header）或 null", "E-DEF-COMMAND-OVERRIDE", pointer
+            )
+        whole = {"header": header, **{k: v for k, v in command.items() if k != "header"}}
+        if at:
+            out[at[0]] = whole
+        else:
+            out.append(whole)
+    return out
+
+
 def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
     """The definition's data with every layer merged under it (instrument-authoring.md 2.9):
     类别默认 → 父 → 子 — the class's default block lowest, then the ancestors from the far end (the nearest parent over the grandparent),
     the file's own data last. ``errors`` merge by code, everything else by key; lists replace.
 
+    ``command_overrides`` (D59) is set aside before the merge and applied afterwards to the merged
+    ``commands``, layer by layer from the far end — only the layers above the nearest one that
+    writes its own ``commands`` list, since that list replaces everything below it.
+
     The class default serves real models (D42, a `reference`): a table entry replaces the
     engine's "standard text; detail" reply, so a definition without a reference (the ``sb-*``
     validation instruments, a toy) keeps the engine's standard texts as before."""
-    merged = data
+    layers = [data] + [_raw_definition(parent, mtime) for parent, mtime in ancestors]  # child first
+    overrides = [layer.get(OVERRIDES) for layer in layers]
+    merged = {k: v for k, v in data.items() if k != OVERRIDES}
     layered = False
-    for parent, parent_mtime in ancestors:  # nearest parent first: each lower layer goes under
-        merged = deep_merge(_raw_definition(parent, parent_mtime), merged)
+    for raw in layers[1:]:  # nearest parent first: each lower layer goes under
+        merged = deep_merge({k: v for k, v in raw.items() if k != OVERRIDES}, merged)
         layered = True
     if merged.get("reference") is not None:
         base = default_block(merged.get("class"))
@@ -145,7 +204,19 @@ def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
             layered = True
     # ``key: null`` in a child drops what the layers below bring (a dict key, an errors code);
     # dropped only now, so no layer can bring the key back.
-    return drop_deleted(merged) if layered else merged
+    merged = drop_deleted(merged) if layered else merged
+    if any(overrides):
+        top = next((i for i, layer in enumerate(layers) if "commands" in layer), len(layers) - 1)
+        commands = merged.get("commands") or []
+        for own in reversed(overrides[: top + 1]):  # far → near → the file itself
+            if own:
+                if not isinstance(own, dict):
+                    raise LayerError(
+                        f"{OVERRIDES} 应是 命令头 → 命令 的映射", "E-DEF-COMMAND-OVERRIDE", f"/{OVERRIDES}"
+                    )
+                commands = apply_command_overrides(commands, own)
+        merged = {**merged, "commands": commands}
+    return merged
 
 
 def layered_definition_data(data: dict, source: Path) -> dict:
@@ -216,6 +287,16 @@ class DefinitionLibrary:
 
     def __call__(self, def_id: str) -> InstrumentDefinition:
         return self.get(def_id)
+
+    def ancestors(self, def_id: str) -> list[tuple[str, Path]]:
+        """The definitions ``def_id`` extends, nearest first, as (id, file) — resolved the way the
+        loader layers them (D59); empty without ``extends`` or when the chain is broken."""
+        p = self.path(def_id)
+        try:
+            chain = _extends_chain(p, _raw_definition(p, p.stat().st_mtime))
+        except ValueError:
+            return []
+        return [(parent.stem, parent) for parent, _ in chain]
 
     def ids(self) -> list[str]:
         seen: dict[str, None] = {}

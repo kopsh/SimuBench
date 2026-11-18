@@ -13,6 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..library import categories
 from .fmt import braille, fmt
 from .i18n import t
 from .reasons import active_faults
@@ -430,9 +431,9 @@ def _alerts(
     return out
 
 
-def _is_active(state: Mapping[str, dict], template: str | None, screen: Mapping[str, Any] | None) -> bool:
+def _is_active(state: Mapping[str, dict], kind: str, screen: Mapping[str, Any] | None) -> bool:
     """Running or outputting: a scope that is acquiring, or any output switch that is on."""
-    if template == "oscilloscope":
+    if kind == "scope":
         return bool((screen or {}).get("running"))
     return any(bool(sv.get("value")) for path, sv in state.items() if _OUTPUT_PATH.match(path))
 
@@ -459,23 +460,20 @@ def instrument_card(
 ) -> CardData:
     """One instrument's card (tui-screens.md 4.2): a status light, the key readings, the wiring."""
     state = _state_map(info)
-    template = (info.get("display") or {}).get("template")
-    if template == "oscilloscope":
-        rows = scope_rows(info, state, level_of, screen, lang)
-    elif template == "function_generator":
-        rows = generator_rows(info, state, lang)
-    elif template == "smu":
-        rows = smu_rows(info, state, readings, lang)
-    elif template in ("multimeter", "calibrator"):
-        rows = meter_rows(info, readings, lang)
-    else:
-        rows = generic_rows(info, state, lang)
+    kind = categories.get((info.get("display") or {}).get("template")).screen
+    # One lookup by the registry's row kind (#1384); an unknown class falls back to generic rows.
+    rows = {
+        "scope": lambda: scope_rows(info, state, level_of, screen, lang),
+        "generator": lambda: generator_rows(info, state, lang),
+        "smu": lambda: smu_rows(info, state, readings, lang),
+        "meter": lambda: meter_rows(info, readings, lang),
+    }.get(kind, lambda: generic_rows(info, state, lang))()
     lines = [*rows, _wiring_line(info, session, lang), _error_line(info, lang)]
     title: Line = [(info["name"], ""), (f" · {info['model']}", "muted")]
     card = CardData(name=info["name"], title=title, lines=lines)
     card.remote = bool(info.get("remote")) and not info.get("local")
     card.alerts = _alerts(info, readings, faults, lang)
-    glyph, tone = status_light(card, _is_active(state, template, screen))
+    glyph, tone = status_light(card, _is_active(state, kind, screen))
     card.title.insert(0, (glyph + " ", tone))
     return card
 

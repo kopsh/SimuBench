@@ -58,12 +58,23 @@ export function CasesTab({
           {files.data.map((file, i) => (
             <li key={file.path}>
               {/* The manual cases shipped with a built-in model come first, then the workspace's (#1352). */}
-              {(i === 0 || files.data[i - 1].builtin !== file.builtin) && (
+              {/* A copy's inherited cases (its ancestors' shipped ones) form their own group. */}
+              {(i === 0 || caseGroup(files.data[i - 1]) !== caseGroup(file)) && (
                 <div
                   className="bg-muted/40 text-muted-foreground px-3 py-1 text-[10.5px] font-medium"
-                  title={file.builtin ? t("acceptance.builtinCasesHint") : undefined}
+                  title={
+                    file.from_model
+                      ? t("acceptance.inheritedCasesHint", { model: file.from_model })
+                      : file.builtin
+                        ? t("acceptance.builtinCasesHint")
+                        : undefined
+                  }
                 >
-                  {file.builtin ? t("acceptance.builtinCases") : t("acceptance.workspaceCases")}
+                  {file.from_model
+                    ? t("acceptance.inheritedCases", { model: file.from_model })
+                    : file.builtin
+                      ? t("acceptance.builtinCases")
+                      : t("acceptance.workspaceCases")}
                 </div>
               )}
               <button
@@ -150,4 +161,8 @@ export function CasesTab({
       </section>
     </div>
   );
+}
+
+function caseGroup(file: { builtin?: boolean; from_model?: string | null }): string {
+  return file.from_model ? `from:${file.from_model}` : file.builtin ? "builtin" : "workspace";
 }

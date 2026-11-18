@@ -13,6 +13,7 @@ from simubench.library.components.reading_math import (
     apply_math,
     apply_units,
     outside,
+    value_stats,
 )
 from simubench.scpi.errors import ScpiError
 
@@ -196,3 +197,28 @@ def test_switching_the_statistics_on_starts_them_afresh():
     b.process(1.0)
     b.on_state("statistics", "calc.sstatistics.state", False, True)
     assert b.statistics()["count"] == 0
+
+
+def test_value_stats_sdev_is_the_sample_standard_deviation():
+    """One estimator answers to "sdev" on every instrument (#1385): n − 1, as the meters' manuals say."""
+    stats = value_stats([1.0, 2.0, 3.0, 4.0])
+    assert stats == {
+        "count": 4,
+        "mean": 2.5,
+        "minimum": 1.0,
+        "maximum": 4.0,
+        "span": 3.0,
+        "sdev": pytest.approx(math.sqrt(5 / 3)),
+    }
+
+
+def test_value_stats_of_one_value_and_of_none():
+    assert value_stats([7.0])["sdev"] == 0.0  # a single value scatters by nothing
+    assert value_stats([]) == {
+        "count": 0,
+        "mean": 0.0,
+        "minimum": 0.0,
+        "maximum": 0.0,
+        "span": 0.0,
+        "sdev": 0.0,
+    }

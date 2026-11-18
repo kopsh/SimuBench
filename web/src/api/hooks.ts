@@ -7,6 +7,8 @@ import { confirmClients, remoteInstrument } from "@/components/app/ClientsConfir
 import { stateMap } from "@/features/workbench/model";
 import type {
   CaseFile,
+  IdentityUpdate,
+  NewDefinitionRequest,
   DefinitionDocument,
   CaseRunResult,
   DefinitionChangeList,
@@ -148,6 +150,42 @@ export function useCopyDefinition() {
   return useMutation({
     mutationFn: (defId: string) => unwrap(api.POST("/api/definitions/{def_id}/copy", { params: { path: { def_id: defId } } })),
     onSuccess: () => void qc.invalidateQueries({ queryKey: keys.catalog }),
+  });
+}
+
+/** The templates a new instrument can start from (D3 layer 2, P2-5). */
+export function useInstrumentTemplates(enabled = true) {
+  return useQuery({
+    queryKey: ["instrument-templates"],
+    queryFn: () => unwrap(api.GET("/api/instrument-templates")),
+    staleTime: Infinity,
+    enabled,
+  });
+}
+
+/** A new workspace definition from a template's inputs or blank (P2-5). Unsaved inputs come back
+ * with their diagnostics, not as an error. */
+export function useNewDefinition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: NewDefinitionRequest) => unwrap(api.POST("/api/definitions/new", { body })),
+    onSuccess: (r) => {
+      if (r.saved) void qc.invalidateQueries({ queryKey: keys.catalog });
+    },
+  });
+}
+
+/** A workspace definition's maker, model, serial, firmware and *IDN? format (P2-5). */
+export function useSaveIdentity(id: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (body: IdentityUpdate) =>
+      unwrap(api.PUT("/api/definitions/{def_id}/identity", { params: { path: { def_id: id } }, body })),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: keys.definitionDoc(id) });
+      void qc.invalidateQueries({ queryKey: keys.definition(id) });
+      void qc.invalidateQueries({ queryKey: keys.catalog });
+    },
   });
 }
 

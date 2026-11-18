@@ -2429,6 +2429,7 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 209s / 4583 例全过，另两次 317s / 636s（本机重负载期间测，同几分钟内重跑互有 ±，三次共 5 例 unit 预算护栏在满负载下报 0.10–0.61s > 0.1s，全部隔离运行通过，且三次各不相同——#482 记载的负载噪声类）；`--durations=20` 最慢为 UXR 手册用例 28–56s，摘要随 PR 交主会话判断 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
 
+
 ## 网络与通道展开单一推导（Issue 1381）
 
 | 完成条件 | 自检 |
@@ -2437,4 +2438,26 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 附件命名统一运行时名，零回归 | ✅ 校验侧弃用 `wire<i>.acc<k>` 改运行时名 `wire<i>.<type><k>`（engine/nets.py 一处）；运行时名一字未改，internals、运行记录、golden 全部原样通过 |
 | 校验与运行时同源有测试锁 | ✅ `tests/test_nets.py`：同一线束，Session 建出的网与 `nets_of` 的分组逐一相等；`channels.overrides` 只有 settings.py 的 `channel_specs` 一处生效（SettingStore、`_init_ports`、SignalWiring、validate 全部换用） |
 | 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 304.10s、4589 例全过（重启后安静机器所测）；`--durations` 最慢为 UXR 手册用例与 `test_my_templates`（存量，交主会话按 #651 统一判断） |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |
+
+## 仪表类别单源注册表：categories、scriptscan 迁移、Web 类型贯通（Issue 1384）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 新类别落地 ~12 → ~3 | ✅ 前后对照在 PR 正文：改前 = 模板文件 + templates/_load + class_defaults + panels DEDICATED + docs/blocks + component-map + scriptscan CLASS_HINTS + TUI 三处 + web classes.tsx + i18n；改后 = 模板文件、注册表行（library/categories.py）、i18n 标签，其余全部派生或消费注册表 |
+| 完整性测试拦缺行 | ✅ `tests/test_categories.py` 6 例（定义 class 必有行、模板 category 必有行（ast 扫源，import 超 unit 预算）、每行标签键+行种类、panel 与默认面板一一对应、class_defaults 键集 ⊆ 注册表 ids、api Literal 与注册表一致）；Web 漏类 = TS 编译错（删 converter 条目 tsc -b 退出码 2，PR 正文有演示） |
+| 现有类别 UI 零回归 | ✅ 定向测试全绿：test_categories 6、test_panel_layout 43 合跑、scriptscan 系 15 过 1 skip、test_tui_overview_ux 12（含 tui_boot）；web tsc/eslint 过、vitest 362 例、classes.test.ts i18n 对齐保留；TUI 快照/web visual/e2e 由 PR CI 把关 |
+| scriptscan 迁出 engine | ✅ `library/scriptscan.py`（engine/ 原文件删除）；消费者 templates/draft.py、mcp_tools/definitions.py 与 docs/instrument-authoring.md 同步 |
+| 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 291.85s、4589 例全过（重启后安静机器）；`--durations=20` 最慢 test_my_templates 23.6s、UXR 手册用例 19–21s、catalog 类 17–19s（存量，交主会话按 #651 统一判断） |
+| `scripts/check.sh` 通过 | ✅ 退出码 0（web 步骤用 worktree 真装的 node_modules；关机前的 symlink 方案被 pnpm install 拒绝，已弃用） |
+
+## 读数样板第二轮收口：噪声键控单源、统计原语 value_stats（Issue 1385）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 键控不变式一处陈述，四处删自有计数器 | ✅ `Component.noise_when(frame)`（engine/component.py）的 docstring 写不变式；meters/eload/power/smu 换调用、`_script_reads` 删除；`tests/test_component_boilerplate.py` 新守卫 `own_read_counter`（含两条植入行的活性测试），改前的 meters.py 被它点名 3 处 |
+| 重放逐位复现不回归 | ✅ 快层全过（噪声、重放、金测、手册用例原样通过）：每处调用条件与改前相同（只在带噪读数时计数），序号逐值不变 |
+| 统计原语 value_stats | ✅ `reading_math.value_stats()`；reading_math 块、计数器、示波器 `MEAS:RESults?`/`STATistics` 与 `statistics` op 三家换用；`tests/test_reading_math.py` 两例（n−1 的值、一个值与空序列） |
+| ddof 裁决有记录 | ✅ 手册未写：UXR 编程手册（9018-07723）`:MEASure:RESults?`/`:MEASure:STATistics` 只列「std dev」「STDDev」，MAUI 手册只列 `SDEV`/`Sdev`，均无公式 → ddof=1；`tests/test_scope_time_measurements.py` 测量列表流程新增一段：四次重采后 σ 等于所取值的样本标准差、不等于总体标准差（改前代码在此失败：0.00765 = 0.00856·√(4/5)）；DSOX 用例 `tests/models/keysight-dsox2024a/cases.yaml` 注明口径（计数 1 时 σ = 0 不变）；DSOX、UXR1104B 覆盖表 `:MEASure:RESults` 注明 |
+| `ranging.auto_range` 滞回写全 | ✅ docstring：留、升、降（一步到最小可容量程）、无当前量程、超最大量程 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |

@@ -26,7 +26,7 @@ src/simubench/engine/component.py:missing-attribute Object of type `(...) -> OpR
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_fields__` on type `(...) -> OpResult`
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_name__` on type `(...) -> OpResult`
 src/simubench/engine/edit.py:incompatible-attribute-override Invalid override of attribute `op`: Type `Literal["add_dut"]` is not assignable to inherited type `Literal["add_part"]`
-src/simubench/engine/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
+src/simubench/library/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
 src/simubench/engine/session.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
 src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×3
 src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.source_dc_current` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
@@ -143,7 +143,6 @@ src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expect
 src/simubench/server/runs.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any] | None`, found `Any | int`
 src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of type `def list(self) -> Unknown` in a parameter annotation ×2
 src/simubench/server/runs.py:invalid-type-form Invalid subscript of object of type `def list(self) -> Unknown` in a return type annotation
-src/simubench/server/views.py:call-non-callable Object of type `object` is not callable
 src/simubench/server/views.py:invalid-argument-type Argument is incorrect: Expected `Literal["command", "wall", "stepped", "scaled"]`, found `str`
 src/simubench/server/views.py:invalid-argument-type Argument to bound method `Solution.source_contributions` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
 src/simubench/tui/app.py:call-non-callable Object of type `object` is not callable

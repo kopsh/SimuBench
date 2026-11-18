@@ -13,6 +13,7 @@ import inspect
 import io
 import textwrap
 import tokenize
+from functools import lru_cache
 from typing import Any
 
 from ..engine.component import Component, component_types
@@ -67,6 +68,25 @@ GROUPS: dict[str, M.LibraryGroup] = {
 }
 
 
+@lru_cache(maxsize=1)
+def class_usage() -> dict[str, frozenset[str]]:
+    """Component type -> the instrument classes whose built-in models use it (P2-4): read from the
+    shipped library, so a new model or component needs no list kept by hand. A definition that does
+    not load is skipped (its own checks report it)."""
+    from ..library.loader import BUILTIN_DIR, DefinitionLibrary
+
+    lib = DefinitionLibrary([BUILTIN_DIR])
+    usage: dict[str, set[str]] = {}
+    for def_id in lib.ids():
+        try:
+            d = lib(def_id)
+        except Exception:
+            continue
+        for c in [*d.components, *(d.channel_components or [])]:
+            usage.setdefault(c.type, set()).add(d.instrument_class)
+    return {k: frozenset(v) for k, v in usage.items()}
+
+
 def group_of(cls: type[Component]) -> M.LibraryGroup:
     """The library family of a component class, from the module it is defined in."""
     module = cls.__module__
@@ -92,6 +112,7 @@ def component_info(name: str, cls: type[Component]) -> M.ComponentDoc:
             about=cls.about or None,
             about_en=cls.about_en or None,
             group=group_of(cls),
+            classes=sorted(class_usage().get(name, ())),
             doc=inspect.getdoc(cls),
             ports=[
                 M.PortInfo(name=p, direction=s.direction, medium=s.medium, drives=drives_net(cls, s))

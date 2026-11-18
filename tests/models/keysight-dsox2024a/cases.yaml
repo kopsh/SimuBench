@@ -602,6 +602,7 @@ cases:
       - send: ":MEASure:FREQuency CHANnel1"
       - send: ":MEASure:VPP CHANnel1"
       # 行结构与量级:频率 ~1.00xE3、VPP ~2.0xE1(含噪声,#745),统计仍同值、计数 1
+      # σ 取样本标准差(n−1,#1385):编程手册只给统计名不给公式,与计数器、表计同口径;只有一个值时为 0
       - query: ":MEASure:RESults?"
         expect_fields:
           - "FREQuency(1)"

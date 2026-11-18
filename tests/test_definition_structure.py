@@ -129,10 +129,24 @@ def test_build_area_settings_and_commands(tmp_path):
             "out.level": {"type": "float", "unit": "V", "min": -10, "max": 10, "default": 0},
             "sense.nplc": {"label": None},
         }
-        assert on_disk["commands"][-1] == {"header": ":OUTPut:LEVel", "state": "out.level"}
-        assert len(on_disk["commands"]) == len(first["commands"]) + 1
+        # the command table stays the parent's: the new command is one per-command entry (D59)
+        assert "commands" not in on_disk
+        assert on_disk["command_overrides"] == {":OUTPut:LEVel": {"state": "out.level"}}
+        assert len(saved["commands"]) == len(first["commands"]) + 1
         assert "label" not in saved["state"]["sense.nplc"] and saved["state"]["sense.nplc"]["type"] == "float"
-        assert set(saved["inherited"]) == {"wiring", "ports"}  # untouched: still the parent's
+        assert set(saved["inherited"]) == {"wiring", "ports", "commands"}  # still the parent's
+
+        # a changed and a dropped inherited command are entries too; the copy runs the result
+        body = _body(saved)
+        dropped = body["commands"].pop(0)["header"]
+        changed = next(x for x in body["commands"] if x.get("state") == "sense.nplc")
+        changed["header"] = changed["header"]  # same header, a field changed below
+        changed["query"] = False
+        c.put(url, json=body).raise_for_status()
+        on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
+        assert on_disk["command_overrides"][dropped] is None
+        assert on_disk["command_overrides"][changed["header"]]["query"] is False
+        assert len(on_disk["command_overrides"]) == 3
 
         # the copy runs the new command
         sid = c.post(f"/api/try/{my_id}").json()["session_id"]
@@ -140,6 +154,55 @@ def test_build_area_settings_and_commands(tmp_path):
         assert c.post(scpi, json={"command": ":OUTPut:LEVel 2.5"}).status_code == 200
         reply = c.post(scpi, json={"command": ":OUTPut:LEVel?"}).json()
         assert float(reply["response"]) == 2.5
+
+
+def test_build_area_keeps_infinite_values(tmp_path):
+    """JSON has no infinity: the structure spells one "INF"/"-INF" (D60) and the write back reads it
+    as the number, so editing one setting of a UXR1104B copy leaves the inherited
+    ``display.persistence`` (default -inf, keywords MINimum/INFinite) alone instead of writing its
+    infinities back as null deletion markers; an infinity typed in the Web is written as one."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        my_id = c.post("/api/definitions/keysight-uxr1104b/copy").json()["data"]["id"]
+        url = f"/api/definitions/{my_id}/structure"
+        first = c.get(url).json()
+        persistence = first["state"]["display.persistence"]
+        assert persistence["default"] == "-INF"
+        assert persistence["special"] == {"MINimum": "-INF", "INFinite": "INF"}
+
+        # guards: a null inside the structure is refused (it can only be a value JSON lost), and
+        # nothing is saved; the static check names a power-on value the setting refuses
+        lost = _body(first)
+        lost["state"]["display.persistence"]["default"] = None
+        refused = c.put(url, json=lost)
+        assert refused.status_code == 422 and "display.persistence" in refused.json()["detail"]
+        assert c.get(url).json()["sha256"] == first["sha256"]
+        below = _body(first)
+        below["state"]["display.persistence"]["min"] = 1.0
+        below["state"]["display.persistence"]["default"] = 0.5
+        checked = c.put(url, json=below).json()
+        assert [d["pointer"] for d in checked["diagnostics"] if d["code"] == "E-DEF-STATE-INITIAL"] == [
+            "/state/display.persistence/default"
+        ]
+
+        body = _body(checked)
+        body["state"]["display.persistence"] = first["state"]["display.persistence"]
+        body["state"]["timebase.scale"]["min"] = 1e-12
+        body["state"]["probe.limit"] = {"type": "float", "min": 0, "max": "INF", "default": 1}
+        c.put(url, json=body).raise_for_status()
+        on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
+        assert on_disk["state"]["timebase.scale"] == {"min": 1e-12}
+        assert "display.persistence" not in on_disk["state"]
+        assert on_disk["state"]["probe.limit"]["max"] == float("inf")
+
+        sid = c.post(f"/api/try/{my_id}").json()["session_id"]
+        scpi = f"/api/try/{sid}/scpi"
+        assert c.post(scpi, json={"command": ":DISPlay:PERSistence?"}).json()["response"] == "MINimum"
+        reply = c.post(scpi, json={"command": ":DISPlay:PERSistence INFinite"}).json()
+        assert reply["errors"] == []
+        assert c.post(scpi, json={"command": ":TIMebase:SCALe 2e-12"}).json()["errors"] == []
 
 
 def test_build_area_layout_is_kept_beside_the_definition(tmp_path):
@@ -161,3 +224,117 @@ def test_build_area_layout_is_kept_beside_the_definition(tmp_path):
         (tmp_path / "instruments" / f"{my_id}.layout.json").write_text("{not json", encoding="utf-8")
         assert c.get(url).json() == {"positions": {}}
         assert c.get(f"/api/definitions/{my_id}").status_code == 200  # the loader ignores the file
+
+
+def test_copy_history_reads_what_the_instrument_runs(tmp_path):
+    """A copy's versions are described after layering (extends merged): its creation says only what
+    it is based on, a changed inherited limit reads old → new, and a command added in the Web is
+    one item even though the file now holds the whole command list (D59)."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        my_id = c.post("/api/definitions/keysight-34465a/copy").json()["data"]["id"]
+        url = f"/api/definitions/{my_id}/structure"
+        body = _body(c.get(url).json())
+        old_max = body["state"]["sense.nplc"]["max"]
+        body["state"]["sense.nplc"]["max"] = 10
+        body = _body(c.put(url, json=body).json())
+        body["commands"].append({"header": ":SYSTem:FAN", "state": "sense.nplc"})
+        c.put(url, json=body).raise_for_status()
+
+        def items(version: dict) -> list[tuple]:
+            return [
+                (x["kind"], x["action"], x["target"], x["detail"], x["old"], x["new"])
+                for x in version["changes"]
+            ]
+
+        added, limit, created = c.get(f"/api/definitions/{my_id}/history").json()
+        assert items(created) == [("extends", "added", "extends", None, None, "keysight-34465a")]
+        assert items(limit) == [("state", "changed", "sense.nplc", "max", old_max, 10)]
+        assert items(added) == [("command", "added", ":SYSTem:FAN", None, None, None)]
+
+
+def test_a_new_instrument_from_a_template_or_blank_and_its_identity(tmp_path):
+    """P2-5: the Web starts an instrument from a template's inputs (judged by the template's own
+    schema and checks; an error saves nothing, a warning comes with the saved definition) or blank,
+    refuses a taken id, and edits identity — on a copy only what differs from the parent."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        listed = {t["id"]: t for t in c.get("/api/instrument-templates").json()}
+        scope = listed["oscilloscope"]
+        assert scope["schema"]["properties"]["identity"]["title_en"] == "Identity"
+        inputs = copy.deepcopy(scope["example"])
+        inputs["identity"] |= {"manufacturer": "Zhiyuan", "model": "ZY-DSO3104"}
+        wrong = copy.deepcopy(inputs)
+        wrong["vertical"]["table"][1]["v_div"] = 0.001
+        refused = c.post(
+            "/api/definitions/new",
+            json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": wrong},
+        ).json()
+        assert refused["saved"] is False and not (tmp_path / "instruments" / "zy.yaml").exists()
+        assert [d["pointer"] for d in refused["diagnostics"]] == ["/template/inputs/vertical/table/1/v_div"]
+        inputs["adc"]["bits"] = 12
+        made = c.post(
+            "/api/definitions/new",
+            json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs},
+        ).json()
+        assert made["saved"] and made["document"]["ok"]
+        assert [d["code"] for d in made["diagnostics"]] == ["W-TPL-ADC-CODES"]
+        assert (
+            c.post(
+                "/api/definitions/new",
+                json={"definition_id": "zy", "template_id": "oscilloscope", "inputs": inputs},
+            ).status_code
+            == 409
+        )
+        assert (
+            c.post(
+                "/api/definitions/new",
+                json={
+                    "definition_id": "keysight-34465a",
+                    "instrument_class": "multimeter",
+                    "manufacturer": "A",
+                    "model": "B",
+                },
+            ).status_code
+            == 409
+        )
+        blank = c.post(
+            "/api/definitions/new",
+            json={
+                "definition_id": "acme-dmm",
+                "instrument_class": "multimeter",
+                "manufacturer": "Acme",
+                "model": "DM-1",
+            },
+        ).json()
+        assert blank["saved"] and blank["document"]["data"]["class"] == "multimeter"
+
+        my_id = c.post("/api/definitions/keysight-uxr1104b/copy").json()["data"]["id"]
+        sha = c.get(f"/api/definitions/{my_id}/document").json()["sha256"]
+        saved = c.put(
+            f"/api/definitions/{my_id}/identity",
+            json={
+                "base_sha256": sha,
+                "manufacturer": "Keysight Technologies",
+                "serial": "MY65000123",
+                "firmware": "11.90.00001",
+            },
+        ).json()
+        on_disk = yaml.safe_load((tmp_path / "instruments" / f"{my_id}.yaml").read_text(encoding="utf-8"))
+        assert on_disk == {
+            "schema": "simubench.instrument/1",
+            "id": my_id,
+            "extends": "keysight-uxr1104b",
+            "identity": {"serial": "MY65000123", "firmware": "11.90.00001"},
+        }
+        assert [(x["kind"], x["detail"], x["new"]) for x in saved["changes"]] == [
+            ("identity", "firmware", "11.90.00001"),
+            ("identity", "serial", "MY65000123"),
+        ]
+        sid = c.post(f"/api/try/{my_id}").json()["session_id"]
+        idn = c.post(f"/api/try/{sid}/scpi", json={"command": "*IDN?"}).json()["response"]
+        assert idn == "Keysight Technologies,UXR1104B,MY65000123,11.90.00001"

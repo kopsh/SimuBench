@@ -697,6 +697,22 @@ class Component:
     # ---- reading noise (#746) --------------------------------------------------------------------
     #: Counts the frames the Web panel took of this component's readings (see :meth:`panel_frame`).
     _panel_frames = 0
+    #: Counts the scripted readings of this component that drew noise (see :meth:`noise_when`).
+    _script_reads = 0
+
+    def noise_when(self, frame: int | None) -> tuple[str, int]:
+        """The instant a reading's noise is keyed on (D32, #746): the Web panel's own ``frame``, or
+        for a script the sequence number of this component's scripted noisy readings.
+
+        Why a sequence and not virtual time: a command that takes no virtual time (``MEAS?`` on a
+        meter, a load's or a supply's ``MEAS:VOLT?``) would otherwise read the same value twice.
+        The sequence moves only with the script's own reads, so a replay of the same commands
+        reproduces every value bit for bit, and the panel's frames never move what a script sees.
+        Call it once per reading, and only when the reading draws noise."""
+        if frame is not None:
+            return ("panel", frame)
+        self._script_reads += 1
+        return ("script", self._script_reads)
 
     def noise_sample(self, sigma: float, stream: str, *key: object) -> float:
         """One normal sample of rms ``sigma`` that is a pure function of (seed, this component,

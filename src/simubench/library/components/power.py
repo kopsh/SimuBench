@@ -383,18 +383,13 @@ class SupplyReadback(Component):
     def _output(self) -> PowerOutput:
         return self.ref("output")  # type: ignore[return-value]
 
-    _script_reads = 0
-
     def _measured(self, frame: int | None = None) -> tuple[float, float]:
         """The V/I the channel reports, the reading noise (``noise``, an absolute rms per quantity)
-        added after the solve (#750): a script reading keys on the read sequence, the Web panel's
-        on its own frame (D32), so neither moves the other's noise. Power reads the noised V·I."""
+        added after the solve (#750), keyed by :meth:`Component.noise_when`. Power reads the noised V·I."""
         v, i = self._output().measured()
         if not isinstance(self.param("noise"), dict):
             return v, i
-        if frame is None:
-            self._script_reads += 1
-        when = ("panel", frame) if frame is not None else ("script", self._script_reads)
+        when = self.noise_when(frame)
         v += self.noise_sample(self.noise_rms(None, 0.0, "voltage"), "reading", "VOLTage", *when)
         i += self.noise_sample(self.noise_rms(None, 0.0, "current"), "reading", "CURRent", *when)
         return v, i
