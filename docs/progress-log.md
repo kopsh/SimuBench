@@ -2704,4 +2704,4 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | stop 语义锁（验收） | ✅ `tests/test_services.py::test_stopping_an_unknown_session_is_a_key_error_not_a_silent_success` 改写为直锁 `manager.stop("nope")` 抛 `KeyError`（#936 契约住进 manager，#1485）；`test_starting_a_bench_outside_the_workspace_is_a_domain_error` 同改直锁 manager.start |
 | 绕行守卫（验收） | ✅ `tests/test_services.py::test_agent_seams_drive_sessions_only_through_the_manager`：AST 扫 mcp_tools/*.py + assistant/tools.py + assistant/service.py——起停会话的调用只许点名 manager（receiver 以 manager 结尾），无 `.session.close()` 手拆（issue 的守卫句「agent 缝不再直调 manager.start/stop」按实现落形：处置选了删除转发模块，manager 方法即唯一路，守卫锁「只此一条路」） |
 | 文档 | ✅ decisions.md D76（投影清单补全 + `builtin_cases_file`→`Invalid`）与 D77（生命周期契约收进 manager）、progress-log 本节 |
-| check.sh | ✅ 全绿（fast 套件 4774 过、web 371 过；ty 基线零新增；新增测最贵 0.5 s，本机全量 pytest 192 s，量级与基线相当） |
+| check.sh | ✅ 全绿（fast 套件 4774 过、web 371 过；ty 基线零新增；新增测最贵 0.5 s；终树上本机 pytest 步 225 s、check.sh 全程 ~5:13，量级与基线相当。中途一次间歇红是新测自带的固定 HiSLIP 端口 4880 并行相撞，已改 hislip_port=None 并三次连跑验证） |
