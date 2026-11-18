@@ -27,6 +27,8 @@ _LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0
 
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
     """Snap ``value`` to the nearest rung on a log scale."""
+    if not math.isfinite(value):  # NaN/INF have no rung; the range check refuses them (#1450)
+        return value
     if value <= 0:
         return lo if lo is not None else value
     if isinstance(ladder, list):
@@ -59,9 +61,11 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
             return v
         if spec.ladder is not None:
             v = snap_ladder(v, spec.ladder, spec.min, spec.max)
+        if not math.isfinite(v):  # NaN or infinity is outside every range (#1450)
+            raise ScpiError(-222)
         # The relative tolerance widens the range on both signs (#407: a minimum of -5 V must
         # accept -5; min * (1 - 1e-12) would move a negative bound inwards).
-        if math.isnan(v) or (spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300):
+        if spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300:
             raise ScpiError(-222)
         if spec.max is not None and v > spec.max + abs(spec.max) * 1e-12 + 1e-300:
             raise ScpiError(-222)

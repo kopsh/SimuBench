@@ -65,11 +65,20 @@ def _scan(data: bytes, i: int, stop: bytes) -> int:
                     depth -= 1
                 i += 1
             continue
-        if c == b"#" and i + 1 < n and data[i + 1 : i + 2].isdigit():
+        if c == b"#":
+            # IEEE 488.2 7.7.6: `#` starts a definite-length block, so anything else after it is
+            # malformed block data -- never a Python exception (#1449).
+            if i + 1 >= n or not data[i + 1 : i + 2].isdigit():
+                raise ScpiError(-161, "invalid block data")
             nd = int(data[i + 1 : i + 2])
             if nd == 0:  # indefinite block runs to the end of the message
                 return n
-            length = int(data[i + 2 : i + 2 + nd] or b"0")
+            field = data[i + 2 : i + 2 + nd]
+            if len(field) != nd or not field.isdigit():
+                raise ScpiError(-161, "invalid block data")
+            length = int(field)
+            if i + 2 + nd + length > n:  # the block says more bytes than the message holds
+                raise ScpiError(-161, "invalid block data")
             i = i + 2 + nd + length
             continue
         if c in stop:

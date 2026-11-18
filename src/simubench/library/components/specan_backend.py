@@ -458,7 +458,8 @@ class SpecanRbw(Component):
     def op_coupled_rbw(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
         if query:
             return OpResult(self.reply_number(self.rbw(), 10))
-        assert value is not None
+        if value is None:
+            raise ScpiError(-109)
         if not float(self.param("rbw_min")) <= value <= float(self.param("rbw_max")):
             raise ScpiError(-222)
         assert self.owner is not None
