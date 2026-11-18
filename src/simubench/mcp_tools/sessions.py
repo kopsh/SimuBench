@@ -13,7 +13,7 @@ from ..engine.commands import classify
 from ..engine.events import project
 from ..engine.record import jsonable
 from ..models.bench import Fault
-from ..server.errors import FILE_ERRORS
+from ..server.errors import DOMAIN_ERRORS, FILE_ERRORS
 from ..server.manager import ClientsConnected
 from ..server.projections import instrument_state, scpi_payload
 from ..server.services import clock, faults, internal_probe
@@ -57,7 +57,7 @@ def _session_lifecycle_tools(mcp: MCPServer, ctx: McpContext) -> None:
             )
         except ClientsConnected as exc:
             raise force_needed(exc) from None
-        except Exception as exc:
+        except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
         return session_summary(s)
 
@@ -295,6 +295,7 @@ def _fault_clear_and_truth_tools(mcp: MCPServer, ctx: McpContext) -> None:
     def read_asset_register(session_id: str | None = None) -> dict[str, Any]:
         """The bench's virtual calibration register (serials, status, due dates) and its calendar
         date, as a test script's pre-run check would see them."""
+        guard()
         from ..engine.calibration import register_view
 
         s = served(session_id).session

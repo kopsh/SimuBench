@@ -17,7 +17,7 @@ from pydantic import BaseModel
 from ..engine.record import jsonable
 from ..server.benchfiles import BenchFiles
 from ..server.definitionfiles import DefinitionFiles
-from ..server.errors import tool_text
+from ..server.errors import DOMAIN_ERRORS, tool_text
 from ..server.manager import ClientsConnected, ServedSession, SessionManager
 from ..server.projections import scpi_payload  # re-exported for the tool modules
 
@@ -116,7 +116,15 @@ class McpContext:
 
     def fail(self, exc: Exception) -> ToolError:
         """The tool error of a domain error: the tool column of the one table
-        (:mod:`..server.errors`, #936, #1382), the same rows the HTTP routes and the assistant read."""
+        (:mod:`..server.errors`, #936, #1382), the same rows the HTTP routes and the assistant read.
+
+        The calling ``except`` is :data:`DOMAIN_ERRORS`: a bug handed here is refused — it must
+        surface as itself (the SDK reports it, like the HTTP 500 it is), never dressed as a tool
+        text an agent would read as a refusal (#1478)."""
+        if not isinstance(exc, DOMAIN_ERRORS):
+            raise AssertionError(
+                f"{type(exc).__name__} 不是领域错误；只捕 DOMAIN_ERRORS，bug 原样上抛 (#1478)"
+            ) from exc
         return ToolError(tool_text(exc, "mcp"))
 
     def force_needed(self, exc: ClientsConnected) -> ToolError:
