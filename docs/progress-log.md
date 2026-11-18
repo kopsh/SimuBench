@@ -2584,3 +2584,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 触发响应与“采集的模拟带宽”一致 | ✅ Bessel 的 -3 dB 在前端的 `bandwidth`（数据手册 Trigger System：Equal to acquisition analog bandwidth） |
 | 形状的依据 | ✅ 手册未给模拟前端形状；4.0 ps 上升时间与修正后的 113 GHz 砖墙一致（0.45 / fc），所以它说的是修正后的响应；取 4 阶 Bessel 为估计，覆盖表标 ESTIMATE |
 
+## UXR1104B 的存储深度按实例装的选件取值（Issue 1424）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 三种配置的存储深度 | ✅ 选件已能改组件参数（`OptionSpec.params`），不必等 #1007：定义的 `acq.memory_points` 与 `timebase.max_points` 为标配 500 Mpts，01G / 02G 改为 1 / 2 Gpts；`scope_timebase` 的设定深度也受 `max_points` 限制（以前只限手动采样率）；`tests/test_keysight_uxr.py::test_uxr1104b_records_hold_the_memory_its_options_give`：设 2 Gpts、1 ms/div，标配 / 01G / 02G 的 `:WAVeform:POINts?` 为 320 M / 640 M / 1.28 G（32 / 64 / 128 GSa/s），无错误，`:SYSTem:CAPability:ACQuire? MEMory` 与之一致 |
+| 装 02G 的实例与以前相同 | ✅ `tests/test_scope_deep_record.py::test_two_gigapoints_are_acquired_and_read_in_parts_within_a_bounded_memory` 的实例装上 02G 后原样通过；其余金测与手册用例（AUTO 256 kpts，与内存无关）原样通过 |
+| 对 issue 的更正 | ✅ #1420 / #1424 写的“长时基下自动采样率与标配真机不同”不成立：AUTO 取 256 kpts，与内存无关；受影响的是手动深度或手动采样率超过已装内存的情况 |
+| UXR0334B | ✅ 没有存储深度选件，组件已是 500 Mpts，与数据手册一致，不改 |
+| 文档 | ✅ UXR1104B 覆盖表 6 处（`*OPT`、`:ACQuire:POINts`、`TESTLIMITS`、分段、`:ACQuire:SRATe`、`:SYSTem:CAPability`）、定义注释、real-models.md 第 10 节、product-plan |
+

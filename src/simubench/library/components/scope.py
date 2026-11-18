@@ -969,7 +969,8 @@ class ScopeTimebase(Component):
     divided by a power of two, the Infiniium UXR's rates, #602). A ``sample_rate`` above 0 sets the
     rate instead of the points (a manual rate takes precedence over the memory depth, the
     Infiniium guide's :ACQuire:SRATe): rounded up to the next rate of the rule's steps, at most the
-    top rate and at most ``max_points / 10 div``; the record then holds ``rate x 10 div`` points. The trigger sits at the centre, or ``delay``
+    top rate and at most ``max_points / 10 div``; the record then holds ``rate x 10 div`` points.
+    ``max_points`` (the memory the unit has) also caps a set memory depth (#1424). The trigger sits at the centre, or ``delay``
     seconds before it when that is bound. A model with a reference mode setting places it from
     ``reference_mode`` (DELay / POSition) and, in POSition mode, from ``reference_position``
     percent across the record.
@@ -1042,6 +1043,9 @@ class ScopeTimebase(Component):
                 rate = self._step_down(most / window, top, rule)
             return rate
         depth = memory_depth(self.param("points"))
+        most = memory_depth(self.param("max_points") or 0)
+        if most > 0:  # the record holds what the memory has, whatever was asked (#1424)
+            depth = min(depth, most)
         if rule == "fixed":
             return depth / window
         return min(top, self._step_down(depth / window, top, rule))

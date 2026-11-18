@@ -348,6 +348,37 @@ def test_the_probe_compensation_square_keeps_its_phase_and_seed(tmp_path, def_id
     assert np.allclose(half_periods, 1.0 / 1500.0, rtol=1e-2), half_periods
 
 
+@pytest.mark.parametrize(
+    ("options", "memory", "points"),
+    [
+        ([], 500_000_000, 320_000_000),
+        (["01G"], 1_000_000_000, 640_000_000),
+        (["02G"], 2_000_000_000, 1_280_000_000),
+    ],
+    ids=["standard", "01G", "02G"],
+)
+def test_uxr1104b_records_hold_the_memory_its_options_give(options, memory, points):
+    """#1424: the UXR1104B has 500 Mpts per channel, 1 Gpts with option 01G and 2 Gpts with 02G
+    (data sheet 3123-1313). :ACQuire:POINts 2000000000 is taken on every unit (the guide: the
+    actual depth is what :WAVeform:POINts? says); the record holds what the memory has. At
+    1 ms/div (10 ms) the rate is the fastest of 256 GSa/s / 2^n that fits: 32, 64 and 128 GSa/s.
+    Nothing is computed until it is read (#1012), so a deep record costs nothing here."""
+    from simubench.api import open_bench
+    from simubench.library.loader import load_bench
+
+    bench = load_bench(EXAMPLE_BENCH_1104B)
+    bench.instruments["scope"].options = options
+    session = open_bench(bench, clock="command", seed=3, idle="off")
+    try:
+        q = lambda c: (session.scpi("scope", c) or "").strip()  # noqa: E731
+        q(":ACQuire:POINts 2000000000;:TIMebase:SCALe 1E-3;:DIGitize")
+        assert q(":SYSTem:ERRor?") == "0"  # the request is taken
+        assert int(q(":WAVeform:POINts?")) == points
+        assert q(":SYSTem:CAPability:ACQuire? MEMory") == f'"{memory}"'  # and agrees with the record
+    finally:
+        session.close()
+
+
 def test_uxr1104b_reference_input_and_memory_option(tmp_path):
     """UXR1104B (#1092): :TIMebase:REFClock ON locks the sampling clock to a 10 MHz on REF IN within
     the guide's +-20 ppm, and a unit with option 02G reports it in *OPT? and its memory capability."""

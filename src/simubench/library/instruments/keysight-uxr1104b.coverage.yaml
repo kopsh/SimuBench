@@ -31,8 +31,8 @@ sections:
   - header: '*OPT'
     level: implemented
     note: 'The built-in *OPT? answers the bench instance''s options (01G, 02G: the data sheet''s memory depth options,
-      guide table 10), comma-separated; 0 without any. The options change only this reply: the simulated memory is
-      the 2 Gpts option''s either way.'
+      guide table 10), comma-separated; 0 without any. They also set the memory a record holds: 500 Mpts standard,
+      1 / 2 Gpts with 01G / 02G (#1424).'
   - header: '*PSC'
     level: accepted
     note: Saved and read back (1 at power-on, a SimuBench value); the power-on SRQ it controls never happens on
@@ -285,7 +285,8 @@ sections:
       segments, each on its own trigger); PDETect, HRESolution, SEGPdetect and SEGHres are not modeled (-224).'
   - header: :ACQuire:POINts[:ANALog]
     level: implemented
-    note: 'AUTO (SimuBench: 256 kpts) or 16 to 2 Gpts (the 2 Gpts option, as SimuBench assumes); a depth turns
+    note: 'AUTO (SimuBench: 256 kpts) or 16 to 2 Gpts, taken on every unit; the record holds at most the installed
+      memory (500 Mpts standard, 1 / 2 Gpts with option 01G / 02G, #1424); a depth turns
       :ACQuire:POINts:AUTO off, AUTO turns it on; the query answers the depth in use. Records beyond 2^22 points are
       computed when read, in parts (#1012). Without a set sample rate the rate is the fastest of 256 GSa/s
       divided by a power of two that fills the depth over ten divisions.'
@@ -295,8 +296,8 @@ sections:
       Setting a depth turns it OFF, :ACQuire:POINts AUTO turns it ON.'
   - header: :ACQuire:POINts:TESTLIMITS
     level: implemented
-    note: '1,<numeric>16:2000000000: the range :ACQuire:POINts accepts in this definition (2 Gpts, the option SimuBench
-      assumes).'
+    note: '1,<numeric>16:2000000000: the range :ACQuire:POINts accepts in this definition (up to 2 Gpts on every
+      unit; a record holds at most the installed memory, #1424).'
   - header: :ACQuire:REDGe
     level: implemented
     note: OFF (0) only on the UXR-Series (guide); ON is refused (-224).
@@ -312,7 +313,7 @@ sections:
   - header: :ACQuire:SEGMented:COUNt
     level: implemented
     note: 'Segments a :DIGitize takes in :ACQuire:MODE SEGMented, each on its own trigger (scope_acquisition segments,
-      #957); 2 at power-on (a SimuBench value). All segments together hold at most 2 Gpts (#1012).'
+      #957); 2 at power-on (a SimuBench value). All segments together hold at most the installed memory (500 Mpts standard, 1 / 2 Gpts with 01G / 02G; #1012, #1424).'
   - header: :ACQuire:SEGMented:INDex
     level: implemented
     note: The segment transfers and measurements read, from 1; an index past the last acquired segment selects the
@@ -336,10 +337,11 @@ sections:
     blocked_by: C11
   - header: :ACQuire:SRATe[:ANALog]
     level: implemented
-    note: AUTO (the rate follows the memory depth), MAX or <rate> rounded to the next fastest of 256 GSa/s divided
-      by a power of two (the data sheet); a set rate takes precedence over the memory depth (the guide's table)
-      and the record holds rate x 10 div points, at most 2 Gpts (the rate steps down to fit; deep records are computed when read).
-      The query answers the rate in use
+    note: 'AUTO (the rate follows the memory depth), MAX or <rate> rounded to the next fastest of 256 GSa/s divided
+      by a power of two (the data sheet); a set rate takes precedence over the memory depth (the guide''s table)
+      and the record holds rate x 10 div points, at most the installed memory (500 Mpts standard, 1 / 2 Gpts with
+      01G / 02G, #1424; the rate steps down to fit; deep records are computed when read). The query answers the
+      rate in use'
   - header: :ACQuire:SRATe[:ANALog]:AUTO
     level: implemented
     note: 'ON: the rate follows the memory depth and timebase; OFF: the rate :ACQuire:SRATe set (a set rate turns
@@ -4692,7 +4694,7 @@ sections:
     level: implemented
     note: 'Quoted strings from data sheet 3123-1313: HALFchannel "0" (no half-channel mode), MEMory "500000000"
       (500 Mpts standard; "1000000000" / "2000000000" with option 01G / 02G), SRATe "256000000000", BANDwidth "110000000000"
-      (the warranted bandwidth). The simulated memory is the 2 Gpts option''s (#1012).'
+      (the warranted bandwidth). A record holds the same memory (#1424).'
   - header: :SYSTem:CAPability:CHANnel
     level: implemented
     note: 'COUNt: "4".'
