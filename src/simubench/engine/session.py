@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from ..errors import Invalid, Unknown
 from ..models.bench import LIVE_CLOCKS, BenchDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import message_is_query
@@ -87,7 +88,7 @@ class CommandResult:
 
 def _check_scale(scale: float) -> None:
     if not (0 < scale <= MAX_TIME_SCALE) or scale != scale:
-        raise ValueError(f"time scale must be above 0 and at most {MAX_TIME_SCALE:g}, not {scale!r}")
+        raise Invalid(f"time scale must be above 0 and at most {MAX_TIME_SCALE:g}, not {scale!r}")
 
 
 class Session:
@@ -123,7 +124,7 @@ class Session:
         _check_scale(self.time_scale)
         self.idle_mode = bench.run.idle if idle is None else idle
         if self.idle_mode not in ("wall", "sleep", "off"):
-            raise ValueError(f"idle must be wall, sleep or off, not {self.idle_mode!r}")
+            raise Invalid(f"idle must be wall, sleep or off, not {self.idle_mode!r}")
         self.reveal_true_values = bench.run.reveal_true_values
         self.now_ns = 0
         self._lock = threading.RLock()
@@ -675,7 +676,7 @@ class Session:
         try:
             return self.instruments[name]
         except KeyError:
-            raise KeyError(f"no instrument named {name!r}") from None
+            raise Unknown(f"no instrument named {name!r}") from None
 
     def write(self, name: str, data: bytes, client: str = "sdk") -> None:
         """Send a program message to an instrument (action: SCPI)."""
@@ -895,12 +896,12 @@ class Session:
             try:
                 if owner in self.components:
                     if component and component != owner:
-                        raise KeyError(f"{owner} is a part: it has no component {component!r}")
+                        raise Unknown(f"{owner} is a part: it has no component {component!r}")
                     comp = self.components[owner]
                 elif owner in self.instruments and component in self.instruments[owner].components:
                     comp = self.instruments[owner].components[component]
                 else:
-                    raise KeyError(f"no part {owner!r} or component {owner}/{component!r}")
+                    raise Unknown(f"no part {owner!r} or component {owner}/{component!r}")
                 set_override(comp, parameter, value)
                 self.emit(
                     {
@@ -946,7 +947,7 @@ class Session:
     def instrument_files(self, name: str) -> Path:
         """The folder of one instrument's virtual file system: ``<files_root>/<instrument>``."""
         if name not in self.instruments:
-            raise KeyError(name)
+            raise Unknown(name)
         folder = self.files_root() / name
         folder.mkdir(exist_ok=True)
         return folder

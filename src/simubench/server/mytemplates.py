@@ -22,7 +22,7 @@ from typing import Any
 from ..engine.edit import ReplaceInstrument
 from ..models import api as M
 from .definitionfiles import DefinitionFiles
-from .errors import Conflict
+from .errors import Conflict, Invalid, Unknown
 from .history import Source
 
 _CHANNEL_PATH = re.compile(r"ch(\d+)\.(.+)")
@@ -76,13 +76,13 @@ def save_as_template(
     files = definitions.files
     bench = files.read(bench_path)
     if bench.sha256 != base_sha256:
-        raise Conflict(f"{bench_path} changed since it was read", bench.sha256)
+        raise Conflict(f"{bench_path} changed since it was read", bench.sha256, target="bench")
     inst = (bench.data.get("instruments") or {}).get(instrument)
     if not isinstance(inst, dict):
-        raise KeyError(f"没有名为 {instrument!r} 的仪表")
+        raise Unknown(f"没有名为 {instrument!r} 的仪表")
     name = name.strip()
     if not name:
-        raise ValueError("模板需要一个名称")
+        raise Invalid("模板需要一个名称")
     model = str(inst.get("model"))
     data = definitions.expanded(model, bench_path)
     not_folded = fold_state(data, dict(inst.get("state") or {}))

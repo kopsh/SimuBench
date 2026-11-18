@@ -26,6 +26,7 @@ from ..models import api as M
 from ..models.definition import InstrumentDefinition
 from ..scpi.errors import ScpiError
 from .benchfiles import scan
+from .errors import Unknown
 from .internals_links import drivers, influence_edges, selections
 from .internals_links import readings as readings_of
 
@@ -484,7 +485,7 @@ def scope_screen(served: ServedSession, instrument: str, points: int | None = No
     inst = s.instrument(instrument)
     acq = inst.components.get("acq")
     if acq is None or not isinstance(acq, ScreenSource):
-        raise KeyError(f"{instrument} is not an oscilloscope")
+        raise Unknown(f"{instrument} is not an oscilloscope")
     bins = max(2, int(points)) if points else None
     with s.view(settle=(instrument,)):  # nothing else the instrument keeps changes here
         # The screen's redraw counter advances with every read; the block draws frame `frame` —
@@ -540,7 +541,7 @@ def probe(served: ServedSession, net: str, max_lines: int = 16) -> M.NetProbe:
     """Read a net without touching it, and break its signal down by independent source."""
     s = served.session
     if net not in s.nets:
-        raise KeyError(net)
+        raise Unknown(net)
     with s.view():
         sol, emf = s.solution()
         sig = s.net_signal(net).merged()
@@ -601,7 +602,7 @@ def net_levels(served: ServedSession, points: int = 48) -> M.NetLevels:
 def net_waveform(served: ServedSession, net: str, window_s: float, points: int) -> M.NetWaveform:
     s = served.session
     if net not in s.nets:
-        raise KeyError(net)
+        raise Unknown(net)
     with s.view():
         sig = s.net_signal(net)
         dt = window_s / points

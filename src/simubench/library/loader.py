@@ -12,6 +12,7 @@ from pathlib import Path
 
 import yaml
 
+from ..errors import Invalid, Unknown
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from .class_defaults import deep_merge, default_block, drop_deleted
@@ -58,11 +59,21 @@ def load_yaml(text: str) -> object:
     return yaml.load(text, Loader=YamlLoader)  # a SafeLoader subclass: no arbitrary objects
 
 
+#: libyaml's emitter when present: the same text as ``yaml.safe_dump``, about five times faster on a
+#: large definition (#1394).
+_Dumper = getattr(yaml, "CSafeDumper", yaml.SafeDumper)
+
+
+def dump_yaml(data: object) -> str:
+    """The text SimuBench writes a bench or definition file with: keys in order, unicode as is."""
+    return yaml.dump(data, Dumper=_Dumper, allow_unicode=True, sort_keys=False, width=100)
+
+
 def _read_yaml(path: Path) -> dict:
     with path.open(encoding="utf-8") as f:
         data = load_yaml(f.read())
     if not isinstance(data, dict):
-        raise ValueError(f"{path}: expected a mapping at the top level")
+        raise Invalid(f"{path}: expected a mapping at the top level")
     return data
 
 
@@ -89,7 +100,7 @@ def _extends_target(parent_id: str, source: Path) -> Path:
         if p.is_file():
             return p
     known = ", ".join(str(d) for d in [source.parent, *env_definition_dirs(), BUILTIN_DIR])
-    raise ValueError(f"{source}: extends names {parent_id!r}, which is no definition in {known}")
+    raise Invalid(f"{source}: extends names {parent_id!r}, which is no definition in {known}")
 
 
 def _extends_chain(path: Path, data: dict) -> list[tuple[Path, float]]:
@@ -103,11 +114,11 @@ def _extends_chain(path: Path, data: dict) -> list[tuple[Path, float]]:
         if parent_id is None:
             return chain
         if not isinstance(parent_id, str) or not parent_id:
-            raise ValueError(f"{current}: extends must be a definition id (a string)")
+            raise Invalid(f"{current}: extends must be a definition id (a string)")
         parent = _extends_target(parent_id, current)
         if parent in seen:
             ring = " → ".join([str(p) for p, _ in chain[::-1]] + [str(parent)])
-            raise ValueError(f"{path}: extends 成环:{ring}")
+            raise Invalid(f"{path}: extends 成环:{ring}")
         parent_mtime = parent.stat().st_mtime
         chain.append((parent, parent_mtime))
         seen.add(parent)
@@ -195,7 +206,7 @@ class DefinitionLibrary:
             p = d / f"{def_id}.yaml"
             if p.is_file():
                 return p
-        raise KeyError(f"no instrument definition {def_id!r} in {', '.join(str(d) for d in self.dirs)}")
+        raise Unknown(f"no instrument definition {def_id!r} in {', '.join(str(d) for d in self.dirs)}")
 
     def get(self, def_id: str) -> InstrumentDefinition:
         p = self.path(def_id)

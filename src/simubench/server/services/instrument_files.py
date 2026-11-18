@@ -13,6 +13,7 @@ import hashlib
 from ...engine.session import Session
 from ...library.components.files import inside
 from ...models import api as M
+from ..errors import Unknown
 
 
 def listing(session: Session, name: str) -> M.InstrumentFiles:
@@ -39,5 +40,5 @@ def read(session: Session, name: str, path: str) -> bytes:
     if not inside(root, target):
         raise PermissionError(f"{path!r} is not a file of {name}")
     if not target.is_file():
-        raise KeyError(f"{name} has no file {path!r}")
+        raise Unknown(f"{name} has no file {path!r}")
     return target.read_bytes()
