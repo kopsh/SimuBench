@@ -154,7 +154,7 @@ class StatusRegister(Component):
         self._busy = True
         try:
             flags: dict[str, bool] = {
-                "MAV": bool(self.owner._output),
+                "MAV": self.owner.has_output,
                 "ESB": bool(self.owner.esr & self.owner.ese),
                 "IFC": True,
             }

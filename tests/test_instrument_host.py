@@ -2,7 +2,8 @@
 session, named at Instrument construction (D62's roll-call, at the instrument's side), and the
 façade's one-name rule — the collaborators (ops, errs, common) and the registers' state are
 private, the façade attributes (esr, pending, push_error, …) are the only public route, and
-nothing outside engine/ reaches into the privates (the scan below is the guard, as
+nothing outside engine/ reaches into the privates — a private name, a retired double on a hub
+chain, or any ``owner._…`` from a library component (the scan below is the guard, as
 test_component_privacy guards the component seam's side)."""
 
 from __future__ import annotations
@@ -43,6 +44,10 @@ PRIVATE = ("_status", "_ops", "_errs", "_common")
 #: The names an instrument is reached through; ``.ops``/``.errs``/``.common`` on one of them is a
 #: poke at a retired double (the façade has push_error, pending, sample_status, …).
 HUBS = ("inst", "instrument", "owner", "instruments")
+#: A library component holds the instrument as ``owner``: the roll-call's spirit covers it too, so
+#: any ``owner._…`` outside engine/ is a poke at an internals data member (the façade has
+#: has_output, take_output, …).
+OWNER = "owner"
 
 
 def _chain_names(node: ast.expr) -> set[str]:
@@ -62,8 +67,10 @@ def accesses_in(nodes: list[ast.AST]) -> list[tuple[int, str]]:
     for node in nodes:
         if not isinstance(node, ast.Attribute):
             continue
-        retired = node.attr in ("ops", "errs", "common") and _chain_names(node.value) & set(HUBS)
-        if node.attr in PRIVATE or retired:
+        hub = _chain_names(node.value)
+        retired = node.attr in ("ops", "errs", "common") and hub & set(HUBS)
+        owner_private = node.attr.startswith("_") and OWNER in hub
+        if node.attr in PRIVATE or retired or owner_private:
             found.append((node.lineno, f"….{node.attr}"))
     return sorted(found)
 
@@ -87,6 +94,7 @@ def probe(inst, owner, queue, session):
     inst.ops.pending.clear()
     inst._errs._push(1)
     owner.status.esr = 0
+    owner._output.clear()
     session.instruments["x"].common.stb()
     return queue.ops, inst.common.sense_of_humour
 """
@@ -151,6 +159,7 @@ def test_the_guard_sees_a_poke_and_leaves_the_rest():
     hits = [access for _line, access in found]
     assert hits.count("….ops") == 1  # inst.ops; not queue.ops (no hub in its chain)
     assert hits.count("…._errs") == 1
+    assert hits.count("…._output") == 1  # owner._output: a private reached through owner
     assert hits.count("….common") == 2  # inst.common and session.instruments["x"].common
     assert not any("_status" in h for h in hits)  # owner.status.esr: status is the façade's to keep
 
