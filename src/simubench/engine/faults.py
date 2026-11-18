@@ -47,12 +47,8 @@ class FaultState:
     source: str = "api"
     garbled: int = 0
     injected_ns: int = 0
-    # What a parameter fault replaced, so that ending it puts it back.
+    # The parameter a hidden/drift fault acts on; what it replaced lives in ``_Slot``.
     _component: Component | None = field(default=None, repr=False)
-    _had_override: bool = False
-    _previous: Any = None
-    _was_unit_value: bool = False
-    _base: float = 0.0
 
     def describe(self) -> str:
         s = self.spec
@@ -68,11 +64,27 @@ class FaultState:
         return f"{s.kind} {target}{extra}{message}".strip()
 
 
+@dataclass
+class _Slot:
+    """One (component, parameter) that active hidden/drift faults act on: what was there before
+    the first of them started, the base value, and the active faults in start order. The value
+    is always recomputed from this list, so the order faults end in cannot leave a stale value."""
+
+    comp: Component
+    param: str
+    had_override: bool
+    previous: Any
+    was_unit_value: bool
+    base: Any
+    stack: list[FaultState] = field(default_factory=list)
+
+
 class FaultManager:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.faults: dict[str, FaultState] = {}
         self._ids = itertools.count(1)
+        self._slots: dict[tuple[int, str], _Slot] = {}
 
     # ---- lifecycle ----------------------------------------------------------------------------------
 
@@ -133,24 +145,36 @@ class FaultManager:
         elif s.kind in PARAM:
             comp = self._component(s.component or "")
             state._component = comp
-            state._had_override = s.param in comp.overrides
-            state._previous = comp.overrides.get(s.param or "")
-            state._was_unit_value = s.param in comp.unit_values
-            if s.kind == "hidden":
-                set_override(comp, s.param or "", s.value)
-            else:
-                state._base = float(comp.param(s.param or ""))
-                self._apply_drift(state)
+            key = (id(comp), s.param or "")
+            slot = self._slots.get(key)
+            if slot is None:
+                param = s.param or ""
+                slot = self._slots[key] = _Slot(
+                    comp,
+                    param,
+                    param in comp.overrides,
+                    comp.overrides.get(param),
+                    param in comp.unit_values,
+                    comp.param(param),
+                )
+            slot.stack.append(state)
+            self._recompute(slot)
 
     def _end(self, state: FaultState, why: str) -> None:
         if state.status == "active" and state.spec.kind in PARAM and state._component is not None:
-            comp, key = state._component, state.spec.param or ""
-            if state._had_override:
-                set_override(comp, key, state._previous)
-                if not state._was_unit_value:  # the block's own run-time value, not a hidden one
-                    comp.unit_values.discard(key)
+            slot = self._slots[(id(state._component), state.spec.param or "")]
+            slot.stack.remove(state)
+            if slot.stack:
+                self._recompute(slot)
             else:
-                clear_override(comp, key)
+                del self._slots[(id(state._component), state.spec.param or "")]
+                comp, key = slot.comp, slot.param
+                if slot.had_override:
+                    set_override(comp, key, slot.previous)
+                    if not slot.was_unit_value:  # the block's own run-time value, not a hidden one
+                        comp.unit_values.discard(key)
+                else:
+                    clear_override(comp, key)
         state.status = "ended"
         self._emit(state, why)
 
@@ -171,14 +195,23 @@ class FaultManager:
             for _ in range(s.count or 1):  # ``count`` queues the error that many times
                 inst.push_error(code, s.message or "")
 
+    def _recompute(self, slot: _Slot) -> None:
+        """The parameter's value from the active faults, oldest first: a hidden fault sets the
+        value, a drift scales the value below it (the base for the oldest) by its own elapsed time."""
+        value = slot.base
+        for f in slot.stack:
+            if f.spec.kind == "hidden":
+                value = f.spec.value
+            else:
+                elapsed = (self.session.now_ns - (f.started_ns or 0)) / 1e9
+                value = float(value) * (1 + (f.spec.drift_per_s or 0.0) * elapsed)
+        set_override(slot.comp, slot.param, value)
+
     def _apply_drift(self, state: FaultState) -> None:
-        comp = state._component
-        if comp is None or state.started_ns is None:
-            return
-        elapsed = (self.session.now_ns - state.started_ns) / 1e9
-        set_override(
-            comp, state.spec.param or "", state._base * (1 + (state.spec.drift_per_s or 0.0) * elapsed)
-        )
+        if state._component is not None:
+            slot = self._slots.get((id(state._component), state.spec.param or ""))
+            if slot is not None:
+                self._recompute(slot)
 
     # ---- link ---------------------------------------------------------------------------------------
 
