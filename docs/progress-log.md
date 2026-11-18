@@ -2521,3 +2521,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 版本变更记录 | ✅ `tests/test_definition_history.py`：改被引用的 `specs.bandwidth_hz`，引用处作为各自的变更列出、`still_old` 为空（`test_a_specs_edit_moves_the_places_that_refer_to_it`）；`still_old` 的原用例改用仍写字面值的触发抖动 |
 | 文档 | ✅ D82（新增条目：文件格式的新写法，有备选）、instrument-authoring 2.9「一个值只写一处」与示例、product-plan 3.5 行 |
 
+## 建在真实型号上的假想机型拿到类别默认的错误文本（Issue 1428）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 去掉 `reference` 的子定义与父定义的错误回复相同 | ✅ `tests/test_definition_layers.py::test_a_hypothetical_34465a_answers_errors_as_the_model_it_is_built_on`：34465A 的文件不写任何错误文本（万用表类别表提供 18 条），`reference: null` 的子定义对 `:SENSe:VOLTage:DC:NPLC abc`、`*TRG` 的 `:SYSTem:ERRor?` 与父定义逐字相同；改动前子定义回 `-211,"Error; Trigger ignored"` 等引擎原文（修复前该用例失败，已核对）。issue 原写的 UXR1104B 场景不适用：示波器类别表目前为空，父子回复本就相同 |
+| 规则 | ✅ `library/loader.py`：继承链上任一层带 `reference` 即合并类别默认；`test_a_child_that_drops_the_reference_keeps_the_class_default` |
+| `sb-*` 验证仪器不拿表 | ✅ 它们不继承真实型号，链上没有 `reference`；`test_a_definition_without_reference_gets_no_class_default` 与验证仪器金测原样通过 |
+| 有意不变 | ✅ 未定义命令头的 -113 只对真实型号附「not implemented in this definition」（`error_reporter._undefined_text` 看 `reference`）：假想机型的定义就是它的规格，instrument-authoring 2.9 写明 |
+| 文档 | ✅ D59 条目（不新增条目）、instrument-authoring 2.9、product-plan 3.5 行 |
+

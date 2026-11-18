@@ -276,8 +276,9 @@ def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
     ``component_overrides`` and ``channel_component_overrides`` (#1425) do the same for
     ``components`` and ``channel_components``.
 
-    The class default serves real models (D42, a `reference`): a table entry replaces the
-    engine's "standard text; detail" reply, so a definition without a reference (the ``sb-*``
+    The class default serves real models (D42, a `reference`) and the definitions built on one
+    (a layer of the chain has a reference, #1428): a table entry replaces the engine's "standard
+    text; detail" reply, so a definition with no reference anywhere in its chain (the ``sb-*``
     validation instruments, a toy) keeps the engine's standard texts as before."""
     layers = [data] + [_raw_definition(parent, mtime) for parent, mtime in ancestors]  # child first
     overrides = [layer.get(OVERRIDES) for layer in layers]
@@ -286,7 +287,10 @@ def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
     for raw in layers[1:]:  # nearest parent first: each lower layer goes under
         merged = deep_merge({k: v for k, v in raw.items() if k not in OVERRIDE_KEYS}, merged)
         layered = True
-    if merged.get("reference") is not None:
+    # A real model, or one built on a real model (#1428): a child that drops its parent's
+    # ``reference`` (a hypothetical instrument is no real model) still runs the parent's error texts,
+    # part of which the parent's file no longer lists because they moved to the class's table.
+    if any(layer.get("reference") is not None for layer in layers):
         base = default_block(merged.get("class"))
         if base:
             merged = deep_merge(base, merged)
