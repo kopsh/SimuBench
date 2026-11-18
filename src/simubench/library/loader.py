@@ -141,7 +141,7 @@ def _extends_chain(path: Path, data: dict) -> list[tuple[Path, float]]:
 
 class LayerError(ValueError):
     """A definition that cannot be layered: a missing or cyclic ``extends`` (E-DEF-EXTENDS), or a
-    ``command_overrides`` entry that names no single inherited command (E-DEF-COMMAND-OVERRIDE), or a
+    ``command_overrides`` removal of a header the table does not hold (E-DEF-COMMAND-OVERRIDE), or a
     component override that names no single inherited component or changes its type
     (E-DEF-COMPONENT-OVERRIDE).
     ``code`` and ``pointer`` say where, for the diagnostics."""
@@ -152,7 +152,7 @@ class LayerError(ValueError):
         self.pointer = pointer
 
 
-#: The per-command layer of a definition (D59): ``{header: whole command | null}``.
+#: The per-command layer of a definition (D59): ``{header: command | command list | null}``.
 OVERRIDES = "command_overrides"
 #: The per-component layers (D59, #1425): ``{component name: fields to change | null}``, one for
 #: the instrument's components and one for each channel's, keyed by the list they change.
@@ -170,35 +170,44 @@ def _ptr_part(text: str) -> str:
 
 def apply_command_overrides(commands: list, overrides: dict) -> list:
     """``commands`` with ``overrides`` applied, each entry naming one command by its header exactly
-    as written: a command replaces the command with that header *whole* (no field merge — D59's
-    reason for replacing lists), one no command has is appended, ``null`` removes it. A header the
-    list holds more than once, or a removal of a header it does not hold, raises :class:`LayerError`."""
+    as written: the value — one command, a list of them, or ``null`` — is what that header's group
+    becomes, *whole* (no field merge — D59's reason for replacing lists). A command replaces every
+    entry with that header at the first one's place, a list of commands replaces them as a group
+    (the ``when``/``option`` variants of one header are one unbreakable group), ``null`` removes
+    them all; what no command has is appended. A removal of a header the list does not hold raises
+    :class:`LayerError`."""
     out = list(commands)
     for header, command in overrides.items():
         at = [i for i, c in enumerate(out) if isinstance(c, dict) and c.get("header") == header]
         pointer = f"/{OVERRIDES}/{_ptr_part(str(header))}"
-        if len(at) > 1:
-            raise LayerError(
-                f"命令头 {header} 在继承的命令表里出现 {len(at)} 次，按命令头改不出是哪一条；改写整张 commands",
-                "E-DEF-COMMAND-OVERRIDE",
-                pointer,
-            )
         if command is None:
             if not at:
                 raise LayerError(
                     f"继承的命令表里没有命令头 {header}，无从删除", "E-DEF-COMMAND-OVERRIDE", pointer
                 )
-            del out[at[0]]
+            for i in reversed(at):
+                del out[i]
             continue
-        if not isinstance(command, dict):
-            raise LayerError(
-                f"{header} 的值应是一条命令（不含 header）或 null", "E-DEF-COMMAND-OVERRIDE", pointer
-            )
-        whole = {"header": header, **{k: v for k, v in command.items() if k != "header"}}
-        if at:
-            out[at[0]] = whole
+        if isinstance(command, list):
+            if not all(isinstance(entry, dict) for entry in command):
+                raise LayerError(
+                    f"{header} 的列表值应全是命令（不含 header）", "E-DEF-COMMAND-OVERRIDE", pointer
+                )
+            entries = command
+        elif isinstance(command, dict):
+            entries = [command]
         else:
-            out.append(whole)
+            raise LayerError(
+                f"{header} 的值应是一条命令、一组命令（列表，不含 header）或 null",
+                "E-DEF-COMMAND-OVERRIDE",
+                pointer,
+            )
+        group = [{"header": header, **{k: v for k, v in e.items() if k != "header"}} for e in entries]
+        if at:
+            out = [c for i, c in enumerate(out) if i not in set(at)]
+            out[at[0]:at[0]] = group  # the first entry's place; the rest were after it
+        else:
+            out.extend(group)
     return out
 
 
@@ -305,7 +314,9 @@ def _layered(data: dict, ancestors: list[tuple[Path, float]]) -> dict:
             if own:
                 if not isinstance(own, dict):
                     raise LayerError(
-                        f"{OVERRIDES} 应是 命令头 → 命令 的映射", "E-DEF-COMMAND-OVERRIDE", f"/{OVERRIDES}"
+                        f"{OVERRIDES} 应是 命令头 → 命令或命令列表 的映射",
+                        "E-DEF-COMMAND-OVERRIDE",
+                        f"/{OVERRIDES}",
                     )
                 commands = apply_command_overrides(commands, own)
         merged = {**merged, "commands": commands}
