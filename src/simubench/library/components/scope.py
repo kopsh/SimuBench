@@ -4,6 +4,7 @@ and the timebase. The trigger, the acquisition and the measurements live beside 
 
 from __future__ import annotations
 
+import itertools
 import math
 import re
 from typing import Any
@@ -542,6 +543,32 @@ def _displayed(comp: Component) -> list[int]:
     return [n for n in range(1, comp.owner.channel_count + 1) if comp.owner.get_state(f"ch{n}.display")]
 
 
+def strongest_line(signal: Signal) -> float | None:
+    """The frequency of a signal's strongest line (Hz), None without lines: what a frequency-
+    dependent converter figure is read at (#1421; a several-tone signal takes its largest tone's)."""
+    if not signal.freq.size:
+        return None
+    on = signal.freq > 0
+    if not np.any(on):
+        return None
+    amps = np.abs(signal.amp) * on
+    return float(signal.freq[int(np.argmax(amps))])
+
+
+def _interpolated(points: list[tuple[float, Any]], freq: float | None) -> float:
+    """``points`` (Hz, value) read at ``freq``: linear between the two around it, the nearest
+    outside them; no frequency: the lowest one's."""
+    given = sorted((float(f), float(v)) for f, v in points)
+    if freq is None or freq <= given[0][0]:
+        return given[0][1]
+    if freq >= given[-1][0]:
+        return given[-1][1]
+    for (f0, v0), (f1, v1) in itertools.pairwise(given):
+        if f0 <= freq <= f1:
+            return v0 + (v1 - v0) * (freq - f0) / (f1 - f0)
+    return given[-1][1]
+
+
 @component("scope_adc")
 class ScopeAdc(Component):
     """The ADC group shared by a scope's channels: where each channel's analog signal becomes
@@ -568,7 +595,13 @@ class ScopeAdc(Component):
     (0 dBFS): ``distortion_table`` rows ``[V/div at the input, HD2 dBc, HD3 dBc]`` (the row of the
     largest division not above the setting) bend the signal around the middle of the range with
     x² and x³ terms — a smaller signal has less, HD2 falling 6 dB and HD3 12 dB per halving, as a
-    polynomial's do; ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
+    polynomial's do. A row may also name the input frequency it holds at, ``[V/div, Hz, HD2, HD3]``
+    (#1421): the rows of one division are interpolated linearly over frequency (outside them the
+    nearest holds) at the frequency of the signal's strongest line. ``enob_table`` rows ``[Hz, ENOB]`` give the
+    effective bits of a full-scale sine at that frequency (interpolated the same way): the converter
+    adds the noise that brings the record down to them — what the input noise, the quantization,
+    the distortion and the aperture jitter leave of the error budget; none when they already exceed
+    it (F1-1). ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
     pattern in gain (``interleave_image_dbc``: each image at k·fs/N ± f) and offset
     (``interleave_spur_dbfs``: the spur at k·fs/N); ``aperture_jitter_s`` moves each sample instant
     by its own draw (σ rms), whose noise on a sine of frequency f is 2πf·σ of it. Unset (the
@@ -593,7 +626,9 @@ class ScopeAdc(Component):
         "max_rate_paired": 0.0,  # the top rate when both channels of a rate pair are on
         "rate_pairs": [],  # channels sharing a converter, e.g. [[1, 2], [3, 4]]
         "min_full_scale": 0.0,  # the hardware's smallest range, V at the input across divs (0: none)
-        "distortion_table": None,  # [[V/div at the input, HD2 dBc, HD3 dBc], ...] at 0 dBFS (None: none)
+        # [[V/div at the input, HD2 dBc, HD3 dBc], ...] or [[V/div, Hz, HD2, HD3], ...] at 0 dBFS (None: none)
+        "distortion_table": None,
+        "enob_table": None,  # [[Hz, effective bits of a full-scale sine], ...] (None: none, #1421)
         "interleave": 0,  # sub-converters interleaved on the max_rate grid (0, 1: none)
         "interleave_image_dbc": None,  # their gain mismatch: each image at k*fs/N +- f, dBc (None: none)
         "interleave_spur_dbfs": None,  # their offset mismatch: the spur at k*fs/N, dBFS (None: none)
@@ -622,14 +657,40 @@ class ScopeAdc(Component):
         floor = float(self.param("min_full_scale")) / float(self.param("divs")) * ratio
         return max(scale, floor)
 
-    def _distortion(self, input_scale: float) -> tuple[float, float]:
-        """The x², x³ coefficients of the front end at this input V/div (#1266): HD2 = a2/2 and
-        HD3 = a3/4 on a sine that spans the converter's range."""
-        rows = sorted((float(r[0]), float(r[1]), float(r[2])) for r in self.param("distortion_table") or ())
-        if not rows:
+    def _distortion(self, input_scale: float, freq: float | None = None) -> tuple[float, float]:
+        """The x², x³ coefficients of the front end at this input V/div (#1266) and, for rows that
+        name a frequency, at ``freq`` (#1421): HD2 = a2/2 and HD3 = a3/4 on a sine that spans the
+        converter's range."""
+        table = [list(r) for r in self.param("distortion_table") or ()]
+        if not table:
             return 0.0, 0.0
-        row = next((r for r in reversed(rows) if r[0] <= input_scale * (1 + 1e-9)), rows[0])
-        return 2.0 * 10 ** (row[1] / 20), 4.0 * 10 ** (row[2] / 20)
+        divs = sorted({float(r[0]) for r in table})
+        div = next((d for d in reversed(divs) if d <= input_scale * (1 + 1e-9)), divs[0])
+        band = [r for r in table if float(r[0]) == div]
+        if len(band[0]) == 3:
+            hd2, hd3 = float(band[0][1]), float(band[0][2])
+        else:
+            hd2 = _interpolated([(float(r[1]), r[2]) for r in band], freq)
+            hd3 = _interpolated([(float(r[1]), r[3]) for r in band], freq)
+        return 2.0 * 10 ** (hd2 / 20), 4.0 * 10 ** (hd3 / 20)
+
+    def _enob_sigma(
+        self, freq: float | None, half: float, lsb: float, sigma: float, hd: tuple[float, float]
+    ) -> float:
+        """The noise (display volts rms) the converter adds so that a full-scale sine at ``freq``
+        records with ``enob_table``'s effective bits (#1421): the error a full-scale sine of that
+        many bits has, less what ``sigma`` (input noise), the quantization (``lsb``/√12), the
+        distortion (``hd``) and the aperture jitter already give, in quadrature; 0 without a table,
+        a frequency, or room left."""
+        rows = self.param("enob_table")
+        if not rows or freq is None or half <= 0:
+            return 0.0
+        enob = _interpolated([(float(r[0]), r[1]) for r in rows], freq)
+        rms = half / math.sqrt(2)  # a full-scale sine
+        allowed = rms * 10 ** (-(6.02 * enob + 1.76) / 20)
+        jitter = 2 * math.pi * freq * float(self.param("aperture_jitter_s")) * rms
+        present = sigma**2 + lsb**2 / 12 + (rms * math.hypot(hd[0] / 2, hd[1] / 4)) ** 2 + jitter**2
+        return math.sqrt(max(0.0, allowed**2 - present))
 
     def top_rate(self, on: set[int]) -> float:
         """The top sample rate with channels ``on`` displayed (inf when unlimited)."""
@@ -683,18 +744,25 @@ class ScopeAdc(Component):
         bits, per_div = int(self.param("bits")), self.codes_per_div()
         image, spur = self.param("interleave_image_dbc"), self.param("interleave_spur_dbfs")
         top = float(self.param("max_rate"))
+        signal = self.analog(n)
+        freq = strongest_line(signal)
+        hd = self._distortion(vertical.input_scale(), freq)
+        half = converter_half(scale, bits, per_div, float(self.param("divs")))
+        sigma = vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0)
+        lsb = scale / per_div if bits > 0 else 0.0
+        sigma = math.hypot(sigma, self._enob_sigma(freq, half, lsb, sigma, hd))
         return AdcView(
-            signal=self.analog(n),
+            signal=signal,
             skew=probe.delay() if probe is not None else 0.0,
-            sigma=vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0),
+            sigma=sigma,
             seed=self.session.seed,
             scale=scale,
             offset=float(vertical.param("offset")),
             bits=bits,
             per_div=per_div,
             add=str(self.param("offset_sign")).lower() == "add",
-            hd=self._distortion(vertical.input_scale()),
-            half=converter_half(scale, bits, per_div, float(self.param("divs"))),
+            hd=hd,
+            half=half,
             ilv=int(self.param("interleave")),
             ilv_gain=0.0 if image is None else 2.0 * 10 ** (float(image) / 20),
             ilv_offset=0.0 if spur is None else 10 ** (float(spur) / 20),

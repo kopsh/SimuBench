@@ -2550,3 +2550,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 运行断言 | ✅ `tests/test_keysight_uxr.py::test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b`：与父定义同测试台对照——`*IDN?` 与 `:SYSTem:PERSona DEF` 为 MyLab / NG-RT160；`:ACQuire:BANDwidth?` 160 GHz，设 150 GHz 无错（父定义 -222）；`:ACQuire:SRATe MAX` 512 GSa/s；超出范围的错误与父定义相同；WORD 码的最小间隔 16（12 位，父定义 64） |
 | 时限 | ✅ 该用例约 1 s，全量测试在 75 s 内 |
 
+## 示波器 ADC 的失真与有效位数随输入频率变化（Issue 1421，F1-1）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 按频点声明、频点间插值 | ✅ `scope_adc.distortion_table` 的行可写 `[V/div, Hz, HD2, HD3]`（3 列的旧写法照旧），同档位按频率线性插值，两端之外取最近；`enob_table` `[[Hz, ENOB]]` 同样插值，补足满量程正弦误差预算的附加噪声；频率取输入最强谱线（`strongest_line`） |
+| UXR1104B 按数据手册填多个频点 | ✅ 3123-1313 p.10：60 mVFS 与 700 mVFS 两档、1 / 16.5 / 25 / 50 GHz 的 HD2/HD3，折算到满量程正弦（换算写在定义注释）；50 GHz 的 HD3 手册未给，沿用 25 GHz 的值（不写 null：Web 搭建区写回时 null 是删除标记，`test_build_area_keeps_infinite_values` 曾因此拒绝保存 UXR 副本）；`tests/test_scope_adc_nonlinearity.py::test_the_uxr1104b_harmonics_follow_the_data_sheet_over_frequency`：表点、插值点（37.5 GHz）、两端、无谱线，以及 25 GHz 正弦经 ADC 的谐波电平（±1 dB） |
+| 信纳比与声明的曲线一致 | ✅ `test_a_declared_enob_curve_sets_the_records_effective_bits`：`sb-dso-enob`（extends `sb-dso-2x`，组件覆盖只加 `enob_table`）由信号源直接接入，1 MHz、25.5 MHz、50 MHz 的满量程正弦记录拟合出的有效位数为 9、7.5、6（±0.15，2 000 点记录的统计误差）；无谱线时不加噪声 |
+| 不声明时回复逐字节不变 | ✅ 3 列失真表与无 `enob_table` 的路径不变（`math.hypot(σ, 0)` 即 σ）；UXR 的金测、手册用例、`test_the_uxr1104b_enob_matches_the_data_sheet`（1 GHz，取 1 GHz 行）原样通过 |
+| 范围 | ✅ 积分非线性即 x²、x³ 多项式（HD2/HD3 是其系数）；UXR 不填 `enob_table`（数据手册的有效位数是分频段测的，满带宽值由噪声与失真本身给出）；通用 `adc` 块的随频率非理想未做，product-plan C4 / F1-1 行写明 |
+| 文档 | ✅ signal-chain.md 的 `scope_adc` 非理想一段、product-plan C4 与 F1-1 行 |
+

@@ -127,6 +127,83 @@ def test_the_uxr1104b_enob_matches_the_data_sheet(scale, spec, model):
     assert enob >= spec - 0.05  # the model is never worse than the data sheet
 
 
+def _sinad_enob(frame: np.ndarray, f: float, amp: float, fs: float = FS) -> float:
+    """The effective bits of a frame holding one sine of amplitude ``amp`` at ``f``: a three-term
+    sine fit, SINAD from the residual (IEEE 1241)."""
+    t = np.arange(frame.size) / fs
+    basis = np.stack([np.sin(2 * np.pi * f * t), np.cos(2 * np.pi * f * t), np.ones(frame.size)], axis=1)
+    fit, *_ = np.linalg.lstsq(basis, frame, rcond=None)
+    sinad = 20 * math.log10((amp / math.sqrt(2)) / float(np.std(frame - basis @ fit)))
+    return (sinad - 1.76) / 6.02
+
+
+def test_the_uxr1104b_harmonics_follow_the_data_sheet_over_frequency():
+    """#1421: the UXR1104B's HD2 and HD3 at the input frequency, from the data sheet's 1, 16.5, 25
+    and 50 GHz rows (87.5 mV/div, referred to a full-scale sine): read at the table's points,
+    linearly between them, the nearest outside (50 GHz's HD3, not in the data sheet, repeats 25 GHz's). Then a
+    25 GHz sine through the converter carries the 25 GHz row's harmonics (±1 dB)."""
+    session = open_bench(ROOT / "examples" / "benches" / "keysight-uxr1104b.bench.yaml", seed=3)
+    try:
+        adc = session.instruments["scope"].components["adc"]
+        db = lambda f: tuple(  # noqa: E731
+            20 * math.log10(a / k) for a, k in zip(adc._distortion(0.0875, f), (2, 4), strict=True)
+        )
+        assert db(1e9) == pytest.approx((-54.1, -48.2)) and db(1e8) == pytest.approx((-54.1, -48.2))
+        assert db(2.5e10) == pytest.approx((-50.1, -44.2))
+        assert db(3.75e10) == pytest.approx((-46.6, -44.2))  # HD2 halfway; HD3 holds 25 GHz's
+        assert db(6e10) == pytest.approx((-43.1, -44.2))
+        assert db(None) == pytest.approx((-54.1, -48.2))  # no line: the lowest frequency's row
+        assert db(2.5e10) != tuple(
+            20 * math.log10(a / k) for a, k in zip(adc._distortion(0.0075, 2.5e10), (2, 4), strict=True)
+        )
+        hd = adc._distortion(0.0875, 2.5e10)
+    finally:
+        session.close()
+    k = 100  # 100 cycles of 25 GHz in 1 024 samples at 256 GSa/s; 2f and 3f (50, 75 GHz) stay below FS/2
+    f = 2.5e10
+    n = round(k * FS / f)
+    amp = 4 * SCALE
+    frame = _frame(_view(signal=Signal.lines([f], [amp + 0j]), hd=hd), count=n)
+    assert _line_dbc(frame, 2 * k, amp) == pytest.approx(-50.1, abs=1.0)
+    assert _line_dbc(frame, 3 * k, amp) == pytest.approx(-44.2, abs=1.0)
+
+
+def test_a_declared_enob_curve_sets_the_records_effective_bits():
+    """#1421 (F1-1): SB-DSO-ENOB declares 9 bits at 1 MHz and 6 bits at 50 MHz. A full-scale sine
+    from the generator, recorded at each frequency, has those effective bits (±0.15: 2 000-point
+    records); halfway, 25.5 MHz, the linear interpolation's 7.5; with no line there is nothing to
+    read the table at and the converter adds nothing."""
+    from simubench.models.bench import BenchDefinition
+
+    bench = BenchDefinition.model_validate(
+        {
+            "schema": "simubench.bench/2", "name": "enob",
+            "instruments": {"awg": {"model": "sb-awg-2"}, "scope": {"model": "sb-dso-enob"}},
+            "wires": [{"from": "awg.OUT1", "to": "scope.CH1"}], "run": {"seed": 5, "clock": "stepped"},
+        }
+    )  # fmt: skip
+    session = open_bench(bench, definition_dirs=[ROOT / "validation" / "instruments"])
+    try:
+        scope = session.instruments["scope"]
+        adc = scope.components["adc"]
+        quiet = adc.view(1)
+        assert quiet.sigma == scope.components["ch1.front"].input_noise_rms()  # no line: no ENOB noise
+        session.instruments["awg"].set_state("ch1.output", True)
+        for f, enob in ((1e6, 9.0), (2.55e7, 7.5), (5e7, 6.0)):
+            session.instruments["awg"].set_state("ch1.frequency", f)
+            view = adc.view(1)
+            half = view.half
+            amp = half * 0.999
+            fs = 200 * f  # 200 samples per cycle, 10 cycles
+            line = Signal.lines([f], [amp + 0j])
+            frame = np.asarray(
+                dataclasses.replace(view, signal=line).frame(FrameRequest(0, 2000, 1 / fs, ("e", f))).data
+            )
+            assert _sinad_enob(frame, f, amp, fs) == pytest.approx(enob, abs=0.15), f
+    finally:
+        session.close()
+
+
 # ---- each stage on its own (#1305) ------------------------------------------------------------
 
 
