@@ -7,8 +7,15 @@ import pytest
 from helpers import raises_with
 from simubench.engine.jsonpatch import PatchError, PatchOp, apply
 from simubench.engine.validate_definition import validate_definition_data
+from simubench.library import categories
 from simubench.library.loader import DefinitionLibrary
-from simubench.library.scriptscan import _guess, draft_definition
+from simubench.library.scriptscan import (
+    ScannedCommand,
+    ScannedResource,
+    _guess,
+    draft_definition,
+    rank,
+)
 
 
 def ops(*items):
@@ -93,3 +100,20 @@ def test_a_script_with_several_instruments_needs_a_receiver():
     with raises_with(ValueError, "receiver"):
         draft_definition(two, "x")
     assert draft_definition(two, "x", receiver="dmm")["drafted"][0]["header"] == ":RANGE"
+
+
+def test_ranking_a_definition_of_an_unknown_class_does_not_fail():
+    """#1410: the hint lookup of a class without a registry row falls back to generic."""
+    legacy = DefinitionLibrary().get("sb-awg-2").model_copy(update={"instrument_class": "no_such_class"})
+    res = ScannedResource("awg", None, None, [ScannedCommand(":SOURce1:FREQuency 1000", 1)])
+    assert [c.definition_id for c in rank(res, [legacy])] == [legacy.id]
+
+
+def test_a_draft_without_a_hint_writes_the_generic_fallback_class():
+    """#1410: ``other`` is deliberately outside the registry and is the documented fallback —
+    ``categories.get`` gives it the generic row, so the draft still loads and runs."""
+    source = SCRIPT.replace("awg = ", "mystery = ").replace("awg.", "mystery.")
+    out = draft_definition(source, "mystery-1")
+    assert out["definition"]["class"] == "other"
+    assert categories.find("other") is None
+    assert categories.get("other").screen == "generic"

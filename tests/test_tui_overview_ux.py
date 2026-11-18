@@ -32,6 +32,16 @@ def card_of(info, readings=None, faults=None):
 
 
 @pytest.mark.unit
+def test_an_unknown_template_draws_the_generic_card():
+    """#1410: a class without a registry row falls back to the generic rows, not an error."""
+    unknown = smu_info()
+    unknown["display"] = {"template": "no_such_class"}
+    generic = smu_info()
+    generic["display"] = {"template": "daq"}  # a registered row whose screen kind is generic
+    assert card_of(unknown).lines == card_of(generic).lines
+
+
+@pytest.mark.unit
 def test_the_card_no_longer_spends_a_line_on_the_idn_string():
     card = card_of(smu_info())
     assert all(IDN not in "".join(text for text, _ in line) for line in card.lines)
