@@ -136,23 +136,79 @@ def _control_for(path: str, spec: Mapping[str, Any], lang: str, step: float | No
 
 
 # ---- per-template control sets (tui-screens.md 5.2) -----------------------------------------------
+# The SMU screen's controls come from the definition's panel like every other panel class's
+# (#1469); without a declared panel the generic control list stands in. What remains here is the
+# role resolution the SMU screen's table and reason report need.
 
 
-def smu_controls(info: Mapping[str, Any], lang: str) -> list[Control]:
-    """输出、功能、电压设定、电流设定、电流限值、电压限值."""
-    paths = [
-        "output.enabled",
-        "source.function",
-        "source.voltage.level",
-        "source.current.level",
-        "compliance.current.limit",
-        "compliance.voltage.limit",
-    ]
-    out: list[Control] = []
-    for path in paths:
-        spec = spec_of(info, path)
-        if spec is not None:
-            out.append(_control_for(path, spec, lang))
+#: The SMU screen's role paths for a definition without a declared panel: the platform's SMU
+#: setting names — what the built-in models and the validation instruments bind their source
+#: chain to. A workspace definition with other block names shows its panel instead; without
+#: either, the table's set/limit cells read ``—``.
+SMU_LEGACY_PATHS: dict[str, str] = {
+    "function": "source.function",
+    "output": "output.enabled",
+    "v_set": "source.voltage.level",
+    "i_set": "source.current.level",
+    "i_limit": "compliance.current.limit",
+    "v_limit": "compliance.voltage.limit",
+}
+
+
+def smu_source_roles(info: Mapping[str, Any]) -> dict[str, str | None]:
+    """The SMU screen's role paths — which setting is the voltage set point, the current set
+    point, each quantity's compliance, the source function and the output — from the panel's
+    Source group (#1469). A group control that is a float with a unit and a ``when`` naming
+    exactly one setting is a role control: its ``when`` names the source function and holds one
+    of its words, unit V under ``VOLTage`` is the voltage set point, unit A under ``VOLTage`` the
+    current limit, and the other way round under ``CURRent``; the group's unconditional switch is
+    the output. The first group with role controls is the Source group. A role the declaration
+    does not make — or one whose ``when`` does not hold now — is ``None``: the table cell or the
+    reason report's evidence line is left out. Without a declared panel
+    :data:`SMU_LEGACY_PATHS` stands in."""
+    panel = (info.get("display") or {}).get("panel")
+    if not panel:
+        return dict(SMU_LEGACY_PATHS)
+    roles: dict[str, str | None] = {key: None for key in SMU_LEGACY_PATHS}
+    for group in panel.get("groups", []):
+        found = _smu_group_roles(group, info)
+        if found:
+            roles.update(found)
+            break
+    return roles
+
+
+def _smu_group_roles(group: Mapping[str, Any], info: Mapping[str, Any]) -> dict[str, str]:
+    """One panel group's role controls: floats with a unit whose single ``when`` names the source
+    function and holds now; the group's unconditional switch is the output."""
+    out: dict[str, str] = {}
+    function: str | None = None
+    for pc in group.get("controls", []):
+        when = pc.get("when") or {}
+        if not when:
+            spec = spec_of(info, pc.get("state")) or {}
+            if spec.get("type") == "bool" and "output" not in out:
+                out["output"] = pc["state"]
+            continue
+        if len(when) != 1:
+            continue
+        ((name, value),) = when.items()
+        if value not in ("VOLTage", "CURRent") or not when_holds(when, info):
+            continue
+        spec = spec_of(info, pc.get("state")) or {}
+        unit = spec.get("display_unit") or spec.get("unit")
+        if spec.get("type") != "float" or unit not in ("V", "A"):
+            continue
+        if function is None:
+            function = name
+        elif name != function:
+            continue  # a when on another setting: an auxiliary control, not a role
+        if value == "VOLTage":
+            out["v_set" if unit == "V" else "i_limit"] = pc["state"]
+        else:
+            out["i_set" if unit == "A" else "v_limit"] = pc["state"]
+    if function is not None:
+        out["function"] = function
     return out
 
 

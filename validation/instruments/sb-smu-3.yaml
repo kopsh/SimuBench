@@ -1,0 +1,183 @@
+schema: simubench.instrument/2
+id: sb-smu-3
+manufacturer: SimuBench
+model: SB-SMU-3
+class: smu
+version: 1
+description: >-
+  源测量单元（验证仪表，#1469）：设置块名与内置及 sb-smu-1 都不同（src.* / mes.* / sys.*），
+  并声明自己的 display.panel——它的屏幕分组、控件按钮与受限原因行都按这份声明显示，
+  不再依赖平台约定的 source.* 路径。
+identity:
+  serial: SBSMU300001
+  firmware: "1.0.0"
+state:
+  src.function:
+    type: enum
+    options: [VOLTage, CURRent]
+    default: VOLTage
+    electrical: true
+    label: 源功能
+    label_en: Source function
+    option_labels: {VOLTage: 电压源, CURRent: 电流源}
+  src.vset:
+    type: float
+    unit: V
+    min: -21.0
+    max: 21.0
+    default: 0.0
+    label: 电压设定
+    label_en: Voltage level
+  src.iset:
+    type: float
+    unit: A
+    min: -0.105
+    max: 0.105
+    default: 0.0
+    label: 电流设定
+    label_en: Current level
+  src.ilim:
+    type: float
+    unit: A
+    min: 1.0e-9
+    max: 0.105
+    default: 10.0e-3
+    label: 电流限值
+    label_en: Current limit
+  src.vlim:
+    type: float
+    unit: V
+    min: 0.02
+    max: 21.0
+    default: 6.0
+    label: 电压限值
+    label_en: Voltage limit
+  src.out:
+    type: bool
+    default: false
+    electrical: true
+    label: 输出
+    label_en: Output
+  mes.nplc:
+    type: float
+    min: 0.01
+    max: 10.0
+    default: 1.0
+    label: 积分时间
+    label_en: Integration time
+    display_unit: PLC
+  sys.line:
+    type: float
+    unit: HZ
+    min: 50.0
+    max: 60.0
+    default: 60.0
+    label: 电源频率
+    label_en: Line frequency
+components:
+  - name: source
+    type: smu_source
+    params:
+      source_ranges:
+        VOLTage: [0.21, 2.1, 21.0]
+        CURRent: [1.0e-5, 1.0e-4, 1.0e-3, 0.105]
+      range_limits:
+        VOLTage: {0.21: 0.105, 2.1: 0.105, 21.0: 0.0105}
+        CURRent: {1.0e-5: 21.0, 1.0e-4: 21.0, 1.0e-3: 21.0, 0.105: 6.0}
+  - name: loop
+    type: output_control_loop
+    params:
+      function: $src.function
+      v_level: $src.vset
+      i_level: $src.iset
+      i_limit: $src.ilim
+      v_limit: $src.vlim
+      output: $src.out
+      envelope: source
+  - name: out
+    type: smu_output
+    params:
+      output: $src.out
+      loop: loop
+  - name: core
+    type: smu_meter
+    params:
+      source: source
+      loop: loop
+      output: out
+      nplc: $mes.nplc
+      line_freq: $sys.line
+      buffer: mem
+  - name: trig
+    type: trigger_model
+    params:
+      sampler: core
+      buffer: mem
+      digits: 7
+      fetch_from_buffer: true
+  - name: mem
+    type: reading_buffer
+    params: {digits: 7}
+ports:
+  instrument:
+    HI: out.hi
+    LO: out.lo
+display:
+  template: smu
+  summary: [src.function, src.vset, src.iset, src.ilim, src.vlim, src.out]
+  # 前面板声明（#1469）：设置类路径的唯一来源。源组随源功能给设定与限值（块名是本型号自己的），
+  # 测量组给积分时间；sys.line 不在面板上——SMU 屏幕的“其他设置”框列它，检查器的“全部设置”也列它。
+  panel:
+    groups:
+      - label: 源
+        label_en: Source
+        controls:
+          - {state: src.function}
+          - {state: src.vset, when: {src.function: VOLTage}}
+          - {state: src.ilim, when: {src.function: VOLTage}}
+          - {state: src.iset, when: {src.function: CURRent}}
+          - {state: src.vlim, when: {src.function: CURRent}}
+          - {state: src.out}
+      - label: 测量
+        label_en: Measure
+        controls:
+          - {state: mes.nplc}
+capabilities: [smu]
+commands:
+  - header: "[:SOURce]:FUNCtion[:MODE]"
+    state: src.function
+  - header: "[:SOURce]:VOLTage[:LEVel]"
+    state: src.vset
+  - header: "[:SOURce]:CURRent[:LEVel]"
+    state: src.iset
+  - header: "[:SENSe]:CURRent[:DC]:PROTection[:LEVel]"
+    state: src.ilim
+  - header: "[:SENSe]:VOLTage[:DC]:PROTection[:LEVel]"
+    state: src.vlim
+  - header: ":OUTPut[:STATe]"
+    state: src.out
+    dangerous: true
+  - header: "[:SENSe]:CURRent[:DC]:NPLCycles"
+    state: mes.nplc
+  - header: "[:SENSe]:VOLTage[:DC]:NPLCycles"
+    state: mes.nplc
+  - header: ":SYSTem:LFRequency"
+    state: sys.line
+  - header: ":MEASure[:VOLTage][:DC]"
+    op: core.measure
+    set: false
+  - header: ":MEASure:CURRent[:DC]"
+    op: core.measure
+    set: false
+  - header: ":READ[:VOLTage]"
+    op: trig.read
+    set: false
+    dangerous: true
+    args: {elements: [VOLT, CURR, RES, TIME, STAT]}
+  - header: ":INITiate[:IMMediate]"
+    op: trig.initiate
+    query: false
+    dangerous: true
+  - header: ":TRACe:CLEar"
+    op: mem.clear
+    query: false

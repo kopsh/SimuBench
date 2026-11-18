@@ -52,6 +52,13 @@ def _hash_file(path: Path | None) -> str | None:
         return None
 
 
+def screen_key(template: str | None) -> str:
+    """Which screen shows a category (tui-screens.md 2.3): the registry row's screen kind decides
+    (D80, #1469) — the scope screen for the scope's kind, the generic instrument screen for every
+    other kind and for a class the registry does not know."""
+    return "scope" if categories.get(template).screen == "scope" else "instrument"
+
+
 #: How often the session is re-read while clients are connected (s): the Web Bench's client poll.
 REMOTE_POLL_S = 2.0
 
@@ -272,7 +279,7 @@ class SimuBenchApp(App[None]):
         info = next(
             (i for i in (self.session_info or {}).get("instruments", []) if i.get("name") == name), {}
         )
-        return "scope" if (info.get("display") or {}).get("template") == "oscilloscope" else "instrument"
+        return screen_key((info.get("display") or {}).get("template"))
 
     def open_instrument(self, name: str, replace: bool = False) -> None:
         """Open an instrument's screen. ``replace`` swaps it for the one in front, so ``Esc`` still

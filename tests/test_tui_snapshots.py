@@ -601,8 +601,9 @@ READINGS: dict[str, tuple[Shows, ...]] = {
     "specan": ("Marker",),
     "lockin": ("θ",),
     # Frequency and level, the RF/modulation flags and integer line counts — no internal
-    # quantities of the synthesizer.
-    "rfgen": ("Frequency", "Level", "RF ON", "Lines 1", "Carrier"),
+    # quantities of the synthesizer. The settings half follows the definition's panel (#1469);
+    # sb-sg-1 declares none, so its settings ride the generic buttons, not a named group.
+    "rfgen": ("Frequency", "Level", "RF ON", "Lines 1", "INT ref"),
     # Measured V, I, P as values with their units (the bench's source gives 5 V, the input
     # is off), the input state and the mode (#374: labels alone prove nothing). The voltage
     # rides the readback noise (#808): 5 V ± 4σ; the off input sinks exactly 0 A, so I and P
@@ -627,7 +628,7 @@ READINGS: dict[str, tuple[Shows, ...]] = {
 
 #: Patterns the 80-column settings column may truncate (tui-screens.md 6): they stay in the
 #: meaningful-readings assertions (100 columns) but do not gate the snapshot settle rule.
-NARROW_TRUNCATED = frozenset({"Lines 1", "Carrier"})
+NARROW_TRUNCATED = frozenset({"Lines 1"})
 
 
 def _snapshot_ready(kind: str) -> tuple[str, tuple[Shows, ...]]:

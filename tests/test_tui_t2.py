@@ -114,18 +114,37 @@ async def test_smu_screen_renders_identity_columns_and_reason():
         assert "Status" in text and "Voltage" in text and "Current" in text
         assert "Set" in text and "Limit   10.000 mA ▲" in text
         assert "reason" in text and "CC" in text
-        # The buttons (5.3) and the per-instrument log (5.1 #5).
+        # The buttons (5.3) and the per-instrument log (5.1 #5). sb-smu-1 declares no panel: the
+        # controls are the generic list of every writable setting (#1469), the settings half is
+        # the generic column, and there is no other-settings box (the box lists everything).
         # (At 100 × 32 the English rows push the button row below the channel area's fold; it
         # scrolls into view with Tab, so the buttons are asserted as widgets.)
         from simubench.tui.screens.instrument import ControlButton
 
         labels = [b.control.label for b in tui.screen.query(ControlButton) if b.box_id == "ch:main"]
-        assert labels[:3] == ["Output", "Source function", "Voltage level"]
+        assert labels[:3] == ["Source function", "Voltage level", "Current level"]
         assert "Log · smu" in text
+        # The generic settings column is left out whole when the budget has no room for it (#374);
+        # the generic buttons carry every writable setting, so nothing is silently empty.
+        assert "Other settings" not in text
         # Wiring and load boxes beside the channel box (5.1 #2).
         assert "1.0000 kΩ" in text
         # The queue carries the -222 from the dumped session.
         assert "queue 1" in text and "read away: none" in text
+
+
+def test_the_open_screen_criterion_is_the_registry_row():
+    """The app opens its screens by the registry row (D80, #1469): every kind the registry gives
+    a dedicated screen opens it, every other kind — and an unknown class — the generic instrument
+    screen. The template literal the registry lookup missed cannot come back."""
+    from simubench.library import categories
+    from simubench.tui.app import screen_key
+
+    assert screen_key("oscilloscope") == "scope"
+    for row in categories.rows():
+        assert screen_key(row.id) == ("scope" if row.screen == "scope" else "instrument")
+    assert screen_key("sb-such-no-row") == "instrument"
+    assert screen_key(None) == "instrument"
 
 
 async def test_generator_screen_has_a_box_per_channel():

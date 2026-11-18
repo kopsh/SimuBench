@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from . import controls
 from .fmt import fmt, fmt_ns
 from .i18n import t
 from .log import LogLine, hint_text, source_label
@@ -168,15 +169,18 @@ def limited_report(
     events: Sequence[Mapping[str, Any]],
     lang: str,
 ) -> ReasonReport | None:
-    """The SMU at its limit (tui-screens.md 5.4): 设定 / 限值 / 读数 (tui-screens.md 9.1)."""
+    """The SMU at its limit (tui-screens.md 5.4): 设定 / 限值 / 读数 (tui-screens.md 9.1). The
+    set and limit paths resolve through the panel's Source group (#1469): the role a malformed
+    declaration does not make is left out of the evidence."""
     values = (readings or {}).get("values", {})
     if not values.get("core.limited"):
         return None
     regulation = str(values.get("core.regulation") or "CC")
     instrument = info.get("name", "")
     # CC: the current limit is active while the source forces a voltage; CV the other way round.
-    set_path = "source.current.level" if regulation == "CV" else "source.voltage.level"
-    limit_path = "compliance.current.limit"
+    roles = controls.smu_source_roles(info)
+    set_path = roles["v_set"] if regulation == "CC" else roles["i_set"]
+    limit_path = roles["i_limit"] if regulation == "CC" else roles["v_limit"]
     if regulation == "CC":
         # The dialog's first line is the one-sentence conclusion (9.1); the per-value wording
         # (limitedCC) is the instrument screen's reason line (5.4).
@@ -197,38 +201,45 @@ def limited_report(
             setting=fmt(float(_state_value(info, set_path) or 0), "A"),
         )
         subject = t("reason.subjectVoltage", lang, value=fmt(float(values.get("core.voltage") or 0), "V"))
-    evidences = [
-        Evidence(
-            t("reason.evSetting", lang),
-            f"{_label_of(info, set_path, lang)} {_value_text(info, set_path, lang)}",
-            set_path,
-            trace_source(events, instrument, set_path, lang)
-            or t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
-        ),
-        Evidence(
-            t("reason.evLimit", lang),
-            f"{_label_of(info, limit_path, lang)} {_value_text(info, limit_path, lang)}",
-            limit_path,
-            trace_source(events, instrument, limit_path, lang)
-            or t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
-        ),
+    evidences = []
+    if set_path is not None:
+        evidences.append(
+            Evidence(
+                t("reason.evSetting", lang),
+                f"{_label_of(info, set_path, lang)} {_value_text(info, set_path, lang)}",
+                set_path,
+                trace_source(events, instrument, set_path, lang)
+                or t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
+            )
+        )
+    if limit_path is not None:
+        evidences.append(
+            Evidence(
+                t("reason.evLimit", lang),
+                f"{_label_of(info, limit_path, lang)} {_value_text(info, limit_path, lang)}",
+                limit_path,
+                trace_source(events, instrument, limit_path, lang)
+                or t("reason.fromBench", lang, pointer=bench_pointer(instrument)),
+            )
+        )
+    evidences.append(
         Evidence(
             t("reason.evReading", lang),
             f"{t('reason.voltage', lang)} {fmt(float(values.get('core.voltage') or 0), 'V')} · "
             f"{t('reason.current', lang)} {fmt(float(values.get('core.current') or 0), 'A')}",
-        ),
-    ]
+        )
+    )
     return ReasonReport(
         t("reason.titleFor", lang, instrument=instrument, subject=subject),
         conclusion,
         evidences,
-        jump_seq=_setting_jump_seq(events, instrument, set_path),
+        jump_seq=_setting_jump_seq(events, instrument, set_path) if set_path is not None else None,
     )
 
 
-def _state_value(info: Mapping[str, Any], path: str) -> Any:
+def _state_value(info: Mapping[str, Any], path: str | None) -> Any:
     for sv in info.get("state", []):
-        if sv.get("path") == path:
+        if path is not None and sv.get("path") == path:
             return sv.get("value")
     return None
 

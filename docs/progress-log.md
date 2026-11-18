@@ -2634,3 +2634,16 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | UXR 两型号 | ✅ 打开；`tests/test_keysight_uxr.py::test_the_record_noise_ends_at_the_corrected_band`：256 GSa/s 下 118 GHz 以上的噪声功率低于带内 20 dB 以上（关掉时约 0 dB，测试失败），rms 为噪声表的 860 µV（±5 %），50 GHz 带宽滤波后为 √(50/113)（±4 %）。手册用例、金测与采样流金标准原样通过 |
 | 时限 | ✅ FIR 每采样 49 次乘加，2^18 点记录约 30 ms；深记录（慢速采样）不触发 |
 | 文档 | ✅ signal-chain.md `scope_adc` 一段、instrument-authoring.md 8.4、两型号覆盖表 `:ACQuire:RESPonse`、product-plan C4 与示波器顺序表 |
+
+## 专用屏幕的设置路径改由面板声明驱动（Issue 1469）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 做法 | ✅ 专用屏幕（SMU/射频源/负载）的设置类路径唯一来源改为 `DisplayInfo.panel`：TUI 删 `smu_controls` 六路径表，控件按钮走 `panel_layout`（`when` 生效，无 panel 退通用控件列表）；smu/rf/load 行的设置分组半区改读 `panel.groups`（`rows.panel_group_paths` 一处推导，无 panel 退全部设置一列）；SMU 表格与原因报告的设定/限值路径经 `controls.smu_source_roles` 从面板源组解析（角色=组内单 `when` 点名源功能、带单位 V/A 的浮点控件；组的无条件开关是输出）；「其他设置」主路径集=面板组路径并集，无面板不设该框；Web SmuScreen 四组路径表改 `panel.groups` 经 `panelSections`，无 panel 退 summary；`app.screen_key` 开屏判据读注册表行。读数、标志、I-V 曲线、发生器每通道字段、卡片摘要留守 |
+| 角色解析 | ✅ `tests/test_tui_units.py`：sb-smu-3（块名 `src.*`，自带面板）的角色随 `src.function` 解析并随功能切换换组；sb-smu-1（无面板）经 `SMU_LEGACY_PATHS` 保持平台约定路径；CV 受限报告的证据限值改读 `src.vlim`（旧代码无条件读电流限值，与结论不一致，顺带修正） |
+| validation 两枚用例 | ✅ 新增 `validation/instruments/sb-smu-3.yaml`（块名与内置不同、自带面板）：屏幕按其面板显示（单元测试锁角色与分组）；`sb-smu-1` 无面板：屏幕走通用列表不静默空行（单元测试 + t2 的 smu 屏测试改断言通用按钮与无其他设置框） |
+| 开屏判据=注册表行 | ✅ `tests/test_tui_t2.py::test_the_open_screen_criterion_is_the_registry_row`：注册表每行 `screen_key(row.id)` 与该行的 screen 种类一致，未知类别与 None 走通用仪表屏幕 |
+| 内置型号功能等价 | ✅ b2901a 面板测量组补 `system.line_freq`（屏幕原显示而面板缺的唯一路径）；b2912b/sma100b/dl3021/33622a 面板已覆盖。TUI 快照 5 张基线随裁决更新（smu 两张、rfgen/eload 三张：分组半区随面板、按钮随 `when`）；`tests/test_tui_snapshots.py` 37 全过， meaningful-readings 的 rfgen 期望 "Carrier"→"INT ref"（sb-sg-1 无面板，分组不再有名字） |
+| Web | ✅ `pnpm typecheck`/`lint`/`test` 全绿；e2e 的 SMU 屏用例原样通过（sb-smu-1 的 summary 回退组仍含电流限值字段）；`screen-smu-*.png` 两张 linux 基线随 CI actuals 更新 |
+| 文档 | ✅ decisions.md D83、tui-screens.md 5.2/5.4、instrument-authoring.md 7.3（角色控件形状）、progress-log 本节 |
+| check.sh | ✅ 全绿（worktree 内 pnpm 真装）；演示截图 `docs/tui/find-the-trip*.svg` 重生成（顺带修了无面板屏幕侧行高度的裁行时序：`_refresh_errors` 先于 `_refresh_other`） |
