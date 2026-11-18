@@ -2461,3 +2461,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | ddof 裁决有记录 | ✅ 手册未写：UXR 编程手册（9018-07723）`:MEASure:RESults?`/`:MEASure:STATistics` 只列「std dev」「STDDev」，MAUI 手册只列 `SDEV`/`Sdev`，均无公式 → ddof=1；`tests/test_scope_time_measurements.py` 测量列表流程新增一段：四次重采后 σ 等于所取值的样本标准差、不等于总体标准差（改前代码在此失败：0.00765 = 0.00856·√(4/5)）；DSOX 用例 `tests/models/keysight-dsox2024a/cases.yaml` 注明口径（计数 1 时 σ = 0 不变）；DSOX、UXR1104B 覆盖表 `:MEASure:RESults` 注明 |
 | `ranging.auto_range` 滞回写全 | ✅ docstring：留、升、降（一步到最小可容量程）、无当前量程、超最大量程 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
+
+## scope.py 四文件拆分：触发、采集、测量独立成模块（Issue 1386）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 四文件拆分 | ✅ 按行搬移、段内代码不改：`scope.py`（通道链 + 时基，1019 行）、`scope_trigger.py`（`TriggerHit`、`ScopeTrigger`）、`scope_acquisition.py`（`ScopeAcquisition`）、`scope_measurements.py`（`ScopeMeasurements`，紧邻算法模块 `measurements.py`）；采集对触发只在类型注解里引用（`TYPE_CHECKING`），触发在运行时引用采集——无循环导入 |
+| Record 归位、`channel_index` 共享、无兼容垫片 | ✅ `Record` 与 `channel_index` 都从 `scope_record` 取：sampling、transfer、server/views、engine/component 与三个测试改 import；`scope.py` 的 `__all__` 转出口与 `_boxcar` 别名删除（`test_scope_modules` 直接用 `scope_record.boxcar`） |
+| `noise_bandwidth` 搬 reading_math | ✅ 与 `value_stats` 同住；scope_math 不再跨家族 import specan_backend；`test_specan_sampled` 改 import |
+| 零行为变化 | ✅ 快层 4628 过（金测、手册用例、覆盖表一致性原样）；TUI 启动层 146 过 5 跳过（快照不变）；`load_sensitive` 6 过；`test_scope_deep_record` 的 monkeypatch 改到代码所在模块（`EAGER_POINTS` / `MAX_REQUEST_FANOUT` → `scope_acquisition`，`MAX_FRAME` → 采集与测量两处，与改前覆盖同一组使用点）；组件目录的家族表（server/catalog.py）把三个新模块归入 scope |
+| 类型检查基线 | ✅ `scripts/ty_baseline.txt` 重建：总数 468 不变，只有 scope.py 的条目随代码搬到 scope_acquisition / scope_trigger |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |

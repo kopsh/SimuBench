@@ -61,7 +61,18 @@ GROUPS: dict[str, M.LibraryGroup] = {
         "source",
     ),
     **dict.fromkeys(
-        ("scope", "scope_autoscale", "scope_dsp", "scope_math", "scope_pending", "scope_record"), "scope"
+        (
+            "scope",
+            "scope_acquisition",
+            "scope_autoscale",
+            "scope_dsp",
+            "scope_math",
+            "scope_measurements",
+            "scope_pending",
+            "scope_record",
+            "scope_trigger",
+        ),
+        "scope",
     ),
     "trigger": "trigger",
     **dict.fromkeys(("calstore", "datafiles", "files", "setups", "status", "system"), "system"),

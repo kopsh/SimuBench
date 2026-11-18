@@ -1,6 +1,6 @@
 """The scope's pending acquisitions and the segments one acquisition takes (#134, #957, #1005).
 
-``ScopeAcquisition`` (scope.py) is the run control: it finds the triggers and builds the records
+``ScopeAcquisition`` (scope_acquisition.py) is the run control: it finds the triggers and builds the records
 (``acquire_segments``) and keeps them (``store_segments``). This module schedules an acquisition
 that finishes in virtual time — when its last segment's record is full — and plans it again when
 the trigger has not come or the signals change on the way. It reaches the acquisition only through

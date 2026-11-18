@@ -7,7 +7,7 @@ from types import SimpleNamespace
 import numpy as np
 import pytest
 
-from simubench.library.components.scope import Record
+from simubench.library.components.scope_record import Record
 from simubench.library.components.transfer import WaveformTransfer
 from simubench.scpi.errors import ScpiError
 

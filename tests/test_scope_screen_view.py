@@ -16,7 +16,7 @@ from tests.helpers import raises_with
 
 from simubench.engine.component import ScreenState
 from simubench.engine.stream import beyond_model
-from simubench.library.components.scope import Record
+from simubench.library.components.scope_record import Record
 from simubench.server.views import scope_screen
 
 pytestmark = pytest.mark.unit

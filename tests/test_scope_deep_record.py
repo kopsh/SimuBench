@@ -20,8 +20,7 @@ from helpers import raises_with, session_query
 from simubench.api import open_bench
 from simubench.engine import session as session_module
 from simubench.engine.stream import ModelLimit
-from simubench.library.components import scope as scope_module
-from simubench.library.components import scope_record
+from simubench.library.components import scope_acquisition, scope_measurements, scope_record
 
 ROOT = Path(__file__).resolve().parents[1]
 UXR = ROOT / "examples" / "benches" / "keysight-uxr0334b.bench.yaml"
@@ -67,7 +66,7 @@ def test_a_deep_record_answers_byte_for_byte_as_the_record_computed_whole(monkey
         commands = extra + RECORD + READS
         whole, whole_records = _replies(UXR, commands)
         assert whole_records[1].deep is None and whole_records[1].points == 100_000
-        monkeypatch.setattr(scope_module, "EAGER_POINTS", 1000)
+        monkeypatch.setattr(scope_acquisition, "EAGER_POINTS", 1000)
         deep, deep_records = _replies(UXR, commands)
         monkeypatch.undo()
         assert deep_records[1].deep is not None and deep_records[1].points == 100_000
@@ -92,8 +91,9 @@ def test_peak_detect_and_high_resolution_tiles_follow_the_whole_record(monkeypat
             ":WAVeform:DATA?",
         ]
         _, whole = _replies(SIGLENT, commands)
-        monkeypatch.setattr(scope_module, "EAGER_POINTS", 1000)
-        monkeypatch.setattr(scope_module, "MAX_FRAME", 1000)
+        monkeypatch.setattr(scope_acquisition, "EAGER_POINTS", 1000)
+        monkeypatch.setattr(scope_acquisition, "MAX_FRAME", 1000)
+        monkeypatch.setattr(scope_measurements, "MAX_FRAME", 1000)
         monkeypatch.setattr(scope_record, "TILE", 1 << 10)  # many tile edges in the record
         _, deep = _replies(SIGLENT, commands)
         monkeypatch.undo()
@@ -112,7 +112,7 @@ def test_a_deep_record_filtered_after_the_adc_follows_the_whole_record(monkeypat
     rounding: each tile is its own FFT), and the screen's draws are samples of that record."""
     commands = [":ACQuire:BANDwidth 1E9", *RECORD]
     _, whole = _replies(UXR, commands)
-    monkeypatch.setattr(scope_module, "EAGER_POINTS", 1000)
+    monkeypatch.setattr(scope_acquisition, "EAGER_POINTS", 1000)
     monkeypatch.setattr(scope_record, "TILE", 1 << 12)
     _, deep = _replies(UXR, commands)
     a, b = whole[1], deep[1]
@@ -134,7 +134,7 @@ def test_a_deep_record_is_computed_where_it_is_read_and_keeps_what_was_acquired(
     """:DIGitize computes nothing; a read computes its tiles only; reading a sample again, or
     through another read, gives the same value; later settings do not change the record; a read
     beyond what one read may hold is refused, in parts it is not."""
-    monkeypatch.setattr(scope_module, "EAGER_POINTS", 1000)
+    monkeypatch.setattr(scope_acquisition, "EAGER_POINTS", 1000)
     computed: list[int] = []
     frame = scope_record.AdcView.frame
     monkeypatch.setattr(scope_record.AdcView, "frame", lambda v, r: computed.append(r.count) or frame(v, r))
@@ -175,7 +175,7 @@ def test_an_average_beyond_the_fan_out_is_a_deep_record_read_in_parts(monkeypatc
     session = open_bench(DSOX, clock="command", seed=1, idle="off")
     scope = session.instruments["scope"].components
     points = scope["acq"]._timing()[0]
-    for module in (session_module, scope_module, scope_record):
+    for module in (session_module, scope_acquisition, scope_record):
         monkeypatch.setattr(module, "MAX_REQUEST_FANOUT", 4 * points)
     computed: list[int] = []
     frame = scope_record.AdcView.frame
@@ -197,7 +197,7 @@ def test_the_screen_of_a_deep_record_is_an_envelope_of_draws_across_each_pixel(m
     """A deep record too costly to compute for the screen is not computed: per pixel, the minimum
     and maximum of samples drawn across it, the same draws every time, within the record's own
     extremes. One cheap enough is every sample's own per-pixel extremes."""
-    monkeypatch.setattr(scope_module, "EAGER_POINTS", 1000)
+    monkeypatch.setattr(scope_acquisition, "EAGER_POINTS", 1000)
     _, records = _replies(UXR, RECORD)
     rec = records[1]
     volts = np.concatenate(list(rec.chunks()))
