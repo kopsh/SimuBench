@@ -2428,3 +2428,13 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 行为零变化 | ✅ #550/#580/#1013/#1030/#436 的锁行为测试、路由等价扫描（780 例）、金测原样通过；`warn` 事件字典逐键不变 |
 | 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 209s / 4583 例全过，另两次 317s / 636s（本机重负载期间测，同几分钟内重跑互有 ±，三次共 5 例 unit 预算护栏在满负载下报 0.10–0.61s > 0.1s，全部隔离运行通过，且三次各不相同——#482 记载的负载噪声类）；`--durations=20` 最慢为 UXR 手册用例 28–56s，摘要随 PR 交主会话判断 |
 | `scripts/check.sh` 通过 | ✅ 退出码 0 |
+
+## 网络与通道展开单一推导（Issue 1381）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 校验语料重跑，新真阳性逐条裁决 | ✅ 唯一行为变化是校验收严：`channels.overrides` 声明的范围如今静态校验即报 E-STATE-RANGE（e36312a 的 ch1.voltage 上限 6.18 对基础 25.75，`tests/test_nets.py` 锁住）；全量语料重跑零新增失败——现有测试台无一踩在这个缺口上，无需改写用例 |
+| 附件命名统一运行时名，零回归 | ✅ 校验侧弃用 `wire<i>.acc<k>` 改运行时名 `wire<i>.<type><k>`（engine/nets.py 一处）；运行时名一字未改，internals、运行记录、golden 全部原样通过 |
+| 校验与运行时同源有测试锁 | ✅ `tests/test_nets.py`：同一线束，Session 建出的网与 `nets_of` 的分组逐一相等；`channels.overrides` 只有 settings.py 的 `channel_specs` 一处生效（SettingStore、`_init_ports`、SignalWiring、validate 全部换用） |
+| 全量测试耗时 | ✅ 快层 `-n 4`：check.sh 内 304.10s、4589 例全过（重启后安静机器所测）；`--durations` 最慢为 UXR 手册用例与 `test_my_templates`（存量，交主会话按 #651 统一判断） |
+| `scripts/check.sh` 通过 | ✅ 退出码 0 |

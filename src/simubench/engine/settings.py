@@ -5,6 +5,12 @@ current value of each. The store owns the rules that need nothing of a running i
 a value to its spec's type, returning every setting to its ``*RST`` / power-on value, moving a
 numeric setting's bounds at run time and restoring them. Reacting to a change (watchers, events,
 rollback) stays with the instrument.
+
+The ``{n}`` expansions of a definition's channel-facing declarations -- specs (with
+``channels.overrides``), exposed channel ports, signal wiring -- live here as the one derivation
+(:func:`channel_specs`, :func:`channel_ports`, :func:`channel_wiring`, issue 1381): the runtime
+(building an instrument) and the bench validation (judging a bench file) both read them, so a rule
+change lands in one place.
 """
 
 from __future__ import annotations
@@ -90,17 +96,55 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
     return str(value)
 
 
+def channel_specs(definition: InstrumentDefinition, channel_count: int) -> dict[str, StateSpec]:
+    """The definition's settings as the runtime builds them: ``state`` as it stands plus every
+    channel state's ``ch<n>.key``, with ``channels.overrides`` patched into that channel's spec.
+    The one derivation of the per-channel specs (issue 1381): :class:`SettingStore` is built on
+    it, and the bench validation judges a bench's initial state against the same specs -- so an
+    override is in force everywhere, not only at run time."""
+    specs: dict[str, StateSpec] = {**definition.state}
+    for n in range(1, channel_count + 1):
+        over = definition.channels.overrides.get(n, {})
+        for key, spec in definition.channel_state.items():
+            patch = over.get(key)
+            specs[f"ch{n}.{key}"] = spec.model_copy(update=patch) if patch else spec
+    return specs
+
+
+def channel_ports(definition: InstrumentDefinition, channel_count: int) -> dict[str, tuple[int, str]]:
+    """The definition's channel ports, expanded per channel: expanded port name -> (channel
+    number, target). ``{n}`` in a port name is the channel number (D51: the internal index,
+    1..count); the target stays the definition's ``<component>.<pin>`` -- the channel's component
+    gets its ``ch<n>.`` prefix where the port is built, not here."""
+    ports: dict[str, tuple[int, str]] = {}
+    for n in range(1, channel_count + 1):
+        for pname, target in definition.ports.channel.items():
+            ports[pname.replace("{n}", str(n))] = (n, target)
+    return ports
+
+
+def channel_wiring(definition: InstrumentDefinition, channel_count: int) -> list[tuple[str, str]]:
+    """The definition's signal wires, expanded to full component references: each channel wiring
+    entry once per channel with its ``ch<n>.`` prefix on both ends, and instrument-level entries
+    with ``{n}`` substituted on both ends (verbatim when neither end names it)."""
+    out: list[tuple[str, str]] = []
+    for n in range(1, channel_count + 1):
+        for src, dst in definition.wiring.channel:
+            out.append((f"ch{n}.{src}", f"ch{n}.{dst}"))
+    for src, dst in definition.wiring.instrument:
+        if "{n}" in src or "{n}" in dst:
+            out.extend(
+                (src.replace("{n}", str(n)), dst.replace("{n}", str(n))) for n in range(1, channel_count + 1)
+            )
+        else:
+            out.append((src, dst))
+    return out
+
+
 class SettingStore:
     def __init__(self, definition: InstrumentDefinition, channel_count: int, name: str) -> None:
         self.name = name
-        self.specs: dict[str, StateSpec] = {}
-        for key, spec in definition.state.items():
-            self.specs[key] = spec
-        for n in range(1, channel_count + 1):
-            over = definition.channels.overrides.get(n, {})
-            for key, spec in definition.channel_state.items():
-                patch = over.get(key)
-                self.specs[f"ch{n}.{key}"] = spec.model_copy(update=patch) if patch else spec
+        self.specs: dict[str, StateSpec] = channel_specs(definition, channel_count)
         #: The definition's spec of a setting whose bounds a component moved at run time.
         self._origin: dict[str, StateSpec] = {}
         #: Counts the run-time changes to ``specs`` (bounds moved or restored, #1302): a client that
