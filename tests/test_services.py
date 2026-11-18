@@ -126,6 +126,36 @@ def test_http_error_lets_a_bug_surface_as_it_is(tmp_path):
             ctx.http_error(exc)
 
 
+def test_a_bare_key_or_value_error_is_a_bug_not_a_domain_error():
+    """#1394: the seams catch the domain's own Unknown / Invalid; a bare KeyError or ValueError (a
+    dict lookup gone wrong inside a service) is not swallowed into a tool's error text."""
+    from types import SimpleNamespace
+
+    from simubench.assistant.guard import LoopGuard
+    from simubench.assistant.tools import _call
+    from simubench.errors import Invalid, Unknown
+    from simubench.server.errors import DOMAIN_ERRORS
+
+    assert isinstance(Unknown("no instrument named 'x'"), DOMAIN_ERRORS)
+    assert isinstance(Invalid("bench files end with .bench.yaml"), DOMAIN_ERRORS)
+    assert not isinstance(KeyError("internal"), DOMAIN_ERRORS)
+    assert not isinstance(ValueError("internal"), DOMAIN_ERRORS)
+
+    ctx = SimpleNamespace(turn=SimpleNamespace(id="t", steps=[]), emit=lambda event: None, guard=LoopGuard())
+
+    def fails(exc):
+        def fn():
+            raise exc
+
+        return fn
+
+    assert _call(ctx, "read_bench", {}, fails(Unknown("no session t"))) == {"error": "no session t"}
+    with pytest.raises(KeyError):  # a bug surfaces as itself, not as {"error": ...}
+        _call(ctx, "read_bench", {}, fails(KeyError("internal")))
+    with pytest.raises(ValueError):
+        _call(ctx, "read_bench", {}, fails(ValueError("internal")))
+
+
 def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
     pytest.importorskip("mcp")  # the optional extra (#987); the rest of the file does not need it
     from simubench.mcp_tools.context import McpContext, RateLimiter
@@ -164,6 +194,31 @@ def test_the_agent_texts_come_from_one_table():
         assert tool_text(exc, "mcp") == tool_text(exc, "assistant"), type(exc).__name__
     assert "force=true" in tool_text(ClientsConnected(["s"], "stop"), "mcp")
     assert "先断开脚本" in tool_text(ClientsConnected(["s"], "stop"), "assistant")
+
+
+def test_a_name_already_taken_is_not_called_an_edit_elsewhere(tmp_path):
+    """#1393: the conflict's reason picks the next step and its target the read tool — no
+    guessing from the message. An existing file says to pick another name; a stale one says to
+    read again; each kind of file points to its own read tool. The HTTP 409 is the same."""
+    from simubench.server.errors import Conflict, tool_text
+
+    exists = Conflict("a.bench.yaml already exists", "abc", reason="exists", target="bench")
+    stale = Conflict("a.bench.yaml changed since it was read", "abc", target="bench")
+    taken_def = Conflict("instruments/my.yaml already exists", "abc", reason="exists", target="definition")
+    stale_def = Conflict("my.yaml changed since it was read", "abc", target="definition")
+    for seam in ("mcp", "assistant"):
+        assert tool_text(exists, seam) != tool_text(stale, seam)
+        assert "被改过" not in tool_text(exists, seam) and "换一个名字" in tool_text(exists, seam)
+        assert "被改过" in tool_text(stale, seam) and "read_bench" in tool_text(stale, seam)
+        assert "read_bench" in tool_text(exists, seam)
+        assert "read_definition" in tool_text(taken_def, seam)
+        assert "read_definition" in tool_text(stale_def, seam)  # no "instruments/" in the message
+        assert "sha256 = abc" in tool_text(stale_def, seam)
+    ctx = _ctx(tmp_path)
+    for exc in (exists, stale, stale_def):
+        err = ctx.error_row(exc)
+        assert err.status_code == 409
+        assert err.detail == {"message": str(exc), "current_sha256": "abc"}
 
 
 def test_the_tool_text_and_the_http_row_agree_per_kind(tmp_path):

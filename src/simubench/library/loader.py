@@ -58,6 +58,16 @@ def load_yaml(text: str) -> object:
     return yaml.load(text, Loader=YamlLoader)  # a SafeLoader subclass: no arbitrary objects
 
 
+#: libyaml's emitter when present: the same text as ``yaml.safe_dump``, about five times faster on a
+#: large definition (#1394).
+_Dumper = getattr(yaml, "CSafeDumper", yaml.SafeDumper)
+
+
+def dump_yaml(data: object) -> str:
+    """The text SimuBench writes a bench or definition file with: keys in order, unicode as is."""
+    return yaml.dump(data, Dumper=_Dumper, allow_unicode=True, sort_keys=False, width=100)
+
+
 def _read_yaml(path: Path) -> dict:
     with path.open(encoding="utf-8") as f:
         data = load_yaml(f.read())

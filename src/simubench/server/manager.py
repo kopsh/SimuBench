@@ -29,7 +29,7 @@ from ..engine.record import definition_hash
 from ..models import api as M
 from ..models.bench import BenchDefinition
 from .benchfiles import BenchFiles
-from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse
+from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse, Unknown
 from .runs import Runs
 from .views import SessionViews, served_addresses
 
@@ -175,12 +175,12 @@ class TrySessions:
         with self._lock:
             entry = self._tries.get(sid)
             if entry is None:
-                raise KeyError(sid)
+                raise Unknown(sid)
             # ``>=``: with ``idle_s == 0`` the session is reaped on the first look even when the
             # clock tick has not advanced (Windows' monotonic resolution is ~15.6 ms).
             if time.monotonic() - entry.used >= self.idle_s:
                 self._close(sid)
-                raise KeyError(sid)
+                raise Unknown(sid)
             entry.used = time.monotonic()
             return entry
 
@@ -475,10 +475,10 @@ class SessionManager:
         """
         served = self.sessions.get(sid)
         if served is None:
-            raise KeyError(sid)
+            raise Unknown(sid)
         bench_path = served.bench_path
         if bench_path is None:
-            raise KeyError(sid)
+            raise Unknown(sid)
         served.require_no_clients("a reset", force)
         rel = bench_path.relative_to(self.files.workspace).as_posix()
         clock = clock if clock is not None else served.clock
@@ -531,4 +531,4 @@ class SessionManager:
         try:
             return self.sessions[sid]
         except KeyError:
-            raise KeyError(sid) from None
+            raise Unknown(sid) from None
