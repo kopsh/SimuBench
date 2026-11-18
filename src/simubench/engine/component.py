@@ -630,6 +630,14 @@ class Component:
         return V.parse_enum(str(value).encode(), self.choices[key])
 
     @classmethod
+    def literal_problems(cls, params: dict[str, Any]) -> list[tuple[str, str]]:
+        """What is wrong among the literal values a definition gives this type's parameters, that
+        no single parameter's check sees (two that must agree): (parameter, message) pairs for the
+        definition validator (E-DEF-PARAM-VALUE). None by default; a type whose parameters depend
+        on each other overrides this."""
+        return []
+
+    @classmethod
     def spec_of(cls, port: str) -> PortSpec | None:
         """A declared port, or one the instrument creates through ``port_pattern``; None when the
         type has no such port. A type whose pattern ports differ (an ADC's analog inputs and

@@ -142,6 +142,8 @@ def _check_components(
             for n in range(1, count + 1) if channel else (None,):
                 classes[f"ch{n}.{spec.name}" if n else spec.name] = cls
             _check_params(d, spec, cls, p, channel, report)
+            for key, message in cls.literal_problems(spec.params):
+                report.add("error", "E-DEF-PARAM-VALUE", _ptr(*p, "params", key), message, None, spec.name)
     return classes
 
 

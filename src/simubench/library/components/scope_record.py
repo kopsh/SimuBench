@@ -123,30 +123,52 @@ def distortion(volts: np.ndarray, signal: Signal, hd: tuple[float, float], half:
     return volts + half * (hd[0] * (x * x - power) + hd[1] * x * x * x)
 
 
+def sub_converters(n: int, gain: float, offset: float) -> tuple[np.ndarray, np.ndarray]:
+    """The per-sub-converter gain errors (relative) and offsets (of half the span) of the one-cosine
+    mismatch the dBc / dBFS figures describe (#1266): ``gain`` and ``offset`` its amplitudes."""
+    pattern = np.cos(2 * math.pi * np.arange(n) / n)
+    return gain * pattern, offset * pattern
+
+
+def sub_converter_of(t0_ns: int, offsets: np.ndarray, native_dt: float, n: int) -> np.ndarray:
+    """The sub-converter of each sample at ``t0_ns`` + ``offsets`` (s): its place on the converter's
+    own ``native_dt`` grid counted from time zero, modulo ``n`` (whole nanoseconds first, so a late
+    instant keeps its precision)."""
+    base = math.fmod(t0_ns * (1e-9 / native_dt), n)
+    return np.mod(np.round(base + offsets / native_dt), n).astype(np.int64)
+
+
 def interleave(
     volts: np.ndarray,
     t0_ns: int,
     offsets: np.ndarray,
-    n: int,
     native_dt: float,
-    gain: float,
-    offset_v: float,
+    gains: np.ndarray,
+    offsets_v: np.ndarray,
     middle: float,
 ) -> np.ndarray:
-    """``n`` sub-converters taking turns on the ``native_dt`` grid, each with its own gain (a
-    cosine of relative amplitude ``gain`` across them, about the screen's ``middle``) and offset
-    (the same cosine, ``offset_v`` volts): images at k·fs/n ± f, spurs at k·fs/n. The samples are
-    at ``t0_ns`` + ``offsets`` (s), on that grid."""
-    if n <= 1 or not (gain or offset_v):
+    """``len(gains)`` sub-converters taking turns on the ``native_dt`` grid, sub-converter m with its
+    own gain error ``gains[m]`` (relative, about the screen's ``middle``) and offset
+    ``offsets_v[m]`` (V): images at k·fs/N ± f, spurs at k·fs/N (#1266, #1422). The samples are at
+    ``t0_ns`` + ``offsets`` (s), on that grid or a coarser one: a record decimated from the
+    converter's full rate keeps each of its samples' sub-converter, so its images and spurs fold
+    into its own band (every N-th sample: one sub-converter, a DC offset and a gain error). The
+    sub-converters' timing skews are sampling-time errors: :meth:`AdcView._volts` adds them to the
+    aperture jitter's shift."""
+    n = len(gains)
+    if n <= 1:
         return volts
-    # the sub-converter of each sample: its place on the converter's own grid, counted from time
-    # zero (whole nanoseconds first, so a late instant keeps its precision)
-    per_ns = 1e-9 / native_dt
-    base = math.fmod(t0_ns * per_ns, n)
-    sub = np.mod(np.round(base + offsets / native_dt), n)
-    pattern = np.cos(2 * math.pi * sub / n)
-    volts = (volts - middle) * (1.0 + gain * pattern) + middle
-    return volts + offset_v * pattern
+    sub = sub_converter_of(t0_ns, offsets, native_dt, n)
+    volts = (volts - middle) * (1.0 + np.asarray(gains)[sub]) + middle
+    return volts + np.asarray(offsets_v)[sub]
+
+
+def _on_grid(dt: float, native_dt: float) -> bool:
+    """Whether a record ``dt`` apart takes whole steps of the converter's ``native_dt`` grid."""
+    if native_dt <= 0:
+        return False
+    ratio = dt / native_dt
+    return ratio >= 1 - 1e-6 and abs(ratio - round(ratio)) < 1e-6 * ratio
 
 
 def converter_half(scale: float, bits: int, per_div: float, divs: float) -> float:
@@ -184,6 +206,11 @@ class AdcView:
     ilv: int = 0  # interleaved sub-converters (0, 1: none)
     ilv_gain: float = 0.0  # their gain mismatch, relative (images at k·fs/N ± f, each ilv_gain/2)
     ilv_offset: float = 0.0  # their offset mismatch, of half (spurs at k·fs/N)
+    # each sub-converter's own mismatch, added to the cosine above (#1422): gain errors (relative),
+    # offsets (of half) and timing skews (s); empty: none
+    ilv_gains: tuple[float, ...] = ()
+    ilv_offsets: tuple[float, ...] = ()
+    ilv_skews: tuple[float, ...] = ()
     native_dt: float = 0.0  # the interleaved converter's own interval, s
     aperture: float = 0.0  # the sampling clock's aperture jitter, s rms
 
@@ -202,29 +229,46 @@ class AdcView:
         quantization; ``indexes`` place the samples in the random streams of ``key``."""
         when = offsets - self.skew
         volts = self.signal.sample_rel(t0_ns, when)
+        gains, offs, skews = self._sub_converters()
+        grid = gains is not None and dt is not None and _on_grid(dt, self.native_dt)
+        # sampling-time errors, one slope for both: the clock's aperture jitter (its own draw per
+        # sample) and each sub-converter's skew (#1422)
+        shift: np.ndarray | None = None
         if self.aperture > 0 and self.signal.freq.size:
             shift = self.aperture * gaussian(stream_key(self.seed, *key, "aperture"), indexes)
+        if grid and skews is not None and np.any(skews) and self.signal.freq.size:
+            per_sample = skews[sub_converter_of(t0_ns, offsets, self.native_dt, len(skews))]
+            shift = per_sample if shift is None else shift + per_sample
+        if shift is not None:
             volts = aperture_jitter(volts, self.signal, t0_ns, when, shift)
         volts = distortion(volts, self.signal, self.hd, self.half)
-        # The sub-converters take turns on the converter's own grid; a slower record is decimated
-        # from all of them, so it shows none of their pattern (an ASSUMPTION, #1305: the data sheet
-        # gives the spurs' levels, not what a decimated record keeps of them).
-        native = dt is not None and self.native_dt > 0 and abs(dt / self.native_dt - 1.0) < 1e-6
-        if native:
+        # The sub-converters take turns on the converter's own grid. A slower record takes every
+        # M-th of the full-rate samples (the converter always runs at its full rate), so each of
+        # its samples is one sub-converter's and the pattern folds into the record's band (#1422,
+        # replacing #1305's assumption that a decimated record shows none of it). A grid that is
+        # not a whole multiple of the converter's has no sub-converter per sample: none is applied.
+        if grid and gains is not None and offs is not None:
             middle = -self.offset if self.add else self.offset
-            volts = interleave(
-                volts,
-                t0_ns,
-                offsets,
-                self.ilv,
-                self.native_dt,
-                self.ilv_gain,
-                self.ilv_offset * self.half,
-                middle,
-            )
+            volts = interleave(volts, t0_ns, offsets, self.native_dt, gains, offs * self.half, middle)
         if self.sigma > 0:
             volts = volts + self.sigma * gaussian(stream_key(self.seed, *key), indexes)
         return volts
+
+    def _sub_converters(self) -> tuple[np.ndarray, np.ndarray, np.ndarray] | tuple[None, None, None]:
+        """Each sub-converter's gain error, offset (of half) and skew: the cosine of ``ilv_gain`` /
+        ``ilv_offset`` plus the per-sub-converter lists; None when there is no mismatch."""
+        n = self.ilv
+        if n <= 1 or self.native_dt <= 0:
+            return None, None, None
+        gains, offs = sub_converters(n, self.ilv_gain, self.ilv_offset)
+        if self.ilv_gains:
+            gains = gains + np.asarray(self.ilv_gains, dtype=float)
+        if self.ilv_offsets:
+            offs = offs + np.asarray(self.ilv_offsets, dtype=float)
+        skews = np.asarray(self.ilv_skews, dtype=float) if self.ilv_skews else np.zeros(n)
+        if not (np.any(gains) or np.any(offs) or np.any(skews)):
+            return None, None, None
+        return gains, offs, skews
 
     def frame(self, request: FrameRequest) -> SampleFrame:
         volts = self._volts(request.t0_ns, request.offsets_s(), request.indexes(), request.key, request.dt_s)

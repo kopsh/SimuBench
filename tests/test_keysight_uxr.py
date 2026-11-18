@@ -684,13 +684,16 @@ def test_below_the_hardware_range_the_code_step_stays_the_range_s(example, floor
         for scale in (floor_v / 8, 0.02):
             codes = capture(scale) / (scale / 128)
             assert np.max(np.abs(codes - np.round(codes))) < 0.01, scale
-        # -- averaging 1024 acquisitions at 1 mV/div: the noise falls by ~32 and the mean leaves the grid
+        # -- averaging 1024 acquisitions at 1 mV/div: the noise falls by ~32 and the mean leaves the grid.
+        # Read on the record: the averaged noise (~8 µV) is under one code (31 µV), and the transfer's
+        # 10-bit words round it back to codes, so their spread would depend on where the mean sits
+        # in a code (a sub-converter's offset moves it, #1422), not on the noise.
         single = float(np.std(capture(1e-3)))
         uxr.write(":ACQuire:COUNt 1024;:ACQuire:AVERage ON")
-        averaged = capture(1e-3)
-        assert float(np.std(averaged)) == pytest.approx(single / 32, rel=0.3)
-        # the record keeps the mean (the transfer's words carry the converter's 10-bit codes)
+        capture(1e-3)
         record = rm.visalib.bench.instruments["scope"].components["acq"].records[3].volts
+        assert float(np.std(record)) == pytest.approx(single / 32, rel=0.3)
+        # the record keeps the mean (the transfer's words carry the converter's 10-bit codes)
         off_grid = np.abs(record / lsb - np.round(record / lsb))
         assert float(np.mean(off_grid > 0.05)) > 0.5
         assert reader.errors(uxr) == []

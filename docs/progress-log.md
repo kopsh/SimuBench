@@ -2561,3 +2561,16 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 范围 | ✅ 积分非线性即 x²、x³ 多项式（HD2/HD3 是其系数）；UXR 不填 `enob_table`（数据手册的有效位数是分频段测的，满带宽值由噪声与失真本身给出）；通用 `adc` 块的随频率非理想未做，product-plan C4 / F1-1 行写明 |
 | 文档 | ✅ signal-chain.md 的 `scope_adc` 非理想一段、product-plan C4 与 F1-1 行 |
 
+## 交织失配按子 ADC 建模，抽取后的记录带折叠后的图样（Issue 1422，F1-2）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 子 ADC 各自的增益、偏置、时延失配 | ✅ `scope_adc` 的 `interleave_gain_errors`、`interleave_offsets_fs`、`interleave_skews_s`（每个子 ADC 一个值），与原有的 dBc / dBFS 余弦写法相加；时延与孔径抖动按同一斜率计入采样时刻误差；`tests/test_scope_adc_nonlinearity.py::test_each_sub_converter_s_own_mismatch_makes_the_images_of_its_fourier_series`：任意 8 路增益误差的像等于其离散傅里叶级数（±0.2 dB），余弦时延的像为 2πfδ/2（±0.5 dB） |
+| 折叠，在 256、128、16 GSa/s 下验证 | ✅ `test_the_interleaved_converters_make_images_and_a_spur_at_their_rate`：256 GSa/s 的像与杂散；128 GSa/s 时 16 GHz 的像与杂散仍在带内；16 GSa/s 时记录逐点等于该子 ADC 的增益与偏置（解析式，atol 1e-12）。取代 #1305 的假设 |
+| UXR 的失配与数据手册一致 | ✅ #1266 把 -52 dBc 全算作增益失配，与同页 SFDR（5 GHz 载波 ≤ -65 dBc）不符，且折叠后慢速记录会带 ±0.5 % 的直流增益误差（`test_the_captures_scatter_by_the_table_noise_around_the_true_level` 因此失败）。改为增益 -65 dBc + 余弦时延 4.40 fs（使 50 GHz 合计 -61 dBc，113 GHz 约 -55.6 dBc，接近 -52 dBc 最坏值）；`test_the_uxr1104b_images_meet_the_data_sheet_s_sfdr_at_5_and_50_ghz`（±1 dB）。UXR0334B 沿用（估计） |
+| 回复的变化只在预期之处 | ✅ 采样流金标准（`tests/data/scope_stream_gold.json`）按其说明重录：只有 UXR0334B 的 7 步 `:WAVeform:DATA?` 与屏幕帧变化（耗时不变），其余五个型号逐字节相同；UXR1104B 的金测、手册用例与 ENOB 用例原样通过 |
+| 测试的修正 | ✅ `test_below_the_hardware_range_the_code_step_stays_the_range_s` 的平均噪声原先在 WORD 传输回来的整码上量：平均后的噪声（约 8 µV）小于一个码（31 µV），离散度取决于均值在码格中的位置，改前恰好均值接近 0；子 ADC 的偏置移动均值后暴露出来。改为在记录本身上量（同一测试下一步已在用），断言不变 |
+| 列表长度与交织路数一致 | ✅ 新的组件钩子 `Component.literal_problems`（校验器报 E-DEF-PARAM-VALUE）：`scope_adc` 的每路列表要与 `interleave` 等长。#1429 的回归样例把交织改成 32 路却继承了 16 路时延，采集时才抛错——现在 `simubench validate` 就指出；样例改为 `interleave_skews_s: null`（注释写明）；`test_a_per_sub_converter_list_must_match_the_interleave_count` |
+| 时限 | ✅ 时延并入孔径抖动的同一次斜率计算；全量测试 69.5 s |
+| 文档 | ✅ signal-chain.md 的 `scope_adc` 一段、UXR 两型号的覆盖表与定义注释、product-plan C4 与 F1-2 行 |
+

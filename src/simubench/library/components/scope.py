@@ -603,7 +603,12 @@ class ScopeAdc(Component):
     the distortion and the aperture jitter leave of the error budget; none when they already exceed
     it (F1-1). ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
     pattern in gain (``interleave_image_dbc``: each image at k·fs/N ± f) and offset
-    (``interleave_spur_dbfs``: the spur at k·fs/N); ``aperture_jitter_s`` moves each sample instant
+    (``interleave_spur_dbfs``: the spur at k·fs/N), and each sub-converter may carry its own gain
+    error, offset and sampling-time skew (``interleave_gain_errors``, ``interleave_offsets_fs``,
+    ``interleave_skews_s``, one value per sub-converter, #1422) — the images and spurs are then the
+    discrete Fourier series of those lists. A record slower than ``max_rate`` takes every M-th of the
+    full-rate samples, so its samples keep their sub-converters and the pattern folds into its band
+    (every N-th: one sub-converter, a gain error and a DC offset); ``aperture_jitter_s`` moves each sample instant
     by its own draw (σ rms), whose noise on a sine of frequency f is 2πf·σ of it. Unset (the
     defaults), none is drawn and the frames are what they were."""
 
@@ -632,12 +637,17 @@ class ScopeAdc(Component):
         "interleave": 0,  # sub-converters interleaved on the max_rate grid (0, 1: none)
         "interleave_image_dbc": None,  # their gain mismatch: each image at k*fs/N +- f, dBc (None: none)
         "interleave_spur_dbfs": None,  # their offset mismatch: the spur at k*fs/N, dBFS (None: none)
+        # each sub-converter's own mismatch, one value per sub-converter, added to the above (#1422):
+        "interleave_gain_errors": None,  # gain errors, relative (None: none)
+        "interleave_offsets_fs": None,  # offsets, fraction of the full scale (None: none)
+        "interleave_skews_s": None,  # sampling-time skews, s (None: none)
         "aperture_jitter_s": 0.0,  # the sampling clock's aperture jitter, s rms
         "vertical": "",  # the per-channel scope_vertical component: the scale, offset and input noise
         "probe": "",  # the per-channel scope_probe component: its ratio (noise) and skew
     }
     units = {
         "max_rate": "Sa/s", "max_rate_paired": "Sa/s", "min_full_scale": "V", "aperture_jitter_s": "s",
+        "interleave_skews_s": "s",
     }  # fmt: skip
 
     @classmethod
@@ -691,6 +701,30 @@ class ScopeAdc(Component):
         jitter = 2 * math.pi * freq * float(self.param("aperture_jitter_s")) * rms
         present = sigma**2 + lsb**2 / 12 + (rms * math.hypot(hd[0] / 2, hd[1] / 4)) ** 2 + jitter**2
         return math.sqrt(max(0.0, allowed**2 - present))
+
+    @classmethod
+    def literal_problems(cls, params: dict[str, Any]) -> list[tuple[str, str]]:
+        """A per-sub-converter list must have one value for each of the ``interleave`` converters
+        (#1422): a definition that changes the count keeps a parent's lists otherwise."""
+        count = params.get("interleave", cls.defaults["interleave"])
+        if not isinstance(count, int):
+            return []
+        out = []
+        for name in ("interleave_gain_errors", "interleave_offsets_fs", "interleave_skews_s"):
+            values = params.get(name)
+            if isinstance(values, list) and len(values) != count:
+                out.append((name, f"{name} 有 {len(values)} 个值，interleave 是 {count}：每个子 ADC 一个值"))
+        return out
+
+    def _per_sub(self, name: str) -> tuple[float, ...]:
+        """A per-sub-converter list (#1422): one value for each of the ``interleave`` converters."""
+        values = self.param(name)
+        if not values:
+            return ()
+        n = int(self.param("interleave"))
+        if len(values) != n:
+            raise ValueError(f"{self.uid}: {name} has {len(values)} values, interleave is {n}")
+        return tuple(float(v) for v in values)
 
     def top_rate(self, on: set[int]) -> float:
         """The top sample rate with channels ``on`` displayed (inf when unlimited)."""
@@ -766,6 +800,9 @@ class ScopeAdc(Component):
             ilv=int(self.param("interleave")),
             ilv_gain=0.0 if image is None else 2.0 * 10 ** (float(image) / 20),
             ilv_offset=0.0 if spur is None else 10 ** (float(spur) / 20),
+            ilv_gains=self._per_sub("interleave_gain_errors"),
+            ilv_offsets=tuple(2.0 * v for v in self._per_sub("interleave_offsets_fs")),  # of half the span
+            ilv_skews=self._per_sub("interleave_skews_s"),
             native_dt=1.0 / top if top > 0 else 0.0,
             aperture=float(self.param("aperture_jitter_s")),
         )
