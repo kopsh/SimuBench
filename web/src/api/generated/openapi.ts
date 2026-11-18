@@ -2631,6 +2631,11 @@ export interface components {
              */
             old: unknown;
             /**
+             * Still Old
+             * @description A specs change only: where the new version still holds the old value (settings' limits and defaults, component parameters, as JSON pointers). Specs are a record and change no behaviour (D3); these places do
+             */
+            still_old: string[] | null;
+            /**
              * Target
              * @description The object: a command header, a setting path, '<component>.<param>', 'identity.idn'
              */

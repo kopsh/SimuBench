@@ -76,6 +76,12 @@ class DefinitionChange(_Model):
     )
     old: Any = Field(None, description="The value before (None for an added object)")
     new: Any = Field(None, description="The value after (None for a removed object)")
+    still_old: list[str] | None = Field(
+        None,
+        description="A specs change only: where the new version still holds the old value (settings' "
+        "limits and defaults, component parameters, as JSON pointers). Specs are a record and change "
+        "no behaviour (D3); these places do",
+    )
 
 
 class DefinitionVersion(_Model):

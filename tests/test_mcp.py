@@ -711,6 +711,7 @@ async def test_edit_definition_reports_what_changed(ws):
                 "detail": None,
                 "old": 10.0e6,
                 "new": 1.0e9,
+                "still_old": None,
             }
         ]
         again = await call(c, "read_definition", definition_id="sb-dmm-1")

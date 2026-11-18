@@ -2536,6 +2536,21 @@
             "description": "The value before (None for an added object)",
             "title": "Old"
           },
+          "still_old": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "A specs change only: where the new version still holds the old value (settings' limits and defaults, component parameters, as JSON pointers). Specs are a record and change no behaviour (D3); these places do",
+            "title": "Still Old"
+          },
           "target": {
             "description": "The object: a command header, a setting path, '<component>.<param>', 'identity.idn'",
             "title": "Target",
@@ -2548,7 +2563,8 @@
           "target",
           "detail",
           "old",
-          "new"
+          "new",
+          "still_old"
         ],
         "title": "DefinitionChange",
         "type": "object"

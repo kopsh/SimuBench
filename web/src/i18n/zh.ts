@@ -1119,6 +1119,8 @@ export const zh = {
     panelSource: { declared: "面板由定义声明", class_default: "面板按类别默认布局生成" },
     specs: "技术指标",
     noSpecs: "定义没有记录技术指标。",
+    specsHint: "技术指标只作记录（D3），改它不改变仿真；仿真按设置的范围与组件参数运行。",
+    stillOld: "技术指标只作记录，仿真不变；这些地方仍是旧值：{{places}}",
     deviations: "个体偏差限值",
     noDeviations: "定义没有声明个体偏差。",
     thisUnit: "本台：{{value}}",

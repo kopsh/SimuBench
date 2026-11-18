@@ -14,6 +14,7 @@ no change either, while gained and lost values become their own items.
 
 from __future__ import annotations
 
+import math
 from collections import Counter
 from typing import Any
 
@@ -82,7 +83,71 @@ def definition_changes(old: dict[str, Any], new: dict[str, Any]) -> list[M.Defin
         out += _value(kind, section, old.get(section), new.get(section))
     for key in sorted((set(old) | set(new)) - _WRAPPER - _OWN):  # ports, wiring, display, description, ...
         out += _value(key, key, old.get(key), new.get(key))
+    return [_with_still_old(c, new) for c in out]
+
+
+#: How many places a specs change lists at most.
+_STILL_OLD_MAX = 8
+
+
+def _numbers(value: Any) -> list[float]:
+    if isinstance(value, bool):
+        return []
+    if isinstance(value, int | float):
+        return [float(value)]
+    if isinstance(value, list | tuple):
+        return [n for v in value for n in _numbers(v)]
+    return []
+
+
+def _same(a: float, b: float) -> bool:
+    if not (math.isfinite(a) and math.isfinite(b)):
+        return a == b
+    return a == b or abs(a - b) <= 1e-9 * max(abs(a), abs(b))
+
+
+def _with_still_old(change: M.DefinitionChange, new: dict[str, Any]) -> M.DefinitionChange:
+    """A specs change with the places that still hold its old number: the specs are a record (D3)
+    and the simulation reads the settings and the component parameters, so a data-sheet value
+    edited alone changes nothing — this names what would have to change with it."""
+    if change.kind != "specs" or change.action == "added":
+        return change
+    gone = [n for n in _numbers(change.old) if not any(_same(n, m) for m in _numbers(change.new))]
+    if not gone:
+        return change
+    found = [where for where, value in _behaviour_numbers(new) if any(_same(value, n) for n in gone)]
+    return change.model_copy(update={"still_old": found[:_STILL_OLD_MAX]}) if found else change
+
+
+def _behaviour_numbers(data: dict[str, Any]) -> list[tuple[str, float]]:
+    """The numbers the simulation runs on, with their JSON pointers: settings' limits, defaults and
+    special values, and component parameters (nested tables included)."""
+    out: list[tuple[str, float]] = []
+    for section in ("state", "channel_state"):
+        for name, spec in (data.get(section) or {}).items():
+            if not isinstance(spec, dict):
+                continue
+            for field in ("min", "max", "default", "rst"):
+                out += [(f"/{section}/{_esc(name)}/{field}", n) for n in _numbers(spec.get(field))]
+            for word, value in (spec.get("special") or {}).items():
+                out += [(f"/{section}/{_esc(name)}/special/{_esc(word)}", n) for n in _numbers(value)]
+    for section in ("components", "channel_components"):
+        for item in data.get(section) or []:
+            if isinstance(item, dict) and isinstance(item.get("params"), dict):
+                out += _walk(item["params"], f"/{section}/{_esc(str(item.get('name')))}/params")
     return out
+
+
+def _walk(value: Any, where: str) -> list[tuple[str, float]]:
+    if isinstance(value, dict):
+        return [p for k, v in value.items() for p in _walk(v, f"{where}/{_esc(str(k))}")]
+    if isinstance(value, list):
+        return [p for i, v in enumerate(value) for p in _walk(v, f"{where}/{i}")]
+    return [(where, n) for n in _numbers(value)]
+
+
+def _esc(part: str) -> str:
+    return part.replace("~", "~0").replace("/", "~1")
 
 
 def _item(

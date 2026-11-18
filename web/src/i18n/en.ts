@@ -1129,6 +1129,8 @@ export const en: Widen<Messages> = {
     panelSource: { declared: "Panel declared by the definition", class_default: "Panel from the class's default layout" },
     specs: "Specifications",
     noSpecs: "The definition records no specifications.",
+    specsHint: "Specifications are a record (D3): editing them does not change the simulation, which runs on the settings\u2019 ranges and the component parameters.",
+    stillOld: "Specifications are a record; the simulation is unchanged. These still hold the old value: {{places}}",
     deviations: "Individual deviation limits",
     noDeviations: "The definition declares no individual deviations.",
     thisUnit: "This unit: {{value}}",
