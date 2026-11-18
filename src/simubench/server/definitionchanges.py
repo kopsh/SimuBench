@@ -7,7 +7,8 @@ description, ...) is described the same way, by its top-level key.
 
 Each item names the category, the object and the old and new values; the labels are the interface's
 (i18n). The comparison runs over the *parsed* data of two versions, so rewriting comments or
-reordering keys yields no items. A scalar list (ranges) compares as a multiset, so reordering it is
+reordering keys yields no items. ``DefinitionFiles`` passes both versions layered (``extends`` and the
+category default merged in, D59), so the items describe the instrument each version runs. A scalar list (ranges) compares as a multiset, so reordering it is
 no change either, while gained and lost values become their own items.
 """
 

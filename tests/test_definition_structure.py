@@ -210,3 +210,28 @@ def test_build_area_layout_is_kept_beside_the_definition(tmp_path):
         (tmp_path / "instruments" / f"{my_id}.layout.json").write_text("{not json", encoding="utf-8")
         assert c.get(url).json() == {"positions": {}}
         assert c.get(f"/api/definitions/{my_id}").status_code == 200  # the loader ignores the file
+
+
+def test_copy_history_reads_what_the_instrument_runs(tmp_path):
+    """A copy's versions are described after layering (extends merged): its creation says only what
+    it is based on, a changed inherited limit reads old → new, and a command added in the Web is
+    one item even though the file now holds the whole command list (D59)."""
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        my_id = c.post("/api/definitions/keysight-uxr1104b/copy").json()["data"]["id"]
+        url = f"/api/definitions/{my_id}/structure"
+        body = _body(c.get(url).json())
+        body["state"]["trigger.holdoff"]["min"] = 4e-8
+        body = _body(c.put(url, json=body).json())
+        body["commands"].append({"header": ":SYSTem:FAN", "state": "trigger.holdoff"})
+        c.put(url, json=body).raise_for_status()
+
+        def items(version: dict) -> list[tuple]:
+            return [(x["kind"], x["action"], x["target"], x["detail"], x["old"], x["new"]) for x in version["changes"]]
+
+        added, limit, created = c.get(f"/api/definitions/{my_id}/history").json()
+        assert items(created) == [("extends", "added", "extends", None, None, "keysight-uxr1104b")]
+        assert items(limit) == [("state", "changed", "trigger.holdoff", "min", 1e-7, 4e-8)]
+        assert items(added) == [("command", "added", ":SYSTem:FAN", None, None, None)]

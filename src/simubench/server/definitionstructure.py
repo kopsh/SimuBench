@@ -88,7 +88,8 @@ def _numbers_read(settings: dict[str, Any]) -> dict[str, Any]:
     return out
 
 
-def _layered(data: dict[str, Any], source: Path) -> dict[str, Any]:
+def layered(data: dict[str, Any], source: Path) -> dict[str, Any]:
+    """``data`` as it runs: layered over what it extends (the file alone when that is broken)."""
     try:
         return layered_definition_data(copy.deepcopy(data), source)
     except ValueError:  # a broken extends: the file alone (its diagnostics say why)
@@ -151,19 +152,19 @@ def _inherited_data(data: dict[str, Any], source: Path) -> dict[str, Any]:
     rest = {k: v for k, v in data.items() if k not in STRUCTURE_KEYS}
     if "extends" not in rest:
         return {}
-    return _layered(rest, source)
+    return layered(rest, source)
 
 
 def structure(doc: M.DefinitionDocument, source: Path) -> M.DefinitionStructure:
     """The effective structure of a definition document read from ``source``."""
-    layered = _layered(doc.data, source)
+    effective = layered(doc.data, source)
     inherited = _inherited_data(doc.data, source)
     below = _structure_of(inherited)
     empty = _structure_of({})
     from_parent: list[StructureKey] = [
         key for key in STRUCTURE_KEYS if key not in doc.data and below[key] != empty[key]
     ]
-    channels = _mapping(layered.get("channels"))
+    channels = _mapping(effective.get("channels"))
     count = channels.get("count", 1)
     return M.DefinitionStructure(
         id=doc.id,
@@ -174,7 +175,7 @@ def structure(doc: M.DefinitionDocument, source: Path) -> M.DefinitionStructure:
         inherited=from_parent,
         ok=doc.ok,
         diagnostics=doc.diagnostics,
-        **_structure_of(spelled(layered)),
+        **_structure_of(spelled(effective)),
     )
 
 
@@ -254,7 +255,7 @@ def written(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> dict[
     inherits is written (the module docstring has the rules); every other key is kept as it is."""
     out = copy.deepcopy(data)
     below = _inherited_data(data, source)
-    now = _layered(data, source)
+    now = layered(data, source)
     for key in ("components", "channel_components"):
         items = _restore_items(
             [{**c, "params": _unspelled(c["params"])} if "params" in c else c for c in _component_data(getattr(new, key))],
@@ -356,7 +357,7 @@ def check_kept(data: dict[str, Any], new: M.StructureUpdate, source: Path) -> No
             "没有保存：结构里不能有 null（JSON 带不了的值，如无穷大，要写成 \"INF\"/\"-INF\"；"
             "删除一项就不发送它）：" + "、".join(nulls[:5])
         )
-    effective = _structure_of(spelled(_layered(data, source)))
+    effective = _structure_of(spelled(layered(data, source)))
     wanted = {
         key: _comparable(getattr(new, key)) if key not in _SETTINGS else _comparable(_numbers_read(getattr(new, key)))
         for key in STRUCTURE_KEYS

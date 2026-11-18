@@ -113,7 +113,7 @@ class DefinitionFiles:
                     base_data = _parse(old)
                     previous = (old, current, _fingerprint(base_data))
             self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
-            changes = definition_changes(base_data, data)
+            changes = self._changes(def_id, base_data, data)
         return self._document(def_id, rel, True, raw, data, changes=changes)
 
     def versions(self, def_id: str) -> list[M.DefinitionVersion]:
@@ -131,7 +131,7 @@ class DefinitionFiles:
                     sha256=v.sha256,
                     source=v.source,
                     saved_at=v.saved_at,
-                    changes=definition_changes(older, data),
+                    changes=self._changes(def_id, older, data),
                 )
             )
         return out
@@ -218,7 +218,27 @@ class DefinitionFiles:
         rel = self.rel_path(def_id)
         older = _parse(self.files.history.content(rel, base)) if base > 0 else {}
         newer = _parse(self.files.history.content(rel, target))
-        return M.DefinitionChangeList(base=base, target=target, changes=definition_changes(older, newer))
+        return M.DefinitionChangeList(base=base, target=target, changes=self._changes(def_id, older, newer))
+
+    def _changes(self, def_id: str, older: dict[str, Any], newer: dict[str, Any]) -> list[M.DefinitionChange]:
+        """What a version changed, in terms of the instrument it runs: both versions are compared
+        after layering (``extends`` and the category default merged in, D59), so a copy's file
+        growing from three lines to a whole command table reads as the one command it added, and an
+        inherited value overridden reads as old → new rather than as an added key. A copy's first
+        version is compared with its parent: it changes nothing yet, apart from being based on it.
+        Layering uses the parent as it is now."""
+        source = self.files.workspace / self.rel_path(def_id)
+
+        def runs(data: dict[str, Any]) -> dict[str, Any]:
+            if not isinstance(data.get("extends"), str):
+                return data
+            return {k: v for k, v in definitionstructure.layered(data, source).items() if k != "extends"}
+
+        def base(data: dict[str, Any]) -> dict[str, Any]:
+            return {"extends": data["extends"]} if "extends" in data else {}
+
+        before = {"extends": newer["extends"]} if not older and isinstance(newer.get("extends"), str) else older
+        return definition_changes(base(older), base(newer)) + definition_changes(runs(before), runs(newer))
 
     def _document(
         self,
