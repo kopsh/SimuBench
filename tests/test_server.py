@@ -106,6 +106,75 @@ def test_scpi_socket_roundtrip():
         loop.call_soon_threadsafe(loop.stop)
 
 
+def test_scpi_socket_long_and_block_messages(tmp_path):
+    """#1448: a program message is not limited to 64 KiB, a definite-length block may hold LF,
+    and an over-long message is -223 without dropping the connection."""
+    from simubench.access.scpi_server import ScpiServer
+    from simubench.api import open_bench
+    from simubench.models.bench import BenchDefinition
+
+    bench = {"schema": "simubench.bench/2", "name": "t", "instruments": {"awg": {"model": "keysight-33622a"}}}
+    loop = asyncio.new_event_loop()
+    t = threading.Thread(target=loop.run_forever, daemon=True)
+    t.start()
+    with open_bench(BenchDefinition.model_validate(bench), files_dir=tmp_path) as session:
+        server = ScpiServer(session, base_port=0)
+        port = asyncio.run_coroutine_threadsafe(server.start(), loop).result(5)[0].port
+
+        def block(b: bytes) -> bytes:
+            n = str(len(b)).encode()
+            return b"#" + str(len(n)).encode() + n + b
+
+        def line(sock, data: bytes = b"") -> bytes:
+            sock.sendall(data)
+            out = b""
+            while not out.endswith(b"\n"):
+                chunk = sock.recv(1 << 20)
+                assert chunk, "connection closed"
+                out += chunk
+            return out
+
+        try:
+            with socket.create_connection(("127.0.0.1", port), timeout=10) as sock:
+                sock.sendall(b'MMEM:DOWN:FNAM "INT:\\t1.txt"\n')
+                payload = b"AB\nCD\r\nEF"
+                sock.sendall(b"MMEM:DOWN:DATA " + block(payload) + b"\n")
+                assert line(sock, b"SYST:ERR?\n").startswith(b"+0,")  # block LF is data
+                assert line(sock, b'MMEM:UPL? "INT:\\t1.txt"\n').rstrip(b"\n") == block(payload)
+                big = b"DATA:ARB myarb," + b",".join([b"0.5"] * 300000) + b"\n"  # about 1 MB
+                assert len(big) > 1_000_000
+                assert line(sock, big + b"SYST:ERR?\n").startswith(b"+0,")
+                # '#' in a quoted string is not a block; the connection is still served
+                assert line(sock, b"*IDN?\n").startswith(b"Keysight")
+        finally:
+            asyncio.run_coroutine_threadsafe(server.stop(), loop).result(5)
+            loop.call_soon_threadsafe(loop.stop)
+
+
+def test_scpi_message_reader_splits_and_limits():
+    from simubench.access.scpi_server import MessageReader
+
+    async def run(chunks: list[bytes], limit: int = 1 << 20):
+        r = asyncio.StreamReader()
+        for c in chunks:
+            r.feed_data(c)
+        r.feed_eof()
+        m = MessageReader(r, limit)
+        out = []
+        while True:
+            msg, over = await m.read()
+            if not msg and not over:
+                return out
+            out.append((msg, over))
+
+    got = asyncio.run(run([b"A\n#14AB\nC\n", b"X '#9' Y\nZ\n"]))
+    assert got == [(b"A\n", False), (b"#14AB\nC\n", False), (b"X '#9' Y\n", False), (b"Z\n", False)]
+    got = asyncio.run(run([b"#1", b"3A\nB\nQ\n"]))
+    assert got == [(b"#13A\nB\n", False), (b"Q\n", False)]  # a header split across reads
+    got = asyncio.run(run([b"x" * 100, b"y" * 100 + b"\nOK\n"], limit=150))
+    assert got == [(b"", True), (b"OK\n", False)]
+
+
 def test_reference_ports_are_reported_as_reference(client):
     info = client.post("/api/sessions", json={"bench_path": "benches/rfgen.bench.yaml"}).json()
     media = {(i["name"], p["name"]): p["medium"] for i in info["instruments"] for p in i["ports"]}
