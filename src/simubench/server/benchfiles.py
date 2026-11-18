@@ -24,7 +24,7 @@ from ..engine import edit
 from ..engine.component import component_types
 from ..engine.validate import Report, drives_net, validate_data
 from ..library import categories
-from ..library.loader import SKIP_DIRS, DefinitionLibrary, dump_yaml, load_yaml
+from ..library.loader import SKIP_DIRS, DefinitionLibrary, dump_yaml, load_yaml, parse_error_text
 from ..library.migrate import FormatError, upgrade
 from ..models import api as M
 from ..models.bench import BenchDefinition
@@ -373,7 +373,14 @@ def _sha(raw: bytes) -> str:
 
 def _parse(path: Path, raw: bytes) -> dict[str, Any]:
     text = raw.decode("utf-8")
-    data = json.loads(text) if path.suffix == ".json" else load_yaml(text)
+    try:
+        data = json.loads(text) if path.suffix == ".json" else load_yaml(text)
+    except json.JSONDecodeError as exc:
+        # A file whose content does not parse is the caller's to fix, and the error keeps the
+        # line and column it reported (#1406): a domain error, not the 500 a bug gets.
+        raise Invalid(f"{path.name}: {exc}") from None
+    except yaml.YAMLError as exc:
+        raise Invalid(parse_error_text(exc, path.name)) from None
     if not isinstance(data, dict):
         raise Invalid(f"{path.name}: expected a mapping at the top level")
     return data

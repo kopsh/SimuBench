@@ -26,7 +26,6 @@ src/simubench/engine/component.py:missing-attribute Object of type `(...) -> OpR
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_fields__` on type `(...) -> OpResult`
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_name__` on type `(...) -> OpResult`
 src/simubench/engine/edit.py:incompatible-attribute-override Invalid override of attribute `op`: Type `Literal["add_dut"]` is not assignable to inherited type `Literal["add_part"]`
-src/simubench/library/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
 src/simubench/engine/session.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
 src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×3
 src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.source_dc_current` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
@@ -70,10 +69,11 @@ src/simubench/library/components/rfgen.py:missing-attribute Object of type `Comp
 src/simubench/library/components/rfgen.py:missing-attribute Object of type `Component` has no attribute `swept_level`
 src/simubench/library/components/rfgen.py:missing-attribute Object of type `type[Component]` has no attribute `phase` ×2
 src/simubench/library/components/rfgen.py:unsupported-base Unsupported class base with type `type[Component]`
-src/simubench/library/components/scope.py:incompatible-attribute-override Invalid override of attribute `ports`: instance variable cannot override class variable `Component.ports`
-src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
-src/simubench/library/components/scope.py:missing-attribute Object of type `Component` has no attribute `scale_offset`
+src/simubench/library/components/scope.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation
 src/simubench/library/components/scope.py:unsupported-base Unsupported class base with type `type[Component]`
+src/simubench/library/components/scope_acquisition.py:incompatible-attribute-override Invalid override of attribute `ports`: instance variable cannot override class variable `Component.ports`
+src/simubench/library/components/scope_acquisition.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×4
+src/simubench/library/components/scope_trigger.py:missing-attribute Object of type `Component` has no attribute `scale_offset`
 src/simubench/library/components/siglent_sdg.py:missing-attribute Unresolved attribute `batch` on type `Component` ×2
 src/simubench/library/components/smu.py:invalid-argument-type Argument to bound method `Instrument.set_state` is incorrect: Expected `str`, found `str | None`
 src/simubench/library/components/smu.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
@@ -112,6 +112,7 @@ src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Exp
 src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, bool]` ×2
 src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, str | Unknown]`
 src/simubench/library/panels.py:invalid-argument-type Argument to bound method `set.add` is incorrect: Expected `str`, found `str | None`
+src/simubench/library/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
 src/simubench/library/templates/oscilloscope.py:invalid-argument-type Argument to function `max` is incorrect: Argument type `float | None` does not satisfy upper bound `SupportsDunderLT[Any] | SupportsDunderGT[Any]` of type variable `SupportsRichComparisonT`
 src/simubench/library/templates/oscilloscope.py:unsupported-operator Operator `*` is not supported between objects of type `float | None` and `float*`
 src/simubench/library/templates/signal_source.py:missing-attribute Object of type `type[Component]` has no attribute `VPP_PER_VRMS` ×2

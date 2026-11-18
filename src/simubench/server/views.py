@@ -35,7 +35,7 @@ from .internals_links import readings as readings_of
 DEEP_SCREEN_BINS = 1000
 
 if TYPE_CHECKING:
-    from ..library.components.scope import Record
+    from ..library.components.scope_record import Record
     from .manager import ServedSession, SessionManager
 
 log = logging.getLogger(__name__)

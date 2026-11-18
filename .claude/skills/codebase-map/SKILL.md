@@ -22,7 +22,8 @@ plausible fake).
 | Component base class, `@component`, `@op` | `engine/component.py` |
 | Circuit (MNA per frequency) / signals / noise | `engine/circuit.py`, `engine/signal.py`, `engine/noise.py` |
 | Sample streams after an ADC: `FrameRequest`, `SampleFrame`, limits; the frame cache is `Session.cached_frames` (D67) | `engine/stream.py` |
-| A scope's record (`Record`); deep records computed where read — the chain's captured views (`AdcView`, `DecimatorView`), tiles, envelope, chunked measurements, `EAGER_POINTS` (#1012, real-models.md 10) | `library/components/scope_record.py` |
+| Oscilloscope components (#1386): the channel chain (probe, vertical/front end, ADC, decimator) and the timebase / the trigger (edge and advanced types, the trigger search) / run control, records, averaging, segments / the measurement component (op pipeline, screen list, statistics, cursors, markers; the algorithms are `measurements.py`) | `library/components/scope.py` / `scope_trigger.py` / `scope_acquisition.py` / `scope_measurements.py` |
+| A scope's record (`Record`, `channel_index`); deep records computed where read — the chain's captured views (`AdcView`, `DecimatorView`), tiles, envelope, chunked measurements, `EAGER_POINTS` (#1012, real-models.md 10) | `library/components/scope_record.py` |
 | Cascaded RF figures (Friis, intercepts, distortion products, compression) of the `RfStage` blocks; the tuning context is `Session.tuned` | `engine/rfcascade.py` |
 | Internal probe: what a port inside an instrument carries (analog lines, a samples frame and its spectrum, the "tuned to" of a receiver), shared by HTTP and MCP; hidden in validation mode | `server/services/internal_probe.py` |
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |

@@ -35,6 +35,18 @@ def test_read_reports_diagnostics(client):
     assert doc["data"]["parts"]["rc"]["type"] == "rc_lowpass"
 
 
+@pytest.mark.parametrize(
+    ("name", "text"),
+    [("bad.bench.json", "{not json"), ("bad.bench.yaml", "instruments: [\n")],
+)
+def test_a_file_that_does_not_parse_is_422_with_its_position(client, ws, name, text):
+    """#1406: broken content is the caller's to fix, not a 500."""
+    (ws / name).write_text(text, encoding="utf-8")
+    r = client.get("/api/benches/file", params={"path": name})
+    assert r.status_code == 422, r.text
+    assert name in r.json()["detail"] and "line" in r.json()["detail"]
+
+
 def test_edit_writes_and_detects_conflicts(client, ws):
     doc = client.get("/api/benches/file", params={"path": BENCH}).json()
     ops = [{"op": "set_state", "instrument": "awg", "path": "ch1.load", "value": "INF"}]

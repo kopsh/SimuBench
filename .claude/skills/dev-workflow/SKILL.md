@@ -21,7 +21,7 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
 ## Loop
 
 1. Issue label decides who: `可认领` = anyone; `核心` = lead agent only. Unlabelled = not claimable.
-   Missing capability inside a claimable issue → open a `核心` issue (under umbrella #181), comment
+   Missing capability inside a claimable issue → open a `核心` issue (under the umbrella issue it belongs to), comment
    "blocked by #N" on yours; never build it inside the claimable issue.
 2. Comment "working on this" on the issue.
 3. Branch `issue-<n>-<short-name>` from latest `main` (in a cloud session use the branch you were
