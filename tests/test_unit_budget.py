@@ -18,3 +18,11 @@ def test_real_work_over_the_budget_fails_on_cpu_time():
 
 def test_waiting_ten_budgets_long_fails_on_wall_time():
     assert "waited" in verdict(cpu_s=0.001, wall_s=3.5, budget_s=0.3)
+
+
+def test_the_cyclic_gc_stays_out_of_the_measured_call_phase():
+    # a full collection walks the whole worker's heap (0.1-0.6 s on CI) and fires in whichever test
+    # allocates next: a 1 ms test read 0.627 s CPU. conftest holds it off during the call.
+    import gc
+
+    assert not gc.isenabled()

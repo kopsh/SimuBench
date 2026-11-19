@@ -75,7 +75,8 @@ Full pytest must stay < 75 s; if it is over, fix it in the same task (`pytest --
 
 - Unit tests (default): no Textual import, no server, no network; ≤100 ms of CPU time per test
   with the `unit` marker (×3 when `CI=true`, ×10 on Windows CI, #482); the wall clock only caps
-  waiting, at 10× that (#1544, `tests/unit_budget.py`). One
+  waiting, at 10× that (#1544, `tests/unit_budget.py`); the cyclic GC is off during the call phase, so a
+  full collection cannot land in an unlucky test (`conftest.py`). One
   behaviour per test (unit tier only).
 - `tui_boot` marker: boots Textual or a real server; runs on every pull request (the `tui` job, #858) and on `main`.
 - `tests/test_*e2e*.py`: ≥5 `assert`s per test; runs on `main` only.

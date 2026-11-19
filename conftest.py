@@ -1,6 +1,7 @@
 """Tests and acceptance scenarios load SimuBench's own ``sb-*`` validation definitions, which are not
 shipped with the package (D42), through the definition search path."""
 
+import gc
 import os
 import tempfile
 import time
@@ -37,10 +38,22 @@ for _blas in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUM
 
 @pytest.hookimpl(hookwrapper=True)
 def pytest_runtest_call(item: pytest.Item):
-    """The CPU time of the call phase, for the unit budget below."""
+    """The CPU time of the call phase, for the unit budget below.
+
+    The cyclic garbage collector stays off during the call: a full collection walks every object the
+    worker holds (the parsed component sources, loaded definitions, thousands of earlier tests'
+    leftovers — 0.1–0.6 s on a CI worker), and it fires in whichever test allocates next, so a 1 ms
+    test read 0.627 s CPU. The collection still happens, in teardown, outside the measured window.
+    """
+    was_enabled = gc.isenabled()
+    gc.disable()
     started = time.process_time()
-    yield
-    item.stash[_CPU_S] = time.process_time() - started
+    try:
+        yield
+    finally:
+        item.stash[_CPU_S] = time.process_time() - started
+        if was_enabled:
+            gc.enable()
 
 
 _CPU_S = pytest.StashKey[float]()
