@@ -454,8 +454,16 @@ class TriggerModel(Triggerable, Component):
         return OpResult()
 
     def status_flags(self) -> dict[str, bool]:
-        """SCN while no scan is in progress (the SRS serial poll bit 0, #273)."""
-        return {"SCN": self._trig_state == "idle"}
+        """SCN while no scan is in progress (the SRS serial poll bit 0, #273); ARM once initiated,
+        WTG while waiting for a trigger, MEAS while the readings are being taken (the operation
+        status bits of meters, counters and SMUs), DATA once a run has left readings."""
+        return {
+            "SCN": self._trig_state == "idle",
+            "ARM": self._trig_state != "idle",
+            "WTG": self._trig_state == "ready",
+            "MEAS": self._trig_state == "firing",
+            "DATA": bool(self.taken),
+        }
 
     @op("fetch")
     def fetch(self, elements: list[bytes] | None = None, **_: Any) -> OpResult:
@@ -536,6 +544,12 @@ class ReadingBuffer(Component):
         return self.capacities.get(key, int(float(self.param("capacity"))))
 
     # ---- from the trigger model ----------------------------------------------------------------------
+
+    def status_flags(self) -> dict[str, bool]:
+        """BUF_DATA while the default buffer holds readings, BUF_FULL when it holds its capacity
+        (with ``when_full: overwrite`` the oldest readings have been dropped by then)."""
+        buf = self.buffers[self._default()]
+        return {"BUF_DATA": bool(buf), "BUF_FULL": len(buf) >= self._capacity(self._default())}
 
     def append(self, reading: Reading, name: str | None = None) -> None:
         buf = self.buffers[self._key(name)]

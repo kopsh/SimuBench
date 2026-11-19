@@ -60,9 +60,9 @@ sections:
   - {header: '*IDN', level: implemented, note: 'Keysight Technologies,E36312A,<序列号>,<控制器/前面板/主板固件版本>。'}
   - {header: '*OPC', level: implemented, note: '*OPC 置 ESR 位 0；*OPC? 等全部待完成操作结束后回 1。'}
   - {header: '*PSC', level: not_modeled, note: 上电清除使能寄存器；未建模。, gap: model_work}
-  - {header: '*RCL', level: not_modeled, note: 状态存储（0–9）未实现。, gap: blocked, blocked_by: setup-memory}
+  - {header: '*RCL', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册不在库中，未给错误码）；*RST 不清槽。'}
   - {header: '*RST', level: implemented, note: '*RST 恢复本定义的初始设置：0 V、电流 5 A/1 A/1 A、OVP 6.6/27.5/27.5 V、输出全关。'}
-  - {header: '*SAV', level: not_modeled, note: 状态存储（0–9）未实现。, gap: blocked, blocked_by: setup-memory}
+  - {header: '*SAV', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册不在库中，未给错误码）；*RST 不清槽。'}
   - {header: '*SRE', level: implemented, note: 服务请求使能寄存器（引擎内置）。}
   - {header: '*STB', level: implemented, note: 状态字节（引擎内置）。}
   - {header: '*TRG', level: implemented, note: '触发源为 BUS 且已 INIT 的各路，经触发延时后按 STEP 模式改到触发电平（#548）。未初始化时按手册“simply ignored”：不报错、不动作——错误表（SCPI Error Messages）没有 -211。'}

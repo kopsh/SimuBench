@@ -12,7 +12,7 @@ description: >-
   its latch, rise/fall slew, the input switch, OCP (switch, level, delay), soft OPP (level, delay),
   the fixed 130 V OVP, protection clear, V/I/P readback and the status registers are the eload_*
   blocks (C1, #661). Transient (C2), list, input short and timer, the trace buffer, the LED
-  test and *SAV/*RCL are not modeled and answer -113.
+  test are not modeled and answer -113; *SAV/*RCL 0–9 keep the instrument's settings (#1573).
 reference:
   title: B&K Precision 8600 Series Programmable DC Electronic Loads Programming Manual
   document: 8600-series-programming-manual
@@ -360,6 +360,14 @@ components:
       summary_bit: 7
   - name: sys
     type: system
+  # 状态存取（#1573）：*SAV/*RCL 0–9；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置不报错、设置不变。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 10
+      first: 0
+      empty_error: 0
 ports:
   instrument:
     IN: inp.in
@@ -575,3 +583,12 @@ commands:
   - header: ":SENSe:AVERage:COUNt"
     state: sense.average
     doc: 读数滤波次数；读数没有噪声模型，保存与回读不影响读数。
+  # ---- 状态存取（*SAV/*RCL 0–9，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]

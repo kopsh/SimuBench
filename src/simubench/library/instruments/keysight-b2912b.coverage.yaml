@@ -27,18 +27,14 @@ sections:
     level: implemented
     note: '*OPC 置 ESR 位 0；*OPC? 等全部待完成操作结束后回 1（等待按 NPLC 计的运行）。'
   - header: '*RCL'
-    level: not_modeled
-    note: 状态存储（0–9）未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*RST'
     level: implemented
     note: 恢复本定义的初始设置（值见各命令的 default/rst）。
   - header: '*SAV'
-    level: not_modeled
-    note: 状态存储（0–9）未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器（引擎内置，整数回复）。
@@ -1225,170 +1221,49 @@ sections:
     gap: model_work
 - section: STATus Subsystem
   commands:
-  - header: :STATus:MEASurement:CONDition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:OPERation:CONDition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CONDition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:MEASurement:ENABle
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:OPERation:ENABle
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:ENABle
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:MEASurement[:EVENt]
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:OPERation[:EVENt]
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable[:EVENt]
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:MEASurement:NTRansition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:OPERation:NTRansition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:NTRansition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:MEASurement:PTRansition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:OPERation:PTRansition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:PTRansition
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:PRESet
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:QUEStionable:CALibration:CON
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CURRent:CON
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEMPerature:CON
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEST:CON
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:VOLTage:CON
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CALibration:ENAB
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CURRent:ENAB
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEMPerature:ENAB
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEST:ENAB
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:VOLTage:ENAB
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CALibration[:EVEN
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CURRent[:EVEN
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEMPerature[:EVEN
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEST[:EVEN
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:VOLTage[:EVEN
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CALibration:NTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CURRent:NTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEMPerature:NTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEST:NTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:VOLTage:NTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CALibration:PTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:CURRent:PTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEMPerature:PTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:TEST:PTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
-  - header: :STATus:QUEStionable:VOLTage:PTRa
-    level: not_modeled
-    note: 可做:MEASurement/OPERation/QUEStionable 寄存器组接到现有状态系统(status_register,#1062)。
-    gap: model_work
+  # 每通道一组（#1572）：手册的 MEASurement 寄存器把 Ch1/Ch2 的位放在同一张表里，本型号按通道各一组，命令的通道列表选择通道（省略为通道 1）。
+  # 位 0–4 是该通道的读数可用/缓冲/溢出；OPER 位 4/5 是 acquire idle（SCN）与等待触发（WTG），ARM 层未建模。
+  - {header: ':STATus:MEASurement[:EVENt]', level: implemented, note: '条件变为真时锁存，读后清零；*CLS 清零；MEAS 汇总进状态字节位 0。'}
+  - {header: ':STATus:MEASurement:CONDition', level: implemented, note: '位 1 DATA、3 BUF_DATA、4 BUF_FULL；位 0 LIMIT、2 OVER 没有来源，恒为 0。'}
+  - {header: ':STATus:MEASurement:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:MEASurement:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:MEASurement:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:OPERation[:EVENt]', level: implemented, note: '条件变为真时锁存，读后清零；*CLS 清零；OSB 汇总进状态字节位 7。'}
+  - {header: ':STATus:OPERation:CONDition', level: implemented, note: '位 4 AIDLE（SCN）、5 AWTG（WTG）；1–3、6、13、14 没有来源，恒为 0。'}
+  - {header: ':STATus:OPERation:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:OPERation:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:OPERation:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable[:EVENt]', level: implemented, note: '条件变为真时锁存，读后清零；*CLS 清零；QUES 汇总进状态字节位 3。'}
+  - {header: ':STATus:QUEStionable:CONDition', level: implemented, note: '位 0 VLIM（电压限）、1 ILIM（电流限）；2、4、8、9、10 没有来源，恒为 0。'}
+  - {header: ':STATus:QUEStionable:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:QUEStionable:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:VOLTage[:EVENt]', level: implemented, note: '过压（VLIM）；条件变为真时锁存，读后清零。'}
+  - {header: ':STATus:QUEStionable:VOLTage:CONDition', level: implemented, note: '过压（VLIM）。'}
+  - {header: ':STATus:QUEStionable:VOLTage:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:VOLTage:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:QUEStionable:VOLTage:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:CURRent[:EVENt]', level: implemented, note: '过流（ILIM）；条件变为真时锁存，读后清零。'}
+  - {header: ':STATus:QUEStionable:CURRent:CONDition', level: implemented, note: '过流（ILIM）。'}
+  - {header: ':STATus:QUEStionable:CURRent:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:CURRent:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:QUEStionable:CURRent:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:TEMPerature[:EVENt]', level: implemented, note: '过温（未建模，恒 0）；条件变为真时锁存，读后清零。'}
+  - {header: ':STATus:QUEStionable:TEMPerature:CONDition', level: implemented, note: '过温（未建模，恒 0）。'}
+  - {header: ':STATus:QUEStionable:TEMPerature:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:TEMPerature:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:QUEStionable:TEMPerature:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:CALibration[:EVENt]', level: implemented, note: '校准失败（未建模，恒 0）；条件变为真时锁存，读后清零。'}
+  - {header: ':STATus:QUEStionable:CALibration:CONDition', level: implemented, note: '校准失败（未建模，恒 0）。'}
+  - {header: ':STATus:QUEStionable:CALibration:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:CALibration:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:QUEStionable:CALibration:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:TEST[:EVENt]', level: implemented, note: '自检失败（未建模，恒 0）；条件变为真时锁存，读后清零。'}
+  - {header: ':STATus:QUEStionable:TEST:CONDition', level: implemented, note: '自检失败（未建模，恒 0）。'}
+  - {header: ':STATus:QUEStionable:TEST:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:TEST:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:QUEStionable:TEST:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:PRESet', level: implemented, note: '全部寄存器的使能清 0，PTR 恢复 32767、NTR 清 0；事件不变。'}
 - section: SYSTem Subsystem
   commands:
   - header: :SYSTem:BEEPer[:IMMediate]

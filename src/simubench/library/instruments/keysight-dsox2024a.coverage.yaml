@@ -30,17 +30,15 @@ sections:
     gap: model_work
   - header: '*RCL'
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup registers and the learn string (setup_memory, #1070); not wired in this model.'
-    gap: blocked
-    blocked_by: setup-memory
+    note: '手册（InfiniiVision 2000 X 编程手册）不在库中，*RCL 的槽数与空槽行为未核对；setup_memory 已有能力，待按手册接入。'
+    gap: model_work
   - header: '*RST'
     level: implemented
     note: 'the guide''s reset conditions (CH1 on at 5 V/div with the 10:1 probe, offset 0, DC, 100 us/div, centre reference, edge trigger on CH1 at 0 V rising, AUTO, holdoff 40 ns, NORMal acquisition with 8 averages, BYTE unsigned MSBFirst 1000 points). The guide''s :TRIGger? sample after *RST shows HOLD 60 ns; the reset table''s 40 ns is used'
   - header: '*SAV'
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup registers and the learn string (setup_memory, #1070); not wired in this model.'
-    gap: blocked
-    blocked_by: setup-memory
+    note: '手册（InfiniiVision 2000 X 编程手册）不在库中，*SAV 的槽数与保存内容未核对；setup_memory 已有能力，待按手册接入。'
+    gap: model_work
   - header: '*SRE'
     level: implemented
   - header: '*STB'

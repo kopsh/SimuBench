@@ -13,9 +13,9 @@ sections:
   - {header: '*ESR', level: implemented, note: '标准事件寄存器（引擎内置，读取后清）。'}
   - {header: '*IDN', level: implemented, note: 'Keysight Technologies,34970A,0,1.0-1.0-1.0（手册 p.176 的三段固件版本）。'}
   - {header: '*OPC', level: implemented, note: '*OPC 置 ESR 位 0；*OPC? 等扫描/读数完成后回 1。'}
-  - {header: '*RCL', level: not_modeled, note: '状态存储（0–5）未建模。', gap: blocked, blocked_by: setup-memory}
+  - {header: '*RCL', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–5；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；empty_error 291（+291 "Not able to recall state: it is empty"）；*RST 不清槽。'}
   - {header: '*RST', level: implemented, note: '恢复手册的出厂状态：功能 DCV、量程自动、5½ 位（1 PLC）、10 MΩ、扫描表空、计数 1、间隔 0 s、触发源 IMMediate、继电器全开、显示开。'}
-  - {header: '*SAV', level: not_modeled, note: '状态存储（0–5）未建模。', gap: blocked, blocked_by: setup-memory}
+  - {header: '*SAV', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–5；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；empty_error 291（+291 "Not able to recall state: it is empty"）；*RST 不清槽。'}
   - {header: '*SRE', level: implemented, note: '服务请求使能寄存器（引擎内置）。'}
   - {header: '*STB', level: implemented, note: '状态字节（引擎内置）：错误队列非空置位 2，输出缓冲有数据置位 4。'}
   - {header: '*TRG', level: implemented, note: '总线触发：触发等待中的扫描（触发源 BUS 时），每条 *TRG 扫描一遍列表，TRIGger:COUNt 条之后回空闲；否则 -211（#422）。'}

@@ -153,6 +153,11 @@ class ReferenceClock(Component):
         """Whether an external reference is locking the source (False on the internal one)."""
         return self._external_hz() is not None
 
+    def status_flags(self) -> dict[str, bool]:
+        """UNLOCK when an external reference is selected and none locks the source: a time-base
+        error (a counter's questionable register names a bit after it)."""
+        return {"UNLOCK": str(self.param("source")).upper().startswith("EXT") and not self.locked()}
+
     def error(self) -> float:
         """The fractional frequency error every synthesized frequency carries."""
         f = self._external_hz()

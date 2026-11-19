@@ -44,6 +44,7 @@ errors:
   708: "Calibration error: signal measurement out of range"
   711: "Calibration error: calibration string too long"
   712: Calibration failed
+  810: State has not been stored
 specs:
   source: Keysight 34465A Data Sheet 5991-1983EN
   digits: "6½"
@@ -276,6 +277,22 @@ state:
     readonly: true
     label: 内部温度
     label_en: Internal temperature
+  # 状态寄存器组的使能（STATus:OPERation/QUEStionable:ENABle）：出厂 0；*RST 不改它，
+  # STATus:PRESet 清 0（手册：enable 非易失；*PSC 控制上电时是否清除）。
+  status.oper_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: OPER 使能
+    label_en: OPER enable
+  status.ques_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 使能
+    label_en: QUES enable
 components:
   # 校准存储：系数按（功能, 实际量程）分开；安全码为手册的出厂码 AT3446XA。
   - name: cal
@@ -361,6 +378,29 @@ components:
     params:
       capacity: 50000
       when_full: overwrite
+  # 状态寄存器组（34460-90901 的 STATus Subsystem）：条件位由触发模型（ARM 已初始化、WTG 等待触发）
+  # 与读数存储器（BUF_FULL 溢出）给出；CAL/CONF/MEM/LOCK/ERR 与 QUES 的过载、限值位在模型里没有
+  # 来源，恒为 0（覆盖表逐条注明）。事件在条件变真时锁存，读后清零；OSB 进状态字节位 7、QUES 位 3。
+  - name: oper
+    type: status_register
+    params:
+      bits: {CAL: 0, ARM: 4, WTG: 5, CONF: 8, MEM: 9, LOCK: 10, ERR: 13}
+      enable: $status.oper_enable
+      summary_bit: 7
+  - name: ques
+    type: status_register
+    params:
+      bits: {VOLT: 0, CURR: 1, SAMP: 2, TEMP: 4, FREQ: 5, CAL: 8, RES: 9, CAP: 10, LOW: 11, HIGH: 12, BUF_FULL: 14}
+      enable: $status.ques_enable
+      summary_bit: 3
+  # 状态存取（#1573）：*SAV/*RCL 0–4（手册 *SAV {0|1|2|3|4}），内容为 SimuBench 的设置快照，
+  # 不与 STATE_n.sta 的私有格式逐字节一致；空位置报 +810 "State has not been stored"。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 5
+      first: 0
+      empty_error: 810
   - name: sys
     type: system
 wiring:
@@ -775,6 +815,23 @@ commands:
     query: false
     params: [{name: display, type: bool, optional: true, state: display.state}]
     doc: 回到本地；前面板可用，显示按 DISPlay:STATe。
+  # ---- 状态存取（*SAV/*RCL 0–4，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  # ---- 状态寄存器组（34460-90901 的 STATus Subsystem） ----
+  - {header: "STATus:OPERation[:EVENt]", op: oper.event, set: false}
+  - {header: "STATus:OPERation:CONDition", op: oper.condition, set: false}
+  - {header: "STATus:OPERation:ENABle", op: oper.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
+  - {header: "STATus:QUEStionable:CONDition", op: ques.condition, set: false}
+  - {header: "STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:PRESet", op: ques.preset, query: false}
   # ---- 显示与格式（接受：不影响仿真） ----
   - header: ":DISPlay[:STATe]"
     state: display.state

@@ -598,6 +598,14 @@ components:
       delta_x: offset
   - name: sys
     type: system
+  # 状态存取（#1573）：*SAV/*RCL 0–127；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置不报错、设置不变。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 128
+      first: 0
+      empty_error: 0
 wiring:
   instrument:
     - [rf_in.out, input.in]
@@ -1206,3 +1214,12 @@ commands:
     suffixes: {n: [1]}
   - header: ":DISPlay:ANNotation:TRACe[:STATe]"
     state: display.annotation
+  # ---- 状态存取（*SAV/*RCL 0–127，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 127}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 127}]

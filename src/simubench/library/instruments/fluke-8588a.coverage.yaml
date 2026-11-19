@@ -1101,33 +1101,32 @@ sections:
 - section: STATus subsystem
   commands:
   - header: STATus:OPERation:CONDition
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
-    gap: model_work
+    level: implemented
+    note: >-
+      status_register 组件（#1570）：位 4 MEASuring（触发不在 IDLE，ARM）、5 WTG、6 WARM、
+      8 Low Limit、9 High Limit、10 外参考失锁、11 削波（Table 10 与 OPERation 位表）。条件来自
+      trigger_model 的 ARM/WTG 与 reading_math 的 LOW/HIGH；WARM、外参考与削波在模型里没有来源，
+      恒为 0。手册说条件寄存器只实现位 4，模型把 WTG/LOW/HIGH 也作为条件给出（事件仍按手册锁存）。
   - header: STATus:OPERation[:EVENt]
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
-    gap: model_work
+    level: implemented
+    note: 条件变为真时锁存，读后清零；*CLS 清零。
   - header: STATus:OPERation:ENABle
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
-    gap: model_work
+    level: implemented
+    note: 十进制掩码 0–32768（Table 10），越界 -222；*RST 不改，STATus:PRESet 清 0。
   - header: STATus:PRESet
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
-    gap: model_work
+    level: implemented
+    note: OPERation 与 QUEStionable 的使能清 0（Table 10）；事件不变。
   - header: STATus:QUEStionable:CONDition
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
-    gap: model_work
+    level: implemented
+    note: >-
+      手册：条件寄存器在 Product 里不使用，读 0。组件按位表建了 VOLT/CURR/POW/TEMP/FREQ/UNDR/
+      OVER/TFAST/MFAST，但没有条件来源，条件与事件都读 0。
   - header: STATus:QUEStionable[:EVENt]
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
-    gap: model_work
+    level: implemented
+    note: 无事件来源（过载、触发过快等未建模），读 0；使能与状态字节位 3 的汇总仍按寄存器规则工作。
   - header: STATus:QUEStionable:ENABle
-    level: not_modeled
-    note: OPERation/QUEStionable 寄存器无条件来源（测量中、过载等），未实现。
-    gap: model_work
+    level: implemented
+    note: 十进制掩码 0–32768（Table 10），越界 -222；*RST 不改，STATus:PRESet 清 0。
 - section: SYSTem subsystem
   commands:
   - header: SYSTem:DATe

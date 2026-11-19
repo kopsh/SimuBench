@@ -10,6 +10,7 @@
 | 文档编号 | 标题 | 版本 | 定义 | 来源 |
 | --- | --- | --- | --- | --- |
 | 53220-90001 | Keysight 53220A/53230A 350 MHz Universal Frequency Counter/Timer User's Guide | Edition 3, September 1, 2017 | `keysight-53220a`、`keysight-53230a` | https://www.keysight.com.cn/cn/zh/assets/9018-03351/user-manuals/9018-03351.pdf |
+| 34460-90901 | Keysight Truevolt Series Digital Multimeters 34460A/34461A/34465A/34470A Operating and Service Guide（SCPI Programming Reference） | Edition 13, September 2025 | `keysight-34465a` | https://www.keysight.com/us/en/assets/9018-03876/service-manuals/9018-03876.pdf |
 | B2910-90130 | Keysight B2900B/BL Series Precision Source/Measure Unit SCPI Command Reference | Edition 2, May 2023 | `keysight-b2912b` | https://transcat.ca/media/pdf/keysight-B2900B-B-programming-guide.pdf |
 | 9-01715-903 | SR865A 4 MHz DSP Lock-in Amplifier Operation Manual | Revision 2.11 | `srs-sr865a` | https://www.thinksrs.com/downloads/pdfs/manuals/SR865Am.pdf |
 | DAQ97-90000 | Keysight DAQ970A/DAQ973A Data Acquisition System User's Guide | Edition 3, June 3, 2020 | `keysight-daq970a`（SCPI 命令见 DAQ97-90002） | https://www.batronix.com/files/Keysight/DAQ/DAQ970A-973A-Manual.pdf |
