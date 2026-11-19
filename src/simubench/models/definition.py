@@ -1130,8 +1130,9 @@ class InstrumentDefinition(_Model):
     )
     builtins: list[str] | None = Field(
         None,
-        description="Built-in headers this model answers (e.g. ['*IDN', '*OPC', '*RST']); the others are not "
-        "modeled. Default: all of them",
+        description="Optional built-in headers this model answers (*TRG, :SYSTem:ERRor?, ...); the others are not "
+        "modeled. The IEEE 488.2 mandatory commands (*IDN *RST *CLS *OPC *WAI *ESR *ESE *SRE *STB *TST) always "
+        "answer. Default: all of them",
     )
     help: HelpSpec = Field(
         default_factory=HelpSpec,

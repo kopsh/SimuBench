@@ -229,13 +229,12 @@ def test_a_builtin_the_definition_leaves_out_is_refused_as_excluded():
                 "*STB",
                 "*OPT",
                 "*WAI",
-                "*TRG",
             ],
         }
     )
     inst = seam_instrument(definition)
     with pytest.raises(ScpiError) as caught:
-        dispatch_unit(inst, "*TST?")
+        dispatch_unit(inst, "*TRG")
     assert caught.value.code == -113 and caught.value.reason == "builtin_excluded"
     reply, _ = dispatch_unit(inst, "*IDN?")
     assert reply.startswith(b"ACME,")
@@ -298,9 +297,9 @@ def test_the_manufacturer_picks_the_layout_when_the_preset_is_auto():
 def test_help_does_not_follow_the_builtins_list_but_its_own_switch():
     only_idn = _with(builtins=["*IDN"])
     reply, _ = dispatch_unit(only_idn, ":SYST:HELP:HEAD?")
-    assert "*IDN?/qonly/" in _lines(reply) and "*RST/nquery/" not in _lines(
+    assert "*IDN?/qonly/" in _lines(reply) and "*TRG/nquery/" not in _lines(
         reply
-    )  # the list still narrows the rest
+    )  # the list still narrows the optional ones (the mandatory 488.2 ten always answer)
     off = _with(help={"enabled": False})
     with pytest.raises(ScpiError) as caught:
         dispatch_unit(off, ":SYST:HELP:HEAD?")
@@ -341,3 +340,11 @@ def test_help_syntax_all_gives_a_line_per_command():
     inst = _with()
     lines = _lines(dispatch_unit(inst, ":SYST:HELP:SYNT:ALL?")[0])
     assert ":LEVel[?]" in lines and "*IDN?" in lines
+
+
+def test_the_mandatory_488_2_commands_answer_whatever_builtins_lists():
+    """IEEE 488.2 makes *CLS *ESE *ESR *IDN *OPC *RST *SRE *STB *TST *WAI mandatory: a ``builtins`` list cannot take them away."""
+    inst = seam_instrument(InstrumentDefinition.model_validate({**DATA, "builtins": ["*IDN"]}))
+    for query in ("*ESR?", "*ESE?", "*SRE?", "*STB?", "*TST?", "*OPC?"):
+        reply, _ = dispatch_unit(inst, query)
+        assert reply, query
