@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from ..models import categories
+from . import controls as C
 from .fmt import braille, fmt
 from .i18n import t
 from .reasons import active_faults
@@ -295,13 +296,19 @@ def generator_rows(info: Mapping[str, Any], state: Mapping[str, dict], lang: str
     for ch in channels:
         on = bool(_value(state, f"ch{ch}.output"))
         wave = _option(state.get(f"ch{ch}.function"), _value(state, f"ch{ch}.function"))
-        freq = fmt(_value(state, f"ch{ch}.frequency"), "HZ", digits=4)
-        amp = fmt(_value(state, f"ch{ch}.amplitude"), "V", digits=4)
+        if C.function_is_dc(state, f"ch{ch}"):
+            # A DC output has its level in the offset alone: no frequency, no amplitude (#1595).
+            level = fmt(_value(state, f"ch{ch}.offset"), "V", digits=4)
+            shown = f"{wave} {level}"
+        else:
+            freq = fmt(_value(state, f"ch{ch}.frequency"), "HZ", digits=4)
+            amp = fmt(_value(state, f"ch{ch}.amplitude"), "V", digits=4)
+            shown = f"{wave} {freq} {amp}"
         rows.append(
             [
                 (f"CH{ch} ", "muted"),
                 (t("common.on" if on else "common.off", lang) + " ", ""),
-                (f"{wave} {freq} {amp}", ""),
+                (shown, ""),
             ]
         )
         loads.append(f"CH{ch} " + fmt(_value(state, f"ch{ch}.load"), "OHM"))

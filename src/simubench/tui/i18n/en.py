@@ -96,6 +96,7 @@ TERMS: dict = {
         "source": "Source",
         "measure": "Measure",
         "output": "Output",
+        "dcInactive": "Not in effect for a DC output",
         "ccLimited": "limited by current {limit}",
         "cvLimited": "limited by voltage {limit}",
         "load": "Load",
