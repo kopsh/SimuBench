@@ -568,3 +568,17 @@ cases:
       - send: "*SAV 5"
       - query: ":SYST:ERR?"
         expect_prefix: '-222,"Data out of range'
+
+  - name: "状态使能：*RST、*CLS 不改（手册未列 STATus:PRESet，不测）"
+    manual: "*RST、*CLS 不改状态寄存器的使能（IEEE 488.2 11.5.1.2；各型号手册的 STATus 子系统章节）；STATus:PRESet 把使能清 0"
+    steps:
+      - send: "*RST"
+      - send: "STAT:OPER:ENAB 1024;STAT:QUES:ENAB 4"
+      - send: "*RST"
+      - query: "STAT:OPER:ENAB?"
+        expect: "1024"
+      - query: "STAT:QUES:ENAB?"
+        expect: "4"
+      - send: "*CLS"
+      - query: "STAT:OPER:ENAB?"
+        expect: "1024"
