@@ -226,7 +226,7 @@ class Component:
 - 新钩子（`frames`、`input_frames`、`sample_interval`）纳入 `tests/test_component_catalog.py` 的钩子签名契约（#898、#929）。
 - `Session.cached_frames(comp, port, request)`：缓存键 `(信号版本, comp.uid, port, request, 求值上下文)`（环境输入 = `EvalContext`：调谐点与求值时刻，整体进键，`cached_output` 的键尾同源，#1486、#1509），容量小（64 帧，LRU），
   只为一次读取内的重复请求与探针服务；信号版本变化即失效。
-- **定义校验**（`engine/validate_definition.py`）新增：
+- **定义校验**（`engine/validate_definition/`）新增：
   - `E-DEF-WIRE-MEDIUM`（已有同类检查则扩展）：`samples` 输出只能接 `samples` 输入；`signal` 输出不能接 `samples` 输入——中间必须有 ADC；
   - `E-DEF-SAMPLES-OPEN`：`samples` 输入没有连线；`samples` 端口也不能映射为仪表端口（测试台的连线不承载采样流）；
   - 带 `samples` 输出端口的组件类必须覆盖 `frames`（在 `tests/test_component_catalog.py` 的类元数据检查中加，不在运行时发现）。
@@ -271,6 +271,18 @@ class Component:
 `scope_adc` 的非理想（#1266）：满量程正弦的 HD2/HD3 表（`distortion_table`，按档位）、交织子 ADC 的增益与偏置失配（`interleave`、`interleave_image_dbc`、`interleave_spur_dbfs`，像在 k·fs/N ± f、杂散在 k·fs/N，子 ADC 按绝对时刻在原生网格上的位置决定；每个子 ADC 还可单独声明增益误差、偏置与采样时延（`interleave_gain_errors`、`interleave_offsets_fs`、`interleave_skews_s`，每个子 ADC 一个值，长度与 `interleave` 不等时校验报 E-DEF-PARAM-VALUE，#1422），像与杂散即这些列表的离散傅里叶级数；时延与孔径抖动同属采样时刻误差，按信号斜率一并计入。慢于原生速率的记录取全速采样的每第 M 个，各采样保留自己的子 ADC，像与杂散折叠进记录的频带（每第 N 个：一个子 ADC 的增益与直流偏置；#1422 取代了 #1305 的“不带交织图样”假设，`test_the_interleaved_converters_make_images_and_a_spur_at_their_rate` 在 256、128、16 GSa/s 下固定这一行为）、孔径抖动（`aperture_jitter_s`，每个采样独立抽取，同种子可复现）。未设时帧逐位不变。**随频率**（#1421，F1-1）：`distortion_table` 的行可写成 `[V/div, Hz, HD2, HD3]`，同一档位的行按频率线性插值（两端之外取最近的行），频率取输入信号最强谱线的频率（多音信号取最大的那个音）；`enob_table`（`[[Hz, 有效位数], …]`，满量程正弦）同样插值，ADC 补上附加噪声，使满量程正弦的误差预算（输入噪声、量化、失真、孔径抖动之外的部分）正好达到声明的有效位数，其余误差已超出时不加；输入没有谱线（直流、接地、只有噪声）时按表中最低频点补，噪声底不因去掉正弦而下降（#1442）。**噪声谱**（#1446）：`shape_noise` 为真时，记录上的噪声（输入噪声表与 ENOB 补的噪声）经过与记录相同的响应（`scope_vertical.response` 在带宽或带宽限制处）：49 抽头零相位 FIR，由该响应的幅度经逆 FFT 取冲激响应、加 Hann 窗、归一为单位功率，所以总 rms 不变、谱止于带宽；只在记录的奈奎斯特高于该截止时起作用（更慢的记录把模拟带宽内的噪声混叠成白的）。每个采样的值只取决于它在随机流里的下标（FIR 取两侧各 24 个下标的抽取），分块计算与整段计算逐字节一致。UXR 两型号打开；之后带宽滤波的噪声按 √(B/带宽) 而不是 √(B/奈奎斯特) 下降。UXR1104B 按数据手册填了 1、16.5、25、50 GHz 两档的 HD2/HD3；它没有填 `enob_table`（数据手册的有效位数是分频段测的，满带宽的值由噪声与失真本身给出，见 `test_the_uxr1104b_enob_matches_the_data_sheet`），`enob_table` 由验证仪表 `sb-dso-enob` 使用。积分非线性即这里的 x²、x³ 多项式（HD2/HD3 是它的系数的另一种写法）。通用 `adc` 块（频谱仪）的随频率非理想仍属后续。
 
 ---
+
+### 3.4 一台仪表的组件链怎么切（#1511）
+
+示波器（#1386）与频谱仪（#1511）都是几十个块连成的链；怎么切、块之间走什么、什么时候该再拆，写在这里，新仪表照做，不必再从代码里反推。
+
+1. **一个块一个 `@component` 类，一件事。** 模拟块只实现 `output(port)`（解析信号），采样流块只实现 `frames(port, request)`，数据级块（检波、视频滤波）只管自己的数。一个块不同时当两种。
+2. **块之间只走端口与协议。** 信号走连线（`signal`、`samples` 端口，2.1），读记录、读迹线走 D62 的协议（`Sampler`、`Acquisition`、`TraceSource`、`RecordSource`）；块沿 `owner.wiring.source` 找上游，不 import 兄弟块的类（类型标注除外）。需要「驱动整条链」的块（示波器的采集、频谱仪的迹线）是链的**驱动块**：它向下游发请求、向上游走线，是唯一知道链形状的一个。
+3. **一个模块装一段链，名字是 `<仪表>_<段>.py`。** 依赖方向是叶子块 → 驱动块：
+   - 示波器：`scope.py`（通道链：探头、前端、ADC、抽取）→ `scope_trigger.py`、`scope_acquisition.py`、`scope_measurements.py`、`scope_math.py`、`scope_record.py`；
+   - 频谱仪：`specan_frontend.py`（输入衰减、本振、混频、中频滤波）、`specan_detect.py`（检波、视频滤波）→ `specan.py`（迹线，驱动块）；数字后端 `specan_backend.py`（采样流）。
+4. **什么时候再拆。** 一个模块过 800 行、或一个类过 500 行就拆：先按组件类拆（零代码改动，只搬类与它的常量，模块间只许叶子 → 驱动的单向 import），类自己占了大头时再按职责拆成带协议的协作者；**不用混入类**——混入类要给宿主的成员各写一份类型桩，职责并没有分开，只是文件分开了。新模块还要在 `server/catalog.py` 的 `GROUPS` 里登记所属的家族。
+5. **现状与欠账。** 示波器的几个模块各约 1200–1450 行，频谱仪的迹线 `SpecanTrace` 一个类仍有约 870 行（设置、前端求值、采样扫描、游标、迹线模式同居）：下一刀该按职责切成协作者，前提是先把迹线的实例状态（历史、谱线缓存、重启时刻）收成一个对象，否则协作者要读宿主的十几个成员。示波器各模块是否再拆、`SpecanTrace` 的拆分在 #1524（`核心`）；#1511 没做它们，因为那要先收迹线的实例状态，不是搬文件。
 
 ## 4. 示波器：采集经采样流实现（A1）
 
