@@ -3,7 +3,7 @@ import type { InstrumentInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, engParts, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { numeric, stateMap } from "../model";
+import { inactiveReason, numeric, stateMap } from "../model";
 import { StateField } from "../StateField";
 
 /** Function generator panel: one column per channel with a large frequency readout. */
@@ -17,7 +17,11 @@ export function GeneratorPanel({ sid, inst, readonly }: { sid: string; inst: Ins
         const freq = vars.get(`ch${n}.frequency`);
         const amp = vars.get(`ch${n}.amplitude`);
         const out = vars.get(`ch${n}.output`);
-        const f = engParts(numeric(freq?.value), displayUnit(freq?.unit), 7);
+        // A DC output's level is its offset (#1591): the big readout shows it, not a frequency.
+        const dc = String(vars.get(`ch${n}.function`)?.value ?? "").toUpperCase() === "DC";
+        const f = dc
+          ? engParts(numeric(vars.get(`ch${n}.offset`)?.value), "V", 7)
+          : engParts(numeric(freq?.value), displayUnit(freq?.unit), 7);
         const a = engParts(numeric(amp?.value), "Vpp", 4);
         const keys = ["function", "frequency", "amplitude", "offset", "phase", "load", "output"];
         return (
@@ -41,15 +45,17 @@ export function GeneratorPanel({ sid, inst, readonly }: { sid: string; inst: Ins
                 {f.prefix}
                 {f.unit}
               </span>
-              <span className="num text-muted-foreground ml-auto text-sm">
-                {a.mantissa} {a.prefix}
-                {a.unit}
-              </span>
+              {!dc && (
+                <span className="num text-muted-foreground ml-auto text-sm">
+                  {a.mantissa} {a.prefix}
+                  {a.unit}
+                </span>
+              )}
             </div>
             <div className="space-y-1.5 p-3">
               {keys.map((k) => {
                 const v = vars.get(`ch${n}.${k}`);
-                return v ? <StateField key={k} sid={sid} instrument={inst.name} v={v} disabled={readonly} /> : null;
+                return v ? <StateField key={k} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveReason(vars, v.path)} /> : null;
               })}
             </div>
             <OutputPreview
@@ -140,7 +146,8 @@ function OutputPreview({
     <figure className="flex min-h-40 flex-1 flex-col border-t px-3 pt-2 pb-3" data-testid="generator-preview">
       <figcaption className="num text-muted-foreground flex justify-between pb-1 text-[11px]">
         <span>{formatEng(offset + half, "V", 4)}</span>
-        <span>{on ? t("generator.previewPeriods", { period }) : t("generator.previewOff")}</span>
+        {/* A DC output has no period to count (#1591): the caption names the function. */}
+        <span>{!on ? t("generator.previewOff") : dc ? fn : t("generator.previewPeriods", { period })}</span>
       </figcaption>
       <svg
         viewBox={`0 0 ${W} ${H}`}

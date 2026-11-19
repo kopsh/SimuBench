@@ -15,7 +15,7 @@ import { channelColor } from "@/lib/channels";
 import { pickLabel } from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, ALL_OPEN_MAX, channelVars, FIELD_PAGE, fieldsShown, findSettings, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupsOpenByDefault, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, ALL_OPEN_MAX, channelVars, FIELD_PAGE, fieldsShown, findSettings, globalVars, inactiveReason, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupsOpenByDefault, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { loadHistory, pushHistory, QUICK_COMMANDS, recentChips, saveHistory } from "./commandHistory";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
@@ -573,7 +573,7 @@ export function InstrumentSettings({
   const field: FieldRenderer =
     fieldProp ??
     ((v, bare) => (
-      <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(stateVars, v.path)} bare={bare} />
+      <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveReason(stateVars, v.path)} bare={bare} />
     ));
   const revealHere = reveal?.instrument === inst.name ? reveal : null;
   return (

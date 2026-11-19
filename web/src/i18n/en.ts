@@ -298,6 +298,7 @@ export const en: Widen<Messages> = {
     refusedValue: "{{text}} was not set: {{reason}}",
     unreadable: "Not a number: type a number, with an SI prefix and unit if you like (2.5 kHz)",
     autoInactive: "Not in effect while auto is on",
+    dcInactive: "Not in effect for a DC output",
     computedOnRead: "Deep records are computed when read: only what is read, so reads and measurements take longer with more points",
     auto: "Auto",
     sendCommand: "Send SCPI command",

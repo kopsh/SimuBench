@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import type { StateVarInfo } from "@/api/client";
+import type { Inactive } from "./model";
 import { StateField } from "./StateField";
 
 /**
@@ -22,7 +23,7 @@ function Stepper({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Field({ v, inactive }: { v: StateVarInfo; inactive?: boolean }) {
+function Field({ v, inactive }: { v: StateVarInfo; inactive?: Inactive }) {
   return (
     <QueryClientProvider client={new QueryClient()}>
       <Stepper>
@@ -68,7 +69,7 @@ export const AutoCovered: Story = {
   name: "自动覆盖",
   render: () => (
     <Field
-      inactive
+      inactive="auto"
       v={v("sense.range", { type: "float", unit: "V", min: 0, max: 100, value: 10, label: "量程", label_en: "Range" })}
     />
   ),

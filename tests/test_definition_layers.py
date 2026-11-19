@@ -505,6 +505,40 @@ def test_a_broken_file_is_never_cached():
             load_yaml(broken)
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "a: 1\nb: 2\na: 3\n",  # top level
+        "instruments:\n  m: {model: x}\n  m: {model: y}\n",  # a bench's instruments
+        "parts:\n  r: {type: resistor, params: {r: 100, r: 5}}\n",  # inside a flow mapping
+        _BIG + "key3: again\n",  # a large text, through the parse cache
+    ],
+)
+def test_a_key_written_twice_is_a_parse_error_naming_both_lines(text):
+    """#1588: PyYAML keeps the last of two equal keys; SimuBench refuses the file instead."""
+    from simubench.library.loader import load_yaml
+
+    with raises_with(yaml.YAMLError, "found duplicate key", "first written on line", "line"):
+        load_yaml(text)
+
+
+def test_keys_a_merge_brings_in_may_be_overridden():
+    from simubench.library.loader import load_yaml
+
+    data = load_yaml("base: &b {x: 1, y: 2}\nown:\n  <<: *b\n  y: 3\n")
+    assert data["own"] == {"x": 1, "y": 3}
+
+
+def test_a_json_key_written_twice_is_a_json_error():
+    import json
+
+    from simubench.library.loader import load_json
+
+    assert load_json('{"a": {"b": 1}, "c": [{"b": 2}]}') == {"a": {"b": 1}, "c": [{"b": 2}]}
+    with raises_with(json.JSONDecodeError, "duplicate key 'b'"):
+        load_json('{"a": {"b": 1, "b": 2}}')
+
+
 def test_the_cache_is_bounded_by_the_text_it_holds(monkeypatch):
     from simubench.library import loader
 

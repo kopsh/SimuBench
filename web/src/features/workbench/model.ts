@@ -81,6 +81,30 @@ export function inactiveUnderAuto(vars: Map<string, StateVarInfo>, path: string)
   return auto?.type === "bool" && auto.value === true;
 }
 
+/** What a periodic waveform has and a DC output does not: its level is the offset alone (#1591). */
+const UNUSED_UNDER_DC = new Set(["frequency", "amplitude", "phase", "duty", "sq_duty", "pulse_duty", "symmetry", "ramp_symm"]);
+
+/**
+ * A setting the output does not use while its function (``ch1.function`` beside ``ch1.frequency``)
+ * is DC (#1591): kept and editable, shown dimmed in the panels and left out of the canvas summary.
+ * Read from the setting names, so every generator that calls its DC function ``DC`` gets it.
+ */
+export function unusedUnderDc(vars: Map<string, StateVarInfo>, path: string): boolean {
+  const dot = path.lastIndexOf(".");
+  if (!UNUSED_UNDER_DC.has(path.slice(dot + 1))) return false;
+  const fn = vars.get(dot < 0 ? "function" : `${path.slice(0, dot)}.function`)?.value;
+  return typeof fn === "string" && fn.toUpperCase() === "DC";
+}
+
+/** Why a setting is not in effect, if it is not: an automatic switch, or a DC output. */
+export type Inactive = "auto" | "dc";
+
+export function inactiveReason(vars: Map<string, StateVarInfo>, path: string): Inactive | undefined {
+  if (inactiveUnderAuto(vars, path)) return "auto";
+  if (unusedUnderDc(vars, path)) return "dc";
+  return undefined;
+}
+
 export function channelVars(inst: InstrumentInfo, channel: number): StateVarInfo[] {
   return inst.state.filter((s) => s.channel === channel);
 }
