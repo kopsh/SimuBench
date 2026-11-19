@@ -18,7 +18,7 @@ import pytest
 
 from helpers import raises_with, session_query
 from simubench.api import open_bench
-from simubench.engine import session as session_module
+from simubench.engine import evalcache
 from simubench.engine.stream import ModelLimit
 from simubench.library.components import scope_acquisition, scope_measurements, scope_record
 from simubench.library.loader import load_bench
@@ -176,7 +176,7 @@ def test_an_average_beyond_the_fan_out_is_a_deep_record_read_in_parts(monkeypatc
     session = open_bench(DSOX, clock="command", seed=1, idle="off")
     scope = session.instruments["scope"].components
     points = scope["acq"]._timing()[0]
-    for module in (session_module, scope_acquisition, scope_record):
+    for module in (evalcache, scope_acquisition, scope_record):
         monkeypatch.setattr(module, "MAX_REQUEST_FANOUT", 4 * points)
     computed: list[int] = []
     frame = scope_record.AdcView.frame

@@ -87,6 +87,7 @@ def test_the_kind_description_is_generated_from_the_registry():
         "bus_control",
         "solver",
         "file",
+        "abort",  # a read ended at a checkpoint: budget or cancel (D88)
     }
 
 

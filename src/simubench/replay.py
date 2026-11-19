@@ -236,6 +236,11 @@ def resend(
             fid = ev.get("fault")
             if fid in session.faults.faults:
                 session.faults.clear(fid)
+        elif kind == "abort":
+            # A read ended at a checkpoint (budget, cancel): both depend on the machine and the
+            # moment, so the replay times nothing — it ends the action that follows the same way
+            # (D88). The event comes before the action's own: that is recorded when it is over.
+            session.budget.abort_next(str(ev.get("reason")))
         elif kind == "advance" and ev.get("reason") in ("explicit", "idle", "sleep", "wait"):
             session.seek(int(ev["t_ns"]), reason=str(ev["reason"]))  # t_ns is the time after the step
         yield ev, got

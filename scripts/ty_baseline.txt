@@ -27,9 +27,10 @@ src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_f
 src/simubench/engine/component.py:missing-attribute Unresolved attribute `__op_name__` on type `(...) -> OpResult`
 src/simubench/engine/edit.py:incompatible-attribute-override Invalid override of attribute `op`: Type `Literal["add_dut"]` is not assignable to inherited type `Literal["add_part"]`
 src/simubench/engine/session.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
-src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×3
+src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×1
+src/simubench/engine/solver.py:invalid-argument-type Argument to bound method `Solution.node_signal` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]` ×2
 src/simubench/engine/session.py:invalid-argument-type Argument to bound method `Solution.source_dc_current` is incorrect: Expected `dict[Hashable, Signal]`, found `dict[str, Signal]`
-src/simubench/engine/session.py:missing-attribute Unresolved attribute `signal` on type `def dc(port: str, comp: Component = ..., sol: Solution = ..., emf: dict[str, Signal] = ...) -> float`
+src/simubench/engine/solver.py:missing-attribute Unresolved attribute `signal` on type `def dc(port: str, comp: Component = ..., sol: Solution = ..., emf: dict[str, Signal] = ...) -> float`
 src/simubench/engine/silence.py:not-iterable Object of type `None` is not iterable
 src/simubench/engine/validate.py:invalid-argument-type Argument to function `ladder` is incorrect: Expected `(str, /) -> Iterable[str]`, found `Overload[(key: object, default: None = None, /) -> dict[str, tuple[str, str, int | None]] | None, (key: object, default: dict[str, tuple[str, str, int | None]], /) -> dict[str, tuple[str, str, int | None]], [_T](key: object, default: _T, /) -> dict[str, tuple[str, str, int | None]] | _T]`
 src/simubench/engine/validate.py:invalid-argument-type Method `__getitem__` of type `bound method dict[str, int].__getitem__(key: str, /) -> int` cannot be called with key of type `None` on object of type `dict[str, int]`

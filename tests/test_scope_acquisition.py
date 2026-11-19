@@ -14,7 +14,7 @@ import pytest
 from refcalc.noise import averaged_codes_sigma, quantized_sigma, sigma_interval
 
 from simubench.api import open_bench
-from simubench.engine import session as session_module
+from simubench.engine import evalcache
 from simubench.engine.session import Session
 from simubench.engine.stream import FrameRequest
 from simubench.engine.validate_definition import validate_definition_data
@@ -136,7 +136,7 @@ def test_an_average_beyond_the_model_is_refused_before_its_first_acquisition(mon
     scope = session.instruments["scope"].components
     points = scope["acq"]._timing()[0]
     # The record's own request and 3 acquisitions: at most cap // points - 1 averages (#990).
-    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 4 * points)
+    monkeypatch.setattr(evalcache, "MAX_REQUEST_FANOUT", 4 * points)
     adc, calls = scope["adc"], []
     frames = adc.frames
     monkeypatch.setattr(adc, "frames", lambda port, request: calls.append(port) or frames(port, request))
