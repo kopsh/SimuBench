@@ -14,16 +14,17 @@
 
 ## 详细记录
 
-每项工作的完成条件与自检表在 [progress-log.md](progress-log.md)（很长，按章节查，不要整份读）：
+每项工作的完成条件与自检表：到 #1505 为止的在归档 [progress-log.md](progress-log.md)（很长，按章节查，不要整份读），之后的每条一个文件，在 [progress-log/](progress-log/)：
 
 ```bash
-grep -n '^## ' docs/progress-log.md                  # 已记录的全部条目
-grep -n '<关键词>\|#<issue>\|Issue <issue>' docs/progress-log.md
-sed -n '<起>,<止>p' docs/progress-log.md             # 只读命中的那一节
+grep -n '^## ' docs/progress-log.md; ls docs/progress-log/        # 已记录的全部条目
+grep -rn '<关键词>\|#<issue>\|Issue <issue>' docs/progress-log.md docs/progress-log/
+sed -n '<起>,<止>p' docs/progress-log.md             # 归档里只读命中的那一节
 ```
 
 ## 怎么记录
 
-- 完成一项工作时，在 progress-log.md **末尾**追加一节：`## <做了什么>（Issue <n>）`，下面是「完成条件 | 自检」表，自检写验证手段（测试文件、命令），不写过程。
+- 完成一项工作时，新建一个文件 `docs/progress-log/<issue>-<short-name>.md`（如 `1505-progress-log-per-file.md`，小写字母、数字与 `-`），内容是一节：`## <做了什么>（Issue <n>）`，下面是「完成条件 | 自检」表，自检写验证手段（测试文件、命令），不写过程。
+- **不要**再往 progress-log.md 追加：它已封存。所有 PR 都追加同一个文件末尾，任意两个并行的 PR 都在那里冲突，合并机器人解决不了冲突（#1505）；一条一个文件就不会冲突。`scripts/check_progress_log.py` 检查归档的节数不变、条目文件的命名与开头、已有条目不被删除。
 - 本文只改上面的里程碑表：里程碑状态变化时更新对应一行。不要把细节写进本文，保持它短。
 

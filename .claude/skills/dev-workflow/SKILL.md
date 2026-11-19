@@ -7,7 +7,7 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
 
 ## Read only what you need (saves tokens)
 
-- Do **not** read whole long docs (`decisions.md` ~500 lines, `progress-log.md` ~800,
+- Do **not** read whole long docs (`decisions.md` ~500 lines, `progress-log.md` ~2700,
   `architecture.md` ~500, `instrument-authoring.md` ~650). List headings first, then read one
   section:
   ```bash
@@ -40,8 +40,9 @@ description: The SimuBench issue → branch → check → PR loop, the commands,
    the same fast tier) and comments on a red CI run. While `main`'s CI is red the bot holds other PRs (`等main变绿`, released by ci.yml's main-status job) and a PR that fixes main carries the label `修复main` (#810). Red CI → push a fix commit. Never
    weaken/skip/delete tests. Label the PR `免审查` when the issues it closes need no review: the bot
    copies the label onto them before closing (#614); it retries GitHub API 502s itself.
-7. Append a self-check section to the end of `docs/progress-log.md` when the issue asks for it
-   (format in `docs/progress.md`; never read the log whole).
+7. Record the self-check as a **new file** `docs/progress-log/<issue>-<short-name>.md` (one `## ` entry; format
+   in `docs/progress.md`). Never append to `docs/progress-log.md`: it is the closed archive, and
+   one shared file made every two PRs in flight conflict at its end (#1505).
 
 ## What `scripts/check.sh` runs (run single steps to iterate fast)
 
@@ -55,7 +56,7 @@ uv run python scripts/check_tui_i18n.py                   # TUI wording == web i
 uv run python scripts/check_test_rules.py                 # D49 rules
 uv run python scripts/check_layers.py                     # package layers point down, no cycle (D87)
 uv run python scripts/check_skills.py                     # skills name only existing paths
-uv run python scripts/check_progress_log.py               # progress-log sections only grow (#380)
+uv run python scripts/check_progress_log.py               # archive closed, entries are files (#380, #1505)
 uv run simubench schemas --out schemas                    # then commit schemas/ if changed
 cd web && pnpm -s gen:api && pnpm -s typecheck && pnpm -s lint && pnpm -s test
 ```
