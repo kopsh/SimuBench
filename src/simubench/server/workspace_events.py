@@ -116,7 +116,8 @@ class WorkspaceEvents:
 
 #: How often the watcher re-stats the workspace's bench and definition files, in seconds. Fast
 #: enough that an external editor's save reads as immediate, slow enough to be nothing to a
-#: local service (a stat per file; the content is read and hashed only when a stat moved).
+#: local service (a stat per file; the content is read only when a stat moved or once after a
+#: change — two writes inside one timestamp tick leave the stat unmoved, #1502).
 SCAN_S = 2.0
 
 #: The stat placeholder for content a write point has just announced (its stat is not known
@@ -128,8 +129,10 @@ NOTED = (-1, -1)
 class WorkspaceWatcher:
     """Notices version changes the server's write points did not make (issue #1484): a text
     editor, a second service on the same workspace. One pass stats every bench and definition
-    file, reads and hashes only the ones whose stat moved, and publishes ``file_changed`` for
-    the ones whose content hash moved too. The first pass baselines the workspace; a write
+    file, reads and hashes the ones whose stat moved, and publishes ``file_changed`` for the
+    ones whose content hash moved too. A file whose stat just moved is read once more on the
+    next pass: a second write inside the same timestamp tick leaves mtime and size unmoved, and
+    only the content tells it apart (#1502). The first pass baselines the workspace; a write
     point that published marks its content (:meth:`note`), so the scan does not repeat it."""
 
     def __init__(self, workspace: Path, publish: Callable[..., None], scan_s: float = SCAN_S) -> None:
@@ -137,13 +140,15 @@ class WorkspaceWatcher:
         self.publish = publish
         self.scan_s = scan_s
         self._lock = threading.Lock()
-        # Workspace-relative path -> (the stat it was last seen with, the sha256 it carried).
-        self._known: dict[str, tuple[tuple[int, int], str]] = {}
+        # Workspace-relative path -> (the stat it was last seen with, the sha256 it carried, and
+        # whether a change may still share that stat: a write that lands in the same timestamp
+        # tick as the one the stat was taken from leaves it unchanged, so the next pass re-reads).
+        self._known: dict[str, tuple[tuple[int, int], str, bool]] = {}
 
     def note(self, path: str, sha256: str) -> None:
         """A write point published this path's content: the scan must not repeat it."""
         with self._lock:
-            self._known[path] = (NOTED, sha256)
+            self._known[path] = (NOTED, sha256, False)
 
     def _pass(self) -> None:
         """One scan, run off the event loop (``asyncio.to_thread``): the files are kilobytes,
@@ -165,11 +170,13 @@ class WorkspaceWatcher:
                     self.publish("file_changed", path=rel)
                 continue
             stat = (st.st_mtime_ns, st.st_size)
-            if known is not None and known[0] == stat:
-                continue  # exactly as last seen: no read, no hash
+            if known is not None and known[0] == stat and not known[2]:
+                continue  # exactly as last seen, and verified since: no read, no hash
             sha = hashlib.sha256(path.read_bytes()).hexdigest()
             with self._lock:
-                self._known[rel] = (stat, sha)
+                # A stat that just moved may still collect a write in the same timestamp tick,
+                # so the next pass reads this file once more (a verified file is not re-read).
+                self._known[rel] = (stat, sha, known is None or known[0] != stat)
             if known is None or known[1] == sha:
                 continue  # the first pass baselines; a noted write or a bare touch stays silent
             self.publish("file_changed", path=rel)
