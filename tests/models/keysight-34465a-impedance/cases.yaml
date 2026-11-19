@@ -27,10 +27,10 @@ cases:
         expect_value: 0.09999408
         tolerance: 1.3e-06
       - send: "VOLT:DC:RANG 100"
-      - query: "MEAS:VOLT:DC?"
+      - query: "MEAS:VOLT:DC? 100"
         expect_value: 0.09909
         tolerance: 2.9e-04
       - send: "VOLT:DC:RANG 0.1"
-      - query: "MEAS:VOLT:DC?"
+      - query: "MEAS:VOLT:DC? 0.1"
         expect_value: 0.09999408
         tolerance: 1.3e-06

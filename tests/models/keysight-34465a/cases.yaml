@@ -206,6 +206,43 @@ cases:
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
+  - name: "MEASure 的电压行先切回电压功能再读：CONF:RES 后 MEAS:VOLT:DC? 读电压、FUNC? 为 VOLT；量程/分辨率接受 AUTO/MIN/MAX/DEF（#1585）"
+    manual: "MEASure Subsystem > MEASure[:VOLTage]:{AC|DC}?（MEASure = CONFigure + READ?；range: {<range>|AUTO|MIN|MAX|DEF}）/ CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC}"
+    steps:
+      - send: ":SOUR:VOLT 0.0991"
+        instrument: src
+      - send: ":CONF:RES"
+      - query: "FUNC?"
+        expect: '"RES"'
+      # 0.0991 V × (1 + 100 ppm，100 mV 档) + 200 µV 零点误差
+      - query: ":MEAS:VOLT:DC?"
+        expect_value: 0.09930991
+        tolerance: 1.0e-6
+      - query: "FUNC?"
+        expect: '"VOLT"'
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - query: ":MEAS:VOLT:DC? DEF"
+        expect_format: "+d.ddddddddE±dd"
+      - query: "FUNC?"
+        expect: '"VOLT"'
+      - query: ":MEAS:VOLT:DC? AUTO"
+        expect_format: "+d.ddddddddE±dd"
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - query: ":MEAS:VOLT:DC? MIN"
+        expect_format: "+d.ddddddddE±dd"
+      - query: "VOLT:DC:RANG?"
+        expect: "+1.00000000E-01"
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "0"
+      - query: ":MEAS:VOLT:AC? MAX"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "FUNC?"
+        expect: '"VOLT:AC"'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
   - name: "[SENSe:]FUNCtion 选择与查询（带引号的短格式）"
     manual: "SENSe Subsystem > [SENSe:]FUNCtion[:ON]"
     steps:
@@ -225,7 +262,7 @@ cases:
       - send: ":VOLT:DC:RANG 0.1;:VOLT:DC:RANG:AUTO OFF"
       - send: ":SOUR:VOLT 0.13"
         instrument: src
-      - query: "MEAS:VOLT:DC?"
+      - query: "MEAS:VOLT:DC? 0.1"
         expect: "+9.90000000E+37"
       - send: ":SOUR:VOLT 0.115"
         instrument: src
@@ -406,12 +443,12 @@ cases:
       - send: ":VOLT:DC:RANG 10;:VOLT:DC:RANG:AUTO OFF"
       - send: ":SOUR:VOLT 0"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 2.0e-4
         tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 10.0017
         tolerance: 3.0e-5
       - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
@@ -420,7 +457,7 @@ cases:
       - send: "CAL:VAL 0"
       - query: "CAL?"
         expect: "+0"
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 0.0
         tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
@@ -428,18 +465,18 @@ cases:
       - send: "CAL:VAL 10"
       - query: "CAL?"
         expect: "+0"
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 10.0
         tolerance: 3.0e-5
       - send: "CAL:STOR;:CAL:SEC:STAT ON"
       - send: ":SOUR:VOLT 0"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 0.0
         tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 10.0
         tolerance: 3.0e-5
       - query: "CAL:COUN?"
