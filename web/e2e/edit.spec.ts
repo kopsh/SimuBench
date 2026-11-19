@@ -122,8 +122,11 @@ test("a second instrument at one real address is reported in the problems panel"
   await address.fill("TCPIP0::192.168.1.20::5025::SOCKET");
   await address.press("Enter");
   await page.getByRole("tab", { name: "问题" }).click();
-  await expect(page.getByText("E-ADDRESS-DUPLICATE")).toBeVisible();
-  await expect(page.getByText("与仪表 'awg' 的地址相同", { exact: false })).toBeVisible();
+  // The diagnostic shows both in the problems panel and inline in the inspector (the scope is
+  // still selected) — assert on the problems-panel row, which is the test's subject.
+  const row = page.getByRole("button", { name: "E-ADDRESS-DUPLICATE", exact: false });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("与仪表 'awg' 的地址相同");
   const saved = await readDoc(page.request, path);
   expect((saved.data.instruments as Record<string, { address?: string }>).scope.address).toBe(
     "TCPIP0::192.168.1.20::5025::SOCKET",
