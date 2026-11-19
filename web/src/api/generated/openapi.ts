@@ -4665,6 +4665,28 @@ export interface components {
              * @description The comment next to the default in the component's source
              */
             doc: string | null;
+            /**
+             * Max Open
+             * @description The maximum itself is not allowed
+             * @default false
+             */
+            max_open: boolean;
+            /**
+             * Maximum
+             * @description The physical upper bound of a numeric parameter (#1455)
+             */
+            maximum: number | null;
+            /**
+             * Min Open
+             * @description The minimum itself is not allowed (a resistance is > 0)
+             * @default false
+             */
+            min_open: boolean;
+            /**
+             * Minimum
+             * @description The physical lower bound of a numeric parameter (#1455)
+             */
+            minimum: number | null;
             /** Name */
             name: string;
             /** Unit */

@@ -167,7 +167,13 @@ def component_info(name: str, cls: type[Component]) -> M.ComponentDoc:
             ],
             port_pattern=cls.port_pattern,
             params=[
-                M.ParamInfo(name=k, default=_json(v), unit=cls.units.get(k), doc=docs.get(k))
+                M.ParamInfo(
+                    name=k,
+                    default=_json(v),
+                    unit=cls.units.get(k),
+                    doc=docs.get(k),
+                    **_range_fields(cls, k),
+                )
                 for k, v in cls.defaults.items()
             ],
             operations=operations(cls),
@@ -253,6 +259,19 @@ def _own_param_docs(klass: type) -> dict[str, str]:
             if text:
                 out[key.value] = text
     return out
+
+
+def _range_fields(cls: type[Component], name: str) -> dict[str, Any]:
+    """A parameter's physical range as the catalog's fields (#1455); empty when it has none."""
+    bound = cls.param_ranges.get(name)
+    if bound is None:
+        return {}
+    return {
+        "minimum": bound.minimum,
+        "maximum": bound.maximum,
+        "min_open": bound.min_open,
+        "max_open": bound.max_open,
+    }
 
 
 def _json(value: Any) -> Any:

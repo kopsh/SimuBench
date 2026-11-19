@@ -164,6 +164,22 @@ def test_hidden_and_drift_change_the_circuit_and_are_undone(tmp_path):
     assert s.components["rc"].param("r") == pytest.approx(1500)
     s.faults.clear(d.id)
     assert s.components["rc"].param("r") == pytest.approx(1000)
+
+    # #1455: a resistance of zero or below is refused at the inject, and a drift that crosses zero
+    # stops at the edge of the range: the circuit still solves, nothing throws.
+    for value in (0.0, -5.0):
+        with raises_with(ValueError, "> 0"):
+            s.faults.inject(Fault(kind="hidden", component="rc", param="r", value=value))
+        assert "r" not in s.components["rc"].overrides
+    s.faults.inject(Fault(kind="drift", component="rc", param="r", drift_per_s=-1.0))
+    s.advance(3.0)  # r would be -2000
+    assert 0 < s.components["rc"].param("r") <= 1e-6
+    assert out_amplitude(s) > 0
+    # Past the guards (an override written directly), the solver names the component, not "internal error".
+    s.components["rc"].overrides["r"] = 0.0
+    s.invalidate(electrical=True)
+    with raises_with(ValueError, "rc: resistance must be positive"):
+        out_amplitude(s)
     rm.close()
 
 

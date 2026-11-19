@@ -85,6 +85,30 @@ def test_high_z_setting_clears_the_hint():
             "/wires/2",  # the newest wire of the net, the one that added the second driver (#1269)
             None,
         ),
+        (  # #1455: a resistance of zero or below is no resistor
+            lambda d: d["parts"]["rc"]["params"].update(r=-5),
+            "E-PARAM-RANGE",
+            "/parts/rc/params/r",
+            None,
+        ),
+        (
+            lambda d: d["parts"]["rc"]["params"].update(r=0),
+            "E-PARAM-RANGE",
+            "/parts/rc/params/r",
+            None,
+        ),
+        (
+            lambda d: d["parts"]["rc"]["params"].update(c=-1e-7),
+            "E-PARAM-RANGE",
+            "/parts/rc/params/c",
+            None,
+        ),
+        (  # a tolerance of -100 % makes r·(1 + tol_r) zero
+            lambda d: d["parts"]["rc"]["params"].update(tol_r=-1.0),
+            "E-PARAM-RANGE",
+            "/parts/rc/params/tol_r",
+            None,
+        ),
         (  # #1589: one address, spelled two ways (VISA's default inst0, case)
             lambda d: (
                 d["instruments"]["awg"].update(address="TCPIP0::10.0.0.5::INSTR"),
@@ -106,6 +130,37 @@ def test_errors_point_at_the_place_and_suggest_a_fix(mutate, code, pointer, sugg
     if suggestion:
         assert suggestion in (match[0].suggestion or "")
     assert not report.ok
+
+
+def _ranged_parameters():
+    from simubench.engine.component import component_types
+
+    return [
+        (name, param, bound)
+        for name, cls in sorted(component_types().items())
+        if cls.category in ("part", "accessory")
+        for param, bound in cls.param_ranges.items()
+    ]
+
+
+@pytest.mark.parametrize(("ctype", "param", "bound"), _ranged_parameters())
+def test_a_part_parameter_just_outside_its_physical_range_is_an_error(ctype, param, bound):
+    """#1455: every part and accessory declares the range of its physical parameters; one step past
+    either bound is E-PARAM-RANGE at the parameter, the bound itself is the range's own say, and
+    the type's default is always inside."""
+    outside = []
+    if bound.minimum is not None:
+        outside.append(bound.minimum if bound.min_open else bound.minimum - 1.0)
+    if bound.maximum is not None:
+        outside.append(bound.maximum if bound.max_open else bound.maximum + 1.0)
+    for value in outside:
+        data = copy.deepcopy(BASE)
+        data["parts"]["x"] = {"type": ctype, "params": {param: value}}
+        found = [d for d in validate_data(data, LIB)[1].diagnostics if d.code == "E-PARAM-RANGE"]
+        assert [d.pointer for d in found] == [f"/parts/x/params/{param}"], (ctype, param, value)
+    data = copy.deepcopy(BASE)
+    data["parts"]["x"] = {"type": ctype, "params": {}}
+    assert "E-PARAM-RANGE" not in [d.code for d in validate_data(data, LIB)[1].diagnostics]
 
 
 def test_distinct_or_missing_addresses_are_not_duplicates():

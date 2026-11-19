@@ -6925,6 +6925,42 @@
             "description": "The comment next to the default in the component's source",
             "title": "Doc"
           },
+          "max_open": {
+            "default": false,
+            "description": "The maximum itself is not allowed",
+            "title": "Max Open",
+            "type": "boolean"
+          },
+          "maximum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The physical upper bound of a numeric parameter (#1455)",
+            "title": "Maximum"
+          },
+          "min_open": {
+            "default": false,
+            "description": "The minimum itself is not allowed (a resistance is > 0)",
+            "title": "Min Open",
+            "type": "boolean"
+          },
+          "minimum": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The physical lower bound of a numeric parameter (#1455)",
+            "title": "Minimum"
+          },
           "name": {
             "title": "Name",
             "type": "string"
@@ -6945,7 +6981,11 @@
           "name",
           "default",
           "unit",
-          "doc"
+          "doc",
+          "minimum",
+          "maximum",
+          "min_open",
+          "max_open"
         ],
         "title": "ParamInfo",
         "type": "object"

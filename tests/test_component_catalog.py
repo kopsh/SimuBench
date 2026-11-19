@@ -317,3 +317,16 @@ def test_each_type_names_the_classes_whose_built_in_models_use_it():
     assert "oscilloscope" in classes["scope_vertical"] and "multimeter" not in classes["scope_vertical"]
     assert "multimeter" in classes["dmm_adc"] and "oscilloscope" not in classes["dmm_adc"]
     assert {"oscilloscope", "spectrum_analyzer"} <= set(classes["input_port"])
+
+
+def test_the_catalog_gives_a_parameter_its_physical_range():
+    """#1455: the range the validator and the fault inject use is the one the catalog shows."""
+    from simubench.server.catalog import components
+
+    by_type = {c.type: {p.name: p for p in c.params} for c in components()}
+    r = by_type["resistor"]["r"]
+    assert (r.minimum, r.maximum, r.min_open, r.max_open) == (0.0, None, True, False)
+    c = by_type["rc_lowpass"]["c"]
+    assert (c.minimum, c.min_open) == (0.0, False)
+    assert by_type["resistor"]["r"].unit == "OHM"
+    assert all(p.minimum is None and p.maximum is None for p in by_type["tunable_laser"].values())

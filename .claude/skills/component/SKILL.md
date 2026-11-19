@@ -20,7 +20,7 @@ Only for `核心` capability issues. A real-model issue never adds components (s
 ## Code (`src/simubench/library/components/<class>.py`)
 
 ```python
-from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine.component import Component, OpResult, ParamRange, PortSpec, component, op
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
 
@@ -33,6 +33,7 @@ class CounterGate(Component):
         "time": 0.1,  # s, the gate time   <- this comment IS the catalog description (required)
     }
     units = {"time": "s"}
+    param_ranges = {"time": ParamRange(0.0, min_open=True)}  # physical range (a resistance is > 0): E-PARAM-RANGE in a bench, refused as a hidden fault, a drift stops at its edge, shown in the catalog (#1455); every bench-level part/accessory declares it
     choices = {"mode": ("TIMe", "COUNt")}  # word params: validation refuses other words; read with self.choice("mode")
     curves = frozenset({"flatness"})   # params that are [[Hz, value], …]: a deviation draws them by `bands` (#1004)
     refs = {"clock": ("reference_clock", "instrument")}   # links to sibling components

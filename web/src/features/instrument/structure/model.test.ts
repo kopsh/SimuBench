@@ -101,7 +101,7 @@ const doc = (over: Partial<ComponentDoc>): ComponentDoc =>
 const acqDoc = doc({
   type: "scope_acquisition",
   port_pattern: "in\\d+",
-  params: [{ name: "depth", default: 14000, doc: null, unit: null }],
+  params: [{ name: "depth", default: 14000, doc: null, unit: null, minimum: null, maximum: null, min_open: false, max_open: false }],
   refs: [{ param: "adc", scope: "instrument", optional: false, target: "scope_adc" }],
 });
 

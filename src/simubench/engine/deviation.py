@@ -166,6 +166,14 @@ def check_value(comp: Component, parameter: str, value: Any, path: str | None = 
         return  # no declared shape to check against
     if not ok:
         reject(expected)
+    bound = getattr(comp, "param_ranges", {}).get(parameter)
+    if (
+        bound is not None
+        and isinstance(value, Real)
+        and not isinstance(value, bool)
+        and not bound.contains(value)
+    ):
+        reject(f"a number {bound.describe()}")
 
 
 def set_override(comp: Component, parameter: str, value: Any, *, invalidate: bool = True) -> None:

@@ -20,7 +20,7 @@ from typing import Any
 
 import numpy as np
 
-from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine.component import Component, OpResult, ParamRange, PortSpec, component, op
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
@@ -195,6 +195,7 @@ class OpticalAttenuator(Component):
     units = {"attenuation": "DB"}
     ports = {"IN": PortSpec("in", "optical"), "OUT": PortSpec("out", "optical")}
     defaults = {"attenuation": 3.0}  # loss, dB
+    param_ranges = {"attenuation": ParamRange(0.0)}  # a loss; a negative one would be gain
 
     def output(self, port: str) -> Signal:
         return self.input("IN").scale(10.0 ** (-float(self.param("attenuation")) / 10.0))

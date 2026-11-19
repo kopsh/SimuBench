@@ -45,6 +45,47 @@ Role = Literal["driver", "series"]
 
 
 @dataclass(frozen=True)
+class ParamRange:
+    """The physical range of a numeric component parameter (#1455): a resistance is above 0, a
+    capacitance or a length is not negative. ``min_open`` / ``max_open`` leave the bound itself
+    out (``r > 0``). One range serves the bench validator (E-PARAM-RANGE), the hidden-fault
+    inject and the catalog; ``clamp`` is where a drift that crosses it stops."""
+
+    minimum: float | None = None
+    maximum: float | None = None
+    min_open: bool = False
+    max_open: bool = False
+
+    #: How far inside an open bound ``clamp`` stops: the nearest value the solver can still use.
+    EDGE = 1e-9
+
+    def contains(self, value: float) -> bool:
+        if self.minimum is not None and (value <= self.minimum if self.min_open else value < self.minimum):
+            return False
+        return not (
+            self.maximum is not None and (value >= self.maximum if self.max_open else value > self.maximum)
+        )
+
+    def clamp(self, value: float) -> float:
+        """The value, or the nearest allowed one when it is outside the range."""
+        if self.contains(value):
+            return value
+        if self.minimum is not None and value <= self.minimum:
+            return self.minimum + self.EDGE if self.min_open else self.minimum
+        assert self.maximum is not None
+        return self.maximum - self.EDGE if self.max_open else self.maximum
+
+    def describe(self) -> str:
+        """The range as the diagnostics write it: ``> 0``, ``>= 0``, ``0 ... 1``."""
+        lo, hi = self.minimum, self.maximum
+        if hi is None:
+            return f"{'>' if self.min_open else '>='} {lo:g}"
+        if lo is None:
+            return f"{'<' if self.max_open else '<='} {hi:g}"
+        return f"{'(' if self.min_open else '['}{lo:g}, {hi:g}{')' if self.max_open else ']'}"
+
+
+@dataclass(frozen=True)
 class PortSpec:
     direction: Direction
     medium: Medium
@@ -557,6 +598,10 @@ class Component:
     generic: ClassVar[bool] = True
     defaults: ClassVar[dict[str, Any]] = {}
     units: ClassVar[dict[str, str]] = {}
+    #: The physical range of numeric parameters, by name (#1455). A parameter outside it is an
+    #: error in a bench (E-PARAM-RANGE), is refused as a hidden fault, and stops a drift at its
+    #: edge, so the solver never meets a non-physical value. Parameters left out are unrestricted.
+    param_ranges: ClassVar[dict[str, ParamRange]] = {}
     #: Word parameters that take one of a set of SCPI words (long or short form, any case), e.g.
     #: {"function": ("VOLTage", "CURRent", "RESistance")}. Definition validation refuses a literal
     #: or a bound setting that can take another word (E-DEF-PARAM-VALUE, #308); :meth:`choice`

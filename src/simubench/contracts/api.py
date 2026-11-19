@@ -415,6 +415,10 @@ class ParamInfo(_Model):
     default: Any = None
     unit: str | None = None
     doc: str | None = Field(None, description="The comment next to the default in the component's source")
+    minimum: float | None = Field(None, description="The physical lower bound of a numeric parameter (#1455)")
+    maximum: float | None = Field(None, description="The physical upper bound of a numeric parameter (#1455)")
+    min_open: bool = Field(False, description="The minimum itself is not allowed (a resistance is > 0)")
+    max_open: bool = Field(False, description="The maximum itself is not allowed")
 
 
 class OperationParam(_Model):

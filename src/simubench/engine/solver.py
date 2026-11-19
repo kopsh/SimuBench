@@ -63,7 +63,11 @@ class Solver:
         if self._circuit is None or self._circuit[0] != host.electrical_version:
             c = Circuit()
             for comp in host.all_components():
-                comp.stamp(c, lambda p, comp=comp: host.node_of(comp, p))  # type: ignore[misc]
+                try:
+                    comp.stamp(c, lambda p, comp=comp: host.node_of(comp, p))  # type: ignore[misc]
+                except ValueError as e:
+                    # A non-physical parameter says which component it is, not "internal error" (#1455).
+                    raise ValueError(f"{comp.uid}: {e}") from e
             self._circuit = (host.electrical_version, c)
         return self._circuit[1]
 
