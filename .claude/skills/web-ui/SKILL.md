@@ -11,7 +11,9 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 ## Where
 
 - `web/src/api/` — `client.ts` (openapi-fetch, types `Schemas["X"]`), `hooks.ts` (all queries and
-  mutations), `events.ts` (WebSocket), `generated/` (**never hand-edit**).
+  mutations), `events.ts` (the session's WebSocket), `workspaceEvents.ts` (the workspace's
+  WebSocket, #1484/D85: file, client and session revisions its queries re-key on — file and
+  session queries do not poll), `generated/` (**never hand-edit**).
 - `web/src/features/{home,instrument,runs,workbench}/` — pages; pure logic in `model.ts` next to
   `model.test.ts` (unit-test logic there, not components).
 - `web/src/components/ui/` — primitives (button, dialog, tabs, table, select…): reuse, don't add a

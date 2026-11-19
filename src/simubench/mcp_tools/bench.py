@@ -225,11 +225,13 @@ def _validation_tools(mcp: MCPServer, ctx: McpContext) -> None:
         """Run a cases file: each case on a freshly powered bench, every step's reply checked against
         its expect / expect_prefix / expect_value(s) / expect_fields / expect_format / expect_block
         (no regular expressions, D49). A failure names the step, the command, what was
-        expected and the actual reply. The same files as `simubench cases` and the manual cases of
-        real models."""
+        expected and the actual reply. A workspace path, or a built-in model's manual cases file
+        (``builtin:<folder>/cases.yaml``) — the same resolution the acceptance page runs with; with
+        ``model``, the cases run on that definition in place of the cases' own (a copy checks itself
+        against the model it extends' cases)."""
         guard()
         try:
-            results = run_cases_file(files, req.path)
+            results = run_cases_file(files, req.path, model=req.model)
         except DOMAIN_ERRORS as exc:
             raise fail(exc) from None
         return {

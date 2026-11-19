@@ -710,3 +710,15 @@ cases:
       - {instrument: sa_fbp, send: ":CALC:MARK:X 20 GHz"}
       - {instrument: sa_fbp, query: ":CALC:MARK:Y?", expect_value: -126.0, tolerance: 2.2}
       - {instrument: sa_fbp, query: ":SYST:ERR?", expect: '+0,"No error"'}
+
+  - name: "分辨率带宽：缺少参数报 -109，随后仍可正常设定（#1451）"
+    manual: "BANDwidth Subsystem > :BANDwidth"
+    steps:
+      - send: ":BAND"
+      - query: ":SYST:ERR?"
+        expect: '-109,"Missing parameter"'
+      - send: ":BAND 1e6"
+      - query: ":BAND?"
+        expect: "+1.00000000E+006"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'

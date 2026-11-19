@@ -20,6 +20,7 @@ from ..server.definitionfiles import DefinitionFiles
 from ..server.errors import DOMAIN_ERRORS, tool_text
 from ..server.manager import ClientsConnected, ServedSession, SessionManager
 from ..server.projections import scpi_payload  # re-exported for the tool modules
+from ..server.projections import session_summary as shared_session_summary
 
 __all__ = ["McpContext", "RateLimiter", "scpi_payload", "tool_input"]
 
@@ -155,37 +156,15 @@ class McpContext:
         return doc.model_dump(mode="json")
 
     def session_summary(self, s: ServedSession, info: Any = None) -> dict[str, Any]:
-        # `info` when the caller already described the session: describe re-projects every
-        # instrument's state, deviations and nets — not something to do twice (issue 641).
-        info = info or self.manager.views.describe(s)
-        rel = info.bench_path
-        out: dict[str, Any] = {
-            "session_id": info.id,
-            "bench": info.bench_name,
-            "bench_path": rel,
-            "clock": info.clock_mode,
-            "now_ns": info.now_ns,
-            "instruments": [
-                {
-                    "name": i.name,
-                    "model": i.model,
-                    "idn": i.idn,
-                    "resource_virtual": i.address_virtual,
-                    "resource_real": i.address_real,
-                    "resource_hislip": i.address_hislip,
-                    "resource_vxi11": i.address_vxi11,
-                    "scpi_socket": f"TCPIP0::127.0.0.1::{i.scpi_port}::SOCKET" if i.scpi_port else None,
-                    # the hardware options this unit has (D68), for a model that declares any
-                    **({"options": [o.id for o in i.options if o.installed]} if i.options else {}),
-                }
-                for i in info.instruments
-            ],
-            "switch_script": (
-                "In-process (CI): rm = pyvisa.ResourceManager('<bench file>@simubench'); the script's "
-                "real addresses and the instance names both open the virtual instruments. "
-                "Or keep the default backend and use the scpi_socket addresses of this session."
-            ),
-        }
+        """The shared session summary (:func:`..server.projections.session_summary`, one shape for
+        both agent seams, #1485) plus this seam's extras: the switch_script tutorial and, when
+        configured, the UI URL."""
+        out = shared_session_summary(self.manager, s, info)
+        out["switch_script"] = (
+            "In-process (CI): rm = pyvisa.ResourceManager('<bench file>@simubench'); the script's "
+            "real addresses and the instance names both open the virtual instruments. "
+            "Or keep the default backend and use the scpi_socket addresses of this session."
+        )
         if self.ui_url:
             out["web_bench"] = self.ui_url
         return out

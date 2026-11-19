@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from ..engine.faults import LinkDown
@@ -125,10 +126,19 @@ class ScpiListener:
 
 
 class ScpiServer:
-    def __init__(self, session: Session, host: str = "127.0.0.1", base_port: int = 5025) -> None:
+    def __init__(
+        self,
+        session: Session,
+        host: str = "127.0.0.1",
+        base_port: int = 5025,
+        on_change: Callable[[], None] | None = None,
+    ) -> None:
         self.session = session
         self.host = host
         self.base_port = base_port
+        #: Fired whenever a client connects or leaves (issue #1484): the workspace event stream
+        #: announces ``clients_changed``, so the UI re-reads instead of polling the port lists.
+        self.on_change = on_change
         self.listeners: list[ScpiListener] = []
 
     async def start(self) -> list[ScpiListener]:
@@ -151,6 +161,8 @@ class ScpiServer:
         host, port = writer.get_extra_info("peername")[:2]
         client = f"socket:{host}:{port}"
         lst.labels.add(client)
+        if self.on_change is not None:
+            self.on_change()
         try:
             messages = MessageReader(reader)
             while True:
@@ -171,6 +183,8 @@ class ScpiServer:
         finally:
             lst.clients.discard(writer)
             lst.labels.discard(client)
+            if self.on_change is not None:
+                self.on_change()
             writer.close()
 
     async def stop(self) -> None:

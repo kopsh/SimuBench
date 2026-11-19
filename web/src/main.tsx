@@ -5,6 +5,7 @@ import { RouterProvider } from "react-router-dom";
 import "./styles/globals.css";
 import "./i18n";
 import { getToken } from "./api/token";
+import { useWorkspaceStream } from "./api/workspaceEvents";
 import { ClientsConfirmDialog } from "./components/app/ClientsConfirm";
 import { Toaster } from "./components/ui/sonner";
 import { TooltipProvider } from "./components/ui/tooltip";
@@ -17,10 +18,17 @@ const queryClient = new QueryClient({
   defaultOptions: { queries: { refetchOnWindowFocus: false, retry: 1 } },
 });
 
+/** The workspace's event stream, one socket per page: what the file and session queries re-key on (#1484). */
+function WorkspaceStream() {
+  useWorkspaceStream();
+  return null;
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider delayDuration={400}>
+        <WorkspaceStream />
         <RouterProvider router={router} />
         <Toaster position="bottom-right" closeButton />
         <ClientsConfirmDialog />

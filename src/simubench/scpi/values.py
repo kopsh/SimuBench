@@ -98,9 +98,12 @@ def parse_bool(raw: bytes) -> bool:
     if t in ("OFF", "0"):
         return False
     try:
-        return round(float(t)) != 0
+        v = float(t)
     except ValueError:
         raise ScpiError(-224, f"expected ON, OFF, 1 or 0, got {t!r}") from None
+    if not math.isfinite(v):  # INF/NINF/NAN are not a boolean (#1450)
+        raise ScpiError(-224, f"expected ON, OFF, 1 or 0, got {t!r}")
+    return round(v) != 0
 
 
 def flag(value: Any) -> bool:

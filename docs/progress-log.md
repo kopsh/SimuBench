@@ -2688,6 +2688,38 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 三缝一致策略测试扩展 | ✅ `test_services.py`：共享文案表加 `Invalid`（新包进来的用户输入错误）与 `UnicodeDecodeError`；MCP 表测试加 `fail(Invalid)` 断言与 `fail(裸 KeyError)` 拒绝断言；`test_a_bare_key_or_value_error…` 加 `tool_text(裸 KeyError)` 拒绝断言；旧的 `fail(KeyError)/fail(ValueError)` 精确断言按新表改写为 `Unknown`/`Invalid`（#1478 允许的断言改写） |
 | 文档 | ✅ decisions.md D76 追加「捕获纪律」一节（不另立 D 条目：执行面收口 #1394 原裁决）、progress-log 本节 |
 | check.sh | ✅ 全绿（fast 套件 4767 过、web 371 过；ty 基线零新增；本机全量 pytest 262 s / web+全套 ~5:48） |
+
+## 投影层第二轮：cases 运行投影补全、会话摘要一份、services/sessions 处置（Issue 1485）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| cases 运行投影一份 | ✅ `server/projections.py::run_cases_file` 升为完整投影：`builtin:` 名解析（`library/coverage.py` 的 `BUILTIN_PREFIX` 机制；定义自己的内置手测用例，或它 extends 的祖先模型的——投影内代填 `model=` 副本）与工作区路径同路，祖先链推导收进 `cases_ancestors`（acceptance 的闭包退役）；`collect`/显式 `model` 留调用方（D76）。`coverage.builtin_cases_file` 的 `def_id` 改可选（None = 任一模型自己的文件，agent 缝无定义上下文时用），「名字不是内置用例」改抛 `Invalid`（#1406 同族，HTTP 仍 422） |
+| acceptance 退薄壳 | ✅ `routes/acceptance.py::run_definition_cases` 的解析与跑收进投影，路由只剩 def 存在检查、结果 DTO 组装与 `except DOMAIN_ERRORS`；`tests/test_server.py` 的内置用例两测（列出让跑、副本继承跑）原样通过，状态码逐路由不变 |
+| 工具入参补 model | ✅ `models/tools.py::RunCases` 加 `model` 字段（共享模型腿，D76 两条 SDK 接法：PydanticAI 平铺、MCP `tool_input` 镜像），MCP `run_cases` 与助手 `run_cases` 传入投影；结果形状各缝自投影不变（MCP `cases`+`summary`、助手 `failures[:20]`） |
+| 会话摘要一份 | ✅ `projections.session_summary(manager, served, info=None)`：bench、时钟与每台仪表 idn、地址四元组、SCPI socket、选件，两个 agent 缝同读；MCP `McpContext.session_summary` 在投影上叠缝特有内容（`switch_script` 教程、`web_bench`）；助手 `start_session`/`describe_session` 换投影（自抄 8 字段版退役，describe 的 info 复用不重投影） |
+| services/sessions.py 处置 | ✅ 模块删除（start/reset 纯转发无契约可留）；stop 的「未知会话答『没有』不答成功」收进 `SessionManager.stop`（未知 id 抛 `Unknown`）；三条缝直走 manager（HTTP start/reset/stop、MCP start/stop、助手 start/stop 原本就在走）；cli 关机清理对清理中已消失的会话 `suppress(Unknown)`（finally 不遮真正原因） |
+| agent 缝 parity（验收） | ✅ `tests/test_mcp.py::test_run_cases_runs_a_builtin_cases_file`（`builtin:` 路径返回用例运行，坏名字回表文案）、`::test_run_cases_model_runs_a_copys_ancestors_cases_on_the_copy`（副本 `model=` 跑祖先内置用例：型号本身 2/2 过、副本 0/2 挂——与 `test_server.py` 的 HTTP 副本测同解析） |
+| 助手缝 parity（验收） | ✅ `tests/test_assistant.py::test_run_cases_takes_builtin_and_model_like_the_mcp_seam`（同两条经 ScriptedLLM 走 PydanticAI 平铺入参）、`::test_session_summary_comes_from_the_one_projection`（start_session/describe_session 摘要同形、`scpi_socket` == `resource_virtual` 且 `TCPIP0::127.0.0.1::…::SOCKET`） |
+| 会话摘要字段断言（验收） | ✅ `tests/test_mcp.py::test_session_summary_is_one_shape_with_the_addresses`（start_session 摘要键集 = 投影键集 + `switch_script`/`web_bench`，`scpi_socket` 断言，describe_session 展开同一摘要） |
+| stop 语义锁（验收） | ✅ `tests/test_services.py::test_stopping_an_unknown_session_is_a_key_error_not_a_silent_success` 改写为直锁 `manager.stop("nope")` 抛 `KeyError`（#936 契约住进 manager，#1485）；`test_starting_a_bench_outside_the_workspace_is_a_domain_error` 同改直锁 manager.start |
+| 绕行守卫（验收） | ✅ `tests/test_services.py::test_agent_seams_drive_sessions_only_through_the_manager`：AST 扫 mcp_tools/*.py + assistant/tools.py + assistant/service.py——起停会话的调用只许点名 manager（receiver 以 manager 结尾），无 `.session.close()` 手拆（issue 的守卫句「agent 缝不再直调 manager.start/stop」按实现落形：处置选了删除转发模块，manager 方法即唯一路，守卫锁「只此一条路」） |
+| 文档 | ✅ decisions.md D76（投影清单补全 + `builtin_cases_file`→`Invalid`）与 D77（生命周期契约收进 manager）、progress-log 本节 |
+| check.sh | ✅ 全绿（fast 套件 4774 过、web 371 过；ty 基线零新增；新增测最贵 0.5 s；终树上本机 pytest 步 225 s、check.sh 全程 ~5:13，量级与基线相当。中途一次间歇红是新测自带的固定 HiSLIP 端口 4880 并行相撞，已改 hislip_port=None 并三次连跑验证） |
+## Web 文件域新鲜度：工作区事件流 file_changed/clients_changed/sessions_changed，七处轮询收一处常量（Issue 1484）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 后端事件缝 | ✅ `server/workspace_events.py` 新模块：三类事件（`file_changed {path}`、`clients_changed {sid}`、`sessions_changed {sid}`）+ `WorkspaceEvent` 模型 + fan-out hub（线程安全发布、无订阅者即弃、队列满丢最旧）+ `WorkspaceWatcher`（2s stat 扫描，外部改动播报、写点 `note()` 去重、首 pass 基线先行、删除也播报）。发送点：`BenchFiles._write` 单一写点经 `_announce`（save/copy/restore/create_hello 全覆盖），`DefinitionFiles.save` 委托同一条；四台接入服务器各一个可选 `on_change` 回调（manager 造，access 层不知道事件流存在）；`SessionManager.start/stop` 发 sessions_changed。WS 端点 `/api/events` 进 `routes/events.py`（独立编号、无 backlog、同令牌与 host 守卫） |
+| sessions_changed 的来历 | ✅ issue 只列两类；e2e 逼出第三类：助手「同意停止→重启」后的页面跟随与停止恢复流程旧靠 session 轮询碰巧看见会话更换，轮询退役后 `e2e/assistant.spec.ts` 红，sessions_changed 修复后全绿。理由与备选记 decisions.md D85 |
+| 后端直接单测 | ✅ `tests/test_server.py`：watcher 三段式（外部改动播报一次、note 后静默、删除播报）；hub（无订阅者丢弃、未知 kind 拒绝、多队列 fan-out）；WS 端点逐类断言（file_changed 带 path、定义 copy 带 path、脚本连断各一条 clients_changed 带 sid、启停各一条 sessions_changed 带 sid） |
+| 前端 re-key | ✅ `api/workspaceEvents.ts`：store 三修订（fileRev 逐文件 / instrumentsRev / sessionsRev）+ reducer + 页面级单 socket（重连 bump 全部修订，自愈同 D64；首次连接不 bump）。四处 re-key：useBenchDoc、useDefinitionDocument 按各自文件 rev；useDefinitionStructure 按 instrumentsRev（分层 extends，任何定义文件都可能改它）；useSessions 按 sessionsRev。useSession 裸键保留（state 补丁直写），改失效不 re-key |
+| 裸轮询删除/常量化 | ✅ 删五处 refetchInterval/interval：benchDoc 2.5s、definitionStructure 2.5s、definitionDocument 2s、sessions 2s、session 2–5s（`hooks.ts`）；assistant conversation 3s 的 setInterval 改 `PROGRESS_POLL_MS`（`stream.ts`）。进度域留守收敛一个常量：runs 5s→、tryInstrument 3s→、conversation→ 均 `PROGRESS_POLL_MS = 3000` + 一段共享理由注释（服务端异步进度，事件流不携带）。session 的 patch/防抖/withValues 三层保留（D64 本来的机制）。TUI 的 REMOTE_POLL_S 留守（不在 issue 范围） |
+| vitest 锁 re-key | ✅ `web/src/api/hooks.test.tsx`：benchDoc 逐文件精度（别人的文件不触发）+ 旧 2.5s 间隔内不轮询；sessions 两类事件都重读 + 2.1s 内不轮询；定义对（structure 随 instruments/ 前缀、document 只随自己的文件）；reducer 纯函数四例 |
+| e2e 新缝 | ✅ `web/e2e/edit.spec.ts` 新用例：**不走 API** 直接改工作区文件（编辑器存盘的形状），画布上出现新标签——只有 watcher 扫描 + 事件 re-key 能解释，轮询已删。全量 e2e 110 passed（6.2m），assistant/edit/layout-visual/remote 既有用例原样 |
+| 接口生成物 | ✅ `schemas/workspace-events.schema.json` 新导出（`server/schemas.py`），`gen-api.mjs` 加一行 → `web/src/api/generated/workspace-events.ts`；`pnpm check:api` 绿 |
+| 文档 | ✅ decisions.md D85（新事件协议形状够格新立）、codebase-map 工作区事件行、web-ui skill 的 api/ 行、progress-log 本节 |
+| check.sh | ✅ 全绿（见下） |
+
 ## 命令覆盖支持整组替换与删除：一个头多条 when/选件变体不再是继承死角（Issue 1480）
 
 | 完成条件 | 自检 |

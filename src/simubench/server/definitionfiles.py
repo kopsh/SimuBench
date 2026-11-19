@@ -115,6 +115,7 @@ class DefinitionFiles:
                     previous = (old, current, _fingerprint(base_data))
             self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
             changes = self._changes(def_id, base_data, data)
+        self.files._announce(rel, _sha(raw))
         return self._document(def_id, rel, True, raw, data, changes=changes)
 
     def versions(self, def_id: str) -> list[M.DefinitionVersion]:

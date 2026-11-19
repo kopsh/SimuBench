@@ -446,6 +446,72 @@ async def test_run_cases(ws):
     assert "error" in outside
 
 
+async def test_run_cases_runs_a_builtin_cases_file(ws):
+    """#1485: the agent seams run the same cases resolution the acceptance page does — a
+    ``builtin:`` name is the shipped manual cases of the model that owns it, not a missing file."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        out = await call(c, "run_cases", path="builtin:keysight-34465a-impedance/cases.yaml")
+        assert (out["passed"], out["failed"]) == (2, 0)
+        assert out["path"] == "builtin:keysight-34465a-impedance/cases.yaml"
+        nobody = await call(c, "run_cases", path="builtin:no-such-folder/cases.yaml")
+        climb = await call(c, "run_cases", path="builtin:../models/x/cases.yaml")
+    assert "not a built-in cases file" in nobody["error"]
+    assert "not a built-in cases file" in climb["error"]
+
+
+async def test_run_cases_model_runs_a_copys_ancestors_cases_on_the_copy(ws):
+    """#1485: the ancestor replacement the acceptance page runs is on the agent seam too: with
+    ``model=`` a copy checks itself against the manual cases of the model it extends — a command
+    the copy removed fails them."""
+    (ws / "instruments").mkdir()
+    (ws / "instruments" / "my-keysight-34465a.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.instrument/2",
+                "id": "my-keysight-34465a",
+                "extends": "keysight-34465a",
+                "command_overrides": {"[:SENSe]:VOLTage[:DC]:IMPedance:AUTO": None},
+            },
+            allow_unicode=True,
+        ),
+        encoding="utf-8",
+    )
+    _, server = make(ws)
+    async with Client(server) as c:
+        base = await call(c, "run_cases", path="builtin:keysight-34465a-impedance/cases.yaml")
+        copy = await call(
+            c, "run_cases", path="builtin:keysight-34465a-impedance/cases.yaml", model="my-keysight-34465a"
+        )
+    assert (base["passed"], base["failed"]) == (2, 0)  # the built-in model passes its own cases
+    assert (copy["passed"], copy["failed"]) == (0, 2)  # the copy ran, without the command
+
+
+async def test_session_summary_is_one_shape_with_the_addresses(ws):
+    """#1485: start_session returns the shared projection's summary — the SCPI socket address
+    included — and the seam's own extras on top; describe_session spreads the same summary."""
+    _manager, server = make_ports(ws)
+    async with Client(server) as c:
+        s = await call(c, "start_session", path=BENCH)
+        d = await call(c, "describe_session")
+    assert set(s) == {
+        "session_id",
+        "bench",
+        "bench_path",
+        "clock",
+        "now_ns",
+        "instruments",
+        "switch_script",
+        "web_bench",
+    }
+    (awg,) = [i for i in s["instruments"] if i["name"] == "awg"]
+    assert awg["scpi_socket"] and awg["scpi_socket"].startswith("TCPIP0::127.0.0.1::")
+    assert awg["scpi_socket"].endswith("::SOCKET") and awg["scpi_socket"] == awg["resource_virtual"]
+    assert {i["name"] for i in s["instruments"]} == {"awg", "scope"}
+    assert set(d) >= {"session_id", "instruments", "parts", "duts", "wires", "nets"}
+    assert d["instruments"] == s["instruments"]
+
+
 CONTRACT_SCRIPT = """
 import pyvisa
 

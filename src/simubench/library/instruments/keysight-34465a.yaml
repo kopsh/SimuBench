@@ -626,17 +626,41 @@ commands:
       - {name: range, type: float, unit: A, min: 1.0e-4, max: 3.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
       - {name: resolution, type: float, unit: A, min: 0.0, max: 3.0, optional: true}
   - header: "[:SENSe]:RESistance:RANGe"
-    state: sense.res.range
+    op: meter.range
+    args: {what: RES, state: sense.res.range, auto_state: sense.range_auto, default: 10000.0, unit: OHM, minimum: 100.0, maximum: 1.0e9}
+    params:
+      - {name: value, type: raw}
+    doc: 固定量程设定按最小可测档解析，写入即关闭自动量程；DEF 取模型默认档 10 kΩ；查询回实际使用的档位（自动量程时取当前档）。
   - header: "[:SENSe]:FRESistance:RANGe"
-    state: sense.res.range
+    op: meter.range
+    args: {what: FRES, state: sense.res.range, auto_state: sense.range_auto, default: 10000.0, unit: OHM, minimum: 100.0, maximum: 1.0e9}
+    params:
+      - {name: value, type: raw}
+    doc: 四线电阻与两线电阻共用一组量程设定。
   - header: "[:SENSe]:CURRent[:DC]:RANGe"
-    state: sense.curr.range
+    op: meter.range
+    args: {what: DCI, state: sense.curr.range, auto_state: sense.range_auto, default: 0.0001, unit: A, minimum: 0.0001, maximum: 3.0}
+    params:
+      - {name: value, type: raw}
+    doc: 固定量程设定按最小可测档解析，写入即关闭自动量程；DEF 取模型默认档 100 µA；查询回实际使用的档位（自动量程时取当前档）。
   - header: "[:SENSe]:CURRent:AC:RANGe"
-    state: sense.curr.range
+    op: meter.range
+    args: {what: ACI, state: sense.curr.range, auto_state: sense.range_auto, default: 0.0001, unit: A, minimum: 0.0001, maximum: 3.0}
+    params:
+      - {name: value, type: raw}
+    doc: 交流电流与直流电流共用一组量程设定。
   - header: "[:SENSe]:VOLTage[:DC]:RANGe"
-    state: sense.range
+    op: meter.range
+    args: {what: DC, state: sense.range, auto_state: sense.range_auto, default: 10.0, unit: V, minimum: 0.1, maximum: 1000.0}
+    params:
+      - {name: value, type: raw}
+    doc: 固定量程设定按最小可测档解析，写入即关闭自动量程；DEF 取模型默认档 10 V；查询回实际使用的档位（自动量程时取当前档）。
   - header: "[:SENSe]:VOLTage:AC:RANGe"
-    state: sense.range
+    op: meter.range
+    args: {what: AC, state: sense.range, auto_state: sense.range_auto, default: 10.0, unit: V, minimum: 0.1, maximum: 1000.0}
+    params:
+      - {name: value, type: raw}
+    doc: 交流电压与直流电压共用一组量程设定。
   - header: "[:SENSe]:VOLTage[:DC]:RANGe:AUTO"
     state: sense.range_auto
   - header: "[:SENSe]:VOLTage:AC:RANGe:AUTO"

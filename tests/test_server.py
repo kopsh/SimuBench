@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import os
 import shutil
 import socket
 import threading
@@ -663,3 +664,105 @@ def test_a_stepped_clock_takes_no_new_scale_over_the_api(client):
         "/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml", "clock": "stepped"}
     ).json()["id"]
     assert client.post(f"/api/sessions/{sid}/clock/scale", json={"scale": 2}).status_code == 409
+
+
+def test_watcher_announces_external_changes_once(tmp_path):
+    """A change the server's write points did not make (an editor, a second service on the same
+    workspace) is announced by the scan; content a write point published is not repeated (#1484)."""
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    (tmp_path / "a.bench.yaml").write_text("schema: simubench.bench/2\nname: a\n", encoding="utf-8")
+    watcher._pass()  # the first pass baselines the workspace
+    assert published == []
+    (tmp_path / "a.bench.yaml").write_text("schema: simubench.bench/2\nname: b\n", encoding="utf-8")
+    # Same size, and Windows' coarse mtime can leave the stat unmoved: push the mtime forward so the
+    # test pins the scan, not the file system's clock granularity.
+    st = (tmp_path / "a.bench.yaml").stat()
+    os.utime(tmp_path / "a.bench.yaml", ns=(st.st_atime_ns, st.st_mtime_ns + 2_000_000_000))
+    watcher._pass()
+    assert [p["path"] for p in published] == ["a.bench.yaml"]
+    # The server writes the same file itself: note() marks the content, the scan stays silent.
+    raw = b"schema: simubench.bench/2\nname: c\n"
+    (tmp_path / "a.bench.yaml").write_bytes(raw)
+    watcher.note("a.bench.yaml", hashlib.sha256(raw).hexdigest())
+    watcher._pass()
+    assert [p["path"] for p in published] == ["a.bench.yaml"]
+    # A file that disappears (or a folder removed whole) is announced too.
+    (tmp_path / "a.bench.yaml").unlink()
+    watcher._pass()
+    assert [p["path"] for p in published] == ["a.bench.yaml", "a.bench.yaml"]
+
+
+def test_workspace_hub_drops_events_without_a_subscriber():
+    """The hub is a fan-out: publishes from any thread reach the queues, unknown kinds refuse,
+    and with nobody listening nothing is kept (the stream is live, not a log)."""
+    from simubench.server.workspace_events import WorkspaceEvents
+
+    hub = WorkspaceEvents()
+
+    async def main() -> None:
+        loop = asyncio.get_running_loop()
+        hub.publish("clients_changed", sid="s1")  # no subscriber yet: dropped
+        queue = hub.subscribe(loop)
+        hub.publish("clients_changed", sid="s1")
+        assert await asyncio.wait_for(queue.get(), 5) == {"kind": "clients_changed", "sid": "s1"}
+        hub.unsubscribe(queue)
+        hub.publish("file_changed", path="a.bench.yaml")  # the last listener left: dropped
+
+    asyncio.run(main())
+    with pytest.raises(ValueError):
+        hub.publish("session_event")
+
+
+def test_workspace_event_stream_carries_file_and_client_changes(tmp_path):
+    """The /api/events socket: a write through the API and a script's connect and disconnect
+    arrive as file_changed and clients_changed, addressed by path and sid (#1484)."""
+    shutil.copy(
+        ROOT / "validation" / "benches" / "awg_rc_scope.bench.yaml", tmp_path / "awg_rc_scope.bench.yaml"
+    )
+    manager = SessionManager(tmp_path, scpi_base_port=0, hislip_port=0)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "awg_rc_scope.bench.yaml"}).json()["id"]
+        port = c.get(f"/api/sessions/{sid}").json()["instruments"][1]["scpi_port"]
+        with c.websocket_connect(f"/api/events?token={TOKEN}", headers={"host": "127.0.0.1"}) as ws:
+            doc = c.get("/api/benches/file", params={"path": "awg_rc_scope.bench.yaml"}).json()
+            data = dict(doc["data"])
+            data["description"] = "changed by another client"
+            saved = c.put(
+                "/api/benches/file",
+                json={"path": "awg_rc_scope.bench.yaml", "base_sha256": doc["sha256"], "data": data},
+            )
+            assert saved.status_code == 200
+            ev = ws.receive_json()
+            assert ev["kind"] == "file_changed"
+            assert ev["path"] == "awg_rc_scope.bench.yaml"
+            # A definition written through its own save path is announced with its file path.
+            copied = c.post("/api/definitions/sb-dso-4/copy").json()
+            ev = ws.receive_json()
+            assert ev["kind"] == "file_changed"
+            assert ev["path"] == copied["path"]
+            # A script connects and leaves: one clients_changed each, named by session.
+            sock = socket.create_connection(("127.0.0.1", port), timeout=5)
+            ev = ws.receive_json()
+            assert ev["kind"] == "clients_changed"
+            assert ev["sid"] == sid
+            sock.close()
+            ev = ws.receive_json()
+            assert ev["kind"] == "clients_changed"
+            assert ev["sid"] == sid
+            # A session stops under a connected page: sessions_changed names it (#1484), so the
+            # Web's session queries refetch into the 404 and the stopped-bench flow sees it.
+            c.delete(f"/api/sessions/{sid}")
+            ev = ws.receive_json()
+            assert ev["kind"] == "sessions_changed"
+            assert ev["sid"] == sid
+            # A session starts again: the same announcement, so the stopped-bench page follows.
+            new_sid = c.post("/api/sessions", json={"bench_path": "awg_rc_scope.bench.yaml"}).json()["id"]
+            ev = ws.receive_json()
+            assert ev["kind"] == "sessions_changed"
+            assert ev["sid"] == new_sid
+            c.delete(f"/api/sessions/{new_sid}")

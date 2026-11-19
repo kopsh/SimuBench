@@ -838,7 +838,9 @@ class ScopeMath(Component):
     def _spec(self, f: int, operator: str, records: list[Any]) -> dict[str, Any]:
         """The operator's recipe, fixed at the read: the parameters it reads now, the output's
         grid (dt, x origin, points) and its vertical scale and offset."""
-        source = next(r for r in records if r is not None)
+        source = next((r for r in records if r is not None), None)
+        if source is None:  # only constants: there is no waveform to compute (#1451)
+            raise ScpiError(-221, f"function {f} has no source")
         if bool(getattr(source, "x_hz", False)) and operator not in (
             "ADD",
             "SUBTract",
@@ -1290,19 +1292,22 @@ class ScopeMath(Component):
         f = self._function(_suffix(suffixes))
         full = 8.0  # the range the scale is an eighth of
         rng = self._setting(f, "range", 8.0)
-        if query or value is None:
-            scale = float(rng if rng is not None else full) / full
-            return OpResult(str(round(scale)).encode())
         if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
             value = value[0] if value else None
+        if query:
+            scale = float(rng if rng is not None else full) / full
+            return OpResult(str(round(scale)).encode())
         if value is None:
             raise ScpiError(-109)
-        if isinstance(value, bytes):
-            number = float(V.parse_number(value.decode("ascii", errors="replace")))
-        elif isinstance(value, str):
-            number = float(V.parse_number(value))
-        else:
-            number = float(value)
+        try:
+            if isinstance(value, bytes):
+                number = float(V.parse_number(value.decode("ascii", errors="replace")))
+            elif isinstance(value, str):
+                number = float(V.parse_number(value))
+            else:
+                number = float(value)
+        except ValueError:
+            raise ScpiError(-104, f"{value!r}: not a number") from None
         return self._set_h(f, "range", number * full)
 
 
