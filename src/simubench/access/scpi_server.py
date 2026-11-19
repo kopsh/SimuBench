@@ -21,9 +21,9 @@ log = logging.getLogger("simubench.scpi")
 MAX_MESSAGE = 256 * 1024 * 1024  # bytes; a longer program message is -223 and dropped
 
 
-
 #: The usual SCPI socket port of a real instrument, when the caller does not say otherwise.
 DEFAULT_SCPI_PORT = 5025
+
 
 class MessageReader:
     """Splits a byte stream into program messages (IEEE 488.2 7.7.6, #1448).

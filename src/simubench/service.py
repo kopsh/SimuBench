@@ -15,7 +15,8 @@ from .access.scpi_server import DEFAULT_SCPI_PORT
 from .server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
 #: The ports a bench serves on unless told otherwise: the usual SCPI and HiSLIP ports of real instruments.
-DEFAULT_SCPI_BASE_PORT = DEFAULT_SCPI_PORT  # the access layer owns the number; this is the name the CLI spells
+# The access layer owns the number; this is the name the CLI spells.
+DEFAULT_SCPI_BASE_PORT = DEFAULT_SCPI_PORT
 DEFAULT_HISLIP_PORT = 4880
 
 
