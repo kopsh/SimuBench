@@ -21,7 +21,7 @@ from ..library.loader import dump_yaml, layered_definition_data, load_yaml, pars
 from ..library.migrate import upgrade
 from ..models import api as M
 from . import definitionstructure
-from .benchfiles import BenchFiles, Conflict, _sha
+from .benchfiles import BenchFiles, Conflict, _rollback, _sha
 from .definitionchanges import definition_changes
 from .errors import Forbidden, Invalid
 from .history import Source
@@ -95,7 +95,7 @@ class DefinitionFiles:
             raise Invalid(f"the file {rel} holds the definition {def_id!r}, not {data.get('id')!r}")
         data = {"schema": "simubench.instrument/2", "id": def_id, **data}
         raw = dump_yaml(data).encode("utf-8")
-        path = self.files.workspace / rel
+        path = self.files.resolve(rel)
         with self.files._lock:
             old = path.read_bytes() if path.exists() else None
             current = _sha(old) if old is not None else None
@@ -113,7 +113,11 @@ class DefinitionFiles:
                 with contextlib.suppress(ValueError, UnicodeDecodeError, yaml.YAMLError):
                     base_data = _parse(old)
                     previous = (old, current, _fingerprint(base_data))
-            self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
+            try:
+                self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
+            except Exception as exc:
+                _rollback(path, old)
+                raise Invalid(f"保存定义 {def_id} 失败：无法写入版本历史（{exc}）") from exc
             changes = self._changes(def_id, base_data, data)
         self.files._announce(rel, _sha(raw))
         return self._document(def_id, rel, True, raw, data, changes=changes)

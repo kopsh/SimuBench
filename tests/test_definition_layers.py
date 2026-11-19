@@ -231,7 +231,7 @@ def test_daq970a_and_53230a_do_not_keep_the_parents_device_rows():
     assert "53220A" not in counter.specs["gate_time_s"] and "resolution_digits_53220a" not in counter.specs
 
 
-# ---- command_overrides: one command at a time (D59) ------------------------------------------------
+# ---- command_overrides: one command, a group or null at a time (D59, #1480) ------------------------
 
 _STATE = {"a": {"type": "float", "default": 0}, "b": {"type": "float", "default": 0}}
 
@@ -253,6 +253,48 @@ def test_command_overrides_replace_add_and_remove_whole_commands(tmp_path, lib):
     assert commands[":B"].state == "b" and commands[":B"].query is True  # whole: query not kept
 
 
+def test_command_overrides_a_list_value_replaces_the_header_as_a_group(tmp_path, lib):
+    # the when/option variants of one header are one unbreakable group (#1480)
+    fmt = {"name": "fmt", "type": "string"}
+    write(
+        tmp_path,
+        "base",
+        state=_STATE,
+        commands=[_cmd(":A"), _cmd(":B", params=[fmt], when={"fmt": "WORD"}), _cmd(":B", option="01G")],
+    )
+    write(
+        tmp_path,
+        "derived",
+        extends="base",
+        command_overrides={
+            ":B": [
+                {"state": "b", "params": [fmt], "when": {"fmt": "BYTE"}},
+                {"state": "a", "option": "01G"},
+                {"state": "b"},
+            ]
+        },  # any number of entries: three replace two
+    )
+    commands = lib.get("derived").commands
+    assert [c.header for c in commands] == [":A", ":B", ":B", ":B"]  # at the first :B's place
+    assert commands[1].when == {"fmt": "BYTE"} and commands[1].query is True  # whole: query not kept
+    assert commands[2].option == "01G" and commands[2].state == "a"
+
+
+def test_command_overrides_null_removes_every_entry_of_the_header(tmp_path, lib):
+    write(tmp_path, "base", state=_STATE, commands=[_cmd(":A"), _cmd(":B"), _cmd(":B", option="01G")])
+    write(tmp_path, "derived", extends="base", command_overrides={":B": None})
+    assert [c.header for c in lib.get("derived").commands] == [":A"]
+
+
+def test_command_overrides_one_command_names_the_header_whole(tmp_path, lib):
+    # a single value on a multi-variant header is that header's whole group: one command (#1480)
+    write(tmp_path, "base", state=_STATE, commands=[_cmd(":A"), _cmd(":B"), _cmd(":B", query=False)])
+    write(tmp_path, "derived", extends="base", command_overrides={":B": {"state": "b"}})
+    commands = lib.get("derived").commands
+    assert [c.header for c in commands] == [":A", ":B"]
+    assert commands[1].state == "b" and commands[1].query is True
+
+
 def test_command_overrides_stack_through_the_chain_above_the_nearest_list(tmp_path, lib):
     write(tmp_path, "grand", state=_STATE, commands=[_cmd(":A"), _cmd(":B")])
     write(tmp_path, "mid", extends="grand", command_overrides={":B": None})
@@ -264,12 +306,21 @@ def test_command_overrides_stack_through_the_chain_above_the_nearest_list(tmp_pa
 
 def test_command_overrides_refuse_what_they_cannot_name(tmp_path, lib):
     write(tmp_path, "base", state=_STATE, commands=[_cmd(":A"), _cmd(":A", query=False)])
-    write(tmp_path, "twice", extends="base", command_overrides={":A": {"state": "b"}})
     write(tmp_path, "gone", extends="base", command_overrides={":Z": None})
-    for def_id, words in (("twice", "出现 2 次"), ("gone", "无从删除")):
-        with raises_with(ValueError, words) as info:
-            lib.get(def_id)
-        assert info.value.code == "E-DEF-COMMAND-OVERRIDE"  # type: ignore[attr-defined]
+    with raises_with(ValueError, "无从删除") as info:
+        lib.get("gone")
+    assert info.value.code == "E-DEF-COMMAND-OVERRIDE"  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize("header", [":B", ":Z"])  # a header the parent has, and one it does not
+def test_command_overrides_refuse_an_empty_list(tmp_path, lib, header):
+    # deleting a header is spelt null only; an empty list is refused, never a silent removal (#1499)
+    write(tmp_path, "base", state=_STATE, commands=[_cmd(":A"), _cmd(":B"), _cmd(":B", option="01G")])
+    write(tmp_path, "empty", extends="base", command_overrides={header: []})
+    with raises_with(ValueError, "删除该头请写 null") as info:
+        lib.get("empty")
+    assert info.value.code == "E-DEF-COMMAND-OVERRIDE"  # type: ignore[attr-defined]
+    assert info.value.pointer == f"/command_overrides/{header}"  # type: ignore[attr-defined]
 
 
 # ---- component_overrides (#1425) ----------------------------------------------------------------------

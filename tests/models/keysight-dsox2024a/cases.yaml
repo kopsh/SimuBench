@@ -977,3 +977,18 @@ cases:
       - send: ":MARKer:X2Y2source FUNCtion"
       - query: ":MARKer:X2Y2source?"
         expect: "FUNC"
+
+  - name: "数学函数刻度：缺参 -109，MAX 之类字符数据 -104，数字照常设定（#1451）"
+    manual: "FUNCtion Subsystem > FUNCtion:SCALe"
+    steps:
+      - send: ":FUNC:SCAL"
+      - query: ":SYST:ERR?"
+        expect: '-109,"Missing parameter"'
+      - send: ":FUNC:SCAL MAX"
+      - query: ":SYST:ERR?"
+        expect: '-104,"Data type error"'
+      - send: ":FUNC:SCAL 1"
+      - query: ":FUNC:SCAL?"
+        expect: "1"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'

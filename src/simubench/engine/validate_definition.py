@@ -158,6 +158,7 @@ def _check_component_refs(d: InstrumentDefinition, known: dict[str, type[Compone
             cls = known.get(spec.type)
             if cls is None:  # an unknown component type: reported as E-DEF-COMPONENT-UNKNOWN elsewhere
                 continue
+            targets: dict[str, type | None] = {}
             for param, (base, where) in cls.refs.items():
                 name = str(spec.params.get(param, cls.defaults.get(param)) or "")
                 if not name and param in cls.optional_refs:
@@ -169,6 +170,7 @@ def _check_component_refs(d: InstrumentDefinition, known: dict[str, type[Compone
                     scopes = ["channel"]
                 pool = {k: v for scope in reversed(scopes) for k, v in declared[scope].items()}
                 target = pool.get(name, False)
+                targets[param] = target if isinstance(target, type) else None
                 # A ref's target is a component type name (a str) or a Protocol the named
                 # component's class must implement (engine.component: Acquisition, TraceSource).
                 want = known.get(base) if isinstance(base, str) else None
@@ -221,6 +223,10 @@ def _check_component_refs(d: InstrumentDefinition, known: dict[str, type[Compone
                         None,
                         spec.name,
                     )
+            for key, message in cls.ref_problems(spec.params, targets):
+                report.add(
+                    "error", "E-DEF-PARAM-VALUE", _ptr(section, i, "params", key), message, None, spec.name
+                )
 
 
 def _check_deviation_cases(d: InstrumentDefinition, report: Report) -> None:

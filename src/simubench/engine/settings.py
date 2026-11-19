@@ -27,6 +27,8 @@ _LADDERS = {"1-2-5": (1.0, 2.0, 5.0), "1-3": (1.0, 3.0), "1-2-4": (1.0, 2.0, 4.0
 
 def snap_ladder(value: float, ladder: str | list[float], lo: float | None, hi: float | None) -> float:
     """Snap ``value`` to the nearest rung on a log scale."""
+    if not math.isfinite(value):  # NaN/INF have no rung; the range check refuses them (#1450)
+        return value
     if value <= 0:
         return lo if lo is not None else value
     if isinstance(ladder, list):
@@ -53,15 +55,27 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
     if spec.readonly and not allow_readonly:
         raise ScpiError(-221, "read-only setting")
     if spec.type in ("float", "int"):
-        v = float(value)
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            # A value written outside SCPI (the Web configure / MCP create path) that is not a
+            # number -- a string, null, a list, an object -- is a bad parameter, not a bug: answer
+            # -104 like the SCPI parser does for the same input, never a 500 (#1456).
+            raise ScpiError(-104, f"expected a number, got {value!r}") from None
+        except OverflowError:
+            # An integer too large for a float (JSON can write 10**400) is beyond every range,
+            # as infinity is (#1500).
+            raise ScpiError(-222) from None
         special_values = set((spec.special or {}).values())
         if v in special_values:
             return v
         if spec.ladder is not None:
             v = snap_ladder(v, spec.ladder, spec.min, spec.max)
+        if not math.isfinite(v):  # NaN or infinity is outside every range (#1450)
+            raise ScpiError(-222)
         # The relative tolerance widens the range on both signs (#407: a minimum of -5 V must
         # accept -5; min * (1 - 1e-12) would move a negative bound inwards).
-        if math.isnan(v) or (spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300):
+        if spec.min is not None and v < spec.min - abs(spec.min) * 1e-12 - 1e-300:
             raise ScpiError(-222)
         if spec.max is not None and v > spec.max + abs(spec.max) * 1e-12 + 1e-300:
             raise ScpiError(-222)
@@ -81,12 +95,20 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
     if spec.type == "enum_list":
         # A set of options kept in the options' order, whatever order it was written in
         # (#252: :FORM:ELEM:SENS answers voltage, current, … however the list was given).
-        chosen = set(value)
+        try:
+            chosen = set(value)
+        except TypeError:
+            raise ScpiError(-104, f"expected a list of options, got {value!r}") from None
         if not chosen or not chosen <= set(spec.options or []):
             raise ScpiError(-224)
         return [o for o in spec.options or [] if o in chosen]
     if spec.type == "int_list":
-        out = [int(v) for v in value]
+        try:
+            out = [int(v) for v in value]
+        except (TypeError, ValueError):
+            raise ScpiError(-104, f"expected a list of integers, got {value!r}") from None
+        except OverflowError:  # an infinite element is outside every range (#1500)
+            raise ScpiError(-222) from None
         for v in out:
             if spec.min is not None and v < spec.min:
                 raise ScpiError(-222)

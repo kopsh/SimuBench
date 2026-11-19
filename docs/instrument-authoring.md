@@ -198,7 +198,7 @@ preamp_gain:
 
 定义还可以声明 `extends: <内置型号 id>`，从同库的另一台仪表出发：loader 先解析父定义（父定义自己的 `extends` 也照此解析，单亲、禁止环，成环或父定义不存在都在加载时报错），再把本定义的数据深合并上去。合并次序是 **类别默认 → 父 → 子**；dict 逐键递归合并（`errors` 按 code），**列表整体替换**——要改动命令或组件时重声明整张列表，或用下文的命令逐条覆盖、组件逐个覆盖；只想加一条状态时只写那一条。父定义按「子定义所在目录 → `SIMUBENCH_DEFINITIONS` 目录 → 内置库」的顺序查找；类别默认在最底层合并一次，按子定义的 `class` 取表，所以从内置型号出发的自定义义同样拿到它（父定义文件里的通用错误行已上收进类别表，不靠继承）。
 
-****命令逐条覆盖**：只想改继承命令表里的几条时，不必重写整张 `commands`，写 `command_overrides`：键是继承表里原样的命令头，值是整条命令（不含 header；整条替换同名命令，没有该命令头则追加），`null` 删除该命令。它不做字段级合并（一条命令要么全是父的、要么全是子的）；作用在最近一个自写 `commands` 列表的层之上；命令头在继承表里出现多次、或删除不存在的命令头，报 E-DEF-COMMAND-OVERRIDE。
+**命令逐条覆盖**：只想改继承命令表里的几条时，不必重写整张 `commands`，写 `command_overrides`：键是继承表里原样的命令头，值是整条命令、命令列表或 `null`——整条命令替换该头的全部条目（落在第一处），命令列表整组替换该头（一个头的多条 `when`/`option` 变体是一个不可拆的组，列表给出新的变体，条目数随意），`null` 删除该头的全部条目；条目不含 header，与单条值一致，没有该命令头则追加。它不做字段级合并（一条命令要么全是父的、要么全是子的）；作用在最近一个自写 `commands` 列表的层之上；删除不存在的命令头，报 E-DEF-COMMAND-OVERRIDE；删除只有 `null` 一种写法，值为空列表 `[]` 同样报 E-DEF-COMMAND-OVERRIDE（提示改写 null，#1499）。
 
 **组件逐个覆盖**（#1425）：只想改继承组件的几个参数时，不必重写整张 `components`，写 `component_overrides`（通道组件写 `channel_component_overrides`）：键是组件名，值是要改的字段——`params` 按参数名合并（每个参数值整条替换，参数映射 `{from, map, …}` 也是一个值，不与继承的映射合并；`null` 删除该参数），`label`、`description` 替换（`null` 删除），`type` 不能改（要换类型就删掉它、用新名字加）；没有该名字的组件则追加，须写 `type`；值为 `null` 删除该组件。作用位置与次序同命令逐条覆盖；名字在继承表里出现多次、删除不存在的组件、改类型、新组件缺类型，报 E-DEF-COMPONENT-OVERRIDE。例：在 UXR1104B 上只改 ADC 位数与通道带宽——
 
@@ -230,7 +230,10 @@ specs: {bandwidth_hz: 1.6e11, sample_rate: 5.12e11}
 extends: keysight-uxr1104b
 command_overrides:
   ":SYSTem:FAN:MODE": {state: system.fan_mode}   # 新增
-  ":ACQuire:AVERage": null                       # 删除
+  ":ACQuire:AVERage": null                       # 删除该头的全部条目
+  ":SYSTem:CAPability:ACQuire":                  # 整组替换该头的全部 when/option 变体
+    - {op: sys.none, set: false, when: {what: HALFchannel}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"0"'}
+    - {op: sys.none, set: false, option: 02G, when: {what: MEMory}, params: [{name: what, type: enum, options: [HALFchannel, MEMory, SRATe, BANDwidth]}], reply: '"2000000000"'}
 ```
 
 子定义里写 `键: null` 丢弃继承来的该键**：dict 键（一条状态、一个端口组、`specs` 的一项）、`errors` 的单个 code、整个列表（如 `components: null`）都适用；null 在全部层合并完才生效，下层与类别默认都带不回来，父定义没有该键时等于没写。内置库的 keysight-53230a（`extends: keysight-53220a`）、keysight-daq970a（`extends: keysight-34970a`）与 keysight-b2912b（`extends: keysight-b2901a`，丢弃单通道的仪器级状态、端口与组件）按此改写；coverage 表与用例文件仍按型号各写，不随 extends 合并。
@@ -446,7 +449,7 @@ constraints:
 - 最大输入（`scope_vertical` 的 `max_input_divs`、`max_input_v`，#1264）：采集时输入超过偏置两侧 `max_input_divs` 格，该通道的过载位置位（`scope_measurements` 的 op `overload`，读后清零）；超过 `max_input_v`（输入端对地峰值）时仪表发出“可能损坏”的警告（`Instrument.warn`，事件与问题栏）。不断开输入，除非手册写了保护动作。
 - ADC：`adc_bits`（0：不量化）、`adc_codes_per_div`（0：`2**bits / adc_divs`）、`adc_offset`；
   - 硬件最小量程（`scope_adc` 的 `min_full_scale`，输入端的伏特，#1265）：显示档位小于 `min_full_scale / divs` 时是该量程的放大，码宽保持量程的，削波在量程边缘；记录的 `code_scale` 记下这个每格伏特数，波形传输的码值与 Y increment 按它算。
-  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以默认不由 ADC 推出；两者相同时传输可写 `codes_per_div: adc`、`adc_bits: adc`，取采集链 ADC 的值（实现 `AcquisitionInput` 的采集组件才有，#1445），改 ADC 位数时码值跟着变（UXR 两型号）；两处写成不同值是错误（`E-DEF-OFFSET-CONVENTION`，仅在 ADC 量化且传输发码值时检查；两个类的默认值不同，一处没写会被查出来）。理由与该检查记在 #634 的评论里。
+  - 偏移符号 `offset_sign`（`scope_adc`）与传输的 `offset`（`waveform_transfer`）各留一份，理由（#667）：码值内核 `adc.codes` 只有一份，两处只各自声明「设定的偏移加到还是减去」这一厂商约定；传输码是输出格式的属性（`sb-dso-*` 的 BYTE/WORD、Siglent 的 8/10 位左对齐用不同的 `codes_per_div`、`adc_bits`、`width`），可以与 ADC 的显示码不同，所以默认不由 ADC 推出；两者相同时传输可写 `codes_per_div: adc`、`adc_bits: adc`，取采集链 ADC 的值（实现 `AcquisitionInput` 的采集组件才有，#1445），改 ADC 位数时码值跟着变（UXR 两型号）；这两个参数只取数值或 `adc`，拼错（如 `ADC`）或写 `adc` 而 `record` 指向的采集没有 ADC 采集链，加载与 `simubench validate` 时报 `E-DEF-PARAM-VALUE`（带指针，#1460）；两处写成不同值是错误（`E-DEF-OFFSET-CONVENTION`，仅在 ADC 量化且传输发码值时检查；两个类的默认值不同，一处没写会被查出来）。理由与该检查记在 #634 的评论里。
   - 调制谱线预算：RF 信号源的 `LINE_BUDGET = 999` 是金标准锁定的（`tests/test_rfgen_migration.py` 复现的参考值），AWG 调制源的 `line_budget` 是参数（默认 2000），两者是不同仪表类别的限值，不合并。
 - 噪声：`noise_rms`、`noise_key`（`time` 时 `noise_stream` 绑定的设置选择另一组噪声，如采集方式）、`trigger_jitter_s`，`averaging` 与 `averages`。
 
@@ -979,7 +982,7 @@ D3 改为允许用户在 Web 中自建仪表：对象是组件图（D50 的功�
 | 添加面板端口并连到组件端口 | `ports.instrument` 或 `ports.channel`（通道端口名含 `{n}`） |
 | 添加、编辑、删除设置（#1206） | `state` 或 `channel_state` 的一项：类型、单位、最小、最大、默认、选项、中文名/英文名；换类型时去掉只属于旧类型的字段。其余字段原样保留 |
 | 参数绑定到设置、解除绑定 | `params.<名称>` 写成 `$<设置>`（通道设置 `$ch.<设置>`）；解除即删除该键 |
-| 添加、编辑、删除命令（#1206） | 副本（继承命令表）写进 `command_overrides`（按命令头整条，删除写 null，D59）；自写 `commands` 的定义写 `commands` 的一项：`header`，`state`（设置）或 `op`（`<组件>.<操作>`、`ch.<组件>.<操作>`）二选一，`set`/`query` 为 false 时才写。其余字段原样保留 |
+| 添加、编辑、删除命令（#1206） | 副本（继承命令表）写进 `command_overrides`（键是命令头：值是整条命令、命令列表（整组替换该头的全部条目）或 null（删除该头），D59）；自写 `commands` 的定义写 `commands` 的一项：`header`，`state`（设置）或 `op`（`<组件>.<操作>`、`ch.<组件>.<操作>`）二选一，`set`/`query` 为 false 时才写。其余字段原样保留 |
 
 - 每次操作立即把整个结构发给 `PUT /api/definitions/{id}/structure`（`base_sha256`，`server/definitionstructure.py`）：继承的规则由服务端执行，客户端只说要运行的结构；客户端原样送回的参数值换回文件里的值（JSON 会把表格的数字键 `{0.001: 100}` 变成字符串）。写入走 `DefinitionFiles.save`，与 MCP `edit_definition` 同一条路：每次保存是一个版本（D35），修改记录用仪表的语言写出（T3）。设置按设置名合并、同一设置内按字段合并，删除继承来的设置或字段写 `null`；命令整列表替换（D59）。草稿不通过校验也保存（与 `create_definition` 相同），诊断显示在搭建区，指向某个组件的（`/components/3/...`）在节点上标出。
 - 文件在别处被改（409）：提示后按新文件重新载入，不覆盖。

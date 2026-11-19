@@ -136,3 +136,50 @@ def test_a_record_that_is_not_an_acquisition_is_refused():
         t._acquisition()
     assert err.value.code == -300
     assert "keeps no records to transfer" in err.value.detail
+
+
+def _acquisition(**input_chain):
+    """An Acquisition the transfer reads from; with ``input_chain`` (probe_ratio, adc_unit,
+    adc_codes_per_div) it also implements AcquisitionInput."""
+    return SimpleNamespace(
+        read_record=lambda channel, start=True: (None, 0),
+        transfer_record=lambda channel, first: (None, 0),
+        timebase_scale=lambda: 1e-3,
+        acq_count=0,
+        **input_chain,
+    )
+
+
+def _reading_from(acq, **params) -> WaveformTransfer:
+    owner = SimpleNamespace(name="scope", components={"acq": acq})
+    return WaveformTransfer("xfer", {"record": "acq", **params}, owner, SimpleNamespace())  # type: ignore[arg-type]
+
+
+def test_adc_without_an_adc_acquisition_is_a_clean_error():
+    """#1460: `adc` behind an acquisition with no ADC chain answers -300 naming it, at run time
+    (the definition check reports it at load)."""
+    t = _reading_from(_acquisition(), adc_bits="adc")
+    with pytest.raises(ScpiError) as err:
+        t.codes(record([0.5]))
+    assert err.value.code == -300
+    assert "needs an acquisition with an ADC" in err.value.detail
+
+
+def test_a_misspelt_adc_is_a_clean_error_not_a_value_error():
+    with pytest.raises(ScpiError) as err:
+        transfer(adc_bits="ADC").codes(record([0.5]))
+    assert err.value.code == -300
+    assert "'ADC'" in err.value.detail
+
+
+def test_adc_takes_the_bits_and_codes_per_division_of_the_acquisitions_adc():
+    """#1445/#1460: a 12-bit ADC over 8 divisions without codes_per_div is 512 codes per division;
+    its codes, left-aligned in a 16-bit word, step by 16."""
+    from simubench.library.components.scope import ScopeAdc
+
+    adc = ScopeAdc("adc", {"bits": 12, "divs": 8.0}, None, SimpleNamespace())  # type: ignore[arg-type]
+    acq = _acquisition(probe_ratio=lambda n: 1.0, adc_unit=lambda: adc, adc_codes_per_div=adc.codes_per_div)
+    t = _reading_from(acq, adc_bits="adc", codes_per_div="adc", width=16)
+    assert t._code_scale() == (12, 512.0)
+    one_code = 0.5 / 512  # the record's 0.5 V/div over 512 codes
+    assert t.codes(record([one_code, 2 * one_code])).tolist() == [16, 32]

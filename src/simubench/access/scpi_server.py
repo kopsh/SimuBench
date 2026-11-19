@@ -200,8 +200,9 @@ class ScpiServer:
         """The clients on the instruments' sockets, listener by listener. A raw socket never locks."""
         return [
             ClientConnection(client=label, instrument=lst.instrument)
-            for lst in self.listeners
-            for label in sorted(lst.labels)
+            # snapshots: the engine thread asks while the event loop adds and drops clients (#1479)
+            for lst in list(self.listeners)
+            for label in sorted(list(lst.labels))
         ]
 
     def addresses(self) -> dict[str, str]:

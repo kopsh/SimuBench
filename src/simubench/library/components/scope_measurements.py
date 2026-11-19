@@ -1320,7 +1320,7 @@ class ScopeMeasurements(Component):
         }[field]
         if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
             value = value[0] if value else None
-        if query or value is None:
+        if query:
             if key == "x" and marker["type"] == "YMANual":
                 return OpResult(str(self.param("invalid_value")).encode())
             if key == "y" and marker["type"] == "XMANual":
@@ -1350,6 +1350,8 @@ class ScopeMeasurements(Component):
             if key in ("name", "color"):  # a quoted string, as the manual's Returned Format has it
                 return OpResult(f'"{current}"'.encode())
             return OpResult(str(current).encode())
+        if value is None:
+            raise ScpiError(-109)
         raw = value if isinstance(value, bytes) else str(value).encode()
         if key == "type":
             word = V.parse_string(raw).upper()
@@ -1375,7 +1377,11 @@ class ScopeMeasurements(Component):
             raise ScpiError(-221, "a Y-only marker has no x position")
         if key == "y" and marker["type"] in ("XMANual", "TRACk", "RF"):
             raise ScpiError(-221, "an X-only or tracking marker has no y position")
-        marker[key] = parse_number(raw.decode("ascii", errors="replace"))
+        try:
+            number = parse_number(raw.decode("ascii", errors="replace"))
+        except ValueError:
+            raise ScpiError(-104, f"{value!r}: not a number") from None
+        marker[key] = number
         return OpResult()
 
     @op("marker_delta")

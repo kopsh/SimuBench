@@ -1372,7 +1372,7 @@ sections:
     blocked_by: dmm-functions
   - header: '[:SENSe]:RESistance:RANGe'
     level: implemented
-    note: 按通道的电阻量程（100 Ω–1 GΩ），设定即关自动量程；通道列表必填。
+    note: 按通道的电阻量程（100 Ω–1 GΩ），设定（含 MIN/MAX）即关自动量程，DEF 为自动量程（手册默认值 AUTO）；查询回该通道实际使用的档位，自动量程时不回占位 0（#1466）；通道列表必填。
   - header: '[:SENSe]:FRESistance:RANGe'
     level: not_modeled
     note: 该测量配置未建模（通道配置只有功能、量程、自动量程、分辨率、NPLC 与输入阻抗）。
@@ -1599,7 +1599,7 @@ sections:
     blocked_by: dmm-functions
   - header: '[:SENSe]:VOLTage:DC:RANGe'
     level: implemented
-    note: 按通道的电压量程（100 mV–300 V），设定即关自动量程；通道列表必填。
+    note: 按通道的电压量程（100 mV–300 V），设定（含 MIN/MAX）即关自动量程，DEF 为自动量程（手册默认值 AUTO）；查询回该通道实际使用的档位（与 CONF? 一致），自动量程时不回占位 0（#1466）；通道列表必填。
   - header: '[:SENSe]:VOLTage[:DC]:APERture'
     level: not_modeled
     note: 以秒计的积分时间未建模（用 NPLC）。

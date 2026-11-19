@@ -170,7 +170,7 @@ sections:
   - {header: 'SENSe:VOLTage:AC:BANDwidth', level: not_modeled, note: 'ACV 的功能选择被 #300 阻塞；只建模 DCV。', gap: blocked, blocked_by: dmm-functions}
   - {header: 'SENSe:VOLTage:DC:APERture', level: not_modeled, note: '孔径时间未建模：读数时间只按 NPLC 表；孔径与 NPLC 的互相换算超出组件参数映射。', gap: model_work}
   - {header: 'SENSe:VOLTage:DC:NPLCycles', level: implemented, note: '积分时间；按 `(@ch_list)` 的号域读写；按通道保存（#365）。读数时间与分辨率按 NPLC 表（50 Hz 电源）。'}
-  - {header: 'SENSe:VOLTage:DC:RANGe', level: implemented, note: '直流电压量程（0/AUTO 为自动量程）；按通道保存（#365）。存设置并回读；设置量程不会自动关闭自动量程，需另发 RANGe:AUTO OFF（通道列表命令不能写 `sets`，见 #300）。'}
+  - {header: 'SENSe:VOLTage:DC:RANGe', level: implemented, note: '直流电压量程；按通道保存（#365）。写入固定档或 MIN/MAX 即关闭自动量程，DEF 为自动量程（34970A 指南未收入仓库，DEF 按后继型号 DAQ970A 手册的 Default: AUTO）；查询回该通道实际使用的档位（自动量程时取当前档，与 CONF? 一致），不回内部占位 0（#1466）。'}
   - {header: 'SENSe:VOLTage:DC:RANGe:AUTO', level: implemented, note: '自动量程开关（按通道，#365）；阈值按手册（<10% 降档、>120% 升档）。'}
   - {header: 'SENSe:VOLTage:DC:RESolution', level: not_modeled, note: '分辨率只由 NPLC 决定；分辨率参数不能反过来改 NPLC（组件映射限制）。', gap: model_work}
   - {header: 'SENSe:VOLTage:DC:ZERO:AUTO', level: not_modeled, note: '自动调零未建模（组件读数不含零漂）。', gap: model_work}

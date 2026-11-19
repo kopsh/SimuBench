@@ -2178,7 +2178,8 @@ export interface components {
         };
         /**
          * CommandOverride
-         * @description A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key.
+         * @description A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key
+         *     (the entries of a list value share it and leave it out).
          */
         CommandOverride: {
             /**
@@ -3515,10 +3516,10 @@ export interface components {
             class: string;
             /**
              * Command Overrides
-             * @description With extends (D59): change the inherited command table one command at a time instead of rewriting it. Key: a command header exactly as the inherited table writes it; value: the whole command without its header (it replaces the inherited one whole, or is appended when no command has that header), or null to remove it. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own commands list; a header the table holds twice, or a removal of one it does not hold, is E-DEF-COMMAND-OVERRIDE. Empty once loaded
+             * @description With extends (D59): change the inherited command table one command at a time instead of rewriting it. Key: a command header exactly as the inherited table writes it; value: the whole command without its header, a list of commands that replaces every command with that header as a group (at the first one's place — the variants of one header are one unbreakable group), or null to remove them all; a header no command has is appended. Applied by the loader after layering, from the farthest layer to this file, above the nearest layer that writes its own commands list; a removal of a header the table does not hold is E-DEF-COMMAND-OVERRIDE. Empty once loaded
              */
             command_overrides?: {
-                [key: string]: components["schemas"]["CommandOverride"] | null;
+                [key: string]: components["schemas"]["CommandOverride"] | components["schemas"]["CommandOverride"][] | null;
             } | null;
             /** Commands */
             commands?: components["schemas"]["CommandSpec"][];

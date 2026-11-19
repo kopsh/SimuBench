@@ -122,6 +122,16 @@ def _first_line(exc: Exception) -> str:
     return (str(exc).splitlines() or [""])[0]
 
 
+def _keyerror_text(exc: Exception) -> str:
+    """The message of a ``KeyError`` without the one matched pair of quotes ``str()`` wraps around
+    it: ``str(KeyError("no instrument named 'nope'"))`` is ``"no instrument named 'nope'"``, so
+    peeling only the outer pair keeps the message's own closing quote (#1456)."""
+    msg = str(exc)
+    if len(msg) >= 2 and msg[0] == msg[-1] and msg[0] in "'\"":
+        return msg[1:-1]
+    return msg
+
+
 def _http_in_use(exc: ClientsConnected | InstrumentRemote, **_: Any) -> HTTPException:
     """409 for an operation the connected scripts stand in the way of (#121)."""
     detail: dict[str, Any] = {"message": str(exc), "clients": exc.clients}
@@ -166,8 +176,8 @@ def _http_key(
     """A ``KeyError`` goes where it comes from decides: a 404 for a thing asked for, or a 422 for a
     bad option."""
     if key == "not_found":
-        return HTTPException(404, missing or str(exc).strip("'\""))
-    return HTTPException(422, _first_line(exc))
+        return HTTPException(404, missing or _keyerror_text(exc))
+    return HTTPException(422, _keyerror_text(exc))
 
 
 def _http_value(exc: Exception, *, full_detail: bool = False, **_: Any) -> HTTPException:
@@ -253,7 +263,7 @@ SEAM_ROWS: tuple[ErrorRow, ...] = (
     ErrorRow((BenchInvalid,), _http_invalid, _tool_invalid),
     ErrorRow((EditError,), _http_edit, _tool_first_line),
     ErrorRow((PatchError,), _http_value, _tool_patch),
-    ErrorRow((KeyError,), _http_key, lambda exc, seam: str(exc).strip("'\""), caught=(Unknown,)),
+    ErrorRow((KeyError,), _http_key, lambda exc, seam: _keyerror_text(exc), caught=(Unknown,)),
     ErrorRow(
         (ValueError, UnicodeDecodeError),
         _http_value,

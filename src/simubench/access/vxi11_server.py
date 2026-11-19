@@ -386,7 +386,8 @@ class Vxi11Server(_RpcServer):
                 instrument=link.instrument,
                 locked=self.locks(link.instrument).held_by(link),
             )
-            for link in self._links.values()
+            # a snapshot: the engine thread asks while the event loop opens and closes links (#1479)
+            for link in list(self._links.values())
         ]
 
     def holds_lock(self, client: str) -> bool:

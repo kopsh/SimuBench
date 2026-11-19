@@ -173,3 +173,13 @@ test("with the assistant open the inspector's actions do not overlap (#1354)", a
   await expect(page.getByText("AI 助手").last()).toBeVisible();
   await actionsApart(page);
 });
+
+// #1459: a level just under 1 V rounds before its prefix is chosen — the function generator's wire
+// on the multimeter bench reads "1 V DC", never "1.00e+3 mV DC".
+test("benches/keysight-34465a.bench.yaml: the canvas wire levels never show an exponent", async ({ page }) => {
+  await open(page, "benches/keysight-34465a.bench.yaml", 4);
+  const readouts = page.getByTestId("wire-readout");
+  await expect(readouts.first()).toBeVisible();
+  await expect(readouts.filter({ hasText: "e+" })).toHaveCount(0);
+  await expect(readouts.locator("span.text-foreground").getByText("1 V", { exact: true })).toBeVisible();
+});

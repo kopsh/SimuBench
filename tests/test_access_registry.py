@@ -114,3 +114,44 @@ def test_no_layer_sniffs_a_client_label_prefix():
                 if f'"{prefix}"' in text or f"'{prefix}'" in text
             ]
     assert offenders == []
+
+
+def _churning_bench_link():
+    """A bench link whose client table changes while connections() walks it — a link opening on
+    the event loop just as the engine thread asks is_remote (#1479)."""
+    from simubench.access.bench_link import BenchLinkServer
+
+    server = BenchLinkServer(None)  # type: ignore[arg-type]
+    server._clients = {"bench:1": ("dut", None), "bench:2": ("dut", None)}  # type: ignore[dict-item]
+
+    def holds_lock(label: str) -> bool:
+        server._clients[f"bench:{len(server._clients) + 1}"] = ("dut", None)  # type: ignore[assignment]
+        return False
+
+    server.holds_lock = holds_lock  # type: ignore[method-assign]
+    return server
+
+
+def _churning_vxi11():
+    from simubench.access.vxi11_server import Vxi11Server
+
+    server = Vxi11Server(None)  # type: ignore[arg-type]
+    link = SimpleNamespace(client="vxi11:1", instrument="dut")
+    server._links = {1: link, 2: SimpleNamespace(client="vxi11:2", instrument="dut")}  # type: ignore[dict-item]
+
+    def locks(_name):
+        server._links[len(server._links) + 1] = link  # type: ignore[index]
+        return SimpleNamespace(held_by=lambda _link: False)
+
+    server.locks = locks  # type: ignore[method-assign]
+    return server
+
+
+@pytest.mark.parametrize("make", [_churning_bench_link, _churning_vxi11])
+def test_connections_survive_a_client_table_changing_underneath(make):
+    """connections() walks a snapshot, so the engine thread's is_remote never meets
+    ``RuntimeError: dictionary changed size during iteration`` (#1479)."""
+    server = make()
+    served = ServedSession.__new__(ServedSession)
+    served.servers = {"x": server}
+    assert served.is_remote(server.connections()[0].client)

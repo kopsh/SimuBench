@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import os
 import shutil
 import socket
 import threading
@@ -357,6 +358,41 @@ def test_try_session_runs_alone_and_leaves_the_bench_alone(client):
     assert client.post("/api/try/no-such-definition").status_code == 404
 
 
+@pytest.mark.parametrize(
+    ("value", "code"),
+    [("abc", -104), (None, -104), ([], -104), ({}, -104), pytest.param(10**400, -222, id="10**400")],
+)
+def test_configure_wrong_type_is_a_clean_scpi_error_not_500(client, value, code):
+    """#1456: a configure value of the wrong type is a bad parameter (-104), not a server bug; an
+    integer too large for a float is out of range (-222) like infinity (#1500). The session
+    configure and the try-session configure both answer it cleanly, never a 500."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    r = client.post(
+        f"/api/sessions/{sid}/instruments/awg/configure",
+        json={"path": "ch1.frequency", "value": value},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert not body["ok"] and body["error"]["code"] == code
+    t = client.post("/api/try/sb-dso-4").json()
+    r2 = client.post(f"/api/try/{t['session_id']}/configure", json={"path": "ch1.scale", "value": value})
+    assert r2.status_code == 200, r2.text
+    body2 = r2.json()
+    assert not body2["ok"] and body2["error"]["code"] == code
+    client.delete(f"/api/sessions/{sid}")
+    client.delete(f"/api/try/{t['session_id']}")
+
+
+def test_unknown_instrument_404_detail_keeps_its_closing_quote(client):
+    """#1456: the 404 for an unknown instrument must read ``no instrument named 'nope'`` — the
+    closing quote used to be eaten by stripping every quote character off ``str(KeyError(...))``."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    r = client.post(f"/api/sessions/{sid}/instruments/nope/scpi", json={"command": "*IDN?"})
+    assert r.status_code == 404
+    assert "'nope'" in r.json()["detail"]
+    client.delete(f"/api/sessions/{sid}")
+
+
 def test_try_session_binds_no_ports_and_writes_no_record(tmp_path):
     manager = SessionManager(ROOT / "validation", scpi_base_port=0, record_dir=tmp_path)
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
@@ -676,6 +712,10 @@ def test_watcher_announces_external_changes_once(tmp_path):
     watcher._pass()  # the first pass baselines the workspace
     assert published == []
     (tmp_path / "a.bench.yaml").write_text("schema: simubench.bench/2\nname: b\n", encoding="utf-8")
+    # Same size, and Windows' coarse mtime can leave the stat unmoved: push the mtime forward so the
+    # test pins the scan, not the file system's clock granularity.
+    st = (tmp_path / "a.bench.yaml").stat()
+    os.utime(tmp_path / "a.bench.yaml", ns=(st.st_atime_ns, st.st_mtime_ns + 2_000_000_000))
     watcher._pass()
     assert [p["path"] for p in published] == ["a.bench.yaml"]
     # The server writes the same file itself: note() marks the content, the scan stays silent.
@@ -688,6 +728,23 @@ def test_watcher_announces_external_changes_once(tmp_path):
     (tmp_path / "a.bench.yaml").unlink()
     watcher._pass()
     assert [p["path"] for p in published] == ["a.bench.yaml", "a.bench.yaml"]
+
+
+def test_watcher_reads_again_when_a_same_size_write_lands_in_one_timestamp_tick(tmp_path):
+    """#1502: two same-size writes inside one timestamp tick leave mtime and size unmoved, so a
+    stat-only scan never sees the second one; the pass after a change reads the file once more."""
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    path = tmp_path / "a.bench.yaml"
+    path.write_bytes(b"schema: simubench.bench/2\nname: a\n")
+    before = path.stat()
+    watcher._pass()  # baseline
+    path.write_bytes(b"schema: simubench.bench/2\nname: b\n")  # same size
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))  # force the same tick
+    watcher._pass()
+    assert [p["path"] for p in published] == ["a.bench.yaml"]
 
 
 def test_workspace_hub_drops_events_without_a_subscriber():

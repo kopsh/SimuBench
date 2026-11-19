@@ -87,7 +87,16 @@ def test_event_socket_checks_token_and_origin(app):
 
 
 @pytest.mark.parametrize(
-    "bad", ["../pyproject.toml", "../../etc/passwd.bench.yaml", "/etc/passwd", "benches/../../x.bench.yaml"]
+    "bad",
+    [
+        "../pyproject.toml",
+        "../../etc/passwd.bench.yaml",
+        "/etc/passwd",
+        "benches/../../x.bench.yaml",
+        ".simubench/x.bench.yaml",
+        ".simubench/history/a.bench.yaml",
+        "sub/../.simubench/x.bench.yaml",
+    ],
 )
 def test_bench_paths_stay_in_the_workspace(app, bad):
     with TestClient(app, base_url="http://127.0.0.1") as c:
@@ -101,7 +110,68 @@ def test_bench_paths_stay_in_the_workspace(app, bad):
             ).status_code
             == 403
         )
+        # copying a bench into the internal directory is refused too (#1457)
+        assert (
+            c.post(
+                "/api/benches/copy",
+                json={"path": "benches/awg_rc_scope.bench.yaml", "new_path": bad},
+            ).status_code
+            == 403
+        )
         assert c.post("/api/sessions", json={"bench_path": bad}).status_code in (403, 404)
+
+
+def test_bench_save_rolls_back_when_history_cannot_be_recorded(tmp_path, monkeypatch):
+    """#1457: a save that cannot record its version history rolls the file back and answers a clear
+    error, never a 500 — a new file is removed, an existing one restored to its previous content."""
+    manager = SessionManager(
+        tmp_path, scpi_base_port=0, hislip_port=0, vxi11_port=0, portmapper_port=0, link_port=0
+    )
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+
+        def blocked(*_a, **_k):
+            raise FileExistsError("the history directory is blocked")
+
+        monkeypatch.setattr(manager.files.history, "record", blocked)
+
+        # a new file must not be left behind
+        r = c.put(
+            "/api/benches/file", json={"path": "new.bench.yaml", "base_sha256": None, "data": {"name": "x"}}
+        )
+        assert r.status_code != 500
+        assert not (tmp_path / "new.bench.yaml").exists()
+
+        # an existing file is restored to its previous content
+        keep = tmp_path / "keep.bench.yaml"
+        keep.write_text("name: original\n")
+        before = keep.read_bytes()
+        doc = c.get("/api/benches/file", params={"path": "keep.bench.yaml"}).json()
+        r2 = c.put(
+            "/api/benches/file",
+            json={"path": "keep.bench.yaml", "base_sha256": doc["sha256"], "data": {"name": "new"}},
+        )
+        assert r2.status_code != 500
+        assert keep.read_bytes() == before
+
+        # a definition save takes the same rollback (#1501): a new definition leaves no file …
+        r3 = c.post("/api/definitions/keysight-34465a/copy")
+        assert r3.status_code == 422
+        assert not (tmp_path / "instruments" / "my-keysight-34465a.yaml").exists()
+
+        # … and an existing one is restored to its previous content
+        monkeypatch.undo()
+        mine = c.post("/api/definitions/keysight-34465a/copy").json()
+        mine_path = tmp_path / mine["path"]
+        saved = mine_path.read_bytes()
+        monkeypatch.setattr(manager.files.history, "record", blocked)
+        r4 = c.put(
+            f"/api/definitions/{mine['data']['id']}/identity",
+            json={"base_sha256": mine["sha256"], "serial": "SN-NEW"},
+        )
+        assert r4.status_code == 422
+        assert mine_path.read_bytes() == saved
 
 
 def test_scpi_sockets_listen_on_loopback_only(app):

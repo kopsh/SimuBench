@@ -838,7 +838,9 @@ class ScopeMath(Component):
     def _spec(self, f: int, operator: str, records: list[Any]) -> dict[str, Any]:
         """The operator's recipe, fixed at the read: the parameters it reads now, the output's
         grid (dt, x origin, points) and its vertical scale and offset."""
-        source = next(r for r in records if r is not None)
+        source = next((r for r in records if r is not None), None)
+        if source is None:  # only constants: there is no waveform to compute (#1451)
+            raise ScpiError(-221, f"function {f} has no source")
         if bool(getattr(source, "x_hz", False)) and operator not in (
             "ADD",
             "SUBTract",
@@ -1179,6 +1181,37 @@ class ScopeMath(Component):
             parts.append(word)
         return OpResult(",".join(parts).encode())
 
+    @op("operate", fields=("operator",))
+    def op_operate(
+        self,
+        operator: str = "",
+        source1: Any = None,
+        source2: Any = None,
+        suffixes: dict[str, int] | None = None,
+        **_: Any,
+    ) -> OpResult:
+        """``:FUNCtion<f>:ADD|SUBTract|MULTiply|DIVide <operand>,<operand>``: the operator and both
+        operands, checked when written (#1494) — a missing operand is -109, one that is not a source
+        this model knows (or a constant that is not finite) -224 — and the function is left as it
+        was; the manual gives two operands for each of these."""
+        f = self._function(_suffix(suffixes))
+        word = CANONICAL.get(str(operator).strip().upper())
+        if word is None:
+            raise ScpiError(-224, f"{operator}: no such operator")
+        words = [str(w).strip() for w in (source1, source2) if w is not None and str(w).strip()]
+        if len(words) < 2:
+            raise ScpiError(-109, f"{word} takes two operands")
+        channels, functions = int(self.param("channels")), int(self.param("functions"))
+        for w in words:
+            operand = Operand(w, channels, functions)
+            if operand.constant is not None and not math.isfinite(operand.constant):
+                raise ScpiError(-224, f"{w}: a constant operand must be finite")
+        assert self.owner is not None
+        prefix = f"{self.param('prefix')}{f}"
+        for name, value in (("operator", word), ("source1", words[0]), ("source2", words[1])):
+            self.owner.set_state(f"{prefix}.{name}", value, source="scpi", internal=True)
+        return OpResult()
+
     @op("h_field", fields=("field",))
     def op_h_field(
         self,
@@ -1290,19 +1323,22 @@ class ScopeMath(Component):
         f = self._function(_suffix(suffixes))
         full = 8.0  # the range the scale is an eighth of
         rng = self._setting(f, "range", 8.0)
-        if query or value is None:
-            scale = float(rng if rng is not None else full) / full
-            return OpResult(str(round(scale)).encode())
         if isinstance(value, list):  # the raw parameter arrives as the unit's parameter list
             value = value[0] if value else None
+        if query:
+            scale = float(rng if rng is not None else full) / full
+            return OpResult(str(round(scale)).encode())
         if value is None:
             raise ScpiError(-109)
-        if isinstance(value, bytes):
-            number = float(V.parse_number(value.decode("ascii", errors="replace")))
-        elif isinstance(value, str):
-            number = float(V.parse_number(value))
-        else:
-            number = float(value)
+        try:
+            if isinstance(value, bytes):
+                number = float(V.parse_number(value.decode("ascii", errors="replace")))
+            elif isinstance(value, str):
+                number = float(V.parse_number(value))
+            else:
+                number = float(value)
+        except ValueError:
+            raise ScpiError(-104, f"{value!r}: not a number") from None
         return self._set_h(f, "range", number * full)
 
 

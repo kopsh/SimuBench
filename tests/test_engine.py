@@ -71,6 +71,12 @@ def test_snap_ladder(value, ladder, expected):
     assert snap_ladder(value, ladder, None, None) == pytest.approx(expected)
 
 
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), float("-inf")])
+def test_snap_ladder_passes_non_finite_through(value):
+    """A non-finite value has no rung; the range check then refuses it (#1450)."""
+    assert snap_ladder(value, "1-2-5", 0.1, 100.0) is value
+
+
 def test_current_source_and_ideal_source_current():
     c = Circuit()
     c.current("a", "i1")  # 2 mA into 1 kΩ

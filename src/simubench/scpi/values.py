@@ -45,6 +45,10 @@ def unquote(raw: bytes) -> str | None:
     return None
 
 
+#: The base of each IEEE 488.2 non-decimal numeric prefix letter (7.7.4).
+_NONDECIMAL = {"H": 16, "Q": 8, "B": 2}
+
+
 def parse_float(
     raw: bytes,
     unit: str | None = None,
@@ -74,6 +78,13 @@ def parse_float(
         return math.nan
     if unquote(raw) is not None:
         raise ScpiError(-104, f"expected a number, got a string {t!r}")
+    if len(t) > 1 and t[0] == "#" and up[1] in _NONDECIMAL:
+        # IEEE 488.2 7.7.4 non-decimal numeric data: #H hex, #Q octal, #B binary (#1497)
+        base = _NONDECIMAL[up[1]]
+        digits = up[2:]
+        if not digits or any(ch not in "0123456789ABCDEF"[:base] for ch in digits):
+            raise ScpiError(-104, f"expected a number, got {t!r}")
+        return float(int(digits, base))
     if t.startswith("(") and t.endswith(")") and not t.startswith("(@"):
         t = t[1:-1].strip()  # a number in parentheses: expression data of one number (53230A "(200)", #385)
     try:
@@ -98,9 +109,12 @@ def parse_bool(raw: bytes) -> bool:
     if t in ("OFF", "0"):
         return False
     try:
-        return round(float(t)) != 0
+        v = float(t)
     except ValueError:
         raise ScpiError(-224, f"expected ON, OFF, 1 or 0, got {t!r}") from None
+    if not math.isfinite(v):  # INF/NINF/NAN are not a boolean (#1450)
+        raise ScpiError(-224, f"expected ON, OFF, 1 or 0, got {t!r}")
+    return round(v) != 0
 
 
 def flag(value: Any) -> bool:
