@@ -76,12 +76,12 @@ def test_the_probe_is_passive_and_repeatable(served):
     s = served.session
     s.write("scope", b":WAVeform:SOURce CHANnel1;:DIGitize;:WAVeform:PREamble?\n")
     before = s.read("scope")
-    now, events = s.now_ns, len(s.history)
+    now, events = s.now_ns, len(s.events.history)
     first = internal_probe.probe(served, "scope", "adc.out1")
     again = internal_probe.probe(served, "scope", "dec.out1")
     assert internal_probe.probe(served, "scope", "adc.out1") == first
     assert internal_probe.probe(served, "scope", "dec.out1") == again
-    assert (s.now_ns, len(s.history)) == (now, events)
+    assert (s.now_ns, len(s.events.history)) == (now, events)
     # A script's next reading is what it would have been on a bench nobody probed.
     s.write("scope", b":MEASure:VPP? CHANnel1\n")
     probed = s.read("scope")

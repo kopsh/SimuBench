@@ -9,11 +9,11 @@ test_component_privacy guards the component seam's side)."""
 from __future__ import annotations
 
 import ast
-import datetime as dt
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from typing_extensions import get_protocol_members
 
 from helpers import FakeHost, seam_instrument
 from simubench.engine.instrument import InstrumentHost, _host_gaps
@@ -102,18 +102,24 @@ def probe(inst, owner, queue, session):
 
 def test_the_roll_call_names_every_missing_member():
     host = SimpleNamespace(**vars(FakeHost()))  # the instance attrs only: the methods are gone
-    host.calendar = lambda: dt.datetime(2026, 1, 1)
     host.port_ref = lambda comp, port: None
     host.sync = lambda: None
-    host.instrument_event = lambda inst, kind, data: None
     host.state_changed = lambda *a, **k: None
     with pytest.raises(ValueError) as caught:
         seam_instrument(DEFINITION, host=host)
     message = str(caught.value)
-    for member in ("cached_frames", "follow_wall", "optical_carrier", "port_signal", "solve"):
+    for member in ("cached_frames", "net_feed", "port_signal", "solve"):
         assert member in message  # the roll-call names what is missing, sorted
-    for provided in ("now_ns", "port_net", "seed", "calendar", "instrument_event"):
+    for provided in ("now_ns", "port_net", "seed", "clock", "events"):
         assert provided not in message  # and only what is missing
+
+
+def test_the_seam_names_no_medium():
+    """A new one-way medium needs no new host member (#1531): the seam reaches a bench-wired
+    input of any medium through the one ``net_feed(comp, port, medium)`` entry."""
+    members = get_protocol_members(InstrumentHost)
+    assert "net_feed" in members
+    assert [m for m in members if "optical" in m] == []
 
 
 def test_the_fake_host_satisfies_the_seam():

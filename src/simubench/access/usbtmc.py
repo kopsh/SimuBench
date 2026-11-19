@@ -135,7 +135,7 @@ class UsbtmcInterface:
         return self._tag
 
     def _emit(self, client: str, action: str) -> None:
-        self.session.emit(
+        self.session.events.emit(
             {"kind": "bus_control", "instrument": self.name, "client": client, "action": f"USB: {action}"}
         )
 

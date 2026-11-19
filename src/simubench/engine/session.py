@@ -1,39 +1,40 @@
 """Session: a running bench (architecture.md section 5).
 
-The session owns the instruments, bench-level components (DUTs, accessories), the nets between
-ports, the bench circuit and its solution, the virtual clock and the run record. Every change goes
-through one of its action methods, which run one at a time under a lock (D9).
+The session owns the instruments, bench-level components (DUTs, accessories) and the nets between
+ports, and is the facade of the bench's actions and passive views: every change goes through one
+of its action methods, which run one at a time under a lock (D9). What has state of its own lives
+in a collaborator (#1508, #1531): the virtual clock (``clock``), the event stream (``events``), the
+signal and frame caches (``cache``), the operating point (``solver``) and the instruments' files
+(``files``).
 """
 
 from __future__ import annotations
 
 import contextlib
-import datetime as dt
-import hashlib
 import logging
-import shutil
-import tempfile
 import threading
 import time
-from collections import deque
 from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..errors import Invalid, Unknown
-from ..models.bench import LIVE_CLOCKS, BenchDefinition
+from ..errors import Unknown
+from ..models.bench import BenchDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import message_is_query
 from . import nets, sleep_mode
 from .budget import ComputeBudget, aborted
 from .circuit import Circuit, Solution
+from .clock import Clock
 from .component import Component, component_type
 from .deviation import draw_overrides, set_override
 from .evalcache import EvalCache
 from .evalcontext import EvalContext
+from .eventbus import EventBus
 from .faults import FaultManager, LinkDown
 from .instrument import Instrument
+from .instrument_files import InstrumentFiles
 from .portref import split
 from .record import Recorder
 from .signal import Signal
@@ -43,15 +44,7 @@ from .stream import (
     SampleFrame,
 )
 
-Listener = Callable[[dict[str, Any]], None]
 log = logging.getLogger(__name__)
-
-#: In command-driven mode, idle gaps shorter than this are script overhead and do not advance time.
-MAX_TIME_SCALE = 1_000_000.0
-
-IDLE_THRESHOLD_NS = 10_000_000
-#: Idle gaps are rounded to this resolution so that sleeps produce stable virtual times.
-IDLE_QUANTUM_NS = 1_000_000
 
 
 def _header_of(data: bytes) -> str:
@@ -84,11 +77,6 @@ class CommandResult:
     is_query: bool
 
 
-def _check_scale(scale: float) -> None:
-    if not (0 < scale <= MAX_TIME_SCALE) or scale != scale:
-        raise Invalid(f"time scale must be above 0 and at most {MAX_TIME_SCALE:g}, not {scale!r}")
-
-
 class Session:
     def __init__(
         self,
@@ -107,29 +95,23 @@ class Session:
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
-        #: Where the instruments' virtual file systems live (#1069): ``<files_dir>/<instrument>/``,
-        #: kept across runs. None: a temporary folder of this session, removed when it closes (an
-        #: in-memory bench, manual cases, a replay: they start with no files).
-        self.files_dir = files_dir
-        self._files_tmp: str | None = None
         self.seed = bench.run.seed if seed is None else seed
-        self.clock_mode = clock or bench.run.clock
-        #: Virtual seconds per real second on a live clock: 1 on the wall clock, settable on
-        #: ``scaled`` (``set_time_scale``). Time is ``_scaled_base_ns`` + real time since
-        #: ``_scaled_ref_ns`` × scale, so changing the scale re-bases instead of jumping.
-        self.time_scale = float(time_scale if time_scale is not None else bench.run.time_scale)
-        if self.clock_mode == "wall":
-            self.time_scale = 1.0
-        _check_scale(self.time_scale)
-        self.idle_mode = bench.run.idle if idle is None else idle
-        if self.idle_mode not in ("wall", "sleep", "off"):
-            raise Invalid(f"idle must be wall, sleep or off, not {self.idle_mode!r}")
         self.reveal_true_values = bench.run.reveal_true_values
-        self.now_ns = 0
         self._lock = threading.RLock()
-        self._listeners: list[Listener] = []
-        #: Recent events, so that a client connecting late sees what happened before (UI history).
-        self.history: deque[dict[str, Any]] = deque(maxlen=20_000)
+        #: Virtual time, how it moves and the time actions (:mod:`.clock`, D47).
+        self.clock = Clock(
+            self,
+            self._lock,
+            mode=clock or bench.run.clock,
+            time_scale=time_scale if time_scale is not None else bench.run.time_scale,
+            idle=bench.run.idle if idle is None else idle,
+            start=bench.run.start,
+        )
+        #: The event stream: history, metrics, the run record's feed, the listeners (:mod:`.eventbus`).
+        self.events = EventBus(lambda: self.clock.now_ns)
+        #: The instruments' virtual file systems (#1069): ``<files_dir>/<instrument>/``, kept across
+        #: runs; without ``files_dir`` a temporary folder of this session, removed when it closes.
+        self.files = InstrumentFiles(files_dir, bench.instruments)
         self._signal_version = 0
         #: Per-component last consumed signal version (signal_changed's subscription registry).
         self._signal_seen: dict[str, int] = {}
@@ -142,24 +124,12 @@ class Session:
         self.budget = ComputeBudget(compute_budget_s)
         #: A ``view`` is in progress: it emits nothing, so an abort in it leaves no event (D55).
         self._in_view = False
-        self._wall_start = time.monotonic_ns()
-        self._scaled_ref_ns = self._wall_start
-        self._scaled_base_ns = 0
-        self._last_wall = self._wall_start
         self.seq = 0
-        self.event_id = 0  # id of the last emitted event; ids are stable cursors for event readers
         self.recorder = Recorder(record_dir, self, raw=record_raw) if record_dir else None
-        #: Replaying a run record: time moves only where the record says (no idle steps).
-        self.replaying = False
-        #: Counters for metrics (M4): events by kind, circuit solves and the time they took.
-        self.stats: dict[str, float] = {}
+        if self.recorder:
+            self.events.record = self.recorder.event
         #: The operating point: the circuit, its memoized solution and the mode iteration.
         self.solver = Solver(self)
-        #: Set by the serving layer on a served session (``server.manager``): called with the
-        #: caller's ``force`` before an explicit advance and raises to refuse it, because scripts
-        #: are connected to the ports and their view of time would move (#121, issue 624).
-        #: In-process sessions (pytest plugin, ``@simubench`` backend, replay) have no clients.
-        self.confirm_advance: Callable[[bool], None] | None = None
         #: Port reference -> net id, empty until the wires below build the nets. Here from birth:
         #: the instruments are constructed first and the instrument seam's contract (InstrumentHost,
         #: #1380) carries ``port_net``, so the host answers for it before the wiring runs.
@@ -204,7 +174,7 @@ class Session:
             self.recorder.header()
 
         # 'sleep' intercepts time.sleep for this process while the bench is open (D47).
-        if self.clock_mode == "command" and self.idle_mode == "sleep":
+        if self.clock.mode == "command" and self.clock.idle_mode == "sleep":
             sleep_mode.register(self)
 
         # ---- components with state in virtual time ----
@@ -235,7 +205,7 @@ class Session:
                 raise ValueError(f"wire end {ref!r}: instrument {owner!r} has no port {port!r}")
         elif owner in self.components:
             comp = self.components[owner]
-            if port not in comp.ports or comp.ports[port].medium not in ("electrical", "optical"):
+            if port not in comp.ports or comp.ports[port].medium not in nets.WIRED_MEDIA:
                 raise ValueError(f"wire end {ref!r}: {comp.type_name} has no electrical port {port!r}")
         else:
             raise ValueError(f"wire end {ref!r}: no instrument or DUT named {owner!r}")
@@ -269,22 +239,10 @@ class Session:
             return None
         return nets.feed(self.nets[net].members, self.component_at, comp, medium)
 
-    def optical_feed(self, comp: Component, port: str) -> tuple[Component, str] | None:
-        """The one optical output on the fibre at an optical input exposed on the bench (D71);
-        None without a fibre or a source on it."""
-        return self.net_feed(comp, port, "optical")
-
-    def optical_input(self, comp: Component, port: str) -> Signal:
-        """The optical power arriving at an optical input exposed on the bench: the output of the
-        one optical output on its fibre (D71); no fibre or no source: darkness."""
-        found = self.optical_feed(comp, port)
-        return Signal.zero() if found is None else self.cached_output(*found)
-
-    def optical_carrier(self, comp: Component, port: str) -> float | None:
-        """The wavelength (m) of the light arriving at an optical input exposed on the bench (D71,
-        #1103); None in the dark or when the source does not say."""
-        found = self.optical_feed(comp, port)
-        return None if found is None else found[0].carrier(found[1])
+    @property
+    def now_ns(self) -> int:
+        """Virtual time now, in ns (:attr:`Clock.now_ns`): the bench's present, read everywhere."""
+        return self.clock.now_ns
 
     def node_of(self, comp: Component, port: str) -> str:
         ref = self.port_ref(comp, port)
@@ -402,7 +360,7 @@ class Session:
         event in the run record (a view emits nothing, D55), for the replay to end that action the
         same way (D88). Nothing a
         replay times or hears counts, only the abort the record has."""
-        reason = self.budget.reason(live=not self.replaying)
+        reason = self.budget.reason(live=not self.clock.replaying)
         if reason is None:
             return
         detail = f"{comp.uid}.{port}: {self.budget.describe(reason)}"
@@ -410,7 +368,7 @@ class Session:
             event = {"kind": "abort", "reason": reason, "at": f"{comp.uid}.{port}", "message": detail}
             if self.budget.seconds is not None:
                 event["budget_s"] = self.budget.seconds
-            self.emit(event)
+            self.events.emit(event)
         raise aborted(reason, detail)
 
     def cancel(self) -> None:
@@ -425,7 +383,7 @@ class Session:
         self._signal_version += 1
         if electrical:
             self._electrical_version += 1
-        self.emit(
+        self.events.emit(
             {"kind": "state", "instrument": inst.name, "path": path, "old": old, "new": new, "source": source}
         )
         self.sync()
@@ -467,70 +425,15 @@ class Session:
         self._signal_seen[comp.uid] = self._signal_version
         return True
 
-    # ---- events -------------------------------------------------------------------------------------
-
-    def subscribe(self, fn: Listener) -> Callable[[], None]:
-        self._listeners.append(fn)
-        return lambda: self._listeners.remove(fn) if fn in self._listeners else None
-
-    def emit(self, event: dict[str, Any]) -> None:
-        kind = str(event.get("kind"))
-        self.stats[kind] = self.stats.get(kind, 0) + 1
-        self.event_id += 1
-        event = {"eid": self.event_id, "t_ns": self.now_ns, **event}
-        self.history.append(event)
-        if self.recorder:
-            self.recorder.event(event)
-        for fn in list(self._listeners):
-            with contextlib.suppress(Exception):  # a misbehaving listener must not break the bench
-                fn(event)
-
-    def instrument_event(self, inst: Instrument, kind: str, data: dict[str, Any]) -> None:
-        self.emit({"kind": kind, "instrument": inst.name, **data})
-
-    # ---- clock --------------------------------------------------------------------------------------
-
-    def follow_wall(self) -> None:
-        """Engine-internal: wall clock only, bring virtual time up to real time (D47; passive
-        views read the present). Called by actions (``_begin_action``) and by ``view`` — external
-        code reads the bench through ``view``, never by calling this directly."""
-        if self.clock_mode in LIVE_CLOCKS:
-            self.sync()
-            self.now_ns = max(self.now_ns, self._live_ns(time.monotonic_ns()))
-
-    def _live_ns(self, wall_ns: int) -> int:
-        """Virtual time at real time ``wall_ns`` on a live clock (wall, or scaled by ``time_scale``)."""
-        return self._scaled_base_ns + round((wall_ns - self._scaled_ref_ns) * self.time_scale)
-
-    def set_time_scale(self, scale: float) -> None:
-        """Change a ``scaled`` clock's rate while it runs. Time already passed stays passed: the
-        clock is first brought up to now and the new rate counts from there."""
-        _check_scale(scale)
-        with self._lock:
-            if self.clock_mode != "scaled":
-                raise RuntimeError("the time scale can only be set on a scaled clock")
-            self.follow_wall()
-            self._scaled_base_ns = self.now_ns
-            self._scaled_ref_ns = time.monotonic_ns()
-            self.time_scale = float(scale)
+    # ---- time -------------------------------------------------------------------------------------
 
     def _begin_action(self) -> None:
         self.budget.arm()
-        wall = time.monotonic_ns()
-        if self.clock_mode in LIVE_CLOCKS:
-            self.sync()
-            self.now_ns = max(self.now_ns, self._live_ns(wall))
-        elif self.clock_mode == "command" and not self.replaying and self.idle_mode == "wall":
-            # Counting idle real time makes results depend on machine speed; only 'wall' does it
-            # (D47). 'sleep' and 'off' move time only by command, advance and time.sleep.
-            idle = wall - self._last_wall
-            if idle >= IDLE_THRESHOLD_NS:
-                step = (idle // IDLE_QUANTUM_NS) * IDLE_QUANTUM_NS
-                self._advance(step, reason="idle")
+        self.clock.begin_action()
 
     def _end_action(self) -> None:
         self.budget.disarm()
-        self._last_wall = time.monotonic_ns()
+        self.clock.end_action()
 
     def sync(self) -> None:
         """Let dynamic components record changes at the current instant (exactly, before time
@@ -548,17 +451,6 @@ class Session:
                     break
         finally:
             self._syncing = False
-
-    def _advance(self, dt_ns: int, reason: str, **detail: Any) -> None:
-        """Move virtual time by ``dt_ns``; the advance event says why (``reason``) and, for a
-        command, which instrument and header took the time (#1260), so the UI can explain it."""
-        if dt_ns <= 0:
-            return
-        self.sync()
-        self.now_ns += int(dt_ns)
-        self._signal_version += 1  # time-dependent components (filters, sweeps) may change
-        self.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason, **detail})
-        self.faults.tick()
 
     # ---- passive views ------------------------------------------------------------------------------
 
@@ -578,7 +470,7 @@ class Session:
             outer, self._in_view = self._in_view, True
             self.budget.arm()  # a view computes too: a probe of a deep record has the budget as well
             try:
-                self.follow_wall()
+                self.clock.follow_wall()
                 for name in settle:
                     self.instrument(name).settle_pending()
                 yield self
@@ -611,14 +503,14 @@ class Session:
                     self._end_action()
                     raise LinkDown(f"link to {name} is down (fault {f.id})")
                 if f.spec.kind == "latency":
-                    self._delay(f.spec.latency_s or 0.0)
+                    self.clock.delay(f.spec.latency_s or 0.0)
             t0 = self.now_ns
             wall0 = time.time()
             dropped = next((f for f in link if f.spec.kind == "timeout"), None)
             if dropped is not None:
                 # The message never reaches the instrument.
                 self.faults.use(dropped)
-                self.emit(
+                self.events.emit(
                     {
                         "kind": "scpi",
                         "dir": "write",
@@ -632,10 +524,10 @@ class Session:
                 self._end_action()
                 return
             duration = inst.receive(data)
-            if self.clock_mode == "command" and duration:
-                self._advance(duration, reason="command", instrument=name, header=_header_of(data))
+            if self.clock.mode == "command" and duration:
+                self.clock.step(duration, reason="command", instrument=name, header=_header_of(data))
             self.seq += 1
-            self.emit(
+            self.events.emit(
                 {
                     "kind": "scpi",
                     "dir": "write",
@@ -667,7 +559,7 @@ class Session:
                     self._end_action()
                     return None
                 if f.spec.kind == "latency":
-                    self._delay(f.spec.latency_s or 0.0)
+                    self.clock.delay(f.spec.latency_s or 0.0)
             out = inst.take_output()
             if out is not None:
                 garble = next((f for f in link if f.spec.kind == "garble"), None)
@@ -685,7 +577,7 @@ class Session:
                 }
                 if fault_id:
                     event["fault"] = fault_id
-                self.emit(event)
+                self.events.emit(event)
             self._end_action()
             return out
 
@@ -711,15 +603,6 @@ class Session:
             inst = self.instrument(name)
             while inst.take_output() is not None:
                 pass
-
-    def _delay(self, seconds: float) -> None:
-        """Link latency: virtual time on the command clock, real time on the wall clock."""
-        if seconds <= 0:
-            return
-        if self.clock_mode == "command":
-            self._advance(round(seconds * 1e9), reason="latency")
-        elif self.clock_mode in LIVE_CLOCKS:
-            time.sleep(min(seconds / self.time_scale, 5.0))  # real time for that much virtual time
 
     def query(self, name: str, data: bytes | str, client: str = "sdk") -> bytes:
         if isinstance(data, str):
@@ -747,44 +630,10 @@ class Session:
         out = self.command(name, text).reply
         return out.decode(errors="replace").rstrip("\n") if out is not None else ""
 
-    def calendar(self) -> dt.datetime:
-        """Calendar time now: the bench's run.start plus virtual time (instrument clocks, due dates)."""
-        return self.bench.run.start + dt.timedelta(microseconds=self.now_ns // 1000)
-
-    def seek(self, t_ns: int, reason: str = "replay") -> None:
-        """Move virtual time forward to ``t_ns`` (replaying a record); never backwards."""
-        with self._lock:
-            if t_ns > self.now_ns:
-                self._advance(t_ns - self.now_ns, reason=reason)
-
     def advance(self, seconds: float, reason: str = "explicit", force: bool = False) -> None:
-        """Advance virtual time (action: advance). Works in every clock mode except wall.
-
-        On a served session the serving layer's ``confirm_advance`` refuses while scripts are
-        connected to the ports, unless ``force`` (issue 624); the guard travels with the call, so
-        no facade can forget it.
-        """
-        with self._lock:
-            if self.confirm_advance is not None:
-                self.confirm_advance(force)
-            if self.clock_mode in LIVE_CLOCKS:
-                raise RuntimeError(f"cannot advance a {self.clock_mode} clock")
-            self._advance(round(seconds * 1e9), reason=reason)
-
-    def wait(self, seconds: float, reason: str = "wait") -> None:
-        """Time a client spends waiting: a read that timed out, a wait for a service request.
-
-        Virtual time passes on a command clock and real time on a wall clock, so the wait costs
-        what the client waited. Unlike :meth:`advance` it is not refused while scripts are
-        connected (#121, issue 624): the one waiting is one of them, and its own view of time is
-        what moves. It is recorded like an advance and replays as one."""
-        if seconds <= 0:
-            return
-        if self.clock_mode == "wall":
-            time.sleep(seconds)
-            return
-        with self._lock:
-            self._advance(round(seconds * 1e9), reason=reason)
+        """Advance virtual time (action: advance; :meth:`Clock.advance`). The SDK's own name for
+        it (``bench_session.advance`` in a pytest test); the engine and the services call the clock."""
+        self.clock.advance(seconds, reason, force)
 
     def configure(self, name: str, path: str, value: Any, client: str = "ui") -> None:
         """Out-of-band state change from the UI, MCP or SDK (action: configure)."""
@@ -801,7 +650,7 @@ class Session:
             self._begin_action()
             try:
                 self.instrument(name).panel(action)
-                self.emit({"kind": "panel", "instrument": name, "action": action, "source": client})
+                self.events.emit({"kind": "panel", "instrument": name, "action": action, "source": client})
             finally:
                 self._end_action()
 
@@ -825,7 +674,7 @@ class Session:
                 else:
                     raise Unknown(f"no part {owner!r} or component {owner}/{component!r}")
                 set_override(comp, parameter, value)
-                self.emit(
+                self.events.emit(
                     {
                         "kind": "hidden",
                         "owner": owner,
@@ -851,53 +700,7 @@ class Session:
         sleep_mode.unregister(self)
         if self.recorder:
             self.recorder.close()
-        if self._files_tmp is not None:
-            shutil.rmtree(self._files_tmp, ignore_errors=True)
-            self._files_tmp = None
-
-    # ---- the instruments' files (#1069) ------------------------------------------------------------
-
-    def files_root(self) -> Path:
-        """The folder holding every instrument's virtual file system (created on first use)."""
-        if self.files_dir is not None:
-            self.files_dir.mkdir(parents=True, exist_ok=True)
-            return self.files_dir
-        if self._files_tmp is None:
-            self._files_tmp = tempfile.mkdtemp(prefix="simubench-files-")
-        return Path(self._files_tmp)
-
-    def instrument_files(self, name: str) -> Path:
-        """The folder of one instrument's virtual file system: ``<files_root>/<instrument>``."""
-        if name not in self.instruments:
-            raise Unknown(name)
-        folder = self.files_root() / name
-        folder.mkdir(exist_ok=True)
-        return folder
-
-    def files_snapshot(self) -> dict[str, dict[str, str]]:
-        """The sha256 of every file each instrument holds, by its path in the instrument's folder
-        (``/``-separated); instruments without files are left out. A run record's header keeps it
-        (D36): a replay starts with no files and warns when the run did not."""
-        out: dict[str, dict[str, str]] = {}
-        root = (
-            self.files_dir
-            if self.files_dir is not None
-            else (Path(self._files_tmp) if self._files_tmp is not None else None)
-        )
-        if root is None or not root.is_dir():
-            return out
-        for name in self.instruments:
-            folder = root / name
-            if not folder.is_dir():
-                continue
-            files = {
-                f.relative_to(folder).as_posix(): hashlib.sha256(f.read_bytes()).hexdigest()
-                for f in sorted(folder.rglob("*"))
-                if f.is_file() and not f.is_symlink()
-            }
-            if files:
-                out[name] = files
-        return out
+        self.files.close()
 
     def __enter__(self) -> Session:
         return self

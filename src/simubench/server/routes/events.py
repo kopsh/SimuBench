@@ -44,8 +44,8 @@ def build_router(ctx: ApiContext) -> APIRouter:
                 loop.call_soon_threadsafe(_put, queue, msg)
 
         with s.session.view():  # backlog and subscription without a gap or a duplicate
-            backlog = list(s.session.history)
-            unsubscribe = s.session.subscribe(push)
+            backlog = list(s.session.events.history)
+            unsubscribe = s.session.events.subscribe(push)
         for ev in backlog:
             counter["seq"] += 1
             await ws.send_json(project(ev, counter["seq"]))

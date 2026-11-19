@@ -73,7 +73,7 @@ def test_the_response_is_cut_to_wlength(usb):
 
 def test_indicator_pulse_succeeds_and_is_recorded(usb):
     assert req(usb, u.INDICATOR_PULSE) == bytes([u.STATUS_SUCCESS])
-    assert [e["action"] for e in usb.session.history if e["kind"] == "bus_control"][
+    assert [e["action"] for e in usb.session.events.history if e["kind"] == "bus_control"][
         -1
     ] == "USB: INDICATOR_PULSE"
 
@@ -187,7 +187,7 @@ def test_a_message_sent_in_parts_runs_when_its_eom_comes(usb):
 
 def test_trigger_is_a_bulk_out_message(usb):
     usb.trigger()
-    assert any(e.get("data") == b"*TRG" for e in usb.session.history if e["kind"] == "scpi")
+    assert any(e.get("data") == b"*TRG" for e in usb.session.events.history if e["kind"] == "scpi")
     assert usb.out_tag == 1
 
 
@@ -351,7 +351,7 @@ def test_every_control_action_is_in_the_event_stream(usb):
     req(usb, u.REN_CONTROL, 1)
     req(usb, u.LOCAL_LOCKOUT)
     req(usb, u.GO_TO_LOCAL)
-    actions = [e["action"] for e in usb.session.history if e["kind"] == "bus_control"]
+    actions = [e["action"] for e in usb.session.events.history if e["kind"] == "bus_control"]
     assert actions == ["USB: REN_CONTROL 1", "USB: LOCAL_LOCKOUT", "USB: GO_TO_LOCAL"]
 
 

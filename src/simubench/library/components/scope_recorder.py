@@ -60,7 +60,7 @@ class Recorder:
         self.host.session.invalidate()
         if self.host.owner is not None:
             # The acquisition's recipe: everything needed to regenerate it from the bench (D36).
-            self.host.session.instrument_event(
+            self.host.session.events.instrument_event(
                 self.host.owner,
                 "acquisition",
                 {

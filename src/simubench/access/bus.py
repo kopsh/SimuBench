@@ -270,7 +270,7 @@ def bus_of(session: Session, instrument: str) -> InstrumentBus:
         # The status byte changes with every message, whichever interface it came over, so the
         # request-service latch watches the engine's events instead of relying on the access paths:
         # a reason that goes away and comes back between two polls is still a new reason.
-        session.subscribe(lambda event: _watch(session, event))
+        session.events.subscribe(lambda event: _watch(session, event))
     return buses.setdefault(instrument, InstrumentBus())
 
 

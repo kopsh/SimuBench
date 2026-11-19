@@ -90,7 +90,7 @@ def test_command_holds_the_session_lock_across_write_and_read(tmp_path, monkeypa
             seen["read"] = True
 
     monkeypatch.setattr(s, "_lock", Tracked())
-    s.subscribe(listener)
+    s.events.subscribe(listener)
     r = s.command("lia", "*IDN?", client="mcp")
     assert r.reply is not None and b"," in r.reply
     assert seen == {"write": True, "read": True}
@@ -110,7 +110,7 @@ def test_no_other_client_gets_between_a_command_write_and_its_read(tmp_path):
         if ev.get("client") == "mcp" and ev.get("dir") == "write":
             gate.set()
 
-    s.subscribe(listener)
+    s.events.subscribe(listener)
 
     foreign: list[bytes] = []
 

@@ -204,7 +204,7 @@ def test_the_host_contract_flow(rig):
     # -- unknown headers are ignored and logged (was test_unknown_commands_are_ignored_and_logged;
     # the subscription starts here, so earlier acts' events are not in the list)
     seen = []
-    session.subscribe(lambda e: seen.append(e) if e.get("kind") == "ignored" else None)
+    session.events.subscribe(lambda e: seen.append(e) if e.get("kind") == "ignored" else None)
     scope.write("VBS 'app.Acquisition.C1.VerScale = 0.1'")
     scope.write("C1:FOO 3")
     cal.write(":CHANnel1:BASE:SKEW 1e-9")
@@ -441,7 +441,7 @@ def test_the_run_control_flow(rig):
     # test_a_stopped_scope_without_a_record_reads_the_channel_and_says_so)
     cal.write(":CHANnel1:OUTPut 0")  # bridge: the act's scenario needs the quiet channel again
     events = []
-    session.subscribe(lambda e: events.append(e) if e.get("kind") == "acquisition" else None)
+    session.events.subscribe(lambda e: events.append(e) if e.get("kind") == "acquisition" else None)
     _setup_scope(scope, points=1000)
     scope.write("TRMD STOP")
     data, _ = _read(scope, 1000)

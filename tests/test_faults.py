@@ -52,7 +52,7 @@ def test_the_connection_fault_flow(tmp_path):
     assert exc.value.error_code == constants.VI_ERROR_TMO
     s.faults.clear(f.id)
     assert "SB-AWG-2" in awg.query("*IDN?")
-    kinds = [(e["kind"], e.get("reason")) for e in s.history if e["kind"] == "fault"]
+    kinds = [(e["kind"], e.get("reason")) for e in s.events.history if e["kind"] == "fault"]
     assert kinds == [("fault", "injected"), ("fault", "active"), ("fault", "cleared")]
     # -- a disconnect is a lost connection for its duration (was test_disconnect_is_a_lost_connection)
     s.faults.inject(Fault(kind="disconnect", instrument="awg", duration_s=1.0))

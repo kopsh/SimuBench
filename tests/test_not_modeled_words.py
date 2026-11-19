@@ -33,10 +33,12 @@ def test_matches_word_takes_the_short_and_the_long_form():
 
 
 def _errors(session, instrument: str, command: str) -> list[dict]:
-    before = len(session.history)
+    before = len(session.events.history)
     session.write(instrument, (command + "\n").encode())
     return [
-        e for i in range(before, len(session.history)) if (e := session.history[i]).get("kind") == "error"
+        e
+        for i in range(before, len(session.events.history))
+        if (e := session.events.history[i]).get("kind") == "error"
     ]
 
 

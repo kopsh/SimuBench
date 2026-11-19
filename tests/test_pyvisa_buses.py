@@ -78,9 +78,9 @@ def test_control_ren_is_recorded_as_what_the_bus_did(gpib):
     cal = gpib.open_resource("GPIB0::4::INSTR")
     cal.control_ren(constants.RENLineOperation.address_gtl)
     lib = gpib.visalib
-    actions = [e["action"] for e in lib.bench.history if e["kind"] == "bus_control"]
+    actions = [e["action"] for e in lib.bench.events.history if e["kind"] == "bus_control"]
     assert actions == ["GPIB0: GTL", "GPIB0: REN address_gtl"]  # GTL went out, then the mode is noted
-    assert all(e["instrument"] == "cal" for e in lib.bench.history if e["kind"] == "bus_control")
+    assert all(e["instrument"] == "cal" for e in lib.bench.events.history if e["kind"] == "bus_control")
 
 
 def test_an_exclusive_lock_keeps_the_other_session_out(gpib):
@@ -279,7 +279,9 @@ def test_the_board_sends_ifc_triggers_and_controls_ren(board):
     intfc.control_atn(constants.ATNLineOperation.deassert)
     intfc.send_command(bytes([0x3F, 0x20 | 7]))
     intfc.assert_trigger()  # GET to whoever listens
-    triggers = [e for e in board.visalib.bench.history if e["kind"] == "scpi" and e.get("data") == b"*TRG"]
+    triggers = [
+        e for e in board.visalib.bench.events.history if e["kind"] == "scpi" and e.get("data") == b"*TRG"
+    ]
     assert [e["instrument"] for e in triggers] == ["dmm"]
 
 

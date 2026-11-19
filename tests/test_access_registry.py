@@ -46,9 +46,8 @@ def served_with(*rows: tuple[str, FakeServer]) -> tuple[ServedSession, list[dict
     """A served session over a stand-in engine session, with the given servers registered."""
     events: list[dict] = []
     session = SimpleNamespace(
-        subscribe=lambda f: None,
-        confirm_advance=None,
-        emit=events.append,
+        events=SimpleNamespace(subscribe=lambda f: None, emit=events.append),
+        clock=SimpleNamespace(confirm_advance=None),
         instrument=lambda name: None,
         instruments={},
         cancel=lambda: None,

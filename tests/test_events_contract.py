@@ -186,7 +186,7 @@ def test_every_key_a_session_emits_is_contract_or_declared_engine_side():
     s = open_bench(ROOT / "acceptance/benches/awg_rc_scope.bench.yaml", clock="stepped")
     try:
         seen: list[dict] = []
-        s.subscribe(seen.append)
+        s.events.subscribe(seen.append)
         s.write("awg", b":OUTPut1:STATe ON\n")  # scpi write + the set's state event
         s.exchange("awg", b"*IDN?")  # scpi write + read
         s.write("scope", b":NOSUCHcommand\n")  # an error event
@@ -212,7 +212,7 @@ def test_a_command_s_advance_names_the_instrument_and_header():
     s = open_bench(ROOT / "acceptance/benches/awg_rc_scope.bench.yaml", clock="command", idle="off")
     try:
         seen: list[dict] = []
-        s.subscribe(seen.append)
+        s.events.subscribe(seen.append)
         s.write("scope", b":DIGitize;*OPC\n")
         # A message whose first program-message unit is empty (``;`` …) still runs: the instrument
         # tolerates it the way a real one does (#1282), so the header is the first non-empty unit.

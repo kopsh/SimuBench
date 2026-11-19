@@ -43,7 +43,7 @@ def test_passive_view_does_not_advance_the_command_clock(tmp_path):
         assert s.now_ns == 0
         s.net_signal("net-0")  # solving reads the present; it must not move time or emit
         assert s.now_ns == 0
-        assert not s.history
+        assert not s.events.history
 
 
 def test_passive_view_follows_the_wall_clock(tmp_path):
@@ -90,7 +90,7 @@ def test_a_view_inside_an_action_is_reentrant(tmp_path):
         with s.view():  # same thread as the running action; the RLock allows it
             seen.append(s.now_ns)
 
-    s.subscribe(listener)
+    s.events.subscribe(listener)
     s.configure("lia", "reference.frequency", 2000)
     assert seen and seen[0] == 0
 

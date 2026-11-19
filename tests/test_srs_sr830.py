@@ -91,10 +91,12 @@ def test_the_real_resource_string_and_its_phasor():
 
 
 def _errors(session, command: bytes) -> list[dict]:
-    before = len(session.history)
+    before = len(session.events.history)
     session.write("lia", command)
     return [
-        e for i in range(before, len(session.history)) if (e := session.history[i]).get("kind") == "error"
+        e
+        for i in range(before, len(session.events.history))
+        if (e := session.events.history[i]).get("kind") == "error"
     ]
 
 

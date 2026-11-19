@@ -154,7 +154,7 @@ def open_record(
     session = open_bench(
         bench, clock=clock, seed=header.get("seed"), idle=idle, definition_dirs=definition_dirs
     )
-    session.replaying = True
+    session.clock.replaying = True
     warnings = _engine_warnings(header)
     for name, want in (header.get("definitions") or {}).items():
         inst = session.instruments.get(name)
@@ -211,28 +211,28 @@ def resend(
         t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))
         got: bytes | None = None
         if kind == "scpi" and ev.get("dir") == "write":
-            session.seek(t)
+            session.clock.seek(t)
             data = _bytes(ev.get("data")) or b""
             last_command[ev["instrument"]] = data.decode("ascii", errors="replace").strip()
             session.write(ev["instrument"], data, client="replay")
         elif kind == "scpi" and ev.get("dir") == "read":
-            session.seek(t)
+            session.clock.seek(t)
             got = session.read(ev["instrument"], client="replay")
         elif (
             kind == "state"
             and ev.get("source") not in ("scpi", None)
             and ev.get("path") not in ("*RST", "*RCL")
         ):
-            session.seek(t)
+            session.clock.seek(t)
             session.instrument(ev["instrument"]).set_state(ev["path"], ev["new"], source="replay")
         elif kind == "panel" and ev.get("source") != "replay":
-            session.seek(t)
+            session.clock.seek(t)
             session.panel(ev["instrument"], ev["action"], client="replay")
         elif kind == "fault" and ev.get("reason") == "injected" and ev.get("spec"):
-            session.seek(t)
+            session.clock.seek(t)
             session.faults.inject(Fault.model_validate(ev["spec"]), source="replay")
         elif kind == "fault" and ev.get("reason") == "cleared" and ev.get("source") != "replay":
-            session.seek(t)
+            session.clock.seek(t)
             fid = ev.get("fault")
             if fid in session.faults.faults:
                 session.faults.clear(fid)
@@ -242,7 +242,7 @@ def resend(
             # (D88). The event comes before the action's own: that is recorded when it is over.
             session.budget.abort_next(str(ev.get("reason")))
         elif kind == "advance" and ev.get("reason") in ("explicit", "idle", "sleep", "wait"):
-            session.seek(int(ev["t_ns"]), reason=str(ev["reason"]))  # t_ns is the time after the step
+            session.clock.seek(int(ev["t_ns"]), reason=str(ev["reason"]))  # t_ns is the time after the step
         yield ev, got
 
 
@@ -263,7 +263,7 @@ def replay(
     # command that caused it, so the two lists are compared after the replay.
     recorded_files: dict[str, list[dict[str, Any]]] = {}
     written: dict[str, list[dict[str, Any]]] = {}
-    unsubscribe = session.subscribe(
+    unsubscribe = session.events.subscribe(
         lambda e: (
             written.setdefault(str(e.get("instrument")), []).append(e)
             if e.get("kind") == "file" and e.get("action") == "write"

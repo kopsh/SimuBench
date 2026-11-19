@@ -1,7 +1,7 @@
 """The event contract (D57, issue 595): the shape of the session's event stream, declared where
 the events are emitted.
 
-The engine emits plain dicts (:meth:`Session.emit`); the WebSocket stream, the run record and the
+The engine emits plain dicts (:meth:`EventBus.emit`); the WebSocket stream, the run record and the
 TUI's log all see the same shape. The models below are that shape, so a new field or kind is
 registered exactly here: ``contracts/api.py`` re-exports them (the D57 precedent of ``SourceLine``),
 the server's WS projection (:func:`project`) and the run-record reader derive their whitelists

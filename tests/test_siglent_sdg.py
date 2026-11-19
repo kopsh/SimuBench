@@ -100,7 +100,7 @@ def test_settings_outside_the_data_sheet_are_refused(bench):
     assert sdg.query("C1:BSWV?").strip() == (
         "C1:BSWV WVTP,SINE,FRQ,1000HZ,PERI,0.001S,AMP,4V,OFST,3V,HLEV,5V,LLEV,1V,PHSE,0"
     )
-    codes = [e["code"] for e in session.history if e.get("kind") == "error"]
+    codes = [e["code"] for e in session.events.history if e.get("kind") == "error"]
     assert codes == [-222, -222, -221, -222]
 
 
@@ -130,12 +130,12 @@ def test_the_compound_and_refusal_flow(bench):
     assert "WVTP,SINE" in sdg.read()
     sdg.write("C1:BSWV FRQ,3000;C1:NOSUCH 1;C1:BSWV?")
     assert "FRQ,3000HZ" in sdg.read()
-    error = [e for e in session.history if e.get("kind") == "error"][-1]
+    error = [e for e in session.events.history if e.get("kind") == "error"][-1]
     assert error["code"] == -113 and "C1:NOSUCH" in error["message"]
     # -- unmodeled waveforms are marked in the event history (was
     # test_unmodeled_waveforms_are_marked_in_the_event_history)
     sdg.write("C1:BSWV WVTP,PULSE")
-    errors = [e for e in session.history if e.get("kind") == "error"]
+    errors = [e for e in session.events.history if e.get("kind") == "error"]
     assert errors[-1]["code"] == -224 and errors[-1]["reason"] == "not_modeled"
     assert sdg.query("C1:BSWV?").startswith("C1:BSWV WVTP,SINE")
 

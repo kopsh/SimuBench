@@ -297,7 +297,7 @@ class FaultManager:
             raise ValueError("latency: latency_s is required")
 
     def _emit(self, state: FaultState, status: str) -> None:
-        self.session.emit(
+        self.session.events.emit(
             {
                 "kind": "fault",
                 "fault": state.id,

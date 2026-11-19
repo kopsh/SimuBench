@@ -418,7 +418,7 @@ async def test_trigger_is_the_common_trigger_command(rig):
         while time.monotonic() < deadline:  # the write happens off the event loop
             if any(
                 e["kind"] == "scpi" and e["dir"] == "write" and e["data"] == b"*TRG"
-                for e in rig.bench.history
+                for e in rig.bench.events.history
             ):
                 c.close()
                 return

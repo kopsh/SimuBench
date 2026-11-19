@@ -16,7 +16,7 @@ from ..manager import ServedSession
 
 def info(sv: ServedSession) -> M.ClockInfo:
     s = sv.session
-    return M.ClockInfo(mode=cast(Any, s.clock_mode), now_ns=s.now_ns, scale=s.time_scale)
+    return M.ClockInfo(mode=cast(Any, s.clock.mode), now_ns=s.now_ns, scale=s.clock.time_scale)
 
 
 def advance(sv: ServedSession, seconds: float, *, force: bool = False) -> M.ClockInfo:
@@ -25,5 +25,5 @@ def advance(sv: ServedSession, seconds: float, *, force: bool = False) -> M.Cloc
 
 
 def set_scale(sv: ServedSession, scale: float) -> M.ClockInfo:
-    sv.session.set_time_scale(scale)
+    sv.session.clock.set_time_scale(scale)
     return info(sv)

@@ -845,7 +845,8 @@ class Component:
         if spec is not None and spec.medium == "optical":
             src = None if self.owner is None else self.owner.wiring.source(self.name, port)
             if src is None:  # an optical input exposed on the bench: the fibre's source (D71)
-                return self.session.optical_input(self, port)
+                found = self.session.net_feed(self, port, spec.medium)
+                return Signal.zero() if found is None else self.session.cached_output(*found)
             assert self.owner is not None
             return self.session.cached_output(self.owner.components[src[0]], src[1])
         if self.owner is None:
@@ -879,8 +880,9 @@ class Component:
         if spec is None or spec.medium != "optical":
             return None
         src = None if self.owner is None else self.owner.wiring.source(self.name, port)
-        if src is None:
-            return self.session.optical_carrier(self, port)
+        if src is None:  # exposed on the bench: the one source on its fibre (D71, #1103)
+            found = self.session.net_feed(self, port, spec.medium)
+            return None if found is None else found[0].carrier(found[1])
         assert self.owner is not None
         return self.owner.components[src[0]].carrier(src[1])
 

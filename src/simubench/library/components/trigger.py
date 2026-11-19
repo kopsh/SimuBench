@@ -188,7 +188,7 @@ class Triggerable:
         end = self._fire_span()
         if end is None:
             end = self._act_ns
-        if self.owner.session.clock_mode == "stepped":
+        if self.owner.session.clock.mode == "stepped":
             # A stepped clock moves only when stepped, so nothing would ever complete a firing
             # that itself takes virtual time: that span is instantaneous (its spacing is what it
             # reports). The trigger delay is timer semantics, not the action's cost — it still
