@@ -7,3 +7,4 @@
 | e2e `bench-open.spec.ts:85` 不再等不到「已载入在其他地方所做的修改」 | ✅ 页面的工作区 socket 首次连上之前服务器发出的 `file_changed` 没人收到，监视器又因写点 `note()` 不再补报，首次连上不重读，于是编辑器永远不知道；重连的 bump 也只动收到过事件的文件。改为：服务器握手前订阅；前端首次连上时若已有查询读过服务器就整体重读，`epoch` 计入每个文件的修订（D85 同步）。单测 `a resync re-reads a bench file that never had an event`、`the first open resyncs only when a query read the server before the socket listened`；该 e2e 本地连跑 3 遍全过 |
 | PR 上 3.11 的 `test_fsk_alternates_between_the_carrier_and_the_hop` 超单元预算 | 本地 <5 ms，CI 0.85 s 为 runner 负载尖峰，与改动无关，重跑 |
 | 3.11 上同一用例仍多一条 `file_changed`（#1535 首轮 CI） | ✅ 另一个窗口：写点先 `os.replace` 再发布并 `note()`，扫描落在两步之间就读到没人告知的新内容而先播报。写点改为替换之前 `expect()` 预告内容（回滚时撤回），扫描读到预告内容不播报。回归 `test_watcher_stays_silent_when_a_pass_lands_between_the_write_and_its_note`（还原 `workspace_events.py` 则红）。D85 同步 |
+| 合并 main 后 e2e `edit.spec.ts:335` 新加的节点 viewport ratio 0.9999998 | ✅ `revealPlaced` 的 `inView` 把恰好贴着画布边的节点算作在视野内而不移动视图，渲染的亚像素取整让它差一丝露在外面。改为距边 4 px 以内才算在视野内（`REVEAL_MARGIN_PX`）。本地 e2e 全量 118 过 |
