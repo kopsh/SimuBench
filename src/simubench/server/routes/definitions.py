@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
+from ...contracts import api as M
 from ...library.coverage import coverage_path, load_coverage
 from ...library.loader import DefinitionLibrary
-from ...models import api as M
 from ...models.definition import InstrumentDefinition
 from ..catalog import components as component_catalog
 from ..errors import DOMAIN_ERRORS, Conflict

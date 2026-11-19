@@ -20,6 +20,7 @@ import re
 
 import numpy as np
 
+from ...contracts import api as M
 from ...engine.component import Component
 from ...engine.deviation import has_unit_values
 from ...engine.instrument import Instrument
@@ -27,7 +28,6 @@ from ...engine.portref import split
 from ...engine.session import Session
 from ...engine.silence import why_silent
 from ...engine.stream import FrameRequest, SampleFrame
-from ...models import api as M
 from ...scpi.errors import ScpiError
 from ..errors import Forbidden, Invalid, Unknown
 from ..manager import ServedSession

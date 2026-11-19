@@ -17,12 +17,12 @@ from fastapi.testclient import TestClient
 from tests.helpers import ScriptedLLM
 
 from helpers import raises_with
-from simubench.assistant.config import AssistantSettings, ConfigError, check_base_url
-from simubench.assistant.llm import build_model, check_connection
-from simubench.assistant.service import AssistantService
-from simubench.models import api as M
+from simubench.contracts import api as M
 from simubench.paths import user_data_dir
 from simubench.server.app import create_app
+from simubench.server.assistant.config import AssistantSettings, ConfigError, check_base_url
+from simubench.server.assistant.llm import build_model, check_connection
+from simubench.server.assistant.service import AssistantService
 from simubench.server.manager import SessionManager
 
 BENCH = "hello.bench.yaml"
@@ -332,7 +332,7 @@ def test_routes_settings_conversation_and_event_stream(client, manager):
     import io
     import zipfile
 
-    from simubench.ops import bundle
+    from simubench.server.ops import bundle
 
     with zipfile.ZipFile(io.BytesIO(bundle(manager, manager.workspace))) as z:
         assert all(KEY.encode() not in z.read(n) for n in z.namelist())

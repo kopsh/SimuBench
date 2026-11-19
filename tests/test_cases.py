@@ -9,8 +9,9 @@ from pathlib import Path
 
 import yaml
 
+from simubench.cases import run_case, run_cases
 from simubench.cli import main
-from simubench.library.coverage import load_cases, run_case, run_cases
+from simubench.library.coverage import load_cases
 
 ROOT = Path(__file__).resolve().parents[1]
 LFCAL_CASES = ROOT / "examples" / "lowfreq-cal" / "cases.yaml"

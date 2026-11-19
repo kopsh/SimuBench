@@ -7,9 +7,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from ...contracts import api as M
 from ...errors import Invalid
 from ...library.templates import get_template
-from ...models import api as M
 from ..definitionfiles import DefinitionFiles
 from ..errors import NotFound
 from ..history import Source

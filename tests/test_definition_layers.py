@@ -465,3 +465,52 @@ def test_a_hypothetical_34465a_answers_errors_as_the_model_it_is_built_on(tmp_pa
         s.close()
     assert replies[0] == ['-104,"Data type error"', '-211,"Trigger ignored"']
     assert replies[1] == replies[0]  # without the table: the engine's '-211,"Error; Trigger ignored"'
+
+
+# ---- the parsed-YAML cache (test-suite speed) ---------------------------------------------------------
+
+_BIG = "".join(f"key{i}: {{a: [1, 2.5e-3, text], b: {i}}}\n" for i in range(80))  # over the cache's floor
+
+
+def test_a_cached_parse_equals_a_fresh_one_and_is_the_callers_own():
+    import yaml
+
+    from simubench.library.loader import YamlLoader, load_yaml
+
+    first = load_yaml(_BIG)
+    again = load_yaml(_BIG)  # served from the cache
+    assert first == again == yaml.load(_BIG, Loader=YamlLoader)
+    again["key0"]["a"].append("changed")  # a caller changes what it got ...
+    assert load_yaml(_BIG)["key0"]["a"] == [1, 2.5e-3, "text"]  # ... the next one is not affected
+    assert first["key0"]["a"] == [1, 2.5e-3, "text"]
+
+
+def test_a_cached_parse_keeps_what_an_anchor_shares():
+    from simubench.library.loader import load_yaml
+
+    text = "a: &x {k: [1, 2]}\nb: *x\n" + _BIG
+    for _ in range(2):  # the parse, then the cached copy
+        data = load_yaml(text)
+        assert data["a"] is data["b"]
+
+
+def test_a_broken_file_is_never_cached():
+    import yaml
+
+    from simubench.library.loader import load_yaml
+
+    broken = _BIG + "bad: [unclosed\n"
+    for _ in range(2):
+        with pytest.raises(yaml.YAMLError):
+            load_yaml(broken)
+
+
+def test_the_cache_is_bounded_by_the_text_it_holds(monkeypatch):
+    from simubench.library import loader
+
+    monkeypatch.setattr(loader, "_PARSED_BUDGET", 2 * len(_BIG) + 10)
+    monkeypatch.setattr(loader, "_PARSED", loader.OrderedDict())
+    monkeypatch.setattr(loader, "_PARSED_SIZES", {})
+    for n in range(5):
+        loader.load_yaml(_BIG + f"n: {n}\n")
+    assert len(loader._PARSED) == 2 and sum(loader._PARSED_SIZES.values()) <= loader._PARSED_BUDGET

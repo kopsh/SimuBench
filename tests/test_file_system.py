@@ -10,9 +10,9 @@ from pathlib import Path
 import pytest
 
 from simubench.api import bench_files_dir, open_bench
-from simubench.engine.replay import replay
 from simubench.library.components import files as F
 from simubench.models.bench import BenchDefinition
+from simubench.replay import replay
 
 BENCH = {"schema": "simubench.bench/2", "name": "t", "instruments": {"awg": {"model": "keysight-33622a"}}}
 

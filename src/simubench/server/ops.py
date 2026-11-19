@@ -23,10 +23,10 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from . import __commit_id__, __version__
+from .. import __commit_id__, __version__
 
 if TYPE_CHECKING:
-    from .server.manager import SessionManager
+    from .manager import SessionManager
 
 RING_SIZE = 2000
 DEPENDENCIES = ("numpy", "scipy", "pydantic", "pyyaml", "pyvisa", "fastapi", "uvicorn", "mcp")
@@ -109,11 +109,11 @@ def _dist_version(name: str) -> str | None:
 
 def manifest(workspace: Path | None = None, record_dir: Path | None = None) -> dict[str, Any]:
     """Everything that decides how this installation behaves, for bug reports and run comparisons."""
-    from .engine.component import component_types
-    from .engine.record import definition_hash
-    from .library.loader import DefinitionLibrary
-    from .plugins import loaded as loaded_plugins
-    from .server.app import WEB_DIST
+    from ..engine.component import component_types
+    from ..engine.plugins import loaded as loaded_plugins
+    from ..engine.record import definition_hash
+    from ..library.loader import DefinitionLibrary
+    from .app import WEB_DIST
 
     lib = DefinitionLibrary([workspace / "instruments"] if workspace else [])
     definitions = []
@@ -170,8 +170,8 @@ def doctor(
     allow_plugins: bool = False,
 ) -> list[Check]:
     """Checks that SimuBench can run here; each says what is wrong and how to fix it."""
-    from .plugins import ensure_entry_point_plugins, load_workspace_plugins, workspace_allows_plugins
-    from .server.app import WEB_DIST
+    from ..engine.plugins import ensure_entry_point_plugins, load_workspace_plugins, workspace_allows_plugins
+    from .app import WEB_DIST
 
     checks: list[Check] = []
     v = sys.version_info
@@ -199,7 +199,7 @@ def doctor(
     except Exception as exc:
         checks.append(Check("pyvisa backend", "fail", f"{type(exc).__name__}: {exc}"))
 
-    from .library.loader import DefinitionLibrary
+    from ..library.loader import DefinitionLibrary
 
     lib = DefinitionLibrary([workspace / "instruments"] if workspace else [])
     broken = []
@@ -221,7 +221,7 @@ def doctor(
     detail = "; ".join(bad) or "; ".join(f"{i.name} {i.origin}" for i in infos if i.error is None) or "none"
     checks.append(Check("plugins", "warn" if bad else "ok", detail))
     if workspace is not None:
-        from .storage import KINDS, human, inventory
+        from ..storage import KINDS, human, inventory
 
         held = inventory(workspace)
         lost = [e for e in held if e.orphan]
@@ -284,9 +284,9 @@ def doctor(
 
 
 def _workspace_checks(workspace: Path) -> list[Check]:
-    from .engine.validate import validate_data
-    from .library.loader import DefinitionLibrary, load_yaml
-    from .server.benchfiles import scan
+    from ..engine.validate import validate_data
+    from ..library.loader import DefinitionLibrary, load_yaml
+    from .benchfiles import scan
 
     if not workspace.is_dir():
         return [Check("workspace", "fail", f"{workspace} does not exist")]

@@ -101,7 +101,8 @@ def run_cases_file(
     nobody's, is a domain error for the seam to map; what the result rows are called and whether
     the steps are collected stays with the caller (#1485: one resolution for all three seams —
     the acceptance page used to be the only one that parsed ``builtin:``)."""
-    from ..library.coverage import BUILTIN_PREFIX, builtin_cases_file, run_cases
+    from ..cases import run_cases
+    from ..library.coverage import BUILTIN_PREFIX, builtin_cases_file
 
     cases_file: Path
     if path.startswith(BUILTIN_PREFIX):

@@ -16,9 +16,9 @@ import tokenize
 from functools import lru_cache
 from typing import Any
 
+from ..contracts import api as M
 from ..engine.component import Component, component_types
 from ..engine.validate import drives_net
-from ..models import api as M
 
 #: Arguments every operation receives from the instrument, not from a command's parameters.
 _OP_CONTEXT = {"self", "query", "channel", "suffixes"}

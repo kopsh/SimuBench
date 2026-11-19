@@ -2,22 +2,26 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
 import re
+import threading
+from collections import OrderedDict
 from collections.abc import Iterable
 from functools import lru_cache
 from pathlib import Path
+from typing import Any
 
 import yaml
 
 from ..errors import Invalid, Unknown
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
+from ..models.migrate import upgrade
+from ..models.same_as import resolve_same_as
 from .class_defaults import deep_merge, default_block, drop_deleted
-from .migrate import upgrade
-from .same_as import resolve_same_as
 
 #: Built-in definitions: real models only (D42). SimuBench's own ``sb-*`` validation definitions are
 #: not shipped; they live in ``validation/instruments`` of the repository and are loaded through
@@ -65,8 +69,52 @@ YamlLoader.add_implicit_resolver(
 )
 
 
+def _clone(node: Any, memo: dict[int, Any]) -> Any:
+    """A copy of parsed YAML: dicts and lists are copied (a node an anchor shares stays one shared
+    node, as ``copy.deepcopy`` keeps it), every scalar is immutable and is returned as is. About
+    five times faster than ``deepcopy`` on what the parser makes."""
+    if isinstance(node, dict):
+        done = memo.get(id(node))
+        if done is None:
+            done = memo[id(node)] = {k: _clone(v, memo) for k, v in node.items()}
+        return done
+    if isinstance(node, list):
+        done = memo.get(id(node))
+        if done is None:
+            done = memo[id(node)] = [_clone(v, memo) for v in node]
+        return done
+    return node
+
+
+#: Parsed YAML by the sha256 of its text: the same definition read again (a copy in another folder,
+#: a version of the history, the next test) costs a copy instead of a parse, which is the slow part
+#: of loading a large definition. The entries are never handed out: callers get copies and may
+#: change them. Bounded by the text they came from, oldest out first.
+_PARSED: OrderedDict[bytes, object] = OrderedDict()
+_PARSED_SIZES: dict[bytes, int] = {}
+_PARSED_BUDGET = 24_000_000  # characters of source text kept parsed
+_PARSED_LOCK = threading.Lock()
+
+
 def load_yaml(text: str) -> object:
-    return yaml.load(text, Loader=YamlLoader)  # a SafeLoader subclass: no arbitrary objects
+    """``text`` as plain data. A parse error raises ``yaml.YAMLError``, as the parser's own."""
+    if len(text) < 2_000:  # parsing a small file costs less than hashing and copying it
+        return yaml.load(text, Loader=YamlLoader)  # a SafeLoader subclass: no arbitrary objects
+    key = hashlib.sha256(text.encode("utf-8", "surrogatepass")).digest()
+    with _PARSED_LOCK:
+        kept = _PARSED.get(key)
+        if kept is not None:
+            _PARSED.move_to_end(key)
+    if kept is not None:
+        return _clone(kept, {})
+    data = yaml.load(text, Loader=YamlLoader)
+    with _PARSED_LOCK:
+        _PARSED[key] = _clone(data, {})
+        _PARSED_SIZES[key] = len(text)
+        while sum(_PARSED_SIZES.values()) > _PARSED_BUDGET and len(_PARSED) > 1:
+            old, _ = _PARSED.popitem(last=False)
+            del _PARSED_SIZES[old]
+    return data
 
 
 #: libyaml's emitter when present: the same text as ``yaml.safe_dump``, about five times faster on a

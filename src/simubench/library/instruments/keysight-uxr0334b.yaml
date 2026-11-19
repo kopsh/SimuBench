@@ -2,6 +2,8 @@ schema: simubench.instrument/2
 id: keysight-uxr0334b
 manufacturer: Keysight Technologies
 model: UXR0334B
+# 命令表继承 keysight-uxr1104b（同一程序员指南的命令体系）：差异在文末 command_overrides（#1471）。
+extends: keysight-uxr1104b
 class: oscilloscope
 version: 1
 description: >-
@@ -9,37 +11,15 @@ description: >-
   (D42): commands, replies and default-setup values follow the Infiniium UXR-Series Oscilloscopes
   Programmer's Guide 11.80.00012 (9018-07723); ranges follow the UXR-B data sheet 3123-1313. The
   Infiniium command set next to the InfiniiVision DSO-X 2024A (#338). Values neither document gives are
-  SimuBench defaults, listed in the coverage table.
-reference:
-  title: Keysight Infiniium UXR-Series Oscilloscopes Programmer's Guide
-  document: 9018-07723
-  version: "Version 11.80.00012, September 2026"
-  firmware: "Infiniium UXR-Series software 11.80"
+  SimuBench defaults, listed in the coverage table. The command table extends the UXR1104B's
+  (same programmer's guide): the differences are the command_overrides at the end of this file.
 identity:
   # *IDN? per the guide: Keysight Technologies,<Model #>,<USXXXXXXXX>,<Rev #>[,<Options>].
   idn: "Keysight Technologies,UXR0334B,{serial},{firmware}"
   serial: MY64280101
   firmware: "11.80.00012"
-# :SYSTem:ERRor? is the model's own command (a number, or with STRing the number and the text).
-builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
-# The guide: the error queue is 30 errors deep.
-error_queue: 30
-# The guide's sample reply for :CHANnel1:RANGe? is +8.00000E-01: NR3, five decimals, signed.
-format:
-  number: nr3
-  digits: 5
-  sign: true
-  exponent_digits: 2
-  boolean: numeric
-  enum: short
-  # The guide's example programs test an empty queue with "0," at the start of the reply.
-  error_code: plain
-errors:
-  0: "No error"
-# 应答头与长格式（手册 :SYSTem:HEADer、:SYSTem:LONGform、:MODel? 的表 13）。
-syntax:
-  echo_header: $system.header
-  long_form: $system.longform
+  # builtins、error_queue、options_reply 继承父定义；本型号没有硬件选件（options 为 null）。
+  options_reply: null
 specs:
   source: Infiniium UXR-B Series Oscilloscopes Data Sheet 3123-1313 (2024-04-25), 3.5 mm input models
   bandwidth_hz: 3.3e10
@@ -48,8 +28,8 @@ specs:
   memory_depth_pts: 5.0e8
   vertical_resolution_bits: 10
   input_sensitivity_v_div: [1.0e-3, 1.0]
-  input: {r_ohm: 50.0, r_tolerance: 0.03, coupling: DC}
-  offset_range_v: {"1 mV to 54 mV/div": 0.4, "55 mV to 93 mV/div": 0.7, "94 mV to 172 mV/div": 1.25, "173 mV to 306 mV/div": 2.25, "307 mV to 1 V/div": 4.0}
+  input: {r_ohm: 50.0, r_tolerance: 0.03, coupling: DC, connector: null}
+  offset_range_v: {"1 mV to 54 mV/div": 0.4, "55 mV to 93 mV/div": 0.7, "94 mV to 172 mV/div": 1.25, "173 mV to 306 mV/div": 2.25, "307 mV to 1 V/div": 4.0, 1 mV to 59 mV/div: null, 60 mV to 127 mV/div: null, 128 mV to 279 mV/div: null, 280 mV to 500 mV/div: null}
   dc_gain_accuracy: "±1.5% of full scale"
   offset_accuracy: "±(1% of channel offset + 1% of full scale + 400 µV)"
   timebase_s_div: [2.0e-12, 20.0]
@@ -73,6 +53,9 @@ specs:
     hold that 266 µV (the preamp floor), and 5 mV/div interpolates 4 and 10 mV/div on log-log
     (291 µV). About 3.7 codes rms at 10 bits (128 codes per division) at 0.1 V/div. Per-division
     values in the scope_vertical noise_table.
+  rise_time_10_90_s:
+  enob_typical:
+  memory_depth_options_pts:
 channels:
   count: 4
   overrides:
@@ -472,6 +455,8 @@ state:
   # 触发。段数上限 25,680 取数据手册 Max # of segments 的高带宽触发使能列（UXR0334B 列；禁用列
   # 134,885，该触发选项未建模）；段数 × 记录深超出内存由采集报 -221。手册未给 *RST 后的段数：2 为
   # SimuBench 值。
+    replies:
+    not_modeled:
   acquire.segmented_count:
     type: int
     min: 2
@@ -585,8 +570,8 @@ state:
   # ---- 仅影响显示的设置（#1068，手册第 14/21/37 章）：解析并保存，查询回读，不改变任何采集、
   # 测量、传输与回复的数值（覆盖表逐条注明）。手册未给上电默认值的为 SimuBench 值。带可选
   # <source>/<area> 的写法模型不区分来源，全局存一个值。
-  system.beep_frequency: {type: float, unit: HZ, default: 1000.0, label: 蜂鸣频率, label_en: Beep frequency}
-  system.beep_duration: {type: float, unit: MS, default: 500.0, label: 蜂鸣时长, label_en: Beep duration}
+  system.beep_frequency: {type: float, unit: HZ, default: 1000.0, label: 蜂鸣频率, label_en: Beep frequency, min: null, max: null}
+  system.beep_duration: {type: float, unit: MS, default: 500.0, label: 蜂鸣时长, label_en: Beep duration, min: null, max: null}
   display.main: {type: bool, default: true, label: 主窗口显示, label_en: Main view}
   display.connect: {type: bool, default: false, label: 连点显示, label_en: Connect the dots}
   display.graticule:
@@ -595,6 +580,7 @@ state:
     default: GRID
     label: 网格类型
     label_en: Graticule
+    keep_on_reset:
   display.area_hscale: {type: bool, default: true, label: 区域水平刻度, label_en: Area horizontal scale}
   display.area_state: {type: bool, default: true, label: 区域显示, label_en: Area state}
   display.area_vscale:
@@ -626,26 +612,32 @@ state:
     label: 窗口布局
     label_en: Window layout
   # 余辉：MINimum（零余辉）、INFinite 或 0.1–200 s（手册）。
+    replies:
+    keep_on_reset:
   display.persistence: {type: float, unit: S, min: 0.1, max: 200.0, default: -.inf, special: {MINimum: -.inf, INFinite: .inf}, label: 余辉, label_en: Persistence}
   display.proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 面板占比, label_en: Pane proportion}
-  display.results_proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 结果面板占比, label_en: Results proportion}
+  display.results_proportion: {type: float, min: 0.0, max: 100.0, default: 100.0, label: 结果面板占比, label_en: Results proportion, keep_on_reset: null}
   display.results_layout:
     type: enum
     options: [TAB, CUSTom, SHORizontal]
     default: TAB
     label: 结果面板布局
     label_en: Results layout
+    replies:
+    keep_on_reset:
   display.scolor_hue: {type: int, min: 0, max: 100, default: 50, label: 颜色色调, label_en: Color hue}
   display.scolor_saturation: {type: int, min: 0, max: 100, default: 100, label: 颜色饱和度, label_en: Color saturation}
   display.scolor_luminosity: {type: int, min: 0, max: 100, default: 100, label: 颜色亮度, label_en: Color luminosity}
-  display.status_column: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签列, label_en: Status column}
-  display.status_row: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签行, label_en: Status row}
+  display.status_column: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签列, label_en: Status column, keep_on_reset: null}
+  display.status_row: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 状态标签行, label_en: Status row, keep_on_reset: null}
   display.theme:
     type: enum
     options: [Midnight, Platinum]
     default: Platinum
     label: 界面主题
     label_en: UI theme
+    replies:
+    keep_on_reset:
   display.window_maximize: {type: string, default: "", label: 最大化窗口, label_en: Maximized window}
   display.bookmark_label: {type: string, default: "", label: 书签标签, label_en: Bookmark label}
   display.bookmark_x: {type: float, min: 0.0, max: 1.0, default: 0.0, label: 书签横位置, label_en: Bookmark x}
@@ -661,7 +653,7 @@ state:
     label_en: Aux rise time
   calibrate.output_cal: {type: bool, default: false, electrical: true, label: CAL 输出使能, label_en: Cal out enable}
   # 显示 ADC 削波提示（:DISPlay:CLIPped，手册 p.596）：不影响削波检测本身（手册原文），纯显示偏好。
-  display.clipped: {type: bool, default: true, label: 显示削波提示, label_en: Show ADC clipping}
+  display.clipped: {type: bool, default: true, label: 显示削波提示, label_en: Show ADC clipping, keep_on_reset: null}
   # ---- 数学函数（#1074，手册第 22 章）：FUNCtion1-16 的定义存放在 function<f>.* 设置里，
   # 波形在读的时候从源记录算出（scope_math）。手册未给默认值的条目为 SimuBench 值，覆盖表注明。
   function.peak_sort:
@@ -1233,18 +1225,112 @@ state:
   # model 与 identity.serial（D82，#1441），命令按写法原样回（as_defined），子定义的“NG-RT160”不被缩写。
   system.serial:
     type: enum
-    options: [{same_as: identity.serial}]
+    options: [same_as: identity.serial]
     default: {same_as: identity.serial}
     readonly: true
     label: 序列号
     label_en: Serial number
   system.model:
     type: enum
-    options: [{same_as: model}]
+    options: [same_as: model]
     default: {same_as: model}
     readonly: true
     label: 型号
     label_en: Model
+  trigger.glitch_source:
+  trigger.glitch_polarity:
+  trigger.glitch_width:
+  trigger.pwidth_source:
+  trigger.pwidth_polarity:
+  trigger.pwidth_mode:
+  trigger.pwidth_width:
+  trigger.pwidth_gt:
+  trigger.pwidth_lt:
+  trigger.pwidth_tpoint:
+  trigger.holdoff_mode:
+  trigger.holdoff_min:
+  trigger.holdoff_max:
+  trigger.high:
+  trigger.hth{n}:
+  trigger.lth{n}:
+  timebase.roll:
+  acquire.points_auto:
+  acquire.srate_auto:
+  acquire.hresolution:
+  acquire.interpolate:
+  acquire.segmented_playing:
+  calibrate.output:
+  calibrate.dc:
+  calibrate.aux:
+  calibrate.cal:
+  calibrate.aux_rtime:
+  waveform.segmented_all:
+  measure.thr.general{n}.method:
+  measure.thr.rfall{n}.method:
+  measure.thr.general{n}.upper:
+  measure.thr.general{n}.middle:
+  measure.thr.general{n}.lower:
+  measure.thr.general{n}.abs_upper:
+  measure.thr.general{n}.abs_middle:
+  measure.thr.general{n}.abs_lower:
+  measure.thr.general{n}.hyst_range:
+  measure.thr.general{n}.hyst_level:
+  measure.thr.general{n}.tb_top:
+  measure.thr.general{n}.tb_base:
+  measure.thr.general{n}.tb_method:
+  measure.thr.rfall{n}.upper:
+  measure.thr.rfall{n}.middle:
+  measure.thr.rfall{n}.lower:
+  measure.thr.rfall{n}.abs_upper:
+  measure.thr.rfall{n}.abs_middle:
+  measure.thr.rfall{n}.abs_lower:
+  measure.thr.rfall{n}.hyst_range:
+  measure.thr.rfall{n}.hyst_level:
+  measure.thr.rfall{n}.tb_top:
+  measure.thr.rfall{n}.tb_base:
+  measure.thr.rfall{n}.tb_method:
+  measure.dt_start_dir:
+  measure.dt_start_num:
+  measure.dt_start_pos:
+  measure.dt_stop_dir:
+  measure.dt_stop_num:
+  measure.dt_stop_pos:
+  measure.sendvalid:
+  measure.statistics:
+  measure.window:
+  system.psc:
+  system.debug:
+  system.debug_output:
+  system.debug_file:
+  system.debug_create:
+  system.donttabmeas:
+  system.gui:
+  system.mode:
+  system.touchscreen:
+  system.lxi_identify:
+  display.maximized:
+  display.area1.state:
+  display.area{n}.state:
+  display.area{n}.hscale:
+  display.area{n}.vscale:
+  display.area{n}.layout:
+  display.area{n}.grids:
+  display.area{n}.proportion:
+  display.color{n}.hue:
+  display.color{n}.saturation:
+  display.color{n}.luminosity:
+  display.bookmark{n}.source:
+  display.bookmark{n}.defined:
+  display.bookmark{n}.label:
+  display.bookmark{n}.color:
+  display.bookmark{n}.content:
+  display.bookmark{n}.position:
+  display.bookmark{n}.x:
+  display.bookmark{n}.y:
+  hardcopy.printers:
+  hardcopy.default_printer:
+  system.persona_manufacturer:
+  system.persona_model:
 channel_state:
   display:
     type: bool
@@ -1292,6 +1378,7 @@ channel_state:
     default: X1
     label: 探头增益
     label_en: Probe gain
+    readonly:
   probe_coupling:
     type: enum
     options: [DC, AC]
@@ -1376,6 +1463,13 @@ channel_state:
   # 视图本身未建模。
   spectral_center: {type: float, unit: HZ, min: -1.0e12, max: 1.0e12, default: 0.0, unset: 0.0, label: 频谱中心频率, label_en: Spectral center}
   spectral_span: {type: float, unit: HZ, min: 0.0, max: 1.0e12, default: 0.0, unset: 0.0, label: 频谱跨度, label_en: Spectral span}
+  probe_attenuation:
+  ext_gain:
+  ext_gain_unit:
+  skew:
+  grid:
+  grid_area:
+  grid_view:
 # 个体偏差（数据手册 3123-1313，按种子抽取，metrology-authoring.md 7）：直流增益精度 ±1.5% 满量程；
 # 偏置精度 ±(1% 偏置设定 + 1% 满量程 + 400 µV)（满量程 = 8 格）；时基 25 ppb。
 deviations:
@@ -1745,7 +1839,6 @@ channel_components:
     params:
       coupling: DC
       invert: $ch.invert
-      probe_ratio: $ch.probe
       bandwidth: {same_as: specs.bandwidth_hz}
       response: {from: $acquire.response, map: {FLATmag: brickwall, GAUSsianmag: gaussian}}
       # 模拟前端自身的滚降（#1423）：平坦幅度 / 高斯幅度是 ADC 之后 DSP 修正的结果，触发从 ADC 之前的模拟通路
@@ -1771,9 +1864,7 @@ channel_components:
       # 噪声表是在数据手册带宽（3.3e10 Hz）下测得的：子定义改了 bandwidth，表按 √(bandwidth/3.3e10) 换算（#1427）。
       # 写字面值而不是 same_as：引用了 specs.bandwidth_hz 的话，子定义改带宽时两者一起变、换算不起作用。
       noise_bandwidth: 3.3e10
-      noise_table: [[1.0e-3, 2.66e-4], [2.0e-3, 2.66e-4], [5.0e-3, 2.91e-4], [1.0e-2, 3.88e-4],
-                    [2.0e-2, 7.02e-4], [5.0e-2, 1.48e-3], [1.0e-1, 2.91e-3], [2.0e-1, 6.48e-3],
-                    [5.0e-1, 1.47e-2], [1.0, 2.88e-2]]
+      noise_table: [[1.0e-3, 2.66e-4], [2.0e-3, 2.66e-4], [5.0e-3, 2.91e-4], [1.0e-2, 3.88e-4], [2.0e-2, 7.02e-4], [5.0e-2, 1.48e-3], [1.0e-1, 2.91e-3], [2.0e-1, 6.48e-3], [5.0e-1, 1.47e-2], [1.0, 2.88e-2]]
   - name: probe
     type: scope_probe
     label: 探头换算（倍率/偏斜/反相）
@@ -1802,6 +1893,7 @@ ports:
     AUX: auxin.pin
     AUX_OUT: auxout.pin
     CAL_OUT: calout.pin
+    REF_IN:
 display:
   template: oscilloscope
   summary: [timebase.scale, trigger.source, trigger.slope]
@@ -1867,795 +1959,178 @@ display:
           - {state: isim_bwlimit}
           - {state: isim_bandwidth, when: {isim_bwlimit: true}}
           - {state: probe_coupling}
-capabilities: [oscilloscope]
-commands:
-  # ---- Common ----
-  # 手册 *TRG：与 :DIGitize 相同。
-  - {header: "*TRG", op: acq.digitize, query: false}
-  # ---- Root ----
-  - {header: ":TERegister", op: ter.event, set: false}
-  - {header: ":AER", op: aer.event, set: false}
-  - {header: ":ADER", op: ader.event, set: false}
-  - {header: ":PDER", op: pder.event, set: false}
-  - {header: ":ATER", op: ater.event, set: false}
-  - {header: ":AUToscale", op: autoscale.autoscale, query: false}
-  - {header: ":AUToscale:CHANnels", state: autoscale.channels}
-  - {header: ":AUToscale:PLACement", state: autoscale.placement}
-  - {header: ":AUToscale:VERTical", op: autoscale.vertical, query: false, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], not_modeled: {DIFF1: differential channels are not modeled, DIFF2: differential channels are not modeled, COMMonmode3: common-mode channels are not modeled, COMMonmode4: common-mode channels are not modeled}}]}
-  - {header: ":ASTate", op: acq.status, set: false}
-  - {header: ":RSTate", op: acq.run_state, set: false}
-  - {header: ":OPEEnable", state: status.opee}
-  - {header: ":OPERegister", op: oper.event, set: false}
-  - {header: ":RUN", op: acq.run, query: false}
-  - {header: ":STOP", op: acq.stop, query: false}
-  # 清屏（手册 p.293）：显示与关联测量清空——已存的记录全部作废（停止状态下一屏空白，运行状态
-  # 下次采集重填）；波形存储器不清（手册）。
-  - {header: ":CDISplay", op: acq.clear_display, query: false}
-  # 选件列表（手册 p.259）：本型号按标配 500 Mpts 内存建模，无选件，首字符 0（手册：无选件时
-  # 首字符为 0）。
-  - {header: "*OPT", set: false, op: sys.accept, reply: "0"}
-  # 上电清状态（手册 p.269）：PON 位是否置位由它决定；跨上电行为不在仿真中体现，存取即可。
-  - {header: "*PSC", state: status.psc}
-  # 手册 :SINGle：下一次触发采一次，不改 :TRIGger:SWEep。
-  - {header: ":SINGle", op: acq.digitize, query: false}
-  - header: ":DIGitize"
-    op: acq.digitize
-    query: false
-    params: [{name: sources, type: raw}]
-  - {header: ":SERial", state: system.serial, set: false, format: {enum: as_defined}}
-  - {header: ":MODel", state: system.model, set: false, format: {enum: as_defined}}
-  # 蜂鸣（手册 p.291）：频率 Hz、时长 ms；仿真无声，解析并保存两参数（#1068）。
-  - {header: ":BEEP", op: sys.accept, query: false, params: [{name: frequency, type: float, unit: HZ, state: system.beep_frequency}, {name: duration, type: float, unit: MS, state: system.beep_duration}]}
-  - header: ":VIEW"
-    params:
-      - name: source
-        type: enum
-        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
-        index: true
-        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
-    writes: {"ch{source}.display": true}
-    query: false
-    doc: 打开参数指定的通道。
-  - header: ":BLANk"
-    params:
-      - name: source
-        type: enum
-        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
-        index: true
-        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
-    writes: {"ch{source}.display": false}
-    query: false
-    doc: 关闭参数指定的通道。
-  - header: ":STATus"
-    set: false
-    params:
-      - name: source
-        type: enum
-        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
-        index: true
-        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
-        echo: false
-      - {name: shown, type: bool, state: "ch{source}.display"}
-    doc: 参数指定的通道是否显示。
-  # ---- ACQuire ----
-  - {header: ":ACQuire:MODE", state: acquire.mode}
-  - {header: ":ACQuire:AVERage", state: acquire.average}
-  - {header: ":ACQuire[:AVERage]:COUNt", state: acquire.count}
-  - {header: ":ACQuire:COMPlete", state: acquire.complete}
-  - {header: ":ACQuire:POINts[:ANALog]", state: acquire.points}
-  # 设定写 acquire.srate；查询回实际采样率。
-  - header: ":ACQuire:SRATe[:ANALog]"
-    op: acq.figure
-    args: {what: sample_rate}
-    params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]
-  - {header: ":ACQuire:BANDwidth", state: acquire.bandwidth}
-  - {header: ":ACQuire:RESPonse", state: acquire.response}
-  # 最大带宽（手册 p.323）：模型硬件带宽 33 GHz（specs.bandwidth_hz），查询回它。
-  - {header: ":ACQuire:BANDwidth:FRAMe", op: sys.accept, set: false, reply: "3.300000E+10"}
-  - {header: ":ACQuire:COMPlete:STATe", state: acquire.complete_state}
-  - {header: ":ACQuire:HRESolution", state: acquire.hres, format: {enum: as_defined}}
-  - {header: ":ACQuire:REDGe", state: acquire.redge, reply: "0"}
-  # 存储深度/采样率的 AUTO 控制（手册 pp.339/352）：查询回是否在 AUTO 值上；OFF 把当前值定为手动。
-  - {header: ":ACQuire:POINts:AUTO", op: acq.points_auto, params: [{name: "on", type: bool, optional: true}]}
-  - {header: ":ACQuire:SRATe[:ANALog]:AUTO", op: acq.srate_auto, params: [{name: "on", type: bool, optional: true}]}
-  # 声明的限值（手册 pp.324/340/352，#1067）：设置为定义声明的范围
-  - {header: ":ACQuire:BANDwidth:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.bandwidth}}
-  - {header: ":ACQuire:POINts:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.points}}
-  - {header: ":ACQuire:SRATe:TESTLIMITS", op: sys.limits, set: false, args: {path: acquire.srate}}
-  # 削波状态（#1067）：ADC 的削波检测锁存每通道的低/高削波，读后清零（手册 p.484），CLEar 全清（p.319）。
-  - {header: ":ACQuire:ADC:CLIPped:CLEar", op: acq.clear_clip, query: false}
-  # ---- 分段存储（:ACQuire:SEGMented，手册第 15 章，#1066）---------------------------------------------
-  - {header: ":ACQuire:SEGMented:AUToplay", state: acquire.segmented_autoplay}
-  - {header: ":ACQuire:SEGMented:COUNt", state: acquire.segmented_count}
-  # INDex（手册 p.345）：超出已采段数报 -222，并把所选段钳到最大段号。
-  - {header: ":ACQuire:SEGMented:INDex", op: acq.set_segment_index, params: [{name: index, type: int, min: 1, optional: true}]}
-  - {header: ":ACQuire:SEGMented:PLAY", state: acquire.segmented_play}
-  - {header: ":ACQuire:SEGMented:PRATe", state: acquire.segmented_prate}
-  - {header: ":ACQuire:SEGMented:TTAGs", state: acquire.segmented_ttags}
-  # ---- CHANnel<N> ----
-  - {header: ":CHANnel<ch>:SCALe", state: ch.scale}
-  - {header: ":CHANnel<ch>:RANGe", state: ch.scale, factor: 8.0}
-  - {header: ":CHANnel<ch>:OFFSet", state: ch.offset}
-  # 反相（手册 p.498）：波形绕 0 V 反射，测量随读数翻转（用例证明）。
-  - {header: ":CHANnel<ch>:INVert", state: ch.invert}
-  # 垂直单位（手册 p.531）：单位的换算显示未建模；:WAVeform:YUNits? 随之回答。
-  - {header: ":CHANnel<ch>:UNITs", state: ch.units}
-  # 探头缩放（手册 pp.518-530，#1067）：DIV1/DIV10 写通道的探头衰减比（读数随之改变，用例证明）；
-  # SKEW 把该通道的记录推迟这么多秒（时间原点随之移动，用例证明）。其余为 1154A/外部探头的
-  # 设定存值（探头硬件未建模，覆盖表注明）。
-  - {header: ":CHANnel<ch>:PROBe:ATTenuation", op: ch.probe.set_attenuation, params: [{name: word, type: string, optional: true}], args: {words: {DIV1: 1.0, DIV10: 10.0}}}
-  - {header: ":CHANnel<ch>:PROBe:COUPling", state: ch.probe_coupling}
-  - {header: ":CHANnel<ch>:PROBe:EXTernal", state: ch.probe_external}
-  - {header: ":CHANnel<ch>:PROBe:EXTernal:GAIN", state: ch.probe_ext_gain}
-  - {header: ":CHANnel<ch>:PROBe:EXTernal:OFFSet", state: ch.probe_ext_offset}
-  - {header: ":CHANnel<ch>:PROBe:EXTernal:UNITs", state: ch.probe_ext_units, format: {enum: as_defined}}
-  - {header: ":CHANnel<ch>:PROBe:GAIN", state: ch.probe_gain}
-  - {header: ":CHANnel<ch>:PROBe:SKEW", state: ch.probe_skew}
-  - {header: ":CHANnel<ch>:PROBe:SKEW:AUTO", op: ch.probe.skew_auto, query: false}
-  # 过载事件寄存器（手册 p.301）：过载检测未建模，恒回 0。
-  - {header: ":OVLRegister", op: meas.overload, set: false}
-  - {header: ":CHANnel<ch>:ADC:CLIPped", op: acq.adc_clip_status, set: false}
-  - {header: ":CHANnel<ch>:CLIPped", op: acq.clipped_status, set: false}
-  - {header: ":CHANnel<ch>:INPut", state: ch.input}
-  - {header: ":CHANnel<ch>:DISPlay", state: ch.display}
-  - {header: ":CHANnel<ch>:LABel", state: ch.label}
-  - {header: ":CHANnel<ch>:ISIM:BWLimit", state: ch.isim_bwlimit}
-  - {header: ":CHANnel<ch>:ISIM:BANDwidth", state: ch.isim_bandwidth}
-  - {header: ":CHANnel<ch>:ISIM:BWLimit:TYPE", state: ch.isim_type}
-  # ---- DISPlay ----
-  - {header: ":DISPlay:LABel", state: display.label}
-  - {header: ":DISPlay:GRATicule:INTensity", state: display.intensity}
-  # ---- 仅影响显示的设置（手册第 21 章，#1068）：解析并保存，查询回读；带可选 <source> 的写法
-  # 与真机一样接受，来源不区分，全局存一个值（覆盖表注明）。 ----
-  - header: ":DISPlay:MAIN"
-    params:
-      - {name: "on", type: bool, state: display.main}
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
-  - header: ":DISPlay:CONNect"
-    params:
-      - {name: "on", type: bool, state: display.connect}
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
-  - {header: ":DISPlay:GRATicule", state: display.graticule}
-  - {header: ":DISPlay:GRATicule:AREA<n>:HSCale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_hscale}
-  - {header: ":DISPlay:GRATicule:AREA<n>:STATe", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_state}
-  - {header: ":DISPlay:GRATicule:AREA<n>:VSCale", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_vscale}
-  - {header: ":DISPlay:GRATicule:GLAYout", state: display.graticule_glayout}
-  - {header: ":DISPlay:GRATicule:NUMBer", state: display.graticule_number}
-  # 把波形指派到网格（手册 p.606）：<波形>,<网格>[,<区>][,MAIN|CGRade]，四个参数分开存。
-  - {header: ":DISPlay:GRATicule:SETGrat", op: sys.accept, query: false, params: [{name: chan, type: string, state: display.setgrat_chan}, {name: grid, type: int, min: 1, max: 16, state: display.setgrat_grid}, {name: area, type: int, min: 1, max: 8, optional: true, state: display.setgrat_area}, {name: view, type: string, optional: true, state: display.setgrat_view}]}
-  - {header: ":DISPlay:LAYout", state: display.layout}
-  # 余辉（手册 p.623）：MINimum / INFinite / 0.1–200 s 的可变余辉，带可选 <source>（真机接受，
-  # 来源不区分，总是作用于全部波形）。
-  - header: ":DISPlay:PERSistence"
-    params:
-      - {name: time, type: float, unit: S, state: display.persistence}
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4], index: true, index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}, index_default: 1, echo: false, not_modeled: {DIFF: differential channels are not modeled, COMMonmode: common-mode channels are not modeled, FUNCtion: math functions are not modeled (C5), WMEMory: waveform memories are not modeled, EQUalized: equalization is out of scope, MTRend: measurement trends are not modeled, MSPectrum: measurement spectra are not modeled, XT: crosstalk is out of scope, PNOise: phase noise is out of scope, INPut: SNDR waveforms are out of scope, CORRected: SNDR waveforms are out of scope, ERRor: SNDR waveforms are out of scope, LFPR: SNDR waveforms are out of scope, NREDuced: noise reduction is out of scope}}
-  # 面板占比（手册 p.624/625）：<面板>,<0-100>；两查询都已弃用（手册 History），只写不查。
-  - {header: ":DISPlay:PROPortion", op: sys.accept, query: false, params: [{name: pane, type: string}, {name: proportion, type: float, min: 0.0, max: 100.0, state: display.proportion}]}
-  - {header: ":DISPlay:PROPortion:RESults", state: display.results_proportion, query: false}
-  - {header: ":DISPlay:RESults:LAYout", state: display.results_layout}
-  # 颜色（手册 p.630）：<色名>,<色调>,<饱和度>,<亮度>，三个数值分开存；查询带 <色名> 回三值
-  # （模型存一个全局颜色，不分元素）。
-  - {header: ":DISPlay:SCOLor", op: sys.accept, reply: "{display.scolor_hue},{display.scolor_saturation},{display.scolor_luminosity}", params: [{name: name, type: string}, {name: hue, type: int, min: 0, max: 100, optional: true, state: display.scolor_hue}, {name: saturation, type: int, min: 0, max: 100, optional: true, state: display.scolor_saturation}, {name: luminosity, type: int, min: 0, max: 100, optional: true, state: display.scolor_luminosity}]}
-  - {header: ":DISPlay:STATus:COLumn", state: display.status_column}
-  - {header: ":DISPlay:STATus:ROW", state: display.status_row}
-  - {header: ":DISPlay:CLIPped", state: display.clipped}
-  # 主题（手册 p.634）：回复带引号的完整词（手册 {"Midnight" | "Platinum"}）。
-  - {header: ":DISPlay:THEMe", state: display.theme, format: {enum: as_defined}, reply: '"{value}"'}
-  - {header: ":DISPlay:WINDow:MAXimize", state: display.window_maximize, query: false}
-  # 显示书签（手册 pp.583-588）：模型存一个全局书签，不分 1-100 号（覆盖表注明）；VERTical? 是
-  # 波形读数（书签时刻的波形值），不在此列。
-  - {header: ":DISPlay:BOOKmark:DELete:ALL", state: display.bookmark_label, set_value: "", query: false}
-  - {header: ":DISPlay:BOOKmark<n>:DELete", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_label, set_value: "", query: false}
-  - {header: ":DISPlay:BOOKmark<n>:SET", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, op: sys.accept, query: false, params: [{name: source, type: string}, {name: label, type: string, state: display.bookmark_label}, {name: color, type: string, optional: true}, {name: content, type: string, optional: true}, {name: last, type: string, optional: true}]}
-  - {header: ":DISPlay:BOOKmark<n>:XPOSition", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_x}
-  - {header: ":DISPlay:BOOKmark<n>:YPOSition", suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_y}
-  # 快速绘图（手册 p.329，#1068）：模型的读数始终同步分析当前记录，开关不改变数值。
-  - {header: ":ACQuire:FPLot", state: acquire.fplot}
-  # ---- MEASure ----
-  - header: ":MEASure:SOURce"
-    params:
-      - {name: source1, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], state: measure.source}
-      - {name: source2, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true, state: measure.source2}
-    reply: "{measure.source},{measure.source2}"
-  - {header: ":MEASure:VPP", op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:VMAX", op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:VMIN", op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:VAMPlitude", op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:VTOP", op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:VBASe", op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  # VAVerage / VRMS：整屏（DISPlay）或第一个周期（CYCLe），含直流（DC）或去掉直流（AC）；dBm 按参考阻抗
-  # （AUTO：单端通道与函数为 50 Ω，手册的表；或 10–200 Ω）。
-  - header: ":MEASure:VAVerage"
-    op: meas.measure
-    set: false
-    args: {what: VAVerage}
-    params:
-      - {name: interval, type: enum, options: [CYCLe, DISPlay]}
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
-  - header: ":MEASure:VRMS"
-    op: meas.measure
-    set: false
-    args: {what: VRMS}
-    params:
-      - {name: interval, type: enum, options: [CYCLe, DISPlay]}
-      - {name: coupling, type: enum, options: [AC, DC]}
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
-      - {name: units, type: enum, options: [VOLT, DBM], optional: true}
-      - {name: impedance, type: raw, optional: true}
-  # FREQuency / PERiod / DUTYcycle：从上升沿到上升沿（RISing）；FALLing 未建模。
-  - header: ":MEASure:FREQuency"
-    op: meas.measure
-    set: false
-    args: {what: FREQuency}
-    params:
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
-      - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
-  - header: ":MEASure:PERiod"
-    op: meas.measure
-    set: false
-    args: {what: PERiod}
-    params:
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
-      - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
-  - header: ":MEASure:DUTYcycle"
-    op: meas.measure
-    set: false
-    args: {what: DUTYcycle}
-    params:
-      - {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}
-      - {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}
-  - {header: ":MEASure:RISetime", op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:FALLtime", op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:PWIDth", op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:NWIDth", op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:OVERshoot", op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  - {header: ":MEASure:PREShoot", op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  # ---- SYSTem ----
-  # :SYSTem:ERRor? [{NUMBer | STRing}]：STRing 回码与带引号的文字；不带参数或 NUMBer 只回错误码
-  # （后一条不带 when，是前一条的兜底，#602）。
-  - header: ":SYSTem:ERRor"
-    op: sys.next_error
-    set: false
-    when: {form: STRing}
-    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
-    reply: '{header} {code},"{text}"'
-  - header: ":SYSTem:ERRor"
-    op: sys.next_error
-    set: false
-    when: {form: STR}
-    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
-    reply: '{header} {code},"{text}"'
-  - header: ":SYSTem:ERRor"
-    op: sys.next_error
-    set: false
-    params: [{name: form, type: enum, options: [NUMBer, STRing], optional: true}]
-    reply: "{header} {code}"
-  # 能力查询（手册 pp.1437-1439，#1067）：回答定义声明的范围（内存按样点数、带宽 33 GHz、
-  # 采样率 128 GSa/s；数字通道 0 个）。
-  - {header: ":SYSTem:CAPability:ACQuire", op: sys.capability, set: false, params: [{name: what, type: string}], args: {HALFchannel: "0", MEMory: "500000000", SRATe: "128000000000", BANDwidth: "33000000000"}}
-  - {header: ":SYSTem:CAPability:CHANnel", op: sys.capability, set: false, params: [{name: what, type: string}], args: {COUNt: "4"}}
-  - {header: ":SYSTem:CAPability:DIGital", op: sys.capability, set: false, params: [{name: what, type: string}], args: {MEMory: "0", SRATe: "0", CHANnels: "0"}}
-  # 校准输出（手册 pp.473-477，#1067）：选择与使能存取；输出的信号本身未建模（#1170）。
-  - {header: ":CALibrate:OUTPut", op: sys.cal_output, params: [{name: signal, type: string, optional: true}, {name: dc, type: float, unit: V, optional: true}], args: {path: calibrate.output_signal}, reply: "{calibrate.output_signal}"}
-  - {header: ":CALibrate:OUTPut:AUX", state: calibrate.output_aux}
-  - {header: ":CALibrate:OUTPut:AUX:RTIMe", state: calibrate.output_aux_rtime}
-  - {header: ":CALibrate:OUTPut:CAL", state: calibrate.output_cal}
-  - header: ":SYSTem:PRESet"
-    op: sys.reset
-    query: false
-    params: [{name: kind, type: enum, options: [DEFault], optional: true, not_modeled: {FACTory: the factory default is not modeled}}]
-  - {header: ":SYSTem:HEADer", state: system.header}
-  - {header: ":SYSTem:LONGform", state: system.longform}
-  - {header: ":SYSTem:LOCK", state: system.lock}
-  - {header: ":SYSTem:HLED", state: system.hled}
-  - {header: ":SYSTem:DSP", state: system.dsp}
-  # ---- TIMebase ----
-  - {header: ":TIMebase:SCALe", state: timebase.scale}
-  - {header: ":TIMebase:RANGe", state: timebase.scale, factor: 10.0}
-  - {header: ":TIMebase:POSition", state: timebase.position}
-  # REFerence（手册 p.1472）：LEFT/CENTer/RIGHt 即 10/50/90%；参考为百分比位置时查询回 PERC。
-  - {header: ":TIMebase:REFerence", op: timebase.set_reference, params: [{name: word, type: string, optional: true}]}
-  - {header: ":TIMebase:REFerence:PERCent", state: timebase.reference_percent}
-  # 缩放拉窗（手册 pp.1476-1482，#1067）：DELay 与 POSition 同义（手册注明为兼容旧程序）。
-  - {header: ":TIMebase:VIEW", state: timebase.view}
-  - {header: ":TIMebase:WINDow:SCALe", state: timebase.window_scale, format: {number: engineering, significant: 3}}
-  - {header: ":TIMebase:WINDow:RANGe", state: timebase.window_scale, factor: 10.0, format: {number: engineering, significant: 3}}
-  - {header: ":TIMebase:WINDow:POSition", state: timebase.window_position, format: {number: engineering, significant: 2}}
-  - {header: ":TIMebase:WINDow:DELay", state: timebase.window_position, format: {number: engineering, significant: 2}}
-  - {header: ":TIMebase:REFClock", state: timebase.refclock}
-  - {header: ":TIMebase:ROLL:ENABLE", state: timebase.roll_enable, reply: "0"}
-  # ---- TRIGger ----
-  - {header: ":TRIGger:MODE", state: trigger.mode}
-  - {header: ":TRIGger:SWEep", state: trigger.sweep}
-  - {header: ":TRIGger:FORCe", op: acq.force_trigger, query: false}
-  - {header: ":TRIGger:HOLDoff", state: trigger.holdoff}
-  # :TRIGger:EDGE[{1 | 2}]：第二项（序列触发的 TERM2）未建模，后缀 2 报 -114。
-  - {header: ":TRIGger:EDGE<e>:SOURce", state: trigger.source, suffixes: {e: [1]}}
-  - {header: ":TRIGger:EDGE<e>:SLOPe", state: trigger.slope, suffixes: {e: [1]}}
-  # :TRIGger:HTHReshold {CHANnel<N> | AUXiliary},<level>（手册 p.1495）：每信源的高阈值，
-  # 欠幅、过渡与窗口族共用；查询也带信源。
-  - header: ":TRIGger:HTHReshold"
-    params:
-      - name: source
-        type: enum
-        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, AUXiliary]
-        index: true
-        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, AUXiliary: 5}
-        echo: false
-      - {name: level, type: float, unit: V, state: "trigger.hth{source}"}
-  # :TRIGger:LTHReshold CHANnel<N>,<level>（手册 p.1499）：低阈值仅通道。
-  - header: ":TRIGger:LTHReshold"
-    params:
-      - name: source
-        type: enum
-        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4]
-        index: true
-        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4}
-        echo: false
-      - {name: level, type: float, unit: V, state: "trigger.lth{source}"}
-  # :TRIGger:HYSTeresis（手册 p.1496）：迟滞带选择。
-  - {header: ":TRIGger:HYSTeresis", state: trigger.hysteresis}
-  # ---- 欠幅触发（手册 pp.1549–1553）：过低阈值而未到高阈值的脉冲；QUALified ON 时宽度还要
-  # 大于 TIME（250 ps–30 ns）。
-  - {header: ":TRIGger:RUNT<S>:SOURce", state: trigger.runt_source, suffixes: {s: [1]}}
-  - {header: ":TRIGger:RUNT<S>:POLarity", state: trigger.runt_polarity, suffixes: {s: [1]}}
-  - {header: ":TRIGger:RUNT<S>:QUALified", state: trigger.runt_qualified, suffixes: {s: [1]}}
-  - {header: ":TRIGger:RUNT<S>:TIME", state: trigger.runt_time, suffixes: {s: [1]}}
-  # ---- 过渡触发（手册 pp.1580–1585）：边沿在两阈值间的过渡时间违例（上升/下降、大于/小于/
-  # 范围内/范围外）。
-  - {header: ":TRIGger:TRANsition<S>:SOURce", state: trigger.transition_source, suffixes: {s: [1]}}
-  - {header: ":TRIGger:TRANsition<S>:TYPE", state: trigger.transition_type, suffixes: {s: [1]}}
-  - {header: ":TRIGger:TRANsition<S>:MODE", state: trigger.transition_mode, suffixes: {s: [1]}}
-  - {header: ":TRIGger:TRANsition<S>:TIME", state: trigger.transition_time, suffixes: {s: [1]}}
-  - header: ":TRIGger:TRANsition<S>:RANGe"
-    suffixes: {s: [1]}
-    params:
-      - {name: gt, type: float, unit: s, state: trigger.transition_range_low}
-      - {name: lt, type: float, unit: s, state: trigger.transition_range_high}
-  # ---- 窗口触发（手册 pp.1586–1590）：信号进/出两阈值间的窗口；CONDition 的第二词（时长
-  # 限定）属于 INSIDE/OUTSIDE，查询按手册只在 INSIDE/OUTSIDE 时带第二词。
-  - {header: ":TRIGger:WINDow<S>:SOURce", state: trigger.window_source, suffixes: {s: [1]}}
-  - header: ":TRIGger:WINDow<S>:CONDition"
-    suffixes: {s: [1]}
-    op: trigger.window_condition
-    params:
-      - {name: condition, type: raw, optional: true}
-      - {name: qualifier, type: raw, optional: true}
-  - {header: ":TRIGger:WINDow<S>:TIME", state: trigger.window_time, suffixes: {s: [1]}}
-  - {header: ":TRIGger:WINDow<S>:TPOint", state: trigger.window_tpoint, suffixes: {s: [1]}}
-  # ---- 超时触发（手册 pp.1576–1579）：波形高/低/不变持续超过设定时间。
-  - {header: ":TRIGger:TIMeout<S>:SOURce", state: trigger.timeout_source, suffixes: {s: [1]}}
-  - {header: ":TRIGger:TIMeout<S>:CONDition", state: trigger.timeout_condition, suffixes: {s: [1]}}
-  - {header: ":TRIGger:TIMeout<S>:TIME", state: trigger.timeout_time, suffixes: {s: [1]}}
-  # ---- 第 N 边沿触发（手册 pp.1533–1536）：计到第 N 条边触发。
-  - {header: ":TRIGger:NEDGe<S>:SOURce", state: trigger.nedge_source, suffixes: {s: [1]}}
-  - {header: ":TRIGger:NEDGe<S>:SLOPe", state: trigger.nedge_slope, suffixes: {s: [1]}}
-  - {header: ":TRIGger:NEDGe<S>:COUNt", state: trigger.nedge_count, suffixes: {s: [1]}}
-  # :TRIGger:LEVel {CHANnel<N> | AUX},<level>：信源写在前面，必填；查询也带信源。
-  - header: ":TRIGger:LEVel"
-    params:
-      - name: source
-        type: enum
-        options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, AUXiliary]
-        index: true
-        index_words: {CHANnel1: 1, CHANnel2: 2, CHANnel3: 3, CHANnel4: 4, AUXiliary: 5}
-        echo: false
-      - {name: level, type: float, unit: V, state: "trigger.level{source}"}
-  # ---- WAVeform ----
-  - {header: ":WAVeform:SOURce", state: waveform.source}
-  - {header: ":WAVeform:FORMat", state: waveform.format}
-  - {header: ":WAVeform:BYTeorder", state: waveform.byteorder}
-  - {header: ":WAVeform:STReaming", state: waveform.streaming}
-  - {header: ":WAVeform:POINts", op: xfer.figure, set: false, args: {what: points}}
-  - {header: ":WAVeform:PREamble", op: xfer.header, set: false}
-  # :WAVeform:DATA? [<start>[,<size>]]（手册）：从第 start 点起读 size 点，size 超出时截到记录末尾；深记录按段读回（#1012）。
-  - {header: ":WAVeform:DATA", op: xfer.data, set: false, params: [{name: start, type: int, min: 0, optional: true}, {name: size, type: int, min: 1, optional: true}]}
-  - {header: ":WAVeform:XINCrement", op: xfer.figure, set: false, args: {what: x_increment}}
-  - {header: ":WAVeform:XORigin", op: xfer.figure, set: false, args: {what: x_start}}
-  - {header: ":WAVeform:XREFerence", op: xfer.figure, set: false, args: {what: x_reference}}
-  - {header: ":WAVeform:YINCrement", op: xfer.figure, set: false, args: {what: y_increment}}
-  - {header: ":WAVeform:YORigin", op: xfer.figure, set: false, args: {what: y_origin}}
-  - {header: ":WAVeform:YREFerence", op: xfer.figure, set: false, args: {what: y_reference}}
-  # ---- 波形传输的状态查询与视图（手册第 40 章，#1066）-------------------------------------------------
-  # BANDpass?：下限为耦合的高通角（本型号恒直流 → 0），上限为 :ACQuire:BANDwidth 的数字滤波。
-  - {header: ":WAVeform:BANDpass", op: xfer.bandpass, set: false, args: {low: 0.0, high: $acquire.bandwidth, digits: 6}}
-  - {header: ":WAVeform:COMPlete", op: xfer.complete, set: false}
-  - {header: ":WAVeform:COUNt", op: xfer.hits, set: false, args: {averaging: $acquire.average, averages: $acquire.count}}
-  - {header: ":WAVeform:COUPling", op: xfer.figure, set: false, args: {what: coupling}}
-  - {header: ":WAVeform:TYPE", op: xfer.wfm_type, set: false, args: {averaging: $acquire.average, averaged: AVER, normal: RAW}}
-  - {header: ":WAVeform:VIEW", state: waveform.view}
-  # 显示四值（手册 pp.1639/1641/1642/1645）：记录恒覆盖显示，显示左沿 = 记录起点、显示跨度 =
-  # 时基 10 格、显示中心电压 = 通道偏置、显示满幅 = 8 格 × 档位。
-  - {header: ":WAVeform:XDISplay", op: xfer.figure, set: false, args: {what: x_start}}
-  - {header: ":WAVeform:XRANge", op: xfer.figure, set: false, args: {what: timebase, scale: 10.0}}
-  - {header: ":WAVeform:XUNits", op: xfer.axis_units, set: false, args: {axis: X}}
-  - {header: ":WAVeform:YDISplay", op: xfer.figure, set: false, args: {what: offset}}
-  - {header: ":WAVeform:YRANge", op: xfer.figure, set: false, args: {what: scale, scale: 8.0}}
-  - {header: ":WAVeform:YUNits", op: xfer.axis_units, set: false, args: {axis: Y}}
-  # ---- 分段存储的传输（手册第 40 章，#1066）-----------------------------------------------------------
-  - {header: ":WAVeform:SEGMented:ALL", state: waveform.seg_all}
-  - {header: ":WAVeform:SEGMented:COUNt", op: acq.figure, set: false, args: {what: segments}}
-  - {header: ":WAVeform:SEGMented:POINts", op: xfer.segment_points, set: false}
-  - {header: ":WAVeform:SEGMented:TTAG", op: acq.figure, set: false, args: {what: time_tag}}
-  - {header: ":WAVeform:SEGMented:XLISt", op: xfer.xlist, set: false, params: [{name: what, type: string}]}
-  # ---- 磁盘（:DISK，手册第 20 章，#1069）：目录、复制删除、按完整路径上传下载 ---------------------------
-  - header: ":DISK:CDIRectory"
-    op: disk.folder
-    query: false
-    params: [{name: name, type: string}]
-  - header: ":DISK:PWD"
-    op: disk.working_folder
-    set: false
-  - header: ":DISK:MDIRectory"
-    op: disk.make_folder
-    query: false
-    params: [{name: name, type: string}]
-  - header: ":DISK:DELete"
-    op: disk.delete
-    query: false
-    params: [{name: name, type: string}]
-  - header: ":DISK:COPY"
-    op: disk.copy
-    query: false
-    params: [{name: source, type: string}, {name: target, type: string}]
-  - header: ":DISK:DIRectory"
-    op: disk.catalog
-    set: false
-    params: [{name: name, type: string, optional: true}]
-  - header: ":DISK:GETFILE"
-    op: disk.read
-    set: false
-    params: [{name: name, type: string}]
-  - header: ":DISK:PUTFILE"
-    op: disk.write
-    query: false
-    params: [{name: name, type: string}, {name: data, type: block}]
-  # ---- 设置存取（#1070）---------------------------------------------------------------------------------
-  - header: "*SAV"
-    op: setups.save
-    query: false
-    params: [{name: register, type: int, min: 0, max: 9}]
-  - header: "*RCL"
-    op: setups.recall
-    query: false
-    params: [{name: register, type: int, min: 0, max: 9}]
-  - header: ":STORe:SETup"
-    op: setups.save
-    query: false
-    params: [{name: register, type: int, min: 0, max: 9}]
-  - header: ":RECall:SETup"
-    op: setups.recall
-    query: false
-    params: [{name: register, type: int, min: 0, max: 9}]
-  - header: "*LRN"
-    op: setups.learn
-    set: false
-  - header: ":SYSTem:SETup"
-    op: setups.setup
-    params: [{name: data, type: block, optional: true}]
-  - header: ":DISK:SAVE:SETup"
-    op: setups.store_file
-    query: false
-    params: [{name: name, type: string}]
-  - header: ":DISK:SAVE:WAVeform"
-    op: datafile.store_waveform
-    query: false
-    params:
-      - {name: source, type: string}
-      - {name: name, type: string}
-      - {name: format, type: enum, options: [BIN, CSV, INTernal, TSV, TXT, H5, H5INt, MATlab], optional: true}
-      - {name: header, type: bool, optional: true}
+options:
+constraints:
 
+command_overrides:
+  # 与 1104B 同头的差异按头整组覆盖（值 = 本型号的命令，不含 header）；仅 1104B 有的头删除。
+  ":CDISplay": {op: acq.clear_display, query: false}
+  "*PSC": {state: status.psc}
+  ":BEEP": {op: sys.accept, query: false, params: [{name: frequency, type: float, unit: HZ, state: system.beep_frequency}, {name: duration, type: float, unit: MS, state: system.beep_duration}]}
+  ":ACQuire:POINts[:ANALog]": {state: acquire.points}
+  ":ACQuire:SRATe[:ANALog]": {op: acq.figure, args: {what: sample_rate}, params: [{name: rate, type: float, unit: HZ, optional: true, state: acquire.srate}]}
+  ":ACQuire:BANDwidth:FRAMe": {op: sys.accept, set: false, reply: '3.300000E+10'}
+  ":ACQuire:HRESolution": {state: acquire.hres, format: {enum: as_defined}}
+  ":ACQuire:REDGe": {state: acquire.redge, reply: '0'}
+  ":ACQuire:POINts:AUTO": {op: acq.points_auto, params: [{name: 'on', type: bool, optional: true}]}
+  ":ACQuire:SRATe[:ANALog]:AUTO": {op: acq.srate_auto, params: [{name: 'on', type: bool, optional: true}]}
+  ":ACQuire:BANDwidth:TESTLIMITS": {op: sys.limits, set: false, args: {path: acquire.bandwidth}}
+  ":ACQuire:POINts:TESTLIMITS": {op: sys.limits, set: false, args: {path: acquire.points}}
+  ":ACQuire:SRATe:TESTLIMITS": {op: sys.limits, set: false, args: {path: acquire.srate}}
+  ":ACQuire:ADC:CLIPped:CLEar": {op: acq.clear_clip, query: false}
+  ":ACQuire:SEGMented:INDex": {op: acq.set_segment_index, params: [{name: index, type: int, min: 1, optional: true}]}
+  ":ACQuire:SEGMented:PLAY": {state: acquire.segmented_play}
+  ":CHANnel<ch>:PROBe:ATTenuation": {op: ch.probe.set_attenuation, params: [{name: word, type: string, optional: true}], args: {words: {DIV1: 1.0, DIV10: 10.0}}}
+  ":CHANnel<ch>:PROBe:EXTernal:GAIN": {state: ch.probe_ext_gain}
+  ":CHANnel<ch>:PROBe:EXTernal:OFFSet": {state: ch.probe_ext_offset}
+  ":CHANnel<ch>:PROBe:EXTernal:UNITs": {state: ch.probe_ext_units, format: {enum: as_defined}}
+  ":CHANnel<ch>:PROBe:SKEW": {state: ch.probe_skew}
+  ":CHANnel<ch>:ADC:CLIPped": {op: acq.adc_clip_status, set: false}
+  ":CHANnel<ch>:CLIPped": {op: acq.clipped_status, set: false}
+  ":DISPlay:GRATicule:AREA<n>:HSCale": {suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_hscale}
+  ":DISPlay:GRATicule:AREA<n>:STATe": {suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_state}
+  ":DISPlay:GRATicule:AREA<n>:VSCale": {suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8]}, state: display.area_vscale}
+  ":DISPlay:GRATicule:GLAYout": {state: display.graticule_glayout}
+  ":DISPlay:GRATicule:NUMBer": {state: display.graticule_number}
+  ":DISPlay:GRATicule:SETGrat": {op: sys.accept, query: false, params: [{name: chan, type: string, state: display.setgrat_chan}, {name: grid, type: int, min: 1, max: 16, state: display.setgrat_grid}, {name: area, type: int, min: 1, max: 8, optional: true, state: display.setgrat_area}, {name: view, type: string, optional: true, state: display.setgrat_view}]}
+  ":DISPlay:PROPortion": {op: sys.accept, query: false, params: [{name: pane, type: string}, {name: proportion, type: float, min: 0.0, max: 100.0, state: display.proportion}]}
+  ":DISPlay:SCOLor": {op: sys.accept, reply: '{display.scolor_hue},{display.scolor_saturation},{display.scolor_luminosity}', params: [{name: name, type: string}, {name: hue, type: int, min: 0, max: 100, optional: true, state: display.scolor_hue}, {name: saturation, type: int, min: 0, max: 100, optional: true, state: display.scolor_saturation}, {name: luminosity, type: int, min: 0, max: 100, optional: true, state: display.scolor_luminosity}]}
+  ":DISPlay:THEMe": {state: display.theme, format: {enum: as_defined}, reply: '"{value}"'}
+  ":DISPlay:WINDow:MAXimize": {state: display.window_maximize, query: false}
+  ":DISPlay:BOOKmark:DELete:ALL": {state: display.bookmark_label, set_value: '', query: false}
+  ":DISPlay:BOOKmark<n>:DELete": {suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_label, set_value: '', query: false}
+  ":DISPlay:BOOKmark<n>:SET": {suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, op: sys.accept, query: false, params: [{name: source, type: string}, {name: label, type: string, state: display.bookmark_label}, {name: color, type: string, optional: true}, {name: content, type: string, optional: true}, {name: last, type: string, optional: true}]}
+  ":DISPlay:BOOKmark<n>:XPOSition": {suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_x}
+  ":DISPlay:BOOKmark<n>:YPOSition": {suffixes: {n: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 91, 92, 93, 94, 95, 96, 97, 98, 99, 100]}, state: display.bookmark_y}
+  ":MEASure:VPP": {op: meas.measure, set: false, args: {what: VPP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:VMAX": {op: meas.measure, set: false, args: {what: VMAX}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:VMIN": {op: meas.measure, set: false, args: {what: VMIN}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:VAMPlitude": {op: meas.measure, set: false, args: {what: VAMPlitude}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:VTOP": {op: meas.measure, set: false, args: {what: VTOP}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:VBASe": {op: meas.measure, set: false, args: {what: VBASe}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:VAVerage": {op: meas.measure, set: false, args: {what: VAVerage}, params: [{name: interval, type: enum, options: [CYCLe, DISPlay]}, {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:VRMS": {op: meas.measure, set: false, args: {what: VRMS}, params: [{name: interval, type: enum, options: [CYCLe, DISPlay]}, {name: coupling, type: enum, options: [AC, DC]}, {name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}, {name: units, type: enum, options: [VOLT, DBM], optional: true}, {name: impedance, type: raw, optional: true}]}
+  ":MEASure:FREQuency": {op: meas.measure, set: false, args: {what: FREQuency}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}, {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}]}
+  ":MEASure:PERiod": {op: meas.measure, set: false, args: {what: PERiod}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}, {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}]}
+  ":MEASure:DUTYcycle": {op: meas.measure, set: false, args: {what: DUTYcycle}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}, {name: direction, type: enum, options: [RISing], optional: true, not_modeled: {FALLing: falling-edge cycles are not modeled}}]}
+  ":MEASure:RISetime": {op: meas.measure, set: false, args: {what: RISetime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:FALLtime": {op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:PWIDth": {op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:NWIDth": {op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:OVERshoot": {op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:PREShoot": {op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":SYSTem:CAPability:ACQuire": {op: sys.capability, set: false, params: [{name: what, type: string}], args: {HALFchannel: '0', MEMory: '500000000', SRATe: '128000000000', BANDwidth: '33000000000'}}
+  ":SYSTem:CAPability:CHANnel": {op: sys.capability, set: false, params: [{name: what, type: string}], args: {COUNt: '4'}}
+  ":SYSTem:CAPability:DIGital": {op: sys.capability, set: false, params: [{name: what, type: string}], args: {MEMory: '0', SRATe: '0', CHANnels: '0'}}
+  ":CALibrate:OUTPut": {op: sys.cal_output, params: [{name: signal, type: string, optional: true}, {name: dc, type: float, unit: V, optional: true}], args: {path: calibrate.output_signal}, reply: '{calibrate.output_signal}'}
+  ":CALibrate:OUTPut:AUX": {state: calibrate.output_aux}
+  ":CALibrate:OUTPut:AUX:RTIMe": {state: calibrate.output_aux_rtime}
+  ":CALibrate:OUTPut:CAL": {state: calibrate.output_cal}
+  ":TIMebase:REFerence": {op: timebase.set_reference, params: [{name: word, type: string, optional: true}]}
+  ":TIMebase:REFerence:PERCent": {state: timebase.reference_percent}
+  ":TIMebase:WINDow:SCALe": {state: timebase.window_scale, format: {number: engineering, significant: 3}}
+  ":TIMebase:WINDow:RANGe": {state: timebase.window_scale, factor: 10.0, format: {number: engineering, significant: 3}}
+  ":TIMebase:WINDow:POSition": {state: timebase.window_position, format: {number: engineering, significant: 2}}
+  ":TIMebase:WINDow:DELay": {state: timebase.window_position, format: {number: engineering, significant: 2}}
+  ":TIMebase:ROLL:ENABLE": {state: timebase.roll_enable, reply: '0'}
+  ":WAVeform:BANDpass": {op: xfer.bandpass, set: false, args: {low: 0.0, high: $acquire.bandwidth, digits: 6}}
+  ":WAVeform:COMPlete": {op: xfer.complete, set: false}
+  ":WAVeform:COUNt": {op: xfer.hits, set: false, args: {averaging: $acquire.average, averages: $acquire.count}}
+  ":WAVeform:COUPling": {op: xfer.figure, set: false, args: {what: coupling}}
+  ":WAVeform:TYPE": {op: xfer.wfm_type, set: false, args: {averaging: $acquire.average, averaged: AVER, normal: RAW}}
+  ":WAVeform:VIEW": {state: waveform.view}
+  ":WAVeform:XDISplay": {op: xfer.figure, set: false, args: {what: x_start}}
+  ":WAVeform:XRANge": {op: xfer.figure, set: false, args: {what: timebase, scale: 10.0}}
+  ":WAVeform:XUNits": {op: xfer.axis_units, set: false, args: {axis: X}}
+  ":WAVeform:YDISplay": {op: xfer.figure, set: false, args: {what: offset}}
+  ":WAVeform:YRANge": {op: xfer.figure, set: false, args: {what: scale, scale: 8.0}}
+  ":WAVeform:YUNits": {op: xfer.axis_units, set: false, args: {axis: Y}}
+  ":WAVeform:SEGMented:ALL": {state: waveform.seg_all}
+  ":WAVeform:SEGMented:POINts": {op: xfer.segment_points, set: false}
+  ":WAVeform:SEGMented:XLISt": {op: xfer.xlist, set: false, params: [{name: what, type: string}]}
+  ":CHANnel<ch>:DISPlay:TESTLIMITS": {op: sys.limits, set: false, args: {kind: enum, words: 0|1}}
 
-  # ---- FUNCtion（#1074，手册第 22 章）----
-  # 运算命令把算子写进 function{f}.operator，信源各归各位；:FUNCtion<f>? 由 math.definition 回。
-  # ADD/SUBtract/MULTiply/DIVide 经 math.operate 写入：两个操作数都要给、须是合法源或有限常数（#1494）。
-  - header: ":FUNCtion<f>:ADD"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    op: math.operate
-    args: {operator: ADD}
-    query: false
-    params:
-      - {name: source1, type: string}
-      - {name: source2, type: string, optional: true}
-  - header: ":FUNCtion<f>:SUBTract"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    op: math.operate
-    args: {operator: SUBTract}
-    query: false
-    params:
-      - {name: source1, type: string}
-      - {name: source2, type: string, optional: true}
-  - header: ":FUNCtion<f>:MULTiply"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    op: math.operate
-    args: {operator: MULTiply}
-    query: false
-    params:
-      - {name: source1, type: string}
-      - {name: source2, type: string, optional: true}
-  - header: ":FUNCtion<f>:DIVide"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    op: math.operate
-    args: {operator: DIVide}
-    query: false
-    params:
-      - {name: source1, type: string}
-      - {name: source2, type: string, optional: true}
-  - header: ":FUNCtion<f>:COMMonmode"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": COMMonmode}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
-  - header: ":FUNCtion<f>:ABSolute"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": ABSolute}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
+  # —— 仅 1104B 有的命令头（继承删除）——
+  ":ACQuire:INTerpolate": null
+  ":TRIGger:HOLDoff:MODE": null
+  ":TRIGger:HOLDoff:MIN": null
+  ":TRIGger:HOLDoff:MAX": null
+  ":TRIGger:HIGH": null
+  ":TRIGger:LEVel:FIFTy": null
+  ":TRIGger:GLITch<e>:SOURce": null
+  ":TRIGger:GLITch<e>:POLarity": null
+  ":TRIGger:GLITch<e>:WIDTh": null
+  ":TRIGger:PWIDth<e>:SOURce": null
+  ":TRIGger:PWIDth<e>:POLarity": null
+  ":TRIGger:PWIDth<e>:MODE": null
+  ":TRIGger:PWIDth<e>:WIDTh": null
+  ":TRIGger:PWIDth<e>:TPOint": null
+  ":TRIGger:PWIDth<e>:RANGe": null
+  ":DISPlay:BOOKmark<n>:VERTical": null
+  ":HARDcopy:PRINters": null
+  ":HARDcopy:DPRinter": null
+  ":LXI:IDENtify[:STATe]": null
+  ":SYSTem:DEBug": null
+  ":SYSTem:DONTtabmeas": null
+  ":SYSTem:GUI": null
+  ":SYSTem:TOUChscreen": null
+  ":SYSTem:MODE": null
+  ":SYSTem:PERSona": null
+  ":MEASure:VUPPer": null
+  ":MEASure:VMIDdle": null
+  ":MEASure:VLOWer": null
+  ":MEASure:PPULses": null
+  ":MEASure:NPULses": null
+  ":MEASure:TMAX": null
+  ":MEASure:TMIN": null
+  ":MEASure:VOVershoot": null
+  ":MEASure:VPReshoot": null
+  ":MEASure:VUNDershoot": null
+  ":MEASure:UNDershoot": null
+  ":MEASure:AREA": null
+  ":MEASure:PTOP": null
+  ":MEASure:PBASe": null
+  ":MEASure:BWIDth": null
+  ":MEASure:BPERiod": null
+  ":MEASure:BINTerval": null
+  ":MEASure:VTIMe": null
+  ":MEASure:TEDGe": null
+  ":MEASure:TVOLt": null
+  ":MEASure:PHASe": null
+  ":MEASure:CROSsing": null
+  ":MEASure:DELTatime": null
+  ":MEASure:DELTatime:DEFine": null
+  ":MEASure:CLEar": null
+  ":MEASure:SCRatch": null
+  ":MEASure:RESults": null
+  ":MEASure:NAME": null
+  ":MEASurement<n>:NAME": null
+  ":MEASurement<n>:CLEar": null
+  ":MEASurement<n>:POSition": null
+  ":MEASurement<n>:SOURce": null
+  ":MEASure:SENDvalid": null
+  ":MEASure:WINDow": null
+  ":MEASure:THResholds:GENAUTO": null
+  ":MEASure:THResholds:GENeral:METHod": null
+  ":MEASure:THResholds:GENeral:PERCent": null
+  ":MEASure:THResholds:GENeral:ABSolute": null
+  ":MEASure:THResholds:GENeral:HYSTeresis": null
+  ":MEASure:THResholds:GENeral:TOPBase:METHod": null
+  ":MEASure:THResholds:GENeral:TOPBase:ABSolute": null
+  ":MEASure:THResholds:RFALl:METHod": null
+  ":MEASure:THResholds:RFALl:PERCent": null
+  ":MEASure:THResholds:RFALl:ABSolute": null
+  ":MEASure:THResholds:RFALl:TOPBase:METHod": null
+  ":MEASure:THResholds:RFALl:TOPBase:ABSolute": null
+  ":MEASure:THResholds:METHod": null
+  ":MEASure:THResholds:PERCent": null
+  ":MEASure:THResholds:ABSolute": null
+  ":MEASure:THResholds:HYSTeresis": null
+  ":MEASure:THResholds:TOPBase:METHod": null
+  ":MEASure:THResholds:TOPBase:ABSolute": null
+  ":MEASure:STATistics": null
+  ":DISK:SAVE:MEASurements": null
+  ":DISK:LOAD": null
 
-  - header: ":FUNCtion<f>:INVert"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": INVert}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:SQUare"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": SQUare}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:SQRT"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": SQRT}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:MAGNify"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": MAGNify}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:DIFF"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": DIFF}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:INTegrate"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": INTegrate}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:AVERage"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": AVERage}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: averages, type: int, optional: true, state: "function{f}.average"}
-
-  - header: ":FUNCtion<f>:DELay"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": DELay}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: delay, type: float, unit: S, optional: true, state: "function{f}.delay"}
-
-  - header: ":FUNCtion<f>:GATing"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": GATing}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:SMOoth"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": SMOoth}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: points, type: int, optional: true, state: "function{f}.smooth"}
-
-  - {header: ":FUNCtion<f>:GATing:STARt", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.gate_start"}
-  - {header: ":FUNCtion<f>:GATing:STOP", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.gate_stop"}
-  - header: ":FUNCtion<f>:HIGHpass"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": HIGHpass}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: bandwidth, type: float, unit: HZ, optional: true, state: "function{f}.hp_bw"}
-
-  - header: ":FUNCtion<f>:LOWPass"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": LOWPass}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: bandwidth, type: float, unit: HZ, optional: true, state: "function{f}.lp_bw"}
-
-  - header: ":FUNCtion<f>:MAXimum"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": MAXimum}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:MINimum"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": MINimum}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:FFTMagnitude"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": FFTMagnitude}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:FFTPhase"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": FFTPhase}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>:PSDensity"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": PSDensity}
-    params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-
-  - header: ":FUNCtion<f>"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    set: false
-    op: math.definition
-    reply: "{header} {value}"
-  - {header: ":FUNCtion<f>:DISPlay", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.display"}
-  - {header: ":FUNCtion<f>:RANGe", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.range"}
-  - {header: ":FUNCtion<f>:OFFSet", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.offset"}
-  - {header: ":FUNCtion<f>:VERTical", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.vertical"}
-  - {header: ":FUNCtion<f>:VERTical:RANGe", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.range"}
-  - {header: ":FUNCtion<f>:VERTical:OFFSet", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.offset"}
-  # :FUNCtion<f>:HORizontal 三条：时基绑定的算子（手册注明）报 -221，FFT 的位置/量程是中心频率/跨度。
-  - {header: ":FUNCtion<f>:HORizontal", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, op: math.h_field, args: {field: horizontal}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":FUNCtion<f>:HORizontal:POSition", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, op: math.h_field, args: {field: position}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":FUNCtion<f>:HORizontal:RANGe", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, op: math.h_field, args: {field: range}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":FUNCtion<f>:FFT:WINDow", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.window"}
-  - {header: ":FUNCtion<f>:FFT:VUNits", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.vunits"}
-  - {header: ":FUNCtion<f>:FFT:SPAN", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.span"}
-  - {header: ":FUNCtion<f>:FFT:FREQuency", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.center"}
-  - {header: ":FUNCtion<f>:FFT:STARt", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.start"}
-  - {header: ":FUNCtion<f>:FFT:STOP", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.stop"}
-  - {header: ":FUNCtion<f>:FFT:TDELay", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.tdelay"}
-  - {header: ":FUNCtion<f>:FFT:IMPedance", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.impedance"}
-  - {header: ":FUNCtion<f>:FFT:REFerence", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.fft_ref"}
-  - {header: ":FUNCtion<f>:FFT:HSCale", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.hsc"}
-  - {header: ":FUNCtion<f>:FFT:DETector:TYPE", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.detector"}
-  - {header: ":FUNCtion<f>:FFT:DETector:POINts", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.detector_points"}
-  - header: ":FUNCtion<f>:FFT:RESolution"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    op: math.fft_resolution
-    params: [{name: resolution, type: float, unit: HZ, optional: true}]
-  - {header: ":FUNCtion:FFT:PEAK:SORT", state: function.peak_sort}
-  - {header: ":FUNCtion<f>:FFT:PEAK:STATe", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.peak_state"}
-  - {header: ":FUNCtion<f>:FFT:PEAK:COUNt", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.peak_count"}
-  - {header: ":FUNCtion<f>:FFT:PEAK:LEVel", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.peak_level"}
-  - header: ":FUNCtion<f>:FFT:PEAK:FREQuency"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    op: math.fft_peak
-    set: false
-    args: {kind: FREQuency}
-  - header: ":FUNCtion<f>:FFT:PEAK:MAGNitude"
-    suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    op: math.fft_peak
-    set: false
-    args: {kind: MAGNitude}
-  - {header: ":FUNCtion<f>:LABel", suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}, state: "function{f}.label"}
-  # ---- :MEASure:FFT（手册第 32 章）：结果即查即算。THDistortion 的 PEAK 方式以门限之上第
-  # <peak_number> 个峰（按频率从低到高、与峰注释排序无关，缺省第 1 个）为基波（#1375）。
-  - header: ":MEASure:FFT:FREQuency"
-    op: math.fft_measure
-    set: false
-    args: {kind: FREQuency}
-    params:
-      - {name: source, type: string}
-      - {name: peak, type: int, optional: true}
-      - {name: level, type: float, optional: true}
-  - header: ":MEASure:FFT:MAGNitude"
-    op: math.fft_measure
-    set: false
-    args: {kind: MAGNitude}
-    params:
-      - {name: source, type: string}
-      - {name: peak, type: int, optional: true}
-      - {name: level, type: float, optional: true}
-  - header: ":MEASure:FFT:DFRequency"
-    op: math.fft_measure
-    set: false
-    args: {kind: DFRequency}
-    params:
-      - {name: source, type: string}
-      - {name: peak1, type: int, optional: true}
-      - {name: peak2, type: int, optional: true}
-      - {name: level, type: float, optional: true}
-  - header: ":MEASure:FFT:DMAGnitude"
-    op: math.fft_measure
-    set: false
-    args: {kind: DMAGnitude}
-    params:
-      - {name: source, type: string}
-      - {name: peak1, type: int, optional: true}
-      - {name: peak2, type: int, optional: true}
-      - {name: level, type: float, optional: true}
-  - header: ":MEASure:FFT:CPOWer"
-    op: math.fft_measure
-    set: false
-    args: {kind: CPOWer}
-    params:
-      - {name: source, type: string}
-      - {name: center, type: float, optional: true}
-      - {name: bandwidth, type: float, optional: true}
-  - header: ":MEASure:FFT:PSD"
-    op: math.fft_measure
-    set: false
-    args: {kind: PSD}
-    params:
-      - {name: source, type: string}
-      - {name: center, type: float, optional: true}
-      - {name: bandwidth, type: float, optional: true}
-  - header: ":MEASure:FFT:OBW"
-    op: math.fft_measure
-    set: false
-    args: {kind: OBW}
-    params:
-      - {name: source, type: string}
-      - {name: percent, type: float, optional: true}
-  - header: ":MEASure:FFT:THDistortion"
-    op: math.fft_measure
-    set: false
-    args: {kind: THDistortion}
-    params:
-      - {name: source, type: string}
-      # 手册：<source>,{MANual,<fund_freq> | PEAK,<level>[,<peak_number>]}——模式之后的数按模式解释（#1362）。
-      - {name: mode, type: enum, options: [MANual, PEAK]}
-      - {name: value, type: float}
-      - {name: peak, type: int, optional: true}
-  # ---- :MARKer（手册第 31 章）：MODE 选择方式，X/Y1、X/Y2 与 TST/VST 是同一对光标的两套写法；
-  # :MARKer:CURSor? 在非跟踪方式下会把方式改成 WAVeform（手册 CAUTION），由 op 完成。
-  - {header: ":MARKer:MODE", state: marker.mode}
-  - {header: ":MARKer:X1Position", state: marker.x1}
-  - {header: ":MARKer:X2Position", state: marker.x2}
-  - {header: ":MARKer:Y1Position", op: meas.tracked_y, args: {which: Y1}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer:Y2Position", op: meas.tracked_y, args: {which: Y2}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer:TSTArt", state: marker.x1}
-  - {header: ":MARKer:TSTOp", state: marker.x2}
-  - {header: ":MARKer:VSTArt", op: meas.tracked_y, args: {which: Y1}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer:VSTOp", op: meas.tracked_y, args: {which: Y2}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer:X1Y1source", state: marker.source1}
-  - {header: ":MARKer:X2Y2source", state: marker.source2}
-  - {header: ":MARKer:XDELta", op: meas.x_delta, set: false}
-  - {header: ":MARKer:YDELta", op: meas.y_delta, set: false}
-  - header: ":MARKer:CURSor"
-    op: meas.cursor
-    set: false
-    params: [{name: which, type: enum, options: [DELTa, STARt, STOP], optional: true}]
-  - header: ":MARKer:MEASurement:MEASurement"
-    op: meas.marker_measurements
-    params:
-      - {name: measurement, type: raw, optional: true}
-      - {name: state, type: raw, optional: true}
-  - {header: ":MARKer<K>:TYPE", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: type}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:SOURce", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: source}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:NAME", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: name}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:ENABle", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: enable}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:COLor", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: color}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:CMODe", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: cmode}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:X:POSition", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: x}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:Y:POSition", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.k_field, args: {field: y}, params: [{name: value, type: raw, optional: true}]}
-  - {header: ":MARKer<K>:DELTa", suffixes: {k: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60]}, op: meas.marker_delta, params: [{name: other, type: raw, optional: true}, {name: state, type: raw, optional: true}]}
-  # ---- CHANnel<N>:SPECtral（手册 p.551，#1074）：频谱视图的窗口设置，数据路径是 :FUNCtion FFT。
-  - {header: ":CHANnel<ch>:SPECtral:CFRequency", state: ch.spectral_center}
-  - {header: ":CHANnel<ch>:SPECtral:SPAN", state: ch.spectral_span}
-  # 限值与能力查询（手册 pp.496/552/554，#1067）：DISPlay 的有效设定为 0|1；频谱视图取定义声明的范围
-  - {header: ":CHANnel<ch>:DISPlay:TESTLIMITS", op: sys.limits, set: false, args: {kind: enum, words: "0|1"}}
-  - {header: ":CHANnel<ch>:SPECtral:CFRequency:TESTLIMITS", op: sys.limits, set: false, args: {path: ch.spectral_center}}
-  - {header: ":CHANnel<ch>:SPECtral:SPAN:TESTLIMITS", op: sys.limits, set: false, args: {path: ch.spectral_span}}
+  # —— 仅本型号有的命令头（追加）——
+  "*OPT": {set: false, op: sys.accept, reply: '0'}

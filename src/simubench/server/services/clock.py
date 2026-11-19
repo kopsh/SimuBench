@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from typing import Any, cast
 
-from ...models import api as M
+from ...contracts import api as M
 from ..manager import ServedSession
 
 

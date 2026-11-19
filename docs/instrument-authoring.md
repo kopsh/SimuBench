@@ -332,7 +332,7 @@ commands:
 
 采样流端口不能映射为仪表端口，所以这台仪表没有 SCPI 读数：`ddc.out` 由内部探针读取（signal-chain.md 1.3、第 6 节；Web 的内部结构图点开端口，或 MCP / HTTP 的 internal probe）。要给出 SCPI 读数，需要一个把采样流合成为读数的块——频谱仪里是 `specan_detector` / `specan_trace`；没有现成的块时写插件（下文）。
 
-**宏展开后的样子**：现有定义不必改写。加载时宏把采样流补上（`library/macros.py`；Web 的“展开后的定义”与 `DefinitionFiles.expanded` 显示的就是它），作者写的条目位置不变，新增的排在表尾：
+**宏展开后的样子**：现有定义不必改写。加载时宏把采样流补上（`models/macros.py`；Web 的“展开后的定义”与 `DefinitionFiles.expanded` 显示的就是它），作者写的条目位置不变，新增的排在表尾：
 
 - 示波器（`scope_acquisition` 没有写 `decimator` 时，`sb-dso-4` 为例）——增加 `scope_decimator` 块 `dec`，原来的一条连线 `[ch{n}.probe.out, acq.in{n}]` 拆成三条：
 
@@ -637,7 +637,7 @@ constraints:
 
 面板只改设置，不改仪表定义。
 
-已实现（#128）。定义中的写法（`library/panels.py` 生成类别默认布局，`web/e2e/fixtures/instruments/sb-panel-1.yaml` 是一份完整的声明）：
+已实现（#128）。定义中的写法（`models/panels.py` 生成类别默认布局，`web/e2e/fixtures/instruments/sb-panel-1.yaml` 是一份完整的声明）：
 
 ```yaml
 display:
@@ -851,7 +851,7 @@ F2、F5 不依赖拆分，单独修（#131、#132）。其余随拆分解决。
 **G1 的实现（#133）**：
 
 - 新模块：`scope_vertical`（`scope_frontend` 是它的旧名）、`scope_probe`、`scope_adc`、`scope_timebase`、`scope_trigger`。`scope_acquisition` 用参数 `horizontal`、`trigger`、`adc`、`vertical`、`probe` 按名称引用它们，引用由静态校验检查（`E-DEF-COMPONENT-REF`）。组件基类的 `refs` 声明“这个参数指向哪类组件”，以后的模块沿用。
-- 宏在定义模型构造时展开（`InstrumentDefinition` 的前置校验调用 `library/macros.py`），所以加载文件、MCP、测试中直接构造定义都走同一条路。展开把模块的参数改用模块自己的名称，例如 `adc_bits` 改为 `bits`、`trigger_source` 改为 `source`；把接到 `<acq>.in{n}` 的每通道组件作为 `vertical`，并改用 `scope_vertical` 这个名称；再在它与采集之间插入名为 `probe` 的 `scope_probe`。名称冲突或连线不是这个形状时报 `E-DEF-MACRO`，要求把模块写出来。对宏形式的定义，校验诊断的指针指向展开后的位置。
+- 宏在定义模型构造时展开（`InstrumentDefinition` 的前置校验调用 `models/macros.py`），所以加载文件、MCP、测试中直接构造定义都走同一条路。展开把模块的参数改用模块自己的名称，例如 `adc_bits` 改为 `bits`、`trigger_source` 改为 `source`；把接到 `<acq>.in{n}` 的每通道组件作为 `vertical`，并改用 `scope_vertical` 这个名称；再在它与采集之间插入名为 `probe` 的 `scope_probe`。名称冲突或连线不是这个形状时报 `E-DEF-MACRO`，要求把模块写出来。对宏形式的定义，校验诊断的指针指向展开后的位置。
 - `scope_vertical` 的档位表本期只有刻度与偏置的范围（`scale_range`、`offset_ranges`，按输入端给出，用 `probe_ratio` 换算，超出报 -222 并保留旧值）。带宽、噪声、误差与饱和随 G3、G4 加入。
 - 噪声、触发抖动与平均仍在 `scope_acquisition` 上：它们的随机流以采集组件的标识为键，搬动会改变每一个数值，而这两项的行为会在 G4、G5 中改变，届时再搬到 `scope_vertical` 与 `scope_trigger`。
 - `sb-dso-4`、`sb-dso-2x` 改为显式写出模块；SDS2104X Plus 与低频校准参考示波器经宏展开，分别在 G6、G7 改写。

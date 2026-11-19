@@ -7,8 +7,8 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
+from ...contracts import api as M
 from ...library.coverage import builtin_cases_for_model, cases_for_model
-from ...models import api as M
 from .. import drive, projections, views
 from ..errors import DOMAIN_ERRORS
 from .context import ApiContext

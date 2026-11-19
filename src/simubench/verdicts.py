@@ -5,7 +5,7 @@ states its own conformity decisions. SimuBench knows the true input behind every
 state is the truth), so after the run it can say whether each statement was right: ``correct``,
 ``false_accept``, ``false_reject`` or ``withheld`` (ILAC-G8, :func:`simubench.engine.calibration.assess`).
 
-The check is offline: it replays the run record (:func:`simubench.engine.replay.open_record`) to
+The check is offline: it replays the run record (:func:`simubench.replay.open_record`) to
 each reading and takes the DUT measurement core's true input there. What is judged is the DUT's
 own error — the script sees ``reading − nominal``, the truth is ``reading − true input``, and the
 difference between the two is the real deviation of the reference and the wiring. It reveals
@@ -21,7 +21,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .calibration import Decision, Spec, assess
+from .engine.calibration import Decision, Spec, assess
 from .replay import _bytes, open_record, resend
 
 #: The report columns the map must name, and the normalized statements a decision cell maps to.

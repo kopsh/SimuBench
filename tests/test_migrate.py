@@ -8,7 +8,7 @@ from helpers import raises_with
 from simubench.cli import main
 from simubench.engine.validate import validate_data
 from simubench.library.loader import DefinitionLibrary, load_bench
-from simubench.library.migrate import FormatError, upgrade
+from simubench.models.migrate import FormatError, upgrade
 
 ROOT = Path(__file__).resolve().parents[1]
 

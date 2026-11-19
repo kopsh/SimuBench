@@ -27,6 +27,7 @@ import math
 from pathlib import Path
 from typing import Any, Literal
 
+from ..contracts import api as M
 from ..errors import Invalid
 from ..jsonsafe import as_number, spelling
 from ..library.loader import (
@@ -38,7 +39,6 @@ from ..library.loader import (
     apply_component_overrides,
     layered_definition_data,
 )
-from ..models import api as M
 
 StructureKey = Literal[
     "components", "channel_components", "wiring", "ports", "state", "channel_state", "commands"

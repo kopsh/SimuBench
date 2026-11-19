@@ -40,7 +40,7 @@ interface ClassEntry {
 
 /**
  * The template ids the backend's category registry knows (#1384): the generated union of the API's
- * class ids (`InstrumentClass`, library/categories.py). Declaring the list as a Record over it
+ * class ids (`InstrumentClass`, models/categories.py). Declaring the list as a Record over it
  * makes a backend class without an entry here a compile error, so the two sides cannot drift.
  */
 type TemplateId = InstrumentInfo["instrument_class"];

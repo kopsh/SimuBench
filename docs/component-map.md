@@ -246,7 +246,7 @@ E2(#191)已拆分:`sb-daq-1` 是 34970A + 槽 1 的 34901A(20 通道,号域 101�
 | statistics | `counter_statistics` | 数据(均值/最小/最大/样本标准差) | 已实现 | — |
 | trigger | `trigger_model`(现有) | 数据 | 已实现 | — |
 
-F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控、时基、计数、统计与触发),类别默认面板见 `library/panels.py` 的 `_counter`。计数按主谱线的周期事件建模:阈值穿越的波形用 `sample_rel` 在一个周期上采样并线性内插;非谐波相关的多音信号按最强谱线计数(模型边界)。每个事件加内插器单次分辨率(默认 1 ns,模型值)与触发误差(默认 1 ns)的合成误差,按虚拟时刻与种子确定：频率/周期的相对分辨率随门时间变长而下降(约 √2×单次分辨率/门时间),时间间隔的两个通道误差各自独立抽取。累加按半开区间 [start, end) 计数,恰好落在门末的事件归下一门;门控「外部」表示由触发模型开始这一轮(触发源),门长仍由门时间给出。53230A 的无间隙连续测量与时间戳不在首波,后由 #328、#385 补上。
+F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控、时基、计数、统计与触发),类别默认面板见 `models/panels.py` 的 `_counter`。计数按主谱线的周期事件建模:阈值穿越的波形用 `sample_rel` 在一个周期上采样并线性内插;非谐波相关的多音信号按最强谱线计数(模型边界)。每个事件加内插器单次分辨率(默认 1 ns,模型值)与触发误差(默认 1 ns)的合成误差,按虚拟时刻与种子确定：频率/周期的相对分辨率随门时间变长而下降(约 √2×单次分辨率/门时间),时间间隔的两个通道误差各自独立抽取。累加按半开区间 [start, end) 计数,恰好落在门末的事件归下一门;门控「外部」表示由触发模型开始这一轮(触发源),门长仍由门时间给出。53230A 的无间隙连续测量与时间戳不在首波,后由 #328、#385 补上。
 
 ## tunable_laser(可调激光源,#1103)
 
@@ -281,7 +281,7 @@ F(#192)已建立:`sb-counter-1` 按上表落地(两路 `counter_input`、门控�
 | shutter | `variable_optical_attenuator` | 信号 | 已实现 | — |
 | power_control | `variable_optical_attenuator` | 信号(按输入功率求出使输出等于目标的衰减,限在 0 … 最大衰减,够不到时 UNREACH) | 已实现 | 功率模式下的到位过程不建模 |
 
-测试台上的固定光衰减器仍是配件 `optical_attenuator`(D71);可变光衰减器是仪表内部组件。验证:`sb-tls-1` → `sb-voa-1` → `sb-opm-1`(`validation/benches/optical_sweep.bench.yaml`,`tests/test_optical_instruments.py`),类别默认面板见 `library/panels.py` 的 `_tunable_laser`、`_optical_power_meter`、`_optical_attenuator`。
+测试台上的固定光衰减器仍是配件 `optical_attenuator`(D71);可变光衰减器是仪表内部组件。验证:`sb-tls-1` → `sb-voa-1` → `sb-opm-1`(`validation/benches/optical_sweep.bench.yaml`,`tests/test_optical_instruments.py`),类别默认面板见 `models/panels.py` 的 `_tunable_laser`、`_optical_power_meter`、`_optical_attenuator`。
 
 ## 缺口清单 v1(#309 定稿)
 

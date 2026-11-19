@@ -44,14 +44,14 @@ from pydantic_ai.run import AgentRunResultEvent
 from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
-from ..library.loader import load_yaml
-from ..models import api as M
-from ..server.benchchanges import bench_changes
-from ..server.benchfiles import Conflict
-from ..server.definitionchanges import definition_changes
-from ..server.definitionfiles import FOLDER, DefinitionFiles
-from ..server.errors import Unknown
-from ..server.manager import SessionManager
+from ...contracts import api as M
+from ...library.loader import load_yaml
+from ..benchchanges import bench_changes
+from ..benchfiles import Conflict
+from ..definitionchanges import definition_changes
+from ..definitionfiles import FOLDER, DefinitionFiles
+from ..errors import Unknown
+from ..manager import SessionManager
 from . import compaction
 from .config import AssistantSettings, ConfigError, LlmSettings, check_settings
 from .guard import Stuck

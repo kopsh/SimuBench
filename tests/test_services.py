@@ -80,7 +80,7 @@ def _status(ctx, exc, **options):
 
 
 def test_the_http_error_table_maps_each_domain_error_once(tmp_path):
-    from simubench.models import api as M
+    from simubench.contracts import api as M
     from simubench.server.errors import BenchInvalid, ClientsConnected, Conflict, Forbidden, NotFound
 
     ctx = _ctx(tmp_path)
@@ -131,9 +131,9 @@ def test_a_bare_key_or_value_error_is_a_bug_not_a_domain_error():
     dict lookup gone wrong inside a service) is not swallowed into a tool's error text."""
     from types import SimpleNamespace
 
-    from simubench.assistant.guard import LoopGuard
-    from simubench.assistant.tools import _call
     from simubench.errors import Invalid, Unknown
+    from simubench.server.assistant.guard import LoopGuard
+    from simubench.server.assistant.tools import _call
     from simubench.server.errors import DOMAIN_ERRORS, tool_text
 
     assert isinstance(Unknown("no instrument named 'x'"), DOMAIN_ERRORS)
@@ -183,10 +183,10 @@ def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
 def test_the_agent_texts_come_from_one_table():
     """#1382: one table, three seams. The kinds whose wording the two agent seams share say exactly
     the same thing; where the next step differs (scripts connected), the seam says its own."""
+    from simubench.contracts import api as M
     from simubench.engine.edit import EditError
     from simubench.engine.jsonpatch import PatchError
     from simubench.errors import Invalid, Unknown
-    from simubench.models import api as M
     from simubench.server.errors import BenchInvalid, ClientsConnected, Conflict, tool_text
 
     shared = [
@@ -234,7 +234,7 @@ def test_the_tool_text_and_the_http_row_agree_per_kind(tmp_path):
     """The table's two columns encode one policy per kind: every domain kind gets a tool text for
     both agent seams, and the text carries what the HTTP row's status is about (the missing file's
     name, the conflict's sha, the invalid bench's pointer)."""
-    from simubench.models import api as M
+    from simubench.contracts import api as M
     from simubench.server.errors import BenchInvalid, Conflict, tool_text
 
     ctx = _ctx(tmp_path)
@@ -356,8 +356,8 @@ def test_agent_seams_drive_sessions_only_through_the_manager():
     tools_dir = _mcp_tools_dir()
     seams = [
         *sorted(tools_dir.glob("*.py")),
-        tools_dir.parent / "assistant" / "tools.py",
-        tools_dir.parent / "assistant" / "service.py",
+        tools_dir.parent / "server" / "assistant" / "tools.py",
+        tools_dir.parent / "server" / "assistant" / "service.py",
     ]
     offenders: list[str] = []
     for path in seams:

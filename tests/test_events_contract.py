@@ -16,6 +16,7 @@ import numpy as np
 import pytest
 
 from simubench.api import open_bench
+from simubench.contracts import api as M
 from simubench.engine.events import (
     ENGINE_SIDE_KEYS,
     EVENT_KINDS,
@@ -27,7 +28,6 @@ from simubench.engine.events import (
 from simubench.engine.record import encode_bytes, jsonable
 from simubench.engine.session import _header_of
 from simubench.jsonsafe import SPECIAL_NUMBERS, as_number, spelling
-from simubench.models import api as M
 from simubench.models.bench import Fault
 
 ROOT = Path(__file__).resolve().parents[1]

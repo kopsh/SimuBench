@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from typing import Any
 
-from ..library import categories
+from ..models import categories
 from . import controls as C
 from . import i18n
 from .fmt import braille_rows, cell_len, fmt, fmt_ns, pad, ralign

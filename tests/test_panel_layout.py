@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 
 from simubench.engine.validate_definition import validate_definition_data
 from simubench.library.loader import load_yaml
-from simubench.library.panels import effective_panel
 from simubench.models.definition import InstrumentDefinition
+from simubench.models.panels import effective_panel
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 

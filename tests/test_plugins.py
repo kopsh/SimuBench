@@ -10,14 +10,14 @@ from types import SimpleNamespace
 import pytest
 
 from helpers import raises_with
-from simubench import plugins
 from simubench.api import open_bench
 from simubench.cli import main
+from simubench.engine import plugins
 from simubench.engine.component import component_type, registry
-from simubench.engine.replay import replay
-from simubench.ops import doctor, manifest
-from simubench.plugins import legacy_setting_present, trust_changed, workspace_allows_plugins
+from simubench.engine.plugins import legacy_setting_present, trust_changed, workspace_allows_plugins
+from simubench.replay import replay
 from simubench.server.manager import SessionManager
+from simubench.server.ops import doctor, manifest
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCH_WITHOUT_PLUGINS = ROOT / "acceptance" / "benches" / "awg_rc_scope.bench.yaml"
@@ -187,8 +187,8 @@ def test_trust_follows_the_code_not_the_path(tmp_path, clean_plugins):
 
 
 def test_the_first_path_only_grant_format_grants_nothing(tmp_path, clean_plugins):
+    from simubench.engine.plugins import TRUST_FILE
     from simubench.paths import user_data_dir
-    from simubench.plugins import TRUST_FILE
 
     ws = workspace_with(tmp_path, "bomb.py")
     (user_data_dir() / TRUST_FILE).write_text(

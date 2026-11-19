@@ -8,9 +8,9 @@ from pathlib import Path
 import pytest
 
 from simubench.api import open_bench
-from simubench.engine.replay import replay
 from simubench.library.loader import load_yaml
 from simubench.models.bench import BenchDefinition
+from simubench.replay import replay
 
 DEFS = Path(__file__).parent / "definitions"
 NPLC_S = 0.02  # one reading at 1 PLC in the test meter

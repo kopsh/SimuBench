@@ -18,7 +18,7 @@ from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widget import Widget
 from textual.widgets import Static
 
-from ...library import categories
+from ...models import categories
 from .. import controls as C
 from .. import i18n, rows
 from ..cards import ARROWS, opposite_ends

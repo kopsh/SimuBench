@@ -282,7 +282,7 @@ def _workspace_smu(def_id: str) -> dict[str, Any]:
     panel and the state specs with their defaults as values — the shape the instrument DTO
     carries (#1469). Loading the definition ties the test to the file its block names live in."""
     from simubench.library.loader import DefinitionLibrary
-    from simubench.library.panels import effective_panel
+    from simubench.models.panels import effective_panel
 
     d = DefinitionLibrary().get(def_id)
     panel, _source = effective_panel(d)

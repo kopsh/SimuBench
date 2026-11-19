@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Query
 
-from ...models import api as M
+from ...contracts import api as M
 from .. import preview as bench_preview
 from .context import ApiContext
 

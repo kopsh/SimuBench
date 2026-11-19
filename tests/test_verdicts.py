@@ -14,8 +14,8 @@ import pytest
 from helpers import raises_with
 from simubench.api import open_bench
 from simubench.cli import main
-from simubench.engine.verdicts import VerdictError, check_verdicts
 from simubench.models.bench import BenchDefinition
+from simubench.verdicts import VerdictError, check_verdicts
 
 MAP = """\
 instrument: dmm

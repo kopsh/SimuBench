@@ -9,7 +9,7 @@ from pathlib import Path
 import numpy as np
 
 from simubench.api import open_bench
-from simubench.engine.replay import replay
+from simubench.replay import replay
 from simubench.server import views
 from simubench.server.manager import ServedSession
 

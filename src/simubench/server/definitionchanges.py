@@ -18,7 +18,7 @@ import math
 from collections import Counter
 from typing import Any
 
-from ..models import api as M
+from ..contracts import api as M
 
 #: Sections compared with their own, instrument-shaped logic; every other top-level key (ports,
 #: wiring, display, description, ...) goes through the generic one.

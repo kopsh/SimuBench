@@ -16,8 +16,8 @@ from pathlib import Path
 import pytest
 
 from simubench.engine.calibration import register_view
-from simubench.engine.verdicts import check_verdicts
 from simubench.library.loader import load_bench
+from simubench.verdicts import check_verdicts
 
 ROOT = Path(__file__).resolve().parents[1]
 DEMO = ROOT / "examples" / "demo"

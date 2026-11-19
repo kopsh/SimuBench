@@ -7,7 +7,6 @@ import pytest
 from helpers import raises_with
 from simubench.engine.jsonpatch import PatchError, PatchOp, apply
 from simubench.engine.validate_definition import validate_definition_data
-from simubench.library import categories
 from simubench.library.loader import DefinitionLibrary
 from simubench.library.scriptscan import (
     ScannedCommand,
@@ -16,6 +15,7 @@ from simubench.library.scriptscan import (
     draft_definition,
     rank,
 )
+from simubench.models import categories
 
 
 def ops(*items):

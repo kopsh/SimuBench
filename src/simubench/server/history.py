@@ -16,7 +16,7 @@ import os
 from pathlib import Path
 from typing import Literal
 
-from ..models import api as M
+from ..contracts import api as M
 from .errors import NotFound
 
 Source = Literal["ui", "agent", "api", "external", "restore"]

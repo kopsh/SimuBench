@@ -20,15 +20,15 @@ from typing import Any
 import yaml
 from ruamel.yaml.error import YAMLError as RuamelError
 
+from ..contracts import api as M
 from ..engine import edit
 from ..engine.component import component_types
 from ..engine.settings import channel_ports
 from ..engine.validate import Report, drives_net, validate_data
-from ..library import categories
 from ..library.loader import SKIP_DIRS, DefinitionLibrary, dump_yaml, load_yaml, parse_error_text
-from ..library.migrate import FormatError, upgrade
-from ..models import api as M
+from ..models import categories
 from ..models.bench import BenchDefinition
+from ..models.migrate import FormatError, upgrade
 from . import yamlpatch
 from .errors import Conflict, Forbidden, Invalid, NotFound
 from .history import History, Source

@@ -151,7 +151,11 @@ def main() -> int:
     for prefix in WEB_ONLY:
         if not any(k.startswith(prefix) for k in web):
             problems.append(f"web-only prefix {prefix!r} has no key in en.ts")
-        problems += [f"tui key {k} is under the web-only {prefix!r}: share it instead" for k in tui if k.startswith(prefix)]
+        problems += [
+            f"tui key {k} is under the web-only {prefix!r}: share it instead"
+            for k in tui
+            if k.startswith(prefix)
+        ]
     for tui_key, web_key in SHARED.items():
         if tui_key not in tui:
             problems.append(f"tui key missing: {tui_key}")

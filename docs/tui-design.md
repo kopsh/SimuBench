@@ -87,7 +87,7 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
 - **只走 HTTP/WebSocket 接口**，与 Web Bench 用同一批端点（`/api/sessions/...`、`/levels`、`/screen`、`/panel`、`/faults`、`/clock`、WebSocket `events`），不直接调用引擎。理由：
   1. 远程状态（D32、#121）、令牌（D43）、Host/Origin 校验、危险确认的语义与 Web 完全一致，不需要第二份实现；
   2. 同一个会话可被脚本、Web、Agent、TUI 同时观察（D9），TUI 只是又一个观察者；
-  3. 接口模型是 Python 中的 Pydantic（D21 单一来源），TUI 直接复用 `simubench.models.api`，不需要生成客户端，接口改动由类型检查与测试发现。
+  3. 接口模型是 Python 中的 Pydantic（D21 单一来源），TUI 直接复用 `simubench.contracts.api`，不需要生成客户端，接口改动由类型检查与测试发现。
 - **两种启动方式**，内部是同一条路径：
   - `simubench tui <bench.yaml>`：在本进程后台线程中启动服务（只监听 127.0.0.1、端口自动分配，与 `simubench serve` 相同的参数：`--hislip-port`、`--idle` 等），打开会话并连上它；退出 TUI 即关闭服务。SCPI 端口照常监听，另一个终端的脚本可以直接连。
   - `simubench tui --attach [http://127.0.0.1:8000] [--session <sid>]`：连接已运行的 `serve` / `mcp` 服务；有多个会话时先让用户选。
@@ -155,7 +155,7 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
 └──────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-按仪表的面板生成，与 Web 共用 `library/panels.py` 的 `effective_panel`（类别模板 + 通用布局，D1）。布局参照视频：
+按仪表的面板生成，与 Web 共用 `models/panels.py` 的 `effective_panel`（类别模板 + 通用布局，D1）。布局参照视频：
 
 - **身份框**：`*IDN?`、资源地址（SOCKET / HiSLIP / VXI-11，脚本可直接复制）、型号定义、错误计数与最近错误码；
 - **每通道一个框**，按量分列（状态 / 电压 / 电流，或示波器的垂直 / 水平 / 触发），每列是“标签: 值”，**设定值与对应限值放在同一列相邻行**，跳闸时一眼看出原因；框底是一排按钮，焦点按钮反白；
