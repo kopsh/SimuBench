@@ -6,7 +6,9 @@ Two sequences: the RC bench (settling after a step, Bode points, noise at fixed 
 sensitivity ladder with its overload errors, auto gain and auto phase) and the chopper bench
 (external reference and harmonics, reference loss and recovery, AC coupling against a DC
 background, and the 329 of a truncated square with a wide filter). ``tests/data/lockin_gold.json``
-holds the recording: commands with their replies and consumed virtual time, and clock advances.
+holds the recording: commands with their replies and consumed virtual time, and clock advances —
+the one gold step shape (#1635), re-recorded with ``uv run python tests/record_gold.py lockin``
+(the committed steps drive the walk, their actual values replace the recorded ones).
 """
 
 from __future__ import annotations
@@ -17,13 +19,14 @@ from pathlib import Path
 
 import pytest
 
-from helpers import run_gold_step, warm_up
+from helpers import record_gold_step, run_gold_step, warm_up
 from simubench.api import open_bench
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFS = ROOT / "validation" / "instruments"
 BENCHES = ROOT / "acceptance" / "benches"
-GOLD = json.loads((ROOT / "tests" / "data" / "lockin_gold.json").read_text())
+GOLD_FILE = ROOT / "tests" / "data" / "lockin_gold.json"
+GOLD = json.loads(GOLD_FILE.read_text())
 
 
 def sequence(name: str) -> dict:
@@ -39,15 +42,25 @@ def test_the_gold_standard_is_reproduced(name: str):
         # wall clock (D47); that timing is not part of the amplifier's behaviour.
         assert warm_up(session, "lia")[0] is not None
         for i, step in enumerate(bench["steps"]):
-            _, text = run_gold_step(session, i, step)
-            if step.get("floats"):
-                actual = [float(v) for v in (text or "").split(",")]
-                expected = [float(v) for v in step["reply"].split(",")]
-                assert len(actual) == len(expected), f"step {i}: {step['cmd']} count"
-                for a, e in zip(actual, expected, strict=True):
-                    assert a == pytest.approx(e, rel=1e-9, abs=1e-15), f"step {i}: {step['cmd']}"
+            run_gold_step(session, i, step)
     finally:
         session.close()
+
+
+def record() -> None:
+    """Re-record both sequences into ``tests/data/lockin_gold.json`` (``tests/record_gold.py``
+    calls this): the committed steps drive the walk on their bench, the way the test above judges
+    them, and their actual values replace the recorded ones."""
+    recorded = json.loads(GOLD_FILE.read_text())
+    for seq in recorded["sequences"]:
+        session = open_bench(BENCHES / seq["bench"], definition_dirs=[DEFS], clock="command", idle="off")
+        try:
+            warm_up(session, "lia")
+            seq["steps"] = [record_gold_step(session, i, step) for i, step in enumerate(seq["steps"])]
+        finally:
+            session.close()
+    GOLD_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {GOLD_FILE.relative_to(ROOT)}")
 
 
 def test_the_gold_covers_the_whole_amplifier():

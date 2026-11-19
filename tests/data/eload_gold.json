@@ -1,0 +1,185 @@
+{
+ "normal": {
+  "steps": [
+   {
+    "instrument": "el",
+    "cmd": "*IDN?",
+    "ns": 0,
+    "reply": "SIMUBENCH,SB-EL-1,SBEL0000001,1.0.0"
+   },
+   {
+    "instrument": "el",
+    "cmd": "*RST",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:FUNC?",
+    "ns": 0,
+    "reply": "CC"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:CURR?",
+    "ns": 0,
+    "reply": "+0.000000E+00"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:RES?",
+    "ns": 0,
+    "reply": "+1.000000E+03"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":INP?",
+    "ns": 0,
+    "reply": "0"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:VOLT?",
+    "ns": 0,
+    "reply": "+5.0000000E+00"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:CURR?",
+    "ns": 0,
+    "reply": "+0.0000000E+00"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":INP ON",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:CURR 0.002",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:VOLT?",
+    "ns": 0,
+    "reply": "+5.0000000E+00"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:CURR?",
+    "ns": 0,
+    "reply": "+2.0000000E-03"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:POW?",
+    "ns": 0,
+    "reply": "+1.0000000E-02"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:CURR 0.003",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:CURR?",
+    "ns": 0,
+    "reply": "+3.0000000E-03"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:FUNC CR",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:RES 1000",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:CURR?",
+    "ns": 0,
+    "reply": "+5.0000000E-03"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:POW?",
+    "ns": 0,
+    "reply": "+2.5000000E-02"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:FUNC CC",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:CURR 0.01",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:CURR?",
+    "ns": 0,
+    "reply": "+1.0000000E-02"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":INP OFF",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:VOLT?",
+    "ns": 0,
+    "reply": "+5.0000000E+00"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:CURR?",
+    "ns": 0,
+    "reply": "+0.0000000E+00"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SYST:ERR?",
+    "ns": 0,
+    "reply": "0,\"No error\""
+   }
+  ]
+ },
+ "knee": {
+  "steps": [
+   {
+    "instrument": "el",
+    "cmd": ":INP ON",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SOUR:CURR 0.002",
+    "ns": 0
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:VOLT?",
+    "ns": 0,
+    "reply": "+4.9998638E-05"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":MEAS:CURR?",
+    "ns": 0,
+    "reply": "+1.3623607E-03"
+   },
+   {
+    "instrument": "el",
+    "cmd": ":SYST:ERR?",
+    "ns": 0,
+    "reply": "0,\"No error\""
+   }
+  ]
+ }
+}
