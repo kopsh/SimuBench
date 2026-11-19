@@ -7,16 +7,14 @@ acquisition path its definition has: the processing stages (normal, average, pea
 resolution), triggered and untriggered (auto, forced), one and several channels, both noise keys
 (the acquisition number; the sample instants, on the SDS2104X Plus), and one frame of the live
 screen. ``tests/data/scope_stream_gold.json`` holds, per step, the SHA-256 of the reply's bytes and
-the virtual time the command consumed — hashes, not text: a waveform block is megabytes.
+the virtual time the command consumed — hashes, not text: a waveform block is megabytes. One gold
+step shape (#1635): re-record with ``uv run python tests/record_gold.py scope-stream``.
 
 The sequence is walked once per case for the whole module (the bench opens in a module fixture,
 #965); each test then compares one group of the recorded steps — the processing modes, the
 trigger scenarios, the several channels — and reports every differing step of its group at once,
-not just the first. The group ranges are ``GROUPS``; the screen frame (the last row) has its own
+not just the first. The group ranges are ``GROUPS``; the screen frame (the last step) has its own
 test.
-
-Record again (only when a change to the replies is intended and reviewed):
-``uv run python tests/test_scope_stream_migration.py``.
 """
 
 from __future__ import annotations
@@ -264,7 +262,7 @@ CASES: dict[str, tuple] = {
 #: (``test_the_groups_partition_every_sequence`` guards that). The groups are ranges of one
 #: recorded walk, not independent scenarios — a group's steps may rely on state an earlier group
 #: left behind, and one group may carry another's setup (the SDS2104X's clock advances, the
-#: WavePro's trigger mode). The live screen frame (the last row) has its own test.
+#: WavePro's trigger mode). The live screen frame (the last step) has its own test.
 #: ``sb-dso-4`` and ``sb-dso-2x`` share one sequence.
 _SB_GROUPS = {
     "processing": (0, 7),  # one acquisition read in the three transfer formats
@@ -307,8 +305,9 @@ def _round_frame(volts) -> bytes:
     return (np.round(np.asarray(volts, dtype="<f8"), 9) + 0.0).astype("<f8").tobytes()
 
 
-def walk(case: str, show: bool = False) -> list[list]:
-    """[command, reply digest, ns consumed] for every step, then the live screen's frame."""
+def walk(case: str, show: bool = False) -> list[dict]:
+    """The recorded steps of one case: every command with its reply digest and consumed time, the
+    clock advances, then the live screen's one frame."""
     bench, dirs, steps = CASES[case]
     s = open_bench(bench(), clock="command", seed=7, idle="off", definition_dirs=dirs)
     try:
@@ -320,10 +319,18 @@ def walk(case: str, show: bool = False) -> list[list]:
             reply = None
             if instrument == "advance":
                 s.advance(float(text))
+                rows.append({"advance_s": float(text), "ns": s.now_ns - before})
             else:
                 s.write(instrument or "scope", (text + "\n").encode())
                 reply = s.read(instrument or "scope")
-            rows.append([command, _digest(reply), s.now_ns - before])
+                rows.append(
+                    {
+                        "instrument": instrument or "scope",
+                        "cmd": text,
+                        "digest": _digest(reply),
+                        "ns": s.now_ns - before,
+                    }
+                )
             if show:
                 print(f"  {command:42} {len(reply) if reply is not None else '-':>9} {(reply or b'')[:48]!r}")
         # One frame of the live screen (the Web's scope screen): its noise has its own key.
@@ -331,7 +338,7 @@ def walk(case: str, show: bool = False) -> list[list]:
         with s.view():
             shown, _, triggered = acq.compute(acq.displayed(), frame=1)
         volts = b"".join(_round_frame(shown[n].volts) for n in sorted(shown))
-        rows.append(["<screen frame 1>", _digest(volts), int(triggered)])
+        rows.append({"screen": "frame 1", "digest": _digest(volts), "triggered": int(triggered)})
         if show:
             print(f"  screen: channels {sorted(shown)}, {len(volts) // 8} samples, triggered {triggered}")
         return rows
@@ -409,9 +416,12 @@ def test_the_screen_frame_is_reproduced(recorded, case):
     assert got == expected, f"{case} screen frame:\n  got  {got}\n  want {expected}"
 
 
-if __name__ == "__main__":
+def record() -> None:
+    """Re-record every case into ``tests/data/scope_stream_gold.json`` (``tests/record_gold.py``
+    calls this): walk each case's sequence, the way the tests above compare it."""
     recorded = {}
     for name in CASES:
         print(name)
         recorded[name] = walk(name, show=True)
     GOLD_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {GOLD_FILE.relative_to(ROOT)}")

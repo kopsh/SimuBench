@@ -10,7 +10,9 @@ split (reference / synthesizer / modulation source / modulator / level / attenua
 reproduce every row, every time and every line.
 
 ``tests/data/rfgen_gold.json`` holds the recording: commands with their replies and consumed
-virtual time, advances of the virtual clock, and the lines the net solver finds on the two outputs.
+virtual time, advances of the virtual clock, and the lines the net solver finds on the two outputs
+— the one gold step shape (#1635), re-recorded with ``uv run python tests/record_gold.py rfgen``
+(the committed steps drive the walk, their actual values replace the recorded ones).
 """
 
 from __future__ import annotations
@@ -18,16 +20,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import numpy as np
 import pytest
 
-from helpers import run_gold_step, warm_up
+from helpers import record_gold_step, run_gold_step, warm_up
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFS = ROOT / "validation" / "instruments"
-GOLD = json.loads((ROOT / "tests" / "data" / "rfgen_gold.json").read_text())
+GOLD_FILE = ROOT / "tests" / "data" / "rfgen_gold.json"
+GOLD = json.loads(GOLD_FILE.read_text())
 
 
 def bench() -> BenchDefinition:
@@ -76,34 +78,24 @@ def test_the_gold_standard_is_reproduced():
         # wall clock (D47); that timing is not part of the generator's behaviour.
         assert warm_up(session, "rf")[0] is not None
         for i, step in enumerate(GOLD["steps"]):
-            handled, _ = run_gold_step(session, i, step)
-            if not handled and "signal" in step:
-                merged = session.net_signal(session.port_net[step["signal"]]).merged()
-                order = np.argsort(merged.freq, kind="stable")
-                actual = np.array(
-                    [
-                        [float(f), float(a.real), float(a.imag)]
-                        for f, a in zip(merged.freq[order], merged.amp[order], strict=True)
-                    ]
-                ).reshape(-1, 3)
-                expected = np.array(step["lines"], dtype=float).reshape(-1, 3)
-                assert actual.shape == expected.shape, f"step {i} ({step['signal']}): shape"
-                np.testing.assert_allclose(
-                    actual[:, 0],
-                    expected[:, 0],
-                    rtol=1e-9,
-                    atol=1e-6,
-                    err_msg=f"step {i} ({step['signal']}): freq",
-                )
-                np.testing.assert_allclose(
-                    actual[:, 1:],
-                    expected[:, 1:],
-                    rtol=1e-9,
-                    atol=1e-12,
-                    err_msg=f"step {i} ({step['signal']}): amp",
-                )
+            run_gold_step(session, i, step)
     finally:
         session.close()
+
+
+def record() -> None:
+    """Re-record the sequence into ``tests/data/rfgen_gold.json`` (``tests/record_gold.py`` calls
+    this): the committed steps drive the walk, the way the test above judges them, and their
+    actual values replace the recorded ones."""
+    recorded = json.loads(GOLD_FILE.read_text())
+    session = open_bench(bench(), definition_dirs=[DEFS])
+    try:
+        warm_up(session, "rf")
+        recorded["steps"] = [record_gold_step(session, i, step) for i, step in enumerate(recorded["steps"])]
+    finally:
+        session.close()
+    GOLD_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {GOLD_FILE.relative_to(ROOT)}")
 
 
 def test_the_gold_covers_the_whole_generator():

@@ -19,8 +19,8 @@ readings (floats at 5 decimals, see ``_rounded``) — recorded before the front 
 change one byte. Neither model has a reference-oscillator command; the reference switch is in the
 ``sb-sa-1`` recording above. Neither reports an overload over SCPI: the screen's flag is recorded.
 
-Record the models again (only when a change to the replies is intended and reviewed):
-``uv run python tests/test_specan_migration.py``.
+Both recordings have the one gold step shape (#1635). Record again (only when a change to the
+replies is intended and reviewed): ``uv run python tests/record_gold.py specan specan-models``.
 """
 
 from __future__ import annotations
@@ -30,18 +30,18 @@ import json
 from pathlib import Path
 from typing import Any
 
-import numpy as np
 import pytest
 import yaml
 
-from helpers import run_gold_step, warm_up
+from helpers import record_gold_step, run_gold_step, warm_up
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFS = ROOT / "validation" / "instruments"
 BENCHES = ROOT / "examples" / "benches"
-GOLD = json.loads((ROOT / "tests" / "data" / "specan_gold.json").read_text())
+GOLD_FILE = ROOT / "tests" / "data" / "specan_gold.json"
+GOLD = json.loads(GOLD_FILE.read_text())
 MODELS_FILE = ROOT / "tests" / "data" / "specan_models_gold.json"
 MODELS_GOLD: dict[str, list] = json.loads(MODELS_FILE.read_text()) if MODELS_FILE.exists() else {}
 
@@ -97,18 +97,27 @@ def test_the_gold_standard_is_reproduced():
         # wall clock (D47); that timing is not part of the analyzer's behaviour.
         assert warm_up(session, "sa")[0] is not None
         for i, step in enumerate(GOLD["steps"]):
-            handled, _ = run_gold_step(session, i, step)
-            if not handled and "trace" in step:
-                session.write("sa", b":TRAC:DATA?\n")
-                text = session.read("sa").decode().rstrip("\n")
-                actual = np.array([float(x) for x in text.split(",")])
-                expected = np.array(step["values"])
-                assert actual.shape == expected.shape, f"step {i} ({step['trace']}): shape"
-                np.testing.assert_allclose(
-                    actual, expected, rtol=1e-9, atol=1e-12, err_msg=f"step {i} ({step['trace']})"
-                )
+            run_gold_step(session, i, step)
     finally:
         session.close()
+
+
+def record_gold() -> None:
+    """Re-record the sequence into ``tests/data/specan_gold.json`` (``tests/record_gold.py`` calls
+    this): the committed steps drive the walk, the way the test above judges them, and their
+    actual values replace the recorded ones."""
+    recorded = json.loads(GOLD_FILE.read_text())
+    session = open_bench(bench(), definition_dirs=[DEFS])
+    try:
+        warm_up(session, "sa")
+        recorded["steps"] = [
+            record_gold_step(session, i, {"instrument": "sa", **step} if "trace" in step else step)
+            for i, step in enumerate(recorded["steps"])
+        ]
+    finally:
+        session.close()
+    GOLD_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {GOLD_FILE.relative_to(ROOT)}")
 
 
 def test_the_gold_covers_the_whole_receiver_chain():
@@ -373,8 +382,20 @@ def _rounded(value: Any) -> Any:
     return value
 
 
-def walk(model: str, show: bool = False) -> list[list]:
-    """[command, reply digest, ns consumed] for every step, then the screen's readings."""
+def _label(step: dict) -> str:
+    """A step's command-line label, the way the sequence writes it (``awg> C1:BSWV AMP,20``,
+    ``advance> 0.25``, ``<screen values>``): the errors name the step, not its position."""
+    if "advance_s" in step:
+        return f"advance> {step['advance_s']}"
+    if "screen" in step:
+        return f"<screen {step['screen']}>"
+    instrument = step.get("instrument")
+    return step["cmd"] if instrument == "sa" else f"{instrument}> {step['cmd']}"
+
+
+def walk(model: str, show: bool = False) -> list[dict]:
+    """The recorded steps of one model's walk: every command with its reply digest and consumed
+    time, then the screen's readings and its trace digest."""
     name, steps = MODELS[model]
     bench_def = BenchDefinition.model_validate(yaml.safe_load((BENCHES / name).read_text(encoding="utf-8")))
     s = open_bench(bench_def, clock="command", seed=7, idle="off")
@@ -387,10 +408,18 @@ def walk(model: str, show: bool = False) -> list[list]:
             reply = None
             if instrument == "advance":
                 s.advance(float(text))
+                rows.append({"advance_s": float(text), "ns": s.now_ns - before})
             else:
                 s.write(instrument or "sa", (text + "\n").encode())
                 reply = s.read(instrument or "sa")
-            rows.append([command, _digest(reply), s.now_ns - before])
+                rows.append(
+                    {
+                        "instrument": instrument or "sa",
+                        "cmd": text,
+                        "digest": _digest(reply),
+                        "ns": s.now_ns - before,
+                    }
+                )
             if show:
                 print(f"  {command:40} {len(reply) if reply is not None else '-':>6} {(reply or b'')[:60]!r}")
         with s.view():
@@ -398,8 +427,8 @@ def walk(model: str, show: bool = False) -> list[list]:
         values = json.dumps(_rounded(screen["values"]), sort_keys=True)
         # fixed width, like a reply: the length of ``repr`` follows the last bit of a float
         trace = ",".join(f"{v:+.12E}" for v in screen["traces"][0]["values"]).encode()
-        rows.append(["<screen values>", values, 0])
-        rows.append(["<screen trace>", _digest(trace), 0])
+        rows.append({"screen": "values", "reply": values})
+        rows.append({"screen": "trace", "digest": _digest(trace)})
         if show:
             print(f"  screen: {values}")
         return rows
@@ -412,14 +441,18 @@ def test_the_real_models_gold_standard_is_reproduced(model):
     got = walk(model)
     expected = MODELS_GOLD.get(model)
     assert expected, f"no gold standard for {model}: record it (see the module docstring)"
-    assert [row[0] for row in got] == [row[0] for row in expected]  # the same sequence was recorded
-    for step, (row, want) in enumerate(zip(got, expected, strict=True)):
-        assert row == want, f"{model} step {step}: {row[0]}"
+    # the same sequence was recorded
+    assert [_label(step) for step in got] == [_label(step) for step in expected]
+    for i, (got_step, want) in enumerate(zip(got, expected, strict=True)):
+        assert got_step == want, f"{model} step {i}: {_label(got_step)}"
 
 
-if __name__ == "__main__":
+def record_models() -> None:
+    """Re-record both models into ``tests/data/specan_models_gold.json`` (``tests/record_gold.py``
+    calls this): walk each model's sequence, the way the test above compares it."""
     recorded = {}
-    for case in MODELS:
-        print(case)
-        recorded[case] = walk(case, show=True)
+    for model in MODELS:
+        print(model)
+        recorded[model] = walk(model, show=True)
     MODELS_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {MODELS_FILE.relative_to(ROOT)}")

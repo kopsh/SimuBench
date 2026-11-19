@@ -1,1084 +1,1274 @@
 {
  "sb-dso-4": [
-  [
-   ":DIGitize CHANnel1",
-   null,
-   4002000
-  ],
-  [
-   ":WAVeform:SOURce CHANnel1",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "cbc6d631fb6d3b40727348ccc27795890648c546a0cc68b2d6da6cc735a6e8f2",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "039181271a887115d47735eb5c70b45da5caa89d983444bffb1e5e7ec907d5e9",
-   0
-  ],
-  [
-   ":WAVeform:FORMat WORD",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "039181271a887115d47735eb5c70b45da5caa89d983444bffb1e5e7ec907d5e9",
-   0
-  ],
-  [
-   ":WAVeform:FORMat ASCii",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "12ffb62cd8ed56a81626876d97e0077227cbaa838b8a7466a0b2ad1b3bf65aca",
-   0
-  ],
-  [
-   ":DIGitize CHANnel1,CHANnel2",
-   null,
-   4000000
-  ],
-  [
-   ":WAVeform:SOURce CHANnel2",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:FORMat BYTE",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "f2601c98dcb4d215be0527b31edb2ac10051dd719b9e678455874ec35a157831",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "8b1b8113da9653dbe00f356ff2b42052b42d1b730b5b243445c84c8416f3b6d9",
-   0
-  ],
-  [
-   ":MEASure:VPP? CHANnel1",
-   "61ade926caa85571e8a11ca1c14f76cdaa479bba74b183a694311cc5d1960114",
-   0
-  ],
-  [
-   ":MEASure:FREQuency? CHANnel2",
-   "861b09c894d4bd7633b7d3680bd5c9828cb960c1752e0e0606df80f5c3199fbe",
-   0
-  ],
-  [
-   ":TIMebase:SCALe 1E-3",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:LEVel 0.4",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:SLOPe NEGative",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   11470000
-  ],
-  [
-   ":WAVeform:SOURce CHANnel1",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "c50a4584763ad1ab438a1b2a73af500ce2338f12c3198809b0829e4e66a6e579",
-   0
-  ],
-  [
-   ":TRIGger:LEVel 5",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:SWEep AUTO",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   41000000
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "2c327994f7916156a01688b5213881936f2785dec9e5457c09401e2060ff026f",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "c50a4584763ad1ab438a1b2a73af500ce2338f12c3198809b0829e4e66a6e579",
-   0
-  ],
-  [
-   ":SYSTem:ERRor?",
-   "8dd184e0ddefb897a2e3bfd2aefb2233332e666510464c13f0547dc9cad34a73",
-   0
-  ],
-  [
-   "<screen frame 1>",
-   "c12caa6228544b9662713074937ef23681dcdb22be2d918c070cd400e5b7b14d",
-   0
-  ]
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 4002000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "cbc6d631fb6d3b40727348ccc27795890648c546a0cc68b2d6da6cc735a6e8f2",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "039181271a887115d47735eb5c70b45da5caa89d983444bffb1e5e7ec907d5e9",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat WORD",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "039181271a887115d47735eb5c70b45da5caa89d983444bffb1e5e7ec907d5e9",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat ASCii",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "12ffb62cd8ed56a81626876d97e0077227cbaa838b8a7466a0b2ad1b3bf65aca",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1,CHANnel2",
+   "digest": null,
+   "ns": 4000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel2",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat BYTE",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "f2601c98dcb4d215be0527b31edb2ac10051dd719b9e678455874ec35a157831",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "8b1b8113da9653dbe00f356ff2b42052b42d1b730b5b243445c84c8416f3b6d9",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":MEASure:VPP? CHANnel1",
+   "digest": "61ade926caa85571e8a11ca1c14f76cdaa479bba74b183a694311cc5d1960114",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":MEASure:FREQuency? CHANnel2",
+   "digest": "861b09c894d4bd7633b7d3680bd5c9828cb960c1752e0e0606df80f5c3199fbe",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TIMebase:SCALe 1E-3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:LEVel 0.4",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:SLOPe NEGative",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 11470000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "c50a4584763ad1ab438a1b2a73af500ce2338f12c3198809b0829e4e66a6e579",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:LEVel 5",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:SWEep AUTO",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 41000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "2c327994f7916156a01688b5213881936f2785dec9e5457c09401e2060ff026f",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "c50a4584763ad1ab438a1b2a73af500ce2338f12c3198809b0829e4e66a6e579",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":SYSTem:ERRor?",
+   "digest": "8dd184e0ddefb897a2e3bfd2aefb2233332e666510464c13f0547dc9cad34a73",
+   "ns": 0
+  },
+  {
+   "screen": "frame 1",
+   "digest": "c12caa6228544b9662713074937ef23681dcdb22be2d918c070cd400e5b7b14d",
+   "triggered": 0
+  }
  ],
  "sb-dso-2x": [
-  [
-   ":DIGitize CHANnel1",
-   null,
-   4002000
-  ],
-  [
-   ":WAVeform:SOURce CHANnel1",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "982bd90a9e3af8c2d4258dc4bb39604ccda325c5cc98cde8bc1c12aa8702f72a",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "2d6b0242a161f3b2fd1286201e2086924f52c6422ea2da55238a1dd745876b77",
-   0
-  ],
-  [
-   ":WAVeform:FORMat WORD",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "96fd0ff2b98d66434302c855dcd6bcb01ea50e56b8f2fee2622ff71a60621b01",
-   0
-  ],
-  [
-   ":WAVeform:FORMat ASCii",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "43db7fd65cfa832b46fa4f993e63fbf314e356da0a5860fd4b8bd1a7a94482ff",
-   0
-  ],
-  [
-   ":DIGitize CHANnel1,CHANnel2",
-   null,
-   4000000
-  ],
-  [
-   ":WAVeform:SOURce CHANnel2",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:FORMat BYTE",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "982bd90a9e3af8c2d4258dc4bb39604ccda325c5cc98cde8bc1c12aa8702f72a",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "a5eeb060de42dbf696f0fcaca864d3d38fe3d3c1b2374c2026c78e8403c1283f",
-   0
-  ],
-  [
-   ":MEASure:VPP? CHANnel1",
-   "61ade926caa85571e8a11ca1c14f76cdaa479bba74b183a694311cc5d1960114",
-   0
-  ],
-  [
-   ":MEASure:FREQuency? CHANnel2",
-   "861b09c894d4bd7633b7d3680bd5c9828cb960c1752e0e0606df80f5c3199fbe",
-   0
-  ],
-  [
-   ":TIMebase:SCALe 1E-3",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:LEVel 0.4",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:SLOPe NEGative",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   11470000
-  ],
-  [
-   ":WAVeform:SOURce CHANnel1",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "c14bdaee923f2a629edcd0aeaf993d8fccfe0918e666edd30729463fda8b4822",
-   0
-  ],
-  [
-   ":TRIGger:LEVel 5",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:SWEep AUTO",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   41000000
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "8c87a3c754710b303ebc155bf375450fd1c8d0f370beecb62eaa1920704c9864",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "c14bdaee923f2a629edcd0aeaf993d8fccfe0918e666edd30729463fda8b4822",
-   0
-  ],
-  [
-   ":SYSTem:ERRor?",
-   "8dd184e0ddefb897a2e3bfd2aefb2233332e666510464c13f0547dc9cad34a73",
-   0
-  ],
-  [
-   "<screen frame 1>",
-   "b39ef38f01e43326bddcdd72c8beedd5da3e4455c1c2ee5deb864d9fdcce3901",
-   0
-  ]
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 4002000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "982bd90a9e3af8c2d4258dc4bb39604ccda325c5cc98cde8bc1c12aa8702f72a",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "2d6b0242a161f3b2fd1286201e2086924f52c6422ea2da55238a1dd745876b77",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat WORD",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "96fd0ff2b98d66434302c855dcd6bcb01ea50e56b8f2fee2622ff71a60621b01",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat ASCii",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "43db7fd65cfa832b46fa4f993e63fbf314e356da0a5860fd4b8bd1a7a94482ff",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1,CHANnel2",
+   "digest": null,
+   "ns": 4000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel2",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat BYTE",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "982bd90a9e3af8c2d4258dc4bb39604ccda325c5cc98cde8bc1c12aa8702f72a",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "a5eeb060de42dbf696f0fcaca864d3d38fe3d3c1b2374c2026c78e8403c1283f",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":MEASure:VPP? CHANnel1",
+   "digest": "61ade926caa85571e8a11ca1c14f76cdaa479bba74b183a694311cc5d1960114",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":MEASure:FREQuency? CHANnel2",
+   "digest": "861b09c894d4bd7633b7d3680bd5c9828cb960c1752e0e0606df80f5c3199fbe",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TIMebase:SCALe 1E-3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:LEVel 0.4",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:SLOPe NEGative",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 11470000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "c14bdaee923f2a629edcd0aeaf993d8fccfe0918e666edd30729463fda8b4822",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:LEVel 5",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:SWEep AUTO",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 41000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "8c87a3c754710b303ebc155bf375450fd1c8d0f370beecb62eaa1920704c9864",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "c14bdaee923f2a629edcd0aeaf993d8fccfe0918e666edd30729463fda8b4822",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":SYSTem:ERRor?",
+   "digest": "8dd184e0ddefb897a2e3bfd2aefb2233332e666510464c13f0547dc9cad34a73",
+   "ns": 0
+  },
+  {
+   "screen": "frame 1",
+   "digest": "b39ef38f01e43326bddcdd72c8beedd5da3e4455c1c2ee5deb864d9fdcce3901",
+   "triggered": 0
+  }
  ],
  "keysight-dsox2024a": [
-  [
-   ":WAVeform:SOURce CHANnel1",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:FORMat BYTE",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   3092760
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "f0281ea4fe9b81c94483bc0dda767872505750bebc17c584dfe9fe5a829c9be7",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "c8812099ac92e8216aa9c3fc41aac31519e2f1136709a16e67a3fd40b40169bb",
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   4000000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "48e2f0baf699722b54bb8e6b9aead3fc72902ace824b6a0f467d56d39f69ea42",
-   0
-  ],
-  [
-   ":WAVeform:FORMat WORD",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:UNSigned 1",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:BYTeorder MSBFirst",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:POINts:MODE MAXimum",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:POINts 8000",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   4000000
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "0a8601d811e2432765b71e60dbe04d0dd89bdd649eb60367c134073dd5b02dc8",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "ea593131b6e0b02343e7ac59ec9dcbc75d5b56f6172a714ff2e8b5950b07c2f9",
-   0
-  ],
-  [
-   ":WAVeform:POINts:MODE NORMal",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:POINts 1000",
-   null,
-   0
-  ],
-  [
-   ":ACQuire:TYPE AVERage",
-   null,
-   0
-  ],
-  [
-   ":ACQuire:COUNt 8",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   25000000
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "be4efe3e3062cf01ffa912c320ad3ba880d0e75f309634f807336a78c0438098",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "f27ab6c2b1e2ef355739c4cf98adc591da5c4198a9c76a6b3686667fb39862f8",
-   0
-  ],
-  [
-   ":ACQuire:TYPE PEAK",
-   null,
-   0
-  ],
-  [
-   ":TIMebase:SCALe 5E-3",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   52000000
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "2459b98a2ad5aeb5b4458799d9c2664d6b95c3dfb23bd602ebac71b6bf82bc36",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "f87679c3a43dfdf4830f7ecb69d8af0412d13580b35554ddfb314ec4fa2fd1d8",
-   0
-  ],
-  [
-   ":ACQuire:TYPE HRESolution",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   52000000
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "d45735c4feff91881c3a7e0577cba3f5f84f34767423c4f0d2e059586c6ee16c",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "4cc1484810b21af89c4a3604cb7430ca9c241d6e4f3ac5eb4d4cd34eee243e31",
-   0
-  ],
-  [
-   ":ACQuire:TYPE NORMal",
-   null,
-   0
-  ],
-  [
-   ":TIMebase:SCALe 2E-4",
-   null,
-   0
-  ],
-  [
-   ":CHANnel2:DISPlay 1",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1,CHANnel2",
-   null,
-   4000000
-  ],
-  [
-   ":WAVeform:SOURce CHANnel2",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "8fb1ab9564f0387afb417902e0bd935082d2c095318d0d5071512a513ef765ad",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "803e7e3f930b36c363046b2bbd8ae3973b7b7379a3134af977549c14039bfd44",
-   0
-  ],
-  [
-   ":WAVeform:SOURce CHANnel1",
-   null,
-   0
-  ],
-  [
-   ":MEASure:VPP? CHANnel1",
-   "ca4e36c9e35ecc53f2f4d5144f7531ac5b53f2eb10180fc111dc1ac3ffee2139",
-   0
-  ],
-  [
-   ":MEASure:VRMS? CHANnel1",
-   "f2d8f2d3f01a07ed3b6e2736f5eb9b01eacf7f0a5c02e3b69ee60b524849bc69",
-   0
-  ],
-  [
-   ":TRIGger:EDGE:LEVel 3",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:SWEep AUTO",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   3000000
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "41f5eaeab533901832734ea6e913715a30e49367e6e983dcc0f10f9aeb4ecd38",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "87d5c44893d40246d9272ef1dfed9a92fc39a7e1097cedb68d5460d0dc8419b7",
-   0
-  ],
-  [
-   ":TRIGger:EDGE:LEVel 0",
-   null,
-   0
-  ],
-  [
-   ":RUN",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "effa82ac4d00c3e6aa20655155fcc97d25d34062ffaf0cfdd08d9db08e441090",
-   4000000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "c7260b0eeb36ece6b6af694db873a2234e17778601dd7aeefcf2d1492d8aa2c9",
-   4000000
-  ],
-  [
-   ":STOP",
-   null,
-   0
-  ],
-  [
-   ":SYSTem:ERRor?",
-   "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
-   0
-  ],
-  [
-   "<screen frame 1>",
-   "a592c9d21916a612bcdadb46b4e8eb3d24130114291446d5cc56bf7134e85e4a",
-   1
-  ]
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat BYTE",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 3092760
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "f0281ea4fe9b81c94483bc0dda767872505750bebc17c584dfe9fe5a829c9be7",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "c8812099ac92e8216aa9c3fc41aac31519e2f1136709a16e67a3fd40b40169bb",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 4000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "48e2f0baf699722b54bb8e6b9aead3fc72902ace824b6a0f467d56d39f69ea42",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat WORD",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:UNSigned 1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:BYTeorder MSBFirst",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:POINts:MODE MAXimum",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:POINts 8000",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 4000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "0a8601d811e2432765b71e60dbe04d0dd89bdd649eb60367c134073dd5b02dc8",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "ea593131b6e0b02343e7ac59ec9dcbc75d5b56f6172a714ff2e8b5950b07c2f9",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:POINts:MODE NORMal",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:POINts 1000",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE AVERage",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:COUNt 8",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 25000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "be4efe3e3062cf01ffa912c320ad3ba880d0e75f309634f807336a78c0438098",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "f27ab6c2b1e2ef355739c4cf98adc591da5c4198a9c76a6b3686667fb39862f8",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE PEAK",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TIMebase:SCALe 5E-3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 52000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "2459b98a2ad5aeb5b4458799d9c2664d6b95c3dfb23bd602ebac71b6bf82bc36",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "f87679c3a43dfdf4830f7ecb69d8af0412d13580b35554ddfb314ec4fa2fd1d8",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE HRESolution",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 52000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "d45735c4feff91881c3a7e0577cba3f5f84f34767423c4f0d2e059586c6ee16c",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "4cc1484810b21af89c4a3604cb7430ca9c241d6e4f3ac5eb4d4cd34eee243e31",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE NORMal",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TIMebase:SCALe 2E-4",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":CHANnel2:DISPlay 1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1,CHANnel2",
+   "digest": null,
+   "ns": 4000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel2",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "8fb1ab9564f0387afb417902e0bd935082d2c095318d0d5071512a513ef765ad",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "803e7e3f930b36c363046b2bbd8ae3973b7b7379a3134af977549c14039bfd44",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":MEASure:VPP? CHANnel1",
+   "digest": "ca4e36c9e35ecc53f2f4d5144f7531ac5b53f2eb10180fc111dc1ac3ffee2139",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":MEASure:VRMS? CHANnel1",
+   "digest": "f2d8f2d3f01a07ed3b6e2736f5eb9b01eacf7f0a5c02e3b69ee60b524849bc69",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:EDGE:LEVel 3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:SWEep AUTO",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 3000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "41f5eaeab533901832734ea6e913715a30e49367e6e983dcc0f10f9aeb4ecd38",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "87d5c44893d40246d9272ef1dfed9a92fc39a7e1097cedb68d5460d0dc8419b7",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:EDGE:LEVel 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":RUN",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "effa82ac4d00c3e6aa20655155fcc97d25d34062ffaf0cfdd08d9db08e441090",
+   "ns": 4000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "c7260b0eeb36ece6b6af694db873a2234e17778601dd7aeefcf2d1492d8aa2c9",
+   "ns": 4000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":STOP",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":SYSTem:ERRor?",
+   "digest": "685b9bd3415ceb943cf000b668d1e084035bb51401e2718ace27c589168934f7",
+   "ns": 0
+  },
+  {
+   "screen": "frame 1",
+   "digest": "a592c9d21916a612bcdadb46b4e8eb3d24130114291446d5cc56bf7134e85e4a",
+   "triggered": 1
+  }
  ],
  "siglent-sds2104xplus": [
-  [
-   "awg> C1:OUTP ON",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:MODE SINGle",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "b10ac602714a5c12eeeb835ceeafabca3a4e959b2519148548435fc5482118a5",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "b1910237ae625071943bbe9b347e99e2148709cdc178a1714b4b38e94b7b8828",
-   0
-  ],
-  [
-   ":CHANnel1:SCALe 0.5",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:SOURce C1",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:MODE AUTO",
-   null,
-   0
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
-   11409000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "78aaf21d21c207ab6aecbf791494447cc02d0c76d7f53e2bbd8da5cbf414d809",
-   12000000
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "e6859ced31d68a90f791e6a242cac5771ba10b514354e8a791391293d5b342cd",
-   11300000
-  ],
-  [
-   ":ACQuire:TYPE AVERage,16",
-   null,
-   0
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
-   165800000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "cd52516bdcdf1b9e8398c317dce00414ee007bee0c21c12309db58a2a5c40835",
-   169000000
-  ],
-  [
-   ":ACQuire:TYPE PEAK",
-   null,
-   0
-  ],
-  [
-   ":TIMebase:SCALe 1E-2",
-   null,
-   0
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "d70003e7e600f6d196027e93c38d8a82e88a89134446410bff8e262ba09df900",
-   101800000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "3f14e3274e683aa53551dec6bd2e30d637061f5c9c3488c25134ea31b820b65d",
-   102000000
-  ],
-  [
-   ":ACQuire:TYPE ERES,2.0",
-   null,
-   0
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "d70003e7e600f6d196027e93c38d8a82e88a89134446410bff8e262ba09df900",
-   101300000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "d66e9aa81fd4f4af185ac844a93999f804ecdcd029b4d8a17834a04ad89ce04e",
-   102000000
-  ],
-  [
-   ":ACQuire:TYPE NORMal",
-   null,
-   0
-  ],
-  [
-   ":TIMebase:SCALe 1E-3",
-   null,
-   0
-  ],
-  [
-   ":ACQuire:RESolution 10Bits",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:WIDTh WORD",
-   null,
-   0
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "c79ee427a9a943c6074b6dfd855f989402612696ee300350c201c37d1f50791f",
-   11300000
-  ],
-  [
-   ":WAVeform:DATA?",
-   "907684fd6b9f095043da33911beeaf739a02260ae6663dbef90f67e400c48725",
-   12000000
-  ],
-  [
-   ":ACQuire:RESolution 8Bits",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:WIDTh BYTE",
-   null,
-   0
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":TRIGger:MODE SINGle",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "be15f066dcc07ecfb886b288cb9966f1af30924a3141677bc83000505ea97361",
-   0
-  ],
-  [
-   ":TRIGger:EDGE:LEVel 3",
-   null,
-   0
-  ],
-  [
-   "advance> 0.0137",
-   null,
-   13700000
-  ],
-  [
-   ":TRIGger:MODE FTRIG",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:STARt 0",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "be15f066dcc07ecfb886b288cb9966f1af30924a3141677bc83000505ea97361",
-   0
-  ],
-  [
-   ":TRIGger:EDGE:LEVel 0",
-   null,
-   0
-  ],
-  [
-   ":TRIGger:STOP",
-   null,
-   0
-  ],
-  [
-   ":SYSTem:ERRor?",
-   null,
-   0
-  ],
-  [
-   "<screen frame 1>",
-   "4c1ad6dff9595dd1ea30e9c901f888fd633101f2b6d63f1c155941d0be5c3722",
-   1
-  ]
+  {
+   "instrument": "awg",
+   "cmd": "C1:OUTP ON",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:MODE SINGle",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "b10ac602714a5c12eeeb835ceeafabca3a4e959b2519148548435fc5482118a5",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "b1910237ae625071943bbe9b347e99e2148709cdc178a1714b4b38e94b7b8828",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":CHANnel1:SCALe 0.5",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce C1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:MODE AUTO",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   "ns": 11409000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "78aaf21d21c207ab6aecbf791494447cc02d0c76d7f53e2bbd8da5cbf414d809",
+   "ns": 12000000
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "e6859ced31d68a90f791e6a242cac5771ba10b514354e8a791391293d5b342cd",
+   "ns": 11300000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE AVERage,16",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   "ns": 165800000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "cd52516bdcdf1b9e8398c317dce00414ee007bee0c21c12309db58a2a5c40835",
+   "ns": 169000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE PEAK",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TIMebase:SCALe 1E-2",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "d70003e7e600f6d196027e93c38d8a82e88a89134446410bff8e262ba09df900",
+   "ns": 101800000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "3f14e3274e683aa53551dec6bd2e30d637061f5c9c3488c25134ea31b820b65d",
+   "ns": 102000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE ERES,2.0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "d70003e7e600f6d196027e93c38d8a82e88a89134446410bff8e262ba09df900",
+   "ns": 101300000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "d66e9aa81fd4f4af185ac844a93999f804ecdcd029b4d8a17834a04ad89ce04e",
+   "ns": 102000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:TYPE NORMal",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TIMebase:SCALe 1E-3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:RESolution 10Bits",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:WIDTh WORD",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "c79ee427a9a943c6074b6dfd855f989402612696ee300350c201c37d1f50791f",
+   "ns": 11300000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "907684fd6b9f095043da33911beeaf739a02260ae6663dbef90f67e400c48725",
+   "ns": 12000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:RESolution 8Bits",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:WIDTh BYTE",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:MODE SINGle",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "be15f066dcc07ecfb886b288cb9966f1af30924a3141677bc83000505ea97361",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:EDGE:LEVel 3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "advance_s": 0.0137,
+   "ns": 13700000
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:MODE FTRIG",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STARt 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "b8417dad6255553a46e5e4415e906ed35a6bb57d9dc90387745cbe937e75d29e",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "be15f066dcc07ecfb886b288cb9966f1af30924a3141677bc83000505ea97361",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:EDGE:LEVel 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":TRIGger:STOP",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":SYSTem:ERRor?",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "screen": "frame 1",
+   "digest": "4c1ad6dff9595dd1ea30e9c901f888fd633101f2b6d63f1c155941d0be5c3722",
+   "triggered": 1
+  }
  ],
  "keysight-uxr0334b": [
-  [
-   ":SYSTem:HEADer OFF",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:SOURce CHANnel1",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:FORMat WORD",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:BYTeorder LSBFirst",
-   null,
-   0
-  ],
-  [
-   ":WAVeform:STReaming ON",
-   null,
-   0
-  ],
-  [
-   ":ACQuire:POINts 4000",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   1001100
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "f9864e102d82697fca408e015f0e1b39b57a295cfb93af6105b24e4392f83ac8",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "551e44426877f8f79bd39e9688f046168bcfa740231c232021346a1dc1763454",
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   1001100
-  ],
-  [
-   ":WAVeform:DATA?",
-   "481372a69e265364a679eac0d792c80e36277e9d86532b905c3b80fea05f966e",
-   0
-  ],
-  [
-   ":ACQuire:AVERage ON",
-   null,
-   0
-  ],
-  [
-   ":ACQuire:COUNt 4",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   1004400
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "35013ad2e2d2eac8c842da47ddddeb82a7284c3623c85646b850aa146febbe50",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "38fc7980121bbdec24675eb8d572b90776c012fa9eb4dc754b7e3eea0c873c65",
-   0
-  ],
-  [
-   ":ACQuire:AVERage OFF",
-   null,
-   0
-  ],
-  [
-   ":ACQuire:BANDwidth 1E9",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   1001100
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "c4299c85110267df543dbba919baa86a24e048eb6da9af25eefeb2abc28c8423",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "501a21144bb2f2af3371be22a06f3e4309d7d0df53b6ef100e4a84a1372b5c67",
-   0
-  ],
-  [
-   ":ACQuire:RESPonse GAUSsianmag",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   1001100
-  ],
-  [
-   ":WAVeform:DATA?",
-   "06adfc1fe70b28fe07c4e0464f6cc83c3104008b35269c16a6c27dd09d2954e1",
-   0
-  ],
-  [
-   ":WAVeform:FORMat BYTE",
-   null,
-   0
-  ],
-  [
-   ":DIGitize CHANnel1",
-   null,
-   1001100
-  ],
-  [
-   ":WAVeform:PREamble?",
-   "be6d4c2abefb2349b1692ac69b02f4ed1199f25805b20cbd9e36b11fe8335530",
-   0
-  ],
-  [
-   ":WAVeform:DATA?",
-   "d4e48e81d33f7bf7c2c0f3b74474aee21f6f3251f65958a9c143ff47587f4523",
-   0
-  ],
-  [
-   ":SYSTem:ERRor?",
-   "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
-   0
-  ],
-  [
-   "<screen frame 1>",
-   "492dc26f821d9c17591b38649290375d55147a9e634b5934db67d47b62e3101c",
-   1
-  ]
+  {
+   "instrument": "scope",
+   "cmd": ":SYSTem:HEADer OFF",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:SOURce CHANnel1",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat WORD",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:BYTeorder LSBFirst",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:STReaming ON",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:POINts 4000",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 1001100
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "f9864e102d82697fca408e015f0e1b39b57a295cfb93af6105b24e4392f83ac8",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "551e44426877f8f79bd39e9688f046168bcfa740231c232021346a1dc1763454",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 1001100
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "481372a69e265364a679eac0d792c80e36277e9d86532b905c3b80fea05f966e",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:AVERage ON",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:COUNt 4",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 1004400
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "35013ad2e2d2eac8c842da47ddddeb82a7284c3623c85646b850aa146febbe50",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "38fc7980121bbdec24675eb8d572b90776c012fa9eb4dc754b7e3eea0c873c65",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:AVERage OFF",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:BANDwidth 1E9",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 1001100
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "c4299c85110267df543dbba919baa86a24e048eb6da9af25eefeb2abc28c8423",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "501a21144bb2f2af3371be22a06f3e4309d7d0df53b6ef100e4a84a1372b5c67",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":ACQuire:RESPonse GAUSsianmag",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 1001100
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "06adfc1fe70b28fe07c4e0464f6cc83c3104008b35269c16a6c27dd09d2954e1",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:FORMat BYTE",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":DIGitize CHANnel1",
+   "digest": null,
+   "ns": 1001100
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:PREamble?",
+   "digest": "be6d4c2abefb2349b1692ac69b02f4ed1199f25805b20cbd9e36b11fe8335530",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":WAVeform:DATA?",
+   "digest": "d4e48e81d33f7bf7c2c0f3b74474aee21f6f3251f65958a9c143ff47587f4523",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": ":SYSTem:ERRor?",
+   "digest": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+   "ns": 0
+  },
+  {
+   "screen": "frame 1",
+   "digest": "492dc26f821d9c17591b38649290375d55147a9e634b5934db67d47b62e3101c",
+   "triggered": 1
+  }
  ],
  "lecroy-wavepro804hd": [
-  [
-   "TRIG_MODE SINGLE",
-   null,
-   6000000
-  ],
-  [
-   "WAIT",
-   null,
-   6000000
-  ],
-  [
-   "C1:INSPECT? \"WAVEDESC\"",
-   "cd32728addfe332ec5e4e5d48bd2f08cb020f249ef8703d3b7bdc6df1f9143bf",
-   12000000
-  ],
-  [
-   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
-   "8b392c41b99520624e5db444f0680e960cff7f47bb0f3a818be6d3b801abf499",
-   6000000
-  ],
-  [
-   "TRIG_MODE AUTO",
-   null,
-   0
-  ],
-  [
-   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
-   "72ca7506f8b35f96461a43f0fe0af9e786c056d475dd3a938b0c8ef4aa4a6bff",
-   6000000
-  ],
-  [
-   "advance> 0.01",
-   null,
-   10000000
-  ],
-  [
-   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
-   "41a2d7216287e32e4e9677bf392587d26004bdbe1f7f10c259934700855132e6",
-   6000000
-  ],
-  [
-   "C1:PARAMETER_VALUE? PKPK",
-   "1b57dd54c01f0693739e6f8f1a263054b625df17fc12a541c20f1723be5fdb37",
-   6000000
-  ],
-  [
-   "TIME_DIV 1E-3",
-   null,
-   0
-  ],
-  [
-   "C1:INSPECT? \"WAVEDESC\"",
-   "47e8afbd2a6ef018baa696124571d498eb1b4a20bb6564456f4107d9de540026",
-   0
-  ],
-  [
-   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
-   "6ee495426f1dabfef46eb0ddb7141d88833e8391e7cbdf3bf9d96210852d2008",
-   10999999
-  ],
-  [
-   "C1:TRIG_LEVEL 3",
-   null,
-   0
-  ],
-  [
-   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
-   "8142d807f0199bcd29460ff9c5a10e7b59d6a4492d96f3d0c87899cb96e9adc7",
-   10999999
-  ],
-  [
-   "ARM_ACQUISITION",
-   null,
-   10999999
-  ],
-  [
-   "FORCE_TRIGGER",
-   null,
-   10999999
-  ],
-  [
-   "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
-   "f32fd6154a56ab78caefee65ed3832cea87fd6c458997ec4485d8f07c801ce6c",
-   0
-  ],
-  [
-   "C1:TRIG_LEVEL 0",
-   null,
-   0
-  ],
-  [
-   "TRIG_MODE STOP",
-   null,
-   0
-  ],
-  [
-   "<screen frame 1>",
-   "d5a38ffdfd4a6cf39cb1b62173668837047bad5f634de037c6b6e84093ee96d0",
-   0
-  ]
+  {
+   "instrument": "scope",
+   "cmd": "TRIG_MODE SINGLE",
+   "digest": null,
+   "ns": 6000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": "WAIT",
+   "digest": null,
+   "ns": 6000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"WAVEDESC\"",
+   "digest": "cd32728addfe332ec5e4e5d48bd2f08cb020f249ef8703d3b7bdc6df1f9143bf",
+   "ns": 12000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "digest": "8b392c41b99520624e5db444f0680e960cff7f47bb0f3a818be6d3b801abf499",
+   "ns": 6000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": "TRIG_MODE AUTO",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "digest": "72ca7506f8b35f96461a43f0fe0af9e786c056d475dd3a938b0c8ef4aa4a6bff",
+   "ns": 6000000
+  },
+  {
+   "advance_s": 0.01,
+   "ns": 10000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "digest": "41a2d7216287e32e4e9677bf392587d26004bdbe1f7f10c259934700855132e6",
+   "ns": 6000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:PARAMETER_VALUE? PKPK",
+   "digest": "1b57dd54c01f0693739e6f8f1a263054b625df17fc12a541c20f1723be5fdb37",
+   "ns": 6000000
+  },
+  {
+   "instrument": "scope",
+   "cmd": "TIME_DIV 1E-3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"WAVEDESC\"",
+   "digest": "47e8afbd2a6ef018baa696124571d498eb1b4a20bb6564456f4107d9de540026",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "digest": "6ee495426f1dabfef46eb0ddb7141d88833e8391e7cbdf3bf9d96210852d2008",
+   "ns": 10999999
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:TRIG_LEVEL 3",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "digest": "8142d807f0199bcd29460ff9c5a10e7b59d6a4492d96f3d0c87899cb96e9adc7",
+   "ns": 10999999
+  },
+  {
+   "instrument": "scope",
+   "cmd": "ARM_ACQUISITION",
+   "digest": null,
+   "ns": 10999999
+  },
+  {
+   "instrument": "scope",
+   "cmd": "FORCE_TRIGGER",
+   "digest": null,
+   "ns": 10999999
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:INSPECT? \"DATA_ARRAY_1\",FLOAT",
+   "digest": "f32fd6154a56ab78caefee65ed3832cea87fd6c458997ec4485d8f07c801ce6c",
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": "C1:TRIG_LEVEL 0",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "instrument": "scope",
+   "cmd": "TRIG_MODE STOP",
+   "digest": null,
+   "ns": 0
+  },
+  {
+   "screen": "frame 1",
+   "digest": "d5a38ffdfd4a6cf39cb1b62173668837047bad5f634de037c6b6e84093ee96d0",
+   "triggered": 0
+  }
  ]
 }

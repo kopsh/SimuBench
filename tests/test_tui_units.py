@@ -1325,7 +1325,7 @@ def test_a_stopped_record_is_drawn_where_its_own_times_fall():
     assert filled(zoom) == list(range(cols))
 
 
-# ---- the app's refresh loop: the remote poll and the tick's state ------------------------------------
+# ---- the app's refresh loop: the workspace events (D85) and the tick's state -------------------------
 
 
 class _SessionClient:
@@ -1350,29 +1350,101 @@ def _app_with(client: _SessionClient) -> Any:
     return app
 
 
-async def test_a_scripts_disconnect_clears_the_remote_mark_on_the_next_poll():
-    """No event marks a disconnect: the poll re-reads the clients while any is connected (as the Web)."""
+async def test_a_clients_changed_event_clears_the_remote_mark_without_a_poll():
+    """The workspace stream announces the script's departure (D85): the session is re-read and
+    the remote mark goes with it — no event arrives, no request is made."""
     client = _SessionClient(remote=[])  # the script has gone
     app = _app_with(client)
     assert app.remote_held()
-    await app._tick_remote()
+    app._on_workspace_event({"seq": 1, "kind": "clients_changed", "sid": "x"})
     await app._session_task
     assert client.calls == 1
     assert not app.remote_held()  # the banner and the card's remote mark go with it
-    await app._tick_remote()  # nobody connected: no more requests
-    assert client.calls == 1
+    app._on_workspace_event({"seq": 2, "kind": "clients_changed", "sid": "x"})
+    await app._session_task  # the event is the trigger; nothing polls between events
+    assert client.calls == 2
 
 
-async def test_the_remote_poll_waits_for_its_own_request_and_the_connection():
+async def test_rapid_sid_events_collapse_into_one_trailing_refresh():
+    """A sid event that arrives while a re-read runs is never dropped: its re-read is queued
+    behind the one in flight — that one was issued before the change it answers and may have
+    read the old state (a fetch can outrun the server on a disconnect)."""
     client = _SessionClient(remote=["socket:127.0.0.1:5401"])
     app = _app_with(client)
-    await app._tick_remote()
-    await app._tick_remote()  # the first request is still in flight: no second one
+    app._on_workspace_event({"seq": 1, "kind": "clients_changed", "sid": "x"})
+    app._on_workspace_event({"seq": 2, "kind": "sessions_changed", "sid": "x"})  # in flight: queued behind it
+    await app._session_task
+    assert client.calls == 2  # coalesced, not dropped: the trailing re-read sees the new state
+
+
+async def test_a_sid_event_for_another_session_is_ignored():
+    client = _SessionClient(remote=["socket:127.0.0.1:5401"])
+    app = _app_with(client)
+    app._on_workspace_event({"seq": 1, "kind": "clients_changed", "sid": "other"})
+    app._on_workspace_event({"seq": 2, "kind": "sessions_changed", "sid": "other"})
+    assert client.calls == 0
+    assert app._session_task is None
+
+
+async def test_only_the_session_s_bench_file_lights_the_rebuild_hint():
+    """``file_changed`` names a workspace-relative file: the session's own bench file lights the
+    D25 hint; a definition file reaches the running session through a rebuild (R), not a hint."""
+    client = _SessionClient(remote=[])
+    app = _app_with(client)
+    app.session_info["bench_path"] = "benches/smu.bench.yaml"
+    before = app.data_version
+    app._on_workspace_event({"seq": 1, "kind": "file_changed", "path": "benches/smu.bench.yaml"})
+    assert app.file_changed and app.data_version == before + 1
+    app.file_changed = False
+    app._on_workspace_event({"seq": 2, "kind": "file_changed", "path": "instruments/sb-smu-1.yaml"})
+    assert not app.file_changed
+    app._on_workspace_event({"seq": 3, "kind": "file_changed", "path": "benches/other.bench.yaml"})
+    assert not app.file_changed
+
+
+async def test_the_workspace_resync_rejudges_the_bench_file_against_the_build_hash(tmp_path):
+    """A reconnect's missed events are re-derived (D85, the Web's #1526 rule): the bench file is
+    judged against the hash the session was built from, a missed file_changed lights the same
+    hint its event would have."""
+    import hashlib
+
+    client = _SessionClient(remote=[])
+    app = _app_with(client)
+    app.session_info["bench_sha256"] = hashlib.sha256(b"current").hexdigest()
+    app.session_info["bench_path"] = "demo.bench.yaml"
+    app.bench_path = tmp_path / "demo.bench.yaml"
+    tmp_path.joinpath("demo.bench.yaml").write_text("current", encoding="utf-8")
+    app._workspace_opened = True  # a reconnect, not the first open
+    app._on_workspace_open()
     await app._session_task
     assert client.calls == 1
-    app.conn = "disconnected"
-    await app._tick_remote()
+    assert not app.file_changed  # the file is as it was built: no hint
+    app.session_info["bench_sha256"] = "0" * 64  # built from an older content
+    app._on_workspace_open()
+    await app._session_task
+    assert app.file_changed  # the missed file_changed, re-derived
+
+
+async def test_the_first_workspace_open_does_not_resync_before_anything_was_read():
+    """With no query having read the server yet, the connection loop's full refresh sees the
+    current state — a resync would only double it (#1526)."""
+    client = _SessionClient(remote=[])
+    app = _app_with(client)
+    app.session_info = None
+    app._on_workspace_open()
+    assert client.calls == 0
+    assert app._session_task is None
+    app._on_workspace_open()  # a reopen after something was read: the resync runs
+    await app._session_task
     assert client.calls == 1
+
+
+async def test_a_workspace_token_rejection_stops_the_app():
+    """4401 on the workspace stream is the same token the session stream carries: one verdict."""
+    client = _SessionClient(remote=[])
+    app = _app_with(client)
+    app._on_workspace_close(4401)
+    assert app.conn == "token-invalid" and app._stop.is_set()
 
 
 async def test_a_tick_keeps_the_catalog_and_the_task_handles():

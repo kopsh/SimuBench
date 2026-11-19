@@ -210,16 +210,26 @@ async def external_scpi(app: Any, instrument: str, command: str, source_port: in
 
 
 async def _until_disconnected(app: Any, instrument: str, client: str, timeout: float = 10.0) -> None:
-    """Wait until the server no longer lists ``client`` on ``instrument``, then show that.
+    """Wait until the app no longer shows ``client`` on ``instrument``, then show that.
 
     The command's event makes the app re-fetch the instrument, which can land before the server
-    has seen the close; a disconnect raises no event, so the app would keep showing the script
-    as the remote controller and a screenshot would depend on that race.
+    has seen the close, and the workspace stream's ``clients_changed`` (#1633) re-reads the
+    session on the disconnect — a fetch issued before the close was processed can land after
+    it, so the app's view can trail the server's in both directions and a screenshot would
+    depend on that race. The app's view converges through the same events (a sid event queues
+    a trailing re-read, it is never dropped): wait for it to agree with the server, then merge
+    the server's payload so the screenshot does not depend on the last fetch's phase.
     """
     end = asyncio.get_running_loop().time() + timeout
     while True:
         info = await app.client.instrument(app.sid, instrument)
-        if client not in (info.get("remote") or []) or asyncio.get_running_loop().time() >= end:
+        shown = next(
+            (i for i in (app.session_info or {}).get("instruments", []) if i.get("name") == instrument),
+            None,
+        )
+        server_gone = client not in (info.get("remote") or [])
+        app_gone = shown is None or client not in (shown.get("remote") or [])
+        if (server_gone and app_gone) or asyncio.get_running_loop().time() >= end:
             break
         await asyncio.sleep(0.02)
     app._merge_instrument(info)

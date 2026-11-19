@@ -2,8 +2,9 @@
 
 ``FakeClient`` answers from payloads dumped once out of a real session (``tests/data/tui/unit_*.json``),
 so the shapes stay honest. The app under test is the real ``SimuBenchApp`` with its connection loop
-replaced: it becomes ``connected`` immediately and events are injected with :func:`feed` — the WS
-stream is exactly what the e2e tests (test_tui_e2e.py) cover for real. The pilot helpers the
+replaced: it becomes ``connected`` immediately and events are injected with :func:`feed`, workspace
+events with :func:`feed_workspace` (#1633) — the WS streams are exactly what the e2e tests
+(test_tui_e2e.py) cover for real. The pilot helpers the
 milestone files used to copy (``fresh``/``settle``/``wait_for``/``wait_flat``/``flat``) live here
 too (#699).
 """
@@ -48,6 +49,7 @@ class FakeClient:
         self.fault_list: list[dict[str, Any]] = list(fixture.get("faults", []))
         self.next_fault_id = 1
         self.scpi_reply: dict[str, Any] = {}  # instrument -> canned response for the next write
+        self.ws_callbacks: tuple[Any, Any, Any] | None = None  # the workspace stream's handlers
 
     # ---- reading --------------------------------------------------------------------------------------
 
@@ -56,6 +58,13 @@ class FakeClient:
 
     async def close(self) -> None:
         pass
+
+    async def workspace_stream(self, on_event: Any, on_open: Any, on_close: Any, stop: asyncio.Event) -> None:
+        """The workspace subscription (D85) parked: no socket — the app holds its handlers here,
+        and tests deliver its events with :func:`feed_workspace` as the stream would. The real
+        connection is the boot tier's (test_tui.py), as with the session stream."""
+        self.ws_callbacks = (on_event, on_open, on_close)
+        await stop.wait()
 
     http = None  # _screen goes through client.screen since #176
 
@@ -187,6 +196,14 @@ async def feed(tui: SimuBenchApp, *events: dict[str, Any]) -> None:
     """Deliver events exactly as the WS stream would (each already carries seq and t_ns)."""
     for ev in events:
         tui._on_event(ev)
+    await asyncio.sleep(0)
+
+
+async def feed_workspace(tui: SimuBenchApp, *events: dict[str, Any]) -> None:
+    """Deliver workspace events (D85: ``file_changed``/``clients_changed``/``sessions_changed``,
+    each carrying ``seq``) exactly as the ``/api/events`` stream would."""
+    for ev in events:
+        tui._on_workspace_event(ev)
     await asyncio.sleep(0)
 
 

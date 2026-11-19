@@ -4,7 +4,6 @@
   {
    "instrument": "sa",
    "cmd": ":TRAC:CLE",
-   "reply": null,
    "ns": 0
   },
   {
@@ -116,6 +115,7 @@
    "ns": 0
   },
   {
+   "instrument": "sa",
    "trace": "initial write",
    "values": [
     -95.723177,
@@ -1124,7 +1124,6 @@
   {
    "instrument": "sa",
    "cmd": ":CALC:MARK:MAX",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1148,7 +1147,6 @@
   {
    "instrument": "sa",
    "cmd": ":CALC:MARK:MAX:NEXT",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1166,7 +1164,6 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:BAND:RES 2000",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1178,7 +1175,6 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:BAND:VID 100",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1190,7 +1186,6 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:SWE:TIME 0.05",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1208,7 +1203,6 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:BAND:RES:AUTO ON",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1220,19 +1214,16 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:SWE:TIME:AUTO ON",
-   "reply": null,
    "ns": 0
   },
   {
    "instrument": "sa",
    "cmd": ":SENS:FREQ:SPAN 10e6",
-   "reply": null,
    "ns": 0
   },
   {
    "instrument": "sa",
    "cmd": ":SENS:FREQ:CENT 5e6",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1250,7 +1241,6 @@
   {
    "instrument": "sa",
    "cmd": ":DISP:WIND:TRAC:Y:SCAL:RLEV -20",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1268,7 +1258,6 @@
   {
    "instrument": "sa",
    "cmd": ":DISP:WIND:TRAC:Y:SCAL:RLEV 10",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1286,7 +1275,6 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:POW:RF:ATT 4",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1304,7 +1292,6 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:DET RMS",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1316,7 +1303,6 @@
   {
    "instrument": "sa",
    "cmd": ":SENS:AVER:COUN 4",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1328,7 +1314,6 @@
   {
    "instrument": "sa",
    "cmd": ":TRAC:TYPE MAXH",
-   "reply": null,
    "ns": 0
   },
   {
@@ -1341,6 +1326,7 @@
    "advance_s": 0.005
   },
   {
+   "instrument": "sa",
    "trace": "max hold after two sweeps",
    "values": [
     -5.9179677,
@@ -2349,13 +2335,13 @@
   {
    "instrument": "sa",
    "cmd": ":TRAC:TYPE AVER",
-   "reply": null,
    "ns": 0
   },
   {
    "advance_s": 0.01
   },
   {
+   "instrument": "sa",
    "trace": "average",
    "values": [
     -5.9179677,
@@ -3364,13 +3350,11 @@
   {
    "instrument": "sa",
    "cmd": ":INIT:CONT OFF",
-   "reply": null,
    "ns": 0
   },
   {
    "instrument": "sa",
    "cmd": ":INIT",
-   "reply": null,
    "ns": 10000000000
   },
   {
@@ -3380,6 +3364,7 @@
    "ns": 0
   },
   {
+   "instrument": "sa",
    "trace": "frozen single",
    "values": [
     -5.9180761,
@@ -4389,6 +4374,7 @@
    "advance_s": 0.01
   },
   {
+   "instrument": "sa",
    "trace": "frozen after time",
    "values": [
     -5.9180761,
@@ -5397,10 +5383,10 @@
   {
    "instrument": "sa",
    "cmd": ":TRAC:CLE",
-   "reply": null,
    "ns": 0
   },
   {
+   "instrument": "sa",
    "trace": "after trace clear",
    "values": [
     -5.9179677,
@@ -6409,7 +6395,6 @@
   {
    "instrument": "sa",
    "cmd": ":ROSC:SOUR INT",
-   "reply": null,
    "ns": 0
   },
   {
@@ -6427,7 +6412,6 @@
   {
    "instrument": "sa",
    "cmd": ":ROSC:SOUR EXT",
-   "reply": null,
    "ns": 0
   },
   {

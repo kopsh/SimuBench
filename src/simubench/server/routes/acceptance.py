@@ -200,8 +200,9 @@ def _definition_case_routes(ctx: ApiContext, router: APIRouter) -> None:
         dependencies=[Depends(auth)],
     )
     async def run_definition_cases(def_id: str, req: M.CaseRunRequest) -> M.CaseRunResult:
-        """Run a cases file the way `simubench cases` does (each case on a freshly powered bench)
-        and return every step with what was expected and got."""
+        """Run a cases file through the one cases seam (`projections.run_cases_file`, which
+        `simubench cases` uses too: each case on a freshly powered bench, `builtin:` names
+        included) and return every step with what was expected and got."""
         try:
             library.get(def_id)
         except KeyError as exc:
