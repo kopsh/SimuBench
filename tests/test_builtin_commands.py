@@ -8,10 +8,12 @@ from __future__ import annotations
 import pytest
 
 from helpers import dispatch_unit, seam_instrument
+from simubench.engine.component import component_types
 from simubench.models.definition import InstrumentDefinition
 from simubench.scpi.errors import ScpiError
 
 pytestmark = pytest.mark.unit
+component_types()  # load the built-in library here, not inside the first test's time budget (#1517)
 
 _FORMAT = {"number": "nr3", "digits": 6, "sign": True, "exponent_digits": 2, "error_code": "signed"}
 

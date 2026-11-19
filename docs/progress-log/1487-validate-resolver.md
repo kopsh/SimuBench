@@ -9,3 +9,4 @@
 | 测试档位 | ✅ 慢机上三次全量三次换着踩 D49 预算线的扫描用例：与本分支撞车的 #1519（fixture 预热用例索引，main 侧方案）为准，本分支撤扫描档拆分、保留 `expected_folders` 进程内缓存（`problems` 每次重扫、断言不变）——wheel 检查的重扫成本收单次 |
 | 文档 | ✅ decisions.md D86；progress-log 本节 |
 | check.sh | ✅ 全绿（pytest 4859+ 量级、web 379、ty 零新增、schemas 零 diff；本机 x64 ~5.5 分钟，预算按 CI 机器） |
+| CI 顺带 | ✅ `test_the_error_family_answers_the_queue` 在 CI 共享 runner 上吃 worker 内首次构建 Instrument 的组件库导入冷成本（0.808s > 0.3s，#1517 同类）：test_builtin_commands.py 照 test_stream.py 的先例在模块级 `component_types()` 预载（19 例 0.52s，单例均值远低于预算） |
