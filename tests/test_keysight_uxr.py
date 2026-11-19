@@ -982,7 +982,9 @@ def test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b():
 
 def test_the_record_noise_ends_at_the_corrected_band():
     """#1446: the DSP flatness correction ends the record's spectrum at the bandwidth, the noise's
-    too. At 256 GSa/s (Nyquist 128 GHz) the noise above 113 GHz is at least 20 dB below the band's,
+    too, through a roll-off about 5 GHz wide (#1462: -6 dB at the cutoff, -20 dB from 118 GHz; the
+    shape is tested in test_scope_adc_nonlinearity). At 256 GSa/s (Nyquist 128 GHz) the noise above
+    118 GHz is at least 20 dB below the band's,
     its rms stays the table's 860 µV (±5 %), and a 50 GHz bandwidth filter leaves √(50/113) of it
     (±4 %: the noise density is the table's over 113 GHz, not over the Nyquist band)."""
     rm = pyvisa.ResourceManager(f"{EXAMPLE_BENCH_1104B}@simubench")
