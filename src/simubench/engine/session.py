@@ -17,7 +17,7 @@ import threading
 import time
 from collections import OrderedDict, deque
 from collections.abc import Callable, Generator, Iterable, Iterator
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -29,6 +29,7 @@ from . import nets, sleep_mode
 from .circuit import Circuit, Solution
 from .component import Component, component_type
 from .deviation import draw_overrides, set_override
+from .evalcontext import EvalContext
 from .faults import FaultManager, LinkDown
 from .instrument import Instrument
 from .portref import split
@@ -137,14 +138,12 @@ class Session:
         self._electrical_version = 0
         self._circuit: tuple[int, Circuit] | None = None
         self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
-        #: Keyed by (signal version, uid, port, *:meth:`_evaluation_inputs`).
+        #: Keyed by (signal version, uid, port, :attr:`context`).
         self._output_cache: dict[tuple[Any, ...], Signal] = {}
-        #: The tuning point of the read in progress (:meth:`tuned`); None outside one.
-        self.tune_hz: float | None = None
-        #: The instant an evaluation in progress is for (:meth:`at_instant`); None: now.
-        self._at_ns: int | None = None
+        #: The ambient inputs of the evaluation in progress (:meth:`evaluating`).
+        self._context = EvalContext()
         #: Frames of the sample streams (D67), newest last: (signal version, uid, port, request,
-        #: *:meth:`_evaluation_inputs`) -> (frame, samples asked for along the chain to make it).
+        #: :attr:`context`) -> (frame, samples asked for along the chain to make it).
         self._frame_cache: OrderedDict[tuple[Any, ...], tuple[SampleFrame, int]] = OrderedDict()
         #: One entry per :meth:`cached_frames` call in progress: the samples it has asked for so far.
         self._frame_asks: list[int] = []
@@ -421,57 +420,56 @@ class Session:
     def port_signal(self, comp: Component, port: str) -> Signal:
         return self.node_signal(self.node_of(comp, port))
 
-    @contextlib.contextmanager
-    def tuned(self, tune_hz: float | None) -> Generator[None]:
-        """Evaluate signals with a receiver tuned to ``tune_hz`` (signal-chain.md 5.2): inside the
-        block ``tune_hz`` is that frequency, and the outputs of a mixer and of what follows it
-        (``Component.tuned_ports``) are the ones at that tuning. Re-entrant: leaving restores the
-        outer value.
+    @property
+    def context(self) -> EvalContext:
+        """The ambient inputs of the evaluation in progress: a frozen value, the tail of both
+        caches' keys (:mod:`.evalcontext`)."""
+        return self._context
 
-        The tuning point is an input of the evaluation, nothing more: it is part of
-        :meth:`cached_output`'s key, it does not enter the run record, bump the signal version or
-        emit an event — a read stays passive. Only the block that starts a read sets it (a
-        spectrum analyzer's trace, an internal probe); the front end's blocks read it. Used under
-        the session lock (commands and ``view()`` hold it), so it needs no thread-local."""
-        outer = self.tune_hz
-        self.tune_hz = None if tune_hz is None else float(tune_hz)
-        try:
-            yield
-        finally:
-            self.tune_hz = outer
+    @property
+    def tune_hz(self) -> float | None:
+        """The tuning point of the read in progress (:meth:`tuned`); None outside one."""
+        return self._context.tune_hz
 
     @property
     def instant_ns(self) -> int:
         """The instant signals are evaluated for: the one :meth:`at_instant` set, else now."""
-        return self.now_ns if self._at_ns is None else self._at_ns
+        at = self._context.at_ns
+        return self.now_ns if at is None else at
 
     @contextlib.contextmanager
-    def at_instant(self, t_ns: int | None) -> Generator[None]:
-        """Evaluate signals as they were at instant ``t_ns`` (≤ now) under the current settings
-        (#1103): a block whose output moves in time by itself — a laser sweeping its wavelength, an
-        attenuator settling — reads :attr:`instant_ns` instead of ``now_ns``. A logger catching up
-        on points it missed between two commands uses it; like :meth:`tuned` it is an input of the
-        evaluation only (part of :meth:`cached_output`'s key, no event, no version bump).
-        Re-entrant: leaving restores the outer value."""
-        outer = self._at_ns
-        self._at_ns = None if t_ns is None else int(t_ns)
+    def evaluating(self, **changes: Any) -> Generator[None]:
+        """Evaluate under the current context with ``changes`` (``EvalContext`` field names): the
+        one way the context changes, which :meth:`tuned` and :meth:`at_instant` name. Re-entrant:
+        leaving restores the outer context.
+
+        The context is an input of the evaluation and nothing more: it is part of the caches' keys,
+        it does not enter the run record, bump the signal version or emit an event — a read stays
+        passive. Used under the session lock (commands and ``view()`` hold it), so it needs no
+        thread-local."""
+        outer = self._context
+        self._context = replace(outer, **changes)
         try:
             yield
         finally:
-            self._at_ns = outer
+            self._context = outer
 
-    def _evaluation_inputs(self) -> tuple[float | None, int | None]:
-        """The evaluation's ambient inputs: the tuning point (:meth:`tuned`) and the instant
-        (:meth:`at_instant`). They are inputs, not state: whatever a cache keeps, computed under
-        them, is keyed by them — and this is the one place that says which they are. Both caches
-        (:meth:`cached_output`, :meth:`cached_frames`) take their key's tail from here, so a new
-        ambient input is added once. A frame's request may carry its own tuning point
-        (``FrameRequest.tune_hz``); a block takes the request's, never the ambient one, so the
-        request alone decides what it computes (#1486)."""
-        return (self.tune_hz, self._at_ns)
+    def tuned(self, tune_hz: float | None) -> contextlib.AbstractContextManager[None]:
+        """Evaluate signals with a receiver tuned to ``tune_hz`` (signal-chain.md 5.2): inside the
+        block ``tune_hz`` is that frequency, and the outputs of a mixer and of what follows it
+        (``Component.tuned_ports``) are the ones at that tuning. Only the block that starts a read
+        sets it (a spectrum analyzer's trace, an internal probe); the front end's blocks read it."""
+        return self.evaluating(tune_hz=None if tune_hz is None else float(tune_hz))
+
+    def at_instant(self, t_ns: int | None) -> contextlib.AbstractContextManager[None]:
+        """Evaluate signals as they were at instant ``t_ns`` (≤ now) under the current settings
+        (#1103): a block whose output moves in time by itself — a laser sweeping its wavelength, an
+        attenuator settling — reads :attr:`instant_ns` instead of ``now_ns``. A logger catching up
+        on points it missed between two commands uses it."""
+        return self.evaluating(at_ns=None if t_ns is None else int(t_ns))
 
     def cached_output(self, comp: Component, port: str) -> Signal:
-        key = (self._signal_version, comp.uid, port, *self._evaluation_inputs())
+        key = (self._signal_version, comp.uid, port, self._context)
         hit = self._output_cache.get(key)
         if hit is None:
             if len(self._output_cache) > 4096:
@@ -483,12 +481,13 @@ class Session:
     def cached_frames(self, comp: Component, port: str, request: FrameRequest) -> SampleFrame:
         """A samples output port's frame for one request (signal-chain.md 3.2). The cache is small
         and only serves repeated requests within a read and the internal probe; a new signal
-        version drops it. Its key is the signal version, the port, the request and the evaluation's
-        ambient inputs (:meth:`_evaluation_inputs`). Every sample asked for along the chain counts toward
+        version drops it. Its key is the signal version, the port, the request and the evaluation
+        context (:attr:`context`), so a frame computed under one tuning or instant is not served for
+        another. Every sample asked for along the chain counts toward
         ``MAX_REQUEST_FANOUT`` — a cached frame counts what it cost to make, so whether a read is
         refused never depends on what was read before."""
         check_request(request)
-        key = (self._signal_version, comp.uid, port, request, *self._evaluation_inputs())
+        key = (self._signal_version, comp.uid, port, request, self._context)
         hit = self._frame_cache.get(key)
         asked = sum(self._frame_asks)
         if hit is None:

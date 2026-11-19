@@ -5,6 +5,7 @@ built-in block has a samples port yet."""
 from __future__ import annotations
 
 import copy
+from dataclasses import fields
 from typing import ClassVar
 
 import numpy as np
@@ -13,6 +14,7 @@ import pytest
 from helpers import raises_with
 from simubench.engine import session as session_module
 from simubench.engine.component import Component, PortSpec, component, component_types, registry
+from simubench.engine.evalcontext import EvalContext
 from simubench.engine.noise import gaussian, stream_key
 from simubench.engine.session import Session
 from simubench.engine.signal import Signal, sine
@@ -391,8 +393,16 @@ def ambient_reader():
 
     @component("t_ambient")
     class Ambient(Component):
-        ports: ClassVar[dict[str, PortSpec]] = {"out": PortSpec("out", "samples")}
+        ports: ClassVar[dict[str, PortSpec]] = {
+            "out": PortSpec("out", "samples"),
+            "sig": PortSpec("sig", "signal"),
+        }
         calls = 0
+        output_calls = 0
+
+        def output(self, port: str) -> Signal:
+            self.output_calls += 1
+            return sine(1e3, 1.0)
 
         def frames(self, port: str, request: FrameRequest) -> SampleFrame:
             self.calls += 1
@@ -483,3 +493,43 @@ def test_the_adc_takes_the_requests_tuning_never_the_callers_ambient_one():
     finally:
         registry.unregister("t_listening_tone")
     assert seen == [None, 3e6, 4e6]
+
+
+#: One value other than the default for each field of the context. A field added to ``EvalContext``
+#: without a row here fails the first test below: the author has to say how it differs, and the
+#: second test then shows that both caches key on it (#1509).
+OTHER_VALUE = {"tune_hz": 2e6, "at_ns": 250}
+
+
+def test_every_field_of_the_evaluation_context_has_a_sample_here():
+    assert sorted(OTHER_VALUE) == sorted(f.name for f in fields(EvalContext))
+
+
+@pytest.mark.parametrize("name", sorted(OTHER_VALUE))
+def test_both_caches_key_on_every_field_of_the_context(ambient_reader, name):
+    """Change one field of the context and a frame and a signal already cached are computed again;
+    come back to the first context and they are served from the cache once more."""
+    session, amb = _ambient_session()
+    session.cached_frames(amb, "out", ask(4))
+    session.cached_output(amb, "sig")
+    assert (amb.calls, amb.output_calls) == (1, 1)
+    with session.evaluating(**{name: OTHER_VALUE[name]}):
+        session.cached_frames(amb, "out", ask(4))
+        session.cached_output(amb, "sig")
+        assert (amb.calls, amb.output_calls) == (2, 2)  # step: another context, computed again
+    session.cached_frames(amb, "out", ask(4))
+    session.cached_output(amb, "sig")
+    assert (amb.calls, amb.output_calls) == (2, 2)  # step: the first one is still cached
+
+
+def test_the_context_is_changed_only_by_entering_a_block_and_nests(ambient_reader):
+    session, _ = _ambient_session()
+    assert session.context == EvalContext()
+    with session.tuned(1e6):
+        with session.at_instant(5):
+            assert session.context == EvalContext(tune_hz=1e6, at_ns=5)
+            assert (session.tune_hz, session.instant_ns) == (1e6, 5)  # step: the read-through names
+        assert session.context == EvalContext(tune_hz=1e6)  # step: leaving restores the outer one
+    assert session.context == EvalContext()
+    with pytest.raises(AttributeError):
+        session.context.tune_hz = 3e6  # type: ignore[misc]  # step: a frozen value

@@ -224,7 +224,7 @@ class Component:
 
 - 上游的解析与 `Component.input` 相同：`SignalWiring.source` 给出上游端口；采样流输入不允许悬空，校验期拒绝。
 - 新钩子（`frames`、`input_frames`、`sample_interval`）纳入 `tests/test_component_catalog.py` 的钩子签名契约（#898、#929）。
-- `Session.cached_frames(comp, port, request)`：缓存键 `(信号版本, comp.uid, port, request, *求值的环境输入)`（环境输入 = 调谐点与求值时刻，`Session._evaluation_inputs` 一处给出，`cached_output` 的键尾同源，#1486），容量小（64 帧，LRU），
+- `Session.cached_frames(comp, port, request)`：缓存键 `(信号版本, comp.uid, port, request, 求值上下文)`（环境输入 = `EvalContext`：调谐点与求值时刻，整体进键，`cached_output` 的键尾同源，#1486、#1509），容量小（64 帧，LRU），
   只为一次读取内的重复请求与探针服务；信号版本变化即失效。
 - **定义校验**（`engine/validate_definition.py`）新增：
   - `E-DEF-WIRE-MEDIUM`（已有同类检查则扩展）：`samples` 输出只能接 `samples` 输入；`signal` 输出不能接 `samples` 输入——中间必须有 ADC；

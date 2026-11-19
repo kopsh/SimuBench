@@ -137,7 +137,7 @@ def stream_request(s: Session, comp: Component, port: str, count: int = PROBE_FR
         dt_s=dt,
         key=("probe",),
         index0=int(s.now_ns * 1e-9 / dt),
-        tune_hz=s.tune_hz,  # a receiver's frames differ by tuning: the request carries it (Session._evaluation_inputs)
+        tune_hz=s.tune_hz,  # a receiver's frames differ by tuning: the request carries it, and the frame cache's key has it (EvalContext)
     )
 
 
