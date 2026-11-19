@@ -198,6 +198,34 @@ def test_a_specs_edit_moves_the_places_that_refer_to_it(tmp_path):
     assert not spec.still_old
 
 
+def test_a_same_as_place_changes_without_extends(tmp_path):
+    """Both versions layer even when the file has no ``extends`` (#1636): the layering ends with
+    ``same_as`` resolved (what the engine runs), so a place that follows the spec edits with it —
+    it is never compared as the literal alias."""
+    files = make_files(tmp_path)
+    data = {
+        **MINIMAL,
+        "specs": {"jitter_s_rms": 1.0e-6},
+        "state": {
+            **MINIMAL["state"],
+            "sense.jitter": {
+                "type": "number",
+                "min": 0.0,
+                "max": {"same_as": "specs.jitter_s_rms"},
+                "default": 5.0e-7,
+            },
+        },
+    }
+    doc = files.create("acme-x1", data, "api")
+    out = files.edit(
+        "acme-x1", doc.sha256, [PatchOp(op="replace", path="/specs/jitter_s_rms", value=2.0e-6)], "agent"
+    )
+    assert as_tuples(out.changes) == [
+        ("state", "changed", "sense.jitter", "max", 1.0e-6, 2.0e-6),
+        ("specs", "changed", "specs", "jitter_s_rms", 1.0e-6, 2.0e-6),
+    ]
+
+
 # ---- the write seam (D90, #1631) -----------------------------------------------------------------
 
 SERVER = Path(__file__).resolve().parents[1] / "src" / "simubench" / "server"

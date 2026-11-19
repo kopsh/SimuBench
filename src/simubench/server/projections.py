@@ -86,39 +86,48 @@ def _is_builtin_cases(name: str, model: str) -> bool:
 
 def run_cases_file(
     files: BenchFiles,
-    path: str,
+    path: str | Path,
     *,
     def_id: str | None = None,
     collect: bool = False,
     model: str | None = None,
+    definition_dirs: list[Path] | None = None,
 ) -> list[Any]:
-    """Run a cases file the way ``simubench cases`` does: each case on a freshly powered bench,
-    every step checked against its expectation. A ``builtin:`` name is the shipped manual cases of
-    the model that owns it — of ``def_id`` itself, or, when a definition the caller runs cases for
-    extends another model, of that ancestor (the copy then runs them in the copy's place,
-    ``model=`` the copy); an agent seam without a definition in context runs any model's own file.
-    ``model`` the caller gives runs the cases on that definition in place of the cases' own, and
-    wins over the ancestor replacement. A missing or broken file, or a built-in name that is
-    nobody's, is a domain error for the seam to map; what the result rows are called and whether
-    the steps are collected stays with the caller (#1485: one resolution for all three seams —
-    the acceptance page used to be the only one that parsed ``builtin:``)."""
+    """Run a cases file — the one cases resolution every seam shares (#1485): each case on a
+    freshly powered bench, every step checked against its expectation. A ``builtin:`` name (as
+    ``str`` or ``Path``) is the shipped manual cases of the model that owns it — of ``def_id``
+    itself, or, when a definition the caller runs cases for extends another model, of that
+    ancestor (the copy then runs them in the copy's place, ``model=`` the copy); an agent seam
+    without a definition in context runs any model's own file. Any other ``str`` is a path in the
+    workspace (:meth:`BenchFiles.resolve`); a ``Path`` is a file the caller has already located —
+    the CLI's argument, anywhere on disk. ``model`` the caller gives runs the cases on that
+    definition in place of the cases' own, and wins over the ancestor replacement.
+    ``definition_dirs`` are the definition dirs to run with, in place of the workspace's
+    ``instruments/`` (the CLI's ``--definitions`` and the current folder's). A missing or broken
+    file, or a built-in name that is nobody's, is a domain error for the seam to map; what the
+    result rows are called and whether the steps are collected stays with the caller (the
+    acceptance page used to be the only one that parsed ``builtin:``)."""
     from ..cases import run_cases
     from ..library.coverage import BUILTIN_PREFIX, builtin_cases_file
 
+    name = path if isinstance(path, str) else path.as_posix()
+    dirs = definition_dirs if definition_dirs is not None else [files.workspace / "instruments"]
     cases_file: Path
-    if path.startswith(BUILTIN_PREFIX):
+    if name.startswith(BUILTIN_PREFIX):
         owner = def_id
         if def_id is not None:
             owner = next(
-                (m for m in [def_id, *cases_ancestors(files, def_id)] if _is_builtin_cases(path, m)),
+                (m for m in [def_id, *cases_ancestors(files, def_id)] if _is_builtin_cases(name, m)),
                 def_id,  # none: builtin_cases_file below says why
             )
             if model is None and owner != def_id:
                 model = def_id  # the copy runs the model it extends' cases in the copy's place
-        cases_file = builtin_cases_file(path, owner)
+        cases_file = builtin_cases_file(name, owner)
+    elif isinstance(path, Path):
+        cases_file = path  # the CLI's own argument: a file on disk, not a workspace name
     else:
         cases_file = files.resolve(path)
-    return run_cases(cases_file, [files.workspace / "instruments"], collect=collect, model=model)  # type: ignore[no-any-return]
+    return run_cases(cases_file, dirs, collect=collect, model=model)  # type: ignore[no-any-return]
 
 
 def session_summary(manager: SessionManager, served: ServedSession, info: Any = None) -> dict[str, Any]:
