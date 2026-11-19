@@ -680,39 +680,127 @@ commands:
   - header: ":MEASure:RESistance"
     op: meter.measure
     set: false
-    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
-    writes: {sense.function: "RES", sense.res.range: 0.0, sense.range_auto: true}
+    # MEASure = CONFigure + READ?: the function, the CONFigure preset, then one reading
+    # (#1585, #1644).
+    writes:
+      sense.function: "RES"
+      sense.res.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
     args: {what: RES}
     params:
       - {name: range, type: float, unit: OHM, min: 100.0, max: 1.0e9, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
-      - {name: resolution, type: float, unit: OHM, min: 0.0, max: 1.0e9, optional: true, state: sense.resolution}
+      # 分辨率的关键字与直流电压行相同（#344, #1644）：MIN / MAX 取 NPLC 表两端。
+      - name: resolution
+        type: float
+        unit: OHM
+        min: 0.0
+        max: 1.0e9
+        optional: true
+        state: sense.resolution
+        keywords:
+          MIN: {sense.resolution: 0.0, sense.nplc: 100.0}
+          MAX: {sense.resolution: 0.0, sense.nplc: 0.02}
   - header: ":MEASure:FRESistance"
     op: meter.measure
     set: false
-    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
-    writes: {sense.function: "FRES", sense.res.range: 0.0, sense.range_auto: true}
+    # MEASure = CONFigure + READ?: the function, the CONFigure preset, then one reading
+    # (#1585, #1644).
+    writes:
+      sense.function: "FRES"
+      sense.res.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
     args: {what: FRES}
     params:
       - {name: range, type: float, unit: OHM, min: 100.0, max: 1.0e9, optional: true, state: sense.res.range, sets: {sense.range_auto: false}}
-      - {name: resolution, type: float, unit: OHM, min: 0.0, max: 1.0e9, optional: true, state: sense.resolution}
+      # 分辨率的关键字与直流电压行相同（#344, #1644）：MIN / MAX 取 NPLC 表两端。
+      - name: resolution
+        type: float
+        unit: OHM
+        min: 0.0
+        max: 1.0e9
+        optional: true
+        state: sense.resolution
+        keywords:
+          MIN: {sense.resolution: 0.0, sense.nplc: 100.0}
+          MAX: {sense.resolution: 0.0, sense.nplc: 0.02}
   - header: ":MEASure:CURRent[:DC]"
     op: meter.measure
     set: false
-    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
-    writes: {sense.function: "CURR", sense.curr.range: 0.0, sense.range_auto: true}
+    # MEASure = CONFigure + READ?: the function, the CONFigure preset, then one reading
+    # (#1585, #1644).
+    writes:
+      sense.function: "CURR"
+      sense.curr.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
     args: {what: DCI}
     params:
       - {name: range, type: float, unit: A, min: 1.0e-4, max: 3.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
-      - {name: resolution, type: float, unit: A, min: 0.0, max: 3.0, optional: true, state: sense.resolution}
+      # 分辨率的关键字与直流电压行相同（#344, #1644）：MIN / MAX 取 NPLC 表两端。
+      - name: resolution
+        type: float
+        unit: A
+        min: 0.0
+        max: 3.0
+        optional: true
+        state: sense.resolution
+        keywords:
+          MIN: {sense.resolution: 0.0, sense.nplc: 100.0}
+          MAX: {sense.resolution: 0.0, sense.nplc: 0.02}
   - header: ":MEASure:CURRent:AC"
     op: meter.measure
     set: false
-    # MEASure = CONFigure + READ?: the function, autorange unless a range is given (#301).
-    writes: {sense.function: "CURR:AC", sense.curr.range: 0.0, sense.range_auto: true}
+    # MEASure = CONFigure + READ?: the function, the CONFigure preset, then one reading
+    # (#1585, #1644).
+    writes:
+      sense.function: "CURR:AC"
+      sense.curr.range: 0.0
+      sense.range_auto: true
+      sense.resolution: 0.0
+      sense.nplc: 10.0
+      sense.zero_auto: true
+      trigger.source: IMMediate
+      trigger.count: 1.0
+      sample.count: 1.0
+      trigger.delay: 0.0
+      trigger.delay_auto: true
     args: {what: ACI}
     params:
       - {name: range, type: float, unit: A, min: 1.0e-4, max: 3.0, optional: true, state: sense.curr.range, sets: {sense.range_auto: false}}
-      - {name: resolution, type: float, unit: A, min: 0.0, max: 3.0, optional: true, state: sense.resolution}
+      # 交流的分辨率不随积分时间变：MIN / MAX 回到当前分辨率（#344, #1644）。
+      - name: resolution
+        type: float
+        unit: A
+        min: 0.0
+        max: 3.0
+        optional: true
+        state: sense.resolution
+        keywords:
+          MIN: {sense.resolution: 0.0}
+          MAX: {sense.resolution: 0.0}
   - header: "[:SENSe]:RESistance:RANGe"
     op: meter.range
     args: {what: RES, state: sense.res.range, auto_state: sense.range_auto, default: 10000.0, unit: OHM, minimum: 100.0, maximum: 1.0e9}
