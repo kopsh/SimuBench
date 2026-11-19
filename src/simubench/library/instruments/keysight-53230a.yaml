@@ -177,7 +177,7 @@ components:
   - name: oper
     type: status_register
     params:
-      bits: {CAL: 0, RUN: 1, BATT: 2, ARM: 4, WTG: 5, INTREF: 8, LOCK: 9, CONF: 10, MEM: 11, ERR: 12}
+      bits: {CAL: 0, RUN: 1, BATT: 2, ARM: 4, WTG: 5, INTREF: 9, LOCK: 10, CONF: 11, MEM: 12, ERR: 13}
       enable: $status.oper_enable
       summary_bit: 7
   - name: ques

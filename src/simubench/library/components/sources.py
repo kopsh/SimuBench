@@ -155,8 +155,12 @@ class ReferenceClock(Component):
 
     def status_flags(self) -> dict[str, bool]:
         """UNLOCK when an external reference is selected and none locks the source: a time-base
-        error (a counter's questionable register names a bit after it)."""
-        return {"UNLOCK": str(self.param("source")).upper().startswith("EXT") and not self.locked()}
+        error (a counter's questionable register names a bit after it). INTREF while the internal
+        oscillator is the one in use: the internal one is selected, or an external one is selected
+        and none locks (a counter's operation register names a bit after it, #1598)."""
+        external = str(self.param("source")).upper().startswith("EXT")
+        locked = self.locked()
+        return {"UNLOCK": external and not locked, "INTREF": not locked}
 
     def error(self) -> float:
         """The fractional frequency error every synthesized frequency carries."""
