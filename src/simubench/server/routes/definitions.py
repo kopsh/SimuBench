@@ -9,7 +9,7 @@ from ...library.loader import DefinitionLibrary
 from ...models import api as M
 from ...models.definition import InstrumentDefinition
 from ..catalog import components as component_catalog
-from ..errors import Conflict
+from ..errors import DOMAIN_ERRORS, Conflict
 from ..mytemplates import save_as_template
 from ..services import new_definition
 from .context import ApiContext
@@ -85,6 +85,8 @@ def _definition_routes(ctx: ApiContext, router: APIRouter) -> None:
             return definition_files.copy_of(def_id, "ui")
         except KeyError as exc:
             raise not_found(exc) from None
+        except (*DOMAIN_ERRORS,) as exc:  # a save that could not record its history (#1501): 422
+            raise ctx.http_error(exc) from None
 
     @router.get(
         "/api/instrument-templates",

@@ -155,6 +155,24 @@ def test_bench_save_rolls_back_when_history_cannot_be_recorded(tmp_path, monkeyp
         assert r2.status_code != 500
         assert keep.read_bytes() == before
 
+        # a definition save takes the same rollback (#1501): a new definition leaves no file …
+        r3 = c.post("/api/definitions/keysight-34465a/copy")
+        assert r3.status_code == 422
+        assert not (tmp_path / "instruments" / "my-keysight-34465a.yaml").exists()
+
+        # … and an existing one is restored to its previous content
+        monkeypatch.undo()
+        mine = c.post("/api/definitions/keysight-34465a/copy").json()
+        mine_path = tmp_path / mine["path"]
+        saved = mine_path.read_bytes()
+        monkeypatch.setattr(manager.files.history, "record", blocked)
+        r4 = c.put(
+            f"/api/definitions/{mine['data']['id']}/identity",
+            json={"base_sha256": mine["sha256"], "serial": "SN-NEW"},
+        )
+        assert r4.status_code == 422
+        assert mine_path.read_bytes() == saved
+
 
 def test_scpi_sockets_listen_on_loopback_only(app):
     with TestClient(app, base_url="http://127.0.0.1") as c:
