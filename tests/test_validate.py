@@ -109,6 +109,12 @@ def test_high_z_setting_clears_the_hint():
             "/parts/rc/params/tol_r",
             None,
         ),
+        (  # #1609: NaN passes every comparison, but no resistor has it
+            lambda d: d["parts"]["rc"]["params"].update(r=float("nan")),
+            "E-PARAM-RANGE",
+            "/parts/rc/params/r",
+            None,
+        ),
         (  # #1589: one address, spelled two ways (VISA's default inst0, case)
             lambda d: (
                 d["instruments"]["awg"].update(address="TCPIP0::10.0.0.5::INSTR"),
@@ -153,6 +159,7 @@ def test_a_part_parameter_just_outside_its_physical_range_is_an_error(ctype, par
         outside.append(bound.minimum if bound.min_open else bound.minimum - 1.0)
     if bound.maximum is not None:
         outside.append(bound.maximum if bound.max_open else bound.maximum + 1.0)
+    outside.append(float("nan"))  # #1609: NaN is in no range
     for value in outside:
         data = copy.deepcopy(BASE)
         data["parts"]["x"] = {"type": ctype, "params": {param: value}}
@@ -161,6 +168,22 @@ def test_a_part_parameter_just_outside_its_physical_range_is_an_error(ctype, par
     data = copy.deepcopy(BASE)
     data["parts"]["x"] = {"type": ctype, "params": {}}
     assert "E-PARAM-RANGE" not in [d.code for d in validate_data(data, LIB)[1].diagnostics]
+
+
+def test_a_range_holds_no_nan_and_keeps_infinity_for_an_open_circuit():
+    """#1609: every comparison with NaN is False, so a naive range called it inside. ``contains``
+    refuses it, ``clamp`` maps it to a value of the range (the low edge, else the high one, else 0),
+    and ``inf`` stays valid where the range allows it (a resistance of ``inf`` is an open circuit)."""
+    from simubench.engine.component import ParamRange
+
+    nan = float("nan")
+    positive, non_negative, capped = ParamRange(0.0, min_open=True), ParamRange(0.0), ParamRange(None, 1.0)
+    assert not any(r.contains(nan) for r in (positive, non_negative, capped, ParamRange()))
+    assert positive.clamp(nan) == ParamRange.EDGE  # inside the open bound
+    assert non_negative.clamp(nan) == 0.0
+    assert capped.clamp(nan) == 1.0
+    assert ParamRange().clamp(nan) == 0.0
+    assert positive.contains(float("inf")) and not capped.contains(float("inf"))
 
 
 def test_distinct_or_missing_addresses_are_not_duplicates():
