@@ -5411,8 +5411,7 @@ sections:
     level: not_modeled
     gap: model_work
   - header: :SYSTem:HELP:HEADers
-    level: not_modeled
-    gap: model_work
+    level: implemented
   - header: :SYSTem:HID
     level: not_modeled
     note: 'Model work: interface configuration (LAN/GPIB/USB); candidate for accepted (affects_data: false).'

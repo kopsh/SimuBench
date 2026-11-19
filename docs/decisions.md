@@ -430,7 +430,7 @@
 
 - **结论**：示波器与信号源的首个真实型号改为 Siglent SDS2104X Plus 与 Siglent SDG2042X，替代 D42 中计划的 Keysight InfiniiVision 3000T 与 33500B（产品负责人同意）。Keysight 34465A、Fluke 5522A 不变。
 - **理由**：D42 要求逐条以编程手册为准，并在 `reference` 中写明版本。Siglent 的 *SDS Series Programming Guide*（EN11F）、*SDG Series Programming Guide*（PG02_E05C）与两份数据手册可从官方站点直接下载；Keysight 两份手册无法从公开渠道直接获取。D4 场景中的 T3DSO2000 同属 Siglent 平台。
-- **框架补充**：`builtins` 限定一个型号回答哪些内置命令（SDS 手册只写了 `*IDN`、`*OPC`、`*RST`，没有错误队列，其余一律“未建模”）；返回格式 `enum: as_defined` 按定义原样返回枚举（Siglent 回复 `RISing`、`FMDepth`）；`display.actions.single` 指定面板“单次”在仪表内部执行的命令（SDS 没有 `:SINGle`，用 `:TRIGger:MODE SINGle`；不经过 SCPI，见 D32）；手册用例的 `binary` 步骤按块读取二进制回复。
+- **框架补充**：`builtins` 限定一个型号回答哪些内置命令（SDS 手册只写了 `*IDN`、`*OPC`、`*RST`，没有错误队列，其余一律“未建模”；#1558 起 `:SYSTem:HELP:HEADers?`、`SYNTax?`、`SYNTax:ALL?` 是不受此名单限制的默认内置命令，由定义生成，型号用 `help: {enabled: false}` 关闭，因为这是模拟器的便利扩展而不是手册里的命令，白名单只管手册给出的内置命令；排版按厂商预设）；返回格式 `enum: as_defined` 按定义原样返回枚举（Siglent 回复 `RISing`、`FMDepth`）；`display.actions.single` 指定面板“单次”在仪表内部执行的命令（SDS 没有 `:SINGle`，用 `:TRIGger:MODE SINGle`；不经过 SCPI，见 D32）；手册用例的 `binary` 步骤按块读取二进制回复。
 - **手册没有给出的值**：`*RST` 后的多数设置、存储深度的默认值等，手册没有写；这些值作为 SimuBench 的默认值写入覆盖表的说明，而不是当作手册内容。
 - **示波器的开发验证基准改为 Keysight DSO-X 2024A**（#151）：SDS 的手册不给 `*RST` 值、回复格式与多数取值范围，示波器模块的每项能力都要另找依据。InfiniiVision 2000 X-Series *Programmer's Guide*（02.66.0000）给出每条命令的回复格式、`*RST` 示例回复与范围，数据手册 5990-6618EN 给出增益、偏置、时基与输入的指标；两份文件可从公开镜像稳定取得。示波器模块的新能力以 DSO-X 2024A 为验收型号；SDS2104X Plus 保留为第一个产品型号与 Siglent 平台的样本，不再作为新能力的依据。信号源仍是 SDG2042X。
 

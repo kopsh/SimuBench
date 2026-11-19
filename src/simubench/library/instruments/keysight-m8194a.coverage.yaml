@@ -304,9 +304,7 @@ sections:
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。
     gap: model_work
   - header: :SYSTem:HELP:HEADers
-    level: not_modeled
-    note: 命令列表块未建模。
-    gap: model_work
+    level: implemented
   - header: :SYSTem:LICense:EXTended:LIST
     level: not_modeled
     note: 未建模：LAN 端口与许可信息查询，手册未给出回复格式。

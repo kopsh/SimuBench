@@ -3425,6 +3425,28 @@ export interface components {
             /** Version */
             version: string;
         };
+        /**
+         * HelpSpec
+         * @description The command-list queries every instrument answers (#1558): ``:SYSTem:HELP:HEADers?`` lists the
+         *     commands this unit executes, ``:SYSTem:HELP:SYNTax? "<header>"`` and ``:SYSTem:HELP:SYNTax:ALL?``
+         *     give their syntax. The lists are generated from the definition; this block only says whether they
+         *     are answered and how the reply is written.
+         */
+        HelpSpec: {
+            /**
+             * Enabled
+             * @description False: the three headers are not answered (-113). The model's `builtins` list does not govern them; a command of the same header in `commands` takes their place
+             * @default true
+             */
+            enabled: boolean;
+            /**
+             * Preset
+             * @description Reply layout: keysight (Infiniium: definite-length block, CR LF, /qonly/ and /nquery/ markers), keysight_plain (block, LF, no markers), rs (string, LF, markers, headers without the leading colon), generic (string, LF, markers). auto: by manufacturer (Keysight: keysight_plain, Rohde & Schwarz: rs, others: generic)
+             * @default auto
+             * @enum {string}
+             */
+            preset: "auto" | "keysight" | "keysight_plain" | "rs" | "generic";
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -3564,6 +3586,8 @@ export interface components {
             extends?: string | null;
             /** @description Default response format */
             format?: components["schemas"]["ResponseFormat"];
+            /** @description The :SYSTem:HELP command-list queries (#1558): on by default for every model */
+            help?: components["schemas"]["HelpSpec"];
             /** Id */
             id: string;
             identity?: components["schemas"]["Identity"];

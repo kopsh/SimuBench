@@ -291,3 +291,10 @@ cases:
       - send: ':TRAC1:IMP 1,"x.bin",BIN,IONLY,OFF,ALEN'
       - query: ":SYST:ERR?"
         expect: '-113,"Undefined header;not implemented in this definition"'
+
+  - name: ":SYSTem:HELP:HEADers?：本台实现的命令列表，定长块、每行一条（#1558）"
+    manual: "Remote Programming > :SYSTem:HELP:HEADers?"
+    steps:
+      - query: ":SYST:HELP:HEAD?"
+        binary: true
+        expect_block: {contains: ["*IDN?", ":SYSTem:ERRor[:NEXT]?", ":SYSTem:HELP:HEADers?"], end: ["", "\n"]}

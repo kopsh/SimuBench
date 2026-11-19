@@ -111,6 +111,8 @@ preamp_gain:
 
 已实现（低频校准工作台）：定义可以给公共命令自己的行为（`*CLS?`），`unknown_commands: ignore`（D42）。保持不变。
 
+**命令列表查询（#1558）**：每台仪表默认回答 `:SYSTem:HELP:HEADers?`（本台实际执行的全部命令，每行一条，只能查询的行尾标 `/qonly/`、没有查询形式的标 `/nquery/`）、`:SYSTem:HELP:SYNTax? "<命令头>"`（一条命令的语法，如 `":FREQuency[?] <numeric value>"`，长短写法都认）和 `:SYSTem:HELP:SYNTax:ALL?`（每条命令一行语法）。内容由定义生成：`commands`（装了才有的选件命令按实例的选件取舍）加上本型号回答的内置命令，所以列出的就是能执行的。这是模拟器的便利扩展，不是每台真机都有：它**不受 `builtins` 名单限制**，要关掉写 `help: {enabled: false}`（三条命令按未建模回 -113）；定义里自己写了同名命令头，用定义的。回复排版由 `help.preset` 决定：`keysight`（Infiniium：定长块 `#<n><长度>`、CR LF 分行、带两个标记）、`keysight_plain`（定长块、LF、不带标记）、`rs`（普通字符串、LF、带标记、命令头不带开头冒号）、`generic`（普通字符串、LF、带标记）；`auto`（默认）按厂商选：Keysight 用 `keysight_plain`，Rohde & Schwarz 用 `rs`，其余 `generic`。型号的手册写明了排版时选对应预设（UXR 系列用 `keysight`）。语法文本由参数类型生成，是近似，不是厂商原文。
+
 ### 2.5 #48 补充的声明式字段与通用组件
 
 把参考示波器最后的专用行为改为声明时补充（都与型号无关）：

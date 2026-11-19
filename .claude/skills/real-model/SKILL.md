@@ -57,6 +57,9 @@ When the platform cannot express something the manual requires:
    `errors`, `format`, state, components, commands. A hardware option the data sheet lists (a
    preamplifier) goes in `options` — the parameters of a unit that has it, and `option: <id>` on
    its commands (D68; fields in `docs/real-models.md`); the bench instance lists `options: [P03]`.
+   `:SYSTem:HELP:HEADers?` / `SYNTax?` are answered by every model (generated from the commands,
+   not governed by `builtins`, #1558); set `help.preset` when the manual shows the reply layout
+   (Infiniium: `keysight`), `help: {enabled: false}` to turn them off.
    Two settings the manual does not allow together ("X is not available in Y mode"), or a
    coupling that changes one when the other is set, go in `constraints` (refuse or coerce, D69,
    `docs/instrument-authoring.md` 2.12) — not a component parameter; a code or direction the

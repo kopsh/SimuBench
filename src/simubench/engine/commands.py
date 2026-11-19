@@ -55,12 +55,23 @@ BUILTIN_HEADERS = (
     ":SYSTem:ERRor:ALL",
     ":SYSTem:DATE",
     ":SYSTem:TIME",
+    ":SYSTem:HELP:HEADers",
+    ":SYSTem:HELP:SYNTax",
+    ":SYSTem:HELP:SYNTax:ALL",
 )
+
+#: The command-list queries (#1558): answered by every model unless its ``help.enabled`` is false;
+#: the ``builtins`` list does not govern them (they are a SimuBench convenience, not a real
+#: model's documented command).
+HELP_HEADERS = BUILTIN_HEADERS[-3:]
 
 
 def _header_key(header: str) -> str:
     """A header as written in a definition, compared without case, spaces or the root colon."""
     return "".join(header.split()).lstrip(":").upper()
+
+
+_HELP_KEYS = frozenset(_header_key(h) for h in HELP_HEADERS)
 
 
 #: The common ones a ``builtins`` list can leave out; the :SYSTem: ones are matched through their
@@ -76,6 +87,9 @@ SYST_BUILTINS = (
     (":SYSTem:ERRor:ALL", Pattern.compile(":SYSTem:ERRor:ALL"), True, False),
     (":SYSTem:DATE", Pattern.compile(":SYSTem:DATE"), True, True),
     (":SYSTem:TIME", Pattern.compile(":SYSTem:TIME"), True, True),
+    (":SYSTem:HELP:HEADers", Pattern.compile(":SYSTem:HELP:HEADers"), True, False),
+    (":SYSTem:HELP:SYNTax", Pattern.compile(":SYSTem:HELP:SYNTax"), True, False),
+    (":SYSTem:HELP:SYNTax:ALL", Pattern.compile(":SYSTem:HELP:SYNTax:ALL"), True, False),
 )
 
 
@@ -92,7 +106,13 @@ def answered_builtins(definition: InstrumentDefinition) -> list[str]:
     """The built-in headers the definition answers without a command of its own: its
     ``builtins`` list (all of ``BUILTIN_HEADERS`` when unset), and ``*OPT`` when its identity
     lists the installed options (``identity.options_reply``, D68)."""
-    headers = list(BUILTIN_HEADERS if definition.builtins is None else definition.builtins)
+    headers = (
+        [h for h in BUILTIN_HEADERS if h not in HELP_HEADERS]
+        if definition.builtins is None
+        else list(definition.builtins)
+    )
+    if definition.help.enabled:
+        headers += HELP_HEADERS
     if definition.identity.options_reply is not None:
         headers.append("*OPT")
     return headers
@@ -114,6 +134,8 @@ def _compiled_builtin(header: str) -> Pattern:
 
 def builtin_allowed(definition: InstrumentDefinition, header: str) -> bool:
     """Whether the definition's ``builtins`` list leaves this built-in command on (D42)."""
+    if _header_key(header) in _HELP_KEYS:
+        return definition.help.enabled
     allowed = definition.builtins
     return allowed is None or _header_key(header) in {_header_key(h) for h in allowed}
 

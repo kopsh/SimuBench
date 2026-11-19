@@ -15,6 +15,7 @@ from .commands import (
     SYST_BUILTINS,
     builtin_allowed,
 )
+from .help_text import headers_reply, syntax_all_reply, syntax_reply
 
 if TYPE_CHECKING:
     from .instrument import Instrument
@@ -98,7 +99,9 @@ class BuiltinCommands:
 
     def _builtin(self, unit: Unit, tokens: tuple[Token, ...]) -> bytes | None:
         """A built-in command's reply; ``_HANDLED`` for one without a reply, None when not built in."""
-        err, count, all_, date, time_ = (p for _h, p, _q, _s in SYST_BUILTINS)
+        err, count, all_, date, time_, help_headers, help_syntax, help_syntax_all = (
+            p for _h, p, _q, _s in SYST_BUILTINS
+        )
         if unit.query and err.match(tokens) is not None:
             return self.inst._errs._error_reply(self.inst.errors.pop())
         if unit.query and count.match(tokens) is not None:
@@ -110,6 +113,14 @@ class BuiltinCommands:
             return b",".join(items or [self.inst._errs._error_reply(ScpiError(0))])
         if date.match(tokens) is not None or time_.match(tokens) is not None:
             return self._clock_command(unit, date=date.match(tokens) is not None)
+        if unit.query and help_headers.match(tokens) is not None:
+            return headers_reply(self.inst.definition, self.inst.options)
+        if unit.query and help_syntax_all.match(tokens) is not None:
+            return syntax_all_reply(self.inst.definition, self.inst.options)
+        if unit.query and help_syntax.match(tokens) is not None:
+            if len(unit.params) != 1:
+                raise ScpiError(-109 if not unit.params else -108)
+            return syntax_reply(self.inst.definition, self.inst.options, unit.params[0])
         return None
 
     def _clock_command(self, unit: Unit, *, date: bool) -> bytes:

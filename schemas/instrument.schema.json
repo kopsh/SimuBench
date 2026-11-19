@@ -924,6 +924,33 @@
       "title": "Display",
       "type": "object"
     },
+    "HelpSpec": {
+      "additionalProperties": false,
+      "description": "The command-list queries every instrument answers (#1558): ``:SYSTem:HELP:HEADers?`` lists the\ncommands this unit executes, ``:SYSTem:HELP:SYNTax? \"<header>\"`` and ``:SYSTem:HELP:SYNTax:ALL?``\ngive their syntax. The lists are generated from the definition; this block only says whether they\nare answered and how the reply is written.",
+      "properties": {
+        "enabled": {
+          "default": true,
+          "description": "False: the three headers are not answered (-113). The model's `builtins` list does not govern them; a command of the same header in `commands` takes their place",
+          "title": "Enabled",
+          "type": "boolean"
+        },
+        "preset": {
+          "default": "auto",
+          "description": "Reply layout: keysight (Infiniium: definite-length block, CR LF, /qonly/ and /nquery/ markers), keysight_plain (block, LF, no markers), rs (string, LF, markers, headers without the leading colon), generic (string, LF, markers). auto: by manufacturer (Keysight: keysight_plain, Rohde & Schwarz: rs, others: generic)",
+          "enum": [
+            "auto",
+            "keysight",
+            "keysight_plain",
+            "rs",
+            "generic"
+          ],
+          "title": "Preset",
+          "type": "string"
+        }
+      },
+      "title": "HelpSpec",
+      "type": "object"
+    },
     "Identity": {
       "additionalProperties": false,
       "properties": {
@@ -2580,6 +2607,10 @@
     "format": {
       "$ref": "#/$defs/ResponseFormat",
       "description": "Default response format"
+    },
+    "help": {
+      "$ref": "#/$defs/HelpSpec",
+      "description": "The :SYSTem:HELP command-list queries (#1558): on by default for every model"
     },
     "id": {
       "title": "Id",
