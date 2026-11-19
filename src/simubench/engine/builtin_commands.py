@@ -61,6 +61,13 @@ class BuiltinCommands:
             return str(self.stb()).encode()
         if word == "TST" and q:
             return b"0"
+        if word == "PSC":
+            if q:
+                return b"1" if self.inst.psc else b"0"
+            if not unit.params:
+                raise ScpiError(-109)
+            self.inst.psc = V.parse_bool(unit.params[0])
+            return None
         raise self.inst._errs._undefined(unit, unit.tokens)
 
     def opt(self) -> str:
@@ -99,8 +106,13 @@ class BuiltinCommands:
 
     def _builtin(self, unit: Unit, tokens: tuple[Token, ...]) -> bytes | None:
         """A built-in command's reply; ``_HANDLED`` for one without a reply, None when not built in."""
-        err, count, all_, date, time_, help_headers, help_syntax, help_syntax_all = (
-            p for _h, p, _q, _s in SYST_BUILTINS
+        p = {h: pat for h, pat, _q, _s in SYST_BUILTINS}
+        err, count, all_ = p[":SYSTem:ERRor[:NEXT]"], p[":SYSTem:ERRor:COUNt"], p[":SYSTem:ERRor:ALL"]
+        date, time_ = p[":SYSTem:DATE"], p[":SYSTem:TIME"]
+        help_headers, help_syntax, help_syntax_all = (
+            p[":SYSTem:HELP:HEADers"],
+            p[":SYSTem:HELP:SYNTax"],
+            p[":SYSTem:HELP:SYNTax:ALL"],
         )
         if unit.query and err.match(tokens) is not None:
             return self.inst._errs._error_reply(self.inst.errors.pop())
@@ -113,6 +125,8 @@ class BuiltinCommands:
             return b",".join(items or [self.inst._errs._error_reply(ScpiError(0))])
         if date.match(tokens) is not None or time_.match(tokens) is not None:
             return self._clock_command(unit, date=date.match(tokens) is not None)
+        if unit.query and p[":SYSTem:VERSion"].match(tokens) is not None:
+            return b"1999.0"  # the SCPI version every instrument here follows
         if unit.query and help_headers.match(tokens) is not None:
             return headers_reply(self.inst.definition, self.inst.options)
         if unit.query and help_syntax_all.match(tokens) is not None:

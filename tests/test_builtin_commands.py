@@ -348,3 +348,29 @@ def test_the_mandatory_488_2_commands_answer_whatever_builtins_lists():
     for query in ("*ESR?", "*ESE?", "*SRE?", "*STB?", "*TST?", "*OPC?"):
         reply, _ = dispatch_unit(inst, query)
         assert reply, query
+
+
+def test_psc_round_trips_and_survives_a_reset():
+    inst = _inst()
+    assert dispatch_unit(inst, "*PSC?")[0] == b"1"  # a unit clears its status enables at power-on
+    dispatch_unit(inst, "*PSC 0")
+    assert dispatch_unit(inst, "*PSC?")[0] == b"0"
+    dispatch_unit(inst, "*RST")
+    assert dispatch_unit(inst, "*PSC?")[0] == b"0"  # *RST does not touch it
+    dispatch_unit(inst, "*PSC ON")
+    assert dispatch_unit(inst, "*PSC?")[0] == b"1"
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(inst, "*PSC")
+    assert caught.value.code == -109
+
+
+def test_system_version_answers_the_scpi_version():
+    assert dispatch_unit(_inst(), ":SYSTem:VERSion?")[0] == b"1999.0"
+
+
+def test_the_builtins_list_governs_psc_and_version():
+    inst = _with(builtins=["*IDN"])
+    for message in ("*PSC?", ":SYSTem:VERSion?"):
+        with pytest.raises(ScpiError) as caught:
+            dispatch_unit(inst, message)
+        assert caught.value.code == -113 and caught.value.reason == "builtin_excluded", message
