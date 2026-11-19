@@ -1587,7 +1587,8 @@ channel_components:
     type: scope_vertical
     label: 垂直前端（档位/偏置/带宽）
     # 真机（技术概述 3123-1371 p.11）：1 mm 接头 → 机电衰减器 → InP 前置放大器（DC–110 GHz，不用频率交织），其后分两路：
-    # 采样器与触发比较器。衰减器的档位与衰减值厂商未公开，这里合成一块，只复现档位、偏置、噪声与带宽的外部行为。
+    # 采样器与触发比较器。衰减器四档 0 / 6.7 / 13.3 / 20 dB（数据手册 3123-1313 p.5），档界即下面 offset_ranges 的档界；
+    # 这里合成一块，衰减的效果含在偏置表与噪声表里（对照见 docs/real-models.md 第 11 节）。
     params:
       coupling: DC
       bandwidth: {same_as: specs.bandwidth_hz}

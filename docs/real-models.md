@@ -212,21 +212,55 @@ cases:
 
 ## 11. UXR1104B：公开的内部框图与定义的对照
 
-依据 Keysight 技术概述 3123-1371（`manuals/3123-1371/`，页码为 PDF 页）与数据手册 3123-1313。只对到框图级：
-厂商没有公开 ASIC 型号、电路和布局，下表中“未建模”的环节没有公开数据可依，不凭推测补。
+依据：技术概述 3123-1371（`manuals/3123-1371/`）与数据手册 3123-1313（`manuals/3123-1313/`），页码均为 PDF 页；
+另有一篇 Signal Integrity Journal 文章（未入库，下称 SIJ：
+https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-series-oscilloscopes-a-journey-of-a-signal ）。
+厂商只公开到框图级（没有 ASIC 型号、电路与布局）。每一条“对得上 / 不一致”都写明是对照原文、代码还是仿真实测得出的。
 
-| 公开框图（3123-1371） | 定义里的对应 | 对得上吗 |
+### 11.1 公开的信号链
+
+1 mm 输入（3123-1371 p.6）→ 机电衰减器，0 / 6.7 / 13.3 / 20 dB 四档（3123-1313 p.5 Maximum Input Range 表）
+→ InP 前置放大器，DC–110 GHz，不用频率交织（3123-1371 p.11、p.15）→ 分两路：触发比较器（SIJ；3123-1371 只说
+前置放大器、触发、采样同在一个前端模块）与 256 GSa/s 的 InP 主采样器 → 4 个 64 GSa/s 的 SiGe 采样器 → 16 个
+10 位 ADC 通道，即每块采集板上 4 颗 4-lane 的 ADC（3123-1371 p.10、p.11、p.13）→ 4 个存储控制器 ASIC、2 个信号
+处理 FPGA、500 Mpts–2 Gpts 存储（p.13）；每个 110 GHz 通道一块采集板，4 块板由同一时基同步，通道间固有抖动
+< 10 fs rms（p.13；3123-1313 p.11）。
+
+### 11.2 逐项对照
+
+| 公开结构 | 定义里的对应 | 结论（依据） |
 | --- | --- | --- |
-| 1 mm 输入接头，AutoProbe III，每通道一块采集板（p.6、p.13） | `inp`（`input_port`，50 Ω）；4 个通道各自独立 | 对得上 |
-| 机电衰减器（“为降低噪声与提高可靠性”），其后是 InP 前置放大器，DC–110 GHz，不用频率交织（p.11、p.15） | `front`（`scope_vertical`）：档位、偏置、带宽、按档噪声表 | 行为对得上；衰减器与放大器没有分开，厂商没给衰减值 |
-| 硬件灵敏度 7.5 mV/div（60 mV 满量程），以下为软件放大（p.11） | `min_full_scale: 0.06`，`scale_range` 下限 1 mV | 对得上 |
-| 前置放大器之后分两路：256 GSa/s 采样器与触发比较器（Signal Integrity Journal 文章，未入库：https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-series-oscilloscopes-a-journey-of-a-signal ；技术概述 p.11 只写“前置放大器、触发、采样集成在同一前端模块”） | `trigger` 取自 ADC 之前的模拟通路，不经数字滤波（#1263） | 对得上 |
-| 256 GSa/s 的 InP 主采样器，配 4 个 64 GSa/s SiGe 采样器，输出时间交织的信号给 **16 个** 10 位 ADC（p.11）；每块采集板复用 4 个 4-lane 10 位 ADC（p.10、p.13） | `adc`：10 位、256 GSa/s、`interleave: 16`、`interleave_skews_s` 16 项 | 数量对得上；16 路的失配取值来自数据手册的 SFDR 与交织像指标，厂商没公开各路的失配 |
-| 硬件 ADC 的 ENOB 最高 8.7（p.10） | 未建模：ADC 本身不带 ENOB 参数，噪声由噪声表给出 | 未建模 |
-| 采集板：4 个 100M 门存储控制器、2 个信号处理 FPGA、500 Mpts–2 Gpts 存储；频响修正、1 GHz 至示波器带宽的硬件带宽限制修正滤波（p.13） | `bwf`（带宽滤波）、`isim`、`dec`（抽取）、`acq`（存储深度，标配 500 Mpts，选件 1/2 Gpts） | 功能对得上；没有按存储控制器 / FPGA 分块 |
-| 存储控制器硬件加速：波形绘制、平均、均衡（CTLE、FFE、TIE）、抖动测量、InfiniiSim（p.14） | `dec` 的平均、`isim`、`scope_measurements`、`scope_math` | 功能对得上，没有硬件加速的结构 |
-| 振荡器板控制时间交织（同一篇 Signal Integrity Journal 文章）；通道间固有抖动 < 10 fs rms（p.13） | `timebase`（10 MHz 参考输入）；通道间抖动未建模 | 部分对得上 |
-| 单台 4 通道 110 GHz UXR 含 80+ 颗定制 ASIC、13 个 FPGA、9 种 MMIC、38 个薄膜（p.9） | 无 | 数量只作背景，不进模型 |
+| 1 mm 输入、50 Ω、每通道一块采集板 | `inp`；4 个通道各自一条链 | 对得上（原文） |
+| 衰减器四档 0 / 6.7 / 13.3 / 20 dB，档界 60 / 128 / 280 mV/div | `front` 一块：`offset_ranges` 档界 59.5 / 127.5 / 279.5 mV/div 与偏置值取自同一张表；噪声表按满量程逐档（p.8） | 档界与偏置对得上（原文）；衰减量本身没有单独的参数，它的效果已含在噪声表与偏置表里 |
+| 硬件灵敏度 60 mV 满量程（7.5 mV/div），以下为放大 | `min_full_scale: 0.06` | 对得上（原文） |
+| 前置放大器后分出触发通路 | `trigger` 在 ADC 之前取信号，不经数字滤波（#1263） | 对得上（SIJ） |
+| 主采样器 256 GSa/s → 4 × 64 GSa/s → 16 路 ADC | `adc`：`interleave: 16`，16 路同级、余弦图样的增益与时延失配 | 路数对得上；层级不同，见 11.3 第 3 条 |
+| 存储控制器与 FPGA：频响修正、1 GHz 起的带宽限制滤波、平均、InfiniiSim（p.13、p.14） | `bwf`、`isim`、`dec`、`acq` | 功能对得上，没有分块（原文） |
+| 前端另有模拟带宽限制滤波（p.11 “Analog and DSP bandwidth limit filters”） | 只有 DSP 滤波（`bwf`、`isim`） | 未建模；厂商没给模拟滤波的档位 |
 
-结论：前一版对照里“16 路交织与公开的 4×64 GSa/s 不一致”的说法是错的：官方概述明写 16 个 10 位 ADC（4 个 SiGe 采样器各带 4 路），
-与定义的 `interleave: 16` 一致。仍然没有公开依据的有：衰减器的档位与衰减值、各路 ADC 的失配图样、通道间抖动。
+### 11.3 核对出的不一致
+
+1. **显示抖动（触发抖动）偏大约 40 %。** 数据手册 3123-1313 p.16：1 mm 型号 71 fs rms（典型，UXR1104B，
+   100 mV/div，500 mVpp、55 GHz 正弦）。仿真实测（同一条件，200 次 `:DIGitize`，量显示波形在触发点附近的过零时刻
+   的离散度）：102 fs；去掉 `trigger_jitter_s` 只剩 100 fs，所以主项是触发通路噪声。定义里触发噪声是估计（“与该档
+   的通道噪声相同”，`trigger` 注释），数据手册的 71 fs 说明这个估计偏高。另：`trigger_jitter_s` 的 25 fs 注释写作
+   “数据手册的 intrinsic jitter”，但它是固有抖动表中 10 µs 采集时长的那一行（p.11），不是触发抖动。
+2. **通道间抖动不满足 < 10 fs。** 数据手册 p.11：通道间固有抖动 < 10 fs rms，单通道 < 1 µs 时 15 fs rms。
+   代码（`scope_capture.py` 的 `FrameRequest` 键含通道号，`scope_record.py` 按这个键抽孔径抖动）：每个通道的
+   15 fs 各自独立，两通道之差为 √2 × 15 ≈ 21 fs。真机的 15 fs 大部分来自 4 块板共用的时钟，通道之间相消。
+3. **交织失配的标定对着的频率不在数据手册的测量窗口里。** 数据手册 p.10：SFDR 在 5 GHz 载波、10 GHz 带宽
+   （0–10 GHz）与 50 GHz 载波、20 GHz 带宽（40–60 GHz）里量。定义的失配是 16 路上的一个余弦，只在 16 GHz ± f 出像：
+   5 GHz 载波的像在 11 / 21 GHz，50 GHz 载波的在 34 / 66 GHz，都在窗口外；`tests/test_scope_adc_nonlinearity.py::
+   test_the_uxr1104b_images_meet_the_data_sheet_s_sfdr_at_5_and_50_ghz` 量的也是这两处。#1422 的 4.40 fs 是按
+   “50 GHz 合计 -61 dBc”反推的，前提不成立。50 GHz 载波落进 40–60 GHz 的像是 96 GHz − 50 GHz = 46 GHz，即第 6 次
+   谐波，而单个余弦图样没有第 6 次。同页 “Signal related … multiple per 16 GHz interval: -52 dBc”、“Residual
+   responses (major per 16 GHz interval): -65 dBFS” 说的是每个 16 GHz 区间都有，而定义只在 16 GHz 有一根；
+   “-65 dBm clock spur @ 64 GHz”（与 64 GSa/s 的 SiGe 采样器同频）没有建模。公开的 1 → 4 → 16 层级会给出
+   k × 64 GHz 与 k × 16 GHz 两族像，但各族的大小厂商没有公开。
+4. **前一版对照的错误。** 衰减值不是“厂商未公开”（见 11.2）；ADC 路数此前一度说成“4 × 64 GSa/s 与 16 路不符”，
+   原文是 16 路。
+
+### 11.4 没有公开依据、不建模
+
+各路 ADC 的失配大小、模拟带宽限制滤波的档位、单独的 ADC ENOB（3123-1371 p.10 的 8.7 位是 ADC 单独的值，整机噪声
+已在噪声表里，再加会重复计入）。
