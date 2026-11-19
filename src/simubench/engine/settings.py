@@ -62,6 +62,10 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
             # number -- a string, null, a list, an object -- is a bad parameter, not a bug: answer
             # -104 like the SCPI parser does for the same input, never a 500 (#1456).
             raise ScpiError(-104, f"expected a number, got {value!r}") from None
+        except OverflowError:
+            # An integer too large for a float (JSON can write 10**400) is beyond every range,
+            # as infinity is (#1500).
+            raise ScpiError(-222) from None
         special_values = set((spec.special or {}).values())
         if v in special_values:
             return v
@@ -103,6 +107,8 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
             out = [int(v) for v in value]
         except (TypeError, ValueError):
             raise ScpiError(-104, f"expected a list of integers, got {value!r}") from None
+        except OverflowError:  # an infinite element is outside every range (#1500)
+            raise ScpiError(-222) from None
         for v in out:
             if spec.min is not None and v < spec.min:
                 raise ScpiError(-222)
