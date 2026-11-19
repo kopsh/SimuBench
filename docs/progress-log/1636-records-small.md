@@ -1,0 +1,11 @@
+## 记录域小件桶：runs 摘要头尾、CLI cases 第四缝、same_as 捷径、record_time（Issue 1636）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| `/api/runs` 摘要只读记录的首行与末行，DTO 不变，summary 与全量解析结果一致 | ✅ `server/runs.py::_summary` 不再 `list(read_record(path))`：新 `_head_tail` 读首行并从文件尾按 4 KB 窗口回扫末行（单行更长则窗口加倍；中间的行不再读也不再解析——TUI 每秒轮询、单份记录上限 5 MB）。事件数取末行的 `seq`（record.py 每写入一行递增，header 占 seq 0，end 是最后一行：`end.seq - 1`，无 end 时即末行 seq）；`duration_ns` 取 end 自带的 `t_ns`（record.py:153，无 end 的在录记录取末行的）。`detail()` 把全量解析结果传进同一个 `_summary`，两种读法共用一份计算。测试：`tests/test_replay.py::test_runs_api` 用多事件记录逐字段对比 API 摘要与全量解析（事件数 = 行数 − 2、duration = 全量 max、started/ended/seed/clock/instruments/size）；`tests/test_tui_t4.py`（真实服务器的 runs 列表）全过 |
+| CLI `cases` 接 #1485 的统一解析缝，`builtin:` 用例名命令行也能跑；注释指认唯一缝 | ✅ `cli.py::_cases` 改走 `server/projections.run_cases_file`：缝新增 `Path` 形参（调用方已定位的文件，盘上任意路径，CLI 原语义不变）与 `definition_dirs`（`--definitions` + 当前目录，缺省仍是工作区 `instruments/`，HTTP/MCP/assistant 三个既有调用方不受影响）；`builtin:` 名 str 与 Path 都认。`routes/acceptance.py` 与 `projections.py` 里「the way `simubench cases` does」的自指注释改为指认唯一缝。测试：`tests/test_cases.py::test_a_builtin_cases_name_runs_from_the_cli`、`test_a_builtin_name_that_is_nobodys_exits_2`；既有按路径跑的用例测试原样通过 |
+| 变更投影去 same_as 捷径：无 extends 的定义也走 layering，`same_as` 按解析值比较（D82） | ✅ `definitionfiles.py::_changes.runs` 删除 `if not isinstance(data.get("extends"), str): return data`，无条件 `definitionstructure.layered`（loader 的 `_layered` 末步无条件 `resolve_same_as`，与运行时一致；父文件的重复解析命中 `_raw_definition` 的 mtime 缓存）；docstring 与 D59/D82 对齐。测试：`tests/test_definition_history.py::test_a_same_as_place_changes_without_extends`——无 extends 的定义写 `{same_as: specs.jitter_s_rms}`，改 spec 后 state 位随动（`still_old` 不再把它当「照抄字面量」）；已对捷径未删的代码验证该测试失败 |
+| 取记录时刻收口为 `engine.events.record_time`，三处逐字重复退役 | ✅ `replay.py`（`resend` 与 `replay` 两处）与 `server/runs.py::_event` 的 `int(ev.get("t_start_ns", ev.get("t_ns", 0)))` 改用 `record_time(ev)`（挨着 `ENGINE_SIDE_KEYS` 写明双名来历）。测试：`tests/test_replay.py`、`tests/test_events_contract.py` 全过 |
+| progress-log 一条一文件；本 issue 不写 decisions 条目 | ✅ 本文件 |
+
+行为变化逐条：① 摘要的 `duration_ns` 从「扫全部事件取 max」改为「end 事件的 `t_ns`」——最后一次事件之后时钟又走过的时间（wall/scaled 时空闲推进）也计入，`events` 计数对 recorder 写出的记录与按行计数完全一致；② CLI 用例可跑 `builtin:` 名，文件路径与 `--definitions` 语义不变；③ 无 extends 且用了 `same_as` 的定义，变更条目从「`{same_as: …}` 字面量比较（改 spec 时该位看不出变化）」变为「解析值比较（该位随 spec 出一条变更）」；④ `record_time` 无行为变化。本 issue 不写新 decisions 条目（小件桶，不满足两标准）。
