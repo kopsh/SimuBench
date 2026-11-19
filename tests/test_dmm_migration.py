@@ -8,7 +8,11 @@ function generator so the AC path (rms, the bandwidth filter) is exercised too.
 with ``uv run python tests/record_gold.py dmm``. The reading replies carry the front end's noise
 (specs.noise_ppm_of_range, #744) — the gold guards the command path, not the noise draws, so a
 re-recording reproduces them from the bench seed. #286: ``:CONF?`` reports the resolution
-CONFigure was given, and the resolution is a setting that persists across range changes.
+CONFigure was given, and the resolution is a setting that persists across range changes. #1585:
+MEASure = CONFigure + READ?, so a MEASure resets the resolution to its default and the range to
+autorange (no range parameter given): the ``:CONF?`` after the range changes reports the NPLC
+step, 0.12 V and 0.13 V no longer overload the fixed 0.1 V range, and the AC MEASure reads on
+0.1 V instead of the 10 V set.
 """
 
 from __future__ import annotations

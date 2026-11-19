@@ -35,13 +35,19 @@ export const useEvents = create<EventStore>((set) => ({
   clear: () => set({ events: [] }),
 }));
 
-/** Keep a WebSocket to the session's event stream, reconnecting with back-off. */
+/** Keep a WebSocket to the session's event stream, reconnecting with back-off.
+ *
+ * A reconnect carries the ``since`` cursor of the last event delivered (#1632): the server
+ * replays only the events after it, so nothing already held arrives twice and the log keeps
+ * its size across the drop. The first connect omits the cursor and gets the whole history.
+ */
 export function useEventStream(sid: string, onState?: (ev: Event) => void) {
   useEffect(() => {
     let ws: WebSocket | null = null;
     let closed = false;
     let attempt = 0;
     let timer: number | undefined;
+    let lastSeq = 0; // the newest event delivered: the reconnect's since (#1632)
     useEvents.setState({ sid, status: "connecting", events: [], version: 0, activity: {}, busy: false });
 
     const pending: Event[] = [];
@@ -75,16 +81,19 @@ export function useEventStream(sid: string, onState?: (ev: Event) => void) {
 
     const connect = () => {
       const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${proto}://${window.location.host}/api/sessions/${sid}/events?token=${encodeURIComponent(getToken() ?? "")}`;
+      const since = lastSeq > 0 ? `&since=${lastSeq}` : "";
+      const url = `${proto}://${window.location.host}/api/sessions/${sid}/events?token=${encodeURIComponent(getToken() ?? "")}${since}`;
       ws = new WebSocket(url);
       ws.onopen = () => {
-        // A reconnect's missed events are lost for good: bump the version so every version-keyed
-        // query re-reads (D64). The first open must not — every query just mounted on version 0.
+        // A reconnect still re-reads what the version-keyed queries hold (D64): the stream
+        // replays the events after the cursor, but an answer a query already fetched may
+        // predate them. The first open must not bump — every query just mounted on version 0.
         useEvents.setState((s) => ({ status: "connected", version: attempt > 0 ? s.version + 1 : s.version }));
         attempt = 0;
       };
       ws.onmessage = (msg) => {
         const ev = JSON.parse(msg.data as string) as Event;
+        lastSeq = Math.max(lastSeq, ev.seq);
         pending.push(ev);
         if (ev.kind === "state" && onState) onState(ev);
         if (!flushScheduled) {

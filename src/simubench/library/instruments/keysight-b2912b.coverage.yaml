@@ -1234,7 +1234,7 @@ sections:
   - {header: ':STATus:OPERation:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
   - {header: ':STATus:OPERation:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
   - {header: ':STATus:QUEStionable[:EVENt]', level: implemented, note: '条件变为真时锁存，读后清零；*CLS 清零；QUES 汇总进状态字节位 3。'}
-  - {header: ':STATus:QUEStionable:CONDition', level: implemented, note: '位 0 VLIM（电压限）、1 ILIM（电流限）；2、4、8、9、10 没有来源，恒为 0。'}
+  - {header: ':STATus:QUEStionable:CONDition', level: implemented, note: '每通道：位 0/1/4/8/9 是本通道对应子寄存器的汇总（子寄存器事件 & 使能 ≠ 0）；2、10 没有来源，恒为 0。'}
   - {header: ':STATus:QUEStionable:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
   - {header: ':STATus:QUEStionable:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
   - {header: ':STATus:QUEStionable:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}

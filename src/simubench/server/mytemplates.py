@@ -22,7 +22,7 @@ from typing import Any
 from ..contracts import api as M
 from ..engine.edit import ReplaceInstrument
 from .definitionfiles import DefinitionFiles
-from .errors import Conflict, Invalid, Unknown
+from .errors import Invalid, Unknown
 from .history import Source
 
 _CHANNEL_PATH = re.compile(r"ch(\d+)\.(.+)")
@@ -75,8 +75,8 @@ def save_as_template(
 ) -> M.SaveTemplateResponse:
     files = definitions.files
     bench = files.read(bench_path)
-    if bench.sha256 != base_sha256:
-        raise Conflict(f"{bench_path} changed since it was read", bench.sha256, target="bench")
+    # checked here, before a definition is created, so a stale save writes nothing at all
+    files.require_unchanged(bench_path, base_sha256, bench.sha256, target="bench")
     inst = (bench.data.get("instruments") or {}).get(instrument)
     if not isinstance(inst, dict):
         raise Unknown(f"没有名为 {instrument!r} 的仪表")

@@ -442,9 +442,10 @@ components:
       # 最小比值（10 µA 档 150 ppm）的 1/20
       noise: {ppm_of_range: 7.5, ref_time_s: 0.02}
   # 状态寄存器组（B2910-90130 的 STATus Subsystem，Table 4-4 至 4-6）：MEASurement 的读数可用、
-  # 缓冲有数据/已满来自触发模型与 reading_buffer，OPERation 的 Acquire Idle/Waiting 来自触发模型，
-  # QUEStionable 的过压/过流来自 CV/CC 控制环。校准、自检、过温、互锁、输出保护与丢事件在模型里
-  # 没有来源，恒为 0；ARM 层未建模（Waiting for Acquire Arm 不置位）。
+  # 缓冲有数据/已满来自触发模型与 reading_buffer，OPERation 的 Acquire Idle/Waiting 来自触发模型。
+  # QUEStionable 的位 0/1/4/8/9 是对应子寄存器（Table 4-7 至 4-11）的汇总：子寄存器的事件与
+  # 使能都不为 0 时才置位，子寄存器的过压/过流来自 CV/CC 控制环。校准、自检、过温、互锁、
+  # 输出保护与丢事件在模型里没有来源，恒为 0；ARM 层未建模（Waiting for Acquire Arm 不置位）。
   - name: meas
     type: status_register
     params:
@@ -467,7 +468,7 @@ components:
   - name: ques
     type: status_register
     params:
-      bits: {VLIM: 0, ILIM: 1, PROT: 2, TEMP: 4, CAL: 8, TEST: 9, ILOCK: 10}
+      bits: {QUES_VOLT: 0, QUES_CURR: 1, PROT: 2, QUES_TEMP: 4, QUES_CAL: 8, QUES_TEST: 9, ILOCK: 10}
       enable: $status.ques_enable
       ptr: $status.ques_ptr
       ntr: $status.ques_ntr

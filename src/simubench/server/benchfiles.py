@@ -14,6 +14,7 @@ import json
 import logging
 import os
 import threading
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
@@ -37,7 +38,7 @@ from ..models import categories
 from ..models.bench import BenchDefinition
 from ..models.migrate import FormatError, upgrade
 from . import yamlpatch
-from .errors import Conflict, Forbidden, Invalid, NotFound
+from .errors import Conflict, ConflictTarget, Forbidden, Invalid, NotFound
 from .history import History, Source
 from .workspace_events import WorkspaceEvents
 
@@ -139,8 +140,19 @@ class BenchFiles:
             canonical = True
         raw = self._patched(path, data) if canonical else None
         if raw is not None:
-            return self._write(bench_path, path, raw, _parse(path, raw), base_sha256, source)
-        return self._write(bench_path, path, _dump(path, data), data, base_sha256, source)
+            content = _parse(path, raw)  # the patched text is what the file will hold
+        else:
+            raw, content = _dump(path, data), data
+        self.write(
+            bench_path,
+            raw,
+            base_sha256,
+            fingerprint=fingerprint(content),
+            source=source,
+            target="bench",
+            previous_fingerprint=lambda old: fingerprint(_parse(path, old)),
+        )
+        return self._document(bench_path, path, raw, content)
 
     def _patched(self, path: Path, data: dict[str, Any]) -> bytes | None:
         """The existing file's text with only the change to ``data`` applied (#1254): its comments,
@@ -159,41 +171,88 @@ class BenchFiles:
         except (ValueError, UnicodeDecodeError, yaml.YAMLError, RuamelError):
             return None
 
-    def _write(
+    def require_unchanged(
         self,
-        bench_path: str,
-        path: Path,
-        raw: bytes,
-        data: dict[str, Any],
+        what: str,
         base_sha256: str | None,
+        current: str | None,
+        *,
+        target: ConflictTarget | None = None,
+        since: str = "read",
+    ) -> None:
+        """Refuse a write against content the caller is no longer looking at (optimistic
+        concurrency, D25) — the one place, used by :meth:`write` under its lock and by the saves
+        that check before they compute (#1631). ``base_sha256`` names the content the caller
+        started from, ``current`` is what the file holds now; ``None`` as the base is a create,
+        so the path must still be free. ``since`` says how the caller met the content it names
+        (a save reads it, a removal checks it while planning) — wording of the message only."""
+        if base_sha256 is None and current is not None:
+            raise Conflict(f"{what} already exists", current, reason="exists", target=target)
+        if base_sha256 is not None and base_sha256 != current:
+            raise Conflict(f"{what} changed since it was {since}", current, target=target)
+
+    def write(
+        self,
+        rel_path: str,
+        raw: bytes,
+        base_sha256: str | None,
+        *,
+        fingerprint: str,
         source: Source,
-    ) -> M.BenchDocument:
-        """Write ``raw`` (whose content is ``data``) to the file, refusing to overwrite a file
-        the caller did not read (``base_sha256``), and record the version."""
+        target: ConflictTarget | None = None,
+        previous_fingerprint: Callable[[bytes], str] | None = None,
+        record: bool = True,
+        announce: bool = True,
+        overwrite: bool = False,
+    ) -> str:
+        """The one file-write transaction (#1631, D90): every workspace file the server writes
+        goes through here — benches (save, copy, restore, create_hello), instrument definitions,
+        the build area's layout files. Under the write lock: the optimistic-concurrency check
+        (:meth:`require_unchanged`, unless ``overwrite``), ``raw`` put on the path atomically
+        (tmp file + ``os.replace``), and the version into the history — a record that fails puts
+        the previous bytes back, so no save leaves a half-written file behind (#1457). With the
+        lock released: one ``file_changed`` on the workspace event stream (D85), the watcher told
+        the content so its scan does not announce the write a second time (#1526). Returns the
+        sha256 of ``raw``.
+
+        The transaction moves bytes, the domains decide content (D73): ``fingerprint`` is the new
+        content's version fingerprint — a bench and a definition hash it differently — and
+        ``previous_fingerprint`` turns the bytes the file held before the write into that domain's
+        fingerprint for the external-version link (an error in it records no link). ``record``
+        and ``announce`` exempt content that is neither a version nor followed by a query (the
+        layout files, see :meth:`DefinitionFiles.save_layout`); ``overwrite`` exempts the
+        concurrency check for content whose newest version is always the right one. ``target``
+        names the kind of file a :class:`Conflict` is about."""
+        path = self.resolve(rel_path)
+        sha = _sha(raw)
         with self._lock:
-            old = path.read_bytes() if path.exists() else None
+            old = None
+            if (record or not overwrite) and path.exists():
+                old = path.read_bytes()
             current = _sha(old) if old is not None else None
-            if base_sha256 is None and current is not None:
-                raise Conflict(f"{bench_path} already exists", current, reason="exists", target="bench")
-            if base_sha256 is not None and base_sha256 != current:
-                raise Conflict(f"{bench_path} changed since it was read", current, target="bench")
+            if not overwrite:
+                self.require_unchanged(rel_path, base_sha256, current, target=target)
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_name(f".{path.name}.tmp")
             tmp.write_bytes(raw)
-            self._expect(bench_path, _sha(raw))
+            if announce:
+                self._expect(rel_path, sha)
             os.replace(tmp, path)
             previous = None
-            if old is not None:
+            if record and previous_fingerprint is not None and old is not None:
                 with contextlib.suppress(ValueError, UnicodeDecodeError, yaml.YAMLError):
-                    previous = (old, current, fingerprint(_parse(path, old)))
-            try:
-                self.history.record(bench_path, raw, _sha(raw), fingerprint(data), source, previous=previous)
-            except Exception as exc:
-                _rollback(path, old)
-                self._expect(bench_path, None)
-                raise Invalid(f"保存 {bench_path} 失败：无法写入版本历史（{exc}）") from exc
-        self._announce(bench_path, _sha(raw))
-        return self._document(bench_path, path, raw, data)
+                    previous = (old, _sha(old), previous_fingerprint(old))
+            if record:
+                try:
+                    self.history.record(rel_path, raw, sha, fingerprint, source, previous=previous)
+                except Exception as exc:
+                    _rollback(path, old)
+                    if announce:
+                        self._expect(rel_path, None)
+                    raise Invalid(f"保存 {rel_path} 失败：无法写入版本历史（{exc}）") from exc
+        if announce:
+            self._announce(rel_path, sha)
+        return sha
 
     def create_hello(self, source: Source = "ui") -> M.BenchDocument:
         """Copy the packaged Hello World bench into the workspace as ``hello.bench.yaml`` — its text
@@ -201,23 +260,20 @@ class BenchFiles:
         never overwritten (it is the user's now)."""
         bench_path = HELLO.name
         path = self.resolve(bench_path)
-        created: tuple[str, bytes] | None = None
-        with self._lock:
-            if not path.exists():
-                raw = HELLO.read_bytes()
-                tmp = path.with_name(f".{path.name}.tmp")
-                tmp.write_bytes(raw)
-                self._expect(bench_path, _sha(raw))
-                os.replace(tmp, path)
-                try:
-                    self.history.record(bench_path, raw, _sha(raw), fingerprint(_parse(path, raw)), source)
-                except Exception as exc:
-                    _rollback(path, None)
-                    self._expect(bench_path, None)
-                    raise Invalid(f"创建 {bench_path} 失败：无法写入版本历史（{exc}）") from exc
-                created = (bench_path, raw)
-        if created is not None:
-            self._announce(created[0], _sha(created[1]))
+        if path.exists():
+            return self.read(bench_path)
+        raw = HELLO.read_bytes()
+        # The transaction refuses an existing file (base ``None``); one created between the check
+        # above and the lock is the other writer's — the user's now, returned unchanged as ever.
+        with contextlib.suppress(Conflict):
+            self.write(
+                bench_path,
+                raw,
+                None,
+                fingerprint=fingerprint(_parse(path, raw)),
+                source=source,
+                target="bench",
+            )
         return self.read(bench_path)
 
     def copy(
@@ -243,7 +299,10 @@ class BenchFiles:
             if raw is not None:
                 copied = _parse(path, raw)
                 if copied.get("name") == data["name"]:
-                    return self._write(new_path, path, raw, copied, None, source)
+                    self.write(
+                        new_path, raw, None, fingerprint=fingerprint(copied), source=source, target="bench"
+                    )
+                    return self._document(new_path, path, raw, copied)
         return self.save(new_path, None, data, source)
 
     def free_path(self, bench_path: str) -> str:
@@ -267,20 +326,20 @@ class BenchFiles:
             if not path.exists():
                 return
             current = _sha(path.read_bytes())
-            if current != expected_sha256:
-                raise Conflict(
-                    f"{rel_path} changed since it was checked",
-                    current,
-                    target="definition" if is_definition else "bench",
-                )
+            self.require_unchanged(
+                rel_path,
+                expected_sha256,
+                current,
+                target="definition" if is_definition else "bench",
+                since="checked",
+            )
             path.unlink()
 
     def edit(
         self, bench_path: str, base_sha256: str, ops: list[Any], source: Source = "api"
     ) -> M.BenchDocument:
         doc = self.read(bench_path)
-        if doc.sha256 != base_sha256:
-            raise Conflict(f"{bench_path} changed since it was read", doc.sha256, target="bench")
+        self.require_unchanged(bench_path, base_sha256, doc.sha256, target="bench")
         try:
             bench = BenchDefinition.model_validate(doc.data)
         except ValueError:

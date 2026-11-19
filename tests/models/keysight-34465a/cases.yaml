@@ -206,6 +206,43 @@ cases:
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 
+  - name: "MEASure 的电压行先切回电压功能再读：CONF:RES 后 MEAS:VOLT:DC? 读电压、FUNC? 为 VOLT；量程/分辨率接受 AUTO/MIN/MAX/DEF（#1585）"
+    manual: "MEASure Subsystem > MEASure[:VOLTage]:{AC|DC}?（MEASure = CONFigure + READ?；range: {<range>|AUTO|MIN|MAX|DEF}）/ CONFigure Subsystem > CONFigure[:VOLTage]:{AC|DC}"
+    steps:
+      - send: ":SOUR:VOLT 0.0991"
+        instrument: src
+      - send: ":CONF:RES"
+      - query: "FUNC?"
+        expect: '"RES"'
+      # 0.0991 V × (1 + 100 ppm，100 mV 档) + 200 µV 零点误差
+      - query: ":MEAS:VOLT:DC?"
+        expect_value: 0.09930991
+        tolerance: 1.0e-6
+      - query: "FUNC?"
+        expect: '"VOLT"'
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - query: ":MEAS:VOLT:DC? DEF"
+        expect_format: "+d.ddddddddE±dd"
+      - query: "FUNC?"
+        expect: '"VOLT"'
+      - query: ":MEAS:VOLT:DC? AUTO"
+        expect_format: "+d.ddddddddE±dd"
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "1"
+      - query: ":MEAS:VOLT:DC? MIN"
+        expect_format: "+d.ddddddddE±dd"
+      - query: "VOLT:DC:RANG?"
+        expect: "+1.00000000E-01"
+      - query: "VOLT:DC:RANG:AUTO?"
+        expect: "0"
+      - query: ":MEAS:VOLT:AC? MAX"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "FUNC?"
+        expect: '"VOLT:AC"'
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
   - name: "[SENSe:]FUNCtion 选择与查询（带引号的短格式）"
     manual: "SENSe Subsystem > [SENSe:]FUNCtion[:ON]"
     steps:
@@ -225,7 +262,7 @@ cases:
       - send: ":VOLT:DC:RANG 0.1;:VOLT:DC:RANG:AUTO OFF"
       - send: ":SOUR:VOLT 0.13"
         instrument: src
-      - query: "MEAS:VOLT:DC?"
+      - query: "MEAS:VOLT:DC? 0.1"
         expect: "+9.90000000E+37"
       - send: ":SOUR:VOLT 0.115"
         instrument: src
@@ -406,12 +443,12 @@ cases:
       - send: ":VOLT:DC:RANG 10;:VOLT:DC:RANG:AUTO OFF"
       - send: ":SOUR:VOLT 0"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 2.0e-4
         tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 10.0017
         tolerance: 3.0e-5
       - send: 'CAL:SEC:STAT OFF,"AT3446XA"'
@@ -420,7 +457,7 @@ cases:
       - send: "CAL:VAL 0"
       - query: "CAL?"
         expect: "+0"
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 0.0
         tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
@@ -428,18 +465,18 @@ cases:
       - send: "CAL:VAL 10"
       - query: "CAL?"
         expect: "+0"
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 10.0
         tolerance: 3.0e-5
       - send: "CAL:STOR;:CAL:SEC:STAT ON"
       - send: ":SOUR:VOLT 0"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 0.0
         tolerance: 3.0e-5
       - send: ":SOUR:VOLT 10"
         instrument: src
-      - query: "MEAS:VOLT?"
+      - query: "MEAS:VOLT:DC? 10"
         expect_value: 10.0
         tolerance: 3.0e-5
       - query: "CAL:COUN?"
@@ -635,6 +672,48 @@ cases:
         expect_format: "±d.ddddddddE±dd"
       - query: "MEAS:CURR:AC?"
         expect_format: "±d.ddddddddE±dd"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "MEASure 的电阻与电流行分辨率接受 DEF/MIN/MAX，并恢复 CONFigure 的默认预置（#1644）"
+    manual: "MEASure Subsystem > MEASure:{RESistance|FRESistance|CURRent[:DC]|CURRent:AC}?（MEASure = CONFigure + READ?；resolution: {<resolution>|MIN|MAX|DEF}）/ CONFigure Subsystem > Default Settings for the CONFigure Command"
+    steps:
+      - send: "*RST"
+      # 分辨率 DEF：按 CONFigure 的默认分辨率（0 = 自动），并恢复 NPLC/自动调零/触发预置
+      - query: "MEAS:RES? 1000,DEF"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "RES:RANG?"
+        expect: "+1.00000000E+03"
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+01"
+      - query: "VOLT:DC:ZERO:AUTO?"
+        expect: "1"
+      - query: "TRIG:SOUR?"
+        expect: "IMM"
+      - query: "TRIG:COUN?"
+        expect: "+1.00000000E+00"
+      - query: "SAMP:COUN?"
+        expect: "+1.00000000E+00"
+      - query: "MEAS:CURR? 1,DEF"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "CURR:RANG?"
+        expect: "+1.00000000E+00"
+      - query: "MEAS:FRES? DEF,DEF"
+        expect_format: "±d.ddddddddE±dd"
+      # 直流分辨率 MIN/MAX 取 NPLC 表两端，与电压行一致
+      - query: "MEAS:RES? 1000,MIN"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+02"
+      - query: "MEAS:RES? 1000,MAX"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "VOLT:DC:NPLC?"
+        expect: "+2.00000000E-02"
+      # 交流电流的分辨率不随积分时间变：MIN 只把分辨率设回自动，NPLC 留在 CONFigure 预置的 10
+      - query: "MEAS:CURR:AC? 0.1,MIN"
+        expect_format: "±d.ddddddddE±dd"
+      - query: "VOLT:DC:NPLC?"
+        expect: "+1.00000000E+01"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
 

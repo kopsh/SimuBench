@@ -4,10 +4,9 @@ save in the version history (D35). Definitions outside the workspace are read on
 
 from __future__ import annotations
 
-import contextlib
 import copy
+import hashlib
 import json
-import os
 import re
 from pathlib import Path
 from typing import Any
@@ -21,7 +20,7 @@ from ..engine.validate_definition import validate_definition_data
 from ..library.loader import dump_yaml, layered_definition_data, load_yaml, parse_error_text
 from ..models.migrate import upgrade
 from . import definitionstructure
-from .benchfiles import BenchFiles, Conflict, _rollback, _sha
+from .benchfiles import BenchFiles
 from .definitionchanges import definition_changes
 from .errors import Forbidden, Invalid
 from .history import Source
@@ -82,8 +81,7 @@ class DefinitionFiles:
         doc = self.read(def_id)
         if not doc.editable:
             raise Forbidden(f"{def_id} is not in the workspace; create a copy under a new id to change it")
-        if doc.sha256 != base_sha256:
-            raise Conflict(f"{doc.path} changed since it was read", doc.sha256, target="definition")
+        self.files.require_unchanged(doc.path or def_id, base_sha256, doc.sha256, target="definition")
         return self.save(def_id, base_sha256, jsonpatch.apply(doc.data, ops), source)
 
     def save(
@@ -95,33 +93,27 @@ class DefinitionFiles:
             raise Invalid(f"the file {rel} holds the definition {def_id!r}, not {data.get('id')!r}")
         data = {"schema": "simubench.instrument/2", "id": def_id, **data}
         raw = dump_yaml(data).encode("utf-8")
-        path = self.files.resolve(rel)
-        with self.files._lock:
-            old = path.read_bytes() if path.exists() else None
-            current = _sha(old) if old is not None else None
-            if base_sha256 is None and current is not None:
-                raise Conflict(f"{rel} already exists", current, reason="exists", target="definition")
-            if base_sha256 is not None and base_sha256 != current:
-                raise Conflict(f"{rel} changed since it was read", current, target="definition")
-            path.parent.mkdir(parents=True, exist_ok=True)
-            tmp = path.with_name(f".{path.name}.tmp")
-            tmp.write_bytes(raw)
-            self.files._expect(rel, _sha(raw))
-            os.replace(tmp, path)
-            base_data: dict[str, Any] = {}
-            previous = None
-            if old is not None:
-                with contextlib.suppress(ValueError, UnicodeDecodeError, yaml.YAMLError):
-                    base_data = _parse(old)
-                    previous = (old, current, _fingerprint(base_data))
-            try:
-                self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
-            except Exception as exc:
-                _rollback(path, old)
-                self.files._expect(rel, None)
-                raise Invalid(f"保存定义 {def_id} 失败：无法写入版本历史（{exc}）") from exc
-            changes = self._changes(def_id, base_data, data)
-        self.files._announce(rel, _sha(raw))
+
+        # The changes describe what this save replaces: the write transaction hands over the bytes
+        # the file held while it has the lock, so the description is of exactly the version this
+        # one follows — an unparseable previous records no link and reads as no changes (#1631).
+        previous_data: list[dict[str, Any]] = []
+
+        def previous_fingerprint(old: bytes) -> str:
+            base = _parse(old)
+            previous_data.append(base)
+            return _fingerprint(base)
+
+        self.files.write(
+            rel,
+            raw,
+            base_sha256,
+            fingerprint=_fingerprint(data),
+            source=source,
+            target="definition",
+            previous_fingerprint=previous_fingerprint,
+        )
+        changes = self._changes(def_id, previous_data[0] if previous_data else {}, data)
         return self._document(def_id, rel, True, raw, data, changes=changes)
 
     def versions(self, def_id: str) -> list[M.DefinitionVersion]:
@@ -168,8 +160,7 @@ class DefinitionFiles:
         doc = self.read(def_id)
         if not doc.editable:
             raise Forbidden(f"{def_id} is not in the workspace; copy it as your instrument to change it")
-        if doc.sha256 != new.base_sha256:
-            raise Conflict(f"{doc.path} changed since it was read", doc.sha256, target="definition")
+        self.files.require_unchanged(doc.path or def_id, new.base_sha256, doc.sha256, target="definition")
         path = self.source(def_id)
         data = definitionstructure.written(doc.data, new, path)
         definitionstructure.check_kept(data, new, path)  # refuse rather than lose something silently
@@ -184,8 +175,7 @@ class DefinitionFiles:
         doc = self.read(def_id)
         if not doc.editable:
             raise Forbidden(f"{def_id} is not in the workspace; copy it as your instrument to change it")
-        if doc.sha256 != new.base_sha256:
-            raise Conflict(f"{doc.path} changed since it was read", doc.sha256)
+        self.files.require_unchanged(doc.path or def_id, new.base_sha256, doc.sha256)
         runs = definitionstructure.layered(doc.data, self.source(def_id))
         data = copy.deepcopy(doc.data)
         for key in ("manufacturer", "model"):
@@ -215,14 +205,27 @@ class DefinitionFiles:
             return M.DefinitionLayout()
 
     def save_layout(self, def_id: str, layout: M.DefinitionLayout) -> M.DefinitionLayout:
-        """Write the positions beside a workspace definition; no version, no session restart."""
+        """Write the positions beside a workspace definition (#1207); no version, no session restart.
+
+        Through the write transaction (D90), exempted from both of its bookkeeping channels: a
+        layout file holds no version — it is not the definition, and dragging a node is not a
+        change to the instrument the history describes — and no ``file_changed`` event, because
+        no query is re-keyed on a layout file (the watcher's scan skips them for the same reason,
+        ``workspace_events.py``): the only writer is the build area, which puts the positions
+        into its own cache as it saves. Overwrite without a base hash for the same reason: the
+        newest positions are always the right ones, two canvases save independently."""
         if not self.read(def_id).editable:
             raise Forbidden(f"{def_id} is not in the workspace; its layout is not kept")
-        path = self.layout_path(def_id)
-        with self.files._lock:
-            tmp = path.with_name(f".{path.name}.tmp")
-            tmp.write_text(layout.model_dump_json(indent=1), encoding="utf-8")
-            os.replace(tmp, path)
+        self.files.write(
+            f"{FOLDER}/{def_id}{LAYOUT_SUFFIX}",
+            layout.model_dump_json(indent=1).encode("utf-8"),
+            None,
+            fingerprint="",  # nothing is recorded: the fingerprint names a version's content
+            source="ui",
+            record=False,
+            announce=False,
+            overwrite=True,
+        )
         return layout
 
     def free_id(self, base: str) -> str:
@@ -289,7 +292,7 @@ class DefinitionFiles:
             id=def_id,
             path=rel,
             editable=editable,
-            sha256=_sha(raw),
+            sha256=hashlib.sha256(raw).hexdigest(),
             data=data,
             ok=report.ok,
             diagnostics=list(report.diagnostics),
@@ -309,4 +312,6 @@ def _parse(raw: bytes, name: str = "") -> dict[str, Any]:
 
 
 def _fingerprint(data: dict[str, Any]) -> str:
-    return _sha(json.dumps(data, sort_keys=True, ensure_ascii=False, default=str).encode())
+    return hashlib.sha256(
+        json.dumps(data, sort_keys=True, ensure_ascii=False, default=str).encode()
+    ).hexdigest()
