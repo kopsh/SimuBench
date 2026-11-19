@@ -159,9 +159,13 @@ def test_replay_warns_when_the_engine_version_or_the_platform_differs(tmp_path):
     _rewritten_header(rec, engine="2020.1.1.1")
     warnings = replay(rec).warnings
     assert len(warnings) == 1 and "engine 2020.1.1.1" in warnings[0]  # step: another engine version
-    _rewritten_header(rec, platform="Windows-10-10.0.19045-SP0")
+    here = platform.platform().split("-", 1)[0]  # any runner: pick an operating system that is not this one
+    elsewhere, family = (
+        ("Linux-5.15.0-x86_64", "Linux") if here == "Windows" else ("Windows-10-10.0.19045", "Windows")
+    )
+    _rewritten_header(rec, platform=elsewhere)
     warnings = replay(rec).warnings
-    assert len(warnings) == 2 and "made on Windows" in warnings[1]  # step: another operating system
+    assert len(warnings) == 2 and f"made on {family}" in warnings[1]  # step: another operating system
     # step: the same family with another kernel or libc is not a difference
     same_family = platform.platform().split("-", 1)[0] + "-1.2.3-other-with-glibc2.0"
     _rewritten_header(rec, engine=__version__, platform=same_family)
