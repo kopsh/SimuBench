@@ -173,10 +173,10 @@ def test_the_refusal_flow(scope):
     assert len(refused) == 3 + 1  # scale, scale, level, delay
     # -- only the common commands of the manual answer (was
     # test_only_the_common_commands_of_the_manual_answer)
-    sds.write("*CLS")
+    sds.write("*TRG")
     sds.write(":SYSTem:ERRor?")
     errors = [e for e in session.events.history if e.get("kind") == "error"]
-    # The model's builtins are *IDN, *OPC and *RST (D45): the rest is excluded, not a modeling gap.
+    # The model's builtins are *IDN, *OPC and *RST (D45); the IEEE 488.2 mandatory commands answer anyway, the rest is excluded, not a modeling gap.
     assert [e.get("reason") for e in errors[-2:]] == ["builtin_excluded", "builtin_excluded"]
     assert sds.query("*OPC?").strip() == "1"  # and nothing was queued for the script to read
     # -- commands the model does not have are refused (was

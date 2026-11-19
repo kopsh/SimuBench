@@ -228,13 +228,20 @@ def test_a_builtin_the_definition_leaves_out_is_refused_as_excluded():
                 "*STB",
                 "*OPT",
                 "*WAI",
-                "*TRG",
             ],
         }
     )
     inst = seam_instrument(definition)
     with pytest.raises(ScpiError) as caught:
-        dispatch_unit(inst, "*TST?")
+        dispatch_unit(inst, "*TRG")
     assert caught.value.code == -113 and caught.value.reason == "builtin_excluded"
     reply, _ = dispatch_unit(inst, "*IDN?")
     assert reply.startswith(b"ACME,")
+
+
+def test_the_mandatory_488_2_commands_answer_whatever_builtins_lists():
+    """IEEE 488.2 makes *CLS *ESE *ESR *IDN *OPC *RST *SRE *STB *TST *WAI mandatory: a ``builtins`` list cannot take them away."""
+    inst = seam_instrument(InstrumentDefinition.model_validate({**DATA, "builtins": ["*IDN"]}))
+    for query in ("*ESR?", "*ESE?", "*SRE?", "*STB?", "*TST?", "*OPC?"):
+        reply, _ = dispatch_unit(inst, query)
+        assert reply, query
