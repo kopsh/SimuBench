@@ -101,7 +101,10 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   (`findSettings`, `FIND_MAX`) and 「全部设置」 with the rest, mounted only when opened (open by
   default up to `ALL_OPEN_MAX`). Build mode's inspector (`edit/EditInspector.tsx`) shows the same
   layout through `InstrumentSettings` with its own `field` renderer (the bench file's initial settings,
-  #1576): never list an instrument's settings flat — a scope has ~1900. Do not hard-code an instrument's common settings in the web: they go
+  #1576): never list an instrument's settings flat — a scope has ~1900. Every list of fields goes through
+  `FieldList` / `Paged` (`FIELD_PAGE` per page, a 「再显示」 button, a reveal opens its page) and groups open by
+  default only within `groupsOpenByDefault`'s row budget (#1580): how many settings a list holds is up to a
+  user's own definition, so nothing may mount in proportion to it. Do not hard-code an instrument's common settings in the web: they go
   in the definition's `display.panel` (the canvas card reads `summary`, keep it short).
 - Inspector render cost (#1299): inside 「全部设置」 a group starts open only when it is named and shows at most
   `OPEN_ROWS_MAX` rows (`groupOpen`, `model.ts`); four or more numbered groups of one prefix
