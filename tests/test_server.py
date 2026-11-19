@@ -823,6 +823,33 @@ def test_watcher_keeps_a_note_that_lands_while_it_reads_the_older_content(tmp_pa
     assert published == []
 
 
+def test_watcher_does_not_take_a_file_created_after_its_listing_for_a_deleted_one(tmp_path, monkeypatch):
+    """#1547: a write point creates a file (a definition copy) and notes it after a pass listed the
+    folder. The pass knows the file but did not see it; it must not announce it as deleted, which
+    would repeat the server's own write."""
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    (tmp_path / "instruments").mkdir()
+    watcher._pass()  # baseline: an empty workspace
+    listing = watcher._files
+    created = tmp_path / "instruments" / "my-dso.yaml"
+    raw = b"schema: simubench.instrument/2\nid: my-dso\n"
+
+    def listing_then_a_write():  # the pass has listed the folder; the write point lands now
+        files = listing()
+        created.write_bytes(raw)
+        watcher.note("instruments/my-dso.yaml", hashlib.sha256(raw).hexdigest())
+        return files
+
+    monkeypatch.setattr(watcher, "_files", listing_then_a_write)
+    watcher._pass()
+    monkeypatch.setattr(watcher, "_files", listing)
+    watcher._pass()
+    assert published == []
+
+
 def test_workspace_hub_drops_events_without_a_subscriber():
     """The hub is a fan-out: publishes from any thread reach the queues, unknown kinds refuse,
     and with nobody listening nothing is kept (the stream is live, not a log)."""

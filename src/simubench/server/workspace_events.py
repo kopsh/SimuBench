@@ -212,7 +212,9 @@ class WorkspaceWatcher:
                 continue  # the first pass baselines; a noted write or a bare touch stays silent
             self.publish("file_changed", path=rel)
         with self._lock:
-            gone = [rel for rel in self._known if rel not in seen]
+            # A file a write point created and noted after this pass listed the folder is known but
+            # unseen: it is not gone, and announcing it would repeat the server's own write (#1547).
+            gone = [rel for rel in self._known if rel not in seen and not (self.workspace / rel).exists()]
             for rel in gone:
                 del self._known[rel]
         for rel in gone:  # a folder removed whole: same announcement as a deleted file
