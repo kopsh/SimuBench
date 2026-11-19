@@ -1383,7 +1383,23 @@ def _samples(pattern: Pattern) -> list[tuple[Token, ...]]:
 
 def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], report: Report) -> None:
     """The first command whose header matches wins: a later one that an earlier one also matches
-    never runs for those forms."""
+    never runs for those forms.
+
+    An earlier pattern can match a form only if the form's first keyword is one its leading nodes
+    (the optional ones up to the first required one) can start with, so each form is tried against
+    those patterns alone, in command order — the same verdict as trying every earlier command,
+    without the quadratic walk a model with a thousand commands paid on every read."""
+    starts: dict[str, list[tuple[int, Pattern]]] = {}
+    for i, pi in enumerate(compiled):
+        if pi is None:
+            continue
+        words: set[str] = set()
+        for node in pi.nodes:
+            words.update((node.long, node.short))
+            if not node.optional:
+                break
+        for word in words:
+            starts.setdefault(word, []).append((i, pi))
     for j, pj in enumerate(compiled):
         if pj is None:
             continue
@@ -1393,8 +1409,8 @@ def _check_overlaps(d: InstrumentDefinition, compiled: list[Pattern | None], rep
             i = next(
                 (
                     i
-                    for i, pi in enumerate(compiled[:j])
-                    if pi is not None
+                    for i, pi in starts.get(tokens[0].keyword, ())
+                    if i < j
                     and pi.common == pj.common
                     and pi.match(tokens) is not None
                     and not told_apart(d.commands[i], d.commands[j])

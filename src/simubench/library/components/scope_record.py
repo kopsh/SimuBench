@@ -29,6 +29,7 @@ from dataclasses import dataclass, replace
 from functools import lru_cache, partial
 
 import numpy as np
+from scipy import fft as sp_fft
 
 from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, lowpass1
@@ -426,8 +427,10 @@ class FilterView:
         )
         up = upstream(wide)
         size = up.count + kernel.size - 1
-        nfft = 1 << (size - 1).bit_length()
-        full = np.fft.irfft(np.fft.rfft(up.data, nfft) * np.fft.rfft(kernel, nfft), nfft)
+        # The smallest fast transform length, not the next power of two: a 4.4 M-point convolution
+        # padded to 8.4 M took twice the FFT time for the same samples (test-suite speed).
+        nfft = sp_fft.next_fast_len(size, real=True)
+        full = sp_fft.irfft(sp_fft.rfft(up.data, nfft) * sp_fft.rfft(kernel, nfft), nfft)
         out = full[2 * w : 2 * w + request.count * m : m]
         return SampleFrame(
             out,
