@@ -6,7 +6,7 @@ import type { InstrumentInfo } from "./client";
 import { api } from "./client";
 import { useEvents } from "./events";
 import { useBenchDoc, useDefinitionDocument, useDefinitionStructure, useInstrumentReadings, useSessions } from "./hooks";
-import { reduceWorkspaceEvent, useWorkspaceEvents } from "./workspaceEvents";
+import { fileRevOf, readBeforeOpen, reduceWorkspaceEvent, resync, useWorkspaceEvents } from "./workspaceEvents";
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -53,7 +53,7 @@ it("one version bump is one readings request; the idle gap does not poll", async
 // it, the file and session queries polled every 2–3 s each.
 describe("workspace event re-key", () => {
   afterEach(() => {
-    useWorkspaceEvents.setState({ fileRev: {}, instrumentsRev: 0, sessionsRev: 0 });
+    useWorkspaceEvents.setState({ fileRev: {}, epoch: 0, instrumentsRev: 0, sessionsRev: 0 });
   });
 
   function mockApi(paths: Record<string, unknown>) {
@@ -77,6 +77,28 @@ describe("workspace event re-key", () => {
     await new Promise((r) => setTimeout(r, 2600)); // longer than the old 2.5 s poll
     expect(GET).toHaveBeenCalledTimes(2); // the idle gap adds nothing
     expect(result.current.data).toBeDefined(); // the previous answer stayed while re-keying
+  });
+
+  // #1526: an event sent before the socket listened is lost, and the reconnect bump only moved
+  // files that had had an event — a bench file the page loaded but never heard of stayed stale.
+  it("a resync re-reads a bench file that never had an event", async () => {
+    const GET = mockApi({ "/api/benches/file": { path: "quiet.bench.yaml", data: {}, ok: true, diagnostics: [] } });
+    // count this file's reads only: an earlier test's hook may still settle on the shared spy
+    const reads = () =>
+      GET.mock.calls.filter((c) => JSON.stringify(c[1] ?? {}).includes("quiet.bench.yaml")).length;
+    renderHook(() => useBenchDoc("quiet.bench.yaml"), { wrapper });
+    await waitFor(() => expect(reads()).toBe(1));
+
+    act(() => resync());
+    await waitFor(() => expect(reads()).toBe(2));
+    expect(fileRevOf("quiet.bench.yaml")).toBe(1); // a cache write hits the live entry
+  });
+
+  it("the first open resyncs only when a query read the server before the socket listened", async () => {
+    const qc = new QueryClient();
+    expect(readBeforeOpen(qc)).toBe(false); // a fresh page: a bump would only double the first load
+    await qc.fetchQuery({ queryKey: ["x"], queryFn: async () => 1 });
+    expect(readBeforeOpen(qc)).toBe(true); // that answer may predate a change announced to nobody
   });
 
   it("the sessions list re-keys on clients_changed and sessions_changed", async () => {
@@ -122,7 +144,7 @@ describe("workspace event re-key", () => {
   });
 
   it("the reducer: a definition file's edit moves both revisions, a bench file's only its own", () => {
-    const s = { status: "connected", fileRev: { "a.bench.yaml": 2 }, instrumentsRev: 5, sessionsRev: 1 } as const;
+    const s = { status: "connected", fileRev: { "a.bench.yaml": 2 }, epoch: 0, instrumentsRev: 5, sessionsRev: 1 } as const;
     expect(reduceWorkspaceEvent(s, { kind: "file_changed", seq: 1, path: "a.bench.yaml" })).toEqual({
       fileRev: { "a.bench.yaml": 3 },
       instrumentsRev: 5,

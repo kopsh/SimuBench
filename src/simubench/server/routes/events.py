@@ -77,7 +77,8 @@ def build_router(ctx: ApiContext) -> APIRouter:
     @router.websocket("/api/events")
     async def workspace_events(ws: WebSocket) -> None:
         """The workspace's stream (issue #1484): file versions and access-port clients, what no
-        session owns. No backlog: the Web re-reads its queries on subscribe and on reconnect."""
+        session owns. No backlog: the Web re-reads, on its first open, what it read before the socket
+        listened, and everything on a reconnect (#1526)."""
         if not host_ok(ws.headers.get("host")) or not host_ok(ws.headers.get("origin")):
             await ws.close(code=4403)
             return
@@ -85,9 +86,14 @@ def build_router(ctx: ApiContext) -> APIRouter:
         if ctx.token is not None and not secrets.compare_digest(supplied, ctx.token):
             await ws.close(code=4401)
             return
-        await ws.accept()
-        loop = asyncio.get_running_loop()
-        queue = ctx.manager.events.subscribe(loop)
+        # subscribe before the handshake completes: once the client sees the socket open, every
+        # later write reaches it (#1526); the Web re-reads what it read before that.
+        queue = ctx.manager.events.subscribe(asyncio.get_running_loop())
+        try:
+            await ws.accept()
+        except BaseException:
+            ctx.manager.events.unsubscribe(queue)
+            raise
         counter = {"seq": 0}
 
         async def wait_disconnect() -> None:

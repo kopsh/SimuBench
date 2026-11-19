@@ -22,7 +22,7 @@ import type {
 } from "./client";
 import { ApiError, type FaultSpec, type Schemas, api, unwrap } from "./client";
 import { withValues } from "./sessionValues";
-import { definitionPath, fileRevOf, useWorkspaceEvents } from "./workspaceEvents";
+import { definitionPath, fileRevOf, revOf, useWorkspaceEvents } from "./workspaceEvents";
 
 export const keys = {
   benches: ["benches"] as const,
@@ -66,7 +66,7 @@ export function useCatalog() {
  * answer stays on screen while the next loads.
  */
 export function useBenchDoc(path: string | null | undefined) {
-  const rev = useWorkspaceEvents((s) => (path ? (s.fileRev[path] ?? 0) : 0));
+  const rev = useWorkspaceEvents((s) => (path ? revOf(s, path) : 0));
   return useQuery({
     queryKey: [...keys.benchDoc(path ?? ""), rev] as const,
     queryFn: () => unwrap(api.GET("/api/benches/file", { params: { query: { path: path! } } })),
@@ -602,11 +602,10 @@ export function useNetProbe(sid: string, net: string | null | undefined, version
 /**
  * The definition as stored (hash, diagnostics), keyed on the file's revision from the workspace
  * stream (issue #1484): one file_changed for its file is one request, no polling. Built-in
- * definitions have no workspace file, so their revision never moves — nothing re-reads what
- * cannot change.
+ * definitions have no workspace file, so only a resync (a reconnect) moves their revision.
  */
 export function useDefinitionDocument(id: string) {
-  const rev = useWorkspaceEvents((s) => s.fileRev[definitionPath(id)] ?? 0);
+  const rev = useWorkspaceEvents((s) => revOf(s, definitionPath(id)));
   return useQuery<DefinitionDocument>({
     queryKey: [...keys.definitionDoc(id), rev] as const,
     queryFn: () => unwrap(api.GET("/api/definitions/{def_id}/document", { params: { path: { def_id: id } } })),
