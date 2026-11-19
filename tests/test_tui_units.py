@@ -1111,7 +1111,9 @@ def test_ws_url_carries_the_token_and_the_since_cursor():
         ws_url("http://127.0.0.1:8000", "s1", "t", 7)
         == "ws://127.0.0.1:8000/api/sessions/s1/events?token=t&since=7"
     )
-    assert ws_url("http://127.0.0.1:8000", "s1", None, 7) == "ws://127.0.0.1:8000/api/sessions/s1/events?since=7"
+    assert (
+        ws_url("http://127.0.0.1:8000", "s1", None, 7) == "ws://127.0.0.1:8000/api/sessions/s1/events?since=7"
+    )
 
 
 def test_the_scaled_clock_shows_its_rate_in_the_activity_status():

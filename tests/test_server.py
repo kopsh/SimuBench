@@ -109,7 +109,9 @@ def test_event_stream_since_sends_only_the_tail():
         c.headers["x-simubench-token"] = TOKEN
         sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
 
-        with c.websocket_connect(f"/api/sessions/{sid}/events?token={TOKEN}", headers={"host": "127.0.0.1"}) as ws:
+        with c.websocket_connect(
+            f"/api/sessions/{sid}/events?token={TOKEN}", headers={"host": "127.0.0.1"}
+        ) as ws:
             c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":FREQ 2000"})
             first = read_until(ws, ":FREQ 2000")
             seqs = [ev["seq"] for ev in first]
@@ -128,7 +130,9 @@ def test_event_stream_since_sends_only_the_tail():
             assert next(ev["seq"] for ev in live) == missed_seqs[-1] + 1  # the stream goes on unchanged
 
         n = len(manager.get(sid).session.events.history)
-        with c.websocket_connect(f"/api/sessions/{sid}/events?token={TOKEN}", headers={"host": "127.0.0.1"}) as ws:
+        with c.websocket_connect(
+            f"/api/sessions/{sid}/events?token={TOKEN}", headers={"host": "127.0.0.1"}
+        ) as ws:
             replay = [ws.receive_json() for _ in range(n)]
             assert [ev["seq"] for ev in replay] == list(range(1, n + 1))  # without since, all of it
 
@@ -136,9 +140,12 @@ def test_event_stream_since_sends_only_the_tail():
 def test_event_stream_rejects_a_bad_since(client):
     """A since that is not a number is a client protocol error: the socket is closed."""
     sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
-    with pytest.raises(WebSocketDisconnect) as exc, client.websocket_connect(
-        f"/api/sessions/{sid}/events?token={TOKEN}&since=abc", headers={"host": "127.0.0.1"}
-    ) as ws:
+    with (
+        pytest.raises(WebSocketDisconnect) as exc,
+        client.websocket_connect(
+            f"/api/sessions/{sid}/events?token={TOKEN}&since=abc", headers={"host": "127.0.0.1"}
+        ) as ws,
+    ):
         ws.receive_json()
     assert exc.value.code == 1008
 
