@@ -61,10 +61,12 @@ def smu_rows(
     limit paths resolve through the panel's Source group (#1469): the role that does not hold
     under the current function reads ``—``, as the front panel does not show it. Below the table
     the declared panel's settings groups (D74); a definition without one lists every setting in
-    one column. A group block the ``budget`` has no room for is left out whole (#374)."""
+    one column. A group block the ``budget`` has no room for is left out whole (#374). The
+    reading keys come from the category registry's row (#1637), as the Web's SmuScreen reads them."""
+    keys = categories.get((info.get("display") or {}).get("template")).reading_keys
     values = readings.get("values", {})
-    limited = bool(values.get("core.limited"))
-    regulation = str(values.get("core.regulation") or "")
+    limited = bool(values.get(keys["limited"]))
+    regulation = str(values.get(keys["regulation"]) or "")
     voltage_limited = limited and regulation == "CV"
     current_limited = limited and regulation == "CC"
     state = {sv["path"]: sv for sv in info.get("state", [])}
@@ -110,8 +112,8 @@ def smu_rows(
     gap = [(" " * 2, "")]
     v1 = cell(i18n.t("instrument.set", lang), sv_text(roles["v_set"]))
     c1 = cell(i18n.t("instrument.set", lang), sv_text(roles["i_set"]))
-    v2 = cell(i18n.t("instrument.actual", lang), fmt(values.get("core.voltage"), "V"))
-    c2 = cell(i18n.t("instrument.actual", lang), fmt(values.get("core.current"), "A"))
+    v2 = cell(i18n.t("instrument.actual", lang), fmt(values.get(keys["voltage"]), "V"))
+    c2 = cell(i18n.t("instrument.actual", lang), fmt(values.get(keys["current"]), "A"))
     v3 = cell(i18n.t("instrument.limit", lang), sv_text(roles["v_limit"]), "▲" if voltage_limited else "")
     c3 = cell(i18n.t("instrument.limit", lang), sv_text(roles["i_limit"]), "▲" if current_limited else "")
     rows = [
@@ -471,10 +473,12 @@ def reason_line(
     readings: dict[str, Any],
     faults: list[dict[str, Any]],
 ) -> list[tuple[str, str]] | None:
-    """The 原因 line of a troubled channel box, from existing data only (tui-screens.md 5.4)."""
+    """The 原因 line of a troubled channel box, from existing data only (tui-screens.md 5.4).
+    The reading keys come from the category registry's row (#1637)."""
     readings = readings.get("values", {})
-    if categories.get(template).screen == "smu" and readings.get("core.limited"):
-        regulation = str(readings.get("core.regulation") or "CC")
+    keys = categories.get(template).reading_keys
+    if categories.get(template).screen == "smu" and readings.get(keys["limited"]):
+        regulation = str(readings.get(keys["regulation"]) or "CC")
         roles = C.smu_source_roles(info)
         set_path = roles["v_set"] if regulation == "CC" else roles["i_set"]
         if set_path is not None:
@@ -484,16 +488,16 @@ def reason_line(
                 text = i18n.t(
                     "reason.limitedCV",
                     lang,
-                    limit=fmt(readings.get("core.limit"), "V"),
-                    actual=fmt(readings.get("core.current"), "A"),
+                    limit=fmt(readings.get(keys["limit"]), "V"),
+                    actual=fmt(readings.get(keys["current"]), "A"),
                     setting=setting,
                 )
             else:
                 text = i18n.t(
                     "reason.limitedCC",
                     lang,
-                    limit=fmt(readings.get("core.limit"), "A"),
-                    actual=fmt(readings.get("core.voltage"), "V"),
+                    limit=fmt(readings.get(keys["limit"]), "A"),
+                    actual=fmt(readings.get(keys["voltage"]), "V"),
                     setting=setting,
                 )
             return [(i18n.t("reason.title", lang), "focus"), ("  " + text, "")]

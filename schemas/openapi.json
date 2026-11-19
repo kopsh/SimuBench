@@ -4918,6 +4918,108 @@
             "title": "Ports",
             "type": "array"
           },
+          "reading_keys": {
+            "additionalProperties": false,
+            "description": "The class's front-panel reading keys, by role: 'voltage' → 'core.voltage' for an SMU. A class whose screen reads no readings of its own carries none",
+            "properties": {
+              "buffer_i": {
+                "type": "string"
+              },
+              "buffer_r": {
+                "type": "string"
+              },
+              "buffer_stat": {
+                "type": "string"
+              },
+              "buffer_t": {
+                "type": "string"
+              },
+              "buffer_v": {
+                "type": "string"
+              },
+              "current": {
+                "type": "string"
+              },
+              "detect_frequency": {
+                "type": "string"
+              },
+              "enbw": {
+                "type": "string"
+              },
+              "forcing": {
+                "type": "string"
+              },
+              "limit": {
+                "type": "string"
+              },
+              "limited": {
+                "type": "string"
+              },
+              "locked": {
+                "type": "string"
+              },
+              "noise_sigma": {
+                "type": "string"
+              },
+              "overload": {
+                "type": "string"
+              },
+              "r": {
+                "type": "string"
+              },
+              "r_projected": {
+                "type": "string"
+              },
+              "reading_time": {
+                "type": "string"
+              },
+              "regulation": {
+                "type": "string"
+              },
+              "settling": {
+                "type": "string"
+              },
+              "theta": {
+                "type": "string"
+              },
+              "voltage": {
+                "type": "string"
+              },
+              "x": {
+                "type": "string"
+              },
+              "y": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "buffer_i",
+              "buffer_r",
+              "buffer_stat",
+              "buffer_t",
+              "buffer_v",
+              "current",
+              "detect_frequency",
+              "enbw",
+              "forcing",
+              "limit",
+              "limited",
+              "locked",
+              "noise_sigma",
+              "overload",
+              "r",
+              "r_projected",
+              "reading_time",
+              "regulation",
+              "settling",
+              "theta",
+              "voltage",
+              "x",
+              "y"
+            ],
+            "title": "Reading Keys",
+            "type": "object"
+          },
           "remote": {
             "description": "Clients connected to this instrument's ports (socket, HiSLIP, VXI-11): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)",
             "items": {
@@ -4980,6 +5082,7 @@
           "manufacturer",
           "definition_id",
           "instrument_class",
+          "reading_keys",
           "description",
           "idn",
           "channels",
@@ -12366,7 +12469,7 @@
     },
     "/api/definitions/{def_id}/cases/run": {
       "post": {
-        "description": "Run a cases file the way `simubench cases` does (each case on a freshly powered bench)\nand return every step with what was expected and got.",
+        "description": "Run a cases file through the one cases seam (`projections.run_cases_file`, which\n`simubench cases` uses too: each case on a freshly powered bench, `builtin:` names\nincluded) and return every step with what was expected and got.",
         "operationId": "runDefinitionCases",
         "parameters": [
           {

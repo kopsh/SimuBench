@@ -319,7 +319,9 @@ def generator_rows(info: Mapping[str, Any], state: Mapping[str, dict], lang: str
 def smu_rows(
     info: Mapping[str, Any], state: Mapping[str, dict], readings: Mapping[str, Any] | None, lang: str
 ) -> list[Line]:
-    """SMU template rows: source, measurement, and the active limit (4.2)."""
+    """SMU template rows: source, measurement, and the active limit (4.2). The reading keys come
+    from the category registry's row (#1637), as the Web's SmuScreen reads them."""
+    keys = categories.get((info.get("display") or {}).get("template")).reading_keys
     function = _option(state.get("source.function"), _value(state, "source.function"))
     forcing = str(_value(state, "source.function") or "VOLTage").upper().startswith("V")
     set_path = "source.voltage.level" if forcing else "source.current.level"
@@ -337,13 +339,13 @@ def smu_rows(
     rows.append(
         [
             (t("cards.measure", lang) + " ", "muted"),
-            (fmt(_read(readings, "core.voltage"), "V") + "  ", ""),
-            (fmt(_read(readings, "core.current"), "A"), ""),
+            (fmt(_read(readings, keys["voltage"]), "V") + "  ", ""),
+            (fmt(_read(readings, keys["current"]), "A"), ""),
         ]
     )
-    if bool(_read(readings, "core.limited")):
-        regulation = str(_read(readings, "core.regulation") or "CC")
-        limit = _read(readings, "core.limit")
+    if bool(_read(readings, keys["limited"])):
+        regulation = str(_read(readings, keys["regulation"]) or "CC")
+        limit = _read(readings, keys["limit"])
         kind = "cards.ccLimited" if regulation == "CC" else "cards.cvLimited"
         rows.append(
             [
@@ -417,7 +419,8 @@ def _alerts(
     faults: Sequence[Mapping[str, Any]] | None,
     lang: str,
 ) -> list[Alert]:
-    """Faults first, then the SMU's limit, then the error queue (tui-screens.md 4.2)."""
+    """Faults first, then the SMU's limit, then the error queue (tui-screens.md 4.2). The limit
+    alert shows for the class whose registry row declares the ``limited`` reading (#1637)."""
     errors = info.get("errors", [])
     out = [
         Alert(
@@ -426,10 +429,11 @@ def _alerts(
         )
         for f in active_faults(faults, info["name"], {int(e["code"]) for e in errors})
     ]
-    if bool(_read(readings, "core.limited")):
-        regulation = str(_read(readings, "core.regulation") or "CC")
+    keys = categories.get((info.get("display") or {}).get("template")).reading_keys
+    if (limited := keys.get("limited")) and bool(_read(readings, limited)):
+        regulation = str(_read(readings, keys["regulation"]) or "CC")
         key = "cards.ccLimited" if regulation == "CC" else "cards.cvLimited"
-        limit = fmt(_read(readings, "core.limit"), "A" if regulation == "CC" else "V")
+        limit = fmt(_read(readings, keys["limit"]), "A" if regulation == "CC" else "V")
         out.append(Alert("limit", f"{regulation} " + t(key, lang, limit=limit)))
     if errors:
         last = errors[-1]

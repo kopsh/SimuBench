@@ -1,0 +1,94 @@
+{
+  "same": [
+    { "a": "INF", "b": "INF", "equal": true, "why": "the JSON spellings of infinity compare by value" },
+    { "a": "inf", "b": "INF", "equal": true, "why": "the spelling is read case-insensitively" },
+    { "a": "INF", "b": "-INF", "equal": false, "why": "the two infinities are different" },
+    { "a": "NAN", "b": "NAN", "equal": false, "why": "NaN is not even equal to itself" },
+    { "a": "Infinity", "b": "INF", "equal": false, "why": "only the three JSON spellings are numbers, not number words" },
+    { "a": 1000, "b": 1000, "equal": true, "why": "numbers by value" },
+    { "a": 1000, "b": 1001, "equal": false, "why": "numbers by value" },
+    { "a": "1e3", "b": 1000, "equal": false, "why": "a numeric string is a string: only INF/-INF/NAN convert" },
+    { "a": "1", "b": 1, "equal": false, "why": "a numeric string is a string" },
+    { "a": "", "b": 0, "equal": false, "why": "an empty string is not the number 0" },
+    { "a": "0", "b": 0, "equal": false, "why": "a numeric string is a string" },
+    { "a": "1e3", "b": "1000", "equal": false, "why": "two strings compare as strings, however numeric they read" },
+    { "a": "1e3", "b": "1001", "equal": false, "why": "unequal either way" },
+    { "a": "2", "b": "2", "equal": true, "why": "equal strings" },
+    { "a": "DC", "b": "AC", "equal": false, "why": "SCPI words compare exactly" },
+    { "a": "DC", "b": "DC", "equal": true, "why": "SCPI words compare exactly" },
+    { "a": true, "b": 1, "equal": false, "why": "a bool is not the number 1" },
+    { "a": false, "b": 0, "equal": false, "why": "a bool is not the number 0" },
+    { "a": true, "b": true, "equal": true, "why": "bools compare exactly" },
+    { "a": null, "b": null, "equal": true, "why": "two absent values hold" }
+  ],
+  "when": [
+    {
+      "state": [
+        { "path": "trigger.mode", "value": "GLITch" },
+        { "path": "acquire.average", "value": true }
+      ],
+      "when": { "trigger.mode": "GLITch", "acquire.average": true },
+      "holds": true,
+      "why": "every key holds"
+    },
+    {
+      "state": [{ "path": "trigger.mode", "value": "GLITch" }],
+      "when": { "trigger.mode": ["EDGE", "GLITch"] },
+      "holds": true,
+      "why": "a list means any of them"
+    },
+    {
+      "state": [{ "path": "trigger.mode", "value": "GLITch" }],
+      "when": { "trigger.mode": ["EDGE"] },
+      "holds": false,
+      "why": "a list none of which matches"
+    },
+    {
+      "state": [
+        { "path": "trigger.mode", "value": "GLITch" },
+        { "path": "acquire.average", "value": true }
+      ],
+      "when": { "trigger.mode": "GLITch", "acquire.average": false },
+      "holds": false,
+      "why": "one key not holding hides the control"
+    },
+    {
+      "state": [{ "path": "load.r", "value": "INF" }],
+      "when": { "load.r": "INF" },
+      "holds": true,
+      "why": "the infinity spelling compares by value"
+    },
+    {
+      "state": [{ "path": "acquire.average", "value": true }],
+      "when": { "acquire.average": 1 },
+      "holds": false,
+      "why": "a bool is not the number 1"
+    },
+    {
+      "state": [{ "path": "nplc", "value": 1 }],
+      "when": { "nplc": "1" },
+      "holds": false,
+      "why": "a numeric string does not match the number it spells"
+    },
+    {
+      "state": [{ "path": "ch2.bwlimit", "value": false, "channel": 2 }],
+      "when": { "bwlimit": false },
+      "channel": 2,
+      "holds": true,
+      "why": "in a channel's group a bare name is that channel's setting"
+    },
+    {
+      "state": [{ "path": "ch2.bwlimit", "value": false, "channel": 2 }],
+      "when": { "bwlimit": true },
+      "channel": 2,
+      "holds": false,
+      "why": "the channel's value differs"
+    },
+    {
+      "state": [{ "path": "trigger.mode", "value": "GLITch" }],
+      "when": { "absent.setting": 1 },
+      "holds": false,
+      "why": "a when naming an absent setting never holds"
+    }
+  ]
+}

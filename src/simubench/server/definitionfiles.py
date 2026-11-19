@@ -50,9 +50,16 @@ class DefinitionFiles:
             raw, editable, rel = self.files.library(None).path(def_id).read_bytes(), False, None  # type: ignore[assignment]
         return self._document(def_id, rel, editable, raw, _parse(raw, def_id))
 
-    def validate(self, data: dict[str, Any]) -> Report:
-        try:  # D59: a draft that extends a model is checked against what it will run
-            data = layered_definition_data(data, definitions_dir(self.files.workspace) / "draft.yaml")
+    def validate(self, data: dict[str, Any], source: Path | None = None) -> Report:
+        """Static checks of definition ``data``, layered over what it extends (D59): checked against
+        what it will run. ``source`` is the file the definition is read from — as :meth:`source`
+        names it for a saved definition, so its ``extends`` resolves where the engine's does. For
+        unsaved content (a draft, bare tool input) the path it would land at decides, which
+        :meth:`_would_land` takes from the data's id; a draft without an id lands at the shared
+        ``instruments/draft.yaml``. The path's folder locates sibling parents and a broken
+        ``extends`` diagnostic names it (D76)."""
+        try:
+            data = layered_definition_data(data, source if source is not None else self._would_land(data))
         except ValueError as exc:
             report = Report()
             code, pointer = getattr(exc, "code", "E-DEF-EXTENDS"), getattr(exc, "pointer", "/extends")
@@ -60,6 +67,15 @@ class DefinitionFiles:
             return report
         _, report = validate_definition_data(data)
         return report
+
+    def _would_land(self, data: dict[str, Any]) -> Path:
+        """The file unsaved definition ``data`` would be saved to, so its layering and its
+        diagnostics speak of the place it will run at (#1634): the id's own place in the workspace
+        when the data names one, else the shared draft path beside the other definitions."""
+        def_id = data.get("id")
+        if isinstance(def_id, str) and ID.fullmatch(def_id):
+            return self.files.workspace / self.rel_path(def_id)
+        return definitions_dir(self.files.workspace) / "draft.yaml"
 
     def create(self, def_id: str, data: dict[str, Any], source: Source = "agent") -> M.DefinitionDocument:
         return self.save(def_id, None, data, source)
@@ -259,16 +275,18 @@ class DefinitionFiles:
 
     def _changes(self, def_id: str, older: dict[str, Any], newer: dict[str, Any]) -> list[M.DefinitionChange]:
         """What a version changed, in terms of the instrument it runs: both versions are compared
-        after layering (``extends`` and the category default merged in, D59), so a copy's file
-        growing from three lines to a whole command table reads as the one command it added, and an
-        inherited value overridden reads as old → new rather than as an added key. A copy's first
-        version is compared with its parent: it changes nothing yet, apart from being based on it.
-        Layering uses the parent as it is now."""
+        after layering (``extends`` and the category default merged in, ``same_as`` resolved —
+        the layering ends with it, D59, D82), so a copy's file growing from three lines to a whole
+        command table reads as the one command it added, an inherited value overridden reads as
+        old → new rather than as an added key, and a place that follows a spec with ``same_as``
+        shows the change in the value it stands for, not in the alias. A copy's first version is
+        compared with its parent: it changes nothing yet, apart from being based on it. Layering
+        uses the parent as it is now; each layer's parse comes from the loader's mtime cache."""
         source = self.files.workspace / self.rel_path(def_id)
 
         def runs(data: dict[str, Any]) -> dict[str, Any]:
-            if not isinstance(data.get("extends"), str):
-                return data
+            # A file with no ``extends`` layers too: the layering ends with ``same_as`` resolved
+            # (loader.py, what the engine runs), so the alias never compares as its literal (#1636).
             return {k: v for k, v in definitionstructure.layered(data, source).items() if k != "extends"}
 
         def base(data: dict[str, Any]) -> dict[str, Any]:
@@ -288,7 +306,7 @@ class DefinitionFiles:
         data: dict[str, Any],
         changes: list[M.DefinitionChange] | None = None,
     ) -> M.DefinitionDocument:
-        report = self.validate(data)
+        report = self.validate(data, self.source(def_id))
         return M.DefinitionDocument(
             id=def_id,
             path=rel,

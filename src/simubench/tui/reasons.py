@@ -14,6 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..models import categories
 from . import controls
 from .fmt import fmt, fmt_ns
 from .i18n import t
@@ -171,11 +172,14 @@ def limited_report(
 ) -> ReasonReport | None:
     """The SMU at its limit (tui-screens.md 5.4): 设定 / 限值 / 读数 (tui-screens.md 9.1). The
     set and limit paths resolve through the panel's Source group (#1469): the role a malformed
-    declaration does not make is left out of the evidence."""
+    declaration does not make is left out of the evidence. The reading keys come from the
+    category registry's row (#1637)."""
+    keys = categories.get((info.get("display") or {}).get("template")).reading_keys
     values = (readings or {}).get("values", {})
-    if not values.get("core.limited"):
+    limited = keys.get("limited")  # a class whose row carries no roles has no limit story
+    if not limited or not values.get(limited):
         return None
-    regulation = str(values.get("core.regulation") or "CC")
+    regulation = str(values.get(keys["regulation"]) or "CC")
     instrument = info.get("name", "")
     # CC: the current limit is active while the source forces a voltage; CV the other way round.
     roles = controls.smu_source_roles(info)
@@ -187,20 +191,20 @@ def limited_report(
         conclusion = t(
             "reason.conclusionCC",
             lang,
-            limit=fmt(float(values.get("core.limit") or 0), "A"),
-            actual=fmt(float(values.get("core.voltage") or 0), "V"),
+            limit=fmt(float(values.get(keys["limit"]) or 0), "A"),
+            actual=fmt(float(values.get(keys["voltage"]) or 0), "V"),
             setting=fmt(float(_state_value(info, set_path) or 0), "V"),
         )
-        subject = t("reason.subjectCurrent", lang, value=fmt(float(values.get("core.current") or 0), "A"))
+        subject = t("reason.subjectCurrent", lang, value=fmt(float(values.get(keys["current"]) or 0), "A"))
     else:
         conclusion = t(
             "reason.conclusionCV",
             lang,
-            limit=fmt(float(values.get("core.limit") or 0), "V"),
-            actual=fmt(float(values.get("core.current") or 0), "A"),
+            limit=fmt(float(values.get(keys["limit"]) or 0), "V"),
+            actual=fmt(float(values.get(keys["current"]) or 0), "A"),
             setting=fmt(float(_state_value(info, set_path) or 0), "A"),
         )
-        subject = t("reason.subjectVoltage", lang, value=fmt(float(values.get("core.voltage") or 0), "V"))
+        subject = t("reason.subjectVoltage", lang, value=fmt(float(values.get(keys["voltage"]) or 0), "V"))
     evidences = []
     if set_path is not None:
         evidences.append(
@@ -225,8 +229,8 @@ def limited_report(
     evidences.append(
         Evidence(
             t("reason.evReading", lang),
-            f"{t('reason.voltage', lang)} {fmt(float(values.get('core.voltage') or 0), 'V')} · "
-            f"{t('reason.current', lang)} {fmt(float(values.get('core.current') or 0), 'A')}",
+            f"{t('reason.voltage', lang)} {fmt(float(values.get(keys['voltage']) or 0), 'V')} · "
+            f"{t('reason.current', lang)} {fmt(float(values.get(keys['current']) or 0), 'A')}",
         )
     )
     return ReasonReport(

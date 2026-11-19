@@ -547,14 +547,20 @@ def _verdicts(args: argparse.Namespace) -> int:
 
 
 def _cases(args: argparse.Namespace) -> int:
-    """Run cases files, each case on a freshly powered bench; exit 1 when a case fails (D6)."""
-    from .cases import junit_xml, run_cases
+    """Run cases files, each case on a freshly powered bench; exit 1 when a case fails (D6).
 
+    Through the one cases seam (:func:`server.projections.run_cases_file`): a ``builtin:`` name
+    resolves like it does on the acceptance page and for the agent seams."""
+    from .cases import junit_xml
+    from .server.benchfiles import BenchFiles
+    from .server.projections import run_cases_file
+
+    files = BenchFiles(Path.cwd())
     dirs = [Path(d) for d in args.definitions] + [Path.cwd() / "instruments"]
     suites = []
     for path in args.files:
         try:
-            results = run_cases(Path(path), dirs)
+            results = run_cases_file(files, Path(path), definition_dirs=dirs)
         except Exception as exc:  # the file does not read
             print(f"{path}: {exc or type(exc).__name__}", file=sys.stderr)
             return 2

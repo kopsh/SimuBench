@@ -23,11 +23,14 @@ type Row = { v: number; i: number; r: number; t: number; stat: number };
 export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
   const { values: v, num, query: readings, vars } = useInstrumentReadings(sid, inst);
-  const regulation = String(v["core.regulation"] ?? "OFF");
-  const limited = v["core.limited"] === true;
-  const forcingVoltage = v["core.forcing"] !== "CURRent";
-  const volts = num("core.voltage");
-  const amps = num("core.current");
+  // The reading keys come from the category registry (models/categories.py) through the describe
+  // payload (#1637): the TUI's card and reason lines read the same row.
+  const keys = inst.reading_keys;
+  const regulation = String(v[keys.regulation] ?? "OFF");
+  const limited = v[keys.limited] === true;
+  const forcingVoltage = v[keys.forcing] !== "CURRent";
+  const volts = num(keys.voltage);
+  const amps = num(keys.current);
   const on = regulation !== "OFF";
   // Front-panel keys: the same commands a script sends, so they show in the communication log.
   const scpi = useScpi(sid, inst.name);
@@ -39,8 +42,8 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
       },
     });
 
-  const trace = (name: string) => readings.data?.traces.find((x) => x.name === `core.buffer_${name}`)?.values ?? [];
-  const [bv, bi, br, bt, bs] = ["v", "i", "r", "t", "stat"].map(trace);
+  const trace = (name: string) => readings.data?.traces.find((x) => x.name === name)?.values ?? [];
+  const [bv, bi, br, bt, bs] = [keys.buffer_v, keys.buffer_i, keys.buffer_r, keys.buffer_t, keys.buffer_stat].map(trace);
   const rows: Row[] = bv.map((_, k) => ({
     v: bv[k],
     i: bi[k],
@@ -75,7 +78,7 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
             {forcingVoltage ? t("smu.currentLimit") : t("smu.voltageLimit")}
           </Chip>
           <span className="text-muted-foreground num ml-auto">
-            {t("smu.readingTime")} {formatEng(num("core.reading_time"), "s", 5)}
+            {t("smu.readingTime")} {formatEng(num(keys.reading_time), "s", 5)}
           </span>
         </header>
         <div className="grid grid-cols-2 divide-x divide-y md:grid-cols-4 md:divide-y-0" aria-live="polite">
@@ -97,7 +100,7 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
         </div>
         <footer className="text-muted-foreground num flex flex-wrap gap-x-5 gap-y-1 border-t px-3 py-2 text-[11px]">
           <span>
-            {forcingVoltage ? t("smu.currentLimit") : t("smu.voltageLimit")} {formatEng(num("core.limit"), forcingVoltage ? "A" : "V", 4)}
+            {forcingVoltage ? t("smu.currentLimit") : t("smu.voltageLimit")} {formatEng(num(keys.limit), forcingVoltage ? "A" : "V", 4)}
           </span>
           <span>{t("smu.limitHint")}</span>
         </footer>
@@ -125,7 +128,7 @@ export function SmuScreen({ sid, inst, readonly }: { sid: string; inst: Instrume
               {t("smu.clearBuffer")}
             </Button>
           </div>
-          <IvChart rows={rows} limit={num("core.limit")} forcingVoltage={forcingVoltage} />
+          <IvChart rows={rows} limit={num(keys.limit)} forcingVoltage={forcingVoltage} />
         </div>
         <div className="bg-card flex min-h-0 flex-col rounded-lg border">
           <header className="border-b px-3 py-2 text-xs font-medium">{t("smu.bufferTable")}</header>

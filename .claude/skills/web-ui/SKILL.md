@@ -28,7 +28,10 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   union (#1384, `models/categories.py`): a backend class without an entry here is a compile
   error. A new class gets a registry row in `models/categories.py`, an entry here, and
   `acceptance.class.<id>` in both i18n files (`classes.test.ts` checks they agree); do not add
-  icon maps or `if (template === …)` chains elsewhere.
+  icon maps or `if (template === …)` chains elsewhere. A screen that reads the readings payload
+  reads it by role, through `inst.reading_keys` (the registry row's map, #1637; the generated TS
+  type is closed, so a role the row does not declare is a compile error) — a `<block>.<key>`
+  literal in a screen is banned by the ESLint rule.
 - `web/src/features/home/` — the product page (D65): `HelloPreview.tsx` plays engine data from
   `hello-preview.json` (regenerate: `uv run python scripts/capture_hello_preview.py`), `Showcase.tsx`
   shows real screenshots in `assets/` (TUI: `docs/tui/hello.steps.yaml`; web: the workbench on the

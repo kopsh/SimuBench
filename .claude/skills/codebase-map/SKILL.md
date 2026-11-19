@@ -49,7 +49,7 @@ plausible fake).
 | How an instrument's component chain is cut (leaf blocks → the driver block; when to split; no mixins) and the family a new module belongs to | `docs/signal-chain.md` 3.4, `server/catalog.py` (`GROUPS`) |
 | Built-in real models + coverage tables | `library/instruments/<id>.yaml`, `<id>.coverage.yaml` |
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |
-| Instrument classes in one place: label key, readings polling, row kind, panel policy, scriptscan hints (D79) | `models/categories.py` |
+| Instrument classes in one place: label key, readings polling, row kind, panel policy, scriptscan hints, the reading keys the class's screen reads the readings payload by (D80) | `models/categories.py` |
 | Category default blocks (per class) and the definition deep merge (D59) | `library/class_defaults.py` |
 | Script scanner (bench/definition drafts from a PyVISA script) | `library/scriptscan.py` |
 | Coverage tables & manual cases (D42): the formats, `check`, finding a model's cases / running them on a fresh bench (`run_cases`, `junit_xml`) | `library/coverage.py` / `cases.py` |

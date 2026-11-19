@@ -31,4 +31,19 @@ export default tseslint.config(
     files: ["e2e/**/*.{ts,tsx,mjs}", "visual/**/*.{ts,tsx}", "**/*.test.{ts,tsx}", "**/*.spec.{ts,tsx}"],
     rules: { "no-restricted-syntax": NO_REGEX_IN_TESTS },
   },
+  {
+    // The dedicated screens read their readings by role, through InstrumentInfo.reading_keys —
+    // the category registry row (models/categories.py) is the only place a key string lives
+    // (#1637); the TUI's consumer files carry the same ban as an AST guard test.
+    files: ["src/features/workbench/screens/SmuScreen.tsx", "src/features/workbench/screens/LockinScreen.tsx"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "Literal[value=/^(core|demod|osc)\\./]",
+          message: "Reading keys come from the registry (inst.reading_keys, #1637): write the role, not a '<block>.<key>' literal.",
+        },
+      ],
+    },
+  },
 );

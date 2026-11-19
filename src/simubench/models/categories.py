@@ -3,8 +3,10 @@
 Every instrument class the platform knows is one row here: the ``id`` a definition's ``class``
 (or its ``display.template``, the same namespace) names, the i18n key of the class label (the
 Web resolves it per language, ``acceptance.class.<id>``), whether the screen polls ``/readings``,
-the row kind the TUI's card and channel rows dispatch on, the panel policy, and the variable-name
-hints the script scanner uses to break ties between definitions. The registry holds data only —
+the row kind the TUI's card and channel rows dispatch on, the panel policy, the variable-name
+hints the script scanner uses to break ties between definitions, and the reading keys — the
+roles the class's dedicated screen reads the readings payload by, declared once so the TUI's
+row functions and the Web's screens share the same map (#1637). The registry holds data only —
 the render functions stay with their UI (TUI cards and rows, Web icons and screens): a row's kind
 is a string each UI maps to its own function once. ``class_defaults`` (D59) stays a separate
 table, tied to the registry only by these ids, as are the panel builders in ``panels.py``.
@@ -26,7 +28,8 @@ the registry, and the documented generic fallback for a definition nobody has cl
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Literal, cast
 
 #: The row kind a UI dispatches on: which rows the card draws and which channel lines the
@@ -71,6 +74,13 @@ class Category:
     readings: bool  # the screen polls /readings (app.py #282)
     screen: ScreenKind
     panel: PanelPolicy
+    #: The class's front-panel reading keys, by role (#1637): the vocabulary its dedicated screen
+    #: reads the readings payload with — the TUI's row and reason functions and the Web's screen
+    #: take the keys from here, so the map is written once. Declared per class whose screen reads
+    #: readings of its own; the roles are the consumers' shared contract (a role the screen uses
+    #: that the row does not declare is a loud failure: a missing TS property fails to compile,
+    #: the TUI guard test bans the literals the keys replace).
+    reading_keys: Mapping[str, str] = field(default_factory=dict)
     #: variable-name hints of the script scanner, tie-break only (empty for most classes)
     hints: tuple[str, ...] = ()
 
@@ -109,6 +119,22 @@ _ROWS: tuple[Category, ...] = (
         screen="smu",
         panel="dedicated",
         hints=("smu", "keithley"),
+        # The smu_meter's readings (library/components/smu.py), by the role the SMU's screen reads:
+        # the TUI's card, channel rows and reason dialog and the Web's SmuScreen look them up here.
+        reading_keys={
+            "regulation": "core.regulation",
+            "limited": "core.limited",
+            "forcing": "core.forcing",
+            "voltage": "core.voltage",
+            "current": "core.current",
+            "limit": "core.limit",
+            "reading_time": "core.reading_time",
+            "buffer_v": "core.buffer_v",
+            "buffer_i": "core.buffer_i",
+            "buffer_r": "core.buffer_r",
+            "buffer_t": "core.buffer_t",
+            "buffer_stat": "core.buffer_stat",
+        },
     ),
     Category(
         "lockin",
@@ -117,6 +143,21 @@ _ROWS: tuple[Category, ...] = (
         screen="lockin",
         panel="dedicated",
         hints=("lockin", "lia", "sr8"),
+        # The lock-in's demodulator and reference-oscillator readings (library/components/lockin.py):
+        # the Web's LockinScreen reads them all from here.
+        reading_keys={
+            "locked": "osc.locked",
+            "detect_frequency": "osc.detect_frequency",
+            "overload": "demod.overload",
+            "x": "demod.X",
+            "y": "demod.Y",
+            "r": "demod.R",
+            "theta": "demod.THETA",
+            "enbw": "demod.enbw",
+            "settling": "demod.settling",
+            "noise_sigma": "demod.noise_sigma",
+            "r_projected": "demod.R_projected",
+        },
     ),
     Category(
         "electronic_load", "acceptance.class.electronic_load", readings=True, screen="load", panel="dedicated"

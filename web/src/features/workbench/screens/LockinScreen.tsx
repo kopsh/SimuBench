@@ -16,8 +16,11 @@ const HISTORY = 400;
 export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: InstrumentInfo; readonly: boolean }) {
   const { t } = useTranslation();
   const { values: v, num, query: readings, vars } = useInstrumentReadings(sid, inst);
-  const overload = num("demod.overload");
-  const locked = v["osc.locked"] !== false;
+  // The reading keys come from the category registry (models/categories.py) through the describe
+  // payload (#1637).
+  const keys = inst.reading_keys;
+  const overload = num(keys.overload);
+  const locked = v[keys.locked] !== false;
   const nowS = (readings.data?.now_ns ?? 0) / 1e9;
 
   // R as read, by virtual time: appended when new readings arrive (derived state, no effect);
@@ -28,14 +31,14 @@ export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: Instr
   const [seen, setSeen] = useState(readings.data);
   if (readings.data && readings.data !== seen) {
     setSeen(readings.data);
-    const r = Number(readings.data.values["demod.R"] ?? 0);
+    const r = Number(readings.data.values[keys.r] ?? 0);
     setPoints((h) => {
       const last = h.at(-1);
       const base = last && nowS < last.t ? [] : h;
       return last && nowS === last.t ? base : [...base, { t: nowS, r }].slice(-HISTORY);
     });
   }
-  const projected = readings.data?.traces.find((x) => x.name === "demod.R_projected");
+  const projected = readings.data?.traces.find((x) => x.name === keys.r_projected);
 
   const groups: [string, string[]][] = [
     [t("lockin.reference"), ["reference.source", "reference.frequency", "reference.phase", "reference.harmonic"]],
@@ -71,24 +74,24 @@ export function LockinScreen({ sid, inst, readonly }: { sid: string; inst: Instr
             {t("lockin.outputOverload")}
           </Chip>
           <span className="text-muted-foreground num ml-auto">
-            {t("lockin.detect")} {formatEng(num("osc.detect_frequency"), "Hz", 7)}
+            {t("lockin.detect")} {formatEng(num(keys.detect_frequency), "Hz", 7)}
           </span>
         </header>
         <div className="grid grid-cols-2 divide-x divide-y md:grid-cols-4 md:divide-y-0" aria-live="polite">
-          <Readout label="X" value={num("demod.X")} unit="V" />
-          <Readout label="Y" value={num("demod.Y")} unit="V" />
-          <Readout label="R" value={num("demod.R")} unit="V" strong />
-          <Readout label="θ" value={num("demod.THETA")} unit="°" plain />
+          <Readout label="X" value={num(keys.x)} unit="V" />
+          <Readout label="Y" value={num(keys.y)} unit="V" />
+          <Readout label="R" value={num(keys.r)} unit="V" strong />
+          <Readout label="θ" value={num(keys.theta)} unit="°" plain />
         </div>
         <footer className="text-muted-foreground num flex flex-wrap gap-x-5 gap-y-1 border-t px-3 py-2 text-[11px]">
           <span>
-            {t("lockin.enbw")} {formatEng(num("demod.enbw"), "Hz", 5)}
+            {t("lockin.enbw")} {formatEng(num(keys.enbw), "Hz", 5)}
           </span>
           <span>
-            {t("lockin.settling")} {formatEng(num("demod.settling"), "s", 4)}
+            {t("lockin.settling")} {formatEng(num(keys.settling), "s", 4)}
           </span>
           <span>
-            {t("lockin.noise")} {formatEng(num("demod.noise_sigma"), "V", 3)}
+            {t("lockin.noise")} {formatEng(num(keys.noise_sigma), "V", 3)}
           </span>
         </footer>
       </section>
