@@ -59,9 +59,7 @@ class FakeClient:
     async def close(self) -> None:
         pass
 
-    async def workspace_stream(
-        self, on_event: Any, on_open: Any, on_close: Any, stop: asyncio.Event
-    ) -> None:
+    async def workspace_stream(self, on_event: Any, on_open: Any, on_close: Any, stop: asyncio.Event) -> None:
         """The workspace subscription (D85) parked: no socket — the app holds its handlers here,
         and tests deliver its events with :func:`feed_workspace` as the stream would. The real
         connection is the boot tier's (test_tui.py), as with the session stream."""

@@ -505,9 +505,7 @@ async def test_a_scripts_connect_and_disconnect_reach_the_tui_through_the_worksp
             while loop_time() < end and not tui.remote_held():
                 await pilot.pause(0.05)
             assert tui.remote_held(), "the script's arrival never showed"
-            remote = next(
-                i["remote"] for i in tui.session_info["instruments"] if i["name"] == "scope"
-            )
+            remote = next(i["remote"] for i in tui.session_info["instruments"] if i["name"] == "scope")
             assert remote, "the session payload lists no client"
 
             writer.close()
@@ -515,9 +513,7 @@ async def test_a_scripts_connect_and_disconnect_reach_the_tui_through_the_worksp
             while loop_time() < end and tui.remote_held():
                 await pilot.pause(0.05)
             assert not tui.remote_held(), "the script's departure never cleared"
-            remote = next(
-                i["remote"] for i in tui.session_info["instruments"] if i["name"] == "scope"
-            )
+            remote = next(i["remote"] for i in tui.session_info["instruments"] if i["name"] == "scope")
             assert not remote
     finally:
         if writer is not None:
