@@ -162,10 +162,9 @@ class Controls:
         if field == "horizontal":
             if query or value is None:
                 return OpResult(str(self.host.setting(f, "horizontal", "AUTO") or "AUTO").encode())
-            word = V.parse_string(value if isinstance(value, bytes) else str(value).encode()).upper()
-            if word not in ("AUTO", "MANUAL"):
-                raise ScpiError(-224, f"{value}: AUTO or MANual")
-            return self._set_h(f, "horizontal", "MANual" if word == "MANUAL" else "AUTO")
+            # The engine's own SCPI word match: AUTO, MAN and MANUAL (any case), not MANU (#1587).
+            raw = value if isinstance(value, bytes) else str(value).encode()
+            return self._set_h(f, "horizontal", V.parse_enum(raw, ("AUTO", "MANual")))
         # position/range: a frequency on a transform, seconds elsewhere
         name = {"position": "center" if fft else "h_position", "range": "span" if fft else "h_range"}[field]
         path_value = self.host.setting(f, name)

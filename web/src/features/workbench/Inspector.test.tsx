@@ -5,7 +5,8 @@ import { afterEach, expect, it, vi } from "vitest";
 import type { InstrumentInfo, StateVarInfo } from "@/api/client";
 import { api } from "@/api/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { InstrumentInspector } from "./Inspector";
+import { InstrumentInspector, InstrumentSettings } from "./Inspector";
+import { FIELD_PAGE, globalVars, stateMap } from "./model";
 import { useWorkbench } from "./store";
 
 afterEach(() => {
@@ -180,4 +181,107 @@ it("a reveal opens a group mounted on a later page, for a field, a numbered fami
 
   await waitFor(() => expect(useWorkbench.getState().reveal).toBeNull());
   expect(missing).not.toHaveBeenCalled();
+});
+
+// ---- a definition decides how long a list is: the inspector mounts a page at a time (#1580, #1583) ----
+
+const fieldCount = () => document.querySelectorAll("[data-setting]").length;
+/** ``aaa``, ``aab`` … — letters only, so a run of settings is not read as a numbered family. */
+const letters = (i: number) => ALPHA[Math.floor(i / 676) % 26] + ALPHA[Math.floor(i / 26) % 26] + ALPHA[i % 26];
+const synthetic = (state: StateVarInfo[]): InstrumentInfo =>
+  ({ ...INST, channels: 1, display: { summary: [], channel_summary: [] }, state }) as unknown as InstrumentInfo;
+
+const moreButton = () => screen.getByTestId("fields-more");
+/** 「全部设置」 holds the named groups; with this many settings it starts folded, and mounts nothing until opened. */
+const openAllSettings = () => act(() => screen.getByRole("button", { name: (n) => n.startsWith("全部设置") }).click());
+
+it("two thousand loose settings mount one page, and each 'show more' adds one page (#1580, #1583)", async () => {
+  setup();
+  renderInspector(synthetic(Array.from({ length: 2000 }, (_, i) => setting(`s${letters(i)}`, `设置 ${letters(i)}`))));
+  await waitFor(() => expect(fieldCount()).toBeGreaterThan(0));
+  expect(fieldCount()).toBe(FIELD_PAGE);
+  expect(moreButton().textContent).toBe("再显示 40 项（还有 1960 项）");
+  act(() => moreButton().click());
+  await waitFor(() => expect(fieldCount()).toBe(2 * FIELD_PAGE));
+  expect(moreButton().textContent).toBe("再显示 40 项（还有 1920 项）");
+});
+
+it("the last page says how many are left, and the button goes when none are (#1580, #1583)", async () => {
+  setup();
+  renderInspector(synthetic(Array.from({ length: 90 }, (_, i) => setting(`s${letters(i)}`, `设置 ${letters(i)}`))));
+  await waitFor(() => expect(fieldCount()).toBe(FIELD_PAGE));
+  act(() => moreButton().click());
+  await waitFor(() => expect(fieldCount()).toBe(2 * FIELD_PAGE));
+  expect(moreButton().textContent).toBe("再显示 10 项（还有 10 项）");
+  act(() => moreButton().click());
+  await waitFor(() => expect(fieldCount()).toBe(90));
+  expect(screen.queryByTestId("fields-more")).toBeNull();
+});
+
+it("one group of two thousand settings mounts its first page only once opened (#1580, #1583)", async () => {
+  setup();
+  renderInspector(synthetic(Array.from({ length: 2000 }, (_, i) => setting(`big.s${letters(i)}`, `大组 ${letters(i)}`))));
+  expect(fieldCount()).toBe(0); // folded: nothing mounted for 2000 settings
+  openAllSettings();
+  await waitFor(() => expect(fieldCount()).toBeGreaterThan(0));
+  expect(fieldCount()).toBeLessThanOrEqual(FIELD_PAGE);
+  expect(moreButton().textContent).toContain("还有 1960 项");
+});
+
+it("five hundred short groups mount about a page of rows and a page of groups (#1580, #1583)", async () => {
+  setup();
+  renderInspector(
+    synthetic(Array.from({ length: 500 }, (_, g) => Array.from({ length: 4 }, (_, k) => setting(`g${letters(g)}.s${k + 1}`, `组 ${letters(g)} ${k + 1}`))).flat()),
+  );
+  expect(fieldCount()).toBe(0);
+  openAllSettings();
+  const groups = () => document.querySelectorAll('section[data-group]:not([data-group="all"])').length;
+  await waitFor(() => expect(groups()).toBeGreaterThan(0));
+  expect(groups()).toBeLessThanOrEqual(FIELD_PAGE);
+  expect(fieldCount()).toBeLessThanOrEqual(FIELD_PAGE);
+  expect(moreButton().textContent).toContain("再显示");
+});
+
+// Build mode renders the same layout through the same component with its own field renderer.
+it("build mode, with its own fields, mounts a page at a time too (#1313, #1583)", async () => {
+  setup();
+  const inst = synthetic(Array.from({ length: 2000 }, (_, i) => setting(`s${letters(i)}`, `设置 ${letters(i)}`)));
+  render(
+    <QueryClientProvider client={new QueryClient()}>
+      <TooltipProvider>
+        <InstrumentSettings
+          sid="s1"
+          inst={inst}
+          readonly={false}
+          stateVars={stateMap(inst)}
+          globals={globalVars(inst)}
+          channels={[1]}
+          hidden={new Set()}
+          field={(v) => <input key={v.path} aria-label={v.label ?? v.path} data-setting={v.path} />}
+        />
+      </TooltipProvider>
+    </QueryClientProvider>,
+  );
+  await waitFor(() => expect(fieldCount()).toBeGreaterThan(0));
+  expect(fieldCount()).toBe(FIELD_PAGE);
+  act(() => moreButton().click());
+  await waitFor(() => expect(fieldCount()).toBe(2 * FIELD_PAGE));
+});
+
+it("a numbered family pages its instance and starts the next instance on its first page (#1580, #1583)", async () => {
+  setup();
+  // Four instances: the fold threshold, as in the bookmark family above.
+  const instance = (n: number) => Array.from({ length: 100 }, (_, k) => setting(`display.fam${n}.s${letters(k)}`, `实例 ${n} 项 ${letters(k)}`));
+  renderInspector(synthetic([1, 2, 3, 4].flatMap(instance)));
+  openAllSettings();
+  const family = await screen.findByTestId("setting-family");
+  expect(fieldCount()).toBeLessThanOrEqual(FIELD_PAGE);
+  act(() => within(family).getByTestId("fields-more").click());
+  await waitFor(() => expect(fieldCount()).toBe(2 * FIELD_PAGE));
+  // Another instance of the family (a locate request picks it, as the picker does): back on its
+  // first page, the first instance's pages are gone.
+  act(() => useWorkbench.getState().revealSetting("scope", "display.fam2.saaa"));
+  await waitFor(() => expect(within(family).getByRole("combobox", { name: "fam 的编号" }).textContent).toBe("2"));
+  expect(within(family).getByLabelText("实例 2 项 aaa")).toBeTruthy();
+  expect(fieldCount()).toBe(FIELD_PAGE);
 });
