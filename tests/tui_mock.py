@@ -207,11 +207,6 @@ async def feed_workspace(tui: SimuBenchApp, *events: dict[str, Any]) -> None:
     await asyncio.sleep(0)
 
 
-def wev(seq: int, kind: str, **fields: Any) -> dict[str, Any]:
-    """One workspace event as the stream carries it: ``seq`` per connection, kind and fields."""
-    return {"seq": seq, "kind": kind, **fields}
-
-
 def ev(seq: int, t_ns: int, kind: str, **fields: Any) -> dict[str, Any]:
     """One event as the WS stream carries it: projected through the engine's event contract
     (issue 595), so the shape here and the server's cannot drift apart."""
