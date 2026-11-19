@@ -145,6 +145,28 @@ async def test_a_created_file_changed_while_the_plan_runs_is_not_deleted_unseen(
     assert done.done and not copy.exists()
 
 
+async def test_a_session_stopped_elsewhere_after_the_plan_does_not_abort_the_rollback(manager):
+    """#1490: a planned session that is gone by the time the rollback stops it (the user stopped
+    it in the UI meanwhile) is already not running — the rollback goes on and restores the files."""
+    llm = ScriptedLLM([("read_bench", {})], edit([{"op": "set_label", "name": "awg", "label": "X"}]), "好")
+    service = service_with(manager, llm)
+    t = await turn(service, "改标签")
+    served = await manager.start(BENCH)
+    planned = service.rollback_plan
+
+    def plan_then_stopped_elsewhere(bench):
+        plan = planned(bench)
+        del manager.sessions[served.id]  # stopped elsewhere before the rollback's own stop
+        return plan
+
+    service.rollback_plan = plan_then_stopped_elsewhere  # type: ignore[method-assign]
+    done = await service.rollback(M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True))
+    assert done.done and not manager.sessions
+    assert label(manager) == "函数发生器"
+    manager.sessions[served.id] = served  # the elsewhere stop finishes its work
+    await manager.stop(served.id)
+
+
 async def test_a_delete_tampered_during_the_stop_does_not_leave_the_restores_behind(manager):
     """One turn with both a restore and a delete (#908): the delete target is re-checked after the
     sessions stopped, so a change there aborts before any restore has landed — not half-way."""
