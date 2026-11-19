@@ -2739,3 +2739,14 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | 运行期不再抛 Python 异常 | ✅ `_code_scale` 对非数值的位数 / 每格码数回 -300 并带原值，不再 ValueError |
 | 测试 | ✅ `tests/test_validate_definition.py`：拼写错误两参数各一例、`adc` 无 ADC 采集链（monkeypatch 去掉 `adc_codes_per_div`，内置采集都实现该协议）；`tests/test_waveform_transfer.py`：无 ADC 采集链运行期 -300、拼写错误运行期 -300、12 位 ADC 不写 codes_per_div 时 `_code_scale()` = (12, 512) 且 16 位字里码步长 16 |
 | 文档 | ✅ instrument-authoring.md 偏移约定段补加载时校验一句、progress-log 本节 |
+
+## 校验的绑定参数求值一处推导：sense 检查走通道组件读初值（Issue 1487）
+
+| 项 | 结果 |
+| --- | --- |
+| 共享推导一处 | ✅ validate.py 私有 `_bound_path`/`_bound_value`：binding_of → 路径（通道相对 `ch.x` 按所在通道展开，与运行时 `resolve_path` 同语义）→ 台架初值（缺省落 spec default）→ `map_setting`；`_component_param`/`_input_impedance.value()`/`_impedance_hints` 三处手写全部退役 |
+| sense 检查到通道 | ✅ `_check_sense` 逐通道走 `channel_components`：真实型号的远端检测全声明在通道组件上（b2912b `$ch.sense.remote`、n6705c/e36312a `{from: $ch.sense, map: …}`），原先只走 `components`、通道分支根本到不了 |
+| 新用例 | ✅ `validation/instruments/sb-smu-4`（sb-smu-2 通道链加 `remote_sense: $ch.sense.remote`）+ `tests/test_four_wire.py` 通道绑定 sense 用例：W-SENSE-UNCONNECTED 指向 `/instruments/<名>/state/ch1.sense.remote`、逐通道各判各的初值 |
+| 语料核对 | ✅ 68 个入库 bench 在 base（7da2dc86）与分支逐字节 diff：61 clean、7 个原有 W-IMPEDANCE-MISMATCH 原样，零翻红；`_impedance_hints` 不再对非通道端口猜通道 1 |
+| 文档 | ✅ decisions.md D86；progress-log 本节 |
+| check.sh | ✅ 全绿（见下） |

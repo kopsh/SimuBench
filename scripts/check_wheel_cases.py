@@ -12,6 +12,7 @@ Standard library only: the CI step runs it with the system Python.
 
 from __future__ import annotations
 
+import functools
 import sys
 import zipfile
 from pathlib import Path
@@ -28,8 +29,14 @@ def _model_of(cases: Path) -> str | None:
     return None
 
 
+@functools.cache
 def expected_folders(root: Path = ROOT) -> set[str]:
-    """The ``tests/models`` folders whose cases are a built-in model's."""
+    """The ``tests/models`` folders whose cases are a built-in model's.
+
+    Cached per process: ``problems`` rescans on every call and the unit test calls the pair five
+    times, which put the test at the D49 budget's edge on a loaded machine. The tree does not
+    change during a run.
+    """
     builtin = root / "src" / "simubench" / "library" / "instruments"
     return {
         cases.parent.name
