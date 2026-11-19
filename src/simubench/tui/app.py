@@ -158,6 +158,7 @@ class SimuBenchApp(App[None]):
         self._maintaining = False
         self._maint_task: asyncio.Task | None = None
         self._session_task: asyncio.Task | None = None
+        self._session_queued = False  # a sid event arrived while a session re-read ran
         self._picker_task: asyncio.Task | None = None
         self._workspace_task: asyncio.Task | None = None
         self._workspace_opened = False  # the workspace socket has connected at least once
@@ -438,10 +439,23 @@ class SimuBenchApp(App[None]):
         # (#1526) — there is no backlog to ask for (D85).
 
     def _refresh_session_soon(self) -> None:
-        """One session re-read for the sid events and the resync, collapsed while one is
-        already in flight."""
-        if self.sid is not None and not self._session_task_running():
-            self._session_task = asyncio.create_task(self._refresh_session())
+        """One session re-read for the sid events and the resync: coalesced while one is in
+        flight, but never dropped — a re-read issued before the change it answers (its fetch
+        outran the server) must be followed by one that sees the new state, so an event that
+        arrives while one runs queues a trailing re-read instead of being lost (#1633)."""
+        if self.sid is None:
+            return
+        if self._session_task_running():
+            self._session_queued = True
+            return
+        self._session_task = asyncio.create_task(self._run_session_refresh())
+
+    async def _run_session_refresh(self) -> None:
+        """The session re-read, followed by any re-read a sid event queued behind it."""
+        await self._refresh_session()
+        while self._session_queued and not self._stop.is_set():
+            self._session_queued = False
+            await self._refresh_session()
 
     # ---- events and data refresh ----------------------------------------------------------------------
 

@@ -1345,13 +1345,16 @@ async def test_a_clients_changed_event_clears_the_remote_mark_without_a_poll():
     assert client.calls == 2
 
 
-async def test_rapid_sid_events_collapse_into_one_refresh():
+async def test_rapid_sid_events_collapse_into_one_trailing_refresh():
+    """A sid event that arrives while a re-read runs is never dropped: its re-read is queued
+    behind the one in flight — that one was issued before the change it answers and may have
+    read the old state (a fetch can outrun the server on a disconnect)."""
     client = _SessionClient(remote=["socket:127.0.0.1:5401"])
     app = _app_with(client)
     app._on_workspace_event({"seq": 1, "kind": "clients_changed", "sid": "x"})
-    app._on_workspace_event({"seq": 2, "kind": "sessions_changed", "sid": "x"})  # in flight: collapsed
+    app._on_workspace_event({"seq": 2, "kind": "sessions_changed", "sid": "x"})  # in flight: queued behind it
     await app._session_task
-    assert client.calls == 1
+    assert client.calls == 2  # coalesced, not dropped: the trailing re-read sees the new state
 
 
 async def test_a_sid_event_for_another_session_is_ignored():
