@@ -105,6 +105,35 @@ test("diagnostics guide the fix: impedance hint cleared from the inspector", asy
   await expect(page.getByText("没有问题。")).toBeVisible();
 });
 
+test("a second instrument at one real address is reported in the problems panel", async ({ page }) => {
+  // #1597: the edit saves (the file is the user's to fix), and the address it now shares with `awg`
+  // is named there — not silently accepted.
+  const bench = {
+    ...BENCH,
+    instruments: {
+      awg: { model: "sb-awg-2", label: "函数发生器", address: "TCPIP0::192.168.1.20::5025::SOCKET" },
+      scope: { model: "sb-dso-4", label: "示波器", address: "TCPIP0::192.168.1.21::5025::SOCKET" },
+    },
+  };
+  const path = await openEditor(page, bench);
+  await page.locator(".react-flow__node").filter({ hasText: "示波器" }).click();
+  const address = page.getByPlaceholder("TCPIP0::192.168.1.20::5025::SOCKET");
+  await expect(address).toHaveValue("TCPIP0::192.168.1.21::5025::SOCKET");
+  await address.fill("TCPIP0::192.168.1.20::5025::SOCKET");
+  await address.press("Enter");
+  await page.getByRole("tab", { name: "问题" }).click();
+  // The diagnostic shows both in the problems panel and inline in the inspector (the scope is
+  // still selected) — assert on the problems-panel row, which is the test's subject.
+  const row = page.getByRole("button", { name: "E-ADDRESS-DUPLICATE", exact: false });
+  await expect(row).toBeVisible();
+  await expect(row).toContainText("与仪表 'awg' 的地址相同");
+  const saved = await readDoc(page.request, path);
+  expect((saved.data.instruments as Record<string, { address?: string }>).scope.address).toBe(
+    "TCPIP0::192.168.1.20::5025::SOCKET",
+  );
+  expect(saved.diagnostics.filter((d) => d.code === "E-ADDRESS-DUPLICATE")).toHaveLength(1);
+});
+
 test("changes made elsewhere (an agent) show up live", async ({ page }) => {
   const path = await openEditor(page);
   const doc = await readDoc(page.request, path);

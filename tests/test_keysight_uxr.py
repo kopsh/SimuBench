@@ -533,6 +533,30 @@ def test_a_screen_frame_latches_no_overload_and_each_segment_does():
         rm.close()
 
 
+def test_the_running_screen_frame_triggers_on_the_edge_too():
+    """#1331, #1350: a running scope's screen frame (``compute`` with a frame number: the live path
+    the Web screen uses, with its own auto timeout) is locked on the same rising edge: at 5 ns/div,
+    in both sweep modes and on several frames, the trace crosses 0 V at t=0 and climbs through it."""
+    rm = pyvisa.ResourceManager(f"{HELLO_BENCH}@simubench")
+    try:
+        uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
+        acq = rm.visalib.bench.instruments["scope"].components["acq"]
+        for sweep in ("AUTO", "TRIGgered"):
+            uxr.write(f":TRIGger:SWEep {sweep};:TIMebase:SCALe 5e-9")
+            for frame in (1, 2, 3, 4, 5):
+                records, _n, _triggered = acq.compute([1], frame=frame)
+                rec = records[1]
+                v = np.asarray(rec.volts)
+                at = round(-rec.x_origin_s / rec.dt_s)  # the sample at t=0
+                ns = round(1e-9 / rec.dt_s)
+                step = f"{sweep} frame {frame}"
+                assert abs(v[at - 2 : at + 3].mean()) < 0.1, step
+                assert v[at : at + ns].mean() > v[at - ns : at].mean() + 0.02, step
+        assert reader.errors(uxr) == []
+    finally:
+        rm.close()
+
+
 CASES_BENCH_1104B = ROOT / "tests" / "models" / "keysight-uxr1104b" / "bench.yaml"
 
 
@@ -856,7 +880,7 @@ def test_the_hello_square_triggers_on_its_edge_at_every_timebase():
         uxr = rm.open_resource("scope", read_termination="\n", write_termination="\n", timeout=20000)
         uxr.write(":WAVeform:SOURce CHANnel1;:WAVeform:FORMat ASCii")
         for sweep in ("AUTO", "TRIGgered"):
-            for scale in (1e-9, 5e-9, 1e-8, 2e-8):
+            for scale in (1e-9, 2e-9, 5e-9, 1e-8, 2e-8, 1e-7, 5e-7):  # the whole #1331 list (#1350)
                 uxr.write(f":TRIGger:SWEep {sweep};:TIMebase:SCALe {scale};:DIGitize CHANnel1")
                 x0 = float(uxr.query(":WAVeform:XORigin?"))
                 dx = float(uxr.query(":WAVeform:XINCrement?"))
@@ -982,7 +1006,9 @@ def test_a_next_generation_scope_is_a_short_extends_of_the_uxr1104b():
 
 def test_the_record_noise_ends_at_the_corrected_band():
     """#1446: the DSP flatness correction ends the record's spectrum at the bandwidth, the noise's
-    too. At 256 GSa/s (Nyquist 128 GHz) the noise above 113 GHz is at least 20 dB below the band's,
+    too, through a roll-off about 5 GHz wide (#1462: -6 dB at the cutoff, -20 dB from 118 GHz; the
+    shape is tested in test_scope_adc_nonlinearity). At 256 GSa/s (Nyquist 128 GHz) the noise above
+    118 GHz is at least 20 dB below the band's,
     its rms stays the table's 860 µV (±5 %), and a 50 GHz bandwidth filter leaves √(50/113) of it
     (±4 %: the noise density is the table's over 113 GHz, not over the Nyquist band)."""
     rm = pyvisa.ResourceManager(f"{EXAMPLE_BENCH_1104B}@simubench")

@@ -18,6 +18,12 @@ from typing import Any, Protocol
 from ..errors import Invalid
 from ..models.bench import LIVE_CLOCKS
 
+#: The latest virtual time, ns (#1458): 2**53, about 104 days — the largest integer a JSON number
+#: or a JavaScript client holds exactly, and far below numpy's int64, so no component's phase or
+#: sample arithmetic overflows. A time past it is refused (an advance) or stops there (a live clock).
+MAX_VIRTUAL_NS = 2**53
+#: The most one advance may move the clock, in seconds: the limit itself.
+MAX_ADVANCE_S = MAX_VIRTUAL_NS / 1e9
 #: The fastest a ``scaled`` clock may run: virtual seconds per real second.
 MAX_TIME_SCALE = 1_000_000.0
 #: In command-driven mode, idle gaps shorter than this are script overhead and do not advance time.
@@ -29,6 +35,10 @@ IDLE_QUANTUM_NS = 1_000_000
 def check_scale(scale: float) -> None:
     if not (0 < scale <= MAX_TIME_SCALE) or scale != scale:
         raise Invalid(f"time scale must be above 0 and at most {MAX_TIME_SCALE:g}, not {scale!r}")
+
+
+class ClockLimit(RuntimeError):
+    """An advance that would take virtual time past :data:`MAX_VIRTUAL_NS`; the session stays as it was."""
 
 
 class _Emitter(Protocol):
@@ -107,7 +117,9 @@ class Clock:
 
     def _catch_up(self, wall_ns: int) -> None:
         self._host.sync()
-        self.now_ns = max(self.now_ns, self._live_ns(wall_ns))
+        self.now_ns = min(
+            max(self.now_ns, self._live_ns(wall_ns)), MAX_VIRTUAL_NS
+        )  # a live clock stops at the limit
 
     def follow_wall(self) -> None:
         """Engine-internal: live clock only, bring virtual time up to real time (D47; passive
@@ -152,6 +164,11 @@ class Clock:
             return
         host = self._host
         host.sync()
+        dt_ns = min(
+            int(dt_ns), MAX_VIRTUAL_NS - self.now_ns
+        )  # a step the caller cannot refuse stops at the limit
+        if dt_ns <= 0:
+            return
         self.now_ns += int(dt_ns)
         host.revise(electrical=False)  # time-dependent components (filters, sweeps) may change
         host.events.emit({"kind": "advance", "dt_ns": int(dt_ns), "reason": reason, **detail})
@@ -183,7 +200,13 @@ class Clock:
                 self.confirm_advance(force)
             if self.live:
                 raise RuntimeError(f"cannot advance a {self.mode} clock")
-            self.step(round(seconds * 1e9), reason=reason)
+            dt_ns = round(seconds * 1e9)
+            if self.now_ns + dt_ns > MAX_VIRTUAL_NS:
+                raise ClockLimit(
+                    f"virtual time would pass its limit of {MAX_VIRTUAL_NS} ns (about 104 days): "
+                    f"now {self.now_ns} ns, advance {dt_ns} ns"
+                )
+            self.step(dt_ns, reason=reason)
 
     def wait(self, seconds: float, reason: str = "wait") -> None:
         """Time a client spends waiting: a read that timed out, a wait for a service request.

@@ -12,6 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field, SkipValidation
 
 from ..engine.circuit import SourceContribution  # re-export (D57)
 from ..engine.circuit import SourceLine as SourceLine
+from ..engine.clock import MAX_ADVANCE_S
 from ..engine.edit import EditOp
 from ..engine.events import Event as Event  # re-export (D57, issue 595)
 from ..engine.events import RunEvent as RunEvent
@@ -1013,7 +1014,13 @@ class PanelResponse(_Model):
 
 
 class AdvanceRequest(_Model):
-    seconds: float = Field(..., gt=0)
+    seconds: float = Field(
+        ...,
+        gt=0,
+        le=MAX_ADVANCE_S,
+        description="Virtual seconds to advance; at most the clock's whole range (2**53 ns, about 104 days). "
+        "An advance that would pass the limit from where the clock is now is refused with 409",
+    )
     force: bool = Field(
         False, description="Advance even though scripts are connected (they see the time move)"
     )

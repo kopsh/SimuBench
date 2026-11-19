@@ -1963,17 +1963,24 @@ cases:
   - name: "光标位置：缺参 -109，MAX 之类字符数据 -104，数字照常设定（#1451）"
     manual: ":MARKer Commands > :MARKer:X1Position, :MARKer:X2Position"
     steps:
+      - send: ":MARK1:X:POS 1e-3"
+      - query: ":MARK1:X:POS?"
+        expect: "+1.00000E-03"
       - send: ":MARK1:X:POS"
-      - query: ":SYST:ERR?"
-        expect: "-109"
+      - query: ":SYSTem:ERRor? STRing"
+        expect: '-109,"Missing parameter"'
+      - query: ":MARK1:X:POS?"  # each refused command changed nothing (#1496)
+        expect: "+1.00000E-03"
       - send: ":MARK1:X:POS MAX"
-      - query: ":SYST:ERR?"
-        expect: "-104"
+      - query: ":SYSTem:ERRor? STRing"
+        expect: '-104,"Data type error"'
+      - query: ":MARK1:X:POS?"
+        expect: "+1.00000E-03"
       - send: ":MARK1:X:POS 2.5e-3"
       - query: ":MARK1:X:POS?"
         expect: "+2.50000E-03"
-      - query: ":SYST:ERR?"
-        expect: "0"
+      - query: ":SYSTem:ERRor? STRing"
+        expect: '0,"No error"'
 
   - name: "二元数学函数写入时校验操作数：缺操作数 -109、非有限常数 -224，设置不变（#1451、#1494）"
     manual: "FUNCtion Subsystem > FUNCtion:DIVide（<operand>,<operand>）"
@@ -2034,3 +2041,23 @@ cases:
       - send: ":FUNC5:FFT:PEAK:FREQ?"
       - query: ":SYST:ERR?"
         expect: "-221"
+
+  - name: "函数的水平方式：短格式 MAN 与长格式 MANual 都接受，MANU 报 -224 且保持原值（#1587）"
+    manual: ":FUNCtion<F> Commands > :FUNCtion<F>:HORizontal {AUTO | MANual}"
+    steps:
+      - send: ":FUNCtion1:FFTMagnitude CHANnel1"
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "AUTO"
+      - send: ":FUNCtion1:HORizontal MAN"
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "MANual"
+      - send: ":FUNCtion1:HORizontal AUTO"
+      - send: ":FUNCtion1:HORizontal manual"
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "MANual"
+      - send: ":FUNCtion1:HORizontal AUTO"
+      - send: ":FUNCtion1:HORizontal MANU"
+      - query: ":SYSTem:ERRor? STRing"
+        expect: '-224,"Illegal parameter value"'
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "AUTO"

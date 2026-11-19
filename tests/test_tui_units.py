@@ -486,6 +486,61 @@ def test_each_generator_channel_box_gets_its_own_buttons():
     assert len(generator_controls(info, "en")) == 4
 
 
+def _generator(function: str, ch: int = 1) -> tuple[dict, dict]:
+    """A generator channel's ``info`` and ``state`` as the TUI reads them: SDG2042X's CH1 in ``function``."""
+    values = {
+        "output": True,
+        "function": function,
+        "frequency": 1000.0,
+        "amplitude": 4.0,
+        "offset": 1.0,
+        "load": float("inf"),
+    }
+    sv = [{"path": f"ch{ch}.{k}", "channel": ch, "value": v} for k, v in values.items()]
+    return {"state": sv}, {x["path"]: x for x in sv}
+
+
+def _text(rows_: list) -> list[str]:
+    return ["".join(seg for seg, _style in row) for row in rows_]
+
+
+def test_a_dc_generator_card_row_shows_the_offset_and_no_frequency_or_amplitude():
+    """#1595: the card's channel row for a DC output reads the offset alone, like the Web's; a
+    sine keeps its frequency and amplitude. The row says what the function is, in any case."""
+    from simubench.tui.cards import generator_rows
+
+    info, state = _generator("DC")
+    assert _text(generator_rows(info, state, "en"))[0] == "CH1 On DC 1.000 V"
+    info, state = _generator("dc")
+    assert "kHz" not in _text(generator_rows(info, state, "en"))[0]
+    info, state = _generator("SINE")
+    assert _text(generator_rows(info, state, "en"))[0] == "CH1 On SINE 1.000 kHz 4.000 V"
+
+
+def test_the_settings_a_dc_output_does_not_use_are_not_in_effect():
+    """#1595: the Web's list (frequency, amplitude, phase, duty, symmetry) is the TUI's; the offset
+    and the load still apply, and a sine uses all of them. A bare ``frequency`` reads a bare ``function``."""
+    from simubench.tui.controls import inactive_under_dc
+
+    _info, dc = _generator("DC")
+    assert [
+        k
+        for k in ("frequency", "amplitude", "phase", "duty", "symmetry")
+        if inactive_under_dc(dc, f"ch1.{k}")
+    ] == [
+        "frequency",
+        "amplitude",
+        "phase",
+        "duty",
+        "symmetry",
+    ]
+    assert not any(inactive_under_dc(dc, f"ch1.{k}") for k in ("offset", "load", "output", "function"))
+    _info, sine = _generator("SINE")
+    assert not inactive_under_dc(sine, "ch1.frequency")
+    assert inactive_under_dc({"function": {"value": "DC"}}, "frequency")
+    assert not inactive_under_dc({}, "frequency")  # no function beside it: nothing says it is DC
+
+
 def test_a_manual_value_under_its_auto_switch_is_not_in_effect():
     from simubench.tui.controls import inactive_under_auto
 

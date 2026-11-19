@@ -234,12 +234,13 @@ class Cursors:
             return OpResult(self.host.owner.format_number(shown), used)
         if axis == "y" and mode == "waveform":
             raise ScpiError(-222, "the cursors track the waveform: Y positions cannot be set")
-        if mode != "waveform" and mode_path is not None:
-            self.host.owner.set_state(mode_path, self._marker_word("MAN"), source="scpi", internal=True)
         path = self.host.bound_path(param)
         if path is None:
             raise ScpiError(-300, f"{self.host.uid}: the {param} setting is not bound")
+        # parse before moving the mode: a rejected number leaves the cursors as they were (#1586)
         number = self._marker_number(axis, value)
+        if mode != "waveform" and mode_path is not None:
+            self.host.owner.set_state(mode_path, self._marker_word("MAN"), source="scpi", internal=True)
         self.host.owner.set_state(path, number, source="scpi", internal=True)
         return OpResult()
 
@@ -251,7 +252,10 @@ class Cursors:
         if value is None:
             raise ScpiError(-109)
         text = value.decode("ascii", errors="replace") if isinstance(value, bytes) else str(value)
-        v = float(V.parse_number(text))
+        try:
+            v = float(V.parse_number(text))
+        except ValueError:
+            raise ScpiError(-104, f"{text!r}: not a number") from None
         unit = self._marker_units(axis)
         if unit == "s" or unit == "base":
             return v

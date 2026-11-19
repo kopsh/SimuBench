@@ -162,10 +162,9 @@ class Controls:
         if field == "horizontal":
             if query or value is None:
                 return OpResult(str(self.host.setting(f, "horizontal", "AUTO") or "AUTO").encode())
-            word = V.parse_string(value if isinstance(value, bytes) else str(value).encode()).upper()
-            if word not in ("AUTO", "MANUAL"):
-                raise ScpiError(-224, f"{value}: AUTO or MANual")
-            return self._set_h(f, "horizontal", "MANual" if word == "MANUAL" else "AUTO")
+            # The engine's own SCPI word match: AUTO, MAN and MANUAL (any case), not MANU (#1587).
+            raw = value if isinstance(value, bytes) else str(value).encode()
+            return self._set_h(f, "horizontal", V.parse_enum(raw, ("AUTO", "MANual")))
         # position/range: a frequency on a transform, seconds elsewhere
         name = {"position": "center" if fft else "h_position", "range": "span" if fft else "h_range"}[field]
         path_value = self.host.setting(f, name)
@@ -184,12 +183,15 @@ class Controls:
             if path_value is None:
                 return OpResult(self.host._number(0.0))
             return OpResult(self.host._number(float(path_value)))
-        if isinstance(value, bytes):
-            number = float(V.parse_number(value.decode("ascii", errors="replace")))
-        elif isinstance(value, str):
-            number = float(V.parse_number(value))
-        else:
-            number = float(value)
+        try:
+            if isinstance(value, bytes):
+                number = float(V.parse_number(value.decode("ascii", errors="replace")))
+            elif isinstance(value, str):
+                number = float(V.parse_number(value))
+            else:
+                number = float(value)
+        except ValueError:
+            raise ScpiError(-104, f"{value!r}: not a number") from None
         return self._set_h(f, name, number)
 
     def _set_h(self, f: int, name: str, value: Any) -> OpResult:
@@ -220,13 +222,14 @@ class Controls:
             return OpResult(str(round(scale)).encode())
         if value is None:
             raise ScpiError(-109)
+        text = value.decode("ascii", errors="replace") if isinstance(value, bytes) else value
         try:
-            if isinstance(value, bytes):
-                number = float(V.parse_number(value.decode("ascii", errors="replace")))
-            elif isinstance(value, str):
-                number = float(V.parse_number(value))
+            if isinstance(text, str) and text.strip().startswith("#"):
+                number = float(V.parse_float(text.encode()))  # #H / #Q / #B: IEEE 488.2 7.7.4 (#1497, #1496)
+            elif isinstance(text, str):
+                number = float(V.parse_number(text))
             else:
-                number = float(value)
+                number = float(text)
         except ValueError:
             raise ScpiError(-104, f"{value!r}: not a number") from None
         return self._set_h(f, "range", number * full)

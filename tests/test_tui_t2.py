@@ -178,6 +178,23 @@ async def test_generator_screen_has_a_box_per_channel():
         assert "Log · awg" in text
 
 
+async def test_a_dc_generator_channel_says_its_frequency_and_amplitude_are_not_in_effect():
+    """#1595: under a DC function the generator screen keeps frequency and amplitude editable but
+    its channel box says, in the Web's words, that they are not in effect and which they are; the
+    sine channel beside it says nothing."""
+    bench = fresh(SCOPE_BENCH)
+    # The instrument's state is in the payload twice: the session's list and its own endpoint.
+    listed = next(i for i in bench["session"]["instruments"] if i["name"] == "awg")
+    for awg in (listed, bench["instruments"]["awg"]):
+        next(sv for sv in awg["state"] if sv["path"] == "ch1.function")["value"] = "DC"
+    tui, _fake = unit_app(bench)
+    async with tui.run_test(size=(120, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "awg")
+        text = await wait_flat(pilot, tui, "Not in effect for a DC output: Frequency, Amplitude")
+        assert text.count("Not in effect for a DC output") == 1  # CH1's box, not CH2's
+
+
 async def test_multimeter_screen_shows_panel_readouts():
     """The multimeter template: the panel's readouts, numbers bold, error box, log (5.2)."""
     tui, _fake = unit_app(fresh(SMU_BENCH))

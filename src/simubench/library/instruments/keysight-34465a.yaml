@@ -277,13 +277,14 @@ state:
     readonly: true
     label: 内部温度
     label_en: Internal temperature
-  # 状态寄存器组的使能（STATus:OPERation/QUEStionable:ENABle）：出厂 0；*RST 不改它，
+  # 状态寄存器组的使能（STATus:OPERation/QUEStionable:ENABle）：出厂 0；*RST、SYSTem:PRESet、*CLS 都不改它（keep_on_reset），
   # STATus:PRESet 清 0（手册：enable 非易失；*PSC 控制上电时是否清除）。
   status.oper_enable:
     type: int
     min: 0
     max: 65535
     default: 0
+    keep_on_reset: true
     label: OPER 使能
     label_en: OPER enable
   status.ques_enable:
@@ -291,6 +292,7 @@ state:
     min: 0
     max: 65535
     default: 0
+    keep_on_reset: true
     label: QUES 使能
     label_en: QUES enable
 components:

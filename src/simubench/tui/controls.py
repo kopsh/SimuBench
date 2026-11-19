@@ -509,6 +509,27 @@ def inactive_under_auto(state: Mapping[str, Mapping[str, Any]], path: str) -> bo
     return bool(auto) and auto.get("type") == "bool" and auto.get("value") is True
 
 
+#: What a periodic waveform has and a DC output does not: its level is the offset alone (#1591, #1595).
+#: The Web's ``UNUSED_UNDER_DC`` (``web/src/features/workbench/model.ts``): one rule for both.
+UNUSED_UNDER_DC = frozenset(
+    {"frequency", "amplitude", "phase", "duty", "sq_duty", "pulse_duty", "symmetry", "ramp_symm"}
+)
+
+
+def function_is_dc(state: Mapping[str, Mapping[str, Any]], prefix: str) -> bool:
+    """Whether the function beside ``prefix`` (``ch1`` of ``ch1.frequency``; empty for a bare
+    ``frequency``) is DC, in any case."""
+    value = (state.get(f"{prefix}.function" if prefix else "function") or {}).get("value")
+    return isinstance(value, str) and value.upper() == "DC"
+
+
+def inactive_under_dc(state: Mapping[str, Mapping[str, Any]], path: str) -> bool:
+    """A setting the output does not use while its function is DC (#1591, #1595): kept and editable,
+    but it is not in effect — the Web dims it and says so; the rows here say so too."""
+    prefix, _, name = path.rpartition(".")
+    return name in UNUSED_UNDER_DC and function_is_dc(state, prefix)
+
+
 def channel_paths(info: Mapping[str, Any], channel: int | None) -> list[str]:
     """The state paths of one channel (None: the whole instrument's unchannelled states)."""
     return [sv["path"] for sv in info.get("state", []) if sv.get("channel") == channel]

@@ -443,7 +443,7 @@ class InstrumentScreen(ControlEditingScreen):
             entry["rows"].display = bool(lines)
             entry["n_lines"] = len(lines)
             box.border_title = self._box_title(template, entry["channel"])
-            reason = self._reason_line(template)
+            reason = self._reason_line(template) or self._dc_reason(entry)
             if reason:
                 entry["reason"].update(render_segments(app, reason))
                 entry["reason"].display = True
@@ -503,6 +503,16 @@ class InstrumentScreen(ControlEditingScreen):
 
     def _generic_lines(self, state: dict[str, dict], width: int | None = None) -> list[list[tuple[str, str]]]:
         return rows.generic_rows(self.app.lang, state, width)
+
+    def _dc_reason(self, entry: dict[str, Any]) -> list[tuple[str, str]] | None:
+        """A generator channel on a DC function: its frequency, amplitude and the like stay editable
+        but are not in effect, in the Web's words (#1595). None for any other box."""
+        state = {sv["path"]: sv for sv in self.info.get("state", [])}
+        unused = [c.label for c in entry["controls"] if c.path and C.inactive_under_dc(state, c.path)]
+        if not unused:
+            return None
+        app: Any = self.app
+        return [(i18n.t("cards.dcInactive", app.lang) + ": ", "muted"), (", ".join(unused), "")]
 
     def _reason_line(self, template: str) -> list[tuple[str, str]] | None:
         return rows.reason_line(self.app.lang, template, self.info, self.readings, self._active_faults())

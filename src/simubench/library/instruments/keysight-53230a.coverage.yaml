@@ -761,14 +761,14 @@ sections:
     blocked_by: file-system
   - header: MMEMory:LOAD:STATe
     level: not_modeled
-    note: 仪器状态文件未建模。
+    note: 仪器状态文件未建模（状态文件要经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入）。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:STORe:STATe
     level: not_modeled
-    note: 仪器状态文件未建模。
+    note: 仪器状态文件未建模（状态文件要经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入）。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:LOAD:PREFerences
     level: not_modeled
     note: 用户偏好文件未建模。
@@ -836,10 +836,11 @@ sections:
   - header: STATus:OPERation:CONDition
     level: implemented
     note: >-
-      继承 53220A（#1571）：位 0 Calibrating、1 Running or Battery、2 Battery Critical、4
-      Measuring（已初始化，ARM）、5 Waiting for Trig（WTG）、8 Internal Reference、9 Instrument
-      Locked、10 Config Chg、11 Rdg Mem Threshold、12 Global Error；ARM/WTG 来自触发模型，
-      其余位恒为 0。
+      继承 53220A（#1571，位号对照 Figure 8-1 的图，#1598）：位 0 Calibrating、1 Running on
+      Battery、2 Battery Critical、4 Measuring（已初始化，ARM）、5 Waiting for Trig（WTG）、
+      9 Internal Reference（512）、10 Instrument Locked、11 Config Chg、12 Rdg Mem Threshold、
+      13 Global Error；ARM/WTG 来自触发模型，Internal Reference 来自 reference_clock（内部振荡器
+      在用时置位，选了外部但没有锁定时也置位，见 53220A 的说明），其余位恒为 0。
   - header: STATus:OPERation[:EVENt]
     level: implemented
     note: 条件变为真时锁存，读后清零；*CLS 清零；OSB 汇总进状态字节位 7。

@@ -1,7 +1,9 @@
-"""INF and NaN are never a boolean or a ladder rung (#1450, #1495): every built-in model's boolean
-and ladder setting commands, on its example bench, refuse them with a parameter error — never the
--300 of an internal error — and leave every setting as it was. One sweep over the example benches,
-each opened once and reused for all of its commands (D49's flow form, not one bench per command)."""
+"""Bad numbers are never accepted as a boolean, a ladder rung or a numeric raw parameter (#1450,
+#1495, #1586): every built-in model's boolean and ladder setting commands and its cursor-position,
+tracked-marker and math-horizontal operations, on its example bench, refuse them with a parameter
+error — never the -300 of an internal error — and leave every setting as it was (the marker mode
+included). One sweep over the example benches, each opened once and reused for all of its commands
+(D49's flow form, not one bench per command)."""
 
 from __future__ import annotations
 
@@ -48,8 +50,22 @@ def _bool_and_ladder_commands(inst) -> list[str]:
     return out
 
 
+#: The operations whose raw parameter is a number (#1586): a cursor position, a tracked marker
+#: level, or a math function's horizontal position/range.
+_NUMERIC_RAW_OPS = ("meas.x_position", "meas.y_position", "meas.tracked_y", "math.h_field")
+
+
+def _numeric_raw_commands(inst) -> list[str]:
+    """The instrument's operation commands that parse their raw parameter as a number."""
+    return [
+        _message(c.header)
+        for c in inst.definition.commands
+        if c.op in _NUMERIC_RAW_OPS and any(p.type == "raw" for p in c.params)
+    ]
+
+
 @pytest.mark.parametrize("bench", BENCHES, ids=lambda p: p.name)
-def test_inf_and_nan_are_refused_without_an_internal_error(bench):
+def test_bad_numbers_are_refused_without_an_internal_error(bench):
     s = open_bench(bench, seed=1, idle="off")
     try:
         sent = 0
@@ -61,7 +77,14 @@ def test_inf_and_nan_are_refused_without_an_internal_error(bench):
                     assert codes and -300 not in codes, f"{name}: {message} {word} -> {codes}"
                     assert inst.settings.values == before, f"{name}: {message} {word} changed a setting"
                     sent += 1
-        assert sent > 0 or not any(_bool_and_ladder_commands(i) for i in s.instruments.values())
+            for message in _numeric_raw_commands(inst):
+                for word in ("MAX", "INF", "NAN", '""', "ON"):
+                    before = dict(inst.settings.values)
+                    codes = [e.code for e in s.command(name, f"{message} {word}").errors]
+                    assert codes and -300 not in codes, f"{name}: {message} {word} -> {codes}"
+                    assert inst.settings.values == before, f"{name}: {message} {word} changed a setting"
+                    sent += 1
+        assert sent > 0
     finally:
         s.close()
 

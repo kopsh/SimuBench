@@ -127,6 +127,41 @@ def test_a_hidden_timebase_error_scales_the_reading():
         session.close()
 
 
+def test_the_internal_reference_bit_is_set_unless_an_external_reference_locks():
+    """#1598: Figure 8-1's OPERation bit 9 (512) is "Internal Reference": set while the internal
+    oscillator is the one in use — the internal one selected (the default), or an external one
+    selected with nothing locking it (which is also a time-base error, QUEStionable bit 10) —
+    and clear while a 10 MHz on REF_IN locks the counter."""
+    data = _data(
+        awg={
+            "state": {"ch2.function": "SINE", "ch2.frequency": 10e6, "ch2.amplitude": 2.0, "ch2.output": True}
+        }
+    )
+    data["wires"].append({"from": "awg.CH2", "to": "cnt.REF_IN"})
+    session = open_bench(BenchDefinition.model_validate(data))
+    try:
+
+        def q(text: str) -> str:
+            session.write("cnt", (text + "\n").encode())
+            reply = session.read("cnt")
+            assert reply is not None, text
+            return reply.decode().strip()
+
+        def state() -> tuple[str, str]:
+            return q("STAT:OPER:COND?"), q("STAT:QUES:COND?")
+
+        session.write("cnt", b"*RST\n")
+        assert state() == ("512", "0")  # internal oscillator selected: in use
+        session.write("cnt", b":SENS:ROSC:SOUR EXT\n")
+        assert state() == ("0", "0")  # 10 MHz on REF_IN locks the counter: no internal oscillator
+        session.configure("awg", "ch2.output", False)
+        assert state() == ("512", "1024")  # nothing locks: back on the internal one, and a time-base error
+        session.write("cnt", b":SENS:ROSC:SOUR INT\n")
+        assert state() == ("512", "0")
+    finally:
+        session.close()
+
+
 def test_the_trigger_and_single_shot_jitter_spread_the_time_interval():
     """The counter's jitter (#744/#861): each event time carries a normal error of the channel's
     trigger error (1 ns, a model value) combined with the interpolator's single-shot resolution

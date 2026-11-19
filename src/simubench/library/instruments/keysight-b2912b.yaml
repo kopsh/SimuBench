@@ -860,14 +860,14 @@ channel_state:
     label: 触发延迟
     label_en: Trigger delay
   # 状态寄存器组的使能（#1572，B2910-90130 的 STATus Subsystem）：每个通道一组。
-  status.meas_enable: {type: int, min: 0, max: 65535, default: 0, label: MEAS 使能, label_en: MEAS enable}
-  status.oper_enable: {type: int, min: 0, max: 65535, default: 0, label: OPER 使能, label_en: OPER enable}
-  status.ques_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 使能, label_en: QUES enable}
-  status.volt_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 电压使能, label_en: QUES voltage enable}
-  status.curr_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 电流使能, label_en: QUES current enable}
-  status.temp_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 温度使能, label_en: QUES temperature enable}
-  status.cal_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 校准使能, label_en: QUES calibration enable}
-  status.test_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 自检使能, label_en: QUES test enable}
+  status.meas_enable: {type: int, min: 0, max: 65535, default: 0, label: MEAS 使能, label_en: MEAS enable, keep_on_reset: true}
+  status.oper_enable: {type: int, min: 0, max: 65535, default: 0, label: OPER 使能, label_en: OPER enable, keep_on_reset: true}
+  status.ques_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 使能, label_en: QUES enable, keep_on_reset: true}
+  status.volt_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 电压使能, label_en: QUES voltage enable, keep_on_reset: true}
+  status.curr_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 电流使能, label_en: QUES current enable, keep_on_reset: true}
+  status.temp_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 温度使能, label_en: QUES temperature enable, keep_on_reset: true}
+  status.cal_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 校准使能, label_en: QUES calibration enable, keep_on_reset: true}
+  status.test_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 自检使能, label_en: QUES test enable, keep_on_reset: true}
   status.meas_ptr: {type: int, min: 0, max: 65535, default: 32767, label: MEAS PTR, label_en: MEAS PTR}
   status.meas_ntr: {type: int, min: 0, max: 65535, default: 0, label: MEAS NTR, label_en: MEAS NTR}
   status.oper_ptr: {type: int, min: 0, max: 65535, default: 32767, label: OPER PTR, label_en: OPER PTR}

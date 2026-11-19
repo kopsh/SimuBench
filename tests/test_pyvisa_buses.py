@@ -8,9 +8,11 @@ service requests. Nothing here needs a network.
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 import pyvisa
+import yaml
 from pyvisa import constants, errors
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -283,6 +285,93 @@ def test_the_board_sends_ifc_triggers_and_controls_ren(board):
         e for e in board.visalib.bench.events.history if e["kind"] == "scpi" and e.get("data") == b"*TRG"
     ]
     assert [e["instrument"] for e in triggers] == ["dmm"]
+
+
+# ---- two instruments, one address (#1597) --------------------------------------------------------
+
+
+def _bench_at(tmp_path: Path, instruments: dict[str, dict]) -> Path:
+    path = tmp_path / "dup.bench.yaml"
+    path.write_text(
+        yaml.safe_dump({"schema": "simubench.bench/2", "name": "dup", "instruments": instruments}),
+        encoding="utf-8",
+    )
+    return path
+
+
+def test_two_direct_addresses_that_are_the_same_are_refused(tmp_path):
+    """#1597: the table would otherwise keep only the later instrument, and the address table
+    validates cleanly while the script silently reaches the wrong one."""
+    bench = _bench_at(
+        tmp_path,
+        {
+            "awg": {"model": "siglent-sdg2042x", "address": "TCPIP0::10.0.0.5::INSTR"},
+            "scope": {"model": "keysight-34465a", "address": "tcpip0::10.0.0.5::inst0::instr"},
+        },
+    )
+    with pytest.raises(ValueError) as err:
+        pyvisa.ResourceManager(f"{bench}@simubench")
+    text = str(err.value)
+    assert "awg" in text and "scope" in text
+    assert "10.0.0.5" in text
+
+
+def test_a_gateway_form_of_one_address_colliding_with_another_is_refused(tmp_path):
+    """The LAN/GPIB gateway form is another spelling of the GPIB address (D63): one instrument
+    declaring it directly collides with the one that reaches the same device over GPIB."""
+    bench = _bench_at(
+        tmp_path,
+        {
+            "cal": {"model": "fluke-5522a", "address": "GPIB0::4::INSTR"},
+            "dmm": {"model": "keysight-34465a", "address": "TCPIP0::127.0.0.1::gpib0,4::INSTR"},
+        },
+    )
+    with pytest.raises(ValueError) as err:
+        pyvisa.ResourceManager(f"{bench}@simubench")
+    text = str(err.value)
+    assert "cal" in text and "dmm" in text
+    assert "gpib0,4" in text
+
+
+def test_a_name_that_is_another_instruments_address_is_refused(tmp_path):
+    """``rm.open_resource(name)`` and the address it spells must not reach two instruments."""
+    bench = _bench_at(
+        tmp_path,
+        {
+            "GPIB0::4::INSTR": {"model": "fluke-5522a", "address": "GPIB0::5::INSTR"},
+            "cal": {"model": "fluke-5522a", "address": "GPIB0::4::INSTR"},
+        },
+    )
+    with pytest.raises(ValueError) as err:
+        pyvisa.ResourceManager(f"{bench}@simubench")
+    text = str(err.value)
+    assert "GPIB0::4::INSTR" in text and "cal" in text
+
+
+def test_a_service_serving_one_address_for_two_instruments_is_refused(monkeypatch):
+    """A connected bench's ``served`` addresses are its own ports (#1259): the same port cannot
+    answer for two instruments either."""
+    from simubench.access import pyvisa_backend
+
+    class ServedBench:
+        def __init__(self, address: str) -> None:
+            self.instruments = {
+                name: SimpleNamespace(
+                    instance=SimpleNamespace(address=None),
+                    served=["TCPIP0::127.0.0.1::10001::SOCKET"],
+                )
+                for name in ("awg", "scope")
+            }
+
+        def close(self) -> None:
+            pass
+
+    monkeypatch.setattr(pyvisa_backend, "RemoteBench", ServedBench)
+    with pytest.raises(ValueError) as err:
+        pyvisa.ResourceManager("127.0.0.1:59999@simubench")
+    text = str(err.value)
+    assert "awg" in text and "scope" in text
+    assert "10001" in text
 
 
 def test_passing_control_fails_because_no_device_can_take_it(board):

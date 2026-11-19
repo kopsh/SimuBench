@@ -567,6 +567,24 @@ def test_a_definition_that_does_not_parse_is_422_with_its_position(tmp_path):
         assert "bad" in str(r.json()["detail"]) and "line" in str(r.json()["detail"])
 
 
+def test_a_json_bench_with_a_key_written_twice_is_422_pointing_at_the_second_writing(tmp_path):
+    """#1596: the 422 of a JSON bench that names a key twice carries the line of the second writing
+    (and the first), not "line 1 column 1" at the top of the file."""
+    text = (
+        '{\n  "schema": "simubench.bench/2",\n  "name": "dup",\n  "instruments": {\n'
+        '    "a": {"model": "keysight-34465a"},\n    "a": {"model": "keysight-34465a"}\n  }\n}\n'
+    )
+    (tmp_path / "dup.bench.json").write_text(text, encoding="utf-8")
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        r = c.get("/api/benches/file", params={"path": "dup.bench.json"})
+        detail = str(r.json()["detail"])
+        assert r.status_code == 422, r.text
+        assert "duplicate key 'a' (first written on line 5)" in detail and "line 6 column 5" in detail
+
+
 def test_the_document_route_names_the_sessions_to_restart(tmp_path):
     """The HTTP definition document fills sessions_to_restart like the MCP read_definition does
     (#1382): a running session keeps the definition it started with until restarted (D25)."""
@@ -692,6 +710,27 @@ def test_scaled_clock_is_started_read_and_rescaled_over_the_api(client):
     assert client.post(f"/api/sessions/{sid}/clock/scale", json={"scale": 0}).status_code == 422
     # A scaled clock walks on its own, like the wall clock: it cannot be advanced by hand.
     assert client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": 1}).status_code == 409
+
+
+def test_the_clock_has_an_upper_limit_and_stays_usable_after_a_refused_advance(client):
+    """#1458: an advance is at most the clock's whole range (422 above it, inf and nan too), and
+    one that would take the clock past the range is a 409 that changes nothing: the instruments
+    still answer and the screen still renders."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+
+    def advance(seconds):
+        return client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": seconds})
+
+    for bad in (1e308, 1e10, "inf", "nan", 0):
+        assert advance(bad).status_code == 422, bad
+    assert advance(9e6).status_code == 200  # 9e15 ns, inside 2**53 ns
+    now = client.get(f"/api/sessions/{sid}/clock").json()["now_ns"]
+    refused = advance(9e6)  # 1.8e16 ns: past the limit from here
+    assert refused.status_code == 409 and "limit" in refused.json()["detail"]
+    assert client.get(f"/api/sessions/{sid}/clock").json()["now_ns"] == now
+    reply = client.post(f"/api/sessions/{sid}/instruments/scope/scpi", json={"command": "*IDN?"}).json()
+    assert reply["errors"] == [] and reply["response"]
+    assert client.get(f"/api/sessions/{sid}/instruments/scope/screen").status_code == 200
 
 
 def test_a_stepped_clock_takes_no_new_scale_over_the_api(client):

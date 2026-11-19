@@ -7,6 +7,7 @@ import yaml
 
 from helpers import raises_with
 from simubench.api import open_bench
+from simubench.engine.clock import MAX_VIRTUAL_NS
 
 BENCH = {
     "schema": "simubench.bench/1",
@@ -66,6 +67,15 @@ def test_a_new_scale_counts_from_now_and_never_rewinds(tmp_path, wall):
     s.clock.set_time_scale(100)  # speeding up
     wall.tick(0.5)
     assert read_now(s) == pytest.approx(62.0)
+
+
+def test_a_live_clock_stops_at_the_limit_of_virtual_time(tmp_path, wall):
+    """#1458: a scaled clock that runs to the end of the range stays there, with no overflow."""
+    s = session(tmp_path, wall, clock="scaled", time_scale=1_000_000)
+    wall.tick(1e9)  # 1e15 virtual seconds, far past 2**53 ns
+    assert read_now(s) == pytest.approx(MAX_VIRTUAL_NS / 1e9)
+    wall.tick(1.0)
+    assert read_now(s) == pytest.approx(MAX_VIRTUAL_NS / 1e9)  # and does not move on
 
 
 def test_the_wall_clock_is_a_scale_of_one(tmp_path, wall):

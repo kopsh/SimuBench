@@ -175,6 +175,24 @@ cases:
         expect: '-222,"Data out of range"'
       - send: "*CLS"
 
+
+  - name: "分辨率带宽缺少参数报 -109，带宽与自动耦合不变（#1451、#1496）"
+    manual: "SENSe Subsystem > [:SENSe]:BANDwidth|BWIDth[:RESolution]; SYSTem Subsystem > :SYSTem:ERRor"
+    steps:
+      - send: ":BAND 100 kHz"
+      - query: ":BAND?"
+        expect_value: 1.0e5
+        tolerance: 1.0
+      - send: ":BAND"
+      - query: ":SYST:ERR?"
+        expect: '-109,"Missing parameter"'
+      - query: ":BAND?"
+        expect_value: 1.0e5
+        tolerance: 1.0
+      - query: ":BAND:AUTO?"
+        expect: "0"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
   - name: "扫描时间：自动耦合值、手动设置、自动恢复与超范围"
     manual: "SENSe Subsystem > [:SENSe]:SWEep:TIME / :TIME:AUTO"
     steps:

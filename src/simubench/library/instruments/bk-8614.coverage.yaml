@@ -16,13 +16,13 @@ sections:
     level: implemented
   - header: '*RCL'
     level: implemented
-    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册未给错误码）；*RST 不清槽。'
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册未给错误码）；*RST 不清槽。'
   - header: '*RST'
     level: implemented
     note: The manual's *RST table; protection latches and status registers are not affected.
   - header: '*SAV'
     level: implemented
-    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册未给错误码）；*RST 不清槽。'
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册未给错误码）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
   - header: '*STB'

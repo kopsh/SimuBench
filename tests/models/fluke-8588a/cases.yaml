@@ -711,7 +711,7 @@ cases:
       - query: "*PSC?"
         expect: "0"
 
-  - name: "状态寄存器组：OPER 条件随触发与限值、事件锁存、*STB? 汇总位与 STATus:PRESet"
+  - name: "状态寄存器组：OPER 条件只有位 4、读数可用与限值是事件位、事件锁存、*STB? 汇总位与 STATus:PRESet（#1599）"
     manual: "STATus Subsystem > Table 10 STATus Commands；SCPI OPERation Status Register；SCPI QUEStionable Status Register"
     steps:
       - instrument: cal
@@ -729,13 +729,17 @@ cases:
       - send: "TRIG:SOUR BUS"
       - send: ":INIT"
       - query: "STAT:OPER:COND?"
-        expect: "48"
+        expect: "16"  # Table 10: the condition register has bit 4 MEASuring only (trigger system not IDLE) (#1599)
       - query: "STAT:OPER:EVEN?"
-        expect: "48"
+        expect: "32"  # Waiting for TRIGger: an event-only bit
       - send: "*TRG"
       - query: "*OPC?"
         expect: "1"
       - query: "STAT:OPER:COND?"
+        expect: "0"
+      - query: "STAT:OPER:EVEN?"
+        expect: "16"  # bit 4 EVENt: one or more readings are available; read away, it is 0 again
+      - query: "STAT:OPER:EVEN?"
         expect: "0"
       - send: "TRIG:SOUR IMM"
       - send: "CALC:LIM:STAT ON"
@@ -747,9 +751,9 @@ cases:
       - query: "CALC:LIM:FAIL?"
         expect: "1"
       - query: "STAT:OPER:COND?"
-        expect: "256"
+        expect: "0"  # Low Limit (256) is an event bit, not a condition one
       - query: "STAT:OPER:EVEN?"
-        expect: "256"
+        expect: "272"  # 256 Low Limit + 16 readings available
       - send: "CALC:LIM:CLE"
       - send: "CALC:LIM:LOW:STAT OFF"
       - send: "CALC:LIM:UPP 5"
@@ -758,7 +762,7 @@ cases:
         expect_value: 10.0
         tolerance: 1.0e-3
       - query: "STAT:OPER:COND?"
-        expect: "512"
+        expect: "0"
       - send: "STAT:OPER:ENAB 512"
       - send: "*CLS"
       - send: "CALC:LIM:CLE"
@@ -768,7 +772,7 @@ cases:
       - query: "*STB?"
         expect: "128"
       - query: "STAT:OPER:EVEN?"
-        expect: "512"
+        expect: "528"  # 512 High Limit + 16 readings available
       - query: "STAT:QUES:COND?"
         expect: "0"
       - send: "STAT:QUES:ENAB 8"
@@ -776,6 +780,37 @@ cases:
         expect: "8"
       - query: "STAT:QUES?"
         expect: "0"
+      # bit 4 alone: enabled, a reading raises the OPER summary in the status byte; reading the event clears both
+      - send: "STAT:OPER:ENAB 16"
+      - send: "*CLS"
+      - query: ":READ?"
+        expect_value: 10.0
+        tolerance: 1.0e-3
+      - query: "*STB?"
+        expect: "128"
+      - query: "STAT:OPER:EVEN?"
+        expect: "16"
+      - query: "*STB?"
+        expect: "0"
+      - send: "STAT:PRES"
+      - query: "STAT:OPER:ENAB?"
+        expect: "0"
+      - query: "STAT:QUES:ENAB?"
+        expect: "0"
+
+  - name: "状态使能：*RST、*CLS 不改，STATus:PRESet 清 0"
+    manual: "*RST、*CLS 不改状态寄存器的使能（IEEE 488.2 11.5.1.2；各型号手册的 STATus 子系统章节）；STATus:PRESet 把使能清 0"
+    steps:
+      - send: "*RST"
+      - send: "STAT:OPER:ENAB 16;STAT:QUES:ENAB 16"
+      - send: "*RST"
+      - query: "STAT:OPER:ENAB?"
+        expect: "16"
+      - query: "STAT:QUES:ENAB?"
+        expect: "16"
+      - send: "*CLS"
+      - query: "STAT:OPER:ENAB?"
+        expect: "16"
       - send: "STAT:PRES"
       - query: "STAT:OPER:ENAB?"
         expect: "0"
