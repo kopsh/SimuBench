@@ -17,7 +17,7 @@ import yaml
 
 from helpers import session_query
 from simubench.api import open_bench
-from simubench.engine.stream import MAX_REQUEST_FANOUT
+from simubench.engine.stream import MAX_REQUEST_FANOUT, FrameRequest
 from simubench.library.components.reading_math import noise_bandwidth
 from simubench.library.components.specan_backend import (
     NBW_FACTOR,
@@ -405,3 +405,22 @@ def test_an_analyzer_written_before_the_back_end_gets_one(sampled):
     assert InstrumentDefinition.model_validate(explicit).components == [
         type(blocks["sa"]).model_validate(c) for c in explicit["components"]
     ]
+
+
+def test_a_frame_does_not_read_the_session_ambient_tuning():
+    """Pins the contract the EvalContext key makes safe (#1486, #1509): the same tune-less
+    request answers the same frame whether or not the ambient tuning happens to be set — the
+    block reads ``request.tune_hz``, never the caller's ambient (the ambient may be another
+    instrument's while this block is asked)."""
+    session = _open([DEFS])
+    try:
+        session.sync()
+        adc = session.instruments["sa"].components["adc"]
+        rate = 1.0 / float(adc.param("rate"))
+        request = FrameRequest(t0_ns=session.now_ns, count=200, dt_s=rate, key=("ambient",))
+        outside = adc.frames("out", request)
+        with session.tuned(5.0e9):
+            inside = adc.frames("out", request)
+        assert np.array_equal(outside.data, inside.data)
+    finally:
+        session.close()
