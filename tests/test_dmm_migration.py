@@ -4,20 +4,28 @@ sequences on the Keysight 34465A, recorded before ``dmm_core`` was split into it
 The split (``dmm_input_terminal`` / ``dmm_conditioning`` / ``dmm_adc``) must leave every row
 unchanged. ``DC`` is the bench of the manual cases: an SMU as the source. ``AC`` uses the
 function generator so the AC path (rms, the bandwidth filter) is exercised too.
+``tests/data/dmm_gold.json`` holds the recording in the one gold step shape (#1635); re-record it
+with ``uv run python tests/record_gold.py dmm``. The reading replies carry the front end's noise
+(specs.noise_ppm_of_range, #744) — the gold guards the command path, not the noise draws, so a
+re-recording reproduces them from the bench seed. #286: ``:CONF?`` reports the resolution
+CONFigure was given, and the resolution is a setting that persists across range changes.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
-from helpers import record_rows, require_gold, warm_up
+from helpers import record_steps, require_gold, warm_up
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFS = ROOT / "validation" / "instruments"
+GOLD_FILE = ROOT / "tests" / "data" / "dmm_gold.json"
+GOLD = json.loads(GOLD_FILE.read_text()) if GOLD_FILE.exists() else {}
 
 DC_SEQUENCE: list[tuple[str, str]] = [
     ("dut", "*IDN?"),
@@ -74,71 +82,6 @@ AC_SEQUENCE: list[tuple[str, str]] = [
     ("dut", ":SYST:ERR?"),
 ]
 
-#: (instrument, command, reply, ns consumed) — recorded on the dmm_core implementation; the
-#: reading replies carry the front end's noise (specs.noise_ppm_of_range, #744), re-recorded
-#: when the noise values change — the gold guards the command path, not the noise draws.
-EXPECTED_DC: list[tuple[str, str, str | None, int]] = [
-    ("dut", "*IDN?", "Keysight Technologies,34465A,MY57440001,2.6.1-2.0.0-0.0.0-0.0-0-0", 0),
-    ("dut", "*RST", None, 0),
-    ("dut", ":CONF:VOLT:DC 10,0.001", None, 0),
-    # #286: the resolution CONFigure was given is now reflected (was +1.00000000E-06, the NPLC step).
-    ("dut", ":CONF?", '"VOLT +1.00000000E+01,+1.00000000E-03"', 0),
-    ("dut", ":SENS:VOLT:DC:NPLCycles 1", None, 0),
-    ("src", ":SOUR:VOLT 5", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+5.00000100E+00", 0),
-    ("dut", ":SENS:VOLT:DC:NPLCycles 10", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+4.99999900E+00", 0),
-    ("dut", ":SENS:VOLT:DC:RANGe 1", None, 0),
-    # The resolution CONFigure gave is a setting: it persists across range changes (#286), so
-    # CONF? still reports it (was +1.00000000E-07, range × NPLC step).
-    ("dut", ":CONF?", '"VOLT +1.00000000E+00,+1.00000000E-03"', 0),
-    ("dut", ":SENS:VOLT:DC:RANGe:AUTO ON", None, 0),
-    ("src", ":SOUR:VOLT 0.2", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+2.00000200E-01", 0),
-    ("dut", ":SENS:VOLT:DC:RANGe 0.1", None, 0),
-    ("dut", ":SENS:VOLT:DC:RANGe:AUTO OFF", None, 0),
-    ("src", ":SOUR:VOLT 0.12", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+9.90000000E+37", 0),
-    ("src", ":SOUR:VOLT 0.13", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+9.90000000E+37", 0),
-    ("src", ":SOUR:VOLT 2", None, 0),
-    ("dut", ":SENS:VOLT:DC:RANGe 10", None, 0),
-    ("dut", ":SENS:VOLT:DC:IMPedance:AUTO ON", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+1.99999900E+00", 0),
-    ("dut", ":SENS:VOLT:DC:IMPedance:AUTO?", "1", 0),
-    ("dut", ":SENS:VOLT:DC:IMPedance:AUTO OFF", None, 0),
-    ("dut", ':FUNC "VOLT:AC"', None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+0.00000000E+00", 0),
-    ("dut", ':FUNC "VOLT"', None, 0),
-    ("dut", ":TRIG:SOUR IMM;:TRIG:COUN 2;:SAMP:COUN 3;:INIT", None, 0),
-    ("dut", "*OPC?", "1", 2400960000),
-    (
-        "dut",
-        ":FETC?",
-        "+2.00000000E+00,+2.00000000E+00,+1.99999800E+00,+2.00000100E+00,+2.00000000E+00,+2.00000000E+00",
-        0,
-    ),
-    ("dut", ":DATA:POIN?", "6", 0),
-    ("dut", ":SYST:ERR?", '+0,"No error"', 0),
-]
-EXPECTED_AC: list[tuple[str, str, str | None, int]] = [
-    ("dut", "*RST", None, 0),
-    ("awg", ":SOUR1:FREQ 50", None, 0),
-    ("dut", ':FUNC "VOLT:AC"', None, 0),
-    ("dut", ":SENS:VOLT:AC:BANDwidth 20", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07102000E-02", 0),
-    ("dut", ":SENS:VOLT:AC:BANDwidth 200", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+9.00000000E-08", 0),
-    ("dut", ":SENS:VOLT:AC:BANDwidth 3", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07102200E-02", 0),
-    ("dut", ":SENS:VOLT:AC:RANGe 0.1", None, 0),
-    ("dut", ":SENS:VOLT:AC:RANGe:AUTO OFF", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07104800E-02", 0),
-    ("dut", ":SENS:VOLT:AC:RANGe 10", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07110000E-02", 0),
-    ("dut", ":SYST:ERR?", '+0,"No error"', 0),
-]
-
 
 def dc_bench() -> BenchDefinition:
     return BenchDefinition.model_validate(
@@ -181,8 +124,8 @@ def ac_bench() -> BenchDefinition:
     )
 
 
-def run_sequence(session, sequence: list[tuple[str, str]]) -> list[tuple[str, str, str | None, int]]:
-    return record_rows(session, sequence)
+#: case name -> (the bench builder, the sequence to walk).
+CASES: dict[str, tuple] = {"dc": (dc_bench, DC_SEQUENCE), "ac": (ac_bench, AC_SEQUENCE)}
 
 
 def _open(bench: BenchDefinition):
@@ -197,13 +140,26 @@ def _open(bench: BenchDefinition):
 
 
 @pytest.mark.parametrize(
-    ("bench", "sequence", "expected", "name"),
-    [(dc_bench, DC_SEQUENCE, EXPECTED_DC, "dc"), (ac_bench, AC_SEQUENCE, EXPECTED_AC, "ac")],
+    ("bench", "sequence", "name"), [(bench, sequence, name) for name, (bench, sequence) in CASES.items()]
 )
-def test_replies_and_virtual_time_are_unchanged(bench, sequence, expected, name):
+def test_replies_and_virtual_time_are_unchanged(bench, sequence, name):
     session = _open(bench())
     try:
-        got = run_sequence(session, sequence)
+        got = record_steps(session, sequence)
     finally:
         session.close()
-    require_gold(got, expected, f"EXPECTED_{name.upper()}")
+    require_gold(got, GOLD.get(name, {}).get("steps", []), f"{GOLD_FILE.name}[{name}]")
+
+
+def record() -> None:
+    """Re-record both benches into ``tests/data/dmm_gold.json`` (``tests/record_gold.py`` calls
+    this): walk each sequence on its bench, the way the test above compares it."""
+    recorded = {}
+    for name, (bench, sequence) in CASES.items():
+        session = _open(bench())
+        try:
+            recorded[name] = {"steps": record_steps(session, sequence)}
+        finally:
+            session.close()
+    GOLD_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {GOLD_FILE.relative_to(ROOT)}")

@@ -4,8 +4,10 @@
 - ``run_manual_script`` runs such a script on a copy of its example bench and returns its stdout
   lines;
 - ``session_query`` is the write-read-strip one-liner most per-model files define as ``q``;
-- ``send_timed`` / ``record_rows`` / ``require_gold`` are the golden-table machinery of the
-  ``*_migration.py`` tests; ``run_gold_step`` is the per-step runner of the JSON gold recordings;
+- ``send_timed`` / ``record_steps`` / ``require_gold`` are the golden-table machinery of the
+  ``*_migration.py`` tests; ``run_gold_step`` / ``record_gold_step`` are the per-step runner and
+  recorder of the JSON gold recordings — one step shape for every gold file (#1635), re-recorded
+  by ``uv run python tests/record_gold.py``;
 - ``warm_up`` bills a definition's lazy loading to the wall clock before a recorded sequence
   (D47);
 - ``reading_of`` / ``Near`` / ``StableScreen`` read a value back off a rendered screen and judge it
@@ -30,6 +32,7 @@ from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+import numpy as np
 import pytest
 import pyvisa
 import yaml
@@ -234,35 +237,128 @@ def warm_up(s, *instruments: str) -> list[str | None]:
     ]
 
 
-def record_rows(s, steps) -> list[tuple[str, str, str | None, int]]:
-    """(instrument, command, reply, ns consumed) for a (instrument, command) sequence — the row
-    shape of the golden tables."""
-    return [(instrument, command, *send_timed(s, instrument, command)) for instrument, command in steps]
+def record_steps(s, steps) -> list[dict]:
+    """(instrument, command) pairs -> the recorded gold steps ``{"instrument", "cmd", "ns",
+    "reply"}`` — the one row shape of the gold recordings (#1635). The reply slot appears only
+    when the command answered one (the guards read ``step.get("reply", "")``), and keeps its
+    trailing spaces (``rstrip("\\n")`` only): the compares are exact."""
+    recorded = []
+    for instrument, command in steps:
+        text, ns = send_timed(s, instrument, command)
+        step = {"instrument": instrument, "cmd": command, "ns": ns}
+        if text is not None:
+            step["reply"] = text
+        recorded.append(step)
+    return recorded
 
 
 def require_gold(got, expected, label: str) -> None:
-    """The recording loop's guard: an empty expectation table prints the actual rows for the
-    recorder to paste, then fails (the record-then-refactor method of #186-#190)."""
+    """The gold guard: the recorded steps must equal the loaded table, step for step. An empty
+    table fails naming the recorder — a re-recording writes the JSON itself, no rows are pasted
+    by hand any more (#1635; the record-then-refactor method of #186-#190)."""
     if not expected:
-        for row in got:
-            print(repr(row))
-        pytest.fail(f"{label} is empty: paste the output above")
+        pytest.fail(f"{label} is empty: record it with uv run python tests/record_gold.py")
     assert got == expected
 
 
-def run_gold_step(s, i: int, step: dict) -> tuple[bool, str | None]:
-    """One step of a JSON gold recording (lockin/rfgen/specan): a clock advance or a command with
-    its expected reply and consumed time. Returns (handled, reply text); the caller adds the step
-    kinds specific to its model (signal lines, traces, float tolerances)."""
+# The actual value of each gold step kind: shared by the runner and the recorder, so what a
+# re-recording writes is exactly what the test then judges.
+
+
+def _gold_lines(s, signal: str) -> list[list[float]]:
+    """The spectral lines the net solver finds on a port, ``[freq, Re, Im]`` per line, frequency
+    ascending — the ``signal`` step kind's actual value."""
+    merged = s.net_signal(s.port_net[signal]).merged()
+    order = np.argsort(merged.freq, kind="stable")
+    return [
+        [float(f), float(a.real), float(a.imag)]
+        for f, a in zip(merged.freq[order], merged.amp[order], strict=True)
+    ]
+
+
+def _gold_trace(s, instrument: str) -> list[float]:
+    """The analyzer's trace points, read off ``:TRAC:DATA?`` — the ``trace`` step kind's actual
+    value. The read is the display's own, not part of the recorded sequence."""
+    s.write(instrument, b":TRAC:DATA?\n")
+    return [float(x) for x in s.read(instrument).decode().rstrip("\n").split(",")]
+
+
+def record_gold_step(s, i: int, step: dict) -> dict:
+    """One step of a JSON gold recording, recorded: the committed step drives the walk, its
+    actual values come back in the step shape — the recording twin of ``run_gold_step``. The
+    flags a step carries (``floats``) and its key order are preserved, so re-recording a file
+    that still matches rewrites only the values; the reply slot appears only when the command
+    answered one."""
     if "advance_s" in step:
         s.advance(step["advance_s"])
-        return True, None
-    if "cmd" not in step:
-        return False, None
-    text, ns = send_timed(s, step["instrument"], step["cmd"])
-    assert text == step.get("reply"), f"step {i}: {step['cmd']} replied {text!r}"
-    assert ns == step["ns"], f"step {i}: {step['cmd']} took time"
-    return True, text
+        return dict(step)
+    if "cmd" in step:
+        text, ns = send_timed(s, step["instrument"], step["cmd"])
+        recorded = {**step, "ns": ns}
+        if text is not None:
+            recorded["reply"] = text
+        elif "reply" in step:
+            del recorded["reply"]
+        return recorded
+    if "signal" in step:
+        return {**step, "lines": _gold_lines(s, step["signal"])}
+    if "trace" in step:
+        return {**step, "values": _gold_trace(s, step["instrument"])}
+    raise ValueError(f"step {i}: not a gold step: {sorted(step)}")
+
+
+def run_gold_step(s, i: int, step: dict) -> None:
+    """One step of a JSON gold recording, judged (#1635's one step shape): advance the clock; or
+    send the command and compare its consumed time and reply — exactly, or numerically (rel
+    1e-9, the reply's last bits differ between machines) when the step says ``floats``; or
+    compare the signal lines of a port / the trace points of an analyzer (rtol 1e-9). A command
+    that answered nothing carries no reply slot. The step kinds live here, not in the per-model
+    files."""
+    if "advance_s" in step:
+        before = s.now_ns
+        s.advance(step["advance_s"])
+        if "ns" in step:
+            assert s.now_ns - before == step["ns"], f"step {i}: the advance took time"
+        return
+    if "cmd" in step:
+        text, ns = send_timed(s, step["instrument"], step["cmd"])
+        assert text == step.get("reply"), f"step {i}: {step['cmd']} replied {text!r}"
+        assert ns == step["ns"], f"step {i}: {step['cmd']} took time"
+        if step.get("floats"):
+            actual = [float(v) for v in (text or "").split(",")]
+            expected = [float(v) for v in step["reply"].split(",")]
+            assert len(actual) == len(expected), f"step {i}: {step['cmd']} count"
+            for a, e in zip(actual, expected, strict=True):
+                assert a == pytest.approx(e, rel=1e-9, abs=1e-15), f"step {i}: {step['cmd']}"
+        return
+    if "signal" in step:
+        actual = np.array(_gold_lines(s, step["signal"]), dtype=float).reshape(-1, 3)
+        expected = np.array(step["lines"], dtype=float).reshape(-1, 3)
+        assert actual.shape == expected.shape, f"step {i} ({step['signal']}): shape"
+        np.testing.assert_allclose(
+            actual[:, 0],
+            expected[:, 0],
+            rtol=1e-9,
+            atol=1e-6,
+            err_msg=f"step {i} ({step['signal']}): freq",
+        )
+        np.testing.assert_allclose(
+            actual[:, 1:],
+            expected[:, 1:],
+            rtol=1e-9,
+            atol=1e-12,
+            err_msg=f"step {i} ({step['signal']}): amp",
+        )
+        return
+    if "trace" in step:
+        actual = np.array(_gold_trace(s, step["instrument"]))
+        expected = np.array(step["values"])
+        assert actual.shape == expected.shape, f"step {i} ({step['trace']}): shape"
+        np.testing.assert_allclose(
+            actual, expected, rtol=1e-9, atol=1e-12, err_msg=f"step {i} ({step['trace']})"
+        )
+        return
+    raise ValueError(f"step {i}: not a gold step: {sorted(step)}")
 
 
 def mcp_result(r, *, error_ok: bool = False):
