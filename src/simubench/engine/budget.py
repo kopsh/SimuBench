@@ -61,7 +61,9 @@ class ComputeBudget:
         """An action or view begins: the budget counts from now, a cancel meant for the one before
         is stale. A reason a replay forced stays — it is for this action."""
         self._cancelled.clear()
-        self._deadline = None if self.seconds is None else time.monotonic() + self.seconds
+        # perf_counter, not monotonic: on Windows monotonic ticks every ~15.6 ms, so a budget below
+        # that would never be seen to run out within a quick action (#1538)
+        self._deadline = None if self.seconds is None else time.perf_counter() + self.seconds
 
     def disarm(self) -> None:
         self._deadline = None
@@ -86,7 +88,7 @@ class ComputeBudget:
             return None
         if self._cancelled.is_set():
             return "cancel"
-        if self._deadline is not None and time.monotonic() > self._deadline:
+        if self._deadline is not None and time.perf_counter() > self._deadline:
             return "budget"
         return None
 
