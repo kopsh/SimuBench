@@ -125,7 +125,7 @@ def test_event_stream_since_sends_only_the_tail():
             assert missed_seqs[0] == last + 1  # the tail only — the client holds everything before
             c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":FREQ 4000"})
             live = read_until(ws, ":FREQ 4000")
-            assert [ev["seq"] for ev in live][0] == missed_seqs[-1] + 1  # the stream goes on unchanged
+            assert next(ev["seq"] for ev in live) == missed_seqs[-1] + 1  # the stream goes on unchanged
 
         n = len(manager.get(sid).session.events.history)
         with c.websocket_connect(f"/api/sessions/{sid}/events?token={TOKEN}", headers={"host": "127.0.0.1"}) as ws:
