@@ -58,11 +58,11 @@ function setup() {
   } as never);
 }
 
-function renderInspector() {
+function renderInspector(inst: InstrumentInfo = INST) {
   render(
     <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
       <TooltipProvider>
-        <InstrumentInspector sid="s1" inst={INST} readonly={false} />
+        <InstrumentInspector sid="s1" inst={inst} readonly={false} />
       </TooltipProvider>
     </QueryClientProvider>,
   );
@@ -105,6 +105,15 @@ it("the identity section starts folded to the virtual address and opens on deman
   act(() => within(section).getByRole("button", { name: (n) => n.startsWith("身份与地址") }).click());
   expect(within(section).getByText("Keysight Technologies,UXR1104B,MY0,1.0")).toBeTruthy();
   expect(localStorage.getItem("simubench:inspector-identity")).toBe("open");
+});
+
+// Without a SCPI listener the identity says so instead of hiding the row (#1536).
+it("shows an empty state when the session serves no SCPI address", () => {
+  setup();
+  renderInspector({ ...INST, address_virtual: null });
+  const empty = screen.getByTestId("no-scpi-service");
+  expect(empty.textContent).toContain("未开启 SCPI 服务");
+  expect(screen.queryByText("TCPIP0::127.0.0.1::1234::SOCKET")).toBeNull();
 });
 
 it("beside its own screen, opening the screen is a secondary action in the row", () => {

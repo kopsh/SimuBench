@@ -22,7 +22,7 @@ from typing import TYPE_CHECKING, Any
 from ..access.bench_link import BenchLinkServer
 from ..access.hislip_server import HislipServer
 from ..access.hislip_tls import SecureConfig, read_users
-from ..access.scpi_server import ScpiServer
+from ..access.scpi_server import DEFAULT_SCPI_PORT, ScpiServer
 from ..access.vxi11_server import Vxi11Server
 from ..api import bench_files_dir, open_bench
 from ..contracts import api as M
@@ -328,7 +328,7 @@ class SessionManager:
         workspace: Path,
         *,
         scpi_host: str = "127.0.0.1",
-        scpi_base_port: int | None = 5025,
+        scpi_base_port: int | None = DEFAULT_SCPI_PORT,
         hislip_port: int | None = 4880,
         vxi11_port: int | None = None,
         portmapper_port: int | None = None,

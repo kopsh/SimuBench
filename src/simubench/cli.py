@@ -14,9 +14,9 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from . import __version__
+from .access.scpi_server import DEFAULT_SCPI_PORT
 from .service import (
     DEFAULT_HISLIP_PORT,
-    DEFAULT_SCPI_BASE_PORT,
     add_service_options,
     address_line,
     build_manager,
@@ -163,7 +163,7 @@ def _launch(args: argparse.Namespace) -> int:
     # double-click must not fail on another program's 5025. A port given is kept, or refused (#1197).
     fallback = set()
     if args.scpi_base_port is None:
-        args.scpi_base_port = DEFAULT_SCPI_BASE_PORT
+        args.scpi_base_port = DEFAULT_SCPI_PORT
         fallback.add("SCPI")
     if args.hislip_port is None:
         args.hislip_port = DEFAULT_HISLIP_PORT
@@ -840,7 +840,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("doctor", help="check that SimuBench can run here (exit 1 on a failure)")
     p.add_argument("--workspace", help="also validate the bench files in this folder")
     p.add_argument("--port", type=int, default=8765)
-    p.add_argument("--scpi-base-port", type=int, default=5025)
+    p.add_argument("--scpi-base-port", type=int, default=DEFAULT_SCPI_PORT)
     p.add_argument("--allow-plugins", action="store_true", help="also run components/*.py from the workspace")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=_doctor)

@@ -271,6 +271,7 @@ export const en: Widen<Messages> = {
     errorsQueued_other: "{{count}} errors queued",
     address: "Address",
     virtualAddress: "Virtual address",
+    noScpiService: "SCPI service is off",
     hislipAddress: "HiSLIP address",
     vxi11Address: "VXI-11 address",
     realAddress: "Real bench address",

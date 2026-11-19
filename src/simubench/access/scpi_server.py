@@ -25,6 +25,12 @@ MAX_MESSAGE = 256 * 1024 * 1024  # bytes; a longer program message is -223 and d
 DEFAULT_SCPI_PORT = 5025
 
 
+def scpi_socket_address(host: str, port: int) -> str:
+    """The virtual resource address of an instrument's SCPI socket (D5): the one place this
+    string is built, so the projections and the in-process backend cannot drift."""
+    return f"TCPIP0::{host}::{port}::SOCKET"
+
+
 class MessageReader:
     """Splits a byte stream into program messages (IEEE 488.2 7.7.6, #1448).
 
@@ -126,7 +132,7 @@ class ScpiListener:
 
     @property
     def address(self) -> str:
-        return f"TCPIP0::{self.host}::{self.port}::SOCKET"
+        return scpi_socket_address(self.host, self.port)
 
 
 class ScpiServer:
