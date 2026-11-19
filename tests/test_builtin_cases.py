@@ -79,7 +79,9 @@ def test_a_model_lists_its_own_cases_files(cases_root, model, folders):
     assert [name for name, _n in found] == [f"builtin:{f}/cases.yaml" for f in folders]
     assert all(n > 0 for _name, n in found)
     for f in folders:
-        assert builtin_cases_file(f"builtin:{f}/cases.yaml", model, cases_root) == cases_root / f / "cases.yaml"
+        assert (
+            builtin_cases_file(f"builtin:{f}/cases.yaml", model, cases_root) == cases_root / f / "cases.yaml"
+        )
 
 
 @pytest.mark.parametrize(

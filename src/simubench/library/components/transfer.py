@@ -41,6 +41,7 @@ import struct
 from typing import Any
 
 import numpy as np
+from typing_extensions import get_protocol_members
 
 from ...engine.component import (
     Acquisition,
@@ -48,6 +49,7 @@ from ...engine.component import (
     Component,
     MathSource,
     OpResult,
+    binding_of,
     component,
     op,
 )
@@ -115,6 +117,48 @@ class WaveformTransfer(Component):
         "header": None,
     }
 
+    #: The parameters that may say ``adc``: take the value from the acquisition's ADC (#1445).
+    ADC_PARAMS = ("adc_bits", "codes_per_div")
+
+    @classmethod
+    def literal_problems(cls, params: dict[str, Any]) -> list[tuple[str, str]]:
+        """``adc_bits`` / ``codes_per_div`` are a number or ``adc`` (#1460): a misspelt ``ADC``
+        is a definition error when it loads, not a ValueError at the first read."""
+        out = []
+        for key in cls.ADC_PARAMS:
+            value = params.get(key)
+            if not isinstance(value, str) or value == "adc" or binding_of(value) is not None:
+                continue
+            try:
+                float(value)
+            except ValueError:
+                out.append(
+                    (key, f"waveform_transfer.{key} 取数值或 adc（取采集链 ADC 的值），得到 {value!r}")
+                )
+        return out
+
+    @classmethod
+    def ref_problems(cls, params: dict[str, Any], targets: dict[str, type | None]) -> list[tuple[str, str]]:
+        """``adc`` needs an acquisition with an ADC (:class:`AcquisitionInput`) behind ``record``
+        (#1460): checked when the definition loads, not at the first read (-300)."""
+        target = targets.get("record")
+        if target is None:
+            return []
+        missing = [
+            n for n in get_protocol_members(AcquisitionInput) if not callable(getattr(target, n, None))
+        ]
+        if not missing:
+            return []
+        name = params.get("record", cls.defaults["record"])
+        return [
+            (
+                key,
+                f"waveform_transfer.{key} 为 adc，但 record 指向的 {name!r} 没有 ADC 采集链（缺 {', '.join(missing)}）",
+            )
+            for key in cls.ADC_PARAMS
+            if params.get(key) == "adc"
+        ]
+
     #: Field types of a binary header: struct codes.
     HEADER_TYPES = {
         "i8": "b", "u8": "B", "i16": "h", "u16": "H", "i32": "i", "u32": "I", "i64": "q", "f32": "f", "f64": "d",
@@ -164,7 +208,12 @@ class WaveformTransfer(Component):
                 )
             bits = acq.adc_unit().param("bits") if bits == "adc" else bits
             per_div = acq.adc_codes_per_div() if per_div == "adc" else per_div
-        return int(bits), float(per_div)
+        try:
+            return int(bits), float(per_div)
+        except (TypeError, ValueError):  # the definition check reports it; never a Python error here
+            raise ScpiError(
+                -300, f"{self.uid}: adc_bits {bits!r} / codes_per_div {per_div!r} is not a number"
+            ) from None
 
     def _acquisition(self) -> Acquisition:
         """The acquisition the ``record`` ref names (``engine.component.Acquisition``): the refs

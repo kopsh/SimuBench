@@ -2730,3 +2730,12 @@ grep -n '⏳' docs/progress-log.md             # 标为未完成的行（可能�
 | #1471 解锁验证 | ✅ 本地临时迁移（试后还原，未提交）：0334b → extends 1104b + 166 条 command_overrides（80 null 删除 + 86 条整组/单条替换，`:SYSTem:CAPability:ACQuire`/`:DIGital` 两个多头用列表值整组覆盖）；逐头路由等价（313 头 0 缺失/0 多出/0 组差异，组内顺序保持）、cases.yaml 90/90。给 #1471 的清单：父定义另有 129 个仅父键泄入子定义（state 111、channel_state 8、specs 8 个叶键 + options、constraints 整键），D59 的「键: null」补齐后 90/90；不补则 THEMe/REFerence/PROBe:GAIN 三例被父值污染失败 |
 | 文档 | ✅ decisions.md D59 结论句与理由句修订（整组替换/删除，不新立 D，编号仍到 D84）；instrument-authoring.md 2.9 命令逐条覆盖段与整组覆盖示例（真实 UXR 头，本地试载通过）、9.2 Web 搭建区命令行同步 |
 | check.sh | ✅ 全绿（fast 套件 4718 passed, 9 skipped，122.4 s；基线 509e059a 同机同口径 122.1 s（4714 passed，差额为 #1481 并入的用例）） |
+
+## 波形传输 `adc` 取值：加载时校验拼写与采集链，补错误路径与码步长测试（Issue 1460）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 加载 / validate 时报错 | ✅ `WaveformTransfer.literal_problems`：`adc_bits` / `codes_per_div` 是字符串且既非数值也非 `adc`（如 `ADC`）报 E-DEF-PARAM-VALUE，指针 `/components/<i>/params/<key>`；新增通用钩子 `Component.ref_problems(params, targets)`（`validate_definition._check_component_refs` 解析完 refs 后传入目标组件类），`WaveformTransfer` 用它检查写 `adc` 时 `record` 指向的采集实现 `AcquisitionInput`，否则对每个写 `adc` 的参数报 E-DEF-PARAM-VALUE（列出缺的方法） |
+| 运行期不再抛 Python 异常 | ✅ `_code_scale` 对非数值的位数 / 每格码数回 -300 并带原值，不再 ValueError |
+| 测试 | ✅ `tests/test_validate_definition.py`：拼写错误两参数各一例、`adc` 无 ADC 采集链（monkeypatch 去掉 `adc_codes_per_div`，内置采集都实现该协议）；`tests/test_waveform_transfer.py`：无 ADC 采集链运行期 -300、拼写错误运行期 -300、12 位 ADC 不写 codes_per_div 时 `_code_scale()` = (12, 512) 且 16 位字里码步长 16 |
+| 文档 | ✅ instrument-authoring.md 偏移约定段补加载时校验一句、progress-log 本节 |
