@@ -55,7 +55,11 @@ class WorkspaceEvent(BaseModel):
     )
 
 
-def _put(queue: asyncio.Queue[dict[str, Any]], ev: dict[str, Any]) -> None:
+def put_bounded(queue: asyncio.Queue[dict[str, Any]], ev: dict[str, Any]) -> None:
+    """One event into a bounded subscriber queue, without blocking the writer: when the queue is
+    full the oldest event is dropped — a slow client must not stall what produces the events.
+    Both event streams' sockets queue this way: the workspace's (:meth:`WorkspaceEvents.publish`)
+    and the session's (``routes/events.py``)."""
     if queue.full():
         with contextlib.suppress(asyncio.QueueEmpty):
             queue.get_nowait()  # drop the oldest rather than block the writer
@@ -106,7 +110,7 @@ class WorkspaceEvents:
             return
         ev = {"kind": kind, **fields}
         for queue in subs:
-            loop.call_soon_threadsafe(_put, queue, ev)
+            loop.call_soon_threadsafe(put_bounded, queue, ev)
 
     def expect_write(self, path: str, sha256: str | None) -> None:
         """A write point is about to write this content and will publish it (#1526): the watcher's
