@@ -289,13 +289,13 @@ def _validate(args: argparse.Namespace) -> int:
     """Print diagnostics as ``file:pointer: CODE message (suggestion)``; exit 1 on any error."""
     from .engine.validate import validate_data
     from .engine.validate_definition import validate_definition_data
-    from .library.loader import DefinitionLibrary, _read_yaml, layered_definition_data
+    from .library.loader import DefinitionLibrary, _read_yaml, layered_definition_data, load_json
 
     status = 0
     for path in args.files:
         p = Path(path)
         try:
-            data = json.loads(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
+            data = load_json(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
         except Exception as exc:
             print(f"{path}: E-READ {exc}", file=sys.stderr)
             status = 1
@@ -426,7 +426,7 @@ def _migrate(args: argparse.Namespace) -> int:
     """Report (and with --write, apply) format upgrades; exit 1 when a file cannot be read."""
     import yaml
 
-    from .library.loader import _read_yaml
+    from .library.loader import _read_yaml, load_json
     from .models.migrate import FormatError, upgrade
 
     status = 0
@@ -434,7 +434,7 @@ def _migrate(args: argparse.Namespace) -> int:
         path = Path(name)
         fmt = "bench" if ".bench." in path.name else "instrument"
         try:
-            raw = json.loads(path.read_text(encoding="utf-8")) if path.suffix == ".json" else _read_yaml(path)
+            raw = load_json(path.read_text(encoding="utf-8")) if path.suffix == ".json" else _read_yaml(path)
             data, steps = upgrade(raw, fmt)
         except (FormatError, ValueError, OSError) as exc:
             print(f"{name}: {exc}", file=sys.stderr)
