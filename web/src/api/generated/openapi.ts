@@ -1592,7 +1592,10 @@ export interface components {
              * @default false
              */
             force: boolean;
-            /** Seconds */
+            /**
+             * Seconds
+             * @description Virtual seconds to advance; at most the clock's whole range (2**53 ns, about 104 days). An advance that would pass the limit from where the clock is now is refused with 409
+             */
             seconds: number;
         };
         /**
