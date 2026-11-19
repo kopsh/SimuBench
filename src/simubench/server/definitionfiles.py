@@ -18,6 +18,7 @@ from ..engine import jsonpatch
 from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
 from ..library.loader import dump_yaml, layered_definition_data, load_yaml, parse_error_text
+from ..library.workspace_layout import DEFINITIONS_FOLDER, definition_rel_path, definitions_dir
 from ..models.migrate import upgrade
 from . import definitionstructure
 from .benchfiles import BenchFiles
@@ -26,7 +27,6 @@ from .errors import Forbidden, Invalid
 from .history import Source
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
-FOLDER = "instruments"
 #: The build area's positions beside a definition (#1207).
 LAYOUT_SUFFIX = ".layout.json"
 
@@ -38,7 +38,7 @@ class DefinitionFiles:
     def rel_path(self, def_id: str) -> str:
         if not ID.fullmatch(def_id):
             raise Invalid(f"{def_id!r}: an id is letters, digits, '.', '_' and '-'")
-        return f"{FOLDER}/{def_id}.yaml"
+        return definition_rel_path(def_id)
 
     def read(self, def_id: str) -> M.DefinitionDocument:
         rel = self.rel_path(def_id)
@@ -51,7 +51,7 @@ class DefinitionFiles:
 
     def validate(self, data: dict[str, Any]) -> Report:
         try:  # D59: a draft that extends a model is checked against what it will run
-            data = layered_definition_data(data, self.files.workspace / FOLDER / "draft.yaml")
+            data = layered_definition_data(data, definitions_dir(self.files.workspace) / "draft.yaml")
         except ValueError as exc:
             report = Report()
             code, pointer = getattr(exc, "code", "E-DEF-EXTENDS"), getattr(exc, "pointer", "/extends")
@@ -192,7 +192,7 @@ class DefinitionFiles:
         return self.save(def_id, new.base_sha256, data, source)
 
     def layout_path(self, def_id: str) -> Path:
-        return self.files.workspace / FOLDER / f"{def_id}{LAYOUT_SUFFIX}"
+        return definitions_dir(self.files.workspace) / f"{def_id}{LAYOUT_SUFFIX}"
 
     def layout(self, def_id: str) -> M.DefinitionLayout:
         """The build area's positions (#1207); empty when none were saved or the file is broken
@@ -217,7 +217,7 @@ class DefinitionFiles:
         if not self.read(def_id).editable:
             raise Forbidden(f"{def_id} is not in the workspace; its layout is not kept")
         self.files.write(
-            f"{FOLDER}/{def_id}{LAYOUT_SUFFIX}",
+            f"{DEFINITIONS_FOLDER}/{def_id}{LAYOUT_SUFFIX}",
             layout.model_dump_json(indent=1).encode("utf-8"),
             None,
             fingerprint="",  # nothing is recorded: the fingerprint names a version's content

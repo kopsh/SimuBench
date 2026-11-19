@@ -34,6 +34,7 @@ from ..library.loader import (
     load_yaml,
     parse_error_text,
 )
+from ..library.workspace_layout import BENCH_SUFFIXES, DEFINITIONS_FOLDER, definitions_dir, is_bench_file
 from ..models import categories
 from ..models.bench import BenchDefinition
 from ..models.migrate import FormatError, upgrade
@@ -41,8 +42,6 @@ from . import yamlpatch
 from .errors import Conflict, ConflictTarget, Forbidden, Invalid, NotFound
 from .history import History, Source
 from .workspace_events import WorkspaceEvents
-
-SUFFIXES = (".bench.yaml", ".bench.json")
 
 #: Workspace directories that hold SimuBench's own data (version history, runs, …), not the user's
 #: bench files: reading or writing a bench there corrupts the history (#1457). ``scan`` and the
@@ -68,7 +67,7 @@ def scan(workspace: Path) -> list[Path]:
     found = []
     for root, dirs, files in os.walk(workspace):
         dirs[:] = [d for d in dirs if d not in SKIP_DIRS]
-        found.extend(Path(root) / f for f in files if f.endswith(SUFFIXES))
+        found.extend(Path(root) / f for f in files if is_bench_file(f))
     return sorted(found, key=lambda p: (p.suffix != ".yaml", p.relative_to(workspace).as_posix()))
 
 
@@ -110,8 +109,8 @@ class BenchFiles:
         return p
 
     def library(self, path: Path | None) -> DefinitionLibrary:
-        dirs = [path.parent / "instruments"] if path else []
-        dirs.append(self.workspace / "instruments")
+        dirs = [path.parent / DEFINITIONS_FOLDER] if path else []
+        dirs.append(definitions_dir(self.workspace))
         return DefinitionLibrary(dict.fromkeys(dirs))
 
     # ---- documents ----------------------------------------------------------------------------------
@@ -130,8 +129,8 @@ class BenchFiles:
         self, bench_path: str, base_sha256: str | None, data: dict[str, Any], source: Source = "api"
     ) -> M.BenchDocument:
         path = self.resolve(bench_path)
-        if not path.name.endswith(SUFFIXES):
-            raise Invalid(f"bench files end with {' or '.join(SUFFIXES)}")
+        if not is_bench_file(path.name):
+            raise Invalid(f"bench files end with {' or '.join(BENCH_SUFFIXES)}")
         # Schema-valid content is written in canonical form; invalid content is kept as given so
         # that work in progress is never lost.
         canonical = False
@@ -294,7 +293,7 @@ class BenchFiles:
         # connects with (`<file>@simubench`, e.g. in the description) pointing at the copy.
         path = self.resolve(new_path)
         source_path = self.resolve(bench_path)
-        if path.name.endswith(SUFFIXES) and ".json" not in (path.suffix, source_path.suffix):
+        if is_bench_file(path.name) and ".json" not in (path.suffix, source_path.suffix):
             raw = _renamed_text(source_path.read_bytes(), data["name"], source_path.name, path.name)
             if raw is not None:
                 copied = _parse(path, raw)
@@ -319,8 +318,8 @@ class BenchFiles:
         it still holds the content the caller checked (``expected_sha256``), so a file changed in
         the meantime is not lost unseen. Its saved versions stay in the history."""
         path = self.resolve(rel_path)
-        is_definition = path.parent == self.workspace / "instruments" and path.suffix == ".yaml"
-        if not (path.name.endswith(SUFFIXES) or is_definition):
+        is_definition = path.parent == definitions_dir(self.workspace) and path.suffix == ".yaml"
+        if not (is_bench_file(path.name) or is_definition):
             raise Forbidden("only bench files and workspace definitions can be removed")
         with self._lock:
             if not path.exists():
@@ -459,7 +458,7 @@ def _numbers(value: Any) -> Any:
 
 def _with_stem(bench_path: str, extra: str) -> str:
     """``a/b.bench.yaml`` with ``extra`` after the stem: ``a/b-copy.bench.yaml``."""
-    for suffix in SUFFIXES:
+    for suffix in BENCH_SUFFIXES:
         if bench_path.endswith(suffix):
             return bench_path[: -len(suffix)] + extra + suffix
     return bench_path + extra
