@@ -760,6 +760,30 @@ def test_watcher_reads_again_when_a_same_size_write_lands_in_one_timestamp_tick(
     assert [p["path"] for p in published] == ["a.bench.yaml"]
 
 
+def test_watcher_stays_silent_when_a_write_point_notes_the_content_mid_pass(tmp_path, monkeypatch):
+    """#1526: a write point that notes its content while a scan is reading the file (after the
+    scan's stat snapshot) is not announced a second time."""
+    from simubench.server import workspace_events
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    path = tmp_path / "a.bench.yaml"
+    path.write_bytes(b"schema: simubench.bench/2\nname: a\n")
+    watcher._pass()  # baseline
+    raw = b"schema: simubench.bench/2\nname: b\n"
+    path.write_bytes(raw)
+    real_sha256 = hashlib.sha256
+
+    def noting_sha256(data=b""):
+        watcher.note("a.bench.yaml", real_sha256(raw).hexdigest())  # lands mid-pass
+        return real_sha256(data)
+
+    monkeypatch.setattr(workspace_events.hashlib, "sha256", noting_sha256)
+    watcher._pass()
+    assert published == []
+
+
 def test_workspace_hub_drops_events_without_a_subscriber():
     """The hub is a fan-out: publishes from any thread reach the queues, unknown kinds refuse,
     and with nobody listening nothing is kept (the stream is live, not a log)."""
