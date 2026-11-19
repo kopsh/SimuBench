@@ -59,7 +59,7 @@
     "instrument": "dut",
     "cmd": ":CONF?",
     "ns": 0,
-    "reply": "\"VOLT +1.00000000E+00,+1.00000000E-03\""
+    "reply": "\"VOLT +1.00000000E+00,+1.00000000E-07\""
    },
    {
     "instrument": "dut",
@@ -96,7 +96,7 @@
     "instrument": "dut",
     "cmd": ":MEAS:VOLT:DC?",
     "ns": 0,
-    "reply": "+9.90000000E+37"
+    "reply": "+1.20000000E-01"
    },
    {
     "instrument": "src",
@@ -107,7 +107,7 @@
     "instrument": "dut",
     "cmd": ":MEAS:VOLT:DC?",
     "ns": 0,
-    "reply": "+9.90000000E+37"
+    "reply": "+1.29999700E-01"
    },
    {
     "instrument": "src",
@@ -150,7 +150,7 @@
     "instrument": "dut",
     "cmd": ":MEAS:VOLT:AC?",
     "ns": 0,
-    "reply": "+0.00000000E+00"
+    "reply": "+3.00000000E-08"
    },
    {
     "instrument": "dut",
@@ -263,7 +263,7 @@
     "instrument": "dut",
     "cmd": ":MEAS:VOLT:AC?",
     "ns": 0,
-    "reply": "+7.07110000E-02"
+    "reply": "+7.07103800E-02"
    },
    {
     "instrument": "dut",
