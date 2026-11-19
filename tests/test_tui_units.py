@@ -415,6 +415,22 @@ def test_engineering_formats(value: float, unit: str, text: str):
     assert fmt(value, unit) == text
 
 
+#: Values at an SI-prefix boundary, rounded to 3, 4 and 5 significant digits (#1459). The same
+#: table is in web/src/lib/format.test.ts: the Web's digits-kept readout says the same.
+PREFIX_EDGES = {
+    3: ["1.00 V", "1.00 V", "1.00 kV", "1.00 mV", "1.00 V", "1.00 kV", "10.0 mV"],
+    4: ["999.9 mV", "999.6 mV", "999.7 V", "999.6 µV", "1.000 V", "1.000 kV", "10.00 mV"],
+    5: ["999.94 mV", "999.60 mV", "999.70 V", "999.60 µV", "1.0000 V", "1.0000 kV", "9.9996 mV"],
+}
+EDGE_VALUES = [0.99994, 0.9996, 999.7, 0.0009996, 0.999996, 999.996, 0.0099996]
+
+
+@pytest.mark.parametrize("digits", sorted(PREFIX_EDGES))
+def test_fmt_rounds_before_it_picks_the_prefix(digits: int):
+    """#1459: 0.99994 V at 3 digits is 1.00 V — never 1000 mV; 0.0099996 V is 10.0 mV, not 10.00."""
+    assert [fmt(v, "V", digits) for v in EDGE_VALUES] == PREFIX_EDGES[digits]
+
+
 def test_fmt_of_none_is_the_em_dash():
     assert fmt(None) == "—"
 
