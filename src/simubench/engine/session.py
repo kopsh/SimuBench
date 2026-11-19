@@ -17,7 +17,7 @@ import threading
 import time
 from collections import deque
 from collections.abc import Callable, Generator, Iterable, Iterator
-from dataclasses import dataclass, field, replace
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -26,6 +26,7 @@ from ..models.bench import LIVE_CLOCKS, BenchDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import message_is_query
 from . import nets, sleep_mode
+from .budget import ComputeBudget, aborted
 from .circuit import Circuit, Solution
 from .component import Component, component_type
 from .deviation import draw_overrides, set_override
@@ -102,6 +103,7 @@ class Session:
         record_raw: bool = False,
         time_scale: float | None = None,
         files_dir: Path | None = None,
+        compute_budget_s: float | None = None,
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
@@ -135,7 +137,11 @@ class Session:
         #: The ambient inputs of the evaluation in progress (:meth:`evaluating`).
         self._context = EvalContext()
         #: What was evaluated under (version, port, context): signals and sample-stream frames.
-        self.cache = EvalCache()
+        self.cache = EvalCache(checkpoint=self.checkpoint)
+        #: How long one action or view may compute, and the cancel flag (:mod:`.budget`, D88).
+        self.budget = ComputeBudget(compute_budget_s)
+        #: A ``view`` is in progress: it emits nothing, so an abort in it leaves no event (D55).
+        self._in_view = False
         self._wall_start = time.monotonic_ns()
         self._scaled_ref_ns = self._wall_start
         self._scaled_base_ns = 0
@@ -356,7 +362,7 @@ class Session:
         passive. Used under the session lock (commands and ``view()`` hold it), so it needs no
         thread-local."""
         outer = self._context
-        self._context = replace(outer, **changes)
+        self._context = outer.model_copy(update=changes)
         try:
             yield
         finally:
@@ -388,6 +394,30 @@ class Session:
         """Refuse now a read about to ask ``comp``'s upstream for ``samples`` samples in several
         requests when they would pass ``MAX_REQUEST_FANOUT`` (#986); see :meth:`EvalCache.reserve`."""
         self.cache.reserve(comp, port, samples)
+
+    def checkpoint(self, comp: Component, port: str) -> None:
+        """Where a read that has run out of budget, or was cancelled, ends: called before each
+        frame is computed (:class:`EvalCache`). Raises :class:`ComputeAborted`, which every seam
+        answers as a read beyond the model (-221); inside an action it also leaves an ``abort``
+        event in the run record (a view emits nothing, D55), for the replay to end that action the
+        same way (D88). Nothing a
+        replay times or hears counts, only the abort the record has."""
+        reason = self.budget.reason(live=not self.replaying)
+        if reason is None:
+            return
+        detail = f"{comp.uid}.{port}: {self.budget.describe(reason)}"
+        if not self._in_view:
+            event = {"kind": "abort", "reason": reason, "at": f"{comp.uid}.{port}", "message": detail}
+            if self.budget.seconds is not None:
+                event["budget_s"] = self.budget.seconds
+            self.emit(event)
+        raise aborted(reason, detail)
+
+    def cancel(self) -> None:
+        """End the read in progress at its next checkpoint. Safe from any thread, and without the
+        session lock: that is the point — closing a session, or a client that gave up, must not
+        wait for a long read to finish (D88)."""
+        self.budget.cancel()
 
     def state_changed(
         self, inst: Instrument, path: str, old: Any, new: Any, *, electrical: bool, source: str
@@ -485,6 +515,7 @@ class Session:
             self.time_scale = float(scale)
 
     def _begin_action(self) -> None:
+        self.budget.arm()
         wall = time.monotonic_ns()
         if self.clock_mode in LIVE_CLOCKS:
             self.sync()
@@ -498,6 +529,7 @@ class Session:
                 self._advance(step, reason="idle")
 
     def _end_action(self) -> None:
+        self.budget.disarm()
         self._last_wall = time.monotonic_ns()
 
     def sync(self) -> None:
@@ -543,10 +575,17 @@ class Session:
         silently drops part of the protocol: ``read_true_values`` once missed ``follow_wall`` that
         way and read stale times on the wall clock."""
         with self._lock:
-            self.follow_wall()
-            for name in settle:
-                self.instrument(name).settle_pending()
-            yield self
+            outer, self._in_view = self._in_view, True
+            self.budget.arm()  # a view computes too: a probe of a deep record has the budget as well
+            try:
+                self.follow_wall()
+                for name in settle:
+                    self.instrument(name).settle_pending()
+                yield self
+            finally:
+                self._in_view = outer
+                if not outer:
+                    self.budget.disarm()
 
     def solution(self) -> tuple[Solution, dict[str, Signal]]:
         """The solved circuit and every source's EMF signal, at the current instant. A passive

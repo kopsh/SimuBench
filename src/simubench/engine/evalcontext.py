@@ -13,12 +13,15 @@ the frame cache once served one tuning's frame for another (#955, #1486).
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from pydantic import BaseModel, ConfigDict
 
 
-@dataclass(frozen=True, slots=True)
-class EvalContext:
-    """The ambient inputs of an evaluation; the default is "now, not inside a tuned read"."""
+class EvalContext(BaseModel):
+    """The ambient inputs of an evaluation; the default is "now, not inside a tuned read".
+
+    Frozen, so hashable: the value itself is the tail of the caches' keys."""
+
+    model_config = ConfigDict(frozen=True)
 
     #: A receiver's tuning point, Hz (``Session.tuned``); None: not inside a tuned read.
     tune_hz: float | None = None

@@ -5,11 +5,11 @@ built-in block has a samples port yet."""
 from __future__ import annotations
 
 import copy
-from dataclasses import fields
 from typing import ClassVar
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 
 from helpers import raises_with
 from simubench.engine import evalcache
@@ -501,7 +501,7 @@ OTHER_VALUE = {"tune_hz": 2e6, "at_ns": 250}
 
 
 def test_every_field_of_the_evaluation_context_has_a_sample_here():
-    assert sorted(OTHER_VALUE) == sorted(f.name for f in fields(EvalContext))
+    assert sorted(OTHER_VALUE) == sorted(EvalContext.model_fields)
 
 
 @pytest.mark.parametrize("name", sorted(OTHER_VALUE))
@@ -530,5 +530,5 @@ def test_the_context_is_changed_only_by_entering_a_block_and_nests(ambient_reade
             assert (session.tune_hz, session.instant_ns) == (1e6, 5)  # step: the read-through names
         assert session.context == EvalContext(tune_hz=1e6)  # step: leaving restores the outer one
     assert session.context == EvalContext()
-    with pytest.raises(AttributeError):
+    with pytest.raises(ValidationError):
         session.context.tune_hz = 3e6  # type: ignore[misc]  # step: a frozen value

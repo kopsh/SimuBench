@@ -84,6 +84,13 @@ def add_service_options(
     parser.add_argument("--record-dir", help="write run records here")
     parser.add_argument("--record-raw", action="store_true", help="also keep waveform blocks byte for byte")
     parser.add_argument(
+        "--compute-budget",
+        type=float,
+        metavar="SECONDS",
+        help="end a read that computes longer than this many real seconds (error -221; default: no "
+        "limit, so results never depend on the machine's speed, D88)",
+    )
+    parser.add_argument(
         "--allow-plugins",
         action="store_true",
         help="run components/*.py from the workspace as plugins (code; default off, D3)",
@@ -118,6 +125,7 @@ def build_manager(args: argparse.Namespace, workspace: Path) -> SessionManager:
         **hislip_options_of(args),
         record_dir=Path(args.record_dir).resolve() if args.record_dir else None,
         record_raw=bool(getattr(args, "record_raw", False)),
+        compute_budget_s=getattr(args, "compute_budget", None),
         allow_plugins=args.allow_plugins,
         port_fallback=frozenset(getattr(args, "port_fallback", ())),
     )

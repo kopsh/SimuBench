@@ -35,6 +35,8 @@ EVENT_KINDS: dict[str, str] = {
     "bus_control": "something a script did on a bus: a remote/local control (REN, GTL, LLO), a GPIB command "
     "(SDC, DCL, GET, IFC ...) or a USB488 request (INDICATOR_PULSE ...) (instrument, client, action)",
     "solver": "the circuit solver reported (reason, message)",
+    "abort": "a read ended early at a checkpoint: its compute budget ran out, or it was cancelled "
+    "(reason budget | cancel, at the component port it stopped before; D88, #1510)",
     "file": "an instrument wrote, deleted or made a file or folder in its mass storage "
     "(instrument, action, path; a written file's size and sha256, #1069)",
 }

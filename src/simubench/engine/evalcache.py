@@ -10,6 +10,7 @@ may depend on is exactly the key's arguments and nothing else.
 from __future__ import annotations
 
 from collections import OrderedDict
+from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from .evalcontext import EvalContext
@@ -32,7 +33,10 @@ OUTPUT_CACHE_SIZE = 4096
 
 
 class EvalCache:
-    def __init__(self) -> None:
+    def __init__(self, checkpoint: Callable[[Component, str], None] | None = None) -> None:
+        #: Called before each frame is computed (never for a cached one): the place a read that
+        #: ran out of budget, or was cancelled, ends (:mod:`.budget`).
+        self._checkpoint = checkpoint
         #: (signal version, uid, port, context) -> the port's signal.
         self._outputs: dict[tuple[Any, ...], Signal] = {}
         #: Frames of the sample streams, newest last: (signal version, uid, port, request, context)
@@ -66,6 +70,8 @@ class EvalCache:
         asked = sum(self._asks)
         if hit is None:
             self._charge(asked + request.count, comp, port)
+            if self._checkpoint is not None:
+                self._checkpoint(comp, port)
             self._asks.append(request.count)
             try:
                 frame = comp.frames(port, request)
