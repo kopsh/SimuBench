@@ -298,6 +298,7 @@ export function InstrumentAcceptance({
               tryPanel={
                 <TryTab
                   sid={trySession.sid}
+                  ready={trySession.current && !doc.isFetching}
                   inst={inst.data}
                   error={trySession.error}
                   onReopen={trySession.reopen}
@@ -311,6 +312,7 @@ export function InstrumentAcceptance({
         <TabsContent value="try" className="min-h-0 flex-1 overflow-hidden">
           <TryTab
             sid={trySession.sid}
+            ready={trySession.current && !doc.isFetching}
             inst={inst.data}
             error={trySession.error}
             onReopen={trySession.reopen}
@@ -350,6 +352,12 @@ function InternalsSection({ sid, inst, error }: { sid: string | undefined; inst:
  */
 function useTrySession(definitionId: string, sha: string | undefined) {
   const [sid, setSid] = useState<string>();
+  // The version the open session was opened for: a session of an older one is about to be replaced.
+  const [openedFor, setOpenedFor] = useState<string>();
+  const shaRef = useRef(sha);
+  useEffect(() => {
+    shaRef.current = sha;
+  });
   const [error, setError] = useState<string | null>(null);
   const generation = useRef(0);
   const open = useOpenTry();
@@ -363,10 +371,12 @@ function useTrySession(definitionId: string, sha: string | undefined) {
 
   const reopen = useCallback(async () => {
     const mine = ++generation.current;
+    const forSha = shaRef.current;
     try {
       const opened = await openRef.current(definitionId);
       if (mine !== generation.current) return opened.session_id;
       setSid(opened.session_id);
+      setOpenedFor(forSha);
       setError(null);
       return opened.session_id;
     } catch (err) {
@@ -388,5 +398,5 @@ function useTrySession(definitionId: string, sha: string | undefined) {
     },
     [sid],
   );
-  return { sid, error, reopen };
+  return { sid, error, reopen, current: sid !== undefined && openedFor === sha };
 }

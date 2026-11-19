@@ -160,6 +160,18 @@ def test_the_budget_checks_what_it_is_given():
     assert budget.reason() is None
 
 
+def test_a_budget_shorter_than_a_coarse_clock_tick_still_runs_out(monkeypatch):
+    """#1538: on Windows time.monotonic ticks every ~15.6 ms, so a budget below one tick was never
+    seen to run out. The budget times with the fine clock."""
+    clock = [100.0]
+    monkeypatch.setattr(time, "monotonic", lambda: 100.0)  # a coarse clock that does not tick here
+    monkeypatch.setattr(time, "perf_counter", lambda: clock[0])
+    budget = ComputeBudget(1e-9)
+    budget.arm()
+    clock[0] += 1e-6
+    assert budget.reason() == "budget"
+
+
 # ---- the record, and the replay that ends the same action the same way -----------------------------
 
 
