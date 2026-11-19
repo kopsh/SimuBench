@@ -42,6 +42,19 @@ def test_the_manual_cases_of_a_model_whose_bench_uses_a_validation_instrument_ru
         assert f"{n}/{n} cases passed" in capsys.readouterr().out
 
 
+def test_a_builtin_cases_name_runs_from_the_cli(capsys):
+    """A ``builtin:`` name runs from the CLI through the same seam the acceptance page and the
+    agent seams resolve it with (#1636): the shipped manual cases of the model that owns it."""
+    assert main(["cases", "builtin:acme-dm1/cases.yaml"]) == 0
+    n = len(load_cases(ROOT / "tests" / "models" / "acme-dm1" / "cases.yaml").cases)
+    assert f"{n}/{n} cases passed" in capsys.readouterr().out
+
+
+def test_a_builtin_name_that_is_nobodys_exits_2(capsys):
+    assert main(["cases", "builtin:no-such-model/cases.yaml"]) == 2
+    assert "not a built-in cases file" in capsys.readouterr().err
+
+
 def test_the_contract_cases_of_the_lowfreq_bench_pass(tmp_path, capsys):
     report = tmp_path / "report.xml"
     assert main(["cases", str(LFCAL_CASES), "--junit", str(report)]) == 0
