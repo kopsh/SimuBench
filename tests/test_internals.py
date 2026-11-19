@@ -88,7 +88,7 @@ def test_the_uxr_probe_block_says_it_converts_settings_and_the_two_vertical_bloc
     probe = comps["ch1.probe"]
     assert probe.label == "探头换算（倍率/偏斜/反相）"
     assert probe.description and "物理探头在面板端口之外" in probe.description
-    assert comps["isim"].label == "InfiniiSim 滤波"
+    assert comps["isim"].label == "带宽限制滤波（ISIM 命令组）"
     assert comps["ch1.front"].label and comps["ch1.front"].label != comps["isim"].label
     # the bandwidth limits are DSP after the ADC (#1262): front -> probe -> ADC -> ACQ:BAND -> InfiniiSim -> dec
     view = internals({"instruments": {"scope": {"model": def_id}}}, "scope")

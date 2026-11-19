@@ -172,8 +172,30 @@ components:
   - name: ref_in
     type: input_port
     params: {z_in: 50.0}
+  # 状态寄存器组（#1571）：与 53220A 同一组位与来源（Figure 8-1）；本型号的组件表整体写出，
+  # 所以这里再写一份。
+  - name: oper
+    type: status_register
+    params:
+      bits: {CAL: 0, RUN: 1, BATT: 2, ARM: 4, WTG: 5, INTREF: 8, LOCK: 9, CONF: 10, MEM: 11, ERR: 12}
+      enable: $status.oper_enable
+      summary_bit: 7
+  - name: ques
+    type: status_register
+    params:
+      bits: {VOLT: 0, TIME: 2, FREQ: 5, PHASE: 6, CAL: 8, UNLOCK: 10, LOW: 11, HIGH: 12, MEM: 14}
+      enable: $status.ques_enable
+      summary_bit: 3
   - name: system
     type: system
+  # 状态存取（#1573）：*SAV/*RCL 0–4；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置报 +291。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 5
+      first: 0
+      empty_error: 291
 display:
   # 检查器与面板屏幕的前面板（D74）：沿用 53220A 的读数与通道输入，分组多了时间戳功能与连续测量方式；
   # 面板里只写与 53220A 不同的分组列表（列表整体替换，所以写全）。
@@ -413,3 +435,19 @@ commands:
   - header: ":SYSTem:PRESet"
     op: system.reset
     query: false
+  # ---- 状态寄存器组（第 8 章，#1571）----
+  - {header: "STATus:OPERation[:EVENt]", op: oper.event, set: false}
+  - {header: "STATus:OPERation:CONDition", op: oper.condition, set: false}
+  - {header: "STATus:OPERation:ENABle", op: oper.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
+  - {header: "STATus:QUEStionable:CONDition", op: ques.condition, set: false}
+  - {header: "STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
+  # ---- 状态存取（*SAV/*RCL 0–4，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]

@@ -28,9 +28,9 @@ format:
   boolean: numeric
   enum: short
   error_code: signed
-# 手册有、但本定义不回答的内置命令：*TRG（触发系统不在首波）、*PSC/*RCL/*SAV（状态存储）、
+# 手册有、但本定义不回答的内置命令：*TRG（触发系统不在首波）、*PSC（上电状态清除）、
 # SYSTem:DATE/TIME（实时时钟；引擎内置的回复格式与手册不同，见覆盖表）、SYSTem:ERRor:COUNt/ALL
-# （手册没有）。其余公共命令由引擎内置，见覆盖表。
+# （手册没有）。*SAV/*RCL 0–9 由定义自己的命令回答（#1573）；其余公共命令由引擎内置，见覆盖表。
 builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TRG", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
 errors:
   -123: Numeric overflow
@@ -430,6 +430,14 @@ components:
       current3: $ch3.current
       output2: $ch2.output
       output3: $ch3.output
+  # 状态存取（#1573）：*SAV/*RCL 0–9；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置不报错、设置不变。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 10
+      first: 0
+      empty_error: 0
 ports:
   channel:
     "OUT{n}+": out.pos
@@ -690,3 +698,12 @@ commands:
     state: system.scpi_version
     set: false
     format: {number: nr2, digits: 1, sign: false}
+  # ---- 状态存取（*SAV/*RCL 0–9，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]

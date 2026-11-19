@@ -424,8 +424,8 @@ cases:
       - query: "SYST:ERR?"
         expect: '0,"No Error"'
 
-  - name: "未实现的命令回复 -113：暂态、列表、输入短路、*SAV"
-    manual: "Source Commands > [SOURce:]TRANsient / [SOURce:]INPut:SHORt; List Commands; 3.2 Common Commands > *SAV"
+  - name: "未实现的命令回复 -113：暂态、列表、输入短路"
+    manual: "Source Commands > [SOURce:]TRANsient / [SOURce:]INPut:SHORt; List Commands"
     steps:
       - send: "TRAN ON"
       - query: "SYST:ERR?"
@@ -436,6 +436,28 @@ cases:
       - send: "INP:SHOR ON"
       - query: "SYST:ERR?"
         expect_prefix: "-113,"
+
+  - name: "状态存储：*SAV 1 保存、改设置后 *RCL 1 调回、*RST 不清槽、空槽与越界"
+    manual: "IEEE 488.2 Common Commands > *SAV <NRf> / *RCL <NRf>（0 to 9）"
+    steps:
+      - send: "*RST"
+      - send: "CURR 1"
       - send: "*SAV 1"
-      - query: "SYST:ERR?"
-        expect_prefix: "-113,"
+      - send: "CURR 2"
+      - query: "CURR?"
+        expect: "2.000000E+00"
+      - send: "*RCL 1"
+      - query: "CURR?"
+        expect: "1.000000E+00"
+      - send: "*RST"
+      - query: "CURR?"
+        expect: "0.000000E+00"
+      - send: "*RCL 1"
+      - query: "CURR?"
+        expect: "1.000000E+00"
+      - send: "*RCL 2"
+      - query: ":SYST:ERR?"
+        expect: '0,"No Error"'
+      - send: "*SAV 10"
+      - query: ":SYST:ERR?"
+        expect_prefix: '-222,"Data out of range'

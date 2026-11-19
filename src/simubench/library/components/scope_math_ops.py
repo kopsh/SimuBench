@@ -248,6 +248,7 @@ def pointwise(kind: str, a: np.ndarray, b: np.ndarray | None = None) -> np.ndarr
     if kind == "MULTiply":
         return a * b
     if kind == "DIVide":
+        assert b is not None
         with np.errstate(divide="ignore", invalid="ignore"):
             return np.where(b != 0.0, a / np.where(b != 0.0, b, 1.0), np.nan)
     if kind == "COMMonmode":

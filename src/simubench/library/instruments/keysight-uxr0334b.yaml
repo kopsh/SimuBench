@@ -1688,8 +1688,8 @@ components:
   # Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，这一组合未建模（覆盖表注明）。
   - name: isim
     type: scope_dsp_filter
-    label: InfiniiSim 滤波
-    description: 通道的数字带宽限制（砖墙 / Bessel / Butterworth），在 ADC 之后，关时直通。
+    label: 带宽限制滤波（ISIM 命令组）
+    description: :CHANnel:ISIM 命令组下的通道数字带宽限制（砖墙 / Bessel / Butterworth），在 ADC 之后，关时直通。InfiniiSim 去嵌入/均衡面板未建模。
     params:
       enabled: $ch{n}.isim_bwlimit
       bandwidth: $ch{n}.isim_bandwidth
@@ -2017,8 +2017,8 @@ command_overrides:
   ":MEASure:FALLtime": {op: meas.measure, set: false, args: {what: FALLtime}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
   ":MEASure:PWIDth": {op: meas.measure, set: false, args: {what: PWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
   ":MEASure:NWIDth": {op: meas.measure, set: false, args: {what: NWIDth}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  ":MEASure:OVERshoot": {op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
-  ":MEASure:PREShoot": {op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}]}
+  ":MEASure:OVERshoot": {op: meas.measure, set: false, args: {what: OVERshoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}, {name: direction, type: enum, options: [RISing, FALLing], optional: true, not_modeled: {RISing: 'the first rising edge is not told from the first edge on the screen', FALLing: 'the first falling edge is not told from the first edge on the screen'}}]}
+  ":MEASure:PREShoot": {op: meas.measure, set: false, args: {what: PREShoot}, params: [{name: source, type: enum, options: [CHANnel1, CHANnel2, CHANnel3, CHANnel4, FUNCtion1, FUNCtion2, FUNCtion3, FUNCtion4, FUNCtion5, FUNCtion6, FUNCtion7, FUNCtion8, FUNCtion9, FUNCtion10, FUNCtion11, FUNCtion12, FUNCtion13, FUNCtion14, FUNCtion15, FUNCtion16], optional: true}, {name: direction, type: enum, options: [RISing, FALLing], optional: true, not_modeled: {RISing: 'the first rising edge is not told from the first edge on the screen', FALLing: 'the first falling edge is not told from the first edge on the screen'}}]}
   ":SYSTem:CAPability:ACQuire": {op: sys.capability, set: false, params: [{name: what, type: string}], args: {HALFchannel: '0', MEMory: '500000000', SRATe: '128000000000', BANDwidth: '33000000000'}}
   ":SYSTem:CAPability:CHANnel": {op: sys.capability, set: false, params: [{name: what, type: string}], args: {COUNt: '4'}}
   ":SYSTem:CAPability:DIGital": {op: sys.capability, set: false, params: [{name: what, type: string}], args: {MEMory: '0', SRATe: '0', CHANnels: '0'}}

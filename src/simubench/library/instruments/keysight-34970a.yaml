@@ -388,6 +388,14 @@ components:
       sampler: scan
       source: {from: $trigger.source, map: {IMMediate: immediate, TIMer: immediate, BUS: bus, EXTernal: external}}
       waiting_error: -230
+  # 状态存取（#1573）：*SAV/*RCL 0–5；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置报 +291。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 6
+      first: 0
+      empty_error: 291
 wiring:
   instrument:
     - [mux.out, inp.pin]
@@ -682,3 +690,12 @@ commands:
     state: system.version
     set: false
     reply: "1994.0"
+  # ---- 状态存取（*SAV/*RCL 0–5，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 5}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 5}]

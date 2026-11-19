@@ -18,6 +18,11 @@ here. D42 fixes the principle: an unimplemented command errors, it is never sile
 | `accepted` | yes, not as implemented | parsed, validated, stored; must not change any data and must carry `affects_data: false` |
 | `not_modeled` | no | replies `-113 … not implemented in this definition`; do it later or declare it out of scope |
 
+**`STATus` rows of a real model** (D89, #1560): a definition with `reference` gets no default
+`STATus:OPERation` / `QUEStionable` / `PRESet` registers — an all-zero default would be a made-up
+answer where the manual defines the bits. Until the model's own `status_register` bits and cases
+exist, the rows stay `not_modeled` (they answer `-113`); never mark them `accepted`.
+
 ## Why a command is not modeled (`gap`, #1037)
 
 Every `not_modeled` entry should carry `gap` (real-models.md section 6):

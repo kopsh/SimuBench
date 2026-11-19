@@ -247,6 +247,22 @@ state:
     default: false
     label: 上限开
     label_en: Upper limit on
+  # 状态寄存器组的使能（Table 10：STATus:OPERation/QUEStionable:ENABle，0–32768，出厂 0；
+  # STATus:PRESet 把两个使能清 0）。
+  status.oper_enable:
+    type: int
+    min: 0
+    max: 32768
+    default: 0
+    label: OPER 使能
+    label_en: OPER enable
+  status.ques_enable:
+    type: int
+    min: 0
+    max: 32768
+    default: 0
+    label: QUES 使能
+    label_en: QUES enable
   calc.math.state:
     type: bool
     default: false
@@ -565,6 +581,26 @@ components:
     params:
       capacity: 15000000
       when_full: stop
+  # 状态寄存器组（8588A-rpeng0000 的 Table 10 与 SCPI OPERation / QUEStionable Status Register 表）：
+  # OPER 的 MEASuring（触发不在 IDLE）、WTG 由触发模型给出，下限/上限失败由 reading_math 给出；
+  # CAL、CORR、WARM、外参考失锁与削波在模型里没有来源，恒为 0。QUEStionable 的条件寄存器手册
+  # 明说不使用（读 0），这里的位都只有事件含义、没有条件来源。OSB 进状态字节位 7、QUES 位 3。
+  # latch: false——事件只在读寄存器/状态字节时锁存：每次命令分派都采样会在万用表还处于电阻
+  # 功能时解算整个台架，把校准源的 1 mA 输出拉过保护而跳回待机（5730A 用例，#1570）。
+  - name: oper
+    type: status_register
+    params:
+      bits: {CAL: 0, ARM: 4, WTG: 5, WARM: 6, LOW: 8, HIGH: 9, UNLOCK: 10, CLIP: 11}
+      enable: $status.oper_enable
+      summary_bit: 7
+      latch: false
+  - name: ques
+    type: status_register
+    params:
+      bits: {VOLT: 0, CURR: 1, POW: 3, TEMP: 4, FREQ: 5, UNDR: 9, OVER: 10, TFAST: 11, MFAST: 12}
+      enable: $status.ques_enable
+      summary_bit: 3
+      latch: false
   - name: sys
     type: system
 wiring:
@@ -954,6 +990,14 @@ commands:
     state: memory.location
   - header: ROUTe:TERMinals
     state: route.terminals
+  # ---- 状态寄存器组（Table 10） ----
+  - {header: "STATus:OPERation[:EVENt]", op: oper.event, set: false}
+  - {header: "STATus:OPERation:CONDition", op: oper.condition, set: false}
+  - {header: "STATus:OPERation:ENABle", op: oper.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
+  - {header: "STATus:QUEStionable:CONDition", op: ques.condition, set: false}
+  - {header: "STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:PRESet", op: ques.preset, query: false}
   # ---- 系统 ----
   - header: SYSTem:PRESet
     op: sys.reset

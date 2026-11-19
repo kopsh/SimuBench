@@ -45,7 +45,7 @@ errors:
   271: null
   272: null
   281: null
-  291: null
+  291: "Not able to recall state: it is empty"
   292: null
   301: null
   303: null
@@ -297,6 +297,14 @@ components:
       buffer: mem
       fetch_from_buffer: true
       waiting_error: -230
+  # 状态存取（#1573）：*SAV/*RCL 0–5；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置报 +291。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 6
+      first: 0
+      empty_error: 291
 commands:
   # ---- 通道与继电器（ROUTe 子系统）-----------------------------------------------
   - header: "ROUTe:CLOSe"
@@ -554,3 +562,12 @@ commands:
     state: mmem.rlimit
   - header: "MMEMory:FORMat:READing:RLIMit:COUNt"
     state: mmem.rlimit_count
+  # ---- 状态存取（*SAV/*RCL 0–5，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 5}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 5}]

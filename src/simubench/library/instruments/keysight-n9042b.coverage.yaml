@@ -21,18 +21,14 @@ sections:
     level: implemented
     note: 'The frequency option 526, then the installed options (526,P26 with the preamp). The reference sends the list in quotes (p.222); this model answers it without them.'
   - header: '*RCL'
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup registers (setup_memory, #1070); not wired in this model.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–127；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只给寄存器范围 0–127）；*RST 不清槽。'
   - header: '*RST'
     level: implemented
     note: 'Mode preset; INIT:CONT OFF (the reference: *RST stops continuous sweep).'
   - header: '*SAV'
-    level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup registers (setup_memory, #1070); not wired in this model.'
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–127；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只给寄存器范围 0–127）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
   - header: '*STB'

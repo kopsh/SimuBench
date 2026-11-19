@@ -58,6 +58,8 @@ class StatusRegister(Component):
         "ptr": None,  # positive filter (None: every bit, rising edges only)
         "ntr": 0,  # negative filter (0: falling edges latch nothing)
         "preset_ptr": None,  # the ptr STATus:PRESet writes (None: every bit of the register)
+        # Sample the conditions at every command dispatch (#575); false: only on an explicit read.
+        "latch": True,
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -222,8 +224,11 @@ class StatusRegister(Component):
 
     def latch_conditions(self) -> None:
         """Latch the condition transitions since the last look; the engine calls it at every
-        command dispatch (#575), reading the event register does it too."""
-        if not self._mirror() and not self._busy:
+        command dispatch (#575), reading the event register does it too. ``latch`` false leaves
+        the latching to explicit reads: a sample would solve the circuit from whichever function
+        the instrument is in, which can disturb the bench (a DMM still set to resistance trips a
+        calibrator's current output, #1570)."""
+        if V.flag(self.param("latch")) and not self._mirror() and not self._busy:
             self.events()
 
     def _enable(self) -> int:

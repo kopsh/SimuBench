@@ -287,6 +287,12 @@ class OutputControlLoop(Component):
         self.mode = "V"  # which quantity the terminal is held to: V (voltage loop) or I (current loop)
         self.limit_sign = 1.0
 
+    def status_flags(self) -> dict[str, bool]:
+        """VLIM/ILIM while the opposite quantity's limit holds the terminal: over voltage for a
+        current source, over current for a voltage source (a status register's compliance bits)."""
+        limited = self.limited()
+        return {"ILIM": limited and self.forcing_voltage(), "VLIM": limited and not self.forcing_voltage()}
+
     # ---- the settings ----------------------------------------------------------------------------
 
     def forcing_voltage(self) -> bool:

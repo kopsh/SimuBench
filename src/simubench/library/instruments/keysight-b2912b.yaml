@@ -549,6 +549,51 @@ commands:
   set: false
   params:
   - *id001
+# ---- status registers (#1572, one group per channel) ----
+- {header: ':STATus:MEASurement[:EVENt]', op: ch.meas.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:MEASurement:CONDition', op: ch.meas.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:MEASurement:ENABle', params: [{name: mask, type: int, state: 'ch.status.meas_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:MEASurement:PTRansition', params: [{name: mask, type: int, state: 'ch.status.meas_ptr'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:MEASurement:NTRansition', params: [{name: mask, type: int, state: 'ch.status.meas_ntr'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:OPERation[:EVENt]', op: ch.oper.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:OPERation:CONDition', op: ch.oper.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:OPERation:ENABle', params: [{name: mask, type: int, state: 'ch.status.oper_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:OPERation:PTRansition', params: [{name: mask, type: int, state: 'ch.status.oper_ptr'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:OPERation:NTRansition', params: [{name: mask, type: int, state: 'ch.status.oper_ntr'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable[:EVENt]', op: ch.ques.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:CONDition', op: ch.ques.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:ENABle', params: [{name: mask, type: int, state: 'ch.status.ques_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:PTRansition', params: [{name: mask, type: int, state: 'ch.status.ques_ptr'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:NTRansition', params: [{name: mask, type: int, state: 'ch.status.ques_ntr'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:VOLTage[:EVENt]', op: ch.ques_volt.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:VOLTage:CONDition', op: ch.ques_volt.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:VOLTage:ENABle', params: [{name: mask, type: int, state: 'ch.status.volt_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:CURRent[:EVENt]', op: ch.ques_curr.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:CURRent:CONDition', op: ch.ques_curr.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:CURRent:ENABle', params: [{name: mask, type: int, state: 'ch.status.curr_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:TEMPerature[:EVENt]', op: ch.ques_temp.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:TEMPerature:CONDition', op: ch.ques_temp.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:TEMPerature:ENABle', params: [{name: mask, type: int, state: 'ch.status.temp_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:CALibration[:EVENt]', op: ch.ques_cal.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:CALibration:CONDition', op: ch.ques_cal.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:CALibration:ENABle', params: [{name: mask, type: int, state: 'ch.status.cal_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:TEST[:EVENt]', op: ch.ques_test.event, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:TEST:CONDition', op: ch.ques_test.condition, set: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:QUEStionable:TEST:ENABle', params: [{name: mask, type: int, state: 'ch.status.test_enable'}, {name: channels, type: channel_list, optional: true, default: [1]}]}
+- {header: ':STATus:PRESet', op: ch.ques.preset, query: false, params: [{name: channels, type: channel_list, optional: true, default: [1]}]}
+# ---- setup memory (*SAV/*RCL 0-9, #1573) ----
+- header: "*SAV"
+  op: ch.setups.save
+  query: false
+  params:
+  - {name: register, type: int, min: 0, max: 9}
+  - {name: channels, type: channel_list, optional: true, default: [1]}
+- header: "*RCL"
+  op: ch.setups.recall
+  query: false
+  params:
+  - {name: register, type: int, min: 0, max: 9}
+  - {name: channels, type: channel_list, optional: true, default: [1]}
 channels:
   count: 2
   lists:
@@ -814,6 +859,21 @@ channel_state:
     default: 0.0
     label: 触发延迟
     label_en: Trigger delay
+  # 状态寄存器组的使能（#1572，B2910-90130 的 STATus Subsystem）：每个通道一组。
+  status.meas_enable: {type: int, min: 0, max: 65535, default: 0, label: MEAS 使能, label_en: MEAS enable}
+  status.oper_enable: {type: int, min: 0, max: 65535, default: 0, label: OPER 使能, label_en: OPER enable}
+  status.ques_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 使能, label_en: QUES enable}
+  status.volt_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 电压使能, label_en: QUES voltage enable}
+  status.curr_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 电流使能, label_en: QUES current enable}
+  status.temp_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 温度使能, label_en: QUES temperature enable}
+  status.cal_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 校准使能, label_en: QUES calibration enable}
+  status.test_enable: {type: int, min: 0, max: 65535, default: 0, label: QUES 自检使能, label_en: QUES test enable}
+  status.meas_ptr: {type: int, min: 0, max: 65535, default: 32767, label: MEAS PTR, label_en: MEAS PTR}
+  status.meas_ntr: {type: int, min: 0, max: 65535, default: 0, label: MEAS NTR, label_en: MEAS NTR}
+  status.oper_ptr: {type: int, min: 0, max: 65535, default: 32767, label: OPER PTR, label_en: OPER PTR}
+  status.oper_ntr: {type: int, min: 0, max: 65535, default: 0, label: OPER NTR, label_en: OPER NTR}
+  status.ques_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES PTR, label_en: QUES PTR}
+  status.ques_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES NTR, label_en: QUES NTR}
 channel_components:
 - name: source
   type: smu_source
@@ -948,3 +1008,78 @@ channel_components:
     capacity: 100000
     when_full: stop
     digits: 6
+# 状态寄存器组（#1572）：每通道一组（手册的 MEASurement 寄存器把 Ch1/Ch2 的位放在同一张表里，
+# 本型号按通道各一组，命令用通道列表选择；位 0–4 是该通道的位）。
+- name: meas
+  type: status_register
+  params:
+    bits: {LIMIT: 0, DATA: 1, OVER: 2, BUF_DATA: 3, BUF_FULL: 4}
+    enable: $ch.status.meas_enable
+    ptr: $ch.status.meas_ptr
+    ntr: $ch.status.meas_ntr
+    preset_ptr: 32767
+    summary_bit: 0
+- name: oper
+  type: status_register
+  params:
+    bits: {CAL: 0, TIDLE: 1, TWTG: 2, TWARM: 3, SCN: 4, WTG: 5, AWARM: 6, LOCK: 13, PROG: 14}
+    enable: $ch.status.oper_enable
+    ptr: $ch.status.oper_ptr
+    ntr: $ch.status.oper_ntr
+    preset_ptr: 32767
+    summary_bit: 7
+- name: ques
+  type: status_register
+  params:
+    bits: {VLIM: 0, ILIM: 1, PROT: 2, TEMP: 4, CAL: 8, TEST: 9, ILOCK: 10}
+    enable: $ch.status.ques_enable
+    ptr: $ch.status.ques_ptr
+    ntr: $ch.status.ques_ntr
+    preset_ptr: 32767
+    summary_bit: 3
+- name: ques_volt
+  type: status_register
+  params:
+    bits: {VLIM: 0}
+    enable: $ch.status.volt_enable
+    ptr: 32767
+    ntr: 0
+    preset_ptr: 32767
+- name: ques_curr
+  type: status_register
+  params:
+    bits: {ILIM: 0}
+    enable: $ch.status.curr_enable
+    ptr: 32767
+    ntr: 0
+    preset_ptr: 32767
+- name: ques_temp
+  type: status_register
+  params:
+    bits: {TEMP: 0}
+    enable: $ch.status.temp_enable
+    ptr: 32767
+    ntr: 0
+    preset_ptr: 32767
+- name: ques_cal
+  type: status_register
+  params:
+    bits: {CAL: 0}
+    enable: $ch.status.cal_enable
+    ptr: 32767
+    ntr: 0
+    preset_ptr: 32767
+- name: ques_test
+  type: status_register
+  params:
+    bits: {TEST: 0}
+    enable: $ch.status.test_enable
+    ptr: 32767
+    ntr: 0
+    preset_ptr: 32767
+- name: setups
+  type: setup_memory
+  params:
+    registers: 10
+    first: 0
+    empty_error: 0
