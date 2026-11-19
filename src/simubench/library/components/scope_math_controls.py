@@ -220,13 +220,14 @@ class Controls:
             return OpResult(str(round(scale)).encode())
         if value is None:
             raise ScpiError(-109)
+        text = value.decode("ascii", errors="replace") if isinstance(value, bytes) else value
         try:
-            if isinstance(value, bytes):
-                number = float(V.parse_number(value.decode("ascii", errors="replace")))
-            elif isinstance(value, str):
-                number = float(V.parse_number(value))
+            if isinstance(text, str) and text.strip().startswith("#"):
+                number = float(V.parse_float(text.encode()))  # #H / #Q / #B: IEEE 488.2 7.7.4 (#1497, #1496)
+            elif isinstance(text, str):
+                number = float(V.parse_number(text))
             else:
-                number = float(value)
+                number = float(text)
         except ValueError:
             raise ScpiError(-104, f"{value!r}: not a number") from None
         return self._set_h(f, "range", number * full)
