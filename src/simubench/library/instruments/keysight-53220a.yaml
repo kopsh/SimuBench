@@ -249,6 +249,7 @@ state:
     min: 0
     max: 65535
     default: 0
+    keep_on_reset: true
     label: OPER 使能
     label_en: OPER enable
   status.ques_enable:
@@ -256,6 +257,7 @@ state:
     min: 0
     max: 65535
     default: 0
+    keep_on_reset: true
     label: QUES 使能
     label_en: QUES enable
 components:

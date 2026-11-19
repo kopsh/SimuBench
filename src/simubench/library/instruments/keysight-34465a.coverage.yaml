@@ -793,7 +793,7 @@ sections:
       trigger_model 的 ARM/WTG；CONF、MEM、LOCK、ERR 与 CAL 在模型里没有来源，恒为 0。
   - header: STATus:OPERation:ENABle
     level: implemented
-    note: 十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。
+    note: 十进制掩码 0–65535，越界 -222；*RST、SYSTem:PRESet、*CLS 都不改（手册：enable 非易失），STATus:PRESet 清 0。
   - header: STATus:OPERation[:EVENt]
     level: implemented
     note: 条件变为真时锁存（事件 = ptr 过滤的上升沿，ptr 默认全 1）；读后清零，*CLS 清零。
@@ -808,7 +808,7 @@ sections:
       过载、限值与校准位在模型里没有来源，恒为 0。
   - header: STATus:QUEStionable:ENABle
     level: implemented
-    note: 十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。
+    note: 十进制掩码 0–65535，越界 -222；*RST、SYSTem:PRESet、*CLS 都不改（手册：enable 非易失），STATus:PRESet 清 0。
   - header: STATus:QUEStionable[:EVENt]
     level: implemented
     note: 条件变为真时锁存，读后清零，*CLS 清零；QUES 汇总进状态字节位 3（使能非 0 时）。

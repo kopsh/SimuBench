@@ -761,14 +761,14 @@ sections:
     blocked_by: file-system
   - header: MMEMory:LOAD:STATe
     level: not_modeled
-    note: 仪器状态文件未建模。
+    note: 仪器状态文件未建模（状态文件要经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入）。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:STORe:STATe
     level: not_modeled
-    note: 仪器状态文件未建模。
+    note: 仪器状态文件未建模（状态文件要经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入）。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:LOAD:PREFerences
     level: not_modeled
     note: 用户偏好文件未建模。

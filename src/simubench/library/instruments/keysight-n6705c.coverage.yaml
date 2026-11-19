@@ -26,7 +26,7 @@ sections:
     gap: model_work
   - header: '*RCL'
     level: implemented
-    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*RDT'
     level: not_modeled
     note: 通道描述未实现（型号用 SYSTem:CHANnel:MODel?）。
@@ -36,7 +36,7 @@ sections:
     note: 按 *RST 表：电压/电流 0、输出 OFF、OVP MAX（60 V）、OCP OFF、OCP 延迟 0.020 s、SCHange、内部检测、显示 METER1。
   - header: '*SAV'
     level: implemented
-    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器。
@@ -517,9 +517,8 @@ sections:
     gap: out_of_scope
   - header: OUTPut:PON:STATe
     level: not_modeled
-    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    note: 输出耦合与时序延时、禁止输入、上电状态、看门狗、继电器极性等未实现（`*SAV`/`*RCL` 的 setup_memory 已接入，这里缺的是上电恢复语义）。
+    gap: model_work
   - header: OUTPut:PROTection:CLEar
     level: implemented
     note: 通道列表必需（省略报 -109）；清除 OVP/OCP 锁存，原因消除后输出恢复到保护前的状态。
