@@ -224,7 +224,7 @@ class Component:
 
 - 上游的解析与 `Component.input` 相同：`SignalWiring.source` 给出上游端口；采样流输入不允许悬空，校验期拒绝。
 - 新钩子（`frames`、`input_frames`、`sample_interval`）纳入 `tests/test_component_catalog.py` 的钩子签名契约（#898、#929）。
-- `Session.cached_frames(comp, port, request)`：缓存键 `(信号版本, comp.uid, port, request)`，容量小（64 帧，LRU），
+- `Session.cached_frames(comp, port, request)`：缓存键 `(信号版本, comp.uid, port, request, *求值的环境输入)`（环境输入 = 调谐点与求值时刻，`Session._evaluation_inputs` 一处给出，`cached_output` 的键尾同源，#1486），容量小（64 帧，LRU），
   只为一次读取内的重复请求与探针服务；信号版本变化即失效。
 - **定义校验**（`engine/validate_definition.py`）新增：
   - `E-DEF-WIRE-MEDIUM`（已有同类检查则扩展）：`samples` 输出只能接 `samples` 输入；`signal` 输出不能接 `samples` 输入——中间必须有 ADC；
@@ -425,7 +425,7 @@ class RfStage(Protocol):
 > “一次变换覆盖 `fft_width`（64）个 RBW”。`decimation`、滤波器类型不在迹线里另算一遍。滤波器只有凯泽窗 sinc 一种，
 > 阶数由 `stopband`（默认 80 dB）决定：11 个输出间隔长，预热为长度减一个 ADC 采样。
 > （3）**调谐点随请求走**：`FrameRequest.tune_hz` 由发起读取的迹线或探针填写，`adc` 在求值输入信号时进入 `Session.tuned`；
-> 它是帧缓存键的一部分（此前探针的请求不带它，两个调谐点会读到同一帧）。
+> 它是帧缓存键的一部分（此前探针的请求不带它，两个调谐点会读到同一帧）。块只读请求里的调谐点：没带的请求按未调谐求值，不读调用方的环境调谐（`adc` 的环境回退已删，#1486）。
 > （4）**时钟误差**：请求的 `dt_s` 是实际间隔（标称 ÷ (1 + ε)），NCO 按“每个 ADC 采样多少周”计，所以数字中频的频率轴与扫频式一样只带一次参考误差。
 > （5）**分段与上限**：每段取变换中间的 `min(输出速率的一半, 中频通带的 60 %)`；分段数 × 每段沿链的采样数由 `StreamStage.upstream_request`
 > 逐块求出，超出 `MAX_REQUEST_FANOUT` 或 `MAX_SWEEP_BINS`（2²² 个频点）时**在计算之前**拒绝。每次扫描单独计数。

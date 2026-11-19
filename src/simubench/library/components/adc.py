@@ -109,7 +109,7 @@ class Adc(Component):
         return math.sqrt(10 ** (dbm / 10) * 1e-3 * float(self.param("impedance")))
 
     def frames(self, port: str, request: FrameRequest) -> SampleFrame:
-        tune = request.tune_hz if request.tune_hz is not None else self.session.tune_hz
+        tune = request.tune_hz  # the request alone decides: one that does not say is untuned, whatever the caller's ambient tuning (#1486)
         with self.session.tuned(tune):
             volts = self.input("in").sample_rel(request.t0_ns, request.offsets_s())
             sigma = self.analog_noise_rms(request.dt_s, 0.0 if tune is None else tune)

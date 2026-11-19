@@ -137,16 +137,15 @@ class Session:
         self._electrical_version = 0
         self._circuit: tuple[int, Circuit] | None = None
         self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
-        self._output_cache: dict[tuple[int, str, str, float | None, int | None], Signal] = {}
+        #: Keyed by (signal version, uid, port, *:meth:`_evaluation_inputs`).
+        self._output_cache: dict[tuple[Any, ...], Signal] = {}
         #: The tuning point of the read in progress (:meth:`tuned`); None outside one.
         self.tune_hz: float | None = None
         #: The instant an evaluation in progress is for (:meth:`at_instant`); None: now.
         self._at_ns: int | None = None
-        #: Frames of the sample streams (D67), newest last: (signal version, uid, port, request) ->
-        #: (frame, samples asked for along the chain to make it).
-        self._frame_cache: OrderedDict[tuple[int, str, str, FrameRequest], tuple[SampleFrame, int]] = (
-            OrderedDict()
-        )
+        #: Frames of the sample streams (D67), newest last: (signal version, uid, port, request,
+        #: *:meth:`_evaluation_inputs`) -> (frame, samples asked for along the chain to make it).
+        self._frame_cache: OrderedDict[tuple[Any, ...], tuple[SampleFrame, int]] = OrderedDict()
         #: One entry per :meth:`cached_frames` call in progress: the samples it has asked for so far.
         self._frame_asks: list[int] = []
         self._frame_cached = 0  # samples the frame cache holds
@@ -461,8 +460,18 @@ class Session:
         finally:
             self._at_ns = outer
 
+    def _evaluation_inputs(self) -> tuple[float | None, int | None]:
+        """The evaluation's ambient inputs: the tuning point (:meth:`tuned`) and the instant
+        (:meth:`at_instant`). They are inputs, not state: whatever a cache keeps, computed under
+        them, is keyed by them — and this is the one place that says which they are. Both caches
+        (:meth:`cached_output`, :meth:`cached_frames`) take their key's tail from here, so a new
+        ambient input is added once. A frame's request may carry its own tuning point
+        (``FrameRequest.tune_hz``); a block takes the request's, never the ambient one, so the
+        request alone decides what it computes (#1486)."""
+        return (self.tune_hz, self._at_ns)
+
     def cached_output(self, comp: Component, port: str) -> Signal:
-        key = (self._signal_version, comp.uid, port, self.tune_hz, self._at_ns)
+        key = (self._signal_version, comp.uid, port, *self._evaluation_inputs())
         hit = self._output_cache.get(key)
         if hit is None:
             if len(self._output_cache) > 4096:
@@ -474,11 +483,12 @@ class Session:
     def cached_frames(self, comp: Component, port: str, request: FrameRequest) -> SampleFrame:
         """A samples output port's frame for one request (signal-chain.md 3.2). The cache is small
         and only serves repeated requests within a read and the internal probe; a new signal
-        version drops it. Every sample asked for along the chain counts toward
+        version drops it. Its key is the signal version, the port, the request and the evaluation's
+        ambient inputs (:meth:`_evaluation_inputs`). Every sample asked for along the chain counts toward
         ``MAX_REQUEST_FANOUT`` — a cached frame counts what it cost to make, so whether a read is
         refused never depends on what was read before."""
         check_request(request)
-        key = (self._signal_version, comp.uid, port, request)
+        key = (self._signal_version, comp.uid, port, request, *self._evaluation_inputs())
         hit = self._frame_cache.get(key)
         asked = sum(self._frame_asks)
         if hit is None:

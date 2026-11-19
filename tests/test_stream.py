@@ -380,3 +380,106 @@ def test_the_cache_holds_a_bounded_number_of_samples(blocks, monkeypatch):
         session.cached_frames(comps["adc"], "out", FrameRequest(0, 400, DT, ("acq", k)))
     session.cached_frames(comps["adc"], "out", FrameRequest(0, 2000, DT, ("acq", 9)))
     assert (len(session._frame_cache), session._frame_cached) == (2, 800)
+
+
+# ---- the evaluation's ambient inputs are part of the cache's key (#1486) --------------------------
+
+
+@pytest.fixture
+def ambient_reader():
+    """A block whose frame is its caller's ambient state: tuning point, evaluation instant."""
+
+    @component("t_ambient")
+    class Ambient(Component):
+        ports: ClassVar[dict[str, PortSpec]] = {"out": PortSpec("out", "samples")}
+        calls = 0
+
+        def frames(self, port: str, request: FrameRequest) -> SampleFrame:
+            self.calls += 1
+            tune = -1.0 if self.session.tune_hz is None else self.session.tune_hz
+            return SampleFrame(
+                np.full(request.count, tune + 1e-9 * self.session.instant_ns), request.t0_ns, request.dt_s
+            )
+
+    yield
+    registry.unregister("t_ambient")
+
+
+def _ambient_session():
+    definition = InstrumentDefinition.model_validate(
+        {
+            "schema": "simubench.instrument/2",
+            "id": "ambient",
+            "manufacturer": "ACME",
+            "model": "AMB",
+            "class": "oscilloscope",
+            "components": [{"name": "amb", "type": "t_ambient"}],
+            "commands": [],
+        }
+    )
+    bench = BenchDefinition.model_validate(
+        {"schema": "simubench.bench/1", "name": "a", "instruments": {"x": {"model": "ambient"}}}
+    )
+    session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
+    return session, session.instruments["x"].components["amb"]
+
+
+def test_the_frame_cache_does_not_mix_tunings_or_instants(ambient_reader):
+    """One request, asked under other ambient tuning or another evaluation instant, is another
+    entry: the frame is not served from what was computed under different inputs."""
+    session, amb = _ambient_session()
+    plain = session.cached_frames(amb, "out", ask(5)).data[0]
+    with session.tuned(1e6):
+        tuned = session.cached_frames(amb, "out", ask(5)).data[0]
+    with session.at_instant(500):
+        earlier = session.cached_frames(amb, "out", ask(5)).data[0]
+    assert (plain, tuned, earlier) == (-1.0, 1e6, -1.0 + 500e-9)  # step: three inputs, three frames
+    assert amb.calls == 3
+    with session.tuned(1e6):
+        assert session.cached_frames(amb, "out", ask(5)).data[0] == tuned
+    assert session.cached_frames(amb, "out", ask(5)).data[0] == plain  # step: each is served again
+    assert amb.calls == 3
+
+
+def test_the_adc_takes_the_requests_tuning_never_the_callers_ambient_one():
+    """The library's ADC evaluates its input under the request's tuning point alone: a request
+    that carries none is untuned even inside ``tuned()`` (the ambient fallback is gone, #1486), and
+    one that carries a point gets it whatever the ambient one is."""
+    seen: list[float | None] = []
+
+    @component("t_listening_tone")
+    class ListeningTone(Component):
+        ports: ClassVar[dict[str, PortSpec]] = {"out": PortSpec("out", "signal")}
+
+        def output(self, port: str) -> Signal:
+            seen.append(self.session.tune_hz)
+            return sine(1e3, 1.0)
+
+    try:
+        definition = InstrumentDefinition.model_validate(
+            {
+                "schema": "simubench.instrument/2",
+                "id": "listen",
+                "manufacturer": "ACME",
+                "model": "LISTEN",
+                "class": "oscilloscope",
+                "components": [
+                    {"name": "tone", "type": "t_listening_tone"},
+                    {"name": "adc", "type": "adc"},
+                ],
+                "wiring": {"instrument": [["tone.out", "adc.in"]]},
+                "commands": [],
+            }
+        )
+        bench = BenchDefinition.model_validate(
+            {"schema": "simubench.bench/1", "name": "l", "instruments": {"x": {"model": "listen"}}}
+        )
+        session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
+        adc = session.instruments["x"].components["adc"]
+        with session.tuned(2e6):
+            session.cached_frames(adc, "out", ask(8, key=("a",)))  # step: no point in the request
+            session.cached_frames(adc, "out", ask(8, key=("b",), tune_hz=3e6))  # step: its own point
+        session.cached_frames(adc, "out", ask(8, key=("c",), tune_hz=4e6))  # step: nothing ambient
+    finally:
+        registry.unregister("t_listening_tone")
+    assert seen == [None, 3e6, 4e6]
