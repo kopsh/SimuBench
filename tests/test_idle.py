@@ -11,8 +11,8 @@ from fastapi.testclient import TestClient
 from helpers import raises_with
 from simubench.api import open_bench
 from simubench.engine import sleep_mode
-from simubench.engine.replay import read_record, replay
 from simubench.models.bench import Fault
+from simubench.replay import read_record, replay
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 

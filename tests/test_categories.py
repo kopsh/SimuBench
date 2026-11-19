@@ -1,4 +1,4 @@
-"""The category registry (library/categories.py, #1384): every class has its one row, complete.
+"""The category registry (models/categories.py, #1384): every class has its one row, complete.
 
 A missing row used to be silent: the definition still loaded and the UI quietly fell back to the
 generic card with no readings and no screen. These tests make that loud at build time; the Web's
@@ -12,10 +12,10 @@ import ast
 from pathlib import Path
 from typing import get_args
 
-from simubench.library import categories
+from simubench.contracts.api import InstrumentClass
 from simubench.library.class_defaults import CLASS_ERRORS
-from simubench.library.panels import _DEFAULTS, DEDICATED
-from simubench.models.api import InstrumentClass
+from simubench.models import categories
+from simubench.models.panels import _DEFAULTS, DEDICATED
 
 ROOT = Path(__file__).resolve().parents[1]
 

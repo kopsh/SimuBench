@@ -3,7 +3,7 @@ the events are emitted.
 
 The engine emits plain dicts (:meth:`Session.emit`); the WebSocket stream, the run record and the
 TUI's log all see the same shape. The models below are that shape, so a new field or kind is
-registered exactly here: ``models/api.py`` re-exports them (the D57 precedent of ``SourceLine``),
+registered exactly here: ``contracts/api.py`` re-exports them (the D57 precedent of ``SourceLine``),
 the server's WS projection (:func:`project`) and the run-record reader derive their whitelists
 from the model, and the test fixtures build their events through it.
 """
@@ -42,7 +42,7 @@ EVENT_KINDS: dict[str, str] = {
 #: ``Event.kind``'s schema description, generated from :data:`EVENT_KINDS` instead of hand-copied.
 KIND_DESCRIPTION = " | ".join(EVENT_KINDS)
 
-# The shared model config mirrors models/api._Model so the generated schema stays identical (D57).
+# The shared model config mirrors contracts/api._Model so the generated schema stays identical (D57).
 
 
 class Event(BaseModel):

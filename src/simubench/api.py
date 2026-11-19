@@ -34,7 +34,7 @@ def open_bench(
     (a copy of a model running the model's own cases, P1-4).
     """
     if workspace_plugins is not None:
-        from .plugins import load_workspace_plugins
+        from .engine.plugins import load_workspace_plugins
 
         load_workspace_plugins(workspace_plugins)
     base: Path | None = None

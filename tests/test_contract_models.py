@@ -1,7 +1,7 @@
 """The diagnostic-family contracts (issue 626, D57): defined once beside the engine code that
-produces them, re-exported by models/api.py.
+produces them, re-exported by contracts/api.py.
 
-These tests pin the derivation: models/api.py hands out the engine's own classes, the engine's
+These tests pin the derivation: contracts/api.py hands out the engine's own classes, the engine's
 reports already carry them, and the state-variable view derives from the definition's StateSpec
 instead of a hand-copied mirror — so a new field is one edit on the engine side.
 """
@@ -9,11 +9,11 @@ instead of a hand-copied mirror — so a new field is one edit on the engine sid
 from __future__ import annotations
 
 from helpers import raises_with
-from simubench.engine.replay import ReplayMismatch, ReplayReport
+from simubench.contracts import api as M
 from simubench.engine.silence import SilenceReason
 from simubench.engine.validate import Diagnostic, Report
-from simubench.models import api as M
 from simubench.models.definition import StateSpec
+from simubench.replay import ReplayMismatch, ReplayReport
 
 
 def test_the_api_hands_out_the_engine_contracts():

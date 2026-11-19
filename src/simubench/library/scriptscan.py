@@ -21,8 +21,8 @@ from typing import Any
 
 from ..engine.commands import UnitMatch, classify
 from ..errors import Invalid
+from ..models import categories
 from ..models.definition import InstrumentDefinition
-from . import categories
 
 RESOURCE = re.compile(r"\b(?:TCPIP|USB|GPIB|ASRL|VXI|PXI)\d*::[^\s\"']+", re.IGNORECASE)
 NAME_OK = re.compile(r"[^A-Za-z0-9_-]")

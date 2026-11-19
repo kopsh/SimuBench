@@ -10,10 +10,10 @@ from tests.helpers import ScriptedLLM, last_tool_return
 from tests.test_assistant import BENCH, edit, manager, service_with, sha, turn
 
 from helpers import raises_with
-from simubench.assistant.service import ROLLED_BACK_NOTE
+from simubench.contracts import api as M
 from simubench.engine.edit import SetLabel
 from simubench.library.loader import load_yaml
-from simubench.models import api as M
+from simubench.server.assistant.service import ROLLED_BACK_NOTE
 from simubench.server.errors import Conflict
 
 __all__ = ["manager"]

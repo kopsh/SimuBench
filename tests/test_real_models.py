@@ -13,8 +13,9 @@ import pytest
 import pyvisa
 import yaml
 
+from simubench.cases import run_case
 from simubench.cli import main
-from simubench.library.coverage import Coverage, check, coverage_path, load_cases, load_coverage, run_case
+from simubench.library.coverage import Coverage, check, coverage_path, load_cases, load_coverage
 from simubench.library.loader import BUILTIN_DIR, DefinitionLibrary
 from simubench.scpi import values as V
 from simubench.scpi.parse import Pattern, parse_unit

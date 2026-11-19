@@ -137,7 +137,7 @@ def test_the_open_screen_criterion_is_the_registry_row():
     """The app opens its screens by the registry row (D80, #1469): every kind the registry gives
     a dedicated screen opens it, every other kind — and an unknown class — the generic instrument
     screen. The template literal the registry lookup missed cannot come back."""
-    from simubench.library import categories
+    from simubench.models import categories
     from simubench.tui.app import screen_key
 
     assert screen_key("oscilloscope") == "scope"

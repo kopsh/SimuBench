@@ -8,7 +8,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, Response
 
 from ... import __version__
-from ...models import api as M
+from ...contracts import api as M
 from ...storage import Entry
 from .context import ApiContext
 
@@ -67,7 +67,7 @@ def _status_routes(ctx: ApiContext, router: APIRouter) -> None:
     @router.get("/api/manifest", operation_id="getManifest", dependencies=[Depends(auth)])
     def get_manifest() -> dict[str, Any]:
         """Version manifest: engine, dependencies, definitions and their hashes, web UI build."""
-        from ...ops import manifest
+        from ..ops import manifest
 
         return manifest(manager.files.workspace, manager.record_dir)
 
@@ -75,7 +75,7 @@ def _status_routes(ctx: ApiContext, router: APIRouter) -> None:
     def get_doctor() -> list[dict[str, str]]:
         from dataclasses import asdict
 
-        from ...ops import doctor
+        from ..ops import doctor
 
         return [asdict(c) for c in doctor(manager.files.workspace)]
 
@@ -122,7 +122,7 @@ def _diagnostic_and_run_routes(ctx: ApiContext, router: APIRouter) -> None:
     )
     def get_diagnostics() -> Response:
         """A diagnostics bundle (zip) to attach to a bug report; it contains no access token."""
-        from ...ops import bundle
+        from ..ops import bundle
 
         data = bundle(manager, manager.files.workspace, record_dir=manager.record_dir)
         name = f"simubench-diagnostics-{time.strftime('%Y%m%d-%H%M%S')}.zip"

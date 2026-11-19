@@ -9,9 +9,9 @@ from __future__ import annotations
 import copy
 from typing import TYPE_CHECKING
 
+from ..contracts import api as M
 from ..engine.portref import split
 from ..engine.session import Session
-from ..models import api as M
 from ..models.bench import BenchDefinition
 from .manager import ServedSession
 

@@ -16,7 +16,8 @@ import math
 import re
 from typing import Any, Literal
 
-from ..models.definition import (
+from . import categories
+from .definition import (
     ComponentSpec,
     InstrumentDefinition,
     Panel,
@@ -27,7 +28,6 @@ from ..models.definition import (
     PanelSoftkey,
     StateSpec,
 )
-from . import categories
 
 # The classes the UI draws with a screen of their own; a panel is not used for them
 # (validate_definition's W-DEF-PANEL-IGNORED reads this).

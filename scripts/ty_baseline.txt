@@ -13,13 +13,13 @@ src/simubench/access/pyvisa_backend.py:missing-attribute Unresolved attribute `e
 src/simubench/access/vxi11_server.py:invalid-type-form Function `bool` is not valid in a return type annotation
 src/simubench/access/vxi11_server.py:invalid-type-form Function `int` is not valid in a parameter annotation
 src/simubench/access/vxi11_server.py:invalid-type-form Function `int` is not valid in a return type annotation ×2
-src/simubench/assistant/compaction.py:deprecated The class `RetryPromptPart` is deprecated: `RetryPromptPart` is deprecated and will be removed in v3. Build the part the retry belongs to: `ToolReturnPart(tool_name=..., content=..., tool_call_id=..., outcome='retried')` for a retry that answers a tool call, or `RetryFeedbackPart(content=..., retry=RetryInfo(cause=...))` for one that answers none. ×3
-src/simubench/assistant/compaction.py:invalid-argument-type Argument to function `estimate_tokens` is incorrect: Expected `list[ModelRequest | ModelResponse]`, found `list[ModelRequest]`
-src/simubench/assistant/llm.py:invalid-argument-type Argument to `AnthropicModel.__init__` is incorrect: Expected `ModelProfile | ((ModelProfile, /) -> ModelProfile) | None`, found `dict[str, int]`
-src/simubench/assistant/llm.py:invalid-argument-type Argument to `AnthropicModel.__init__` is incorrect: Expected `str`, found `str | None`
-src/simubench/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatModel.__init__` is incorrect: Expected `ModelProfile | ((ModelProfile, /) -> ModelProfile) | None`, found `dict[str, int]`
-src/simubench/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatModel.__init__` is incorrect: Expected `str`, found `str | None`
-src/simubench/assistant/service.py:invalid-argument-type Argument is incorrect: Expected `Literal["bench", "definition"]`, found `str` ×2
+src/simubench/server/assistant/compaction.py:deprecated The class `RetryPromptPart` is deprecated: `RetryPromptPart` is deprecated and will be removed in v3. Build the part the retry belongs to: `ToolReturnPart(tool_name=..., content=..., tool_call_id=..., outcome='retried')` for a retry that answers a tool call, or `RetryFeedbackPart(content=..., retry=RetryInfo(cause=...))` for one that answers none. ×3
+src/simubench/server/assistant/compaction.py:invalid-argument-type Argument to function `estimate_tokens` is incorrect: Expected `list[ModelRequest | ModelResponse]`, found `list[ModelRequest]`
+src/simubench/server/assistant/llm.py:invalid-argument-type Argument to `AnthropicModel.__init__` is incorrect: Expected `ModelProfile | ((ModelProfile, /) -> ModelProfile) | None`, found `dict[str, int]`
+src/simubench/server/assistant/llm.py:invalid-argument-type Argument to `AnthropicModel.__init__` is incorrect: Expected `str`, found `str | None`
+src/simubench/server/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatModel.__init__` is incorrect: Expected `ModelProfile | ((ModelProfile, /) -> ModelProfile) | None`, found `dict[str, int]`
+src/simubench/server/assistant/llm.py:invalid-argument-type Argument to `OpenAIChatModel.__init__` is incorrect: Expected `str`, found `str | None`
+src/simubench/server/assistant/service.py:invalid-argument-type Argument is incorrect: Expected `Literal["bench", "definition"]`, found `str` ×2
 src/simubench/cli.py:deprecated The function `on_event` is deprecated:
 src/simubench/engine/command_runner.py:invalid-argument-type Argument to bound method `CommandRunner._resolve` is incorrect: Expected `str`, found `str | None`
 src/simubench/engine/component.py:missing-attribute Object of type `(...) -> OpResult` has no attribute `__name__`
@@ -34,9 +34,9 @@ src/simubench/engine/silence.py:not-iterable Object of type `None` is not iterab
 src/simubench/engine/validate.py:invalid-argument-type Argument to function `ladder` is incorrect: Expected `(str, /) -> Iterable[str]`, found `Overload[(key: object, default: None = None, /) -> dict[str, tuple[str, str, int | None]] | None, (key: object, default: dict[str, tuple[str, str, int | None]], /) -> dict[str, tuple[str, str, int | None]], [_T](key: object, default: _T, /) -> dict[str, tuple[str, str, int | None]] | _T]`
 src/simubench/engine/validate.py:invalid-argument-type Method `__getitem__` of type `bound method dict[str, int].__getitem__(key: str, /) -> int` cannot be called with key of type `None` on object of type `dict[str, int]`
 src/simubench/engine/validate_definition.py:invalid-argument-type Argument to constructor `int.__new__` is incorrect: Expected `str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc`, found `float | None` ×2
-src/simubench/engine/verdicts.py:invalid-argument-type Argument to function `_cell` is incorrect: Expected `str`, found `str | Path` ×2
-src/simubench/engine/verdicts.py:invalid-argument-type Argument to function `_number` is incorrect: Expected `str`, found `str | Path`
-src/simubench/engine/verdicts.py:invalid-argument-type Argument to function `_point` is incorrect: Expected `str`, found `str | Path`
+src/simubench/verdicts.py:invalid-argument-type Argument to function `_cell` is incorrect: Expected `str`, found `str | Path` ×2
+src/simubench/verdicts.py:invalid-argument-type Argument to function `_number` is incorrect: Expected `str`, found `str | Path`
+src/simubench/verdicts.py:invalid-argument-type Argument to function `_point` is incorrect: Expected `str`, found `str | Path`
 src/simubench/library/components/arb_segments.py:invalid-argument-type Argument to bound method `ndarray.max` is incorrect: Expected `NDArray[object_]`, found `ndarray[_AnyShape, dtype[signedinteger[_32Bit]]]`
 src/simubench/library/components/arb_segments.py:invalid-argument-type Argument to bound method `ndarray.max` is incorrect: Expected `NDArray[object_]`, found `ndarray[tuple[int], dtype[signedinteger[_16Bit]]]`
 src/simubench/library/components/arb_segments.py:invalid-argument-type Argument to bound method `ndarray.min` is incorrect: Expected `NDArray[object_]`, found `ndarray[_AnyShape, dtype[signedinteger[_32Bit]]]`
@@ -108,16 +108,16 @@ src/simubench/library/components/trigger.py:missing-attribute Object of type `Se
 src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@fire` has no attribute `uid`
 src/simubench/library/components/trigger.py:missing-attribute Object of type `Self@wait_fired` has no attribute `owner` ×3
 src/simubench/library/coverage.py:invalid-return-type Return type does not match returned value: expected `str`, found `str | None`
-src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Literal["run", "stop", "single"] | None`, found `str`
-src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, bool]` ×2
-src/simubench/library/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, str | Unknown]`
-src/simubench/library/panels.py:invalid-argument-type Argument to bound method `set.add` is incorrect: Expected `str`, found `str | None`
+src/simubench/models/panels.py:invalid-argument-type Argument is incorrect: Expected `Literal["run", "stop", "single"] | None`, found `str`
+src/simubench/models/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, bool]` ×2
+src/simubench/models/panels.py:invalid-argument-type Argument is incorrect: Expected `Mapping[str, Any]`, found `dict[str | None, str | Unknown]`
+src/simubench/models/panels.py:invalid-argument-type Argument to bound method `set.add` is incorrect: Expected `str`, found `str | None`
 src/simubench/library/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
 src/simubench/library/templates/oscilloscope.py:unsupported-operator Operator `*` is not supported between objects of type `float | None` and `float*`
 src/simubench/library/templates/signal_source.py:missing-attribute Object of type `type[Component]` has no attribute `VPP_PER_VRMS` ×2
 src/simubench/mcp_tools/definitions.py:invalid-argument-type Argument to bound method `DefinitionFiles.read` is incorrect: Expected `str`, found `str | None`
-src/simubench/ops.py:deprecated The overload of `getLevelName` is deprecated: The str -> int case is considered a mistake. ×2
-src/simubench/plugins.py:invalid-argument-type Argument to function `_warn_overrides` is incorrect: Expected `dict[str, type]`, found `dict[str, type[Component]]`
+src/simubench/server/ops.py:deprecated The overload of `getLevelName` is deprecated: The str -> int case is considered a mistake. ×2
+src/simubench/engine/plugins.py:invalid-argument-type Argument to function `_warn_overrides` is incorrect: Expected `dict[str, type]`, found `dict[str, type[Component]]`
 src/simubench/pytest_plugin.py:invalid-argument-type Argument is incorrect: Expected `bool`, found `Literal["no bench: use @pytest.mark.bench(path), --simubench-bench or simubench_bench in the ini file"]`
 src/simubench/pytest_plugin.py:invalid-argument-type Argument is incorrect: Expected `bool`, found `str`
 src/simubench/pytest_plugin.py:missing-attribute Object of type `None` has no attribute `failed`

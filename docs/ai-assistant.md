@@ -36,7 +36,7 @@ LLM 由用户配置，连接私有化部署的服务。
 
 - 模板是**完全独立的定义**（`simubench.instrument/2`），**不再 `extends` 内置型号**：保存时把继承链展开成完整定义，之后内置型号怎么变都不影响它。
 - 与已有的“复制为我的仪表”（`DefinitionFiles.copy_of`，生成 `my-<id>` 并 `extends` 父型号，D59）的差别：已有机制是活引用，父型号改名、删除，或父型号列表新增条目时，子定义会加载失败或悄悄变旧。独立快照没有这个问题。代价是拿不到内置型号后续的修正，用户需要重新保存。
-- 文件格式升级（`/1` → `/2`）由 `library/migrate.py` 的迁移链处理，模板与内置型号走同一条链，不受影响。
+- 文件格式升级（`/1` → `/2`）由 `models/migrate.py` 的迁移链处理，模板与内置型号走同一条链，不受影响。
 - 这意味着要改 D59 的“复制”行为，或新增一个“展开成独立定义”的入口（见第 8 节待办）。
 - **实例设置如何进入模板（已对齐一部分）**：初始状态折进模板作为默认值；`idn/serial/firmware` 作为模板的标识；**地址不进模板**（定义模型没有地址字段，地址是 bench 实例的设置，加字段会改文件格式）；用户要的“只需拿到可用地址”由平台在新增仪表时自动分配空闲地址满足，冲突不用用户解决；**个体偏差不带**，偏差的定义属于模板，抽出的值留在 bench，在新 bench 里按种子重新抽取。**保存时只问名称**：id 由平台按名称生成并防重，厂商、型号沿用实例当前的标识，要改再在对话里说。**保存后 bench 里这台自动改指向新模板**（`replace_instrument`，名称、连线、位置保留）。
 
@@ -159,11 +159,11 @@ Web 对话面板 ──HTTP/SSE──▶ /api/assistant/*  ──▶ 对话循�
 
 | 部分 | 位置 |
 | --- | --- |
-| LLM 配置（默认值：环境变量 `SIMUBENCH_LLM_PROTOCOL/BASE_URL/MODEL/API_KEY/TIMEOUT/CONTEXT_TOKENS` 胜过工作区 `.simubench/settings.json` 的 `assistant` 块；设置页的覆盖存用户数据目录的 `assistant.json`，0600，#1237）、地址规则（保存与使用前都校验，默认地址同样过一遍，见 `security.md`） | `assistant/config.py` |
-| 两种协议的模型、连通性测试（一次带工具调用的流式请求） | `assistant/llm.py` |
-| 工具与服务端规则 | `assistant/tools.py` |
-| 对话循环、事件流、自修复、按轮恢复 | `assistant/service.py` |
-| 压缩（历史处理器）、原地打转检测、对话存储、提示词 | `assistant/compaction.py`、`guard.py`、`store.py`、`prompt.py` |
+| LLM 配置（默认值：环境变量 `SIMUBENCH_LLM_PROTOCOL/BASE_URL/MODEL/API_KEY/TIMEOUT/CONTEXT_TOKENS` 胜过工作区 `.simubench/settings.json` 的 `assistant` 块；设置页的覆盖存用户数据目录的 `assistant.json`，0600，#1237）、地址规则（保存与使用前都校验，默认地址同样过一遍，见 `security.md`） | `server/assistant/config.py` |
+| 两种协议的模型、连通性测试（一次带工具调用的流式请求） | `server/assistant/llm.py` |
+| 工具与服务端规则 | `server/assistant/tools.py` |
+| 对话循环、事件流、自修复、按轮恢复 | `server/assistant/service.py` |
+| 压缩（历史处理器）、原地打转检测、对话存储、提示词 | `server/assistant/compaction.py`、`guard.py`、`store.py`、`prompt.py` |
 | HTTP 接口 `/api/assistant/*`（事件流是 SSE） | `server/routes/assistant.py` |
 | 复制测试台、保存为我的模板、定义的版本恢复 | `BenchFiles.copy`、`server/mytemplates.py`、`DefinitionFiles.restore` |
 | “改了什么”（测试台的差异，与定义的差异同一形状） | `server/benchchanges.py` |

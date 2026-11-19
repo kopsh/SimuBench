@@ -4,7 +4,7 @@ Three kinds of data are tied to a file of the workspace and stay behind when tha
 or moved outside SimuBench (a file manager, a git checkout):
 
 * ``history/<path>/``: the saved versions of ``<path>`` (a bench or ``instruments/<id>.yaml``);
-* ``assistant/<bench path>.json``: the conversation of a bench;
+* ``server/assistant/<bench path>.json``: the conversation of a bench;
 * ``files/<bench path without suffix>/``: the files its instruments keep between runs (#1069).
 
 An entry is an *orphan* when the file it belongs to no longer exists. Nothing here deletes without

@@ -7,7 +7,8 @@ from __future__ import annotations
 import pytest
 
 from helpers import raises_with
-from simubench.library.coverage import Step, _check
+from simubench.cases import _check
+from simubench.library.coverage import Step
 from simubench.library.expectations import Block, Fields, FieldSpec, matches_format
 
 pytestmark = pytest.mark.unit

@@ -16,8 +16,8 @@ from typing import Any
 
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
-from ..models import api as M
-from ..server.errors import Forbidden
+from ...contracts import api as M
+from ..errors import Forbidden
 
 
 @dataclass

@@ -304,7 +304,7 @@ def test_history_versions_are_not_listed_as_benches(client, ws):
     benches = client.get("/api/benches").json()
     assert [(b["path"], b.get("error")) for b in benches] == [(BENCH, None)]
 
-    from simubench.ops import doctor
+    from simubench.server.ops import doctor
 
     check = next(c for c in doctor(ws) if c.name == "bench files")
     assert (check.status, check.detail) == ("ok", "1 valid")

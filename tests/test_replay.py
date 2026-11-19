@@ -7,8 +7,8 @@ import pytest
 
 from simubench.api import open_bench
 from simubench.cli import main
-from simubench.engine.replay import replay
 from simubench.models.bench import Fault
+from simubench.replay import replay
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "acceptance" / "benches" / "awg_rc_scope.bench.yaml"

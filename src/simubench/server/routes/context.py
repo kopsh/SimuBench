@@ -29,7 +29,7 @@ IN_USE: dict[int | str, dict[str, Any]] = {
 def assistant_of(manager: SessionManager) -> Any:
     """The manager's assistant service, made on first use (tests put their own on the manager)."""
     if getattr(manager, "assistant", None) is None:
-        from ...assistant.service import AssistantService
+        from ..assistant.service import AssistantService
 
         manager.assistant = AssistantService(manager)  # type: ignore[attr-defined]
     return manager.assistant  # type: ignore[attr-defined]

@@ -9,10 +9,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 
-from ...assistant.config import ConfigError, check_settings
-from ...assistant.llm import check_connection
-from ...assistant.service import Busy
-from ...models import api as M
+from ...contracts import api as M
+from ..assistant.config import ConfigError, check_settings
+from ..assistant.llm import check_connection
+from ..assistant.service import Busy
 from ..errors import FILE_ERRORS, ClientsConnected, Conflict
 from .context import ApiContext
 

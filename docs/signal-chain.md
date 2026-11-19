@@ -152,7 +152,7 @@ ADC 之后是采样流，每个功能块的输出都有真实的中间信号、�
 | --- | --- |
 | `Component.output(port) -> Signal`、`Component.input`（经 `owner.wiring.source` 与 `session.cached_output`，#895） | 不变。新增平行的一对 `frames` / `input_frames` |
 | `refs`（按名字引用兄弟组件） | 保留给“设置依赖”（时基、触发读取谁）。**信号一律走连线**：本文把现在靠 `refs` 取数据的地方改成连线 |
-| 宏展开（`library/macros.py`） | 旧写法的定义在加载时展开成新结构，定义文件不必改；展开结果与显式写出的指纹相同（instrument-authoring.md 8.1） |
+| 宏展开（`models/macros.py`） | 旧写法的定义在加载时展开成新结构，定义文件不必改；展开结果与显式写出的指纹相同（instrument-authoring.md 8.1） |
 | 个体偏差（测试台的 `hidden`，组件参数覆盖） | 不变；新块的参数自动可覆盖，演示脚本第 4 步靠它 |
 | 计数器式随机数（`engine/noise.py`） | 不变；采样流中的噪声同样按（种子、组件、流、样本序号）取值 |
 | 插件出口（`plugin_api: 1`） | 不变；新增的钩子是追加的，插件组件可以实现 `frames`。版本号不升 |
@@ -456,7 +456,7 @@ class RfStage(Protocol):
 - 服务：`src/simubench/server/services/internal_probe.py`（Web 路由与 MCP 工具共用，#894 的做法），读取经 `Session.view()`。
 - HTTP：`GET /api/sessions/{sid}/instruments/{name}/internals/probe?port=<组件>.<端口>&tune_hz=<可选>` → `M.InternalProbe`。
 - MCP：`probe_internal(session, instrument, port, tune_hz=None)`，返回同一形状；不需要 `--allow-control`（只读，且不含个体偏差的抽取值）。
-- 模型（`models/api.py`，随后 `simubench schemas` 与 `pnpm gen:api`）：
+- 模型（`contracts/api.py`，随后 `simubench schemas` 与 `pnpm gen:api`）：
 
 ```python
 class InternalProbe(_Model):

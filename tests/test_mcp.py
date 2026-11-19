@@ -13,8 +13,8 @@ pytest.importorskip("mcp")
 from mcp import Client
 
 from helpers import mcp_result, raises_with
+from simubench.contracts import api as M
 from simubench.mcp_server import RateLimiter, build_server
-from simubench.models import api as M
 from simubench.server import drive
 from simubench.server.manager import ClientsConnected, SessionManager
 

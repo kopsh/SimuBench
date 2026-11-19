@@ -53,6 +53,7 @@ uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive"
 uv run pytest tests/test_x.py -q                          # while iterating
 uv run python scripts/check_tui_i18n.py                   # TUI wording == web i18n
 uv run python scripts/check_test_rules.py                 # D49 rules
+uv run python scripts/check_layers.py                     # package layers point down, no cycle (D87)
 uv run python scripts/check_skills.py                     # skills name only existing paths
 uv run python scripts/check_progress_log.py               # progress-log sections only grow (#380)
 uv run simubench schemas --out schemas                    # then commit schemas/ if changed

@@ -24,8 +24,8 @@ if TYPE_CHECKING:
 Kind = Literal["unconnected", "source_off", "zero_setting", "no_source", "fault"]
 
 
-# The model config mirrors models/api._Model so the generated schema stays identical (D57): the
-# reason is the interface object (models/api.py re-exports this class), defined beside the
+# The model config mirrors contracts/api._Model so the generated schema stays identical (D57): the
+# reason is the interface object (contracts/api.py re-exports this class), defined beside the
 # upstream trace that finds it.
 class SilenceReason(BaseModel):
     """Why a port or net reads 0 V, found by tracing the circuit upstream."""

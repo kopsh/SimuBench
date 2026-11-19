@@ -19,8 +19,8 @@ import re
 import unicodedata
 from typing import Any
 
+from ..contracts import api as M
 from ..engine.edit import ReplaceInstrument
-from ..models import api as M
 from .definitionfiles import DefinitionFiles
 from .errors import Conflict, Invalid, Unknown
 from .history import Source

@@ -48,6 +48,8 @@ jobs:
         run: uv run python scripts/check_ty.py
       - name: The D49 test rules (budgets, e2e assertions, environment reuse)
         run: uv run python scripts/check_test_rules.py
+      - name: The package layers point one way, with no cycle (D87, #1507)
+        run: uv run python scripts/check_layers.py
       - name: progress-log keeps its appended history (issue #380)
         run: uv run python scripts/check_progress_log.py
       - name: Unit, service and acceptance tests

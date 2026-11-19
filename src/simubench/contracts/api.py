@@ -15,13 +15,13 @@ from ..engine.circuit import SourceLine as SourceLine
 from ..engine.edit import EditOp
 from ..engine.events import Event as Event  # re-export (D57, issue 595)
 from ..engine.events import RunEvent as RunEvent
-from ..engine.replay import ReplayMismatch as ReplayMismatch  # re-export (D57, issue 626)
 from ..engine.signal import SpectralLine
 from ..engine.silence import SilenceReason as SilenceReason  # re-export (D57, issue 626)
 from ..engine.validate import Diagnostic as Diagnostic  # re-export (D57, issue 626)
-from ..library.categories import InstrumentClass as InstrumentClass  # re-export (#1384)
-from .bench import Fault, LayoutItem
-from .definition import Panel, Reference, StateSpec
+from ..models.bench import Fault, LayoutItem
+from ..models.categories import InstrumentClass as InstrumentClass  # re-export (#1384)
+from ..models.definition import Panel, Reference, StateSpec
+from ..replay import ReplayMismatch as ReplayMismatch  # re-export (D57, issue 626)
 
 
 class _Model(BaseModel):

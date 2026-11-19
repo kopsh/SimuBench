@@ -9,9 +9,9 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from simubench.cli import main
-from simubench.ops import RING, JsonFormatter, doctor, manifest, setup_logging
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
+from simubench.server.ops import RING, JsonFormatter, doctor, manifest, setup_logging
 
 ROOT = Path(__file__).resolve().parents[1]
 TOKEN = "secret-token-xyz"

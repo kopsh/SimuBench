@@ -11,7 +11,7 @@ from collections import deque
 from collections.abc import Iterable
 from typing import TYPE_CHECKING
 
-from ..models import api as M
+from ..contracts import api as M
 from ..models.definition import CommandSpec
 
 if TYPE_CHECKING:

@@ -103,7 +103,7 @@ def test_the_scale_can_come_from_the_caller_instead_of_the_file(tmp_path, wall):
 
 
 def test_a_scaled_record_replays_on_the_stepped_clock(tmp_path, wall):
-    from simubench.engine.replay import open_record
+    from simubench.replay import open_record
 
     s = open_bench(
         _write(tmp_path, clock="scaled", time_scale=3),

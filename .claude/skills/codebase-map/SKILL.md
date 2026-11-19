@@ -5,6 +5,13 @@ description: Where each part of SimuBench lives and which file to open for a giv
 
 # Codebase map
 
+Package layers (D87): `base (units, jsonsafe, errors, paths)` → `scpi` → `models` (file formats
+and their pure transforms) → `engine` → `library` → `api`/`replay`/`verdicts`/`cases` →
+`contracts` → `access` → `server` (with `server/assistant/`, `server/ops.py`), `mcp_tools` →
+`tui`/`cli`. Imports point down only and form no cycle, late imports included:
+`scripts/check_layers.py` (in `check.sh`) holds the table and fails otherwise; a new top-level
+package gets a row there.
+
 Layers (architecture.md 0): clients (Web / TUI / scripts / agents / pytest) → access layer
 (HTTP+WS, PyVISA backend, SCPI sockets + HiSLIP, MCP, Python SDK) → engine (session, action
 queue, virtual clock, circuit solve, signals, faults) → model layer (components, instrument
@@ -28,20 +35,20 @@ plausible fake).
 | Internal probe: what a port inside an instrument carries (analog lines, a samples frame and its spectrum, the "tuned to" of a receiver), shared by HTTP and MCP; hidden in validation mode | `server/services/internal_probe.py` |
 | Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
 | Bench edits (canvas + MCP share them) | `engine/edit.py` |
-| Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `engine/replay.py` |
-| Event contract (stream shape, kinds registry, WS projection) | `engine/events.py` (re-exported by `models/api.py`, D57) |
-| Calibration, deviation, verdicts | `engine/calibration.py`, `engine/deviation.py`, `engine/verdicts.py` |
+| Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `replay.py` |
+| Event contract (stream shape, kinds registry, WS projection) | `engine/events.py` (re-exported by `contracts/api.py`, D57) |
+| Calibration, deviation, verdicts | `engine/calibration.py`, `engine/deviation.py`, `verdicts.py` |
 | SCPI parse / typed values / error codes | `scpi/parse.py`, `scpi/values.py`, `scpi/errors.py` |
 | Built-in component types (one module per class) | `library/components/*.py` (register in `__init__.py`) |
 | Built-in real models + coverage tables | `library/instruments/<id>.yaml`, `<id>.coverage.yaml` |
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |
-| Instrument classes in one place: label key, readings polling, row kind, panel policy, scriptscan hints (D79) | `library/categories.py` |
+| Instrument classes in one place: label key, readings polling, row kind, panel policy, scriptscan hints (D79) | `models/categories.py` |
 | Category default blocks (per class) and the definition deep merge (D59) | `library/class_defaults.py` |
 | Script scanner (bench/definition drafts from a PyVISA script) | `library/scriptscan.py` |
-| Coverage tables & manual cases (D42) | `library/coverage.py` |
+| Coverage tables & manual cases (D42): the formats, `check`, finding a model's cases / running them on a fresh bench (`run_cases`, `junit_xml`) | `library/coverage.py` / `cases.py` |
 | The packaged Hello World bench, copied into a workspace by `POST /api/benches/hello` (D65) | `library/examples/hello.bench.yaml`, `server/benchfiles.py` (`create_hello`) |
 | File models (pydantic) → JSON Schema | `models/bench.py` (`simubench.bench/2`), `models/definition.py` (`simubench.instrument/2`) |
-| HTTP/WS message models → OpenAPI | `models/api.py` |
+| HTTP/WS message models → OpenAPI | `contracts/api.py` |
 | FastAPI app (assembly, middleware, SPA) / session lifecycle / component catalog | `server/app.py`, `server/manager.py` (`SessionManager`: start, reset, stop, try sessions), `server/catalog.py` |
 | Read-only session DTOs (describe, internals, scope screen, readings, nets, faults) / actions (SCPI, configure, panel) | `server/views.py` (`manager.views` for the ones that need the manager), `server/drive.py` |
 | Read-only projection over a bench *file* (build without running, leave out the broken parts) / the benches list DTO | `server/preview.py`, `server/views.py` (`SessionViews.bench_files`) |
@@ -49,9 +56,9 @@ plausible fake).
 | HTTP routes, one router per area (each `build_router` only calls module-level `_<group>_routes(ctx, router)` functions of ≤ 80 lines) (benches, ops, definitions, acceptance/try, sessions, events); shared auth and error mapping | `server/routes/*.py` (`context.py`: `ApiContext`) |
 | Shared application services: logic both the routes and the MCP tools call (faults, clock, session start / reset / stop, the internal probe `internal_probe.py`, a new definition from a template or blank `new_definition.py`); raise domain errors only, never `HTTPException`/`ToolError`. Domain errors `Forbidden` / `NotFound`, `FILE_ERRORS`: `server/errors.py`. Error → HTTP row: `ApiContext.error_row` / `http_error` (`routes/context.py`); error → tool text: `_ERROR_ROWS` (`mcp_tools/context.py`). A route catches a tuple and calls the table; it does not map an exception itself. Bench / definition files are shared stores (`BenchFiles`, `DefinitionFiles`), not wrapped again. | `server/services/*.py`, `server/errors.py` (tests: `tests/test_services.py`) |
 | MCP tools, one module per area (bench, definitions, sessions); shared guard / errors | `mcp_server.py` (assembly), `mcp_tools/*.py` (`context.py`: `McpContext`) |
-| Per-user folders (plugin trust, console history, the assistant's key and settings overrides), never inside a workspace; `SIMUBENCH_HOME` overrides; keep them small (#1237) | `paths.py` (`user_data_dir`, `user_state_dir`), `plugins.py` (`trust_workspace`), `cli.py` (`simubench trust`), `assistant/config.py` (`OVERRIDES`) |
-| What a workspace's `.simubench/` holds, orphans (data whose file is gone), `simubench storage [--clean]`, the `doctor` line, the API `GET /api/storage` / `POST /api/storage/clean` and the Web "workspace data" dialog (#1238) | `storage.py`, `cli.py` (`_storage`), `ops.py` (`doctor`), `server/routes/ops.py`, `web/src/components/app/StorageDialog.tsx` (logic: `storage.ts`) |
-| Web AI assistant (D66, `docs/ai-assistant.md` 11): LLM settings, PydanticAI models, tools and their server-side rules, turn runner / events / rollback, compaction, loop guard | `assistant/` (`config.py`, `llm.py`, `tools.py`, `service.py`, `compaction.py`, `guard.py`, `store.py`), routes `server/routes/assistant.py`; tests use `tests/helpers.py` `ScriptedLLM` |
+| Per-user folders (plugin trust, console history, the assistant's key and settings overrides), never inside a workspace; `SIMUBENCH_HOME` overrides; keep them small (#1237) | `paths.py` (`user_data_dir`, `user_state_dir`), `engine/plugins.py` (`trust_workspace`), `cli.py` (`simubench trust`), `server/assistant/config.py` (`OVERRIDES`) |
+| What a workspace's `.simubench/` holds, orphans (data whose file is gone), `simubench storage [--clean]`, the `doctor` line, the API `GET /api/storage` / `POST /api/storage/clean` and the Web "workspace data" dialog (#1238) | `storage.py`, `cli.py` (`_storage`), `server/ops.py` (`doctor`), `server/routes/ops.py`, `web/src/components/app/StorageDialog.tsx` (logic: `storage.ts`) |
+| Web AI assistant (D66, `docs/ai-assistant.md` 11): LLM settings, PydanticAI models, tools and their server-side rules, turn runner / events / rollback, compaction, loop guard | `server/assistant/` (`config.py`, `llm.py`, `tools.py`, `service.py`, `compaction.py`, `guard.py`, `store.py`), routes `server/routes/assistant.py`; tests use `tests/helpers.py` `ScriptedLLM` |
 | A definition's structure for the Web build area (effective components/wiring/ports with extends merged in; a whole structure written back keeping only what the file does not inherit, #1201) | `server/definitionstructure.py` (`DefinitionFiles.structure` / `save_structure`) |
 | Writing an edited bench back: only the change, comments and number spelling kept (D73, #1254) | `server/yamlpatch.py`, `server/benchfiles.py` (`save`, `_patched`) |
 | Copy a bench, "save as my template" (snapshot, no `extends`), definition restore, bench diff ("what changed") | `server/benchfiles.py` (`copy`, `remove_created`), `server/mytemplates.py`, `server/definitionfiles.py` (`restore`, `expanded`), `server/benchchanges.py` |

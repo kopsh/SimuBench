@@ -25,8 +25,8 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   `onCancel`): `StateField` keeps it and writes the reason under the field (#1353).
 - `web/src/features/workbench/classes.tsx` — the one list of instrument classes (icon + own screen),
   declared `satisfies Record<TemplateId, ClassEntry>` over the backend registry's generated TS
-  union (#1384, `library/categories.py`): a backend class without an entry here is a compile
-  error. A new class gets a registry row in `library/categories.py`, an entry here, and
+  union (#1384, `models/categories.py`): a backend class without an entry here is a compile
+  error. A new class gets a registry row in `models/categories.py`, an entry here, and
   `acceptance.class.<id>` in both i18n files (`classes.test.ts` checks they agree); do not add
   icon maps or `if (template === …)` chains elsewhere.
 - `web/src/features/home/` — the product page (D65): `HelloPreview.tsx` plays engine data from
@@ -153,7 +153,7 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 
 ## Rules
 
-- API changed in Python (`src/simubench/models/api.py`, `server/routes/*.py`) →
+- API changed in Python (`src/simubench/contracts/api.py`, `server/routes/*.py`) →
   `uv run simubench schemas --out schemas` then `cd web && pnpm gen:api`; commit `schemas/` and
   `web/src/api/generated/`. `pnpm check:api` fails on stale output.
 - New text: add the key to **both** `zh.ts` and `en.ts`. If the TUI shows the same wording, the

@@ -9,7 +9,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import Response
 
-from ...models import api as M
+from ...contracts import api as M
 from ...models.bench import Fault
 from .. import drive, views
 from ..errors import ClientsConnected, InstrumentRemote

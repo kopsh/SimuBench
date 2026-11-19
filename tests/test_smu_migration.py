@@ -7,8 +7,8 @@ import pytest
 
 from helpers import require_gold, send_timed
 from simubench.api import open_bench
-from simubench.engine.replay import replay
 from simubench.models.bench import BenchDefinition
+from simubench.replay import replay
 
 # (command, reply, ns consumed by the message) — generated on the smu_core implementation this
 # migration replaced; None: the command answers nothing (and may have queued an error).

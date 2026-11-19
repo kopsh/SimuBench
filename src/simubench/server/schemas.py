@@ -16,8 +16,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from ..contracts.api import Event
 from ..library.coverage import Cases, Coverage
-from ..models.api import Event
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
 from .workspace_events import WorkspaceEvent

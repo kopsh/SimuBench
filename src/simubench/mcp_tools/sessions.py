@@ -367,8 +367,8 @@ def _verdict_tools(mcp: MCPServer, ctx: McpContext) -> None:
         the run-time confidentiality rules (run.reveal_true_values) are untouched."""
         guard()
         control()
-        from ..engine.verdicts import VerdictError
-        from ..engine.verdicts import check_verdicts as check
+        from ..verdicts import VerdictError
+        from ..verdicts import check_verdicts as check
 
         try:
             return check(files.resolve(record), files.resolve(report), files.resolve(map)).as_dict()

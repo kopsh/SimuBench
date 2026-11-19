@@ -8,8 +8,8 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
+from ..contracts import tools as T
 from ..engine.record import jsonable
-from ..models import tools as T
 from ..server.catalog import components as component_catalog
 from ..server.errors import DOMAIN_ERRORS
 from ..server.projections import definition_spec, run_cases_file, try_commands

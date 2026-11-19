@@ -653,7 +653,7 @@ LFCAL_SCOPE_INPUTS = {
 def test_the_low_frequency_reference_scope_from_its_data_sheet_and_command_table(tmp_path):
     """Its data sheet (coupling keywords that name the input, a trigger level per channel, eight
     measurement slots, text readback) and its own command table: the bench's 12 manual cases pass."""
-    from simubench.library.coverage import run_cases
+    from simubench.cases import run_cases
     from test_signal_source import LFCAL_INPUTS, SOURCE
 
     work = tmp_path / "lowfreq-cal"

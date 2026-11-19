@@ -28,22 +28,16 @@ from typing import TYPE_CHECKING, Annotated, Any
 from pydantic import Field, TypeAdapter
 from pydantic_ai import RunContext, Tool
 
-from ..engine.edit import AddInstrument
-from ..engine.jsonpatch import PatchOp
-from ..engine.record import jsonable
-from ..models import api as M
-from ..models import tools as T
-from ..server import drive
-from ..server.errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
-from ..server.manager import ServedSession
-from ..server.mytemplates import save_as_template
-from ..server.projections import (
-    definition_spec,
-    instrument_state,
-    run_cases_file,
-    session_summary,
-    try_commands,
-)
+from ...contracts import api as M
+from ...contracts import tools as T
+from ...engine.edit import AddInstrument
+from ...engine.jsonpatch import PatchOp
+from ...engine.record import jsonable
+from .. import drive
+from ..errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
+from ..manager import ServedSession
+from ..mytemplates import save_as_template
+from ..projections import definition_spec, instrument_state, run_cases_file, session_summary, try_commands
 from .guard import LoopGuard, Stuck
 from .store import Conversation, TurnFiles
 
@@ -390,7 +384,7 @@ def edit_bench(ctx: RunContext[TurnContext], req: T.AssistantBenchEdit) -> dict[
                 given = ((doc.data.get("instruments") or {}).get(op.name) or {}).get("address")
                 if given and given != op.address:
                     notes.append(f"地址 {op.address} 已被占用，{op.name} 分配到空闲地址 {given}")
-        from ..server.benchchanges import bench_changes
+        from ..benchchanges import bench_changes
 
         changes = [_change_text(c) for c in bench_changes(before.data, doc.data)]
         return _bench_out(doc, t, {"changes": changes, "notes": notes})
