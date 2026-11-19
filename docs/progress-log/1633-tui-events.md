@@ -1,0 +1,10 @@
+## TUI 接工作区事件流：REMOTE_POLL_S 与 _tick_bench 退役，工作区改动与脚本进出即时可见（Issue 1633）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 两个定时器退役：`REMOTE_POLL_S` 的客户端进出补抓与 `_tick_bench` 的本地每 2 s 整文件哈希删除，TUI 只有一条工作区事件连接（与会话事件连接并存） | ✅ `src/simubench/tui/app.py`：`_tick_remote`/`_tick_bench`/`REMOTE_POLL_S`/`_bench_sha` 删除，`on_mount` 只留 0.1 s 渲染 tick 与 1 s 的 `_tick_wall`（读数域，D85 明示不动）；新增 `_workspace_loop`（独立退避重连）与 `_on_workspace_event` |
+| `file_changed` → 会话测试台文件点亮 D25 重建提示（替代本地哈希）；定义文件不点亮（定义域经 R 重建进入运行会话） | ✅ 单元 `tests/test_tui_units.py::test_only_the_session_s_bench_file_lights_the_rebuild_hint`（匹配路径点亮并 bump、定义文件与其他 bench 不点亮）；原 e2e `tests/test_tui.py::test_file_changed_shows_hint_and_r_rebuilds` 原样存活——外部写文件经服务器 watcher 播报到达 TUI，提示与 R 重建流程不变 |
+| `clients_changed`/`sessions_changed` → 重读会话（sid 匹配才动、在飞合并为一次），脚本连上/断开接入端口 TUI 即时反映 | ✅ 单元 `test_a_clients_changed_event_clears_the_remote_mark_without_a_poll`、`test_rapid_sid_events_collapse_into_one_refresh`、`test_a_sid_event_for_another_session_is_ignored`（原 `_tick_remote` 两测的意图改写到事件缝上，断言全保留）；boot `tests/test_tui.py::test_a_scripts_connect_and_disconnect_reach_the_tui_through_the_workspace_stream`：连 SCPI 端口出现远程标记、断开即清（command 时钟下无 1 s 会话重读，事件是唯一路径） |
+| 断连自愈（D85：流无 backlog，重连后重读等价查询，对照 Web 的 #1526 做法） | ✅ `_on_workspace_open`：首次打开仅在已有查询读过服务器时重读（`session_info` 已在，同 Web 的 `readBeforeOpen`）；重连必重读——客户端集合重读 + bench 文件与会话构建哈希（`bench_sha256`，文件字节的 sha256）比对一遍，错过的 `file_changed` 重导出同一提示；单元 `test_the_workspace_resync_rejudges_the_bench_file_against_the_build_hash`、`test_the_first_workspace_open_does_not_resync_before_anything_was_read`、`test_a_workspace_token_rejection_stops_the_app`（4401 同一裁决）。本地哈希只存在于重连这一刻，检测本身是服务器的 watcher |
+| mock 层补工作区事件订阅路径 | ✅ `tests/tui_mock.py`：`FakeClient.workspace_stream` 记下回调并停在 stop（真连接是 boot 层的事），`feed_workspace`/`wev` 按 `/api/events` 的形状投递；客户端缝是 `ApiClient.workspace_stream`（`workspace_url` 无 since——流无 backlog，`_ws_base` 与 `ws_url` 共用前缀推导） |
+| D85 条目补 TUI 已接流的收尾说明（编辑既有条目） | ✅ `docs/decisions.md` D85 结论句改为「TUI 已接上同一条流（#1633，D85 的收尾）：……」；`docs/tui-screens.md` 1.6 会话行改事件驱动、新增工作区事件流行；本文件即 progress-log 条目 |
