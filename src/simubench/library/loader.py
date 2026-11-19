@@ -15,9 +15,9 @@ import yaml
 from ..errors import Invalid, Unknown
 from ..models.bench import BenchDefinition
 from ..models.definition import InstrumentDefinition
+from ..models.migrate import upgrade
+from ..models.same_as import resolve_same_as
 from .class_defaults import deep_merge, default_block, drop_deleted
-from .migrate import upgrade
-from .same_as import resolve_same_as
 
 #: Built-in definitions: real models only (D42). SimuBench's own ``sb-*`` validation definitions are
 #: not shipped; they live in ``validation/instruments`` of the repository and are loaded through

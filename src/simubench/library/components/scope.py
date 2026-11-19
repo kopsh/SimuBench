@@ -655,7 +655,7 @@ class ScopeAdc(Component):
 
     port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
     refs = {"vertical": ("scope_vertical", "channel"), "probe": ("scope_probe", "channel")}
-    # The acquisition macro fills these from the acquisition's own (library/macros.py); a frame
+    # The acquisition macro fills these from the acquisition's own (models/macros.py); a frame
     # asks for the vertical module when it is made.
     optional_refs = frozenset({"vertical", "probe"})
     defaults = {

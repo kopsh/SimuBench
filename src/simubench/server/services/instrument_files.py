@@ -10,9 +10,9 @@ from __future__ import annotations
 
 import hashlib
 
+from ...contracts import api as M
 from ...engine.session import Session
 from ...library.components.files import inside
-from ...models import api as M
 from ..errors import Unknown
 
 

@@ -14,12 +14,12 @@ from typing import Any
 
 import yaml
 
+from ..contracts import api as M
 from ..engine import jsonpatch
 from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
 from ..library.loader import dump_yaml, layered_definition_data, load_yaml, parse_error_text
-from ..library.migrate import upgrade
-from ..models import api as M
+from ..models.migrate import upgrade
 from . import definitionstructure
 from .benchfiles import BenchFiles, Conflict, _rollback, _sha
 from .definitionchanges import definition_changes

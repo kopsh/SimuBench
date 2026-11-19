@@ -5,11 +5,11 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from ..contracts import api as M
 from ..engine.events import binary_summary
 from ..engine.faults import LinkDown
 from ..engine.record import jsonable
 from ..engine.session import Session
-from ..models import api as M
 from ..scpi.errors import ScpiError
 
 if TYPE_CHECKING:

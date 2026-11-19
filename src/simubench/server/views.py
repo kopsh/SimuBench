@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ..contracts import api as M
 from ..engine.component import ScreenMeasurer, ScreenSource
 from ..engine.deviation import deviation_keys as _deviation_keys
 from ..engine.faults import FaultState
@@ -20,11 +21,10 @@ from ..engine.session import Session
 from ..engine.silence import why_silent
 from ..engine.stream import ModelLimit
 from ..engine.validate import drives_net
-from ..library import categories
 from ..library.loader import load_bench
-from ..library.panels import effective_panel
-from ..models import api as M
+from ..models import categories
 from ..models.definition import InstrumentDefinition
+from ..models.panels import effective_panel
 from ..scpi.errors import ScpiError
 from .benchfiles import scan
 from .errors import Unknown

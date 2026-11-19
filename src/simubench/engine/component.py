@@ -318,8 +318,10 @@ def component(type_name: str) -> Callable[[type[Component]], type[Component]]:
 
 
 def component_type(type_name: str) -> type[Component]:
-    from ..library import components as _  # noqa: F401  (registers the built-in library)
-    from ..plugins import ensure_entry_point_plugins
+    """The registered class of a component type. The built-in library registers when
+    ``simubench.library`` is imported (every entry that loads definitions does); the engine does
+    not import the library (the layers point one way, ``scripts/check_layers.py``)."""
+    from .plugins import ensure_entry_point_plugins
 
     ensure_entry_point_plugins()  # installed packages load by default (D3)
     cls = registry.get(type_name)
@@ -329,8 +331,7 @@ def component_type(type_name: str) -> type[Component]:
 
 
 def component_types() -> dict[str, type[Component]]:
-    from ..library import components as _  # noqa: F401
-    from ..plugins import ensure_entry_point_plugins
+    from .plugins import ensure_entry_point_plugins
 
     ensure_entry_point_plugins()
     return registry.snapshot()

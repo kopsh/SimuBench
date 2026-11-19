@@ -5,9 +5,9 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from simubench.cli import main
-from simubench.ops import doctor
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
+from simubench.server.ops import doctor
 from simubench.storage import clean_orphans, human, inventory
 
 

@@ -12,13 +12,13 @@ from helpers import raises_with
 from simubench.api import open_bench
 from simubench.engine.deviation import draw
 from simubench.engine.edit import SetDeviation, apply
-from simubench.engine.replay import replay
 from simubench.engine.validate import validate_bench
 from simubench.engine.validate_definition import validate_definition
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 from simubench.models.definition import InstrumentDefinition
 from simubench.models.deviation import DeviationRange
+from simubench.replay import replay
 
 
 def bench(seed: int = 1, deviation: str = "from_specs", **extra) -> BenchDefinition:

@@ -26,7 +26,7 @@ MAX_LINES = 4095
 
 
 # The spectrum's contract object (D21, D57): defined where the lines live, re-exported by
-# models/api.py. The config mirrors models/api._Model so the generated schema stays identical.
+# contracts/api.py. The config mirrors contracts/api._Model so the generated schema stays identical.
 class SpectralLine(BaseModel):
     model_config = ConfigDict(
         frozen=True, populate_by_name=True, json_schema_serialization_defaults_required=True

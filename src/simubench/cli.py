@@ -38,7 +38,7 @@ def _serve(args: argparse.Namespace) -> int:
     workspace = Path(args.workspace).resolve() if args.workspace else (bench.parent if bench else Path.cwd())
     manager = build_manager(args, workspace)
     manager.web_port = args.port  # the assistant's LLM address may not point back at it (#872)
-    from .ops import setup_logging
+    from .server.ops import setup_logging
 
     setup_logging(args.log_level, args.log_format, args.log_file)
     token = _token(args)
@@ -180,7 +180,7 @@ def _launch(args: argparse.Namespace) -> int:
 
 def _print_plugins(manager: SessionManager, *, err: bool = False) -> None:
     """The startup banner names every loaded plugin and what waits for consent (issue 47)."""
-    from .plugins import status_line
+    from .engine.plugins import status_line
 
     line = status_line(manager.workspace, manager.plugins_allowed())
     if line:
@@ -232,9 +232,9 @@ def _mcp(args: argparse.Namespace) -> int:
         return 2
     import uvicorn
 
-    from .ops import setup_logging
     from .server.app import create_app
     from .server.errors import Unknown
+    from .server.ops import setup_logging
 
     setup_logging(args.log_level, args.log_format, args.log_file)
     workspace = Path(args.workspace).resolve()
@@ -321,8 +321,8 @@ def _validate(args: argparse.Namespace) -> int:
 
 def _trust(args: argparse.Namespace) -> int:
     """Grant or withdraw this user's consent to run a workspace's ``components/*.py`` (#1237)."""
+    from .engine.plugins import TRUST_FILE, trust_workspace, untrust_workspace, workspace_allows_plugins
     from .paths import user_data_dir
-    from .plugins import TRUST_FILE, trust_workspace, untrust_workspace, workspace_allows_plugins
 
     workspace = Path(args.workspace).resolve()
     if args.revoke:
@@ -370,7 +370,7 @@ def _doctor(args: argparse.Namespace) -> int:
     """Health checks; exit 1 when one fails (warnings do not fail)."""
     from dataclasses import asdict
 
-    from .ops import doctor
+    from .server.ops import doctor
 
     workspace = Path(args.workspace).resolve() if args.workspace else None
     checks = doctor(
@@ -387,7 +387,7 @@ def _doctor(args: argparse.Namespace) -> int:
 
 def _diagnose(args: argparse.Namespace) -> int:
     """Write a diagnostics bundle (zip) for a bug report; no access token is included."""
-    from .ops import bundle
+    from .server.ops import bundle
 
     workspace = Path(args.workspace).resolve() if args.workspace else None
     record_dir = Path(args.record_dir).resolve() if args.record_dir else None
@@ -399,7 +399,7 @@ def _diagnose(args: argparse.Namespace) -> int:
 
 def _version(args: argparse.Namespace) -> int:
     if args.full:
-        from .ops import manifest
+        from .server.ops import manifest
 
         workspace = Path(args.workspace).resolve() if args.workspace else None
         print(json.dumps(manifest(workspace), ensure_ascii=False, indent=2))
@@ -427,7 +427,7 @@ def _migrate(args: argparse.Namespace) -> int:
     import yaml
 
     from .library.loader import _read_yaml
-    from .library.migrate import FormatError, upgrade
+    from .models.migrate import FormatError, upgrade
 
     status = 0
     for name in args.files:
@@ -476,7 +476,7 @@ def _assets(args: argparse.Namespace) -> int:
 
 def _replay(args: argparse.Namespace) -> int:
     """Replay a run record and compare every reply; exit 1 when one differs (D36)."""
-    from .engine.replay import replay
+    from .replay import replay
 
     try:
         report = replay(
@@ -506,7 +506,7 @@ def _replay(args: argparse.Namespace) -> int:
 
 def _verdicts(args: argparse.Namespace) -> int:
     """Check a calibration script's verdicts against the truth; exit 1 on a misjudgment (C7)."""
-    from .engine.verdicts import VerdictError, check_verdicts
+    from .verdicts import VerdictError, check_verdicts
 
     try:
         report = check_verdicts(
@@ -548,7 +548,7 @@ def _verdicts(args: argparse.Namespace) -> int:
 
 def _cases(args: argparse.Namespace) -> int:
     """Run cases files, each case on a freshly powered bench; exit 1 when a case fails (D6)."""
-    from .library.coverage import junit_xml, run_cases
+    from .cases import junit_xml, run_cases
 
     dirs = [Path(d) for d in args.definitions] + [Path.cwd() / "instruments"]
     suites = []

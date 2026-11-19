@@ -17,6 +17,7 @@ uv run python scripts/check_ty.py
 uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive"
 uv run python scripts/check_tui_i18n.py
 uv run python scripts/check_test_rules.py
+uv run python scripts/check_layers.py
 uv run python scripts/check_skills.py
 uv run python scripts/check_progress_log.py
 uv run simubench schemas --out schemas >/dev/null

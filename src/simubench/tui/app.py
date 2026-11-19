@@ -17,7 +17,7 @@ from typing import Any, ClassVar
 from textual.app import App
 from textual.binding import Binding
 
-from ..library import categories
+from ..models import categories
 from . import i18n, theme
 from .client import ApiClient, ApiError, stream_events, ws_url
 from .log import LogLine, build_lines

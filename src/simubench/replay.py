@@ -19,11 +19,15 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
-from .record import RECORD_SCHEMA, definition_hash
+from .api import open_bench
+from .engine.plugins import load_workspace_plugins
+from .engine.plugins import report as plugin_report
+from .engine.record import RECORD_SCHEMA, definition_hash
+from .models.bench import BenchDefinition, Fault
 
 
-# The model config mirrors models/api._Model so the generated schema stays identical (D57): the
-# mismatch is the interface object (models/api.py re-exports this class), defined beside the
+# The model config mirrors contracts/api._Model so the generated schema stays identical (D57): the
+# mismatch is the interface object (contracts/api.py re-exports this class), defined beside the
 # replay that finds it.
 class ReplayMismatch(BaseModel):
     model_config = ConfigDict(
@@ -103,14 +107,7 @@ def open_record(
     record was made. Callers replay the events with :func:`resend`.
     """
     path = Path(path)
-    # Late imports: models/api.py re-exports this module's ReplayMismatch (D57), so the top level
-    # must not import models or the session back (the in-process API pulls both in).
-    from ..api import open_bench
-    from ..models.bench import BenchDefinition
-
     if workspace_plugins is not None:
-        from ..plugins import load_workspace_plugins
-
         load_workspace_plugins(workspace_plugins)
     events = iter(read_record(path))
     header = next(events, None)
@@ -139,7 +136,6 @@ def open_record(
                 f"{name}: definition {want.get('id')} differs from the one recorded; differences may come from it"
             )
     # The same check for plugin components (D36): their code is not in the record, only its hash.
-    from ..plugins import report as plugin_report
 
     have = plugin_report()
     recorded = header.get("plugins") or {}
@@ -182,8 +178,6 @@ def resend(
     other kind of event). A write a fault dropped is resent too: the replayed fault drops it the
     same way.
     """
-    from ..models.bench import Fault  # late: this module is re-exported by models/api.py
-
     for ev in events:
         kind = ev.get("kind")
         t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))

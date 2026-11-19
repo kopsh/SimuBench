@@ -12,11 +12,11 @@ from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, Tool
 from tests.helpers import ScriptedLLM, last_tool_return
 
 from helpers import raises_with
-from simubench.assistant import compaction
-from simubench.assistant.guard import LoopGuard, Stuck
-from simubench.assistant.service import AssistantService
-from simubench.assistant.tools import TOOLS
 from simubench.engine.edit import Move
+from simubench.server.assistant import compaction
+from simubench.server.assistant.guard import LoopGuard, Stuck
+from simubench.server.assistant.service import AssistantService
+from simubench.server.assistant.tools import TOOLS
 from simubench.server.errors import Conflict
 from simubench.server.manager import SessionManager
 
@@ -414,7 +414,7 @@ async def test_a_conflict_with_the_canvas_makes_the_assistant_read_again(manager
 def test_the_assistant_error_text_reads_the_shared_table():
     """The assistant's wording for a failed tool is the one table's assistant column (#1382), not a
     private copy: a Conflict says the same on the MCP seam and carries the sha."""
-    from simubench.assistant.tools import _error_text
+    from simubench.server.assistant.tools import _error_text
     from simubench.server.errors import tool_text
 
     conflict = Conflict("agent.bench.yaml changed since it was read", "abc")

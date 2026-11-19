@@ -2,7 +2,7 @@
 
 Every request carries ``X-SimuBench-Client: tui`` so the server records the source as 终端
 (tui-screens.md 1.6); the access token goes as the ``x-simubench-token`` header on HTTP and
-``?token=`` on the WebSocket. Types come from ``simubench.models.api``.
+``?token=`` on the WebSocket. Types come from ``simubench.contracts.api``.
 """
 
 from __future__ import annotations

@@ -15,8 +15,8 @@ import pytest
 import yaml
 
 from simubench.api import open_bench
+from simubench.cases import run_cases
 from simubench.engine.signal import MAX_LINES
-from simubench.library.coverage import run_cases
 from simubench.library.templates import INPUTS, get_template
 from simubench.scpi.errors import ScpiError
 from simubench.server.catalog import components

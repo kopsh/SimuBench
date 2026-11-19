@@ -16,11 +16,11 @@ from typing import Any
 from pydantic import ValidationError
 from typing_extensions import get_protocol_members
 
-from ..library.macros import expand_macros
-from ..library.migrate import FormatError, upgrade
-from ..library.panels import DEDICATED, template_of
-from ..library.same_as import SameAsError, resolve_same_as
 from ..models.definition import CommandSpec, ComponentSpec, InstrumentDefinition, PanelControl, StateSpec
+from ..models.macros import expand_macros
+from ..models.migrate import FormatError, upgrade
+from ..models.panels import DEDICATED, template_of
+from ..models.same_as import SameAsError, resolve_same_as
 from ..scpi import values as V
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token

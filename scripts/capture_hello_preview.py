@@ -40,7 +40,9 @@ def read_block(inst) -> bytes:
 def scope_capture(scope) -> list[float]:
     """CH1 in volts, as the Infiniium programmer's guide reads a waveform: :DIGitize, WORD data
     in LSBFirst order, voltage = (code - yreference) * yincrement + yorigin."""
-    scope.write(":SYSTem:HEADer OFF;:WAVeform:SOURce CHANnel1;:WAVeform:FORMat WORD;:WAVeform:BYTeorder LSBFirst")
+    scope.write(
+        ":SYSTem:HEADer OFF;:WAVeform:SOURce CHANnel1;:WAVeform:FORMat WORD;:WAVeform:BYTeorder LSBFirst"
+    )
     scope.write(":DIGitize CHANnel1")
     pre = scope.query(":WAVeform:PREamble?").strip().split(",")
     yinc, yorg, yref = float(pre[7]), float(pre[8]), float(pre[9])

@@ -3,7 +3,7 @@
 ``openai`` speaks the Chat Completions API (``<base_url>/chat/completions``), ``anthropic`` the
 Messages API (``<base_url>/v1/messages``); both stream and call tools. The configured context
 length becomes the model profile's ``context_window``, which the compaction reads
-(:mod:`simubench.assistant.compaction`).
+(:mod:`simubench.server.assistant.compaction`).
 """
 
 from __future__ import annotations
@@ -18,7 +18,7 @@ from pydantic_ai import Agent
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 
-from ..models import api as M
+from ...contracts import api as M
 from .config import ConfigError, LlmSettings
 
 #: Some private deployments need no key, but both SDKs refuse to start without one.

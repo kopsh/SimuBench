@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..models import api as M
+from ..contracts import api as M
 
 
 def _item(kind: str, action: str, target: str, detail: str | None = None, old: Any = None, new: Any = None):

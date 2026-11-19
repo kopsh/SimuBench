@@ -28,7 +28,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from .. import __version__
-from ..models import api as M
+from ..contracts import api as M
 from . import MCP_PATH
 from .manager import SessionManager
 from .routes import acceptance, assistant, benches, definitions, events, ops, sessions

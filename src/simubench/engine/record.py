@@ -22,7 +22,7 @@ import numpy as np
 
 from .. import __version__
 from ..jsonsafe import spelling
-from ..plugins import report as plugin_report
+from .plugins import report as plugin_report
 
 if TYPE_CHECKING:
     from .session import Session

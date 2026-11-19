@@ -215,7 +215,7 @@ def test_noisy_acquisitions_replay_byte_for_byte(tmp_path):
     a run record with plain, averaged, peak-detect and high-resolution acquisitions replays
     exactly."""
     from simubench.api import open_bench
-    from simubench.engine.replay import replay
+    from simubench.replay import replay
 
     s = open_bench(CASES_BENCH, record_dir=tmp_path)
     s.write("scope", b":TIMebase:SCALe 2E-4;:CHANnel1:SCALe 5E-3;:TRIGger:MODE SINGle;:WAVeform:SOURce C1\n")
@@ -373,7 +373,8 @@ def test_the_clock_error_shows_in_a_frequency_measurement(tmp_path):
 def test_the_calibration_contract_cases_pass():
     """G3 (#135), measure 5: the 5522A + SDS2104X Plus contract case, check → adjust → recheck,
     runs through the same runner as ``simubench cases`` (tests/models/.../calibration-cases.yaml)."""
-    from simubench.library.coverage import load_cases, run_case
+    from simubench.cases import run_case
+    from simubench.library.coverage import load_cases
 
     cases = load_cases(CONTRACT)
     results = [run_case(CONTRACT, cases, case) for case in cases.cases]

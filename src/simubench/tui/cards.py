@@ -13,7 +13,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..library import categories
+from ..models import categories
 from .fmt import braille, fmt
 from .i18n import t
 from .reasons import active_faults

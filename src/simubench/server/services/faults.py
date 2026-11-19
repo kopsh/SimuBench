@@ -8,7 +8,7 @@ a tick racing the read cannot tear it. Raises ``KeyError`` (no such target or fa
 
 from __future__ import annotations
 
-from ...models import api as M
+from ...contracts import api as M
 from ...models.bench import Fault
 from ..manager import ServedSession
 from ..views import fault_info

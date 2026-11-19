@@ -1035,9 +1035,9 @@ class InstrumentDefinition(_Model):
         their dict pipeline explicitly all the same — the loader layers the upgraded dicts for
         ``extends``, the validator maps a broken schema to E-FORMAT before any model exists — so
         this model-level step is the safety net for a model built from data nobody upgraded."""
-        from ..library.macros import expand_macros  # the component library needs the models first
-        from ..library.migrate import upgrade
-        from ..library.same_as import resolve_same_as
+        from .macros import expand_macros  # the component library needs the models first
+        from .migrate import upgrade
+        from .same_as import resolve_same_as
 
         if isinstance(data, dict):
             data = resolve_same_as(upgrade(data, "instrument")[0])  # D82: no-op once the loader did it

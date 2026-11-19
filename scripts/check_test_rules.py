@@ -72,7 +72,9 @@ def regex_uses(tree: ast.Module) -> list[tuple[int, str]]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
             found += [(node.lineno, "import re") for a in node.names if a.name.split(".")[0] == "re"]
-        elif isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "re" and not node.level:
+        elif (
+            isinstance(node, ast.ImportFrom) and (node.module or "").split(".")[0] == "re" and not node.level
+        ):
             found.append((node.lineno, "from re import"))
         elif isinstance(node, ast.Call):
             name = getattr(node.func, "attr", "") or getattr(node.func, "id", "")

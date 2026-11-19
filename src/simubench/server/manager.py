@@ -25,8 +25,8 @@ from ..access.hislip_tls import SecureConfig, read_users
 from ..access.scpi_server import ScpiServer
 from ..access.vxi11_server import Vxi11Server
 from ..api import bench_files_dir, open_bench
+from ..contracts import api as M
 from ..engine.record import definition_hash
-from ..models import api as M
 from ..models.bench import BenchDefinition
 from .benchfiles import BenchFiles
 from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse, Unknown
@@ -365,13 +365,13 @@ class SessionManager:
         # Workspace plugins run code from the workspace: only with the engineer's consent (D3),
         # and before any bench is validated, so plugin types are known to the checks.
         if self.plugins_allowed():
-            from ..plugins import load_workspace_plugins
+            from ..engine.plugins import load_workspace_plugins
 
             load_workspace_plugins(workspace / "components")
 
     def plugins_allowed(self) -> bool:
         """``--allow-plugins``, or the workspace setting (``.simubench/settings.json``)."""
-        from ..plugins import workspace_allows_plugins
+        from ..engine.plugins import workspace_allows_plugins
 
         return self.allow_plugins or workspace_allows_plugins(self.workspace)
 

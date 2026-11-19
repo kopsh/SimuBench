@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 
 from helpers import raises_with
 from simubench.api import open_bench
-from simubench.models import api as M
+from simubench.contracts import api as M
 from simubench.models.bench import BenchDefinition, Fault
 from simubench.server import views
 from simubench.server.app import create_app

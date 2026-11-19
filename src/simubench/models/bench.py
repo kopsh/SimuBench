@@ -192,7 +192,7 @@ class BenchDefinition(_Model):
     @classmethod
     def _upgrade(cls, data: Any) -> Any:
         """An older format (bench/1, or no schema) is migrated first, whoever passes it in."""
-        from ..library.migrate import upgrade
+        from .migrate import upgrade
 
         return upgrade(data, "bench")[0] if isinstance(data, dict) else data
 

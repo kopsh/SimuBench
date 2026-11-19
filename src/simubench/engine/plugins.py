@@ -33,8 +33,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from .engine.component import registry
-from .paths import user_data_dir
+from ..paths import user_data_dir
+from .component import registry
 
 PLUGIN_API = 1
 ENTRY_POINT_GROUP = "simubench.components"

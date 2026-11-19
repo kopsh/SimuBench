@@ -244,8 +244,8 @@ class Circuit:
 
 
 # The decomposition's contract objects (D21, D57): defined where the math lives, re-exported by
-# models/api.py as the probe's response models, so there is no second mapping of the same fields.
-# The shared model config mirrors models/api._Model so the generated schema stays identical.
+# contracts/api.py as the probe's response models, so there is no second mapping of the same fields.
+# The shared model config mirrors contracts/api._Model so the generated schema stays identical.
 
 
 class SourceLine(BaseModel):

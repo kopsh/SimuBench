@@ -8,8 +8,8 @@ import yaml
 from helpers import raises_with
 from simubench.api import open_bench
 from simubench.library.loader import DefinitionLibrary
-from simubench.library.same_as import SameAsError, resolve_same_as
 from simubench.models.bench import BenchDefinition
+from simubench.models.same_as import SameAsError, resolve_same_as
 
 # ---- the resolution itself ---------------------------------------------------------------------------
 

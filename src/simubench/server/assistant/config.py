@@ -25,11 +25,11 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlsplit
 
-from ..models import api as M
-from ..paths import user_data_dir
+from ...contracts import api as M
+from ...paths import user_data_dir
 
 if TYPE_CHECKING:
-    from ..server.manager import SessionManager
+    from ..manager import SessionManager
 
 OVERRIDES = "assistant.json"  # in the user data folder
 LEGACY_OVERRIDES = Path(".simubench") / "assistant.json"  # the old, workspace-held file: ignored (#1237)

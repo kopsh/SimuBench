@@ -43,7 +43,7 @@
 
 ### 1.4 数值格式
 
-一个函数 `fmt(value, unit, digits)`，所有屏幕共用（服务端 `library/panels.py` 的 `_eng` 抽到共用模块，Web 与 TUI 一致）：
+一个函数 `fmt(value, unit, digits)`，所有屏幕共用（服务端 `models/panels.py` 的 `_eng` 抽到共用模块，Web 与 TUI 一致）：
 
 - 工程前缀：p n µ m（无）k M G；`1000.0 HZ` → `1.000 kHz`，`0.01 A` → `10.000 mA`。
 - **设定值** 5 位有效数字（`15.000 V`、`10.000 mA`、`1.0000 kHz` 截为显示宽度时可降到 4 位）；**读数** 用面板 `PanelReadout.digits`，没有时 5 位。
