@@ -60,6 +60,8 @@ class ParamRange:
     EDGE = 1e-9
 
     def contains(self, value: float) -> bool:
+        if value != value:  # NaN is in no physical range; every comparison below would call it inside (#1609)
+            return False
         if self.minimum is not None and (value <= self.minimum if self.min_open else value < self.minimum):
             return False
         return not (
@@ -67,9 +69,16 @@ class ParamRange:
         )
 
     def clamp(self, value: float) -> float:
-        """The value, or the nearest allowed one when it is outside the range."""
+        """The value, or the nearest allowed one when it is outside the range. NaN has no nearest:
+        it becomes the range's low edge (its high edge when there is no minimum, else 0)."""
         if self.contains(value):
             return value
+        if value != value:
+            if self.minimum is not None:
+                return self.minimum + self.EDGE if self.min_open else self.minimum
+            if self.maximum is not None:
+                return self.maximum - self.EDGE if self.max_open else self.maximum
+            return 0.0
         if self.minimum is not None and value <= self.minimum:
             return self.minimum + self.EDGE if self.min_open else self.minimum
         assert self.maximum is not None
