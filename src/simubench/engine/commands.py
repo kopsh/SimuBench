@@ -144,7 +144,7 @@ def answered_builtins(definition: InstrumentDefinition) -> list[str]:
     )
     have = {_header_key(h) for h in headers}
     headers += [f"*{w}" for w in sorted(MANDATORY_488_2) if f"*{w}" not in have]
-    headers = [h for h in headers if not own_status_subtree(definition, _header_key(h))]
+    headers = [h for h in headers if not status_default_off(definition, _header_key(h))]
     if definition.help.enabled:
         headers += HELP_HEADERS
     if definition.identity.options_reply is not None:
@@ -175,19 +175,27 @@ def _status_prefix(key: str) -> str | None:
     return None
 
 
-def own_status_subtree(definition: InstrumentDefinition, key: str) -> bool:
-    """Whether the definition has commands of its own in the status subtree the default header
-    ``key`` belongs to. A model that models part of STATus:OPERation answers all of it itself, so the
-    default registers never mix with its own (#1560)."""
+def status_default_off(definition: InstrumentDefinition, key: str) -> bool:
+    """Whether the default status header ``key`` is not answered by this definition (#1560).
+
+    The default registers read 0 and never latch: true of an instrument whose definition is its own
+    specification, false of a real model, whose manual gives its OPERation and QUEStionable bits
+    (a measuring flag, a calibration summary): there an unmodelled register must say so (-113), not
+    read 0. So a definition with a ``reference`` gets none, and one with commands of its own in the
+    subtree answers all of it itself, so the default registers never mix with its own."""
     prefix = _status_prefix(key)
-    return prefix is not None and any(_header_key(c.header).startswith(prefix) for c in definition.commands)
+    if prefix is None:
+        return False
+    return definition.reference is not None or any(
+        _header_key(c.header).startswith(prefix) for c in definition.commands
+    )
 
 
 def builtin_allowed(definition: InstrumentDefinition, header: str) -> bool:
     """Whether the definition's ``builtins`` list leaves this built-in command on (D42)."""
     if _header_key(header) in _HELP_KEYS:
         return definition.help.enabled
-    if own_status_subtree(definition, _header_key(header)):
+    if status_default_off(definition, _header_key(header)):
         return False
     allowed = definition.builtins
     key = _header_key(header)

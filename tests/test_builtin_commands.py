@@ -428,3 +428,14 @@ def test_the_builtins_list_governs_the_default_status_registers():
         with pytest.raises(ScpiError) as caught:
             dispatch_unit(inst, message)
         assert caught.value.code == -113 and caught.value.reason == "builtin_excluded", message
+
+
+def test_a_real_model_gets_no_default_status_registers():
+    """A definition with a ``reference`` is a real model: its manual's OPERation / QUEStionable bits are
+    not modelled here, so the default registers (which read 0) would invent an answer."""
+    inst = _with(reference={"title": "ACME BUI Programming Guide"})
+    for message in (":STAT:OPER:COND?", ":STAT:OPER:ENAB?", ":STAT:QUES?", ":STAT:PRES"):
+        with pytest.raises(ScpiError) as caught:
+            dispatch_unit(inst, message)
+        assert caught.value.code == -113, message
+    assert not [e for e in entries(inst.definition, ()) if "STAT" in e.header]  # and not listed

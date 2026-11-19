@@ -113,6 +113,8 @@ preamp_gain:
 
 **默认内置命令（#1559）**：除公共命令和错误队列外，`*PSC` / `*PSC?`（上电状态清除标志，默认 1，`*RST` 不改它，只存标志）与 `:SYSTem:VERSion?`（回 `1999.0`）也是内置命令，受 `builtins` 名单限制（名单里没有就按未建模）；型号定义里自己写的同名命令用定义的。`:SYSTem:PRESet` 不做默认内置：各家的 Preset 与 `*RST` 并不相同（B2900 的 Preset 连前面板显示也预置），没有手册依据的型号不替它猜。
 
+**默认状态寄存器（#1560）**：没有 `reference` 的定义（自己就是规格的自定义仪表）默认带 SCPI 要求的 `STATus:OPERation` 与 `STATus:QUEStionable` 两个寄存器（`[:EVENt]?`、`:CONDition?`、`:ENABle`、`:PTRansition`、`:NTRansition`）和 `STATus:PRESet`。enable 与转换滤波器可读写（0 到 65535，超出回 -222），事件与条件恒读 0、不锁存任何事件，所以不给状态字节加位；`*CLS`、`*RST` 不改它们，`PRESet` 把 enable 清 0、PTR 设为 32767、NTR 清 0。**带 `reference` 的真实型号没有这组默认**：它们的手册给了各个位的含义，回常量 0 就是编一个看似合理的答案，应当按手册用 `status_register` 组件建模，没建模的回 -113。定义里在 `STATus:OPERation`（或 `QUEStionable`、`PRESet`）下写了任何命令，那一组就全由定义回答，不与默认混用。同样受 `builtins` 名单限制。
+
 **命令列表查询（#1558）**：每台仪表默认回答 `:SYSTem:HELP:HEADers?`（本台实际执行的全部命令，每行一条，只能查询的行尾标 `/qonly/`、没有查询形式的标 `/nquery/`）、`:SYSTem:HELP:SYNTax? "<命令头>"`（一条命令的语法，如 `":FREQuency[?] <numeric value>"`，长短写法都认）和 `:SYSTem:HELP:SYNTax:ALL?`（每条命令一行语法）。内容由定义生成：`commands`（装了才有的选件命令按实例的选件取舍）加上本型号回答的内置命令，所以列出的就是能执行的。这是模拟器的便利扩展，不是每台真机都有：它**不受 `builtins` 名单限制**，要关掉写 `help: {enabled: false}`（三条命令按未建模回 -113）；定义里自己写了同名命令头，用定义的。回复排版由 `help.preset` 决定：`keysight`（Infiniium：定长块 `#<n><长度>`、CR LF 分行、带两个标记）、`keysight_plain`（定长块、LF、不带标记）、`rs`（普通字符串、LF、带标记、命令头不带开头冒号）、`generic`（普通字符串、LF、带标记）；`auto`（默认）按厂商选：Keysight 用 `keysight_plain`，Rohde & Schwarz 用 `rs`，其余 `generic`。型号的手册写明了排版时选对应预设（UXR 系列用 `keysight`）。语法文本由参数类型生成，是近似，不是厂商原文。
 
 ### 2.5 #48 补充的声明式字段与通用组件
