@@ -268,11 +268,14 @@ def test_the_engine_keeps_the_range_and_special_semantics():
 
 ENUM_LIST = spec(type="enum_list", options=["VOLT", "CURR"], default=["VOLT"])
 INT_LIST = spec(type="int_list", min=0, max=10, default=[1])
+LADDER = spec(type="float", min=0.1, max=100.0, ladder="1-2-5", default=1.0)
 
 
 @pytest.mark.parametrize(
     ("st", "value", "code"),
     [
+        (LADDER, math.nan, -222),  # a ladder setting has no rung for NaN (#1450, #1495)
+        (LADDER, math.inf, -222),
         (NUMBER, 10**400, -222),  # too large for a float: out of range like infinity (#1500)
         (NUMBER, -(10**400), -222),
         (INT_LIST, [1, math.inf], -222),
