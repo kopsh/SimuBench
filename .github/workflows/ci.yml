@@ -227,6 +227,15 @@ jobs:
       - run: uv sync --locked --all-extras
       - name: Screens, keys, snapshots, real-server scenarios and performance budgets
         run: uv run pytest -n 4 --dist loadscope -q -m "tui_boot or load_sensitive"
+      - name: The snapshot differences report of a failed capture
+        # As on pull requests (tui, above): without it a snapshot that differs only on main says
+        # "assert False" and nothing else (#1552).
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: snapshot-report-${{ github.run_id }}
+          path: snapshot_report.html
+          if-no-files-found: ignore
 
   e2e:
     # Gates pull requests too (#848): the browser scenarios and the Storybook visual baselines
