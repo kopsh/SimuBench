@@ -18,7 +18,7 @@ from ..scpi import values as V
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
 
-COMMON = {"IDN", "RST", "CLS", "OPC", "WAI", "ESR", "ESE", "SRE", "STB", "TST"}
+COMMON = {"IDN", "RST", "CLS", "OPC", "WAI", "ESR", "ESE", "SRE", "STB", "TST", "PSC"}
 #: Which directions each common command answers, exactly as ``Instrument`` applies them:
 #: (query, set). ``*OPC?`` reads the operation-complete bit, ``*OPC`` arms it, ``*WAI`` waits
 #: either way; the rest answer one direction only (a wrong-direction common is an undefined
@@ -35,6 +35,7 @@ COMMON_DIRECTIONS = {
     "SRE": (True, True),
     "STB": (True, False),
     "TST": (True, False),
+    "PSC": (True, True),
 }
 
 #: Headers every instrument answers without a definition entry (coverage tables list them too).
@@ -50,11 +51,13 @@ BUILTIN_HEADERS = (
     "*SRE",
     "*STB",
     "*TST",
+    "*PSC",
     ":SYSTem:ERRor[:NEXT]",
     ":SYSTem:ERRor:COUNt",
     ":SYSTem:ERRor:ALL",
     ":SYSTem:DATE",
     ":SYSTem:TIME",
+    ":SYSTem:VERSion",
     ":SYSTem:HELP:HEADers",
     ":SYSTem:HELP:SYNTax",
     ":SYSTem:HELP:SYNTax:ALL",
@@ -92,6 +95,7 @@ SYST_BUILTINS = (
     (":SYSTem:ERRor:ALL", Pattern.compile(":SYSTem:ERRor:ALL"), True, False),
     (":SYSTem:DATE", Pattern.compile(":SYSTem:DATE"), True, True),
     (":SYSTem:TIME", Pattern.compile(":SYSTem:TIME"), True, True),
+    (":SYSTem:VERSion", Pattern.compile(":SYSTem:VERSion"), True, False),
     (":SYSTem:HELP:HEADers", Pattern.compile(":SYSTem:HELP:HEADers"), True, False),
     (":SYSTem:HELP:SYNTax", Pattern.compile(":SYSTem:HELP:SYNTax"), True, False),
     (":SYSTem:HELP:SYNTax:ALL", Pattern.compile(":SYSTem:HELP:SYNTax:ALL"), True, False),

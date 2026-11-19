@@ -643,3 +643,15 @@ cases:
         expect: '"CURR +1.00000000E-04,+1.00000000E-11"'
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
+
+  - name: "*PSC：上电状态清除标志，设置后读回，*RST 不改它（#1559）"
+    manual: "Common Commands > *PSC"
+    steps:
+      - query: "*PSC?"
+        expect: "1"
+      - send: "*PSC 0"
+      - query: "*PSC?"
+        expect: "0"
+      - send: "*RST"
+      - query: "*PSC?"
+        expect: "0"

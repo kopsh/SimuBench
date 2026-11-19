@@ -698,3 +698,15 @@ cases:
         tolerance: 1.2e-5
       - query: ":CALC:SST:COUN?"
         expect: "2"
+
+  - name: "*PSC：上电状态清除标志，设置后读回，*RST 不改它（#1559）"
+    manual: "Common Commands > *PSC"
+    steps:
+      - query: "*PSC?"
+        expect: "1"
+      - send: "*PSC 0"
+      - query: "*PSC?"
+        expect: "0"
+      - send: "*RST"
+      - query: "*PSC?"
+        expect: "0"

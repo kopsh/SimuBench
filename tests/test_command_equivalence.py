@@ -87,6 +87,8 @@ def _corpus(definition, suffix: str) -> list[str]:
         ":SYSTem:TIME?",
         ":SYSTem:DATE 2026,1,1",
         ":SYSTem:TIME 12,0,0",
+        ":SYSTem:VERSion?",
+        ":SYSTem:VERSion",  # query only: refused on both sides
         ":SYSTem:HELP:HEADers?",
         ":SYST:HELP:HEAD?",
         ":SYSTem:HELP:HEADers",  # set: query only, refused on both sides

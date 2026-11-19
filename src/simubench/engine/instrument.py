@@ -210,6 +210,9 @@ class Instrument:
         self.firmware = instance.firmware or definition.identity.firmware
         #: The instrument's own clock runs on the session calendar plus whatever :SYSTem:DATE/TIME set.
         self.clock_offset = dt.timedelta(0)
+        #: The power-on status clear flag (*PSC): kept through *RST like the status enables; it has no
+        #: other effect, a simulated unit powers up with cleared enables whatever it says (#1559).
+        self.psc = True
 
         self._init_state(definition, instance)
         self._init_components(definition, instance)
