@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict
 
 from . import __version__
 from .api import open_bench
+from .engine.events import record_time
 from .engine.plugins import load_workspace_plugins
 from .engine.plugins import report as plugin_report
 from .engine.record import RECORD_SCHEMA, definition_hash
@@ -208,7 +209,7 @@ def resend(
     """
     for ev in events:
         kind = ev.get("kind")
-        t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))
+        t = record_time(ev)
         got: bytes | None = None
         if kind == "scpi" and ev.get("dir") == "write":
             session.clock.seek(t)
@@ -273,7 +274,7 @@ def replay(
     try:
         for ev, got in resend(session, events, last_command):
             kind = ev.get("kind")
-            t = int(ev.get("t_start_ns", ev.get("t_ns", 0)))
+            t = record_time(ev)
             if kind == "file" and ev.get("action") == "write":
                 recorded_files.setdefault(str(ev.get("instrument")), []).append(ev)
             elif kind == "scpi" and ev.get("dir") == "write":

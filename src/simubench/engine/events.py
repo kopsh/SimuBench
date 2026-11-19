@@ -139,6 +139,14 @@ ENGINE_SIDE_KEYS = frozenset(
 )
 
 
+def record_time(ev: dict[str, Any]) -> int:
+    """The instant a recorded event happened at, for whoever reads a record back: the action's
+    start tick (``t_start_ns``, one of :data:`ENGINE_SIDE_KEYS`) when the event carries one, else
+    its own ``t_ns``. The replay seeks here before it resends the action, and the run detail shows
+    it — one spelling, the three readers agreed on."""
+    return int(ev.get("t_start_ns", ev.get("t_ns", 0)))
+
+
 def binary_summary(data: bytes) -> str:
     """Printable summary of binary SCPI data: the block header and the byte count."""
     if data.startswith(b"#") and len(data) > 2 and data[1:2].isdigit():

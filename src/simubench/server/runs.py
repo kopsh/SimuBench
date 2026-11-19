@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from ..contracts import api as M
+from ..engine.events import record_time
 from ..replay import read_record, replay
 from .errors import Invalid, NotFound
 
@@ -129,5 +130,5 @@ def _event(r: dict[str, Any]) -> M.RunEvent:
             extra["recipe"] = data.get("recipe")
     fields = set(M.RunEvent.model_fields)
     plain = {k: v for k, v in r.items() if k in fields and k not in ("text", "size")}
-    t = int(r.get("t_start_ns", r.get("t_ns", 0)))
+    t = record_time(r)
     return M.RunEvent(**{**plain, **extra, "t_ns": t, "seq": int(r.get("seq", 0))})
