@@ -43,6 +43,7 @@ plausible fake).
 | Calibration, deviation, verdicts | `engine/calibration.py`, `engine/deviation.py`, `verdicts.py` |
 | SCPI parse / typed values / error codes | `scpi/parse.py`, `scpi/values.py`, `scpi/errors.py` |
 | Built-in component types (one module per class) | `library/components/*.py` (register in `__init__.py`) |
+| The swept analyzer's trace engine (#1524): the trace/driver block and its `@op`s / one sweep, the front end's lines, the analytic and sampled evaluations / the marker and peak search / the state objects and the `TraceHost` interface the two read it by | `library/components/specan.py` / `specan_sweep.py` / `specan_markers.py` / `specan_state.py` |
 | How an instrument's component chain is cut (leaf blocks → the driver block; when to split; no mixins) and the family a new module belongs to | `docs/signal-chain.md` 3.4, `server/catalog.py` (`GROUPS`) |
 | Built-in real models + coverage tables | `library/instruments/<id>.yaml`, `<id>.coverage.yaml` |
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |

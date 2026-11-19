@@ -280,9 +280,10 @@ class Component:
 2. **块之间只走端口与协议。** 信号走连线（`signal`、`samples` 端口，2.1），读记录、读迹线走 D62 的协议（`Sampler`、`Acquisition`、`TraceSource`、`RecordSource`）；块沿 `owner.wiring.source` 找上游，不 import 兄弟块的类（类型标注除外）。需要「驱动整条链」的块（示波器的采集、频谱仪的迹线）是链的**驱动块**：它向下游发请求、向上游走线，是唯一知道链形状的一个。
 3. **一个模块装一段链，名字是 `<仪表>_<段>.py`。** 依赖方向是叶子块 → 驱动块：
    - 示波器：`scope.py`（通道链：探头、前端、ADC、抽取）→ `scope_trigger.py`、`scope_acquisition.py`、`scope_measurements.py`、`scope_math.py`、`scope_record.py`；
-   - 频谱仪：`specan_frontend.py`（输入衰减、本振、混频、中频滤波）、`specan_detect.py`（检波、视频滤波）→ `specan.py`（迹线，驱动块）；数字后端 `specan_backend.py`（采样流）。
+   - 频谱仪：`specan_frontend.py`（输入衰减、本振、混频、中频滤波）、`specan_detect.py`（检波、视频滤波）→ `specan.py`（迹线，驱动块）；迹线自己再按职责分给协作者（#1524）：`specan_sweep.py` 的 `Sweeper`（前端谱线与两种求值）、`specan_markers.py` 的 `Markers`（游标与峰值搜索），它们只经 `specan_state.py` 的窄协议 `TraceHost` 读迹线，迹线记住的东西是那里的三个 pydantic 状态模型（`TraceHistory`、`LinesCache`、`HoldState`）；数字后端 `specan_backend.py`（采样流）。
 4. **什么时候再拆。** 一个模块过 800 行、或一个类过 500 行就拆：先按组件类拆（零代码改动，只搬类与它的常量，模块间只许叶子 → 驱动的单向 import），类自己占了大头时再按职责拆成带协议的协作者；**不用混入类**——混入类要给宿主的成员各写一份类型桩，职责并没有分开，只是文件分开了。新模块还要在 `server/catalog.py` 的 `GROUPS` 里登记所属的家族。
-5. **现状与欠账。** 示波器的几个模块各约 1200–1450 行，频谱仪的迹线 `SpecanTrace` 一个类仍有约 870 行（设置、前端求值、采样扫描、游标、迹线模式同居）：下一刀该按职责切成协作者，前提是先把迹线的实例状态（历史、谱线缓存、重启时刻）收成一个对象，否则协作者要读宿主的十几个成员。示波器各模块是否再拆、`SpecanTrace` 的拆分在 #1524（`核心`）；#1511 没做它们，因为那要先收迹线的实例状态，不是搬文件。
+5. **协作者的写法（#1524，频谱仪迹线为样板）。** 一个类要拆成协作者时：先把它的实例状态收成几个小的 pydantic 模型（按谁读写它们分簇：历史与缓存、谱线缓存、保持状态），再把方法按职责搬进协作者类；协作者持有宿主，只经一个窄 `Protocol` 读宿主（它列出协作者需要宿主的每一样东西，所以也是协作者与宿主之间接口的全部），不读宿主的下划线成员；`@op` 方法留在组件类上（`Component.operation` 靠 `dir(type(self))` 找），方法体委托给协作者，钩子（`on_state`、`tune_marks`）同样。搬代码用脚本逐字搬、只改 `self` 的指向，不手抄。
+6. **现状。** 频谱仪各模块不超过 520 行，`SpecanTrace` 类 430 行。示波器的几个模块各约 1200–1450 行，按本节规则该拆，由 #1540 跟踪。
 
 ## 4. 示波器：采集经采样流实现（A1）
 
