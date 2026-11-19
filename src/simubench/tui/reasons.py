@@ -176,7 +176,8 @@ def limited_report(
     category registry's row (#1637)."""
     keys = categories.get((info.get("display") or {}).get("template")).reading_keys
     values = (readings or {}).get("values", {})
-    if not values.get(keys["limited"]):
+    limited = keys.get("limited")  # a class whose row carries no roles has no limit story
+    if not limited or not values.get(limited):
         return None
     regulation = str(values.get(keys["regulation"]) or "CC")
     instrument = info.get("name", "")
