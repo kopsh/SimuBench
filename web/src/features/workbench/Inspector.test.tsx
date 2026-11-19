@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { toast } from "sonner";
 import { afterEach, expect, it, vi } from "vitest";
 import type { InstrumentInfo, StateVarInfo } from "@/api/client";
 import { api } from "@/api/client";
@@ -124,4 +125,59 @@ it("beside its own screen, opening the screen is a secondary action in the row",
   const open = within(actions).getByRole("button", { name: "打开屏幕" });
   expect(open.getAttribute("data-variant")).toBe("outline");
   useWorkbench.setState({ active: "canvas" });
+});
+
+// More named groups than one page of 「全部设置」 (#1582): the group a reveal points at mounts only
+// after the pages flip, and must still open and mount its row — a plain field, a numbered family's
+// instance or a measurement slot.
+const ALPHA = "abcdefghijklmnopqrstuvwxyz";
+/** ``gaa``, ``gab`` … — no trailing digits, so the groups are not joined into one numbered family. */
+const groupId = (i: number) => `g${ALPHA[Math.floor(i / 26)]}${ALPHA[i % 26]}`;
+const setting = (path: string, label: string): StateVarInfo =>
+  ({ path, label, label_en: label, type: "float", value: 1, channel: null, min: 0, max: 10 }) as unknown as StateVarInfo;
+
+const PLAIN_GROUPS = Array.from({ length: 50 }, (_, i) => groupId(i));
+const MANY_GROUPS = {
+  ...INST,
+  channels: 1,
+  display: { summary: [] },
+  state: [
+    ...PLAIN_GROUPS.flatMap((g) => Array.from({ length: 10 }, (_, k) => setting(`${g}.s${k + 1}`, `${g} 设置 ${k + 1}`))),
+    // 24 numbered instances, joined into one family (#1257).
+    ...Array.from({ length: 24 }, (_, n) => setting(`zzfam${n + 1}.leaf`, `编号族 ${n + 1}`)),
+    // Measurement slots: one row of controls per slot.
+    setting("meas.p1.kind", "测量 1 类型"),
+    setting("meas.p1.source", "测量 1 来源"),
+    setting("meas.p2.kind", "测量 2 类型"),
+    setting("meas.p2.source", "测量 2 来源"),
+  ],
+} as unknown as InstrumentInfo;
+
+it("a reveal opens a group mounted on a later page, for a field, a numbered family and a slot row (#1582)", async () => {
+  setup();
+  const missing = vi.spyOn(toast, "info");
+  renderInspector(MANY_GROUPS);
+  const shown = (path: string) => document.querySelector(`[data-setting="${path}"]`);
+  const expanded = (group: string) => document.querySelector(`section[data-group="${group}"] button`)!.getAttribute("aria-expanded");
+
+  // A plain field in the 42nd group: on the second page of groups, folded by default.
+  const single = `${groupId(41)}.s3`;
+  act(() => useWorkbench.getState().revealSetting("scope", single));
+  await waitFor(() => expect(shown(single)).toBeTruthy());
+  expect(expanded(groupId(41))).toBe("true");
+
+  // Instance 24 of the joined numbered family.
+  act(() => useWorkbench.getState().revealSetting("scope", "zzfam24.leaf"));
+  const family = await screen.findByTestId("setting-family");
+  await waitFor(() => expect(shown("zzfam24.leaf")).toBeTruthy());
+  expect(expanded("zzfam")).toBe("true");
+  expect(within(family).getByRole("combobox", { name: "zzfam 的编号" }).textContent).toBe("24");
+
+  // A measurement slot row.
+  act(() => useWorkbench.getState().revealSetting("scope", "meas.p2.source"));
+  await waitFor(() => expect(shown("meas.p2.source")).toBeTruthy());
+  expect(expanded("meas")).toBe("true");
+
+  await waitFor(() => expect(useWorkbench.getState().reveal).toBeNull());
+  expect(missing).not.toHaveBeenCalled();
 });

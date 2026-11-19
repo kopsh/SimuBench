@@ -367,8 +367,10 @@ export function Section({
   /** A settings group's id, as ``data-group`` (tests find a group by it). */
   group?: string;
 }) {
-  const [open, setOpen] = useState(defaultOpen);
-  // A reveal request opens the section: state adjusted while rendering, not in an effect.
+  // A reveal request opens the section: state adjusted while rendering, not in an effect. A section
+  // that only mounts once a long list's pages flip already carries the request, so its initial state
+  // opens it too (#1582).
+  const [open, setOpen] = useState(defaultOpen || reveal != null);
   const [seen, setSeen] = useState(reveal);
   if (reveal !== seen) {
     setSeen(reveal);
