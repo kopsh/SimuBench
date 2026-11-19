@@ -253,29 +253,29 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         for i, (name, inst) in enumerate(self.bench.instruments.items()):
             canon = scpi_socket_address("127.0.0.1", DEFAULT_SCPI_PORT + i)
             self.canonical[name] = canon
-            self.addresses[self._norm(canon)] = name
+            self._remember(canon, name)
             for form in (
                 f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR",
                 f"TCPIP0::127.0.0.1::hislip{i}::INSTR",  # the default port, left unwritten
                 f"TCPIP0::127.0.0.1::hislip_{name},{HISLIP_PORT}::INSTR",
                 f"TCPIP0::127.0.0.1::hislip_{name}::INSTR",
             ):
-                self.addresses[self._norm(form)] = name
+                self._remember(form, name)
             self.hislip[name] = f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR"
             # VXI-11 (D63): the plain address a VISA library resolves through the port mapper.
             self.vxi11[name] = f"TCPIP0::127.0.0.1::inst{i}::INSTR"
             for form in (self.vxi11[name], f"TCPIP0::127.0.0.1::inst_{name}::INSTR"):
-                self.addresses[self._norm(form)] = name
+                self._remember(form, name)
             gateway = self._gateway_address(inst.instance.address)
             if gateway:  # a declared GPIB instrument is also reachable through a LAN/GPIB gateway
-                self.addresses[self._norm(gateway)] = name
+                self._remember(gateway, name)
                 self.vxi11_gateway[name] = gateway
             if inst.instance.address:
-                self.addresses[self._norm(inst.instance.address)] = name
+                self._remember(inst.instance.address, name)
             for served in getattr(inst, "served", []):  # a service's own ports (connected mode)
-                self.addresses[self._norm(served)] = name
+                self._remember(served, name)
                 self.served.append(served)
-            self.addresses[name.upper()] = name
+            self._remember(name.upper(), name)
         # The board of every GPIB address the bench declares can be opened as an interface (D63).
         self.intfc = [f"GPIB{board}::INTFC" for board in boards_of(self.bench)]
         for resource in self.intfc:
@@ -297,6 +297,20 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
     def _norm(address: str) -> str:
         # The same name bench validation compares addresses by (#1589).
         return normalize_address(address)
+
+    def _remember(self, address: str, name: str) -> None:
+        """Map one address form (or the name alias) to its instrument. A key another instrument
+        already owns is refused (#1597): the table would otherwise keep only the later one, and a
+        script would reach the wrong instrument without a word — the same collision bench
+        validation reports as ``E-ADDRESS-DUPLICATE``."""
+        key = self._norm(address)
+        other = self.addresses.get(key)
+        if other is not None and other != name:
+            raise ValueError(
+                f"资源名 {address!r} 同时指向仪表 {other!r} 与 {name!r}：脚本打开它时只能连到其中一台；"
+                "用 simubench validate 定位并修改测试台"
+            )
+        self.addresses[key] = name
 
     def _lookup(self, resource_name: str) -> tuple[str, rname.ResourceName] | None:
         name = self.addresses.get(resource_name.upper()) or self.addresses.get(self._norm(resource_name))
