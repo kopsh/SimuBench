@@ -5,12 +5,12 @@ class: oscilloscope
 blocks:
   - block: input_port          # 输入端口(BNC,1 MΩ/50 Ω 到地)
     components: [input_port]
-  - block: vertical            # 垂直通道:耦合、带宽、档位与偏置
-    components: [scope_vertical, scope_frontend]   # scope_frontend 是 scope_vertical 的旧名(仅为加载保留)
+  - block: vertical            # 垂直通道:耦合、带宽、档位与偏置;可拆出输入步进衰减器(scope_attenuator,#1579)
+    components: [scope_vertical, scope_frontend, scope_attenuator]   # scope_frontend 是 scope_vertical 的旧名(仅为加载保留)
   - block: probe               # 探头(通道配件,比例换算)
     components: [scope_probe]
-  - block: adc                 # ADC:分辨率、最高采样率与交织
-    components: [scope_adc]
+  - block: adc                 # ADC:分辨率、最高采样率与交织;可拆出采样保持(scope_sampler:主采样器与各路采样器,#1579)
+    components: [scope_adc, scope_sampler]
   - block: decimator           # ADC 之后的数字处理:带宽为 DSP 的型号的数字带宽滤波(#1262),抽取与采集方式(普通、平均、峰值检测、高分辨率)
     components: [scope_decimator, scope_dsp_filter]
   - block: acquisition         # 采集与运行控制(run/stop/single、存储)

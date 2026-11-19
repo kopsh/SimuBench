@@ -101,6 +101,13 @@ def peak_detect(samples: np.ndarray, m: int) -> np.ndarray:
 # ---- the converter's stages (#1266, #1305): pure functions, in signal order --------------------
 
 
+def shared_key(key: tuple[object, ...]) -> tuple[object, ...]:
+    """A channel's random-stream key without the channel: the acquisition's keys carry the channel
+    third (``scope_capture``: owner, stream, channel, ...), so every channel of one acquisition
+    maps to the same key and draws the same values (#1579)."""
+    return (*key[:2], *key[3:]) if len(key) >= 3 else key
+
+
 def aperture_jitter(
     volts: np.ndarray, signal: Signal, t0_ns: int, when: np.ndarray, shift: np.ndarray
 ) -> np.ndarray:
@@ -263,7 +270,10 @@ class AdcView:
     ilv_offsets: tuple[float, ...] = ()
     ilv_skews: tuple[float, ...] = ()
     native_dt: float = 0.0  # the interleaved converter's own interval, s
-    aperture: float = 0.0  # the sampling clock's aperture jitter, s rms
+    aperture: float = 0.0  # the sampling clock's aperture jitter, s rms (this channel's own draw)
+    # the clock all channels share (#1579), s rms: drawn from a stream without the channel, so the
+    # channels' instants move together and only ``aperture`` separates them
+    clock: float = 0.0
     # the record's response the noise passes (#1446): a RESPONSES name and its cutoff, Hz; "": white
     noise_shape: str = ""
     noise_fc: float = 0.0
@@ -290,6 +300,9 @@ class AdcView:
         shift: np.ndarray | None = None
         if self.aperture > 0 and self.signal.freq.size:
             shift = self.aperture * gaussian(stream_key(self.seed, *key, "aperture"), indexes)
+        if self.clock > 0 and self.signal.freq.size:
+            common = self.clock * gaussian(stream_key(self.seed, *shared_key(key), "clock"), indexes)
+            shift = common if shift is None else shift + common
         if grid and skews is not None and np.any(skews) and self.signal.freq.size:
             per_sample = skews[sub_converter_of(t0_ns, offsets, self.native_dt, len(skews))]
             shift = per_sample if shift is None else shift + per_sample
