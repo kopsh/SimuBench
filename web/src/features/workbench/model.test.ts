@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, panelFirst, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, whenHolds, wordOf } from "./model";
+import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -387,16 +387,5 @@ describe("autoBottomTab (#1360)", () => {
     expect(autoBottomTab({ comms: false, events: true, problems: true })).toBe("events");
     expect(autoBottomTab({ comms: true, events: true, problems: true })).toBe("comms");
     expect(autoBottomTab({ comms: false, events: false, problems: true })).toBe("problems");
-  });
-});
-
-describe("panelFirst (#1356)", () => {
-  it("puts the settings the front panel names first, in its order, the rest after in theirs", () => {
-    const v = (path: string) => ({ path, channel: null }) as unknown as StateVarInfo;
-    const inst = {
-      display: { panel: { groups: [{ controls: [{ state: "timebase.scale" }, { state: "trigger.mode" }] }] } },
-    } as unknown as InstrumentInfo;
-    const order = panelFirst(inst, [v("status.opee"), v("trigger.mode"), v("system.header"), v("timebase.scale")]).map((x) => x.path);
-    expect(order).toEqual(["timebase.scale", "trigger.mode", "status.opee", "system.header"]);
   });
 });

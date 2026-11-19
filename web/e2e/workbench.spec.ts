@@ -1093,6 +1093,17 @@ test("the inspector folds the 100 bookmarks into one block, the picker lists onl
   await page.getByRole("option", { name: "3", exact: true }).click();
   await expect(family.locator('[data-setting="display.bookmark3.color"]')).toBeVisible();
   await expect(family.locator('[data-setting="display.bookmark1.color"]')).toHaveCount(0);
+
+  // Build mode lays out the initial settings the same way: listing all 1861 at once froze the page
+  // for seconds on the mode switch and on every tab change while the scope was selected.
+  await page.getByRole("radio", { name: "搭建" }).click();
+  await expect(inspector.getByText("初始状态")).toBeVisible();
+  const editControls = await inspector.locator("input, [role=combobox], [role=switch]").count();
+  expect(editControls, "controls mounted in build mode").toBeLessThanOrEqual(40);
+  await expect(inspector.locator('[data-group="all"]').getByRole("button", { expanded: false })).toBeVisible();
+  await inspector.getByTestId("setting-find").fill("触发电平 ch2");
+  await expect(inspector.getByTestId("setting-found").locator('[data-setting="trigger.level2"]')).toBeVisible();
+  await page.getByRole("radio", { name: "操作" }).click();
 });
 
 test("the settings groups span the screen, not a nested grid's first column", async ({
