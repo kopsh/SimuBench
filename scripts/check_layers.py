@@ -21,8 +21,9 @@ from __future__ import annotations
 import ast
 import sys
 from collections.abc import Iterator
-from dataclasses import dataclass
 from pathlib import Path
+
+from pydantic import BaseModel, ConfigDict
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -49,8 +50,9 @@ FRAMEWORK_FLOOR = "server"  # the lowest layer that may import them
 NO_FRAMEWORK = ("simubench.server.services",)  # and never these, whatever their layer
 
 
-@dataclass(frozen=True)
-class Edge:
+class Edge(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     source: str  # the importing package
     target: str  # the imported top-level name (a package of ours, or a third-party module)
     path: str  # the importing file, relative to the repository
@@ -123,7 +125,13 @@ def edges(root: Path = ROOT) -> list[Edge]:
                 if name == source:
                     continue
                 out.append(
-                    Edge(source, name, path.relative_to(root).as_posix(), node.lineno, ".".join(mod_parts))
+                    Edge(
+                        source=source,
+                        target=name,
+                        path=path.relative_to(root).as_posix(),
+                        line=node.lineno,
+                        module=".".join(mod_parts),
+                    )
                 )
     return out
 
