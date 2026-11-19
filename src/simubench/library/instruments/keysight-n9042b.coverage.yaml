@@ -22,13 +22,13 @@ sections:
     note: 'The frequency option 526, then the installed options (526,P26 with the preamp). The reference sends the list in quotes (p.222); this model answers it without them.'
   - header: '*RCL'
     level: implemented
-    note: 'setup_memory 组件（#1573）：位置 0–127；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只给寄存器范围 0–127）；*RST 不清槽。'
+    note: 'setup_memory 组件（#1573）：位置 0–127；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册只给寄存器范围 0–127）；*RST 不清槽。'
   - header: '*RST'
     level: implemented
     note: 'Mode preset; INIT:CONT OFF (the reference: *RST stops continuous sweep).'
   - header: '*SAV'
     level: implemented
-    note: 'setup_memory 组件（#1573）：位置 0–127；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只给寄存器范围 0–127）；*RST 不清槽。'
+    note: 'setup_memory 组件（#1573）：位置 0–127；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册只给寄存器范围 0–127）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
   - header: '*STB'
