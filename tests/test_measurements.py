@@ -209,3 +209,18 @@ def test_overshoot_and_preshoot_from_the_first_edge_and_its_local_extreme():
     assert M.measure("PREShoot", v, DT, **kw) == pytest.approx(5.0, abs=0.5)
     assert M.measure("OVERshoot", v, DT, top_base="histogram") == pytest.approx(50.0, abs=0.5)
     assert math.isnan(M.measure("OVERshoot", np.full(1000, 0.5) + np.r_[0.0, np.zeros(999)], DT, **kw))
+
+
+def test_overshoot_and_preshoot_of_a_first_falling_edge_mirror_the_rising_one():
+    """#1351: the mirror of the rising case. After the first (falling) edge, up to the next edge,
+    the local minimum under the base is the overshoot; before it, the local maximum over the top
+    is the preshoot. A later, deeper dip past the next edge does not count."""
+    v = np.ones(1000)
+    v[200:600] = 0.0
+    v[201] = -0.1  # 10 % under the base after the falling edge
+    v[199] = 1.05  # 5 % over the top before it
+    v[800] = -0.5  # a later dip, past the rising edge
+    v[100] = 0.98  # a third level in the upper half, so the histogram forms its levels (top_base)
+    kw = {"top_base": "histogram", "shoot": "first_edge"}
+    assert M.measure("OVERshoot", v, DT, **kw) == pytest.approx(10.0, abs=0.5)
+    assert M.measure("PREShoot", v, DT, **kw) == pytest.approx(5.0, abs=0.5)

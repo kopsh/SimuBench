@@ -552,6 +552,13 @@ cases:
         expect_format: "±d.dddddE±dd"
       - query: ":MEASure:PREShoot? CHANnel2"
         expect_format: "±d.dddddE±dd"
+      # 手册的 <direction>（第一个上升/下降沿）未建模：明确拒绝，不静默按第一个边沿测
+      - send: ":MEASure:OVERshoot? CHANnel2,RISing"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
+      - send: ":MEASure:PREShoot? CHANnel2,FALLing"
+      - query: ":SYSTem:ERRor?"
+        expect: "-224"
   - name: "测量信源：默认信源与两个信源"
     manual: ":MEASure Commands > :MEASure:SOURce"
     steps:
