@@ -12,6 +12,7 @@ import hashlib
 import inspect
 import json
 import logging
+import math
 import os
 import threading
 from collections.abc import Callable
@@ -34,6 +35,7 @@ from ..library.loader import (
     load_yaml,
     parse_error_text,
 )
+from ..jsonsafe import spelling
 from ..library.workspace_layout import BENCH_SUFFIXES, DEFINITIONS_FOLDER, definitions_dir, is_bench_file
 from ..models import categories
 from ..models.bench import BenchDefinition
@@ -509,9 +511,10 @@ def _dump(path: Path, data: dict[str, Any]) -> bytes:
 
 
 def _json_number(value: Any) -> Any:
-    # JSON has no infinity; the bench files spell it "INF".
-    if isinstance(value, float) and value in (float("inf"), float("-inf")):
-        return "INF" if value > 0 else "-INF"
+    """A component default as JSON carries it: a non-finite float spelled the bench files' way —
+    jsonsafe's one spelling, which the docstring's "bench file echoes" is (D60)."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return spelling(value)
     return value
 
 

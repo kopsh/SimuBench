@@ -3,6 +3,7 @@ parameters and operations, read from the class itself."""
 
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any, ClassVar
 
@@ -11,10 +12,20 @@ from fastapi.testclient import TestClient
 from simubench.engine.component import component_types
 from simubench.engine.validate_definition import operations
 from simubench.server.app import create_app
+from simubench.server.benchfiles import _json_number
 from simubench.server.catalog import GROUPS, components, param_docs
 from simubench.server.manager import SessionManager
 
 ROOT = Path(__file__).resolve().parents[1]
+
+
+def test_non_finite_defaults_echo_jsonsafe_spelling():
+    """The catalog's parameter defaults reach JSON through ``_json_number``: the one spelling of
+    what JSON cannot carry (D60, simubench.jsonsafe) — INF, -INF and NAN, not a re-spelled INF
+    pair that forgets NaN."""
+    assert _json_number(math.inf) == "INF" and _json_number(-math.inf) == "-INF"
+    assert _json_number(math.nan) == "NAN"
+    assert _json_number(5.0) == 5.0 and _json_number("1 kS/s") == "1 kS/s" and _json_number(None) is None
 
 
 def test_every_registered_type_with_its_operations():
