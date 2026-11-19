@@ -128,13 +128,17 @@ def _definition_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
         """Static checks of an instrument definition: schema, component types and parameters, setting
         bindings, operations, wiring and ports, headers (codes E-DEF-*, pointer, suggestion)."""
         guard()
-        if (definition_id is None) == (data is None):
+        if definition_id is not None and data is None:  # a saved definition: checked where it lives
+            try:
+                content = definitions.read(definition_id).data
+                source = definitions.source(definition_id)
+            except DOMAIN_ERRORS as exc:
+                raise fail(exc) from None
+        elif definition_id is None and data is not None:  # unsaved content: where it would land
+            content, source = data, None
+        else:
             raise ToolError("给出 definition_id 或 data 之一")
-        try:
-            content = data if data is not None else definitions.read(definition_id).data  # type: ignore[arg-type]
-        except DOMAIN_ERRORS as exc:
-            raise fail(exc) from None
-        report = definitions.validate(content)
+        report = definitions.validate(content, source)
         return {"ok": report.ok, "diagnostics": [d.model_dump() for d in report.diagnostics]}
 
 

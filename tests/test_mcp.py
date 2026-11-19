@@ -610,6 +610,36 @@ async def test_definitions_outside_the_workspace_are_read_only(ws):
         assert "holds the definition" in wrong["error"]
 
 
+async def test_validate_definition_checks_a_saved_definition_where_it_lives(ws):
+    """A saved definition is layered where its file is, as the engine runs it (#1634): a workspace
+    namesake of a built-in parent does not leak into the built-in child's checks. Bare data is
+    checked where it would land (its id's place in the workspace), not at a phantom draft.yaml."""
+    (ws / "instruments").mkdir()
+    (ws / "instruments" / "keysight-uxr1104b.yaml").write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.instrument/2",
+                "id": "keysight-uxr1104b",
+                "manufacturer": "ACME",
+                "model": "DECOY",
+                "class": "multimeter",
+            }
+        ),
+        encoding="utf-8",
+    )  # legitimate on its own; the child's command_overrides only run against the real parent
+    _, server = make(ws)
+    async with Client(server) as c:
+        checked = await call(c, "validate_definition", definition_id="keysight-uxr0334b")
+        assert checked == {"ok": True, "diagnostics": []}
+        draft = await call(
+            c,
+            "validate_definition",
+            data={"schema": "simubench.instrument/2", "id": "keysight-uxr0334b", "extends": "no-such-parent"},
+        )
+        assert draft["ok"] is False and draft["diagnostics"][0]["code"] == "E-DEF-EXTENDS"
+        assert str(ws / "instruments" / "keysight-uxr0334b.yaml") in draft["diagnostics"][0]["message"]
+
+
 async def test_a_session_names_the_definitions_to_restart_for(ws):
     manager, server = make(ws)
     async with Client(server) as c:

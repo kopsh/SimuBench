@@ -49,9 +49,16 @@ class DefinitionFiles:
             raw, editable, rel = self.files.library(None).path(def_id).read_bytes(), False, None  # type: ignore[assignment]
         return self._document(def_id, rel, editable, raw, _parse(raw, def_id))
 
-    def validate(self, data: dict[str, Any]) -> Report:
-        try:  # D59: a draft that extends a model is checked against what it will run
-            data = layered_definition_data(data, self.files.workspace / FOLDER / "draft.yaml")
+    def validate(self, data: dict[str, Any], source: Path | None = None) -> Report:
+        """Static checks of definition ``data``, layered over what it extends (D59): checked against
+        what it will run. ``source`` is the file the definition is read from — as :meth:`source`
+        names it for a saved definition, so its ``extends`` resolves where the engine's does. For
+        unsaved content (a draft, bare tool input) the path it would land at decides, which
+        :meth:`_would_land` takes from the data's id; a draft without an id lands at the shared
+        ``instruments/draft.yaml``. The path's folder locates sibling parents and a broken
+        ``extends`` diagnostic names it (D76)."""
+        try:
+            data = layered_definition_data(data, source if source is not None else self._would_land(data))
         except ValueError as exc:
             report = Report()
             code, pointer = getattr(exc, "code", "E-DEF-EXTENDS"), getattr(exc, "pointer", "/extends")
@@ -59,6 +66,15 @@ class DefinitionFiles:
             return report
         _, report = validate_definition_data(data)
         return report
+
+    def _would_land(self, data: dict[str, Any]) -> Path:
+        """The file unsaved definition ``data`` would be saved to, so its layering and its
+        diagnostics speak of the place it will run at (#1634): the id's own place in the workspace
+        when the data names one, else the shared draft path beside the other definitions."""
+        def_id = data.get("id")
+        if isinstance(def_id, str) and ID.fullmatch(def_id):
+            return self.files.workspace / self.rel_path(def_id)
+        return self.files.workspace / FOLDER / "draft.yaml"
 
     def create(self, def_id: str, data: dict[str, Any], source: Source = "agent") -> M.DefinitionDocument:
         return self.save(def_id, None, data, source)
@@ -287,7 +303,7 @@ class DefinitionFiles:
         data: dict[str, Any],
         changes: list[M.DefinitionChange] | None = None,
     ) -> M.DefinitionDocument:
-        report = self.validate(data)
+        report = self.validate(data, self.source(def_id))
         return M.DefinitionDocument(
             id=def_id,
             path=rel,
