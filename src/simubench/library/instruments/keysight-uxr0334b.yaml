@@ -1688,8 +1688,8 @@ components:
   # Butterworth 能设的最高频率约为砖墙的 2/3 与 80%，在砖墙的上限处由砖墙接管，这一组合未建模（覆盖表注明）。
   - name: isim
     type: scope_dsp_filter
-    label: InfiniiSim 滤波
-    description: 通道的数字带宽限制（砖墙 / Bessel / Butterworth），在 ADC 之后，关时直通。
+    label: 带宽限制滤波（ISIM 命令组）
+    description: :CHANnel:ISIM 命令组下的通道数字带宽限制（砖墙 / Bessel / Butterworth），在 ADC 之后，关时直通。InfiniiSim 去嵌入/均衡面板未建模。
     params:
       enabled: $ch{n}.isim_bwlimit
       bandwidth: $ch{n}.isim_bandwidth
