@@ -17,7 +17,7 @@ import time
 from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import Any, Protocol
 
 from ..errors import Unknown
 from ..models.bench import BenchDefinition
@@ -75,6 +75,13 @@ class CommandResult:
     reply: bytes | None
     errors: list[ScpiError]
     is_query: bool
+
+
+class Located(Protocol):
+    """What a checkpoint names the place of a stop by: a component, or a component's host protocol."""
+
+    @property
+    def uid(self) -> str: ...
 
 
 class Session:
@@ -353,9 +360,10 @@ class Session:
         requests when they would pass ``MAX_REQUEST_FANOUT`` (#986); see :meth:`EvalCache.reserve`."""
         self.cache.reserve(comp, port, samples)
 
-    def checkpoint(self, comp: Component, port: str) -> None:
+    def checkpoint(self, comp: Located, port: str) -> None:
         """Where a read that has run out of budget, or was cancelled, ends: called before each
-        frame is computed (:class:`EvalCache`). Raises :class:`ComputeAborted`, which every seam
+        frame is computed (:class:`EvalCache`), and in the loops of a read that pass no frame (D88:
+        an analytic sweep, a deep record's tiles); ``comp`` and ``port`` only name the place. Raises :class:`ComputeAborted`, which every seam
         answers as a read beyond the model (-221); inside an action it also leaves an ``abort``
         event in the run record (a view emits nothing, D55), for the replay to end that action the
         same way (D88). Nothing a

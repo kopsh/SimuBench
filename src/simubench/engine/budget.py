@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import threading
 import time
+from dataclasses import dataclass
 
 from .stream import ModelLimit
 
@@ -29,23 +30,27 @@ from .stream import ModelLimit
 REASONS = ("budget", "cancel")
 
 
+@dataclass(frozen=True)
 class ComputeAborted(ModelLimit):
     """A read ended at a checkpoint; ``abort`` is one of :data:`REASONS`. (``reason``, the
     inherited field, is the classification of a command that was not executed: another thing.)
 
-    Not a dataclass of its own, deliberately: ``@dataclass(frozen=True)`` on this class would make
-    it refuse ``__traceback__``, and an exception that passes through a ``contextlib`` context
-    manager (``Session.view``) gets that assigned."""
+    A dataclass field, so ``dataclasses.replace`` — which the error reporter uses to give a real
+    model's error its manual text — keeps it (#1533: with a hand-written ``__init__`` that call
+    failed for every real model). The frozen ``__setattr__``/``__delattr__`` the decorator writes
+    for this class are removed below: they refuse *every* attribute on an instance of exactly this
+    class, ``__traceback__`` included, and an exception that passes through a ``contextlib``
+    context manager (``Session.view``) gets that assigned. The inherited ones still refuse the
+    fields."""
 
-    abort: str
+    abort: str = "budget"
 
-    def __init__(self, code: int, detail: str, abort: str) -> None:
-        super().__init__(code, detail)
-        object.__setattr__(self, "abort", abort)  # the base class is frozen
+
+del ComputeAborted.__setattr__, ComputeAborted.__delattr__
 
 
 def aborted(abort: str, detail: str, code: int = -221) -> ComputeAborted:
-    return ComputeAborted(code, f"beyond the model: {detail}", abort)
+    return ComputeAborted(code, f"beyond the model: {detail}", abort=abort)
 
 
 class ComputeBudget:
