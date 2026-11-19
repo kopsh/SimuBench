@@ -82,6 +82,7 @@ GROUPS: dict[str, M.LibraryGroup] = {
             "scope_autoscale",
             "scope_capture",
             "scope_dsp",
+            "scope_input",
             "scope_math",
             "scope_math_controls",
             "scope_math_fft",

@@ -1,0 +1,1582 @@
+                                                                                       TECHNICAL OVERVIEW
+
+
+
+
+Infiniium UXR-B Series Oscilloscopes
+Experience A New Level of Speed with The Most Advanced
+Oscilloscope on the Planet: Infiniium UXR-B
+
+
+Introduction
+The UXR-B Runs Faster. Reduce test time by up to 70% for compliance applications and general
+measurements.
+
+The UXR-B Has More Accurate Analysis. Accurate measurement of PAMn signals, including SNDR,
+can be achieved with the help of new noise reduction waveform features and noise compensation
+technology.
+
+The UXR-B Has More Features. The standard 500 Mpts feature enables capturing waveforms that are
+2.5 times longer than previous models. Additionally, wider DDC and RTSA bandwidths facilitate faster
+analysis and debugging of wireless signals. Furthermore, InfiniiSim Basic de-embedding, Precision
+Cable, and Precision Probe are now included as standard, which allows for the removal of channel loss in
+high-speed digital designs.
+
+
+
+
+Key Features
+• Up to 110 GHz of real-time oscilloscope bandwidth
+• High-definition 10-bit analog-to-digital converter (ADC)
+• Full bandwidth and channel upgradability
+• The industry’s lowest noise and jitter measurement floor
+• The industry’s highest ENOB at all supported bandwidth
+Table of Contents
+
+Key Features ................................................................................................................................................. 1
+
+Model Overview ............................................................................................................................................ 3
+
+Meet the 1 mm Ruggedized Input Models .................................................................................................... 6
+
+Meet the 1.85 mm Ruggedized Input Models ............................................................................................... 7
+
+Meet the 3.5 mm Ruggedized Input Models ................................................................................................. 8
+
+Groundbreaking Oscilloscope Technology ................................................................................................... 9
+
+Industry’s Most Advanced and Flexible Probing System ............................................................................ 20
+
+Infiniium User Interface - Ultimate Acquisition and Visibility ....................................................................... 23
+
+Advanced Capabilities & Applications......................................................................................................... 24
+
+Infiniium UXR-Series Analysis Tools .......................................................................................................... 30
+
+More Information ......................................................................................................................................... 46
+
+
+
+
+NOTE:
+
+For ordering infirmation, see the Infiniium UXR-B Series Oscilloscopes Configuration Guide.
+
+For a detail of specification, see the Infiniium UXR-B Series Oscilloscopes Data Sheet.
+
+
+
+
+                                                                                                                                                                   2
+Do What Has Never Done
+The world’s insatiable demand for better performance, shorter design cycles and faster systems with ever
+more bandwidth has driven the need for a new class of modular ultra-high-performance oscilloscopes
+with upgradable bandwidths from 5 GHz to 110 GHz, extremely low noise floors, 10-bit high-definition
+vertical resolution, femtoseconds of intrinsic jitter, deep memory and hardware accelerated waveform
+processing. That’s the promise of Keysight Technologies Infiniium UXR-Series oscilloscopes. They are
+undeniably the fastest, lowest noise, highest signal fidelity and most powerful oscilloscopes in the world –
+with the features and performance necessary to enable and accelerate the next generation of electronic
+research and design.
+
+
+
+Model Overview
+The UXR is available in three different model categories based on available bandwidth, sample rate and
+input connector size. Infiniium UXR-Series models offer bandwidths from 5 GHz to 110 GHz with various
+1-channel, 2-channel, or 4-channel configurations available. The 3.5mm models are equipped with
+Keysight AutoProbe II interfaces while 1mm and 1.85 mm models incorporate an advanced high-
+performance high-bandwidth Keysight AutoProbe III interface.
+
+
+
+
+    Model                        Bandwidth                      Power Required                              Sample Rate
+                  2-channel                      Connector
+    4-Channel                    (Maximum)                      4-channel   2-channel                       (Maximum)
+    UXR1104B      UXR1102B       110 GHz
+    UXR1004B      UXR1002B       100 GHz
+    UXR0804B      UXR0802B       80 GHz
+    UXR0704BP     UXR0702BP      70 GHz
+                                                 1 mm
+    UXR0594BP     UXR0592BP      59 GHz
+    UXR0404BP     UXR0402BP      40 GHz                         200 to 240 Vac       110 to 240 Vac
+    UXR0254BP     UXR0252BP      25 GHz                                                                     256 GSa/s
+                                                                2615 VA(Max)         1350 VA (Max)
+    N/A           UXR0051BP1     5 GHz
+    UXR0704B      UXR0702B       70 GHz
+    UXR0594B      UXR0592B       59 GHz
+                                                 1.85 mm
+    UXR0504B      UXR0502B       50 GHz
+    UXR0404B      UXR0402B       40 GHz
+    UXR0334B                     33 GHz
+    UXR0254B                     25 GHz
+    UXR0204B                     20 GHz                         100 to 240 Vac
+                  N/A                            3.5 mm                              N/A                    128 GSa/s
+    UXR0164B                     16 GHz
+                                                                1350 VA (Max)
+    UXR0134B                     13 GHz
+    UXR0104B                     10 GHz
+1
+    The UXR0051BP includes two channels, but only one channel is licensed for use. The 2 n d channel may be activated with
+    purchase of an upgrade license – N2166A Upgrade 1 channel UXR0051BP to 2 channel UXR0254BP.
+
+
+
+
+                                                                                                                             3
+Superior Signal Fidelity from an Ultra-High-Performance
+Real-Time Oscilloscope
+The Industry’s Best Signal Integrity
+• Up to 4 channels of true 110 GHz analog bandwidth
+   World’s first high-performance oscilloscope series with a high-definition 10-bit Analog-to-Digital
+   Converter (ADC)
+• Low-noise analog front ends for precision signal acquisition
+      A mere 129 μV (rms) noise with 10 GHz of bandwidth, 500 μV (rms) at 70 GHz and only 860 μV
+      (rms) at 110 GHz
+• The industry’s highest ENOB for supported bandwidths
+   o 6.8 bits at 13 GHz over 3.5 mm inputs
+   o 5.4 bits at 70 GHz over 1.85 mm inputs
+   o 5.0 bits at 110 GHz over 1 mm inputs
+• Down to 4 mV/div vertical scaling supported in hardware
+• Hardware bandwidth limit filters enable accurate scalability
+• Correction filters ensure flat frequency magnitude and phase response
+• 25 fs (typical) of intrinsic jitter produce excellent jitter characterizations
+• MultiScope support for up to 40 channels of synchronized acquisition
+
+
+
+
+                                                                                                        4
+Modular Design and Upgradable Platform
+The world’s insatiable demand for faster data throughputs and better performance are driving current
+digital and RF technologies to their limits. At the same time, new technologies are emerging every 2 to 3
+years, instead of the traditional 4-to-5-year innovation cycle, to meet this accelerating demand. Engineers
+and scientists can’t afford to replace their research and development infrastructure investments to keep
+pace with these accelerating technology waves. Keysight recognized this shift and designed the UXR-
+Series to be a modular and fully upgradable platform – offering upgradable bandwidths ranging from 5
+GHz to 110 GHz, with expandable 1-, 2- and 4-channel UXR-Series model configurations. Now, you can
+purchase an oscilloscope that meets your measurement and analysis requirements today and rest easy
+knowing it has the power, features, signal integrity, and upgradability to meet your most demanding future
+requirements, while preserving your investment.
+
+• Sequentially upgradable between supported bandwidths
+    o Starting from 5 GHz up to 110 GHz
+    o Most accomplished onsite via simple license keys
+• Grow from 1 to 2 to 4 channel full bandwidth configurations
+• Upgrade to 1 Gpt and 2 Gpts of memory via license keys
+• Full Infiniium software and compliance application support
+• Widest range of probing and connectivity options
+• Optional self-optimizing module to perform full factory quality frame adjustments
+
+
+
+
+                                                                                                              5
+Meet the 1 mm Ruggedized Input Models
+• Models from 5 GHz to 110 GHz of fully sampled real-time analog bandwidth – simultaneously on up
+  to four channels per scope
+• Unrestricted 256 GSa/s per channel sample rate – with a real-time resolution of 3.9 ps per sample
+• High-definition 10-bit analog-to-digital converter (ADC) for unrivaled vertical resolution
+• Ruggedized 1 mm analog input connectors with a new AutoProbe III interface
+• Up to 2 Gpts per channel of deep memory capable of capturing over 10 Tb/s
+• Up to 100x faster performance for some measurements – enabled by a powerful new measurement
+  acceleration ASIC and memory controller capable of
+  5 trillion integer operations per second (IOPS)
+• Keysight Indium Phosphide ASIC technology enables the lowest noise and highest signal integrity
+  through full bandwidth time-interleaved sampling (TIS)
+• 64 GB RAM with 2.6 GHz octa-core processor and hardware acceleration enable fast processing
+• See your signal more clearly with a large 15.4-inch capacitive touch screen display
+• Ability to measure edges as fast as 2.8 ps combined with the industry’s lowest noise and 20 fsrms of
+  intrinsic jitter enables even the most demanding multi-channel applications
+
+
+
+
+                                                                                                         6
+Meet the 1.85 mm Ruggedized Input Models
+• Models from 40 GHz to 70 GHz of fully sampled real-time analog bandwidth – simultaneously on up
+  to four channels per scope
+• Unrestricted 256 GSa/s per channel sample rate – with a real-time resolution of 3.9 ps per sample
+• High-definition 10-bit analog-to-digital converter (ADC) for unrivaled vertical resolution
+• Standard 1.85 mm analog input connectors with a new AutoProbe III interface
+• Up to 2 Gpts per channel of deep memory capable of capturing over 10 Tb/s
+• Fast edge with a rise time of less than 4 ps enables TDT measurement with PrecisionProbe. Use the
+  N2126A optimizing module as part of PrecisionCable Advanced to extend measurement to an
+  unmatched 70 GHz.
+• USB and LAN provide remote measurements. Infiniium application remote program interface allows
+  application/compliance software automation
+• The horizontal and vertical knobs can be changed to control functions and waveform memories.
+  Simply right click the channel control in the GUI to change these controls
+• Measure section, including a toggling marker button and a dedicated marker knob, provides quick
+  access to your marker control
+• Infiniium UXR-Series oscilloscopes are the world’s only 4-channel oscilloscopes capable of
+  bandwidths over 40 GHz on all 4 channels simultaneously. UXR-Series oscilloscopes feature
+  InfiniiMax 30-GHz probes, making debugging your system easier and ensuring you aren’t missing
+  valuable harmonic content.
+
+
+
+
+                                                                                                      7
+Meet the 3.5 mm Ruggedized Input Models
+• Models ranging from 10 GHz to 33 GHz of fully sampled real-time analog bandwidth –
+  simultaneously on up to four channels per scope
+• Unrestricted 128 GSa/s per channel sample rate – with a real-time sample resolution of 7.8125 ps
+  per sample
+• High-definition 10-bit analog-to-digital converter (ADC) provides 1,024 quantization levels, enabling
+  more accurate digitization of signals – 4x more vertical resolution than traditional 256 level, 8-bit
+  systems
+• 500 Mpts standard, with up to 2 Gpts per channel of optional deep memory
+• Threaded 3.5 mm RF connectors with convenient auto torque mechanism ensures the most reliable
+  signal integrity and consistent 8 in-lbs. connection. The AutoProbe II interface provides a robust
+  interface and instant compatibility with the InfiniiMax Ultra RC, III and III+ probing system.
+• Ultra-quiet analog multi-chip front-end module optimized for 33 GHz and lower bandwidths provides
+  the lowest noise and highest signal integrity available in its class along with the advantage of full
+  bandwidth time-interleaved sampling (TIS).
+• Enterprise grade 960GB removable solid-state drive improves processing speed and enhances data
+  security
+• Customizable multipurpose key allows you to customize its function to make your favorite
+  measurements, execute a script, save waveforms, or load a setup
+• Industry best ENOB and less than 10 fsrms of inter-channel intrinsic jitter enables precise capture of
+  multi-channel applications and measurements
+
+
+
+
+                                                                                                           8
+Groundbreaking Oscilloscope Technology
+The Infiniium UXR-Series is the 7th generation in Keysight Technologies’ Infiniium portfolio of high-
+performance real-time oscilloscopes. It is undeniably the world’s most technologically advanced and
+powerful oscilloscope. A single 110 GHz 4-channel Infiniium UXR incorporates over 80 custom
+Application-Specific Integrated Circuits (ASICs), 13 Field-Programmable Gate Arrays (FPGAs), 9 unique
+Monolithic Microwave Integrated Circuits (MMICs), and 38 thin films. These revolutionary chipsets are the
+basis for the building blocks used within the UXR-Series to realize an upgradable and modular design
+that delivers superior measurements, with the highest fidelity and signal integrity, in a platform that has
+the power you need today and the ability to conquer even your most demanding future needs.
+
+Whether you are deploying emerging high-speed bus technology, identifying spectral content of wideband
+RF signals, or analyzing transient physical phenomena, you need the truest representation of your signal
+under test. Keysight invests in advanced leading-edge technology to bring you the highest real-time
+oscilloscope measurement accuracy available today.
+
+
+
+Indium Phosphide (InP) Integrated Circuits
+Keysight utilizes a proprietary Indium Phosphide (InP) integrated circuit process to design the key
+technology blocks necessary to deliver high-bandwidth performance, ultra-low noise, and high-voltage
+signal input. This process is used in the pre-amplifier, trigger, sampling, and probe amplifier integrated
+circuit designs. Not only does this mean you are purchasing the best oscilloscope on the market today,
+but you can also count on technology leadership from Keysight in the future.
+
+
+
+                                             InP HB2C 110 GHz pre-amp and
+
+                                             256 GSa/s sampler MMICs
+
+
+
+
+                                                                                                              9
+10-bit Analog-to-Digital Converter (ADC)
+The Infiniium UXR is the world’s first high-performance real-time oscilloscope, with offered bandwidths
+over 8 GHz, to come equipped with a high-definition 10-bit ADC architecture. Every UXR-Series
+acquisition board multiplexes four of the same 4-lane 10-bit ADCs as used in the award-winning Keysight
+S-Series oscilloscope. This industry-fastest high-fidelity ADC enables the UXR to offer industry leading-
+sample rates as high as 256 GSa/s per channel across up to 4 channels simultaneously.
+
+• 4x more vertical resolution than legacy 8-bit oscilloscopes
+• Hardware ADC Effective Number of Bits (ENOB) up to 8.7 contributes to high system ENOB values
+• 12+ bits of resolution with high-resolution mode
+• Achieves SNR better than historical 8-bit ADC architectures
+• Vertical scaling as low as 4 mV/div supported in hardware and 1 mV/div with software-assisted
+  magnification
+
+
+
+
+High-fidelity 10-bit ADC
+
+• 65 nm CMOS (9 mm x 14 mm)
+• 130 nm BiCMOS buffer IC
+• Custom 33 mm BGA package
+
+
+
+
+Faraday Cage Shielded Analog Front-End Multi-Chip
+Modules (MCMs)
+Any oscilloscope is only as good as its analog front-end bandwidth and noise. Infiniium UXR-Series
+oscilloscopes incorporate 100% full bandwidth time interleave sampling (TIS) on up to 110 GHz of analog
+bandwidth – coupled with the most advanced front-end noise reducing technology available to ensure
+ultra-low noise high bandwidth acquisition. This Keysight technology ensures the scopes advanced 10-bit
+ADC provides high-definition quantization of the test signals, not the oscilloscope’s noise. Additionally,
+MCMs are instantly upgradable to higher bandwidths with a simple software license, adding more value
+and future proofing your investment.
+
+
+
+
+                                                                                                             10
+TIS Analog Front-End Module for 1mm and 1.85mm Input
+Models
+• Integrated pre-amplifier, trigger and sampling technology blocks using proprietary noise-shielding
+  faraday cage packaging technology
+• Leverages Keysight’s proven packaging technologies developed for network analyzers and spectrum
+  analyzers
+• InP ICs enable full bandwidth DC to110 GHz pre-amplifiers
+• 256 GSa/s primary InP sampler synchronized with (4) 64 GSa/s SiGe samplers provide TIS aligned
+  signals to (16) 10-bit ADCs
+• 7.5 mV/div vertical sensitivity in hardware and 1 mV/div with software assisted magnification
+• Analog and DSP bandwidth limit filters reduce unwanted noise
+• Electro-mechanical attenuators for decreased noise and high reliability
+• Industry lowest 500 μV (rms) of noise at 70 GHz of bandwidth allows accurate viewing of small signal
+  details
+
+
+
+
+      Single Channel 110 GHz MCM: Thin film
+      multi-chip module packaging with faraday
+      cage technology protects incoming signals
+      from external noise and degradation –
+      enabling you to see your signals the way
+      your design experiences them
+
+
+
+
+                                                                                                         11
+TIS Analog Front-End Module for 3.5mm Input Models
+• Ultra-quiet design optimized for DC to 33 GHz bandwidths
+• Low noise pre-amplifier synchronized with (2) 64 GSa/s SiGe samplers provide TIS aligned signals
+  to (8) 10-bit ADCs
+• 4 mV/div vertical sensitivity in hardware and 1 mV/div with software assisted magnification
+• Analog and DSP bandwidth limit filters reduce unwanted noise
+• Broad maximum input voltage ranging 32 mV to 8 V full scale
+• Industry best 150 μV (rms) noise at 32 mV full scale with 13 GHz of bandwidth
+• 2 channels per acquisition board
+
+
+
+
+One channel of dual channel 33 GHz MCM - Optimized chipsets and processes, mixed with faraday cage technology,
+enable the lowest noise analog front end in the world for bandwidths from 10 GHz to 33 GHz
+
+
+
+
+Dual-channel 33 GHz MCM and single-channel 110 GHZ MCM with integrated faraday cage heat sink
+
+
+
+
+                                                                                                                 12
+World’s Most Powerful Acquisition and Analysis System
+To harness the power of a 256 GS/a per second analog front-end and provide 10 bits of high-definition
+vertical resolution, Keysight needed to develop an acquisition and analysis system capable of quantizing
+and capturing 2.56 Tb per second of data per channel.
+
+The heart of the Infiniium UXR-Series oscilloscope is a powerful 24-layer acquisition board consisting of 3
+sub-laminations and over 1,000 high-speed traces that won the Mentor Graphic Design of the Year award
+for industrial design. Each 5 GHz to 110 GHz MCM feeds a single acquisition board, while every dual-
+channel 10 GHz to 33 GHz MCM shares one across each of its channels. At 256 GSa/s, a 4-channel
+UXR-Series oscilloscope can capture 10.24 Tb/s of data across 4 acquisition boards – time synchronized
+to within 10 fs (rms) of inter-channel intrinsic jitter.
+
+
+
+Award Winning Acquisition board
+• (4) 10-bit high-definition ADCs
+•   (4) 100m gate memory controllers
+• 2.56 Tb/s of real-time acquisition bandwidth
+•   (2) signal processing FPGAs
+• From 500 Mpts to 2 Gpts of ultra-high-speed memory
+• Frequency response correction filters produce flat responses for both magnitude and phase for more
+  accurate waveforms
+• User-selectable hardware bandwidth-limiting correction filters from 1 GHz up to the oscilloscope’s
+  bandwidth reduce unwanted noise, plus additional front-end filters for even more bandwidth-limiting
+  options
+• Fast update rates mean your oscilloscope will stay responsive with deep memory on to ensure
+  precise representation of analog signals
+
+
+
+
+                                                                                                              13
+Advanced Signal Processing Memory Controller
+• CMOS ASIC with 100M+ gates
+• Capable of 5 trillion integer operations per second
+• Improves performance of some features by 100x
+• Keysight proprietary DSP technology blocks support rapid optional de-embedding technologies such
+  as InfiniiSim, Precision Probe, and equalization
+• Available hardware-based acceleration speeds:
+   o Waveform plotting
+   o Averaging
+   o Equalization (CTLE, FFE, TIE)
+   o Jitter measurements (TIE)
+   o InfiniiSim
+
+
+
+
+                                                                                                     14
+Time-Interleaved Sampling (TIS) vs. Frequency
+Interleaving Technologies
+Traditional digital storage oscilloscopes used full bandwidth time-interleaved sampling and high-speed 8-
+bit analog-to-digital converters (ADCs) to capture signals with low noise and the highest levels of signal
+integrity. Unfortunately, the traditional IC technologies used to power the amplifiers and samplers used in
+TIS oscilloscopes maxed out below 40 GHz.
+
+To bridge this performance gap, sophisticated frequency, and interleaving processes like Asynchronous
+Time Interleaving (ATI), Digital Bandwidth Interleave (DBI), and RealEdge were developed. These
+complicated technologies split an incoming high-bandwidth signal into two or more lower bandwidth paths
+– allowing multiple slower ASICs to amplify, sample, acquire and process pieces of faster bandwidth
+signals. Frequency interleaving consequently comes with the cost of less available simultaneous
+channels and/or reduced sample rates, which requires multiple scopes for some applications.
+Consequentially, these innovations come with the disadvantage of increased noise, higher jitter, and
+lower signal fidelity, impacting an engineer or researcher’s ability to measure and analyze today’s ultra-
+fast, low-voltage signals.
+
+Keysight recognized the need for a better solution and, after 5 years of development, has perfected new
+TIS technologies capable of meeting the needs of today’s most demanding technologies. Powered by
+advanced Keysight Indium Phosphide ASIC processes, the UXR can acquire, amplify, and sample an
+incoming analog signal at a blazing fast 256 GSa/s across a full 110 GHz of bandwidth. This is
+accomplished without legacy signal degrading frequency interleaving technologies. UXR-Series of
+oscilloscopes return to the industry-proven, low noise, high signal integrity time-interleaved sampling (TIS)
+method used in traditional high-definition lower bandwidth oscilloscopes.
+
+
+
+
+               High-Performance Indium Phosphide MMICs - 110 GHz pre-amplifier and 256 GSa/s
+                               sampler incorporated in thin film multi-chip module
+
+
+
+
+See Your Signal – Not Oscilloscope Noise
+Infiniium UXR incorporates the most powerful and technologically advanced analog front end ever
+imagined in a real-time oscilloscope. Its leading-edge Indium Phosphide chip technology, custom thin film
+multi-chip module packaging and integrated faraday cage architecture ultimately guarantees the speed,
+low noise, and high fidelity needed to capture and measure today’s and the future’s high-bandwidth low-
+voltage signals - where picoseconds and microvolts matter.
+
+
+
+
+                                                                                                                15
+These revolutionary capabilities ensure signals are clearer, eye diagrams are more open, and test results
+are truly accurate – empowering leading-edge researchers to see their signals the way they really operate
+in their designs and ultimately accelerate time to market for next generation and advanced technologies
+such as PAM4, 5G, NRZ, optical solutions and RF signal bursts.
+
+
+
+
+Comparison of 32 Gbps NRZ Eye diagram with ~24 dBm of loss – Measurements after equalization, captured with 40
+GHz bandwidth
+
+     UXR-Series – TIS Channel                                       Z-Series – RealEdge Channel
+
+      • 141.4 mV eye height                                         • 102.0 mV eye height
+      • 23.877 ps eye width                                         • 22.998 ps eye width
+      • 38.6% more eye height
+      • 4% more eye width
+      • Results in more margin for
+        de-embedding / equalization
+
+
+
+
+Rugged Analog Bulkhead Connectors
+To economically support bandwidths ranging from 5 GHz to 110 GHz, the various UXR-Series models
+come equipped with standard and ruggedized male inputs that best support the specified maximum
+bandwidths. Ruggedized male connectors (also known as outside-thread connectors or NMD connectors)
+have threads on the inside of the connector nut that are used when making a standard connection, and
+threads on the outside of the connector nut that are used when making a ruggedized connection.
+
+• 10 GHz to 33 GHz models are equipped with ruggedized male 3.5 mm NMD analog bulkhead
+  connectors
+    o Allows the use of standard female SMA, 3.5 mm and 2.92 mm cables and adapters
+    o Integrated outer clutch acts as an attached 8 in-lb. torque wrench
+    o 2 sets of threads for connector diversity
+       -   Internal – use for standard connections
+       -   External – use for ruggedized connections
+    o AutoProbe II interface ensures compatibility with existing InfiniiMax Ultra RC, III and III+ probing
+      technologies
+
+
+
+
+                                                                                                                 16
+• 40 GHz to 70 GHz models are equipped with standard male 1.85 mm analog bulkhead connectors
+    o Allows the use of standard female 1.85 mm and 2.4 mm cables and adapters
+    o Housing is knurled for easy finger tightening
+    o Includes a hex front end for use with 8 in-lb. torque wrenches
+    o Advanced AutoProbe III interface enables next-generation high-speed probing technology
+
+
+• 80GHz to 110 GHz B models and 5 GHz to 70 GHz BP models are equipped with ruggedized male 1
+  mm analog bulkhead connectors
+    o Allows the use of standard female 1 mm cables and adapters
+    o Housing is knurled for easy finger tightening
+    o Includes a 14 mm hex front end for use with 10 in-lb. and 14 in-lb. torque wrenches
+    o 2 sets of threads for connector diversity
+        -   Internal – use for standard connections
+        -   External – use for ruggedized connections
+    o Advanced AutoProbe III interface enables next generation high-speed probing technology
+
+
+
+
+Ruggedized 1 mm Male                     Standard 1.85 mm Male               Ruggedized 3.5 mm Male
+Bulkhead Connector with                  Bulkhead Connector with             Bulkhead Connector with
+AutoProbe III Interface                  AutoProbe III Interface             AutoProbe II Interface
+
+
+Every UXR-Series includes female-to-female connector savers to help protect the unit’s primary bulkhead
+connector from damage. Additional adapters are also available.
+
+Adapter Type                      Part Number
+ 1 mm F Ruggedized to 1 mm F       Y1900B
+ 1 mm F Ruggedized to 1 mm M       Y1900C
+ 1 mm F Ruggedized to 1.85 mm
+                                   Y1901B
+ F
+ 1 mm F Ruggedized to 2.92 mm                               Y1900B           Y1903B                   Y1901B
+                                   Y1903B
+ F
+ 1.85 mm F to F Adapter
+                                   N5520B
+ Assembly
+ 2.4 mm M to 2.92 M                11904A
+ 2.4 mm F to 2.92 mm F             11904B                                                    3.5 mm F to 3.5 mm F
+                                                            11904D            11904B
+ 2.4 mm M to 2.92 F                11904C
+ 2.4 mm F to 2.92 mm M             11904D
+ 3.5 mm F to 3.5 mm F              5061-5311
+
+
+
+
+                                                                                                               17
+First Ever Factory-Quality Self-Adjustment Modules
+The Infiniium UXR-Series is the first real-time oscilloscope to offer an optional self-optimization module –
+capable of performing the frame adjustments to align internal correction constants under site
+environmental conditions. Optimization modules are available for all UXR-Series bulkhead connector
+types and supported bandwidths. Metrological traceability of warranted specifications is achieved only
+after the Performance Verification procedures is completed.
+
+
+
+Infiniium UXR Real-Time Oscilloscope Optimization Module
+ • Adjust all channels on one or more UXR-Series
+   Oscilloscopes
+ • Performs an automated full factory-quality frame adjustment1
+ • Support for optimizing models with bandwidths up to 110
+   GHz
+ • 1-1/2 hours to adjust the first channel
+     o About an hour per each additional channel
+ • Enables frame adjustments to be performed under site
+   environmental conditions
+ • High-speed Indium Phosphide (InP) step generator
+     o Calibrated and traceable to National Institute of Standards                       An Indium Phosphide enabled high-speed
+       and Technology (NIST) standards                                                   step generator lies at the heart of every
+ • 3-year Performance Verification cycle (does not require                               Infiniium optimization module
+   calibration)
+ • Time scale calibration optionally supported with additional
+   equipment
+
+
+
+
+1. A full factory certified calibration consists of frame calibration adjustments, and subsequent testing and performance
+   verification to ensure the oscilloscope is performing to its documented specifications. The optimization module performs only
+   the factory-quality frame adjustment calibration steps. Additional instruments and components are necessary to perform the
+   required horizontal adjustments and vertical performance verification procedures to achieve a full self-verified calibration. If an
+   accredited certified calibration certificate is required, the UXR must be returned to a qualified Keysight service center.
+
+
+
+
+                                                                                                                                         18
+Model number      Description                               Interface type         Max bandwidth
+                  Infiniium UXR Real-Time Oscilloscope
+N2125A                                                      AutoProbe III           110 GHz
+                  Optimization Module, 1.0 mm
+                  Infiniium UXR Real-Time Oscilloscope
+N2126A                                                      AutoProbe III           70 GHz
+                  Optimization Module, 1.85 mm
+                  Infiniium UXR Real-Time Oscilloscope
+N2127A                                                      AutoProbe II            33 GHz
+                  Optimization Module, 3.5 mm
+
+
+
+
+N2127A – 33 GHz max,                 N2126A – 70 GHz max,                    N2125A – 110 GHz max,
+3.5 mm optimization module           1.85 mm optimization module             1.0 mm optimization module
+
+
+
+
+                                                                                                     19
+Industry’s Most Advanced and Flexible Probing
+System
+To take advantage of your investment in a high-bandwidth oscilloscope, you must have a diverse probing
+system that delivers high-performance measurements. The InfiniiMax Ultra, III and III+ probing system is
+unmatched by any product in the market for measuring differential and single-ended signals – with flexible
+connectivity solutions for today’s high-density ICs and circuit boards. It uses a proprietary indium
+phosphide IC process and advanced thick-film technology to accommodate even your highest-
+performance needs.
+
+InfiniiMax probe amplifiers ranging from 1.5 GHz to 30 GHz of low noise bandwidth, deliver unrivaled
+performance and real-world usability for a completely new level of signal fidelity and accuracy.
+
+The new InfiniiMax Ultra probe delivers up to 25 GHz bandwidth with an RC input impedance profile,
+providing the extremely low mid-band loading necessary to address modern high-speed probing
+requirements. It also supports InfiniiMode and has a user-defined AC calibration mode, a wider input
+voltage range, more accuracy with unique S-parameter characterization, lower capacitive loading, a wider
+input voltage range, micro / socketed probe heads for smaller density probing, and more bandwidths.
+
+InfiniiMax Ultra probes have three attenuation ranges — 1:1, 4:1, and 8:1 — giving you superior noise
+performance and large voltage ranges, all while maintaining maximum bandwidth. The input range
+automatically configures depending on the size of the input signal and vertical scale of your oscilloscope.
+Choose from the three flexible input dynamic ranges from 600 mVpp at 1:1, 2.5 Vpp at 4:1, and 5 Vpp at
+8:1. Clearly see and know when your design is satisfactory, keep up with standards, easily probe small
+devices, and reduce test complexity with the InfiniiMax Ultra Series probes.
+
+
+
+
+                                                                                                              20
+MX002xA InfiniiMax Ultra Probe System
+• 25 GHz bandwidth – when used with MX0100A
+• “RC” input impedance architecture – 25 kΩ SE, 50 kΩ diff @DC, 170 fF with MX0100A micro probe
+  head
+• Attenuation range: 1:1, 4:1 or 8:1, auto switchable
+• ± 16 V offset range
+• Probe amp specific S parameter correction filter ensures flat frequency response
+• Compatible with new probe heads and most of InfiniiMax I/II probe heads
+• Easier to choose probe response correction method - True View (Vout/Vin) or Source Estimate
+  (Vout/Vsource)
+
+
+
+
+N700xA Optical-to electrical converters
+The N7005A and N7004A optical-to-electrical converters are high-sensitivity photo-detector modules
+designed for direct optical-to-electrical conversion of telecom or datacom signals into an Infiniium real-
+time oscilloscope. Each N7004A or N7005A adapter contains its unique S-parameter correction filter,
+which is used to flatten the frequency response for more accurate measurements.
+
+
+
+
+N7005A & N7004A GHz Optical-to-Electrical Converters
+
+• DC to 33 GHz typical (-3 dBe, electrical, N7004A) and 60 GHz typical (-3 dBe, electrical, N7005A)
+  4th order Bessel Thomson response to 70 GHz
+• Single-mode and multimode inputs (N7004A) Single-mode only (N7005A)
+• 50/125 μm, 750 nm - 1650 nm (N7004A)
+• 9/125 µm, 1200 nm –1650 nm (N7005A)
+• Perform reference receiver testing of industry optical standards, including 56 GBd PAM4, or
+  characterize raw response of an optical transmitter
+
+                                                                                                             21
+• Optional FlexDCA SW v 06.70 or higher supports PAM4 measurement capabilities such as TDECQ
+  with the N7005A and a UXR-Series oscilloscope
+
+
+
+                                              AutoProbe II to AutoProbe III interface adapter - Easily adapt your UXR-
+                                              Series scope to accept InfiniiMax III and III+ probes with the N2852A
+                                              AutoProbe II to AutoProbe III interface adapter
+
+
+
+
+Model Number Description                                     Note
+ MX0020A       10 GHz InfiniiMax Ultra probe amplifier        (RC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ MX0021A       13 GHz InfiniiMax Ultra probe amplifier        (RC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ MX0022A       16 GHz InfiniiMax Ultra probe amplifier        (RC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ MX0024A       20 GHz InfiniiMax Ultra probe amplifier        (RC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ MX0025A       25 GHz InfiniiMax Ultra probe amplifier        (RC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ N2803A        30 GHz InfiniiMax III probe amplifier          (RCRC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ N2802A        25 GHz InfiniiMax III probe amplifier          (RCRC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ N2801A        20 GHz InfiniiMax III probe amplifier          (RCRC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ N7003A        20 GHz InfiniiMax III+ probe amplifier         (RCRC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ N7002A        16 GHz InfiniiMax III+ probe amplifier         (RCRC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ N7001A        13 GHz InfiniiMax III+ probe amplifier         (RCRC architecture) Need adaptor N2852A for 1.85- and 1-mm models
+ N7004A        33 GHz optical to electrical converter         Need adaptor N2852A for 1.85- and 1-mm models
+ N7005A        60 GHz optical to electrical converter         Auto Probe III Interface
+ MX0100A-001   25 GHz micro probe head (set of 5)             (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ MX0100A-002   25 GHz micro probe head (set of 25)            (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ MX0100A-003   25 GHz micro probe head (set of 50)            (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ MX0105A       20 GHz SMA probe head                          (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ MX0106A       23 GHz solder-in probe head                    (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N2839A        21 GHz browser head                            (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N2837A        21 GHz browser head replace tip (set of 40)    (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N5425B        18 GHz ZIF probe head                          (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N5426A        18 GHz ZIF tip (set of 10)                     (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N5451A        4 GHz long-wired ZIF tip kit                   (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N2884A        5 & 9.9 GHz fine wire tip                      (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ E2675B        6 GHz Differential browser head                (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ E2677B        12 GHz solder-in head                          (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ E2678B        12 GHz socketed probe head                     (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N2880A        Coaxial attenuators                            (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N2881A        DC blocking caps (set of 2)                    (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N2851A        16 GHz QuickTip probe head                     (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ N2884A        Fine wire probing tips                         (RC architecture) InfiniiMax I/II/RC/Ultra probe heads and tips
+ MX0104A       Performance verification and deskew fixture
+For more information, see the Infiniium Oscilloscopes Probes Accessories or visit Keysight Probe
+Resource Center.
+
+
+                                                                                                                                  22
+Infiniium User Interface - Ultimate Acquisition
+and Visibility
+The Infiniium user interface features:
+• Full offline viewer
+• Up to 16 functions
+• Up to 16 horizontal gates
+• Up to 9 jitter analysis charts
+• Up to 9 noise analysis charts
+• Up to 4 InfiniiSim charts                      Easy to use FFTs
+• Up to 16 FFTs at once
+• Up to 16 grids in each window
+• Peak annotation
+• Composite files for easy file sharing
+• On-screen marker measurements
+• Up to 20 measurements displayed at once
+• Multiple display support
+• Drag and drop measurements
+• My Infiniium menu customization           Amplitude demodulation
+• Up to 16 user-defined functions
+• Full spectral window
+• Spectral analysis controls
+• Quick save
+• Multi-touch for touch capacitive screen
+• Function overviews/window
+• Up to 16 measurement trends
+• Up to 16 histograms
+• Nearly unlimited real-time eyes           Up to 16 horizontal gates
+• Tail fit versus spectral analysis chart
+• Hardware acceleration
+• Plus, much more …
+
+
+
+
+                                                                        23
+Advanced Capabilities & Applications
+Digital Measurement and Analysis
+With 110 GHz of bandwidth to capture rise times as fast as 2.8 ps and recover clocks on NRZ data rates
+as fast as 220 Gb/s, the UXR-Series is the world’s fastest real-time oscilloscope. Its four channels each
+capable of simultaneous 110 GHz acquisition make it ideal for even the most bandwidth intensive
+SERDES designs. In addition to providing leading-edge bandwidth, the UXR-Series helps you see what’s
+really happening in your design, by featuring the industry’s lowest noise and jitter measurement floor,
+which means less scope noise in your measurements and a truer depiction of your signal.
+
+UXR-Series features the following to enable ultimate digital analysis:
+• Full offline analysis
+• All New Fault Hunter help evaluate you signal characteristics
+• 2 unique jitter separation algorithms, including bounded uncorrelated jitter (BUJ) breakdown
+• Clock recovery on NRZ data rates as fast as 220 Gb/s
+• Memory depth that captures milliseconds of data at 256 GSa/s
+
+
+
+
+ Capture, display, and measure multiple real-time eyes
+ simultaneously with the UXR-Series.
+
+                                                                     With 110 GHz bandwidth and a 256 GS/s
+                                                                     sample rate, the UXR-Series can
+                                                                     effectively characterize the time interval
+                                                                     error trend of high-speed signals as well
+                                                                     as fast rising edges, down to 2.8 ps.
+
+
+
+
+                                                                     Jitter algorithm verifying window
+
+  With its flat frequency response and low noise, the UXR-Series can measure jitter components such as ISI.
+
+
+
+                                                                                                                  24
+Spectrum Analyzer Capabilities — RTSA, RF, Radar and
+Satellite Communications
+See more in the frequency domain with RTSA
+The RTSA view in the Infiniium UXR-Series provides spans from 40 MHz to 320 MHz, with a frequency
+range up to the oscilloscope bandwidth. RTSA does real-time FFT processing (up to 400,000 FFT plots
+per second) and uses spectral density plots to show all the data. The frequency mask trigger feature can
+selectively include or omit FFT waveforms from the plot. For a single channel, you can define up to eight
+frequency zones that the FFT waveform “must intersect” or “must not intersect” in order to be plotted.
+
+The integrated FFT offers an alternative to a dedicated spectrum analyzer. Use the FFT to compute both
+magnitude and phase and take advantage of several useful features to assist in spectral analysis.
+Automatic measurements and markers measure spectral peak frequencies and magnitudes as well as
+deltas between peaks. Use the amplitude demodulation (envelope mode) to measure rise and fall times
+on the entire envelope.
+
+
+
+UXR-Series features the following to enable ultimate RF analysis:
+• Real-Time Spectrum Analysis (Spectrum Density Plot)
+• Frequency Mask Trigger (Selective Plotting)
+• Amplitude modulation (envelope mode) — create radar envelopes
+• Gated FFT measurement
+
+                                                       When RTSA mode is selected, each displayed
+                                                       channel is shown in its own grid as a spectral
+                                                       density plot with a frequency span on the horizontal
+                                                       X axis and dBm on the vertical Y axis. Multiple
+                                                       overlapping, color-graded FFTs (using the
+                                                       "temperature" color scheme) are shown per plot.
+
+
+
+
+ Use Frequency Mask Trigger to do selective plotting
+
+
+
+
+                                                                                                              25
+Millimeter Wave (mmWave) Applications
+The Infiniium UXR is the first real-time oscilloscope to provide flexible
+bandwidth allocation options, hardware accelerated acquisition and the
+signal integrity necessary to enable affordable wideband multi-channel
+mmWave signal analysis. Available N2163A mmWave Wideband
+Analysis Acceleration and Frequency Extension options, coupled with 1
+mm input UXR-Series models, enable users to dynamically allocate up
+to 30 GHz wide frequency analysis bandwidth windows from DC to 110
+GHz, regardless of the oscilloscope’s maximum licensed native time-
+based bandwidth. These windows can be placed at unique center                                    Keysight Infiniium UXR-B
+frequencies on different input channels, enabling easy RF vs. IF                                 Series - 4 channel 1 mm input
+analysis. Additionally, all new Infiniium UXR-B Series models come                               model using 89600 VSA
+standard with 160 MHz of hardware-accelerated real-time Digital Down                             Software to perform a 5G NR
+Conversion1 (DDC) – with the option to expand to 2.16 GHz of analysis                            measurement
+bandwidth. With the Infiniium UXR-B, you get world-leading digital and
+mmWave performance in a single instrument with up to four phase
+coherent channels – enabling you to more quickly deliver next
+generation mmWave technologies, pulsed radar, integrated mixed signal
+designs, spread spectrum clocking (SSC), and advanced wideband
+research & development.
+
+    • Available mmWave Extension options– enable frequency analysis
+      ranges up to the hardware’s maximum supportable bandwidth2
+       o DC to 110 GHz of dynamically configurable analysis windows
+                                                                                                The UXR0051BP provides a
+       o 5 GHz, 10 GHz, 20 GHz, and 30 GHz wide options are available
+                                                                                                110 GHz frequency range on one
+    • Up to 256 GSa/s real-time or 3,200 MSa/s complex sample rates                             channel, but includes hardware for
+    • Industry best -158 dBm/Hz DANL from 50 GHz to 85 GHz                                      an optional second channel –
+    • Optional 2.16 GHz hardware accelerated DDC I/Q demodulation                               activated with purchase of an
+      bandwidth                                                                                 N2166A license, enabling easy
+       o Up to 50x faster analysis performance with DDC                                         upgradability for MIMO operation
+
+    • Easy MIMO support with independently configurable phase coherent
+      channels
+    • The industry’s highest ENOB
+       o 5.0 bits for 110 GHz analysis bandwidth
+       o 9.0 bits for 1 GHz analysis bandwidth (67 GHz CF)
+    • World class EVM performance
+       o 1.23% (two-channel bonded 802.11ay)
+       o 0.60% (5G NR measured at 28 GHz)
+    • Largest phase noise offset frequency range from 1 kHz to 100% carrier frequency
+    • Full integration with Keysight VSA Software for advanced spectral & vector signal analysis
+
+
+1
+     DDC mode cannot be used concurrently with time-based mode
+2
+     Regardless of the oscilloscopes licensed time-domain bandwidth. Maximum available frequency range (typical) determined by
+     input hardware: 1mm Ruggedized: DC to 113 GHz, 1.85mm: DC to 70 GHz and 3.5mm: DC to 33 GHz
+
+
+
+                                                                                                                                 26
+PathWave Vector Signal Analysis (89600 VSA) With the
+UXR-Series
+Tools to Demodulate and Analyze Your Most Complex Signals
+Development becomes more complex when faster data rates intersect with today’s crowded spectral
+environment. Finding a signal problem is essential when developing next-generation mmWave
+technologies but achieving the clarity to pinpoint the answer is the crucial challenge. PathWave Vector
+Signal Analysis (VSA) software is a comprehensive set of tools for demodulation and vector signal
+analysis. These tools enable you to explore virtually every facet of a signal and optimize your most
+advanced designs. As you assess the tradeoffs, the PathWave Vector Signal Analysis (VSA) helps you
+see through the complexity and accelerate your next innovations.
+
+
+
+
+Using PathWave Vector Signal Analysis (VSA) with the Infiniium UXR-Series enables you to characterize the complex
+modulation of evolving cellular communications standards like 5G NR (New Radio) and enables easy MIMO analysis.
+
+
+
+
+                                                                                                                  27
+Network Analyzer Capabilities — Time-Domain
+Transmission (TDT)
+You need to be able to maximize your margins by removing the
+effects of cables and fixtures
+As bandwidths continue to increase and cable loss becomes more and more of a problem, the UXR-B
+Series has the technology to solve this issue. UXR-B Series oscilloscopes offer award-winning
+PrecisionProbe Advanced technology. You no longer need to ignore cable loss because you are short on
+time or budget. Using PrecisionProbe Advanced technology, you can characterize cables as fast as 110
+GHz and remove the loss they create. PrecisionProbe Advanced technology with the N2125A gives you
+one of the world’s fastest edges at less than 4 ps and uses this edge to perform a TDT on your cable.
+Based on the loss of your cable, PrecisionProbe Advanced then compensates your measurement
+system, gaining back valuable margin typically lost in cables.
+
+You need to test multiple lanes automatically and still maximize
+margins
+The UXR-B Series features many compliance applications, which provide full automation of any switch
+connected to your system. The software is fully compatible with PrecisionProbe Advanced compensation,
+which allows you to characterize every input using only your UXR-Series oscilloscope and then
+seamlessly automate every measurement in your compliance application. Save valuable time and
+resources in such technologies as DisplayPort and PCI Express® Gen5.
+
+
+
+
+By analyzing cables, you can increase your margins by removing insertion loss caused by cables
+
+
+
+
+                                                                                                        28
+Optical Modulation Analyzer — Research, Development,
+& Coherent Modulation
+The ever-growing demand for higher transmission capability is driving advanced symbol rates from 64
+GBaud today to 112 GBaud and higher ranges in the longer term. To keep up with continual symbol rate
+increases, a test instrument is required that can handle
+baud rate classes of transceivers from 400 Gb/s to 1.2 Tb/s
+and beyond – from the first day of advanced research
+through the development phase.
+
+Not only are today’s baud rates more challenging, but
+modulation formats are getting more demanding due to
+higher-order Quadrature Amplitude Modulation (QAM) and
+probabilistic shaping, which requires significantly better
+noise performance.
+
+Infiniium UXR-B Series oscilloscopes achieves these
+requirements and are available in combination with a
+powerful optical coherent receiver as the N4391C, capable of    Never before seen 64 Gbaud 256 QAM 1-Tb/s
+160 to 210 Gbaud symbol rates – providing a fully specified     coherent modulation analysis with 2.6% EVM –
+turnkey instrument. This compact solution offers the highest    made possible by the Infiniium UXR-Series real-time
+real-time bandwidth options and is the most advanced test       oscilloscope and its world’s lowest noise, 110 GHz
+solution available for research on 400G to terabit and beyond   of bandwidth, 256 GSa/s sampling, high-definition
+transmission. By providing four channels of up to 110 GHz       10-bit ADC and industry best ENOB
+bandwidth, the UXR-B Series saves you the expense of a
+second instrument to analyze dual polarization. Even for the
+lower 20 GHz bandwidth range, this easy-to-use solution,
+with the best EVM and highest ENOB, is a preferred
+reference system for 100G transmission and beyond.
+
+If you prefer to operate with your own optical receivers but
+want to benefit from the solutions enormous analysis
+capability, you can get the N4391B’s analysis software as a
+standalone package.
+
+• Up to 220 Gbaud symbol rate analysis
+• Four times better EVM noise floor than typical QPSK
+  transmitters
+• Four channels of 256 GSa/s real-time sampling for
+  optimal phase tracking
+• Include your own MATLAB algorithms
+• Configurable APSK and OFDM decoders
+                                                                   Integrated N4391C Coherent Optical Solution
+• Reliable and flexible vector signal analysis (VSA) software      - Compact fully calibrated turn-key solution for
+                                                                   400Gb/s to 1.2 Tb/s and beyond
+
+
+
+
+                                                                                                             29
+Infiniium UXR-Series Analysis Tools
+EZJIT Complete D9320JITA
+Gain insight into the causes of signal jitter to ensure high reliability of
+your design
+With faster edge speeds and shrinking margins in today’s high-speed digital designs, insight into the
+causes of jitter has become critical for success. Using EZJIT Complete analysis software, the UXR-Series
+oscilloscopes help you identify and quantify jitter margins that affect the reliability of your design. Time
+correlation of jitter to the real-time signal makes it easy to trace jitter components to their sources.
+Additional compliance views and a measurement setup wizard simplify and automate RJ/DJ separation
+for testing against industry standards. EZJIT Complete automatically detects embedded clock frequencies
+and repetitive data patterns on the oscilloscope inputs and calculates the level of data-dependent jitter
+(DDJ) that is contributed to the total jitter (TJ) PDF by each transition in the pattern, a feature not
+available on any other real-time oscilloscope today.
+
+Measurement trends and jitter spectrum. EZJIT’s simple tools help you quickly analyze the causes of
+jitter. Measurement trends allow you to see deeper views of factors affecting measurements. Jitter
+spectrum is a fast method to find the causes of jitter.
+
+Two ways to separate jitter. EZJIT comes with two ways to separate jitter: the spectral method and the
+emerging tail fit method. Both methods allow for simple separation of RJ and DJ, but the tail fit method
+provides proper jitter separation in the unique case of bounded uncorrelated jitter.
+
+Unique RJ/DJ threshold view. EZJIT Complete also provides a unique threshold view of the jitter
+spectrum with the threshold drawn on the chart. The spectral view provides insight into the decision point
+of the separation and works with both narrow and wide spectral separation.
+
+Real-time eye and clock recovery. Serial data analysis (SDA) software provides flexible clock recovery
+including 1st and 2nd-order PLL and constant algorithms. With a stable clock, you can look at real-time
+eyes of transition and non-transition bits. UXR-Series scopes with SDA software also provide a new
+unique view of bits preceding an eye.
+
+Flexible charts. EZJIT Complete displays up to 10 graphs with unique information. Use them all to
+maximize your jitter analysis
+
+
+
+
+                                                                                                               30
+More than your standard jitter package
+To efficiently determine root cause for any type of signal degradation in the amplitude domain, you must
+first determine whether the problem is caused by random or deterministic sources. To help you
+accomplish this task, EZJIT Complete takes analysis techniques used in the time domain (jitter analysis)
+and extends them into the amplitude domain.
+
+
+
+
+With EZJIT Complete you can discover signal anomalies in the noise of the waveform
+
+
+
+
+More than just an eye contour
+EZJIT Complete is an in-depth view into impairments related to signal levels – either logic ones or logic
+zeroes – deviating from their ideal positions. Some tools simply provide a view of an eye contour but
+provide no real measurement data other than nice graphics.
+
+EZJIT Complete uses separation techniques to allow each bit to be examined to determine correlated
+effects and to make multiple measurements on individual bits to determine uncorrelated effects. Use
+FFTs to analyze the frequency domain and extract random components. Dual-Dirac modeling techniques
+are also carried from the jitter domain and used in the interference domain.
+
+
+
+
+                                                                                                            31
+Key measurements and features
+• Decomposition of Vertical Noise into constituent components:
+   o Random Noise (RN)
+   o Periodic Interference (PI)
+   o Deterministic Interference (dual dirac model) (DI)
+   o Data Dependent Interference, or
+     Intersymbol Interference (ISI)
+   o RIN (dBm or dB/Hz)
+   o Q-factor
+   o Aperiodic Bounded Uncorrelated Interference
+• Total Interference (TI) to a specified Bit Error Ratio
+• Cumulative Average of High (One) and Low (Zero)
+• Tabular Results of all measured quantities
+• Graphical Results of:
+   o InterSymbol Interference per bit
+   o RN / PI Histogram
+   o Total (Composite) Interference Histogram
+   o Bathtub curve (Measured and Extrapolated)
+   o Interference Frequency Spectrum
+• Settable location in the UI for vertical analysis
+• Scope noise compensation
+• Arbitrary or Periodic Data patterns
+• Advanced spectral and tail fit algorithms for accurate RN, ABUI extraction in crosstalk environments
+• Setup Wizard for robust setups
+
+
+
+
+                                                                                                         32
+Advanced phase noise analysis
+With D9320JITA, Keysight Infiniium UXR-Series oscilloscopes are the first to offer a dedicated phase
+noise measurement application. Phase noise is related to clock TIE and is generally used to measure
+change in an oscillator’s frequency, either in the long term or short term. When you look at the spectrum
+of an imperfect clock or oscillator, there will be energy radiated slightly off the nominal clock frequency (or
+carrier), called sidebands. Phase noise is generally measured as a ratio of the spectral power in the
+carrier vs. the phase noise in the sidebands, normalized to 1 Hz of bandwidth.
+
+
+
+
+With EZJIT Complete you can measure large offset phase noise on a variety of signals
+
+
+
+
+Phase noise analysis results from D9320JITA are presented in a log frequency plot, here the amplitude
+units are dBc/Hz (decibels relative to the carrier power, normalized to a 1 Hz bandwidth). The X-axis is
+the frequency offset from the nominal signal, or “carrier” frequency. Resulting spurs can be normalized,
+omitted, or be represented separately to better show their energy levels. Multiple UXR-Series channels
+can be combined to perform cross-correlated phase noise analysis, effectively reducing oscilloscope
+noise by about -5 dB per 10X increase in accumulated acquisitions (x-correlations).
+
+
+
+
+                                                                                                                  33
+Key measurements and features
+• Phase jitter measurement (rms) (pn) over a configurable frequency range
+• Support for very large offsets
+• Multiple acquisition methods and signal types:
+   o Spread spectrum clocking (SSC)
+   o Differential
+   o Probed signals
+   o Square waves
+   o After PLLs
+• Graphical Results of:
+   o Phase Noise (dBc/Hz)
+   o Frequency offset up to the carrier
+• Cross-correlated oscilloscope noise reduction: -5 dB noise reduction per 10X increase in cross-
+  correlations
+
+
+
+
+                                                                                                    34
+InfiniiSim D9320ASIA
+The most advanced waveform transformation software helps you
+render waveforms anywhere in a digital serial data link
+InfiniiSim waveform transformation toolset
+provides the most flexible and accurate
+means to render waveforms anywhere in a
+digital serial data link. The highly configurable
+system modeling enables you to remove the
+deleterious effects of unwanted channel
+elements, simulate waveforms with channel
+models inserted, view waveforms in
+physically improbable locations, compensate
+for loading of probes and other circuit
+elements, and do so simply and quickly on
+your tool of choice, the UXR-Series, with up
+to 110 GHz of bandwidth.
+
+Circuit models to define your                       InfiniiSim renders the waveform through hardware acceleration
+setup
+The InfiniiSim waveform transformation toolset provides a graphical user interface for you to define your
+system as you understand it and even make it arbitrarily complex. You do this by selecting topologies and
+defining circuit blocks.
+
+Model reflections
+With the InfiniiSim waveform transformation
+toolset, you can transform signals with
+confidence, whether you are inserting or
+removing channel elements or relocating the
+measurement plane. InfiniiSim’s advanced
+toolset lets you model up to 27 different
+elements at once and model the interaction
+between elements. Only toolsets with the
+ability to model more than one element will
+properly reflect a model including the
+oscilloscope’s input.
+
+Model your system with as                           InfiniiSim allows embedding and de-embedding of up to 27 different
+
+much detail as you need                             Elements or S-parameter models at once to meet your most
+                                                    demanding requirements.
+InfiniiSim features the model setup that best
+matches your design. Whether it is a simple single-element model or an advanced general-purpose
+model with up to 27 elements in the link, you can perfectly model your design and simulate the exact
+probing point you want.
+
+
+                                                                                                                    35
+Serial Data Equalization D9320ASIA
+Significantly reduce receiver errors by opening even tightly shut eyes
+through equalization emulation
+Serial data equalization (SDE) for the UXR-Series provides
+fast and accurate equalization using decision feedback
+equalization (DFE), feed-forward equalization (FFE), and
+continuous-time linear equalization (CTLE) modeling in real-
+time. The UXR’s hardware acceleration options further
+improve equalization performance and real-time usability.
+Serial data equalization software allows you to input your
+own self-designated tap values to verify your design. If you
+prefer, the software will find the optimal tap values for you.
+CTLE allows DC gain and two-pole modeling.
+
+InfiniiScan D9020SCNA
+Quickly and easily identify
+waveform anomalies
+Today’s digital signals are increasingly complex.
+Designers of serial links and parallel buses want to
+quickly identify signal anomalies in their designs.
+Engineers have traditionally relied on hardware
+triggering and deep memory to capture such
+illusive events. However, these classic methods fall
+short in some key areas.
+
+Trigger on events that hardware
+triggers can’t handle
+InfiniiScan software allows you to use an               Draw zones on your screen for a unique triggering experience
+oscilloscope to identify signal integrity issues that
+hardware triggering is unable to find in your electronic designs. This innovative software scans through
+thousands of acquired waveforms per second to help you isolate signal anomalies, saving you time and
+improving designs.
+
+Innovative triggers
+The zone qualify finder allows you to draw a “must intersect” or “must not intersect” zone on the
+oscilloscope screen to visually determine the event identify condition. If you can see the event of interest
+on the screen, you can create a trigger that will isolate it, saving significant time over some complicated
+hardware triggers. Other triggers include non-monotonic edge, measurement limit search, runt, and pulse
+width.
+
+
+
+
+                                                                                                                36
+PAM-N Analysis D9320PAMA
+The Infiniium UXR-Series with its industry-leading signal integrity is the best instrument to perform PAMn
+measurements. The UXR scope owns the best ENOB (effective number of bits) in the current real-time
+oscilloscope market with the lowest jitter and the lowest noise. For PAMn analysis, oscilloscope needs to
+determine the PAM levels and the thresholds that separate them. To display a PAM real-time eye, make
+eye measurements, and perform jitter/noise measurements, the oscilloscope needs to recover the clock
+from the PAM signal. The Keysight PAM-N analysis software extends the ease-of-use advantages of the
+Infiniium oscilloscopes to the analysis of PAM-3, PAM-4, PAM-6 and PAM-8 signals. A wizard walks you
+quickly through the steps required to setup measurements for a PAM encoded signal, to select methods
+for clock recovery, and then the measurements you wish to have performed on your PAM signal. Our
+PAM software is also able to accurately set the individual threshold levels of your PAM signal and render
+each individual eye.
+
+
+
+
+PAM-4 12 Edge Jitter Measurements
+PAM-4 J3u, J4u, J6u, Jrms, and even-odd jitter (EOJ) measurements can be made on PRBS13Q,
+PRBS9Q, PCIe Gen6 (52 symbols), and other data patterns. These measurements are based on the
+IEEE 802.3bs and other standards for Output Jitter measurements. During these measurements, an
+RJ/PJ histogram is measured for each of 12 specific waveform transitions that are called out in the
+standard as well as for the combined effect of all edge transitions. On PAM-4 signals that are derived
+from two NRZ signals, these measurements let you observe the effect of different uncorrelated jitter on
+each stream based on the transitioning bits. For Jrms/Jnu report count, the IEEE 802.3bs standard (and
+other standards) can specify these measurements be
+made up to 1,000,000 times. However, you can use this
+field to change the count that is actually used.
+
+
+
+
+                                                                                                             37
+PAM-4 SNDR (Signal to Noise and Distortion Ratio) Measurements
+Assuming ISI jitter and noise is 100% compensable by
+equalizers and is of no consequence to system performance,
+you can project a system's performance (when equalizers are
+used) by determining the ratio between the signal from linear
+fit pulse response and distortion-plus-noise. This ratio is called
+Signal to Noise and Distortion Ratio (SNDR). Some
+technology standard documents publish SNDR specifications.
+The SNDR measurement is arrived at by performing linear fit
+pulse response and linear fit error (matrix) math functions on
+the input waveform and then by making calculations based on
+the results.
+Signal to Noise and Distortion Ratio (SNDR) is defined by the
+equation:
+                                                            2
+                                                         𝑃𝑃𝑚𝑚𝑚𝑚𝑚𝑚
+           𝑆𝑆𝑆𝑆𝑆𝑆𝑆𝑆 (𝑖𝑖𝑖𝑖 𝑑𝑑𝑑𝑑) = 10 × 𝑙𝑙𝑙𝑙𝑙𝑙10 (                    )
+                                                    (𝜎𝜎𝑒𝑒2 + 𝜎𝜎𝑛𝑛2 )
+
+The PAM-4 SNDR measurements include Siga-n, Sigma-e,
+Pmax, and SNDR. You can also view the math waveforms
+created during the measurement process: the SNDR Input
+waveform (with the averaging and pts-per-UI linear fit
+parameters applied), the linear fit Pulse Corrected waveform,
+the Error waveform, e(k), and the Linear Fit Pulse Response,                   PAM-4 SNDR Setup
+p(k).
+
+
+
+
+                                              PAM-4 SNDR measurements result
+
+
+
+                                                                                                  38
+PrecisionProbe & PrecisionCable Standard
+Quickly characterize and compensate any input into your scope
+PrecisionProbe technology turns your high-performance oscilloscope into the ultimate characterization
+tool. Not only can you do the normal waveform transformations such as de-embedding through InfiniiSim,
+PrecisionProbe allows quick characterization of your entire probe system (including cables and switches)
+without the need for extra equipment. PrecisionProbe takes advantage of the fast “cal output” signal built
+into the UXR-Series to characterize and compensate insertion loss on the measurement system.
+
+PrecisionProbe technology:
+• Properly creates custom probe transfer
+  function = VOut / VIn
+• Properly characterizes probed system
+  transfer function such that VOut / VIn =
+  VOut / VSrc
+• Removes unwanted S21 cable loss
+• Ensures every probe has the same
+  frequency response and phase for
+  consistent measurements across multiple
+  probes
+• Compatible with UXR-Series N2126A
+  and N2127A Optimization Modules –
+  capable producing of sub-4 ps rise times
+
+
+Now every probe and cable in the system can have the exact same
+response — probe to probe or cable to cable — without the
+inaccuracies that using one model can produce. You can properly
+characterize custom probes and remove unwanted responses. In
+addition to characterizing the cables, PrecisionProbe allows for
+immediate use on the same instrument. PrecisionProbe saves you
+time and money while increasing your measurement accuracy.
+
+Characterize probes and cables in five minutes or less and
+characterize and remove insertion loss up to 110 GHz.
+
+When you combine InfiniiMax probes with switches between the          PrecisionProbe characterization of a 1.85
+amplifier and the probe head, PrecisionProbe allows for full          mm cable to 70 GHz using the N2126A
+correction and automation of each probe’s path. Full automation is    optimization module
+then available to allow for quick swapping of the inputs via the
+Infiniium software’s compliance framework.
+
+
+
+
+                                                                                                             39
+Infiniium Offline Oscilloscope Analysis Software
+D9010BSEO
+View and analyze away from your
+oscilloscope and target system
+Ever wish you could do additional signal viewing and
+analysis away from your scope and target system?
+Now you can. Capture waveforms on your scope,
+save to a file, and recall into Keysight’s Infiniium
+Offline application.
+
+It goes anywhere your PC goes
+Take advantage of large high-resolution and          Infiniium Offline software works with all Infiniium applications
+multiple displays found in your office. Use
+familiar scope controls to quickly navigate and zoom
+in to any event of interest. Use auto measurements
+and functions for additional insight.
+
+Share scope measurements more
+easily across your team
+You can share entire data records instead of being
+limited exclusively to static screen shots.
+
+Create more useful documentation
+Use features such as right-click cut-and-paste to
+move screen images between applications, without             Find signal anomalies, such as power supply coupling
+ever having to save the image to a file. Add up
+to 100 bookmark annotations and up to 20
+simultaneous measurements.
+
+Need advanced analysis
+capability?
+Infiniium Offline includes a variety of upgrade
+options including serial decode upgrades for a
+variety of serial buses, jitter analysis, and
+serial data analysis.
+                                                   Peak search capability makes Infiniium Offline a frequency domain tool
+
+
+
+
+                                                                                                                    40
+User-Defined Function Software (Standard)
+Combine Infiniium and MATLAB for even more analysis
+Enhance the UXR-Series with a seamless
+gateway to powerful MATLAB analysis
+functionality. User-defined function software
+adds new analysis capabilities to the UXR-
+Series, beyond traditional math/analysis
+features. Now you have the freedom to
+develop your own math functions or filters
+using MATLAB and its Signal Processing
+Toolbox. With a seamless integration to
+MATLAB, Infiniium oscilloscopes allow you to
+display your math and analysis functions live
+on the oscilloscope screen, just like any other
+scope’s standard functions.
+
+Automation Testing:
+Switch Matrix Support
+Comprehensive testing, easily
+achieved
+Compliance applications on the UXR-Series
+support a switch matrix, making testing simple by
+automating tests for each lane of a multi-lane
+bus. Typical testing requires reconnecting the         Typical switch configuration for HDMI testing
+oscilloscope each time you switch a lane, which
+causes wasted time and inaccuracies. The UXR-Series solves this problem by supporting switch matrix
+through its compliance test. Simply connect the switch to the oscilloscope and all the lanes, and then click
+Run to complete full testing of your entire device.
+
+Maintain accuracy
+The framework fully supports Keysight’s
+D9010DMBA De-embedding Software
+(PrecisionProbe, InfiiniSim Basic, standard in
+UXR-B). This gives you the ability to
+characterize every switch path to the device
+under test (both magnitude and skew) and          Skews between switch
+ensure that all of them maintain the same         paths are easily maintained
+level of accuracy.                                with Keysight’s unique
+                                                  Infiniium software
+Customize your testing
+
+
+
+                                                                                                               41
+Use the remote programming interface (standard feature on the UXR-Series) and D9010UDAA User-
+defined Application for device control, instrument control and test customization.
+
+
+
+
+                                                                                                42
+Compliance and Automated Testing
+Today’s demanding environment means you have much
+less time to understand the intricacies of the technologies
+you are testing. You also have less time to develop and
+test automation software that is designed to increase
+measurement throughput and decrease time to market.
+Compliance applications save you time and money with
+measurement automation built into the compliance
+application. No longer do valuable resources need to be
+exclusively tied to writing automation software. Instead
+they can be deployed to designing the next big project.        Compliance applications make testing technologies
+
+Infiniium’s compliance applications are fully functional       standards easy
+
+with design tools such as ADS. Imagine running your
+waveforms at design through the entire suite of compliance
+tests, giving more insight earlier than was previously
+possible. As the design moves to silicon and then to
+validation, the same suite of tests can be run live on your
+device.
+
+Compliance applications that run on UXR-Series
+oscilloscopes are certified to test to the exact
+specifications of each technology standard. If a test passes
+on the UXR-Series scope in your lab, you can be assured
+that it will pass in test labs and at plug fests worldwide.    Remote interface makes it easy to control automation
+Keysight experts on technology boards and industry
+standards committees help define compliance
+requirements. As a result, you can be sure that UXR-Series
+oscilloscope tools deliver to critical specifications. Setup
+wizards combined with intelligent test filtering give you
+confidence you’re running the right tests. Comprehensive
+HTML reports with visual documentation and pass/fail
+results guarantee that critical information is retained on
+each test.
+
+Quick and easy automated switching
+                                                                PrecisionProbe is integrated in automation
+Only Keysight’s UXR-Series oscilloscopes feature
+compliance applications with both the user-defined
+application’s add-in capability and integrated PrecisionProbe compensation. Switch paths can vary in
+their characteristics and have unwanted loss. By enabling PrecisionProbe in its compliance applications,
+UXR-Series scopes allow you to characterize and compensate for every path in the switch, making every
+path’s frequency response identical in both magnitude and phase. These tools make switch automation
+quick and painless. The UXR-Series and its compliance applications make automation more automated
+than ever. Your technicians no longer need to spend valuable time physically changing connections.
+
+
+
+
+                                                                                                              43
+User-Defined Application D9010UDAA
+Custom automation for your
+UXR-Series oscilloscope
+The user-defined application is the only fully
+customizable automated environment made for an
+oscilloscope by an oscilloscope designer. It
+provides full automation, including the ability to
+control other Keysight instruments, external
+applications such as MATLAB and your DUT
+software.
+
+Simplify your automation
+The user-defined application (UDA) makes
+automation simple. The application takes the
+Infiniium compliance application framework and
+                                                  Customize your own tests and requirements with user-defined
+gives you full access to its interface. UDA
+                                                  application in the familiar Keysight framework
+allows for automation testing in as little as one
+minute. Use UDA to control other Keysight
+instruments such as signal generators and network
+analyzers to create a full suite of measurements.
+
+Full measurement report
+No automation would be complete without a
+simple-to-view and easy-to-understand report. UDA
+provides a full report of the pass/fail criteria you
+have provided.
+
+Add-in capability
+Ever wanted to add testing to your compliance
+applications? All Infiniium compliance applications
+support the industry’s most flexible testing
+                                                       Add a switch when testing your multi-lane signals to automate
+mechanism with UDA add-in capability. Create
+                                                       tedious test requirements
+the custom testing you need and then plug it into
+your compliance application to expand the
+application to your testing needs. UDA add-in capability is available only on Infiniium oscilloscopes.
+
+PrecisionProbe and switch compatibility
+UDA makes automation of switches in your system simple and accurate. Use PrecisionProbe to
+characterize the path of the switch and then let UDA’s unique GUI switch between every input in your
+switch system. Every input can look identical in its frequency response thanks to this advanced
+technology.
+
+
+
+
+                                                                                                               44
+Protocol Analysis
+Infiniium UXR-Series oscilloscopes supports more than 20 different advanced protocol decoders,
+including the industry’s first 64/66b decoder. The UXR-Series protocol tools feature time-correlated
+markers that let you easily move between the listing window and the waveform. Protocol tools can be
+used on up to four lanes simultaneously.
+
+These unique tools feature search and trigger capability that lets you scan through the waveform to find
+the trigger condition that interests you. Protocol tools are fully compatible with Infiniium’s serial data
+analysis and are also available on the Infiniium offline tool.
+
+
+
+
+UXR-Series 25 GHz 4-channel model decoding PCI Express Gen 3 packets.
+
+
+
+
+                                                                                                             45
+More Information
+Thank you for choosing a Keysight UXR-Series Oscilloscope. The Keysight Infiniium UXR-Series
+oscilloscopes set a new standard for real-time oscilloscope accuracy, with models ranging from 5 to 110
+GHz. Extreme signal integrity, 10-bits of vertical resolution and ultra-low noise floor specifications allow
+for the truest representation of signals. Invest with confidence today, knowing you have the ability to meet
+the needs of technology advancements tomorrow. For more information on the UXR, check out the
+following:
+
+• UXR Datasheet
+• UXR Product Fact Sheet
+• UXR Configuration Guide
+• UXR mmWave and Frequency Extension Datasheet
+
+
+
+
+                                         Keysight enables innovators to push the boundaries of engineering by quickly solving
+                                         design, emulation, and test challenges to create the best product experiences. Start your
+                                         innovation journey at www.keysight.com.
+
+                                         This information is subject to change without notice. © Keysight Technologies, 2023 - 2026,
+                                         Published in USA, April 3, 2023, 3123-1371.EN
+

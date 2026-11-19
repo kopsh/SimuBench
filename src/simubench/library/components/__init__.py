@@ -24,6 +24,7 @@ from . import (  # noqa: F401
     scope_acquisition,
     scope_autoscale,
     scope_dsp,
+    scope_input,
     scope_math,
     scope_measurements,
     scope_trigger,
