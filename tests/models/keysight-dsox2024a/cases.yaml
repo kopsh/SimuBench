@@ -981,14 +981,38 @@ cases:
   - name: "数学函数刻度：缺参 -109，MAX 之类字符数据 -104，数字照常设定（#1451）"
     manual: "FUNCtion Subsystem > FUNCtion:SCALe"
     steps:
+      - send: ":FUNC:SCAL 2"
+      - query: ":FUNC:SCAL?"
+        expect: "2"
       - send: ":FUNC:SCAL"
       - query: ":SYST:ERR?"
         expect: '-109,"Missing parameter"'
+      - query: ":FUNC:SCAL?"  # each refused command below changed nothing (#1496)
+        expect: "2"
       - send: ":FUNC:SCAL MAX"
       - query: ":SYST:ERR?"
         expect: '-104,"Data type error"'
+      - query: ":FUNC:SCAL?"
+        expect: "2"
       - send: ":FUNC:SCAL 1"
       - query: ":FUNC:SCAL?"
         expect: "1"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+
+  - name: "数学函数刻度：非十进制数值 #H/#Q/#B 按 IEEE 488.2 7.7.4 当数字，错的数字 -104 且刻度不变（#1496）"
+    manual: "IEEE 488.2 7.7.4 non-decimal numeric program data（DSO-X 编程手册不在 manuals/，依据是该标准与平台的统一做法 #1497）; FUNCtion Subsystem > FUNCtion:SCALe"
+    steps:
+      - send: ":FUNC:SCAL #H2"
+      - query: ":FUNC:SCAL?"
+        expect: "2"
+      - send: ":FUNC:SCAL #B11"
+      - query: ":FUNC:SCAL?"
+        expect: "3"
+      - send: ":FUNC:SCAL #HZZ"
+      - query: ":SYST:ERR?"
+        expect: '-104,"Data type error"'
+      - query: ":FUNC:SCAL?"
+        expect: "3"
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'

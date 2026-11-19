@@ -714,9 +714,14 @@ cases:
   - name: "分辨率带宽：缺少参数报 -109，随后仍可正常设定（#1451）"
     manual: "BANDwidth Subsystem > :BANDwidth"
     steps:
+      - send: ":BAND 2e6"
+      - query: ":BAND?"
+        expect: "+2.00000000E+006"
       - send: ":BAND"
       - query: ":SYST:ERR?"
         expect: '-109,"Missing parameter"'
+      - query: ":BAND?"  # the refused command changed nothing (#1496)
+        expect: "+2.00000000E+006"
       - send: ":BAND 1e6"
       - query: ":BAND?"
         expect: "+1.00000000E+006"
