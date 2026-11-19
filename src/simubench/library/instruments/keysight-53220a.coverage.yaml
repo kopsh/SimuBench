@@ -840,10 +840,12 @@ sections:
   - header: STATus:OPERation:CONDition
     level: implemented
     note: >-
-      status_register 组件（#1571）：位 0 Calibrating、1 Running or Battery、2 Battery Critical、
-      4 Measuring（已初始化，ARM）、5 Waiting for Trig（WTG）、8 Internal Reference、9 Instrument
-      Locked、10 Config Chg、11 Rdg Mem Threshold、12 Global Error。ARM/WTG 来自触发模型，
-      其余位在模型里没有来源，恒为 0。
+      status_register 组件（#1571，位号对照 Figure 8-1 的图，#1598）：位 0 Calibrating、1 Running
+      on Battery、2 Battery Critical、4 Measuring（已初始化，ARM）、5 Waiting for Trig（WTG）、
+      9 Internal Reference（512）、10 Instrument Locked、11 Config Chg、12 Rdg Mem Threshold、
+      13 Global Error。ARM/WTG 来自触发模型；Internal Reference 来自 reference_clock：内部振荡器在用
+      时置位（选了内部，默认；或选了外部但没有锁定——模型的假设：手册没写外部失锁时用哪个振荡器，
+      这里取内部，同时 QUES 位 10 报时基错误），10 MHz 锁定外部参考时清零。其余位在模型里没有来源，恒为 0。
   - header: STATus:OPERation[:EVENt]
     level: implemented
     note: 条件变为真时锁存，读后清零；*CLS 清零；OSB 汇总进状态字节位 7。

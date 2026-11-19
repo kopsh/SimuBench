@@ -420,18 +420,18 @@ cases:
     steps:
       - send: "*RST"
       - query: "STAT:OPER:COND?"
-        expect: "0"
+        expect: "512"  # Figure 8-1 bit 9, Internal Reference: the internal oscillator is the default one in use (#1598)
       - send: "TRIG:SOUR BUS"
       - send: ":INIT"
       - query: "STAT:OPER:COND?"
-        expect: "48"
+        expect: "560"  # 512 Internal Reference + 48 (Measuring 16, Waiting for Trig 32)
       - send: "*TRG"
       - query: "*OPC?"
         expect: "1"
       - query: "STAT:OPER:EVEN?"
         expect: "48"
       - query: "STAT:OPER:COND?"
-        expect: "0"
+        expect: "512"
       - send: "STAT:OPER:ENAB 32"
       - send: "*CLS"
       - send: ":INIT"
@@ -447,6 +447,10 @@ cases:
       - send: ":SENS:ROSC:SOUR EXT"
       - query: "STAT:QUES:COND?"
         expect: "1024"
+      # An external reference selected and none locking it: the internal oscillator is still the one
+      # in use (the locked case, 10 MHz on REF_IN, is test_keysight_53220a.py's: this bench has none).
+      - query: "STAT:OPER:COND?"
+        expect: "512"
       - send: ":SENS:ROSC:SOUR INT"
       - query: "STAT:QUES:COND?"
         expect: "0"
