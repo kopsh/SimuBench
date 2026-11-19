@@ -19,6 +19,7 @@ from ..engine.events import RunEvent as RunEvent
 from ..engine.signal import SpectralLine
 from ..engine.silence import SilenceReason as SilenceReason  # re-export (D57, issue 626)
 from ..engine.validate import Diagnostic as Diagnostic  # re-export (D57, issue 626)
+from ..models import categories
 from ..models.bench import Fault, LayoutItem
 from ..models.categories import InstrumentClass as InstrumentClass  # re-export (#1384)
 from ..models.definition import Panel, Reference, StateSpec
@@ -576,6 +577,20 @@ class OptionInfo(_Model):
     installed: bool = Field(False, description="This unit has it (the bench instance's `options`)")
 
 
+def _reading_keys_schema() -> dict[str, Any]:
+    """The published shape of ``InstrumentInfo.reading_keys`` (#1637), derived from the category
+    registry: one property per role a row declares, all required, nothing extra. The registry row
+    stays the only place the key strings live; this schema only fixes which roles exist, so the
+    generated TS type notices a role removed from (or added to) the registry."""
+    roles = sorted({role for row in categories.rows() for role in row.reading_keys})
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "required": roles,
+        "properties": {role: {"type": "string"} for role in roles},
+    }
+
+
 class InstrumentInfo(_Model):
     name: str
     label: str | None = None
@@ -585,6 +600,17 @@ class InstrumentInfo(_Model):
     #: The class id the category registry knows (#1384); SkipValidation keeps the runtime
     #: permissive while the generated TS type has the closed union (see DefinitionSummary).
     instrument_class: SkipValidation[InstrumentClass]
+    #: The class's front-panel reading keys, by role (#1637) — the category registry row's
+    #: ``reading_keys`` (models/categories.py), the one place the key strings live. The schema is
+    #: derived from the registry (one property per declared role, all required, nothing extra),
+    #: so the generated TS type refuses a role no row declares: a screen reading one fails to
+    #: compile, and a row losing a role a screen uses does too.
+    reading_keys: dict[str, str] = Field(
+        default_factory=dict,
+        description="The class's front-panel reading keys, by role: 'voltage' → 'core.voltage' for an SMU. "
+        "A class whose screen reads no readings of its own carries none",
+        json_schema_extra=_reading_keys_schema(),
+    )
     description: str | None = None
     idn: str
     channels: int

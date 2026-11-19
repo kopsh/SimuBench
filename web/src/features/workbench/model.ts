@@ -340,10 +340,34 @@ export function panelSettings(vars: StateVarInfo[], summaryKeys: string[]): { pa
   return { panel, rest: vars.filter((v) => !shown.has(v)) };
 }
 
-/** A setting's value and a declared value are the same: numbers by value ("INF" included), others exactly. */
+/**
+ * The number a value carries for a ``when`` comparison: a number itself, or one of the JSON
+ * spellings of a non-finite float ("INF", "-INF", "NAN", as Python's ``jsonsafe.as_number`` reads
+ * them). Any other string stays a string — "1e3" is not 1000 here — pinned by the shared vector
+ * ``when-cases.json``, which the TUI's ``_same`` runs too (#1637).
+ */
+function whenNumber(value: unknown): number | null {
+  if (typeof value === "number") return value;
+  if (typeof value === "string") {
+    const word = value.toUpperCase();
+    if (word === "INF") return Infinity;
+    if (word === "-INF") return -Infinity;
+    if (word === "NAN") return NaN;
+  }
+  return null;
+}
+
+/**
+ * A setting's value and a declared value are the same: numbers by value ("INF" included), others
+ * exactly. The TUI's semantics (controls.py ``_same``), which both sides parse: when both carry
+ * numbers — only the JSON spellings convert — they compare by value, else the values compare as
+ * they stand. The shared vector ``when-cases.json`` pins the cases on both ends (#1637).
+ */
 export function sameValue(a: unknown, b: unknown): boolean {
   if (typeof a === "boolean" || typeof b === "boolean") return a === b;
-  if ((typeof a === "number" || typeof b === "number") && a != null && b != null) return numeric(a) === numeric(b);
+  const na = whenNumber(a);
+  const nb = whenNumber(b);
+  if (na !== null && nb !== null) return na === nb;
   return a === b;
 }
 

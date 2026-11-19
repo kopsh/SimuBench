@@ -93,4 +93,56 @@ def test_an_unknown_class_gets_the_generic_row():
         row = categories.get(unknown)
         assert (row.id, row.label_key, row.readings) == ("", "", False)
         assert (row.screen, row.panel) == ("generic", "generic")
+        assert row.reading_keys == {}
         assert row.hints == ()
+
+
+def test_the_reading_keys_name_blocks_the_models_declare():
+    """#1637: a row's reading keys read ``<block>.<name>`` and each block is a component some
+    built-in or validation model of the class actually declares — the registry spells the keys
+    the models produce, not a wish. (A model renaming its blocks is the declared-scope's own
+    business: the screen reads the registry, and that other gap is a separate issue.)"""
+    import yaml
+
+    parts: dict[str, set[str]] = {}
+    for folder in ("src/simubench/library/instruments", "validation/instruments"):
+        for path in (ROOT / folder).glob("*.yaml"):
+            if path.name.endswith((".coverage.yaml", ".cases.yaml")):
+                continue
+            doc = yaml.safe_load(path.read_text(encoding="utf-8"))
+            names = {
+                c.get("name")
+                for key in ("components", "channel_components")
+                for c in (doc.get(key) or [])
+                if isinstance(c, dict)
+            }
+            parts.setdefault(doc.get("class"), set()).update(names)
+    for row in categories.rows():
+        for role, key in row.reading_keys.items():
+            block, _, name = key.partition(".")
+            assert block and name, (row.id, role, key)
+            assert block in parts.get(row.id, set()), (row.id, role, key)
+
+
+def test_the_reading_keys_are_published_in_the_api_schema():
+    """#1637: ``InstrumentInfo.reading_keys``' published schema derives from the registry — one
+    property per role any row declares, all required, nothing extra. The generated TS type
+    carries it, so the Web's screens reading a role the rows do not declare fail to compile, and
+    a row losing a role the screens read does too."""
+    from simubench.contracts.api import InstrumentInfo
+
+    schema = InstrumentInfo.model_json_schema()["properties"]["reading_keys"]
+    roles = sorted({role for row in categories.rows() for role in row.reading_keys})
+    assert schema["additionalProperties"] is False
+    assert schema["required"] == roles
+    assert sorted(schema["properties"]) == roles
+
+
+def test_the_tui_reads_no_reading_key_literal():
+    """#1637: the TUI's reading-key consumers (cards, rows, reasons) take the keys from the
+    category registry's row, not from string literals — a hand-copied map here is one a registry
+    change cannot fix. The Web's screens carry the same ban as an ESLint rule."""
+    for path in ("src/simubench/tui/cards.py", "src/simubench/tui/rows.py", "src/simubench/tui/reasons.py"):
+        for node in ast.walk(ast.parse((ROOT / path).read_text(encoding="utf-8"))):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                assert not node.value.startswith(("core.", "demod.", "osc.")), (path, node.value)

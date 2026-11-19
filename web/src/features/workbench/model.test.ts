@@ -5,7 +5,8 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
+import whenCases from "./when-cases.json";
+import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, sameValue, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -168,6 +169,23 @@ describe("inspector settings (#728)", () => {
     expect(whenHolds({ "trigger.mode": "EDGE" }, vars)).toBe(false);
     expect(whenHolds({ bwlimit: false }, vars, 2)).toBe(true);
     expect(whenHolds({ "absent.setting": 1 }, vars)).toBe(false);
+  });
+
+  // One shared vector, both evaluators: tests/test_tui_units.py runs the same JSON through the
+  // TUI's _same and when_holds, so the two ends cannot evaluate a panel ``when`` differently (#1637).
+  it("compares a when's values like the TUI's _same does, by the shared vector (#1637)", () => {
+    for (const c of whenCases.same as { a: unknown; b: unknown; equal: boolean }[]) {
+      expect(sameValue(c.a, c.b)).toBe(c.equal);
+    }
+  });
+
+  it("holds a when like the TUI's when_holds does, by the shared vector (#1637)", () => {
+    for (const c of whenCases.when as { state: { path: string; value: unknown; channel?: number }[]; when: Record<string, unknown>; channel?: number; holds: boolean }[]) {
+      const vars = new Map(
+        c.state.map((s) => [s.path, v(s.path, s.channel ?? null, { value: s.value })] as [string, StateVarInfo]),
+      );
+      expect(whenHolds(c.when, vars, c.channel)).toBe(c.holds);
+    }
   });
 
   it("lists a declared panel's groups as they stand: when-hidden controls and groups out, empty groups dropped (#1315)", () => {

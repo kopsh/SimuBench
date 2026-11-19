@@ -3737,6 +3737,35 @@ export interface components {
             /** Ports */
             ports: components["schemas"]["PortInfo"][];
             /**
+             * Reading Keys
+             * @description The class's front-panel reading keys, by role: 'voltage' → 'core.voltage' for an SMU. A class whose screen reads no readings of its own carries none
+             */
+            reading_keys: {
+                buffer_i: string;
+                buffer_r: string;
+                buffer_stat: string;
+                buffer_t: string;
+                buffer_v: string;
+                current: string;
+                detect_frequency: string;
+                enbw: string;
+                forcing: string;
+                limit: string;
+                limited: string;
+                locked: string;
+                noise_sigma: string;
+                overload: string;
+                r: string;
+                r_projected: string;
+                reading_time: string;
+                regulation: string;
+                settling: string;
+                theta: string;
+                voltage: string;
+                x: string;
+                y: string;
+            };
+            /**
              * Remote
              * @description Clients connected to this instrument's ports (socket, HiSLIP, VXI-11): while any is, the instrument is remote and the UI's settings, console and panel buttons are refused (#121)
              */
