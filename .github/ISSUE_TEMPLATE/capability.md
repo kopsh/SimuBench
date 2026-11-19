@@ -18,7 +18,7 @@ labels: ["核心"]
 ## 验收
 
 -
-- `scripts/check.sh` 通过，`docs/progress-log.md` 末尾追加自检结果
+- `scripts/check.sh` 通过，自检结果记入新条目文件 `docs/progress-log/<issue>-<short-name>.md`
 
 依赖：<issue 或“无”>。
 

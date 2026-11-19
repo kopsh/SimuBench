@@ -32,7 +32,7 @@ labels: ["可认领"]
 - [ ] `tests/models/<id>/cases.yaml`：覆盖全部“实现”和“接受”的命令
 - [ ] 示例测试台 `examples/benches/<id>.bench.yaml`（只用真实型号），以及按真机写法的脚本，在测试中运行
 - [ ] 界面用现有的类别模板或通用布局，不写型号专用的界面代码
-- [ ] `docs/progress-log.md` 末尾追加自检结果
+- [ ] 自检结果记入新条目文件 `docs/progress-log/<issue>-<short-name>.md`
 
 ## 验收标准
 
