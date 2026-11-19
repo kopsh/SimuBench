@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Trace } from "@/api/client";
 import { cssVar, decimate, resolveColor } from "@/lib/canvas";
 import { channelColor } from "@/lib/channels";
@@ -18,7 +18,7 @@ const DIV_V = 8;
  * stay, fading, and each new one draws in from the left. Off under prefers-reduced-motion.
  */
 export function WaveformCanvas({
-  traces,
+  traces: tracesProp,
   triggerLevel,
   triggerChannel,
   live = false,
@@ -45,6 +45,10 @@ export function WaveformCanvas({
   className?: string;
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  // A caller that builds a fresh array of the same traces each render must not make every render a
+  // full redraw and a new persistence step (the build-mode lag): keep the previous array then.
+  const [traces, setTraces] = useState(tracesProp);
+  if (!sameTraces(traces, tracesProp)) setTraces(tracesProp);
   const spanLeft = spanProp?.left;
   const spanWidth = spanProp?.width;
   const shown = useRef<Trace[] | undefined>(undefined);
@@ -162,6 +166,11 @@ export function WaveformCanvas({
   }, [traces, triggerLevel, triggerChannel, live, markers, spanLeft, spanWidth, axisChannel]);
 
   return <canvas ref={ref} className={className} role="img" aria-label={label ?? "waveform"} />;
+}
+
+/** Whether two trace lists hold the very same trace objects, in the same order. */
+export function sameTraces(a: readonly Trace[], b: readonly Trace[]) {
+  return a === b || (a.length === b.length && a.every((t, i) => t === b[i]));
 }
 
 /** The label text on the graticule, kept separate from canvas drawing so offsets, horizontal
