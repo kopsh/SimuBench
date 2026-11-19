@@ -352,3 +352,28 @@ cases:
         expect: "0"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
+
+  - name: "状态存储：*SAV 1 保存、改设置后 *RCL 1 调回、*RST 不清槽、空槽与越界"
+    manual: "IEEE 488.2 Common Commands > *SAV <0-9> / *RCL <0-9>（N6700C-90901）"
+    steps:
+      - send: "*RST"
+      - send: "VOLT 1.5,(@1)"
+      - send: "*SAV 1"
+      - send: "VOLT 2,(@1)"
+      - query: "VOLT? (@1)"
+        expect: "+2.000000E+00"
+      - send: "*RCL 1"
+      - query: "VOLT? (@1)"
+        expect: "+1.500000E+00"
+      - send: "*RST"
+      - query: "VOLT? (@1)"
+        expect: "+0.000000E+00"
+      - send: "*RCL 1"
+      - query: "VOLT? (@1)"
+        expect: "+1.500000E+00"
+      - send: "*RCL 2"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: "*SAV 10"
+      - query: ":SYST:ERR?"
+        expect_prefix: '-222,"Data out of range'

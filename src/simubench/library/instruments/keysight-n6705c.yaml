@@ -381,6 +381,14 @@ components:
   - name: track
     type: supply_tracking
     params: {mode: "OFF"}
+  # 状态存取（#1573）：*SAV/*RCL 0–9；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置不报错、设置不变。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 10
+      first: 0
+      empty_error: 0
 ports:
   channel:
     "OUT{n}+": out.pos
@@ -627,3 +635,12 @@ commands:
     state: display.enabled
   - header: "DISPlay[:WINDow]:VIEW"
     state: display.view
+  # ---- 状态存取（*SAV/*RCL 0–9，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]

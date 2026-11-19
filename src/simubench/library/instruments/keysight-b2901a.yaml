@@ -310,6 +310,71 @@ state:
     readonly: true
     label: 互锁
     label_en: Interlock
+  # 状态寄存器组的使能（B2910-90130 的 STATus Subsystem，0–65535，出厂 0；STATus:PRESet 把
+  # 主寄存器的使能清 0，子寄存器的使能也清 0）。
+  status.meas_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: MEAS 使能
+    label_en: MEAS enable
+  status.oper_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: OPER 使能
+    label_en: OPER enable
+  status.ques_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 使能
+    label_en: QUES enable
+  status.volt_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 电压子寄存器使能
+    label_en: QUES voltage enable
+  status.curr_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 电流子寄存器使能
+    label_en: QUES current enable
+  status.temp_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 温度子寄存器使能
+    label_en: QUES temperature enable
+  status.cal_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 校准子寄存器使能
+    label_en: QUES calibration enable
+  status.test_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 自检子寄存器使能
+    label_en: QUES test enable
+  # 跳变过滤（PTR/NTR）：出厂 PTR = 32767（定义的位 0–14）、NTR = 0；STATus:PRESet 恢复。
+  status.meas_ptr: {type: int, min: 0, max: 65535, default: 32767, label: MEAS PTR, label_en: MEAS PTR}
+  status.meas_ntr: {type: int, min: 0, max: 65535, default: 0, label: MEAS NTR, label_en: MEAS NTR}
+  status.oper_ptr: {type: int, min: 0, max: 65535, default: 32767, label: OPER PTR, label_en: OPER PTR}
+  status.oper_ntr: {type: int, min: 0, max: 65535, default: 0, label: OPER NTR, label_en: OPER NTR}
+  status.ques_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES PTR, label_en: QUES PTR}
+  status.ques_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES NTR, label_en: QUES NTR}
 components:
   - name: source
     type: smu_source
@@ -368,6 +433,78 @@ components:
       # 读数噪声（specs.noise_ppm_of_range，#744）：估计值，依据 = 1 年准确度偏移项逐量程折算的
       # 最小比值（10 µA 档 150 ppm）的 1/20
       noise: {ppm_of_range: 7.5, ref_time_s: 0.02}
+  # 状态寄存器组（B2910-90130 的 STATus Subsystem，Table 4-4 至 4-6）：MEASurement 的读数可用、
+  # 缓冲有数据/已满来自触发模型与 reading_buffer，OPERation 的 Acquire Idle/Waiting 来自触发模型，
+  # QUEStionable 的过压/过流来自 CV/CC 控制环。校准、自检、过温、互锁、输出保护与丢事件在模型里
+  # 没有来源，恒为 0；ARM 层未建模（Waiting for Acquire Arm 不置位）。
+  - name: meas
+    type: status_register
+    params:
+      bits: {LIMIT: 0, DATA: 1, OVER: 2, BUF_DATA: 3, BUF_FULL: 4}
+      enable: $status.meas_enable
+      ptr: $status.meas_ptr
+      ntr: $status.meas_ntr
+      preset_ptr: 32767
+      summary_bit: 0
+  - name: oper
+    type: status_register
+    params:
+      # AIDLE 是触发的 SCN（未初始化）、AWTG 是 WTG（等待触发）；ARM 层未建模，位 6 不置位。
+      bits: {CAL: 0, TIDLE: 1, TWTG: 2, TWARM: 3, SCN: 4, WTG: 5, AWARM: 6, LOCK: 13, PROG: 14}
+      enable: $status.oper_enable
+      ptr: $status.oper_ptr
+      ntr: $status.oper_ntr
+      preset_ptr: 32767
+      summary_bit: 7
+  - name: ques
+    type: status_register
+    params:
+      bits: {VLIM: 0, ILIM: 1, PROT: 2, TEMP: 4, CAL: 8, TEST: 9, ILOCK: 10}
+      enable: $status.ques_enable
+      ptr: $status.ques_ptr
+      ntr: $status.ques_ntr
+      preset_ptr: 32767
+      summary_bit: 3
+  - name: ques_volt
+    type: status_register
+    params:
+      bits: {VLIM: 0}
+      enable: $status.volt_enable
+      ptr: 32767
+      ntr: 0
+      preset_ptr: 32767
+  - name: ques_curr
+    type: status_register
+    params:
+      bits: {ILIM: 0}
+      enable: $status.curr_enable
+      ptr: 32767
+      ntr: 0
+      preset_ptr: 32767
+  - name: ques_temp
+    type: status_register
+    params:
+      bits: {TEMP: 0}
+      enable: $status.temp_enable
+      ptr: 32767
+      ntr: 0
+      preset_ptr: 32767
+  - name: ques_cal
+    type: status_register
+    params:
+      bits: {CAL: 0}
+      enable: $status.cal_enable
+      ptr: 32767
+      ntr: 0
+      preset_ptr: 32767
+  - name: ques_test
+    type: status_register
+    params:
+      bits: {TEST: 0}
+      enable: $status.test_enable
+      ptr: 32767
+      ntr: 0
+      preset_ptr: 32767
   - name: trig
     type: trigger_model
     params:
@@ -384,6 +521,14 @@ components:
       capacity: 100000
       when_full: stop
       digits: 6
+  # 状态存取（#1573）：*SAV/*RCL 0–9；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置不报错、设置不变。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 10
+      first: 0
+      empty_error: 0
 ports:
   instrument:
     HI: out.hi
@@ -663,3 +808,44 @@ commands:
   - header: ":SYSTem:DATA:QUANtity"
     op: mem.points
     set: false
+  # ---- status registers (B2910-90130 STATus Subsystem) -----------------------
+  - {header: ":STATus:MEASurement[:EVENt]", op: meas.event, set: false}
+  - {header: ":STATus:MEASurement:CONDition", op: meas.condition, set: false}
+  - {header: ":STATus:MEASurement:ENABle", op: meas.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:MEASurement:PTRansition", params: [{name: mask, type: int, state: "status.meas_ptr"}]}
+  - {header: ":STATus:MEASurement:NTRansition", params: [{name: mask, type: int, state: "status.meas_ntr"}]}
+  - {header: ":STATus:OPERation[:EVENt]", op: oper.event, set: false}
+  - {header: ":STATus:OPERation:CONDition", op: oper.condition, set: false}
+  - {header: ":STATus:OPERation:ENABle", op: oper.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:OPERation:PTRansition", params: [{name: mask, type: int, state: "status.oper_ptr"}]}
+  - {header: ":STATus:OPERation:NTRansition", params: [{name: mask, type: int, state: "status.oper_ntr"}]}
+  - {header: ":STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
+  - {header: ":STATus:QUEStionable:CONDition", op: ques.condition, set: false}
+  - {header: ":STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:QUEStionable:PTRansition", params: [{name: mask, type: int, state: "status.ques_ptr"}]}
+  - {header: ":STATus:QUEStionable:NTRansition", params: [{name: mask, type: int, state: "status.ques_ntr"}]}
+  - {header: ":STATus:QUEStionable:VOLTage[:EVENt]", op: ques_volt.event, set: false}
+  - {header: ":STATus:QUEStionable:VOLTage:CONDition", op: ques_volt.condition, set: false}
+  - {header: ":STATus:QUEStionable:VOLTage:ENABle", op: ques_volt.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:QUEStionable:CURRent[:EVENt]", op: ques_curr.event, set: false}
+  - {header: ":STATus:QUEStionable:CURRent:CONDition", op: ques_curr.condition, set: false}
+  - {header: ":STATus:QUEStionable:CURRent:ENABle", op: ques_curr.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:QUEStionable:TEMPerature[:EVENt]", op: ques_temp.event, set: false}
+  - {header: ":STATus:QUEStionable:TEMPerature:CONDition", op: ques_temp.condition, set: false}
+  - {header: ":STATus:QUEStionable:TEMPerature:ENABle", op: ques_temp.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:QUEStionable:CALibration[:EVENt]", op: ques_cal.event, set: false}
+  - {header: ":STATus:QUEStionable:CALibration:CONDition", op: ques_cal.condition, set: false}
+  - {header: ":STATus:QUEStionable:CALibration:ENABle", op: ques_cal.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:QUEStionable:TEST[:EVENt]", op: ques_test.event, set: false}
+  - {header: ":STATus:QUEStionable:TEST:CONDition", op: ques_test.condition, set: false}
+  - {header: ":STATus:QUEStionable:TEST:ENABle", op: ques_test.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: ":STATus:PRESet", op: ques.preset, query: false}
+  # ---- 状态存取（*SAV/*RCL 0–9，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 9}]

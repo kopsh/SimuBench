@@ -41,17 +41,15 @@ sections:
     gap: model_work
   - header: '*RCL'
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup registers (setup_memory, #1070); not wired in this model.'
-    gap: blocked
-    blocked_by: setup-memory
+    note: '手册只给 *RCL <Number>，没有槽范围与空槽行为；setup_memory 已有能力，保持未建模直到手册写明。'
+    gap: model_work
   - header: '*RST'
     level: implemented
     note: 按各命令的 *RST 值复位：1 GHz（依选件）、−30 dBm、RF 关、AM 30 %、FM 1 kHz、PM 1 rad、LF 1 kHz、调制关。
   - header: '*SAV'
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup registers (setup_memory, #1070); not wired in this model.'
-    gap: blocked
-    blocked_by: setup-memory
+    note: '手册只给 *SAV <Number>，没有槽范围与保存内容；setup_memory 已有能力，保持未建模直到手册写明。'
+    gap: model_work
   - header: '*SRE'
     level: implemented
     note: 服务请求使能。

@@ -28,18 +28,14 @@ sections:
     level: implemented
     note: '*OPC 置 ESR 位 0；*OPC? 等全部待完成操作结束后回 1（等待按 NPLC 计的运行）。'
   - header: '*RCL'
-    level: not_modeled
-    note: 状态存储（0–9）未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*RST'
     level: implemented
     note: 恢复本定义的初始设置（值见各命令的 default/rst）。
   - header: '*SAV'
-    level: not_modeled
-    note: 状态存储（0–9）未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器（引擎内置，整数回复）。
@@ -869,50 +865,52 @@ sections:
     gap: model_work
 - section: STATus Subsystem
   commands:
-  - header: :STATus:<MEASurement|OPERation|QUEStionable>:CONDition?
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:<MEASurement|OPERation|QUEStionable>:ENABle
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:<MEASurement|OPERation|QUEStionable>[:EVENt]?
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:<MEASurement|OPERation|QUEStionable>:NTRansition
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:<MEASurement|OPERation|QUEStionable>:PTRansition
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:PRESet
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:CONDition?
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:ENABle
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>[:EVENt]?
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:NTRansition
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
-  - header: :STATus:QUEStionable:<CALibration|CURRent|TEMPerature|TEST|VOLTage>:PTRansition
-    level: not_modeled
-    note: 状态寄存器组（测量/操作/可疑）未实现；常用位由 *ESR?/*STB? 覆盖。
-    gap: model_work
+  # 主寄存器（#1572）：MEAS 的位 0 限值、1 读数可用、2 读数溢出、3 缓冲有数据、4 缓冲满；
+  # OPER 的位 0 校准、1–3 过渡层、4 acquire idle（SCN）、5 等待 acquire 触发（WTG）、
+  # 6 等待 acquire ARM（ARM 层未建模）、13 锁定、14 程序运行；QUES 的位 0 过压、1 过流、
+  # 2 输出保护、4 过温、8 校准失败、9 自检失败、10 互锁。没有来源的位恒为 0。
+  - {header: ':STATus:MEASurement[:EVENt]', level: implemented, note: '条件变为真时锁存，读后清零；*CLS 清零。'}
+  - {header: ':STATus:MEASurement:CONDition', level: implemented, note: '位 1 DATA（触发模型有读数）、3 BUF_DATA、4 BUF_FULL（读数缓冲）；0 LIMIT 与 2 OVER 没有来源，恒为 0。'}
+  - {header: ':STATus:MEASurement:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:MEASurement:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:MEASurement:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:OPERation[:EVENt]', level: implemented, note: '条件变为真时锁存，读后清零；*CLS 清零。'}
+  - {header: ':STATus:OPERation:CONDition', level: implemented, note: '位 4 AIDLE（触发模型空闲，SCN）、5 AWTG（等待触发，WTG）；1–3、6、13、14 没有来源。'}
+  - {header: ':STATus:OPERation:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:OPERation:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:OPERation:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable[:EVENt]', level: implemented, note: '条件变为真时锁存，读后清零；*CLS 清零。'}
+  - {header: ':STATus:QUEStionable:CONDition', level: implemented, note: '位 0 VLIM（电流源达到电压限）、1 ILIM（电压源达到电流限）；2、4、8、9、10 没有来源。'}
+  - {header: ':STATus:QUEStionable:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:PTRansition', level: implemented, note: '正跳变过滤 0–65535；出厂 32767，STATus:PRESet 恢复 32767。'}
+  - {header: ':STATus:QUEStionable:NTRansition', level: implemented, note: '负跳变过滤 0–65535；出厂 0，STATus:PRESet 清 0。'}
+  # 五个可疑子寄存器（Table 4-7 至 4-11）：位 0 是通道 1，位 1 是通道 2（本型号单通道只用位 0）。
+  - {header: ':STATus:QUEStionable:VOLTage[:EVENt]', level: implemented, note: '位 0 Ch1 过压（VLIM）；读后清零。'}
+  - {header: ':STATus:QUEStionable:VOLTage:CONDition', level: implemented, note: '位 0 Ch1 过压（电流源达到电压限 VLIM）。'}
+  - {header: ':STATus:QUEStionable:VOLTage:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:VOLTage:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:VOLTage:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:CURRent[:EVENt]', level: implemented, note: '位 0 Ch1 过流（ILIM）；读后清零。'}
+  - {header: ':STATus:QUEStionable:CURRent:CONDition', level: implemented, note: '位 0 Ch1 过流（电压源达到电流限 ILIM）。'}
+  - {header: ':STATus:QUEStionable:CURRent:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:CURRent:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:CURRent:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEMPerature[:EVENt]', level: implemented, note: '过温未建模，位 0 恒 0。'}
+  - {header: ':STATus:QUEStionable:TEMPerature:CONDition', level: implemented, note: '过温未建模，位 0 恒 0。'}
+  - {header: ':STATus:QUEStionable:TEMPerature:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:TEMPerature:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEMPerature:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:CALibration[:EVENt]', level: implemented, note: '校准失败未建模，位 0 恒 0。'}
+  - {header: ':STATus:QUEStionable:CALibration:CONDition', level: implemented, note: '校准失败未建模，位 0 恒 0。'}
+  - {header: ':STATus:QUEStionable:CALibration:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:CALibration:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:CALibration:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEST[:EVENt]', level: implemented, note: '自检失败未建模，位 0 恒 0。'}
+  - {header: ':STATus:QUEStionable:TEST:CONDition', level: implemented, note: '自检失败未建模，位 0 恒 0。'}
+  - {header: ':STATus:QUEStionable:TEST:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
+  - {header: ':STATus:QUEStionable:TEST:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEST:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:PRESet', level: implemented, note: '全部寄存器的使能清 0，PTR 恢复 32767、NTR 清 0；事件不变。'}
 - section: SYSTem Subsystem
   commands:
   - header: :SYSTem:BEEPer:STATe

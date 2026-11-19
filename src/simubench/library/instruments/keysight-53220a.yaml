@@ -242,6 +242,22 @@ state:
     default: ASCII
     label: 数据格式
     label_en: Data format
+  # 状态寄存器组的使能（第 8 章 Instrument Status：STATus:OPERation/QUEStionable:ENABle，
+  # 0–65535，出厂 0；STATus:PRESet 清使能）。
+  status.oper_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: OPER 使能
+    label_en: OPER enable
+  status.ques_enable:
+    type: int
+    min: 0
+    max: 65535
+    default: 0
+    label: QUES 使能
+    label_en: QUES enable
 components:
   # 频率计数器的真实功能块（F #192、D50）：每个通道一个输入调理，门控由时基给出真实门长，
   # 两个计数核心共用门控、时基与统计（核心 1 以 A 为起点、核心 2 以 B 为起点，供通道选择与
@@ -315,8 +331,32 @@ components:
   - name: ref_in
     type: input_port
     params: {z_in: 50.0}
+  # 状态寄存器组（53220-90001 第 8 章 Figure 8-1 的位表）：OPER 的 MEASuring（已初始化）与
+  # WTG 来自触发模型；QUES 的 Timebase Error 来自参考时钟（外部参考选了但没有锁定）。
+  # 电池、校准、失锁以外的过载/超时/限值/存储满等位在模型里没有来源，恒为 0。
+  # OSB 进状态字节位 7、QUES 位 3。
+  - name: oper
+    type: status_register
+    params:
+      bits: {CAL: 0, RUN: 1, BATT: 2, ARM: 4, WTG: 5, INTREF: 8, LOCK: 9, CONF: 10, MEM: 11, ERR: 12}
+      enable: $status.oper_enable
+      summary_bit: 7
+  - name: ques
+    type: status_register
+    params:
+      bits: {VOLT: 0, TIME: 2, FREQ: 5, PHASE: 6, CAL: 8, UNLOCK: 10, LOW: 11, HIGH: 12, MEM: 14}
+      enable: $status.ques_enable
+      summary_bit: 3
   - name: system
     type: system
+  # 状态存取（#1573）：*SAV/*RCL 0–4；内容是 SimuBench 的设置快照，
+  # 不与厂商私有格式逐字节一致；空位置报 +291。
+  - name: setups
+    type: setup_memory
+    params:
+      registers: 5
+      first: 0
+      empty_error: 291
 wiring:
   instrument:
     - [a.out, ch1.core.a]
@@ -562,3 +602,19 @@ commands:
   - header: ":SYSTem:PRESet"
     op: system.reset
     query: false
+  # ---- 状态寄存器组（第 8 章）----
+  - {header: "STATus:OPERation[:EVENt]", op: oper.event, set: false}
+  - {header: "STATus:OPERation:CONDition", op: oper.condition, set: false}
+  - {header: "STATus:OPERation:ENABle", op: oper.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
+  - {header: "STATus:QUEStionable:CONDition", op: ques.condition, set: false}
+  - {header: "STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
+  # ---- 状态存取（*SAV/*RCL 0–4，#1573） ----
+  - header: "*SAV"
+    op: setups.save
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]
+  - header: "*RCL"
+    op: setups.recall
+    query: false
+    params: [{name: register, type: int, min: 0, max: 4}]

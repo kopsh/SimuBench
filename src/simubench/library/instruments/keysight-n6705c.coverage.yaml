@@ -25,10 +25,8 @@ sections:
     note: 选件串未实现。
     gap: model_work
   - header: '*RCL'
-    level: not_modeled
-    note: 状态存储未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*RDT'
     level: not_modeled
     note: 通道描述未实现（型号用 SYSTem:CHANnel:MODel?）。
@@ -37,10 +35,8 @@ sections:
     level: implemented
     note: 按 *RST 表：电压/电流 0、输出 OFF、OVP MAX（60 V）、OCP OFF、OCP 延迟 0.020 s、SCHange、内部检测、显示 METER1。
   - header: '*SAV'
-    level: not_modeled
-    note: 状态存储未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空位置不报错、设置不变（手册只说不能调出，未给错误码）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器。

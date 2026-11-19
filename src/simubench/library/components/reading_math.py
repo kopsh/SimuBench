@@ -158,12 +158,16 @@ class ReadingMath(Component):
         self.window: deque[float] = deque()
         self.samples: list[float] = []
         self.failed = False
+        self.low_failed = False  # a reading was below the lower limit since the flag was cleared
+        self.high_failed = False  # a reading was above the upper limit since the flag was cleared
         self.last: float | None = None  # the last reading (after the average, before the math)
 
     def reset(self) -> None:
         self.window.clear()
         self.samples.clear()
         self.failed = False
+        self.low_failed = False
+        self.high_failed = False
         self.last = None
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
@@ -218,6 +222,8 @@ class ReadingMath(Component):
         upper = float(self.param("upper")) if V.flag(self.param("upper_on")) else None
         if outside(y, lower=lower, upper=upper):
             self.failed = True
+            self.low_failed = self.low_failed or (lower is not None and y < lower)
+            self.high_failed = self.high_failed or (upper is not None and y > upper)
             if self.owner is not None:
                 self.owner.status_event("LIMIT")
 
@@ -286,7 +292,7 @@ class ReadingMath(Component):
         return {"values": {**self.statistics(), "limit_fail": self.failed}}
 
     def status_flags(self) -> dict[str, bool]:
-        return {"LIMIT": self.failed}
+        return {"LIMIT": self.failed, "LOW": self.low_failed, "HIGH": self.high_failed}
 
     # ---- operations ------------------------------------------------------------------------------
 
@@ -324,6 +330,8 @@ class ReadingMath(Component):
     @op("limit_clear")
     def op_limit_clear(self, **_: Any) -> OpResult:
         self.failed = False
+        self.low_failed = False
+        self.high_failed = False
         return OpResult()
 
     @op("math_reset")
