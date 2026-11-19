@@ -375,16 +375,6 @@ state:
   status.oper_ntr: {type: int, min: 0, max: 65535, default: 0, label: OPER NTR, label_en: OPER NTR}
   status.ques_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES PTR, label_en: QUES PTR}
   status.ques_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES NTR, label_en: QUES NTR}
-  status.volt_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES 电压 PTR, label_en: QUES voltage PTR}
-  status.volt_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES 电压 NTR, label_en: QUES voltage NTR}
-  status.curr_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES 电流 PTR, label_en: QUES current PTR}
-  status.curr_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES 电流 NTR, label_en: QUES current NTR}
-  status.temp_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES 温度 PTR, label_en: QUES temperature PTR}
-  status.temp_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES 温度 NTR, label_en: QUES temperature NTR}
-  status.cal_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES 校准 PTR, label_en: QUES calibration PTR}
-  status.cal_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES 校准 NTR, label_en: QUES calibration NTR}
-  status.test_ptr: {type: int, min: 0, max: 65535, default: 32767, label: QUES 自检 PTR, label_en: QUES test PTR}
-  status.test_ntr: {type: int, min: 0, max: 65535, default: 0, label: QUES 自检 NTR, label_en: QUES test NTR}
 components:
   - name: source
     type: smu_source
@@ -480,40 +470,40 @@ components:
     params:
       bits: {VLIM: 0}
       enable: $status.volt_enable
-      ptr: $status.volt_ptr
-      ntr: $status.volt_ntr
+      ptr: 32767
+      ntr: 0
       preset_ptr: 32767
   - name: ques_curr
     type: status_register
     params:
       bits: {ILIM: 0}
       enable: $status.curr_enable
-      ptr: $status.curr_ptr
-      ntr: $status.curr_ntr
+      ptr: 32767
+      ntr: 0
       preset_ptr: 32767
   - name: ques_temp
     type: status_register
     params:
       bits: {TEMP: 0}
       enable: $status.temp_enable
-      ptr: $status.temp_ptr
-      ntr: $status.temp_ntr
+      ptr: 32767
+      ntr: 0
       preset_ptr: 32767
   - name: ques_cal
     type: status_register
     params:
       bits: {CAL: 0}
       enable: $status.cal_enable
-      ptr: $status.cal_ptr
-      ntr: $status.cal_ntr
+      ptr: 32767
+      ntr: 0
       preset_ptr: 32767
   - name: ques_test
     type: status_register
     params:
       bits: {TEST: 0}
       enable: $status.test_enable
-      ptr: $status.test_ptr
-      ntr: $status.test_ntr
+      ptr: 32767
+      ntr: 0
       preset_ptr: 32767
   - name: trig
     type: trigger_model
@@ -837,28 +827,18 @@ commands:
   - {header: ":STATus:QUEStionable:VOLTage[:EVENt]", op: ques_volt.event, set: false}
   - {header: ":STATus:QUEStionable:VOLTage:CONDition", op: ques_volt.condition, set: false}
   - {header: ":STATus:QUEStionable:VOLTage:ENABle", op: ques_volt.enable, params: [{name: bit, type: raw, optional: true}]}
-  - {header: ":STATus:QUEStionable:VOLTage:PTRansition", params: [{name: mask, type: int, state: "status.volt_ptr"}]}
-  - {header: ":STATus:QUEStionable:VOLTage:NTRansition", params: [{name: mask, type: int, state: "status.volt_ntr"}]}
   - {header: ":STATus:QUEStionable:CURRent[:EVENt]", op: ques_curr.event, set: false}
   - {header: ":STATus:QUEStionable:CURRent:CONDition", op: ques_curr.condition, set: false}
   - {header: ":STATus:QUEStionable:CURRent:ENABle", op: ques_curr.enable, params: [{name: bit, type: raw, optional: true}]}
-  - {header: ":STATus:QUEStionable:CURRent:PTRansition", params: [{name: mask, type: int, state: "status.curr_ptr"}]}
-  - {header: ":STATus:QUEStionable:CURRent:NTRansition", params: [{name: mask, type: int, state: "status.curr_ntr"}]}
   - {header: ":STATus:QUEStionable:TEMPerature[:EVENt]", op: ques_temp.event, set: false}
   - {header: ":STATus:QUEStionable:TEMPerature:CONDition", op: ques_temp.condition, set: false}
   - {header: ":STATus:QUEStionable:TEMPerature:ENABle", op: ques_temp.enable, params: [{name: bit, type: raw, optional: true}]}
-  - {header: ":STATus:QUEStionable:TEMPerature:PTRansition", params: [{name: mask, type: int, state: "status.temp_ptr"}]}
-  - {header: ":STATus:QUEStionable:TEMPerature:NTRansition", params: [{name: mask, type: int, state: "status.temp_ntr"}]}
   - {header: ":STATus:QUEStionable:CALibration[:EVENt]", op: ques_cal.event, set: false}
   - {header: ":STATus:QUEStionable:CALibration:CONDition", op: ques_cal.condition, set: false}
   - {header: ":STATus:QUEStionable:CALibration:ENABle", op: ques_cal.enable, params: [{name: bit, type: raw, optional: true}]}
-  - {header: ":STATus:QUEStionable:CALibration:PTRansition", params: [{name: mask, type: int, state: "status.cal_ptr"}]}
-  - {header: ":STATus:QUEStionable:CALibration:NTRansition", params: [{name: mask, type: int, state: "status.cal_ntr"}]}
   - {header: ":STATus:QUEStionable:TEST[:EVENt]", op: ques_test.event, set: false}
   - {header: ":STATus:QUEStionable:TEST:CONDition", op: ques_test.condition, set: false}
   - {header: ":STATus:QUEStionable:TEST:ENABle", op: ques_test.enable, params: [{name: bit, type: raw, optional: true}]}
-  - {header: ":STATus:QUEStionable:TEST:PTRansition", params: [{name: mask, type: int, state: "status.test_ptr"}]}
-  - {header: ":STATus:QUEStionable:TEST:NTRansition", params: [{name: mask, type: int, state: "status.test_ntr"}]}
   - {header: ":STATus:PRESet", op: ques.preset, query: false}
   # ---- 状态存取（*SAV/*RCL 0–9，#1573） ----
   - header: "*SAV"
