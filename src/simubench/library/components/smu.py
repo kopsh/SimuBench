@@ -20,7 +20,7 @@ from collections.abc import Callable
 from typing import Any
 
 from ...engine.circuit import GROUND, Circuit
-from ...engine.component import Component, OpResult, PortSpec, component, op
+from ...engine.component import Component, OpResult, ParamRange, PortSpec, component, op
 from ...engine.signal import Signal
 from ...scpi import values as V
 from ...scpi.errors import ScpiError
@@ -960,6 +960,7 @@ class DcSupply(Component):
         "v": 12.0,  # EMF
         "r": 1000.0,  # output resistance
     }
+    param_ranges = {"r": ParamRange(0.0)}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.source(node("OUT"), self.uid, max(float(self.param("r")), 1e-6))

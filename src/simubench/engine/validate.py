@@ -413,6 +413,18 @@ def _check_parts(
                     name,
                     severity="warning",
                 )
+        for k, v in part.params.items():
+            bound = cls.param_ranges.get(k)
+            numeric = isinstance(v, (int, float)) and not isinstance(v, bool)
+            if bound is not None and numeric and not bound.contains(float(v)):
+                report.add(
+                    "error",
+                    "E-PARAM-RANGE",
+                    _ptr(*p, "params", k),
+                    f"{part.type} 的参数 {k} 须 {bound.describe()}，得到 {v!r}",
+                    "改成物理上可能的值；到运行时它只会表现为读数错误或超时",
+                    name,
+                )
         for k, rng in part.deviation.items():
             if k not in cls.defaults:
                 unknown_name(

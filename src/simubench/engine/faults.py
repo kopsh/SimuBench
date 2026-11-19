@@ -205,6 +205,11 @@ class FaultManager:
             else:
                 elapsed = (self.session.now_ns - (f.started_ns or 0)) / 1e9
                 value = float(value) * (1 + (f.spec.drift_per_s or 0.0) * elapsed)
+        bound = slot.comp.param_ranges.get(slot.param)
+        if bound is not None and isinstance(value, (int, float)):
+            value = bound.clamp(
+                float(value)
+            )  # a drift that crosses the physical range stops at its edge (#1455)
         set_override(slot.comp, slot.param, value)
 
     def _apply_drift(self, state: FaultState) -> None:

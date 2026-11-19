@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 
 from ...engine.circuit import GROUND, Circuit
-from ...engine.component import Component, PortSpec, component
+from ...engine.component import Component, ParamRange, PortSpec, component
 from ...engine.signal import Signal
 from ...scpi import values as V
 
@@ -116,6 +116,7 @@ class Resistor(Component):
     units = {"r": "OHM"}
     ports = {"A": PortSpec("inout", "electrical"), "B": PortSpec("inout", "electrical")}
     defaults = {"r": 1000.0}  # resistance
+    param_ranges = {"r": ParamRange(0.0, min_open=True)}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.resistor(node("A"), node("B"), float(self.param("r")))
@@ -134,6 +135,7 @@ class LoadResistor(Component):
     units = {"r": "OHM"}
     ports = {"A": PortSpec("inout", "electrical")}
     defaults = {"r": 1000.0}  # resistance to ground
+    param_ranges = {"r": ParamRange(0.0, min_open=True)}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.resistor(node("A"), GROUND, float(self.param("r")))
@@ -157,6 +159,13 @@ class RcLowpass(Component):
         "c": 100e-9,  # capacitance to ground
         "tol_r": 0.0,  # relative tolerance of r, hidden (0.1: +10%)
         "tol_c": 0.0,  # relative tolerance of c, hidden
+    }
+    # r·(1 + tol_r) and c·(1 + tol_c) are the values the circuit uses: a tolerance of -100 % or below is no resistor.
+    param_ranges = {
+        "r": ParamRange(0.0, min_open=True),
+        "c": ParamRange(0.0),
+        "tol_r": ParamRange(-1.0, min_open=True),
+        "tol_c": ParamRange(-1.0, min_open=True),
     }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
@@ -191,6 +200,12 @@ class PassiveProbe(Component):
         "r_scope": 1e6,  # the nominal scope input resistance the series element assumes
         "c_pf": 0.0,  # probe capacitance (not modeled)
     }
+    param_ranges = {
+        "attenuation": ParamRange(0.0, min_open=True),
+        "r_tip": ParamRange(0.0),
+        "r_scope": ParamRange(0.0),
+        "c_pf": ParamRange(0.0),
+    }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         r_series = float(self.param("r_tip")) - float(self.param("r_scope"))
@@ -218,6 +233,7 @@ class Lead(Component):
 
     ports = {"IN": PortSpec("inout", "electrical"), "OUT": PortSpec("out", "electrical")}
     defaults = {"r": 0.1}  # series resistance
+    param_ranges = {"r": ParamRange(0.0)}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.resistor(node("IN"), node("OUT"), max(float(self.param("r")), 1e-6))
@@ -248,6 +264,7 @@ class CoaxCable(Component):
         "length_m": 1.0,  # cable length (no delay is modeled)
         "r_skin_1mhz": 0.0,  # skin impedance at 1 MHz, rising as the square root of frequency
     }
+    param_ranges = {"r": ParamRange(0.0), "length_m": ParamRange(0.0), "r_skin_1mhz": ParamRange(0.0)}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         r = max(float(self.param("r")), 1e-6)
@@ -281,6 +298,7 @@ class UnityBuffer(Component):
         "z_out": 50.0,  # output impedance
         "gain": 1.0,  # voltage gain, V/V
     }
+    param_ranges = {"z_in": ParamRange(0.0, min_open=True), "z_out": ParamRange(0.0)}
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
         circuit.resistor(node("IN"), GROUND, float(self.param("z_in")))
