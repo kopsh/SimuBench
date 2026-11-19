@@ -563,7 +563,7 @@ class InternalProbe(_Model):
 - 改了组件：同步 `docs/blocks/<class>.yaml`、component-map.md 的表、`tests/test_block_coverage.py` 与 `test_model_components.py` 的例外清单（只减不增）。
 - 改了定义格式或接口模型：`uv run simubench schemas --out schemas`、`cd web && pnpm gen:api`，一并提交。
 - 行为变化（1.4）在 PR 描述里逐条列出；不属于 1.4 的回复变化一律视为缺陷。
-- 在 `docs/progress-log.md` 末尾追加自检一节。
+- 在 `docs/progress-log/<issue>-<short-name>.md` 新建自检条目（progress.md「怎么记录」）。
 
 ### 9.2 风险与对策
 

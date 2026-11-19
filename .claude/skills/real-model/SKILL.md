@@ -95,8 +95,8 @@ When the platform cannot express something the manual requires:
    33622A, a load or reference an 34465A or B2901A). `tests/test_shipped_cases.py` fails otherwise.
 7. **Example bench** in `examples/benches/` with real models only (`sb-*` benches go to
    `validation/benches/`). A script written the way a real-instrument script is written, run in a test.
-8. **Check and record**: `scripts/check.sh`; append a self-check section to the end of `docs/progress-log.md`
-   (`docs/progress.md` says how).
+8. **Check and record**: `scripts/check.sh`; write the self-check entry as a new file
+   `docs/progress-log/<issue>-<short-name>.md` (`docs/progress.md` says how; never append to the closed `docs/progress-log.md`).
 9. **Pull request** with `Closes #<n>`; it merges itself when CI is green.
 
 **Spectrum analyzers**: the front-end figures (noise figure from the DANL, intercepts, 1 dB

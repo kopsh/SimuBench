@@ -36,7 +36,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # check_progress_log counts progress-log sections against the merge base (issue #380).
+          # check_progress_log compares the progress log with the merge base (issues #380, #1505).
           fetch-depth: 0
       - uses: astral-sh/setup-uv@v6
         with:
@@ -48,7 +48,7 @@ jobs:
         run: uv run python scripts/check_ty.py
       - name: The D49 test rules (budgets, e2e assertions, environment reuse)
         run: uv run python scripts/check_test_rules.py
-      - name: progress-log keeps its appended history (issue #380)
+      - name: progress-log keeps its history; new entries are files (issues #380, #1505)
         run: uv run python scripts/check_progress_log.py
       - name: Unit, service and acceptance tests
         # tui_boot (Textual boot; runs on main) and load_sensitive (the wall-clock budgets, red
