@@ -177,6 +177,9 @@ class Sweeper:
         hit = self.host.history.sweeps.get((s, version))
         if hit is not None:
             return hit
+        # Averaging and the hold modes take up to thousands of sweeps per read, and an analytic sweep
+        # passes no frame: each one is a checkpoint of its own (D88, #1533).
+        self.host.session.checkpoint(self.host, "sweep")
         if self.host.sampled():
             trace = self.sweep_sampled(s, st)
             if len(self.host.history.sweeps) > 4096:
