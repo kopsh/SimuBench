@@ -623,8 +623,7 @@ commands:
   - header: "STATus:QUEStionable:INSTrument:ISUMmary<ch>:CONDition"
     op: ch.read.condition
     set: false
-    doc: 0 关或未调节、1 恒流、2 恒压（#271）。
-    doc: 手册的查询没有通道列表，按 INSTrument:SELect 选中的输出回答（#295）；显式通道列表是额外的写法。
+    doc: 0 关或未调节、1 恒流、2 恒压（#271）。手册的查询没有通道列表，按 INSTrument:SELect 选中的输出回答（#295）；显式通道列表是额外的写法。
   - header: "OUTPut:PROTection:CLEar"
     op: ch.prot.clear
     query: false

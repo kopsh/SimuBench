@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, whenHolds, wordOf } from "./model";
+import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -399,6 +399,38 @@ describe("autoBottomTab (#1360)", () => {
     expect(autoBottomTab({ comms: false, events: true, problems: true })).toBe("events");
     expect(autoBottomTab({ comms: true, events: true, problems: true })).toBe("comms");
     expect(autoBottomTab({ comms: false, events: false, problems: true })).toBe("problems");
+  });
+});
+
+describe("unusedUnderDc (#1591)", () => {
+  const vars = (fn: string, more: Record<string, unknown> = {}) =>
+    new Map(
+      Object.entries({ "ch1.function": fn, "ch1.frequency": 1000, "ch1.amplitude": 4, "ch1.offset": 1, ...more }).map(([path, value]) => [
+        path,
+        { path, channel: 1, type: "float", value } as unknown as StateVarInfo,
+      ]),
+    );
+
+  it("leaves out what a DC output does not use, keeps its level", () => {
+    const dc = vars("DC");
+    expect(unusedUnderDc(dc, "ch1.frequency")).toBe(true);
+    expect(unusedUnderDc(dc, "ch1.amplitude")).toBe(true);
+    expect(unusedUnderDc(dc, "ch1.offset")).toBe(false);
+    expect(unusedUnderDc(dc, "ch1.output")).toBe(false);
+  });
+
+  it("reads the function of the same channel, in any case, and nothing else", () => {
+    expect(unusedUnderDc(vars("SINE"), "ch1.frequency")).toBe(false);
+    expect(unusedUnderDc(vars("dc"), "ch1.frequency")).toBe(true);
+    expect(unusedUnderDc(vars("DC"), "ch2.frequency")).toBe(false); // ch2 has no function: no claim
+  });
+
+  it("names the reason a field is greyed: the automatic switch first", () => {
+    const both = vars("DC", { "ch1.amplitude_auto": true });
+    (both.get("ch1.amplitude_auto") as { type: string }).type = "bool";
+    expect(inactiveReason(both, "ch1.amplitude")).toBe("auto");
+    expect(inactiveReason(both, "ch1.frequency")).toBe("dc");
+    expect(inactiveReason(both, "ch1.offset")).toBeUndefined();
   });
 });
 

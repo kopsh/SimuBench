@@ -45,7 +45,7 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from ...contracts import api as M
-from ...library.loader import load_yaml
+from ...library.loader import load_json, load_yaml
 from ..benchchanges import bench_changes
 from ..benchfiles import Conflict
 from ..definitionchanges import definition_changes
@@ -497,10 +497,8 @@ class AssistantService:
 
 
 def _parse(rel: str, raw: bytes) -> dict[str, Any]:
-    import json
-
     text = raw.decode("utf-8")
-    data = json.loads(text) if rel.endswith(".json") else load_yaml(text)
+    data = load_json(text) if rel.endswith(".json") else load_yaml(text)
     return data if isinstance(data, dict) else {}
 
 

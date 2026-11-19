@@ -85,6 +85,15 @@ def test_high_z_setting_clears_the_hint():
             "/wires/2",  # the newest wire of the net, the one that added the second driver (#1269)
             None,
         ),
+        (  # #1589: one address, spelled two ways (VISA's default inst0, case)
+            lambda d: (
+                d["instruments"]["awg"].update(address="TCPIP0::10.0.0.5::INSTR"),
+                d["instruments"]["scope"].update(address="tcpip0::10.0.0.5::inst0::instr"),
+            ),
+            "E-ADDRESS-DUPLICATE",
+            "/instruments/scope/address",
+            "地址",
+        ),
     ],
 )
 def test_errors_point_at_the_place_and_suggest_a_fix(mutate, code, pointer, suggestion):
@@ -97,6 +106,15 @@ def test_errors_point_at_the_place_and_suggest_a_fix(mutate, code, pointer, sugg
     if suggestion:
         assert suggestion in (match[0].suggestion or "")
     assert not report.ok
+
+
+def test_distinct_or_missing_addresses_are_not_duplicates():
+    data = copy.deepcopy(BASE)
+    data["instruments"]["awg"]["address"] = "TCPIP0::10.0.0.5::INSTR"
+    data["instruments"]["scope"]["address"] = "TCPIP0::10.0.0.6::INSTR"
+    data["instruments"]["extra"] = {"model": "sb-dso-4"}  # no address: nothing to compare
+    found, _ = codes(data)
+    assert "E-ADDRESS-DUPLICATE" not in [code for code, _ in found]
 
 
 def test_schema_errors_are_diagnostics():
