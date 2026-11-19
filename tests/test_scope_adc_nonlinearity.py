@@ -380,6 +380,43 @@ def test_the_converter_half_is_its_codes_span():
     assert converter_half(0.1, 0, 128.0, 10.0) == pytest.approx(0.5)
 
 
+def _noise_response_db(shape: str):
+    """The power response of the noise-shaping FIR at 256 GSa/s with a 113 GHz cutoff, in dB
+    relative to its mean below 0.8 of the cutoff, as (a lookup of the dB at a frequency, a mean over a band)."""
+    from simubench.library.components.scope_record import noise_taps
+
+    taps = noise_taps(shape, 1.13e11 / FS)
+    assert taps is not None
+    power = np.abs(np.fft.rfft(taps, 8192)) ** 2
+    f = np.fft.rfftfreq(8192, 1 / FS)
+    ref = power[f < 0.8 * 1.13e11].mean()
+    return (
+        lambda hz: 10 * np.log10(power[np.argmin(np.abs(f - hz))] / ref),
+        lambda lo, hi: 10 * np.log10(power[(f >= lo) & (f <= hi)].mean() / ref),
+    )
+
+
+def test_the_brickwall_noise_filter_has_the_transition_band_the_docs_state():
+    """#1462: the 49-tap filter is not a brick wall. Flat to 0.8 of the cutoff, -6 dB at it, down 20 dB
+    from about 5 GHz above it (0.02 of the sample rate), -15 dB on average between the cutoff and the
+    Nyquist frequency: signal-chain.md states these, the band 113-118 GHz is where it rolls off."""
+    at, mean = _noise_response_db("brickwall")
+    assert at(0.5e11) == pytest.approx(0.0, abs=0.05)
+    assert at(1.06e11) > -3.0  # still near the passband
+    assert at(1.13e11) == pytest.approx(-6.0, abs=0.5)  # the half-power point
+    assert at(1.185e11) < -20.0  # 20 dB down within about 5 GHz past the cutoff
+    assert mean(1.13e11, 1.18e11) == pytest.approx(-10.3, abs=1.0)  # the transition itself
+    assert mean(1.13e11, 1.28e11) == pytest.approx(-15.0, abs=1.0)  # not -20 dB: part of it is the roll-off
+    assert mean(1.185e11, 1.28e11) < -25.0
+
+
+def test_the_gaussian_noise_shape_falls_only_about_3_db_past_the_cutoff():
+    """#1462: a Gaussian response is -3 dB at its bandwidth and keeps falling slowly: between the
+    cutoff and the Nyquist frequency the noise is about 2.8 dB down, as the analog response says."""
+    _at, mean = _noise_response_db("gaussian")
+    assert mean(1.13e11, 1.28e11) == pytest.approx(-2.8, abs=0.5)
+
+
 def test_shaped_noise_keeps_its_rms_and_depends_on_the_index_only():
     """#1446: noise through the record's response keeps sigma (unit-power taps, ±3 %), loses what lies
     above the cutoff, and a sample's value depends on its stream index only: a tile computed alone
