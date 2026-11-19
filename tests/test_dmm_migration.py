@@ -89,18 +89,20 @@ EXPECTED_DC: list[tuple[str, str, str | None, int]] = [
     ("dut", ":SENS:VOLT:DC:NPLCycles 10", None, 0),
     ("dut", ":MEAS:VOLT:DC?", "+4.99999900E+00", 0),
     ("dut", ":SENS:VOLT:DC:RANGe 1", None, 0),
-    # The resolution CONFigure gave is a setting: it persists across range changes (#286), so
-    # CONF? still reports it (was +1.00000000E-07, range × NPLC step).
-    ("dut", ":CONF?", '"VOLT +1.00000000E+00,+1.00000000E-03"', 0),
+    # #1585: MEASure = CONFigure + READ?, so the earlier MEASure reset the resolution to its
+    # default (0.0 → range × NPLC step); the setting no longer survives it.
+    ("dut", ":CONF?", '"VOLT +1.00000000E+00,+1.00000000E-07"', 0),
     ("dut", ":SENS:VOLT:DC:RANGe:AUTO ON", None, 0),
     ("src", ":SOUR:VOLT 0.2", None, 0),
     ("dut", ":MEAS:VOLT:DC?", "+2.00000200E-01", 0),
     ("dut", ":SENS:VOLT:DC:RANGe 0.1", None, 0),
     ("dut", ":SENS:VOLT:DC:RANGe:AUTO OFF", None, 0),
     ("src", ":SOUR:VOLT 0.12", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+9.90000000E+37", 0),
+    # #1585: MEASure resets the range to autorange (no range parameter given), so 0.12 V and
+    # 0.13 V no longer overload the fixed 0.1 V range.
+    ("dut", ":MEAS:VOLT:DC?", "+1.20000000E-01", 0),
     ("src", ":SOUR:VOLT 0.13", None, 0),
-    ("dut", ":MEAS:VOLT:DC?", "+9.90000000E+37", 0),
+    ("dut", ":MEAS:VOLT:DC?", "+1.29999700E-01", 0),
     ("src", ":SOUR:VOLT 2", None, 0),
     ("dut", ":SENS:VOLT:DC:RANGe 10", None, 0),
     ("dut", ":SENS:VOLT:DC:IMPedance:AUTO ON", None, 0),
@@ -108,7 +110,8 @@ EXPECTED_DC: list[tuple[str, str, str | None, int]] = [
     ("dut", ":SENS:VOLT:DC:IMPedance:AUTO?", "1", 0),
     ("dut", ":SENS:VOLT:DC:IMPedance:AUTO OFF", None, 0),
     ("dut", ':FUNC "VOLT:AC"', None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+0.00000000E+00", 0),
+    # #1585: the MEASure also resets the range to autorange (0.1 V here) instead of the 10 V set.
+    ("dut", ":MEAS:VOLT:AC?", "+3.00000000E-08", 0),
     ("dut", ':FUNC "VOLT"', None, 0),
     ("dut", ":TRIG:SOUR IMM;:TRIG:COUN 2;:SAMP:COUN 3;:INIT", None, 0),
     ("dut", "*OPC?", "1", 2400960000),
@@ -135,7 +138,8 @@ EXPECTED_AC: list[tuple[str, str, str | None, int]] = [
     ("dut", ":SENS:VOLT:AC:RANGe:AUTO OFF", None, 0),
     ("dut", ":MEAS:VOLT:AC?", "+7.07104800E-02", 0),
     ("dut", ":SENS:VOLT:AC:RANGe 10", None, 0),
-    ("dut", ":MEAS:VOLT:AC?", "+7.07110000E-02", 0),
+    # #1585: MEASure resets the range to autorange (0.1 V here) instead of the 10 V set.
+    ("dut", ":MEAS:VOLT:AC?", "+7.07103800E-02", 0),
     ("dut", ":SYST:ERR?", '+0,"No error"', 0),
 ]
 
