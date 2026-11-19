@@ -796,6 +796,60 @@ def test_watcher_stays_silent_when_a_pass_lands_between_the_write_and_its_note(t
     assert published == [{"path": "a.bench.yaml"}]
 
 
+def test_watcher_keeps_a_note_that_lands_while_it_reads_the_older_content(tmp_path, monkeypatch):
+    """#1547: a pass reads the file just before a write point replaces it and notes the new
+    content. The pass must not record its older read over the note: the next pass would see the
+    new content as unannounced and announce the server's own write a second time."""
+    from simubench.server import workspace_events
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    path = tmp_path / "a.bench.yaml"
+    path.write_bytes(b"schema: simubench.bench/2\nname: a\n")
+    raw = b"schema: simubench.bench/2\nname: b\n"
+    real_sha256 = hashlib.sha256
+
+    def writing_mid_read(data=b""):  # the pass has read the old bytes; the write point lands now
+        path.write_bytes(raw)
+        watcher.note("a.bench.yaml", real_sha256(raw).hexdigest())
+        return real_sha256(data)
+
+    monkeypatch.setattr(workspace_events.hashlib, "sha256", writing_mid_read)
+    watcher._pass()  # the first pass, baselining, with the write landing inside its read
+    monkeypatch.setattr(workspace_events.hashlib, "sha256", real_sha256)
+    watcher._pass()
+    watcher._pass()
+    assert published == []
+
+
+def test_watcher_does_not_take_a_file_created_after_its_listing_for_a_deleted_one(tmp_path, monkeypatch):
+    """#1547: a write point creates a file (a definition copy) and notes it after a pass listed the
+    folder. The pass knows the file but did not see it; it must not announce it as deleted, which
+    would repeat the server's own write."""
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    (tmp_path / "instruments").mkdir()
+    watcher._pass()  # baseline: an empty workspace
+    listing = watcher._files
+    created = tmp_path / "instruments" / "my-dso.yaml"
+    raw = b"schema: simubench.instrument/2\nid: my-dso\n"
+
+    def listing_then_a_write():  # the pass has listed the folder; the write point lands now
+        files = listing()
+        created.write_bytes(raw)
+        watcher.note("instruments/my-dso.yaml", hashlib.sha256(raw).hexdigest())
+        return files
+
+    monkeypatch.setattr(watcher, "_files", listing_then_a_write)
+    watcher._pass()
+    monkeypatch.setattr(watcher, "_files", listing)
+    watcher._pass()
+    assert published == []
+
+
 def test_workspace_hub_drops_events_without_a_subscriber():
     """The hub is a fan-out: publishes from any thread reach the queues, unknown kinds refuse,
     and with nobody listening nothing is kept (the stream is live, not a log)."""
