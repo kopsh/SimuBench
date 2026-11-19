@@ -114,6 +114,17 @@ def test_runs_api(tmp_path):
         c.headers["x-simubench-token"] = "t"
         runs = c.get("/api/runs").json()
         assert len(runs) == 1 and runs[0]["bench"] == "acceptance-awg-rc-scope" and runs[0]["ended"]
+        # The summary is read from the record's first and last line only (#1636): it is the one a
+        # full parse of this many-event record yields.
+        full = lines(next((tmp_path / "runs").glob("run-*.jsonl")))
+        header, end = full[0], full[-1]
+        assert header["kind"] == "header" and end["kind"] == "end"
+        assert runs[0]["events"] == len(full) - 2  # the header and the end are not events
+        assert runs[0]["duration_ns"] == max(int(r["t_ns"]) for r in full[1:])
+        assert runs[0]["started"] == header["started"] and runs[0]["ended"] == end["ended"]
+        assert runs[0]["seed"] == header["seed"] and runs[0]["clock"] == header["clock"]
+        assert runs[0]["instruments"] == sorted(header["definitions"])
+        assert runs[0]["size"] == (tmp_path / "runs" / f"run-{runs[0]['run_id']}.jsonl").stat().st_size
         run_id = runs[0]["run_id"]
         detail = c.get(f"/api/runs/{run_id}").json()
         kinds = {e["kind"] for e in detail["events"]}

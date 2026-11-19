@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import os
 import re
 from pathlib import Path
 from typing import Any
@@ -12,6 +14,31 @@ from .errors import Invalid, NotFound
 
 RUN_ID = re.compile(r"^[0-9A-Za-z-]{1,64}$")
 MAX_EVENTS = 20_000
+#: Bytes the search for a record's last line starts with; it widens when one line is longer
+#: (a reply kept as text can be kilobytes).
+_TAIL = 4096
+
+
+def _head_tail(path: Path) -> list[dict[str, Any]]:
+    """A record's first and last lines, parsed (#1636): a summary needs only these two and the
+    list endpoint is polled every second, so the lines between are never read. ``ValueError``
+    when the file is not a record, or ends in a line that is still being written."""
+    out: list[dict[str, Any]] = []
+    with path.open("rb") as f:
+        if first := f.readline().strip():
+            out.append(json.loads(first))
+        pos = f.seek(0, os.SEEK_END)
+        window = _TAIL
+        while True:
+            start = max(0, pos - window)
+            f.seek(start)
+            head, _, line = f.read(pos - start).rstrip(b"\n").rpartition(b"\n")
+            if head or start == 0:
+                break  # `line` is the file's last line, whole
+            window *= 4  # the last line is longer than the window: take more of it
+        if line.strip():
+            out.append(json.loads(line))
+    return out
 
 
 class Runs:
@@ -38,13 +65,19 @@ class Runs:
                 continue  # not a record, or one being written right now
         return sorted(out, key=lambda r: r.started, reverse=True)
 
-    def _summary(self, path: Path, events: list[dict[str, Any]] | None = None) -> M.RunSummary:
-        records = events if events is not None else list(read_record(path))
+    def _summary(self, path: Path, records: list[dict[str, Any]] | None = None) -> M.RunSummary:
+        """The summary from the record's first and last line (#1636): the header carries every
+        field but the end, the end event carries its own ``t_ns``, and ``seq`` counts the lines
+        written before it. ``records`` when the caller has parsed the whole file already
+        (:meth:`detail`) — the same fields, one computation."""
+        if records is None:
+            records = _head_tail(path)
         header = records[0] if records else {}
         if header.get("kind") != "header":
             raise Invalid(path.name)
-        end = records[-1] if records[-1].get("kind") == "end" else None
-        last_t = max((int(r.get("t_ns", 0)) for r in records[1:]), default=0)
+        last = records[-1]
+        end = last if last.get("kind") == "end" else None
+        seq = int(last.get("seq", len(records) - 1))  # one per line written: the header is seq 0
         return M.RunSummary(
             run_id=str(header["run_id"]),
             bench=str(header.get("bench", "")),
@@ -53,8 +86,8 @@ class Runs:
             clock=str(header.get("clock", "")),
             seed=int(header.get("seed", 0)),
             engine=str(header.get("engine", "")),
-            events=len(records) - 1 - (1 if end else 0),
-            duration_ns=last_t,
+            events=seq - (1 if end else 0),
+            duration_ns=int((end or last).get("t_ns", 0)),
             instruments=sorted((header.get("definitions") or {}).keys()),
             size=path.stat().st_size,
         )
