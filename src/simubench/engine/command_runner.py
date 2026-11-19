@@ -92,6 +92,12 @@ class CommandRunner:
             q_ok, s_ok = COMMON_DIRECTIONS.get(word, (True, True))
             if (unit.query and not q_ok) or (not unit.query and not s_ok):
                 raise self.inst._errs._undefined(unit, tokens)
+            if word in (
+                "OPC",
+                "WAI",
+                "TRG",
+            ):  # these answer without `_common`: refuse a parameter here (#1453)
+                self.inst._common.check_params(unit)
             if word == "OPC" and unit.query:
                 return self.inst.opc_query()
             if word == "WAI":

@@ -28,7 +28,32 @@ class BuiltinCommands:
     def __init__(self, inst: Instrument) -> None:
         self.inst = inst
 
+    @staticmethod
+    def check_params(unit: Unit) -> None:
+        """The parameter count of a common command (IEEE 488.2 10.10, 10.34, 7.4; #1453): ``*ESE``,
+        ``*SRE`` and ``*PSC`` take exactly one parameter when written (-109 for none, -108 for more) and
+        none as a query; every other common command takes none (-108). Raised before the command runs,
+        so a refused command changes nothing."""
+        word = unit.tokens[0].keyword
+        n = len(unit.params)
+        if word in ("ESE", "SRE", "PSC") and not unit.query:
+            if n == 0:
+                raise ScpiError(-109)
+            if n > 1:
+                raise ScpiError(-108)
+        elif n:
+            raise ScpiError(-108)
+
+    @staticmethod
+    def _register_mask(raw: bytes) -> int:
+        """The value written to ``*ESE`` / ``*SRE``: an integer 0-255, else -222 (not wrapped to 8 bits)."""
+        value = V.parse_int(raw)
+        if not 0 <= value <= 255:
+            raise ScpiError(-222, f"register mask {value} outside 0-255")
+        return value
+
     def _common(self, unit: Unit) -> bytes | None:
+        self.check_params(unit)
         word = unit.tokens[0].keyword
         q = unit.query
         if word == "IDN" and q:
@@ -51,12 +76,12 @@ class BuiltinCommands:
         if word == "ESE":
             if q:
                 return str(self.inst.ese).encode()
-            self.inst.ese = V.parse_int(unit.params[0]) & 0xFF if unit.params else 0
+            self.inst.ese = self._register_mask(unit.params[0])
             return None
         if word == "SRE":
             if q:
                 return str(self.inst.sre).encode()
-            self.inst.sre = V.parse_int(unit.params[0]) & 0xFF if unit.params else 0
+            self.inst.sre = self._register_mask(unit.params[0])
             return None
         if word == "STB" and q:
             return str(self.stb()).encode()
