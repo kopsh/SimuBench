@@ -209,3 +209,24 @@ cases:
 - 内存：一次读取至多 2²⁶ 点在内存里，另有至多 2²² 点的块缓存；整段读过一次的记录（≤ 2²⁶ 点）留在内存直到下一次采集。
 
 各示波器型号的覆盖表在存储深度的条目下指向本节。
+
+## 11. UXR1104B：公开的内部框图与定义的对照
+
+依据 Keysight 技术概述 3123-1371（`manuals/3123-1371/`，页码为 PDF 页）与数据手册 3123-1313。只对到框图级：
+厂商没有公开 ASIC 型号、电路和布局，下表中“未建模”的环节没有公开数据可依，不凭推测补。
+
+| 公开框图（3123-1371） | 定义里的对应 | 对得上吗 |
+| --- | --- | --- |
+| 1 mm 输入接头，AutoProbe III，每通道一块采集板（p.6、p.13） | `inp`（`input_port`，50 Ω）；4 个通道各自独立 | 对得上 |
+| 机电衰减器（“为降低噪声与提高可靠性”），其后是 InP 前置放大器，DC–110 GHz，不用频率交织（p.11、p.15） | `front`（`scope_vertical`）：档位、偏置、带宽、按档噪声表 | 行为对得上；衰减器与放大器没有分开，厂商没给衰减值 |
+| 硬件灵敏度 7.5 mV/div（60 mV 满量程），以下为软件放大（p.11） | `min_full_scale: 0.06`，`scale_range` 下限 1 mV | 对得上 |
+| 前置放大器之后分两路：256 GSa/s 采样器与触发比较器（Signal Integrity Journal 文章，未入库：https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-series-oscilloscopes-a-journey-of-a-signal ；技术概述 p.11 只写“前置放大器、触发、采样集成在同一前端模块”） | `trigger` 取自 ADC 之前的模拟通路，不经数字滤波（#1263） | 对得上 |
+| 256 GSa/s 的 InP 主采样器，配 4 个 64 GSa/s SiGe 采样器，输出时间交织的信号给 **16 个** 10 位 ADC（p.11）；每块采集板复用 4 个 4-lane 10 位 ADC（p.10、p.13） | `adc`：10 位、256 GSa/s、`interleave: 16`、`interleave_skews_s` 16 项 | 数量对得上；16 路的失配取值来自数据手册的 SFDR 与交织像指标，厂商没公开各路的失配 |
+| 硬件 ADC 的 ENOB 最高 8.7（p.10） | 未建模：ADC 本身不带 ENOB 参数，噪声由噪声表给出 | 未建模 |
+| 采集板：4 个 100M 门存储控制器、2 个信号处理 FPGA、500 Mpts–2 Gpts 存储；频响修正、1 GHz 至示波器带宽的硬件带宽限制修正滤波（p.13） | `bwf`（带宽滤波）、`isim`、`dec`（抽取）、`acq`（存储深度，标配 500 Mpts，选件 1/2 Gpts） | 功能对得上；没有按存储控制器 / FPGA 分块 |
+| 存储控制器硬件加速：波形绘制、平均、均衡（CTLE、FFE、TIE）、抖动测量、InfiniiSim（p.14） | `dec` 的平均、`isim`、`scope_measurements`、`scope_math` | 功能对得上，没有硬件加速的结构 |
+| 振荡器板控制时间交织（同一篇 Signal Integrity Journal 文章）；通道间固有抖动 < 10 fs rms（p.13） | `timebase`（10 MHz 参考输入）；通道间抖动未建模 | 部分对得上 |
+| 单台 4 通道 110 GHz UXR 含 80+ 颗定制 ASIC、13 个 FPGA、9 种 MMIC、38 个薄膜（p.9） | 无 | 数量只作背景，不进模型 |
+
+结论：前一版对照里“16 路交织与公开的 4×64 GSa/s 不一致”的说法是错的：官方概述明写 16 个 10 位 ADC（4 个 SiGe 采样器各带 4 路），
+与定义的 `interleave: 16` 一致。仍然没有公开依据的有：衰减器的档位与衰减值、各路 ADC 的失配图样、通道间抖动。
