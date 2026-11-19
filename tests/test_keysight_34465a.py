@@ -221,36 +221,34 @@ def test_adjustment_is_per_range_and_stays_secured():
             out = s.read(inst)
             return out.decode().strip() if out else None
 
-        def level(v):
+        def level(v, rng):
             q("src", f":SOUR:VOLT {v}")
-            q("dmm", "MEAS:VOLT?")
+            q("dmm", f"MEAS:VOLT:DC? {rng}")
 
-        q("dmm", ":VOLT:DC:RANG 10;:VOLT:DC:RANG:AUTO OFF")
-        level(10.0)
-        assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(
+        level(10.0, 10)
+        assert float(q("dmm", "MEAS:VOLT:DC? 10").lstrip("+")) == pytest.approx(
             10 * (1 + 150e-6) + 200e-6, abs=4 * noise_sigma(10.0) + STEP["10"]
         )
         q("dmm", "CAL:VAL 10")
         q("dmm", "CAL?")  # secured: refused without a reply
         assert q("dmm", ":SYST:ERR?").startswith("+701")
         q("dmm", 'CAL:SEC:STAT OFF,"AT3446XA"')
-        level(10.0)
+        level(10.0, 10)
         q("dmm", "CAL:VAL 10")
         assert q("dmm", "CAL?") == "+0"
         q("dmm", "CAL:STOR")
         # The 1 V range has its own key: untouched until adjusted on it.
-        q("dmm", ":VOLT:DC:RANG 1")
-        level(1.0)
-        assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(
+        level(1.0, 1)
+        assert float(q("dmm", "MEAS:VOLT:DC? 1").lstrip("+")) == pytest.approx(
             1 * (1 + 150e-6) + 200e-6, abs=4 * noise_sigma(1.0) + STEP["1"]
         )
         q("dmm", "CAL:VAL 1")
         assert q("dmm", "CAL?") == "+0"
-        assert float(q("dmm", "MEAS:VOLT?").lstrip("+")) == pytest.approx(
+        assert float(q("dmm", "MEAS:VOLT:DC? 1").lstrip("+")) == pytest.approx(
             1.0, abs=4 * noise_sigma(1.0) + STEP["1"]
         )
         # A wrong reference is caught, not applied.
-        level(1.0)
+        level(1.0, 1)
         q("dmm", "CAL:VAL 2")
         assert q("dmm", "CAL?") == "+1"
         assert q("dmm", ":SYST:ERR?").startswith("+702")
@@ -453,9 +451,10 @@ def test_current_flows_through_the_shunt_into_the_circuit():
 
 
 def test_the_definition_noise_distributes_and_falls_with_nplc():
-    """The built-in reading noise (specs.noise_ppm_of_range, #744): MEAS readings are independent
-    draws around the solved value with σ = 1 ppm of range at the NPLC's reading time; the same
-    seed replays bit for bit, and 10 NPLC reads √10 tighter than 1 NPLC."""
+    """The built-in reading noise (specs.noise_ppm_of_range, #744): READ? readings (which keep the
+    configured NPLC) are independent draws around the solved value with σ = 1 ppm of range at the
+    NPLC's reading time; the same seed replays bit for bit, and 10 NPLC reads √10 tighter than
+    1 NPLC."""
     s = open_bench(BENCH)
     try:
 
@@ -464,14 +463,14 @@ def test_the_definition_noise_distributes_and_falls_with_nplc():
             out = s.read("dut")
             return out.decode().strip() if out else None
 
-        want = solve(False)  # the divided DC the bench solves to, on the auto 0.1 V range
-        ones = [float(q("MEAS:VOLT:DC?").lstrip("+")) for _ in range(200)]
+        want = solve(False)  # the divided DC the bench solves to, on the 0.1 V range
+        ones = [float(q("READ?").lstrip("+")) for _ in range(200)]
         sigma = noise_sigma(0.1)
         assert len(set(ones)) > 4  # the last digits flicker across the quantization grid
         assert statistics.mean(ones) == pytest.approx(want, abs=4 * sigma / math.sqrt(200))
         assert statistics.stdev(ones) == pytest.approx(sigma, rel=0.2)
         q("VOLT:DC:NPLC 10")
-        tens = [float(q("MEAS:VOLT:DC?").lstrip("+")) for _ in range(200)]
+        tens = [float(q("READ?").lstrip("+")) for _ in range(200)]
         assert statistics.stdev(tens) == pytest.approx(noise_sigma(0.1, 10.0), rel=0.25)
         # Consecutive READ? at 10 PLC on the 100 mV range (#1256): the readings move with the
         # specified noise, 0.1 µV rms, well above the 10 nV step — not a fixed offset.
@@ -491,7 +490,7 @@ def test_the_definition_noise_distributes_and_falls_with_nplc():
             out = s.read("dut")
             return out.decode().strip() if out else None
 
-        again = [float(q("MEAS:VOLT:DC?").lstrip("+")) for _ in range(20)]
+        again = [float(q("READ?").lstrip("+")) for _ in range(20)]
     finally:
         s.close()
     assert again == ones[:20]
