@@ -425,6 +425,11 @@ class TriggerModel(Triggerable, Component):
                 if buffer is not None:
                     buffer.append(reading)
         self.triggers += self._batches
+        # Readings are available: a momentary event for a register that names a bit READINGS (the
+        # 8588A's OPERation bit 4 event, #1599); it is not the DATA condition flag, which a register
+        # with transition filters (the B2900's) reads as a level.
+        assert self.owner is not None
+        self.owner.status_event("READINGS")
 
     def _next_after_act(self) -> str:
         """A run with triggers left waits for its next one; a finished one is done."""

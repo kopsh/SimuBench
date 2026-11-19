@@ -582,15 +582,25 @@ components:
       capacity: 15000000
       when_full: stop
   # 状态寄存器组（8588A-rpeng0000 的 Table 10 与 SCPI OPERation / QUEStionable Status Register 表）：
-  # OPER 的 MEASuring（触发不在 IDLE）、WTG 由触发模型给出，下限/上限失败由 reading_math 给出；
-  # CAL、CORR、WARM、外参考失锁与削波在模型里没有来源，恒为 0。QUEStionable 的条件寄存器手册
-  # 明说不使用（读 0），这里的位都只有事件含义、没有条件来源。OSB 进状态字节位 7、QUES 位 3。
+  # 手册：OPERation 的条件寄存器只实现位 4 MEASuring（触发系统不在 IDLE 时为真）；事件寄存器只用
+  # 位 4、5、6、8、9、10、11，其中位 4 是「有读数可用」。所以 OPER 拆成两个寄存器（#1599）：
+  # oper 只管条件（位 4，ARM 来自触发模型）；oper_ev 管事件、使能与汇总：位 4 由触发模型在读数
+  # 取完时推送的 READINGS 事件置位，位 5 Waiting for TRIGger（WTG）来自触发模型，位 8/9 下限/上限
+  # 失败来自 reading_math；位 6 Waiting for ARM、位 10 外参考失锁、位 11 削波在模型里没有来源，恒为 0。
+  # QUEStionable 的条件寄存器手册明说不使用（读 0），这里的位都只有事件含义、没有条件来源。
+  # OSB 进状态字节位 7、QUES 位 3。
   # latch: false——事件只在读寄存器/状态字节时锁存：每次命令分派都采样会在万用表还处于电阻
-  # 功能时解算整个台架，把校准源的 1 mA 输出拉过保护而跳回待机（5730A 用例，#1570）。
+  # 功能时解算整个台架，把校准源的 1 mA 输出拉过保护而跳回待机（5730A 用例，#1570）；所以读数
+  # 可用这一个事件是推送的，不依赖读时采样，读数结束后触发回到 IDLE 也不会丢。
   - name: oper
     type: status_register
     params:
-      bits: {CAL: 0, ARM: 4, WTG: 5, WARM: 6, LOW: 8, HIGH: 9, UNLOCK: 10, CLIP: 11}
+      bits: {ARM: 4}
+      latch: false
+  - name: oper_ev
+    type: status_register
+    params:
+      bits: {READINGS: 4, WTG: 5, WARM: 6, LOW: 8, HIGH: 9, UNLOCK: 10, CLIP: 11}
       enable: $status.oper_enable
       summary_bit: 7
       latch: false
@@ -991,9 +1001,9 @@ commands:
   - header: ROUTe:TERMinals
     state: route.terminals
   # ---- 状态寄存器组（Table 10） ----
-  - {header: "STATus:OPERation[:EVENt]", op: oper.event, set: false}
+  - {header: "STATus:OPERation[:EVENt]", op: oper_ev.event, set: false}
   - {header: "STATus:OPERation:CONDition", op: oper.condition, set: false}
-  - {header: "STATus:OPERation:ENABle", op: oper.enable, params: [{name: bit, type: raw, optional: true}]}
+  - {header: "STATus:OPERation:ENABle", op: oper_ev.enable, params: [{name: bit, type: raw, optional: true}]}
   - {header: "STATus:QUEStionable[:EVENt]", op: ques.event, set: false}
   - {header: "STATus:QUEStionable:CONDition", op: ques.condition, set: false}
   - {header: "STATus:QUEStionable:ENABle", op: ques.enable, params: [{name: bit, type: raw, optional: true}]}
