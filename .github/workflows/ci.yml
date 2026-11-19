@@ -1,7 +1,8 @@
-# Pull requests run the fast checks (ubuntu: Python and web), the browser end-to-end/visual tests
+# Pull requests run the fast checks (Python on ubuntu and Windows — a change that breaks only on
+# Windows used to surface on main alone, #1542; web on ubuntu), the browser end-to-end/visual tests
 # (#848) and the Textual-boot tier — screens, keys, snapshots, real-server scenarios (#858); merge.yml
-# merges on them. The slow ones (Windows, the wheel, the wall-clock budgets) run after a merge, on
-# main, and do not hold up merging: when one is red on main, fixing it is the next task. A merge by merge.yml pushes with
+# merges on them. The slow ones (web on Windows, the wheel, the wall-clock budgets) run after a
+# merge, on main, and do not hold up merging: when one is red on main, fixing it is the next task. A merge by merge.yml pushes with
 # the workflow token, which starts no workflow, so merge.yml dispatches this one on main itself.
 # The tier is picked by ref, not by event: anything that is not refs/heads/main — a pull_request's
 # merge ref, and merge.yml's self-heal dispatch on a pull-request branch (#485) — runs the fast
@@ -31,7 +32,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: ${{ github.ref != 'refs/heads/main' && fromJSON('["ubuntu-latest"]') || fromJSON('["ubuntu-latest", "windows-latest"]') }}
+        # Windows on pull requests too (#1542): it runs beside e2e, which takes longer.
+        os: ["ubuntu-latest", "windows-latest"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
