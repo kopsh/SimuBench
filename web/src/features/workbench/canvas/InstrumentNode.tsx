@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, NetLevel, StateVarInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { cn } from "@/lib/utils";
-import { formatValue, instrumentTitle, labelOf, stateMap, varName } from "../model";
+import { formatValue, instrumentTitle, labelOf, stateMap, unusedUnderDc, varName } from "../model";
 import { ClassIcon } from "../classes";
 import { useWorkbench } from "../store";
 
@@ -94,7 +94,8 @@ function InstrumentNodeImpl({ data, selected }: NodeProps<InstrumentNodeType>) {
             </span>
             <div className="flex min-w-0 flex-1 flex-wrap gap-x-2 gap-y-0.5 text-[11px]">
               {chanKeys
-                .filter((k) => k !== "display")
+                // What a DC output does not use (frequency, amplitude) would read as a signal (#1591).
+                .filter((k) => k !== "display" && !unusedUnderDc(vars, `ch${n}.${k}`))
                 .map((k) => {
                   const v = vars.get(`ch${n}.${k}`);
                   return v ? <Summary key={k} v={v} channelRow /> : null;

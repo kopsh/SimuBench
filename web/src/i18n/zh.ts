@@ -294,6 +294,7 @@ export const zh = {
     refusedValue: "没有设置 {{text}}：{{reason}}",
     unreadable: "读不出数值：请输入数字，可带 SI 前缀和单位（如 2.5 kHz）",
     autoInactive: "自动时不生效",
+    dcInactive: "直流输出时不生效",
     computedOnRead: "深记录读的时候才算：读到哪段算哪段，读回与测量的耗时随点数增长",
     auto: "自动",
     sendCommand: "发送 SCPI 命令",
