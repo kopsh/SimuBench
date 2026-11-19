@@ -78,6 +78,12 @@ class BenchFiles:
         # files, so it announces what it writes; None leaves a files-only user eventless.
         self.events = events
 
+    def _expect(self, bench_path: str, sha256: str | None) -> None:
+        """Tell the watcher's scan, before the file changes, which content this write point is about
+        to announce (#1526); ``None`` withdraws it after a rollback."""
+        if self.events is not None:
+            self.events.expect_write(bench_path, sha256)
+
     def _announce(self, bench_path: str, sha256: str) -> None:
         """One ``file_changed`` per write (issue #1484); the watcher's scan is told the content,
         so the change the server made is not announced a second time."""
@@ -167,6 +173,7 @@ class BenchFiles:
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_name(f".{path.name}.tmp")
             tmp.write_bytes(raw)
+            self._expect(bench_path, _sha(raw))
             os.replace(tmp, path)
             previous = None
             if old is not None:
@@ -176,6 +183,7 @@ class BenchFiles:
                 self.history.record(bench_path, raw, _sha(raw), fingerprint(data), source, previous=previous)
             except Exception as exc:
                 _rollback(path, old)
+                self._expect(bench_path, None)
                 raise Invalid(f"保存 {bench_path} 失败：无法写入版本历史（{exc}）") from exc
         self._announce(bench_path, _sha(raw))
         return self._document(bench_path, path, raw, data)
@@ -192,11 +200,13 @@ class BenchFiles:
                 raw = HELLO.read_bytes()
                 tmp = path.with_name(f".{path.name}.tmp")
                 tmp.write_bytes(raw)
+                self._expect(bench_path, _sha(raw))
                 os.replace(tmp, path)
                 try:
                     self.history.record(bench_path, raw, _sha(raw), fingerprint(_parse(path, raw)), source)
                 except Exception as exc:
                     _rollback(path, None)
+                    self._expect(bench_path, None)
                     raise Invalid(f"创建 {bench_path} 失败：无法写入版本历史（{exc}）") from exc
                 created = (bench_path, raw)
         if created is not None:

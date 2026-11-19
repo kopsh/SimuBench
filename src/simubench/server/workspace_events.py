@@ -107,6 +107,12 @@ class WorkspaceEvents:
         for queue in subs:
             loop.call_soon_threadsafe(_put, queue, ev)
 
+    def expect_write(self, path: str, sha256: str | None) -> None:
+        """A write point is about to write this content and will publish it (#1526): the watcher's
+        scan must not announce it first. ``None`` withdraws it after a rolled-back write."""
+        if self._watcher is not None:
+            self._watcher.expect(path, sha256)
+
     def note_written(self, path: str, sha256: str) -> None:
         """A write point published this path's content itself: the watcher's scan must not
         repeat it. Call without a matching :meth:`publish` only for content already on disk."""
@@ -144,11 +150,26 @@ class WorkspaceWatcher:
         # whether a change may still share that stat: a write that lands in the same timestamp
         # tick as the one the stat was taken from leaves it unchanged, so the next pass re-reads).
         self._known: dict[str, tuple[tuple[int, int], str, bool]] = {}
+        # Workspace-relative path -> the content a write point is putting on disk and will
+        # announce itself: a pass that reads it before the write point's note() stays silent.
+        self._expected: dict[str, str] = {}
+
+    def expect(self, path: str, sha256: str | None) -> None:
+        """A write point is about to put this content on disk and announce it (#1526): call before
+        the file changes, so a pass landing between the write and :meth:`note` does not announce
+        it first. ``None`` withdraws it (the write was rolled back)."""
+        with self._lock:
+            if sha256 is None:
+                self._expected.pop(path, None)
+            else:
+                self._expected[path] = sha256
 
     def note(self, path: str, sha256: str) -> None:
         """A write point published this path's content: the scan must not repeat it."""
         with self._lock:
             self._known[path] = (NOTED, sha256, False)
+            if self._expected.get(path) == sha256:
+                del self._expected[path]
 
     def _pass(self) -> None:
         """One scan, run off the event loop (``asyncio.to_thread``): the files are kilobytes,
@@ -180,7 +201,8 @@ class WorkspaceWatcher:
                 # A stat that just moved may still collect a write in the same timestamp tick,
                 # so the next pass reads this file once more (a verified file is not re-read).
                 self._known[rel] = (stat, sha, known is None or known[0] != stat)
-            if known is None or known[1] == sha:
+                announced = self._expected.get(rel) == sha  # its write point publishes it (#1526)
+            if known is None or known[1] == sha or announced:
                 continue  # the first pass baselines; a noted write or a bare touch stays silent
             self.publish("file_changed", path=rel)
         with self._lock:

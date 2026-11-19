@@ -771,6 +771,31 @@ def test_watcher_stays_silent_when_a_write_point_notes_the_content_mid_pass(tmp_
     assert published == []
 
 
+def test_watcher_stays_silent_when_a_pass_lands_between_the_write_and_its_note(tmp_path):
+    """#1526: a write point replaces the file, then publishes and notes it; a pass in between
+    reads content it was never told about. The write point names the content before the file
+    changes (expect), so that pass stays silent and only the write point announces it."""
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    path = tmp_path / "a.bench.yaml"
+    path.write_bytes(b"schema: simubench.bench/2\nname: a\n")
+    watcher._pass()  # baseline
+    raw = b"schema: simubench.bench/2\nname: b\n"
+    sha = hashlib.sha256(raw).hexdigest()
+    watcher.expect("a.bench.yaml", sha)
+    watcher._pass()  # before the replace: the old content, unchanged
+    path.write_bytes(raw)
+    watcher._pass()  # after the replace, before the note
+    watcher.note("a.bench.yaml", sha)
+    watcher._pass()
+    assert published == []
+    path.write_bytes(b"schema: simubench.bench/2\nname: c\n")  # an editor's later save still counts
+    watcher._pass()
+    assert published == [{"path": "a.bench.yaml"}]
+
+
 def test_workspace_hub_drops_events_without_a_subscriber():
     """The hub is a fan-out: publishes from any thread reach the queues, unknown kinds refuse,
     and with nobody listening nothing is kept (the stream is live, not a log)."""
