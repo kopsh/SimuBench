@@ -567,6 +567,24 @@ def test_a_definition_that_does_not_parse_is_422_with_its_position(tmp_path):
         assert "bad" in str(r.json()["detail"]) and "line" in str(r.json()["detail"])
 
 
+def test_a_json_bench_with_a_key_written_twice_is_422_pointing_at_the_second_writing(tmp_path):
+    """#1596: the 422 of a JSON bench that names a key twice carries the line of the second writing
+    (and the first), not "line 1 column 1" at the top of the file."""
+    text = (
+        '{\n  "schema": "simubench.bench/2",\n  "name": "dup",\n  "instruments": {\n'
+        '    "a": {"model": "keysight-34465a"},\n    "a": {"model": "keysight-34465a"}\n  }\n}\n'
+    )
+    (tmp_path / "dup.bench.json").write_text(text, encoding="utf-8")
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        r = c.get("/api/benches/file", params={"path": "dup.bench.json"})
+        detail = str(r.json()["detail"])
+        assert r.status_code == 422, r.text
+        assert "duplicate key 'a' (first written on line 5)" in detail and "line 6 column 5" in detail
+
+
 def test_the_document_route_names_the_sessions_to_restart(tmp_path):
     """The HTTP definition document fills sessions_to_restart like the MCP read_definition does
     (#1382): a running session keeps the definition it started with until restarted (D25)."""

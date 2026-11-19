@@ -539,6 +539,37 @@ def test_a_json_key_written_twice_is_a_json_error():
         load_json('{"a": {"b": 1, "b": 2}}')
 
 
+def _duplicate_error(text: str):
+    import json
+
+    from simubench.library.loader import load_json
+
+    with pytest.raises(json.JSONDecodeError) as caught:
+        load_json(text)
+    return caught.value
+
+
+def test_a_json_duplicate_key_points_at_its_second_writing_and_names_the_first():
+    """#1596: the position is where the key is written again (line and column), not the start of
+    the file, and the message says on which line it was first written, as the YAML error does."""
+    text = '{\n  "schema": 1,\n  "instruments": {\n    "a": 1,\n    "b": 2,\n    "a": 3\n  }\n}\n'
+    error = _duplicate_error(text)
+    assert (error.lineno, error.colno) == (6, 5)
+    assert "duplicate key 'a' (first written on line 4)" in str(error)
+
+
+def test_a_json_duplicate_key_is_found_in_the_order_of_the_text_whatever_the_nesting():
+    """#1596: the first duplicate of the text is the one reported, inner or outer; a string value, an
+    escaped quote and a key that only repeats in another object are not duplicates."""
+    twice_inner_first = '{"x": {"k": 1,\n "k": 2},\n "y": 1, "y": 2}'
+    error = _duplicate_error(twice_inner_first)
+    assert (error.lineno, error.colno) == (2, 2) and "'k'" in str(error)
+    outer_first = '{"y": 1,\n "y": {"k": 1, "k": 2}}'
+    assert _duplicate_error(outer_first).lineno == 2 and "'y'" in str(_duplicate_error(outer_first))
+    tricky = '{"a": "a", "b": {"a": "\\"a\\": 1"}, "c": ["a", "a"], "d": [{"a": 1}, {"a": 2}],\n "a": 3}'
+    assert _duplicate_error(tricky).lineno == 2  # only the last "a" repeats the first, at the top level
+
+
 def test_the_cache_is_bounded_by_the_text_it_holds(monkeypatch):
     from simubench.library import loader
 
