@@ -12366,7 +12366,7 @@
     },
     "/api/definitions/{def_id}/cases/run": {
       "post": {
-        "description": "Run a cases file the way `simubench cases` does (each case on a freshly powered bench)\nand return every step with what was expected and got.",
+        "description": "Run a cases file through the one cases seam (`projections.run_cases_file`, which\n`simubench cases` uses too: each case on a freshly powered bench, `builtin:` names\nincluded) and return every step with what was expected and got.",
         "operationId": "runDefinitionCases",
         "parameters": [
           {

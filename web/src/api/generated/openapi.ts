@@ -437,8 +437,9 @@ export interface paths {
         put?: never;
         /**
          * Run Definition Cases
-         * @description Run a cases file the way `simubench cases` does (each case on a freshly powered bench)
-         *     and return every step with what was expected and got.
+         * @description Run a cases file through the one cases seam (`projections.run_cases_file`, which
+         *     `simubench cases` uses too: each case on a freshly powered bench, `builtin:` names
+         *     included) and return every step with what was expected and got.
          */
         post: operations["runDefinitionCases"];
         delete?: never;
