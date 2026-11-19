@@ -100,7 +100,8 @@ Full pytest must stay < 75 s; if it is over, fix it in the same task (`pytest --
   a behaviour with no existing home. Never add a case into a flow whose state it breaks —
   state-incompatible coverage gets its own test.
 - A pull request's changed test files run five times over (`scripts/repeat_changed_tests.py`, the
-  `repeat` job, #1543; up to 10 files and 4 minutes): a test that passes once and fails on a repeat
+  `repeat` job, #1543; up to 10 files and 4 minutes; `tui_boot` files included, only
+  `load_sensitive` left out): a test that passes once and fails on a repeat
   is a race, fix it before merging. A test of concurrent code (threads, the event stream, the
   watcher, a session that reopens) forces the interleaving it guards — run the other side between
   two steps (monkeypatch the step) — instead of hoping real timing hits it (#1529, #1535, #1547).

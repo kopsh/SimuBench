@@ -25,8 +25,13 @@ ROOT = Path(__file__).resolve().parents[1]
 REPEATS = 5
 MAX_FILES = 10
 BUDGET_S = 240.0
-#: The fast tier's selection (D49): what the pull request's own pytest step runs.
-MARKERS = "not tui_boot and not load_sensitive"
+#: What a pull request's checks run (D49): the fast tier and the TUI boot tier (the ``tui`` job,
+#: #858); only the wall-clock budgets wait for main. A file of ``tui_boot`` tests is repeated too:
+#: it boots servers and watchers, where the races live — selecting the fast tier alone left such a
+#: file with nothing to run, and pytest's "no tests ran" read as a failed run.
+MARKERS = "not load_sensitive"
+#: pytest's exit status when the selection is empty (``pytest.ExitCode.NO_TESTS_COLLECTED``).
+NO_TESTS = 5
 
 
 def test_files(changed: list[str]) -> list[str]:
@@ -51,6 +56,12 @@ def plan(files: list[str]) -> str | None:
     if len(files) > MAX_FILES:
         return f"{len(files)} test files changed (> {MAX_FILES}): a broad change, not repeated"
     return None
+
+
+def failed(returncode: int) -> bool:
+    """Whether a run's exit status is a failure. An empty selection is not one: a changed file
+    whose every test waits for main (``load_sensitive``) has nothing a pull request runs."""
+    return returncode not in (0, NO_TESTS)
 
 
 def changed_since(base: str) -> list[str]:
@@ -89,7 +100,10 @@ def main() -> int:
         except subprocess.TimeoutExpired:
             print(f"repeat_changed_tests: time cap ({BUDGET_S:g} s) reached during run {n}; stopping")
             return 0
-        if result.returncode != 0:
+        if result.returncode == NO_TESTS:
+            print("repeat_changed_tests: no test in these files runs on a pull request; nothing repeated")
+            return 0
+        if failed(result.returncode):
             print(
                 f"repeat_changed_tests: run {n} of {REPEATS} failed — a test that does not pass every time is a race"
             )

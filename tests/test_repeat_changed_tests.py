@@ -36,3 +36,16 @@ def test_up_to_the_limit_is_repeated():
 
 def test_no_changed_test_file_repeats_nothing():
     assert "no test file" in script.plan([])
+
+
+def test_a_tui_boot_file_is_selected_and_only_the_main_only_budgets_are_not():
+    """A pull request runs the TUI boot tier (the ``tui`` job), so its files are repeated too; a
+    selection without them left a file of tui_boot tests with nothing to run (#1554)."""
+    assert "tui_boot" not in script.MARKERS
+    assert "not load_sensitive" in script.MARKERS
+
+
+def test_an_empty_selection_is_not_a_failed_run():
+    assert not script.failed(0)
+    assert not script.failed(int(pytest.ExitCode.NO_TESTS_COLLECTED))
+    assert script.failed(int(pytest.ExitCode.TESTS_FAILED))
