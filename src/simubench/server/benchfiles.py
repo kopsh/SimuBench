@@ -27,6 +27,7 @@ from ..engine import edit
 from ..engine.component import component_types
 from ..engine.settings import channel_ports
 from ..engine.validate import Report, drives_net, validate_data
+from ..jsonsafe import spelling
 from ..library.loader import (
     SKIP_DIRS,
     DefinitionLibrary,
@@ -35,7 +36,6 @@ from ..library.loader import (
     load_yaml,
     parse_error_text,
 )
-from ..jsonsafe import spelling
 from ..library.workspace_layout import BENCH_SUFFIXES, DEFINITIONS_FOLDER, definitions_dir, is_bench_file
 from ..models import categories
 from ..models.bench import BenchDefinition
