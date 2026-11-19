@@ -27,6 +27,7 @@ from ...scpi import values as V
 from ...scpi.errors import ScpiError
 from ...units import parse_number
 from .calstore import CalibrationStore
+from .scope_input import combined, quadrature
 from .scope_record import (
     AdcView,
     DecimatorView,
@@ -128,8 +129,9 @@ class ScopeVertical(Component):
         "analog_response": ("first_order", "brickwall", "gaussian", "bessel4", "butterworth4"),
     }
     # A channel's own store first, then the instrument's (Component.peer); none: no correction.
-    refs = {"store": ("calibration_store", "instrument")}
-    optional_refs = frozenset({"store"})
+    # ``attenuator``: the input step attenuator ahead of this stage (#1579), whose loss it makes up.
+    refs = {"store": ("calibration_store", "instrument"), "attenuator": ("scope_attenuator", "channel")}
+    optional_refs = frozenset({"store", "attenuator"})
     defaults = {
         "coupling": "DC",  # DC | AC | GND
         "bandwidth": 200e6,  # -3 dB point of the first-order low-pass
@@ -163,6 +165,9 @@ class ScopeVertical(Component):
         # of the offset; beyond it the channel overloads (None: no limit)
         "max_input_divs": None,
         "max_input_v": None,  # the absolute maximum at the input connector, V peak (None: none)
+        # the input step attenuator ahead of this stage (a scope_attenuator; "": none): this stage
+        # is then the preamplifier, its gain making up the attenuator's loss (#1579)
+        "attenuator": "",
     }
     units = {
         "max_input_v": "V",
@@ -185,6 +190,9 @@ class ScopeVertical(Component):
         """The channel after the coupling and this unit's errors, before the bandwidth: None when
         the input is grounded."""
         sig = self.input("in")
+        attenuator = self._attenuator()
+        if attenuator is not None and attenuator.gain() != 1.0:
+            sig = sig.scale(1.0 / attenuator.gain())
         coupling = self.param("coupling")
         if coupling == "GND":
             return None
@@ -256,6 +264,16 @@ class ScopeVertical(Component):
             return 1.0
         return math.sqrt(bandwidth / float(measured))
 
+    def _attenuator(self) -> Any:
+        """The input step attenuator ahead of this stage, None when the channel has none."""
+        name = self.param("attenuator")
+        return self.peer(str(name), required=True) if name else None
+
+    def connector(self) -> Signal:
+        """The signal at the input connector: ahead of the attenuator when there is one."""
+        attenuator = self._attenuator()
+        return attenuator.input("in") if attenuator is not None else self.input("in")
+
     def input_scale(self) -> float:
         """V/div at the input connector: the displayed scale divided by the probe ratio."""
         return float(self.param("scale")) / float(self.param("probe_ratio"))
@@ -263,7 +281,7 @@ class ScopeVertical(Component):
     def input_extremes(self, t0_ns: int, span_s: float) -> tuple[float, float]:
         """The lowest and highest the signal at the input connector reaches over ``span_s`` from
         ``t0_ns``, V: drawn at ``EXTREME_POINTS`` instants across it (#1264)."""
-        sig = self.input("in")
+        sig = self.connector()
         if not sig.freq.size:
             return float(sig.dc), float(sig.dc)
         v = sig.sample_rel(t0_ns, np.linspace(0.0, max(span_s, 0.0), EXTREME_POINTS))
@@ -652,10 +670,15 @@ class ScopeAdc(Component):
     about_en = "The ADC group the channels share: resolution, top sample rates and interleaving."
 
     port_pattern = r"(in|out)\d+"  # in1..inN and out1..outN are created by the instrument wiring
-    refs = {"vertical": ("scope_vertical", "channel"), "probe": ("scope_probe", "channel")}
+    refs = {
+        "vertical": ("scope_vertical", "channel"),
+        "probe": ("scope_probe", "channel"),
+        "sampler": ("scope_sampler", "channel"),
+        "clock": ("scope_timebase", "instrument"),
+    }
     # The acquisition macro fills these from the acquisition's own (models/macros.py); a frame
     # asks for the vertical module when it is made.
-    optional_refs = frozenset({"vertical", "probe"})
+    optional_refs = frozenset({"vertical", "probe", "sampler", "clock"})
     defaults = {
         "bits": 0,  # 0: records are not quantized
         "codes_per_div": 0.0,  # 0: 2**bits / divs
@@ -676,6 +699,12 @@ class ScopeAdc(Component):
         "interleave_offsets_fs": None,  # offsets, fraction of the full scale (None: none)
         "interleave_skews_s": None,  # sampling-time skews, s (None: none)
         "aperture_jitter_s": 0.0,  # the sampling clock's aperture jitter, s rms
+        # each channel's track-and-hold sampler (a scope_sampler, #1579; "": none): its path
+        # mismatch is laid over the lanes and its own aperture jitter added to the one above
+        "sampler": "",
+        # the timebase whose sampling clock all channels share (a scope_timebase, #1579; "": none):
+        # its clock_jitter_s moves every channel's instants together
+        "clock": "",
         # the record's noise passes the vertical's response (a DSP-corrected record's spectrum ends
         # at its band); False: white noise up to the record's Nyquist frequency
         "shape_noise": False,
@@ -722,7 +751,13 @@ class ScopeAdc(Component):
         return 2.0 * 10 ** (hd2 / 20), 4.0 * 10 ** (hd3 / 20)
 
     def _enob_sigma(
-        self, freq: float | None, half: float, lsb: float, sigma: float, hd: tuple[float, float]
+        self,
+        freq: float | None,
+        half: float,
+        lsb: float,
+        sigma: float,
+        hd: tuple[float, float],
+        sampler: Any = None,
     ) -> float:
         """The noise (display volts rms) the converter adds so that a full-scale sine at ``freq``
         records with ``enob_table``'s effective bits (#1421): the error a full-scale sine of that
@@ -739,7 +774,7 @@ class ScopeAdc(Component):
         enob = _interpolated([(float(r[0]), r[1]) for r in rows], freq)
         rms = half / math.sqrt(2)  # a full-scale sine
         allowed = rms * 10 ** (-(6.02 * enob + 1.76) / 20)
-        jitter = 2 * math.pi * freq * float(self.param("aperture_jitter_s")) * rms
+        jitter = 2 * math.pi * freq * self._jitter(sampler) * rms
         present = sigma**2 + lsb**2 / 12 + (rms * math.hypot(hd[0] / 2, hd[1] / 4)) ** 2 + jitter**2
         return math.sqrt(max(0.0, allowed**2 - present))
 
@@ -756,6 +791,29 @@ class ScopeAdc(Component):
             if isinstance(values, list) and len(values) != count:
                 out.append((name, f"{name} 有 {len(values)} 个值，interleave 是 {count}：每个子 ADC 一个值"))
         return out
+
+    def _sampler(self, n: int) -> Any:
+        """Channel n's scope_sampler, None when the converter has none."""
+        if not self.param("sampler"):
+            return None
+        return self.peer(f"ch{n}.{self.param('sampler')}", required=True)
+
+    def _clock(self) -> float:
+        """The shared sampling clock's jitter, s rms (0 without a ``clock``)."""
+        timebase = self.peer(str(self.param("clock")), required=True) if self.param("clock") else None
+        return 0.0 if timebase is None else float(timebase.param("clock_jitter_s"))
+
+    def _jitter(self, sampler: Any) -> float:
+        """A sample instant's whole jitter, s rms: the converter's own, the sampler's and the clock's."""
+        own = float(self.param("aperture_jitter_s"))
+        return quadrature(own, sampler.jitter() if sampler is not None else 0.0, self._clock())
+
+    def _lanes(self, name: str, path_name: str, sampler: Any) -> tuple[float, ...]:
+        """A per-lane list with the sampler's per-path one laid over it (#1579)."""
+        lanes = self._per_sub(name)
+        if sampler is None:
+            return lanes
+        return combined(lanes, sampler.tiled(path_name, int(self.param("interleave"))))
 
     def _per_sub(self, name: str) -> tuple[float, ...]:
         """A per-sub-converter list (#1422): one value for each of the ``interleave`` converters."""
@@ -825,7 +883,7 @@ class ScopeAdc(Component):
 
     def view(self, n: int) -> AdcView:
         """What channel n's frames are computed from now, as values (a deep record keeps it)."""
-        vertical, probe = self._vertical(n), self._probe(n)
+        vertical, probe, sampler = self._vertical(n), self._probe(n), self._sampler(n)
         scale = self.converter_scale(float(vertical.param("scale")), float(vertical.param("probe_ratio")))
         bits, per_div = int(self.param("bits")), self.codes_per_div()
         image, spur = self.param("interleave_image_dbc"), self.param("interleave_spur_dbfs")
@@ -836,7 +894,7 @@ class ScopeAdc(Component):
         half = converter_half(scale, bits, per_div, float(self.param("divs")))
         sigma = vertical.input_noise_rms() * (float(probe.param("ratio")) if probe is not None else 1.0)
         lsb = scale / per_div if bits > 0 else 0.0
-        sigma = math.hypot(sigma, self._enob_sigma(freq, half, lsb, sigma, hd))
+        sigma = math.hypot(sigma, self._enob_sigma(freq, half, lsb, sigma, hd, sampler))
         return AdcView(
             signal=signal,
             skew=probe.delay() if probe is not None else 0.0,
@@ -852,11 +910,15 @@ class ScopeAdc(Component):
             ilv=int(self.param("interleave")),
             ilv_gain=0.0 if image is None else 2.0 * 10 ** (float(image) / 20),
             ilv_offset=0.0 if spur is None else 10 ** (float(spur) / 20),
-            ilv_gains=self._per_sub("interleave_gain_errors"),
-            ilv_offsets=tuple(2.0 * v for v in self._per_sub("interleave_offsets_fs")),  # of half the span
-            ilv_skews=self._per_sub("interleave_skews_s"),
+            ilv_gains=self._lanes("interleave_gain_errors", "path_gain_errors", sampler),
+            # of half the span
+            ilv_offsets=tuple(
+                2.0 * v for v in self._lanes("interleave_offsets_fs", "path_offsets_fs", sampler)
+            ),
+            ilv_skews=self._lanes("interleave_skews_s", "path_skews_s", sampler),
             native_dt=1.0 / top if top > 0 else 0.0,
-            aperture=float(self.param("aperture_jitter_s")),
+            aperture=quadrature(float(self.param("aperture_jitter_s")), sampler.jitter() if sampler else 0.0),
+            clock=self._clock(),
             **self._noise_shape(vertical),
         )
 
@@ -993,7 +1055,7 @@ class ScopeTimebase(Component):
     ``reference_mode`` (DELay / POSition) and, in POSition mode, from ``reference_position``
     percent across the record.
 
-    The sampling clock has a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
+    The sampling clock (the oscillator all channels share) has a jitter ``clock_jitter_s`` and a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
     draw); with ``rosc`` EXTernal it follows the 10 MHz on ``ref`` instead, whose fractional
     error the instrument inherits. A fast clock takes samples
     closer together than the nominal interval, so the records keep the nominal dt the scope
@@ -1024,12 +1086,15 @@ class ScopeTimebase(Component):
         "reference_mode": "",  # the reference mode setting; empty: the delay alone places the trigger
         "reference_position": None,  # the trigger position setting, 0..100 percent (POSition mode)
         "clock_ppm": 0.0,  # the sampling clock's frequency error, ppm (hidden)
+        # the sampling clock's jitter all channels share, s rms (#1579): a scope_adc naming this
+        # timebase as its clock moves every channel's sample instants together by it
+        "clock_jitter_s": 0.0,
         "rosc": "INTernal",  # INTernal | EXTernal: the clock follows the 10 MHz on ref
         "lock_ppm": 10.0,  # the reference's lock range around 10 MHz, ppm
         "lock_min_v": 0.05,  # the smallest reference amplitude it locks to, V peak
         "lock_max_v": math.inf,  # the largest, V peak (above it the internal clock takes over)
     }
-    units = {"scale": "s", "delay": "s", "clock_ppm": "ppm"}
+    units = {"scale": "s", "delay": "s", "clock_ppm": "ppm", "clock_jitter_s": "s"}
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)

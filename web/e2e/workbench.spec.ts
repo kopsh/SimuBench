@@ -1064,10 +1064,16 @@ test("the inspector folds the 100 bookmarks into one block, the picker lists onl
 
   // Under 「全部设置」 long groups and the sixteen math functions start folded, the math functions as one group.
   await inspector.locator('[data-group="all"]').getByRole("button", { expanded: false }).first().click();
+  // Opening it mounts a budget of rows, not the 1773 settings: groups beyond it start folded, lists page (#1580).
+  await expect(inspector.locator('[data-group="all"]').getByTestId("fields-more").first()).toBeVisible();
+  const opened = await inspector.locator("input, [role=combobox], [role=switch]").count();
+  expect(opened, "controls mounted with 「全部设置」 open").toBeLessThanOrEqual(150);
   const math = inspector.locator('[data-group="function"]');
-  await expect(math.getByRole("button", { expanded: false })).toContainText("数学函数");
+  // Named: the short 「功能」 group shares the id and may start folded too, once the open budget is spent (#1580).
+  const mathTitle = math.getByRole("button", { name: "数学函数", expanded: false });
+  await expect(mathTitle).toBeVisible();
   await expect(inspector.locator('[data-group="function2"]')).toHaveCount(0);
-  await math.getByRole("button", { expanded: false }).click();
+  await mathTitle.click();
   const fn = math.getByRole("combobox", { name: "数学函数 的编号" });
   await expect(fn).toHaveText("1");
   await expect(math.getByText("共 16 个")).toBeVisible();

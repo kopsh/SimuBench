@@ -392,6 +392,19 @@ export function panelSections(
 /** 「全部设置」 starts open when it holds no more than this many settings: a small instrument keeps them in sight. */
 export const ALL_OPEN_MAX = 40;
 
+/**
+ * The most fields one list mounts before a 「再显示」 button (#1580): how many settings a list holds
+ * is up to the definition (a user's own instrument may have thousands in one group, or none named
+ * in its summary), and every mounted field costs render time on each selection and tab change.
+ */
+export const FIELD_PAGE = 40;
+
+/** How many of a list's fields to show: whole pages, enough to include the one at `want` (a located setting). */
+export function fieldsShown(total: number, pages: number, want = -1): number {
+  const needed = want >= 0 ? Math.floor(want / FIELD_PAGE) + 1 : 0;
+  return Math.min(total, Math.max(pages, needed) * FIELD_PAGE);
+}
+
 /** The most settings a search lists at once; more matches ask for more words. */
 export const FIND_MAX = 30;
 
@@ -481,6 +494,28 @@ export function groupRows(g: SettingGroup): number {
  */
 export function groupOpen(g: SettingGroup): boolean {
   return !g.remote && !g.numbered && g.vars.filter(hasLabel).length * 2 >= g.vars.length && groupRows(g) <= OPEN_ROWS_MAX;
+}
+
+/**
+ * The groups of 「全部设置」 that start open (#1580): those `groupOpen` allows, in order, while the rows
+ * open so far (a page of the flat settings first) stay within `FIELD_PAGE`; with no flat settings the
+ * first group opens whatever its size (its rows are paged). Without the budget a definition with
+ * hundreds of short groups would open them all at once.
+ */
+export function groupsOpenByDefault(groups: SettingGroup[], mainCount: number): Set<string> {
+  const open = new Set<string>();
+  let rows = Math.min(mainCount, FIELD_PAGE);
+  groups.forEach((g, i) => {
+    const n = Math.min(groupRows(g), FIELD_PAGE);
+    if (mainCount === 0 && i === 0) {
+      open.add(g.id);
+      rows += n;
+    } else if (groupOpen(g) && rows + n <= FIELD_PAGE) {
+      open.add(g.id);
+      rows += n;
+    }
+  });
+  return open;
 }
 
 export interface SlotRow {

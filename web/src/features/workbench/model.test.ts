@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
+import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -98,6 +98,18 @@ describe("inspector settings (#728)", () => {
     const long = Array.from({ length: OPEN_ROWS_MAX + 1 }, (_, i) => named(`trigger.k${i}`));
     const open = Object.fromEntries(splitSettings([...short, ...long], []).groups.map((g) => [g.id, groupOpen(g)]));
     expect(open).toEqual({ acquire: true, trigger: false });
+  });
+
+  it("opens short groups only within one page of rows, however many the definition has (#1580)", () => {
+    const named = (path: string) => v(path, null, { label: path });
+    // Names without a number, so they stay separate groups rather than one numbered family.
+    const id = (g: number) => `g${"abcdefghij"[g % 10]}${"abcde"[Math.floor(g / 10)]}`;
+    const vars = Array.from({ length: 50 }, (_, g) => Array.from({ length: 10 }, (_, i) => named(`${id(g)}.k${i}`))).flat();
+    const { groups } = splitSettings(vars, []);
+    expect(groups.every(groupOpen)).toBe(true);
+    const open = groupsOpenByDefault(groups, 0);
+    expect([...open]).toEqual([id(0), id(1), id(2), id(3)]);
+    expect(groupsOpenByDefault(groups, FIELD_PAGE).size).toBe(0);
   });
 
   it("joins four or more numbered groups into one, numbers in order, folded and named by the prefix (#1299)", () => {
@@ -419,5 +431,15 @@ describe("unusedUnderDc (#1591)", () => {
     expect(inactiveReason(both, "ch1.amplitude")).toBe("auto");
     expect(inactiveReason(both, "ch1.frequency")).toBe("dc");
     expect(inactiveReason(both, "ch1.offset")).toBeUndefined();
+  });
+});
+
+describe("fieldsShown (#1580)", () => {
+  it("shows whole pages, and enough of them to include a located field", () => {
+    expect(fieldsShown(2000, 1)).toBe(FIELD_PAGE);
+    expect(fieldsShown(10, 1)).toBe(10);
+    expect(fieldsShown(2000, 2)).toBe(2 * FIELD_PAGE);
+    expect(fieldsShown(2000, 1, 3 * FIELD_PAGE + 5)).toBe(4 * FIELD_PAGE);
+    expect(fieldsShown(2000, 1, 5)).toBe(FIELD_PAGE);
   });
 });

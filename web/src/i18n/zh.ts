@@ -287,6 +287,7 @@ export const zh = {
     findNone: "没有匹配的设置",
     findMore_one: "还有 {{count}} 项匹配，输入更多字词缩小范围",
     findMore_other: "还有 {{count}} 项匹配，输入更多字词缩小范围",
+    showMore: "再显示 {{n}} 项（还有 {{count}} 项）",
     allSettings: "全部设置",
     state: "状态",
     refused: "设置被拒绝",

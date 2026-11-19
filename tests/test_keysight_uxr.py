@@ -571,14 +571,28 @@ def _triggers(bench: Path, setup: str, band: str = "MAX") -> tuple[str, list[flo
 )
 def test_the_trigger_taps_the_analog_front_end_with_its_own_noise(tmp_path, cases, scale, nreject):
     """#1263, #1298: the trigger compares the signal at the ADC's input — before :ACQuire:BANDwidth's
-    and InfiniiSim's digital filters — through its own noise (the channel's per-division table, an
-    estimate the data sheet's 71 fs display jitter at 55 GHz bears out). The 400 mVpp sine stays
+    and InfiniiSim's digital filters — through its own noise (the UXR0334B's: the channel's
+    per-division table, an estimate; the UXR1104B's path is noise-free since #1579, its table given
+    back here as a hidden parameter to check the mechanism). The 400 mVpp sine stays
     inside the normal hysteresis band (half a division either side: ±0.25 V at 0.5 V/div on the
     UXR1104B, ±0.21 V at 0.42 V/div on the UXR0334B) but for the noise: with it the noise carries
     the peaks past the band and every acquisition triggers; without the trigger's noise none does.
     The UXR1104B's NREJect band is twice as wide and never triggers. Same seed, same sequence."""
     setup = f":CHANnel1:SCALe {scale}"
-    bench = _bench_with(tmp_path, "b.yaml", cases=cases)
+    noisy = None
+    if nreject:
+        # the UXR1104B's trigger path is noise-free since #1579 (the data sheet's 71 fs display
+        # jitter leaves no room for it: test_the_display_jitter_meets_the_data_sheet); the
+        # mechanism is checked with the channel's table given back to it as a hidden parameter
+        assert (
+            _triggers(_bench_with(tmp_path, "n.yaml", cases=cases), f"{setup};:TRIGger:HYSTeresis NORMal")[0]
+            == "0" * 12
+        )
+        front = next(
+            c for c in DefinitionLibrary([]).get("keysight-uxr1104b").channel_components if c.name == "front"
+        )
+        noisy = {"trigger": {"noise_table": front.params["noise_table"]}}
+    bench = _bench_with(tmp_path, "b.yaml", noisy, cases=cases)
     normal, origins = _triggers(bench, f"{setup};:TRIGger:HYSTeresis NORMal")
     # -- the noise makes the sub-band sine trigger, every time, at its rising crossing
     assert normal == "1" * 12
@@ -598,7 +612,8 @@ def test_the_trigger_sees_the_analog_front_end_and_the_record_its_dsp_correction
     trigger taps the analog path before it, shaped by the front end's own roll-off (a 4th-order
     Bessel at the same -3 dB point, a SimuBench estimate). On a 10 GHz square (harmonics to 4 THz):
     the record's brick wall rings before and after the edge (~9 % of the step), the trigger's path
-    does not (< 1 %); the edge's 50 % crossing moves by 0.06 ps (under 0.1 ps)."""
+    does not (< 1 %); the edge's 50 % crossing moves by 0.06 ps (under 0.1 ps); the record's edge
+    has the data sheet's rise time."""
     from simubench.api import open_bench
     from simubench.engine.signal import Signal, bessel4, brickwall
 
@@ -613,7 +628,7 @@ def test_the_trigger_sees_the_analog_front_end_and_the_record_its_dsp_correction
         fc = float(front.param("bandwidth"))
         assert front.choice("response") == "brickwall" and front.choice("analog_response") == "bessel4"
         # routing: the record's input is the brick wall's, the trigger's the Bessel's (CH1's 10 MHz sine)
-        before = front.input("in")
+        before = front.connector()  # at the input connector, ahead of the attenuator (#1579)
         k = probe.effective_ratio()
         assert np.allclose(adc.analog(1).amp, before.amp * brickwall(fc)(before.freq) * k)
         assert np.allclose(adc.trigger_signal(1).amp, before.amp * bessel4(fc)(before.freq) * k)
@@ -641,6 +656,20 @@ def test_the_trigger_sees_the_analog_front_end_and_the_record_its_dsp_correction
 
     assert 0 < abs(crossing(shapes["trigger"]) - crossing(shapes["record"])) < 1e-13
 
+    # the record's edge against the data sheet's rise time (3123-1313 p.7, UXR1104B: 4.0 ps 10-90 %,
+    # 2.8 ps 20-80 %). The data sheet computes them (Tr = 0.44 / BW and 0.31 / BW, its notes 2 and 3),
+    # it does not measure them; the flat-magnitude record's edge is a little faster than the formula
+    # (a brick wall: 3.7 ps, 2.6 ps), within 10 % of both (#1579)
+    def rise(v: np.ndarray, lo: float, hi: float) -> float:
+        def at(level: float) -> float:
+            i = int(np.argmax((v[:-1] < level) & (v[1:] >= level) & (np.abs(t[:-1]) < 5e-12)))
+            return float(t[i] + (level - v[i]) * (t[i + 1] - t[i]) / (v[i + 1] - v[i]))
+
+        return at(hi - 0.5) - at(lo - 0.5)
+
+    assert rise(shapes["record"], 0.1, 0.9) == pytest.approx(4.0e-12, rel=0.1)
+    assert rise(shapes["record"], 0.2, 0.8) == pytest.approx(2.8e-12, rel=0.1)
+
 
 @pytest.mark.parametrize("cases", [CASES_BENCH_1104B, CASES_BENCH], ids=["uxr1104b", "uxr0334b"])
 def test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger(tmp_path, cases):
@@ -663,10 +692,11 @@ def test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger(tmp_path, cases)
         rm.close()
 
 
-@pytest.mark.parametrize("model", ["keysight-uxr1104b", "keysight-uxr0334b"])
+@pytest.mark.parametrize("model", ["keysight-uxr0334b"])
 def test_the_trigger_noise_is_the_channel_s(model):
     """#1298: the trigger's noise table is an estimate equal to the channel's (the same front end).
-    Since #1427 the file holds one table: the trigger's refers to the channel's (same_as, D82)."""
+    Since #1427 the file holds one table: the trigger's refers to the channel's (same_as, D82).
+    The UXR1104B's trigger path is noise-free since #1579 (test_the_display_jitter_meets_the_data_sheet)."""
     raw = yaml.safe_load(
         (ROOT / "src" / "simubench" / "library" / "instruments" / f"{model}.yaml").read_text("utf-8")
     )
@@ -703,7 +733,10 @@ def test_a_wider_bandwidth_raises_the_channel_and_trigger_noise(tmp_path):
     """#1427: a child that widens the bandwidth to 160 GHz (one place, D82) gets the noise table
     scaled by sqrt(160/113), white noise: in the front end, in the record and on the trigger path."""
     factor = math.sqrt(1.6e11 / MEASURED_1104B)
-    s = _uxr1104b_child(tmp_path, specs={"bandwidth_hz": 1.6e11})
+    # the UXR1104B's own trigger path is noise-free (#1579); a child that gives it the channel's
+    # table back gets that table scaled with the bandwidth like the front end's
+    trigger = {"trigger": {"params": {"noise_table": {"same_as": "channel_components.2.params.noise_table"}}}}
+    s = _uxr1104b_child(tmp_path, specs={"bandwidth_hz": 1.6e11}, component_overrides=trigger)
     try:
         q = lambda c: s.scpi("s", c).strip()  # noqa: E731
         scope = s.instruments["s"]
@@ -977,3 +1010,101 @@ def test_the_record_noise_ends_at_the_corrected_band():
         assert reader.errors(uxr) == []
     finally:
         rm.close()
+
+
+def test_the_display_jitter_meets_the_data_sheet():
+    """#1579, data sheet 3123-1313 p.16: display (trigger) jitter 71 fs rms, typical, on the 1 mm
+    models — the UXR1104B at 100 mV/div triggering on a 500 mVpp, 55 GHz sine. Measured as the
+    data sheet shows it: the displayed waveform's rising crossing at the trigger point, over
+    repeated acquisitions (its scatter is the record's noise over the slope, 6.1 mV ÷ 86 GV/s
+    = 70.6 fs, with the record origin's 25 fs; the trigger path adds no noise). The source is the
+    SMA100B with its 67 GHz option (tests/definitions/test-sg-67ghz.yaml), -2.04 dBm = 250 mV peak
+    into 50 Ω. 120 acquisitions: the sample rms is within ±15 % of 71 fs (its statistical spread is
+    ±6.5 %, one sigma)."""
+    from simubench.api import open_bench
+    from simubench.models.bench import BenchDefinition
+
+    bench = {
+        "schema": "simubench.bench/2",
+        "name": "display-jitter",
+        "instruments": {
+            "sg": {
+                "model": "test-sg-67ghz",
+                "state": {"freq.cw": 5.5e10, "power.level": -2.04, "output.enabled": True},
+            },
+            "scope": {"model": "keysight-uxr1104b", "state": {"ch1.scale": 0.1}},
+        },
+        "wires": [{"from": "sg.RF_OUT", "to": "scope.CH1"}],
+        "run": {"seed": 3, "clock": "command", "idle": "off"},
+    }
+    session = open_bench(
+        BenchDefinition.model_validate(bench), definition_dirs=[ROOT / "tests" / "definitions"]
+    )
+    try:
+        session.scpi("scope", ":TIMebase:SCALe 1e-11;:ACQuire:POINts 2000;:TRIGger:EDGE:SOURce CHANnel1")
+        session.scpi("scope", ":TRIGger:LEVel CHANnel1,0")
+        crossings = []
+        for _ in range(120):
+            session.scpi("scope", ":DIGitize CHANnel1;:WAVeform:SOURce CHANnel1")
+            session.scpi("scope", ":WAVeform:DATA?")  # the guide's read: the record is taken
+            rec = session.instruments["scope"].components["acq"].records[1]
+            v = np.asarray(rec.volts)
+            t = rec.origin + np.arange(v.size) * rec.dt_s
+            rising = np.where((v[:-1] < 0) & (v[1:] >= 0))[0]
+            k = rising[np.argmin(np.abs(t[rising]))]
+            crossings.append(t[k] - v[k] * (t[k + 1] - t[k]) / (v[k + 1] - v[k]))
+        assert float(np.ptp(np.asarray(rec.volts))) == pytest.approx(0.5, abs=0.03)  # 500 mVpp on screen
+        assert float(np.std(crossings)) / 71e-15 == pytest.approx(1.0, rel=0.15), float(np.std(crossings))
+    finally:
+        session.close()
+
+
+def test_the_front_end_follows_the_public_block_diagram():
+    """#1579, technical overview 3123-1371 p.11 and data sheet 3123-1313 p.5: input -> electro-
+    mechanical attenuator -> InP preamplifier -> sampler (a primary sampler dealing to 4 SiGe
+    samplers) -> 16 ADC lanes. The attenuator takes 0 / 6.7 / 13.3 / 20 dB by input V/div (1-59,
+    60-127, 128-279, 280-500 mV/div); its output — what the preamplifier sees — is the connector's
+    signal times that loss; the preamplifier makes it up, so the converter sees the connector's
+    level. Each lane's skew and offset is its own plus its path's (lane i on path i mod 4)."""
+    from simubench.api import open_bench
+
+    session = open_bench(EXAMPLE_BENCH_1104B, seed=1)
+    try:
+        scope = session.instruments["scope"]
+        atten, front, adc = (
+            scope.components["ch1.atten"],
+            scope.components["ch1.front"],
+            scope.components["adc"],
+        )
+        for scale, loss in (
+            (0.0075, 0.0),
+            (0.059, 0.0),
+            (0.06, 6.7),
+            (0.1, 6.7),
+            (0.2, 13.3),
+            (0.3, 20.0),
+            (0.5, 20.0),
+        ):
+            scope.set_state("ch1.scale", scale)
+            assert atten.loss_db() == loss, scale
+            connector = float(np.abs(front.connector().amp).max())
+            assert float(np.abs(atten.output("out").amp).max()) == pytest.approx(
+                connector * 10 ** (-loss / 20)
+            )
+            assert float(np.abs(adc.analog(1).amp).max()) == pytest.approx(
+                connector, rel=1e-6
+            )  # 10 MHz: flat
+        # the sampler's 4 paths over the 16 lanes
+        sampler = scope.components["ch1.sampler"]
+        lanes = adc.param("interleave_skews_s")
+        paths = sampler.param("path_skews_s")
+        assert int(adc.param("interleave")) == 16 and int(sampler.param("paths")) == 4
+        view = adc.view(1)
+        assert view.ilv_skews == pytest.approx([lanes[i] + paths[i % 4] for i in range(16)])
+        offsets = [
+            2 * (adc.param("interleave_offsets_fs")[i] + sampler.param("path_offsets_fs")[i % 4])
+            for i in range(16)
+        ]
+        assert view.ilv_offsets == pytest.approx(offsets)
+    finally:
+        session.close()

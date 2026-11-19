@@ -290,6 +290,7 @@ export const en: Widen<Messages> = {
     findNone: "No setting matches",
     findMore_one: "{{count}} more match: type more words to narrow it",
     findMore_other: "{{count}} more match: type more words to narrow it",
+    showMore: "Show {{n}} more ({{count}} left)",
     allSettings: "All settings",
     state: "State",
     refused: "Setting refused",

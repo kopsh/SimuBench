@@ -268,7 +268,7 @@ class Component:
 5. 返回 `SampleFrame(fmt=SampleFormat("volts", bits, lsb), clipped=...)`：数据是量化后换回电压的码值（见上方修正第 2 条）。
 
 参数（每个带目录说明的注释）：`bits`、`full_scale`（仅 `adc`）、`max_rate`、`aperture_jitter_s`、`noise_lsb_rms`、`clock`（引用）。
-`scope_adc` 的非理想（#1266）：满量程正弦的 HD2/HD3 表（`distortion_table`，按档位）、交织子 ADC 的增益与偏置失配（`interleave`、`interleave_image_dbc`、`interleave_spur_dbfs`，像在 k·fs/N ± f、杂散在 k·fs/N，子 ADC 按绝对时刻在原生网格上的位置决定；每个子 ADC 还可单独声明增益误差、偏置与采样时延（`interleave_gain_errors`、`interleave_offsets_fs`、`interleave_skews_s`，每个子 ADC 一个值，长度与 `interleave` 不等时校验报 E-DEF-PARAM-VALUE，#1422），像与杂散即这些列表的离散傅里叶级数；时延与孔径抖动同属采样时刻误差，按信号斜率一并计入。慢于原生速率的记录取全速采样的每第 M 个，各采样保留自己的子 ADC，像与杂散折叠进记录的频带（每第 N 个：一个子 ADC 的增益与直流偏置；#1422 取代了 #1305 的“不带交织图样”假设，`test_the_interleaved_converters_make_images_and_a_spur_at_their_rate` 在 256、128、16 GSa/s 下固定这一行为）、孔径抖动（`aperture_jitter_s`，每个采样独立抽取，同种子可复现）。未设时帧逐位不变。**随频率**（#1421，F1-1）：`distortion_table` 的行可写成 `[V/div, Hz, HD2, HD3]`，同一档位的行按频率线性插值（两端之外取最近的行），频率取输入信号最强谱线的频率（多音信号取最大的那个音）；`enob_table`（`[[Hz, 有效位数], …]`，满量程正弦）同样插值，ADC 补上附加噪声，使满量程正弦的误差预算（输入噪声、量化、失真、孔径抖动之外的部分）正好达到声明的有效位数，其余误差已超出时不加；输入没有谱线（直流、接地、只有噪声）时按表中最低频点补，噪声底不因去掉正弦而下降（#1442）。**噪声谱**（#1446）：`shape_noise` 为真时，记录上的噪声（输入噪声表与 ENOB 补的噪声）经过与记录相同的响应（`scope_vertical.response` 在带宽或带宽限制处）：49 抽头零相位 FIR，由该响应的幅度经逆 FFT 取冲激响应、加 Hann 窗、归一为单位功率，所以总 rms 不变、谱止于带宽；只在记录的奈奎斯特高于该截止时起作用（更慢的记录把模拟带宽内的噪声混叠成白的）。每个采样的值只取决于它在随机流里的下标（FIR 取两侧各 24 个下标的抽取），分块计算与整段计算逐字节一致。UXR 两型号打开；之后带宽滤波的噪声按 √(B/带宽) 而不是 √(B/奈奎斯特) 下降。UXR1104B 按数据手册填了 1、16.5、25、50 GHz 两档的 HD2/HD3；它没有填 `enob_table`（数据手册的有效位数是分频段测的，满带宽的值由噪声与失真本身给出，见 `test_the_uxr1104b_enob_matches_the_data_sheet`），`enob_table` 由验证仪表 `sb-dso-enob` 使用。积分非线性即这里的 x²、x³ 多项式（HD2/HD3 是它的系数的另一种写法）。通用 `adc` 块（频谱仪）的随频率非理想仍属后续。
+`scope_adc` 的非理想（#1266）：满量程正弦的 HD2/HD3 表（`distortion_table`，按档位）、交织子 ADC 的增益与偏置失配（`interleave`、`interleave_image_dbc`、`interleave_spur_dbfs`，像在 k·fs/N ± f、杂散在 k·fs/N，子 ADC 按绝对时刻在原生网格上的位置决定；每个子 ADC 还可单独声明增益误差、偏置与采样时延（`interleave_gain_errors`、`interleave_offsets_fs`、`interleave_skews_s`，每个子 ADC 一个值，长度与 `interleave` 不等时校验报 E-DEF-PARAM-VALUE，#1422），像与杂散即这些列表的离散傅里叶级数；时延与孔径抖动同属采样时刻误差，按信号斜率一并计入。拆出采样器的型号（`sampler` 引用 `scope_sampler`，#1579）把采样器各路的增益、偏置、时延列表按“第 i 路 ADC 属于第 i mod 路数 个采样器”平铺后与 ADC 各路的列表相加，采样器自己的孔径抖动与 ADC 的平方相加；`clock` 引用的 `scope_timebase.clock_jitter_s` 是各通道共用的时钟抖动，随机流的键去掉通道号，所以同一次采集的各通道一起移动。慢于原生速率的记录取全速采样的每第 M 个，各采样保留自己的子 ADC，像与杂散折叠进记录的频带（每第 N 个：一个子 ADC 的增益与直流偏置；#1422 取代了 #1305 的“不带交织图样”假设，`test_the_interleaved_converters_make_images_and_a_spur_at_their_rate` 在 256、128、16 GSa/s 下固定这一行为）、孔径抖动（`aperture_jitter_s`，每个采样独立抽取，同种子可复现）。未设时帧逐位不变。**随频率**（#1421，F1-1）：`distortion_table` 的行可写成 `[V/div, Hz, HD2, HD3]`，同一档位的行按频率线性插值（两端之外取最近的行），频率取输入信号最强谱线的频率（多音信号取最大的那个音）；`enob_table`（`[[Hz, 有效位数], …]`，满量程正弦）同样插值，ADC 补上附加噪声，使满量程正弦的误差预算（输入噪声、量化、失真、孔径抖动之外的部分）正好达到声明的有效位数，其余误差已超出时不加；输入没有谱线（直流、接地、只有噪声）时按表中最低频点补，噪声底不因去掉正弦而下降（#1442）。**噪声谱**（#1446）：`shape_noise` 为真时，记录上的噪声（输入噪声表与 ENOB 补的噪声）经过与记录相同的响应（`scope_vertical.response` 在带宽或带宽限制处）：49 抽头零相位 FIR，由该响应的幅度经逆 FFT 取冲激响应、加 Hann 窗、归一为单位功率，所以总 rms 不变、谱止于带宽；只在记录的奈奎斯特高于该截止时起作用（更慢的记录把模拟带宽内的噪声混叠成白的）。每个采样的值只取决于它在随机流里的下标（FIR 取两侧各 24 个下标的抽取），分块计算与整段计算逐字节一致。UXR 两型号打开；之后带宽滤波的噪声按 √(B/带宽) 而不是 √(B/奈奎斯特) 下降。UXR1104B 按数据手册填了 1、16.5、25、50 GHz 两档的 HD2/HD3；它没有填 `enob_table`（数据手册的有效位数是分频段测的，满带宽的值由噪声与失真本身给出，见 `test_the_uxr1104b_enob_matches_the_data_sheet`），`enob_table` 由验证仪表 `sb-dso-enob` 使用。积分非线性即这里的 x²、x³ 多项式（HD2/HD3 是它的系数的另一种写法）。通用 `adc` 块（频谱仪）的随频率非理想仍属后续。
 
 ---
 
@@ -298,7 +298,15 @@ class Component:
 引用：scope_timebase、scope_trigger 仍由 acquisition 引用（它们是设置与时序，不是数据）
 ```
 
-触发通路的噪声（#1263）使默认设置下的行为有一处变化：触发电平附近的样本带噪声，记录的时间原点按“噪声 ÷ 信号在电平处的斜率”
+按公开框图拆开前端的型号（#1579，UXR1104B，依据技术概述 3123-1371 p.11）：
+
+```
+每通道： input_port ─▶ scope_attenuator ─▶ scope_vertical（前置放大器）─▶ scope_probe ─▶ scope_sampler ─┐
+共享：                                                                                    scope_adc（16 路）─▶ …
+触发：在 scope_sampler 之前分出；scope_sampler 的各路失配平铺到 ADC 各路，各通道共用的时钟抖动在 scope_timebase
+```
+
+触发通路的噪声（#1263；UXR1104B 自 #1579 起不加：数据手册 71 fs 的显示抖动等于记录自身的噪声除以斜率，留不出比较器噪声，见 real-models.md 第 11 节）使默认设置下的行为有一处变化：触发电平附近的样本带噪声，记录的时间原点按“噪声 ÷ 信号在电平处的斜率”
 散布。UXR 上 10 MHz、400 mVpp 正弦在 0.5 V/div 时这一项远大于数据手册 25 fs 的固有触发抖动（`trigger_jitter_s`）；
 信号幅度落在迟滞带内时，噪声也会让它触发。依赖“不触发”的手册用例因此显式把触发电平设到信号之外，测固有抖动的用例关掉触发噪声。
 

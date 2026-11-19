@@ -209,3 +209,56 @@ cases:
 - 内存：一次读取至多 2²⁶ 点在内存里，另有至多 2²² 点的块缓存；整段读过一次的记录（≤ 2²⁶ 点）留在内存直到下一次采集。
 
 各示波器型号的覆盖表在存储深度的条目下指向本节。
+
+## 11. UXR1104B：公开的内部框图与定义的对照
+
+依据：技术概述 3123-1371（`manuals/3123-1371/`）与数据手册 3123-1313（`manuals/3123-1313/`），页码均为 PDF 页；
+另有一篇 Signal Integrity Journal 文章（未入库，下称 SIJ：
+https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-series-oscilloscopes-a-journey-of-a-signal ）。
+厂商只公开到框图级（没有 ASIC 型号、电路与布局）。下面的“模型值”都由测试实测，测试名写在表里。
+
+### 11.1 结构（#1579 起与公开框图一致）
+
+| 公开框图 | 定义里的块 | 说明 |
+| --- | --- | --- |
+| 1 mm 输入、50 Ω（3123-1371 p.6） | `ch<n>.inp`（`input_port`） | |
+| 机电步进衰减器，0 / 6.7 / 13.3 / 20 dB（p.11；3123-1313 p.5 的 Attenuation Level 列） | `ch<n>.atten`（`scope_attenuator`） | 按输入 V/div 选档；输出端的内部探针显示前置放大器看到的电平 |
+| InP 前置放大器，DC–110 GHz，不用频率交织（p.11、p.15） | `ch<n>.front`（`scope_vertical`，`attenuator: atten`） | 补回衰减器的损耗；档位、偏置、带宽、噪声、过载按输入端计 |
+| 前置放大器后分出触发比较器（SIJ；p.11 写三者同在前端模块） | `trigger`，在采样器之前取信号 | 内部结构图上触发的选中范围落在采样器之前 |
+| 256 GSa/s InP 主采样器 → 4 个 64 GSa/s SiGe 采样器（p.11） | `ch<n>.sampler`（`scope_sampler`，`paths: 4`） | 4 路的偏置与时延失配、本通道的孔径抖动 |
+| 16 路 10 位 ADC，每块采集板 4 颗 4-lane ADC（p.10、p.11、p.13） | `adc`（`scope_adc`，`interleave: 16`，`sampler: sampler`） | 第 i 路属于第 i mod 4 个采样器 |
+| 4 块采集板由同一时基同步（p.13） | `timebase`（`clock_jitter_s`），`adc.clock` 引用 | 各通道共用的时钟抖动 |
+| 存储控制器与 FPGA：频响修正、带宽限制、平均、InfiniiSim（p.13、p.14） | `bwf`、`isim`、`dec`、`acq` | 功能对应，不再细分 |
+
+探头块 `ch<n>.probe` 在前置放大器与采样器之间，只做探头设置的显示换算，不是硬件。ADC 等共享块按通道各有端口，
+每个端口对应一块采集板。前端另有模拟带宽限制滤波（p.11），厂商没给档位，没有建模。
+
+### 11.2 指标（数据手册 3123-1313）
+
+| 指标 | 数据手册 | 模型 | 测试 |
+| --- | --- | --- | --- |
+| 带宽 | 113 GHz 典型、110 GHz 保证 | 113 GHz | `test_keysight_uxr.py`（`:ACQuire:BANDwidth` MAX） |
+| 上升时间 10–90 % / 20–80 %（p.7，由 0.44/BW、0.31/BW 算出） | 4.0 ps / 2.8 ps | 3.7 ps / 2.6 ps（平坦幅度响应） | `test_the_trigger_sees_the_analog_front_end_and_the_record_its_dsp_correction` |
+| 每档噪声（p.8） | 860 µV（60 mV 满量程）… 6.1 mV（100 mV/div）… | 同表 | `test_the_captures_scatter_by_the_table_noise_around_the_true_level` |
+| ENOB（p.7，DC 到全带宽的平均） | 5.0（≥ 400 mVfs）、4.2（60 mVfs） | 5.35、4.41（1 GHz 正弦） | `test_the_uxr1104b_enob_matches_the_data_sheet` |
+| HD2 / HD3（p.10） | 按 1、16.5、25、50 GHz 两档 | 同表 | `test_scope_adc_nonlinearity.py` |
+| SFDR，5 GHz 载波，0–10 GHz（p.10） | ≤ -65 dBc | 窗口内无像与杂散 | `test_the_uxr1104b_interleave_meets_the_data_sheet_in_its_measurement_windows` |
+| SFDR，50 GHz 载波，40–60 GHz | ≤ -61 dBc | 46 GHz 的像 -62.1 dBc，48 GHz 杂散约 -63 dBc | 同上 |
+| 信号相关的像，每 16 GHz 区间 | -52 dBc | 最坏约 -55 dBc（113 GHz） | 同上 |
+| 残余杂散，每 16 GHz 区间 | -65 dBFS | 16 GHz -65 dBFS，其余不超过 | `test_the_uxr1104b_residual_spurs_meet_the_data_sheet` |
+| 时钟杂散 @ 64 GHz（0 dBm 档位） | -65 dBm | -65 dBFS（4 路采样器的偏置） | 同上 |
+| 固有抖动，< 1 µs 采集（p.11） | 15 fs rms | 15 fs（共用时钟 14.14 + 本通道 5） | `test_the_uxr1104b_jitter_is_mostly_the_shared_clock` |
+| 通道间固有抖动（p.11） | < 10 fs rms | 7.1 fs | 同上 |
+| 显示（触发）抖动，100 mV/div、500 mVpp 55 GHz（p.16） | 71 fs rms 典型 | 70.9 fs（300 次）；测试 120 次、±15 % | `test_the_display_jitter_meets_the_data_sheet` |
+
+估计与取舍（定义注释里逐条写明）：
+
+- 每路的失配厂商没有公开。像全部取自时延失配（随频率增长，直流处为零），每个谐波 5 fs；杂散取自偏置失配，只放
+  数据手册点名的两根（16 GHz、64 GHz）。静态增益失配没有放：抽取后的慢记录每次只取同一路，它会成为直流增益误差。
+- 本通道自己的孔径抖动取 5 fs，是满足“通道间 < 10 fs”的估计；共用时钟取 √(15² − 5²)。
+- 触发通路不加噪声：数据手册的 71 fs 正好等于记录噪声除以过零斜率（70.6 fs）。#1298 原先给触发通路加了与通道相同的
+  噪声，显示抖动为 102 fs。记录时间原点的 25 fs 是固有抖动表 10 µs 那一行，取作量级。
+
+没有建模：固有抖动随采集时长增长（10 µs 25 fs、100 µs 40 fs、1 ms 50 fs，需要时钟的相位噪声模型）、通道间相位
+（p.9 的 2 通道互相关相位噪声）、前端的模拟带宽限制滤波、单独的 ADC ENOB（3123-1371 p.10 的 8.7 位，整机噪声已在
+噪声表里）。UXR0334B（3.5 mm，2 个 SiGe 采样器、8 路 ADC、两通道共用一块采集板，p.12）仍是旧结构。

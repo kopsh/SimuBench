@@ -94,7 +94,15 @@ def test_the_uxr_probe_block_says_it_converts_settings_and_the_two_vertical_bloc
     view = internals({"instruments": {"scope": {"model": def_id}}}, "scope")
     wires = {(w.from_, w.to, w.medium) for w in view.wires}
     assert ("ch1.front.out", "ch1.probe.in", "signal") in wires
-    assert ("ch1.probe.out", "adc.in1", "signal") in wires
+    if def_id == "keysight-uxr1104b":
+        # the public block diagram (3123-1371 p.11, #1579): input -> attenuator -> preamplifier
+        # (front) -> sampler -> ADC; the probe block is the display conversion between them
+        assert ("ch1.inp.out", "ch1.atten.in", "signal") in wires
+        assert ("ch1.atten.out", "ch1.front.in", "signal") in wires
+        assert ("ch1.probe.out", "ch1.sampler.in", "signal") in wires
+        assert ("ch1.sampler.out", "adc.in1", "signal") in wires
+    else:
+        assert ("ch1.probe.out", "adc.in1", "signal") in wires
     assert ("adc.out1", "bwf.in1", "samples") in wires
     assert ("bwf.out1", "isim.in1", "samples") in wires
     assert ("isim.out1", "dec.in1", "samples") in wires
@@ -109,7 +117,10 @@ def test_the_uxr_probe_block_says_it_converts_settings_and_the_two_vertical_bloc
     try:
         inst = session.instruments["scope"]
         adc = inst.components["acq"].adc_unit()
-        assert [inst.wiring.source(adc.name, f"in{n}")[0] for n in range(1, 5)] == trigger.taps
+        feeds = [inst.wiring.source(adc.name, f"in{n}")[0] for n in range(1, 5)]
+        if def_id == "keysight-uxr1104b":  # the comparator splits off ahead of the sampler (#1579)
+            feeds = [inst.wiring.source(f, "in")[0] for f in feeds]
+        assert feeds == trigger.taps
     finally:
         session.close()
 
