@@ -6,7 +6,7 @@ class: oscilloscope
 version: 1
 description: >-
   Keysight Infiniium UXR1104B, 4 channels, 110 GHz, 256 GSa/s, 10-bit ADC, 1 mm 50 ohm inputs. Real
-  model (D42): the same command set as the UXR0334B (Infiniium UXR-Series Oscilloscopes Programmer's
+  model (D42): the command table the UXR0334B extends (Infiniium UXR-Series Oscilloscopes Programmer's
   Guide 11.80.00012, 9018-07723); ranges, noise and accuracies follow the 1 mm input columns of the
   UXR-B data sheet 3123-1313 (#1092). Values neither document gives are SimuBench defaults, listed
   in the coverage table.
