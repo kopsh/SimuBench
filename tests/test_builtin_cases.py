@@ -29,6 +29,10 @@ def cases_root(tmp_path_factory):
     for f in FOLDERS:
         (root / f).mkdir()
         (root / f / "cases.yaml").write_bytes((MODELS / f / "cases.yaml").read_bytes())
+    # The first lookup parses the three files and builds the cached index. That cold cost belongs
+    # to setup, which the unit budget (D49) does not time: left in the first test's call phase, a
+    # slow shared runner put 0.79 s there (#1517).
+    builtin_cases_for_model(FOLDERS[0], root)
     return root
 
 
