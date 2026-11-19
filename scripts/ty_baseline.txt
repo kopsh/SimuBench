@@ -116,7 +116,6 @@ src/simubench/models/panels.py:invalid-argument-type Argument to bound method `s
 src/simubench/library/scriptscan.py:no-matching-overload No overload of bound method `MutableMapping.setdefault` matches arguments
 src/simubench/library/templates/oscilloscope.py:unsupported-operator Operator `*` is not supported between objects of type `float | None` and `float*`
 src/simubench/library/templates/signal_source.py:missing-attribute Object of type `type[Component]` has no attribute `VPP_PER_VRMS` ×2
-src/simubench/mcp_tools/definitions.py:invalid-argument-type Argument to bound method `DefinitionFiles.read` is incorrect: Expected `str`, found `str | None`
 src/simubench/server/ops.py:deprecated The overload of `getLevelName` is deprecated: The str -> int case is considered a mistake. ×2
 src/simubench/engine/plugins.py:invalid-argument-type Argument to function `_warn_overrides` is incorrect: Expected `dict[str, type]`, found `dict[str, type[Component]]`
 src/simubench/pytest_plugin.py:invalid-argument-type Argument is incorrect: Expected `bool`, found `Literal["no bench: use @pytest.mark.bench(path), --simubench-bench or simubench_bench in the ini file"]`

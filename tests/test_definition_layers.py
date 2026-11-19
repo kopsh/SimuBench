@@ -9,6 +9,7 @@ own data last. The pure merge semantics are tested on dicts, the loader's on sma
 from __future__ import annotations
 
 import os
+from pathlib import Path
 
 import pytest
 import yaml
@@ -16,6 +17,8 @@ import yaml
 from helpers import raises_with
 from simubench.library.class_defaults import CLASS_ERRORS, deep_merge, default_block
 from simubench.library.loader import DefinitionLibrary
+from simubench.server.benchfiles import BenchFiles
+from simubench.server.definitionfiles import DefinitionFiles
 
 # ---- the merge itself ---------------------------------------------------------------------------------
 
@@ -579,3 +582,66 @@ def test_the_cache_is_bounded_by_the_text_it_holds(monkeypatch):
     for n in range(5):
         loader.load_yaml(_BIG + f"n: {n}\n")
     assert len(loader._PARSED) == 2 and sum(loader._PARSED_SIZES.values()) <= loader._PARSED_BUDGET
+
+
+# ---- validate layers a definition where the engine runs it (#1634) -------------------------------------
+
+
+def make_defs(tmp_path: Path) -> DefinitionFiles:
+    return DefinitionFiles(BenchFiles(tmp_path))
+
+
+def test_a_built_in_definition_layers_alike_through_validate_and_the_engine(tmp_path):
+    """validate and the engine resolve a built-in definition's extends the same way (#1634): the
+    defining file's own folder locates the parents, so a workspace namesake of the parent serves
+    neither of them. The child only runs against the real parent: its command_overrides delete
+    headers the namesake's table does not hold."""
+    instruments = tmp_path / "instruments"
+    instruments.mkdir()
+    write(instruments, "keysight-uxr1104b")  # a legitimate workspace file with the parent's id
+    defs = make_defs(tmp_path)
+    doc = defs.read("keysight-uxr0334b")  # the validate entry: the saved file's own folder decides
+    assert doc.ok, [d.message for d in doc.diagnostics]
+    engine = DefinitionLibrary([instruments]).get("keysight-uxr0334b")  # the engine, as a bench finds it
+    assert engine.model == "UXR0334B"
+    # the same data unsaved would land in the workspace, where the namesake is the nearest parent —
+    # and there it fails, so the pin cannot pass by luck:
+    report = defs.validate(doc.data, instruments / "keysight-uxr0334b.yaml")
+    assert not report.ok and report.diagnostics[0].code == "E-DEF-COMMAND-OVERRIDE"
+
+
+def test_a_broken_extends_diagnostic_names_the_definition_s_own_file(tmp_path):
+    """A workspace definition whose parent is nowhere: the diagnostic says where (D76) — the
+    definition's own file, not a phantom instruments/draft.yaml (#1634)."""
+    instruments = tmp_path / "instruments"
+    instruments.mkdir()
+    write(instruments, "lonely", extends="no-such-parent")
+    doc = make_defs(tmp_path).read("lonely")
+    assert not doc.ok and doc.diagnostics[0].code == "E-DEF-EXTENDS"
+    assert str(instruments / "lonely.yaml") in doc.diagnostics[0].message
+    assert "draft.yaml" not in doc.diagnostics[0].message
+
+
+def test_an_unsaved_draft_is_checked_where_it_would_land(tmp_path):
+    """validate of data that is no file yet layers it where it would be saved (#1634): at the id's
+    own place in the workspace when the data names one, else the shared instruments/draft.yaml —
+    so a sibling parent there serves the draft, as it will after the save."""
+    instruments = tmp_path / "instruments"
+    instruments.mkdir()
+    write(instruments, "parent")
+    defs = make_defs(tmp_path)
+    draft = {
+        "schema": "simubench.instrument/2",
+        "id": "child",
+        "manufacturer": "ACME",
+        "model": "child",
+        "class": "multimeter",
+        "reference": {"title": "child Programming Manual"},
+        "extends": "parent",
+    }
+    assert defs.validate(draft).ok  # the workspace parent beside the landing place is the nearest one
+    orphan = {**draft, "id": "orphan", "extends": "no-such-parent"}
+    message = defs.validate(orphan).diagnostics[0].message
+    assert str(instruments / "orphan.yaml") in message and "draft.yaml" not in message
+    nameless = {k: v for k, v in draft.items() if k != "id"} | {"extends": "no-such-parent"}
+    assert str(instruments / "draft.yaml") in defs.validate(nameless).diagnostics[0].message
