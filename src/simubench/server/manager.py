@@ -210,8 +210,11 @@ class TrySessions:
 
 
 class ServedSession:
-    def __init__(self, sid: str, session: Session, bench_path: Path | None) -> None:
+    def __init__(self, sid: str, session: Session, bench_path: Path | None, preview: bool = False) -> None:
         self.id = sid
+        #: A projection of a file, not a served session (server/preview.py): stale-definition and
+        #: other served-session-only guards skip it without a string sentinel (#1488).
+        self.preview = preview
         #: This build of the bench (#1299): a reset or a rebuild serves a new one, even under the same id.
         self.build = uuid.uuid4().hex[:12]
         self.session = session

@@ -4740,8 +4740,15 @@
             "title": "Address Real"
           },
           "address_virtual": {
-            "title": "Address Virtual",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Address Virtual"
           },
           "address_vxi11": {
             "anyOf": [
