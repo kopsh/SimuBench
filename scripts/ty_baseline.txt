@@ -34,7 +34,7 @@ src/simubench/engine/solver.py:missing-attribute Unresolved attribute `signal` o
 src/simubench/engine/silence.py:not-iterable Object of type `None` is not iterable
 src/simubench/engine/validate.py:invalid-argument-type Argument to function `ladder` is incorrect: Expected `(str, /) -> Iterable[str]`, found `Overload[(key: object, default: None = None, /) -> dict[str, tuple[str, str, int | None]] | None, (key: object, default: dict[str, tuple[str, str, int | None]], /) -> dict[str, tuple[str, str, int | None]], [_T](key: object, default: _T, /) -> dict[str, tuple[str, str, int | None]] | _T]`
 src/simubench/engine/validate.py:invalid-argument-type Method `__getitem__` of type `bound method dict[str, int].__getitem__(key: str, /) -> int` cannot be called with key of type `None` on object of type `dict[str, int]`
-src/simubench/engine/validate_definition.py:invalid-argument-type Argument to constructor `int.__new__` is incorrect: Expected `str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc`, found `float | None` ×2
+src/simubench/engine/validate_definition/params.py:invalid-argument-type Argument to constructor `int.__new__` is incorrect: Expected `str | Buffer | SupportsInt | SupportsIndex | SupportsTrunc`, found `float | None` ×2
 src/simubench/verdicts.py:invalid-argument-type Argument to function `_cell` is incorrect: Expected `str`, found `str | Path` ×2
 src/simubench/verdicts.py:invalid-argument-type Argument to function `_number` is incorrect: Expected `str`, found `str | Path`
 src/simubench/verdicts.py:invalid-argument-type Argument to function `_point` is incorrect: Expected `str`, found `str | Path`
@@ -86,7 +86,7 @@ src/simubench/library/components/sources.py:missing-attribute Object of type `Co
 src/simubench/library/components/sources.py:missing-attribute Object of type `Component` has no attribute `function`
 src/simubench/library/components/sources.py:missing-attribute Object of type `type[Component]` has no attribute `VPP_PER_VRMS`
 src/simubench/library/components/specan.py:invalid-type-form Variable of type `type[Component]` is not allowed in a return type annotation ×5
-src/simubench/library/components/specan.py:missing-attribute Object of type `Component | None` has no attribute `rbw`
+src/simubench/library/components/specan_detect.py:missing-attribute Object of type `Component | None` has no attribute `rbw`
 src/simubench/library/components/transfer.py:invalid-argument-type Argument to constructor `float.__new__` is incorrect: Expected `str | Buffer | SupportsFloat | SupportsIndex`, found `Any | None | int`
 src/simubench/library/components/transfer.py:invalid-argument-type Argument to constructor `float.__new__` is incorrect: Expected `str | Buffer | SupportsFloat | SupportsIndex`, found `Any | None`
 src/simubench/library/components/trigger.py:invalid-argument-type Argument to function `_number_formatter` is incorrect: Expected `Component`, found `Instrument | None` ×2

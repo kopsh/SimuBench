@@ -36,13 +36,14 @@ plausible fake).
 | A scope's record (`Record`, `channel_index`); deep records computed where read — the chain's captured views (`AdcView`, `DecimatorView`), tiles, envelope, chunked measurements, `EAGER_POINTS` (#1012, real-models.md 10) | `library/components/scope_record.py` |
 | Cascaded RF figures (Friis, intercepts, distortion products, compression) of the `RfStage` blocks; the tuning context is `Session.tuned` | `engine/rfcascade.py` |
 | Internal probe: what a port inside an instrument carries (analog lines, a samples frame and its spectrum, the "tuned to" of a receiver), shared by HTTP and MCP; hidden in validation mode | `server/services/internal_probe.py` |
-| Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
+| Bench validation / definition validation (a package: the entry in `__init__`, the checks by concern — `lookups`, `params`, `parts`, `states`, `wires`, `cmds`, `panel`; low to high, no cycle) | `engine/validate.py`, `engine/validate_definition/` |
 | Bench edits (canvas + MCP share them) | `engine/edit.py` |
 | Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `replay.py` |
 | Event contract (stream shape, kinds registry, WS projection) | `engine/events.py` (re-exported by `contracts/api.py`, D57) |
 | Calibration, deviation, verdicts | `engine/calibration.py`, `engine/deviation.py`, `verdicts.py` |
 | SCPI parse / typed values / error codes | `scpi/parse.py`, `scpi/values.py`, `scpi/errors.py` |
 | Built-in component types (one module per class) | `library/components/*.py` (register in `__init__.py`) |
+| How an instrument's component chain is cut (leaf blocks → the driver block; when to split; no mixins) and the family a new module belongs to | `docs/signal-chain.md` 3.4, `server/catalog.py` (`GROUPS`) |
 | Built-in real models + coverage tables | `library/instruments/<id>.yaml`, `<id>.coverage.yaml` |
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |
 | Instrument classes in one place: label key, readings polling, row kind, panel policy, scriptscan hints (D79) | `models/categories.py` |
