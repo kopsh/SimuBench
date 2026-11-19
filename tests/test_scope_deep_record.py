@@ -20,7 +20,7 @@ from helpers import raises_with, session_query
 from simubench.api import open_bench
 from simubench.engine import evalcache
 from simubench.engine.stream import ModelLimit
-from simubench.library.components import scope_acquisition, scope_measurements, scope_record
+from simubench.library.components import scope_acquisition, scope_record, scope_values
 from simubench.library.loader import load_bench
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -94,7 +94,7 @@ def test_peak_detect_and_high_resolution_tiles_follow_the_whole_record(monkeypat
         _, whole = _replies(SIGLENT, commands)
         monkeypatch.setattr(scope_acquisition, "EAGER_POINTS", 1000)
         monkeypatch.setattr(scope_acquisition, "MAX_FRAME", 1000)
-        monkeypatch.setattr(scope_measurements, "MAX_FRAME", 1000)
+        monkeypatch.setattr(scope_values, "MAX_FRAME", 1000)
         monkeypatch.setattr(scope_record, "TILE", 1 << 10)  # many tile edges in the record
         _, deep = _replies(SIGLENT, commands)
         monkeypatch.undo()
