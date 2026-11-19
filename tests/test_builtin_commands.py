@@ -142,6 +142,67 @@ def test_ese_and_sre_round_trip():
     assert reply == b"16"
 
 
+def _refused(inst, command: str) -> int:
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(inst, command)
+    return caught.value.code
+
+
+@pytest.mark.parametrize("word", ["*ESE", "*SRE"])
+@pytest.mark.parametrize("value", ["256", "-1", "999", "99999999999999999999"])
+def test_a_mask_outside_0_to_255_is_refused_and_the_register_stays(word, value):
+    """#1453: IEEE 488.2 10.10 / 10.34: 0-255; an out-of-range value is -222, not wrapped to 8 bits."""
+    inst = _inst()
+    dispatch_unit(inst, f"{word} 5")
+    assert _refused(inst, f"{word} {value}") == -222
+    assert dispatch_unit(inst, f"{word}?")[0] == b"5"
+
+
+@pytest.mark.parametrize("word", ["*ESE", "*SRE", "*PSC"])
+def test_a_mask_without_its_parameter_is_missing_and_with_two_is_not_allowed(word):
+    """#1453: no parameter is -109 (the register is not cleared), a second one -108 (not ignored)."""
+    inst = _inst()
+    dispatch_unit(inst, f"{word} 1")
+    assert _refused(inst, word) == -109
+    assert _refused(inst, f"{word} 1,0") == -108
+    assert dispatch_unit(inst, f"{word}?")[0] == b"1"
+
+
+@pytest.mark.parametrize("command", ["*ESE? 1", "*SRE? 1", "*PSC? 1"])
+def test_a_register_query_takes_no_parameter(command):
+    assert _refused(_inst(), command) == -108
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "*IDN? 5",
+        "*OPT? 1",
+        "*RST 1",
+        "*CLS 1",
+        "*OPC 1",
+        "*OPC? 1",
+        "*ESR? 3",
+        "*STB? 1",
+        "*TST? 1",
+        "*WAI 1",
+    ],
+)
+def test_a_common_command_without_parameters_refuses_one_and_does_not_run(command):
+    assert _refused(_inst(), command) == -108
+
+
+def test_a_refused_rst_and_cls_leave_the_settings_and_the_queue_as_they_were():
+    """#1453: the parameter check comes before the command: nothing is reset or cleared."""
+    inst = _inst()
+    dispatch_unit(inst, ":LEVel 7")
+    inst.errors.push(ScpiError(-113))
+    assert _refused(inst, "*RST 1") == -108
+    assert dispatch_unit(inst, ":LEVel?")[0] == b"+7.000000E+00"
+    assert _refused(inst, "*CLS 1") == -108
+    assert len(inst.errors) == 1  # the -113 pushed above: the refused *CLS did not clear it
+
+
 def test_stb_shows_the_error_and_the_unread_reply():
     inst = _inst()
     assert int(dispatch_unit(inst, "*STB?")[0]) & (1 << 2) == 0
