@@ -637,7 +637,10 @@ class DeepRecord:
 
     ``request`` is what the acquisition asked the channel's chain for (the whole record); ``adc``,
     the ``filters`` after it (#1262) and ``dec`` are the chain, captured when the record was
-    acquired; ``correct`` the calibration's (gain, offset), if any."""
+    acquired; ``correct`` the calibration's (gain, offset), if any. ``checkpoint`` is called before
+    each tile is computed (never for a cached one): a tile is computed from the captured chain, not
+    through the session's frames, so this is where a read over the record that ran out of budget or
+    was cancelled ends (D88, #1533)."""
 
     def __init__(
         self,
@@ -647,8 +650,10 @@ class DeepRecord:
         dec: DecimatorView,
         correct: tuple[float, float] | None,
         filters: tuple[FilterView, ...] = (),
+        checkpoint: Callable[[], None] | None = None,
     ) -> None:
         self.points = points
+        self._checkpoint = checkpoint
         self.request = request
         self.adc = adc_view
         self.chain = ChainView(adc_view, filters)
@@ -671,6 +676,8 @@ class DeepRecord:
         if hit is not None:
             self._tiles.move_to_end(t)
             return hit
+        if self._checkpoint is not None:
+            self._checkpoint()
         a = t * self.tile
         n = min(self.tile, self.points - a)
         req = replace(

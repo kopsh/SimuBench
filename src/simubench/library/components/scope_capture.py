@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from functools import partial
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
@@ -294,6 +295,7 @@ class Capture:
             view,
             self.host.vertical_of(n).correction(),
             tuple(filters[::-1]),
+            checkpoint=partial(self.host.session.checkpoint, self.host, f"record{n}"),
         )
 
     def _trigger_hit(

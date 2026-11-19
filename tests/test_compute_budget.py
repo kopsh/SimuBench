@@ -15,7 +15,7 @@ from typing import ClassVar
 import numpy as np
 import pytest
 
-from helpers import raises_with
+from helpers import raises_with, session_query
 from simubench.api import open_bench
 from simubench.engine.budget import ComputeAborted, ComputeBudget
 from simubench.engine.component import Component, PortSpec, component, registry
@@ -206,3 +206,72 @@ def test_a_run_that_ran_out_of_budget_replays_identically_and_only_because_the_r
 
 def test_a_run_with_no_budget_records_no_abort(tmp_path):
     assert [e for e in _records(_record_run(tmp_path, None)) if e["kind"] == "abort"] == []
+
+
+# ---- reads that pass no frame: the analytic sweeps and the deep record's tiles (#1533) --------------
+
+N9042B = ROOT / "examples" / "benches" / "keysight-n9042b.bench.yaml"
+UXR_1104B = ROOT / "examples" / "benches" / "keysight-uxr1104b.bench.yaml"
+
+
+def _budgeted_run(
+    directory: Path, bench: Path, name: str, before: list[str], budgeted: str, after: list[str]
+) -> tuple[list[str | None], Path]:
+    """``before``, then ``budgeted`` with a budget already spent when its first checkpoint looks
+    (no timing), then ``after`` with none: the replies and the run record."""
+    s = open_bench(bench, record_dir=directory, clock="command", seed=3, idle="off")
+    replies: list[str | None] = []
+
+    def send(command: str) -> None:
+        replies.append(session_query(s, name, command))
+
+    for command in before:
+        send(command)
+    s.budget.seconds = 1e-9
+    send(budgeted)
+    s.budget.seconds = None
+    for command in after:
+        send(command)
+    s.close()
+    return replies, next(directory.glob("run-*.jsonl"))
+
+
+def test_an_analytic_sweep_average_ends_at_its_budget_and_replays_by_the_record(tmp_path):
+    """The N9042B's analytic trace passes no frame; each sweep of an average is a checkpoint."""
+    replies, rec = _budgeted_run(
+        tmp_path,
+        N9042B,
+        "sa",
+        [":SWEep:POINts 1001", ":AVERage:COUNt 3", ":TRACe:TYPE AVERage", ":INITiate:CONTinuous OFF"],
+        ":INITiate",
+        [":SYSTem:ERRor?", ":TRACe:TYPE WRITe", ":INITiate", "*OPC?", ":SYSTem:ERRor?"],
+    )
+    assert replies[5] == '-221,"Settings conflict"'  # step: refused like a read beyond the model
+    assert replies[8:] == ["1", '+0,"No error"']  # step: the single sweep after it ran
+    aborts = [e for e in _records(rec) if e["kind"] == "abort"]
+    assert [(e["reason"], e["at"]) for e in aborts] == [("budget", "sa/sa.sweep")]
+    assert replay(rec).ok  # step: the replay ends the same action the same way
+    unabridged = tmp_path / "unabridged.jsonl"
+    unabridged.write_text(
+        "".join(json.dumps(e) + "\n" for e in _records(rec) if e["kind"] != "abort"), encoding="utf-8"
+    )
+    assert not replay(unabridged).ok  # step: and only because the record says so
+
+
+def test_a_measurement_over_a_deep_record_ends_at_its_budget_and_replays_by_the_record(tmp_path):
+    """A deep record's tiles are computed from the captured chain, not through the session's
+    frames: each new tile is a checkpoint (a VPP over 128 Mpts took 37 s past a 0.5 s budget)."""
+    replies, rec = _budgeted_run(
+        tmp_path,
+        UXR_1104B,
+        "scope",
+        [":ACQuire:POINts 200000000;:TIMebase:SCALe 1E-4;:DIGitize", ":WAVeform:POINts?"],
+        ":MEASure:VPP? CHANnel1",
+        [":SYSTem:ERRor?", ":WAVeform:FORMat WORD;:WAVeform:SOURce CHANnel1", ":SYSTem:ERRor?"],
+    )
+    assert replies[1] == "128000000"  # step: a deep record (the acquisition computes nothing)
+    assert replies[2] is None and replies[3] == "-221"  # step: the measurement was refused
+    assert replies[5] == "0"  # step: the session carries on
+    aborts = [e for e in _records(rec) if e["kind"] == "abort"]
+    assert [(e["reason"], e["at"]) for e in aborts] == [("budget", "scope/acq.record1")]
+    assert replay(rec).ok  # step: the replay ends the measurement at its first tile, as recorded
