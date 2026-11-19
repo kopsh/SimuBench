@@ -38,6 +38,25 @@ COMMON_DIRECTIONS = {
     "PSC": (True, True),
 }
 
+#: The default status registers (#1560): SCPI makes STATus:OPERation and STATus:QUEStionable (with
+#: their event, condition, enable and transition registers) and STATus:PRESet part of every
+#: instrument. (header, register, which part, whether the query runs, whether the set runs). The
+#: part "preset" belongs to no register.
+STATUS_DEFAULTS = (
+    *(
+        (f":STATus:{name}{leaf_header}", name.upper(), leaf, q_ok, s_ok)
+        for name in ("OPERation", "QUEStionable")
+        for leaf_header, leaf, q_ok, s_ok in (
+            ("[:EVENt]", "event", True, False),
+            (":CONDition", "condition", True, False),
+            (":ENABle", "enable", True, True),
+            (":PTRansition", "ptr", True, True),
+            (":NTRansition", "ntr", True, True),
+        )
+    ),
+    (":STATus:PRESet", "", "preset", False, True),
+)
+
 #: Headers every instrument answers without a definition entry (coverage tables list them too).
 BUILTIN_HEADERS = (
     "*IDN",
@@ -58,6 +77,7 @@ BUILTIN_HEADERS = (
     ":SYSTem:DATE",
     ":SYSTem:TIME",
     ":SYSTem:VERSion",
+    *(h for h, *_ in STATUS_DEFAULTS),
     ":SYSTem:HELP:HEADers",
     ":SYSTem:HELP:SYNTax",
     ":SYSTem:HELP:SYNTax:ALL",
@@ -96,6 +116,7 @@ SYST_BUILTINS = (
     (":SYSTem:DATE", Pattern.compile(":SYSTem:DATE"), True, True),
     (":SYSTem:TIME", Pattern.compile(":SYSTem:TIME"), True, True),
     (":SYSTem:VERSion", Pattern.compile(":SYSTem:VERSion"), True, False),
+    *((h, Pattern.compile(h), q, st) for h, _reg, _leaf, q, st in STATUS_DEFAULTS),
     (":SYSTem:HELP:HEADers", Pattern.compile(":SYSTem:HELP:HEADers"), True, False),
     (":SYSTem:HELP:SYNTax", Pattern.compile(":SYSTem:HELP:SYNTax"), True, False),
     (":SYSTem:HELP:SYNTax:ALL", Pattern.compile(":SYSTem:HELP:SYNTax:ALL"), True, False),
@@ -123,6 +144,7 @@ def answered_builtins(definition: InstrumentDefinition) -> list[str]:
     )
     have = {_header_key(h) for h in headers}
     headers += [f"*{w}" for w in sorted(MANDATORY_488_2) if f"*{w}" not in have]
+    headers = [h for h in headers if not own_status_subtree(definition, _header_key(h))]
     if definition.help.enabled:
         headers += HELP_HEADERS
     if definition.identity.options_reply is not None:
@@ -144,10 +166,29 @@ def _compiled_builtin(header: str) -> Pattern:
     return Pattern.compile(header)
 
 
+def _status_prefix(key: str) -> str | None:
+    """The status subtree a default status header belongs to (``STATUS:OPERATION``,
+    ``STATUS:PRESET``), None for any other header."""
+    for h, reg, _leaf, _q, _s in STATUS_DEFAULTS:
+        if _header_key(h) == key:
+            return f"STATUS:{reg}" if reg else key
+    return None
+
+
+def own_status_subtree(definition: InstrumentDefinition, key: str) -> bool:
+    """Whether the definition has commands of its own in the status subtree the default header
+    ``key`` belongs to. A model that models part of STATus:OPERation answers all of it itself, so the
+    default registers never mix with its own (#1560)."""
+    prefix = _status_prefix(key)
+    return prefix is not None and any(_header_key(c.header).startswith(prefix) for c in definition.commands)
+
+
 def builtin_allowed(definition: InstrumentDefinition, header: str) -> bool:
     """Whether the definition's ``builtins`` list leaves this built-in command on (D42)."""
     if _header_key(header) in _HELP_KEYS:
         return definition.help.enabled
+    if own_status_subtree(definition, _header_key(header)):
+        return False
     allowed = definition.builtins
     key = _header_key(header)
     if key.startswith("*") and key[1:] in MANDATORY_488_2:

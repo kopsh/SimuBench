@@ -12,6 +12,7 @@ from .command_runner import (
     _HANDLED,
 )
 from .commands import (
+    STATUS_DEFAULTS,
     SYST_BUILTINS,
     builtin_allowed,
 )
@@ -135,7 +136,27 @@ class BuiltinCommands:
             if len(unit.params) != 1:
                 raise ScpiError(-109 if not unit.params else -108)
             return syntax_reply(self.inst.definition, self.inst.options, unit.params[0])
+        for header, register, part, q_ok, s_ok in STATUS_DEFAULTS:
+            if p[header].match(tokens) is not None and (q_ok if unit.query else s_ok):
+                return self._status_default(unit, register, part)
         return None
+
+    def _status_default(self, unit: Unit, register: str, part: str) -> bytes:
+        """The default STATus registers (#1560): enable and transition registers hold what is written
+        (0..65535), the event and condition registers read 0, STATus:PRESet restores the presets."""
+        status = self.inst.status
+        if part == "preset":
+            status.default_preset()
+            return _HANDLED
+        if unit.query:
+            return str(status.default_read(register, part)).encode()
+        if not unit.params:
+            raise ScpiError(-109)
+        value = V.parse_int(unit.params[0])
+        if not 0 <= value <= 0xFFFF:
+            raise ScpiError(-222)
+        status.default_write(register, part, value)
+        return _HANDLED
 
     def _clock_command(self, unit: Unit, *, date: bool) -> bytes:
         """:SYSTem:DATE yyyy,mm,dd and :SYSTem:TIME hh,mm,ss (IEEE 488.2 style), on the session calendar."""

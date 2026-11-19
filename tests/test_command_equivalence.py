@@ -87,6 +87,18 @@ def _corpus(definition, suffix: str) -> list[str]:
         ":SYSTem:TIME?",
         ":SYSTem:DATE 2026,1,1",
         ":SYSTem:TIME 12,0,0",
+        ":STATus:OPERation?",
+        ":STAT:OPER:COND?",
+        ":STAT:OPER:ENAB 1",
+        ":STAT:OPER:ENAB?",
+        ":STAT:OPER:PTR?",
+        ":STAT:OPER:NTR 3",
+        ":STAT:OPER:COND 1",  # query only: refused on both sides
+        ":STAT:QUES?",
+        ":STAT:QUES:ENAB?",
+        ":STAT:QUES:EVEN 1",  # query only: refused on both sides
+        ":STAT:PRES",
+        ":STAT:PRES?",  # set only: refused on both sides
         ":SYSTem:VERSion?",
         ":SYSTem:VERSion",  # query only: refused on both sides
         ":SYSTem:HELP:HEADers?",

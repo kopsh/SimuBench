@@ -374,3 +374,57 @@ def test_the_builtins_list_governs_psc_and_version():
         with pytest.raises(ScpiError) as caught:
             dispatch_unit(inst, message)
         assert caught.value.code == -113 and caught.value.reason == "builtin_excluded", message
+
+
+def test_the_default_status_registers_hold_what_is_written_and_read_zero_events():
+    inst = _inst()
+    assert dispatch_unit(inst, ":STATus:OPERation?")[0] == b"0"  # the event register, [:EVENt] left out
+    assert dispatch_unit(inst, ":STATus:QUEStionable:CONDition?")[0] == b"0"
+    assert dispatch_unit(inst, ":STATus:OPERation:ENABle?")[0] == b"0"
+    dispatch_unit(inst, ":STATus:OPERation:ENABle 513")
+    dispatch_unit(inst, ":STATus:QUEStionable:ENABle 8")
+    assert dispatch_unit(inst, ":STAT:OPER:ENAB?")[0] == b"513"
+    assert dispatch_unit(inst, ":STAT:QUES:ENAB?")[0] == b"8"  # one register each
+    assert dispatch_unit(inst, ":STAT:OPER:PTR?")[0] == b"32767"
+    dispatch_unit(inst, ":STAT:OPER:NTR 7")
+    assert dispatch_unit(inst, ":STAT:OPER:NTR?")[0] == b"7"
+    dispatch_unit(inst, "*CLS")
+    assert dispatch_unit(inst, ":STAT:OPER:ENAB?")[0] == b"513"  # *CLS keeps the enables
+    dispatch_unit(inst, "*RST")
+    assert dispatch_unit(inst, ":STAT:OPER:ENAB?")[0] == b"513"  # and so does *RST
+    dispatch_unit(inst, ":STATus:PRESet")
+    assert dispatch_unit(inst, ":STAT:OPER:ENAB?")[0] == b"0"
+    assert dispatch_unit(inst, ":STAT:OPER:NTR?")[0] == b"0"
+    assert dispatch_unit(inst, ":STAT:QUES:PTR?")[0] == b"32767"
+
+
+def test_a_default_status_register_refuses_a_bad_value_and_the_wrong_direction():
+    inst = _inst()
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(inst, ":STAT:OPER:ENAB 70000")
+    assert caught.value.code == -222
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(inst, ":STAT:OPER:ENAB")
+    assert caught.value.code == -109
+    for message in (":STAT:OPER:COND 1", ":STAT:OPER:EVEN 1", ":STAT:PRES?"):
+        with pytest.raises(ScpiError) as caught:
+            dispatch_unit(inst, message)
+        assert caught.value.code == -113, message
+
+
+def test_a_model_that_has_status_commands_of_its_own_gets_no_default_for_that_register():
+    own = {"header": ":STATus:OPERation:CONDition", "state": "disp.text", "set": False}
+    inst = _with(commands=[*DATA["commands"], own])
+    assert dispatch_unit(inst, ":STAT:OPER:COND?")[0] == b'"none"'  # its own
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(inst, ":STAT:OPER:ENAB?")  # no mixing: the rest of OPERation is not modelled
+    assert caught.value.code == -113
+    assert dispatch_unit(inst, ":STAT:QUES:ENAB?")[0] == b"0"  # the other register is untouched
+
+
+def test_the_builtins_list_governs_the_default_status_registers():
+    inst = _with(builtins=["*IDN"])
+    for message in (":STAT:OPER:ENAB?", ":STAT:QUES?", ":STAT:PRES"):
+        with pytest.raises(ScpiError) as caught:
+            dispatch_unit(inst, message)
+        assert caught.value.code == -113 and caught.value.reason == "builtin_excluded", message
