@@ -80,6 +80,20 @@ def test_edit_error_is_422_and_leaves_file(client, ws):
     assert (ws / BENCH).read_bytes() == before
 
 
+def test_set_address_to_another_instruments_address_reports_it(client):
+    """#1597: the canvas edit saves (the file is the user's to fix) and the returned diagnostics
+    say which other instrument already answers at that address."""
+    doc = client.get("/api/benches/file", params={"path": BENCH}).json()
+    ops = [{"op": "set_address", "instrument": "scope", "address": "TCPIP0::192.168.1.20::5025::SOCKET"}]
+    r = client.post("/api/benches/edit", json={"path": BENCH, "base_sha256": doc["sha256"], "ops": ops})
+    assert r.status_code == 200, r.text
+    out = r.json()
+    duplicates = [d for d in out["diagnostics"] if d["code"] == "E-ADDRESS-DUPLICATE"]
+    assert len(duplicates) == 1
+    assert duplicates[0]["pointer"] == "/instruments/scope/address"
+    assert "awg" in duplicates[0]["message"]
+
+
 def test_create_new_file_and_undo_by_put(client, ws):
     data = {"schema": "simubench.bench/1", "name": "new", "instruments": {"s": {"model": "sb-dso-4"}}}
     r = client.put(
