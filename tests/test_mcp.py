@@ -1007,3 +1007,30 @@ async def test_a_badly_written_file_is_still_a_user_error_with_its_position(ws):
         definition = await call(c, "read_definition", definition_id="brok")
     assert "bad.bench.yaml" in bench["error"] and "(line 2" in bench["error"]
     assert "brok" in definition["error"] and "(line" in definition["error"]
+
+
+async def test_bench_tools_reject_the_internal_dot_simubench_dir(ws):
+    """#1457: .simubench/ holds SimuBench's own data (history, runs); the MCP bench tools refuse to
+    read or write a bench there, including a path that climbs back into it."""
+    from mcp.server.mcpserver.exceptions import ToolError
+
+    _, server = make(ws)
+    for path in (
+        ".simubench/x.bench.yaml",
+        ".simubench/history/a.bench.yaml",
+        "sub/../.simubench/x.bench.yaml",
+    ):
+        with raises_with(ToolError, ".simubench"):
+            await server.call_tool("create_bench", {"path": path, "name": "x"})
+        with raises_with(ToolError, ".simubench"):
+            await server.call_tool("read_bench", {"path": path})
+
+
+async def test_send_scpi_unknown_instrument_keeps_its_closing_quote(ws):
+    """#1456: at the MCP seam an unknown instrument is a clean refusal (no 500 / UnexpectedToolError)
+    and the message keeps its closing quote, like the HTTP 404 detail."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        await call(c, "start_session", path=BENCH)
+        out = await call(c, "send_scpi", instrument="nope", command="*IDN?")
+    assert "'nope'" in out["error"]
