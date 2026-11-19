@@ -183,12 +183,15 @@ class Controls:
             if path_value is None:
                 return OpResult(self.host._number(0.0))
             return OpResult(self.host._number(float(path_value)))
-        if isinstance(value, bytes):
-            number = float(V.parse_number(value.decode("ascii", errors="replace")))
-        elif isinstance(value, str):
-            number = float(V.parse_number(value))
-        else:
-            number = float(value)
+        try:
+            if isinstance(value, bytes):
+                number = float(V.parse_number(value.decode("ascii", errors="replace")))
+            elif isinstance(value, str):
+                number = float(V.parse_number(value))
+            else:
+                number = float(value)
+        except ValueError:
+            raise ScpiError(-104, f"{value!r}: not a number") from None
         return self._set_h(f, name, number)
 
     def _set_h(self, f: int, name: str, value: Any) -> OpResult:
