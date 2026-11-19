@@ -3,7 +3,7 @@ name: keysight_34465a_divider
 description: >-
   Siglent SDG2042X（直流 1 V，HiZ 负载设定）经 900 kΩ/100 kΩ 分压接到 Keysight 34465A 的输入
   （真实型号，D42）。分压器的输出阻抗约 90 kΩ，万用表的 10 MΩ 输入阻抗会明显加载分压——
-  INPut:IMPedance:AUTO（10 MΩ ↔ >10 GΩ）的两种设定下读数不同，用例与手工计算（含求解器
+  [SENSe:]VOLTage[:DC]:IMPedance:AUTO（10 MΩ ↔ >10 GΩ；34465A 用这条，不是 34401A 的 INPut:IMPedance:AUTO）的两种设定下读数不同，用例与手工计算（含求解器
   每节点 1e-12 S 的对地电导）一致。
 instruments:
   awg:
