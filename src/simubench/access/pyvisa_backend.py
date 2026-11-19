@@ -35,6 +35,7 @@ from pyvisa.util import LibraryPath
 from ..api import bench_files_dir, open_bench
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from ..models.addresses import normalize_address
 from .bench_link import DEFAULT_PORT as LINK_PORT
 from .bench_link import RemoteBench
 from .bus import BusError
@@ -294,13 +295,8 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
 
     @staticmethod
     def _norm(address: str) -> str:
-        # `TCPIP0::127.0.0.1,<port>::inst0::INSTR` is what `serve` prints when no port mapper is on
-        # 111; the port is random per run, so in process it is not part of the name.
-        address = re.sub(r"^(TCPIP\d*::[^:,]+),\d+(::(?:inst|gpib))", r"\1\2", address, flags=re.IGNORECASE)
-        try:
-            return str(rname.parse_resource_name(address)).upper()
-        except rname.InvalidResourceName:
-            return address.upper()
+        # The same name bench validation compares addresses by (#1589).
+        return normalize_address(address)
 
     def _lookup(self, resource_name: str) -> tuple[str, rname.ResourceName] | None:
         name = self.addresses.get(resource_name.upper()) or self.addresses.get(self._norm(resource_name))

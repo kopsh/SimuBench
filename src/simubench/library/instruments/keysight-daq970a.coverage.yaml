@@ -752,18 +752,14 @@ sections:
     note: 上电清状态未建模。
     gap: model_work
   - header: '*RCL'
-    level: not_modeled
-    note: 状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–5；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；empty_error 291（+291 "Not able to recall state: it is empty"）；*RST 不清槽。'
   - header: '*RST'
     level: implemented
     note: 恢复 Factory Reset State：功能 DCV、量程自动、1 PLC、10 MΩ、扫描表空、计数 1、间隔 10 s、触发源 IMMediate、继电器全开、读数清空、显示开。
   - header: '*SAV'
-    level: not_modeled
-    note: 状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–5；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；empty_error 291（+291 "Not able to recall state: it is empty"）；*RST 不清槽。'
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器（引擎内置）。

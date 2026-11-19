@@ -729,3 +729,25 @@ cases:
       - query: ":SYST:HELP:HEAD?"
         binary: true
         expect_block: {contains: ["*IDN?", ":SYSTem:ERRor[:NEXT]?", ":SYSTem:HELP:HEADers?"], end: ["", "\n"]}
+
+  - name: "状态存储：*SAV 1 保存、改设置后 *RCL 1 调回、*RST 不清槽、空槽与越界"
+    manual: "IEEE 488.2 Common Commands > *SAV <register #> / *RCL <register #>（0–127）"
+    steps:
+      - send: "*RST"
+      - send: ":SENS:FREQ:CENT 1e9"
+      - send: "*SAV 1"
+      - send: ":SENS:FREQ:CENT 2e9"
+      - query: ":SENS:FREQ:CENT?"
+        expect: "+2.00000000E+009"
+      - send: "*RCL 1"
+      - query: ":SENS:FREQ:CENT?"
+        expect: "+1.00000000E+009"
+      - send: "*RST"
+      - query: ":SENS:FREQ:CENT?"
+        expect: "+1.32550000E+010"
+      - send: "*RCL 2"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+      - send: "*SAV 128"
+      - query: ":SYST:ERR?"
+        expect_prefix: '-222,"Data out of range'

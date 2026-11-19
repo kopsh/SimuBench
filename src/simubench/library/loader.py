@@ -52,7 +52,50 @@ class YamlLoader(getattr(yaml, "CSafeLoader", yaml.SafeLoader)):  # libyaml's pa
 
     YAML 1.1 (PyYAML's default) needs a dot and a signed exponent, so engineers' ``1.0e7`` would
     silently become a string.
+
+    A key written twice in one mapping is a parse error (YAML 1.2 requires unique keys, #1588):
+    PyYAML would keep the last one and an instrument or a parameter would vanish without a word.
+    Keys a merge (``<<``) brings in are not duplicates: the mapping's own keys override them.
     """
+
+    def construct_mapping(self, node: Any, deep: bool = False) -> dict:
+        if isinstance(node, yaml.MappingNode):
+            seen: dict[Any, Any] = {}
+            for key_node, _ in node.value:
+                if key_node.tag == "tag:yaml.org,2002:merge":
+                    continue
+                key = self.construct_object(key_node, deep=False)
+                try:
+                    first = seen.setdefault(key, key_node)
+                except TypeError:  # an unhashable key: the base constructor reports it
+                    continue
+                if first is not key_node:
+                    raise yaml.constructor.ConstructorError(
+                        "while constructing a mapping",
+                        node.start_mark,
+                        f"found duplicate key {key!r} (first written on line {first.start_mark.line + 1})",
+                        key_node.start_mark,
+                    )
+        return super().construct_mapping(node, deep=deep)
+
+
+class DuplicateKeyError(json.JSONDecodeError):
+    """A JSON object that names one key twice (#1588): ``json`` would keep the last one."""
+
+
+def load_json(text: str) -> Any:
+    """``text`` (a bench or definition written as JSON) as plain data. A key written twice in one
+    object raises :class:`DuplicateKeyError`, a ``json.JSONDecodeError``, like any parse error."""
+
+    def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
+        out: dict[str, Any] = {}
+        for k, v in items:
+            if k in out:
+                raise DuplicateKeyError(f"duplicate key {k!r}", text, 0)
+            out[k] = v
+        return out
+
+    return json.loads(text, object_pairs_hook=pairs)
 
 
 YamlLoader.add_implicit_resolver(
@@ -482,7 +525,7 @@ class DefinitionLibrary:
 def load_bench(path: str | Path) -> BenchDefinition:
     p = Path(path)
     try:
-        raw = json.loads(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
+        raw = load_json(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
     except json.JSONDecodeError as exc:
         raise Invalid(f"{p.name}: {exc}") from None
     data, _ = upgrade(raw, "bench")

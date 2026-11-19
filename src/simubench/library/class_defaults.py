@@ -129,6 +129,7 @@ CLASS_ERRORS: dict[str, dict[int, str]] = {
         -102: "Syntax error",
         -101: "Invalid character",
         -100: "Command error",
+        291: "Not able to recall state: it is empty",
         0: "No error",
     },
     "lockin": {

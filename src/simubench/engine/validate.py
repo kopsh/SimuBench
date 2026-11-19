@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from ..models.addresses import normalize_address
 from ..models.migrate import FormatError, upgrade
 from ..scpi import values as V
 from .component import Component, binding_of, component_types, map_setting
@@ -145,6 +146,7 @@ def validate_bench(
     defs: dict[str, InstrumentDefinition] = {}
     for name, inst in bench.instruments.items():
         _check_instrument(name, inst, definitions, known_types, report, defs, port_info)
+    _check_addresses(bench, report)
     _check_parts(bench, known_types, port_info, report)
     _check_wires(bench, known_types, port_info, report)
     _check_faults(bench, report)
@@ -348,6 +350,26 @@ def _exposed_port(
     if spec is not None and spec.medium == "optical":
         return "optical", spec.direction
     return "electrical", "inout"
+
+
+def _check_addresses(bench: BenchDefinition, report: Report) -> None:
+    """Two instruments at one address (#1589): a script that opens it would reach only one of
+    them, without a word, and the other could not be opened by its address at all. Compared as
+    the PyVISA backend resolves them (VISA's defaults written out, case ignored)."""
+    first: dict[str, str] = {}
+    for name, inst in bench.instruments.items():
+        if not inst.address or not inst.address.strip():
+            continue
+        other = first.setdefault(normalize_address(inst.address), name)
+        if other != name:
+            report.add(
+                "error",
+                "E-ADDRESS-DUPLICATE",
+                _ptr("instruments", name, "address"),
+                f"地址 {inst.address!r} 与仪表 {other!r} 的地址相同，脚本打开它时只能连到其中一台",
+                "每台仪表填写各自的地址",
+                name,
+            )
 
 
 def _check_parts(

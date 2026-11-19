@@ -37,7 +37,13 @@ def test_read_reports_diagnostics(client):
 
 @pytest.mark.parametrize(
     ("name", "text"),
-    [("bad.bench.json", "{not json"), ("bad.bench.yaml", "instruments: [\n")],
+    [
+        ("bad.bench.json", "{not json"),
+        ("bad.bench.yaml", "instruments: [\n"),
+        # #1588: a key written twice would otherwise lose the first one without a word
+        ("dup.bench.yaml", "schema: simubench.bench/2\nname: a\nname: b\n"),
+        ("dup.bench.json", '{"schema": "simubench.bench/2", "name": "a", "name": "b"}'),
+    ],
 )
 def test_a_file_that_does_not_parse_is_422_with_its_position(client, ws, name, text):
     """#1406: broken content is the caller's to fix, not a 500."""

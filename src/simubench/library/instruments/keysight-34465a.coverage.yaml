@@ -217,18 +217,14 @@ sections:
     affects_data: false
     note: 上电值手册未给，SimuBench 取 1（开）；只存标志，模拟的仪表上电时状态使能本来就清零。
   - header: '*RCL'
-    level: not_modeled
-    note: 状态存储未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–4（手册 *SAV {0|1|2|3|4}），内容为 SimuBench 的设置快照，不与 STATE_n.sta 的私有格式逐字节一致；空位置报 +810 "State has not been stored"，设置不变；*RST 不清槽。'
   - header: '*RST'
     level: implemented
     note: 恢复出厂默认（值见各命令的默认值；错误队列不受 *RST 影响）。
   - header: '*SAV'
-    level: not_modeled
-    note: 状态存储未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：寄存器 0–4；原有内容被覆盖，*RST 不影响已存状态。内容是 SimuBench 的设置快照，不与私有文件格式逐字节一致。'
   - header: '*SRE'
     level: implemented
     note: 服务请求使能寄存器；查询按整数回复（真机带 + 号）。
@@ -789,37 +785,33 @@ sections:
     blocked_by: secondary
 - section: STATus Subsystem
   commands:
-  - header: STATus:OPERation:CONDition?
-    level: not_modeled
-    note: 状态寄存器组（操作/可疑数据）未实现；*STB?/*ESR? 已覆盖常用位。
-    gap: blocked
-    blocked_by: secondary
+  - header: STATus:OPERation:CONDition
+    level: implemented
+    note: >-
+      status_register 组件（#1569）：位 0 CAL、4 MEASuring（已初始化，ARM）、5 WTG（等待触发）、
+      8 CONF、9 MEM、10 LOCK、13 ERR（34460-90901 的 Standard Operation Register 表）。条件来自
+      trigger_model 的 ARM/WTG；CONF、MEM、LOCK、ERR 与 CAL 在模型里没有来源，恒为 0。
   - header: STATus:OPERation:ENABle
-    level: not_modeled
-    note: 状态寄存器组未实现。
-    gap: blocked
-    blocked_by: secondary
-  - header: STATus:OPERation[:EVENt]?
-    level: not_modeled
-    note: 状态寄存器组未实现。
-    gap: blocked
-    blocked_by: secondary
+    level: implemented
+    note: 十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。
+  - header: STATus:OPERation[:EVENt]
+    level: implemented
+    note: 条件变为真时锁存（事件 = ptr 过滤的上升沿，ptr 默认全 1）；读后清零，*CLS 清零。
   - header: STATus:PRESet
-    level: not_modeled
-    note: 状态寄存器组未实现。
-    gap: model_work
-  - header: STATus:QUEStionable:CONDition?
-    level: not_modeled
-    note: 状态寄存器组未实现。
-    gap: model_work
+    level: implemented
+    note: 两个寄存器的使能清 0；事件不变。
+  - header: STATus:QUEStionable:CONDition
+    level: implemented
+    note: >-
+      位 0 VOLT、1 CURR、4 TEMP、5 FREQ、9 RES、10 CAP（手册：只报事件，条件读 0）、8 CAL、
+      11 LOW（下限失败）、12 HIGH（上限失败）、14 BUF_FULL（读数存储器溢出）。2 SAMP 未建模；
+      过载、限值与校准位在模型里没有来源，恒为 0。
   - header: STATus:QUEStionable:ENABle
-    level: not_modeled
-    note: 状态寄存器组未实现。
-    gap: model_work
-  - header: STATus:QUEStionable[:EVENt]?
-    level: not_modeled
-    note: 状态寄存器组未实现。
-    gap: model_work
+    level: implemented
+    note: 十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。
+  - header: STATus:QUEStionable[:EVENt]
+    level: implemented
+    note: 条件变为真时锁存，读后清零，*CLS 清零；QUES 汇总进状态字节位 3（使能非 0 时）。
 - section: SYSTem Subsystem - General Purpose Commands
   commands:
   - header: SYSTem:ACALibration:DATE?

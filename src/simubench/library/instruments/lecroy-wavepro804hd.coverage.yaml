@@ -333,9 +333,8 @@ sections:
     blocked_by: setup-memory
   - header: '*RCL'
     level: not_modeled
-    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '手册的 Setup 0 是出厂默认面板、Setup 1–x 依已存面板数，不是固定槽范围，与 setup_memory 的普通寄存器语义不同；保持未建模，不猜槽数。'
+    gap: model_work
   - header: RECALL_PANEL
     level: not_modeled
     note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
@@ -346,9 +345,8 @@ sections:
     note: '*RST 取值：SHORT、1 ms/div、10k、内部时钟、EDGE/C1/DC/上升沿/0 V、AUTO、OFF 释抑、1X、50 mV/div、0 V、D1M、CH1 打开'
   - header: '*SAV'
     level: not_modeled
-    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '手册的 Setup 0 是出厂默认面板、Setup 1–x 依已存面板数，不是固定槽范围，与 setup_memory 的普通寄存器语义不同；保持未建模，不猜槽数。'
+    gap: model_work
   - header: STORE_PANEL
     level: not_modeled
     note: 等能力:设置存取(setup_memory,#1070),本模型未接入。

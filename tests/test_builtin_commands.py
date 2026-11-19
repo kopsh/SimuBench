@@ -398,6 +398,21 @@ def test_the_default_status_registers_hold_what_is_written_and_read_zero_events(
     assert dispatch_unit(inst, ":STAT:QUES:PTR?")[0] == b"32767"
 
 
+def test_the_default_status_registers_never_set_the_status_byte_summary_bits():
+    """A flow (#1575): a custom instrument enables both registers, clears status and reads the byte:
+    the default registers latch nothing, so OSB (bit 7) and QUES (bit 3) stay clear."""
+    inst = _inst()
+    dispatch_unit(inst, ":STATus:OPERation:ENABle 65535")
+    dispatch_unit(inst, ":STATus:QUEStionable:ENABle 65535")
+    dispatch_unit(inst, "*CLS")
+    assert dispatch_unit(inst, "*STB?")[0] == b"0"
+    assert dispatch_unit(inst, ":STATus:OPERation:CONDition?")[0] == b"0"
+    assert dispatch_unit(inst, ":STATus:QUEStionable?")[0] == b"0"
+    dispatch_unit(inst, "*RST")
+    assert dispatch_unit(inst, ":STATus:OPERation?")[0] == b"0"
+    assert dispatch_unit(inst, "*STB?")[0] == b"0"
+
+
 def test_a_default_status_register_refuses_a_bad_value_and_the_wrong_direction():
     inst = _inst()
     with pytest.raises(ScpiError) as caught:

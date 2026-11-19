@@ -43,15 +43,11 @@ sections:
     level: implemented
     note: 等待本次触发/测量完成。
   - header: '*SAV'
-    level: not_modeled
-    note: 仪器状态存储（位置 0–4）未建模；不写文件系统。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–4；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；empty_error 291（+291 "Not able to recall state: it is empty"）；*RST 不清槽。'
   - header: '*RCL'
-    level: not_modeled
-    note: 仪器状态调用未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    level: implemented
+    note: 'setup_memory 组件（#1573）：位置 0–4；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；empty_error 291（+291 "Not able to recall state: it is empty"）；*RST 不清槽。'
 - section: Chapter 1 Preparation for Use > Utility Functions (system settings)
   commands:
   - header: :SYSTem:ERRor[:NEXT]
@@ -829,26 +825,28 @@ sections:
 - section: Chapter 8 Instrument Status
   commands:
   - header: STATus:QUEStionable:CONDition
-    level: not_modeled
-    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
-    gap: model_work
+    level: implemented
+    note: >-
+      status_register 组件（#1571，Figure 8-1 的位表）：条件位 0 Voltage Ovld、8 CAL Corrupt、
+      10 Timebase Error（外部参考选了但未锁定，来自 reference_clock）、11 Lower Limit Fail、
+      12 Upper Limit Fail、14 Rdg Mem Ovfl；2 Time、5 Freq、6 Phase、9 Totalize 是事件位。
+      过载、校准、限值与存储满在模型里没有来源，恒为 0。
   - header: STATus:QUEStionable[:EVENt]
-    level: not_modeled
-    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
-    gap: model_work
+    level: implemented
+    note: 条件变为真时锁存，读后清零；*CLS 清零；QUES 汇总进状态字节位 3。
   - header: STATus:QUEStionable:ENABle
-    level: not_modeled
-    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
-    gap: model_work
+    level: implemented
+    note: 十进制掩码 0–65535（第 8 章的 ENAB 1024 示例），越界 -222；*RST 不改。
   - header: STATus:OPERation:CONDition
-    level: not_modeled
-    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
-    gap: model_work
+    level: implemented
+    note: >-
+      status_register 组件（#1571）：位 0 Calibrating、1 Running or Battery、2 Battery Critical、
+      4 Measuring（已初始化，ARM）、5 Waiting for Trig（WTG）、8 Internal Reference、9 Instrument
+      Locked、10 Config Chg、11 Rdg Mem Threshold、12 Global Error。ARM/WTG 来自触发模型，
+      其余位在模型里没有来源，恒为 0。
   - header: STATus:OPERation[:EVENt]
-    level: not_modeled
-    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
-    gap: model_work
+    level: implemented
+    note: 条件变为真时锁存，读后清零；*CLS 清零；OSB 汇总进状态字节位 7。
   - header: STATus:OPERation:ENABle
-    level: not_modeled
-    note: 状态寄存器组未建模；*ESR?/*STB? 覆盖常用状态位。
-    gap: model_work
+    level: implemented
+    note: 十进制掩码 0–65535（第 8 章的 ENAB 4 示例），越界 -222；*RST 不改。
