@@ -19,6 +19,7 @@ from pydantic import BaseModel, ValidationError
 
 from ...engine.validate import Diagnostic
 from ...errors import Unknown
+from ...models.definition import FORMAT
 
 INPUTS = "/template/inputs"
 
@@ -160,7 +161,7 @@ class Template:
         if any(p.severity == "error" for p in problems):
             return Expansion(None, problems)
         data = self.build(model)
-        data = {"schema": "simubench.instrument/2", "id": definition_id, **data}
+        data = {"schema": FORMAT, "id": definition_id, **data}
         data["template"] = {"id": self.id, "version": self.version, "inputs": inputs}
         from ...engine.validate_definition import validate_definition_data
 

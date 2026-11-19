@@ -18,9 +18,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
+from .library.workspace_layout import BENCH_SUFFIXES
+
 Kind = Literal["history", "assistant", "files"]
 KINDS: tuple[Kind, ...] = ("history", "assistant", "files")
-BENCH_SUFFIXES = (".bench.yaml", ".bench.json")
 ROOT = ".simubench"
 
 

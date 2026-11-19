@@ -956,7 +956,14 @@ def test_watcher_does_not_take_a_file_created_after_its_listing_for_a_deleted_on
 def test_workspace_hub_drops_events_without_a_subscriber():
     """The hub is a fan-out: publishes from any thread reach the queues, unknown kinds refuse,
     and with nobody listening nothing is kept (the stream is live, not a log)."""
-    from simubench.server.workspace_events import WorkspaceEvents
+    from simubench.server.workspace_events import WorkspaceEvents, put_bounded
+
+    # The bounded put both streams' sockets share: a full queue loses its oldest, never blocks.
+    bounded: asyncio.Queue[int] = asyncio.Queue(maxsize=2)
+    for i in range(2):
+        bounded.put_nowait(i)
+    put_bounded(bounded, 2)
+    assert [bounded.get_nowait(), bounded.get_nowait()] == [1, 2]  # 0 went, the oldest
 
     hub = WorkspaceEvents()
 

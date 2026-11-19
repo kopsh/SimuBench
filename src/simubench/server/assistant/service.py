@@ -46,10 +46,11 @@ from pydantic_ai.usage import UsageLimits
 
 from ...contracts import api as M
 from ...library.loader import load_json, load_yaml
+from ...library.workspace_layout import definition_rel_path
 from ..benchchanges import bench_changes
 from ..benchfiles import Conflict
 from ..definitionchanges import definition_changes
-from ..definitionfiles import FOLDER, DefinitionFiles
+from ..definitionfiles import DefinitionFiles
 from ..errors import Unknown
 from ..manager import SessionManager
 from . import compaction
@@ -472,7 +473,7 @@ class AssistantService:
         aborts before anything is written instead of leaving half of the files already back."""
         before = record.before[f.path]
         assert before is not None
-        rel = f.path if f.kind == "bench" else f"{FOLDER}/{Path(f.path).stem}.yaml"
+        rel = f.path if f.kind == "bench" else definition_rel_path(Path(f.path).stem)
         seq = next((v.seq for v in self.files.history.versions(rel) if v.sha256 == before), None)
         data = self._content(f.path, before, record)
         if seq is None and data is None:

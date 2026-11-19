@@ -27,6 +27,7 @@ from ..access.vxi11_server import Vxi11Server
 from ..api import bench_files_dir, open_bench
 from ..contracts import api as M
 from ..engine.record import definition_hash
+from ..library.workspace_layout import definitions_dir
 from ..models.bench import BenchDefinition
 from .benchfiles import BenchFiles
 from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse, Unknown
@@ -166,7 +167,7 @@ class TrySessions:
                 "instruments": {def_id: {"model": def_id}},
             }
         )
-        session = open_bench(bench, definition_dirs=[self.files.workspace / "instruments"])
+        session = open_bench(bench, definition_dirs=[definitions_dir(self.files.workspace)])
         served = ServedSession(uuid.uuid4().hex[:12], session, None)
         entry = TryEntry(served=served, definition=def_id, used=time.monotonic())
         self._tries[served.id] = entry
@@ -367,7 +368,7 @@ class SessionManager:
         #: servers' connection bookkeeping publish here; ``/api/events`` forwards to the Web.
         self.events = WorkspaceEvents(WorkspaceWatcher(workspace, self._publish))
         self.files = BenchFiles(workspace, events=self.events)
-        self.runs = Runs(record_dir, [self.workspace / "instruments"])
+        self.runs = Runs(record_dir, [definitions_dir(self.workspace)])
         self.tries = TrySessions(self.files)
         self.views = SessionViews(self)
         # Workspace plugins run code from the workspace: only with the engineer's consent (D3),
@@ -435,7 +436,7 @@ class SessionManager:
             record_dir=self.record_dir,
             record_raw=self.record_raw,
             compute_budget_s=self.compute_budget_s,
-            definition_dirs=[self.workspace / "instruments"],  # as validated (BenchFiles.library)
+            definition_dirs=[definitions_dir(self.workspace)],  # as validated (BenchFiles.library)
             files_dir=bench_files_dir(self.workspace, path),  # kept across runs (#1069)
         )
         served = ServedSession(sid or uuid.uuid4().hex[:12], session, path)

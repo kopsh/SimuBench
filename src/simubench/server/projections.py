@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 from ..access.scpi_server import scpi_socket_address
 from ..engine.record import jsonable
+from ..library.workspace_layout import definitions_dir
 from .drive import scpi_response
 
 if TYPE_CHECKING:
@@ -69,7 +70,7 @@ def cases_ancestors(files: BenchFiles, def_id: str) -> list[str]:
     shipped with these are its regression cases (the acceptance page lists them as inherited). A
     built-in model has its own cases only."""
     library = files.library(None)
-    if (files.workspace / "instruments").resolve() not in library.path(def_id).resolve().parents:
+    if definitions_dir(files.workspace).resolve() not in library.path(def_id).resolve().parents:
         return []
     return [m for m, _ in library.ancestors(def_id)]
 
@@ -111,7 +112,7 @@ def run_cases_file(
     from ..library.coverage import BUILTIN_PREFIX, builtin_cases_file
 
     name = path if isinstance(path, str) else path.as_posix()
-    dirs = definition_dirs if definition_dirs is not None else [files.workspace / "instruments"]
+    dirs = definition_dirs if definition_dirs is not None else [definitions_dir(files.workspace)]
     cases_file: Path
     if name.startswith(BUILTIN_PREFIX):
         owner = def_id

@@ -22,7 +22,7 @@ from typing import Any
 from ..engine.commands import UnitMatch, classify
 from ..errors import Invalid
 from ..models import categories
-from ..models.definition import InstrumentDefinition
+from ..models.definition import FORMAT, InstrumentDefinition
 
 RESOURCE = re.compile(r"\b(?:TCPIP|USB|GPIB|ASRL|VXI|PXI)\d*::[^\s\"']+", re.IGNORECASE)
 NAME_OK = re.compile(r"[^A-Za-z0-9_-]")
@@ -264,6 +264,100 @@ def _first_channel(res: ScannedResource) -> int:
     return min(found) if found else 1
 
 
+@dataclass
+class _Pick:
+    """One scanned resource's outcome (the decide pass): the instance name it takes, the ranked
+    definitions beside it, the one that spoke its commands, and the template suggestion."""
+
+    res: ScannedResource
+    inst: str
+    ranked: list[Candidate]
+    best: Candidate | None
+    template: dict[str, Any] | None
+
+
+def _decide(
+    res: ScannedResource,
+    defs: list[InstrumentDefinition],
+    by_id: dict[str, InstrumentDefinition],
+    taken: set[str],
+    suggest: Suggest | None,
+    notes: list[str],
+) -> _Pick | None:
+    """What one scanned resource becomes in the draft: the best definition that speaks its
+    commands, or a template suggestion won over it, with the note each outcome earns. ``None``:
+    the resource joins no draft at all (the note says why)."""
+    ranked = rank(res, defs)
+    best = ranked[0] if ranked else None
+    if best is not None and best.total and not best.supported:
+        best = None  # nothing in the library speaks this instrument's commands
+    if best is not None and not best.total and res.commands:
+        # Only common commands (*IDN?, *RST): they say nothing about which instrument it is.
+        notes.append(f"{res.key}：只发了公共命令（如 *IDN?），看不出是哪台仪表，未加入草稿")
+        return None
+    inst = instance_name(res.key, taken)
+    # A model that ignores unknown commands by its contract leaves them out on purpose: the
+    # library speaks this instrument as its author meant (the gaps are not for a draft to fill).
+    lenient = best is not None and by_id[best.definition_id].unknown_commands == "ignore"
+    template = None
+    if suggest is not None and not lenient and (best is None or best.supported < best.total):
+        template = suggest(res, inst)
+        # A setting the draft only keeps from the script, to confirm, is no support.
+        bound = 0
+        if template is not None:
+            bound = template.get("supported", 0) - len(template.get("stored_only") or [])
+        if template is not None and best is not None and bound <= best.supported:
+            template = None  # the library already does as well
+    if template is not None:
+        notes.append(
+            f"{res.key}：仪表定义库中没有完整支持其命令的仪表；建议用模板 {template['template']}"
+            f"创建 {template['definition_id']}（命令表逐条学自{'、'.join(template.get('learned_from') or []) or '助记词'}）：create_definition_from_template 直接接收"
+            "报告中的 inputs，其中来源为 default 的项待确认"
+        )
+    elif best is None:
+        notes.append(f"{res.key}：仪表定义库中没有支持其命令的仪表，未加入草稿")
+    return _Pick(res, inst, ranked, best, template)
+
+
+def _row(pick: _Pick) -> dict[str, Any]:
+    """One report row, the constructor both outcomes share: what the receiver became and how much
+    spoke for it. The alternatives are the two best options beside what was chosen: a definition
+    pick's ``ranked[1:3]`` (``ranked[0]`` is the pick itself), a template pick's ``ranked[:2]``
+    (the template definition is new, no member of ``ranked`` is it)."""
+    res, best, template = pick.res, pick.best, pick.template
+    if template is not None:
+        model: str | None = template["definition_id"]
+        supported, checked = template.get("supported", 0), template.get("checked", 0)
+        unsupported: list[dict[str, Any]] = template.get("unsupported", [])
+        alternatives = pick.ranked[:2]
+    else:
+        model = best.definition_id if best else None
+        supported, checked = (best.supported, best.total) if best else (0, 0)
+        unsupported = (
+            [{"line": c.line, "command": m.text, "reason": m.reason} for c, m in best.unsupported]
+            if best
+            else [{"line": c.line, "command": c.text, "reason": "没有匹配的仪表"} for c in res.commands]
+        )
+        alternatives = pick.ranked[1:3]
+    row: dict[str, Any] = {
+        "instance": pick.inst,
+        "receiver": res.key,
+        "address": res.address,
+        "line": res.line,
+        "model": model,
+        "commands": len(res.commands),
+        "supported": supported,
+        "checked": checked,
+        "unsupported": unsupported,
+    }
+    if template is not None:
+        row["template"] = template
+    row["alternatives"] = [
+        {"model": c.definition_id, "supported": c.supported, "checked": c.total} for c in alternatives
+    ]
+    return row
+
+
 def draft_bench(
     source: str,
     definitions: Callable[[], list[InstrumentDefinition]],
@@ -275,107 +369,45 @@ def draft_bench(
     An instrument no library definition speaks gets a template suggestion from ``suggest`` (#145):
     the template and pre-filled inputs with a command table learned command by command (D81); the
     bench names the definition the agent then creates with create_definition_from_template."""
+    # ---- scan: the resources the script opens and the commands it sends each
     scan = scan_python(source)
     defs = definitions()
     by_id = {d.id: d for d in defs}
+    notes = [*scan.notes]
     taken: set[str] = set()
+    # ---- decide: what each resource becomes, one note and one instance name each
+    picks = [
+        pick
+        for res in scan.resources
+        if (pick := _decide(res, defs, by_id, taken, suggest, notes)) is not None
+    ]
+    # ---- report: the rows, the instruments the draft keeps, the wiring the roles suggest
     instruments: dict[str, Any] = {}
     layout: dict[str, Any] = {}
-    report = []
-    notes = [*scan.notes]
     # instance -> (instrument class, channel port pattern, first channel the script names)
     roles: dict[str, tuple[str, str | None, int]] = {}
-    for res in scan.resources:
-        ranked = rank(res, defs)
-        best = ranked[0] if ranked else None
-        if best is not None and best.total and not best.supported:
-            best = None  # nothing in the library speaks this instrument's commands
-        if best is not None and not best.total and res.commands:
-            # Only common commands (*IDN?, *RST): they say nothing about which instrument it is.
-            notes.append(f"{res.key}：只发了公共命令（如 *IDN?），看不出是哪台仪表，未加入草稿")
-            continue
-        inst = instance_name(res.key, taken)
-        template = None
-        # A model that ignores unknown commands by its contract leaves them out on purpose: the
-        # library speaks this instrument as its author meant (the gaps are not for a draft to fill).
-        lenient = best is not None and by_id[best.definition_id].unknown_commands == "ignore"
-        if suggest is not None and not lenient and (best is None or best.supported < best.total):
-            template = suggest(res, inst)
-            # A setting the draft only keeps from the script, to confirm, is no support.
-            bound = 0
-            if template is not None:
-                bound = template.get("supported", 0) - len(template.get("stored_only") or [])
-            if template is not None and best is not None and bound <= best.supported:
-                template = None  # the library already does as well
+    report = []
+    for pick in picks:
+        inst, res, best, template = pick.inst, pick.res, pick.best, pick.template
+        entry: dict[str, Any] | None = None
         if template is not None:
-            entry: dict[str, Any] = {"model": template["definition_id"]}
-            if res.address:
-                entry["address"] = res.address
-            instruments[inst] = entry
-            layout[inst] = {"x": len(layout) * 320.0, "y": 60.0}
+            entry = {"model": template["definition_id"]}
             roles[inst] = (
                 template.get("instrument_class", ""),
                 template.get("channel_port"),
                 _first_channel(res),
             )
-            notes.append(
-                f"{res.key}：仪表定义库中没有完整支持其命令的仪表；建议用模板 {template['template']}"
-                f"创建 {template['definition_id']}（命令表逐条学自{'、'.join(template.get('learned_from') or []) or '助记词'}）：create_definition_from_template 直接接收"
-                "报告中的 inputs，其中来源为 default 的项待确认"
-            )
         elif best is not None:
             entry = {"model": best.definition_id}
+            d = by_id.get(best.definition_id)
+            if d is not None:
+                roles[inst] = (d.instrument_class, next(iter(d.ports.channel), None), _first_channel(res))
+        if entry is not None:
             if res.address:
                 entry["address"] = res.address
             instruments[inst] = entry
             layout[inst] = {"x": len(layout) * 320.0, "y": 60.0}
-            d = by_id.get(best.definition_id)
-            if d is not None:
-                roles[inst] = (d.instrument_class, next(iter(d.ports.channel), None), _first_channel(res))
-        else:
-            notes.append(f"{res.key}：仪表定义库中没有支持其命令的仪表，未加入草稿")
-        if template is not None:
-            report.append(
-                {
-                    "instance": inst,
-                    "receiver": res.key,
-                    "address": res.address,
-                    "line": res.line,
-                    "model": template["definition_id"],
-                    "commands": len(res.commands),
-                    "supported": template.get("supported", 0),
-                    "checked": template.get("checked", 0),
-                    "unsupported": template.get("unsupported", []),
-                    "template": template,
-                    "alternatives": [
-                        {"model": c.definition_id, "supported": c.supported, "checked": c.total}
-                        for c in ranked[:2]
-                    ],
-                }
-            )
-            continue
-        report.append(
-            {
-                "instance": inst,
-                "receiver": res.key,
-                "address": res.address,
-                "line": res.line,
-                "model": best.definition_id if best else None,
-                "commands": len(res.commands),
-                "supported": best.supported if best else 0,
-                "checked": best.total if best else 0,
-                "unsupported": [
-                    {"line": c.line, "command": m.text, "reason": m.reason}
-                    for c, m in (best.unsupported if best else [])
-                ]
-                if best
-                else [{"line": c.line, "command": c.text, "reason": "没有匹配的仪表"} for c in res.commands],
-                "alternatives": [
-                    {"model": c.definition_id, "supported": c.supported, "checked": c.total}
-                    for c in ranked[1:3]
-                ],
-            }
-        )
+        report.append(_row(pick))  # nothing speaks it: no instrument, the row lists the commands
     wires: list[dict[str, Any]] = []
     inferred: list[dict[str, Any]] = []
     scopes = [i for i, r in roles.items() if r[0] == "oscilloscope" and r[1]]
@@ -482,14 +514,14 @@ def draft_definition(
     res = resources[receiver]
     if base is not None:
         data = base.model_dump(mode="json", by_alias=True, exclude_defaults=True)
-        data.update(id=definition_id, schema="simubench.instrument/2")
+        data.update(id=definition_id, schema=FORMAT)
         data.pop("reference", None)  # a contract definition, not the real model's
         known = base
     else:
         leaf = receiver.rsplit(".", 1)[-1].lower()
         cls = next((c.id for c in categories.rows() if c.hints and any(w in leaf for w in c.hints)), "other")
         data = {
-            "schema": "simubench.instrument/2",
+            "schema": FORMAT,
             "id": definition_id,
             "manufacturer": "TODO",
             "model": definition_id.upper(),

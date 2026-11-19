@@ -11,7 +11,7 @@ from typing import Any, cast
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from ...engine.events import project
-from ..workspace_events import WorkspaceEvent
+from ..workspace_events import WorkspaceEvent, put_bounded
 from .context import ApiContext, host_ok
 
 
@@ -55,7 +55,7 @@ def build_router(ctx: ApiContext) -> APIRouter:
                 return  # the client already holds this one and asked for the tail only
             msg = project(ev, cur)
             with contextlib.suppress(RuntimeError):
-                loop.call_soon_threadsafe(_put, queue, msg)
+                loop.call_soon_threadsafe(put_bounded, queue, msg)
 
         with s.session.view():  # backlog and subscription without a gap or a duplicate
             backlog = list(s.session.events.history)
@@ -142,10 +142,3 @@ def build_router(ctx: ApiContext) -> APIRouter:
             ctx.manager.events.unsubscribe(queue)
 
     return router
-
-
-def _put(queue: asyncio.Queue[dict[str, Any]], msg: dict[str, Any]) -> None:
-    if queue.full():
-        with contextlib.suppress(asyncio.QueueEmpty):
-            queue.get_nowait()  # drop the oldest rather than block the bench
-    queue.put_nowait(msg)

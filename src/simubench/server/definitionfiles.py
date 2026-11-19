@@ -18,6 +18,8 @@ from ..engine import jsonpatch
 from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
 from ..library.loader import dump_yaml, layered_definition_data, load_yaml, parse_error_text
+from ..library.workspace_layout import DEFINITIONS_FOLDER, definition_rel_path, definitions_dir
+from ..models.definition import FORMAT
 from ..models.migrate import upgrade
 from . import definitionstructure
 from .benchfiles import BenchFiles
@@ -26,7 +28,6 @@ from .errors import Forbidden, Invalid
 from .history import Source
 
 ID = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]*")
-FOLDER = "instruments"
 #: The build area's positions beside a definition (#1207).
 LAYOUT_SUFFIX = ".layout.json"
 
@@ -38,7 +39,7 @@ class DefinitionFiles:
     def rel_path(self, def_id: str) -> str:
         if not ID.fullmatch(def_id):
             raise Invalid(f"{def_id!r}: an id is letters, digits, '.', '_' and '-'")
-        return f"{FOLDER}/{def_id}.yaml"
+        return definition_rel_path(def_id)
 
     def read(self, def_id: str) -> M.DefinitionDocument:
         rel = self.rel_path(def_id)
@@ -74,7 +75,7 @@ class DefinitionFiles:
         def_id = data.get("id")
         if isinstance(def_id, str) and ID.fullmatch(def_id):
             return self.files.workspace / self.rel_path(def_id)
-        return self.files.workspace / FOLDER / "draft.yaml"
+        return definitions_dir(self.files.workspace) / "draft.yaml"
 
     def create(self, def_id: str, data: dict[str, Any], source: Source = "agent") -> M.DefinitionDocument:
         return self.save(def_id, None, data, source)
@@ -107,7 +108,7 @@ class DefinitionFiles:
         rel = self.rel_path(def_id)
         if data.get("id", def_id) != def_id:
             raise Invalid(f"the file {rel} holds the definition {def_id!r}, not {data.get('id')!r}")
-        data = {"schema": "simubench.instrument/2", "id": def_id, **data}
+        data = {"schema": FORMAT, "id": def_id, **data}
         raw = dump_yaml(data).encode("utf-8")
 
         # The changes describe what this save replaces: the write transaction hands over the bytes
@@ -208,7 +209,7 @@ class DefinitionFiles:
         return self.save(def_id, new.base_sha256, data, source)
 
     def layout_path(self, def_id: str) -> Path:
-        return self.files.workspace / FOLDER / f"{def_id}{LAYOUT_SUFFIX}"
+        return definitions_dir(self.files.workspace) / f"{def_id}{LAYOUT_SUFFIX}"
 
     def layout(self, def_id: str) -> M.DefinitionLayout:
         """The build area's positions (#1207); empty when none were saved or the file is broken
@@ -233,7 +234,7 @@ class DefinitionFiles:
         if not self.read(def_id).editable:
             raise Forbidden(f"{def_id} is not in the workspace; its layout is not kept")
         self.files.write(
-            f"{FOLDER}/{def_id}{LAYOUT_SUFFIX}",
+            f"{DEFINITIONS_FOLDER}/{def_id}{LAYOUT_SUFFIX}",
             layout.model_dump_json(indent=1).encode("utf-8"),
             None,
             fingerprint="",  # nothing is recorded: the fingerprint names a version's content

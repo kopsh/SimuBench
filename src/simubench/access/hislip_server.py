@@ -246,9 +246,9 @@ class HislipSession:
         has taken (``delivered``, the MessageID of the last Data/DataEND handed to its application)
         and anything the server sent after it is still available (6.14.2)."""
         # A status query is a serial poll: it returns RQS and clears it, which allows the next
-        # AsyncServiceRequest (spec 6.13).
+        # AsyncServiceRequest (spec 6.13) — the edge call then re-arms ``srq_sent`` for it.
         stb = serial_poll(self.server.session, self.instrument)
-        self.srq_sent = False
+        _, self.srq_sent = bus_of(self.server.session, self.instrument).service_request.edge(self.srq_sent)
         if self.overlapped:
             mav = delivered is not None and delivered != (self.tx_id - 2) & 0xFFFF_FFFF
         else:
@@ -262,14 +262,12 @@ class HislipSession:
         session = self.server.session
         try:
             observe(session, self.instrument)
-            pending = bus_of(session, self.instrument).service_request.latch
+            srq = bus_of(session, self.instrument).service_request
             stb = session.instrument(self.instrument).stb(commit=False)
         except Exception:  # a status read must never take the connection down
             return
-        if not pending:
-            self.srq_sent = False
-        elif not self.srq_sent:
-            self.srq_sent = True
+        send, self.srq_sent = srq.edge(self.srq_sent)
+        if send:
             self._send(self.async_writer, _pack(ASYNC_SERVICE_REQUEST, (stb | 0x40) & 0xFF))
 
     # ---- responses ---------------------------------------------------------------------------------------

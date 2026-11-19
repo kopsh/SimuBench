@@ -89,6 +89,49 @@ def test_a_keysight_style_script_without_any_library_is_bound_by_mnemonics():
     assert library["model"] == "keysight-dsox2024a" and "template" not in library
 
 
+def test_the_report_rows_list_the_alternatives_beside_what_was_chosen():
+    """One row constructor serves both outcomes, with its slices pinned: a definition pick names
+    the two runner-up definitions (it is ranked[0] itself, so ranked[1:3]); a template pick names
+    the two best the library had (the template definition is new, so ranked[:2])."""
+    library = _entry(_draft(KEYSIGHT_SCRIPT.read_text("utf-8")), "scope")
+    assert "template" not in library and library["model"] == "keysight-dsox2024a"
+    assert [(a["model"], a["supported"], a["checked"]) for a in library["alternatives"]] == [
+        ("sb-dso-2x", 9, 10),  # the sb-* validation definitions the tests load (conftest.py)
+        ("sb-dso-4", 9, 10),
+    ]
+    template = _entry(_draft(LFCAL_SCRIPT.read_text("utf-8")), "scope")
+    assert "template" in template and template["model"] == "lfcal-refscope"
+    assert [(a["model"], a["supported"], a["checked"]) for a in template["alternatives"]] == [
+        ("lecroy-wavepro804hd", 15, 18),
+        ("keysight-uxr0334b", 2, 18),
+    ]
+
+
+def test_a_row_names_the_commands_the_library_did_not_speak():
+    """A command the chosen model refuses is one unsupported entry with its line and reason; a
+    receiver no library speaks keeps its row (model null, no instrument) with every command
+    named — the row is the engineer's list of what the draft could not place."""
+    source = KEYSIGHT_SCRIPT.read_text("utf-8").replace(
+        '    scope.write(":WAVeform:BYTeorder MSBFirst")\n',
+        '    scope.write(":WAVeform:BYTeorder MSBFirst")\n    scope.write("BOGUS:COMMAND 1")\n',
+    )
+    row = _entry(_draft(source), "scope")
+    assert (row["supported"], row["checked"]) == (10, 11)
+    line = source.splitlines().index('    scope.write("BOGUS:COMMAND 1")') + 1
+    assert row["unsupported"] == [
+        {"line": line, "command": "BOGUS:COMMAND 1", "reason": "仪表模型中没有该命令"}
+    ]
+    stranger = """
+import pyvisa
+rm = pyvisa.ResourceManager()
+x = rm.open_resource("TCPIP0::1.2.3.4::10001::SOCKET")
+x.write("ZZZ:NOTHING 1")
+"""
+    row = draft_bench(stranger, builtin, name="draft")["report"][0]
+    assert row["model"] is None and "template" not in row
+    assert row["unsupported"] == [{"line": 5, "command": "ZZZ:NOTHING 1", "reason": "没有匹配的仪表"}]
+
+
 def test_a_command_nothing_knows_is_kept_as_a_setting_to_confirm_with_its_line():
     source = LFCAL_SCRIPT.read_text("utf-8").replace(
         '    scope.write("RCLK INTERNAL")\n',

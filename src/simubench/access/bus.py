@@ -134,6 +134,19 @@ class ServiceRequest:
         self.latch = False
         return out
 
+    def edge(self, sent: bool) -> tuple[bool, bool]:
+        """One listener's SRQ edge, read and renewed in one call: ``(announce, sent)``.
+
+        ``sent`` is the listener's own "the pending request went out" flag — every client keeps
+        one (HiSLIP's AsyncServiceRequest, VXI-11's device_intr_srq: one announcement per
+        request, HiSLIP 6.13 / IEEE 488.2 11.2). Call after :meth:`observe`. A pending request
+        the listener has not announced announces once, and the flag is set; no pending request
+        clears the flag, so the next request announces again; a pending request already
+        announced leaves it. A serial poll has carried RQS to whoever asked (the latch cleared),
+        so calling this after one clears the flag the same way: the request went out by poll.
+        """
+        return self.latch and not sent, self.latch
+
 
 @dataclass
 class LockTable:
