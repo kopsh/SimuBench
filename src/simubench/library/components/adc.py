@@ -53,7 +53,7 @@ def analog_chain(block: Any) -> list[Any]:
 
 @component("adc")
 class Adc(Component):
-    """A sampling ADC with one input and a fixed full scale (signal-chain.md 3.3): where an analog
+    """A sampling ADC with one input and a fixed full scale: where an analog
     signal becomes samples.
 
     ``in`` takes the analog signal, ``out`` gives its sample stream at the rate asked of it (its
@@ -68,7 +68,7 @@ class Adc(Component):
     3. the converter's own noise (``noise_lsb_rms``), from a stream of its own;
     4. the sum is quantized to ``bits`` over ±``full_scale`` and clipped there.
 
-    The samples are the codes, kept in volts (D46, as the scope's): the format says how many bits
+    The samples are the codes, kept in volts (as the scope's): the format says how many bits
     and what one code step is worth. ``bits`` 0 does not quantize (and cannot clip). The request's
     interval is the real one — the block that starts the read holds the clock and its error."""
 

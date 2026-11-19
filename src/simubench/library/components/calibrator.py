@@ -334,7 +334,7 @@ class _Control(ProtectionLatch, Component):
 
 @component("calibrator_setpoint")
 class CalibratorSetpoint(_Setpoint, Component):
-    """The calibrator's setpoint and range generation (#329): ``function`` (DCV | ACV), ``level``
+    """The calibrator's setpoint and range generation: ``function`` (DCV | ACV), ``level``
     (V; RMS for ACV), ``frequency``, ``settle`` (s, or a table per function) and the hidden
     ``gain_error_ppm`` / ``offset``. Its ``out`` is the signal the output control drives onto the
     terminal; it settles in virtual time when the control operates it."""
@@ -348,7 +348,7 @@ class CalibratorSetpoint(_Setpoint, Component):
     refs = {"control": ("calibrator_control", "instrument")}
     units = {"level": "V", "offset": "V"}
     defaults = {
-        "function": "DCV",  # DCV | ACV | DCI | ACI (current outputs, #550) | OHM (a resistance, #550)
+        "function": "DCV",  # DCV | ACV | DCI | ACI (current outputs) | OHM (a resistance)
         "level": 0.0,  # the set amplitude: V (RMS for ACV), A (RMS for ACI) or ohm
         "frequency": 0.0,  # Hz, the AC line (0 with DCV)
         "settle": 1.0,  # s until a new value is reached, or a table per function
@@ -357,14 +357,14 @@ class CalibratorSetpoint(_Setpoint, Component):
         "control": "",  # the calibrator_control that operates this setpoint
         "limit_error": -222,  # the error a level beyond the function's largest range reports (with ranges)
         "frequency_selects_ac": False,  # a frequency alone switches DC <-> AC within V or I (the 5730A's OUT 100 HZ)
-        "frequency_bands": {},  # AC: {range name or function: [min Hz, max Hz]}, else limit_error (#580)
-        "ohm_values": "nominal",  # OHM table: nominal (the only values, 5730A) | continuous (ranges, 5522A, #569)
-        # Ranges (#552): per function a list of [name, full scale] or [name, full scale, minimum],
+        "frequency_bands": {},  # AC: {range name or function: [min Hz, max Hz]}, else limit_error
+        "ohm_values": "nominal",  # OHM table: nominal (the only values, 5730A) | continuous (ranges, 5522A)
+        # Ranges: per function a list of [name, full scale] or [name, full scale, minimum],
         # e.g. {DCV: [[DC220MV, 0.22], [DC2_2V, 2.2], [DC1100V, 1100, 100]]}; the output takes the
         # smallest range whose full scale is above the level ({}: no ranges)
         "ranges": {},
         "range_lock": False,  # the present range is locked (a setting): levels outside it are refused
-        # the functions the range lock applies to, e.g. [DCV, DCI] (the 5522A, #589); in the others
+        # the functions the range lock applies to, e.g. [DCV, DCI] (the 5522A); in the others
         # the setting is kept but the range follows the level ([]: every function)
         "lock_functions": [],
         "over_range_error": -222,  # the error a level above the locked range's full scale reports
@@ -555,7 +555,7 @@ class CalibratorSetpoint(_Setpoint, Component):
 
 @component("calibrator_control")
 class CalibratorControl(_Control, Component):
-    """The calibrator's output control (#329): ``operate`` (standby disconnects the terminal),
+    """The calibrator's output control: ``operate`` (standby disconnects the terminal),
     ``z_out``, ``i_max`` (the overload trip back to standby with ``overload_error``) and
     ``standby_above`` (a change of the output to or from above it returns to standby). It drives
     the setpoint block's signal onto the electrical terminal."""
@@ -578,16 +578,16 @@ class CalibratorControl(_Control, Component):
         "z_out": 0.0,  # ohm, output impedance (0: an ideal source)
         "i_max": 0.05,  # A, beyond this load current the output trips to standby (<= 0: never)
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
-        "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
-        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
+        "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above
+        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
-        "noise": None,  # readback noise {rms: ...}, absolute (a calibrator has no ranges) (#750); None: noiseless
+        "noise": None,  # readback noise {rms: ...}, absolute (a calibrator has no ranges); None: noiseless
         "setpoint": "",  # the calibrator_setpoint this control operates
-        "remote_sense": False,  # external sense: regulate the SENSE terminal instead of the output (#551)
+        "remote_sense": False,  # external sense: regulate the SENSE terminal instead of the output
         "sense_ranges": [],  # the setpoint ranges where external sense is allowed ([]: every range)
         "sense_error": -221,  # the error external sense on a range outside sense_ranges reports
-        "compliance": 0.0,  # V a current output can drive: a number or {range name: V, "*": V} (0: no limit, #550)
-        "compliance_error": 0,  # device error code a compliance trip queues (0: overload_error, #569)
+        "compliance": 0.0,  # V a current output can drive: a number or {range name: V, "*": V} (0: no limit)
+        "compliance_error": 0,  # device error code a compliance trip queues (0: overload_error)
     }
     piecewise = True
 
@@ -700,7 +700,7 @@ class CalibratorOutput(_Setpoint, _Control, Component):
     ``level`` (V; RMS for ACV), ``frequency`` (Hz; 0 for DCV), ``operate``, ``z_out``, ``i_max``,
     ``settle`` (s, or a table per function), ``standby_above`` (V), and the hidden
     ``gain_error_ppm`` / ``offset`` of the output stage. The same behaviour as
-    ``calibrator_setpoint`` + ``calibrator_control`` (#329), for definitions written before the
+    ``calibrator_setpoint`` + ``calibrator_control``, for definitions written before the
     split.
 
     The settings are bound to instrument state (``function: $out.function`` ...); the commands
@@ -724,10 +724,10 @@ class CalibratorOutput(_Setpoint, _Control, Component):
         "i_max": 0.05,  # A, beyond this load current the output trips to standby (<= 0: never)
         "settle": 1.0,  # s until a new value is reached, or a table per function
         "standby_above": None,  # V, a change of the output settings to or from above it -> standby
-        "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above (#553)
-        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above (#553, #566)
+        "standby_rule": "either",  # either: old or new above standby_above | crossing: from below to above
+        "standby_on_function": False,  # function change while operating -> standby: true any; "above" DCV<->ACV only >= standby_above
         "overload_error": 0,  # device error code queued on a trip (text from the definition; 0: none)
-        "noise": None,  # readback noise {rms: ...}, absolute (a calibrator has no ranges) (#750); None: noiseless
+        "noise": None,  # readback noise {rms: ...}, absolute (a calibrator has no ranges); None: noiseless
         "gain_error_ppm": 0.0,  # the output's own gain error, ppm (hidden)
         "offset": 0.0,  # the output's own DC offset error, V (hidden, DCV only)
     }

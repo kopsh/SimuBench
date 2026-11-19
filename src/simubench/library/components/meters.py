@@ -29,7 +29,7 @@ CAL_INPUT = 702
 
 @component("dmm_input_terminal")
 class DmmInputTerminal(Component):
-    """The DMM's input terminals (#190 E1): the electrical input and its impedance to ground.
+    """The DMM's input terminals: the electrical input and its impedance to ground.
 
     ``pin`` is the instrument's electrical terminal (a definition exposes it as ``IN``); ``out``
     carries the measured signal on to the conditioning block. With ``z_in`` the terminal models its
@@ -59,7 +59,7 @@ class DmmInputTerminal(Component):
         "high_z": False,  # high input impedance (a setting)
         "high_z_ranges": [],  # the ranges on which high_z applies (full-scale values)
         "conditioning": "",  # the conditioning block whose range decides high_z
-        # What the terminal does (#301): VOLT reads the net; RES/FRES push the range's test current
+        # What the terminal does: VOLT reads the net; RES/FRES push the range's test current
         # into the DUT and read V/I (FRES: V on the sense terminal, the four-wire pair); CURR puts
         # the range's shunt across the input and reads V/R. The reading comes from the circuit.
         "mode": "VOLT",
@@ -195,18 +195,18 @@ class DmmInputTerminal(Component):
 
 @component("dmm_conditioning")
 class DmmConditioning(Component):
-    """Signal conditioning (#190 E1): function, ranges and the AC filter, and the analog errors.
+    """Signal conditioning: function, ranges and the AC filter, and the analog errors.
 
     DC (mean) and true-rms AC of the signal on its input; AC is the rms of the lines above
     ``ac_low`` Hz (the AC path's coupling), each weighted by the true-rms converter's high-frequency
     response when ``ac_high`` is given: a Butterworth magnitude ``1/√(1 + (f/ac_high)^(2·order))``
-    with its −3 dB point at ``ac_high`` Hz (#1255), so lines past the meter's bandwidth read low. The measurement path has a hidden gain error (ppm) and
+    with its −3 dB point at ``ac_high`` Hz, so lines past the meter's bandwidth read low. The measurement path has a hidden gain error (ppm) and
     offset (V), the instrument's own errors; the ADC's calibration coefficients correct them::
 
         raw     = true × (1 + gain_error_ppm·1e-6) + offset
         reading = (raw − cal.offset) × cal.gain
 
-    With ``ranges`` the meter ranges (metrology-authoring.md 2): the function's full-scale values,
+    With ``ranges`` the meter ranges: the function's full-scale values,
     a manual ``range`` (a value the range must be able to measure; the smallest fitting range is
     used, as SCPI prescribes) and ``autorange`` (the range follows the true value; above
     ``autorange_up`` × full scale or below ``autorange_down`` × it, the smallest range that fits
@@ -222,13 +222,13 @@ class DmmConditioning(Component):
     ports = {"in": PortSpec("in", "signal", "the signal from the input terminal")}
     defaults = {
         "ac_low": 3.0,  # Hz above which lines count into the AC reading
-        "ac_high": None,  # Hz, −3 dB point of the AC path's high-frequency roll-off (None: flat, #1255)
+        "ac_high": None,  # Hz, −3 dB point of the AC path's high-frequency roll-off (None: flat)
         "ac_high_order": 2,  # order of that roll-off (Butterworth magnitude)
         "function": "DC",  # DC | AC: what a command without one measures; what sample() reads
         "ranges": None,  # full-scale value of each range, per function ({DC: [...]}) or one list
         "range": None,  # manual range: a value the range must be able to measure (None, <= 0: auto)
-        "range_res": None,  # the RES/FRES functions' own manual range, ohm (None: `range`, #301)
-        "range_curr": None,  # the DCI/ACI functions' own manual range, A (None: `range`, #301)
+        "range_res": None,  # the RES/FRES functions' own manual range, ohm (None: `range`)
+        "range_curr": None,  # the DCI/ACI functions' own manual range, A (None: `range`)
         "autorange": True,  # the range follows the true value
         "autorange_up": 1.2,  # fraction of full scale above which the range switches up
         "autorange_down": 0.1,  # fraction of full scale below which the range switches down
@@ -364,14 +364,14 @@ class DmmConditioning(Component):
 
 @component("dmm_adc")
 class DmmAdc(Component):
-    """The A/D (#190 E1): digits, NPLC reading time, resolution, calibration and the reading.
+    """The A/D: digits, NPLC reading time, resolution, calibration and the reading.
 
     It reads the conditioning block's raw value, applies the calibration coefficients and the
     resolution quantization, and turns a reading beyond ``overrange`` × full scale into
     ``overload_value``. Calibration: with ``store`` naming a ``calibration_store`` component the
-    reading is corrected with the store's per-key coefficients (metrology-authoring.md 4) and the
+    reading is corrected with the store's per-key coefficients and the
     ``cal_*`` operations delegate to it; without a store the single legacy coefficient set below
-    applies. The component is the instrument's sampler (metrology-authoring.md 3.1).
+    applies. The component is the instrument's sampler.
     """
 
     label = "万用表 A/D"
@@ -391,7 +391,7 @@ class DmmAdc(Component):
         "resolution": None,  # quantization step as a fraction of full scale (a mapping of a setting)
         "set_resolution": None,  # resolution given to CONFigure (a setting); CONFigure? returns it when > 0
         "reading_time": 0.0,  # s of virtual time one reading takes (integration and overhead)
-        "noise": None,  # reading noise {ppm_of_range, ref_time_s, table} (#746); None: noiseless
+        "noise": None,  # reading noise {ppm_of_range, ref_time_s, table}; None: noiseless
         "store": "",  # the calibration_store whose per-key coefficients correct the reading
         "cal_gain": 1.0,  # legacy (no store): calibration gain coefficient
         "cal_offset": 0.0,  # legacy (no store): calibration zero (offset) coefficient
@@ -528,7 +528,7 @@ class DmmAdc(Component):
         """The range in use, the auto-chosen one included (the definition's range query).
 
         A write selects a fixed range and leaves autorange; AUTO keeps it on and writes the 0
-        placeholder, DEF writes the model's default range (#1452). A query with a word answers for
+        placeholder, DEF writes the model's default range. A query with a word answers for
         that word (``RANGe? DEF``), without one for the range in use. The raw parameter keeps
         MIN/MAX/DEF and AUTO away from the binding layer, which would write them even on a query.
         """
@@ -569,7 +569,7 @@ class DmmAdc(Component):
     def op_configure(self, **_: Any) -> OpResult:
         """CONFigure?'s range and resolution: the effective range, and the resolution step in use.
 
-        The resolution is the one CONFigure was given (``set_resolution``, #286: the manual says
+        The resolution is the one CONFigure was given (``set_resolution``, the manual says
         the argument specifies the measurement resolution and CONFigure? reports it); when it is
         unset the step comes from the ``resolution`` mapping of the integration time, as before.
         The readings themselves quantize by ``resolution`` either way — the model boundary is

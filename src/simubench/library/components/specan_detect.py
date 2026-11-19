@@ -25,10 +25,10 @@ BINS_FLOOR_DBM = -300.0
 
 @component("specan_detector")
 class SpecanDetector(Component):
-    """The detector and log conversion (D1 #187): positive peak / sample / average / RMS / negative
+    """The detector and log conversion: positive peak / sample / average / RMS / negative
     peak / normal per resolution cell, then the level in dBm.
 
-    Normal (Rosenfell, #616) shows the peak of a CW-like bucket; a noise-like bucket (its cells
+    Normal (Rosenfell) shows the peak of a CW-like bucket; a noise-like bucket (its cells
     spread by more than ``normal_spread``) shows the maximum on even points and the minimum on odd
     ones, as the X-Series reference describes. With ``auto`` the detector follows the trace mode:
     max hold peak, min hold negative peak, otherwise normal (the X-Series preset rule); a detector
@@ -122,9 +122,9 @@ class SpecanDetector(Component):
 
 @component("specan_vbw")
 class SpecanVbw(Component):
-    """The video filter's bandwidth (D1 #187): auto follows the RBW; the manual value stretches the
+    """The video filter's bandwidth: auto follows the RBW; the manual value stretches the
     sweep the same way the old monolith did (its auto sweep time uses min(RBW, VBW)). Steps and
-    limits as the resolution filter's (#616); a ``vbw_max`` above the ladder is the wide-open setting."""
+    limits as the resolution filter's; a ``vbw_max`` above the ladder is the wide-open setting."""
 
     label = "视频滤波"
     label_en = "Video filter"

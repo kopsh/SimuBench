@@ -16,7 +16,7 @@ DC_MAX = 1.2
 
 @component("cal_output")
 class CalOutput(Component):
-    """The signal a front-panel output port carries, chosen by ``:CALibrate:OUTPut`` (D50 source block).
+    """The signal a front-panel output port carries, chosen by ``:CALibrate:OUTPut`` (source block).
 
     ``selection`` is the stored selection (a word, ``DC`` followed by ``,<level>`` for the DC form).
     ``port`` says which connector this is: on ``cal`` the DC word carries the commanded level

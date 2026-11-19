@@ -115,7 +115,7 @@ class OpticalReceiver(Component):
 
     ``noise_w`` is the input-referred optical noise (W rms over the receiver's bandwidth, as data
     sheets give it); the record taker adds it with the sampler's own (``output_noise_rms``), since
-    an analytic signal carries no noise (architecture.md 2). Average power (``power``) is the mean
+    an analytic signal carries no noise. Average power (``power``) is the mean
     of the light arriving, as a power meter in the receiver's DC path reads it.
     """
 
@@ -202,7 +202,7 @@ class OpticalAttenuator(Component):
 
 @component("tunable_laser")
 class TunableLaser(Component):
-    """A tunable laser source (#1103): continuous-wave light of settable power at a settable
+    """A tunable laser source: continuous-wave light of settable power at a settable
     wavelength, a shutter, and a wavelength sweep that runs in virtual time.
 
     The sweep goes from ``sweep_start`` to ``sweep_stop`` (downwards when stop < start), either
@@ -381,7 +381,7 @@ class TunableLaser(Component):
     @op("frequency")
     def op_frequency(self, query: bool = False, value: float | None = None, **_: Any) -> OpResult:
         """The optical frequency, Hz: a query answers c/λ of the wavelength being emitted now (the
-        sweep's position and the offset included, as ``wavelength`` answers, #1110); a value sets
+        sweep's position and the offset included, as ``wavelength`` answers); a value sets
         the wavelength setting to c/f."""
         if query:
             return OpResult(self.reply_number(C_M_S / max(self.emitted_wavelength(), 1e-12), 10))
@@ -413,7 +413,7 @@ class TunableLaser(Component):
 
 @component("optical_power_meter")
 class OpticalPowerMeter(Component):
-    """An optical power meter's detector head and its measurement (#1103): the average optical
+    """An optical power meter's detector head and its measurement: the average optical
     power on ``in``, read in W, dBm or dB against a reference, with the calibration of the
     wavelength it is set to.
 
@@ -590,7 +590,7 @@ class OpticalPowerMeter(Component):
 
 @component("variable_optical_attenuator")
 class VariableOpticalAttenuator(Component):
-    """A variable optical attenuator (#1103): light from ``IN`` to ``OUT`` with the insertion
+    """A variable optical attenuator: light from ``IN`` to ``OUT`` with the insertion
     loss plus a settable attenuation, a shutter, and an optional output-power mode.
 
     ``spectral_loss`` is the extra loss against wavelength ([[m, dB], ...]); the attenuator is

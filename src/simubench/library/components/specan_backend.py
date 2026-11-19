@@ -245,7 +245,7 @@ def _upstream(block: Component, port: str) -> tuple[Component, str]:
 
 @component("specan_ddc")
 class SpecanDdc(Component):
-    """The digital down-converter (signal-chain.md 5.3): the ADC's samples times a numerically
+    """The digital down-converter: the ADC's samples times a numerically
     controlled oscillator at ``nco_hz`` — the intermediate frequency comes to 0 Hz — then the
     decimation filter and the lower rate. ``out`` carries complex baseband samples (``iq``) whose
     0 Hz stands for the frequency the receiver is tuned to (the frame's ``center_hz``); a real tone
@@ -340,7 +340,7 @@ class SpecanDdc(Component):
 
 @component("specan_rbw")
 class SpecanRbw(Component):
-    """The resolution filter (signal-chain.md 5.3): the resolution bandwidth — auto: span /
+    """The resolution filter: the resolution bandwidth — auto: span /
     ``auto_ratio``, snapped to the model's filter steps and held at or below ``auto_max``; manual
     otherwise — and the Gaussian filter of that bandwidth at -3 dB, as a windowed FFT.
 
@@ -351,13 +351,13 @@ class SpecanRbw(Component):
     ``count``; a steady tone reads its amplitude. The window is cut ``WINDOW_SIGMAS`` standard
     deviations each side, so its response is the Gaussian down to about -70 dB.
 
-    The window gives both evaluations their filter (signal-chain.md 5.4): :meth:`response` is its
+    The window gives both evaluations their filter: :meth:`response` is its
     frequency response per detector, in closed form, for the analytic trace; :meth:`frames` uses
     its coefficients. Its noise bandwidth is 1.0645 × RBW either way.
 
     The rate it asks of the down-converter follows the RBW: one transform is to cover
     ``fft_width`` resolution bandwidths (the usable middle half of twice that rate). The steps
-    and limits are the model's (#616): the 1-3-10 ladder to 3 MHz by default, the X-Series "10%"
+    and limits are the model's: the 1-3-10 ladder to 3 MHz by default, the X-Series "10%"
     steps to 8 MHz."""
 
     label = "RBW 滤波 / FFT"

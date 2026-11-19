@@ -38,7 +38,7 @@ POINTS_PER_PERIOD = 2048  # resolution of the threshold-crossing search (linear 
 
 @component("counter_input")
 class CounterInput(Component):
-    """One input channel (F #192): impedance (1 MΩ or 50 Ω) at the pin, AC/DC coupling, the trigger
+    """One input channel: impedance (1 MΩ or 50 Ω) at the pin, AC/DC coupling, the trigger
     level and the sensitivity (the smallest peak-to-peak amplitude the channel counts; below it the
     signal is rejected as noise)."""
 
@@ -131,7 +131,7 @@ class CounterInput(Component):
 
 @component("counter_gate")
 class CounterGate(Component):
-    """The gate (F #192): its time and source, and the true duration the timebase produces. A fast
+    """The gate: its time and source, and the true duration the timebase produces. A fast
     timebase makes the instrument's second short, so the gate lasts ``T / (1 + ε)`` of true time."""
 
     label = "闸门"
@@ -157,7 +157,7 @@ class CounterGate(Component):
 
 @component("counter_statistics")
 class CounterStatistics(Component):
-    """The statistics block (F #192): the measurements taken, and their mean, minimum, maximum and
+    """The statistics block: the measurements taken, and their mean, minimum, maximum and
     standard deviation (sample standard deviation, n − 1)."""
 
     label = "统计"
@@ -223,7 +223,7 @@ class CounterStatistics(Component):
 
 @component("counter_timebase")
 class CounterTimebase(Component):
-    """The counter's timebase (#328, component-map frequency_counter.timebase): the reference clock
+    """The counter's timebase: the reference clock
     turned into the instrument's time scale. A timestamp is the true instant on that scale — a fast
     clock reads time long by its error ε — with the interpolator's single-shot resolution (normal,
     seeded by the instant, so a repeated reading agrees).
@@ -268,7 +268,7 @@ class CounterTimebase(Component):
 
 @component("counter_core")
 class CounterCore(Component):
-    """The counting core (F #192): frequency, period, totalize and time interval over the gate.
+    """The counting core: frequency, period, totalize and time interval over the gate.
 
     Frequency and period use reciprocal counting over the events inside the gate, so a fast
     timebase reads low by ε (the same convention as the spectrum analyzer's display); totalize
@@ -296,16 +296,16 @@ class CounterCore(Component):
     }
     optional_refs = frozenset({"statistics", "timebase"})
     defaults = {
-        "function": "FREQuency",  # FREQuency | PERiod | TOTalize | TINTerval | TSTamp (time stamps, #385)
+        "function": "FREQuency",  # FREQuency | PERiod | TOTalize | TINTerval | TSTamp (time stamps)
         "gate": "",  # the counter_gate
         "clock": "",  # the reference_clock (timebase)
         "a_input": "",  # the counter_input of channel A (threshold, sensitivity)
         "b_input": "",  # the counter_input of channel B
         "statistics": "",  # the counter_statistics (empty: no statistics)
-        "timebase": "",  # the counter_timebase: timestamps and gap-free gates (empty: none, #328)
+        "timebase": "",  # the counter_timebase: timestamps and gap-free gates (empty: none)
         "trigger_error": 1e-9,  # s, one channel's trigger error (model value)
         "single_shot_s": 1e-9,  # s, the interpolator's single-shot resolution (model value)
-        "timestamp_rate": 1.0e6,  # Hz, the highest rate time stamps are generated at (TSTamp:RATE, #385)
+        "timestamp_rate": 1.0e6,  # Hz, the highest rate time stamps are generated at (TSTamp:RATE)
     }
     units = {"trigger_error": "s", "single_shot_s": "s", "timestamp_rate": "Hz"}
 
@@ -495,7 +495,7 @@ class CounterCore(Component):
 
     @op("timestamps")
     def op_timestamps(self, count: int = 1, **_: Any) -> OpResult:
-        """The timebase's timestamps (s) of the next ``count`` rising edges on channel A (#328)."""
+        """The timebase's timestamps (s) of the next ``count`` rising edges on channel A."""
         timebase = self._timebase()
         if timebase is None:
             raise ScpiError(-221, "this counter has no timebase block for timestamps")

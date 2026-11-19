@@ -61,11 +61,11 @@ F_MAX = 7.5e9
 
 @component("specan_trace")
 class SpecanTrace(Component):
-    """The trace and scan engine (D1 #187): the analysis window and its settings couplings, the
+    """The trace and scan engine: the analysis window and its settings couplings, the
     sweep timing in virtual time, the RF history, the trace modes (write / average / max / min hold), the
     markers, and the SCPI operations of the display. It reads the analog front end by its wiring:
     from the IF filter upstream to the input, the lines at the head of that chain and the stages'
-    cascaded noise figure (the analytic evaluation of signal-chain.md 5.4)."""
+    cascaded noise figure (evaluated analytically)."""
 
     label = "迹线"
     label_en = "Trace"
@@ -85,20 +85,20 @@ class SpecanTrace(Component):
         "lo": "",  # the specan_lo (tuning, reference error, sweep rate)
         "if_filter": "",  # the specan_if: the end of the analog front end's chain
         "rbw": "",  # the specan_rbw: the resolution bandwidth and its filter, the end of the digital chain
-        # How a trace is made (signal-chain.md 5.4): "analytic" draws every spectral line through
+        # How a trace is made: "analytic" draws every spectral line through
         # the resolution filter's response and adds the receiver's noise per resolution cell;
         # "sampled" tunes across the span and transforms the ADC's samples at each tuning.
         "evaluation": "analytic",
         "detector": "",  # the specan_detector
         "vbw": "",  # the specan_vbw
         "max_hold_sweeps": 999,  # sweeps max or min hold keeps (older ones are dropped, with a warning)
-        # A center the window cannot hold at the present span (#292): "slide" keeps the span and
+        # A center the window cannot hold at the present span: "slide" keeps the span and
         # moves the center inside the band; "span" keeps the center and narrows the span to fit.
         "center_fit": "slide",
         "hold_count": False,  # a single sweep in max/min hold takes the average/hold count of sweeps (X-Series), not one
         "marker_off_reply": "error",  # a read of an off marker: error (-221) | nan (9.91E+37, the X-Series)
         "delta_x": "absolute",  # X of a delta marker: absolute | offset (from the reference marker, the X-Series)
-        "f_max": F_MAX,  # Hz, the highest frequency the window reaches (the model's frequency option, #616)
+        "f_max": F_MAX,  # Hz, the highest frequency the window reaches (the model's frequency option)
         "span_min": 10.0,  # Hz, the narrowest swept span (zero span is not modeled)
         "sweep_min": 1.0e-3,  # s, the shortest swept sweep time
         "sweep_max": 10.0e3,  # s, the longest swept sweep time (X-Series: 4000 s)

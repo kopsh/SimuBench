@@ -13,7 +13,7 @@ from .cal_output import DC_MAX, WORDS
 @component("system")
 class System(Component):
     """``*CLS`` with a reply to its query form, a preset that is ``*RST`` under another header, and
-    the error queue under the model's own headers (metrology-authoring.md 5.3): ``next_error`` and
+    the error queue under the model's own headers: ``next_error`` and
     ``error_count`` let a definition declare an error query that is not ``:SYSTem:ERRor?`` (Fluke's
     ``ERR?``), with the reply format given by the command's ``reply`` template (``{code},{text}``)."""
 
@@ -38,7 +38,7 @@ class System(Component):
     def reset_instrument(self, then: dict[str, Any] | None = None, **_: Any) -> OpResult:
         """The same default setup as ``*RST`` (``:SYSTem:PRESet``); ``then`` (the command's
         ``args``) names settings the preset leaves differently from ``*RST``, written after it — the
-        X-Series preset turns continuous sweep on where ``*RST`` turns it off (#616)."""
+        X-Series preset turns continuous sweep on where ``*RST`` turns it off."""
         assert self.owner is not None
         self.owner.reset()
         for path, value in (then or {}).items():
@@ -94,14 +94,14 @@ class System(Component):
     @op("accept")
     def accept(self, **_: Any) -> OpResult:
         """A command the model parses and stores without an effect on the simulation (an accepted
-        command, #1068): the parameters' ``state`` writes carry the values, the op itself does
+        command): the parameters' ``state`` writes carry the values, the op itself does
         nothing. The empty response lets the command's ``reply`` template answer a query from the
         stored settings."""
         return OpResult(b"")
 
     @op("capability")
     def capability(self, what: str = "", **answers: Any) -> OpResult:
-        """``:SYSTem:CAPability:*?`` (the guide, pp. 1437-1439, #1067): the definition's ``answers``
+        """``:SYSTem:CAPability:*?`` (the guide, pp. 1437-1439): the definition's ``answers``
         carry each capability word's reply, the query names one of them."""
         word = V.parse_string(what).upper() if isinstance(what, bytes) else str(what).upper()
         table = {str(k).upper(): v for k, v in answers.items()}
@@ -112,8 +112,8 @@ class System(Component):
 
     @op("limits")
     def limits(self, path: str = "", kind: str = "numeric", words: str = "", channel: int | None = None, **_: Any) -> OpResult:  # fmt: skip
-        """``…:TESTLIMITS?`` (the guide's ``<n>,<type><limits>`` shape, pp. 324/340/352/496/552/554,
-        #1067): a numeric setting answers its declared min:max, an enumeration its valid settings
+        """``…:TESTLIMITS?`` (the guide's ``<n>,<type><limits>`` shape, pp. 324/340/352/496/552/554):
+        a numeric setting answers its declared min:max, an enumeration its valid settings
         (the definition's ``words``). A ``ch.``-prefixed path resolves on the command's channel."""
         assert self.owner is not None
         if str(kind).lower() == "enum":
@@ -131,7 +131,7 @@ class System(Component):
         """``:CALibrate:OUTPut``: the front-panel output's signal (the guide, p. 473) — the DC form
         carries the level and the query answers them together, so the setting at ``path`` stores
         the composed reply and the command's reply template answers a query. The signal itself
-        sets what the ``cal_output`` components drive (#1170)."""
+        sets what the ``cal_output`` components drive."""
         assert self.owner is not None
         if query:
             return OpResult(b"")

@@ -26,7 +26,7 @@ from .meters import DmmAdc, DmmInputTerminal
 
 @component("daq_backplane")
 class DaqBackplane(Component):
-    """The mainframe's slots and installed modules (#191 E2).
+    """The mainframe's slots and installed modules.
 
     The modules named here are what a SCPI channel number refers to: ``101`` is channel 1 of the
     module in slot 1 (``slot_stride`` is the SCPI slot field, 100). First wave: the 34970A has
@@ -75,14 +75,14 @@ class DaqBackplane(Component):
 
 @component("mux_card")
 class MuxCard(Component):
-    """A multiplexer card's relays and analog bus (#191 E2, first wave: 34901A, 20 channels).
+    """A multiplexer card's relays and analog bus (34901A, 20 channels).
 
     Every channel is a two-wire input (``H``/``L``); a closed relay connects it to the card's
     internal analog bus through the contact resistance ``relay_r``. The bus carries the internal
     DMM's input resistance (asked of the ``dmm`` terminal, so a high-impedance range changes it)
     and its voltage is the signal the internal DMM measures — closing a channel therefore loads
     the DUT on that channel. ``close_limit`` is the number of relays that may be closed at once:
-    the first wave's card is break-before-make while scanning, so the default is one, and a second
+    the card is break-before-make while scanning, so the default is one, and a second
     closure is refused (-221).
 
     The relay state lives in the instrument's channel state (``ch<n>.<relay_state>``, declared as
@@ -113,7 +113,7 @@ class MuxCard(Component):
         "relay_state": "closed",  # the channel state a relay writes: ch<n>.closed
         "backplane": "",  # the daq_backplane component (slots and modules)
         "dmm": "",  # the internal dmm_input_terminal whose input resistance loads the bus
-        # Four-wire pairing (#301): in FRES, channel n carries the test current and channel
+        # Four-wire pairing: in FRES, channel n carries the test current and channel
         # n + four_wire_offset the sense (34901A: n and n+10, n = 1..10). 0: no four-wire.
         "four_wire_offset": 0,
         "current_channels": [],  # the module's current channels (34901A: 21, 22; with a shunt)
@@ -278,13 +278,13 @@ class MuxCard(Component):
 
 @component("scan_table")
 class ScanTable(Component):
-    """The scan table (#191 E2): a channel list read as one run, and the sampler behind it.
+    """The scan table: a channel list read as one run, and the sampler behind it.
 
     ``list`` is the scan list in SCPI channel numbers (a definition binds it to an ``int_list``
     setting, e.g. ``ROUT:SCAN (@101:110)``); ``ascending`` scans it in ascending channel order (the
     34970A's rule) instead of the order it was written; ``count`` is how many times the list is
     scanned per run and ``interval`` the wait between two scans (stored for the model's timing;
-    the first wave times each reading with the relay settling time plus the DMM's reading time).
+    each reading takes the relay settling time plus the DMM's reading time).
     The scan runs
     through the trigger model: each of its readings closes its channel (the card's
     break-before-make rule), reads the internal DMM and carries the channel number in the ``CHAN``
@@ -309,7 +309,7 @@ class ScanTable(Component):
         "mux": "",  # the mux_card that closes the channels
         "dmm": "",  # the dmm_adc that takes each reading
         "backplane": "",  # the daq_backplane that validates the channel numbers
-        # Per-channel measurement configuration (#365): channel setting -> the instrument setting
+        # Per-channel measurement configuration: channel setting -> the instrument setting
         # the internal DMM reads, e.g. {function: sense.function, nplc: sense.nplc}. Before a
         # channel is checked or read, its own values (ch<n>.<key>) are loaded into the DMM's.
         "channel_settings": {},
@@ -431,7 +431,7 @@ class ScanTable(Component):
         value: Any = None,
         **_: Any,
     ) -> OpResult:
-        """``[SENSe:]<function>:RANGe {<range>|MIN|MAX|DEF},(@<list>)`` per channel (#1466).
+        """``[SENSe:]<function>:RANGe {<range>|MIN|MAX|DEF},(@<list>)`` per channel.
 
         The query answers the range the channel measures on — the DMM's range in use for that
         channel's configuration, the auto-chosen one under autorange — never the 0 that stands for

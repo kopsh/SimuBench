@@ -44,7 +44,7 @@ from .scope_segments import Segments
 class ScopeAcquisition(Component):
     """Run control, sampling and the records of a scope, built from the scope's modules.
 
-    One component for every oscilloscope model, set by parameters (instrument-authoring.md 3.2, 8.4).
+    One component for every oscilloscope model, set by parameters.
     It names the modules it reads: ``horizontal`` (a ``scope_timebase``), ``trigger`` (a
     ``scope_trigger``), ``adc`` (a ``scope_adc``), and per channel ``vertical`` (a
     ``scope_vertical``: the scale and offset) and ``probe`` (a ``scope_probe``, whose output is wired
@@ -60,10 +60,10 @@ class ScopeAcquisition(Component):
       ``missing: acquire`` reads a channel that has no record yet, ``error`` refuses it;
     * **noise** the input noise comes from the channel's ``scope_vertical`` ``noise_table``, per
       division at the input connector, in display volts times the probe ratio; it is keyed by
-      ``noise_key``: ``time`` (the absolute sample instants, D46; ``noise_stream`` names a setting
+      ``noise_key``: ``time`` (the absolute sample instants; ``noise_stream`` names a setting
       that selects another stream) or ``acquisition`` (the acquisition count, so pauses of any
       real length between commands give the same numbers); ``trigger_jitter_s``;
-      * **processing** (F4, D46) what the quantized codes go through: ``normal`` keeps them;
+      * **processing** what the quantized codes go through: ``normal`` keeps them;
         ``average`` (``averages``) is the mean of that many acquisitions, each of them noisy and
         quantized, so the noise falls by √N and the resolution gains (it takes N acquisitions'
         time); ``peak`` examines each record interval at the ADC's native rate (at most
@@ -73,7 +73,7 @@ class ScopeAcquisition(Component):
         noise falls by ``2**eres_bits`` — that many more effective bits, at the boxcar's
         bandwidth.
 
-    * **synchronization** (instrument-authoring.md 8.4, G2): ``completion: immediate`` finishes a
+    * **synchronization**: ``completion: immediate`` finishes a
       single acquisition, a digitize or a forced frame within the command that starts it;
       ``pending`` makes it an operation that finishes in virtual time, when the record after the
       trigger is full: until then the trigger status is waiting (then triggered), a read gets the
@@ -82,7 +82,7 @@ class ScopeAcquisition(Component):
       waits for one, looking again whenever a command arrives; ``no_trigger: wait`` leaves ``*OPC?``
       unanswered meanwhile (the client times out), ``return`` answers it at once.
 
-    * **segmented memory** (#957): with ``segments`` above one (while ``segmented``), a single
+    * **segmented memory**: with ``segments`` above one (while ``segmented``), a single
       acquisition or a digitize takes that many records, each on its own trigger; the trigger is
       armed for the next ``rearm_s`` after a record is full, and the acquisition is done with its
       last segment (in an auto mode a segment whose trigger does not come within the auto timeout
@@ -128,7 +128,7 @@ class ScopeAcquisition(Component):
         "vertical": "",  # the per-channel scope_vertical component (its name without ch<n>.)
         "probe": "",  # the per-channel scope_probe component (its name without ch<n>.)
         "overhead_s": 1e-3,  # virtual time an acquisition takes besides its record, s
-        "digitize_stops": False,  # :DIGitize leaves the scope stopped (the InfiniiVision's rule, #248)
+        "digitize_stops": False,  # :DIGitize leaves the scope stopped (the InfiniiVision's rule)
         "mode": "$trigger.mode",  # the run mode setting
         "auto": ["AUTO"],  # modes that keep untriggered acquisitions
         "normal": ["NORMal"],  # modes that wait for a trigger

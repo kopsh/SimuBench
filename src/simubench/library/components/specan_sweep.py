@@ -37,7 +37,7 @@ class Sweeper:
     def front_end_lines(
         self, f: np.ndarray, p_mw: np.ndarray, st: TraceSettings
     ) -> tuple[np.ndarray, np.ndarray, str | None]:
-        """The lines the display draws, from the ones RF_IN carries (signal-chain.md 5.2, #954):
+        """The lines the display draws, from the ones RF_IN carries:
         the input lines scaled by the response's flatness and the chain's compression, the
         distortion products the chain's intercepts make of them, the image and spur responses,
         the residuals and the oscillator's feedthrough. Every derived line is display-referred —

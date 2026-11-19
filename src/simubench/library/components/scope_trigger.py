@@ -36,8 +36,7 @@ _ADVANCED = ("runt", "transition", "window", "timeout", "nedge")
 
 @component("scope_trigger")
 class ScopeTrigger(_ChannelBound):
-    """Edge and pulse-width (glitch) trigger on its own analog path (instrument-authoring.md 8.4,
-    G5).
+    """Edge and pulse-width (glitch) trigger on its own analog path.
 
     The trigger looks at the signal before the ADC, through its own ``coupling`` filter (a table
     ``filters`` of high-pass and low-pass corners per coupling value: AC, low- and high-frequency
@@ -54,13 +53,13 @@ class ScopeTrigger(_ChannelBound):
     instrument input); ``line`` sources trigger on the rising zero crossings of the mains
     (``line_hz``, phase zero at the session's start). An auto mode looks ``search_windows``
     records ahead on the record's grid and on as far as ``auto_timeout_s`` of virtual time beyond
-    (its auto timeout: a signal that repeats within it triggers at any timebase, #1331); one that
+    (its auto timeout: a signal that repeats within it triggers at any timebase); one that
     finds nothing still takes only ``search_windows`` records. A normal or single acquisition
     waits up to ``search_horizon_s`` of virtual time for its edge. Beyond the record's grid the
     search takes a coarser one, and an edge found there is bisected on the signal (without the
     trigger's noise) to a thousandth of a record sample.
 
-    ``mode`` ``glitch`` triggers on a pulse by its width instead (signal-chain.md 7, #956): a pulse
+    ``mode`` ``glitch`` triggers on a pulse by its width instead: a pulse
     of ``polarity`` runs from one crossing of the level to the next opposite one — the same
     interpolated crossings, hysteresis, coupling, noise and holdoff as the edge trigger — and
     ``qualifier`` compares that time with ``width_low`` and ``width_high``: ``less`` (narrower
@@ -74,10 +73,10 @@ class ScopeTrigger(_ChannelBound):
     eighth of the narrowest width bound the qualifier uses for as many again, the instants there
     bisected on the signal (without trigger noise); a pulse narrower than that grid can be missed
     there, and an acquisition that finds nothing within that reach waits, looking again at the
-    next command (#1000).
+    next command.
 
-    The advanced families (#1184) keep the same machinery on the steady-state signal — an object
-    to trigger on without transient signals (C7): ``mode`` ``runt`` fires on a pulse that crosses
+    The advanced families keep the same machinery on the steady-state signal — an object
+    to trigger on without transient signals: ``mode`` ``runt`` fires on a pulse that crosses
     ``low_threshold`` but never ``high_threshold`` (a negative one the mirror below
     ``high_threshold``), ``transition`` on an edge whose time between the two thresholds fails
     ``transition_mode`` (``gthan``/``lthan`` against ``transition_time``, ``range``/``orange``
@@ -105,14 +104,14 @@ class ScopeTrigger(_ChannelBound):
     defaults = {
         "source": "$trigger.source",  # a channel (C1, CHANnel1), an external or a line source
         "level": "$trigger.level",  # display volts; per channel: $ch{n}.trigger_level
-        # Each source's own level setting, by source word (#248), e.g. {CHANnel1: trigger.level1,
+        # Each source's own level setting, by source word, e.g. {CHANnel1: trigger.level1,
         # EXTernal: trigger.level5}; a source not listed uses `level`.
         "level_by_source": {},
         "slope": "$trigger.slope",  # per channel: $ch{n}.trigger_slope
         "rising": RISING,  # slope values that take a rising edge
         "falling": FALLING,  # slope values that take a falling edge
         "search_windows": 4,  # records an auto mode looks ahead on the record's grid
-        "auto_timeout_s": 0.05,  # virtual time an auto mode looks ahead for an edge in all, s (#1331)
+        "auto_timeout_s": 0.05,  # virtual time an auto mode looks ahead for an edge in all, s
         "search_horizon_s": 10.0,  # virtual time a normal or single acquisition waits for an edge, s
         "max_search_points": 4_000_000,  # samples a search may take (a long horizon is searched coarser)
         "level_range_divs": None,  # the level stays within +-this many divisions of the source's screen
@@ -126,9 +125,9 @@ class ScopeTrigger(_ChannelBound):
         "reject_hysteresis_divs": 0.5,  # the band while noise_reject is on
         "noise_rms": 0.0,  # the trigger path's own noise, display volts rms
         # the trigger path's noise by the source's division: [[V/div, V rms], ...] (the row of the
-        # largest division not above the source's), added to noise_rms (None: none, #1263)
+        # largest division not above the source's), added to noise_rms (None: none)
         "noise_table": None,
-        "bandwidth": math.inf,  # the trigger path's own bandwidth, Hz: a first-order low-pass (#1263)
+        "bandwidth": math.inf,  # the trigger path's own bandwidth, Hz: a first-order low-pass
         "holdoff_on": True,  # whether holdoff applies (e.g. a holdoff mode that is TIME)
         "holdoff": 0.0,  # s after a trigger before the next one is taken
         "external": ["EX", "EX5", "EXTernal", "EXT"],  # sources read from the ext port
@@ -144,7 +143,7 @@ class ScopeTrigger(_ChannelBound):
         "greater_at": "timeout",  # glitch greater: trigger once the pulse lasted width_low (timeout) or at its end
         "width_low": 20e-9,  # glitch: the width a greater or range pulse exceeds, s
         "width_high": 30e-9,  # glitch: the width a less or range pulse stays under, s
-        # ---- the advanced families (#1184) ----
+        # ---- the advanced families ----
         "high_threshold": None,  # display volts, runt/transition/window; per source like the level
         "low_threshold": None,  # display volts, the pair's other half; per source like the level
         "high_by_source": {},  # each source's own threshold setting, by source word, e.g.
