@@ -211,6 +211,7 @@ class SessionViews:
             manufacturer=d.manufacturer,
             definition_id=d.id,
             instrument_class=categories.as_api_class(d.instrument_class),
+            reading_keys=categories.get(d.instrument_class).reading_keys,
             description=d.description,
             idn=inst.idn,
             channels=inst.channel_count,

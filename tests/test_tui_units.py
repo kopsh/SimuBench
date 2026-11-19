@@ -43,6 +43,7 @@ pytestmark = pytest.mark.unit  # the D49 budget guard applies (<=100 ms per test
 SMU_INFO: dict[str, Any] = {
     "name": "smu",
     "idn": "SIMUBENCH,SB-SMU-1,SBSMU000001,1.0.0",
+    "display": {"template": "smu"},
     "state": [{"path": "source.voltage.level", "value": 15.0}],
 }
 
@@ -288,7 +289,7 @@ def _workspace_smu(def_id: str) -> dict[str, Any]:
     panel, _source = effective_panel(d)
     return {
         "name": def_id,
-        "display": {"panel": panel.model_dump() if panel else None},
+        "display": {"template": d.display.template, "panel": panel.model_dump() if panel else None},
         "state": [
             {"path": path, "value": spec.default, **spec.model_dump(exclude={"default"})}
             for path, spec in d.state.items()
@@ -656,7 +657,9 @@ def test_a_panel_when_holds_by_the_shared_vector():
     from simubench.tui.controls import _same, when_holds
 
     cases = json.loads(
-        (Path(__file__).resolve().parents[1] / "web/src/features/workbench/when-cases.json").read_text(encoding="utf-8")
+        (Path(__file__).resolve().parents[1] / "web/src/features/workbench/when-cases.json").read_text(
+            encoding="utf-8"
+        )
     )
     for case in cases["same"]:
         assert _same(case["a"], case["b"]) is case["equal"], case

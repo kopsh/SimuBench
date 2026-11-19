@@ -6,6 +6,7 @@ import pytest
 import yaml
 from fastapi.testclient import TestClient
 
+from simubench.models import categories
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 
@@ -238,10 +239,19 @@ def test_readings_are_passive(tmp_path):
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers["x-simubench-token"] = TOKEN
         sid = c.post("/api/sessions", json={"bench_path": "l.bench.yaml"}).json()["id"]
+        info = c.get(f"/api/sessions/{sid}/instruments/lia").json()
         r = c.get(f"/api/sessions/{sid}/instruments/lia/readings").json()
         assert r["values"]["demod.R"] == pytest.approx(0.6896, abs=1e-3)  # 1 Vrms drive at 1591.55 Hz
         assert r["values"]["osc.locked"] is True
         assert len(r["traces"][0]["values"]) == 121
+        # The registry row's reading keys are the keys the model really reads (#1637): every value
+        # role is in the payload, the projected trace among the traces.
+        keys = categories.get(info["instrument_class"]).reading_keys
+        for role, key in keys.items():
+            if role == "r_projected":
+                assert any(t["name"] == key for t in r["traces"]), key
+            else:
+                assert key in r["values"], key
         events = c.get(f"/api/sessions/{sid}").json()
         assert events  # no SCPI was sent; the error queue is untouched
         scpi = c.post(f"/api/sessions/{sid}/instruments/lia/scpi", json={"command": ":SYSTem:ERRor?"}).json()
