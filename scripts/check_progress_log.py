@@ -72,14 +72,14 @@ def archive_problem(current: list[str], base: list[str], base_ref: str) -> str |
     if len(current) < len(base):
         lost = sorted(set(base) - set(current))
         return (
-            f"{LOG} lost sections: {len(current)} now vs {len(base)} on the merge base"
+            f"{LOG.as_posix()} lost sections: {len(current)} now vs {len(base)} on the merge base"
             f" ({base_ref[:12]}); e.g. missing: {', '.join(lost[:5])}"
         )
     if len(current) > len(base):
         added = sorted(set(current) - set(base))
         return (
-            f"{LOG} is the closed archive: put a new entry in its own file"
-            f" {ENTRIES}/<issue>-<short-name>.md, not in the archive"
+            f"{LOG.as_posix()} is the closed archive: put a new entry in its own file"
+            f" {ENTRIES.as_posix()}/<issue>-<short-name>.md, not in the archive"
             f" (added: {', '.join(added[:5])})"
         )
     return None
