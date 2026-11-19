@@ -44,6 +44,8 @@ def build_labels(session: dict[str, Any] | None) -> dict[tuple[str, str], str]:
 
 
 def _hash_file(path: Path | None) -> str | None:
+    """The file bytes' sha256 — the same hash the server reports as a bench document's ``sha256``
+    and a session's ``bench_sha256``. Read only on a workspace resync (#1633), never on a timer."""
     if path is None:
         return None
     try:
@@ -57,10 +59,6 @@ def screen_key(template: str | None) -> str:
     (D80, #1469) — the scope screen for the scope's kind, the generic instrument screen for every
     other kind and for a class the registry does not know."""
     return "scope" if categories.get(template).screen == "scope" else "instrument"
-
-
-#: How often the session is re-read while clients are connected (s): the Web Bench's client poll.
-REMOTE_POLL_S = 2.0
 
 
 class SimuBenchApp(App[None]):
@@ -116,7 +114,6 @@ class SimuBenchApp(App[None]):
         self.lang = i18n.default_lang()  # English only (D23)
         self.launched = launched  # the TUI started this service: quit closes it, R rebuilds
         self.bench_path = bench_path
-        self._bench_sha: str | None = None
         self._bench_name = bench_name
         self.client = ApiClient(url, token)
         self.store = EventStore()
@@ -162,6 +159,9 @@ class SimuBenchApp(App[None]):
         self._maint_task: asyncio.Task | None = None
         self._session_task: asyncio.Task | None = None
         self._picker_task: asyncio.Task | None = None
+        self._workspace_task: asyncio.Task | None = None
+        self._workspace_opened = False  # the workspace socket has connected at least once
+        self._ws_backoff = 1.0
         self._catalog_loaded = False
         # The theme's variables ($muted, $focus, …) must exist before the CSS parses.
         theme.apply_theme(self)
@@ -174,12 +174,10 @@ class SimuBenchApp(App[None]):
         self.scpi_history = load_history()
         self.set_interval(0.1, self._tick)
         self.set_interval(1.0, self._tick_wall)
-        self.set_interval(2.0, self._tick_bench)
-        self.set_interval(REMOTE_POLL_S, self._tick_remote)
         await self.client.open()
+        self._workspace_task = asyncio.create_task(self._workspace_loop())
         if self.sid:
             self.push_overview()
-            self._bench_sha = _hash_file(self.bench_path)
             self._conn_task = asyncio.create_task(self._connection_loop())
         else:
             await self._attach_flow()
@@ -191,7 +189,13 @@ class SimuBenchApp(App[None]):
         self._stop.set()
         tasks = [
             t
-            for t in (self._conn_task, self._maint_task, self._session_task, self._picker_task)
+            for t in (
+                self._conn_task,
+                self._maint_task,
+                self._session_task,
+                self._picker_task,
+                self._workspace_task,
+            )
             if t is not None and not t.done()
         ]
         if tasks:
@@ -255,6 +259,7 @@ class SimuBenchApp(App[None]):
 
         self.sid = sid
         self.conn = "connecting"
+        self.file_changed = False  # the previous session's bench hint is not this session's
         if isinstance(self.screen, PickerScreen):
             self.pop_screen()  # the picker leaves the stack
         self.push_screen(OverviewScreen())
@@ -361,6 +366,82 @@ class SimuBenchApp(App[None]):
 
     def _back_to_picker(self) -> None:
         self._picker_task = asyncio.create_task(self._show_picker(i18n.t("connect.gone", self.lang)))
+
+    # ---- workspace events (the /api/events stream, D85) -------------------------------------------------
+
+    async def _workspace_loop(self) -> None:
+        """The workspace's event stream, its own connection beside the session's (D85): bench and
+        definition file versions, access-port clients — what no session owns. The stream has no
+        backlog, so a reopen re-reads what was missed (the Web's #1526 self-heal) instead of
+        replaying; the app never polls for any of it."""
+        while not self._stop.is_set():
+            await self.client.workspace_stream(
+                self._on_workspace_event,
+                self._on_workspace_open,
+                self._on_workspace_close,
+                self._stop,
+            )
+            if self._stop.is_set():
+                return
+            try:
+                await asyncio.wait_for(self._stop.wait(), timeout=self._ws_backoff)
+                return
+            except TimeoutError:
+                pass
+            self._ws_backoff = min(self._ws_backoff * 2, 10.0)
+
+    def _on_workspace_open(self) -> None:
+        """The socket (re)opened. On the first open the resync runs only when a query already read
+        the server — its answer may predate a change announced to nobody (#1526); with nothing
+        read yet, the connection loop's full refresh sees the current state. A reconnect always
+        resyncs: events while no socket listened are lost for good."""
+        first = not self._workspace_opened
+        self._workspace_opened = True
+        self._ws_backoff = 1.0
+        if first and self.session_info is None:
+            return
+        self._workspace_resync()
+
+    def _workspace_resync(self) -> None:
+        """Re-derive what missed events would have said: the client set re-read, and the bench
+        file judged against the hash the session was built from — a missed ``file_changed`` lights
+        the same rebuild hint its event would have. The bench file is read once here, on a
+        (re)connect — the detection itself is the server's watcher, never a local poll."""
+        self._refresh_session_soon()
+        if self.bench_path is None:
+            return  # attach mode: the file is the server's, its events carry the changes
+        sha = _hash_file(self.bench_path)
+        if sha is not None and sha != (self.session_info or {}).get("bench_sha256"):
+            self.file_changed = True
+            self.bump()
+
+    def _on_workspace_event(self, ev: dict[str, Any]) -> None:
+        """One workspace event. ``file_changed`` names a workspace-relative file: only the
+        session's own bench file lights the rebuild hint (definitions reach the running session
+        through a rebuild, which R offers). A sid event re-reads the session: a script's
+        arrival at, or departure from, the access ports (D85)."""
+        kind = ev.get("kind")
+        if kind == "file_changed":
+            if ev.get("path") == (self.session_info or {}).get("bench_path"):
+                self.file_changed = True
+                self.bump()
+        elif kind in ("clients_changed", "sessions_changed") and ev.get("sid") == self.sid:
+            self._refresh_session_soon()
+
+    def _on_workspace_close(self, code: int | str) -> None:
+        if code == 4401:
+            self.conn = "token-invalid"
+            self._stop.set()
+            self.bump()
+            return
+        # Anything else: the loop backs off and reconnects, then re-derives what it missed
+        # (#1526) — there is no backlog to ask for (D85).
+
+    def _refresh_session_soon(self) -> None:
+        """One session re-read for the sid events and the resync, collapsed while one is
+        already in flight."""
+        if self.sid is not None and not self._session_task_running():
+            self._session_task = asyncio.create_task(self._refresh_session())
 
     # ---- events and data refresh ----------------------------------------------------------------------
 
@@ -535,26 +616,8 @@ class SimuBenchApp(App[None]):
         """Whether any instrument lists a connected client (an instrument in remote control)."""
         return any(i.get("remote") for i in (self.session_info or {}).get("instruments", []))
 
-    async def _tick_remote(self) -> None:
-        """While clients are connected, re-read who they are, as the Web Bench does (#121).
-
-        A script's disconnect raises no event, so without this the remote banner and the cards'
-        remote mark would stay until the instrument's next event."""
-        if not self.remote_held() or self.conn != "connected" or self._session_task_running():
-            return
-        self._session_task = asyncio.create_task(self._refresh_session())
-
     def _session_task_running(self) -> bool:
         return self._session_task is not None and not self._session_task.done()
-
-    def _tick_bench(self) -> None:
-        """D25: the launched bench file is hashed; a change lights the top bar's rebuild hint."""
-        if self.bench_path is None:
-            return
-        sha = _hash_file(self.bench_path)
-        if sha is not None and sha != self._bench_sha:
-            self.file_changed = True
-            self.bump()
 
     # ---- top bar data ---------------------------------------------------------------------------------
 
@@ -752,7 +815,6 @@ class SimuBenchApp(App[None]):
             return
         self.store.clear()
         self.file_changed = False
-        self._bench_sha = _hash_file(self.bench_path)
         self._dirty_instr = set()
         self._dirty_faults = False
         self.faults = []
