@@ -5,7 +5,6 @@ each opened once and reused for all of its commands (D49's flow form, not one be
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
 import pytest
@@ -27,6 +26,13 @@ def _message(header: str) -> str:
     return (":" if p.text.lstrip().startswith(":") else "") + body
 
 
+class _Ones(dict):
+    """Every ``{placeholder}`` of a state path as 1: the first channel or slot."""
+
+    def __missing__(self, key: str) -> str:
+        return "1"
+
+
 def _bool_and_ladder_commands(inst) -> list[str]:
     """The instrument's setting commands bound to a boolean or a ladder setting."""
     specs = inst.settings.specs
@@ -34,7 +40,7 @@ def _bool_and_ladder_commands(inst) -> list[str]:
     for c in inst.definition.commands:
         if not c.state or not c.set:
             continue
-        candidates = (c.state, c.state.replace("ch.", "ch1.", 1), re.sub(r"\{\w+\}", "1", c.state))
+        candidates = (c.state, c.state.replace("ch.", "ch1.", 1), c.state.format_map(_Ones()))
         path = next((p for p in candidates if p in specs), None)
         assert path is not None, f"{inst.definition.id}: {c.header} names no setting ({c.state})"
         if specs[path].type == "bool" or specs[path].ladder is not None:
