@@ -281,9 +281,9 @@ class Component:
 3. **一个模块装一段链，名字是 `<仪表>_<段>.py`。** 依赖方向是叶子块 → 驱动块：
    - 示波器：`scope.py`（通道链：探头、前端、ADC、抽取）→ `scope_trigger.py`、`scope_acquisition.py`、`scope_measurements.py`、`scope_math.py`、`scope_record.py`；
    - 频谱仪：`specan_frontend.py`（输入衰减、本振、混频、中频滤波）、`specan_detect.py`（检波、视频滤波）→ `specan.py`（迹线，驱动块）；迹线自己再按职责分给协作者（#1524）：`specan_sweep.py` 的 `Sweeper`（前端谱线与两种求值）、`specan_markers.py` 的 `Markers`（游标与峰值搜索），它们只经 `specan_state.py` 的窄协议 `TraceHost` 读迹线，迹线记住的东西是那里的三个 pydantic 状态模型（`TraceHistory`、`LinesCache`、`HoldState`）；数字后端 `specan_backend.py`（采样流）。
-4. **什么时候再拆。** 一个模块过 800 行、或一个类过 500 行就拆：先按组件类拆（零代码改动，只搬类与它的常量，模块间只许叶子 → 驱动的单向 import），类自己占了大头时再按职责拆成带协议的协作者；**不用混入类**——混入类要给宿主的成员各写一份类型桩，职责并没有分开，只是文件分开了。新模块还要在 `server/catalog.py` 的 `GROUPS` 里登记所属的家族。
+4. **什么时候再拆。** 一个模块过 800 行、或一个类的方法代码（含委托转发，不含类文档字符串与 `defaults` 一类的声明表）过 500 行就拆：先按组件类拆（零代码改动，只搬类与它的常量，模块间只许叶子 → 驱动的单向 import），类自己占了大头时再按职责拆成带协议的协作者；**不用混入类**——混入类要给宿主的成员各写一份类型桩，职责并没有分开，只是文件分开了。新模块还要在 `server/catalog.py` 的 `GROUPS` 里登记所属的家族。
 5. **协作者的写法（#1524，频谱仪迹线为样板）。** 一个类要拆成协作者时：先把它的实例状态收成几个小的 pydantic 模型（按谁读写它们分簇：历史与缓存、谱线缓存、保持状态），再把方法按职责搬进协作者类；协作者持有宿主，只经一个窄 `Protocol` 读宿主（它列出协作者需要宿主的每一样东西，所以也是协作者与宿主之间接口的全部），不读宿主的下划线成员；`@op` 方法留在组件类上（`Component.operation` 靠 `dir(type(self))` 找），方法体委托给协作者，钩子（`on_state`、`tune_marks`）同样。搬代码用脚本逐字搬、只改 `self` 的指向，不手抄。
-6. **现状。** 频谱仪各模块不超过 520 行，`SpecanTrace` 类 430 行。示波器的几个模块各约 1200–1450 行，按本节规则该拆，由 #1540 跟踪。
+6. **现状。** 频谱仪各模块不超过 520 行，`SpecanTrace` 类 430 行。示波器的四个大类（#1540）同样拆开：`ScopeMeasurements`（结果列表 `scope_results`、取值 `scope_values`、边沿 `scope_edges`、游标 `scope_cursors`、K 标记 `scope_kmarkers`、直接读数 `scope_readouts`）、`ScopeAcquisition`（帧计算 `scope_capture`、分段 `scope_segments`、记录读取 `scope_recorder`、运行控制 `scope_run`）、`ScopeTrigger`（信号源 `scope_trigger_sources`、电平穿越 `scope_trigger_crossings`、游程与毛刺 `scope_trigger_runs`、高级触发 `scope_trigger_advanced`）、`ScopeMath`（FFT `scope_math_fft`、控制 `scope_math_controls`，纯数学函数 `scope_math_ops`）；每个类一个 `<类>_host.py`，放协作者读宿主的 `Protocol` 与协作者共用的模块级定义（原模块 `as` 重新导出，外部 import 不变）。两条实践：协作者在宿主上的名字不能和宿主已有的成员（含 `Component.__init__` 设的 `channel`、`owner` 等）同名；被外部（测试、别的模块）直接读写的状态属性，在宿主上留带 setter 的属性转发，被外部调用的私有方法不改名。
 
 ## 4. 示波器：采集经采样流实现（A1）
 
