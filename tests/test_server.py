@@ -726,6 +726,23 @@ def test_watcher_announces_external_changes_once(tmp_path):
     assert [p["path"] for p in published] == ["a.bench.yaml", "a.bench.yaml"]
 
 
+def test_watcher_reads_again_when_a_same_size_write_lands_in_one_timestamp_tick(tmp_path):
+    """#1502: two same-size writes inside one timestamp tick leave mtime and size unmoved, so a
+    stat-only scan never sees the second one; the pass after a change reads the file once more."""
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    path = tmp_path / "a.bench.yaml"
+    path.write_bytes(b"schema: simubench.bench/2\nname: a\n")
+    before = path.stat()
+    watcher._pass()  # baseline
+    path.write_bytes(b"schema: simubench.bench/2\nname: b\n")  # same size
+    os.utime(path, ns=(before.st_atime_ns, before.st_mtime_ns))  # force the same tick
+    watcher._pass()
+    assert [p["path"] for p in published] == ["a.bench.yaml"]
+
+
 def test_workspace_hub_drops_events_without_a_subscriber():
     """The hub is a fan-out: publishes from any thread reach the queues, unknown kinds refuse,
     and with nobody listening nothing is kept (the stream is live, not a log)."""
