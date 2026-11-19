@@ -99,7 +99,9 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   under the CH selector, its `channel_groups` (`panelSections` / `whenHolds`, model.ts); without a
   declared panel, the summary and channel summary (`panelSettings`). Then a search over every setting
   (`findSettings`, `FIND_MAX`) and 「全部设置」 with the rest, mounted only when opened (open by
-  default up to `ALL_OPEN_MAX`). Do not hard-code an instrument's common settings in the web: they go
+  default up to `ALL_OPEN_MAX`). Build mode's inspector (`edit/EditInspector.tsx`) shows the same
+  layout through `InstrumentSettings` with its own `field` renderer (the bench file's initial settings,
+  #1576): never list an instrument's settings flat — a scope has ~1900. Do not hard-code an instrument's common settings in the web: they go
   in the definition's `display.panel` (the canvas card reads `summary`, keep it short).
 - Inspector render cost (#1299): inside 「全部设置」 a group starts open only when it is named and shows at most
   `OPEN_ROWS_MAX` rows (`groupOpen`, `model.ts`); four or more numbered groups of one prefix
