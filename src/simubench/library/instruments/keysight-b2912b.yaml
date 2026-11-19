@@ -1031,7 +1031,21 @@ channel_components:
 - name: ques
   type: status_register
   params:
-    bits: {VLIM: 0, ILIM: 1, PROT: 2, TEMP: 4, CAL: 8, TEST: 9, ILOCK: 10}
+    # Table 4-4：位 0/1/4/8/9 是本通道对应子寄存器（Table 4-7 至 4-11）的汇总——子寄存器的
+    # 事件与使能都不为 0 时才置位；两个通道的子寄存器各进本通道的这一组（条件按通道过滤）。
+    bits:
+      CH1.QUES_VOLT: 0
+      CH1.QUES_CURR: 1
+      CH1.QUES_TEMP: 4
+      CH1.QUES_CAL: 8
+      CH1.QUES_TEST: 9
+      CH2.QUES_VOLT: 0
+      CH2.QUES_CURR: 1
+      CH2.QUES_TEMP: 4
+      CH2.QUES_CAL: 8
+      CH2.QUES_TEST: 9
+      PROT: 2
+      ILOCK: 10
     enable: $ch.status.ques_enable
     ptr: $ch.status.ques_ptr
     ntr: $ch.status.ques_ntr

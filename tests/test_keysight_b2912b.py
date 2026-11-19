@@ -63,6 +63,26 @@ def test_a_compliance_limits_only_its_own_channel(smu):
     assert smu.query(":SENS2:CURR:PROT:TRIP?").strip() == "0"
 
 
+def test_questionable_summary_bits_stay_in_their_channel():
+    """#1602 / B2910-90130 Table 4-4: each channel's QUES bits 0/1 summarize that channel's
+    VOLTage/CURRent sub-registers (their event & enable), and no other channel's."""
+    s = open_bench(EXAMPLE_BENCH, idle="sleep")
+    try:
+        assert session_query(s, "smu", ":SOUR1:VOLT 5;:SENS1:CURR:PROT 1E-3;:OUTP1 ON") is None
+        assert session_query(s, "smu", ":SOUR2:VOLT 5;:SENS2:CURR:PROT 2E-4;:OUTP2 ON") is None
+        assert session_query(s, "smu", ":STAT:QUES:CURR:COND? (@1)") == "1"
+        assert session_query(s, "smu", ":STAT:QUES:CURR:COND? (@2)") == "1"
+        assert session_query(s, "smu", ":STAT:QUES:CURR:ENAB 1,(@2)") is None
+        assert session_query(s, "smu", ":STAT:QUES:ENAB 2,(@2)") is None
+        assert session_query(s, "smu", ":STAT:QUES:COND? (@2)") == "2"  # channel 2's summary
+        assert session_query(s, "smu", ":STAT:QUES:COND? (@1)") == "0"  # its sub-enable is still 0
+        assert session_query(s, "smu", "*STB?") == "8"
+        assert session_query(s, "smu", ":STAT:QUES:CURR:ENAB 0,(@2)") is None
+        assert session_query(s, "smu", ":STAT:QUES:COND? (@2)") == "0"
+    finally:
+        s.close()
+
+
 def test_the_definition_noise_distributes_and_replays(smu):
     """The built-in reading noise (specs.noise_ppm_of_range, #744): channel readings are
     independent draws around Ohm's law, and a fresh bench on the same seed replays bit for bit."""
