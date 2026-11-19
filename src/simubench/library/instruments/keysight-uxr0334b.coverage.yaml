@@ -2666,7 +2666,7 @@ sections:
   - header: :MEASure:OVERshoot
     level: implemented
     note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
-      when it cannot be measured. Of the first edge on the screen (as the guide defines it): the local maximum after a rising edge (minimum after a falling one), up to the next edge, over the top (#1332).'
+      when it cannot be measured. Of the first edge on the screen (as the guide defines it): the local maximum after a rising edge (minimum after a falling one), up to the next edge, over the top (#1332). The manual''s optional <direction> (RISing/FALLing, the first rising or falling edge from the left) is refused with -224 — the first edge on the screen is taken whatever its direction (#1351).'
   - header: :MEASure:PAM:ELEVel
     level: not_modeled
     note: 'Out of scope: application layer (C17, product-plan.md 4.2; product-plan.md section 6): jitter, eye, PAM, equalization, crosstalk and de-embedding are not rewritten in the platform; only through algorithm hosting (P4-1).'
@@ -2877,7 +2877,7 @@ sections:
   - header: :MEASure:PREShoot
     level: implemented
     note: 'query only: the command form (adding the measurement to the screen) is not modeled; 9.99999E+37
-      when it cannot be measured. Of the first edge on the screen (as the guide defines it): the local minimum before a rising edge (maximum before a falling one), from the start of the record, under the base (#1332).'
+      when it cannot be measured. Of the first edge on the screen (as the guide defines it): the local minimum before a rising edge (maximum before a falling one), from the start of the record, under the base (#1332). The manual''s optional <direction> (RISing/FALLing, the first rising or falling edge from the left) is refused with -224 — the first edge on the screen is taken whatever its direction (#1351).'
   - header: :MEASure:PTOP
     level: not_modeled
     note: 'Model work: waveform measurement on the existing measurement engine.'
