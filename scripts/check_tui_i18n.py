@@ -57,6 +57,7 @@ SHARED: dict[str, str] = {
     "fault.pending": "fault.pending",
     "fault.ended": "fault.ended",
     "cards.output": "workbench.output",
+    "cards.dcInactive": "workbench.dcInactive",
 }
 
 

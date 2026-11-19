@@ -81,6 +81,10 @@ class ControlButton(Static):
             value = "AUTO"  # the stored manual value is not the one in effect (ui-design.md 6)
         else:
             value = C.summary_text(C.control_state(info, control), control.spec, lang)
+        if control.path and C.inactive_under_dc(state, control.path):
+            # Kept and editable but not in effect for a DC output: dimmed as in the Web (#1595);
+            # the channel box's reason line says why.
+            return Text.assemble((control.label, "dim"), " ", (value, "dim"))
         if width is None:
             return Text.assemble((control.label, "dim"), " ", (value, "bold"))
         from ..fmt import cell_len
