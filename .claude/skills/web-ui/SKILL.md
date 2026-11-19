@@ -102,7 +102,8 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
   default up to `ALL_OPEN_MAX`). Build mode's inspector (`edit/EditInspector.tsx`) shows the same
   layout through `InstrumentSettings` with its own `field` renderer (the bench file's initial settings,
   #1576): never list an instrument's settings flat — a scope has ~1900. Every list of fields goes through
-  `FieldList` / `Paged` (`FIELD_PAGE` per page, a 「再显示」 button, a reveal opens its page) and groups open by
+  `FieldList` / `Paged` (`FIELD_PAGE` per page, a 「再显示」 button, a reveal opens its page and the group
+  mounted there, #1582) and groups open by
   default only within `groupsOpenByDefault`'s row budget (#1580): how many settings a list holds is up to a
   user's own definition, so nothing may mount in proportion to it. Do not hard-code an instrument's common settings in the web: they go
   in the definition's `display.panel` (the canvas card reads `summary`, keep it short).
