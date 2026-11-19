@@ -272,7 +272,7 @@ def test_a_sweep_beyond_the_model_is_refused_before_it_is_computed(sampled):
         assert session_query(s, "sa", ":FREQ:SPAN 1E9") is None
         assert session_query(s, "sa", ":BAND 1E3") is None
         st = sa.settings()
-        plan = sa._plan(st.start, st.stop, st.points)
+        plan = sa.sweeper.plan(st.start, st.stop, st.points)
         assert plan.segments * plan.cost > MAX_REQUEST_FANOUT
         assert session_query(s, "sa", ":TRAC? TRACE1") is None
         error = session_query(s, "sa", ":SYST:ERR?")
@@ -298,7 +298,7 @@ def test_the_sweep_time_is_the_tunings_times_what_each_acquires(sampled):
     assert session_query(s, "sa", ":FREQ:SPAN 2E4") is None
     assert session_query(s, "sa", ":BAND 1E2") is None
     st = sa.settings()
-    plan = sa._plan(st.start, st.stop, st.points)
+    plan = sa.sweeper.plan(st.start, st.stop, st.points)
     ddc_block = s.instruments["sa"].components["ddc"]
     decimation = round(plan.dt * 100.0e6)
     assert decimation == ddc_block.decimation_for(plan.dt) == 7812  # 100 MSa/s over 128 RBW, whole
