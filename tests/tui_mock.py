@@ -68,14 +68,6 @@ class FakeClient:
         self.ws_callbacks = (on_event, on_open, on_close)
         await stop.wait()
 
-    # ---- reading --------------------------------------------------------------------------------------
-
-    async def open(self) -> None:
-        pass
-
-    async def close(self) -> None:
-        pass
-
     http = None  # _screen goes through client.screen since #176
 
     async def catalog(self) -> list[dict[str, Any]]:
