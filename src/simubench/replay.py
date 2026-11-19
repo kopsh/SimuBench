@@ -12,6 +12,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import platform
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +20,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict
 
+from . import __version__
 from .api import open_bench
 from .engine.plugins import load_workspace_plugins
 from .engine.plugins import report as plugin_report
@@ -94,6 +96,33 @@ def _show(data: bytes | None, limit: int = 120) -> str:
         return f"<{len(data)} bytes, sha256 {hashlib.sha256(data).hexdigest()[:16]}…>"
 
 
+def _os_family(platform_string: str) -> str:
+    """``Linux``, ``Windows``, ``macOS``: the first word of ``platform.platform()``, which is the
+    part the floating-point guarantee turns on (D20); the kernel and libc versions are not."""
+    return platform_string.split("-", 1)[0]
+
+
+def _engine_warnings(header: dict[str, Any]) -> list[str]:
+    """What the record was made on, against what replays it: a different engine version, or another
+    operating system. A replay promises identical replies only on the same version and platform
+    (architecture.md 5.4, D20), so a difference found elsewhere is not necessarily the bench's."""
+    out: list[str] = []
+    made = header.get("engine")
+    if made and made != __version__:
+        out.append(
+            f"the record was made on engine {made}, this is {__version__}; differences may come from it"
+        )
+    recorded_platform = header.get("platform")
+    if recorded_platform:
+        before, now = _os_family(recorded_platform), _os_family(platform.platform())
+        if before != now:
+            out.append(
+                f"the record was made on {before}, this is {now}: replies agree within the acceptance "
+                "tolerance, not byte for byte (D20); differences may come from it"
+            )
+    return out
+
+
 def open_record(
     path: str | Path,
     *,
@@ -126,7 +155,7 @@ def open_record(
         bench, clock=clock, seed=header.get("seed"), idle=idle, definition_dirs=definition_dirs
     )
     session.replaying = True
-    warnings: list[str] = []
+    warnings = _engine_warnings(header)
     for name, want in (header.get("definitions") or {}).items():
         inst = session.instruments.get(name)
         if inst is None:
@@ -136,7 +165,6 @@ def open_record(
                 f"{name}: definition {want.get('id')} differs from the one recorded; differences may come from it"
             )
     # The same check for plugin components (D36): their code is not in the record, only its hash.
-
     have = plugin_report()
     recorded = header.get("plugins") or {}
     for name, want in recorded.items():

@@ -1,10 +1,12 @@
 """Run records keep acquisitions as recipes, and replay reproduces a run reply for reply (D36)."""
 
 import json
+import platform
 from pathlib import Path
 
 import pytest
 
+from simubench import __version__
 from simubench.api import open_bench
 from simubench.cli import main
 from simubench.models.bench import Fault
@@ -140,3 +142,27 @@ def test_a_clients_own_wait_is_recorded_and_replays(tmp_path):
     assert [e["dt_ns"] for e in waits] == [250_000_000]
     report = replay(path)
     assert report.ok, report.as_dict()
+
+
+def _rewritten_header(rec: Path, **changes) -> Path:
+    records = lines(rec)
+    records[0].update(changes)
+    rec.write_text("".join(json.dumps(r) + "\n" for r in records), encoding="utf-8")
+    return rec
+
+
+def test_replay_warns_when_the_engine_version_or_the_platform_differs(tmp_path):
+    """#1512: a replay promises identical replies on the same version and platform (D20), so a
+    record made elsewhere says so; the same machine says nothing."""
+    rec = record_run(tmp_path)
+    assert replay(rec).warnings == []  # step: same version, same platform
+    _rewritten_header(rec, engine="2020.1.1.1")
+    warnings = replay(rec).warnings
+    assert len(warnings) == 1 and "engine 2020.1.1.1" in warnings[0]  # step: another engine version
+    _rewritten_header(rec, platform="Windows-10-10.0.19045-SP0")
+    warnings = replay(rec).warnings
+    assert len(warnings) == 2 and "made on Windows" in warnings[1]  # step: another operating system
+    # step: the same family with another kernel or libc is not a difference
+    same_family = platform.platform().split("-", 1)[0] + "-1.2.3-other-with-glibc2.0"
+    _rewritten_header(rec, engine=__version__, platform=same_family)
+    assert replay(rec).warnings == []
