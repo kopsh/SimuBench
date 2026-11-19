@@ -215,7 +215,7 @@ class DataFile(Component):
             raise ScpiError(-230, f"channel {channel} has no record")
         volts = np.asarray(rec.volts, dtype=float)
         if word == "BIN":
-            now = self.session.calendar()
+            now = self.session.clock.calendar()
             acq = self._acquisition()
             data = infiniium_bin(
                 volts,

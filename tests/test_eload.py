@@ -154,7 +154,7 @@ def test_an_unsettled_loop_is_a_run_record_event_and_not_regulating(open_):
     s = open_(source_v=10.0, source_r=1.0)
     q(s, ":SOUR:FUNC CP;:SOUR:POW 30;:INP ON")
     number(s, ":MEAS:VOLT?")
-    events = [e for e in s.history if e["kind"] == "solver"]
+    events = [e for e in s.events.history if e["kind"] == "solver"]
     assert [e["reason"] for e in events] == ["unsettled"]
     assert s.unsettled
     assert s.instruments["el"].components["load"].readings()["values"]["regulating"] is False

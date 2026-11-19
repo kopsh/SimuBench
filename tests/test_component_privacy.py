@@ -30,8 +30,9 @@ def private_accesses(source: str) -> list[tuple[int, str]]:
     return accesses_in(list(ast.walk(ast.parse(source))))
 
 
-#: The session's collaborators (#1508): what they hold is as private as the session's own members.
-COLLABORATORS = ("cache", "solver")
+#: The session's collaborators (#1508, #1531): what they hold is as private as the session's own
+#: members.
+COLLABORATORS = ("cache", "solver", "clock", "events", "files")
 
 
 def _is_session(expr: ast.expr) -> bool:
@@ -80,6 +81,14 @@ def test_the_guard_sees_a_private_access():
         (2, "session.solver._solution"),
     ]
     assert private_accesses("a = session.cache.output(1, c, 'p', ctx)\nb = session.solver.unsettled\n") == []
+    # and so are the clock, the event stream and the files (#1531)
+    assert private_accesses(
+        "a = self.session.clock._scaled_base_ns\nb = session.events._listeners\nc = session.files._tmp\n"
+    ) == [(1, "session.clock._scaled_base_ns"), (2, "session.events._listeners"), (3, "session.files._tmp")]
+    assert (
+        private_accesses("t = session.clock.now_ns\nsession.events.emit(e)\nf = session.files.folder('x')\n")
+        == []
+    )
 
 
 # ---- the signal-version subscription --------------------------------------------------------------

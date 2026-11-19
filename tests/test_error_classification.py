@@ -26,7 +26,7 @@ def _open(tmp_path, model: str):
 
 
 def _last(session, kind: str = "error") -> dict:
-    return [e for e in session.history if e.get("kind") == kind][-1]
+    return [e for e in session.events.history if e.get("kind") == kind][-1]
 
 
 def test_a_command_the_coverage_marks_not_modeled(tmp_path):
@@ -112,7 +112,7 @@ def test_an_ignored_command_names_its_header(tmp_path):
         assert e["header"] == "C1:FOO"
         assert e["query"] is False
         assert e["origin"].endswith("lfcal-reference-scope.yaml")
-        assert [x for x in s.history if x.get("kind") == "error"] == []  # not an error, and no reply
+        assert [x for x in s.events.history if x.get("kind") == "error"] == []  # not an error, and no reply
     finally:
         s.close()
 

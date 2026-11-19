@@ -55,6 +55,32 @@ def _port_target(instrument: str, pname: str, target: str) -> tuple[str, str]:
     return comp, port
 
 
+class HostClock(Protocol):
+    """What the instrument reads of the bench's clock."""
+
+    mode: str
+    """``command``, ``stepped`` or a live clock (``wall``, ``scaled``): how virtual time moves."""
+
+    time_scale: float
+    """Virtual seconds per real second on a live clock."""
+
+    def calendar(self) -> dt.datetime:
+        """Calendar time now (the bench's start plus virtual time; the clock commands)."""
+        ...
+
+    def follow_wall(self) -> None:
+        """Live clock only: bring virtual time up to real time."""
+        ...
+
+
+class HostEvents(Protocol):
+    """What the instrument sends to the bench's event stream."""
+
+    def instrument_event(self, inst: Instrument, kind: str, data: dict[str, Any]) -> None:
+        """An instrument event (an error, a warning, an ignored command's classification)."""
+        ...
+
+
 @runtime_checkable
 class InstrumentHost(Protocol):
     """What the instrument layer needs of the session (#1380): :class:`Instrument`, its
@@ -67,25 +93,16 @@ class InstrumentHost(Protocol):
 
     # ---- clock / determinism ---------------------------------------------------------------------
 
-    now_ns: int
-    """Virtual time now, in ns; the instrument adds the current message's own elapsed time."""
+    @property
+    def now_ns(self) -> int:
+        """Virtual time now, in ns; the instrument adds the current message's own elapsed time."""
+        ...
 
-    clock_mode: str
-    """``command``, ``stepped`` or a live clock (``wall``, ``scaled``): how virtual time moves."""
-
-    time_scale: float
-    """Virtual seconds per real second on a live clock."""
+    clock: HostClock
+    """The bench's virtual clock (:class:`.clock.Clock`): its mode, rate and calendar."""
 
     seed: int
     """The bench's randomness seed; the instrument's drawn deviations draw from it."""
-
-    def calendar(self) -> dt.datetime:
-        """Calendar time now (the bench's start plus virtual time; the clock commands)."""
-        ...
-
-    def follow_wall(self) -> None:
-        """Live clock only: bring virtual time up to real time."""
-        ...
 
     # ---- circuit ---------------------------------------------------------------------------------
 
@@ -108,12 +125,10 @@ class InstrumentHost(Protocol):
         """A samples port's frame for one request."""
         ...
 
-    def optical_input(self, comp: Component, port: str) -> Signal:
-        """The optical power arriving at an optical input (D71)."""
-        ...
-
-    def optical_carrier(self, comp: Component, port: str) -> float | None:
-        """The wavelength of that light, None in the dark."""
+    def net_feed(self, comp: Component, port: str, medium: str) -> tuple[Component, str] | None:
+        """The one output of ``medium`` on the net at an input of ``comp`` exposed on the bench (a
+        fibre's light source, D71); None without a net or a source. One entry for every one-way
+        medium: a new one passes its own name, the host gains no member."""
         ...
 
     def solve(self) -> tuple[Solution, dict[str, Signal]]:
@@ -132,9 +147,8 @@ class InstrumentHost(Protocol):
         """A setting changed: the ``state`` event, then a sync."""
         ...
 
-    def instrument_event(self, inst: Instrument, kind: str, data: dict[str, Any]) -> None:
-        """An instrument event (an error, a warning, an ignored command's classification)."""
-        ...
+    events: HostEvents
+    """The bench's event stream (:class:`.eventbus.EventBus`)."""
 
 
 def _host_gaps(host: object) -> list[str]:
@@ -212,7 +226,7 @@ class Instrument:
         if code in self.warnings:
             return
         self.warnings[code] = message
-        self.session.instrument_event(self, "warning", {"code": code, "message": message})
+        self.session.events.instrument_event(self, "warning", {"code": code, "message": message})
 
     def _init_state(self, definition: InstrumentDefinition, instance: InstrumentInstance) -> None:
         """Settings: the definition's, per channel with the bench's overrides, then the bench file's initial values."""
@@ -504,11 +518,12 @@ class Instrument:
         remaining = int(done_ns) - self.now_ns()
         if remaining <= 0:
             return 0
-        if self.session.clock_mode == "command":
+        clock = self.session.clock
+        if clock.mode == "command":
             return remaining
-        if self.session.clock_mode in LIVE_CLOCKS:
-            time.sleep(min(remaining / 1e9 / self.session.time_scale, 5.0))
-            self.session.follow_wall()
+        if clock.mode in LIVE_CLOCKS:
+            time.sleep(min(remaining / 1e9 / clock.time_scale, 5.0))
+            clock.follow_wall()
         return 0
 
     def wait_pending(self) -> int:
@@ -655,7 +670,7 @@ class Instrument:
         except _Ignored:
             pass
         # unknown_commands: ignore — swallowed without an error or a reply, but never silently (D16).
-        self.session.instrument_event(
+        self.session.events.instrument_event(
             self,
             "ignored",
             {"header": unit.raw_header, "query": unit.query, "reason": "ignored", "origin": self.source_file},
@@ -714,7 +729,7 @@ class Instrument:
     # ---- IEEE 488.2 common commands and SYSTem ------------------------------------------------------
 
     def clock(self) -> dt.datetime:
-        return self.session.calendar() + self.clock_offset
+        return self.session.clock.calendar() + self.clock_offset
 
     # ---- observability ------------------------------------------------------------------------------
 

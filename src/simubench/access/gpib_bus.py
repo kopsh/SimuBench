@@ -71,7 +71,7 @@ class GpibBus:
         raise KeyError(name)
 
     def _emit(self, client: str, action: str, instrument: str | None = None) -> None:
-        self.session.emit(
+        self.session.events.emit(
             {
                 "kind": "bus_control",
                 "instrument": instrument,

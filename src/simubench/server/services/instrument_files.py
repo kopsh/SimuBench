@@ -1,7 +1,7 @@
 """An instrument's mass storage over the API (#1069): list the files, download one.
 
 Reads only, never through the instrument (no SCPI, no clock): the files are the folder
-``Session.instrument_files`` gives. A path is the listing's (``INT/States/a.sta``); one that would
+``Session.files.folder`` gives. A path is the listing's (``INT/States/a.sta``); one that would
 leave the instrument's folder or pass a symbolic link is refused (``PermissionError``), a missing
 instrument or file is a ``KeyError``.
 """
@@ -17,7 +17,7 @@ from ..errors import Unknown
 
 
 def listing(session: Session, name: str) -> M.InstrumentFiles:
-    root = session.instrument_files(name)
+    root = session.files.folder(name)
     files = [
         M.InstrumentFile(
             path=f.relative_to(root).as_posix(),
@@ -32,7 +32,7 @@ def listing(session: Session, name: str) -> M.InstrumentFiles:
 
 
 def read(session: Session, name: str, path: str) -> bytes:
-    root = session.instrument_files(name)
+    root = session.files.folder(name)
     parts = [p for p in path.replace("\\", "/").split("/") if p not in ("", ".")]
     if not parts or ".." in parts or ":" in path:
         raise PermissionError(f"{path!r} is not a file of {name}")

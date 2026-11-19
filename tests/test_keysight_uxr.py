@@ -489,7 +489,7 @@ def test_an_input_beyond_its_limits_overloads_and_warns(tmp_path):
             return (
                 replies,
                 dict(session.instruments["scope"].warnings),
-                [e for e in session.history if e.get("kind") == "warning"],
+                [e for e in session.events.history if e.get("kind") == "warning"],
             )
         finally:
             rm.close()

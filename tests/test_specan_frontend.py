@@ -151,14 +151,14 @@ def test_a_tuned_read_is_passive(bench):
     s = bench
     mixer = s.instruments["sa"].components["mixer"]
     before = session_query(s, "sa", ":TRAC:DATA?")
-    now, events = s.now_ns, len(s.history)
+    now, events = s.now_ns, len(s.events.history)
     with s.view():
         with s.tuned(TONE_HZ + 1e5):
             first = s.cached_output(mixer, "out")
         with s.tuned(TONE_HZ + 1e5):
             again = s.cached_output(mixer, "out")
     assert again is first  # the same tuning point reads the same
-    assert (s.now_ns, len(s.history)) == (now, events)  # no time, no event
+    assert (s.now_ns, len(s.events.history)) == (now, events)  # no time, no event
     assert session_query(s, "sa", ":TRAC:DATA?") == before  # the script's next trace is the same
 
 

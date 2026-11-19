@@ -269,7 +269,7 @@ async def test_trigger_is_the_common_trigger_command(rig):
     def run() -> None:
         link = Link(rig)
         assert link.generic(v.DEVICE_TRIGGER).int() == v.OK
-        sent = [e for e in rig.bench.history if e["kind"] == "scpi" and e.get("data") == b"*TRG"]
+        sent = [e for e in rig.bench.events.history if e["kind"] == "scpi" and e.get("data") == b"*TRG"]
         assert sent and sent[-1]["client"].startswith("vxi11:")
         link.close()
 
@@ -286,7 +286,7 @@ async def test_remote_and_local_share_the_bus_state_with_other_interfaces(rig):
         assert bus_of(state, "awg").remote_local.state == "remote"
         assert link.generic(v.DEVICE_LOCAL).int() == v.OK
         assert bus_of(state, "awg").remote_local.state == "local"
-        events = [e for e in rig.bench.history if e["kind"] == "bus_control"]
+        events = [e for e in rig.bench.events.history if e["kind"] == "bus_control"]
         assert [e["action"] for e in events[-2:]] == ["enable remote and go to remote", "go to local"]
         link.close()
 

@@ -74,7 +74,7 @@ def test_identity_and_calendar(s):
     q(s, "dmm", ":SYST:DATE 2025,1,1")  # a mis-set instrument clock, not the bench's calendar
     assert q(s, "dmm", ":SYST:DATE?") == "2025,01,01" and q(s, "src", ":SYST:DATE?") == "2026,05,07"
     assert q(s, "dmm", ":SYST:ERR?").startswith("0,")
-    assert s.calendar().isoformat().startswith("2026-05-07T10:00")
+    assert s.clock.calendar().isoformat().startswith("2026-05-07T10:00")
 
 
 def test_adjustment_with_known_truth(s):

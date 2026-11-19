@@ -132,7 +132,7 @@ def test_a_clients_own_wait_is_recorded_and_replays(tmp_path):
     """A read that timed out or an SRQ wait moves a command clock; the record keeps it and replay repeats it."""
     s = open_bench(BENCH, record_dir=tmp_path, clock="command")
     s.write("awg", b":OUTPut1:STATe ON;:SOURce1:FREQuency 1591.55\n")
-    s.wait(0.25)  # a script's timeout
+    s.clock.wait(0.25)  # a script's timeout
     s.write("scope", b":CHANnel1:SCALe 0.1;:DIGitize\n")
     s.write("scope", b":WAVeform:PREamble?\n")
     s.read("scope")

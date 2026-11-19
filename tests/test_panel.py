@@ -41,7 +41,7 @@ def test_the_front_panel_flow():
     s, served = bench()
     # -- a running screen is not an acquisition (was test_a_running_screen_is_not_an_acquisition)
     events: list[dict] = []
-    s.subscribe(events.append)
+    s.events.subscribe(events.append)
     t0, count = s.now_ns, s.instruments["scope"].components["acq"].acq_count
     frames = [screen(served) for _ in range(3)]
     assert all(f.running and f.source == "live" for f in frames)
@@ -54,7 +54,7 @@ def test_the_front_panel_flow():
     # (was test_run_and_stop_are_one_event_each_and_no_scpi; screens emit nothing, so the new
     # subscription starts empty exactly as on the original bench)
     run_events: list[dict] = []
-    s.subscribe(run_events.append)
+    s.events.subscribe(run_events.append)
     s.panel("scope", "stop")
     assert not screen(served).running
     s.panel("scope", "run")

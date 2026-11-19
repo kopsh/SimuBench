@@ -341,13 +341,13 @@ def bundle(
             sessions = []
             for sid, served in list(manager.sessions.items()):
                 s = served.session
-                errors = [e for e in list(s.history) if e.get("kind") in ("error", "fault")][-200:]
+                errors = [e for e in list(s.events.history) if e.get("kind") in ("error", "fault")][-200:]
                 sessions.append(
                     {
                         "id": sid,
                         "bench": s.bench.name,
                         "bench_path": str(served.bench_path) if served.bench_path else None,
-                        "clock": s.clock_mode,
+                        "clock": s.clock.mode,
                         "now_ns": s.now_ns,
                         "seed": s.seed,
                         "record": str(s.recorder.path) if s.recorder else None,

@@ -314,7 +314,7 @@ async def test_a_lost_reply_fault_and_the_clients_retry(served_validation):
         writer.close()
 
         # The run record carries the injection and its effect, with the source 终端.
-        events = served_session.session.history
+        events = served_session.session.events.history
         faults = [e for e in events if e.get("kind") == "fault" and e.get("source") == "tui"]
         assert any(
             f.get("fault") == fault_id or (f.get("spec") or {}).get("kind") == "timeout" for f in faults
@@ -487,7 +487,7 @@ async def test_an_error_fault_with_count_from_the_tui_path(served_validation):
             assert r.json()["source"] == "tui"
         events = [
             e
-            for e in served_validation.manager.get(sid).session.history
+            for e in served_validation.manager.get(sid).session.events.history
             if e["kind"] == "fault" and e.get("reason") == "injected"
         ]
         assert events and events[-1]["source"] == "tui" and events[-1]["spec"]["count"] == 3

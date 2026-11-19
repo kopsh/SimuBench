@@ -239,10 +239,10 @@ class ServedSession:
         self.local: set[str] = set()
         #: Why an address is not the configured one (a taken default port, #1197), for the page.
         self.port_notices: list[str] = []
-        session.subscribe(self._follow_remote)
+        session.events.subscribe(self._follow_remote)
         # The engine raises what this raises: an explicit advance refuses while scripts are
         # connected to the ports, unless confirmed (#121, issue 624).
-        session.confirm_advance = self._confirm_advance
+        session.clock.confirm_advance = self._confirm_advance
 
     # Named access to the servers that come with a bench. The registry (``servers``) is what the
     # loops read; these are for the seams that show one protocol's facts (a socket port, the
@@ -287,7 +287,7 @@ class ServedSession:
             and self.is_remote(ev.get("client"))
         ):
             self.local.discard(name)
-            self.session.emit(
+            self.session.events.emit(
                 {"kind": "remote", "instrument": name, "action": "remote", "source": ev["client"]}
             )
 
@@ -319,7 +319,9 @@ class ServedSession:
         if instrument in self.local:
             return
         self.local.add(instrument)
-        self.session.emit({"kind": "remote", "instrument": instrument, "action": "local", "source": client})
+        self.session.events.emit(
+            {"kind": "remote", "instrument": instrument, "action": "local", "source": client}
+        )
 
 
 class SessionManager:

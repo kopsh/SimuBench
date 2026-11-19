@@ -133,7 +133,7 @@ class SetupMemory(Component):
 
     def _internal(self, n: int) -> Any:
         assert self.owner is not None
-        folder = self.session.instrument_files(self.owner.name) / "_registers"
+        folder = self.session.files.folder(self.owner.name) / "_registers"
         folder.mkdir(exist_ok=True)
         return folder / f"{n}.json"
 

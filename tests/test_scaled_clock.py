@@ -59,11 +59,11 @@ def test_a_new_scale_counts_from_now_and_never_rewinds(tmp_path, wall):
     s = session(tmp_path, wall, clock="scaled", time_scale=10)
     wall.tick(1)
     assert read_now(s) == pytest.approx(10.0)
-    s.set_time_scale(2)
+    s.clock.set_time_scale(2)
     assert read_now(s) == pytest.approx(10.0)  # the change itself moves nothing
     wall.tick(1)
     assert read_now(s) == pytest.approx(12.0)
-    s.set_time_scale(100)  # speeding up
+    s.clock.set_time_scale(100)  # speeding up
     wall.tick(0.5)
     assert read_now(s) == pytest.approx(62.0)
 
@@ -72,7 +72,7 @@ def test_the_wall_clock_is_a_scale_of_one(tmp_path, wall):
     s = session(tmp_path, wall, clock="wall", time_scale=50)  # the scale is ignored on the wall clock
     wall.tick(3)
     assert read_now(s) == pytest.approx(3.0)
-    assert s.time_scale == 1.0
+    assert s.clock.time_scale == 1.0
 
 
 def test_a_scaled_clock_cannot_be_advanced_by_hand(tmp_path, wall):
@@ -84,14 +84,14 @@ def test_a_scaled_clock_cannot_be_advanced_by_hand(tmp_path, wall):
 def test_only_a_scaled_clock_takes_a_new_scale(tmp_path, wall):
     s = session(tmp_path, wall, clock="stepped")
     with raises_with(RuntimeError, "scaled"):
-        s.set_time_scale(5)
+        s.clock.set_time_scale(5)
 
 
 @pytest.mark.parametrize("bad", [0, -1, float("nan"), 2e6])
 def test_a_scale_outside_the_range_is_refused(tmp_path, wall, bad):
     s = session(tmp_path, wall, clock="scaled", time_scale=2)
     with raises_with(ValueError, "time scale"):
-        s.set_time_scale(bad)
+        s.clock.set_time_scale(bad)
 
 
 def test_the_scale_can_come_from_the_caller_instead_of_the_file(tmp_path, wall):
@@ -114,7 +114,7 @@ def test_a_scaled_record_replays_on_the_stepped_clock(tmp_path, wall):
     s.close()
     record = next((tmp_path / "rec").glob("*.jsonl*"))
     _events, replayed, _warnings = open_record(record)
-    assert replayed.clock_mode == "stepped"
+    assert replayed.clock.mode == "stepped"
 
 
 def _write(tmp_path, **run):

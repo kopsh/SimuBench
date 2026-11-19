@@ -1,7 +1,7 @@
 """An instrument's mass storage (#1069): the drives, folders and files a script reaches with
 ``MMEMory`` or ``:DISK`` commands, kept as a real folder on the engineer's computer.
 
-Each instrument of a bench has its own folder (``Session.instrument_files``: under
+Each instrument of a bench has its own folder (``Session.files.folder``: under
 ``.simubench/files/<bench>/<instrument>/`` in a workspace, a temporary folder otherwise); each
 drive the definition declares (``INT:``, ``USB:``, ``C:``) is a sub-folder of it. A path a script
 gives is resolved like the instrument resolves it — the drive, an absolute or a relative path
@@ -173,7 +173,7 @@ class FileSystem(Component):
     def _root(self) -> Path:
         """The instrument's folder, with the home folder in it (the instrument ships with it)."""
         assert self.owner is not None
-        root = self.session.instrument_files(self.owner.name)
+        root = self.session.files.folder(self.owner.name)
         drive, names = self._home()
         root.joinpath(drive, *names).mkdir(parents=True, exist_ok=True)
         return root
@@ -260,7 +260,7 @@ class FileSystem(Component):
         if data is not None:
             event["size"] = len(data)
             event["sha256"] = hashlib.sha256(data).hexdigest()
-        self.session.instrument_event(self.owner, "file", event)
+        self.session.events.instrument_event(self.owner, "file", event)
 
     def store(self, text: str, data: bytes) -> None:
         """Write ``data`` to a file (the folder must exist), replacing what it held; atomic."""

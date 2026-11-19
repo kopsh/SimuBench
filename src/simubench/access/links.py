@@ -92,8 +92,8 @@ class Link:
         self.pass_time(seconds)
 
     def pass_time(self, seconds: float) -> None:
-        """The client's own wait (not the UI's guarded advance, #121): see :meth:`Session.wait`."""
-        self.session.wait(seconds)
+        """The client's own wait (not the UI's guarded advance, #121): see :meth:`Clock.wait`."""
+        self.session.clock.wait(seconds)
 
     def wait_srq(self, timeout_ms: Any) -> bool:
         """Let time pass until a service request is there or the timeout is spent.
@@ -203,7 +203,7 @@ class NetLink(Link):
             action = bus_of(self.session, self.name).remote_local.control(int(mode))
         except (KeyError, ValueError):
             raise BusError(constants.VI_ERROR_INV_MODE, f"unknown REN mode {mode}") from None
-        self.session.emit(
+        self.session.events.emit(
             {"kind": "bus_control", "instrument": self.name, "client": self.client, "action": action}
         )
 
