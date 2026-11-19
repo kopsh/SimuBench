@@ -258,16 +258,18 @@ class DefinitionFiles:
 
     def _changes(self, def_id: str, older: dict[str, Any], newer: dict[str, Any]) -> list[M.DefinitionChange]:
         """What a version changed, in terms of the instrument it runs: both versions are compared
-        after layering (``extends`` and the category default merged in, D59), so a copy's file
-        growing from three lines to a whole command table reads as the one command it added, and an
-        inherited value overridden reads as old → new rather than as an added key. A copy's first
-        version is compared with its parent: it changes nothing yet, apart from being based on it.
-        Layering uses the parent as it is now."""
+        after layering (``extends`` and the category default merged in, ``same_as`` resolved —
+        the layering ends with it, D59, D82), so a copy's file growing from three lines to a whole
+        command table reads as the one command it added, an inherited value overridden reads as
+        old → new rather than as an added key, and a place that follows a spec with ``same_as``
+        shows the change in the value it stands for, not in the alias. A copy's first version is
+        compared with its parent: it changes nothing yet, apart from being based on it. Layering
+        uses the parent as it is now; each layer's parse comes from the loader's mtime cache."""
         source = self.files.workspace / self.rel_path(def_id)
 
         def runs(data: dict[str, Any]) -> dict[str, Any]:
-            if not isinstance(data.get("extends"), str):
-                return data
+            # A file with no ``extends`` layers too: the layering ends with ``same_as`` resolved
+            # (loader.py, what the engine runs), so the alias never compares as its literal (#1636).
             return {k: v for k, v in definitionstructure.layered(data, source).items() if k != "extends"}
 
         def base(data: dict[str, Any]) -> dict[str, Any]:
