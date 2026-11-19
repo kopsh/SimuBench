@@ -122,7 +122,9 @@ def edges(root: Path = ROOT) -> list[Edge]:
                     name = names[0]
                 if name == source:
                     continue
-                out.append(Edge(source, name, str(path.relative_to(root)), node.lineno, ".".join(mod_parts)))
+                out.append(
+                    Edge(source, name, path.relative_to(root).as_posix(), node.lineno, ".".join(mod_parts))
+                )
     return out
 
 
