@@ -45,3 +45,28 @@ def test_git_output_is_decoded_as_utf8_whatever_the_locale(monkeypatch):
 def test_git_without_stdout_gives_none_instead_of_raising(monkeypatch):
     monkeypatch.setattr(subprocess, "run", _fake_run(None))
     assert script.git("show", "HEAD:docs/progress-log.md") is None
+
+
+@pytest.mark.unit
+def test_the_archive_may_neither_lose_nor_gain_sections():
+    base = ["## a", "## b"]
+    assert script.archive_problem(["## a", "## b"], base, "abc") is None
+    lost = script.archive_problem(["## a"], base, "abc")
+    assert lost is not None and "lost sections" in lost and "## b" in lost
+    # A new entry belongs in its own file (#1505): one shared file made parallel PRs conflict.
+    added = script.archive_problem(["## a", "## b", "## c"], base, "abc")
+    assert added is not None and "docs/progress-log/<issue>-<short-name>.md" in added
+    assert "## c" in added
+
+
+@pytest.mark.unit
+def test_entry_files_are_named_by_issue_and_start_with_their_heading(tmp_path):
+    (tmp_path / "README.md").write_text("# 说明\n", encoding="utf-8")
+    (tmp_path / "1505-progress-log-per-file.md").write_text("## 条目（Issue 1505）\n", encoding="utf-8")
+    assert script.entry_problems(tmp_path) == []
+    (tmp_path / "Notes.md").write_text("## x\n", encoding="utf-8")
+    (tmp_path / "7-no-heading.md").write_text("正文\n", encoding="utf-8")
+    problems = script.entry_problems(tmp_path)
+    assert len(problems) == 2
+    assert any("Notes.md" in p and "<issue>-<short-name>.md" in p for p in problems)
+    assert any("7-no-heading.md" in p and "'## '" in p for p in problems)
