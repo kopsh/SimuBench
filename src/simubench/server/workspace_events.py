@@ -197,7 +197,13 @@ class WorkspaceWatcher:
             with self._lock:
                 # A write point may have noted this content while the file was being read: judge
                 # against what is known now, not the snapshot taken before the read (#1526).
-                known = self._known.get(rel, known)
+                current = self._known.get(rel)
+                if current is not known and current is not None and current[1] != sha:
+                    # The note landed during the read and this read is not what it noted: the
+                    # read may predate the write. Keep the note; its placeholder stat makes the
+                    # next pass read again and judge against it (#1547).
+                    continue
+                known = current
                 # A stat that just moved may still collect a write in the same timestamp tick,
                 # so the next pass reads this file once more (a verified file is not re-read).
                 self._known[rel] = (stat, sha, known is None or known[0] != stat)
