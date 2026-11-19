@@ -2288,3 +2288,23 @@ cases:
         expect_fields: [{min: -180.0, max: 180.0}]
       - query: ":MEASure:PHASe? CHANnel1,CHANnel2,FALLing"
         expect_fields: [{min: -180.0, max: 180.0}]
+
+  - name: "函数的水平方式：短格式 MAN 与长格式 MANual 都接受，MANU 报 -224 且保持原值（#1587）"
+    manual: ":FUNCtion<F> Commands > :FUNCtion<F>:HORizontal {AUTO | MANual}"
+    steps:
+      - send: ":FUNCtion1:FFTMagnitude CHANnel1"
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "AUTO"
+      - send: ":FUNCtion1:HORizontal MAN"
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "MANual"
+      - send: ":FUNCtion1:HORizontal AUTO"
+      - send: ":FUNCtion1:HORizontal manual"
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "MANual"
+      - send: ":FUNCtion1:HORizontal AUTO"
+      - send: ":FUNCtion1:HORizontal MANU"
+      - query: ":SYSTem:ERRor? STRing"
+        expect: '-224,"Illegal parameter value"'
+      - query: ":FUNCtion1:HORizontal?"
+        expect: "AUTO"
