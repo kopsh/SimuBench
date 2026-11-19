@@ -22,10 +22,17 @@ MAX_MODE_ITERATIONS = 40
 log = logging.getLogger(__name__)
 
 
+class _Events(Protocol):
+    stats: dict[str, float]
+
+    def emit(self, event: dict[str, Any]) -> None: ...
+
+
 class SolveHost(Protocol):
     """What the solver asks of its session."""
 
-    stats: dict[str, float]
+    @property
+    def events(self) -> _Events: ...
 
     @property
     def signal_version(self) -> int: ...
@@ -40,8 +47,6 @@ class SolveHost(Protocol):
     def revise(self, *, electrical: bool) -> None:
         """Count a change of the signals, and of the circuit if ``electrical``, without the sync
         an invalidation runs: the mode loop is inside a solve."""
-
-    def emit(self, event: dict[str, Any]) -> None: ...
 
 
 class Solver:
@@ -81,8 +86,8 @@ class Solver:
                 # beside it are not solving (issue 209: the suite runs four-wide under xdist).
                 started = time.thread_time()
                 sol, emf = self._solve_once()
-                host.stats["solve_seconds"] = (
-                    host.stats.get("solve_seconds", 0.0) + time.thread_time() - started
+                host.events.stats["solve_seconds"] = (
+                    host.events.stats.get("solve_seconds", 0.0) + time.thread_time() - started
                 )
                 # Piecewise-linear devices check their mode against the DC operating point.
                 changed = False
@@ -122,7 +127,7 @@ class Solver:
         for sig in emf.values():
             freqs.update(float(f) for f in set(sig.freq.tolist()))
         sol = self.circuit().solve(sorted(freqs))
-        host.stats["solves"] = host.stats.get("solves", 0) + 1
+        host.events.stats["solves"] = host.events.stats.get("solves", 0) + 1
         self._solution = (host.signal_version, sol, emf)
         return sol, emf
 
@@ -136,7 +141,7 @@ class Solver:
         if not self.unsettled:
             self.unsettled = True
             log.warning("piecewise-linear devices did not settle on a mode")
-            self._host.emit(
+            self._host.events.emit(
                 {
                     "kind": "solver",
                     "reason": "unsettled",

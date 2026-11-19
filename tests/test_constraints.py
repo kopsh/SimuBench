@@ -162,11 +162,11 @@ def test_a_refused_batch_sends_no_events_for_the_way_back():
     data = copy.deepcopy(DEF)
     data["components"] = [{"name": "c", "type": "t_combination_guard", "params": {"mode": "$acquire.mode"}}]
     session, inst, query = open_unit(data)
-    before = [e for e in session.history if e["kind"] == "state"]
+    before = [e for e in session.events.history if e["kind"] == "state"]
     query(":ACQ:BOTH SEGM,NORM")  # both settings applied, then the combination refused
     assert query(":SYST:ERR?").startswith("-221")
     assert (inst.state["acquire.mode"], inst.state["acquire.type"]) == ("RTIMe", "NORMal")
-    assert [e for e in session.history if e["kind"] == "state"] == before  # nothing became visible
+    assert [e for e in session.events.history if e["kind"] == "state"] == before  # nothing became visible
     query(":ACQ:MODE SEGM;:ACQ:TYPE NORM")  # a single-write command is judged as its own batch too
     assert query(":SYST:ERR?").startswith("-221")
     assert inst.state["acquire.mode"] == "RTIMe"

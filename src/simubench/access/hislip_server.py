@@ -671,7 +671,7 @@ class HislipServer:
             except KeyError:
                 await sess.send_error(writer, ERR_UNRECOGNIZED_CONTROL, b"unrecognized control code")
                 return
-            self.session.emit(
+            self.session.events.emit(
                 {"kind": "hislip", "instrument": sess.instrument, "client": sess.client, "action": action}
             )
             writer.write(_pack(ASYNC_REMOTE_LOCAL_RESPONSE))

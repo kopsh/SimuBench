@@ -62,7 +62,7 @@ def test_set_parameter_writes_and_emits_once(tmp_path):
     s = open_protocol(tmp_path)
     try:
         seen: list[dict] = []
-        unsubscribe = s.subscribe(seen.append)
+        unsubscribe = s.events.subscribe(seen.append)
         s.set_parameter("rc", "", "r", 1234.0, client="t")
         assert s.components["rc"].param("r") == 1234.0
         hidden = [e for e in seen if e.get("kind") == "hidden"]

@@ -169,7 +169,7 @@ def test_dcl_clears_every_device(bus):
 
 def test_get_triggers_the_addressed_devices_only(bus):
     bus.command(bytes([UNL, MLA | 7, GET]))
-    triggers = [e for e in bus.session.history if e["kind"] == "scpi" and e.get("data") == b"*TRG"]
+    triggers = [e for e in bus.session.events.history if e["kind"] == "scpi" and e.get("data") == b"*TRG"]
     assert [e["instrument"] for e in triggers] == ["dmm"]
 
 
@@ -209,7 +209,7 @@ def test_ifc_unaddresses_the_bus_but_leaves_the_devices_alone(bus):
     bus.send_ifc()
     assert bus.listeners == [] and bus.talker is None and not bus.spe
     assert has_reply(bus, "cal")  # interface clear is not a device clear
-    assert [e["action"] for e in bus.session.history if e["kind"] == "bus_control"][-1] == "GPIB0: IFC"
+    assert [e["action"] for e in bus.session.events.history if e["kind"] == "bus_control"][-1] == "GPIB0: IFC"
 
 
 def test_atn_is_a_line_the_controller_sets(bus):
@@ -230,7 +230,7 @@ def test_visa_clear_is_sdc_and_trigger_is_get(bus):
     bus.trigger("dmm")
     assert any(
         e.get("data") == b"*TRG" and e["instrument"] == "dmm"
-        for e in bus.session.history
+        for e in bus.session.events.history
         if e["kind"] == "scpi"
     )
 

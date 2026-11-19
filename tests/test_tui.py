@@ -62,7 +62,7 @@ def test_client_header_defaults_to_ui(served_api):
         headers={"X-SimuBench-Client": "tui"},
     )
     assert r.status_code == 200
-    clients = [e.get("client") for e in manager.get(sid).session.history if e["kind"] == "scpi"]
+    clients = [e.get("client") for e in manager.get(sid).session.events.history if e["kind"] == "scpi"]
     assert "ui" in clients and "tui" in clients
 
 
@@ -531,7 +531,9 @@ async def test_api_client_sends_the_tui_header(served):
         await tui.client.open()
         assert tui.client.http.headers["x-simubench-client"] == "tui"
         await tui.client.scpi(sid, "awg", "*IDN?")
-        clients = [e.get("client") for e in served.manager.get(sid).session.history if e["kind"] == "scpi"]
+        clients = [
+            e.get("client") for e in served.manager.get(sid).session.events.history if e["kind"] == "scpi"
+        ]
         assert "tui" in clients
         await tui.client.close()
 

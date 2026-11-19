@@ -592,7 +592,7 @@ class Vxi11Server(_RpcServer):
         if not await self._guard(link, lock_timeout):
             return _error(E_LOCKED)
         action = bus_of(self.session, link.instrument).remote_local.control(code)
-        self.session.emit(
+        self.session.events.emit(
             {"kind": "bus_control", "instrument": link.instrument, "client": link.client, "action": action}
         )
         return _error(OK)

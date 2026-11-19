@@ -24,7 +24,7 @@ def test_long_command_run_stays_fast_and_bounded():
         s.write("awg", b":SOURce1:FREQuency?\n")
         s.read("awg")
     assert time.perf_counter() - started < 10.0  # ~0.9 s measured
-    assert len(s.history) <= 20_000  # the in-memory event history is a ring, not a leak
+    assert len(s.events.history) <= 20_000  # the in-memory event history is a ring, not a leak
     tracemalloc.start()
     before, _ = tracemalloc.get_traced_memory()
     for _ in range(5_000):
@@ -54,8 +54,10 @@ def test_many_instruments():
         s.write(f"scope{i % n}", b":DIGitize;:MEASure:VPP? CHANnel1\n")
         assert s.read(f"scope{i % n}")
     assert time.perf_counter() - started < 15.0
-    assert s.stats["solves"] >= 100  # every change was solved, not served stale
-    assert s.stats["solve_seconds"] / s.stats["solves"] < 0.05  # per-solve budget for a 40-node circuit
+    assert s.events.stats["solves"] >= 100  # every change was solved, not served stale
+    assert (
+        s.events.stats["solve_seconds"] / s.events.stats["solves"] < 0.05
+    )  # per-solve budget for a 40-node circuit
     s.close()
 
 

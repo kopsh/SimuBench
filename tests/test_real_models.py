@@ -209,7 +209,7 @@ def test_device_specific_error_text_from_the_table(acme):
 def test_not_modeled_commands_are_marked_in_the_event_history(acme):
     inst, bench = acme
     inst.write("CURR:NPLC 1")
-    errors = [e for e in bench.history if e.get("kind") == "error"]
+    errors = [e for e in bench.events.history if e.get("kind") == "error"]
     assert errors[-1]["reason"] == "not_modeled"
     assert errors[-1]["code"] == -113 and "CURR:NPLC" in errors[-1]["message"]
 

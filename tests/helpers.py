@@ -327,6 +327,26 @@ def wait_for_free_ports(ports, timeout: float = 60.0, host: str = "127.0.0.1") -
 # ---- the instrument seam's fake host (#1380) -------------------------------------------------------
 
 
+class FakeClock:
+    """The fake host's clock: stepped, so nothing ever follows the wall."""
+
+    mode = "stepped"
+    time_scale = 1.0
+
+    def calendar(self) -> dt.datetime:
+        return dt.datetime(2026, 1, 1)
+
+    def follow_wall(self) -> None:
+        pass  # a stepped clock never follows the wall
+
+
+class FakeEvents(list):
+    """The fake host's event stream: the events themselves, in order, as dicts with their ``kind``."""
+
+    def instrument_event(self, inst, kind: str, data: dict) -> None:
+        self.append({"kind": kind, **data})
+
+
 class FakeHost:
     """The instrument seam's fake session (``InstrumentHost``, #1380): just what building an
     Instrument and running its command pipeline touch — no circuit, no time. The routing sweep
@@ -340,19 +360,10 @@ class FakeHost:
 
     def __init__(self) -> None:
         self.seed = 1
-        self.clock_mode = "stepped"
-        self.time_scale = 1.0
         self.now_ns = 0
+        self.clock = FakeClock()
         self.port_net: dict[str, str] = {}
-        self.events: list[dict] = []
-
-    # ---- clock / determinism ----
-
-    def calendar(self) -> dt.datetime:
-        return dt.datetime(2026, 1, 1)
-
-    def follow_wall(self) -> None:
-        pass  # a stepped clock never follows the wall
+        self.events = FakeEvents()
 
     # ---- circuit ----
 
@@ -368,11 +379,8 @@ class FakeHost:
     def cached_frames(self, comp, port, request):
         raise AssertionError("the fake host has no frames: the pipeline must not read frames")
 
-    def optical_input(self, comp, port):
-        raise AssertionError("the fake host has no optics: the pipeline must not read them")
-
-    def optical_carrier(self, comp, port):
-        raise AssertionError("the fake host has no optics: the pipeline must not read them")
+    def net_feed(self, comp, port, medium):
+        raise AssertionError("the fake host has no nets: the pipeline must not follow a fibre")
 
     def solve(self):
         raise AssertionError("the fake host solves nothing: the pipeline must not solve")
@@ -393,9 +401,6 @@ class FakeHost:
                 "source": source,
             }
         )
-
-    def instrument_event(self, inst, kind: str, data: dict) -> None:
-        self.events.append({"kind": kind, **data})
 
 
 def seam_instrument(definition, name: str = "x", host: FakeHost | None = None, options=()):

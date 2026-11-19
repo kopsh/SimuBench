@@ -18,6 +18,10 @@ if TYPE_CHECKING:
     from ..models.bench import BenchDefinition, Wire
     from .component import Component
 
+#: The media a bench wire may end on: the circuit's nodes and the one-way links of a non-electrical
+#: medium (a fibre, D71). A new wired medium is named here, not in the session.
+WIRED_MEDIA: tuple[str, ...] = ("electrical", "optical")
+
 
 class UnionFind:
     """Union-find over strings, with path halving; :meth:`groups` lists members in insertion

@@ -195,7 +195,7 @@ def _log_clock_and_fault_tools(mcp: MCPServer, ctx: McpContext) -> None:
         guard()
         s = served(session_id)
         with s.session.view():
-            history = list(s.session.history)
+            history = list(s.session.events.history)
         events = []
         for ev in history:
             if ev.get("eid", 0) <= after:
@@ -208,7 +208,7 @@ def _log_clock_and_fault_tools(mcp: MCPServer, ctx: McpContext) -> None:
             if len(events) >= limit:
                 break
         last = events[-1]["seq"] if events else after
-        return {"events": events, "next": last, "latest": s.session.event_id}
+        return {"events": events, "next": last, "latest": s.session.events.event_id}
 
     @mcp.tool()
     def advance_clock(
@@ -296,7 +296,7 @@ def _fault_clear_and_truth_tools(mcp: MCPServer, ctx: McpContext) -> None:
         from ..engine.calibration import register_view
 
         s = served(session_id).session
-        now = s.calendar()
+        now = s.clock.calendar()
         return {"calendar": now.isoformat(), "assets": register_view(s.bench.assets, now.date())}
 
     @mcp.tool()

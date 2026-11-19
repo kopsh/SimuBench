@@ -354,7 +354,7 @@ def _net_and_clock_routes(ctx: ApiContext, router: APIRouter) -> None:
         from ...engine.calibration import register_view
 
         s = served(sid).session
-        now = s.calendar()
+        now = s.clock.calendar()
         return M.AssetRegister(calendar=now.isoformat(), assets=register_view(s.bench.assets, now.date()))
 
     @router.get(

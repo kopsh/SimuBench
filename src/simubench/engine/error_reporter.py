@@ -71,7 +71,7 @@ class ErrorReporter:
             value = getattr(err, key)
             if value is not None:
                 data[key] = value
-        self.inst.session.instrument_event(self.inst, "error", data)
+        self.inst.session.events.instrument_event(self.inst, "error", data)
 
     def _error_reply(self, err: ScpiError) -> bytes:
         """An error queue entry as :SYSTem:ERRor? writes it, in the manual's form for a real model."""

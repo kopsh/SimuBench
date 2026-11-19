@@ -351,7 +351,9 @@ async def test_an_unchanged_script_drives_the_running_bench(gpib_rig):
     assert out.returncode == 0, out.stderr
     assert out.stdout.startswith("FLUKE,5730A")
     events = [
-        e for e in gpib_rig.bench.history if e["kind"] == "scpi" and e.get("client", "").startswith("bench:")
+        e
+        for e in gpib_rig.bench.events.history
+        if e["kind"] == "scpi" and e.get("client", "").startswith("bench:")
     ]
     assert events  # the service's own event stream shows who talked to the bench
 

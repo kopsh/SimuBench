@@ -9,6 +9,7 @@ semantics.
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -18,11 +19,11 @@ from simubench.library.components.trigger import Triggerable
 pytestmark = pytest.mark.unit
 
 
-class Clock:
+class Session:
     """The session's clock: the mode the primitive collapses a firing on."""
 
     def __init__(self, mode: str) -> None:
-        self.clock_mode = mode
+        self.clock = SimpleNamespace(mode=mode)
 
 
 class FakeOwner:
@@ -32,7 +33,7 @@ class FakeOwner:
 
     def __init__(self, clock: str = "command") -> None:
         self.now = 1_000_000  # ns
-        self.session = Clock(clock)
+        self.session = Session(clock)
         self.pending: dict[str, tuple[int, Any]] = {}
         self.canceled = 0
 

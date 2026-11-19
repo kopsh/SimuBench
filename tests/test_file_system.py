@@ -97,7 +97,7 @@ def test_a_host_path_lands_inside_the_instruments_folder():
     with session() as s:
         ask(s, 'MMEM:DOWN:FNAM "/tmp/escape.txt"')  # an absolute path on the current drive
         assert last_error(s) == -256  # INT:\tmp does not exist
-        root = s.instrument_files("awg")
+        root = s.files.folder("awg")
         assert not any(root.rglob("escape.txt"))
 
 
@@ -107,7 +107,7 @@ def test_a_symbolic_link_is_never_followed(tmp_path):
     outside.mkdir()
     (outside / "secret.txt").write_text("secret")
     with session(files_dir=tmp_path / "files") as s:
-        root = s.instrument_files("awg")
+        root = s.files.folder("awg")
         ask(s, "MMEM:CAT?")  # the drive folders exist
         (root / "INT" / "link").symlink_to(outside, target_is_directory=True)
         assert ask(s, 'MMEM:UPL? "INT:\\link\\secret.txt"') is None
@@ -158,7 +158,7 @@ def test_files_persist_across_runs_of_a_bench(tmp_path):
 def test_without_a_files_folder_the_files_go_with_the_session():
     s = session()
     ask(s, 'MMEM:DOWN:FNAM "INT:\\t.csv"')
-    root = s.instrument_files("awg")
+    root = s.files.folder("awg")
     assert (root / "INT" / "t.csv").exists()
     s.close()
     assert not root.exists()

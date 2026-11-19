@@ -136,7 +136,7 @@ def test_a_view_that_runs_out_of_budget_leaves_no_event(slow_chain):
     session, reduce, _ = _session(1e-9)
     with pytest.raises(ComputeAborted):
         _read(session, reduce)
-    assert [e for e in session.history if e["kind"] == "abort"] == []
+    assert [e for e in session.events.history if e["kind"] == "abort"] == []
 
 
 def test_a_read_outside_an_action_or_a_view_has_no_budget(slow_chain):

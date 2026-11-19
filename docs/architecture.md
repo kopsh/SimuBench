@@ -189,7 +189,7 @@
 
 光端口（介质 `optical`）上传递的是光功率（W）的信号描述：强度包络的直流与谱线，与电信号同一种 `Signal`，所以衰减、滤波、调制都是精确的线性运算。载波只带波长（#1103）：光源的 `carrier(port)` 给出被求值时刻的波长，光器件默认传下去，读的一方用 `input_carrier(port)`；与波长有关的块按自己仪表设定的波长取校准，到达的波长不同就读偏。相位、偏振、线宽不建模。
 
-- **连接**：仪表内部按定义的连线；测试台上光纤把一个光输出接到若干光输入（`Session.optical_input` 在网络里找唯一的光输出）。光器件（`optical_attenuator`）作为 `parts` 串在两段光纤之间。
+- **连接**：仪表内部按定义的连线；测试台上光纤把一个光输出接到若干光输入（组件经 `Session.net_feed(comp, port, "optical")` 在网络里找唯一的光输出）。光器件（`optical_attenuator`）作为 `parts` 串在两段光纤之间。
 - **转换**：`optical_source` 把电驱动变成光功率（平均功率、消光比、驱动摆幅；偏置点附近线性），`optical_receiver` 把光功率变成电压（响应度 × 跨阻，带宽与响应形状），并读平均光功率。
 - **噪声**：信号描述不带噪声；接收器的等效输入光噪声（`noise_w`）由取记录的块与采样器自身的噪声按方差相加（等效时间采样，#1094）。
 - **验证**：`sb-otx-1` → `optical_attenuator` → `sb-oe-1` → 示波器（`validation/benches/optical_link.bench.yaml`，`tests/test_optical.py`）。

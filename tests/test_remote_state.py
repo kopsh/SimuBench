@@ -120,7 +120,9 @@ def test_local_until_the_scripts_next_command(served):
         assert r.status_code == 409
 
         kinds = [
-            (e["action"], e["source"]) for e in manager.get(sid).session.history if e["kind"] == "remote"
+            (e["action"], e["source"])
+            for e in manager.get(sid).session.events.history
+            if e["kind"] == "remote"
         ]
         assert kinds[0] == ("local", "ui") and kinds[1][0] == "remote" and kinds[1][1].startswith("socket:")
 

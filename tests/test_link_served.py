@@ -72,7 +72,7 @@ def test_the_events_name_the_connected_script(served):
     finally:
         rm.close()
     session = manager.sessions[info["id"]].session
-    clients = {e.get("client") for e in session.history if e["kind"] == "scpi"}
+    clients = {e.get("client") for e in session.events.history if e["kind"] == "scpi"}
     assert any(label and label.startswith("bench:") for label in clients)
 
 

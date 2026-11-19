@@ -169,13 +169,13 @@ def test_the_refusal_flow(scope):
     assert sds.query(":TRIGger:EDGE:LEVel?").strip() == "0.00E+00"
     sds.write(":TIMebase:DELay 1")  # at most 5 div
     assert sds.query(":TIMebase:DELay?").strip() == "0.00E+00"
-    refused = [e for e in session.history if e.get("kind") == "error" and e["code"] == -222]
+    refused = [e for e in session.events.history if e.get("kind") == "error" and e["code"] == -222]
     assert len(refused) == 3 + 1  # scale, scale, level, delay
     # -- only the common commands of the manual answer (was
     # test_only_the_common_commands_of_the_manual_answer)
     sds.write("*CLS")
     sds.write(":SYSTem:ERRor?")
-    errors = [e for e in session.history if e.get("kind") == "error"]
+    errors = [e for e in session.events.history if e.get("kind") == "error"]
     # The model's builtins are *IDN, *OPC and *RST (D45): the rest is excluded, not a modeling gap.
     assert [e.get("reason") for e in errors[-2:]] == ["builtin_excluded", "builtin_excluded"]
     assert sds.query("*OPC?").strip() == "1"  # and nothing was queued for the script to read
@@ -183,10 +183,10 @@ def test_the_refusal_flow(scope):
     # test_commands_the_model_does_not_have_are_refused) #132: settings that would change
     # acquisition or the trigger path are refused, not stored.
     sds.write(":ACQuire:MMANagement AUTO;:CHANnel:REFerence OFFSet;:TRIGger:EDGE:HLDEVent EVENT")
-    errors = [e for e in session.history if e.get("kind") == "error"]
+    errors = [e for e in session.events.history if e.get("kind") == "error"]
     assert [e["code"] for e in errors[-3:]] == [-113, -113, -113]
     sds.write(":ACQuire:MODE ROLL")  # the scope acquires in YT only
-    refused = [e for e in session.history if e.get("kind") == "error"]
+    refused = [e for e in session.events.history if e.get("kind") == "error"]
     assert refused[-1]["code"] in (-222, -224)
     # YT is what the scope acquires in, and PEAK/ERES are implemented processing modes (D46).
     sds.write(":ACQuire:MODE YT;:ACQuire:TYPE PEAK")
