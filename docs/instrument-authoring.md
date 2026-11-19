@@ -273,7 +273,7 @@ iip3_dbm:
 - **数字块**：端口介质 `samples`，覆盖 `frames(port, request)` 与 `sample_interval(port)`，按帧拉取采样（`engine/stream.py` 的 `FrameRequest` → `SampleFrame`；`kind` 为 `volts | codes | iq | bins`）。现有的通用数字块：`specan_ddc`（数字下变频，输出 `iq`）、`specan_rbw`（加窗 FFT，输出 `bins`）；示波器的 `scope_decimator` 与 `scope_dsp_filter`（ADC 之后的数字带宽滤波，#1262）。
 - **ADC 是两域的边界**：`adc`（通用，固定满量程）输入 `signal`、输出 `samples`；示波器用 `scope_adc`（满量程跟随垂直设置）。数字域没有回到模拟域的块。
 
-块的标题默认是组件类型的名字。同一类型出现两次、或类型名会让人误读块在链路里的角色时，组件可以写自己的 `label`（内部结构图与构建区的块标题）和 `description`（块详情里、类型说明之前的一段话），例如 UXR 的 `probe`（`scope_probe`）写成「探头换算（倍率/偏斜/反相）」，说明物理探头在面板端口之外；`isim` 写成「InfiniiSim 滤波」，与前端的垂直通道区分（#1261）。两者只影响显示，不影响求解。
+块的标题默认是组件类型的名字。同一类型出现两次、或类型名会让人误读块在链路里的角色时，组件可以写自己的 `label`（内部结构图与构建区的块标题）和 `description`（块详情里、类型说明之前的一段话），例如 UXR 的 `probe`（`scope_probe`）写成「探头换算（倍率/偏斜/反相）」，说明物理探头在面板端口之外；`isim` 写成「带宽限制滤波（ISIM 命令组）」（只建模带宽限制，InfiniiSim 去嵌入未建模），与前端的垂直通道区分（#1261、#1275）。两者只影响显示，不影响求解。
 
 连线照常写在 `wiring`（`[源.端口, 目标.端口]`），定义校验按介质检查：
 
