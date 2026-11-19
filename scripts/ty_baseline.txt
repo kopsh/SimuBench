@@ -128,10 +128,8 @@ src/simubench/pytest_plugin.py:missing-attribute Object of type `VisaLibraryBase
 src/simubench/scpi/values.py:invalid-argument-type Argument to function `parse_float` is incorrect: Expected `str | None`, found `float | None`
 src/simubench/server/benchchanges.py:invalid-argument-type Argument is incorrect: Expected `Literal["added", "removed", "changed"]`, found `str`
 src/simubench/server/benchfiles.py:invalid-argument-type Argument is incorrect: Expected `Literal["part", "accessory", "internal"]`, found `str & ~Literal["internal"]`
-src/simubench/server/benchfiles.py:invalid-argument-type Argument to bound method `History.record` is incorrect: Expected `tuple[bytes, str, str] | None`, found `None | tuple[bytes, str | None, str]`
 src/simubench/server/catalog.py:invalid-argument-type Argument is incorrect: Expected `Literal["part", "accessory", "internal"]`, found `str`
 src/simubench/server/definitionchanges.py:invalid-argument-type Argument is incorrect: Expected `Literal["added", "removed", "changed"]`, found `str`
-src/simubench/server/definitionfiles.py:invalid-argument-type Argument to bound method `History.record` is incorrect: Expected `tuple[bytes, str, str] | None`, found `None | tuple[bytes, str | None, str]`
 src/simubench/server/internals_links.py:invalid-argument-type Argument is incorrect: Expected `Literal["self", "wire", "ref", "select"]`, found `str`
 src/simubench/server/manager.py:deprecated The overload of `contextmanager` is deprecated: Annotating the return type as `-> Iterator[Foo]` with `@contextmanager` is deprecated. Use `-> Generator[Foo]` instead.
 src/simubench/server/routes/context.py:missing-attribute Object of type `SessionManager` has no attribute `assistant`
