@@ -123,4 +123,4 @@ def test_a_draft_without_a_hint_writes_the_generic_fallback_class():
 def test_the_definition_format_is_spelled_once():
     """Every writer of a definition file (the saves, the drafts, the templates) imports FORMAT;
     the model's ``schema`` Literal spells the same name, and the guard pins the two together."""
-    assert FORMAT == InstrumentDefinition.model_fields["schema_"].default
+    assert InstrumentDefinition.model_fields["schema_"].default == FORMAT
