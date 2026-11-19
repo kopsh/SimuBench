@@ -1241,28 +1241,28 @@ sections:
   - {header: ':STATus:QUEStionable:VOLTage[:EVENt]', level: implemented, note: '过压（VLIM）；条件变为真时锁存，读后清零。'}
   - {header: ':STATus:QUEStionable:VOLTage:CONDition', level: implemented, note: '过压（VLIM）。'}
   - {header: ':STATus:QUEStionable:VOLTage:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
-  - {header: ':STATus:QUEStionable:VOLTage:PTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the PTRansition command is not modeled', gap: model_work}
-  - {header: ':STATus:QUEStionable:VOLTage:NTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the NTRansition command is not modeled', gap: model_work}
+  - {header: ':STATus:QUEStionable:VOLTage:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:VOLTage:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
   - {header: ':STATus:QUEStionable:CURRent[:EVENt]', level: implemented, note: '过流（ILIM）；条件变为真时锁存，读后清零。'}
   - {header: ':STATus:QUEStionable:CURRent:CONDition', level: implemented, note: '过流（ILIM）。'}
   - {header: ':STATus:QUEStionable:CURRent:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
-  - {header: ':STATus:QUEStionable:CURRent:PTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the PTRansition command is not modeled', gap: model_work}
-  - {header: ':STATus:QUEStionable:CURRent:NTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the NTRansition command is not modeled', gap: model_work}
+  - {header: ':STATus:QUEStionable:CURRent:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:CURRent:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
   - {header: ':STATus:QUEStionable:TEMPerature[:EVENt]', level: implemented, note: '过温（未建模，恒 0）；条件变为真时锁存，读后清零。'}
   - {header: ':STATus:QUEStionable:TEMPerature:CONDition', level: implemented, note: '过温（未建模，恒 0）。'}
   - {header: ':STATus:QUEStionable:TEMPerature:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
-  - {header: ':STATus:QUEStionable:TEMPerature:PTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the PTRansition command is not modeled', gap: model_work}
-  - {header: ':STATus:QUEStionable:TEMPerature:NTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the NTRansition command is not modeled', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEMPerature:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEMPerature:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
   - {header: ':STATus:QUEStionable:CALibration[:EVENt]', level: implemented, note: '校准失败（未建模，恒 0）；条件变为真时锁存，读后清零。'}
   - {header: ':STATus:QUEStionable:CALibration:CONDition', level: implemented, note: '校准失败（未建模，恒 0）。'}
   - {header: ':STATus:QUEStionable:CALibration:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
-  - {header: ':STATus:QUEStionable:CALibration:PTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the PTRansition command is not modeled', gap: model_work}
-  - {header: ':STATus:QUEStionable:CALibration:NTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the NTRansition command is not modeled', gap: model_work}
+  - {header: ':STATus:QUEStionable:CALibration:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:CALibration:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
   - {header: ':STATus:QUEStionable:TEST[:EVENt]', level: implemented, note: '自检失败（未建模，恒 0）；条件变为真时锁存，读后清零。'}
   - {header: ':STATus:QUEStionable:TEST:CONDition', level: implemented, note: '自检失败（未建模，恒 0）。'}
   - {header: ':STATus:QUEStionable:TEST:ENABle', level: implemented, note: '十进制掩码 0–65535，越界 -222；*RST 不改，STATus:PRESet 清 0。'}
-  - {header: ':STATus:QUEStionable:TEST:PTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the PTRansition command is not modeled', gap: model_work}
-  - {header: ':STATus:QUEStionable:TEST:NTRansition', level: not_modeled, note: 'five questionable sub-registers share the default transition filters (PTR 32767, NTR 0); the NTRansition command is not modeled', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEST:PTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；PTRansition 命令未实现', gap: model_work}
+  - {header: ':STATus:QUEStionable:TEST:NTRansition', level: not_modeled, note: '五个可疑子寄存器共用默认跳变过滤（PTR 32767、NTR 0）；NTRansition 命令未实现', gap: model_work}
   - {header: ':STATus:PRESet', level: implemented, note: '全部寄存器的使能清 0，PTR 恢复 32767、NTR 清 0；事件不变。'}
 - section: SYSTem Subsystem
   commands:
