@@ -391,3 +391,29 @@ cases:
       - send: 'MMEM:STOR:DATA RDG_STORE,"INT:\MyDAQ.dat"'
       - query: "SYST:ERR?"
         expect: '-257,"File name error"'
+
+  - name: "通道量程查询回实际使用的档位：自动量程时不回占位 0，DEF 是自动量程（#1466）"
+    manual: "[SENSe:]VOLTage:{AC|DC}:RANGe（Default: AUTO；选固定量程即关闭自动量程）"
+    steps:
+      - send: "*RST"
+      - query: ":SENS:VOLT:DC:RANG? (@101)"
+        expect: "+1.00000000E-01"
+      - query: "CONF? (@101)"
+        expect_prefix: '"VOLT +1.00000000E-01,'
+      - send: ":SENS:VOLT:DC:RANG 5,(@101)"
+      - query: ":SENS:VOLT:DC:RANG? (@101)"
+        expect: "+1.00000000E+01"
+      - query: ":SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "0"
+      - send: ":SENS:VOLT:DC:RANG DEF,(@101)"
+      - query: ":SENS:VOLT:DC:RANG:AUTO? (@101)"
+        expect: "1"
+      - query: ":SENS:VOLT:DC:RANG? (@101)"
+        expect: "+1.00000000E-01"
+      - send: ":SENS:VOLT:DC:RANG MAX,(@101)"
+      - query: ":SENS:VOLT:DC:RANG? (@101)"
+        expect: "+3.00000000E+02"
+      - query: ":SENS:RES:RANG? (@101)"
+        expect_prefix: "+"
+      - query: "SYST:ERR?"
+        expect: '+0,"No error"'

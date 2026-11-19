@@ -432,9 +432,12 @@ commands:
     params:
       - {name: nplc, type: float, min: 0.001, max: 200.0, state: ch.nplc}
       - {name: channels, type: channel_list, optional: true, default: $scan.list}
+  # 量程查询回该通道实际使用的档位（自动量程时取当前档，不回占位 0）；DEF 按手册是 AUTO（#1466）。
   - header: "[:SENSe]:VOLTage:DC:RANGe"
+    op: scan.range
+    args: {function: DC, state: range, auto_state: range_auto, unit: V}
     params:
-      - {name: range, type: float, unit: V, state: ch.range, sets: {ch.range_auto: false}}
+      - {name: value, type: string, optional: true}
       - {name: channels, type: channel_list}
   - header: "[:SENSe]:VOLTage:DC:RANGe:AUTO"
     params:
@@ -449,8 +452,10 @@ commands:
       - {name: nplc, type: float, min: 0.001, max: 200.0, state: ch.nplc}
       - {name: channels, type: channel_list, optional: true, default: $scan.list}
   - header: "[:SENSe]:RESistance:RANGe"
+    op: scan.range
+    args: {function: RES, state: res_range, auto_state: range_auto, unit: OHM}
     params:
-      - {name: range, type: float, unit: OHM, state: ch.res_range, sets: {ch.range_auto: false}}
+      - {name: value, type: string, optional: true}
       - {name: channels, type: channel_list}
   - header: "[:SENSe]:CURRent[:DC]:NPLCycles"
     params:

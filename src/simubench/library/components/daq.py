@@ -419,6 +419,60 @@ class ScanTable(Component):
         detail = self._dmm().op_configure().response or b""
         return OpResult(b'"' + (word.encode() + b" " if word else b"") + detail + b'"')
 
+    @op("range")
+    def op_range(
+        self,
+        query: bool = False,
+        channel: int | None = None,
+        function: str = "DC",
+        state: str = "range",
+        auto_state: str = "range_auto",
+        unit: str | None = None,
+        value: Any = None,
+        **_: Any,
+    ) -> OpResult:
+        """``[SENSe:]<function>:RANGe {<range>|MIN|MAX|DEF},(@<list>)`` per channel (#1466).
+
+        The query answers the range the channel measures on — the DMM's range in use for that
+        channel's configuration, the auto-chosen one under autorange — never the 0 that stands for
+        AUTO in the channel's setting; MIN/MAX answer the function's smallest and largest range.
+        A write of a range or MIN/MAX selects that fixed range and leaves autorange; DEF is the
+        manual's default, AUTO (DAQ97-90002 [SENSe:]VOLTage:{AC|DC}:RANGe: "Default: AUTO"): the
+        0 placeholder with autorange on."""
+        assert self.owner is not None and channel is not None
+        ranges = self._dmm()._conditioning().ranges(function)
+        if not ranges:
+            raise ScpiError(-221, f"{self.uid}: no ranges for the {function} function")
+        # a string parameter: MIN/MAX/DEF stay words here, away from the binding layer
+        first = None if value is None or str(value).strip() == "" else str(value).strip()
+        word = (first or "").upper()
+        digits = int(self._dmm().param("digits"))
+        if query:
+            if word.startswith("MIN"):
+                return OpResult(V.format_float(min(ranges), digits))
+            if word.startswith("MAX"):
+                return OpResult(V.format_float(max(ranges), digits))
+            self.configure_for(channel)
+            r = self._dmm().effective_range(function)
+            if r is None:  # pragma: no cover - ranges exist (checked above)
+                raise ScpiError(-221, f"{self.uid}: no range in use")
+            return OpResult(V.format_float(r, digits))
+        if first is None:
+            raise ScpiError(-109)
+        if word.startswith("DEF"):
+            number, auto = 0.0, True
+        elif word.startswith("MIN"):
+            number, auto = float(min(ranges)), False
+        elif word.startswith("MAX"):
+            number, auto = float(max(ranges)), False
+        else:
+            number, auto = float(V.parse_float(first.encode(), unit)), False
+            if not 0 < number <= max(ranges) * (1 + 1e-12):
+                raise ScpiError(-222)
+        self.owner.set_state(f"ch{channel}.{state}", number)
+        self.owner.set_state(f"ch{channel}.{auto_state}", auto)
+        return OpResult()
+
     # ---- panel / status --------------------------------------------------------------------------
 
     def readings(self) -> dict[str, Any]:
