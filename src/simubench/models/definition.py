@@ -1110,8 +1110,9 @@ class InstrumentDefinition(_Model):
     )
     builtins: list[str] | None = Field(
         None,
-        description="Built-in headers this model answers (e.g. ['*IDN', '*OPC', '*RST']); the others are not "
-        "modeled. Default: all of them",
+        description="Optional built-in headers this model answers (*TRG, :SYSTem:ERRor?, ...); the others are not "
+        "modeled. The IEEE 488.2 mandatory commands (*IDN *RST *CLS *OPC *WAI *ESR *ESE *SRE *STB *TST) always "
+        "answer. Default: all of them",
     )
     error_queue: int | None = Field(
         None, ge=2, description="Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)"
