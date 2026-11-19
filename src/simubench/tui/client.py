@@ -29,22 +29,35 @@ class SessionGone(ApiError):
     """The session no longer exists (404): back to the picker with a reason."""
 
 
+def _ws_base(base_url: str) -> str:
+    """The base URL as a WebSocket URL: the same host, the ws/wss scheme."""
+    url = base_url.rstrip("/")
+    if url.startswith("https://"):
+        return "wss://" + url[len("https://") :]
+    if url.startswith("http://"):
+        return "ws://" + url[len("http://") :]
+    return url
+
+
 def ws_url(base_url: str, sid: str, token: str | None = None, since: int = 0) -> str:
     """The events WebSocket of a session, with the token when one is set and the ``since`` cursor
     when the caller already holds events — a reconnect asks the server for the tail after its
     last seq instead of the whole history (#1632)."""
-    url = base_url.rstrip("/")
-    if url.startswith("https://"):
-        url = "wss://" + url[len("https://") :]
-    elif url.startswith("http://"):
-        url = "ws://" + url[len("http://") :]
-    out = f"{url}/api/sessions/{sid}/events"
+    out = f"{_ws_base(base_url)}/api/sessions/{sid}/events"
     query = []
     if token:
         query.append(f"token={token}")
     if since:
         query.append(f"since={since}")
     return f"{out}?{'&'.join(query)}" if query else out
+
+
+def workspace_url(base_url: str, token: str | None = None) -> str:
+    """The workspace's events WebSocket (``/api/events``, D85), token included when one is set.
+    No cursor: the stream has no backlog, so a reconnecting client re-reads what it may have
+    missed instead of replaying (the Web's #1526 rule)."""
+    out = f"{_ws_base(base_url)}/api/events"
+    return f"{out}?token={token}" if token else out
 
 
 class ApiClient:
@@ -73,6 +86,19 @@ class ApiClient:
     def http(self) -> httpx.AsyncClient:
         assert self._http is not None, "ApiClient.open() first"
         return self._http
+
+    async def workspace_stream(
+        self,
+        on_event: Any,  # callable[[dict], None]
+        on_open: Any,  # callable[[], None]
+        on_close: Any,  # callable[[int | str], None]
+        stop: asyncio.Event,
+    ) -> None:
+        """One connection to the workspace's event stream (``/api/events``, D85), pumped until
+        ``stop`` is set or the socket ends: ``file_changed`` for bench and definition files,
+        ``clients_changed``/``sessions_changed`` for what no session owns. No backlog and no
+        ``since`` — the app's reconnect re-reads (its resync), it does not replay."""
+        await stream_events(workspace_url(self.base_url, self.token), on_event, on_open, on_close, stop)
 
     async def _request(self, method: str, path: str, ok: tuple[int, ...] = (200,), **kwargs: Any) -> Any:
         try:

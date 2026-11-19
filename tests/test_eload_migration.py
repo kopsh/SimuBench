@@ -3,21 +3,26 @@ sequences on ``sb-el-1``, recorded before the monolithic ``electronic_load`` com
 
 The split (input / power stage / mode loop / meter / protection) must leave every row unchanged.
 The first bench has a 5 V source (CC and CR operate normally); the second a source below the
-constant-current knee (``r_min`` limits the sink).
+constant-current knee (``r_min`` limits the sink). ``tests/data/eload_gold.json`` holds the
+recording in the one gold step shape (#1635); re-record it with
+``uv run python tests/record_gold.py eload``.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 import pytest
 
-from helpers import record_rows, require_gold
+from helpers import record_steps, require_gold
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFS = ROOT / "validation" / "instruments"
+GOLD_FILE = ROOT / "tests" / "data" / "eload_gold.json"
+GOLD = json.loads(GOLD_FILE.read_text()) if GOLD_FILE.exists() else {}
 
 NORMAL_SEQUENCE: list[tuple[str, str]] = [
     ("el", "*IDN?"),
@@ -56,42 +61,11 @@ KNEE_SEQUENCE: list[tuple[str, str]] = [
     ("el", ":SYST:ERR?"),
 ]
 
-#: (instrument, command, reply, ns consumed) — recorded on the electronic_load implementation.
-EXPECTED_NORMAL: list[tuple[str, str, str | None, int]] = [
-    ("el", "*IDN?", "SIMUBENCH,SB-EL-1,SBEL0000001,1.0.0", 0),
-    ("el", "*RST", None, 0),
-    ("el", ":SOUR:FUNC?", "CC", 0),
-    ("el", ":SOUR:CURR?", "+0.000000E+00", 0),
-    ("el", ":SOUR:RES?", "+1.000000E+03", 0),
-    ("el", ":INP?", "0", 0),
-    ("el", ":MEAS:VOLT?", "+5.0000000E+00", 0),
-    ("el", ":MEAS:CURR?", "+0.0000000E+00", 0),
-    ("el", ":INP ON", None, 0),
-    ("el", ":SOUR:CURR 0.002", None, 0),
-    ("el", ":MEAS:VOLT?", "+5.0000000E+00", 0),
-    ("el", ":MEAS:CURR?", "+2.0000000E-03", 0),
-    ("el", ":MEAS:POW?", "+1.0000000E-02", 0),
-    ("el", ":SOUR:CURR 0.003", None, 0),
-    ("el", ":MEAS:CURR?", "+3.0000000E-03", 0),
-    ("el", ":SOUR:FUNC CR", None, 0),
-    ("el", ":SOUR:RES 1000", None, 0),
-    ("el", ":MEAS:CURR?", "+5.0000000E-03", 0),
-    ("el", ":MEAS:POW?", "+2.5000000E-02", 0),
-    ("el", ":SOUR:FUNC CC", None, 0),
-    ("el", ":SOUR:CURR 0.01", None, 0),
-    ("el", ":MEAS:CURR?", "+1.0000000E-02", 0),
-    ("el", ":INP OFF", None, 0),
-    ("el", ":MEAS:VOLT?", "+5.0000000E+00", 0),
-    ("el", ":MEAS:CURR?", "+0.0000000E+00", 0),
-    ("el", ":SYST:ERR?", '0,"No error"', 0),
-]
-EXPECTED_KNEE: list[tuple[str, str, str | None, int]] = [
-    ("el", ":INP ON", None, 0),
-    ("el", ":SOUR:CURR 0.002", None, 0),
-    ("el", ":MEAS:VOLT?", "+4.9998638E-05", 0),
-    ("el", ":MEAS:CURR?", "+1.3623607E-03", 0),
-    ("el", ":SYST:ERR?", '0,"No error"', 0),
-]
+#: case name -> (the source the bench faces, its resistance, the sequence to walk).
+CASES: dict[str, tuple[float, float, list[tuple[str, str]]]] = {
+    "normal": (5.0, 1e-6, NORMAL_SEQUENCE),
+    "knee": (5.0e-5, 1e-6, KNEE_SEQUENCE),
+}
 
 
 def bench(source_v: float, source_r: float) -> BenchDefinition:
@@ -112,23 +86,30 @@ def bench(source_v: float, source_r: float) -> BenchDefinition:
     )
 
 
-def run_sequence(session, sequence: list[tuple[str, str]]) -> list[tuple[str, str, str | None, int]]:
-    return record_rows(session, sequence)
-
-
 @pytest.mark.parametrize(
-    ("source_v", "source_r", "sequence", "expected", "name"),
-    [
-        (5.0, 1e-6, NORMAL_SEQUENCE, EXPECTED_NORMAL, "normal"),
-        (5.0e-5, 1e-6, KNEE_SEQUENCE, EXPECTED_KNEE, "knee"),
-    ],
+    ("source_v", "source_r", "sequence", "name"),
+    [(source_v, source_r, sequence, name) for name, (source_v, source_r, sequence) in CASES.items()],
 )
-def test_replies_and_virtual_time_are_unchanged(source_v, source_r, sequence, expected, name):
+def test_replies_and_virtual_time_are_unchanged(source_v, source_r, sequence, name):
     session = open_bench(bench(source_v, source_r), definition_dirs=[DEFS])
     try:
         # Under sleep there is no wall-clock idle to bill, so no warm-up is needed before the
         # recorded rows: the first command loads the definition without moving the clock (D47).
-        got = run_sequence(session, sequence)
+        got = record_steps(session, sequence)
     finally:
         session.close()
-    require_gold(got, expected, f"EXPECTED_{name.upper()}")
+    require_gold(got, GOLD.get(name, {}).get("steps", []), f"{GOLD_FILE.name}[{name}]")
+
+
+def record() -> None:
+    """Re-record both benches into ``tests/data/eload_gold.json`` (``tests/record_gold.py`` calls
+    this): walk each sequence on its bench, the way the test above compares it."""
+    recorded = {}
+    for name, (source_v, source_r, sequence) in CASES.items():
+        session = open_bench(bench(source_v, source_r), definition_dirs=[DEFS])
+        try:
+            recorded[name] = {"steps": record_steps(session, sequence)}
+        finally:
+            session.close()
+    GOLD_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {GOLD_FILE.relative_to(ROOT)}")

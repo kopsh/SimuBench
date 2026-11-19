@@ -487,6 +487,39 @@ async def test_file_changed_shows_hint_and_r_rebuilds(served, tmp_path):
         await stop_uvicorn(server, thread)
 
 
+async def test_a_scripts_connect_and_disconnect_reach_the_tui_through_the_workspace_stream(served):
+    """The workspace stream announces the access ports' clients (D85): a script connecting and
+    leaving shows and clears in the TUI at once — no poll re-reads for it any more."""
+    served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")
+    sid = served_session.id
+    port = served.http().get(f"/api/sessions/{sid}/instruments/scope").json()["scpi_port"]
+    tui = SimuBenchApp(served.url, sid=sid)
+    writer: asyncio.StreamWriter | None = None
+    try:
+        async with tui.run_test(size=(100, 32)) as pilot:
+            await wait_connected(pilot, tui)
+            assert not tui.remote_held()
+
+            _reader, writer = await asyncio.open_connection("127.0.0.1", port)
+            end = loop_time() + 5
+            while loop_time() < end and not tui.remote_held():
+                await pilot.pause(0.05)
+            assert tui.remote_held(), "the script's arrival never showed"
+            remote = next(i["remote"] for i in tui.session_info["instruments"] if i["name"] == "scope")
+            assert remote, "the session payload lists no client"
+
+            writer.close()
+            end = loop_time() + 5
+            while loop_time() < end and tui.remote_held():
+                await pilot.pause(0.05)
+            assert not tui.remote_held(), "the script's departure never cleared"
+            remote = next(i["remote"] for i in tui.session_info["instruments"] if i["name"] == "scope")
+            assert not remote
+    finally:
+        if writer is not None:
+            writer.close()
+
+
 async def test_quit_with_clients_connected_confirms(served):
     """q with a script connected (launched service): the confirm dialog; cancel keeps running."""
     served_session = await served.start("siglent_scope_rc.bench.yaml", seed=7, clock="command")

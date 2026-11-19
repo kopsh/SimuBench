@@ -72,6 +72,28 @@ def test_compliance_turns_a_5_v_source_into_1_ma_into_the_1_kohm_dut():
         assert float(q(s, ":MEAS:CURR?")) == pytest.approx(0.001, abs=4 * noise_sigma(1.0e-3))
         assert q(s, ":SENS:CURR:PROT:TRIP?") == "1"
         assert q(s, ":SENS:VOLT:PROT:TRIP?") == "0"
+        assert q(s, ":STAT:QUES:CURR:COND?") == "1"  # the current sub-register sees ILIM
+    finally:
+        s.close()
+
+
+def test_questionable_current_summary_follows_its_sub_register_enable():
+    """#1602 / B2910-90130 Table 4-4: QUES bit 1 is the CURRent sub-register's summary (event &
+    enable), so clearing that sub-register's enable clears the QUES condition bit too."""
+    s = session()
+    try:
+        assert q(s, ":SOUR:FUNC:MODE VOLT;:SOUR:VOLT 5;:SENS:CURR:PROT 0.001;:OUTP ON") is None
+        assert q(s, ":STAT:QUES:CURR:COND?") == "1"
+        assert q(s, ":STAT:QUES:COND?") == "0"  # the sub-register's enable is still 0
+        assert q(s, ":STAT:QUES:ENAB 2") is None
+        assert q(s, "*STB?") == "0"
+        assert q(s, ":STAT:QUES:CURR:ENAB 1") is None
+        assert q(s, ":STAT:QUES:COND?") == "2"  # 1 << 1: current summary
+        assert q(s, "*STB?") == "8"  # the QUES summary bit in the status byte
+        assert q(s, ":STAT:QUES:EVEN?") == "2"
+        assert q(s, "*STB?") == "0"  # reading the event cleared the summary
+        assert q(s, ":STAT:QUES:CURR:ENAB 0") is None
+        assert q(s, ":STAT:QUES:COND?") == "0"
     finally:
         s.close()
 
@@ -85,6 +107,21 @@ def test_current_source_into_the_dut_is_1_v_at_1_ma():
         assert float(q(s, ":MEAS:CURR?")) == pytest.approx(0.001, abs=4 * noise_sigma(1.0e-3))
         assert float(q(s, ":MEAS:VOLT?")) == pytest.approx(0.001 * RESISTANCE, abs=4 * noise_sigma(2.0))
         assert q(s, ":SENS:VOLT:PROT:TRIP?") == "0"
+    finally:
+        s.close()
+
+
+def test_questionable_voltage_summary_follows_its_sub_register_enable():
+    """#1602 / Table 4-4: QUES bit 0 is the VOLTage sub-register's summary."""
+    s = session()
+    try:
+        assert q(s, ":SOUR:FUNC:MODE CURR;:SOUR:CURR 0.001;:SENS:VOLT:PROT 0.5;:OUTP ON") is None
+        assert q(s, ":STAT:QUES:VOLT:COND?") == "1"
+        assert q(s, ":STAT:QUES:COND?") == "0"
+        assert q(s, ":STAT:QUES:VOLT:ENAB 1") is None
+        assert q(s, ":STAT:QUES:COND?") == "1"  # 1 << 0: voltage summary
+        assert q(s, ":STAT:QUES:VOLT:ENAB 0") is None
+        assert q(s, ":STAT:QUES:COND?") == "0"
     finally:
         s.close()
 

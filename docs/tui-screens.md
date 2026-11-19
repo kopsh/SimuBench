@@ -73,7 +73,7 @@ TUI 只调用以下接口（D18），不新增端点；括号内是本文规定�
 
 | 数据 | 接口 | 何时读取 |
 | --- | --- | --- |
-| 会话、仪表列表、元件、连线、网络、客户端 | `GET /api/sessions/{sid}`（网页的定时轮询用 `?state=values`，只取设置的值，`build` 变化时才整取，#1299） | 启动、重连、收到 `session` / `remote` 事件；有客户端连着任一仪表时另外每 2 s 一次（与网页的客户端轮询同频）：脚本断开不发事件，否则远程提示与卡片的远程标记要等该仪表的下一个事件才消失 |
+| 会话、仪表列表、元件、连线、网络、客户端 | `GET /api/sessions/{sid}`（网页的定时轮询用 `?state=values`，只取设置的值，`build` 变化时才整取，#1299） | 启动、重连、收到 `session` / `remote` 事件；收到工作区事件流的 `clients_changed` / `sessions_changed` 后（脚本连上或离开接入端口、会话启停，#1633）：远程提示与卡片的远程标记随重读即时跟随，不再定时轮询补抓 |
 | 一台仪表的状态、错误队列、面板 | `GET /api/sessions/{sid}/instruments/{name}` | 收到该仪表的 `state` / `error` / `scpi` 事件后（同一仪表 100 ms 内合并为一次） |
 | 只读读数 | `GET …/instruments/{name}/readings` | 同上；墙钟模式另外每秒一次 |
 | 网络电平与缩略图 | `GET /api/sessions/{sid}/levels` | 任一 `state` 事件后（200 ms 内合并） |
@@ -81,6 +81,7 @@ TUI 只调用以下接口（D18），不新增端点；括号内是本文规定�
 | 示波器屏幕 | `GET …/instruments/{name}/screen`（**新增可选参数 `points`**） | 示波器屏幕可见时：运行中每 200 ms，停止时只在 `acquisition` / `state` 事件后 |
 | 故障 | `GET` / `POST …/faults`、`DELETE …/faults/{id}` | 打开故障对话框、收到 `fault` 事件 |
 | 事件流 | WebSocket `…/events` | 常连；断开后重连并以 backlog 补齐（按 `seq` 去重） |
+| 工作区事件流 | WebSocket `/api/events`（D85，#1633） | 常连：`file_changed`（本会话的测试台文件）点亮「文件已改 · R 重建」——替代本地每 2 s 的整文件哈希；`clients_changed` / `sessions_changed` 重读会话。无 backlog：重连后先重读（测试台文件与构建哈希比对一遍、客户端集合重读），不重放 |
 | 时钟 | `GET …/clock`、`POST …/clock/advance`、`POST …/clock/scale` | 顶栏；墙钟模式每秒刷新显示 |
 | 写操作 | `POST …/scpi`、`…/configure`、`…/panel`、`…/local` | 用户操作；请求都带**请求头 `X-SimuBench-Client: tui`**（新增） |
 | 运行记录 | `GET /api/runs`、`GET /api/runs/{id}`、`POST /api/runs/{id}/replay` | 打开运行记录屏幕 |

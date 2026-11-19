@@ -1,109 +1,28 @@
 """sb-smu-1 on the generic trigger model and reading buffer (#94): replies, virtual time and the
-run record of the commands the SMU tests and the acceptance scenario use are unchanged."""
+run record of the commands the SMU tests and the acceptance scenario use are unchanged.
+
+``tests/data/smu_gold.json`` holds the recording in the one gold step shape (#1635) — recorded on
+the smu_core implementation this migration replaced, re-recordable with
+``uv run python tests/record_gold.py smu``. A ``None`` reply: the command answers nothing (and may
+have queued an error).
+"""
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
 import pytest
 
-from helpers import require_gold, send_timed
+from helpers import record_steps, require_gold
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 from simubench.replay import replay
 
-# (command, reply, ns consumed by the message) — generated on the smu_core implementation this
-# migration replaced; None: the command answers nothing (and may have queued an error).
-EXPECTED: list[tuple[str, str | None, int]] = [
-    ("*IDN?", "SIMUBENCH,SB-SMU-1,SBSMU000001,1.0.0", 0),
-    ("*RST", None, 0),
-    (":SOUR:FUNC?;:SOUR:VOLT?;:SENS:CURR:PROT?;:OUTP?", "VOLT;+0.000000E+00;+1.050000E-04;0", 0),
-    (":OUTP ON;:SENS:CURR:PROT 0.01;:SOUR:VOLT 5", None, 0),
-    (":MEAS?", "+5.0000000E+00,+5.0005000E-03,+9.9990001E+02,+5.2405000E-02,+0.0000000E+00", 52405000),
-    (
-        ":SENS:CURR:PROT 0.004;:MEAS?",
-        "+3.9996000E+00,+4.0000000E-03,+9.9990001E+02,+5.2405000E-02,+8.0000000E+00",
-        52405000,
-    ),
-    (":OUTP:REG?;:STAT:MEAS:COND?;:SENS:CURR:PROT:TRIP?", "CC;16384;1", 0),
-    (
-        ":SOUR:FUNC CURR;:SOUR:CURR 0.002;:SENS:VOLT:PROT 1.5;:MEAS?",
-        "+1.5000000E+00,+1.5001500E-03,+9.9990001E+02,+5.2405000E-02,+8.0000000E+00",
-        52405000,
-    ),
-    (
-        ":SOUR:FUNC VOLT;:SOUR:VOLT 8;:MEAS?",
-        "+3.9996000E+00,+4.0000000E-03,+9.9990001E+02,+5.2405000E-02,+8.0000000E+00",
-        52405000,
-    ),
-    (":SYST:ERR?", '0,"No error"', 0),
-    (
-        ":SENS:CURR:NPLC 0.1;:MEAS?",
-        "+3.9996000E+00,+4.0000000E-03,+9.9990001E+02,+7.4050000E-03,+8.0000000E+00",
-        7405000,
-    ),
-    (":SENS:CURR:NPLC 11", None, 0),
-    (":SYST:LFR 55", None, 0),
-    (":SYST:ERR?", '-222,"Data out of range"', 0),
-    (
-        ":SOUR:SWE:VOLT:LIN 0,0.8,5,0;:READ?",
-        "+0.0000000E+00,+0.0000000E+00,+9.9100000E+37,+7.4050000E-03,+0.0000000E+00,+2.0000000E-01,+2.0002000E-04,+9.9990001E+02,+1.4810000E-02,+0.0000000E+00,+4.0000000E-01,+4.0004000E-04,+9.9990001E+02,+2.2215000E-02,+0.0000000E+00,+6.0000000E-01,+6.0006000E-04,+9.9990001E+02,+2.9620000E-02,+0.0000000E+00,+8.0000000E-01,+8.0008000E-04,+9.9990001E+02,+3.7025000E-02,+0.0000000E+00",
-        37025000,
-    ),
-    (
-        ":TRAC:POIN:ACT?;:FETC?",
-        "5;+0.0000000E+00,+0.0000000E+00,+9.9100000E+37,+7.4050000E-03,+0.0000000E+00,+2.0000000E-01,+2.0002000E-04,+9.9990001E+02,+1.4810000E-02,+0.0000000E+00,+4.0000000E-01,+4.0004000E-04,+9.9990001E+02,+2.2215000E-02,+0.0000000E+00,+6.0000000E-01,+6.0006000E-04,+9.9990001E+02,+2.9620000E-02,+0.0000000E+00,+8.0000000E-01,+8.0008000E-04,+9.9990001E+02,+3.7025000E-02,+0.0000000E+00",
-        0,
-    ),
-    (":TRAC:CLE;:TRAC:POIN:ACT?", "0", 0),
-    (":FETC?", None, 0),
-    (":SYST:ERR?", '-222,"Data out of range; line frequency is 50 or 60 Hz"', 0),
-    (
-        ":SOUR:SWE:VOLT:LOG 0.01,10,7,0;:READ?",
-        "+1.0000000E-02,+1.0001000E-05,+9.9990001E+02,+7.4050000E-03,+0.0000000E+00,+3.1622777E-02,+3.1625939E-05,+9.9990001E+02,+1.4810000E-02,+0.0000000E+00,+1.0000000E-01,+1.0001000E-04,+9.9990001E+02,+2.2215000E-02,+0.0000000E+00,+3.1622777E-01,+3.1625939E-04,+9.9990001E+02,+2.9620000E-02,+0.0000000E+00,+1.0000000E+00,+1.0001000E-03,+9.9990001E+02,+3.7025000E-02,+0.0000000E+00,+3.1622777E+00,+3.1625939E-03,+9.9990001E+02,+4.4430000E-02,+0.0000000E+00,+3.9996000E+00,+4.0000000E-03,+9.9990001E+02,+5.1835000E-02,+8.0000000E+00",
-        51835000,
-    ),
-    (
-        ':SOUR:SWE:VOLT:LIST "-8,-2,0,2,8";:READ?',
-        "-3.9996000E+00,-4.0000000E-03,+9.9990001E+02,+7.4050000E-03,+8.0000000E+00,-2.0000000E+00,-2.0002000E-03,+9.9990001E+02,+1.4810000E-02,+0.0000000E+00,+0.0000000E+00,+0.0000000E+00,+9.9100000E+37,+2.2215000E-02,+0.0000000E+00,+2.0000000E+00,+2.0002000E-03,+9.9990001E+02,+2.9620000E-02,+0.0000000E+00,+3.9996000E+00,+4.0000000E-03,+9.9990001E+02,+3.7025000E-02,+8.0000000E+00",
-        37025000,
-    ),
-    (
-        ":SOUR:SWE:VOLT:LIST -8,-2,0,2,8;:READ?",
-        "-3.9996000E+00,-4.0000000E-03,+9.9990001E+02,+7.4050000E-03,+8.0000000E+00,-2.0000000E+00,-2.0002000E-03,+9.9990001E+02,+1.4810000E-02,+0.0000000E+00,+0.0000000E+00,+0.0000000E+00,+9.9100000E+37,+2.2215000E-02,+0.0000000E+00,+2.0000000E+00,+2.0002000E-03,+9.9990001E+02,+2.9620000E-02,+0.0000000E+00,+3.9996000E+00,+4.0000000E-03,+9.9990001E+02,+3.7025000E-02,+8.0000000E+00",
-        37025000,
-    ),
-    (
-        ":SOUR:VOLT 2;:MEAS?",
-        "+2.0000000E+00,+2.0002000E-03,+9.9990001E+02,+7.4050000E-03,+0.0000000E+00",
-        7405000,
-    ),
-    (":SOUR:SWE:VOLT:LIN 0,0.8,5,0;:INIT", None, 0),
-    ("*OPC?", "1", 37025000),
-    (
-        ":FETC?",
-        "+0.0000000E+00,+0.0000000E+00,+9.9100000E+37,+7.4050000E-03,+0.0000000E+00,+2.0000000E-01,+2.0002000E-04,+9.9990001E+02,+1.4810000E-02,+0.0000000E+00,+4.0000000E-01,+4.0004000E-04,+9.9990001E+02,+2.2215000E-02,+0.0000000E+00,+6.0000000E-01,+6.0006000E-04,+9.9990001E+02,+2.9620000E-02,+0.0000000E+00,+8.0000000E-01,+8.0008000E-04,+9.9990001E+02,+3.7025000E-02,+0.0000000E+00",
-        0,
-    ),
-    (":SOUR:SWE:VOLT:LIN 0,8,1,0", None, 0),
-    (":SOUR:SWE:VOLT:LIN 0,8,2501,0", None, 0),
-    (":SOUR:SWE:VOLT:LIN 0,211,9,0", None, 0),
-    (":SOUR:SWE:CURR:LIN 0,1.1,9,0", None, 0),
-    (":SOUR:SWE:VOLT:LOG -1,10,5,0", None, 0),
-    (
-        ":SYST:ERR?;:SYST:ERR?;:SYST:ERR?;:SYST:ERR?;:SYST:ERR?",
-        '-230,"Data corrupt or stale; the buffer is empty";-222,"Data out of range";-222,"Data out of range";-222,"Data out of range";-222,"Data out of range"',
-        0,
-    ),
-    (
-        ":SENS:CURR:PROT 1;:SOUR:VOLT 50;:MEAS?",
-        "+5.0000000E+01,+5.0005000E-02,+9.9990001E+02,+7.4050000E-03,+0.0000000E+00",
-        7405000,
-    ),
-    (
-        ":SOUR:VOLT 200;:MEAS?",
-        "+1.0498950E+02,+1.0500000E-01,+9.9990001E+02,+7.4050000E-03,+8.0000000E+00",
-        7405000,
-    ),
-]
+ROOT = Path(__file__).resolve().parents[1]
+DEFS = ROOT / "validation" / "instruments"
+GOLD_FILE = ROOT / "tests" / "data" / "smu_gold.json"
+GOLD = json.loads(GOLD_FILE.read_text()) if GOLD_FILE.exists() else {}
 
 
 def bench() -> BenchDefinition:
@@ -172,17 +91,29 @@ SEQUENCE = (
 
 @pytest.fixture
 def s():
-    session = open_bench(bench())
+    session = open_bench(bench(), definition_dirs=[DEFS])
     yield session
     session.close()
 
 
-def run_sequence(s) -> list[tuple[str, str | None, int]]:
-    return [(cmd, *send_timed(s, "smu", cmd)) for cmd in SEQUENCE]
+def run_sequence(s) -> list[dict]:
+    return record_steps(s, [("smu", cmd) for cmd in SEQUENCE])
 
 
 def test_replies_and_virtual_time_are_unchanged(s):
-    require_gold(run_sequence(s), EXPECTED, "EXPECTED")
+    require_gold(run_sequence(s), GOLD.get("steps", []), GOLD_FILE.name)
+
+
+def record() -> None:
+    """Re-record the SMU sequence into ``tests/data/smu_gold.json`` (``tests/record_gold.py``
+    calls this): walk the sequence on the bench, the way the test above compares it."""
+    session = open_bench(bench(), definition_dirs=[DEFS])
+    try:
+        recorded = {"steps": run_sequence(session)}
+    finally:
+        session.close()
+    GOLD_FILE.write_text(json.dumps(recorded, indent=1) + "\n")
+    print(f"wrote {GOLD_FILE.relative_to(ROOT)}")
 
 
 def test_the_record_replays(tmp_path):
