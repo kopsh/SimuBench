@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 import yaml
 from fastapi.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from simubench.server.app import _host_ok, create_app
 from simubench.server.manager import SessionManager
@@ -84,6 +85,62 @@ def test_event_stream(client):
                 assert ev["text"].startswith(":FREQ 2000")
                 break
         assert "scpi" in kinds
+
+
+def test_event_stream_since_sends_only_the_tail():
+    """#1632: ``seq`` is the event's stable cursor in the session (the same event carries the
+    same seq on every connect), and ``since`` asks the server for the events after the client's
+    last one — so a reconnect sends the missed tail instead of the whole history again."""
+    manager = SessionManager(ROOT / "validation", scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+
+    def read_until(ws, command: str) -> list[dict]:
+        """The stream's events up to the one carrying the command's reply, which is the last the
+        command produces; more than a command's worth without it means the stream broke."""
+        out = []
+        for _ in range(10):
+            ev = ws.receive_json()
+            out.append(ev)
+            if ev["kind"] == "scpi" and str(ev.get("text", "")).startswith(command):
+                return out
+        raise AssertionError(f"the {command} reply never arrived, got {out}")
+
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+
+        with c.websocket_connect(f"/api/sessions/{sid}/events?token={TOKEN}", headers={"host": "127.0.0.1"}) as ws:
+            c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":FREQ 2000"})
+            first = read_until(ws, ":FREQ 2000")
+            seqs = [ev["seq"] for ev in first]
+            assert seqs == sorted(set(seqs))  # the live stream, strictly increasing from the start
+        last = first[-1]["seq"]
+        c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":FREQ 3000"})
+
+        with c.websocket_connect(
+            f"/api/sessions/{sid}/events?token={TOKEN}&since={last}", headers={"host": "127.0.0.1"}
+        ) as ws:
+            missed = read_until(ws, ":FREQ 3000")
+            missed_seqs = [ev["seq"] for ev in missed]
+            assert missed_seqs[0] == last + 1  # the tail only — the client holds everything before
+            c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":FREQ 4000"})
+            live = read_until(ws, ":FREQ 4000")
+            assert [ev["seq"] for ev in live][0] == missed_seqs[-1] + 1  # the stream goes on unchanged
+
+        n = len(manager.get(sid).session.events.history)
+        with c.websocket_connect(f"/api/sessions/{sid}/events?token={TOKEN}", headers={"host": "127.0.0.1"}) as ws:
+            replay = [ws.receive_json() for _ in range(n)]
+            assert [ev["seq"] for ev in replay] == list(range(1, n + 1))  # without since, all of it
+
+
+def test_event_stream_rejects_a_bad_since(client):
+    """A since that is not a number is a client protocol error: the socket is closed."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    with pytest.raises(WebSocketDisconnect) as exc, client.websocket_connect(
+        f"/api/sessions/{sid}/events?token={TOKEN}&since=abc", headers={"host": "127.0.0.1"}
+    ) as ws:
+        ws.receive_json()
+    assert exc.value.code == 1008
 
 
 def test_scpi_socket_roundtrip():
