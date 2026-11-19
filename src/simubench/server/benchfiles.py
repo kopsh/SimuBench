@@ -36,7 +36,23 @@ from .workspace_events import WorkspaceEvents
 
 SUFFIXES = (".bench.yaml", ".bench.json")
 
+#: Workspace directories that hold SimuBench's own data (version history, runs, …), not the user's
+#: bench files: reading or writing a bench there corrupts the history (#1457). ``scan`` and the
+#: watcher skip the same directory.
+_INTERNAL_DIRS = frozenset({".simubench"})
+
 log = logging.getLogger(__name__)
+
+
+def _rollback(path: Path, old: bytes | None) -> None:
+    """Put ``path`` back how it was before a failed history record (#1457): restore the previous
+    bytes, or delete a file that did not exist before, so a save that could not record its version
+    leaves no half-written file behind."""
+    if old is not None:
+        path.write_bytes(old)
+    else:
+        with contextlib.suppress(OSError):
+            path.unlink()
 
 
 def scan(workspace: Path) -> list[Path]:
@@ -75,6 +91,8 @@ class BenchFiles:
         p = (self.workspace / bench_path).resolve()
         if self.workspace not in p.parents:
             raise Forbidden("bench path outside the workspace")
+        if _INTERNAL_DIRS.intersection(p.relative_to(self.workspace).parts):
+            raise Forbidden(f"{bench_path}: .simubench/ holds SimuBench's own data; it is not a bench path")
         return p
 
     def library(self, path: Path | None) -> DefinitionLibrary:
@@ -154,7 +172,11 @@ class BenchFiles:
             if old is not None:
                 with contextlib.suppress(ValueError, UnicodeDecodeError, yaml.YAMLError):
                     previous = (old, current, fingerprint(_parse(path, old)))
-            self.history.record(bench_path, raw, _sha(raw), fingerprint(data), source, previous=previous)
+            try:
+                self.history.record(bench_path, raw, _sha(raw), fingerprint(data), source, previous=previous)
+            except Exception as exc:
+                _rollback(path, old)
+                raise Invalid(f"保存 {bench_path} 失败：无法写入版本历史（{exc}）") from exc
         self._announce(bench_path, _sha(raw))
         return self._document(bench_path, path, raw, data)
 
@@ -171,7 +193,11 @@ class BenchFiles:
                 tmp = path.with_name(f".{path.name}.tmp")
                 tmp.write_bytes(raw)
                 os.replace(tmp, path)
-                self.history.record(bench_path, raw, _sha(raw), fingerprint(_parse(path, raw)), source)
+                try:
+                    self.history.record(bench_path, raw, _sha(raw), fingerprint(_parse(path, raw)), source)
+                except Exception as exc:
+                    _rollback(path, None)
+                    raise Invalid(f"创建 {bench_path} 失败：无法写入版本历史（{exc}）") from exc
                 created = (bench_path, raw)
         if created is not None:
             self._announce(created[0], _sha(created[1]))

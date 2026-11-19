@@ -55,7 +55,13 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
     if spec.readonly and not allow_readonly:
         raise ScpiError(-221, "read-only setting")
     if spec.type in ("float", "int"):
-        v = float(value)
+        try:
+            v = float(value)
+        except (TypeError, ValueError):
+            # A value written outside SCPI (the Web configure / MCP create path) that is not a
+            # number -- a string, null, a list, an object -- is a bad parameter, not a bug: answer
+            # -104 like the SCPI parser does for the same input, never a 500 (#1456).
+            raise ScpiError(-104, f"expected a number, got {value!r}") from None
         special_values = set((spec.special or {}).values())
         if v in special_values:
             return v
@@ -85,12 +91,18 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
     if spec.type == "enum_list":
         # A set of options kept in the options' order, whatever order it was written in
         # (#252: :FORM:ELEM:SENS answers voltage, current, … however the list was given).
-        chosen = set(value)
+        try:
+            chosen = set(value)
+        except TypeError:
+            raise ScpiError(-104, f"expected a list of options, got {value!r}") from None
         if not chosen or not chosen <= set(spec.options or []):
             raise ScpiError(-224)
         return [o for o in spec.options or [] if o in chosen]
     if spec.type == "int_list":
-        out = [int(v) for v in value]
+        try:
+            out = [int(v) for v in value]
+        except (TypeError, ValueError):
+            raise ScpiError(-104, f"expected a list of integers, got {value!r}") from None
         for v in out:
             if spec.min is not None and v < spec.min:
                 raise ScpiError(-222)

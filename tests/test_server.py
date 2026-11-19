@@ -357,6 +357,37 @@ def test_try_session_runs_alone_and_leaves_the_bench_alone(client):
     assert client.post("/api/try/no-such-definition").status_code == 404
 
 
+@pytest.mark.parametrize("value", ["abc", None, [], {}])
+def test_configure_wrong_type_is_a_clean_scpi_error_not_500(client, value):
+    """#1456: a configure value of the wrong type is a bad parameter (-104), not a server bug.
+    The session configure and the try-session configure both answer it cleanly, never a 500."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    r = client.post(
+        f"/api/sessions/{sid}/instruments/awg/configure",
+        json={"path": "ch1.frequency", "value": value},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert not body["ok"] and body["error"]["code"] == -104
+    t = client.post("/api/try/sb-dso-4").json()
+    r2 = client.post(f"/api/try/{t['session_id']}/configure", json={"path": "ch1.scale", "value": value})
+    assert r2.status_code == 200, r2.text
+    body2 = r2.json()
+    assert not body2["ok"] and body2["error"]["code"] == -104
+    client.delete(f"/api/sessions/{sid}")
+    client.delete(f"/api/try/{t['session_id']}")
+
+
+def test_unknown_instrument_404_detail_keeps_its_closing_quote(client):
+    """#1456: the 404 for an unknown instrument must read ``no instrument named 'nope'`` — the
+    closing quote used to be eaten by stripping every quote character off ``str(KeyError(...))``."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    r = client.post(f"/api/sessions/{sid}/instruments/nope/scpi", json={"command": "*IDN?"})
+    assert r.status_code == 404
+    assert "'nope'" in r.json()["detail"]
+    client.delete(f"/api/sessions/{sid}")
+
+
 def test_try_session_binds_no_ports_and_writes_no_record(tmp_path):
     manager = SessionManager(ROOT / "validation", scpi_base_port=0, record_dir=tmp_path)
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
