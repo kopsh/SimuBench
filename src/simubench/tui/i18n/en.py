@@ -262,6 +262,7 @@ TERMS: dict = {
     "instrument": {
         "id": "ID",
         "address": "Address",
+        "noScpi": "SCPI service is off",
         "definition": "Definition",
         "options": "Options",
         "noOptions": "none",

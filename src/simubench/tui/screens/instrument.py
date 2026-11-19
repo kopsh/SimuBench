@@ -266,7 +266,7 @@ class InstrumentScreen(ControlEditingScreen):
         ]
         addr_row: list[tuple[str, str]] = [
             (pad(i18n.t("instrument.address", lang), lw), "muted"),
-            (info.get("address_virtual", ""), ""),
+            (info.get("address_virtual") or i18n.t("instrument.noScpi", lang), ""),
         ]
         if info.get("address_hislip"):
             addr_row.append(("   " + i18n.t("instrument.hiSLIP", lang) + " ", "muted"))

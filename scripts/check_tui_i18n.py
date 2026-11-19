@@ -37,6 +37,7 @@ SHARED: dict[str, str] = {
     "common.confirm": "common.confirm",
     "common.close": "common.close",
     "common.loading": "common.loading",
+    "instrument.noScpi": "workbench.noScpiService",
     "activity.idle": "workbench.activity.idle",
     "activity.busy": "workbench.activity.busy",
     "activity.wall": "workbench.activity.wall",

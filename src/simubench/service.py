@@ -15,8 +15,6 @@ from .access.scpi_server import DEFAULT_SCPI_PORT
 from .server.manager import SessionManager, hislip_options_of, vxi11_port_of
 
 #: The ports a bench serves on unless told otherwise: the usual SCPI and HiSLIP ports of real instruments.
-# The access layer owns the number; this is the name the CLI spells.
-DEFAULT_SCPI_BASE_PORT = DEFAULT_SCPI_PORT
 DEFAULT_HISLIP_PORT = 4880
 
 
@@ -30,7 +28,7 @@ def add_service_options(
     parser.add_argument(
         "--scpi-base-port",
         type=int,
-        default=DEFAULT_SCPI_BASE_PORT,
+        default=DEFAULT_SCPI_PORT,
         help="first SCPI port; 0 lets the OS choose",
     )
     parser.add_argument(

@@ -40,8 +40,8 @@ from .bench_link import RemoteBench
 from .bus import BusError
 from .gpib_bus import boards_of
 from .links import Link, make_link
+from .scpi_server import DEFAULT_SCPI_PORT, scpi_socket_address
 
-BASE_PORT = 5025
 HISLIP_PORT = 4880
 INTFC = "<intfc>"  # what the address table names for a board: it is no instrument
 
@@ -250,7 +250,7 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
         self.vxi11_gateway: dict[str, str] = {}  # instrument -> VXI-11 gateway form of its GPIB address
         self.served: list[str] = []  # addresses a connected-to service answers at
         for i, (name, inst) in enumerate(self.bench.instruments.items()):
-            canon = f"TCPIP0::127.0.0.1::{BASE_PORT + i}::SOCKET"
+            canon = scpi_socket_address("127.0.0.1", DEFAULT_SCPI_PORT + i)
             self.canonical[name] = canon
             self.addresses[self._norm(canon)] = name
             for form in (

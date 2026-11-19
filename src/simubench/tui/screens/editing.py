@@ -220,8 +220,12 @@ class ControlEditingScreen(ShellScreen):
         if shown:
             self._log_static.update(log_text(app, shown, lang, width=inner))
         else:  # an empty state names the next step (ui-design.md 6)
-            address = self.info.get("address_virtual", "")
-            hint = i18n.t("log.emptyFor", lang, address=address)
+            address = self.info.get("address_virtual")
+            hint = (
+                i18n.t("log.emptyFor", lang, address=address)
+                if address
+                else i18n.t("instrument.noScpi", lang)
+            )
             self._log_static.update(Text(hint, style=style_of(app, "muted")))
         self._log_box.scroll_end(animate=False, force=True)
 

@@ -8,6 +8,7 @@ import asyncio
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+from ..access.scpi_server import scpi_socket_address
 from ..engine.record import jsonable
 from .drive import scpi_response
 
@@ -143,7 +144,7 @@ def session_summary(manager: SessionManager, served: ServedSession, info: Any = 
                 "resource_real": i.address_real,
                 "resource_hislip": i.address_hislip,
                 "resource_vxi11": i.address_vxi11,
-                "scpi_socket": f"TCPIP0::127.0.0.1::{i.scpi_port}::SOCKET" if i.scpi_port else None,
+                "scpi_socket": scpi_socket_address("127.0.0.1", i.scpi_port) if i.scpi_port else None,
                 # the hardware options this unit has (D68), for a model that declares any
                 **({"options": [o.id for o in i.options if o.installed]} if i.options else {}),
             }

@@ -10,6 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import numpy as np
 
+from ..access.scpi_server import scpi_socket_address
 from ..contracts import api as M
 from ..engine.component import ScreenMeasurer, ScreenSource
 from ..engine.deviation import deviation_keys as _deviation_keys
@@ -214,7 +215,7 @@ class SessionViews:
             idn=inst.idn,
             channels=inst.channel_count,
             # The socket address is a fact of the listener, not a guess: none when this session serves no SCPI.
-            address_virtual=f"TCPIP0::127.0.0.1::{scpi_port}::SOCKET" if scpi_port else None,
+            address_virtual=scpi_socket_address("127.0.0.1", scpi_port) if scpi_port else None,
             address_real=inst.instance.address,
             address_hislip=hislip,
             address_vxi11=vxi11,

@@ -133,6 +133,22 @@ async def test_smu_screen_renders_identity_columns_and_reason():
         assert "queue 1" in text and "read away: none" in text
 
 
+async def test_without_scpi_the_screen_shows_an_empty_state_not_none():
+    """#1537: address_virtual is None when the session serves no SCPI. The identity row and the
+    log's empty state say so in words, and neither renders the string ``None``."""
+    fixture = fresh(SMU_BENCH)
+    fixture["instruments"]["smu"]["address_virtual"] = None
+    tui, _fake = unit_app(fixture)
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        text = await wait_flat(pilot, tui, "SCPI service is off")
+        # Neither the identity row nor the log's empty state puts a bare None on screen.
+        assert "No commands yet" not in text
+        address_lines = [line for line in text.splitlines() if "SCPI service is off" in line]
+        assert address_lines and all("None" not in line for line in address_lines)
+
+
 def test_the_open_screen_criterion_is_the_registry_row():
     """The app opens its screens by the registry row (D80, #1469): every kind the registry gives
     a dedicated screen opens it, every other kind — and an unknown class — the generic instrument
