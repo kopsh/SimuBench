@@ -21,6 +21,10 @@ log = logging.getLogger("simubench.scpi")
 MAX_MESSAGE = 256 * 1024 * 1024  # bytes; a longer program message is -223 and dropped
 
 
+#: The usual SCPI socket port of a real instrument, when the caller does not say otherwise.
+DEFAULT_SCPI_PORT = 5025
+
+
 class MessageReader:
     """Splits a byte stream into program messages (IEEE 488.2 7.7.6, #1448).
 
@@ -130,7 +134,7 @@ class ScpiServer:
         self,
         session: Session,
         host: str = "127.0.0.1",
-        base_port: int = 5025,
+        base_port: int = DEFAULT_SCPI_PORT,
         on_change: Callable[[], None] | None = None,
     ) -> None:
         self.session = session

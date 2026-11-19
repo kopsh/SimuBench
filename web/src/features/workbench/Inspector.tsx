@@ -446,7 +446,7 @@ function IdentitySection({ inst }: { inst: InstrumentInfo }) {
         {!open && <span className="ml-auto font-normal tracking-normal normal-case">{t("workbench.identityMore", { count: more })}</span>}
       </button>
       {open && <CopyRow label="*IDN?" value={inst.idn} />}
-      <CopyRow label={t("workbench.virtualAddress")} value={inst.address_virtual} />
+      {inst.address_virtual && <CopyRow label={t("workbench.virtualAddress")} value={inst.address_virtual} />}
       {open && inst.address_hislip && <CopyRow label={t("workbench.hislipAddress")} value={inst.address_hislip} />}
       {open && inst.address_vxi11 && <CopyRow label={t("workbench.vxi11Address")} value={inst.address_vxi11} />}
       {open && inst.address_real && <CopyRow label={t("workbench.realAddress")} value={inst.address_real} />}

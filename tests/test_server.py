@@ -28,6 +28,19 @@ def client():
         yield c
 
 
+def test_without_scpi_the_virtual_address_is_none(client):
+    """No listener, no address (#1488): the UI and the agents are not handed a fabricated
+    ``TCPIP0::…::5025+n`` that nothing listens on."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+    try:
+        instruments = client.get(f"/api/sessions/{sid}").json()["instruments"]
+        assert instruments
+        assert all(i["scpi_port"] is None for i in instruments)
+        assert all(i["address_virtual"] is None for i in instruments)
+    finally:
+        client.delete(f"/api/sessions/{sid}")
+
+
 def test_host_check():
     """The pure function behind the host guard; the HTTP behaviour is test_security.py's
     (every route's token, foreign host/origin, escaping bench paths — #700 deduplicated them)."""
