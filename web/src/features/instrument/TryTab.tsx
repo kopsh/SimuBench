@@ -24,6 +24,7 @@ interface Entry {
  * queue, power-cycle it (T2/T4; instrument-authoring.md 7.2). */
 export function TryTab({
   sid,
+  ready = true,
   inst,
   error,
   onReopen,
@@ -32,6 +33,10 @@ export function TryTab({
   known = [],
 }: {
   sid: string | undefined;
+  /** False while the session may be about to be replaced: the definition is being re-read, or
+   * the session open is for an older version. A command sent then would land on the session that
+   * is going away (#1538). */
+  ready?: boolean;
   inst: InstrumentInfo | undefined;
   error: string | null;
   onReopen: () => Promise<string | undefined>;
@@ -82,7 +87,7 @@ export function TryTab({
   const send = async (e: FormEvent) => {
     e.preventDefault();
     const command = input.trim();
-    if (!command || !sid || busy) return;
+    if (!command || !sid || !ready || busy) return;
     setBusy(true);
     setInput("");
     const started = performance.now();
@@ -139,7 +144,7 @@ export function TryTab({
             <Button variant="ghost" size="sm" className="h-7 px-2 text-[11px]" onClick={() => setEntries([])} disabled={entries.length === 0}>
               <Eraser className="size-3.5" /> {t("acceptance.clearConsole")}
             </Button>
-            <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={() => void powerCycle()} disabled={!sid}>
+            <Button variant="outline" size="sm" className="h-7 px-2 text-[11px]" onClick={() => void powerCycle()} disabled={!sid || !ready}>
               <Power className="size-3.5" /> {t("acceptance.powerCycle")}
             </Button>
           </div>
@@ -208,7 +213,7 @@ export function TryTab({
                 ))}
               </datalist>
             )}
-            <Button type="submit" size="sm" className="h-8" disabled={!sid || busy || input.trim() === ""}>
+            <Button type="submit" size="sm" className="h-8" disabled={!sid || !ready || busy || input.trim() === ""}>
               <CornerDownLeft className="size-3.5" /> {t("acceptance.send")}
             </Button>
           </form>
