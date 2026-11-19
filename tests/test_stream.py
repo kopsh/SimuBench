@@ -12,7 +12,7 @@ import numpy as np
 import pytest
 
 from helpers import raises_with
-from simubench.engine import session as session_module
+from simubench.engine import evalcache
 from simubench.engine.component import Component, PortSpec, component, component_types, registry
 from simubench.engine.evalcontext import EvalContext
 from simubench.engine.noise import gaussian, stream_key
@@ -242,7 +242,7 @@ def test_a_frame_beyond_the_limit_is_refused(blocks):
 
 def test_a_read_that_fans_out_beyond_the_limit_is_refused(blocks, monkeypatch):
     """Each frame is within ``MAX_FRAME``; what the chain asks for in total is not."""
-    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 1000)
+    monkeypatch.setattr(evalcache, "MAX_REQUEST_FANOUT", 1000)
     data = copy.deepcopy(CHAIN)
     data["components"][2]["params"] = {"factor": 100}
     session, comps = open_chain(data)
@@ -266,10 +266,9 @@ def test_a_cached_upstream_frame_still_counts_toward_the_fan_out(blocks, monkeyp
     """Whether a read is refused must not depend on what was read before."""
     session, comps = open_chain()
     session.cached_frames(comps["dec"], "out", ask(count=100))  # the upstream frame (410) is now cached
-    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 450)
-    session._frame_cached -= session._frame_cache.pop(
-        next(k for k in session._frame_cache if k[1] == "x/dec")
-    )[0].count
+    monkeypatch.setattr(evalcache, "MAX_REQUEST_FANOUT", 450)
+    cache = session.cache
+    cache._cached_samples -= cache._frames.pop(next(k for k in cache._frames if k[1] == "x/dec"))[0].count
     with pytest.raises(ModelLimit):
         session.cached_frames(comps["dec"], "out", ask(count=100))  # 100 + 410 > 450
 
@@ -297,7 +296,7 @@ def test_the_cache_keeps_a_bounded_number_of_frames(blocks):
     session, comps = open_chain()
     for k in range(70):  # past the bound of 64: the oldest must be evicted (D49 budget)
         session.cached_frames(comps["adc"], "out", FrameRequest(0, 4, DT, ("acq", k)))
-    assert len(session._frame_cache) == 64
+    assert len(session.cache._frames) == 64
 
 
 # ---- the data types -----------------------------------------------------------------------------
@@ -376,12 +375,12 @@ def test_channel_blocks_follow_the_same_rules(blocks):
 
 def test_the_cache_holds_a_bounded_number_of_samples(blocks, monkeypatch):
     """Deep records must not pile up: the cache counts samples, and skips a frame over its budget."""
-    monkeypatch.setattr(session_module, "FRAME_CACHE_SAMPLES", 1000)
+    monkeypatch.setattr(evalcache, "FRAME_CACHE_SAMPLES", 1000)
     session, comps = open_chain()
     for k in range(5):
         session.cached_frames(comps["adc"], "out", FrameRequest(0, 400, DT, ("acq", k)))
     session.cached_frames(comps["adc"], "out", FrameRequest(0, 2000, DT, ("acq", 9)))
-    assert (len(session._frame_cache), session._frame_cached) == (2, 800)
+    assert (len(session.cache._frames), session.cache._cached_samples) == (2, 800)
 
 
 # ---- the evaluation's ambient inputs are part of the cache's key (#1486) --------------------------

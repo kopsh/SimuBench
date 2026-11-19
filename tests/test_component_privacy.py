@@ -30,15 +30,27 @@ def private_accesses(source: str) -> list[tuple[int, str]]:
     return accesses_in(list(ast.walk(ast.parse(source))))
 
 
+#: The session's collaborators (#1508): what they hold is as private as the session's own members.
+COLLABORATORS = ("cache", "solver")
+
+
+def _is_session(expr: ast.expr) -> bool:
+    return (isinstance(expr, ast.Name) and expr.id == "session") or (
+        isinstance(expr, ast.Attribute) and expr.attr == "session"
+    )
+
+
 def accesses_in(nodes: list[ast.AST]) -> list[tuple[int, str]]:
     found = []
     for node in nodes:
         if isinstance(node, ast.Attribute) and node.attr.startswith("_"):
             owner = node.value
-            if (isinstance(owner, ast.Name) and owner.id == "session") or (
-                isinstance(owner, ast.Attribute) and owner.attr == "session"
-            ):
+            if _is_session(owner):
                 found.append((node.lineno, f"session.{node.attr}"))
+            elif (
+                isinstance(owner, ast.Attribute) and owner.attr in COLLABORATORS and _is_session(owner.value)
+            ):
+                found.append((node.lineno, f"session.{owner.attr}.{node.attr}"))
     return sorted(found)
 
 
@@ -62,6 +74,12 @@ def test_the_guard_sees_a_private_access():
     source = "def sync(self):\n    if self._seen == self.session._signal_version:\n        return\n"
     assert private_accesses(source) == [(2, "session._signal_version")]
     assert private_accesses("# session._signal_version is private\nx = session.solve()\n") == []
+    # the collaborators the session delegates to are as private as the session's own members (#1508)
+    assert private_accesses("n = len(self.session.cache._frames)\nu = session.solver._solution\n") == [
+        (1, "session.cache._frames"),
+        (2, "session.solver._solution"),
+    ]
+    assert private_accesses("a = session.cache.output(1, c, 'p', ctx)\nb = session.solver.unsettled\n") == []
 
 
 # ---- the signal-version subscription --------------------------------------------------------------

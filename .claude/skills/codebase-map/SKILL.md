@@ -24,7 +24,8 @@ plausible fake).
 
 | Change | File |
 | --- | --- |
-| Session, action queue, virtual clock | `engine/session.py`; idle modes (D47) `engine/sleep_mode.py` |
+| Session (facade: actions, clock, events, instrument I/O), action queue, virtual clock | `engine/session.py`; idle modes (D47) `engine/sleep_mode.py` |
+| The session's collaborators (D60): evaluation caches + sample fan-out count (`Session.cache`) / operating point, mode iteration (`Session.solver`, reads the session through `SolveHost`) / one-driver-per-net feed for non-circuit media (`nets.feed`) | `engine/evalcache.py` / `engine/solver.py` / `engine/nets.py` |
 | Instrument runtime, SCPI command layer | `engine/instrument.py`; static lookup `engine/commands.py`; why a header is not executed and the closest one (coverage table) `engine/coverage_advice.py`; operations pending until a later instant, `*OPC`/`*WAI` bookkeeping `engine/pending.py`; the settings' specs, values, coercion, `*RST` reset and run-time bounds `engine/settings.py` (also `validate_value`, `snap_ladder`); channel numbers `engine/channels.py`; internal signal wires `engine/wiring.py`; parsing and executing a program message (dispatch, settings / channel-list / operation commands, value parse and format) `engine/command_runner.py`; the ESR/ESE/SRE registers and the status byte `engine/status_registers.py`; `*IDN?`/`*STB?`/`*TRG`/clock built-ins `engine/builtin_commands.py`; device errors, -113/-104 classification `engine/error_reporter.py` |
 | Component base class, `@component`, `@op` | `engine/component.py` |
 | Evaluation context (tuning point, evaluation instant) — the frozen value both caches key on; `Session.evaluating` / `tuned` / `at_instant` change it (D67, #1509) | `engine/evalcontext.py`, `engine/session.py` |
