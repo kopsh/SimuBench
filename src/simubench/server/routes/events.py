@@ -19,7 +19,11 @@ def build_router(ctx: ApiContext) -> APIRouter:
     router = APIRouter()
 
     @router.websocket("/api/sessions/{sid}/events")
-    async def events(ws: WebSocket, sid: str) -> None:
+    async def events(ws: WebSocket, sid: str, since: int = 0) -> None:
+        """The session's stream. ``seq`` is the event's stable cursor in the session's history
+        (the engine's ``eid`` — the same event carries the same seq on every connect), so a
+        reconnecting client passes its last one as ``since`` and is sent only the events after
+        it (#1632); the default 0 replays the whole history, as before."""
         if not host_ok(ws.headers.get("host")) or not host_ok(ws.headers.get("origin")):
             await ws.close(code=4403)
             return
@@ -35,11 +39,21 @@ def build_router(ctx: ApiContext) -> APIRouter:
         await ws.accept()
         loop = asyncio.get_running_loop()
         queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue(maxsize=10000)
-        counter = {"seq": 0}
+        fallback = {"seq": 0}
+
+        def cursor(ev: dict[str, Any]) -> int:
+            """The event's stream seq: the engine's eid, which every engine event carries; the
+            per-connection count only stands in for an event that has none."""
+            if "eid" in ev:
+                return int(ev["eid"])
+            fallback["seq"] += 1
+            return fallback["seq"]
 
         def push(ev: dict[str, Any]) -> None:
-            counter["seq"] += 1
-            msg = project(ev, counter["seq"])
+            cur = cursor(ev)
+            if cur <= since:
+                return  # the client already holds this one and asked for the tail only
+            msg = project(ev, cur)
             with contextlib.suppress(RuntimeError):
                 loop.call_soon_threadsafe(_put, queue, msg)
 
@@ -47,8 +61,10 @@ def build_router(ctx: ApiContext) -> APIRouter:
             backlog = list(s.session.events.history)
             unsubscribe = s.session.events.subscribe(push)
         for ev in backlog:
-            counter["seq"] += 1
-            await ws.send_json(project(ev, counter["seq"]))
+            cur = cursor(ev)
+            if cur <= since:
+                continue
+            await ws.send_json(project(ev, cur))
 
         async def wait_disconnect() -> None:
             """Return only when the client goes away; non-disconnect frames are ignored."""

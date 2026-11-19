@@ -3,6 +3,7 @@ in the instrument's language; comments and key order say nothing; real models ge
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
 import yaml
@@ -195,3 +196,38 @@ def test_a_specs_edit_moves_the_places_that_refer_to_it(tmp_path):
         assert by_target[key] == (1.13e11, 1.0e11), key
     spec = next(c for c in out.changes if c.kind == "specs")
     assert not spec.still_old
+
+
+# ---- the write seam (D90, #1631) -----------------------------------------------------------------
+
+SERVER = Path(__file__).resolve().parents[1] / "src" / "simubench" / "server"
+
+
+def benchfiles_privates(source: str) -> list[str]:
+    """The BenchFiles-private names a definition save reaches for: any underscore name imported
+    from the benchfiles module, and any private attribute read on its ``BenchFiles`` instance
+    (``files`` / ``self.files``). The file-write transaction lives on BenchFiles (#1631); its
+    internals would reopen the transaction copies the seam closed. Read from the syntax tree, so
+    a comment or docstring that mentions one is not a use."""
+    found = []
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.ImportFrom) and node.level and node.module == "benchfiles":
+            found += [alias.name for alias in node.names if alias.name.startswith("_")]
+        elif isinstance(node, ast.Attribute) and node.attr.startswith("_"):
+            owner = node.value
+            if (isinstance(owner, ast.Name) and owner.id == "files") or (
+                isinstance(owner, ast.Attribute) and owner.attr == "files"
+            ):
+                found.append(node.attr)
+    return sorted(found)
+
+
+def test_definition_files_go_through_the_write_transaction_not_its_privates():
+    assert benchfiles_privates((SERVER / "definitionfiles.py").read_text(encoding="utf-8")) == []
+
+
+def test_the_private_borrow_guard_is_live():
+    planted = "from .benchfiles import BenchFiles, _rollback\nwith files._lock:\n    files._expect(p, s)\n"
+    assert benchfiles_privates(planted) == ["_expect", "_lock", "_rollback"]
+    # public use, and underscore names of other modules, are not borrows of the seam
+    assert benchfiles_privates("d = files.write(p, b, None)\nfrom .errors import _map\n") == []

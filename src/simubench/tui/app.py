@@ -308,7 +308,7 @@ class SimuBenchApp(App[None]):
                 self._backoff = 1.0
                 self.bump()
                 await stream_events(
-                    ws_url(self.url, self.sid, self.token),
+                    ws_url(self.url, self.sid, self.token, self.store.max_seq),
                     self._on_event,
                     self._on_ws_open,
                     self._on_ws_close,
@@ -356,7 +356,8 @@ class SimuBenchApp(App[None]):
             self.bump()
             self.call_after_refresh(self._back_to_picker)
             return
-        # Anything else: the loop backs off and reconnects (the store dedupes the replay).
+        # Anything else: the loop backs off and reconnects; the reconnect asks the server for the
+        # events after the last one held (#1632), and the store dedupes anything that slips through.
 
     def _back_to_picker(self) -> None:
         self._picker_task = asyncio.create_task(self._show_picker(i18n.t("connect.gone", self.lang)))
