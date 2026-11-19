@@ -29,15 +29,22 @@ class SessionGone(ApiError):
     """The session no longer exists (404): back to the picker with a reason."""
 
 
-def ws_url(base_url: str, sid: str, token: str | None = None) -> str:
-    """The events WebSocket of a session, with the token when one is set."""
+def ws_url(base_url: str, sid: str, token: str | None = None, since: int = 0) -> str:
+    """The events WebSocket of a session, with the token when one is set and the ``since`` cursor
+    when the caller already holds events — a reconnect asks the server for the tail after its
+    last seq instead of the whole history (#1632)."""
     url = base_url.rstrip("/")
     if url.startswith("https://"):
         url = "wss://" + url[len("https://") :]
     elif url.startswith("http://"):
         url = "ws://" + url[len("http://") :]
     out = f"{url}/api/sessions/{sid}/events"
-    return f"{out}?token={token}" if token else out
+    query = []
+    if token:
+        query.append(f"token={token}")
+    if since:
+        query.append(f"since={since}")
+    return f"{out}?{'&'.join(query)}" if query else out
 
 
 class ApiClient:
@@ -218,7 +225,8 @@ async def stream_events(
 ) -> None:
     """One connection to the events WebSocket, pumped until ``stop`` is set or the socket ends.
 
-    The server replays the full history on every connect (dedupe happens in the store).
+    The URL carries the ``since`` cursor of what the caller already holds (#1632): the first
+    connect replays the session's whole history, a reconnect only the events after its last seq.
     ``on_close`` receives the WebSocket close code when there is one (4401 token invalid,
     4404 session gone), else the error text; the app's reconnect loop decides what to do.
     """
