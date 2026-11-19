@@ -9,6 +9,7 @@ import pytest
 
 from helpers import dispatch_unit, seam_instrument
 from simubench.engine.component import component_types
+from simubench.engine.help_text import entries
 from simubench.models.definition import InstrumentDefinition
 from simubench.scpi.errors import ScpiError
 
@@ -237,6 +238,108 @@ def test_a_builtin_the_definition_leaves_out_is_refused_as_excluded():
     assert caught.value.code == -113 and caught.value.reason == "builtin_excluded"
     reply, _ = dispatch_unit(inst, "*IDN?")
     assert reply.startswith(b"ACME,")
+
+
+def _lines(reply: bytes, sep: bytes = b"\n") -> list[str]:
+    return [line.decode() for line in reply.split(sep) if line]
+
+
+def _with(**over):
+    return seam_instrument(InstrumentDefinition.model_validate({**DATA, **over}))
+
+
+def test_help_headers_lists_what_the_unit_executes_with_the_direction_markers():
+    inst = _with(
+        commands=[
+            *DATA["commands"],
+            {"header": ":FETCh", "op": "x.y", "set": False},
+            {"header": ":ABORt", "op": "x.y", "query": False},
+        ]
+    )
+    reply, _ = dispatch_unit(inst, ":SYSTem:HELP:HEADers?")  # a generic manufacturer: string, LF, markers
+    lines = _lines(reply)
+    assert ":LEVel" in lines  # both directions: no marker
+    assert ":FETCh?/qonly/" in lines and ":ABORt/nquery/" in lines
+    assert "*IDN?/qonly/" in lines and "*RST/nquery/" in lines and "*OPC" in lines
+    assert ":SYSTem:ERRor[:NEXT]?/qonly/" in lines and ":SYSTem:HELP:HEADers?/qonly/" in lines
+
+
+def test_help_headers_leaves_out_the_commands_of_an_option_the_unit_lacks():
+    option_cmd = {"header": ":PULSe", "state": "out.level", "option": "P03"}
+    fitted = seam_instrument(
+        InstrumentDefinition.model_validate({**DATA, "commands": [*DATA["commands"], option_cmd]}),
+        options=("P03",),
+    )
+    bare = _with(commands=[*DATA["commands"], option_cmd])
+    assert ":PULSe" in _lines(dispatch_unit(fitted, ":SYST:HELP:HEAD?")[0])
+    assert ":PULSe" not in _lines(dispatch_unit(bare, ":SYST:HELP:HEAD?")[0])
+
+
+def test_the_keysight_preset_writes_a_definite_length_block_of_crlf_lines():
+    inst = _with(help={"preset": "keysight"})
+    reply, _ = dispatch_unit(inst, ":SYSTem:HELP:HEADers?")
+    digits = int(reply[1:2])
+    length = int(reply[2 : 2 + digits])
+    payload = reply[2 + digits :]
+    assert reply[:1] == b"#" and len(payload) == length  # the block header counts the payload
+    assert "*IDN?/qonly/" in _lines(payload, b"\r\n") and payload.endswith(b"\r\n")
+
+
+def test_the_manufacturer_picks_the_layout_when_the_preset_is_auto():
+    keysight = _with(manufacturer="Keysight Technologies")
+    rs = _with(manufacturer="Rohde & Schwarz")
+    plain, _ = dispatch_unit(keysight, ":SYST:HELP:HEAD?")
+    assert plain[:1] == b"#" and b"\r" not in plain and b"/qonly/" not in plain  # block, LF, no markers
+    text, _ = dispatch_unit(rs, ":SYST:HELP:HEAD?")
+    assert text[:1] != b"#" and "SYSTem:ERRor[:NEXT]?/qonly/" in _lines(text)  # no leading colon
+
+
+def test_help_does_not_follow_the_builtins_list_but_its_own_switch():
+    only_idn = _with(builtins=["*IDN"])
+    reply, _ = dispatch_unit(only_idn, ":SYST:HELP:HEAD?")
+    assert "*IDN?/qonly/" in _lines(reply) and "*TRG/nquery/" not in _lines(
+        reply
+    )  # the list still narrows the optional ones (the mandatory 488.2 ten always answer)
+    off = _with(help={"enabled": False})
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(off, ":SYST:HELP:HEAD?")
+    assert caught.value.code == -113 and caught.value.reason == "builtin_excluded"
+    assert not [e for e in entries(off.definition, ()) if "HELP" in e.header]  # nor listed
+
+
+def test_a_command_of_the_definition_replaces_the_default_help_header():
+    own = {"header": ":SYSTem:HELP:HEADers", "state": "disp.text", "set": False}
+    inst = _with(commands=[*DATA["commands"], own])
+    reply, _ = dispatch_unit(inst, ":SYST:HELP:HEAD?")
+    assert reply == b'"none"'  # the model's own answer, not the generated list
+
+
+def test_help_syntax_gives_one_command_in_any_short_or_long_form():
+    inst = _with(
+        commands=[
+            *DATA["commands"],
+            {"header": ":FREQuency", "state": "out.level", "params": [{"name": "f", "type": "float"}]},
+        ]
+    )
+    reply, _ = dispatch_unit(inst, ':SYSTem:HELP:SYNTax? ":FREQ"')
+    assert reply == b'":FREQuency[?] <numeric value>"'
+    assert dispatch_unit(inst, ':SYST:HELP:SYNT? "*IDN"')[0] == b'"*IDN?"'
+
+
+def test_help_syntax_refuses_an_unknown_command_and_a_missing_header():
+    inst = _with()
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(inst, ':SYST:HELP:SYNT? "NOPE"')
+    assert caught.value.code == -113
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(inst, ":SYST:HELP:SYNT?")
+    assert caught.value.code == -109
+
+
+def test_help_syntax_all_gives_a_line_per_command():
+    inst = _with()
+    lines = _lines(dispatch_unit(inst, ":SYST:HELP:SYNT:ALL?")[0])
+    assert ":LEVel[?]" in lines and "*IDN?" in lines
 
 
 def test_the_mandatory_488_2_commands_answer_whatever_builtins_lists():

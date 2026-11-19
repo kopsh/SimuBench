@@ -636,6 +636,26 @@ class Syntax(_Model):
     )
 
 
+class HelpSpec(_Model):
+    """The command-list queries every instrument answers (#1558): ``:SYSTem:HELP:HEADers?`` lists the
+    commands this unit executes, ``:SYSTem:HELP:SYNTax? "<header>"`` and ``:SYSTem:HELP:SYNTax:ALL?``
+    give their syntax. The lists are generated from the definition; this block only says whether they
+    are answered and how the reply is written."""
+
+    enabled: bool = Field(
+        True,
+        description="False: the three headers are not answered (-113). The model's `builtins` list does "
+        "not govern them; a command of the same header in `commands` takes their place",
+    )
+    preset: Literal["auto", "keysight", "keysight_plain", "rs", "generic"] = Field(
+        "auto",
+        description="Reply layout: keysight (Infiniium: definite-length block, CR LF, /qonly/ and /nquery/ "
+        "markers), keysight_plain (block, LF, no markers), rs (string, LF, markers, headers without the "
+        "leading colon), generic (string, LF, markers). auto: by manufacturer (Keysight: keysight_plain, "
+        "Rohde & Schwarz: rs, others: generic)",
+    )
+
+
 class Reference(_Model):
     """The basis a definition follows (D42), provided and maintained by its author: a vendor manual,
     the author's own design specification, or an interface contract. A definition with a reference
@@ -1113,6 +1133,10 @@ class InstrumentDefinition(_Model):
         description="Optional built-in headers this model answers (*TRG, :SYSTem:ERRor?, ...); the others are not "
         "modeled. The IEEE 488.2 mandatory commands (*IDN *RST *CLS *OPC *WAI *ESR *ESE *SRE *STB *TST) always "
         "answer. Default: all of them",
+    )
+    help: HelpSpec = Field(
+        default_factory=HelpSpec,
+        description="The :SYSTem:HELP command-list queries (#1558): on by default for every model",
     )
     error_queue: int | None = Field(
         None, ge=2, description="Error queue length; on overflow the last entry becomes -350 (SCPI-99 21.8)"

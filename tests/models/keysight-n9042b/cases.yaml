@@ -722,3 +722,10 @@ cases:
         expect: "+1.00000000E+006"
       - query: ":SYST:ERR?"
         expect: '+0,"No error"'
+
+  - name: ":SYSTem:HELP:HEADers?：本台实现的命令列表，定长块、每行一条（#1558）"
+    manual: "SYSTem Subsystem > :SYSTem:HELP:HEADers?"
+    steps:
+      - query: ":SYST:HELP:HEAD?"
+        binary: true
+        expect_block: {contains: ["*IDN?", ":SYSTem:ERRor[:NEXT]?", ":SYSTem:HELP:HEADers?"], end: ["", "\n"]}

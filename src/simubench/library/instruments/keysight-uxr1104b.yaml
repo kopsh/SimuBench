@@ -39,6 +39,10 @@ options:
       acq: {memory_points: 2000000000}
       timebase: {max_points: 2000000000}
 builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*TST"]
+# :SYSTem:HELP:HEADers? answers the Infiniium way: a definite-length block of CR LF lines with the
+# /qonly/ and /nquery/ markers (the programming guide's :SYSTem:HELP:HEADers? entry, #1558).
+help:
+  preset: keysight
 # The guide: the error queue is 30 errors deep.
 error_queue: 30
 # The guide's sample reply for :CHANnel1:RANGe? is +8.00000E-01: NR3, five decimals, signed.
