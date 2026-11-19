@@ -1064,10 +1064,16 @@ test("the inspector folds the 100 bookmarks into one block, the picker lists onl
 
   // Under 「全部设置」 long groups and the sixteen math functions start folded, the math functions as one group.
   await inspector.locator('[data-group="all"]').getByRole("button", { expanded: false }).first().click();
+  // Opening it mounts a budget of rows, not the 1773 settings: groups beyond it start folded, lists page (#1580).
+  await expect(inspector.locator('[data-group="all"]').getByTestId("fields-more").first()).toBeVisible();
+  const opened = await inspector.locator("input, [role=combobox], [role=switch]").count();
+  expect(opened, "controls mounted with 「全部设置」 open").toBeLessThanOrEqual(150);
   const math = inspector.locator('[data-group="function"]');
-  await expect(math.getByRole("button", { expanded: false })).toContainText("数学函数");
+  // Named: the short 「功能」 group shares the id and may start folded too, once the open budget is spent (#1580).
+  const mathTitle = math.getByRole("button", { name: "数学函数", expanded: false });
+  await expect(mathTitle).toBeVisible();
   await expect(inspector.locator('[data-group="function2"]')).toHaveCount(0);
-  await math.getByRole("button", { expanded: false }).click();
+  await mathTitle.click();
   const fn = math.getByRole("combobox", { name: "数学函数 的编号" });
   await expect(fn).toHaveText("1");
   await expect(math.getByText("共 16 个")).toBeVisible();
@@ -1093,6 +1099,17 @@ test("the inspector folds the 100 bookmarks into one block, the picker lists onl
   await page.getByRole("option", { name: "3", exact: true }).click();
   await expect(family.locator('[data-setting="display.bookmark3.color"]')).toBeVisible();
   await expect(family.locator('[data-setting="display.bookmark1.color"]')).toHaveCount(0);
+
+  // Build mode lays out the initial settings the same way: listing all 1861 at once froze the page
+  // for seconds on the mode switch and on every tab change while the scope was selected.
+  await page.getByRole("radio", { name: "搭建" }).click();
+  await expect(inspector.getByText("初始状态")).toBeVisible();
+  const editControls = await inspector.locator("input, [role=combobox], [role=switch]").count();
+  expect(editControls, "controls mounted in build mode").toBeLessThanOrEqual(40);
+  await expect(inspector.locator('[data-group="all"]').getByRole("button", { expanded: false })).toBeVisible();
+  await inspector.getByTestId("setting-find").fill("触发电平 ch2");
+  await expect(inspector.getByTestId("setting-found").locator('[data-setting="trigger.level2"]')).toBeVisible();
+  await page.getByRole("radio", { name: "操作" }).click();
 });
 
 test("the settings groups span the screen, not a nested grid's first column", async ({

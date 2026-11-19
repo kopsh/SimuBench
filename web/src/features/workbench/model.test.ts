@@ -5,7 +5,7 @@ import cases from "@/i18n/option-words.cases.json";
 import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
-import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, panelFirst, findSettings, formatValue, globalVars, groupName, groupOpen, hasLabel, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, whenHolds, wordOf } from "./model";
+import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -98,6 +98,18 @@ describe("inspector settings (#728)", () => {
     const long = Array.from({ length: OPEN_ROWS_MAX + 1 }, (_, i) => named(`trigger.k${i}`));
     const open = Object.fromEntries(splitSettings([...short, ...long], []).groups.map((g) => [g.id, groupOpen(g)]));
     expect(open).toEqual({ acquire: true, trigger: false });
+  });
+
+  it("opens short groups only within one page of rows, however many the definition has (#1580)", () => {
+    const named = (path: string) => v(path, null, { label: path });
+    // Names without a number, so they stay separate groups rather than one numbered family.
+    const id = (g: number) => `g${"abcdefghij"[g % 10]}${"abcde"[Math.floor(g / 10)]}`;
+    const vars = Array.from({ length: 50 }, (_, g) => Array.from({ length: 10 }, (_, i) => named(`${id(g)}.k${i}`))).flat();
+    const { groups } = splitSettings(vars, []);
+    expect(groups.every(groupOpen)).toBe(true);
+    const open = groupsOpenByDefault(groups, 0);
+    expect([...open]).toEqual([id(0), id(1), id(2), id(3)]);
+    expect(groupsOpenByDefault(groups, FIELD_PAGE).size).toBe(0);
   });
 
   it("joins four or more numbered groups into one, numbers in order, folded and named by the prefix (#1299)", () => {
@@ -390,13 +402,44 @@ describe("autoBottomTab (#1360)", () => {
   });
 });
 
-describe("panelFirst (#1356)", () => {
-  it("puts the settings the front panel names first, in its order, the rest after in theirs", () => {
-    const v = (path: string) => ({ path, channel: null }) as unknown as StateVarInfo;
-    const inst = {
-      display: { panel: { groups: [{ controls: [{ state: "timebase.scale" }, { state: "trigger.mode" }] }] } },
-    } as unknown as InstrumentInfo;
-    const order = panelFirst(inst, [v("status.opee"), v("trigger.mode"), v("system.header"), v("timebase.scale")]).map((x) => x.path);
-    expect(order).toEqual(["timebase.scale", "trigger.mode", "status.opee", "system.header"]);
+describe("unusedUnderDc (#1591)", () => {
+  const vars = (fn: string, more: Record<string, unknown> = {}) =>
+    new Map(
+      Object.entries({ "ch1.function": fn, "ch1.frequency": 1000, "ch1.amplitude": 4, "ch1.offset": 1, ...more }).map(([path, value]) => [
+        path,
+        { path, channel: 1, type: "float", value } as unknown as StateVarInfo,
+      ]),
+    );
+
+  it("leaves out what a DC output does not use, keeps its level", () => {
+    const dc = vars("DC");
+    expect(unusedUnderDc(dc, "ch1.frequency")).toBe(true);
+    expect(unusedUnderDc(dc, "ch1.amplitude")).toBe(true);
+    expect(unusedUnderDc(dc, "ch1.offset")).toBe(false);
+    expect(unusedUnderDc(dc, "ch1.output")).toBe(false);
+  });
+
+  it("reads the function of the same channel, in any case, and nothing else", () => {
+    expect(unusedUnderDc(vars("SINE"), "ch1.frequency")).toBe(false);
+    expect(unusedUnderDc(vars("dc"), "ch1.frequency")).toBe(true);
+    expect(unusedUnderDc(vars("DC"), "ch2.frequency")).toBe(false); // ch2 has no function: no claim
+  });
+
+  it("names the reason a field is greyed: the automatic switch first", () => {
+    const both = vars("DC", { "ch1.amplitude_auto": true });
+    (both.get("ch1.amplitude_auto") as { type: string }).type = "bool";
+    expect(inactiveReason(both, "ch1.amplitude")).toBe("auto");
+    expect(inactiveReason(both, "ch1.frequency")).toBe("dc");
+    expect(inactiveReason(both, "ch1.offset")).toBeUndefined();
+  });
+});
+
+describe("fieldsShown (#1580)", () => {
+  it("shows whole pages, and enough of them to include a located field", () => {
+    expect(fieldsShown(2000, 1)).toBe(FIELD_PAGE);
+    expect(fieldsShown(10, 1)).toBe(10);
+    expect(fieldsShown(2000, 2)).toBe(2 * FIELD_PAGE);
+    expect(fieldsShown(2000, 1, 3 * FIELD_PAGE + 5)).toBe(4 * FIELD_PAGE);
+    expect(fieldsShown(2000, 1, 5)).toBe(FIELD_PAGE);
   });
 });

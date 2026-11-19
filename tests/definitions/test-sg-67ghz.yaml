@@ -1,0 +1,12 @@
+# The R&S SMA100B with its 67 GHz frequency option (B167, the built-in definition's frequency_note):
+# a source for the UXR1104B's display jitter, which the data sheet gives on a 55 GHz sine (#1579).
+schema: simubench.instrument/2
+id: test-sg-67ghz
+extends: rs-sma100b
+manufacturer: Rohde & Schwarz
+model: SMA100B B167
+class: rf_generator
+reference: null
+specs: {frequency_range_hz: [8.0e3, 6.7e10]}
+state:
+  freq.cw: {max: 6.7e10}

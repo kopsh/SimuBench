@@ -144,7 +144,10 @@ def _route(inst: Instrument, message: str) -> tuple[list[tuple[str, str | None]]
     inst.opc_query = record("opc_query")
     inst.wait_pending = record("wait_pending")
     inst.arm_opc = record("arm_opc")
-    inst._common._bus_trigger = record("_bus_trigger")
+    if commands.offers_bus_trigger(inst.definition):
+        # With a bus-trigger component, *TRG routes; without one the real _bus_trigger raises the
+        # -113 classify also reports (issue 1565).
+        inst._common._bus_trigger = record("_bus_trigger")
     inst._common._builtin = builtin_recorder
     # The dispatch prelude settles waits and samples status registers (#575) — real instrument
     # behaviour, not routing; a component's register condition may read the circuit, which this

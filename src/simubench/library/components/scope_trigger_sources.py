@@ -20,7 +20,8 @@ class Sources:
 
     def select_taps(self) -> list[str] | None:
         """The trigger compares the analog signal at the ADC's input, before the digital filters
-        (#1263): per channel, the component wired to the acquisition's converter."""
+        (#1263): per channel, the component wired to the acquisition's converter, or to the
+        track-and-hold sampler ahead of it (#1579)."""
         if self.host.owner is None:
             return None
         acq = next(
@@ -34,6 +35,11 @@ class Sources:
         taps = []
         for n in range(1, self.host.owner.channel_count + 1):
             src = self.host.owner.wiring.source(adc.name, f"in{n}")
+            # the comparator splits off ahead of a track-and-hold sampler (#1579): tap what feeds it
+            while src is not None and getattr(
+                self.host.owner.components.get(src[0]), "track_and_hold", False
+            ):
+                src = self.host.owner.wiring.source(src[0], "in")
             if src is not None:
                 taps.append(src[0])
         return taps

@@ -15,7 +15,7 @@ import { channelColor } from "@/lib/channels";
 import { pickLabel } from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, ALL_OPEN_MAX, channelVars, findSettings, globalVars, inactiveUnderAuto, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupOpen, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, ALL_OPEN_MAX, channelVars, FIELD_PAGE, fieldsShown, findSettings, globalVars, inactiveReason, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupsOpenByDefault, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { loadHistory, pushHistory, QUICK_COMMANDS, recentChips, saveHistory } from "./commandHistory";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
@@ -496,13 +496,18 @@ type SettingsProps = {
   stateVars: ReturnType<typeof stateMap>;
 };
 
+/** Renders one setting's field; `bare` drops its label (a measurement slot's row of controls). */
+export type FieldRenderer = (v: StateVarInfo, bare?: boolean) => ReactNode;
+
 /**
  * The instrument's settings (#1313): the panel holds what a front panel puts first (the summary, a
  * CH selector and the channel's summary, #728); any other setting is found by name, or under
  * 「全部设置」, which mounts its groups only when opened. Listing all of them made a scope's panel
  * thousands of rows long, and every mounted control made the next dropdown slower to open.
+ * Build mode shows the same layout with its own fields (the bench file's initial settings), so a
+ * scope with nearly two thousand settings no longer mounts them all when selected.
  */
-function InstrumentSettings({
+export function InstrumentSettings({
   sid,
   inst,
   readonly,
@@ -510,7 +515,18 @@ function InstrumentSettings({
   globals,
   channels,
   hidden,
-}: SettingsProps & { globals: StateVarInfo[]; channels: number[]; /** Shown on the screen beside: left out here (#1229). */ hidden: Set<string> }) {
+  field: fieldProp,
+  title,
+}: SettingsProps & {
+  globals: StateVarInfo[];
+  channels: number[];
+  /** Shown on the screen beside: left out here (#1229). */
+  hidden: Set<string>;
+  /** Each setting's field; by default one that sets the running session's value. */
+  field?: FieldRenderer;
+  /** The section's title; 「设置」 by default. */
+  title?: string;
+}) {
   const { t } = useTranslation();
   const [picked, setPicked] = useState(channels[0]);
   const [query, setQuery] = useState("");
@@ -554,13 +570,15 @@ function InstrumentSettings({
         ? fromPanel(panelSections(declared.channel_groups, stateVars, offScreen, n), channelOwn)
         : fromSummary(channelOwn, inst.display.channel_summary);
   const restCount = global.rest.length + channel.rest.length;
-  const field = (v: StateVarInfo) => (
-    <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(stateVars, v.path)} />
-  );
+  const field: FieldRenderer =
+    fieldProp ??
+    ((v, bare) => (
+      <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveReason(stateVars, v.path)} bare={bare} />
+    ));
   const revealHere = reveal?.instrument === inst.name ? reveal : null;
   return (
     <>
-      <Section title={t("workbench.settings")}>
+      <Section title={title ?? t("workbench.settings")}>
         <div className="space-y-3">
           <Input
             type="search"
@@ -576,7 +594,7 @@ function InstrumentSettings({
             <FoundSettings inst={inst} vars={[...globals, ...channels.flatMap((c) => channelVars(inst, c).filter(offScreen))]} query={query} field={field} />
           ) : (
             <>
-              <PanelSections sections={global.sections} field={field} />
+              <PanelSections inst={inst} sections={global.sections} field={field} />
               {n !== undefined && (
                 <section data-testid="channel-settings" className="space-y-1.5">
                   {channels.length > 1 ? (
@@ -603,7 +621,7 @@ function InstrumentSettings({
                       {t("workbench.channelN", { n })}
                     </div>
                   )}
-                  <PanelSections sections={channel.sections} field={field} />
+                  <PanelSections inst={inst} sections={channel.sections} field={field} />
                 </section>
               )}
             </>
@@ -625,13 +643,13 @@ function InstrumentSettings({
           reveal={revealHere && [...global.rest, ...channel.rest].some((v) => v.path === revealHere.path) ? revealHere.n : null}
         >
           <div className="space-y-4">
-            {global.rest.length > 0 && <SettingsBlock sid={sid} inst={inst} vars={global.rest} summary={[]} readonly={readonly} stateVars={stateVars} />}
+            {global.rest.length > 0 && <SettingsBlock inst={inst} vars={global.rest} summary={[]} field={field} />}
             {channel.rest.length > 0 && (
               <div className="space-y-1.5" data-testid="channel-rest">
                 <div className="num text-[11px] font-semibold" style={{ color: channelColor(n) }}>
                   {t("workbench.channelN", { n })}
                 </div>
-                <SettingsBlock key={n} sid={sid} inst={inst} vars={channel.rest} summary={[]} readonly={readonly} stateVars={stateVars} />
+                <SettingsBlock key={n} inst={inst} vars={channel.rest} summary={[]} field={field} />
               </div>
             )}
           </div>
@@ -641,14 +659,50 @@ function InstrumentSettings({
   );
 }
 
+/**
+ * A list of settings' fields, a page at a time (#1580): the definition decides how long a list is,
+ * so a list never mounts more than `FIELD_PAGE` fields until asked; a located setting further down
+ * opens the pages up to it, so the reveal finds its field.
+ */
+function FieldList({ inst, vars, field }: { inst: { name: string }; vars: StateVarInfo[]; field: FieldRenderer }) {
+  const reveal = useWorkbench((s) => s.reveal);
+  const want = reveal?.instrument === inst.name ? vars.findIndex((v) => v.path === reveal.path) : -1;
+  return <Paged items={vars} want={want} render={(v) => field(v)} />;
+}
+
+/** Any list of rows a page at a time; `want` (an index, or -1) opens the pages up to that row. */
+function Paged<T>({ items, want, render }: { items: readonly T[]; want: number; render: (item: T) => ReactNode }) {
+  const { t } = useTranslation();
+  const [pages, setPages] = useState(1);
+  const shown = fieldsShown(items.length, pages, want);
+  // Keep the pages a reveal opened once the request is spent (state adjusted while rendering).
+  if (shown > pages * FIELD_PAGE) setPages(Math.ceil(shown / FIELD_PAGE));
+  const left = items.length - shown;
+  return (
+    <>
+      {items.slice(0, shown).map(render)}
+      {left > 0 && (
+        <button
+          type="button"
+          data-testid="fields-more"
+          onClick={() => setPages(Math.ceil(shown / FIELD_PAGE) + 1)}
+          className="text-muted-foreground hover:text-foreground w-full rounded-md border border-dashed py-1 text-xs"
+        >
+          {t("workbench.showMore", { n: Math.min(FIELD_PAGE, left), count: left })}
+        </button>
+      )}
+    </>
+  );
+}
+
 /** The panel's groups, each under its title (a summary has none), then its fields. */
-function PanelSections({ sections, field }: { sections: PanelSection[]; field: (v: StateVarInfo) => ReactNode }) {
+function PanelSections({ inst, sections, field }: { inst: InstrumentInfo; sections: PanelSection[]; field: FieldRenderer }) {
   return (
     <div className="space-y-3" data-testid="panel-sections">
       {sections.map((x, i) => (
         <div key={x.label || i} className="space-y-1.5" data-panel-group={x.label || undefined}>
           {x.label && <div className="text-muted-foreground text-[11px] font-medium">{pickLabel(x.label, x.label_en)}</div>}
-          {x.vars.map(field)}
+          <FieldList inst={inst} vars={x.vars} field={field} />
         </div>
       ))}
     </div>
@@ -656,7 +710,7 @@ function PanelSections({ sections, field }: { sections: PanelSection[]; field: (
 }
 
 /** A search's matches (#1313): the whole-instrument ones first, then each channel's under its CH name. */
-function FoundSettings({ inst, vars, query, field }: { inst: InstrumentInfo; vars: StateVarInfo[]; query: string; field: (v: StateVarInfo) => ReactNode }) {
+function FoundSettings({ inst, vars, query, field }: { inst: InstrumentInfo; vars: StateVarInfo[]; query: string; field: FieldRenderer }) {
   const { t } = useTranslation();
   const { hits, total } = findSettings(vars, query);
   if (total === 0) return <p className="text-muted-foreground text-xs">{t("workbench.findNone")}</p>;
@@ -671,7 +725,7 @@ function FoundSettings({ inst, vars, query, field }: { inst: InstrumentInfo; var
               {t("workbench.channelN", { n: ch })}
             </div>
           )}
-          {list.map(field)}
+          {list.map((v) => field(v))}
         </div>
       ))}
       {total > hits.length && <p className="text-muted-foreground text-xs">{t("workbench.findMore", { count: total - hits.length })}</p>}
@@ -681,33 +735,45 @@ function FoundSettings({ inst, vars, query, field }: { inst: InstrumentInfo; var
 
 /** The main tier open, the groups folded: what a front panel shows first, then the rest. */
 function SettingsBlock({
-  sid,
   inst,
   vars,
   summary,
-  readonly,
-  stateVars,
-}: SettingsProps & { vars: ReturnType<typeof globalVars>; summary: string[] }) {
+  field,
+}: {
+  inst: InstrumentInfo;
+  vars: ReturnType<typeof globalVars>;
+  summary: string[];
+  field: FieldRenderer;
+}) {
   const { main, groups } = splitSettings(vars, summary);
   const reveal = useWorkbench((s) => s.reveal);
-  const field = (v: (typeof vars)[number]) => (
-    <StateField key={v.path} sid={sid} instrument={inst.name} v={v} disabled={readonly} inactive={inactiveUnderAuto(stateVars, v.path)} />
-  );
+  const asked = reveal?.instrument === inst.name ? reveal : null;
+  // Open by default only within a budget of rows, however many groups the definition has (#1580).
+  const open = groupsOpenByDefault(groups, main.length);
+  const wantGroup = asked ? groups.findIndex((g) => g.vars.some((v) => v.path === asked.path)) : -1;
   return (
     <div className="space-y-3">
-      {main.length > 0 && <div className="space-y-1.5">{main.map(field)}</div>}
-      {groups.map((g) => (
-        <Section
-          key={g.id}
-          group={g.id}
-          title={<GroupTitle group={g} />}
-          collapsible
-          defaultOpen={groupOpen(g) || (main.length === 0 && g === groups[0])}
-          reveal={reveal?.instrument === inst.name && g.vars.some((v) => v.path === reveal.path) ? reveal.n : null}
-        >
-          <GroupBody sid={sid} inst={inst} group={g} readonly={readonly} stateVars={stateVars} field={field} />
-        </Section>
-      ))}
+      {main.length > 0 && (
+        <div className="space-y-1.5">
+          <FieldList inst={inst} vars={main} field={field} />
+        </div>
+      )}
+      <Paged
+        items={groups}
+        want={wantGroup}
+        render={(g) => (
+          <Section
+            key={g.id}
+            group={g.id}
+            title={<GroupTitle group={g} />}
+            collapsible
+            defaultOpen={open.has(g.id)}
+            reveal={asked && g.vars.some((v) => v.path === asked.path) ? asked.n : null}
+          >
+            <GroupBody inst={inst} group={g} field={field} />
+          </Section>
+        )}
+      />
     </div>
   );
 }
@@ -731,7 +797,7 @@ function FamilyBlock({
 }: {
   inst: { name: string };
   family: InstanceFamily;
-  field: (v: SettingGroup["vars"][number]) => ReactNode;
+  field: FieldRenderer;
   /** What the instances are called: the numbered segment's letters, or a joined group's name (#1299). */
   title?: string;
 }) {
@@ -764,49 +830,69 @@ function FamilyBlock({
         </Select>
         <span className="text-muted-foreground/70">{t("inspector.instanceCount", { count: family.instances.length })}</span>
       </div>
-      {shown.map(field)}
+      <FieldList key={chosen} inst={inst} vars={shown} field={field} />
     </div>
   );
 }
 
 /** A group's settings; measurement slots (P1…P8) are one row of controls each. */
-function GroupBody({
-  sid,
-  inst,
-  group,
-  readonly,
-  stateVars,
-  field,
-}: SettingsProps & { group: SettingGroup; field: (v: SettingGroup["vars"][number]) => ReactNode }) {
+function GroupBody({ inst, group, field }: { inst: InstrumentInfo; group: SettingGroup; field: FieldRenderer }) {
   // Joined numbered groups (function1 … function16, #1299): one instance at a time.
   if (group.numbered) return <FamilyBlock inst={inst} family={group.numbered} field={field} title={groupName(group.id, true) ?? group.id} />;
+  return <GroupRows inst={inst} group={group} field={field} />;
+}
+
+type Row = { kind: "field"; v: StateVarInfo } | { kind: "family"; f: InstanceFamily } | { kind: "slot"; row: SlotRowData };
+type SlotRowData = ReturnType<typeof slotRows>["slots"][number];
+
+/** A group's settings, families (one block each) and measurement slots (P1…P8, one row of controls
+ * each), paged as one list of rows (#1580). */
+function GroupRows({ inst, group, field }: { inst: InstrumentInfo; group: SettingGroup; field: FieldRenderer }) {
+  const reveal = useWorkbench((s) => s.reveal);
   const { slots, rest: unslotted } = slotRows(group.vars);
   const { families, rest } = instanceFamilies(unslotted);
+  const rows: Row[] = [
+    ...rest.map((v) => ({ kind: "field" as const, v })),
+    ...families.map((f) => ({ kind: "family" as const, f })),
+    ...slots.map((row) => ({ kind: "slot" as const, row })),
+  ];
+  const holds = (r: Row, path: string) =>
+    r.kind === "field"
+      ? r.v.path === path
+      : r.kind === "slot"
+        ? r.row.vars.some((v) => v.path === path)
+        : r.f.instances.some((n) => r.f.byInstance.get(n)!.some((v) => v.path === path));
+  const want = reveal?.instrument === inst.name ? rows.findIndex((r) => holds(r, reveal.path)) : -1;
   return (
     <div className="space-y-1.5">
-      {rest.map(field)}
-      {families.map((f) => (
-        <FamilyBlock key={f.key} inst={inst} family={f} field={field} />
-      ))}
-      {slots.map((row) => (
-        <div key={row.label} className="grid grid-cols-[2rem_1fr] items-center gap-x-2">
-          <span className="num text-muted-foreground text-xs">{row.label}</span>
-          <div className="flex min-w-0 gap-1.5">
-            {row.vars.map((v) => (
-              <div key={v.path} className="min-w-0 flex-1">
-                <StateField
-                  sid={sid}
-                  instrument={inst.name}
-                  v={v}
-                  disabled={readonly}
-                  inactive={inactiveUnderAuto(stateVars, v.path)}
-                  bare
-                />
-              </div>
-            ))}
+      <Paged
+        items={rows}
+        want={want}
+        render={(r) =>
+          r.kind === "field" ? (
+            field(r.v)
+          ) : r.kind === "family" ? (
+            <FamilyBlock key={r.f.key} inst={inst} family={r.f} field={field} />
+          ) : (
+            <SlotRow key={r.row.label} row={r.row} field={field} />
+          )
+        }
+      />
+    </div>
+  );
+}
+
+function SlotRow({ row, field }: { row: SlotRowData; field: FieldRenderer }) {
+  return (
+    <div className="grid grid-cols-[2rem_1fr] items-center gap-x-2">
+      <span className="num text-muted-foreground text-xs">{row.label}</span>
+      <div className="flex min-w-0 gap-1.5">
+        {row.vars.map((v) => (
+          <div key={v.path} className="min-w-0 flex-1">
+            {field(v, true)}
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }

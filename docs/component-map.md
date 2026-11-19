@@ -19,6 +19,8 @@
 | 块 | 组件 | 求解层级 | 实现状态 | 债务 |
 | --- | --- | --- | --- | --- |
 | input_port | `input_port` | 电路(阻抗到地) | 已实现 | — |
+| vertical | `scope_attenuator` | 信号(输入步进衰减器:按输入 V/div 选档,`steps` 为 [档上限 V/div, 衰减 dB];前置放大器 `scope_vertical.attenuator` 引用它并补回增益,过载按接头处的信号判断;#1579) | 已实现(UXR1104B 接入) | — |
+| adc | `scope_sampler` | 信号(采样保持:跟踪时输出即输入;`paths` 路采样器的增益/偏置/时延失配按路平铺到 ADC 各路上,`aperture_jitter_s` 为本通道自己的孔径抖动;`scope_adc.sampler` 引用它;各通道共用的时钟抖动在 `scope_timebase.clock_jitter_s`,经 `scope_adc.clock`;触发在它之前分出;#1579) | 已实现(UXR1104B 接入) | 只有 `scope_adc` 读它,通用 `adc` 不读 |
 | probe | `scope_probe` | 设置/数据(比例换算) | 已实现 | — |
 | vertical | `scope_vertical`(旧名 `scope_frontend`,仅为加载保留) | 信号(滤波与档位;带宽滤波形状 `response`:一阶、砖墙、高斯、4 阶 Bessel、4 阶 Butterworth,#607、#609;带宽是 DSP 的型号改用 ADC 之后的 `scope_dsp_filter`,#1262) | 已实现 | — |
 | adc | `scope_adc` | 采样流(模拟到数字的边界:按请求的时刻求值、加输入噪声、量化;`in<n>` 模拟信号、`out<n>` 采样流,D67、#950) | 已实现(非理想 #1266:谐波失真表、交织子 ADC 的像与杂散、孔径抖动) | 失真与杂散随频率的变化未建模 |

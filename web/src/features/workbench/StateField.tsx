@@ -19,7 +19,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { displayUnit, engParts, parseEngineering, unitWord } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { distinctOptions, hasLabel, isAutoValue, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
+import { distinctOptions, hasLabel, type Inactive, isAutoValue, labelOf, numeric, optionLabel, shortForm, stepNumber } from "./model";
 import { useCountOnScreen } from "./onScreen";
 
 interface Props {
@@ -32,8 +32,9 @@ interface Props {
   onCommit?: (value: unknown) => void;
   /** Shown after the control, e.g. a reset button. */
   trailing?: ReactNode;
-  /** A manual value its automatic switch overrides: dimmed, with a note (#279). */
-  inactive?: boolean;
+  /** A value not in effect, dimmed with a note saying why: its automatic switch overrides it
+   * (#279), or the output is DC (#1591). */
+  inactive?: Inactive;
   /** The control alone, its name given by the row it sits in (a measurement slot, #728). */
   bare?: boolean;
 }
@@ -44,6 +45,9 @@ interface Props {
 export const FIELD_GRID_COLS = "grid-cols-[minmax(6rem,1fr)_minmax(8rem,1.4fr)] @max-[16rem]:grid-cols-1";
 
 /** One editable state variable; edits are out-of-band "configure" actions (architecture.md 5.2). */
+/** The note under a greyed field's name. */
+const INACTIVE_WORDS = { auto: "workbench.autoInactive", dc: "workbench.dcInactive" } as const satisfies Record<Inactive, string>;
+
 export function StateField({ sid, instrument, v, disabled, compact, onCommit, trailing, inactive, bare }: Props) {
   const { t } = useTranslation();
   const configure = useConfigure(sid);
@@ -107,7 +111,7 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
       <NumberInput
         v={v}
         disabled={readonly}
-        inactive={inactive}
+        inactive={inactive === "auto"}
         onCommit={commit}
         // A refusal the parse rule explains ("the units this field takes", #1286) says so; the
         // rest say what the field reads.
@@ -138,7 +142,7 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
         // A setting the definition did not name shows its path, in mono: the name SCPI users know (#728).
         <label
           className={cn("text-muted-foreground truncate text-xs", !hasLabel(v) && "num")}
-          title={inactive ? `${v.path} · ${t("workbench.autoInactive")}` : v.path}
+          title={inactive ? `${v.path} · ${t(INACTIVE_WORDS[inactive])}` : v.path}
         >
           {labelOf(v)}
           {v.fidelity === "computed_on_read" && (
@@ -153,7 +157,7 @@ export function StateField({ sid, instrument, v, disabled, compact, onCommit, tr
               <TooltipContent>{t("workbench.computedOnRead")}</TooltipContent>
             </Tooltip>
           )}
-          {inactive && <span className="text-muted-foreground/70 block text-[10px]">{t("workbench.autoInactive")}</span>}
+          {inactive && <span className="text-muted-foreground/70 block text-[10px]">{t(INACTIVE_WORDS[inactive])}</span>}
         </label>
       )}
       <div className={cn("flex min-w-0 items-center justify-end gap-1.5", inactive && "opacity-50")}>

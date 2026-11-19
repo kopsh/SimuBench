@@ -22,12 +22,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { channelColor } from "@/lib/channels";
 import { pickLabel } from "@/i18n";
 import { cn } from "@/lib/utils";
 import { DeviationSection } from "../DeviationSection";
-import { Header, KeyValues, Section } from "../Inspector";
-import { accessoryLabel, channelVars, globalVars, instrumentTitle, panelFirst } from "../model";
+import { type FieldRenderer, Header, InstrumentSettings, KeyValues, Section } from "../Inspector";
+import { accessoryLabel, channelVars, globalVars, instrumentTitle, stateMap } from "../model";
+import { useScreenPaths } from "../onScreen";
 import { FIELD_GRID_COLS, StateField } from "../StateField";
 import { useWorkbench } from "../store";
 import { NAME } from "./actions";
@@ -226,16 +226,24 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
   const { t } = useTranslation();
   const select = useWorkbench((s) => s.select);
   const explicit = obj(raw.state);
-  const channels = Array.from({ length: inst.channels }, (_, i) => i + 1);
-  const field = (v: StateVarInfo) => (
+  // Beside its own screen, the settings the screen shows as fields are left out, as in Operate (#1229).
+  const besideScreen = useWorkbench((s) => s.active) === `screen:${inst.name}`;
+  const onScreen = useScreenPaths(besideScreen ? inst.name : null);
+  const offScreen = (v: { path: string }) => !onScreen.has(v.path);
+  const globals = globalVars(inst).filter(offScreen);
+  const channels = Array.from({ length: inst.channels }, (_, i) => i + 1).filter((n) => channelVars(inst, n).some(offScreen));
+  // The same layout as Operate's inspector (panel, search, 「全部设置」 mounted when opened): a scope
+  // has nearly two thousand settings, and mounting a field for each froze the page for seconds.
+  const field: FieldRenderer = (v, bare) => (
     <StateField
       key={v.path}
       sid=""
       instrument={inst.name}
       v={v}
+      bare={bare}
       onCommit={(value) => void applyOps([{ op: "set_state", instrument: inst.name, path: v.path, value }])}
       trailing={
-        v.path in explicit ? (
+        bare ? undefined : v.path in explicit ? (
           <ResetButton onClick={() => void applyOps([{ op: "set_state", instrument: inst.name, path: v.path, value: null }])} />
         ) : (
           <span className="size-6 shrink-0" aria-hidden />
@@ -269,25 +277,19 @@ function InstrumentEdit({ inst, raw }: { inst: InstrumentInfo; raw: Obj }) {
         </div>
       </Section>
       <p className="text-muted-foreground text-[11px]">{t("edit.initialStateHint")}</p>
-      {globalVars(inst).length > 0 && (
-        <Section title={t("edit.initialState")}>
-          <div className="space-y-1.5">{panelFirst(inst, globalVars(inst)).map(field)}</div>
-        </Section>
+      {(globals.length > 0 || channels.length > 0) && (
+        <InstrumentSettings
+          sid=""
+          inst={inst}
+          readonly={false}
+          stateVars={stateMap(inst)}
+          globals={globals}
+          channels={channels}
+          hidden={onScreen}
+          field={field}
+          title={t("edit.initialState")}
+        />
       )}
-      {channels.map((n) => (
-        <Section
-          key={n}
-          title={
-            <span className="num font-semibold" style={{ color: channelColor(n) }}>
-              {t("workbench.channelN", { n })}
-            </span>
-          }
-          collapsible
-          defaultOpen={n <= 2}
-        >
-          <div className="space-y-1.5">{channelVars(inst, n).map(field)}</div>
-        </Section>
-      ))}
       {inst.options.length > 0 && <OptionsSection inst={inst} />}
       {(inst.deviations.length > 0 || inst.deviation === "from_specs") && (
         <DeviationSection items={inst.deviations}>
