@@ -189,6 +189,10 @@ def apply_command_overrides(commands: list, overrides: dict) -> list:
                 del out[i]
             continue
         if isinstance(command, list):
+            if not command:  # one way to delete a header: null; [] is a slip, not a removal (#1499)
+                raise LayerError(
+                    f"{header} 的值是空列表：删除该头请写 null", "E-DEF-COMMAND-OVERRIDE", pointer
+                )
             if not all(isinstance(entry, dict) for entry in command):
                 raise LayerError(
                     f"{header} 的列表值应全是命令（不含 header）", "E-DEF-COMMAND-OVERRIDE", pointer
