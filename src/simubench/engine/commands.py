@@ -18,7 +18,7 @@ from ..scpi import values as V
 from ..scpi.errors import ScpiError
 from ..scpi.parse import Pattern, Token, Unit, parse_unit, resolve_tokens, split_units
 
-COMMON = {"IDN", "RST", "CLS", "OPC", "WAI", "ESR", "ESE", "SRE", "STB", "TST", "PSC"}
+COMMON = {"IDN", "RST", "CLS", "OPC", "WAI", "TRG", "ESR", "ESE", "SRE", "STB", "TST", "PSC"}
 #: Which directions each common command answers, exactly as ``Instrument`` applies them:
 #: (query, set). ``*OPC?`` reads the operation-complete bit, ``*OPC`` arms it, ``*WAI`` waits
 #: either way; the rest answer one direction only (a wrong-direction common is an undefined
@@ -145,6 +145,8 @@ def answered_builtins(definition: InstrumentDefinition) -> list[str]:
     have = {_header_key(h) for h in headers}
     headers += [f"*{w}" for w in sorted(MANDATORY_488_2) if f"*{w}" not in have]
     headers = [h for h in headers if not status_default_off(definition, _header_key(h))]
+    if not offers_bus_trigger(definition):
+        headers = [h for h in headers if _header_key(h) != "*TRG"]
     if definition.help.enabled:
         headers += HELP_HEADERS
     if definition.identity.options_reply is not None:
@@ -189,6 +191,24 @@ def status_default_off(definition: InstrumentDefinition, key: str) -> bool:
     return definition.reference is not None or any(
         _header_key(c.header).startswith(prefix) for c in definition.commands
     )
+
+
+def offers_bus_trigger(definition: InstrumentDefinition) -> bool:
+    """Whether a component of the definition has a ``bus_trigger`` operation (#1565): the built-in
+    ``*TRG`` runs only then (a command of the definition on the header is matched before it)."""
+    from .component import component_type
+
+    for field in ("components", "channel_components"):
+        for spec in getattr(definition, field, None) or ():
+            try:
+                cls = component_type(spec.type)
+            except KeyError:
+                continue
+            if any(
+                getattr(getattr(cls, attr, None), "__op_name__", None) == "bus_trigger" for attr in dir(cls)
+            ):
+                return True
+    return False
 
 
 def builtin_allowed(definition: InstrumentDefinition, header: str) -> bool:
@@ -335,6 +355,9 @@ def classify(definition: InstrumentDefinition, message: str) -> list[UnitMatch]:
                             reason=f"公共命令 *{word} 不响应{'查询' if unit.query else '设置'}",
                         )
                     )
+                    continue
+                if word == "TRG" and not offers_bus_trigger(definition):
+                    out.append(UnitMatch(text, "unsupported", unit.query, reason="模型没有总线触发组件"))
                     continue
                 if not builtin_allowed(definition, f"*{word}"):
                     out.append(

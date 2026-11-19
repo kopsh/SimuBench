@@ -400,6 +400,8 @@ commands:
     params:
       - {name: mode, type: enum, options: [AUTO, NORMal, SINGLE, STOP], state: trigger.mode, optional: true}
     reply: "{header} {value}"  # TRIG_MODE? answers "TRIG_MODE <mode>" (manual, TRIG_MODE)
+  # 手册 *TRG：“与 ARM_acquisition 相同”（coverage 表）。
+  - {header: "*TRG", op: acq.single, query: false}
   - {header: ARM_acquisition, op: acq.single, query: false}
   - {header: STOP, op: acq.stop, query: false}
   - {header: FoRce_TRigger, op: acq.force_trigger, query: false}
