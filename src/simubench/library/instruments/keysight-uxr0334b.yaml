@@ -2350,30 +2350,39 @@ commands:
 
   # ---- FUNCtion（#1074，手册第 22 章）----
   # 运算命令把算子写进 function{f}.operator，信源各归各位；:FUNCtion<f>? 由 math.definition 回。
+  # ADD/SUBtract/MULTiply/DIVide 经 math.operate 写入：两个操作数都要给、须是合法源或有限常数（#1494）。
   - header: ":FUNCtion<f>:ADD"
     suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": ADD}
+    op: math.operate
+    args: {operator: ADD}
+    query: false
     params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+      - {name: source1, type: string}
+      - {name: source2, type: string, optional: true}
   - header: ":FUNCtion<f>:SUBTract"
     suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": SUBTract}
+    op: math.operate
+    args: {operator: SUBTract}
+    query: false
     params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+      - {name: source1, type: string}
+      - {name: source2, type: string, optional: true}
   - header: ":FUNCtion<f>:MULTiply"
     suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": MULTiply}
+    op: math.operate
+    args: {operator: MULTiply}
+    query: false
     params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+      - {name: source1, type: string}
+      - {name: source2, type: string, optional: true}
   - header: ":FUNCtion<f>:DIVide"
     suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
-    writes: {"function{f}.operator": DIVide}
+    op: math.operate
+    args: {operator: DIVide}
+    query: false
     params:
-      - {name: source1, type: string, state: "function{f}.source1"}
-      - {name: source2, type: string, optional: true, state: "function{f}.source2"}
+      - {name: source1, type: string}
+      - {name: source2, type: string, optional: true}
   - header: ":FUNCtion<f>:COMMonmode"
     suffixes: {f: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]}
     writes: {"function{f}.operator": COMMonmode}
