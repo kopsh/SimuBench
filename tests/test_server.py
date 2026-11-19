@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import os
 import shutil
 import socket
 import threading
@@ -707,6 +708,10 @@ def test_watcher_announces_external_changes_once(tmp_path):
     watcher._pass()  # the first pass baselines the workspace
     assert published == []
     (tmp_path / "a.bench.yaml").write_text("schema: simubench.bench/2\nname: b\n", encoding="utf-8")
+    # Same size, and Windows' coarse mtime can leave the stat unmoved: push the mtime forward so the
+    # test pins the scan, not the file system's clock granularity.
+    st = (tmp_path / "a.bench.yaml").stat()
+    os.utime(tmp_path / "a.bench.yaml", ns=(st.st_atime_ns, st.st_mtime_ns + 2_000_000_000))
     watcher._pass()
     assert [p["path"] for p in published] == ["a.bench.yaml"]
     # The server writes the same file itself: note() marks the content, the scan stays silent.

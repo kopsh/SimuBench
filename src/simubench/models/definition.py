@@ -990,7 +990,8 @@ def _expand_each(data: Any) -> Any:
 
 
 class CommandOverride(CommandSpec):
-    """A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key."""
+    """A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key
+    (the entries of a list value share it and leave it out)."""
 
     header: str = Field("", description="Left out: the mapping key is the header")
 
@@ -1071,15 +1072,16 @@ class InstrumentDefinition(_Model):
     wiring: Wiring = Field(default_factory=Wiring)
     ports: Ports = Field(default_factory=Ports)
     commands: list[CommandSpec] = Field(default_factory=list)
-    command_overrides: dict[str, CommandOverride | None] | None = Field(
+    command_overrides: dict[str, CommandOverride | list[CommandOverride] | None] | None = Field(
         None,
         description="With extends (D59): change the inherited command table one command at a time "
         "instead of rewriting it. Key: a command header exactly as the inherited table writes it; "
-        "value: the whole command without its header (it replaces the inherited one whole, or is "
-        "appended when no command has that header), or null to remove it. Applied by the loader "
-        "after layering, from the farthest layer to this file, above the nearest layer that writes "
-        "its own commands list; a header the table holds twice, or a removal of one it does not "
-        "hold, is E-DEF-COMMAND-OVERRIDE. Empty once loaded",
+        "value: the whole command without its header, a list of commands that replaces every "
+        "command with that header as a group (at the first one's place — the variants of one "
+        "header are one unbreakable group), or null to remove them all; a header no command has "
+        "is appended. Applied by the loader after layering, from the farthest layer to this file, "
+        "above the nearest layer that writes its own commands list; a removal of a header the "
+        "table does not hold is E-DEF-COMMAND-OVERRIDE. Empty once loaded",
     )
     component_overrides: dict[str, ComponentOverride | None] | None = Field(
         None,
