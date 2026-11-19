@@ -37,7 +37,7 @@ from .scope_values import Values
 
 @component("scope_measurements")
 class ScopeMeasurements(Component):
-    """Automatic measurements on a scope's records (instrument-authoring.md 8.4).
+    """Automatic measurements on a scope's records.
 
     The engine's measurements are VPP, VMAX, VMIN, VAVerage, VRMS, VAMPlitude (top - base),
     FREQuency and PERiod. ``names`` maps the model's names to them and to a unit (``C1:PAVA? AMPL``,
@@ -49,7 +49,7 @@ class ScopeMeasurements(Component):
     * ``min_cycles`` complete cycles a period needs, else it cannot be measured;
     * ``clipped: invalid``: a record that reaches the ADC's limits cannot be measured;
     * ``edge_min_samples``: the samples a rise or fall time needs on its edge (0: none);
-      ``shoot``: overshoot and preshoot from the extremes or from the first edge (#1332);
+      ``shoot``: overshoot and preshoot from the extremes or from the first edge;
     * ``gate``: [from, to] divisions of the record (0 to 10) the measurement looks at;
     * what cannot be measured answers ``invalid_value`` with the second ``status`` word.
 
@@ -65,7 +65,7 @@ class ScopeMeasurements(Component):
     optional_refs = frozenset({"math"})
     defaults = {
         "record": "acq",  # the acquisition component holding the records (RecordSource: a real-time or sampling one)
-        "math": "",  # the math block a FUNCtion<F> source reads from (#1074); empty: channels only
+        "math": "",  # the math block a FUNCtion<F> source reads from; empty: channels only
         "source": "",  # the channel measured (a setting such as $measure.source); empty: the command's
         "names": {},  # model name -> [engine measurement, unit], e.g. {AMPL: [VAMPlitude, V]}
         "top_base": "histogram",  # histogram | extremes
@@ -74,26 +74,26 @@ class ScopeMeasurements(Component):
         "hysteresis": FREQ_HYSTERESIS,  # half the counter's band, of top minus base
         "min_cycles": 1,  # complete cycles a period needs
         "hysteresis_floor_divs": 0.16,  # the counter's band never drops below this fraction of a
-        # division of the record's scale (#745): noise alone counts no crossings, so a flat trace
+        # division of the record's scale: noise alone counts no crossings, so a flat trace
         # of noise measures as nothing, like the real counter's screen-referenced band — an
-        # assumed value, no manual states a counter's minimum amplitude (#781); 0 turns it off
+        # assumed value, no manual states a counter's minimum amplitude; 0 turns it off
         "clipped": "measure",  # measure | invalid: a record at the ADC's limits
         # rise and fall times need this many samples on the edge, one beyond each threshold
-        # (the Infiniium's four, #1332); 0: no rule
+        # (the Infiniium's four); 0: no rule
         "edge_min_samples": 0,
         # overshoot / preshoot: the record's extremes (extremes, InfiniiVision) or the first edge
-        # on the screen and its local extreme (first_edge, Infiniium, #1332)
+        # on the screen and its local extreme (first_edge, Infiniium)
         "shoot": "extremes",
         "gate": None,  # [from, to] divisions of the record; None: all of it
         "invalid_value": "UNDEF",  # what an unmeasurable value answers
         "status": ["OK", "UF"],  # measured, cannot be measured
         "sources": [],  # the two settings DELay?/PHASe? use without sources, e.g. [measure.source, ...]
         "trigger_levels": {},  # channel -> its trigger level setting, for :TRIGger:LEVel:ASETup
-        # The screen's measurement list (#373): a measurement command without '?' installs one;
+        # The screen's measurement list: a measurement command without '?' installs one;
         # past `slots` the oldest leaves. 0: no list (the query only answers).
         "slots": 0,
         "all": [],  # the measurements :MEASure:ALL? answers, in order (engine names)
-        # ---- the markers (cursors, #1074): the settings the definition binds the :MARKer words to;
+        # ---- the markers (cursors): the settings the definition binds the :MARKer words to;
         # a model without them has no marker commands.
         "marker_mode": "",  # the marker mode setting, e.g. $marker.mode: OFF/MANual/XONly/YONly/WAVeform/MEASurement
         "marker_x1": None,  # the Ax marker's x, in the source's x unit (s, or Hz on a transform), e.g. $marker.x1
@@ -105,7 +105,7 @@ class ScopeMeasurements(Component):
         "marker_delta": None,  # whether the deltas are drawn on screen (a bool setting); None: no command
         "marker_measurement": None,  # the measurement the MEASurement mode tracks, 1-based (an int setting)
         "markers": 0,  # how many of the numbered :MARKer<K> markers the model has (1..60); 0: none
-        # ---- the markers' units (2000 X-series :MARKer:XUNits/:YUNits, #1155): the words the
+        # ---- the markers' units (2000 X-series :MARKer:XUNits/:YUNits): the words the
         # positions and deltas answer in, and the anchors a :UNits:USE write sets (None: no
         # command, the values pass through unscaled).
         "marker_x_units": "",  # the X cursors' unit word: SEConds/HERTz/DEGRees/PERCent
@@ -210,7 +210,7 @@ class ScopeMeasurements(Component):
     @op("overload")
     def op_overload(self, **_: Any) -> OpResult:
         """The Overload Event Register (:OVLRegister?): bit n-1 set for each channel n whose input
-        went beyond its maximum input range since the last read; the read clears it (#1264)."""
+        went beyond its maximum input range since the last read; the read clears it."""
         return self.readouts.op_overload(**_)
 
     @op("all")
@@ -306,7 +306,7 @@ class ScopeMeasurements(Component):
     def op_at(
         self, what: str = "", source: list[bytes] | None = None, channel: int | None = None, **_: Any
     ) -> OpResult:
-        """Measurements with arguments (#350), times from the trigger:
+        """Measurements with arguments, times from the trigger:
 
         * ``VTIMe? <time>[,<source>]`` — the voltage at that time (linear between samples);
         * ``TEDGe? <slope><occurrence>[,<source>]`` — the time of that edge at the middle level;
@@ -325,7 +325,7 @@ class ScopeMeasurements(Component):
     ) -> OpResult:
         """``DELay? [<source1>][,<source2>]``: the time from source 1's first rising edge to source 2's
         first rising edge at their middle levels; ``PHASe?``: that delay over source 1's period, in
-        degrees folded into -180..+180 (#350), with a trailing RISing / FALLing taking that edge on both. Without sources,
+        degrees folded into -180..+180, with a trailing RISing / FALLing taking that edge on both. Without sources,
         :MEASure:SOURce's two (``sources``). ``CROSsing?``: the voltage where the two records cross
         (nearest the centre). ``DELTatime?`` (the Infiniium's): from source 1's edge ``define`` names
         to source 2's — ``define`` = [start direction, number, position, stop direction, number,
@@ -352,7 +352,7 @@ class ScopeMeasurements(Component):
     def op_auto_trigger_levels(self, source_only: bool = False, **_: Any) -> OpResult:
         """``:TRIGger:LEVel:ASETup``: every displayed channel's trigger level to its waveform's 50 %
         (halfway between top and base; 0 V with AC coupling) — the levels of ``trigger_levels``,
-        channel -> setting (#350). ``source_only`` (the Infiniium's ``:TRIGger:LEVel:FIFTy``): the
+        channel -> setting. ``source_only`` (the Infiniium's ``:TRIGger:LEVel:FIFTy``): the
         level of the channel the trigger takes its source from now, whatever the trigger type."""
         return self.edges.op_auto_trigger_levels(source_only, **_)
 
@@ -384,7 +384,7 @@ class ScopeMeasurements(Component):
     ) -> OpResult:
         """``:MEASure:VPP? [CHANnel1]``: the engine measurement ``what`` (a constant argument of the
         command) in the definition's number format; what cannot be measured is NaN's sentinel.
-        Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list (#373).
+        Without '?' (``:MEASure:VPP CHANnel1``) the measurement goes on the screen's list.
         For the level measurements (``LEVEL_MEASUREMENTS``) an ``interval`` CYCLe and a ``direction``
         FALLing parameter select their variants (``AREA:CYCLe``, ``VOVershoot:FALLing``); for
         VAVerage and VRMS the CYCLe interval is the first period on screen, a ``coupling`` AC takes
@@ -435,7 +435,7 @@ class ScopeMeasurements(Component):
     @op("x_delta")
     def x_delta(self, query: bool = True, **_: Any) -> OpResult:
         """``:MARKer:XDELta?``: Bx − Ax, in the X cursors' units — the value at each cursor in
-        that unit, minus (the 2000 X-series manual's Xdelta; #1155)."""
+        that unit, minus (the 2000 X-series manual's Xdelta)."""
         return self.cursors.x_delta(query, **_)
 
     @op("y_delta")

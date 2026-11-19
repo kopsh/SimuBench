@@ -41,9 +41,9 @@ def emf_peak(dbm: float) -> float:
 
 @component("rf_reference")
 class RfReference(ReferenceClock):
-    """The 10 MHz timebase (D2 #188): the generic reference clock, plus the REF_OUT output.
+    """The 10 MHz timebase: the generic reference clock, plus the REF_OUT output.
 
-    ``ppm`` is the timebase error: hidden state (D9), readable only by measuring. With ``source``
+    ``ppm`` is the timebase error: hidden state, readable only by measuring. With ``source``
     EXTernal the 10 MHz on ``ref`` locks the generator when one within ±10 ppm is there, and every
     synthesized frequency carries that error instead; REF_OUT carries the error of the timebase in
     use (10 MHz at +4 dBm into a matched load).
@@ -107,7 +107,7 @@ class RfReference(ReferenceClock):
 
 @component("rf_synthesizer")
 class RfSynthesizer(Component):
-    """The carrier synthesizer (D2 #188): the CW frequency, or the sweep/list plan and its current
+    """The carrier synthesizer: the CW frequency, or the sweep/list plan and its current
     point, advanced by ``:INITiate`` and ``:TRIGger``. The line it emits is unit amplitude at the
     set frequency times the timebase error of the reference it locks to; level and modulation come
     later in the chain."""
@@ -128,13 +128,13 @@ class RfSynthesizer(Component):
         "spacing": "LINear",  # LINear | LOGarithmic
         "manual": 1,  # current sweep point, 1-based
         "clock": "",  # the rf_reference (empty: an exact clock)
-        # What sweeps, as the instrument's sweep-state words (#291): a list such as [FREQuency],
+        # What sweeps, as the instrument's sweep-state words: a list such as [FREQuency],
         # [LEVel], [LEVel, FREQuency] or [OFF]; None leaves it to `mode` (frequency only).
         "manner": None,
         "level_start": -20.0,  # dBm, first level of a level sweep
         "level_stop": 0.0,  # dBm, last level of a level sweep
-        # How the points advance (#291): TRIGger — one point per :TRIGger (`manual`); TIME — one
-        # point per `dwell` of virtual time from the sweep's start (D12).
+        # How the points advance: TRIGger — one point per :TRIGger (`manual`); TIME — one
+        # point per `dwell` of virtual time from the sweep's start.
         "step_by": "TRIGger",
         "dwell": 0.0,  # s per point when stepping by time
         "run": "SINGle",  # SINGle: one pass, then the last point holds; CONTinuous: the pass repeats
@@ -249,7 +249,7 @@ class RfSynthesizer(Component):
 
     @op("list_freq")
     def op_list_freq(self, query: bool = False, values: list[bytes] | None = None, **_: Any) -> OpResult:
-        """``:LIST:FREQ 1e9,2.4e9`` or ``"1e9,2.4e9"``: real instruments take both forms (D13)."""
+        """``:LIST:FREQ 1e9,2.4e9`` or ``"1e9,2.4e9"``: real instruments take both forms."""
         if query:
             return OpResult(b",".join(self.reply_number(f, 12) for f in self.list_freqs))
         freqs = V.parse_float_list(tuple(values or ()), "HZ")
@@ -294,7 +294,7 @@ class RfSynthesizer(Component):
 
 @component("rf_mod_source")
 class RfModSource(Component):
-    """The internal low-frequency modulation source (D2 #188): the tone of AM, FM or PM at its set
+    """The internal low-frequency modulation source: the tone of AM, FM or PM at its set
     frequency. Its frequency is synthesized from the same timebase as the carrier, so the
     reference's error scales it too; FM modulates with a phase shift of −π/2 (a sine tone), PM in
     phase with the carrier."""
@@ -332,11 +332,11 @@ class RfModSource(Component):
 
 @component("rf_modulator")
 class RfModulator(Component):
-    """The modulator (D2 #188): AM, and Bessel FM/PM truncated at Carson's rule, applied to the
+    """The modulator: AM, and Bessel FM/PM truncated at Carson's rule, applied to the
     carrier line. FM and PM are exclusive (the later one wins with -221), AM may be added to
     either, pulse modulation is refused (-221), and a modulation index needing more than
     ``LINE_BUDGET`` lines is refused (-222) on the setting that causes it. ``enabled`` is the
-    master switch (#290): off, the carrier passes bare and every modulation keeps its settings."""
+    master switch: off, the carrier passes bare and every modulation keeps its settings."""
 
     label = "调制器"
     label_en = "Modulator"
@@ -349,7 +349,7 @@ class RfModulator(Component):
     }
     refs = {"source": ("rf_mod_source", "instrument")}
     defaults = {
-        "enabled": True,  # the master modulation switch (Mod/on, :MODulation:STATe, #290)
+        "enabled": True,  # the master modulation switch (Mod/on, :MODulation:STATe)
         "am": False,  # amplitude modulation on
         "am_depth": 0.0,  # percent modulation depth
         "am_rate": 1e3,  # Hz of the AM tone (the modulator forms the sidebands at it)
@@ -450,9 +450,8 @@ class RfModulator(Component):
 
 @component("rf_level_control")
 class RfLevelControl(Component):
-    """The level control and ALC (D2 #188): the level in dBm into a matched 50 Ω load. The model's
-    level is exact over the whole range (no ALC dynamics, settling or level error,
-    validation-rfgen.md), so this block is the conversion from dBm to the carrier's EMF."""
+    """The level control and ALC: the level in dBm into a matched 50 Ω load. The model's
+    level is exact over the whole range (no ALC dynamics, settling or level error), so this block is the conversion from dBm to the carrier's EMF."""
 
     label = "电平控制（ALC）"
     label_en = "Level control (ALC)"
@@ -467,7 +466,7 @@ class RfLevelControl(Component):
     optional_refs = frozenset({"synthesizer"})
     defaults = {
         "level": -20.0,  # dBm into a matched load (a setting such as $power.level)
-        "synthesizer": "",  # the rf_synthesizer whose level sweep sets the level (#291; empty: none)
+        "synthesizer": "",  # the rf_synthesizer whose level sweep sets the level (empty: none)
     }
     units = {"level": "dBm"}
 
@@ -486,8 +485,8 @@ class RfLevelControl(Component):
 
 @component("rf_attenuator")
 class RfAttenuator(Component):
-    """The output step attenuator (D2 #188). This model has no attenuation steps — its level is
-    exact over the whole range (validation-rfgen.md) — so ``attenuation`` is 0 dB unless a
+    """The output step attenuator. This model has no attenuation steps — its level is
+    exact over the whole range — so ``attenuation`` is 0 dB unless a
     definition sets it."""
 
     label = "输出衰减器"

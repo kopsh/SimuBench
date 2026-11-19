@@ -91,20 +91,19 @@ RESPONSES = {
 class ScopeVertical(Component):
     """The vertical channel: coupling, bandwidth, and the scale and offset with their ranges.
 
-    Analog first-order filters (physics, D13): AC coupling is a ``ac_corner`` high-pass and the
+    Analog first-order filters (physics): AC coupling is a ``ac_corner`` high-pass and the
     bandwidth a first-order low-pass at ``bandwidth`` (or ``bw_limit_hz`` when the limit is on).
     A scope whose bandwidth is a DSP filter declares its shape with ``response``: ``brickwall``
     (flat magnitude, linear phase: ringing on a step), ``gaussian`` (no ringing), ``bessel4`` or
-    ``butterworth4``, -3 dB at the same frequency and with the filter's delay removed (#607, #609).
+    ``butterworth4``, -3 dB at the same frequency and with the filter's delay removed.
     The ``scale`` (V/div) and ``offset`` (V) are display values; with ``scale_range`` and
     ``offset_ranges`` a change outside the range is refused with -222 and the old value kept. The
-    ranges are given at the input connector, i.e. the display values divided by ``probe_ratio``
-    (instrument-authoring.md 8.4). The input noise is a ``noise_table`` row of the scale: real
+    ranges are given at the input connector, i.e. the display values divided by ``probe_ratio``. The input noise is a ``noise_table`` row of the scale: real
     scopes' noise rides the vertical setting (the front-end gain sets it at the ADC), so a fixed
     input value would leave the coarse divisions far quieter than 1 LSB and averaging could not
-    resolve more (F4, D46).
+    resolve more.
 
-    The unit's own metrology (instrument-authoring.md 8.4, G3). Each V/div at the input
+    The unit's own metrology. Each V/div at the input
     connector has its own attenuator and gain stage: ``gain_error_ppm`` (relative) and
     ``offset_error`` (V at the input) are what this unit adds there — a number, or one per input
     V/div, the table a ``deviations`` entry with ``by: {scale: …}`` draws; a scale the table does
@@ -115,8 +114,7 @@ class ScopeVertical(Component):
     ``probe_ratio`` here. They sit in signal order — coupling, the attenuator's gain, the bias,
     then the bandwidth — and the record shows them, since it is reconstructed with the nominal
     scale and offset. ``store`` names a ``calibration_store`` whose coefficients correct the
-    record digitally, (raw − offset) × gain, keyed by the displayed V/div
-    (metrology-authoring.md 4); :meth:`self_calibrate` writes them for every tabulated scale.
+    record digitally, (raw − offset) × gain, keyed by the displayed V/div; :meth:`self_calibrate` writes them for every tabulated scale.
     """
 
     label = "垂直通道"
@@ -140,14 +138,14 @@ class ScopeVertical(Component):
         "ac_corner": 10.0,  # corner of the AC coupling high-pass
         # the shape of the bandwidth filter at min(bandwidth, limit): first_order (an analog front end),
         # brickwall (flat magnitude, linear phase), gaussian (no ringing), bessel4 or butterworth4; the
-        # DSP shapes are zero phase, their delay removed as a scope deskews it (#607, #609)
+        # DSP shapes are zero phase, their delay removed as a scope deskews it
         "response": "first_order",
-        # the analog front end's own shape when ``response`` is a DSP-corrected one (#1423): the
+        # the analog front end's own shape when ``response`` is a DSP-corrected one: the
         # trigger taps the analog path, before the converter, so it sees this one; None: the same
         "analog_response": None,
         "scale": "$ch.scale",  # V/div as displayed
         "offset": "$ch.offset",  # V as displayed
-        "invert": False,  # the waveform reflects about 0 V (:CHANnel<N>:INVert, #1067)
+        "invert": False,  # the waveform reflects about 0 V (:CHANnel<N>:INVert)
         "probe_ratio": 1.0,  # the probe setting the displayed scale and offset include
         "scale_range": None,  # [min, max] V/div at the input connector (None: any); may map a setting
         "offset_ranges": None,  # [[up to V/div, +-limit V], ...] at the input connector (None: any)
@@ -155,16 +153,16 @@ class ScopeVertical(Component):
         "noise_table": None,  # [[V/div, noise V rms], ...] at the input, per division (None: quiet)
         "noise_divs": 0.0,  # without a table: input noise rms as a fraction of a division (scales with V/div)
         # the bandwidth the noise table was measured at (Hz): a different ``bandwidth`` scales the
-        # table by sqrt(bandwidth / noise_bandwidth), white noise (#1427); None: the table as written
+        # table by sqrt(bandwidth / noise_bandwidth), white noise; None: the table as written
         "noise_bandwidth": None,
         "gain_error_ppm": 0.0,  # this unit's gain error, ppm (hidden); a number or by input V/div
         "offset_error": 0.0,  # this unit's offset error, V at the input (hidden); a number or by V/div
         "dac_error_ppm": 0.0,  # the offset DAC's gain error, ppm of the offset setting (hidden)
         "store": "",  # the calibration_store correcting the record, keyed by the displayed V/div
         # the maximum input range: the input may swing this many divisions (at the input) either side
-        # of the offset; beyond it the channel overloads (None: no limit, #1264)
+        # of the offset; beyond it the channel overloads (None: no limit)
         "max_input_divs": None,
-        "max_input_v": None,  # the absolute maximum at the input connector, V peak (None: none, #1264)
+        "max_input_v": None,  # the absolute maximum at the input connector, V peak (None: none)
     }
     units = {
         "max_input_v": "V",
@@ -401,10 +399,10 @@ class ScopeFrontend(ScopeVertical):
 class ScopeProbe(Component):
     """The probe setting of one channel: display volts are the volts at the input times ``ratio``.
 
-    A display conversion, not part of the analog path (instrument-authoring.md 8.4). ``skew``
+    A display conversion, not part of the analog path. ``skew``
     (bound to the model's channel-skew setting where it has one) and ``skew_error`` (this unit's
     own, a ``deviations`` draw) delay the channel's record by that many seconds: the acquisition
-    samples the channel's signal that much earlier (instrument-authoring.md 8.4, G3). A real
+    samples the channel's signal that much earlier. A real
     scope applies the delay after the ADC, so the trigger path — which detects on the analog
     signal — is not delayed with it."""
 
@@ -479,7 +477,7 @@ class ScopeProbe(Component):
     @op("set_attenuation")
     def set_attenuation(self, query: bool = False, word: str = "", words: Any = None, **_: Any) -> OpResult:
         """A probe attenuation given as the model's words (``DIV1``/``DIV10``, the 1154A's input
-        amplifier, #1067): the ``words`` argument maps each word to the display ratio it sets
+        amplifier): the ``words`` argument maps each word to the display ratio it sets
         (the readings change with it); the query answers the word that is set."""
         assert self.owner is not None
         table = {str(k).upper(): float(v) for k, v in (words or {}).items()}
@@ -500,7 +498,7 @@ class ScopeProbe(Component):
     def skew_auto(self, **_: Any) -> OpResult:
         """``:CHANnel<n>:PROBe:SKEW:AUTO``: the deskew against the probe's own compensation signal.
         The model has no compensation signal to compare against (no probe identification), so
-        the command parses and the skew keeps its value (#1067)."""
+        the command parses and the skew keeps its value."""
         return OpResult()
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> Any:
@@ -608,13 +606,13 @@ def _interpolated(points: list[tuple[float, Any]], freq: float | None) -> float:
 @component("scope_adc")
 class ScopeAdc(Component):
     """The ADC group shared by a scope's channels: where each channel's analog signal becomes
-    samples (D67), its resolution, top sample rates and interleaving.
+    samples, its resolution, top sample rates and interleaving.
 
     ``in<n>`` takes channel n's signal in display volts (the probe module's output); ``out<n>``
     gives its sample stream. A frame is made in this order: the signal is evaluated at the
     request's instants, less the channel's skew (a digital delay; ``probe``); the input noise of
-    the channel's vertical division (``vertical``, D46) is added, drawn from the request's random
-    stream; the sum is quantized. The samples are the codes, kept in volts (D46) — the format says
+    the channel's vertical division (``vertical``) is added, drawn from the request's random
+    stream; the sum is quantized. The samples are the codes, kept in volts — the format says
     how many bits and what one code step is worth.
 
     ``bits`` (0: records are not quantized) and ``codes_per_div`` (0: ``2**bits / divs``) set the
@@ -625,23 +623,23 @@ class ScopeAdc(Component):
     ``min_full_scale`` (V at the input; 0: none) is the hardware's smallest range: a division
     smaller than ``min_full_scale / divs`` magnifies that range, so the code step stays the range's
     (a ``codes_per_div``-th of ``min_full_scale / divs``) and the converter clips at the range's
-    edges, not the screen's (#1265).
+    edges, not the screen's.
 
-    The converter's own non-idealities (#1266), referred to a sine that spans the converter's range
+    The converter's own non-idealities, referred to a sine that spans the converter's range
     (0 dBFS): ``distortion_table`` rows ``[V/div at the input, HD2 dBc, HD3 dBc]`` (the row of the
     largest division not above the setting) bend the signal around the middle of the range with
     x² and x³ terms — a smaller signal has less, HD2 falling 6 dB and HD3 12 dB per halving, as a
-    polynomial's do. A row may also name the input frequency it holds at, ``[V/div, Hz, HD2, HD3]``
-    (#1421): the rows of one division are interpolated linearly over frequency (outside them the
+    polynomial's do. A row may also name the input frequency it holds at, ``[V/div, Hz, HD2, HD3]``:
+    the rows of one division are interpolated linearly over frequency (outside them the
     nearest holds) at the frequency of the signal's strongest line. ``enob_table`` rows ``[Hz, ENOB]`` give the
     effective bits of a full-scale sine at that frequency (interpolated the same way): the converter
     adds the noise that brings the record down to them — what the input noise, the quantization,
     the distortion and the aperture jitter leave of the error budget; none when they already exceed
-    it (F1-1). An input without a line gets the lowest frequency's noise: the floor stays (#1442). ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
+    it. An input without a line gets the lowest frequency's noise: the floor stays. ``interleave`` sub-converters on the ``max_rate`` grid differ by one cosine
     pattern in gain (``interleave_image_dbc``: each image at k·fs/N ± f) and offset
     (``interleave_spur_dbfs``: the spur at k·fs/N), and each sub-converter may carry its own gain
     error, offset and sampling-time skew (``interleave_gain_errors``, ``interleave_offsets_fs``,
-    ``interleave_skews_s``, one value per sub-converter, #1422) — the images and spurs are then the
+    ``interleave_skews_s``, one value per sub-converter) — the images and spurs are then the
     discrete Fourier series of those lists. A record slower than ``max_rate`` takes every M-th of the
     full-rate samples, so its samples keep their sub-converters and the pattern folds into its band
     (every N-th: one sub-converter, a gain error and a DC offset); ``aperture_jitter_s`` moves each sample instant
@@ -669,17 +667,17 @@ class ScopeAdc(Component):
         "min_full_scale": 0.0,  # the hardware's smallest range, V at the input across divs (0: none)
         # [[V/div at the input, HD2 dBc, HD3 dBc], ...] or [[V/div, Hz, HD2, HD3], ...] at 0 dBFS (None: none)
         "distortion_table": None,
-        "enob_table": None,  # [[Hz, effective bits of a full-scale sine], ...] (None: none, #1421)
+        "enob_table": None,  # [[Hz, effective bits of a full-scale sine], ...] (None: none)
         "interleave": 0,  # sub-converters interleaved on the max_rate grid (0, 1: none)
         "interleave_image_dbc": None,  # their gain mismatch: each image at k*fs/N +- f, dBc (None: none)
         "interleave_spur_dbfs": None,  # their offset mismatch: the spur at k*fs/N, dBFS (None: none)
-        # each sub-converter's own mismatch, one value per sub-converter, added to the above (#1422):
+        # each sub-converter's own mismatch, one value per sub-converter, added to the above:
         "interleave_gain_errors": None,  # gain errors, relative (None: none)
         "interleave_offsets_fs": None,  # offsets, fraction of the full scale (None: none)
         "interleave_skews_s": None,  # sampling-time skews, s (None: none)
         "aperture_jitter_s": 0.0,  # the sampling clock's aperture jitter, s rms
         # the record's noise passes the vertical's response (a DSP-corrected record's spectrum ends
-        # at its band, #1446); False: white noise up to the record's Nyquist frequency
+        # at its band); False: white noise up to the record's Nyquist frequency
         "shape_noise": False,
         "vertical": "",  # the per-channel scope_vertical component: the scale, offset and input noise
         "probe": "",  # the per-channel scope_probe component: its ratio (noise) and skew
@@ -883,7 +881,7 @@ class ScopeAdc(Component):
 
 @component("scope_decimator")
 class ScopeDecimator(Component):
-    """From the ADC's rate to the record's: the acquisition modes (F4, D46, D67).
+    """From the ADC's rate to the record's: the acquisition modes.
 
     ``in<n>`` takes channel n's samples at the converter's rate, ``out<n>`` gives them at the
     record's rate, after ``processing``:
@@ -986,18 +984,18 @@ class ScopeTimebase(Component):
     ``record_length``: ``fixed`` (``points`` over ten divisions), ``exact`` (the rate is
     ``points / 10 div`` up to the ADC group's top rate), ``rate_ladder`` (that rate rounded down
     to a 1-2-5 step; samples ``1 / rate`` apart) or ``rate_pow2`` (rounded down to the top rate
-    divided by a power of two, the Infiniium UXR's rates, #602). A ``sample_rate`` above 0 sets the
+    divided by a power of two, the Infiniium UXR's rates). A ``sample_rate`` above 0 sets the
     rate instead of the points (a manual rate takes precedence over the memory depth, the
     Infiniium guide's :ACQuire:SRATe): rounded up to the next rate of the rule's steps, at most the
     top rate and at most ``max_points / 10 div``; the record then holds ``rate x 10 div`` points.
-    ``max_points`` (the memory the unit has) also caps a set memory depth (#1424). The trigger sits at the centre, or ``delay``
+    ``max_points`` (the memory the unit has) also caps a set memory depth. The trigger sits at the centre, or ``delay``
     seconds before it when that is bound. A model with a reference mode setting places it from
     ``reference_mode`` (DELay / POSition) and, in POSition mode, from ``reference_position``
     percent across the record.
 
     The sampling clock has a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
     draw); with ``rosc`` EXTernal it follows the 10 MHz on ``ref`` instead, whose fractional
-    error the instrument inherits (instrument-authoring.md 8.4, G3). A fast clock takes samples
+    error the instrument inherits. A fast clock takes samples
     closer together than the nominal interval, so the records keep the nominal dt the scope
     reports and time measurements read low — the spectrum analyzer's reference convention.
     """
@@ -1017,7 +1015,7 @@ class ScopeTimebase(Component):
         "points": "$waveform.points",  # record points or memory depth (10000, "10k")
         "delay_range_divs": None,  # [min, max] of delay in divisions, e.g. [-5000, 5]; None: any
         "reference_divs": 5.0,  # where the trigger (delay 0) sits, divisions from the left; may map a setting
-        # the reference as 0-100 percent of screen (a setting, :TIMebase:REFerence:PERCent, #1067);
+        # the reference as 0-100 percent of screen (a setting, :TIMebase:REFerence:PERCent);
         # set (not None) it takes the place of reference_divs, the delay still moving the trigger
         "reference_percent": None,
         # A model with a reference mode setting (DELay | POSition) places the trigger from it: in

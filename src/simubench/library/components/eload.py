@@ -30,7 +30,7 @@ CP_TOLERANCE = 1e-9
 
 @component("eload_power_stage")
 class EloadPowerStage(Component):
-    """The sink's operating envelope (#186 C1): the CC knee, the current and power capability.
+    """The sink's operating envelope: the CC knee, the current and power capability.
 
     In constant current mode the load cannot go below its minimum operating resistance ``r_min``:
     below the knee voltage (``r_min`` × the set current) it behaves as that resistance instead of
@@ -64,19 +64,19 @@ class EloadPowerStage(Component):
 
 @component("eload_mode_loop")
 class EloadModeLoop(Component):
-    """The static function and the operating-point mode (#186 C1): CC, CV, CR or CP.
+    """The static function and the operating-point mode: CC, CV, CR or CP.
 
     ``function`` names the static mode; the setpoint belongs to it (``current``, ``voltage``,
     ``resistance`` or ``power``). ``von`` is the starting voltage: below it a CC (or CP) load does
     not sink. ``slew`` (A/µs) limits how fast the CC current follows a setpoint change; the ramp is
     evaluated at the current virtual instant, so a later reading sees the intermediate current.
 
-    The mode loop is piecewise in the D34 sense: :meth:`update_mode` reads the solved input voltage
+    The mode loop is piecewise: :meth:`update_mode` reads the solved input voltage
     and the present sink current and chooses ``("open"|"i"|"r"|"v", value)`` — a current sink, a
     resistance or a voltage clamp (CV mode). The CP hysteresis (I = P/V) is iterated to a
-    self-consistent point; the decision D52 records the semantics and its limit.
+    self-consistent point.
 
-    Model options (#661, defaults keep the old behaviour): ``von_latch`` keeps a load that has
+    Model options (defaults keep the old behaviour): ``von_latch`` keeps a load that has
     once seen the input above Von sinking below it until the input switches off; ``slew_rise`` /
     ``slew_fall`` give rising and falling CC steps their own rates; ``*_ranges`` declare a
     setting's ranges as ``[low, high]`` pairs — the bound ``*_range`` setting is moved to the
@@ -111,7 +111,7 @@ class EloadModeLoop(Component):
         "slew_fall": 0.0,  # A/µs, falling CC steps (0: use slew)
         "von_latch": False,  # once above Von the load keeps sinking below it until the input turns off
         "stage": "",  # the eload_power_stage carrying the envelope
-        # Ranges (#661): the range setting (a setting such as $current.range) and the ranges as
+        # Ranges: the range setting (a setting such as $current.range) and the ranges as
         # [low, high] pairs; empty: the range is only a saved setting.
         "current_range": 0.0,  # A, the CC range setting
         "current_ranges": [],  # [[low, high], ...] of the CC ranges, ascending
@@ -312,7 +312,7 @@ class EloadModeLoop(Component):
 
 @component("eload_input")
 class EloadInput(Component):
-    """The load's input terminal and switch (#186 C1): the element that stamps the circuit.
+    """The load's input terminal and switch: the element that stamps the circuit.
 
     It owns the ``in`` port; with the input off (or a protection trip latched) it is an open
     circuit. Otherwise it stamps what the mode loop decided: a current sink (CC/CP), a resistance
@@ -460,7 +460,7 @@ class EloadInput(Component):
 
 @component("eload_meter")
 class EloadMeter(Component):
-    """The load's V/I/P measurement (#186 C1). The readings keep the ``load.*`` keys the front
+    """The load's V/I/P measurement. The readings keep the ``load.*`` keys the front
     panel uses; the input stage supplies the solved values."""
 
     label = "负载测量"
@@ -471,12 +471,12 @@ class EloadMeter(Component):
     refs = {"input": ("eload_input", "instrument")}
     defaults = {
         "input": "",  # the eload_input whose solved values are read
-        # STATus:QUEStionable bit positions (#343).
+        # STATus:QUEStionable bit positions.
         "ov_bit": 0,  # questionable bit set while OVP is tripped
         "oc_bit": 1,  # questionable bit set while OCP is tripped
         "op_bit": 3,  # questionable bit set while OPP is tripped
         "unr_bit": 10,  # questionable bit set while the input is on but unregulated
-        "noise": None,  # reading noise {rms: {voltage, current}}, absolute (no ranges here) (#750); None: noiseless
+        "noise": None,  # reading noise {rms: {voltage, current}}, absolute (no ranges here); None: noiseless
     }
 
     def _input(self) -> EloadInput:
@@ -504,7 +504,7 @@ class EloadMeter(Component):
 
     @op("questionable")
     def op_questionable(self, query: bool = False, **_: Any) -> OpResult:
-        """STATus:QUEStionable:CONDition? (#343): the condition register, live — OV / OC / OP while
+        """STATus:QUEStionable:CONDition?: the condition register, live — OV / OC / OP while
         that protection is tripped, UNR while the input is unregulated (:meth:`EloadInput.unregulated`).
         The bit positions are parameters, so a model maps its own manual's register."""
         self.session.solve()
@@ -532,17 +532,17 @@ class EloadMeter(Component):
 
 @component("eload_protection")
 class EloadProtection(ProtectionLatch, Component):
-    """OVP / OCP / OPP protection (#186 C1): thresholds, the trip latch and its kind.
+    """OVP / OCP / OPP protection: thresholds, the trip latch and its kind.
 
     A threshold of 0 disables that protection. When the operating point crosses one the trip is
     latched and the input stops conducting (the mode loop opens); :meth:`op_clear` resets it (the
-    model's protection-clear command; #194 maps the DL3000's own). The thresholds are checked on
+    model's protection-clear command). The thresholds are checked on
     the solved operating point, so a trip is a DC behaviour, not a transient one. The latch, the
     threshold judging and the trip/kind/clear replies are the shared protection primitive
     (:class:`ProtectionLatch`); the load adds no increment of its own — while the latch stands,
     the input stage simply does not conduct.
 
-    #661: ``ocp_enabled`` / ``opp_enabled`` switch those protections, and ``ocp_delay`` /
+    ``ocp_enabled`` / ``opp_enabled`` switch those protections, and ``ocp_delay`` /
     ``opp_delay`` let the over-limit stand that long (virtual time) before the trip — the latch
     falls when the limit is still exceeded at the deadline (the B&K 8600 CURR:PROT:DEL). Its
     status flags are the 8600's questionable bits: OV and VF while OVP stands, OC while the

@@ -26,7 +26,7 @@ SHAPES = ("brickwall", "gaussian", "bessel4", "butterworth4")
 
 @component("scope_dsp_filter")
 class ScopeDspFilter(_ChannelBound):
-    """A digital low-pass on each channel's samples, between the ADC and the decimator (#1262).
+    """A digital low-pass on each channel's samples, between the ADC and the decimator.
 
     ``in<n>`` takes channel n's samples (the converter's, or an earlier filter's), ``out<n>`` gives
     them filtered: a zero-phase ``response`` (``brickwall``: flat magnitude, linear phase with the
@@ -37,8 +37,8 @@ class ScopeDspFilter(_ChannelBound):
 
     The filter is a FIR kernel (the shape's impulse response, a Blackman window, unit gain at
     0 Hz) reaching 32 periods of the cutoff on either side, at most 32768 converter samples: a frame
-    asks its upstream for that much more on either side and keeps the middle (signal-chain.md 2.2:
-    no history is kept). A record slower than the converter (``adc``'s top rate) is filtered at up
+    asks its upstream for that much more on either side and keeps the middle (no history
+    is kept). A record slower than the converter (``adc``'s top rate) is filtered at up
     to ``max_oversample`` times its own rate and then decimated — the hardware filters at the
     converter's rate, so the noise above the record's Nyquist frequency is filtered too.
     Limits: the window widens the brick wall's edge to about a fifth of the cutoff (stop band

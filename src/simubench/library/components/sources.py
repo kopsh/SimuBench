@@ -167,10 +167,10 @@ class WaveformSynth(Component):
 
     ``function``: SINusoid, SQUare (with ``duty``: a pulse when it is not 50 %), RAMP (``symmetry`` %
     rising; 50 is a triangle), DC (zero: the level module adds the offset), ARBitrary and PRBS (the
-    ``arb`` table or ``prbs`` source on the same channel, #426). ``duty`` is a percentage or
+    ``arb`` table or ``prbs`` source on the same channel). ``duty`` is a percentage or
     a ratio as ``duty_unit`` declares; nothing is guessed from its size (0.1 is 0.1 % or 10 %, by the
     declaration). Square, pulse and ramp keep harmonics up to ``bandwidth`` (and the line limit, with a
-    fidelity note, D33); ``rolloff`` says how they end there: ``brickwall`` (all at full weight up
+    fidelity note); ``rolloff`` says how they end there: ``brickwall`` (all at full weight up
     to the bandwidth: the edges ring, Gibbs) or ``gaussian`` (-3 dB at the bandwidth: no overshoot,
     a 10–90 % edge of about 0.34 / bandwidth). ``clock`` names a reference_clock whose error scales
     the frequency.
@@ -199,15 +199,15 @@ class WaveformSynth(Component):
         "bandwidth": 100e6,  # Hz, harmonic limit for square, pulse and ramp
         "rolloff": "brickwall",  # brickwall | gaussian: how the harmonics end at the bandwidth
         "square_max": math.inf,  # Hz, highest square/ramp frequency (inf: none)
-        # Highest frequency per function word (#437), e.g. {SINusoid: 120e6, RAMP: 800e3}: FREQ? MAX
+        # Highest frequency per function word, e.g. {SINusoid: 120e6, RAMP: 800e3}: FREQ? MAX
         # follows the waveform, a frequency above it is -222 and set to it, and changing to a
         # function with a lower one moves the frequency there with -221. Empty: no limits.
         "max_frequency": {},
         "lead_time": 0.0,  # s, the PULSe function's leading-edge 10–90 % time (0: an ideal edge)
         "trail_time": 0.0,  # s, the PULSe function's trailing-edge 10–90 % time (0: an ideal edge)
         "clock": "",  # the reference_clock component (empty: an exact clock)
-        "arb": "",  # the arb_table played for ARBitrary (#426; empty: not offered)
-        "prbs": "",  # the prbs_source played for PRBS (#426; empty: not offered)
+        "arb": "",  # the arb_table played for ARBitrary (empty: not offered)
+        "prbs": "",  # the prbs_source played for PRBS (empty: not offered)
     }
     units = {"frequency": "Hz", "bandwidth": "Hz", "square_max": "Hz", "phase": "deg"}
     choices = {"rolloff": ROLLOFFS}
@@ -343,7 +343,7 @@ class WaveformSynth(Component):
     def op_pulse_width(self, query: bool = False, value: Any = None, target: str = "", **_: Any) -> OpResult:
         """The pulse width (s, 50 % to 50 %) = duty / frequency; setting it writes the duty
         setting ``target`` (a channel setting such as ``ch.pulse_duty``; default the bound duty).
-        MIN/MAX/DEF are the duty setting's declared range at the current period (#478)."""
+        MIN/MAX/DEF are the duty setting's declared range at the current period."""
         assert self.owner is not None
         freq = float(self.param("frequency"))
         if query and value is None:
@@ -374,7 +374,7 @@ class WaveformSynth(Component):
     def op_pulse_edges(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
         """Both edge times at once (``TRANsition[:BOTH]``); the query answers the leading one.
         MIN/MAX/DEF are the edge settings' own declared range, the same words LEADing/TRAiling
-        take, so ``TRAN? MIN`` answers what ``LEAD? MIN`` does (#478)."""
+        take, so ``TRAN? MIN`` answers what ``LEAD? MIN`` does."""
         assert self.owner is not None
         lead_path, trail_path = self.bound_path("lead_time"), self.bound_path("trail_time")
         if lead_path is None or trail_path is None:
@@ -392,7 +392,7 @@ class WaveformSynth(Component):
     @op("pulse_period")
     def op_pulse_period(self, query: bool = False, value: Any = None, **_: Any) -> OpResult:
         """The period (s) = 1 / frequency; setting it writes the frequency (the duty is kept).
-        MIN/MAX/DEF are the inverse of the frequency setting's declared range (#478)."""
+        MIN/MAX/DEF are the inverse of the frequency setting's declared range."""
         assert self.owner is not None
         freq_path = self.bound_path("frequency")
         if query and value is None:
@@ -417,7 +417,7 @@ class WaveformSynth(Component):
 
 @component("awg_modulator")
 class AwgModulator(Component):
-    """A function generator's modulation (#327, component-map function_generator.modulation):
+    """A function generator's modulation:
     between the waveform synthesis and the amplitude/offset, so the level settings scale the
     modulated wave as the instrument's do. The modulating wave is a sine, internal (``int_rate``)
     or the strongest line on the ``ext`` input (its depth scaled by ``ext_full_scale``).
@@ -616,7 +616,7 @@ class AwgModulator(Component):
 
 @component("amplitude_level")
 class AmplitudeLevel(Component):
-    """The amplitude and offset of a 1 Vpp waveform, as the instrument defines them (D13, D48).
+    """The amplitude and offset of a 1 Vpp waveform, as the instrument defines them.
 
     ``amplitude`` is in ``unit``: VPP, VPK, VRMS (through each function's peak-to-RMS ratio: sine
     2√2, square and pulse 2, ramp 2√3 Vpp per Vrms) or DBM (the power into the load setting:
@@ -626,7 +626,7 @@ class AmplitudeLevel(Component):
     ``dbm_hiz_ohms`` (50 Ω, the usual convention when the load is unknown).
 
     ``vpp_min`` / ``vpp_max`` bound the amplitude as volts peak-to-peak into the load setting, the
-    one physical limit a source has (D48): a write in any unit is converted and checked, refusing
+    one physical limit a source has: a write in any unit is converted and checked, refusing
     with -222; a change of the waveform or the load setting that would leave the range is refused
     with -221. Switching the unit converts the value, so the output does not move (a real source's
     ``VOLT:UNIT``); there is no dBm expression of 0 Vpp, so that switch is refused with -221.
@@ -650,7 +650,7 @@ class AmplitudeLevel(Component):
         "dbm_hiz_ohms": 50.0,  # the resistance dBm is referred to when the load setting is high-Z
         "vpp_min": None,  # V, the smallest Vpp into the load setting (None: not checked)
         "vpp_max": None,  # V, the largest Vpp into the load setting (None: not checked)
-        # What a change of the load setting keeps (#436): "setting" keeps the amplitude and offset
+        # What a change of the load setting keeps: "setting" keeps the amplitude and offset
         # as set (the EMF follows the new load); "output" keeps the EMF and rescales the amplitude
         # and offset read back — the Keysight Trueform rule (33500-90901, Output Termination).
         "load_change": "setting",
@@ -865,7 +865,7 @@ class ArbTable(Component):
 
     The output is periodic with fundamental ``rate / N``. Linear interpolation between samples is a
     convolution with a triangle, so harmonic k carries ``X[k mod N] / N · sinc²(k / N)``: the
-    spectrum is exact, not sampled (validation-lockin.md 6). Harmonics are kept up to ``max_lines``.
+    spectrum is exact, not sampled. Harmonics are kept up to ``max_lines``.
     """
 
     label = "任意波表"
@@ -879,10 +879,10 @@ class ArbTable(Component):
         "rate": 16000.0,  # samples per second
         "scale": 1.0,  # volts per unit of the table
         "max_lines": 1024,  # harmonics kept
-        "min_points": 1,  # the fewest points a loaded waveform may have (#426)
+        "min_points": 1,  # the fewest points a loaded waveform may have
         "max_points": 1_000_000,  # the most points a loaded waveform may have
         "dac_full_scale": 32767,  # the DAC code of +1 for load_dac
-        "max_name": 0,  # most characters of a loaded waveform's name (0: any length, #430)
+        "max_name": 0,  # most characters of a loaded waveform's name (0: any length)
         "name_error": -224,  # the error of a name over max_name characters
         "exists_error": 0,  # the error of loading a name already in memory (0: it is replaced)
     }
@@ -965,7 +965,7 @@ class ArbTable(Component):
     def op_clear(self, **_: Any) -> OpResult:
         """``DATA:VOLatile:CLEar``: forget the loaded waveforms, the one playing too, and play the
         definition's table again — the Trueform's "clears waveform memory ... and reloads the
-        default waveform" (33500-90901 DATA:VOLatile:CLEar; no error while one is selected, #430)."""
+        default waveform" (33500-90901 DATA:VOLatile:CLEar; no error while one is selected)."""
         self.waves.clear()
         self.selected = None
         return OpResult()
@@ -1030,7 +1030,7 @@ class PrbsSource(Component):
     or PAM4 (two bits per symbol, four levels, Gray coded: :func:`pam4_symbols`).
 
     Periodic with 2^n − 1 symbols, so its spectrum is lines at k·rate/N: the DFT of the sequence
-    times the rectangular pulse's sinc. Exact, not estimated by an FFT of samples (D13); lines are
+    times the rectangular pulse's sinc. Exact, not estimated by an FFT of samples; lines are
     kept for ``lobes`` sinc lobes, within the line limit. Symbol 0 starts at time zero (the
     pattern's start, which a sampling scope's pattern lock finds).
     """

@@ -32,7 +32,7 @@ CH3_COMBINED = 720
 
 @component("power_supply_setpoint")
 class PowerSupplySetpoint(Component):
-    """A channel's setpoint DAC (B2 #185): the voltage and current levels, within the channel's
+    """A channel's setpoint DAC: the voltage and current levels, within the channel's
     range (``stage.v_max`` / ``stage.i_max``). The control loop programs from the same settings."""
 
     label = "电源设定 DAC"
@@ -66,7 +66,7 @@ class PowerSupplySetpoint(Component):
 
 @component("power_stage")
 class PowerStage(Component):
-    """The channel's power stage (B2 #185): voltage/current capability and the current-limit cap.
+    """The channel's power stage: voltage/current capability and the current-limit cap.
 
     ``limit_cap`` is what the reused ``output_control_loop`` asks its envelope: the current limit a
     channel may program. ``v_max`` is the voltage ceiling the output stage clips the programmed
@@ -91,10 +91,10 @@ class PowerStage(Component):
 
 @component("power_output")
 class PowerOutput(Component):
-    """The output stage (B2 #185): relay, remote sense and the source the loop programs.
+    """The output stage: relay, remote sense and the source the loop programs.
 
     The relay closes ``relay_s`` after the output is switched on (and opens at once when it is
-    switched off), so the output timings count in virtual time (D12). The source is a voltage
+    switched off), so the output timings count in virtual time. The source is a voltage
     source regulating the sense pair (or the force terminals) in CV mode, a current source in CC
     mode — the same elements the SMU's output stage uses, driven by the reused control loop.
     """
@@ -125,8 +125,8 @@ class PowerOutput(Component):
         "remote_sense": False,  # regulate the sense pair instead of the force terminals
         "r_out": 1.0e-3,  # output impedance of the pass stage, ohm (parallel outputs stay solvable)
         "relay_s": 0.01,  # s from switching the output on to the relay closing
-        "rise_delay": 0.0,  # s the output waits before turning on, added to relay_s (#540)
-        "fall_delay": 0.0,  # s the output stays on after being switched off; a trip is immediate (#540)
+        "rise_delay": 0.0,  # s the output waits before turning on, added to relay_s
+        "fall_delay": 0.0,  # s the output stays on after being switched off; a trip is immediate
         "loop": "",  # this channel's output_control_loop (the reused B1 loop)
         "stage": "",  # this channel's power_stage (the envelope)
         "protection": "",  # this channel's supply_protection (the trip latch)
@@ -366,7 +366,7 @@ class PowerOutput(Component):
 
 @component("supply_readback")
 class SupplyReadback(Component):
-    """A channel's V/I/P readback (B2 #185): the voltmeter and ammeter of the output, with the
+    """A channel's V/I/P readback: the voltmeter and ammeter of the output, with the
     regulation state (CV / CC / OFF) the front panel shows."""
 
     label = "电源回读"
@@ -377,7 +377,7 @@ class SupplyReadback(Component):
     refs = {"output": ("power_output", "channel")}
     defaults = {
         "output": "",  # the channel's power_output
-        "noise": None,  # reading noise {rms: {voltage, current}}, absolute (no ranges here) (#750); None: noiseless
+        "noise": None,  # reading noise {rms: {voltage, current}}, absolute (no ranges here); None: noiseless
     }
 
     def _output(self) -> PowerOutput:
@@ -402,7 +402,7 @@ class SupplyReadback(Component):
 
     @op("condition")
     def op_condition(self, query: bool = False, **_: Any) -> OpResult:
-        """The regulation as a status condition (#271, STAT:QUES:INST:ISUM<n>:COND?): 0 off or
+        """The regulation as a status condition (STAT:QUES:INST:ISUM<n>:COND?): 0 off or
         unregulated, 1 constant current, 2 constant voltage."""
         self.session.solve()
         return OpResult(V.format_int({"CC": 1, "CV": 2}.get(self._output().regulation(), 0)))
@@ -433,14 +433,14 @@ class SupplyReadback(Component):
 
 @component("supply_protection")
 class SupplyProtection(ProtectionLatch, Component):
-    """A channel's OVP / OCP latch (B2 #185).
+    """A channel's OVP / OCP latch.
 
     Crossing a threshold (0 disables it) latches the fault and turns the output off; enabling the
     output while the fault stands is refused with the E36300's own error 729. ``clear`` (the
     model's ``OUTP:PROT:CLE``) removes the latch and restores the output state that existed before
     the fault, as the manual describes. The latch, the threshold judging and the trip/kind/clear
     replies are the shared protection primitive (:class:`ProtectionLatch`); this block's
-    increments are the OCP delay in constant current (#271) and the output-state restore.
+    increments are the OCP delay in constant current and the output-state restore.
     """
 
     label = "电源保护"
@@ -459,7 +459,7 @@ class SupplyProtection(ProtectionLatch, Component):
         "ovp": 0.0,  # over-voltage threshold, V (0: off)
         "ocp": 0.0,  # over-current threshold, A (0: off)
         "output": False,  # the channel's output setting (watched)
-        # OCP by time in CC (#271, the E36300's form): enabled, the output trips once it has been
+        # OCP by time in CC (the E36300's form): enabled, the output trips once it has been
         # in constant current for ocp_delay. The timer starts on entering CC; with "SCHange" a
         # settings change (voltage, current, output) while in CC starts it again, with "CCTRans"
         # only a transition into CC does.
@@ -592,7 +592,7 @@ class SupplyProtection(ProtectionLatch, Component):
 
 @component("supply_tracking")
 class SupplyTracking(Component):
-    """The combination of outputs 2 and 3 (B2 #185, #259): track, parallel or series.
+    """The combination of outputs 2 and 3: track, parallel or series.
 
     ``mode`` is the instrument's combination state (OFF / TRAC / PAR / SER). Enabling a combination
     requires both outputs off (the manual's constraint). ``topology`` says how the model combines:
@@ -782,11 +782,11 @@ class SupplyTracking(Component):
 
 @component("supply_transient")
 class SupplyTransient(Triggerable, Component):
-    """A channel's output transient system (#541): the step from the immediate to the triggered
+    """A channel's output transient system: the step from the immediate to the triggered
     levels on a trigger (N6700 "Programming Output Transients", E36300 INITiate/TRIGger).
 
-    The arm → ready → fire → abort machine is the ``Triggerable`` primitive's (#632): the ready
-    delay, the trigger delay in virtual time (#548) and the ignored-trigger error are the
+    The arm → ready → fire → abort machine is the ``Triggerable`` primitive's: the ready
+    delay, the trigger delay in virtual time and the ignored-trigger error are the
     primitive's; what a trigger *does* here is the step this system writes.
 
     ``INITiate:TRANsient`` arms it (``initiate``); a trigger then writes ``v_triggered`` into the
@@ -812,8 +812,8 @@ class SupplyTransient(Triggerable, Component):
         "i_mode": "FIXed",  # FIXed | STEP: what a trigger does to the current (CURRent:MODE)
         "source": "BUS",  # BUS | IMMediate | EXTernal: what triggers it (TRIGger:TRANsient:SOURce)
         "trigger_ignored_error": -211,  # the error a trigger while not armed reports (0: ignored silently)
-        "ready_delay": 0.0,  # s from INITiate until a trigger is accepted (#548)
-        "delay": 0.0,  # s from a trigger to its action (TRIGger:DELay, #548)
+        "ready_delay": 0.0,  # s from INITiate until a trigger is accepted
+        "delay": 0.0,  # s from a trigger to its action (TRIGger:DELay)
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:

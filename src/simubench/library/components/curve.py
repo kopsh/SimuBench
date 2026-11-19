@@ -47,7 +47,7 @@ def lia16(value: float) -> bytes:
 
 @component("curve_buffer")
 class CurveBuffer(Component):
-    """Traces sampled at a rate into bins, with start, pause, resume and reset (#273).
+    """Traces sampled at a rate into bins, with start, pause, resume and reset.
 
     The SR830's data storage: two traces (the CH1/CH2 displays), 62.5 mHz – 512 Hz or one point
     per trigger, single shot or loop, ``TRCA?``/``TRCB?``/``TRCL?`` reading k points from bin j.
@@ -63,7 +63,7 @@ class CurveBuffer(Component):
         "trace2": "",  # what trace 2 records
         "trace3": "",  # what trace 3 records
         "trace4": "",  # what trace 4 records
-        # A display ratio (#390): <component>.<quantity> each trace's value is divided by (the
+        # A display ratio: <component>.<quantity> each trace's value is divided by (the
         # SR830's DDEF ratio, X ÷ AUX In 1); empty: none. A denominator of 0 V records 0.
         "ratio1": "",  # what trace 1 is divided by (empty: nothing)
         "ratio2": "",  # what trace 2 is divided by

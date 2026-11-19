@@ -96,13 +96,13 @@ class LockinReference(Component):
         "phase": 0.0,  # degrees, phase of the detection reference
         "harmonic": 1,  # detection at harmonic n x f
         "amplitude": 1.0,  # V rms of the SINE_OUT drive
-        "dc_level": 0.0,  # V, the dc level added to the SINE_OUT drive (the SR86x's SOFF, #407)
+        "dc_level": 0.0,  # V, the dc level added to the SINE_OUT drive (the SR86x's SOFF)
         "min_vpp": 0.4,  # V peak to peak an external reference needs to lock
-        "f_max": F_MAX,  # Hz, the highest detection frequency n x f (#273: the SR830's 102 kHz)
+        "f_max": F_MAX,  # Hz, the highest detection frequency n x f (the SR830's 102 kHz)
         # Past f_max: "refuse" the setting (-221), or "clamp" the harmonic to the largest that fits
         # (the SR830 manual's rule for HARM and FREQ).
         "over_limit": "refuse",
-        # What on REF_IN defines zero phase (#273, the SR830's RSLP): SINE the positive-going zero
+        # What on REF_IN defines zero phase (the SR830's RSLP): SINE the positive-going zero
         # crossing of a sine; RISE a TTL rising edge (on a sine, the same crossing); FALL a TTL
         # falling edge, half a period later (the reference moves by 180°).
         "ext_slope": "SINE",
@@ -236,7 +236,7 @@ class LockinReference(Component):
 
 @component("lockin_input_mode")
 class LockinInputMode(Component):
-    """The input configuration (#273, the SR830's ISRC): single-ended A, differential A − B, or the
+    """The input configuration (the SR830's ISRC): single-ended A, differential A − B, or the
     current input.
 
     The terminals are ``input_port`` blocks in front (their impedance is the circuit part: 10 MΩ
@@ -283,7 +283,7 @@ class LockinInputMode(Component):
 
 @component("lockin_input_filter")
 class LockinInputFilter(Component):
-    """The input coupling and the line-frequency notches (D3 #189, SR830 block diagram).
+    """The input coupling and the line-frequency notches (the SR830 block diagram).
 
     AC coupling is a first-order high-pass at ``ac_corner``; the line notch (and its second
     harmonic) is a second-order band-stop of quality ``notch_q`` at ``line_frequency``. Both act on
@@ -341,7 +341,7 @@ class LockinInputFilter(Component):
 
 @component("lockin_input_amp")
 class LockinInputAmp(Component):
-    """The low-noise front-end amplifier (D3 #189): the sensitivity full scale, the dynamic reserve,
+    """The low-noise front-end amplifier: the sensitivity full scale, the dynamic reserve,
     the absolute input limit and the front-end noise density.
 
     Readings are input-referred (the gain does not scale X, Y or R); sensitivity sets full scale for
@@ -361,7 +361,7 @@ class LockinInputAmp(Component):
     defaults = {
         "sensitivity": 1.0,  # V rms full scale: overload flags and auto gain, not the scaling of X, Y, R
         "reserve": 10.0,  # 20 dB of dynamic reserve over the sensitivity
-        # The reserve as a table of dB by full-scale sensitivity (#273, the SR830's p.4-8 table per
+        # The reserve as a table of dB by full-scale sensitivity (the SR830's p.4-8 table per
         # RMOD): {sensitivity V: dB}; between entries the dB follow log(sensitivity). Set, it
         # replaces `reserve`.
         "reserve_db": None,
@@ -415,7 +415,7 @@ class LockinInputAmp(Component):
 
 @component("lockin_mixer")
 class LockinMixer(Component):
-    """The phase-sensitive detector (D3 #189): the input's spectral lines multiplied by the
+    """The phase-sensitive detector: the input's spectral lines multiplied by the
     reference, each becoming a complex exponential at Δf = f − f_detect, plus the input's DC term.
     The low-pass filter is applied to those exponentials by ``lockin_lowpass``."""
 
@@ -485,7 +485,7 @@ class _Regime:
 
 @component("lockin_lowpass")
 class LockinLowpass(Component):
-    """The n-pole RC low-pass (D3 #189): time constant, slope (6 dB/oct per pole), the closed-form
+    """The n-pole RC low-pass: time constant, slope (6 dB/oct per pole), the closed-form
     settling from a new regime, the equivalent noise bandwidth, and the truncation check that
     queues 329 when a truncated input still passes the filter."""
 
@@ -644,7 +644,7 @@ class LockinLowpass(Component):
 
 @component("lockin_output")
 class LockinOutput(Component):
-    """The DC output (D3 #189): X/Y with offset and expansion, R/θ, the overload flags and their
+    """The DC output: X/Y with offset and expansion, R/θ, the overload flags and their
     errors, the front-end noise of the reading, auto gain and auto phase — and the sampler the data
     buffer reads (X/Y/R/θ at the buffer's instants).
 
@@ -669,16 +669,16 @@ class LockinOutput(Component):
         "offset_x": 0.0,  # percent of full scale subtracted from X (display level)
         "offset_y": 0.0,  # percent of full scale subtracted from Y
         "expand": 1.0,  # 1 | 10 | 100: the deviation from the offset is multiplied by this
-        # Per quantity (#273, the SR830's OEXP): X, Y and R each with their own expand (None:
+        # Per quantity (the SR830's OEXP): X, Y and R each with their own expand (None:
         # `expand`); R's offset and expand act on the displayed R only, the R output stays raw.
         "expand_x": None,  # X's own expand (None: expand)
         "expand_y": None,  # Y's own expand (None: expand)
         "offset_r": 0.0,  # percent of full scale subtracted from the displayed R
         "expand_r": None,  # the displayed R's expand (None: expand)
-        # The unit of X, Y and R per volt the chain measures (#273): 1 for a voltage input; the
+        # The unit of X, Y and R per volt the chain measures: 1 for a voltage input; the
         # current input's 1/current_scale (1e-6: the readings and the sensitivity are in A).
         "unit_scale": 1.0,
-        # The readings table (#383, the SR86x OUTP?/SNAP? parameter list): entry k is index k,
+        # The readings table (the SR86x OUTP?/SNAP? parameter list): entry k is index k,
         # {word: X, source: X}. A source is X, Y, R, THETA, XNOISE or YNOISE (this output), $path
         # (a setting's value) or <component>.<quantity> (that block's trace_value: an AUX input,
         # the reference frequency). Empty: OUTP?/SNAP? by X, Y, R, THETa as before.
@@ -856,7 +856,7 @@ class LockinOutput(Component):
         """OUTR? i (SR830 manual 5-16): the value display channel i shows — the quantity its DDEF
         picks. ``target`` is the definition's ``<component>.<quantity>`` for that setting, the same
         sources a ``curve_buffer`` trace reads (X/R/XNoise and AUX1/2 on CH1, Y/θ/YNoise and
-        AUX3/4 on CH2). ``ratio`` (#390): the quantity the display divides by (DDEF's ratio, an AUX
+        AUX3/4 on CH2). ``ratio``: the quantity the display divides by (DDEF's ratio, an AUX
         input; empty: none); a denominator of 0 V shows 0."""
         self.overload()
         value = self._display_quantity(target)
@@ -925,7 +925,7 @@ class LockinOutput(Component):
         self, names: list[Any] | None = None, minimum: int = 1, maximum: int = 1, **_: Any
     ) -> OpResult:
         """``OUTP? j`` / ``SNAP? j,k{,l}`` / ``SNAPD?``: the table's parameters by index or word, all at
-        one instant, comma separated in the order asked (#383)."""
+        one instant, comma separated in the order asked."""
         items: list[Any] = []
         for raw in names or []:
             if isinstance(raw, bytes):
@@ -1036,7 +1036,7 @@ class LockinOutput(Component):
 
 @component("lockin_aux")
 class LockinAux(Component):
-    """The AUX block (D3 #189): four ADC inputs and four DAC outputs on the bench, circuit level.
+    """The AUX block: four ADC inputs and four DAC outputs on the bench, circuit level.
 
     Each input is a high-impedance (``z_in`` to ground) ADC terminal; each output is a Thevenin
     source of ``dac`` volts behind ``z_out``. The inputs read the solved voltage of their nets, so a

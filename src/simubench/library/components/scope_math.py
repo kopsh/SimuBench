@@ -152,7 +152,7 @@ from .scope_math_ops import (
 
 @component("scope_math")
 class ScopeMath(Component):
-    """A scope's math functions (``FUNCtion1..N``, #1074): the operators, the transforms and the
+    """A scope's math functions (``FUNCtion1..N``): the operators, the transforms and the
     measurements over their traces, computed from the acquisition's records when they are read.
 
     Each function's definition lives in the settings under ``prefix`` + its number —
@@ -391,7 +391,7 @@ class ScopeMath(Component):
         and its PSD, OBW at ``percent`` of the power, THDistortion about the fundamental. The guide
         gives every argument; an omitted one arrives as None and takes SimuBench's default: peak
         (FREQuency/MAGNitude, ``peak`` or ``peak1``) 1, the second peak 2, level -60 dBm, center and
-        bandwidth 0, percent 99. THDistortion's ``value`` is what its ``mode`` makes it (#1362): the
+        bandwidth 0, percent 99. THDistortion's ``value`` is what its ``mode`` makes it: the
         fundamental in Hz (MANual) or the peak level in dBm (PEAK: the ``peak``-th peak above it,
         numbered low to high like the other FFT peak measurements, whatever the annotation sort)."""
         return self.fft.op_fft_measure(
@@ -414,7 +414,7 @@ class ScopeMath(Component):
         **_: Any,
     ) -> OpResult:
         """``:FUNCtion<f>:ADD|SUBTract|MULTiply|DIVide <operand>,<operand>``: the operator and both
-        operands, checked when written (#1494) — a missing operand is -109, one that is not a source
+        operands, checked when written — a missing operand is -109, one that is not a source
         this model knows (or a constant that is not finite) -224 — and the function is left as it
         was; the manual gives two operands for each of these."""
         return self.controls.op_operate(operator, source1, source2, suffixes, **_)

@@ -46,14 +46,14 @@ class StatusRegister(Component):
         "enable": 0,  # the enable mask (a setting such as $status.lia_enable)
         "summary_bit": None,  # the status-byte bit set while (event & enable) != 0 (None: none)
         "width": 16,  # bits in the register (8 for an SRS byte)
-        # Settings whose change is an event of this register (#273), flag -> $setting, e.g.
+        # Settings whose change is an event of this register, flag -> $setting, e.g.
         # {TC: $filter.time_constant, RANGE: $input.sensitivity}.
         "changes": {},
         # "esr": this register is the engine's standard event register (the bits *OPC and command
         # errors set, the *ESE mask), so a model can give it its own forms (*ESE i,j; *ESR? i).
         "mirror": "",
         "request_bit": None,  # a serial-poll register: this bit is set while (condition & enable) != 0
-        # Transition filters (#549), e.g. $ch.oper_ptr: a condition bit that goes true latches its
+        # Transition filters, e.g. $ch.oper_ptr: a condition bit that goes true latches its
         # event only where ptr has it, one that goes false only where ntr has it.
         "ptr": None,  # positive filter (None: every bit, rising edges only)
         "ntr": 0,  # negative filter (0: falling edges latch nothing)
@@ -318,7 +318,7 @@ class StatusRegister(Component):
     def op_preset(self, **_: Any) -> OpResult:
         """``STATus:PRESet``: the enable mask of every status register of the instrument (each
         channel's too) back to 0, bound transition filters to ptr = ``preset_ptr`` (default every
-        bit) and ntr = 0; the events stay (SCPI PRESet, #348, #549)."""
+        bit) and ntr = 0; the events stay (SCPI PRESet)."""
         assert self.owner is not None
         for comp in self.owner.components.values():
             if comp.type_name != "status_register" or comp._params.get("mirror"):

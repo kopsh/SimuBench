@@ -63,7 +63,7 @@ from .scope_record import Points, Record, channel_index
 @component("waveform_transfer")
 class WaveformTransfer(Component):
     """The selected points of a channel's record, encoded as text, an ASCII list or a binary
-    block. The source may name a math function (``FUNCtion<F>``, #1074): the record then comes
+    block. The source may name a math function (``FUNCtion<F>``): the record then comes
     from the ``math`` block instead of the acquisition, with the same encoding and preamble."""
 
     label = "波形传输"
@@ -89,20 +89,20 @@ class WaveformTransfer(Component):
         "format": "%.6e",  # text
         "separator": " ",  # text
         "digits": 8,  # ascii
-        "codes_per_div": 25.0,  # ADC codes per division of the record scale ("adc": the acquisition's ADC's, #1445)
+        "codes_per_div": 25.0,  # ADC codes per division of the record scale ("adc": the acquisition's ADC's)
         "offset": "subtract",  # subtract: (v - offset); add: (v + offset), the record's offset setting
-        "adc_bits": 8,  # bits of the ADC codes, signed around zero ("adc": the acquisition's ADC's, #1445)
+        "adc_bits": 8,  # bits of the ADC codes, signed around zero ("adc": the acquisition's ADC's)
         "width": 8,  # bits of a block word: codes shift up or down to fit
         "unsigned": False,  # block codes offset by 2**(width-1)
         "reserve_lowest": False,  # the lowest output code means "no data" (a hole): samples stay above it
         "byteorder": "little",  # little | big (also LSBFirst | MSBFirst)
         "block_digits": 0,  # 0: as few as the length needs
         # an indefinite-length block: #0 and the data up to the message end, no length (Infiniium
-        # :WAVeform:STReaming ON, #602); a setting may switch it
+        # :WAVeform:STReaming ON); a setting may switch it
         "indefinite": False,
         "trailer": "",  # appended after a block, e.g. a line feed
         "no_record": "no acquisition for this source",  # the -230 message when there is no record
-        "seg_all": False,  # :WAVeform:SEGMented:ALL: the data read returns every segment (#1066)
+        "seg_all": False,  # :WAVeform:SEGMented:ALL: the data read returns every segment
         "coupling": "DC",  # the input coupling word :WAVeform:COUPling? replies (the guide: always DC)
         # describe: NAME -> a format of the record's figures (points, first, step, dt, x_offset,
         # offset, scale, gain, timebase, count), e.g. {HORIZ_INTERVAL: "{dt:.9e}"}
@@ -113,7 +113,7 @@ class WaveformTransfer(Component):
         # byteorder, block_digits, trailer, separator (text), fields: [{at: byte offset (binary),
         # type: i8 | u8 | i16 | u16 | i32 | u32 | i64 | f32 | f64 | str, value | figure | setting,
         # map, nearest, scale, format (text: a printf format), when: {setting: value} with else};
-        # a text field's setting may be a list, joined by its format: '"%s:%s"', #1441]}
+        # a text field's setting may be a list, joined by its format: '"%s:%s"']}
         "header": None,
     }
 
@@ -578,8 +578,7 @@ class WaveformTransfer(Component):
 
         ``start``/``size`` (Infiniium ``:WAVeform:DATA? [<start>[,<size>]]``): this read's first
         point and number of points, ``size`` cut to the end of the record; a ``start`` past the
-        record is -222. A deep record is read in parts this way, each part computed as it is read
-        (#1012)."""
+        record is -222. A deep record is read in parts this way, each part computed as it is read."""
         if start is None:
             return self.transfer(channel)
         if start < 0 or (size is not None and size < 1):

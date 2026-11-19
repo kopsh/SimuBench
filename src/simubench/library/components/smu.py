@@ -43,7 +43,7 @@ def _sign(x: float) -> float:
 
 @component("smu_source")
 class SmuSource(Component):
-    """The source DAC's setting (#184 B1): source range, the sweep, and the range envelope.
+    """The source DAC's setting: source range, the sweep, and the range envelope.
 
     It stamps no circuit element. The control loop takes the level from its own bindings and the
     output stage turns the loop's target into a circuit source; this component owns the *ranges*:
@@ -81,7 +81,7 @@ class SmuSource(Component):
         "sweep_points": 2,  # points of a linear or log sweep
         "sweep_delay": 0.0,  # s, wait before each sweep point
         "sweep_list": "",  # comma-separated levels of a LIST sweep
-        # The B2900's sweep settings (#398): sweep_mode may also be FIXed (no sweep) or SWEep (a
+        # The B2900's sweep settings: sweep_mode may also be FIXed (no sweep) or SWEep (a
         # staircase spaced by sweep_spacing); a current sweep may keep its own mode, start, stop
         # and list (None: the shared ones), chosen by sweep_function.
         "sweep_spacing": "LINear",  # LINear | LOGarithmic: the steps of a SWEep sweep
@@ -249,7 +249,7 @@ class SmuSource(Component):
 
 @component("output_control_loop")
 class OutputControlLoop(Component):
-    """The voltage/current control loop and its limit switch (D34), reusable by any output stage.
+    """The voltage/current control loop and its limit switch, reusable by any output stage.
 
     A definition binds the setpoint (``function``, ``v_level``, ``i_level``), the limits
     (``i_limit``, ``v_limit``) and the output setting to it. The piecewise output stage calls
@@ -258,7 +258,7 @@ class OutputControlLoop(Component):
 
     ``envelope`` optionally names a component whose ``limit_cap(function, level)`` caps a limit by
     the range in use (the SMU's source DAC); a supply that has no such table leaves it empty. A
-    channel-level loop names its channel's ``power_stage`` in ``channel_envelope`` instead (B2).
+    channel-level loop names its channel's ``power_stage`` in ``channel_envelope`` instead.
     """
 
     label = "CV/CC 控制环"
@@ -279,7 +279,7 @@ class OutputControlLoop(Component):
         "v_limit": 21.0,  # V, voltage limit in current mode
         "output": False,  # the output stage is enabled
         "envelope": "",  # instrument-level component capping the limits by the range in use
-        "channel_envelope": "",  # a channel's power_stage (B2), same interface
+        "channel_envelope": "",  # a channel's power_stage, same interface
     }
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -397,17 +397,17 @@ class OutputControlLoop(Component):
 
 @component("smu_output")
 class SmuOutput(Component):
-    """The output stage (#184 B1): HI/LO, remote sense, floating LO and the output relay.
+    """The output stage: HI/LO, remote sense, floating LO and the output relay.
 
     The voltage loop regulates the metered points: ``V(sense_hi) − V(sense_lo)`` with remote sense
     on, otherwise the force terminals (``V(hi) − V(lo)``; with ``floating: false`` the LO is bonded
     to the bench ground, the model's original behaviour). The current always flows through the
     force terminals. A sense terminal left unconnected while remote sense is on makes the reading
     operations raise an error (the loop falls back to the force terminals); the bench validator
-    warns about such a bench (metrology-authoring.md 6).
+    warns about such a bench.
 
     Not a ``driver`` for bench checks: at its limit it sinks current, so a supply on the same net
-    is a valid bench (quadrant 2). The control loop it drives holds the mode (D34).
+    is a valid bench (quadrant 2). The control loop it drives holds the mode.
     """
 
     label = "SMU 输出级"
@@ -515,12 +515,12 @@ class SmuOutput(Component):
 
 @component("smu_meter")
 class SmuMeter(Component):
-    """The V/I meter (#184 B1): range resistors, A/D, NPLC and the reading memory handoff.
+    """The V/I meter: range resistors, A/D, NPLC and the reading memory handoff.
 
-    Readings go through a ``trigger_model`` (the ``sampler`` protocol, metrology-authoring.md 3.4):
+    Readings go through a ``trigger_model`` (the ``sampler`` protocol):
     one reading takes its NPLC time plus the source delay; a sweep's points are the readings of one
     run, each point's level driving the terminal while the run lasts. The measure side ranges like
-    the meter core (#87): ``measure_ranges`` (per function: the voltage and current readings), the
+    the meter core: ``measure_ranges`` (per function: the voltage and current readings), the
     manual ``measure_range_voltage`` / ``measure_range_current``, ``measure_autorange`` with the
     same hysteresis, and a reading beyond ``overrange`` × full scale reads ``overload_value``.
 
@@ -554,12 +554,12 @@ class SmuMeter(Component):
         "autorange_down": 0.1,  # fraction of full scale below which the range switches down
         "overrange": 1.2,  # a reading beyond this fraction of full scale is an overload
         "overload_value": 9.9e37,  # the reading an overload produces
-        "noise": None,  # reading noise {ppm_of_range, ref_time_s, table} (#746); None: noiseless
+        "noise": None,  # reading noise {ppm_of_range, ref_time_s, table}; None: noiseless
         "buffer": "",  # the reading_buffer whose contents the front panel shows ('' for none)
         "source": "",  # the source DAC (sweep levels, the function being forced)
         "loop": "",  # the control loop (mode, limits)
         "output": "",  # the output stage (metered voltage, current, sense)
-        # The enabled measurement functions (#397, B2900 :SENSe:FUNCtion[:ON]/OFF): one bool
+        # The enabled measurement functions (B2900 :SENSe:FUNCtion[:ON]/OFF): one bool
         # setting each, so a definition shows and resets them; None: always enabled, no setting.
         "measure_voltage": None,  # the voltage measurement function is enabled (a bool setting)
         "measure_current": None,  # the current measurement function is enabled (a bool setting)

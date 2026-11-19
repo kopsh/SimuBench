@@ -30,7 +30,7 @@ IF_FLAT = 0.6
 
 @component("specan_input")
 class SpecanInput(Component):
-    """The input attenuator and overload check (D1 #187): the RF input port is the generic
+    """The input attenuator and overload check: the RF input port is the generic
     ``input_port`` (50 Ω to ground, the only circuit-layer part of the analyzer). The step
     attenuator is automatic (reference level kept at the mixer limit, 2 dB steps) or manual; the
     receiver overloads when the total input power minus the attenuation passes the maximum mixer
@@ -52,18 +52,16 @@ class SpecanInput(Component):
         "preamp_gain": 0.0,  # dB, the preamplifier's gain (0: none, or off)
         # The mixer level counts the preamplifier's gain: the automatic attenuation keeps the
         # reference level plus the gain at the maximum mixer level, and the overload check adds
-        # it (the X-Series rule Atten = RefLevel + PreAmpGain − MaxMixerLevel, #1020). False: the
+        # it (the X-Series rule Atten = RefLevel + PreAmpGain − MaxMixerLevel). False: the
         # gain is left out of both, as before.
         "preamp_in_mixer_level": False,
-        # The preamplifier's own figures at its input, from the data sheet (signal-chain.md 5.2,
-        # #954); None: ideal. The block's stage refers them to the analyzer's input through the
+        # The preamplifier's own figures at its input, from the data sheet; None: ideal. The block's stage refers them to the analyzer's input through the
         # attenuator ahead of the preamplifier.
         "preamp_noise_figure": None,  # dB
         "iip2_dbm": None,  # dBm
         "iip3_dbm": None,  # dBm
         "p1db_dbm": None,  # dBm
-        # The frequency response's deviation from its calibration, dB (signal-chain.md 5.2,
-        # #954): piecewise linear over [[frequency Hz, dB], ...], 0 beyond the table; empty: flat.
+        # The frequency response's deviation from its calibration, dB: piecewise linear over [[frequency Hz, dB], ...], 0 beyond the table; empty: flat.
         "flatness": [],
     }
     units = {
@@ -153,7 +151,7 @@ class SpecanInput(Component):
 
 @component("specan_lo")
 class SpecanLo(Component):
-    """The local oscillator (signal-chain.md 5.1): where the receiver is tuned, the reference its
+    """The local oscillator: where the receiver is tuned, the reference its
     frequency runs off, and how fast it sweeps.
 
     The tuning point is the frequency whose signal the mixer puts on the IF: the one of the read
@@ -162,7 +160,7 @@ class SpecanLo(Component):
     oscillator, so a true f displays at f / (1 + ε), and the ``:ROSCillator`` status says whether
     the external reference is in use. Switching to EXTernal without a usable 10 MHz sine keeps the
     internal oscillator and reports -221. Its SSB phase noise (``phase_noise``) rides the display
-    as noise around every line the mixer converts (the trace, #954); without the table there is
+    as noise around every line the mixer converts (the trace); without the table there is
     none."""
 
     label = "本振"
@@ -178,7 +176,7 @@ class SpecanLo(Component):
         "center": 0.0,  # Hz, where the receiver is tuned outside a sweep (a setting such as $freq.center)
         "lo_rate": 0.0,  # Hz/s, the fastest sweep (0: no limit); sets a floor on the auto sweep time
         "sweep_overhead": 0.0,  # s added to the sweep-rate floor (retrace and settling)
-        # SSB phase noise, dBc/Hz (signal-chain.md 5.2, #954): [[offset Hz, dBc/Hz], ...],
+        # SSB phase noise, dBc/Hz: [[offset Hz, dBc/Hz], ...],
         # log-log interpolation, the end offsets held beyond the table; empty: not modeled.
         "phase_noise": [],
     }
@@ -266,7 +264,7 @@ class SpecanLo(Component):
 
 @component("specan_mixer")
 class SpecanMixer(Component):
-    """The mixer (signal-chain.md 5.2): ``out`` is the input converted to the IF against the local
+    """The mixer: ``out`` is the input converted to the IF against the local
     oscillator, f_if = f_rf − f_lo, less the conversion loss. What lies below the oscillator (the
     image side) is rejected by ``image_rejection`` — completely without it, as before; the
     oscillator's leak (``lo_feedthrough``) sits at DC in the IF frame; the declared ``spurs``
@@ -287,11 +285,11 @@ class SpecanMixer(Component):
     refs = {"lo": ("specan_lo", "instrument")}
     defaults = {
         # receiver noise figure over kT0, dB; None: noiseless, for a path whose figures another
-        # stage carries as a whole (a preamplifier path of a data sheet, D70)
+        # stage carries as a whole (a preamplifier path of a data sheet)
         "noise_figure": 24.0,
         "lo": "",  # the specan_lo it converts against
         "conversion_loss": 0.0,  # dB lost from the RF line to its IF line
-        # The mixer's own figures at its input, from the data sheet (signal-chain.md 5.2, #954).
+        # The mixer's own figures at its input, from the data sheet.
         "iip2_dbm": None,  # dBm (None: ideal)
         "iip3_dbm": None,  # dBm
         "p1db_dbm": None,  # dBm
@@ -409,7 +407,7 @@ class SpecanMixer(Component):
 
 @component("specan_if")
 class SpecanIf(Component):
-    """The IF filter and amplifier (signal-chain.md 5.1): the analog passband ahead of the ADC —
+    """The IF filter and amplifier: the analog passband ahead of the ADC —
     what keeps the converter from aliasing — centered on the intermediate frequency ``if_hz``,
     ``bandwidth`` wide at -3 dB, and the IF gain. ``out`` is the mixer's output through it.
 
@@ -428,7 +426,7 @@ class SpecanIf(Component):
         "if_hz": 21.4e6,  # Hz, the intermediate frequency the filter is centered on
         "bandwidth": 10.0e6,  # Hz, the passband's width at -3 dB (the anti-alias filter)
         "gain": 0.0,  # dB, the IF amplifier's gain
-        # The IF amplifier's own figures at its input, from the data sheet (#954); None: ideal.
+        # The IF amplifier's own figures at its input, from the data sheet; None: ideal.
         "iip2_dbm": None,  # dBm
         "iip3_dbm": None,  # dBm
         "p1db_dbm": None,  # dBm

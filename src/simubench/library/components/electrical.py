@@ -18,7 +18,7 @@ from ...scpi import values as V
 class OutputStage(Component):
     """A Thevenin source driving an electrical pin from a signal input.
 
-    ``load_setting`` is the load the instrument assumes when it defines its amplitude (D13): the
+    ``load_setting`` is the load the instrument assumes when it defines its amplitude: the
     source EMF is scaled so that a load of that value would see the requested voltage. ``inf`` means
     the amplitude is the open-circuit voltage; so does any setting of ``hiz_from`` ohms or more, for
     instruments whose high-impedance setting is a number (a calibrator's ``LOAD 10000``).
@@ -37,7 +37,7 @@ class OutputStage(Component):
     defaults = {
         "z_out": 50.0,  # series output impedance, ohm
         "enabled": True,  # False: the pin floats
-        "load_setting": math.inf,  # load the amplitude is defined for (D13), ohm; inf: open circuit
+        "load_setting": math.inf,  # load the amplitude is defined for, ohm; inf: open circuit
         "invert": False,  # invert the polarity of the output
         "hiz_from": math.inf,  # a load_setting of this many ohms or more counts as high-Z, ohm
     }
@@ -173,7 +173,7 @@ class PassiveProbe(Component):
     With ``attenuation`` N and ``r_tip`` the total tip resistance into the nominal scope input
     ``r_scope`` (1 MΩ), the series element is ``r_tip - r_scope`` (9 MΩ for a 10x, 10 MΩ probe).
     The division then follows from the scope's actual input impedance, as on a real bench.
-    Probe capacitance and compensation are not modeled (transients are out of scope, D10).
+    Probe capacitance and compensation are not modeled (transients are out of scope).
     """
 
     label = "无源探头"
@@ -189,7 +189,7 @@ class PassiveProbe(Component):
         "attenuation": 10.0,  # nominal division ratio (10: a 10x probe)
         "r_tip": 10e6,  # total resistance from the tip into the scope input
         "r_scope": 1e6,  # the nominal scope input resistance the series element assumes
-        "c_pf": 0.0,  # probe capacitance (not modeled, D10)
+        "c_pf": 0.0,  # probe capacitance (not modeled)
     }
 
     def stamp(self, circuit: Circuit, node: Callable[[str], str]) -> None:
@@ -202,7 +202,7 @@ class PassiveProbe(Component):
 
 @component("lead")
 class Lead(Component):
-    """A test lead on a wire: a real series resistance (metrology-authoring.md 6).
+    """A test lead on a wire: a real series resistance.
 
     Unlike a ``series`` accessory such as a cable, it is not negligible: the termination check does
     not look through it and the bench circuit solves the drop across it.
