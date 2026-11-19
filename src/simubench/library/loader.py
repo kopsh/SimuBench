@@ -83,15 +83,66 @@ class DuplicateKeyError(json.JSONDecodeError):
     """A JSON object that names one key twice (#1588): ``json`` would keep the last one."""
 
 
+def first_duplicate_key(text: str) -> tuple[str, int, int] | None:
+    """The first key (in the order of the text) that one object of the JSON ``text`` names twice, as
+    ``(key, offset of its first writing, offset of its second)``; None when there is none (#1596).
+
+    ``json`` hands its ``object_pairs_hook`` no positions, so this walks the text once, only after a
+    duplicate was found: it follows the strings (with their escapes) and the nesting, and in each
+    object takes the string after ``{`` or ``,`` for a key. Assumes ``text`` is valid JSON."""
+    stack: list[
+        list[Any]
+    ] = []  # per open container: ["obj", seen keys -> offset, expecting a key] or ["arr"]
+    i, n = 0, len(text)
+    while i < n:
+        c = text[i]
+        if c == '"':
+            j = i + 1
+            while j < n and text[j] != '"':
+                j += 2 if text[j] == "\\" else 1
+            top = stack[-1] if stack else None
+            if top is not None and top[0] == "obj" and top[2]:
+                key = json.loads(text[i : j + 1])
+                if key in top[1]:
+                    return key, top[1][key], i
+                top[1][key] = i
+                top[2] = False
+            i = j + 1
+            continue
+        if c == "{":
+            stack.append(["obj", {}, True])
+        elif c == "[":
+            stack.append(["arr"])
+        elif c in "}]":
+            if stack:
+                stack.pop()
+        elif c == "," and stack and stack[-1][0] == "obj":
+            stack[-1][2] = True
+        i += 1
+    return None
+
+
+def _line_of(text: str, offset: int) -> int:
+    return text.count("\n", 0, offset) + 1
+
+
 def load_json(text: str) -> Any:
     """``text`` (a bench or definition written as JSON) as plain data. A key written twice in one
-    object raises :class:`DuplicateKeyError`, a ``json.JSONDecodeError``, like any parse error."""
+    object raises :class:`DuplicateKeyError`, a ``json.JSONDecodeError``, like any parse error: it
+    points at the key's second writing (line and column) and says where it was first written, as
+    the YAML loader's error does (#1596)."""
 
     def pairs(items: list[tuple[str, Any]]) -> dict[str, Any]:
         out: dict[str, Any] = {}
         for k, v in items:
             if k in out:
-                raise DuplicateKeyError(f"duplicate key {k!r}", text, 0)
+                found = first_duplicate_key(text)
+                if found is None:  # cannot happen for valid text; keep the error, without a place
+                    raise DuplicateKeyError(f"duplicate key {k!r}", text, 0)
+                key, first, again = found
+                raise DuplicateKeyError(
+                    f"duplicate key {key!r} (first written on line {_line_of(text, first)})", text, again
+                )
             out[k] = v
         return out
 
