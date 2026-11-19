@@ -58,6 +58,11 @@ BUILTIN_HEADERS = (
 )
 
 
+#: The common commands IEEE 488.2 makes mandatory (section 10): every instrument answers them,
+#: whatever a definition's ``builtins`` says. ``*TRG`` and ``*OPT`` are optional there.
+MANDATORY_488_2 = frozenset({"IDN", "RST", "CLS", "OPC", "WAI", "ESR", "ESE", "SRE", "STB", "TST"})
+
+
 def _header_key(header: str) -> str:
     """A header as written in a definition, compared without case, spaces or the root colon."""
     return "".join(header.split()).lstrip(":").upper()
@@ -89,10 +94,12 @@ def builtin_runs(named: str, query: bool) -> bool:
 
 
 def answered_builtins(definition: InstrumentDefinition) -> list[str]:
-    """The built-in headers the definition answers without a command of its own: its
-    ``builtins`` list (all of ``BUILTIN_HEADERS`` when unset), and ``*OPT`` when its identity
-    lists the installed options (``identity.options_reply``, D68)."""
+    """The built-in headers the definition answers without a command of its own: the mandatory
+    IEEE 488.2 ones always, the rest as its ``builtins`` list says (all of ``BUILTIN_HEADERS``
+    when unset), and ``*OPT`` when its identity lists the installed options (``identity.options_reply``, D68)."""
     headers = list(BUILTIN_HEADERS if definition.builtins is None else definition.builtins)
+    have = {_header_key(h) for h in headers}
+    headers += [f"*{w}" for w in sorted(MANDATORY_488_2) if f"*{w}" not in have]
     if definition.identity.options_reply is not None:
         headers.append("*OPT")
     return headers
@@ -115,7 +122,10 @@ def _compiled_builtin(header: str) -> Pattern:
 def builtin_allowed(definition: InstrumentDefinition, header: str) -> bool:
     """Whether the definition's ``builtins`` list leaves this built-in command on (D42)."""
     allowed = definition.builtins
-    return allowed is None or _header_key(header) in {_header_key(h) for h in allowed}
+    key = _header_key(header)
+    if key.startswith("*") and key[1:] in MANDATORY_488_2:
+        return True
+    return allowed is None or key in {_header_key(h) for h in allowed}
 
 
 def when_matches(spec: CommandSpec, unit: Unit) -> bool:
