@@ -694,6 +694,27 @@ def test_scaled_clock_is_started_read_and_rescaled_over_the_api(client):
     assert client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": 1}).status_code == 409
 
 
+def test_the_clock_has_an_upper_limit_and_stays_usable_after_a_refused_advance(client):
+    """#1458: an advance is at most the clock's whole range (422 above it, inf and nan too), and
+    one that would take the clock past the range is a 409 that changes nothing: the instruments
+    still answer and the screen still renders."""
+    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+
+    def advance(seconds):
+        return client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": seconds})
+
+    for bad in (1e308, 1e10, "inf", "nan", 0):
+        assert advance(bad).status_code == 422, bad
+    assert advance(9e6).status_code == 200  # 9e15 ns, inside 2**53 ns
+    now = client.get(f"/api/sessions/{sid}/clock").json()["now_ns"]
+    refused = advance(9e6)  # 1.8e16 ns: past the limit from here
+    assert refused.status_code == 409 and "limit" in refused.json()["detail"]
+    assert client.get(f"/api/sessions/{sid}/clock").json()["now_ns"] == now
+    reply = client.post(f"/api/sessions/{sid}/instruments/scope/scpi", json={"command": "*IDN?"}).json()
+    assert reply["errors"] == [] and reply["response"]
+    assert client.get(f"/api/sessions/{sid}/instruments/scope/screen").status_code == 200
+
+
 def test_a_stepped_clock_takes_no_new_scale_over_the_api(client):
     sid = client.post(
         "/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml", "clock": "stepped"}
