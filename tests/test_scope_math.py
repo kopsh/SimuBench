@@ -177,7 +177,7 @@ def test_smoothing_and_the_derivative_read_like_the_hand_filter():
         query(":WAVeform:SOURce CHANnel1")
         ch1 = floats(query(":WAVeform:DATA?"))
         hand = running_mean.__module__  # the operator under test is the pure function
-        assert hand == "simubench.library.components.scope_math"
+        assert hand == "simubench.library.components.scope_math_ops"
         for i in (0, 2, 500):
             want = sum(ch1[max(0, i - 2) : i + 3]) / len(ch1[max(0, i - 2) : i + 3])
             assert f1[i] == pytest.approx(want, abs=1e-6)
