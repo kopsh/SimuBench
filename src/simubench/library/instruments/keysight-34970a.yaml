@@ -653,9 +653,13 @@ commands:
     params:
       - {name: nplc, type: float, min: 0.02, max: 200.0, state: ch.nplc}
       - {name: channels, type: channel_list}
+  # 量程查询回该通道实际使用的档位（自动量程时取当前档，不回占位 0）；写入固定档关闭自动量程，
+  # DEF 是自动量程（与 DAQ970A 手册的 Default: AUTO 一致，#1466）。
   - header: "SENSe:VOLTage:DC:RANGe"
+    op: scan.range
+    args: {function: DC, state: range, auto_state: range_auto, unit: V}
     params:
-      - {name: range, type: float, unit: V, state: ch.range}
+      - {name: value, type: string, optional: true}
       - {name: channels, type: channel_list}
   - header: "SENSe:VOLTage:DC:RANGe:AUTO"
     params:

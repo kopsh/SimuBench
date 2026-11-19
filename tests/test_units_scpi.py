@@ -63,6 +63,26 @@ def test_split_units_rejects_malformed_blocks(message):
     assert e.value.code == -161
 
 
+@pytest.mark.parametrize("message", [b"*ESE #HFF", b"*ESE #b101", b"*ESE #Q7", b"*ESE #hff;*SRE #B1"])
+def test_split_units_passes_non_decimal_numbers(message):
+    """`#H`/`#B`/`#Q` start a non-decimal number (IEEE 488.2 7.7.4), not a block (#1497)."""
+    assert b";".join(split_units(message)) == message
+
+
+@pytest.mark.parametrize(
+    ("raw", "value"), [(b"#HFF", 255.0), (b"#hff", 255.0), (b"#B101", 5.0), (b"#b0", 0.0), (b"#Q17", 15.0)]
+)
+def test_parse_float_reads_non_decimal_numbers(raw, value):
+    assert V.parse_float(raw) == value
+
+
+@pytest.mark.parametrize("raw", [b"#H", b"#HFG", b"#B2", b"#Q8", b"#H-1", b"#H_1", b"#H F"])
+def test_parse_float_refuses_bad_non_decimal_digits(raw):
+    with pytest.raises(ScpiError) as e:
+        V.parse_float(raw)
+    assert e.value.code == -104
+
+
 def test_parse_unit_header_and_params():
     u = parse_unit(b":CHAN2:SCAL 0.05")
     assert u.absolute and not u.query

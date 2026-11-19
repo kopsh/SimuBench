@@ -358,10 +358,14 @@ def test_try_session_runs_alone_and_leaves_the_bench_alone(client):
     assert client.post("/api/try/no-such-definition").status_code == 404
 
 
-@pytest.mark.parametrize("value", ["abc", None, [], {}])
-def test_configure_wrong_type_is_a_clean_scpi_error_not_500(client, value):
-    """#1456: a configure value of the wrong type is a bad parameter (-104), not a server bug.
-    The session configure and the try-session configure both answer it cleanly, never a 500."""
+@pytest.mark.parametrize(
+    ("value", "code"),
+    [("abc", -104), (None, -104), ([], -104), ({}, -104), pytest.param(10**400, -222, id="10**400")],
+)
+def test_configure_wrong_type_is_a_clean_scpi_error_not_500(client, value, code):
+    """#1456: a configure value of the wrong type is a bad parameter (-104), not a server bug; an
+    integer too large for a float is out of range (-222) like infinity (#1500). The session
+    configure and the try-session configure both answer it cleanly, never a 500."""
     sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
     r = client.post(
         f"/api/sessions/{sid}/instruments/awg/configure",
@@ -369,12 +373,12 @@ def test_configure_wrong_type_is_a_clean_scpi_error_not_500(client, value):
     )
     assert r.status_code == 200, r.text
     body = r.json()
-    assert not body["ok"] and body["error"]["code"] == -104
+    assert not body["ok"] and body["error"]["code"] == code
     t = client.post("/api/try/sb-dso-4").json()
     r2 = client.post(f"/api/try/{t['session_id']}/configure", json={"path": "ch1.scale", "value": value})
     assert r2.status_code == 200, r2.text
     body2 = r2.json()
-    assert not body2["ok"] and body2["error"]["code"] == -104
+    assert not body2["ok"] and body2["error"]["code"] == code
     client.delete(f"/api/sessions/{sid}")
     client.delete(f"/api/try/{t['session_id']}")
 

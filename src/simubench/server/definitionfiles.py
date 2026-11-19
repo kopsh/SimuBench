@@ -21,7 +21,7 @@ from ..library.loader import dump_yaml, layered_definition_data, load_yaml, pars
 from ..library.migrate import upgrade
 from ..models import api as M
 from . import definitionstructure
-from .benchfiles import BenchFiles, Conflict, _sha
+from .benchfiles import BenchFiles, Conflict, _rollback, _sha
 from .definitionchanges import definition_changes
 from .errors import Forbidden, Invalid
 from .history import Source
@@ -116,11 +116,7 @@ class DefinitionFiles:
             try:
                 self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
             except Exception as exc:
-                if old is not None:
-                    path.write_bytes(old)
-                else:
-                    with contextlib.suppress(OSError):
-                        path.unlink()
+                _rollback(path, old)
                 raise Invalid(f"保存定义 {def_id} 失败：无法写入版本历史（{exc}）") from exc
             changes = self._changes(def_id, base_data, data)
         self.files._announce(rel, _sha(raw))

@@ -92,6 +92,35 @@ def test_a_record_ref_to_nothing_is_named_with_an_option():
     assert d.suggestion == "改为 'acq'"
 
 
+@pytest.mark.parametrize("key", ["adc_bits", "codes_per_div"])
+def test_a_transfer_adc_value_is_a_number_or_adc(key):
+    # a misspelt `adc` is a definition error at load, not a ValueError at the first read (#1460)
+    bad = copy.deepcopy(DSO)
+    i = _transfer_index(bad)
+    bad["components"][i]["params"][key] = "ADC"
+    [d] = validate_definition_data(bad)[1].diagnostics
+    assert (d.code, d.pointer) == ("E-DEF-PARAM-VALUE", f"/components/{i}/params/{key}")
+    assert "取数值或 adc" in d.message and "'ADC'" in d.message
+
+
+def test_a_transfer_adc_needs_an_acquisition_with_an_adc(monkeypatch):
+    # `adc` behind a record whose acquisition has no ADC chain is named at load (#1460); every
+    # built-in acquisition has one, so the test takes the chain's last method away
+    from simubench.library.components.scope_acquisition import ScopeAcquisition
+
+    good = copy.deepcopy(DSO)
+    i = _transfer_index(good)
+    good["components"][i]["params"].update(adc_bits="adc", codes_per_div="adc")
+    assert validate_definition_data(good)[1].diagnostics == []
+    monkeypatch.delattr(ScopeAcquisition, "adc_codes_per_div")
+    found = validate_definition_data(good)[1].diagnostics
+    assert [(d.code, d.pointer) for d in found] == [
+        ("E-DEF-PARAM-VALUE", f"/components/{i}/params/adc_bits"),
+        ("E-DEF-PARAM-VALUE", f"/components/{i}/params/codes_per_div"),
+    ]
+    assert "没有 ADC 采集链（缺 adc_codes_per_div）" in found[0].message
+
+
 def test_duplicate_component_name():
     bad = copy.deepcopy(AWG)
     bad["channel_components"][1]["name"] = "synth"

@@ -310,6 +310,8 @@ def _check_initial_state(
             except (TypeError, ValueError):
                 report.add("error", "E-STATE-TYPE", _ptr(*sp), f"{path} 需要数值，得到 {value!r}", None, name)
                 continue
+            except OverflowError:  # an integer too large for a float is beyond every range (#1500)
+                v = math.inf if value > 0 else -math.inf
             if V.fit_value(spec, v)[0] is not None:
                 report.add(
                     "error",

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { displayUnit, formatClock, formatEng, formatReadout, isOverload, makerName, parseEngineering, resistance, unitWord } from "./format";
+import { displayUnit, engParts, formatClock, formatEng, formatReadout, isOverload, makerName, parseEngineering, resistance, unitWord } from "./format";
 
 describe("format", () => {
   it("engineering notation", () => {
@@ -23,6 +23,26 @@ describe("format", () => {
 });
 
 const text = (r: { mantissa: string; prefix: string; unit: string }) => `${r.mantissa} ${r.prefix}${r.unit}`;
+
+// Values at an SI-prefix boundary (#1459); the same table is in tests/test_tui_units.py, so the
+// digits-kept readout and the TUI say the same, and the trimmed label never shows an exponent.
+const EDGE_VALUES = [0.99994, 0.9996, 999.7, 0.0009996, 0.999996, 999.996, 0.0099996];
+const PREFIX_EDGES: Record<number, string[]> = {
+  3: ["1.00 V", "1.00 V", "1.00 kV", "1.00 mV", "1.00 V", "1.00 kV", "10.0 mV"],
+  4: ["999.9 mV", "999.6 mV", "999.7 V", "999.6 µV", "1.000 V", "1.000 kV", "10.00 mV"],
+  5: ["999.94 mV", "999.60 mV", "999.70 V", "999.60 µV", "1.0000 V", "1.0000 kV", "9.9996 mV"],
+};
+
+describe("engineering prefix boundaries (#1459)", () => {
+  it.each([3, 4, 5])("rounds before it picks the prefix at %i digits", (digits) => {
+    expect(EDGE_VALUES.map((v) => text(engParts(v, "V", digits, true)))).toEqual(PREFIX_EDGES[digits]);
+    for (const v of EDGE_VALUES) expect(formatEng(v, "V", digits).includes("e")).toBe(false);
+  });
+  it("the canvas label of a 1 V level carries into volts", () => {
+    expect(formatEng(0.99994, "V", 3)).toBe("1 V");
+    expect(formatEng(0.0009996, "V", 3)).toBe("1 mV");
+  });
+});
 
 describe("formatReadout (#313)", () => {
   it("source-measure display: fixed digits with the sign", () => {

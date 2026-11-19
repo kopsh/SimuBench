@@ -127,6 +127,8 @@ jobs:
       - name: The wheel ships real-model definitions only, no sb-* (D42)
         run: |
           python3 -c "import sys, zipfile; names = zipfile.ZipFile(sys.argv[1]).namelist(); bad = [n for n in names if '/instruments/sb-' in n]; assert not bad, bad; assert any('/instruments/siglent-' in n for n in names)" dist/simubench-*.whl
+      - name: The wheel carries every built-in model's manual cases and the example benches (#1377)
+        run: python3 scripts/check_wheel_cases.py dist/simubench-*.whl
       - name: Install into a clean environment, outside the checkout
         run: |
           uv venv /tmp/wheel-env

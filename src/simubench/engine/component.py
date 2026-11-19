@@ -638,6 +638,15 @@ class Component:
         return []
 
     @classmethod
+    def ref_problems(cls, params: dict[str, Any], targets: dict[str, type | None]) -> list[tuple[str, str]]:
+        """What is wrong among the literal parameters given what the ``refs`` name: ``targets`` maps
+        each ref parameter to the class of the component it names (None: unknown or not found,
+        reported by the refs check). (parameter, message) pairs for the definition validator
+        (E-DEF-PARAM-VALUE). None by default; a type whose parameter needs a capability of the
+        component it references overrides this (#1460)."""
+        return []
+
+    @classmethod
     def spec_of(cls, port: str) -> PortSpec | None:
         """A declared port, or one the instrument creates through ``port_pattern``; None when the
         type has no such port. A type whose pattern ports differ (an ADC's analog inputs and

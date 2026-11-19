@@ -390,3 +390,19 @@ def test_the_numbered_markers_hold_their_fields():
         assert query(":SYSTem:ERRor?").split(",")[0] == "-114"
     finally:
         s.close()
+
+
+@pytest.mark.unit
+def test_a_function_over_constants_only_has_no_source():
+    """The read-time backstop (#1451, kept by #1494): an operator whose operands are all constants
+    has no waveform to compute — -221, never a StopIteration or an internal error."""
+    from types import SimpleNamespace
+
+    from simubench.library.components.scope_math import ScopeMath
+    from simubench.scpi.errors import ScpiError
+
+    block = ScopeMath("math", {}, None, SimpleNamespace())  # type: ignore[arg-type]
+    with pytest.raises(ScpiError) as err:
+        block._spec(1, "DIVide", [None, None])
+    assert err.value.code == -221
+    assert "function 1 has no source" in err.value.detail

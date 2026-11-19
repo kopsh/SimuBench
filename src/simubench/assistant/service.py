@@ -17,6 +17,7 @@ uses one of the files is stopped first, also only once the user agrees.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import datetime as dt
 import hashlib
 import logging
@@ -436,7 +437,10 @@ class AssistantService:
             f.path: self.sha_of(self.files.resolve(f.path)) for f in plan.files if f.action == "delete"
         }
         for sid in plan.sessions:
-            await self.manager.stop(sid)
+            # A session stopped elsewhere since the plan (the UI, during an earlier stop's await)
+            # is already where the rollback wants it: not running (#1490).
+            with contextlib.suppress(Unknown):
+                await self.manager.stop(sid)
         # The delete targets are re-read once the sessions have stopped (#908): a change during
         # the stop window aborts here — before a single restore has landed — instead of hitting
         # the delete's own sha check with the restores already on disk.

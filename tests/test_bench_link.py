@@ -228,6 +228,15 @@ async def test_the_board_session_commands_the_bus_through_the_connection(gpib_ri
             with pytest.raises(errors.VisaIOError) as err:
                 intfc.pass_control(6, constants.VI_NO_SEC_ADDR)
             assert err.value.error_code == constants.VI_ERROR_NSUP_OPER
+            # viClose releases the board lock over the connection too (#1475, #1479)
+            other = rm.open_resource("GPIB0::INTFC")
+            intfc.lock_excl()
+            with pytest.raises(errors.VisaIOError) as locked:
+                other.lock_excl(timeout=0)
+            assert locked.value.error_code == constants.VI_ERROR_TMO
+            intfc.close()
+            other.lock_excl(timeout=0)  # released with the closed session, not leaked
+            other.unlock()
         finally:
             rm.close()
 

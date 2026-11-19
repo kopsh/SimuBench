@@ -266,6 +266,29 @@ def test_the_engine_keeps_the_range_and_special_semantics():
     assert e.value.code == -222
 
 
+ENUM_LIST = spec(type="enum_list", options=["VOLT", "CURR"], default=["VOLT"])
+INT_LIST = spec(type="int_list", min=0, max=10, default=[1])
+LADDER = spec(type="float", min=0.1, max=100.0, ladder="1-2-5", default=1.0)
+
+
+@pytest.mark.parametrize(
+    ("st", "value", "code"),
+    [
+        (LADDER, math.nan, -222),  # a ladder setting has no rung for NaN (#1450, #1495)
+        (LADDER, math.inf, -222),
+        pytest.param(NUMBER, 10**400, -222, id="10**400"),  # beyond a float: out of range like inf (#1500)
+        pytest.param(NUMBER, -(10**400), -222, id="-10**400"),
+        (INT_LIST, [1, math.inf], -222),
+        (ENUM_LIST, 5, -104),  # a number where a list of options belongs
+        (INT_LIST, "abc", -104),  # a string where a list of integers belongs
+        (INT_LIST, None, -104),
+    ],
+)
+def test_a_value_of_the_wrong_type_or_size_is_a_scpi_error(st, value, code):
+    """#1500: any value JSON can carry is a SCPI error, never an OverflowError or TypeError."""
+    assert _runtime_verdict(st, value) == code
+
+
 def test_fit_value_and_the_engine_agree_on_enum_values():
     """Every word (and every non-word) gets the same verdict on both sides."""
     for value in ["VOLT", "volt:ac", "VOLTage:AC", "VOLT:CURR", "POWer", '"VOLTage"', 3, None, True]:

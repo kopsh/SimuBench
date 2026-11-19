@@ -50,15 +50,20 @@ def fmt(value: float | int | None, unit: str | None = None, digits: int = 5) -> 
     if unit in LOG_UNITS:  # a level in decibels takes no SI prefix: 0.057 dBm, never 57 mdBm
         whole = len(str(int(abs(value)))) if abs(value) >= 1 else 1
         return f"{value:.{max(0, min(digits - whole, 12))}f} {unit}"
+    # Round to the significant digits first, then pick the prefix (#1459): 0.99994 V at 3 digits
+    # is 1.00 V, never 1000 mV, and the decimals follow the rounded value's own exponent.
+    digits = max(1, digits)
+    exponent = int(f"{value:.{digits - 1}e}".split("e")[1]) if value != 0 else 0
+    rounded = float(f"{value:.{digits - 1}e}")
     if value != 0:
         for s, p in _PREFIXES:
-            if abs(value) >= s * 0.9999995:
+            if abs(rounded) >= s * (1 - 1e-9):
                 scale, prefix = s, p
                 break
         else:
             return f"{value:.3e}" + (f" {unit}" if unit else "")
-    mantissa = value / scale
-    whole = len(str(int(abs(mantissa)))) if abs(mantissa) >= 1 else 1
+    mantissa = rounded / scale
+    whole = max(1, exponent - round(math.log10(scale)) + 1)
     decimals = max(0, min(digits - whole, 12))
     text = f"{mantissa:.{decimals}f}"
     if unit == "°" and not prefix:

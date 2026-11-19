@@ -67,7 +67,11 @@ def _scan(data: bytes, i: int, stop: bytes) -> int:
             continue
         if c == b"#":
             # IEEE 488.2 7.7.6: `#` starts a definite-length block, so anything else after it is
-            # malformed block data -- never a Python exception (#1449).
+            # malformed block data -- never a Python exception (#1449). `#H`/`#Q`/`#B` (any case)
+            # is a non-decimal number (7.7.4), not a block: an ordinary character run (#1497).
+            if data[i + 1 : i + 2] in (b"H", b"h", b"Q", b"q", b"B", b"b"):
+                i += 1
+                continue
             if i + 1 >= n or not data[i + 1 : i + 2].isdigit():
                 raise ScpiError(-161, "invalid block data")
             nd = int(data[i + 1 : i + 2])

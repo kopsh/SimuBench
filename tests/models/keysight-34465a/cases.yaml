@@ -61,6 +61,21 @@ cases:
       - query: "*OPC?"
         expect: "1"
 
+  - name: "非十进制数值参数：*ESE #HFF 与 *ESE 255 相同，#B/#Q 同样接受"
+    manual: "IEEE 488.2 Common Commands > *ESE（IEEE 488.2 7.7.4 <NONDECIMAL NUMERIC PROGRAM DATA>）"
+    steps:
+      - send: "*ESE #HFF"
+      - query: "*ESE?"
+        expect: "255"
+      - send: "*ESE #b101"
+      - query: "*ESE?"
+        expect: "5"
+      - send: "*SRE #Q20"
+      - query: "*SRE?"
+        expect: "16"
+      - query: ":SYST:ERR?"
+        expect: '+0,"No error"'
+
   - name: "MEASure? 直流电压：8 位尾数、隐藏误差进入读数"
     manual: "MEASure Subsystem > MEASure[:VOLTage]:{AC|DC}?"
     steps:

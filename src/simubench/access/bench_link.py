@@ -145,7 +145,8 @@ class BenchLinkServer:
         the interface itself (GPIB board) names no instrument."""
         return [
             ClientConnection(client=label, instrument=name, locked=self.holds_lock(label))
-            for label, (name, _) in self._clients.items()
+            # a snapshot: the engine thread asks while the event loop opens and closes links (#1479)
+            for label, (name, _) in list(self._clients.items())
         ]
 
     def holds_lock(self, label: str) -> bool:

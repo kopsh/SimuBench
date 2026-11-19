@@ -1034,3 +1034,44 @@ async def test_send_scpi_unknown_instrument_keeps_its_closing_quote(ws):
         await call(c, "start_session", path=BENCH)
         out = await call(c, "send_scpi", instrument="nope", command="*IDN?")
     assert "'nope'" in out["error"]
+
+
+@pytest.mark.parametrize(
+    ("value", "code"),
+    [
+        ("abc", "E-STATE-TYPE"),
+        ([], "E-STATE-TYPE"),
+        ({}, "E-STATE-TYPE"),
+        pytest.param(10**400, "E-STATE-RANGE", id="10**400"),
+    ],
+)
+async def test_an_mcp_setting_of_the_wrong_type_is_a_clean_refusal(ws, value, code):
+    """#1500: the MCP seam that writes a setting outside SCPI (a bench's initial ``state`` through
+    edit_bench, then start_session) refuses a value of the wrong type cleanly — a diagnostic and a
+    refusal naming it, never an UnexpectedToolError ("Error executing tool …" with no reason)."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        doc = await call(c, "read_bench", path=BENCH)
+        op = {"op": "set_state", "instrument": "awg", "path": "ch1.frequency", "value": value}
+        edited = await call(c, "edit_bench", path=BENCH, base_sha256=doc["sha256"], ops=[op])
+        assert "error" not in edited, edited
+        assert not edited["ok"]
+        assert [d["code"] for d in edited["diagnostics"]] == [code]
+        assert edited["diagnostics"][0]["pointer"] == "/instruments/awg/state/ch1.frequency"
+        started = await call(c, "start_session", path=BENCH)
+        assert code in started["error"]
+        assert await call(c, "list_sessions") == []
+
+
+async def test_an_mcp_null_setting_removes_the_initial_value(ws):
+    """#1500: null is not a bad value at this seam — it removes the initial state entry, and the
+    session starts with the definition's default."""
+    _, server = make(ws)
+    async with Client(server) as c:
+        doc = await call(c, "read_bench", path=BENCH)
+        op = {"op": "set_state", "instrument": "awg", "path": "ch1.frequency", "value": None}
+        edited = await call(c, "edit_bench", path=BENCH, base_sha256=doc["sha256"], ops=[op])
+        assert edited["ok"] and "ch1.frequency" not in edited["data"]["instruments"]["awg"]["state"]
+        started = await call(c, "start_session", path=BENCH)
+        assert "error" not in started
+        await call(c, "stop_session")

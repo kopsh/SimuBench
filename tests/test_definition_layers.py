@@ -312,6 +312,17 @@ def test_command_overrides_refuse_what_they_cannot_name(tmp_path, lib):
     assert info.value.code == "E-DEF-COMMAND-OVERRIDE"  # type: ignore[attr-defined]
 
 
+@pytest.mark.parametrize("header", [":B", ":Z"])  # a header the parent has, and one it does not
+def test_command_overrides_refuse_an_empty_list(tmp_path, lib, header):
+    # deleting a header is spelt null only; an empty list is refused, never a silent removal (#1499)
+    write(tmp_path, "base", state=_STATE, commands=[_cmd(":A"), _cmd(":B"), _cmd(":B", option="01G")])
+    write(tmp_path, "empty", extends="base", command_overrides={header: []})
+    with raises_with(ValueError, "删除该头请写 null") as info:
+        lib.get("empty")
+    assert info.value.code == "E-DEF-COMMAND-OVERRIDE"  # type: ignore[attr-defined]
+    assert info.value.pointer == f"/command_overrides/{header}"  # type: ignore[attr-defined]
+
+
 # ---- component_overrides (#1425) ----------------------------------------------------------------------
 
 _SEL = {"from": "$a", "map": {"1": 50.0, "2": 75.0}, "default": 50.0}

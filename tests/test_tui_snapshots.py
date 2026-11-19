@@ -141,7 +141,7 @@ def test_overview_snapshot(snap_compare, demo_server, lang, size, name):
             # different picture (#850).
             if (
                 "9.999000" in flat_text
-                and ("100.000 nF" in flat_text or size == (80, 24))
+                and ("100.00 nF" in flat_text or size == (80, 24))
                 and tui.lines
                 and tui.lines[-1].kind == "panel"
             ):

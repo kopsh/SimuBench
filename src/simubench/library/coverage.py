@@ -17,6 +17,7 @@ import itertools
 import logging
 import os
 import re
+import threading
 import time
 from collections import Counter
 from dataclasses import dataclass
@@ -689,13 +690,15 @@ def cases_for_model(workspace: Path, def_id: str) -> list[tuple[str, int]]:
 BUILTIN_PREFIX = "builtin:"
 
 
-def builtin_cases_root() -> Path | None:
+def builtin_cases_root(library: Path | None = None) -> Path | None:
     """Where the built-in models' manual cases live (#1352): packaged in the wheel as
-    ``simubench/library/model_cases`` (hatch_build.py), else the checkout's ``tests/models``."""
-    packaged = Path(__file__).parent / "model_cases"
+    ``simubench/library/model_cases`` (hatch_build.py), else the checkout's ``tests/models``.
+    ``library`` stands for this package's ``library`` folder (a test points it elsewhere, #1377)."""
+    library = library if library is not None else Path(__file__).parent
+    packaged = library / "model_cases"
     if packaged.is_dir():
         return packaged
-    checkout = Path(__file__).resolve().parents[3] / "tests" / "models"
+    checkout = library.resolve().parents[2] / "tests" / "models"
     return checkout if checkout.is_dir() else None
 
 
@@ -703,6 +706,11 @@ def _builtin_index(root: Path) -> list[tuple[str, str, int]]:
     """(folder, model, case count) of every manual cases file under ``root``; cached per file state."""
     files = sorted(root.glob("*/cases.yaml"))
     key = tuple((p.as_posix(), p.stat().st_mtime_ns) for p in files)
+    with _INDEX_LOCK:  # concurrent requests build the index once (#1377)
+        return _index_for(files, key)
+
+
+def _index_for(files: list[Path], key: tuple) -> list[tuple[str, str, int]]:
     if _INDEX_CACHE.get("key") != key:
         index: list[tuple[str, str, int]] = []
         for path in files:
@@ -717,6 +725,7 @@ def _builtin_index(root: Path) -> list[tuple[str, str, int]]:
 
 
 _INDEX_CACHE: dict[str, Any] = {}
+_INDEX_LOCK = threading.Lock()
 
 
 def builtin_cases_for_model(def_id: str, root: Path | None = None) -> list[tuple[str, int]]:

@@ -51,16 +51,19 @@ export function engParts(value: number, unit = "", digits = 4, fixed = false): E
   const shown = (s: string) => (fixed ? s : trim(s));
   if (!Number.isFinite(value)) return { mantissa: value > 0 ? "∞" : value < 0 ? "−∞" : "—", prefix: "", unit };
   if (value === 0 || unit === "°") return { mantissa: shown(value.toPrecision(digits)), prefix: "", unit };
-  const mag = Math.abs(value);
+  // Round to the significant digits first, then pick the prefix (#1459): 0.99994 at 3 digits is
+  // 1.00, so it reads "1 V" — never "1.00e+3 mV" from a prefix chosen before the carry.
+  const rounded = Number(value.toPrecision(digits));
+  const mag = Math.abs(rounded);
   let [scale, prefix] = PREFIXES[PREFIXES.length - 1];
   for (const [s, p] of PREFIXES) {
-    if (mag >= s * 0.99995) {
+    if (mag >= s * (1 - 1e-9)) {
       scale = s;
       prefix = p;
       break;
     }
   }
-  return { mantissa: shown((value / scale).toPrecision(digits)), prefix, unit };
+  return { mantissa: shown((rounded / scale).toPrecision(digits)), prefix, unit };
 }
 
 function trim(s: string): string {

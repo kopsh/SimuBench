@@ -1311,7 +1311,7 @@ sections:
     note: 'f = |source1|, computed from the record when read (#1074).'
   - header: :FUNCtion<F>:ADD
     level: implemented
-    note: 'f = source1 + source2, computed from the records when read (#1074); operands: CHANnel<N>, FUNCtion<F>, a constant.'
+    note: 'f = source1 + source2, computed from the records when read (#1074); operands: CHANnel<N>, FUNCtion<F>, a constant. Both operands are required and checked when written (#1494): a missing one is -109, a word that is not CHANnel<N>/FUNCtion<F>/a finite constant -224, and the function keeps its definition.'
   - header: :FUNCtion<F>:ADEMod
     level: not_modeled
     note: 'Blocked by C9 (product-plan.md 4.2): band-pass (carrier + complex envelope) signals.'
@@ -1334,7 +1334,7 @@ sections:
     note: 'Function <f> shown on screen.'
   - header: :FUNCtion<F>:DIVide
     level: implemented
-    note: 'f = source1 / source2, computed from the records when read (#1074); a division by 0 leaves a hole.'
+    note: 'f = source1 / source2, computed from the records when read (#1074); a division by 0 leaves a hole. Both operands are required and checked when written (#1494): a missing one is -109, a word that is not CHANnel<N>/FUNCtion<F>/a finite constant -224, and the function keeps its definition.'
   - header: :FUNCtion<F>:FFT:DETector:POINts
     level: implemented
     note: 'Buckets the detector decimates to; 0 keeps every point.'
@@ -1472,7 +1472,7 @@ sections:
     blocked_by: measurement-statistics
   - header: :FUNCtion<F>:MULTiply
     level: implemented
-    note: 'f = source1 · source2, computed from the records when read (#1074).'
+    note: 'f = source1 · source2, computed from the records when read (#1074). Both operands are required and checked when written (#1494): a missing one is -109, a word that is not CHANnel<N>/FUNCtion<F>/a finite constant -224, and the function keeps its definition.'
   - header: :FUNCtion<F>:OFFSet
     level: implemented
     note: 'Voltage at centre screen of function <f>.'
@@ -1497,7 +1497,7 @@ sections:
     note: 'f = source1², computed from the record when read (#1074).'
   - header: :FUNCtion<F>:SUBTract
     level: implemented
-    note: 'f = source1 − source2, computed from the records when read (#1074).'
+    note: 'f = source1 − source2, computed from the records when read (#1074). Both operands are required and checked when written (#1494): a missing one is -109, a word that is not CHANnel<N>/FUNCtion<F>/a finite constant -224, and the function keeps its definition.'
   - header: :FUNCtion<F>:VERSus
     level: not_modeled
     note: 'The X-versus-Y display is not modeled. (#1074)'
