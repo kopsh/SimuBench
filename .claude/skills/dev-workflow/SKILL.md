@@ -57,6 +57,7 @@ uv run python scripts/check_test_rules.py                 # D49 rules
 uv run python scripts/check_layers.py                     # package layers point down, no cycle (D87)
 uv run python scripts/check_skills.py                     # skills name only existing paths
 uv run python scripts/check_progress_log.py               # archive closed, entries are files (#380, #1505)
+uv run python scripts/repeat_changed_tests.py             # the changed test files ×5, as the PR's repeat job (#1543)
 uv run simubench schemas --out schemas                    # then commit schemas/ if changed
 cd web && pnpm -s gen:api && pnpm -s typecheck && pnpm -s lint && pnpm -s test
 ```
@@ -98,6 +99,11 @@ Full pytest must stay < 75 s; if it is over, fix it in the same task (`pytest --
   nearest existing module. A new test *file* is for a new model (the `real-model` template) or
   a behaviour with no existing home. Never add a case into a flow whose state it breaks —
   state-incompatible coverage gets its own test.
+- A pull request's changed test files run five times over (`scripts/repeat_changed_tests.py`, the
+  `repeat` job, #1543; up to 10 files and 4 minutes): a test that passes once and fails on a repeat
+  is a race, fix it before merging. A test of concurrent code (threads, the event stream, the
+  watcher, a session that reopens) forces the interleaving it guards — run the other side between
+  two steps (monkeypatch the step) — instead of hoping real timing hits it (#1529, #1535, #1547).
 - The Python fast checks run on ubuntu and Windows on pull requests (#1542); web on Windows, wheel, `load_sensitive` run after merge; `tui_boot` (the `tui` job, #858) and e2e/visual gate pull requests. Red on `main` is
   fixed before new work.
 
