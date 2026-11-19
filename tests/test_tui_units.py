@@ -647,6 +647,23 @@ def test_a_panel_when_holds_as_on_the_web():
     assert not when_holds({"absent.setting": 1}, info)
 
 
+def test_a_panel_when_holds_by_the_shared_vector():
+    """#1637: the ``when`` semantics one shared vector pins — the same
+    ``web/src/features/workbench/when-cases.json`` runs through the Web's ``sameValue`` and
+    ``whenHolds`` (model.test.ts), so the two ends cannot evaluate a panel differently."""
+    import json
+
+    from simubench.tui.controls import _same, when_holds
+
+    cases = json.loads(
+        (Path(__file__).resolve().parents[1] / "web/src/features/workbench/when-cases.json").read_text(encoding="utf-8")
+    )
+    for case in cases["same"]:
+        assert _same(case["a"], case["b"]) is case["equal"], case
+    for case in cases["when"]:
+        assert when_holds(case["when"], {"state": case["state"]}, case.get("channel")) is case["holds"], case
+
+
 def test_a_panel_lists_the_groups_that_hold_then_each_channels_group_then_the_softkeys():
     """D74 (#1327): a hidden group or control is left out; a channel group's bare names are
     that channel's settings, labelled CH1, CH2."""
