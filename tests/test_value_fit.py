@@ -276,8 +276,8 @@ LADDER = spec(type="float", min=0.1, max=100.0, ladder="1-2-5", default=1.0)
     [
         (LADDER, math.nan, -222),  # a ladder setting has no rung for NaN (#1450, #1495)
         (LADDER, math.inf, -222),
-        (NUMBER, 10**400, -222),  # too large for a float: out of range like infinity (#1500)
-        (NUMBER, -(10**400), -222),
+        pytest.param(NUMBER, 10**400, -222, id="10**400"),  # beyond a float: out of range like inf (#1500)
+        pytest.param(NUMBER, -(10**400), -222, id="-10**400"),
         (INT_LIST, [1, math.inf], -222),
         (ENUM_LIST, 5, -104),  # a number where a list of options belongs
         (INT_LIST, "abc", -104),  # a string where a list of integers belongs

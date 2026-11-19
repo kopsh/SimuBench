@@ -359,7 +359,8 @@ def test_try_session_runs_alone_and_leaves_the_bench_alone(client):
 
 
 @pytest.mark.parametrize(
-    ("value", "code"), [("abc", -104), (None, -104), ([], -104), ({}, -104), (10**400, -222)]
+    ("value", "code"),
+    [("abc", -104), (None, -104), ([], -104), ({}, -104), pytest.param(10**400, -222, id="10**400")],
 )
 def test_configure_wrong_type_is_a_clean_scpi_error_not_500(client, value, code):
     """#1456: a configure value of the wrong type is a bad parameter (-104), not a server bug; an

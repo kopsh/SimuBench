@@ -1038,7 +1038,12 @@ async def test_send_scpi_unknown_instrument_keeps_its_closing_quote(ws):
 
 @pytest.mark.parametrize(
     ("value", "code"),
-    [("abc", "E-STATE-TYPE"), ([], "E-STATE-TYPE"), ({}, "E-STATE-TYPE"), (10**400, "E-STATE-RANGE")],
+    [
+        ("abc", "E-STATE-TYPE"),
+        ([], "E-STATE-TYPE"),
+        ({}, "E-STATE-TYPE"),
+        pytest.param(10**400, "E-STATE-RANGE", id="10**400"),
+    ],
 )
 async def test_an_mcp_setting_of_the_wrong_type_is_a_clean_refusal(ws, value, code):
     """#1500: the MCP seam that writes a setting outside SCPI (a bench's initial ``state`` through
