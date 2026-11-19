@@ -443,10 +443,11 @@ def test_virtual_time_format():
 
 def test_the_store_dedupes_replayed_sequences_and_stays_bounded():
     store = EventStore(limit=8)
-    assert store.add({"seq": 1}) and not store.add({"seq": 1})  # the backlog replays on reconnect
+    assert store.add({"seq": 1}) and not store.add({"seq": 1})  # a duplicate never enters twice
     for seq in range(2, 30):
         store.add({"seq": seq})
     assert len(store) == 8 and store.events[0]["seq"] == 22  # the oldest were dropped, not the newest
+    assert store.max_seq == 29  # the reconnect's since cursor: the newest held seq (#1632)
     assert BUFFER_LIMIT >= 10_000  # the session buffer the spec requires (7.2)
 
 
@@ -783,7 +784,7 @@ def test_the_store_dedupes_a_replayed_backlog():
         ev(3, 0, "state", instrument="awg", path="p", old=1, new=2, source="ui"),
     ]
     assert store.add_many(events) == 3
-    assert store.add_many(events) == 0  # full replay on reconnect
+    assert store.add_many(events) == 0  # a defensive net since the server sends the tail only (#1632)
     assert store.add_many(events[:1]) == 0
     assert store.add(ev(4, 0, "scpi", instrument="awg", dir="write", client="ui", text="z")) is True
     assert len(store) == 4
@@ -1099,13 +1100,18 @@ def test_lang_default_follows_env(monkeypatch):
     assert default_lang() == "en"  # the fallback
 
 
-def test_ws_url_carries_the_token():
+def test_ws_url_carries_the_token_and_the_since_cursor():
     assert ws_url("http://127.0.0.1:8000", "s1") == "ws://127.0.0.1:8000/api/sessions/s1/events"
     assert ws_url("http://127.0.0.1:8000", "s1", "t") == "ws://127.0.0.1:8000/api/sessions/s1/events?token=t"
     assert (
         ws_url("https://bench.example.com", "s1", "t")
         == "wss://bench.example.com/api/sessions/s1/events?token=t"
     )
+    assert (  # a reconnect asks for the events after the last one held (#1632)
+        ws_url("http://127.0.0.1:8000", "s1", "t", 7)
+        == "ws://127.0.0.1:8000/api/sessions/s1/events?token=t&since=7"
+    )
+    assert ws_url("http://127.0.0.1:8000", "s1", None, 7) == "ws://127.0.0.1:8000/api/sessions/s1/events?since=7"
 
 
 def test_the_scaled_clock_shows_its_rate_in_the_activity_status():

@@ -1,8 +1,9 @@
 """The event store: every session event, deduped by ``seq`` (tui-screens.md 7.2).
 
-The server replays the FULL history on every (re)connect; ``seq`` is the event's stable id in
-the session history, so an event is new exactly when its seq is greater than anything seen
-before. The buffer keeps the most recent 10 000 events; older ones live in the run records.
+``seq`` is the event's stable cursor in the session history, and a reconnect asks the server
+for the events after the last one seen (``since``, #1632) — so the dedupe below is a defensive
+net, not the replay filter it was when the server re-sent the whole history every connect.
+The buffer keeps the most recent 10 000 events; older ones live in the run records.
 """
 
 from __future__ import annotations
@@ -44,6 +45,11 @@ class EventStore:
             if self.add(ev):
                 added += 1
         return added
+
+    @property
+    def max_seq(self) -> int:
+        """The seq of the newest event held: the ``since`` cursor a reconnect sends (#1632)."""
+        return self._max_seq
 
     def clear(self) -> None:
         """Drop everything (a fresh session after a reset starts a new history)."""
