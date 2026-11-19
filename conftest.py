@@ -2,11 +2,14 @@
 shipped with the package (D42), through the definition search path."""
 
 import os
-import sys
 import tempfile
+import time
 from pathlib import Path
 
 import pytest
+
+# The unit budget (D49): CPU time decides, the wall clock bounds waiting (#1544).
+from tests.unit_budget import unit_budget_verdict
 
 from simubench.library.loader import DEFINITIONS_ENV
 
@@ -32,12 +35,15 @@ for _blas in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS", "NUM
     os.environ.setdefault(_blas, "1")
 
 
-# The unit budget (D49), 100 ms locally. A CI runner is shared — several workflows and xdist
-# workers on two cores — and a load spike lands in a call phase that measures in single-digit
-# milliseconds locally (#482), so there the budget is tripled: still wide enough to catch a real
-# regression (5 ms → 300 ms), deaf to the noise. The Windows runner is the noisiest (antivirus scans
-# on first file access put a 0.6 s spike on a 5 ms file-reading test, #1465), so there it is ×10.
-UNIT_BUDGET_S = (1.0 if sys.platform == "win32" else 0.3) if os.environ.get("CI") == "true" else 0.1
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_call(item: pytest.Item):
+    """The CPU time of the call phase, for the unit budget below."""
+    started = time.process_time()
+    yield
+    item.stash[_CPU_S] = time.process_time() - started
+
+
+_CPU_S = pytest.StashKey[float]()
 
 
 @pytest.hookimpl(hookwrapper=True)
@@ -46,9 +52,7 @@ def pytest_runtest_makereport(item: pytest.Item, call: pytest.CallInfo[None]):
     outcome = yield
     report = outcome.get_result()
     if report.when == "call" and report.passed and item.get_closest_marker("unit"):
-        if call.duration > UNIT_BUDGET_S:
-            report.longrepr = (
-                f"unit test over budget: {call.duration:.3f}s > {UNIT_BUDGET_S:g}s (D49) — "
-                "split it or move it up a tier"
-            )
+        verdict = unit_budget_verdict(item.stash.get(_CPU_S, call.duration), call.duration)
+        if verdict is not None:
+            report.longrepr = verdict
             report.outcome = "failed"
