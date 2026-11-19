@@ -583,7 +583,9 @@ class InstrumentInfo(_Model):
     description: str | None = None
     idn: str
     channels: int
-    address_virtual: str
+    #: ``None`` when the session serves no SCPI (--no-scpi, a probe session): an address nobody
+    #: listens on is not something the UI or an agent should copy (#1488).
+    address_virtual: str | None = None
     address_real: str | None = None
     address_hislip: str | None = None
     address_vxi11: str | None = None

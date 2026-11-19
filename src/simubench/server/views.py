@@ -117,7 +117,7 @@ class SessionViews:
             reveal_true_values=s.reveal_true_values,
             bench_sha256=served.bench_sha256,
             bench_fingerprint=served.bench_fingerprint,
-            stale_definitions=self.manager.stale_definitions(served) if served.id != "preview" else [],
+            stale_definitions=self.manager.stale_definitions(served) if not served.preview else [],
             record_path=str(s.recorder.path) if s.recorder and s.recorder.path.exists() else None,
             port_notices=list(served.port_notices),
             link_address=served.link.address() if served.link else None,
@@ -213,7 +213,8 @@ class SessionViews:
             description=d.description,
             idn=inst.idn,
             channels=inst.channel_count,
-            address_virtual=f"TCPIP0::127.0.0.1::{scpi_port or 5025 + index}::SOCKET",
+            # The socket address is a fact of the listener, not a guess: none when this session serves no SCPI.
+            address_virtual=f"TCPIP0::127.0.0.1::{scpi_port}::SOCKET" if scpi_port else None,
             address_real=inst.instance.address,
             address_hislip=hislip,
             address_vxi11=vxi11,

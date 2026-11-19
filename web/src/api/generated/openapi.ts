@@ -3651,7 +3651,7 @@ export interface components {
             /** Address Real */
             address_real: string | null;
             /** Address Virtual */
-            address_virtual: string;
+            address_virtual: string | null;
             /** Address Vxi11 */
             address_vxi11: string | null;
             /** Channels */
@@ -5294,7 +5294,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file
+             * @description scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file
              */
             kind: string;
             /** Message */

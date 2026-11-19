@@ -9,10 +9,12 @@ from typing import ClassVar
 
 import numpy as np
 import pytest
+from pydantic import ValidationError
 
 from helpers import raises_with
-from simubench.engine import session as session_module
+from simubench.engine import evalcache
 from simubench.engine.component import Component, PortSpec, component, component_types, registry
+from simubench.engine.evalcontext import EvalContext
 from simubench.engine.noise import gaussian, stream_key
 from simubench.engine.session import Session
 from simubench.engine.signal import Signal, sine
@@ -240,7 +242,7 @@ def test_a_frame_beyond_the_limit_is_refused(blocks):
 
 def test_a_read_that_fans_out_beyond_the_limit_is_refused(blocks, monkeypatch):
     """Each frame is within ``MAX_FRAME``; what the chain asks for in total is not."""
-    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 1000)
+    monkeypatch.setattr(evalcache, "MAX_REQUEST_FANOUT", 1000)
     data = copy.deepcopy(CHAIN)
     data["components"][2]["params"] = {"factor": 100}
     session, comps = open_chain(data)
@@ -264,10 +266,9 @@ def test_a_cached_upstream_frame_still_counts_toward_the_fan_out(blocks, monkeyp
     """Whether a read is refused must not depend on what was read before."""
     session, comps = open_chain()
     session.cached_frames(comps["dec"], "out", ask(count=100))  # the upstream frame (410) is now cached
-    monkeypatch.setattr(session_module, "MAX_REQUEST_FANOUT", 450)
-    session._frame_cached -= session._frame_cache.pop(
-        next(k for k in session._frame_cache if k[1] == "x/dec")
-    )[0].count
+    monkeypatch.setattr(evalcache, "MAX_REQUEST_FANOUT", 450)
+    cache = session.cache
+    cache._cached_samples -= cache._frames.pop(next(k for k in cache._frames if k[1] == "x/dec"))[0].count
     with pytest.raises(ModelLimit):
         session.cached_frames(comps["dec"], "out", ask(count=100))  # 100 + 410 > 450
 
@@ -295,7 +296,7 @@ def test_the_cache_keeps_a_bounded_number_of_frames(blocks):
     session, comps = open_chain()
     for k in range(70):  # past the bound of 64: the oldest must be evicted (D49 budget)
         session.cached_frames(comps["adc"], "out", FrameRequest(0, 4, DT, ("acq", k)))
-    assert len(session._frame_cache) == 64
+    assert len(session.cache._frames) == 64
 
 
 # ---- the data types -----------------------------------------------------------------------------
@@ -374,9 +375,160 @@ def test_channel_blocks_follow_the_same_rules(blocks):
 
 def test_the_cache_holds_a_bounded_number_of_samples(blocks, monkeypatch):
     """Deep records must not pile up: the cache counts samples, and skips a frame over its budget."""
-    monkeypatch.setattr(session_module, "FRAME_CACHE_SAMPLES", 1000)
+    monkeypatch.setattr(evalcache, "FRAME_CACHE_SAMPLES", 1000)
     session, comps = open_chain()
     for k in range(5):
         session.cached_frames(comps["adc"], "out", FrameRequest(0, 400, DT, ("acq", k)))
     session.cached_frames(comps["adc"], "out", FrameRequest(0, 2000, DT, ("acq", 9)))
-    assert (len(session._frame_cache), session._frame_cached) == (2, 800)
+    assert (len(session.cache._frames), session.cache._cached_samples) == (2, 800)
+
+
+# ---- the evaluation's ambient inputs are part of the cache's key (#1486) --------------------------
+
+
+@pytest.fixture
+def ambient_reader():
+    """A block whose frame is its caller's ambient state: tuning point, evaluation instant."""
+
+    @component("t_ambient")
+    class Ambient(Component):
+        ports: ClassVar[dict[str, PortSpec]] = {
+            "out": PortSpec("out", "samples"),
+            "sig": PortSpec("sig", "signal"),
+        }
+        calls = 0
+        output_calls = 0
+
+        def output(self, port: str) -> Signal:
+            self.output_calls += 1
+            return sine(1e3, 1.0)
+
+        def frames(self, port: str, request: FrameRequest) -> SampleFrame:
+            self.calls += 1
+            tune = -1.0 if self.session.tune_hz is None else self.session.tune_hz
+            return SampleFrame(
+                np.full(request.count, tune + 1e-9 * self.session.instant_ns), request.t0_ns, request.dt_s
+            )
+
+    yield
+    registry.unregister("t_ambient")
+
+
+def _ambient_session():
+    definition = InstrumentDefinition.model_validate(
+        {
+            "schema": "simubench.instrument/2",
+            "id": "ambient",
+            "manufacturer": "ACME",
+            "model": "AMB",
+            "class": "oscilloscope",
+            "components": [{"name": "amb", "type": "t_ambient"}],
+            "commands": [],
+        }
+    )
+    bench = BenchDefinition.model_validate(
+        {"schema": "simubench.bench/1", "name": "a", "instruments": {"x": {"model": "ambient"}}}
+    )
+    session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
+    return session, session.instruments["x"].components["amb"]
+
+
+def test_the_frame_cache_does_not_mix_tunings_or_instants(ambient_reader):
+    """One request, asked under other ambient tuning or another evaluation instant, is another
+    entry: the frame is not served from what was computed under different inputs."""
+    session, amb = _ambient_session()
+    plain = session.cached_frames(amb, "out", ask(5)).data[0]
+    with session.tuned(1e6):
+        tuned = session.cached_frames(amb, "out", ask(5)).data[0]
+    with session.at_instant(500):
+        earlier = session.cached_frames(amb, "out", ask(5)).data[0]
+    assert (plain, tuned, earlier) == (-1.0, 1e6, -1.0 + 500e-9)  # step: three inputs, three frames
+    assert amb.calls == 3
+    with session.tuned(1e6):
+        assert session.cached_frames(amb, "out", ask(5)).data[0] == tuned
+    assert session.cached_frames(amb, "out", ask(5)).data[0] == plain  # step: each is served again
+    assert amb.calls == 3
+
+
+def test_the_adc_takes_the_requests_tuning_never_the_callers_ambient_one():
+    """The library's ADC evaluates its input under the request's tuning point alone: a request
+    that carries none is untuned even inside ``tuned()`` (the ambient fallback is gone, #1486), and
+    one that carries a point gets it whatever the ambient one is."""
+    seen: list[float | None] = []
+
+    @component("t_listening_tone")
+    class ListeningTone(Component):
+        ports: ClassVar[dict[str, PortSpec]] = {"out": PortSpec("out", "signal")}
+
+        def output(self, port: str) -> Signal:
+            seen.append(self.session.tune_hz)
+            return sine(1e3, 1.0)
+
+    try:
+        definition = InstrumentDefinition.model_validate(
+            {
+                "schema": "simubench.instrument/2",
+                "id": "listen",
+                "manufacturer": "ACME",
+                "model": "LISTEN",
+                "class": "oscilloscope",
+                "components": [
+                    {"name": "tone", "type": "t_listening_tone"},
+                    {"name": "adc", "type": "adc"},
+                ],
+                "wiring": {"instrument": [["tone.out", "adc.in"]]},
+                "commands": [],
+            }
+        )
+        bench = BenchDefinition.model_validate(
+            {"schema": "simubench.bench/1", "name": "l", "instruments": {"x": {"model": "listen"}}}
+        )
+        session = Session(bench, lambda _id: definition, clock="stepped", seed=1)
+        adc = session.instruments["x"].components["adc"]
+        with session.tuned(2e6):
+            session.cached_frames(adc, "out", ask(8, key=("a",)))  # step: no point in the request
+            session.cached_frames(adc, "out", ask(8, key=("b",), tune_hz=3e6))  # step: its own point
+        session.cached_frames(adc, "out", ask(8, key=("c",), tune_hz=4e6))  # step: nothing ambient
+    finally:
+        registry.unregister("t_listening_tone")
+    assert seen == [None, 3e6, 4e6]
+
+
+#: One value other than the default for each field of the context. A field added to ``EvalContext``
+#: without a row here fails the first test below: the author has to say how it differs, and the
+#: second test then shows that both caches key on it (#1509).
+OTHER_VALUE = {"tune_hz": 2e6, "at_ns": 250}
+
+
+def test_every_field_of_the_evaluation_context_has_a_sample_here():
+    assert sorted(OTHER_VALUE) == sorted(EvalContext.model_fields)
+
+
+@pytest.mark.parametrize("name", sorted(OTHER_VALUE))
+def test_both_caches_key_on_every_field_of_the_context(ambient_reader, name):
+    """Change one field of the context and a frame and a signal already cached are computed again;
+    come back to the first context and they are served from the cache once more."""
+    session, amb = _ambient_session()
+    session.cached_frames(amb, "out", ask(4))
+    session.cached_output(amb, "sig")
+    assert (amb.calls, amb.output_calls) == (1, 1)
+    with session.evaluating(**{name: OTHER_VALUE[name]}):
+        session.cached_frames(amb, "out", ask(4))
+        session.cached_output(amb, "sig")
+        assert (amb.calls, amb.output_calls) == (2, 2)  # step: another context, computed again
+    session.cached_frames(amb, "out", ask(4))
+    session.cached_output(amb, "sig")
+    assert (amb.calls, amb.output_calls) == (2, 2)  # step: the first one is still cached
+
+
+def test_the_context_is_changed_only_by_entering_a_block_and_nests(ambient_reader):
+    session, _ = _ambient_session()
+    assert session.context == EvalContext()
+    with session.tuned(1e6):
+        with session.at_instant(5):
+            assert session.context == EvalContext(tune_hz=1e6, at_ns=5)
+            assert (session.tune_hz, session.instant_ns) == (1e6, 5)  # step: the read-through names
+        assert session.context == EvalContext(tune_hz=1e6)  # step: leaving restores the outer one
+    assert session.context == EvalContext()
+    with pytest.raises(ValidationError):
+        session.context.tune_hz = 3e6  # type: ignore[misc]  # step: a frozen value

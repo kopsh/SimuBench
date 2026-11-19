@@ -51,6 +51,7 @@ def served_with(*rows: tuple[str, FakeServer]) -> tuple[ServedSession, list[dict
         emit=events.append,
         instrument=lambda name: None,
         instruments={},
+        cancel=lambda: None,
         close=lambda: None,
     )
     served = ServedSession("t1", session, None)
@@ -79,6 +80,20 @@ async def test_a_registry_row_stops_with_the_session(tmp_path):
     manager.sessions[served.id] = served
     await manager.stop(served.id)
     assert fifth.stopped and served.id not in manager.sessions
+
+
+async def test_stopping_a_session_cancels_a_read_still_computing_before_it_closes(tmp_path):
+    """#1510: closing waits for the session lock; a long read holds it, so the stop cancels first."""
+    from simubench.server.manager import SessionManager
+
+    manager = SessionManager(tmp_path, scpi_base_port=None)
+    served, _ = served_with()
+    order: list[str] = []
+    served.session.cancel = lambda: order.append("cancel")
+    served.session.close = lambda: order.append("close")
+    manager.sessions[served.id] = served
+    await manager.stop(served.id)
+    assert order == ["cancel", "close"]
 
 
 def test_local_ends_on_a_port_clients_command_and_survives_the_uis():

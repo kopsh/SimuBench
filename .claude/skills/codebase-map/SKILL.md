@@ -24,22 +24,26 @@ plausible fake).
 
 | Change | File |
 | --- | --- |
-| Session, action queue, virtual clock | `engine/session.py`; idle modes (D47) `engine/sleep_mode.py` |
+| Session (facade: actions, clock, events, instrument I/O), action queue, virtual clock | `engine/session.py`; idle modes (D47) `engine/sleep_mode.py` |
+| Real-time budget of a read, cancelling one, the `abort` event and how a replay reproduces it (D88) | `engine/budget.py`, `Session.checkpoint` / `cancel` (`engine/session.py`), `resend` (`replay.py`) |
+| The session's collaborators (D60): evaluation caches + sample fan-out count (`Session.cache`) / operating point, mode iteration (`Session.solver`, reads the session through `SolveHost`) / one-driver-per-net feed for non-circuit media (`nets.feed`) | `engine/evalcache.py` / `engine/solver.py` / `engine/nets.py` |
 | Instrument runtime, SCPI command layer | `engine/instrument.py`; static lookup `engine/commands.py`; why a header is not executed and the closest one (coverage table) `engine/coverage_advice.py`; operations pending until a later instant, `*OPC`/`*WAI` bookkeeping `engine/pending.py`; the settings' specs, values, coercion, `*RST` reset and run-time bounds `engine/settings.py` (also `validate_value`, `snap_ladder`); channel numbers `engine/channels.py`; internal signal wires `engine/wiring.py`; parsing and executing a program message (dispatch, settings / channel-list / operation commands, value parse and format) `engine/command_runner.py`; the ESR/ESE/SRE registers and the status byte `engine/status_registers.py`; `*IDN?`/`*STB?`/`*TRG`/clock built-ins `engine/builtin_commands.py`; device errors, -113/-104 classification `engine/error_reporter.py` |
 | Component base class, `@component`, `@op` | `engine/component.py` |
+| Evaluation context (tuning point, evaluation instant) — the frozen value both caches key on; `Session.evaluating` / `tuned` / `at_instant` change it (D67, #1509) | `engine/evalcontext.py`, `engine/session.py` |
 | Circuit (MNA per frequency) / signals / noise | `engine/circuit.py`, `engine/signal.py`, `engine/noise.py` |
 | Sample streams after an ADC: `FrameRequest`, `SampleFrame`, limits; the frame cache is `Session.cached_frames` (D67) | `engine/stream.py` |
 | Oscilloscope components (#1386): the channel chain (probe, vertical/front end, ADC, decimator) and the timebase / the trigger (edge and advanced types, the trigger search) / run control, records, averaging, segments / the measurement component (op pipeline, screen list, statistics, cursors, markers; the algorithms are `measurements.py`) | `library/components/scope.py` / `scope_trigger.py` / `scope_acquisition.py` / `scope_measurements.py` |
 | A scope's record (`Record`, `channel_index`); deep records computed where read — the chain's captured views (`AdcView`, `DecimatorView`), tiles, envelope, chunked measurements, `EAGER_POINTS` (#1012, real-models.md 10) | `library/components/scope_record.py` |
 | Cascaded RF figures (Friis, intercepts, distortion products, compression) of the `RfStage` blocks; the tuning context is `Session.tuned` | `engine/rfcascade.py` |
 | Internal probe: what a port inside an instrument carries (analog lines, a samples frame and its spectrum, the "tuned to" of a receiver), shared by HTTP and MCP; hidden in validation mode | `server/services/internal_probe.py` |
-| Bench validation / definition validation | `engine/validate.py`, `engine/validate_definition.py` |
+| Bench validation / definition validation (a package: the entry in `__init__`, the checks by concern — `lookups`, `params`, `parts`, `states`, `wires`, `cmds`, `panel`; low to high, no cycle) | `engine/validate.py`, `engine/validate_definition/` |
 | Bench edits (canvas + MCP share them) | `engine/edit.py` |
 | Faults / run record / replay | `engine/faults.py`, `engine/record.py`, `replay.py` |
 | Event contract (stream shape, kinds registry, WS projection) | `engine/events.py` (re-exported by `contracts/api.py`, D57) |
 | Calibration, deviation, verdicts | `engine/calibration.py`, `engine/deviation.py`, `verdicts.py` |
 | SCPI parse / typed values / error codes | `scpi/parse.py`, `scpi/values.py`, `scpi/errors.py` |
 | Built-in component types (one module per class) | `library/components/*.py` (register in `__init__.py`) |
+| How an instrument's component chain is cut (leaf blocks → the driver block; when to split; no mixins) and the family a new module belongs to | `docs/signal-chain.md` 3.4, `server/catalog.py` (`GROUPS`) |
 | Built-in real models + coverage tables | `library/instruments/<id>.yaml`, `<id>.coverage.yaml` |
 | Load definitions/benches, macros, panels, migrations, templates | `library/loader.py`, `macros.py`, `panels.py`, `migrate.py`, `templates/` |
 | Instrument classes in one place: label key, readings polling, row kind, panel policy, scriptscan hints (D79) | `models/categories.py` |

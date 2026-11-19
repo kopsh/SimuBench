@@ -201,7 +201,7 @@
       "title": "Instrument"
     },
     "kind": {
-      "description": "scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | file",
+      "description": "scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file",
       "title": "Kind",
       "type": "string"
     },

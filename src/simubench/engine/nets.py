@@ -11,11 +11,12 @@ two seams' messages can name the same accessory.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterable, Iterator
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
     from ..models.bench import BenchDefinition, Wire
+    from .component import Component
 
 
 class UnionFind:
@@ -77,3 +78,23 @@ def nets_of(bench: BenchDefinition, *, through: frozenset[str] = frozenset()) ->
     for i, wire in enumerate(bench.wires):
         union_wire(uf, i, wire, through=through)
     return list(uf.groups())
+
+
+def feed(
+    members: Iterable[str],
+    component_at: Callable[[str], tuple[Component, str] | None],
+    comp: Component,
+    medium: str,
+) -> tuple[Component, str] | None:
+    """The one output of ``medium`` among a net's ``members`` (port references), other than
+    ``comp`` itself; None when the net has none. A net of a non-electrical medium is a pair of ends
+    with one driver (a fibre, D71): what arrives at an input is what that output gives. Nothing
+    here is specific to light — the next such medium passes its own name."""
+    for member in members:
+        found = component_at(member)
+        if found is None or found[0] is comp:
+            continue
+        spec = found[0].ports.get(found[1])
+        if spec is not None and spec.medium == medium and spec.direction == "out":
+            return found
+    return None

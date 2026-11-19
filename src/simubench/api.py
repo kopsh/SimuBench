@@ -22,6 +22,7 @@ def open_bench(
     workspace_plugins: Path | None = None,
     files_dir: str | Path | None = None,
     models: dict[str, str] | None = None,
+    compute_budget_s: float | None = None,
 ) -> Session:
     """Load a bench file (YAML or JSON) and start a session.
 
@@ -31,7 +32,8 @@ def open_bench(
     ``files_dir`` keeps the instruments' virtual file systems across runs (#1069,
     :func:`bench_files_dir`); without it they live in a temporary folder removed at close.
     ``models`` swaps models, ``{old id: new id}``: every instrument of an old model runs the new one
-    (a copy of a model running the model's own cases, P1-4).
+    (a copy of a model running the model's own cases, P1-4). ``compute_budget_s`` ends a read that
+    computes longer than that many real seconds, between two frames (off by default; D88).
     """
     if workspace_plugins is not None:
         from .engine.plugins import load_workspace_plugins
@@ -63,6 +65,7 @@ def open_bench(
         idle=idle,
         time_scale=time_scale,
         files_dir=Path(files_dir) if files_dir is not None else None,
+        compute_budget_s=compute_budget_s,
     )
 
 

@@ -44,7 +44,18 @@ GROUPS: dict[str, M.LibraryGroup] = {
         "signal",
     ),
     **dict.fromkeys(
-        ("meters", "measurements", "counter", "lockin", "reading_math", "specan", "specan_backend"), "measure"
+        (
+            "meters",
+            "measurements",
+            "counter",
+            "lockin",
+            "reading_math",
+            "specan",
+            "specan_backend",
+            "specan_detect",
+            "specan_frontend",
+        ),
+        "measure",
     ),
     **dict.fromkeys(
         (
