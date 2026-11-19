@@ -50,6 +50,27 @@ class StatusRegisters:
         self._esr = 0
         self._ese = 0
         self._sre = 0
+        #: The default STATus registers (#1560), by register name: only what a program can write.
+        #: Their condition is 0 and their event register never latches (nothing feeds them), so
+        #: they add no bit to the status byte.
+        self._defaults = {name: self._preset_values() for name in ("OPERATION", "QUESTIONABLE")}
+
+    @staticmethod
+    def _preset_values() -> dict[str, int]:
+        """What STATus:PRESet writes: nothing enabled, every positive transition, no negative one."""
+        return {"enable": 0, "ptr": 0x7FFF, "ntr": 0}
+
+    def default_read(self, register: str, part: str) -> int:
+        """A default STATus register's part: ``event`` and ``condition`` are always 0."""
+        return self._defaults[register].get(part, 0)
+
+    def default_write(self, register: str, part: str, value: int) -> None:
+        self._defaults[register][part] = value
+
+    def default_preset(self) -> None:
+        """``STATus:PRESet``: the enable and transition registers of the default registers."""
+        for name in self._defaults:
+            self._defaults[name] = self._preset_values()
 
     def registers(self) -> list[Any]:
         """The ``status_register`` components, in component order (fixed once the instrument is built)."""
