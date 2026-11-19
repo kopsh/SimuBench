@@ -106,6 +106,7 @@ class DefinitionFiles:
             path.parent.mkdir(parents=True, exist_ok=True)
             tmp = path.with_name(f".{path.name}.tmp")
             tmp.write_bytes(raw)
+            self.files._expect(rel, _sha(raw))
             os.replace(tmp, path)
             base_data: dict[str, Any] = {}
             previous = None
@@ -117,6 +118,7 @@ class DefinitionFiles:
                 self.files.history.record(rel, raw, _sha(raw), _fingerprint(data), source, previous=previous)
             except Exception as exc:
                 _rollback(path, old)
+                self.files._expect(rel, None)
                 raise Invalid(f"保存定义 {def_id} 失败：无法写入版本历史（{exc}）") from exc
             changes = self._changes(def_id, base_data, data)
         self.files._announce(rel, _sha(raw))

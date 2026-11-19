@@ -67,6 +67,9 @@ export function placeNew(preferred: Point): Point {
   return freeSpot(rects, size, preferred);
 }
 
+/** How far inside the canvas edge a node just added must lie to count as in view (#1526). */
+const REVEAL_MARGIN_PX = 4;
+
 /**
  * Bring the node just added (`id`) into view when it is not in view (#1258): the view is centred on
  * it at the current zoom while part of it lies outside the canvas — only then, so a node placed in
@@ -291,7 +294,10 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
       if (!pane) return true;
       const tl = flow.flowToScreenPosition({ x: box.x, y: box.y });
       const br = flow.flowToScreenPosition({ x: box.x + box.width, y: box.y + box.height });
-      return tl.x >= pane.left && tl.y >= pane.top && br.x <= pane.right && br.y <= pane.bottom;
+      // Wholly inside with a margin: a node flush with the edge reads as cut off, and sub-pixel
+      // rounding can put its rendered box a hair outside what this arithmetic sees (#1526).
+      const m = REVEAL_MARGIN_PX;
+      return tl.x >= pane.left + m && tl.y >= pane.top + m && br.x <= pane.right - m && br.y <= pane.bottom - m;
     };
     nodeBox = (id) => {
       const n = flow.getNode(id);

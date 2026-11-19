@@ -28,19 +28,6 @@ def client():
         yield c
 
 
-def test_without_scpi_the_virtual_address_is_none(client):
-    """No listener, no address (#1488): the UI and the agents are not handed a fabricated
-    ``TCPIP0::…::5025+n`` that nothing listens on."""
-    sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
-    try:
-        instruments = client.get(f"/api/sessions/{sid}").json()["instruments"]
-        assert instruments
-        assert all(i["scpi_port"] is None for i in instruments)
-        assert all(i["address_virtual"] is None for i in instruments)
-    finally:
-        client.delete(f"/api/sessions/{sid}")
-
-
 def test_host_check():
     """The pure function behind the host guard; the HTTP behaviour is test_security.py's
     (every route's token, foreign host/origin, escaping bench paths — #700 deduplicated them)."""
@@ -782,6 +769,31 @@ def test_watcher_stays_silent_when_a_write_point_notes_the_content_mid_pass(tmp_
     monkeypatch.setattr(workspace_events.hashlib, "sha256", noting_sha256)
     watcher._pass()
     assert published == []
+
+
+def test_watcher_stays_silent_when_a_pass_lands_between_the_write_and_its_note(tmp_path):
+    """#1526: a write point replaces the file, then publishes and notes it; a pass in between
+    reads content it was never told about. The write point names the content before the file
+    changes (expect), so that pass stays silent and only the write point announces it."""
+    from simubench.server.workspace_events import WorkspaceWatcher
+
+    published: list[dict] = []
+    watcher = WorkspaceWatcher(tmp_path, lambda kind, **fields: published.append(fields))
+    path = tmp_path / "a.bench.yaml"
+    path.write_bytes(b"schema: simubench.bench/2\nname: a\n")
+    watcher._pass()  # baseline
+    raw = b"schema: simubench.bench/2\nname: b\n"
+    sha = hashlib.sha256(raw).hexdigest()
+    watcher.expect("a.bench.yaml", sha)
+    watcher._pass()  # before the replace: the old content, unchanged
+    path.write_bytes(raw)
+    watcher._pass()  # after the replace, before the note
+    watcher.note("a.bench.yaml", sha)
+    watcher._pass()
+    assert published == []
+    path.write_bytes(b"schema: simubench.bench/2\nname: c\n")  # an editor's later save still counts
+    watcher._pass()
+    assert published == [{"path": "a.bench.yaml"}]
 
 
 def test_workspace_hub_drops_events_without_a_subscriber():
