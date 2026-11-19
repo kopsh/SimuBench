@@ -62,7 +62,7 @@ def preview(manager: SessionManager, bench_path: str) -> M.BenchPreview:
         out.error = str(exc).splitlines()[0]
         return out
     try:
-        info = manager.views.describe(ServedSession("preview", session, path))
+        info = manager.views.describe(ServedSession("preview", session, path, preview=True))
     finally:
         session.close()
     for w in info.wires:

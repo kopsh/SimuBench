@@ -269,6 +269,80 @@ def test_validator_rejects_sense_terminals_on_one_net():
     assert [(d.code, d.severity) for d in report.diagnostics] == [("E-SENSE-SHORT", "error")]
 
 
+# ---- channel-bound sense (issue 1487) ----------------------------------------------------------------
+
+
+def channel_smu_bench(*, sense_wired: bool = False, state: dict | None = None):
+    """sb-smu-4 的 CH1 进一只 10 Ω 电阻：输出级是通道组件，remote_sense 绑定 $ch.sense.remote。"""
+    wires = [
+        {"from": "smu.HI1", "to": "r1.A"},
+        {"from": "r1.B", "to": "smu.LO1"},
+    ]
+    if sense_wired:
+        wires += [{"from": "smu.SENSE_HI1", "to": "r1.A"}, {"from": "smu.SENSE_LO1", "to": "r1.B"}]
+    return {
+        **BENCH,
+        "instruments": {"smu": {"model": "sb-smu-4", **({"state": state} if state else {})}},
+        "parts": {"r1": {"type": "resistor", "dut": True, "params": {"r": 10.0}}},
+        "wires": wires,
+    }
+
+
+def test_validator_warns_when_channel_bound_sense_is_left_unconnected():
+    """A channel-bound remote_sense is judged at the bench's ``ch<n>.`` initial value (issue 1487).
+    Before, the resolver missed the ``ch.`` prefix, looked up ``ch.sense.remote`` and always fell
+    back to the definition default (off): the written initial value never triggered the warning."""
+    _, report = validate_data(channel_smu_bench(state={"ch1.sense.remote": True}), LIB)
+    codes = [(d.code, d.pointer) for d in report.diagnostics]
+    assert codes == [("W-SENSE-UNCONNECTED", "/instruments/smu/state/ch1.sense.remote")]
+
+
+def test_validator_judges_each_channel_at_its_own_initial_value():
+    _, report = validate_data(
+        channel_smu_bench(state={"ch1.sense.remote": True, "ch2.sense.remote": True}), LIB
+    )
+    codes = [(d.code, d.pointer) for d in report.diagnostics]
+    assert codes == [
+        ("W-SENSE-UNCONNECTED", "/instruments/smu/state/ch1.sense.remote"),
+        ("W-SENSE-UNCONNECTED", "/instruments/smu/state/ch2.sense.remote"),
+    ]
+
+
+def test_validator_passes_channel_bound_sense_left_at_its_default():
+    # No initial value: the definition default (off) — and a Kelvin wiring silences it either way.
+    _, report = validate_data(channel_smu_bench(), LIB)
+    assert report.diagnostics == []
+    _, report = validate_data(channel_smu_bench(sense_wired=True, state={"ch1.sense.remote": True}), LIB)
+    assert report.diagnostics == []
+
+
+def test_validator_rejects_channel_sense_terminals_on_one_net():
+    raw = channel_smu_bench(state={"ch1.sense.remote": True})
+    raw["wires"] = [
+        {"from": "smu.HI1", "to": "r1.A"},
+        {"from": "r1.B", "to": "smu.LO1"},
+        {"from": "smu.SENSE_HI1", "to": "r1.A"},
+        {"from": "smu.SENSE_LO1", "to": "r1.A"},
+    ]
+    _, report = validate_data(raw, LIB)
+    assert [(d.code, d.severity) for d in report.diagnostics] == [("E-SENSE-SHORT", "error")]
+
+
+def test_validator_warns_on_a_real_models_mapped_channel_sense():
+    """The real supply models bind remote sense through a map (``{from: $ch.sense, map:
+    {INTernal: false, EXTernal: true}}``, keysight-e36312a): the initial value goes through the
+    mapping, and only the written channel's sense pair is judged."""
+    raw = {
+        **BENCH,
+        "instruments": {"psu": {"model": "keysight-e36312a", "state": {"ch1.sense": "EXTernal"}}},
+        "parts": {"r1": {"type": "resistor", "dut": True, "params": {"r": 10.0}}},
+        "wires": [{"from": "psu.OUT1+", "to": "r1.A"}, {"from": "r1.B", "to": "psu.OUT1-"}],
+    }
+    _, report = validate_data(raw, LIB)
+    codes = [(d.code, d.pointer) for d in report.diagnostics]
+    assert codes == [("W-SENSE-UNCONNECTED", "/instruments/psu/state/ch1.sense")]
+
+
 # ---- the lead is a real series element ---------------------------------------------------------------
 
 

@@ -15,7 +15,7 @@ import shutil
 import tempfile
 import threading
 import time
-from collections import OrderedDict, deque
+from collections import deque
 from collections.abc import Callable, Generator, Iterable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,26 +26,24 @@ from ..models.bench import LIVE_CLOCKS, BenchDefinition
 from ..scpi.errors import ScpiError
 from ..scpi.parse import message_is_query
 from . import nets, sleep_mode
+from .budget import ComputeBudget, aborted
 from .circuit import Circuit, Solution
 from .component import Component, component_type
 from .deviation import draw_overrides, set_override
+from .evalcache import EvalCache
+from .evalcontext import EvalContext
 from .faults import FaultManager, LinkDown
 from .instrument import Instrument
 from .portref import split
 from .record import Recorder
 from .signal import Signal
+from .solver import Solver
 from .stream import (
-    FRAME_CACHE_SAMPLES,
-    FRAME_CACHE_SIZE,
-    MAX_REQUEST_FANOUT,
     FrameRequest,
     SampleFrame,
-    beyond_model,
-    check_request,
 )
 
 Listener = Callable[[dict[str, Any]], None]
-MAX_MODE_ITERATIONS = 40
 log = logging.getLogger(__name__)
 
 #: In command-driven mode, idle gaps shorter than this are script overhead and do not advance time.
@@ -105,6 +103,7 @@ class Session:
         record_raw: bool = False,
         time_scale: float | None = None,
         files_dir: Path | None = None,
+        compute_budget_s: float | None = None,
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
@@ -135,21 +134,14 @@ class Session:
         #: Per-component last consumed signal version (signal_changed's subscription registry).
         self._signal_seen: dict[str, int] = {}
         self._electrical_version = 0
-        self._circuit: tuple[int, Circuit] | None = None
-        self._solution: tuple[int, Solution, dict[str, Signal]] | None = None
-        self._output_cache: dict[tuple[int, str, str, float | None, int | None], Signal] = {}
-        #: The tuning point of the read in progress (:meth:`tuned`); None outside one.
-        self.tune_hz: float | None = None
-        #: The instant an evaluation in progress is for (:meth:`at_instant`); None: now.
-        self._at_ns: int | None = None
-        #: Frames of the sample streams (D67), newest last: (signal version, uid, port, request) ->
-        #: (frame, samples asked for along the chain to make it).
-        self._frame_cache: OrderedDict[tuple[int, str, str, FrameRequest], tuple[SampleFrame, int]] = (
-            OrderedDict()
-        )
-        #: One entry per :meth:`cached_frames` call in progress: the samples it has asked for so far.
-        self._frame_asks: list[int] = []
-        self._frame_cached = 0  # samples the frame cache holds
+        #: The ambient inputs of the evaluation in progress (:meth:`evaluating`).
+        self._context = EvalContext()
+        #: What was evaluated under (version, port, context): signals and sample-stream frames.
+        self.cache = EvalCache(checkpoint=self.checkpoint)
+        #: How long one action or view may compute, and the cancel flag (:mod:`.budget`, D88).
+        self.budget = ComputeBudget(compute_budget_s)
+        #: A ``view`` is in progress: it emits nothing, so an abort in it leaves no event (D55).
+        self._in_view = False
         self._wall_start = time.monotonic_ns()
         self._scaled_ref_ns = self._wall_start
         self._scaled_base_ns = 0
@@ -161,9 +153,8 @@ class Session:
         self.replaying = False
         #: Counters for metrics (M4): events by kind, circuit solves and the time they took.
         self.stats: dict[str, float] = {}
-        #: The last solve ended without the piecewise-linear devices agreeing on a mode (D52): the
-        #: operating point is the last iteration's, consistent but not regulated as asked.
-        self.unsettled = False
+        #: The operating point: the circuit, its memoized solution and the mode iteration.
+        self.solver = Solver(self)
         #: Set by the serving layer on a served session (``server.manager``): called with the
         #: caller's ``force`` before an explicit advance and raises to refuse it, because scripts
         #: are connected to the ports and their view of time would move (#121, issue 624).
@@ -269,21 +260,19 @@ class Session:
         comp = self.components.get(owner)
         return (comp, port) if comp is not None and port in comp.ports else None
 
-    def optical_feed(self, comp: Component, port: str) -> tuple[Component, str] | None:
-        """The one optical output on the fibre at an optical input exposed on the bench (D71);
-        None without a fibre or a source on it."""
+    def net_feed(self, comp: Component, port: str, medium: str) -> tuple[Component, str] | None:
+        """The one output of ``medium`` on the net at an input of ``comp`` exposed on the bench
+        (:func:`.nets.feed`); None without a net or a source on it."""
         ref = self.port_ref(comp, port)
         net = None if ref is None else self.port_net.get(ref)
         if net is None:
             return None
-        for member in self.nets[net].members:
-            found = self.component_at(member)
-            if found is None or found[0] is comp:
-                continue
-            spec = found[0].ports.get(found[1])
-            if spec is not None and spec.medium == "optical" and spec.direction == "out":
-                return found
-        return None
+        return nets.feed(self.nets[net].members, self.component_at, comp, medium)
+
+    def optical_feed(self, comp: Component, port: str) -> tuple[Component, str] | None:
+        """The one optical output on the fibre at an optical input exposed on the bench (D71);
+        None without a fibre or a source on it."""
+        return self.net_feed(comp, port, "optical")
 
     def optical_input(self, comp: Component, port: str) -> Signal:
         """The optical power arriving at an optical input exposed on the bench: the output of the
@@ -315,95 +304,18 @@ class Session:
         return out
 
     def circuit(self) -> Circuit:
-        if self._circuit is None or self._circuit[0] != self._electrical_version:
-            c = Circuit()
-            for comp in self.all_components():
-                comp.stamp(c, lambda p, comp=comp: self.node_of(comp, p))  # type: ignore[misc]
-            self._circuit = (self._electrical_version, c)
-        return self._circuit[1]
+        return self.solver.circuit()
 
     def solve(self) -> tuple[Solution, dict[str, Signal]]:
         """Bring the operating point up to date and return it: the solved circuit and every
-        source's EMF signal, at the current instant.
+        source's EMF signal, at the current instant (:meth:`Solver.solve`). A component judging
+        its own state calls this first and reads afterwards."""
+        return self.solver.solve()
 
-        Solving is lazy and memoized: nothing happens when nothing changed since the last solve.
-        What a reading cannot get lazily is the mode iteration: piecewise-linear devices
-        (D34/D52) re-derive their mode against the solved operating point inside this loop, so a
-        component judging its own state (regulating CC or CV, tripped, conducting) calls this
-        first and reads afterwards — the readings and the state flags then answer from one
-        operating point, and repeat identically until something changes."""
-        if self._solution is None or self._solution[0] != self._signal_version:
-            piecewise = [c for c in self.all_components() if c.piecewise]
-            for _ in range(MAX_MODE_ITERATIONS):
-                # The calling thread's CPU, not wall time: a solve that was merely descheduled or
-                # waited on a busy machine is not a slower solve, and BLAS pool threads spinning
-                # beside it are not solving (issue 209: the suite runs four-wide under xdist).
-                started = time.thread_time()
-                sol, emf = self._solve_once()
-                self.stats["solve_seconds"] = (
-                    self.stats.get("solve_seconds", 0.0) + time.thread_time() - started
-                )
-                # Piecewise-linear devices check their mode against the DC operating point.
-                changed = False
-                for comp in piecewise:
-
-                    def dc(
-                        port: str, comp: Component = comp, sol: Solution = sol, emf: dict[str, Signal] = emf
-                    ) -> float:
-                        node = self.node_of(comp, port)
-                        return 0.0 if node not in sol.node_transfer else sol.node_signal(node, emf).mean()
-
-                    def port_signal(
-                        port: str, comp: Component = comp, sol: Solution = sol, emf: dict[str, Signal] = emf
-                    ) -> Signal:
-                        node = self.node_of(comp, port)
-                        return Signal.zero() if node not in sol.node_transfer else sol.node_signal(node, emf)
-
-                    dc.signal = port_signal  # type: ignore[attr-defined]  # the whole signal (AC limits, #570)
-                    changed |= comp.update_mode(dc)
-                if not changed:
-                    self.unsettled = False
-                    return sol, emf  # the memo holds the same pair this iteration wrote
-                self._signal_version += 1
-                self._electrical_version += 1
-            else:
-                return self._settle_unsettled()
-        return self._solution[1], self._solution[2]
-
-    def _solve_once(self) -> tuple[Solution, dict[str, Signal]]:
-        """One pass of the operating point, without the mode iteration around it (:meth:`solve`):
-        every source's EMF, the frequencies they carry, one circuit solve, the solve counter and
-        the memo — the block both the mode loop and the last-resort settle run."""
-        emf: dict[str, Signal] = {}
-        for comp in self.all_components():
-            emf.update(comp.emf())
-        freqs: set[float] = {0.0}
-        for sig in emf.values():
-            freqs.update(float(f) for f in set(sig.freq.tolist()))
-        sol = self.circuit().solve(sorted(freqs))
-        self.stats["solves"] = self.stats.get("solves", 0) + 1
-        self._solution = (self._signal_version, sol, emf)
-        return sol, emf
-
-    def _settle_unsettled(self) -> tuple[Solution, dict[str, Signal]]:
-        """No mode agreed within MAX_MODE_ITERATIONS (D52): solve once more with the modes the
-        last iteration chose and keep that, without asking the devices again. Every reading then
-        comes from one operating point that satisfies the circuit (V and I agree with the source,
-        P = V·I) and repeated queries answer the same until something changes. The first time it
-        happens a ``solver`` event (reason ``unsettled``) goes into the run record (#258)."""
-        sol, emf = self._solve_once()
-        if not self.unsettled:
-            self.unsettled = True
-            log.warning("piecewise-linear devices did not settle on a mode")
-            self.emit(
-                {
-                    "kind": "solver",
-                    "reason": "unsettled",
-                    "message": "piecewise-linear devices did not settle on a mode; "
-                    "the readings are the last iteration's operating point",
-                }
-            )
-        return sol, emf
+    @property
+    def unsettled(self) -> bool:
+        """The last solve ended without the piecewise-linear devices agreeing on a mode (D52)."""
+        return self.solver.unsettled
 
     def node_signal(self, node: str) -> Signal:
         sol, emf = self.solve()
@@ -422,106 +334,90 @@ class Session:
     def port_signal(self, comp: Component, port: str) -> Signal:
         return self.node_signal(self.node_of(comp, port))
 
-    @contextlib.contextmanager
-    def tuned(self, tune_hz: float | None) -> Generator[None]:
-        """Evaluate signals with a receiver tuned to ``tune_hz`` (signal-chain.md 5.2): inside the
-        block ``tune_hz`` is that frequency, and the outputs of a mixer and of what follows it
-        (``Component.tuned_ports``) are the ones at that tuning. Re-entrant: leaving restores the
-        outer value.
+    @property
+    def context(self) -> EvalContext:
+        """The ambient inputs of the evaluation in progress: a frozen value, the tail of both
+        caches' keys (:mod:`.evalcontext`)."""
+        return self._context
 
-        The tuning point is an input of the evaluation, nothing more: it is part of
-        :meth:`cached_output`'s key, it does not enter the run record, bump the signal version or
-        emit an event — a read stays passive. Only the block that starts a read sets it (a
-        spectrum analyzer's trace, an internal probe); the front end's blocks read it. Used under
-        the session lock (commands and ``view()`` hold it), so it needs no thread-local."""
-        outer = self.tune_hz
-        self.tune_hz = None if tune_hz is None else float(tune_hz)
-        try:
-            yield
-        finally:
-            self.tune_hz = outer
+    @property
+    def tune_hz(self) -> float | None:
+        """The tuning point of the read in progress (:meth:`tuned`); None outside one."""
+        return self._context.tune_hz
 
     @property
     def instant_ns(self) -> int:
         """The instant signals are evaluated for: the one :meth:`at_instant` set, else now."""
-        return self.now_ns if self._at_ns is None else self._at_ns
+        at = self._context.at_ns
+        return self.now_ns if at is None else at
 
     @contextlib.contextmanager
-    def at_instant(self, t_ns: int | None) -> Generator[None]:
-        """Evaluate signals as they were at instant ``t_ns`` (≤ now) under the current settings
-        (#1103): a block whose output moves in time by itself — a laser sweeping its wavelength, an
-        attenuator settling — reads :attr:`instant_ns` instead of ``now_ns``. A logger catching up
-        on points it missed between two commands uses it; like :meth:`tuned` it is an input of the
-        evaluation only (part of :meth:`cached_output`'s key, no event, no version bump).
-        Re-entrant: leaving restores the outer value."""
-        outer = self._at_ns
-        self._at_ns = None if t_ns is None else int(t_ns)
+    def evaluating(self, **changes: Any) -> Generator[None]:
+        """Evaluate under the current context with ``changes`` (``EvalContext`` field names): the
+        one way the context changes, which :meth:`tuned` and :meth:`at_instant` name. Re-entrant:
+        leaving restores the outer context.
+
+        The context is an input of the evaluation and nothing more: it is part of the caches' keys,
+        it does not enter the run record, bump the signal version or emit an event — a read stays
+        passive. Used under the session lock (commands and ``view()`` hold it), so it needs no
+        thread-local."""
+        outer = self._context
+        self._context = outer.model_copy(update=changes)
         try:
             yield
         finally:
-            self._at_ns = outer
+            self._context = outer
+
+    def tuned(self, tune_hz: float | None) -> contextlib.AbstractContextManager[None]:
+        """Evaluate signals with a receiver tuned to ``tune_hz`` (signal-chain.md 5.2): inside the
+        block ``tune_hz`` is that frequency, and the outputs of a mixer and of what follows it
+        (``Component.tuned_ports``) are the ones at that tuning. Only the block that starts a read
+        sets it (a spectrum analyzer's trace, an internal probe); the front end's blocks read it."""
+        return self.evaluating(tune_hz=None if tune_hz is None else float(tune_hz))
+
+    def at_instant(self, t_ns: int | None) -> contextlib.AbstractContextManager[None]:
+        """Evaluate signals as they were at instant ``t_ns`` (≤ now) under the current settings
+        (#1103): a block whose output moves in time by itself — a laser sweeping its wavelength, an
+        attenuator settling — reads :attr:`instant_ns` instead of ``now_ns``. A logger catching up
+        on points it missed between two commands uses it."""
+        return self.evaluating(at_ns=None if t_ns is None else int(t_ns))
 
     def cached_output(self, comp: Component, port: str) -> Signal:
-        key = (self._signal_version, comp.uid, port, self.tune_hz, self._at_ns)
-        hit = self._output_cache.get(key)
-        if hit is None:
-            if len(self._output_cache) > 4096:
-                self._output_cache.clear()
-            hit = comp.output(port)
-            self._output_cache[key] = hit
-        return hit
+        return self.cache.output(self._signal_version, comp, port, self._context)
 
     def cached_frames(self, comp: Component, port: str, request: FrameRequest) -> SampleFrame:
-        """A samples output port's frame for one request (signal-chain.md 3.2). The cache is small
-        and only serves repeated requests within a read and the internal probe; a new signal
-        version drops it. Every sample asked for along the chain counts toward
-        ``MAX_REQUEST_FANOUT`` — a cached frame counts what it cost to make, so whether a read is
-        refused never depends on what was read before."""
-        check_request(request)
-        key = (self._signal_version, comp.uid, port, request)
-        hit = self._frame_cache.get(key)
-        asked = sum(self._frame_asks)
-        if hit is None:
-            self._charge(asked + request.count, comp, port)
-            self._frame_asks.append(request.count)
-            try:
-                frame = comp.frames(port, request)
-            finally:
-                cost = self._frame_asks.pop()
-            if frame.count != request.count:
-                raise ValueError(
-                    f"{comp.uid}.{port}: a frame of {frame.count} samples answers a request for {request.count}"
-                )
-            hit = (frame, cost)
-            if self._frame_cache and next(iter(self._frame_cache))[0] != self._signal_version:
-                self._frame_cache.clear()
-                self._frame_cached = 0
-            if frame.count <= FRAME_CACHE_SAMPLES:
-                self._frame_cache[key] = hit
-                self._frame_cached += frame.count
-            while len(self._frame_cache) > FRAME_CACHE_SIZE or self._frame_cached > FRAME_CACHE_SAMPLES:
-                self._frame_cached -= self._frame_cache.popitem(last=False)[1][0].count
-        else:
-            self._charge(asked + hit[1], comp, port)
-            self._frame_cache.move_to_end(key)
-        if self._frame_asks:
-            self._frame_asks[-1] += hit[1]
-        return hit[0]
+        """A samples output port's frame for one request (signal-chain.md 3.2); see
+        :meth:`EvalCache.frames` for the cache and the fan-out count."""
+        return self.cache.frames(self._signal_version, comp, port, request, self._context)
 
     def reserve_frames(self, comp: Component, port: str, samples: int) -> None:
-        """Refuse now a read that is about to ask ``comp``'s upstream for ``samples`` samples in
-        several requests (an average of many acquisitions), when they would take it beyond
-        ``MAX_REQUEST_FANOUT``: before the first of them is computed, not when the running count
-        gets there (#986). Nothing is reserved — the requests are counted as they come."""
-        self._charge(sum(self._frame_asks) + samples, comp, port)
+        """Refuse now a read about to ask ``comp``'s upstream for ``samples`` samples in several
+        requests when they would pass ``MAX_REQUEST_FANOUT`` (#986); see :meth:`EvalCache.reserve`."""
+        self.cache.reserve(comp, port, samples)
 
-    @staticmethod
-    def _charge(total: int, comp: Component, port: str) -> None:
-        if total > MAX_REQUEST_FANOUT:
-            raise beyond_model(
-                f"{comp.uid}.{port}: this read asks for {total} samples along the chain "
-                f"(at most {MAX_REQUEST_FANOUT})"
-            )
+    def checkpoint(self, comp: Component, port: str) -> None:
+        """Where a read that has run out of budget, or was cancelled, ends: called before each
+        frame is computed (:class:`EvalCache`). Raises :class:`ComputeAborted`, which every seam
+        answers as a read beyond the model (-221); inside an action it also leaves an ``abort``
+        event in the run record (a view emits nothing, D55), for the replay to end that action the
+        same way (D88). Nothing a
+        replay times or hears counts, only the abort the record has."""
+        reason = self.budget.reason(live=not self.replaying)
+        if reason is None:
+            return
+        detail = f"{comp.uid}.{port}: {self.budget.describe(reason)}"
+        if not self._in_view:
+            event = {"kind": "abort", "reason": reason, "at": f"{comp.uid}.{port}", "message": detail}
+            if self.budget.seconds is not None:
+                event["budget_s"] = self.budget.seconds
+            self.emit(event)
+        raise aborted(reason, detail)
+
+    def cancel(self) -> None:
+        """End the read in progress at its next checkpoint. Safe from any thread, and without the
+        session lock: that is the point — closing a session, or a client that gave up, must not
+        wait for a long read to finish (D88)."""
+        self.budget.cancel()
 
     def state_changed(
         self, inst: Instrument, path: str, old: Any, new: Any, *, electrical: bool, source: str
@@ -533,6 +429,23 @@ class Session:
             {"kind": "state", "instrument": inst.name, "path": path, "old": old, "new": new, "source": source}
         )
         self.sync()
+
+    @property
+    def signal_version(self) -> int:
+        """Counts every change of what the signals are; caches and memos are keyed by it."""
+        return self._signal_version
+
+    @property
+    def electrical_version(self) -> int:
+        """Counts the changes that need the circuit rebuilt."""
+        return self._electrical_version
+
+    def revise(self, *, electrical: bool) -> None:
+        """Count a change of the signals, and of the circuit if ``electrical``, without the sync
+        :meth:`invalidate` runs (the solver's mode loop is inside a solve)."""
+        self._signal_version += 1
+        if electrical:
+            self._electrical_version += 1
 
     def invalidate(self, electrical: bool = False) -> None:
         """Components call this when their own runtime state changes the signals they produce."""
@@ -602,6 +515,7 @@ class Session:
             self.time_scale = float(scale)
 
     def _begin_action(self) -> None:
+        self.budget.arm()
         wall = time.monotonic_ns()
         if self.clock_mode in LIVE_CLOCKS:
             self.sync()
@@ -615,6 +529,7 @@ class Session:
                 self._advance(step, reason="idle")
 
     def _end_action(self) -> None:
+        self.budget.disarm()
         self._last_wall = time.monotonic_ns()
 
     def sync(self) -> None:
@@ -660,10 +575,17 @@ class Session:
         silently drops part of the protocol: ``read_true_values`` once missed ``follow_wall`` that
         way and read stale times on the wall clock."""
         with self._lock:
-            self.follow_wall()
-            for name in settle:
-                self.instrument(name).settle_pending()
-            yield self
+            outer, self._in_view = self._in_view, True
+            self.budget.arm()  # a view computes too: a probe of a deep record has the budget as well
+            try:
+                self.follow_wall()
+                for name in settle:
+                    self.instrument(name).settle_pending()
+                yield self
+            finally:
+                self._in_view = outer
+                if not outer:
+                    self.budget.disarm()
 
     def solution(self) -> tuple[Solution, dict[str, Signal]]:
         """The solved circuit and every source's EMF signal, at the current instant. A passive

@@ -210,8 +210,11 @@ class TrySessions:
 
 
 class ServedSession:
-    def __init__(self, sid: str, session: Session, bench_path: Path | None) -> None:
+    def __init__(self, sid: str, session: Session, bench_path: Path | None, preview: bool = False) -> None:
         self.id = sid
+        #: A projection of a file, not a served session (server/preview.py): stale-definition and
+        #: other served-session-only guards skip it without a string sentinel (#1488).
+        self.preview = preview
         #: This build of the bench (#1299): a reset or a rebuild serves a new one, even under the same id.
         self.build = uuid.uuid4().hex[:12]
         self.session = session
@@ -334,6 +337,7 @@ class SessionManager:
         link_port: int | None = None,
         record_dir: Path | None = None,
         record_raw: bool = False,
+        compute_budget_s: float | None = None,
         allow_plugins: bool = False,
         port_fallback: frozenset[str] = frozenset(),
     ) -> None:
@@ -351,6 +355,8 @@ class SessionManager:
         self.link_port = link_port
         self.record_dir = record_dir
         self.record_raw = record_raw
+        #: Real seconds one read of a served session may compute (None: no limit; D88).
+        self.compute_budget_s = compute_budget_s
         self.allow_plugins = allow_plugins
         #: The Web service's own port, when this manager serves one (``simubench serve``).
         self.web_port: int | None = None
@@ -426,6 +432,7 @@ class SessionManager:
             time_scale=time_scale,
             record_dir=self.record_dir,
             record_raw=self.record_raw,
+            compute_budget_s=self.compute_budget_s,
             definition_dirs=[self.workspace / "instruments"],  # as validated (BenchFiles.library)
             files_dir=bench_files_dir(self.workspace, path),  # kept across runs (#1069)
         )
@@ -553,6 +560,7 @@ class SessionManager:
         served.require_no_clients("stopping the bench", force)
         del self.sessions[sid]
         self.events.publish("sessions_changed", sid=sid)
+        served.session.cancel()  # a read still computing ends at its next frame, not after it (D88)
         for server in reversed(list(served.servers.values())):  # last served closes first
             await server.stop()
         await asyncio.to_thread(served.session.close)
