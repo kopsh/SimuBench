@@ -443,16 +443,14 @@ class Vxi11Server(_RpcServer):
         """A request for service is pending: tell every link that enabled SRQ (device_intr_srq), once per request."""
         try:
             observe(self.session, instrument)
-            pending = bus_of(self.session, instrument).service_request.latch
+            srq = bus_of(self.session, instrument).service_request
         except Exception:  # a status read must never take the connection down
             return
         for link in list(self._links.values()):
             if link.instrument != instrument:
                 continue
-            if not pending:
-                link.srq_sent = False
-            elif link.srq_enabled and not link.srq_sent:
-                link.srq_sent = True
+            send, link.srq_sent = srq.edge(link.srq_sent)
+            if send and link.srq_enabled:
                 task = asyncio.create_task(self._send_srq(link))
                 self._tasks.add(task)
                 task.add_done_callback(self._tasks.discard)

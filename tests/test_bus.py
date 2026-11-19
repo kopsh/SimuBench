@@ -6,7 +6,7 @@ import asyncio
 
 import pytest
 
-from simubench.access.bus import LockTable, RemoteLocal
+from simubench.access.bus import LockTable, RemoteLocal, ServiceRequest
 
 pytestmark = pytest.mark.unit
 
@@ -136,3 +136,59 @@ async def test_wait_accessible_stops_when_the_caller_gives_up():
     locks.grant("a", exclusive=True)
     give_ups = iter([False, True])
     assert not await locks.wait_accessible("b", give_up=lambda: next(give_ups))
+
+
+# ---- the service request latch: one announcement per request, per listener ----------------------------------
+
+
+def a_request(srq: ServiceRequest) -> None:
+    srq.observe(0x60, 32)  # ESB with SRE 32: a new reason, RQS latches (bit 6 is not a reason)
+
+
+def test_the_edge_announces_a_pending_request_once_per_listener():
+    srq = ServiceRequest()
+    a_request(srq)
+    send, sent = srq.edge(False)
+    assert send and sent  # the listener announces now, and has announced
+    send, sent = srq.edge(sent)
+    assert not send and sent  # the same request announces no second time
+
+
+def test_a_taken_request_arms_the_next_one():
+    srq = ServiceRequest()
+    a_request(srq)
+    _, sent = srq.edge(False)
+    srq.observe(0x20, 32)  # the reason went away: the request stays latched until a poll takes it
+    send, sent = srq.edge(sent)
+    assert not send and sent
+    srq.poll(0x20, 32)  # a poll takes the latched request, RQS cleared
+    send, sent = srq.edge(sent)
+    assert not send and not sent  # re-armed
+    srq.observe(0, 32)  # the reason returns: a new request raises SRQ again
+    a_request(srq)
+    send, sent = srq.edge(sent)
+    assert send and sent
+
+
+def test_two_listeners_each_announce_the_same_request_once():
+    srq = ServiceRequest()
+    a_request(srq)
+    a_sent = b_sent = False
+    send_a, a_sent = srq.edge(a_sent)
+    send_b, b_sent = srq.edge(b_sent)
+    assert send_a and send_b  # every listener announces for itself
+    send_a, _ = srq.edge(a_sent)
+    send_b, _ = srq.edge(b_sent)
+    assert not send_a and not send_b
+
+
+def test_a_serial_poll_delivers_the_request_and_arms_the_next():
+    srq = ServiceRequest()
+    a_request(srq)
+    assert srq.poll(0x60, 32) & 0x40  # RQS to the poll that took it
+    send, sent = srq.edge(True)  # the listener's flag: the request went out by poll
+    assert not send and not sent
+    srq.observe(0, 32)  # the reason returns between polls: a new request announces again
+    a_request(srq)
+    send, _ = srq.edge(sent)
+    assert send
