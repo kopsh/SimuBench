@@ -1,5 +1,6 @@
 import { expect, it } from "vitest";
-import { axisLabels, traceSpan } from "./WaveformCanvas";
+import type { Trace } from "@/api/client";
+import { axisLabels, sameTraces, traceSpan } from "./WaveformCanvas";
 
 // a 50 ns record of 100 samples, the trigger at its centre (#1333)
 const rec = { t0_s: -25e-9, dt_s: 0.5e-9, volts: new Array<number>(100).fill(0) };
@@ -57,4 +58,13 @@ it.each([
   },
 ])("labels the $reference-referenced time axis after horizontal positioning", ({ span, expected }) => {
   expect(axisLabels(undefined, span).times).toEqual(expected);
+});
+
+it("treats a fresh array of the same traces as unchanged, so it is not redrawn", () => {
+  const a = { channel: 1 } as Trace;
+  const b = { channel: 2 } as Trace;
+  expect(sameTraces([a, b], [a, b])).toBe(true);
+  expect(sameTraces([a, b], [b, a])).toBe(false);
+  expect(sameTraces([a], [a, b])).toBe(false);
+  expect(sameTraces([a], [{ ...a }])).toBe(false);
 });

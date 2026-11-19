@@ -1,5 +1,5 @@
 import { Crosshair, Info, Play, Square, StepForward } from "lucide-react";
-import { useDeferredValue, useRef, useState } from "react";
+import { useDeferredValue, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type {
@@ -65,14 +65,16 @@ export function ScopeScreen({
   const channelScale = (n: number) =>
     Number(vars.get(`ch${n}.scale`)?.value ?? 1);
   // Math functions turned on: the time-domain ones over the channels, a transform in its own pane.
-  const functions = data?.functions ?? [];
-  const spectra = functions.filter((f) => f.spectrum);
+  // Memoised on the fetched screen: the canvas redraws (and pushes persistence history) whenever its
+  // traces change identity, so a fresh array per render made every re-render a full redraw (#1546).
+  const functions = useMemo(() => data?.functions ?? [], [data]);
+  const spectra = useMemo(() => functions.filter((f) => f.spectrum), [functions]);
   const shownChannels = (data?.traces ?? []).map((tr) => tr.channel);
   const axisChannel = scopeAxisChannel(shownChannels, cursors?.channel, data?.trigger_source);
-  const timeTraces = [
-    ...(data?.traces ?? []),
-    ...functions.filter((f) => !f.spectrum).map(functionTrace),
-  ];
+  const timeTraces = useMemo(
+    () => [...(data?.traces ?? []), ...functions.filter((f) => !f.spectrum).map(functionTrace)],
+    [data, functions],
+  );
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 p-3">
@@ -319,6 +321,7 @@ const UNIT_TEXT: Record<string, string> = {
  */
 function SpectrumPane({ spectra }: { spectra: FunctionTrace[] }) {
   const { t } = useTranslation();
+  const spectraTraces = useMemo(() => spectra.map(functionTrace), [spectra]);
   const first = spectra[0];
   const points = first.values.length || (first.minmax?.length ?? 0) / 2;
   const stop = first.x0 + first.dx * Math.max(points - 1, 0);
@@ -360,7 +363,7 @@ function SpectrumPane({ spectra }: { spectra: FunctionTrace[] }) {
       </div>
       <WaveformCanvas
         className="min-h-0 w-full flex-1 rounded-md"
-        traces={spectra.map(functionTrace)}
+        traces={spectraTraces}
         markers={false}
         label={t("scope.spectrum.label")}
       />
