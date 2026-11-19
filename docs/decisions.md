@@ -777,6 +777,11 @@
 - **理由**：默认寄存器是 SCPI 要求的「有这组命令」，不是「有这些位」；真实型号的位表是手册知识，平台不能替它猜。备选一是给真实型号也回全零默认——脚本会读到「没有告警」的假答案，正是 D42 要避免的静默错误；备选二是默认族不受 `builtins` 约束——SDS 一类只列了三条内置命令的型号会多出不在手册里的命令，破坏 #1558 的白名单语义。默认寄存器不置状态字节汇总位不是遗漏：条件恒 0、事件不锁存时，置位反而需要编一个事件来源。
 - **影响**：`tests/test_builtin_commands.py` 的 flow 测试「默认寄存器写使能、`*CLS`、读 `*STB?`」锁定位 3/7 不置位；`docs/instrument-authoring.md` 第 116 行的口径与 `command-coverage` skill 的说明同步；真实型号的 `STATus` 覆盖行从此只有「按手册建模」与「未建模（回 -113）」两种，不再有「无条件来源、回 0」的中间态。
 
+## D90 文件写事务一条缝的落点：`BenchFiles.write` 一个原语管锁、乐观并发、原子写、回滚、历史与播报
+
+- **结论**：D85 命名的「文件写入单一缝」只对播报成立，写事务本身有四份手抄（bench `_write`、`DefinitionFiles.save`、`create_hello`、`save_layout`），定义域还 import 私有 `_rollback`/`_sha`/`_lock`/`_expect`——#1498 在缝被命名后一周内把「history 失败回滚」抄了两遍。#1631 把它升为公开原语 `BenchFiles.write(工作区相对路径, 原始字节, 期望哈希, *, fingerprint, source, …)`：锁、乐观并发（`require_unchanged`，base sha 不符抛 `Conflict`）、tmp+`os.replace` 原子写、失败回滚（#1457）、版本历史（D35）、锁释放后一次 `file_changed`（D85）都住在原语里，返回内容 sha256。原语只管事务不管内容（D73）：bench 的 patched/canonical 与定义的 canonical dump 留在各自 save，版本指纹由调用方按域算好传入（bench 与定义的哈希不同），前一版本的指纹经 `previous_fingerprint` 回调在锁内从旧字节算出（外部改动版本链接，D35）。乐观并发三行习语的 6 处手抄（bench/定义的 `edit`、定义的 structure/identity 保存、模板另存、删除的期望哈希检查）收敛为 `require_unchanged` 一处：原语在锁内调它，写前快检的调用方也调它——快检不是事务的复制，它让模板另存在建任何文件之前先失败（先建定义再改台架的顺序不能倒），让 edit 在做校验与补丁计算之前先失败。
+- **理由**：`save_layout` 的裁决：**不补历史、不播报，在原语参数上明示豁免**（`record=False, announce=False, overwrite=True`）。布局文件不是定义：拖一个节点不是对仪器的一次改动，把它记成版本只会往按定义路径组织的历史目录里放布局字节，没有任何 UI 读它；播报也没有消费者——`useDefinitionLayout` 的缓存键不带文件修订（`staleTime: Infinity`），唯一的写者就是构建区自己（保存时已把位置写进自己的缓存），扫描器本就跳过布局文件（`workspace_events.py`）。无条件覆盖（不带 base）同理：位置永远最新者赢，两块画布各自保存，409 只会让拖拽失败。备选：给布局记版本并播报——没有读者，纯噪音。
+- **影响**：`BenchFiles` 公开 `write` 与 `require_unchanged`；`DefinitionFiles` 只 import `BenchFiles`（守卫测试以 ast 断言 definitionfiles.py 无 benchfiles 私有导入、不在 `files` 上读私有属性）。写历史失败的报错统一为 `保存 <工作区相对路径> 失败：无法写入版本历史（…）`（原先定义写「保存定义 <id>」、hello 写「创建 …」）——这是本条唯一的有意行为变化，落在罕见的磁盘故障路径上。API 形状与 schema 无变化。
 
 ## D91 会话事件流的 seq 是会话内稳定游标，`since` 让重连只补尾增量
 
