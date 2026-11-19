@@ -19,6 +19,7 @@ from ..engine.validate import Report
 from ..engine.validate_definition import validate_definition_data
 from ..library.loader import dump_yaml, layered_definition_data, load_yaml, parse_error_text
 from ..library.workspace_layout import DEFINITIONS_FOLDER, definition_rel_path, definitions_dir
+from ..models.definition import FORMAT
 from ..models.migrate import upgrade
 from . import definitionstructure
 from .benchfiles import BenchFiles
@@ -91,7 +92,7 @@ class DefinitionFiles:
         rel = self.rel_path(def_id)
         if data.get("id", def_id) != def_id:
             raise Invalid(f"the file {rel} holds the definition {def_id!r}, not {data.get('id')!r}")
-        data = {"schema": "simubench.instrument/2", "id": def_id, **data}
+        data = {"schema": FORMAT, "id": def_id, **data}
         raw = dump_yaml(data).encode("utf-8")
 
         # The changes describe what this save replaces: the write transaction hands over the bytes

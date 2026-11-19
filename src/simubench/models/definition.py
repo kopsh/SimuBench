@@ -9,11 +9,16 @@ used to validate definition files (D21).
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Final, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, PrivateAttr, model_validator
 
 from .deviation import DeviationSpec
+
+#: The file format the model declares — the ``schema`` line of a definition file, the one spelling
+#: every writer of one imports instead of re-spelling. The model's own :class:`Literal` spells the
+#: same name (a Final constant cannot be a Literal argument); the guard test pins the two.
+FORMAT: Final = "simubench.instrument/2"
 
 StateType = Literal["float", "int", "bool", "enum", "string", "int_list", "enum_list"]
 
@@ -1031,7 +1036,10 @@ class ComponentOverride(_Model):
 
 
 class InstrumentDefinition(_Model):
-    schema_: Literal["simubench.instrument/2"] = Field("simubench.instrument/2", alias="schema")
+    # The Literal spells the format name itself (ty takes no Final constant as a Literal
+    # argument); ``FORMAT`` below is the value its consumers write files with, and the guard
+    # test pins the two together.
+    schema_: Literal["simubench.instrument/2"] = Field(FORMAT, alias="schema")
 
     #: The file the definition was loaded from, as the loader received the path; the loader sets it
     #: (events that classify a command name the declaration's file, tui-design.md 1.1). Definitions
