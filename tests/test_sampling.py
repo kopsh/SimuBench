@@ -12,10 +12,11 @@ import yaml
 from refcalc.noise import sigma_interval
 
 from simubench.api import open_bench
-from simubench.engine.signal import Signal
+from simubench.engine.signal import MAX_LINES, Signal
 from simubench.library.components.optical import modulation_levels
 from simubench.library.components.sampling import repetition_rate, symbol_multiple
-from simubench.library.components.sources import pam4_symbols, prbs_sequence
+from simubench.library.components.sources import PrbsSource, pam4_symbols, prbs_sequence
+from simubench.scpi.errors import ScpiError
 
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "validation" / "benches" / "optical_dca.bench.yaml"
@@ -289,3 +290,51 @@ def test_clock_recovery_refuses_rates_outside_its_range(tmp_path):
     # inside the range it locks, the control
     with open_bench(_bench(tmp_path, {"cdr": {"min_rate": 1e9, "max_rate": 1e11}})) as s:
         assert s.query("dca", ":CRECovery:LOCKed?").strip() == b"1"
+
+
+class _Prbs(PrbsSource):
+    """The pattern source with its parameters given directly."""
+
+    def __init__(self, **params):
+        self.overrides = params
+        self.unit_values: set[str] = set()
+        self._params = {}
+        self.owner = None
+
+    def param(self, key):
+        return self.overrides.get(key, self.defaults[key])
+
+    def choice(self, key):
+        return self.overrides.get(key, self.defaults[key])
+
+
+@pytest.mark.parametrize(
+    ("order", "truncated"),
+    [(5, False), (6, False), (7, False), (9, False), (10, True), (11, True)],
+)
+def test_a_pattern_whose_lobe_fits_the_line_limit_is_built(order, truncated):
+    """#1101, #1657: orders whose period (one lobe's lines) is within MAX_LINES are modeled; a wide
+    spectrum keeps fewer lobes and says so, an order whose whole 8 lobes fit says nothing."""
+    sig = _Prbs(order=order).output("out")
+    assert len(sig.freq) <= MAX_LINES
+    assert (
+        len(sig.freq) >= (1 << order) - 2
+    )  # at least the whole first lobe (2^n - 2 lines; line 2^n - 1 is a sinc zero)
+    kinds = {note.kind for note in sig.notes}
+    if truncated:  # 8 lobes need more than MAX_LINES lines: cut at the limit, and noted
+        assert "truncated" in kinds
+    else:  # the whole 8 lobes fit: nothing was cut, no note
+        assert "truncated" not in kinds
+
+
+@pytest.mark.parametrize("order", [13, 15, 31])
+def test_a_pattern_whose_period_exceeds_the_line_limit_is_refused(order):
+    """#1101: one lobe of PRBS13/15/31 needs 2^n - 1 lines, over MAX_LINES: the source says so
+    instead of keeping a sliver of the first lobe as if it were the pattern."""
+    with pytest.raises(ScpiError) as e:
+        _Prbs(order=order).output("out")
+    assert e.value.code == -224
+    text = str(e.value)
+    assert str((1 << order) - 1) in text and str(MAX_LINES) in text
+    # #1657: only the orders the source really models — 15 is kept for its taps alone, not offered.
+    assert "modeled orders: [5, 6, 7, 9, 10, 11]" in text

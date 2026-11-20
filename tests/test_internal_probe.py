@@ -251,7 +251,6 @@ def test_http_route(workspace):
 
 
 async def test_mcp_tool(workspace):
-    pytest.importorskip("mcp")
     from mcp import Client
 
     from helpers import mcp_result

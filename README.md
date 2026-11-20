@@ -11,7 +11,7 @@
 ## 开发
 
 ```bash
-uv sync --all-extras    # 安装 Python 依赖（含 MCP）
+uv sync --all-extras    # 安装 Python 依赖（MCP 是必装依赖，--all-extras 再加上可选的终端界面 tui）
 uv run pytest           # 运行测试
 uv run simubench serve examples/benches/siglent_scope_rc.bench.yaml   # 启动本地服务
 uv run simubench serve --workspace validation                          # 用 sb-* 验证仪表与测试台
@@ -34,7 +34,7 @@ simubench schemas --out schemas                    # 导出 OpenAPI 与 JSON Sch
 
 ```bash
 ./scripts/build-wheel.sh                         # 构建带界面的 wheel：dist/simubench-<版本>-py3-none-any.whl
-pip install dist/simubench-*.whl                 # 需要 AI Agent 时：pip install "dist/simubench-<版本>-py3-none-any.whl[mcp]"
+pip install dist/simubench-*.whl                 # MCP 服务随核心依赖一起装上
 simubench doctor                                 # 检查安装
 simubench serve --workspace 我的测试台目录 --open
 ```
@@ -158,7 +158,7 @@ simubench serve --log-format json --log-file simubench.log
 ## 让 AI Agent 使用（MCP）
 
 `simubench mcp` 在 stdio 上提供 MCP 服务，并在同一进程中启动 Web Bench（地址输出到 stderr），
-Agent 搭建与部署的测试台会实时出现在界面中。需要可选依赖：`uv sync --extra mcp`。
+Agent 搭建与部署的测试台会实时出现在界面中。MCP 是必装依赖（`mcp>=2.3,<3`），装好 simubench 就有。
 已经开着界面时，`simubench serve --mcp`（或 `simubench launch`，Windows 便携包双击即是它）在同一端口的 `/mcp` 上以 streamable HTTP 提供同一套工具，Agent 直接连上去：
 
 ```bash

@@ -93,7 +93,7 @@ D18 定下“第一个界面是 Web Bench，TUI 以后作为补充”；architec
   - `simubench tui --attach [http://127.0.0.1:8000] [--session <sid>]`：连接已运行的 `serve` / `mcp` 服务；有多个会话时先让用户选。
 - **来源标记**：TUI 发出的操作在运行记录与事件中标为来源“终端”（与“界面”“Agent”并列），回放与审阅时能分辨是谁动的手。现在服务端把 HTTP 接口的操作一律记为 `client="ui"`（`server/manager.py`），需要让请求带上客户端类型（例如请求头 `X-SimuBench-Client: tui`，缺省仍为 `ui`），这是接口改动，走 schema 生成。
 - **接口补充**：示波器屏幕（`/screen`）现在固定返回 400 点，TUI 需要按终端点阵宽度请求（增加可选的 `points` 参数，Web 也可用它按画布宽度取点）；`/levels`、`/nets/{net}/waveform` 已有点数参数。除这两处外不需要新端点。
-- **技术栈**：[Textual](https://textual.textualize.io/)（Python，Windows Terminal 与 Linux 终端都可用，支持鼠标、CJK 双宽字符、SVG 截图、无头测试 `Pilot`）。作为可选依赖 `simubench[tui]`（与 `simubench[mcp]` 一致），不进入核心依赖；未安装时 `simubench tui` 提示安装命令。HTTP 用 `httpx`，WebSocket 用 `websockets`（`uvicorn[standard]` 已带）。
+- **技术栈**：[Textual](https://textual.textualize.io/)（Python，Windows Terminal 与 Linux 终端都可用，支持鼠标、CJK 双宽字符、SVG 截图、无头测试 `Pilot`）。作为可选依赖 `simubench[tui]`，不进入核心依赖（MCP 已改为必装依赖，D26）；未安装时 `simubench tui` 提示安装命令。HTTP 用 `httpx`，WebSocket 用 `websockets`（`uvicorn[standard]` 已带）。
 
 ## 3. 界面结构
 

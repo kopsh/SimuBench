@@ -15,9 +15,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
-pytest.importorskip("mcp")
-
 from mcp import Client
 
 from helpers import mcp_result

@@ -185,7 +185,6 @@ def test_the_drafts_run_the_script_end_to_end(tmp_path):
 
 # ---- MCP -----------------------------------------------------------------------------------------
 
-pytest.importorskip("mcp")
 
 from mcp import Client  # noqa: E402
 
