@@ -38,7 +38,7 @@ def test_taken_scpi_port_is_a_409_that_says_why_and_closes_the_rest(tmp_path):
     holder.bind(("127.0.0.1", base + 1))  # the second instrument's port: the first one opens first
     holder.listen()
     try:
-        manager = SessionManager(tmp_path, scpi_base_port=base)
+        manager = SessionManager(tmp_path, scpi_base_port=base, hislip_port=0)
         with TestClient(create_app(manager), base_url="http://127.0.0.1") as c:
             r = c.post("/api/sessions", json={"bench_path": BENCH})
             # step: a conflict, not a server error
