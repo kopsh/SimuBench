@@ -16,7 +16,8 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from ..components.sources import AmplitudeLevel
 from . import Drafting, InputProblem, Mnemonic, Template, register
-from .oscilloscope import CommandsIn, IdentityIn, _any
+from .oscilloscope import CommandsIn, IdentityIn
+from .oscilloscope_draft import _any
 
 Shape = Literal["sine", "square", "pulse", "ramp", "triangle", "dc"]
 #: shape -> waveform_synth function and ramp symmetry
