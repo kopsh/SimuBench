@@ -36,7 +36,7 @@ from .faults import FaultManager, LinkDown
 from .instrument import Instrument
 from .instrument_files import InstrumentFiles
 from .portref import split
-from .record import Recorder
+from .record import Recorder, bounded
 from .signal import Signal
 from .solver import Solver
 from .stream import (
@@ -662,10 +662,23 @@ class Session:
         with self._lock:
             self._begin_action()
             try:
-                self.instrument(name).set_state(path, value, source="configure", outside=True)
+                try:
+                    self.instrument(name).set_state(path, value, source="configure", outside=True)
+                except Exception as exc:
+                    # a refused write leaves its trace too -- the postmortem needs what was received
+                    log.warning(
+                        "configure %s %s = %r (client=%s) failed: %s: %s",
+                        name,
+                        path,
+                        bounded(value),
+                        client,
+                        type(exc).__name__,
+                        exc,
+                    )
+                    raise
                 # the one trace of an out-of-band write in the log ring: what it got, as it got it
                 # -- the swallowed-write postmortem starts here (#1679)
-                log.info("configure %s %s = %r (client=%s)", name, path, value, client)
+                log.info("configure %s %s = %r (client=%s)", name, path, bounded(value), client)
             finally:
                 self._end_action()
 
@@ -674,7 +687,18 @@ class Session:
         with self._lock:
             self._begin_action()
             try:
-                self.instrument(name).panel(action)
+                try:
+                    self.instrument(name).panel(action)
+                except Exception as exc:
+                    log.warning(
+                        "panel %s %s (client=%s) failed: %s: %s",
+                        name,
+                        action,
+                        client,
+                        type(exc).__name__,
+                        exc,
+                    )
+                    raise
                 log.info("panel %s %s (client=%s)", name, action, client)  # #1679, as configure's
                 self.events.emit({"kind": "panel", "instrument": name, "action": action, "source": client})
             finally:

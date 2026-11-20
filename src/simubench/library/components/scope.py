@@ -803,6 +803,13 @@ class ScopeAdc(Component):
         timebase = self.peer(str(self.param("clock")), required=True) if self.param("clock") else None
         return 0.0 if timebase is None else float(timebase.param("clock_jitter_s"))
 
+    def _clock_tie(self) -> tuple[tuple[float, float], ...]:
+        """The shared clock's jitter growth with the acquisition span (the timebase's
+        ``clock_tie_s``, #1698): rows of (span s, rms s); empty without one."""
+        timebase = self.peer(str(self.param("clock")), required=True) if self.param("clock") else None
+        rows = [] if timebase is None else timebase.param("clock_tie_s") or []
+        return tuple((float(span), float(rms)) for span, rms in rows)
+
     def _jitter(self, sampler: Any) -> float:
         """A sample instant's whole jitter, s rms: the converter's own, the sampler's and the clock's."""
         own = float(self.param("aperture_jitter_s"))
@@ -919,6 +926,7 @@ class ScopeAdc(Component):
             native_dt=1.0 / top if top > 0 else 0.0,
             aperture=quadrature(float(self.param("aperture_jitter_s")), sampler.jitter() if sampler else 0.0),
             clock=self._clock(),
+            clock_tie=self._clock_tie(),
             **self._noise_shape(vertical),
         )
 
@@ -1055,7 +1063,7 @@ class ScopeTimebase(Component):
     ``reference_mode`` (DELay / POSition) and, in POSition mode, from ``reference_position``
     percent across the record.
 
-    The sampling clock (the oscillator all channels share) has a jitter ``clock_jitter_s`` and a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
+    The sampling clock (the oscillator all channels share) has a jitter ``clock_jitter_s`` (white; ``clock_tie_s`` adds the slow phase drift, #1698) and a frequency error ``clock_ppm`` (this unit's own, a ``deviations``
     draw); with ``rosc`` EXTernal it follows the 10 MHz on ``ref`` instead, whose fractional
     error the instrument inherits. A fast clock takes samples
     closer together than the nominal interval, so the records keep the nominal dt the scope
@@ -1089,6 +1097,11 @@ class ScopeTimebase(Component):
         # the sampling clock's jitter all channels share, s rms (#1579): a scope_adc naming this
         # timebase as its clock moves every channel's sample instants together by it
         "clock_jitter_s": 0.0,
+        # the clock's slow phase drift (#1698): rows of [acquisition span s, rms intrinsic jitter s]
+        # from a data sheet's table; the first row is the white floor (clock_jitter_s plus the
+        # channel's own), each later one the rms the slow drift has grown it to by that span.
+        # Empty: the jitter does not grow with the span.
+        "clock_tie_s": None,
         "rosc": "INTernal",  # INTernal | EXTernal: the clock follows the 10 MHz on ref
         "lock_ppm": 10.0,  # the reference's lock range around 10 MHz, ppm
         "lock_min_v": 0.05,  # the smallest reference amplitude it locks to, V peak

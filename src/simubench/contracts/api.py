@@ -1544,7 +1544,8 @@ class AssistantStep(_Model):
     args: dict[str, Any] | None = Field(
         None,
         description="The tool call's arguments as the tool received them (compact keys), for the "
-        "postmortem: what the model actually sent (#1679). None on a bench-edit sub-step",
+        "postmortem: what the model actually sent (#1679); a long text is cut and marked (#1694). "
+        "None on a bench-edit sub-step",
     )
     ok: bool | None = Field(None, description="None while it runs")
     error: str | None = None

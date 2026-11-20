@@ -86,6 +86,14 @@ async def test_tool_loop_builds_a_bench_streams_and_summarizes(manager):
     actions = [(s.action, s.subject, s.ok) for s in t.steps]
     assert ("add_instrument", "oscilloscope", True) in actions
     assert ("connect", "awg.CH2 → scope2.CH1", True) in actions
+    # the tool call's arguments ride the turn record and its step_done event as a dict (#1694)
+    edit_step = next(s for s in t.steps if s.action == "add_instrument")
+    assert isinstance(edit_step.args, dict)
+    assert edit_step.args["ops"][0]["name"] == "scope2"
+    done = [
+        e for e in service.logs[BENCH].events if e.type == "step_done" and e.step.action == "add_instrument"
+    ]
+    assert done and done[0].step.args == edit_step.args
     # "what changed" comes from the file, not from the model's words
     (summary,) = t.files
     assert summary.path == BENCH and not summary.created
@@ -107,6 +115,24 @@ async def test_tool_loop_builds_a_bench_streams_and_summarizes(manager):
     assert any(isinstance(m, ModelResponse) for m in llm.seen[-1][:-1])
     again.clear(BENCH)
     assert again.conversation(BENCH).turns == []
+
+
+async def test_edit_bench_arguments_are_bounded_in_the_turn_record(manager):
+    """#1694: edit_bench may carry a whole bench in its ops; the turn record and its step_done
+    event keep what was asked, not unbounded text -- an over-long value is cut and marked."""
+    llm = ScriptedLLM(
+        [("read_bench", {})],
+        edit([{"op": "set_label", "name": "awg", "label": "x" * 5000}]),
+        "已加标签。",
+    )
+    service = service_with(manager, llm)
+    t = await turn(service, "给 awg 加个标签")
+    assert t.status == "done", t.stop_reason
+    (step,) = [s for s in t.steps if s.action == "set_label"]
+    label = step.args["ops"][0]["label"]
+    assert "…(truncated" in label and len(label) < 1000
+    done = [e for e in service.logs[BENCH].events if e.type == "step_done" and e.step.action == "set_label"]
+    assert done and done[0].step.args == step.args
 
 
 async def test_session_summary_comes_from_the_one_projection(tmp_path):

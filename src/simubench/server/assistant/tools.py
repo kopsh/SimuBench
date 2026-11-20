@@ -32,7 +32,7 @@ from ...contracts import api as M
 from ...contracts import tools as T
 from ...engine.edit import AddInstrument
 from ...engine.jsonpatch import PatchOp
-from ...engine.record import jsonable
+from ...engine.record import bounded, jsonable
 from .. import drive
 from ..errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
 from ..manager import ServedSession
@@ -94,13 +94,12 @@ _EXPECTED = DOMAIN_ERRORS
 
 class _Step:
     """One progress line of the panel, opened when a tool starts and closed with its outcome.
-    ``args`` (what the model sent, #1679) is stamped by ``_call``/``_call_async``, so it lands on
-    the step record and the ``step_done`` event; a bench-edit sub-step (``add``) has none."""
+    The tool call's arguments (``_call``/``_call_async`` -> :meth:`stamp`, #1679) land on the step
+    record and the ``step_done`` event; a bench-edit sub-step (``add``) has none."""
 
     def __init__(self, ctx: TurnContext, action: str, subject: str | None) -> None:
         self.ctx = ctx
         self.indices: list[int] = []
-        self.args: Any = None  # stamped by _call/_call_async from what the model sent (#1679)
         self.add(action, subject)
 
     def stamp(self, args: Any) -> None:
@@ -129,20 +128,19 @@ class _Step:
 def _step_args(args: Any) -> Any:
     """The step record's ``args``: a dict as it came; anything else in dict form -- a request
     model dumps itself (edit_bench passes one; the field is declared ``dict | None``), a scalar
-    stands for itself (#1679)."""
-    if isinstance(args, dict):
-        return args
-    dump = getattr(args, "model_dump", None)
-    return jsonable(dump()) if dump is not None else args
+    stands for itself (#1679). Bounded (#1694): edit_bench carries a whole bench in its ops, so
+    a long text is cut and marked rather than stored whole."""
+    if not isinstance(args, dict):
+        dump = getattr(args, "model_dump", None)
+        args = jsonable(dump()) if dump is not None else args
+    return bounded(args)
 
 
 def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step | None = None) -> Any:
     """Run one tool body: the outcome goes to the loop guard and the step; an expected failure
     becomes ``{"error": ...}`` for the model to act on (no retry budget, no turn limit)."""
     step = step or _Step(ctx, tool, None)
-    if step.args is None:  # what the model actually sent, on the step record (#1679)
-        step.stamp(_step_args(args))
-        step.args = args
+    step.stamp(_step_args(args))  # what the model actually sent, on the step record (#1679)
     try:
         result = fn()
     except Stuck:
@@ -159,9 +157,7 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
 
 
 async def _call_async(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step) -> Any:
-    if step.args is None:  # as _call's (#1679)
-        step.stamp(_step_args(args))
-        step.args = args
+    step.stamp(_step_args(args))  # as _call's (#1679)
     try:
         result = await fn()
     except _EXPECTED as exc:

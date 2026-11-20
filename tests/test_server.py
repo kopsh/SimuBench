@@ -488,7 +488,15 @@ def test_unknown_instrument_404_detail_keeps_its_closing_quote(client):
 
 
 def test_try_session_binds_no_ports_and_writes_no_record(tmp_path):
-    manager = SessionManager(ROOT / "validation", scpi_base_port=0, record_dir=tmp_path)
+    manager = SessionManager(
+        ROOT / "validation",
+        scpi_base_port=0,
+        hislip_port=0,
+        vxi11_port=0,
+        portmapper_port=0,
+        link_port=0,
+        record_dir=tmp_path,
+    )
     app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
     with TestClient(app, base_url="http://127.0.0.1") as c:
         c.headers["x-simubench-token"] = TOKEN
