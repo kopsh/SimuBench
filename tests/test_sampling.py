@@ -308,15 +308,23 @@ class _Prbs(PrbsSource):
         return self.overrides.get(key, self.defaults[key])
 
 
-@pytest.mark.parametrize("order", [5, 7, 9, 10, 11])
-def test_a_pattern_whose_lobe_fits_the_line_limit_is_built(order):
-    """#1101: orders whose period (one lobe's lines) is within MAX_LINES are modeled; a wide
-    spectrum keeps fewer lobes (a truncation noted on the signal), never less than one."""
+@pytest.mark.parametrize(
+    ("order", "truncated"),
+    [(5, False), (6, False), (7, False), (9, False), (10, True), (11, True)],
+)
+def test_a_pattern_whose_lobe_fits_the_line_limit_is_built(order, truncated):
+    """#1101, #1657: orders whose period (one lobe's lines) is within MAX_LINES are modeled; a wide
+    spectrum keeps fewer lobes and says so, an order whose whole 8 lobes fit says nothing."""
     sig = _Prbs(order=order).output("out")
     assert len(sig.freq) <= MAX_LINES
     assert (
         len(sig.freq) >= (1 << order) - 2
     )  # at least the whole first lobe (2^n - 2 lines; line 2^n - 1 is a sinc zero)
+    kinds = {note.kind for note in sig.notes}
+    if truncated:  # 8 lobes need more than MAX_LINES lines: cut at the limit, and noted
+        assert "truncated" in kinds
+    else:  # the whole 8 lobes fit: nothing was cut, no note
+        assert "truncated" not in kinds
 
 
 @pytest.mark.parametrize("order", [13, 15, 31])
@@ -328,3 +336,5 @@ def test_a_pattern_whose_period_exceeds_the_line_limit_is_refused(order):
     assert e.value.code == -224
     text = str(e.value)
     assert str((1 << order) - 1) in text and str(MAX_LINES) in text
+    # #1657: only the orders the source really models — 15 is kept for its taps alone, not offered.
+    assert "modeled orders: [5, 6, 7, 9, 10, 11]" in text
