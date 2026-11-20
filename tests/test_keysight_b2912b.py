@@ -16,6 +16,8 @@ import pyvisa
 from helpers import load_script, session_query
 from simubench.api import open_bench
 
+pytestmark = pytest.mark.model("keysight-b2912b")
+
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-b2912b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_b2912b_two_channel_iv.py"

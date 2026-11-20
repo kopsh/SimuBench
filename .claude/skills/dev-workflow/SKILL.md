@@ -69,7 +69,20 @@ the `python` CI job only (the `ty` binary is one binary for every OS and Python 
 
 Every test has a 120 s limit (`timeout` in pyproject.toml, pytest-timeout): a hang fails with thread stacks instead of stalling CI.
 The fast tests run on Python 3.12 and, in the `python311` job, on 3.11 (`requires-python` is `>=3.11`); reproduce a 3.11-only failure with `uv run --python 3.11 pytest …`.
-Full pytest must stay < 75 s; if it is over, fix it in the same task (`pytest --durations=20`).
+The selected pytest run must stay < 75 s; if it is over, fix it in the same task (`pytest --durations=20`).
+
+**Model-scoped selection (#1680, D49).** The fast checks do not run every model's tests on every
+branch: `scripts/select_tests.py` reads the changed paths and `scripts/check.sh` / the CI `python`
+jobs pass its `--model-scope=<ids>` to pytest (`conftest.py`, `tests/model_scope.py`). The models
+whose files changed (`src/simubench/library/instruments/<id>.*`, `tests/models/<id>/`, a test file
+marked with their id) run whole — the models that `extends` a changed one too; the other models run
+only their first 3 manual cases. A path it does not know, or shared code (`engine/`,
+`library/components/`, `scpi/`, the loader, `conftest.py`, `tests/helpers.py`, `pyproject.toml`,
+`.github/`, `scripts/`, `examples/`, `validation/`), runs everything; so does `main`.
+`scripts/select_tests.py --explain` says what your branch gets; `SIMUBENCH_FULL=1 scripts/check.sh`
+runs it all. A test file about a real model (`tests/test_<vendor>_<model>.py`) declares its
+models: `pytestmark = pytest.mark.model("<id>")` (more ids if it uses another model as a part);
+`check_test_rules.py` fails without it or with an unknown id.
 
 ## Test rules (D49, enforced)
 

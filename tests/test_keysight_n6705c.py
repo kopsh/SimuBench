@@ -21,6 +21,8 @@ from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("keysight-n6705c")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight-n6705c.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_n6705c_check.py"

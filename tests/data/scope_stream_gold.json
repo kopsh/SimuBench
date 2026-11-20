@@ -1023,7 +1023,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "b526eb09133eb9250c750c5adb01db9f769d5b14dab4b733d1506150ec20b220",
+   "digest": "0bd3422405e157634b8cdda6ede743b99bbba4d9a4d13617129da3053c3aa4dc",
    "ns": 0
   },
   {
@@ -1035,7 +1035,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "481372a69e265364a679eac0d792c80e36277e9d86532b905c3b80fea05f966e",
+   "digest": "067dcea9957fb0541463675abee5927d711c77fba21359cb06bb39804954d310",
    "ns": 0
   },
   {
@@ -1065,7 +1065,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "38fc7980121bbdec24675eb8d572b90776c012fa9eb4dc754b7e3eea0c873c65",
+   "digest": "e948ef196d48b2e124b6015c72218a215c266c513294b330d7ec74df932d2b33",
    "ns": 0
   },
   {
@@ -1095,7 +1095,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "bb4aa451874c1a784d16d0a76c8e6eda70de2c4800520fb48ccbdf49ac5adb51",
+   "digest": "e9b659429f80fab2cb9a024d45250192748d634f52eef71aa14aa00424ab2897",
    "ns": 0
   },
   {
@@ -1113,7 +1113,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "f2f773732cd6cf559be775655c5ab42839b2bc53a3b46eb8b54bbf0c88889c10",
+   "digest": "bd59598341ef2987c39ee052c6dd1f4660264a20e0c1b0e83c1a299855872cc8",
    "ns": 0
   },
   {
@@ -1137,7 +1137,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "d4e48e81d33f7bf7c2c0f3b74474aee21f6f3251f65958a9c143ff47587f4523",
+   "digest": "d9cd308351d4cccb2e3a712b0ff4c567524868c31f1a2cac186d6adb960c8938",
    "ns": 0
   },
   {
@@ -1148,7 +1148,7 @@
   },
   {
    "screen": "frame 1",
-   "digest": "9df985db622e7f495930f610cc049928924222fb0c3ac9d7af75839e7e2185aa",
+   "digest": "072b086e4dfea2f3dfb5a3dfc7153dba0c4281e5f30549b43f8e43cf32966708",
    "triggered": 1
   }
  ],
