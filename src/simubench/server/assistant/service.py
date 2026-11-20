@@ -45,18 +45,17 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from ...contracts import api as M
-from ...library.loader import load_json, load_yaml
 from ...library.workspace_layout import definition_rel_path
 from ..benchchanges import bench_changes
-from ..benchfiles import Conflict
+from ..benchfiles import Conflict, parse_data
 from ..definitionchanges import definition_changes
 from ..definitionfiles import DefinitionFiles
-from ..errors import Unknown
+from ..errors import Busy, Unknown
 from ..manager import SessionManager
 from . import compaction
 from .config import AssistantSettings, ConfigError, LlmSettings, check_settings
 from .guard import Stuck
-from .llm import build_model, describe_error
+from .llm import SERVICE_ERRORS, build_model, describe_error
 from .prompt import instructions
 from .store import Conversation, ConversationStore, TurnFiles
 from .tools import TurnContext, tools
@@ -68,10 +67,9 @@ UNLIMITED_RETRIES = 1_000_000
 ROLLED_BACK_NOTE = (
     "（系统说明：用户已把上一轮改过的文件恢复到那一轮之前，新建的文件已删除；继续前请重新读取。）"
 )
-
-
-class Busy(Exception):
-    """A turn of this conversation is still running."""
+#: A bug ended the turn (#1725): words that do not claim an LLM service failure — no one should
+#: retry a service that is fine, and the stack in the log says what actually broke.
+INTERNAL_ERROR = "助手内部出错，这一轮没有完成：可以重试；反复出现请反馈问题。"
 
 
 def _now() -> str:
@@ -132,17 +130,18 @@ class AssistantService:
 
     def _content(self, rel: str, sha: str, record: TurnFiles) -> dict[str, Any] | None:
         """A file's parsed content at a version (by sha256): from the history, else the text the
-        turn kept."""
+        turn kept. Parsed by the bench files' one parser, so a broken version is the domain error
+        ``Invalid`` with the position (#1406), not the 500 a bug gets (#1725)."""
         for v in self.files.history.versions(rel):
             if v.sha256 == sha:
-                return _parse(rel, self.files.history.content(rel, v.seq))
+                return parse_data(Path(rel), self.files.history.content(rel, v.seq))
         if rel in record.content and hashlib.sha256(record.content[rel].encode()).hexdigest() == sha:
-            return _parse(rel, record.content[rel].encode())
+            return parse_data(Path(rel), record.content[rel].encode())
         return None
 
     def _current(self, rel: str) -> dict[str, Any] | None:
         path = self.files.resolve(rel)
-        return _parse(rel, path.read_bytes()) if path.is_file() else None
+        return parse_data(Path(rel), path.read_bytes()) if path.is_file() else None
 
     def _changes(
         self, rel: str, kind: str, old: dict[str, Any] | None, new: dict[str, Any] | None
@@ -187,9 +186,7 @@ class AssistantService:
         conv = self.store.load(bench)
         # A request to stop the bench is answered by the next message only (#902): later turns
         # carry no answer to it, and a stale one is forgotten. An answer without a request is none.
-        pending = conv.stop_requested_in is not None and conv.stop_requested_in == len(conv.turns) - 1
-        if not pending:
-            conv.stop_requested_in = None
+        pending = conv.stop_consent_pending()
         turn = M.AssistantTurn(
             id=uuid.uuid4().hex[:12],
             user=text,
@@ -330,11 +327,15 @@ class AssistantService:
             turn.status, turn.stop_reason = "stuck", str(exc)
         except asyncio.CancelledError:
             turn.status, turn.stop_reason = "stopped", "已按你的要求停止"
-        except ConfigError as exc:
-            turn.status, turn.stop_reason = "error", str(exc)
-        except Exception as exc:  # the LLM service failed: said in words, the key never in it
+        except (ConfigError, *SERVICE_ERRORS) as exc:
+            # the LLM service failed (llm.py owns what counts as one, #1725): said in words, the
+            # key never in it
             log.warning("assistant turn failed: %s", describe_error(exc, settings))
             turn.status, turn.stop_reason = "error", describe_error(exc, settings)
+        except Exception:  # a bug in a tool or the engine, not the LLM service's fault (#1478):
+            # never "LLM 服务出错", and the stack stays in the log for whoever fixes it
+            log.exception("assistant turn failed: %s", turn.id)
+            turn.status, turn.stop_reason = "error", INTERNAL_ERROR
         finally:
             conv.note = None
             if messages is None:  # ended early: the next turn still sees what happened
@@ -501,12 +502,6 @@ class AssistantService:
         else:
             self.definitions.save(def_id, current, data, "restore")
         self.retire_tries(def_id)
-
-
-def _parse(rel: str, raw: bytes) -> dict[str, Any]:
-    text = raw.decode("utf-8")
-    data = load_json(text) if rel.endswith(".json") else load_yaml(text)
-    return data if isinstance(data, dict) else {}
 
 
 class _suppress_cancel:

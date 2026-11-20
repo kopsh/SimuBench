@@ -474,8 +474,7 @@ async def stop_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
     step = _Step(t, "stop_session", t.conv.bench)
 
     async def run() -> dict[str, Any]:
-        asked = t.conv.stop_requested_in
-        if asked is None or asked != t.index - 1:
+        if not t.conv.stop_consent_alive(t.index):
             raise Forbidden(
                 "停止运行中的测试台要先征得用户同意：用 ask_to_stop_session 说明原因，结束本轮，等用户回答"
             )

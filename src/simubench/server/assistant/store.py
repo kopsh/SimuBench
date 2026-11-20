@@ -14,10 +14,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
 from ...contracts import api as M
-from ..errors import Forbidden
+from ..errors import Forbidden, Invalid
 
 
 @dataclass
@@ -50,13 +51,33 @@ class Conversation:
     messages: list[ModelMessage] = field(default_factory=list)
     files: dict[str, TurnFiles] = field(default_factory=dict)
     compacted: bool = False
-    #: The index of the turn in which the assistant asked to stop the running bench.
+    #: The index of the turn in which the assistant asked to stop the running bench; consent for
+    #: the next turn only (:meth:`stop_consent_alive`).
     stop_requested_in: int | None = None
     #: Said to the LLM with the next message (the user restored the files meanwhile).
     note: str | None = None
 
     def user_texts(self) -> list[str]:
         return [t.user for t in self.turns]
+
+    def stop_consent_alive(self, turn: int) -> bool:
+        """Is the agreement to stop the running bench alive for ``turn``? A request asked in turn
+        n is consent for turn n+1 only (#902): asked in the turn right before, and nothing else —
+        not in the turn it was asked (the user has not answered yet), not a turn later (lapsed),
+        and without a request nothing is alive. The one judgment both the sending side
+        (:meth:`stop_consent_pending`) and the ``stop_session`` gate ask."""
+        return self.stop_requested_in is not None and self.stop_requested_in == turn - 1
+
+    def stop_consent_pending(self) -> bool:
+        """Whether the message about to be sent answers a stop request: the one on record was
+        asked in the last recorded turn. A stale request is forgotten here, so a lapsed one
+        cannot answer a later message. The tool side asks only :meth:`stop_consent_alive`, which
+        forgets nothing: a request the user has not answered yet must survive a premature stop
+        attempt in the turn that asked it, or the panel's button would have nothing to agree to."""
+        alive = self.stop_consent_alive(len(self.turns))
+        if not alive:
+            self.stop_requested_in = None
+        return alive
 
 
 class ConversationStore:
@@ -74,12 +95,22 @@ class ConversationStore:
         path = self._path(bench)
         if not path.is_file():
             return Conversation(bench)
-        data = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise Invalid(f"{path.name}: expected a mapping at the top level")
+            turns = [M.AssistantTurn.model_validate(t) for t in data.get("turns", [])]
+            messages = ModelMessagesTypeAdapter.validate_python(data.get("messages", []))
+            files = {k: TurnFiles.of(v) for k, v in (data.get("files") or {}).items()}
+        except (json.JSONDecodeError, UnicodeDecodeError, ValidationError) as exc:
+            # A conversation file a reload truncated or a hand edit broke is the user's to fix
+            # (#1725): a domain error with the position, never a silently emptied conversation.
+            raise Invalid(f"{path.name}: {exc}") from None
         return Conversation(
             bench=bench,
-            turns=[M.AssistantTurn.model_validate(t) for t in data.get("turns", [])],
-            messages=ModelMessagesTypeAdapter.validate_python(data.get("messages", [])),
-            files={k: TurnFiles.of(v) for k, v in (data.get("files") or {}).items()},
+            turns=turns,
+            messages=messages,
+            files=files,
             compacted=bool(data.get("compacted")),
             stop_requested_in=data.get("stop_requested_in"),
             note=data.get("note"),

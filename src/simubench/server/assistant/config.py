@@ -27,6 +27,7 @@ from urllib.parse import urlsplit
 
 from ...contracts import api as M
 from ...paths import user_data_dir
+from ..errors import ConfigError
 
 if TYPE_CHECKING:
     from ..manager import SessionManager
@@ -48,9 +49,8 @@ SCPI_SPAN = 64
 
 logger = logging.getLogger(__name__)
 
-
-class ConfigError(ValueError):
-    """A setting that cannot be used, with the reason in words."""
+# ConfigError is the server's (``errors.py``, #1725) and is re-exported here: the settings and
+# ``llm.py`` raise it beside where it is described.
 
 
 @dataclass(frozen=True)
