@@ -1593,10 +1593,12 @@ components:
     params:
       # 触发通路（#1263）：从模拟前端分出（ADC 之前，不经 :ACQuire:BANDwidth 与 InfiniiSim 的数字滤波）。
       # 边沿触发带宽等于采集的模拟带宽（数据手册 3123-1313 Trigger System：Equal to acquisition analog
-      # bandwidth），前端已限，不另加。触发噪声手册未给，估计：与该档的通道噪声相同（同一前端，D46 通则），
-      # 按信源的档位取 front 的 noise_table。
-      # 与通道前端同一张表（同一前端，D46），随通道的噪声带宽一起换算（#1427）。
-      noise_table: {same_as: channel_components.1.params.noise_table}
+      # bandwidth），前端已限，不另加。
+      # 触发通路不加噪声（#1691，同 UXR1104B 的 #1579）：数据手册 3123-1313 p.16 的显示抖动 116 fs rms（3.5 mm 型号，
+      # 100 mV/div，500 mVpp、16 GHz 正弦）等于记录自身的噪声除以过零斜率（2.91 mV ÷ (2π × 16 GHz × 0.25 V) =
+      # 115.8 fs），留不出触发比较器噪声的份额。#1298 原先估计与通道噪声相同，仿真实测显示抖动 181 fs。
+      # 触发也不取自 ADC 之后的采样（拆解视频 TSP #133 所说的数字触发）：与记录同源时显示抖动只有 0–33 fs，
+      # 对不上数据手册（docs/real-models.md 11.4）。
       source: $trigger.source
       level: $trigger.level1
       level_by_source:
