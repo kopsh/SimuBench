@@ -110,9 +110,9 @@ def _embed_zip(cache: Path) -> bytes:
 def _launcher() -> bytes:
     """distlib's console launcher (the one pip writes as ``<script>.exe`` on Windows)."""
     try:
-        import distlib
+        import distlib  # noqa: PLC0415
     except ImportError:
-        from pip._vendor import distlib  # type: ignore[no-redef]
+        from pip._vendor import distlib  # type: ignore[no-redef]  # noqa: PLC0415
     return (Path(distlib.__file__).parent / "t64.exe").read_bytes()
 
 
