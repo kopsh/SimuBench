@@ -46,4 +46,23 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    // The api layer is the bottom of the web module graph: it answers with DTOs and may not
+    // import the features above it (#1735). stateMap's move out of workbench/model was the last
+    // import in that direction; this keeps it from growing back.
+    files: ["src/api/**/*.{ts,tsx}"],
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          patterns: [
+            {
+              group: ["@/features", "@/features/*", "**/features/*"],
+              message: "The api layer sits below the features: it must not import them (#1735).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 );

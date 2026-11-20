@@ -4,7 +4,7 @@ import { useEvents } from "./events";
 import i18n from "@/i18n";
 import { toast } from "sonner";
 import { confirmClients, remoteInstrument } from "@/components/app/ClientsConfirm";
-import { stateMap } from "@/features/workbench/model";
+import { stateMap } from "./stateMap";
 import type {
   CaseFile,
   IdentityUpdate,

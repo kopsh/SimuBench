@@ -24,7 +24,8 @@ import { channelColor } from "@/lib/channels";
 import { displayUnit, formatEng } from "@/lib/format";
 import { load, save } from "@/lib/storage";
 import { cn } from "@/lib/utils";
-import { formatValue, labelOf, numeric, stateMap } from "../model";
+import { formatValue, labelOf, numeric } from "../model";
+import { stateMap } from "@/api/stateMap";
 import { type Tuned } from "./ProbeView";
 import { type MiniSignal, type Tune, CENTER, flowTag, probeable } from "./probe";
 import {
