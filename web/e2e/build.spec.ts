@@ -129,7 +129,8 @@ test("build area: declare a setting, bind a parameter to it, give it a command, 
   await row.getByLabel("out.zout 默认值").fill("50");
   await row.getByLabel("out.zout 默认值").press("Enter");
   await expect
-    .poll(async () => ((await stored(request, id)).data.state as Record<string, { unit?: string; default?: number }>)["out.zout"])
+    // Until the first setting is saved the copy has no state at all: read it as absent, poll on (#1665).
+    .poll(async () => ((await stored(request, id)).data.state as Record<string, { unit?: string; default?: number }> | undefined)?.["out.zout"])
     .toMatchObject({ type: "float", unit: "OHM", default: 50 });
 
   // The output stage's impedance follows it.
