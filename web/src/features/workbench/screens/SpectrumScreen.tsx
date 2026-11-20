@@ -1,9 +1,9 @@
-import { ChevronsRight, Crosshair, Play, Repeat, StepForward } from "lucide-react";
+import { ChevronsRight, Crosshair, Repeat, StepForward } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
-import { scpiOutcome, useAdvance, useClockMode, useInstrumentReadings, useScpi } from "@/api/hooks";
+import { scpiOutcome, useClockMode, useInstrumentReadings, useScpi } from "@/api/hooks";
 import { isCancelled } from "@/components/app/ClientsConfirm";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { isLive, liveRequest } from "../clockControl";
@@ -38,7 +38,6 @@ export function SpectrumScreen({
   clockMode?: string;
 }) {
   const { t } = useTranslation();
-  const advance = useAdvance(sid);
   const clock = useClockMode(sid);
   const { values: v, query: readings, vars } = useInstrumentReadings(sid, inst);
   const scpi = useScpi(sid, inst.name);
@@ -53,15 +52,22 @@ export function SpectrumScreen({
       },
     });
 
-  const status = sweepStatus(clockMode, vars.get("init.continuous")?.value !== false);
-  const goLive = (then?: () => void) =>
-    clock.mutate(liveRequest(1), { onSuccess: then, onError: (e) => !isCancelled(e) && toast.error((e as Error).message) });
-  // Continuous sweep from this screen means "let it sweep" (#1660): on a paused clock nothing would
-  // move, so the clock goes live too, and says so. A script's :INIT:CONT ON leaves the clock alone.
+  const continuous = vars.get("init.continuous")?.value !== false;
+  const status = sweepStatus(clockMode, continuous);
+  // The analyzer's Cont and Single keys (#1666), in place of the switch: the setting is on screen.
+  useCountOnScreen(inst.name, "init.continuous", vars.has("init.continuous"));
+  // Cont from this screen means "let it sweep": on a paused clock nothing would move, so the clock
+  // goes live too, and says so. A script's :INIT:CONT ON leaves the clock alone.
   const sweepContinuously = () => {
     send(":INIT:CONT ON");
-    if (!isLive(clockMode)) goLive(() => toast.info(t("spectrum.continuousLive")));
+    if (!isLive(clockMode))
+      clock.mutate(liveRequest(1), {
+        onSuccess: () => toast.info(t("spectrum.continuousLive")),
+        onError: (e) => !isCancelled(e) && toast.error((e as Error).message),
+      });
   };
+  // Single, as on the instrument: continuous sweep off, then one sweep (or the averaging count).
+  const sweepOnce = () => send(":INIT:CONT OFF;:INIT:IMM");
   const marker = { x: n("marker_x"), y: n("marker_y") };
   const mx = engParts(marker.x, "Hz", 9);
 
@@ -72,7 +78,11 @@ export function SpectrumScreen({
           <ScreenIdentity inst={inst} />
           <Flag on={!!v["sa.uncal"]} label="UNCAL" title={t("spectrum.uncalReason")} testId="uncal" />
           <Flag on={!!v["sa.overload"]} label={t("spectrum.overload")} testId="overload" />
-          {status === "single" && <span className="bg-muted rounded px-1.5 py-0.5 text-[11px] font-medium" data-testid="hold">HOLD</span>}
+          {status === "single" && (
+            <span className="bg-muted rounded px-1.5 py-0.5 text-[11px] font-medium" data-testid="hold" title={t("spectrum.hintSingle")}>
+              HOLD
+            </span>
+          )}
           <span className="text-muted-foreground num ml-auto">
             {t("spectrum.reference")} {String(v["sa.reference"] ?? "INT")} · {t("spectrum.sweep")} #{n("sweep")}
           </span>
@@ -88,38 +98,6 @@ export function SpectrumScreen({
             {mx.unit} · {marker.y.toFixed(3)} dBm
           </span>
         </div>
-        {status !== "running" && (
-          // The words wrap in their own column; the buttons keep one row on the right (#1660).
-          <div className="bg-muted/50 text-muted-foreground flex items-center gap-3 border-b px-3 py-1.5 text-[11px]" role="status" data-testid="sweep-hint">
-            <span className="min-w-0 flex-1">{t(status === "single" ? "spectrum.hintSingle" : "spectrum.hintClock")}</span>
-            {status === "clock" && !readonly && (
-              <div className="flex shrink-0 items-center gap-2">
-                <HintButton hint={t("spectrum.liveSweepHint")} disabled={clock.isPending} onClick={() => goLive()} testId="sweep-live">
-                  <Play className="size-3" /> {t("spectrum.liveSweep")}
-                </HintButton>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-6 text-[11px]"
-                  disabled={advance.isPending}
-                  onClick={() => advance.mutate(n("sweep_time") > 0 ? n("sweep_time") : 0.1, { onError: (e) => !isCancelled(e) && toast.error((e as Error).message) })}
-                >
-                  {t("spectrum.advanceSweep")}
-                </Button>
-              </div>
-            )}
-            {status === "single" && !readonly && (
-              <div className="flex shrink-0 items-center gap-2">
-                <HintButton hint={t("spectrum.singleSweepHint")} disabled={scpi.isPending} onClick={() => send(":INIT:IMM")} testId="sweep-single">
-                  <StepForward className="size-3" /> {t("spectrum.singleSweep")}
-                </HintButton>
-                <HintButton hint={t("spectrum.continuousOnHint")} disabled={scpi.isPending} onClick={sweepContinuously} testId="sweep-continuous">
-                  <Repeat className="size-3" /> {t("spectrum.continuousOn")}
-                </HintButton>
-              </div>
-            )}
-          </div>
-        )}
         <SpectrumCanvas
           values={trace?.values ?? []}
           refLevel={n("ref_level")}
@@ -145,6 +123,19 @@ export function SpectrumScreen({
       </section>
 
       <aside className="space-y-3">
+        {vars.has("init.continuous") && (
+          <section className="bg-card space-y-2 rounded-lg border p-3">
+            <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">{t("spectrum.sweepControl")}</h3>
+            <div className="flex gap-2" role="group" aria-label={t("spectrum.sweepControl")}>
+              <SweepKey pressed={continuous} hint={t("spectrum.continuousSweepHint")} disabled={readonly} onClick={sweepContinuously} testId="sweep-continuous">
+                <Repeat className="size-3.5" /> {t("spectrum.continuousSweep")}
+              </SweepKey>
+              <SweepKey pressed={!continuous} hint={t("spectrum.singleSweepHint")} disabled={readonly} onClick={sweepOnce} testId="sweep-single">
+                <StepForward className="size-3.5" /> {t("spectrum.singleSweep")}
+              </SweepKey>
+            </div>
+          </section>
+        )}
         <section className="bg-card space-y-2 rounded-lg border p-3">
           <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">{t("spectrum.marker")}</h3>
           <div className="flex gap-2">
@@ -174,12 +165,9 @@ export function SpectrumScreen({
         </section>
         <section className="bg-card space-y-1.5 rounded-lg border p-3">
           <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{t("spectrum.display")}</h3>
-          {["display.ref_level", "detector", "trace.type", "aver.count", "sweep.points", "rosc.source", "init.continuous"].map((k) => {
+          {["display.ref_level", "detector", "trace.type", "aver.count", "sweep.points", "rosc.source"].map((k) => {
             const sv = vars.get(k);
-            if (!sv) return null;
-            // The continuous-sweep switch is the analyzer's Cont key: on, it sweeps (#1660).
-            const onCommit = k === "init.continuous" ? (on: unknown) => (on ? sweepContinuously() : send(":INIT:CONT OFF")) : undefined;
-            return <StateField key={k} sid={sid} instrument={inst.name} v={sv} disabled={readonly} onCommit={onCommit} />;
+            return sv ? <StateField key={k} sid={sid} instrument={inst.name} v={sv} disabled={readonly} /> : null;
           })}
         </section>
       </aside>
@@ -196,14 +184,16 @@ export function sweepStatus(clockMode: string, continuous: boolean): "running" |
   return clockMode === "wall" || clockMode === "scaled" ? "running" : "clock";
 }
 
-/** A small button in the sweep hint, with the command or the clock change it makes in its tooltip. */
-function HintButton({
+/** One of the analyzer's sweep keys (Cont, Single): lit while it is the mode, the command in its tooltip. */
+function SweepKey({
+  pressed,
   hint,
   disabled,
   onClick,
   testId,
   children,
 }: {
+  pressed: boolean;
   hint: string;
   disabled: boolean;
   onClick: () => void;
@@ -213,7 +203,7 @@ function HintButton({
   return (
     <Tooltip>
       <TooltipTrigger asChild>
-        <Button size="sm" variant="outline" className="h-6 gap-1 text-[11px]" disabled={disabled} onClick={onClick} data-testid={testId}>
+        <Button size="sm" variant={pressed ? "default" : "outline"} className="flex-1" aria-pressed={pressed} disabled={disabled} onClick={onClick} data-testid={testId}>
           {children}
         </Button>
       </TooltipTrigger>

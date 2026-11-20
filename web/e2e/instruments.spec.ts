@@ -88,12 +88,12 @@ test("spectrum analyzer: power-on shows no UNCAL and no stale manual RBW; a shor
   await expectAttributeContains(page.getByTestId("uncal"), "title", "扫描时间短于");
 });
 
-test("spectrum analyzer: the standing-trace hint follows the clock and the sweep mode (#1178)", async ({ page }) => {
+test("spectrum analyzer: the Continuous and Single keys, on a paused and a live clock (#1178, #1666)", async ({ page }) => {
   const headers = { "x-simubench-token": TOKEN };
   const open = async (bench: Record<string, unknown> | string) => {
     let bench_path = bench as string;
     if (typeof bench !== "string") {
-      bench_path = `e2e/sweep-hint-${Date.now()}.bench.yaml`;
+      bench_path = `e2e/sweep-keys-${Date.now()}.bench.yaml`;
       expect((await page.request.put("/api/benches/file", { headers, data: { path: bench_path, base_sha256: null, data: bench } })).ok()).toBeTruthy();
     }
     const start = await page.request.post("/api/sessions", { headers, data: { bench_path, force: true } });
@@ -104,54 +104,55 @@ test("spectrum analyzer: the standing-trace hint follows the clock and the sweep
     return sid;
   };
   const sweepNo = async () => Number(((await page.getByText("扫描 #").textContent()) ?? "").split("#")[1]);
-  const hint = page.getByTestId("sweep-hint");
+  const cont = page.getByTestId("sweep-continuous");
+  const single = page.getByTestId("sweep-single");
 
-  // Command clock (the example bench): the hint and its button; one click sweeps once more.
+  // Paused (the example bench's command clock): no hint bar; Continuous is lit, nothing sweeps by itself.
   const sid = await open("benches/sa-two-tone.bench.yaml");
-  await expect(hint).toContainText("已暂停");
+  await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
+  await expect(page.getByTestId("sweep-hint")).toHaveCount(0);
+  await expect(cont).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("hold")).toHaveCount(0);
-  const before = await sweepNo();
-  await page.getByRole("button", { name: "推进一次扫描时间" }).click();
-  await expect.poll(sweepNo).toBeGreaterThan(before);
 
-  // A single sweep (:INIT:CONT OFF) holds the trace whatever the clock: HOLD and its hint.
-  const sent = await page.request.post(`/api/sessions/${sid}/instruments/sa/scpi`, { headers, data: { command: ":INIT:CONT OFF" } });
-  expect(sent.ok()).toBe(true);
+  // Single: one sweep (its sweep time passes), then HOLD; time passing moves nothing.
+  const before = await sweepNo();
+  await single.click();
+  await expect(single).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("hold")).toHaveText("HOLD");
-  await expect(hint).toContainText("单次扫描");
-  await expect(page.getByRole("button", { name: "推进一次扫描时间" })).toHaveCount(0);
-  // #1660: the analyzer stops where it is; its own Single key sweeps once, Cont sweeps again.
+  await expect.poll(sweepNo).toBeGreaterThan(before);
   const held = await sweepNo();
   await page.getByRole("button", { name: "推进", exact: true }).click();
   await expect(page.getByTestId("hold")).toHaveText("HOLD");
-  expect(await sweepNo()).toBe(held); // time passed, nothing swept
-  await page.getByTestId("sweep-single").click();
+  expect(await sweepNo()).toBe(held);
+  await single.click(); // again: one more sweep
   await expect.poll(sweepNo).toBeGreaterThan(held);
-  // Continuous on from the screen while paused: it sweeps, so the clock goes live too.
-  await page.getByTestId("sweep-continuous").click();
-  await expect(page.getByTestId("hold")).toHaveCount(0);
-  await expect(page.getByTestId("clock-state")).toHaveText("实时");
-  await expect(hint).toHaveCount(0);
-  const continuous = await sweepNo();
-  await expect.poll(sweepNo, { timeout: 10_000 }).toBeGreaterThan(continuous);
-  await page.getByTestId("clock-pause").click();
-  await expect(hint).toContainText("已暂停");
 
-  // #1660: Live from the hint: the clock runs by itself and the analyzer sweeps; Pause stops it.
-  await page.getByTestId("sweep-live").click();
-  await expect(hint).toHaveCount(0);
+  // A script's :INIT:CONT ON lights Continuous but leaves the clock paused.
+  const sent = await page.request.post(`/api/sessions/${sid}/instruments/sa/scpi`, { headers, data: { command: ":INIT:CONT ON" } });
+  expect(sent.ok()).toBe(true);
+  await expect(cont).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
+
+  // Continuous from the screen on a paused clock: it sweeps, so the clock goes live too.
+  await single.click();
+  await cont.click();
+  await expect(page.getByTestId("hold")).toHaveCount(0);
   await expect(page.getByTestId("clock-state")).toHaveText("实时");
   const live = await sweepNo();
   await expect.poll(sweepNo, { timeout: 10_000 }).toBeGreaterThan(live);
+  // Single while live: the sweep count stops though real time runs on.
+  await single.click();
+  await expect(page.getByTestId("hold")).toHaveText("HOLD");
+  const stopped = await sweepNo();
+  await page.waitForTimeout(300);
+  expect(await sweepNo()).toBe(stopped);
   await page.getByTestId("clock-pause").click();
   await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
-  await expect(hint).toContainText("已暂停");
-  await expect(page.getByRole("button", { name: "推进", exact: true })).toBeVisible();
 
-  // Wall clock, continuous sweeping: nothing to explain.
+  // A wall-clock bench: Continuous lit, sweeping, no HOLD.
   await open({ schema: "simubench.bench/1", name: "sa_wall", instruments: { sa: { model: "sb-sa-fft-1", label: "频谱仪" } }, run: { clock: "wall", seed: 1 } });
   await expect(page.getByTestId("marker-readout")).toBeVisible();
-  await expect(hint).toHaveCount(0);
+  await expect(cont).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByTestId("hold")).toHaveCount(0);
 });
 

@@ -22,15 +22,12 @@ vi.hoisted(() => {
 });
 
 const hooks = vi.hoisted(() => ({
-  advance: vi.fn(),
   clock: vi.fn(),
   scpi: vi.fn(),
   continuous: true,
-  onCommit: undefined as ((value: unknown) => void) | undefined,
 }));
 vi.mock("@/api/hooks", () => ({
   scpiOutcome: () => ({ ok: true, message: "" }),
-  useAdvance: () => ({ mutate: hooks.advance, isPending: false }),
   useScpi: () => ({ mutate: hooks.scpi, isPending: false }),
   useClockMode: () => ({ mutate: hooks.clock, isPending: false }),
   useInstrumentReadings: () => ({
@@ -40,22 +37,14 @@ vi.mock("@/api/hooks", () => ({
   }),
 }));
 
-// The settings fields are the generic StateField; the continuous-sweep switch's own commit is kept.
-vi.mock("../StateField", () => ({
-  StateField: ({ v, onCommit }: { v: { path: string }; onCommit?: (value: unknown) => void }) => {
-    if (v.path === "init.continuous") hooks.onCommit = onCommit;
-    return null;
-  },
-}));
+vi.mock("../StateField", () => ({ StateField: () => null }));
 vi.mock("./parts", () => ({ ScreenIdentity: () => null }));
 
 afterEach(() => {
   cleanup();
-  hooks.advance.mockClear();
   hooks.clock.mockClear();
   hooks.scpi.mockClear();
   hooks.continuous = true;
-  hooks.onCommit = undefined;
 });
 
 const inst = { name: "sa", display: {}, state: [] } as unknown as InstrumentInfo;
@@ -65,78 +54,52 @@ const show = (clockMode: string, readonly = false) =>
       <SpectrumScreen sid="s" inst={inst} readonly={readonly} clockMode={clockMode} />
     </TooltipProvider>,
   );
+const sent = () => hooks.scpi.mock.calls.map((c) => c[0]);
+const pressed = (id: string) => screen.getByTestId(id).getAttribute("aria-pressed");
 
-// #1178: the hint's appearance conditions, not only sweepStatus().
-it("a command clock explains the standing trace and its button advances one sweep time", () => {
+// #1666: the analyzer's Cont and Single keys replace the hint bar; the lit one is the mode.
+it("shows the sweep keys with Continuous lit, and no hint bar or HOLD while sweeping", () => {
   show("command");
-  expect(screen.getByTestId("sweep-hint").textContent).toContain("已暂停");
+  expect(screen.queryByTestId("sweep-hint")).toBeNull();
   expect(screen.queryByTestId("hold")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "推进一次扫描时间" }));
-  expect(hooks.advance).toHaveBeenCalledTimes(1);
-  expect(hooks.advance.mock.calls[0][0]).toBe(0.25);
+  expect([pressed("sweep-continuous"), pressed("sweep-single")]).toEqual(["true", "false"]);
 });
 
-// #1660: on the command clock the hint also offers the live clock, which sweeps by itself.
-it("a command clock's live-sweep button switches the clock to the wall clock", () => {
+it("a single sweep lights Single and shows HOLD with its explanation", () => {
+  hooks.continuous = false;
+  show("wall");
+  expect([pressed("sweep-continuous"), pressed("sweep-single")]).toEqual(["false", "true"]);
+  expect(screen.getByTestId("hold").textContent).toBe("HOLD");
+  expect(screen.getByTestId("hold").getAttribute("title")).toContain("单次扫描");
+});
+
+it("Single turns continuous sweep off and sweeps once, whatever the clock", () => {
   show("command");
-  fireEvent.click(screen.getByTestId("sweep-live"));
+  fireEvent.click(screen.getByTestId("sweep-single"));
+  expect(sent()).toEqual([":INIT:CONT OFF;:INIT:IMM"]);
+  expect(hooks.clock).not.toHaveBeenCalled();
+});
+
+// On a paused clock nothing would move: Continuous from the screen lets the clock run too.
+it("Continuous on a paused clock sweeps and switches the clock live", () => {
+  hooks.continuous = false;
+  show("command");
+  fireEvent.click(screen.getByTestId("sweep-continuous"));
+  expect(sent()).toEqual([":INIT:CONT ON"]);
   expect(hooks.clock).toHaveBeenCalledTimes(1);
   expect(hooks.clock.mock.calls[0][0]).toEqual({ mode: "wall" });
 });
 
-it("read-only hides the advance button but keeps the hint", () => {
-  show("command", true);
-  expect(screen.getByTestId("sweep-hint")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "推进一次扫描时间" })).toBeNull();
-  expect(screen.queryByTestId("sweep-live")).toBeNull();
-});
-
-it("a single sweep shows HOLD and the single-sweep hint without the advance button", () => {
-  hooks.continuous = false;
-  show("command");
-  expect(screen.getByTestId("hold").textContent).toBe("HOLD");
-  expect(screen.getByTestId("sweep-hint").textContent).toContain("单次扫描");
-  expect(screen.queryByRole("button", { name: "推进一次扫描时间" })).toBeNull();
-});
-
-// #1660: in single sweep the hint holds the analyzer's own Single and Cont keys.
-it("a single sweep's buttons sweep once and turn continuous sweep back on", () => {
+it("Continuous on a live clock leaves the clock alone", () => {
   hooks.continuous = false;
   show("wall");
-  fireEvent.click(screen.getByTestId("sweep-single"));
   fireEvent.click(screen.getByTestId("sweep-continuous"));
-  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:IMM", ":INIT:CONT ON"]);
-  expect(screen.queryByTestId("sweep-live")).toBeNull();
-});
-
-it("a wall clock with continuous sweeping shows no hint and no HOLD", () => {
-  show("wall");
-  expect(screen.queryByTestId("sweep-hint")).toBeNull();
-  expect(screen.queryByTestId("hold")).toBeNull();
-});
-
-// #1660: the continuous-sweep switch is the analyzer's Cont key. On a paused clock nothing would
-// move, so turning it on from this screen also lets the clock run; off holds the trace as before.
-it("turning continuous sweep on while paused also switches the clock live", () => {
-  hooks.continuous = false;
-  show("command");
-  hooks.onCommit?.(true);
-  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:CONT ON"]);
-  expect(hooks.clock.mock.calls[0][0]).toEqual({ mode: "wall" });
-});
-
-it("turning continuous sweep on while live leaves the clock alone, and off only holds", () => {
-  show("wall");
-  hooks.onCommit?.(true);
-  hooks.onCommit?.(false);
-  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:CONT ON", ":INIT:CONT OFF"]);
+  expect(sent()).toEqual([":INIT:CONT ON"]);
   expect(hooks.clock).not.toHaveBeenCalled();
 });
 
-it("the hint's continuous button on a paused clock sweeps and goes live", () => {
-  hooks.continuous = false;
-  show("command");
-  fireEvent.click(screen.getByTestId("sweep-continuous"));
-  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:CONT ON"]);
-  expect(hooks.clock.mock.calls[0][0]).toEqual({ mode: "wall" });
+it("read-only keeps the keys but disables them", () => {
+  show("command", true);
+  expect((screen.getByTestId("sweep-continuous") as HTMLButtonElement).disabled).toBe(true);
+  expect((screen.getByTestId("sweep-single") as HTMLButtonElement).disabled).toBe(true);
 });
