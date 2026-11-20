@@ -30,6 +30,7 @@ from functools import lru_cache, partial
 
 import numpy as np
 from scipy import fft as sp_fft
+from scipy.optimize import nnls
 
 from ...engine.noise import gaussian, stream_key, uniform
 from ...engine.signal import Signal, bessel4, brickwall, butterworth4, gaussian_lp, lowpass1
@@ -118,6 +119,69 @@ def aperture_jitter(
         return volts
     slope = replace(signal, amp=signal.amp * (2j * math.pi * signal.freq), dc=0.0)
     return volts + slope.sample_rel(t0_ns, when) * shift
+
+
+# ---- the sampling clock's phase noise (#1698) -------------------------------------------------
+
+
+@lru_cache(maxsize=32)
+def clock_tie_components(table: tuple[tuple[float, float], ...]) -> tuple[np.ndarray, np.ndarray]:
+    """The slow part of the sampling clock's timing error, as (frequencies Hz, amplitudes s) of
+    sinusoids, fitted to ``table``: rows of (acquisition span s, rms intrinsic jitter s). The first
+    row is the white floor (the shortest span, the jitter the instants already carry); each later
+    row says how much the rms has grown by its span, the excess in quadrature.
+
+    A record of span T sees a component of frequency f with the variance ``a²/2 · (1 − sinc²(f·T))``
+    (a slow one is a constant, which the rms about the record's mean leaves out; a fast one
+    counts whole), so a non-negative fit of the powers in log-spaced bands, one band per row, makes
+    the expected rms at each tabulated span the table's. Components are spread over the bands so that
+    one random draw of their phases stays near that expectation."""
+    spans = np.array([row[0] for row in table], dtype=float)
+    floor = table[0][1]
+    excess = np.array([max(row[1] ** 2 - floor**2, 0.0) for row in table], dtype=float)
+    top, low = 1.0 / (3.0 * spans[0]), 1.0 / (30.0 * spans[-1])
+    edges = [1.0 / (3.0 * t) for t in spans[1:]][::-1]  # ascending
+    lows = [low, *edges]
+    highs = [*edges, top]
+    per_decade = 16
+    freqs, band = [], []
+    for k, (lo, hi) in enumerate(zip(lows, highs, strict=True)):
+        n = max(2, round(per_decade * math.log10(hi / lo)))
+        f = lo * (hi / lo) ** ((np.arange(n) + 0.5) / n)
+        freqs.append(f)
+        band.append(np.full(n, k))
+    f, band = np.concatenate(freqs), np.concatenate(band)
+    weight = 1.0 - np.sinc(f[None, :] * spans[:, None]) ** 2  # (rows, components)
+    basis = np.stack([weight[:, band == k].sum(axis=1) for k in range(len(lows))], axis=1)
+    scale = np.where(excess > 0, excess, np.max(excess, initial=0.0) or 1.0)
+    coef, _ = nnls(basis / scale[:, None], excess / scale)
+    power = coef[band]  # variance a²/2 of each component, s²
+    return f, np.sqrt(2.0 * power)
+
+
+def clock_tie(
+    components: tuple[np.ndarray, np.ndarray], t0_ns: int, offsets: np.ndarray, phases: np.ndarray
+) -> np.ndarray:
+    """The slow timing error, s, at the instants ``t0_ns`` + ``offsets`` (s): the sum of
+    ``components`` with the random ``phases`` (cycles). It is a function of the absolute instant:
+    evaluated at the nodes of a fixed grid (a 40th of the fastest component's period) and
+    interpolated linearly, so any segment of a record gets the same values as the whole."""
+    f, amp = components
+    keep = amp > 0
+    if not offsets.size or not keep.any():
+        return np.zeros(offsets.shape)
+    f, amp, phases = f[keep], amp[keep], phases[keep]
+    step = 1.0 / (40.0 * float(f.max()))
+    t0 = t0_ns * 1e-9
+    k0 = math.floor((t0 + float(offsets.min())) / step)
+    k1 = math.floor((t0 + float(offsets.max())) / step) + 1
+    nodes = np.arange(k0, k1 + 1, dtype=np.float64)
+    at = nodes * step
+    values = np.zeros(nodes.shape)
+    # one by one: a matrix product's rounding depends on its size
+    for fk, ak, pk in zip(f, amp, phases, strict=True):
+        values += ak * np.cos(2.0 * math.pi * np.mod(at * fk + pk, 1.0))
+    return np.interp((t0 + offsets) / step, nodes, values)
 
 
 def distortion(volts: np.ndarray, signal: Signal, hd: tuple[float, float], half: float) -> np.ndarray:
@@ -274,6 +338,9 @@ class AdcView:
     # the clock all channels share (#1579), s rms: drawn from a stream without the channel, so the
     # channels' instants move together and only ``aperture`` separates them
     clock: float = 0.0
+    # the shared clock's slow timing error (#1698): rows of (acquisition span s, rms jitter s), see
+    # ``clock_tie_components``; empty: the white ``clock`` alone
+    clock_tie: tuple[tuple[float, float], ...] = ()
     # the record's response the noise passes (#1446): a RESPONSES name and its cutoff, Hz; "": white
     noise_shape: str = ""
     noise_fc: float = 0.0
@@ -303,6 +370,13 @@ class AdcView:
         if self.clock > 0 and self.signal.freq.size:
             common = self.clock * gaussian(stream_key(self.seed, *shared_key(key), "clock"), indexes)
             shift = common if shift is None else shift + common
+        if self.clock_tie and self.signal.freq.size:
+            comps = clock_tie_components(self.clock_tie)
+            phases = uniform(stream_key(self.seed, *shared_key(key), "clock-tie"), np.arange(comps[0].size))
+            # relative to the anchor (the trigger instant): the jitter between two edges grows with
+            # their span; the drift itself, common to the anchor and the record, is not jitter
+            slow = clock_tie(comps, t0_ns, offsets, phases) - clock_tie(comps, t0_ns, np.zeros(1), phases)
+            shift = slow if shift is None else shift + slow
         if grid and skews is not None and np.any(skews) and self.signal.freq.size:
             per_sample = skews[sub_converter_of(t0_ns, offsets, self.native_dt, len(skews))]
             shift = per_sample if shift is None else shift + per_sample

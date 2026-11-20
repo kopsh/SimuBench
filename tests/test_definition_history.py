@@ -175,7 +175,11 @@ def test_a_specs_edit_names_the_places_that_still_run_the_old_value(tmp_path):
         2.5e-14,
         1.0e-14,
     )
-    assert change.still_old == ["/components/acq/params/trigger_jitter_s"]
+    # the 10 µs row of the intrinsic-jitter table (#1698) is the same data-sheet figure
+    assert sorted(change.still_old) == [
+        "/components/acq/params/trigger_jitter_s",
+        "/components/timebase/params/clock_tie_s/1/1",
+    ]
 
 
 def test_a_specs_edit_moves_the_places_that_refer_to_it(tmp_path):

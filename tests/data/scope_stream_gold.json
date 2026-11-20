@@ -1023,7 +1023,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "0bd3422405e157634b8cdda6ede743b99bbba4d9a4d13617129da3053c3aa4dc",
+   "digest": "09c6d0427fbcea54344b17dc10dcb7fcc0a69aea0b809076ed3733e1ca0b60e4",
    "ns": 0
   },
   {
@@ -1113,7 +1113,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "bd59598341ef2987c39ee052c6dd1f4660264a20e0c1b0e83c1a299855872cc8",
+   "digest": "5295e49144fb5464b001e4f0d2e5d727f00689628ee7f6352bd5fdf0bd15227b",
    "ns": 0
   },
   {
@@ -1137,7 +1137,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "d9cd308351d4cccb2e3a712b0ff4c567524868c31f1a2cac186d6adb960c8938",
+   "digest": "1f4611d118810be920491b6c5dc75745aad073c2c59d7644fb12efba90cffa91",
    "ns": 0
   },
   {
@@ -1148,7 +1148,7 @@
   },
   {
    "screen": "frame 1",
-   "digest": "072b086e4dfea2f3dfb5a3dfc7153dba0c4281e5f30549b43f8e43cf32966708",
+   "digest": "4cd81ce098df35b698f08055620209f327a44b1eb3a601f575cb2999569ca016",
    "triggered": 1
   }
  ],
