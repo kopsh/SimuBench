@@ -94,7 +94,7 @@ sections:
     note: 直流电流：输入并分流电阻进入电路求解，读 V/R（#301）；量程 100 µA–3 A。分流值是模型取值（数据表未给），10 A 端子未建模。
   - header: ':CONFigure:CURRent:AC'
     level: implemented
-    note: 交流电流（真有效值），同直流的分流（#301）。
+    note: 交流电流（真有效值），同直流的分流（#301）。高频响应与交流电压分开（#1279）：手册「effective AC current bandwidth is 10 kHz」，取二阶 −3 dB 于 10 kHz（滚降形状为估计），100 kHz 的电流读数远低于 1 kHz 的；交流电压仍是 1 MHz。
   - header: CONFigure:DIODe
     level: not_modeled
     note: 二极管测试未实现（另开 issue）。

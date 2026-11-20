@@ -200,7 +200,9 @@ class DmmConditioning(Component):
     DC (mean) and true-rms AC of the signal on its input; AC is the rms of the lines above
     ``ac_low`` Hz (the AC path's coupling), each weighted by the true-rms converter's high-frequency
     response when ``ac_high`` is given: a Butterworth magnitude ``1/√(1 + (f/ac_high)^(2·order))``
-    with its −3 dB point at ``ac_high`` Hz, so lines past the meter's bandwidth read low. The measurement path has a hidden gain error (ppm) and
+    with its −3 dB point at ``ac_high`` Hz, so lines past the meter's bandwidth read low; the ACI function
+    has its own point ``ac_high_current`` (current is measured through a shunt: far less bandwidth than
+    voltage, #1279). The measurement path has a hidden gain error (ppm) and
     offset (V), the instrument's own errors; the ADC's calibration coefficients correct them::
 
         raw     = true × (1 + gain_error_ppm·1e-6) + offset
@@ -224,6 +226,7 @@ class DmmConditioning(Component):
         "ac_low": 3.0,  # Hz above which lines count into the AC reading
         "ac_high": None,  # Hz, −3 dB point of the AC path's high-frequency roll-off (None: flat)
         "ac_high_order": 2,  # order of that roll-off (Butterworth magnitude)
+        "ac_high_current": None,  # Hz, the same −3 dB point for the ACI function (None: ``ac_high``)
         "function": "DC",  # DC | AC: what a command without one measures; what sample() reads
         "ranges": None,  # full-scale value of each range, per function ({DC: [...]}) or one list
         "range": None,  # manual range: a value the range must be able to measure (None, <= 0: auto)
@@ -247,15 +250,28 @@ class DmmConditioning(Component):
         """The function a measurement asks for, or the meter's own (DC when neither is given)."""
         return what or self.param("function") or "DC"
 
-    def true_values(self) -> dict[str, float]:
-        sig = self.input("in").merged()
+    def _ac_rms(self, sig: Signal, high: Any) -> float:
+        """The rms of the input through the AC path: lines below ``ac_low`` dropped, the rest rolled
+        off above ``high`` Hz (the −3 dB point; ``None`` is flat)."""
         keep = sig.freq >= float(self.param("ac_low"))
         ac = np.abs(sig.amp[keep])
-        high = self.param("ac_high")
         if high:
             order = float(self.param("ac_high_order"))
             ac = ac / np.sqrt(1.0 + (sig.freq[keep] / float(high)) ** (2.0 * order))
-        return {"DC": sig.mean(), "AC": math.sqrt(float(np.sum(ac**2)) / 2)}
+        return math.sqrt(float(np.sum(ac**2)) / 2)
+
+    def true_values(self) -> dict[str, float]:
+        sig = self.input("in").merged()
+        return {"DC": sig.mean(), "AC": self._ac_rms(sig, self.param("ac_high"))}
+
+    def true_value(self, function: str) -> float:
+        """What the input is worth to ``function``: its DC or AC value. The AC current function has
+        its own roll-off when ``ac_high_current`` is given (the current path's bandwidth is far
+        below the voltage path's, #1279)."""
+        high = self.param("ac_high_current")
+        if str(function).upper() == "ACI" and high:
+            return self._ac_rms(self.input("in").merged(), high)
+        return self.true_values()[self._kind(function)]
 
     @staticmethod
     def _kind(function: str) -> str:
@@ -265,7 +281,7 @@ class DmmConditioning(Component):
 
     def raw(self, what: str) -> float:
         """The uncorrected reading: the true value through the meter's own errors."""
-        true = self.true_values()[self._kind(what)]
+        true = self.true_value(what)
         function = self.active_function(what)
         r = self.effective_range(function)
         gained = true * (1 + self._hidden("gain_error_ppm", function, r) * 1e-6)
@@ -325,9 +341,7 @@ class DmmConditioning(Component):
             # with autorange off before any range was given still has to answer a real range.
         r = self._auto_range.get(function)
         if r is None and derive:
-            self._adopt_range(
-                function, self.fitting_range(function, abs(self.true_values()[self._kind(function)]))
-            )
+            self._adopt_range(function, self.fitting_range(function, abs(self.true_value(function))))
             r = self._auto_range[function]
         return r
 
@@ -470,7 +484,7 @@ class DmmAdc(Component):
             # settle the decision (each move re-solves the circuit with the new current, #301).
             for _ in range(len(conditioning.ranges(function)) + 1):
                 before = conditioning.effective_range(function, derive=False)
-                conditioning.autorange_to(function, conditioning.true_values()[conditioning._kind(function)])
+                conditioning.autorange_to(function, conditioning.true_value(function))
                 if conditioning.effective_range(function, derive=False) == before:
                     break
         return self.reading(function, index)
