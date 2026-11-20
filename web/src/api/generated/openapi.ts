@@ -2618,6 +2618,12 @@ export interface components {
         };
         /** ConfigureResponse */
         ConfigureResponse: {
+            /**
+             * Changed
+             * @description ok 时：状态确实变了。一个等值写入是 ok 但未 changed，不是失败也不必重试
+             * @default false
+             */
+            changed: boolean;
             error: components["schemas"]["ErrorItem"] | null;
             /** Ok */
             ok: boolean;
