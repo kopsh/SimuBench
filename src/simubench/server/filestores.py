@@ -9,7 +9,9 @@ kind and the path once and dispatches; the path is always the workspace-relative
 keeps, and the id mapping lives here. A kind the door does not know is the domain error
 :class:`Invalid`, never a silent fallback. ``resolve`` and the version history stay shared — they
 are keyed by the relative path for both kinds — with only the definition's history key re-derived
-here (:meth:`FileStores.history_rel`).
+here (:meth:`FileStores.history_rel`). The definition's change report has one caliber (D59): the
+definition side asks :meth:`DefinitionFiles.changes` — the layered comparison the tool replies and
+the version list already speak — instead of re-comparing the raw data.
 
 A changed definition carries one extra step its caller names at construction
 (``on_definition_changed`` — the assistant closes its scratch sessions for the id): it fires after
@@ -27,7 +29,6 @@ from ..contracts import api as M
 from ..library.workspace_layout import definition_rel_path
 from .benchchanges import bench_changes
 from .benchfiles import BenchFiles
-from .definitionchanges import definition_changes
 from .definitionfiles import DefinitionFiles
 from .errors import Invalid
 
@@ -45,7 +46,7 @@ class _Side(Protocol):
 
     def read(self, rel: str) -> M.BenchDocument | M.DefinitionDocument: ...
 
-    def changes(self, old: dict[str, Any], new: dict[str, Any]) -> list[M.DefinitionChange]: ...
+    def changes(self, rel: str, old: dict[str, Any], new: dict[str, Any]) -> list[M.DefinitionChange]: ...
 
     def history_rel(self, rel: str) -> str: ...
 
@@ -67,7 +68,7 @@ class _BenchSide:
     def read(self, rel: str) -> M.BenchDocument:
         return self._files.read(rel)
 
-    def changes(self, old: dict[str, Any], new: dict[str, Any]) -> list[M.DefinitionChange]:
+    def changes(self, rel: str, old: dict[str, Any], new: dict[str, Any]) -> list[M.DefinitionChange]:
         return bench_changes(old, new)
 
     def history_rel(self, rel: str) -> str:
@@ -107,8 +108,10 @@ class _DefinitionSide:
     def read(self, rel: str) -> M.DefinitionDocument:
         return self._definitions.read(self._id(rel))
 
-    def changes(self, old: dict[str, Any], new: dict[str, Any]) -> list[M.DefinitionChange]:
-        return definition_changes(old, new)
+    def changes(self, rel: str, old: dict[str, Any], new: dict[str, Any]) -> list[M.DefinitionChange]:
+        # The layered comparison (D59): the items describe the instrument each version runs, the
+        # same ones the tool reply and the version list carried — never a raw re-comparison here.
+        return self._definitions.changes(self._id(rel), old, new)
 
     def history_rel(self, rel: str) -> str:
         return definition_rel_path(self._id(rel))
@@ -156,10 +159,12 @@ class FileStores:
         return self._side(kind).read(rel)
 
     def changes(
-        self, kind: str, old: dict[str, Any] | None, new: dict[str, Any] | None
+        self, kind: str, rel: str, old: dict[str, Any] | None, new: dict[str, Any] | None
     ) -> list[M.DefinitionChange]:
-        """What turned ``old`` into ``new``, in the kind's own vocabulary."""
-        return self._side(kind).changes(old or {}, new or {})
+        """What turned ``old`` into ``new`` (both as stored), in the kind's own vocabulary. A
+        definition's items come from :meth:`DefinitionFiles.changes` — the layered comparison, the
+        one caliber a definition's changes are reported in; a bench's from ``bench_changes``."""
+        return self._side(kind).changes(rel, old or {}, new or {})
 
     def restore_order(self, kind: str) -> int:
         """The kind's rank in a rollback's restore order: benches first, then definitions."""

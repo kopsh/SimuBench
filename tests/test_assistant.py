@@ -26,7 +26,7 @@ from simubench.server.assistant import compaction
 from simubench.server.assistant.guard import LoopGuard, Stuck
 from simubench.server.assistant.service import AssistantService
 from simubench.server.assistant.store import Conversation, TurnFiles
-from simubench.server.assistant.tools import TOOLS, TurnContext, stop_session
+from simubench.server.assistant.tools import TOOLS, TurnContext, _change_text, stop_session
 from simubench.server.errors import Conflict
 from simubench.server.manager import SessionManager
 
@@ -822,6 +822,56 @@ async def test_templates_need_the_users_example_before_commands_change(manager):
     assert all(s.ok for s in t3.steps), [s.error for s in t3.steps]
     tried = last_tool_return(does.seen[-1], "try_definition")["results"][0]
     assert tried["command"] == "*IDN?" and tried["response"]
+
+
+async def test_a_definition_edit_summary_tells_the_tool_replys_story(manager):
+    """#1727: one caliber for a definition's changes. The edit lands on a copy that only extends
+    its parent and overrides one inherited default: raw, the file grew a state key; layered, the
+    default it runs changed (D59). The tool reply reads the layered items from DefinitionFiles —
+    the panel's turn summary used to re-compare the raw data through the facade and say "added"
+    for the same edit."""
+    rel = "instruments/my-siglent-sdg2042x.yaml"
+
+    def do(m):
+        return [
+            (
+                "edit_definition",
+                {
+                    "definition_id": "my-siglent-sdg2042x",
+                    "base_sha256": last_tool_return(m, "read_definition")["sha256"],
+                    "patch": [
+                        {"op": "add", "path": "/channel_state", "value": {}},
+                        {"op": "add", "path": "/channel_state/frequency", "value": {"default": 5.0e6}},
+                    ],
+                },
+            )
+        ]
+
+    llm = ScriptedLLM(
+        [("read_definition", {"definition_id": "my-siglent-sdg2042x"})],
+        do,
+        "默认频率改成 5 MHz。",
+    )
+    service = service_with(manager, llm)
+    service.definitions.copy_of("siglent-sdg2042x")  # the user's own copy, made before the turn
+    t = await turn(service, "把我的模板的默认频率改成 5 MHz")
+    assert t.status == "done", t.stop_reason
+
+    reply = last_tool_return(llm.seen[-1], "edit_definition")
+    (summary,) = t.files
+    assert summary.path == rel and not summary.created
+    assert summary.changes  # the overridden default reads as the one change, not silence
+    # the same items, in the same order, in the same words: the panel and the model agree
+    assert [_change_text(c) for c in summary.changes] == reply["changes"]
+    (item,) = summary.changes
+    assert (item.kind, item.action, item.target, item.detail, item.old, item.new) == (
+        "state",
+        "changed",
+        "ch<n>.frequency",
+        "default",
+        1000.0,
+        5.0e6,
+    )
 
 
 def test_a_summary_kind_missing_from_the_record_is_refused(manager):

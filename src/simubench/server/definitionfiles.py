@@ -130,7 +130,7 @@ class DefinitionFiles:
             target="definition",
             previous_fingerprint=previous_fingerprint,
         )
-        changes = self._changes(def_id, previous_data[0] if previous_data else {}, data)
+        changes = self.changes(def_id, previous_data[0] if previous_data else {}, data)
         return self._document(def_id, rel, True, raw, data, changes=changes)
 
     def versions(self, def_id: str) -> list[M.DefinitionVersion]:
@@ -148,7 +148,7 @@ class DefinitionFiles:
                     sha256=v.sha256,
                     source=v.source,
                     saved_at=v.saved_at,
-                    changes=self._changes(def_id, older, data),
+                    changes=self.changes(def_id, older, data),
                 )
             )
         return out
@@ -271,17 +271,23 @@ class DefinitionFiles:
         rel = self.rel_path(def_id)
         older = _parse(self.files.history.content(rel, base)) if base > 0 else {}
         newer = _parse(self.files.history.content(rel, target))
-        return M.DefinitionChangeList(base=base, target=target, changes=self._changes(def_id, older, newer))
+        return M.DefinitionChangeList(base=base, target=target, changes=self.changes(def_id, older, newer))
 
-    def _changes(self, def_id: str, older: dict[str, Any], newer: dict[str, Any]) -> list[M.DefinitionChange]:
-        """What a version changed, in terms of the instrument it runs: both versions are compared
-        after layering (``extends`` and the category default merged in, ``same_as`` resolved —
-        the layering ends with it, D59, D82), so a copy's file growing from three lines to a whole
-        command table reads as the one command it added, an inherited value overridden reads as
-        old → new rather than as an added key, and a place that follows a spec with ``same_as``
-        shows the change in the value it stands for, not in the alias. A copy's first version is
-        compared with its parent: it changes nothing yet, apart from being based on it. Layering
-        uses the parent as it is now; each layer's parse comes from the loader's mtime cache."""
+    def changes(self, def_id: str, older: dict[str, Any], newer: dict[str, Any]) -> list[M.DefinitionChange]:
+        """What turned ``older`` into ``newer`` (both as stored, raw parsed file data), in terms of
+        the instrument each version runs: both are compared after layering (``extends`` and the
+        category default merged in, ``same_as`` resolved — the layering ends with it, D59, D82), so
+        a copy's file growing from three lines to a whole command table reads as the one command it
+        added, an inherited value overridden reads as old → new rather than as an added key, and a
+        place that follows a spec with ``same_as`` shows the change in the value it stands for, not
+        in the alias. A copy's first version is compared with its parent: it changes nothing yet,
+        apart from being based on it. Layering uses the parent as it is now; each layer's parse
+        comes from the loader's mtime cache.
+
+        The one caliber for definition changes (D59's contract in ``definitionchanges.py``): the
+        tool replies, the version list, ``changes_between`` and — through the
+        :class:`~simubench.server.filestores.FileStores` facade — the assistant's turn summaries
+        all read their items here; ``definition_changes`` has no other direct caller."""
         source = self.files.workspace / self.rel_path(def_id)
 
         def runs(data: dict[str, Any]) -> dict[str, Any]:
