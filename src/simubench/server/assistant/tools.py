@@ -38,7 +38,7 @@ from ..errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
 from ..manager import ServedSession
 from ..mytemplates import save_as_template
 from ..projections import definition_spec, instrument_state, run_cases_file, session_summary, try_commands
-from .guard import LoopGuard, Stuck
+from .guard import LoopGuard
 from .store import Conversation, TurnFiles
 
 if TYPE_CHECKING:
@@ -137,15 +137,16 @@ def _step_args(args: Any) -> Any:
 
 
 def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step | None = None) -> Any:
-    """Run one tool body: the outcome goes to the loop guard and the step; an expected failure
-    becomes ``{"error": ...}`` for the model to act on (no retry budget, no turn limit)."""
+    """Run one tool body — the one wrapper protocol (#1734), for a sync body here and an awaited
+    one through :func:`_call_async`: the step opens and the model's arguments are stamped on it
+    (#1679); an expected domain error becomes ``{"error": ...}`` for the model to act on (no
+    retry budget, no turn limit) and the guard counts the call; the step closes with the outcome.
+    A bug (any other error) surfaces as itself, and the guard's own ``Stuck`` — raised after the
+    body ran — is never caught here."""
     step = step or _Step(ctx, tool, None)
     step.stamp(_step_args(args))  # what the model actually sent, on the step record (#1679)
     try:
         result = fn()
-    except Stuck:
-        step.done(False)
-        raise
     except _EXPECTED as exc:
         text = _error_text(exc)
         step.done(False, text)
@@ -156,18 +157,23 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
     return result
 
 
-async def _call_async(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step) -> Any:
-    step.stamp(_step_args(args))  # as _call's (#1679)
+async def _call_async(
+    ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step | None = None
+) -> Any:
+    """An awaited body through the one protocol (:func:`_call`, #1734): awaiting is the only
+    difference from a sync tool, so the outcome — the result, or a caught error handed over for
+    the protocol to judge — goes through _call once."""
     try:
-        result = await fn()
-    except _EXPECTED as exc:
-        text = _error_text(exc)
-        step.done(False, text)
-        ctx.guard.record(tool, args, False, text)
-        return {"error": text}
-    step.done(True)
-    ctx.guard.record(tool, args, True, result)
-    return result
+        outcome: Any = await fn()
+    except Exception as exc:  # the protocol below decides what a domain error becomes
+        outcome = exc
+
+    def run() -> Any:
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    return _call(ctx, tool, args, run, step)
 
 
 def _bench(ctx: TurnContext, path: str | None) -> str:
@@ -246,6 +252,22 @@ def _quotes_user(ctx: TurnContext, example: str | None) -> bool:
 # ---- the tools -----------------------------------------------------------------------------------
 
 
+def observes(fn: Any) -> Any:
+    """Mark, on the tool itself, that a call of it only looks (#1734): no bench, file or session
+    changes, so the loop guard does not count it as progress. The guard consumes the declaration
+    (:mod:`guard`, one completeness check over ``TOOLS``); the counterpart is :func:`changes`."""
+    fn.observes = True
+    return fn
+
+
+def changes(fn: Any) -> Any:
+    """Mark, on the tool itself, that a call of it may change something — a write, a live setting,
+    a start or a stop, or the turn's own state: the guard counts such calls as progress."""
+    fn.observes = False
+    return fn
+
+
+@observes
 def list_catalog(ctx: RunContext[TurnContext], query: str | None = None) -> dict[str, Any]:
     """Instrument models (id, class, manufacturer, model, channels, ports) and part types that can
     be placed on a bench; `query` filters by words in id, maker, model, class or description.
@@ -284,6 +306,7 @@ def list_catalog(ctx: RunContext[TurnContext], query: str | None = None) -> dict
     return _call(t, "list_catalog", {"query": query}, run, _Step(t, "list_catalog", query))
 
 
+@observes
 def get_definition(ctx: RunContext[TurnContext], definition_id: str) -> dict[str, Any]:
     """One model: its settings (path, type, unit, range, options, default), ports and the headers
     of its SCPI commands. Use the setting paths with set_state (ch<n>.<name> for channel settings)."""
@@ -308,6 +331,7 @@ def get_definition(ctx: RunContext[TurnContext], definition_id: str) -> dict[str
     return _call(t, "get_definition", {"id": definition_id}, run, _Step(t, "get_definition", definition_id))
 
 
+@observes
 def list_benches(ctx: RunContext[TurnContext]) -> list[dict[str, Any]]:
     """Bench files in the workspace (path, name, number of instruments)."""
     t = ctx.deps
@@ -316,6 +340,7 @@ def list_benches(ctx: RunContext[TurnContext]) -> list[dict[str, Any]]:
     )
 
 
+@observes
 def read_bench(ctx: RunContext[TurnContext], path: str | None = None) -> dict[str, Any]:
     """A bench's content, its sha256 (pass it to edit_bench), its diagnostics and whether it is
     running. Without `path`: the bench this conversation belongs to."""
@@ -329,6 +354,7 @@ def read_bench(ctx: RunContext[TurnContext], path: str | None = None) -> dict[st
     return _call(t, "read_bench", {"path": bench}, run, _Step(t, "read_bench", bench))  # type: ignore[no-any-return]
 
 
+@changes
 def create_bench(
     ctx: RunContext[TurnContext],
     path: Annotated[str, Field(description="Workspace-relative, ending in .bench.yaml")],
@@ -348,6 +374,7 @@ def create_bench(
     return _call(t, "create_bench", {"path": path}, run, _Step(t, "create_bench", path))  # type: ignore[no-any-return]
 
 
+@changes
 def copy_bench(
     ctx: RunContext[TurnContext],
     path: str | None = Field(None, description="The bench to copy; default: this conversation's bench"),
@@ -369,6 +396,7 @@ def copy_bench(
     return _call(t, "copy_bench", {"path": source, "new": new_path}, run, _Step(t, "copy_bench", source))  # type: ignore[no-any-return]
 
 
+@changes
 def edit_bench(ctx: RunContext[TurnContext], req: T.AssistantBenchEdit) -> dict[str, Any]:
     """Change a bench: add and remove instruments and parts, connect and disconnect ports, set initial
     settings and part parameters. An address already used by another instrument is replaced by a
@@ -417,6 +445,7 @@ def _change_text(c: M.DefinitionChange) -> str:
     return f"{c.action} {c.kind} {c.target}{detail}: {c.old!r} → {c.new!r}"
 
 
+@observes
 def validate_bench(ctx: RunContext[TurnContext], path: str | None = None) -> dict[str, Any]:
     """Check a bench: errors and warnings with where they are and how to fix them."""
     t = ctx.deps
@@ -430,6 +459,7 @@ def validate_bench(ctx: RunContext[TurnContext], path: str | None = None) -> dic
     )
 
 
+@changes
 async def start_session(ctx: RunContext[TurnContext], path: str | None = None) -> dict[str, Any]:
     """Start the bench (it replaces the bench that runs now): the instruments answer SCPI at the
     returned resource addresses (and the SCPI socket), and the user watches it in the Web Bench.
@@ -445,6 +475,7 @@ async def start_session(ctx: RunContext[TurnContext], path: str | None = None) -
     return await _call_async(t, "start_session", {"path": bench}, run, step)  # type: ignore[no-any-return]
 
 
+@changes
 def ask_to_stop_session(
     ctx: RunContext[TurnContext],
     reason: Annotated[str, Field(description="Why the bench has to stop, for the user")],
@@ -467,6 +498,7 @@ def ask_to_stop_session(
     return _call(t, "ask_to_stop_session", {"reason": reason}, run, _Step(t, "ask_to_stop_session", None))  # type: ignore[no-any-return]
 
 
+@changes
 async def stop_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
     """Stop this conversation's running bench — only in the turn right after ask_to_stop_session,
     when the user agreed with the panel's button."""
@@ -496,6 +528,7 @@ async def stop_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
     return await _call_async(t, "stop_session", {}, run, step)  # type: ignore[no-any-return]
 
 
+@observes
 def describe_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
     """The running session of this bench: session id, clock, each instrument's model and the
     addresses it answers at, and the wires."""
@@ -515,6 +548,7 @@ def describe_session(ctx: RunContext[TurnContext]) -> dict[str, Any]:
     return _call(t, "describe_session", {}, run, _Step(t, "describe_session", None))  # type: ignore[no-any-return]
 
 
+@observes
 def get_instrument_state(ctx: RunContext[TurnContext], instrument: str) -> dict[str, Any]:
     """The current settings and error queue of an instrument of the running bench."""
     t = ctx.deps
@@ -530,6 +564,7 @@ def get_instrument_state(ctx: RunContext[TurnContext], instrument: str) -> dict[
     )  # type: ignore[no-any-return]
 
 
+@changes
 def set_live_setting(ctx: RunContext[TurnContext], instrument: str, path: str, value: Any) -> dict[str, Any]:
     """Change one setting of an instrument of the running bench, as on its front panel: it takes
     effect now and does not touch the bench file. When the user also wants the value kept for the
@@ -575,6 +610,7 @@ def set_live_setting(ctx: RunContext[TurnContext], instrument: str, path: str, v
     )  # type: ignore[no-any-return]
 
 
+@observes
 def read_definition(ctx: RunContext[TurnContext], definition_id: str) -> dict[str, Any]:
     """A definition file as stored: data, sha256 (for edit_definition), diagnostics, and whether it
     can be edited (only the user's own, in the workspace)."""
@@ -593,6 +629,7 @@ def read_definition(ctx: RunContext[TurnContext], definition_id: str) -> dict[st
     return _call(t, "read_definition", {"id": definition_id}, run, _Step(t, "read_definition", definition_id))  # type: ignore[no-any-return]
 
 
+@changes
 def save_template(
     ctx: RunContext[TurnContext],
     instrument: Annotated[str, Field(description="The instrument of this bench to save")],
@@ -623,6 +660,7 @@ def save_template(
     return _call(t, "save_template", {"i": instrument, "n": name}, run, _Step(t, "save_template", name))  # type: ignore[no-any-return]
 
 
+@changes
 def edit_definition(
     ctx: RunContext[TurnContext],
     definition_id: str,
@@ -667,6 +705,7 @@ def edit_definition(
     )  # type: ignore[no-any-return]
 
 
+@observes
 def validate_definition(ctx: RunContext[TurnContext], definition_id: str) -> dict[str, Any]:
     """Static checks of a definition (schema, settings, components, commands)."""
     t = ctx.deps
@@ -680,6 +719,7 @@ def validate_definition(ctx: RunContext[TurnContext], definition_id: str) -> dic
     )  # type: ignore[no-any-return]
 
 
+@observes
 async def try_definition(ctx: RunContext[TurnContext], req: T.AssistantTryDefinition) -> dict[str, Any]:
     """Send commands to a model's instrument alone, without a bench (a scratch session): each
     command's reply and the errors it caused. Use it after edit_definition to show the user what
@@ -694,6 +734,7 @@ async def try_definition(ctx: RunContext[TurnContext], req: T.AssistantTryDefini
     return await _call_async(t, "try_definition", req, run, step)  # type: ignore[no-any-return]
 
 
+@observes
 def run_cases(ctx: RunContext[TurnContext], req: T.RunCases) -> dict[str, Any]:
     """Run a cases file (commands and expected replies), each case on a fresh instrument: a
     workspace path, or a built-in model's manual cases (builtin:<folder>/cases.yaml); with model,

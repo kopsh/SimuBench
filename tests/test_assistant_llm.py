@@ -10,6 +10,7 @@ import logging
 import os
 import stat
 import sys
+from dataclasses import dataclass
 
 import httpx2
 import pytest
@@ -21,7 +22,7 @@ from helpers import raises_with
 from simubench.contracts import api as M
 from simubench.paths import user_data_dir
 from simubench.server.app import create_app
-from simubench.server.assistant.config import AssistantSettings, ConfigError, check_base_url
+from simubench.server.assistant.config import AssistantSettings, ConfigError, LlmSettings, check_base_url
 from simubench.server.assistant.llm import build_model, check_connection
 from simubench.server.assistant.service import AssistantService
 from simubench.server.manager import SessionManager
@@ -210,6 +211,50 @@ def test_settings_come_from_the_server_and_the_page_overrides_them(tmp_path):
     assert s.update(M.AssistantConfigUpdate(timeout_s=5)).api_key_set  # a key left out is kept
     assert not s.update(M.AssistantConfigUpdate(api_key="")).api_key_set
     assert s.update(M.AssistantConfigUpdate(reset=True)).model == "env-model"
+
+
+def test_a_bad_value_is_a_worded_config_error(tmp_path):
+    """#1734: a value that does not fit its field's type raises ConfigError naming the setting —
+    not a bare ValueError, which no table row maps, so a plain GET turned it into a 500."""
+    for env in ({"SIMUBENCH_LLM_TIMEOUT": "abc"}, {"SIMUBENCH_LLM_CONTEXT_TOKENS": "3.5"}):
+        with raises_with(ConfigError, next(iter(env))):
+            AssistantSettings(tmp_path, env).current()
+    (tmp_path / ".simubench").mkdir()
+    (tmp_path / ".simubench" / "settings.json").write_text(
+        json.dumps({"assistant": {"timeout_s": {"seconds": 5}}}), encoding="utf-8"
+    )
+    with raises_with(ConfigError, "SIMUBENCH_LLM_TIMEOUT"):
+        AssistantSettings(tmp_path, {}).current()
+
+
+def test_a_bad_env_value_answers_422_in_words(client, manager):
+    """GET /api/assistant/conversation reads the settings: a bad environment value is the one
+    table's ConfigError row (422, the words), not a 500."""
+    manager.assistant.settings = AssistantSettings(manager.workspace, {"SIMUBENCH_LLM_TIMEOUT": "abc"})
+    refused = client.get("/api/assistant/conversation", params={"bench": BENCH})
+    assert refused.status_code == 422 and "SIMUBENCH_LLM_TIMEOUT" in refused.text and "abc" in refused.text
+
+
+def test_a_new_field_only_touches_the_dataclass(monkeypatch, tmp_path):
+    """#1734: the value conversion and the key lists update() and view() walk derive from the
+    dataclass's own fields — a new field goes through the whole flow with no per-key edit."""
+
+    @dataclass(frozen=True)
+    class Extended(LlmSettings):
+        max_turns: int = 4
+
+    (tmp_path / ".simubench").mkdir()
+    (tmp_path / ".simubench" / "settings.json").write_text(
+        json.dumps({"assistant": {"max_turns": "6"}}), encoding="utf-8"
+    )
+    monkeypatch.setattr("simubench.server.assistant.config.LlmSettings", Extended)
+    s = AssistantSettings(tmp_path, {})
+    current = s.current()
+    assert current.max_turns == 6 and isinstance(current.max_turns, int)
+    view = s.view()  # a field the page does not show yet does not break the view
+    assert "max_turns" not in view.model_dump() and view.configured is False
+    saved = s.update(M.AssistantConfigUpdate(model="m", base_url="http://llm.internal/v1"))
+    assert saved.model == "m" and s.current().max_turns == 6
 
 
 def test_the_address_is_http_and_never_simubench_itself(tmp_path):

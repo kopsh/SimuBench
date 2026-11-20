@@ -1,0 +1,11 @@
+## 助手工具面小件桶：包装协议合一、设置 schema 单源、READ_ONLY 自声明（Issue 1734）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 包装协议单源（部件 1）：step 建档→记模型实参→领域错误转 `{"error": text}`→护栏计数→step 收尾只在 `tools.py` 的 `_call` 一处；`_call_async` 只做 await、把结果（或捕获的待判错误）交给 `_call` 走一遍协议；sync 版接不住任何东西的 `except Stuck` 死分支删除（`Stuck` 唯一抛点是 `LoopGuard.record`，在体执行之后）；20 个工具体不动 | `grep -c "_EXPECTED" src/simubench/server/assistant/tools.py`：`except _EXPECTED` 只出现一次；`grep -n Stuck` tools.py 无命中；`pytest tests/test_services.py::test_a_bare_key_or_value_error_is_a_bug_not_a_domain_error`（sync 路径原样）与新增 `test_an_awaited_body_runs_through_the_same_protocol`（awaited 路径：成功、领域错误、bug 原样上抛各一条） |
+| 设置 schema 单源（部件 2）：`config.py` 的转换与 `update()`/`view()` 键列表从 `fields(LlmSettings)` 与字段自身类型推导（`_schema` 按类缓存、`_overridable` 去掉 api_key），per-key if-chain 与手写键列表消失；坏值抛 `ConfigError` 人话（点名设置与收到的值），经 server errors 表映射 422 | `pytest tests/test_assistant_llm.py::test_settings_come_from_the_server_and_the_page_overrides_them`（原样存活：文件/env/页面三来源、覆写清单、权限位）、新增 `test_a_bad_value_is_a_worded_config_error`（env 与 settings.json 坏值：float/int/非标量）、`test_a_bad_env_value_answers_422_in_words`（GET conversation 422 带人话，不再 500）、`test_a_new_field_only_touches_the_dataclass`（假字段 `max_turns` 只动 dataclass 即走通 current/view/update 全流程）；`_coerce` 中无 `if key ==` 分支 |
+| READ_ONLY 自声明（部件 3）：每个工具定义处一行 `@observes`/`@changes`（11 观察与原集合逐名相同、9 改动），guard.py 手抄的 11 名 `READ_ONLY` 集合消失，`_observed()` 消费声明并在建 guard 时断言「每个工具都声明过」，漏登记即响 | `pytest tests/test_assistant.py::test_the_loop_guard_stops_repeats_that_hide_behind_lookups`（护栏真值表原样存活）与新增 `test_a_tool_without_a_declaration_is_a_loud_failure`（漏登记的函数进 `TOOLS` 后构造 `LoopGuard` 即 AssertionError 点名）；`grep -n READ_ONLY src/` 无命中 |
+| 现有工具/护栏/设置测试原样存活；不写新 D（三件均为收口既有纪律，无跨特性的可逆选择） | `pytest tests/test_assistant.py tests/test_assistant_llm.py tests/test_services.py tests/test_assistant_rollback.py` 全绿；决策条目数不变 |
+| check.sh 绿 | `scripts/check.sh` 退出码 0（`test_select_tests.py::test_shared_code_runs_everything` 因本机并行负载偶发超 CPU 预算，为存量 #1716，单跑即绿，本 PR 不修） |
+
+发现未修（不在本 issue 范围）：`routes/assistant.py` 的 `get_config` 未走 `bench_errors` 缝，`GET /api/assistant/config` 上的域错误仍按兜底 500——部件 2 的 422 断言落在已走缝的 `GET /api/assistant/conversation` 上；坏值时页面首屏取配置那条路是否也进一张表，值得单独开一条。

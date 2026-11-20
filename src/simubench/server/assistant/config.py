@@ -10,6 +10,12 @@ or diagnostics bundle carries it; :class:`AssistantConfig` reports ``api_key_set
 The address must be ``http`` or ``https`` and may be a private network address (a private
 deployment lives there), but it may not point back at this SimuBench service's own ports (Web,
 SCPI, HiSLIP, VXI-11, the bench link): the request is the server's, and it would talk to itself.
+
+The settings' schema is the dataclass alone (#1734): how an environment or file value is converted,
+and the key lists ``update()`` walks and ``view()`` shows, derive from ``fields(LlmSettings)`` and
+the fields' own types. A new setting is one dataclass row — plus an ``ENV`` name when the
+environment should set it, a contract field when the page should show it. A value that does not
+fit its field's type raises :class:`ConfigError` in words, not a bare ``ValueError``.
 """
 
 from __future__ import annotations
@@ -20,9 +26,12 @@ import json
 import logging
 import os
 import stat
+from collections.abc import Callable
 from dataclasses import dataclass, field, fields, replace
+from functools import cache
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from types import UnionType
+from typing import TYPE_CHECKING, Any, get_args, get_origin, get_type_hints
 from urllib.parse import urlsplit
 
 from ...contracts import api as M
@@ -49,8 +58,8 @@ SCPI_SPAN = 64
 
 logger = logging.getLogger(__name__)
 
-# ConfigError is the server's (``errors.py``, #1725) and is re-exported here: the settings and
-# ``llm.py`` raise it beside where it is described.
+# ConfigError is the server's (``errors.py``, #1725) and is re-exported here: the settings, their
+# value conversion (#1734) and ``llm.py`` raise it beside where it is described.
 
 
 @dataclass(frozen=True)
@@ -73,21 +82,47 @@ class LlmSettings:
         )
 
 
-_FIELDS = {f.name for f in fields(LlmSettings)}
+#: Conversion by field type: the two numeric kinds convert, every other field is text. There is
+#: no bool field today — a future one joins this table instead of silently becoming text (#1734).
+_CONVERT = {float: float, int: int}
+_WANTED = {float: "数字", int: "整数"}
+
+
+def _plain(hint: Any) -> Any:
+    """The type behind an ``X | None`` annotation."""
+    if get_origin(hint) is UnionType:
+        args = [a for a in get_args(hint) if a is not type(None)]
+        if len(args) == 1:
+            return args[0]
+    return hint
+
+
+@cache
+def _schema(cls: type[LlmSettings]) -> dict[str, Callable[[Any], Any]]:
+    """One converter per field, from the field's own type (#1734): the settings' schema is the
+    dataclass alone, so a new setting needs no per-key edit anywhere."""
+    hints = get_type_hints(cls)
+    return {f.name: _CONVERT.get(_plain(hints[f.name]), str) for f in fields(cls)}
+
+
+def _overridable() -> tuple[str, ...]:
+    """The fields ``update()`` walks and ``view()`` shows: every field but the key — update()
+    handles the key itself (an empty string removes it), view() reports only ``api_key_set``."""
+    return tuple(name for name in _schema(LlmSettings) if name != "api_key")
 
 
 def _coerce(values: dict[str, Any]) -> dict[str, Any]:
     out: dict[str, Any] = {}
+    convert = _schema(LlmSettings)
     for key, value in values.items():
-        if key not in _FIELDS or value in (None, ""):
+        if key not in convert or value in (None, ""):
             continue
-        if key == "timeout_s":
-            value = float(value)
-        elif key == "context_tokens":
-            value = int(value)
-        else:
-            value = str(value)
-        out[key] = value
+        to = convert[key]
+        try:
+            out[key] = to(value)
+        except (TypeError, ValueError):
+            wanted = _WANTED.get(to, "文本")
+            raise ConfigError(f"{ENV.get(key, key)} 应该是{wanted}，收到 {value!r}") from None
     return out
 
 
@@ -128,12 +163,14 @@ class AssistantSettings:
 
     def view(self) -> M.AssistantConfig:
         s = self.current()
+        shown: dict[str, Any] = {}
+        for key in _overridable():
+            value = getattr(s, key)
+            if key == "protocol":  # an unknown value falls back to the default protocol
+                value = value if value in ("openai", "anthropic") else "openai"
+            shown[key] = value
         return M.AssistantConfig(
-            protocol=s.protocol if s.protocol in ("openai", "anthropic") else "openai",  # type: ignore[arg-type]
-            base_url=s.base_url,
-            model=s.model,
-            timeout_s=s.timeout_s,
-            context_tokens=s.context_tokens,
+            **shown,
             api_key_set=bool(s.api_key),
             configured=s.configured,
             overridden=sorted(self.overrides()),
@@ -143,8 +180,8 @@ class AssistantSettings:
         self, req: M.AssistantConfigUpdate, manager: SessionManager | None = None
     ) -> M.AssistantConfig:
         current = {} if req.reset else self.overrides()
-        for key in ("protocol", "base_url", "model", "timeout_s", "context_tokens"):
-            value = getattr(req, key)
+        for key in _overridable():  # a field the update model does not carry stays as it is
+            value = getattr(req, key, None)
             if value is not None:
                 current[key] = value.strip() if isinstance(value, str) else value
                 if current[key] == "":
