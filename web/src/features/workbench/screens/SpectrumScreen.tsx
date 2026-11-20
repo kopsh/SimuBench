@@ -10,10 +10,11 @@ import { isLive, liveRequest } from "../clockControl";
 
 import { Button } from "@/components/ui/button";
 import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
-import { cssVar, decimate, resolveColor } from "@/lib/canvas";
-import { prefersReducedMotion, sweepDurationMs, sweepProgress } from "@/lib/motion";
+import { cssVar, resolveColor } from "@/lib/canvas";
+import { prefersReducedMotion, sweepDurationMs } from "@/lib/motion";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
+import { clampY, mountPlot, plotSeries, type PlotLine, type PlotPaint } from "./PlotCanvas";
 import { useCountOnScreen } from "../onScreen";
 import { StateField } from "../StateField";
 import { ScreenIdentity } from "./parts";
@@ -312,30 +313,9 @@ function SpectrumCanvas({
       shown.current = values;
     }
     const old = previous.current;
-    const started = performance.now();
-    const duration = sweepDurationMs(sweepTime);
-    let raf = 0;
-    const draw = (progress = 1) => {
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (!w || !h) return;
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      const ctx = canvas.getContext("2d")!;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = cssVar(canvas, "--plot-bg", "#15171c");
-      ctx.fillRect(0, 0, w, h);
-      ctx.strokeStyle = cssVar(canvas, "--plot-grid", "#333");
-      ctx.lineWidth = 1;
-      ctx.setLineDash([1, 3]);
-      for (let i = 1; i < DIVS; i++) {
-        hline(ctx, 0, (i * h) / DIVS, w);
-        vline(ctx, (i * w) / DIVS, 0, h);
-      }
-      ctx.setLineDash([]);
-      ctx.strokeStyle = cssVar(canvas, "--plot-axis", "#555");
-      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
+    // The analyzer's own drawing over the shared frame (its dashed divisions and edges are behind
+    // this): the dB numbers, this sweep and the one before it, the sweep line and the marker.
+    const paint: PlotPaint = (ctx, w, h, progress) => {
       ctx.fillStyle = cssVar(canvas, "--plot-text", "#bbb");
       ctx.font = "10px var(--font-mono, monospace)";
       // Every other line is labelled; the top one, the reference level, carries the unit (#1222).
@@ -343,7 +323,6 @@ function SpectrumCanvas({
         ctx.fillText(`${(refLevel - i * DB_PER_DIV).toFixed(0)}${i === 0 ? " dBm" : ""}`, 4, Math.max(10, (i * h) / DIVS - 3));
 
       const yOf = (db: number) => ((refLevel - db) / (DIVS * DB_PER_DIV)) * h;
-      const clamp = (y: number) => Math.max(1, Math.min(h - 1, y));
       const color = resolveColor(canvas, channelColor(1));
       const stroke = (vals: number[], from: number, to: number, alpha: number) => {
         const n = vals.length;
@@ -355,21 +334,7 @@ function SpectrumCanvas({
         ctx.globalAlpha = alpha;
         ctx.strokeStyle = color;
         ctx.lineWidth = 1.25;
-        ctx.beginPath();
-        if (n <= w * 2) {
-          for (let i = 0; i < n; i++) {
-            const x = (i / (n - 1)) * w;
-            if (i) ctx.lineTo(x, clamp(yOf(vals[i])));
-            else ctx.moveTo(x, clamp(yOf(vals[i])));
-          }
-        } else {
-          const { lo, hi } = decimate(vals, w);
-          for (let px = 0; px < w; px++) {
-            ctx.moveTo(px, clamp(yOf(hi[px])));
-            ctx.lineTo(px, clamp(yOf(lo[px])) + 0.5);
-          }
-        }
-        ctx.stroke();
+        plotSeries(ctx, vals, { xOf: (i) => (i / (n - 1)) * w, yOf, w, h });
         ctx.restore();
       };
       const sweepX = progress * w;
@@ -378,12 +343,12 @@ function SpectrumCanvas({
         stroke(old, sweepX, w, 0.55); // the previous sweep, still ahead of the line
         ctx.strokeStyle = cssVar(canvas, "--plot-text", "#bbb");
         ctx.globalAlpha = 0.5;
-        vline(ctx, sweepX, 0, h);
+        axisLine(ctx, sweepX, 0, sweepX, h);
         ctx.globalAlpha = 1;
       }
       if (stop > start) {
         const x = ((marker.x - start) / (stop - start)) * w;
-        const y = clamp(yOf(marker.y));
+        const y = clampY(yOf(marker.y), h);
         ctx.fillStyle = cssVar(canvas, "--primary", "#4af");
         ctx.beginPath();
         ctx.moveTo(x, y - 9);
@@ -394,34 +359,28 @@ function SpectrumCanvas({
         ctx.fill();
       }
     };
-    if (motion && old.length > 1) {
-      const step = () => {
-        const p = sweepProgress(performance.now() - started, duration);
-        draw(p);
-        if (p < 1) raf = requestAnimationFrame(step);
-      };
-      step();
-    } else draw();
-    const ro = new ResizeObserver(() => draw());
-    ro.observe(canvas);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
+    return mountPlot(canvas, paint, {
+      divH: DIVS,
+      divV: DIVS,
+      line: axisLine,
+      animate: motion,
+      run: old.length > 1,
+      durationMs: sweepDurationMs(sweepTime),
+    });
   }, [values, refLevel, start, stop, marker.x, marker.y, sweepTime, live]);
   return <canvas ref={ref} className={className} role="img" aria-label="spectrum" />;
 }
 
-function hline(ctx: CanvasRenderingContext2D, x: number, y: number, w: number) {
+/** The spectrum's graticule rasterizer: rounded across the line, raw along it — the waveform's
+ * rounds both endpoints, half a pixel of dash phase apart (see ``PlotLine``). */
+const axisLine: PlotLine = (ctx, x0, y0, x1, y1) => {
   ctx.beginPath();
-  ctx.moveTo(x, Math.round(y) + 0.5);
-  ctx.lineTo(x + w, Math.round(y) + 0.5);
+  if (y0 === y1) {
+    ctx.moveTo(x0, Math.round(y0) + 0.5);
+    ctx.lineTo(x1, Math.round(y0) + 0.5);
+  } else {
+    ctx.moveTo(Math.round(x0) + 0.5, y0);
+    ctx.lineTo(Math.round(x0) + 0.5, y1);
+  }
   ctx.stroke();
-}
-
-function vline(ctx: CanvasRenderingContext2D, x: number, y: number, h: number) {
-  ctx.beginPath();
-  ctx.moveTo(Math.round(x) + 0.5, y);
-  ctx.lineTo(Math.round(x) + 0.5, y + h);
-  ctx.stroke();
-}
+};
