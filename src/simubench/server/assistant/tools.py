@@ -126,13 +126,23 @@ class _Step:
             )
 
 
+def _step_args(args: Any) -> Any:
+    """The step record's ``args``: a dict as it came; anything else in dict form -- a request
+    model dumps itself (edit_bench passes one; the field is declared ``dict | None``), a scalar
+    stands for itself (#1679)."""
+    if isinstance(args, dict):
+        return args
+    dump = getattr(args, "model_dump", None)
+    return jsonable(dump()) if dump is not None else args
+
+
 def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step | None = None) -> Any:
     """Run one tool body: the outcome goes to the loop guard and the step; an expected failure
     becomes ``{"error": ...}`` for the model to act on (no retry budget, no turn limit)."""
     step = step or _Step(ctx, tool, None)
     if step.args is None:  # what the model actually sent, on the step record (#1679)
+        step.stamp(_step_args(args))
         step.args = args
-        step.stamp(args)
     try:
         result = fn()
     except Stuck:
@@ -150,8 +160,8 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
 
 async def _call_async(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step) -> Any:
     if step.args is None:  # as _call's (#1679)
+        step.stamp(_step_args(args))
         step.args = args
-        step.stamp(args)
     try:
         result = await fn()
     except _EXPECTED as exc:
