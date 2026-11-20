@@ -38,7 +38,7 @@ from ..errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
 from ..manager import ServedSession
 from ..mytemplates import save_as_template
 from ..projections import definition_spec, instrument_state, run_cases_file, session_summary, try_commands
-from .guard import LoopGuard, Stuck
+from .guard import LoopGuard
 from .store import Conversation, TurnFiles
 
 if TYPE_CHECKING:
@@ -137,15 +137,16 @@ def _step_args(args: Any) -> Any:
 
 
 def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step | None = None) -> Any:
-    """Run one tool body: the outcome goes to the loop guard and the step; an expected failure
-    becomes ``{"error": ...}`` for the model to act on (no retry budget, no turn limit)."""
+    """Run one tool body — the one wrapper protocol (#1734), for a sync body here and an awaited
+    one through :func:`_call_async`: the step opens and the model's arguments are stamped on it
+    (#1679); an expected domain error becomes ``{"error": ...}`` for the model to act on (no
+    retry budget, no turn limit) and the guard counts the call; the step closes with the outcome.
+    A bug (any other error) surfaces as itself, and the guard's own ``Stuck`` — raised after the
+    body ran — is never caught here."""
     step = step or _Step(ctx, tool, None)
     step.stamp(_step_args(args))  # what the model actually sent, on the step record (#1679)
     try:
         result = fn()
-    except Stuck:
-        step.done(False)
-        raise
     except _EXPECTED as exc:
         text = _error_text(exc)
         step.done(False, text)
@@ -156,18 +157,23 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
     return result
 
 
-async def _call_async(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step) -> Any:
-    step.stamp(_step_args(args))  # as _call's (#1679)
+async def _call_async(
+    ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step | None = None
+) -> Any:
+    """An awaited body through the one protocol (:func:`_call`, #1734): awaiting is the only
+    difference from a sync tool, so the outcome — the result, or a caught error handed over for
+    the protocol to judge — goes through _call once."""
     try:
-        result = await fn()
-    except _EXPECTED as exc:
-        text = _error_text(exc)
-        step.done(False, text)
-        ctx.guard.record(tool, args, False, text)
-        return {"error": text}
-    step.done(True)
-    ctx.guard.record(tool, args, True, result)
-    return result
+        outcome: Any = await fn()
+    except Exception as exc:  # the protocol below decides what a domain error becomes
+        outcome = exc
+
+    def run() -> Any:
+        if isinstance(outcome, BaseException):
+            raise outcome
+        return outcome
+
+    return _call(ctx, tool, args, run, step)
 
 
 def _bench(ctx: TurnContext, path: str | None) -> str:

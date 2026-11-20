@@ -158,6 +158,33 @@ def test_a_bare_key_or_value_error_is_a_bug_not_a_domain_error():
         tool_text(KeyError("internal"), "mcp")
 
 
+async def test_an_awaited_body_runs_through_the_same_protocol():
+    """#1734: _call_async is not a second copy of the wrapper protocol — the awaited outcome (a
+    result, or a caught error for the protocol to judge) goes through _call once."""
+    from types import SimpleNamespace
+
+    from simubench.errors import Unknown
+    from simubench.server.assistant.guard import LoopGuard
+    from simubench.server.assistant.tools import _call_async
+
+    async def fails():
+        raise Unknown("no session t")
+
+    async def works():
+        return {"running": False}
+
+    async def buggy():
+        raise KeyError("internal")
+
+    ctx = SimpleNamespace(turn=SimpleNamespace(id="t", steps=[]), emit=lambda event: None, guard=LoopGuard())
+    assert await _call_async(ctx, "read_bench", {}, works) == {"running": False}
+    assert ctx.turn.steps[-1].ok is True
+    assert await _call_async(ctx, "read_bench", {}, fails) == {"error": "no session t"}
+    assert ctx.turn.steps[-1].ok is False and ctx.turn.steps[-1].error == "no session t"
+    with pytest.raises(KeyError):  # a bug surfaces as itself here too
+        await _call_async(ctx, "read_bench", {}, buggy)
+
+
 def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
     from simubench.errors import Invalid, Unknown
     from simubench.mcp_tools.context import McpContext, RateLimiter
