@@ -67,6 +67,8 @@ class Signal:
     t0_ns: np.ndarray = field(default_factory=lambda: np.zeros(0, dtype=np.int64))
     dc: float = 0.0
     notes: tuple[FidelityNote, ...] = ()
+    # The phasors of the lines at the last instant ``sample_rel`` was asked about (see ``_lines_at``).
+    _base_cache: tuple[int, np.ndarray] | None = field(default=None, init=False, repr=False, compare=False)
 
     # ---- construction -------------------------------------------------------------------------
 
@@ -146,14 +148,27 @@ class Signal:
             out[start : start + block] += np.real(self.amp[None, :] * np.exp(2j * np.pi * cyc)).sum(axis=1)
         return out
 
+    def _lines_at(self, base_ns: int) -> np.ndarray:
+        """Each line's phasor at the instant ``base_ns``. ``sample_rel`` is asked about one instant over
+        and over — an edge bisected one point at a time, a record read in tiles — and every ask used to
+        redo the phase of every line (4095 for a pulse train). A Signal is a value (its operations
+        return new ones, its arrays are never changed in place), so the last instant's phasors are kept."""
+        cached = self._base_cache
+        if cached is not None and cached[0] == base_ns:
+            return cached[1]
+        base = phase_cycles(self.freq, base_ns - self.t0_ns)  # per line, at the base instant
+        a = self.amp * np.exp(2j * np.pi * base)
+        a.setflags(write=False)  # shared between calls: a caller that wrote into it would corrupt them
+        self._base_cache = (base_ns, a)
+        return a
+
     def sample_rel(self, base_ns: int, offsets_s: np.ndarray) -> np.ndarray:
         """Evaluate at ``base_ns + offsets_s`` with sub-nanosecond precision for fast sampling."""
         off = np.asarray(offsets_s, dtype=float)
         out = np.full(off.shape, self.dc, dtype=float)
         if not self.freq.size:
             return out
-        base = phase_cycles(self.freq, int(base_ns) - self.t0_ns)  # per line, at the base instant
-        a = self.amp * np.exp(2j * np.pi * base)
+        a = self._lines_at(int(base_ns))
         uniform = _uniform_step(off)
         if uniform is not None and off.size * self.freq.size > 1_000_000:
             return out + _sum_uniform(a, self.freq, float(off[0]), uniform, off.size)
