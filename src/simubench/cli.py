@@ -28,6 +28,16 @@ if TYPE_CHECKING:
     from .server.manager import SessionManager
 
 
+def _file_error(name: str, exc: BaseException) -> str:
+    """``file: reason`` on one line; a reason that already names the file is not repeated (#1672)."""
+    text = str(exc) or type(exc).__name__
+    for prefix in (f"{name}: ", f"{Path(name).name}: "):
+        if text.startswith(prefix):
+            text = text[len(prefix) :]
+            break
+    return f"{name}: {text}"
+
+
 def _serve(args: argparse.Namespace) -> int:
     import uvicorn
 
@@ -36,6 +46,15 @@ def _serve(args: argparse.Namespace) -> int:
 
     bench = Path(args.bench).resolve() if args.bench else None
     workspace = Path(args.workspace).resolve() if args.workspace else (bench.parent if bench else Path.cwd())
+    if bench is not None:
+        # A mistyped path is the commonest start-up error: one line, before uvicorn's lifespan (#1672).
+        from .library.loader import load_bench
+
+        try:
+            load_bench(bench)
+        except (OSError, ValueError) as exc:
+            print(_file_error(args.bench, exc), file=sys.stderr)
+            return 1
     manager = build_manager(args, workspace)
     manager.web_port = args.port  # the assistant's LLM address may not point back at it (#872)
     from .server.ops import setup_logging
@@ -454,7 +473,11 @@ def _assets(args: argparse.Namespace) -> int:
     from .engine.calibration import register_view
     from .library.loader import load_bench
 
-    bench = load_bench(args.bench)
+    try:
+        bench = load_bench(args.bench)
+    except (OSError, ValueError) as exc:
+        print(_file_error(args.bench, exc), file=sys.stderr)
+        return 1
     rows = register_view(bench.assets, bench.run.start.date())
     if args.format == "json":
         print(json.dumps(rows, ensure_ascii=False, indent=2))
@@ -478,9 +501,9 @@ def _replay(args: argparse.Namespace) -> int:
             stop_at_first=args.first,
             workspace_plugins=Path.cwd() / "components" if args.allow_plugins else None,
         )
-    except ValueError as exc:
-        print(f"{args.record}: {exc}", file=sys.stderr)
-        return 2
+    except (OSError, ValueError) as exc:
+        print(_file_error(args.record, exc), file=sys.stderr)
+        return 1
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
     else:
@@ -673,7 +696,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="simubench", description="SimuBench virtual instrument benches")
     sub = parser.add_subparsers(dest="cmd", required=True)
 
-    p = sub.add_parser("serve", help="start the local service (Web Bench, SCPI sockets)")
+    p = sub.add_parser(
+        "serve", help="start the local service (Web Bench, SCPI sockets); exit 1 on an unreadable bench file"
+    )
     p.add_argument("bench", nargs="?", help="bench file to start right away")
     p.add_argument("--workspace", help="folder searched for bench files (default: the bench's folder)")
     p.add_argument("--port", type=int, default=DEFAULT_PORT)
@@ -753,12 +778,18 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--write", action="store_true", help="rewrite the files (default: report only)")
     p.set_defaults(fn=_migrate)
 
-    p = sub.add_parser("assets", help="print a bench's calibration register (CSV or JSON)")
+    p = sub.add_parser(
+        "assets",
+        help="print a bench's calibration register (CSV or JSON); exit 1 on an unreadable bench file",
+    )
     p.add_argument("bench")
     p.add_argument("--format", choices=["csv", "json"], default="csv")
     p.set_defaults(fn=_assets)
 
-    p = sub.add_parser("replay", help="replay a run record and compare every reply (exit 1 on a difference)")
+    p = sub.add_parser(
+        "replay",
+        help="replay a run record and compare every reply (exit 1 on a difference or an unreadable record)",
+    )
     p.add_argument("record", help="run-*.jsonl written with --record-dir")
     p.add_argument("--definitions", action="append", help="extra instrument definition folder (repeatable)")
     p.add_argument(
@@ -798,7 +829,9 @@ def main(argv: list[str] | None = None) -> int:
     p.set_defaults(fn=_verdicts)
 
     p = sub.add_parser(
-        "cases", help="run cases files (commands and expected replies) on fresh benches; exit 1 on a failure"
+        "cases",
+        help="run cases files (commands and expected replies) on fresh benches; "
+        "exit 1 on a failure, 2 when a cases file cannot be read",
     )
     p.add_argument("files", nargs="+", metavar="cases.yaml")
     p.add_argument("--junit", help="also write a JUnit XML report here (for CI)")

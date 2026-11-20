@@ -1583,16 +1583,22 @@ components:
       points: $acquire.points
       sample_rate: $acquire.srate
       max_points: 500000000
+      # 共享采样时钟的抖动（#1693，同 #1579）：数据手册 3123-1313 p.11 单通道固有抖动 15 fs rms
+      # （< 1 µs 采集）减去每通道孔径 5 fs（sampler.aperture_jitter_s）的平方和开方：√(15²−5²) ≈ 14.14 fs。
+      # 全机共享（各采集板时间同步，3123-1371 p.13），通道间抖动只剩各自的孔径 √2×5 ≈ 7.1 fs < 10 fs（p.11）。
+      clock_jitter_s: 1.4142e-14
   # 边沿触发：电平在信源屏幕中心 ±4 格内（数据手册）；灵敏度 1 格峰峰，迟滞取其一半。
   - name: trigger
     type: scope_trigger
     params:
       # 触发通路（#1263）：从模拟前端分出（ADC 之前，不经 :ACQuire:BANDwidth 与 InfiniiSim 的数字滤波）。
       # 边沿触发带宽等于采集的模拟带宽（数据手册 3123-1313 Trigger System：Equal to acquisition analog
-      # bandwidth），前端已限，不另加。触发噪声手册未给，估计：与该档的通道噪声相同（同一前端，D46 通则），
-      # 按信源的档位取 front 的 noise_table。
-      # 与通道前端同一张表（同一前端，D46），随通道的噪声带宽一起换算（#1427）。
-      noise_table: {same_as: channel_components.1.params.noise_table}
+      # bandwidth），前端已限，不另加。
+      # 触发通路不加噪声（#1691，同 UXR1104B 的 #1579）：数据手册 3123-1313 p.16 的显示抖动 116 fs rms（3.5 mm 型号，
+      # 100 mV/div，500 mVpp、16 GHz 正弦）等于记录自身的噪声除以过零斜率（2.91 mV ÷ (2π × 16 GHz × 0.25 V) =
+      # 115.8 fs），留不出触发比较器噪声的份额。#1298 原先估计与通道噪声相同，仿真实测显示抖动 181 fs。
+      # 触发也不取自 ADC 之后的采样（拆解视频 TSP #133 所说的数字触发）：与记录同源时显示抖动只有 0–33 fs，
+      # 对不上数据手册（docs/real-models.md 11.4）。
       source: $trigger.source
       level: $trigger.level1
       level_by_source:
@@ -1654,15 +1660,26 @@ components:
       # 非线性（#1266）：数据手册只给了 1 mm / 1.85 mm 型号的测量值（p.10），3.5 mm 型号未给。估计：取同页 1 GHz
       # 一列折算到满量程的值（HD2/HD3 -62/-49 dBc 于小量程、-54.1/-48.2 dBc 于 87.5 mV/div 起），D46 通则。
       distortion_table: [[1.0e-3, -62.0, -49.0], [8.75e-2, -54.1, -48.2]]
-      # 交织：估计，取 1 mm 型号的失配（keysight-uxr1104b 的注释，#1422）：增益失配的像 -65 dBc、时延失配为余弦图样
-      # 幅度 4.40 fs、偏置失配的杂散 -65 dBFS；128 GSa/s / 16 GHz = 8 个子 ADC。较慢的记录取全速采样的每第 M 个，
-      # 保留各采样的子 ADC，像与杂散折叠进记录的频带（#1422）。
+      # 交织（#1693，照 UXR1104B #1579）：8 路 ADC 在 2 路 SiGe 采样器之后（sampler，3123-1371 p.12），
+      # 第 i 路属于第 i mod 2 个采样器。失配分两级：这里的 8 路（周期 8 样 → k×16 GHz 的像与杂散）加
+      # sampler 的 2 路（周期 2 样 → 64 GHz）。数据手册 3123-1313 p.10 的 SFDR/杂散表按 256 GSa/s（1 mm）给出，
+      # 3.5 mm 无单独表，沿用同组限值作目标（#1422 起即如此）：SFDR 5 GHz 载波 0–10 GHz ≤ -65 dBc、
+      # 50 GHz 载波 40–60 GHz ≤ -61 dBc，信号相关的像 ≤ -52 dBc，残余杂散 -65 dBFS（16 GHz），
+      # 时钟杂散 -65 dBFS（64 GHz，采样器偏置）。较慢的记录取全速采样的每第 M 个，保留各采样的子 ADC，
+      # 像与杂散折叠进记录的频带（#1422）。
       interleave: 8
-      interleave_image_dbc: -65.0
-      interleave_spur_dbfs: -65.0
-      interleave_skews_s: [4.402e-15, 3.113e-15, 0.0, -3.113e-15, -4.402e-15, -3.113e-15, 0.0, 3.113e-15]
-      # 孔径抖动：数据手册 Intrinsic jitter（< 1 µs 采集 15 fs rms，所有接头型号）。
-      aperture_jitter_s: 1.5e-14
+      sampler: sampler
+      clock: timebase
+      # 8 路时延失配：谐波 k=1、2、3，各余弦幅度 5 fs、相位 πk²/6（与 #1579 同，只为各路值不扎堆，无依据）。
+      # 不取共轭对 k=5、6、7（否则同一 bin 的像叠加 +6 dB），也不取 k=4（64 GHz 那一级留给采样器）。
+      # 50 GHz 载波在 40–60 GHz 窗内只有 k=1、2 的像（62、46 GHz），各 2πf·5fs/2 = -62.1 dBc ≤ -61。
+      interleave_skews_s: [1.8301e-15, 4.9950e-16, -5.0000e-15, 3.0360e-15, -6.8301e-15, -9.1598e-15, 1.0000e-14, 5.6242e-15]
+      # 8 路偏置失配：k=1 正弦，峰值 2.8117e-4 满幅 → 16 GHz 杂散 -65 dBFS（2·|DFS_1|，半幅基准）。
+      # 静态增益失配不建模：慢档每样同一路，会变成直流增益误差（#1579）。
+      interleave_offsets_fs: [0.0, -1.9882e-4, -2.8117e-4, -1.9882e-4, 0.0, 1.9882e-4, 2.8117e-4, 1.9882e-4]
+      # 孔径抖动：数据手册 p.11 固有抖动 15 fs rms 拆成共享时钟（timebase.clock_jitter_s ≈ 14.14 fs）与
+      # 每通道孔径（sampler.aperture_jitter_s = 5 fs），adc 自身置 0（#1693，同 #1579）。
+      aperture_jitter_s: 0.0
       # 记录的噪声经过与记录相同的响应（平坦幅度：砖墙，高斯幅度：高斯，在前端带宽处）：DSP 修正后的噪声谱止于
       # 带宽，不平到奈奎斯特（#1446）；总 rms 仍是噪声表的值。只在记录的奈奎斯特高于带宽时起作用。
       shape_noise: true
@@ -1872,13 +1889,38 @@ channel_components:
     params:
       ratio: $ch.probe
       skew: $ch.probe_skew
+  # 采样器（#1693）：3.5 mm 型号没有 InP 主采样器，前放直接同步 2 个 64 GSa/s 的 SiGe 采样器，把 TIS 对齐的
+  # 信号送给 8 路 10 位 ADC（技术概览 3123-1371 p.12「TIS Analog Front-End Module for 3.5 mm Input Models」：
+  # 「The low noise preamplifier synchronized with (2) 64 GSa/s SiGe samplers provides TIS aligned signals to
+  # (8) 10-bit ADCs」；拆解视频 tsp-133 28:40 证实只用 SiGe、无 InP，issue #1693 引）。两通道共用一块采集板
+  # （p.12「2 channels per acquisition board」），每通道各有自己的 2 路采样器。第 i 路 ADC 属于第 i mod 2 个
+  # 采样器（adc.sampler: sampler）。track_and_hold：触发比较器在采样器之前分出（同 #1579）。
+  - name: sampler
+    type: scope_sampler
+    label: 采样器（2×64 GSa/s SiGe）
+    description: 前放同步的 2 个 64 GSa/s SiGe 采样器（3123-1371 p.12），把信号交替送给 8 路 ADC；2 路的偏置与时延失配产生 64 GHz 的时钟杂散及其像，每通道独立的孔径抖动 5 fs。
+    params:
+      paths: 2
+      rate: {same_as: specs.sample_rate}
+      # 2 路偏置失配：[-2.8117e-4, +2.8117e-4] 满幅，零均值（共模偏置由校准去掉，不留直流误差）。
+      # 铺到 8 路后只有 k=4 谐波（64 GHz = 奈奎斯特 bin），单边角幅度 |X|/N（非 2|X|/N），故幅度取
+      # 1 mm 型号 4 路图样的两倍才得 -65 dBFS 时钟杂散（数据手册 3123-1313 p.10「-65 dBm clock spur
+      # @ 64 GHz」，0 dBm 档满幅 0.707 V rms 即 -65 dBFS）。
+      path_offsets_fs: [-2.8117e-4, 2.8117e-4]
+      # 2 路时延失配：余弦幅度 5 fs、相位 π/6（k=1，与 #1579 同），像 at 64 GHz ± f。
+      path_skews_s: [4.3301e-15, -4.3301e-15]
+      # 每通道独立的孔径抖动 5 fs rms（#1693）：与共享时钟 14.14 fs 合成单通道 15 fs（数据手册 p.11），
+      # 通道间 √2×5 ≈ 7.1 fs < 10 fs。
+      aperture_jitter_s: 5.0e-15
 wiring:
   channel:
     - [inp.out, front.in]
     - [front.out, probe.in]
   instrument:
-    # 采样链（#1262）：ADC 之后依次是 :ACQuire:BANDwidth 的数字滤波、InfiniiSim 的通道滤波与抽取。
-    - ["ch{n}.probe.out", "adc.in{n}"]
+    # 采样链（#1262/#1693）：前放 → 探头换算 → 2 路 SiGe 采样器 → 8 路 ADC；ADC 之后依次是
+    # :ACQuire:BANDwidth 的数字滤波、InfiniiSim 的通道滤波与抽取。
+    - ["ch{n}.probe.out", "ch{n}.sampler.in"]
+    - ["ch{n}.sampler.out", "adc.in{n}"]
     - ["adc.out{n}", "bwf.in{n}"]
     - ["bwf.out{n}", "isim.in{n}"]
     - ["isim.out{n}", "dec.in{n}"]

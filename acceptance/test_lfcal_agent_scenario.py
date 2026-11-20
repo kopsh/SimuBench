@@ -13,6 +13,7 @@ same seed bit-identical) and physics (50 Ω / high-Z, the frequency response, dB
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import importlib.util
 import json
 import sys
@@ -148,17 +149,45 @@ def _pairing_problems(events: list[dict]) -> list[str]:
     return problems
 
 
-async def test_the_agent_builds_the_bench_and_the_script_runs_through(tmp_path):
-    """The whole flow: MCP alone to a deployed bench, then the script to the end on the addresses."""
-    ws = tmp_path
+@pytest.fixture(scope="module")
+def built_workspace(tmp_path_factory) -> Path:
+    """The agent's build, once for the module (D49: an expensive environment is built once, not per
+    test): from an empty workspace but for the host script, MCP alone to a validated bench and its two
+    definitions. Every test deploys that bench afresh, so no test sees another's session."""
+    ws = tmp_path_factory.mktemp("lfcal")
     (ws / "host.py").write_bytes(SCRIPT.read_bytes())  # only the script is given
-    host = _module(ws, "lfcal_host_build")
+
+    async def build() -> None:
+        manager = SessionManager(ws, scpi_base_port=0, hislip_port=None)
+        server = build_server(manager, ui_url="http://127.0.0.1:1/?token=x")
+        async with Client(server) as c:
+            await _build(c)
+        await manager.stop(next(iter(manager.sessions)))
+
+    asyncio.run(build())
+    return ws
+
+
+@contextlib.asynccontextmanager
+async def _deployed(ws: Path, module_name: str):
+    """A fresh deployment of the built bench: the MCP client, the instruments (name -> addresses) and
+    the host script as a module. The session stops when the block ends."""
+    host = _module(ws, module_name)
     manager = SessionManager(ws, scpi_base_port=0, hislip_port=None)
     server = build_server(manager, ui_url="http://127.0.0.1:1/?token=x")
-    async with Client(server) as c:
-        built = await _build(c)
-        session = built["session"]
-        instruments = {i["name"]: i for i in session["instruments"]}
+    try:
+        async with Client(server) as c:
+            session = await _call(c, "start_session", path="lfcal.bench.yaml")
+            yield c, {i["name"]: i for i in session["instruments"]}, host
+    finally:
+        for sid in list(manager.sessions):
+            await manager.stop(sid)
+
+
+async def test_the_agent_built_bench_runs_the_script_and_keeps_its_contract(built_workspace):
+    """One flow on the bench the agent built (D49, #704): deploy, the script to the end on the
+    addresses, then what the run left on record, and a second deployment with the same seed."""
+    async with _deployed(built_workspace, "lfcal_host_flow") as (c, instruments, host):
         # Two instruments, distinguishable by the *IDN? the bench's idn strings define.
         assert instruments["scope"]["idn"] == "LECROY,LFCAL-REFSCOPE,SB000001,1.0.0"
         assert instruments["cal"]["idn"] == "SIMUBENCH,LFCAL-CALIBRATOR,SB000001,1.0.0"
@@ -172,6 +201,36 @@ async def test_the_agent_builds_the_bench_and_the_script_runs_through(tmp_path):
         assert [u["command"] for u in red["cal"]["unsupported"]] == [":SYSTem:BEEPer:STATe OFF"]
 
         resp, table = await asyncio.to_thread(_run_script, instruments, host)
+
+        # The log of that run: queries have answers, settings none.
+        log = await _call(c, "read_log", kinds=["scpi", "ignored"], limit=1000)
+        assert _pairing_problems(log["events"]) == []
+        # The beeper probe: swallowed without an error, but never silently (D16); the event names
+        # the reason (D18) and the definition file that set the policy.
+        ignored = [e for e in log["events"] if e["kind"] == "ignored"]
+        assert [(e["instrument"], e["reason"]) for e in ignored] == [("cal", "ignored")]
+        assert ignored[0]["origin"].endswith("lfcal-calibrator.yaml")
+
+        # The scope is strict: a command outside its definition queues -113, on record as an event.
+        def strict():
+            rm, scope, _cal = _connect(instruments, host)
+            try:
+                scope.write("NONSENSE 1")
+                return scope.query("SYST:ERR?").strip()
+            finally:
+                rm.close()
+
+        assert (await asyncio.to_thread(strict)).startswith("-113")
+        errors = (await _call(c, "read_log", kinds=["error"], limit=100))["events"]
+        assert [(e["instrument"], e["code"]) for e in errors] == [("scope", -113)]
+        assert errors[-1]["reason"] == "not_in_definition"  # the classification reaches MCP too (D18)
+
+        # Redeploying the bench drops the script that just ran on its ports: the agent says so to
+        # the engineer and confirms (issue 624, the guard the HTTP side has had since #121). The same
+        # bench, same seed: the response and the table match digit for digit.
+        await _call(c, "start_session", path="lfcal.bench.yaml", force=True)
+        again = {i["name"]: i for i in (await _call(c, "list_sessions"))[0]["instruments"]}
+        assert (resp, table) == await asyncio.to_thread(_run_script, again, host)
 
     # Flow 1: the pulse amplitude about the 50 mVpp set at every frequency, falling with frequency.
     freqs = [f for f, _ in resp]
@@ -200,75 +259,11 @@ async def test_the_agent_builds_the_bench_and_the_script_runs_through(tmp_path):
     assert ac[3]["measured_vpp"] == pytest.approx(ac[4]["measured_vpp"], rel=0.01)
     assert ac[3]["measured_vpp"] == pytest.approx(0.5, rel=0.01)
     assert ac[5]["measured_vpp"] == pytest.approx(0.05, rel=0.01)
-    await manager.stop(next(iter(manager.sessions)))
 
 
-async def test_the_log_shows_every_query_answered_and_unknown_commands_per_policy(tmp_path):
-    """Queries have answers, settings none; the source's ignored probe is on record; a strict
-    unknown command queues -113."""
-    ws = tmp_path
-    (ws / "host.py").write_bytes(SCRIPT.read_bytes())
-    host = _module(ws, "lfcal_host_log")
-    manager = SessionManager(ws, scpi_base_port=0, hislip_port=None)
-    server = build_server(manager, ui_url="http://127.0.0.1:1/?token=x")
-    async with Client(server) as c:
-        instruments = {i["name"]: i for i in (await _build(c))["session"]["instruments"]}
-        await asyncio.to_thread(_run_script, instruments, host)
-        log = await _call(c, "read_log", kinds=["scpi", "ignored"], limit=1000)
-        assert _pairing_problems(log["events"]) == []
-        # The beeper probe: swallowed without an error, but never silently (D16); the event names
-        # the reason (D18) and the definition file that set the policy.
-        ignored = [e for e in log["events"] if e["kind"] == "ignored"]
-        assert [(e["instrument"], e["reason"]) for e in ignored] == [("cal", "ignored")]
-        assert ignored[0]["origin"].endswith("lfcal-calibrator.yaml")
-
-        # The scope is strict: a command outside its definition queues -113, on record as an event.
-        def strict():
-            rm, scope, _cal = _connect(instruments, host)
-            try:
-                scope.write("NONSENSE 1")
-                return scope.query("SYST:ERR?").strip()
-            finally:
-                rm.close()
-
-        assert (await asyncio.to_thread(strict)).startswith("-113")
-        errors = (await _call(c, "read_log", kinds=["error"], limit=100))["events"]
-        assert [(e["instrument"], e["code"]) for e in errors] == [("scope", -113)]
-        assert errors[-1]["reason"] == "not_in_definition"  # the classification reaches MCP too (D18)
-    await manager.stop(next(iter(manager.sessions)))
-
-
-async def test_same_seed_and_same_commands_give_the_same_digits(tmp_path):
-    """Two deployments of the bench, same seed: the response and the table match digit for digit."""
-    ws = tmp_path
-    (ws / "host.py").write_bytes(SCRIPT.read_bytes())
-    host = _module(ws, "lfcal_host_seed")
-    manager = SessionManager(ws, scpi_base_port=0, hislip_port=None)
-    server = build_server(manager, ui_url="http://127.0.0.1:1/?token=x")
-    async with Client(server) as c:
-        await _build(c)
-        first = await asyncio.to_thread(
-            _run_script, {i["name"]: i for i in (await _call(c, "list_sessions"))[0]["instruments"]}, host
-        )
-        # Redeploying the bench drops the script that just ran on its ports: the agent says so to
-        # the engineer and confirms (issue 624, the guard the HTTP side has had since #121).
-        await _call(c, "start_session", path="lfcal.bench.yaml", force=True)  # the same bench, same seed
-        second = await asyncio.to_thread(
-            _run_script, {i["name"]: i for i in (await _call(c, "list_sessions"))[0]["instruments"]}, host
-        )
-        assert first == second
-    await manager.stop(next(iter(manager.sessions)))
-
-
-async def test_chunked_readback_joins_into_the_whole_record(tmp_path):
+async def test_chunked_readback_joins_into_the_whole_record(built_workspace):
     """12 345, 30 000 and 100 000 points read in pieces: the pieces are the record, continuously."""
-    ws = tmp_path
-    (ws / "host.py").write_bytes(SCRIPT.read_bytes())
-    host = _module(ws, "lfcal_host_chunks")
-    manager = SessionManager(ws, scpi_base_port=0, hislip_port=None)
-    server = build_server(manager, ui_url="http://127.0.0.1:1/?token=x")
-    async with Client(server) as c:
-        instruments = {i["name"]: i for i in (await _build(c))["session"]["instruments"]}
+    async with _deployed(built_workspace, "lfcal_host_chunks") as (_c, instruments, host):
 
         def chunks():
             rm, scope, cal = _connect(instruments, host)
@@ -296,18 +291,11 @@ async def test_chunked_readback_joins_into_the_whole_record(tmp_path):
         # An integer number of samples per period: the pieces carry one continuous record.
         assert data[: point - period] == pytest.approx(data[period:], abs=2e-3)
         assert max(data) > 0.02 and min(data) < -0.02  # the square is on the record, both levels
-    await manager.stop(next(iter(manager.sessions)))
 
 
-async def test_the_load_setting_scales_what_the_scope_sees(tmp_path):
+async def test_the_load_setting_scales_what_the_scope_sees(built_workspace):
     """50 Ω vs high-Z on the source (D13), and the scope's own 50 Ω / 1 MΩ input (D50 / D1M)."""
-    ws = tmp_path
-    (ws / "host.py").write_bytes(SCRIPT.read_bytes())
-    host = _module(ws, "lfcal_host_load")
-    manager = SessionManager(ws, scpi_base_port=0, hislip_port=None)
-    server = build_server(manager, ui_url="http://127.0.0.1:1/?token=x")
-    async with Client(server) as c:
-        instruments = {i["name"]: i for i in (await _build(c))["session"]["instruments"]}
+    async with _deployed(built_workspace, "lfcal_host_load") as (_c, instruments, host):
 
         def amplitude(load, coupling):
             rm, scope, cal = _connect(instruments, host)
@@ -327,4 +315,3 @@ async def test_the_load_setting_scales_what_the_scope_sees(tmp_path):
     assert high_z / into_50 == pytest.approx(0.5, abs=0.05)
     assert into_1m / into_50 == pytest.approx(2.0, rel=0.05)
     assert into_50 == pytest.approx(0.05, rel=0.05)
-    await manager.stop(next(iter(manager.sessions)))

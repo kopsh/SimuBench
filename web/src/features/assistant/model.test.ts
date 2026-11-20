@@ -43,6 +43,7 @@ describe("applyEvent", () => {
       step: {
         action: "add_instrument",
         subject: "oscilloscope",
+        args: null,
         ok: null,
         error: null,
       },
@@ -59,6 +60,7 @@ describe("applyEvent", () => {
       step: {
         action: "add_instrument",
         subject: "oscilloscope",
+        args: null,
         ok: true,
         error: null,
       },

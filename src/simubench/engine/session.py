@@ -663,6 +663,9 @@ class Session:
             self._begin_action()
             try:
                 self.instrument(name).set_state(path, value, source="configure", outside=True)
+                # the one trace of an out-of-band write in the log ring: what it got, as it got it
+                # -- the swallowed-write postmortem starts here (#1679)
+                log.info("configure %s %s = %r (client=%s)", name, path, value, client)
             finally:
                 self._end_action()
 
@@ -672,6 +675,7 @@ class Session:
             self._begin_action()
             try:
                 self.instrument(name).panel(action)
+                log.info("panel %s %s (client=%s)", name, action, client)  # #1679, as configure's
                 self.events.emit({"kind": "panel", "instrument": name, "action": action, "source": client})
             finally:
                 self._end_action()
