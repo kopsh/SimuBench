@@ -3,21 +3,19 @@ import { CircuitBoard } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { ComponentInfo } from "@/api/client";
-import { useCatalog } from "@/api/hooks";
 import { cn } from "@/lib/utils";
 import { formatPartParam } from "../model";
 import { DutBadge, FaultMark, type Issue, IssueMark, PortHandle } from "./InstrumentNode";
 
 /** A part (元件) on the canvas: an RC network, a resistor; the DUT badge when it is the DUT (#100). */
-export type PartNodeData = { part: ComponentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
+export type PartNodeData = { part: ComponentInfo; editable?: boolean; issue?: Issue; fault?: boolean; units?: Record<string, string> };
 export type PartNodeType = Node<PartNodeData, "part">;
 
 const HIDDEN = new Set(["tol_r", "tol_c"]);
 
 function PartNodeImpl({ data, selected }: NodeProps<PartNodeType>) {
   const { t } = useTranslation();
-  const { part, editable, issue, fault } = data;
-  const units = useCatalog().data?.components.find((c) => c.type === part.type)?.units;
+  const { part, editable, issue, fault, units } = data;
   const ins = part.ports.filter((p) => p.direction !== "out");
   const outs = part.ports.filter((p) => p.direction === "out");
   const params = Object.entries(part.params).filter(([k]) => !HIDDEN.has(k));
