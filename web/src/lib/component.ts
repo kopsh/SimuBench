@@ -35,3 +35,8 @@ export function internalType(c: {
 }): TypeNames {
   return { type: c.type, label: c.type_label, label_en: c.type_label_en, about: c.about, about_en: c.about_en };
 }
+
+/** A block's title: the definition's own label for it (#1261), else its type's name (#1251). */
+export function blockLabel(c: Parameters<typeof internalType>[0] & { label?: string | null }): string {
+  return c.label || typeName(internalType(c));
+}

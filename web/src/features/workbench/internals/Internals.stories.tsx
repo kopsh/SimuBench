@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { ApiError, type InstrumentInfo, type InstrumentInternals } from "@/api/client";
-import { ComponentDetails, InternalsPanel } from "./InternalsView";
+import { ComponentDetails, InternalsPanel } from "./InternalsPanel";
 import { InternalProbeView, type ProbeState } from "./ProbeView";
 import { useState } from "react";
 import { type InternalProbe, type MiniSignal, type Tune, CENTER, tuneParam } from "./probe";
