@@ -22,6 +22,8 @@ import pyvisa
 from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
+pytestmark = pytest.mark.model("keysight-daq970a")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight-daq970a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_daq970a_scan.py"

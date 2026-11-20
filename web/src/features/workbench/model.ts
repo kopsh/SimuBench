@@ -204,6 +204,20 @@ export function isReferenceRef(session: SessionInfo, ref: string): boolean {
   return instrumentPortOfRef(session, ref)?.medium === "reference";
 }
 
+/**
+ * A part parameter as the canvas card and the inspector both write it (#1676). The unit comes from
+ * the component catalog (`units`); a relative tolerance (`tol_*`) reads as a percentage; a
+ * parameter without a unit is a plain number, never an SI prefix ("−210 m").
+ */
+export function formatPartParam(key: string, value: unknown, units: Record<string, string> | undefined): string {
+  if (!(typeof value === "number" || value === "INF" || value === "-INF")) return String(value);
+  const n = numeric(value);
+  if (key.startsWith("tol_") && Number.isFinite(n)) return `${Number((n * 100).toPrecision(4))} %`;
+  const unit = displayUnit(units?.[key] ?? "");
+  if (!unit || !Number.isFinite(n)) return Number.isFinite(n) ? String(Number(n.toPrecision(4))) : n > 0 ? "∞" : "−∞";
+  return formatEng(n, unit, 4);
+}
+
 export function accessoryLabel(type: string, params: Record<string, unknown>): string {
   if (type === "passive_probe") return `${numeric(params.attenuation ?? 10)}×`;
   if (type === "coax_cable") return "coax";

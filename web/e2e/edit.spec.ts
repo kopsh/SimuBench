@@ -2,7 +2,7 @@ import { readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { type APIRequestContext, expect, type Page, test } from "@playwright/test";
 
-import { expectText, isSession, sessionIdOf } from "./judge";
+import { expectText, isSession, sessionIdOf, settledCanvas } from "./judge";
 import { WORKSPACE } from "./workspace.mjs";
 
 const TOKEN = "e2e-token";
@@ -417,6 +417,9 @@ test("wiring two outputs together is refused before the drop, the bench's wires 
   await page.locator(".react-flow__controls-fitview").click();
   // the bottom panel open, as in the review's scenario
   await page.getByRole("tab", { name: "问题" }).click();
+  // The panel open resizes and refits the canvas, and the fonts landing refit it once too
+  // (#645/#1354): measure the handles only after the view has stopped moving (#1669).
+  await settledCanvas(page);
 
   const from = page.locator('.react-flow__node[data-id="scope"] [data-handleid="CAL_OUT"]');
   const to = page.locator('.react-flow__node[data-id="awg"] [data-handleid="CH1"]');

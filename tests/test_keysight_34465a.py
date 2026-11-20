@@ -22,6 +22,8 @@ from simubench.api import open_bench
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("keysight-34465a")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight-34465a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_34465a_measure.py"

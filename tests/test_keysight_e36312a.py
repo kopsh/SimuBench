@@ -21,6 +21,8 @@ import yaml
 from helpers import load_script, printed_quantities, run_manual_script, session_query
 from simubench.api import open_bench
 
+pytestmark = pytest.mark.model("keysight-e36312a")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight_e36312a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_e36312a_check.py"

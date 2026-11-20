@@ -540,6 +540,7 @@ function BenchCanvas({
 }) {
   const { t } = useTranslation();
   const catalog = useCatalog().data;
+  const partUnits = useMemo(() => Object.fromEntries((catalog?.components ?? []).map((c) => [c.type, c.units])), [catalog]);
   const issues = useMemo(() => (editing ? issuesOf(doc) : undefined), [editing, doc]);
   const faults = useFaults(session.id).data;
   const faulted = useMemo(
@@ -580,7 +581,7 @@ function BenchCanvas({
   }
   return (
     <div className="relative h-full">
-      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} levels={levels} />
+      <Canvas view={view} layout={layout} editable={editing} onOps={onOps} onDropItem={onDropItem} issues={issues} faulted={faulted} levels={levels} partUnits={partUnits} />
       {editing && (
         <div
           className="bg-card/90 text-muted-foreground pointer-events-none absolute top-2 left-2 max-w-72 rounded-md border px-2 py-1 text-[11px] shadow-sm"

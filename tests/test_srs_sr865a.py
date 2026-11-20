@@ -20,6 +20,8 @@ from helpers import load_script, run_manual_script
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("srs-sr865a")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "srs-sr865a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "srs_sr865a_rc_sweep.py"

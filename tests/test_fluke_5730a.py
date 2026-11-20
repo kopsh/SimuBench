@@ -21,6 +21,8 @@ from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("fluke-5730a")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "fluke-5730a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "fluke_5730a_verify.py"

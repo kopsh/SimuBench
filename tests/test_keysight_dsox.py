@@ -22,6 +22,8 @@ from helpers import load_script
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("keysight-dsox2024a")
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "keysight-dsox2024a" / "bench.yaml"
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-dsox2024a.bench.yaml"

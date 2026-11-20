@@ -22,6 +22,8 @@ import yaml
 
 from helpers import load_script
 
+pytestmark = pytest.mark.model("siglent-sds2104xplus")
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "siglent-sds2104xplus" / "bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "siglent_sds_read_waveform.py"

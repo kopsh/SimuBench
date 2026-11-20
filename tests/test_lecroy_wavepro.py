@@ -15,6 +15,8 @@ import pyvisa
 
 from helpers import load_script, run_manual_script
 
+pytestmark = pytest.mark.model("lecroy-wavepro804hd")
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "lecroy-wavepro804hd" / "bench.yaml"
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "lecroy-wavepro804hd.bench.yaml"

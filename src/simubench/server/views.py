@@ -147,12 +147,16 @@ class SessionViews:
             for p, spec in comp.ports.items()
         ]
         params = comp.describe()
+        if not s.reveal_true_values:
+            # D9: every per-unit value (drawn deviation, bench ``hidden:``, fault or set_parameter
+            # write) reads as the nominal one, never the true one (#1675).
+            nominal = {k: v for k, v, _ in comp.nominal()}
+            for param in comp.unit_values:
+                params[param] = nominal.get(param, comp.defaults.get(param))
         deviations = []
         for param, rng in (part.deviation if part else {}).items():
             key = f"{name}.{param}"
             drawn = key in s.part_deviations
-            if drawn and not s.reveal_true_values:
-                params[param] = next(v for k, v, _ in comp.nominal() if k == param)  # the nominal value
             deviations.append(_deviation_info(param, rng, comp.param(param), drawn, s.reveal_true_values))
         return M.ComponentInfo(
             name=name,

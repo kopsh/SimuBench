@@ -88,7 +88,9 @@ When the platform cannot express something the manual requires:
    `expect_fields` / `expect_format` / `expect_block` for lists, written formats and blocks.
    Command-level coverage lands here
    first — the per-model test file is for what a transcript cannot see, added as acts in flow
-   tests (D49, #704), not as sibling test functions (#706).
+   tests (D49, #704), not as sibling test functions (#706). That per-model test file declares its
+   model, `pytestmark = pytest.mark.model("<id>")` (`check_test_rules.py` fails without it): a pull
+   request that changes other models leaves it out (`dev-workflow`, #1680).
    ```bash
    uv run simubench cases tests/models/<id>/cases.yaml
    uv run simubench coverage <id>
