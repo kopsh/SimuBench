@@ -14,6 +14,8 @@ import pyvisa
 
 from simubench.scpi.errors import ScpiError
 
+pytestmark = pytest.mark.model("siglent-sdg2042x")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "tests" / "models" / "siglent-sdg2042x" / "bench.yaml"
 HELLO = ROOT / "src" / "simubench" / "library" / "examples" / "hello.bench.yaml"
