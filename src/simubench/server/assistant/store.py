@@ -14,10 +14,11 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
 from ...contracts import api as M
-from ..errors import Forbidden
+from ..errors import Forbidden, Invalid
 
 
 @dataclass
@@ -74,12 +75,22 @@ class ConversationStore:
         path = self._path(bench)
         if not path.is_file():
             return Conversation(bench)
-        data = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            data = json.loads(path.read_text(encoding="utf-8"))
+            if not isinstance(data, dict):
+                raise Invalid(f"{path.name}: expected a mapping at the top level")
+            turns = [M.AssistantTurn.model_validate(t) for t in data.get("turns", [])]
+            messages = ModelMessagesTypeAdapter.validate_python(data.get("messages", []))
+            files = {k: TurnFiles.of(v) for k, v in (data.get("files") or {}).items()}
+        except (json.JSONDecodeError, UnicodeDecodeError, ValidationError) as exc:
+            # A conversation file a reload truncated or a hand edit broke is the user's to fix
+            # (#1725): a domain error with the position, never a silently emptied conversation.
+            raise Invalid(f"{path.name}: {exc}") from None
         return Conversation(
             bench=bench,
-            turns=[M.AssistantTurn.model_validate(t) for t in data.get("turns", [])],
-            messages=ModelMessagesTypeAdapter.validate_python(data.get("messages", [])),
-            files={k: TurnFiles.of(v) for k, v in (data.get("files") or {}).items()},
+            turns=turns,
+            messages=messages,
+            files=files,
             compacted=bool(data.get("compacted")),
             stop_requested_in=data.get("stop_requested_in"),
             note=data.get("note"),

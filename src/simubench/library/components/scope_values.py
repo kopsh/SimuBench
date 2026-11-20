@@ -182,13 +182,12 @@ class Values:
     def threshold_spec(self, n: int, group: str) -> dict[str, Any]:
         """Channel n's threshold set ``group`` (general / rfall) from the settings ``thresholds``
         names; a field without a setting keeps the default."""
-        assert self.host.owner is not None
         prefix = str(self.host.param("thresholds"))
         out: dict[str, Any] = {}
         for key in DEFAULT_THRESHOLDS:
             path = f"{prefix}.{group}{n}.{key}"
-            if path in self.host.owner.specs:
-                out[key] = self.host.owner.get_state(path)
+            if path in self.host.specs:
+                out[key] = self.host.get_state(path)
         return out
 
     def levels(self, v: Any, rec: Any, group: str = "general") -> Levels | None:

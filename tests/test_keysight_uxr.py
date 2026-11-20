@@ -654,7 +654,7 @@ def test_the_trigger_sees_the_analog_front_end_and_the_record_its_dsp_correction
         assert np.allclose(adc.analog(1).amp, before.amp * brickwall(fc)(before.freq) * k)
         assert np.allclose(adc.trigger_signal(1).amp, before.amp * bessel4(fc)(before.freq) * k)
         assert np.allclose(
-            scope.components["acq"]._display_signal(1).amp, adc.trigger_signal(1).amp
+            scope.components["acq"].display_signal(1).amp, adc.trigger_signal(1).amp
         )  # what the search uses
     finally:
         session.close()
