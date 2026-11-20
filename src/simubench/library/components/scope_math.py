@@ -199,11 +199,27 @@ class ScopeMath(Component):
         value = self.owner.get_state(path)
         return default if value is None else value
 
-    def _number(self, value: float) -> bytes:
+    def format_number(self, value: float) -> bytes:
         """A number in the definition's own reply format (the instrument's NR3, not the
         component's): the manual's sample replies are the response format's."""
         assert self.owner is not None
         return self.owner.format_number(value)
+
+    def get_state(self, path: str) -> Any:
+        """A setting's value, read from the instrument (#1724: the blocks' name for it)."""
+        assert self.owner is not None
+        return self.owner.get_state(path)
+
+    def set_state(self, path: str, value: Any, *, source: str = "scpi", internal: bool = False) -> None:
+        """A setting's value written on the instrument: ``internal`` for one the commands' own
+        writes fill in (a function's operator and sources)."""
+        assert self.owner is not None
+        self.owner.set_state(path, value, source=source, internal=internal)
+
+    def has_state(self, path: str) -> bool:
+        """Whether the definition declares the setting ``path``."""
+        assert self.owner is not None
+        return path in self.owner.definition.state
 
     def function(self, f: int) -> int:
         if not 1 <= f <= int(self.param("functions")):
