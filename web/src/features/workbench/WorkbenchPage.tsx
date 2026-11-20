@@ -8,6 +8,7 @@ import { ApiError, type BenchDocument, type EditOp, type InstrumentInfo, type Se
 import { useEventStream, useEvents, useWallClock } from "@/api/events";
 import type { Event } from "@/api/generated/events";
 import { keys, useBenchDoc, useBenchPreview, useCatalog, useFaults, useNetLevels, useSession, useSessions, useStartSession } from "@/api/hooks";
+import { withStateEvent } from "@/api/sessionValues";
 import { ErrorState } from "@/components/app/StateViews";
 import { Button } from "@/components/ui/button";
 import { AssistantPanel } from "@/features/assistant/AssistantPanel";
@@ -58,15 +59,7 @@ export function WorkbenchPage() {
   const refetchTimer = useRef<number | undefined>(undefined);
   const onState = useCallback(
     (ev: Event) => {
-      qc.setQueryData<SessionInfo>(keys.session(sid), (s) => {
-        if (!s || !ev.instrument || !ev.path) return s;
-        return {
-          ...s,
-          instruments: s.instruments.map((i) =>
-            i.name !== ev.instrument ? i : { ...i, state: i.state.map((v) => (v.path === ev.path ? { ...v, value: ev.new } : v)) },
-          ),
-        };
-      });
+      qc.setQueryData<SessionInfo>(keys.session(sid), (s) => (s ? withStateEvent(s, ev) : s));
     },
     [qc, sid],
   );

@@ -4,8 +4,10 @@ canvas, compaction and the conversation history. Each test walks one flow (D49).
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import logging
+from pathlib import Path
 
 import pytest
 import yaml
@@ -27,6 +29,8 @@ from simubench.server.assistant.store import Conversation, TurnFiles
 from simubench.server.assistant.tools import TOOLS, TurnContext, stop_session
 from simubench.server.errors import Conflict
 from simubench.server.manager import SessionManager
+
+ROOT = Path(__file__).resolve().parents[1]
 
 BENCH = "hello.bench.yaml"
 ENV = {"SIMUBENCH_LLM_BASE_URL": "http://llm.test/v1", "SIMUBENCH_LLM_MODEL": "m"}
@@ -798,3 +802,47 @@ async def test_templates_need_the_users_example_before_commands_change(manager):
     assert all(s.ok for s in t3.steps), [s.error for s in t3.steps]
     tried = last_tool_return(does.seen[-1], "try_definition")["results"][0]
     assert tried["command"] == "*IDN?" and tried["response"]
+
+
+def test_a_summary_kind_missing_from_the_record_is_refused(manager):
+    """#1729: ``before`` and ``kinds`` are written together (tools.touch, the template save); a
+    record that lost the entry is damaged — the domain error in words, never the silent "bench"
+    the old fallback read."""
+    service = AssistantService(manager)
+    with raises_with(Invalid, BENCH):
+        service._summarize(
+            M.AssistantTurn(id="t1", user="x", started_at="x"), TurnFiles(before={BENCH: "0" * 64})
+        )
+
+
+def test_the_service_holds_no_kind_dispatch_the_facade_owns_it():
+    """#1729: the six hand-written bench/definition branches are gone from the service; the kind
+    dispatch lives in FileStores, and the record's missing kind is never silently "bench"."""
+    source = (ROOT / "src/simubench/server/assistant/service.py").read_text(encoding="utf-8")
+    for node in ast.walk(ast.parse(source)):
+        if (
+            isinstance(node, ast.Compare)
+            and len(node.ops) == 1
+            and isinstance(node.ops[0], (ast.Eq, ast.NotEq))
+        ):
+            sides = [node.left, *node.comparators]
+            names = [
+                s
+                for s in sides
+                if (isinstance(s, ast.Name) and s.id == "kind")
+                or (isinstance(s, ast.Attribute) and s.attr == "kind")
+            ]
+            literals = [
+                s for s in sides if isinstance(s, ast.Constant) and s.value in ("bench", "definition")
+            ]
+            assert not (names and literals), ast.unparse(node)
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "get"
+            and isinstance(node.func.value, ast.Attribute)
+            and node.func.value.attr == "kinds"
+        ):
+            assert not any(isinstance(a, ast.Constant) and a.value == "bench" for a in node.args), (
+                ast.unparse(node)
+            )
