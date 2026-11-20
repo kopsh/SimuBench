@@ -327,7 +327,12 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
     userMoved.current = false;
     const fit = () => {
       const pane = wrapper.current?.getBoundingClientRect();
-      const readable = pane && pane.width < 760 ? 0.6 : 0.93;
+      // The readable floor holds only while every node fits the canvas at it: a 1400 px window
+      // leaves a 840 px canvas that is wider than 760 px yet too narrow for the scope bench at
+      // 0.93, and the scope was cut off (#1674). Then the floor drops to 0.6 as on a narrow canvas.
+      const bounds = flow.getNodesBounds(flow.getNodes());
+      const fitsReadable = !pane || (bounds.width * 0.93 <= pane.width * 0.84 && bounds.height * 0.93 <= pane.height * 0.84);
+      const readable = pane && (pane.width < 760 || !fitsReadable) ? 0.6 : 0.93;
       void flow.fitView({ padding: 0.08, minZoom: readable, maxZoom: 1, duration: 0 });
     };
     const id = window.setTimeout(fit, 0);
