@@ -248,6 +248,7 @@ https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-seri
 | 残余杂散，每 16 GHz 区间 | -65 dBFS | 16 GHz -65 dBFS，其余不超过 | `test_the_uxr1104b_residual_spurs_meet_the_data_sheet` |
 | 时钟杂散 @ 64 GHz（0 dBm 档位） | -65 dBm | -65 dBFS（4 路采样器的偏置） | 同上 |
 | 固有抖动，< 1 µs 采集（p.11） | 15 fs rms | 15 fs（共用时钟 14.14 + 本通道 5） | `test_the_uxr1104b_jitter_is_mostly_the_shared_clock` |
+| 固有抖动随采集时长（p.11，内部与外部参考相同） | 10 µs 25 fs、100 µs 40 fs、1 ms 50 fs rms | 同表（`timebase.clock_tie_s`：时钟慢漂移，各通道共有，按绝对时刻算，#1698） | `test_the_uxr1104b_intrinsic_jitter_grows_with_the_acquisition_span` |
 | 通道间固有抖动（p.11） | < 10 fs rms | 7.1 fs | 同上 |
 | 显示（触发）抖动，100 mV/div、500 mVpp 55 GHz（p.16） | 71 fs rms 典型 | 70.9 fs（300 次）；测试 120 次、±15 % | `test_the_display_jitter_meets_the_data_sheet` |
 
@@ -259,7 +260,7 @@ https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-seri
 - 触发通路不加噪声：数据手册的 71 fs 正好等于记录噪声除以过零斜率（70.6 fs）。#1298 原先给触发通路加了与通道相同的
   噪声，显示抖动为 102 fs。UXR0334B 同理（#1691）：116 fs 等于 2.91 mV ÷ 25 GV/s，去掉触发噪声后实测 117 fs（原先 181 fs）。记录时间原点的 25 fs 是固有抖动表 10 µs 那一行，取作量级。
 
-没有建模：固有抖动随采集时长增长（10 µs 25 fs、100 µs 40 fs、1 ms 50 fs，需要时钟的相位噪声模型，#1698）、通道间相位
+没有建模：通道间相位
 （p.9 的 2 通道互相关相位噪声）、前端的模拟带宽限制滤波、单独的 ADC ENOB（3123-1371 p.10 的 8.7 位，整机噪声已在
 噪声表里）。
 
@@ -327,7 +328,7 @@ InP 主采样器。Web 仪器内部页因此显示出采样器块（`test_intern
 
 - 校准模块：AUX 方波经多级 InP 限幅放大器变成约 3.3 ps 的阶跃，模块内存有 NIST 溯源响应，示波器按它修正频响并对齐各通道（35:30–42:30）。
   **不建**：定标场景已撤销、不再验收（D39，2026-11-18）。覆盖表把 `:CALibrate` 记为范围外，不变；只做命令层（状态与时间戳）或做成测试台附件，都没有使用者。
-- 时钟链的细节：16 GHz → 32 → 64 GHz 倍频，再经 128 GHz 分出 4 相，InP 芯片内有移相器对齐（12:32–14:21）。
+- 时钟链的细节：16 GHz → 32 → 64 GHz 倍频，再经 128 GHz 分出 4 相，InP 芯片内有移相器对齐（12:32–14:21）。不显式建链，只建它造成的结果：白抖动与随采集时长增长的慢漂移（`timebase.clock_jitter_s`、`clock_tie_s`，#1698）。
   **倍频链本身不建**：定义只建它的结果，即每路的时延失配（`sampler.path_skews_s`）与抖动（`timebase.clock_jitter_s`、`sampler.aperture_jitter_s`），
   已对上数据手册的交织与 < 1 µs 抖动指标；显式的倍频、分相不会让任何可观测量更接近数据手册。它唯一缺的可观测结果——固有抖动随采集时长
   增长（11.2）——由时基的相位噪声来补，见 #1698。

@@ -536,3 +536,34 @@ def test_shaped_noise_keeps_its_rms_and_depends_on_the_index_only():
     assert np.array_equal(
         _frame(dataclasses.replace(view, noise_fc=2e11), count=4096), _frame(slow, count=4096)
     )
+
+
+@pytest.mark.parametrize(("span", "jitter"), [(1e-6, 15e-15), (1e-5, 25e-15), (1e-4, 40e-15), (1e-3, 50e-15)])
+def test_the_uxr1104b_intrinsic_jitter_grows_with_the_acquisition_span(span, jitter):
+    """#1698, data sheet 3123-1313 p.11: intrinsic jitter 15 / 25 / 40 / 50 fs rms for a < 1 µs, 10 µs,
+    100 µs and 1 ms acquisition. The timing error of a 16k-sample record of that span, read off a
+    20 GHz sine as in the test above (rms about the record's mean), averaged in variance over eight
+    acquisitions (each draws its own phases), is the table's ±15 %; a segment of the record computed
+    alone has the whole's values."""
+    f = FS * 5120 / N
+    sig = Signal.lines([f], [0.1 + 0j])
+    view = dataclasses.replace(
+        _uxr1104b_view(), signal=sig, sigma=0.0, hd=(0.0, 0.0), bits=0, ilv_skews=(), ilv_offsets=()
+    )
+    assert view.clock_tie
+    dt = span / N
+    t = np.arange(N) * dt
+    slope = sig.scale(2j * math.pi * f).sample_rel(0, t)
+    steep = np.abs(slope) > 0.5 * float(np.abs(slope).max())
+    variances = []
+    for acq in range(8):
+        request = FrameRequest(0, N, dt, ("acq", "noise", 1, acq))
+        frame = np.asarray(view.frame(request).data)
+        shift = ((frame - sig.sample_rel(0, t)) / np.where(steep, slope, 1.0))[steep]
+        variances.append(float(np.var(shift)))
+    assert math.sqrt(float(np.mean(variances))) == pytest.approx(jitter, rel=0.15)
+    # a segment alone equals the same samples of the whole record
+    request = FrameRequest(0, N, dt, ("acq", "noise", 1, 0))
+    whole = np.asarray(view.frame(request).data)
+    part = np.asarray(view.frame(dataclasses.replace(request, count=1000, index0=5000, first=5000)).data)
+    assert np.array_equal(part, whole[5000:6000])
