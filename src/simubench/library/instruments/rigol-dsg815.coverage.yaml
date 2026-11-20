@@ -34,12 +34,12 @@ sections:
     level: not_modeled
     note: IQ 选件与文件系统未建模。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: ':MMEMory:DATA:IQ:LIST'
     level: not_modeled
     note: IQ 选件与文件系统未建模。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: ':MMEMory:DELete'
     level: not_modeled
     note: 文件系统未建模。
@@ -89,7 +89,7 @@ sections:
     level: not_modeled
     note: 文件名前缀未建模。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: ':MMEMory:SAVe'
     level: not_modeled
     note: 仪器状态文件未建模。

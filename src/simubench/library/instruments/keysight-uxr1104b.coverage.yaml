@@ -1288,9 +1288,9 @@ sections:
       as the guide says.'
   - header: :DISK:SAVE:COMPosite
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup save/recall to a file (#1070).'
+    note: 保存到仪器文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: :DISK:SAVE:IMAGe
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): screen images and hardcopies (#1072).'

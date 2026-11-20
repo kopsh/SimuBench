@@ -282,9 +282,9 @@ sections:
     note: 'file_system 组件（#1069）：文件不存在时建一个空文件。'
   - header: MMEMory:LOAD:ALL
     level: not_modeled
-    note: '整机设置文件未建模。'
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:LOAD:DATA<ch>
     level: not_modeled
     note: '任意波与序列存为文件（.arb/.barb/.seq）未建模。'
@@ -304,9 +304,9 @@ sections:
     note: 'file_system 组件（#1069）：只删空文件夹（非空报 -257 folder not empty），不能删当前文件夹。'
   - header: MMEMory:STORe:ALL
     level: not_modeled
-    note: '整机设置文件未建模。'
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:STORe:DATA<ch>
     level: not_modeled
     note: '任意波与序列存为文件（.arb/.barb/.seq）未建模。'

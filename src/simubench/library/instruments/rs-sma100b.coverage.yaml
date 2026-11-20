@@ -565,9 +565,9 @@ sections:
     blocked_by: file-system
   - header: :MMEMory:LOAD:STATe
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup files (setup_memory, #1070); not wired in this model.'
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: :MMEMory:MDIRectory
     level: not_modeled
     note: 'Capability gap (not in product-plan.md 4.2): the instrument''s file system (a virtual file system, #1069); not wired in this model.'
@@ -595,9 +595,9 @@ sections:
     blocked_by: file-system
   - header: :MMEMory:STORe:STATe
     level: not_modeled
-    note: 'Capability gap (not in product-plan.md 4.2): setup files (setup_memory, #1070); not wired in this model.'
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
 - section: OUTPut Subsystem
   commands:
   - header: :OUTPut:ALL[:STATe]

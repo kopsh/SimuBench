@@ -374,9 +374,9 @@ sections:
     blocked_by: file-system
   - header: MMEMory:LOAD:STATe
     level: not_modeled
-    note: 状态存储未实现。
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:MDIRectory
     level: not_modeled
     note: 文件系统不在仿真中。
@@ -404,9 +404,9 @@ sections:
     blocked_by: file-system
   - header: MMEMory:STORe:STATe
     level: not_modeled
-    note: 状态存储未实现。
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:UPLoad?
     level: not_modeled
     note: 文件系统不在仿真中。
@@ -419,14 +419,12 @@ sections:
     blocked_by: setup-memory
   - header: MMEMory:STATe:RECall:SELect
     level: not_modeled
-    note: 状态存储未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
   - header: MMEMory:STATe:VALid?
     level: not_modeled
-    note: 状态存储未实现。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
 - section: SAMPle Subsystem
   commands:
   - header: SAMPle:COUNt
