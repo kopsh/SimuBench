@@ -1,39 +1,34 @@
 """The AI assistant (#871, D66): LLM settings, the conversation of a bench, its events, stop,
-clear, and restore to before the last turn."""
+clear, and restore to before the last turn.
+
+Every error a service raises is mapped through the one domain-error table (D76): the assistant's
+own kinds (``Busy``, ``ConfigError``) sit in it beside the shared ones (#1725), so a route picks
+no status by hand and a bug keeps the 500 it is."""
 
 from __future__ import annotations
 
 from collections.abc import AsyncIterator
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from fastapi.responses import StreamingResponse
 
 from ...contracts import api as M
-from ..assistant.config import ConfigError, check_settings
+from ..assistant.config import check_settings
 from ..assistant.llm import check_connection
-from ..assistant.service import Busy
-from ..errors import FILE_ERRORS, ClientsConnected, Conflict
+from ..errors import DOMAIN_ERRORS, ConfigError
 from .context import ApiContext
 
 _BUSY: dict[int | str, dict[str, Any]] = {409: {"description": "A turn of this conversation is running"}}
 
 
-def http_error(ctx: ApiContext, exc: Exception) -> HTTPException:
-    """The assistant's own errors (a turn already running, a settings problem); the rest is the
-    shared table of ``ApiContext.http_error``."""
-    if isinstance(exc, Busy):
-        return HTTPException(409, str(exc))
-    if isinstance(exc, ConfigError):
-        return HTTPException(422, str(exc))
-    return ctx.http_error(exc)
-
-
 def bench_errors(ctx: ApiContext, fn: Any) -> Any:
+    """Run a service call; a domain error becomes the HTTP error of the one table's HTTP column
+    (``ApiContext.http_error``), anything else is re-raised: the 500 a bug is."""
     try:
         return fn()
-    except (*FILE_ERRORS, Busy, ConfigError, KeyError) as exc:
-        raise http_error(ctx, exc) from None
+    except (*DOMAIN_ERRORS,) as exc:
+        raise ctx.http_error(exc) from None
 
 
 def _assistant_chat_routes(ctx: ApiContext, router: APIRouter) -> None:
@@ -108,8 +103,8 @@ def _assistant_chat_routes(ctx: ApiContext, router: APIRouter) -> None:
         """Start a turn; follow it with GET /api/assistant/events."""
         try:
             return await service.send(req.bench, req.text, req.stop_consent)
-        except (*FILE_ERRORS, Busy, ConfigError, KeyError) as exc:
-            raise http_error(ctx, exc) from None
+        except (*DOMAIN_ERRORS,) as exc:
+            raise ctx.http_error(exc) from None
 
 
 def _assistant_run_routes(ctx: ApiContext, router: APIRouter) -> None:
@@ -133,8 +128,9 @@ def _assistant_run_routes(ctx: ApiContext, router: APIRouter) -> None:
             first = await anext(stream)
         except StopAsyncIteration:
             first = None
-        except KeyError as exc:
-            raise ctx.not_found(exc) from None
+        except (*DOMAIN_ERRORS,) as exc:
+            # no such turn (Unknown) is a 404, a broken conversation file a 422: the table says (#1725)
+            raise ctx.http_error(exc) from None
 
         async def body() -> AsyncIterator[bytes]:
             if first is not None:
@@ -180,11 +176,9 @@ def _assistant_run_routes(ctx: ApiContext, router: APIRouter) -> None:
         """Restore the files the last turn wrote, delete the ones it created (the user's action)."""
         try:
             return await service.rollback(req)
-        except Conflict as exc:
-            raise HTTPException(409, str(exc)) from None
-        except ClientsConnected as exc:
-            raise ctx.in_use(exc) from None
-        except FILE_ERRORS as exc:
+        except (*DOMAIN_ERRORS,) as exc:
+            # the Conflict row's 409 carries the message and the current sha256, the in-use rows
+            # the connected scripts (#1725): the route picks no encoding by hand
             raise ctx.http_error(exc) from None
 
 

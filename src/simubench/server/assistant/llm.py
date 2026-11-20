@@ -12,9 +12,12 @@ import os
 import time
 from typing import Any
 
+import httpx2
+
 os.environ.setdefault("PYDANTIC_AI_NO_BANNER", "1")  # a server, not a terminal session
 
 from pydantic_ai import Agent
+from pydantic_ai.exceptions import ModelAPIError
 from pydantic_ai.models import Model
 from pydantic_ai.settings import ModelSettings
 
@@ -23,6 +26,19 @@ from .config import ConfigError, LlmSettings
 
 #: Some private deployments need no key, but both SDKs refuse to start without one.
 NO_KEY = "not-needed"
+
+#: The failures of the LLM service itself, as the turn boundary tells them apart from a bug
+#: (#1725). pydantic_ai translates the openai and anthropic SDKs' answers into its own
+#: ``ModelAPIError`` kinds (a refused key, a 404, a rate limit, a timeout, a refused connection),
+#: so that one class covers them; a transport failure that breaks a stream after it started and a
+#: wait nothing wrapped pass through as themselves. :func:`describe_error` beside this says them
+#: in words. Anything else that reaches the turn boundary is a bug in a tool or the engine, and
+#: must not be dressed up as an LLM service failure (#1478).
+SERVICE_ERRORS: tuple[type[Exception], ...] = (
+    ModelAPIError,
+    httpx2.HTTPError,
+    TimeoutError,  # asyncio.TimeoutError is this name today; a timeout no SDK wrapped
+)
 
 
 def build_model(settings: LlmSettings, http_client: Any = None) -> Model:

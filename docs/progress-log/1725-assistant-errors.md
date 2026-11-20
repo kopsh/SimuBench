@@ -1,0 +1,9 @@
+## 助手轮缝的错误纪律：LLM 失败类型化、路由影子表退役、损坏文件按领域错误（Issue 1725）
+
+| 完成条件 | 自检 |
+| --- | --- |
+| 轮边界分两路：`llm.py` 定义 `SERVICE_ERRORS` 单点（pydantic_ai 把 openai/anthropic SDK 的失败译成 `ModelAPIError`，另收 `httpx2.HTTPError` 与未被包装的 `TimeoutError`），命中它仍走 `describe_error` 人话；其余异常 `log.exception` 留栈、话术「助手内部出错，这一轮没有完成」，不含「LLM 服务」，轮状态机照旧闭合（turn=error、finished_at、写盘） | ✅ `tests/test_assistant.py::test_a_bug_in_the_model_stream_ends_the_turn_as_an_internal_error`（旧代码下红：旧话术是「LLM 服务出错」且 `log.warning` 无栈）；✅ `test_an_llm_service_failure_still_reads_as_one`（401 的 ModelHTTPError 人话原样存活） |
+| `Busy`/`ConfigError` 以 `ErrorRow` 进 `server/errors.py` 的一张表（`Busy` 类随迁，`ConfigError` 类集中、`assistant/config.py` 再导出），`routes/assistant.py` 影子映射退役：捕获元组一律 `DOMAIN_ERRORS`，状态码一律问表（`ctx.http_error`），rollback 的 409 body 带回 `current_sha256`；events 路由的裸 `KeyError` 改按 `Unknown` 捕 | ✅ `tests/test_services.py::test_assistant_routes_ask_the_one_table_not_a_shadow_of_it`（AST 守卫：路由内无 isinstance、无手写 HTTPException、无裸 KeyError；旧代码下红）；✅ `test_the_tool_text_and_the_http_row_agree_per_kind`（Busy 409 / ConfigError 422 两缝一致，旧代码下红）；✅ `tests/test_assistant_llm.py::test_the_rollback_route_maps_conflict_through_the_table`（409 body 为 dict 且含 `current_sha256`，旧代码下红） |
+| 删 `service.py` 本地 `_parse`，改用 `benchfiles.parse_data`（#1406 的 `Invalid` 带行列）；对话文件损坏（截断/手改）在 `store.load` 包成 `Invalid`：422 人话，不静默清空，保留现场；手改坏的 bench 让 rollback_plan 答 `Invalid` 而非 500 | ✅ `tests/test_assistant.py::test_a_broken_conversation_file_is_a_domain_error_and_is_never_emptied`、`test_a_bench_broken_by_hand_stops_the_rollback_plan_in_words`（旧代码下红）；✅ `tests/test_assistant_llm.py::test_a_broken_conversation_file_answers_422_in_words`（HTTP 422 带「line 1 column」） |
+| 现有人话用例原样存活：注入 401 的连接测试文案、`test_assistant.py`/`test_assistant_rollback.py` 全部既有用例 | ✅ `uv run pytest tests/test_assistant.py tests/test_assistant_llm.py tests/test_assistant_rollback.py tests/test_services.py -q`（83 过） |
+| 不写新 D：D76/#1478/#1406 的应用 | ✅ `docs/decisions.md` 本条未追加新节 |
