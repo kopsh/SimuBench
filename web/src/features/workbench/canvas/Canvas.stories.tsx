@@ -9,12 +9,15 @@ import fixture from "./canvas.fixture.json";
  * silent while the generator's output is off (grey wires, flat thumbnail), live once it is on
  * (wires flow in the channel color, the scope node shows the waveform).
  */
+/** The catalog's `units` of the parts these benches use (`GET /api/components`). */
+const PART_UNITS = { rc_lowpass: { r: "OHM", c: "F" } };
+
 function LiveCanvas({ live }: { live: boolean }) {
   const view = (live ? fixture.session : fixture.silentSession) as unknown as SessionInfo;
   const levels = (live ? fixture.liveLevels : fixture.silentLevels).nets as NetLevel[];
   return (
     <div className="h-[420px] w-[960px] rounded-md border">
-      <Canvas view={view} levels={new Map(levels.map((n) => [n.net, n]))} />
+      <Canvas view={view} levels={new Map(levels.map((n) => [n.net, n]))} partUnits={PART_UNITS} />
     </div>
   );
 }
@@ -36,7 +39,7 @@ function BenchCanvas({ bench }: { bench: keyof typeof benches }) {
   const levels = entry.levels.nets as NetLevel[];
   return (
     <div className="h-[420px] w-[960px] rounded-md border">
-      <Canvas view={entry.session as unknown as SessionInfo} levels={new Map(levels.map((n) => [n.net, n]))} />
+      <Canvas view={entry.session as unknown as SessionInfo} levels={new Map(levels.map((n) => [n.net, n]))} partUnits={PART_UNITS} />
     </div>
   );
 }

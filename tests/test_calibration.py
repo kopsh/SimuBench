@@ -136,6 +136,19 @@ def test_register_on_the_bench_calendar(tmp_path, capsys):
         assert c.get(f"/api/sessions/{sid}/assets").json()["assets"][0]["due_in_days"] == -1  # overdue now
 
 
+def test_assets_names_a_bench_file_it_cannot_read(tmp_path, capsys):
+    """A mistyped bench path is one line naming the file, not a Python traceback (#1672)."""
+    from simubench.cli import main
+
+    assert main(["assets", str(tmp_path / "missing.bench.yaml")]) == 1
+    not_a_bench = tmp_path / "README.md"
+    not_a_bench.write_text("a: [unclosed\n", encoding="utf-8")
+    assert main(["assets", str(not_a_bench)]) == 1
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert str(tmp_path / "missing.bench.yaml") in err and str(not_a_bench) in err
+
+
 def test_true_values_only_when_revealed():
     for reveal in (False, True):
         s = open_bench(bench(reveal_true_values=reveal))

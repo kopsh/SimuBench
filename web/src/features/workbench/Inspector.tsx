@@ -3,7 +3,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo, SessionInfo, StateVarInfo } from "@/api/client";
-import { scpiOutcome, useScpi, useSession } from "@/api/hooks";
+import { scpiOutcome, useCatalog, useScpi, useSession } from "@/api/hooks";
 import { remoteInstrument } from "@/components/app/ClientsConfirm";
 import { EmptyState } from "@/components/app/StateViews";
 import { SaveTemplateButton } from "@/features/assistant/SaveTemplateDialog";
@@ -15,7 +15,7 @@ import { channelColor } from "@/lib/channels";
 import { pickLabel } from "@/i18n";
 import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { accessoryLabel, ALL_OPEN_MAX, channelVars, FIELD_PAGE, fieldsShown, findSettings, globalVars, inactiveReason, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupsOpenByDefault, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
+import { accessoryLabel, ALL_OPEN_MAX, channelVars, FIELD_PAGE, fieldsShown, findSettings, formatPartParam, globalVars, inactiveReason, instanceFamilies, type InstanceFamily, instrumentTitle, numeric, groupName, groupsOpenByDefault, panelSections, type PanelSection, panelSettings, type SettingGroup, slotRows, splitSettings, stateMap } from "./model";
 import { loadHistory, pushHistory, QUICK_COMMANDS, recentChips, saveHistory } from "./commandHistory";
 import { FaultPanel } from "./faults/FaultPanel";
 import { ProbePanel } from "./ProbePanel";
@@ -28,6 +28,7 @@ import { useWorkbench } from "./store";
 export function Inspector({ session, readonly }: { session: SessionInfo; readonly: boolean }) {
   const { t } = useTranslation();
   const selection = useWorkbench((s) => s.selection);
+  const catalog = useCatalog().data;
   let body: ReactNode = (
     <EmptyState icon={<MousePointerClick className="size-6" />} title={t("workbench.inspector")} body={t("workbench.noSelection")} />
   );
@@ -36,12 +37,13 @@ export function Inspector({ session, readonly }: { session: SessionInfo; readonl
     if (inst) body = <InstrumentInspector sid={session.id} inst={inst} readonly={readonly} />;
   } else if (selection?.kind === "part") {
     const dut = session.parts.find((d) => d.name === selection.id);
+    const partUnits = catalog?.components.find((c) => c.type === dut?.type)?.units;
     if (dut)
       body = (
         <div className="space-y-4 p-3">
           <Header title={dut.label || dut.name} subtitle={`${dut.dut ? "DUT" : t("workbench.part")} · ${dut.type}`} />
           <Section title={t("workbench.params")}>
-            <KeyValues entries={Object.entries(dut.params).map(([k, v]) => [k, typeof v === "number" ? formatEng(v, "") : String(v)])} />
+            <KeyValues entries={Object.entries(dut.params).map(([k, v]) => [k, formatPartParam(k, v, partUnits)])} />
           </Section>
           <Section title={t("workbench.ports")}>
             <KeyValues entries={dut.ports.map((p) => [p.name, p.net ?? t("workbench.notConnected")])} />

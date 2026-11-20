@@ -16,6 +16,8 @@ from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("rigol-dsg815")
+
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "rigol_dsg815.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "rigol_dsg815_generate.py"

@@ -17,6 +17,8 @@ import yaml
 from helpers import load_script
 from simubench.library.loader import DefinitionLibrary
 
+pytestmark = pytest.mark.model("keysight-uxr1104b", "keysight-uxr0334b", "keysight-33622a")
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "keysight-uxr0334b" / "bench.yaml"
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-uxr0334b.bench.yaml"

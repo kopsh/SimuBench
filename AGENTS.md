@@ -49,7 +49,10 @@ blocked by it. Whoever opens an issue labels it; one without a label is not clai
 3. **Stay in scope**: change only what the issue asks for.
 4. **Check** before every push: run `scripts/check.sh` (lint, format, tests, generated schemas and
    API types). Merging the latest `main` into the branch first is optional — when the branch is
-   behind, the merge bot merges `main` into it and re-runs CI itself (#481). If the full test run
+   behind, the merge bot merges `main` into it and re-runs CI itself (#481). `check.sh` and a pull
+   request's CI run the **models the branch changed** whole and the other models' manual cases as a
+   smoke subset; a change to shared code runs everything, as does `main` (`scripts/select_tests.py`,
+   #1680, D49; `SIMUBENCH_FULL=1 scripts/check.sh` forces the whole set). If that selected run
    exceeds 75 s, fix that immediately as part of the current task: profile with
    `pytest --durations`, address the slowest cases (waits, timeouts) or add parallelism — never
    leave the overrun for a later issue.

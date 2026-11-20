@@ -1,8 +1,10 @@
 """What changed between two versions of a bench file, in the bench's language (#874): instruments
 and parts added, removed or given another model; wires connected and disconnected; initial
-settings, part parameters, addresses, identities and the run settings. Node positions and the
-description are left out (they do not change what runs). The items have the same shape as a
-definition's changes (:mod:`definitionchanges`), so one interface renders both.
+settings, part parameters, addresses, identities and the run settings. Node positions are left
+out (they do not change what runs); a name or description change is listed like any other
+written change (#1709) -- what the turn wrote is what the report shows and what rollback puts
+back. The items have the same shape as a definition's changes (:mod:`definitionchanges`), so one
+interface renders both.
 """
 
 from __future__ import annotations
@@ -55,6 +57,10 @@ def bench_changes(old: dict[str, Any], new: dict[str, Any]) -> list[M.Definition
             out.append(_item("wire", "changed", key, "accessories"))
     if old.get("name") != new.get("name") and old:
         out.append(_item("bench", "changed", "name", None, old.get("name"), new.get("name")))
+    if old and old.get("description") != new.get("description"):
+        out.append(
+            _item("bench", "changed", "description", None, old.get("description"), new.get("description"))
+        )
     ra, rb = old.get("run") or {}, new.get("run") or {}
     for key in sorted(ra.keys() | rb.keys()):
         if ra.get(key) != rb.get(key):

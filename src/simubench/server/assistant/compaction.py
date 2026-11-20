@@ -105,10 +105,11 @@ def compact(
         messages, changed = old + messages[cut:], recent
         while estimate_tokens(messages) > target:
             starts = _turn_starts(messages)
-            if len(starts) <= KEEP_TURNS:
+            # The conversation's opening turn is never dropped (#1708): it carries the task and
+            # whatever the user asked to remember. Drop the oldest turn after it, then the next.
+            if len(starts) <= KEEP_TURNS + 1:
                 break
-            # Drop the oldest turn whole; the next one starts with the user's message again.
-            messages = messages[starts[1] :]
+            messages = messages[: starts[1]] + messages[starts[2] :]
             changed = True
         if changed and not _has_note(messages):
             first = messages[0]

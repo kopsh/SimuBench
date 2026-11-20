@@ -73,6 +73,29 @@ for (const [bench, nodes] of [
   });
 }
 
+// #1674: a 1400×900 window leaves a canvas wider than the "narrow" 760 px yet too small for the
+// scope bench at the readable zoom; the scope was cut off. Every window size shows every node.
+for (const [width, height] of [
+  [1400, 900],
+  [1280, 800],
+  [1100, 800],
+  [1920, 1080],
+]) {
+  test(`siglent_scope_rc opens with every node in view at ${width}×${height}`, async ({ page }) => {
+    await page.setViewportSize({ width, height });
+    await open(page, "benches/siglent_scope_rc.bench.yaml", 3);
+    await page.evaluate(() => document.fonts.ready);
+    await page.waitForTimeout(500); // the refit after the webfonts and panels settle
+    const outside = await page.evaluate(() => {
+      const pane = document.querySelector(".react-flow")!.getBoundingClientRect();
+      return [...document.querySelectorAll(".react-flow__node")]
+        .map((n) => n.getBoundingClientRect())
+        .filter((r) => r.left < pane.left - 1 || r.right > pane.right + 1 || r.top < pane.top - 1 || r.bottom > pane.bottom + 1).length;
+    });
+    expect(outside).toBe(0);
+  });
+}
+
 const WIDTHS: [number, number][] = [
   [1280, 800],
   [1440, 900],

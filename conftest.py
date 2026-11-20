@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 # The unit budget (D49): CPU time decides, the wall clock bounds waiting (#1544).
+from tests.model_scope import SMOKE_CASES, parse_scope, split
 from tests.unit_budget import unit_budget_verdict
 
 from simubench.library.loader import DEFINITIONS_ENV
@@ -21,6 +22,39 @@ os.environ[DEFINITIONS_ENV] = os.pathsep.join(
 
 # A test never reads or writes the developer's real user folder (paths.py, #1237).
 os.environ.setdefault("SIMUBENCH_HOME", tempfile.mkdtemp(prefix="simubench-home-"))
+
+
+def pytest_addoption(parser: pytest.Parser) -> None:
+    parser.addoption(
+        "--model-scope",
+        default=None,
+        help="comma-separated model ids: run only their model tests whole and a smoke subset of the"
+        " other models' manual cases (scripts/select_tests.py; empty: no model changed)",
+    )
+    parser.addoption(
+        "--model-smoke",
+        type=int,
+        default=SMOKE_CASES,
+        help="manual cases kept per model that is not in --model-scope",
+    )
+
+
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    scope = config.getoption("--model-scope")
+    if scope is None:
+        return
+    kept, dropped = split(items, parse_scope(scope), config.getoption("--model-smoke"))
+    if dropped:
+        config.hook.pytest_deselected(items=dropped)
+        items[:] = kept
+
+
+def pytest_report_header(config: pytest.Config) -> str | None:
+    scope = config.getoption("--model-scope")
+    if scope is None:
+        return None
+    models = ", ".join(sorted(parse_scope(scope))) or "none"
+    return f"model scope: {models} whole, the other models' manual cases smoke only (#1680)"
 
 
 @pytest.fixture(autouse=True)

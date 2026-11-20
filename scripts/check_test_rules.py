@@ -104,6 +104,29 @@ def unpinned_hislip_ports(tree: ast.Module) -> list[tuple[int, str]]:
             continue  # no sockets at all: HiSLIP does not start
         found.append((node.lineno, "omitted" if base is None else f"scpi_base_port={ast.unparse(base)}"))
     return found
+def model_marker_failures() -> list[str]:
+    """A test file about a real model declares it (``pytestmark = pytest.mark.model("<id>")``), and
+    every declared id is a library model: a pull request that changes other models leaves the file
+    out, and an unmarked or misspelt file would run for no model or never (#1680)."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import select_tests
+
+    ids = select_tests.model_ids(ROOT)
+    keys = {i.replace("-", "_"): i for i in ids}
+    failures: list[str] = []
+    for path in sorted((ROOT / "tests").glob("test_*.py")):
+        declared = select_tests.marked_models(path)
+        for unknown in sorted(declared - ids):
+            failures.append(f"{path.name}: pytest.mark.model({unknown!r}) is not a library model id (#1680)")
+        stem = path.stem.removeprefix("test_")
+        # test_<vendor>_<model>.py: a prefix of a model id with its vendor and a model part
+        about = stem.count("_") >= 1 and any(k == stem or k.startswith(stem + "_") for k in keys)
+        if about and not declared:
+            failures.append(
+                f"{path.name}: names a real model but has no pytestmark = pytest.mark.model(...) —"
+                " a pull request that changes another model would still run it (#1680)"
+            )
+    return failures
 
 
 def main() -> int:
@@ -136,6 +159,7 @@ def main() -> int:
                     f"{path.name}:{fn.lineno} {fn.name}: a server fixture must be module- or"
                     ' session-scoped (@pytest.fixture(scope="module")) — reuse the environment (D49)'
                 )
+    failures += model_marker_failures()
     for line in failures:
         print(line)
     return 1 if failures else 0
