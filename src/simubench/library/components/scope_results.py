@@ -43,7 +43,6 @@ class ResultsList:
         return self.names.get((what, n)) or (f"{what}(f{-n})" if n < 0 else f"{what}({n})")
 
     def op_results(self, order: str = "", **_: Any) -> OpResult:
-        assert self.host.owner is not None
         word = str(order or self.host.param("results_order") or "").strip().upper()
         entries = (
             list(reversed(self.installed))
@@ -58,7 +57,6 @@ class ResultsList:
     def _result_rows(self, entries: list[tuple[str, int]], every: bool = False) -> tuple[list[bytes], int]:
         """One row per measurement: label and every statistic, or the one ``statistics`` names
         (``every``: always the full row)."""
-        assert self.host.owner is not None
         stat = "" if every else str(self.host.param("statistics") or "").strip().upper()
         parts: list[bytes] = []
         used = 0
@@ -81,7 +79,6 @@ class ResultsList:
         return parts, used
 
     def op_store_results(self, name: str = "", **_: Any) -> OpResult:
-        assert self.host.owner is not None
         storage: Any = self.host.peer(str(self.host.param("storage")))
         if storage is None:
             raise ScpiError(-300, f"{self.host.uid}: no storage for measurement files")
@@ -114,7 +111,6 @@ class ResultsList:
         suffixes: dict[str, int] | None = None,
         **_: Any,
     ) -> OpResult:
-        assert self.host.owner is not None
         if index is None and suffixes:
             index = next(iter(v for k, v in suffixes.items() if k != "ch"), None)
         entry = self.entry(index)
@@ -161,7 +157,6 @@ class ResultsList:
     def statistics(
         self, kind: str | None = None, item: str = "mean", channel: int | None = None, **_: Any
     ) -> OpResult:
-        assert self.host.owner is not None
         if kind is None:
             raise ScpiError(-109)
         table = {str(k).upper(): v for k, v in (self.host.param("names") or {}).items()}
@@ -177,7 +172,7 @@ class ResultsList:
         key = {"mean": "mean", "sdev": "sdev", "min": "minimum", "max": "maximum"}.get(item)
         if key is None:
             raise ScpiError(-224, f"no statistic {item!r}")
-        return OpResult(self.host.owner.format_number(stats[key]))
+        return OpResult(self.host.format_number(stats[key]))
 
     def clear_statistics(self, **_: Any) -> OpResult:
         self.history = {}

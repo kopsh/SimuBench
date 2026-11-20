@@ -192,6 +192,37 @@ class ScopeMeasurements(Component):
             return str(self.param("invalid_value")).encode()
         return self.owner.format_number(value)
 
+    # ---- the instrument's own state and services (what the family blocks read, #1724) -------------
+
+    def get_state(self, path: str) -> Any:
+        """A setting's value, read from the instrument."""
+        assert self.owner is not None
+        return self.owner.get_state(path)
+
+    def set_state(self, path: str, value: Any, *, source: str = "scpi", internal: bool = False) -> None:
+        """A setting's value written on the instrument: ``internal`` for a read-only one (a
+        marker's mode, a tracked measurement), as a command's write would."""
+        assert self.owner is not None
+        self.owner.set_state(path, value, source=source, internal=internal)
+
+    def format_number(self, value: float) -> bytes:
+        """A number in the definition's response format, whatever its value (NaN answers the
+        format's sentinel, not ``invalid_value``)."""
+        assert self.owner is not None
+        return self.owner.format_number(value)
+
+    @property
+    def specs(self) -> Mapping[str, Any]:
+        """The definition's declared settings, by path (their options, types)."""
+        assert self.owner is not None
+        return self.owner.specs
+
+    @property
+    def state(self) -> Mapping[str, Any]:
+        """The instrument's live setting values (a read with a default for an undeclared path)."""
+        assert self.owner is not None
+        return self.owner.state
+
     @op("clear_list")
     def op_clear_list(self, **_: Any) -> OpResult:
         """``:MEASure:CLEar``: no measurements on the screen, their statistics gone."""
