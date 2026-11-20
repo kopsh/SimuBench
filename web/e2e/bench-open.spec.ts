@@ -97,6 +97,9 @@ test("an invalid definition cannot switch back to Operate", async ({ page }) => 
   ).json()) as { id: string }).id;
   await page.goto(`/s/${sid}?token=${TOKEN}`);
   await page.getByRole("radio", { name: "搭建" }).click();
+  // The library tab shows once the editor holds the file (editing = Build and a loaded document).
+  // A change made before that first load is just the document, not "made elsewhere" (#1685).
+  await expect(page.getByRole("tab", { name: "元件库" })).toBeVisible();
   // Break the definition on disk, then try to leave Build.
   bench.instruments.awg.model = "no-such-model";
   const doc = (await (

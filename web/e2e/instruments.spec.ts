@@ -117,7 +117,8 @@ test("spectrum analyzer: the Continuous and Single keys, on a paused and a live 
   // Single: one sweep (its sweep time passes), then HOLD; time passing moves nothing.
   const before = await sweepNo();
   await single.click();
-  await expect(single).toHaveAttribute("aria-pressed", "true");
+  // the click's SCPI and the state push back to the screen can lag a slow, loaded runner (#1686)
+  await expect(single).toHaveAttribute("aria-pressed", "true", { timeout: 15_000 });
   await expect(page.getByTestId("hold")).toHaveText("HOLD");
   await expect.poll(sweepNo).toBeGreaterThan(before);
   const held = await sweepNo();
@@ -137,14 +138,26 @@ test("spectrum analyzer: the Continuous and Single keys, on a paused and a live 
   await single.click();
   await cont.click();
   await expect(page.getByTestId("hold")).toHaveCount(0);
-  await expect(page.getByTestId("clock-state")).toHaveText("实时");
+  await expect(page.getByTestId("clock-state")).toHaveText("实时", { timeout: 15_000 });
   const live = await sweepNo();
   await expect.poll(sweepNo, { timeout: 10_000 }).toBeGreaterThan(live);
   // Single while live: the sweep count stops though real time runs on.
   await single.click();
-  await expect(page.getByTestId("hold")).toHaveText("HOLD");
-  const stopped = await sweepNo();
-  await page.waitForTimeout(300);
+  await expect(page.getByTestId("hold")).toHaveText("HOLD", { timeout: 15_000 });
+  // the live clock runs ahead of the wall: the sweeps it queued keep landing for a while before
+  // the count settles (1 ms sweeps, CI machines slower) — wait for it to, then it is frozen (#1686)
+  const settle = async (): Promise<number> => {
+    let last = await sweepNo();
+    for (let i = 0; i < 30; i++) {
+      await page.waitForTimeout(250);
+      const now = await sweepNo();
+      if (now === last) return now;
+      last = now;
+    }
+    return last;
+  };
+  const stopped = await settle();
+  await page.waitForTimeout(400);
   expect(await sweepNo()).toBe(stopped);
   await page.getByTestId("clock-pause").click();
   await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
