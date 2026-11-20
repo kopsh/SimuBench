@@ -6,7 +6,7 @@ import benches from "./canvas/benches.fixture.json";
 import canvas from "./canvas/canvas.fixture.json";
 import panels from "./screens/panel.fixture.json";
 import whenCases from "./when-cases.json";
-import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, sameValue, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
+import { accessoryLabel, autoBottomTab, channelVars, distinctOptions, FIELD_PAGE, fieldsShown, findSettings, formatPartParam, formatValue, globalVars, groupName, groupOpen, groupsOpenByDefault, hasLabel, inactiveReason, instanceFamilies, isAutoValue, netTitle, OPEN_ROWS_MAX, OTHER, optionLabel, panelSections, panelSettings, sameValue, slotRows, splitSettings, stepNumber, unusedUnderDc, whenHolds, wordOf } from "./model";
 
 describe("accessoryLabel", () => {
   it("names a lead by its resistance (issue 91: the lead shows on the canvas)", () => {
@@ -459,5 +459,17 @@ describe("fieldsShown (#1580)", () => {
     expect(fieldsShown(2000, 2)).toBe(2 * FIELD_PAGE);
     expect(fieldsShown(2000, 1, 3 * FIELD_PAGE + 5)).toBe(4 * FIELD_PAGE);
     expect(fieldsShown(2000, 1, 5)).toBe(FIELD_PAGE);
+  });
+});
+
+describe("formatPartParam (#1676)", () => {
+  const units = { r: "OHM", c: "F" };
+  it("writes a part parameter with its catalog unit, a tolerance as a percentage, a bare number plain", () => {
+    expect(formatPartParam("r", 1000, units)).toBe("1 kΩ");
+    expect(formatPartParam("c", 100e-9, units)).toBe("100 nF");
+    expect(formatPartParam("tol_c", -0.21, units)).toBe("-21 %");
+    expect(formatPartParam("tol_r", 0, units)).toBe("0 %");
+    expect(formatPartParam("gain", 0.5, units)).toBe("0.5");
+    expect(formatPartParam("mode", "dc", units)).toBe("dc");
   });
 });

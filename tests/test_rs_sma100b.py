@@ -16,6 +16,8 @@ from simubench.engine.session import Session
 from simubench.library.loader import DefinitionLibrary
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("rs-sma100b")
+
 ROOT = Path(__file__).resolve().parents[1]
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "rs-sma100b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "rs_sma100b_generate.py"

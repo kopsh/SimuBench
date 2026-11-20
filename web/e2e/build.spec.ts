@@ -28,6 +28,12 @@ async function stored(request: import("@playwright/test").APIRequestContext, id:
   return (await res.json()) as { data: Record<string, unknown>; ok: boolean };
 }
 
+/** The effective structure the build area edits (extends and the category default merged in). */
+async function structure(request: import("@playwright/test").APIRequestContext, id: string) {
+  const res = await request.get(`/api/definitions/${id}/structure`, { headers });
+  return (await res.json()) as { state: Record<string, Record<string, unknown>> };
+}
+
 test("build area: drag a component in, wire it, set a parameter, add a panel port, delete (#1201)", async ({ page, request }) => {
   // A workspace copy of a validation instrument: an optical receiver feeding an output stage.
   const copy = await request.post("/api/definitions/sb-oe-1/copy", { headers });
@@ -113,6 +119,12 @@ test("build area of a built-in model is read only and points at the copy (#1201)
 test("build area: declare a setting, bind a parameter to it, give it a command, try it (#1206)", async ({ page, request }) => {
   const copy = await request.post("/api/definitions/sb-oe-1/copy", { headers });
   const id = ((await copy.json()) as { data: { id: string } }).data.id;
+  // A copy writes only what it does not inherit (D59, #1425): before the first save its file has
+  // no `state` at all, while the effective structure still holds the parent's settings. Reading
+  // `document.state["out.zout"]` inside the poll threw, and `expect.poll` ends on a throw instead
+  // of retrying — the flake #1665 saw (#1669). Poll the effective structure, then read the file.
+  expect((await stored(request, id)).data.state).toBeUndefined();
+  expect((await structure(request, id)).state.unit).toBeDefined();
   await page.goto(`/i/${id}?token=${TOKEN}`);
   await page.getByTestId("acceptance-tab-build").click();
   await expect(page.getByTestId("build-area")).toBeVisible();
@@ -128,10 +140,14 @@ test("build area: declare a setting, bind a parameter to it, give it a command, 
   await row.getByLabel("out.zout 单位").press("Enter");
   await row.getByLabel("out.zout 默认值").fill("50");
   await row.getByLabel("out.zout 默认值").press("Enter");
+  const setting = { type: "float", unit: "OHM", default: 50 };
   await expect
-    // Until the first setting is saved the copy has no state at all: read it as absent, poll on (#1665).
-    .poll(async () => ((await stored(request, id)).data.state as Record<string, { unit?: string; default?: number }> | undefined)?.["out.zout"])
-    .toMatchObject({ type: "float", unit: "OHM", default: 50 });
+    // The save is eventually there: the effective structure always carries a state object, so the
+    // poll never throws while the edit is still on its way to the file (#1669).
+    .poll(async () => (await structure(request, id)).state["out.zout"])
+    .toMatchObject(setting);
+  // The file keeps this one setting; everything else stays inherited (#1425).
+  expect((((await stored(request, id)).data.state ?? {}) as Record<string, unknown>)["out.zout"]).toMatchObject(setting);
 
   // The output stage's impedance follows it.
   await page.locator('[data-name="out"]').click();

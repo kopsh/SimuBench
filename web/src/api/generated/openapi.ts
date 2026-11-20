@@ -1806,6 +1806,13 @@ export interface components {
              * @description What the step does: a tool name, or for bench edits the edit operation (add_instrument, connect, set_state, ...)
              */
             action: string;
+            /**
+             * Args
+             * @description The tool call's arguments as the tool received them (compact keys), for the postmortem: what the model actually sent (#1679). None on a bench-edit sub-step
+             */
+            args: {
+                [key: string]: unknown;
+            } | null;
             /** Error */
             error: string | null;
             /**

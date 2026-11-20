@@ -17,6 +17,8 @@ import yaml
 from helpers import load_script
 from simubench.library.loader import DefinitionLibrary
 
+pytestmark = pytest.mark.model("keysight-uxr1104b", "keysight-uxr0334b", "keysight-33622a")
+
 ROOT = Path(__file__).resolve().parents[1]
 CASES_BENCH = ROOT / "tests" / "models" / "keysight-uxr0334b" / "bench.yaml"
 EXAMPLE_BENCH = ROOT / "examples" / "benches" / "keysight-uxr0334b.bench.yaml"
@@ -589,33 +591,28 @@ def _triggers(bench: Path, setup: str, band: str = "MAX") -> tuple[str, list[flo
 
 
 @pytest.mark.parametrize(
-    ("cases", "scale", "nreject"),
-    [(CASES_BENCH_1104B, 0.5, True), (CASES_BENCH, 0.42, False)],
+    ("cases", "model", "scale", "nreject"),
+    [(CASES_BENCH_1104B, "keysight-uxr1104b", 0.5, True), (CASES_BENCH, "keysight-uxr0334b", 0.42, False)],
     ids=["uxr1104b", "uxr0334b"],
 )
-def test_the_trigger_taps_the_analog_front_end_with_its_own_noise(tmp_path, cases, scale, nreject):
+def test_the_trigger_taps_the_analog_front_end_with_its_own_noise(tmp_path, cases, model, scale, nreject):
     """#1263, #1298: the trigger compares the signal at the ADC's input — before :ACQuire:BANDwidth's
-    and InfiniiSim's digital filters — through its own noise (the UXR0334B's: the channel's
-    per-division table, an estimate; the UXR1104B's path is noise-free since #1579, its table given
-    back here as a hidden parameter to check the mechanism). The 400 mVpp sine stays
+    and InfiniiSim's digital filters — through its own noise. Both models' paths are noise-free
+    (the UXR1104B's since #1579, the UXR0334B's since #1691: the data sheet's display jitter leaves
+    no room for it, test_the_display_jitter_meets_the_data_sheet); the mechanism is checked with
+    the channel's per-division table given back as a hidden parameter. The 400 mVpp sine stays
     inside the normal hysteresis band (half a division either side: ±0.25 V at 0.5 V/div on the
     UXR1104B, ±0.21 V at 0.42 V/div on the UXR0334B) but for the noise: with it the noise carries
     the peaks past the band and every acquisition triggers; without the trigger's noise none does.
     The UXR1104B's NREJect band is twice as wide and never triggers. Same seed, same sequence."""
     setup = f":CHANnel1:SCALe {scale}"
-    noisy = None
-    if nreject:
-        # the UXR1104B's trigger path is noise-free since #1579 (the data sheet's 71 fs display
-        # jitter leaves no room for it: test_the_display_jitter_meets_the_data_sheet); the
-        # mechanism is checked with the channel's table given back to it as a hidden parameter
-        assert (
-            _triggers(_bench_with(tmp_path, "n.yaml", cases=cases), f"{setup};:TRIGger:HYSTeresis NORMal")[0]
-            == "0" * 12
-        )
-        front = next(
-            c for c in DefinitionLibrary([]).get("keysight-uxr1104b").channel_components if c.name == "front"
-        )
-        noisy = {"trigger": {"noise_table": front.params["noise_table"]}}
+    # -- as shipped the path is noise-free: the sub-band sine never triggers
+    assert (
+        _triggers(_bench_with(tmp_path, "n.yaml", cases=cases), f"{setup};:TRIGger:HYSTeresis NORMal")[0]
+        == "0" * 12
+    )
+    front = next(c for c in DefinitionLibrary([]).get(model).channel_components if c.name == "front")
+    noisy = {"trigger": {"noise_table": front.params["noise_table"]}}
     bench = _bench_with(tmp_path, "b.yaml", noisy, cases=cases)
     normal, origins = _triggers(bench, f"{setup};:TRIGger:HYSTeresis NORMal")
     # -- the noise makes the sub-band sine trigger, every time, at its rising crossing
@@ -716,20 +713,20 @@ def test_a_signal_beyond_the_trigger_bandwidth_does_not_trigger(tmp_path, cases)
         rm.close()
 
 
-@pytest.mark.parametrize("model", ["keysight-uxr0334b"])
-def test_the_trigger_noise_is_the_channel_s(model):
-    """#1298: the trigger's noise table is an estimate equal to the channel's (the same front end).
-    Since #1427 the file holds one table: the trigger's refers to the channel's (same_as, D82).
-    The UXR1104B's trigger path is noise-free since #1579 (test_the_display_jitter_meets_the_data_sheet)."""
+@pytest.mark.parametrize("model", ["keysight-uxr0334b", "keysight-uxr1104b"])
+def test_the_trigger_path_carries_no_noise_table(model):
+    """#1298 gave the trigger path a noise table equal to the channel's (an estimate); #1579 (UXR1104B)
+    and #1691 (UXR0334B) took it out: the data sheet's display jitter is the record's noise over the
+    edge's slope alone (test_the_display_jitter_meets_the_data_sheet). The channel keeps its table."""
     raw = yaml.safe_load(
         (ROOT / "src" / "simubench" / "library" / "instruments" / f"{model}.yaml").read_text("utf-8")
     )
     trigger_raw = next(c for c in raw["components"] if c["name"] == "trigger")
-    assert trigger_raw["params"]["noise_table"] == {"same_as": "channel_components.1.params.noise_table"}
+    assert "noise_table" not in trigger_raw["params"]
     loaded = DefinitionLibrary([]).get(model)
     trigger = next(c for c in loaded.components if c.name == "trigger")
     front = next(c for c in loaded.channel_components if c.name == "front")
-    assert trigger.params["noise_table"] == front.params["noise_table"] and front.params["noise_table"]
+    assert trigger.params.get("noise_table") is None and front.params["noise_table"]
 
 
 #: The UXR1104B's 7.5 mV/div noise row (60 mV full scale, the data sheet's 860 µV) and the
@@ -1038,15 +1035,21 @@ def test_the_record_noise_ends_at_the_corrected_band():
         rm.close()
 
 
-def test_the_display_jitter_meets_the_data_sheet():
-    """#1579, data sheet 3123-1313 p.16: display (trigger) jitter 71 fs rms, typical, on the 1 mm
-    models — the UXR1104B at 100 mV/div triggering on a 500 mVpp, 55 GHz sine. Measured as the
-    data sheet shows it: the displayed waveform's rising crossing at the trigger point, over
-    repeated acquisitions (its scatter is the record's noise over the slope, 6.1 mV ÷ 86 GV/s
-    = 70.6 fs, with the record origin's 25 fs; the trigger path adds no noise). The source is the
+@pytest.mark.parametrize(
+    ("model", "freq_hz", "jitter_s"),
+    [("keysight-uxr1104b", 5.5e10, 71e-15), ("keysight-uxr0334b", 1.6e10, 116e-15)],
+    ids=["uxr1104b", "uxr0334b"],
+)
+def test_the_display_jitter_meets_the_data_sheet(model, freq_hz, jitter_s):
+    """#1579, #1691, data sheet 3123-1313 p.16: display (trigger) jitter, typical, at 100 mV/div
+    triggering on a 500 mVpp sine — 71 fs rms on the 1 mm models (the UXR1104B, 55 GHz) and 116 fs
+    rms on the 3.5 mm models (the UXR0334B, 16 GHz). Measured as the data sheet shows it: the
+    displayed waveform's rising crossing at the trigger point, over repeated acquisitions. Its
+    scatter is the record's noise over the slope (6.1 mV ÷ 86 GV/s = 70.6 fs; 2.91 mV ÷ 25 GV/s =
+    115.8 fs), with the record origin's 25 fs; the trigger path adds no noise. The source is the
     SMA100B with its 67 GHz option (tests/definitions/test-sg-67ghz.yaml), -2.04 dBm = 250 mV peak
-    into 50 Ω. 120 acquisitions: the sample rms is within ±15 % of 71 fs (its statistical spread is
-    ±6.5 %, one sigma)."""
+    into 50 Ω. 120 acquisitions: the sample rms is within ±15 % of the data sheet's value (its
+    statistical spread is ±6.5 %, one sigma)."""
     from simubench.api import open_bench
     from simubench.models.bench import BenchDefinition
 
@@ -1056,9 +1059,9 @@ def test_the_display_jitter_meets_the_data_sheet():
         "instruments": {
             "sg": {
                 "model": "test-sg-67ghz",
-                "state": {"freq.cw": 5.5e10, "power.level": -2.04, "output.enabled": True},
+                "state": {"freq.cw": freq_hz, "power.level": -2.04, "output.enabled": True},
             },
-            "scope": {"model": "keysight-uxr1104b", "state": {"ch1.scale": 0.1}},
+            "scope": {"model": model, "state": {"ch1.scale": 0.1}},
         },
         "wires": [{"from": "sg.RF_OUT", "to": "scope.CH1"}],
         "run": {"seed": 3, "clock": "command", "idle": "off"},
@@ -1080,7 +1083,7 @@ def test_the_display_jitter_meets_the_data_sheet():
             k = rising[np.argmin(np.abs(t[rising]))]
             crossings.append(t[k] - v[k] * (t[k + 1] - t[k]) / (v[k + 1] - v[k]))
         assert float(np.ptp(np.asarray(rec.volts))) == pytest.approx(0.5, abs=0.03)  # 500 mVpp on screen
-        assert float(np.std(crossings)) / 71e-15 == pytest.approx(1.0, rel=0.15), float(np.std(crossings))
+        assert float(np.std(crossings)) / jitter_s == pytest.approx(1.0, rel=0.15), float(np.std(crossings))
     finally:
         session.close()
 

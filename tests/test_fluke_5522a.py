@@ -21,6 +21,8 @@ import pytest
 from simubench.api import open_bench
 from simubench.models.bench import BenchDefinition
 
+pytestmark = pytest.mark.model("fluke-5522a")
+
 ROOT = Path(__file__).resolve().parents[1]
 DMM_BENCH = ROOT / "validation" / "benches" / "fluke-5522a-dmm.bench.yaml"
 SCOPE_BENCH = ROOT / "examples" / "benches" / "fluke-5522a.bench.yaml"

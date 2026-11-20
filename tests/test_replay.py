@@ -111,7 +111,15 @@ def test_cli_replay(tmp_path, capsys):
     assert "identical" in capsys.readouterr().out
     other = tmp_path / "x.jsonl"
     other.write_text('{"kind": "nothing"}\n', encoding="utf-8")
-    assert main(["replay", str(other)]) == 2
+    assert main(["replay", str(other)]) == 1
+    # A mistyped path is one line naming the file, not a Python traceback (#1672).
+    assert main(["replay", str(tmp_path / "missing.jsonl")]) == 1
+    not_a_record = tmp_path / "README.md"
+    not_a_record.write_text("a: [unclosed\n", encoding="utf-8")
+    assert main(["replay", str(not_a_record)]) == 1
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert str(tmp_path / "missing.jsonl") in err and str(not_a_record) in err
 
 
 def test_runs_api(tmp_path):

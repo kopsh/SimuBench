@@ -182,6 +182,7 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     assert results["remove"].ok is False and "运行中只能调参数" in results["remove"].error
     assert results["set_state"].ok is True
     assert results["set_live_setting"].ok is True
+    assert results["set_live_setting"].args == {"i": "awg", "p": "ch1.frequency", "v": 2e6}  # #1679
     served = next(iter(manager.sessions.values()))
     assert served.session.instrument("awg").state["ch1.frequency"] == pytest.approx(2e6)
     # the file edit says it only changed the initial value; the live change is listed separately
@@ -204,6 +205,8 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     assert not manager.sessions
     assert [s.ok for s in t2.steps] == [True, True]
     assert "sa" not in yaml.safe_load((manager.workspace / BENCH).read_text(encoding="utf-8"))["instruments"]
+    # the model is told the consent in words (#1707): otherwise it may not even try stop_session
+    assert any("本轮可以直接调用 stop_session" in str(m) for m in llm.seen[-1])
 
 
 async def test_set_live_setting_tells_the_model_when_the_value_was_already_there(manager):
@@ -511,6 +514,9 @@ def test_compaction_keeps_recent_turns_and_drops_whole_old_ones():
     assert out[-4].parts[0].content == "q9" and out[-2].parts[0].content == "x" * 3000
     # the conversation still starts with a user message, which says older content was compacted
     assert isinstance(out[0], ModelRequest) and out[0].parts[0].content == compaction.DROPPED
+    # that first user message is the conversation's own opening turn, never dropped (#1708):
+    # the task and what the user asked to remember live there
+    assert out[0].parts[1].content == "q0"
     calls = {p.tool_call_id for m in out for p in m.parts if isinstance(p, ToolCallPart)}
     returns = {p.tool_call_id for m in out for p in m.parts if isinstance(p, ToolReturnPart)}
     assert calls == returns
