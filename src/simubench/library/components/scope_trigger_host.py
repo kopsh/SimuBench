@@ -10,7 +10,6 @@ import numpy as np
 from ...engine.signal import Signal
 
 if TYPE_CHECKING:
-    from ...engine.instrument import Instrument
     from ...engine.session import Session
     from .scope_trigger_advanced import Advanced
     from .scope_trigger_crossings import Crossings
@@ -64,12 +63,17 @@ def _period(sig: Signal) -> float | None:
 
 
 class TriggerHost(Protocol):
+    """What the trigger family's blocks (sources, crossings, runs, advanced) read of their
+    component. The instrument's own state is a member here, not an ``owner`` to reach through
+    (#1724): a block reads a setting by :meth:`get_state`; the wiring and the channel count it
+    once asked the instrument for are the component's :meth:`select_taps` answer."""
+
     channel_param: Any
 
     def choice(self, key: str) -> str | None: ...
+    def get_state(self, path: str) -> Any: ...
 
     name: Any
-    owner: Instrument | None
 
     def param(self, key: str) -> Any: ...
 

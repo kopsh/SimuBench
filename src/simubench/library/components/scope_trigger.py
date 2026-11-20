@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import math
-from typing import Any
+from typing import Any, cast
 
 import numpy as np
 
@@ -245,9 +245,35 @@ class ScopeTrigger(_ChannelBound):
         if not -lim - offset - 1e-12 <= float(new) <= lim - offset + 1e-12:
             raise ScpiError(-222, f"trigger level outside +-{divs} div")
 
+    def get_state(self, path: str) -> Any:
+        """A setting's value, read from the instrument (#1724: the blocks' name for it)."""
+        assert self.owner is not None
+        return self.owner.get_state(path)
+
     def select_taps(self) -> list[str] | None:
-        """Delegates to :meth:`Sources.select_taps`."""
-        return self.sources.select_taps()
+        """The components whose outputs the trigger search watches per channel: those wired to the
+        acquisition's converter's inputs, ahead of a track-and-hold sampler (#1579). The wiring
+        and the channel count are read here — the instrument's own knowledge, not the blocks'
+        (#1724)."""
+        if self.owner is None:
+            return None
+        acq = next(
+            (c for c in self.owner.components.values()
+             if isinstance(c, ScopeAcquisition) and c.param("trigger") == self.name),
+            None,
+        )  # fmt: skip
+        if acq is None:
+            return None
+        adc = cast(Any, acq).adc_unit()  # ty sees the @component class as Component
+        taps = []
+        for n in range(1, self.owner.channel_count + 1):
+            src = self.owner.wiring.source(adc.name, f"in{n}")
+            # the comparator splits off ahead of a track-and-hold sampler (#1579): tap what feeds it
+            while src is not None and getattr(self.owner.components.get(src[0]), "track_and_hold", False):
+                src = self.owner.wiring.source(src[0], "in")
+            if src is not None:
+                taps.append(src[0])
+        return taps
 
     def source_channel(self, source: str | None = None) -> int | None:
         """Delegates to :meth:`Sources.source_channel`."""
