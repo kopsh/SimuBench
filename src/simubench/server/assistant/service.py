@@ -186,9 +186,7 @@ class AssistantService:
         conv = self.store.load(bench)
         # A request to stop the bench is answered by the next message only (#902): later turns
         # carry no answer to it, and a stale one is forgotten. An answer without a request is none.
-        pending = conv.stop_requested_in is not None and conv.stop_requested_in == len(conv.turns) - 1
-        if not pending:
-            conv.stop_requested_in = None
+        pending = conv.stop_consent_pending()
         turn = M.AssistantTurn(
             id=uuid.uuid4().hex[:12],
             user=text,
