@@ -14,7 +14,13 @@ uv run python scripts/check_ty.py
 # whose fixed SCPI port the SVGs show — is set up exactly once (tui-screens.md 14).
 # not tui_boot / load_sensitive: the Textual-boot tier and the wall-clock budgets run on main
 # after the merge; the fast checks verify the interface logic (see tests/test_tui_units.py).
-uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive"
+# Model-scoped (#1680, D49): the models this branch changed run whole, the other models' manual
+# cases only a smoke subset; shared code runs everything. SIMUBENCH_FULL=1 forces the whole set.
+if [ "${SIMUBENCH_FULL:-}" = 1 ]; then scope=(); else
+  uv run python scripts/select_tests.py --explain || true
+  read -r -a scope <<< "$(uv run python scripts/select_tests.py || true)"
+fi
+uv run pytest -n 4 --dist loadscope -q -m "not tui_boot and not load_sensitive" ${scope[@]+"${scope[@]}"}
 uv run python scripts/check_tui_i18n.py
 uv run python scripts/check_test_rules.py
 uv run python scripts/check_layers.py

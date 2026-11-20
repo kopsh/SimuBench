@@ -21,6 +21,8 @@ import pyvisa
 from helpers import load_script, run_manual_script
 from simubench.api import open_bench
 
+pytestmark = pytest.mark.model("srs-sr830")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "srs_sr830.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "srs_sr830_rc_sweep.py"
