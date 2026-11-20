@@ -16,6 +16,7 @@ reference:
   document: DAQ97-90002
   version: Edition 3, March 2020
   firmware: "*IDN? 示例的修订串 A.02.04-00.16-11.29-00.02-02-01"
+builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*PSC", "*SRE", "*STB", "*TRG", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
 identity:
   idn: "Keysight Technologies,DAQ970A,{serial},{firmware}"
   serial: "MY12345678"

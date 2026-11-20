@@ -566,3 +566,15 @@ cases:
         expect: "+2.000000000000000E-03"
       - query: "SYST:ERR?"
         expect: '+0,"No error"'
+
+  - name: "*PSC：上电状态清除标志，默认 1，设置后读回，*RST 不改它（#1568）"
+    manual: "Common Commands > *PSC（Trueform Operating and Service Guide）"
+    steps:
+      - query: "*PSC?"
+        expect: "1"
+      - send: "*PSC 0"
+      - query: "*PSC?"
+        expect: "0"
+      - send: "*RST"
+      - query: "*PSC?"
+        expect: "0"

@@ -189,7 +189,7 @@ sections:
   - {header: 'SYSTem:CTYPe', level: not_modeled, note: '按槽位查询模块型号没有对应操作（组件债务）。', gap: model_work}
   - {header: 'SYSTem:DATE', level: not_modeled, note: '实时时钟未建模（内置命令也排除）。', gap: out_of_scope}
   - {header: 'SYSTem:ERRor[:NEXT]', level: implemented, note: '错误队列 FIFO，长度 10（34970A）；无错误回 +0,"No error"，溢出为 -350。'}
-  - {header: 'SYSTem:PRESet', level: not_modeled, note: '仪器预置与 *RST 的差异（功能/量程/计数不变）未建模。', gap: model_work}
+  - {header: 'SYSTem:PRESet', level: not_modeled, note: '仪器预置与 *RST 的差异（功能/量程/计数不变）未建模；默认不等同 *RST（D92），最终等级。', gap: model_work}
   - {header: 'SYSTem:TIME', level: not_modeled, note: '实时时钟未建模（内置命令也排除）。', gap: out_of_scope}
   - {header: 'SYSTem:TIME:SCAN', level: not_modeled, note: '扫描时间戳不在首波。', gap: model_work}
   - {header: 'SYSTem:VERSion', level: implemented, note: 'SCPI 版本查询，回复 1994.0（手册 p.180）。'}

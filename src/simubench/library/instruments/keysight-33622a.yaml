@@ -26,7 +26,7 @@ format:
   boolean: numeric
   enum: short
   error_code: signed
-builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*SRE", "*STB", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
+builtins: ["*IDN", "*RST", "*CLS", "*ESE", "*ESR", "*OPC", "*PSC", "*SRE", "*STB", "*TST", "*WAI", ":SYSTem:ERRor[:NEXT]"]
 error_queue: 20
 errors:
   0: "No error"

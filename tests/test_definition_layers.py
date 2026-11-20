@@ -146,7 +146,10 @@ def test_builtin_siblings_inherit_and_class_tables_supply_the_errors():
     assert daqs.errors == CLASS_ERRORS["frequency_counter"]  # both files' tables are the class's
     daq = lib.get("keysight-daq970a")
     assert daq.extends == "keysight-34970a"
-    assert daq.builtins == lib.get("keysight-34970a").builtins  # the parent's list, whole
+    parent = lib.get("keysight-34970a").builtins
+    assert [
+        h for h in daq.builtins if h != "*PSC"
+    ] == parent  # the parent's list, whole, plus the manual's *PSC (#1568)
     assert daq.errors[-230] == "Data corrupt or stale"  # the child's wording beats the parent's
 
 

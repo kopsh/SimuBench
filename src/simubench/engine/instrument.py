@@ -211,7 +211,8 @@ class Instrument:
         #: The instrument's own clock runs on the session calendar plus whatever :SYSTem:DATE/TIME set.
         self.clock_offset = dt.timedelta(0)
         #: The power-on status clear flag (*PSC): kept through *RST like the status enables; it has no
-        #: other effect, a simulated unit powers up with cleared enables whatever it says (#1559).
+        #: other effect (a simulated unit has no power cycle), is not in the snapshot, and a replay
+        #: re-sends the command (D92, #1568).
         self.psc = True
 
         self._init_state(definition, instance)
