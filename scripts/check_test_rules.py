@@ -10,6 +10,9 @@
   of how it is printed. ``tests/`` and ``acceptance/`` import no ``re`` and pass no ``match=`` to
   ``pytest.raises`` / ``pytest.warns`` (``helpers.raises_with`` checks a message by substrings,
   ``helpers.Near`` a reading against its band).
+- port isolation (#1671): a test's ``SessionManager`` must not leave ``hislip_port`` at its 4880
+  default — a developer's running SimuBench holds that port. Pass ``scpi_base_port=None`` (no
+  sockets) or name ``hislip_port`` explicitly (``0`` for one the OS picks).
 
 Exit code 1 with one line per violation. Purely syntactic (ast), no imports of the package.
 """
@@ -83,6 +86,26 @@ def regex_uses(tree: ast.Module) -> list[tuple[int, str]]:
     return found
 
 
+def unpinned_hislip_ports(tree: ast.Module) -> list[tuple[int, str]]:
+    """``(line, how scpi_base_port was given)`` for each ``SessionManager`` that would bind HiSLIP
+    on its fixed 4880 default, where a developer's running SimuBench already listens (#1671)."""
+    found = []
+    for node in ast.walk(tree):
+        if not (
+            isinstance(node, ast.Call)
+            and (getattr(node.func, "attr", "") or getattr(node.func, "id", "")) == "SessionManager"
+        ):
+            continue
+        given = {kw.arg: kw.value for kw in node.keywords}
+        if "hislip_port" in given:
+            continue
+        base = given.get("scpi_base_port")
+        if isinstance(base, ast.Constant) and base.value is None:
+            continue  # no sockets at all: HiSLIP does not start
+        found.append((node.lineno, "omitted" if base is None else f"scpi_base_port={ast.unparse(base)}"))
+    return found
+
+
 def main() -> int:
     failures: list[str] = []
     for path in sorted([*(ROOT / "tests").rglob("*.py"), *(ROOT / "acceptance").rglob("*.py")]):
@@ -91,6 +114,12 @@ def main() -> int:
             failures.append(
                 f"{path.relative_to(ROOT).as_posix()}:{line} {what}: a test judges values and text"
                 " without regular expressions — parse and compare (helpers.Near, helpers.raises_with; D49)"
+            )
+        for line, what in unpinned_hislip_ports(tree):
+            failures.append(
+                f"{path.relative_to(ROOT).as_posix()}:{line} SessionManager({what}): name"
+                " hislip_port (0 for a free one) or pass scpi_base_port=None — the 4880 default"
+                " collides with a running SimuBench (#1671)"
             )
     for path in sorted((ROOT / "tests").glob("test_*.py")):
         tree = ast.parse(path.read_text(encoding="utf-8"))

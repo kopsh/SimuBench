@@ -197,7 +197,12 @@ def test_scpi_sockets_listen_on_loopback_only(app):
 
 def test_without_a_token_by_default_but_still_loopback_only():
     """D43: the token is opt-in; Host/Origin checks still apply without it."""
-    app = create_app(SessionManager(ROOT / "validation", scpi_base_port=0), web_dist=Path("/nonexistent"))
+    app = create_app(
+        SessionManager(
+            ROOT / "validation", scpi_base_port=0, hislip_port=0, vxi11_port=0, portmapper_port=0, link_port=0
+        ),
+        web_dist=Path("/nonexistent"),
+    )
     with TestClient(app, base_url="http://127.0.0.1") as c:
         assert c.get("/api/benches").status_code == 200
         assert c.get("/api/benches", headers={"origin": "http://evil.example"}).status_code == 403
