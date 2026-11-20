@@ -166,7 +166,10 @@ class BenchFiles:
             old_raw = path.read_bytes()
             old = edit.to_yaml_data(BenchDefinition.model_validate(parse_data(path, old_raw)))
             raw = yamlpatch.patched(old_raw, old, data)
-            if raw is None or edit.to_yaml_data(BenchDefinition.model_validate(parse_data(path, raw))) != data:
+            if (
+                raw is None
+                or edit.to_yaml_data(BenchDefinition.model_validate(parse_data(path, raw))) != data
+            ):
                 return None
             return raw
         except (ValueError, UnicodeDecodeError, yaml.YAMLError, RuamelError):

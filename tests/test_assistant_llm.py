@@ -386,7 +386,9 @@ def test_the_rollback_route_maps_conflict_through_the_table(client, manager):
     with client.stream("GET", "/api/assistant/events", params={"bench": BENCH, "turn": turn_id}) as stream:
         events = [json.loads(line[5:]) for line in stream.iter_lines() if line.startswith("data:")]
     assert events[-1]["turn"]["status"] == "done"
-    assert client.post("/api/assistant/rollback", json={"bench": BENCH, "turn_id": turn_id}).status_code == 200
+    assert (
+        client.post("/api/assistant/rollback", json={"bench": BENCH, "turn_id": turn_id}).status_code == 200
+    )
     again = client.post("/api/assistant/rollback", json={"bench": BENCH, "turn_id": turn_id})
     assert again.status_code == 409
     detail = again.json()["detail"]

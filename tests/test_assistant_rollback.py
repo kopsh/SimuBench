@@ -135,7 +135,9 @@ async def test_a_created_file_changed_while_the_plan_runs_is_not_deleted_unseen(
             )
     finally:
         manager.stop = original_stop
-    assert caught.value.current_sha256 == hashlib.sha256(copy.read_bytes()).hexdigest()  # the 409 body's (#1725)
+    assert (
+        caught.value.current_sha256 == hashlib.sha256(copy.read_bytes()).hexdigest()
+    )  # the 409 body's (#1725)
     assert (
         copy.read_text(encoding="utf-8") == "name: 手改的\n"
         and not service.conversation(BENCH).turns[-1].rolled_back
