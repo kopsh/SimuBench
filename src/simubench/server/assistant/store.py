@@ -50,13 +50,33 @@ class Conversation:
     messages: list[ModelMessage] = field(default_factory=list)
     files: dict[str, TurnFiles] = field(default_factory=dict)
     compacted: bool = False
-    #: The index of the turn in which the assistant asked to stop the running bench.
+    #: The index of the turn in which the assistant asked to stop the running bench; consent for
+    #: the next turn only (:meth:`stop_consent_alive`).
     stop_requested_in: int | None = None
     #: Said to the LLM with the next message (the user restored the files meanwhile).
     note: str | None = None
 
     def user_texts(self) -> list[str]:
         return [t.user for t in self.turns]
+
+    def stop_consent_alive(self, turn: int) -> bool:
+        """Is the agreement to stop the running bench alive for ``turn``? A request asked in turn
+        n is consent for turn n+1 only (#902): asked in the turn right before, and nothing else —
+        not in the turn it was asked (the user has not answered yet), not a turn later (lapsed),
+        and without a request nothing is alive. The one judgment both the sending side
+        (:meth:`stop_consent_pending`) and the ``stop_session`` gate ask."""
+        return self.stop_requested_in is not None and self.stop_requested_in == turn - 1
+
+    def stop_consent_pending(self) -> bool:
+        """Whether the message about to be sent answers a stop request: the one on record was
+        asked in the last recorded turn. A stale request is forgotten here, so a lapsed one
+        cannot answer a later message. The tool side asks only :meth:`stop_consent_alive`, which
+        forgets nothing: a request the user has not answered yet must survive a premature stop
+        attempt in the turn that asked it, or the panel's button would have nothing to agree to."""
+        alive = self.stop_consent_alive(len(self.turns))
+        if not alive:
+            self.stop_requested_in = None
+        return alive
 
 
 class ConversationStore:
