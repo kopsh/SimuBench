@@ -101,6 +101,8 @@ export interface CanvasProps {
   faulted?: Set<string>;
   /** Live level of each net (D44); without it, wires are drawn as before, without signal state. */
   levels?: Map<string, NetLevel>;
+  /** Parameter units per component type, from the catalog; a part card writes its parameters with them (#1676). */
+  partUnits?: Record<string, Record<string, string>>;
 }
 
 function split(ref: string): [string, string] {
@@ -126,7 +128,7 @@ function directionOf(view: SessionInfo, ref: string): string | undefined {
   return ports?.find((p) => p.name === port)?.direction;
 }
 
-function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues, faulted, levels }: CanvasProps) {
+function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues, faulted, levels, partUnits }: CanvasProps) {
   const { t } = useTranslation();
   const { selection, select } = useWorkbench();
   const theme = useTheme((s) => s.resolved);
@@ -162,10 +164,10 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
         id: part.name,
         type: "part",
         position: positions[part.name],
-        data: { part, editable, issue: issues?.get(part.name), fault: faulted?.has(part.name) },
+        data: { part, editable, issue: issues?.get(part.name), fault: faulted?.has(part.name), units: partUnits?.[part.type] },
       })),
     ],
-    [view, positions, editable, issues, faulted, levels, activity],
+    [view, positions, editable, issues, faulted, levels, activity, partUnits],
   );
   const selectedId = selection?.kind === "instrument" || selection?.kind === "part" ? selection.id : null;
   const [nodes, setNodes] = useState<AnyNode[]>(() => built.map((n) => ({ ...n, selected: n.id === selectedId })));
@@ -327,7 +329,12 @@ function CanvasInner({ view, layout, editable = false, onOps, onDropItem, issues
     userMoved.current = false;
     const fit = () => {
       const pane = wrapper.current?.getBoundingClientRect();
-      const readable = pane && pane.width < 760 ? 0.6 : 0.93;
+      // The readable floor holds only while every node fits the canvas at it: a 1400 px window
+      // leaves a 840 px canvas that is wider than 760 px yet too narrow for the scope bench at
+      // 0.93, and the scope was cut off (#1674). Then the floor drops to 0.6 as on a narrow canvas.
+      const bounds = flow.getNodesBounds(flow.getNodes());
+      const fitsReadable = !pane || (bounds.width * 0.93 <= pane.width && bounds.height * 0.93 <= pane.height);
+      const readable = pane && (pane.width < 760 || !fitsReadable) ? 0.6 : 0.93;
       void flow.fitView({ padding: 0.08, minZoom: readable, maxZoom: 1, duration: 0 });
     };
     const id = window.setTimeout(fit, 0);

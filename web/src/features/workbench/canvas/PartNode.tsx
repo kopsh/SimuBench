@@ -3,21 +3,19 @@ import { CircuitBoard } from "lucide-react";
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import type { ComponentInfo } from "@/api/client";
-import { displayUnit, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { numeric } from "../model";
+import { formatPartParam } from "../model";
 import { DutBadge, FaultMark, type Issue, IssueMark, PortHandle } from "./InstrumentNode";
 
 /** A part (元件) on the canvas: an RC network, a resistor; the DUT badge when it is the DUT (#100). */
-export type PartNodeData = { part: ComponentInfo; editable?: boolean; issue?: Issue; fault?: boolean };
+export type PartNodeData = { part: ComponentInfo; editable?: boolean; issue?: Issue; fault?: boolean; units?: Record<string, string> };
 export type PartNodeType = Node<PartNodeData, "part">;
 
-const PARAM_UNITS: Record<string, string> = { r: "OHM", c: "F", z_in: "OHM", z_out: "OHM", gain: "" };
 const HIDDEN = new Set(["tol_r", "tol_c"]);
 
 function PartNodeImpl({ data, selected }: NodeProps<PartNodeType>) {
   const { t } = useTranslation();
-  const { part, editable, issue, fault } = data;
+  const { part, editable, issue, fault, units } = data;
   const ins = part.ports.filter((p) => p.direction !== "out");
   const outs = part.ports.filter((p) => p.direction === "out");
   const params = Object.entries(part.params).filter(([k]) => !HIDDEN.has(k));
@@ -47,7 +45,7 @@ function PartNodeImpl({ data, selected }: NodeProps<PartNodeType>) {
         {params.map(([k, v]) => (
           <div key={k} className="flex justify-between gap-2">
             <span className="text-muted-foreground">{k}</span>
-            <span>{typeof v === "number" || v === "INF" ? formatEng(numeric(v), displayUnit(PARAM_UNITS[k] ?? ""), 4) : String(v)}</span>
+            <span>{formatPartParam(k, v, units)}</span>
           </div>
         ))}
       </div>
