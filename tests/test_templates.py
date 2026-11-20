@@ -4,6 +4,7 @@ the oscilloscope template generates section 8's modules; the command table is th
 
 from __future__ import annotations
 
+import ast
 import copy
 import shutil
 from pathlib import Path
@@ -288,6 +289,25 @@ def test_the_schema_labels_every_input_in_both_languages(template):
 def test_the_templates_and_their_units():
     assert [t.id for t in templates()] == ["oscilloscope", "signal_source"]
     assert SCOPE.schema()["$defs"]["ScaleRowIn"]["properties"]["noise_v_rms"]["unit"] == "V rms"
+
+
+def test_a_draft_module_imports_no_private_name_from_the_template_modules():
+    """The drafting halves live in their own files and read only the templates' public names
+    (#1728): a template's private helpers stay its build half's."""
+    for name in ("oscilloscope_draft", "signal_source_draft"):
+        tree = ast.parse(
+            (ROOT / "src/simubench/library/templates" / f"{name}.py").read_text(encoding="utf-8")
+        )
+        private = [
+            alias.name
+            for node in ast.walk(tree)
+            if isinstance(node, ast.ImportFrom)
+            and node.level == 1
+            and node.module in ("oscilloscope", "signal_source")
+            for alias in node.names
+            if alias.name.startswith("_")
+        ]
+        assert private == []
 
 
 def test_the_example_expands_clean_and_records_its_template():
