@@ -80,12 +80,12 @@ def test_the_record_length_rules():
     session, _ = _lfcal(LECROY)
     scope = session.instruments["scope"].components
     acq, timebase = scope["acq"], scope["timebase"]  # the one-component form expands into modules
-    assert acq._timing()[:2] == (10_000, pytest.approx(1e-6))  # exact: MSIZ points over ten divisions
+    assert acq.timing()[:2] == (10_000, pytest.approx(1e-6))  # exact: MSIZ points over ten divisions
     timebase._params.update(record_length="rate_ladder", points=30_000)
-    points, dt, pre, _ = acq._timing()
+    points, dt, pre, _ = acq.timing()
     assert (points, dt, pre) == (20_000, pytest.approx(0.5e-6), 10_000)  # 3 MSa/s rounded down to 2
     timebase._params.update(delay=2e-3)  # the trigger 2 ms before the centre
-    assert acq._timing()[2] == 6_000
+    assert acq.timing()[2] == 6_000
     session.close()
 
 
@@ -134,7 +134,7 @@ def test_an_average_beyond_the_model_is_refused_before_its_first_acquisition(mon
     session = open_bench(DSOX, clock="command", seed=1, idle="off")
     query = _noise_query(session)
     scope = session.instruments["scope"].components
-    points = scope["acq"]._timing()[0]
+    points = scope["acq"].timing()[0]
     # The record's own request and 3 acquisitions: at most cap // points - 1 averages (#990).
     monkeypatch.setattr(evalcache, "MAX_REQUEST_FANOUT", 4 * points)
     adc, calls = scope["adc"], []

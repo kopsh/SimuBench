@@ -53,8 +53,7 @@ class KMarkers:
         self.k_markers[max(self.k_markers, default=0) + 1] = {"tracking": True, "measurement": n}
         meas_path = self.host.bound_path("marker_measurement")
         if meas_path is not None:
-            assert self.host.owner is not None
-            self.host.owner.set_state(meas_path, n, source="scpi", internal=True)
+            self.host.set_state(meas_path, n, source="scpi", internal=True)
         return OpResult()
 
     def _k(self, suffixes: dict[str, int] | None) -> int:
@@ -79,7 +78,6 @@ class KMarkers:
         suffixes: dict[str, int] | None = None,
         **_: Any,
     ) -> OpResult:
-        assert self.host.owner is not None
         k = self._k(suffixes)
         marker = self._k_marker(k)
         key = {
@@ -105,12 +103,12 @@ class KMarkers:
                 y = self.host.cursors.value_at(rec, float(marker.get("x") or 0.0))
                 if not math.isfinite(y):
                     return OpResult(str(self.host.param("invalid_value")).encode(), used)
-                return OpResult(self.host.owner.format_number(y), used)
+                return OpResult(self.host.format_number(y), used)
             current = marker.get(key)
             if key == "enable":
                 return OpResult(V.format_int(int(bool(current))))
             if isinstance(current, (int, float)) and key in ("x", "y"):
-                return OpResult(self.host.owner.format_number(float(current)))
+                return OpResult(self.host.format_number(float(current)))
             if current in (None, ""):
                 return OpResult(b'""')
             if key == "type":
@@ -166,7 +164,6 @@ class KMarkers:
         suffixes: dict[str, int] | None = None,
         **_: Any,
     ) -> OpResult:
-        assert self.host.owner is not None
         if isinstance(other, list):  # a raw parameter takes all the remaining ones: the ON/OFF
             extra = other[1:]  # state of a :MARKer<K>:DELTa MARKer<L>,{ON | OFF} rides here
             other = other[0] if other else None
@@ -193,12 +190,12 @@ class KMarkers:
             on = first.get("delta_to") == other_k
             dx = float(second["x"]) - float(first["x"])
             invalid = str(self.host.param("invalid_value")).encode()
-            parts = [V.format_int(int(on)), self.host.owner.format_number(dx)]
-            parts.append(self.host.owner.format_number(1.0 / dx) if dx else invalid)
+            parts = [V.format_int(int(on)), self.host.format_number(dx)]
+            parts.append(self.host.format_number(1.0 / dx) if dx else invalid)
             if first["type"] == second["type"] == "YMANual":
                 dy = float(second["y"]) - float(first["y"])
-                parts.append(self.host.owner.format_number(dy))
-                parts.append(self.host.owner.format_number(dy / dx) if dx else invalid)
+                parts.append(self.host.format_number(dy))
+                parts.append(self.host.format_number(dy / dx) if dx else invalid)
             else:
                 parts += [invalid, invalid]
             return OpResult(b",".join(parts))
@@ -206,9 +203,9 @@ class KMarkers:
             path = self.host.bound_path("marker_delta")
             if path is None:
                 raise ScpiError(-113, "this model has no delta-marker display setting")
-            self.host.owner.set_state(path, V.flag(raw), source="scpi", internal=True)
+            self.host.set_state(path, V.flag(raw), source="scpi", internal=True)
             return OpResult()
         path = self.host.bound_path("marker_delta")
         if path is None:
             raise ScpiError(-113, "this model has no delta-marker display setting")
-        return OpResult(V.format_int(int(V.flag(self.host.owner.get_state(path)))))
+        return OpResult(V.format_int(int(V.flag(self.host.get_state(path)))))

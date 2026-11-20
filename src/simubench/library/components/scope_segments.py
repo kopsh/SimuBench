@@ -34,10 +34,10 @@ class Segments:
     def check_memory(self) -> None:
         """The segments of one acquisition fit the memory (``memory_points``), or -221."""
         count, limit = self.segment_count(), self.host.param("memory_points")
-        if count > 1 and limit is not None and count * self.host._timing()[0] > float(limit):
+        if count > 1 and limit is not None and count * self.host.timing()[0] > float(limit):
             raise ScpiError(
                 -221,
-                f"{count} segments of {self.host._timing()[0]} points exceed the memory ({int(limit)} points)",
+                f"{count} segments of {self.host.timing()[0]} points exceed the memory ({int(limit)} points)",
             )
 
     def acquire_segments(
@@ -53,7 +53,7 @@ class Segments:
         self.check_memory()
         trig = self.host.trigger_unit()
         now = self.host.session.now_ns
-        _, nominal_dt, pre, _ = self.host._timing()
+        _, nominal_dt, pre, _ = self.host.timing()
         fill_ns = round(pre * nominal_dt * 1e9)
         overhead, rearm = (round(float(self.host.param(k)) * 1e9) for k in ("overhead_s", "rearm_s"))
         segments = list(taken)
@@ -71,7 +71,7 @@ class Segments:
                 records, used, triggered, trigger_ns = self.host.capture.acquire(
                     channels, t0=t0, segment=len(segments), earliest_ns=earliest
                 )
-                if not (triggered or force or self.host._is("auto")):
+                if not (triggered or force or self.host.mode_is("auto")):
                     return segments, False
                 segments.append(_Segment(records, triggered, trigger_ns, t0 + used - overhead))
         finally:
@@ -126,26 +126,24 @@ class Segments:
         return recs
 
     def set_segment_index(self, query: bool = False, index: int | None = None, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         path = self.host.bound_path("segment_index")
         if path is None:
             raise ScpiError(-300, f"{self.host.uid}: segment_index is not bound to a setting")
         if query:
-            return OpResult(str(int(self.host.owner.get_state(path))).encode())
+            return OpResult(str(int(self.host.get_state(path))).encode())
         if index is None:
             raise ScpiError(-109, "an index is required")
         i = int(index)
         limit = max(1, len(self.segment_records))
         if i < 1 or i > limit:
-            self.host.owner.set_state(path, min(max(i, 1), limit))
+            self.host.set_state(path, min(max(i, 1), limit))
             raise ScpiError(-222, f"segment {i} is out of range: {limit} segment(s) acquired")
-        self.host.owner.set_state(path, i)
+        self.host.set_state(path, i)
         return OpResult()
 
     def segment_list(
         self, what: str = "TTAG", source: Any = None, format: str = "%.10E", **_: Any
     ) -> OpResult:
-        assert self.host.owner is not None
         kind = str(what).upper()
         n = trigger_channel(source) or 1
         segments = self.segment_records or (

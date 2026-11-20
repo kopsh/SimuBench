@@ -110,12 +110,11 @@ class Fft:
 
     def _goft_setting(self, name: str, default: Any = None) -> Any:
         """One of the g(t) source's settings (``goft_prefix`` names the paths)."""
-        assert self.host.owner is not None
         prefix = str(self.host.param("goft_prefix") or "")
         path = f"{prefix}.{name}"
-        if path not in self.host.owner.definition.state:
+        if not self.host.has_state(path):
             return default
-        value = self.host.owner.get_state(path)
+        value = self.host.get_state(path)
         return default if value is None else value
 
     def goft_record(self, start: bool) -> tuple[MathRecord, int]:
@@ -388,7 +387,7 @@ class Fft:
         if not peaks:
             return OpResult(str(self.host.param("invalid_value")).encode())
         column = freqs if kind.upper().startswith("FREQ") else values
-        return OpResult(b",".join(self.host._number(float(column[i])) for i in peaks))
+        return OpResult(b",".join(self.host.format_number(float(column[i])) for i in peaks))
 
     def op_fft_measure(
         self,
@@ -412,7 +411,7 @@ class Fft:
         invalid = str(self.host.param("invalid_value")).encode()
 
         def number(value: float) -> bytes:
-            return self.host._number(value)
+            return self.host.format_number(value)
 
         def numbered(threshold: float) -> list[int]:
             """The peaks above ``threshold`` dBm, numbered from low to high frequency."""
@@ -489,16 +488,12 @@ class Fft:
         fft = self.host.measure_function(f)[0].spec["fft"]
         enbw = noise_bandwidth(window(str(fft["window"]), int(fft["points"])), float(fft["dt_s"]))
         if query or resolution is None:
-            return OpResult(self.host._number(enbw))
+            return OpResult(self.host.format_number(enbw))
         name = str(self.host.param("resolution_scale") or "")
-        if (
-            not name
-            or self.host.owner is None
-            or self.host.resolve_path(name) not in self.host.owner.definition.state
-        ):
+        if not name or not self.host.has_state(self.host.resolve_path(name)):
             raise ScpiError(-221, "this model's timebase does not follow the FFT resolution")
         window_s = int(fft["points"]) * float(fft["dt_s"])  # the transform's span now
-        self.host.owner.set_state(
+        self.host.set_state(
             self.host.resolve_path(name),
             window_s * (enbw / float(resolution)) / 10.0,  # longer by the resolution ratio
             source="scpi",

@@ -83,12 +83,11 @@ class Edges:
         define: list[Any] | None = None,
         **_: Any,
     ) -> OpResult:
-        assert self.host.owner is not None
         words, channels = self.host.sources(source)
         if what == "DELTatime" and len(channels) == 1:
             channels = channels * 2
         if len(channels) < 2:
-            pair = [self.host.key(self.host.owner.get_state(p)) for p in (self.host.param("sources") or [])]
+            pair = [self.host.key(self.host.get_state(p)) for p in (self.host.param("sources") or [])]
             channels = (channels + pair[len(channels) :])[:2]
         if len(channels) < 2:
             raise ScpiError(-109, f"{what}? needs two sources")
@@ -134,7 +133,6 @@ class Edges:
         return self.host.reply((delay / period * 360.0 + 180.0) % 360.0 - 180.0, used)
 
     def op_auto_thresholds(self, source: Any = None, channel: int | None = None, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         if not self.host.param("thresholds"):
             raise ScpiError(-300, f"{self.host.uid}: thresholds names no settings")
         n = self.host.channel_of(channel, source)
@@ -148,8 +146,8 @@ class Edges:
         if lv is None:
             return OpResult(duration_ns=used)
         prefix = str(self.host.param("thresholds"))
-        self.host.owner.set_state(f"{prefix}.general{n}.hyst_level", lv.middle)
-        self.host.owner.set_state(f"{prefix}.general{n}.hyst_range", lv.band)
+        self.host.set_state(f"{prefix}.general{n}.hyst_level", lv.middle)
+        self.host.set_state(f"{prefix}.general{n}.hyst_range", lv.band)
         return OpResult(duration_ns=used)
 
     def op_with_args(self, what: str = "", source: list[bytes] | None = None, **_: Any) -> OpResult:
@@ -172,7 +170,6 @@ class Edges:
         raise ScpiError(-224, f"measurement {what!r} takes no number here")
 
     def op_auto_trigger_levels(self, source_only: bool = False, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         acq = self.host.acq()
         only = None
         if source_only:
@@ -184,7 +181,7 @@ class Edges:
             n = int(key)
             if (n != only) if only is not None else (n not in acq.displayed()):
                 continue  # FIFTy: the trigger source's level, shown on screen or not
-            coupling = str(self.host.owner.state.get(f"ch{n}.coupling", "DC")).upper()
+            coupling = str(self.host.state.get(f"ch{n}.coupling", "DC")).upper()
             if coupling.startswith("AC"):
                 level = 0.0
             else:
@@ -193,5 +190,5 @@ class Edges:
                 levels = top_base(v) if v.size else None
                 top, base = levels if levels else ((float(v.max()), float(v.min())) if v.size else (0.0, 0.0))
                 level = (top + base) / 2
-            self.host.owner.set_state(str(path), level)
+            self.host.set_state(str(path), level)
         return OpResult()

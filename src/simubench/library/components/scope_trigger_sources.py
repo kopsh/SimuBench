@@ -3,12 +3,10 @@
 from __future__ import annotations
 
 import math
-from typing import Any, cast
 
 from ...engine.signal import Signal, highpass1, lowpass1
 from ...scpi import values as V
 from .scope import _upper, trigger_channel
-from .scope_acquisition import ScopeAcquisition
 from .scope_trigger_host import TriggerHost
 
 
@@ -17,32 +15,6 @@ class Sources:
         self.host = host
         self.source_scale: float | None = None  # the division of the source being searched
         self.noise_factor = 1.0  # the source channel's noise-bandwidth factor (#1427)
-
-    def select_taps(self) -> list[str] | None:
-        """The trigger compares the analog signal at the ADC's input, before the digital filters
-        (#1263): per channel, the component wired to the acquisition's converter, or to the
-        track-and-hold sampler ahead of it (#1579)."""
-        if self.host.owner is None:
-            return None
-        acq = next(
-            (c for c in self.host.owner.components.values()
-             if isinstance(c, ScopeAcquisition) and c.param("trigger") == self.host.name),
-            None,
-        )  # fmt: skip
-        if acq is None:
-            return None
-        adc = cast(Any, acq).adc_unit()  # ty sees the @component class as Component
-        taps = []
-        for n in range(1, self.host.owner.channel_count + 1):
-            src = self.host.owner.wiring.source(adc.name, f"in{n}")
-            # the comparator splits off ahead of a track-and-hold sampler (#1579): tap what feeds it
-            while src is not None and getattr(
-                self.host.owner.components.get(src[0]), "track_and_hold", False
-            ):
-                src = self.host.owner.wiring.source(src[0], "in")
-            if src is not None:
-                taps.append(src[0])
-        return taps
 
     def source_channel(self, source: str | None = None) -> int | None:
         """The channel the source names, None for external, line and the like."""
@@ -79,11 +51,11 @@ class Sources:
         setting (``high_by_source``/``low_by_source``, like the level's), else the fallback
         (``high_threshold``/``low_threshold``), else None — unset, nothing to compare against."""
         by = {str(k).upper(): str(v) for k, v in dict(self.host.param(f"{which}_by_source") or {}).items()}
-        if by and self.host.owner is not None:
+        if by:
             src = str(source).upper()
             for word, path in by.items():
                 if src in (word, V.short_form(word)):
-                    return float(self.host.owner.get_state(path))
+                    return float(self.host.get_state(path))
         value = self.host.param(f"{which}_threshold")
         return None if value is None else float(value)
 
@@ -93,11 +65,11 @@ class Sources:
         by_source = {
             str(k).upper(): str(v) for k, v in dict(self.host.param("level_by_source") or {}).items()
         }
-        if by_source and self.host.owner is not None:
+        if by_source:
             src = str(self.host.param("source")).upper()
             for word, path in by_source.items():
                 if src in (word, V.short_form(word)):
-                    return float(self.host.owner.get_state(path))
+                    return float(self.host.get_state(path))
         level = self.host.channel_param("level", self.source_channel())
         return 0.0 if level is None else float(level)
 
@@ -109,10 +81,10 @@ class Sources:
         if n is None:
             return self.level()
         by_source = dict(self.host.param("level_by_source") or {})
-        if by_source and self.host.owner is not None:
+        if by_source:
             for word, path in by_source.items():
                 if trigger_channel(word) == n:
-                    return float(self.host.owner.get_state(str(path)))
+                    return float(self.host.get_state(str(path)))
         level = self.host.channel_param("level", n)
         return 0.0 if level is None else float(level)
 

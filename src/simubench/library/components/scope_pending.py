@@ -41,7 +41,7 @@ class Acquisition(Protocol):
     def param(self, name: str) -> Any: ...
     def displayed(self) -> list[int]: ...
     def pending_mode(self) -> bool: ...
-    def _is(self, key: str, value: Any = None) -> bool: ...
+    def mode_is(self, key: str, value: Any = None) -> bool: ...
     def _finish_single(self) -> None: ...
     def acquire_segments(
         self, channels: list[int], taken: list[_Segment] | tuple[()] = (), force: bool = False
@@ -80,7 +80,7 @@ class PendingAcquisitions:
     def waiting(self) -> bool:
         """A single acquisition (or a digitize) not done yet."""
         acq = self.acq
-        return self.due_ns is not None or self._awaiting is not None or (acq.armed and acq._is("single"))
+        return self.due_ns is not None or self._awaiting is not None or (acq.armed and acq.mode_is("single"))
 
     def schedule(self, channels: list[int] | None, force: bool) -> None:
         """Arm an acquisition that finishes in virtual time: when the record after the trigger is
@@ -117,7 +117,7 @@ class PendingAcquisitions:
         self.clear()
         acq = self.acq
         acq.store_segments(segments, used)
-        if acq._is("single"):
+        if acq.mode_is("single"):
             acq._finish_single()
         else:
             acq.armed = False
@@ -152,5 +152,5 @@ class PendingAcquisitions:
                 self._plan(channels, force, taken)
         elif self._awaiting is not None:
             self._plan(self._awaiting[0], False, self._triggered_by(self._found, now))
-        elif acq.armed and acq._is("single"):  # armed from the panel, waiting for its trigger
+        elif acq.armed and acq.mode_is("single"):  # armed from the panel, waiting for its trigger
             self._plan(None, False, [])

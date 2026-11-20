@@ -175,7 +175,7 @@ def test_an_average_beyond_the_fan_out_is_a_deep_record_read_in_parts(monkeypatc
     before the ADC computes anything."""
     session = open_bench(DSOX, clock="command", seed=1, idle="off")
     scope = session.instruments["scope"].components
-    points = scope["acq"]._timing()[0]
+    points = scope["acq"].timing()[0]
     for module in (evalcache, scope_capture, scope_record):
         monkeypatch.setattr(module, "MAX_REQUEST_FANOUT", 4 * points)
     computed: list[int] = []

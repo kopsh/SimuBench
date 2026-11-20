@@ -86,47 +86,43 @@ class Cursors:
 
     def _marker_word(self, mode: str) -> str:
         """The SCPI word a mode's setting carries, as the definition's options spell it."""
-        assert self.host.owner is not None
         path = self.host.bound_path("marker_mode")
         if path is None:
             return mode
-        for option in self.host.owner.specs[path].options or []:
+        for option in self.host.specs[path].options or []:
             if option.upper().startswith(mode[:3]):
                 return str(option)
         return mode
 
     def cursor(self, which: str = "STARt", query: bool = True, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         word = str(which).strip().upper()
         if not word.startswith(("DEL", "STA", "STO")):
             raise ScpiError(-224, f"{which}: DELTa, STARt or STOP")
         mode_path = self.host.bound_path("marker_mode")
         if self._marker_mode() != "waveform" and mode_path is not None:
-            self.host.owner.set_state(mode_path, self._marker_word("WAV"), source="scpi", internal=True)
+            self.host.set_state(mode_path, self._marker_word("WAV"), source="scpi", internal=True)
         if word.startswith("DEL"):
             x1, x2 = (float(self.host.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
             ya, yb, used = self._marker_ys()
-            return OpResult(b",".join(self.host.owner.format_number(v) for v in (x2 - x1, yb - ya)), used)
+            return OpResult(b",".join(self.host.format_number(v) for v in (x2 - x1, yb - ya)), used)
         n = 1 if word.startswith("STA") else 2
         y, used = self._marker_y(n)
         x = float(self.host.param(f"marker_x{n}") or 0.0)
-        return OpResult(b",".join(self.host.owner.format_number(v) for v in (x, y)), used)
+        return OpResult(b",".join(self.host.format_number(v) for v in (x, y)), used)
 
     def x_delta(self, query: bool = True, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         x1, x2 = (float(self.host.param(k) or 0.0) for k in ("marker_x1", "marker_x2"))
         shown = self._marker_diff("x", x1, x2)
         if not math.isfinite(shown):
             return OpResult(str(self.host.param("invalid_value")).encode())
-        return OpResult(self.host.owner.format_number(shown))
+        return OpResult(self.host.format_number(shown))
 
     def y_delta(self, query: bool = True, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         ya, yb, used = self._marker_ys()
         value = self._marker_diff("y", ya, yb)
         if not math.isfinite(value) and self.host.param("invalid_value") != "UNDEF":
             return OpResult(str(self.host.param("invalid_value")).encode(), used)
-        return OpResult(self.host.owner.format_number(value), used)
+        return OpResult(self.host.format_number(value), used)
 
     def _marker_ys(self) -> tuple[float, float, int]:
         """Both markers' y and the virtual time reading them took. In the MEASurement mode both
@@ -189,7 +185,6 @@ class Cursors:
         return self._position(which, value, query, "y")
 
     def op_tracked_y(self, which: str = "Y1", value: Any = None, query: bool = False, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         n = 1 if str(which).strip().upper().endswith("1") else 2
         param = f"marker_y{n}"
         if query:
@@ -197,19 +192,18 @@ class Cursors:
                 shown, used = self._marker_y(n)
                 if not math.isfinite(shown):
                     return OpResult(str(self.host.param("invalid_value")).encode(), used)
-                return OpResult(self.host.owner.format_number(shown), used)
+                return OpResult(self.host.format_number(shown), used)
             stored = self.host.param(param)
-            return OpResult(self.host.owner.format_number(float(stored) if stored is not None else 0.0))
+            return OpResult(self.host.format_number(float(stored) if stored is not None else 0.0))
         path = self.host.bound_path(param)
         if path is None:
             raise ScpiError(-300, f"{self.host.uid}: the {param} setting is not bound")
-        self.host.owner.set_state(path, self._marker_number("y", value), source="scpi", internal=True)
+        self.host.set_state(path, self._marker_number("y", value), source="scpi", internal=True)
         return OpResult()
 
     def _position(self, which: str, value: Any, query: bool, axis: str) -> OpResult:
         """One X or Y cursor's read or write, in the cursors' unit, with the mode moves the
         manual gives a position write (MANual unless tracking; a tracking Y is refused)."""
-        assert self.host.owner is not None
         n = 1 if str(which).strip().upper().endswith("1") else 2
         param = f"marker_{axis}{n}"
         mode_path = self.host.bound_path("marker_mode")
@@ -231,7 +225,7 @@ class Cursors:
                 shown = 1.0 / shown
             elif unit in ("deg", "pct"):
                 shown = self._marker_scaled(axis, shown)
-            return OpResult(self.host.owner.format_number(shown), used)
+            return OpResult(self.host.format_number(shown), used)
         if axis == "y" and mode == "waveform":
             raise ScpiError(-222, "the cursors track the waveform: Y positions cannot be set")
         path = self.host.bound_path(param)
@@ -240,8 +234,8 @@ class Cursors:
         # parse before moving the mode: a rejected number leaves the cursors as they were (#1586)
         number = self._marker_number(axis, value)
         if mode != "waveform" and mode_path is not None:
-            self.host.owner.set_state(mode_path, self._marker_word("MAN"), source="scpi", internal=True)
-        self.host.owner.set_state(path, number, source="scpi", internal=True)
+            self.host.set_state(mode_path, self._marker_word("MAN"), source="scpi", internal=True)
+        self.host.set_state(path, number, source="scpi", internal=True)
         return OpResult()
 
     def _marker_number(self, axis: str, value: Any) -> float:
@@ -271,7 +265,6 @@ class Cursors:
         return float(a1) + (float(a2) - float(a1)) * v / full
 
     def op_units_use(self, axis: str = "X", **_: Any) -> OpResult:
-        assert self.host.owner is not None
         axis = axis.strip().lower()
         if axis not in ("x", "y"):
             raise ScpiError(-224, f"{axis}: X or Y")
@@ -281,13 +274,12 @@ class Cursors:
             path = self.host.bound_path(name)
             if path is None:
                 raise ScpiError(-300, f"{self.host.uid}: the {name} setting is not bound")
-            self.host.owner.set_state(path, value, source="scpi", internal=True)
+            self.host.set_state(path, value, source="scpi", internal=True)
         return OpResult()
 
     def op_marker_source(
         self, which: str = "X1Y1", value: Any = None, query: bool = False, **_: Any
     ) -> OpResult:
-        assert self.host.owner is not None
         param = f"marker_source{2 if str(which).strip().upper().endswith('2') else 1}"
         if query or value is None:
             return OpResult(short_source(self.host.param(param) or "NONE").encode())
@@ -301,5 +293,5 @@ class Cursors:
         path = self.host.bound_path(param)
         if path is None:
             raise ScpiError(-300, f"{self.host.uid}: the {param} setting is not bound")
-        self.host.owner.set_state(path, word, source="scpi", internal=True)
+        self.host.set_state(path, word, source="scpi", internal=True)
         return OpResult()
