@@ -91,7 +91,22 @@ def validate_value(spec: StateSpec, value: Any, *, allow_readonly: bool = False)
             value = canonical
         return value
     if spec.type == "bool":
-        return bool(value)
+        # A write from outside the parse layer (the web configure, MCP, an agent tool) takes the
+        # parser's words, like the enum above takes its options' word forms (#625): ``"false"``
+        # used to fall through ``bool(value)`` -- every non-empty string is True -- and silently
+        # change nothing while the write reported success (#1677).
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, int | float):  # 0 is off, the rest on, as bool() read them
+            return bool(value)
+        if isinstance(value, str):
+            word = value.strip().upper()
+            if word in ("1", "ON", "TRUE"):
+                return True
+            if word in ("0", "OFF", "FALSE"):
+                return False
+            raise ScpiError(-224, f"expected ON, OFF, 1 or 0, got {value!r}")
+        raise ScpiError(-104, f"expected a boolean, got {value!r}")
     if spec.type == "enum_list":
         # A set of options kept in the options' order, whatever order it was written in
         # (#252: :FORM:ELEM:SENS answers voltage, current, … however the list was given).
