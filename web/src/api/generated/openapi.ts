@@ -1808,7 +1808,7 @@ export interface components {
             action: string;
             /**
              * Args
-             * @description The tool call's arguments as the tool received them (compact keys), for the postmortem: what the model actually sent (#1679). None on a bench-edit sub-step
+             * @description The tool call's arguments as the tool received them (compact keys), for the postmortem: what the model actually sent (#1679); a long text is cut and marked (#1694). None on a bench-edit sub-step
              */
             args: {
                 [key: string]: unknown;

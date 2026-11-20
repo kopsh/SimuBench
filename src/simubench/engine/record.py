@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 
 RECORD_SCHEMA = "simubench.record/1"
 BLOCK_MIN = 256  # binary replies at least this long are waveform blocks: kept as hash + recipe
+TEXT_KEEP = 500  # a record keeps this many characters of a string; the rest is marked (#1694)
 
 
 def encode_bytes(data: bytes) -> dict[str, str]:
@@ -59,6 +60,21 @@ def jsonable(value: Any) -> Any:
         return {k: jsonable(v) for k, v in value.items()}
     if isinstance(value, (list, tuple)):
         return [jsonable(v) for v in value]
+    return value
+
+
+def bounded(value: Any, keep: int = TEXT_KEEP) -> Any:
+    """A value a record keeps, bounded (#1694): a string longer than ``keep`` characters is cut
+    with its size marked, and dicts and lists recurse. The postmortem needs what was asked --
+    the value a configure got, the op a tool sent -- not a whole bench's content."""
+    if isinstance(value, str):
+        if len(value) <= keep:
+            return value
+        return f"{value[:keep]}…(truncated {len(value) - keep} chars)"
+    if isinstance(value, dict):
+        return {k: bounded(v, keep) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [bounded(v, keep) for v in value]
     return value
 
 
