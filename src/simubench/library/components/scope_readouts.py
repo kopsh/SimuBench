@@ -69,7 +69,6 @@ class Readouts:
         impedance: Any = None,
         **_: Any,
     ) -> OpResult:
-        assert self.host.owner is not None
         if interval and str(interval).upper().startswith("CYCL") and f"{what}:CYCLe" in LEVEL_MEASUREMENTS:
             what += ":CYCLe"
         if coupling and str(coupling).upper().startswith("AC") and f"{what}:AC" in LEVEL_MEASUREMENTS:
@@ -87,10 +86,9 @@ class Readouts:
         self.host.results.keep(what, n, value)
         if not math.isfinite(value) and self.host.param("invalid_value") != "UNDEF":
             return OpResult(str(self.host.param("invalid_value")).encode(), used)
-        return OpResult(self.host.owner.format_number(value), used)  # NaN: the SCPI sentinel 9.91E+37
+        return OpResult(self.host.format_number(value), used)  # NaN: the SCPI sentinel 9.91E+37
 
     def named(self, channel: int | None = None, kind: str | None = None, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         if kind is None:
             raise ScpiError(-109)
         table = {str(k).upper(): v for k, v in (self.host.param("names") or {}).items()}
@@ -103,5 +101,5 @@ class Readouts:
         self.host.results.keep(name, n, value)
         good, bad = self.host.param("status")
         ok = math.isfinite(value)
-        text = self.host.owner.format_number(value) if ok else str(self.host.param("invalid_value")).encode()
+        text = self.host.format_number(value) if ok else str(self.host.param("invalid_value")).encode()
         return OpResult(text, used, {"kind": name, "unit": str(unit), "status": str(good if ok else bad)})

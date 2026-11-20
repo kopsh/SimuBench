@@ -15,6 +15,7 @@ import httpx2
 import pytest
 from fastapi.testclient import TestClient
 from tests.helpers import ScriptedLLM
+from tests.test_assistant import BENCH, edit
 
 from helpers import raises_with
 from simubench.contracts import api as M
@@ -25,7 +26,6 @@ from simubench.server.assistant.llm import build_model, check_connection
 from simubench.server.assistant.service import AssistantService
 from simubench.server.manager import SessionManager
 
-BENCH = "hello.bench.yaml"
 KEY = "sk-secret-key-123"
 
 
@@ -351,3 +351,46 @@ def test_a_key_file_inside_the_workspace_is_not_adopted(tmp_path, caplog):
         view = s.view()
     assert not view.api_key_set and view.base_url is None and view.overridden == []
     assert "no longer read" in caplog.text and KEY not in caplog.text
+
+
+def test_a_broken_conversation_file_answers_422_in_words(client, manager, monkeypatch):
+    """#1725: a conversation file a reload truncated or a hand edit broke is a domain error with
+    the position (422, the one table's ValueError row), not the 500 a bug gets, and the file is
+    kept — never silently emptied."""
+    folder = manager.workspace / ".simubench" / "assistant"
+    folder.mkdir(parents=True)
+    path = folder / f"{BENCH}.json"
+    path.write_text('{"turns": [', encoding="utf-8")
+    broken = client.get("/api/assistant/conversation", params={"bench": BENCH})
+    assert broken.status_code == 422
+    detail = broken.json()["detail"]
+    assert f"{BENCH}.json" in detail and "line 1 column" in detail
+    assert path.is_file()  # kept: the user fixes it, nothing is silently dropped
+    monkeypatch.setenv("SIMUBENCH_LLM_BASE_URL", "http://llm.test/v1")
+    monkeypatch.setenv("SIMUBENCH_LLM_MODEL", "m")
+    manager.assistant.model_factory = ScriptedLLM("好的").factory
+    refused = client.post("/api/assistant/messages", json={"bench": BENCH, "text": "你好"})
+    assert refused.status_code == 422 and "line 1 column" in refused.json()["detail"]
+
+
+def test_the_rollback_route_maps_conflict_through_the_table(client, manager):
+    """#1725: the rollback route asks the one table: the 409 body keeps the message and the
+    current_sha256 the Conflict carries, instead of collapsing the error into a string."""
+    llm = ScriptedLLM(
+        [("read_bench", {})], edit([{"op": "set_label", "name": "awg", "label": "AI 改的"}]), "改好了。"
+    )
+    manager.assistant.model_factory = llm.factory
+    r = client.post("/api/assistant/messages", json={"bench": BENCH, "text": "改标签"})
+    assert r.status_code == 202
+    turn_id = r.json()["id"]
+    with client.stream("GET", "/api/assistant/events", params={"bench": BENCH, "turn": turn_id}) as stream:
+        events = [json.loads(line[5:]) for line in stream.iter_lines() if line.startswith("data:")]
+    assert events[-1]["turn"]["status"] == "done"
+    assert (
+        client.post("/api/assistant/rollback", json={"bench": BENCH, "turn_id": turn_id}).status_code == 200
+    )
+    again = client.post("/api/assistant/rollback", json={"bench": BENCH, "turn_id": turn_id})
+    assert again.status_code == 409
+    detail = again.json()["detail"]
+    assert isinstance(detail, dict) and "current_sha256" in detail
+    assert "重新打开面板" in detail["message"]

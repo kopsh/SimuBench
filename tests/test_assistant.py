@@ -5,10 +5,12 @@ canvas, compaction and the conversation history. Each test walks one flow (D49).
 from __future__ import annotations
 
 import asyncio
+import logging
 
 import pytest
 import yaml
 from pydantic_ai import RunContext
+from pydantic_ai.exceptions import ModelHTTPError
 from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
 from pydantic_ai.models.test import TestModel
 from pydantic_ai.usage import RunUsage
@@ -17,6 +19,7 @@ from tests.helpers import ScriptedLLM, last_tool_return
 from helpers import raises_with
 from simubench.contracts import api as M
 from simubench.engine.edit import Move
+from simubench.errors import Invalid
 from simubench.server.assistant import compaction
 from simubench.server.assistant.guard import LoopGuard, Stuck
 from simubench.server.assistant.service import AssistantService
@@ -545,6 +548,75 @@ def test_the_assistant_error_text_reads_the_shared_table():
     missing = FileNotFoundError("no such bench")
     missing.filename = "agent.bench.yaml"
     assert _error_text(missing) == "文件不存在：agent.bench.yaml"  # the name survives, for a retry
+
+
+async def test_a_bug_in_the_model_stream_ends_the_turn_as_an_internal_error(manager, caplog):
+    """#1725: an exception that is no domain error and no LLM service failure — the shape a bug
+    has — closes the turn in words that never say the LLM service failed (retrying a service
+    cannot fix a bug), and ``log.exception`` keeps the stack in the log."""
+    llm = ScriptedLLM([("read_bench", {})])
+
+    async def broken(messages, info):
+        raise RuntimeError("engine blew up")
+        yield  # an async generator: the raise lands before the first piece
+
+    llm.model._stream_function = broken  # type: ignore[attr-defined]
+    llm.model.stream_function = broken  # type: ignore[attr-defined]
+    service = service_with(manager, llm)
+    with caplog.at_level(logging.ERROR):
+        t = await turn(service, "看看测试台")
+    assert t.status == "error" and t.finished_at  # the state machine still closes the turn
+    assert "LLM 服务" not in (t.stop_reason or "") and "内部出错" in (t.stop_reason or "")
+    assert service.conversation(BENCH).turns[-1].status == "error"  # persisted
+    failed = [r for r in caplog.records if "assistant turn failed" in r.getMessage()]
+    assert failed and all(r.exc_info for r in failed)  # the stack survives in the log
+
+
+async def test_an_llm_service_failure_still_reads_as_one(manager):
+    """#1725: a failure of the LLM service's own kinds — pydantic_ai's ModelHTTPError, the form
+    the SDKs' answers arrive translated in — keeps llm.py's human wording at the turn boundary."""
+    llm = ScriptedLLM([("read_bench", {})])
+
+    async def denied(messages, info):
+        raise ModelHTTPError(status_code=401, model_name="m", body="bad key")
+        yield  # an async generator: the raise lands before the first piece
+
+    llm.model._stream_function = denied  # type: ignore[attr-defined]
+    llm.model.stream_function = denied  # type: ignore[attr-defined]
+    service = service_with(manager, llm)
+    t = await turn(service, "看看测试台")
+    assert t.status == "error" and t.finished_at
+    assert "LLM 服务拒绝了请求（401）" in (t.stop_reason or "")
+
+
+async def test_a_broken_conversation_file_is_a_domain_error_and_is_never_emptied(manager):
+    """#1725: a conversation file a reload truncated or a hand edit broke answers ``Invalid`` with
+    the position (a 422 at every seam), and is kept — never silently turned into an empty one."""
+    folder = manager.workspace / ".simubench" / "assistant"
+    folder.mkdir(parents=True)
+    path = folder / f"{BENCH}.json"
+    path.write_text('{"turns": [', encoding="utf-8")
+    service = service_with(manager, ScriptedLLM("好的"))
+    with raises_with(Invalid, f"{BENCH}.json", "line 1 column"):
+        service.conversation(BENCH)
+    assert path.is_file()  # the scene is kept for the user to fix
+    with raises_with(Invalid, "line 1 column"):  # a new message refuses too, in the same words
+        await service.send(BENCH, "继续")
+    assert path.is_file()
+
+
+async def test_a_bench_broken_by_hand_stops_the_rollback_plan_in_words(manager):
+    """#1725: the rollback plan reads the current files with the bench files' parser; a file
+    broken by hand answers ``Invalid`` with the parser's position, not the 500 a bug gets."""
+    llm = ScriptedLLM(
+        [("read_bench", {})], edit([{"op": "set_label", "name": "awg", "label": "X"}]), "改好了"
+    )
+    service = service_with(manager, llm)
+    t = await turn(service, "改标签")
+    assert service.rollback_plan(BENCH).turn_id == t.id
+    (manager.workspace / BENCH).write_text("\tname: x", encoding="utf-8")  # a tab, as a hand edit could leave
+    with raises_with(Invalid, BENCH, "line 1"):
+        service.rollback_plan(BENCH)
 
 
 async def test_a_bench_that_does_not_parse_reaches_the_model_as_an_error(manager):

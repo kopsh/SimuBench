@@ -111,7 +111,7 @@ class Capture:
 
         A later ``segment`` of a segmented acquisition is armed at ``t0`` (not now) and takes no
         trigger before ``earliest_ns``."""
-        points, nominal_dt, pre, post = self.host._timing()
+        points, nominal_dt, pre, post = self.host.timing()
         # A fast clock (positive clock_ppm) samples closer together than the nominal interval; the
         # record keeps the nominal dt the scope reports and reconstructs with, so time measurements
         # read low by that fraction (the spectrum analyzer's reference convention, G3).
@@ -121,7 +121,7 @@ class Capture:
         # An auto mode gives up after its auto timeout; a normal or single acquisition waits for
         # its edge, the virtual time it takes included (G5).
         hit = self._trigger_hit(
-            t0, dt, pre, points, waits=not self.host._is("auto") and frame is None, earliest_s=earliest_s
+            t0, dt, pre, points, waits=not self.host.mode_is("auto") and frame is None, earliest_s=earliest_s
         )
         triggered = hit is not None
         k = hit.index if hit is not None else pre
@@ -186,7 +186,7 @@ class Capture:
             used = (k + max(post, 0)) * dt
         else:  # the whole trigger search
             used = points * int(self.host.trigger_unit().param("search_windows")) * dt
-        used = used * self.host._averages() + float(self.host.param("overhead_s"))
+        used = used * self.host.averages() + float(self.host.param("overhead_s"))
         return records, round(used * 1e9), triggered, t0 + round(k * dt * 1e9)
 
     def _latch_clip(self, n: int, frame: Any) -> None:
@@ -221,9 +221,9 @@ class Capture:
             over, damage = vertical.overload(add, t0_ns, span_s)
             if over:
                 self.overloaded.add(n)
-            if damage and self.host.owner is not None:
+            if damage:
                 lo, hi = vertical.input_extremes(t0_ns, span_s)
-                self.host.owner.warn(
+                self.host.warn(
                     f"CH{n}-OVERVOLTAGE",
                     f"CH{n} 的输入达到 {max(abs(lo), abs(hi)):.3g} V，超过最大输入 ±{float(vertical.param('max_input_v')):g} V，"
                     "真机可能损坏前端（Input beyond the absolute maximum: possible damage）",
@@ -272,8 +272,8 @@ class Capture:
         eager = MAX_FRAME if view is not None and view.proc == "eres" and view.w > 1 else EAGER_POINTS
         if view is None or (request.count <= eager and request.count * view.cost <= MAX_REQUEST_FANOUT):
             return None
-        assert self.host.owner is not None and dec.owner is not None
-        if self.host.owner.wiring.source(self.host.name, f"in{n}") != (dec.name, f"out{n}"):
+        assert dec.owner is not None
+        if self.host.input_source(f"in{n}") != (dec.name, f"out{n}"):
             return None
         from .scope_dsp import ScopeDspFilter  # the filter module builds on this one
 
@@ -311,7 +311,7 @@ class Capture:
         kind = trig.source_kind(source)
         factor = 1.0
         if kind == "channel":
-            sig, scale_t = self.host._display_signal(n_trig), self.host.scale_offset(n_trig)[0]  # type: ignore[arg-type]
+            sig, scale_t = self.host.display_signal(n_trig), self.host.scale_offset(n_trig)[0]  # type: ignore[arg-type]
             factor = self.host.vertical_of(n_trig).noise_bandwidth_factor()  # type: ignore[arg-type]
         elif kind == "external":
             sig, scale_t = trig.input("ext"), 1.0
@@ -329,6 +329,6 @@ class Capture:
     def triggers_now(self) -> bool:
         """Whether an acquisition starting now finds its trigger within its search windows (a
         continuous run's state: it re-arms on every trigger, so it is waiting while none comes)."""
-        points, nominal_dt, pre, _ = self.host._timing()
+        points, nominal_dt, pre, _ = self.host.timing()
         dt = nominal_dt / (1.0 + self.host.horizontal().clock_error())
         return self._trigger_hit(self.host.session.now_ns, dt, pre, points, waits=False) is not None
