@@ -31,12 +31,14 @@ import sys
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 import pytest
 import pyvisa
 import yaml
 
+from simubench.scpi.errors import ScpiError
 from simubench.units import ENG_PREFIX
 
 #: The box-drawing and panel-title glyphs around a TUI value; a reading is read between them.
@@ -517,6 +519,269 @@ def dispatch_unit(inst, message: str):
 
     unit = parse_unit(message.encode())
     return inst.runner._dispatch(unit, resolve_tokens(unit, ()))
+
+
+class FakeScopeOwner:
+    """The instrument side of the scope family's seam (#1724): the reads and writes the family
+    host protocols name — settings and their declared paths, number formatting, status events,
+    the pending-operation clock, warnings. The fake host below carries one and delegates the way
+    the real components delegate to the Instrument. ``writes`` and ``events`` record what came
+    through; ``state`` is the live setting values the block reads back."""
+
+    def __init__(self, state=None, specs=None):
+        self.state = dict(state or {})
+        self.specs = dict(specs or {})  # path -> a stand-in spec (.options, .type)
+        self.writes: list[tuple] = []  # (path, value, source, internal)
+        self.events: list[str] = []  # latched status-event names
+        self.warnings: list[tuple] = []  # (code, message)
+        self.pending_log: list[str] = []  # opc_query / wait_pending / arm_opc
+        self.blocked: list[tuple] = []  # (uid, wait), the pending seam's bookkeeping
+        self.registered: list[int] = []
+        self.cancelled = 0
+        self.now = 0
+        self.waited_ns = 0
+        self.on_panel = False
+        self.channel_count = 4
+
+    # ---- settings ----
+
+    def get_state(self, path):
+        try:
+            return self.state[path]
+        except KeyError:
+            raise KeyError(f"fake owner has no state {path!r}") from None
+
+    def set_state(self, path, value, *, source="scpi", internal=False):
+        self.writes.append((path, value, source, internal))
+        self.state[path] = value
+
+    def format_number(self, value):
+        return f"{value:.6E}".encode()
+
+    def format_setting(self, path):
+        return str(self.state.get(path, "")).encode()
+
+    # ---- events, time, pending operations ----
+
+    def status_event(self, name):
+        self.events.append(name)
+
+    def warn(self, code, message):
+        self.warnings.append((code, message))
+
+    def now_ns(self):
+        return self.now
+
+    def wait_until(self, done_ns):
+        waited = max(0, done_ns - self.now)
+        self.now = max(self.now, done_ns)
+        self.waited_ns += waited
+        return waited
+
+    def opc_query(self):
+        self.pending_log.append("opc_query")
+        return b"1", 0
+
+    def wait_pending(self):
+        self.pending_log.append("wait_pending")
+        return 0
+
+    def arm_opc(self):
+        self.pending_log.append("arm_opc")
+
+    # ---- the pending seam (scope_pending's Acquisition protocol reads these) ----
+
+    def block(self, uid, wait):
+        self.blocked.append((uid, wait))
+
+    def register_pending(self, uid, due_ns, done, waited):
+        self.registered.append(due_ns)
+
+    def cancel_pending(self, uid):
+        self.cancelled += 1
+
+
+class FakeScopeSession:
+    """The session surface the scope blocks read: the event stream (a
+    :class:`FakeEvents`), invalidation, the clock's reading."""
+
+    def __init__(self, owner):
+        self.owner = owner
+        self.events = FakeEvents()
+        self.invalidated = 0
+        self.now_ns = 0
+        self.seed = 1
+
+    def invalidate(self):
+        self.invalidated += 1
+
+    def signal_changed(self, comp):
+        return False
+
+
+class FakeScopeCapture:
+    """The acquisition's record source, scripted: ``compute`` answers the one record set it was
+    given, ``triggers_now`` the flag."""
+
+    def __init__(self, records, used=0, triggered=True, triggers_now=False):
+        self.records = records
+        self.used = used
+        self.triggered = triggered
+        self.triggers_flag = triggers_now
+        self.computed: list[list[int]] = []
+
+    def compute(self, channels, frame=None):
+        self.computed.append(list(channels))
+        return self.records, self.used, self.triggered
+
+    def triggers_now(self):
+        return self.triggers_flag
+
+
+class _FakeScopeSegments:
+    """One-record acquisitions: ``segment_count`` 1, the latest acquisition not segmented."""
+
+    def __init__(self):
+        self.segment_records = []
+
+    def segment_count(self):
+        return 1
+
+
+class FakeScopeHost:
+    """The scope family's fake host (#1724): what the family's blocks read of their component —
+    standing in for a ScopeAcquisition, ScopeMeasurements, ScopeMath or ScopeTrigger, no bench
+    and no signals. Settings live on a :class:`FakeScopeOwner` (``owner``, which
+    scope_pending's scheduling seam also reads); ``params`` answers the parameters (``bound``
+    names the settings they bind to); ``capture`` is a scripted
+    :class:`FakeScopeCapture`. The real blocks (Recorder, RunControl, Cursors, Values) are
+    constructed on it by the tests — the family protocols are the whole test surface."""
+
+    def __init__(self, params=None, bound=None, owner=None):
+        from simubench.library.components.scope_measurements import ScopeMeasurements
+
+        self.owner = owner or FakeScopeOwner()
+        self.session = FakeScopeSession(self.owner)
+        self.params = dict(params or {})
+        self.bound = dict(bound or {})
+        self.uid = "scope.fake"
+        self.name = "fake"
+        self.running = True
+        self.armed = False
+        self.last_triggered = False
+        self.defaults = {
+            "status_text": {"stopped": "STOP", "waiting": "READY", "triggered": "TRIG'D", "auto": "AUTO"}
+        }
+        self.timing_value = (1000, 1e-6, 200, 800)
+        self.displayed_channels = [1]
+        self.level = 0.0
+        self.capture = FakeScopeCapture(records={})
+        self.segments = _FakeScopeSegments()
+        self._trigger_unit = SimpleNamespace(last_ns=0)
+        self.MODES = ScopeMeasurements.MODES
+        self.XUNITS = ScopeMeasurements.XUNITS
+        self.YUNITS = ScopeMeasurements.YUNITS
+
+    # ---- parameters and the run mode ----
+
+    def param(self, key):
+        return self.params.get(key)
+
+    def mode_is(self, key, value=None):
+        words = self.params.get(key) or ()
+        return str(self.params.get("mode") if value is None else value).upper() in {
+            str(w).upper() for w in (words if isinstance(words, (list, tuple, set)) else (words,))
+        }
+
+    def mode_path(self):
+        return self.bound.get("mode")
+
+    def set_mode(self, value):
+        path = self.mode_path()
+        if path is None:
+            raise ScpiError(-300, f"{self.uid}: the run mode is not bound to a setting")
+        self.owner.set_state(path, value)
+        self.params["mode"] = value
+
+    # ---- settings and replies ----
+
+    def get_state(self, path):
+        return self.owner.get_state(path)
+
+    def set_state(self, path, value, *, source="scpi", internal=False):
+        self.owner.set_state(path, value, source=source, internal=internal)
+
+    def resolve_path(self, path):
+        return path
+
+    def bound_path(self, key):
+        return self.bound.get(key)
+
+    def format_number(self, value):
+        return self.owner.format_number(value)
+
+    def format_setting(self, path):
+        return self.owner.format_setting(path)
+
+    # ---- the instrument's services ----
+
+    def status_event(self, name):
+        self.owner.status_event(name)
+
+    def warn(self, code, message):
+        self.owner.warn(code, message)
+
+    def now_ns(self):
+        return self.owner.now_ns()
+
+    def wait_until(self, done_ns):
+        return self.owner.wait_until(done_ns)
+
+    def opc_query(self):
+        return self.owner.opc_query()
+
+    def wait_pending(self):
+        return self.owner.wait_pending()
+
+    def arm_opc(self):
+        self.owner.arm_opc()
+
+    @property
+    def on_panel(self):
+        return self.owner.on_panel
+
+    def input_source(self, port):
+        return None
+
+    # ---- the acquisition's figures and collaborators ----
+
+    def channels(self):
+        return self.owner.channel_count
+
+    def timing(self):
+        return self.timing_value
+
+    def displayed(self):
+        return self.displayed_channels
+
+    def trigger_level(self):
+        return self.level
+
+    def trigger_unit(self):
+        return self._trigger_unit
+
+    def averages(self):
+        return 1
+
+    # ---- the measurements family's declared tables ----
+
+    @property
+    def specs(self):
+        return self.owner.specs
+
+    @property
+    def state(self):
+        return self.owner.state
 
 
 class ScriptedLLM:
