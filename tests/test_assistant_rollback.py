@@ -16,7 +16,7 @@ from simubench.contracts import api as M
 from simubench.engine.edit import SetLabel
 from simubench.library.loader import load_yaml
 from simubench.server.assistant.service import ROLLED_BACK_NOTE
-from simubench.server.errors import Conflict
+from simubench.server.errors import Conflict, Invalid
 
 __all__ = ["manager"]
 
@@ -283,6 +283,27 @@ async def test_a_version_no_longer_in_history_aborts_before_any_file_is_touched(
     restored = yaml.safe_load((manager.workspace / rel).read_text(encoding="utf-8"))
     assert restored["channel_state"]["frequency"]["default"] == 1e6
     assert service.conversation(BENCH).turns[-1].rolled_back
+
+
+async def test_a_kind_missing_from_the_record_stops_the_plan_in_words(manager):
+    """#1729: ``before`` and ``kinds`` are written together (tools.touch, the template save); a
+    record that lost the entry is damaged and is never silently handled as a bench — the plan
+    refuses in words and touches nothing."""
+    llm = ScriptedLLM(
+        [("read_bench", {})],
+        lambda m: [("save_template", {"instrument": "scope", "name": "Scope A", "base_sha256": sha(m)})],
+        "存好了。",
+    )
+    service = service_with(manager, llm)
+    t = await turn(service, "把示波器存成模板")
+    rel = "instruments/my-scope-a.yaml"
+    assert (manager.workspace / rel).is_file()
+    conv = service.store.load(BENCH)
+    del conv.files[t.id].kinds[rel]
+    service.store.save(conv)
+    with raises_with(Invalid, "my-scope-a"):
+        service.rollback_plan(BENCH)
+    assert (manager.workspace / rel).is_file()  # planning touched nothing
 
 
 async def test_a_meta_edit_lists_in_files_and_rollback_restores_it(manager):

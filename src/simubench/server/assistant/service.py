@@ -47,7 +47,7 @@ from pydantic_ai.usage import UsageLimits
 from ...contracts import api as M
 from ..benchfiles import Conflict, parse_data
 from ..definitionfiles import DefinitionFiles
-from ..errors import Busy, Unknown
+from ..errors import Busy, Invalid, Unknown
 from ..filestores import FileStores
 from ..manager import SessionManager
 from . import compaction
@@ -353,11 +353,21 @@ class AssistantService:
                 emit(M.AssistantEvent(seq=0, type="turn", turn_id=turn.id, turn=turn))
                 loop.call_soon_threadsafe(events.close)
 
+    def _kind_of(self, record: TurnFiles, rel: str) -> str:
+        """The kind the turn registered when it first wrote the file: ``before`` and ``kinds`` are
+        written together (``tools.touch``, the template save), so a record that has one without the
+        other is damaged — the domain error in words (#1725's discipline for a broken record), not
+        the silent "bench" the old fallback read (#1729)."""
+        try:
+            return record.kinds[rel]
+        except KeyError:
+            raise Invalid(f"对话记录没有登记 {rel} 的文件种类，记录可能损坏，请反馈问题") from None
+
     def _summarize(self, turn: M.AssistantTurn, record: TurnFiles) -> None:
         """The turn's "what changed", from the files themselves (not from the model's words)."""
         turn.files = []
         for rel, before in record.before.items():
-            kind = record.kinds.get(rel, "bench")
+            kind = self._kind_of(record, rel)
             now = self.sha_of(self.files.resolve(rel))
             if now is not None:
                 record.after[rel] = now
@@ -385,7 +395,7 @@ class AssistantService:
             return M.RollbackPlan()
         files: list[M.RollbackFile] = []
         for rel, before in record.before.items():
-            kind = record.kinds.get(rel, "bench")
+            kind = self._kind_of(record, rel)
             current = self.sha_of(self.files.resolve(rel))
             after = record.after.get(rel)
             if before is None and current is None:
