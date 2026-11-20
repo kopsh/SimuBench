@@ -159,7 +159,6 @@ def test_a_bare_key_or_value_error_is_a_bug_not_a_domain_error():
 
 
 def test_the_mcp_table_has_a_row_for_the_same_domain_errors(tmp_path):
-    pytest.importorskip("mcp")  # the optional extra (#987); the rest of the file does not need it
     from simubench.errors import Invalid, Unknown
     from simubench.mcp_tools.context import McpContext, RateLimiter
     from simubench.server.errors import Conflict

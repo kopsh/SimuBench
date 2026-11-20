@@ -31,7 +31,6 @@ MCP_HEADERS = {"Accept": "application/json, text/event-stream", "Content-Type": 
 
 
 def test_serve_mcp_shares_the_port_and_the_token(tmp_path):
-    pytest.importorskip("mcp")
     _serve_mcp_flow(tmp_path)
     # The app, the MCP server and the test client leave ~14k objects in reference cycles. Collect
     # them here, so the full GC they trigger is not paid inside the next (unit) test's budget (#1199).
@@ -208,7 +207,6 @@ def test_launch_with_a_code_page_stdout_redirected_starts_and_a_second_start_fin
     import subprocess
     import sys
 
-    pytest.importorskip("mcp")
     # A redirected stdout in a narrow code page (Windows' cp1252) must not stop the start (#1192)
     # unbuffered: the banner reaches the log before the service is stopped, not at a flush on exit
     env = {**os.environ, "PYTHONIOENCODING": "cp1252", "PYTHONUTF8": "0", "PYTHONUNBUFFERED": "1"}

@@ -121,7 +121,6 @@ def test_the_unknown_command_reply_does_not_blame_simubench(workspace: Path):
 
 
 def test_mcp_run_cases_uses_the_workspace_definition(workspace: Path):
-    pytest.importorskip("mcp")
     import asyncio
 
     from mcp import Client

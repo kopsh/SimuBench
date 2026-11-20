@@ -180,17 +180,8 @@ def doctor(
             "python", "ok" if v >= (3, 11) else "fail", f"{platform.python_version()} (3.11 or later needed)"
         )
     )
-    missing = [n for n in DEPENDENCIES if n != "mcp" and _dist_version(n) is None]
+    missing = [n for n in DEPENDENCIES if _dist_version(n) is None]
     checks.append(Check("dependencies", "fail" if missing else "ok", ", ".join(missing) or "all installed"))
-    checks.append(
-        Check(
-            "mcp",
-            "ok" if _dist_version("mcp") else "warn",
-            "installed"
-            if _dist_version("mcp")
-            else 'not installed: pip install "simubench[mcp]" (or uv sync --extra mcp) for AI agents',
-        )
-    )
     try:
         from pyvisa import highlevel
 

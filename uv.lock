@@ -2147,6 +2147,7 @@ name = "simubench"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "mcp" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
     { name = "pydantic" },
@@ -2161,9 +2162,6 @@ dependencies = [
 ]
 
 [package.optional-dependencies]
-mcp = [
-    { name = "mcp" },
-]
 tui = [
     { name = "httpx" },
     { name = "textual" },
@@ -2187,7 +2185,7 @@ dev = [
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115" },
     { name = "httpx", marker = "extra == 'tui'", specifier = ">=0.27" },
-    { name = "mcp", marker = "extra == 'mcp'", specifier = ">=2.3,<3" },
+    { name = "mcp", specifier = ">=2.3,<3" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "pydantic", specifier = ">=2.7" },
     { name = "pydantic-ai-slim", extras = ["anthropic", "openai"], specifier = ">=1" },
@@ -2199,7 +2197,7 @@ requires-dist = [
     { name = "typing-extensions", specifier = ">=4.12" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.30" },
 ]
-provides-extras = ["mcp", "tui"]
+provides-extras = ["tui"]
 
 [package.metadata.requires-dev]
 dev = [

@@ -227,7 +227,7 @@
 - **TUI 的约束**（[tui-design.md](tui-design.md)）：
   - **只是服务的客户端**：经与 Web 相同的 HTTP/WebSocket 接口访问会话，不在进程内直接调用引擎；`simubench tui <bench>` 在本进程启动服务后连上，`--attach` 连接已运行的服务。另一条路（进程内直接用引擎）启动更快，但远程状态、确认与来源要再实现一遍，也无法与脚本、Web、Agent 共用会话，没有采用；
   - **只观察与操作，不做编辑**：测试台的修改在画布、MCP、Web AI 助手与编辑器中进行（D25、D66）；
-  - **Textual，可选依赖** `simubench[tui]`，与 `simubench[mcp]` 一样不进核心依赖；
+  - **Textual，可选依赖** `simubench[tui]`，不进核心依赖（MCP 原先也是可选依赖 `simubench[mcp]`，现在是必装依赖，见 D26）；
   - **操作来源“终端”**：请求带上客户端类型，运行记录与事件中与“界面”“Agent”区分；
   - **命令未被执行的原因进入事件**：错误事件给出分类（覆盖表中未实现、型号没有、定义中没有、已忽略、内置命令被排除、参数不合法），TUI、Web 与 MCP 共用；提示只转述定义作者声明的内容并写明出处（#172）。
 - **详见**：architecture.md 第 8 节、tui-design.md。
@@ -299,6 +299,7 @@
 ## D26 MCP 服务与 Web Bench 同进程
 
 - **结论**：`simubench mcp` 以 stdio 提供 MCP 服务，同一事件循环中启动 Web Bench；Agent 部署的会话、编辑的文件实时出现在工程师的浏览器中。stdout 只用于 MCP 协议，其余输出写 stderr。`simubench serve --mcp`（Windows 便携包双击启动的 `simubench launch` 即它，#1188）在同一端口的 `/mcp` 上以 streamable HTTP 提供同一套工具：Agent 不必由自己拉起进程，连到已在运行、工程师已打开界面的服务；Host/Origin 校验与访问令牌（D43，请求头 `x-simubench-token` 或 `Authorization: Bearer`）与界面路由相同。
+- **MCP 是必装依赖**：`mcp>=2.3,<3` 在核心 `dependencies` 里，没有 `simubench[mcp]` 这个 extra；`simubench mcp`、`serve --mcp`、`launch` 不再有「缺依赖」的分支（`doctor` 把 mcp 与其余核心依赖一样检查，缺了就是 fail），测试里的 `importorskip("mcp")` 也去掉了——缺依赖应当让测试红，而不是悄悄跳过 MCP 的覆盖。理由：Agent 搭建测试台是产品的主要用法之一，Windows 便携包和 wheel 一直带它；做成可选只多出一个「装了没装」的状态，两种安装得到的产品不一样。代价是不要 Agent 的安装也多装一个包。TUI 仍是可选依赖。
 - **安全**：危险命令需 `confirm=true`；仿真控制（故障注入、推进时钟、读取真实值）默认关闭，需 `--allow-control`；读取真实值还需测试台 `run.reveal_true_values`；所有工具共享限流。
 - **由脚本生成**：静态分析 PyVISA 脚本（不执行），按“支持的命令最多”选择仪表定义，列出不支持的命令与行号；看不出接线，草稿只含仪表。
 
