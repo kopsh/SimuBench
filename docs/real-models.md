@@ -261,4 +261,37 @@ https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-seri
 
 没有建模：固有抖动随采集时长增长（10 µs 25 fs、100 µs 40 fs、1 ms 50 fs，需要时钟的相位噪声模型）、通道间相位
 （p.9 的 2 通道互相关相位噪声）、前端的模拟带宽限制滤波、单独的 ADC ENOB（3123-1371 p.10 的 8.7 位，整机噪声已在
-噪声表里）。UXR0334B（3.5 mm，2 个 SiGe 采样器、8 路 ADC、两通道共用一块采集板，p.12）仍是旧结构。
+噪声表里）。
+
+### 11.3 UXR0334B（3.5 mm）：结构照 p.12，指标沿用 p.10 的限值（#1693）
+
+UXR0334B 与 UXR1104B 同族（定义 `extends: keysight-uxr1104b`），但 3.5 mm 型号的内部结构不同。技术概览
+3123-1371 p.12「TIS Analog Front-End Module for 3.5 mm Input Models」：低噪声前放同步 **(2) 个 64 GSa/s 的 SiGe
+采样器**，把 TIS 对齐的信号送给 **(8) 路 10 位 ADC**；**两通道共用一块采集板**（p.12「2 channels per acquisition
+board」，p.13 各板时间同步、通道间固有抖动 < 10 fs rms）。拆解视频（issue #1693 引 tsp-133 28:40）证实 33 GHz
+双通道模块只用 SiGe、没有 InP 主采样器，16 路 ADC 一半归一个通道。所以每通道是
+`front`（前放）→ `probe`（探头换算）→ `sampler`（`scope_sampler`，`paths: 2`）→ `adc`（`interleave: 8`），
+第 i 路 ADC 属于第 i mod 2 个采样器（`adc.sampler: sampler`、`clock: timebase`）。没有 1 mm 型号的机电衰减器与
+InP 主采样器。Web 仪器内部页因此显示出采样器块（`test_internals.py` 的结构测试对两型号都断言
+`probe → sampler → adc`）。
+
+交织失配分两级（#1693，照 #1579）：采样器 2 路的偏置与时延失配（周期 2 样 → 64 GHz 的时钟杂散及其像）加 adc 内
+8 路的失配（周期 8 样 → k×16 GHz 的像与杂散）。数据手册 3123-1313 p.10 的 SFDR/杂散表按 256 GSa/s（1 mm 型号）
+给出，3.5 mm 型号没有单独的表，沿用同组限值作目标（#1422 起即如此）：
+
+| 指标 | 数据手册（p.10，256 GSa/s 表） | UXR0334B 模型 | 测试 |
+| --- | --- | --- | --- |
+| SFDR，5 GHz 载波，0–10 GHz | ≤ -65 dBc | 窗口内无像与杂散 | `test_the_uxr0334b_interleave_meets_the_data_sheet_in_its_measurement_windows` |
+| SFDR，50 GHz 载波，40–60 GHz | ≤ -61 dBc | 46、62 GHz 的像各 -62.1 dBc（8 路 k=1、2 谐波） | 同上 |
+| 信号相关的像，每 16 GHz 区间 | -52 dBc | 最坏 -55.7 dBc（60 GHz 载波，采样器在 4 GHz 的像） | 同上 |
+| 残余杂散 | -65 dBFS | 16 GHz -65 dBFS（8 路偏置），其余不超过 | `test_the_uxr0334b_residual_spurs_meet_the_data_sheet` |
+| 时钟杂散 @ 64 GHz（0 dBm 档） | -65 dBm | -65 dBFS（2 路采样器偏置；64 GHz 为奈奎斯特 bin，按 \|X\|/N 读） | 同上 |
+| 固有抖动，< 1 µs 采集（p.11） | 15 fs rms | 15 fs（共用时钟 14.14 + 本通道 5） | `test_the_uxr0334b_jitter_is_mostly_the_shared_clock` |
+| 通道间固有抖动（p.11） | < 10 fs rms | 7.1 fs | 同上 |
+
+取舍：8 路时延取谐波 k=1、2、3（各余弦幅度 5 fs、相位 πk²/6），不取共轭对 k=5、6、7（否则同一 bin 的像叠加
++6 dB），也不取 k=4（64 GHz 那一级留给采样器）；偏置取 k=1 正弦（16 GHz -65 dBFS）。2 路采样器偏置
+`[-2.8117e-4, +2.8117e-4]` 满幅、零均值（共模偏置由校准去掉，不留直流误差）：64 GHz 恰为奈奎斯特 bin
+（128 GSa/s / 2），单边角幅度 |X|/N，故幅度取 1 mm 型号 4 路图样的两倍才得 -65 dBFS。抖动拆分与 1 mm 型号一致：两通道虽共用一块采集板，各自的 2 个 SiGe 采样器仍独立（每通道
+孔径 5 fs），时钟经 `timebase` 全机共享（√(15²−5²) ≈ 14.14 fs）。静态增益失配不建模（慢档每样同一路，会成为直流
+增益误差）。其余指标（带宽 33 GHz、噪声表、HD2/HD3、触发抖动）见定义与 `test_keysight_uxr.py`。
