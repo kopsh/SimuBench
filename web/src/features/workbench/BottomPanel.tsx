@@ -1,15 +1,4 @@
-import {
-  AlertCircle,
-  AlertTriangle,
-  ArrowDownToLine,
-  ArrowLeft,
-  ArrowRight,
-  ChevronDown,
-  ChevronUp,
-  CircleCheck,
-  Eraser,
-  Search,
-} from "lucide-react";
+import { AlertCircle, AlertTriangle, ArrowDownToLine, ArrowLeft, ArrowRight, ChevronDown, ChevronUp, CircleCheck, Eraser, Search } from "lucide-react";
 import { type ClientGroup, clientGroup, panelActionLabel } from "@/lib/enums";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -17,19 +6,14 @@ import type { T } from "@/i18n";
 import type { Diagnostic, SessionInfo } from "@/api/client";
 import { useFaults } from "@/api/hooks";
 import { FaultRow } from "./faults/FaultPanel";
+import { clockStateLabel } from "./clockControl";
 import { useEvents } from "@/api/events";
 import type { Event } from "@/api/generated/events";
 import { EmptyState } from "@/components/app/StateViews";
 import { VirtualList } from "@/components/app/VirtualList";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Toggle } from "@/components/ui/toggle";
 import { formatClock, formatEng } from "@/lib/format";
@@ -61,22 +45,14 @@ export function BottomPanel({
   const [source, setSource] = useState<ClientGroup | "">("");
   const [follow, setFollow] = useState(true);
 
-  const activeFaults = (useFaults(session.id).data ?? []).filter(
-    (f) => f.status === "active",
-  );
+  const activeFaults = (useFaults(session.id).data ?? []).filter((f) => f.status === "active");
   const problems = useMemo(
-    () =>
-      session.instruments.flatMap((i) =>
-        i.errors.map((e) => ({ instrument: i.name, ...e })),
-      ),
+    () => session.instruments.flatMap((i) => i.errors.map((e) => ({ instrument: i.name, ...e }))),
     [session.instruments],
   );
   // Warnings that are no SCPI errors: an input beyond its absolute maximum (#1264).
   const warnings = useMemo(
-    () =>
-      session.instruments.flatMap((i) =>
-        (i.warnings ?? []).map((w) => ({ instrument: i.name, ...w })),
-      ),
+    () => session.instruments.flatMap((i) => (i.warnings ?? []).map((w) => ({ instrument: i.name, ...w }))),
     [session.instruments],
   );
   const q = filter.trim().toLowerCase();
@@ -86,24 +62,17 @@ export function BottomPanel({
         (e) =>
           e.kind === "scpi" &&
           (!source || clientGroup(e.client) === source) &&
-          (!q ||
-            (e.text ?? "").toLowerCase().includes(q) ||
-            (e.instrument ?? "").toLowerCase().includes(q)),
+          (!q || (e.text ?? "").toLowerCase().includes(q) || (e.instrument ?? "").toLowerCase().includes(q)),
       ),
     [events, q, source],
   );
   // How many there are, whatever the filter: shown on the tabs so the bar says what is inside (#1221).
-  const commsCount = useMemo(
-    () => events.filter((e) => e.kind === "scpi").length,
-    [events],
-  );
+  const commsCount = useMemo(() => events.filter((e) => e.kind === "scpi").length, [events]);
   const othersCount = events.length - commsCount;
   const others = useMemo(
     () =>
       events.filter(
-        (e) =>
-          e.kind !== "scpi" &&
-          (!q || JSON.stringify(e).toLowerCase().includes(q)),
+        (e) => e.kind !== "scpi" && (!q || JSON.stringify(e).toLowerCase().includes(q)),
       ),
     [events, q],
   );
@@ -128,104 +97,53 @@ export function BottomPanel({
               {t("panel.events")}
               <TabCount n={othersCount} testId="panel-count-events" />
             </TabsTrigger>
-            <TabsTrigger
-              value="problems"
-              className="h-6 gap-1.5 px-2.5 text-xs"
-            >
+            <TabsTrigger value="problems" className="h-6 gap-1.5 px-2.5 text-xs">
               {t("panel.problems")}
-              {problems.length +
-                warnings.length +
-                diagnostics.length +
-                activeFaults.length >
-                0 && (
+              {problems.length + warnings.length + diagnostics.length + activeFaults.length > 0 && (
                 <span
                   className={cn(
                     "num rounded px-1 text-[10px]",
-                    problems.length ||
-                      warnings.length ||
-                      activeFaults.length ||
-                      diagnostics.some((d) => d.severity === "error")
+                    problems.length || warnings.length || activeFaults.length || diagnostics.some((d) => d.severity === "error")
                       ? "bg-error/15 text-error"
                       : "bg-warn/15 text-warn",
                   )}
                 >
-                  {problems.length +
-                    warnings.length +
-                    diagnostics.length +
-                    activeFaults.length}
+                  {problems.length + warnings.length + diagnostics.length + activeFaults.length}
                 </span>
               )}
             </TabsTrigger>
           </TabsList>
         </Tabs>
         {!open && comms.length > 0 && (
-          <span
-            className="num text-muted-foreground truncate text-[11px]"
-            data-testid="panel-last"
-          >
-            {comms[comms.length - 1].instrument} ·{" "}
-            {comms[comms.length - 1].text}
+          <span className="num text-muted-foreground truncate text-[11px]" data-testid="panel-last">
+            {comms[comms.length - 1].instrument} · {comms[comms.length - 1].text}
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
           {open && (
             <>
               {bottomTab === "comms" && (
-                <Select
-                  value={source || "all"}
-                  onValueChange={(v) =>
-                    setSource(v === "all" ? "" : (v as ClientGroup))
-                  }
-                >
-                  <SelectTrigger
-                    className="h-7 w-28 text-xs"
-                    aria-label={t("panel.filterSource")}
-                  >
+                <Select value={source || "all"} onValueChange={(v) => setSource(v === "all" ? "" : (v as ClientGroup))}>
+                  <SelectTrigger className="h-7 w-28 text-xs" aria-label={t("panel.filterSource")}>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">{t("panel.sourceAll")}</SelectItem>
-                    <SelectItem value="script">
-                      {t("panel.client.script")}
-                    </SelectItem>
-                    <SelectItem value="agent">
-                      {t("panel.client.mcp")}
-                    </SelectItem>
+                    <SelectItem value="script">{t("panel.client.script")}</SelectItem>
+                    <SelectItem value="agent">{t("panel.client.mcp")}</SelectItem>
                     <SelectItem value="ui">{t("panel.client.ui")}</SelectItem>
-                    <SelectItem value="replay">
-                      {t("panel.client.replay")}
-                    </SelectItem>
+                    <SelectItem value="replay">{t("panel.client.replay")}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
               <div className="relative w-56">
                 <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-2 size-3.5 -translate-y-1/2" />
-                <Input
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
-                  placeholder={t("panel.filter")}
-                  className="h-7 pl-7 text-xs"
-                  aria-label={t("panel.filter")}
-                />
+                <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("panel.filter")} className="h-7 pl-7 text-xs" aria-label={t("panel.filter")} />
               </div>
-              <Toggle
-                size="sm"
-                pressed={follow}
-                onPressedChange={setFollow}
-                className="h-7"
-                aria-label={t("panel.autoscroll")}
-                title={t("panel.autoscroll")}
-              >
+              <Toggle size="sm" pressed={follow} onPressedChange={setFollow} className="h-7" aria-label={t("panel.autoscroll")} title={t("panel.autoscroll")}>
                 <ArrowDownToLine className="size-3.5" />
               </Toggle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7"
-                onClick={clear}
-                title={t("panel.clear")}
-                aria-label={t("panel.clear")}
-              >
+              <Button variant="ghost" size="sm" className="h-7" onClick={clear} title={t("panel.clear")} aria-label={t("panel.clear")}>
                 <Eraser className="size-3.5" />
               </Button>
             </>
@@ -241,11 +159,7 @@ export function BottomPanel({
               aria-label={open ? t("panel.collapse") : t("panel.expand")}
               data-testid="panel-toggle"
             >
-              {open ? (
-                <ChevronDown className="size-3.5" />
-              ) : (
-                <ChevronUp className="size-3.5" />
-              )}
+              {open ? <ChevronDown className="size-3.5" /> : <ChevronUp className="size-3.5" />}
             </Button>
           )}
         </div>
@@ -254,9 +168,7 @@ export function BottomPanel({
         <>
           <div className="text-muted-foreground grid h-6 shrink-0 grid-cols-[96px_96px_64px_96px_28px_1fr_64px_72px] items-center gap-2 border-b px-3 text-[11px]">
             <span title={t("panel.timeHint")}>{t("panel.virtualTime")}</span>
-            <span title={t("panel.wallTimeHint")}>
-              {t("panel.wallTimeHeader")}
-            </span>
+            <span title={t("panel.wallTimeHint")}>{t("panel.wallTimeHeader")}</span>
             <span>{t("panel.source")}</span>
             <span>{t("panel.instrument")}</span>
             <span />
@@ -286,15 +198,8 @@ export function BottomPanel({
       )}
       {bottomTab === "problems" && (
         <div className="min-h-0 flex-1 overflow-auto">
-          {problems.length +
-            warnings.length +
-            diagnostics.length +
-            activeFaults.length ===
-          0 ? (
-            <EmptyState
-              icon={<CircleCheck className="text-ok size-6" />}
-              title={t("panel.noProblems")}
-            />
+          {problems.length + warnings.length + diagnostics.length + activeFaults.length === 0 ? (
+            <EmptyState icon={<CircleCheck className="text-ok size-6" />} title={t("panel.noProblems")} />
           ) : (
             <ul>
               {activeFaults.length > 0 && (
@@ -308,20 +213,10 @@ export function BottomPanel({
                 <DiagnosticRow key={`d${i}`} d={d} />
               ))}
               {warnings.map((w) => (
-                <ProblemRow
-                  key={`${w.instrument}:${w.code}`}
-                  instrument={w.instrument}
-                  code={w.code}
-                  message={w.message}
-                />
+                <ProblemRow key={`${w.instrument}:${w.code}`} instrument={w.instrument} code={w.code} message={w.message} />
               ))}
               {problems.map((p, i) => (
-                <ProblemRow
-                  key={i}
-                  instrument={p.instrument}
-                  code={p.code}
-                  message={p.message}
-                />
+                <ProblemRow key={i} instrument={p.instrument} code={p.code} message={p.message} />
               ))}
             </ul>
           )}
@@ -341,9 +236,7 @@ function CommRow({ e }: { e: Event }) {
         "hover:bg-accent/60 grid h-full cursor-default grid-cols-[96px_96px_64px_96px_28px_1fr_64px_72px] items-center gap-2 px-3 text-[11.5px]",
         !write && "text-muted-foreground",
       )}
-      onClick={() =>
-        e.instrument && select({ kind: "instrument", id: e.instrument })
-      }
+      onClick={() => e.instrument && select({ kind: "instrument", id: e.instrument })}
     >
       <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
       <span className="num text-muted-foreground" data-testid="wall-time">
@@ -354,35 +247,15 @@ function CommRow({ e }: { e: Event }) {
       </span>
       <span className="truncate">{e.instrument}</span>
       <span title={write ? t("panel.write") : t("panel.read")}>
-        {write ? (
-          <ArrowRight className="text-primary size-3.5" />
-        ) : (
-          <ArrowLeft className="size-3.5" />
-        )}
+        {write ? <ArrowRight className="text-primary size-3.5" /> : <ArrowLeft className="size-3.5" />}
       </span>
       <span className="num truncate" title={e.text ?? ""}>
         {(e.text ?? "").replace(/\n$/, "")}
       </span>
-      <span className="num text-muted-foreground text-right">
-        {e.size ?? ""}
-      </span>
-      <span className="num text-muted-foreground text-right">
-        {e.duration_ns ? formatEng(e.duration_ns / 1e9, "s", 3) : ""}
-      </span>
+      <span className="num text-muted-foreground text-right">{e.size ?? ""}</span>
+      <span className="num text-muted-foreground text-right">{e.duration_ns ? formatEng(e.duration_ns / 1e9, "s", 3) : ""}</span>
     </div>
   );
-}
-
-/** A clock mode by name, a scaled clock with its rate (a clock event, #1660). */
-function clockName(
-  mode: unknown,
-  scale: number | null | undefined,
-  t: T,
-): string {
-  const name = t(
-    `workbench.clockMode.${String(mode)}` as "workbench.clockMode.command",
-  );
-  return mode === "scaled" && scale ? `${name} ${scale}×` : name;
 }
 
 function EventRow({ e }: { e: Event }) {
@@ -391,34 +264,24 @@ function EventRow({ e }: { e: Event }) {
     e.kind === "panel"
       ? `${e.instrument} ${t("panel.frontPanel")}: ${panelActionLabel(e.action ?? "run", t)}  (${e.source ?? ""})`
       : e.kind === "remote"
-        ? `${e.instrument} ${t(e.action === "local" ? "remote.eventLocal" : "remote.eventRemote")}  (${e.source ?? ""})`
-        : e.kind === "fault"
-          ? `${e.fault} ${e.reason}  ${e.message ?? ""}  (${e.source ?? ""})`
-          : e.kind === "state"
-            ? `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`
-            : e.kind === "clock"
-              ? t("workbench.clockSwitched", {
-                  old: clockName(e.old, null, t),
-                  new: clockName(e.new, e.scale, t),
-                })
-              : e.kind === "advance"
-                ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${advanceReason({ reason: e.reason ?? "", instrument: e.instrument ?? null, header: e.header ?? null }, t)}`
-                : e.kind === "error"
-                  ? `${e.instrument}  ${e.code}, ${e.message}${notExecutedSuffix(e, t)}`
-                  : e.kind === "ignored"
-                    ? `${e.instrument}  ${e.header ?? ""}${notExecutedSuffix(e, t)}`
-                    : JSON.stringify(e);
+      ? `${e.instrument} ${t(e.action === "local" ? "remote.eventLocal" : "remote.eventRemote")}  (${e.source ?? ""})`
+      : e.kind === "fault"
+      ? `${e.fault} ${e.reason}  ${e.message ?? ""}  (${e.source ?? ""})`
+      : e.kind === "state"
+      ? `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`
+      : e.kind === "clock"
+      ? t("workbench.clockSwitched", { old: clockStateLabel(String(e.old), null, t), new: clockStateLabel(String(e.new), e.scale, t) })
+      : e.kind === "advance"
+        ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${advanceReason({ reason: e.reason ?? "", instrument: e.instrument ?? null, header: e.header ?? null }, t)}`
+        : e.kind === "error"
+          ? `${e.instrument}  ${e.code}, ${e.message}${notExecutedSuffix(e, t)}`
+          : e.kind === "ignored"
+          ? `${e.instrument}  ${e.header ?? ""}${notExecutedSuffix(e, t)}`
+          : JSON.stringify(e);
   return (
     <div className="hover:bg-accent/60 grid h-full grid-cols-[96px_72px_1fr] items-center gap-2 px-3 text-[11.5px]">
       <span className="num text-muted-foreground">{formatClock(e.t_ns)}</span>
-      <span
-        className={cn(
-          "text-[11px] font-medium",
-          e.kind === "error" || e.kind === "fault"
-            ? "text-error"
-            : "text-muted-foreground",
-        )}
-      >
+      <span className={cn("text-[11px] font-medium", e.kind === "error" || e.kind === "fault" ? "text-error" : "text-muted-foreground")}>
         {e.kind}
       </span>
       <span className="num truncate" title={text}>
@@ -433,37 +296,21 @@ function DiagnosticRow({ d }: { d: Diagnostic }) {
   const subject = d.subject;
   const onClick = () => {
     if (!subject) return select(null);
-    if (subject.startsWith("wire:"))
-      return select({ kind: "wire", id: Number(subject.slice(5)) });
-    select({
-      kind: d.pointer.startsWith("/parts/") ? "part" : "instrument",
-      id: subject,
-    });
+    if (subject.startsWith("wire:")) return select({ kind: "wire", id: Number(subject.slice(5)) });
+    select({ kind: d.pointer.startsWith("/parts/") ? "part" : "instrument", id: subject });
   };
   return (
     <li>
-      <button
-        className="hover:bg-accent/60 flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs"
-        onClick={onClick}
-      >
+      <button className="hover:bg-accent/60 flex w-full items-start gap-2 px-3 py-1.5 text-left text-xs" onClick={onClick}>
         {d.severity === "error" ? (
           <AlertCircle className="text-error mt-0.5 size-3.5 shrink-0" />
         ) : (
           <AlertTriangle className="text-warn mt-0.5 size-3.5 shrink-0" />
         )}
-        <span
-          className={cn(
-            "num w-40 shrink-0 truncate",
-            d.severity === "error" ? "text-error" : "text-warn",
-          )}
-        >
-          {d.code}
-        </span>
+        <span className={cn("num w-40 shrink-0 truncate", d.severity === "error" ? "text-error" : "text-warn")}>{d.code}</span>
         <span className="flex-1">
           {d.message}
-          {d.suggestion && (
-            <span className="text-muted-foreground"> — {d.suggestion}</span>
-          )}
+          {d.suggestion && <span className="text-muted-foreground"> — {d.suggestion}</span>}
         </span>
         <span className="text-muted-foreground num shrink-0">{d.pointer}</span>
       </button>
@@ -471,15 +318,7 @@ function DiagnosticRow({ d }: { d: Diagnostic }) {
   );
 }
 
-function ProblemRow({
-  instrument,
-  code,
-  message,
-}: {
-  instrument: string;
-  code: number | string;
-  message: string;
-}) {
+function ProblemRow({ instrument, code, message }: { instrument: string; code: number | string; message: string }) {
   const select = useWorkbench((s) => s.select);
   return (
     <li>
@@ -500,8 +339,7 @@ function ProblemRow({
 function clientLabel(client: string | null | undefined, t: T): string {
   if (!client) return "";
   if (client === "pyvisa" || client === "sdk") return t("panel.client.script");
-  if (client === "ui" || client === "mcp" || client === "replay")
-    return t(`panel.client.${client}`);
+  if (client === "ui" || client === "mcp" || client === "replay") return t(`panel.client.${client}`);
   if (client.startsWith("socket:")) return "SOCKET";
   if (client.startsWith("hislip:")) return "HiSLIP";
   if (client.startsWith("vxi11:")) return "VXI-11";
@@ -520,10 +358,7 @@ function formatWall(epochS: number): string {
 function TabCount({ n, testId }: { n: number; testId: string }) {
   if (n === 0) return null;
   return (
-    <span
-      className="num text-muted-foreground bg-muted rounded px-1 text-[10px]"
-      data-testid={testId}
-    >
+    <span className="num text-muted-foreground bg-muted rounded px-1 text-[10px]" data-testid={testId}>
       {n > 999 ? "999+" : n}
     </span>
   );

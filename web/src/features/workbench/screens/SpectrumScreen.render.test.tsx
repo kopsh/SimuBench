@@ -18,8 +18,7 @@ vi.hoisted(() => {
     unobserve() {}
     disconnect() {}
   };
-  HTMLCanvasElement.prototype.getContext = (() =>
-    null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+  HTMLCanvasElement.prototype.getContext = (() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
 });
 
 const hooks = vi.hoisted(() => ({
@@ -51,27 +50,18 @@ afterEach(() => {
   hooks.continuous = true;
 });
 
-const inst = {
-  name: "sa",
-  display: {},
-  state: [],
-} as unknown as InstrumentInfo;
+const inst = { name: "sa", display: {}, state: [] } as unknown as InstrumentInfo;
 const show = (clockMode: string, readonly = false) =>
   render(
     <TooltipProvider>
-      <SpectrumScreen
-        sid="s"
-        inst={inst}
-        readonly={readonly}
-        clockMode={clockMode}
-      />
+      <SpectrumScreen sid="s" inst={inst} readonly={readonly} clockMode={clockMode} />
     </TooltipProvider>,
   );
 
 // #1178: the hint's appearance conditions, not only sweepStatus().
 it("a command clock explains the standing trace and its button advances one sweep time", () => {
   show("command");
-  expect(screen.getByTestId("sweep-hint").textContent).toContain("命令时钟");
+  expect(screen.getByTestId("sweep-hint").textContent).toContain("已暂停");
   expect(screen.queryByTestId("hold")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "推进一次扫描时间" }));
   expect(hooks.advance).toHaveBeenCalledTimes(1);
@@ -107,10 +97,7 @@ it("a single sweep's buttons sweep once and turn continuous sweep back on", () =
   show("wall");
   fireEvent.click(screen.getByTestId("sweep-single"));
   fireEvent.click(screen.getByTestId("sweep-continuous"));
-  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([
-    ":INIT:IMM",
-    ":INIT:CONT ON",
-  ]);
+  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:IMM", ":INIT:CONT ON"]);
   expect(screen.queryByTestId("sweep-live")).toBeNull();
 });
 

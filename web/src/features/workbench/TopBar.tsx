@@ -1,56 +1,25 @@
-import {
-  ChevronLeft,
-  Command,
-  History,
-  Pause,
-  Play,
-  Power,
-  RotateCw,
-  Sparkles,
-  StepForward,
-} from "lucide-react";
+import { ChevronLeft, Command, History, Pause, Play, Power, RotateCw, Sparkles, StepForward } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { SessionInfo } from "@/api/client";
 import { type ConnectionState, useEvents } from "@/api/events";
-import {
-  useAdvance,
-  useClockMode,
-  useResetSession,
-  useStopSession,
-} from "@/api/hooks";
+import { useAdvance, useClockMode, useResetSession, useStopSession } from "@/api/hooks";
 import { Logo } from "@/components/app/Logo";
 import { isCancelled } from "@/components/app/ClientsConfirm";
 import { PreferencesMenu } from "@/components/app/PreferencesMenu";
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { formatClock, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { EditControls, benchChanged, useRebuild } from "./edit/EditControls";
 import { useEditor } from "./edit/editor";
 import { advanceReason, clockModeLabel, recentAdvances } from "./clockAdvances";
-import {
-  LIVE_RATES,
-  isLive,
-  liveRate,
-  liveRequest,
-  pauseMode,
-} from "./clockControl";
+import { LIVE_RATES, clockStateLabel, isLive, liveRate, liveRequest, pauseMode } from "./clockControl";
 import { useWorkbench } from "./store";
 
 const STEPS = [1e-3, 10e-3, 100e-3, 1];
@@ -59,10 +28,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
   const { t } = useTranslation();
   const navigate = useNavigate();
   const status = useEvents((s) => s.status);
-  const nowNs = Math.max(
-    useEvents((s) => s.nowNs),
-    session.now_ns,
-  );
+  const nowNs = Math.max(useEvents((s) => s.nowNs), session.now_ns);
   const setPalette = useWorkbench((s) => s.setPalette);
   const setHistory = useWorkbench((s) => s.setHistory);
   const assistantOpen = useWorkbench((s) => s.assistantOpen);
@@ -71,17 +37,12 @@ export function TopBar({ session }: { session: SessionInfo }) {
   const clockMode = useClockMode(session.id);
   const live = isLive(session.clock_mode);
   const switchClock = (body: Parameters<typeof clockMode.mutate>[0]) =>
-    clockMode.mutate(body, {
-      onError: (e) => !isCancelled(e) && toast.error((e as Error).message),
-    });
+    clockMode.mutate(body, { onError: (e) => !isCancelled(e) && toast.error((e as Error).message) });
   const stop = useStopSession();
   const reset = useResetSession(session.id);
   // Back in Operate without rebuilding ("later", scripts connected): offer the rebuild here (#121).
   const mode = useWorkbench((s) => s.mode);
-  const changed = benchChanged(
-    session,
-    useEditor((s) => s.doc),
-  );
+  const changed = benchChanged(session, useEditor((s) => s.doc));
   const rebuild = useRebuild(session);
   const [step, setStep] = useState(STEPS[1]);
   const mac = navigator.platform.toLowerCase().includes("mac");
@@ -90,13 +51,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
     <header className="bg-sidebar flex h-11 shrink-0 items-center gap-2 border-b px-2">
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-8"
-            onClick={() => navigate("/")}
-            aria-label={t("workbench.backHome")}
-          >
+          <Button variant="ghost" size="icon" className="size-8" onClick={() => navigate("/")} aria-label={t("workbench.backHome")}>
             <ChevronLeft className="size-4" />
           </Button>
         </TooltipTrigger>
@@ -105,23 +60,11 @@ export function TopBar({ session }: { session: SessionInfo }) {
       {/* At 1024 px the logo would squeeze the bench's name to a letter (#1222): it shows from xl. */}
       <Logo className="hidden shrink-0 xl:inline" />
       <Separator orientation="vertical" className="mx-1 !h-5" />
-      <div
-        className="min-w-20"
-        title={`${session.bench_name} · ${session.bench_path}`}
-      >
-        <div className="truncate text-[13px] leading-tight font-medium">
-          {session.bench_name}
-        </div>
-        <div className="text-muted-foreground num truncate text-[11px] leading-tight">
-          {session.bench_path}
-        </div>
+      <div className="min-w-20" title={`${session.bench_name} · ${session.bench_path}`}>
+        <div className="truncate text-[13px] leading-tight font-medium">{session.bench_name}</div>
+        <div className="text-muted-foreground num truncate text-[11px] leading-tight">{session.bench_path}</div>
       </div>
-      <ConnectionBadge
-        status={status}
-        clockMode={session.clock_mode}
-        idleMode={session.idle_mode}
-        scale={session.time_scale}
-      />
+      <ConnectionBadge status={status} clockMode={session.clock_mode} idleMode={session.idle_mode} scale={session.time_scale} />
       <Separator orientation="vertical" className="mx-1 !h-5" />
       <EditControls session={session} />
       {mode === "run" && changed && (
@@ -137,9 +80,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
               <RotateCw className="size-3.5" /> {t("edit.benchChanged")}
             </Button>
           </TooltipTrigger>
-          <TooltipContent className="max-w-72">
-            {t("edit.benchChangedHint")}
-          </TooltipContent>
+          <TooltipContent className="max-w-72">{t("edit.benchChangedHint")}</TooltipContent>
         </Tooltip>
       )}
       {session.stale_definitions.length > 0 && (
@@ -153,19 +94,15 @@ export function TopBar({ session }: { session: SessionInfo }) {
               onClick={() =>
                 reset.mutate(undefined, {
                   onSuccess: () => toast.success(t("workbench.resetDone")),
-                  onError: (e) =>
-                    !isCancelled(e) && toast.error((e as Error).message),
+                  onError: (e) => !isCancelled(e) && toast.error((e as Error).message),
                 })
               }
             >
-              <RotateCw className="size-3.5" />{" "}
-              {t("workbench.staleDefinitions")}
+              <RotateCw className="size-3.5" /> {t("workbench.staleDefinitions")}
             </Button>
           </TooltipTrigger>
           <TooltipContent className="max-w-72">
-            {t("workbench.staleDefinitionsHint", {
-              ids: session.stale_definitions.join(", "),
-            })}
+            {t("workbench.staleDefinitionsHint", { ids: session.stale_definitions.join(", ") })}
           </TooltipContent>
         </Tooltip>
       )}
@@ -179,14 +116,12 @@ export function TopBar({ session }: { session: SessionInfo }) {
               tabIndex={0}
               data-testid="clock"
             >
-              {/* The mode name gives way first on a narrow window; the tooltip still names it (#276). */}
-              <span className="text-muted-foreground hidden text-[11px] xl:inline">
-                {clockModeLabel(session.clock_mode, session.idle_mode, t)}
+              {/* Live or paused, not the clock's mode name (#1660): the tooltip names the mode. It gives
+                  way first on a narrow window (#276). */}
+              <span className="text-muted-foreground hidden text-[11px] xl:inline" data-testid="clock-state">
+                {clockStateLabel(session.clock_mode, session.time_scale, t)}
               </span>
-              <span
-                className="num text-[13px] font-medium"
-                title={t("workbench.clock")}
-              >
+              <span className="num text-[13px] font-medium" title={t("workbench.clock")}>
                 t = {formatClock(nowNs)}
               </span>
             </div>
@@ -197,15 +132,8 @@ export function TopBar({ session }: { session: SessionInfo }) {
         </Tooltip>
         {live ? (
           <div className="flex items-center">
-            <Select
-              value={String(liveRate(session.clock_mode, session.time_scale))}
-              onValueChange={(v) => switchClock(liveRequest(Number(v)))}
-            >
-              <SelectTrigger
-                size="sm"
-                className="num h-8 w-[76px] rounded-r-none text-xs"
-                aria-label={t("workbench.liveRate")}
-              >
+            <Select value={String(liveRate(session.clock_mode, session.time_scale))} onValueChange={(v) => switchClock(liveRequest(Number(v)))}>
+              <SelectTrigger size="sm" className="num h-8 w-[76px] rounded-r-none text-xs" aria-label={t("workbench.liveRate")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -223,34 +151,19 @@ export function TopBar({ session }: { session: SessionInfo }) {
                   size="sm"
                   className="h-8 rounded-l-none border-l-0"
                   disabled={status !== "connected" || clockMode.isPending}
-                  onClick={() =>
-                    switchClock({ mode: pauseMode(session.start_clock_mode) })
-                  }
+                  onClick={() => switchClock({ mode: pauseMode(session.start_clock_mode) })}
                   data-testid="clock-pause"
                 >
                   <Pause className="size-3.5" /> {t("workbench.pause")}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-72">
-                {t("workbench.pauseHint", {
-                  mode: t(
-                    `workbench.clockMode.${pauseMode(session.start_clock_mode)}`,
-                  ),
-                })}
-              </TooltipContent>
+              <TooltipContent className="max-w-72">{t("workbench.pauseHint")}</TooltipContent>
             </Tooltip>
           </div>
         ) : (
           <div className="flex items-center">
-            <Select
-              value={String(step)}
-              onValueChange={(v) => setStep(Number(v))}
-            >
-              <SelectTrigger
-                size="sm"
-                className="num h-8 w-[84px] rounded-r-none text-xs"
-                aria-label={t("workbench.advance")}
-              >
+            <Select value={String(step)} onValueChange={(v) => setStep(Number(v))}>
+              <SelectTrigger size="sm" className="num h-8 w-[84px] rounded-r-none text-xs" aria-label={t("workbench.advance")}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -266,12 +179,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
               size="sm"
               className="h-8 rounded-l-none border-l-0"
               disabled={status !== "connected" || advance.isPending}
-              onClick={() =>
-                advance.mutate(step, {
-                  onError: (e) =>
-                    !isCancelled(e) && toast.error((e as Error).message),
-                })
-              }
+              onClick={() => advance.mutate(step, { onError: (e) => !isCancelled(e) && toast.error((e as Error).message) })}
             >
               <StepForward className="size-3.5" /> {t("workbench.advance")}
             </Button>
@@ -288,24 +196,15 @@ export function TopBar({ session }: { session: SessionInfo }) {
                   <Play className="size-3.5" /> {t("workbench.live")}
                 </Button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-72">
-                {t("workbench.liveHint")}
-              </TooltipContent>
+              <TooltipContent className="max-w-72">{t("workbench.liveHint")}</TooltipContent>
             </Tooltip>
           </div>
         )}
       </div>
 
-      <Button
-        variant="outline"
-        size="sm"
-        className="text-muted-foreground h-8 shrink-0 gap-2"
-        onClick={() => setPalette(true)}
-      >
+      <Button variant="outline" size="sm" className="text-muted-foreground h-8 shrink-0 gap-2" onClick={() => setPalette(true)}>
         <Command className="size-3.5" />
-        <span className="hidden xl:inline">
-          {t("workbench.commandPalette")}
-        </span>
+        <span className="hidden xl:inline">{t("workbench.commandPalette")}</span>
         <Kbd>{mac ? "⌘K" : "Ctrl K"}</Kbd>
       </Button>
       {session.bench_path && (
@@ -328,13 +227,7 @@ export function TopBar({ session }: { session: SessionInfo }) {
       {session.bench_path && (
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="size-8"
-              aria-label={t("history.title")}
-              onClick={() => setHistory(true)}
-            >
+            <Button variant="ghost" size="icon" className="size-8" aria-label={t("history.title")} onClick={() => setHistory(true)}>
               <History className="size-4" />
             </Button>
           </TooltipTrigger>
@@ -352,14 +245,11 @@ export function TopBar({ session }: { session: SessionInfo }) {
             onClick={() =>
               reset.mutate(undefined, {
                 onSuccess: () => toast.success(t("workbench.resetDone")),
-                onError: (e) =>
-                  !isCancelled(e) && toast.error((e as Error).message),
+                onError: (e) => !isCancelled(e) && toast.error((e as Error).message),
               })
             }
           >
-            <RotateCw
-              className={reset.isPending ? "size-3.5 animate-spin" : "size-3.5"}
-            />
+            <RotateCw className={reset.isPending ? "size-3.5 animate-spin" : "size-3.5"} />
           </Button>
         </TooltipTrigger>
         <TooltipContent>{t("workbench.reset")}</TooltipContent>
@@ -371,12 +261,11 @@ export function TopBar({ session }: { session: SessionInfo }) {
             size="icon"
             className="size-8"
             aria-label={t("workbench.stopSession")}
-            onClick={
-              () =>
-                void stop
-                  .mutateAsync(session.id)
-                  .then(() => navigate("/"))
-                  .catch(() => {}) // the confirm was cancelled or the stop failed: stay here
+            onClick={() =>
+              void stop
+                .mutateAsync(session.id)
+                .then(() => navigate("/"))
+                .catch(() => {}) // the confirm was cancelled or the stop failed: stay here
             }
           >
             <Power className="size-3.5" />
@@ -397,24 +286,15 @@ function ClockWhy({ session }: { session: SessionInfo }) {
   return (
     <div className="space-y-1.5 text-xs" data-testid="clock-why">
       <div className="font-medium">
-        {clockModeLabel(session.clock_mode, session.idle_mode, t)} ·{" "}
-        {t("workbench.clockWhy")}
+        {clockModeLabel(session.clock_mode, session.idle_mode, t)} · {t("workbench.clockWhy")}
       </div>
       {runs.length === 0 ? (
         <div className="opacity-80">{t("workbench.clockWhyNone")}</div>
       ) : (
         <ul className="space-y-0.5">
           {runs.map((r) => (
-            <li
-              key={`${r.tNs}-${r.reason}`}
-              className="flex gap-3"
-              data-testid="clock-advance"
-              data-reason={r.reason}
-              data-dt-ns={r.dtNs}
-            >
-              <span className="num w-20 shrink-0 text-right">
-                +{formatEng(r.dtNs / 1e9, "s", 4)}
-              </span>
+            <li key={`${r.tNs}-${r.reason}`} className="flex gap-3" data-testid="clock-advance" data-reason={r.reason} data-dt-ns={r.dtNs}>
+              <span className="num w-20 shrink-0 text-right">+{formatEng(r.dtNs / 1e9, "s", 4)}</span>
               <span>
                 {advanceReason(r, t)}
                 {r.count > 1 ? ` ×${r.count}` : ""}
@@ -423,9 +303,7 @@ function ClockWhy({ session }: { session: SessionInfo }) {
           ))}
         </ul>
       )}
-      {session.clock_mode === "command" && session.idle_mode === "wall" && (
-        <div className="opacity-80">{t("workbench.clockIdleNote")}</div>
-      )}
+      {session.clock_mode === "command" && session.idle_mode === "wall" && <div className="opacity-80">{t("workbench.clockIdleNote")}</div>}
     </div>
   );
 }
@@ -444,18 +322,10 @@ function ConnectionBadge({
   const { t } = useTranslation();
   const busy = useEvents((s) => s.busy);
   // "Running" alone hid that a command-driven clock stands still between commands (D44).
-  const activity =
-    clockMode === "wall" || clockMode === "scaled"
-      ? clockMode
-      : busy
-        ? "busy"
-        : "idle";
+  const activity = clockMode === "wall" || clockMode === "scaled" ? clockMode : busy ? "busy" : "idle";
   // No "running" here: the bench is simply open, and the scope panel owns RUN/STOP (issue 31).
   const map: Record<ConnectionState, [string, string]> = {
-    connected: [
-      activity === "idle" ? "bg-ok/50" : "bg-ok animate-pulse",
-      t(`workbench.activity.${activity}`, { scale }),
-    ],
+    connected: [activity === "idle" ? "bg-ok/50" : "bg-ok animate-pulse", t(`workbench.activity.${activity}`, { scale })],
     connecting: ["bg-warn animate-pulse", t("connection.connecting")],
     reconnecting: ["bg-error animate-pulse", t("connection.disconnected")],
     unauthorized: ["bg-error", t("connection.unauthorized")],
@@ -463,10 +333,7 @@ function ConnectionBadge({
   };
   const [dot, label] = map[status];
   const badge = (
-    <span
-      className="text-muted-foreground ml-2 inline-flex shrink-0 items-center gap-1.5 text-[11px] whitespace-nowrap"
-      data-testid="session-activity"
-    >
+    <span className="text-muted-foreground ml-2 inline-flex shrink-0 items-center gap-1.5 text-[11px] whitespace-nowrap" data-testid="session-activity">
       <span className={cn("size-2 rounded-full", dot)} aria-hidden />
       {label}
     </span>
@@ -476,9 +343,7 @@ function ConnectionBadge({
     <Tooltip>
       <TooltipTrigger asChild>{badge}</TooltipTrigger>
       <TooltipContent className="max-w-xs">
-        {t(
-          `workbench.activityHint.${activity === "idle" && idleMode === "wall" ? "idleWall" : activity}`,
-        )}
+        {t(`workbench.activityHint.${activity === "idle" && idleMode === "wall" ? "idleWall" : activity}`)}
       </TooltipContent>
     </Tooltip>
   );

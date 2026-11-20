@@ -1,4 +1,5 @@
 import type { Schemas } from "@/api/client";
+import type { T } from "@/i18n";
 
 type ClockMode = Schemas["ClockModeRequest"]["mode"];
 
@@ -16,18 +17,24 @@ export function liveRequest(rate: number): { mode: ClockMode; scale?: number } {
 }
 
 /** The rate a running clock goes at (1 on the wall clock), for the rate picker. */
-export function liveRate(
-  mode: string,
-  scale: number | null | undefined,
-): number {
+export function liveRate(mode: string, scale: number | null | undefined): number {
   return mode === "scaled" ? (scale ?? 1) : 1;
 }
 
 /**
- * Where Pause goes: back to the clock the session opened on, so a bench meant for the command or
- * the stepped clock returns to it; a bench that opened live pauses onto the command clock, the
- * one a command still moves.
+ * Where Pause goes: back to the stepped clock when the session opened on it, else the command
+ * clock — the one a command still moves, also for a bench that opened live.
  */
 export function pauseMode(startMode: string | null | undefined): ClockMode {
   return startMode === "stepped" ? "stepped" : "command";
+}
+
+/**
+ * The clock beside the virtual time, as what it does for the user: live (with its rate when
+ * faster) or paused. The mode's own name (command-driven, wall, …) is for the tooltip (#1660).
+ */
+export function clockStateLabel(mode: string, scale: number | null | undefined, t: T): string {
+  if (!isLive(mode)) return t("workbench.clockState.paused");
+  const rate = liveRate(mode, scale);
+  return rate === 1 ? t("workbench.clockState.live") : t("workbench.clockState.liveRate", { rate });
 }

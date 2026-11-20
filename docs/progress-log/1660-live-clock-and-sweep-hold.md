@@ -11,4 +11,5 @@
 | Web：顶栏“实时 / 暂停”与倍率；频谱屏幕提示栏“实时扫描”“单次扫描”“开启连续扫描”；事件栏 `clock` 行 | ✅ `TopBar.tsx`、`SpectrumScreen.tsx`、`BottomPanel.tsx`、`clockControl.ts`；`clockControl.test.ts`、`SpectrumScreen.render.test.tsx`；e2e `instruments.spec.ts`（单次扫描停住、单次前进、恢复连续、实时扫描计数增长、暂停回到命令时钟）与 `bench-open.spec.ts` 本地通过；`layout-visual.spec.ts` 在拒用 Inter/JetBrains 字体的 fontconfig 下先确认旧基线通过、改动后仍通过 |
 | 文案：Web 中英文与 TUI 共享文案一致；TUI 日志写时钟切换 | ✅ `scripts/check_tui_i18n.py`；`tests/test_tui_units.py::test_a_clock_switch_is_a_log_line_naming_both_clocks`；TUI 收到 `clock` 事件即重读时钟与会话 |
 | Hello World 默认动态连续扫频 | ✅ `hello.bench.yaml` 的 `run.clock: wall`（附注释说明如何暂停）；`tests/test_hello_bench.py` 通过；首页的实测预览与截图未重新生成（画面内容不变：同一信号与设置） |
+| 时钟按结果说，不按模式名说 | ✅ 顶栏时钟旁写“实时 / 实时 10× / 已暂停”（`clockStateLabel`，`clockControl.test.ts`），事件栏写“时钟：实时 → 已暂停”；状态提示与示波器、频谱仪的提示以“已暂停：”开头（TUI 共享文案同步，`tests/test_tui_rows.py`、`tests/test_tui_t2.py`）；模式名只在悬停说明里 |
 | 文档 | ✅ D12 增加“运行中切换”；architecture.md 5.3、ui-design.md 时钟控制与运行状态 |

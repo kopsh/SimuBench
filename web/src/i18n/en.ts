@@ -50,10 +50,8 @@ export const en: Widen<Messages> = {
       web: {
         title: "Web workbench",
         body: "Canvas, instrument screens and the message log: see where every signal comes from and goes to",
-        canvas:
-          "Canvas: the generator's two outputs go to the scope and the spectrum analyzer",
-        scope:
-          "Scope screen: the 1 MHz square wave and its automatic measurements",
+        canvas: "Canvas: the generator's two outputs go to the scope and the spectrum analyzer",
+        scope: "Scope screen: the 1 MHz square wave and its automatic measurements",
         sa: "Analyzer screen: odd harmonics at 1, 3, 5 and 7 MHz",
       },
       tui: {
@@ -67,8 +65,7 @@ export const en: Widen<Messages> = {
         title: "Scripts and agents",
         body: "An existing PyVISA script changes only its resource manager line; agents build benches and measure over MCP",
         note1: "Your script as it is; only the resource manager line changes",
-        note2:
-          "The 1 MHz fundamental at about 0 dBm: read as on the real instrument, computed from the circuit",
+        note2: "The 1 MHz fundamental at about 0 dBm: read as on the real instrument, computed from the circuit",
       },
     },
     library: {
@@ -79,8 +76,7 @@ export const en: Widen<Messages> = {
       all: "All",
       none: "No matching instruments",
       mine: "Mine",
-      missing:
-        "Your model is missing? Open the acceptance page of a close one and choose Copy as my instrument, then change it; or create a new one (fill in a template or build it from blank); or let an agent write a definition from the manual.",
+      missing: "Your model is missing? Open the acceptance page of a close one and choose Copy as my instrument, then change it; or create a new one (fill in a template or build it from blank); or let an agent write a definition from the manual.",
     },
     final: {
       title: "Your first virtual bench, in a minute",
@@ -93,8 +89,7 @@ export const en: Widen<Messages> = {
     addresses: "Addresses scripts connect to (raw socket, HiSLIP and VXI-11)",
     clockOpen: "Open",
     switchTitle: "Switch benches?",
-    switchBody:
-      "These scripts are still connected to the open bench; switching cuts them off:",
+    switchBody: "These scripts are still connected to the open bench; switching cuts them off:",
     switchConfirm: "Switch anyway",
     holdsLock: "holds lock",
     instruments_one: "{{count}} instrument",
@@ -112,11 +107,9 @@ export const en: Widen<Messages> = {
     connected: "Connected",
     connecting: "Connecting…",
     disconnected: "Disconnected from the engine",
-    reconnecting:
-      "Disconnected from the engine, reconnecting… The UI is read-only meanwhile",
+    reconnecting: "Disconnected from the engine, reconnecting… The UI is read-only meanwhile",
     unauthorized: "Invalid access token",
-    unauthorizedBody:
-      "Open the UI with the full link printed by simubench serve.",
+    unauthorizedBody: "Open the UI with the full link printed by simubench serve.",
   },
   // The inspector's settings, grouped by the first path segment (#728); others show the segment.
   inspector: {
@@ -224,29 +217,20 @@ export const en: Widen<Messages> = {
     nets: "Nets",
     canvas: "Canvas",
     inspector: "Inspector",
-    noSelection:
-      "Select an instrument, part or wire on the canvas to see its properties.",
-    activity: {
-      idle: "waiting for commands",
-      busy: "running commands",
-      wall: "clock running",
-      scaled: "clock running ×{{scale}}",
-    },
+    noSelection: "Select an instrument, part or wire on the canvas to see its properties.",
+    activity: { idle: "waiting for commands", busy: "running commands", wall: "clock running", scaled: "clock running ×{{scale}}" },
     activityHint: {
-      idle: "Command-driven clock: virtual time stands still between commands, so nothing changes. Send a command, press Advance, or press Run on the scope screen.",
-      idleWall:
-        "Command-driven clock: nothing changes between actions; the real time spent idle is added to virtual time at the next action (run.idle: wall). Send a command, press Advance, or press Run on the scope screen.",
+      idle: "Paused: virtual time stands still between commands, so nothing changes and results repeat. Press Live in the top bar to let the screens move; or send a command, press Advance, or press Run on the scope screen.",
+      idleWall: "Paused: nothing changes between actions; the real time spent idle is added to virtual time at the next action (run.idle: wall). Press Live in the top bar to let the screens move; or send a command, press Advance, or press Run on the scope screen.",
       busy: "Commands are running; virtual time moves with them.",
-      wall: "Wall clock: virtual time follows real time and the screens refresh on their own.",
-      scaled:
-        "Scaled clock: virtual time runs at a fixed multiple of real time and the screens refresh on their own.",
+      wall: "Live: virtual time follows real time and the screens refresh on their own. Press Pause to stop time.",
+      scaled: "Live (faster): virtual time runs at a fixed multiple of real time and the screens refresh on their own. Press Pause to stop time.",
     },
     peak: "Peak",
     clock: "Virtual time",
     clockWhy: "Recent clock advances",
     clockWhyNone: "Virtual time has not moved yet.",
-    clockIdleNote:
-      "Idle: the real time between two actions, added at the next one (run.idle: wall, D47).",
+    clockIdleNote: "Idle: the real time between two actions, added at the next one (run.idle: wall, D47).",
     advanceReason: {
       command: "{{instrument}} {{header}} running",
       idle: "Idle (real time between actions)",
@@ -256,33 +240,25 @@ export const en: Widen<Messages> = {
       latency: "Link latency (fault injection)",
       replay: "Replaying a record",
     },
-    clockMode: {
-      command: "Command-driven clock",
-      wall: "Wall clock",
-      stepped: "Stepped clock",
-      scaled: "Scaled clock",
-    },
+    clockMode: { command: "Command-driven clock", wall: "Wall clock", stepped: "Stepped clock", scaled: "Scaled clock" },
     clockModeIdleWall: "Command clock · idle in real time",
     advance: "Advance",
     advanceBy: "Advance {{step}}",
     live: "Live",
-    liveHint:
-      "Let virtual time follow real time: the spectrum analyzer sweeps and the scope redraws by themselves, no advancing needed. Only the running bench changes; the bench file stays as it is.",
+    liveHint: "Let virtual time follow real time: the spectrum analyzer sweeps and the scope redraws by themselves, no advancing needed. Only the running bench changes; the bench file stays as it is.",
     pause: "Pause",
-    pauseHint:
-      "Stop virtual time and go back to the {{mode}}: only commands and Advance move it, and results repeat.",
+    pauseHint: "Stop virtual time: from then on only script commands and Advance move it, and results repeat (for debugging and reproducing scripts).",
     liveRate: "Time scale",
+    clockState: { live: "Live", liveRate: "Live {{rate}}×", paused: "Paused" },
     clockSwitched: "Clock: {{old}} → {{new}}",
     stopSession: "Close bench",
     reset: "Reset bench",
     resetInstrument: "Reset this instrument",
-    resetInstrumentHint:
-      "Reset this instrument (*RST): settings return to their reset values; other instruments and the record are untouched",
+    resetInstrumentHint: "Reset this instrument (*RST): settings return to their reset values; other instruments and the record are untouched",
     resetInstrumentDone: "{{name}} reset (*RST)",
     resetDone: "Reset: instruments back to power-on defaults, a fresh record",
     staleDefinitions: "Definitions changed",
-    staleDefinitionsHint:
-      "{{ids}} changed after the bench was opened; the running instruments use the old version. Click to reset and apply.",
+    staleDefinitionsHint: "{{ids}} changed after the bench was opened; the running instruments use the old version. Click to reset and apply.",
     backHome: "Back to benches",
     commandPalette: "Command palette",
     theme: { label: "Theme", system: "System", light: "Light", dark: "Dark" },
@@ -327,12 +303,10 @@ export const en: Widen<Messages> = {
     refused: "Setting refused",
     unitsAccepted: "Units this field accepts: {{units}}",
     refusedValue: "{{text}} was not set: {{reason}}",
-    unreadable:
-      "Not a number: type a number, with an SI prefix and unit if you like (2.5 kHz)",
+    unreadable: "Not a number: type a number, with an SI prefix and unit if you like (2.5 kHz)",
     autoInactive: "Not in effect while auto is on",
     dcInactive: "Not in effect for a DC output",
-    computedOnRead:
-      "Deep records are computed when read: only what is read, so reads and measurements take longer with more points",
+    computedOnRead: "Deep records are computed when read: only what is read, so reads and measurements take longer with more points",
     auto: "Auto",
     sendCommand: "Send SCPI command",
     commandPlaceholder: "e.g. *IDN? or :SYSTem:ERRor?",
@@ -361,8 +335,7 @@ export const en: Widen<Messages> = {
     title: "Individual deviations",
     hint: "How far this unit sits from the model's nominal values. Commands cannot read them; only measuring finds them. Drawn values show only while true values may be read.",
     mode: "Draw from specs",
-    modeHint:
-      "On: this unit's deviations are drawn within the definition's ranges from the bench seed; off: nominal values. Hidden values written in the bench take precedence.",
+    modeHint: "On: this unit's deviations are drawn within the definition's ranges from the bench seed; off: nominal values. Hidden values written in the bench take precedence.",
     nominal: "nominal",
     hidden: "hidden",
     normal: "normal",
@@ -370,20 +343,15 @@ export const en: Widen<Messages> = {
   edit: {
     model: "Model",
     initialTitle: "Initial settings",
-    initialNote:
-      "In Build mode the canvas shows the initial settings of the bench file; running values are in Operate mode and on the instrument screens.",
+    initialNote: "In Build mode the canvas shows the initial settings of the bench file; running values are in Operate mode and on the instrument screens.",
     liveTitle: "Running values",
-    liveSame:
-      "This is the running session; it matches the initial settings of the bench file.",
-    liveDiffers:
-      "This is the running session (a script or an agent may have changed it); the canvas shows the initial settings. Settings that differ:",
+    liveSame: "This is the running session; it matches the initial settings of the bench file.",
+    liveDiffers: "This is the running session (a script or an agent may have changed it); the canvas shows the initial settings. Settings that differ:",
     liveDiff: "{{name}}: {{live}} (initial: {{initial}})",
     liveMore: "and {{count}} more",
     panelTitle: "The panel sets the initial settings",
-    panelSame:
-      "The panel's keys and values change the initial settings in the bench file; the main display reads the running session, which matches them.",
-    panelDiffers:
-      "The panel's keys and values change the initial settings in the bench file; the main display reads the running session (a script or an agent may have changed it). Settings that differ:",
+    panelSame: "The panel's keys and values change the initial settings in the bench file; the main display reads the running session, which matches them.",
+    panelDiffers: "The panel's keys and values change the initial settings in the bench file; the main display reads the running session (a script or an agent may have changed it). Settings that differ:",
     mode: { run: "Operate", edit: "Build" },
     runChanged: "startup settings changed",
     modeLabel: "Mode",
@@ -404,27 +372,22 @@ export const en: Widen<Messages> = {
     layoutChanged: "layout changed",
     rebuilt: "Rebuilt with the new bench definition",
     benchChanged: "Bench file changed",
-    benchChangedHint:
-      "The running bench is still the one opened earlier. Click to rebuild with the new definition; instrument settings go back to their initial values.",
+    benchChangedHint: "The running bench is still the one opened earlier. Click to rebuild with the new definition; instrument settings go back to their initial values.",
     rebuiltHint: "Instrument settings are back to their initial values",
-    blockedInvalid:
-      "The definition in Build has problems; cannot switch back to Operate",
+    blockedInvalid: "The definition in Build has problems; cannot switch back to Operate",
     startFailed: "Cannot start: the bench has errors",
     noFile: "This session has no bench file, so it cannot be edited.",
     previewError: "Cannot preview the bench: {{error}}",
     omitted: "{{count}} item(s) hidden because of errors: {{names}}",
-    twoDrivers:
-      "Cannot connect: a net has one driver, and this would give it {{count}}: {{names}}",
+    twoDrivers: "Cannot connect: a net has one driver, and this would give it {{count}}: {{names}}",
     delete: "Delete",
     deleteHint: "Delete",
     name: "Name",
-    nameInvalid:
-      "Start with a letter or underscore; letters, digits, _ and - only",
+    nameInvalid: "Start with a letter or underscore; letters, digits, _ and - only",
     label: "Display name",
     labelPlaceholder: "Optional, shown in the UI",
     initialState: "Initial state",
-    initialStateHint:
-      "These are the settings the bench opens with, saved to the bench file; change the running values in Operate mode or on the instrument's screen.",
+    initialStateHint: "These are the settings the bench opens with, saved to the bench file; change the running values in Operate mode or on the instrument's screen.",
     resetDefault: "Reset to default",
     defaultValue: "default",
     bench: "Bench",
@@ -435,8 +398,7 @@ export const en: Widen<Messages> = {
     clock: "Clock mode",
     timeScale: "Time scale (×)",
     revealTrue: "Allow reading true values",
-    revealTrueHint:
-      "For debugging: the UI and agents may read hidden true values. Turn off for validation.",
+    revealTrueHint: "For debugging: the UI and agents may read hidden true values. Turn off for validation.",
     addAccessory: "Add accessory",
     removeAccessory: "Remove accessory",
     from: "From",
@@ -509,8 +471,7 @@ export const en: Widen<Messages> = {
     enbw: "ENBW",
     noise: "Noise σ",
     chart: "R settling",
-    chartHint:
-      "Solid: R as read; dashed: where the filter is heading with the current settings (no noise).",
+    chartHint: "Solid: R as read; dashed: where the filter is heading with the current settings (no noise).",
     history: "History",
     projected: "Projected",
     settings: "Settings",
@@ -536,22 +497,17 @@ export const en: Widen<Messages> = {
     noReading: "—",
   },
   spectrum: {
-    hintClock:
-      "Command clock: a sweep takes virtual time, so the analyzer only sweeps when a command is sent or time is advanced and the trace stands still (a scope's screen frames take none, so its live trace keeps redrawing).",
-    hintSingle:
-      "Single sweep: continuous sweep is off, so the trace and the sweep count hold where they stopped; send :INIT:IMM to sweep once, or turn Continuous on.",
+    hintClock: "Paused: a sweep takes virtual time, so the analyzer only sweeps when a command is sent or time is advanced and the trace stands still (a scope's screen frames take none, so its live trace keeps redrawing).",
+    hintSingle: "Single sweep: continuous sweep is off, so the trace and the sweep count hold where they stopped; send :INIT:IMM to sweep once, or turn Continuous on.",
     advanceSweep: "Advance one sweep time",
     liveSweep: "Live sweep",
-    liveSweepHint:
-      "Switch to a live clock: virtual time follows real time and the analyzer sweeps continuously (Pause in the top bar returns to the command clock).",
+    liveSweepHint: "Let virtual time follow real time so the analyzer sweeps continuously (Pause in the top bar stops time).",
     singleSweep: "Single sweep",
-    singleSweepHint:
-      "Sweep once (:INIT:IMM); the trace is held again when it is done.",
+    singleSweepHint: "Sweep once (:INIT:IMM); the trace is held again when it is done.",
     continuousOn: "Continuous on",
     continuousOnHint: "Sweep continuously again (:INIT:CONT ON)",
     overload: "Mixer overload",
-    uncalReason:
-      "The sweep time is shorter than the current RBW/VBW need; amplitudes are uncalibrated",
+    uncalReason: "The sweep time is shorter than the current RBW/VBW need; amplitudes are uncalibrated",
     reference: "Reference",
     sweep: "Sweep",
     start: "Start",
@@ -573,8 +529,7 @@ export const en: Widen<Messages> = {
     currentLimit: "Current limit",
     voltageLimit: "Voltage limit",
     limit: "Limit",
-    limitHint:
-      "At the limit, the limit holds the terminal (CC / CV changeover); it is a state, not an error.",
+    limitHint: "At the limit, the limit holds the terminal (CC / CV changeover); it is a state, not an error.",
     readingTime: "Reading time",
     voltage: "Voltage",
     current: "Current",
@@ -585,13 +540,11 @@ export const en: Widen<Messages> = {
     buffer: "Buffer",
     bufferTable: "Buffer readings",
     points: "{{count}} points",
-    noBuffer:
-      "The buffer is empty. Click Read or Initiate, or have a script send :MEASure?, :READ? or :INITiate.",
+    noBuffer: "The buffer is empty. Click Read or Initiate, or have a script send :MEASure?, :READ? or :INITiate.",
     controls: "Measurement controls",
     read: "Read",
     initiate: "Initiate",
-    initiateHint:
-      "Run with the current settings (:INITiate;*WAI): the whole sweep in sweep mode, otherwise one reading.",
+    initiateHint: "Run with the current settings (:INITiate;*WAI): the whole sweep in sweep mode, otherwise one reading.",
     clearBuffer: "Clear buffer",
   },
   load: {
@@ -617,8 +570,7 @@ export const en: Widen<Messages> = {
   },
   history: {
     title: "Version history",
-    description:
-      "Every save keeps a version and who saved it. Review what an agent or someone else changed in the bench, or go back to an earlier version.",
+    description: "Every save keeps a version and who saved it. Review what an agent or someone else changed in the bench, or go back to an earlier version.",
     versions: "Versions",
     empty: "No saved versions yet.",
     current: "Current",
@@ -633,23 +585,9 @@ export const en: Widen<Messages> = {
     explainPrevious: "Compared with version #{{seq}}, this version changed:",
     explainFirst: "The first recorded version contains:",
     explainCurrent: "From this version to the current file:",
-    source: {
-      ui: "UI",
-      agent: "Agent",
-      api: "API",
-      external: "External edit",
-      restore: "Restore",
-    },
+    source: { ui: "UI", agent: "Agent", api: "API", external: "External edit", restore: "Restore" },
     kind: { added: "Added", removed: "Removed", changed: "Changed" },
-    section: {
-      bench: "Bench",
-      instruments: "Instrument",
-      parts: "Part",
-      wires: "Wire",
-      faults: "Preset faults",
-      run: "Startup settings",
-      layout: "Node positions",
-    },
+    section: { bench: "Bench", instruments: "Instrument", parts: "Part", wires: "Wire", faults: "Preset faults", run: "Startup settings", layout: "Node positions" },
   },
   runs: {
     title: "Records",
@@ -662,8 +600,7 @@ export const en: Widen<Messages> = {
     replay: "Replay and compare",
     replaying: "Replaying…",
     result: "Replay result",
-    identical:
-      "Replay identical: all {{actions}} actions and {{replies}} replies match",
+    identical: "Replay identical: all {{actions}} actions and {{replies}} replies match",
     differ: "{{count}} of {{replies}} replies differ from the record",
     locate: "Go to the first difference",
     where: "Where",
@@ -681,20 +618,8 @@ export const en: Widen<Messages> = {
     content: "Content",
     fromAcquisition: "regenerated by acquisition #{{seq}}",
     autoTrigger: "auto trigger",
-    kinds: {
-      state: "Setting",
-      error: "Error",
-      fault: "Fault",
-      acquisition: "Acquisition",
-      session: "Session",
-      file: "File",
-    },
-    fileActions: {
-      write: "written",
-      delete: "deleted",
-      make_folder: "folder made",
-      remove_folder: "folder removed",
-    },
+    kinds: { state: "Setting", error: "Error", fault: "Fault", acquisition: "Acquisition", session: "Session", file: "File" },
+    fileActions: { write: "written", delete: "deleted", make_folder: "folder made", remove_folder: "folder removed" },
   },
   probe: {
     title: "Virtual probe",
@@ -704,15 +629,13 @@ export const en: Widen<Messages> = {
     amplitude: "Amplitude (peak)",
     waveform: "Waveform on the net",
     why: "Why this value",
-    whyHint:
-      "Net voltage = each independent source's EMF × the circuit's transfer function from it to this net (nodal analysis), summed. The probe does not load the circuit.",
+    whyHint: "Net voltage = each independent source's EMF × the circuit's transfer function from it to this net (nodal analysis), summed. The probe does not load the circuit.",
     noSource: "No source reaches this net.",
   },
   mcp: {
     button: "Connect external AI (MCP)",
     title: "Connect an external AI client (MCP)",
-    description:
-      "SimuBench is serving MCP. Give your AI client the address or config below; the benches it builds and runs appear live on this page.",
+    description: "SimuBench is serving MCP. Give your AI client the address or config below; the benches it builds and runs appear live on this page.",
     url: "MCP address (streamable HTTP)",
     json: "Client config (mcpServers for Claude Desktop, Cursor, …)",
     claude: "Claude Code command",
@@ -721,8 +644,7 @@ export const en: Widen<Messages> = {
   about: {
     menu: "About and diagnostics",
     title: "About SimuBench",
-    description:
-      "Version manifest and health checks. Attach the diagnostics bundle to bug reports.",
+    description: "Version manifest and health checks. Attach the diagnostics bundle to bug reports.",
     platform: "Platform",
     dependencies: "Dependencies",
     definitions: "Instrument definitions",
@@ -731,42 +653,31 @@ export const en: Widen<Messages> = {
     notRecording: "not recording (start with --record-dir)",
     health: "Health checks",
     bundle: "Export diagnostics bundle",
-    bundleHint:
-      "The bundle holds the version manifest, health checks, recent logs, open sessions with their bench files and the latest records. It holds no access token and is never uploaded.",
+    bundleHint: "The bundle holds the version manifest, health checks, recent logs, open sessions with their bench files and the latest records. It holds no access token and is never uploaded.",
     bundleFailed: "Could not export the diagnostics bundle",
   },
   storage: {
     menu: "Workspace data",
     title: "Workspace data",
-    description:
-      "Saved versions, assistant conversations and instrument files kept with benches and instruments in the workspace's .simubench/.",
-    kind: {
-      history: "Saved versions",
-      assistant: "Assistant chats",
-      files: "Instrument files",
-    },
+    description: "Saved versions, assistant conversations and instrument files kept with benches and instruments in the workspace's .simubench/.",
+    kind: { history: "Saved versions", assistant: "Assistant chats", files: "Instrument files" },
     total: "Total",
     orphans: "Their file is gone",
-    orphansHint:
-      "The bench or instrument definition this data belongs to was deleted or moved outside SimuBench.",
+    orphansHint: "The bench or instrument definition this data belongs to was deleted or moved outside SimuBench.",
     noOrphans: "Nothing like that: every entry still has its file.",
     kept: "kept",
     withHistory: "Also delete their saved versions",
-    withHistoryHint:
-      "Saved versions bring back a file deleted by mistake, so they are kept by default.",
+    withHistoryHint: "Saved versions bring back a file deleted by mistake, so they are kept by default.",
     clean_one: "Clean {{count}} entry ({{size}})",
     clean_other: "Clean {{count}} entries ({{size}})",
-    confirm_one:
-      "{{count}} entry, {{size}}, will be deleted. This cannot be undone.",
-    confirm_other:
-      "{{count}} entries, {{size}}, will be deleted. This cannot be undone.",
+    confirm_one: "{{count}} entry, {{size}}, will be deleted. This cannot be undone.",
+    confirm_other: "{{count}} entries, {{size}}, will be deleted. This cannot be undone.",
     delete: "Delete",
     cleaned_one: "Deleted {{count}} entry, freed {{size}}",
     cleaned_other: "Deleted {{count}} entries, freed {{size}}",
     cleanFailed: "Could not clean the workspace data",
     empty: "No workspace data yet",
-    emptyBody:
-      "Once you save a bench, talk to the assistant or let an instrument store files, the space they take shows here.",
+    emptyBody: "Once you save a bench, talk to the assistant or let an instrument store files, the space they take shows here.",
   },
   panel: {
     collapse: "Collapse the log",
@@ -782,11 +693,9 @@ export const en: Widen<Messages> = {
     clear: "Clear view",
     time: "Time",
     virtualTime: "Virtual time",
-    timeHint:
-      "Virtual time since the bench opened. On the command clock it advances by what commands take and by the script's waits, as in the record and the timeline.",
+    timeHint: "Virtual time since the bench opened. On the command clock it advances by what commands take and by the script's waits, as in the record and the timeline.",
     wallTimeHeader: "Real time",
-    wallTimeHint:
-      "This computer's local time when the message happened, to match against the logs of your script or production system.",
+    wallTimeHint: "This computer's local time when the message happened, to match against the logs of your script or production system.",
     source: "Source",
     client: { script: "Script", ui: "UI", mcp: "Agent", replay: "Replay" },
     instrument: "Instrument",
@@ -794,8 +703,7 @@ export const en: Widen<Messages> = {
     message: "Message",
     bytes: "Bytes",
     duration: "Duration",
-    noComms:
-      "No communication yet. Commands from scripts, the UI or agents appear here.",
+    noComms: "No communication yet. Commands from scripts, the UI or agents appear here.",
     noEvents: "No events yet.",
     noProblems: "No problems.",
     write: "Write",
@@ -806,12 +714,9 @@ export const en: Widen<Messages> = {
     running: "Running",
     stopped: "Stopped",
     waiting: "Waiting for trigger",
-    liveHint:
-      "Running: the screen follows the signal, acquired by the scope itself as on the real one. The frames are not acquisition records, do not appear under Communication and do not advance virtual time.",
-    recordHint:
-      "Stopped: the screen holds the latest acquisition, from the panel's Single or from a script. Panel buttons act inside the instrument and send no SCPI.",
-    noRecord:
-      "No acquisition yet. Click Single or Run, or have a script acquire.",
+    liveHint: "Running: the screen follows the signal, acquired by the scope itself as on the real one. The frames are not acquisition records, do not appear under Communication and do not advance virtual time.",
+    recordHint: "Stopped: the screen holds the latest acquisition, from the panel's Single or from a script. Panel buttons act inside the instrument and send no SCPI.",
+    noRecord: "No acquisition yet. Click Single or Run, or have a script acquire.",
     acquisition: "Acquisition",
     run: "Run",
     stop: "Stop",
@@ -819,8 +724,7 @@ export const en: Widen<Messages> = {
     silence: {
       title: "Why the input reads 0 V",
       unconnected: "not wired",
-      source_off:
-        "{{source}} output is off (outputs are off at power-on, as on the real instrument)",
+      source_off: "{{source}} output is off (outputs are off at power-on, as on the real instrument)",
       zero_setting: "{{source}} output is on but set to 0",
       no_source: "no source upstream",
       fault: "fault {{fault}} acts on {{source}}",
@@ -833,27 +737,10 @@ export const en: Widen<Messages> = {
     perDiv: "/div",
     acquisitions: "Acquisitions",
     liveFrame: "Live frames",
-    hintClock:
-      "Command clock: screen frames take no virtual time; the live trace redraws the signal as it is now. Only commands and Advance move the clock.",
-    cursors: {
-      toggle: "Cursors",
-      title: "Cursors",
-      channel: "Channel",
-      x1: "X1",
-      x2: "X2",
-      y1: "Y1",
-      y2: "Y2",
-    },
+    hintClock: "Paused: screen frames take no virtual time; the live trace redraws the signal as it is now. Only commands and Advance move the clock.",
+    cursors: { toggle: "Cursors", title: "Cursors", channel: "Channel", x1: "X1", x2: "X2", y1: "Y1", y2: "Y2" },
     spectrum: { label: "Spectrum", span: "Frequency", bin: "Bin" },
-    measure: {
-      title: "Measure",
-      amplitude: "Amplitude",
-      vpp: "Vpp",
-      frequency: "Frequency",
-      period: "Period",
-      mean: "Mean",
-      rms: "RMS",
-    },
+    measure: { title: "Measure", amplitude: "Amplitude", vpp: "Vpp", frequency: "Frequency", period: "Period", mean: "Mean", rms: "RMS" },
   },
   generator: {
     title: "Function generator",
@@ -876,11 +763,9 @@ export const en: Widen<Messages> = {
     exitFullscreen: "Exit full screen",
     exitFullscreenTip: "Exit full screen (Esc)",
     hint: "This model is built from the components below (read-only); the signal runs left to right. Solid lines are signal wires: a thin line is analog, a double line a digital sample stream; dashed lines show what a component uses. Click a component to light its chain; click one of its outputs to see the signal there (internal probe).",
-    basis:
-      "This is a functional block-level model: the blocks follow public documents (see basis), not the model's actual circuit design.",
+    basis: "This is a functional block-level model: the blocks follow public documents (see basis), not the model's actual circuit design.",
     basisLabel: "Basis:",
-    basisNone:
-      "This definition declares no basis (it is not a real model); the blocks follow the class's generic architecture.",
+    basisNone: "This definition declares no basis (it is not a real model); the blocks follow the class's generic architecture.",
     legend: {
       digital: "Digital sample stream",
       uses: "Uses",
@@ -898,8 +783,7 @@ export const en: Widen<Messages> = {
       title: "Internal probe",
       open: "Internal probe: {{port}}",
       close: "Close the internal probe",
-      passive:
-        "A passive read: it advances no virtual time, enters no run record and does not change what a script reads next.",
+      passive: "A passive read: it advances no virtual time, enters no run record and does not change what a script reads next.",
       at: "Virtual time {{t}}",
       waveform: "Waveform (evaluated analytically)",
       samples: "Samples (one step each, not interpolated)",
@@ -909,8 +793,7 @@ export const en: Widen<Messages> = {
       samplesCount: "{{count}} samples over {{span}}",
       to: "to",
       spectrum: "Spectrum of this frame",
-      spectrumHint:
-        "Hann window; vertical axis in {{unit}}, {{range}} dB below the strongest point",
+      spectrumHint: "Hann window; vertical axis in {{unit}}, {{range}} dB below the strongest point",
       lines: "Lines",
       bins: "Strongest bins",
       frequency: "Frequency",
@@ -924,74 +807,55 @@ export const en: Widen<Messages> = {
       notes: "Fidelity",
       silent: "Why it reads 0",
       withheld: "No internal probe in validation mode",
-      withheldBody:
-        "This bench hides true values and this instrument carries hidden per-unit values (drawn deviations, the bench's hidden state or parameter faults): its internal signals would give them away. The structure stays visible; to see signals, turn on reveal_true_values in the bench's run section.",
+      withheldBody: "This bench hides true values and this instrument carries hidden per-unit values (drawn deviations, the bench's hidden state or parameter faults): its internal signals would give them away. The structure stays visible; to see signals, turn on reveal_true_values in the bench's run section.",
       error: "Cannot read the signal at {{port}}",
-      stale:
-        "Disconnected from the engine: the signal below is from before the disconnect and refreshes when it reconnects.",
+      stale: "Disconnected from the engine: the signal below is from before the disconnect and refreshes when it reconnects.",
       tunedTo: "Tuned to",
       tuneInput: "Tuning frequency (a unit is fine, e.g. 1.0005 GHz)",
       tuneCenter: "Center",
-      tuneMark: {
-        marker: "Marker {{index}}",
-        reference: "Reference marker {{index}}",
-      },
+      tuneMark: { marker: "Marker {{index}}", reference: "Reference marker {{index}}" },
       tuneManual: "Manual",
       tuneRange: "{{lo}} to {{hi}}",
-      tuneHint:
-        "The signal after the mixer depends on where the oscillator is tuned. Type a frequency within {{range}}, or click a point on the spectrum below.",
-      tuneOutOfRange:
-        "Outside this instrument's frequency range ({{range}}); the tuning was not changed.",
-      tuneNotNumber:
-        "This is not a frequency. Write it like 1.0005G, 999.5 MHz or 1e9.",
+      tuneHint: "The signal after the mixer depends on where the oscillator is tuned. Type a frequency within {{range}}, or click a point on the spectrum below.",
+      tuneOutOfRange: "Outside this instrument's frequency range ({{range}}); the tuning was not changed.",
+      tuneNotNumber: "This is not a frequency. Write it like 1.0005G, 999.5 MHz or 1e9.",
       tuneHere: "Tune to {{freq}}",
       clickToTune: "Click a point to tune there",
       readKeys: "Left / Right read one at a time, Esc puts the cursor away",
-      readKeysTune:
-        "Left / Right read one at a time, Home / End jump to the strongest peaks, Enter tunes to the reading, Esc puts the cursor away",
+      readKeysTune: "Left / Right read one at a time, Home / End jump to the strongest peaks, Enter tunes to the reading, Esc puts the cursor away",
       iq: "First {{count}} IQ samples (I solid, Q dashed, one scale)",
       spectrumIq: "Two-sided spectrum of this frame",
       spectrumBins: "Amplitude spectrum (the transform's bins)",
-      spectrumHintIq:
-        "Hann window; the horizontal axis is radio frequency with the tuning in the middle; vertical axis in {{unit}}, {{range}} dB below the strongest point",
-      spectrumHintBins:
-        "The output of the RBW filter / FFT, drawn as it is, with no second transform; the horizontal axis is radio frequency, vertical axis in {{unit}}, {{range}} dB below the strongest point",
+      spectrumHintIq: "Hann window; the horizontal axis is radio frequency with the tuning in the middle; vertical axis in {{unit}}, {{range}} dB below the strongest point",
+      spectrumHintBins: "The output of the RBW filter / FFT, drawn as it is, with no second transform; the horizontal axis is radio frequency, vertical axis in {{unit}}, {{range}} dB below the strongest point",
       floor: "Noise floor (median level of the bins)",
       binCount: "Bins",
       binSpacing: "Bin spacing",
       binPeak: "Strongest bin's amplitude",
       linesWhole: "Show all from 0 Hz",
       linesNear: "Only around the strongest",
-      linesOutside_one:
-        "{{count}} more line outside the picture (a decade or more from this group).",
-      linesOutside_other:
-        "{{count}} more lines outside the picture (a decade or more from this group).",
+      linesOutside_one: "{{count}} more line outside the picture (a decade or more from this group).",
+      linesOutside_other: "{{count}} more lines outside the picture (a decade or more from this group).",
       dbcTip: "Level relative to the strongest line",
     },
     find: "Find a command or setting",
-    findTip:
-      "Type a command (short forms work, e.g. :WAV:DATA?) or a setting's path or name; the graph lights the components it lands on",
-    noWriter:
-      "No command writes it directly (set from the panel or along with another command)",
-    findNone:
-      "No component matches “{{query}}”. Commands may be short (:CHAN1:SCAL?); settings by path or name.",
+    findTip: "Type a command (short forms work, e.g. :WAV:DATA?) or a setting's path or name; the graph lights the components it lands on",
+    noWriter: "No command writes it directly (set from the panel or along with another command)",
+    findNone: "No component matches “{{query}}”. Commands may be short (:CHAN1:SCAL?); settings by path or name.",
     findResults_one: "{{count}} component",
     findResults_other: "{{count}} components",
     controls: "What controls it",
     commandsOnly: "Operated by commands only",
-    noControls:
-      "No setting or command drives it directly: its input comes from a signal or another component.",
+    noControls: "No setting or command drives it directly: its input comes from a signal or another component.",
     alsoDrives: "Also drives:",
     operations: "Operation commands",
     readings: "Readings it affects",
     noReadings: "No query command is affected by it.",
     own: "Its own queries",
     onTheWay: "Queries of components on the way ({{count}})",
-    onTheWayHint:
-      "These read the state of a component on the way and need not change with this one.",
+    onTheWayHint: "These read the state of a component on the way and need not change with this one.",
     pickedHere: "Channel picked by “{{label}}”: this channel is picked now.",
-    pickedOther:
-      "Shows this channel only when “{{label}}” picks it; now {{value}}.",
+    pickedOther: "Shows this channel only when “{{label}}” picks it; now {{value}}.",
     picks: "channel by {{setting}}",
     picksOther: "channel by {{setting}} (now {{value}})",
     more: "{{count}} more",
@@ -1017,14 +881,9 @@ export const en: Widen<Messages> = {
     uses: "Uses (their output feeds this component)",
     usedBy: "Used by (this component's output feeds them)",
     commandSide: "Command / status side",
-    commandSideHint:
-      "Not on the signal flow: driven by commands and settings only.",
+    commandSideHint: "Not on the signal flow: driven by commands and settings only.",
     direction: { in: "In", out: "Out", inout: "In/out" },
-    medium: {
-      signal: "Signal",
-      electrical: "Electrical",
-      reference: "Reference",
-    },
+    medium: { signal: "Signal", electrical: "Electrical", reference: "Reference" },
     portNames: {
       input_port: { out: "output" },
       specan_input: { out: "output" },
@@ -1048,11 +907,7 @@ export const en: Widen<Messages> = {
       confirm: "Drop and rebuild",
       later: "Rebuild later",
     },
-    stop: {
-      title: "Close the bench?",
-      body: "These scripts are still connected; closing the bench drops them:",
-      confirm: "Drop and close",
-    },
+    stop: { title: "Close the bench?", body: "These scripts are still connected; closing the bench drops them:", confirm: "Drop and close" },
     reset: {
       title: "Reset the bench?",
       body: "These scripts are still connected; a reset drops them and the instruments go back to power-on defaults:",
@@ -1076,17 +931,14 @@ export const en: Widen<Messages> = {
     body: "A script is using this instrument. Settings, commands and panel buttons in the UI are unavailable, so the script's state does not change behind its back.",
     local: "LOCAL",
     localTitle: "Local",
-    localBody:
-      "The UI has taken this instrument from the script; the script's next command returns it to remote.",
-    short:
-      "A script is using it; the UI cannot change settings or send commands.",
+    localBody: "The UI has taken this instrument from the script; the script's next command returns it to remote.",
+    short: "A script is using it; the UI cannot change settings or send commands.",
     localShort: "Taken from the script until its next command.",
     mark: "Remote",
     localMark: "Local",
     clients: "Connected clients",
     refused: "{{name}} is in remote control by a script",
-    refusedHint:
-      "Press LOCAL to take it from the script first; the script's next command returns it to remote.",
+    refusedHint: "Press LOCAL to take it from the script first; the script's next command returns it to remote.",
   },
   newInstrument: {
     open: "New instrument",
@@ -1095,18 +947,15 @@ export const en: Widen<Messages> = {
     startFrom: "Start from",
     fromTemplate: "Template: {{name}}",
     blank: "Blank instrument",
-    blankHint:
-      "A blank instrument has only its identity and class; once created, add components and declare settings and commands in Edit structure — a command's parameters and reply format can be left to the agent.",
+    blankHint: "A blank instrument has only its identity and class; once created, add components and declare settings and commands in Edit structure — a command's parameters and reply format can be left to the agent.",
     class: "Class",
     manufacturer: "Manufacturer (as *IDN? writes it)",
     model: "Model (as *IDN? writes it)",
     id: "Instrument id",
     create: "Create",
     saved: "Created {{id}}",
-    savedWarnings_one:
-      "Created {{id}} with {{count}} note; see its acceptance page",
-    savedWarnings_other:
-      "Created {{id}} with {{count}} notes; see its acceptance page",
+    savedWarnings_one: "Created {{id}} with {{count}} note; see its acceptance page",
+    savedWarnings_other: "Created {{id}} with {{count}} notes; see its acceptance page",
     notSaved_one: "Not saved: {{count}} field to fix",
     notSaved_other: "Not saved: {{count}} fields to fix",
     otherProblems: "Other problems",
@@ -1119,13 +968,11 @@ export const en: Widen<Messages> = {
     ownPage: "Open on its own page",
     backBench: "Back to bench {{name}}",
     useCopy: "Switch {{name}} to the copy?",
-    useCopyBody:
-      "The bench file's model for {{name}} becomes {{id}}; you can undo it.",
+    useCopyBody: "The bench file's model for {{name}} becomes {{id}}; you can undo it.",
     useCopyConfirm: "Use the copy",
     usedCopy: "{{name}} now uses {{id}}",
     copied: "Created {{path}}",
-    copiedHint:
-      "It extends this model; change it in the YAML, or let the agent use edit_definition.",
+    copiedHint: "It extends this model; change it in the YAML, or let the agent use edit_definition.",
     open: "Acceptance page",
     tab: "{{name}} · Acceptance",
     title: "Instrument acceptance",
@@ -1154,19 +1001,11 @@ export const en: Widen<Messages> = {
     build: {
       library: "Components",
       tabIdentity: "Identity",
-      identity: {
-        manufacturer: "Manufacturer",
-        model: "Model",
-        serial: "Serial number",
-        firmware: "Firmware",
-        idn: "*IDN? format",
-      },
+      identity: { manufacturer: "Manufacturer", model: "Model", serial: "Serial number", firmware: "Firmware", idn: "*IDN? format" },
       identitySaved: "Identity saved",
-      identityHint:
-        "{manufacturer} in the *IDN? format is upper-cased; write the name itself to keep its case. Reply formats and specifications are left to the agent.",
+      identityHint: "{manufacturer} in the *IDN? format is upper-cased; write the name itself to keep its case. Reply formats and specifications are left to the agent.",
       filter: "Filter by type, name or description",
-      dragHint:
-        "Drag onto the canvas to add; dropped in the per-channel band, it is a channel component",
+      dragHint: "Drag onto the canvas to add; dropped in the per-channel band, it is a channel component",
       noMatch: "No matching component",
       band: "Per channel ({{count}} channels, one copy each)",
       followsTitle: "{{params}} follow the setting {{setting}}",
@@ -1174,18 +1013,8 @@ export const en: Widen<Messages> = {
       loading: "Loading the instrument's structure…",
       showAll: "Show the other classes' components ({{count}})",
       ownOnly: "Only what {{class}} models use",
-      groups: {
-        own: "Used by {{class}} models",
-        signal: "Signal path",
-        measure: "Measurement",
-        source: "Sources and outputs",
-        scope: "Oscilloscope",
-        trigger: "Trigger and timing",
-        system: "Storage and system",
-        other: "Other",
-      },
-      mappedHint:
-        "Follows this setting through a mapping table; the agent edits the table",
+      groups: { own: "Used by {{class}} models", signal: "Signal path", measure: "Measurement", source: "Sources and outputs", scope: "Oscilloscope", trigger: "Trigger and timing", system: "Storage and system", other: "Other" },
+      mappedHint: "Follows this setting through a mapping table; the agent edits the table",
       tableKey: "Key",
       tableValue: "Value",
       tableKeyOf: "Key of row {{key}}",
@@ -1201,55 +1030,31 @@ export const en: Widen<Messages> = {
       usedBy: "Used by: {{list}}",
       usedByNone: "No component or command uses it yet",
       agentCopy: "Hand to the agent",
-      agentCopyHint:
-        "Copy a note to paste to your agent: complete these commands' parameters and reply formats",
-      agentCopied:
-        "Copied. Paste it to your agent (e.g. Claude Code); it completes the commands' parameters and reply formats",
-      agentCopyFailed:
-        "Couldn't write to the clipboard; copy the note below by hand",
-      agentPrompt:
-        "Please complete the parameters and reply formats of these commands of the SimuBench workspace instrument {{id}} (file instruments/{{id}}.yaml): {{commands}}. Make the definition pass validation and send each once in a try run to confirm.",
-      access: {
-        set: "Write only",
-        query: "Query only",
-        both: "Write and query",
-      },
+      agentCopyHint: "Copy a note to paste to your agent: complete these commands' parameters and reply formats",
+      agentCopied: "Copied. Paste it to your agent (e.g. Claude Code); it completes the commands' parameters and reply formats",
+      agentCopyFailed: "Couldn't write to the clipboard; copy the note below by hand",
+      agentPrompt: "Please complete the parameters and reply formats of these commands of the SimuBench workspace instrument {{id}} (file instruments/{{id}}.yaml): {{commands}}. Make the definition pass validation and send each once in a try run to confirm.",
+      access: { set: "Write only", query: "Query only", both: "Write and query" },
       accessLabel: "How the command is used",
       accessNone: "Neither written nor queried",
       bandEmpty: "Drop components here: one copy per channel",
       saved: "Saved",
       saving: "Saving…",
-      readOnly:
-        'A built-in model cannot be changed: use "Copy as my instrument" at the top right, then build in the copy.',
-      inherited:
-        "Inherited from {{parent}}: {{items}}. The first change to one of them writes it whole into this instrument; from then on it no longer follows {{parent}}. Commands are the exception: only the ones you change are recorded, the rest keep following {{parent}}.",
-      item: {
-        components: "instrument components",
-        channel_components: "channel components",
-        wiring: "wiring",
-        ports: "panel ports",
-        state: "settings",
-        channel_state: "channel settings",
-        commands: "commands",
-      },
+      readOnly: "A built-in model cannot be changed: use \"Copy as my instrument\" at the top right, then build in the copy.",
+      inherited: "Inherited from {{parent}}: {{items}}. The first change to one of them writes it whole into this instrument; from then on it no longer follows {{parent}}. Commands are the exception: only the ones you change are recorded, the rest keep following {{parent}}.",
+      item: { components: "instrument components", channel_components: "channel components", wiring: "wiring", ports: "panel ports", state: "settings", channel_state: "channel settings", commands: "commands" },
       relayout: "Auto layout",
-      relayoutHint:
-        "Clear the dragged positions and lay out along the signal wires, left to right",
+      relayoutHint: "Clear the dragged positions and lay out along the signal wires, left to right",
       problems_one: "{{count}} problem",
       problems_other: "{{count}} problems",
       noProblems: "Checks pass",
       added: "Added {{name}}",
-      removed:
-        "Deleted {{name}} with {{wires}} wires and {{ports}} panel ports",
+      removed: "Deleted {{name}} with {{wires}} wires and {{ports}} panel ports",
       wireRemoved: "Wire deleted",
-      wireRefused:
-        "Cannot connect: an output goes to an input of the same medium, one wire per input; electrical pins go to panel ports",
-      conflict:
-        "This instrument was changed elsewhere (the agent or the file); reloaded from the new file",
-      saveFailed:
-        "Not saved: {{message}}. The canvas is back to the last saved state; try again",
-      empty:
-        "No components yet. Drag one in from the library on the left to start.",
+      wireRefused: "Cannot connect: an output goes to an input of the same medium, one wire per input; electrical pins go to panel ports",
+      conflict: "This instrument was changed elsewhere (the agent or the file); reloaded from the new file",
+      saveFailed: "Not saved: {{message}}. The canvas is back to the last saved state; try again",
+      empty: "No components yet. Drag one in from the library on the left to start.",
       channel: "Channel component",
       instrument: "Instrument component",
       type: "Type",
@@ -1257,12 +1062,10 @@ export const en: Widen<Messages> = {
       params: "Parameters",
       noParams: "This component has no parameters",
       followsSetting: "Follows the setting {{setting}}",
-      settingHint:
-        "A parameter that follows a setting takes its value; unbind it to type a value",
+      settingHint: "A parameter that follows a setting takes its value; unbind it to type a value",
       default: "default",
       resetDefault: "Reset to default",
-      invalidValue:
-        "Wrong value: use the same kind as the default (number, true/false, text or JSON)",
+      invalidValue: "Wrong value: use the same kind as the default (number, true/false, text or JSON)",
       refNone: "(none)",
       ports: "Ports",
       pin: "to a panel port",
@@ -1270,8 +1073,7 @@ export const en: Widen<Messages> = {
       deleteWire: "Delete wire",
       wire: "Wire",
       panelPorts: "Panel ports",
-      panelPortsHint:
-        "The connectors on the instrument's panel: the bench wires to these",
+      panelPortsHint: "The connectors on the instrument's panel: the bench wires to these",
       panelNone: "No panel ports yet",
       panelName: "Port name",
       panelTarget: "Leads to",
@@ -1283,20 +1085,13 @@ export const en: Widen<Messages> = {
       tabPorts: "Panel ports",
       tabSettings: "Settings",
       tabCommands: "Commands",
-      settingsHint:
-        "The instrument's settings: commands write them, component parameters follow them. A per-channel setting exists once per channel.",
+      settingsHint: "The instrument's settings: commands write them, component parameters follow them. A per-channel setting exists once per channel.",
       settingNew: "Setting name, e.g. out.level",
       settingAdd: "Add setting",
       scopeInstrument: "Instrument",
       scopeChannel: "Per channel",
       settingType: "Type",
-      types: {
-        float: "Real",
-        int: "Integer",
-        bool: "Switch",
-        enum: "Choice",
-        string: "Text",
-      },
+      types: { float: "Real", int: "Integer", bool: "Switch", enum: "Choice", string: "Text" },
       unit: "Unit",
       min: "Min",
       max: "Max",
@@ -1305,17 +1100,14 @@ export const en: Widen<Messages> = {
       label: "Chinese name",
       labelEn: "English name",
       settingDelete: "Delete setting",
-      settingUses:
-        "Named by {{params}} component parameters and {{commands}} commands; after deleting, the diagnostics point at them",
-      settingInvalid:
-        "A setting name is letters, digits and underscores, grouped with dots, not starting with ch.",
+      settingUses: "Named by {{params}} component parameters and {{commands}} commands; after deleting, the diagnostics point at them",
+      settingInvalid: "A setting name is letters, digits and underscores, grouped with dots, not starting with ch.",
       settingTaken: "That setting exists",
       settingNone: "No settings yet",
       bind: "Bind to a setting",
       unbind: "Unbind",
       mapped: "mapped",
-      commandsHint:
-        "Write <ch> in a header for the channel number; a command's parameters and reply format are changed by the agent.",
+      commandsHint: "Write <ch> in a header for the channel number; a command's parameters and reply format are changed by the agent.",
       cmdHeader: "Header, e.g. :OUTPut:LEVel",
       cmdKind: "Kind",
       kindState: "Set/query a setting",
@@ -1334,13 +1126,10 @@ export const en: Widen<Messages> = {
       undo: "Undo (Ctrl/⌘+Z)",
       redo: "Redo (Ctrl/⌘+Shift+Z)",
       try: "Try run",
-      tryHint:
-        "Runs the latest saved definition; reopened after every saved change",
-      nameInvalid:
-        "A name is letters, digits, _ and -, without a dot, and not another component's",
+      tryHint: "Runs the latest saved definition; reopened after every saved change",
+      nameInvalid: "A name is letters, digits, _ and -, without a dot, and not another component's",
       layoutFailed: "Layout not saved: {{message}}",
-      selectHint:
-        "Select a component to see its parameters; select a wire or component and press Delete to delete it",
+      selectHint: "Select a component to see its parameters; select a wire or component and press Delete to delete it",
     },
     class: {
       oscilloscope: "Oscilloscope",
@@ -1378,8 +1167,7 @@ export const en: Widen<Messages> = {
     document: "Document",
     referenceVersion: "Version",
     firmware: "Firmware",
-    customDefinition:
-      "This definition declares no reference: it follows an interface contract or the author's own specification.",
+    customDefinition: "This definition declares no reference: it follows an interface contract or the author's own specification.",
     fromTemplate: "Expanded from template {{id}} v{{version}}",
     functions: "Functions and ranges",
     groupInstrument: "Instrument",
@@ -1387,31 +1175,20 @@ export const en: Widen<Messages> = {
     readouts: "Readings",
     noFunctions: "The definition declares no panel or setting.",
     onOff: "On / off",
-    panelSource: {
-      declared: "Panel declared by the definition",
-      class_default: "Panel from the class's default layout",
-    },
+    panelSource: { declared: "Panel declared by the definition", class_default: "Panel from the class's default layout" },
     specs: "Specifications",
     noSpecs: "The definition records no specifications.",
-    specsHint:
-      "Specifications are a record (D3): editing them does not change the simulation, which runs on the settings\u2019 ranges and the component parameters.",
-    stillOld:
-      "Specifications are a record; the simulation is unchanged. These still hold the old value: {{places}}",
+    specsHint: "Specifications are a record (D3): editing them does not change the simulation, which runs on the settings\u2019 ranges and the component parameters.",
+    stillOld: "Specifications are a record; the simulation is unchanged. These still hold the old value: {{places}}",
     deviations: "Individual deviation limits",
     noDeviations: "The definition declares no individual deviations.",
     thisUnit: "This unit: {{value}}",
-    deviationsHint:
-      "Limits belong to the model; each unit's value is drawn from the bench seed and hidden from run records by default.",
+    deviationsHint: "Limits belong to the model; each unit's value is drawn from the bench seed and hidden from run records by default.",
     searchCommands: "Search commands, parameters or notes",
     levelFilter: "Filter by coverage level",
-    level: {
-      implemented: "Implemented",
-      accepted: "Accepted",
-      not_modeled: "Not modeled",
-    },
+    level: { implemented: "Implemented", accepted: "Accepted", not_modeled: "Not modeled" },
     commandCount: "{{count}} commands",
-    groupProgress:
-      "{{implemented}} implemented, {{accepted}} accepted, of {{total}}",
+    groupProgress: "{{implemented}} implemented, {{accepted}} accepted, of {{total}}",
     tryCommand: "Open {{command}} in the trial run",
     trySuggest: "Common commands: click one to type it in",
     noCommands: "No command matches the filter.",
@@ -1424,8 +1201,7 @@ export const en: Widen<Messages> = {
     virtualNow: "Virtual time {{time}}",
     clearConsole: "Clear",
     powerCycle: "Power-cycle",
-    consoleHint:
-      "Send commands to try this instrument. The temporary session holds this instrument alone: it does not touch an open bench and writes no run record.",
+    consoleHint: "Send commands to try this instrument. The temporary session holds this instrument alone: it does not touch an open bench and writes no run record.",
     noReply: "No reply: the command may answer nothing.",
     tryFailed: "The definition does not build in this workspace: {{error}}",
     send: "Send",
@@ -1436,26 +1212,20 @@ export const en: Widen<Messages> = {
     session: "Session",
     tryNote: "Trying writes no SCPI to any port and no run record.",
     noCaseFiles: "No cases file for this instrument in the workspace",
-    noCaseFilesBody:
-      "A cases file (*cases.yaml) whose model is this definition's id shows up here.",
+    noCaseFilesBody: "A cases file (*cases.yaml) whose model is this definition's id shows up here.",
     caseFiles: "Cases files",
     caseCount: "{{count}} cases",
     builtinCases: "Built-in manual cases",
-    builtinCasesHint:
-      "Shipped with SimuBench: cases written from this model's manual, the same file the repository tests",
+    builtinCasesHint: "Shipped with SimuBench: cases written from this model's manual, the same file the repository tests",
     workspaceCases: "Workspace cases",
     inheritedCases: "Manual cases inherited from {{model}}",
-    inheritedCasesHint:
-      "This instrument is based on {{model}}: the cases shipped with {{model}} run on it, checking the changes broke nothing it did before",
+    inheritedCasesHint: "This instrument is based on {{model}}: the cases shipped with {{model}} run on it, checking the changes broke nothing it did before",
     verdict: {
       commands: "Command coverage",
-      coverage:
-        "{{implemented}} implemented · {{accepted}} accepted · {{total}} in all",
+      coverage: "{{implemented}} implemented · {{accepted}} accepted · {{total}} in all",
       noCoverage: "No coverage table (a self-built or contract instrument)",
-      inheritedCoverage_one:
-        "From {{model}}'s coverage table; this instrument changes {{count}} command",
-      inheritedCoverage_other:
-        "From {{model}}'s coverage table; this instrument changes {{count}} commands",
+      inheritedCoverage_one: "From {{model}}'s coverage table; this instrument changes {{count}} command",
+      inheritedCoverage_other: "From {{model}}'s coverage table; this instrument changes {{count}} commands",
       cases: "Cases",
       files: "{{builtin}} built-in files · {{workspace}} in the workspace",
       noCases: "No cases yet",
@@ -1464,35 +1234,25 @@ export const en: Widen<Messages> = {
     },
     runCases: "Run cases",
     running: "Running…",
-    caseRunHint:
-      "Run a file: each case runs on a freshly powered bench, step by step with expected and actual.",
+    caseRunHint: "Run a file: each case runs on a freshly powered bench, step by step with expected and actual.",
     passed: "{{count}} passed",
     failed: "{{count}} failed",
     stepCommand: "Command",
     stepExpected: "Expected",
     stepActual: "Actual",
     noHistory: "A built-in definition has no version history",
-    noHistoryBody:
-      "Built-in definitions ship with the package; copy one into the workspace and every agent edit is recorded here.",
+    noHistoryBody: "Built-in definitions ship with the package; copy one into the workspace and every agent edit is recorded here.",
     emptyHistory: "No versions yet",
-    emptyHistoryBody:
-      "After an agent or an external editor saves the first version, every version and its change notes appear here.",
+    emptyHistoryBody: "After an agent or an external editor saves the first version, every version and its change notes appear here.",
     versions: "Versions ({{count}})",
-    source: {
-      ui: "UI",
-      agent: "Agent",
-      api: "API",
-      external: "External edit",
-      restore: "Restore",
-    },
+    source: { ui: "UI", agent: "Agent", api: "API", external: "External edit", restore: "Restore" },
     noChange: "Formatting or ordering changed; no behavior did.",
     compare: "Compare two versions",
     compareBase: "From",
     compareTarget: "To",
     created: "Before creation",
     compareHint: "Choose two versions to see the difference.",
-    compareOne:
-      'One version so far; save another to compare any two, or pick "before creation" to see what the first version added.',
+    compareOne: "One version so far; save another to compare any two, or pick \"before creation\" to see what the first version added.",
     noDiff: "The two versions are identical.",
     action: { added: "Added", removed: "Removed", changed: "Changed" },
     kind: {
@@ -1581,25 +1341,20 @@ export const en: Widen<Messages> = {
     name: "Template name",
     saved: "Saved as my template {{id}}",
     restart: "Restart the bench for this instrument to use the new template.",
-    notFolded:
-      "These settings differ between channels and stay in the bench instead of becoming defaults: {{paths}}",
+    notFolded: "These settings differ between channels and stay in the bench instead of becoming defaults: {{paths}}",
   },
   assistant: {
     title: "AI assistant",
     open: "AI assistant",
     close: "Hide the AI assistant",
-    placeholder:
-      "Say what bench to build or how to change an instrument… (Enter sends, Shift+Enter for a new line)",
+    placeholder: "Say what bench to build or how to change an instrument… (Enter sends, Shift+Enter for a new line)",
     send: "Send",
     stop: "Stop",
     clear: "Clear conversation",
-    clearConfirm:
-      "Clear this bench's whole conversation? Files it changed stay as they are.",
+    clearConfirm: "Clear this bench's whole conversation? Files it changed stay as they are.",
     settings: "AI assistant settings",
-    empty:
-      "Build benches, adjust instruments and save them as your own templates by talking here. Changes go straight into the bench file; each turn says what changed, and can be restored.",
-    examples:
-      "For example: “add a scope on the generator's CH1”, “save this multimeter as my template”",
+    empty: "Build benches, adjust instruments and save them as your own templates by talking here. Changes go straight into the bench file; each turn says what changed, and can be restored.",
+    examples: "For example: “add a scope on the generator's CH1”, “save this multimeter as my template”",
     you: "You",
     thinking: "Thinking…",
     compacted: "Earlier content was compacted; the assistant keeps the gist",
@@ -1630,10 +1385,8 @@ export const en: Widen<Messages> = {
       title: "Restore to before the last turn",
       restores: "Restore these files to before the last turn: {{files}}",
       deletes: "Delete the files the last turn created: {{files}}",
-      modified:
-        "{{file}} was changed again afterwards; restoring loses these changes:",
-      sessions:
-        "A running bench uses these files and has to stop first ({{count}} session(s)).",
+      modified: "{{file}} was changed again afterwards; restoring loses these changes:",
+      sessions: "A running bench uses these files and has to stop first ({{count}} session(s)).",
       confirm: "Restore",
       confirmStop: "Stop and restore",
       done: "Restored to before the last turn",
@@ -1688,14 +1441,12 @@ export const en: Widen<Messages> = {
     },
     config: {
       title: "AI assistant settings",
-      description:
-        "The server connects to the LLM service you configure; the API key is kept in the server's workspace and never shown.",
+      description: "The server connects to the LLM service you configure; the API key is kept in the server's workspace and never shown.",
       protocol: "Protocol",
       openai: "OpenAI compatible (/v1/chat/completions)",
       anthropic: "Anthropic compatible (/v1/messages)",
       baseUrl: "Service address",
-      baseUrlHint:
-        "e.g. http://llm.internal:8000/v1; a private network address is fine",
+      baseUrlHint: "e.g. http://llm.internal:8000/v1; a private network address is fine",
       model: "Model",
       apiKey: "API key",
       apiKeySet: "Set (leave empty to keep it)",
@@ -1708,14 +1459,12 @@ export const en: Widen<Messages> = {
       test: "Test connection",
       testing: "Testing…",
       reset: "Back to the server's defaults",
-      fromServer:
-        "Fields left alone keep the server's defaults (environment or settings.json)",
+      fromServer: "Fields left alone keep the server's defaults (environment or settings.json)",
     },
   },
   errors: {
     generic: "Operation failed",
-    network:
-      "Cannot reach the SimuBench service. Make sure simubench serve is running.",
+    network: "Cannot reach the SimuBench service. Make sure simubench serve is running.",
     notFound: "This session no longer exists; it may be closed.",
     // Why a command was not executed (tui-design.md 1.1, D18): the definition author's own words.
     gaps: {
@@ -1728,8 +1477,7 @@ export const en: Widen<Messages> = {
       not_in_model: "Not in the coverage table",
       not_in_definition: "Not in the definition",
       ignored: "Ignored: the definition ignores unknown commands",
-      builtin_excluded:
-        "The definition's builtins leave this common command out",
+      builtin_excluded: "The definition's builtins leave this common command out",
       bad_parameter: "Parameter out of range or of the wrong type",
     },
   },
