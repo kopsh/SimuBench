@@ -135,10 +135,9 @@ class Controls:
             operand = Operand(w, channels, functions)
             if operand.constant is not None and not math.isfinite(operand.constant):
                 raise ScpiError(-224, f"{w}: a constant operand must be finite")
-        assert self.host.owner is not None
         prefix = f"{self.host.param('prefix')}{f}"
         for name, value in (("operator", word), ("source1", words[0]), ("source2", words[1])):
-            self.host.owner.set_state(f"{prefix}.{name}", value, source="scpi", internal=True)
+            self.host.set_state(f"{prefix}.{name}", value, source="scpi", internal=True)
         return OpResult()
 
     def op_h_field(
@@ -174,15 +173,15 @@ class Controls:
                 pair = self.host.measure_function(f)
                 g = pair[0].spec
                 return OpResult(
-                    self.host._number(
+                    self.host.format_number(
                         float(g["x_origin_s"])
                         if field == "position"
                         else float(g["points"]) * float(g["dt_s"])
                     )
                 )
             if path_value is None:
-                return OpResult(self.host._number(0.0))
-            return OpResult(self.host._number(float(path_value)))
+                return OpResult(self.host.format_number(0.0))
+            return OpResult(self.host.format_number(float(path_value)))
         try:
             if isinstance(value, bytes):
                 number = float(V.parse_number(value.decode("ascii", errors="replace")))
@@ -197,16 +196,13 @@ class Controls:
     def _set_h(self, f: int, name: str, value: Any) -> OpResult:
         """Write one of the function's horizontal settings, marking the mode manual when the
         manual says a position/range write does (``horizontal`` AUTO → MANual)."""
-        assert self.host.owner is not None
         if name in ("center", "span", "h_position", "h_range"):
             h_path = f"{self.host.param('prefix')}{f}.horizontal"
-            if h_path in self.host.owner.definition.state and str(
-                self.host.owner.get_state(h_path) or "AUTO"
-            ).upper().startswith("AUTO"):
-                self.host.owner.set_state(h_path, "MANual", source="scpi", internal=True)
-        self.host.owner.set_state(
-            f"{self.host.param('prefix')}{f}.{name}", value, source="scpi", internal=True
-        )
+            if self.host.has_state(h_path) and str(self.host.get_state(h_path) or "AUTO").upper().startswith(
+                "AUTO"
+            ):
+                self.host.set_state(h_path, "MANual", source="scpi", internal=True)
+        self.host.set_state(f"{self.host.param('prefix')}{f}.{name}", value, source="scpi", internal=True)
         return OpResult()
 
     def op_scale(

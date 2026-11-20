@@ -70,7 +70,7 @@ class Acquisition:
     def pending_mode(self) -> bool:
         return True
 
-    def _is(self, key: str) -> bool:
+    def mode_is(self, key: str) -> bool:
         return key == "single"
 
     def acquire_segments(
