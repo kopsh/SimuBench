@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import type { Event } from "./generated/events";
-import { getToken } from "./token";
+import { openWsStream, wsUrl, type ConnectionState } from "./wsTransport";
 
-export type ConnectionState = "connecting" | "connected" | "reconnecting" | "unauthorized" | "gone";
+export type { ConnectionState };
 
 const MAX_EVENTS = 100_000;
 /** How long after a command the session still counts as running commands. */
@@ -43,10 +43,6 @@ export const useEvents = create<EventStore>((set) => ({
  */
 export function useEventStream(sid: string, onState?: (ev: Event) => void) {
   useEffect(() => {
-    let ws: WebSocket | null = null;
-    let closed = false;
-    let attempt = 0;
-    let timer: number | undefined;
     let lastSeq = 0; // the newest event delivered: the reconnect's since (#1632)
     useEvents.setState({ sid, status: "connecting", events: [], version: 0, activity: {}, busy: false });
 
@@ -79,43 +75,29 @@ export function useEventStream(sid: string, onState?: (ev: Event) => void) {
       });
     };
 
-    const connect = () => {
-      const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      const since = lastSeq > 0 ? `&since=${lastSeq}` : "";
-      const url = `${proto}://${window.location.host}/api/sessions/${sid}/events?token=${encodeURIComponent(getToken() ?? "")}${since}`;
-      ws = new WebSocket(url);
-      ws.onopen = () => {
-        // A reconnect still re-reads what the version-keyed queries hold (D64): the stream
-        // replays the events after the cursor, but an answer a query already fetched may
-        // predate them. The first open must not bump — every query just mounted on version 0.
-        useEvents.setState((s) => ({ status: "connected", version: attempt > 0 ? s.version + 1 : s.version }));
-        attempt = 0;
-      };
-      ws.onmessage = (msg) => {
-        const ev = JSON.parse(msg.data as string) as Event;
-        lastSeq = Math.max(lastSeq, ev.seq);
-        pending.push(ev);
-        if (ev.kind === "state" && onState) onState(ev);
-        if (!flushScheduled) {
-          flushScheduled = true;
-          requestAnimationFrame(flush);
-        }
-      };
-      ws.onclose = (e) => {
-        if (closed) return;
-        if (e.code === 4401) return useEvents.setState({ status: "unauthorized" });
-        if (e.code === 4404) return useEvents.setState({ status: "gone" });
-        useEvents.setState({ status: "reconnecting" });
-        attempt += 1;
-        timer = window.setTimeout(connect, Math.min(10_000, 500 * 2 ** Math.min(attempt, 5)));
-      };
-    };
-    connect();
-    return () => {
-      closed = true;
-      if (timer) window.clearTimeout(timer);
-      ws?.close();
-    };
+    return openWsStream(
+      () => wsUrl(`/api/sessions/${sid}/events`, lastSeq > 0 ? `&since=${lastSeq}` : ""),
+      {
+        onOpen: (reconnect) => {
+          // A reconnect still re-reads what the version-keyed queries hold (D64): the stream
+          // replays the events after the cursor, but an answer a query already fetched may
+          // predate them. The first open must not bump — every query just mounted on version 0.
+          useEvents.setState((s) => ({ status: "connected", version: reconnect ? s.version + 1 : s.version }));
+        },
+        onMessage: (data) => {
+          const ev = JSON.parse(data) as Event;
+          lastSeq = Math.max(lastSeq, ev.seq);
+          pending.push(ev);
+          if (ev.kind === "state" && onState) onState(ev);
+          if (!flushScheduled) {
+            flushScheduled = true;
+            requestAnimationFrame(flush);
+          }
+        },
+        onClose: (code) => (code === 4404 ? "gone" : undefined),
+        onStatus: (status) => useEvents.setState({ status }),
+      },
+    );
   }, [sid, onState]);
 }
 
