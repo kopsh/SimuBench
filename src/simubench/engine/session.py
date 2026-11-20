@@ -99,6 +99,7 @@ class Session:
         time_scale: float | None = None,
         files_dir: Path | None = None,
         compute_budget_s: float | None = None,
+        first_event_id: int = 0,
     ) -> None:
         self.bench = bench
         self.base_dir = base_dir
@@ -115,7 +116,7 @@ class Session:
             start=bench.run.start,
         )
         #: The event stream: history, metrics, the run record's feed, the listeners (:mod:`.eventbus`).
-        self.events = EventBus(lambda: self.clock.now_ns)
+        self.events = EventBus(lambda: self.clock.now_ns, first_event_id)
         #: The instruments' virtual file systems (#1069): ``<files_dir>/<instrument>/``, kept across
         #: runs; without ``files_dir`` a temporary folder of this session, removed when it closes.
         self.files = InstrumentFiles(files_dir, bench.instruments)

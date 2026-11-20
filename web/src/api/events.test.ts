@@ -58,3 +58,36 @@ describe("the session event stream's reconnect cursor (#1632)", () => {
     unmount();
   });
 });
+
+describe("the cursor across a session reset (D91, #1642)", () => {
+  it("a reconnect after a reset keeps its cursor: the new session counts on, so nothing is missed", async () => {
+    vi.stubGlobal("WebSocket", FakeWebSocket);
+    FakeWebSocket.instances = [];
+    const { unmount } = renderHook(() => useEventStream("s1"));
+
+    const first = FakeWebSocket.instances[0];
+    first.onopen?.();
+    first.onmessage?.({ data: JSON.stringify({ seq: 9, t_ns: 1, kind: "scpi", dir: "write", instrument: "awg", text: ":FREQ 2000" }) });
+    first.onmessage?.({ data: JSON.stringify({ seq: 10, t_ns: 2, kind: "scpi", dir: "read", instrument: "awg", text: "OK" }) });
+    await waitFor(() => expect(useEvents.getState().events).toHaveLength(2));
+
+    first.onclose?.({ code: 1006 }); // the reset closed the socket; the session id is the same
+    await waitFor(() => expect(useEvents.getState().status).toBe("reconnecting"));
+    await new Promise((r) => setTimeout(r, 1200));
+    const second = FakeWebSocket.instances[1];
+    expect(second.url).toContain("since=10"); // the cursor the log holds
+    second.onopen?.();
+
+    // the reset session's first events carry seq 11, 12 (the server counts on from the old last):
+    // they are after the cursor, so the server sends them and the log keeps them
+    second.onmessage?.({ data: JSON.stringify({ seq: 11, t_ns: 1, kind: "scpi", dir: "write", instrument: "awg", text: ":FREQ 3000" }) });
+    second.onmessage?.({ data: JSON.stringify({ seq: 12, t_ns: 2, kind: "scpi", dir: "read", instrument: "awg", text: "OK" }) });
+    await waitFor(() => expect(useEvents.getState().events).toHaveLength(4));
+    expect(useEvents.getState().events.map((e) => e.seq)).toEqual([9, 10, 11, 12]);
+
+    second.onclose?.({ code: 1006 });
+    await new Promise((r) => setTimeout(r, 1200));
+    expect(FakeWebSocket.instances[2].url).toContain("since=12");
+    unmount();
+  });
+});

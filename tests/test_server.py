@@ -137,6 +137,32 @@ def test_event_stream_since_sends_only_the_tail():
             assert [ev["seq"] for ev in replay] == list(range(1, n + 1))  # without since, all of it
 
 
+def test_event_cursor_survives_a_reset():
+    """#1642: a reset keeps the session id and starts a new event bus; the new session counts on
+    from the old one's last event, so a client reconnecting with the ``since`` it held before the
+    reset gets every event of the new session, and the cursor never goes back."""
+    manager = SessionManager(ROOT / "validation", scpi_base_port=None)
+    app = create_app(manager, token=TOKEN, web_dist=Path("/nonexistent"))
+    with TestClient(app, base_url="http://127.0.0.1") as c:
+        c.headers["x-simubench-token"] = TOKEN
+        sid = c.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]
+        for freq in (1000, 2000, 3000):
+            c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": f":FREQ {freq}"})
+        before = manager.get(sid).session.events.event_id
+        assert before >= 3
+        assert c.post(f"/api/sessions/{sid}/reset", json={}).status_code == 200
+        c.post(f"/api/sessions/{sid}/instruments/awg/scpi", json={"command": ":FREQ 4000"})
+        history = list(manager.get(sid).session.events.history)
+        assert history and min(ev["eid"] for ev in history) == before + 1  # counts on, no restart at 1
+
+        with c.websocket_connect(
+            f"/api/sessions/{sid}/events?token={TOKEN}&since={before}", headers={"host": "127.0.0.1"}
+        ) as ws:
+            got = [ws.receive_json() for _ in range(len(history))]
+        assert [ev["seq"] for ev in got] == [ev["eid"] for ev in history]  # nothing dropped
+        assert any(ev["kind"] == "scpi" and str(ev.get("text", "")).startswith(":FREQ 4000") for ev in got)
+
+
 def test_event_stream_rejects_a_bad_since(client):
     """A since that is not a number is a client protocol error: the socket is closed."""
     sid = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()["id"]

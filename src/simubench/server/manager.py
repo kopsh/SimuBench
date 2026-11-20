@@ -414,6 +414,7 @@ class SessionManager:
         sid: str | None = None,
         force: bool = False,
         time_scale: float | None = None,
+        first_event_id: int = 0,
     ) -> ServedSession:
         # Starting a bench stops the running one (one bench serves the ports) and its scripts drop:
         # the guard lives here, so no facade can start a bench over connected scripts (#121, 624).
@@ -438,6 +439,7 @@ class SessionManager:
             compute_budget_s=self.compute_budget_s,
             definition_dirs=[definitions_dir(self.workspace)],  # as validated (BenchFiles.library)
             files_dir=bench_files_dir(self.workspace, path),  # kept across runs (#1069)
+            first_event_id=first_event_id,
         )
         served = ServedSession(sid or uuid.uuid4().hex[:12], session, path)
         served.bench_sha256 = doc.sha256
@@ -547,9 +549,18 @@ class SessionManager:
         rel = bench_path.relative_to(self.files.workspace).as_posix()
         clock = clock if clock is not None else served.clock
         seed = seed if seed is not None else served.seed
+        # The stream's cursor survives the reset: the new session counts on from the old one's last
+        # event, so a client reconnecting with its old ``since`` gets every new event (D91, #1642).
+        last_event = served.session.events.event_id
         await self.stop(sid, force=True)  # confirmed above, as part of the reset
         return await self.start(
-            rel, clock=clock, seed=seed, sid=sid, force=True, time_scale=served.time_scale
+            rel,
+            clock=clock,
+            seed=seed,
+            sid=sid,
+            force=True,
+            time_scale=served.time_scale,
+            first_event_id=last_event,
         )
 
     async def stop(self, sid: str, force: bool = False) -> None:

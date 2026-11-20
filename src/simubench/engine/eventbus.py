@@ -23,15 +23,17 @@ HISTORY_LENGTH = 20_000
 
 
 class EventBus:
-    def __init__(self, now: Callable[[], int]) -> None:
+    def __init__(self, now: Callable[[], int], first_id: int = 0) -> None:
         self._now = now
         self._listeners: list[Listener] = []
         #: Recent events, so that a client connecting late sees what happened before (UI history).
         self.history: deque[dict[str, Any]] = deque(maxlen=HISTORY_LENGTH)
         #: Counters for metrics (M4): events by kind, circuit solves and the time they took.
         self.stats: dict[str, float] = {}
-        #: Id of the last emitted event; ids are stable cursors for event readers.
-        self.event_id = 0
+        #: Id of the last emitted event; ids are stable cursors for event readers. A session
+        #: that replaces another under the same id (a reset) starts after the old one's last id
+        #: (``first_id``), so a cursor held across the reset still means "everything after".
+        self.event_id = first_id
         #: Where every event is also written (the run record's writer), or None.
         self.record: Listener | None = None
 
