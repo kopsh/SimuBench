@@ -4,9 +4,8 @@
 import { type QueryClient, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { create } from "zustand";
-import type { ConnectionState } from "./events";
 import type { WorkspaceEvent } from "./generated/workspace-events";
-import { getToken } from "./token";
+import { openWsStream, wsUrl, type ConnectionState } from "./wsTransport";
 
 interface WorkspaceStore {
   status: ConnectionState;
@@ -83,38 +82,17 @@ export function reduceWorkspaceEvent(s: WorkspaceStore, ev: WorkspaceEvent): Par
 export function useWorkspaceStream() {
   const qc = useQueryClient();
   useEffect(() => {
-    let ws: WebSocket | null = null;
-    let closed = false;
-    let attempt = 0;
-    let timer: number | undefined;
-
     let opened = false;
-    const connect = () => {
-      const proto = window.location.protocol === "https:" ? "wss" : "ws";
-      const url = `${proto}://${window.location.host}/api/events?token=${encodeURIComponent(getToken() ?? "")}`;
-      ws = new WebSocket(url);
-      ws.onopen = () => {
+    return openWsStream(() => wsUrl("/api/events"), {
+      onOpen: () => {
         useWorkspaceEvents.setState({ status: "connected" });
         if (opened || readBeforeOpen(qc)) resync();
         opened = true;
-        attempt = 0;
-      };
-      ws.onmessage = (msg) => {
-        useWorkspaceEvents.setState((s) => reduceWorkspaceEvent(s, JSON.parse(msg.data as string) as WorkspaceEvent));
-      };
-      ws.onclose = (e) => {
-        if (closed) return;
-        if (e.code === 4401) return useWorkspaceEvents.setState({ status: "unauthorized" });
-        useWorkspaceEvents.setState({ status: "reconnecting" });
-        attempt += 1;
-        timer = window.setTimeout(connect, Math.min(10_000, 500 * 2 ** Math.min(attempt, 5)));
-      };
-    };
-    connect();
-    return () => {
-      closed = true;
-      if (timer) window.clearTimeout(timer);
-      ws?.close();
-    };
+      },
+      onMessage: (data) => {
+        useWorkspaceEvents.setState((s) => reduceWorkspaceEvent(s, JSON.parse(data) as WorkspaceEvent));
+      },
+      onStatus: (status) => useWorkspaceEvents.setState({ status }),
+    });
   }, [qc]);
 }
