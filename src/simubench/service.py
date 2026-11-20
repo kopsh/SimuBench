@@ -18,6 +18,33 @@ from .server.manager import SessionManager, hislip_options_of, vxi11_port_of
 DEFAULT_HISLIP_PORT = 4880
 
 
+def port_number(text: str) -> int:
+    """The argparse ``type=`` every port option takes (#1673): 0–65535, where 0 lets the OS choose.
+
+    Without it ``--port 99999`` reached the socket layer, wrapped modulo 65536, and the banner
+    named the port the user typed while the service listened on another (or uvicorn refused a
+    negative one after the banner was printed)."""
+    try:
+        value = int(text)
+    except ValueError:
+        raise argparse.ArgumentTypeError(f"{text} 不是整数 / not an integer") from None
+    if not 0 <= value <= 65535:
+        raise argparse.ArgumentTypeError(f"{text} 不在 0–65535 内 / not in 0–65535")
+    return value
+
+
+def web_port_number(text: str) -> int:
+    """``port_number`` for the Web Bench port: 0 is refused, because the banner prints that port
+    and ``:0`` is an address nobody can open (#1673). The SCPI/HiSLIP/VXI-11 ports keep 0 — they
+    print the addresses their servers actually bound (D41, D63)."""
+    value = port_number(text)
+    if value == 0:
+        raise argparse.ArgumentTypeError(
+            "界面端口不能是 0，请给 1–65535 / the Web Bench port cannot be 0: give 1–65535"
+        )
+    return value
+
+
 def add_service_options(
     parser: argparse.ArgumentParser, *, logs: bool = True, token: str = "require"
 ) -> None:
@@ -27,13 +54,13 @@ def add_service_options(
     ``logs=False`` for entries that do not configure logging."""
     parser.add_argument(
         "--scpi-base-port",
-        type=int,
+        type=port_number,
         default=DEFAULT_SCPI_PORT,
         help="first SCPI port; 0 lets the OS choose",
     )
     parser.add_argument(
         "--hislip-port",
-        type=int,
+        type=port_number,
         default=DEFAULT_HISLIP_PORT,
         help="shared HiSLIP port (D41); 0 lets the OS choose, and --no-scpi disables it too",
     )
@@ -60,13 +87,13 @@ def add_service_options(
     )
     parser.add_argument(
         "--vxi11-port",
-        type=int,
+        type=port_number,
         default=None,
         help="serve VXI-11 with its core channel on this port (D63); 0 lets the OS choose; off by default",
     )
     parser.add_argument(
         "--portmapper-port",
-        type=int,
+        type=port_number,
         default=None,
         help="also start a port mapper here so VISA libraries find VXI-11 (turns VXI-11 on); they look "
         "at 111, which needs privileges (default: none, connect with "
@@ -74,7 +101,7 @@ def add_service_options(
     )
     parser.add_argument(
         "--link-port",
-        type=int,
+        type=port_number,
         default=4881,
         help="port a script in another process connects to with PYVISA_LIBRARY=127.0.0.1:<port>@simubench, "
         "so its GPIB, USB and TCPIP addresses work unchanged while this bench is watched (D63); "

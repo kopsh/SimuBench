@@ -161,6 +161,63 @@ def test_the_serving_entries_share_one_set_of_service_options(monkeypatch, tmp_p
         assert manager.allow_plugins is True, name
 
 
+@pytest.mark.parametrize(
+    "entry, option",
+    [
+        ("serve", "--port"),
+        ("serve", "--scpi-base-port"),
+        ("serve", "--hislip-port"),
+        ("serve", "--vxi11-port"),
+        ("serve", "--portmapper-port"),
+        ("serve", "--link-port"),
+        ("launch", "--port"),
+        ("mcp", "--port"),
+        ("tui", "--hislip-port"),
+        ("doctor", "--port"),
+        ("doctor", "--scpi-base-port"),
+    ],
+)
+def test_a_port_out_of_range_stops_before_the_entry_starts(entry, option, monkeypatch, capsys):
+    """#1673: 99999 wrapped modulo 65536 and the banner named a port nothing listened on."""
+    from simubench import cli
+
+    started = []
+    for name in ("_serve", "_launch", "_mcp", "_tui", "_doctor"):
+        monkeypatch.setattr(cli, name, started.append)
+    with pytest.raises(SystemExit) as stopped:
+        main([entry, option, "99999"])
+    assert stopped.value.code == 2
+    assert started == []
+    err = capsys.readouterr().err
+    assert option in err and "99999" in err and "0–65535" in err
+
+
+def test_the_web_bench_port_refuses_zero(monkeypatch, capsys):
+    """#1673: serve printed ``:0`` in the banner; 0 has no printable address, so it is refused."""
+    from simubench import cli
+
+    started = []
+    monkeypatch.setattr(cli, "_serve", started.append)
+    with pytest.raises(SystemExit) as stopped:
+        main(["serve", "--port", "0"])
+    assert stopped.value.code == 2 and started == []
+    err = capsys.readouterr().err
+    assert "--port" in err and "界面端口不能是 0" in err
+
+
+def test_port_zero_still_lets_the_os_choose_the_scpi_family(monkeypatch):
+    """--hislip-port 0 / --scpi-base-port 0 / --vxi11-port 0 stay valid (D41, D63)."""
+    from simubench import cli
+
+    seen: dict[str, object] = {}
+    monkeypatch.setattr(cli, "_serve", lambda args: seen.update(vars(args)))
+    main(["serve", "--scpi-base-port", "0", "--hislip-port", "0", "--vxi11-port", "0", "--link-port", "0"])
+    assert seen["scpi_base_port"] == 0
+    assert seen["hislip_port"] == 0
+    assert seen["vxi11_port"] == 0
+    assert seen["link_port"] == 0
+
+
 def test_no_scpi_turns_both_listener_families_off(monkeypatch, tmp_path):
     """--no-scpi closes the sockets and the HiSLIP port with them (D41: they start together)."""
     from simubench import cli

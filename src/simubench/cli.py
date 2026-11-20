@@ -21,6 +21,8 @@ from .service import (
     address_line,
     build_manager,
     link_line,
+    port_number,
+    web_port_number,
 )
 
 if TYPE_CHECKING:
@@ -701,7 +703,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     p.add_argument("bench", nargs="?", help="bench file to start right away")
     p.add_argument("--workspace", help="folder searched for bench files (default: the bench's folder)")
-    p.add_argument("--port", type=int, default=DEFAULT_PORT)
+    p.add_argument("--port", type=web_port_number, default=DEFAULT_PORT)
     add_service_options(p)
     p.add_argument("--open", action="store_true", help="open the browser")
     p.add_argument(
@@ -720,7 +722,9 @@ def main(argv: list[str] | None = None) -> int:
         "launch", help="start Web Bench and MCP together and open the browser (the Windows SimuBench.exe)"
     )
     p.add_argument("--workspace", help="folder with bench files (default: Documents/SimuBench in your home)")
-    p.add_argument("--port", type=int, help=f"port (default: {DEFAULT_PORT}, next free one if taken)")
+    p.add_argument(
+        "--port", type=web_port_number, help=f"port (default: {DEFAULT_PORT}, next free one if taken)"
+    )
     p.add_argument("--no-browser", action="store_true", help="do not open the browser")
     add_service_options(p)
     # None: not given, so the usual port, or a free one when it is taken (#1197).
@@ -759,7 +763,9 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("mcp", help="MCP service on stdio for AI agents, with the Web Bench alongside")
     p.add_argument("--workspace", default=".", help="folder with bench files (default: current folder)")
-    p.add_argument("--port", type=int, default=DEFAULT_PORT, help="Web Bench port (next free one if taken)")
+    p.add_argument(
+        "--port", type=web_port_number, default=DEFAULT_PORT, help="Web Bench port (next free one if taken)"
+    )
     p.add_argument("--no-ui", action="store_true", help="do not serve the Web Bench")
     add_service_options(p)
     p.add_argument(
@@ -871,8 +877,8 @@ def main(argv: list[str] | None = None) -> int:
 
     p = sub.add_parser("doctor", help="check that SimuBench can run here (exit 1 on a failure)")
     p.add_argument("--workspace", help="also validate the bench files in this folder")
-    p.add_argument("--port", type=int, default=8765)
-    p.add_argument("--scpi-base-port", type=int, default=DEFAULT_SCPI_PORT)
+    p.add_argument("--port", type=web_port_number, default=8765)
+    p.add_argument("--scpi-base-port", type=port_number, default=DEFAULT_SCPI_PORT)
     p.add_argument("--allow-plugins", action="store_true", help="also run components/*.py from the workspace")
     p.add_argument("--json", action="store_true")
     p.set_defaults(fn=_doctor)
