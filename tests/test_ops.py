@@ -6,9 +6,13 @@ import logging
 import zipfile
 from pathlib import Path
 
+import pytest
+import yaml
 from fastapi.testclient import TestClient
 
+from simubench.api import open_bench
 from simubench.cli import main
+from simubench.scpi.errors import ScpiError
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.server.ops import RING, JsonFormatter, doctor, manifest, setup_logging
@@ -29,6 +33,33 @@ def test_ring_keeps_recent_records():
     setup_logging("warning", "json")
     logging.getLogger("simubench.test").info("kept in the ring, not printed")
     assert any("kept in the ring" in r for r in RING.records)
+
+
+def test_configure_and_panel_reach_the_ring(tmp_path):
+    """#1694: the postmortem reads the diagnostics ring (``logs.jsonl``), not a caplog capture --
+    an out-of-band write and a panel press land in ``RING.records`` even when the stream prints
+    only warnings, and a refused write leaves its line too."""
+    setup_logging("warning", "json")  # the stream prints warnings; the ring keeps INFO
+    path = tmp_path / "ring.bench.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.bench/1",
+                "name": "ring",
+                "instruments": {"scope": {"model": "sb-dso-4"}},
+                "run": {"clock": "command", "seed": 3, "idle": "off"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    with open_bench(path) as s:
+        s.configure("scope", "ch1.scale", "0.05", client="agent")
+        s.panel("scope", "stop", client="ui")
+        with pytest.raises(ScpiError):
+            s.panel("scope", "launch", client="ui")
+    assert any("configure scope ch1.scale = '0.05' (client=agent)" in r for r in RING.records)
+    assert any("panel scope stop (client=ui)" in r for r in RING.records)
+    assert any("panel scope launch (client=ui) failed: ScpiError" in r for r in RING.records)
 
 
 def test_manifest_lists_definitions_with_hashes():
