@@ -16,10 +16,10 @@ dependencies = [
   "uvicorn[standard]>=0.30",
   "pydantic-ai-slim[anthropic,openai]>=1",
   "ruamel-yaml>=0.18",
+  "mcp>=2.3,<3",
 ]
 
 [project.optional-dependencies]
-mcp = ["mcp>=2.3,<3"]
 tui = ["textual>=8.2", "httpx>=0.27"]
 
 [project.scripts]
@@ -111,7 +111,7 @@ markers = [
 [tool.ty.src]
 include = ["src"]
 
-# The optional extras (mcp, ...) are not installed in every environment: an import the current
+# The optional extras (tui, ...) are not installed in every environment: an import the current
 # environment cannot resolve is an environment fact, not a type error the baseline must track (#897).
 [tool.ty.rules]
 import-not-found = "ignore"

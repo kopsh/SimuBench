@@ -157,8 +157,6 @@ def build(wheel: Path, out_dir: Path, cache: Path) -> Path:
             "export",
             "--frozen",
             "--no-dev",
-            "--extra",
-            "mcp",
             "--no-emit-project",
             "--no-hashes",
             "-o",

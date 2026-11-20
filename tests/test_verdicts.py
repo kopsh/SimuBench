@@ -229,7 +229,6 @@ def test_not_a_record(tmp_path):
 
 
 async def test_mcp_check_verdicts(tmp_path):
-    pytest.importorskip("mcp")
     from mcp import Client
 
     from simubench.mcp_server import build_server

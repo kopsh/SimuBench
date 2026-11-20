@@ -45,11 +45,8 @@ def _serve(args: argparse.Namespace) -> int:
     url = _ui_url(args.port, token)
     mcp = None
     if args.mcp:
-        try:
-            from .mcp_server import build_server
-        except ImportError:
-            print("MCP 需要可选依赖：pip install 'simubench[mcp]'", file=sys.stderr)
-            return 2
+        from .mcp_server import build_server
+
         mcp = build_server(manager, allow_control=args.allow_control, ui_url=url)
     app = create_app(manager, token=token, mcp=mcp)
 
@@ -225,13 +222,9 @@ def _mcp(args: argparse.Namespace) -> int:
     stdout carries the MCP protocol: everything else goes to stderr.
     """
 
-    try:
-        from .mcp_server import build_server
-    except ImportError:
-        print("MCP 需要可选依赖：pip install 'simubench[mcp]'", file=sys.stderr)
-        return 2
     import uvicorn
 
+    from .mcp_server import build_server
     from .server.app import create_app
     from .server.errors import Unknown
     from .server.ops import setup_logging
@@ -689,7 +682,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument(
         "--mcp",
         action="store_true",
-        help="also serve MCP for AI agents at /mcp (streamable HTTP, needs [mcp])",
+        help="also serve MCP for AI agents at /mcp (streamable HTTP)",
     )
     p.add_argument(
         "--allow-control",

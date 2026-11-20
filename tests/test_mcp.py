@@ -7,9 +7,6 @@ from pathlib import Path
 
 import pytest
 import yaml
-
-pytest.importorskip("mcp")
-
 from mcp import Client
 
 from helpers import mcp_result, raises_with
