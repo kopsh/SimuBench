@@ -203,7 +203,7 @@ test("wall clock: time runs by itself and the lock-in settles without advancing"
   expect((await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data } })).ok()).toBeTruthy();
   const sid = ((await (await page.request.post("/api/sessions", { headers, data: { bench_path: path } })).json()) as { id: string }).id;
   await page.goto(`/s/${sid}?token=${TOKEN}`);
-  await expect(page.getByText("墙钟", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("clock-state")).toHaveText("实时"); // a wall clock reads as live (#1660)
   await expect(page.getByRole("button", { name: "推进" })).toHaveCount(0); // nothing to advance
   const clock = page.getByTitle("虚拟时间", { exact: true });
   const first = await clock.textContent();
