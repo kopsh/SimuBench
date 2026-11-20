@@ -146,3 +146,20 @@ def test_the_tui_reads_no_reading_key_literal():
         for node in ast.walk(ast.parse((ROOT / path).read_text(encoding="utf-8"))):
             if isinstance(node, ast.Constant) and isinstance(node.value, str):
                 assert not node.value.startswith(("core.", "demod.", "osc.")), (path, node.value)
+
+
+def test_fetches_reads_the_row_and_the_instruments_own_panel():
+    """#1735: the TUI's polling predicate is derived once (categories.fetches) from the registry
+    row — /readings for the classes whose screen polls them or an instrument given a panel of its
+    own (#282), /screen for the rows that declare screen_poll. A new screen kind is one row edit;
+    before, the app's two sites each derived the predicates and missing one meant a screen that
+    never refreshed."""
+    scope = categories.get("oscilloscope")
+    assert categories.fetches(scope) == frozenset({"readings", "screen"})
+    meter = categories.get("multimeter")  # readings yes, screen data no
+    assert categories.fetches(meter) == frozenset({"readings"})
+    source = categories.get("source")  # neither, but its own panel makes the readings go
+    assert categories.fetches(source, panel=True) == frozenset({"readings"})
+    assert categories.fetches(source) == frozenset()
+    unknown = categories.get("no_such_class")
+    assert categories.fetches(unknown, panel=True) == frozenset({"readings"})

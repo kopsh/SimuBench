@@ -1,5 +1,4 @@
-// Following a turn's server-sent events (GET /api/assistant/events, #873). fetch, not EventSource:
-// the access token (D43) goes in a header, never in the URL.
+// Following a turn's server-sent events (GET /api/assistant/events, #873). fetch, not EventSource.
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/api/client";

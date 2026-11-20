@@ -3,10 +3,11 @@
 
 A service raises these (never ``HTTPException`` or ``ToolError``). One table (:data:`SEAM_ROWS`)
 holds, per kind of domain error, how each seam reports it: an HTTP route maps through
-``ApiContext.error_row``, the MCP tools and the assistant's tools through :func:`tool_text`. The
-classes live by layer: the engine's (``EditError``, ``PatchError``) stay in the engine, and the
-server's all live here; :class:`~..errors.Unknown` and :class:`~..errors.Invalid` sit below every
-layer, so the engine raises them too (#1394).
+``ApiContext.error_row``, the MCP tools and the assistant's tools through :func:`tool_text`, the
+CLI commands through :func:`cli_text` (the terminal, the fourth seam, #1735). The classes live by
+layer: the engine's (``EditError``, ``PatchError``) stay in the engine, and the server's all live
+here; :class:`~..errors.Unknown` and :class:`~..errors.Invalid` sit below every layer, so the
+engine raises them too (#1394).
 
 ``Forbidden`` and ``NotFound`` subclass the built-in ``PermissionError`` / ``FileNotFoundError``: the
 operating system raises the built-ins itself (opening a file that is gone), and both kinds must meet
@@ -123,7 +124,7 @@ class PortInUse(OSError):
 FILE_ERRORS = (PermissionError, FileNotFoundError)
 
 
-# ---- the one table, two encodings per kind -------------------------------------------------------
+# ---- the one table, three encodings per kind -----------------------------------------------------
 
 
 def _first_line(exc: Exception) -> str:
@@ -252,53 +253,76 @@ def _tool_patch(exc: Exception, seam: str) -> str:
     return f"补丁没有应用：{exc}"
 
 
+def _cli_message(exc: Exception) -> str:
+    """The terminal's words for the kind (#1735): the message as it reads, or the kind's name when
+    the message is empty. The command prints its own file name in front (#1672), so no next step
+    is dressed up here — the same kind reads the same in every command."""
+    return str(exc) or type(exc).__name__
+
+
+def _cli_key(exc: Exception) -> str:
+    return _keyerror_text(exc) or type(exc).__name__
+
+
+#: What the value row catches as the domain's own (#1394): the loaders' wrapped user-input errors
+#: and the parse/validation kinds. The CLI's catch tuple shares it, so a seam cannot narrow less
+#: than another (#1735).
+_VALUE_CAUGHT = (
+    Invalid,
+    ValidationError,
+    UnitError,
+    FileNameError,
+    FormatError,
+    VerdictError,
+    UnicodeDecodeError,
+)
+
+
 @dataclass(frozen=True)
 class ErrorRow:
-    """One kind of domain error and the two seams' encodings of it (#1382).
+    """One kind of domain error and the three seams' encodings of it (#1382, #1735).
 
     ``http`` receives the options a route may pass (``missing``, ``key``, ``full_detail``,
     ``files``) and returns the HTTP error, or ``None`` when the kind is not that route's to map.
     ``tool`` receives the agent seam (``"mcp"`` or ``"assistant"``) and returns the text the agent
-    reads. The first row that matches wins for both seams, so a subclass sits above its parent.
+    reads. ``cli`` receives the exception and returns the words the terminal prints (behind the
+    command's own file name). The first row that matches wins for every seam, so a subclass sits
+    above its parent.
 
     ``caught``: the kinds a seam catches around a service call for this row, when narrower than
     ``kinds``. A bare ``KeyError`` or ``ValueError`` is how a bug looks too, so those rows are
     caught only as the domain's own subclasses (#1394). The table has no catch-all row: an
     exception outside these kinds is a bug and no seam turns it into text — HTTP re-raises it
-    (a 500) and the agent seams let it surface as itself (#1478)."""
+    (a 500), the agent seams let it surface as itself (#1478), and :func:`cli_text` refuses it."""
 
     kinds: tuple[type[Exception], ...]
     http: Callable[..., HTTPException | None]
     tool: Callable[..., str]
+    cli: Callable[[Exception], str]
     caught: tuple[type[Exception], ...] | None = None
 
 
 SEAM_ROWS: tuple[ErrorRow, ...] = (
-    ErrorRow((ClientsConnected, InstrumentRemote), _http_in_use, _tool_in_use),
-    ErrorRow((PortInUse,), _http_port_in_use, _tool_port_in_use),  # before the file errors: an OSError too
-    ErrorRow((Busy,), _http_busy, _tool_first_line),
+    ErrorRow((ClientsConnected, InstrumentRemote), _http_in_use, _tool_in_use, _cli_message),
+    ErrorRow(
+        (PortInUse,), _http_port_in_use, _tool_port_in_use, _cli_message
+    ),  # before the file errors: an OSError too
+    ErrorRow((Busy,), _http_busy, _tool_first_line, _cli_message),
     # before the ValueError row: the assistant's settings errors are a domain kind of their own (#1725)
-    ErrorRow((ConfigError,), _http_config, _tool_first_line),
-    ErrorRow((PermissionError,), _http_forbidden_file, _tool_permission),
-    ErrorRow((FileNotFoundError,), _http_missing_file, _tool_missing_file),
-    ErrorRow((Conflict,), _http_conflict, _tool_conflict),
-    ErrorRow((BenchInvalid,), _http_invalid, _tool_invalid),
-    ErrorRow((EditError,), _http_edit, _tool_first_line),
-    ErrorRow((PatchError,), _http_value, _tool_patch),
-    ErrorRow((KeyError,), _http_key, lambda exc, seam: _keyerror_text(exc), caught=(Unknown,)),
+    ErrorRow((ConfigError,), _http_config, _tool_first_line, _cli_message),
+    ErrorRow((PermissionError,), _http_forbidden_file, _tool_permission, _cli_message),
+    ErrorRow((FileNotFoundError,), _http_missing_file, _tool_missing_file, _cli_message),
+    ErrorRow((Conflict,), _http_conflict, _tool_conflict, _cli_message),
+    ErrorRow((BenchInvalid,), _http_invalid, _tool_invalid, _cli_message),
+    ErrorRow((EditError,), _http_edit, _tool_first_line, _cli_message),
+    ErrorRow((PatchError,), _http_value, _tool_patch, _cli_message),
+    ErrorRow((KeyError,), _http_key, lambda exc, seam: _keyerror_text(exc), _cli_key, caught=(Unknown,)),
     ErrorRow(
         (ValueError, UnicodeDecodeError),
         _http_value,
         _tool_first_line,
-        caught=(
-            Invalid,
-            ValidationError,
-            UnitError,
-            FileNameError,
-            FormatError,
-            VerdictError,
-            UnicodeDecodeError,
-        ),
+        _cli_message,
+        caught=_VALUE_CAUGHT,
     ),
 )
 
@@ -308,6 +332,14 @@ SEAM_ROWS: tuple[ErrorRow, ...] = (
 DOMAIN_ERRORS = tuple(
     kind for row in SEAM_ROWS for kind in (row.caught if row.caught is not None else row.kinds)
 )
+
+#: The kinds a CLI command catches around one file or service call (#1735): the file rows through
+#: their built-in parent ``OSError`` (the operating system raises it itself), the value row as
+#: narrow as its ``caught`` — the same tuple every command uses, where hand-rolled per-command
+#: tuples once caught ``Exception`` or missed the ``Invalid`` family. A bare ``KeyError`` or
+#: ``ValueError`` is a bug and surfaces as itself (#1478). Each command keeps its own exit code
+#: and prints :func:`cli_text`'s words behind its file name (#1672).
+CLI_ERRORS = (OSError, *_VALUE_CAUGHT)
 
 
 def tool_text(exc: Exception, seam: str) -> str:
@@ -322,4 +354,18 @@ def tool_text(exc: Exception, seam: str) -> str:
             return row.tool(exc, seam)
     raise AssertionError(
         f"{type(exc).__name__} 不是领域错误（DOMAIN_ERRORS）；bug 原样上抛，不得折叠成工具文案 (#1478)"
+    ) from exc
+
+
+def cli_text(exc: Exception) -> str:
+    """The words a terminal reads for a domain error, from the one table's CLI column (#1735): the
+    same kind prints the same words in every command (the HTTP twin is ``ApiContext.error_row``,
+    the agents' is :func:`tool_text`). The commands catch :data:`CLI_ERRORS` and print the words
+    behind the file name the user typed (#1672); a non-domain exception is refused here — a bug is
+    not dressed up as an answer (#1478)."""
+    for row in SEAM_ROWS:
+        if isinstance(exc, row.kinds) and (row.caught is None or isinstance(exc, row.caught)):
+            return row.cli(exc)
+    raise AssertionError(
+        f"{type(exc).__name__} 不是领域错误（DOMAIN_ERRORS）；bug 原样上抛，不得折叠成终端文案 (#1478)"
     ) from exc

@@ -228,10 +228,13 @@ def test_a_bad_value_is_a_worded_config_error(tmp_path):
 
 
 def test_a_bad_env_value_answers_422_in_words(client, manager):
-    """GET /api/assistant/conversation reads the settings: a bad environment value is the one
-    table's ConfigError row (422, the words), not a 500."""
+    """GET /api/assistant/conversation and GET /api/assistant/config read the settings: a bad
+    environment value is the one table's ConfigError row (422, the words), not a 500 — the config
+    route went through the seam too since #1735 (#1747 disclosed that it did not)."""
     manager.assistant.settings = AssistantSettings(manager.workspace, {"SIMUBENCH_LLM_TIMEOUT": "abc"})
     refused = client.get("/api/assistant/conversation", params={"bench": BENCH})
+    assert refused.status_code == 422 and "SIMUBENCH_LLM_TIMEOUT" in refused.text and "abc" in refused.text
+    refused = client.get("/api/assistant/config")
     assert refused.status_code == 422 and "SIMUBENCH_LLM_TIMEOUT" in refused.text and "abc" in refused.text
 
 

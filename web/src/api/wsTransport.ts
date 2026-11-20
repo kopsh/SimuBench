@@ -10,7 +10,8 @@ export type ConnectionState = "connecting" | "connected" | "reconnecting" | "una
 /** The reconnect delay after the nth failed attempt: 1 s, doubling, capped at 10 s. */
 export const backoffMs = (attempt: number) => Math.min(10_000, 500 * 2 ** Math.min(attempt, 5));
 
-/** A stream's URL on this origin, carrying the access token when there is one (D43). */
+/** A stream's URL on this origin, carrying the access token in the query parameter — a browser
+ * WebSocket cannot set a header (the rule lives in token.ts, #1735). */
 export const wsUrl = (path: string, query = "") => {
   const proto = window.location.protocol === "https:" ? "wss" : "ws";
   return `${proto}://${window.location.host}${path}?token=${encodeURIComponent(getToken() ?? "")}${query}`;
