@@ -425,6 +425,27 @@ def test_psc_round_trips_and_survives_a_reset():
     assert caught.value.code == -109
 
 
+def test_system_preset_is_no_default_builtin_but_a_model_s_own_answers():
+    """D92 (#1568): a definition that does not write :SYSTem:PRESet gets -113, not a guessed ``*RST``;
+    one that writes it (a ``reset`` operation) answers, and the setting returns to its default."""
+    plain = _inst()
+    with pytest.raises(ScpiError) as caught:
+        dispatch_unit(plain, ":SYSTem:PRESet")
+    assert caught.value.code == -113  # step 1: no definition, no answer
+    own = _with(
+        components=[{"name": "system", "type": "system"}],
+        commands=[
+            {"header": ":LEVel", "state": "out.level"},
+            {"header": ":SYSTem:PRESet", "op": "system.reset", "query": False},
+        ],
+    )
+    dispatch_unit(own, ":LEVel 7")
+    dispatch_unit(own, "*ESE 5")
+    dispatch_unit(own, ":SYSTem:PRESet")  # step 2: the model's own command runs
+    assert dispatch_unit(own, ":LEVel?")[0] == b"+1.000000E+00"  # step 3: back to the default
+    assert dispatch_unit(own, "*ESE?")[0] == b"5"  # step 4: a reset leaves the enables alone
+
+
 def test_system_version_answers_the_scpi_version():
     assert dispatch_unit(_inst(), ":SYSTem:VERSion?")[0] == b"1999.0"
 

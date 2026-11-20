@@ -111,7 +111,7 @@ preamp_gain:
 
 已实现（低频校准工作台）：定义可以给公共命令自己的行为（`*CLS?`），`unknown_commands: ignore`（D42）。保持不变。
 
-**默认内置命令（#1559）**：除公共命令和错误队列外，`*PSC` / `*PSC?`（上电状态清除标志，默认 1，`*RST` 不改它，只存标志）与 `:SYSTem:VERSion?`（回 `1999.0`）也是内置命令，受 `builtins` 名单限制（名单里没有就按未建模）；型号定义里自己写的同名命令用定义的。`:SYSTem:PRESet` 不做默认内置：各家的 Preset 与 `*RST` 并不相同（B2900 的 Preset 连前面板显示也预置），没有手册依据的型号不替它猜。
+**默认内置命令（#1559）**：除公共命令和错误队列外，`*PSC` / `*PSC?`（上电状态清除标志，默认 1，`*RST` 不改它；只读存根：模拟的仪表没有掉电重启，标志不影响 `*ESE`/`*SRE`、不进快照，回放靠重发 `*PSC` 命令，#1568、D92）与 `:SYSTem:VERSion?`（回 `1999.0`）也是内置命令，受 `builtins` 名单限制（名单里没有就按未建模）；型号定义里自己写的同名命令用定义的。`:SYSTem:PRESet` 不做默认内置：各家的 Preset 与 `*RST` 并不相同（B2900 的 Preset 连前面板显示也预置），没有手册依据的型号不替它猜（D92）；手册里 Preset 与 `*RST` 不同的型号，没做出差别前覆盖表标 `not_modeled` 并写 `gap`，这是最终等级。
 
 **默认状态寄存器（#1560）**：没有 `reference` 的定义（自己就是规格的自定义仪表）默认带 SCPI 要求的 `STATus:OPERation` 与 `STATus:QUEStionable` 两个寄存器（`[:EVENt]?`、`:CONDition?`、`:ENABle`、`:PTRansition`、`:NTRansition`）和 `STATus:PRESet`。enable 与转换滤波器可读写（0 到 65535，超出回 -222），事件与条件恒读 0、不锁存任何事件，所以不给状态字节加位；`*CLS`、`*RST` 不改它们，`PRESet` 把 enable 清 0、PTR 设为 32767、NTR 清 0。**带 `reference` 的真实型号没有这组默认**：它们的手册给了各个位的含义，回常量 0 就是编一个看似合理的答案，应当按手册用 `status_register` 组件建模，没建模的回 -113。定义里在 `STATus:OPERation`（或 `QUEStionable`、`PRESet`）下写了任何命令，那一组就全由定义回答，不与默认混用。同样受 `builtins` 名单限制。
 

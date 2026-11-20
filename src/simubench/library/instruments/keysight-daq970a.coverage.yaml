@@ -748,9 +748,9 @@ sections:
     level: implemented
     note: '*OPC 置 ESR 位 0；*OPC? 等扫描与读数完成后回 1。'
   - header: '*PSC'
-    level: not_modeled
-    note: 上电清状态未建模。
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 手册（*PSC {0|1}，默认 1）：管状态使能寄存器（QUEStionable/OPERation 使能、*SRE、*ESE）掉电重启后是否清零。SimuBench 只存标志、读回；模拟的仪表没有掉电重启，上电时使能本来就清零，标志无可观察的作用（#1568）。
   - header: '*RCL'
     level: implemented
     note: 'setup_memory 组件（#1573）：位置 0–5；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；empty_error 291（+291 "Not able to recall state: it is empty"）；*RST 不清槽。'
@@ -1796,7 +1796,7 @@ sections:
   commands:
   - header: SYSTem:PRESet
     level: not_modeled
-    note: 系统配置、远程接口、实时时钟与安全类命令未建模。
+    note: 手册：功能、量程、扫描表等“不变”，与 *RST 不同；默认不等同 *RST（D92），差别未建模。
     gap: model_work
 - section: SYStem:RELay Subsystem
   commands:

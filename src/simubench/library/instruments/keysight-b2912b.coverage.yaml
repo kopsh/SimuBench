@@ -1433,7 +1433,7 @@ sections:
     blocked_by: setup-memory
   - header: :SYSTem:PRESet
     level: not_modeled
-    note: 上电状态、预置与设置块未实现。
+    note: 手册：预置仪器设置与前面板显示，与 *RST 不同；默认不等同 *RST（D92），差别与设置块一起做。
     gap: blocked
     blocked_by: setup-memory
   - header: :SYSTem:SET

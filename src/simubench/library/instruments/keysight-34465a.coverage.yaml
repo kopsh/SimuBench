@@ -215,7 +215,7 @@ sections:
   - header: '*PSC'
     level: accepted
     affects_data: false
-    note: 上电值手册未给，SimuBench 取 1（开）；只存标志，模拟的仪表上电时状态使能本来就清零。
+    note: 手册（Common Commands > *PSC）：{0|1}，默认 1，管 Questionable/Operation 使能、*SRE、*ESE 掉电重启后是否清零。SimuBench 取默认 1，只存标志、读回；模拟的仪表没有掉电重启，上电时使能本来就清零，标志无可观察的作用（#1568）。
   - header: '*RCL'
     level: implemented
     note: 'setup_memory 组件（#1573）：位置 0–4（手册 *SAV {0|1|2|3|4}），内容为 SimuBench 的设置快照，不与 STATE_n.sta 的私有格式逐字节一致；空位置报 +810 "State has not been stored"，设置不变；*RST 不清槽。'

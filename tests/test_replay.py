@@ -48,6 +48,22 @@ def test_replay_reproduces_every_reply(tmp_path, clock):
     assert report.replies == 4 and report.actions >= 6 and report.warnings == []
 
 
+def test_the_psc_flag_replays_with_its_command(tmp_path):
+    """*PSC is no state of its own (D92, #1568): the flag is not in the instrument snapshot, and a
+    replay rebuilds the bench and re-sends the recorded ``*PSC 0``, so the replayed reply matches."""
+    s = open_bench(BENCH, record_dir=tmp_path)
+    s.write("scope", b"*PSC?\n")
+    assert s.read("scope") == b"1\n"  # the default of a fresh unit
+    s.write("scope", b"*PSC 0\n")
+    s.write("scope", b"*PSC?\n")
+    assert s.read("scope") == b"0\n"
+    assert "psc" not in s.instrument("scope").snapshot()  # not saved anywhere but the command log
+    s.close()
+    report = replay(next(tmp_path.glob("run-*.jsonl")))
+    assert report.ok, report.as_dict()
+    assert report.replies == 2
+
+
 def test_acquisitions_are_recorded_as_recipes(tmp_path):
     records = lines(record_run(tmp_path))
     header = records[0]
