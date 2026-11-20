@@ -215,7 +215,7 @@ cases:
 依据：技术概述 3123-1371（`manuals/3123-1371/`）与数据手册 3123-1313（`manuals/3123-1313/`），页码均为 PDF 页；
 另有一篇 Signal Integrity Journal 文章（未入库，下称 SIJ：
 https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-series-oscilloscopes-a-journey-of-a-signal ）。
-厂商只公开到框图级（没有 ASIC 型号、电路与布局）。下面的“模型值”都由测试实测，测试名写在表里。
+厂商只公开到框图级（没有 ASIC 型号、电路与布局）；更细的结构只有拆解视频 TSP #133 的笔记（`manuals/tsp-133/`，2018 年原型机，非厂商资料），对照在 11.3。下面的“模型值”都由测试实测，测试名写在表里。
 
 ### 11.1 结构（#1579 起与公开框图一致）
 
@@ -262,3 +262,39 @@ https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-seri
 没有建模：固有抖动随采集时长增长（10 µs 25 fs、100 µs 40 fs、1 ms 50 fs，需要时钟的相位噪声模型）、通道间相位
 （p.9 的 2 通道互相关相位噪声）、前端的模拟带宽限制滤波、单独的 ADC ENOB（3123-1371 p.10 的 8.7 位，整机噪声已在
 噪声表里）。UXR0334B（3.5 mm，2 个 SiGe 采样器、8 路 ADC、两通道共用一块采集板，p.12）仍是旧结构。
+
+### 11.3 拆解视频 TSP #133 与定义的对照（#1688）
+
+依据 `manuals/tsp-133/tsp-133.md`，括号里是视频时间点。拆的是 2018 年的 UXR（A 系列）原型机，量产的 UXR-B 可能不同。
+这里只对照结构；指标仍以数据手册为准，原型机的实测不用来改定义里的数值。
+
+**一致**：视频证实了定义里已有的结构。
+
+| 视频 | 定义 |
+| --- | --- |
+| 1 mm 接头 → 机电衰减器 → InP 前放 + VGA，衰减由两者分担（07:09、08:21） | `ch<n>.atten`（`scope_attenuator`，4 档）→ `ch<n>.front`（`attenuator: atten`，补回衰减器损耗） |
+| 两层时间交织：InP 采样器 64 GHz 4 相分 4 路 → 4 颗 SiGe 采样器各 16 GHz 4 相再分 4 路 → 16 路（10:09、15:33） | `ch<n>.sampler`（`paths: 4`）→ `adc`（`interleave: 16`），第 i 路属于第 i mod 4 个采样器：与 InP 的相位轮流分给 4 颗 SiGe 采样器的顺序相同 |
+| 4 颗 ADC，每颗 64 GSa/s、4 路输入；每颗 SiGe 采样器的 4 路进同一颗 ADC（17:21、26:22） | `adc` 的 16 路；定义不区分 ADC 芯片，按视频是第 i mod 4 组的 4 路同属一颗 |
+| 整个机箱共用一个 8 GHz 基准时钟（11:23） | `timebase` 的 `clock_jitter_s`（各通道共用的 14.14 fs），`adc.clock` 引用 |
+| 每通道独占一块采集板（20:58） | 共享块按通道各有端口，每个端口对应一块采集板（11.1） |
+| 64 GHz 杂散来自前端采样器（44:19，原型机约 −75 dBm @ 50 mV/div） | `sampler.path_offsets_fs` 给出 64 GHz 的 −65 dBFS，按数据手册的 −65 dBm 上限 |
+| 前端前面没有硬件滤波器，带宽限制在 DSP 里做（33:02） | `bwf`（`:ACQuire:BANDwidth`）在 ADC 之后。3123-1371 p.11 写有 "Analog and DSP bandwidth limit filters"，与视频说法不同；模拟那一级照旧不建模（11.2） |
+| ENOB 随带宽提高而提高，受噪声而非失真限制（35:26、50:45） | 噪声表按档位给，HD2/HD3 很小（`test_scope_adc_nonlinearity.py`）；ENOB 只在 1 GHz 正弦上测过（11.2） |
+| 每颗 ADC 配一颗 DSP ASIC，负责交织与频响校正；内存是 Micron HMC（22:49、23:25） | `bwf`、`isim`、`dec`、`acq`，只按功能对应 |
+
+**不一致**：
+
+| 视频 | 定义 | 处理 |
+| --- | --- | --- |
+| 前端里的 24 GHz 模拟边沿触发芯片是遗留硬件，**不用**；触发是数字的，在 ADC 之后的 DSP ASIC 里实时完成，带宽 113 GHz（09:34、22:49、49:37） | `trigger` 从模拟前端分出，在 ADC 之前，看到的是 `analog_response: bessel4` 的未校正形状（#1263、#1423），不带采样器与 ADC 的误差 | 待定：11.1 的模拟触发通路依据的是 SIJ 一文。数据手册 3123-1313 只写 "Hardware trigger"、"Edge trigger bandwidth: Equal to acquisition analog bandwidth"，两种实现都符合。改成数字触发会影响 #1579 的显示抖动推算（71 fs = 记录噪声 ÷ 斜率），需要另开 issue 先定量 |
+| 原型机硬件灵敏度最低 2 mV/div（31:13） | 数据手册 3123-1313：硬件 60 mV 满量程（7.5 mV/div），更小档位是放大 | 不改：以量产数据手册为准，视频是 A 系列原型机 |
+
+**未建模**（视频有，定义没有）：
+
+- 校准模块：AUX 方波经多级 InP 限幅放大器变成约 3.3 ps 的阶跃，模块内存有 NIST 溯源响应，示波器按它修正频响并对齐各通道（35:30–42:30）。覆盖表把 `:CALibrate` 记为范围外，不变。
+- 时钟链的细节：16 GHz → 32 → 64 GHz 倍频，再经 128 GHz 分出 4 相，InP 芯片内有移相器对齐（12:32–14:21）。定义只建了结果，即每路的时延失配与抖动，不建倍频链；固有抖动随采集时长增长仍未建模（11.2）。
+- 前端模块的封装：腔体、吸波材料、键合线（05:23、19:46）。属于电路实现，不在框图级定义里。
+
+**UXR0334B**：视频的 33 GHz 双通道模块完全不用 InP，只用 SiGe；两通道共用一块采集板，16 路 ADC 一半归一个通道，每通道 128 GSa/s（28:40）。
+这与 3123-1371 p.12 一致（2 个 SiGe 采样器、8 路 ADC），所以 `keysight-uxr0334b` 的 `adc`（`interleave: 8`）也对得上。
+但它还没有 `scope_sampler` 块（11.1 末尾的"旧结构"），这次的资料不改变这个状态。
