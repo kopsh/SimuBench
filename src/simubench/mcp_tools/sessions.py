@@ -231,6 +231,30 @@ def _log_clock_and_fault_tools(mcp: MCPServer, ctx: McpContext) -> None:
             raise force_needed(exc) from None
 
     @mcp.tool()
+    def set_clock_mode(
+        mode: Literal["command", "wall", "stepped", "scaled"],
+        scale: float | None = Field(
+            None, gt=0, le=1_000_000, description="For mode=scaled: virtual seconds per real second"
+        ),
+        session_id: str | None = None,
+        force: bool = Field(
+            False,
+            description="Required while scripts are connected to the ports: their view of virtual time changes",
+        ),
+    ) -> dict[str, Any]:
+        """Switch the running session's clock (simulation control; needs --allow-control): wall or
+        scaled to let time run by itself (a spectrum analyzer sweeps on its own), command or stepped
+        to stop it again. Time neither jumps nor goes back; the bench file is not changed. Returns
+        ``mode``, ``scale`` and ``now_ns``. Refused while scripts are connected, unless force=true."""
+        guard()
+        control()
+        try:
+            info = clock.set_mode(served(session_id), mode, scale, force=force)
+        except ClientsConnected as exc:
+            raise force_needed(exc) from None
+        return {"mode": info.mode, "scale": info.scale, "now_ns": info.now_ns}
+
+    @mcp.tool()
     def inject_fault(fault: Fault, session_id: str | None = None) -> dict[str, Any]:
         """Inject a fault into a running session (simulation control; needs --allow-control).
         Link faults on an instrument: timeout, disconnect, garble, latency, busy; instrument faults:

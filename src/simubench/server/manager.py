@@ -17,7 +17,7 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ..access.bench_link import BenchLinkServer
 from ..access.hislip_server import HislipServer
@@ -28,7 +28,7 @@ from ..api import bench_files_dir, open_bench
 from ..contracts import api as M
 from ..engine.record import definition_hash
 from ..library.workspace_layout import definitions_dir
-from ..models.bench import BenchDefinition
+from ..models.bench import BenchDefinition, ClockMode
 from .benchfiles import BenchFiles
 from .errors import PORT_OPTION, BenchInvalid, ClientsConnected, InstrumentRemote, PortInUse, Unknown
 from .runs import Runs
@@ -244,6 +244,9 @@ class ServedSession:
         # The engine raises what this raises: an explicit advance refuses while scripts are
         # connected to the ports, unless confirmed (#121, issue 624).
         session.clock.confirm_advance = self._confirm_advance
+        session.clock.confirm_mode = self._confirm_mode
+        #: The clock the session opened on; the running clock may be switched (#1660).
+        self.start_clock_mode = cast(ClockMode, session.clock.mode)
 
     # Named access to the servers that come with a bench. The registry (``servers``) is what the
     # loops read; these are for the seams that show one protocol's facts (a socket port, the
@@ -267,6 +270,9 @@ class ServedSession:
 
     def _confirm_advance(self, force: bool) -> None:
         self.require_no_clients("advancing the clock", force)
+
+    def _confirm_mode(self, force: bool) -> None:
+        self.require_no_clients("switching the clock", force)
 
     def is_remote(self, client: str | None) -> bool:
         """Whether ``client`` is a connection on the access servers' ports, as opposed to the UI,

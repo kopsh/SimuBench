@@ -8,13 +8,14 @@ with ``duts``) are migrated when they are read, wherever they come from.
 from __future__ import annotations
 
 import datetime as dt
-from typing import Any, Literal
+from typing import Any, Literal, get_args
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from .deviation import DeviationRange
 
 ClockMode = Literal["command", "wall", "stepped", "scaled"]
+CLOCK_MODES: tuple[str, ...] = get_args(ClockMode)
 #: The clocks that run by themselves: virtual time follows real time (the wall clock 1:1, a scaled
 #: clock at ``run.time_scale``). Neither can be advanced by hand, and neither is repeatable (D47).
 LIVE_CLOCKS = ("wall", "scaled")

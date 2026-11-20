@@ -381,6 +381,22 @@ def _net_and_clock_routes(ctx: ApiContext, router: APIRouter) -> None:
         except RuntimeError as exc:
             raise HTTPException(409, str(exc)) from None
 
+    @router.post(
+        "/api/sessions/{sid}/clock/mode",
+        response_model=M.ClockInfo,
+        operation_id="setClockMode",
+        dependencies=[Depends(auth)],
+        responses=IN_USE,
+    )
+    def clock_mode(sid: str, req: M.ClockModeRequest) -> M.ClockInfo:
+        """Switch the running clock (Live / Pause, #1660); the bench file keeps its run.clock."""
+        try:
+            return clock_service.set_mode(served(sid), req.mode, req.scale, force=req.force)
+        except ClientsConnected as exc:  # a RuntimeError: map before the plain 409 below
+            raise in_use(exc) from None
+        except RuntimeError as exc:
+            raise HTTPException(409, str(exc)) from None
+
 
 def _reading_and_fault_routes(ctx: ApiContext, router: APIRouter) -> None:
     auth = ctx.auth

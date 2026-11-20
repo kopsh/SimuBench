@@ -1,11 +1,11 @@
-import { ChevronLeft, Command, History, Power, RotateCw, Sparkles, StepForward } from "lucide-react";
+import { ChevronLeft, Command, History, Pause, Play, Power, RotateCw, Sparkles, StepForward } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import type { SessionInfo } from "@/api/client";
 import { type ConnectionState, useEvents } from "@/api/events";
-import { useAdvance, useResetSession, useStopSession } from "@/api/hooks";
+import { useAdvance, useClockMode, useResetSession, useStopSession } from "@/api/hooks";
 import { Logo } from "@/components/app/Logo";
 import { isCancelled } from "@/components/app/ClientsConfirm";
 import { PreferencesMenu } from "@/components/app/PreferencesMenu";
@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { EditControls, benchChanged, useRebuild } from "./edit/EditControls";
 import { useEditor } from "./edit/editor";
 import { advanceReason, clockModeLabel, recentAdvances } from "./clockAdvances";
+import { LIVE_RATES, clockStateLabel, isLive, liveRate, liveRequest, pauseMode } from "./clockControl";
 import { useWorkbench } from "./store";
 
 const STEPS = [1e-3, 10e-3, 100e-3, 1];
@@ -33,6 +34,10 @@ export function TopBar({ session }: { session: SessionInfo }) {
   const assistantOpen = useWorkbench((s) => s.assistantOpen);
   const setAssistant = useWorkbench((s) => s.setAssistant);
   const advance = useAdvance(session.id);
+  const clockMode = useClockMode(session.id);
+  const live = isLive(session.clock_mode);
+  const switchClock = (body: Parameters<typeof clockMode.mutate>[0]) =>
+    clockMode.mutate(body, { onError: (e) => !isCancelled(e) && toast.error((e as Error).message) });
   const stop = useStopSession();
   const reset = useResetSession(session.id);
   // Back in Operate without rebuilding ("later", scripts connected): offer the rebuild here (#121).
@@ -111,8 +116,11 @@ export function TopBar({ session }: { session: SessionInfo }) {
               tabIndex={0}
               data-testid="clock"
             >
-              {/* The mode name gives way first on a narrow window; the tooltip still names it (#276). */}
-              <span className="text-muted-foreground hidden text-[11px] xl:inline">{clockModeLabel(session.clock_mode, session.idle_mode, t)}</span>
+              {/* Live or paused, not the clock's mode name (#1660): the tooltip names the mode. It gives
+                  way first on a narrow window (#276). */}
+              <span className="text-muted-foreground hidden text-[11px] xl:inline" data-testid="clock-state">
+                {clockStateLabel(session.clock_mode, session.time_scale, t)}
+              </span>
               <span className="num text-[13px] font-medium" title={t("workbench.clock")}>
                 t = {formatClock(nowNs)}
               </span>
@@ -122,7 +130,37 @@ export function TopBar({ session }: { session: SessionInfo }) {
             <ClockWhy session={session} />
           </TooltipContent>
         </Tooltip>
-        {session.clock_mode !== "wall" && session.clock_mode !== "scaled" && (
+        {live ? (
+          <div className="flex items-center">
+            <Select value={String(liveRate(session.clock_mode, session.time_scale))} onValueChange={(v) => switchClock(liveRequest(Number(v)))}>
+              <SelectTrigger size="sm" className="num h-8 w-[76px] rounded-r-none text-xs" aria-label={t("workbench.liveRate")}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LIVE_RATES.map((r) => (
+                  <SelectItem key={r} value={String(r)} className="num text-xs">
+                    {r}×
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 rounded-l-none border-l-0"
+                  disabled={status !== "connected" || clockMode.isPending}
+                  onClick={() => switchClock({ mode: pauseMode(session.start_clock_mode) })}
+                  data-testid="clock-pause"
+                >
+                  <Pause className="size-3.5" /> {t("workbench.pause")}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-72">{t("workbench.pauseHint")}</TooltipContent>
+            </Tooltip>
+          </div>
+        ) : (
           <div className="flex items-center">
             <Select value={String(step)} onValueChange={(v) => setStep(Number(v))}>
               <SelectTrigger size="sm" className="num h-8 w-[84px] rounded-r-none text-xs" aria-label={t("workbench.advance")}>
@@ -145,6 +183,21 @@ export function TopBar({ session }: { session: SessionInfo }) {
             >
               <StepForward className="size-3.5" /> {t("workbench.advance")}
             </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-2 h-8"
+                  disabled={status !== "connected" || clockMode.isPending}
+                  onClick={() => switchClock(liveRequest(1))}
+                  data-testid="clock-live"
+                >
+                  <Play className="size-3.5" /> {t("workbench.live")}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-72">{t("workbench.liveHint")}</TooltipContent>
+            </Tooltip>
           </div>
         )}
       </div>

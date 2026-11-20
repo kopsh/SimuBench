@@ -945,6 +945,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/sessions/{sid}/clock/mode": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clock Mode
+         * @description Switch the running clock (Live / Pause, #1660); the bench file keeps its run.clock.
+         */
+        post: operations["setClockMode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/sessions/{sid}/clock/scale": {
         parameters: {
             query?: never;
@@ -2179,6 +2199,29 @@ export interface components {
              * @default 1
              */
             scale: number;
+        };
+        /**
+         * ClockModeRequest
+         * @description Switch the running session's clock (#1660): the Web's Live / Pause. The bench file's
+         *     ``run.clock`` is not changed; a reset opens on it again.
+         */
+        ClockModeRequest: {
+            /**
+             * Force
+             * @description Switch even though scripts are connected (their view of time changes)
+             * @default false
+             */
+            force: boolean;
+            /**
+             * Mode
+             * @enum {string}
+             */
+            mode: "command" | "wall" | "stepped" | "scaled";
+            /**
+             * Scale
+             * @description For mode scaled: virtual seconds per real second (default: the current scale when already scaled, else 1); ignored by the other modes
+             */
+            scale?: number | null;
         };
         /**
          * CommandOverride
@@ -5373,7 +5416,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file
+             * @description scpi | state | advance | clock | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file
              */
             kind: string;
             /** Message */
@@ -5419,6 +5462,11 @@ export interface components {
              * @description seq of the acquisition event a waveform block came from
              */
             recipe: number | null;
+            /**
+             * Scale
+             * @description Virtual seconds per real second, for clock events: 1 except on a scaled clock
+             */
+            scale: number | null;
             /** Seq */
             seq: number;
             /**
@@ -5729,6 +5777,13 @@ export interface components {
              * @description Instrument definitions changed on disk since the session started: restart to apply them
              */
             stale_definitions: string[];
+            /**
+             * Start Clock Mode
+             * @description The clock the session opened on (the bench's run.clock or the start override); clock_mode differs once the clock was switched while running (#1660)
+             * @default command
+             * @enum {string}
+             */
+            start_clock_mode: "command" | "wall" | "stepped" | "scaled";
             /**
              * Time Scale
              * @description Virtual seconds per real second (scaled clock)
@@ -8454,6 +8509,48 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["AdvanceRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockInfo"];
+                };
+            };
+            /** @description Scripts are connected: the instrument is remote, or the operation needs force=true */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setClockMode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ClockModeRequest"];
             };
         };
         responses: {

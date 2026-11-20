@@ -6,6 +6,7 @@ import type { T } from "@/i18n";
 import type { Diagnostic, SessionInfo } from "@/api/client";
 import { useFaults } from "@/api/hooks";
 import { FaultRow } from "./faults/FaultPanel";
+import { clockStateLabel } from "./clockControl";
 import { useEvents } from "@/api/events";
 import type { Event } from "@/api/generated/events";
 import { EmptyState } from "@/components/app/StateViews";
@@ -268,6 +269,8 @@ function EventRow({ e }: { e: Event }) {
       ? `${e.fault} ${e.reason}  ${e.message ?? ""}  (${e.source ?? ""})`
       : e.kind === "state"
       ? `${e.instrument} ${e.path}: ${JSON.stringify(e.old)} → ${JSON.stringify(e.new)}  (${e.source})`
+      : e.kind === "clock"
+      ? t("workbench.clockSwitched", { old: clockStateLabel(String(e.old), null, t), new: clockStateLabel(String(e.new), e.scale, t) })
       : e.kind === "advance"
         ? `+${formatEng((e.dt_ns ?? 0) / 1e9, "s", 4)}  ${advanceReason({ reason: e.reason ?? "", instrument: e.instrument ?? null, header: e.header ?? null }, t)}`
         : e.kind === "error"

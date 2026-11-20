@@ -108,7 +108,7 @@ test("spectrum analyzer: the standing-trace hint follows the clock and the sweep
 
   // Command clock (the example bench): the hint and its button; one click sweeps once more.
   const sid = await open("benches/sa-two-tone.bench.yaml");
-  await expect(hint).toContainText("命令时钟");
+  await expect(hint).toContainText("已暂停");
   await expect(page.getByTestId("hold")).toHaveCount(0);
   const before = await sweepNo();
   await page.getByRole("button", { name: "推进一次扫描时间" }).click();
@@ -120,6 +120,27 @@ test("spectrum analyzer: the standing-trace hint follows the clock and the sweep
   await expect(page.getByTestId("hold")).toHaveText("HOLD");
   await expect(hint).toContainText("单次扫描");
   await expect(page.getByRole("button", { name: "推进一次扫描时间" })).toHaveCount(0);
+  // #1660: the analyzer stops where it is; its own Single key sweeps once, Cont sweeps again.
+  const held = await sweepNo();
+  await page.getByRole("button", { name: "推进", exact: true }).click();
+  await expect(page.getByTestId("hold")).toHaveText("HOLD");
+  expect(await sweepNo()).toBe(held); // time passed, nothing swept
+  await page.getByTestId("sweep-single").click();
+  await expect.poll(sweepNo).toBeGreaterThan(held);
+  await page.getByTestId("sweep-continuous").click();
+  await expect(page.getByTestId("hold")).toHaveCount(0);
+  await expect(hint).toContainText("已暂停");
+
+  // #1660: Live from the hint: the clock runs by itself and the analyzer sweeps; Pause stops it.
+  await page.getByTestId("sweep-live").click();
+  await expect(hint).toHaveCount(0);
+  await expect(page.getByTestId("clock-state")).toHaveText("实时");
+  const live = await sweepNo();
+  await expect.poll(sweepNo, { timeout: 10_000 }).toBeGreaterThan(live);
+  await page.getByTestId("clock-pause").click();
+  await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
+  await expect(hint).toContainText("已暂停");
+  await expect(page.getByRole("button", { name: "推进", exact: true })).toBeVisible();
 
   // Wall clock, continuous sweeping: nothing to explain.
   await open({ schema: "simubench.bench/1", name: "sa_wall", instruments: { sa: { model: "sb-sa-fft-1", label: "频谱仪" } }, run: { clock: "wall", seed: 1 } });
@@ -182,7 +203,7 @@ test("wall clock: time runs by itself and the lock-in settles without advancing"
   expect((await page.request.put("/api/benches/file", { headers, data: { path, base_sha256: null, data } })).ok()).toBeTruthy();
   const sid = ((await (await page.request.post("/api/sessions", { headers, data: { bench_path: path } })).json()) as { id: string }).id;
   await page.goto(`/s/${sid}?token=${TOKEN}`);
-  await expect(page.getByText("墙钟", { exact: true })).toBeVisible();
+  await expect(page.getByTestId("clock-state")).toHaveText("实时"); // a wall clock reads as live (#1660)
   await expect(page.getByRole("button", { name: "推进" })).toHaveCount(0); // nothing to advance
   const clock = page.getByTitle("虚拟时间", { exact: true });
   const first = await clock.textContent();

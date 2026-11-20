@@ -107,14 +107,14 @@ def test_the_spectrum_screen_says_why_the_trace_stands_still():
     """#1178: command/stepped clock or a single sweep → the web screen's wording; wall → none."""
     hold = {"init.continuous": {"value": False}}
     on = {"init.continuous": {"value": True}}
-    assert "Command clock" in rows.sweep_hint(LANG, "command", on)
-    assert "Command clock" in rows.sweep_hint(LANG, "stepped", {})
+    assert "Paused:" in rows.sweep_hint(LANG, "command", on)
+    assert "Paused:" in rows.sweep_hint(LANG, "stepped", {})
     assert "Single sweep" in rows.sweep_hint(LANG, "wall", hold)
     assert "Single sweep" in rows.sweep_hint(LANG, "command", hold)
     assert rows.sweep_hint(LANG, "wall", on) is None
     assert rows.sweep_hint(LANG, "scaled", {}) is None
     out = rows.spectrum_rows(LANG, {}, {}, 80, None, "command")
-    assert any("Command clock" in text for row in out for text, _ in row)
+    assert any("Paused:" in text for row in out for text, _ in row)
 
 
 def test_the_spectrum_screen_flags_a_mixer_overload():

@@ -1465,6 +1465,46 @@
         "title": "ClockInfo",
         "type": "object"
       },
+      "ClockModeRequest": {
+        "description": "Switch the running session's clock (#1660): the Web's Live / Pause. The bench file's\n``run.clock`` is not changed; a reset opens on it again.",
+        "properties": {
+          "force": {
+            "default": false,
+            "description": "Switch even though scripts are connected (their view of time changes)",
+            "title": "Force",
+            "type": "boolean"
+          },
+          "mode": {
+            "enum": [
+              "command",
+              "wall",
+              "stepped",
+              "scaled"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
+          "scale": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "maximum": 1000000.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For mode scaled: virtual seconds per real second (default: the current scale when already scaled, else 1); ignored by the other modes",
+            "title": "Scale"
+          }
+        },
+        "required": [
+          "mode"
+        ],
+        "title": "ClockModeRequest",
+        "type": "object"
+      },
       "CommandOverride": {
         "additionalProperties": false,
         "description": "A command of ``command_overrides``: a :class:`CommandSpec` whose header is the mapping key\n(the entries of a list value share it and leave it out).",
@@ -8446,7 +8486,7 @@
             "title": "Instrument"
           },
           "kind": {
-            "description": "scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file",
+            "description": "scpi | state | advance | clock | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file",
             "title": "Kind",
             "type": "string"
           },
@@ -8562,6 +8602,18 @@
             "description": "seq of the acquisition event a waveform block came from",
             "title": "Recipe"
           },
+          "scale": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Virtual seconds per real second, for clock events: 1 except on a scaled clock",
+            "title": "Scale"
+          },
           "seq": {
             "title": "Seq",
             "type": "integer"
@@ -8647,6 +8699,7 @@
           "code",
           "message",
           "dt_ns",
+          "scale",
           "reason",
           "wall",
           "header",
@@ -9299,6 +9352,18 @@
             "title": "Stale Definitions",
             "type": "array"
           },
+          "start_clock_mode": {
+            "default": "command",
+            "description": "The clock the session opened on (the bench's run.clock or the start override); clock_mode differs once the clock was switched while running (#1660)",
+            "enum": [
+              "command",
+              "wall",
+              "stepped",
+              "scaled"
+            ],
+            "title": "Start Clock Mode",
+            "type": "string"
+          },
           "time_scale": {
             "default": 1.0,
             "description": "Virtual seconds per real second (scaled clock)",
@@ -9320,6 +9385,7 @@
           "bench_path",
           "description",
           "clock_mode",
+          "start_clock_mode",
           "time_scale",
           "idle_mode",
           "now_ns",
@@ -13545,6 +13611,59 @@
           }
         },
         "summary": "Advance"
+      }
+    },
+    "/api/sessions/{sid}/clock/mode": {
+      "post": {
+        "description": "Switch the running clock (Live / Pause, #1660); the bench file keeps its run.clock.",
+        "operationId": "setClockMode",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sid",
+            "required": true,
+            "schema": {
+              "title": "Sid",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ClockModeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ClockInfo"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "409": {
+            "description": "Scripts are connected: the instrument is remote, or the operation needs force=true"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Clock Mode"
       }
     },
     "/api/sessions/{sid}/clock/scale": {

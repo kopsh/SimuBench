@@ -823,6 +823,29 @@ def test_the_clock_has_an_upper_limit_and_stays_usable_after_a_refused_advance(c
     assert client.get(f"/api/sessions/{sid}/instruments/scope/screen").status_code == 200
 
 
+def test_the_running_clock_is_switched_live_and_back_over_the_api(client):
+    """#1660: Live / Pause switches the running clock; the session keeps the mode it opened on,
+    and a reset opens on it again (the bench file is not changed)."""
+    info = client.post("/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml"}).json()
+    sid = info["id"]
+    assert (info["clock_mode"], info["start_clock_mode"]) == ("command", "command")
+    client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": 1})
+    live = client.post(f"/api/sessions/{sid}/clock/mode", json={"mode": "scaled", "scale": 50})
+    assert live.status_code == 200
+    assert (live.json()["mode"], live.json()["scale"]) == ("scaled", 50.0)
+    assert live.json()["now_ns"] >= 1_000_000_000  # no rewind
+    session = client.get(f"/api/sessions/{sid}").json()
+    assert (session["clock_mode"], session["start_clock_mode"]) == ("scaled", "command")
+    assert client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": 1}).status_code == 409
+    assert client.post(f"/api/sessions/{sid}/clock/mode", json={"mode": "fast"}).status_code == 422
+    paused = client.post(f"/api/sessions/{sid}/clock/mode", json={"mode": "command"}).json()
+    assert paused["mode"] == "command" and paused["scale"] == 1.0
+    assert client.post(f"/api/sessions/{sid}/clock/advance", json={"seconds": 1}).status_code == 200
+    client.post(f"/api/sessions/{sid}/clock/mode", json={"mode": "wall"})
+    reset = client.post(f"/api/sessions/{sid}/reset", json={}).json()
+    assert reset["clock_mode"] == "command"  # a reset opens on the bench's clock again
+
+
 def test_a_stepped_clock_takes_no_new_scale_over_the_api(client):
     sid = client.post(
         "/api/sessions", json={"bench_path": "benches/awg_rc_scope.bench.yaml", "clock": "stepped"}

@@ -470,7 +470,9 @@ class SimuBenchApp(App[None]):
             self._dirty_levels = True
         if kind == "fault":
             self._dirty_faults = True
-        if kind in ("session", "remote"):
+        if kind == "clock":  # switched while running (#1660): the top bar and the wall tick follow
+            self._dirty_clock = True
+        if kind in ("session", "remote", "clock"):
             self._session_task = asyncio.create_task(self._refresh_session())
         self._dirty_lines = True
         self.bump()

@@ -1,4 +1,5 @@
-"""The scaled clock (D44, #683): virtual time = real time × a rate that can change while it runs.
+"""The scaled clock (D44, #683): virtual time = real time × a rate that can change while it runs;
+and a change of the clock's mode while the bench runs (#1660).
 
 Real time is injected (``time.monotonic_ns`` is replaced), so no test waits."""
 
@@ -131,3 +132,104 @@ def _write(tmp_path, **run):
     path = tmp_path / "r.bench.yaml"
     path.write_text(yaml.safe_dump({**BENCH, "run": {**BENCH["run"], **run}}), encoding="utf-8")
     return path
+
+
+# ---- a change of mode while the bench runs (#1660) ------------------------------------------------
+
+
+def test_going_live_and_back_neither_jumps_nor_rewinds(tmp_path, wall):
+    s = session(tmp_path, wall, clock="command")
+    s.advance(5.0)
+    wall.tick(30)  # idle real time on a command clock with idle off: none counts
+    assert s.set_clock_mode("wall") is True
+    assert read_now(s) == pytest.approx(5.0)  # the switch itself moves nothing
+    wall.tick(2)
+    assert read_now(s) == pytest.approx(7.0)  # live: real time from the switch on
+    assert s.set_clock_mode("command") is True
+    wall.tick(10)
+    assert read_now(s) == pytest.approx(7.0)  # paused: back on the command clock
+    s.advance(1.0)
+    assert read_now(s) == pytest.approx(8.0)
+
+
+def test_a_scaled_switch_takes_its_rate_and_a_same_switch_changes_nothing(tmp_path, wall):
+    s = session(tmp_path, wall, clock="stepped")
+    seen: list[dict] = []
+    s.events.subscribe(lambda e: seen.append(e) if e.get("kind") == "clock" else None)
+    assert s.set_clock_mode("scaled", 10) is True
+    wall.tick(1)
+    assert read_now(s) == pytest.approx(10.0)
+    assert s.set_clock_mode("scaled", 10) is False
+    assert s.set_clock_mode("scaled", 100) is True  # a new rate counts from now
+    wall.tick(1)
+    assert read_now(s) == pytest.approx(110.0)
+    assert [(e["old"], e["new"], e["scale"]) for e in seen] == [
+        ("stepped", "scaled", 10.0),
+        ("scaled", "scaled", 100.0),
+    ]
+
+
+def test_an_unknown_mode_or_rate_is_refused_and_changes_nothing(tmp_path, wall):
+    s = session(tmp_path, wall, clock="command")
+    with raises_with(ValueError, "clock mode"):
+        s.set_clock_mode("fast")
+    with raises_with(ValueError, "time scale"):
+        s.set_clock_mode("scaled", 0)
+    assert s.clock.mode == "command"
+
+
+def test_the_clients_guard_is_asked_for_a_change_of_mode(tmp_path, wall):
+    s = session(tmp_path, wall, clock="command")
+    asked: list[bool] = []
+
+    def refuse(force: bool) -> None:
+        asked.append(force)
+        if not force:
+            raise RuntimeError("scripts are connected")
+
+    s.clock.confirm_mode = refuse
+    with raises_with(RuntimeError, "connected"):
+        s.set_clock_mode("wall")
+    assert s.clock.mode == "command"
+    assert s.set_clock_mode("wall", force=True) is True
+    assert asked == [False, True]
+
+
+def test_the_sleep_patch_follows_the_command_clock(tmp_path, wall):
+    from simubench.engine.sleep_mode import real_sleep_is_active
+
+    s = session(tmp_path, wall, clock="command", idle="sleep")
+    try:
+        assert not real_sleep_is_active()
+        s.set_clock_mode("wall")
+        assert real_sleep_is_active()  # a live clock waits for real
+        s.set_clock_mode("command")
+        assert not real_sleep_is_active()
+    finally:
+        s.close()
+    assert real_sleep_is_active()
+
+
+def test_a_record_with_a_live_stretch_replays_at_the_recorded_times(tmp_path, wall):
+    from simubench.engine.events import record_time
+    from simubench.replay import open_record, resend
+
+    s = open_bench(_write(tmp_path, clock="command"), record_dir=tmp_path / "rec")
+    s.write("lia", b"*IDN?\n")
+    s.advance(1.0)
+    s.set_clock_mode("wall")
+    wall.tick(2.5)
+    s.write("lia", b"*IDN?\n")
+    s.set_clock_mode("command")
+    s.advance(0.5)
+    s.write("lia", b"*IDN?\n")
+    s.close()
+    record = next((tmp_path / "rec").glob("*.jsonl*"))
+    events, replayed, _warnings = open_record(record)
+    writes: list[tuple[int, int, str]] = []
+    for ev, _got in resend(replayed, events, {}):
+        if ev.get("kind") == "scpi" and ev.get("dir") == "write":
+            writes.append((record_time(ev), replayed.clock.now_ns, replayed.clock.mode))
+    assert [w[0] for w in writes] == [w[1] for w in writes]  # each write at its recorded time
+    assert [w[2] for w in writes] == ["command", "stepped", "command"]
+    assert writes[-1][1] == pytest.approx(4.0e9)

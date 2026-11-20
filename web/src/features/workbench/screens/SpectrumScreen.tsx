@@ -1,9 +1,12 @@
-import { ChevronsRight, Crosshair } from "lucide-react";
+import { ChevronsRight, Crosshair, Play, Repeat, StepForward } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
-import { scpiOutcome, useAdvance, useInstrumentReadings, useScpi } from "@/api/hooks";
+import { scpiOutcome, useAdvance, useClockMode, useInstrumentReadings, useScpi } from "@/api/hooks";
+import { isCancelled } from "@/components/app/ClientsConfirm";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import { liveRequest } from "../clockControl";
 
 import { Button } from "@/components/ui/button";
 import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
@@ -36,6 +39,7 @@ export function SpectrumScreen({
 }) {
   const { t } = useTranslation();
   const advance = useAdvance(sid);
+  const clock = useClockMode(sid);
   const { values: v, query: readings, vars } = useInstrumentReadings(sid, inst);
   const scpi = useScpi(sid, inst.name);
   const n = (k: string) => Number(v[`sa.${k}`] ?? 0);
@@ -80,15 +84,35 @@ export function SpectrumScreen({
           <div className="bg-muted/50 text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-[11px]" role="status" data-testid="sweep-hint">
             <span>{t(status === "single" ? "spectrum.hintSingle" : "spectrum.hintClock")}</span>
             {status === "clock" && !readonly && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-6 text-[11px]"
-                disabled={advance.isPending}
-                onClick={() => advance.mutate(n("sweep_time") > 0 ? n("sweep_time") : 0.1, { onError: (e) => toast.error((e as Error).message) })}
-              >
-                {t("spectrum.advanceSweep")}
-              </Button>
+              <>
+                <HintButton
+                  hint={t("spectrum.liveSweepHint")}
+                  disabled={clock.isPending}
+                  onClick={() => clock.mutate(liveRequest(1), { onError: (e) => !isCancelled(e) && toast.error((e as Error).message) })}
+                  testId="sweep-live"
+                >
+                  <Play className="size-3" /> {t("spectrum.liveSweep")}
+                </HintButton>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[11px]"
+                  disabled={advance.isPending}
+                  onClick={() => advance.mutate(n("sweep_time") > 0 ? n("sweep_time") : 0.1, { onError: (e) => !isCancelled(e) && toast.error((e as Error).message) })}
+                >
+                  {t("spectrum.advanceSweep")}
+                </Button>
+              </>
+            )}
+            {status === "single" && !readonly && (
+              <>
+                <HintButton hint={t("spectrum.singleSweepHint")} disabled={scpi.isPending} onClick={() => send(":INIT:IMM")} testId="sweep-single">
+                  <StepForward className="size-3" /> {t("spectrum.singleSweep")}
+                </HintButton>
+                <HintButton hint={t("spectrum.continuousOnHint")} disabled={scpi.isPending} onClick={() => send(":INIT:CONT ON")} testId="sweep-continuous">
+                  <Repeat className="size-3" /> {t("spectrum.continuousOn")}
+                </HintButton>
+              </>
             )}
           </div>
         )}
@@ -163,6 +187,32 @@ export function SpectrumScreen({
 export function sweepStatus(clockMode: string, continuous: boolean): "running" | "single" | "clock" {
   if (!continuous) return "single";
   return clockMode === "wall" || clockMode === "scaled" ? "running" : "clock";
+}
+
+/** A small button in the sweep hint, with the command or the clock change it makes in its tooltip. */
+function HintButton({
+  hint,
+  disabled,
+  onClick,
+  testId,
+  children,
+}: {
+  hint: string;
+  disabled: boolean;
+  onClick: () => void;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button size="sm" variant="outline" className="h-6 gap-1 text-[11px]" disabled={disabled} onClick={onClick} data-testid={testId}>
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-72">{hint}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 /** A warning badge, shown only while it holds (an unlit UNCAL read as a warning, #279). */

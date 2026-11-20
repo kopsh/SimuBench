@@ -134,6 +134,10 @@ test("Start with Hello World copies the example into the workspace and opens it"
   const sid = page.url().split("/s/")[1]?.split("?")[0];
   const info = (await (await page.request.get(`/api/sessions/${sid}`, { headers })).json()) as { bench_path: string };
   expect(info.bench_path).toBe("hello.bench.yaml");
+  // Hello World opens live (#1660): the analyzer sweeps by itself; Pause returns to the command clock.
+  await expect(page.getByTestId("clock-live")).toHaveCount(0);
+  await page.getByTestId("clock-pause").click();
+  await expect(page.getByTestId("clock-live")).toBeVisible();
   // The log opens by itself on the first tab with something in it: an advance is an event, not
   // communication, so it opens on 事件 rather than an empty table (#1360).
   await page.getByRole("button", { name: "推进", exact: true }).first().click();

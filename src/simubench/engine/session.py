@@ -644,6 +644,19 @@ class Session:
         it (``bench_session.advance`` in a pytest test); the engine and the services call the clock."""
         self.clock.advance(seconds, reason, force)
 
+    def set_clock_mode(self, mode: str, scale: float | None = None, force: bool = False) -> bool:
+        """Switch the clock's mode while the bench runs (:meth:`Clock.set_mode`, #1660). The
+        ``sleep`` idle mode's ``time.sleep`` patch follows the command clock: it is taken off while
+        the clock runs by itself, and put back when the command clock returns (D47)."""
+        with self._lock:
+            changed = self.clock.set_mode(mode, scale, force)
+            if changed and self.clock.idle_mode == "sleep":
+                if self.clock.mode == "command":
+                    sleep_mode.register(self)
+                else:
+                    sleep_mode.unregister(self)
+            return changed
+
     def configure(self, name: str, path: str, value: Any, client: str = "ui") -> None:
         """Out-of-band state change from the UI, MCP or SDK (action: configure)."""
         with self._lock:

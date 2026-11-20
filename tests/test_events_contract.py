@@ -75,6 +75,7 @@ def test_the_kind_description_is_generated_from_the_registry():
         "scpi",
         "state",
         "advance",
+        "clock",  # the clock's mode switched while running (#1660)
         "error",
         "warning",  # an instrument warning that is no SCPI error (#1264)
         "ignored",

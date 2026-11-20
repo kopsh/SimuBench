@@ -68,7 +68,7 @@ async def test_tools_listed_with_schemas(ws):
     schema = json.dumps(tools["edit_bench"].input_schema)
     assert "add_instrument" in schema and "set_accessories" in schema
     # Whole-bench operations carry the force confirmation (issue 624).
-    for tool in ("start_session", "stop_session", "advance_clock"):
+    for tool in ("start_session", "stop_session", "advance_clock", "set_clock_mode"):
         assert "force" in json.dumps(tools[tool].input_schema), tool
 
 
@@ -170,6 +170,13 @@ async def test_advance_clock_needs_force_while_scripts_are_connected(ws):
                 manager.get(sid).session.advance(0.1)  # the session layer itself refuses
             ok = await call(c, "advance_clock", seconds=0.5, force=True)
             assert ok["now_ns"] >= 500_000_000
+            # A change of the clock's mode moves the script's view of time too (#1660).
+            r = await call(c, "set_clock_mode", mode="wall")
+            assert "force=true" in r["error"]
+            assert manager.get(sid).session.clock.mode != "wall"
+            live = await call(c, "set_clock_mode", mode="scaled", scale=10, force=True)
+            assert (live["mode"], live["scale"]) == ("scaled", 10.0)
+            assert manager.get(sid).session.clock.mode == "scaled"
         finally:
             sock.close()
 

@@ -389,6 +389,27 @@ export function useAdvance(sid: string) {
   });
 }
 
+/**
+ * Switch the running clock (#1660): Live (wall, or scaled at a rate) and Pause (back to a clock
+ * that moves only on commands). The cached session takes the new mode at once, so the top bar and
+ * the screens' hints follow without waiting for the event's refetch.
+ */
+export function useClockMode(sid: string) {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ mode, scale }: { mode: Schemas["ClockModeRequest"]["mode"]; scale?: number }) =>
+      confirmClients("clock", (force) =>
+        unwrap(api.POST("/api/sessions/{sid}/clock/mode", { params: { path: { sid } }, body: { mode, scale, force } })),
+      ),
+    onSuccess: (clock) => {
+      qc.setQueryData<SessionInfo>(keys.session(sid), (s) =>
+        s ? { ...s, clock_mode: clock.mode, time_scale: clock.scale, now_ns: Math.max(s.now_ns, clock.now_ns) } : s,
+      );
+      void qc.invalidateQueries({ queryKey: keys.session(sid) });
+    },
+  });
+}
+
 /** Every net's level and a thumbnail, re-read when the bench changes (D44). */
 export function useNetLevels(sid: string, version: number, enabled = true) {
   return useQuery({
