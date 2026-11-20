@@ -28,8 +28,8 @@ TERMS: dict = {
     },
     # spectrum in the web i18n (the sweep hint, #1178).
     "spectrum": {
-        "hintClock": "Paused: a sweep takes virtual time, so the analyzer only sweeps when a command is sent or time is advanced and the trace stands still (a scope's screen frames take none, so its live trace keeps redrawing).",
-        "hintSingle": "Single sweep: continuous sweep is off, so the trace and the sweep count hold where they stopped; send :INIT:IMM to sweep once, or turn Continuous on.",
+        "hintClock": "Paused: time stands still, so the analyzer does not sweep and the trace holds.",
+        "hintSingle": "Single sweep: continuous sweep is off, so the trace holds its last sweep.",
     },
     # panel.client in the web i18n, plus the terminal console's own sources (tui-screens.md 1.5).
     "source": {

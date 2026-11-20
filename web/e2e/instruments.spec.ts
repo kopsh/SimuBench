@@ -127,8 +127,14 @@ test("spectrum analyzer: the standing-trace hint follows the clock and the sweep
   expect(await sweepNo()).toBe(held); // time passed, nothing swept
   await page.getByTestId("sweep-single").click();
   await expect.poll(sweepNo).toBeGreaterThan(held);
+  // Continuous on from the screen while paused: it sweeps, so the clock goes live too.
   await page.getByTestId("sweep-continuous").click();
   await expect(page.getByTestId("hold")).toHaveCount(0);
+  await expect(page.getByTestId("clock-state")).toHaveText("实时");
+  await expect(hint).toHaveCount(0);
+  const continuous = await sweepNo();
+  await expect.poll(sweepNo, { timeout: 10_000 }).toBeGreaterThan(continuous);
+  await page.getByTestId("clock-pause").click();
   await expect(hint).toContainText("已暂停");
 
   // #1660: Live from the hint: the clock runs by itself and the analyzer sweeps; Pause stops it.

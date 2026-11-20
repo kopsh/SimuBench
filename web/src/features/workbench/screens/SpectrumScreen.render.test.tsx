@@ -26,6 +26,7 @@ const hooks = vi.hoisted(() => ({
   clock: vi.fn(),
   scpi: vi.fn(),
   continuous: true,
+  onCommit: undefined as ((value: unknown) => void) | undefined,
 }));
 vi.mock("@/api/hooks", () => ({
   scpiOutcome: () => ({ ok: true, message: "" }),
@@ -35,11 +36,17 @@ vi.mock("@/api/hooks", () => ({
   useInstrumentReadings: () => ({
     values: { "sa.sweep": 3, "sa.sweep_time": 0.25 },
     query: { data: { traces: [] } },
-    vars: new Map([["init.continuous", { value: hooks.continuous }]]),
+    vars: new Map([["init.continuous", { path: "init.continuous", value: hooks.continuous }]]),
   }),
 }));
 
-vi.mock("../StateField", () => ({ StateField: () => null }));
+// The settings fields are the generic StateField; the continuous-sweep switch's own commit is kept.
+vi.mock("../StateField", () => ({
+  StateField: ({ v, onCommit }: { v: { path: string }; onCommit?: (value: unknown) => void }) => {
+    if (v.path === "init.continuous") hooks.onCommit = onCommit;
+    return null;
+  },
+}));
 vi.mock("./parts", () => ({ ScreenIdentity: () => null }));
 
 afterEach(() => {
@@ -48,6 +55,7 @@ afterEach(() => {
   hooks.clock.mockClear();
   hooks.scpi.mockClear();
   hooks.continuous = true;
+  hooks.onCommit = undefined;
 });
 
 const inst = { name: "sa", display: {}, state: [] } as unknown as InstrumentInfo;
@@ -105,4 +113,30 @@ it("a wall clock with continuous sweeping shows no hint and no HOLD", () => {
   show("wall");
   expect(screen.queryByTestId("sweep-hint")).toBeNull();
   expect(screen.queryByTestId("hold")).toBeNull();
+});
+
+// #1660: the continuous-sweep switch is the analyzer's Cont key. On a paused clock nothing would
+// move, so turning it on from this screen also lets the clock run; off holds the trace as before.
+it("turning continuous sweep on while paused also switches the clock live", () => {
+  hooks.continuous = false;
+  show("command");
+  hooks.onCommit?.(true);
+  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:CONT ON"]);
+  expect(hooks.clock.mock.calls[0][0]).toEqual({ mode: "wall" });
+});
+
+it("turning continuous sweep on while live leaves the clock alone, and off only holds", () => {
+  show("wall");
+  hooks.onCommit?.(true);
+  hooks.onCommit?.(false);
+  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:CONT ON", ":INIT:CONT OFF"]);
+  expect(hooks.clock).not.toHaveBeenCalled();
+});
+
+it("the hint's continuous button on a paused clock sweeps and goes live", () => {
+  hooks.continuous = false;
+  show("command");
+  fireEvent.click(screen.getByTestId("sweep-continuous"));
+  expect(hooks.scpi.mock.calls.map((c) => c[0])).toEqual([":INIT:CONT ON"]);
+  expect(hooks.clock.mock.calls[0][0]).toEqual({ mode: "wall" });
 });
