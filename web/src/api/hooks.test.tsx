@@ -5,7 +5,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InstrumentInfo } from "./client";
 import { api } from "./client";
 import { useEvents } from "./events";
-import { useBenchDoc, useDefinitionDocument, useDefinitionStructure, useInstrumentReadings, useSessions } from "./hooks";
+import {
+  useBenches,
+  useBenchDoc,
+  useCatalog,
+  useDefinitionDocument,
+  useDefinitionStructure,
+  useInstrumentReadings,
+  useSessions,
+} from "./hooks";
 import { fileRevOf, readBeforeOpen, reduceWorkspaceEvent, resync, useWorkspaceEvents } from "./workspaceEvents";
 
 afterEach(() => {
@@ -145,6 +153,34 @@ describe("workspace event re-key", () => {
     })));
     await waitFor(() => expect(GET).toHaveBeenCalledTimes(5)); // the structure again, alone
     expect(GET).toHaveBeenCalledTimes(5);
+  });
+
+  // The lists ride the same stream (#1735): the benches list covers every bench file, so any
+  // benches/ write re-keys it; the catalog layers the workspace definitions, so any instruments/
+  // write re-keys it (the reducer's instrumentsRev). Before it, an external edit of a definition
+  // or a deleted bench file left both lists stale until a remount.
+  it("a file_changed re-keys the lists: any benches/ write the benches list, any instruments/ write the catalog", async () => {
+    const GET = mockApi({ "/api/benches": [], "/api/catalog": [] });
+    const reads = (url: string) => GET.mock.calls.filter((c) => c[0] === url).length;
+    renderHook(() => useBenches(), { wrapper });
+    renderHook(() => useCatalog(), { wrapper });
+    await waitFor(() => expect(reads("/api/benches")).toBe(1)); // one mount fetch each
+    await waitFor(() => expect(reads("/api/catalog")).toBe(1));
+
+    act(() => useWorkspaceEvents.setState((s) => ({ fileRev: { ...s.fileRev, "benches/other.bench.yaml": 1 } })));
+    await waitFor(() => expect(reads("/api/benches")).toBe(2)); // a bench file written outside the server
+    expect(reads("/api/catalog")).toBe(1); // the catalog does not follow a benches/ write
+
+    act(() => useWorkspaceEvents.setState((s) => ({
+      fileRev: { ...s.fileRev, "instruments/my-dso.yaml": 1 },
+      instrumentsRev: s.instrumentsRev + 1,
+    })));
+    await waitFor(() => expect(reads("/api/catalog")).toBe(2)); // a definition edited outside the server
+    expect(reads("/api/benches")).toBe(2); // the benches list does not follow an instruments/ write
+
+    await new Promise((r) => setTimeout(r, 2100)); // longer than any old poll
+    expect(reads("/api/benches")).toBe(2); // the idle gap adds nothing
+    expect(reads("/api/catalog")).toBe(2);
   });
 
   it("the reducer: a definition file's edit moves both revisions, a bench file's only its own", () => {

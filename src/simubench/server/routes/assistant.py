@@ -43,7 +43,10 @@ def _assistant_chat_routes(ctx: ApiContext, router: APIRouter) -> None:
     )
     def get_config() -> M.AssistantConfig:
         """The LLM settings; the key is never returned, only whether one is set."""
-        return service.settings.view()
+        # Reading the settings can raise (a bad value in the environment or settings.json, #1747):
+        # the one table's ConfigError row answers 422 with the words, not the 500 a bug gets
+        # (#1735, disclosed by #1747).
+        return bench_errors(ctx, lambda: service.settings.view())  # type: ignore[no-any-return]
 
     @router.put(
         "/api/assistant/config",

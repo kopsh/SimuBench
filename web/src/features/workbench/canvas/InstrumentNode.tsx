@@ -5,7 +5,8 @@ import { useTranslation } from "react-i18next";
 import type { InstrumentInfo, NetLevel, StateVarInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { cn } from "@/lib/utils";
-import { formatValue, instrumentTitle, labelOf, stateMap, unusedUnderDc, varName } from "../model";
+import { formatValue, instrumentTitle, labelOf, unusedUnderDc, varName } from "../model";
+import { stateMap } from "@/api/stateMap";
 import { ClassIcon } from "../classes";
 import { useWorkbench } from "../store";
 

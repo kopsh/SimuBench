@@ -38,6 +38,11 @@ export const definitionPath = (id: string) => `instruments/${id}.yaml`;
  * revision never repeats and a re-key never lands on an older cached answer. */
 export const revOf = (s: WorkspaceStore, path: string) => s.epoch + (s.fileRev[path] ?? 0);
 
+/** A folder's revision in a store state: every event under the prefix plus every resync — what
+ * a query listing the folder's files keys on, since any one of them can change the list (#1735). */
+export const revUnder = (s: WorkspaceStore, prefix: string) =>
+  s.epoch + Object.entries(s.fileRev).reduce((n, [p, v]) => (p.startsWith(prefix) ? n + v : n), 0);
+
 /** The revision a path's queries key on right now — for cache writes (setQueryData), which must
  * hit the live entry, not the one the last revision left behind. */
 export const fileRevOf = (path: string) => revOf(useWorkspaceEvents.getState(), path);

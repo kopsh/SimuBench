@@ -380,6 +380,85 @@ def test_assistant_routes_ask_the_one_table_not_a_shadow_of_it():
     assert offenders == []
 
 
+def test_the_cli_texts_come_from_one_table():
+    """#1735: the fourth seam is the terminal, and it reads the same table: a kind's words are a
+    pure function of the kind, so every command prints the same text for the same error — where
+    each command once hand-rolled its tuple and its wording. A bug is refused like the agent
+    seams refuse one (#1478)."""
+    from simubench.errors import Invalid, Unknown
+    from simubench.models.migrate import FormatError
+    from simubench.server.errors import CLI_ERRORS, cli_text
+    from simubench.verdicts import VerdictError
+
+    assert cli_text(FileNotFoundError("run-1")) == "run-1"
+    assert cli_text(Invalid("broken.yaml: line 1 column 3: bad indentation")) == (
+        "broken.yaml: line 1 column 3: bad indentation"
+    )
+    assert "reads up to" in cli_text(
+        FormatError("this bench file is format version 7; this SimuBench reads up to 2")
+    )
+    assert cli_text(Unknown("no session t")) == "no session t"  # the KeyError's quotes peeled
+    assert cli_text(Unknown("")) == "Unknown"  # a nameless message is nothing to act on
+    # the catch tuple: the file rows through their OSError parent and the value row's caught —
+    # a bare KeyError or ValueError stays a bug (#1478)
+    assert not any(
+        isinstance(exc, kind) for kind in CLI_ERRORS for exc in (KeyError("bug"), ValueError("bug"))
+    )
+    for exc in (OSError("x"), Invalid("x"), FormatError("x"), VerdictError("x")):
+        assert isinstance(exc, CLI_ERRORS)  # for the tuple's `except (*CLI_ERRORS,)` form
+
+    with pytest.raises(AssertionError):  # no seam dresses a bug up as an answer
+        cli_text(ValueError("internal"))
+
+
+def test_a_command_prints_the_table_words_behind_its_file_name(tmp_path, capsys):
+    from simubench.cli import main
+    from simubench.models.migrate import FormatError, upgrade
+    from simubench.server.errors import cli_text
+
+    path = tmp_path / "new.bench.yaml"
+    path.write_text("schema: simubench.bench/7\nname: n\n", encoding="utf-8")
+    with pytest.raises(FormatError) as raised:
+        upgrade({"schema": "simubench.bench/7", "name": "n"}, "bench")
+    assert main(["migrate", str(path)]) == 1
+    assert capsys.readouterr().err.strip() == f"{path}: {cli_text(raised.value)}"
+
+
+def test_the_cli_commands_catch_the_table_not_everything():
+    """#1735: the six commands' ``except`` tuples are ``CLI_ERRORS`` — none of the bare ``except
+    Exception`` that folded a service bug into a terminal line, and none of the hand-rolled
+    per-command tuples that missed the Invalid family. ``serve``'s start-up banner keeps #1672's
+    narrow tuple, and the connection probe and ``_free_port`` catch what their sockets raise."""
+    import ast
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "src" / "simubench" / "cli.py"
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    wide: list[str] = []
+    for node in ast.walk(tree):
+        if (
+            isinstance(node, ast.ExceptHandler)
+            and isinstance(node.type, ast.Name)
+            and node.type.id == "Exception"
+        ):
+            wide.append(f"line {node.lineno}")
+    assert wide == []
+    commands = ("_validate", "_migrate", "_assets", "_replay", "_verdicts", "_cases")
+    off: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)) and node.name in commands:
+            for child in ast.walk(node):
+                if isinstance(child, ast.ExceptHandler):
+                    names = (
+                        {n.id for n in ast.walk(child.type) if isinstance(n, ast.Name)}
+                        if child.type
+                        else set()
+                    )
+                    if "CLI_ERRORS" not in names:
+                        off.append(f"{node.name} line {child.lineno}")
+    assert off == []
+
+
 # ---- starting, resetting and stopping, without a route or a tool --------------------------------
 
 
