@@ -1,5 +1,14 @@
 ## scope 家族缝封口：71 处 owner 穿透收进家族协议，块可替身单测（Issue 1724）
 
+| 完成条件 | 自检 |
+| --- | --- |
+| `grep -rn 'host\.owner\.' src/simubench/library/components/scope_*.py` 无结果；acquisition 家族只剩身份一处（recorder 的采集事件主体），无属性链跟在后面 | `grep -rn 'host\.owner' src/simubench/library/components/scope_*.py`（只余 scope_recorder.py 两行） |
+| scope_run 不再有 `host._` 跨模块下划线调用；正名成员 mode_is/timing/get_state/channels/averages/display_signal/format_number 落地 | `grep -rn 'host\._' src/simubench/library/components/scope_*.py` 无结果 |
+| 守卫测试钉住块只触碰家族协议成员，`host.owner.<成员>` 一律判穿透，旧代码形态下红 | `tests/test_scope_family_seam.py`（把 0e88367e 的 scope_run.py/scope_cursors.py 放回树上，两条守卫红、27+ 条穿透被点名；放回后恢复绿） |
+| ≥3 个块有不开真 bench 的替身单测 | `uv run pytest tests/test_scope_blocks.py` 13 passed（run control 与真 Recorder 块同跑、cursors、values；`tests/helpers.py` 的 FakeScopeOwner/FakeScopeHost） |
+| 全量金测与现有测试原样存活 | `scripts/check.sh`：5420 passed（快层 392 s）；唯一失败 `test_select_tests::test_shared_code_runs_everything` 为 D49 预算本机固有边缘超限，基线 0e88367e 同样失败（#1716），CI 预算 ×3 不受影响 |
+| D93 落 decisions.md；本条目按一条一文件 | `sed -n '/^## D93/,/^## D94/p' docs/decisions.md`（写前 fetch origin/main 确认 D93/D94 未被占用） |
+
 #1540 把 scope 家族切成 13 个块，但四个家族 host 协议（scope_acquisition_host.py、
 scope_measurements_host.py、scope_math_host.py、scope_trigger_host.py）里的
 `owner: Instrument | None` 是 748 行的具体仪表，块里 71 处 `host.owner.*` 直接穿透协议，
