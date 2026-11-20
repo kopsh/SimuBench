@@ -643,6 +643,19 @@
             "title": "Action",
             "type": "string"
           },
+          "args": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The tool call's arguments as the tool received them (compact keys), for the postmortem: what the model actually sent (#1679). None on a bench-edit sub-step",
+            "title": "Args"
+          },
           "error": {
             "anyOf": [
               {
@@ -682,6 +695,7 @@
         "required": [
           "action",
           "subject",
+          "args",
           "ok",
           "error"
         ],

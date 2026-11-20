@@ -93,12 +93,20 @@ _EXPECTED = DOMAIN_ERRORS
 
 
 class _Step:
-    """One progress line of the panel, opened when a tool starts and closed with its outcome."""
+    """One progress line of the panel, opened when a tool starts and closed with its outcome.
+    ``args`` (what the model sent, #1679) is stamped by ``_call``/``_call_async``, so it lands on
+    the step record and the ``step_done`` event; a bench-edit sub-step (``add``) has none."""
 
     def __init__(self, ctx: TurnContext, action: str, subject: str | None) -> None:
         self.ctx = ctx
         self.indices: list[int] = []
+        self.args: Any = None  # stamped by _call/_call_async from what the model sent (#1679)
         self.add(action, subject)
+
+    def stamp(self, args: Any) -> None:
+        """The tool call's arguments, onto the tool's own step record (#1679): what the model
+        actually sent, in the turn and the store. A bench-edit sub-step keeps none."""
+        self.ctx.turn.steps[self.indices[0]].args = args
 
     def add(self, action: str, subject: str | None) -> None:
         turn = self.ctx.turn
@@ -122,6 +130,9 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
     """Run one tool body: the outcome goes to the loop guard and the step; an expected failure
     becomes ``{"error": ...}`` for the model to act on (no retry budget, no turn limit)."""
     step = step or _Step(ctx, tool, None)
+    if step.args is None:  # what the model actually sent, on the step record (#1679)
+        step.args = args
+        step.stamp(args)
     try:
         result = fn()
     except Stuck:
@@ -138,6 +149,9 @@ def _call(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _
 
 
 async def _call_async(ctx: TurnContext, tool: str, args: Any, fn: Callable[[], Any], step: _Step) -> Any:
+    if step.args is None:  # as _call's (#1679)
+        step.args = args
+        step.stamp(args)
     try:
         result = await fn()
     except _EXPECTED as exc:
