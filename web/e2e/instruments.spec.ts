@@ -109,6 +109,16 @@ test("spectrum analyzer: the Continuous and Single keys, on a paused and a live 
 
   // Paused (the example bench's command clock): no hint bar; Continuous is lit, nothing sweeps by itself.
   const sid = await open("benches/sa-two-tone.bench.yaml");
+  /** The session's virtual clock, as the server reports it. */
+  const nowNs = async () =>
+    ((await (await page.request.get(`/api/sessions/${sid}`, { headers })).json()) as { now_ns: number }).now_ns;
+  /** The analyzer's sweep counter as the server holds it (the screen shows a polled copy). */
+  const sweepCount = async () => {
+    const r = (await (await page.request.get(`/api/sessions/${sid}/instruments/sa/readings`, { headers })).json()) as {
+      values: Record<string, number>;
+    };
+    return r.values["sa.sweep"];
+  };
   await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
   await expect(page.getByTestId("sweep-hint")).toHaveCount(0);
   await expect(cont).toHaveAttribute("aria-pressed", "true");
@@ -143,8 +153,16 @@ test("spectrum analyzer: the Continuous and Single keys, on a paused and a live 
   // Single while live: the sweep count stops though real time runs on.
   await single.click();
   await expect(page.getByTestId("hold")).toHaveText("HOLD");
-  const stopped = await sweepNo();
-  await page.waitForTimeout(300);
+  // The screen paints a polled copy of the analyzer's state, so right after HOLD it may still show
+  // the count from the previous poll (hundreds of sweeps behind here). Take the stopped count from
+  // the server and wait for the paint to reach it, never trust the paint on its own (#1669).
+  const stopped = await sweepCount();
+  await expect.poll(sweepNo).toBe(stopped);
+  // The clock really runs on — past many sweep periods of this bench — and the count must still be
+  // the one HOLD stopped at. The clock value is the signal; no fixed sleep (#1669).
+  const started = await nowNs();
+  await expect.poll(nowNs, { timeout: 10_000 }).toBeGreaterThanOrEqual(started + 500_000_000);
+  expect(await sweepCount()).toBe(stopped);
   expect(await sweepNo()).toBe(stopped);
   await page.getByTestId("clock-pause").click();
   await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
