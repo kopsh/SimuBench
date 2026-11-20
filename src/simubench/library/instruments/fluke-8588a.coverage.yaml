@@ -1126,8 +1126,9 @@ sections:
       手册：条件寄存器在 Product 里不使用，读 0。组件按位表建了 VOLT/CURR/POW/TEMP/FREQ/UNDR/
       OVER/TFAST/MFAST，但没有条件来源，条件与事件都读 0。
   - header: STATus:QUEStionable[:EVENt]
-    level: implemented
-    note: 无事件来源（过载、触发过快等未建模），读 0；使能与状态字节位 3 的汇总仍按寄存器规则工作。
+    level: accepted
+    affects_data: false
+    note: 手册的 QUEStionable 事件位（0 电压、1 电流、9 欠量程、10 过量程、11 触发过快、12 测量过快等）在模型里都没有来源，读恒为 0——不是「没有过载」的答案；过载读数（`overload_value` 9.91E+37）不置 OVER 位。寄存器、使能与状态字节位 3 的汇总按规则工作，来源接上前不要用它判断过载（给 QUES 接过载来源要组件暴露 status_flags，#1601 的后续）。
   - header: STATus:QUEStionable:ENABle
     level: implemented
     note: 十进制掩码 0–32768（Table 10），越界 -222；*RST 不改，STATus:PRESet 清 0。
