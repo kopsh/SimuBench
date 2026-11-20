@@ -9,7 +9,7 @@
 | HiSLIP 加密与登录（可选，D41） | 有 `--hislip-cert`/`--hislip-key` 才开：TLS 1.2 起，加密强制或要求首先加密时未加密的消息是致命错误；加密后登录前只回应登录类消息；SASL PLAIN 凭证来自 `--hislip-users` 文件（常量时间比较，失败递增延迟；命令行只在 `--hislip-tls initial|mandatory` 时接受它），没有用户文件时只有 ANONYMOUS。**登录只管 HiSLIP 端口，不是测试台的访问控制**：加密可选时不请求加密的客户端与 1.0 客户端免登录，raw socket 与 VXI-11 没有登录。测试证书只在 `tests/data/hislip/` | `tests/test_hislip_tls.py` |
 | 访问令牌（可选，默认关闭，D43） | `--require-token` 启动时随机生成（`secrets.token_urlsafe(24)`），或 `--token 值` 指定；界面地址中带一次后从地址栏移除；请求头 `x-simubench-token`，常量时间比较。开启后，除健康检查与接口描述（`/api/health`、`/api/openapi.json`、`/api/docs`，不含数据）外，每个 `/api` 路由都要求令牌。它是同机威胁模型下的一次性访问凭证，不用于登录或识别用户 | `test_every_api_route_needs_the_token`（遍历全部路由，新增路由自动纳入）、`test_cli_token_is_opt_in` |
 | DNS 重绑定与跨站请求 | Host 与 Origin 头必须是本机地址（127.0.0.1、localhost、::1），否则 403，即使带了正确令牌 | `test_foreign_host_or_origin_is_refused_even_with_the_token`、`test_rebinding_host_rejected` |
-| 事件流 WebSocket | 同样检查 Host、Origin，开启令牌时也检查令牌，失败时以 4403 / 4401 关闭 | `test_event_socket_checks_token_and_origin`、`test_without_a_token_by_default_but_still_loopback_only` |
+| 事件流 WebSocket | 同样检查 Host、Origin，开启令牌时也检查令牌，失败时以 4403 / 4401 关闭；客户端侧的令牌呈现方式由 web/src/api/token.ts 一处说明：HTTP 走 `x-simubench-token` 头，WebSocket 走 URL 查询参数（浏览器无法自定义请求头） | `test_event_socket_checks_token_and_origin`、`test_without_a_token_by_default_but_still_loopback_only` |
 | 工作区边界 | 测试台文件、版本历史、会话启动的路径都解析后必须位于工作区内（`..`、绝对路径拒绝，403）；运行记录编号只接受字母数字与连字符 | `test_bench_paths_stay_in_the_workspace`、`test_bench_path_cannot_escape_workspace`、`test_runs_api` |
 | 诊断包 | 不包含访问令牌，不自动上传 | `test_diagnostics_bundle_over_the_api` |
 | MCP 仿真控制 | 推进时钟、读取真实值默认关闭，需 `--allow-control`；读取真实值还需 Bench 中 `run.reveal_true_values`（验证模式下关闭，定标脚本读不到答案） | `tests/test_mcp.py` |
