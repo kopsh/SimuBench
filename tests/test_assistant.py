@@ -8,15 +8,20 @@ import asyncio
 
 import pytest
 import yaml
+from pydantic_ai import RunContext
 from pydantic_ai.messages import ModelRequest, ModelResponse, ToolCallPart, ToolReturnPart
+from pydantic_ai.models.test import TestModel
+from pydantic_ai.usage import RunUsage
 from tests.helpers import ScriptedLLM, last_tool_return
 
 from helpers import raises_with
+from simubench.contracts import api as M
 from simubench.engine.edit import Move
 from simubench.server.assistant import compaction
 from simubench.server.assistant.guard import LoopGuard, Stuck
 from simubench.server.assistant.service import AssistantService
-from simubench.server.assistant.tools import TOOLS
+from simubench.server.assistant.store import Conversation, TurnFiles
+from simubench.server.assistant.tools import TOOLS, TurnContext, stop_session
 from simubench.server.errors import Conflict
 from simubench.server.manager import SessionManager
 
@@ -285,6 +290,75 @@ async def test_stopping_needs_the_users_button_in_the_very_next_turn(manager):
     await turn(service, "把频谱仪删掉")
     agreed = await turn(service, "同意停止", stop_consent=True)
     assert agreed.steps[0].ok is True and not manager.sessions
+
+
+def a_turn(n: int) -> M.AssistantTurn:
+    """A turn record for the criterion tests: the store layer needs no service and no LLM."""
+    return M.AssistantTurn(id=f"turn-{n}", user=f"第 {n} 句", started_at="2026-01-01T00:00:00Z")
+
+
+def test_stop_consent_is_alive_for_the_next_turn_only():
+    """#902 as one criterion on the conversation (#1726): asked in turn n, alive for turn n+1 and
+    nothing else — not in the turn it was asked (the user has not answered yet), not a turn later
+    (lapsed) — and without a request on record nothing is alive."""
+    conv = Conversation(BENCH, [a_turn(0), a_turn(1)])
+    conv.stop_requested_in = 0
+    assert conv.stop_consent_alive(1)
+    assert not conv.stop_consent_alive(0)
+    assert not conv.stop_consent_alive(2)
+    assert not Conversation(BENCH).stop_consent_alive(1)
+
+
+def test_sending_answers_one_request_and_forgets_a_stale_one():
+    """The sending side of the criterion (#902, #1726): a request asked in the last recorded turn
+    is pending and stays on record; a stale one is forgotten here, so it cannot answer a later
+    message, and without a request nothing is pending either."""
+    conv = Conversation(BENCH, [a_turn(0), a_turn(1), a_turn(2)])
+    conv.stop_requested_in = 2
+    assert conv.stop_consent_pending() is True
+    assert conv.stop_requested_in == 2
+    conv.stop_requested_in = 1
+    assert conv.stop_consent_pending() is False
+    assert conv.stop_requested_in is None
+    assert Conversation(BENCH).stop_consent_pending() is False
+
+
+async def test_stop_session_gate_asks_the_same_criterion(manager):
+    """The ``stop_session`` gate without a whole turn (#1726): no request, the same turn as the
+    ask and a lapsed one all refuse in the words the model acts on; a live consent still needs the
+    panel's answer (a typed reply and a decline are no), and with it the bench stops and the
+    request is spent."""
+    await manager.start(BENCH)
+    served_id = next(iter(manager.sessions))
+    service = AssistantService(manager, model_factory=lambda _settings: None)
+    conv = Conversation(BENCH, [a_turn(0)])
+
+    async def gate(ask: int | None, consent: bool | None) -> dict:
+        turn = a_turn(len(conv.turns))
+        turn.stop_consent = consent
+        conv.turns.append(turn)
+        conv.stop_requested_in = ask
+        ctx = TurnContext(service, conv, turn, TurnFiles(), lambda _event: None)
+        return await stop_session(RunContext(deps=ctx, model=TestModel(), usage=RunUsage()))
+
+    no_request = await gate(None, True)  # turn 1: nothing on record, the button carries no answer
+    assert "征得用户同意" in no_request["error"]
+    same_turn = await gate(2, True)  # turn 2: asked in this very turn, no answer yet
+    assert "征得用户同意" in same_turn["error"]
+    lapsed = await gate(1, True)  # turn 3: asked two turns ago
+    assert "征得用户同意" in lapsed["error"]
+    typed = await gate(3, None)  # turn 4: asked in the previous turn, answered by typing
+    assert "文字回复不算同意" in typed["error"]
+    declined = await gate(4, False)  # turn 5: asked in the previous turn, declined
+    assert "不停止" in declined["error"]
+    assert manager.sessions  # every refusal above left the bench running
+
+    agreed = await gate(5, True)  # turn 6: asked in the previous turn, agreed on the panel
+    assert agreed == {"stopped": True, "session_id": served_id}
+    assert not manager.sessions and conv.stop_requested_in is None
+    again = await gate(6, True)  # turn 7: consent alive but nothing is running any more
+    assert again == {"stopped": False, "note": "测试台已经停止"}
+    assert conv.stop_requested_in is None
 
 
 async def test_the_tools_cannot_delete_files_or_control_the_simulation(manager):
