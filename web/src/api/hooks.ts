@@ -22,7 +22,7 @@ import type {
 } from "./client";
 import { ApiError, type FaultSpec, type Schemas, api, unwrap } from "./client";
 import { withValues } from "./sessionValues";
-import { definitionPath, fileRevOf, revOf, useWorkspaceEvents } from "./workspaceEvents";
+import { definitionPath, fileRevOf, revOf, revUnder, useWorkspaceEvents } from "./workspaceEvents";
 
 export const keys = {
   benches: ["benches"] as const,
@@ -54,8 +54,20 @@ export const keys = {
   definitionLayout: (id: string) => ["definition-layout", id] as const,
 };
 
+/**
+ * The instrument classes and their panels, from the workspace definitions layered over the
+ * built-ins. Freshness is the workspace stream (#1735, the benches mechanism of #1484 pointed at
+ * the second list): the catalog layers every definition's parents and the category default in,
+ * so any file_changed under instruments/ can change it — one event is one request, no 60 s
+ * stale window to wait out. The previous answer stays on screen while the next loads.
+ */
 export function useCatalog() {
-  return useQuery({ queryKey: keys.catalog, queryFn: () => unwrap(api.GET("/api/catalog")), staleTime: 60_000 });
+  const rev = useWorkspaceEvents((s) => s.instrumentsRev);
+  return useQuery({
+    queryKey: [...keys.catalog, rev] as const,
+    queryFn: () => unwrap(api.GET("/api/catalog")),
+    placeholderData: (prev) => prev,
+  });
 }
 
 /**
@@ -108,8 +120,19 @@ export function useBenchPreview(path: string | null | undefined, sha: string | u
   });
 }
 
+/**
+ * The workspace's bench files. Freshness is the workspace stream (#1735, like the single file's
+ * `useBenchDoc` above): the list covers every bench file, so any file_changed under benches/ —
+ * a new file, an edit, a deletion the watcher noticed — re-keys it, one request, no polling.
+ * The previous answer stays on screen while the next loads.
+ */
 export function useBenches() {
-  return useQuery({ queryKey: keys.benches, queryFn: () => unwrap(api.GET("/api/benches")) });
+  const rev = useWorkspaceEvents((s) => revUnder(s, "benches/"));
+  return useQuery({
+    queryKey: [...keys.benches, rev] as const,
+    queryFn: () => unwrap(api.GET("/api/benches")),
+    placeholderData: (prev) => prev,
+  });
 }
 
 export function useSessions() {
