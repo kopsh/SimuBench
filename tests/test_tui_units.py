@@ -1212,6 +1212,12 @@ def test_a_file_event_is_a_log_line_with_the_path_and_size():
     assert line.command == "File written: INT:\\a.csv" and line.result == "5 B" and line.kind == "file"
 
 
+def test_a_clock_switch_is_a_log_line_naming_both_clocks():
+    """A switch of the running clock (#1660) shows in the log, a scaled clock with its rate."""
+    (line,) = lines_of(ev(4, 0, "clock", old="command", new="scaled", scale=10.0))
+    assert line.command == "Clock: Command-driven clock → Scaled clock 10×"
+
+
 # ---- the scope screen's math functions (tui-screens.md 6.1, #1219's demo) ---------------------------
 
 

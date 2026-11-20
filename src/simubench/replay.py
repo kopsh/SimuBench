@@ -237,6 +237,9 @@ def resend(
             fid = ev.get("fault")
             if fid in session.faults.faults:
                 session.faults.clear(fid)
+        elif kind == "clock" and ev.get("new"):
+            session.clock.seek(t)
+            session.clock.follow_record(str(ev["new"]))
         elif kind == "abort":
             # A read ended at a checkpoint (budget, cancel): both depend on the machine and the
             # moment, so the replay times nothing — it ends the action that follows the same way

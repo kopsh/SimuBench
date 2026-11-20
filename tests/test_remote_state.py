@@ -133,6 +133,7 @@ def test_operations_on_the_whole_bench_need_force(served):
     with connect(c, info, "scope"):
         for method, url, kwargs in [
             ("post", f"/api/sessions/{sid}/clock/advance", {"json": {"seconds": 0.01}}),
+            ("post", f"/api/sessions/{sid}/clock/mode", {"json": {"mode": "wall"}}),
             ("post", f"/api/sessions/{sid}/reset", {"json": {}}),
             ("post", "/api/sessions", {"json": {"bench_path": BENCH}}),
             ("delete", f"/api/sessions/{sid}", {}),

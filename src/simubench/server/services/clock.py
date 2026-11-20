@@ -24,6 +24,12 @@ def advance(sv: ServedSession, seconds: float, *, force: bool = False) -> M.Cloc
     return info(sv)
 
 
+def set_mode(sv: ServedSession, mode: str, scale: float | None = None, *, force: bool = False) -> M.ClockInfo:
+    """Switch the running clock (#1660); refuses like an advance while scripts are connected."""
+    sv.session.set_clock_mode(mode, scale, force)
+    return info(sv)
+
+
 def set_scale(sv: ServedSession, scale: float) -> M.ClockInfo:
     sv.session.clock.set_time_scale(scale)
     return info(sv)

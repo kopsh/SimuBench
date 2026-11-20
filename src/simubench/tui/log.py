@@ -344,6 +344,15 @@ def build_lines(
         elif kind == "advance":
             dt = int(ev.get("dt_ns", 0)) / 1e9
             lines.append(LogLine(command=t("log.advance", lang, dt=fmt_seconds(dt)), **base))
+        elif kind == "clock":  # switched while running (#1660)
+            new = t(f"clockMode.{ev.get('new')}", lang)
+            if ev.get("new") == "scaled" and ev.get("scale"):
+                new += f" {ev['scale']:g}×"
+            command = t("log.clock", lang, old=t(f"clockMode.{ev.get('old')}", lang), new=new)
+            seq = int(ev.get("seq", 0))
+            lines.append(
+                LogLine(seq=seq, t_ns=t_ns, instrument=inst, source=source, kind=kind, command=command)
+            )
         elif kind == "remote":
             action = ev.get("action")
             command = t("log.remoteLocal", lang) if action == "local" else t("log.remoteScript", lang)

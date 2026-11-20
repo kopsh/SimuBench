@@ -45,7 +45,7 @@ export type Gap = ("out_of_scope" | "blocked" | "model_work") | null;
 export type Header = string | null;
 export type Instrument = string | null;
 /**
- * scpi | state | advance | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file
+ * scpi | state | advance | clock | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file
  */
 export type Kind = string;
 export type Message = string | null;
@@ -74,6 +74,10 @@ export type Range = string | null;
  * For error and ignored events: why the command was not executed — not_modeled | not_in_model | not_in_definition | ignored | builtin_excluded | bad_parameter (D18). Fault, advance and solver events carry their own kind-specific reason (solver: unsettled, D52)
  */
 export type Reason = string | null;
+/**
+ * Virtual seconds per real second, for clock events: 1 except on a scaled clock
+ */
+export type Scale = number | null;
 export type Seq = number;
 /**
  * Byte count of SCPI data
@@ -117,6 +121,7 @@ export interface Event {
   query?: Query;
   range?: Range;
   reason?: Reason;
+  scale?: Scale;
   seq: Seq;
   size?: Size;
   source?: Source;

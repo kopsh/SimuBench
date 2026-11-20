@@ -29,7 +29,7 @@ TERMS: dict = {
     # spectrum in the web i18n (the sweep hint, #1178).
     "spectrum": {
         "hintClock": "Command clock: a sweep takes virtual time, so the analyzer only sweeps when a command is sent or time is advanced and the trace stands still (a scope's screen frames take none, so its live trace keeps redrawing).",
-        "hintSingle": "Single sweep: the trace is held; turn Continuous on to sweep again.",
+        "hintSingle": "Single sweep: continuous sweep is off, so the trace and the sweep count hold where they stopped; send :INIT:IMM to sweep once, or turn Continuous on.",
     },
     # panel.client in the web i18n, plus the terminal console's own sources (tui-screens.md 1.5).
     "source": {
@@ -142,6 +142,7 @@ TERMS: dict = {
             "remove_folder": "Folder removed: {path}",
         },
         "advance": "Advance {dt}",
+        "clock": "Clock: {old} → {new}",
         "remoteLocal": "taken to local",
         "remoteScript": "taken by the script",
         "errorsOnly": "errors only",

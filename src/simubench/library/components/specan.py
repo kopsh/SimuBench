@@ -274,6 +274,7 @@ class SpecanTrace(Component):
 
     def reset(self) -> None:
         self.holds.frozen = None
+        self.holds.stop_ns = self.session.now_ns
 
     def sync(self) -> None:
         if not self.session.signal_changed(self):
@@ -297,17 +298,36 @@ class SpecanTrace(Component):
 
     # ---- traces ---------------------------------------------------------------------------------
 
-    def current_sweep(self, st: TraceSettings) -> int:
-        return max(0, int((self.session.now_ns - self.history.restart_ns) * 1e-9 / st.sweep + 1e-9))
+    def current_sweep(self, st: TraceSettings, at_ns: int | None = None) -> int:
+        now = self.session.now_ns if at_ns is None else at_ns
+        return max(0, int((now - self.history.restart_ns) * 1e-9 / st.sweep + 1e-9))
+
+    def shown_sweep(self, st: TraceSettings) -> int:
+        """The sweep the display shows: the current one while sweeping continuously; with
+        continuous sweep off, the one the sweeping stopped at (#1660)."""
+        if self.setting("init.continuous"):
+            return self.current_sweep(st)
+        return min(self.current_sweep(st), self.current_sweep(st, self.holds.stop_ns))
 
     def trace(self) -> tuple[np.ndarray, np.ndarray]:
-        """Frequencies and levels (dBm) of the trace as the display shows it now."""
+        """Frequencies and levels (dBm) of the trace as the display shows it now. With continuous
+        sweep off the analyzer does not sweep (#1660): the trace is the one a single sweep took,
+        or — before any — the one shown when the sweeping stopped, held from its first read."""
         self.session.sync()
         st = self.settings()
         x = np.asarray(axis(st.start, st.stop, st.points, "LIN"))
-        if not self.setting("init.continuous") and self.holds.frozen is not None:
-            return x, self.holds.frozen
-        return x, self._trace_at(self.current_sweep(st), st)
+        if self.setting("init.continuous"):
+            return x, self._trace_at(self.current_sweep(st), st)
+        key = self._trace_key()
+        if self.holds.frozen is not None and self.holds.frozen_key != key:
+            # A held trace of other settings (points, span) no longer fits the display: the new
+            # settings' trace at this instant is held instead.
+            self.holds.frozen = None
+            self.holds.stop_ns = self.session.now_ns
+        if self.holds.frozen is None:
+            self.holds.frozen = self._trace_at(self.shown_sweep(st), st)
+            self.holds.frozen_key = key
+        return x, self.holds.frozen
 
     def _trace_at(self, s_now: int, st: TraceSettings) -> np.ndarray:
         mode = self.setting("trace.type")
@@ -367,7 +387,7 @@ class SpecanTrace(Component):
                 "marker_x": float(x[i]),
                 "marker_y": float(y[i]),
                 "reference": self.lo_block().in_use(),
-                "sweep": self.current_sweep(st),
+                "sweep": self.shown_sweep(st),
             },
             "traces": [
                 {
@@ -467,17 +487,29 @@ class SpecanTrace(Component):
             self.holds.frozen = np.min(traces, axis=0)
         else:
             self.holds.frozen = traces[-1]
-        return OpResult(duration_ns=round(n * st.sweep * 1e9))
+        self.holds.frozen_key = self._trace_key()
+        duration = round(n * st.sweep * 1e9)
+        self.holds.stop_ns = self.session.now_ns + duration  # the sweep count stops at their end
+        return OpResult(duration_ns=duration)
 
     # ---- markers (specan_markers.py) ---------------------------------------------------------------
 
-    watches = ("marker.mode", "marker.enabled")
+    watches = ("marker.mode", "marker.enabled", "init.continuous")
 
     def tune_marks(self) -> list[tuple[Literal["marker", "reference"], float]]:
         """The marker while it is on, and the fixed reference a delta marker reads against."""
         return self.markers.tune_marks()
 
     def on_state(self, key: str | None, path: str, old: Any, new: Any) -> None:
+        if path == "init.continuous":
+            if V.flag(old) == V.flag(new):
+                return
+            # Off: the analyzer stops where it is and holds that trace; on: it sweeps again, and
+            # the next stop holds what it shows then, not an older single sweep (#1660).
+            if V.flag(old) and not V.flag(new):
+                self.holds.stop_ns = self.session.now_ns
+            self.holds.frozen = None
+            return
         self.markers.on_state(key, path, old, new)
 
     @op("marker")

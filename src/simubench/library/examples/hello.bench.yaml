@@ -45,7 +45,9 @@ wires:
   - {from: awg.CH2, to: sa.RF_IN}
 run:
   seed: 7
-  clock: command
+  # 墙钟：打开就看到频谱仪连续扫频、示波器持续刷新（#1660）。要逐条命令精确计时（脚本调试、
+  # 截图、测试），点顶栏的“暂停”回到命令时钟，或把这里改成 command。
+  clock: wall
 layout:
   awg: {x: 0, y: 120}
   scope: {x: 420, y: 0}

@@ -16,7 +16,7 @@ from collections.abc import Callable
 from typing import Any, Protocol
 
 from ..errors import Invalid
-from ..models.bench import LIVE_CLOCKS
+from ..models.bench import CLOCK_MODES, LIVE_CLOCKS
 
 #: The latest virtual time, ns (#1458): 2**53, about 104 days — the largest integer a JSON number
 #: or a JavaScript client holds exactly, and far below numpy's int64, so no component's phase or
@@ -97,6 +97,8 @@ class Clock:
         #: are connected to the ports and their view of time would move (#121, issue 624).
         #: In-process sessions (pytest plugin, ``@simubench`` backend, replay) have no clients.
         self.confirm_advance: Callable[[bool], None] | None = None
+        #: The same guard for a change of mode (:meth:`set_mode`, #1660).
+        self.confirm_mode: Callable[[bool], None] | None = None
         wall = time.monotonic_ns()
         self._scaled_ref_ns = wall
         self._scaled_base_ns = 0
@@ -139,6 +141,49 @@ class Clock:
             self._scaled_base_ns = self.now_ns
             self._scaled_ref_ns = time.monotonic_ns()
             self.time_scale = float(scale)
+
+    def set_mode(self, mode: str, scale: float | None = None, force: bool = False) -> bool:
+        """Switch the clock's mode while the bench runs (#1660): the Web's Live / Pause. Time
+        neither jumps nor goes back: a live clock is first brought up to now; a new live clock
+        counts real time from the present virtual time; a new command clock counts idle time from
+        now, not the live stretch. ``scale`` is the rate of a new ``scaled`` clock (default: the
+        current scale when already scaled, else 1). Announced as a ``clock`` event (old and new
+        mode, the scale), which a replay follows. Returns whether anything changed.
+
+        A change of mode moves the connected scripts' view of time, so a served session refuses it
+        while scripts are connected unless ``force`` (``confirm_mode``, as for an advance)."""
+        if mode not in CLOCK_MODES:
+            raise Invalid(f"clock mode must be one of {', '.join(CLOCK_MODES)}, not {mode!r}")
+        if mode == "scaled":
+            rate = float(scale) if scale is not None else (self.time_scale if self.mode == "scaled" else 1.0)
+        else:
+            rate = 1.0
+        check_scale(rate)
+        with self._lock:
+            if self.replaying:
+                raise RuntimeError("a replay's clock follows the record")
+            if mode == self.mode and rate == self.time_scale:
+                return False
+            if mode != self.mode and self.confirm_mode is not None:
+                self.confirm_mode(force)
+            old = self.mode
+            self.follow_wall()  # a live clock up to now; nothing on the others
+            wall = time.monotonic_ns()
+            self._scaled_base_ns = self.now_ns
+            self._scaled_ref_ns = wall
+            self._last_wall = wall
+            self.mode = mode
+            self.time_scale = rate
+            self._host.events.emit({"kind": "clock", "old": old, "new": mode, "scale": rate})
+            return True
+
+    def follow_record(self, mode: str) -> None:
+        """A replay meets a recorded change of mode (a ``clock`` event): the replay's clock takes
+        it, a live stretch on the stepped clock — the record's times drive it, as a whole live
+        recording replays (D12)."""
+        with self._lock:
+            self.mode = "stepped" if mode in LIVE_CLOCKS else mode
+            self.time_scale = 1.0
 
     def begin_action(self) -> None:
         """An action starts: a live clock catches up with real time; the command clock with

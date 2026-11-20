@@ -73,7 +73,8 @@ export const zh = {
       all: "全部",
       none: "没有匹配的仪表",
       mine: "我的",
-      missing: "没有你的型号？打开一个相近型号的验收页，选「复制为我的仪表」再修改；或新建一台（按模板填写或从空白搭建）；也可以让 Agent 按手册写一份定义。",
+      missing:
+        "没有你的型号？打开一个相近型号的验收页，选「复制为我的仪表」再修改；或新建一台（按模板填写或从空白搭建）；也可以让 Agent 按手册写一份定义。",
     },
     final: {
       title: "一分钟，看到你的第一个虚拟测试台",
@@ -215,10 +216,16 @@ export const zh = {
     canvas: "画布",
     inspector: "检查器",
     noSelection: "选择画布中的仪表、元件或连线以查看属性。",
-    activity: { idle: "等待命令", busy: "执行命令", wall: "时钟走动", scaled: "时钟走动 ×{{scale}}" },
+    activity: {
+      idle: "等待命令",
+      busy: "执行命令",
+      wall: "时钟走动",
+      scaled: "时钟走动 ×{{scale}}",
+    },
     activityHint: {
       idle: "命令驱动时钟：没有命令时虚拟时间不前进，画面保持不变。发送命令、点击“推进”，或在示波器屏幕上点“运行”。",
-      idleWall: "命令驱动时钟：两次操作之间画面不变；这段空闲的真实时间在下一次操作时一次计入虚拟时间（run.idle: wall）。发送命令、点击“推进”，或在示波器屏幕上点“运行”。",
+      idleWall:
+        "命令驱动时钟：两次操作之间画面不变；这段空闲的真实时间在下一次操作时一次计入虚拟时间（run.idle: wall）。发送命令、点击“推进”，或在示波器屏幕上点“运行”。",
       busy: "正在执行命令，虚拟时间随命令前进。",
       wall: "墙钟：虚拟时间按真实时间前进，画面自动刷新。",
       scaled: "倍率时钟：虚拟时间按真实时间的固定倍数前进，画面自动刷新。",
@@ -227,7 +234,8 @@ export const zh = {
     clock: "虚拟时间",
     clockWhy: "最近的时间推进",
     clockWhyNone: "虚拟时间还没有前进。",
-    clockIdleNote: "空闲：两次操作之间的真实时间，在下一次操作时计入（run.idle: wall，D47）。",
+    clockIdleNote:
+      "空闲：两次操作之间的真实时间，在下一次操作时计入（run.idle: wall，D47）。",
     advanceReason: {
       command: "{{instrument}} {{header}} 的执行时间",
       idle: "空闲（操作之间的真实时间）",
@@ -237,18 +245,33 @@ export const zh = {
       latency: "通信延迟（故障注入）",
       replay: "回放记录",
     },
-    clockMode: { command: "命令驱动时钟", wall: "墙钟", stepped: "步进时钟", scaled: "按倍率时钟" },
+    clockMode: {
+      command: "命令驱动时钟",
+      wall: "墙钟",
+      stepped: "步进时钟",
+      scaled: "按倍率时钟",
+    },
     clockModeIdleWall: "命令驱动 · 空闲按实时",
     advance: "推进",
     advanceBy: "推进 {{step}}",
+    live: "实时",
+    liveHint:
+      "让虚拟时间跟随真实时间前进：频谱仪连续扫频、示波器持续刷新，不用逐次推进。只改正在运行的测试台，测试台文件不变。",
+    pause: "暂停",
+    pauseHint:
+      "停住虚拟时间，回到{{mode}}：只有命令和“推进”才让时间前进，结果可重复。",
+    liveRate: "时间倍率",
+    clockSwitched: "时钟：{{old}} → {{new}}",
     stopSession: "关闭测试台",
     reset: "重置测试台",
     resetInstrument: "重置此仪表",
-    resetInstrumentHint: "重置此仪表（*RST）：设置回到复位值，其他仪表与记录不变",
+    resetInstrumentHint:
+      "重置此仪表（*RST）：设置回到复位值，其他仪表与记录不变",
     resetInstrumentDone: "{{name}} 已重置（*RST）",
     resetDone: "已重置：仪表回到初始状态，开始新的记录",
     staleDefinitions: "仪表定义已修改",
-    staleDefinitionsHint: "{{ids}} 在打开测试台后被修改，正在运行的仍是旧版本。点击重置以应用。",
+    staleDefinitionsHint:
+      "{{ids}} 在打开测试台后被修改，正在运行的仍是旧版本。点击重置以应用。",
     backHome: "返回测试台列表",
     commandPalette: "命令面板",
     theme: { label: "主题", system: "跟随系统", light: "浅色", dark: "深色" },
@@ -296,7 +319,8 @@ export const zh = {
     unreadable: "读不出数值：请输入数字，可带 SI 前缀和单位（如 2.5 kHz）",
     autoInactive: "自动时不生效",
     dcInactive: "直流输出时不生效",
-    computedOnRead: "深记录读的时候才算：读到哪段算哪段，读回与测量的耗时随点数增长",
+    computedOnRead:
+      "深记录读的时候才算：读到哪段算哪段，读回与测量的耗时随点数增长",
     auto: "自动",
     sendCommand: "发送 SCPI 命令",
     commandPlaceholder: "例如 *IDN? 或 :SYSTem:ERRor?",
@@ -325,7 +349,8 @@ export const zh = {
     title: "个体偏差",
     hint: "本台仪表或元件相对型号标称值的偏差，SCPI 读不到，只能通过测量发现。抽取的值只在“允许读取真实值”打开时显示。",
     mode: "按指标抽取",
-    modeHint: "开启后按定义中的指标范围，由测试台种子为本台抽取偏差；关闭则使用标称值。测试台中写死的隐藏值优先。",
+    modeHint:
+      "开启后按定义中的指标范围，由测试台种子为本台抽取偏差；关闭则使用标称值。测试台中写死的隐藏值优先。",
     nominal: "标称",
     hidden: "已隐藏",
     normal: "正态",
@@ -333,15 +358,19 @@ export const zh = {
   edit: {
     model: "型号",
     initialTitle: "初始设置",
-    initialNote: "搭建模式下画布显示测试台文件中的初始设置；运行中的值见“操作”模式或仪表屏幕。",
+    initialNote:
+      "搭建模式下画布显示测试台文件中的初始设置；运行中的值见“操作”模式或仪表屏幕。",
     liveTitle: "运行中的值",
     liveSame: "这里显示的是正在运行的会话，与测试台文件中的初始设置一致。",
-    liveDiffers: "这里显示的是正在运行的会话（脚本或 Agent 可能改过）；画布上显示的是初始设置。与初始设置不同的项：",
+    liveDiffers:
+      "这里显示的是正在运行的会话（脚本或 Agent 可能改过）；画布上显示的是初始设置。与初始设置不同的项：",
     liveDiff: "{{name}}：{{live}}（初始：{{initial}}）",
     liveMore: "等另外 {{count}} 项",
     panelTitle: "面板设置的是初始设置",
-    panelSame: "面板上的按键与数值改的是测试台文件中的初始设置；主显示的读数来自正在运行的会话，与初始设置一致。",
-    panelDiffers: "面板上的按键与数值改的是测试台文件中的初始设置；主显示的读数来自正在运行的会话（脚本或 Agent 可能改过）。与初始设置不同的项：",
+    panelSame:
+      "面板上的按键与数值改的是测试台文件中的初始设置；主显示的读数来自正在运行的会话，与初始设置一致。",
+    panelDiffers:
+      "面板上的按键与数值改的是测试台文件中的初始设置；主显示的读数来自正在运行的会话（脚本或 Agent 可能改过）。与初始设置不同的项：",
     mode: { run: "操作", edit: "搭建" },
     runChanged: "启动设置已修改",
     modeLabel: "工作模式",
@@ -362,14 +391,16 @@ export const zh = {
     layoutChanged: "布局已调整",
     rebuilt: "已按新的测试台定义重建",
     benchChanged: "测试台文件已修改",
-    benchChangedHint: "正在运行的仍是打开时的测试台。点击按新的定义重建，仪表设置回到初始值。",
+    benchChangedHint:
+      "正在运行的仍是打开时的测试台。点击按新的定义重建，仪表设置回到初始值。",
     rebuiltHint: "仪表设置回到初始值",
     blockedInvalid: "搭建中的定义有问题，无法切回操作",
     startFailed: "无法启动：测试台存在错误",
     noFile: "这个会话没有对应的测试台文件，无法编辑。",
     previewError: "无法预览测试台：{{error}}",
     omitted: "{{count}} 项因错误未显示：{{names}}",
-    twoDrivers: "不能连接：一个网络只能有一个驱动源，这样连会有 {{count}} 个：{{names}}",
+    twoDrivers:
+      "不能连接：一个网络只能有一个驱动源，这样连会有 {{count}} 个：{{names}}",
     delete: "删除",
     deleteHint: "Delete",
     name: "名称",
@@ -377,7 +408,8 @@ export const zh = {
     label: "显示名称",
     labelPlaceholder: "可选，用于界面显示",
     initialState: "初始状态",
-    initialStateHint: "这里改的是打开测试台时的初始设置，保存到测试台文件；运行中的值在“操作”模式或仪表屏幕里改。",
+    initialStateHint:
+      "这里改的是打开测试台时的初始设置，保存到测试台文件；运行中的值在“操作”模式或仪表屏幕里改。",
     resetDefault: "恢复默认",
     defaultValue: "默认",
     bench: "测试台",
@@ -388,7 +420,8 @@ export const zh = {
     clock: "时钟模式",
     timeScale: "时间倍率（×）",
     revealTrue: "允许读取真实值",
-    revealTrueHint: "调试时允许界面与 Agent 读取隐藏状态的真实值；验证测试时应关闭。",
+    revealTrueHint:
+      "调试时允许界面与 Agent 读取隐藏状态的真实值；验证测试时应关闭。",
     addAccessory: "添加配件",
     removeAccessory: "移除配件",
     from: "起点",
@@ -461,7 +494,8 @@ export const zh = {
     enbw: "等效噪声带宽",
     noise: "噪声 σ",
     chart: "R 的建立过程",
-    chartHint: "实线为已读取的 R；虚线为滤波器按当前设置将要走的曲线（不含噪声）。",
+    chartHint:
+      "实线为已读取的 R；虚线为滤波器按当前设置将要走的曲线（不含噪声）。",
     history: "历史",
     projected: "预测",
     settings: "设置",
@@ -487,9 +521,18 @@ export const zh = {
     noReading: "—",
   },
   spectrum: {
-    hintClock: "命令时钟：扫描占用虚拟时间，发送命令或推进时间时才会扫频，迹线因此静止（示波器的屏幕帧不占用虚拟时间，所以实时画面照常刷新）。",
-    hintSingle: "单次扫描：已保持当前迹线，开启“连续扫描”后才会再扫。",
+    hintClock:
+      "命令时钟：扫描占用虚拟时间，发送命令或推进时间时才会扫频，迹线因此静止（示波器的屏幕帧不占用虚拟时间，所以实时画面照常刷新）。",
+    hintSingle:
+      "单次扫描：连续扫描已关，迹线和扫描计数停在这一轮；发送 :INIT:IMM 扫一次，或开启“连续扫描”。",
     advanceSweep: "推进一次扫描时间",
+    liveSweep: "实时扫描",
+    liveSweepHint:
+      "切到实时时钟：虚拟时间跟随真实时间，频谱仪连续扫频（顶栏“暂停”回到命令时钟）。",
+    singleSweep: "单次扫描",
+    singleSweepHint: "扫一次（:INIT:IMM）：扫完后迹线再次保持。",
+    continuousOn: "开启连续扫描",
+    continuousOnHint: "恢复连续扫描（:INIT:CONT ON）",
     overload: "混频器过载",
     uncalReason: "扫描时间短于当前 RBW/VBW 所需时间，幅度读数未校准",
     reference: "参考",
@@ -524,11 +567,13 @@ export const zh = {
     buffer: "缓冲区",
     bufferTable: "缓冲区读数",
     points: "{{count}} 点",
-    noBuffer: "缓冲区为空。点击“单次读数”或“执行”，或由脚本发送 :MEASure?、:READ? 或 :INITiate。",
+    noBuffer:
+      "缓冲区为空。点击“单次读数”或“执行”，或由脚本发送 :MEASure?、:READ? 或 :INITiate。",
     controls: "测量控制",
     read: "单次读数",
     initiate: "执行",
-    initiateHint: "按当前设置执行（:INITiate;*WAI）：设置了扫描时执行整个扫描，否则读一次。",
+    initiateHint:
+      "按当前设置执行（:INITiate;*WAI）：设置了扫描时执行整个扫描，否则读一次。",
     clearBuffer: "清空缓冲区",
   },
   load: {
@@ -554,7 +599,8 @@ export const zh = {
   },
   history: {
     title: "版本历史",
-    description: "每次保存都留有一个版本，并记录由谁保存。在这里审阅 Agent 或他人对测试台所做的修改，或恢复到较早的版本。",
+    description:
+      "每次保存都留有一个版本，并记录由谁保存。在这里审阅 Agent 或他人对测试台所做的修改，或恢复到较早的版本。",
     versions: "版本",
     empty: "还没有保存过的版本。",
     current: "当前",
@@ -569,9 +615,23 @@ export const zh = {
     explainPrevious: "与版本 #{{seq}} 相比，这个版本做了以下修改：",
     explainFirst: "这是记录到的第一个版本，内容如下：",
     explainCurrent: "从这个版本到当前文件，发生了以下变化：",
-    source: { ui: "界面", agent: "Agent", api: "API", external: "外部修改", restore: "恢复" },
+    source: {
+      ui: "界面",
+      agent: "Agent",
+      api: "API",
+      external: "外部修改",
+      restore: "恢复",
+    },
     kind: { added: "新增", removed: "删除", changed: "修改" },
-    section: { bench: "测试台", instruments: "仪表", parts: "元件", wires: "连线", faults: "预设故障", run: "启动设置", layout: "节点位置" },
+    section: {
+      bench: "测试台",
+      instruments: "仪表",
+      parts: "元件",
+      wires: "连线",
+      faults: "预设故障",
+      run: "启动设置",
+      layout: "节点位置",
+    },
   },
   runs: {
     title: "记录",
@@ -602,8 +662,20 @@ export const zh = {
     content: "内容",
     fromAcquisition: "由采集 #{{seq}} 重新生成",
     autoTrigger: "自动触发",
-    kinds: { state: "设置", error: "错误", fault: "故障", acquisition: "采集", session: "会话", file: "文件" },
-    fileActions: { write: "写入", delete: "删除", make_folder: "建文件夹", remove_folder: "删文件夹" },
+    kinds: {
+      state: "设置",
+      error: "错误",
+      fault: "故障",
+      acquisition: "采集",
+      session: "会话",
+      file: "文件",
+    },
+    fileActions: {
+      write: "写入",
+      delete: "删除",
+      make_folder: "建文件夹",
+      remove_folder: "删文件夹",
+    },
   },
   probe: {
     title: "虚拟探针",
@@ -613,13 +685,15 @@ export const zh = {
     amplitude: "幅度（峰值）",
     waveform: "网络上的波形",
     why: "为什么是这个值",
-    whyHint: "网络电压 = 每个独立源的电动势 × 电路从该源到这个网络的传递函数（节点分析求得），再求和。探针不加载电路。",
+    whyHint:
+      "网络电压 = 每个独立源的电动势 × 电路从该源到这个网络的传递函数（节点分析求得），再求和。探针不加载电路。",
     noSource: "没有信号源连到这个网络。",
   },
   mcp: {
     button: "连接外部 AI（MCP）",
     title: "连接外部 AI 客户端（MCP）",
-    description: "SimuBench 正在提供 MCP 服务。把下面的地址或配置填进 AI 客户端，它搭建、运行的测试台会实时出现在这个页面上。",
+    description:
+      "SimuBench 正在提供 MCP 服务。把下面的地址或配置填进 AI 客户端，它搭建、运行的测试台会实时出现在这个页面上。",
     url: "MCP 地址（streamable HTTP）",
     json: "客户端配置（Claude Desktop、Cursor 等的 mcpServers）",
     claude: "Claude Code 命令",
@@ -637,17 +711,20 @@ export const zh = {
     notRecording: "未记录（以 --record-dir 启动）",
     health: "健康检查",
     bundle: "导出诊断包",
-    bundleHint: "诊断包包含版本清单、健康检查、最近的日志、打开的会话及其测试台文件与最近的记录；不包含访问令牌，不会自动上传。",
+    bundleHint:
+      "诊断包包含版本清单、健康检查、最近的日志、打开的会话及其测试台文件与最近的记录；不包含访问令牌，不会自动上传。",
     bundleFailed: "导出诊断包失败",
   },
   storage: {
     menu: "工作区数据",
     title: "工作区数据",
-    description: "工作区 .simubench/ 里随测试台与仪表保存的版本历史、助手对话与仪表文件。",
+    description:
+      "工作区 .simubench/ 里随测试台与仪表保存的版本历史、助手对话与仪表文件。",
     kind: { history: "版本历史", assistant: "助手对话", files: "仪表文件" },
     total: "合计",
     orphans: "源文件已不在",
-    orphansHint: "这些数据所属的测试台或仪表定义已在 SimuBench 之外删除或移动。",
+    orphansHint:
+      "这些数据所属的测试台或仪表定义已在 SimuBench 之外删除或移动。",
     noOrphans: "没有这类数据：每一项都还有对应的文件。",
     kept: "保留",
     withHistory: "同时删除它们的版本历史",
@@ -661,7 +738,8 @@ export const zh = {
     cleaned_other: "已删除 {{count}} 项，释放 {{size}}",
     cleanFailed: "清理工作区数据失败",
     empty: "还没有工作区数据",
-    emptyBody: "保存测试台、与助手对话或让仪表存文件后，这里会列出它们占用的空间。",
+    emptyBody:
+      "保存测试台、与助手对话或让仪表存文件后，这里会列出它们占用的空间。",
   },
   panel: {
     collapse: "收起记录",
@@ -677,9 +755,11 @@ export const zh = {
     clear: "清空显示",
     time: "时间",
     virtualTime: "虚拟时间",
-    timeHint: "从打开测试台起的虚拟时间。命令驱动时钟下由命令所需的时长和脚本的等待推进，与记录、时间线一致。",
+    timeHint:
+      "从打开测试台起的虚拟时间。命令驱动时钟下由命令所需的时长和脚本的等待推进，与记录、时间线一致。",
     wallTimeHeader: "实际时间",
-    wallTimeHint: "消息发生时本机的实际时间（本地时区），用于和脚本、产线系统的日志对照。",
+    wallTimeHint:
+      "消息发生时本机的实际时间（本地时区），用于和脚本、产线系统的日志对照。",
     source: "来源",
     client: { script: "脚本", ui: "界面", mcp: "Agent", replay: "回放" },
     instrument: "仪表",
@@ -698,8 +778,10 @@ export const zh = {
     running: "运行中",
     stopped: "已停止",
     waiting: "等待触发",
-    liveHint: "运行中：屏幕跟随信号刷新，与真机一样由示波器自己采集。刷新的画面不是采集记录，不进“通信”，也不推进虚拟时间。",
-    recordHint: "已停止：屏幕定格在最近一次采集，无论它来自面板的“单次”还是脚本。面板按钮在仪表内部执行，不发送 SCPI 命令。",
+    liveHint:
+      "运行中：屏幕跟随信号刷新，与真机一样由示波器自己采集。刷新的画面不是采集记录，不进“通信”，也不推进虚拟时间。",
+    recordHint:
+      "已停止：屏幕定格在最近一次采集，无论它来自面板的“单次”还是脚本。面板按钮在仪表内部执行，不发送 SCPI 命令。",
     noRecord: "还没有采集。点击“单次”或“运行”，或由脚本采集。",
     acquisition: "采集控制",
     run: "运行",
@@ -721,10 +803,27 @@ export const zh = {
     perDiv: "/div",
     acquisitions: "采集次数",
     liveFrame: "实时画面",
-    hintClock: "命令时钟：屏幕帧不占用虚拟时间，实时画面按此刻的信号重画；只有命令和“推进”才让时钟走动。",
-    cursors: { toggle: "光标", title: "光标", channel: "通道", x1: "X1", x2: "X2", y1: "Y1", y2: "Y2" },
+    hintClock:
+      "命令时钟：屏幕帧不占用虚拟时间，实时画面按此刻的信号重画；只有命令和“推进”才让时钟走动。",
+    cursors: {
+      toggle: "光标",
+      title: "光标",
+      channel: "通道",
+      x1: "X1",
+      x2: "X2",
+      y1: "Y1",
+      y2: "Y2",
+    },
     spectrum: { label: "频谱", span: "频率", bin: "频点间隔" },
-    measure: { title: "测量", amplitude: "幅值", vpp: "Vpp", frequency: "频率", period: "周期", mean: "均值", rms: "RMS" },
+    measure: {
+      title: "测量",
+      amplitude: "幅值",
+      vpp: "Vpp",
+      frequency: "频率",
+      period: "周期",
+      mean: "均值",
+      rms: "RMS",
+    },
   },
   generator: {
     title: "函数发生器",
@@ -747,9 +846,11 @@ export const zh = {
     exitFullscreen: "退出全屏",
     exitFullscreenTip: "退出全屏（Esc）",
     hint: "这个型号由以下组件搭成（只读），信号自左向右。实线是信号连线：细线是模拟信号，双线是数字采样流；虚线是“使用”关系。点一个组件，图上亮出它的作用链；点它的输出端口，看这一点的信号（内部探针）。",
-    basis: "这是功能框图级的模型：功能块的划分依据公开资料（见依据），不是该型号的实际电路设计。",
+    basis:
+      "这是功能框图级的模型：功能块的划分依据公开资料（见依据），不是该型号的实际电路设计。",
     basisLabel: "依据：",
-    basisNone: "这个定义没有声明依据（不是真实型号），功能块按类别的通用架构划分。",
+    basisNone:
+      "这个定义没有声明依据（不是真实型号），功能块按类别的通用架构划分。",
     legend: {
       digital: "数字采样流",
       uses: "使用",
@@ -767,7 +868,8 @@ export const zh = {
       title: "内部探针",
       open: "内部探针：{{port}}",
       close: "关闭内部探针",
-      passive: "被动读取：不推进虚拟时间、不进运行记录，脚本下一次读到的值不变。",
+      passive:
+        "被动读取：不推进虚拟时间、不进运行记录，脚本下一次读到的值不变。",
       at: "虚拟时刻 {{t}}",
       waveform: "波形（解析求值）",
       samples: "采样点（每点一级台阶，不插值）",
@@ -791,7 +893,8 @@ export const zh = {
       notes: "保真度",
       silent: "为什么是 0",
       withheld: "验证模式下不提供内部探针",
-      withheldBody: "这个测试台不公开真实值，而这台仪表带有隐藏的个体值（抽取的个体偏差、测试台的 hidden 或参数故障）：内部信号会泄露它们。结构图照常可看；要看信号，在测试台的 run 中打开 reveal_true_values。",
+      withheldBody:
+        "这个测试台不公开真实值，而这台仪表带有隐藏的个体值（抽取的个体偏差、测试台的 hidden 或参数故障）：内部信号会泄露它们。结构图照常可看；要看信号，在测试台的 run 中打开 reveal_true_values。",
       error: "读不到 {{port}} 的信号",
       stale: "与引擎断开：下面是断开前的信号，重连后自动刷新。",
       tunedTo: "调谐于",
@@ -800,18 +903,22 @@ export const zh = {
       tuneMark: { marker: "标记 {{index}}", reference: "参考标记 {{index}}" },
       tuneManual: "手动",
       tuneRange: "{{lo}} 至 {{hi}}",
-      tuneHint: "混频器之后的信号取决于本振调谐在哪里。可输入 {{range}} 内的频率，或在下面的谱图上点一点。",
+      tuneHint:
+        "混频器之后的信号取决于本振调谐在哪里。可输入 {{range}} 内的频率，或在下面的谱图上点一点。",
       tuneOutOfRange: "超出这台仪表的频率范围（{{range}}），调谐点没有改。",
       tuneNotNumber: "这不是一个频率。写成 1.0005G、999.5 MHz 或 1e9 这样。",
       tuneHere: "调谐到 {{freq}}",
       clickToTune: "点一点，调谐到那里",
       readKeys: "左右键逐条读数，Esc 收起",
-      readKeysTune: "左右键逐条读数，Home / End 跳到最强的几个峰，Enter 调谐到读数处，Esc 收起",
+      readKeysTune:
+        "左右键逐条读数，Home / End 跳到最强的几个峰，Enter 调谐到读数处，Esc 收起",
       iq: "前 {{count}} 个 IQ 采样（I 实线、Q 虚线，同一刻度）",
       spectrumIq: "这一帧的双边谱",
       spectrumBins: "幅度谱（变换输出的频点）",
-      spectrumHintIq: "汉宁窗；横轴是射频频率，中间是调谐点；纵轴 {{unit}}，显示最强点以下 {{range}} dB",
-      spectrumHintBins: "RBW 滤波 / FFT 的输出，直接画出，不再做变换；横轴是射频频率，纵轴 {{unit}}，显示最强点以下 {{range}} dB",
+      spectrumHintIq:
+        "汉宁窗；横轴是射频频率，中间是调谐点；纵轴 {{unit}}，显示最强点以下 {{range}} dB",
+      spectrumHintBins:
+        "RBW 滤波 / FFT 的输出，直接画出，不再做变换；横轴是射频频率，纵轴 {{unit}}，显示最强点以下 {{range}} dB",
       floor: "噪声底（各频点电平的中位数）",
       binCount: "频点数",
       binSpacing: "频点间隔",
@@ -819,13 +926,16 @@ export const zh = {
       linesWhole: "从 0 Hz 起看全部",
       linesNear: "只看最强谱线附近",
       linesOutside_one: "图外还有 {{count}} 条谱线（离这一组一个数量级以上）。",
-      linesOutside_other: "图外还有 {{count}} 条谱线（离这一组一个数量级以上）。",
+      linesOutside_other:
+        "图外还有 {{count}} 条谱线（离这一组一个数量级以上）。",
       dbcTip: "相对最强谱线的电平",
     },
     find: "查找命令或设置",
-    findTip: "输入一条命令（可写短形式，如 :WAV:DATA?）或设置的路径、名称，图上亮出它落到的组件",
+    findTip:
+      "输入一条命令（可写短形式，如 :WAV:DATA?）或设置的路径、名称，图上亮出它落到的组件",
     noWriter: "没有命令直接写它（由面板或其他命令一并设置）",
-    findNone: "没有组件对应“{{query}}”。命令可写短形式，如 :CHAN1:SCAL?；设置可写路径或名称。",
+    findNone:
+      "没有组件对应“{{query}}”。命令可写短形式，如 :CHAN1:SCAL?；设置可写路径或名称。",
     findResults_one: "{{count}} 个组件",
     findResults_other: "{{count}} 个组件",
     controls: "由什么控制",
@@ -880,19 +990,36 @@ export const zh = {
   },
   clients: {
     list: "已连接的脚本",
-    start: { title: "打开另一个测试台？", body: "以下脚本仍连接着当前测试台，打开另一个测试台会断开它们：", confirm: "断开并打开" },
+    start: {
+      title: "打开另一个测试台？",
+      body: "以下脚本仍连接着当前测试台，打开另一个测试台会断开它们：",
+      confirm: "断开并打开",
+    },
     rebuild: {
       title: "按新的定义重建？",
       body: "测试台文件已修改。以下脚本仍连接着正在运行的测试台，重建会断开它们，仪表回到初始设置：",
       confirm: "断开并重建",
       later: "稍后重建",
     },
-    stop: { title: "关闭测试台？", body: "以下脚本仍连接着测试台，关闭会断开它们：", confirm: "断开并关闭" },
-    reset: { title: "重置测试台？", body: "以下脚本仍连接着测试台，重置会断开它们，仪表回到上电状态：", confirm: "断开并重置" },
+    stop: {
+      title: "关闭测试台？",
+      body: "以下脚本仍连接着测试台，关闭会断开它们：",
+      confirm: "断开并关闭",
+    },
+    reset: {
+      title: "重置测试台？",
+      body: "以下脚本仍连接着测试台，重置会断开它们，仪表回到上电状态：",
+      confirm: "断开并重置",
+    },
     advance: {
       title: "推进虚拟时间？",
       body: "以下脚本正在使用测试台，推进时间会改变脚本看到的时间关系（等待、建立、超时）：",
       confirm: "仍要推进",
+    },
+    clock: {
+      title: "切换时钟？",
+      body: "以下脚本正在使用测试台，切换时钟会改变脚本看到的时间关系（等待、建立、超时）：",
+      confirm: "仍要切换",
     },
   },
   remote: {
@@ -909,7 +1036,8 @@ export const zh = {
     localMark: "本地",
     clients: "已连接的客户端",
     refused: "{{name}} 由脚本远程控制",
-    refusedHint: "按“本地（LOCAL）”从脚本接管后再操作；脚本发出下一条命令后回到远程。",
+    refusedHint:
+      "按“本地（LOCAL）”从脚本接管后再操作；脚本发出下一条命令后回到远程。",
   },
   newInstrument: {
     open: "新建仪表",
@@ -918,7 +1046,8 @@ export const zh = {
     startFrom: "从哪里开始",
     fromTemplate: "模板：{{name}}",
     blank: "空白仪表",
-    blankHint: "空白仪表只有身份与类别；创建后在“编辑结构”里放入组件、声明设置与命令，命令的参数与应答格式可以交给 Agent。",
+    blankHint:
+      "空白仪表只有身份与类别；创建后在“编辑结构”里放入组件、声明设置与命令，命令的参数与应答格式可以交给 Agent。",
     class: "类别",
     manufacturer: "厂商（按 *IDN? 的写法）",
     model: "型号（按 *IDN? 的写法）",
@@ -943,7 +1072,8 @@ export const zh = {
     useCopyConfirm: "改用副本",
     usedCopy: "{{name}} 已改用 {{id}}",
     copied: "已创建 {{path}}",
-    copiedHint: "它继承这个型号；在 YAML 中改动，或让 Agent 用 edit_definition 修改。",
+    copiedHint:
+      "它继承这个型号；在 YAML 中改动，或让 Agent 用 edit_definition 修改。",
     open: "验收页",
     tab: "{{name}} · 验收",
     title: "仪表验收",
@@ -973,9 +1103,16 @@ export const zh = {
     build: {
       library: "组件库",
       tabIdentity: "身份",
-      identity: { manufacturer: "厂商", model: "型号", serial: "序列号", firmware: "固件版本", idn: "*IDN? 格式" },
+      identity: {
+        manufacturer: "厂商",
+        model: "型号",
+        serial: "序列号",
+        firmware: "固件版本",
+        idn: "*IDN? 格式",
+      },
       identitySaved: "身份已保存",
-      identityHint: "*IDN? 格式里 {manufacturer} 会转成大写；要保留大小写，直接写厂商名。应答格式与技术指标交给 Agent 修改。",
+      identityHint:
+        "*IDN? 格式里 {manufacturer} 会转成大写；要保留大小写，直接写厂商名。应答格式与技术指标交给 Agent 修改。",
       filter: "按类型、名称或说明过滤",
       dragHint: "拖到画布上添加；放进“每通道”区域的是通道组件",
       noMatch: "没有匹配的组件",
@@ -985,7 +1122,16 @@ export const zh = {
       loading: "正在载入仪表结构…",
       showAll: "显示其他类别的组件（{{count}}）",
       ownOnly: "只看{{class}}用到的组件",
-      groups: { own: "{{class}}型号用到的", signal: "信号通路", measure: "测量", source: "源与输出", scope: "示波器", trigger: "触发与时序", system: "存储与系统", other: "其他" },
+      groups: {
+        own: "{{class}}型号用到的",
+        signal: "信号通路",
+        measure: "测量",
+        source: "源与输出",
+        scope: "示波器",
+        trigger: "触发与时序",
+        system: "存储与系统",
+        other: "其他",
+      },
       mappedHint: "通过映射表跟随这项设置；映射表由 Agent 修改",
       tableKey: "键",
       tableValue: "值",
@@ -1002,19 +1148,32 @@ export const zh = {
       usedBy: "用于：{{list}}",
       usedByNone: "还没有组件或命令用它",
       agentCopy: "交给 Agent",
-      agentCopyHint: "复制一段说明，粘贴给你的 Agent：补全这些命令的参数与应答格式",
-      agentCopied: "已复制。粘贴给你的 Agent（如 Claude Code），它会补全命令的参数与应答格式",
+      agentCopyHint:
+        "复制一段说明，粘贴给你的 Agent：补全这些命令的参数与应答格式",
+      agentCopied:
+        "已复制。粘贴给你的 Agent（如 Claude Code），它会补全命令的参数与应答格式",
       agentCopyFailed: "没能写入剪贴板，请手动复制下面的说明",
-      agentPrompt: "请为 SimuBench 工作区仪表 {{id}}（文件 instruments/{{id}}.yaml）补全命令的参数与应答格式：{{commands}}。改完让定义校验通过，并在试运行里各发一次确认。",
+      agentPrompt:
+        "请为 SimuBench 工作区仪表 {{id}}（文件 instruments/{{id}}.yaml）补全命令的参数与应答格式：{{commands}}。改完让定义校验通过，并在试运行里各发一次确认。",
       access: { set: "只写", query: "只查", both: "可写可查" },
       accessLabel: "命令的用法",
       accessNone: "不可写也不可查",
       bandEmpty: "把组件拖到这里：每个通道一份",
       saved: "已保存",
       saving: "保存中…",
-      readOnly: "内置型号不能直接修改：先点右上角的“复制为我的仪表”，再在副本中搭建。",
-      inherited: "继承自 {{parent}}：{{items}}。第一次修改某一项时，整项写进这台仪表，之后与 {{parent}} 无关；命令例外：只记下改动的那几条，其余命令仍跟随 {{parent}}。",
-      item: { components: "整机组件", channel_components: "通道组件", wiring: "连线", ports: "面板端口", state: "设置", channel_state: "通道设置", commands: "命令" },
+      readOnly:
+        "内置型号不能直接修改：先点右上角的“复制为我的仪表”，再在副本中搭建。",
+      inherited:
+        "继承自 {{parent}}：{{items}}。第一次修改某一项时，整项写进这台仪表，之后与 {{parent}} 无关；命令例外：只记下改动的那几条，其余命令仍跟随 {{parent}}。",
+      item: {
+        components: "整机组件",
+        channel_components: "通道组件",
+        wiring: "连线",
+        ports: "面板端口",
+        state: "设置",
+        channel_state: "通道设置",
+        commands: "命令",
+      },
       relayout: "自动排列",
       relayoutHint: "清除拖动过的位置，按信号连线自左向右排列",
       problems_one: "{{count}} 个问题",
@@ -1023,7 +1182,8 @@ export const zh = {
       added: "已添加 {{name}}",
       removed: "已删除 {{name}}，连带 {{wires}} 条连线、{{ports}} 个面板端口",
       wireRemoved: "已删除连线",
-      wireRefused: "不能这样连：输出接到输入，介质要相同，一个输入只接一根线；电气端口接面板端口",
+      wireRefused:
+        "不能这样连：输出接到输入，介质要相同，一个输入只接一根线；电气端口接面板端口",
       conflict: "这台仪表已在别处修改（Agent 或文件），已按新文件重新载入",
       saveFailed: "没有保存：{{message}}。图已回到上一次保存的状态，请重试",
       empty: "还没有组件。从左侧组件库拖一个进来开始搭建。",
@@ -1057,13 +1217,20 @@ export const zh = {
       tabPorts: "面板端口",
       tabSettings: "设置",
       tabCommands: "命令",
-      settingsHint: "仪表的设置：命令写它，组件参数跟随它。每通道的设置每个通道一份。",
+      settingsHint:
+        "仪表的设置：命令写它，组件参数跟随它。每通道的设置每个通道一份。",
       settingNew: "设置名，如 out.level",
       settingAdd: "添加设置",
       scopeInstrument: "整机",
       scopeChannel: "每通道",
       settingType: "类型",
-      types: { float: "实数", int: "整数", bool: "开关", enum: "选项", string: "文本" },
+      types: {
+        float: "实数",
+        int: "整数",
+        bool: "开关",
+        enum: "选项",
+        string: "文本",
+      },
       unit: "单位",
       min: "最小",
       max: "最大",
@@ -1072,14 +1239,17 @@ export const zh = {
       label: "中文名",
       labelEn: "英文名",
       settingDelete: "删除设置",
-      settingUses: "{{params}} 个组件参数、{{commands}} 条命令引用它；删除后诊断会指出它们",
-      settingInvalid: "设置名由字母、数字、下划线组成，可用 . 分组，不能以 ch. 开头",
+      settingUses:
+        "{{params}} 个组件参数、{{commands}} 条命令引用它；删除后诊断会指出它们",
+      settingInvalid:
+        "设置名由字母、数字、下划线组成，可用 . 分组，不能以 ch. 开头",
       settingTaken: "已有这个设置",
       settingNone: "还没有设置",
       bind: "绑定到设置",
       unbind: "解除绑定",
       mapped: "按映射",
-      commandsHint: "命令头里用 <ch> 表示通道号；命令的参数与应答格式由 Agent 修改。",
+      commandsHint:
+        "命令头里用 <ch> 表示通道号；命令的参数与应答格式由 Agent 修改。",
       cmdHeader: "命令头，如 :OUTPut:LEVel",
       cmdKind: "种类",
       kindState: "写/查一个设置",
@@ -1099,7 +1269,8 @@ export const zh = {
       redo: "重做（Ctrl/⌘+Shift+Z）",
       try: "试运行",
       tryHint: "按最新保存的定义运行；每次修改保存后自动重开",
-      nameInvalid: "名称由字母、数字、_ 和 - 组成，不能含 .，不能与已有组件重名",
+      nameInvalid:
+        "名称由字母、数字、_ 和 - 组成，不能含 .，不能与已有组件重名",
       layoutFailed: "布局没有保存：{{message}}",
       selectHint: "选中组件看它的参数；选中连线或组件后按 Delete 删除",
     },
@@ -1139,7 +1310,8 @@ export const zh = {
     document: "文档编号",
     referenceVersion: "版本",
     firmware: "固件",
-    customDefinition: "这份定义没有声明依据（reference）：按接口契约或用户自己的规格编写。",
+    customDefinition:
+      "这份定义没有声明依据（reference）：按接口契约或用户自己的规格编写。",
     fromTemplate: "由模板 {{id}} v{{version}} 展开",
     functions: "功能与量程",
     groupInstrument: "整机",
@@ -1147,15 +1319,20 @@ export const zh = {
     readouts: "读数",
     noFunctions: "定义没有声明面板或设置。",
     onOff: "开 / 关",
-    panelSource: { declared: "面板由定义声明", class_default: "面板按类别默认布局生成" },
+    panelSource: {
+      declared: "面板由定义声明",
+      class_default: "面板按类别默认布局生成",
+    },
     specs: "技术指标",
     noSpecs: "定义没有记录技术指标。",
-    specsHint: "技术指标只作记录（D3），改它不改变仿真；仿真按设置的范围与组件参数运行。",
+    specsHint:
+      "技术指标只作记录（D3），改它不改变仿真；仿真按设置的范围与组件参数运行。",
     stillOld: "技术指标只作记录，仿真不变；这些地方仍是旧值：{{places}}",
     deviations: "个体偏差限值",
     noDeviations: "定义没有声明个体偏差。",
     thisUnit: "本台：{{value}}",
-    deviationsHint: "限值是型号的；每台的值由测试台种子抽取，运行记录默认不显示。",
+    deviationsHint:
+      "限值是型号的；每台的值由测试台种子抽取，运行记录默认不显示。",
     searchCommands: "搜索命令、参数或说明",
     levelFilter: "按实现程度筛选",
     level: { implemented: "实现", accepted: "接受", not_modeled: "未实现" },
@@ -1173,7 +1350,8 @@ export const zh = {
     virtualNow: "虚拟时间 {{time}}",
     clearConsole: "清空",
     powerCycle: "重新上电",
-    consoleHint: "发送命令试运行这台仪表。临时会话只含这台仪表，与打开的测试台互不影响，不写运行记录。",
+    consoleHint:
+      "发送命令试运行这台仪表。临时会话只含这台仪表，与打开的测试台互不影响，不写运行记录。",
     noReply: "等待回复超时：命令可能不回复。",
     tryFailed: "这份定义在当前工作区无法构建：{{error}}",
     send: "发送",
@@ -1184,20 +1362,25 @@ export const zh = {
     session: "会话",
     tryNote: "试运行不发送 SCPI 到任何端口，也不写运行记录。",
     noCaseFiles: "工作区中没有针对这台仪表的用例文件",
-    noCaseFilesBody: "用例文件（*cases.yaml）的 model 写这台仪表的定义 id 时，会出现在这里。",
+    noCaseFilesBody:
+      "用例文件（*cases.yaml）的 model 写这台仪表的定义 id 时，会出现在这里。",
     caseFiles: "用例文件",
     caseCount: "{{count}} 条用例",
     builtinCases: "内置手册用例",
-    builtinCasesHint: "随 SimuBench 发布：按这台型号的手册写的用例，与仓库测试同一份",
+    builtinCasesHint:
+      "随 SimuBench 发布：按这台型号的手册写的用例，与仓库测试同一份",
     workspaceCases: "工作区用例",
     inheritedCases: "继承自 {{model}} 的手册用例",
-    inheritedCasesHint: "这台仪表基于 {{model}}：在它上面运行 {{model}} 随 SimuBench 发布的用例，检查改动没有破坏原有行为",
+    inheritedCasesHint:
+      "这台仪表基于 {{model}}：在它上面运行 {{model}} 随 SimuBench 发布的用例，检查改动没有破坏原有行为",
     verdict: {
       commands: "命令覆盖",
       coverage: "实现 {{implemented}} · 接受 {{accepted}} · 共 {{total}} 条",
       noCoverage: "没有覆盖表（自建或接口契约仪表）",
-      inheritedCoverage_one: "按 {{model}} 的覆盖表；本仪表改动了 {{count}} 条命令",
-      inheritedCoverage_other: "按 {{model}} 的覆盖表；本仪表改动了 {{count}} 条命令",
+      inheritedCoverage_one:
+        "按 {{model}} 的覆盖表；本仪表改动了 {{count}} 条命令",
+      inheritedCoverage_other:
+        "按 {{model}} 的覆盖表；本仪表改动了 {{count}} 条命令",
       cases: "用例",
       files: "内置 {{builtin}} 个文件 · 工作区 {{workspace}} 个",
       noCases: "还没有用例",
@@ -1206,25 +1389,35 @@ export const zh = {
     },
     runCases: "运行用例",
     running: "运行中…",
-    caseRunHint: "运行一份用例：每条用例在刚上电的测试台上执行，逐条显示期望与实际。",
+    caseRunHint:
+      "运行一份用例：每条用例在刚上电的测试台上执行，逐条显示期望与实际。",
     passed: "通过 {{count}}",
     failed: "失败 {{count}}",
     stepCommand: "命令",
     stepExpected: "期望",
     stepActual: "实际",
     noHistory: "内置定义没有版本历史",
-    noHistoryBody: "内置定义随包发布；把定义复制到工作区后，Agent 的每次修改都会记在这里。",
+    noHistoryBody:
+      "内置定义随包发布；把定义复制到工作区后，Agent 的每次修改都会记在这里。",
     emptyHistory: "还没有修改记录",
-    emptyHistoryBody: "Agent 或外部编辑保存第一版后，这里会列出每个版本和用仪表语言写的变更说明。",
+    emptyHistoryBody:
+      "Agent 或外部编辑保存第一版后，这里会列出每个版本和用仪表语言写的变更说明。",
     versions: "版本（{{count}}）",
-    source: { ui: "界面", agent: "Agent", api: "接口", external: "外部修改", restore: "恢复" },
+    source: {
+      ui: "界面",
+      agent: "Agent",
+      api: "接口",
+      external: "外部修改",
+      restore: "恢复",
+    },
     noChange: "只有格式或顺序变化，没有行为变化。",
     compare: "对比两版",
     compareBase: "起始版本",
     compareTarget: "目标版本",
     created: "创建前",
     compareHint: "选择两个版本查看差异。",
-    compareOne: "只有一个版本；再保存一版后可以对比任意两版，也可以选“创建前”看第一版加进了什么。",
+    compareOne:
+      "只有一个版本；再保存一版后可以对比任意两版，也可以选“创建前”看第一版加进了什么。",
     noDiff: "两个版本没有差异。",
     action: { added: "新增", removed: "删除", changed: "修改" },
     kind: {
@@ -1313,20 +1506,24 @@ export const zh = {
     name: "模板名称",
     saved: "已保存为我的模板 {{id}}",
     restart: "重新启动测试台后，这台仪表使用新模板。",
-    notFolded: "这些设置各通道不同，没有变成默认值，仍保留在测试台里：{{paths}}",
+    notFolded:
+      "这些设置各通道不同，没有变成默认值，仍保留在测试台里：{{paths}}",
   },
   assistant: {
     title: "AI 助手",
     open: "AI 助手",
     close: "收起 AI 助手",
-    placeholder: "说说要搭什么测试台、怎么改仪表…（Enter 发送，Shift+Enter 换行）",
+    placeholder:
+      "说说要搭什么测试台、怎么改仪表…（Enter 发送，Shift+Enter 换行）",
     send: "发送",
     stop: "停止",
     clear: "清除对话",
     clearConfirm: "清除这个测试台的全部对话？改过的文件保持不变。",
     settings: "AI 助手设置",
-    empty: "在这里用对话搭建测试台、调整仪表、保存为我的模板。改动直接写入测试台文件，每轮结束会说明改了什么，也可以恢复。",
-    examples: "例如：“加一台示波器接在函数发生器的 CH1 上”“把这台万用表存成我的模板”",
+    empty:
+      "在这里用对话搭建测试台、调整仪表、保存为我的模板。改动直接写入测试台文件，每轮结束会说明改了什么，也可以恢复。",
+    examples:
+      "例如：“加一台示波器接在函数发生器的 CH1 上”“把这台万用表存成我的模板”",
     you: "你",
     thinking: "正在思考…",
     compacted: "更早的内容已压缩，助手只记得要点",
@@ -1358,7 +1555,8 @@ export const zh = {
       restores: "恢复这些文件到上一轮之前：{{files}}",
       deletes: "删除上一轮新建的文件：{{files}}",
       modified: "{{file}} 在那之后又被改过，恢复会丢失这些改动：",
-      sessions: "这些文件正被运行中的测试台使用，需要先停止它（{{count}} 个会话）。",
+      sessions:
+        "这些文件正被运行中的测试台使用，需要先停止它（{{count}} 个会话）。",
       confirm: "恢复",
       confirmStop: "停止并恢复",
       done: "已恢复到上一轮之前",
@@ -1413,7 +1611,8 @@ export const zh = {
     },
     config: {
       title: "AI 助手设置",
-      description: "助手由服务端连接你配置的大模型服务；API key 只保存在服务端工作区，界面不会显示。",
+      description:
+        "助手由服务端连接你配置的大模型服务；API key 只保存在服务端工作区，界面不会显示。",
       protocol: "协议",
       openai: "OpenAI 兼容（/v1/chat/completions）",
       anthropic: "Anthropic 兼容（/v1/messages）",

@@ -22,6 +22,7 @@ EVENT_KINDS: dict[str, str] = {
     "scpi": "a program message written to, or a reply read from, the bus (dir, instrument, text/size)",
     "state": "a setting changed (instrument, path, old, new)",
     "advance": "virtual time moved (dt_ns, reason; for a command also instrument and header, #1260)",
+    "clock": "the clock's mode changed while the bench runs (old, new mode; scale; #1660)",
     "error": "an error queued on the instrument (code, message, reason)",
     "warning": "a warning about an instrument that is no SCPI error, e.g. an input beyond its absolute maximum "
     "(instrument, code, message; #1264)",
@@ -71,6 +72,9 @@ class Event(BaseModel):
     code: int | None = None
     message: str | None = None
     dt_ns: int | None = None
+    scale: float | None = Field(
+        None, description="Virtual seconds per real second, for clock events: 1 except on a scaled clock"
+    )
     reason: str | None = Field(
         None,
         description="For error and ignored events: why the command was not executed — not_modeled | "

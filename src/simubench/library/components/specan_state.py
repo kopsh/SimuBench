@@ -164,7 +164,9 @@ class HoldState(_State):
 
     held: np.ndarray | None = None  # the max / min hold so far
     held_upto: int = -1  # the newest sweep in ``held``
-    frozen: np.ndarray | None = None  # the trace a single sweep took
+    frozen: np.ndarray | None = None  # the trace a single sweep took, or the one held at stop_ns
+    frozen_key: tuple[Any, ...] | None = None  # the settings ``frozen`` was swept with
+    stop_ns: int = 0  # when the sweeping stopped: continuous sweep off, or a single sweep's end (#1660)
     warned: bool = False  # the hold's sweep limit was reported once
 
     def clear(self) -> None:

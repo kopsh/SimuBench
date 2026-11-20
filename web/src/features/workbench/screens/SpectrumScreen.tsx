@@ -1,14 +1,42 @@
-import { ChevronsRight, Crosshair } from "lucide-react";
+import {
+  ChevronsRight,
+  Crosshair,
+  Play,
+  Repeat,
+  StepForward,
+} from "lucide-react";
 import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
-import { scpiOutcome, useAdvance, useInstrumentReadings, useScpi } from "@/api/hooks";
+import {
+  scpiOutcome,
+  useAdvance,
+  useClockMode,
+  useInstrumentReadings,
+  useScpi,
+} from "@/api/hooks";
+import { isCancelled } from "@/components/app/ClientsConfirm";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { liveRequest } from "../clockControl";
 
 import { Button } from "@/components/ui/button";
-import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
+import {
+  commit,
+  DraftInput,
+  type Parsed,
+  SKIP,
+} from "@/components/app/DraftInput";
 import { cssVar, decimate, resolveColor } from "@/lib/canvas";
-import { prefersReducedMotion, sweepDurationMs, sweepProgress } from "@/lib/motion";
+import {
+  prefersReducedMotion,
+  sweepDurationMs,
+  sweepProgress,
+} from "@/lib/motion";
 import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
 import { useCountOnScreen } from "../onScreen";
@@ -36,6 +64,7 @@ export function SpectrumScreen({
 }) {
   const { t } = useTranslation();
   const advance = useAdvance(sid);
+  const clock = useClockMode(sid);
   const { values: v, query: readings, vars } = useInstrumentReadings(sid, inst);
   const scpi = useScpi(sid, inst.name);
   const n = (k: string) => Number(v[`sa.${k}`] ?? 0);
@@ -49,7 +78,10 @@ export function SpectrumScreen({
       },
     });
 
-  const status = sweepStatus(clockMode, vars.get("init.continuous")?.value !== false);
+  const status = sweepStatus(
+    clockMode,
+    vars.get("init.continuous")?.value !== false,
+  );
   const marker = { x: n("marker_x"), y: n("marker_y") };
   const mx = engParts(marker.x, "Hz", 9);
 
@@ -58,11 +90,28 @@ export function SpectrumScreen({
       <section className="bg-card rounded-lg border">
         <header className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b px-3 py-2 text-xs">
           <ScreenIdentity inst={inst} />
-          <Flag on={!!v["sa.uncal"]} label="UNCAL" title={t("spectrum.uncalReason")} testId="uncal" />
-          <Flag on={!!v["sa.overload"]} label={t("spectrum.overload")} testId="overload" />
-          {status === "single" && <span className="bg-muted rounded px-1.5 py-0.5 text-[11px] font-medium" data-testid="hold">HOLD</span>}
+          <Flag
+            on={!!v["sa.uncal"]}
+            label="UNCAL"
+            title={t("spectrum.uncalReason")}
+            testId="uncal"
+          />
+          <Flag
+            on={!!v["sa.overload"]}
+            label={t("spectrum.overload")}
+            testId="overload"
+          />
+          {status === "single" && (
+            <span
+              className="bg-muted rounded px-1.5 py-0.5 text-[11px] font-medium"
+              data-testid="hold"
+            >
+              HOLD
+            </span>
+          )}
           <span className="text-muted-foreground num ml-auto">
-            {t("spectrum.reference")} {String(v["sa.reference"] ?? "INT")} · {t("spectrum.sweep")} #{n("sweep")}
+            {t("spectrum.reference")} {String(v["sa.reference"] ?? "INT")} ·{" "}
+            {t("spectrum.sweep")} #{n("sweep")}
           </span>
         </header>
         <div className="num text-muted-foreground flex flex-wrap gap-x-4 gap-y-1 border-b px-3 py-1.5 text-[11px]">
@@ -71,24 +120,80 @@ export function SpectrumScreen({
           <span>SWT {formatEng(n("sweep_time"), "s", 4)}</span>
           <span>ATT {n("attenuation").toFixed(0)} dB</span>
           <span>REF {n("ref_level").toFixed(1)} dBm</span>
-          <span className="text-foreground ml-auto" data-testid="marker-readout">
+          <span
+            className="text-foreground ml-auto"
+            data-testid="marker-readout"
+          >
             MKR {mx.mantissa} {mx.prefix}
             {mx.unit} · {marker.y.toFixed(3)} dBm
           </span>
         </div>
         {status !== "running" && (
-          <div className="bg-muted/50 text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-[11px]" role="status" data-testid="sweep-hint">
-            <span>{t(status === "single" ? "spectrum.hintSingle" : "spectrum.hintClock")}</span>
+          <div
+            className="bg-muted/50 text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-1 border-b px-3 py-1.5 text-[11px]"
+            role="status"
+            data-testid="sweep-hint"
+          >
+            <span>
+              {t(
+                status === "single"
+                  ? "spectrum.hintSingle"
+                  : "spectrum.hintClock",
+              )}
+            </span>
             {status === "clock" && !readonly && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-6 text-[11px]"
-                disabled={advance.isPending}
-                onClick={() => advance.mutate(n("sweep_time") > 0 ? n("sweep_time") : 0.1, { onError: (e) => toast.error((e as Error).message) })}
-              >
-                {t("spectrum.advanceSweep")}
-              </Button>
+              <>
+                <HintButton
+                  hint={t("spectrum.liveSweepHint")}
+                  disabled={clock.isPending}
+                  onClick={() =>
+                    clock.mutate(liveRequest(1), {
+                      onError: (e) =>
+                        !isCancelled(e) && toast.error((e as Error).message),
+                    })
+                  }
+                  testId="sweep-live"
+                >
+                  <Play className="size-3" /> {t("spectrum.liveSweep")}
+                </HintButton>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-6 text-[11px]"
+                  disabled={advance.isPending}
+                  onClick={() =>
+                    advance.mutate(
+                      n("sweep_time") > 0 ? n("sweep_time") : 0.1,
+                      {
+                        onError: (e) =>
+                          !isCancelled(e) && toast.error((e as Error).message),
+                      },
+                    )
+                  }
+                >
+                  {t("spectrum.advanceSweep")}
+                </Button>
+              </>
+            )}
+            {status === "single" && !readonly && (
+              <>
+                <HintButton
+                  hint={t("spectrum.singleSweepHint")}
+                  disabled={scpi.isPending}
+                  onClick={() => send(":INIT:IMM")}
+                  testId="sweep-single"
+                >
+                  <StepForward className="size-3" /> {t("spectrum.singleSweep")}
+                </HintButton>
+                <HintButton
+                  hint={t("spectrum.continuousOnHint")}
+                  disabled={scpi.isPending}
+                  onClick={() => send(":INIT:CONT ON")}
+                  testId="sweep-continuous"
+                >
+                  <Repeat className="size-3" /> {t("spectrum.continuousOn")}
+                </HintButton>
+              </>
             )}
           </div>
         )}
@@ -107,8 +212,9 @@ export function SpectrumScreen({
             {t("spectrum.start")} {formatEng(n("start"), "Hz", 7)}
           </span>
           <span>
-            {t("spectrum.center")} {formatEng((n("start") + n("stop")) / 2, "Hz", 7)} · {t("spectrum.span")}{" "}
-            {formatEng(n("stop") - n("start"), "Hz", 5)}
+            {t("spectrum.center")}{" "}
+            {formatEng((n("start") + n("stop")) / 2, "Hz", 7)} ·{" "}
+            {t("spectrum.span")} {formatEng(n("stop") - n("start"), "Hz", 5)}
           </span>
           <span>
             {t("spectrum.stop")} {formatEng(n("stop"), "Hz", 7)}
@@ -118,37 +224,121 @@ export function SpectrumScreen({
 
       <aside className="space-y-3">
         <section className="bg-card space-y-2 rounded-lg border p-3">
-          <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">{t("spectrum.marker")}</h3>
+          <h3 className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+            {t("spectrum.marker")}
+          </h3>
           <div className="flex gap-2">
-            <Button size="sm" variant="outline" className="flex-1" disabled={readonly} onClick={() => send(":CALC:MARK:MAX")}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              disabled={readonly}
+              onClick={() => send(":CALC:MARK:MAX")}
+            >
               <Crosshair className="size-3.5" /> {t("spectrum.peak")}
             </Button>
-            <Button size="sm" variant="outline" className="flex-1" disabled={readonly} onClick={() => send(":CALC:MARK:MAX:NEXT")}>
+            <Button
+              size="sm"
+              variant="outline"
+              className="flex-1"
+              disabled={readonly}
+              onClick={() => send(":CALC:MARK:MAX:NEXT")}
+            >
               <ChevronsRight className="size-3.5" /> {t("spectrum.nextPeak")}
             </Button>
           </div>
           {["marker.threshold", "marker.excursion"].map((k) => {
             const sv = vars.get(k);
-            return sv ? <StateField key={k} sid={sid} instrument={inst.name} v={sv} disabled={readonly} /> : null;
+            return sv ? (
+              <StateField
+                key={k}
+                sid={sid}
+                instrument={inst.name}
+                v={sv}
+                disabled={readonly}
+              />
+            ) : null;
           })}
         </section>
         <section className="bg-card space-y-1.5 rounded-lg border p-3">
-          <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{t("spectrum.frequency")}</h3>
-          <ScpiField label={t("spectrum.center")} instrument={inst.name} path="freq.center" value={(n("start") + n("stop")) / 2} unit="Hz" header=":SENS:FREQ:CENT" onSend={send} disabled={readonly} />
-          <ScpiField label={t("spectrum.span")} instrument={inst.name} path="freq.span" value={n("stop") - n("start")} unit="Hz" header=":SENS:FREQ:SPAN" onSend={send} disabled={readonly} />
-          <ScpiField label="RBW" value={n("rbw")} unit="Hz" header=":SENS:BAND:RES" onSend={send} disabled={readonly} />
-          <ScpiField label={t("spectrum.sweepTime")} value={n("sweep_time")} unit="s" header=":SENS:SWE:TIME" onSend={send} disabled={readonly} />
+          <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">
+            {t("spectrum.frequency")}
+          </h3>
+          <ScpiField
+            label={t("spectrum.center")}
+            instrument={inst.name}
+            path="freq.center"
+            value={(n("start") + n("stop")) / 2}
+            unit="Hz"
+            header=":SENS:FREQ:CENT"
+            onSend={send}
+            disabled={readonly}
+          />
+          <ScpiField
+            label={t("spectrum.span")}
+            instrument={inst.name}
+            path="freq.span"
+            value={n("stop") - n("start")}
+            unit="Hz"
+            header=":SENS:FREQ:SPAN"
+            onSend={send}
+            disabled={readonly}
+          />
+          <ScpiField
+            label="RBW"
+            value={n("rbw")}
+            unit="Hz"
+            header=":SENS:BAND:RES"
+            onSend={send}
+            disabled={readonly}
+          />
+          <ScpiField
+            label={t("spectrum.sweepTime")}
+            value={n("sweep_time")}
+            unit="s"
+            header=":SENS:SWE:TIME"
+            onSend={send}
+            disabled={readonly}
+          />
           <div className="flex gap-2 pt-1">
-            <Button size="sm" variant="ghost" className="h-7 flex-1 text-xs" disabled={readonly} onClick={() => send(":SENS:BAND:RES:AUTO ON;:SENS:BAND:VID:AUTO ON;:SENS:SWE:TIME:AUTO ON;:SENS:POW:RF:ATT:AUTO ON")}>
+            <Button
+              size="sm"
+              variant="ghost"
+              className="h-7 flex-1 text-xs"
+              disabled={readonly}
+              onClick={() =>
+                send(
+                  ":SENS:BAND:RES:AUTO ON;:SENS:BAND:VID:AUTO ON;:SENS:SWE:TIME:AUTO ON;:SENS:POW:RF:ATT:AUTO ON",
+                )
+              }
+            >
               {t("spectrum.allAuto")}
             </Button>
           </div>
         </section>
         <section className="bg-card space-y-1.5 rounded-lg border p-3">
-          <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">{t("spectrum.display")}</h3>
-          {["display.ref_level", "detector", "trace.type", "aver.count", "sweep.points", "rosc.source", "init.continuous"].map((k) => {
+          <h3 className="text-muted-foreground mb-1 text-[11px] font-medium tracking-wide uppercase">
+            {t("spectrum.display")}
+          </h3>
+          {[
+            "display.ref_level",
+            "detector",
+            "trace.type",
+            "aver.count",
+            "sweep.points",
+            "rosc.source",
+            "init.continuous",
+          ].map((k) => {
             const sv = vars.get(k);
-            return sv ? <StateField key={k} sid={sid} instrument={inst.name} v={sv} disabled={readonly} /> : null;
+            return sv ? (
+              <StateField
+                key={k}
+                sid={sid}
+                instrument={inst.name}
+                v={sv}
+                disabled={readonly}
+              />
+            ) : null;
           })}
         </section>
       </aside>
@@ -160,16 +350,67 @@ export function SpectrumScreen({
  * Why the trace may not move: ``single`` (continuous sweep off: HOLD), ``clock`` (command/stepped
  * clock: virtual time only passes on a command or Advance, D47), else ``running``. Single wins.
  */
-export function sweepStatus(clockMode: string, continuous: boolean): "running" | "single" | "clock" {
+export function sweepStatus(
+  clockMode: string,
+  continuous: boolean,
+): "running" | "single" | "clock" {
   if (!continuous) return "single";
   return clockMode === "wall" || clockMode === "scaled" ? "running" : "clock";
 }
 
+/** A small button in the sweep hint, with the command or the clock change it makes in its tooltip. */
+function HintButton({
+  hint,
+  disabled,
+  onClick,
+  testId,
+  children,
+}: {
+  hint: string;
+  disabled: boolean;
+  onClick: () => void;
+  testId: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          size="sm"
+          variant="outline"
+          className="h-6 gap-1 text-[11px]"
+          disabled={disabled}
+          onClick={onClick}
+          data-testid={testId}
+        >
+          {children}
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent className="max-w-72">{hint}</TooltipContent>
+    </Tooltip>
+  );
+}
+
 /** A warning badge, shown only while it holds (an unlit UNCAL read as a warning, #279). */
-function Flag({ on, label, title, testId }: { on: boolean; label: string; title?: string; testId?: string }) {
+function Flag({
+  on,
+  label,
+  title,
+  testId,
+}: {
+  on: boolean;
+  label: string;
+  title?: string;
+  testId?: string;
+}) {
   if (!on) return null;
   return (
-    <span className="bg-error/15 text-error rounded px-1.5 py-0.5 text-[11px] font-medium" title={title} data-testid={testId} role="status">
+    <span
+      className="bg-error/15 text-error rounded px-1.5 py-0.5 text-[11px] font-medium"
+      title={title}
+      data-testid={testId}
+      role="status"
+    >
       {label}
     </span>
   );
@@ -222,7 +463,9 @@ function ScpiField({
           className="num h-7 pr-8 text-right text-xs"
           aria-label={label}
         />
-        <span className="text-muted-foreground pointer-events-none absolute right-2 text-[11px]">{unit}</span>
+        <span className="text-muted-foreground pointer-events-none absolute right-2 text-[11px]">
+          {unit}
+        </span>
       </div>
     </div>
   );
@@ -293,12 +536,21 @@ function SpectrumCanvas({
       ctx.font = "10px var(--font-mono, monospace)";
       // Every other line is labelled; the top one, the reference level, carries the unit (#1222).
       for (let i = 0; i <= DIVS; i += 2)
-        ctx.fillText(`${(refLevel - i * DB_PER_DIV).toFixed(0)}${i === 0 ? " dBm" : ""}`, 4, Math.max(10, (i * h) / DIVS - 3));
+        ctx.fillText(
+          `${(refLevel - i * DB_PER_DIV).toFixed(0)}${i === 0 ? " dBm" : ""}`,
+          4,
+          Math.max(10, (i * h) / DIVS - 3),
+        );
 
       const yOf = (db: number) => ((refLevel - db) / (DIVS * DB_PER_DIV)) * h;
       const clamp = (y: number) => Math.max(1, Math.min(h - 1, y));
       const color = resolveColor(canvas, channelColor(1));
-      const stroke = (vals: number[], from: number, to: number, alpha: number) => {
+      const stroke = (
+        vals: number[],
+        from: number,
+        to: number,
+        alpha: number,
+      ) => {
         const n = vals.length;
         if (n < 2 || to <= from) return;
         ctx.save();
@@ -362,7 +614,9 @@ function SpectrumCanvas({
       ro.disconnect();
     };
   }, [values, refLevel, start, stop, marker.x, marker.y, sweepTime, live]);
-  return <canvas ref={ref} className={className} role="img" aria-label="spectrum" />;
+  return (
+    <canvas ref={ref} className={className} role="img" aria-label="spectrum" />
+  );
 }
 
 function hline(ctx: CanvasRenderingContext2D, x: number, y: number, w: number) {

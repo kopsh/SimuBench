@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 /** What the engine refuses while scripts are connected unless confirmed (#121). */
-export type ClientsAction = "start" | "rebuild" | "stop" | "reset" | "advance";
+export type ClientsAction = "start" | "rebuild" | "stop" | "reset" | "advance" | "clock";
 /** "later" only for a rebuild: back to Operate on the running bench, rebuild when convenient. */
 export type ClientsChoice = "force" | "later" | "cancel";
 

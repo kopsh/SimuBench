@@ -47,7 +47,7 @@ def served_with(*rows: tuple[str, FakeServer]) -> tuple[ServedSession, list[dict
     events: list[dict] = []
     session = SimpleNamespace(
         events=SimpleNamespace(subscribe=lambda f: None, emit=events.append),
-        clock=SimpleNamespace(confirm_advance=None),
+        clock=SimpleNamespace(confirm_advance=None, confirm_mode=None, mode="command"),
         instrument=lambda name: None,
         instruments={},
         cancel=lambda: None,

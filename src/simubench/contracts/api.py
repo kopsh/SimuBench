@@ -918,6 +918,11 @@ class SessionInfo(_Model):
     bench_path: str | None = None
     description: str | None = None
     clock_mode: Literal["command", "wall", "stepped", "scaled"]
+    start_clock_mode: Literal["command", "wall", "stepped", "scaled"] = Field(
+        "command",
+        description="The clock the session opened on (the bench's run.clock or the start override); "
+        "clock_mode differs once the clock was switched while running (#1660)",
+    )
     time_scale: float = Field(1.0, description="Virtual seconds per real second (scaled clock)")
     idle_mode: Literal["wall", "sleep", "off"] = Field(
         "wall",
@@ -1060,6 +1065,23 @@ class ClockInfo(_Model):
 
 class TimeScaleRequest(_Model):
     scale: float = Field(..., gt=0, le=1_000_000, description="Virtual seconds per real second")
+
+
+class ClockModeRequest(_Model):
+    """Switch the running session's clock (#1660): the Web's Live / Pause. The bench file's
+    ``run.clock`` is not changed; a reset opens on it again."""
+
+    mode: Literal["command", "wall", "stepped", "scaled"]
+    scale: float | None = Field(
+        None,
+        gt=0,
+        le=1_000_000,
+        description="For mode scaled: virtual seconds per real second (default: the current scale when "
+        "already scaled, else 1); ignored by the other modes",
+    )
+    force: bool = Field(
+        False, description="Switch even though scripts are connected (their view of time changes)"
+    )
 
 
 class Trace(_Model):

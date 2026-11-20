@@ -111,6 +111,30 @@ def test_the_measure_marker_trace_and_sweep_flow():
         assert q(s, ":INIT:IMM") is None
         assert (s.now_ns - t0) / 1e9 == pytest.approx(0.05, abs=1e-9)
         assert q(s, ":INIT:CONT?") == "0"
+        # -- continuous sweep off holds the trace and the sweep count (#1660): the analyzer stops
+        # where it is, a single sweep moves both once, and on again it sweeps by itself.
+        sa = s.instruments["sa"].components["sa"]
+
+        def shown() -> tuple[str, int]:
+            return q(s, ":TRAC:DATA? TRACE1"), sa.readings()["values"]["sweep"]
+
+        assert q(s, ":INIT:CONT ON") is None
+        s.advance(1.0)
+        held, count = shown()
+        assert q(s, ":INIT:CONT OFF") is None
+        s.advance(1.0)
+        assert shown() == (held, count)  # nothing swept while time passed
+        assert q(s, ":INIT:IMM") is None
+        single, after = shown()
+        assert single != held and after > count
+        s.advance(1.0)
+        assert shown() == (single, after)
+        s.configure("sa", "sweep.points", 101)  # new settings (the panel): their trace is held
+        trace, restarted = shown()  # a new setting starts the count again
+        assert len(trace.split(",")) == 101
+        assert q(s, ":INIT:CONT ON") is None
+        s.advance(1.0)
+        assert shown()[1] > restarted
     finally:
         s.close()
 

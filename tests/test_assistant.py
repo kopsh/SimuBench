@@ -247,6 +247,7 @@ async def test_the_tools_cannot_delete_files_or_control_the_simulation(manager):
         "delete_definition",
         "inject_fault",
         "advance_clock",
+        "set_clock_mode",
         "read_true_values",
         "send_scpi",
     }

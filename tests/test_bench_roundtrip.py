@@ -72,7 +72,13 @@ EDITS = {
 @pytest.mark.parametrize(("ops", "own"), EDITS.values(), ids=EDITS.keys())
 def test_every_edit_leaves_untouched_comments_and_numbers_as_written(files: BenchFiles, ops, own):
     path = files.workspace / BENCH
+    # Hello World opens on the wall clock (#1660): spelled as the default here, so every edit is
+    # also held to keeping an explicit default value.
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("  clock: wall", "  clock: command"), encoding="utf-8"
+    )
     before = path.read_text(encoding="utf-8")
+    assert "  clock: command" in before.splitlines()
     files.edit(BENCH, files.read(BENCH).sha256, ops)
     after = path.read_text(encoding="utf-8")
     removed, added = changed_lines(before, after)
