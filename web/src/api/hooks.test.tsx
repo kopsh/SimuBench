@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { InstrumentInfo } from "./client";
@@ -9,6 +9,10 @@ import { useBenchDoc, useDefinitionDocument, useDefinitionStructure, useInstrume
 import { fileRevOf, readBeforeOpen, reduceWorkspaceEvent, resync, useWorkspaceEvents } from "./workspaceEvents";
 
 afterEach(() => {
+  // No vitest globals here, so Testing Library does not unmount by itself: a hook left mounted
+  // re-renders when its last request settles, and after the file's jsdom is gone that render
+  // throws "window is not defined" as an unhandled error (#1665).
+  cleanup();
   vi.restoreAllMocks();
   useEvents.setState({ version: 0 });
 });
