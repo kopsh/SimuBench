@@ -190,6 +190,8 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     (live,) = t.live
     assert (live.kind, live.target) == ("state", "awg.ch1.frequency")
     assert live.old == pytest.approx(1e6) and live.new == pytest.approx(2e6)
+    ret = last_tool_return(llm.seen[-1], "set_live_setting")
+    assert ret["ok"] is True and ret["changed"] is True  # #1678
     # stopping in the same turn as asking: refused (the user has not answered)
     assert results["stop_session"].ok is False and "征得用户同意" in results["stop_session"].error
     assert manager.sessions
@@ -202,6 +204,22 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     assert not manager.sessions
     assert [s.ok for s in t2.steps] == [True, True]
     assert "sa" not in yaml.safe_load((manager.workspace / BENCH).read_text(encoding="utf-8"))["instruments"]
+
+
+async def test_set_live_setting_tells_the_model_when_the_value_was_already_there(manager):
+    """#1678: an equal-value write is ok but not changed, with a note against retrying; the turn's
+    live list stays empty (the write_tx no-op rule, made visible)."""
+    await manager.start(BENCH)
+    llm = ScriptedLLM(
+        [("set_live_setting", {"instrument": "awg", "path": "ch1.frequency", "value": 1e6})],
+        "频率本来就是 1 MHz。",
+    )
+    t = await turn(service_with(manager, llm), "把频率设成 1 MHz")
+    assert t.status == "done", t.stop_reason
+    assert t.live == []
+    ret = last_tool_return(llm.seen[-1], "set_live_setting")
+    assert ret["ok"] is True and ret["changed"] is False
+    assert "本来就是该值" in ret["note"] and "重试" in ret["note"]
 
 
 async def test_stopping_needs_the_users_button_in_the_very_next_turn(manager):

@@ -24,10 +24,13 @@ def configure(
     served: ServedSession, instrument: str, path: str, value: Any, client: str = "ui"
 ) -> M.ConfigureResponse:
     s = served.session
+    old = jsonable(s.instrument(instrument).state.get(path))
     err = s.try_configure(instrument, path, value, client=client)
     current = jsonable(s.instrument(instrument).state.get(path))
     if err is None:
-        return M.ConfigureResponse(ok=True, value=current)
+        # an equal-value write survives validation and changes nothing (write_tx's no-op rule):
+        # ok, but not changed -- the caller can tell a settled write from a swallowed one (#1678)
+        return M.ConfigureResponse(ok=True, value=current, changed=current != old)
     return M.ConfigureResponse(ok=False, error=M.ErrorItem(code=err.code, message=err.message), value=current)
 
 
