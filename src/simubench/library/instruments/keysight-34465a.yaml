@@ -345,6 +345,9 @@ components:
       # 高频响应（#1255，specs.acv_bandwidth）：真有效值转换器的滚降，二阶 −3 dB 于 1 MHz（估计）。
       ac_high: 1.0e6
       ac_high_order: 2
+      # 交流电流（ACI）通路的带宽低得多（#1279）：手册 34460-90901「effective AC current bandwidth is
+      # 10 kHz」，取二阶 −3 dB 于 10 kHz（「有效带宽」不是 −3 dB 点的定义，滚降形状为估计）。
+      ac_high_current: 1.0e4
   # A/D：8 位尾数、超量程 +9.9E+37；分辨率与读数时间按手册的 NPLC 表（50 Hz 电源、自动调零开启、
   # 含 DC 的自动触发延迟 100/130/160 µs）。
   - name: meter

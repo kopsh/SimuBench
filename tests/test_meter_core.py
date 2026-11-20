@@ -2,12 +2,15 @@
 hysteresis, overload readings, resolution and the switchable high-impedance input that reaches the
 bench circuit."""
 
+import math
 from pathlib import Path
 
 import pytest
 
 from simubench.api import open_bench
 from simubench.engine.component import component_type, map_setting
+from simubench.engine.signal import sine
+from simubench.library.components.meters import DmmConditioning
 from simubench.models.bench import BenchDefinition
 
 DEFINITIONS = Path(__file__).resolve().parent / "models" / "meter-core-test"
@@ -208,3 +211,55 @@ def test_catalog_lists_the_new_parameters_with_descriptions():
         docs = param_docs(cls)
         for name in names:
             assert name in cls.defaults and docs.get(name), f"{type_name}.{name}"
+
+
+class _Path(DmmConditioning):
+    """The conditioning block with its parameters and its input signal given directly."""
+
+    def __init__(self, signal, **params):
+        self._signal = signal
+        self.overrides = params
+        self.unit_values: set[str] = set()
+        self._params = {}
+        self.owner = None
+
+    def param(self, key):
+        return self.overrides.get(key, self.defaults[key])
+
+    def input(self, port):
+        return self._signal
+
+
+def test_the_current_path_has_its_own_roll_off():
+    """#1279: current is measured through a shunt, so ACI has far less bandwidth than ACV: with
+    ``ac_high_current`` a 100 kHz sine reads low on ACI while ACV (``ac_high``) still sees it; a
+    1 kHz one reads alike; without it ACI follows ``ac_high``."""
+    params = {"ac_low": 3.0, "ac_high": 1.0e6, "ac_high_order": 2, "ac_high_current": 1.0e4}
+    rms = 0.5 / math.sqrt(2)
+    fast = _Path(sine(1.0e5, 0.5), **params)
+    assert fast.true_value("AC") == pytest.approx(rms / math.sqrt(1 + (1.0e5 / 1.0e6) ** 4))
+    assert fast.true_value("ACI") == pytest.approx(rms / math.sqrt(1 + (1.0e5 / 1.0e4) ** 4))
+    assert fast.true_value("ACI") < 0.02 * fast.true_value("AC")
+    slow = _Path(sine(1.0e3, 0.5), **params)
+    assert slow.true_value("ACI") == pytest.approx(slow.true_value("AC"), rel=1e-4)
+    shared = _Path(sine(1.0e5, 0.5), **{**params, "ac_high_current": None})
+    assert shared.true_value("ACI") == shared.true_value("AC")
+    assert shared.true_value("DCI") == shared.true_value("DC")
+
+
+def test_the_34465a_reads_ac_current_low_at_100_khz():
+    """#1279: with the 34465A's own parameters (manual: effective AC current bandwidth 10 kHz) a
+    100 kHz current reads far below the same current at 1 kHz."""
+    from simubench.library.loader import DefinitionLibrary
+
+    definition = DefinitionLibrary().get("keysight-34465a")
+    params = next(c.params for c in definition.components if c.name == "path")
+    assert params["ac_high_current"] == 1.0e4
+    at = {
+        f: _Path(sine(f, 0.5), **{k: v for k, v in params.items() if k.startswith("ac_")})
+        for f in (1.0e3, 1.0e5)
+    }
+    # the stub takes plain numbers: the 34465A's AC filter is a table of the setting, so give its 20 Hz
+    for path in at.values():
+        path.overrides["ac_low"] = 20.0
+    assert at[1.0e5].true_value("ACI") < 0.02 * at[1.0e3].true_value("ACI")
