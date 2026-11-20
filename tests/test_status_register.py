@@ -210,3 +210,27 @@ def test_registers_that_read_each_other_in_a_circle_answer_as_if_recomputed_each
         q(False, "CEV?"),
     ]
     assert replies == ["0", "0", "6", "6", "11", "5"]
+
+
+def test_latch_false_leaves_the_condition_sampling_to_explicit_reads():
+    """``latch: false`` (#1570, #1601): the engine's per-dispatch sample (``latch_conditions``) does
+    not look at the register's conditions, so the event register is only brought up to date when
+    something reads it. The default ``latch: true`` samples at every dispatch."""
+    samples = []
+
+    def counting(register):
+        register.events = lambda commit=True: samples.append(register.name) or 0
+
+    inst, _q = open_demo()
+    lia = inst.components["lia"]
+    counting(lia)
+    lia.latch_conditions()
+    assert samples == ["lia"]  # latch defaults to true: sampled at the dispatch
+    samples.clear()
+
+    inst, _q = open_demo()
+    lia = inst.components["lia"]
+    lia._params["latch"] = False
+    counting(lia)
+    lia.latch_conditions()
+    assert samples == []  # this register did not sample
