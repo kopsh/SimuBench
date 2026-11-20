@@ -35,7 +35,7 @@ class RunControl:
     def run_state(self) -> str:
         """RUN, STOP or SING (``:RSTate?``, #248): a single acquisition armed and not yet done reads
         SING, a stopped scope STOP, a running one RUN."""
-        if self.armed and self.host._is("single"):
+        if self.armed and self.host.mode_is("single"):
             return "SING"
         return "RUN" if self.is_running() else "STOP"
 
@@ -49,7 +49,7 @@ class RunControl:
             return {"RUN": False, "WAIT": False}
         if self.waiting():
             return {"RUN": True, "WAIT": True}
-        if self.host._is("auto") or self.host._is("normal"):
+        if self.host.mode_is("auto") or self.host.mode_is("normal"):
             return {"RUN": True, "WAIT": not self.host.capture.triggers_now()}
         return {"RUN": True, "WAIT": not self.last_triggered}
 
@@ -59,13 +59,17 @@ class RunControl:
     def is_running(self) -> bool:
         """Stopped by a stop mode (when the model has one) or by a stop command."""
         if self.host.param("stop"):
-            return not self.host._is("stop")
+            return not self.host.mode_is("stop")
         return self.running
 
     def shows_live(self) -> bool:
         """Whether the screen follows the signal (running in an auto or normal mode) rather than
         holding the last acquisition (stopped, or a single acquisition waiting)."""
-        return self.is_running() and (self.host._is("auto") or self.host._is("normal")) and not self.armed
+        return (
+            self.is_running()
+            and (self.host.mode_is("auto") or self.host.mode_is("normal"))
+            and not self.armed
+        )
 
     def screen_state(self, frame: int | None = None) -> ScreenState:
         """What the screen shows (the :class:`~simubench.engine.component.ScreenSource` protocol):
@@ -80,23 +84,23 @@ class RunControl:
                 drawn, _, triggered = self.host.capture.compute(self.host.displayed(), frame=frame)
                 # A triggered or auto frame replaces the records; an untriggered normal frame
                 # does not (the screen keeps the last acquisition until the trigger comes).
-                if triggered or self.host._is("auto") or not stored:
+                if triggered or self.host.mode_is("auto") or not stored:
                     records, shown = drawn, True
             except ModelLimit:
                 live = False  # the screen holds what it has, as a read of such an acquisition is refused
         try:
-            _, dt, pre, _ = self.host._timing()
+            _, dt, pre, _ = self.host.timing()
             screen_left = -pre * dt
         except (AttributeError, ModelLimit, ScpiError, ValueError):  # a sampling scope has no such timing
-            screen_left = -5.0 * float(self.host._st("timebase.scale"))
+            screen_left = -5.0 * float(self.host.get_state("timebase.scale"))
         return ScreenState(
             live=live,
             shown=shown,
             records=records,
             stored=stored,
-            waiting=bool(self.armed and self.host._is("single")),
+            waiting=bool(self.armed and self.host.mode_is("single")),
             trigger_level=self.host.trigger_level(),
-            trigger_source=channel_index(self.host._st("trigger.source")),
+            trigger_source=channel_index(self.host.get_state("trigger.source")),
             acquisitions=int(self.host.recorder.acq_count),
             screen_left_s=screen_left,
         )
@@ -117,7 +121,7 @@ class RunControl:
     def pending_mode(self) -> bool:
         """Acquisitions finish in virtual time; one a front-panel button starts finishes at once,
         as the panel's own (D32: no virtual time passes for a panel operation)."""
-        on_panel = self.host.owner is not None and self.host.owner.on_panel
+        on_panel = self.host.on_panel
         return str(self.host.param("completion")) == "pending" and not on_panel
 
     def acquire_now(
@@ -129,7 +133,7 @@ class RunControl:
         uses none."""
         if not force and not stopped_too and not self.is_running():
             return 0
-        if self.pending_mode() and (force or stopped_too or self.host._is("single")):
+        if self.pending_mode() and (force or stopped_too or self.host.mode_is("single")):
             self.pending.schedule(channels, force)  # continuous runs (auto, normal) refresh at once
             return 0
         chans = self.host.displayed() if channels is None else channels
@@ -144,14 +148,14 @@ class RunControl:
                 - self.host.session.now_ns
             )
             self.host.segments.store_segments(segments, used)
-            if self.host._is("single"):
+            if self.host.mode_is("single"):
                 self.finish_single()
             return used
         records, used, triggered = self.host.capture.compute(chans)
         self.last_triggered = triggered
-        if force or triggered or self.host._is("auto"):
+        if force or triggered or self.host.mode_is("auto"):
             self.host.recorder.store(records, used)
-            if self.host._is("single"):
+            if self.host.mode_is("single"):
                 self.finish_single()
         return used  # waiting for a trigger: the previous records stay
 
@@ -160,7 +164,7 @@ class RunControl:
         if self.pending_mode():
             self.retry_pending()
             return 0
-        return self.acquire_now() if self.armed and self.host._is("single") else 0
+        return self.acquire_now() if self.armed and self.host.mode_is("single") else 0
 
     def waiting(self) -> bool:
         """A single acquisition (or a digitize) not done yet."""
@@ -172,9 +176,8 @@ class RunControl:
 
     def mode_text(self) -> bytes:
         """The run mode as the definition formats its settings."""
-        assert self.host.owner is not None
         path = self.host.resolve_path(self.host.mode_path() or "")
-        return self.host.owner.runner.format_setting(path)
+        return self.host.format_setting(path)
 
     def run_mode(self, query: bool = False, mode: str | None = None, **_: Any) -> OpResult:
         if query:
@@ -183,19 +186,22 @@ class RunControl:
         if mode is None:
             raise ScpiError(-109)
         self.pending.cancel()  # a new mode replaces whatever acquisition was waiting
-        if self.pending_mode() and self.is_running() and (self.host._is("auto") or self.host._is("normal")):
+        if (
+            self.pending_mode()
+            and self.is_running()
+            and (self.host.mode_is("auto") or self.host.mode_is("normal"))
+        ):
             self.host.recorder.keep_last_frame()
         self.host.set_mode(mode)
-        if self.host._is("force", mode):
+        if self.host.mode_is("force", mode):
             used = self.acquire_now(force=True)
             self.running, self.armed = False, False
             return OpResult(duration_ns=used)
-        if self.host._is("single", mode):
+        if self.host.mode_is("single", mode):
             self.running, self.armed = True, True
-            if self.host.owner is not None:
-                self.host.owner.status_event("ARM")  # armed for a trigger (:AER?, #248)
+            self.host.status_event("ARM")  # armed for a trigger (:AER?, #248)
             return OpResult(duration_ns=self.acquire_now())
-        self.running, self.armed = not self.host._is("stop", mode), False
+        self.running, self.armed = not self.host.mode_is("stop", mode), False
         return OpResult()
 
     def single(self, **_: Any) -> OpResult:
@@ -203,11 +209,10 @@ class RunControl:
 
     def run(self, **_: Any) -> OpResult:
         self.running = True
-        if self.host.param("stop") and self.host._is("stop"):
+        if self.host.param("stop") and self.host.mode_is("stop"):
             self.host.set_mode(str(self.host.param("auto")[0]))
-        if self.host.owner is not None:
-            self.host.owner.status_event("ARM")  # armed for a trigger (:AER?, #248)
-        if self.host._is("single"):
+        self.host.status_event("ARM")  # armed for a trigger (:AER?, #248)
+        if self.host.mode_is("single"):
             self.armed = True
             return OpResult(duration_ns=self.acquire_now())
         return OpResult()
@@ -225,21 +230,20 @@ class RunControl:
 
     def wait(self, timeout: float | None = None, **_: Any) -> OpResult:
         used = self.poll()
-        if self.pending_mode() and self.host.owner is not None:
+        if self.pending_mode():
             if self.pending.due_ns is not None:
-                used += self.host.owner.wait_until(self.pending.due_ns)
+                used += self.host.wait_until(self.pending.due_ns)
             elif timeout is not None and self.waiting():
-                used += self.host.owner.wait_until(self.host.owner.now_ns() + round(float(timeout) * 1e9))
+                used += self.host.wait_until(self.host.now_ns() + round(float(timeout) * 1e9))
         return OpResult(duration_ns=used)
 
     def opc(self, query: bool = False, **_: Any) -> OpResult:
-        assert self.host.owner is not None
         used = self.poll()
         if query:
-            reply, waited = self.host.owner.opc_query()  # and whatever else the instrument has pending
+            reply, waited = self.host.opc_query()  # and whatever else the instrument has pending
             return OpResult(reply, used + waited)
-        used += self.host.owner.wait_pending()
-        self.host.owner.arm_opc()
+        used += self.host.wait_pending()
+        self.host.arm_opc()
         return OpResult(duration_ns=used)
 
     def status(self) -> str:
@@ -247,13 +251,12 @@ class RunControl:
         words = {**self.host.defaults["status_text"], **(self.host.param("status_text") or {})}
         if not self.is_running():
             return str(words["stopped"])
-        if self.host._is("single"):
-            assert self.host.owner is not None
-            if self.pending.trigger_ns is not None and self.host.owner.now_ns() >= self.pending.trigger_ns:
+        if self.host.mode_is("single"):
+            if self.pending.trigger_ns is not None and self.host.now_ns() >= self.pending.trigger_ns:
                 return str(words["triggered"])  # the record after the trigger is filling (pending)
             return str(words["waiting"])
         _, _, triggered = self.host.capture.compute([])
-        if self.host._is("auto"):
+        if self.host.mode_is("auto"):
             return str(words["triggered" if triggered else "auto"])
         return str(words["triggered" if triggered else "waiting"])
 
@@ -265,18 +268,15 @@ class RunControl:
         for raw in sources or []:
             name = V.parse_string(raw).upper()
             m = name.removeprefix("CHANNEL").removeprefix("CHAN")
-            if not m.isdigit() or not 1 <= int(m) <= self.host._channels():
+            if not m.isdigit() or not 1 <= int(m) <= self.host.channels():
                 raise ScpiError(-224, f"unknown source {name!r}")
             chans.append(int(m))
-            assert self.host.owner is not None
-            self.host.owner.set_state(f"ch{int(m)}.display", True)
+            self.host.set_state(f"ch{int(m)}.display", True)
         if not chans:
             chans = self.host.displayed()
         used = self.acquire_now(chans, stopped_too=True)  # whatever the run state
-        if self.pending_mode() and self.pending.due_ns is not None and self.host.owner is not None:
-            used += self.host.owner.wait_until(
-                self.pending.due_ns
-            )  # a digitize returns once its record is full
+        if self.pending_mode() and self.pending.due_ns is not None:
+            used += self.host.wait_until(self.pending.due_ns)  # a digitize returns once its record is full
         if self.host.param("digitize_stops"):
             self.running, self.armed = False, False  # the InfiniiVision stops after :DIGitize (#248)
         return OpResult(duration_ns=used)

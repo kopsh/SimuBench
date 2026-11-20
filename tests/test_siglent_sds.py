@@ -402,21 +402,17 @@ def test_the_fixture_unit_and_its_trigger_path(scope):
     inst = session.instruments["scope"]
     trig = inst.components["trigger"]
     acq = inst.components["acq"]
-    peak = float(np.max(np.abs(acq._display_signal(1).amp)))
+    peak = float(np.max(np.abs(acq.display_signal(1).amp)))
 
     sds.write(":TRIGger:EDGE:COUPling DC")
     assert trig.param("coupling") == "DC" and trig.param("reject") == ""
-    assert float(np.max(np.abs(trig.path_signal(acq._display_signal(1)).amp))) == pytest.approx(
-        peak, rel=0.05
-    )
+    assert float(np.max(np.abs(trig.path_signal(acq.display_signal(1)).amp))) == pytest.approx(peak, rel=0.05)
     sds.write(":TRIGger:EDGE:COUPling LFREJ")
     assert trig.param("reject") == "LF"
-    assert float(np.max(np.abs(trig.path_signal(acq._display_signal(1)).amp))) < peak * 0.05  # 1 kHz blocked
+    assert float(np.max(np.abs(trig.path_signal(acq.display_signal(1)).amp))) < peak * 0.05  # 1 kHz blocked
     sds.write(":TRIGger:EDGE:COUPling HFREJ")
     assert trig.param("reject") == "HF"
-    assert float(np.max(np.abs(trig.path_signal(acq._display_signal(1)).amp))) == pytest.approx(
-        peak, rel=0.05
-    )
+    assert float(np.max(np.abs(trig.path_signal(acq.display_signal(1)).amp))) == pytest.approx(peak, rel=0.05)
     sds.write(":TRIGger:EDGE:COUPling AC")
     assert trig.param("coupling") == "AC"
     sds.write(":TRIGger:EDGE:NREJect ON")
@@ -432,7 +428,7 @@ def test_the_fixture_unit_and_its_trigger_path(scope):
     sds.write(":TRIGger:EDGE:COUPling DC")  # bridge: the fixture's coupling, as the act assumes
     trig = session.instruments["scope"].components["trigger"]
     acq = session.instruments["scope"].components["acq"]
-    sig = acq._display_signal(1)
+    sig = acq.display_signal(1)
 
     def next_trigger() -> float:
         trig.last_ns = 0
@@ -469,7 +465,7 @@ def test_the_fixture_unit_and_its_trigger_path(scope):
     # arming band, so one edge triggers once.
     inst = session.instruments["scope"]
     trig = inst.components["trigger"]
-    sig = inst.components["acq"]._display_signal(1)
+    sig = inst.components["acq"].display_signal(1)
     session.set_parameter("scope", "trigger", "noise_rms", 0.05)
     session.set_parameter("scope", "trigger", "hysteresis_divs", 0.01)
     sds.write(":TRIGger:EDGE:HOLDoff TIME;:TRIGger:EDGE:HLDTime 8E-9")  # the smallest holdoff

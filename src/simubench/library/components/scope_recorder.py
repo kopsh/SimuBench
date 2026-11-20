@@ -46,14 +46,13 @@ class Recorder:
         instants = [r.trigger_ns for r in records.values() if r.triggered and r.trigger_ns is not None]
         if instants:
             self.host.trigger_unit().last_ns = max(instants)  # the holdoff runs from here
-            if self.host.owner is not None:
-                self.host.owner.status_event("TRG")  # the trigger event register (:TER?, #248)
-        if self.host.owner is not None and records:
+            self.host.status_event("TRG")  # the trigger event register (:TER?, #248)
+        if records:
             # every stored acquisition is done (Infiniium :ADER?, #602); one an auto sweep took
             # without its trigger is an auto trigger (:ATER?)
-            self.host.owner.status_event("DONE")
-            if not instants and not forced and self.host._is("auto"):
-                self.host.owner.status_event("AUTO")
+            self.host.status_event("DONE")
+            if not instants and not forced and self.host.mode_is("auto"):
+                self.host.status_event("AUTO")
         count = self.acq_count + 1
         if segment is None or segment == of - 1:
             self.acq_count = count
@@ -100,11 +99,11 @@ class Recorder:
         used = 0
         how = self.host.param("reacquire")
         fresh = how == "every_read" or (how == "on_read_start" and start)
-        running = self.host.runner.is_running() and (self.host._is("auto") or self.host._is("normal"))
+        running = self.host.runner.is_running() and (self.host.mode_is("auto") or self.host.mode_is("normal"))
         if self.host.runner.pending_mode() and self.host.runner.waiting():
             if str(self.host.param("while_waiting")) == "error":
                 raise ScpiError(-221, "acquisition in progress")
-        elif (fresh and running) or (self.host.runner.armed and self.host._is("single")):
+        elif (fresh and running) or (self.host.runner.armed and self.host.mode_is("single")):
             used += self.host.runner.acquire_now(self.host.runner.acquisition_channels(channel))
         rec = self.records.get(channel)
         if rec is None and self.host.param("missing") == "acquire":
@@ -134,21 +133,20 @@ class Recorder:
         replaces the run, the frame it shows now is its latest acquisition, which a read gets
         until the single one is done (completion: pending)."""
         records, used, triggered = self.host.capture.compute(self.host.displayed())
-        if records and (triggered or self.host._is("auto")):
+        if records and (triggered or self.host.mode_is("auto")):
             self.store(records, used)
 
     def figure(
         self, what: str = "points", integer: bool = False, significant: int = 0, format: str = "", **_: Any
     ) -> OpResult:
-        assert self.host.owner is not None
         if what == "count":
             return OpResult(str(self.acq_count).encode())
         if what == "segments":  # the segments the latest acquisition has (0: it was not segmented)
             return OpResult(str(len(self.host.segments.segment_records)).encode())
         if integer and what == "points":
-            return OpResult(str(int(self.host._timing()[0])).encode())
+            return OpResult(str(int(self.host.timing()[0])).encode())
         if what == "points":
-            value = float(self.host._timing()[0])
+            value = float(self.host.timing()[0])
         elif what == "sample_rate":
             value = self.host.sample_rate()
         elif what == "time_tag":
@@ -159,7 +157,7 @@ class Recorder:
             return OpResult(V.format_engineering_digits(value, int(significant)))
         if format:
             return OpResult((format % value).encode())
-        return OpResult(self.host.owner.format_number(value))
+        return OpResult(self.host.format_number(value))
 
     def clear_display(self, **_: Any) -> OpResult:
         self.records.clear()

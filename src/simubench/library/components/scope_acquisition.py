@@ -229,15 +229,76 @@ class ScopeAcquisition(Component):
 
     # ---- helpers ----------------------------------------------------------------------------------
 
-    def _st(self, path: str) -> Any:
+    def get_state(self, path: str) -> Any:
+        """A setting's value, read from the instrument (#1724: the blocks' name for it)."""
         assert self.owner is not None
         return self.owner.get_state(path)
 
-    def _channels(self) -> int:
+    def set_state(self, path: str, value: Any) -> None:
+        """A setting's value written on the instrument (the instrument's own judgment applies)."""
+        assert self.owner is not None
+        self.owner.set_state(path, value)
+
+    def format_number(self, value: float) -> bytes:
+        """A number in the definition's response format (a figure a read answers)."""
+        assert self.owner is not None
+        return self.owner.format_number(value)
+
+    def format_setting(self, path: str) -> bytes:
+        """A setting as the definition's command layer formats its replies."""
+        assert self.owner is not None
+        return self.owner.runner.format_setting(path)
+
+    def status_event(self, name: str) -> None:
+        """Latch a momentary event into the status registers (``TRG``, ``DONE``, ``AUTO``, ``ARM``)."""
+        assert self.owner is not None
+        self.owner.status_event(name)
+
+    def wait_until(self, done_ns: int) -> int:
+        """Advance the virtual time until ``done_ns`` (a pending acquisition's instant)."""
+        assert self.owner is not None
+        return self.owner.wait_until(done_ns)
+
+    def now_ns(self) -> int:
+        assert self.owner is not None
+        return self.owner.now_ns()
+
+    def opc_query(self) -> tuple[bytes | None, int]:
+        """``*OPC?``: answered once every pending operation of the instrument is done."""
+        assert self.owner is not None
+        return self.owner.opc_query()
+
+    def wait_pending(self) -> int:
+        """``*WAI``: wait for every pending operation of the instrument."""
+        assert self.owner is not None
+        return self.owner.wait_pending()
+
+    def arm_opc(self) -> None:
+        """``*OPC``: report the operation-complete bit when the pending operations are done."""
+        assert self.owner is not None
+        self.owner.arm_opc()
+
+    @property
+    def on_panel(self) -> bool:
+        """Whether the operation in progress was started from the front panel (no virtual time
+        passes for a panel operation, D32)."""
+        return self.owner is not None and self.owner.on_panel
+
+    def warn(self, code: str, message: str) -> None:
+        """Raise a warning about the instrument (once per code for the session)."""
+        if self.owner is not None:
+            self.owner.warn(code, message)
+
+    def input_source(self, port: str) -> tuple[str, str] | None:
+        """The component and port wired to a signal input of this component, None when nothing
+        is (or the component is not placed in an instrument)."""
+        return None if self.owner is None else self.owner.wiring.source(self.name, port)
+
+    def channels(self) -> int:
         assert self.owner is not None
         return self.owner.channel_count
 
-    def _is(self, key: str, value: Any = None) -> bool:
+    def mode_is(self, key: str, value: Any = None) -> bool:
         """Whether the run mode (or ``value``) is one of the values listed in parameter ``key``."""
         return str(self.param("mode") if value is None else value).upper() in _upper(self.param(key))
 
@@ -252,7 +313,7 @@ class ScopeAcquisition(Component):
             raise ScpiError(-300, f"{self.uid}: the run mode is not bound to a setting")
         self.owner.set_state(self.resolve_path(path), value)
 
-    def _display_signal(self, n: int) -> Signal:
+    def display_signal(self, n: int) -> Signal:
         """Signal of channel n in display volts, before the converter: what the trigger compares
         (the analog path's shape when the vertical declares one, #1423)."""
         return self.adc_unit().trigger_signal(n)
@@ -275,13 +336,13 @@ class ScopeAcquisition(Component):
     def sample_rate(self) -> float:
         return self.horizontal().sample_rate(self._top_rate())
 
-    def _timing(self) -> tuple[int, float, int, int]:
+    def timing(self) -> tuple[int, float, int, int]:
         """Points, sample interval, samples before the trigger and samples from it on."""
         return self.horizontal().timing(self._top_rate())
 
     # ---- sampling, noise and the ADC ----------------------------------------------------------------
 
-    def _averages(self) -> int:
+    def averages(self) -> int:
         return self.decimator_unit().averages()
 
     def _request(
@@ -507,11 +568,11 @@ class ScopeAcquisition(Component):
             raise ScpiError(-300, f"{self.uid}: acquire_type names no setting")
         counts = self.param("acquire_counts") or {}
         if query:
-            current = str(self._st(path))
+            current = str(self.get_state(path))
             spec = counts.get(current)
             if spec is None:
                 return OpResult(current.encode())
-            count = self._st(str(spec["setting"]))
+            count = self.get_state(str(spec["setting"]))
             fmt = str(spec.get("format", "{kind},{value}"))
             return OpResult(fmt.format(kind=current, value=count).encode())
         if kind is None:
@@ -585,7 +646,7 @@ class ScopeAcquisition(Component):
         scope's internal references (``scope_vertical.self_calibrate``; a channel without a
         calibration store has nothing to write). The reply is the diagnostic code ``0``; the
         command's ``reply`` template gives the model's words (e.g. ``*CAL {value}``)."""
-        for n in range(1, self._channels() + 1):
+        for n in range(1, self.channels() + 1):
             self.vertical_of(n).self_calibrate()
         return OpResult(b"0")
 

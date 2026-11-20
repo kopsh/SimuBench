@@ -94,7 +94,7 @@ def noisy_retriggers(noise_reject: bool) -> float:
         s.set_parameter("scope", "trigger", "noise_rms", 0.05)
         s.set_parameter("scope", "trigger", "hysteresis_divs", 0.01)
         s.set_parameter("scope", "trigger", "noise_reject", noise_reject)
-        sig = inst.components["acq"]._display_signal(1)
+        sig = inst.components["acq"].display_signal(1)
         t0, dt = s.now_ns, 1e-7
         first = trig.search(sig, t0, dt, 100, 10000, 1, 0.5)
         trig.last_ns = t0 + round(first.t_s * 1e9)
