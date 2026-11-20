@@ -1031,6 +1031,9 @@ class ConfigureResponse(_Model):
     ok: bool
     error: ErrorItem | None = None
     value: Any = None
+    changed: bool = Field(
+        False, description="ok 时：状态确实变了。一个等值写入是 ok 但未 changed，不是失败也不必重试"
+    )
 
 
 class PanelRequest(_Model):

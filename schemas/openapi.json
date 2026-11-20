@@ -2376,6 +2376,12 @@
       },
       "ConfigureResponse": {
         "properties": {
+          "changed": {
+            "default": false,
+            "description": "ok 时：状态确实变了。一个等值写入是 ok 但未 changed，不是失败也不必重试",
+            "title": "Changed",
+            "type": "boolean"
+          },
           "error": {
             "anyOf": [
               {
@@ -2397,7 +2403,8 @@
         "required": [
           "ok",
           "error",
-          "value"
+          "value",
+          "changed"
         ],
         "title": "ConfigureResponse",
         "type": "object"

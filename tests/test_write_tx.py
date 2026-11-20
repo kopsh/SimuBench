@@ -164,6 +164,21 @@ def test_a_write_that_changes_nothing_is_a_no_op():
     assert watcher.seen == [] and inst.sent == [] and watcher.checked == 0
 
 
+def test_a_bool_write_takes_the_parser_words_and_refuses_other_strings():  # 1677
+    # a string used to fall through bool(value): "false" became True and the no-op rule above
+    # swallowed the write silently while the caller read back ok=True
+    inst = FakeInstrument({"out": OUT})
+    inst.state["out"] = True
+    apply_writes(inst, {"out": "false"}, source="t", judged=True)
+    assert inst.state["out"] is False and [(e.path, e.new) for e in inst.sent] == [("out", False)]
+    apply_writes(inst, {"out": "OFF"}, source="t", judged=True)  # off on an off out: a no-op
+    assert inst.sent and inst.state["out"] is False
+    with pytest.raises(ScpiError) as err:  # an unknown word is refused, nothing applied
+        apply_writes(inst, {"out": "yes"}, source="t", judged=True)
+    assert err.value.code == -224
+    assert inst.state["out"] is False and [(e.path, e.new) for e in inst.sent] == [("out", False)]
+
+
 def test_only_the_surviving_writes_are_sent_in_the_order_they_were_applied():
     inst = FakeInstrument({"freq": FREQ, "count": COUNT, "out": OUT})
     apply_writes(inst, [("out", True), ("freq", 5.0), ("count", 3)], source="scpi")
