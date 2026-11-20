@@ -234,12 +234,14 @@ def test_the_tool_text_and_the_http_row_agree_per_kind(tmp_path):
     both agent seams, and the text carries what the HTTP row's status is about (the missing file's
     name, the conflict's sha, the invalid bench's pointer)."""
     from simubench.contracts import api as M
-    from simubench.server.errors import BenchInvalid, Conflict, tool_text
+    from simubench.server.errors import BenchInvalid, Busy, ConfigError, Conflict, tool_text
 
     ctx = _ctx(tmp_path)
     diag = M.Diagnostic(severity="error", code="E-X", pointer="/p", message="m")
     cases = [
         (Conflict("x changed since it was read", "abc"), "abc", 409),
+        (Busy("上一轮还在进行：等它结束或先停止"), "还在进行", 409),  # the assistant's own kinds (#1725)
+        (ConfigError("还没有配置 LLM：在设置页填写地址和模型"), "还没有配置", 422),
         (FileNotFoundError("a.bench.yaml"), "a.bench.yaml", 404),
         (BenchInvalid([diag]), "/p", 422),
     ]
@@ -323,6 +325,32 @@ def test_mcp_tools_catch_domain_errors_not_everything():
         if fns:
             wide[path.name] = fns
     assert wide == {"definitions.py": ["defs"]}
+
+
+def test_assistant_routes_ask_the_one_table_not_a_shadow_of_it():
+    """#1725: routes/assistant.py keeps no private mapping: no ``isinstance`` picking a status, no
+    hand-built ``HTTPException`` for a domain kind, no bare ``KeyError`` in a catch tuple (the bug's
+    shape, #1478). The catch tuples are ``DOMAIN_ERRORS`` and the status comes from the one table's
+    HTTP column (``ctx.http_error``), as the MCP tools' capture guards above."""
+    import ast
+    from pathlib import Path
+
+    path = Path(__file__).resolve().parents[1] / "src" / "simubench" / "server" / "routes" / "assistant.py"
+    offenders: list[str] = []
+    for node in ast.walk(ast.parse(path.read_text(encoding="utf-8"))):
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in ("isinstance", "HTTPException")
+        ):
+            offenders.append(f"line {node.lineno}: {node.func.id}()")
+        if (
+            isinstance(node, ast.ExceptHandler)
+            and node.type is not None
+            and "KeyError" in {n.id for n in ast.walk(node.type) if isinstance(n, ast.Name)}
+        ):
+            offenders.append(f"line {node.lineno}: catches KeyError")
+    assert offenders == []
 
 
 # ---- starting, resetting and stopping, without a route or a tool --------------------------------

@@ -4,6 +4,8 @@ need consent, running sessions are stopped first with consent, and the conversat
 
 from __future__ import annotations
 
+import hashlib
+
 import pytest
 import yaml
 from tests.helpers import ScriptedLLM, last_tool_return
@@ -127,12 +129,13 @@ async def test_a_created_file_changed_while_the_plan_runs_is_not_deleted_unseen(
 
     manager.stop = stop_and_tamper  # type: ignore[method-assign]
     try:
-        with raises_with(Conflict, "hello-copy"):
+        with raises_with(Conflict, "hello-copy") as caught:
             await service.rollback(
                 M.RollbackRequest(bench=BENCH, turn_id=t.id, stop_sessions=True, confirm_lost=True)
             )
     finally:
         manager.stop = original_stop
+    assert caught.value.current_sha256 == hashlib.sha256(copy.read_bytes()).hexdigest()  # the 409 body's (#1725)
     assert (
         copy.read_text(encoding="utf-8") == "name: 手改的\n"
         and not service.conversation(BENCH).turns[-1].rolled_back

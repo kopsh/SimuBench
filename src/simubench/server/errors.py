@@ -76,6 +76,15 @@ class BenchInvalid(ValueError):
         self.diagnostics = diagnostics
 
 
+class Busy(Exception):
+    """A turn of this conversation is still running: the next one waits or is refused."""
+
+
+class ConfigError(ValueError):
+    """A setting that cannot be used, with the reason in words. It lives beside the LLM settings
+    it describes (``assistant/config.py``); the table row here is what every seam reads."""
+
+
 class InstrumentRemote(RuntimeError):
     """A UI operation on an instrument a script is connected to (remote, #121)."""
 
@@ -144,6 +153,16 @@ def _http_in_use(exc: ClientsConnected | InstrumentRemote, **_: Any) -> HTTPExce
 
 def _http_port_in_use(exc: Exception, **_: Any) -> HTTPException:
     return HTTPException(409, str(exc))
+
+
+def _http_busy(exc: Exception, **_: Any) -> HTTPException:
+    """409: a turn of this conversation is still running (the assistant's own kind, #1725)."""
+    return HTTPException(409, str(exc))
+
+
+def _http_config(exc: Exception, **_: Any) -> HTTPException:
+    """422: the LLM settings cannot be used, in the words the error was raised with."""
+    return HTTPException(422, str(exc))
 
 
 def _http_forbidden_file(exc: Exception, *, files: bool = True, **_: Any) -> HTTPException | None:
@@ -257,6 +276,9 @@ class ErrorRow:
 SEAM_ROWS: tuple[ErrorRow, ...] = (
     ErrorRow((ClientsConnected, InstrumentRemote), _http_in_use, _tool_in_use),
     ErrorRow((PortInUse,), _http_port_in_use, _tool_port_in_use),  # before the file errors: an OSError too
+    ErrorRow((Busy,), _http_busy, _tool_first_line),
+    # before the ValueError row: the assistant's settings errors are a domain kind of their own (#1725)
+    ErrorRow((ConfigError,), _http_config, _tool_first_line),
     ErrorRow((PermissionError,), _http_forbidden_file, _tool_permission),
     ErrorRow((FileNotFoundError,), _http_missing_file, _tool_missing_file),
     ErrorRow((Conflict,), _http_conflict, _tool_conflict),

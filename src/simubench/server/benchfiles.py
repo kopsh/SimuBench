@@ -120,7 +120,7 @@ class BenchFiles:
     def read(self, bench_path: str) -> M.BenchDocument:
         path = self.resolve(bench_path)
         raw = path.read_bytes()
-        return self._document(bench_path, path, raw, _parse(path, raw))
+        return self._document(bench_path, path, raw, parse_data(path, raw))
 
     def validate(self, data: dict[str, Any], bench_path: str | None = None) -> Report:
         path = self.resolve(bench_path) if bench_path else None
@@ -141,7 +141,7 @@ class BenchFiles:
             canonical = True
         raw = self._patched(path, data) if canonical else None
         if raw is not None:
-            content = _parse(path, raw)  # the patched text is what the file will hold
+            content = parse_data(path, raw)  # the patched text is what the file will hold
         else:
             raw, content = _dump(path, data), data
         self.write(
@@ -151,7 +151,7 @@ class BenchFiles:
             fingerprint=fingerprint(content),
             source=source,
             target="bench",
-            previous_fingerprint=lambda old: fingerprint(_parse(path, old)),
+            previous_fingerprint=lambda old: fingerprint(parse_data(path, old)),
         )
         return self._document(bench_path, path, raw, content)
 
@@ -164,9 +164,9 @@ class BenchFiles:
             return None
         try:
             old_raw = path.read_bytes()
-            old = edit.to_yaml_data(BenchDefinition.model_validate(_parse(path, old_raw)))
+            old = edit.to_yaml_data(BenchDefinition.model_validate(parse_data(path, old_raw)))
             raw = yamlpatch.patched(old_raw, old, data)
-            if raw is None or edit.to_yaml_data(BenchDefinition.model_validate(_parse(path, raw))) != data:
+            if raw is None or edit.to_yaml_data(BenchDefinition.model_validate(parse_data(path, raw))) != data:
                 return None
             return raw
         except (ValueError, UnicodeDecodeError, yaml.YAMLError, RuamelError):
@@ -271,7 +271,7 @@ class BenchFiles:
                 bench_path,
                 raw,
                 None,
-                fingerprint=fingerprint(_parse(path, raw)),
+                fingerprint=fingerprint(parse_data(path, raw)),
                 source=source,
                 target="bench",
             )
@@ -298,7 +298,7 @@ class BenchFiles:
         if is_bench_file(path.name) and ".json" not in (path.suffix, source_path.suffix):
             raw = _renamed_text(source_path.read_bytes(), data["name"], source_path.name, path.name)
             if raw is not None:
-                copied = _parse(path, raw)
+                copied = parse_data(path, raw)
                 if copied.get("name") == data["name"]:
                     self.write(
                         new_path, raw, None, fingerprint=fingerprint(copied), source=source, target="bench"
@@ -361,7 +361,7 @@ class BenchFiles:
         entry = next((v for v in self.history.versions(bench_path) if v.seq == seq), None)
         if entry is None:
             raise NotFound(f"{bench_path} has no version {seq}")
-        data = _parse(path, self.history.content(bench_path, seq))
+        data = parse_data(path, self.history.content(bench_path, seq))
         return M.BenchVersionDocument(path=bench_path, version=entry, data=data)
 
     def restore(self, bench_path: str, seq: int, base_sha256: str) -> M.BenchDocument:
@@ -489,13 +489,15 @@ def _sha(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
 
 
-def _parse(path: Path, raw: bytes) -> dict[str, Any]:
+def parse_data(path: Path, raw: bytes) -> dict[str, Any]:
+    """A bench or definition file's raw bytes as data, JSON by suffix else YAML. A file whose
+    content does not parse is the caller's to fix, so the error is the domain error ``Invalid``
+    with the file name and the parser's line and column (#1406), not the 500 a bug gets — the
+    assistant's turn records read versions through this too (#1725)."""
     text = raw.decode("utf-8")
     try:
         data = load_json(text) if path.suffix == ".json" else load_yaml(text)
     except json.JSONDecodeError as exc:
-        # A file whose content does not parse is the caller's to fix, and the error keeps the
-        # line and column it reported (#1406): a domain error, not the 500 a bug gets.
         raise Invalid(f"{path.name}: {exc}") from None
     except yaml.YAMLError as exc:
         raise Invalid(parse_error_text(exc, path.name)) from None
