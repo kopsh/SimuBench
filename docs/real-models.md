@@ -224,7 +224,7 @@ https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-seri
 | 1 mm 输入、50 Ω（3123-1371 p.6） | `ch<n>.inp`（`input_port`） | |
 | 机电步进衰减器，0 / 6.7 / 13.3 / 20 dB（p.11；3123-1313 p.5 的 Attenuation Level 列） | `ch<n>.atten`（`scope_attenuator`） | 按输入 V/div 选档；输出端的内部探针显示前置放大器看到的电平 |
 | InP 前置放大器，DC–110 GHz，不用频率交织（p.11、p.15） | `ch<n>.front`（`scope_vertical`，`attenuator: atten`） | 补回衰减器的损耗；档位、偏置、带宽、噪声、过载按输入端计 |
-| 前置放大器后分出触发比较器（SIJ；p.11 写三者同在前端模块） | `trigger`，在采样器之前取信号 | 内部结构图上触发的选中范围落在采样器之前 |
+| 前置放大器后分出触发比较器（SIJ；p.11 写三者同在前端模块） | `trigger`，在采样器之前取信号 | 内部结构图上触发的选中范围落在采样器之前；拆解视频说的 ADC 之后的数字触发，#1691 定量后不采用（11.3） |
 | 256 GSa/s InP 主采样器 → 4 个 64 GSa/s SiGe 采样器（p.11） | `ch<n>.sampler`（`scope_sampler`，`paths: 4`） | 4 路的偏置与时延失配、本通道的孔径抖动 |
 | 16 路 10 位 ADC，每块采集板 4 颗 4-lane ADC（p.10、p.11、p.13） | `adc`（`scope_adc`，`interleave: 16`，`sampler: sampler`） | 第 i 路属于第 i mod 4 个采样器 |
 | 4 块采集板由同一时基同步（p.13） | `timebase`（`clock_jitter_s`），`adc.clock` 引用 | 各通道共用的时钟抖动 |
@@ -257,7 +257,7 @@ https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-seri
   数据手册点名的两根（16 GHz、64 GHz）。静态增益失配没有放：抽取后的慢记录每次只取同一路，它会成为直流增益误差。
 - 本通道自己的孔径抖动取 5 fs，是满足“通道间 < 10 fs”的估计；共用时钟取 √(15² − 5²)。
 - 触发通路不加噪声：数据手册的 71 fs 正好等于记录噪声除以过零斜率（70.6 fs）。#1298 原先给触发通路加了与通道相同的
-  噪声，显示抖动为 102 fs。记录时间原点的 25 fs 是固有抖动表 10 µs 那一行，取作量级。
+  噪声，显示抖动为 102 fs。UXR0334B 同理（#1691）：116 fs 等于 2.91 mV ÷ 25 GV/s，去掉触发噪声后实测 117 fs（原先 181 fs）。记录时间原点的 25 fs 是固有抖动表 10 µs 那一行，取作量级。
 
 没有建模：固有抖动随采集时长增长（10 µs 25 fs、100 µs 40 fs、1 ms 50 fs，需要时钟的相位噪声模型）、通道间相位
 （p.9 的 2 通道互相关相位噪声）、前端的模拟带宽限制滤波、单独的 ADC ENOB（3123-1371 p.10 的 8.7 位，整机噪声已在
@@ -286,7 +286,7 @@ https://www.signalintegrityjournal.com/articles/948-keysights-infiniium-uxr-seri
 
 | 视频 | 定义 | 处理 |
 | --- | --- | --- |
-| 前端里的 24 GHz 模拟边沿触发芯片是遗留硬件，**不用**；触发是数字的，在 ADC 之后的 DSP ASIC 里实时完成，带宽 113 GHz（09:34、22:49、49:37） | `trigger` 从模拟前端分出，在 ADC 之前，看到的是 `analog_response: bessel4` 的未校正形状（#1263、#1423），不带采样器与 ADC 的误差 | 待定：11.1 的模拟触发通路依据的是 SIJ 一文。数据手册 3123-1313 只写 "Hardware trigger"、"Edge trigger bandwidth: Equal to acquisition analog bandwidth"，两种实现都符合。改成数字触发会影响 #1579 的显示抖动推算（71 fs = 记录噪声 ÷ 斜率），需要另开 issue 先定量 |
+| 前端里的 24 GHz 模拟边沿触发芯片是遗留硬件，**不用**；触发是数字的，在 ADC 之后的 DSP ASIC 里实时完成，带宽 113 GHz（09:34、22:49、49:37） | `trigger` 从模拟前端分出，在 ADC 之前，看到的是 `analog_response: bessel4` 的未校正形状（#1263、#1423），不带采样器与 ADC 的误差，自身不加噪声 | **保留模拟通路（#1691）**：数据手册 3123-1313 p.16 的两个显示抖动都正好等于记录噪声 ÷ 过零斜率（1 mm：6.1 mV ÷ 86 GV/s = 70.6 fs，标 71 fs；3.5 mm：2.91 mV ÷ 25 GV/s = 115.8 fs，标 116 fs），只有触发时刻与记录噪声无关才会这样。用记录自己的采样定触发时刻（同一组采样线性插值、8 倍多相上采样、[¼ ½ ¼] 平滑后的副本）时，UXR1104B 显示抖动为 0 / 14 / 33 fs，UXR0334B 为 0 / 12 / 25 fs（各 300 次采集），对不上。视频拍的是 A 系列原型机，量产的 UXR-B 以数据手册为准 |
 | 原型机硬件灵敏度最低 2 mV/div（31:13） | 数据手册 3123-1313：硬件 60 mV 满量程（7.5 mV/div），更小档位是放大 | 不改：以量产数据手册为准，视频是 A 系列原型机 |
 
 **未建模**（视频有，定义没有）：

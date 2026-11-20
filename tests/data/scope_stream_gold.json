@@ -1017,13 +1017,13 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:PREamble?",
-   "digest": "f9864e102d82697fca408e015f0e1b39b57a295cfb93af6105b24e4392f83ac8",
+   "digest": "9c69ab14f82c27d6b1a92004256a463098c163c1f0bdafaf9a369276b22385e1",
    "ns": 0
   },
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "551e44426877f8f79bd39e9688f046168bcfa740231c232021346a1dc1763454",
+   "digest": "b526eb09133eb9250c750c5adb01db9f769d5b14dab4b733d1506150ec20b220",
    "ns": 0
   },
   {
@@ -1059,7 +1059,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:PREamble?",
-   "digest": "35013ad2e2d2eac8c842da47ddddeb82a7284c3623c85646b850aa146febbe50",
+   "digest": "1fab17df247d5fb9f1531bd66ba915273e9cf96f44114401dc80848bddf8e880",
    "ns": 0
   },
   {
@@ -1089,13 +1089,13 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:PREamble?",
-   "digest": "c4299c85110267df543dbba919baa86a24e048eb6da9af25eefeb2abc28c8423",
+   "digest": "4ef96f076e3c500c748fcb0882b6c1ba86b243d4c2f577cfbac15df0fbccab95",
    "ns": 0
   },
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "501a21144bb2f2af3371be22a06f3e4309d7d0df53b6ef100e4a84a1372b5c67",
+   "digest": "bb4aa451874c1a784d16d0a76c8e6eda70de2c4800520fb48ccbdf49ac5adb51",
    "ns": 0
   },
   {
@@ -1113,7 +1113,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:DATA?",
-   "digest": "06adfc1fe70b28fe07c4e0464f6cc83c3104008b35269c16a6c27dd09d2954e1",
+   "digest": "f2f773732cd6cf559be775655c5ab42839b2bc53a3b46eb8b54bbf0c88889c10",
    "ns": 0
   },
   {
@@ -1131,7 +1131,7 @@
   {
    "instrument": "scope",
    "cmd": ":WAVeform:PREamble?",
-   "digest": "be6d4c2abefb2349b1692ac69b02f4ed1199f25805b20cbd9e36b11fe8335530",
+   "digest": "aa7648a872e75db44ebe1f4dd2dfb47b33fb35455c04a8a802dc503f632f696b",
    "ns": 0
   },
   {
@@ -1148,7 +1148,7 @@
   },
   {
    "screen": "frame 1",
-   "digest": "492dc26f821d9c17591b38649290375d55147a9e634b5934db67d47b62e3101c",
+   "digest": "9df985db622e7f495930f610cc049928924222fb0c3ac9d7af75839e7e2185aa",
    "triggered": 1
   }
  ],
