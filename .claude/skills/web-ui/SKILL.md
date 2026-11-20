@@ -45,8 +45,13 @@ primitives, i18next, sonner toasts, vitest, Playwright (e2e + visual), Storybook
 - `web/src/features/workbench/internals/` — the internals view (#20, #739) and the internal probe
   (#953, signal-chain.md 1.2–1.3): `layout.ts` (columns from the signal wires; refs only place
   off-path blocks), `trace.ts` (lit chains), `probe.ts` (wire labels, probe pictures, the per-port thumbnails
-  `miniOf`; unit-tested), `ProbeView.tsx` (the panel and its states), `InternalsView.tsx` (opens at
-  a readable zoom, not fitted: off-screen blocks are reached by the overview map, the fit-view
+  `miniOf`; unit-tested), `ProbeView.tsx` (the probe panel and its states), `InternalsView.tsx` (the
+  workbench's live entry: the internals query and the probe wiring around the panel),
+  `InternalsPanel.tsx` (the orchestrator the workbench tab and the acceptance page share — toolbar,
+  selection, search, the probe and the full-screen state (#1174) — and the component details;
+  `blockLabel`, a block's title, lives in `lib/component.ts` beside the type-naming helpers),
+  `Graph.tsx` (the canvas: nodes, edges, and the readable opening zoom, not fitted: off-screen blocks
+  are reached by the overview map, the fit-view
   control, or focus — an e2e test clicks `.react-flow__controls-fitview` before clicking across the
   graph; thumbnails come from `useInternalProbes`, one probe per output on screen). A receiver's "tuned to" (#959):
   the context comes with the internals (`InstrumentInternals.tuning`), the choice (`Tune` in `probe.ts`) is state of

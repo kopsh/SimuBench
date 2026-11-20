@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { InternalsPanel } from "@/features/workbench/internals/InternalsView";
+import { InternalsPanel } from "@/features/workbench/internals/InternalsPanel";
 import { BuildTab } from "./structure/BuildTab";
 import { CasesTab } from "./CasesTab";
 import { CommandsTab } from "./CommandsTab";
