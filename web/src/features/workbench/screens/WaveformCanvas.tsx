@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import type { Trace } from "@/api/client";
-import { cssVar, decimate, resolveColor } from "@/lib/canvas";
+import { cssVar, resolveColor } from "@/lib/canvas";
 import { channelColor } from "@/lib/channels";
 import { formatEng } from "@/lib/format";
-import { PERSISTENCE_ALPHA, prefersReducedMotion, pushHistory, sweepProgress } from "@/lib/motion";
+import { PERSISTENCE_ALPHA, prefersReducedMotion, pushHistory } from "@/lib/motion";
+import { clampY, mountPlot, plotSeries, type PlotPaint } from "./PlotCanvas";
 
 /** How long a new acquisition takes to draw in, left to right, when the screen is live. */
 const REVEAL_MS = 220;
@@ -12,10 +13,12 @@ const DIV_H = 10;
 const DIV_V = 8;
 
 /**
- * Oscilloscope graticule and traces. Drawn on a canvas sized to the element and the device pixel
- * ratio; traces of 1000 points need no decimation, longer ones are reduced to min/max per pixel.
- * ``live`` (the scope is acquiring) turns on the display's persistence: the last acquisitions
- * stay, fading, and each new one draws in from the left. Off under prefers-reduced-motion.
+ * Oscilloscope graticule and traces, on the shared instrument-plot frame (#1731: sizing, grid,
+ * animation and observer come from ``mountPlot``); this screen paints its center cross with the
+ * minor ticks, the axis numbers, the persistence and the trigger markers over it. Traces of 1000
+ * points need no decimation, longer ones are reduced to min/max per pixel. ``live`` (the scope is
+ * acquiring) turns on the display's persistence: the last acquisitions stay, fading, and each new
+ * one draws in from the left. Off under prefers-reduced-motion.
  */
 export function WaveformCanvas({
   traces: tracesProp,
@@ -65,35 +68,16 @@ export function WaveformCanvas({
       shown.current = traces;
     }
     const ghosts = history.current;
-    const started = performance.now();
-    let raf = 0;
-    const draw = (progress = 1) => {
-      const dpr = window.devicePixelRatio || 1;
-      const w = canvas.clientWidth;
-      const h = canvas.clientHeight;
-      if (!w || !h) return;
-      canvas.width = Math.round(w * dpr);
-      canvas.height = Math.round(h * dpr);
-      const ctx = canvas.getContext("2d")!;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.fillStyle = cssVar(canvas, "--plot-bg", "#15171c");
-      ctx.fillRect(0, 0, w, h);
-
-      // Graticule: 10 x 8 divisions with minor ticks on the center lines.
-      const grid = cssVar(canvas, "--plot-grid", "#333");
-      const axis = cssVar(canvas, "--plot-axis", "#555");
-      ctx.lineWidth = 1;
-      ctx.strokeStyle = grid;
-      ctx.setLineDash([1, 3]);
-      for (let i = 1; i < DIV_H; i++) line(ctx, (i * w) / DIV_H, 0, (i * w) / DIV_H, h);
-      for (let j = 1; j < DIV_V; j++) line(ctx, 0, (j * h) / DIV_V, w, (j * h) / DIV_V);
-      ctx.setLineDash([]);
-      ctx.strokeStyle = axis;
+    // The scope's own drawing over the shared frame (its dashed divisions and edges are behind
+    // this): the center cross with its minor ticks — the same colour the frame draws its edges
+    // in, so their order against the frame does not show — the axis numbers, the persistence, the
+    // traces and the trigger markers.
+    const paint: PlotPaint = (ctx, w, h, progress) => {
+      ctx.strokeStyle = cssVar(canvas, "--plot-axis", "#555");
       line(ctx, w / 2, 0, w / 2, h);
       line(ctx, 0, h / 2, w, h / 2);
       for (let i = 0; i <= DIV_H * 5; i++) line(ctx, (i * w) / (DIV_H * 5), h / 2 - 3, (i * w) / (DIV_H * 5), h / 2 + 3);
       for (let j = 0; j <= DIV_V * 5; j++) line(ctx, w / 2 - 3, (j * h) / (DIV_V * 5), w / 2 + 3, (j * h) / (DIV_V * 5));
-      ctx.strokeRect(0.5, 0.5, w - 1, h - 1);
 
       drawAxes(ctx, canvas, w, h, traces.find((t) => t.channel === axisChannel), span);
 
@@ -149,20 +133,14 @@ export function WaveformCanvas({
         ctx.fill();
       }
     };
-    if (motion && ghosts.length) {
-      const step = () => {
-        const p = sweepProgress(performance.now() - started, REVEAL_MS);
-        draw(p);
-        if (p < 1) raf = requestAnimationFrame(step);
-      };
-      step();
-    } else draw();
-    const ro = new ResizeObserver(() => draw());
-    ro.observe(canvas);
-    return () => {
-      cancelAnimationFrame(raf);
-      ro.disconnect();
-    };
+    return mountPlot(canvas, paint, {
+      divH: DIV_H,
+      divV: DIV_V,
+      line,
+      animate: motion,
+      run: ghosts.length > 0,
+      durationMs: REVEAL_MS,
+    });
   }, [traces, triggerLevel, triggerChannel, live, markers, spanLeft, spanWidth, axisChannel]);
 
   return <canvas ref={ref} className={className} role="img" aria-label={label ?? "waveform"} />;
@@ -242,9 +220,9 @@ export function traceSpan(tr: Pick<Trace, "t0_s" | "dt_s" | "volts">, w: number,
 export type TimeWindow = { left: number; width: number };
 
 /**
- * One channel's record as a polyline, or min/max per pixel when it is longer than 2 points a pixel.
- * With a ``span`` the record sits where its own times fall on the screen and only the part inside
- * the screen is drawn; without one it fills the width.
+ * One channel's record as a polyline, or min/max per pixel when it is longer than 2 points a pixel
+ * (the shared ``plotSeries``): with a ``span`` the record sits where its own times fall on the
+ * screen and only the part inside the screen is drawn; without one it fills the width.
  */
 function strokeTrace(
   ctx: CanvasRenderingContext2D,
@@ -261,30 +239,8 @@ function strokeTrace(
   ctx.strokeStyle = color;
   ctx.lineWidth = width;
   ctx.lineJoin = "round";
-  ctx.beginPath();
   const { xOf, i0, i1 } = traceSpan(tr, w, span);
-  const count = i1 - i0 + 1;
-  if (count < 1) return;
-  const xa = xOf(i0);
-  const xb = xOf(i1);
-  if (count <= w * 2) {
-    for (let i = i0; i <= i1; i++) {
-      const y = clampY(yOf(tr.volts[i]), h);
-      if (i > i0) ctx.lineTo(xOf(i), y);
-      else ctx.moveTo(xOf(i), y);
-    }
-  } else {
-    // more samples than pixels: min/max per pixel over the visible stretch
-    const px0 = Math.max(0, Math.floor(xa));
-    const px1 = Math.min(w - 1, Math.ceil(xb));
-    const cols = Math.max(1, px1 - px0 + 1);
-    const { lo, hi } = decimate(tr.volts.slice(i0, i1 + 1), cols);
-    for (let k = 0; k < cols; k++) {
-      ctx.moveTo(px0 + k, clampY(yOf(hi[k]), h));
-      ctx.lineTo(px0 + k, clampY(yOf(lo[k]), h) + 0.5);
-    }
-  }
-  ctx.stroke();
+  plotSeries(ctx, tr.volts, { xOf, yOf, w, h, i0, i1 });
 }
 
 function line(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number, y1: number) {
@@ -292,9 +248,5 @@ function line(ctx: CanvasRenderingContext2D, x0: number, y0: number, x1: number,
   ctx.moveTo(Math.round(x0) + 0.5, Math.round(y0) + 0.5);
   ctx.lineTo(Math.round(x1) + 0.5, Math.round(y1) + 0.5);
   ctx.stroke();
-}
-
-function clampY(y: number, h: number) {
-  return Math.max(1, Math.min(h - 1, y));
 }
 
