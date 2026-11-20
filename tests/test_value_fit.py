@@ -259,6 +259,29 @@ def test_the_engine_accepts_the_same_words_the_static_side_does():
     assert e.value.code == -224 and e.value.message == "Illegal parameter value"
 
 
+BOOL = spec(type="bool", default=False)
+
+
+def test_a_bool_takes_the_parser_words_and_refuses_other_strings():
+    # #1677: a write from outside the parse layer (an LLM tool call, the web configure) follows
+    # the parser's words (parse_bool, plus the JSON-natural TRUE/FALSE). ``bool("false")`` used
+    # to return True, so the write silently changed nothing while reporting success.
+    for word in ("ON", "on", "1", "TRUE", "true", "True"):
+        assert validate_value(BOOL, word) is True
+    for word in ("OFF", "off", "0", "FALSE", "false", "False"):
+        assert validate_value(BOOL, word) is False
+    # the booleans and the numbers are as they were
+    assert validate_value(BOOL, True) is True and validate_value(BOOL, False) is False
+    assert validate_value(BOOL, 0) is False and validate_value(BOOL, 1) is True
+    assert validate_value(BOOL, 2) is True
+    with pytest.raises(ScpiError) as e:  # an unknown word is refused visibly, with the words named
+        validate_value(BOOL, "yes")
+    assert e.value.code == -224
+    with pytest.raises(ScpiError) as e:  # a non-word type is refused like the number path's
+        validate_value(BOOL, None)
+    assert e.value.code == -104
+
+
 def test_the_engine_keeps_the_range_and_special_semantics():
     assert validate_value(NUMBER, 9.9e37) == 9.9e37  # a special value skips the range
     with pytest.raises(ScpiError) as e:

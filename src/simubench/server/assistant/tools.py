@@ -553,7 +553,7 @@ def set_live_setting(ctx: RunContext[TurnContext], instrument: str, path: str, v
             raise Invalid(
                 f"{out.error.code if out.error else ''} {out.error.message if out.error else ''}".strip()
             )
-        if old != out.value:
+        if out.changed:  # the write_tx no-op rule, made visible to the model (#1678)
             t.turn.live.append(
                 M.DefinitionChange(
                     kind="state",
@@ -563,7 +563,13 @@ def set_live_setting(ctx: RunContext[TurnContext], instrument: str, path: str, v
                     new=out.value,
                 )
             )
-        return {"ok": True, "value": out.value}
+            return {"ok": True, "value": out.value, "changed": True}
+        return {
+            "ok": True,
+            "value": out.value,
+            "changed": False,
+            "note": "值本来就是该值，没有变化；不要为这一项重试",
+        }
 
     return _call(
         t,
