@@ -7,8 +7,9 @@ A turn has no step limit, so the server watches for no progress instead. Two thi
 * a call that changes something (a write, a live setting, a start or stop) repeated with the same
   arguments and the same result :data:`REPEAT` times **anywhere in the turn**, even with look-ups
   between them. That also catches A → B → A → B: the same change comes back and is counted again.
-  Read-only calls (``READ_ONLY``) are observations, not progress: they neither reset that count
-  nor count themselves. Without this, interleaving ``get_instrument_state`` with a repeated
+  The tools that declare themselves observations (``observes``, one line each at their definition
+  in :mod:`tools`, #1734) are observations, not progress: they neither reset that count nor count
+  themselves. Without this, interleaving ``get_instrument_state`` with a repeated
   ``set_live_setting`` hid the loop (a turn went 8 calls round without tripping).
 
 When it trips, the turn ends with the reason in words; what the turn wrote can be restored with
@@ -24,22 +25,17 @@ from typing import Any
 REPEAT = 3
 ERROR_STREAK = 4
 
-#: Looking at things: no bench, file or session changes, so they are not progress.
-READ_ONLY = frozenset(
-    {
-        "list_catalog",
-        "get_definition",
-        "list_benches",
-        "read_bench",
-        "validate_bench",
-        "describe_session",
-        "get_instrument_state",
-        "read_definition",
-        "validate_definition",
-        "run_cases",
-        "try_definition",
-    }
-)
+
+def _observed() -> frozenset[str]:
+    """The names of the tools that declared themselves observations, one line each at their
+    definition (tools.py, #1734) — read lazily, since tools imports this module. Every tool must
+    have declared: an undeclared one would count as progress, and the same legal read three times
+    would then stop a healthy turn (a false stop, not a missed check)."""
+    from .tools import TOOLS
+
+    undeclared = [f.__name__ for f in TOOLS if not isinstance(getattr(f, "observes", None), bool)]
+    assert not undeclared, f"工具没有声明是否只观察：{undeclared}"
+    return frozenset(f.__name__ for f in TOOLS if f.observes)
 
 
 class Stuck(Exception):
@@ -57,6 +53,7 @@ class LoopGuard:
         self.repeats = 0
         self.errors: list[str] = []
         self.mutations: dict[tuple[str, str, str], int] = {}
+        self.observed = _observed()  # the tools' own declaration, checked complete (#1734)
 
     def record(self, tool: str, args: Any, ok: bool, outcome: Any) -> None:
         """Note one call and its outcome (a result or an error text); raise :class:`Stuck` when the
@@ -73,7 +70,7 @@ class LoopGuard:
         what = f"：{outcome}" if not ok else ""
         if self.repeats >= REPEAT:
             raise Stuck(f"同一个操作（{tool}）连续 {REPEAT} 次得到同样的结果，没有进展，已停下{what}")
-        if tool not in READ_ONLY:
+        if tool not in self.observed:
             seen = self.mutations.get(key, 0) + 1
             self.mutations[key] = seen
             if seen >= REPEAT:  # look-ups in between do not hide the same change made again

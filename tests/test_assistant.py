@@ -483,6 +483,20 @@ def test_the_loop_guard_stops_repeats_that_hide_behind_lookups(calls, stuck):
     assert "没有进展" in str(caught.value)
 
 
+def test_a_tool_without_a_declaration_is_a_loud_failure(monkeypatch):
+    """#1734: the guard's read-only knowledge is the tools' own declaration (one line each in
+    tools.py). A tool that forgot to declare trips the completeness check when the guard is built
+    — instead of silently counting as progress and stopping the same legal read as a fake loop."""
+    import simubench.server.assistant.tools as tools_module
+
+    def undeclared() -> None:
+        return None
+
+    monkeypatch.setattr(tools_module, "TOOLS", [*TOOLS, undeclared])
+    with raises_with(AssertionError, "undeclared", "没有声明"):
+        LoopGuard()
+
+
 async def test_stop_ends_a_running_turn_and_keeps_what_it_wrote(manager):
     gate = asyncio.Event()
 
