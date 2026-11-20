@@ -50,11 +50,15 @@ def test_session_lifecycle_and_scpi(client):
     ok = client.post(
         f"/api/sessions/{sid}/instruments/awg/configure", json={"path": "ch1.output", "value": True}
     ).json()
-    assert ok["ok"] and ok["value"] is True
+    assert ok["ok"] and ok["value"] is True and ok["changed"] is True  # #1678
+    same = client.post(
+        f"/api/sessions/{sid}/instruments/awg/configure", json={"path": "ch1.output", "value": True}
+    ).json()
+    assert same["ok"] and same["value"] is True and same["changed"] is False  # an equal write
     bad = client.post(
         f"/api/sessions/{sid}/instruments/awg/configure", json={"path": "ch1.frequency", "value": 1e9}
     ).json()
-    assert not bad["ok"] and bad["error"]["code"] == -222
+    assert not bad["ok"] and bad["error"]["code"] == -222 and not bad["changed"]
     screen = client.get(f"/api/sessions/{sid}/instruments/scope/screen").json()
     assert screen["source"] == "live" and screen["running"] and len(screen["traces"][0]["volts"]) == 1000
     wf = client.get(
