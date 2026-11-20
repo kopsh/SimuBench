@@ -7,9 +7,11 @@ import logging
 import threading
 from pathlib import Path
 
+import pytest
 import yaml
 
 from simubench.api import open_bench
+from simubench.scpi.errors import ScpiError
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -37,10 +39,11 @@ def test_command_returns_its_reply_and_only_its_own_errors(tmp_path):
     assert [e.code for e in bad.errors] == [-113]  # this command's error, not an older one
 
 
-def test_a_configure_and_a_panel_action_leave_one_info_line_each(tmp_path, caplog):
-    """#1679: the swallowed-write postmortem starts in the log ring -- an out-of-band write names
-    the instrument, the path, the value as it got it (a string stays visible as a string) and the
-    client; a panel action names instrument, action, client."""
+def test_a_configure_and_a_panel_action_leave_one_line_each_even_when_the_write_fails(tmp_path, caplog):
+    """#1679, #1694: the swallowed-write postmortem starts in the log ring -- an out-of-band write
+    names the instrument, the path, the value as it got it (a string stays visible as a string)
+    and the client; a panel action names instrument, action, client. A refused write leaves the
+    same trace with the exception's type, and a value too long for a record is cut and marked."""
     path = tmp_path / "panel-log.bench.yaml"
     path.write_text(
         yaml.safe_dump(
@@ -57,9 +60,17 @@ def test_a_configure_and_a_panel_action_leave_one_info_line_each(tmp_path, caplo
     with caplog.at_level(logging.INFO, logger="simubench.engine.session"):
         s.configure("scope", "ch1.scale", "0.05", client="agent")
         s.panel("scope", "stop", client="ui")
+        with pytest.raises(ScpiError):
+            s.configure("scope", "ch1.scale", "9" * 5000, client="agent")
+        with pytest.raises(ScpiError):
+            s.panel("scope", "launch", client="ui")
     lines = [r.getMessage() for r in caplog.records]
     assert any("configure scope ch1.scale = '0.05' (client=agent)" in t for t in lines)
     assert any("panel scope stop (client=ui)" in t for t in lines)
+    failed = next(t for t in lines if "configure scope ch1.scale" in t and "failed" in t)
+    assert "ScpiError" in failed and "-222" in failed
+    assert "…(truncated" in failed and len(failed) < 1000  # #1694: the value is bounded
+    assert any("panel scope launch (client=ui) failed: ScpiError" in t for t in lines)
 
 
 def test_command_knows_whether_the_message_asks_for_a_response(tmp_path):
