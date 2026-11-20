@@ -26,7 +26,6 @@ from simubench.server.assistant.llm import build_model, check_connection
 from simubench.server.assistant.service import AssistantService
 from simubench.server.manager import SessionManager
 
-BENCH = "hello.bench.yaml"
 KEY = "sk-secret-key-123"
 
 
