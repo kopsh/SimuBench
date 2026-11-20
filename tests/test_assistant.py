@@ -625,11 +625,20 @@ async def test_a_broken_conversation_file_is_a_domain_error_and_is_never_emptied
 
 @pytest.mark.parametrize(
     "body",
-    ['{"files": {"a": 5}}', '{"files": [1]}', '{"turns": 3}', '{"messages": 3}'],
+    [
+        '{"files": {"a": 5}}',
+        '{"files": [1]}',
+        '{"files": {"a": {"before": 5}}}',
+        '{"files": {"a": {"kinds": [1]}}}',
+        '{"files": {"a": {"before": "xy"}}}',
+        '{"turns": 3}',
+        '{"messages": 3}',
+    ],
 )
 async def test_a_conversation_file_shaped_wrong_is_a_domain_error_and_is_never_emptied(manager, body):
-    """#1738: valid JSON with the wrong shape (a hand edit) answers the same ``Invalid`` with the
-    file's name as a syntax error does — a 422 at every seam, never a 500 — and is kept."""
+    """#1738, #1746: valid JSON with the wrong shape (a hand edit) answers the same ``Invalid``
+    with the file's name as a syntax error does — a 422 at every seam, never a 500 — and is
+    kept. The inner fields of a file's record are part of the shape too."""
     folder = manager.workspace / ".simubench" / "assistant"
     folder.mkdir(parents=True, exist_ok=True)
     path = folder / f"{BENCH}.json"
