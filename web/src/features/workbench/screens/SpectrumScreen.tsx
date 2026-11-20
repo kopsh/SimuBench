@@ -1,5 +1,4 @@
 import { ChevronsRight, Crosshair, Repeat, StepForward } from "lucide-react";
-import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import type { InstrumentInfo } from "@/api/client";
@@ -10,17 +9,11 @@ import { isLive, liveRequest } from "../clockControl";
 
 import { Button } from "@/components/ui/button";
 import { commit, DraftInput, type Parsed, SKIP } from "@/components/app/DraftInput";
-import { cssVar, resolveColor } from "@/lib/canvas";
-import { prefersReducedMotion, sweepDurationMs } from "@/lib/motion";
-import { channelColor } from "@/lib/channels";
 import { engParts, formatEng, parseEngineering } from "@/lib/format";
-import { clampY, mountPlot, plotSeries, type PlotLine, type PlotPaint } from "./PlotCanvas";
 import { useCountOnScreen } from "../onScreen";
 import { StateField } from "../StateField";
 import { ScreenIdentity } from "./parts";
-
-const DIVS = 10;
-const DB_PER_DIV = 10;
+import { SpectrumCanvas } from "./SpectrumCanvas";
 
 /**
  * Spectrum analyzer front panel (class template): trace on a 10 × 10 graticule with the reference
@@ -275,112 +268,3 @@ function ScpiField({
     </div>
   );
 }
-
-/** dBm against frequency: 10 divisions each way, the reference level on the top line. */
-/**
- * The analyzer's graticule and trace. ``live``: a new trace repaints behind a sweep line moving
- * left to right, the previous one still showing ahead of it — as the instrument draws a sweep
- * (paced by its sweep time, within what the eye can follow). Off under prefers-reduced-motion.
- */
-function SpectrumCanvas({
-  values,
-  refLevel,
-  start,
-  stop,
-  marker,
-  sweepTime = 0,
-  live = false,
-  className,
-}: {
-  values: number[];
-  refLevel: number;
-  start: number;
-  stop: number;
-  marker: { x: number; y: number };
-  sweepTime?: number;
-  live?: boolean;
-  className?: string;
-}) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const shown = useRef<number[]>([]);
-  const previous = useRef<number[]>([]);
-  useEffect(() => {
-    const canvas = ref.current;
-    if (!canvas) return;
-    const motion = live && !prefersReducedMotion();
-    if (shown.current !== values) {
-      previous.current = motion ? shown.current : [];
-      shown.current = values;
-    }
-    const old = previous.current;
-    // The analyzer's own drawing over the shared frame (its dashed divisions and edges are behind
-    // this): the dB numbers, this sweep and the one before it, the sweep line and the marker.
-    const paint: PlotPaint = (ctx, w, h, progress) => {
-      ctx.fillStyle = cssVar(canvas, "--plot-text", "#bbb");
-      ctx.font = "10px var(--font-mono, monospace)";
-      // Every other line is labelled; the top one, the reference level, carries the unit (#1222).
-      for (let i = 0; i <= DIVS; i += 2)
-        ctx.fillText(`${(refLevel - i * DB_PER_DIV).toFixed(0)}${i === 0 ? " dBm" : ""}`, 4, Math.max(10, (i * h) / DIVS - 3));
-
-      const yOf = (db: number) => ((refLevel - db) / (DIVS * DB_PER_DIV)) * h;
-      const color = resolveColor(canvas, channelColor(1));
-      const stroke = (vals: number[], from: number, to: number, alpha: number) => {
-        const n = vals.length;
-        if (n < 2 || to <= from) return;
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(from, 0, to - from, h);
-        ctx.clip();
-        ctx.globalAlpha = alpha;
-        ctx.strokeStyle = color;
-        ctx.lineWidth = 1.25;
-        plotSeries(ctx, vals, { xOf: (i) => (i / (n - 1)) * w, yOf, w, h });
-        ctx.restore();
-      };
-      const sweepX = progress * w;
-      stroke(values, 0, sweepX, 1); // this sweep, up to the line
-      if (progress < 1) {
-        stroke(old, sweepX, w, 0.55); // the previous sweep, still ahead of the line
-        ctx.strokeStyle = cssVar(canvas, "--plot-text", "#bbb");
-        ctx.globalAlpha = 0.5;
-        axisLine(ctx, sweepX, 0, sweepX, h);
-        ctx.globalAlpha = 1;
-      }
-      if (stop > start) {
-        const x = ((marker.x - start) / (stop - start)) * w;
-        const y = clampY(yOf(marker.y), h);
-        ctx.fillStyle = cssVar(canvas, "--primary", "#4af");
-        ctx.beginPath();
-        ctx.moveTo(x, y - 9);
-        ctx.lineTo(x + 5, y - 3);
-        ctx.lineTo(x, y + 3);
-        ctx.lineTo(x - 5, y - 3);
-        ctx.closePath();
-        ctx.fill();
-      }
-    };
-    return mountPlot(canvas, paint, {
-      divH: DIVS,
-      divV: DIVS,
-      line: axisLine,
-      animate: motion,
-      run: old.length > 1,
-      durationMs: sweepDurationMs(sweepTime),
-    });
-  }, [values, refLevel, start, stop, marker.x, marker.y, sweepTime, live]);
-  return <canvas ref={ref} className={className} role="img" aria-label="spectrum" />;
-}
-
-/** The spectrum's graticule rasterizer: rounded across the line, raw along it — the waveform's
- * rounds both endpoints, half a pixel of dash phase apart (see ``PlotLine``). */
-const axisLine: PlotLine = (ctx, x0, y0, x1, y1) => {
-  ctx.beginPath();
-  if (y0 === y1) {
-    ctx.moveTo(x0, Math.round(y0) + 0.5);
-    ctx.lineTo(x1, Math.round(y0) + 0.5);
-  } else {
-    ctx.moveTo(Math.round(x0) + 0.5, y0);
-    ctx.lineTo(Math.round(x0) + 0.5, y1);
-  }
-  ctx.stroke();
-};
