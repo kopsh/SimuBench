@@ -34,6 +34,33 @@ export function sessionIdOf(url: URL | string): string | null {
 /** A workbench page: `/s/<hex id>`. */
 export const isSession = (url: URL): boolean => sessionIdOf(url) !== null;
 
+/**
+ * Wait until the canvas view has stopped moving. It refits when its box changes size — the bottom
+ * panel opening, the inspector, a window resize (#1354) — and once the webfonts land (#645); a
+ * handle box measured while that fit is still queued is where the node was, not where a drag aimed
+ * at it lands (#1669). Settled = the canvas box and the viewport transform read the same twice, 100 ms
+ * apart.
+ */
+export async function settledCanvas(page: Page): Promise<void> {
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    const read = () => {
+      const canvas = document.querySelector(".react-flow");
+      const view = document.querySelector(".react-flow__viewport");
+      const box = canvas?.getBoundingClientRect();
+      return `${box?.width}x${box?.height}|${view?.getAttribute("style") ?? ""}`;
+    };
+    const until = Date.now() + 3000;
+    let last = read();
+    while (Date.now() < until) {
+      await new Promise((done) => setTimeout(done, 100));
+      const now = read();
+      if (now === last) return;
+      last = now;
+    }
+  });
+}
+
 const PREFIX: Record<string, number> = { p: 1e-12, n: 1e-9, µ: 1e-6, u: 1e-6, m: 1e-3, "": 1, k: 1e3, M: 1e6, G: 1e9 };
 
 /** Whether `text` is a number as JavaScript reads it (`-3.465`, `+5.0005`, `1e-3`). */

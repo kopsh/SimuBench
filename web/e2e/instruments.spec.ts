@@ -109,6 +109,16 @@ test("spectrum analyzer: the Continuous and Single keys, on a paused and a live 
 
   // Paused (the example bench's command clock): no hint bar; Continuous is lit, nothing sweeps by itself.
   const sid = await open("benches/sa-two-tone.bench.yaml");
+  /** The session's virtual clock, as the server reports it. */
+  const nowNs = async () =>
+    ((await (await page.request.get(`/api/sessions/${sid}`, { headers })).json()) as { now_ns: number }).now_ns;
+  /** The analyzer's sweep counter as the server holds it (the screen shows a polled copy). */
+  const sweepCount = async () => {
+    const r = (await (await page.request.get(`/api/sessions/${sid}/instruments/sa/readings`, { headers })).json()) as {
+      values: Record<string, number>;
+    };
+    return r.values["sa.sweep"];
+  };
   await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
   await expect(page.getByTestId("sweep-hint")).toHaveCount(0);
   await expect(cont).toHaveAttribute("aria-pressed", "true");
@@ -144,20 +154,29 @@ test("spectrum analyzer: the Continuous and Single keys, on a paused and a live 
   // Single while live: the sweep count stops though real time runs on.
   await single.click();
   await expect(page.getByTestId("hold")).toHaveText("HOLD", { timeout: 15_000 });
-  // the live clock runs ahead of the wall: the sweeps it queued keep landing for a while before
-  // the count settles (1 ms sweeps, CI machines slower) — wait for it to, then it is frozen (#1686)
+  // The live clock runs ahead of the wall: the sweeps it queued keep landing for a while after HOLD
+  // (1 ms sweeps, CI machines slower), so the server's count only settles later (#1686). Wait for it
+  // to read the same twice, bounded.
   const settle = async (): Promise<number> => {
-    let last = await sweepNo();
+    let last = await sweepCount();
     for (let i = 0; i < 30; i++) {
       await page.waitForTimeout(250);
-      const now = await sweepNo();
+      const now = await sweepCount();
       if (now === last) return now;
       last = now;
     }
     return last;
   };
   const stopped = await settle();
-  await page.waitForTimeout(400);
+  // The screen paints a polled copy of the analyzer's state, so it may still show the count from an
+  // earlier poll (hundreds of sweeps behind here). Wait for the paint to reach the settled count,
+  // never trust the paint on its own (#1669).
+  await expect.poll(sweepNo, { timeout: 15_000 }).toBe(stopped);
+  // The clock really runs on — past many sweep periods of this bench — and the count must still be
+  // the one HOLD stopped at. The clock value is the signal (#1669).
+  const started = await nowNs();
+  await expect.poll(nowNs, { timeout: 10_000 }).toBeGreaterThanOrEqual(started + 500_000_000);
+  expect(await sweepCount()).toBe(stopped);
   expect(await sweepNo()).toBe(stopped);
   await page.getByTestId("clock-pause").click();
   await expect(page.getByTestId("clock-state")).toHaveText("已暂停");
