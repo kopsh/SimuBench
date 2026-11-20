@@ -30,9 +30,12 @@ if TYPE_CHECKING:
     from .server.manager import SessionManager
 
 
-def _file_error(name: str, exc: BaseException) -> str:
-    """``file: reason`` on one line; a reason that already names the file is not repeated (#1672)."""
-    text = str(exc) or type(exc).__name__
+def _cli_line(name: str, exc: Exception) -> str:
+    """``file: reason`` on one line (#1672); the reason is the one table's CLI words for the kind
+    (:func:`server.errors.cli_text`, #1735), and one that already names the file is not repeated."""
+    from .server.errors import cli_text
+
+    text = cli_text(exc)
     for prefix in (f"{name}: ", f"{Path(name).name}: "):
         if text.startswith(prefix):
             text = text[len(prefix) :]
@@ -55,7 +58,7 @@ def _serve(args: argparse.Namespace) -> int:
         try:
             load_bench(bench)
         except (OSError, ValueError) as exc:
-            print(_file_error(args.bench, exc), file=sys.stderr)
+            print(_cli_line(args.bench, exc), file=sys.stderr)
             return 1
     manager = build_manager(args, workspace)
     manager.web_port = args.port  # the assistant's LLM address may not point back at it (#872)
@@ -304,22 +307,23 @@ def _validate(args: argparse.Namespace) -> int:
     from .engine.validate import validate_data
     from .engine.validate_definition import validate_definition_data
     from .library.loader import DefinitionLibrary, _read_yaml, layered_definition_data, load_json
+    from .server.errors import CLI_ERRORS, cli_text
 
     status = 0
     for path in args.files:
         p = Path(path)
         try:
             data = load_json(p.read_text(encoding="utf-8")) if p.suffix == ".json" else _read_yaml(p)
-        except Exception as exc:
-            print(f"{path}: E-READ {exc}", file=sys.stderr)
+        except (*CLI_ERRORS,) as exc:  # a file the user gave that cannot be read (#1735)
+            print(_cli_line(path, exc), file=sys.stderr)
             status = 1
             continue
         if _is_definition(p, data):
             try:
                 data = layered_definition_data(data, p)  # D59: what the engine runs is what is checked
-            except ValueError as exc:
+            except (*CLI_ERRORS,) as exc:  # a parent that cannot be read or layered
                 code, pointer = getattr(exc, "code", "E-DEF-EXTENDS"), getattr(exc, "pointer", "/extends")
-                print(f"{path}:{pointer}: {code} {exc}", file=sys.stderr)
+                print(f"{path}:{pointer}: {code} {cli_text(exc)}", file=sys.stderr)
                 status = 1
                 continue
             _, report = validate_definition_data(data)
@@ -441,7 +445,8 @@ def _migrate(args: argparse.Namespace) -> int:
     import yaml
 
     from .library.loader import _read_yaml, load_json
-    from .models.migrate import FormatError, upgrade
+    from .models.migrate import upgrade
+    from .server.errors import CLI_ERRORS
 
     status = 0
     for name in args.files:
@@ -450,8 +455,8 @@ def _migrate(args: argparse.Namespace) -> int:
         try:
             raw = load_json(path.read_text(encoding="utf-8")) if path.suffix == ".json" else _read_yaml(path)
             data, steps = upgrade(raw, fmt)
-        except (FormatError, ValueError, OSError) as exc:
-            print(f"{name}: {exc}", file=sys.stderr)
+        except (*CLI_ERRORS,) as exc:
+            print(_cli_line(name, exc), file=sys.stderr)
             status = 1
             continue
         if not steps:
@@ -474,11 +479,12 @@ def _assets(args: argparse.Namespace) -> int:
 
     from .engine.calibration import register_view
     from .library.loader import load_bench
+    from .server.errors import CLI_ERRORS
 
     try:
         bench = load_bench(args.bench)
-    except (OSError, ValueError) as exc:
-        print(_file_error(args.bench, exc), file=sys.stderr)
+    except (*CLI_ERRORS,) as exc:
+        print(_cli_line(args.bench, exc), file=sys.stderr)
         return 1
     rows = register_view(bench.assets, bench.run.start.date())
     if args.format == "json":
@@ -495,6 +501,7 @@ def _assets(args: argparse.Namespace) -> int:
 def _replay(args: argparse.Namespace) -> int:
     """Replay a run record and compare every reply; exit 1 when one differs (D36)."""
     from .replay import replay
+    from .server.errors import CLI_ERRORS
 
     try:
         report = replay(
@@ -503,8 +510,8 @@ def _replay(args: argparse.Namespace) -> int:
             stop_at_first=args.first,
             workspace_plugins=Path.cwd() / "components" if args.allow_plugins else None,
         )
-    except (OSError, ValueError) as exc:
-        print(_file_error(args.record, exc), file=sys.stderr)
+    except (*CLI_ERRORS,) as exc:
+        print(_cli_line(args.record, exc), file=sys.stderr)
         return 1
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
@@ -524,7 +531,8 @@ def _replay(args: argparse.Namespace) -> int:
 
 def _verdicts(args: argparse.Namespace) -> int:
     """Check a calibration script's verdicts against the truth; exit 1 on a misjudgment (C7)."""
-    from .verdicts import VerdictError, check_verdicts
+    from .server.errors import CLI_ERRORS
+    from .verdicts import check_verdicts
 
     try:
         report = check_verdicts(
@@ -534,8 +542,8 @@ def _verdicts(args: argparse.Namespace) -> int:
             definition_dirs=args.definitions or None,
             workspace_plugins=Path.cwd() / "components" if args.allow_plugins else None,
         )
-    except (VerdictError, ValueError, OSError) as exc:
-        print(f"{exc}", file=sys.stderr)
+    except (*CLI_ERRORS,) as exc:
+        print(_cli_line(args.record, exc), file=sys.stderr)
         return 2
     if args.json:
         print(json.dumps(report.as_dict(), ensure_ascii=False, indent=2))
@@ -571,6 +579,7 @@ def _cases(args: argparse.Namespace) -> int:
     resolves like it does on the acceptance page and for the agent seams."""
     from .cases import junit_xml
     from .server.benchfiles import BenchFiles
+    from .server.errors import CLI_ERRORS
     from .server.projections import run_cases_file
 
     files = BenchFiles(Path.cwd())
@@ -579,8 +588,8 @@ def _cases(args: argparse.Namespace) -> int:
     for path in args.files:
         try:
             results = run_cases_file(files, Path(path), definition_dirs=dirs)
-        except Exception as exc:  # the file does not read
-            print(f"{path}: {exc or type(exc).__name__}", file=sys.stderr)
+        except (*CLI_ERRORS,) as exc:  # the file does not read, or a built-in name nobody owns
+            print(_cli_line(path, exc), file=sys.stderr)
             return 2
         suites.append((path, results))
         for r in results:

@@ -14,11 +14,21 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from pydantic import ValidationError
+from pydantic import BaseModel, Field, ValidationError
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
 from ...contracts import api as M
 from ..errors import Forbidden, Invalid
+
+
+class _TurnFilesData(BaseModel):
+    """A file's record in a conversation file, the shape :meth:`TurnFiles.as_dict` writes
+    (#1746): validating it here turns a hand edit's wrong inner shape into ``Invalid``."""
+
+    before: dict[str, str | None] = Field(default_factory=dict)
+    after: dict[str, str] = Field(default_factory=dict)
+    kinds: dict[str, str] = Field(default_factory=dict)
+    content: dict[str, str] = Field(default_factory=dict)
 
 
 @dataclass
@@ -36,12 +46,8 @@ class TurnFiles:
 
     @classmethod
     def of(cls, data: dict[str, Any]) -> TurnFiles:
-        return cls(
-            dict(data.get("before") or {}),
-            dict(data.get("after") or {}),
-            dict(data.get("kinds") or {}),
-            dict(data.get("content") or {}),
-        )
+        shaped = _TurnFilesData.model_validate(data)
+        return cls(shaped.before, shaped.after, shaped.kinds, shaped.content)
 
 
 @dataclass

@@ -68,9 +68,8 @@ export function optionLabel(v: Pick<StateVarInfo, "option_labels">, option: stri
   return shortForm(option);
 }
 
-export function stateMap(inst: InstrumentInfo): Map<string, StateVarInfo> {
-  return new Map(inst.state.map((s) => [s.path, s]));
-}
+// stateMap moved to the api layer beside sessionValues.ts (#1735): it is a DTO read model, and
+// api/hooks needs it — features import it from "@/api/stateMap".
 
 /**
  * A manual setting whose automatic switch is on (``bw.res`` beside ``bw.res_auto``): the stored

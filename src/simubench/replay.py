@@ -26,6 +26,7 @@ from .engine.events import record_time
 from .engine.plugins import load_workspace_plugins
 from .engine.plugins import report as plugin_report
 from .engine.record import RECORD_SCHEMA, definition_hash
+from .errors import Invalid
 from .models.bench import BenchDefinition, Fault
 
 
@@ -74,7 +75,12 @@ def read_record(path: Path) -> Iterator[dict[str, Any]]:
     with path.open(encoding="utf-8") as f:
         for line in f:
             if line.strip():
-                yield json.loads(line)
+                try:
+                    yield json.loads(line)
+                except json.JSONDecodeError as exc:
+                    # A record the user gave whose line is not JSON: the domain's Invalid, like the
+                    # loader wraps its parse errors (#1406), so every seam maps it (#1735).
+                    raise Invalid(f"{path.name}: {exc}") from None
 
 
 def _bytes(data: Any) -> bytes | None:
@@ -142,11 +148,11 @@ def open_record(
     events = iter(read_record(path))
     header = next(events, None)
     if not header or header.get("kind") != "header" or header.get("schema") != RECORD_SCHEMA:
-        raise ValueError(f"{path.name} is not a SimuBench run record")
+        # A record the user gave that is not one: the domain's Invalid, so every seam — the CLI
+        # table's CLI_ERRORS included (#1735) — maps it instead of a bare ValueError, a bug's shape.
+        raise Invalid(f"{path.name} is not a SimuBench run record")
     if "bench_data" not in header:
-        raise ValueError(
-            f"{path.name} was recorded before records carried their bench; it cannot be replayed"
-        )
+        raise Invalid(f"{path.name} was recorded before records carried their bench; it cannot be replayed")
     bench = BenchDefinition.model_validate(header["bench_data"])
     clock = "stepped" if header.get("clock") in ("wall", "scaled") else header.get("clock")
     idle = header.get("idle", "wall")

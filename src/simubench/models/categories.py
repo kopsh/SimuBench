@@ -83,6 +83,10 @@ class Category:
     reading_keys: Mapping[str, str] = field(default_factory=dict)
     #: variable-name hints of the script scanner, tie-break only (empty for most classes)
     hints: tuple[str, ...] = ()
+    #: The class's screen data must be fetched for the TUI to show (the scope's live frame and
+    #: run state, section 4.2): declared on the row, so a new screen kind teaches its one row and
+    #: both TUI polling sites follow (categories.fetches, #1735).
+    screen_poll: bool = False
 
 
 _ROWS: tuple[Category, ...] = (
@@ -94,6 +98,7 @@ _ROWS: tuple[Category, ...] = (
         readings=True,
         screen="scope",
         panel="dedicated",
+        screen_poll=True,
         hints=("scope", "osc", "dso", "mso"),
     ),
     Category(
@@ -230,6 +235,21 @@ def get(category_id: str | None) -> Category:
     """The category an id names; an unknown id (or none) gets the generic fallback row, so a
     definition of a class the registry does not know still loads, runs and shows."""
     return _BY_ID.get(category_id or "") or _GENERIC
+
+
+def fetches(row: Category, *, panel: bool = False) -> frozenset[str]:
+    """What the TUI fetches for an instrument of this class (#1735, the polling predicate the
+    app's two sites — the initial marking and the per-event refresh — once derived each on their
+    own): ``"readings"`` when the class's screen polls them or the bench file gave the instrument
+    a panel of its own (#282), ``"screen"`` for the classes whose screen data must be fetched.
+    Declared on the row (``readings``, ``screen_poll``), so a new screen kind is one registry
+    edit and both callers follow; missing one was a screen that never refreshed."""
+    want: set[str] = set()
+    if row.readings or panel:
+        want.add("readings")
+    if row.screen_poll:
+        want.add("screen")
+    return frozenset(want)
 
 
 def as_api_class(category_id: str) -> InstrumentClass:
