@@ -45,12 +45,10 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.usage import UsageLimits
 
 from ...contracts import api as M
-from ...library.workspace_layout import definition_rel_path
-from ..benchchanges import bench_changes
 from ..benchfiles import Conflict, parse_data
-from ..definitionchanges import definition_changes
 from ..definitionfiles import DefinitionFiles
 from ..errors import Busy, Unknown
+from ..filestores import FileStores
 from ..manager import SessionManager
 from . import compaction
 from .config import AssistantSettings, ConfigError, LlmSettings, check_settings
@@ -110,6 +108,7 @@ class AssistantService:
         self.manager = manager
         self.files = manager.files
         self.definitions = DefinitionFiles(manager.files)
+        self.stores = FileStores(manager.files, self.definitions, on_definition_changed=self.retire_tries)
         self.settings = AssistantSettings(manager.workspace, env)
         self.store = ConversationStore(self.files.workspace)
         self.model_factory = model_factory or build_model
@@ -142,12 +141,6 @@ class AssistantService:
     def _current(self, rel: str) -> dict[str, Any] | None:
         path = self.files.resolve(rel)
         return parse_data(Path(rel), path.read_bytes()) if path.is_file() else None
-
-    def _changes(
-        self, rel: str, kind: str, old: dict[str, Any] | None, new: dict[str, Any] | None
-    ) -> list[M.DefinitionChange]:
-        diff = bench_changes if kind == "bench" else definition_changes
-        return diff(old or {}, new or {})
 
     # ---- conversations -------------------------------------------------------------------------------
 
@@ -275,7 +268,7 @@ class AssistantService:
             if not self.files.resolve(rel).is_file():
                 continue
             try:
-                doc: Any = self.files.read(rel) if kind == "bench" else self.definitions.read(Path(rel).stem)
+                doc = self.stores.read(kind, rel)
             except (ValueError, UnicodeDecodeError) as exc:
                 out.append(f"{rel}: {exc}")
                 continue
@@ -369,7 +362,7 @@ class AssistantService:
             if now is not None:
                 record.after[rel] = now
             old = self._content(rel, before, record) if before else None
-            changes = self._changes(rel, kind, old, self._current(rel))
+            changes = self.stores.changes(kind, old, self._current(rel))
             if before is None or changes:
                 turn.files.append(
                     M.AssistantFileChange(path=rel, kind=kind, created=before is None, changes=changes)  # type: ignore[arg-type]
@@ -403,7 +396,7 @@ class AssistantService:
             lost: list[M.DefinitionChange] = []
             if modified:
                 at_turn_end = self._content(rel, after, record) if after else None
-                lost = self._changes(rel, kind, at_turn_end, self._current(rel))
+                lost = self.stores.changes(kind, at_turn_end, self._current(rel))
             files.append(
                 M.RollbackFile(
                     path=rel,
@@ -413,18 +406,19 @@ class AssistantService:
                     lost=lost,
                 )
             )
-        files.sort(key=lambda f: (f.kind != "bench", f.action == "delete", f.path))
+        files.sort(key=lambda f: (self.stores.restore_order(f.kind), f.action == "delete", f.path))
         return M.RollbackPlan(
             turn_id=last.id if files else None, files=files, sessions=self._sessions_using(files)
         )
 
     def _sessions_using(self, files: list[M.RollbackFile]) -> list[str]:
-        benches = {self.files.resolve(f.path) for f in files if f.kind == "bench"}
-        definitions = {Path(f.path).stem for f in files if f.kind == "definition"}
+        # Each file's identity in the namespace sessions are matched by — a bench's resolved path,
+        # a definition's id, the facade mapping them (a Path and a str never compare equal).
+        touched = {self.stores.session_key(f.kind, f.path) for f in files}
         out = []
         for sid, served in self.manager.sessions.items():
             uses = {inst.definition.id for inst in served.session.instruments.values()}
-            if served.bench_path in benches or uses & definitions:
+            if served.bench_path in touched or uses & touched:
                 out.append(sid)
         return out
 
@@ -464,12 +458,7 @@ class AssistantService:
         for f in [f for f in plan.files if f.action == "restore"]:
             self._restore(f, record)
         for f in [f for f in plan.files if f.action == "delete"]:
-            sha = deletes[f.path]
-            if sha is not None:
-                # the sha re-checked after the stop: a change in between is not lost unseen
-                self.files.remove_created(f.path, sha)
-            if f.kind == "definition":
-                self.retire_tries(Path(f.path).stem)
+            self.stores.remove_created(f.kind, f.path, deletes[f.path])
         turn = next(t for t in conv.turns if t.id == plan.turn_id)
         turn.rolled_back = True
         conv.note = ROLLED_BACK_NOTE
@@ -482,7 +471,7 @@ class AssistantService:
         aborts before anything is written instead of leaving half of the files already back."""
         before = record.before[f.path]
         assert before is not None
-        rel = f.path if f.kind == "bench" else definition_rel_path(Path(f.path).stem)
+        rel = self.stores.history_rel(f.kind, f.path)
         seq = next((v.seq for v in self.files.history.versions(rel) if v.sha256 == before), None)
         data = self._content(f.path, before, record)
         if seq is None and data is None:
@@ -492,18 +481,7 @@ class AssistantService:
     def _restore(self, f: M.RollbackFile, record: TurnFiles) -> None:
         seq, data = self._restore_data(f, record)
         current = self.sha_of(self.files.resolve(f.path))
-        if f.kind == "bench":
-            if seq is not None and current is not None:
-                self.files.restore(f.path, seq, current)
-            else:
-                self.files.save(f.path, current, data, "restore")
-            return
-        def_id = Path(f.path).stem
-        if seq is not None and current is not None:
-            self.definitions.restore(def_id, seq, current)
-        else:
-            self.definitions.save(def_id, current, data, "restore")
-        self.retire_tries(def_id)
+        self.stores.restore(f.kind, f.path, seq, current, data)
 
 
 class _suppress_cancel:
