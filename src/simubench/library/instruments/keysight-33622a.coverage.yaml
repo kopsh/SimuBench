@@ -104,7 +104,7 @@ sections:
     note: PRBS 比特率，*RST 1 kbps。
   - header: '[:SOURce<ch>]:FUNCtion:PRBS:DATA'
     level: implemented
-    note: PN7/PN9/PN11/PN15；PN20/PN23 未建模（-224）。
+    note: PN7/PN9/PN11；PN15/PN20/PN23 未建模（-224）：PN15 的周期 32767 码元，一个谱线瓣就要 32767 条线，超过 4095 条的上限，截断会得到失真的码型，故拒绝（#1101）。
   - header: '[:SOURce<ch>]:FUNCtion:PRBS:TRANsition[:BOTH]'
     level: not_modeled
     note: PRBS 边沿时间未建模。

@@ -1006,7 +1006,8 @@ class ArbTable(Component):
         return Signal(sig.freq, sig.amp, sig.t0_ns, dc, notes)
 
 
-# Feedback taps of maximal-length sequences: x^n + x^k + 1.
+# Feedback taps of maximal-length sequences: x^n + x^k + 1. Orders 13, 15 and 31 have a period over
+# the line limit (:data:`MAX_LINES`): the source refuses them (#1101), so 15 is listed only for its taps.
 PRBS_TAPS = {5: 3, 6: 5, 7: 6, 9: 5, 10: 7, 11: 9, 15: 14}
 
 
@@ -1052,7 +1053,7 @@ class PrbsSource(Component):
     ports = {"out": PortSpec("out", "signal")}
     choices = {"format": ("NRZ", "PAM4")}
     defaults = {
-        "order": 7,  # LFSR order n: period 2^n - 1 symbols (one of 5, 6, 7, 9, 10, 11, 15)
+        "order": 7,  # LFSR order n: period 2^n - 1 symbols (one of 5, 6, 7, 9, 10, 11; 13 and up exceed the line limit)
         "rate": 100e3,  # symbol rate, symbols/s (bits/s for NRZ)
         "level": 0.25,  # V: the symbols swing between +level and -level
         "lobes": 8,  # sinc lobes of spectrum kept
@@ -1061,6 +1062,15 @@ class PrbsSource(Component):
 
     def output(self, port: str) -> Signal:
         order = int(self.param("order"))
+        period = (1 << order) - 1 if 1 <= order <= 62 else 0
+        if period > MAX_LINES:
+            # one sinc lobe of the pattern has ``period`` lines: past the line limit the spectrum would
+            # be cut to a sliver of the first lobe, a pattern that is not the one asked for (#1101)
+            raise ScpiError(
+                -224,
+                f"PRBS order {order}: one period is {period} symbols, so its spectrum needs {period} lines "
+                f"for a single lobe, over the {MAX_LINES}-line limit; modeled orders: {sorted(PRBS_TAPS)}",
+            )
         if order not in PRBS_TAPS:
             raise ScpiError(-224, f"PRBS order {order} not supported; one of {sorted(PRBS_TAPS)}")
         bits = prbs_sequence(order)

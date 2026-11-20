@@ -102,7 +102,7 @@ specs:
   amplitude: "1 mVpp–10 Vpp（50 Ω），2 mVpp–20 Vpp（开路）"
   offset: "±5 V（50 Ω）、±10 V（开路）；|偏置| + Vpp/2 的峰值限制未建模"
   arb: "易失存储每通道按名装载，8 点起；采样率 1 µSa/s–1 GSa/s；*RST 40 kSa/s"
-  prbs: "PN7/PN9/PN11/PN15（PN20/PN23 未建模）；比特率到 200 Mbps"
+  prbs: "PN7/PN9/PN11（PN15/PN20/PN23 未建模）；比特率到 200 Mbps"
   output_impedance_ohm: 50
 state:
   display.state: {type: bool, default: true, label: 显示, label_en: Display}
@@ -145,7 +145,7 @@ channel_state:
     type: enum
     options: [PN7, PN9, PN11, PN15, PN20, PN23]
     default: PN7
-    not_modeled: {PN20: only PN7-PN15 are modeled, PN23: only PN7-PN15 are modeled}
+    not_modeled: {PN15: a 32767-bit period needs more spectral lines than the 4095 limit (#1101), PN20: only PN7-PN11 are modeled, PN23: only PN7-PN11 are modeled}
     label: PRBS 序列
     label_en: PRBS sequence
   prbs_rate: {type: float, unit: HZ, min: 1.0e-3, max: 2.0e8, default: 1000.0, label: PRBS 比特率, label_en: PRBS bit rate}
@@ -230,7 +230,7 @@ channel_components:
   - name: bits
     type: prbs_source
     params:
-      order: {from: $ch.prbs_data, map: {PN7: 7, PN9: 9, PN11: 11, PN15: 15}, default: 7}
+      order: {from: $ch.prbs_data, map: {PN7: 7, PN9: 9, PN11: 11}, default: 7}
       rate: $ch.prbs_rate
       level: 0.5
   - name: mod
