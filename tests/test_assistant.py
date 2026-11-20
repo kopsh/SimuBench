@@ -182,6 +182,7 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     assert results["remove"].ok is False and "运行中只能调参数" in results["remove"].error
     assert results["set_state"].ok is True
     assert results["set_live_setting"].ok is True
+    assert results["set_live_setting"].args == {"i": "awg", "p": "ch1.frequency", "v": 2e6}  # #1679
     served = next(iter(manager.sessions.values()))
     assert served.session.instrument("awg").state["ch1.frequency"] == pytest.approx(2e6)
     # the file edit says it only changed the initial value; the live change is listed separately

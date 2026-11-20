@@ -28,10 +28,10 @@ const done: AssistantTurn = {
   ...base,
   reply: "已添加示波器 scope2，CH1 接在函数发生器的 CH2 上；测试台通过校验。",
   steps: [
-    { action: "list_catalog", subject: "oscilloscope", ok: true, error: null },
-    { action: "read_bench", subject: "hello.bench.yaml", ok: true, error: null },
-    { action: "add_instrument", subject: "oscilloscope", ok: true, error: null },
-    { action: "connect", subject: "awg.CH2 → scope2.CH1", ok: true, error: null },
+    { action: "list_catalog", subject: "oscilloscope", args: { query: "oscilloscope" }, ok: true, error: null },
+    { action: "read_bench", subject: "hello.bench.yaml", args: { p: "hello.bench.yaml" }, ok: true, error: null },
+    { action: "add_instrument", subject: "oscilloscope", args: null, ok: true, error: null },
+    { action: "connect", subject: "awg.CH2 → scope2.CH1", args: null, ok: true, error: null },
   ],
   files: [
     {
@@ -54,8 +54,8 @@ const streaming: AssistantTurn = {
   finished_at: null,
   reply: "好的，正在把 CH1 的频率",
   steps: [
-    { action: "read_bench", subject: "hello.bench.yaml", ok: true, error: null },
-    { action: "set_state", subject: "awg.ch1.frequency", ok: null, error: null },
+    { action: "read_bench", subject: "hello.bench.yaml", args: { p: "hello.bench.yaml" }, ok: true, error: null },
+    { action: "set_state", subject: "awg.ch1.frequency", args: null, ok: null, error: null },
   ],
 };
 
@@ -65,7 +65,15 @@ const stuck: AssistantTurn = {
   user: "删掉 ghost",
   status: "stuck",
   stop_reason: "连续 4 次遇到同一个错误，没有进展，已停下：第 1 个操作 remove：没有名为 'ghost' 的仪表或元件",
-  steps: [{ action: "remove", subject: "ghost", ok: false, error: "第 1 个操作 remove：没有名为 'ghost' 的仪表或元件" }],
+  steps: [
+    {
+      action: "remove",
+      subject: "ghost",
+      args: null,
+      ok: false,
+      error: "第 1 个操作 remove：没有名为 'ghost' 的仪表或元件",
+    },
+  ],
 };
 
 function Panel(props: Partial<AssistantViewProps>) {

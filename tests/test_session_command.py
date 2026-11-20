@@ -3,6 +3,7 @@ entries, and one continuous lock hold from write to read (#121, #461). The MCP t
 send write and read as two actions, so a script on the instrument's SCPI port could take the
 MCP reply in between."""
 
+import logging
 import threading
 from pathlib import Path
 
@@ -34,6 +35,31 @@ def test_command_returns_its_reply_and_only_its_own_errors(tmp_path):
     bad = s.command("lia", ":NOSUCH 1")
     assert bad.reply is None
     assert [e.code for e in bad.errors] == [-113]  # this command's error, not an older one
+
+
+def test_a_configure_and_a_panel_action_leave_one_info_line_each(tmp_path, caplog):
+    """#1679: the swallowed-write postmortem starts in the log ring -- an out-of-band write names
+    the instrument, the path, the value as it got it (a string stays visible as a string) and the
+    client; a panel action names instrument, action, client."""
+    path = tmp_path / "panel-log.bench.yaml"
+    path.write_text(
+        yaml.safe_dump(
+            {
+                "schema": "simubench.bench/1",
+                "name": "panel-log",
+                "instruments": {"scope": {"model": "sb-dso-4"}},
+                "run": {"clock": "command", "seed": 3, "idle": "off"},
+            }
+        ),
+        encoding="utf-8",
+    )
+    s = open_bench(path)
+    with caplog.at_level(logging.INFO, logger="simubench.engine.session"):
+        s.configure("scope", "ch1.scale", "0.05", client="agent")
+        s.panel("scope", "stop", client="ui")
+    lines = [r.getMessage() for r in caplog.records]
+    assert any("configure scope ch1.scale = '0.05' (client=agent)" in t for t in lines)
+    assert any("panel scope stop (client=ui)" in t for t in lines)
 
 
 def test_command_knows_whether_the_message_asks_for_a_response(tmp_path):
