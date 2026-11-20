@@ -99,9 +99,22 @@ class ConversationStore:
             data = json.loads(path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 raise Invalid(f"{path.name}: expected a mapping at the top level")
-            turns = [M.AssistantTurn.model_validate(t) for t in data.get("turns", [])]
-            messages = ModelMessagesTypeAdapter.validate_python(data.get("messages", []))
-            files = {k: TurnFiles.of(v) for k, v in (data.get("files") or {}).items()}
+            turns_data = data.get("turns", [])
+            if not isinstance(turns_data, list):
+                raise Invalid(f"{path.name}: expected a list of turns")
+            messages_data = data.get("messages", [])
+            if not isinstance(messages_data, list):
+                raise Invalid(f"{path.name}: expected a list of messages")
+            files_data = data.get("files")
+            if files_data is None:
+                files_data = {}
+            if not isinstance(files_data, dict):
+                raise Invalid(f"{path.name}: expected a mapping of files")
+            if any(not isinstance(v, dict) for v in files_data.values()):
+                raise Invalid(f"{path.name}: expected a mapping per file")
+            turns = [M.AssistantTurn.model_validate(t) for t in turns_data]
+            messages = ModelMessagesTypeAdapter.validate_python(messages_data)
+            files = {k: TurnFiles.of(v) for k, v in files_data.items()}
         except (json.JSONDecodeError, UnicodeDecodeError, ValidationError) as exc:
             # A conversation file a reload truncated or a hand edit broke is the user's to fix
             # (#1725): a domain error with the position, never a silently emptied conversation.
