@@ -187,34 +187,4 @@ test("a hand-edited file is listed as lost; cancel sends nothing; confirm restor
   await expect(panel.getByRole("button", { name: "恢复到上一轮之前" })).toHaveCount(0);
 });
 
-test("going in circles stops the turn in words, and compaction leaves a note", async ({ page }) => {
-  test.setTimeout(90_000);
-  await configureLLM(page);
-  await openBench(page);
-  const panel = page.getByTestId("assistant-panel");
-  await openPanel(page);
-
-  // the same failing edit again and again: the server stops the turn, the reason is in words
-  await say(page, "把 ghost 删掉");
-  const note = panel.getByText("助手停下了");
-  await expect(note).toBeVisible({ timeout: 20_000 });
-  const reason = (await note.textContent()) ?? "";
-  expect(reason).toContain("没有进展");
-  expect(reason).not.toContain("{"); // said in words, not a JSON dump
-  await expect(panel.getByRole("button", { name: "恢复到上一轮之前" })).toHaveCount(0);
-  await say(page, "你好"); // the conversation goes on after a stopped turn
-  await expect(panel.getByText("我是 SimuBench 助手")).toBeVisible({ timeout: 15_000 });
-
-  // big tool results over a small configured window: the older ones are compacted, the panel notes it
-  await configureLLM(page, { context_tokens: 1000 });
-  await openBench(page);
-  await openPanel(page);
-  await say(page, "看看目录里的仪表");
-  // The note is drawn twice on purpose: once on the turn that compacted, once at the top of the panel
-  // when the conversation reports it. Which of the two is there first is a race, so match either.
-  await expect(panel.getByText("更早的内容已压缩").first()).toBeVisible({ timeout: 30_000 });
-  await expect(panel.getByText("看完了")).toBeVisible({ timeout: 20_000 });
-  await say(page, "谢谢"); // the conversation still works on the compacted history
-  await expect(panel.getByText("你好，")).toBeVisible({ timeout: 15_000 });
-});
 

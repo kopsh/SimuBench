@@ -1,6 +1,6 @@
 import { expect, type Page, test } from "@playwright/test";
 
-import { expectValue, hasDigit, quantity } from "./judge";
+import { expectValue, hasDigit, quantity, settledCanvas } from "./judge";
 
 // Layout at the widths people work at (#276, #277, #315): nothing in the inspector runs out of its
 // column, the number fields show their values, the *IDN? string ends in an ellipsis with the full
@@ -57,6 +57,8 @@ for (const [bench, nodes] of [
 ] as const) {
   test(`${bench}: the canvas opens with node titles at least 12 px and every node in view`, async ({ page }) => {
     await open(page, bench, nodes);
+    // The webfonts landing refit the canvas and move the zoom (#1669): measure after the view stops.
+    await settledCanvas(page);
     const title = page.locator(".react-flow__node").first().locator(".font-medium").first();
     const size = await title.evaluate((el) => {
       const zoom = new DOMMatrixReadOnly(getComputedStyle(document.querySelector(".react-flow__viewport")!).transform).a;

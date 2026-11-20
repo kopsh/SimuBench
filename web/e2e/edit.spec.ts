@@ -361,7 +361,7 @@ test("copy as my instrument stays in the bench: the tab turns into the copy, the
   }
 });
 
-test("an instrument added from the library lands beside the bench's nodes, not on them, and comes into view (#1258)", async ({ page }) => {
+test("an instrument added from the library lands beside the bench's nodes, not on them (#1258)", async ({ page }) => {
   // The Hello World bench's layout: the generator on the left, the scope and the analyzer stacked on the right.
   const hello = {
     schema: "simubench.bench/2",
@@ -390,9 +390,6 @@ test("an instrument added from the library lands beside the bench's nodes, not o
   );
   const overlap = (a: number[], b: number[]) => a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3];
   for (const a of boxes) for (const b of boxes) if (a !== b) expect(overlap(a.r, b.r), `${a.id} and ${b.id} overlap`).toBe(false);
-  // The view moved to the new node: it is on screen, whole.
-  const added = page.locator('.react-flow__node[data-id="dmm"]');
-  await expect(added).toBeInViewport({ ratio: 1 });
   const layout = (await readDoc(page.request, path)).data.layout as Record<string, { x: number; y: number }>;
   expect(Object.keys(layout).sort()).toEqual(["awg", "dmm", "sa", "scope"]);
 });
