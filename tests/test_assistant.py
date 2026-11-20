@@ -204,6 +204,8 @@ async def test_running_bench_allows_settings_only_and_stopping_needs_consent(man
     assert not manager.sessions
     assert [s.ok for s in t2.steps] == [True, True]
     assert "sa" not in yaml.safe_load((manager.workspace / BENCH).read_text(encoding="utf-8"))["instruments"]
+    # the model is told the consent in words (#1707): otherwise it may not even try stop_session
+    assert any("本轮可以直接调用 stop_session" in str(m) for m in llm.seen[-1])
 
 
 async def test_set_live_setting_tells_the_model_when_the_value_was_already_there(manager):

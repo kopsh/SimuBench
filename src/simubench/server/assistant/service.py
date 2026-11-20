@@ -197,6 +197,12 @@ class AssistantService:
             stop_consent=stop_consent if pending else None,
         )
         conv.turns.append(turn)
+        if turn.stop_consent:
+            # The consent lives on the turn record and in the stop_session gate, but the model
+            # sees neither: with earlier refusals in context it may not even try the tool (the
+            # complex-E2E finding behind #1707). Say it in words, with the next message.
+            consent = "用户已在面板点击「同意停止」：本轮可以直接调用 stop_session。"
+            conv.note = f"{conv.note}\n{consent}" if conv.note else consent
         record = TurnFiles()
         conv.files[turn.id] = record
         self.store.save(conv)
