@@ -180,3 +180,18 @@ cases:
       - send: "*CLS"
       - query: "*OPC?"
         expect: "1"
+
+  - name: "*PSC：上电状态清除标志，设置后读回，*RST 不改它（D92）"
+    manual: "15.4 Common commands > *PSC <Action>（0|1）"
+    steps:
+      - query: "*PSC?"
+        expect: "1"
+      - send: "*PSC 0"
+      - query: "*PSC?"
+        expect: "0"
+      - send: "*RST"
+      - query: "*PSC?"
+        expect: "0"
+      - send: "*PSC 1"
+      - query: "*PSC?"
+        expect: "1"

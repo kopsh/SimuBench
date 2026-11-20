@@ -36,9 +36,9 @@ sections:
     note: 'Model work: *IST/*PSC on the existing status system; *OPT via option handling (#1007); *PRE via the preset machinery.'
     gap: model_work
   - header: '*PSC'
-    level: not_modeled
-    note: 'Model work: *IST/*PSC on the existing status system; *OPT via option handling (#1007); *PRE via the preset machinery.'
-    gap: model_work
+    level: accepted
+    affects_data: false
+    note: 手册（15.4 Common commands > *PSC <Action>）：0|1，1 上电时清状态寄存器的使能，0 保留；手册没给默认值，SimuBench 取 1（D92 的默认内置）。只存标志、读回；模拟的仪表没有掉电重启，上电时使能本来就清零，标志无可观察的作用（#1568）。
   - header: '*RCL'
     level: not_modeled
     note: '手册只给 *RCL <Number>，没有槽范围与空槽行为；setup_memory 已有能力，保持未建模直到手册写明。'
