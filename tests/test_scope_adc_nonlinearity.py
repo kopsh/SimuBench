@@ -188,6 +188,101 @@ def test_the_uxr1104b_jitter_is_mostly_the_shared_clock():
     assert float(np.std(shifts[0] - shifts[1])) < 10e-15
 
 
+FS0 = 1.28e11  # the UXR0334B's 128 GSa/s (#1693)
+
+
+def _uxr0334b_view(n: int = 3) -> AdcView:
+    """Channel n's converter view of the UXR0334B example bench, as its definition sets it."""
+    session = open_bench(ROOT / "examples" / "benches" / "keysight-uxr0334b.bench.yaml", seed=3)
+    try:
+        return session.instruments["scope"].components["adc"].view(n)
+    finally:
+        session.close()
+
+
+def _line0_dbc(frame: np.ndarray, bin_: int, ref: float) -> float:
+    """As ``_line_dbc`` at 128 GSa/s, but the Nyquist bin (N/2, where the 64 GHz clock spur sits) is a
+    single real line of amplitude |X|/N, not the 2|X|/N of a bin with a negative-frequency pair."""
+    spec = np.fft.rfft(frame)
+    amp = abs(spec[bin_]) / frame.size if bin_ in (0, frame.size // 2) else 2 * abs(spec[bin_]) / frame.size
+    return 20 * math.log10(max(amp, 1e-300) / ref)
+
+
+def _window0_max_dbc(frame: np.ndarray, lo_hz: float, hi_hz: float, skip: set[int], ref: float) -> float:
+    """As ``_window_max_dbc`` at 128 GSa/s, with the Nyquist bin's amplitude |X|/N (see ``_line0_dbc``)."""
+    spectrum = np.abs(np.fft.rfft(frame))
+    bins = [
+        b for b in range(max(1, int(lo_hz * N / FS0)), min(int(hi_hz * N / FS0), N // 2) + 1) if b not in skip
+    ]
+    amp = np.array([spectrum[b] / frame.size if b == N // 2 else 2 * spectrum[b] / frame.size for b in bins])
+    return 20 * math.log10(float(amp.max()) / ref)
+
+
+def test_the_uxr0334b_interleave_meets_the_data_sheet_in_its_measurement_windows():
+    """#1693: the UXR0334B's lane and path mismatch (8 ADC lanes behind 2 SiGe samplers,
+    3123-1371 p.12) against the data sheet 3123-1313 p.10. The table is measured at 256 GSa/s (the 1 mm
+    models); the 3.5 mm models have no table of their own, so the same figures are the target (#1422).
+    Noise, distortion and jitter off: the interleave alone, on a -0.9 dBFS sine.
+    - SFDR excluding harmonics, 5 GHz carrier in a 10 GHz span (0-10 GHz): <= -65 dBc;
+    - SFDR, 50 GHz carrier in a 20 GHz span (40-60 GHz): <= -61 dBc; the images there are the lanes'
+      1st and 2nd harmonics (16 + 50 = 66 -> 62 GHz, 32 + 50 = 82 -> 46 GHz), each at the -62.1 dBc the
+      5 fs skews give (±0.5 dB);
+    - signal-related images, any 16 GHz interval: <= -52 dBc, also with a 60 GHz carrier (near the
+      64 GHz Nyquist; the 2 samplers' image at 64 - 60 = 4 GHz is the strongest, -55.7 dBc)."""
+    view = _uxr0334b_view()
+    quiet = dataclasses.replace(view, sigma=0.0, hd=(0.0, 0.0), aperture=0.0, clock=0.0, bits=0)
+    amp = 0.9 * view.half
+    for bin_, lo, hi, spec in ((2560, 0.0, 1e10, -65.0), (25600, 4e10, 6e10, -61.0)):  # 5 and 50 GHz
+        frame = _frame(
+            dataclasses.replace(quiet, signal=Signal.lines([FS0 * bin_ / N], [amp + 0j])), dt=1 / FS0
+        )
+        assert _window0_max_dbc(frame, lo, hi, {bin_}, amp) <= spec, (bin_, spec)
+        if bin_ == 25600:
+            assert _line0_dbc(frame, int(46e9 * N / FS0), amp) == pytest.approx(-62.1, abs=0.5)
+    bin_ = 30720  # 60 GHz
+    frame = _frame(dataclasses.replace(quiet, signal=Signal.lines([FS0 * bin_ / N], [amp + 0j])), dt=1 / FS0)
+    assert _window0_max_dbc(frame, 0.0, FS0 / 2, {bin_}, amp) <= -52.0
+
+
+def test_the_uxr0334b_residual_spurs_meet_the_data_sheet():
+    """#1693, data sheet 3123-1313 p.10: residual responses -65 dBFS (the 8 lanes' offsets, at 16 GHz)
+    and the -65 dBm clock spur at 64 GHz on the 0 dBm range (the 2 SiGe samplers' offsets, -65 dBFS),
+    each ±0.5 dB; no other residual above -65 dBFS. No input, noise off. 64 GHz is the Nyquist bin
+    (128 GSa/s / 2), read with |X|/N (``_line0_dbc``)."""
+    view = _uxr0334b_view()
+    quiet = dataclasses.replace(view, sigma=0.0, hd=(0.0, 0.0), aperture=0.0, clock=0.0, bits=0)
+    frame = _frame(quiet, dt=1 / FS0)
+    frame = frame - frame.mean()
+    assert _line0_dbc(frame, N // 8, view.half) == pytest.approx(-65.0, abs=0.5)  # 16 GHz
+    assert _line0_dbc(frame, N // 2, view.half) == pytest.approx(-65.0, abs=0.5)  # 64 GHz (Nyquist)
+    assert _window0_max_dbc(frame, 0.0, FS0 / 2, {N // 8, N // 2}, view.half) <= -65.0 + 0.5
+
+
+def test_the_uxr0334b_jitter_is_mostly_the_shared_clock():
+    """#1693, data sheet 3123-1313 p.11: intrinsic jitter 15 fs rms (< 1 µs acquisition) on one
+    channel, < 10 fs rms between channels. Each sample's timing error, read off a 20 GHz sine where its
+    slope is steep, on two channels of one acquisition: each channel 15 fs (the shared clock 14.14 fs
+    and its own 5 fs), their difference √2 × 5 = 7.1 fs (±10 %, 16k samples). The two channels share one
+    acquisition board (3123-1371 p.12) but each has its own 2 SiGe samplers; the clock is shared
+    instrument-wide (p.13). Skews off: the lanes' fixed pattern is the same on every channel, not jitter."""
+    f = FS0 * 10240 / N  # 20 GHz
+    sig = Signal.lines([f], [0.1 + 0j])
+    shifts = []
+    for n in (1, 2):
+        view = _uxr0334b_view(n)
+        quiet = dataclasses.replace(
+            view, signal=sig, sigma=0.0, hd=(0.0, 0.0), bits=0, ilv_skews=(), ilv_offsets=()
+        )
+        frame = np.asarray(quiet.frame(FrameRequest(0, N, 1 / FS0, ("acq", "noise", n, 1))).data)
+        t = np.arange(N) / FS0
+        slope = (sig.scale(2j * math.pi * f)).sample_rel(0, t)
+        steep = np.abs(slope) > 0.5 * float(np.abs(slope).max())
+        shifts.append(((frame - sig.sample_rel(0, t)) / np.where(steep, slope, 1.0))[steep])
+    assert float(np.std(shifts[0])) == pytest.approx(15e-15, rel=0.1)
+    assert float(np.std(shifts[0] - shifts[1])) == pytest.approx(math.sqrt(2) * 5e-15, rel=0.1)
+    assert float(np.std(shifts[0] - shifts[1])) < 10e-15
+
+
 def test_the_aperture_jitter_adds_noise_of_two_pi_f_sigma_on_a_50_ghz_sine():
     """15 fs rms on a 50 GHz sine: the sampling error is 2πf·σ of the signal, rms (±10 %)."""
     f, sigma, amp = 5e10, 15e-15, 0.3

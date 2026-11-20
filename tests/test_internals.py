@@ -99,10 +99,11 @@ def test_the_uxr_probe_block_says_it_converts_settings_and_the_two_vertical_bloc
         # (front) -> sampler -> ADC; the probe block is the display conversion between them
         assert ("ch1.inp.out", "ch1.atten.in", "signal") in wires
         assert ("ch1.atten.out", "ch1.front.in", "signal") in wires
-        assert ("ch1.probe.out", "ch1.sampler.in", "signal") in wires
-        assert ("ch1.sampler.out", "adc.in1", "signal") in wires
-    else:
-        assert ("ch1.probe.out", "adc.in1", "signal") in wires
+    # both models: front -> probe -> sampler -> ADC. The 3.5 mm UXR0334B has no attenuator and no InP
+    # primary sampler: the preamplifier synchronises 2 SiGe samplers feeding 8 ADC lanes (#1693,
+    # 3123-1371 p.12), so the sampler sits between the probe conversion and the ADC just the same.
+    assert ("ch1.probe.out", "ch1.sampler.in", "signal") in wires
+    assert ("ch1.sampler.out", "adc.in1", "signal") in wires
     assert ("adc.out1", "bwf.in1", "samples") in wires
     assert ("bwf.out1", "isim.in1", "samples") in wires
     assert ("isim.out1", "dec.in1", "samples") in wires
@@ -118,8 +119,9 @@ def test_the_uxr_probe_block_says_it_converts_settings_and_the_two_vertical_bloc
         inst = session.instruments["scope"]
         adc = inst.components["acq"].adc_unit()
         feeds = [inst.wiring.source(adc.name, f"in{n}")[0] for n in range(1, 5)]
-        if def_id == "keysight-uxr1104b":  # the comparator splits off ahead of the sampler (#1579)
-            feeds = [inst.wiring.source(f, "in")[0] for f in feeds]
+        # the comparator splits off ahead of the sampler (#1579/#1693): both models' sampler is a
+        # track-and-hold, so the trigger reads the probe conversion's output, one block further back
+        feeds = [inst.wiring.source(f, "in")[0] for f in feeds]
         assert feeds == trigger.taps
     finally:
         session.close()
