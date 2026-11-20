@@ -81,6 +81,17 @@ def test_cli_diagnose(tmp_path):
     assert "manifest.json" in zipfile.ZipFile(out).namelist()
 
 
+def test_serve_names_a_bench_file_it_cannot_read(tmp_path, capsys):
+    """A mistyped bench path stops serve with one line, before uvicorn's lifespan traceback (#1672)."""
+    assert main(["serve", str(tmp_path / "missing.bench.yaml")]) == 1
+    not_a_bench = tmp_path / "README.md"
+    not_a_bench.write_text("a: [unclosed\n", encoding="utf-8")
+    assert main(["serve", str(not_a_bench)]) == 1
+    err = capsys.readouterr().err
+    assert "Traceback" not in err
+    assert str(tmp_path / "missing.bench.yaml") in err and str(not_a_bench) in err
+
+
 def test_the_serving_entries_share_one_set_of_service_options(monkeypatch, tmp_path):
     """serve / mcp / tui parse the same options into the same manager (issue 637, issue 673):
     a flag one entry lacks would be a setting its users cannot make."""
