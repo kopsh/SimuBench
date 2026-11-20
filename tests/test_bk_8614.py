@@ -16,6 +16,8 @@ import pytest
 from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
+pytestmark = pytest.mark.model("bk-8614")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "bk-8614.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "bk_8614_load_test.py"

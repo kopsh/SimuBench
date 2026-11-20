@@ -19,6 +19,8 @@ import pytest
 from helpers import load_script, run_manual_script, session_query
 from simubench.api import open_bench
 
+pytestmark = pytest.mark.model("keysight-n9042b")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight-n9042b.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_n9042b_measure.py"

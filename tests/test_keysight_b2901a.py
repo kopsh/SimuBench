@@ -16,6 +16,8 @@ import pytest
 from helpers import load_script, printed_quantities, run_manual_script, session_query
 from simubench.api import open_bench
 
+pytestmark = pytest.mark.model("keysight-b2901a")
+
 ROOT = Path(__file__).resolve().parents[1]
 BENCH = ROOT / "examples" / "benches" / "keysight_b2901a.bench.yaml"
 SCRIPT = ROOT / "examples" / "scripts" / "keysight_b2901a_sweep.py"

@@ -106,6 +106,9 @@ markers = [
   "unit: pure logic, the D49 budget guard applies (<=100 ms per test)",
   # Wall-clock budgets (test_performance.py): red on a busy machine, green on an idle one.
   "load_sensitive: needs an idle machine; runs on main, not in the fast checks",
+  # A test about one or more real models (their ids). A pull request that changes other models
+  # leaves it out (--model-scope, scripts/select_tests.py; #1680); main and shared code run it.
+  "model(*ids): the real models this test is about (library ids)",
 ]
 
 [tool.ty.src]
