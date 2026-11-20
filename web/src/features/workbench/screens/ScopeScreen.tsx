@@ -23,7 +23,8 @@ import {
 import { channelColor, FUNCTION_COLOR } from "@/lib/channels";
 import { formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { refTarget, stateMap } from "../model";
+import { refTarget } from "../model";
+import { stateMap } from "@/api/stateMap";
 import { useWorkbench } from "../store";
 import { WaveformCanvas } from "./WaveformCanvas";
 

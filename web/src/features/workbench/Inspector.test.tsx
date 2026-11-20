@@ -6,7 +6,8 @@ import type { InstrumentInfo, StateVarInfo } from "@/api/client";
 import { api } from "@/api/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { InstrumentInspector, InstrumentSettings } from "./Inspector";
-import { FIELD_PAGE, globalVars, stateMap } from "./model";
+import { FIELD_PAGE, globalVars } from "./model";
+import { stateMap } from "@/api/stateMap";
 import { useWorkbench } from "./store";
 
 afterEach(() => {

@@ -3,7 +3,8 @@ import type { InstrumentInfo } from "@/api/client";
 import { channelColor } from "@/lib/channels";
 import { displayUnit, engParts, formatEng } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { inactiveReason, numeric, stateMap } from "../model";
+import { inactiveReason, numeric } from "../model";
+import { stateMap } from "@/api/stateMap";
 import { StateField } from "../StateField";
 
 /** Function generator panel: one column per channel with a large frequency readout. */

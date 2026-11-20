@@ -513,14 +513,14 @@ class SimuBenchApp(App[None]):
         self.bump()
 
     def _mark_template_instruments(self) -> None:
-        """Readings for the instruments that show them — the categories that poll /readings and
-        every instrument with a panel (its class default included, #282) — and /screen for the
-        oscilloscopes' run state (section 4.2)."""
+        """Readings for the instruments that show them and /screen for the classes whose screen
+        data is fetched (section 4.2): the registry row decides, through categories.fetches
+        (#1735) — the same predicate the per-event refresh below applies."""
         if self.session_info is None:
             return
         for info in self.session_info.get("instruments", []):
             display = info.get("display") or {}
-            if categories.get(display.get("template")).readings or display.get("panel"):
+            if categories.fetches(categories.get(display.get("template")), panel=bool(display.get("panel"))):
                 self._dirty_instr.add(info["name"])
 
     def _tick(self) -> None:
@@ -572,11 +572,13 @@ class SimuBenchApp(App[None]):
                 continue
             self._merge_instrument(info)
             display = info.get("display") or {}
-            row = categories.get(display.get("template"))
-            if row.readings or display.get("panel"):
+            want = categories.fetches(
+                categories.get(display.get("template")), panel=bool(display.get("panel"))
+            )
+            if "readings" in want:
                 with contextlib.suppress(ApiError):
                     self.readings[name] = await self.client.readings(self.sid, name)
-            if row.screen == "scope":
+            if "screen" in want:
                 with contextlib.suppress(ApiError):
                     self.screen_data[name] = await self._screen(name, self.scope_points.get(name))
 
