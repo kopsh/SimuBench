@@ -278,3 +278,27 @@ async def test_a_version_no_longer_in_history_aborts_before_any_file_is_touched(
     restored = yaml.safe_load((manager.workspace / rel).read_text(encoding="utf-8"))
     assert restored["channel_state"]["frequency"]["default"] == 1e6
     assert service.conversation(BENCH).turns[-1].rolled_back
+
+
+async def test_a_meta_edit_lists_in_files_and_rollback_restores_it(manager):
+    """#1709: a description change is a written file change like any other: it lists in
+    turn.files, the plan restores it, and the words go back. It used to be invisible
+    (bench_changes skipped metadata) and stuck."""
+    llm = ScriptedLLM(
+        [("read_bench", {})], edit([{"op": "set_meta", "description": "阻尼振荡观测台"}]), "描述已改"
+    )
+    service = service_with(manager, llm)
+    t = await turn(service, "把描述改成 阻尼振荡观测台")
+    assert t.status == "done", t.stop_reason
+    assert manager.files.read(BENCH).data.get("description") == "阻尼振荡观测台"
+    (f,) = t.files  # on main this is []: the change was invisible to the files list
+    assert f.path == BENCH
+    (c,) = f.changes
+    assert (c.kind, c.target, c.new) == ("bench", "description", "阻尼振荡观测台")
+
+    plan = service.rollback_plan(BENCH)
+    assert plan.turn_id == t.id and [(x.path, x.action) for x in plan.files] == [(BENCH, "restore")]
+    done = await service.rollback(M.RollbackRequest(bench=BENCH, turn_id=t.id))
+    assert done.done
+    restored = manager.files.read(BENCH).data.get("description") or ""
+    assert restored != "阻尼振荡观测台" and restored.startswith("Hello World")
