@@ -218,7 +218,7 @@ def test_single_sweep_takes_its_time():
     """On the command-driven clock (D12) a single sweep advances virtual time by its sweep time."""
     from simubench.api import open_bench
 
-    with open_bench(BENCHES / "specan.bench.yaml", clock="command") as bench:
+    with open_bench(BENCHES / "specan.bench.yaml", clock="command", idle="off") as bench:
         bench.scpi("sa", ":INIT:CONT OFF;:SENS:AVER:COUN 4;:TRAC:TYPE AVER")
         sweep = float(bench.scpi("sa", ":SENS:SWE:TIME?"))
         t0 = bench.now_ns
