@@ -13,6 +13,7 @@ sections:
   - {header: '*ESR', level: implemented, note: '标准事件寄存器（引擎内置，读取后清）。'}
   - {header: '*IDN', level: implemented, note: 'Keysight Technologies,34970A,0,1.0-1.0-1.0（手册 p.176 的三段固件版本）。'}
   - {header: '*OPC', level: implemented, note: '*OPC 置 ESR 位 0；*OPC? 等扫描/读数完成后回 1。'}
+  - {header: '*PSC', level: not_modeled, note: '34970A 手册不在库中，*PSC 是否支持与默认值未核实；D92 的默认内置只对有手册依据的型号开启。找到手册后把 *PSC 加进 builtins、标 accepted 并补手册用例。', gap: model_work}
   - {header: '*RCL', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–5；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽错误码 291 取自 DAQ970A 手册（DAQ97-90002，+291 "Not able to recall state: it is empty"），34970A 手册不在库中，空槽错误码与行为未核实；*RST 不清槽。'}
   - {header: '*RST', level: implemented, note: '恢复手册的出厂状态：功能 DCV、量程自动、5½ 位（1 PLC）、10 MΩ、扫描表空、计数 1、间隔 0 s、触发源 IMMediate、继电器全开、显示开。'}
   - {header: '*SAV', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–5；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽错误码 291 取自 DAQ970A 手册（DAQ97-90002，+291 "Not able to recall state: it is empty"），34970A 手册不在库中，空槽错误码与行为未核实；*RST 不清槽。'}

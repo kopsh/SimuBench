@@ -21,7 +21,7 @@ identity:
   idn: "Rohde&Schwarz,SMA100B,{serial},{firmware}"
   serial: 1419.8888K02/101234
   firmware: "5.40.102.48"
-builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", ":SYSTem:ERRor[:NEXT]"]
+builtins: ["*IDN", "*RST", "*CLS", "*OPC", "*WAI", "*ESR", "*ESE", "*SRE", "*STB", "*PSC", ":SYSTem:ERRor[:NEXT]"]
 format:
   # R&S 的数值应答是最短的十进制写法（FREQ? → 1000000000，POW? → -30，AM? → 30）：%g 取 15 位有效数字、不带 +。
   number: general

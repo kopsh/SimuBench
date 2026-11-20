@@ -59,7 +59,7 @@ sections:
   - {header: '*ESR', level: implemented, note: 标准事件寄存器（引擎内置，整数回复）。}
   - {header: '*IDN', level: implemented, note: 'Keysight Technologies,E36312A,<序列号>,<控制器/前面板/主板固件版本>。'}
   - {header: '*OPC', level: implemented, note: '*OPC 置 ESR 位 0；*OPC? 等全部待完成操作结束后回 1。'}
-  - {header: '*PSC', level: not_modeled, note: 上电清除使能寄存器；未建模。, gap: model_work}
+  - {header: '*PSC', level: not_modeled, note: 'E36312A 手册不在库中，*PSC 是否支持与默认值未核实；D92 的默认内置只对有手册依据的型号开启。找到手册后把 *PSC 加进 builtins、标 accepted 并补手册用例。', gap: model_work}
   - {header: '*RCL', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册不在库中，空槽错误码与行为未核实）；*RST 不清槽。'}
   - {header: '*RST', level: implemented, note: '*RST 恢复本定义的初始设置：0 V、电流 5 A/1 A/1 A、OVP 6.6/27.5/27.5 V、输出全关。'}
   - {header: '*SAV', level: implemented, note: 'setup_memory 组件（#1573）：位置 0–9；内容是 SimuBench 的设置快照，不与厂商私有格式逐字节一致；空槽行为手册未给出、未核实（模型暂为不报错、设置不变；手册不在库中，空槽错误码与行为未核实）；*RST 不清槽。'}
