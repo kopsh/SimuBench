@@ -981,14 +981,14 @@ sections:
     blocked_by: secondary
   - header: MMEMory:LOAD:STATe
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:STORe:STATe
     level: not_modeled
-    note: 文件系统与状态存储未建模。
+    note: 状态/设置文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
   - header: MMEMory:STATe:RECall:AUTO
     level: not_modeled
     note: 文件系统与状态存储未建模。
@@ -996,14 +996,12 @@ sections:
     blocked_by: setup-memory
   - header: MMEMory:STATe:RECall:SELect
     level: not_modeled
-    note: 文件系统与状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
   - header: MMEMory:STATe:VALid
     level: not_modeled
-    note: 文件系统与状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
 - section: General Purpose File Management Commands
   commands:
   - header: MMEMory:CATalog[:ALL]

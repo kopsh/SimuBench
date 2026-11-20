@@ -796,14 +796,12 @@ sections:
     blocked_by: file-system
   - header: MEMory:STATe:DELete
     level: not_modeled
-    note: 状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
   - header: MEMory:STATe:DELete:ALL
     level: not_modeled
-    note: 状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
   - header: MEMory:STATe:RECall:AUTO
     level: not_modeled
     note: 上电状态自动调用未建模。
@@ -811,14 +809,12 @@ sections:
     blocked_by: setup-memory
   - header: MEMory:STATe:RECall:SELect
     level: not_modeled
-    note: 状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
   - header: MEMory:STATe:VALid
     level: not_modeled
-    note: 状态存储未建模。
-    gap: blocked
-    blocked_by: setup-memory
+    note: '`*SAV`/`*RCL` 的 setup_memory 已接入，这条按槽删除/选择/查询未接，平台已可做。'
+    gap: model_work
 - section: Chapter 8 Instrument Status
   commands:
   - header: STATus:QUEStionable:CONDition

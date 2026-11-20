@@ -1278,9 +1278,9 @@ sections:
     gap: out_of_scope
   - header: :RECall:SETup
     level: not_modeled
-    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    note: 设置存取到文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
 - section: REF Commands (EN11F)
   commands:
   - header: :REF<r>:LABel
@@ -1327,9 +1327,8 @@ sections:
     blocked_by: data-file
   - header: :SAVE:DEFault
     level: not_modeled
-    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
-    gap: blocked
-    blocked_by: setup-memory
+    note: setup_memory 已有能力，本模型的命令尚未接入，平台已可做。
+    gap: model_work
   - header: :SAVE:IMAGe
     level: not_modeled
     note: 等能力:截图/硬拷贝(#1072)。
@@ -1347,9 +1346,9 @@ sections:
     blocked_by: data-file
   - header: :SAVE:SETup
     level: not_modeled
-    note: 等能力:设置存取(setup_memory,#1070),本模型未接入。
+    note: 设置存取到文件需经仪器文件系统存取；`*SAV`/`*RCL` 的 setup_memory 已接入，但不涉及文件。
     gap: blocked
-    blocked_by: setup-memory
+    blocked_by: file-system
 - section: SEARch Commands (EN11F)
   commands:
   - header: :SEARch
