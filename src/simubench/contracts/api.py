@@ -1541,6 +1541,11 @@ class AssistantStep(_Model):
         "(add_instrument, connect, set_state, ...)",
     )
     subject: str | None = Field(None, description="What it acts on: an instrument class, a name, a file")
+    args: dict[str, Any] | None = Field(
+        None,
+        description="The tool call's arguments as the tool received them (compact keys), for the "
+        "postmortem: what the model actually sent (#1679). None on a bench-edit sub-step",
+    )
     ok: bool | None = Field(None, description="None while it runs")
     error: str | None = None
 
