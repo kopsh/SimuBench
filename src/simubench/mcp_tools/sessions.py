@@ -391,14 +391,11 @@ def _verdict_tools(mcp: MCPServer, ctx: McpContext) -> None:
         the run-time confidentiality rules (run.reveal_true_values) are untouched."""
         guard()
         control()
-        from ..verdicts import VerdictError
         from ..verdicts import check_verdicts as check
 
         try:
             return check(files.resolve(record), files.resolve(report), files.resolve(map)).as_dict()
-        except VerdictError as exc:
-            raise ToolError(str(exc)) from None
-        except FILE_ERRORS as exc:
+        except (*DOMAIN_ERRORS, *FILE_ERRORS) as exc:  # VerdictError is a domain error (D76's table)
             raise fail(exc) from None
 
 

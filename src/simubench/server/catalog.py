@@ -11,6 +11,7 @@ from __future__ import annotations
 import ast
 import inspect
 import io
+import math
 import textwrap
 import tokenize
 from functools import lru_cache
@@ -19,6 +20,7 @@ from typing import Any
 from ..contracts import api as M
 from ..engine.component import Component, component_types
 from ..engine.validate import drives_net
+from ..jsonsafe import spelling as _spelling
 
 #: Arguments every operation receives from the instrument, not from a command's parameters.
 _OP_CONTEXT = {"self", "query", "channel", "suffixes"}
@@ -275,9 +277,10 @@ def _range_fields(cls: type[Component], name: str) -> dict[str, Any]:
 
 
 def _json(value: Any) -> Any:
-    """Defaults as JSON: tuples as lists, infinity as the bench files spell it."""
-    if isinstance(value, float) and value in (float("inf"), float("-inf")):
-        return "INF" if value > 0 else "-INF"
+    """Defaults as JSON: tuples as lists, non-finite floats as the bench files spell them
+    (jsonsafe.spelling — D60's one spelling; the hand-written copy here dropped NAN)."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return _spelling(value)
     if isinstance(value, (list, tuple)):
         return [_json(v) for v in value]
     if isinstance(value, dict):

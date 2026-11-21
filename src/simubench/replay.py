@@ -9,7 +9,6 @@ record made on the command or wall clock replays identically. Waveform blocks re
 
 from __future__ import annotations
 
-import base64
 import hashlib
 import json
 import platform
@@ -22,6 +21,7 @@ from pydantic import BaseModel, ConfigDict
 
 from . import __version__
 from .api import open_bench
+from .engine import record
 from .engine.events import record_time
 from .engine.plugins import load_workspace_plugins
 from .engine.plugins import report as plugin_report
@@ -83,14 +83,7 @@ def read_record(path: Path) -> Iterator[dict[str, Any]]:
                     raise Invalid(f"{path.name}: {exc}") from None
 
 
-def _bytes(data: Any) -> bytes | None:
-    if not isinstance(data, dict):
-        return None
-    if "text" in data:
-        return str(data["text"]).encode("ascii")
-    if "b64" in data:
-        return base64.b64decode(data["b64"])
-    return None
+_bytes = record.decode_bytes  # the record's byte spelling: one decoder beside the encoder (#1771)
 
 
 def _show(data: bytes | None, limit: int = 120) -> str:
