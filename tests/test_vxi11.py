@@ -547,6 +547,86 @@ async def test_srq_is_delivered_on_the_interrupt_channel(rig):
     listener.close()
 
 
+async def test_an_srq_raised_over_hislip_reaches_the_vxi11_interrupt_channel(rig):
+    """D96: the announce is the bus's, not the transport's — IVI-6.1 6.13 is per connection, so
+    every enabled client hears a request for service, whichever interface raised it."""
+    from tests.test_hislip import Raw
+
+    from simubench.access.hislip_server import HislipServer
+
+    received: list[bytes] = []
+    ready = threading.Event()
+    listener = socket.socket()
+    listener.bind(("127.0.0.1", 0))
+    listener.listen(1)
+
+    def serve() -> None:
+        conn, _ = listener.accept()
+        conn.settimeout(5)
+        received.append(record(conn))
+        ready.set()
+        conn.close()
+
+    threading.Thread(target=serve, daemon=True).start()
+    hislip = HislipServer(rig.bench, port=0)
+    await hislip.start()
+
+    def run() -> None:
+        h = Raw(hislip.port, sub=b"hislip0")  # the same instrument as inst0
+        link = Link(rig)
+        host = int.from_bytes(socket.inet_aton("127.0.0.1"), "big")
+        rd = link.core.call(
+            v.CREATE_INTR_CHAN, v._u(host, listener.getsockname()[1], v.DEVICE_INTR_PROG, 1, 0)
+        )
+        assert rd.int() == v.OK
+        assert link.core.call(v.DEVICE_ENABLE_SRQ, v._u(link.id, 1) + v._opaque(b"h1")).int() == v.OK
+        h.send_command("*CLS;*ESE 1;*SRE 32")
+        h.send_command("*OPC")  # raised over HiSLIP: the VXI-11 link still hears it
+        assert ready.wait(5), "the VXI-11 interrupt channel never heard the HiSLIP-raised SRQ"
+        call = v._Reader(received[0])
+        assert [call.uint() for _ in range(6)][3:] == [v.DEVICE_INTR_PROG, 1, v.DEVICE_INTR_SRQ]
+        for _ in range(4):
+            call.uint()  # credential and verifier
+        assert call.opaque() == b"h1"
+        link.close()
+        h.close()
+
+    try:
+        await asyncio.to_thread(run)
+    finally:
+        await hislip.stop()
+        listener.close()
+
+
+async def test_an_srq_raised_over_vxi11_reaches_a_quiet_hislip_session(rig):
+    """D96, the other way round: a session that only connected (never sent anything) still gets
+    AsyncServiceRequest when a request for service is pending."""
+    from tests.test_hislip import Raw, recv_msg
+
+    from simubench.access.hislip_server import ASYNC_SERVICE_REQUEST, HislipServer
+
+    hislip = HislipServer(rig.bench, port=0)
+    await hislip.start()
+
+    def run() -> None:
+        h = Raw(hislip.port, sub=b"hislip0")  # the same instrument as inst0
+        h.send_command("*CLS;*ESE 1;*SRE 32")
+        h.query("*OPC?")  # nothing pending; read it so the sync channel is clean
+        link = Link(rig)
+        link.write(b"*CLS;*ESE 1;*SRE 32\n")
+        link.write(b"*OPC\n")  # raised over VXI-11: the quiet HiSLIP session still hears it
+        msg_type, control, _, _ = recv_msg(h.async_)
+        assert msg_type == ASYNC_SERVICE_REQUEST
+        assert control == 0x60  # ESB | RQS
+        link.close()
+        h.close()
+
+    try:
+        await asyncio.to_thread(run)
+    finally:
+        await hislip.stop()
+
+
 # ---- a GPIB gateway address resolves through the bench's declared GPIB address ----------------------------
 
 
