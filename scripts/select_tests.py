@@ -38,19 +38,31 @@ class Selection:
         return [] if self.full else [f"--model-scope={','.join(sorted(self.models))}"]
 
 
-def model_ids(root: Path = ROOT) -> set[str]:
-    """The ids of the library's instrument definitions (``<id>.yaml`` beside its coverage table)."""
-    return {
+#: The parsed library per root, keyed by a directory signature (name, mtime, size of every yaml):
+#: a select() call re-reads it, so a file added or edited between two calls in one process is
+#: seen. The parse itself — every definition read for its ``extends:`` line — cost 17 ms per
+#: select() on the library's 56 files, and ``test_shared_code_runs_everything`` calls select nine
+#: times: 99 ms of CPU against the 100 ms unit budget, red whenever the machine was loaded
+#: (#1754). The signature scan is one stat per file, ~0.1 ms.
+_LIBRARY: dict[Path, tuple[tuple[tuple[str, int, int], ...], set[str], dict[str, set[str]]]] = {}
+
+
+def _library(root: Path) -> tuple[set[str], dict[str, set[str]]]:
+    """The instrument ids and their ``extends`` children, cached per root until a yaml changes."""
+    paths = sorted((root / INSTRUMENTS).glob("*.yaml"))
+    signature = tuple(
+        (p.name, (st := p.stat()).st_mtime_ns, st.st_size) for p in paths
+    )
+    cached = _LIBRARY.get(root)
+    if cached is not None and cached[0] == signature:
+        return cached[1], cached[2]
+    ids = {
         p.name.removesuffix(".yaml")
-        for p in (root / INSTRUMENTS).glob("*.yaml")
+        for p in paths
         if not p.name.endswith(".coverage.yaml") and not p.name.endswith(".cases.yaml")
     }
-
-
-def extends_of(root: Path = ROOT) -> dict[str, set[str]]:
-    """For each model, the models that ``extends`` it (directly): a base's change reaches them."""
     children: dict[str, set[str]] = {}
-    for path in (root / INSTRUMENTS).glob("*.yaml"):
+    for path in paths:
         if path.name.endswith(".coverage.yaml"):
             continue
         for line in path.read_text(encoding="utf-8").splitlines():
@@ -58,7 +70,18 @@ def extends_of(root: Path = ROOT) -> dict[str, set[str]]:
                 base = line.split(":", 1)[1].strip().strip("'\"")
                 children.setdefault(base, set()).add(path.name.removesuffix(".yaml"))
                 break
-    return children
+    _LIBRARY[root] = (signature, ids, children)
+    return ids, children
+
+
+def model_ids(root: Path = ROOT) -> set[str]:
+    """The ids of the library's instrument definitions (``<id>.yaml`` beside its coverage table)."""
+    return _library(root)[0]
+
+
+def extends_of(root: Path = ROOT) -> dict[str, set[str]]:
+    """For each model, the models that ``extends`` it (directly): a base's change reaches them."""
+    return _library(root)[1]
 
 
 def marked_models(path: Path) -> set[str]:
@@ -94,8 +117,7 @@ def select(changed: list[str], root: Path = ROOT) -> Selection:
     """``changed``: repo-relative paths of the pull request. Anything unknown selects everything."""
     if not changed:
         return Selection(True, "no changed paths known: run everything")
-    ids = model_ids(root)
-    children = extends_of(root)
+    ids, children = _library(root)
     models: set[str] = set()
     why: list[str] = []
     for rel in changed:

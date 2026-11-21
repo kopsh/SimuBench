@@ -78,6 +78,18 @@ def test_a_changed_base_definition_reaches_the_models_extending_it(tmp_path):
     assert sel.models == {"base", "mid", "leaf"}
 
 
+def test_the_library_cache_sees_a_file_added_between_two_selects(tmp_path):
+    """The per-process cache (#1754) answers by a directory signature, not by trusting the first
+    scan: a definition written after one select() must be visible to the next."""
+    inst = tmp_path / script.INSTRUMENTS
+    inst.mkdir(parents=True)
+    (inst / "base.yaml").write_text("id: base\n", encoding="utf-8")
+    assert script.select(["src/simubench/engine/session.py"], root=tmp_path).full
+    (inst / "mid.yaml").write_text("extends: base\nid: mid\n", encoding="utf-8")
+    sel = script.select(["src/simubench/library/instruments/base.yaml"], root=tmp_path)
+    assert sel.models == {"base", "mid"}
+
+
 def _item(models=(), case_of=None):
     marks = [SimpleNamespace(args=tuple(models))] if models else []
     callspec = None

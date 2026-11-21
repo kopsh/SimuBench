@@ -251,8 +251,13 @@ def test_two_gigapoints_are_acquired_and_read_in_parts_within_a_bounded_memory()
 @pytest.mark.load_sensitive
 def test_a_million_points_of_a_two_gigapoint_record_take_under_two_seconds():
     """The speed target of #1012: acquisition and a read of up to 1 Mpts within 2 s of wall time,
-    whatever the memory depth."""
+    whatever the memory depth. Locally the limit carries a load allowance (3 s): the flow is
+    CPU-bound and a loaded dev machine (parallel agents, xdist workers) pushed the idle 0.70 s
+    (measured, #1754) past 2.0 twice in one day; CI stays at 2.0, where it passed all round."""
+    import os
     import time
+
+    limit = 2.0 if os.environ.get("CI") == "true" else 3.0
 
     session = open_bench(UXR_1104B, clock="command", seed=3, idle="off")
     session_query(session, "scope", ":ACQuire:POINts 2000000000;:TIMebase:SCALe 1E-3;:WAVeform:FORMat WORD")
@@ -260,5 +265,5 @@ def test_a_million_points_of_a_two_gigapoint_record_take_under_two_seconds():
     session_query(session, "scope", ":DIGitize")
     data = session.write("scope", b":WAVeform:DATA? 0,1000000\n") or session.read("scope")
     elapsed = time.perf_counter() - start
-    assert data is not None and elapsed < 2.0
+    assert data is not None and elapsed < limit
     session.close()

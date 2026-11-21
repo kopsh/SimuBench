@@ -4,13 +4,17 @@ conftest's set-up (#1544)."""
 import os
 import sys
 
-# The unit budget (D49), 100 ms locally, counted in the process's CPU time over the call phase
-# (#1544): a shared CI runner's load spike — other workflows, xdist workers, the Windows antivirus
-# scanning a file on first access (#1465) — lands in wall time while the test waits for a core, and
-# turned millisecond tests red (a 5 ms test read 0.85 s, #1529). CPU time counts what the test
-# computes, in every thread of the worker, so a real regression (5 ms → 300 ms of work) still fails.
-# The CI multipliers stay as they were (×3, ×10 on Windows, #482): nothing that passed gets tighter.
-UNIT_BUDGET_S = (1.0 if sys.platform == "win32" else 0.3) if os.environ.get("CI") == "true" else 0.1
+# The unit budget (D49), 100 ms of designed cost, counted in the process's CPU time over the call
+# phase (#1544): a shared CI runner's load spike — other workflows, xdist workers, the Windows
+# antivirus scanning a file on first access (#1465) — lands in wall time while the test waits for a
+# core, and turned millisecond tests red (a 5 ms test read 0.85 s, #1529). CPU time counts what the
+# test computes, in every thread of the worker, so a real regression (5 ms → 300 ms of work) still
+# fails. The CI multipliers stay as they were (×3, ×10 on Windows, #482): nothing that passed gets
+# tighter. Locally the budget carries a load allowance, 150 ms (1.5×): on a loaded dev machine
+# (parallel agents, xdist workers) CPU time itself inflates 1.5–1.8× — a 99 ms test read
+# 0.101–0.165 s, red on every pull request of one working day (#1754) — and CI still enforces the
+# 100 ms tier at its own multiplier.
+UNIT_BUDGET_S = (1.0 if sys.platform == "win32" else 0.3) if os.environ.get("CI") == "true" else 0.15
 #: A unit test waits for nothing (D49), and CPU time does not see waiting: the wall clock still
 #: bounds it, ten budgets wide, which a load spike does not reach and a sleep or a timeout does.
 UNIT_WALL_FACTOR = 10
