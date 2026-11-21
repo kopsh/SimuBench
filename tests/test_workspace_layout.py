@@ -16,7 +16,6 @@ from simubench.library.workspace_layout import (
     is_definition_file,
 )
 from simubench.server.benchfiles import BENCH_SUFFIXES as benchfiles_suffixes
-from simubench.storage import BENCH_SUFFIXES as storage_suffixes
 
 pytestmark = pytest.mark.unit
 
@@ -40,5 +39,5 @@ def test_a_workspace_definition_sits_at_instruments_id_yaml():
 
 
 def test_the_suffix_triple_is_the_one_the_file_homes_use():
-    """The bench write point and the storage inventory read the same tuple, not copies."""
-    assert benchfiles_suffixes is storage_suffixes is BENCH_SUFFIXES
+    """The bench write point reads the same tuple the layout homes declare, not a copy."""
+    assert benchfiles_suffixes is BENCH_SUFFIXES

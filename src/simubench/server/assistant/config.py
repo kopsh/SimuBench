@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, Any, get_args, get_origin, get_type_hints
 from urllib.parse import urlsplit
 
 from ...contracts import api as M
+from ...library.workspace_layout import SETTINGS_NAME, STORAGE_ROOT
 from ...paths import user_data_dir
 from ..errors import ConfigError
 
@@ -42,8 +43,8 @@ if TYPE_CHECKING:
     from ..manager import SessionManager
 
 OVERRIDES = "assistant.json"  # in the user data folder
-LEGACY_OVERRIDES = Path(".simubench") / "assistant.json"  # the old, workspace-held file: ignored (#1237)
-SETTINGS = Path(".simubench") / "settings.json"
+LEGACY_OVERRIDES = Path(STORAGE_ROOT) / "assistant.json"  # the old, workspace-held file: ignored (#1237)
+SETTINGS = Path(STORAGE_ROOT) / SETTINGS_NAME
 ENV = {
     "protocol": "SIMUBENCH_LLM_PROTOCOL",
     "base_url": "SIMUBENCH_LLM_BASE_URL",

@@ -4,8 +4,9 @@ Three kinds of data are tied to a file of the workspace and stay behind when tha
 or moved outside SimuBench (a file manager, a git checkout):
 
 * ``history/<path>/``: the saved versions of ``<path>`` (a bench or ``instruments/<id>.yaml``);
-* ``server/assistant/<bench path>.json``: the conversation of a bench;
-* ``files/<bench path without suffix>/``: the files its instruments keep between runs (#1069).
+* ``assistant/<bench path>.json``: the conversation of a bench;
+* ``files/<bench path without its last suffix>/``: the files its instruments keep between runs
+  (#1069, D95 — the folder name is the write side's, spelled once in ``workspace_layout``).
 
 An entry is an *orphan* when the file it belongs to no longer exists. Nothing here deletes without
 being asked; version history is kept by default, because it is how a deleted file comes back.
@@ -18,17 +19,22 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from .library.workspace_layout import BENCH_SUFFIXES
+from .library.workspace_layout import (
+    ASSISTANT_FOLDER,
+    FILES_FOLDER,
+    HISTORY_FOLDER,
+    STORAGE_ROOT,
+    bench_files_candidates,
+)
 
 Kind = Literal["history", "assistant", "files"]
 KINDS: tuple[Kind, ...] = ("history", "assistant", "files")
-ROOT = ".simubench"
 
 
 @dataclass(frozen=True)
 class Entry:
     kind: Kind
-    name: str  # the workspace file it belongs to, as a posix path (files: the bench without suffix)
+    name: str  # the workspace file it belongs to, as a posix path (files: the bench without its last suffix)
     path: Path
     bytes: int
     orphan: bool
@@ -45,7 +51,7 @@ def _rel(path: Path, root: Path) -> str:
 
 
 def _history(workspace: Path) -> list[Entry]:
-    root = workspace / ROOT / "history"
+    root = workspace / STORAGE_ROOT / HISTORY_FOLDER
     if not root.is_dir():
         return []
     out = []
@@ -57,7 +63,7 @@ def _history(workspace: Path) -> list[Entry]:
 
 
 def _assistant(workspace: Path) -> list[Entry]:
-    root = workspace / ROOT / "assistant"
+    root = workspace / STORAGE_ROOT / ASSISTANT_FOLDER
     if not root.is_dir():
         return []
     out = []
@@ -68,8 +74,8 @@ def _assistant(workspace: Path) -> list[Entry]:
 
 
 def _live(workspace: Path, files_root: Path, folder: Path) -> bool:
-    stem = workspace / _rel(folder, files_root)
-    return any(Path(f"{stem}{s}").is_file() for s in BENCH_SUFFIXES)
+    folder_rel = _rel(folder, files_root)
+    return any((workspace / name).is_file() for name in bench_files_candidates(folder_rel))
 
 
 def _orphan_folders(workspace: Path, files_root: Path, folder: Path) -> tuple[list[Path], bool]:
@@ -90,7 +96,7 @@ def _orphan_folders(workspace: Path, files_root: Path, folder: Path) -> tuple[li
 
 
 def _files(workspace: Path) -> list[Entry]:
-    root = workspace / ROOT / "files"
+    root = workspace / STORAGE_ROOT / FILES_FOLDER
     if not root.is_dir():
         return []
     orphans, _ = _orphan_folders(workspace, root, root)
