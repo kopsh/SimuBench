@@ -331,6 +331,33 @@ def format_float(
 _SI = {12: "T", 9: "G", 6: "M", 3: "k", 0: "", -3: "m", -6: "u", -9: "n", -12: "p"}
 
 
+def _exp3_with_carry(
+    v: float, mantissa_of: Callable[[float], str], *, cap: int | None = None
+) -> tuple[int, str]:
+    """The engineering exponent of ``v`` (a multiple of 3, floor of log10 of the magnitude) with
+    the rounding carry corrected: a mantissa that rounds up to 1000 takes the next prefix
+    (``999.5`` -> ``1.00E+03``), at most two steps. The mantissa text comes from
+    ``mantissa_of(v / 10.0**exp)`` — the sign travels in it (``format_engineering`` spells
+    ``-3.52334E+12``, not a leading minus on a positive mantissa); the carry test reads its
+    magnitude. ``cap`` ends the ladder (``format_si``'s prefixes stop at T/p) — at the cap the
+    mantissa stays at 1000 and the exponent does not grow."""
+
+    def text_at(exp: int) -> str:
+        return mantissa_of(v / 10.0**exp)
+
+    a = abs(v)
+    exp = 0 if a == 0 else math.floor(math.log10(a) / 3) * 3
+    if cap is not None:
+        exp = max(-cap, min(cap, exp))
+    text = text_at(exp)
+    for _ in range(2):
+        if abs(float(text)) < 1000 or (cap is not None and exp >= cap):
+            break
+        exp += 3
+        text = text_at(exp)
+    return exp, text
+
+
 def format_si(v: float, significant: int = 9, unit: str = "", *, sign: bool = False) -> bytes:
     """A number with an SI prefix and a unit, ``significant`` digits in all (#289): ``4.00000000MHz``
     (9), ``1.50000000000GHz`` (12), ``400.000000MHz`` (9). The prefix is the one that puts the
@@ -340,14 +367,12 @@ def format_si(v: float, significant: int = 9, unit: str = "", *, sign: bool = Fa
         return format_float(v)
     lead = "-" if v < 0 else ("+" if sign else "")
     a = abs(v)
-    exp3 = 0 if a == 0 else max(-12, min(12, math.floor(math.log10(a) / 3) * 3))
-    for _ in range(2):  # rounding can carry the mantissa to 1000: take the next prefix
-        m = a / 10.0**exp3
+
+    def mantissa(m: float) -> str:
         whole = len(str(int(m))) if m >= 1 else 1
-        text = f"{m:.{max(0, significant - whole)}f}"
-        if float(text) < 1000 or exp3 >= 12:
-            break
-        exp3 += 3
+        return f"{m:.{max(0, significant - whole)}f}"
+
+    exp3, text = _exp3_with_carry(a, mantissa, cap=12)
     return f"{lead}{text}{_SI[exp3]}{unit}".encode()
 
 
@@ -356,11 +381,7 @@ def format_engineering(v: float) -> bytes:
     v = float(v)
     if v == 0 or not math.isfinite(v):
         return b"0E+0" if v == 0 else (b"9.9E+37" if v > 0 else b"-9.9E+37")
-    exp = math.floor(math.log10(abs(v)) / 3) * 3
-    text = f"{v / 10.0**exp:.6g}"
-    if abs(float(text)) >= 1000:  # rounding carried into the next group
-        exp += 3
-        text = f"{v / 10.0**exp:.6g}"
+    exp, text = _exp3_with_carry(v, lambda m: f"{m:.6g}")
     return f"{text}E{exp:+d}".encode()
 
 
@@ -374,15 +395,12 @@ def format_engineering_digits(
     if not math.isfinite(v):
         return f"{'-' if v < 0 else lead}9.9E+{37:0{exponent_digits}d}".encode()
     a = abs(v)
-    exp = 0 if a == 0 else math.floor(math.log10(a) / 3) * 3
-    for _ in range(2):  # rounding may carry into the next group (999.5 -> 1.00E+03)
-        mant = a / 10.0**exp
-        whole = 1 if mant < 10 else 2 if mant < 100 else 3
-        decimals = max(0, significant - whole)
-        text = f"{mant:.{decimals}f}"
-        if float(text) < 1000:
-            break
-        exp += 3
+
+    def mantissa(m: float) -> str:
+        whole = 1 if m < 10 else 2 if m < 100 else 3
+        return f"{m:.{max(0, significant - whole)}f}"
+
+    exp, text = _exp3_with_carry(a, mantissa)  # the mantissa is unsigned; the lead carries the sign
     return f"{lead}{text}E{'+' if exp >= 0 else '-'}{abs(exp):0{exponent_digits}d}".encode()
 
 
