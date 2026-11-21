@@ -25,8 +25,18 @@ export function AssistantSettings({ open, onOpenChange }: { open: boolean; onOpe
           <DialogTitle>{t("assistant.config.title")}</DialogTitle>
           <DialogDescription>{t("assistant.config.description")}</DialogDescription>
         </DialogHeader>
-        {/* Mounted per opening: the form starts from the settings as they are now. */}
-        {config.data ? <SettingsForm cfg={config.data} onDone={() => onOpenChange(false)} /> : <Skeleton className="h-64 w-full" />}
+        {/* Mounted per opening: the form starts from the settings as they are now. A failed read
+        shows the server's words (#1753, the 422's detail) instead of a forever skeleton. */}
+        {config.isError ? (
+          <p role="alert" className="text-error flex items-start gap-1.5 text-[12.5px] break-words">
+            <CircleX className="mt-0.5 size-3.5 shrink-0" />
+            <span>{t("assistant.config.loadError", { message: (config.error as Error).message })}</span>
+          </p>
+        ) : config.data ? (
+          <SettingsForm cfg={config.data} onDone={() => onOpenChange(false)} />
+        ) : (
+          <Skeleton className="h-64 w-full" />
+        )}
       </DialogContent>
     </Dialog>
   );

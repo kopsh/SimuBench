@@ -1,6 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ReactNode } from "react";
+import { createElement } from "react";
+import "@/i18n";
+import { api } from "@/api/client";
 import { en } from "@/i18n/en";
 import { zh } from "@/i18n/zh";
+import { AssistantSettings } from "./AssistantSettings";
 import { type AssistantTurn, STEP_ACTIONS, SseParser, applyEvent, canRollBack, rollbackSummary, stepKey, stopAsked } from "./model";
 
 const turn = (over: Partial<AssistantTurn> = {}): AssistantTurn => ({
@@ -177,5 +184,45 @@ describe("stopAsked (#902)", () => {
   it("not without a question", () => {
     expect(stopAsked([turn({ status: "done" })])).toBe(false);
     expect(stopAsked([])).toBe(false);
+  });
+});
+
+describe("AssistantSettings", () => {
+  afterEach(() => {
+    cleanup();
+    vi.restoreAllMocks();
+  });
+
+  // The dialog reads its config itself (useAssistantConfig); the query rides a QueryClient with
+  // retries off. createElement, not JSX: this module is .ts and the render tests stay here with
+  // them (#1753), rather than a new file for one error state.
+  function dialog() {
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: qc }, children);
+    return render(createElement(AssistantSettings, { open: true, onOpenChange: () => {} }), { wrapper });
+  }
+
+  it("a 422 config read shows the server's words instead of a forever skeleton (#1753)", async () => {
+    vi.spyOn(api, "GET").mockResolvedValue({
+      error: { detail: "环境变量 SIMUBENCH_LLM_TIMEOUT 的值 'abc' 不是数" },
+      response: new Response("", { status: 422 }),
+    });
+    dialog();
+    const alert = await screen.findByRole("alert");
+    expect(alert.textContent).toContain("读取设置失败");
+    expect(alert.textContent).toContain("SIMUBENCH_LLM_TIMEOUT");
+    expect(document.querySelector('[data-slot="skeleton"]')).toBeNull();
+    expect(screen.queryByRole("button", { name: zh.assistant.config.save })).toBeNull();
+  });
+
+  it("a good read still opens the form", async () => {
+    vi.spyOn(api, "GET").mockResolvedValue({
+      data: { protocol: "openai", base_url: "http://llm:8000/v1", model: "glm-5.3", timeout_s: 60, context_tokens: 32000, api_key_set: true },
+      response: new Response("", { status: 200 }),
+    });
+    dialog();
+    expect(await screen.findByRole("button", { name: zh.assistant.config.save })).toBeTruthy();
+    expect(document.querySelector('[data-slot="skeleton"]')).toBeNull();
   });
 });
