@@ -20,6 +20,8 @@ the panel and goes through the loop guard (:mod:`guard`).
 
 from __future__ import annotations
 
+import functools
+import inspect
 import re
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -33,6 +35,7 @@ from ...contracts import tools as T
 from ...engine.edit import AddInstrument
 from ...engine.jsonpatch import PatchOp
 from ...engine.record import bounded, jsonable
+from ...models.bench import BENCH_SCHEMA
 from .. import drive
 from ..errors import DOMAIN_ERRORS, Forbidden, Invalid, tool_text
 from ..manager import ServedSession
@@ -354,24 +357,50 @@ def read_bench(ctx: RunContext[TurnContext], path: str | None = None) -> dict[st
     return _call(t, "read_bench", {"path": bench}, run, _Step(t, "read_bench", bench))  # type: ignore[no-any-return]
 
 
+def tool_input(model_cls: type[T._Input]) -> Callable[[Any], Any]:
+    """The assistant seam's mirror of the model's fields (cf. mcp_tools.context.tool_input, #1770):
+    the published schema is built from the contract model — pydantic-ai reads the signature's
+    annotations (``get_type_hints(..., include_extras=True)``), so the mirrored parameters carry a
+    field's own description — and the body receives the constructed model."""
+
+    def deco(fn: Callable[[Any], Any]) -> Any:
+        params = [
+            inspect.Parameter("ctx", inspect.Parameter.POSITIONAL_OR_KEYWORD, annotation=RunContext),
+            *T.mirrored_params(model_cls),
+        ]
+        try:
+            returns = inspect.signature(fn, eval_str=True).return_annotation
+        except NameError:  # a TYPE_CHECKING-only annotation: the plain string stands in
+            returns = inspect.signature(fn).return_annotation
+        mirror = inspect.Signature(params, return_annotation=returns)
+
+        @functools.wraps(fn)
+        async def wrapper(ctx: RunContext[TurnContext], **kwargs: Any) -> Any:
+            # the mirror is deliberately dynamic; the published schema is pinned by tests
+            return await fn(ctx, model_cls(**kwargs))  # ty: ignore[too-many-positional-arguments]
+
+        wrapper.__signature__ = mirror  # ty: ignore[missing-attribute] — the SDK reads the signature, not the source
+        wrapper.__annotations__ = {p.name: p.annotation for p in mirror.parameters.values()}
+        wrapper.__annotations__["return"] = returns
+        return wrapper
+
+    return deco
+
+
 @changes
-def create_bench(
-    ctx: RunContext[TurnContext],
-    path: Annotated[str, Field(description="Workspace-relative, ending in .bench.yaml")],
-    name: Annotated[str, Field(description="The bench's name")],
-    description: str | None = None,
-) -> dict[str, Any]:
+@tool_input(T.CreateBench)
+async def create_bench(ctx: RunContext[TurnContext], input: T.CreateBench) -> dict[str, Any]:
     """Create an empty bench file; fill it with edit_bench."""
     t = ctx.deps
 
     def run() -> dict[str, Any]:
-        data: dict[str, Any] = {"schema": "simubench.bench/2", "name": name}
-        if description:
-            data["description"] = description
-        touch(t, path, "bench")
-        return _bench_out(t.service.files.save(path, None, data, "agent"), t)
+        data: dict[str, Any] = {"schema": BENCH_SCHEMA, "name": input.name}
+        if input.description:
+            data["description"] = input.description
+        touch(t, input.path, "bench")
+        return _bench_out(t.service.files.save(input.path, None, data, "agent"), t)
 
-    return _call(t, "create_bench", {"path": path}, run, _Step(t, "create_bench", path))  # type: ignore[no-any-return]
+    return _call(t, "create_bench", {"path": input.path}, run, _Step(t, "create_bench", input.path))  # type: ignore[no-any-return]
 
 
 @changes
