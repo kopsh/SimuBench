@@ -32,7 +32,7 @@ from pyvisa import rname
 from ..engine.faults import LinkDown
 from ..engine.session import Session
 from . import ClientConnection, engine_call
-from .bus import bus_of, observe, serial_poll
+from .bus import add_srq_listener, bus_of, observe, serial_poll
 
 log = logging.getLogger("simubench.vxi11")
 
@@ -440,12 +440,9 @@ class Vxi11Server(_RpcServer):
         return (stb & ~MAV) | (MAV if link.has_output() else 0)
 
     def _poll_srq(self, instrument: str) -> None:
-        """A request for service is pending: tell every link that enabled SRQ (device_intr_srq), once per request."""
-        try:
-            observe(self.session, instrument)
-            srq = bus_of(self.session, instrument).service_request
-        except Exception:  # a status read must never take the connection down
-            return
+        """The bus's announcer (D96): tell every link that enabled SRQ (device_intr_srq), once per
+        request. The bus observed the latch; the recipients re-check their own edges here."""
+        srq = bus_of(self.session, instrument).service_request
         for link in list(self._links.values()):
             if link.instrument != instrument:
                 continue
@@ -483,6 +480,7 @@ class Vxi11Server(_RpcServer):
         self._next_link += 1
         self._links[link.id] = link
         conn.links.add(link)
+        add_srq_listener(self.session, name, self._poll_srq)  # a bus-level announcer (D96)
         if self.on_change is not None:
             self.on_change()
         if (
@@ -515,7 +513,6 @@ class Vxi11Server(_RpcServer):
             message, link.inbuf = bytes(link.inbuf), bytearray()
             outs = await self._engine(self.session.exchange, link.instrument, message, link.client)
             link.pending.extend(outs)
-            self._poll_srq(link.instrument)
         return _u(OK, len(data))
 
     async def _device_read(self, conn: _Conn, rd: _Reader) -> bytes:
@@ -567,7 +564,6 @@ class Vxi11Server(_RpcServer):
         if not await self._guard(link, lock_timeout):
             return _error(E_LOCKED)
         await self._engine(self.session.write, link.instrument, b"*TRG", link.client)
-        self._poll_srq(link.instrument)
         return _error(OK)
 
     async def _device_clear(self, conn: _Conn, rd: _Reader) -> bytes:

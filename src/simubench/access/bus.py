@@ -270,6 +270,35 @@ class InstrumentBus:
     locks: LockTable = field(default_factory=LockTable)
     remote_local: RemoteLocal = field(default_factory=RemoteLocal)
     service_request: ServiceRequest = field(default_factory=ServiceRequest)
+    #: Announcers the push transports register (D96): when the instrument's service-request state
+    #: changes, each announcer re-checks its own recipients' edges. The bus decides *when* a
+    #: pending request may have appeared or gone; each transport keeps its own delivery. The pull
+    #: transports (USB's interrupt IN, the in-process backend) read the latch instead and need
+    #: none. Weak to the server: the bus outlives connections and must not keep a server alive
+    #: (the registry is weak-keyed by the session).
+    srq_listeners: list[tuple[asyncio.AbstractEventLoop, weakref.WeakMethod]] = field(default_factory=list)
+
+    def announce_srq(self, session: Session, instrument: str) -> None:
+        """The service-request state changed: tell every announcer to re-check its recipients."""
+        for loop, ref in self.srq_listeners:
+            listener = ref()
+            if listener is None:
+                continue  # a server that is going away cannot deliver
+            with contextlib.suppress(RuntimeError):
+                loop.call_soon_threadsafe(_announce, listener, instrument)
+
+
+def _announce(listener: Callable[[str], None], instrument: str) -> None:
+    listener(instrument)
+
+
+def add_srq_listener(session: Session, instrument: str, listener: Callable[[str], None]) -> None:
+    """Register a push transport's announcer for one instrument: it runs on the caller's event
+    loop whenever the instrument's service-request state changes (D96). Idempotent per listener."""
+    bus = bus_of(session, instrument)
+    if any(ref() == listener for _, ref in bus.srq_listeners):
+        return
+    bus.srq_listeners.append((asyncio.get_running_loop(), weakref.WeakMethod(listener)))
 
 
 _REGISTRY: weakref.WeakKeyDictionary[Session, dict[str, InstrumentBus]] = weakref.WeakKeyDictionary()
@@ -296,11 +325,24 @@ def _watch(session: Session, event: dict) -> None:
 def observe(session: Session, instrument: str) -> None:
     """Let the instrument's request-service latch see its status byte (call after any I/O)."""
     inst = session.instrument(instrument)
+    bus = bus_of(session, instrument)
+    srq = bus.service_request
+    was = (srq.latch, srq.reasons)
     # Only a look: the observer must not latch what the status registers have not latched yet.
-    bus_of(session, instrument).service_request.observe(inst.stb(commit=False), inst.sre)
+    srq.observe(inst.stb(commit=False), inst.sre)
+    if (srq.latch, srq.reasons) != was:
+        bus.announce_srq(session, instrument)
 
 
 def serial_poll(session: Session, instrument: str) -> int:
     """A serial poll of one instrument, the same on every bus that has one."""
     inst = session.instrument(instrument)
-    return bus_of(session, instrument).service_request.poll(inst.stb(), inst.sre)
+    bus = bus_of(session, instrument)
+    srq = bus.service_request
+    was = srq.latch
+    out = srq.poll(inst.stb(), inst.sre)
+    if srq.latch != was:
+        # The poll carried RQS out: the announcers' own edges reset, and a transport that had not
+        # announced yet will not (the request went to whoever polled, D63's one-request rule).
+        bus.announce_srq(session, instrument)
+    return out

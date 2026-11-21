@@ -112,6 +112,15 @@ class ApiClient:
                 message = body.get("message") if isinstance(body, dict) else body
                 if isinstance(message, dict) and "message" in message:
                     message = message["message"]
+                if message is None and isinstance(body, dict):
+                    # the HTTP layer spells reasons ``detail`` (HTTPException and the 422 of a
+                    # request model): a string is the reason, a validation list's first entry
+                    # carries it (#1761) — raw JSON is not what a person reads.
+                    detail = body.get("detail")
+                    if isinstance(detail, str):
+                        message = detail
+                    elif isinstance(detail, list) and detail and isinstance(detail[0], dict):
+                        message = str(detail[0].get("msg") or detail[0])
                 if not isinstance(message, str):
                     message = r.text
             except ValueError:
