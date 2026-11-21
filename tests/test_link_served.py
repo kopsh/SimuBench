@@ -160,7 +160,7 @@ def test_the_addresses_the_service_prints_open_through_the_link(served, monkeypa
     # As with `serve` on its default port: the HiSLIP address the client derives is one the service also
     # reports as served (#1259).
     monkeypatch.setattr(
-        pyvisa_backend, "HISLIP_PORT", int(awg["address_hislip"].split(",")[1].split("::")[0])
+        pyvisa_backend, "DEFAULT_PORT", int(awg["address_hislip"].split(",")[1].split("::")[0])
     )
     rm = pyvisa.ResourceManager(f"{now['link_address']}@simubench")
     try:

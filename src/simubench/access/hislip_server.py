@@ -34,6 +34,20 @@ log = logging.getLogger("simubench.hislip")
 
 HEADER = struct.Struct("!2sBBIQ")  # prologue, type, control code, parameter, payload length
 DEFAULT_PORT = 4880
+
+
+def hislip_resource(host: str, sub: str, port: int) -> str:
+    """A HiSLIP resource address with the port written — the served form: one shared port serves
+    every instrument, the sub-address selects it (D41). The one place the spelling is built."""
+    return f"TCPIP0::{host}::{sub},{port}::INSTR"
+
+
+def hislip_resource_default(host: str, sub: str) -> str:
+    """The portless form of a HiSLIP resource address: a VISA library fills in the default port
+    (:data:`DEFAULT_PORT`) — the in-process backend's alias for a server on that port."""
+    return f"TCPIP0::{host}::{sub}::INSTR"
+
+
 SERVER_VERSION = 0x0200  # HiSLIP 2.0; the negotiated version is the lower of ours and the client's
 INITIAL_MESSAGE_ID = 0xFFFF_FF00  # where both sides count from after initialization and device clear
 SERVER_VENDOR = 0x5342  # "SB" in the VPP-9 two-letter style
@@ -370,7 +384,7 @@ class HislipServer:
         port semantics: one shared port serves every instrument, the sub-address selects it."""
         out: dict[str, str] = {}
         for sub, name in self._subaddresses.items():
-            out.setdefault(name, f"TCPIP0::{self.host}::{sub},{self.port}::INSTR")
+            out.setdefault(name, hislip_resource(self.host, sub, self.port))
         return out
 
     def locks(self, instrument: str) -> LockTable:
