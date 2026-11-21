@@ -32,9 +32,9 @@ EVENT_KINDS: dict[str, str] = {
     "panel": "a front-panel operation (instrument, action)",
     "hidden": "a hidden parameter of the running bench written (source)",
     "remote": "remote/local control of an instrument changed (instrument, action)",
-    "hislip": "a HiSLIP remote/local control message acknowledged (instrument, client, action)",
-    "bus_control": "something a script did on a bus: a remote/local control (REN, GTL, LLO), a GPIB command "
-    "(SDC, DCL, GET, IFC ...) or a USB488 request (INDICATOR_PULSE ...) (instrument, client, action)",
+    "bus_control": "something a script did on a bus: a remote/local control (REN, GTL, LLO) — HiSLIP's "
+    "AsyncRemoteLocalControl, VXI-11, GPIB and USB488 alike —, a GPIB command (SDC, DCL, GET, IFC ...) "
+    "or a USB488 request (INDICATOR_PULSE ...) (instrument, client, action)",
     "solver": "the circuit solver reported (reason, message)",
     "abort": "a read ended early at a checkpoint: its compute budget ran out, or it was cancelled "
     "(reason budget | cancel, at the component port it stopped before; D88, #1510)",

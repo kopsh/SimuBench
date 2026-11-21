@@ -45,7 +45,7 @@ export type Gap = ("out_of_scope" | "blocked" | "model_work") | null;
 export type Header = string | null;
 export type Instrument = string | null;
 /**
- * scpi | state | advance | clock | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file
+ * scpi | state | advance | clock | error | warning | ignored | fault | acquisition | panel | hidden | remote | bus_control | solver | abort | file
  */
 export type Kind = string;
 export type Message = string | null;

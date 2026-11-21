@@ -27,7 +27,7 @@ from collections.abc import Callable
 
 from ..engine.session import Session
 from . import ClientConnection, engine_call
-from .bus import LockTable, bus_of, observe, serial_poll
+from .bus import LockTable, add_srq_listener, bus_of, observe, serial_poll
 from .hislip_tls import AuthState, SecureConfig, SecureStream
 
 log = logging.getLogger("simubench.hislip")
@@ -339,6 +339,13 @@ class HislipServer:
         """The open HiSLIP connections, for the client lists the manager reports (issue 641)."""
         return list(self._sessions.values())
 
+    def announce_srq(self, instrument: str) -> None:
+        """The bus's announcer (D96): every session of the instrument re-checks its own edge —
+        the request is not just the triggering session's (IVI-6.1 6.13 is per connection)."""
+        for sess in list(self._sessions.values()):
+            if sess.instrument == instrument:
+                sess.poll_srq()
+
     def connections(self) -> list[ClientConnection]:
         """The open connections with whether each holds its instrument's lock."""
         return [
@@ -427,6 +434,7 @@ class HislipServer:
             self.secure is not None and version >= VERSION_2 and self.secure.initial_required
         )
         self._sessions[sess.session_id] = sess
+        add_srq_listener(self.session, name, self.announce_srq)  # a bus-level announcer (D96)
         if self.on_change is not None:
             self.on_change()
         # Control: bit 0 is the mode the server starts in, bits 1 and 2 the encryption mode (6.1).
@@ -550,7 +558,6 @@ class HislipServer:
                     )
                 finally:
                     sess.finished(parameter)
-                sess.poll_srq()
                 if not sess.clearing:
                     await self._answer(sess, parameter, outs)
             elif msg_type == TRIGGER:
@@ -561,7 +568,6 @@ class HislipServer:
                     await self._engine(sess, self.session.write, sess.instrument, b"*TRG", sess.client)
                 finally:
                     sess.finished(parameter)
-                sess.poll_srq()
             elif msg_type == DEVICE_CLEAR_COMPLETE:
                 writer.write(_pack(DEVICE_CLEAR_ACKNOWLEDGE, self._agree_features(sess, control)))
                 await writer.drain()
@@ -670,7 +676,14 @@ class HislipServer:
                 await sess.send_error(writer, ERR_UNRECOGNIZED_CONTROL, b"unrecognized control code")
                 return
             self.session.events.emit(
-                {"kind": "hislip", "instrument": sess.instrument, "client": sess.client, "action": action}
+                # the same fact the VXI-11, GPIB and USB paths publish: one kind for the control
+                # (D96 — the kind said which transport, nothing consumed that)
+                {
+                    "kind": "bus_control",
+                    "instrument": sess.instrument,
+                    "client": sess.client,
+                    "action": action,
+                }
             )
             writer.write(_pack(ASYNC_REMOTE_LOCAL_RESPONSE))
             await writer.drain()
@@ -949,7 +962,6 @@ class HislipServer:
             code = 1 if granted else 0  # failure / success
         else:
             code = locks.release(sess)
-        sess.poll_srq()
         writer.write(_pack(ASYNC_LOCK_RESPONSE, code))
         await writer.drain()
 
