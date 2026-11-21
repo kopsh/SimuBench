@@ -1441,6 +1441,7 @@ export const en: Widen<Messages> = {
     config: {
       title: "AI assistant settings",
       description: "The server connects to the LLM service you configure; the API key is kept in the server's workspace and never shown.",
+      loadError: "Failed to read the settings: {{message}}",
       protocol: "Protocol",
       openai: "OpenAI compatible (/v1/chat/completions)",
       anthropic: "Anthropic compatible (/v1/messages)",

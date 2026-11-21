@@ -1431,6 +1431,7 @@ export const zh = {
     config: {
       title: "AI 助手设置",
       description: "助手由服务端连接你配置的大模型服务；API key 只保存在服务端工作区，界面不会显示。",
+      loadError: "读取设置失败：{{message}}",
       protocol: "协议",
       openai: "OpenAI 兼容（/v1/chat/completions）",
       anthropic: "Anthropic 兼容（/v1/messages）",
