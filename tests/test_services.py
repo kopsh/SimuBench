@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from typing import ClassVar
 
 import pytest
 
@@ -503,3 +504,37 @@ def test_agent_seams_drive_sessions_only_through_the_manager():
             if node.func.attr == "close" and receiver.endswith(".session"):
                 offenders.append(f"{path.name}: {receiver}.close()")
     assert offenders == []
+
+
+def test_the_session_summary_s_agent_vocabulary_is_the_dto_s_addresses():
+    """The agent keys (resource_*, scpi_socket) are the DTO's address_* spelled for the agent
+    seam (#1771): resource_virtual is the socket address — the same formula views builds
+    address_virtual with — and the mapping is pinned, not maintained by hand."""
+    from simubench.server.projections import session_summary
+
+    class _Instrument:
+        name, model, idn = "smu", "keysight-b2901a", "SIMUBENCH,SB"
+        scpi_port, address_virtual = 5025, "TCPIP0::127.0.0.1::5025::SOCKET"
+        address_real, address_hislip, address_vxi11 = None, "hislip", "vxi11"
+        options: ClassVar[list] = []
+        channel_count = 1
+
+        def __getattr__(self, item):
+            raise AttributeError(item)
+
+    class _Info:
+        id, bench_name, bench_path, clock_mode, now_ns = "s", "b", "b.bench.yaml", "command", 0
+        instruments: ClassVar[list] = [_Instrument()]
+
+    class _Served:
+        id = "s"
+
+    class _Manager:
+        pass
+
+    out = session_summary(_Manager(), _Served(), _Info())
+    inst = out["instruments"][0]
+    assert inst["scpi_socket"] == inst["resource_virtual"] == _Instrument.address_virtual
+    assert inst["resource_real"] == _Instrument.address_real
+    assert inst["resource_hislip"] == _Instrument.address_hislip
+    assert inst["resource_vxi11"] == _Instrument.address_vxi11

@@ -22,7 +22,8 @@ from pathlib import Path
 from typing import Any
 
 from .engine.calibration import Decision, Spec, assess
-from .replay import _bytes, open_record, resend
+from .engine.record import decode_bytes
+from .replay import open_record, resend
 
 #: The report columns the map must name, and the normalized statements a decision cell maps to.
 COLUMNS = ("nominal", "reading", "low", "high", "decision")
@@ -253,7 +254,7 @@ def check_verdicts(
             name = str(ev.get("instrument"))
             if name not in candidates:
                 continue
-            data = _bytes(ev.get("data"))
+            data = decode_bytes(ev.get("data"))
             if data is None:
                 continue
             text = data.decode("ascii", errors="replace")

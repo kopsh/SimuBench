@@ -43,6 +43,20 @@ def encode_bytes(data: bytes) -> dict[str, str]:
     return {"b64": base64.b64encode(data).decode(), "size": str(len(data))}
 
 
+def decode_bytes(data: Any) -> bytes | None:
+    """The inverse of :func:`encode_bytes` for a record's or event's byte payload: ``None`` when
+    the payload is not one. Lives beside the encoder so the record's byte spelling — written
+    here, decoded there — is one knowledge (#1771; the decoder used to be replay's private
+    ``_bytes``, and verdicts tunneled into it)."""
+    if not isinstance(data, dict):
+        return None
+    if "text" in data:
+        return str(data["text"]).encode("ascii")
+    if "b64" in data:
+        return base64.b64decode(data["b64"])
+    return None
+
+
 def jsonable(value: Any) -> Any:
     """A value JSON can carry, for the run record and the event stream alike (issue 595: one
     helper). Bytes become text or base64 (:func:`encode_bytes`); a non-finite float becomes the
