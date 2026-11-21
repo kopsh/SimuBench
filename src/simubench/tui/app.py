@@ -817,6 +817,8 @@ class SimuBenchApp(App[None]):
             self._flash(str(exc))  # a refused advance must be visible, not a silent worker (#1761)
             return
         detail = out.get("detail") if isinstance(out, dict) else None
+        if isinstance(detail, dict):  # the clients guard's 409 spells a structured reason (#1782)
+            detail = detail.get("message")
         if detail:  # 409: the advance did not happen; say why (the clients guard or the limit)
             self._flash(str(detail))
 
