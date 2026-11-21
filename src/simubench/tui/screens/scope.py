@@ -19,6 +19,7 @@ from textual.widgets import Static
 
 from .. import controls as C
 from .. import i18n
+from .. import rows as R
 from ..cards import opposite_ends
 from ..fmt import fmt
 from ..reasons import ReasonReport, silence_report
@@ -516,38 +517,29 @@ class ScopeScreen(ControlEditingScreen):
     # -- the settings column (6.2) -------------------------------------------------------------------------
 
     def _setting_controls(self) -> list[C.Control]:
-        """The settings column's controls: timebase, trigger, acquisition, then the channels."""
+        """The settings column's controls: the declared panel's groups (D83) — what a scope's
+        front panel offers, including what follows its ``when`` (#1774: the averages ride the
+        acquisition type, the holdoff its mode) — then each channel's vertical group. A
+        definition without a declared panel falls back to the generic column, like the other
+        dedicated screens (#1469)."""
         info = self.info
         lang = self.app.lang
         state = {sv["path"]: sv for sv in info.get("state", [])}
-        paths = [
-            "timebase.scale",
-            "timebase.delay",
-            "trigger.source",
-            "trigger.slope",
-            "trigger.level",
-            "trigger.mode",
-            "trigger.coupling",
-            "acquire.type",
-            "acquire.resolution",
-            "acquire.mdepth",
-        ]
+        groups = R.panel_group_paths((info.get("display") or {}).get("panel"), info)
+        if not groups:
+            groups = {"": [sv["path"] for sv in info.get("state", [])]}
         out: list[C.Control] = []
-        for path in paths:
-            sv = state.get(path)
-            if sv is not None and not sv.get("readonly"):
-                out.append(C._control_for(path, sv, lang))
-        for ch in range(1, 5):
+        for group, paths in groups.items():
             first = True
-            for suffix in ("display", "scale", "coupling", "impedance", "probe"):
-                path = f"ch{ch}.{suffix}"
+            for path in paths:
                 sv = state.get(path)
-                if sv is not None and not sv.get("readonly"):
-                    control = C._control_for(path, sv, lang)
-                    if first:  # the channel's first field names it; the rest follow beneath
-                        control = replace(control, label=f"CH{ch} {control.label}")
-                        first = False
-                    out.append(control)
+                if sv is None or sv.get("readonly"):
+                    continue
+                control = C._control_for(path, sv, lang)
+                if first and group.startswith("CH"):  # the channel's first field names it (6.2)
+                    control = replace(control, label=f"{group.split(' ·')[0]} {control.label}")
+                    first = False
+                out.append(control)
         return out
 
     def _build_buttons(self) -> None:
