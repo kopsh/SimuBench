@@ -370,7 +370,7 @@ class AssistantService:
             if now is not None:
                 record.after[rel] = now
             old = self._content(rel, before, record) if before else None
-            changes = self.stores.changes(kind, old, self._current(rel))
+            changes = self.stores.changes(kind, rel, old, self._current(rel))
             if before is None or changes:
                 turn.files.append(
                     M.AssistantFileChange(path=rel, kind=kind, created=before is None, changes=changes)  # type: ignore[arg-type]
@@ -404,7 +404,7 @@ class AssistantService:
             lost: list[M.DefinitionChange] = []
             if modified:
                 at_turn_end = self._content(rel, after, record) if after else None
-                lost = self.stores.changes(kind, at_turn_end, self._current(rel))
+                lost = self.stores.changes(kind, rel, at_turn_end, self._current(rel))
             files.append(
                 M.RollbackFile(
                     path=rel,
