@@ -473,7 +473,7 @@ class SimuBenchApp(App[None]):
         if kind == "clock":  # switched while running (#1660): the top bar and the wall tick follow
             self._dirty_clock = True
         if kind in ("session", "remote", "clock"):
-            self._session_task = asyncio.create_task(self._refresh_session())
+            self._refresh_session_soon()  # the same trailing protocol as the sid events (#1760)
         self._dirty_lines = True
         self.bump()
 

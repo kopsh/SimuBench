@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .engine.session import Session
 from .library.loader import DefinitionLibrary, load_bench
+from .library.workspace_layout import FILES_FOLDER, STORAGE_ROOT, bench_files_folder_rel
 from .models.bench import BenchDefinition
 
 
@@ -75,6 +76,6 @@ def open_bench(
 
 def bench_files_dir(workspace: Path, bench: Path) -> Path:
     """Where a bench's instruments keep their files between runs (#1069):
-    ``<workspace>/.simubench/files/<bench path without suffix>/``."""
-    rel = bench.resolve().relative_to(workspace.resolve()).with_suffix("")
-    return workspace / ".simubench" / "files" / rel
+    ``<workspace>/.simubench/files/<bench path without its last suffix>/`` (D95)."""
+    rel = bench.resolve().relative_to(workspace.resolve()).as_posix()
+    return Path(workspace) / STORAGE_ROOT / FILES_FOLDER / bench_files_folder_rel(rel)

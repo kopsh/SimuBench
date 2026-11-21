@@ -13,6 +13,7 @@ from simubench.api import bench_files_dir, open_bench
 from simubench.library.components import files as F
 from simubench.models.bench import BenchDefinition
 from simubench.replay import replay
+from simubench.storage import clean_orphans, inventory
 
 BENCH = {"schema": "simubench.bench/2", "name": "t", "instruments": {"awg": {"model": "keysight-33622a"}}}
 
@@ -153,6 +154,21 @@ def test_files_persist_across_runs_of_a_bench(tmp_path):
     assert (where / "awg" / "USB" / "kept.csv").read_bytes() == b"ok"
     with open_bench(bench, files_dir=where) as s:
         assert ask(s, 'MMEM:UPL? "USB:\\kept.csv"') == b"#12ok\n"
+
+
+def test_the_storage_inventory_counts_a_live_benchs_files_live(tmp_path):
+    """One folder-name derivation on both sides (D95): what a bench's instruments keep is live
+    data, not something ``--clean`` may remove (#1759)."""
+    bench = tmp_path / "b.bench.yaml"
+    bench.write_text(json.dumps(BENCH), encoding="utf-8")
+    where = bench_files_dir(tmp_path, bench)
+    with open_bench(bench, files_dir=where) as s:
+        ask(s, 'MMEM:DOWN:FNAM "USB:\\kept.csv"')
+        ask(s, "MMEM:DOWN:DATA #12ok")
+    entries = {e.name: e for e in inventory(tmp_path) if e.kind == "files"}
+    assert not entries["b.bench"].orphan
+    assert clean_orphans(tmp_path, ("files",)) == []
+    assert where.exists() and (where / "awg" / "USB" / "kept.csv").read_bytes() == b"ok"
 
 
 def test_without_a_files_folder_the_files_go_with_the_session():

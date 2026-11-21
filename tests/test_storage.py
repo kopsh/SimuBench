@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from simubench.cli import main
+from simubench.library.workspace_layout import BENCH_SUFFIXES, bench_files_candidates, bench_files_folder_rel
 from simubench.server.app import create_app
 from simubench.server.manager import SessionManager
 from simubench.server.ops import doctor
@@ -33,8 +34,8 @@ def workspace(tmp_path: Path) -> Path:
         put(sb / "history" / name / "000001.yaml", 100)
     put(sb / "assistant" / "kept.bench.yaml.json", 30)
     put(sb / "assistant" / "gone.bench.yaml.json", 40)
-    put(sb / "files" / "kept" / "dmm" / "USB" / "a.csv", 1000)
-    put(sb / "files" / "sub" / "deep" / "awg" / "b.csv", 500)
+    put(sb / "files" / "kept.bench" / "dmm" / "USB" / "a.csv", 1000)
+    put(sb / "files" / "sub" / "deep.bench" / "awg" / "b.csv", 500)
     put(sb / "files" / "gone" / "awg" / "c.csv", 2000)
     put(sb / "files" / "gone" / "dso" / "d.csv", 3000)
     return tmp_path
@@ -52,15 +53,23 @@ def test_the_inventory_finds_each_kind_and_marks_what_lost_its_file(tmp_path):
     # conversations
     assert not got["assistant", "kept.bench.yaml"].orphan and got["assistant", "gone.bench.yaml"].orphan
     # instrument files: a live bench's folder, a live bench in a subfolder, and one orphan counted once
-    assert not got["files", "kept"].orphan and got["files", "kept"].bytes == 1000
-    assert not got["files", "sub/deep"].orphan
+    assert not got["files", "kept.bench"].orphan and got["files", "kept.bench"].bytes == 1000
+    assert not got["files", "sub/deep.bench"].orphan
     assert got["files", "gone"].orphan and got["files", "gone"].bytes == 5000
     assert ("files", "gone/awg") not in got  # its instrument folders are inside the one orphan
     assert human(1536) == "1.5 KiB" and human(7) == "7 B"
     # with no live bench under files/ at all, the orphans are still found (the e2e workspace's case)
     for live in ("kept", "sub/deep"):
         (ws / f"{live}.bench.yaml").unlink()
-    assert {e.name for e in inventory(ws) if e.kind == "files" and e.orphan} == {"gone", "kept", "sub"}
+    assert {e.name for e in inventory(ws) if e.kind == "files" and e.orphan} == {"gone", "kept.bench", "sub"}
+
+
+def test_the_folder_name_and_its_inverse_round_trip_through_the_bench_suffixes():
+    """The write side's folder name and the inventory's reconstruction are one derivation (D95)."""
+    for suffix in BENCH_SUFFIXES:
+        folder = bench_files_folder_rel(f"b{suffix}")
+        assert f"b{suffix}" in bench_files_candidates(folder)
+    assert bench_files_folder_rel("sub/deep.bench.yaml") == "sub/deep.bench"
 
 
 def test_cleaning_removes_conversations_and_files_but_keeps_history_unless_asked(tmp_path):
@@ -69,7 +78,9 @@ def test_cleaning_removes_conversations_and_files_but_keeps_history_unless_asked
     assert {(e.kind, e.name) for e in removed} == {("assistant", "gone.bench.yaml"), ("files", "gone")}
     sb = ws / ".simubench"
     assert not (sb / "files" / "gone").exists() and not (sb / "assistant" / "gone.bench.yaml.json").exists()
-    assert (sb / "files" / "kept").exists() and (sb / "history" / "gone.bench.yaml").exists()  # history stays
+    assert (sb / "files" / "kept.bench").exists() and (
+        sb / "history" / "gone.bench.yaml"
+    ).exists()  # history stays
     assert {(e.kind, e.name) for e in clean_orphans(ws, ("history",))} == {
         ("history", "gone.bench.yaml"),
         ("history", "instruments/old.yaml"),
@@ -116,5 +127,5 @@ def test_the_api_reports_and_cleans_keeping_history_unless_asked(tmp_path):
         again = c.post("/api/storage/clean", json={"history": True}).json()
         assert {e["name"] for e in again["removed"]} == {"gone.bench.yaml", "instruments/old.yaml"}
         assert not [e for e in c.get("/api/storage").json()["entries"] if e["orphan"]]
-        assert (ws / ".simubench" / "files" / "kept").exists()
+        assert (ws / ".simubench" / "files" / "kept.bench").exists()
         assert c.post("/api/storage/clean", json={}, headers={"x-simubench-token": "x"}).status_code == 401

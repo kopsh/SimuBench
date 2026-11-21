@@ -36,7 +36,13 @@ from ..library.loader import (
     load_yaml,
     parse_error_text,
 )
-from ..library.workspace_layout import BENCH_SUFFIXES, DEFINITIONS_FOLDER, definitions_dir, is_bench_file
+from ..library.workspace_layout import (
+    BENCH_SUFFIXES,
+    DEFINITIONS_FOLDER,
+    STORAGE_ROOT,
+    definitions_dir,
+    is_bench_file,
+)
 from ..models import categories
 from ..models.bench import BenchDefinition
 from ..models.migrate import FormatError, upgrade
@@ -48,7 +54,7 @@ from .workspace_events import WorkspaceEvents
 #: Workspace directories that hold SimuBench's own data (version history, runs, …), not the user's
 #: bench files: reading or writing a bench there corrupts the history (#1457). ``scan`` and the
 #: watcher skip the same directory.
-_INTERNAL_DIRS = frozenset({".simubench"})
+_INTERNAL_DIRS = frozenset({STORAGE_ROOT})
 
 log = logging.getLogger(__name__)
 
