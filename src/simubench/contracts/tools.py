@@ -9,6 +9,9 @@ else is one model for both."""
 
 from __future__ import annotations
 
+import inspect
+from typing import Annotated
+
 from pydantic import BaseModel, ConfigDict, Field
 
 from ..engine.edit import EditOp
@@ -16,6 +19,25 @@ from ..engine.edit import EditOp
 
 class _Input(BaseModel):
     model_config = ConfigDict(extra="forbid")
+
+
+def mirrored_params(model_cls: type[BaseModel]) -> list[inspect.Parameter]:
+    """The model's fields as flat signature parameters — the two agent seams' mirror trick:
+    the published schema is built from the model, a field's own info (description, limits)
+    travelling with it as ``Annotated[type, field]`` (a bare ``rebuild_annotation`` gives the
+    plain type, whose schema drops the description); a bare model parameter would nest under
+    its name and break flat callers (#1770). Each seam wraps its body to receive the model."""
+    return [
+        inspect.Parameter(
+            name,
+            kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            default=inspect.Parameter.empty if f.is_required() else f.get_default(call_default_factory=True),
+            # a model field's annotation is a TypeForm to ty: the mirror is deliberately dynamic,
+            # the schema it publishes is pinned by tests (test_the_assistant_tool_schema…)
+            annotation=Annotated[f.annotation, f],  # ty: ignore[invalid-type-form]
+        )
+        for name, f in model_cls.model_fields.items()
+    ]
 
 
 class BenchEdit(_Input):
