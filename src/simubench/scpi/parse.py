@@ -34,6 +34,36 @@ class Unit:
     raw_header: str
 
 
+def block_kind(data: bytes, i: int) -> tuple[str, int, int]:
+    """The IEEE 488.2 7.7.6 block decision at ``data[i] == b'#'`` — the one judge for the two
+    scanners that must agree on where a block ends (``split_units`` in memory, the SCPI socket's
+    ``MessageReader`` in a stream, #1766). Returns ``("definite", end, length)`` with the length
+    field complete (``end`` is past the digits; the payload runs to ``end + length``),
+    ``("indefinite", i + 2, 0)`` for ``#0`` (the payload runs to the end of the message),
+    ``("number", i + 2, 0)`` for ``#H``/``#Q``/``#B`` (any case) — a non-decimal number (7.7.4),
+    an ordinary character run, never a block (#1497) — and ``("none", i + 1, 0)`` for anything
+    else, which is malformed block data, never a Python exception (#1449). ``("wait", i, 0)``
+    when the bytes that would decide have not arrived (a streaming caller waits; an in-memory
+    caller has the whole message, so for it this is malformed too)."""
+    nxt = data[i + 1 : i + 2]
+    if not nxt:
+        return ("wait", i, 0)
+    if nxt in (b"H", b"h", b"Q", b"q", b"B", b"b"):
+        return ("number", i + 2, 0)
+    if not nxt.isdigit():
+        return ("none", i + 1, 0)
+    nd = int(nxt)
+    if nd == 0:
+        return ("indefinite", i + 2, 0)
+    end = i + 2 + nd
+    field = data[i + 2 : end]
+    if len(field) < nd:
+        return ("wait", i, 0)
+    if not field.isdigit():
+        return ("none", i + 1, 0)
+    return ("definite", end, int(field))
+
+
 def _scan(data: bytes, i: int, stop: bytes) -> int:
     """Return the index of the next byte in ``stop`` at nesting level zero, or len(data)."""
     n = len(data)
@@ -67,25 +97,18 @@ def _scan(data: bytes, i: int, stop: bytes) -> int:
                 i += 1
             continue
         if c == b"#":
-            # IEEE 488.2 7.7.6: `#` starts a definite-length block, so anything else after it is
-            # malformed block data -- never a Python exception (#1449). `#H`/`#Q`/`#B` (any case)
-            # is a non-decimal number (7.7.4), not a block: an ordinary character run (#1497).
-            if data[i + 1 : i + 2] in (b"H", b"h", b"Q", b"q", b"B", b"b"):
-                i += 1
+            kind, end, length = block_kind(data, i)
+            if kind == "definite":
+                if end + length > n:  # the block says more bytes than the message holds
+                    raise ScpiError(-161, "invalid block data")
+                i = end + length
                 continue
-            if i + 1 >= n or not data[i + 1 : i + 2].isdigit():
-                raise ScpiError(-161, "invalid block data")
-            nd = int(data[i + 1 : i + 2])
-            if nd == 0:  # indefinite block runs to the end of the message
+            if kind == "indefinite":  # runs to the end of the message
                 return n
-            field = data[i + 2 : i + 2 + nd]
-            if len(field) != nd or not field.isdigit():
-                raise ScpiError(-161, "invalid block data")
-            length = int(field)
-            if i + 2 + nd + length > n:  # the block says more bytes than the message holds
-                raise ScpiError(-161, "invalid block data")
-            i = i + 2 + nd + length
-            continue
+            if kind == "number":
+                i = end
+                continue
+            raise ScpiError(-161, "invalid block data")  # "none" (malformed, #1449) or a lone `#`
         if c in stop:
             return i
         i += 1
