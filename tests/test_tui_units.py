@@ -1490,3 +1490,38 @@ async def test_a_tick_keeps_the_catalog_and_the_task_handles():
     assert app._catalog_loaded
     assert app._session_task is session_task
     await session_task
+
+
+async def test_the_client_reads_the_http_layer_s_detail_reason():
+    """The HTTP layer spells reasons ``detail`` (HTTPException, a request model's 422): a string
+    is the reason, a validation list's first entry carries it — raw JSON is not what a person
+    reads (#1761)."""
+    import httpx
+
+    from simubench.tui.client import ApiClient, ApiError
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/four":
+            return httpx.Response(
+                422,
+                json={
+                    "detail": [
+                        {"msg": "Input should be less than or equal to 104 days", "type": "less_than_equal"}
+                    ]
+                },
+            )
+        if request.url.path == "/nine":
+            return httpx.Response(409, json={"detail": "scripts are connected"})
+        return httpx.Response(200, json={"ok": True})
+
+    c = ApiClient("http://unit.test")  # the constructor builds no connection; swap the HTTP layer
+    c._http = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://unit.test")
+    try:
+        with pytest.raises(ApiError) as excinfo:
+            await c._request("POST", "/four", json={})
+        assert "less than or equal" in excinfo.value.message
+        out = await c._request("POST", "/nine", json={}, ok=(200, 409))
+        assert out == {"detail": "scripts are connected"}
+        assert await c._request("GET", "/fine") == {"ok": True}
+    finally:
+        await c.close()
