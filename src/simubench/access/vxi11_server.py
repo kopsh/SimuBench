@@ -36,6 +36,15 @@ from .bus import add_srq_listener, bus_of, observe, serial_poll
 
 log = logging.getLogger("simubench.vxi11")
 
+
+def vxi11_resource(where: str, sub: str) -> str:
+    """A VXI-11 resource address — the device name (``inst<i>``, ``inst_<name>`` or a declared
+    GPIB gateway) selects the instrument on the core channel. ``where`` carries the host, with
+    the core port spelled out unless a port mapper answers on 111 (D63). The one place the
+    spelling is built."""
+    return f"TCPIP0::{where}::{sub}::INSTR"
+
+
 # ---- ONC RPC (RFC 5531) ---------------------------------------------------------------------------
 CALL, REPLY = 0, 1
 MSG_ACCEPTED, MSG_DENIED = 0, 1
@@ -365,7 +374,7 @@ class Vxi11Server(_RpcServer):
         )
         out: dict[str, str] = {}
         for sub, name in self._subaddresses.items():
-            out.setdefault(name, f"TCPIP0::{where}::{sub}::INSTR")
+            out.setdefault(name, vxi11_resource(where, sub))
         return out
 
     def locks(self, instrument: str):

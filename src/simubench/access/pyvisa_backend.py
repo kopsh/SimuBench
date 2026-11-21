@@ -40,10 +40,11 @@ from .bench_link import DEFAULT_PORT as LINK_PORT
 from .bench_link import RemoteBench
 from .bus import BusError
 from .gpib_bus import boards_of
+from .hislip_server import DEFAULT_PORT, hislip_resource, hislip_resource_default
 from .links import Link, make_link
 from .scpi_server import DEFAULT_SCPI_PORT, scpi_socket_address
+from .vxi11_server import vxi11_resource
 
-HISLIP_PORT = 4880
 INTFC = "<intfc>"  # what the address table names for a board: it is no instrument
 
 
@@ -254,17 +255,16 @@ class SimuBenchVisaLibrary(highlevel.VisaLibraryBase):
             canon = scpi_socket_address("127.0.0.1", DEFAULT_SCPI_PORT + i)
             self.canonical[name] = canon
             self._remember(canon, name)
-            for form in (
-                f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR",
-                f"TCPIP0::127.0.0.1::hislip{i}::INSTR",  # the default port, left unwritten
-                f"TCPIP0::127.0.0.1::hislip_{name},{HISLIP_PORT}::INSTR",
-                f"TCPIP0::127.0.0.1::hislip_{name}::INSTR",
-            ):
-                self._remember(form, name)
-            self.hislip[name] = f"TCPIP0::127.0.0.1::hislip{i},{HISLIP_PORT}::INSTR"
+            for sub in (f"hislip{i}", f"hislip_{name}"):
+                for form in (
+                    hislip_resource("127.0.0.1", sub, DEFAULT_PORT),
+                    hislip_resource_default("127.0.0.1", sub),
+                ):
+                    self._remember(form, name)
+            self.hislip[name] = hislip_resource("127.0.0.1", f"hislip{i}", DEFAULT_PORT)
             # VXI-11 (D63): the plain address a VISA library resolves through the port mapper.
-            self.vxi11[name] = f"TCPIP0::127.0.0.1::inst{i}::INSTR"
-            for form in (self.vxi11[name], f"TCPIP0::127.0.0.1::inst_{name}::INSTR"):
+            self.vxi11[name] = vxi11_resource("127.0.0.1", f"inst{i}")
+            for form in (self.vxi11[name], vxi11_resource("127.0.0.1", f"inst_{name}")):
                 self._remember(form, name)
             gateway = self._gateway_address(inst.instance.address)
             if gateway:  # a declared GPIB instrument is also reachable through a LAN/GPIB gateway
