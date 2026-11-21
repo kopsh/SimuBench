@@ -597,7 +597,7 @@ class InstrumentScreen(ControlEditingScreen):
             new = [ControlButton(c, "other") for c in controls]
             for b in new:
                 b.render_button(info, self.remote_controlled, lang)
-            self._other_buttons.add_buttons(*new)
+            self._other_buttons.replace_buttons(*new)
             self._other_shape = tuple(paths)
         button_rows = self._other_buttons.fit(width)
         # Whole groups only, never a heading above the fold (#374); the buttons always stay.

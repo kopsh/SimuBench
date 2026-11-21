@@ -540,7 +540,16 @@ async def test_a_when_hidden_role_setting_lands_in_the_other_box(served_validati
             message="voltage.level in the other box's set",
         )
         assert "source.voltage.level" in (tui.screen._other_paths() or [])
-        assert tui.screen._other_shape == tuple(tui.screen._other_paths() or [])
+        await wait_for(
+            pilot,
+            lambda: tui.screen._other_shape == tuple(tui.screen._other_paths() or []),
+            timeout=10,
+            message="the buttons rebuilt for the set",
+        )
+        from simubench.tui.screens.instrument import ControlButton
+
+        buttons = [b.control.path for b in tui.screen.query(ControlButton) if b.box_id == "other"]
+        assert "source.voltage.level" in buttons  # the rebuilt grid carries the when-hidden setting
         # The rendered box follows on the next refresh; the title and the channel swap are the
         # stable visible markers (the box's own rows fold in and out of the viewport with the
         # side row's height, so the button label itself is not a stable text marker here).

@@ -176,6 +176,14 @@ class ButtonGrid(Container):
         self._buttons.extend(buttons)
         self.mount(*buttons)
 
+    def replace_buttons(self, *buttons: ControlButton) -> None:
+        """Swap the grid's buttons wholesale — a grid whose members follow a state change
+        (the other-settings box's when, #1774): add_buttons would stack the generations."""
+        for old in self._buttons:
+            old.remove()
+        self._buttons.clear()
+        self.add_buttons(*buttons)
+
 
 class ControlEditingScreen(ShellScreen):
     """Everything an instrument screen does to its controls, except drawing them."""
