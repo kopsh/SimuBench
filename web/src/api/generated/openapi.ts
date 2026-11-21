@@ -5429,7 +5429,7 @@ export interface components {
             instrument: string | null;
             /**
              * Kind
-             * @description scpi | state | advance | clock | error | warning | ignored | fault | acquisition | panel | hidden | remote | hislip | bus_control | solver | abort | file
+             * @description scpi | state | advance | clock | error | warning | ignored | fault | acquisition | panel | hidden | remote | bus_control | solver | abort | file
              */
             kind: string;
             /** Message */

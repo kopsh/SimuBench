@@ -364,6 +364,54 @@ async def test_advance_on_wall_clock_says_so():
         assert "Wall clock" in flat(tui)
 
 
+async def test_a_refused_advance_is_visible_not_silent():
+    """422: the bottom bar says why the clock did not step (#1761) — a write path's failure is
+    shown like every other one, not left in the worker's log."""
+    from typing import Any
+
+    from simubench.tui.client import ApiError
+
+    fixture = fresh(SMU_BENCH)
+    fixture["clock"] = {"mode": "stepped", "now_ns": 0}
+    tui, fake = unit_app(fixture)
+
+    async def refused(sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
+        raise ApiError(422, "Input should be less than or equal to 104 days")
+
+    fake.advance = refused  # type: ignore[method-assign]
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        tui.run_worker(tui._do_advance(1e20), exclusive=True)
+        from simubench.tui.widgets import BottomBar
+
+        bar = tui.screen.query(BottomBar).first()
+        await wait_for(pilot, lambda: bar._flash_text is not None, message="the flash shows the reason")
+        assert "less than or equal" in bar._flash_text
+
+
+async def test_a_409_advance_says_why():
+    """409 rides in ``ok`` as a dict: its ``detail`` is the message — the clients guard can move
+    in between the confirm and the call, and the user sees why nothing stepped (#1761)."""
+    from typing import Any
+
+    fixture = fresh(SMU_BENCH)
+    fixture["clock"] = {"mode": "stepped", "now_ns": 0}
+    tui, fake = unit_app(fixture)
+
+    async def in_use(sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
+        return {"detail": "scripts are connected; repeat with force"}
+
+    fake.advance = in_use  # type: ignore[method-assign]
+    async with tui.run_test(size=(100, 32)) as pilot:
+        await settle(pilot, tui)
+        tui.run_worker(tui._do_advance(0.01), exclusive=True)
+        from simubench.tui.widgets import BottomBar
+
+        bar = tui.screen.query(BottomBar).first()
+        await wait_for(pilot, lambda: bar._flash_text is not None, message="the flash shows the 409")
+        assert "scripts are connected" in bar._flash_text
+
+
 # ---- the reason dialog on the nets screen uses the probe's own breakdown (11.1, D37) ---------------------
 
 

@@ -473,7 +473,7 @@ class SimuBenchApp(App[None]):
         if kind == "clock":  # switched while running (#1660): the top bar and the wall tick follow
             self._dirty_clock = True
         if kind in ("session", "remote", "clock"):
-            self._session_task = asyncio.create_task(self._refresh_session())
+            self._refresh_session_soon()  # the same trailing protocol as the sid events (#1760)
         self._dirty_lines = True
         self.bump()
 
@@ -769,13 +769,17 @@ class SimuBenchApp(App[None]):
         self.push_screen(AdvanceDialog(default), self._advance_done)
 
     async def _advance_wall_hint(self) -> None:
+        self._flash(i18n.t(f"clock.{self.clock_mode()}Hint", self.lang))
+
+    def _flash(self, text: str) -> None:
+        """One transient message in the bottom bar (the wall-clock hint's channel, 11.2)."""
         from textual.widgets import Static
 
         from .widgets import BottomBar
 
         bars = [w for w in self.screen.query(BottomBar)]
         target = bars[0] if bars else self.screen.query_one(Static)
-        target.flash(i18n.t(f"clock.{self.clock_mode()}Hint", self.lang))
+        target.flash(text)
 
     def _advance_done(self, seconds: float | None) -> None:
         if seconds is None:
@@ -805,7 +809,16 @@ class SimuBenchApp(App[None]):
         from .screens.clockdialog import format_duration
 
         self._advance_default = format_duration(seconds)
-        await self.client.advance(self.sid, seconds, force=bool((self.session_info or {}).get("clients")))
+        try:
+            out = await self.client.advance(
+                self.sid, seconds, force=bool((self.session_info or {}).get("clients"))
+            )
+        except ApiError as exc:
+            self._flash(str(exc))  # a refused advance must be visible, not a silent worker (#1761)
+            return
+        detail = out.get("detail") if isinstance(out, dict) else None
+        if detail:  # 409: the advance did not happen; say why (the clients guard or the limit)
+            self._flash(str(detail))
 
     def action_r_key(self) -> None:
         """`R`: the runs screen; when the bench file changed, rebuild instead (7, D25, 11.3)."""
