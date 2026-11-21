@@ -27,7 +27,7 @@ from collections.abc import Callable
 
 from ..engine.session import Session
 from . import ClientConnection, engine_call
-from .bus import LockTable, add_srq_listener, bus_of, observe, serial_poll
+from .bus import LockTable, add_srq_listener, bus_of, observe, remove_srq_listener, serial_poll
 from .hislip_tls import AuthState, SecureConfig, SecureStream
 
 log = logging.getLogger("simubench.hislip")
@@ -383,6 +383,8 @@ class HislipServer:
                 self.on_change()
 
     async def stop(self) -> None:
+        for name in set(self._subaddresses.values()):
+            remove_srq_listener(self.session, name, self.announce_srq)  # the bus outlives us (D96)
         for sess in list(self._sessions.values()):
             await sess.close()
         if self.server:

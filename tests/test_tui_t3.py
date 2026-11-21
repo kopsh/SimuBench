@@ -390,16 +390,23 @@ async def test_a_refused_advance_is_visible_not_silent():
 
 
 async def test_a_409_advance_says_why():
-    """409 rides in ``ok`` as a dict: its ``detail`` is the message — the clients guard can move
-    in between the confirm and the call, and the user sees why nothing stepped (#1761)."""
+    """409 rides in ``ok`` as a dict: the clients guard moves in between the confirm and the call
+    and its ``detail`` is the server's structured reason (``_http_in_use``: ``message`` + ``clients``
+    + ``reason``), so the bottom bar must show the message in words and never the raw dict repr
+    (#1782, #1761)."""
     from typing import Any
+
+    from simubench.server.errors import ClientsConnected, _http_in_use
 
     fixture = fresh(SMU_BENCH)
     fixture["clock"] = {"mode": "stepped", "now_ns": 0}
     tui, fake = unit_app(fixture)
 
+    refused = _http_in_use(ClientsConnected(["socket:127.0.0.1:53122"], "advancing the clock"))
+    body = {"detail": refused.detail}
+
     async def in_use(sid: str, seconds: float, force: bool = False) -> dict[str, Any]:
-        return {"detail": "scripts are connected; repeat with force"}
+        return body
 
     fake.advance = in_use  # type: ignore[method-assign]
     async with tui.run_test(size=(100, 32)) as pilot:
@@ -409,7 +416,8 @@ async def test_a_409_advance_says_why():
 
         bar = tui.screen.query(BottomBar).first()
         await wait_for(pilot, lambda: bar._flash_text is not None, message="the flash shows the 409")
-        assert "scripts are connected" in bar._flash_text
+        assert "affects connected scripts" in bar._flash_text  # the message, in words
+        assert "clients" not in bar._flash_text  # the structured detail's own key never leaks
 
 
 # ---- the reason dialog on the nets screen uses the probe's own breakdown (11.1, D37) ---------------------

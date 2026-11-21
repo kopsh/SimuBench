@@ -32,7 +32,7 @@ from pyvisa import rname
 from ..engine.faults import LinkDown
 from ..engine.session import Session
 from . import ClientConnection, engine_call
-from .bus import add_srq_listener, bus_of, observe, serial_poll
+from .bus import add_srq_listener, bus_of, observe, remove_srq_listener, serial_poll
 
 log = logging.getLogger("simubench.vxi11")
 
@@ -345,6 +345,8 @@ class Vxi11Server(_RpcServer):
                 log.info("VXI-11 %s at %s on port %d", name, sub, self.port)
 
     async def stop(self) -> None:
+        for name in set(self._subaddresses.values()):
+            remove_srq_listener(self.session, name, self._poll_srq)  # the bus outlives us (D96)
         for task in list(self._tasks):
             task.cancel()
         if self.portmapper is not None:

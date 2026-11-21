@@ -10,6 +10,7 @@ from pydantic import Field
 
 from ..contracts import tools as T
 from ..engine.record import jsonable
+from ..models.bench import BENCH_SCHEMA
 from ..server.catalog import components as component_catalog
 from ..server.errors import DOMAIN_ERRORS
 from ..server.projections import definition_spec, run_cases_file, try_commands
@@ -154,7 +155,7 @@ def _bench_file_tools(mcp: MCPServer, ctx: McpContext) -> None:
     def create_bench(req: T.CreateBench) -> dict[str, Any]:
         """Create an empty bench file; fill it with edit_bench."""
         guard()
-        data: dict[str, Any] = {"schema": "simubench.bench/2", "name": req.name}
+        data: dict[str, Any] = {"schema": BENCH_SCHEMA, "name": req.name}
         if req.description:
             data["description"] = req.description
         try:
