@@ -152,7 +152,9 @@ def test_catalog(client):
     assert by_id["sb-dso-4"]["ports"][:2] == ["CH1", "CH2"] and by_id["sb-awg-2"]["channels"] == 2
     types = {c["type"]: c for c in cat["components"]}
     assert types["rc_lowpass"]["category"] == "part" and types["passive_probe"]["category"] == "accessory"
-    assert "output_stage" not in types
+    # internal components are in the catalog too: the part cards read their docs and units here,
+    # the placement palettes filter by category themselves (#1769)
+    assert types["output_stage"]["category"] == "internal"
     assert types["rc_lowpass"]["units"]["c"] == "F"
 
 

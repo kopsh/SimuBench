@@ -8,6 +8,8 @@ instead of a hand-copied mirror — so a new field is one edit on the engine sid
 
 from __future__ import annotations
 
+import json
+
 from helpers import raises_with
 from simubench.contracts import api as M
 from simubench.engine.silence import SilenceReason
@@ -76,3 +78,26 @@ def test_a_silence_reason_survives_the_round_trip():
     """why_silent's objects are the API's objects: no field-by-field copy in between."""
     x = SilenceReason(kind="unconnected", path=["awg.OUT1"], detail="awg.OUT1 is not wired")
     assert M.SilenceReason.model_validate(x.model_dump()) == x
+
+
+def test_the_tui_fixtures_validate_against_the_contract_models():
+    """The TUI's fast-check fixtures are payloads dumped out of a real session (tests/tui_mock);
+    validating them here keeps the mirror honest: a contract field renamed turns the fixtures
+    stale and the fast checks red, instead of the TUI finding out on the slow tier (#1769)."""
+    from pathlib import Path
+
+    data = Path(__file__).resolve().parents[1] / "tests/data/tui"
+    for name in ("unit_smu.json", "unit_scope_rc.json"):
+        fixture = json.loads((data / name).read_text(encoding="utf-8"))
+        M.SessionInfo.model_validate(fixture["session"])
+        instruments = fixture["instruments"]
+        for instrument in instruments.values() if isinstance(instruments, dict) else instruments:
+            M.InstrumentInfo.model_validate(instrument)
+        M.ClockInfo.model_validate(fixture["clock"])
+        M.NetLevels.model_validate(fixture["levels"])
+        for instrument_readings in fixture["readings"].values():
+            if instrument_readings is not None:  # a class that reads none carries none
+                M.InstrumentReadings.model_validate(instrument_readings)
+    catalog = json.loads((data / "unit_catalog.json").read_text(encoding="utf-8"))
+    for entry in catalog.values():
+        M.ComponentTypeInfo.model_validate(entry)

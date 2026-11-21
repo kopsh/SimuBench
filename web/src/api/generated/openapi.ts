@@ -2090,7 +2090,8 @@ export interface components {
         };
         /**
          * Catalog
-         * @description What can be placed on a bench: instrument definitions, DUT and accessory types.
+         * @description The bench's material: the instrument definitions, and every component type's doc —
+         *     internal ones included, for the part cards' units; the palettes filter by category.
          */
         Catalog: {
             /** Components */

@@ -698,10 +698,7 @@ class InstrumentScreen(ControlEditingScreen):
     def _param_unit(self, part: dict[str, Any], param: str) -> str | None:
         app: Any = self.app
         doc = (app.catalog or {}).get(part.get("type", "")) or {}
-        for p in doc.get("params", []):
-            if p.get("name") == param:
-                return p.get("unit")
-        return None
+        return (doc.get("units") or {}).get(param)  # the contract's units map (cards.py reads it too)
 
     def _net_level(self, net: str) -> str:
         app: Any = self.app

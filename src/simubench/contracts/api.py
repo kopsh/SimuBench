@@ -488,7 +488,8 @@ class ComponentDoc(_Model):
 
 
 class Catalog(_Model):
-    """What can be placed on a bench: instrument definitions, DUT and accessory types."""
+    """The bench's material: the instrument definitions, and every component type's doc —
+    internal ones included, for the part cards' units; the palettes filter by category."""
 
     instruments: list[DefinitionSummary]
     components: list[ComponentTypeInfo]

@@ -90,7 +90,7 @@ def _levels_by_net(levels: Mapping[str, Any] | None) -> dict[str, dict[str, Any]
 
 def _units_of(catalog: Mapping[str, Any], type_: str) -> dict[str, str]:
     doc = (catalog or {}).get(type_) or {}
-    return {p["name"]: p.get("unit") for p in doc.get("params", []) if p.get("unit")}
+    return dict(doc.get("units") or {})  # the contract's units map (the Web reads the same)
 
 
 def accessory_label(type_: str, params: Mapping[str, Any], lang: str) -> str:

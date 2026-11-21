@@ -17,7 +17,7 @@ import os
 import threading
 from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 
 import yaml
 from ruamel.yaml.error import YAMLError as RuamelError
@@ -423,10 +423,15 @@ class BenchFiles:
                     extends=d.extends,
                 )
             )
+        # Every component type, internal ones included: the part cards (TUI and Web) read a
+        # part's port units here, and the placement palettes filter by category themselves
+        # (#1769 — the internal split had starved them of the internal parts' docs).
         components = [
             M.ComponentTypeInfo(
                 type=name,
-                category=cls.category,  # type: ignore[arg-type]
+                # the registry's category is a plain str; the field's Literal names the set the
+                # API is built for, and the placement palettes filter by it (as_api_class's cast).
+                category=cast(Literal["part", "accessory", "internal"], cls.category),
                 label=cls.label or None,
                 label_en=cls.label_en or None,
                 about=cls.about or None,
@@ -442,7 +447,6 @@ class BenchFiles:
                 units=dict(cls.units),
             )
             for name, cls in sorted(component_types().items())
-            if cls.category != "internal"
         ]
         return M.Catalog(instruments=instruments, components=components)
 
