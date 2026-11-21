@@ -270,6 +270,34 @@ def test_scpi_message_reader_splits_and_limits():
     assert got == [(b"", True), (b"OK\n", False)]
 
 
+def test_scpi_message_reader_frames_an_indefinite_blocks_payload():
+    """#0 runs to the end of the message: a quote or '#' inside the payload does not re-trigger
+    the framing — the same judge ``split_units`` applies (``parse.block_kind``, #1766). The
+    reader used to treat ``#0`` as an ordinary character, so the payload could corrupt the
+    framing (a quote in it opened quote mode; a definite block inside it swallowed the rest)."""
+    from simubench.access.scpi_server import MessageReader
+
+    async def run(chunks: list[bytes]):
+        r = asyncio.StreamReader()
+        for c in chunks:
+            r.feed_data(c)
+        r.feed_eof()
+        m = MessageReader(r, 1 << 20)
+        out = []
+        while True:
+            msg, over = await m.read()
+            if not msg and not over:
+                return out
+            out.append(msg)
+
+    got = asyncio.run(run([b'MEAS #0"quoted # inside\nVOLT?']))
+    assert got == [b'MEAS #0"quoted # inside\n', b"VOLT?"]
+    got = asyncio.run(run([b"#0" + b"x" * 60]))  # no terminator: the rest is one message
+    assert got == [b"#0" + b"x" * 60]
+    got = asyncio.run(run([b"#8" + b"y" * 8 + b"\nZ\n"]))  # a definite block still skips its payload
+    assert got == [b"#8" + b"y" * 8 + b"\n", b"Z\n"]
+
+
 def test_reference_ports_are_reported_as_reference(client):
     info = client.post("/api/sessions", json={"bench_path": "benches/rfgen.bench.yaml"}).json()
     media = {(i["name"], p["name"]): p["medium"] for i in info["instruments"] for p in i["ports"]}

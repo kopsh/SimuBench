@@ -169,6 +169,11 @@ class Fault(_Model):
     label: str | None = None
 
 
+#: A new bench file's schema, spelled once for the writers that build the dict. The Literal on
+#: :class:`BenchDefinition` stays literal — ty does not take a Final as a Literal argument (#1650).
+BENCH_SCHEMA = "simubench.bench/2"
+
+
 class BenchDefinition(_Model):
     schema_: Literal["simubench.bench/2"] = Field("simubench.bench/2", alias="schema")
     name: str

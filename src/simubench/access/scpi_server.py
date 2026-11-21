@@ -14,6 +14,7 @@ from dataclasses import dataclass, field
 
 from ..engine.faults import LinkDown
 from ..engine.session import Session
+from ..scpi.parse import block_kind
 from . import ClientConnection, engine_call
 
 log = logging.getLogger("simubench.scpi")
@@ -83,18 +84,25 @@ class MessageReader:
                     self.pos += 1
                     break
                 if c == 0x23:  # '#'
-                    if self.pos + 1 >= len(buf):
-                        return None
-                    n = buf[self.pos + 1] - 0x30
-                    if 1 <= n <= 9:
-                        end = self.pos + 2 + n
-                        if end > len(buf):
+                    kind, i2, length = block_kind(bytes(buf), self.pos)
+                    if kind == "wait":
+                        return None  # the bytes that would decide have not arrived yet
+                    if kind == "definite":
+                        self.pos = i2
+                        self.skip = length
+                        break
+                    if kind == "indefinite":
+                        # #0 runs to the end of the message: the next LF ends it — the payload is
+                        # skipped, so a quote or '#' inside it does not re-trigger the framing
+                        # (aligned with split_units' judge, #1766; the reader used to treat #0 as
+                        # an ordinary character and the payload could corrupt the framing).
+                        j = buf.find(b"\n", i2)
+                        if j == -1:
+                            self.pos = len(buf)
                             return None
-                        digits = bytes(buf[self.pos + 2 : end])
-                        if digits.isdigit():
-                            self.pos = end
-                            self.skip = int(digits)
-                            break
+                        self.pos = j + 1
+                        return self.pos
+                    # "number" (#H/#Q/#B) and "none": ordinary characters — the tail advances
                 self.pos += 1
 
     async def read(self) -> tuple[bytes, bool]:
