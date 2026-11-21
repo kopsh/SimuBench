@@ -531,12 +531,19 @@ async def test_a_when_hidden_role_setting_lands_in_the_other_box(served_validati
         tui.bump()
         # The channel box swaps to the current role; the voltage role's settings stay reachable
         # in the other-settings box instead of vanishing.
-        await wait_for(
-            pilot,
-            lambda: "Other settings" in flat(tui) and "Voltage level" in flat(tui),
-            timeout=30,
-            message="the voltage role in the other-settings box",
-        )
+        try:
+            await wait_for(
+                pilot,
+                lambda: "Other settings" in flat(tui) and "Voltage level" in flat(tui),
+                timeout=30,
+                message="the voltage role in the other-settings box",
+            )
+        except AssertionError:
+            print("OTHR-DUMP:", "Other settings" in flat(tui), "Voltage level" in flat(tui))
+            print("OTHR-PATHS:", tui.screen._other_paths()[:8])
+            i = flat(tui).find("Other settings")
+            print("OTHR-CTX:", flat(tui)[i : i + 420] if i >= 0 else "box absent")
+            raise
         text = flat(tui)
         assert "Other settings" in text
         assert "Voltage level" in text  # reachable in the other-settings box

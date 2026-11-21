@@ -163,6 +163,7 @@ class InstrumentScreen(ControlEditingScreen):
             self._other_static = Static(id="other-text")
             self._other_static.can_focus = False
             self._other_buttons = ButtonGrid()
+            self._other_shape: tuple[str, ...] = ()  # the paths the current buttons were built for
             self._other_flash = Static(classes="flash-line")
             self._other_flash.can_focus = False
             self._other_flash.display = False
@@ -583,7 +584,9 @@ class InstrumentScreen(ControlEditingScreen):
         # Before the first layout the box has no size yet: take the row's share of the screen
         # (#other-box is 2fr of the side row) rather than cutting at a 20-cell guess (#283).
         width = self._other.content_size.width or max(20, (app.size.width * 2) // 3 - 4)
-        if not self._other_buttons.count:
+        if not self._other_buttons.count or self._other_shape != tuple(paths):
+            # the other box's members follow the panel's ``when`` now (#1774): a mode change swaps
+            # them like the channel boxes' (the #1327 rebuild-on-shape pattern, in miniature)
             controls = [
                 C._control_for(path, state[path], lang)
                 for path in paths
@@ -595,6 +598,7 @@ class InstrumentScreen(ControlEditingScreen):
             for b in new:
                 b.render_button(info, self.remote_controlled, lang)
             self._other_buttons.add_buttons(*new)
+            self._other_shape = tuple(paths)
         button_rows = self._other_buttons.fit(width)
         # Whole groups only, never a heading above the fold (#374); the buttons always stay.
         full = rows.grouped_columns(self.app.lang, groups, state, width)
