@@ -18,6 +18,7 @@ from types import SimpleNamespace
 import pytest
 
 from simubench.access import vxi11_server as v
+from simubench.access.bus import bus_of
 from simubench.api import open_bench
 from simubench.engine.faults import Fault
 
@@ -625,6 +626,20 @@ async def test_an_srq_raised_over_vxi11_reaches_a_quiet_hislip_session(rig):
         await asyncio.to_thread(run)
     finally:
         await hislip.stop()
+
+
+async def test_a_stopped_vxi11_server_leaves_no_announcer_on_the_bus(rig):
+    """The bus outlives the servers that announce through it (D96): a stopped server must take
+    its entry off the roster, or every restart leaves another dead one behind (#1780)."""
+    bus = bus_of(rig.bench, "awg")
+    before = len(bus.srq_listeners)
+    for _ in range(3):
+        server = v.Vxi11Server(rig.bench, port=0)
+        await server.start()
+        link = await asyncio.to_thread(Link, SimpleNamespace(port=server.port))
+        await asyncio.to_thread(link.close)
+        await server.stop()
+        assert len(bus.srq_listeners) == before
 
 
 # ---- a GPIB gateway address resolves through the bench's declared GPIB address ----------------------------
