@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass, field
 
 from .errors import ScpiError
+from .values import short_form
 
 _WS = b" \t\r\n"
 
@@ -227,8 +228,9 @@ class Pattern:
                 raise ValueError(f"bad pattern node {part!r} in {text!r}")
             word, suffix = sm.group(1), sm.group(2)
             # A word with a digit inside keeps it (X1Position -> X1P): the digit is part of the
-            # mnemonic, not a numbered suffix (Infiniium's :MARKer:X1Position, #1074).
-            short = "".join(c for c in word if c.isupper() or c.isdigit()) or word.upper()
+            # mnemonic, not a numbered suffix (Infiniium's :MARKer:X1Position, #1074) — the
+            # derivation is values.short_form's, spelled once there (#1766).
+            short = short_form(word)
             nodes.append(Node(word.upper(), short.upper(), optional, suffix))
         return Pattern(text, False, tuple(nodes))
 
