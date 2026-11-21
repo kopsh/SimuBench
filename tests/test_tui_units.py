@@ -1383,6 +1383,28 @@ async def test_rapid_sid_events_collapse_into_one_trailing_refresh():
     assert client.calls == 2  # coalesced, not dropped: the trailing re-read sees the new state
 
 
+async def test_a_session_stream_event_keeps_the_sid_events_trailing_reread():
+    """The session stream's own events go through the same trailing protocol (#1760): a `remote`
+    event starts a re-read and a sid event arriving while it runs must still get its trailing
+    re-read — the two streams are two sockets (D85), a script's arrival sends both."""
+    client = _SessionClient(remote=["socket:127.0.0.1:5401"])
+    app = _app_with(client)
+    app._on_event({"seq": 1, "kind": "remote"})  # the session stream
+    app._on_workspace_event({"seq": 1, "kind": "clients_changed", "sid": "x"})  # the workspace stream
+    await app._session_task
+    assert client.calls == 2  # the sid event's re-read is queued, not dropped
+
+
+async def test_rapid_session_stream_events_collapse_too():
+    client = _SessionClient(remote=["socket:127.0.0.1:5401"])
+    app = _app_with(client)
+    app._on_event({"seq": 1, "kind": "session"})
+    app._on_event({"seq": 2, "kind": "remote"})
+    app._on_event({"seq": 3, "kind": "clock"})
+    await app._session_task
+    assert client.calls == 2  # coalesced while in flight: one read plus the single trailing one
+
+
 async def test_a_sid_event_for_another_session_is_ignored():
     client = _SessionClient(remote=["socket:127.0.0.1:5401"])
     app = _app_with(client)
