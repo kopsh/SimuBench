@@ -15,7 +15,7 @@ from simubench.engine.edit import SetDeviation, apply
 from simubench.engine.validate import validate_bench
 from simubench.engine.validate_definition import validate_definition
 from simubench.library.loader import DefinitionLibrary
-from simubench.models.bench import BenchDefinition, ComponentInstance
+from simubench.models.bench import BenchDefinition, ComponentInstance, Fault
 from simubench.models.definition import InstrumentDefinition
 from simubench.models.deviation import DeviationRange
 from simubench.replay import replay
@@ -316,6 +316,51 @@ def test_the_session_view_hides_explicit_hidden_part_values_unless_revealed(tmp_
         }
     assert seen[False]["r"] == 1000.0 and seen[False]["tol_c"] == 0.0
     assert seen[True]["r"] == 1002.0 and seen[True]["tol_c"] == -0.21
+
+
+def test_the_session_view_hides_set_parameter_writes_unless_revealed(tmp_path):
+    """#1705: a ``set_parameter`` write (D39's door) is a unit value like the bench ``hidden:``."""
+    from simubench.server.manager import ServedSession, SessionManager
+
+    manager = SessionManager(
+        Path(__file__).parents[1] / "validation", scpi_base_port=None, record_dir=tmp_path
+    )
+    seen = {}
+    for reveal in (False, True):
+        b = bench(1)
+        b.run.reveal_true_values = reveal
+        b.parts["rc"] = ComponentInstance(type="rc_lowpass", params={"r": 1000.0, "c": 1e-7})
+        session = open_bench(b)
+        try:
+            session.set_parameter("rc", "", "tol_c", -0.3)
+            view = manager.views.describe(ServedSession("s1", session, None))
+        finally:
+            session.close()
+        seen[reveal] = next(d for d in view.parts if d.name == "rc").params["tol_c"]
+    assert seen[False] == 0.0
+    assert seen[True] == pytest.approx(-0.3)
+
+
+def test_the_session_view_hides_hidden_fault_writes_unless_revealed(tmp_path):
+    """#1705: a ``hidden`` fault's value is masked in the REST view like the other unit values."""
+    from simubench.server.manager import ServedSession, SessionManager
+
+    manager = SessionManager(
+        Path(__file__).parents[1] / "validation", scpi_base_port=None, record_dir=tmp_path
+    )
+    seen = {}
+    for reveal in (False, True):
+        b = bench(1, faults=[Fault(kind="hidden", component="rc", param="tol_c", value=-0.3)])
+        b.run.reveal_true_values = reveal
+        b.parts["rc"] = ComponentInstance(type="rc_lowpass", params={"r": 1000.0, "c": 1e-7})
+        session = open_bench(b)
+        try:
+            view = manager.views.describe(ServedSession("s1", session, None))
+        finally:
+            session.close()
+        seen[reveal] = next(d for d in view.parts if d.name == "rc").params["tol_c"]
+    assert seen[False] == 0.0
+    assert seen[True] == pytest.approx(-0.3)
 
 
 def test_per_range_deviations_reach_the_reading_of_each_range():
