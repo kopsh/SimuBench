@@ -503,3 +503,60 @@ async def test_an_error_fault_with_count_from_the_tui_path(served_validation):
         writer.close()
         assert [r.split(",")[0] for r in replies[:3]] == ["-313"] * 3
         assert replies[3].startswith("0,")
+
+
+async def test_a_when_hidden_role_setting_lands_in_the_other_box(served_validation):
+    """#1774 ruling 2: a role control whose ``when`` does not hold leaves the channel box — and
+    it is not unreachable either: the other-settings box carries it. Before, the box's main set
+    skipped the ``when``, so the setting vanished from the screen except through the state tree."""
+    bench = served_validation.manager.files.workspace / "benches" / "panel-smu.bench.yaml"
+    bench.parent.mkdir(parents=True, exist_ok=True)
+    bench.write_text(
+        "schema: simubench.bench/2\nname: panel-smu\ninstruments:\n  smu: {model: keysight-b2901a}\n",
+        encoding="utf-8",
+    )
+    served_session = await served_validation.start("benches/panel-smu.bench.yaml", seed=5, clock="command")
+    tui = SimuBenchApp(served_validation.url, sid=served_session.id)
+    async with tui.run_test(size=(120, 40)) as pilot:
+        await wait_connected(pilot, tui)
+        await wait_quiet(pilot, tui)
+        await open_instrument(pilot, tui, "smu")
+        await wait_for(
+            pilot, lambda: "Voltage level" in flat(tui), timeout=30, message="the panel's voltage role"
+        )
+        assert "Voltage level" in flat(tui)  # the panel's voltage role, function=VOLTage
+
+        await tui.client.configure(tui.sid, "smu", "source.function", "CURRent")
+        await tui._fetch_instruments({"smu"})
+        tui.bump()
+        # The channel box swaps to the current role; the voltage role's settings stay reachable
+        # in the other-settings box instead of vanishing.
+        # The data contract first (deterministic): the when-hidden setting is in the other box's
+        # set, and the buttons were rebuilt for it (#1774's shape rebuild).
+        await wait_for(
+            pilot,
+            lambda: "source.voltage.level" in (tui.screen._other_paths() or []),
+            timeout=15,
+            message="voltage.level in the other box's set",
+        )
+        assert "source.voltage.level" in (tui.screen._other_paths() or [])
+        await wait_for(
+            pilot,
+            lambda: tui.screen._other_shape == tuple(tui.screen._other_paths() or []),
+            timeout=10,
+            message="the buttons rebuilt for the set",
+        )
+        from simubench.tui.screens.instrument import ControlButton
+
+        buttons = [b.control.path for b in tui.screen.query(ControlButton) if b.box_id == "other"]
+        assert "source.voltage.level" in buttons  # the rebuilt grid carries the when-hidden setting
+        # The rendered box follows on the next refresh; the title and the channel swap are the
+        # stable visible markers (the box's own rows fold in and out of the viewport with the
+        # side row's height, so the button label itself is not a stable text marker here).
+        await wait_for(pilot, lambda: "Other settings" in flat(tui), timeout=15, message="the other box")
+        text = flat(tui)
+        assert "Other settings" in text
+        assert "Current level" in text  # the current role took the channel box
+        assert {sv["path"] for sv in tui.screen.info.get("state", []) if "voltage.level" in sv["path"]} == {
+            "source.voltage.level"
+        }  # the setting that was silently unreachable (its panel ``when`` fails) is in the state

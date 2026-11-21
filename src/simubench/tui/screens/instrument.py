@@ -163,6 +163,7 @@ class InstrumentScreen(ControlEditingScreen):
             self._other_static = Static(id="other-text")
             self._other_static.can_focus = False
             self._other_buttons = ButtonGrid()
+            self._other_shape: tuple[str, ...] = ()  # the paths the current buttons were built for
             self._other_flash = Static(classes="flash-line")
             self._other_flash.can_focus = False
             self._other_flash.display = False
@@ -548,24 +549,20 @@ class InstrumentScreen(ControlEditingScreen):
 
     def _other_paths(self) -> list[str] | None:
         """The state paths the channel box's rows and buttons do not hold (5.1 #3): for the SMU
-        screen the main set is its panel groups' paths (#1469), and the rest is listed here. A
-        definition without a declared panel lists every setting in the channel box (its settings
-        half is the generic column), so there is no other box."""
+        screen the main set is what the panel currently shows (#1469), so a control whose
+        ``when`` does not hold lands here instead of vanishing (#1774). A definition without a
+        declared panel lists every setting in the channel box (its settings half is the generic
+        column), so there is no other box."""
         if categories.get(self._template()).screen != "smu":
             return None
         panel = (self.info.get("display") or {}).get("panel")
         if panel is None:
             return None
-        main: set[str] = set()
-        for group in panel.get("groups", []):
-            main.update(pc["state"] for pc in group.get("controls", []) if pc.get("state"))
-        for channel in self._channels_of():
-            for group in panel.get("channel_groups", []):
-                main.update(
-                    C.in_channel(pc["state"], self.info, channel)
-                    for pc in group.get("controls", [])
-                    if pc.get("state")
-                )
+        # The channel box's buttons come from panel_layout (C), so the main set asks the same
+        # derivation — a second one (rows.panel_group_paths) answers differently at the margins
+        # and a setting would show in both boxes (#1774).
+        app: Any = self.app
+        main = {c.path for c in C.panel_layout(panel, self.info, app.lang)}
         paths = [sv["path"] for sv in self.info.get("state", []) if sv["path"] not in main]
         return paths or None
 
@@ -587,7 +584,9 @@ class InstrumentScreen(ControlEditingScreen):
         # Before the first layout the box has no size yet: take the row's share of the screen
         # (#other-box is 2fr of the side row) rather than cutting at a 20-cell guess (#283).
         width = self._other.content_size.width or max(20, (app.size.width * 2) // 3 - 4)
-        if not self._other_buttons.count:
+        if not self._other_buttons.count or self._other_shape != tuple(paths):
+            # the other box's members follow the panel's ``when`` now (#1774): a mode change swaps
+            # them like the channel boxes' (the #1327 rebuild-on-shape pattern, in miniature)
             controls = [
                 C._control_for(path, state[path], lang)
                 for path in paths
@@ -598,7 +597,8 @@ class InstrumentScreen(ControlEditingScreen):
             new = [ControlButton(c, "other") for c in controls]
             for b in new:
                 b.render_button(info, self.remote_controlled, lang)
-            self._other_buttons.add_buttons(*new)
+            self._other_buttons.replace_buttons(*new)
+            self._other_shape = tuple(paths)
         button_rows = self._other_buttons.fit(width)
         # Whole groups only, never a heading above the fold (#374); the buttons always stay.
         full = rows.grouped_columns(self.app.lang, groups, state, width)
