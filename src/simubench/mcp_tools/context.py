@@ -14,6 +14,7 @@ from typing import Any, cast
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel
 
+from ..contracts import tools as T
 from ..engine.record import jsonable
 from ..server.benchfiles import BenchFiles
 from ..server.definitionfiles import DefinitionFiles
@@ -52,19 +53,7 @@ def tool_input(model_cls: type[BaseModel]) -> Any:
     flat callers), and the body receives the constructed model."""
 
     def mirror_of(fn: Callable[[Any], Any]) -> inspect.Signature:
-        params = []
-        for name, f in model_cls.model_fields.items():
-            params.append(
-                inspect.Parameter(
-                    name,
-                    kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                    default=inspect.Parameter.empty
-                    if f.is_required()
-                    else f.get_default(call_default_factory=True),
-                    # the field's own info (description, limits) travels with it into the schema
-                    annotation=f.rebuild_annotation(),
-                )
-            )
+        params = T.mirrored_params(model_cls)
         try:
             # the return annotation decides the SDK's structured output: it must survive the mirror
             # as a real type (the string form does not evaluate against the wrapper's globals)

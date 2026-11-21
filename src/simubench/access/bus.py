@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import threading
 import weakref
 from collections.abc import Callable, Hashable
 from dataclasses import dataclass, field
@@ -277,28 +278,60 @@ class InstrumentBus:
     #: none. Weak to the server: the bus outlives connections and must not keep a server alive
     #: (the registry is weak-keyed by the session).
     srq_listeners: list[tuple[asyncio.AbstractEventLoop, weakref.WeakMethod]] = field(default_factory=list)
+    #: Guards the roster: transports register on their event-loop thread, the engine announces
+    #: from its own thread, and a stopping server unregisters (#1780).
+    srq_lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
+
+    def _live_srq_listeners(self) -> list[tuple[asyncio.AbstractEventLoop, weakref.WeakMethod]]:
+        """Drop entries whose server is gone or whose loop has closed (#1780).
+
+        The bus outlives every server (D96), so a stopped or collected server must not stay on the
+        roster: without this the list grows with each server restart and every announcement walks
+        the dead names. Returns a snapshot of the living entries."""
+        with self.srq_lock:
+            self.srq_listeners[:] = _live(self.srq_listeners)
+            return list(self.srq_listeners)
 
     def announce_srq(self, session: Session, instrument: str) -> None:
         """The service-request state changed: tell every announcer to re-check its recipients."""
-        for loop, ref in self.srq_listeners:
+        for loop, ref in self._live_srq_listeners():
             listener = ref()
-            if listener is None:
-                continue  # a server that is going away cannot deliver
-            with contextlib.suppress(RuntimeError):
-                loop.call_soon_threadsafe(_announce, listener, instrument)
+            if listener is not None:
+                with contextlib.suppress(RuntimeError):  # the loop closed since the snapshot
+                    loop.call_soon_threadsafe(_announce, listener, instrument)
 
 
 def _announce(listener: Callable[[str], None], instrument: str) -> None:
     listener(instrument)
 
 
+def _live(
+    entries: list[tuple[asyncio.AbstractEventLoop, weakref.WeakMethod]],
+) -> list[tuple[asyncio.AbstractEventLoop, weakref.WeakMethod]]:
+    """The entries still able to deliver: the server is alive and its loop has not closed (#1780)."""
+    return [(loop, ref) for loop, ref in entries if ref() is not None and not loop.is_closed()]
+
+
 def add_srq_listener(session: Session, instrument: str, listener: Callable[[str], None]) -> None:
     """Register a push transport's announcer for one instrument: it runs on the caller's event
     loop whenever the instrument's service-request state changes (D96). Idempotent per listener."""
     bus = bus_of(session, instrument)
-    if any(ref() == listener for _, ref in bus.srq_listeners):
+    with bus.srq_lock:
+        bus.srq_listeners[:] = _live(bus.srq_listeners)
+        if any(ref() == listener for _, ref in bus.srq_listeners):
+            return
+        bus.srq_listeners.append((asyncio.get_running_loop(), weakref.WeakMethod(listener)))
+
+
+def remove_srq_listener(session: Session, instrument: str, listener: Callable[[str], None]) -> None:
+    """Take one push transport's announcer off the roster: the server that registered it stopped,
+    and the bus outlives it (D96, #1780). Does not create a bus for an instrument never used."""
+    buses = _REGISTRY.get(session)
+    bus = None if buses is None else buses.get(instrument)
+    if bus is None:
         return
-    bus.srq_listeners.append((asyncio.get_running_loop(), weakref.WeakMethod(listener)))
+    with bus.srq_lock:
+        bus.srq_listeners[:] = [entry for entry in _live(bus.srq_listeners) if entry[1]() != listener]
 
 
 _REGISTRY: weakref.WeakKeyDictionary[Session, dict[str, InstrumentBus]] = weakref.WeakKeyDictionary()

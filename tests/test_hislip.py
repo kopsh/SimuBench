@@ -17,6 +17,7 @@ from types import SimpleNamespace
 import pytest
 
 from simubench.access import hislip_server
+from simubench.access.bus import bus_of
 from simubench.access.hislip_server import (
     ASYNC_DEVICE_CLEAR,
     ASYNC_DEVICE_CLEAR_ACKNOWLEDGE,
@@ -383,6 +384,61 @@ async def test_service_request_when_rqs_rises(rig):
         c.close()
 
     await asyncio.to_thread(run)
+
+
+async def test_every_session_of_an_instrument_hears_a_service_request(rig):
+    """D96: the announcement is per instrument and per connection (IVI-6.1 6.13), so a session
+    that never wrote still hears the request another session raised (#1780)."""
+
+    def run() -> None:
+        talker = client(rig, sub=b"hislip0")
+        quiet = client(rig, sub=b"hislip0")
+        talker.send_command("*CLS;*ESE 1;*SRE 32")
+        talker.query("*OPC?")  # nothing pending; read it so the channel is clean
+        talker.send_command("*OPC")  # raised by the talker: the quiet session still hears it
+        msg_type, control, _, _ = recv_msg(quiet.async_)
+        assert (msg_type, control) == (ASYNC_SERVICE_REQUEST, 0x60)  # ESB | RQS
+        talker.close()
+        quiet.close()
+
+    await asyncio.to_thread(run)
+
+
+async def test_a_serial_poll_arms_the_next_service_request(rig):
+    """A request is announced once; a status query takes RQS and arms the next one (#1780)."""
+
+    def run() -> None:
+        c = client(rig, sub=b"hislip0")
+        c.send_command("*CLS;*ESE 1;*SRE 32")
+        c.query("*OPC?")  # nothing pending; read it so the channel is clean
+        c.send_command("*OPC")
+        assert recv_msg(c.async_)[:2] == (ASYNC_SERVICE_REQUEST, 0x60)
+        c.async_.settimeout(0.2)
+        with pytest.raises(socket.timeout):
+            recv_msg(c.async_)  # the request was announced already: no second message
+        c.async_.settimeout(5.0)
+        assert c.status_query() & 0x40  # the poll takes RQS (spec 6.13)
+        c.send_command("*CLS;*ESE 1;*SRE 32")  # the reason goes away: the next one is new
+        c.query("*OPC?")
+        c.send_command("*OPC")
+        assert recv_msg(c.async_)[:2] == (ASYNC_SERVICE_REQUEST, 0x60)
+        c.close()
+
+    await asyncio.to_thread(run)
+
+
+async def test_a_stopped_server_leaves_no_announcer_on_the_bus(rig):
+    """The bus outlives the servers that announce through it (D96): a stopped server must take
+    its entry off the roster, or every restart leaves another dead one behind (#1780)."""
+    bus = bus_of(rig.bench, "awg")
+    before = len(bus.srq_listeners)
+    for _ in range(3):
+        server = HislipServer(rig.bench, port=0)
+        await server.start()
+        c = await asyncio.to_thread(Raw, server.port, b"hislip0")
+        await asyncio.to_thread(c.close)
+        await server.stop()
+        assert len(bus.srq_listeners) == before
 
 
 # ---- device clear ----------------------------------------------------------------------------------------
