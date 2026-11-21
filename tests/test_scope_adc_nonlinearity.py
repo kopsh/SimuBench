@@ -168,7 +168,7 @@ def test_the_uxr1104b_jitter_is_mostly_the_shared_clock():
     channel, < 10 fs rms between channels. Each sample's timing error, read off a 20 GHz sine
     where its slope is steep (the jitter moves a sample by slope × shift, scope_record.aperture_jitter),
     on two channels of one acquisition: each channel 15 fs (the shared clock 14.14 fs and its own
-    5 fs), their difference √2 × 5 = 7.1 fs (±10 %, 16k samples). Skews off: the lanes' fixed
+    5 fs), their difference √2 × 5 = 7.1 fs (±10 %, 64k samples). Skews off: the lanes' fixed
     pattern is the same on every channel and not jitter."""
     f = FS * 5120 / N  # 20 GHz
     sig = Signal.lines([f], [0.1 + 0j])
@@ -262,7 +262,7 @@ def test_the_uxr0334b_jitter_is_mostly_the_shared_clock():
     """#1693, data sheet 3123-1313 p.11: intrinsic jitter 15 fs rms (< 1 µs acquisition) on one
     channel, < 10 fs rms between channels. Each sample's timing error, read off a 20 GHz sine where its
     slope is steep, on two channels of one acquisition: each channel 15 fs (the shared clock 14.14 fs
-    and its own 5 fs), their difference √2 × 5 = 7.1 fs (±10 %, 16k samples). The two channels share one
+    and its own 5 fs), their difference √2 × 5 = 7.1 fs (±10 %, 64k samples). The two channels share one
     acquisition board (3123-1371 p.12) but each has its own 2 SiGe samplers; the clock is shared
     instrument-wide (p.13). Skews off: the lanes' fixed pattern is the same on every channel, not jitter."""
     f = FS0 * 10240 / N  # 20 GHz
@@ -541,7 +541,7 @@ def test_shaped_noise_keeps_its_rms_and_depends_on_the_index_only():
 @pytest.mark.parametrize(("span", "jitter"), [(1e-6, 15e-15), (1e-5, 25e-15), (1e-4, 40e-15), (1e-3, 50e-15)])
 def test_the_uxr1104b_intrinsic_jitter_grows_with_the_acquisition_span(span, jitter):
     """#1698, data sheet 3123-1313 p.11: intrinsic jitter 15 / 25 / 40 / 50 fs rms for a < 1 µs, 10 µs,
-    100 µs and 1 ms acquisition. The timing error of a 16k-sample record of that span, read off a
+    100 µs and 1 ms acquisition. The timing error of a 64k-sample record of that span, read off a
     20 GHz sine as in the test above (rms about the record's mean), averaged in variance over eight
     acquisitions (each draws its own phases), is the table's ±15 %; a segment of the record computed
     alone has the whole's values."""
@@ -567,3 +567,29 @@ def test_the_uxr1104b_intrinsic_jitter_grows_with_the_acquisition_span(span, jit
     whole = np.asarray(view.frame(request).data)
     part = np.asarray(view.frame(dataclasses.replace(request, count=1000, index0=5000, first=5000)).data)
     assert np.array_equal(part, whole[5000:6000])
+
+
+@pytest.mark.parametrize(("span", "jitter"), [(1e-6, 15e-15), (1e-5, 25e-15), (1e-4, 40e-15), (1e-3, 50e-15)])
+def test_the_uxr0334b_intrinsic_jitter_grows_with_the_acquisition_span(span, jitter):
+    """#1719, data sheet 3123-1313 p.11: intrinsic jitter 15 / 25 / 40 / 50 fs rms for a < 1 µs, 10 µs,
+    100 µs and 1 ms acquisition — the same table the UXR1104B cites (one clock shared instrument-wide,
+    3123-1371 p.13). The timing error of a 64k-sample record of that span, read off a 20 GHz sine as in
+    the test above (rms about the record's mean), averaged in variance over eight acquisitions (each
+    draws its own phases), is the table's ±15 %."""
+    f = FS0 * 10240 / N  # 20 GHz
+    sig = Signal.lines([f], [0.1 + 0j])
+    view = dataclasses.replace(
+        _uxr0334b_view(), signal=sig, sigma=0.0, hd=(0.0, 0.0), bits=0, ilv_skews=(), ilv_offsets=()
+    )
+    assert view.clock_tie
+    dt = span / N
+    t = np.arange(N) * dt
+    slope = sig.scale(2j * math.pi * f).sample_rel(0, t)
+    steep = np.abs(slope) > 0.5 * float(np.abs(slope).max())
+    variances = []
+    for acq in range(8):
+        request = FrameRequest(0, N, dt, ("acq", "noise", 1, acq))
+        frame = np.asarray(view.frame(request).data)
+        shift = ((frame - sig.sample_rel(0, t)) / np.where(steep, slope, 1.0))[steep]
+        variances.append(float(np.var(shift)))
+    assert math.sqrt(float(np.mean(variances))) == pytest.approx(jitter, rel=0.15)
