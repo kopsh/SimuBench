@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field, ValidationError
 from pydantic_ai.messages import ModelMessage, ModelMessagesTypeAdapter
 
 from ...contracts import api as M
+from ...library.workspace_layout import ASSISTANT_FOLDER, STORAGE_ROOT
 from ..errors import Forbidden, Invalid
 
 
@@ -88,7 +89,7 @@ class Conversation:
 
 class ConversationStore:
     def __init__(self, workspace: Path) -> None:
-        self.root = workspace / ".simubench" / "assistant"
+        self.root = workspace / STORAGE_ROOT / ASSISTANT_FOLDER
         self.workspace = workspace
 
     def _path(self, bench: str) -> Path:

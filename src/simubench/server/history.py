@@ -17,6 +17,7 @@ from pathlib import Path
 from typing import Literal
 
 from ..contracts import api as M
+from ..library.workspace_layout import HISTORY_FOLDER, STORAGE_ROOT
 from .errors import NotFound
 
 Source = Literal["ui", "agent", "api", "external", "restore"]
@@ -26,7 +27,7 @@ LAYOUT_MERGE_S = 120.0  # node moves within this time of the previous move from 
 
 class History:
     def __init__(self, workspace: Path) -> None:
-        self.root = workspace / ".simubench" / "history"
+        self.root = workspace / STORAGE_ROOT / HISTORY_FOLDER
 
     def _dir(self, bench_path: str) -> Path:
         return self.root / Path(bench_path)
